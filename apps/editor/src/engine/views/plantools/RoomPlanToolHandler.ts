@@ -1,3 +1,4 @@
+import { createId } from '@pryzm/schemas';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 
 export class RoomPlanToolHandler implements PlanToolHandler {
@@ -77,7 +78,7 @@ export class RoomPlanToolHandler implements PlanToolHandler {
         }
         area = Math.abs(area) / 2;
 
-        const roomId = crypto.randomUUID();
+        const roomId = createId('room');
         let perimeter = 0;
         let centroidX = 0;
         let centroidZ = 0;

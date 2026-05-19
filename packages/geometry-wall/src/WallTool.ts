@@ -1,3 +1,4 @@
+import { createId } from '@pryzm/schemas';
 import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
 import { ProjectContext } from '@pryzm/core-app-model';
@@ -1605,7 +1606,7 @@ export class WallTool {
         if (this.dimensionPreview) {
             this.dimensionPreview.hide();
         }
-        const wallId = crypto.randomUUID();
+        const wallId = createId('wall');
         const finalLevelId = levelId || this.projectContext.activeLevelId;
 
         if (!finalLevelId) {
@@ -1667,16 +1668,10 @@ export class WallTool {
         if (runtime && runtime.bus.registry.has('wall.create')) {
             console.log(`[WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level ${finalLevelId}${curve ? ' (curved)' : ''}`);
             try {
-                // §FIX-WALL-SCHEMA-ID (2026-05-04): bus handler requires id in wall_<ulid> format
-                // (pattern: /^wall_[0-9A-HJKMNP-TV-Z]{26}$/).  crypto.randomUUID() produces a
-                // plain UUID (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx) which fails schema validation.
-                // Encode the UUID as 26 uppercase hex chars — all hex digits (0-9, A-F) are valid
-                // Crockford base32 characters, so the pattern accepts them without modification.
-                // The legacy CreateWallCommand path below keeps the original wallId (UUID) so no
-                // existing geometry, BimManager, or undo-stack logic is affected.
-                const busWallId = 'wall_' + wallId.replace(/-/g, '').substring(0, 26).toUpperCase();
-                runtime.bus.executeCommand('wall.create', { ...payload, id: busWallId });
-                console.log('[WallTool] wall.create dispatched to bus (busId:', busWallId, ') — legacy path runs for geometry with id:', wallId);
+                // §FIX-WALL-SCHEMA-ID (2026-05-15): wallId is now createId('wall') = wall_<ULID>,
+                // matching the ^wall_[0-9A-HJKMNP-TV-Z]{26}$ regex.  No hex-encode hack needed.
+                runtime.bus.executeCommand('wall.create', { ...payload, id: wallId });
+                console.log('[WallTool] wall.create dispatched to bus (id:', wallId, ')');
             } catch (err) {
                 console.error('[WallTool] runtime.bus.executeCommand(wall.create) failed — proceeding via legacy path only:', err);
             }

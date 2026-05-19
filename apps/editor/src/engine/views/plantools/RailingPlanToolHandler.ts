@@ -7,6 +7,7 @@
  * Fires CreateHandrailCommand with start/end/height/thickness/levelId.
  */
 
+import { createId } from '@pryzm/schemas';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 
 const STROKE          = '#f59e0b';
@@ -83,7 +84,7 @@ export class RailingPlanToolHandler implements PlanToolHandler {
             return;
         }
 
-        const id = crypto.randomUUID();
+        const id = createId('handrail');
         window.runtime?.bus?.executeCommand('handrail.create', {
             id,
             start:     { x: sp.worldX,    z: sp.worldZ },

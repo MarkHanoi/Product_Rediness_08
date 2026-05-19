@@ -1,3 +1,4 @@
+import { createId } from '@pryzm/schemas';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 
 const COLUMN_DEFAULT_HEIGHT = 3.0;
@@ -52,7 +53,7 @@ export class ColumnPlanToolHandler implements PlanToolHandler {
         // The §P3.3-CO legacy bridge in initTools.ts remaps back to {position, profile} for
         // legacy ColumnStore → ColumnFragmentBuilder mesh rendering.
         window.runtime?.bus?.executeCommand('column.create', {
-            id:         crypto.randomUUID(),
+            id:         createId('column'),
             origin:     { x: pt.worldX, y: 0, z: pt.worldZ },
             height:     COLUMN_DEFAULT_HEIGHT,
             rotation:   0,

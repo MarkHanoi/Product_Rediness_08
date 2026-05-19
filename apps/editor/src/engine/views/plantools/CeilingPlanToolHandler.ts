@@ -16,6 +16,7 @@
  * stays active.  Only ESC / explicit deactivate tears down.
  */
 
+import { createId } from '@pryzm/schemas';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 import type { CeilingPickerMode } from '@app/ui/CeilingModePicker';
 
@@ -181,7 +182,7 @@ export class CeilingPlanToolHandler implements PlanToolHandler {
         }
 
         const polygon = room.boundary.polygon.map((v: any) => ({ x: v.x, z: v.z }));
-        const ceilingId = crypto.randomUUID();
+        const ceilingId = createId('ceiling');
         // §P3.2-CL (IMPL-PLAN-2026-05-17): dispatch payload matches CreateCeilingPayload
         // (new schema: id, boundary as Vec3[], ceilingHeight). Legacy ifcGuid/polygon removed.
         window.runtime?.bus?.executeCommand('ceiling.create', {
@@ -220,7 +221,7 @@ export class CeilingPlanToolHandler implements PlanToolHandler {
             return;
         }
 
-        const ceilingId = crypto.randomUUID();
+        const ceilingId = createId('ceiling');
         // §P3.2-CL (IMPL-PLAN-2026-05-17): dispatch payload matches CreateCeilingPayload
         // (new schema: id, boundary as Vec3[], ceilingHeight). Legacy ifcGuid/polygon removed.
         window.runtime?.bus?.executeCommand('ceiling.create', {

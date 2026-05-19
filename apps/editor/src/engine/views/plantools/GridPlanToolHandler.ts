@@ -22,6 +22,7 @@
  * count (alternates X/Y) for a fast placement workflow.
  */
 
+import { createId } from '@pryzm/schemas';
 import { makeAnnotationElement } from '@pryzm/plugin-annotations';
 import { makePointRef } from '@pryzm/plugin-annotations';
 import { gridModePicker } from '@app/ui/GridModePicker';
@@ -230,7 +231,7 @@ export class GridPlanToolHandler implements PlanToolHandler {
                                        orientation === 'X' ? endPt.worldZ : endPt.worldX);
 
             // [P6 E.5.4] §01-BIM-ENGINE-CORE-CONTRACT §1 — bus-primary; pre-generate gridId
-            const gridId = crypto.randomUUID();
+            const gridId = createId('grid');
             window.runtime?.bus?.executeCommand('grid.add', {
                 gridId, orientation, position, name, extentMin, extentMax,
                 mode: 'linear',
@@ -248,7 +249,7 @@ export class GridPlanToolHandler implements PlanToolHandler {
             const name = this._nextGridName(orientation);
 
             // [P6 E.5.4] §01-BIM-ENGINE-CORE-CONTRACT §1 — bus-primary; pre-generate gridId
-            const gridId = crypto.randomUUID();
+            const gridId = createId('grid');
             window.runtime?.bus?.executeCommand('grid.add', {
                 gridId, orientation, position, name, extentMin, extentMax,
                 mode: 'orthogonal',
@@ -896,7 +897,7 @@ export class GridPlanToolHandler implements PlanToolHandler {
         const extentMax = 100;
 
         // [P6 E.5.4] §01-BIM-ENGINE-CORE-CONTRACT §1 — bus-primary; pre-generate gridId
-        const gridId = crypto.randomUUID();
+        const gridId = createId('grid');
         window.runtime?.bus?.executeCommand('grid.add', {
             gridId,
             orientation,

@@ -16,6 +16,7 @@
  * stays active.  Only ESC / explicit deactivate tears down.
  */
 
+import { createId } from '@pryzm/schemas';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 import type { FloorPickerMode } from '@app/ui/FloorModePicker';
 
@@ -186,7 +187,7 @@ export class FloorPlanToolHandler implements PlanToolHandler {
         }
 
         const polygon = room.boundary.polygon.map((v: any) => ({ x: v.x, z: v.z }));
-        const floorId = crypto.randomUUID();
+        const floorId = createId('floor');
         const ifcGuid = crypto.randomUUID();
         // [P6 E.5.4] §01-BIM-ENGINE-CORE-CONTRACT §1 — bus-primary
         window.runtime?.bus?.executeCommand('floor.create', { floorId, ifcGuid, polygon, levelId })
@@ -222,7 +223,7 @@ export class FloorPlanToolHandler implements PlanToolHandler {
             return;
         }
 
-        const floorId = crypto.randomUUID();
+        const floorId = createId('floor');
         const ifcGuid = crypto.randomUUID();
         // [P6 E.5.4] §01-BIM-ENGINE-CORE-CONTRACT §1 — bus-primary
         window.runtime?.bus?.executeCommand('floor.create', {

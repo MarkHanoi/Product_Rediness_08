@@ -1,3 +1,4 @@
+import { createId } from '@pryzm/schemas';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 
 const STROKE = '#6366f1';
@@ -156,7 +157,7 @@ export class RoofPlanToolHandler implements PlanToolHandler {
         // in initTools.ts recomputes it from world-space Vec3[] boundary after the command lands.
         // (Old localPolygon removal: noUnusedLocals gate — see IMPL-PLAN-2026-05-17 §P3.2-RF.)
 
-        const roofId = crypto.randomUUID();
+        const roofId = createId('roof');
         // §P3.2-RF (IMPL-PLAN-2026-05-17): bus-primary dispatch with new CreateRoofPayload schema.
         // `boundary` is world-space Vec3[] (y=0 plane); the §P3.2-RF legacy bridge in initTools.ts
         // recomputes the centroid and local offsets for RoofFragmentBuilder → RoofStore.

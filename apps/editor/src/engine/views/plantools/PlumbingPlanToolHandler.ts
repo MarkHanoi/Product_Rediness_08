@@ -16,6 +16,7 @@
  * Fires CreatePlumbingFixtureCommand for every placed fixture.
  */
 
+import { createId } from '@pryzm/schemas';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 import type { PlumbingFixtureType } from '@pryzm/geometry-plumbing';
 import { DEFAULT_TOILET_VARIANT, ToiletVariant } from '@pryzm/geometry-plumbing';
@@ -149,7 +150,7 @@ export class PlumbingPlanToolHandler implements PlanToolHandler {
 
         const type = _getActiveType();
         const fp   = _footprint(type);
-        const id   = crypto.randomUUID();
+        const id   = createId('plumbing');
 
         // Wall-hosted fixtures: orient so the back of the fixture faces the
         // wall (matches 3D PlumbingTool semantics). World-Y rotation = atan2

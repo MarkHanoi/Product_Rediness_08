@@ -18,6 +18,7 @@
  * Plan view does not support rotation at placement time — rotation defaults to 0.
  */
 
+import { createId } from '@pryzm/schemas';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 import type { FurnitureType, FurnitureMaterial } from '@pryzm/geometry-furniture';
 import {
@@ -269,7 +270,7 @@ export class FurniturePlanToolHandler implements PlanToolHandler {
         }
 
         const type = _getActiveType();
-        const id   = crypto.randomUUID();
+        const id   = createId('furniture');
 
         // ── Kitchen layout types — must commit a full cabinet RUN (group of
         // units), not a single cabinet. The 3D KitchenCabinetTool builds a

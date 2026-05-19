@@ -27,6 +27,7 @@
  *   - No imports from PlanViewToolOverlay
  */
 
+import { createId } from '@pryzm/schemas';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 // §P3.1 (IMPL-PLAN-2026-05-17): CreateWallCommand, CreateCurtainWallCommand, window.commandManager (P4.4).
 // All copy dispatches are now bus-only (wall.create / curtain-wall.create / wall.createOpening).
@@ -249,7 +250,7 @@ export class CopyPlanToolHandler implements PlanToolHandler {
         if (!wall) { console.warn('[CopyTool] Wall not found:', id); return; }
 
         const bl = wall.baseLine as [{ x: number; y: number; z: number }, { x: number; y: number; z: number }];
-        const newId = crypto.randomUUID();
+        const newId = createId('wall');
 
         const _wStart = { x: bl[0].x + dx, z: bl[0].z + dz };
         const _wEnd   = { x: bl[1].x + dx, z: bl[1].z + dz };
@@ -279,7 +280,7 @@ export class CopyPlanToolHandler implements PlanToolHandler {
         if (!cw) { console.warn('[CopyTool] CurtainWall not found:', id); return; }
 
         const bl = cw.baseLine as [{ x: number; y: number; z: number }, { x: number; y: number; z: number }];
-        const newId = crypto.randomUUID();
+        const newId = createId('curtainwall');
 
         const _cwStart = { x: bl[0].x + dx, z: bl[0].z + dz };
         const _cwEnd   = { x: bl[1].x + dx, z: bl[1].z + dz };
@@ -357,7 +358,7 @@ export class CopyPlanToolHandler implements PlanToolHandler {
         if (!col) { console.warn('[CopyTool] Column not found:', id); return; }
 
         const pos   = col.position as { x: number; y: number; z: number };
-        const newId = crypto.randomUUID();
+        const newId = createId('column');
 
         // §P3.3-CO: aligned with CreateColumnPayload — `position` → `origin`, `profile` → `shape`.
         window.runtime?.bus?.executeCommand('column.create', {
@@ -388,7 +389,7 @@ export class CopyPlanToolHandler implements PlanToolHandler {
         const holes    = (slab.holes as ({ x: number; y: number }[][]) ?? [])
             .map((h: { x: number; y: number }[]) => h.map((pt: { x: number; y: number }) => ({ x: pt.x + dx, y: pt.y + dz })));
         const pos      = slab.position as { x: number; y: number; z: number };
-        const newId    = crypto.randomUUID();
+        const newId    = createId('slab');
         const ifcGuid  = crypto.randomUUID();
 
         window.runtime?.bus?.executeCommand('slab.create', {
@@ -440,7 +441,7 @@ export class CopyPlanToolHandler implements PlanToolHandler {
         if (!item) { console.warn('[CopyTool] Furniture not found:', id); return; }
 
         const pos   = item.position as { x: number; y: number; z: number };
-        const newId = crypto.randomUUID();
+        const newId = createId('furniture');
 
         // Translate the optional anchor points used by corner sofas / L-shaped
         // builders so the copy preserves the same relative geometry (the L
