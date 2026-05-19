@@ -1,0 +1,17 @@
+<svg viewBox="0 0 80 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Wide headboard extending beyond mattress -->
+  <rect x="2" y="8" width="76" height="18" rx="2" fill="#d4a96a" stroke="#b08840" stroke-width="1"/>
+  <!-- Integrated nightstand shelves (sides of headboard) -->
+  <rect x="2" y="26" width="10" height="5" rx="1" fill="#c49050" stroke="#a07030" stroke-width="0.7"/>
+  <rect x="68" y="26" width="10" height="5" rx="1" fill="#c49050" stroke="#a07030" stroke-width="0.7"/>
+  <!-- Platform frame (no legs visible) -->
+  <rect x="12" y="32" width="56" height="5" rx="1.5" fill="#c8963c" stroke="#a07020" stroke-width="1"/>
+  <!-- Mattress -->
+  <rect x="14" y="25" width="52" height="9" rx="2" fill="#f8f4ec" stroke="#d8cfc0" stroke-width="0.8"/>
+  <!-- Duvet accent stripe -->
+  <rect x="14" y="31" width="52" height="3" rx="1" fill="#c8a060" opacity="0.5"/>
+  <!-- Pillow left -->
+  <rect x="17" y="27" width="19" height="6" rx="2.5" fill="#fffef8" stroke="#ddd5c4" stroke-width="0.6"/>
+  <!-- Pillow right -->
+  <rect x="44" y="27" width="19" height="6" rx="2.5" fill="#fffef8" stroke="#ddd5c4" stroke-width="0.6"/>
+</svg>

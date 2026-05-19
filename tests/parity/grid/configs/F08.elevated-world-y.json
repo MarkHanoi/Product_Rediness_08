@@ -1,0 +1,35 @@
+{
+  "id": "F08.elevated-world-y",
+  "description": "grid at elevated worldY = 3.0 m",
+  "grid": {
+    "id": "grid:01HZS000000000000GRDF0800",
+    "type": "grid",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "rotation": 0,
+    "lines": [
+      {
+        "id": "v1",
+        "label": "A",
+        "kind": "linear",
+        "start": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "end": {
+          "x": 0,
+          "y": 0,
+          "z": 6
+        }
+      }
+    ]
+  },
+  "worldY": 3
+}

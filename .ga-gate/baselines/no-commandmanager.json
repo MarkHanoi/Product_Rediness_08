@@ -1,0 +1,6 @@
+{
+  "windowCount": 2,
+  "cmExecuteCount": 0,
+  "ratchedAt": "2026-05-16T12:23:37.595Z",
+  "comment": "OI-046 complete 2026-05-16. Three-counter gate: (A) literal=0 hard-fail, (B) window alias (cmdMgr.execute+window.commandManager excl. bridge) ratchet, (C) cm.execute excl. initBusHandlers.ts ratchet. Trajectory: WINDOW 2→0, CM_EXEC 49→30→15→5→0 per Phase E.5.5–E.5.8."
+}

@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PRYZM 2 bench baseline",
+  "type": "object",
+  "required": ["benches"],
+  "properties": {
+    "$schema":     { "type": "string" },
+    "generatedBy": { "type": "string" },
+    "generatedAt": { "type": ["string", "null"], "format": "date-time" },
+    "notes":       { "type": "string" },
+    "benches": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["p50", "p95", "p99", "samples", "warnMs", "budgetMs"],
+        "properties": {
+          "p50":       { "type": "number" },
+          "p95":       { "type": "number" },
+          "p99":       { "type": "number" },
+          "samples":   { "type": "integer", "minimum": 1 },
+          "warnMs":    { "type": "number" },
+          "budgetMs":  { "type": "number" },
+          "sprint":    { "type": "string" },
+          "hardFail":  { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

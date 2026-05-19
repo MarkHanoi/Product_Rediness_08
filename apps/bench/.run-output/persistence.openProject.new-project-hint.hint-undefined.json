@@ -1,0 +1,10 @@
+{
+  "name": "persistence.openProject.new-project-hint.hint-undefined",
+  "samples": 50,
+  "p50": 0.644,
+  "p95": 2.581,
+  "p99": 14.611,
+  "budgetMs": 5,
+  "warnMs": 2.5,
+  "recordedAt": "2026-05-09T23:08:52.579Z"
+}

@@ -1,0 +1,42 @@
+{
+  "id": "cw-01-empty-grid-1.5x1.5",
+  "description": "Empty 6×3 m wall with default 1.5×1.5 grid (no panels)",
+  "curtainWall": {
+    "id": "curtainwall_01HZS00000000000000CWEMPTY",
+    "type": "curtainwall",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "baseLine": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 6,
+        "y": 0,
+        "z": 0
+      }
+    ],
+    "height": 3,
+    "mullionThickness": 0.05,
+    "bayWidth": 1.5,
+    "bayHeight": 1.5,
+    "panels": []
+  },
+  "joinData": {
+    "startJoin": {
+      "kind": "none"
+    },
+    "endJoin": {
+      "kind": "none"
+    }
+  },
+  "worldY": 0
+}

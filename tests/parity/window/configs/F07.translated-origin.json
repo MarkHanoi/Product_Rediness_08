@@ -1,0 +1,45 @@
+{
+  "id": "F07.translated-origin",
+  "description": "window at translated origin",
+  "window": {
+    "id": "window:01HZS000000000000WDWF0700",
+    "type": "window",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "wallId": "wall:01HZS000000000000WDWW1000",
+    "openingId": "op-1",
+    "offset": 0,
+    "width": 1.2,
+    "height": 1,
+    "windowType": "single",
+    "sillHeight": 0.9,
+    "frameWidth": 0.05,
+    "frameThickness": 0.08,
+    "frameColor": "#4a4a4a",
+    "glassColor": "#b0d0e8"
+  },
+  "placement": {
+    "axis": {
+      "x": 1,
+      "y": 0,
+      "z": 0
+    },
+    "normal": {
+      "x": 0,
+      "y": 0,
+      "z": 1
+    },
+    "origin": {
+      "x": 3,
+      "y": 1,
+      "z": -2
+    },
+    "wallThickness": 0.1
+  }
+}

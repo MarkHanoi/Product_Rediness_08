@@ -1,0 +1,28 @@
+{
+  "name": "@pryzm/ui-base",
+  "version": "0.1.0",
+  "description": "PRYZM 2 — Phase B.1 (S73-WIRE) panel base class. Owns `Panel` — the lifecycle base that every `src/ui/*` panel will extend during Phase B.2..B.40 constructor widening. Holds the typed `runtime` field, the `mount/render/unmount/dispose` lifecycle, and the `pryzm.ui.<panel>.{mount,render,unmount}` OTel spans. The white UI imports only this package and `@pryzm/runtime-composer/types`; per the Phase H lint rule (`no-runtime-package-import`) no other `@pryzm/*` import is allowed from `src/ui/`.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@pryzm/runtime-composer": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "happy-dom": "^15.11.7",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "id": "l-shape-second-floor",
+  "description": "L-shape ceiling on level 2, commercial gypsum",
+  "ceiling": {
+    "id": "ceiling:lsh-l2",
+    "type": "ceiling",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "boundary": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 5,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 5,
+        "y": 0,
+        "z": 3
+      },
+      {
+        "x": 3,
+        "y": 0,
+        "z": 3
+      },
+      {
+        "x": 3,
+        "y": 0,
+        "z": 6
+      },
+      {
+        "x": 0,
+        "y": 0,
+        "z": 6
+      }
+    ],
+    "ceilingHeight": 2.7,
+    "thickness": 0.015,
+    "materialId": "gypsum.standard",
+    "materialColor": "#ebebe8"
+  },
+  "worldY": 5.4
+}

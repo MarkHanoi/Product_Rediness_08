@@ -1,0 +1,24 @@
+{
+  "name": "@pryzm/formula-library",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PRYZM read-only formula library extraction for plugin-SDK exposure — ADR-027. S65 deliverable per phase-doc-2 §S65 work-item 9. PURE: a small, immutable catalogue of named, type-checked numerical formulas.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "vitest run --reporter=default",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.9"
+  }
+}

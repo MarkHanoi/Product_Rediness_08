@@ -1,0 +1,155 @@
+{
+  "id": "F04.5x4-office",
+  "description": "5 columns × 4 rows office structural grid",
+  "grid": {
+    "id": "grid:01HZS000000000000GRDF0400",
+    "type": "grid",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "rotation": 0,
+    "lines": [
+      {
+        "id": "v0",
+        "label": "A",
+        "kind": "linear",
+        "start": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "end": {
+          "x": 0,
+          "y": 0,
+          "z": 8
+        }
+      },
+      {
+        "id": "v1",
+        "label": "B",
+        "kind": "linear",
+        "start": {
+          "x": 2.5,
+          "y": 0,
+          "z": 0
+        },
+        "end": {
+          "x": 2.5,
+          "y": 0,
+          "z": 8
+        }
+      },
+      {
+        "id": "v2",
+        "label": "C",
+        "kind": "linear",
+        "start": {
+          "x": 5,
+          "y": 0,
+          "z": 0
+        },
+        "end": {
+          "x": 5,
+          "y": 0,
+          "z": 8
+        }
+      },
+      {
+        "id": "v3",
+        "label": "D",
+        "kind": "linear",
+        "start": {
+          "x": 7.5,
+          "y": 0,
+          "z": 0
+        },
+        "end": {
+          "x": 7.5,
+          "y": 0,
+          "z": 8
+        }
+      },
+      {
+        "id": "v4",
+        "label": "E",
+        "kind": "linear",
+        "start": {
+          "x": 10,
+          "y": 0,
+          "z": 0
+        },
+        "end": {
+          "x": 10,
+          "y": 0,
+          "z": 8
+        }
+      },
+      {
+        "id": "h0",
+        "label": "1",
+        "kind": "linear",
+        "start": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "end": {
+          "x": 10,
+          "y": 0,
+          "z": 0
+        }
+      },
+      {
+        "id": "h1",
+        "label": "2",
+        "kind": "linear",
+        "start": {
+          "x": 0,
+          "y": 0,
+          "z": 2
+        },
+        "end": {
+          "x": 10,
+          "y": 0,
+          "z": 2
+        }
+      },
+      {
+        "id": "h2",
+        "label": "3",
+        "kind": "linear",
+        "start": {
+          "x": 0,
+          "y": 0,
+          "z": 4
+        },
+        "end": {
+          "x": 10,
+          "y": 0,
+          "z": 4
+        }
+      },
+      {
+        "id": "h3",
+        "label": "4",
+        "kind": "linear",
+        "start": {
+          "x": 0,
+          "y": 0,
+          "z": 6
+        },
+        "end": {
+          "x": 10,
+          "y": 0,
+          "z": 6
+        }
+      }
+    ]
+  },
+  "worldY": 0
+}

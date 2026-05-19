@@ -1,0 +1,46 @@
+
+
+UI Modification Declaration
+Panel Affected: Property Panel (new widgets for curtain wall), CurtainWallTool pre-draw
+
+CSS Scope: AppTheme.ts (new cw- prefix styles for the curtain wall editor widgets)
+
+Files Modified:
+
+src/ui/property-panel/CurtainGridEditor.ts (NEW) — Widget for grid line management
+
+src/ui/property-panel/CurtainPanelEditor.ts (NEW) — Widget for panel type replacement
+
+src/ui/property-panel/PropertyDescriptorGenerator.ts — Enhanced curtainwall schema
+
+src/ui/property-panel/PropertyPanel.ts — Inject curtain wall widgets into Definition section
+
+src/ui/property-panel/PropertyPanelAdapter.ts — Add showCurtainWallPreDraw
+
+src/ui/Layout.ts — Wire CurtainWall pre-draw panel
+
+src/styles/AppTheme.ts — Add cw- CSS styles
+
+Phase: Phase 1 (Shell) — additive only, no existing logic changes
+
+Class Prefix Used: cw- (new, claimed)
+
+Impact Assessment: No event handlers modified, no store mutations outside commandManager, no BUI Shadow DOM usage, display-toggle sections untouched, z-index and positioning unaffected — overall risk is low.
+
+Now I'm mapping out the implementation files. First, I'll add the CSS theme styles for the curtain wall components. Then I need to create the CurtainGridEditor widget that displays the grid system summary, lists U-Lines and V-Lines with their t-values, and provides controls to add or remove grid lines.
+
+Next comes the CurtainPanelEditor widget showing a visual grid of panels with type badges and a dropdown to change panel types. I'll also need to update the PropertyDescriptorGenerator to replace the simple spacing fields with computed readonly fields that derive from the grid system, and finally wire both editors into the PropertyPanel.
+
+Then I need to add the showCurtainWallPreDraw method to PropertyPanelAdapter and connect the CurtainWall "Single" action in Layout to trigger the pre-draw UI with proper escape handling.
+
+For the CurtainGridEditor itself, I'm building a component that displays the U and V line counts, lists each inner grid line with its t-value and a remove button, and includes an input field to add new grid lines—all operations go through the command manager to dispatch the appropriate add/remove commands.
+
+The CurtainPanelEditor will show a visual grid representation of the panels with color-coded type indicators, and clicking any cell opens a menu to change that panel's type, also using the command manager for mutations.
+
+Now I'm writing the implementation starting with the grid editor component, which needs to import the grid line commands and set up the UI structure.
+
+Writing grid editor component... I'm looking at how the pre-draw UI works for walls and slabs to design something similar for curtain walls — I'll need input fields for height, grid spacing in both directions, and mullion size with sensible defaults. The challenge is that CurtainWallTool.createCurtainWall() currently hardcodes the height, so I need to refactor it to accept these parameters without breaking existing functionality.
+
+I'll follow the same pattern as WallTool by adding setter methods like setPredrawConfig() and getPredrawConfig() to store the configuration, then have createCurtainWall() read from those values instead of using hardcoded defaults.
+
+Writing the tool methods...

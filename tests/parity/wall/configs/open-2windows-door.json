@@ -1,0 +1,69 @@
+{
+  "id": "open-2windows-door",
+  "description": "open-2windows-door",
+  "wall": {
+    "id": "wall:01HZS00000000000000OPEN2WI",
+    "type": "wall",
+    "childrenIds": [
+      "door:01HZS00000000000000D110000",
+      "window:01HZS00000000000000W130000",
+      "window:01HZS00000000000000W245000"
+    ],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "baseLine": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 6,
+        "y": 0,
+        "z": 0
+      }
+    ],
+    "height": 2.5,
+    "thickness": 0.2,
+    "baseOffset": 0,
+    "openings": [
+      {
+        "id": "op-d1",
+        "type": "door",
+        "doorType": "single",
+        "offset": 1,
+        "width": 0.9,
+        "height": 2.1,
+        "sillHeight": 0,
+        "elementId": "door:01HZS00000000000000D110000"
+      },
+      {
+        "id": "op-w1",
+        "type": "window",
+        "windowType": "single",
+        "offset": 3,
+        "width": 1.2,
+        "height": 1,
+        "sillHeight": 1,
+        "elementId": "window:01HZS00000000000000W130000"
+      },
+      {
+        "id": "op-w2",
+        "type": "window",
+        "windowType": "single",
+        "offset": 4.5,
+        "width": 0.8,
+        "height": 1,
+        "sillHeight": 1,
+        "elementId": "window:01HZS00000000000000W245000"
+      }
+    ]
+  },
+  "joinData": {},
+  "worldY": 0
+}

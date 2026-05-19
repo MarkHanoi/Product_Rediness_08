@@ -1,0 +1,150 @@
+import * as BUI from '@thatopen/ui';
+
+export function createSpatialTree() {
+    const container = document.createElement('div');
+    container.id = 'spatial-tree-container';
+    container.style.cssText = `
+        display: none;
+        flex-direction: column;
+        width: 100%;
+        height: 100%;
+        background: #ffffff;
+        overflow-y: auto;
+        padding: 10px;
+        font-family: sans-serif;
+    `;
+
+    const title = document.createElement('div');
+    title.style.cssText = 'font-weight: bold; margin-bottom: 15px; font-size: 14px; border-bottom: 1px solid #eee; padding-bottom: 5px;';
+    title.textContent = 'Spatial Structure';
+    container.appendChild(title);
+
+    const treeContent = document.createElement('div');
+    container.appendChild(treeContent);
+
+    const refreshTree = () => {
+        treeContent.innerHTML = '';
+        const bimManager = (window as any).bimManager;
+        if (!bimManager) return;
+
+        const levels = bimManager.getLevels().sort((a: any, b: any) => b.elevation - a.elevation);
+        
+        const buildingNode = createTreeNode('Building', 'material-symbols:apartment');
+        treeContent.appendChild(buildingNode.element);
+
+        levels.forEach((level: any) => {
+            const levelNode = createTreeNode(`Level: ${level.name} (${level.elevation}m)`, 'material-symbols:layers', buildingNode.childrenContainer);
+            
+            // Visibility toggle for level
+            const toggle = document.createElement('button');
+            toggle.textContent = '👁';
+            toggle.style.cssText = 'margin-left: auto; border: none; background: none; cursor: pointer; font-size: 12px;';
+            toggle.onclick = (e) => {
+                e.stopPropagation();
+                const isVisible = toggle.textContent === '👁';
+                toggle.textContent = isVisible ? '||' : '👁';
+                
+                // Real visibility logic
+                const levelMesh = bimManager.levelMeshes?.get(level.id);
+                if (levelMesh) levelMesh.visible = !isVisible;
+                
+                // Toggle elements on this level
+                const elements = (window as any).selectionManager?.world.scene.three.children.filter((c: any) => c.userData?.levelId === level.id);
+                elements?.forEach((el: any) => el.visible = !isVisible);
+            };
+            levelNode.header.appendChild(toggle);
+
+            // Group elements from all stores
+            const allElements: any[] = [];
+            const elementStores = [
+                (window as any).wallStore,
+                (window as any).slabStore,
+                (window as any).columnStore,
+                (window as any).beamStore,
+                (window as any).stairStore,
+                (window as any).curtainWallStore,
+                (window as any).plumbingStore,
+                (window as any).furnitureStore,
+                (window as any).openingStore
+            ];
+
+            elementStores.forEach(store => {
+                if (store && store.getAll) {
+                    allElements.push(...store.getAll().filter((el: any) => el.levelId === level.id));
+                }
+            });
+
+            const types = [...new Set(allElements.map((el: any) => el.type || el.elementType))];
+
+            types.forEach(type => {
+                if (!type) return;
+                const typeElements = allElements.filter((el: any) => (el.type || el.elementType) === type);
+                const typeNode = createTreeNode(`${type}s (${typeElements.length})`, 'material-symbols:category', levelNode.childrenContainer);
+                
+                typeElements.forEach((el: any) => {
+                    const elNode = createTreeNode(el.name || `${type} ${el.id.substring(0,4)}`, 'material-symbols:info', typeNode.childrenContainer);
+                    elNode.header.onclick = () => {
+                        (window as any).selectionManager?.selectByID(el.id);
+                    };
+
+                    const elToggle = document.createElement('button');
+                    elToggle.textContent = '👁';
+                    elToggle.style.cssText = 'margin-left: auto; border: none; background: none; cursor: pointer; font-size: 10px;';
+                    elToggle.onclick = (e) => {
+                        e.stopPropagation();
+                        const isVisible = elToggle.textContent === '👁';
+                        elToggle.textContent = isVisible ? '||' : '👁';
+                        
+                        const scene = (window as any).selectionManager?.world.scene.three;
+                        scene?.traverse((obj: any) => {
+                            if (obj.userData?.id === el.id) {
+                                obj.visible = !isVisible;
+                            }
+                        });
+                    };
+                    elNode.header.appendChild(elToggle);
+                });
+            });
+        });
+    };
+
+    function createTreeNode(label: string, icon: string, parent?: HTMLElement) {
+        const item = document.createElement('div');
+        item.style.cssText = 'margin-bottom: 2px;';
+        
+        const header = document.createElement('div');
+        header.style.cssText = 'display: flex; align-items: center; padding: 4px; cursor: pointer; border-radius: 4px; font-size: 12px; transition: background 0.2s;';
+        header.onmouseenter = () => header.style.background = '#f0f0f0';
+        header.onmouseleave = () => header.style.background = 'transparent';
+        
+        const iconEl = document.createElement('bim-icon');
+        iconEl.setAttribute('icon', icon);
+        iconEl.style.marginRight = '6px';
+        
+        const labelEl = document.createElement('span');
+        labelEl.textContent = label;
+        
+        header.appendChild(iconEl);
+        header.appendChild(labelEl);
+        item.appendChild(header);
+        
+        const children = document.createElement('div');
+        children.style.cssText = 'margin-left: 15px; display: block;';
+        item.appendChild(children);
+        
+        header.onclick = () => {
+            children.style.display = children.style.display === 'none' ? 'block' : 'none';
+        };
+
+        if (parent) parent.appendChild(item);
+        return { element: item, header, childrenContainer: children };
+    }
+
+    window.addEventListener('model-updated', refreshTree);
+    window.addEventListener('bim-level-added', refreshTree);
+    window.addEventListener('bim-level-removed', refreshTree);
+    
+    setTimeout(refreshTree, 500);
+
+    return container;
+}

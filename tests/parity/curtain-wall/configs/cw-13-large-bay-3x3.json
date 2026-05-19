@@ -1,0 +1,42 @@
+{
+  "id": "cw-13-large-bay-3x3",
+  "description": "9×6 m wall with 3×3 m bays",
+  "curtainWall": {
+    "id": "curtainwall_01HZS00000000000000CWLRGBA",
+    "type": "curtainwall",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "baseLine": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 9,
+        "y": 0,
+        "z": 0
+      }
+    ],
+    "height": 6,
+    "mullionThickness": 0.05,
+    "bayWidth": 3,
+    "bayHeight": 3,
+    "panels": []
+  },
+  "joinData": {
+    "startJoin": {
+      "kind": "none"
+    },
+    "endJoin": {
+      "kind": "none"
+    }
+  },
+  "worldY": 0
+}

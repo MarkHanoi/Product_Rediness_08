@@ -1,0 +1,29 @@
+{
+  "id": "straight-wide-public",
+  "description": "wide 2.0 m public stair with low pitch",
+  "stair": {
+    "id": "stair:str-wid",
+    "type": "stair",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "topLevelId": "level:1",
+    "shape": "straight",
+    "origin": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "rotation": 0,
+    "treadDepth": 0.33,
+    "riserHeight": 0.15,
+    "width": 2,
+    "numRisers": 10
+  },
+  "worldY": 0
+}

@@ -1,0 +1,1048 @@
+# 47 — Detailed Subphases: Tasks 5.1 + 5.2
+**Measured baseline**: 2026-05-10  
+**Parent plan**: `46-IMPLEMENTATION-PLAN-2026-05-08.md` §5
+
+---
+
+## Purpose of this document
+
+Tasks 5.1 and 5.2 are the largest mechanical refactors remaining before Phase F (SDK publish, marketplace, headless). They are **not** creative work — they are extremely precise file-move operations where a single misstep can silently break type-correctness across hundreds of files. This document replaces the high-level recipes in §5 with step-by-step subphase specs that leave nothing to interpretation.
+
+**Rule**: no implementation may begin on any subphase until the previous subphase's acceptance criteria are green. Each subphase ends with a mandatory `pnpm tsc --noEmit` gate.
+
+---
+
+## §1 — Measured baseline (2026-05-10)
+
+| Metric | Value |
+|---|---|
+| `src/` total LOC | ~411,820 |
+| `packages/` total LOC | ~124,246 |
+| Current ratio `src/packages` | ~3.31 : 1 |
+| Target ratio | ≤ 0.30 : 1 |
+| LOC to move from `src/` to `packages/` | ≥ 390,000 |
+
+### Remaining subsystems in `src/engine/subsystems/`
+
+| Priority | Dir | Files | LOC | External importers (files) | Deps on other subsystems |
+|---|---|---|---|---|---|
+| 1 | `commands/` | 266 | 35,695 | 54 `src/ui/` files | **zero** — fully isolated |
+| 2 | `annotations/` | 37 | 12,764 | 3 `src/ui/property-panel/` files | **zero** inter-subsystem deps |
+| 3 | `dimensions/` | 0 | 0 | — | DONE — directory empty |
+| 4 | `walls/` | 25 | 9,452 | 8 `src/ui/` files | **zero** — fully isolated |
+| 5 | `slabs/` | 14 | 5,536 | 3 `src/ui/` files | **zero** — fully isolated |
+| 6 | `curtainwalls/` | 18 | 7,510 | 4 `src/ui/property-panel/` files | **zero** — fully isolated |
+| 9 | `core/` | 265 | 76,619 | 83 `src/ui/` files | references P1–P6 types; must go last |
+
+**Critical isolation finding**: Priorities 1, 2, 4, 5, 6 have **zero inbound dependencies from `src/engine/subsystems/core/`**. They can each be extracted in isolation without waiting for `core/` to be fully migrated. Priority 9 (`core/`) must go last because it is the shared foundation imported by almost everything.
+
+### `engineLauncher.ts` (Task 5.2)
+
+| Metric | Value |
+|---|---|
+| Current LOC | **397** (target ≤ 500 — **already met**) |
+| `ProjectLifecycleController` in `@pryzm/runtime-composer` | ✅ exported + instantiated at L357 |
+| `check-project-isolation.ts` | ✅ EXIT:0 — all 4 gates green |
+
+---
+
+## §2 — Architectural invariants (must never be violated)
+
+These rules apply to every subphase. Violating any of them blocks the subphase from merging.
+
+1. **Strangler-fig**: files are moved to the target package and the old directory deleted **only after** all importers are updated and `pnpm tsc --noEmit` exits 0.
+2. **No re-exports from `src/`**: the new package's public surface is the `packages/<name>/src/index.ts`. Nothing in `src/` re-exports from the new package to paper over missing codemod updates — every importer must be updated.
+3. **Layer boundaries preserved**:
+   - L3 packages (`packages/`) must not import from L4+ packages or `apps/`.
+   - Packages must not import from `src/` (they are consumed *by* `src/`, not the other way).
+4. **Gate order**: after every move, before deletion: `pnpm install --no-frozen-lockfile` → `pnpm tsc --noEmit` → all GA gates. Never delete before all three pass.
+5. **One subsystem at a time**: do not start a new extraction until the previous one's directory is deleted and the gate is green. Overlapping extractions produce ambiguous type errors.
+6. **Codemod atomicity**: the import path rewrite (step 4 of each recipe) must cover every single importer. Use `rg "from '.*engine/subsystems/<name>" --type ts -l` to get the authoritative list before and after. The count must reach zero after the codemod.
+7. **No stubs**: do not leave empty files in `src/engine/subsystems/<name>/` as re-export shims. Either everything is moved or nothing is.
+
+---
+
+## §3 — Task 5.1: Subsystem Extraction
+
+### Universal migration recipe
+
+The following 10-step recipe is the proven pattern from Waves 9–12. Every subphase below follows it exactly; per-subphase sections only document the **delta** from this base recipe.
+
+```
+STEP 1. Audit importers (pre-flight)
+  rg "from '.*engine/subsystems/<name>" --type ts -l
+  → Record exact count. This is your codemod target.
+
+STEP 2. Audit intra-subsystem deps
+  rg "from '.*engine/subsystems/" src/engine/subsystems/<name>/ --type ts
+  → Every hit is a cross-subsystem dependency that must be resolved before the move.
+  → If count > 0: that dependency package must already be extracted, OR you must
+    add a workspace:* dep in the new package's package.json pointing to the
+    already-extracted counterpart.
+
+STEP 3. Create target package (if not already exists)
+  mkdir -p packages/<name>/src
+  # Write package.json — see template in §3.0 below.
+  # Write tsconfig.json — must extend ../../tsconfig.base.json.
+
+STEP 4. Move source files
+  mv src/engine/subsystems/<name>/* packages/<name>/src/
+  # Preserve the directory structure exactly (subdirs, not flattened).
+
+STEP 5. Write packages/<name>/src/index.ts
+  # Re-export everything that external importers need.
+  # Pattern: export * from './<file>.js'
+  # Use .js extension in export paths (ESM resolution in pnpm workspaces).
+
+STEP 6. Run codemod — rewrite importer paths
+  # For each file in the importer list from STEP 1:
+  sed -i "s|from '.*engine/subsystems/<name>|from '@pryzm/<pkg>|g" <file>
+  # Handle sub-path imports carefully — map to sub-exports if the package
+  # declares them, otherwise flatten into the root index.
+
+STEP 7. Update package.json workspace deps in packages/<name>/package.json
+  # For every cross-subsystem import found in STEP 2, add:
+  "dependencies": { "@pryzm/<dep>": "workspace:*" }
+
+STEP 8. pnpm install --no-frozen-lockfile
+  # Creates symlinks for the new workspace package.
+
+STEP 9. pnpm tsc --noEmit
+  # Must exit 0. Fix all errors before proceeding.
+  # Common errors: missing exports in index.ts, wrong .js extensions, missing deps.
+
+STEP 10. Delete the source directory
+  rm -rf src/engine/subsystems/<name>/
+  # Re-run pnpm tsc --noEmit — must still exit 0.
+  # Run all GA gates — all must exit 0.
+  # Update LOC metrics in docs/03_PRYZM3/03-CURRENT-STATE.md §1.
+```
+
+#### §3.0 — Package.json template
+
+```json
+{
+  "name": "@pryzm/<pkg-name>",
+  "version": "0.1.0",
+  "description": "PRYZM — <description>",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src", "dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@pryzm/core-app-model": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "workspace:*"
+  }
+}
+```
+
+---
+
+### S5.1-P1 — `commands/` → `packages/command-registry/`
+
+**Why this is Priority 1**: The commands subsystem has zero cross-subsystem dependencies — it stands alone. With 54 importer files and 266 source files it is the largest single extraction, but its clean isolation boundary makes it feasible before `core/` is migrated.
+
+#### Scope
+
+| Item | Value |
+|---|---|
+| Source dir | `src/engine/subsystems/commands/` |
+| Target package | `packages/command-registry/` |
+| Package name | `@pryzm/command-registry` |
+| Source files | 266 `.ts` files |
+| Source LOC | 35,695 |
+| External importer files | 54 (all in `src/ui/`) |
+| External import lines | ~212 |
+| Cross-subsystem deps | **zero** — isolated |
+
+#### Command families (266 files)
+
+The files are organised in 30 subdirectories. Each subdirectory maps to an element family or concern:
+
+```
+annotations/   (9)   beam/         (3)   catalog/       (3)
+ceilings/      (4)   columns/      (5)   curtainwall/   (9)
+doors/         (9)   floors/       (4)   furniture/     (5)
+generic/       (1)   geospatial/   (1)   grids/         (5)
+handrails/     (3)   hierarchy/    (7)   levels/        (6)
+lighting/      (4)   operations/   (8)   plans/         (6)
+plumbing/      (2)   project/      (2)   requirements/  (4)
+roofs/         (3)   roomBoundingLines/ (3)  rooms/    (13)
+slabs/        (18)   stair/        (9)   templates/     (9)
+vg/           (27)   views/       (31)   walls/        (19)
+windows/      (10)
+```
+
+Root-level files (not in a subdirectory):
+- `CommandManager.ts` (384 LOC) — the legacy imperative dispatcher  
+- `CommandProposalFactory.ts` — proposal creation  
+- `CommandProposalStore.ts` — proposal state management  
+- `PatchSnapshot.ts` — Immer patch capture  
+- `TagElementCommand.ts` — element tagging  
+- `UpdateElementMarkCommand.ts` — mark management  
+- `types.ts` (528 LOC) — all shared command payload types  
+- `index.ts` — re-exports  
+
+#### External importers (54 files)
+
+```
+src/engine/subsystems/CommandRegistry.ts
+src/engine/subsystems/RemoteCommandDispatcher.ts
+src/ui/ai/AICreatePanel.ts
+src/ui/ai/AIPanel.ts
+src/ui/ai/FloorPlanImportPanel.ts
+src/ui/ai/ValidatePanel.ts
+src/ui/ai/floorplan-import/FPTypes.ts
+src/ui/ai/floorplan-import/Step3UnderlayView.ts
+src/ui/ai/floorplan-import/Step5SummaryView.ts
+src/ui/ai/floorplan-import/Step6CommitView.ts
+src/ui/data/buckets/StrategizeBucket.ts
+src/ui/furniture-carousel/FurnitureDragDropHandler.ts
+src/ui/generative/BriefInputPanel.ts
+src/ui/generative/VariantBrowserPanel.ts
+src/ui/grids/GridManagerPanel.ts
+src/ui/intent/HeaderIntentPicker.ts
+src/ui/intent/SpineOverrideList.ts
+src/ui/kitchen/KitchenCabinetTool.ts
+src/ui/kitchen/KitchenRunInspector.ts
+src/ui/kitchen/KitchenUnitInspector.ts
+src/ui/layout/ToolsAreaLayout.ts
+src/ui/LeftNavRail.ts
+src/ui/levels/LevelManagerPanel.ts
+src/ui/OverridePanel.ts
+src/ui/property-inspector/CeilingPropertySection.ts
+src/ui/property-inspector/FloorPropertySection.ts
+src/ui/property-inspector/PropertyInspectorApply.ts
+src/ui/property-inspector/SlabLayerSection.ts
+src/ui/property-panel/CurtainGridEditor.ts
+src/ui/property-panel/CurtainPanelEditor.ts
+src/ui/property-panel/CurtainSubElementPanel.ts
+src/ui/property-panel/PropertyPanelAnnotations.ts
+src/ui/property-panel/PropertyPanelBodyRenderer.ts
+src/ui/property-panel/PropertyPanel.ts
+src/ui/property-panel/PropertyPanelTypeSelector.ts
+src/ui/property-panel/RoofPropertySheet.ts
+src/ui/property-panel/SlabDimensionsEditor.ts
+src/ui/PropertyInspector.ts
+src/ui/property-inspector/WallLayerSection.ts
+src/ui/RadialMenu.ts
+src/ui/SheetEditor/SheetEditorCommands.ts
+src/ui/SheetEditor/SheetEditorPanel.ts
+src/ui/SheetEditor/SheetEditorRendererBridge.ts
+src/ui/SheetEditor/SheetEditorSidebar.ts
+src/ui/ViewBrowser/panels/AIRailPanel.ts
+src/ui/ViewBrowser/panels/ViewsRailPanel.ts
+src/ui/ViewBrowser/panels/unified-browser/ProjectTreeSection.ts
+src/ui/ViewPropertiesPanel.ts
+src/ui/ViewPropertiesPanelBuilders.ts
+src/ui/VisibilityIntentPanel.ts
+src/ui/views/ViewHeaderButtons.ts
+src/ui/wardrobe/WardrobeCabinetTool.ts
+src/ui/wardrobe/WardrobeRunInspector.ts
+src/ui/wardrobe/WardrobeSectionInspector.ts
+```
+
+> Note: `src/engine/subsystems/CommandRegistry.ts` and `src/engine/subsystems/RemoteCommandDispatcher.ts` are themselves `src/engine/` files that forward into `commands/`. After the extraction, both should be updated to import from `@pryzm/command-registry` and kept in place (they are not part of the `commands/` directory).
+
+#### Dependency analysis
+
+```
+@pryzm/command-registry will depend on:
+  @pryzm/command-bus     — for the base command dispatch contract (already a package)
+  @pryzm/core-app-model  — for shared element types (CoreElement, ViewDefinitionTypes, etc.)
+  @thatopen/components   — for OBC types used in some commands (peer dep / devDep)
+
+commands/ does NOT import from:
+  src/engine/subsystems/core/    — verified: 0 cross-imports
+  src/engine/subsystems/walls/   — verified: 0 cross-imports
+  src/engine/subsystems/slabs/   — verified: 0 cross-imports
+  src/engine/subsystems/curtainwalls/ — verified: 0 cross-imports
+```
+
+#### Step-by-step recipe
+
+**Pre-flight**:
+```bash
+# Confirm importer count
+rg "from '.*engine/subsystems/commands" --type ts -l | wc -l
+# Expected: 54 (plus files within commands/ itself — exclude those)
+rg "from '.*engine/subsystems/commands" --type ts -l | grep -v "src/engine/subsystems/commands" | wc -l
+# Expected: 54
+
+# Confirm zero cross-subsystem deps
+rg "from '.*engine/subsystems/core" src/engine/subsystems/commands/ --type ts | wc -l
+# Must be: 0
+```
+
+**Step A — Create package scaffold**:
+```bash
+mkdir -p packages/command-registry/src
+```
+Write `packages/command-registry/package.json`:
+```json
+{
+  "name": "@pryzm/command-registry",
+  "version": "0.1.0",
+  "description": "PRYZM — Command implementations for all BIM element families (Wave 5.1 P1 extraction).",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./commands": "./src/index.ts"
+  },
+  "files": ["src", "dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@pryzm/command-bus": "workspace:*",
+    "@pryzm/core-app-model": "workspace:*"
+  }
+}
+```
+Write `packages/command-registry/tsconfig.json` (extend workspace base).
+
+**Step B — Move all 266 source files**:
+```bash
+cp -r src/engine/subsystems/commands/* packages/command-registry/src/
+```
+The directory structure (`annotations/`, `walls/`, `vg/`, etc.) is preserved as-is.
+
+**Step C — Write `packages/command-registry/src/index.ts`**:
+The index must re-export everything that the 54 external importers use. Start from the existing `src/engine/subsystems/commands/index.ts` and augment it to cover every named import found in the 54 importer files. The approach:
+```bash
+# Extract all named imports that come from commands/ to build the index
+rg "from '.*engine/subsystems/commands" --type ts -o | sed "s/.*commands\///" | sort -u
+```
+
+**Step D — Codemod (the most critical step)**:
+
+The codemod must handle two forms:
+1. `from '../../engine/subsystems/commands/walls/CreateWallCommand'` → `from '@pryzm/command-registry'` (or sub-path if a sub-export is declared)
+2. `from '../engine/subsystems/commands/CommandManager'` → `from '@pryzm/command-registry'`
+
+> **Warning**: some importers use *deep sub-paths* into `commands/` rather than going through the index. These must either be (a) added to the package's exports map, or (b) flattened into the root index. Do not leave any relative path into `packages/command-registry/src/` from outside the package — this breaks ESM resolution.
+
+Run the codemod for each of the 54 importer files. After the codemod:
+```bash
+rg "from '.*engine/subsystems/commands" --type ts -l | grep -v "src/engine/subsystems/commands" | wc -l
+# Must be: 0
+```
+
+**Step E — Run `pnpm install --no-frozen-lockfile`**
+
+**Step F — Run `pnpm tsc --noEmit`** — must exit 0.
+
+**Step G — Delete the source directory and re-verify**:
+```bash
+rm -rf src/engine/subsystems/commands/
+pnpm tsc --noEmit   # must still exit 0
+```
+
+**Step H — Run all GA gates and update metrics**.
+
+#### Risks and mitigations
+
+| Risk | Likelihood | Mitigation |
+|---|---|---|
+| Missing exports in index.ts (deep sub-path imports) | HIGH | Generate index.ts by parsing the importer list, not by guessing |
+| `CommandManager` singleton pattern breaks with new import path | MEDIUM | The singleton is module-level; as long as the bundle includes it once, it is fine. Verify with a quick smoke-test after codemod |
+| `types.ts` (528 LOC) imports circular types | LOW | Run tsc first; circular types surface immediately as "Type alias circularly references itself" |
+| `vg/` (27 files) has undocumented deps on `core/VGGovernanceStore` | MEDIUM | Run cross-dep audit in pre-flight; if found, add `@pryzm/core-app-model` dep |
+| Codemod misses files in non-`src/ui/` locations | LOW | The `rg` pre-flight lists all files across the entire repo |
+
+#### Acceptance criteria
+
+- [ ] `rg "from '.*engine/subsystems/commands" --type ts | wc -l` → `0`
+- [ ] `src/engine/subsystems/commands/` does not exist
+- [ ] `pnpm tsc --noEmit` → exit 0
+- [ ] All 12 GA gates → exit 0
+- [ ] `packages/command-registry/src/` has 266 `.ts` files
+- [ ] `no-commandmanager` gate baseline unchanged (gate #4)
+
+---
+
+### S5.1-P2 — `annotations/` → promote `plugins/annotations/`
+
+**Why this is Priority 2**: Only 3 external importers, no cross-subsystem deps, and `plugins/annotations/` (`@pryzm/plugin-annotations`) already exists as the intended home. This is a pure consolidation — move the `src/engine/subsystems/annotations/` files into the existing plugin package.
+
+#### Scope
+
+| Item | Value |
+|---|---|
+| Source dir | `src/engine/subsystems/annotations/` |
+| Target package | `plugins/annotations/` (already exists as `@pryzm/plugin-annotations`) |
+| Source files | 37 `.ts` files |
+| Source LOC | 12,764 |
+| External importer files | 3 (all `src/ui/property-panel/`) |
+| Cross-subsystem deps | **zero** |
+
+#### Source files in `src/engine/subsystems/annotations/`
+
+```
+AnnotationDependencyGraph.ts    AnnotationManager.ts
+AnnotationParametersSchema.ts   AnnotationReference.ts
+AnnotationRenderLayer.ts        AnnotationStore.ts
+AnnotationTypes.ts              AnnotationVisibilityPanel.ts
+AnnotationVisibilityStore.ts    ConstraintSolver.ts
+ConstraintStore.ts              ConstraintViolationPanel.ts
+DimensionPropertiesPanel.ts     OBCAnnotationAdapter.ts
+WallDimensionRenderer.ts
+tools/                          (subdirectory — all files)
+```
+
+#### Existing `plugins/annotations/src/` contents
+
+The plugin already has:
+```
+errors.ts    handlers/    index.ts    intent.ts
+plan-view-adapter.ts    store.ts    tool.ts
+```
+The `handlers/` subdirectory has 9 command handlers (`CreateAnnotation`, `DeleteAnnotation`, `MoveAnnotation`, etc.).
+
+#### Migration approach
+
+The 37 files from `src/engine/subsystems/annotations/` must move into `plugins/annotations/src/subsystem/` (a new subdirectory to avoid name collisions with existing files). The existing `index.ts` must be extended to re-export the new files.
+
+> **Do not rename** existing files in `plugins/annotations/src/` — only add new ones. Rename collisions (e.g. `store.ts` vs `AnnotationStore.ts`) are resolved by placing all incoming files under `src/subsystem/`.
+
+#### External importers (3 files)
+
+```
+src/ui/property-panel/PropertyPanelAdapter.ts
+src/ui/property-panel/PropertyPanelAnnotations.ts
+src/ui/property-panel/PropertyPanel.ts
+```
+
+These three files import `AnnotationStore`, `AnnotationManager`, `AnnotationTypes`, etc. After migration all three must change from:
+```ts
+from '../../engine/subsystems/annotations/AnnotationStore'
+```
+to:
+```ts
+from '@pryzm/plugin-annotations'
+```
+
+Also update `src/engine/engineLauncher.ts` line 29:
+```ts
+import { annotationStore } from './subsystems/annotations/AnnotationStore';
+```
+→
+```ts
+import { annotationStore } from '@pryzm/plugin-annotations';
+```
+
+#### Acceptance criteria
+
+- [ ] `rg "from '.*engine/subsystems/annotations" --type ts | wc -l` → `0`
+- [ ] `src/engine/subsystems/annotations/` does not exist
+- [ ] `pnpm tsc --noEmit` → exit 0
+- [ ] All GA gates → exit 0
+- [ ] `plugins/annotations/src/subsystem/` contains 37 migrated files
+
+---
+
+### S5.1-P3 — `dimensions/` — DONE ✅
+
+Directory `src/engine/subsystems/dimensions/` is empty (0 files, 0 LOC). No action required.
+
+---
+
+### S5.1-P4 — `walls/` → `packages/geometry-wall/`
+
+**Why this is Priority 4**: 25 files, 8 importer files, zero cross-subsystem deps. The walls geometry is self-contained and is a natural L2 geometry package.
+
+#### Scope
+
+| Item | Value |
+|---|---|
+| Source dir | `src/engine/subsystems/walls/` |
+| Target package | `packages/geometry-wall/` |
+| Package name | `@pryzm/geometry-wall` |
+| Source files | 25 `.ts` files |
+| Source LOC | 9,452 |
+| External importer files | 8 (`src/ui/`) |
+| Cross-subsystem deps | **zero** |
+
+#### Source files (25)
+
+```
+composeWallGeometryHash.ts    CurvedWallCapMiter.ts
+CurvedWallLayerBuilder.ts     DimensionPreview.ts
+errors.ts                     LayeredWallOpeningBuilder.ts
+MiterPrismBuilder.ts          PathResolver.ts
+SlabWallCoupling.ts           WallAlignmentGuide.ts
+WallDataSchema.ts             WallDimensionInput.ts
+WallEdgeOverlayBuilder.ts     WallFragmentBuilder.ts
+WallInstanceBridge.ts         WallIntentResolver.ts
+WallOccupancyStore.ts         WallOpeningPositionResolver.ts
+WallOpeningRenderData.ts      WallPathBuilder.ts
+```
+
+(Plus any remaining files — do a final `ls` before starting.)
+
+#### External importers (8 files)
+
+```
+src/ui/bottom-menu/BottomActionMenu.ts
+src/ui/dataworkbench/buckets/DataSchedulesBucket.ts
+src/ui/dataworkbench/buckets/MaterialsBucket.ts
+src/ui/layout/CreatePanelLayout.ts
+src/ui/layout/ToolsAreaLayout.ts
+src/ui/tools-panel/panels/CreateRailPanel.ts
+src/ui/WallDrawingHUD.ts
+src/ui/WallEdgeVisibilityService.ts
+```
+
+Also `src/engine/engineLauncher.ts` line 30:
+```ts
+import { WallInstanceBridge } from './subsystems/walls/WallInstanceBridge';
+```
+→ must be updated to `@pryzm/geometry-wall`.
+
+#### Package-level deps
+
+```
+@pryzm/geometry-wall will depend on:
+  @pryzm/core-app-model    — for CoreElement, DrawingPipelineTypes, etc.
+  @pryzm/renderer-three    — for THREE types (mesh, geometry) if walls use them directly
+  @pryzm/snapping          — if WallAlignmentGuide imports snapping types
+```
+
+> Before writing package.json, run the cross-dep audit:  
+> `rg "from '@pryzm/" src/engine/subsystems/walls/` to find all existing package deps.
+
+#### Acceptance criteria
+
+- [ ] `rg "from '.*engine/subsystems/walls" --type ts | wc -l` → `0`
+- [ ] `src/engine/subsystems/walls/` does not exist
+- [ ] `pnpm tsc --noEmit` → exit 0
+- [ ] All GA gates → exit 0
+
+---
+
+### S5.1-P5 — `slabs/` → `packages/geometry-slab/`
+
+#### Scope
+
+| Item | Value |
+|---|---|
+| Source dir | `src/engine/subsystems/slabs/` |
+| Target package | `packages/geometry-slab/` |
+| Package name | `@pryzm/geometry-slab` |
+| Source files | 14 `.ts` files |
+| Source LOC | 5,536 |
+| External importer files | 3 (`src/ui/`) |
+| Cross-subsystem deps | **zero** |
+
+#### Source files (14)
+
+```
+index.ts                  SketchTypes.ts
+SlabFragmentBuilder.ts    SlabGeometryUtils.ts
+SlabGeomUtils.ts          SlabLevelCleanupHandler.ts
+SlabPickWallsController.ts  SlabProfileEditor.ts
+SlabSnapUtils.ts          SlabStore.ts
+SlabSystemTypeStore.ts    SlabTool.ts
+SlabTypes.ts              SlabValidator.ts
+```
+
+#### External importers (3 files)
+
+```
+src/ui/dataworkbench/buckets/DataSchedulesBucket.ts
+src/ui/dataworkbench/buckets/MaterialsBucket.ts
+src/ui/WallEdgeVisibilityService.ts
+```
+
+Also check `src/engine/engineLauncher.ts` for any direct slab imports — the `slabStore` and `slabBuilder` are constructed inside `initBuilders()` (not directly in engineLauncher), so there may be no direct engineLauncher dependency, but verify.
+
+#### Ordering note
+
+`SlabWallCoupling.ts` in `walls/` (P4) references `SlabStore` from `slabs/`. Because `walls/` is extracted in P4 *before* `slabs/` in P5, this creates a **forward reference problem**: `packages/geometry-wall` would need to import from `packages/geometry-slab` which doesn't exist yet at P4 time.
+
+**Resolution**: extract P4 (`walls/`) and P5 (`slabs/`) together in a single sprint, or reverse them (P5 first, then P4). The safest approach is to extract P5 first, then P4 — but only if no slabs file imports from walls. Confirm:
+```bash
+rg "from '.*engine/subsystems/walls" src/engine/subsystems/slabs/ --type ts
+# If 0: do P5 first, then P4.
+# If > 0: both must be extracted in the same sprint with cross deps resolved simultaneously.
+```
+
+#### Acceptance criteria
+
+- [ ] `rg "from '.*engine/subsystems/slabs" --type ts | wc -l` → `0`
+- [ ] `src/engine/subsystems/slabs/` does not exist
+- [ ] `pnpm tsc --noEmit` → exit 0
+- [ ] All GA gates → exit 0
+
+---
+
+### S5.1-P6 — `curtainwalls/` → `packages/geometry-curtain-wall/`
+
+#### Scope
+
+| Item | Value |
+|---|---|
+| Source dir | `src/engine/subsystems/curtainwalls/` |
+| Target package | `packages/geometry-curtain-wall/` |
+| Package name | `@pryzm/geometry-curtain-wall` |
+| Source files | 18 `.ts` files |
+| Source LOC | 7,510 |
+| External importer files | 4 (`src/ui/property-panel/`) |
+| Cross-subsystem deps | **zero** |
+
+#### Source files (18)
+
+```
+CurtainCellComputer.ts      CurtainGridSystem.ts
+CurtainPanelBuilder.ts      CurtainPanelFactory.ts
+CurtainPanelStore.ts        CurtainPanelSyncHandler.ts
+CurtainPanelTypes.ts        CurtainSubElementTypes.ts
+CurtainWallBuilder.ts       CurtainWallInstanceManager.ts
+CurtainWallStore.ts         CurtainWallTool.ts
+CurtainWallTypes.ts         GeometryWorkerPool.ts
+GeometryWorkerTypes.ts
+__tests__/                  (directory — test files)
+vitest.config.ts
+```
+
+> `GeometryWorkerPool.ts` and `GeometryWorkerTypes.ts` are the geometry worker infrastructure (from Task 4.2). They move with the curtain wall package — they were always logically owned here.
+
+#### External importers (4 files)
+
+```
+src/ui/property-panel/CurtainGridEditor.ts
+src/ui/property-panel/CurtainPanelEditor.ts
+src/ui/property-panel/CurtainSubElementPanel.ts
+src/ui/property-panel/PropertyPanel.ts
+```
+
+Also update `src/engine/engineLauncher.ts` (line 215 area — `batchCoordinator.registerBuilderControls(window.__curtainWallRebuildControl, ...)`) — verify if any direct curtainwall imports exist.
+
+#### Acceptance criteria
+
+- [ ] `rg "from '.*engine/subsystems/curtainwalls" --type ts | wc -l` → `0`
+- [ ] `src/engine/subsystems/curtainwalls/` does not exist
+- [ ] `pnpm tsc --noEmit` → exit 0
+- [ ] All GA gates → exit 0
+- [ ] `__tests__/` in `packages/geometry-curtain-wall/` passes: `pnpm --filter @pryzm/geometry-curtain-wall test`
+
+---
+
+### S5.1-P9 — `core/` → complete `packages/core-app-model/`
+
+**This is the most complex extraction. Read this section entirely before starting.**
+
+#### Scope
+
+| Item | Value |
+|---|---|
+| Source dir | `src/engine/subsystems/core/` |
+| Target package | `packages/core-app-model/` (already partially exists) |
+| Package name | `@pryzm/core-app-model` (already registered) |
+| Source files | 265 `.ts` files in 25+ subdirectories |
+| Source LOC | 76,619 |
+| External importer files | **83** (`src/ui/`) — the largest count of any extraction |
+| External import lines | ~184 |
+| Cross-subsystem deps | may reference walls, slabs, curtainwalls types — **audit first** |
+
+#### Why P9 must go last
+
+The `core/` subsystem is referenced by 83 UI files. More importantly, some files in `core/` may themselves import from P1–P6 subsystems (`commands/`, `walls/`, etc.). If `core/` is extracted before those packages exist, the internal cross-references break. By extracting P1–P6 first, when `core/` is finally moved it can declare `workspace:*` deps on those already-published packages.
+
+> **Before starting P9**: run the full cross-dep audit:
+> ```bash
+> rg "from '.*engine/subsystems/" src/engine/subsystems/core/ --type ts | grep -v "from '.*core/" | sort -u
+> ```
+> Every hit is a dep on a sibling subsystem. Each must either be already extracted (P1–P6) or require same-sprint co-extraction.
+
+#### Core subdirectory structure (25 subdirs)
+
+```
+batch/         — BatchCoordinator.ts (1,704 LOC) — heavy orchestration
+catalog/       — asset catalog types  
+comparison/    — ComparisonEngine  
+context/       — ProjectContext, EditorMode  
+drawing/       — plan canvas drawing pipeline  
+geometry/      — WallJoinResolver (1,378 LOC), RoofGeometryBuilder (875 LOC)  
+hierarchy/     — IFC spatial hierarchy  
+navigation/    — ViewController (1,943 LOC), navManager  
+persistence/   — ProjectLoader (1,528 LOC), ProjectSerializer (858 LOC), MigrationEngine  
+presentation/  — VGSceneApplicator (850 LOC), VGGovernanceStore (775 LOC)  
+preview/       — PreviewRegistry  
+remediation/   — remediation pipeline  
+rendering/     — plan rendering  
+requirements/  — requirements management  
+scene/         — SceneLayers, SceneBoundsCache  
+schedules/     — ScheduleExtractor (753 LOC), ScheduleRegistry  
+selection/     — selection system  
+stores/        — 20 element-family stores (BeamStore, CeilingStore, FloorStore, etc.)  
+sync/          — SyncStateEngine (1,213 LOC)  
+templates/     — template system  
+types/         — shared type definitions  
+views/         — PlanViewAnnotationRenderer (2,589 LOC), EdgeProjectorService (2,373 LOC),
+                 PlanViewCanvas (2,150 LOC), SplitViewManager (1,590 LOC)
+views/plan-canvas/   — plan canvas subsystem  
+views/plantools/     — AnnotationPlanToolHandlers (1,128 LOC), GridPlanToolHandler (969 LOC)  
+views/symbols/       — plan symbol registry  
+```
+
+#### What is already in `packages/core-app-model/`
+
+The package already exists and contains (from Wave 10):
+- `drawing/` — pipeline types, pen/hatch tables, DrawingConstants
+- `presentation/` — RenderingIntent, VisibilityIntentTypes, VisualStyleManager
+- `hierarchy/` — HierarchyTypes
+- `catalog/` — AssetCatalogTypes
+- `context/` — ProjectContext, EditorMode
+- `navigation/` — GeospatialAdapter, Georeference
+- `persistence/` — ProjectScopeRegistry, ProjectScopedStorage
+- `views/` — ViewDefinitionTypes
+- `stores/` — 20 element-family stores (BeamStore, CeilingStore, etc.)
+- Root: `CoreElement.ts`, `SelectionBus.ts`, `SemanticGraph.ts`, `SemanticTagRegistry.ts`, `StoreEventBus.ts`, `StoreRegistry.ts`, `MarkGenerator.ts`
+
+The files still in `src/engine/subsystems/core/` are those that have not yet been migrated — primarily the heavy orchestrators: `BatchCoordinator`, `ViewController`, `PlanViewCanvas`, `ProjectLoader`, `ComparisonEngine`, `VGGovernanceStore`, `SyncStateEngine`, `ScheduleExtractor`, etc.
+
+#### Migration wave strategy (do not do all 265 files at once)
+
+Because `core/` is so large and its 83 importers are so widespread, a single-shot migration carries enormous risk. Instead, use a **wave-within-P9 strategy**:
+
+**P9-W1 — Stores** (already in `packages/core-app-model/src/stores/` — verify and clean up remaining `src/engine/subsystems/core/stores/` stragglers):
+```bash
+ls src/engine/subsystems/core/stores/
+# Any file here that isn't already in packages/core-app-model/src/stores/ must be moved.
+rg "from '.*engine/subsystems/core/stores" --type ts -l | wc -l
+# After migration: must be 0.
+```
+
+**P9-W2 — Types + Context** (`core/types/`, `core/context/` — light, few deps):
+- Move remaining `types/` and `context/` files not already in `core-app-model/`.
+- Update ~5-10 importers.
+
+**P9-W3 — Scene + Selection** (`core/scene/`, `core/selection/`):
+- `SceneLayers.ts`, `SceneBoundsCache.ts`, `SelectionBus.ts` (some may already be in packages/).
+- Low LOC, few importers.
+
+**P9-W4 — Presentation + VG** (`core/presentation/`):
+- `VGGovernanceStore.ts` (775 LOC), `VGSceneApplicator.ts` (850 LOC), `ViewportPreviewRenderer.ts` (766 LOC).
+- These are heavy — run tsc after each file move.
+
+**P9-W5 — Persistence** (`core/persistence/`):
+- `ProjectLoader.ts` (1,528 LOC), `ProjectSerializer.ts` (858 LOC), `MigrationEngine.ts`, migration files.
+- The heaviest dependency risk — `ProjectLoader` likely imports from many subsystems.
+
+**P9-W6 — Schedules + Requirements** (`core/schedules/`, `core/requirements/`):
+- `ScheduleExtractor.ts` (753 LOC), `ScheduleRegistry.ts`, `SchedulePanel`.
+
+**P9-W7 — Navigation** (`core/navigation/`):
+- `ViewController.ts` (1,943 LOC) — the biggest single risk. It touches the DOM, the renderer, and the stores.
+- Move last within P9 — it is the most connected.
+
+**P9-W8 — Views** (`core/views/` and subdirs):
+- `PlanViewAnnotationRenderer.ts` (2,589 LOC), `EdgeProjectorService.ts` (2,373 LOC), `PlanViewCanvas.ts` (2,150 LOC).
+- These are the largest files in the codebase. Each must be moved individually with a tsc check after each.
+
+**P9-W9 — Batch + Geometry** (`core/batch/`, `core/geometry/`):
+- `BatchCoordinator.ts` (1,704 LOC), `WallJoinResolver.ts` (1,378 LOC).
+- `BatchCoordinator` is used by `batchCoordinator` singleton in `engineLauncher.ts` and `@pryzm/runtime-composer`. It must stay importable from its existing path in `@pryzm/core-app-model` after the move.
+
+**P9-W10 — Sync** (`core/sync/`):
+- `SyncStateEngine.ts` (1,213 LOC) — may import from collaboration (Yjs) and persistence.
+
+After each wave: `pnpm tsc --noEmit` → must exit 0.
+
+#### External importers for P9 (complete list — 83 files)
+
+```
+src/ui/ai/AIPanel.ts
+src/ui/canvas/ConsequencePreviewOverlay.ts
+src/ui/canvas/IntentPrompt.ts
+src/ui/ContextualEditBar.ts
+src/ui/data/buckets/AuditBucket.ts
+src/ui/data/buckets/StrategizeBucket.ts
+src/ui/data/buckets/ValidateBucket.ts
+src/ui/data/DataCommandCenter.ts
+src/ui/dataworkbench/buckets/AuditBucket.ts
+src/ui/dataworkbench/buckets/DataSchedulesBucket.ts
+src/ui/dataworkbench/buckets/MaterialsBucket.ts
+src/ui/dataworkbench/DataSheetPanel.ts
+src/ui/dataworkbench/DesignHistoryPanel.ts
+src/ui/dataworkbench/HierarchyTreeAddActions.ts
+src/ui/dataworkbench/HierarchyTreePanel.ts
+src/ui/dataworkbench/RelationshipExplorerPanel.ts
+src/ui/dataworkbench/SyncStateDetailDrawer.ts
+src/ui/dataworkbench/TemplateEditorPanel.ts
+src/ui/grids/GridManagerPanel.ts
+src/ui/inspect/audit/AuditGridZone.ts
+src/ui/inspect/audit/DiscoveryModeZone.ts
+src/ui/inspect/audit/ProjectTreeZone.ts
+src/ui/inspect/AuditStack.ts
+src/ui/intent/HeaderIntentPicker.ts
+src/ui/intent/IntentSourcePill.ts
+src/ui/intent/ResetToIntentButton.ts
+src/ui/intent/SourceChainTooltip.ts
+src/ui/intent/SpineOverrideList.ts
+src/ui/kitchen/KitchenCabinetTool.ts
+src/ui/kitchen/KitchenConfigPanel.ts
+src/ui/kitchen/KitchenRunInspector.ts
+src/ui/kitchen/KitchenUnitInspector.ts
+src/ui/layout/CreatePanelLayout.ts
+src/ui/layout/DockingLayout.ts
+src/ui/layout/NavigationAreaLayout.ts
+src/ui/layout/RenderAreaLayout.ts
+src/ui/layout/ToolsAreaLayout.ts
+src/ui/Layout.ts
+src/ui/LeftNavRail.ts
+src/ui/levels/ActiveLevelHUD.ts
+src/ui/levels/LevelManagerPanel.ts
+src/ui/OverridePanel.ts
+src/ui/platform/PlatformShellTypes.ts
+src/ui/property-inspector/FurniturePropertySection.ts
+src/ui/property-inspector/PropertyInspectorControls.ts
+src/ui/PropertyInspector.ts
+src/ui/rendering/ExportStudioPanel.ts
+src/ui/rendering/PanoramaPanel.ts
+src/ui/rendering/PerformanceModePanel.ts
+src/ui/rendering/RealSunControl.ts
+src/ui/rendering/VisualizationEnginePanelBuilder.ts
+src/ui/rendering/VisualizationEnginePanelData.ts
+src/ui/rendering/VisualizationEnginePanel.ts
+src/ui/SchedulePanel/SchedulePanel.ts
+src/ui/SelectionOverlay.ts
+src/ui/SheetEditor/SheetEditorCommands.ts
+src/ui/SheetEditor/SheetEditorPanel.ts
+src/ui/SheetEditor/SheetEditorRendererBridge.ts
+src/ui/SheetEditor/SheetEditorSidebar.ts
+src/ui/SheetEditor/SheetProjectionOrchestrator.ts
+src/ui/tools-panel/panels/CreateRailPanel.ts
+src/ui/tools-panel/panels/GridsLevelsRailPanel.ts
+src/ui/tools-panel/panels/RenderRailPanel.ts
+src/ui/tools-panel/panels/VisualRailPanel.ts
+src/ui/tools-panel/ToolsPanelTypes.ts
+src/ui/ViewBrowser/panels/DocumentsBrowserPanel.ts
+src/ui/ViewBrowser/panels/SchedulesRailPanel.ts
+src/ui/ViewBrowser/panels/SheetsRailPanel.ts
+src/ui/ViewBrowser/panels/unified-browser/ElementsSummarySection.ts
+src/ui/ViewBrowser/panels/unified-browser/ProjectTreeSection.ts
+src/ui/ViewBrowser/panels/ViewsRailPanel.ts
+src/ui/ViewPropertiesPanelBuilders.ts
+src/ui/ViewPropertiesPanel.ts
+src/ui/views/ViewHeaderButtons.ts
+src/ui/views/ViewTabBar.ts
+src/ui/views/ViewTypePropertiesPanelConfig.ts
+src/ui/VisibilityIntentPanel.ts
+src/ui/wardrobe/WardrobeConfigPanel.ts
+src/ui/wardrobe/WardrobeRunInspector.ts
+src/ui/wardrobe/WardrobeSectionInspector.ts
+```
+
+(Exact list — 83 entries. Verify with `rg` before starting each wave.)
+
+#### Acceptance criteria (P9)
+
+- [ ] `rg "from '.*engine/subsystems/core" --type ts | grep -v node_modules | wc -l` → `0`
+- [ ] `src/engine/subsystems/core/` does not exist
+- [ ] `pnpm tsc --noEmit` → exit 0
+- [ ] All GA gates → exit 0
+- [ ] `find src -name '*.ts' -o -name '*.tsx' | xargs wc -l | tail -1` < 40,000
+
+---
+
+### S5.1-FINAL — Ratio gate verification
+
+After P9 completes, run the full acceptance criteria for Task 5.1:
+
+```bash
+# src/ LOC (must be < 40,000 — only ui/ + shims remain)
+find src -name '*.ts' -o -name '*.tsx' | xargs wc -l | tail -1
+
+# packages/ LOC (must be > 400,000)
+find packages -name '*.ts' -o -name '*.tsx' | xargs wc -l | tail -1
+
+# Ratio check
+# target: packages LOC / src LOC ≥ 10 (i.e. ratio ≤ 0.10:1)
+
+# Boolean #1: only src/ui/ remains in src/
+find src -mindepth 1 -maxdepth 1 -type d | sort
+# Must show only: src/ui  src/engine (engine shims only, no subsystems/)
+
+# Subsystems empty check
+ls src/engine/subsystems/
+# Must list only .ts shim files, no directories (or be entirely empty)
+```
+
+Update `docs/03_PRYZM3/03-CURRENT-STATE.md` §1 with new LOC metrics.  
+Update `docs/03_PRYZM3/00-PROCESS-TRACKER.md` with completion entries.
+
+---
+
+## §4 — Task 5.2: `engineLauncher.ts` Decomposition
+
+### §4.1 — Current state assessment (2026-05-10)
+
+The implementation plan (§5.2 in `46-...md`) was written when `engineLauncher.ts` was approximately 4,300 LOC. **That refactoring has already happened.** The current measured state is:
+
+| Metric | Spec target | Actual (2026-05-10) | Status |
+|---|---|---|---|
+| `wc -l src/engine/engineLauncher.ts` | ≤ 500 | **397** | ✅ DONE |
+| `ProjectLifecycleController` in `@pryzm/runtime-composer` | required | ✅ exported + tested | ✅ DONE |
+| `check-project-isolation.ts` gates | all green | ✅ EXIT:0 (4/4 gates) | ✅ DONE |
+| `batchCoordinator` call sites in launcher | ≤ 5 | **5** (inject + 3 registerBuilderControls + batch lifecycle) | ✅ DONE |
+
+**All hard acceptance criteria from the original spec are already met.** The remaining work is softer cleanup and hardening — ensuring the file is as clean as it can be before Task 5.1-P9 completes (at which point `engineLauncher.ts` will largely disappear as each subsystem's init is absorbed by `composeRuntime()`).
+
+### §4.2 — `engineLauncher.ts` current structure (397 LOC)
+
+```
+L1–L60:     Imports (40 import statements — 3 from @pryzm packages, rest from src/)
+L63–L397:   export async function bootstrap(runtime?) — single exported function
+  L68–L90:  BUI init + globals + window assignments
+  L92–L97:  initScene() call → scene/world/components
+  L101–L115: createTransformControllers + initViewSetup
+  L117–L165: Inspector setup (PropertyPanelAdapter, ViewPropertiesPanel, unselectAll, updateInspector)
+  L162–L177: WASM (fragments) + HDRI lazy-loader
+  L180–L200: initBuilders() → all stores + builders
+  L202–L230: initTools() → commandManager, selectionManager, toolManager, all tools
+  L232–L245: Batch + bus wiring (batchCoordinator.inject, initBatchLifecycle, initBusHandlers)
+  L247–L265: WallRebuildCoordinator init + addFurniture + registerBuilderControls (first pass)
+  L267–L285: registerTransformDragHandler + initWallLevelSubscribers + SlabWallConnectivityService
+  L287–L297: registerAllStores
+  L299–L309: initDataPlatform
+  L311–L340: initUI (the largest single async call — mounts the full UI shell)
+  L341–L346: batchCoordinator.registerBuilderControls (second pass — §FIX-CW-CTRL-REREGISTER)
+  L348–L352: inspectModeCoordinator + workspaceController
+  L354–L366: initPersistence
+  L368–L371: initCollaboration
+  L373–L384: pryzm-project-loaded event listener (camera fit)
+  L386–L397: ProjectLifecycleController instantiation + bind + activeLevelChanged handler + DEV shim
+```
+
+### §4.3 — What remains to be done
+
+Although all hard criteria are met, the following items still exist and should be resolved before Task 5.1 begins absorbing the subsystem init functions:
+
+#### S5.2-R1 — Remove `@deprecated` comment once `composeRuntime()` is the sole composition root
+
+`engineLauncher.ts` line 59 carries:
+```ts
+ * @deprecated TODO(D.4) — migrate to composeRuntime() in packages/runtime-composer.
+ *   Sole importer: src/main.ts.
+```
+This means `src/main.ts` still calls `bootstrap()` directly. The plan (C02 §1.3) requires that `composeRuntime()` is called exactly once per session. The migration path is:
+- Wire `bootstrap()` call in `src/main.ts` through `composeRuntime()` so the deprecated `bootstrap()` is never called directly.
+- Once done, `bootstrap()` in `engineLauncher.ts` becomes an internal implementation detail of `composeRuntime`.
+
+**Blocker check**: `packages/runtime-composer/src/composeRuntime.ts` calls `bootstrapWithEverything()` from `@pryzm/editor/bootstrap.everything` — not directly `engineLauncher.bootstrap()`. Verify whether `@pryzm/editor/bootstrap.everything` delegates to `engineLauncher.bootstrap()` or has its own path.
+
+#### S5.2-R2 — Element-family init → `plugins/*/contributions.ts`
+
+The original §5.2 spec said:
+> "Extract per-element-family initialization into their respective `plugins/*/src/contributions.ts` files."
+
+Currently, `initBuilders()` at line 180 constructs all builders and stores in one mega-function. After P1–P6 extractions complete, each geometry package (`geometry-wall`, `geometry-slab`, `geometry-curtain-wall`) should expose a `createContributions(runtime)` factory that `composeRuntime()` calls during the composition phase. This is a future-phase concern (cannot be done until P1–P6 are complete).
+
+**Decision**: defer S5.2-R2 until after S5.1-P6 is complete. Do not block Task 5.2 on it.
+
+#### S5.2-R3 — Clean up `window.*` assignments
+
+The `bootstrap()` function assigns many globals: `window.bimWorld`, `window.roofStore`, `window.schedulePanel`, `window.dataWorkbench`, `window.viewPropertiesPanel`, `window.workspaceController`, etc. These are legacy dev-time convenience shims. Each should eventually be removed or gated behind `import.meta.env.DEV`.
+
+The DEV-only shim at L394–L397 is already correctly gated:
+```ts
+if (import.meta.env.DEV) {
+    const { exposeDevHelpers, exposeDevCommands } = await import('./subsystems/legacy/window-shim');
+```
+
+The non-DEV globals (e.g. `window.bimWorld`, `window.roofStore`) should be catalogued and documented as known tech debt. They do not block Task 5.2 acceptance but should be tracked.
+
+#### S5.2-R4 — `§FIX-CW-CTRL-REREGISTER` comment
+
+The `batchCoordinator.registerBuilderControls()` is called **twice** at lines 159 and 215 (the second time after `initUI` because `CurtainWallBuilder` is constructed inside `initUI`). Once `curtainwalls/` is extracted (P6), its builder should be constructed before `initUI` so the double-registration can be eliminated. This is a cleanup that belongs in Task 5.1-P6, not Task 5.2.
+
+### §4.4 — Task 5.2 subphase summary
+
+| Subphase | Description | Blocking on | Status |
+|---|---|---|---|
+| S5.2-H1 | engineLauncher ≤ 500 LOC | — | ✅ DONE (397 LOC) |
+| S5.2-H2 | ProjectLifecycleController in runtime-composer | — | ✅ DONE |
+| S5.2-H3 | check-project-isolation gates green | — | ✅ DONE |
+| S5.2-R1 | Wire bootstrap() through composeRuntime() | composeRuntime audit | open |
+| S5.2-R2 | Element-family init → plugins/*/contributions.ts | 5.1-P1 through P6 | blocked on 5.1 |
+| S5.2-R3 | window.* global audit and DEV-gating | — | non-blocking tech debt |
+| S5.2-R4 | Eliminate double registerBuilderControls | 5.1-P6 | blocked on P6 |
+
+**Task 5.2 is complete on all hard acceptance criteria. Remaining items (R1–R4) are tracked as follow-on cleanup tasks within their respective blocking subphases.**
+
+### §4.5 — Task 5.2 acceptance criteria (current state)
+
+- [x] `wc -l src/engine/engineLauncher.ts` → **397** (≤ 500)  ✅
+- [x] `ProjectLifecycleController` exported from `packages/runtime-composer/` ✅
+- [x] `check-project-isolation.ts` → EXIT:0 ✅
+- [ ] `src/main.ts` calls `composeRuntime()` exclusively (S5.2-R1) — open
+- [ ] No non-DEV `window.*` assignments remain in `bootstrap()` (S5.2-R3) — tech debt
+
+---
+
+## §5 — Sprint sequencing recommendations
+
+Given the measured isolation boundaries, the recommended sprint order is:
+
+| Sprint | Subphase | LOC moved | Risk | Gate |
+|---|---|---|---|---|
+| Sprint A | S5.1-P2 (annotations) | 12,764 | LOW — 3 importers | tsc + all gates |
+| Sprint B | S5.1-P5 + P4 (slabs, then walls) | 15,000 | LOW-MED — 11 importers total | tsc + all gates |
+| Sprint C | S5.1-P6 (curtainwalls) | 7,510 | LOW — 4 importers | tsc + all gates |
+| Sprint D | S5.1-P1 (commands) | 35,695 | HIGH — 54 importers | tsc + all gates |
+| Sprint E | S5.1-P9 wave 1–4 (stores, types, scene, presentation) | ~15,000 | MED | tsc after each wave |
+| Sprint F | S5.1-P9 wave 5–7 (persistence, schedules, navigation) | ~20,000 | HIGH | tsc after each wave |
+| Sprint G | S5.1-P9 wave 8–10 (views, batch, sync) | ~40,000 | VERY HIGH | tsc after each file |
+| Sprint H | S5.1-FINAL ratio gate + S5.2-R1 | — | LOW | all acceptance criteria |
+
+> Sprints A, B, C can be run in any order (no dependencies between them). Sprint D (commands) should be done after A, B, C since it is the highest risk. Sprint E–G must be done in order.
+
+---
+
+## §6 — Pre-extraction checklist (run before each sprint)
+
+```bash
+# 1. Confirm tsc is clean before starting
+pnpm tsc --noEmit; echo "TSC:$?"   # must be 0
+
+# 2. Confirm all GA gates green
+npx tsx tools/ga-gate/check-no-commandmanager.ts
+npx tsx tools/ga-gate/check-three-imports.ts
+npx tsx tools/ga-gate/check-raf-count.ts
+npx tsx tools/ga-gate/check-otel-spans.ts
+npx tsx tools/ga-gate/check-no-workspacemountbridge.ts
+npx tsx tools/ga-gate/check-ctrl-z-wired.ts
+
+# 3. Record current LOC baseline
+find src -name '*.ts' -o -name '*.tsx' | xargs wc -l | tail -1
+find packages -name '*.ts' -o -name '*.tsx' | xargs wc -l | tail -1
+
+# 4. Record exact importer count for the target subsystem
+rg "from '.*engine/subsystems/<name>" --type ts -l | grep -v node_modules | wc -l
+```
+
+---
+
+## §7 — Document update protocol
+
+After each subphase completes:
+1. Mark the priority row in `46-IMPLEMENTATION-PLAN-2026-05-08.md` table as `✅ DONE <date>`.
+2. Update `docs/03_PRYZM3/03-CURRENT-STATE.md` §1 with new LOC metrics.
+3. Increment process tracker in `docs/03_PRYZM3/00-PROCESS-TRACKER.md` with one entry per completed subphase.
+4. Update this document's §1 baseline table with the post-extraction measured values.

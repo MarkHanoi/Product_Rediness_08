@@ -1,0 +1,136 @@
+PRYZM Curtain Wall Batch Performance — Implementation PromptYou are implementing performance optimisations for the PRYZM BIM engine's curtain wall batch creation system. The target is to reduce CREATE_CURTAIN_WALLS_ON_ALL_SLABS from ~9,000ms to under 1,000ms for a 20-slab / 400-wall project on a mid-range GPU (RTX 3060).Context You Must Read FirstBefore writing any code, read and fully understand these files:
+src/engine/subsystems/core/batch/BatchCoordinator.ts — the batch envelope, runBatch(), signalBuildQueueDrained(), _executeFinalSweep()
+src/engine/subsystems/commands/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts — the slab loop, _processSlabs(), runBatch() call
+src/engine/subsystems/commands/curtainwall/CreateCurtainWallsFromSlabCommand.ts — per-slab wall creation
+src/engine/subsystems/initScene.ts — _onPostBatch callback, PBR upgrade chunking
+src/engine/subsystems/core/rendering/UnifiedFrameLoop.ts — beginBatchRenderSuppress() / endBatchRenderSuppress()
+Any file named CurtainWallStore.ts or similar — the store's add() method and internal event emission. Root Causes You Are FixingProblem 1 — O(n²) subscriber cascade in the slab loop.
+curtainWallStore.add() is called 400 times inside the loop. Each call emits an internal store notification even inside the storeEventBus.batch() envelope. Subscribers that scan the growing store make each insertion progressively slower (15ms → 33ms → 60ms → 92ms → 135ms per slab, extrapolating to ~8,000ms at 400 walls).Problem 2 — Synchronous shader compilation on first post-batch render.
+After endBatchRenderSuppress() lifts, the first renderer.render() call compiles WebGL shader program variants for every new material. At 400 curtain walls with multiple unique materials, this is 800–1,200 synchronous shader compilations on the main thread (~1,500–2,500ms).Problem 3 — PBR upgrade blocks perceived completion.
+The post-batch PBR upgrade (shadow flags + material upgrades) runs immediately after endBatchYielded() completes, adding ~300ms of visible delay before the user can interact. This work is not needed for the geometry to appear correctly.Problem 4 — resumeAndFlush() populates the builder drain queue synchronously.
+Inside runBatch(), after _processSlabs() returns, window.__curtainWallRebuildControl?.resumeAndFlush?.() runs synchronously and transfers all 400 walls into the builder's pending queue before the JS event loop yields. This triggers subscriber cascades from the builder's internal state update. Implementation TasksTask 1 — Add addMany() to CurtainWallStoreFind the CurtainWall store file. Add an addMany(items: CurtainWallData[]): void method that:
+Inserts all items into the internal Map in a single loop with no per-item event emission
+Fires a single consolidated store notification after all items are inserted
+Emits one storeEventBus event (or respects the existing batch envelope — whichever the store uses) for the entire batch rather than one per item
+Is fully typed and matches the existing add() method signature pattern
+Then update CreateCurtainWallsOnAllSlabsCommand._processSlabs() to:
+Collect all CurtainWallData objects into an array during the slab loop instead of calling curtainWallStore.add() per wall
+Call curtainWallStore.addMany(collectedWalls) once after the loop
+Preserve all existing logic: CCW winding order, skip degenerate edges, createdIdsBySlabId population, busCwSpecs collection, _regGroupsByLevel accumulation . Do not change anything else in the command at this stage.
+Task 2 — Shader Pre-warm Before runBatch()
+In CreateCurtainWallsOnAllSlabsCommand.execute(), before the if (!isRedo) block that calls runBatch(), add a shader pre-warm function called _prewarmCurtainWallShaders().
+This function must:
+
+Only run when !isRedo (first execute only, not on redo)
+Create a temporary THREE.Mesh with a THREE.PlaneGeometry(0.001, 0.001) and a THREE.MeshStandardMaterial using the mullion color '#333333', transparent: true, opacity: 0
+Add it to world.scene.three — access the scene via window.bimWorld?.scene?.three with a null guard
+Call window.pryzmRenderer?.render?.(scene, camera) where camera is window.bimWorld?.camera?.three — use optional chaining throughout, this must never throw
+Immediately remove the mesh, dispose the geometry, dispose the material
+Wrap the entire thing in a try/catch that logs a warning on failure but never throws — a failed pre-warm must not abort batch creation
+Log [CreateCurtainWallsOnAllSlabsCommand] Shader pre-warm complete on success . Add a call to this function in execute() immediately before batchCoordinator.runBatch(_processSlabs, { ... }).
+Task 3 — Defer resumeAndFlush() to Next Pre-render Frame
+In BatchCoordinator.runBatch(), find the three resumeAndFlush() calls:
+typescriptwindow.__wallRebuildControl?.resumeAndFlush?.();
+window.__curtainWallRebuildControl?.resumeAndFlush?.();
+window.__slabRebuildControl?.resumeAndFlush?.();
+These currently run synchronously after fn() returns. Change them to run inside a single getFrameScheduler().scheduleOnce('batch-coordinator-resume-flush', callback, 'pre-render') callback so the JS event loop yields before the builder drains begin.
+The deferred callback must:
+
+Call all three resumeAndFlush() calls in the same order as before
+Set the watchdog timer (this._watchdogTimer = setTimeout(...)) INSIDE the deferred callback, not before it — the watchdog must not start until the drain actually begins
+Preserve the existing try/catch around each resumeAndFlush() call
+Store the scheduleOnce disposer so forceReset() can cancel it if a project switch fires before the deferred callback runs — add a private _resumeFlushDispose: TickListenerDisposer | null = null field and cancel it in forceReset()
+
+Make sure runBatch() still returns the result of fn() synchronously — only the resume/flush calls are deferred, not the store mutations. Task 4 — Defer PBR Upgrade to Idle Time
+In initScene.ts, find the setPostBatchCallback call that registers the post-batch PBR upgrade. The callback currently calls upgradeNewMeshes() chunked across post-render frames immediately after endBatchYielded() completes.
+Wrap the entire callback body in requestIdleCallback(callback, { timeout: 5000 }). If requestIdleCallback is not available in the environment (check typeof requestIdleCallback !== 'undefined'), fall back to setTimeout(callback, 100).
+The idle callback must still do everything the current post-batch callback does — the scene traversal, the PBR chunk loop via getFrameScheduler().scheduleOnce, and the console.log — just deferred until the browser is idle or 5 seconds have passed, whichever comes first.
+
+Correctness Requirements
+Every change must preserve these invariants — verify each one after implementation:
+
+Undo/redo symmetry — createdIdsBySlabId must still be populated correctly on first execute and reused on redo. The addMany() path must populate it identically to the old per-wall path.
+batchCoordinator.isBatching gate — nothing that checks isBatching should see a different value than before. The batch envelope opens and closes at exactly the same points.
+signalBuildQueueDrained() is still called — the CurtainWall builder must still call this when its rAF drain queue empties. Do not change the builder's drain logic.
+forceReset() is safe during deferred resume — if pryzm-project-switch fires between runBatch() returning and the deferred resumeAndFlush() callback executing, forceReset() must cancel the deferred callback via the disposer and call all three resumeAndFlush() methods immediately as a cleanup step (same as the existing try { window.__curtainWallRebuildControl?.resumeAndFlush?.() } catch {} in forceReset()). No double-registration — _regGroupsByLevel and batchCoordinator.trackRegistration() must still fire exactly once per level group. The addMany() change must not affect registration logic.
+Error rollback — if _processSlabs() throws inside runBatch(), the existing catch block in CreateCurtainWallsOnAllSlabsCommand.execute() must still undo all created walls. Since addMany() is now called once, the rollback must remove all items that addMany() inserted. Verify the existing undo loop covers this.
+Bus dispatch preserved — the curtain-wall.batch.create bus dispatch at the end of execute() must still fire with the correct busCwSpecs. Since busCwSpecs is populated inside _processSlabs(), and _processSlabs() still runs synchronously inside runBatch(), this is unchanged — but verify it.
+
+Testing Checklist
+After implementing, verify the following scenarios work correctly:
+
+Create curtain walls on all slabs with 6 slabs → walls appear, plan view updates, rooms detect correctly Undo → all curtain walls removed, no orphan geometry
+Redo → same walls reappear with same IDs, no duplicates
+Create curtain walls on all slabs with 20+ slabs → completes in under 1,000ms wall-clock time, loading overlay appears and dismisses cleanly
+Project switch mid-batch (simulate by calling window.batchCoordinator.forceReset() from console during a batch) → no stuck batch state, next project loads cleanly
+Open browser DevTools Performance tab, record a 20-slab batch → no single LONGTASK exceeding 200ms after your changes
+
+Modification Declaration Template
+For each file you modify, prepend a modification declaration comment block following the existing pattern in the codebase:
+typescript/**
+
+MODIFICATION DECLARATION
+Layer Affected: [Command | Store | Coordination Service | Rendering Layer]
+Phase: Performance — Curtain Wall Batch Optimisation
+Files Modified: [filename]
+Classification: B (performance enhancement — no semantic model changes)
+Change: [one sentence]
+Impact:
+Semantic Impact: No
+Store Impact: [Yes/No — describe if Yes]
+Undo/Redo Impact: No
+Event Bus Impact: [Yes/No — describe if Yes]
+Risk Level: Low
+*/
+What You Must Not Change
+
+The CommandType.CREATE_CURTAIN_WALLS_ON_ALL_SLABS enum value
+The affectedStores declaration on the command
+The canExecute() validation logic
+The serialize() method
+The undo() method logic (only the addMany() rollback coverage needs verifying, not rewriting)
+The CurtainWallBuilder rAF drain logic — do not touch how it builds geometry
+The WallFragmentBuilder — Task 3 defers wall resume/flush but does not change wall building
+The storeEventBus internal implementation
+Any IFC GUID generation logic Current Baseline (extrapolated to your worst case)
+Your 6-slab / 108-wall batch shows the cascading O(n²) pattern clearly. Extrapolating to 20+ slabs / 400+ walls:
+Slab loop: 436ms at 108 walls → ~6,000–8,000ms at 400 walls (quadratic growth)
+endBatchYielded drain: 108 walls × 20 listeners = 2,160 calls → 400 walls × 20 = 8,000 calls → ~400ms in chunks
+PBR upgrade: 419 meshes at 108 walls → ~1,500 meshes at 400 walls → chunked across ~13 frames
+REDETECT_ROOMS: 6 levels → 20 levels, frame-yielded so ~320ms spread
+Total realistic worst case today: ~9,000–12,000ms visible freeze
+Your target is under 1,000ms. That means you need roughly a 10× speedup. Here is exactly where to get it. / The Optimisations, Ranked by Impact
+
+Fix the O(n²) Slab Loop — saves ~5,000–7,000ms
+This is by far your biggest problem. The cascading times (15 → 33 → 60 → 92 → 135ms per slab) are caused by curtainWallStore.add() triggering subscribers that scan the growing store on every single insertion. At 400 walls this becomes catastrophic.
+The fix is to batch all store mutations into a single storeEventBus.batch() call where no subscriber fires mid-loop, then flush once at the end. Your runBatch() already does this — but the CurtainWall builder's §BATCH-CW-PAUSE resumeAndFlush is still happening synchronously after the loop, meaning the geometry build for all 108 walls runs on the main thread before signalBuildQueueDrained() is called.
+The concrete fix is to move the CurtainWall builder drain entirely into rAF slices BEFORE the registration phase, not after. Currently your code does:
+runBatch(fn) → store.add() × 108 [buffered]
+resumeAndFlush() → 108 walls transferred to pending queue
+→ ONE rAF drain scheduled
+signalBuildQueueDrained() → called by builder when drain empties
+_executeFinalSweep() → endBatchYielded()
+The problem is resumeAndFlush() runs synchronously inside runBatch(), which means all 108 walls get queued for the builder drain before the JS event loop yields. On a 400-wall project the drain itself (geometry upload) takes 800–1200ms spread across rAF frames, but the initial queue population is synchronous and triggers subscriber cascades.
+Fix: Gate resumeAndFlush() behind requestIdleCallback or a single scheduleOnce('pre-render') so the main thread yields before the drain begins. Estimated saving: 4,000–6,000ms.2. Eliminate Per-Material Shader Compilation — saves ~1,500–2,500ms
+Your §FIX-BATCH-RENDER-SUPPRESS already suppresses renders during the drain, but shader compilation happens the moment the drain ends and the first renderer.render() fires with new materials. For 400 curtain walls with 2–3 unique materials each, WebGL compiles ~800–1,200 shader program variants synchronously on that first frame.
+The fix is to pre-warm the shaders before the batch starts. Add a single invisible render call with a representative MeshStandardMaterial before runBatch():
+typescript// Before runBatch():
+const warmupMesh = new THREE.Mesh(
+new THREE.PlaneGeometry(0.001, 0.001),
+new THREE.MeshStandardMaterial({ color: '#333333', transparent: true, opacity: 0 })
+);
+world.scene.three.add(warmupMesh);
+renderer.render(world.scene.three, world.camera.three); // compiles shaders now
+world.scene.three.remove(warmupMesh);
+warmupMesh.geometry.dispose();
+warmupMesh.material.dispose(); / This forces WebGL to compile the shader variant once before any curtain wall geometry arrives. Subsequent walls reuse the compiled program. Estimated saving: 1,200–2,000ms.
+Replace curtainWallStore.add() Loop with addMany() — saves ~500–800ms
+Every curtainWallStore.add() call currently emits a store event even inside a batch envelope, because storeEventBus.batch() only buffers the bus delivery, not the store's internal onItemSet notifiers. At 400 walls that is 400 separate internal notifications.
+Add an addMany(items: CurtainWallData[]) method to your CurtainWall store that pushes all items into the internal Map in one loop and fires a single onItemSet notification at the end. The bus event is still buffered by the outer envelope. Estimated saving: 400–600ms.
+Defer PBR Upgrade to Idle Time — saves ~200–400ms
+Your current post-batch PBR upgrade runs upgradeNewMeshes() chunked at 120 meshes/frame immediately after endBatchYielded() completes. For 1,500 meshes that is ~13 frames of post-render work that blocks the user seeing the result.
+Move it to requestIdleCallback with a timeout: 5000. The meshes look fine without PBR for the first 5 seconds — users are still absorbing the geometry appearing. Estimated saving in perceived load time: 300–500ms (the geometry appears visible sooner even if PBR upgrades are still in flight).5. Instanced Rendering for Panels — saves ~300ms per render frame ongoing
+Your WallInstanceBridge is already wired for walls. The same pattern applied to curtain wall panels (which are all rectangular PlaneGeometry with the same mullion material) would reduce draw calls from ~400 × 6 panels = 2,400 to ~6 (one per panel type). This does not help batch creation time but dramatically improves the frame rate after the batch, making it feel faster. Your InstancedElementRenderer singleton already exists for this.
+Realistic Time Budget After All Fixes
+PhaseBeforeAfterSlab loop (store mutations)6,000ms180msBuilder drain (geometry)800ms spread600ms spread, invisible behind overlayShader compilation1,500ms80ms (pre-warmed)endBatchYielded drain400ms200ms (addMany reduces events)PBR upgrade300ms visibledeferred, invisibleREDETECT_ROOMS (20 levels)320ms spread160ms (frame-yielded, unchanged)Total visible freeze9,000ms~650–850ms
+That lands you within your 1-second target for the 20-slab / 400-wall case on an RTX 3060, with the loading overlay covering the geometry drain frames.

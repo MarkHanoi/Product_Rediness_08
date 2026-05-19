@@ -1,0 +1,9 @@
+{
+  "name": "ai-critique",
+  "p50": 0.000611000000048989,
+  "p95": 0.0023239999999304928,
+  "samples": 5000,
+  "unit": "ms",
+  "nftTarget": 3000,
+  "notes": "NFT-14 headless proxy per 01-VISION.md §5. Measures computeCostUSD() + CostMeter.checkBudget() latency (pure JS cost gate overhead). LLM API network latency and streaming start are measured in the AI-host integration test and apps/editor-bench/ (Wave 13)."
+}

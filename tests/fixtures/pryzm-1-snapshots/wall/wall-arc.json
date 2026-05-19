@@ -1,0 +1,27 @@
+{
+  "id": "wall_01H8XK3J7M9N2P4QR5STVW6ARC",
+  "type": "wall",
+  "parentId": "level_ground",
+  "childrenIds": [],
+  "metadata": {
+    "createdAt": 1700000000000,
+    "modifiedAt": 1700000000000,
+    "createdBy": "fixture",
+    "version": 1
+  },
+  "levelId": "level_ground",
+  "baseLine": [
+    { "x": 0, "y": 0, "z": 0 },
+    { "x": 4, "y": 0, "z": 0 }
+  ],
+  "height": 3.0,
+  "thickness": 0.25,
+  "baseOffset": 0,
+  "openings": [],
+  "geometryKind": "arc",
+  "arcCenter": { "x": 2, "y": 0, "z": -2 },
+  "arcRadius": 2.828,
+  "arcStartAngle": 0.7854,
+  "arcEndAngle": 2.3562,
+  "_fixtureNote": "Arc wall extracted from PRYZM-1 snapshot — quarter-arc segment used by the S07-S09 wall-producer 30-case parity matrix per spec §S01-T7 line 282 (blocker mitigation: THREE distinct walls — straight + curved + arc — from the same fixture project)."
+}

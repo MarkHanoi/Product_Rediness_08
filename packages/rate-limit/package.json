@@ -1,0 +1,20 @@
+{
+  "name": "@pryzm/rate-limit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Token-bucket rate limiter for the PRYZM Public API. Free-tier defaults 60 r/m read + 20 r/m write per ADR-018. S63 D4 deliverable per ADR-0039.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run --reporter=default"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.9"
+  }
+}

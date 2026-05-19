@@ -1,0 +1,41 @@
+{
+  "generatedAt": "2026-05-09T23:09:23.843Z",
+  "cases": [
+    {
+      "name": "small",
+      "file": "small.pryzm",
+      "cold": 7.099099999999908,
+      "warm": {
+        "count": 5,
+        "p50": 1.046886000000086,
+        "p95": 2.2404700000001867
+      },
+      "coldBudgetMs": 80,
+      "coldHeadroomMs": 72.90090000000009
+    },
+    {
+      "name": "medium",
+      "file": "medium.pryzm",
+      "cold": 257.1129249999999,
+      "warm": {
+        "count": 5,
+        "p50": 169.41752300000007,
+        "p95": 287.24299199999996
+      },
+      "coldBudgetMs": 800,
+      "coldHeadroomMs": 542.8870750000001
+    },
+    {
+      "name": "large",
+      "file": "large.pryzm",
+      "cold": 336.070154,
+      "warm": {
+        "count": 5,
+        "p50": 349.76478099999986,
+        "p95": 538.5208160000002
+      },
+      "coldBudgetMs": 1500,
+      "coldHeadroomMs": 1163.929846
+    }
+  ]
+}

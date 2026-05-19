@@ -1,0 +1,34 @@
+Root Cause #3: 16,654ms PSO compile LONGTASK after suppression lifts
+The prewarm runs correctly (5ms, log confirms: PREWARM-DONE prewarmMs=5.1ms). But the prewarm currently uses renderer.render(scene, camera) — which calls the standard renderer, not the full renderPipelineManager pipeline (which includes SSGI, TRAA, outlines). The PSOs compiled by the prewarm are for the base pipeline only.
+The log confirms: 3 PSO variants × 3 pipeline passes pre-compiled via renderPipelineManager.render(0) — but then a 16,654ms LONGTASK still occurs. This means the prewarm's PSOs are not matching the actual production pipeline state at the time of first render.
+Fix: Add a static _shadersPrewarmed = false flag to the command class so the prewarm runs only once per browser session, AND move the prewarm call to before runBatch() is called (so it runs while the overlay is showing, not inside the sync phase where the 5s measurement includes it):
+typescript// In CreateCurtainWallsOnAllSlabsCommand.ts:
+private static _shadersPrewarmed = false;
+
+execute(context): CommandResult {
+    // ...existing code...
+    
+    // Prewarm BEFORE runBatch — runs while overlay is showing
+    if (!isRedo && !CreateCurtainWallsOnAllSlabsCommand._shadersPrewarmed) {
+        this._prewarmCurtainWallShaders();
+        CreateCurtainWallsOnAllSlabsCommand._shadersPrewarmed = true;
+    }
+    
+    // Then runBatch...
+    batchCoordinator.runBatch(_processSlabs, { ... });
+}
+The static flag means second invocations (redo, re-run on same session) skip the prewarm entirely — the PSOs are already in the GPU cache.
+
+Root Cause #4: EdgeProjectorService fires immediately when suppression lifts
+Log shows: 867 edge geometries across 27 ISO layer(s) — this is the plan-view reprojection. It fires synchronously in the same frame as the first render, making the first-render frame even longer.
+Fix in ViewDependencyTracker — when markLevelsDirty() is called from _executeFinalSweep(), delay the actual EdgeProjector trigger by 2 frames:
+typescript// In BatchCoordinator _executeFinalSweep onComplete, change:
+viewDependencyTracker.markLevelsDirty(levelIds);
+
+// To:
+getFrameScheduler().scheduleOnce(
+    'batch-coordinator-edge-project-defer',
+    () => viewDependencyTracker.markLevelsDirty(levelIds),
+    'post-render',  // after the PSO-compile frame, not during it
+);
+This moves the 867-edge reprojection to the frame AFTER PSO compile, making the first visible frame appear faster.

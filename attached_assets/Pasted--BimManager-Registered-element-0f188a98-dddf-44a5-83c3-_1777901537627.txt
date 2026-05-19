@@ -1,0 +1,122 @@
+[BimManager] Registered element 0f188a98-dddf-44a5-83c3-d7b3a138c960 to level L-06-1777901346562-6
+injected.js:37 [BimManager] Registered element fd3839f5-1899-4fc4-aec5-611b487278dc to level L-06-1777901346562-6
+injected.js:37 [BimManager] Registered element 9ce8c938-8542-48e5-b85e-e94b4f1e676f to level L-06-1777901346562-6
+injected.js:37 [BimManager] Registered element bec6bf81-9b01-4362-9029-5f4b3de9dca5 to level L-06-1777901346562-6
+injected.js:37 [BimManager] Registered element 34b08d06-1ade-4612-b52b-d095cf6c9096 to level L-06-1777901346562-6
+injected.js:37 [BimManager] Registered element 0171d5fe-9504-47c1-866a-0c7d0a271510 to level L-07-1777901346568-7
+injected.js:37 [BimManager] Registered element 2b939b09-511d-4f3a-8a98-be7247b68a6c to level L-07-1777901346568-7
+injected.js:37 [BimManager] Registered element 2f4dec88-2d9d-4707-8354-760ca8ca0d02 to level L-07-1777901346568-7
+injected.js:37 [BimManager] Registered element 71245598-e54b-44f3-9db7-cc5cc3c5ab97 to level L-07-1777901346568-7
+injected.js:37 [BimManager] Registered element daa336a2-ad6b-4082-a3fb-686ebbb85ef4 to level L-07-1777901346568-7
+injected.js:37 [BimManager] Registered element cadce73a-bcc1-4bf9-bf26-0a3eb905ffb1 to level L-07-1777901346568-7
+injected.js:37 [BimManager] Registered element f9f16c53-0208-4628-80bf-1994499db652 to level L-07-1777901346568-7
+injected.js:37 [BimManager] Registered element f4d18445-e32b-4cb3-ae23-07be312a1df8 to level L-07-1777901346568-7
+injected.js:37 [BimManager] Registered element 2aed528e-67df-4d70-80b9-f14c1ded2c8b to level L-07-1777901346568-7
+injected.js:37 [BimManager] Registered element dc5c1ccd-90db-4e6e-b42a-5e3463a52227 to level L-07-1777901346568-7
+injected.js:37 [BimManager] Registered element b75f123c-916e-454e-af2e-7ca155ce1b47 to level L-07-1777901346568-7
+injected.js:37 [BimManager] Registered element 0475dd17-31b1-4dae-bbf4-aaba7bf75db3 to level L-07-1777901346568-7
+injected.js:37 [BimManager] Registered element 784a99fb-81e5-406c-8152-13048cab155c to level L-08-1777901346573-8
+injected.js:37 [BimManager] Registered element 28255d3f-b5a1-42f9-8b80-c539ee459f09 to level L-08-1777901346573-8
+injected.js:37 [BimManager] Registered element 3123d245-0ca9-46fe-82ae-7fd59c5e7104 to level L-08-1777901346573-8
+injected.js:37 [BimManager] Registered element 4a9d7df9-48ee-4a49-aa26-550e5ad2f996 to level L-08-1777901346573-8
+injected.js:37 [BimManager] Registered element 00a07ec0-816a-4600-93ed-a22e89e80856 to level L-08-1777901346573-8
+injected.js:37 [BimManager] Registered element 99880c06-b7f7-4b52-b9bd-294eafc3d3cf to level L-08-1777901346573-8
+injected.js:37 [BimManager] Registered element 1c03962d-9558-4dd7-8708-f275a9e4cdbf to level L-08-1777901346573-8
+injected.js:37 [BimManager] Registered element 0ce02a3a-2bc2-4f24-a0de-3666fb96cdc7 to level L-08-1777901346573-8
+injected.js:37 [BimManager] Registered element 58fcdb94-6df7-4612-bc49-c731578b0367 to level L-08-1777901346573-8
+injected.js:37 [BimManager] Registered element 80e00301-20b2-4b42-98f9-28261faf5c15 to level L-08-1777901346573-8
+injected.js:37 [BimManager] Registered element 9e99a9f5-1f61-4df5-af86-e69fc6b10af6 to level L-08-1777901346573-8
+injected.js:37 [BimManager] Registered element f8d4c341-02d4-476f-8685-3b5c6b92a962 to level L-08-1777901346573-8
+injected.js:37 [BimManager] Registered element 7e783a4f-a349-4656-ae48-00ca45227d4e to level L-09-1777901346580-9
+injected.js:37 [BimManager] Registered element 6859b4de-3cd9-4edd-a21c-6a745470a17d to level L-09-1777901346580-9
+injected.js:37 [BimManager] Registered element 5b301c62-07a9-47cb-a9c3-5203b965f4af to level L-09-1777901346580-9
+injected.js:37 [BimManager] Registered element 207f736b-1c60-4812-a85e-02ae531b4335 to level L-09-1777901346580-9
+injected.js:37 [BimManager] Registered element 5eb2eaba-1199-4144-96a0-7104789b580f to level L-09-1777901346580-9
+injected.js:37 [BimManager] Registered element 2a0befd9-df9f-45ae-97ec-eb9e14664a83 to level L-09-1777901346580-9
+injected.js:37 [BimManager] Registered element 32b7e8c7-5803-49b7-acfb-6154b97f42bb to level L-09-1777901346580-9
+injected.js:37 [BimManager] Registered element c20d3730-3048-4e46-a842-9b0534f512d3 to level L-09-1777901346580-9
+injected.js:37 [BimManager] Registered element 677373d4-47ac-42db-94e8-e0e27afab6ea to level L-09-1777901346580-9
+injected.js:37 [BimManager] Registered element c716c4c7-a202-4629-a436-23879aa5679b to level L-09-1777901346580-9
+injected.js:37 [BimManager] Registered element cd9337b3-3fc3-4e80-aef1-3ca9025a0df8 to level L-09-1777901346580-9
+injected.js:37 [BimManager] Registered element 25d09bf0-117a-4ecb-8053-303a22ce777d to level L-09-1777901346580-9
+injected.js:37 [BimManager] Registered element bd7fe4ad-53ad-41d5-a953-3868771fdd2e to level L-10-1777901346585-10
+injected.js:37 [BimManager] Registered element 0b594f50-8b41-4044-9eca-9c8dad58279b to level L-10-1777901346585-10
+injected.js:37 [BimManager] Registered element ab2968aa-ef99-4b7b-b409-54bb3941be0b to level L-10-1777901346585-10
+injected.js:37 [BimManager] Registered element 3277be95-d78a-41e8-8361-30c3a2566e1f to level L-10-1777901346585-10
+injected.js:37 [BimManager] Registered element 62f16ddf-54a2-4093-a0a4-2c60479657b2 to level L-10-1777901346585-10
+injected.js:37 [BimManager] Registered element 666f73c1-3e1c-4f7e-a1fd-9895ebdc88cb to level L-10-1777901346585-10
+injected.js:37 [BimManager] Registered element f414e278-763c-43ca-bbe0-5d261fcd8984 to level L-10-1777901346585-10
+injected.js:37 [BimManager] Registered element 7073d8d6-a689-4430-9b10-173cfc68fd8d to level L-10-1777901346585-10
+injected.js:37 [BimManager] Registered element e53bef94-d4bb-48c2-9a28-127e27e33bd1 to level L-10-1777901346585-10
+injected.js:37 [BimManager] Registered element 19e4ceb8-fd2c-48d9-ab4d-90cb76b25463 to level L-10-1777901346585-10
+injected.js:37 [BimManager] Registered element 62175f07-210b-4253-99f9-b6ca2e992865 to level L-10-1777901346585-10
+injected.js:37 [BimManager] Registered element cf31aac2-a536-44cc-9a7a-7bf582c0b654 to level L-10-1777901346585-10
+injected.js:37 [StoreEventBus] endBatchYielded() — 6072 event(s) will be delivered in 31 chunk(s) of 200 via frame scheduler.
+injected.js:37 [StoreEventBus] endBatchYielded chunk 1/31: 200/6072 events (3.0ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 2/31: 400/6072 events (3.3ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 3/31: 600/6072 events (2.6ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 4/31: 800/6072 events (1.6ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 5/31: 1000/6072 events (1.8ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 6/31: 1200/6072 events (2.5ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 7/31: 1400/6072 events (1.9ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 8/31: 1600/6072 events (1.7ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 9/31: 1800/6072 events (1.8ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 10/31: 2000/6072 events (2.0ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 11/31: 2200/6072 events (2.1ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 12/31: 2400/6072 events (1.6ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 13/31: 2600/6072 events (2.3ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 14/31: 2800/6072 events (1.8ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 15/31: 3000/6072 events (2.3ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 16/31: 3200/6072 events (2.0ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 17/31: 3400/6072 events (2.3ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 18/31: 3600/6072 events (2.4ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 19/31: 3800/6072 events (2.2ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 20/31: 4000/6072 events (2.6ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 21/31: 4200/6072 events (1.8ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 22/31: 4400/6072 events (1.6ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 23/31: 4600/6072 events (2.2ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 24/31: 4800/6072 events (2.3ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 25/31: 5000/6072 events (1.8ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 26/31: 5200/6072 events (2.4ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 27/31: 5400/6072 events (2.0ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 28/31: 5600/6072 events (5.3ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 29/31: 5800/6072 events (1.6ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 30/31: 6000/6072 events (1.4ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded() — all 6072 event(s) delivered across 31 chunk(s) (last: 0.6ms). Calling onComplete().
+injected.js:37 [BatchCoordinator] Final sweep: firing 11 REDETECT_ROOMS command(s) (one per affected level). Observers re-enabled. StoreEventBus flushed (depth now 0).
+injected.js:37 [PascalSceneLighting] Shadow flags set on 244 mesh(es).
+injected.js:37 [BatchCoordinator/P1.3] Post-batch geometry pass: shadow flags + PBR upgrade run once for 490 mesh(es) in scene.
+injected.js:37 [FPS] 30fps
+injected.js:37 [LONGTASK] duration=476.0ms start=152481.5ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=149.0ms start=152957.9ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [FPS] 1fps
+injected.js:37 [LONGTASK] duration=12635.0ms start=153174.3ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [GPU Monitor] geometries:28 textures:9 | drawCalls:14 tris:198
+stallwart.build.js:1 stallwart: failed ping 1
+stallwart.build.js:1 stallwart: failed ping 2
+stallwart.build.js:1 stallwart: failed ping 3
+stallwart.build.js:1 stallwart: failed ping 4
+stallwart.build.js:1 stallwart: failed ping 5
+injected.js:37 [initCollaboration] Socket disconnected: ping timeout
+injected.js:37 [ViewDependencyTracker] flush — 2 dirty view(s): vd-sys-3, vd-sys-p
+injected.js:37 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-3d-1
+injected.js:37 [NativeElementMeshExporter] No levelId — exporting all 156 elements across 11 levels (viewType=3d)
+injected.js:37 [FPS] 1fps
+injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=none elevation=0.000
+injected.js:37 [EdgeProjectorService] project() viewId=vd-sys-3d-1 dir=(0,-1,0) near=1.200 far=3.000
+0f_8qqb~i-af8.js:21 Haven't heard from the server in a while, resetting connection...
+(anonymous) @ 0f_8qqb~i-af8.js:21Understand this warning
+injected.js:37 [EdgeProjectorService] Native projection done — 155 group(s), 9461 edge geometries across 155 ISO layer(s) (per-element UUID tagging active)
+injected.js:37 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-3d-1 gen=12 (OBC-IFC=0, native=155, ifc-scene=0)
+injected.js:37 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-3d-1 modelId=model-default applied=1/14 layers
+injected.js:37 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+injected.js:37 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed out of 1 live room(s).
+injected.js:37 [NativeElementMeshExporter] Plan view — exporting 26 elements from levels overlapping Y=[-1.20, 0.00]
+injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+injected.js:37 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+injected.js:37 [EdgeProjectorService] Native projection done — 25 group(s), 871 edge geometries across 25 ISO layer(s) (per-element UUID tagging active)
+injected.js:37 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=14 (OBC-IFC=0, native=25, ifc-scene=0)
+injected.js:37 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=7/14 layers

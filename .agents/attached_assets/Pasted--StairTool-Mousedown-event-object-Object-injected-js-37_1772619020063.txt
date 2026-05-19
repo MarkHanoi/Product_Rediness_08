@@ -1,0 +1,165 @@
+[StairTool] Mousedown event [object Object]
+injected.js:37 WallTool activated with mode: POLYLINE
+injected.js:37 [StairTool] Mousedown event [object Object]
+injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [WallFragmentBuilder] updateWall for b4b43377-6bc5-43d5-be85-134c3f677ec2: [object Object]
+injected.js:37 [BimManager] Registered element b4b43377-6bc5-43d5-be85-134c3f677ec2 to level L0
+injected.js:37 Wall created via command: b4b43377-6bc5-43d5-be85-134c3f677ec2
+injected.js:37 [StairTool] Mousedown event [object Object]
+injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [WallFragmentBuilder] updateWall for 3c9121ed-0bf4-4042-8045-d6a3b9a011bf: [object Object]
+injected.js:37 [BimManager] Registered element 3c9121ed-0bf4-4042-8045-d6a3b9a011bf to level L0
+injected.js:37 Wall created via command: 3c9121ed-0bf4-4042-8045-d6a3b9a011bf
+injected.js:37 [StairTool] Mousedown event [object Object]
+ [WARDROBE TRACE] INSPECTOR
+injected.js:37 Element From Store: undefined
+injected.js:37 Width Shown In UI: undefined
+injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [WallFragmentBuilder] updateWall for a3376be6-731c-4bab-b027-cd7082cadce7: [object Object]
+injected.js:37 [BimManager] Registered element a3376be6-731c-4bab-b027-cd7082cadce7 to level L0
+injected.js:37 Wall created via command: a3376be6-731c-4bab-b027-cd7082cadce7
+injected.js:37 [StairTool] Mousedown event [object Object]
+ [WARDROBE TRACE] INSPECTOR
+injected.js:37 Element From Store: undefined
+injected.js:37 Width Shown In UI: undefined
+injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [WallFragmentBuilder] updateWall for 714c22df-4b14-4420-9a1a-905ff3847f05: [object Object]
+injected.js:37 [BimManager] Registered element 714c22df-4b14-4420-9a1a-905ff3847f05 to level L0
+injected.js:37 Wall created via command: 714c22df-4b14-4420-9a1a-905ff3847f05
+injected.js:37 Finish / Cancel clicked
+injected.js:37 WallTool deactivated
+injected.js:37 [StairTool] Mousedown event [object Object]
+replit-pill.global.js:1  Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOriginAfterDefaultedToSameOriginByCoepUnderstand this error
+injected.js:37 Initializing Hybrid BIM Configurator...
+injected.js:37 🌍 WORLD EXPOSED TO WINDOW [object Object]
+injected.js:37 [ViewController] Grid state: visible=true, fade=true (3D)
+injected.js:37 [ViewController] Initialized with default 3D state
+injected.js:37 [object Object]
+injected.js:37 RoofTool initialized [object Object]
+injected.js:37 WallStore.addLevel is deprecated and will be removed in Phase 3. Use BimKernel commands instead.
+(anonymous) @ injected.js:37Understand this error
+injected.js:37 BeamFragmentBuilder initialized
+injected.js:37 BeamTool initialized with BeamStore: true
+injected.js:37 Starting centered windows creation...
+injected.js:37 Found 0 walls.
+injected.js:37 Centered windows creation complete.
+injected.js:37 Refreshing Spatial Tree...
+(index):1 Access to image at 'https://ambientcg.com/get?file=Concrete034_2K_NormalGL.jpg' from origin 'https://d52c7ab5-fd29-4ede-8de8-b8914beabe44-00-398y1297cc1wf.spock.replit.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+ambientcg.com/get?file=Concrete034_2K_NormalGL.jpg:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+(index):1 Access to image at 'https://ambientcg.com/get?file=MetalSteelBrushed001_2K_Roughness.jpg' from origin 'https://d52c7ab5-fd29-4ede-8de8-b8914beabe44-00-398y1297cc1wf.spock.replit.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+ambientcg.com/get?file=MetalSteelBrushed001_2K_Roughness.jpg:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+(index):1 Access to image at 'https://ambientcg.com/get?file=Concrete037_2K_Roughness.jpg' from origin 'https://d52c7ab5-fd29-4ede-8de8-b8914beabe44-00-398y1297cc1wf.spock.replit.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+ambientcg.com/get?file=Concrete037_2K_Roughness.jpg:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+(index):1 Access to image at 'https://ambientcg.com/get?file=MetalSteelBrushed001_2K_NormalGL.jpg' from origin 'https://d52c7ab5-fd29-4ede-8de8-b8914beabe44-00-398y1297cc1wf.spock.replit.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+ambientcg.com/get?file=MetalSteelBrushed001_2K_NormalGL.jpg:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+(index):1 Access to image at 'https://ambientcg.com/get?file=Concrete034_2K_Color.jpg' from origin 'https://d52c7ab5-fd29-4ede-8de8-b8914beabe44-00-398y1297cc1wf.spock.replit.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+ambientcg.com/get?file=Concrete034_2K_Color.jpg:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+(index):1 Access to image at 'https://ambientcg.com/get?file=WoodFlooring044_2K_NormalGL.jpg' from origin 'https://d52c7ab5-fd29-4ede-8de8-b8914beabe44-00-398y1297cc1wf.spock.replit.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+ambientcg.com/get?file=WoodFlooring044_2K_NormalGL.jpg:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+(index):1 Access to image at 'https://ambientcg.com/get?file=MetalSteelBrushed001_2K_Color.jpg' from origin 'https://d52c7ab5-fd29-4ede-8de8-b8914beabe44-00-398y1297cc1wf.spock.replit.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+ambientcg.com/get?file=MetalSteelBrushed001_2K_Color.jpg:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+(index):1 Access to image at 'https://ambientcg.com/get?file=Concrete037_2K_NormalGL.jpg' from origin 'https://d52c7ab5-fd29-4ede-8de8-b8914beabe44-00-398y1297cc1wf.spock.replit.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+ambientcg.com/get?file=Concrete037_2K_NormalGL.jpg:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+(index):1 Access to image at 'https://ambientcg.com/get?file=WoodFlooring044_2K_Roughness.jpg' from origin 'https://d52c7ab5-fd29-4ede-8de8-b8914beabe44-00-398y1297cc1wf.spock.replit.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+ambientcg.com/get?file=WoodFlooring044_2K_Roughness.jpg:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+(index):1 Access to image at 'https://ambientcg.com/get?file=WoodFlooring044_2K_Color.jpg' from origin 'https://d52c7ab5-fd29-4ede-8de8-b8914beabe44-00-398y1297cc1wf.spock.replit.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+ambientcg.com/get?file=WoodFlooring044_2K_Color.jpg:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+(index):1 Access to image at 'https://ambientcg.com/get?file=Concrete037_2K_Color.jpg' from origin 'https://d52c7ab5-fd29-4ede-8de8-b8914beabe44-00-398y1297cc1wf.spock.replit.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+ambientcg.com/get?file=Concrete037_2K_Color.jpg:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+(index):1 Access to image at 'https://ambientcg.com/get?file=Concrete034_2K_Roughness.jpg' from origin 'https://d52c7ab5-fd29-4ede-8de8-b8914beabe44-00-398y1297cc1wf.spock.replit.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+ambientcg.com/get?file=Concrete034_2K_Roughness.jpg:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+/public/js/beacon.js:1  Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOriginAfterDefaultedToSameOriginByCoepUnderstand this error
+injected.js:37 [vite] server connection lost. Polling for restart...
+replit-pill.global.js:1  Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOriginAfterDefaultedToSameOriginByCoepUnderstand this error
+injected.js:37 Initializing Hybrid BIM Configurator...
+injected.js:37 🌍 WORLD EXPOSED TO WINDOW SimpleWorld
+injected.js:37 [ViewController] Grid state: visible=true, fade=true (3D)
+injected.js:37 [ViewController] Initialized with default 3D state
+injected.js:37 BimManager
+injected.js:37 RoofTool initialized Object
+injected.js:37 WallStore.addLevel is deprecated and will be removed in Phase 3. Use BimKernel commands instead.
+(anonymous) @ injected.js:37Understand this error
+injected.js:37 BeamFragmentBuilder initialized
+injected.js:37 BeamTool initialized with BeamStore: true
+(index):1 Access to image at 'https://ambientcg.com/get?file=Concrete037_2K_Color.jpg' from origin 'https://d52c7ab5-fd29-4ede-8de8-b8914beabe44-00-398y1297cc1wf.spock.replit.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+ambientcg.com/get?file=Concrete037_2K_Color.jpg:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+(index):1 Access to image at 'https://ambientcg.com/get?file=Concrete037_2K_NormalGL.jpg' from origin 'https://d52c7ab5-fd29-4ede-8de8-b8914beabe44-00-398y1297cc1wf.spock.replit.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+ambientcg.com/get?file=Concrete037_2K_NormalGL.jpg:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+injected.js:37 Refreshing Spatial Tree...
+(index):1 Access to image at 'https://ambientcg.com/get?file=Concrete037_2K_Roughness.jpg' from origin 'https://d52c7ab5-fd29-4ede-8de8-b8914beabe44-00-398y1297cc1wf.spock.replit.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+ambientcg.com/get?file=Concrete037_2K_Roughness.jpg:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+injected.js:37 Starting centered windows creation...
+injected.js:37 Found 0 walls.
+injected.js:37 Centered windows creation complete.
+(index):1 Access to image at 'https://ambientcg.com/get?file=Concrete034_2K_Color.jpg' from origin 'https://d52c7ab5-fd29-4ede-8de8-b8914beabe44-00-398y1297cc1wf.spock.replit.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+ambientcg.com/get?file=Concrete034_2K_Color.jpg:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+(index):1 Access to image at 'https://ambientcg.com/get?file=Concrete034_2K_NormalGL.jpg' from origin 'https://d52c7ab5-fd29-4ede-8de8-b8914beabe44-00-398y1297cc1wf.spock.replit.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+ambientcg.com/get?file=Concrete034_2K_NormalGL.jpg:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+(index):1 Access to image at 'https://ambientcg.com/get?file=Concrete034_2K_Roughness.jpg' from origin 'https://d52c7ab5-fd29-4ede-8de8-b8914beabe44-00-398y1297cc1wf.spock.replit.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+ambientcg.com/get?file=Concrete034_2K_Roughness.jpg:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+(index):1 Access to image at 'https://ambientcg.com/get?file=MetalSteelBrushed001_2K_Color.jpg' from origin 'https://d52c7ab5-fd29-4ede-8de8-b8914beabe44-00-398y1297cc1wf.spock.replit.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+ambientcg.com/get?file=MetalSteelBrushed001_2K_Color.jpg:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+(index):1 Access to image at 'https://ambientcg.com/get?file=MetalSteelBrushed001_2K_NormalGL.jpg' from origin 'https://d52c7ab5-fd29-4ede-8de8-b8914beabe44-00-398y1297cc1wf.spock.replit.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+ambientcg.com/get?file=MetalSteelBrushed001_2K_NormalGL.jpg:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+(index):1 Access to image at 'https://ambientcg.com/get?file=MetalSteelBrushed001_2K_Roughness.jpg' from origin 'https://d52c7ab5-fd29-4ede-8de8-b8914beabe44-00-398y1297cc1wf.spock.replit.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+ambientcg.com/get?file=MetalSteelBrushed001_2K_Roughness.jpg:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+(index):1 Access to image at 'https://ambientcg.com/get?file=WoodFlooring044_2K_NormalGL.jpg' from origin 'https://d52c7ab5-fd29-4ede-8de8-b8914beabe44-00-398y1297cc1wf.spock.replit.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+ambientcg.com/get?file=WoodFlooring044_2K_NormalGL.jpg:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+(index):1 Access to image at 'https://ambientcg.com/get?file=WoodFlooring044_2K_Color.jpg' from origin 'https://d52c7ab5-fd29-4ede-8de8-b8914beabe44-00-398y1297cc1wf.spock.replit.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+ambientcg.com/get?file=WoodFlooring044_2K_Color.jpg:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+(index):1 Access to image at 'https://ambientcg.com/get?file=WoodFlooring044_2K_Roughness.jpg' from origin 'https://d52c7ab5-fd29-4ede-8de8-b8914beabe44-00-398y1297cc1wf.spock.replit.dev' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+ambientcg.com/get?file=WoodFlooring044_2K_Roughness.jpg:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+/public/js/beacon.js:1  Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOriginAfterDefaultedToSameOriginByCoepUnderstand this error
+injected.js:37 WallTool activated with mode: POLYLINE
+injected.js:37 [StairTool] Mousedown event Object
+injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [CommandManager] FATAL ERROR DURING EXECUTION TypeError: wall.baseLine[0].clone is not a function
+    at WallSnapProvider.rebuildIndex (WallSnapProvider.ts:50:41)
+    at WallSnapProvider.ts:37:22
+    at WallStore.ts:537:37
+    at Array.forEach (<anonymous>)
+    at WallStore.emit (WallStore.ts:537:24)
+    at WallStore.add (WallStore.ts:118:14)
+    at CreateWallCommand.execute (CreateWallCommand.ts:74:30)
+    at CommandManager.execute (CommandManager.ts:46:36)
+    at WallTool.createWall (WallTool.ts:858:43)
+    at WallTool.createWallFromPath (WallTool.ts:444:24)
+(anonymous) @ injected.js:37Understand this error
+injected.js:37 [StairTool] Mousedown event Object
+injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [CommandManager] FATAL ERROR DURING EXECUTION TypeError: wall.baseLine[0].clone is not a function
+    at WallSnapProvider.rebuildIndex (WallSnapProvider.ts:50:41)
+    at WallSnapProvider.ts:37:22
+    at WallStore.ts:537:37
+    at Array.forEach (<anonymous>)
+    at WallStore.emit (WallStore.ts:537:24)
+    at WallStore.add (WallStore.ts:118:14)
+    at CreateWallCommand.execute (CreateWallCommand.ts:74:30)
+    at CommandManager.execute (CommandManager.ts:46:36)
+    at WallTool.createWall (WallTool.ts:858:43)
+    at WallTool.createWallFromPath (WallTool.ts:444:24)
+(anonymous) @ injected.js:37Understand this error
+injected.js:37 [StairTool] Mousedown event Object
+injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [CommandManager] FATAL ERROR DURING EXECUTION TypeError: wall.baseLine[0].clone is not a function
+    at WallSnapProvider.rebuildIndex (WallSnapProvider.ts:50:41)
+    at WallSnapProvider.ts:37:22
+    at WallStore.ts:537:37
+    at Array.forEach (<anonymous>)
+    at WallStore.emit (WallStore.ts:537:24)
+    at WallStore.add (WallStore.ts:118:14)
+    at CreateWallCommand.execute (CreateWallCommand.ts:74:30)
+    at CommandManager.execute (CommandManager.ts:46:36)
+    at WallTool.createWall (WallTool.ts:858:43)
+    at WallTool.createWallFromPath (WallTool.ts:444:24)
+(anonymous) @ injected.js:37Understand this error
+injected.js:37 [StairTool] Mousedown event Object
+injected.js:37 Finish / Cancel clicked
+injected.js:37 WallTool deactivated

@@ -1,0 +1,365 @@
+[FPS] 49fps
+VM6 injected.js:37 [LONGTASK] duration=99.0ms start=760822.5ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [GPU Monitor] geometries:63 textures:9 | drawCalls:15 tris:210
+VM6 injected.js:37 [FPS] 11fps
+VM6 injected.js:37 [CommandManager] EXECUTE: CREATE_WALLS_ON_ALL_SLABS
+VM6 injected.js:37 [CommandManager] snapshot commandType="CreateWallsOnAllSlabsCommand" scope=[wall,level] elapsed=0.4ms
+VM6 injected.js:37 [CreateWallsOnAllSlabsCommand] START slabCount=6
+VM6 injected.js:37 [BatchCoordinator] §TRACE _setupBatch — 6 level(s), 72 elements expected. ViewDependencyTracker suppressed. T=+0ms (batch clock started)
+VM6 injected.js:37 [UnifiedFrameLoop] §TRACE §PERF-VIEW-BATCH-SUPPRESS: OBC+PASCAL render suppressed — WebGL shader compilation deferred until batch drain completes. suppressStartT=764780.7ms
+VM6 injected.js:37 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+12VM6 injected.js:37 [CreateWallsFromSlab] Executing CreateWallCommand for level L0 at elevation 0
+VM6 injected.js:37 [CreateWallsOnAllSlabsCommand] slab="beb1a383-0996-43a0-b4b2-12223287b293" walls=12 elapsed=19.6ms
+12VM6 injected.js:37 [CreateWallsFromSlab] Executing CreateWallCommand for level L-01-1777955882747-1 at elevation 3
+VM6 injected.js:37 [CreateWallsOnAllSlabsCommand] slab="49bf0d49-ca72-4fa7-a2ca-74a0946627c2" walls=12 elapsed=17.3ms
+12VM6 injected.js:37 [CreateWallsFromSlab] Executing CreateWallCommand for level L-02-1777955882768-2 at elevation 6
+VM6 injected.js:37 [CreateWallsOnAllSlabsCommand] slab="f70e2509-387a-40b2-adde-494f94c1d90a" walls=12 elapsed=19.5ms
+12VM6 injected.js:37 [CreateWallsFromSlab] Executing CreateWallCommand for level L-03-1777955882777-3 at elevation 9
+VM6 injected.js:37 [CreateWallsOnAllSlabsCommand] slab="18813457-2b11-47bd-a92d-ab149fde1f92" walls=12 elapsed=22.2ms
+12VM6 injected.js:37 [CreateWallsFromSlab] Executing CreateWallCommand for level L-04-1777955882786-4 at elevation 12
+VM6 injected.js:37 [CreateWallsOnAllSlabsCommand] slab="fdf441fa-c34a-4f16-bf74-73129f1150a6" walls=12 elapsed=21.5ms
+12VM6 injected.js:37 [CreateWallsFromSlab] Executing CreateWallCommand for level L-05-1777955882793-5 at elevation 15
+VM6 injected.js:37 [CreateWallsOnAllSlabsCommand] slab="c529dc63-ac58-4e84-9570-1f601d057ae6" walls=12 elapsed=20.0ms
+VM6 injected.js:37 [CreateWallsOnAllSlabsCommand] §A40-W01 registerMany: 6 level group(s) queued for O(L+N) batch registration.
+VM6 injected.js:37 [CreateWallsOnAllSlabsCommand] COMPLETE total=124.8ms walls=72 slabs=6 affectedLevels=6 batched=true
+VM6 injected.js:37 [AIApprovalStore] Audit record appended: ac6dc754-518c-4c6a-aba3-b879a29c1d96 (CREATE_WALLS_ON_ALL_SLABS)
+VM6 injected.js:37 Refreshing Spatial Tree...
+VM6 injected.js:37 [RuleEngine] Model updated, ready for re-validation
+VM6 injected.js:37 [BatchCoordinator] §TRACE DEFERRED-RESUME-FLUSH fired (first rAF after runBatch returned) T=+139.5ms
+VM6 injected.js:37 [WallJoinResolver] §MULTI-CLUSTER cluster: 4 endpoints @ (-22.000, -18.500) [primary=0 t-into=0 pinned=2 sec-pinned=2 trimmed=0]
+VM6 injected.js:37 [WallJoinResolver] §MULTI-CLUSTER cluster: 4 endpoints @ (10.500, -18.500) [primary=2 t-into=2 pinned=0 trimmed=0]
+VM6 injected.js:37 [WallJoinResolver] §MULTI-CLUSTER cluster: 4 endpoints @ (10.500, 3.500) [primary=0 t-into=0 pinned=2 sec-pinned=2 trimmed=0]
+VM6 injected.js:37 [WallJoinResolver] §MULTI-CLUSTER cluster: 4 endpoints @ (19.000, 9.500) [primary=2 t-into=2 pinned=0 trimmed=0]
+VM6 injected.js:37 [WallJoinResolver] §MULTI-CLUSTER cluster: 4 endpoints @ (11.500, 22.000) [primary=2 t-into=2 pinned=0 trimmed=0]
+VM6 injected.js:37 [WallJoinResolver] §MULTI-CLUSTER cluster: 4 endpoints @ (3.500, 17.000) [primary=0 t-into=0 pinned=2 sec-pinned=2 trimmed=0]
+VM6 injected.js:37 [WallJoinResolver] §MULTI-CLUSTER cluster: 4 endpoints @ (11.500, 31.500) [primary=0 t-into=0 pinned=2 sec-pinned=2 trimmed=0]
+VM6 injected.js:37 [WallJoinResolver] §MULTI-CLUSTER cluster: 4 endpoints @ (-16.500, 24.500) [primary=2 t-into=2 pinned=0 trimmed=0]
+VM6 injected.js:37 [WallJoinResolver] §MULTI-CLUSTER cluster: 4 endpoints @ (-14.000, 16.500) [primary=2 t-into=2 pinned=0 trimmed=0]
+VM6 injected.js:37 [WallJoinResolver] §MULTI-CLUSTER cluster: 4 endpoints @ (-33.500, 8.000) [primary=2 t-into=2 pinned=0 trimmed=0]
+VM6 injected.js:37 [WallJoinResolver] §MULTI-CLUSTER cluster: 4 endpoints @ (-22.500, -2.500) [primary=2 t-into=2 pinned=0 trimmed=0]
+VM6 injected.js:37 [WallJoinResolver] §MULTI-CLUSTER cluster: 4 endpoints @ (-39.500, -13.500) [primary=0 t-into=0 pinned=2 sec-pinned=2 trimmed=0]
+VM6 injected.js:37 [BatchCoordinator] §TRACE RESUME-FLUSH-DISPATCHED wallResume+cwResume+slabResume called. CW rAF drain now in-flight. T=+322.1ms
+VM6 injected.js:37 [LONGTASK] duration=140.0ms start=764778.0ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [LONGTASK] duration=187.0ms start=764919.0ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [WallFragmentBuilder] RAF_DRAIN built=3 remaining=69 queueBefore=72 frameMs=3.0ms
+VM6 injected.js:37 [FPS] 31fps
+VM6 injected.js:37 [WallFragmentBuilder] RAF_DRAIN built=3 remaining=66 queueBefore=69 frameMs=1.5ms
+VM6 injected.js:37 [WallFragmentBuilder] RAF_DRAIN built=3 remaining=63 queueBefore=66 frameMs=1.4ms
+VM6 injected.js:37 [WallFragmentBuilder] RAF_DRAIN built=3 remaining=60 queueBefore=63 frameMs=1.3ms
+VM6 injected.js:37 [WallFragmentBuilder] RAF_DRAIN built=3 remaining=57 queueBefore=60 frameMs=0.8ms
+VM6 injected.js:37 [WallFragmentBuilder] RAF_DRAIN built=3 remaining=54 queueBefore=57 frameMs=1.0ms
+VM6 injected.js:37 [WallFragmentBuilder] RAF_DRAIN built=3 remaining=51 queueBefore=54 frameMs=0.9ms
+VM6 injected.js:37 [WallFragmentBuilder] RAF_DRAIN built=3 remaining=48 queueBefore=51 frameMs=0.7ms
+VM6 injected.js:37 [WallFragmentBuilder] RAF_DRAIN built=3 remaining=45 queueBefore=48 frameMs=0.9ms
+VM6 injected.js:37 [WallFragmentBuilder] RAF_DRAIN built=3 remaining=42 queueBefore=45 frameMs=0.8ms
+VM6 injected.js:37 [WallFragmentBuilder] RAF_DRAIN built=3 remaining=39 queueBefore=42 frameMs=1.1ms
+VM6 injected.js:37 [WallFragmentBuilder] RAF_DRAIN built=3 remaining=36 queueBefore=39 frameMs=1.0ms
+VM6 injected.js:37 [WallFragmentBuilder] RAF_DRAIN built=3 remaining=33 queueBefore=36 frameMs=0.9ms
+VM6 injected.js:37 [WallFragmentBuilder] RAF_DRAIN built=3 remaining=30 queueBefore=33 frameMs=0.8ms
+VM6 injected.js:37 [WallFragmentBuilder] RAF_DRAIN built=3 remaining=27 queueBefore=30 frameMs=0.9ms
+VM6 injected.js:37 [WallFragmentBuilder] RAF_DRAIN built=3 remaining=24 queueBefore=27 frameMs=1.0ms
+VM6 injected.js:37 [WallFragmentBuilder] RAF_DRAIN built=3 remaining=21 queueBefore=24 frameMs=0.8ms
+VM6 injected.js:37 [WallFragmentBuilder] RAF_DRAIN built=3 remaining=18 queueBefore=21 frameMs=0.9ms
+VM6 injected.js:37 [WallFragmentBuilder] RAF_DRAIN built=3 remaining=15 queueBefore=18 frameMs=0.9ms
+VM6 injected.js:37 [WallFragmentBuilder] RAF_DRAIN built=3 remaining=12 queueBefore=15 frameMs=0.9ms
+VM6 injected.js:37 [WallFragmentBuilder] RAF_DRAIN built=3 remaining=9 queueBefore=12 frameMs=1.2ms
+VM6 injected.js:37 [WallFragmentBuilder] RAF_DRAIN built=3 remaining=6 queueBefore=9 frameMs=0.7ms
+VM6 injected.js:37 [WallFragmentBuilder] RAF_DRAIN built=3 remaining=3 queueBefore=6 frameMs=1.0ms
+VM6 injected.js:37 [WallFragmentBuilder] RAF_DRAIN built=3 remaining=0 queueBefore=3 frameMs=0.6ms
+VM6 injected.js:37 [WallFragmentBuilder] rAF queue drained — signalling BatchCoordinator.
+VM6 injected.js:37 [BatchCoordinator] §TRACE BUILD-QUEUE-DRAINED regQueue=6 / totalExpected=72 T=+690.7ms (all geometry in scene; registration drain starting)
+VM6 injected.js:37 [BatchCoordinator] §TRACE §REG-MANY-P2 queue ≤ 50 (6) — draining synchronously (0 rAF frames) T=+690.9ms
+VM6 injected.js:37 [BimManager] §REG-MANY-P0: registered 12 element(s) to level "L0".
+VM6 injected.js:37 [BimManager] §REG-MANY-P0: registered 12 element(s) to level "L-01-1777955882747-1".
+VM6 injected.js:37 [BimManager] §REG-MANY-P0: registered 12 element(s) to level "L-02-1777955882768-2".
+VM6 injected.js:37 [BimManager] §REG-MANY-P0: registered 12 element(s) to level "L-03-1777955882777-3".
+VM6 injected.js:37 [BimManager] §REG-MANY-P0: registered 12 element(s) to level "L-04-1777955882786-4".
+VM6 injected.js:37 [BimManager] §REG-MANY-P0: registered 12 element(s) to level "L-05-1777955882793-5".
+VM6 injected.js:37 [BatchCoordinator] §TRACE REGISTRATION-DRAIN-DONE 6 registration(s) complete T=+693.1ms
+VM6 injected.js:37 [BatchCoordinator] §TRACE SHADOW-REACTIVATION-START T=+693.3ms
+VM6 injected.js:37 [BatchCoordinator] §TRACE SHADOW-REACTIVATION-DISPATCHED (sliced across post-render frames) callMs=0.1ms T=+693.4ms
+VM6 injected.js:37 [BatchCoordinator] §TRACE FINAL-SWEEP-START levels=6 skipRedetect=false T=+693.6ms (opening yielded event drain)
+VM6 injected.js:37 [StoreEventBus] endBatchYielded() — 156 event(s) will be delivered in 1 chunk(s) of 200 via frame scheduler.
+VM6 injected.js:37 [StoreEventBus] endBatchYielded() — all 156 event(s) delivered across 1 chunk(s) (last: 11.2ms). Calling onComplete().
+VM6 injected.js:37 [BatchCoordinator] §TRACE ON-COMPLETE-START (all yielded events delivered) T=+718.3ms
+VM6 injected.js:37 [BatchCoordinator] §TRACE §PERF-VIEW-BATCH-SUPPRESS suppression lifted; markLevelsDirty(6 level(s)) scheduled. T=+718.6ms (next render will compile all deferred CW shaders — LONGTASK expected)
+VM6 injected.js:37 [BatchCoordinator] §TRACE ON-BATCH-END-START T=+718.9ms
+VM6 injected.js:37 [UnifiedFrameLoop] §TRACE §PERF-RENDER-BEFORE-UNSUPPRESS: renderPipelineManager.render(0) fired before suppression lifted — PSO cache warm.
+VM6 injected.js:37 [UnifiedFrameLoop] §TRACE §PERF-VIEW-BATCH-SUPPRESS suppression lifted after 3296.1ms — OBC+PASCAL resuming on next tick; PSO cache pre-warmed by compile() above.
+VM6 injected.js:37 [BatchCoordinator] §TRACE ON-BATCH-END-DONE (overlay dismissed, suppress lifted on UnifiedFrameLoop) T=+3297.3ms
+VM6 injected.js:37 [BatchCoordinator] §TRACE ON-POST-BATCH-START (PBR upgrade + requestIdleCallback pending) T=+3297.7ms
+VM6 injected.js:37 [BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-RUNNING (skipPbrUpgrade=false at post-batch callback time — running upgrade)
+VM6 injected.js:37 [BatchCoordinator] §TRACE ON-POST-BATCH-DISPATCHED (PBR upgrade queued to requestIdleCallback) T=+3298.3ms
+VM6 injected.js:37 [BatchCoordinator] Final sweep: firing 6 REDETECT_ROOMS command(s) (one per affected level). Observers re-enabled. StoreEventBus flushed (depth now 0).
+VM6 injected.js:37 [FPS] 24fps
+VM6 injected.js:37 [LONGTASK] duration=2595.0ms start=765486.3ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [ProjectSerializer] Snapshot created: 91 elements, 6 levels, 84 walls, 6 slabs, 0 furniture
+VM6 injected.js:37 [ProjectSerializer] Snapshot created: 91 elements, 6 levels, 84 walls, 6 slabs, 0 furniture
+VM6 injected.js:37 [PlatformSaveController] Version saved: "Auto-save" (91 elements, id: proj-1777955893237-vjfep)
+VM6 injected.js:37 [UnifiedFrameLoop] §TRACE FIRST-RENDER-POST-SUPPRESS totalSuppressedMs=3429.1ms frameCount=1730 — OBC+PASCAL about to execute (WebGPU PSO compile LONGTASK begins here)
+stallwart.build.js:1 stallwart: failed ping 1
+stallwart.build.js:1 stallwart: failed ping 2
+stallwart.build.js:1 stallwart: failed ping 3
+stallwart.build.js:1 stallwart: failed ping 4
+stallwart.build.js:1 stallwart: failed ping 5
+0iwq7v9jgvn-2.js:21 Haven't heard from the server in a while, resetting connection...
+(anonymous) @ 0iwq7v9jgvn-2.js:21
+(anonymous) @ 05gaw1_zp81e9.js:518
+r @ 0iwq7v9jgvn-2.js:21
+VM6 injected.js:37 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+VM6 injected.js:37 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+VM6 injected.js:37 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed out of 1 live room(s).
+VM6 injected.js:37 [NativeElementMeshExporter] Plan view — exporting 27 elements from levels overlapping Y=[-1.20, 0.00]
+VM6 injected.js:37 [FPS] 1fps
+VM6 injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+VM6 injected.js:37 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+VM6 injected.js:37 [EdgeProjectorService] Native projection done — 26 group(s), 34 edge geometries across 26 ISO layer(s) (per-element UUID tagging active)
+VM6 injected.js:37 [DoorPlanSymbolBuilder] Injected 1 door swing arc(s) into view vd-sys-plan-l0 (level L0)
+VM6 injected.js:37 [HiddenLineRemoval] v1 pass — 1 occluder(s), 0/420 segments removed
+VM6 injected.js:37 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=22 (OBC-IFC=0, native=26, ifc-scene=0)
+VM6 injected.js:37 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=13/14 layers
+VM6 injected.js:37 [LONGTASK] duration=121.0ms start=768087.2ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [LONGTASK] duration=11480.0ms start=768209.5ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [GPU Monitor] geometries:39 textures:9 | drawCalls:15 tris:210
+VM6 injected.js:37 [BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-IDLE-START idleCallbackT=779754.0ms (requestIdleCallback fired — scheduling post-render traversal)
+VM6 injected.js:37 [BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-TRAVERSE-DONE totalMeshes=245 chunks=3 traverseMs=0.3ms
+VM6 injected.js:37 [BatchCoordinator/P1.3] §TRACE PBR-CHUNK-1 meshes=120 remaining=125 chunkMs=0.1ms
+VM6 injected.js:37 [BatchCoordinator/P1.3] §TRACE PBR-CHUNK-2 meshes=120 remaining=5 chunkMs=0.3ms
+VM6 injected.js:37 [LONGTASK] duration=77.0ms start=779755.8ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [LONGTASK] duration=97.0ms start=779834.7ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-COMPLETE 245 mesh(es) in 3 chunk(s) totalPbrMs=2826.4ms (§FIX-POST-BATCH-PBR-CHUNK)
+VM6 injected.js:37 [FPS] 4fps
+VM6 injected.js:37 [PickResolver] strategy=gpu-pick hit=6e9e8fee-a5fe-45ef-8b45-bc2ffea31a1c
+VM6 injected.js:37 [LevelPlaneConstraint] Locked Y=0.0000 for element "wall" id="6e9e8fee-a5fe-45ef-8b45-bc2ffea31a1c"
+VM6 injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+VM6 injected.js:37 [WallTransform] Wall "6e9e8fee-a5fe-45ef-8b45-bc2ffea31a1c" — gizmo aligned with direction Vector3 {x: 0.8169678632647616, y: 0, z: 0.5766831975986553}
+VM6 injected.js:37 [LONGTASK] duration=129.0ms start=782714.4ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [GPU Monitor] geometries:218 textures:9 | drawCalls:92 tris:1294
+VM6 injected.js:37 [GPU Monitor] ⚠ Geometry count grew 459.0% (39 → 218) in 10s — possible leak. Check WallFragmentBuilder.removeWallFragments() and CurtainWallBuilder._disposeChildren().
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM924 initScene.ts:1151
+VM6 injected.js:37 [LONGTASK] duration=79.0ms start=782987.6ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [FPS] 19fps
+VM6 injected.js:37 [FPS] 28fps
+VM6 injected.js:37 [LONGTASK] duration=50.0ms start=785500.0ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [FPS] 27fps
+VM6 injected.js:37 [PickResolver] strategy=gpu-pick hit=beb1a383-0996-43a0-b4b2-12223287b293
+VM6 injected.js:37 [LevelPlaneConstraint] Locked Y=-0.2000 for element "Slab" id="beb1a383-0996-43a0-b4b2-12223287b293"
+VM6 injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+VM6 injected.js:37 [LONGTASK] duration=61.0ms start=786374.1ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [FPS] 20fps
+VM6 injected.js:37 [LONGTASK] duration=60.0ms start=787197.1ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+VM6 injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+VM6 injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+VM6 injected.js:37 [LONGTASK] duration=55.0ms start=787560.9ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [FPS] 22fps
+VM6 injected.js:37 [FPS] 30fps
+VM6 injected.js:37 [FPS] 31fps
+VM6 injected.js:37 [LONGTASK] duration=150.0ms start=790433.4ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [LONGTASK] duration=53.0ms start=790586.1ms
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [FPS] 22fps
+VM6 injected.js:37 [LONGTASK] duration=134.0ms start=790733.0ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [GPU Monitor] geometries:218 textures:9 | drawCalls:92 tris:1294
+VM6 injected.js:37 [DataCommandCenter] Hidden
+VM6 injected.js:37 [AuditStack] Attribute dropdown rebuilt for "rooms" → active key: "area"
+VM6 injected.js:37 [AuditStack] Element dropdown rebuilt — types: [rooms, walls, doors, slabs]
+VM6 injected.js:37 [DiagnosticMaterialManager] Discovery rooms updated: 1
+VM6 injected.js:37 [InspectModeCoordinator] Discovery event acknowledged (no re-apply needed)
+VM6 injected.js:37 [DiagnosticMaterialManager] Discovery rooms updated: 1
+VM6 injected.js:37 [InspectModeCoordinator] Discovery event acknowledged (no re-apply needed)
+VM6 injected.js:37 [DataWorkbench] Bucket → audit / Tab → hierarchy
+VM6 injected.js:37 [LevelExplodeController] Built 6 level groups (92 roots total)
+VM6 injected.js:37 [LevelExplodeController] Activated — 6 level groups
+VM6 injected.js:37 [InspectModeCoordinator] Entered inspect — lens: ghost
+VM6 injected.js:37 [WorkspaceController] Mode → inspect
+VM6 injected.js:37 [DiagnosticMaterialManager] Lens applied: ghost
+VM6 injected.js:37 [FPS] 9fps
+VM6 injected.js:37 [LONGTASK] duration=73.0ms start=798362.4ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [LONGTASK] duration=53.0ms start=798435.8ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [FPS] 1fps
+VM6 injected.js:37 [DataCommandCenter] Hidden
+VM6 injected.js:37 [DiagnosticMaterialManager] Restored — all materials reset
+VM6 injected.js:37 [InspectModeCoordinator] Left inspect — materials restored
+VM6 injected.js:37 [LevelExplodeController] Deactivated — positions and visibility restored
+VM6 injected.js:37 [WorkspaceController] Mode → author
+VM6 injected.js:37 [PickResolver] strategy=gpu-pick hit=wall-slab-cmd-walls-from-slab-1777955890027-wst7gyws9-6
+VM6 injected.js:37 [LevelPlaneConstraint] Locked Y=15.0000 for element "wall" id="wall-slab-cmd-walls-from-slab-1777955890027-wst7gyws9-6"
+VM6 injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+VM6 injected.js:37 [WallTransform] Wall "wall-slab-cmd-walls-from-slab-1777955890027-wst7gyws9-6" — gizmo aligned with direction Vector3 {x: -0.9701425001453319, y: 0, z: -0.24253562503633297}
+VM6 injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+VM6 injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+VM6 injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+VM6 injected.js:37 [PickResolver] strategy=gpu-pick hit=beb1a383-0996-43a0-b4b2-12223287b293
+VM6 injected.js:37 [LevelPlaneConstraint] Locked Y=-0.2000 for element "Slab" id="beb1a383-0996-43a0-b4b2-12223287b293"
+VM6 injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+VM6 injected.js:37 [FPS] 1fps
+VM6 injected.js:37 [LONGTASK] duration=9372.0ms start=798529.4ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [LONGTASK] duration=4204.0ms start=807902.3ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [LONGTASK] duration=268.0ms start=812107.3ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [GPU Monitor] geometries:221 textures:9 | drawCalls:187 tris:2522
+VM6 injected.js:37 [LONGTASK] duration=62.0ms start=812509.1ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [LONGTASK] duration=95.0ms start=812581.9ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+VM6 injected.js:37 [LONGTASK] duration=51.0ms start=812697.8ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [LONGTASK] duration=61.0ms start=812805.7ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [LONGTASK] duration=59.0ms start=813035.5ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [LONGTASK] duration=82.0ms start=813097.7ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [LONGTASK] duration=51.0ms start=813181.1ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [FPS] 14fps
+VM6 injected.js:37 [LONGTASK] duration=59.0ms start=813317.9ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [LONGTASK] duration=51.0ms start=813916.4ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [LONGTASK] duration=56.0ms start=813971.0ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [CommandManager] EXECUTE: CREATE_VIEW_TEMPLATE
+VM6 injected.js:37 [CommandManager] snapshot commandType="CreateViewTemplateCommand" scope=[view] elapsed=0.0ms
+VM6 injected.js:37 [CreateViewTemplateCommand] Created template "3D View" (1b6ccbdd-c678-45dc-89a9-24bb16de0a7d)
+VM6 injected.js:37 [CommandManager] EXECUTE: CREATE_VIEW_TEMPLATE
+VM6 injected.js:37 [CommandManager] snapshot commandType="CreateViewTemplateCommand" scope=[view] elapsed=0.0ms
+VM6 injected.js:37 [CreateViewTemplateCommand] Created template "Floor Plan" (cc021fd3-3632-4b24-954a-17e1a8bf0393)
+VM6 injected.js:37 [CommandManager] EXECUTE: CREATE_VIEW_TEMPLATE
+VM6 injected.js:37 [CommandManager] snapshot commandType="CreateViewTemplateCommand" scope=[view] elapsed=0.0ms
+VM6 injected.js:37 [CreateViewTemplateCommand] Created template "Section" (75e7f7b5-d3a1-490a-86ed-7e578bd7daf5)
+VM6 injected.js:37 [CommandManager] EXECUTE: CREATE_VIEW_TEMPLATE
+VM6 injected.js:37 [CommandManager] snapshot commandType="CreateViewTemplateCommand" scope=[view] elapsed=0.0ms
+VM6 injected.js:37 [CreateViewTemplateCommand] Created template "Elevation" (a21f9bc5-b0dc-42f0-9830-005edf7484fa)
+VM6 injected.js:37 [CommandManager] EXECUTE: CREATE_VIEW_TEMPLATE
+VM6 injected.js:37 [CommandManager] snapshot commandType="CreateViewTemplateCommand" scope=[view] elapsed=0.0ms
+VM6 injected.js:37 [CreateViewTemplateCommand] Created template "Ceiling Plan" (ee8719c1-23e9-41e7-a08e-86e4b85b3a66)
+VM6 injected.js:37 [CommandManager] EXECUTE: CREATE_VIEW_TEMPLATE
+VM6 injected.js:37 [CommandManager] snapshot commandType="CreateViewTemplateCommand" scope=[view] elapsed=0.0ms
+VM6 injected.js:37 [CreateViewTemplateCommand] Created template "Structural" (76e64707-717e-4b61-a260-68ea0966d488)
+VM6 injected.js:37 [CommandManager] EXECUTE: CREATE_VIEW_TEMPLATE
+VM6 injected.js:37 [CommandManager] snapshot commandType="CreateViewTemplateCommand" scope=[view] elapsed=0.0ms
+VM6 injected.js:37 [CreateViewTemplateCommand] Created template "Detail" (4e827f8c-665a-4fd3-8342-1f21cee10a32)
+VM6 injected.js:37 [CommandManager] EXECUTE: CREATE_VIEW_TEMPLATE
+VM6 injected.js:37 [CommandManager] snapshot commandType="CreateViewTemplateCommand" scope=[view] elapsed=0.0ms
+VM6 injected.js:37 [CreateViewTemplateCommand] Created template "Drafting" (d9f6c5d5-d463-4a37-b09f-0673bf62d25e)
+VM6 injected.js:37 [CommandManager] EXECUTE: CREATE_VIEW_TEMPLATE
+VM6 injected.js:37 [CommandManager] snapshot commandType="CreateViewTemplateCommand" scope=[view] elapsed=0.1ms
+VM6 injected.js:37 [CreateViewTemplateCommand] Created template "Legend" (3ce5e9bd-6d70-4ef0-ac5b-2857ff8299c3)
+VM6 injected.js:37 [CommandManager] EXECUTE: CREATE_VIEW_TEMPLATE
+VM6 injected.js:37 [CommandManager] snapshot commandType="CreateViewTemplateCommand" scope=[view] elapsed=0.0ms
+VM6 injected.js:37 [CreateViewTemplateCommand] Created template "Render" (6e2e344f-7b09-4dae-a770-85cde178748c)
+VM6 injected.js:37 [CommandManager] EXECUTE: CREATE_VIEW_TEMPLATE
+VM6 injected.js:37 [CommandManager] snapshot commandType="CreateViewTemplateCommand" scope=[view] elapsed=0.0ms
+VM6 injected.js:37 [CreateViewTemplateCommand] Created template "Walkthrough" (8df62b6a-2c70-4f06-ab27-98933d6a2948)
+VM6 injected.js:37 [CommandManager] EXECUTE: CREATE_VIEW_TEMPLATE
+VM6 injected.js:37 [CommandManager] snapshot commandType="CreateViewTemplateCommand" scope=[view] elapsed=0.0ms
+VM6 injected.js:37 [CreateViewTemplateCommand] Created template "Analysis View" (0e8bc638-1adb-45d8-9614-e16e34751cd3)
+VM6 injected.js:37 [FPS] 17fps
+VM6 injected.js:37 [LONGTASK] duration=62.0ms start=815029.2ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [PickResolver] strategy=gpu-pick hit=8471ed25-52aa-4971-9bc5-83532066e4e2
+VM6 injected.js:37 [LevelPlaneConstraint] Locked Y=0.0000 for element "wall" id="8471ed25-52aa-4971-9bc5-83532066e4e2"
+VM6 injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+VM6 injected.js:37 [WallTransform] Wall "8471ed25-52aa-4971-9bc5-83532066e4e2" — gizmo aligned with direction Vector3 {x: 0, y: 0, z: 1}
+VM6 injected.js:37 [FPS] 28fps
+VM6 injected.js:37 [LONGTASK] duration=59.0ms start=816048.1ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [FPS] 26fps
+VM6 injected.js:37 [PickResolver] strategy=gpu-pick hit=8471ed25-52aa-4971-9bc5-83532066e4e2
+VM6 injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+VM6 injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+VM6 injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+VM6 injected.js:37 [FPS] 29fps
+VM6 injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+VM6 injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+VM6 injected.js:37 [FPS] 22fps
+VM6 injected.js:37 [CommandManager] UNDO: CREATE_VIEW_TEMPLATE (history remaining: 30)
+VM6 injected.js:37 [CreateViewTemplateCommand.undo] Deleted template "0e8bc638-1adb-45d8-9614-e16e34751cd3"
+VM6 injected.js:37 [CommandManager] UNDO result: success=true 
+VM6 injected.js:37 [CommandManager] UNDO: CREATE_VIEW_TEMPLATE (history remaining: 29)
+VM6 injected.js:37 [CreateViewTemplateCommand.undo] Deleted template "8df62b6a-2c70-4f06-ab27-98933d6a2948"
+VM6 injected.js:37 [CommandManager] UNDO result: success=true 
+VM6 injected.js:37 [GPU Monitor] geometries:225 textures:9 | drawCalls:92 tris:1294
+VM6 injected.js:37 [CommandManager] UNDO: CREATE_VIEW_TEMPLATE (history remaining: 28)
+VM6 injected.js:37 [CreateViewTemplateCommand.undo] Deleted template "6e2e344f-7b09-4dae-a770-85cde178748c"
+VM6 injected.js:37 [CommandManager] UNDO result: success=true 
+VM6 injected.js:37 [CommandManager] UNDO: CREATE_VIEW_TEMPLATE (history remaining: 27)
+VM6 injected.js:37 [CreateViewTemplateCommand.undo] Deleted template "3ce5e9bd-6d70-4ef0-ac5b-2857ff8299c3"
+VM6 injected.js:37 [CommandManager] UNDO result: success=true 
+VM6 injected.js:37 [CommandManager] UNDO: CREATE_VIEW_TEMPLATE (history remaining: 26)
+VM6 injected.js:37 [CreateViewTemplateCommand.undo] Deleted template "d9f6c5d5-d463-4a37-b09f-0673bf62d25e"
+VM6 injected.js:37 [CommandManager] UNDO result: success=true 
+VM6 injected.js:37 [FPS] 30fps
+VM6 injected.js:37 [PickResolver] strategy=gpu-pick hit=8471ed25-52aa-4971-9bc5-83532066e4e2
+VM6 injected.js:37 [LevelPlaneConstraint] Locked Y=0.0000 for element "wall" id="8471ed25-52aa-4971-9bc5-83532066e4e2"
+VM6 injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+VM6 injected.js:37 [WallTransform] Wall "8471ed25-52aa-4971-9bc5-83532066e4e2" — gizmo aligned with direction Vector3 {x: 0, y: 0, z: 1}
+VM6 injected.js:37 [FPS] 25fps
+VM6 injected.js:37 [CommandManager] UNDO: CREATE_VIEW_TEMPLATE (history remaining: 25)
+VM6 injected.js:37 [CreateViewTemplateCommand.undo] Deleted template "4e827f8c-665a-4fd3-8342-1f21cee10a32"
+VM6 injected.js:37 [CommandManager] UNDO result: success=true 
+VM6 injected.js:37 [CommandManager] UNDO: CREATE_VIEW_TEMPLATE (history remaining: 24)
+VM6 injected.js:37 [CreateViewTemplateCommand.undo] Deleted template "76e64707-717e-4b61-a260-68ea0966d488"
+VM6 injected.js:37 [CommandManager] UNDO result: success=true 
+VM6 injected.js:37 [CommandManager] UNDO: CREATE_VIEW_TEMPLATE (history remaining: 23)
+VM6 injected.js:37 [CreateViewTemplateCommand.undo] Deleted template "ee8719c1-23e9-41e7-a08e-86e4b85b3a66"
+VM6 injected.js:37 [CommandManager] UNDO result: success=true 
+VM6 injected.js:37 [CommandManager] UNDO: CREATE_VIEW_TEMPLATE (history remaining: 22)

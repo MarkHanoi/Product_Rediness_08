@@ -1,0 +1,47 @@
+{
+  "id": "open-1window",
+  "description": "open-1window",
+  "wall": {
+    "id": "wall:01HZS00000000000000OPEN1WI",
+    "type": "wall",
+    "childrenIds": [
+      "window:01HZS00000000000000W120000"
+    ],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "baseLine": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 4,
+        "y": 0,
+        "z": 0
+      }
+    ],
+    "height": 2.5,
+    "thickness": 0.2,
+    "baseOffset": 0,
+    "openings": [
+      {
+        "id": "op-w1",
+        "type": "window",
+        "windowType": "single",
+        "offset": 2,
+        "width": 1.2,
+        "height": 1,
+        "sillHeight": 1,
+        "elementId": "window:01HZS00000000000000W120000"
+      }
+    ]
+  },
+  "joinData": {},
+  "worldY": 0
+}

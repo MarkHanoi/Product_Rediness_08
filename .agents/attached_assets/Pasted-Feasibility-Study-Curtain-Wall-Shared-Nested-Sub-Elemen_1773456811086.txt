@@ -1,0 +1,46 @@
+Feasibility Study: Curtain Wall "Shared Nested" Sub-Element Selection
+
+What already exists (90% infrastructure is in place)
+
+| **Component** | **Status** | **Notes** |
+| --- | --- | --- |
+| `CurtainPanelData` semantic type | ✅ Done | Full `CoreElement` in `CurtainPanelStore` |
+| Individual panel `userData.elementId` | ✅ Done | `CurtainPanelBuilder` stamps it |
+| Instanced panel `userData.instancePanelIds[]` | ✅ Done | `CurtainWallInstanceManager` stamps it |
+| Mullion meshes | ⚠️ Partial | `role: 'mullion'` but no stable `id` field |
+| `SelectionManager.PARENT_RESOLVED_ROLES` | ℹ️ Key gap | Includes `'panel'` and `'mullion'` — both currently resolve to parent group |
+| `PropertyPanel` curtain-panel schema | ❌ Missing | No descriptor or view branch |
+
+What the gaps are
+
+1. **Panels** — Infrastructure is 95% complete. The SelectionManager resolves all panel/mullion hits to the parent curtain wall group, losing the sub-element identity. We need a parallel sub-element tracking mechanism.
+2. **Mullions** — Need a stable `id` stamped on each mullion mesh (derived from `${cwId}-mullion-${axis}-${lineId}`) so they are individually addressable.
+3. **Property Panel** — Needs a branch for `curtain-panel` and `curtain-mullion` element types.
+
+Contract compliance verdict — **FEASIBLE, classification A**
+
+- §01: All mutations use existing commands (`ReplacePanelTypeCommand`). No new store writes needed.
+- §02: Mullion positions are computed from parent builder — no spatial contract violation.
+- §03: No relationships stored inside elements (SemanticGraph approach).
+- §04: Full Phase 1 classification A — all changes additive.
+- §05: Uses `cw-` prefix already established.
+
+Architecture approach — window-level sub-element cache (no SelectionManager logic broken)
+
+The cleanest contract-compliant solution: in `SelectionManager.performSelection()`, **after** resolving to the parent group (unchanged), also detect the raw hit sub-element (panel ID or mullion ID) and store it in `window.__curtainSubElement`. The `PropertyPanel.showElement()` reads and consumes this to decide: show parent CW properties or sub-element properties.
+
+---
+
+MODIFICATION DECLARATION
+
+**Panel Affected:** Property Panel (new curtain sub-element view), SelectionManager (read-only sub-element cache)
+
+**Phase:** Phase 1 (Current)
+
+**CSS Scope:** AppTheme.ts — existing `cw-` prefix
+
+**Files Modified:** `SelectionManager.ts`, `CurtainWallBuilder.ts`, `CurtainPanelBuilder.ts`, `PropertyPanel.ts`, `PropertyDescriptorGenerator.ts` + new `CurtainSubElementPanel.ts`
+
+**Impact Assessment:** Logic: No existing handlers changed. Store: No. BUI: No. Display-toggle: No. z-index: No.
+
+**Risk Level:** Low — additive only. Existing selection of all other elements is completely unchanged.

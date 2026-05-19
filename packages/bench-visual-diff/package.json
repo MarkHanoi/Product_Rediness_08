@@ -1,0 +1,20 @@
+{
+  "name": "@pryzm/bench-visual-diff",
+  "version": "0.1.0",
+  "description": "PRYZM 2 — visual-diff harness wrapper. capture + diff subcommands using the existing apps/bench/scripts/visual-diff.mjs gate. Z.7 of PRYZM2-WIREUP-PLAN-S72 §26.1.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.mjs",
+  "bin": {
+    "pryzm-visual-diff": "./src/index.mjs"
+  },
+  "scripts": {
+    "diff": "node ./src/index.mjs diff",
+    "capture": "node ./src/index.mjs capture",
+    "smoke": "node ./src/index.mjs --no-fixtures"
+  },
+  "dependencies": {
+    "pixelmatch": "^7.1.0",
+    "pngjs": "^7.0.0"
+  }
+}

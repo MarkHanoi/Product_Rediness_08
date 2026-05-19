@@ -1,0 +1,19 @@
+{
+  "id": "furniture_01H8XK3J7M9N2P4QR5STVW6XYZ",
+  "type": "furniture",
+  "parentId": "room_01H8XK3J7M9N2P4QR5STVW6XYZ",
+  "childrenIds": [],
+  "metadata": {
+    "createdAt": 1700001000000,
+    "modifiedAt": 1700001000000,
+    "createdBy": "fixture",
+    "version": 1
+  },
+  "levelId": "level_ground",
+  "catalogId": "ikea/sofa-malm-3s",
+  "origin": { "x": 1.5, "y": 0, "z": 2.5 },
+  "rotation": 0,
+  "scale": 1,
+  "size": { "x": 2.1, "y": 0.85, "z": 0.9 },
+  "materialId": "fabric-grey"
+}

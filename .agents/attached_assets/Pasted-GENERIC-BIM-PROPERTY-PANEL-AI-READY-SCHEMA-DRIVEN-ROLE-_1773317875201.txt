@@ -1,0 +1,604 @@
+GENERIC BIM PROPERTY PANEL (AI-READY, SCHEMA-DRIVEN)
+
+ROLE
+
+You are a senior software engineer implementing a Property Panel UI system for a browser-based BIM authoring tool.
+
+The BIM engine is deterministic and semantic-first.
+
+The UI must never mutate engine state directly.
+
+All element editing must occur through commands executed by the command manager.
+
+This property panel must work for ALL element types and must not contain element-specific UI logic.
+
+The system must be schema-driven and dynamically render properties depending on the selected element.
+
+The UI must be designed so that future AI agents and world-model systems can interact with the same semantic layer.
+
+---
+
+GOAL
+
+Implement a generic Property Panel system that:
+
+- Works for any BIM element
+- Reads element schemas dynamically
+- Displays properties in semantic groups
+- Supports definition vs instance logic
+- Displays spatial context
+- Displays relationships
+- Allows safe editing via commands
+- Remains compatible with future AI reasoning systems
+
+---
+
+HIGH LEVEL PROPERTY PANEL STRUCTURE
+
+PROPERTY PANEL
+
+│
+
+├─ HEADER (persistent)
+
+│
+
+├─ Identity
+
+│
+
+├─ Spatial Context
+
+│
+
+├─ Definition Properties
+
+│
+
+├─ Instance Properties
+
+│
+
+├─ Relationships
+
+│
+
+└─ Metadata / System Data
+
+Each section except the header must be collapsible.
+
+---
+
+HEADER (PERSISTENT)
+
+The header must always remain visible at the top of the property panel.
+
+It provides quick identification and editing context for the selected element.
+
+HEADER FIELDS
+
+Element Type
+
+Large title displaying the element type.
+
+Source:
+
+element.type
+
+Examples:
+
+Wall
+
+Slab
+
+Door
+
+Column
+
+Beam
+
+Element Mark / Name
+
+Secondary identifier.
+
+Source:
+
+element.mark OR metadata.name
+
+Editable inline.
+
+Example:
+
+WA006
+
+Element ID
+
+Technical identifier.
+
+Source:
+
+element.id
+
+Must be read-only and copyable.
+
+Example:
+
+293d5c7c-7841-40fd-9ccc-837a0b23bd05
+
+Spatial Context Summary
+
+Short spatial reference.
+
+Examples:
+
+Level: Ground
+
+Host: Wall_034
+
+Derived from:
+
+placement.levelId
+
+SemanticGraph relationships
+
+Type Selector (if applicable)
+
+If the element supports definitions/types the header must show a dropdown.
+
+Example:
+
+Wall Type
+
+[ — Plain Wall — ▼ ]
+
+Changing the type must trigger a command:
+
+ChangeElementDefinitionCommand
+
+Apply Button
+
+Changes must be buffered until the user presses Apply.
+
+The Apply button triggers command execution.
+
+Optional Header Actions
+
+Move
+
+Rotate
+
+Duplicate
+
+Delete
+
+These must call tool commands and not mutate state directly.
+
+---
+
+SECTION 1 — IDENTITY
+
+Purpose:
+
+Display immutable identity information.
+
+Fields:
+
+id
+
+type
+
+createdAt
+
+createdBy
+
+version
+
+tags
+
+description
+
+Rules:
+
+id must be read-only
+
+type must be read-only
+
+tags and description may be editable
+
+Example UI
+
+## Identity
+
+ID wall_123
+
+Type Wall
+
+Created By user_1
+
+Created At 2025-01-10
+
+Version 3
+
+Tags structural, exterior
+
+Description North facade wall
+
+---
+
+SECTION 2 — SPATIAL CONTEXT
+
+Purpose:
+
+Display spatial placement within the project.
+
+Fields originate from:
+
+element.placement
+
+The panel must dynamically render placement fields depending on the placement schema.
+
+Example placement schemas
+
+WallPlacement
+
+startX
+
+startZ
+
+endX
+
+endZ
+
+flip
+
+SlabPlacement
+
+polygonVertices
+
+offset
+
+HostedPlacement
+
+hostId
+
+positionAlongHost
+
+sillHeight
+
+flip
+
+The UI must inspect placement schema and render inputs accordingly.
+
+---
+
+SECTION 3 — DEFINITION PROPERTIES
+
+Purpose:
+
+Parameters that describe the conceptual type of the element.
+
+Examples:
+
+material
+
+thickness
+
+fireRating
+
+layerComposition
+
+profileType
+
+loadBearing
+
+These properties are stored in:
+
+element.parameters
+
+But treated in UI as DEFINITION parameters.
+
+Multiple instances may eventually share these values through a definition system.
+
+---
+
+SECTION 4 — INSTANCE PROPERTIES
+
+Purpose:
+
+Instance-specific parameters.
+
+Examples:
+
+height
+
+baseOffset
+
+rotation
+
+flip
+
+position
+
+visibility
+
+These parameters affect only the selected element instance.
+
+---
+
+SECTION 5 — RELATIONSHIPS
+
+Purpose:
+
+Display relationships between elements.
+
+Data must come from:
+
+SemanticGraphManager
+
+Example UI
+
+## Relationships
+
+Hosted By
+
+Wall_102
+
+Hosts
+
+Window_01
+
+Window_02
+
+Connected To
+
+Beam_45
+
+Column_12
+
+Relationships must be clickable and allow navigation.
+
+Editing relationships must trigger commands rather than directly editing graph data.
+
+---
+
+SECTION 6 — METADATA / SYSTEM DATA
+
+Purpose:
+
+Display additional system attributes.
+
+Fields may include:
+
+IFC Class
+
+GlobalId
+
+Project Phase
+
+Color Override
+
+Status
+
+Category
+
+These fields belong to element.metadata.
+
+---
+
+PROPERTY CLASSIFICATION MODEL
+
+All properties must belong to one of three conceptual layers.
+
+GLOBAL
+
+Definition of identity.
+
+Examples
+
+id
+
+type
+
+createdAt
+
+These fields are read-only.
+
+DEFINITION
+
+Properties that conceptually belong to element types.
+
+Examples
+
+material
+
+thickness
+
+fireRating
+
+profileType
+
+INSTANCE
+
+Properties that vary per instance.
+
+Examples
+
+height
+
+offset
+
+rotation
+
+position
+
+---
+
+PROPERTY DESCRIPTOR SYSTEM
+
+The panel must render properties using descriptors.
+
+PropertyDescriptor interface
+
+key
+
+label
+
+type
+
+category
+
+editable
+
+unit
+
+options
+
+Supported input types
+
+number input
+
+text input
+
+boolean toggle
+
+enum dropdown
+
+list editor
+
+---
+
+EDITING WORKFLOW
+
+Property editing must follow this pipeline.
+
+1 User modifies property in UI
+
+2 UI stores change in editing draft
+
+3 User presses Apply
+
+4 UI executes command
+
+commandManager.execute(
+
+UpdateElementParameterCommand
+
+)
+
+5 Command updates ElementStore
+
+6 Store emits event
+
+7 Systems rebuild geometry
+
+---
+
+VALIDATION
+
+Two layers of validation must exist.
+
+UI validation
+
+Immediate checks (example height > 0)
+
+Constraint engine validation
+
+Runs during command execution.
+
+---
+
+RELATIONSHIP VISUALIZATION
+
+The panel must query the graph manager.
+
+graphManager.getRelationships(elementId)
+
+Relationships must be grouped by type.
+
+Example groups
+
+Hosts
+
+Hosted By
+
+Supports
+
+Adjacent To
+
+Connected To
+
+---
+
+STATE MANAGEMENT
+
+Panel state must track:
+
+selectedElementId
+
+editingDraft
+
+validationErrors
+
+Changes must not mutate element state until Apply is pressed.
+
+---
+
+PERFORMANCE REQUIREMENTS
+
+Panel must re-render only when selected element changes.
+
+Use memoized descriptors.
+
+Avoid scanning the full element list.
+
+Graph queries must be lazy.
+
+---
+
+STRICT ARCHITECTURE RULES
+
+The property panel belongs to the Tool Layer.
+
+It must NOT:
+
+Mutate element stores directly
+
+Modify graph directly
+
+Access geometry builders
+
+Access scene graph
+
+Access topology systems
+
+All modifications must pass through commands.
+
+---
+
+FILES TO IMPLEMENT
+
+PropertyPanel.tsx
+
+PropertyRenderer.tsx
+
+PlacementEditor.tsx
+
+RelationshipViewer.tsx
+
+PropertyDescriptorGenerator.ts
+
+UpdateElementParameterCommand.ts
+
+---
+
+FINAL OBJECTIVE
+
+Create a next-generation BIM property editing system that:
+
+- Works for every element type
+- Is schema-driven
+- Maintains deterministic architecture
+- Supports AI-based future workflows
+- Enables semantic reasoning about buildings
+
+The UI must remain fully generic and never contain element-specific logic.

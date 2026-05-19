@@ -1,0 +1,25 @@
+{
+  "name": "@pryzm/cli",
+  "version": "0.1.0",
+  "description": "PRYZM 2 — pryzm-cli: pack/unpack .pryzm v1 files from the shell.",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "pryzm-cli": "./src/index.ts"
+  },
+  "main": "./src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "cli": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@pryzm/file-format": "workspace:*",
+    "@pryzm/persistence-client": "workspace:*",
+    "tsx": "^4.7.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

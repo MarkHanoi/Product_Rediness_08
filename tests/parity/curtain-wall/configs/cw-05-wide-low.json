@@ -1,0 +1,42 @@
+{
+  "id": "cw-05-wide-low",
+  "description": "Wide low 12 m × 2.4 m storefront",
+  "curtainWall": {
+    "id": "curtainwall_01HZS00000000000000CWWIDE0",
+    "type": "curtainwall",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "baseLine": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 12,
+        "y": 0,
+        "z": 0
+      }
+    ],
+    "height": 2.4,
+    "mullionThickness": 0.05,
+    "bayWidth": 1.2,
+    "bayHeight": 1.2,
+    "panels": []
+  },
+  "joinData": {
+    "startJoin": {
+      "kind": "none"
+    },
+    "endJoin": {
+      "kind": "none"
+    }
+  },
+  "worldY": 0
+}

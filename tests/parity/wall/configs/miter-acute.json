@@ -1,0 +1,39 @@
+{
+  "id": "miter-acute",
+  "description": "acute 22.5° miter (T-junction left)",
+  "wall": {
+    "id": "wall:01HZS00000000000000MITERAC",
+    "type": "wall",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "baseLine": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 4,
+        "y": 0,
+        "z": 0
+      }
+    ],
+    "height": 2.5,
+    "thickness": 0.2,
+    "baseOffset": 0,
+    "openings": []
+  },
+  "joinData": {
+    "start": {
+      "miterAngleRad": 0.39269908169872414,
+      "neighbourId": "wall:01HZS00000000000000NBE0000"
+    }
+  },
+  "worldY": 0
+}

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Top circle -->
+  <circle cx="50" cy="20" r="12" stroke="#1C1B3C" stroke-width="5"/>
+  <!-- Vertical stem -->
+  <line x1="50" y1="32" x2="50" y2="54" stroke="#1C1B3C" stroke-width="5" stroke-linecap="round"/>
+  <!-- Horizontal crossbar -->
+  <line x1="22" y1="54" x2="78" y2="54" stroke="#1C1B3C" stroke-width="5" stroke-linecap="round"/>
+  <!-- Left drop -->
+  <line x1="22" y1="54" x2="22" y2="68" stroke="#1C1B3C" stroke-width="5" stroke-linecap="round"/>
+  <!-- Right drop -->
+  <line x1="78" y1="54" x2="78" y2="68" stroke="#1C1B3C" stroke-width="5" stroke-linecap="round"/>
+  <!-- Bottom-left circle -->
+  <circle cx="22" cy="80" r="12" stroke="#1C1B3C" stroke-width="5"/>
+  <!-- Bottom-right circle -->
+  <circle cx="78" cy="80" r="12" stroke="#1C1B3C" stroke-width="5"/>
+</svg>

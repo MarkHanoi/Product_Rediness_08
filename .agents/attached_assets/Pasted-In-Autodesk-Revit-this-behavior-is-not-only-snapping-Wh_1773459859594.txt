@@ -1,0 +1,255 @@
+In Autodesk Revit this behavior is **not only snapping**.
+What you are observing when an interior wall “automatically joins correctly” with a perimeter wall is the combination of **three systems working together**:
+
+1. **Object snapping**
+2. **Location line alignment**
+3. **Automatic wall join solver**
+
+Understanding this distinction is important if you're building your own BIM kernel.
+
+---
+
+# 1. Snap Gets You to the Correct Reference
+
+When drawing the interior wall, the cursor detects snap targets on the perimeter wall:
+
+Possible snap references:
+
+* wall **location line**
+* **core centerline**
+* **finish face**
+* **endpoints**
+* **intersections**
+
+These are not just mesh edges. Revit exposes **semantic references** from the wall object.
+
+Typical ones include:
+
+* Wall centerline
+* Core centerline
+* Finish face interior
+* Finish face exterior
+* Core face interior
+* Core face exterior
+
+So when your cursor approaches the wall, you are snapping to one of these **reference planes**, not just geometry.
+
+---
+
+# 2. The Wall Location Line Determines Alignment
+
+Every wall in Revit has a **location line parameter**.
+
+Examples:
+
+* Wall Centerline
+* Core Centerline
+* Finish Face Interior
+* Finish Face Exterior
+
+When you draw a wall and snap to another wall, the **new wall’s location line aligns to the target reference**.
+
+Example:
+
+```
+Interior wall location line = wall centerline
+Perimeter wall snap target = finish face interior
+```
+
+So the new wall's **parametric axis** gets positioned relative to the host wall.
+
+This is already more intelligent than a typical CAD snap.
+
+---
+
+# 3. Automatic Wall Join Solver
+
+After the wall is placed, Revit runs the **Wall Join algorithm**.
+
+This is the system that creates the correct corner.
+
+The solver does:
+
+1. Detect walls touching at endpoints
+2. Determine intersection topology
+3. Trim or extend wall solids
+4. Create a miter, butt, or square join
+
+The join type depends on:
+
+* wall layers
+* priorities
+* join rules.
+
+---
+
+# 4. Layer Priority System
+
+Revit walls are **compound structures** with layers.
+
+Each layer has a **priority number**.
+
+Example:
+
+| Layer     | Priority |
+| --------- | -------- |
+| Structure | 1        |
+| Substrate | 2        |
+| Thermal   | 3        |
+| Finish    | 4        |
+
+When walls join:
+
+* **higher priority layers cut lower ones**
+* structural layers usually dominate.
+
+Example intersection:
+
+```
+Interior wall
+| finish | structure | finish |
+
+Perimeter wall
+| finish | insulation | structure | finish |
+```
+
+The solver ensures the **structure layers meet correctly**.
+
+This is why the joint looks architecturally correct automatically.
+
+---
+
+# 5. Join Resolution Types
+
+Revit decides between:
+
+### Butt join
+
+One wall stops at the other.
+
+### Miter join
+
+Both walls cut symmetrically.
+
+### Square off
+
+Layers trimmed square.
+
+Users can override using:
+
+```
+Modify → Wall Joins
+```
+
+---
+
+# 6. Continuous Join Updating
+
+This solver is **not one-time**.
+
+Whenever walls change:
+
+* move
+* thickness change
+* type change
+
+Revit recalculates joins.
+
+This means joins are **topological relationships**, not just geometry.
+
+---
+
+# 7. Why It Feels So Smooth
+
+When drawing the wall:
+
+1️⃣ Snap detects a valid wall reference
+2️⃣ Location line aligns
+3️⃣ Endpoint touches other wall
+4️⃣ Wall Join solver runs
+5️⃣ Compound layers resolve
+
+All happens **in milliseconds**.
+
+---
+
+# 8. Important Architectural Insight
+
+This system works because walls in Revit are **not geometry first**.
+
+They are **parametric objects with semantic references**.
+
+Internally the wall likely contains something like:
+
+```
+Wall
+ ├ LocationCurve
+ ├ CompoundStructure
+ │   ├ Layers
+ │   └ Priorities
+ ├ JoinGraph
+ └ ReferencePlanes
+```
+
+The join graph tracks relationships between walls.
+
+---
+
+# 9. What This Means for Your BIM Engine
+
+If you're building a modeling kernel (like you mentioned), the key concept is:
+
+**Wall snapping ≠ wall joining**
+
+They are separate systems.
+
+You need:
+
+### System 1 — Snap Engine
+
+Detect references.
+
+### System 2 — Parametric Axis Alignment
+
+Position wall centerline.
+
+### System 3 — Join Solver
+
+Compute intersection.
+
+### System 4 — Layer Resolution
+
+Trim compound layers.
+
+---
+
+# 10. Simplified Algorithm
+
+Conceptually Revit likely does something like:
+
+```
+onWallCreation():
+
+1 detect snap reference
+2 align wall location line
+3 detect endpoint proximity to other wall
+4 register join relationship
+5 run join solver
+6 generate trimmed geometry
+```
+
+---
+
+✅ **Key takeaway**
+
+The behavior you see is primarily driven by the **Wall Join system**, not just snapping.
+
+Snapping only ensures **walls meet at a valid parametric reference**.
+
+---
+
+If you'd like, I can also explain something **extremely useful for your BIM tool**:
+
+**The hidden trick Revit uses to keep wall joins stable even when the model changes** (the *join graph and intersection priority solver*).
+
+That concept is what most custom BIM engines miss at first.

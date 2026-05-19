@@ -1,0 +1,376 @@
+[CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+(anonymous) @ injected.js:37
+(anonymous) @ RemoteCommandDispatcher.ts:99
+(anonymous) @ RemoteCommandDispatcher.ts:137
+(anonymous) @ initCollaboration.ts:680
+await in (anonymous)
+(anonymous) @ initCollaboration.ts:403
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+(anonymous) @ injected.js:37
+(anonymous) @ RemoteCommandDispatcher.ts:99
+(anonymous) @ RemoteCommandDispatcher.ts:137
+(anonymous) @ initCollaboration.ts:680
+await in (anonymous)
+(anonymous) @ initCollaboration.ts:403
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+(anonymous) @ injected.js:37
+(anonymous) @ RemoteCommandDispatcher.ts:99
+(anonymous) @ RemoteCommandDispatcher.ts:137
+(anonymous) @ initCollaboration.ts:680
+await in (anonymous)
+(anonymous) @ initCollaboration.ts:403
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+(anonymous) @ injected.js:37
+(anonymous) @ RemoteCommandDispatcher.ts:99
+(anonymous) @ RemoteCommandDispatcher.ts:137
+(anonymous) @ initCollaboration.ts:680
+await in (anonymous)
+(anonymous) @ initCollaboration.ts:403
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+(anonymous) @ injected.js:37
+(anonymous) @ RemoteCommandDispatcher.ts:99
+(anonymous) @ RemoteCommandDispatcher.ts:137
+(anonymous) @ initCollaboration.ts:680
+await in (anonymous)
+(anonymous) @ initCollaboration.ts:403
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+(anonymous) @ injected.js:37
+(anonymous) @ RemoteCommandDispatcher.ts:99
+(anonymous) @ RemoteCommandDispatcher.ts:137
+(anonymous) @ initCollaboration.ts:680
+await in (anonymous)
+(anonymous) @ initCollaboration.ts:403
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+(anonymous) @ injected.js:37
+(anonymous) @ RemoteCommandDispatcher.ts:99
+(anonymous) @ RemoteCommandDispatcher.ts:137
+(anonymous) @ initCollaboration.ts:680
+await in (anonymous)
+(anonymous) @ initCollaboration.ts:403
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+(anonymous) @ injected.js:37
+(anonymous) @ RemoteCommandDispatcher.ts:99
+(anonymous) @ RemoteCommandDispatcher.ts:137
+(anonymous) @ initCollaboration.ts:680
+await in (anonymous)
+(anonymous) @ initCollaboration.ts:403
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+(anonymous) @ injected.js:37
+(anonymous) @ RemoteCommandDispatcher.ts:99
+(anonymous) @ RemoteCommandDispatcher.ts:137
+(anonymous) @ initCollaboration.ts:680
+await in (anonymous)
+(anonymous) @ initCollaboration.ts:403
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+(anonymous) @ injected.js:37
+(anonymous) @ RemoteCommandDispatcher.ts:99
+(anonymous) @ RemoteCommandDispatcher.ts:137
+(anonymous) @ initCollaboration.ts:680
+await in (anonymous)
+(anonymous) @ initCollaboration.ts:403
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+(anonymous) @ injected.js:37
+(anonymous) @ RemoteCommandDispatcher.ts:99
+(anonymous) @ RemoteCommandDispatcher.ts:137
+(anonymous) @ initCollaboration.ts:680
+await in (anonymous)
+(anonymous) @ initCollaboration.ts:403
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+(anonymous) @ injected.js:37
+(anonymous) @ RemoteCommandDispatcher.ts:99
+(anonymous) @ RemoteCommandDispatcher.ts:137
+(anonymous) @ initCollaboration.ts:680
+await in (anonymous)
+(anonymous) @ initCollaboration.ts:403
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48
+injected.js:37 [RemoteCommandDispatcher] No factory for type: CREATE_ANNOTATION — toast-only
+injected.js:37 [CommandManager] EXECUTE: CREATE_SLAB
+injected.js:37 [CommandManager] snapshot commandType="CreateSlabCommand" scope=[slab,level] elapsed=0.5ms
+injected.js:37 [BimManager] Registered element fd6285e8-dd62-41ce-ac32-8975bca9c44f to level L0
+injected.js:37 [SlabFragmentBuilder] outset slabId="fd6285e8-dd62-41ce-ac32-8975bca9c44f" vertices=21 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="fd6285e8-dd62-41ce-ac32-8975bca9c44f" outerVertices=21 elapsed=0.2ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="fd6285e8-dd62-41ce-ac32-8975bca9c44f" totalMs=2.0ms
+injected.js:37 [RemoteCommandDispatcher] Applied remote command: CREATE_SLAB
+injected.js:37 [CommandManager] EXECUTE: UPDATE_SLAB_LAYERS
+injected.js:37 [CommandManager] snapshot commandType="UpdateSlabLayersCommand" scope=[slab] elapsed=0.4ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="fd6285e8-dd62-41ce-ac32-8975bca9c44f" vertices=21 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="fd6285e8-dd62-41ce-ac32-8975bca9c44f" outerVertices=21 elapsed=0.3ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="fd6285e8-dd62-41ce-ac32-8975bca9c44f" totalMs=1.6ms
+injected.js:37 [RemoteCommandDispatcher] Applied remote command: UPDATE_SLAB_LAYERS
+injected.js:37 [CommandManager] EXECUTE: CREATE_LEVEL
+injected.js:37 [RemoteCommandDispatcher] Remote command failed validation: CREATE_LEVEL Elevation must be a valid number.
+(anonymous) @ injected.js:37
+(anonymous) @ RemoteCommandDispatcher.ts:99
+(anonymous) @ RemoteCommandDispatcher.ts:137
+(anonymous) @ initCollaboration.ts:680
+await in (anonymous)
+(anonymous) @ initCollaboration.ts:403
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48
+injected.js:37 [CommandManager] EXECUTE: CREATE_SLABS_ON_ALL_FLOORS
+injected.js:37 [CommandManager] snapshot commandType="CreateSlabsOnAllFloorsCommand" scope=[slab,level] elapsed=0.4ms
+injected.js:37 [CreateSlabsOnAllFloorsCommand] START referenceSlabId="fd6285e8-dd62-41ce-ac32-8975bca9c44f" levels=5 polygonVertices=21
+injected.js:37 [CreateSlabsOnAllFloorsCommand] runBatch starting — 5 slab(s) deferred to rAF drain.
+injected.js:37 [BatchCoordinator] _setupBatch — 5 level(s), 5 elements expected. ViewDependencyTracker suppressed.
+injected.js:37 [UnifiedFrameLoop] §PERF-VIEW-BATCH-SUPPRESS: OBC+PASCAL render suppressed — WebGL shader compilation deferred until batch drain completes.
+injected.js:37 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+injected.js:37 [BimManager] Registered element 58f7157e-48fe-4755-abea-110b5dd0d51f to level L-01-1777946458496-1
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-01-1777946458496-1" success=true elapsed=2.3ms
+injected.js:37 [BimManager] Registered element 3cefe121-465a-4391-bd1d-4d94064ca99b to level L-02-1777946458512-2
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-02-1777946458512-2" success=true elapsed=2.1ms
+injected.js:37 [BimManager] Registered element aae81104-d53c-4c83-9428-43d230ef9265 to level L-03-1777946458522-3
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-03-1777946458522-3" success=true elapsed=2.8ms
+injected.js:37 [BimManager] Registered element 9148bb3b-2700-4a7b-943a-ddaad2e4611b to level L-04-1777946458529-4
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-04-1777946458529-4" success=true elapsed=1.7ms
+injected.js:37 [BimManager] Registered element 870d8b1a-4d3b-4565-bf99-9398752980c5 to level L-05-1777946458537-5
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-05-1777946458537-5" success=true elapsed=1.8ms
+injected.js:37 [CreateSlabsOnAllFloorsCommand] COMPLETE created=5 total=20.5ms
+injected.js:37 [RemoteCommandDispatcher] Applied remote command: CREATE_SLABS_ON_ALL_FLOORS
+injected.js:37 [RemoteCommandDispatcher] Catch-up complete: 3 applied, 23 skipped
+injected.js:37 [initCollaboration] Catch-up: applied=3 skipped=23
+injected.js:37 [LONGTASK] duration=68.0ms start=125577.8ms
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [HomeView] Default viewpoint captured: {x: 51.39940529625883, y: 33.409613442568244, z: 51.399405296258834} {x: 0, y: 0, z: 0}
+injected.js:37 [initScene] Phase 6: EdgeProjectorService lazy-loaded on first projection.
+injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+injected.js:37 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+injected.js:37 [EdgeProjectorService] Native projection done — 22 group(s), 22 edge geometries across 22 ISO layer(s) (per-element UUID tagging active)
+injected.js:37 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=2 (OBC-IFC=0, native=22, ifc-scene=0)
+injected.js:37 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=7/14 layers
+injected.js:37 [RoomBoundaryBuilder] Compliance overlay: 2 error, 0 warning room(s) tinted
+injected.js:37 [SplitViewManager] Canvas2D context ready
+injected.js:37 [SvpPlanToolOverlay] Attached with snap service. viewId: vd-sys-plan-l0
+injected.js:37 [SplitViewManager] Split view activated (Canvas2D plan mode)
+injected.js:37 [initScene] Split view auto-opened on project load (idle)
+injected.js:37 [LONGTASK] duration=51.0ms start=125896.3ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]

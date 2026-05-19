@@ -1,0 +1,57 @@
+{
+  "id": "flat-with-skylight",
+  "description": "flat 6×4 roof with one skylight (W-1C-5 schema extension)",
+  "roof": {
+    "id": "roof:flat-skylt",
+    "type": "roof",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "boundary": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 6,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 6,
+        "y": 0,
+        "z": 4
+      },
+      {
+        "x": 0,
+        "y": 0,
+        "z": 4
+      }
+    ],
+    "shape": "flat",
+    "pitch": 0,
+    "overhang": 0,
+    "thickness": 0.2,
+    "skylights": [
+      {
+        "id": "sky-01",
+        "position": {
+          "x": 3,
+          "y": 0,
+          "z": 2
+        },
+        "width": 1,
+        "depth": 0.8,
+        "frameWidth": 0.05
+      }
+    ],
+    "joinedToRoofIds": []
+  },
+  "worldY": 3
+}

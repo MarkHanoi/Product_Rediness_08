@@ -1,0 +1,78 @@
+You are a senior startup engineer helping prepare a prototype for early user testing.
+
+Context
+I have built a comprehensive BIM engine kernel and modelling tool running in the browser (Three.js based). The core modelling functionality already exists and works locally.
+
+My goal is to prepare the project for **early external user testing** (alpha testers). I need the minimal but robust infrastructure required to let external users access the tool online and test it.
+
+Important constraints
+- This is NOT a production SaaS yet.
+- I want the **simplest architecture possible**
+- Prefer **free or very low-cost services**
+- Must be deployable directly from Replit
+- Should support maybe **10–50 testers initially**
+
+I need you to propose a **complete implementation plan** including the following areas:
+
+1. Landing Page
+- Simple public landing page explaining the tool
+- CTA to request access or sign up for testing
+- Optional waitlist
+
+2. User Authentication
+- Simple login/signup system
+- Google login or email/password
+- Session management
+
+3. User Management
+- Admin ability to approve testers
+- Simple roles (admin / tester)
+
+4. Database (free option)
+- Recommend a free database solution compatible with Replit
+- Schema for users and basic analytics
+- Where to store models (if needed)
+
+5. Model Storage
+- Option to store user models or test files
+- Could be JSON or file storage
+- Prefer free cloud storage if possible
+
+6. Deployment
+- How to deploy the BIM tool publicly
+- Domain setup
+- Access control for testers
+
+7. Feedback Collection
+- How testers can submit feedback
+- Built-in feedback button or external tool
+
+8. Analytics
+- Minimal analytics to track usage
+- Which tools users click
+- Session duration
+
+9. Error Logging
+- Capture runtime errors
+- Simple monitoring solution
+
+10. Security Basics
+- Prevent anonymous abuse
+- Basic rate limiting
+
+11. CI / Version Safety
+- How to deploy updates safely without breaking user sessions
+
+Output Format Required
+Provide:
+
+1. Recommended architecture diagram (text)
+2. Recommended stack
+3. Step-by-step implementation plan
+4. Database schema proposal
+5. Folder structure
+6. Key libraries to install
+7. Estimated setup time
+8. Future improvements once user testing succeeds
+
+The goal is to create the **simplest infrastructure required to run real user testing for a browser-based BIM modelling tool.**

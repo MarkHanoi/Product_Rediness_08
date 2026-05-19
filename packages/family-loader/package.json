@@ -1,0 +1,27 @@
+{
+  "name": "@pryzm/family-loader",
+  "version": "0.1.0",
+  "description": "PRYZM 2 — main-editor family loader (S56 D1).  loadFamily(path) opens a .pryzm-family ZIP via @pryzm/file-format, validates the manifest+document, runs a resolver pre-flight via @pryzm/family-runtime, and caches the loaded family by (familyId, schemaHash).  Pure-Node — used by the editor host, the bake-worker, and the AI worker.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@pryzm/family-runtime": "workspace:*",
+    "@pryzm/file-format": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

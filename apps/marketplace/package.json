@@ -1,0 +1,25 @@
+{
+  "name": "@pryzm/marketplace",
+  "version": "0.1.0",
+  "description": "PRYZM Marketplace — plugin catalog browser and developer submission portal. Wave A20-T22. API backend: /marketplace/api/* routes in server.js. Convergence boolean #9.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev --port 5001",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@pryzm/plugin-sdk": "workspace:*",
+    "@pryzm/ui": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.0"
+  }
+}

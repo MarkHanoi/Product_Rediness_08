@@ -1,0 +1,258 @@
+PROMPT
+
+You must first read and fully comply with the following contracts before making any modification:
+
+BIM ENGINE CORE CONTRACT
+
+BIM SPATIAL & PROJECTION CONTRACT
+
+These contracts define the non-negotiable architecture rules of this BIM engine.
+
+You must not violate any of these rules, particularly:
+
+All semantic mutations occur only through Commands
+
+Stores are immutable
+
+Builders are pure projection functions
+
+Elevation comes only from BimManager
+
+Geometry rebuild occurs only through Store Event Bus → DependencyResolver → Builders
+
+Builders must not mutate semantic state
+
+Builders must query BimManager for level elevation
+
+No direct builder calls from commands
+
+No spatial logic outside BimManager
+
+Before implementing the change, verify the Validation Checklist in both contracts.
+
+PROBLEM
+
+Currently slabs are positioned incorrectly.
+
+The slab's BOTTOM face is aligned with the level elevation, which is incorrect BIM behaviour.
+
+Current behaviour:
+
+Level
+──────
+(bottom of slab)
+████████ slab thickness
+
+This means the slab sits above the level, which is wrong.
+
+REQUIRED BIM BEHAVIOUR
+
+The BIM system must follow the architectural convention:
+
+Level = Finished Floor Level (FFL)
+
+Therefore:
+
+Slab behaviour
+
+The TOP of the slab must align with the level elevation, not the bottom.
+
+Correct behaviour:
+
+LEVEL (FFL)
+────────────  ← top of slab
+
+████████████  slab thickness
+
+(bottom of slab moves downward)
+
+Meaning:
+
+topOfSlab = levelElevation + baseOffset
+bottomOfSlab = topOfSlab - slabThickness
+
+The slab grows downward from the level.
+
+This ensures that when finishes are added later, the structural slab automatically adjusts without breaking wall alignment.
+
+WALL BEHAVIOUR (MUST REMAIN UNCHANGED)
+
+Walls must continue to behave as follows:
+
+Wall base = Level elevation
+
+Meaning:
+
+wallBaseY = BimManager.getLevelElevation(levelId) + baseOffset
+
+Walls start at the level, not at the slab surface.
+
+Do not change wall behaviour.
+
+Walls must remain aligned to the level datum.
+
+FUTURE FLOOR FINISH CATEGORY (IMPORTANT)
+
+Soon a new element category will be introduced:
+
+FloorFinish
+
+Characteristics:
+
+Created per room or region
+
+Represents finish layers above the structural slab
+
+Examples: tile, screed, wood, carpet, etc.
+
+Future structure:
+
+LEVEL (FFL)
+────────────
+Floor Finish (variable by room)
+────────────
+Structural Slab
+
+Because finishes may vary by room or region, the structural slab elevation may need to adapt in the future.
+
+Therefore:
+
+IMPORTANT DESIGN CONSTRAINT
+
+The slab semantic model must support:
+
+slab.topReference = "LEVEL"
+
+Meaning:
+
+The slab position is anchored to the level by its top face, not the bottom.
+
+This ensures future logic can:
+
+slab.topOffset = -(floorFinishThickness)
+
+when floor finishes are introduced.
+
+IMPLEMENTATION REQUIREMENTS
+
+You must modify the slab projection logic so that:
+
+Slab elevation is computed as
+levelElevation = BimManager.getLevelElevation(levelId)
+
+topY = levelElevation + slab.parameters.baseOffset
+bottomY = topY - slab.parameters.thickness
+
+The mesh must be built so that:
+
+mesh.position.y = bottomY
+
+and the geometry height equals thickness.
+
+DO NOT VIOLATE THESE CONTRACT RULES
+
+You must ensure the change respects:
+
+1 Command System
+
+No direct mutation outside commands.
+
+If slab parameters change, it must go through:
+
+commandManager.execute(new ModifySlabCommand(...))
+2 Store Immutability
+
+Never mutate slab objects directly.
+
+Use:
+
+const next = structuredClone(prev)
+store.set(id, next)
+3 Builder Isolation
+
+Builder must:
+
+receive readonly slab state
+
+compute projection from semantic data
+
+query BimManager for level elevation
+
+Builder must NOT:
+
+modify slab state
+
+query UI
+
+query other stores
+
+compute elevation without BimManager
+
+4 Spatial Authority
+
+Elevation must be computed strictly via:
+
+bimManager.getLevelElevation(levelId)
+
+Never:
+
+hardcode Y values
+
+read mesh position
+
+cache elevation
+
+5 Registry + Bounds
+
+After rebuilding the slab geometry:
+
+Update registry root
+
+Recompute bounding box
+
+Register bounds in ElementRegistry
+
+EXPECTED RESULT
+
+After the modification:
+
+Creating a slab on a level must produce:
+
+LEVEL
+────────────  ← slab top
+
+████████████
+████████████
+
+not:
+
+LEVEL
+────────────
+(bottom of slab)
+████████████
+
+Walls must continue to start exactly at the level elevation.
+
+VALIDATION CHECKS (YOU MUST VERIFY)
+
+After implementation verify:
+
+slab top aligns with level
+
+slab thickness grows downward
+
+walls remain aligned with level
+
+changing slab thickness updates bottom only
+
+builders remain deterministic
+
+registry bounds update correctly
+
+rebuild cascade still works via Store Event Bus
+
+no layer violations exist
+
+If the slab builder currently assumes bottom alignment, update the builder logic accordingly.
+
+Do not introduce any architecture violations while implementing this change.

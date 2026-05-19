@@ -1,0 +1,394 @@
+# 31. WALL LIFECYCLE CONTRACT
+
+Walls are the **reference architectural element** for the BIM Engine.
+
+All other architectural elements must eventually follow the same lifecycle.
+
+The wall lifecycle consists of **five deterministic stages**:
+
+```
+Tool / AI
+   ↓
+Command
+   ↓
+WallStore (semantic state)
+   ↓
+WallFragmentBuilder (projection)
+   ↓
+Three.js Scene
+```
+
+No other execution path is valid.
+
+---
+
+# 31.1 WALL CREATION PIPELINE
+
+A wall may be created by:
+
+- WallTool (user interaction)
+- AI Agent
+- Script / automation
+
+All creation flows must follow the same path.
+
+### Step 1 — Tool / AI gathers parameters
+
+The tool collects:
+
+```
+id
+levelId
+baseLine: [Vector3, Vector3]
+height
+thickness
+baseOffset
+```
+
+The Tool must **NOT** create the wall in the store.
+
+The Tool must **NOT** create final geometry.
+
+Allowed:
+
+```
+commandManager.execute(
+  new CreateWallCommand(params)
+)
+```
+
+---
+
+### Step 2 — CreateWallCommand.execute()
+
+The command must:
+
+1️⃣ Validate semantic inputs
+
+- baseline contains two Vector3
+- levelId exists in BimManager
+
+2️⃣ Create semantic object
+
+```
+const wall: Wall = {
+  id,
+  type: "Wall",
+  levelId,
+  baseLine,
+  height,
+  thickness,
+  baseOffset
+}
+```
+
+3️⃣ Insert into store
+
+```
+wallStore.add(wall)
+```
+
+4️⃣ Register spatial element
+
+```
+bimManager.registerElement({
+  id,
+  levelId,
+  type: "Wall"
+})
+```
+
+5️⃣ Trigger projection
+
+```
+wallFragmentBuilder.build(wall)
+```
+
+---
+
+### Result
+
+```
+WallStore → semantic truth
+Builder → geometry projection
+Scene → contains exactly one root
+```
+
+---
+
+# 31.2 WALL PROJECTION PIPELINE
+
+Projection must always follow this rule:
+
+```
+builder.build(wall)
+```
+
+Builder must:
+
+1️⃣ Find or create root
+
+```
+root = scene.getObjectByName(wall.id)
+```
+
+2️⃣ Clear children
+
+3️⃣ Rebuild geometry from semantic state
+
+4️⃣ Update root.userData
+
+```
+root.userData = {
+  id: wall.id,
+  type: "Wall",
+  levelId: wall.levelId
+}
+```
+
+Builder must never:
+
+- read inspector state
+- mutate store
+- register spatial data
+
+---
+
+# 31.3 WALL UPDATE VIA PROPERTIES PANEL
+
+When user clicks **Save Changes** in inspector:
+
+### Step 1 — Inspector reads current semantic state
+
+```
+const wall = wallStore.get(id)
+```
+
+Inspector must **not mutate it**.
+
+---
+
+### Step 2 — Inspector creates command
+
+```
+commandManager.execute(
+  new UpdateWallDimensionsCommand(
+    id,
+    newHeight,
+    newThickness
+  )
+)
+```
+
+Inspector must not call builder.
+
+Inspector must not call store.set.
+
+---
+
+### Step 3 — UpdateWallDimensionsCommand.execute()
+
+Command must:
+
+1️⃣ Snapshot previous wall
+
+```
+this.prevSnapshot = structuredClone(currentWall)
+```
+
+2️⃣ Create immutable next state
+
+```
+const next = structuredClone(currentWall)
+next.height = newHeight
+next.thickness = newThickness
+```
+
+3️⃣ Replace store entry
+
+```
+wallStore.set(id, next)
+```
+
+4️⃣ Trigger rebuild
+
+```
+wallFragmentBuilder.build(next)
+```
+
+---
+
+### Result
+
+```
+semantic wall updated
+projection rebuilt
+scene updated
+```
+
+---
+
+# 31.4 WALL UPDATE VIA AI
+
+AI must follow **exactly the same command path**.
+
+Example AI instruction:
+
+```
+"Increase wall height to 4m"
+```
+
+Execution pipeline:
+
+```
+AI
+ ↓
+UpdateWallDimensionsCommand
+ ↓
+WallStore.set()
+ ↓
+WallFragmentBuilder.build()
+ ↓
+Scene update
+```
+
+AI must **never**:
+
+- mutate store
+- modify mesh
+- modify userData
+- modify builder state
+
+AI may **only dispatch commands**.
+
+---
+
+# 31.5 UNDO PIPELINE
+
+Undo must restore **exact semantic snapshot**.
+
+```
+undo():
+    wallStore.set(id, prevSnapshot)
+    wallFragmentBuilder.build(prevSnapshot)
+```
+
+This ensures:
+
+```
+semantic = restored
+projection = deterministic
+scene = correct
+```
+
+Undo must not patch fields.
+
+Undo must not partially rebuild geometry.
+
+---
+
+# 31.6 REDO PIPELINE
+
+Redo must reapply the **exact same semantic state**.
+
+```
+redo():
+    wallStore.set(id, nextSnapshot)
+    wallFragmentBuilder.build(nextSnapshot)
+```
+
+IDs must remain stable.
+
+Geometry must rebuild identically.
+
+---
+
+# 31.7 PROPERTY PANEL SYNCHRONIZATION RULE
+
+After any command execution:
+
+Inspector must:
+
+```
+read store again
+```
+
+Inspector must never trust cached values.
+
+If inspector loses properties:
+
+→ semantic object was replaced without UI refresh.
+
+Inspector must listen to:
+
+```
+commandManager.onCommandExecuted
+```
+
+Then refresh selection.
+
+---
+
+# 31.8 BASELINE INTEGRITY RULE
+
+Wall baseline must always be stored as:
+
+```
+baseLine: [THREE.Vector3, THREE.Vector3]
+```
+
+Commands must ensure:
+
+```
+new THREE.Vector3(x,y,z)
+```
+
+after cloning.
+
+Structured cloning destroys prototypes.
+
+Builders must assume valid vectors.
+
+---
+
+# 31.9 WALL STORE AUTHORITY
+
+WallStore is the **single semantic authority**.
+
+Only allowed operations:
+
+```
+add(wall)
+get(id)
+set(id, wall)
+delete(id)
+getAll()
+```
+
+WallStore must never:
+
+- rebuild geometry
+- register spatial elements
+- access builder
+
+---
+
+# 31.10 WALL TOOL RESPONSIBILITY
+
+WallTool may:
+
+- create preview wall
+- compute baseline
+- collect inputs
+
+WallTool must not:
+
+- create final geometry
+- modify store
+- call builder.build
+
+WallTool must only finalize via:
+
+```
+CreateWallCommand
+```

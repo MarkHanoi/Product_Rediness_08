@@ -1,0 +1,60 @@
+[EdgeProjectorService] §DIAG-EPS-02 group#9 elemId=7406d9cd-4d1c-4bb6-930d-f585d0c43668 elemType=floor meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.3ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#10 elemId=30f11d5c-07f0-4bef-8a05-0aa93acd80ae elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#11 elemId=347c7258-ce41-4f4b-b09c-55b97a8ef8de elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#12 elemId=01ce3ac1-d524-48fa-a2bb-d7db1a216184 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.2ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#13 elemId=faafefb4-0d34-478b-80b1-97541b65cd97 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.2ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#14 elemId=c980ffc7-916b-40b0-bebe-8a4f4f3e079d elemType=floor meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.2ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#15 elemId=e669e1b4-cb80-466e-b2c0-5240a81ce175 elemType=Door meshesProcessed=7 totalEdgeVerts=168 layers=1 traverseMs=1.2ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-DOOR geoCount=7 mergedVerts=168 mergeMs=0.0ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#16 elemId=9417069b-d74e-498b-a7a4-ba9d348ff3c1 elemType=Door meshesProcessed=7 totalEdgeVerts=168 layers=1 traverseMs=0.5ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-DOOR geoCount=7 mergedVerts=168 mergeMs=0.0ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#17 elemId=433343c7-99ee-4f33-83da-7b9e5166d778 elemType=Door meshesProcessed=7 totalEdgeVerts=168 layers=1 traverseMs=0.4ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-DOOR geoCount=7 mergedVerts=168 mergeMs=0.0ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#18 elemId=c266606c-4a6a-4566-9f35-55202cd20368 elemType=Door meshesProcessed=7 totalEdgeVerts=168 layers=1 traverseMs=0.5ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-DOOR geoCount=7 mergedVerts=168 mergeMs=0.0ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#19 elemId=b06e7b7a-87a6-45d3-a56e-8ed2f6db115f elemType=Door meshesProcessed=7 totalEdgeVerts=168 layers=1 traverseMs=0.3ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-DOOR geoCount=7 mergedVerts=168 mergeMs=0.1ms
+injected.js:37 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+injected.js:37 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed out of 2 live room(s).
+injected.js:37 [NativeElementMeshExporter] Plan view — exporting 28 elements from levels overlapping Y=[-1.20, 0.00]
+injected.js:37 [NME] §H2-NME-CACHE hits=26 misses=0 hitRate=100% cacheSize=188/500
+injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+injected.js:37 [EdgeProjectorService] project() batchId=none viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=9ad87a30-b328-4006-8a33-6e7337832928 elemType=wall meshesProcessed=3 totalEdgeVerts=72 layers=1 traverseMs=0.2ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-WALL geoCount=3 mergedVerts=72 mergeMs=0.0ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=57d389b9-e266-447d-9f7f-e4be3f086b7d elemType=wall meshesProcessed=9 totalEdgeVerts=216 layers=1 traverseMs=0.6ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-WALL geoCount=9 mergedVerts=216 mergeMs=0.1ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#2 elemId=f54035c0-b300-4aff-9e4b-4385e4c5008f elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#3 elemId=0a649f44-dce3-459e-9dc7-38b8847a1326 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#20 elemId=2e11fa6d-f476-4af7-9b39-9a4d049c2385 elemType=Window meshesProcessed=6 totalEdgeVerts=144 layers=1 traverseMs=0.6ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-GLAZ geoCount=6 mergedVerts=144 mergeMs=0.1ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#21 elemId=591b3091-93a6-43da-ab89-f7c28428bbf0 elemType=Window meshesProcessed=6 totalEdgeVerts=144 layers=1 traverseMs=0.4ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-GLAZ geoCount=6 mergedVerts=144 mergeMs=0.0ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#22 elemId=da33b5c7-f67b-4301-9bbf-1b867a6e17c1 elemType=Window meshesProcessed=6 totalEdgeVerts=144 layers=1 traverseMs=0.4ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-GLAZ geoCount=6 mergedVerts=144 mergeMs=0.1ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=23 mesh#0 elemType=Stair faceCount=612 edgeVertices=1224 allocMs=4.00ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#23 elemId=690624d3-3327-4964-b500-f1395e1abe2a elemType=Stair meshesProcessed=2 totalEdgeVerts=1244 layers=1 traverseMs=5.7ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-STRS geoCount=2 mergedVerts=1244 mergeMs=0.1ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#4 elemId=ae2a0a2c-b9b0-4dc7-8aa1-5c5d7dee132f elemType=wall meshesProcessed=8 totalEdgeVerts=192 layers=1 traverseMs=0.5ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-WALL geoCount=8 mergedVerts=192 mergeMs=0.1ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#5 elemId=f2cfba99-d0e0-4411-9eff-45bfcdc994d7 elemType=wall meshesProcessed=3 totalEdgeVerts=72 layers=1 traverseMs=0.2ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-WALL geoCount=3 mergedVerts=72 mergeMs=0.1ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#6 elemId=9d9ef1f8-a89e-4c4d-a11c-968cefb20c7b elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#7 elemId=eeea18b9-a5d5-4057-9c88-a53e31486cb3 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.0ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#24 elemId=60c0684b-385b-4f1e-a893-a1848c0debdc elemType=stair-railing meshesProcessed=41 totalEdgeVerts=984 layers=1 traverseMs=2.2ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-STRS geoCount=41 mergedVerts=984 mergeMs=0.0ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#25 elemId=44d9bec9-49c4-406a-bd2a-d111c996eb73 elemType=stair-railing meshesProcessed=41 totalEdgeVerts=984 layers=1 traverseMs=1.2ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-STRS geoCount=41 mergedVerts=984 mergeMs=0.0ms
+injected.js:37 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 26 group(s) in 7 chunk(s), 171 edge geometries across 26 ISO layer(s) (per-element UUID tagging active)
+injected.js:37 [DoorPlanSymbolBuilder] Injected 5 door swing arc(s) into view vd-sys-plan-l0 (level L0)
+injected.js:37 [WindowPlanSymbolBuilder] Injected 3 window symbol(s) into view vd-sys-plan-l0 (level L0)
+injected.js:37 [StairSymbolTechnicalDrawingBridge] Injected 2 line(s) + 1 arrow(s) into view vd-sys-plan-l0 (level L0)
+injected.js:37 [HiddenLineRemoval] v1 pass — 8 occluder(s), 1116/2396 segments removed
+injected.js:37 [ViewTechnicalDrawingCache] Stale projection rejected — viewId=vd-sys-plan-l0 staleGen=72 currentGen=74
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#8 elemId=3171d93b-3ae9-4573-95e0-a472ab6af618 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.2ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#9 elemId=7406d9cd-4d1c-4bb6-930d-f585d0c43668 elemType=floor meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.2ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#10 elemId=30f11d5c-07f0-4bef-8a05-0aa93acd80ae elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#11 elemId=347c7258-ce41-4f4b-b09c-55b97a8ef8de elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.0ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#12 elemId=01ce3ac1-d524-48fa-a2bb-d7db1a216184 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.2ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#13 elemId=faafefb4-0d34-478b-80b1-97541b65cd97 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#14 elemId=c980ffc7-916b-40b0-bebe-8a4f4f3e079d elemType=floor meshesProcessed=1 totalEd

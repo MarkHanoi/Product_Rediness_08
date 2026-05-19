@@ -1,0 +1,74 @@
+{
+  "$schema": "./version.schema.json",
+  "pryzm": "2.0.0",
+  "releaseDate": "2026-04-28",
+  "sprint": "PHASE-3D-S70-D8",
+  "schemaVersion": 1,
+  "fileFormatVersion": 1,
+  "supportedUpgradeFrom": [
+    "1.9.x"
+  ],
+  "services": {
+    "sync-server": {
+      "image": "ghcr.io/pryzm/sync-server",
+      "tag": "2.0.0",
+      "internalPort": 4000,
+      "exposedPort": null,
+      "schemaVersion": 1,
+      "fileFormatVersion": 1
+    },
+    "bake-worker": {
+      "image": "ghcr.io/pryzm/bake-worker",
+      "tag": "2.0.0",
+      "internalPort": 4001,
+      "exposedPort": null,
+      "schemaVersion": 1,
+      "fileFormatVersion": 1
+    },
+    "api-gateway": {
+      "image": "ghcr.io/pryzm/api-gateway",
+      "tag": "2.0.0",
+      "internalPort": 5101,
+      "exposedPort": null,
+      "schemaVersion": 1,
+      "fileFormatVersion": 1
+    },
+    "editor": {
+      "image": "ghcr.io/pryzm/editor",
+      "tag": "2.0.0",
+      "internalPort": 80,
+      "exposedPort": 3000,
+      "schemaVersion": 1,
+      "fileFormatVersion": 1
+    },
+    "postgres": {
+      "image": "postgres",
+      "tag": "16-alpine",
+      "internalPort": 5432,
+      "exposedPort": null,
+      "schemaVersion": 1,
+      "fileFormatVersion": null
+    },
+    "minio": {
+      "image": "minio/minio",
+      "tag": "RELEASE.2026-01-01T00-00-00Z",
+      "internalPort": 9000,
+      "exposedPort": 9001,
+      "schemaVersion": null,
+      "fileFormatVersion": null
+    }
+  },
+  "publish": {
+    "registry": "ghcr.io",
+    "namespace": "pryzm",
+    "platforms": [
+      "linux/amd64"
+    ],
+    "armRoadmap": "ARM64 multi-arch shipping deferred from S67 D5; tracked for post-GA."
+  },
+  "knownLimitations": {
+    "pdfToBim": "preview label per ADR-029 Part E + ADR-0052 §B.5",
+    "lifecyclePlugin": "plugins/lifecycle/ port deferred per ADR-030 §B + ADR-0052 §B.7",
+    "wcag22aa": "partial — see docs/accessibility/wcag-2.2-aa-audit-2026-04-28.md"
+  }
+}

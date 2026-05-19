@@ -1,0 +1,75 @@
+[AICreatePanel] Initializing panel, going to step 1
+index-BgLm6Tzr.js:9671 [AICreatePanel] Transitioning to step 1
+index-BgLm6Tzr.js:9671 [AICreatePanel] Step 1: display=flex
+index-BgLm6Tzr.js:9671 [AICreatePanel] Step 2: display=none
+index-BgLm6Tzr.js:9671 [AICreatePanel] Step 3: display=none
+index-BgLm6Tzr.js:9671 [AICreatePanel] Step 4: display=none
+index-BgLm6Tzr.js:9671 [AICreatePanel] All steps found and updated successfully
+index-BgLm6Tzr.js:9671 [AICreatePanel] Attaching file input change listener
+index-BgLm6Tzr.js:9671 [AICreatePanel] Attaching all event listeners
+index-BgLm6Tzr.js:9671 [AICreatePanel] Attaching all event listeners...
+index-BgLm6Tzr.js:9671 [AICreatePanel] ✓ Step 2 Next button listener attached
+index-BgLm6Tzr.js:9671 [AICreatePanel] ✓ Step 2 Back button listener attached
+index-BgLm6Tzr.js:9671 [AICreatePanel] ✓ Step 3 Generate button listener attached
+index-BgLm6Tzr.js:9671 [AICreatePanel] ✓ Step 3 Back button listener attached
+index-BgLm6Tzr.js:9671 [AICreatePanel] ✓ Step 4 Open AI Actions button listener attached
+index-BgLm6Tzr.js:9671 [AICreatePanel] ✓ Step 4 Create Another button listener attached
+index-BgLm6Tzr.js:9671 [AICreatePanel] ✓ Prompt input keydown listener attached
+index-BgLm6Tzr.js:9671 [AICreatePanel] All event listeners attached successfully
+index-BgLm6Tzr.js:8587 [materialLibrary] Failed to load texture: https://ambientcg.com/get?file=Concrete034_2K_NormalGL.jpg Event
+(anonymous) @ index-BgLm6Tzr.js:8587Understand this warning
+index-BgLm6Tzr.js:8587 [materialLibrary] Failed to load texture: https://ambientcg.com/get?file=Concrete037_2K_Color.jpg Event
+(anonymous) @ index-BgLm6Tzr.js:8587Understand this warning
+index-BgLm6Tzr.js:8587 [materialLibrary] Failed to load texture: https://ambientcg.com/get?file=Concrete034_2K_Color.jpg Event
+(anonymous) @ index-BgLm6Tzr.js:8587Understand this warning
+(index):1 Access to image at 'https://ambientcg.com/get?file=Concrete034_2K_Roughness.jpg' from origin 'https://fourthround-01-pdf-to-bim--momollswidehwl.replit.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+get?file=Concrete034_2K_Roughness.jpg:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+index-BgLm6Tzr.js:8587 [materialLibrary] Failed to load texture: https://ambientcg.com/get?file=Concrete037_2K_Roughness.jpg Event
+(anonymous) @ index-BgLm6Tzr.js:8587Understand this warning
+(index):1 Access to image at 'https://ambientcg.com/get?file=Concrete037_2K_NormalGL.jpg' from origin 'https://fourthround-01-pdf-to-bim--momollswidehwl.replit.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+get?file=Concrete037_2K_NormalGL.jpg:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+index-BgLm6Tzr.js:8587 [materialLibrary] Failed to load texture: https://ambientcg.com/get?file=Concrete034_2K_Roughness.jpg Event
+(anonymous) @ index-BgLm6Tzr.js:8587Understand this warning
+centeredWindows-Dr6xjjHZ.js:1 Starting centered windows creation...
+centeredWindows-Dr6xjjHZ.js:1 Found 0 walls.
+centeredWindows-Dr6xjjHZ.js:1 Centered windows creation complete.
+index-BgLm6Tzr.js:8587 [materialLibrary] Failed to load texture: https://ambientcg.com/get?file=Concrete037_2K_NormalGL.jpg Event
+(anonymous) @ index-BgLm6Tzr.js:8587Understand this warning
+index-BgLm6Tzr.js:10815 Refreshing Spatial Tree...
+(index):1 Access to image at 'https://ambientcg.com/get?file=WoodFlooring044_2K_Roughness.jpg' from origin 'https://fourthround-01-pdf-to-bim--momollswidehwl.replit.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+get?file=WoodFlooring044_2K_Roughness.jpg:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+index-BgLm6Tzr.js:8587 [materialLibrary] Failed to load texture: https://ambientcg.com/get?file=WoodFlooring044_2K_Roughness.jpg Event
+(anonymous) @ index-BgLm6Tzr.js:8587Understand this warning
+(index):1 Access to image at 'https://ambientcg.com/get?file=WoodFlooring044_2K_NormalGL.jpg' from origin 'https://fourthround-01-pdf-to-bim--momollswidehwl.replit.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+get?file=WoodFlooring044_2K_NormalGL.jpg:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+index-BgLm6Tzr.js:8587 [materialLibrary] Failed to load texture: https://ambientcg.com/get?file=WoodFlooring044_2K_NormalGL.jpg Event
+(anonymous) @ index-BgLm6Tzr.js:8587Understand this warning
+(index):1 Access to image at 'https://ambientcg.com/get?file=WoodFlooring044_2K_Color.jpg' from origin 'https://fourthround-01-pdf-to-bim--momollswidehwl.replit.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+get?file=WoodFlooring044_2K_Color.jpg:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+index-BgLm6Tzr.js:8587 [materialLibrary] Failed to load texture: https://ambientcg.com/get?file=WoodFlooring044_2K_Color.jpg Event
+(anonymous) @ index-BgLm6Tzr.js:8587Understand this warning
+(index):1 Access to image at 'https://ambientcg.com/get?file=MetalSteelBrushed001_2K_NormalGL.jpg' from origin 'https://fourthround-01-pdf-to-bim--momollswidehwl.replit.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+get?file=MetalSteelBrushed001_2K_NormalGL.jpg:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+index-BgLm6Tzr.js:8587 [materialLibrary] Failed to load texture: https://ambientcg.com/get?file=MetalSteelBrushed001_2K_NormalGL.jpg Event
+(anonymous) @ index-BgLm6Tzr.js:8587Understand this warning
+(index):1 Access to image at 'https://ambientcg.com/get?file=MetalSteelBrushed001_2K_Color.jpg' from origin 'https://fourthround-01-pdf-to-bim--momollswidehwl.replit.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+get?file=MetalSteelBrushed001_2K_Color.jpg:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+index-BgLm6Tzr.js:8587 [materialLibrary] Failed to load texture: https://ambientcg.com/get?file=MetalSteelBrushed001_2K_Color.jpg Event
+(anonymous) @ index-BgLm6Tzr.js:8587Understand this warning
+(index):1 Access to image at 'https://ambientcg.com/get?file=MetalSteelBrushed001_2K_Roughness.jpg' from origin 'https://fourthround-01-pdf-to-bim--momollswidehwl.replit.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+get?file=MetalSteelBrushed001_2K_Roughness.jpg:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+index-BgLm6Tzr.js:8587 [materialLibrary] Failed to load texture: https://ambientcg.com/get?file=MetalSteelBrushed001_2K_Roughness.jpg Event
+(anonymous) @ index-BgLm6Tzr.js:8587Understand this warning
+/favicon.ico:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+index-BgLm6Tzr.js:10690 [FloorPlanImportPanel] PDF converted: 1000×1415px
+index-BgLm6Tzr.js:10690 [FloorPlanImportPanel] Calibration: 97.0 px/m → 10.3m × 14.6m
+index-BgLm6Tzr.js:10680  POST https://flat-morning-358d.antoniocanerosan.workers.dev/ 404 (Not Found)
+hwe @ index-BgLm6Tzr.js:10680
+analyseFurniture @ index-BgLm6Tzr.js:10690
+analyse @ index-BgLm6Tzr.js:10690Understand this error
+index-BgLm6Tzr.js:10690 [FloorPlanImportPanel] Analysis error: Error: [FloorPlanAIFactory] API error 404: {"type":"error","error":{"type":"not_found_error","message":"model: claude-haiku-4-20250514"},"request_id":"req_011CZ2XNuyJ3FjNGUrJsKzLM"}
+    at hwe (index-BgLm6Tzr.js:10680:494)
+    at async gie.analyseFurniture (index-BgLm6Tzr.js:10690:48)
+    at async gie.analyse (index-BgLm6Tzr.js:10690:622)
+    at async Tit (index-BgLm6Tzr.js:10690:15909)
+Tit @ index-BgLm6Tzr.js:10690Understand this error

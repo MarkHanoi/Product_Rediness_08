@@ -1,0 +1,33 @@
+{
+  "id": "F06.elevated-world-y",
+  "description": "0.2×0.4 beam at elevated worldY = 3.0 m",
+  "beam": {
+    "id": "beam:01HZS000000000000BEMF0600",
+    "type": "beam",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "baseLine": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 4,
+        "y": 0,
+        "z": 0
+      }
+    ],
+    "shape": "rectangular",
+    "width": 0.2,
+    "depth": 0.4,
+    "rotation": 0
+  },
+  "worldY": 3
+}

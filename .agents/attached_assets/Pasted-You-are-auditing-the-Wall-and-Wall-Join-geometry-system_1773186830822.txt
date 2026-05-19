@@ -1,0 +1,210 @@
+You are auditing the **Wall and Wall Join geometry system** of a BIM engine.
+
+## Objective
+
+Investigate why **2-wall junctions are not always producing a clean single-point intersection in plan view**, resulting in imperfect joins or multiple vertical seams.
+
+The expected behaviour is:
+
+• Any intersection between **two walls** must produce **one single intersection point in plan (X/Z)**
+• Both walls must share that same vertex
+• The resulting geometry must produce **one single vertical seam (one Z line)**
+• This must work **for any angle** (90°, acute, obtuse, reflex angles)
+
+The current join logic is implemented in a **WallJoinResolver** system using:
+
+* centreline intersection
+* tangent computation
+* bisector miter plane
+* endpoint snapping
+
+However, the join is **not consistently clean**, so a full audit is required.
+
+---
+
+# CRITICAL RULES
+
+### 1 — DO NOT USE AUTONOMOUS MODE
+
+Do NOT run autonomous code rewriting.
+
+You must:
+• Inspect
+• Diagnose
+• Propose minimal modular fixes
+
+---
+
+### 2 — DO NOT BREAK EXISTING LOGIC
+
+The wall system interacts with multiple engine layers.
+
+Any modification must:
+
+• NOT change existing APIs
+• NOT change existing data structures
+• NOT modify store contracts
+• NOT change semantic data
+
+If improvements are needed:
+
+→ create **new helper modules**
+→ wrap existing logic
+→ keep backward compatibility.
+
+---
+
+### 3 — FOLLOW ENGINE CONTRACTS STRICTLY
+
+Every proposal must comply with:
+
+docs/01-BIM-ENGINE-CORE-CONTRACT
+docs/02-BIM-SPATIAL-PROJECTION-CONTRACT
+docs/03-BIM-SEMANTIC-MODEL-CONTRACT
+docs/04-BIM-AI-MODIFICATION-PROTOCOL
+
+Specifically ensure:
+
+• Geometry resolvers remain **pure**
+• No semantic mutation
+• No store writes from resolver layer
+• Deterministic geometry output
+
+---
+
+# AUDIT TASKS
+
+Perform the following analysis:
+
+### 1 — Inspect Wall Geometry
+
+Verify:
+
+• baseline definitions
+• endpoint snapping
+• tangent calculation
+• curve handling (Bezier walls)
+
+Check whether any of these can cause **misaligned joins**.
+
+---
+
+### 2 — Inspect Wall Join Resolver
+
+Audit:
+
+WallJoinResolver
+
+Focus on:
+
+• `_L()` join logic
+• `_T()` join logic
+• `intersect2D()`
+• vertex merge logic
+• SNAP_EPS usage
+• tangentInto()
+
+Identify situations where:
+
+• intersection is skipped
+• intersection returns null
+• endpoints do not collapse to the same point
+
+---
+
+### 3 — Check Numerical Robustness
+
+Look for issues with:
+
+• floating point tolerance
+• near-parallel walls
+• intersection far from endpoints
+• snapping thresholds
+
+Explain if any of these produce **split seams**.
+
+---
+
+### 4 — Verify Geometry Output
+
+Confirm that after join resolution:
+
+• both walls share identical endpoint coordinates
+• miter plane normals match
+• geometry extrusion will produce **one vertical seam**
+
+---
+
+### 5 — Verify No Side Effects
+
+Ensure wall join resolution does NOT impact:
+
+• wall editing tools
+• wall snapping tools
+• wall creation tool
+• semantic IDs
+• level assignment
+• BIM element contracts
+
+---
+
+# FIX STRATEGY
+
+If problems are found:
+
+1. Do NOT rewrite existing resolver logic directly.
+2. Create a **new modular utility file**, for example:
+
+`geometry/wallJoinAuditUtils.ts`
+
+This module may include:
+
+• robust intersection helpers
+• tolerance checks
+• endpoint convergence verification
+• debug diagnostics
+
+The existing resolver may **call these helpers**, but its behaviour must remain compatible.
+
+---
+
+# EXPECTED OUTPUT
+
+Provide:
+
+### 1 — Diagnosis
+
+Explain **exactly why the join sometimes fails**.
+
+### 2 — Risk assessment
+
+List possible impacts on other systems.
+
+### 3 — Safe solution
+
+Provide **modular improvements** that:
+
+• guarantee single intersection for 2 walls
+• do not break contracts
+• do not modify store logic
+• remain deterministic
+
+### 4 — Code suggestions
+
+If code changes are needed:
+
+• show **precise small patches**
+• or propose **new helper modules**
+
+---
+
+# IMPORTANT
+
+The goal is **NOT to rewrite the join system**.
+
+The goal is to:
+
+• audit
+• diagnose
+• stabilise the 2-wall join behaviour
+• maintain full compliance with BIM engine contracts.

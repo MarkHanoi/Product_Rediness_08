@@ -1,0 +1,22 @@
+{
+  "name": "eslint-plugin-pryzm",
+  "version": "0.1.0",
+  "description": "PRYZM 2 — custom ESLint rules enforcing the architectural contracts (no THREE in kernel, affected-stores required, etc.).",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "peerDependencies": {
+    "eslint": ">=9"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.9"
+  }
+}

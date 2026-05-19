@@ -1,0 +1,43 @@
+{
+  "id": "flat-square-no-overhang",
+  "description": "flat 4×4 square, no overhang, default thickness",
+  "roof": {
+    "id": "roof:flat-sq",
+    "type": "roof",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "boundary": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 4,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 4,
+        "y": 0,
+        "z": 4
+      },
+      {
+        "x": 0,
+        "y": 0,
+        "z": 4
+      }
+    ],
+    "shape": "flat",
+    "pitch": 0,
+    "overhang": 0,
+    "thickness": 0.2
+  },
+  "worldY": 0
+}

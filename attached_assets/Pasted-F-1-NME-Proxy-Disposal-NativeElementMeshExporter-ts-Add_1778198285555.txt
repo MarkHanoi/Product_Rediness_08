@@ -1,0 +1,18 @@
+F.1 — NME Proxy Disposal (NativeElementMeshExporter.ts)
+
+Added NMEExportOptions interface with disposeProxies?: boolean
+Added private _disposeProxyGroup(group, disposeGeometry) method — skips any geometry where userData.sharedGeometry === true (shared with scene; owner controls lifetime), disposes only InstancedMesh-derived proxy geometries
+Updated releaseGroups(groups, opts?) to call _disposeProxyGroup with the option flag; logs count + elapsed when disposeProxies=true
+F.2 — resumeAndFlush() → resume() (6 files, 9 call sites)
+
+BatchCoordinator.ts interfaces: added resume(): void to all three (WallBuilderControl, CurtainWallBuilderControl, SlabBuilderControl); resumeAndFlush kept as @deprecated for ProjectLoader; all 9 call sites now call resume(); _setupBatch() registers the F.3 budget token
+CurtainWallBuilder.ts: added resume() to window.__curtainWallRebuildControl using scheduleOnce('cw-builder-drain', ..., 'pre-render') instead of schedule() — guarantees deferral to a fresh tick
+SlabFragmentBuilder.ts: added resume() public method alongside resumeAndFlush(), using scheduleOnce('slab-builder-drain', ..., 'pre-render')
+engineLauncher.ts: added _wallRebuildControlResume() (async via scheduleOnce instead of synchronous _flushWallRebuild()); added resume property to window.__wallRebuildControl and window.__slabRebuildControl (delegates to slabBuilder.resume())
+global-window.d.ts: added resume(): void with §F.2 JSDoc to all three control types
+F.3 — Shared per-rAF budget token (4 files)
+
+packages/frame-scheduler/src/types.ts: added BudgetToken interface (budgetMs, hasRemaining(startMs), consume(elapsedMs))
+packages/frame-scheduler/src/FrameScheduler.ts: added _batchBudgets: Map<string, _BudgetEntry> field; setBatchBudget(key, {budgetMs}) and getBatchBudget(key): BudgetToken | null; per-tick consumedMs = 0 reset at the top of tick(); _batchBudgets.clear() in reset()
+packages/frame-scheduler/src/index.ts: exports BudgetToken type
+CurtainWallBuilder._drainBuildQueue() and SlabFragmentBuilder._drainBuildQueue(): both check getBatchBudget('batch-drain')?.hasRemaining(t0) upfront (yield if already exhausted by the other builder), and call budget?.consume(frameMs) after completing their slice

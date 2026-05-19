@@ -1,0 +1,31 @@
+{
+  "name": "@pryzm/plugin-ifc-export",
+  "version": "0.1.0",
+  "description": "PRYZM 2 \u2014 IFC Tier 1 export plugin (Phase 3-B Sprint S56). Writes IFC4 STEP files from PRYZM element snapshots using web-ifc write mode. Supports Wall, Slab, Door, Window, Column, Beam (Tier 1). Round-trips Pset metadata + GlobalId via the side-car IFCMetaStore so identifiers and properties survive an import \u2192 edit \u2192 export \u2192 re-import cycle. Pure TS / Node-compatible \u2014 passes the bake-worker test (no DOM, no THREE, no React). The IFCMetaStore lives locally here until S55 lands it in @pryzm/stores.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./meta-store": "./src/meta-store.ts",
+    "./types": "./src/types.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
+    "web-ifc": "^0.0.77",
+    "@pryzm/plugin-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

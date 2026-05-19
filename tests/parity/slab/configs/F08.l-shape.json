@@ -1,0 +1,52 @@
+{
+  "id": "F08.l-shape",
+  "description": "L-shape slab",
+  "slab": {
+    "id": "slab:01HZS000000000000SLBF0800",
+    "type": "slab",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "boundary": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 6,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 6,
+        "y": 0,
+        "z": 3
+      },
+      {
+        "x": 3,
+        "y": 0,
+        "z": 3
+      },
+      {
+        "x": 3,
+        "y": 0,
+        "z": 6
+      },
+      {
+        "x": 0,
+        "y": 0,
+        "z": 6
+      }
+    ],
+    "holes": [],
+    "thickness": 0.2,
+    "baseOffset": 0
+  },
+  "worldY": 0
+}

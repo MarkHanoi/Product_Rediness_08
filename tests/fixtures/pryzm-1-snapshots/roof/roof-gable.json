@@ -1,0 +1,25 @@
+{
+  "id": "roof_01H8XK3J7M9N2P4QR5STVW6XYZ",
+  "type": "roof",
+  "parentId": "level_2",
+  "childrenIds": [],
+  "metadata": {
+    "createdAt": 1700000100000,
+    "modifiedAt": 1700000100000,
+    "createdBy": "fixture",
+    "version": 1,
+    "tags": ["exterior"]
+  },
+  "levelId": "level_2",
+  "boundary": [
+    { "x": 0, "y": 3, "z": 0 },
+    { "x": 8, "y": 3, "z": 0 },
+    { "x": 8, "y": 3, "z": 6 },
+    { "x": 0, "y": 3, "z": 6 }
+  ],
+  "shape": "gable",
+  "pitch": 0.5235987755982988,
+  "overhang": 0.6,
+  "thickness": 0.2,
+  "materialId": "tile-clay"
+}

@@ -1,0 +1,436 @@
+WALL SYSTEM FULL CONTRACT AUDIT — PHASE 1 (READ-ONLY, ZERO MODIFICATIONS)
+
+You are performing a deep architectural compliance audit of the Wall system against the BIM Engine Architectural Contract (v1.0).
+
+⚠️ This is a STRICT contract validation.
+⚠️ Do NOT suggest refactors yet.
+⚠️ This is READ-ONLY analysis.
+⚠️ Every finding must reference the contract section number being violated or satisfied.
+
+🔍 FILES TO ANALYZE
+
+WallTool.ts
+
+WallStore.ts
+
+WallTypes.ts
+
+WallFragments.ts
+
+WallBuilder.ts (or wallFragmentBuilder)
+
+All wall-related commands:
+
+CreateWallCommand
+
+UpdateWallDimensionsCommand
+
+UpdateWallHeightCommand
+
+UpdateWallVisualPropertiesCommand
+
+Any other wall command
+
+Any spatial registration related to walls
+
+Any inspector integration touching walls
+
+1️⃣ COMMAND-FIRST COMPLIANCE CLASSIFICATION
+
+For the Wall element type, classify according to Contract §18:
+
+A) Fully Command-First
+B) Mostly Command-First
+C) Tool-Leaking
+D) Architecturally Unsafe
+
+You MUST verify:
+
+Does any Tool mutate Store directly? (§2.1, §23.1)
+
+Does any Tool create final scene geometry? (§18.4)
+
+Are IDs generated inside Command.execute()? (§18.3 violation if yes)
+
+Are spatial registrations performed ONLY inside commands? (§5)
+
+Does undo remove BOTH semantic + projection? (§2.3)
+
+Provide:
+
+Wall System Classification: [A/B/C/D]
+
+Justification with file + line references.
+
+2️⃣ COMMAND SYMMETRY VERIFICATION (STRICT BLOCK)
+
+For EACH wall command:
+
+Explicitly confirm:
+
+Snapshot captured BEFORE mutation (§2.2)
+
+structuredClone used
+
+Full store object replacement via store.set() (§3.1)
+
+Undo restores FULL snapshot (not patch) (§2.3)
+
+Redo reapplies identical semantic state (§2.4)
+
+No ID regeneration (§6.1, §18.3)
+
+Spatial unregister on undo (§5)
+
+Spatial re-register on redo (§5)
+
+Builder triggered exactly once per execute/undo/redo (§Rebuild Cascade Control)
+
+If ANY of these fail → mark command:
+
+🔴 Symmetry Violation
+
+Provide per-command structured block:
+
+Command Name:
+Snapshot Integrity:
+Undo Replacement:
+Redo Symmetry:
+Spatial Compliance:
+ID Stability:
+Rebuild Determinism:
+Risk Level:
+
+3️⃣ STORE IMMUTABILITY & DATA PURITY AUDIT
+
+For WallStore.ts, validate:
+
+§3.1 Immutability Required
+
+Any .push()?
+
+Any direct property assignment?
+
+Any partial patch updates?
+
+Any shared references returned?
+
+§3.2 Store Is Data Only
+
+Does store import builder?
+
+Does store trigger rebuild?
+
+Does store access scene?
+
+Does store access BimManager?
+
+Does store register spatially?
+
+Reference Leak Test:
+
+If getWall(id) returns object,
+can caller mutate it and affect store?
+
+If yes → 🔴 Critical violation.
+
+Provide structured evaluation:
+
+Internal Data Structure:
+Mutation Strategy:
+Atomicity Guarantee:
+Event Emission:
+External Mutation Risk:
+Rendering Coupling:
+Contract Compliance Level:
+
+4️⃣ BUILDER CONTRACT VALIDATION (Projection Layer)
+
+For WallBuilder:
+
+Validate against §4 and §21:
+
+4.1 Projection Only
+
+Does builder mutate store?
+
+Does builder register spatial elements?
+
+Does builder access UI?
+
+Does builder modify command stack?
+
+4.2 Idempotency Rule
+
+If build(wall) is called twice:
+
+Does it create duplicate roots?
+
+Does it clear children first?
+
+Does it leak geometry?
+
+4.3 Root Lifecycle Rule
+
+Exactly ONE root per wallId?
+
+Is root reused?
+
+Are children cleared before rebuild?
+
+Are orphan roots possible?
+
+§21.2 Root Identity Preservation
+
+Does root preserve:
+
+userData.id
+
+userData.type
+
+userData.levelId
+
+Across rebuild?
+
+Provide:
+
+Projection Purity:
+Idempotency Status:
+Root Lifecycle Integrity:
+userData Preservation:
+Memory Leak Risk:
+Contract Compliance:
+
+5️⃣ SPATIAL AUTHORITY COMPLIANCE (CRITICAL)
+
+Validate against §13:
+
+Is worldY computed using:
+BimManager.getLevelById(levelId).elevation + baseOffset
+
+Any hardcoded offsets?
+
+Any absolute Y stored in semantic model?
+
+Any cached elevation values?
+
+Does builder compute elevation independently?
+
+Does any code fallback to 0 if level invalid? (FORBIDDEN)
+
+Check:
+
+Does CreateWallCommand validate levelId?
+
+Does spatial registration happen only in command?
+
+Does undo unregister?
+
+Does redo re-register?
+
+If any fallback logic exists → 🔴 Hard failure.
+
+Provide:
+
+Level Validation:
+Elevation Determinism:
+Registration Integrity:
+Fallback Detection:
+Risk Level:
+
+6️⃣ USERDATA SHADOW STORE AUDIT (§14)
+
+Inspect all .userData usage.
+
+Confirm:
+
+userData mirrors semantic id
+
+userData mirrors semantic type
+
+userData mirrors semantic levelId
+
+userData mirrors semantic baseOffset
+
+No semantic authority logic reads from userData
+
+No system trusts mesh.position.y as truth
+
+Check:
+
+Is userData updated on semantic change?
+
+Could stale userData persist?
+
+Does inspector ever modify userData?
+
+Does store ever access userData? (FORBIDDEN)
+
+Provide:
+
+Shadow Integrity:
+Drift Risk:
+Improper Authority Usage:
+Compliance Status:
+
+7️⃣ HOSTED ELEMENT RULE (FUTURE-SAFE CHECK)
+
+Even if walls currently lack hosted windows/doors:
+
+Is semantic structure prepared for hosted elements?
+
+Would undo remove hosted hole + frame?
+
+Are hosted elements independent semantic entries? (FORBIDDEN per §6.3)
+
+If hosted system exists → deep audit it.
+
+8️⃣ REBUILD CASCADE CONTROL
+
+Validate:
+
+Does store trigger rebuild? (FORBIDDEN)
+
+Does builder trigger rebuild? (FORBIDDEN)
+
+Does command trigger rebuild exactly once?
+
+Any nested rebuild loops?
+
+Any implicit rebuild via events?
+
+If rebuild source unclear → flag.
+
+9️⃣ TOOL ISOLATION AUDIT
+
+For WallTool.ts:
+
+Confirm:
+
+No store.set
+
+No spatial registration
+
+No builder.build for final elements
+
+Preview meshes disposed on finalize
+
+Preview root never reused as final root
+
+ID generated in tool and injected into command (§18.3)
+
+If ID generated inside command → 🔴 symmetry violation.
+
+Provide:
+
+Tool Isolation Status:
+Preview Lifecycle Safety:
+ID Injection Compliance:
+Architectural Classification Impact:
+
+🔟 TYPE SAFETY & SEMANTIC SCHEMA VALIDATION
+
+For WallTypes.ts:
+
+Validate against §20:
+
+Are required fields actually required?
+
+Any optional levelId?
+
+Any optional baseOffset?
+
+Any mutable nested arrays?
+
+Any default values implicit?
+
+Are enum string values stable?
+
+Flag:
+
+Unsafe optional spatial fields
+
+Missing levelId requirement
+
+Material fields not guaranteed
+
+Any absolute Y field (FORBIDDEN)
+
+Provide:
+
+Schema Stability:
+Backward Compatibility Risk:
+Spatial Integrity Risk:
+Mutation Risk:
+
+1️⃣1️⃣ DETERMINISM STRESS TEST (THEORETICAL)
+
+Simulate mentally:
+
+Scenario A:
+Create 3 walls → update dimensions → undo twice → redo twice
+
+Scenario B:
+Change level elevation
+
+Scenario C:
+Change wall levelId
+
+Verify:
+
+No ghost geometry
+
+No duplicate roots
+
+No stale userData
+
+Spatial reactivity works
+
+No ID regeneration
+
+If any uncertain → mark 🟠 Design Weakness.
+
+1️⃣2️⃣ CONSISTENCY RULE CHECK
+
+Verify globally:
+
+Store is single source of truth
+
+Rendering never mutates store
+
+Commands never partially patch
+
+userData not treated as authority
+
+No cross-layer imports violating architecture
+
+List violations explicitly with contract section.
+
+1️⃣3️⃣ RISK SUMMARY (MANDATORY FORMAT)
+
+Categorize findings:
+
+🔴 Critical Architectural Violations
+🟠 Major Design Weaknesses
+🟡 Minor Improvements
+🟢 Fully Contract-Compliant Areas
+
+REQUIRED OUTPUT FORMAT
+
+Your response MUST follow this structure:
+
+Wall System Classification:
+Command Symmetry Audit:
+Store Integrity Audit:
+Builder Contract Audit:
+Spatial Authority Audit:
+userData Shadow Audit:
+Tool Isolation Audit:
+Schema Validation Audit:
+Determinism Stress Test:
+Rebuild Cascade Analysis:
+Coupling Analysis:
+Risk Summary:
+Overall Contract Compliance Score (0–100):
+
+If format not followed → audit invalid.

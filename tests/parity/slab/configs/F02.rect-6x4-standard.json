@@ -1,0 +1,42 @@
+{
+  "id": "F02.rect-6x4-standard",
+  "description": "6×4 standard-thickness slab",
+  "slab": {
+    "id": "slab:01HZS000000000000SLBF0200",
+    "type": "slab",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "boundary": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 6,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 6,
+        "y": 0,
+        "z": 4
+      },
+      {
+        "x": 0,
+        "y": 0,
+        "z": 4
+      }
+    ],
+    "holes": [],
+    "thickness": 0.25,
+    "baseOffset": 0
+  },
+  "worldY": 0
+}

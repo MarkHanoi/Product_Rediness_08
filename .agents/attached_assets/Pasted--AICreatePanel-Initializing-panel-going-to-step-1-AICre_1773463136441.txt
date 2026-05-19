@@ -1,0 +1,79 @@
+[AICreatePanel] Initializing panel, going to step 1
+ [AICreatePanel] Transitioning to step 1
+ [AICreatePanel] Step 1: display=flex
+ [AICreatePanel] Step 2: display=none
+ [AICreatePanel] Step 3: display=none
+ [AICreatePanel] Step 4: display=none
+ [AICreatePanel] All steps found and updated successfully
+ [AICreatePanel] Attaching file input change listener
+ [AICreatePanel] Attaching all event listeners
+ [AICreatePanel] Attaching all event listeners...
+ [AICreatePanel] ✓ Step 2 Next button listener attached
+ [AICreatePanel] ✓ Step 2 Back button listener attached
+ [AICreatePanel] ✓ Step 3 Generate button listener attached
+ [AICreatePanel] ✓ Step 3 Back button listener attached
+ [AICreatePanel] ✓ Step 4 Open AI Actions button listener attached
+ [AICreatePanel] ✓ Step 4 Create Another button listener attached
+ [AICreatePanel] ✓ Prompt input keydown listener attached
+ [AICreatePanel] All event listeners attached successfully
+injected.js:37 Starting centered windows creation...
+injected.js:37 Found 0 walls.
+injected.js:37 Centered windows creation complete.
+ Starting centered windows creation...
+ Found 0 walls.
+ Centered windows creation complete.
+ Refreshing Spatial Tree...
+(index):1 WebGL: too many errors, no more errors will be reported to the console for this context.Understand this warning
+(index):1 WebGL: too many errors, no more errors will be reported to the console for this context.Understand this warning
+/public/js/beacon.js:1  Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOriginAfterDefaultedToSameOriginByCoepUnderstand this error
+/public/js/beacon.js:1  Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOriginAfterDefaultedToSameOriginByCoepUnderstand this error
+/public/js/beacon.js:1  Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOriginAfterDefaultedToSameOriginByCoepUnderstand this error
+/public/js/beacon.js:1  Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOriginAfterDefaultedToSameOriginByCoepUnderstand this error
+client:745 WebSocket connection to 'wss://2b61a0b7-09dd-4b14-8fc0-0924d64b6e82-00-1koatdtnxx4q5.picard.replit.dev:24678/?token=Q9bpTwOE--vM' failed: 
+createConnection @ client:745Understand this error
+ WebSocket connection to 'wss://2b61a0b7-09dd-4b14-8fc0-0924d64b6e82-00-1koatdtnxx4q5.picard.replit.dev:24678/?token=Q9bpTwOE--vM' failed: 
+createConnection @ client:745Understand this error
+ [vite] failed to connect to websocket (Error: WebSocket closed without opened.). 
+(anonymous) @ injected.js:37Understand this error
+client:423 Uncaught (in promise) Error: WebSocket closed without opened.
+    at WebSocket.<anonymous> (client:423:30)Understand this error
+639df9e820e242dd8.js:21 Haven't heard from the server in a while, resetting connection...
+(anonymous) @ 39df9e820e242dd8.js:21Understand this warning
+injected.js:37 [FloorPlanImportPanel] PDF converted: 1190×1684px
+injected.js:37 [FloorPlanImportPanel] Calibration: 115.4 px/m → 10.3m × 14.6m
+client:745 WebSocket connection to 'wss://2b61a0b7-09dd-4b14-8fc0-0924d64b6e82-00-1koatdtnxx4q5.picard.replit.dev:24678/?token=Q9bpTwOE--vM' failed: 
+createConnection @ client:745Understand this error
+client:772 [vite] failed to connect to websocket (Error: WebSocket closed without opened.). 
+connect @ client:772Understand this error
+client:423 Uncaught (in promise) Error: WebSocket closed without opened.
+    at WebSocket.<anonymous> (client:423:30)Understand this error
+injected.js:37 [FloorPlanAIFactory] Failed to parse structure JSON: {
+  "walls": [
+    {
+      "id": "w1",
+      "startPx": { "x": 238, "y": 36 },
+      "endPx": { "x": 671, "y": 36 },
+      "thicknessPx": 8,
+      "wallType": "exterior",
+      "confidence": "high"
+    },
+    {
+      "id": "w2",
+      "startPx": { "x": 671, "y": 36 },
+      "endPx": { "x": 671, "y":
+(anonymous) @ injected.js:37Understand this error
+injected.js:37 [FloorPlanImportPanel] Analysis error: Error: [FloorPlanAIFactory] Non-JSON response from structure: {
+  "walls": [
+    {
+      "id": "w1",
+      "startPx": { "x": 238, "y": 36 },
+      "endPx": { "x": 671, "y": 36 },
+      "thicknessPx": 8,
+      "wallType": "exterior",
+      "confidence": "high"
+  
+    at safeParseJSON (FloorPlanAIFactory.ts:120:11)
+    at FloorPlanAIFactory.analyseStructure (FloorPlanAIFactory.ts:143:20)
+    at async FloorPlanAIFactory.analyse (FloorPlanAIFactory.ts:185:25)
+    at async handleAnalyse (FloorPlanImportPanel.ts:188:22)
+(anonymous) @ injected.js:37Understand this error

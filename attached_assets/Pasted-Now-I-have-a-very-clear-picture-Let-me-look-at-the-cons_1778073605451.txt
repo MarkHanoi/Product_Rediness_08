@@ -1,0 +1,37 @@
+Now I have a very clear picture. Let me look at the console log to pinpoint what's happening in this specific session.
+The console log tells the story precisely. Here's the specific bottleneck causing the post-overlay "frozen/pseudo-frozen" scene:
+
+The Root Cause: EdgeProjectorService.project() Post-Overlay LONGTASK
+Looking at the console sequence around the curtain wall batch completion:
+[BatchCoordinator] §TRACE ON-BATCH-END-DONE (overlay dismissed post-dual-PSO-compile; §FIX-DUAL-LONGTASK) T=+18406.5ms
+[FPS] 2fps
+[LONGTASK] duration=4799.0ms  ← first PSO compile (batch render suppression lifts)
+... then dozens of 170–220ms LONGTASKs at 5–6fps ...
+[EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 17 group(s) in 17 chunk(s), 575 edge geometries
+The overlay dismisses at T=+18406ms. But then the main thread is blocked for the entire stretch from ~320s to ~370s (50+ seconds of continuous ~180–300ms LONGTASKs). The scene renders at 2–6fps throughout. The user sees elements, the overlay is gone, but they can't interact. That is the pseudo-freeze.
+The specific cause: ViewDependencyTracker.markLevelsDirty() fires after the overlay dismisses (deferred via §FIX-EDGE-PROJECT-DEFER), which after a 300ms debounce triggers EdgeProjectorService.project(). For this session (88 walls, 11 levels), the native mesh group loop runs through 575 edge geometries across 17 ISO layers — and the log shows 17 group(s) in 17 chunk(s), meaning Fix W2 (CHUNK_SIZE=4) is working for the outer chunk loop. But the per-chunk work itself is still generating continuous ~180ms LONGTASKs.
+The critical clue is in the geometry counter:
+[GPU Monitor] geometries:24 → 108 (+350%) → 2838 (+2527%) → 3179 → 3509 → 3979 → 3980
+Geometry explodes from 108 → 2838 during the render that starts after overlay dismissal. That +2527% jump is Three.js uploading 88 curtain wall meshes' geometry buffers to the GPU (vertex + index + instance buffers) on the first real render frame — which is also where the 4799ms PSO compile LONGTASK fires. This means the prewarm (Fix 1) did not prevent the first-render PSO LONGTASK in this session.
+The log confirms it:
+[CreateCurtainWallsOnAllSlabsCommand] §BN-05b §PREWARM-FAILED prewarmRenderMs=6.1ms < 30ms threshold — PSOs NOT compiled (rpm.render was a no-op). _shadersPrewarmed NOT set (will retry on next execute).
+The prewarm failed because rpm.render(0) returned in 6.1ms — well below the 30ms threshold that validates a real PSO compile happened. The GBuffer was empty at prewarm time (no CW geometry exists yet), so the SSGI/outline passes took no-op paths and deferred their PSO compilation to the first real production frame — exactly as described in "Second-Pass Analysis Claim A" in your docs.
+
+The Two-Layer Freeze Mechanism
+Layer 1 — First real render PSO compile (4,799ms LONGTASK):
+The batch overlay dismisses → UnifiedFrameLoop lifts render suppression → first rpm.render(delta) executes with 88 new CW meshes in scene → WebGPU driver compiles PSO variants for SSGI denoiser + TRAA + outline passes that had no-op'd during prewarm → 4,799ms main-thread block.
+Layer 2 — EdgeProjectorService running concurrently with a GPU-saturated renderer (continuous ~180ms LONGTASKs):
+After the PSO compile, EdgeProjectorService.project() is processing 575 edge geometry groups for the plan view. Even with CHUNK_SIZE=4 yielding between chunks, each chunk calls Three.js geometry projection which itself is CPU-intensive per group. With the renderer now executing full pipeline frames (SSGI + outlines) at the same time, the main thread budget per macrotask is already nearly exhausted — so even "small" chunks push task duration above 50ms.
+The drawCalls:8040 tris:122402 GPU Monitor entry appearing mid-freeze confirms the renderer is running full production workload simultaneously with the EdgeProjector chunking.
+
+What Fix W2 Is Not Catching
+Your doc says Fix W2 (chunked EdgeProjectorService) should turn the 7,046ms LONGTASK into ≤47ms chunks. In this session it does chunk (17 groups in 17 chunks), but the resulting chunks are still 160–220ms each. The reason: CHUNK_SIZE=4 was calibrated at ~11.8ms/group. But this session has 575 edge geometries / 17 groups = ~34 geometries per group — much heavier than the calibration case. The per-group cost scaled up, so each 4-group chunk exceeds the 50ms threshold.
+
+Summary of the Specific Bottleneck
+The pseudo-freeze after overlay dismissal has three compounding causes in this console trace, in order of impact:
+
+Prewarm failure → 4,799ms first-render PSO compile LONGTASK. rpm.render(0) returned in 6.1ms (no-op), so SSGI/TRAA/outline PSOs are cold on the first real frame post-suppression-lift.
+EdgeProjectorService 575-geometry reprojection running with heavy per-group cost (~34 geometries/group vs. the 4 assumed by CHUNK_SIZE). Chunks are ~160–220ms each despite the yield points.
+GPU geometry upload spike (108→2838 geometries in one frame) competing with the CPU projection work on the same render thread.
+
+The overlay dismisses, the user sees the model, but the main thread stays saturated for ~50 seconds because all three of these fire in the same render frame window. The prewarm failure is the root of the problem — fixing that removes the 4,799ms LONGTASK and gives the EdgeProjector chunks room to breathe.

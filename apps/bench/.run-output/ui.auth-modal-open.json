@@ -1,0 +1,10 @@
+{
+  "name": "ui.auth-modal-open",
+  "samples": 100,
+  "p50": 2.727,
+  "p95": 15.412,
+  "p99": 42.868,
+  "budgetMs": 50,
+  "warnMs": 25,
+  "recordedAt": "2026-05-09T23:08:59.955Z"
+}

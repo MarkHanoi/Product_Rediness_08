@@ -1,0 +1,252 @@
+[FPS] 30fps
+2VM7 injected.js:37 [ProjectSerializer] Snapshot created: 7 elements, 11 levels, 6 walls, 0 slabs, 0 furniture
+VM7 injected.js:37 [PlatformSaveController] Version saved: "Auto-save" (7 elements, id: proj-1777904796570-j01p7)
+VM7 injected.js:37 [FPS] 86fps
+VM7 injected.js:37 [FPS] 109fps
+VM7 injected.js:37 [GPU Monitor] geometries:241 textures:9 | drawCalls:1 tris:1
+2VM7 injected.js:37 [FPS] 30fps
+VM7 injected.js:37 [FPS] 92fps
+VM7 injected.js:37 [FPS] 59fps
+VM7 injected.js:37 [GPU Monitor] geometries:241 textures:9 | drawCalls:1 tris:1
+VM7 injected.js:37 [SlabModePicker] Mode selected: By Region
+VM7 injected.js:37 ToolManager: activateTool called for slab
+VM7 injected.js:37 ToolManager: deactivating previous tool none
+VM7 injected.js:37 ToolManager: executing activateFn for slab
+VM7 injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+VM7 injected.js:37 [FPS] 58fps
+VM7 injected.js:37 [SlabPlanToolHandler] activated — overlay ready, waiting for first click
+VM7 injected.js:37 [SvpPlanToolOverlay] Handler activated: slab
+VM7 injected.js:37 [CommandManager] EXECUTE: CREATE_SLAB
+VM7 injected.js:37 [CommandManager] snapshot commandType="CreateSlabCommand" scope=[slab,level] elapsed=0.0ms
+VM7 injected.js:37 [BimManager] Registered element 22f96012-970c-45b2-813e-bc38746fb7f2 to level L0
+VM7 injected.js:37 [SlabFragmentBuilder] outset slabId="22f96012-970c-45b2-813e-bc38746fb7f2" vertices=6 elapsed=0.0ms
+VM7 injected.js:37 [SlabFragmentBuilder] triangulate slabId="22f96012-970c-45b2-813e-bc38746fb7f2" outerVertices=6 elapsed=0.1ms
+VM7 injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="22f96012-970c-45b2-813e-bc38746fb7f2" totalMs=0.8ms
+VM7 injected.js:37 [SlabPlanToolHandler] slab created 22f96012-970c-45b2-813e-bc38746fb7f2
+VM7 injected.js:37 [CommandManager] EXECUTE: UPDATE_SLAB_LAYERS
+VM7 injected.js:37 [CommandManager] snapshot commandType="UpdateSlabLayersCommand" scope=[slab] elapsed=0.1ms
+VM7 injected.js:37 [SlabFragmentBuilder] outset slabId="22f96012-970c-45b2-813e-bc38746fb7f2" vertices=6 elapsed=0.0ms
+VM7 injected.js:37 [SlabFragmentBuilder] triangulate slabId="22f96012-970c-45b2-813e-bc38746fb7f2" outerVertices=6 elapsed=0.1ms
+VM7 injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="22f96012-970c-45b2-813e-bc38746fb7f2" totalMs=0.5ms
+VM7 injected.js:37 [FPS] 41fps
+VM7 injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+VM7 injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+VM7 injected.js:37 [PlanarTopologyEngine] Topology: 1 room(s) detected, outer face (6 vertices), 2 total faces
+VM7 injected.js:37 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+VM7 injected.js:37 [SlabPlanToolHandler] deactivated
+VM7 injected.js:37 [SlabPlanToolHandler] activated — overlay ready, waiting for first click
+VM7 injected.js:37 [SvpPlanToolOverlay] Handler activated: slab
+2VM7 injected.js:37 [ProjectSerializer] Snapshot created: 8 elements, 11 levels, 6 walls, 1 slabs, 0 furniture
+VM7 injected.js:37 [PlatformSaveController] Version saved: "Auto-save" (8 elements, id: proj-1777904817440-hyvm6)
+VM7 injected.js:37 [CommandManager] EXECUTE: CREATE_SLAB
+VM7 injected.js:37 [CommandManager] snapshot commandType="CreateSlabCommand" scope=[slab,level] elapsed=0.1ms
+VM7 injected.js:37 [BimManager] Registered element e86728bc-93f5-4a66-99e2-8eabd93b923d to level L0
+VM7 injected.js:37 [SlabFragmentBuilder] outset slabId="e86728bc-93f5-4a66-99e2-8eabd93b923d" vertices=6 elapsed=0.1ms
+VM7 injected.js:37 [SlabFragmentBuilder] triangulate slabId="e86728bc-93f5-4a66-99e2-8eabd93b923d" outerVertices=6 elapsed=0.0ms
+VM7 injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="e86728bc-93f5-4a66-99e2-8eabd93b923d" totalMs=0.4ms
+VM7 injected.js:37 [SlabPlanToolHandler] slab created e86728bc-93f5-4a66-99e2-8eabd93b923d
+VM7 injected.js:37 [CommandManager] EXECUTE: UPDATE_SLAB_LAYERS
+VM7 injected.js:37 [CommandManager] snapshot commandType="UpdateSlabLayersCommand" scope=[slab] elapsed=0.0ms
+VM7 injected.js:37 [SlabFragmentBuilder] outset slabId="e86728bc-93f5-4a66-99e2-8eabd93b923d" vertices=6 elapsed=0.0ms
+VM7 injected.js:37 [SlabFragmentBuilder] triangulate slabId="e86728bc-93f5-4a66-99e2-8eabd93b923d" outerVertices=6 elapsed=0.0ms
+VM7 injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="e86728bc-93f5-4a66-99e2-8eabd93b923d" totalMs=0.3ms
+VM7 injected.js:37 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+VM7 injected.js:37 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+VM7 injected.js:37 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed out of 1 live room(s).
+VM7 injected.js:37 [NativeElementMeshExporter] Plan view — exporting 47 elements from levels overlapping Y=[-1.20, 0.00]
+VM7 injected.js:37 [FPS] 19fps
+VM7 injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+VM7 injected.js:37 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+VM7 injected.js:37 [EdgeProjectorService] Native projection done — 8 group(s), 8 edge geometries across 8 ISO layer(s) (per-element UUID tagging active)
+VM7 injected.js:37 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=12 (OBC-IFC=0, native=8, ifc-scene=0)
+VM7 injected.js:37 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=7/14 layers
+VM7 injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+VM7 injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+VM7 injected.js:37 [PlanarTopologyEngine] Topology: 1 room(s) detected, outer face (6 vertices), 2 total faces
+VM7 injected.js:37 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+2VM7 injected.js:37 [ProjectSerializer] Snapshot created: 9 elements, 11 levels, 6 walls, 2 slabs, 0 furniture
+VM7 injected.js:37 [PlatformSaveController] Version saved: "Auto-save" (9 elements, id: proj-1777904818731-qb087)
+VM7 injected.js:37 [SlabPlanToolHandler] deactivated
+VM7 injected.js:37 [GPU Monitor] geometries:240 textures:8 | drawCalls:1 tris:1
+VM7 injected.js:37 [FPS] 30fps
+VM7 injected.js:37 [AIPanel] Proposal received via event — showing inline card: Object
+VM7 injected.js:37 [CommandManager] EXECUTE: CREATE_SLABS_ON_ALL_FLOORS
+VM7 injected.js:37 [CommandManager] snapshot commandType="CreateSlabsOnAllFloorsCommand" scope=[slab,level] elapsed=0.1ms
+VM7 injected.js:37 [CreateSlabsOnAllFloorsCommand] START referenceSlabId="22f96012-970c-45b2-813e-bc38746fb7f2" levels=10 polygonVertices=6
+VM7 injected.js:37 [CreateSlabsOnAllFloorsCommand] runBatch starting — 10 slab(s) deferred to rAF drain.
+VM7 injected.js:37 [BatchCoordinator] _setupBatch — 10 level(s), 10 elements expected. ViewDependencyTracker suppressed.
+VM7 injected.js:37 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+VM7 injected.js:37 [BimManager] Registered element ff4720af-56d8-4aa5-8967-d0e8047fe0e1 to level L-01-1777904795534-1
+VM7 injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-01-1777904795534-1" success=true elapsed=0.7ms
+VM7 injected.js:37 [BimManager] Registered element 06039d53-77a4-4ced-9244-36885fecf7bf to level L-02-1777904795536-2
+VM7 injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-02-1777904795536-2" success=true elapsed=0.3ms
+VM7 injected.js:37 [BimManager] Registered element e68aade3-b6bb-4dcd-909e-eea7be753a6a to level L-03-1777904795540-3
+VM7 injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-03-1777904795540-3" success=true elapsed=0.2ms
+VM7 injected.js:37 [BimManager] Registered element d5472e1a-fc23-4b77-b8a0-88b3b7ffee16 to level L-04-1777904795545-4
+VM7 injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-04-1777904795545-4" success=true elapsed=0.2ms
+VM7 injected.js:37 [BimManager] Registered element a6b419bc-c2bb-492a-899a-b67ddc18cb59 to level L-05-1777904795547-5
+VM7 injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-05-1777904795547-5" success=true elapsed=0.3ms
+VM7 injected.js:37 [BimManager] Registered element 0e4ac5b3-ccdf-4448-a89b-7cbae61d130c to level L-06-1777904795550-6
+VM7 injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-06-1777904795550-6" success=true elapsed=0.3ms
+VM7 injected.js:37 [BimManager] Registered element 73272e94-7300-4e05-ab43-433cce68cd4c to level L-07-1777904795554-7
+VM7 injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-07-1777904795554-7" success=true elapsed=0.3ms
+VM7 injected.js:37 [BimManager] Registered element 7724385b-494c-42d0-93a9-f7d7ed5fdbb7 to level L-08-1777904795558-8
+VM7 injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-08-1777904795558-8" success=true elapsed=0.7ms
+VM7 injected.js:37 [BimManager] Registered element 555f2503-343e-4dc4-9013-33ab3a9ec143 to level L-09-1777904795562-9
+VM7 injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-09-1777904795562-9" success=true elapsed=0.8ms
+VM7 injected.js:37 [BimManager] Registered element b53bc241-ca0e-4db4-8a23-ee48adc29746 to level L-10-1777904795567-10
+VM7 injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-10-1777904795567-10" success=true elapsed=0.5ms
+VM7 injected.js:37 [CreateSlabsOnAllFloorsCommand] COMPLETE created=10 total=6.0ms
+VM7 injected.js:37 [AIApprovalStore] Audit record appended: 76c3d41a-e2e4-4bb5-b87e-7c112d775594 (CREATE_SLABS_ON_ALL_FLOORS)
+VM7 injected.js:37 Refreshing Spatial Tree...
+VM7 injected.js:37 [RuleEngine] Model updated, ready for re-validation
+VM7 injected.js:37 [SlabFragmentBuilder] outset slabId="ff4720af-56d8-4aa5-8967-d0e8047fe0e1" vertices=6 elapsed=0.0ms
+VM7 injected.js:37 [SlabFragmentBuilder] triangulate slabId="ff4720af-56d8-4aa5-8967-d0e8047fe0e1" outerVertices=6 elapsed=0.1ms
+VM7 injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="ff4720af-56d8-4aa5-8967-d0e8047fe0e1" totalMs=0.7ms
+VM7 injected.js:37 [SlabFragmentBuilder] outset slabId="06039d53-77a4-4ced-9244-36885fecf7bf" vertices=6 elapsed=0.0ms
+VM7 injected.js:37 [SlabFragmentBuilder] triangulate slabId="06039d53-77a4-4ced-9244-36885fecf7bf" outerVertices=6 elapsed=0.1ms
+VM7 injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="06039d53-77a4-4ced-9244-36885fecf7bf" totalMs=0.5ms
+VM7 injected.js:37 [SlabFragmentBuilder] outset slabId="e68aade3-b6bb-4dcd-909e-eea7be753a6a" vertices=6 elapsed=0.0ms
+VM7 injected.js:37 [SlabFragmentBuilder] triangulate slabId="e68aade3-b6bb-4dcd-909e-eea7be753a6a" outerVertices=6 elapsed=0.4ms
+VM7 injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="e68aade3-b6bb-4dcd-909e-eea7be753a6a" totalMs=0.7ms
+VM7 injected.js:37 [SlabFragmentBuilder] outset slabId="d5472e1a-fc23-4b77-b8a0-88b3b7ffee16" vertices=6 elapsed=0.0ms
+VM7 injected.js:37 [SlabFragmentBuilder] triangulate slabId="d5472e1a-fc23-4b77-b8a0-88b3b7ffee16" outerVertices=6 elapsed=0.0ms
+VM7 injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="d5472e1a-fc23-4b77-b8a0-88b3b7ffee16" totalMs=0.3ms
+VM7 injected.js:37 [SlabFragmentBuilder] outset slabId="a6b419bc-c2bb-492a-899a-b67ddc18cb59" vertices=6 elapsed=0.0ms
+VM7 injected.js:37 [SlabFragmentBuilder] triangulate slabId="a6b419bc-c2bb-492a-899a-b67ddc18cb59" outerVertices=6 elapsed=0.0ms
+VM7 injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="a6b419bc-c2bb-492a-899a-b67ddc18cb59" totalMs=0.3ms
+VM7 injected.js:37 [SlabFragmentBuilder] RAF_DRAIN built=5 remaining=5 queueBefore=10 frameMs=3.0ms
+VM7 injected.js:37 [SlabFragmentBuilder] outset slabId="0e4ac5b3-ccdf-4448-a89b-7cbae61d130c" vertices=6 elapsed=0.1ms
+VM7 injected.js:37 [SlabFragmentBuilder] triangulate slabId="0e4ac5b3-ccdf-4448-a89b-7cbae61d130c" outerVertices=6 elapsed=0.0ms
+VM7 injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="0e4ac5b3-ccdf-4448-a89b-7cbae61d130c" totalMs=0.3ms
+VM7 injected.js:37 [SlabFragmentBuilder] outset slabId="73272e94-7300-4e05-ab43-433cce68cd4c" vertices=6 elapsed=0.0ms
+VM7 injected.js:37 [SlabFragmentBuilder] triangulate slabId="73272e94-7300-4e05-ab43-433cce68cd4c" outerVertices=6 elapsed=0.1ms
+VM7 injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="73272e94-7300-4e05-ab43-433cce68cd4c" totalMs=0.3ms
+VM7 injected.js:37 [SlabFragmentBuilder] outset slabId="7724385b-494c-42d0-93a9-f7d7ed5fdbb7" vertices=6 elapsed=0.0ms
+VM7 injected.js:37 [SlabFragmentBuilder] triangulate slabId="7724385b-494c-42d0-93a9-f7d7ed5fdbb7" outerVertices=6 elapsed=0.0ms
+VM7 injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="7724385b-494c-42d0-93a9-f7d7ed5fdbb7" totalMs=0.3ms
+VM7 injected.js:37 [SlabFragmentBuilder] outset slabId="555f2503-343e-4dc4-9013-33ab3a9ec143" vertices=6 elapsed=0.0ms
+VM7 injected.js:37 [SlabFragmentBuilder] triangulate slabId="555f2503-343e-4dc4-9013-33ab3a9ec143" outerVertices=6 elapsed=0.1ms
+VM7 injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="555f2503-343e-4dc4-9013-33ab3a9ec143" totalMs=0.3ms
+VM7 injected.js:37 [SlabFragmentBuilder] outset slabId="b53bc241-ca0e-4db4-8a23-ee48adc29746" vertices=6 elapsed=0.0ms
+VM7 injected.js:37 [SlabFragmentBuilder] triangulate slabId="b53bc241-ca0e-4db4-8a23-ee48adc29746" outerVertices=6 elapsed=0.1ms
+VM7 injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="b53bc241-ca0e-4db4-8a23-ee48adc29746" totalMs=0.2ms
+VM7 injected.js:37 [SlabFragmentBuilder] RAF_DRAIN built=5 remaining=0 queueBefore=5 frameMs=1.6ms
+VM7 injected.js:37 [SlabFragmentBuilder] rAF queue drained — signalling BatchCoordinator.
+VM7 injected.js:37 [BatchCoordinator] Build queue drained — beginning registration drain (0 queued / 10 expected).
+VM7 injected.js:37 [StoreEventBus] endBatchYielded() — 10 event(s) will be delivered in 1 chunk(s) of 200 via frame scheduler.
+VM7 injected.js:37 [StoreEventBus] endBatchYielded() — all 10 event(s) delivered across 1 chunk(s) (last: 0.3ms). Calling onComplete().
+VM7 injected.js:37 [BatchCoordinator] §PERF-VIEW-BATCH-SUPPRESS: suppression lifted; markLevelsDirty(10 level(s)) scheduled.
+VM7 injected.js:37 [BatchCoordinator] Final sweep: firing 10 REDETECT_ROOMS command(s) (one per affected level). Observers re-enabled. StoreEventBus flushed (depth now 0).
+VM7 injected.js:37 [PascalSceneLighting] Shadow flags set on 10 mesh(es).
+VM7 injected.js:37 [BatchCoordinator/P1.3] Post-batch geometry pass: shadow flags + PBR upgrade run once for 89 mesh(es) in scene.
+VM7 injected.js:37 [FPS] 30fps
+2VM7 injected.js:37 [ProjectSerializer] Snapshot created: 19 elements, 11 levels, 6 walls, 12 slabs, 0 furniture
+VM7 injected.js:37 [PlatformSaveController] Version saved: "Auto-save" (19 elements, id: proj-1777904828356-i4w3h)
+VM7 injected.js:37 [LONGTASK] duration=54.0ms start=594628.7ms [type=iframe src=https://5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/]
+(anonymous) @ VM7 injected.js:37Understand this warning
+VM7 injected.js:37 [GPU Monitor] geometries:240 textures:8 | drawCalls:1 tris:1
+VM7 injected.js:37 [FPS] 30fps
+VM7 injected.js:37 [CommandManager] EXECUTE: CREATE_CURTAIN_WALLS_ON_ALL_SLABS
+VM7 injected.js:37 [CommandManager] snapshot commandType="CreateCurtainWallsOnAllSlabsCommand" scope=[curtainWall] elapsed=0.1ms
+VM7 injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] START slabCount=12
+VM7 injected.js:37 [BatchCoordinator] _setupBatch — 11 level(s), 72 elements expected. ViewDependencyTracker suppressed.
+VM7 injected.js:37 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+VM7 injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="22f96012-970c-45b2-813e-bc38746fb7f2" walls=6 elapsed=8.2ms
+VM7 injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="e86728bc-93f5-4a66-99e2-8eabd93b923d" walls=6 elapsed=12.2ms
+VM7 injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="ff4720af-56d8-4aa5-8967-d0e8047fe0e1" walls=6 elapsed=14.8ms
+VM7 injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="06039d53-77a4-4ced-9244-36885fecf7bf" walls=6 elapsed=22.5ms
+VM7 injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="e68aade3-b6bb-4dcd-909e-eea7be753a6a" walls=6 elapsed=33.3ms
+VM7 injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="d5472e1a-fc23-4b77-b8a0-88b3b7ffee16" walls=6 elapsed=25.1ms
+VM7 injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="a6b419bc-c2bb-492a-899a-b67ddc18cb59" walls=6 elapsed=40.0ms
+VM7 injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="0e4ac5b3-ccdf-4448-a89b-7cbae61d130c" walls=6 elapsed=42.0ms
+VM7 injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="73272e94-7300-4e05-ab43-433cce68cd4c" walls=6 elapsed=36.8ms
+VM7 injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="7724385b-494c-42d0-93a9-f7d7ed5fdbb7" walls=6 elapsed=48.8ms
+VM7 injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="555f2503-343e-4dc4-9013-33ab3a9ec143" walls=6 elapsed=130.6ms
+VM7 injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="b53bc241-ca0e-4db4-8a23-ee48adc29746" walls=6 elapsed=65.0ms
+VM7 injected.js:37 [CurtainWallBuilder] §BATCH-CW-PAUSE: resumeAndFlush — 72 walls transferred to pending queue, 1 rAF drain scheduled.
+VM7 injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] COMPLETE total=482.4ms
+VM7 injected.js:37 [AIApprovalStore] Audit record appended: 143a93cc-669a-4434-9865-814b903c4c3a (CREATE_CURTAIN_WALLS_ON_ALL_SLABS)
+VM7 injected.js:37 Refreshing Spatial Tree...
+VM7 injected.js:37 [RuleEngine] Model updated, ready for re-validation
+VM7 injected.js:37 [BatchCoordinator] Build queue drained — beginning registration drain (72 queued / 72 expected).
+VM7 injected.js:37 [BimManager] Registered element 67241265-f28a-4db3-a4e0-5745db27d8e8 to level L0
+VM7 injected.js:37 [BimManager] Registered element a36ac21f-8058-4189-91cb-9c0ad07d3882 to level L0
+VM7 injected.js:37 [BimManager] Registered element eca6d7d8-63eb-48bc-b526-05e45cebe5fd to level L0
+VM7 injected.js:37 [BimManager] Registered element 08de46ea-4965-4cc4-a83a-ae36de42136f to level L0
+VM7 injected.js:37 [BimManager] Registered element 06014f6d-3eca-40c8-9fc9-7fbfb5c68285 to level L0
+VM7 injected.js:37 [BimManager] Registered element ddcdf374-2dac-4148-8bbf-c1bfe1be9435 to level L0
+VM7 injected.js:37 [BimManager] Registered element 5ffe490c-1154-4df5-a515-d5d9ba29a84d to level L0
+VM7 injected.js:37 [BimManager] Registered element ccf72584-daef-4475-9441-854ec7576a64 to level L0
+VM7 injected.js:37 [BimManager] Registered element dbe242b9-e8f1-4834-8460-dc2f98cb115e to level L0
+VM7 injected.js:37 [BimManager] Registered element e9fb078d-78eb-464f-b114-f7cde9c229b6 to level L0
+VM7 injected.js:37 [BimManager] Registered element fbdf63f4-90cb-423c-906d-0cb64155e61c to level L0
+VM7 injected.js:37 [BimManager] Registered element 0c40d341-48cc-42b0-9b92-c26bd54cf165 to level L0
+VM7 injected.js:37 [BimManager] Registered element bac3e4c3-a9c3-4539-9ab8-513b16b6481a to level L-01-1777904795534-1
+VM7 injected.js:37 [BimManager] Registered element 3341286f-4127-4abe-afd4-a5dab817a63b to level L-01-1777904795534-1
+VM7 injected.js:37 [BimManager] Registered element ff7067af-60ec-452a-8091-f80ef63099d5 to level L-01-1777904795534-1
+VM7 injected.js:37 [BimManager] Registered element d137fae5-d853-4b00-b0ea-e58935c594b9 to level L-01-1777904795534-1
+VM7 injected.js:37 [BimManager] Registered element 1eb71f51-c094-4c4a-bef7-82e649c1f452 to level L-01-1777904795534-1
+VM7 injected.js:37 [BimManager] Registered element e0629ff9-2d1b-4723-addd-b052ad6cbf0e to level L-01-1777904795534-1
+VM7 injected.js:37 [BimManager] Registered element 6a444c8d-0dae-4932-906b-171f8b07ebea to level L-02-1777904795536-2
+VM7 injected.js:37 [BimManager] Registered element 96d0afb6-0a4a-43d8-ab36-b089bc603798 to level L-02-1777904795536-2
+VM7 injected.js:37 [BimManager] Registered element 6023542f-a62c-451f-950b-3ca69bf9dbbc to level L-02-1777904795536-2
+VM7 injected.js:37 [BimManager] Registered element 7da48b58-a41e-4778-a6be-0d1cab7d984d to level L-02-1777904795536-2
+VM7 injected.js:37 [BimManager] Registered element 3b314f06-4d8a-4b87-b3fe-bbe8da7acfe1 to level L-02-1777904795536-2
+VM7 injected.js:37 [BimManager] Registered element 6c6d9dd2-90ce-4db6-90ce-9f584d5ad70b to level L-02-1777904795536-2
+VM7 injected.js:37 [BimManager] Registered element edaa7d2f-99ed-4900-9757-9a55c801e8e8 to level L-03-1777904795540-3
+VM7 injected.js:37 [BimManager] Registered element d2b051be-c1e0-4984-85e2-7da713d0e1f2 to level L-03-1777904795540-3
+VM7 injected.js:37 [BimManager] Registered element 90097094-2893-41b4-83e1-0b717120c996 to level L-03-1777904795540-3
+VM7 injected.js:37 [BimManager] Registered element 8fae2a4e-4551-4bce-82a8-abfafde7376b to level L-03-1777904795540-3
+VM7 injected.js:37 [BimManager] Registered element e78a4fbe-8d2e-42a2-97ea-f0ecd18f1b04 to level L-03-1777904795540-3
+VM7 injected.js:37 [BimManager] Registered element 2c494693-e2c6-4fc6-9a5f-48de334451e7 to level L-03-1777904795540-3
+VM7 injected.js:37 [BimManager] Registered element be838ecf-7438-476b-91b8-f0f60b52bf0f to level L-04-1777904795545-4
+VM7 injected.js:37 [BimManager] Registered element 6d3c8b3e-23e0-444f-978a-4d86db479d66 to level L-04-1777904795545-4
+VM7 injected.js:37 [BimManager] Registered element ecd2d1aa-1ffe-4df0-ab67-388c08f2c675 to level L-04-1777904795545-4
+VM7 injected.js:37 [BimManager] Registered element 4aaeaf6e-e427-4fd2-a2a6-d3451a79abb8 to level L-04-1777904795545-4
+VM7 injected.js:37 [BimManager] Registered element a330b2c1-6aaf-4e68-928b-cac82d7d801c to level L-04-1777904795545-4
+VM7 injected.js:37 [BimManager] Registered element 4498a008-3692-4217-9c8b-9f63fddba37a to level L-04-1777904795545-4
+VM7 injected.js:37 [BimManager] Registered element c7ef1cf7-c33d-43d8-99d5-395a8ca5e212 to level L-05-1777904795547-5
+VM7 injected.js:37 [BimManager] Registered element 4ed9dcae-d19d-49d6-97c8-0ab9f4224538 to level L-05-1777904795547-5
+VM7 injected.js:37 [BimManager] Registered element 10c12fd2-9288-403a-9836-cc62203cc7c5 to level L-05-1777904795547-5
+VM7 injected.js:37 [BimManager] Registered element 79fc1d0a-b49c-4a98-9b1e-3ff7ebc4b436 to level L-05-1777904795547-5
+VM7 injected.js:37 [BimManager] Registered element c542efcf-5933-4c32-9a7e-baf1eba71385 to level L-05-1777904795547-5
+VM7 injected.js:37 [BimManager] Registered element 5297296e-2773-4d6b-95ea-cecdc7baab1e to level L-05-1777904795547-5
+VM7 injected.js:37 [BimManager] Registered element 273d9f1b-9afd-47c5-90a8-10f9591862c4 to level L-06-1777904795550-6
+VM7 injected.js:37 [BimManager] Registered element f9e02175-8408-4ff2-b5d4-6f6518c9b0e6 to level L-06-1777904795550-6
+VM7 injected.js:37 [BimManager] Registered element 60fdd00a-17a6-4a8f-93de-67826e91f9b8 to level L-06-1777904795550-6
+VM7 injected.js:37 [BimManager] Registered element c3571855-ebdd-406b-8a6c-ed76ca7b8bf0 to level L-06-1777904795550-6
+VM7 injected.js:37 [BimManager] Registered element d8a92de7-457a-4b87-95ae-7ad25bdc6335 to level L-06-1777904795550-6
+VM7 injected.js:37 [BimManager] Registered element 4ea0d9c4-90ce-463e-8e52-602cd3da463c to level L-06-1777904795550-6
+VM7 injected.js:37 [BimManager] Registered element ea1a9a2b-a99e-47b2-9fc0-65f5b073c387 to level L-07-1777904795554-7
+VM7 injected.js:37 [BimManager] Registered element 4f1384b1-5f76-45cb-8cce-8b258952ba05 to level L-07-1777904795554-7
+VM7 injected.js:37 [BimManager] Registered element ebae16df-d4e0-4aa2-89b1-4d3ca9150df1 to level L-07-1777904795554-7
+VM7 injected.js:37 [BimManager] Registered element 7ef8370c-b489-44ae-ab0e-d1561a37173a to level L-07-1777904795554-7
+VM7 injected.js:37 [BimManager] Registered element 368d4d00-abc5-468c-b08a-a6034db0593c to level L-07-1777904795554-7
+VM7 injected.js:37 [BimManager] Registered element 9cdea391-4ed0-41f3-8598-68bc79b75eef to level L-07-1777904795554-7
+VM7 injected.js:37 [BimManager] Registered element 043816f6-4737-499a-9343-931ec2e03a27 to level L-08-1777904795558-8
+VM7 injected.js:37 [BimManager] Registered element 1b735d3a-d3ca-4dbc-9241-547decd82b41 to level L-08-1777904795558-8
+VM7 injected.js:37 [BimManager] Registered element 61b560f4-2ee7-4585-a6e6-eb54225decbc to level L-08-1777904795558-8
+VM7 injected.js:37 [BimManager] Registered element fe43df52-dd7c-4cb2-88a7-de122b951409 to level L-08-1777904795558-8
+VM7 injected.js:37 [BimManager] Registered element 2ea03fc2-9131-4426-8515-f4c6279c9b7b to level L-08-1777904795558-8
+VM7 injected.js:37 [BimManager] Registered element ad9b5e90-dd91-42cc-9aa7-bd601dd59677 to level L-08-1777904795558-8
+VM7 injected.js:37 [BimManager] Registered element 2cb037a0-bb18-4822-8e38-051e921ab52a to level L-09-1777904795562-9
+VM7 injected.js:37 [BimManager] Registered element 94b441c7-282c-4dc3-b9e6-78338b75d669 to level L-09-1777904795562-9
+VM7 injected.js:37 [BimManager] Registered element 38c300c0-c4fc-413f-b57b-c57a28497025 to level L-09-1777904795562-9
+VM7 injected.js:37 [BimManager] Registered element 0233409c-3246-44c1-bbcb-9d4940a12bd0 to level L-09-1777904795562-9
+VM7 injected.js:37 [BimManager] Registered element b7b08d51-72d4-445f-a3e9-a58c3de3efdd to level L-09-1777904795562-9
+VM7 injected.js:37 [BimManager] Registered element 61029c1e-aea6-4b93-bcf2-2f8056112e02 to level L-09-1777904795562-9
+VM7 injected.js:37 [BimManager] Registered element 007dad88-c521-4e16-b859-648ac274e02c to level L-10-1777904795567-10
+VM7 injected.js:37 [BimManager] Registered element 3045ba0f-d3e1-450a-b404-b22e41889b57 to level L-10-1777904795567-10
+VM7 injected.js:37 [BimManager] Registered element 880f0989-5cfa-4ebc-ba55-3f2b1f91a5a3 to level L-10-1777904795567-10
+VM7 injected.js:37 [BimManager] Registered element 710a0afb-d066-45e8-9c3a-4e4f38760cd8 to level L-10-1777904795567-10
+VM7 injected.js:37 [BimManager] Registered element 6af64aae-0754-428a-b868-12866c075992 to level L-10-1777904795567-10
+VM7 injected.js:37 [BimManager] Registered element 860ec974-4166-46a5-965a-01fad75ea55e to level L-10-1777904795567-10
+VM7 injected.js:37 [StoreEventBus] endBatchYielded() — 8544 event(s) will be delivered in 43 chunk(s) of 200 via frame scheduler.
+VM7 injected.js:37 [StoreEventBus] endBatchYielded chunk 1/43: 200/8544 events (1.5ms this chunk).
+VM7 injected.js:37 [StoreEventBus] endBatchYielded chunk 2/43: 400/8544 events (2.0ms this chunk).
+VM7 injected.js:37 [StoreEventBus] endBatchYielded chunk 3/43: 600/8544 events (1.2ms this chunk).
+VM7 injected.js:37 [StoreEventBus] endBatchYielded chunk 4/43: 800/8544 events (1.4ms this chunk).
+VM7 injected.js:37 [StoreEventBus] endBatchYielded chunk 5/43: 1000/8544 events (1.2ms this chunk).
+VM7 injected.js:37 [StoreEventBus] endBatchYielded chunk 6/43: 1200/8544 events (1.3ms this chunk).
+VM7 injected.js:37 [StoreEventBus] endBatchYielded chunk 7/43: 1400/8544 events (1.7ms this chunk).

@@ -1,0 +1,187 @@
+[RuleEngine] Model updated, ready for re-validation
+injected.js:37 [LONGTASK] duration=103.0ms start=86134.1ms [type=iframe src=https://ab72878d-8818-41f8-ae0c-023a2c7516c2-00-26f11zkmsqrnr.sisko.replit.dev/#/projects]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [FPS] 79fps
+injected.js:37 [ProjectSerializer] Snapshot created: 8 elements, 11 levels, 6 walls, 1 slabs, 0 furniture
+injected.js:37 [ProjectSerializer] Snapshot created: 8 elements, 11 levels, 6 walls, 1 slabs, 0 furniture
+injected.js:37 [PlatformSaveController] Version saved: "Auto-save" (8 elements, id: proj-1777935187311-t9f3g)
+injected.js:37 [LONGTASK] duration=54.0ms start=87232.0ms [type=iframe src=https://ab72878d-8818-41f8-ae0c-023a2c7516c2-00-26f11zkmsqrnr.sisko.replit.dev/#/projects]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [FPS] 79fps
+injected.js:37 [FPS] 40fps
+injected.js:37 [AIPanel] Proposal received via event — showing inline card: {id: '2ddfdacd-0580-4e71-a7a9-ab722dd57f7b', proposalId: 'f548bb67-8241-468c-a7b7-5620c08a6dc2', intentId: 'c0f2fa19-b600-4def-93c8-0b3ad1ceacef', intentType: 'CREATE_SLABS_ON_ALL_FLOORS', rationale: 'Generating identical slabs on all floors based on the selected reference slab.', …}
+injected.js:37 [CommandManager] EXECUTE: CREATE_SLABS_ON_ALL_FLOORS
+injected.js:37 [CommandManager] snapshot commandType="CreateSlabsOnAllFloorsCommand" scope=[slab,level] elapsed=0.2ms
+injected.js:37 [CreateSlabsOnAllFloorsCommand] START referenceSlabId="00ea512f-f89b-4ae7-bb1c-f8ea83907d5d" levels=10 polygonVertices=6
+injected.js:37 [CreateSlabsOnAllFloorsCommand] runBatch starting — 10 slab(s) deferred to rAF drain.
+injected.js:37 [BatchCoordinator] _setupBatch — 10 level(s), 10 elements expected. ViewDependencyTracker suppressed.
+injected.js:37 [UnifiedFrameLoop] §PERF-VIEW-BATCH-SUPPRESS: OBC+PASCAL render suppressed — WebGL shader compilation deferred until batch drain completes.
+injected.js:37 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+injected.js:37 [BimManager] Registered element c2841589-cb25-4943-880c-14b6dc4a1cb8 to level L-01-1777935186211-1
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-01-1777935186211-1" success=true elapsed=1.6ms
+injected.js:37 [BimManager] Registered element 3b102915-676a-455f-9a08-aeaf8d1f406c to level L-02-1777935186226-2
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-02-1777935186226-2" success=true elapsed=1.7ms
+injected.js:37 [BimManager] Registered element 098e5945-20d5-47ca-8031-ab974e8687b2 to level L-03-1777935186234-3
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-03-1777935186234-3" success=true elapsed=2.4ms
+injected.js:37 [BimManager] Registered element f362b83e-b1af-4d8e-b580-bcd292ae42d3 to level L-04-1777935186242-4
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-04-1777935186242-4" success=true elapsed=1.5ms
+injected.js:37 [BimManager] Registered element 60680d5e-a5fb-4e96-8d6a-393756251c53 to level L-05-1777935186251-5
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-05-1777935186251-5" success=true elapsed=1.1ms
+injected.js:37 [BimManager] Registered element ca3066da-a2ff-4f65-a850-3700abee1126 to level L-06-1777935186260-6
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-06-1777935186260-6" success=true elapsed=2.0ms
+injected.js:37 [BimManager] Registered element 10fb8942-7b44-4846-8937-28ebb8b2964d to level L-07-1777935186267-7
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-07-1777935186267-7" success=true elapsed=1.4ms
+injected.js:37 [BimManager] Registered element 49b147e8-3f9d-4af3-bb9b-e9689dc33a97 to level L-08-1777935186275-8
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-08-1777935186275-8" success=true elapsed=1.4ms
+injected.js:37 [BimManager] Registered element bec546c1-e15b-4680-97bb-79ce70c2d50e to level L-09-1777935186284-9
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-09-1777935186284-9" success=true elapsed=1.2ms
+injected.js:37 [BimManager] Registered element 4ad546dc-8a8e-43e9-b621-da43a6dad577 to level L-10-1777935186295-10
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-10-1777935186295-10" success=true elapsed=2.0ms
+injected.js:37 [CreateSlabsOnAllFloorsCommand] COMPLETE created=10 total=26.2ms
+injected.js:37 [AIApprovalStore] Audit record appended: 8782b30a-cf67-4703-99e6-b98375eb5454 (CREATE_SLABS_ON_ALL_FLOORS)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [SlabFragmentBuilder] outset slabId="c2841589-cb25-4943-880c-14b6dc4a1cb8" vertices=6 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="c2841589-cb25-4943-880c-14b6dc4a1cb8" outerVertices=6 elapsed=0.2ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="c2841589-cb25-4943-880c-14b6dc4a1cb8" totalMs=1.7ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="3b102915-676a-455f-9a08-aeaf8d1f406c" vertices=6 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="3b102915-676a-455f-9a08-aeaf8d1f406c" outerVertices=6 elapsed=0.2ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="3b102915-676a-455f-9a08-aeaf8d1f406c" totalMs=1.2ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="098e5945-20d5-47ca-8031-ab974e8687b2" vertices=6 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="098e5945-20d5-47ca-8031-ab974e8687b2" outerVertices=6 elapsed=0.2ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="098e5945-20d5-47ca-8031-ab974e8687b2" totalMs=1.1ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="f362b83e-b1af-4d8e-b580-bcd292ae42d3" vertices=6 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="f362b83e-b1af-4d8e-b580-bcd292ae42d3" outerVertices=6 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="f362b83e-b1af-4d8e-b580-bcd292ae42d3" totalMs=1.1ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="60680d5e-a5fb-4e96-8d6a-393756251c53" vertices=6 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="60680d5e-a5fb-4e96-8d6a-393756251c53" outerVertices=6 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="60680d5e-a5fb-4e96-8d6a-393756251c53" totalMs=0.9ms
+injected.js:37 [SlabFragmentBuilder] RAF_DRAIN built=5 remaining=5 queueBefore=10 frameMs=8.3ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="ca3066da-a2ff-4f65-a850-3700abee1126" vertices=6 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="ca3066da-a2ff-4f65-a850-3700abee1126" outerVertices=6 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="ca3066da-a2ff-4f65-a850-3700abee1126" totalMs=1.5ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="10fb8942-7b44-4846-8937-28ebb8b2964d" vertices=6 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="10fb8942-7b44-4846-8937-28ebb8b2964d" outerVertices=6 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="10fb8942-7b44-4846-8937-28ebb8b2964d" totalMs=1.2ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="49b147e8-3f9d-4af3-bb9b-e9689dc33a97" vertices=6 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="49b147e8-3f9d-4af3-bb9b-e9689dc33a97" outerVertices=6 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="49b147e8-3f9d-4af3-bb9b-e9689dc33a97" totalMs=0.9ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="bec546c1-e15b-4680-97bb-79ce70c2d50e" vertices=6 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="bec546c1-e15b-4680-97bb-79ce70c2d50e" outerVertices=6 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="bec546c1-e15b-4680-97bb-79ce70c2d50e" totalMs=0.6ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="4ad546dc-8a8e-43e9-b621-da43a6dad577" vertices=6 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="4ad546dc-8a8e-43e9-b621-da43a6dad577" outerVertices=6 elapsed=0.2ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="4ad546dc-8a8e-43e9-b621-da43a6dad577" totalMs=0.7ms
+injected.js:37 [SlabFragmentBuilder] RAF_DRAIN built=5 remaining=0 queueBefore=5 frameMs=6.6ms
+injected.js:37 [SlabFragmentBuilder] rAF queue drained — signalling BatchCoordinator.
+injected.js:37 [BatchCoordinator] Build queue drained — beginning registration drain (0 queued / 10 expected).
+injected.js:37 [BatchCoordinator] §REG-MANY-P2: queue ≤ 50 entries (0) — draining synchronously (0 rAF frames).
+injected.js:37 [StoreEventBus] endBatchYielded() — 10 event(s) will be delivered in 1 chunk(s) of 200 via frame scheduler.
+injected.js:37 [StoreEventBus] endBatchYielded() — all 10 event(s) delivered across 1 chunk(s) (last: 0.6ms). Calling onComplete().
+injected.js:37 [BatchCoordinator] §PERF-VIEW-BATCH-SUPPRESS: suppression lifted; markLevelsDirty(10 level(s)) scheduled.
+injected.js:37 [UnifiedFrameLoop] §PERF-VIEW-BATCH-SUPPRESS: suppression lifted — OBC+PASCAL resuming; first render compiles all deferred shaders.
+injected.js:37 [BatchCoordinator] Final sweep: firing 10 REDETECT_ROOMS command(s) (one per affected level). Observers re-enabled. StoreEventBus flushed (depth now 0).
+injected.js:37 [BatchCoordinator/P1.3] Post-batch PBR upgrade complete: 88 mesh(es) in 1 chunk(s) (§FIX-POST-BATCH-PBR-CHUNK).
+injected.js:37 [FPS] 30fps
+injected.js:37 [ProjectSerializer] Snapshot created: 18 elements, 11 levels, 6 walls, 11 slabs, 0 furniture
+injected.js:37 [ProjectSerializer] Snapshot created: 18 elements, 11 levels, 6 walls, 11 slabs, 0 furniture
+injected.js:37 [PlatformSaveController] Version saved: "Auto-save" (18 elements, id: proj-1777935191425-o0wyb)
+injected.js:37 [LONGTASK] duration=77.0ms start=91345.2ms [type=iframe src=https://ab72878d-8818-41f8-ae0c-023a2c7516c2-00-26f11zkmsqrnr.sisko.replit.dev/#/projects]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [GPU Monitor] geometries:21 textures:9 | drawCalls:8 tris:96
+injected.js:37 [FPS] 30fps
+injected.js:37 [CommandManager] EXECUTE: CREATE_CURTAIN_WALLS_ON_ALL_SLABS
+injected.js:37 [CommandManager] snapshot commandType="CreateCurtainWallsOnAllSlabsCommand" scope=[curtainWall] elapsed=0.2ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] START slabCount=11
+injected.js:37 [BatchCoordinator] _setupBatch — 11 level(s), 66 elements expected. ViewDependencyTracker suppressed.
+injected.js:37 [UnifiedFrameLoop] §PERF-VIEW-BATCH-SUPPRESS: OBC+PASCAL render suppressed — WebGL shader compilation deferred until batch drain completes.
+injected.js:37 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="00ea512f-f89b-4ae7-bb1c-f8ea83907d5d" walls=6 elapsed=7.9ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="c2841589-cb25-4943-880c-14b6dc4a1cb8" walls=6 elapsed=9.6ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="3b102915-676a-455f-9a08-aeaf8d1f406c" walls=6 elapsed=13.8ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="098e5945-20d5-47ca-8031-ab974e8687b2" walls=6 elapsed=8.2ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="f362b83e-b1af-4d8e-b580-bcd292ae42d3" walls=6 elapsed=9.3ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="60680d5e-a5fb-4e96-8d6a-393756251c53" walls=6 elapsed=13.5ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="ca3066da-a2ff-4f65-a850-3700abee1126" walls=6 elapsed=10.5ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="10fb8942-7b44-4846-8937-28ebb8b2964d" walls=6 elapsed=17.0ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="49b147e8-3f9d-4af3-bb9b-e9689dc33a97" walls=6 elapsed=15.9ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="bec546c1-e15b-4680-97bb-79ce70c2d50e" walls=6 elapsed=14.2ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="4ad546dc-8a8e-43e9-b621-da43a6dad577" walls=6 elapsed=24.2ms
+injected.js:37 [CurtainWallBuilder] §BATCH-CW-PAUSE: resumeAndFlush — 66 walls transferred to pending queue, 1 rAF drain scheduled.
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] COMPLETE total=150.4ms
+injected.js:37 [AIApprovalStore] Audit record appended: 66997de6-476b-4fa4-b55a-5e79e20369a7 (CREATE_CURTAIN_WALLS_ON_ALL_SLABS)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [BatchCoordinator] Build queue drained — beginning registration drain (11 queued / 66 expected).
+injected.js:37 [BatchCoordinator] §REG-MANY-P2: queue ≤ 50 entries (11) — draining synchronously (0 rAF frames).
+injected.js:37 [BimManager] §REG-MANY-P0: registered 6 element(s) to level "L0".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 6 element(s) to level "L-01-1777935186211-1".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 6 element(s) to level "L-02-1777935186226-2".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 6 element(s) to level "L-03-1777935186234-3".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 6 element(s) to level "L-04-1777935186242-4".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 6 element(s) to level "L-05-1777935186251-5".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 6 element(s) to level "L-06-1777935186260-6".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 6 element(s) to level "L-07-1777935186267-7".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 6 element(s) to level "L-08-1777935186275-8".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 6 element(s) to level "L-09-1777935186284-9".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 6 element(s) to level "L-10-1777935186295-10".
+injected.js:37 [StoreEventBus] endBatchYielded() — 2728 event(s) will be delivered in 14 chunk(s) of 200 via frame scheduler.
+injected.js:37 [StoreEventBus] endBatchYielded chunk 1/14: 200/2728 events (5.4ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 2/14: 400/2728 events (4.7ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 3/14: 600/2728 events (9.2ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 4/14: 800/2728 events (5.0ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 5/14: 1000/2728 events (3.5ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 6/14: 1200/2728 events (4.8ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 7/14: 1400/2728 events (5.0ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 8/14: 1600/2728 events (4.0ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 9/14: 1800/2728 events (6.0ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 10/14: 2000/2728 events (3.9ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 11/14: 2200/2728 events (4.1ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 12/14: 2400/2728 events (3.5ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 13/14: 2600/2728 events (4.1ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded() — all 2728 event(s) delivered across 14 chunk(s) (last: 2.2ms). Calling onComplete().
+injected.js:37 [BatchCoordinator] §PERF-VIEW-BATCH-SUPPRESS: suppression lifted; markLevelsDirty(11 level(s)) scheduled.
+injected.js:37 [UnifiedFrameLoop] §PERF-VIEW-BATCH-SUPPRESS: suppression lifted — OBC+PASCAL resuming; first render compiles all deferred shaders.
+injected.js:37 [BatchCoordinator] Final sweep: firing 11 REDETECT_ROOMS command(s) (one per affected level). Observers re-enabled. StoreEventBus flushed (depth now 0).
+injected.js:37 [BatchCoordinator/P1.3] Post-batch PBR upgrade complete: 286 mesh(es) in 3 chunk(s) (§FIX-POST-BATCH-PBR-CHUNK).
+injected.js:37 [FPS] 30fps
+injected.js:37 [LONGTASK] duration=169.0ms start=98574.8ms [type=iframe src=https://ab72878d-8818-41f8-ae0c-023a2c7516c2-00-26f11zkmsqrnr.sisko.replit.dev/#/projects]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=109.0ms start=98744.4ms [type=iframe src=https://ab72878d-8818-41f8-ae0c-023a2c7516c2-00-26f11zkmsqrnr.sisko.replit.dev/#/projects]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [FPS] 1fps
+injected.js:37 [LONGTASK] duration=8416.0ms start=98876.8ms [type=iframe src=https://ab72878d-8818-41f8-ae0c-023a2c7516c2-00-26f11zkmsqrnr.sisko.replit.dev/#/projects]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [GPU Monitor] geometries:21 textures:9 | drawCalls:8 tris:96
+injected.js:37 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+injected.js:37 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+injected.js:37 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed out of 1 live room(s).
+injected.js:37 [NativeElementMeshExporter] Plan view — exporting 14 elements from levels overlapping Y=[-1.20, 0.00]
+injected.js:37 [FPS] 1fps
+injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+injected.js:37 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+injected.js:37 [EdgeProjectorService] Native projection done — 13 group(s), 394 edge geometries across 13 ISO layer(s) (per-element UUID tagging active)
+injected.js:37 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=16 (OBC-IFC=0, native=13, ifc-scene=0)
+injected.js:37 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=7/14 layers
+injected.js:37 [LONGTASK] duration=90.0ms start=108451.5ms [type=iframe src=https://ab72878d-8818-41f8-ae0c-023a2c7516c2-00-26f11zkmsqrnr.sisko.replit.dev/#/projects]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+3injected.js:37 [GPU Monitor] geometries:21 textures:9 | drawCalls:8 tris:96
+injected.js:37 [FPS] 1fps
+injected.js:37 [FPS] 27fps
+injected.js:37 [FPS] 35fps
+injected.js:37 [FPS] 31fps
+injected.js:37 [LONGTASK] duration=60.0ms start=141569.4ms [type=iframe src=https://ab72878d-8818-41f8-ae0c-023a2c7516c2-00-26f11zkmsqrnr.sisko.replit.dev/#/projects]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=52.0ms start=141630.7ms [type=iframe src=https://ab72878d-8818-41f8-ae0c-023a2c7516c2-00-26f11zkmsqrnr.sisko.replit.dev/#/projects]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [FPS] 31fps
+injected.js:37 [GPU Monitor] geometries:97 textures:9 | drawCalls:84 tris:1088

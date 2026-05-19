@@ -1,0 +1,91 @@
+Looking at the new logs, the PSO LONGTASK is actually worse now (5,871ms + 7,109ms + 26,121ms = ~39 seconds total, worse than before), and the geometry leak warning is still firing. Let me do a precise comparison.Compare before and after logs preciselyCompare before and after logs preciselyCompare before and after logs preciselybashcat << 'EOF'
+=== BEFORE FIX (document 2, previous session) ===
+Batch: 66 walls / 6 slabs / 5+1 levels
+PREWARM-DONE: 89.6ms
+COMPLETE walls=66 totalMs=292.9ms
+Suppression lifted: 902.7ms
+PSO LONGTASK 1: 5,293ms
+EdgeProjector: 23 groups in 23 chunks, 557 edges
+LONGTASK 2 (EdgeProjector): 5,036ms  
+LONGTASK 3 (shadow): 15,870ms
+TOTAL from batch start to stable: ~47,000ms
+
+=== AFTER FIX (document 6, current session) ===
+Batch: 77 walls / 11 slabs / 10+1 levels (larger dataset!)
+PREWARM-DONE: 88.9ms
+COMPLETE walls=77 totalMs=397.1ms  
+Suppression lifted: 927.6ms
+PSO LONGTASK 1: 5,871ms
+EdgeProjector: 15 groups in 15 chunks, 510 edges
+LONGTASK 2: 7,109ms  ← WORSE
+LONGTASK 3: 26,121ms ← MUCH WORSE (was 15,870ms)
+TOTAL from batch start to stable: ~180,000ms - ~119,000ms = ~61,000ms
+
+=== COMPARISON ===
+The session #2 Replit AI agent's claim: "overlay dismissed at T=241ms"
+Reality in current logs: overlay dismissed at T=+928ms, PSO 5,871ms, scene stable ~60s
+
+Key differences:
+1. Larger dataset (77 vs 66 walls) partially explains some increase
+2. LONGTASK 3 is 26,121ms vs 15,870ms - getting WORSE not better
+3. GPU Monitor: geometries:22 → 103 (368% growth, leak still present)
+4. GPU Monitor AFTER batch settles: geometries:117 (still growing)
+5. The shadow fix (WALLS_PER_SHADOW_FRAME=5, setTimeout 200ms) apparently 
+   did NOT fire or didn't help - 26,121ms is LARGER than before
+
+What the "fixed" session actually shows:
+- PSO LONGTASK: UNCHANGED (~5.9s vs ~5.3s, proportional to dataset size)
+- EdgeProjector: IMPROVED (15 chunks for 77 walls vs 23 chunks for 66 walls)
+  → CHUNK_SIZE fix IS working (wall groups at CHUNK_SIZE=4, CW at CHUNK_SIZE=1)
+  → Wait: 15 CW chunks for 15 CW groups at level L0... that's CHUNK_SIZE=1 ✓
+- Shadow LONGTASK: MUCH WORSE (26,121ms vs 15,870ms)
+  → The shadow slice fix is NOT having the intended effect
+
+CRITICAL: 26,121ms shadow LONGTASK means the requestIdleCallback 
+OR setTimeout(200ms) is firing INTO the 5,871ms + 7,109ms LONGTASK storm.
+The 200ms spacing is insufficient when the previous LONGTASKs take 5-7 seconds each.
+EOFOutput=== BEFORE FIX (document 2, previous session) ===
+Batch: 66 walls / 6 slabs / 5+1 levels
+PREWARM-DONE: 89.6ms
+COMPLETE walls=66 totalMs=292.9ms
+Suppression lifted: 902.7ms
+PSO LONGTASK 1: 5,293ms
+EdgeProjector: 23 groups in 23 chunks, 557 edges
+LONGTASK 2 (EdgeProjector): 5,036ms  
+LONGTASK 3 (shadow): 15,870ms
+TOTAL from batch start to stable: ~47,000ms
+
+=== AFTER FIX (document 6, current session) ===
+Batch: 77 walls / 11 slabs / 10+1 levels (larger dataset!)
+PREWARM-DONE: 88.9ms
+COMPLETE walls=77 totalMs=397.1ms  
+Suppression lifted: 927.6ms
+PSO LONGTASK 1: 5,871ms
+EdgeProjector: 15 groups in 15 chunks, 510 edges
+LONGTASK 2: 7,109ms  ← WORSE
+LONGTASK 3: 26,121ms ← MUCH WORSE (was 15,870ms)
+TOTAL from batch start to stable: ~180,000ms - ~119,000ms = ~61,000ms
+
+=== COMPARISON ===
+The session #2 Replit AI agent's claim: "overlay dismissed at T=241ms"
+Reality in current logs: overlay dismissed at T=+928ms, PSO 5,871ms, scene stable ~60s
+
+Key differences:
+1. Larger dataset (77 vs 66 walls) partially explains some increase
+2. LONGTASK 3 is 26,121ms vs 15,870ms - getting WORSE not better
+3. GPU Monitor: geometries:22 → 103 (368% growth, leak still present)
+4. GPU Monitor AFTER batch settles: geometries:117 (still growing)
+5. The shadow fix (WALLS_PER_SHADOW_FRAME=5, setTimeout 200ms) apparently 
+   did NOT fire or didn't help - 26,121ms is LARGER than before
+
+What the "fixed" session actually shows:
+- PSO LONGTASK: UNCHANGED (~5.9s vs ~5.3s, proportional to dataset size)
+- EdgeProjector: IMPROVED (15 chunks for 77 walls vs 23 chunks for 66 walls)
+  → CHUNK_SIZE fix IS working (wall groups at CHUNK_SIZE=4, CW at CHUNK_SIZE=1)
+  → Wait: 15 CW chunks for 15 CW groups at level L0... that's CHUNK_SIZE=1 ✓
+- Shadow LONGTASK: MUCH WORSE (26,121ms vs 15,870ms)
+  → The shadow slice fix is NOT having the intended effect
+
+CRITICAL: 26,121ms shadow LONGTASK means the requestIdleCallback 
+OR setTimeout(200ms) is firing INTO the 5,871ms + 7,109ms LONGTASK storm.
+The 200ms spacing is insufficient when the previous LONGTASKs take 5-7 seconds each.

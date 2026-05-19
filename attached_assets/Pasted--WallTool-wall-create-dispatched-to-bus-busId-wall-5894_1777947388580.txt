@@ -1,0 +1,617 @@
+[WallTool] wall.create dispatched to bus (busId: wall_589466BBF72F40F4B6CC015AD7 ) — legacy path runs for geometry with id: 589466bb-f72f-40f4-b6cc-015ad73ecffa
+injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [CommandManager] snapshot commandType="CreateWallCommand" scope=[wall,level] elapsed=0.2ms
+injected.js:37 [BimManager] Registered element 589466bb-f72f-40f4-b6cc-015ad73ecffa to level L0
+injected.js:37 Wall created via command: 589466bb-f72f-40f4-b6cc-015ad73ecffa
+injected.js:37 [LONGTASK] duration=550.0ms start=90722.6ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [LONGTASK] duration=50.0ms start=91402.0ms
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [PascalSceneLighting] Shadow flags set on 3 mesh(es).
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.1ms
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [LONGTASK] duration=76.0ms start=91540.0ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+injected.js:37 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+injected.js:37 [NativeElementMeshExporter] Plan view — exporting 3 elements from levels overlapping Y=[-1.20, 0.00]
+injected.js:37 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+injected.js:37 [WallTool] wall.create dispatched to bus (busId: wall_DBFE7A94804B4236BF35E196BD ) — legacy path runs for geometry with id: dbfe7a94-804b-4236-bf35-e196bdf647f7
+injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [CommandManager] snapshot commandType="CreateWallCommand" scope=[wall,level] elapsed=0.2ms
+injected.js:37 [BimManager] Registered element dbfe7a94-804b-4236-bf35-e196bdf647f7 to level L0
+injected.js:37 Wall created via command: dbfe7a94-804b-4236-bf35-e196bdf647f7
+injected.js:37 [LONGTASK] duration=60.0ms start=92123.9ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [LONGTASK] duration=61.0ms start=92201.9ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [FPS] 7fps
+injected.js:37 [PascalSceneLighting] Shadow flags set on 4 mesh(es).
+injected.js:37 [LONGTASK] duration=70.0ms start=92447.5ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+injected.js:37 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+injected.js:37 [NativeElementMeshExporter] Plan view — exporting 4 elements from levels overlapping Y=[-1.20, 0.00]
+injected.js:37 [initScene] Phase 6: EdgeProjectorService lazy-loaded on first projection.
+injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+injected.js:37 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+injected.js:37 [EdgeProjectorService] Native projection done — 3 group(s), 3 edge geometries across 3 ISO layer(s) (per-element UUID tagging active)
+injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+injected.js:37 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+injected.js:37 [EdgeProjectorService] Native projection done — 4 group(s), 4 edge geometries across 4 ISO layer(s) (per-element UUID tagging active)
+injected.js:37 [ViewTechnicalDrawingCache] Stale projection rejected — viewId=vd-sys-plan-l0 staleGen=2 currentGen=4
+injected.js:37 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=4 (OBC-IFC=0, native=4, ifc-scene=0)
+injected.js:37 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=4/14 layers
+injected.js:37 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+injected.js:37 [WallTool] wall.create dispatched to bus (busId: wall_D088D22D04A4438E9254C3EEB1 ) — legacy path runs for geometry with id: d088d22d-04a4-438e-9254-c3eeb1268b6c
+injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [CommandManager] snapshot commandType="CreateWallCommand" scope=[wall,level] elapsed=0.1ms
+injected.js:37 [BimManager] Registered element d088d22d-04a4-438e-9254-c3eeb1268b6c to level L0
+injected.js:37 Wall created via command: d088d22d-04a4-438e-9254-c3eeb1268b6c
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.1ms
+injected.js:37 [PascalSceneLighting] Shadow flags set on 5 mesh(es).
+injected.js:37 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+injected.js:37 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+injected.js:37 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+injected.js:37 [NativeElementMeshExporter] Plan view — exporting 5 elements from levels overlapping Y=[-1.20, 0.00]
+injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+injected.js:37 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+injected.js:37 [EdgeProjectorService] Native projection done — 5 group(s), 5 edge geometries across 5 ISO layer(s) (per-element UUID tagging active)
+injected.js:37 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=6 (OBC-IFC=0, native=5, ifc-scene=0)
+injected.js:37 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=4/14 layers
+injected.js:37 [FPS] 52fps
+injected.js:37 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+injected.js:37 [WallTool] wall.create dispatched to bus (busId: wall_F9C25251B557468FB051793DFF ) — legacy path runs for geometry with id: f9c25251-b557-468f-b051-793dffd901b8
+injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [CommandManager] snapshot commandType="CreateWallCommand" scope=[wall,level] elapsed=0.2ms
+injected.js:37 [BimManager] Registered element f9c25251-b557-468f-b051-793dffd901b8 to level L0
+injected.js:37 Wall created via command: f9c25251-b557-468f-b051-793dffd901b8
+injected.js:37 WallTool deactivated
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=139ms, resets=6)
+(anonymous) @ injected.js:37
+(anonymous) @ RoomTopologyObserver.ts:454
+(anonymous) @ RoomTopologyObserver.ts:215
+(anonymous) @ WallStore.ts:1161
+(anonymous) @ WallStore.ts:550
+(anonymous) @ WallStore.ts:409
+(anonymous) @ engineLauncher.ts:1984
+(anonymous) @ engineLauncher.ts:1951
+(anonymous) @ FrameScheduler.ts:337
+(anonymous) @ FrameScheduler.ts:535
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:239
+(anonymous) @ FrameScheduler.ts:586
+(anonymous) @ FrameScheduler.ts:449
+(anonymous) @ initScene.ts:910
+dispatchEvent @ camera-controls.module.js:241
+(anonymous) @ camera-controls.module.js:980
+(anonymous) @ camera-controls.module.js:726
+injected.js:37 [LONGTASK] duration=54.0ms start=93364.9ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [LONGTASK] duration=97.0ms start=93419.5ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+500Destroyed texture [Texture "ShadowDepthTexture"] used in a submit.
+ - While calling [Queue].Submit([[CommandBuffer from CommandEncoder "renderContext_6"]])
+
+injected.js:37 [PascalSceneLighting] Shadow flags set on 6 mesh(es).

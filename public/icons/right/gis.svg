@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Globe circle -->
+  <circle cx="46" cy="60" r="34" stroke="#1C1B3C" stroke-width="5"/>
+  <!-- Equator horizontal line -->
+  <line x1="12" y1="60" x2="80" y2="60" stroke="#1C1B3C" stroke-width="4"/>
+  <!-- Left meridian curve -->
+  <path d="M31,26 Q18,60 31,94" stroke="#1C1B3C" stroke-width="4" fill="none"/>
+  <!-- Right meridian curve -->
+  <path d="M61,26 Q74,60 61,94" stroke="#1C1B3C" stroke-width="4" fill="none"/>
+  <!-- Map pin (teardrop, upper-right of globe) -->
+  <path d="M74,8 Q74,0 81,0 Q88,0 88,8 Q88,17 81,22 Q74,17 74,8 Z"
+        fill="#1C1B3C" stroke="#1C1B3C" stroke-width="1" stroke-linejoin="round"/>
+  <!-- Pin inner white dot -->
+  <circle cx="81" cy="8" r="3.5" fill="white"/>
+</svg>

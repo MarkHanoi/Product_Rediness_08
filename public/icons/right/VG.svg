@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Outer rounded rectangle -->
+  <rect x="9" y="26" width="82" height="48" rx="9" stroke="#1C1B3C" stroke-width="4.5"/>
+  <!-- Horizontal stripe lines across the panel -->
+  <line x1="9"  y1="36" x2="91" y2="36" stroke="#1C1B3C" stroke-width="3"/>
+  <line x1="9"  y1="44" x2="91" y2="44" stroke="#1C1B3C" stroke-width="3"/>
+  <line x1="9"  y1="56" x2="91" y2="56" stroke="#1C1B3C" stroke-width="3"/>
+  <line x1="9"  y1="64" x2="91" y2="64" stroke="#1C1B3C" stroke-width="3"/>
+  <!-- Eye outline (ellipse, centred on panel) -->
+  <ellipse cx="50" cy="50" rx="20" ry="11" stroke="#1C1B3C" stroke-width="4"/>
+  <!-- Iris / pupil (filled) -->
+  <circle cx="50" cy="50" r="6" fill="#1C1B3C"/>
+</svg>

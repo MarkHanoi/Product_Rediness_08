@@ -1,0 +1,37 @@
+{
+  "name": "@pryzm/plugin-grid",
+  "version": "0.1.0",
+  "description": "PRYZM 2 \u2014 Grid plugin (S12-T4). Headless half: Store<GridData>, typed errors, 4 handlers (CreateGrid / DeleteGrid / SetGridSpacing / SetGridExtent). Producer (packages/geometry-kernel/src/producers/grid.ts) emits a flat ribbon-mesh BufferGeometryDescriptor (linear + arc lines, label glyphs deferred). Committer / tool live under src/committer/.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./store": "./src/store.ts",
+    "./errors": "./src/errors.ts",
+    "./handlers": "./src/handlers/index.ts",
+    "./intent": "./src/intent.ts",
+    "./tool": "./src/tool.ts",
+    "./committer": "./src/committer/index.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "immer": "^10.1.1",
+    "three": "^0.183.2",
+    "ulid": "^2.3.0",
+    "@pryzm/plugin-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/three": "^0.183.1",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

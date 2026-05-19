@@ -1,0 +1,16 @@
+{
+  "samples": 30,
+  "avgMs": 0.15039556666664186,
+  "p50Ms": 0.16396900000017922,
+  "p95Ms": 0.3270800000000236,
+  "p99Ms": 0.4116749999998319,
+  "maxMs": 0.4116749999998319,
+  "budgetMs": 18,
+  "materialPoolSizeAtEnd": 3,
+  "materialPoolBudget": 8,
+  "committerStats": {
+    "poolHits": 219,
+    "poolMisses": 3,
+    "rebuilds": 74
+  }
+}

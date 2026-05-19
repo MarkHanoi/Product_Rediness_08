@@ -1,0 +1,9 @@
+{
+  "$schema": "in-tree",
+  "_doc": "Snapshot-diff baseline for `requestAnimationFrame(` call sites in `src/` (PRYZM-1 legacy). Generated and enforced by tools/scripts/check-raf-count.mjs per spec §S02-T9. New PRYZM 2 code MUST go through @pryzm/frame-scheduler — see ADR-003.",
+  "recordedSites": 90,
+  "recordedFiles": 53,
+  "maxAllowed": 90,
+  "recordedAt": "2026-04-26",
+  "recordedBy": "S02 audit pass"
+}

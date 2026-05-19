@@ -1,0 +1,189 @@
+Wall created via command: 9c5a1fb1-8bef-4aaf-9de3-d8db4dd42f3d
+engineLauncher-CR4aPVRy.js:2323 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=20ms, resets=6)
+_scheduleRedetect @ engineLauncher-CR4aPVRy.js:2323Understand this warning
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1833 [PascalSceneLighting] Shadow flags set on 11 mesh(es).
+main-BzEHm2fD.js:29470 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+main-BzEHm2fD.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+engineLauncher-CR4aPVRy.js:1838 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-CR4aPVRy.js:1595 [NativeElementMeshExporter] Plan view — exporting 11 elements from levels overlapping Y=[-1.20, 0.00]
+EdgeProjectorService-BiNTKAFW.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-BiNTKAFW.js:1 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-BiNTKAFW.js:1 [EdgeProjectorService] Native projection done — 11 group(s), 11 edge geometries across 11 ISO layer(s) (per-element UUID tagging active)
+engineLauncher-CR4aPVRy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=20 (OBC-IFC=0, native=11, ifc-scene=0)
+engineLauncher-CR4aPVRy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=4/14 layers
+engineLauncher-CR4aPVRy.js:2247 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+engineLauncher-CR4aPVRy.js:2247 [WallTool] wall.create dispatched to bus (busId: wall_7A6B1B3A94A941648AE72F537A ) — legacy path runs for geometry with id: 7a6b1b3a-94a9-4164-8ae7-2f537a675dca
+engineLauncher-CR4aPVRy.js:2247 [WallTool] Executing CreateWallCommand with levelId: L0
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="No" scope=[wall,level] elapsed=0.3ms
+engineLauncher-CR4aPVRy.js:1595 [BimManager] Registered element 7a6b1b3a-94a9-4164-8ae7-2f537a675dca to level L0
+engineLauncher-CR4aPVRy.js:2247 Wall created via command: 7a6b1b3a-94a9-4164-8ae7-2f537a675dca
+engineLauncher-CR4aPVRy.js:2323 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=12ms, resets=6)
+_scheduleRedetect @ engineLauncher-CR4aPVRy.js:2323Understand this warning
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1833 [PascalSceneLighting] Shadow flags set on 12 mesh(es).
+main-BzEHm2fD.js:29470 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+main-BzEHm2fD.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+engineLauncher-CR4aPVRy.js:1838 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-CR4aPVRy.js:1595 [NativeElementMeshExporter] Plan view — exporting 12 elements from levels overlapping Y=[-1.20, 0.00]
+EdgeProjectorService-BiNTKAFW.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-BiNTKAFW.js:1 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-BiNTKAFW.js:1 [EdgeProjectorService] Native projection done — 12 group(s), 12 edge geometries across 12 ISO layer(s) (per-element UUID tagging active)
+engineLauncher-CR4aPVRy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=22 (OBC-IFC=0, native=12, ifc-scene=0)
+engineLauncher-CR4aPVRy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=4/14 layers
+engineLauncher-CR4aPVRy.js:2247 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+engineLauncher-CR4aPVRy.js:2247 [WallTool] wall.create dispatched to bus (busId: wall_DE55F0307C9A44C988EBF5ACFB ) — legacy path runs for geometry with id: de55f030-7c9a-44c9-88eb-f5acfb4dd68c
+engineLauncher-CR4aPVRy.js:2247 [WallTool] Executing CreateWallCommand with levelId: L0
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="No" scope=[wall,level] elapsed=0.4ms
+engineLauncher-CR4aPVRy.js:1595 [BimManager] Registered element de55f030-7c9a-44c9-88eb-f5acfb4dd68c to level L0
+engineLauncher-CR4aPVRy.js:2247 Wall created via command: de55f030-7c9a-44c9-88eb-f5acfb4dd68c
+engineLauncher-CR4aPVRy.js:2323 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=17ms, resets=6)
+_scheduleRedetect @ engineLauncher-CR4aPVRy.js:2323Understand this warning
+engineLauncher-CR4aPVRy.js:2323 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=6ms, resets=6)
+_scheduleRedetect @ engineLauncher-CR4aPVRy.js:2323Understand this warning
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1833 [PascalSceneLighting] Shadow flags set on 13 mesh(es).
+main-BzEHm2fD.js:29470 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+main-BzEHm2fD.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+engineLauncher-CR4aPVRy.js:1838 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-CR4aPVRy.js:1595 [NativeElementMeshExporter] Plan view — exporting 13 elements from levels overlapping Y=[-1.20, 0.00]
+EdgeProjectorService-BiNTKAFW.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-BiNTKAFW.js:1 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-BiNTKAFW.js:1 [EdgeProjectorService] Native projection done — 13 group(s), 13 edge geometries across 13 ISO layer(s) (per-element UUID tagging active)
+engineLauncher-CR4aPVRy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=24 (OBC-IFC=0, native=13, ifc-scene=0)
+engineLauncher-CR4aPVRy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=4/14 layers
+engineLauncher-CR4aPVRy.js:2247 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+engineLauncher-CR4aPVRy.js:2247 [WallTool] wall.create dispatched to bus (busId: wall_B166C57828D8432FADFE422D79 ) — legacy path runs for geometry with id: b166c578-28d8-432f-adfe-422d79025656
+engineLauncher-CR4aPVRy.js:2247 [WallTool] Executing CreateWallCommand with levelId: L0
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="No" scope=[wall,level] elapsed=0.2ms
+engineLauncher-CR4aPVRy.js:1595 [BimManager] Registered element b166c578-28d8-432f-adfe-422d79025656 to level L0
+engineLauncher-CR4aPVRy.js:2247 Wall created via command: b166c578-28d8-432f-adfe-422d79025656
+engineLauncher-CR4aPVRy.js:2323 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=13ms, resets=6)
+_scheduleRedetect @ engineLauncher-CR4aPVRy.js:2323Understand this warning
+engineLauncher-CR4aPVRy.js:2323 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=6ms, resets=6)
+_scheduleRedetect @ engineLauncher-CR4aPVRy.js:2323Understand this warning
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1833 [PascalSceneLighting] Shadow flags set on 14 mesh(es).
+main-BzEHm2fD.js:29470 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+main-BzEHm2fD.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+engineLauncher-CR4aPVRy.js:1838 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-CR4aPVRy.js:1595 [NativeElementMeshExporter] Plan view — exporting 14 elements from levels overlapping Y=[-1.20, 0.00]
+EdgeProjectorService-BiNTKAFW.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-BiNTKAFW.js:1 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-BiNTKAFW.js:1 [EdgeProjectorService] Native projection done — 14 group(s), 14 edge geometries across 14 ISO layer(s) (per-element UUID tagging active)
+engineLauncher-CR4aPVRy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=26 (OBC-IFC=0, native=14, ifc-scene=0)
+engineLauncher-CR4aPVRy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=4/14 layers
+engineLauncher-CR4aPVRy.js:2247 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+engineLauncher-CR4aPVRy.js:2247 [WallTool] wall.create dispatched to bus (busId: wall_F074BB64AC4647E0927F679D59 ) — legacy path runs for geometry with id: f074bb64-ac46-47e0-927f-679d590a91b6
+engineLauncher-CR4aPVRy.js:2247 [WallTool] Executing CreateWallCommand with levelId: L0
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="No" scope=[wall,level] elapsed=0.3ms
+engineLauncher-CR4aPVRy.js:1595 [BimManager] Registered element f074bb64-ac46-47e0-927f-679d590a91b6 to level L0
+engineLauncher-CR4aPVRy.js:2247 Wall created via command: f074bb64-ac46-47e0-927f-679d590a91b6
+engineLauncher-CR4aPVRy.js:2323 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=14ms, resets=6)
+_scheduleRedetect @ engineLauncher-CR4aPVRy.js:2323Understand this warning
+engineLauncher-CR4aPVRy.js:2323 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=6ms, resets=6)
+_scheduleRedetect @ engineLauncher-CR4aPVRy.js:2323Understand this warning
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1833 [PascalSceneLighting] Shadow flags set on 15 mesh(es).
+main-BzEHm2fD.js:29470 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+main-BzEHm2fD.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+engineLauncher-CR4aPVRy.js:1838 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-CR4aPVRy.js:1595 [NativeElementMeshExporter] Plan view — exporting 15 elements from levels overlapping Y=[-1.20, 0.00]
+EdgeProjectorService-BiNTKAFW.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-BiNTKAFW.js:1 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-BiNTKAFW.js:1 [EdgeProjectorService] Native projection done — 15 group(s), 15 edge geometries across 15 ISO layer(s) (per-element UUID tagging active)
+engineLauncher-CR4aPVRy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=28 (OBC-IFC=0, native=15, ifc-scene=0)
+engineLauncher-CR4aPVRy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=4/14 layers
+engineLauncher-CR4aPVRy.js:2247 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+engineLauncher-CR4aPVRy.js:2247 [WallTool] wall.create dispatched to bus (busId: wall_B3213B618DFA4949886D1CE1A4 ) — legacy path runs for geometry with id: b3213b61-8dfa-4949-886d-1ce1a4b90151
+engineLauncher-CR4aPVRy.js:2247 [WallTool] Executing CreateWallCommand with levelId: L0
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="No" scope=[wall,level] elapsed=0.2ms
+engineLauncher-CR4aPVRy.js:1595 [BimManager] Registered element b3213b61-8dfa-4949-886d-1ce1a4b90151 to level L0
+engineLauncher-CR4aPVRy.js:2247 Wall created via command: b3213b61-8dfa-4949-886d-1ce1a4b90151
+engineLauncher-CR4aPVRy.js:2323 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=14ms, resets=6)
+_scheduleRedetect @ engineLauncher-CR4aPVRy.js:2323Understand this warning
+engineLauncher-CR4aPVRy.js:2323 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=6ms, resets=6)
+_scheduleRedetect @ engineLauncher-CR4aPVRy.js:2323Understand this warning
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1833 [PascalSceneLighting] Shadow flags set on 16 mesh(es).
+main-BzEHm2fD.js:29470 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+main-BzEHm2fD.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+engineLauncher-CR4aPVRy.js:1838 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-CR4aPVRy.js:1595 [NativeElementMeshExporter] Plan view — exporting 16 elements from levels overlapping Y=[-1.20, 0.00]
+EdgeProjectorService-BiNTKAFW.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-BiNTKAFW.js:1 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-BiNTKAFW.js:1 [EdgeProjectorService] Native projection done — 16 group(s), 16 edge geometries across 16 ISO layer(s) (per-element UUID tagging active)
+engineLauncher-CR4aPVRy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=30 (OBC-IFC=0, native=16, ifc-scene=0)
+engineLauncher-CR4aPVRy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=4/14 layers
+engineLauncher-CR4aPVRy.js:2247 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+engineLauncher-CR4aPVRy.js:2247 [WallTool] wall.create dispatched to bus (busId: wall_36CD875EF3234FF88E100CB1D3 ) — legacy path runs for geometry with id: 36cd875e-f323-4ff8-8e10-0cb1d3deb04d
+engineLauncher-CR4aPVRy.js:2247 [WallTool] Executing CreateWallCommand with levelId: L0
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="No" scope=[wall,level] elapsed=0.3ms
+engineLauncher-CR4aPVRy.js:1595 [BimManager] Registered element 36cd875e-f323-4ff8-8e10-0cb1d3deb04d to level L0
+engineLauncher-CR4aPVRy.js:2247 Wall created via command: 36cd875e-f323-4ff8-8e10-0cb1d3deb04d
+engineLauncher-CR4aPVRy.js:2242 WallTool deactivated
+engineLauncher-CR4aPVRy.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CR4aPVRy.js:2323 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=106ms, resets=6)
+_scheduleRedetect @ engineLauncher-CR4aPVRy.js:2323Understand this warning
+engineLauncher-CR4aPVRy.js:2323 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=9ms, resets=6)
+_scheduleRedetect @ engineLauncher-CR4aPVRy.js:2323Understand this warning
+500Destroyed texture [Texture "ShadowDepthTexture"] used in a submit.
+ - While calling [Queue].Submit([[CommandBuffer from CommandEncoder "renderContext_6"]])
+Understand this warning
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:2323 [PlanarTopologyEngine] Topology: 1 room(s) detected, outer face (17 vertices), 2 total faces
+engineLauncher-CR4aPVRy.js:2323 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+engineLauncher-CR4aPVRy.js:1595 [BimManager] Registered element e1c25991-7571-4809-8fc0-0e8c24b12882 to level L0
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:2323 [PlanarTopologyEngine] Topology: 1 room(s) detected, outer face (17 vertices), 2 total faces
+engineLauncher-CR4aPVRy.js:2323 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:2323 [PlanarTopologyEngine] Topology: 1 room(s) detected, outer face (17 vertices), 2 total faces
+engineLauncher-CR4aPVRy.js:2323 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+engineLauncher-CR4aPVRy.js:7105 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-CR4aPVRy.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CR4aPVRy.js:1833 [PascalSceneLighting] Shadow flags set on 17 mesh(es).
+main-BzEHm2fD.js:29470 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+main-BzEHm2fD.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: CREATE_ANNOTATION
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="$n" scope=[annotation] elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1838 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 1 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed out of 1 live room(s).
+engineLauncher-CR4aPVRy.js:1595 [NativeElementMeshExporter] Plan view — exporting 18 elements from levels overlapping Y=[-1.20, 0.00]
+EdgeProjectorService-BiNTKAFW.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-BiNTKAFW.js:1 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-BiNTKAFW.js:1 [EdgeProjectorService] Native projection done — 17 group(s), 17 edge geometries across 17 ISO layer(s) (per-element UUID tagging active)

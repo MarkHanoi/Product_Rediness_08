@@ -1,0 +1,25 @@
+Sprint 3 (Phases H + K) is complete. Here's what was delivered:
+
+K.1 — Shadow reactivation adaptive slice drain (CurtainWallBuilder.ts)
+
+WALLS_PER_SHADOW_FRAME=10000 (one-shot) → WALLS_PER_SHADOW_SLICE=50 (6 slices for a 294-wall batch)
+Inter-slice scheduling replaced: setTimeout(200) → getFrameScheduler().scheduleOnce('cw-shadow-reactivate-N', drainSlice, 'pre-render') — fits inside the normal rAF loop with no artificial gap
+_shadowSliceDisposer field + dispose() cleanup added, preventing cross-project drain on project switch
+Per-slice §K1-SHADOW-SLICE log and §K1-SHADOW-COMPLETE summary log
+K.2 — Shadow-pass PSO prewarm (CreateCurtainWallsOnAllSlabsCommand.ts)
+
+4th rpm.render(0) pass added inside the existing prewarm function, inside a nested try/finally for exception safety
+Temporarily enables castShadow=true on the existing mullion/glass IM probes + adds a minimal PlaneGeometry shadow-receiver and a 64×64 DirectionalLight shadow map — compiles shadow-pass PSO variants into the WebGPU driver cache before T+30s
+All temporary objects cleaned up in finally; probes fully disposed with §K2-SHADOW-PSO-PREWARM complete log
+H.1 — NME per-instance XZ crop culling (NativeElementMeshExporter.ts)
+
+Inside the InstancedMesh expansion loop: worldMatrix is computed once and reused for both the §H.1 XZ crop test and proxy creation — no extra Matrix4 allocation
+Instances with world position + geometry radius outside the plan view crop region are skipped; §H1-NME-CULL log reports culled/total per IM node
+H.2 — NME proxy descriptor cache (NativeElementMeshExporter.ts)
+
+Cache key: elementId:viewId:version:cropKey — correct across zoom changes and geometry mutations
+Cache hit path: creates new Mesh objects from stored {px, py, pz, qx, qy, qz, qw, sx, sy, sz, geometry, material, userData} descriptors in <1ms (no traverse, no getMatrixAt, no matrix decompose)
+LRU eviction at 500 entries; elementRegistry.onUnregister wired in the constructor for instant invalidation on element removal
+releaseGroups() skips geometry disposal for cache-hit groups (marked _nmeFromCache: true)
+§H2-NME-CACHE hits=N misses=M hitRate=X% log per exportForView call
+TSC: zero errors confirmed. Plan dashboard updated — Phases F, G, H, I, K all ✅ DONE.

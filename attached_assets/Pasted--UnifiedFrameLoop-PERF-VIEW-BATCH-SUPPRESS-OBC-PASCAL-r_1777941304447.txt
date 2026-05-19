@@ -1,0 +1,52 @@
+[UnifiedFrameLoop] §PERF-VIEW-BATCH-SUPPRESS: OBC+PASCAL render suppressed — WebGL shader compilation deferred until batch drain completes.
+injected.js:37 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+injected.js:37 [BimManager] Registered element f7243390-72cd-40f1-9eeb-3fe0746cfb5d to level L-01-1777941144561-1
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-01-1777941144561-1" success=true elapsed=1.6ms
+injected.js:37 [BimManager] Registered element ea3ab270-3dde-43c2-bac3-d130c21d41fe to level L-02-1777941144576-2
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-02-1777941144576-2" success=true elapsed=1.1ms
+injected.js:37 [BimManager] Registered element 88aac754-a54d-4be9-a7c6-f5bacf09459a to level L-03-1777941144584-3
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-03-1777941144584-3" success=true elapsed=1.1ms
+injected.js:37 [BimManager] Registered element a713eab0-59ae-48f2-b40b-6e1ce30b83d4 to level L-04-1777941144591-4
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-04-1777941144591-4" success=true elapsed=1.0ms
+injected.js:37 [BimManager] Registered element 4b510e7a-1225-44da-880d-71a2756bb3cb to level L-05-1777941144599-5
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-05-1777941144599-5" success=true elapsed=1.1ms
+injected.js:37 [CreateSlabsOnAllFloorsCommand] COMPLETE created=5 total=18.0ms
+injected.js:37 [AIApprovalStore] Audit record appended: 5871cfbf-5605-4972-999b-0777b9608c88 (CREATE_SLABS_ON_ALL_FLOORS)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [FPS] 20fps
+injected.js:37 [SlabFragmentBuilder] outset slabId="f7243390-72cd-40f1-9eeb-3fe0746cfb5d" vertices=18 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="f7243390-72cd-40f1-9eeb-3fe0746cfb5d" outerVertices=18 elapsed=0.2ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="f7243390-72cd-40f1-9eeb-3fe0746cfb5d" totalMs=1.8ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="ea3ab270-3dde-43c2-bac3-d130c21d41fe" vertices=18 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="ea3ab270-3dde-43c2-bac3-d130c21d41fe" outerVertices=18 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="ea3ab270-3dde-43c2-bac3-d130c21d41fe" totalMs=1.0ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="88aac754-a54d-4be9-a7c6-f5bacf09459a" vertices=18 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="88aac754-a54d-4be9-a7c6-f5bacf09459a" outerVertices=18 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="88aac754-a54d-4be9-a7c6-f5bacf09459a" totalMs=1.1ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="a713eab0-59ae-48f2-b40b-6e1ce30b83d4" vertices=18 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="a713eab0-59ae-48f2-b40b-6e1ce30b83d4" outerVertices=18 elapsed=0.2ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="a713eab0-59ae-48f2-b40b-6e1ce30b83d4" totalMs=1.1ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="4b510e7a-1225-44da-880d-71a2756bb3cb" vertices=18 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="4b510e7a-1225-44da-880d-71a2756bb3cb" outerVertices=18 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="4b510e7a-1225-44da-880d-71a2756bb3cb" totalMs=1.4ms
+injected.js:37 [SlabFragmentBuilder] RAF_DRAIN built=5 remaining=0 queueBefore=5 frameMs=8.2ms
+injected.js:37 [SlabFragmentBuilder] rAF queue drained — signalling BatchCoordinator.
+injected.js:37 [BatchCoordinator] Build queue drained — beginning registration drain (0 queued / 5 expected).
+injected.js:37 [BatchCoordinator] §REG-MANY-P2: queue ≤ 50 entries (0) — draining synchronously (0 rAF frames).
+injected.js:37 [StoreEventBus] endBatchYielded() — 5 event(s) will be delivered in 1 chunk(s) of 200 via frame scheduler.
+injected.js:37 [StoreEventBus] endBatchYielded() — all 5 event(s) delivered across 1 chunk(s) (last: 0.4ms). Calling onComplete().
+injected.js:37 [BatchCoordinator] §PERF-VIEW-BATCH-SUPPRESS: suppression lifted; markLevelsDirty(5 level(s)) scheduled.
+injected.js:37 [UnifiedFrameLoop] §PERF-VIEW-BATCH-SUPPRESS: suppression lifted — OBC+PASCAL resuming; first render compiles all deferred shaders.
+injected.js:37 [BatchCoordinator] Final sweep: firing 5 REDETECT_ROOMS command(s) (one per affected level). Observers re-enabled. StoreEventBus flushed (depth now 0).
+injected.js:37 [BatchCoordinator/P1.3] Post-batch PBR upgrade complete: 95 mesh(es) in 1 chunk(s) (§FIX-POST-BATCH-PBR-CHUNK).
+2injected.js:37 [ProjectSerializer] Snapshot created: 25 elements, 6 levels, 18 walls, 6 slabs, 0 furniture
+injected.js:37 [PlatformSaveController] Version saved: "Auto-save" (25 elements, id: proj-1777941149605-o1zhl)
+injected.js:37 [FPS] 42fps
+injected.js:37 [LONGTASK] duration=118.0ms start=1165688.2ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ injected.js:37
+injected.js:37 [FPS] 18fps
+injected.js:37 [CommandManager] EXECUTE: CREATE_CURTAIN_WALLS_ON_ALL_SLABS
+injected.js:37 [CommandManager] snapshot commandType="CreateCurtainWallsOnAllSlabsCommand" scope=[curtainWall] elapsed=0.1ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] START slabCount=6
+injected.js:37 [CreateCurt

@@ -1,0 +1,47 @@
+{
+  "id": "diagonal-with-door",
+  "description": "diagonal-with-door",
+  "wall": {
+    "id": "wall:01HZS00000000000000DIAGONA",
+    "type": "wall",
+    "childrenIds": [
+      "door:01HZS00000000000000D120000"
+    ],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "baseLine": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 3,
+        "y": 0,
+        "z": 4
+      }
+    ],
+    "height": 2.5,
+    "thickness": 0.2,
+    "baseOffset": 0,
+    "openings": [
+      {
+        "id": "op-d1",
+        "type": "door",
+        "doorType": "single",
+        "offset": 2,
+        "width": 0.9,
+        "height": 2.1,
+        "sillHeight": 0,
+        "elementId": "door:01HZS00000000000000D120000"
+      }
+    ]
+  },
+  "joinData": {},
+  "worldY": 0
+}

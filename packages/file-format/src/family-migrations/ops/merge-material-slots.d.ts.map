@@ -1,0 +1,1 @@
+{"version":3,"file":"merge-material-slots.d.ts","sourceRoot":"","sources":["merge-material-slots.ts"],"names":[],"mappings":"AAMA,OAAO,KAAK,EAAE,QAAQ,EAAa,MAAM,aAAa,CAAC;AAEvD,MAAM,WAAW,wBAAwB;IACvC,QAAQ,CAAC,UAAU,EAAE,MAAM,CAAC;IAC5B,QAAQ,CAAC,YAAY,EAAE,MAAM,CAAC;CAC/B;AAED,wBAAgB,8BAA8B,CAC5C,IAAI,EAAE,MAAM,EACZ,EAAE,EAAE,MAAM,EACV,MAAM,EAAE,wBAAwB,GAC/B,QAAQ,CA0CV"}

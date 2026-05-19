@@ -1,0 +1,132 @@
+I need you to analyze and fix the curved wall functionality in my BIM application. The curved walls are currently being created as multiple straight segments instead of a single curved wall.
+
+Context
+We have two parallel implementations that need to be merged:
+
+Curved walls feature - Adds WallCurve interface and geometry tessellation
+
+Metadata contract (03-BIM-SEMANTIC-MODEL-CONTRACT) - Adds WallMetadata interface
+
+The problem is that the WallTypes.ts file from the metadata session overwrote the curved walls changes, removing the WallCurve interface. Now when users draw arc walls, they get straight segments because:
+
+WallTool.ts correctly creates an arc path
+
+CreateWallCommand.ts tries to stamp curve property
+
+But WallData type no longer has curve field
+
+WallFragmentBuilder.ts never sees the curve data and falls back to straight wall logic
+
+Required Analysis
+Please analyze these specific files and identify all discrepancies:
+
+WallTypes.ts - Check if it contains BOTH:
+
+WallMetadata interface (from contract)
+
+WallCurve interface (from curved walls)
+
+curve?: WallCurve field in WallData
+
+WallFragmentBuilder.ts - Verify the curved wall branch exists:
+
+Look for if (wall.curve) block around line 300-350
+
+Should tessellate the bezier curve using PathResolver.toPolyline()
+
+Should create multiple BoxGeometry segments
+
+PathResolver.ts - Check for arc utilities:
+
+toPolyline(path: WallPath, segments?: number)
+
+Should handle WallPath with kind: 'Arc'
+
+WallIntentResolver.ts - Verify curved hit testing:
+
+resolveHitToAnchor() should handle curved walls
+
+Should use closestPointOnPolyline()
+
+Files to Examine
+text
+src/elements/walls/WallTypes.ts
+src/elements/walls/WallFragmentBuilder.ts
+src/elements/walls/WallPathBuilder.ts
+src/elements/walls/WallIntentResolver.ts
+src/elements/walls/PathResolver.ts
+src/commands/walls/CreateWallCommand.ts
+src/elements/walls/WallTool.ts
+src/elements/walls/WallStore.ts
+Expected Behavior
+When a user draws an arc wall (3 clicks: start → control → end):
+
+WallTool.createWallFromPath() should detect path.kind === 'Arc'
+
+Should call createWall() with the curve control point
+
+CreateWallCommand should stamp curve on WallData
+
+WallStore.add() should store the curve
+
+WallFragmentBuilder.buildWall() should detect wall.curve and:
+
+Tessellate into 24 segments
+
+Create a BoxGeometry for each segment
+
+Return a single logical wall with multiple fragments
+
+Required Fixes
+Merge WallTypes.ts to include both interfaces:
+
+typescript
+export interface WallMetadata {
+  createdAt: number;
+  modifiedAt: number;
+  createdBy: string;
+  version: number;
+  tags?: string[];
+  description?: string;
+}
+
+export interface WallCurve {
+  control: { x: number; y: number; z: number };
+  segments: number;
+}
+
+export interface WallData extends CoreElement {
+  // ... existing fields
+  metadata?: WallMetadata;
+  curve?: WallCurve;  // THIS MUST BE PRESENT
+}
+Verify the full chain:
+
+WallTool → passes curve to command
+
+CreateWallCommand → accepts and stamps curve
+
+WallStore → clones curve correctly
+
+WallFragmentBuilder → reads curve and builds curved geometry
+
+PathResolver → provides tessellation utilities
+
+Fix any TypeScript errors caused by missing curve field
+
+Success Criteria
+After fixes:
+
+No TypeScript errors about missing curve property
+
+Drawing an arc wall creates ONE wall in the store (check wallStore.getAll().length)
+
+That wall has a curve property with control point and segments
+
+The wall visually appears curved (24 segments)
+
+Click selection works on any part of the curved wall
+
+Properties panel shows metadata (createdAt, modifiedAt, version)
+
+Please analyze all files and provide the complete corrected code for any files that need updating, ensuring both the metadata contract AND curved wall functionality work together.

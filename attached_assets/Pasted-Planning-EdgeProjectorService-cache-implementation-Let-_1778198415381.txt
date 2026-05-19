@@ -1,0 +1,157 @@
+Planning EdgeProjectorService cache implementation
+Let me start by reading the Phase C spec and finding all relevant files in parallel.
+
+
+Show less
+
+Ran grep
+
+Ran find
+
+Ran cat
+
+Planning EdgeProjectorService implementation
+
+Ran wc
+
+Opened docs/03_PRYZM3/04-PLAN-FORWARD/45-CW-SLAB-BATCH-IMPLEMENTATION-PLAN.md
+
+Ran find
+
+Reading context to inform decisions
+
+Opened src/engine/subsystems/core/views/EdgeProjectorService.ts
+
+Opened src/engine/subsystems/core/views/EdgeProjectorService.ts
+
+Planning further knowledge acquisition (4 seconds)
+
+Opened src/engine/subsystems/core/views/EdgeProjectorService.ts
+
+Opened src/engine/subsystems/core/views/EdgeProjectorService.ts
+
+Planning EdgeProjectorService implementation
+
+Opened src/engine/subsystems/core/views/EdgeProjectorService.ts
+
+Analyzing EdgeProjectorService and tracker
+
+Opened src/engine/subsystems/core/views/EdgeProjectorService.ts
+
+Opened docs/03_PRYZM3/00-PROCESS-TRACKER.md
+
+Opened docs/03_PRYZM3/04-PLAN-FORWARD/45-CW-SLAB-BATCH-IMPLEMENTATION-PLAN.md
+
+Planning cache LRU eviction logic (56 seconds)
+Let me read more of the EPS file (Float32Array hotpath) and the process tracker structure in parallel.
+
+
+Show less
+
+Ran grep
+
+Opened docs/03_PRYZM3/00-PROCESS-TRACKER.md
+
+Opened src/engine/subsystems/core/views/EdgeProjectorService.ts
+
+Planning Float32Array allocation strategy (23 seconds)
+Let me read the Float32Array usage context and the Phase D.4 tags spec in parallel.
+
+
+Show less
+
+Opened src/engine/subsystems/core/views/EdgeProjectorService.ts
+
+Opened docs/03_PRYZM3/04-PLAN-FORWARD/45-CW-SLAB-BATCH-IMPLEMENTATION-PLAN.md
+
+Opened src/engine/subsystems/core/views/EdgeProjectorService.ts
+Optimized Agent memory
+
+Planning next implementation steps (4 seconds)
+
+Opened src/engine/subsystems/core/views/EdgeProjectorService.ts
+
+Opened src/engine/subsystems/core/views/EdgeProjectorService.ts
+
+Opened docs/03_PRYZM3/04-PLAN-FORWARD/45-CW-SLAB-BATCH-IMPLEMENTATION-PLAN.md
+
+Planning cache and array pooling optimizations (34 seconds)
+Let me read the class field declarations and the remaining Phase C.5 Float32Array usage context.
+
+
+Show less
+
+Opened src/engine/subsystems/core/views/EdgeProjectorService.ts
+
+Opened src/engine/subsystems/core/views/EdgeProjectorService.ts
+
+Opened src/engine/subsystems/core/views/EdgeProjectorService.ts
+
+Planning core feature implementation (45 seconds)
+Now I have a complete picture. Let me create the session plan and start implementing all Sprint 4 tasks in parallel.
+
+
+Show less
+
+Ran grep
+
+Ran grep
+
+Planning D.4 tag verification (5 seconds)
+
+Ran grep
+
+Opened src/engine/subsystems/core/views/EdgeProjectorService.ts
+
+Planning tag insertion and edits (7 seconds)
+Now I have everything I need. Let me check the files where the missing D.4 tags need to go, then implement all Sprint 4 changes.
+
+
+5 actions
+All D.4 tags are already present (§F.1, §F.2, §F.3, §G2, §G3 variants). Now I'll implement C.2 (LRU cap), C.5 (Float32Pool), and C.6 (pre-intern strings) in the EPS file, then update both docs.
+
+
+2 actions
+Now I'll implement all three Phase C tasks simultaneously. Starting with the EPS modifications — I'll layer the edits in dependency order.
+
+
+2 actions
+Now I'll apply C.5 to makeGeoFromPositions and classifyByVertexY's inner makeGeo, and C.6 to all 16 concat sites — all in parallel.
+
+
+3 actions
+Now replacing all 16 ${layerName}:* concatenation sites with the pre-interned helper functions (native + IFC sections in one pass):
+
+
+4 actions
+Now replacing the IFC section's ${layerName}:* concat sites, and simultaneously implementing C.2 LRU cap changes:
+
+
+4 actions
+Good progress. Now implementing C.2 — the LRU cache cap. I'll add the counter field, the eviction method, and update all four cache mutators simultaneously.
+
+
+2 actions
+Now adding the _evictLruCwEntry() method and updating all four cache mutators simultaneously:
+
+
+2 actions
+Now updating the three remaining cache mutators to maintain _cwCacheEntryCount:
+
+
+4 actions
+All three C.2/C.5/C.6 edits are in. Let me also update the §PERF-CACHE-STATS log to report the entry count (so C.2 is observable), then run the TypeScript check.
+
+
+2 actions
+Now let me run TSC to verify the edits compile, and simultaneously verify no ${layerName}:* concatenations remain in the file:
+
+
+Show less
+
+Ran cd
+
+Ran grep
+
+Planning build and documentation update
+Zero TS errors and zero raw concatenations remaining. Now running the full build to satisfy the requirement, while simultaneously preparing the doc updates:

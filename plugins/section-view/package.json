@@ -1,0 +1,27 @@
+{
+  "name": "@pryzm/plugin-section-view",
+  "version": "0.1.0",
+  "description": "PRYZM 2 \u2014 section-view plugin SKELETON (post-2B closeout / ADR-0030). Provides the kernel section-cut producer + a canvas host shell. Full feature lights up at S37/S38.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  },
+  "dependencies": {
+    "@pryzm/plugin-sdk": "workspace:*"
+  }
+}

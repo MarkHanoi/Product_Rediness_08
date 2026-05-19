@@ -1,0 +1,99 @@
+{
+  "id": "cw-02-full-glazed-2x4",
+  "description": "Full-glazed 6×3, 2 rows × 4 cols, all glazed",
+  "curtainWall": {
+    "id": "curtainwall_01HZS00000000000000CWFULL2",
+    "type": "curtainwall",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "baseLine": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 6,
+        "y": 0,
+        "z": 0
+      }
+    ],
+    "height": 3,
+    "mullionThickness": 0.05,
+    "bayWidth": 1.5,
+    "bayHeight": 1.5,
+    "panels": [
+      {
+        "id": "p0",
+        "row": 0,
+        "col": 0,
+        "kind": "glazed",
+        "rotation": 0
+      },
+      {
+        "id": "p1",
+        "row": 0,
+        "col": 1,
+        "kind": "glazed",
+        "rotation": 0
+      },
+      {
+        "id": "p2",
+        "row": 0,
+        "col": 2,
+        "kind": "glazed",
+        "rotation": 0
+      },
+      {
+        "id": "p3",
+        "row": 0,
+        "col": 3,
+        "kind": "glazed",
+        "rotation": 0
+      },
+      {
+        "id": "p4",
+        "row": 1,
+        "col": 0,
+        "kind": "glazed",
+        "rotation": 0
+      },
+      {
+        "id": "p5",
+        "row": 1,
+        "col": 1,
+        "kind": "glazed",
+        "rotation": 0
+      },
+      {
+        "id": "p6",
+        "row": 1,
+        "col": 2,
+        "kind": "glazed",
+        "rotation": 0
+      },
+      {
+        "id": "p7",
+        "row": 1,
+        "col": 3,
+        "kind": "glazed",
+        "rotation": 0
+      }
+    ]
+  },
+  "joinData": {
+    "startJoin": {
+      "kind": "none"
+    },
+    "endJoin": {
+      "kind": "none"
+    }
+  },
+  "worldY": 0
+}

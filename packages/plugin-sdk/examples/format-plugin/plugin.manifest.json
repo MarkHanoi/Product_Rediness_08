@@ -1,0 +1,26 @@
+{
+  "pryzmPlugin": "1.0",
+  "id": "format-plugin-example",
+  "version": "1.0.0",
+  "displayName": "Format Plugin Example (CSV walls)",
+  "description": "Example file-format plugin — registers a .csv importer that creates wall commands from a comma-separated list of (x1,y1,x2,y2,height,thickness) rows. Demonstrates the FormatProxy + commandBus.dispatch pattern.",
+  "author": "PRYZM SDK Examples",
+  "homepage": "https://docs.pryzm.com/plugin-sdk/examples/format-plugin",
+  "main": "index.ts",
+  "license": "MIT",
+  "permissions": [
+    "read:project",
+    "write:project",
+    "register:command"
+  ],
+  "allowedOrigins": [],
+  "contributions": [
+    {
+      "kind": "command",
+      "id": "format-plugin.import-csv",
+      "label": "Import walls from CSV",
+      "category": "File / Import"
+    }
+  ],
+  "minPRYZMVersion": "2.0.0"
+}

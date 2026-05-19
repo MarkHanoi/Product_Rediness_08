@@ -1,0 +1,32 @@
+{
+  "id": "square-straight-commercial",
+  "description": "square 50 mm commercial rail, 1.1 m height, 8 m straight",
+  "handrail": {
+    "id": "handrail:sq-com",
+    "type": "handrail",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "path": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 8,
+        "y": 0,
+        "z": 0
+      }
+    ],
+    "shape": "square",
+    "height": 1.1,
+    "diameter": 0.05
+  },
+  "worldY": 3.5
+}

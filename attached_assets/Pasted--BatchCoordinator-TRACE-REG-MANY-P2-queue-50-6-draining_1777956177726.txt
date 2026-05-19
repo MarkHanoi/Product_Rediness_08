@@ -1,0 +1,40 @@
+[BatchCoordinator] §TRACE §REG-MANY-P2 queue ≤ 50 (6) — draining synchronously (0 rAF frames) T=+1387.2ms
+VM6 injected.js:37 [BimManager] §REG-MANY-P0: registered 12 element(s) to level "L0".
+VM6 injected.js:37 [BimManager] §REG-MANY-P0: registered 12 element(s) to level "L-01-1777955882747-1".
+VM6 injected.js:37 [BimManager] §REG-MANY-P0: registered 12 element(s) to level "L-02-1777955882768-2".
+VM6 injected.js:37 [BimManager] §REG-MANY-P0: registered 12 element(s) to level "L-03-1777955882777-3".
+VM6 injected.js:37 [BimManager] §REG-MANY-P0: registered 12 element(s) to level "L-04-1777955882786-4".
+VM6 injected.js:37 [BimManager] §REG-MANY-P0: registered 12 element(s) to level "L-05-1777955882793-5".
+VM6 injected.js:37 [BatchCoordinator] §TRACE REGISTRATION-DRAIN-DONE 6 registration(s) complete T=+1389.3ms
+VM6 injected.js:37 [BatchCoordinator] §TRACE SHADOW-REACTIVATION-START T=+1389.5ms
+VM6 injected.js:37 [BatchCoordinator] §TRACE SHADOW-REACTIVATION-DISPATCHED (sliced across post-render frames) callMs=0.5ms T=+1390.0ms
+VM6 injected.js:37 [BatchCoordinator] §TRACE FINAL-SWEEP-START levels=6 skipRedetect=true T=+1390.6ms (opening yielded event drain)
+VM6 injected.js:37 [StoreEventBus] endBatchYielded() — 72 event(s) will be delivered in 1 chunk(s) of 200 via frame scheduler.
+VM6 injected.js:37 [StoreEventBus] endBatchYielded() — all 72 event(s) delivered across 1 chunk(s) (last: 6.6ms). Calling onComplete().
+VM6 injected.js:37 [BatchCoordinator] §TRACE ON-COMPLETE-START (all yielded events delivered) T=+1409.2ms
+VM6 injected.js:37 [BatchCoordinator] §TRACE §PERF-VIEW-BATCH-SUPPRESS suppression lifted; markLevelsDirty(6 level(s)) scheduled. T=+1409.6ms (next render will compile all deferred CW shaders — LONGTASK expected)
+VM6 injected.js:37 [BatchCoordinator] §TRACE ON-BATCH-END-START T=+1409.9ms
+VM6 injected.js:37 [UnifiedFrameLoop] §TRACE §PERF-RENDER-BEFORE-UNSUPPRESS: renderPipelineManager.render(0) fired before suppression lifted — PSO cache warm.
+VM6 injected.js:37 [UnifiedFrameLoop] §TRACE §PERF-VIEW-BATCH-SUPPRESS suppression lifted after 8443.1ms — OBC+PASCAL resuming on next tick; PSO cache pre-warmed by compile() above.
+VM6 injected.js:37 [BatchCoordinator] §TRACE ON-BATCH-END-DONE (overlay dismissed, suppress lifted on UnifiedFrameLoop) T=+8444.5ms
+VM6 injected.js:37 [BatchCoordinator] §TRACE ON-POST-BATCH-START (PBR upgrade + requestIdleCallback pending) T=+8444.8ms
+VM6 injected.js:37 [BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-SKIPPED (skipPbrUpgrade=true — curtain-wall batch; materials are already PBR-ready)
+VM6 injected.js:37 [BatchCoordinator] §TRACE ON-POST-BATCH-DISPATCHED (PBR upgrade queued to requestIdleCallback) T=+8445.2ms
+VM6 injected.js:37 [BatchCoordinator] Final sweep: SKIPPING REDETECT_ROOMS for 6 level(s) (§FIX-SKIP-REDETECT-ROOMS — element type cannot define room boundaries). StoreEventBus flushed (depth now 0). markLevelsDirty already called above for plan-view reprojection.
+VM6 injected.js:37 [FPS] 2fps
+VM6 injected.js:37 [LONGTASK] duration=7046.0ms start=839293.0ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [GPU Monitor] geometries:147 textures:8 | drawCalls:20 tris:430
+VM6 injected.js:37 [UnifiedFrameLoop] §TRACE FIRST-RENDER-POST-SUPPRESS totalSuppressedMs=10057.8ms frameCount=2315 — OBC+PASCAL about to execute (WebGPU PSO compile LONGTASK begins here)
+VM6 injected.js:37 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+VM6 injected.js:37 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+VM6 injected.js:37 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed out of 1 live room(s).
+VM6 injected.js:37 [NativeElementMeshExporter] Plan view — exporting 27 elements from levels overlapping Y=[-1.20, 0.00]
+VM6 injected.js:37 [FPS] 1fps
+VM6 injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+VM6 injected.js:37 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+VM6 injected.js:37 [EdgeProjectorService] Native projection done — 26 group(s), 595 edge geometries across 26 ISO layer(s) (per-element UUID tagging active)
+VM6 injected.js:37 [DoorPlanSymbolBuilder] Injected 1 door swing arc(s) into view vd-sys-plan-l0 (level L0)
+VM6 injected.js:37 [HiddenLineRemoval] v1 pass — 1 occluder(s), 0/7152 segments removed
+VM6 injected.js:37 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=26 (OBC-IFC=0, native=26, ifc-scene=0)

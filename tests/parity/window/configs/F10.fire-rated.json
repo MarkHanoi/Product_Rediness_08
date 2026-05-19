@@ -1,0 +1,45 @@
+{
+  "id": "F10.fire-rated",
+  "description": "fire-rated FR60 window",
+  "window": {
+    "id": "window:01HZS000000000000WDWF1000",
+    "type": "window",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "wallId": "wall:01HZS000000000000WDWW1000",
+    "openingId": "op-1",
+    "offset": 0,
+    "width": 1.2,
+    "height": 1,
+    "windowType": "single",
+    "sillHeight": 0.9,
+    "frameWidth": 0.06,
+    "frameThickness": 0.07,
+    "frameColor": "#444444",
+    "glassColor": "#b0d0e8"
+  },
+  "placement": {
+    "axis": {
+      "x": 1,
+      "y": 0,
+      "z": 0
+    },
+    "normal": {
+      "x": 0,
+      "y": 0,
+      "z": 1
+    },
+    "origin": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "wallThickness": 0.1
+  }
+}

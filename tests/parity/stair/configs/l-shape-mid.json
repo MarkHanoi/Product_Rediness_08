@@ -1,0 +1,29 @@
+{
+  "id": "l-shape-mid",
+  "description": "L-shape 16-riser stair, mid-pitch, 0.9 m wide",
+  "stair": {
+    "id": "stair:lsh-mid",
+    "type": "stair",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "topLevelId": "level:1",
+    "shape": "l-shape",
+    "origin": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "rotation": 0,
+    "treadDepth": 0.28,
+    "riserHeight": 0.18,
+    "width": 0.9,
+    "numRisers": 16
+  },
+  "worldY": 0
+}

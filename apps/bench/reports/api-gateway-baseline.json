@@ -1,0 +1,48 @@
+{
+  "sprint": "S65",
+  "kind": "in-process baseline",
+  "generatedAt": "2026-04-28T13:33:07.279Z",
+  "node": "v20.20.0",
+  "target": {
+    "read_p95_ms": 200,
+    "write_p95_ms": 500
+  },
+  "results": [
+    {
+      "endpoint": "GET /v1/health",
+      "samples": 200,
+      "p50": 2.441,
+      "p95": 7.116,
+      "p99": 10.682,
+      "max": 29.807,
+      "mean": 3.087
+    },
+    {
+      "endpoint": "GET /v1/ai/workflows",
+      "samples": 200,
+      "p50": 2.018,
+      "p95": 6.641,
+      "p99": 13.433,
+      "max": 24.167,
+      "mean": 2.908
+    },
+    {
+      "endpoint": "GET /v1/formulas",
+      "samples": 200,
+      "p50": 2.249,
+      "p95": 5.859,
+      "p99": 8.757,
+      "max": 8.806,
+      "mean": 2.668
+    },
+    {
+      "endpoint": "GET /v1/admin/ai-spend",
+      "samples": 200,
+      "p50": 1.7,
+      "p95": 4.716,
+      "p99": 14.97,
+      "max": 24.9,
+      "mean": 2.305
+    }
+  ]
+}

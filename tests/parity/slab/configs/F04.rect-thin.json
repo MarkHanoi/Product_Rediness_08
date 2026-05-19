@@ -1,0 +1,42 @@
+{
+  "id": "F04.rect-thin",
+  "description": "4×3 thin slab (screed)",
+  "slab": {
+    "id": "slab:01HZS000000000000SLBF0400",
+    "type": "slab",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "boundary": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 4,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 4,
+        "y": 0,
+        "z": 3
+      },
+      {
+        "x": 0,
+        "y": 0,
+        "z": 3
+      }
+    ],
+    "holes": [],
+    "thickness": 0.1,
+    "baseOffset": 0
+  },
+  "worldY": 0
+}

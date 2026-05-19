@@ -1,0 +1,50 @@
+{
+  "id": "F07.rotated-30deg",
+  "description": "grid rotated 30° about Y",
+  "grid": {
+    "id": "grid:01HZS000000000000GRDF0700",
+    "type": "grid",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "rotation": 0.5235987755982988,
+    "lines": [
+      {
+        "id": "v1",
+        "label": "A",
+        "kind": "linear",
+        "start": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "end": {
+          "x": 0,
+          "y": 0,
+          "z": 6
+        }
+      },
+      {
+        "id": "h1",
+        "label": "1",
+        "kind": "linear",
+        "start": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "end": {
+          "x": 6,
+          "y": 0,
+          "z": 0
+        }
+      }
+    ]
+  },
+  "worldY": 0
+}

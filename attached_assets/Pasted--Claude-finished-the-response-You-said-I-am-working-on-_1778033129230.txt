@@ -1,0 +1,422 @@
+
+Claude finished the response
+You said: I am working on PRYZM - bim authoring sofware in the cloud.
+
+41-BATCH-ERROS.md
+md
+
+
+ViewDependencyTracker (1).ts
+ts
+
+
+UnifiedFrameLoop (1).ts
+ts
+
+
+BatchCoordinator.ts
+ts
+
+
+initScene (5).ts
+ts
+
+
+initScene (4).ts
+ts
+
+
+CommandManager.ts
+ts
+
+
+CurtainWallBuilder.ts
+ts
+
+
+CurtainWallStore.ts
+ts
+
+
+TopologySpatialIndex.ts
+ts
+
+
+ViewDependencyTracker.ts
+ts
+
+
+40-CW-PIPELINE-TRACE (1).md
+md
+
+
+[ProjectSerializer] Snapshot created: 16 elements, 1 levels, 15 walls, 0 slabs, 0 furniture injected.js:37 [ProjectSerializer] Snapshot created: 16 elements, 1 levels, 15 walls, 0 slabs, 0 furniture injected.js:37 [PlatformSaveController] Version saved: "Auto-save" (16 elements, id: proj-17780299466
+
+pasted
+
+
+Claude finished the response You said: I am working on PRYZM - bim authoring sofware in the cloud. EdgeProjectorService.ts ts ViewDependencyTracker (1).ts ts TopologySpatialIndex.ts ts CurtainWallStore (1).ts ts RoomTopologyObserver.ts ts CommandManager.ts ts
+
+pasted
+
+
+Worked for 2 minutes Pasted--Claude-finished-the-response-You-said-I-am-working-on-_1778028900845.txt We are looking at the performance of Batch Curtain Wall process- Even if the 40-CW-PIPELINE-TRACE.md. it might have all the sections done IWTHIN THE DOCUMENT, STILL when we move into large scale
+
+pasted
+
+
+StoreEventBus.ts
+18 lines
+
+ts
+
+
+ElementRegistry.ts
+75 lines
+
+ts
+
+
+initStores (1).ts
+116 lines
+
+ts
+
+
+RemoteCommandDispatcher.ts
+151 lines
+
+ts
+
+I am working on PRYZM - bim authoring sofware in the cloud. I am improving the batch element creation on the browser - specifically tagetting curtain wall batch creation. Is it taking too long despite the efforts being made. I want to check and trace the pipeline and understand specific bottle necks - feeel free to demand any specific file. I will attach first the pipeline of curtain wall batch creation from slabs. PLEASE CHECK THE CONSOLE LOG - LAST FILE TO BE ATTACHED - FIRST FILE IS THE PIPELINE CURRENT (CHECK IF IT IS CORRECT) THEN CHECK ALL THE FILES - WE WANT TO HAVE THE FULL PIPELINE IN 3 SEC MAX. - the last implemmentation to tried to achive this - still is taking 30 sec - i want to achive max 3 secs: // what we tried to achive:  Now I have a complete picture. Let me look at the actual console log timings for the 110-wall session and synthesize a full analysis. Now I have everything I need. Let me synthesize the full analysis against the actual console log data. PLEASE REVIEW ALL THE FILES IN GREAT LEVEL OF DETAIL - REVIEW THE LIVE CONSOLE LOGS - FIRST ATTACHEMENT - THE PROPOSE PIPELINE - SOMETHING TO IMPROVE? AND THE BOTTLE NECKS - AND ALL THE FILES INVOLVED - PROPOSED CONCISED - CLEAR - ANALYTICAL - ARCHITECTURAL SOUND REMEDIATION TO OUR ISSUES - WE WANT THIS PIPELINE TO TAKE NO LONGER THAN 5 SECS. 1ST ATTACHEMENT - CONSOLE LOGS / 2ND - LAST ANALYSIS REVIEW - 3RD - FIX AFTER ANALYSIS / THE CODE FILES AND PIPE-LINE
+
+Show more
+10:25 AM
+Claude responded: Let me read all the files in detail before analyzing.
+Let me read all the files in detail before analyzing.
+
+
+Ran 5 commands
+Ran 5 commands
+Now I have enough to give a thorough analysis. Let me also quickly check the live log from the new 315-wall session in the console document.
+
+
+Ran 6 commands
+Ran 6 commands
+Now I have the complete picture. Let me produce the analysis document.
+
+
+Ran 2 commands
+Ran 2 commands
+Now I have a complete and thorough picture. Let me write the analysis.
+
+
+Check skills available
+Check skills available
+Now I have everything. Let me produce the full analysis as a markdown artifact.
+
+
+Created a file, read a file
+Created a file, read a file
+Here is the complete analysis. Let me walk you through the findings:
+
+What the session 6 live log tells us
+The good news: Every fix from sessions 1–5 is confirmed working. The BN-04 dual-mode drain fix is the clearest win — the budget is stable at 20–25 for all 15 drain frames (vs. cascading to 7 in 27 frames before). The sync phase at 23.9ms for 315 walls is essentially free.
+
+The bad news: A 14,175ms PSO LONGTASK still dominates, and the log reveals exactly why.
+
+The three new bottlenecks
+BN-05 (critical) — Prewarm silently failed. The prewarm log shows prewarmMs=11.1ms for 3× rpm.render(0). A single WebGPU PSO compile takes ~80–400ms minimum. 11.1ms total is a complete no-op — the renders returned instantly. The most likely cause is the WebGPU device-loss/recovery cycle visible earlier in the same log: [RenderPipelineManager] Pipeline init error: Cannot read properties of undefined (reading 'usedTimes') — the pipeline was in phase: error state, and render(0) silently no-ops in that state. The static flag _shadersPrewarmed was then set to true on a non-working prewarm, meaning the PSOs were cold when the first real render fired → 14,175ms LONGTASK.
+
+Fix: Three guards: (1) abort prewarm if rpm.status.phase !== 'active', (2) if prewarm completes in < 30ms, do NOT set _shadersPrewarmed = true — treat it as failed and retry on next execute, (3) call __resetCwPrewarm() inside the existing webglcontextlost and WebGPU device-loss handlers so context recovery always forces a valid re-prewarm.
+
+BN-06 (high) — Slab batch PBR upgrade: 15,037 meshes, 126 chunks. The slab batch that ran before the CW batch did not set skipPbrUpgrade: true. Its post-batch requestIdleCallback traversed all 15,037 scene meshes in 126 chunks of 120. These chunks fire during and after the CW batch's critical window, starving the scheduler and contributing to the second batch being delayed 10 seconds. The fix is one line: add skipPbrUpgrade: true to CreateSlabsOnAllFloorsCommand's runBatch() call — slab materials are MeshStandardMaterial with explicit metalness/roughness, identical reasoning to the CW fix.
+
+BN-07 (derived) — Second batch starvation. The reconnect catch-up fired CREATE_SLABS_ON_ALL_FLOORS while 126 PBR chunks were outstanding. The DEFERRED-RESUME-FLUSH scheduleOnce('pre-render') couldn't fire for 10 seconds because the scheduler was saturated. Fixed entirely by BN-06; a warning log is the only additional work.
+
+Projected outcome
+With BN-05 + BN-06 fixed: 315-wall / 21-slab → ~1,200ms (300ms prewarm + 724ms drain + 200ms first render). For 1,000-wall / 50-slab projected: ~2,800ms — under the 3-second target.
+
+
+42 cw batch analysis session6
+Document · MD 
+You said: [initBuilders] Handrail subsystem initialised injected.
+
+Library Commands .agents .canvas .changeset .config .ga-gate .git .github apps attached_assets client dist docs .agents 00_Contracts 03_PRYZM3 04-PLAN-FORWARD 01-CRITICAL-PATH-D4.md 02-WAVE-1-TRIPWIRES.md 03-WAVE-2-3-D4-EXECUTION.md 04-END-TO-END-FLOWS-AND-COVERAGE.md 05-UI-INV
+
+pasted
+
+
+///////////////////// /////////////////////////// ////////@@@@@@@////////////// ////////@@@@@@@////////////// ////////@@@@@@@////////////// Curious and driven? ///////////////@@@@@@@/////// Work with us! ///////////////@@@@@@@/////// ///////////////@@@@@
+
+pasted
+
+
+Encountered one or more errors while creating shader module "vertex_OutlineNode.depth" WebGPU compilation info for shader module "vertex_OutlineNode.depth" (1 error(s), 0 warning(s), 0 info) Uncaptured WebGPU error: Buffer with 'bindingBufferundefined_UniformBuffer_1616_(vertex)' label is invalid
+
+pasted
+
+
+[PickResolver] strategy=gpu-pick hover-hit=5bf0a877-557b-460d-98e6-fa229fd22089 injected.js:37:27 [PickResolver] strategy=gpu-pick hover-hit=8fe7c7a0-17fc-4a92-b008-b51e6b042cb8 8 injected.js:37:27 [PickResolver] strategy=gpu-pick hit=8fe7c7a0-17fc-4a92-b008-b51e6b042cb8 injected.js:37:27 [LevelP
+
+pasted
+
+[initBuilders] Handrail subsystem initialised [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[initBuilders] Stair subsystem initialised [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[initBuilders] Beam subsystem initialised [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[initBuilders] RoomContentsService — all element stores attached [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[initBuilders] Grid subsystem initialised [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[initBuilders] RoomBoundingLine subsystem initialised [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[RoomFinishSyncService] Started — listening for room finish changes. [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[initBuilders] RoomFinishSyncService started [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[initBuilders] All builder subsystems fully initialised. [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[SelectionManager] PickStrategy set: gpu-pick [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[initTools] PickStrategy resolved: gpu-pick [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[FloatingObjectCarousel] Mounted (hidden, render loop deferred) [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[FurnitureDragDropHandler] Attached to canvas [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[initTools] LightingTool initialised [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[CurtainWallTool] SnapManager initialised (CurtainWall + Wall providers) [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[RoomTopologyObserver] attached to WallStore [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[RoomTopologyObserver] attached to CurtainWallStore [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[RoomTopologyObserver] attached to RoomBoundingLineStore [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[RoomTopologyObserver] attached to SlabStore [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[RoomTopologyObserver] attached to ColumnStore [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[RoomTopologyObserver] attached to bim-wall-mutation-committed (commit-barrier path) [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[ConstraintEngine] 17 rules registered (7 Tier 1, 5 Tier 2 spatial, 5 Tier 2 physics) [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[FPS] 1fps [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[AIApprovalStore] Restored 3 audit records. [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[RoomTool] Pick deps injected — POINT_PICK mode available [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[RoomTool] Manual deps injected — MANUAL_BOUNDARY mode available [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[initTools] RoomBoundingLineTool registered on window [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+BeamTool initialized with BeamStore: true [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[StairTool] Constructed. meshBuilder: true deps: true [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[UnderlayPersistence] Installed (per-project, v2) [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[ProjectScopedStorage] Installed — auto-keyed by projectId [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[ProjectIsolationAudit] Installed — will audit every empty project load [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[GhostOverlayRenderer] Initialised — listening for pryzm-history-ghost-* events [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[AnnotationManager] init complete — Phase V hover hints wired [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[OBCAnnotationAdapter] LinearAnnotations not present in this OBC build — skipping subscribe. [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[OBCAnnotationAdapter] AngleAnnotations not present in this OBC build — skipping subscribe. [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[OBCAnnotationAdapter] SlopeAnnotations not present in this OBC build — skipping subscribe. [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[OBCAnnotationAdapter] DOC-2.1: subscribed to OBC annotation system events [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[initTools] DOC-2.2: DrawingEditor initialised; OBCAnnotationAdapter wired [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[initTools] All BIM tools initialised and registered with ToolManager [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[EngineBootstrap] §ROOF-AUDIT §5.4: RoofSlopeSymbolBuilder wired (constructor-DI). [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[WallFragmentBuilder] WallInstanceBridge injected — simple walls will use GPU instancing. [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[EngineBootstrap] §PHASE-3: WallInstanceBridge connected — simple walls will use GPU instancing. [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[EngineBootstrap] BatchCoordinator injected. [injected.js:37:27](https://7641592e-e339-4e90-93e2-0055a1d957fb-00-1tzez03yqg8hg.sisko.replit.dev/__replco/static/devtools/injected.js)
+[EngineBootstrap] BatchLoadingIndicator wired (§FIX-BATCH-RENDER-SUPPRESS active).
+
+Show more
+11:02 AM
+Claude responded: Let me read all the new console logs and relevant source files to understand the current state.
+Let me read all the new console logs and relevant source files to understand the current state.
+
+
+Ran 3 commands
+Ran 3 commands
+
+Find project location
+
+Script
+
+Find project source
+
+Script
+
+Find project root
+
+Script
+Done
+The source code lives in Replit, not in this container. I'm operating purely from the uploaded files and console logs. Let me do a deep analysis of the new console evidence.
+
+
+Deep analysis of new console logs
+Deep analysis of new console logs
+
+Deep analysis of new console logs
+bash
+
+# Analyze the new console logs (documents 9, 10, 11) carefully
+echo "=== NEW CONSOLE LOG ANALYSIS ==="
+echo ""
+echo "--- Document 9: WebGPU errors + Geometry spike ---"
+echo "Pattern: Repeated blocks of:"
+echo "  'Buffer with bindingBufferXXXX_object_(vertex,fragment,compute) label is invalid'"
+echo "  'Encountered one or more errors while creating shader module vertex_OutlineNode.depth'"
+echo "  'WebGPU compilation info: 1 error(s)'"
+echo "  'Buffer with bindingBufferundefined_UniformBuffer_XXXX_(vertex) label is invalid'"
+echo ""
+echo "Key facts:"
+echo "  - These are NOT from the batch creation path"
+echo "  - 'bindingBufferundefined' = undefined label → buffer created with undefined as label key"
+echo "  - 'vertex_OutlineNode.depth' = the outline shader pass (not CW/slab shaders)"
+echo "  - 'Parent device is lost' appears mid-stream"
+echo "  - GPU Monitor: geometries:10559 textures:9 drawCalls:1 tris:1"
+echo "    → drawCalls:1 tris:1 = rendering blank/reset state after device loss"
+echo ""
+echo "--- Document 10: Same error pattern, different buffer IDs ---"
+echo "  Buffer IDs: 17860, 17863... sequential"
+echo "  Same 'vertex_OutlineNode.depth' shader"
+echo "  Same 'bindingBufferundefined' pattern"
+echo "  This appears to be the PREWARM phase trying to render with a broken pipeline"
+echo "  → 3x rpm.render(0) fires OutlineNode shader → OutlineNode uses invalid buffers"
+echo "  → This is WHY prewarm takes only 11ms: render() calls abort on GPU errors"
+echo ""
+echo "--- Document 11: Post-recovery interactive session ---"
+echo "  [GPU Monitor] geometries:10558 textures:9 drawCalls:214 tris:3153"
+echo "  [GPU Monitor] ⚠ Geometry count grew 20.9% (8735 → 10558)"
+echo "  Geometry count growing during idle hover = GEOMETRY LEAK"
+echo "  FPS: 45 → 30 → 6 → 33 → 62 → 57 → 42 → 21 → 61 → 57"
+echo "    → FPS drops to 6 when slab selected (Y=59.8, top slab) → heavy render cost"
+echo "  GPU Monitor: drawCalls:19378 tris:301328 → then drops to drawCalls:1"
+echo "    → Project switch / context reset sequence"
+echo "  geometries count stable at 10559 after reset"
+echo ""
+echo "=== ROOT CAUSE IDENTIFICATION ==="
+echo ""
+echo "RCA-1: The 'vertex_OutlineNode.depth' shader errors + invalid buffer labels"
+echo "  → These fire DURING the prewarm's rpm.render(0) calls"
+echo "  → The OutlinePass requires a valid GBuffer from the prior ScenePass frame"
+echo "  → When called with an empty/reset scene, outline uniform buffers bind to undefined objects"
+echo "  → Each rpm.render(0) attempt errors out immediately → no PSO compiled"
+echo "  → Total time: 3x near-instant abort = 11ms"
+echo "  → FIX CONFIRMED: The BN-05b timing guard (< 30ms = invalid) would correctly catch this"
+echo ""  
+echo "RCA-2: 'bindingBufferundefined' pattern"
+echo "  → Three.js WebGPU backend generates buffer label from object.id"
+echo "  → 'undefined' = the object ID was undefined at buffer creation time"
+echo "  → Root cause: Outline pass tries to build depth buffer for CW InstancedMesh probes"
+echo "    that don't have a proper id/uuid set, OR the outline refs array contains stale objects"
+echo "    from before device recovery"
+echo "  → After onProjectSwitch(), outline refs are cleared — but prewarm adds probe meshes"
+echo "    BEFORE onProjectSwitch() completes, so probes get stale outline refs"
+echo ""
+echo "RCA-3: Geometry leak (8735 → 10558 = +1823 geometries during hover)"
+echo "  → Geometry count grows 20.9% while just hovering slabs"
+echo "  → Most likely: CurtainWallBuilder._disposeChildren() NOT being called on rebuild"
+echo "    OR geometry created per-hover-pick (unlikely)"
+echo "  → More likely: the CW batch created 315 walls × multiple geometries"
+echo "    and prior session's geometry was NOT disposed (context loss path)"
+echo "  → After context restored, old geometries still tracked by WebGPU backend"
+echo "  → NOT a new regression — predates this session (geometries were already 10558)"
+echo ""
+echo "=== NEW BOTTLENECK: BN-09 (Outline pass errors during prewarm) ==="
+echo "  The prewarm fires rpm.render(0) which runs the full pipeline including OutlinePass."
+echo "  When prewarm probe meshes are added without proper outline setup, the outline"
+echo "  shader errors cascade and abort the render early — no PSO compile happens."
+echo "  FIX: Disable outline pass during prewarm (rpm.disableOutlines() before prewarm,"
+echo "  rpm.enableOutlines() after), OR check that probe meshes are excluded from outline set."
+Output
+
+=== NEW CONSOLE LOG ANALYSIS ===
+
+--- Document 9: WebGPU errors + Geometry spike ---
+Pattern: Repeated blocks of:
+  'Buffer with bindingBufferXXXX_object_(vertex,fragment,compute) label is invalid'
+  'Encountered one or more errors while creating shader module vertex_OutlineNode.depth'
+  'WebGPU compilation info: 1 error(s)'
+  'Buffer with bindingBufferundefined_UniformBuffer_XXXX_(vertex) label is invalid'
+
+Key facts:
+  - These are NOT from the batch creation path
+  - 'bindingBufferundefined' = undefined label → buffer created with undefined as label key
+  - 'vertex_OutlineNode.depth' = the outline shader pass (not CW/slab shaders)
+  - 'Parent device is lost' appears mid-stream
+  - GPU Monitor: geometries:10559 textures:9 drawCalls:1 tris:1
+    → drawCalls:1 tris:1 = rendering blank/reset state after device loss
+
+--- Document 10: Same error pattern, different buffer IDs ---
+  Buffer IDs: 17860, 17863... sequential
+  Same 'vertex_OutlineNode.depth' shader
+  Same 'bindingBufferundefined' pattern
+  This appears to be the PREWARM phase trying to render with a broken pipeline
+  → 3x rpm.render(0) fires OutlineNode shader → OutlineNode uses invalid buffers
+  → This is WHY prewarm takes only 11ms: render() calls abort on GPU errors
+
+--- Document 11: Post-recovery interactive session ---
+  [GPU Monitor] geometries:10558 textures:9 drawCalls:214 tris:3153
+  [GPU Monitor] ⚠ Geometry count grew 20.9% (8735 → 10558)
+  Geometry count growing during idle hover = GEOMETRY LEAK
+  FPS: 45 → 30 → 6 → 33 → 62 → 57 → 42 → 21 → 61 → 57
+    → FPS drops to 6 when slab selected (Y=59.8, top slab) → heavy render cost
+  GPU Monitor: drawCalls:19378 tris:301328 → then drops to drawCalls:1
+    → Project switch / context reset sequence
+  geometries count stable at 10559 after reset
+
+=== ROOT CAUSE IDENTIFICATION ===
+
+RCA-1: The 'vertex_OutlineNode.depth' shader errors + invalid buffer labels
+  → These fire DURING the prewarm's rpm.render(0) calls
+  → The OutlinePass requires a valid GBuffer from the prior ScenePass frame
+  → When called with an empty/reset scene, outline uniform buffers bind to undefined objects
+  → Each rpm.render(0) attempt errors out immediately → no PSO compiled
+  → Total time: 3x near-instant abort = 11ms
+  → FIX CONFIRMED: The BN-05b timing guard (< 30ms = invalid) would correctly catch this
+
+RCA-2: 'bindingBufferundefined' pattern
+  → Three.js WebGPU backend generates buffer label from object.id
+  → 'undefined' = the object ID was undefined at buffer creation time
+  → Root cause: Outline pass tries to build depth buffer for CW InstancedMesh probes
+    that don't have a proper id/uuid set, OR the outline refs array contains stale objects
+    from before device recovery
+  → After onProjectSwitch(), outline refs are cleared — but prewarm adds probe meshes
+    BEFORE onProjectSwitch() completes, so probes get stale outline refs
+
+RCA-3: Geometry leak (8735 → 10558 = +1823 geometries during hover)
+  → Geometry count grows 20.9% while just hovering slabs
+  → Most likely: CurtainWallBuilder._disposeChildren() NOT being called on rebuild
+    OR geometry created per-hover-pick (unlikely)
+  → More likely: the CW batch created 315 walls × multiple geometries
+    and prior session's geometry was NOT disposed (context loss path)
+  → After context restored, old geometries still tracked by WebGPU backend
+  → NOT a new regression — predates this session (geometries were already 10558)
+
+=== NEW BOTTLENECK: BN-09 (Outline pass errors during prewarm) ===
+  The prewarm fires rpm.render(0) which runs the full pipeline including OutlinePass.
+  When prewarm probe meshes are added without proper outline setup, the outline
+  shader errors cascade and abort the render early — no PSO compile happens.
+  FIX: Disable outline pass during prewarm (rpm.disableOutlines() before prewarm,
+  rpm.enableOutlines() after), OR check that probe meshes are excluded from outline set.
+Done
+
+You are out of free messages until 3:20 PM
+Keep working
+
+
+
+Claude is AI and can make mistakes. Please double-check responses.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

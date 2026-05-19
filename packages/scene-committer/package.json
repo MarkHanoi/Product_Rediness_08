@@ -1,0 +1,34 @@
+{
+  "name": "@pryzm/scene-committer",
+  "version": "0.1.0",
+  "description": "PRYZM 2 — L5 scene committer.  PrimitiveCommitter interface + SceneRegistry + MaterialPool (the THREE-touching boundary; spec §S04 Track B).",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src", "dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@pryzm/command-bus": "workspace:*",
+    "@pryzm/drawing-primitives": "workspace:*",
+    "@pryzm/persistence-client": "workspace:*",
+    "@pryzm/protocol": "workspace:*",
+    "@pryzm/renderer-three": "workspace:*",
+    "@pryzm/stores": "workspace:*",
+    "three": "^0.183.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.183.1",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

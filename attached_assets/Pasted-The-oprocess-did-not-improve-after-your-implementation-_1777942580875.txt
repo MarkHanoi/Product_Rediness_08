@@ -1,0 +1,185 @@
+The oprocess did not improve after your implementation - check the life logs in console of preview: last attachement is the complete
+
+11 minutes ago
+
+Analyzing curtain wall creation logs (16 seconds)
+The user is saying the performance optimization didn't improve after the implementation. They want me to analyze the logs to understand what's happening. Let me look at the attached logs carefully.
+
+From the first attachment, I can see [CreateCurtainWallsOnAllSlabsCommand] START slabCount=6 and then the log is cut off. Let me look at what's available to understand the timing.
+
+The user is reporting that CREATE_CURTAIN_WALLS_ON_ALL_SLABS is still slow. The logs show the slab creation working fine but then the curtain wall command starts at the end and gets cut off.
+
+I need to see the full curtain wall creation log to understand what phase is slow.
+
+Looking at the available content, the first file ends right as the curtain wall command is being executed, so I need to check the third file which has 711 lines total but only shows 126 of them. The curtain wall timing information should be in there somewhere. I need to access the full third file since it contains the complete log with 711 lines total, but only the first 126 lines are visible. The curtain wall performance data I'm looking for is likely in the remaining 585 lines that haven't been shown yet.
+
+Let me read the rest of the complete log file to find the curtain wall timing data:
+
+
+Show less
+
+Opened attached_assets/Pasted-Connecting-to-https-thatopen-github-io-engine-fragment-_1777941377535.txt
+
+Analyzing curtain wall command timing
+Let me read the rest of the log to find the curtain wall timing data:
+
+
+Show less
+
+Opened attached_assets/Pasted-Connecting-to-https-thatopen-github-io-engine-fragment-_1777941377535.txt
+
+Analyzing curtain wall timing data
+I can see the curtain wall command starting at line 524. Let me read the rest to find the timing breakdown:
+
+
+Show less
+
+Opened attached_assets/Pasted-Connecting-to-https-thatopen-github-io-engine-fragment-_1777941377535.txt
+
+Planning prewarm and builder optimizations (69 seconds)
+The full picture is clear. Let me now read the builder to understand the geometry stall:
+
+
+Show less
+
+Ran find
+
+Ran grep
+
+Analyzing _drainBuildQueue method
+Let me read the drain function and the prewarm issue simultaneously:
+
+
+Show less
+
+Ran grep
+
+Ran wc
+
+Planning data structure optimization
+Let me read the drain function body and the prewarm section fully:
+
+
+Show less
+
+Opened src/engine/subsystems/curtainwalls/CurtainWallBuilder.ts
+
+Opened src/engine/subsystems/commands/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts
+
+Planning render and drain optimizations (205 seconds)
+Now I have the full picture. Let me analyze the two problems:
+
+Problem 1: Prewarm is rendering the full production scene (~1000ms stall)
+
+The prewarm adds probe meshes to window.bimWorld.scene.three (the full production scene with 20+ elements) and then calls renderer.render(scene, camera). This renders ALL the geometry in the scene (20+ walls, slabs, etc.), taking ~1000ms instead of a quick probe. The fix is to use a temporary isolated scene with ONLY the two probe meshes, so only those tiny geometries are rendered.
+
+Problem 2: CurtainWallBuilder processes all 108 walls in one 10,885ms chunk
+
+The drain function should be processing a limited number of walls per frame based on _buildsPerFrame, but the logs show all 108 walls are being transferred to the pending queue and then processed in a single long task. I need to trace through the log sequence more carefully to understand why the adaptive batching isn't kicking in. Wait, there's a timing issue here. The CurtainWallBuilder says it transferred 108 walls to the pending queue with a rAF drain scheduled, but then the BatchCoordinator finishes its registration drain and the StoreEventBus flushes events before that 10,885ms LONGTASK fires. So the actual wall building is happening after all the coordination work completes, which seems backwards from what I'd expect. Actually, I need to look at the timestamps more carefully to understand the sequence. The longtask duration of 1055ms was measured retroactively, so everything logged within that window happened during that execution period. Let me trace through the actual timestamps to see when each event occurred relative to the others.
+
+Looking at the command completion at 1036ms and the longtask detection at 1055ms, it seems like the resumeAndFlush() call that was supposed to be deferred is actually executing synchronously in the same main thread block as the command itself. That's the problem — the deferred flush isn't actually being deferred like it should be.
+
+After that combined longtask finishes, there's a massive 10.8 second longtask where the CurtainWallBuilder actually constructs all 108 walls. But the log shows only 6 items were in the build queue when the drain started, even though 108 walls are expected — so something's off with how the queue is being populated or processed. The resumeAndFlush() calls are being deferred through scheduleOnce(), but batchCoordinator._drainRegistrations() might fire immediately after seeing an empty queue—except the builds are still sitting in _pausedBuildsMap rather than _pendingBuildsMap at that point. Looking at the actual log sequence, the coordinator signals the queue is drained right after the 108 walls are transferred, which seems to be the timing issue. I think the real problem is that scheduleOnce() is firing synchronously within the same longtask instead of deferring to the next frame, so the resumeAndFlush() call happens before the walls are actually added to the build queue, causing the drain signal to fire prematurely. All 108 walls are being built in a single 10,885ms longtask, which suggests the drain isn't respecting the _buildsPerFrame budget at all — they're being processed synchronously in one batch rather than spread across frames. This might be happening through a different code path entirely, possibly via StoreEventBus instead of the deferred _drainBuildQueue mechanism. usedis FALSE afterresumeAndFlushalready ran, so eachupdateCurtainWall()call from the StoreEventBus events will either build inline or queue into_pendingBuildsMapdepending on the state. At delivery time, the batch has ended and_pendingBuildsMap` is empty, so the condition check determines whether builds fire immediately or get queued.
+
+Now I'm wondering if _rafHandle is still non-null when these events fire—maybe the rAF drain is already scheduled. The sequence is getting tangled: the command completes, runBatch() finishes its callback, then scheduleOnce() fires (possibly synchronously within the same frame), triggering resumeAndFlush() which moves 108 walls to _pendingBuildsMap and schedules the rAF drain. But then signalBuildQueueDrained() gets called somehow, which seems out of order.
+
+Looking at the log more carefully—"Build queue drained — beginning registration drain (6 queued / 108 expected)"—the builder is signaling its queue is empty even though it just queued 108 walls into _pendingBuildsMap. The registration queue shows 6 batched groups (6 levels × 18 walls each), and 108 elements are expected total. So the builder must be signaling completion before the rAF drain actually processes those pending builds. So all of this is happening synchronously within a single rAF frame — resumeAndFlush() queues up 108 walls, then immediately signalBuildQueueDrained() fires, which seems impossible given the batch size. I need to dig into the BatchCoordinator code to understand what's actually triggering that signal, because the event sequence shows the drain completing, registration running, and then 108 updateCurtainWall() calls all firing before the long task starts. rAF frame processes _buildsPerFrame walls, then the StoreEventBus fires 108 events that queue as updates to existing entries in _pendingBuildsMap. The next rAF frame drains those, but the 10885ms longtask suggests this is all happening synchronously in a single block. I'm realizing the batchCoordinator.signalBuildQueueDrained() call fires when the registration drain completes, not when the build queue is actually empty — the log message is misleading about what's being drained. After the StoreEventBus delivers those 108 events, the builder gets 108 update notifications, and since isBatching is false but _rafHandle is still set, it's probably triggering another drain cycle.
+
+Looking at the timing: 10885ms divided by 108 walls gives roughly 100ms per wall, which seems high but makes sense for complex curtain wall geometry with mullions, glass panels, and grid systems. If the adaptive budget is processing 4 walls per frame at 100ms each, that's 400ms per frame — way too long to fit in a 16ms frame budget.
+
+The real puzzle is why the log shows a single 10885ms longtask instead of the drain spreading the work across multiple frames. The adaptive budget should prevent this. My suspicion is that batchCoordinator.isBatching is still true during the event delivery phase, which would skip the "build inline" path and let all 108 walls accumulate in _pendingBuildsMap. Then when the rAF drain finally fires with isBatching=false, it should still be constrained by _buildsPerFrame — unless the drain function itself isn't respecting that limit.
+
+Looking at the drain logic, it batches items up to _buildsPerFrame and then schedules another drain for the next frame. So if _buildsPerFrame is 4 and there are 108 items, it should take 4, build them (400ms), schedule another drain, and repeat across many frames. But the longtask suggests all 108 are being processed at once, which means either _buildsPerFrame is set to something huge or the drain is being called differently than expected.
+
+Wait—what if the 10885ms longtask isn't from the drain at all, but from StoreEventBus.endBatchYielded() delivering all 108 events synchronously? If each event triggers updateCurtainWall() and hits the inline build path instead of queuing to the pending map, that would explain why all 108 buildings are being constructed in one go.
+
+The key question is whether batchCoordinator.isBatching is false by the time those events fire. The batch ends during the registration drain, so when endBatchYielded() executes at line 550, the coordinator might already be out of batch mode—meaning each of the 108 events would trigger an immediate, synchronous build rather than deferring to the frame scheduler.
+
+If each wall builds inline at roughly 100ms per build, that's 108 × 100ms ≈ 10,800ms, which perfectly explains the 10,885ms longtask. The culprit is the StoreEventBus firing those events while isBatching is false, causing the curtain wall builds to execute synchronously in the callback instead of being deferred. The 10885ms longtask must be the rAF drain processing all 108 walls, but a continuous 10+ second block without yielding suggests the FrameScheduler might be catching up synchronously after the batch suppression lifts, forcing all pending callbacks to run in one go rather than spreading across frames. The shader compilation is the real bottleneck — when suppression lifts, OBC+PASCAL renders and compiles all deferred shaders for the 108 new curtain walls. The prewarm helped with THREE.js standard materials, but OBC uses its own custom GLSL shader pipeline, so that optimization didn't actually prevent this compilation spike.
+
+Now I'm seeing the actual root causes: the prewarm itself wastes ~1000ms rendering the full production scene with 20+ objects just to compile probe meshes that are nearly invisible. And there's a second root cause forming around batch suppression that I need to identify.
+
+Looking at the drain queue logic, if _buildsPerFrame is set to 4 but there are 108 walls pending, the loop should batch them in groups of 4 and break early. But something's causing all 108 to process at once instead of respecting that limit.
+
+I'm realizing the issue might not be in the drain logic itself — the StoreEventBus is probably delivering all 108 events synchronously in a single animation frame, and each event triggers updateCurtainWall() directly before the drain queue even gets a chance to throttle things. So the updateCurtainWall() method has three paths: if rebuilds are paused, it queues into _pausedBuildsMap; if nothing else is pending and batching isn't active, it builds immediately; otherwise it queues into _pendingBuildsMap and schedules a frame drain if needed. The key question is whether isBatching is still true when those 108 events fire from StoreEventBus, which would determine whether updates get queued or built inline.
+
+When the StoreEventBus delivers those 108 events, _rebuildPaused is false since resumeAndFlush already ran, but _pendingBuildsMap still has 108 entries from that flush operation. So each incoming event just updates an existing entry in the map without triggering new builds, and since _rafHandle is already set, no additional scheduling happens. Then when the rAF drain fires, it processes the 108 queued walls in batches of 4 per frame, with each wall taking around 100ms, so the whole drain stretches across multiple frames.
+
+But the performance log shows a single uninterrupted 10885ms longtask right after the StoreEventBus delivery—not spread across frames. The only way this happens is if the FrameScheduler's schedule() method is calling the pre-render callbacks synchronously within the current rAF frame instead of deferring to the next one, so when the drain reschedules itself, it fires immediately again without yielding.
+
+This means all 27 drain cycles (processing 108 walls at 4 per batch) run back-to-back synchronously in a single rAF callback, totaling around 10800ms. The real solution is to make the drain use actual requestAnimationFrame or setTimeout to break the synchronous chain.
+
+But there's a constraint — we can't call requestAnimationFrame directly due to P3 violations. The issue is that FrameScheduler.schedule('pre-render', ...) might execute immediately within the same frame if called from a pre-render callback, rather than deferring to the next frame. I need to check what getFrameScheduler() returns and how schedule versus scheduleOnce actually behaves in this context.
+
+For the actual fixes, I'm looking at two main problems: first, the prewarm is slow because it's rendering the entire scene with 20+ objects — I should create an isolated scene with just the probe meshes to cut that from ~1000ms down to under 10ms. Second, the builder's drain is firing all sub-drains synchronously in one frame instead of yielding, so I need to investigate the _drainBuildQueue() method and potentially change how it schedules the continuation.
+
+Looking at the builder code, I see it's using FrameScheduler.schedule('pre-render', ...) which might be adding to the current frame's queue if called from within a pre-render callback. The fix would be to switch to getFrameScheduler().scheduleOnce() to explicitly defer to the next frame, or use setTimeout as a fallback.
+
+But changing the CurtainWallBuilder itself might be a larger refactor. Let me check what the spec document actually says about the drain strategy — it outlines four tasks including batch insertion, shader pre-warming, deferring resumeAndFlush, and requestIdleCallback for upgrades, but doesn't seem to address fixing the drain mechanism directly.
+
+The real issue is that neither the prewarm rendering (1036ms) nor the builder drain (10885ms) are actually being fixed by these four tasks. The addMany() helped with store insertion speed, and the deferred flush works correctly, but the two main bottlenecks remain untouched. I need to plan targeted fixes: for the prewarm, I could use an isolated temporary scene instead of rendering the full scene, which would be much faster.
+
+For the builder drain, the problem is that _drainBuildQueue reschedules itself using the frame scheduler, but if it's running synchronously within the same frame, it's not actually yielding to the browser. I'm considering whether to use setTimeout for a true event loop yield, or explore other scheduling options.
+
+The real issue is I need to understand what FrameScheduler.schedule actually does — whether it fires in the current frame or defers to the next one. The 10-second longtask in the logs suggests the drain isn't yielding properly, so I should check the FrameScheduler implementation to see how it works. are all happening in that 533ms window between the two longtasks. The PerformanceObserver only captures tasks longer than 50ms, so these intermediate operations aren't being reported as separate longtasks — they're just filling the gap before the massive 10885ms longtask kicks in. — these logs are actually being written while the tasks are executing, not after. The longtask ending at line 540 finishes at 1170865.7ms, and then the next longtask starts at 1171399.3ms, leaving a 533ms gap where the registration drain, event bus delivery, and other operations occur. But I'm wondering if the logs between lines 542-555 might not be in strict chronological order relative to the longtask reports themselves.
+
+The key insight is that console.log calls fire synchronously when they're executed, while PerformanceObserver callbacks for longtasks fire asynchronously after the task completes. So the actual sequence could be: the synchronous logs during the 1055ms longtask (lines 527-538), then the longtask ends, then the PerformanceObserver fires and logs line 540, then the subsequent logs (lines 542-555) execute in new tasks, and finally the 10885ms longtask begins.
+
+I'm getting caught up in the timing details here. What matters is that the 1036ms command includes the prewarm, and the 10885ms longtask is where all 108 curtain walls get built. I know exactly what needs fixing: I need to isolate the prewarm render to use only a temporary scene with the probe meshes, and I need to address the builder drain yield issue that's causing the long task. Finishing the batch loop...
+
+The issue is that if _buildsPerFrame is set to 4 and there are 108 walls to process, the drain only takes 4 per frame and reschedules. But if FrameScheduler.schedule doesn't actually defer to the next browser frame—if it just fires the callback immediately when called from within an existing frame callback—then all 108 walls end up processing in a single long task anyway. I need to check how FrameScheduler actually implements the scheduling to see if that's where the bottleneck is.
+
+The log is definitive. Let me read the FrameScheduler to understand why the drain is not yielding, then fix both problems:
+
+
+Show less
+
+Ran find
+
+Ran grep
+
+Published your app
+5 minutes ago
+
+Show less
+
+Analyzing FrameScheduler drain behavior
+
+Opened packages/frame-scheduler/src/FrameScheduler.ts
+
+Opened src/engine/subsystems/curtainwalls/CurtainWallBuilder.ts
+
+Analyzing FrameScheduler yielding
+
+Opened packages/frame-scheduler/src/FrameScheduler.ts
+
+Ran grep
+
+Analyzing FrameScheduler scheduling behavior
+Let me read the FrameScheduler schedule method to understand how it works — specifically whether FrameScheduler.schedule('pre-render', cb) defers to the next frame or fires within the current frame:
+
+Let me read the schedule static method and the _tick function to understand the yield behavior:
+
+
+Show less
+
+Opened packages/frame-scheduler/src/FrameScheduler.ts
+
+Ran grep
+
+Analyzing tick listener scheduling (12 seconds)
+Let me read the critical tick function to see if listeners added during a tick fire in the same frame:
+
+
+Show less
+
+Opened packages/frame-scheduler/src/FrameScheduler.ts
+
+Planning shader compilation optimization (229 seconds)
+The diagnosis is now complete. Two distinct bottlenecks remain:
+
+Problem 1 — The prewarm calls renderer.render(scene, camera) on the full production scene (20+ objects), not just the two probe meshes. That's the entire ~1000ms of the command's execution time wasted.
+
+Problem 2 — The 10,885ms longtask immediately after batch suppression lifts is GPU shader compilation for 108 curtain wall meshes. Our prewarm pre-compiled MeshStandardMaterial and MeshPhysicalMaterial, but OBC's curtain wall pipeline uses its own material classes. The wrong shaders were warmed.
+
+Let me read what OBC actually puts on the curtain panel geometry, and fix the isolated scene at the same time:

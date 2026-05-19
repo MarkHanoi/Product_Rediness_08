@@ -1,0 +1,256 @@
+[FPS] 32fps
+injected.js:37 [FPS] 28fps
+injected.js:37 [GPU Monitor] geometries:45 textures:9 | drawCalls:33 tris:1151
+injected.js:37 [CommandManager] EXECUTE: CREATE_CURTAIN_WALLS_ON_ALL_SLABS
+injected.js:37 [CommandManager] snapshot commandType="CreateCurtainWallsOnAllSlabsCommand" scope=[curtainWall] elapsed=0.1ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] START slabCount=11
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] PERF-PREWARM: 3 PSO variants pre-compiled (production scene): mullionIM + glassIM + fallbackMesh.
+injected.js:37 [BatchCoordinator] _setupBatch — 6 level(s), 231 elements expected. ViewDependencyTracker suppressed.
+injected.js:37 [UnifiedFrameLoop] §PERF-VIEW-BATCH-SUPPRESS: OBC+PASCAL render suppressed — WebGL shader compilation deferred until batch drain completes.
+injected.js:37 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="fd6285e8-dd62-41ce-ac32-8975bca9c44f" walls=21 elapsed=0.5ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="8fbad44d-7863-49ef-bf60-a20e803035c0" walls=21 elapsed=0.1ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="356cbe22-c6a2-45d5-a247-790bc50c7c88" walls=21 elapsed=0.0ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="1f0c7c22-d5f6-4e57-95c9-b7d110da1aba" walls=21 elapsed=0.0ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="0101f5c7-5493-4a33-8c2a-1daadb02ad43" walls=21 elapsed=0.1ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="caf989bf-4d6c-4cb7-8323-d7647e8f0e6a" walls=21 elapsed=0.1ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="58f7157e-48fe-4755-abea-110b5dd0d51f" walls=21 elapsed=0.1ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="3cefe121-465a-4391-bd1d-4d94064ca99b" walls=21 elapsed=0.0ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="aae81104-d53c-4c83-9428-43d230ef9265" walls=21 elapsed=0.1ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="9148bb3b-2700-4a7b-943a-ddaad2e4611b" walls=21 elapsed=0.0ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="870d8b1a-4d3b-4565-bf99-9398752980c5" walls=21 elapsed=0.8ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] PERF-ADDMANY: addMany(231) complete.
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] COMPLETE total=3423.8ms
+injected.js:37 [AIApprovalStore] Audit record appended: c52b755f-5f87-43b5-8872-4597e380f7fa (CREATE_CURTAIN_WALLS_ON_ALL_SLABS)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CurtainWallBuilder] §BATCH-CW-PAUSE: resumeAndFlush — 231 walls transferred to pending queue, 1 rAF drain scheduled.
+injected.js:37 [FPS] 30fps
+d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/#/projects:1 Destroyed texture [Texture "ShadowDepthTexture"] used in a submit.
+ - While calling [Queue].Submit([[CommandBuffer from CommandEncoder "renderContext_4"]])
+
+injected.js:37 [LONGTASK] duration=3464.0ms start=137134.8ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [BatchCoordinator] Build queue drained — beginning registration drain (6 queued / 231 expected).
+injected.js:37 [BatchCoordinator] §REG-MANY-P2: queue ≤ 50 entries (6) — draining synchronously (0 rAF frames).
+injected.js:37 [BimManager] §REG-MANY-P0: registered 21 element(s) to level "L0".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 42 element(s) to level "L-01-1777946458496-1".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 42 element(s) to level "L-02-1777946458512-2".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 42 element(s) to level "L-03-1777946458522-3".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 42 element(s) to level "L-04-1777946458529-4".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 42 element(s) to level "L-05-1777946458537-5".
+injected.js:37 [StoreEventBus] endBatchYielded() — 231 event(s) will be delivered in 2 chunk(s) of 200 via frame scheduler.
+injected.js:37 [StoreEventBus] endBatchYielded chunk 1/2: 200/231 events (32.2ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded() — all 231 event(s) delivered across 2 chunk(s) (last: 4.5ms). Calling onComplete().
+injected.js:37 [BatchCoordinator] §PERF-VIEW-BATCH-SUPPRESS: suppression lifted; markLevelsDirty(6 level(s)) scheduled.
+injected.js:37 [UnifiedFrameLoop] §PERF-VIEW-BATCH-SUPPRESS: suppression lifted — OBC+PASCAL resuming; first render compiles all deferred shaders.
+injected.js:37 [BatchCoordinator] Final sweep: SKIPPING REDETECT_ROOMS for 6 level(s) (§FIX-SKIP-REDETECT-ROOMS — element type cannot define room boundaries). StoreEventBus flushed (depth now 0). markLevelsDirty already called above for plan-view reprojection.
+injected.js:37 [FPS] 25fps
+injected.js:37 [LONGTASK] duration=55.0ms start=141098.6ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [LONGTASK] duration=24021.0ms start=141155.5ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [GPU Monitor] geometries:45 textures:9 | drawCalls:33 tris:1151
+injected.js:37 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+injected.js:37 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+injected.js:37 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed out of 1 live room(s).
+injected.js:37 [NativeElementMeshExporter] Plan view — exporting 44 elements from levels overlapping Y=[-1.20, 0.00]
+injected.js:37 [FPS] 1fps
+injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+injected.js:37 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+injected.js:37 [EdgeProjectorService] Native projection done — 43 group(s), 928 edge geometries across 43 ISO layer(s) (per-element UUID tagging active)
+injected.js:37 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=6 (OBC-IFC=0, native=43, ifc-scene=0)
+injected.js:37 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=7/14 layers
+injected.js:37 [LONGTASK] duration=1623.0ms start=166132.1ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [GPU Monitor] geometries:45 textures:9 | drawCalls:33 tris:1151
+0iwq7v9jgvn-2.js:21 Haven't heard from the server in a while, resetting connection...
+(anonymous) @ 0iwq7v9jgvn-2.js:21
+(anonymous) @ 05gaw1_zp81e9.js:518
+r @ 0iwq7v9jgvn-2.js:21
+injected.js:37 [FPS] 1fps
+injected.js:37 [initCollaboration] Socket disconnected: ping timeout
+0iwq7v9jgvn-2.js:21 Haven't heard from the server in a while, resetting connection...
+(anonymous) @ 0iwq7v9jgvn-2.js:21
+(anonymous) @ 05gaw1_zp81e9.js:518
+r @ 0iwq7v9jgvn-2.js:21
+injected.js:37 [FPS] 1fps
+injected.js:37 [LONGTASK] duration=1753.0ms start=169401.5ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [LONGTASK] duration=83685.0ms start=171154.8ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [LONGTASK] duration=1231.0ms start=254860.8ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:214  POST https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/api/ai/ambient/analyse 500 (Internal Server Error)
+apply @ injected.js:214
+_callAI @ AmbientIntelligence.ts:244
+_analyse @ AmbientIntelligence.ts:142
+(anonymous) @ AmbientIntelligence.ts:119
+setTimeout
+_scheduleAnalyse @ AmbientIntelligence.ts:117
+onConstraintsUpdated @ AmbientIntelligence.ts:102
+(anonymous) @ initDataPlatform.ts:378
+_broadcast @ ConstraintEngine.ts:258
+run @ ConstraintEngine.ts:149
+(anonymous) @ initDataPlatform.ts:173
+setTimeout
+(anonymous) @ initDataPlatform.ts:171
+(anonymous) @ StoreEventBus.ts:403
+(anonymous) @ StoreEventBus.ts:401
+(anonymous) @ StoreEventBus.ts:339
+(anonymous) @ FrameScheduler.ts:337
+(anonymous) @ FrameScheduler.ts:535
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:577
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:561
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:577
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:577
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:577
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:577
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:577
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:577
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:577
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:577
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:577
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:577
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:577
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:577
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:577
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:577
+(anonymous) @ FrameScheduler.ts:492
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:492
+(anonymous) @ FrameScheduler.ts:239
+(anonymous) @ FrameScheduler.ts:586
+(anonymous) @ FrameScheduler.ts:280
+(anonymous) @ ViewCube.ts:294
+(anonymous) @ ViewCube.ts:159
+(anonymous) @ ViewCube.ts:77
+(anonymous) @ NavigationAreaLayout.ts:156
+(anonymous) @ Layout.ts:112
+(anonymous) @ initUI.ts:2556
+await in (anonymous)
+(anonymous) @ engineLauncher.ts:2280
+await in (anonymous)
+startEngine @ main.ts:172
+await in startEngine
+(anonymous) @ main.ts:244
+await in (anonymous)
+(anonymous) @ main.ts:319
+(anonymous) @ buildPersistence.ts:231
+await in (anonymous)
+(anonymous) @ buildPersistence.ts:266
+(anonymous) @ PlatformRouter.ts:422
+(anonymous) @ PlatformRouter.ts:375
+(anonymous) @ PlatformRouter.ts:289
+(anonymous) @ ProjectHub.ts:1110
+(anonymous) @ ProjectHub.ts:488
+injected.js:37 [GPU Monitor] geometries:45 textures:9 | drawCalls:33 tris:1151
+injected.js:37 [PlatformCollabPill] Socket disconnected: transport close
+injected.js:37 [FPS] 1fps
+injected.js:37 [LONGTASK] duration=1064.0ms start=256166.2ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [GPU Monitor] geometries:45 textures:9 | drawCalls:33 tris:1151
+injected.js:37 [initCollaboration] Socket connected — joining project room: proj-1777946301570-lj6l71s
+injected.js:37 [initCollaboration] Catch-up: requesting commands since 2026-05-05T02:03:27.113Z
+injected.js:37 [initCollaboration] Catch-up: no missed commands
+injected.js:37 [PlatformCollabPill] Socket connected — joining project room: proj-1777946301570-lj6l71s
+injected.js:37 [initCollaboration] Collaborator joined: user-1777946299509-loip2py Junior Tostinni
+2injected.js:37 [GPU Monitor] geometries:45 textures:9 | drawCalls:33 tris:1151
+injected.js:37 [FPS] 1fps
+injected.js:37 [PickResolver] strategy=gpu-pick hit=870d8b1a-4d3b-4565-bf99-9398752980c5
+injected.js:37 [FPS] 1fps
+injected.js:37 [LONGTASK] duration=1069.0ms start=280761.6ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [LONGTASK] duration=4509.0ms start=281830.6ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [LONGTASK] duration=1381.0ms start=286340.5ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [GPU Monitor] geometries:45 textures:9 | drawCalls:33 tris:1151
+injected.js:37 [BatchCoordinator/P1.3] Post-batch PBR upgrade complete: 797 mesh(es) in 7 chunk(s) (§FIX-POST-BATCH-PBR-CHUNK).
+injected.js:37 [FPS] 1fps

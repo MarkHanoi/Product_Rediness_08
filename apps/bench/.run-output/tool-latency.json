@@ -1,0 +1,10 @@
+{
+  "name": "tool-latency",
+  "p50": 4.3524829999996655,
+  "p95": 10.494548000000123,
+  "p99": 27.26793799999996,
+  "samples": 500,
+  "unit": "ms",
+  "nftTarget": 50,
+  "notes": "NFT-3 headless proxy per 01-VISION.md §5. Measures CommandBus wall.create dispatch latency (command pipeline only, no renderer). Full tool-latency including renderer first-frame is measured in apps/editor-bench/ (Wave 13 browser harness)."
+}

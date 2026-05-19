@@ -1,0 +1,94 @@
+# PRYZM3 — Post-Refactor Regression Audit Prompt
+**For: Replit AI Agent**
+**Context: PRYZM3-MASTER-STATUS.md (last verified 2026-05-17) — F.events migration series (F.events.1 through F.events.4) + OI-044/045 injector refactor**
+
+---
+
+## MANDATE
+
+A recent refactor — the `F.events` CustomEvent→RuntimeEvents migration and the `(window as any)` injector replacement (OI-044/045) — has introduced five functional regressions. **Do not patch any of them in isolation.** Before writing a single line of fix code, you must:
+
+1. Read the live browser logs for every symptom below.
+2. Trace each symptom to its root cause in the call graph.
+3. Map every root cause to the specific refactor commit/change that broke it.
+4. Identify all downstream systems each root cause contaminates (knock-on effects).
+5. Determine whether the failures share a common architectural cause (they likely do).
+6. Produce a single unified diagnosis document (`REGRESSION-DIAGNOSIS.md`) before any code changes.
+7. Fix architecturally — update `docs/00_Contracts/` and `docs/03_PRYZM3/02-ARCHITECTURE.md` to contractually capture the correct behavior for every affected subsystem **before** or **alongside** the fix PR. Undocumented behavior is inadmissible.
+
+**No shortcuts. No workarounds. No silent fixes. Every change must be traceable to a contract.**
+
+---
+
+## THE FIVE REGRESSIONS
+
+### R1 — Element Creation in Plan View Produces Nothing
+**Symptom**: Wall, curtain wall, door, and all other element placement tools in the Plan View complete their placement gesture (preview renders correctly, tool appears to finish), but no element appears in the 3D scene and no element is written to the Zustand store.
+**Check**: Live logs during a wall placement. Confirm whether the `CreateWallCommand` (or equivalent Command Bus message) is dispatched at all. Confirm whether the store write fires. Confirm whether the scene mesh is instantiated.
+**Suspected cause zone**: The `F.events.2c`/`F.events.4` migration replaced `window.dispatchEvent(new CustomEvent(...))` dispatch in `PlanViewInteraction.ts` with `runtime.events.emit(...)`. If the receiving command handler was still listening on the DOM (not yet migrated to `runtime.events.on`), it is now deaf. Also verify whether the `(window as any)` injector removal (OI-044/045) broke the store write path inside `BimManager` or `SelectionBus`.
+**Knock-on check**: Does the same creation failure occur in 3D view? Does undo/redo have stale entries? Is the element count gate (GA gate) still accurate?
+
+---
+
+### R2 — Hosted Element Openings Do Not Follow Wall Movement
+**Symptom**: When a wall is moved, doors and windows hosted on it move with the wall mesh in 3D (host transform propagates), but the corresponding opening geometry (the void cut in the wall mesh) remains at its original world position — it does not follow the wall.
+**Check**: Trace wall move → `WallStore` update → wall mesh transform → opening recalculation. Confirm whether `DoorStore`/`WindowStore` hosted-element constraint recalculates the opening position on wall geometry change. Confirm whether the `WallFragmentBuilder` re-runs for the moved wall.
+**Suspected cause zone**: The `WallFragmentBuilder` deferred queue (Wave A16) or the hosted-element constraint system may no longer be triggered when a wall's position changes via the new event path. A DOM listener on a wall-moved event that was migrated to `runtime.events` may have lost its receiver on the builder side.
+**Knock-on check**: Does this affect slabs with hosted openings? Roofs? Ceilings? Any element that uses a host-cut relationship.
+
+---
+
+### R3 — Windows Are No Longer Constrained to Their Host Wall
+**Symptom**: A selected window can be freely moved in any direction (X, Y, Z), completely detached from its host wall. Pre-refactor behavior: window movement was constrained to sliding along the host wall's local axis only.
+**Check**: Confirm whether `WindowTool` or `SelectionManager` is still enforcing the hosted-element movement constraint. Check whether the constraint was wired via a DOM event that is now undelivered. Check `SelectionManager.ts` (2,141 LOC — recently modified in F.events.4) for the hosted-element drag constraint path.
+**Suspected cause zone**: `SelectionManager.ts` was substantially modified in `F.events.4` (the `window.addEventListener('pryzm-element-selected')` block at lines 406–421 was deleted and rewired). If the drag-constraint logic was co-located with or triggered by that listener block, it may have been silently removed or broken.
+**Knock-on check**: Same constraint must apply to doors, structural columns, MEP fixtures, and any other hosted element type. Audit all of them, not just windows.
+
+---
+
+### R4 — Properties Panel Changes Do Not Propagate to Scene or Store
+**Symptom**: Editing any property in the Properties Panel (dimensions, material, level, type) appears to accept the input, but the change is not reflected in the 3D scene and the Zustand store value is unchanged.
+**Check**: Live logs on a property change. Confirm whether the `PropertyPanelAdapter` fires its update event. Confirm whether the Command Bus receives the update command. Confirm whether the store write (`WallStore.update(...)` or equivalent) is called. Confirm whether the scene mesh rebuild fires.
+**Suspected cause zone**: `PropertyPanelAdapter._bindGridSelectedEvent` was migrated in `F.events.2d` to use `this.runtime?.events ?? window.runtime?.events`. If `this.runtime` is `undefined` at bind time (pre-runtime singleton problem), and `window.runtime` is also not set yet, the adapter binds to nothing and all grid-selected events are silently dropped. The deferred-subscription helper (`runtimeEventBridge.ts`) was introduced for exactly this pattern — confirm it is wired for `PropertyPanelAdapter`.
+**Knock-on check**: Does this affect the Schedule Panel (property edits from schedule view)? The Hierarchy Tree Panel (rename operations)? The AI panel (AI-suggested property changes)?
+
+---
+
+### R5 — Stair Creation: Level Addition Dialog Does Not Create the Level
+**Symptom**: During stair placement, when the tool detects no suitable upper level exists and prompts the user to add one, the user confirms but the new level is not created — neither in the level store nor in the 3D scene. The stair creation then fails or proceeds incorrectly with no target level.
+**Check**: Trace the "add level" confirmation → `LevelStore.add(...)` call → level mesh creation → stair tool resumption. Confirm whether the confirmation dialog dispatches a command or a DOM event. Confirm whether that event is received.
+**Suspected cause zone**: `LevelExplodeController.init/dispose` was migrated in `F.events.2d` from `window.addEventListener('pryzm-inspect-level-explode', ...)` to `window.runtime?.events?.on(...)`. If the level-creation confirmation dispatches via a now-migrated channel that the stair tool's callback still listens for on the DOM, the callback is never called.
+**Knock-on check**: Does level creation work when triggered from the Levels panel directly? Does the level appear in the Hierarchy Tree after creation? Does this affect floor-bound elements (slabs, rooms) that depend on level existence?
+
+---
+
+## DIAGNOSIS REQUIREMENTS (before any fix code)
+
+Produce `REGRESSION-DIAGNOSIS.md` containing:
+
+1. **Common Root Cause Assessment** — Are R1–R5 all caused by the same underlying architectural failure (e.g. asymmetric event migration: dispatch sites migrated to `runtime.events.emit` but listener sites not yet migrated, or vice versa)? State this explicitly.
+2. **Per-regression call graph** — For each of R1–R5: the exact file, function, and line where the signal is lost.
+3. **Refactor delta** — The specific change from the F.events series or OI-044/045 that introduced each break.
+4. **Knock-on map** — Every other subsystem contaminated by each root cause.
+5. **Architectural failure classification** — Which of the 9 Convergence Booleans or P1–P8 principles was violated by the refactor that caused this? (Likely P1: single event bus discipline broken during migration window.)
+
+---
+
+## CONTRACT & DOCUMENTATION REQUIREMENTS (mandatory, not optional)
+
+Before the fix PR is merged, the following documents must be updated:
+
+- **`docs/00_Contracts/`** — Add or update contracts for: (a) hosted-element host-follow behavior, (b) hosted-element movement constraint, (c) plan-view element creation → store → scene pipeline, (d) properties panel → command bus → store → scene pipeline, (e) level-creation dialog → level store → dependent tool resumption. Each contract must specify: the trigger, the handler, the store write, the scene update, and the invariant that must hold. These behaviors existed and worked before — the contracts should have existed before. Their absence is what made the refactor break them silently.
+- **`docs/03_PRYZM3/02-ARCHITECTURE.md`** — Add a section documenting the event migration invariant: during any `CustomEvent → runtime.events` migration, dispatch and listener sites must be migrated atomically (same PR) or a parallel-dispatch bridge must be in place for the transition window. Document which events currently have parallel dispatch active and when each bridge will be removed.
+- **`PRYZM3-MASTER-STATUS.md` §11 (Open Items)** — Add an entry for each regression with its root cause, fix PR reference, and post-fix verifier command.
+
+---
+
+## FIX CONSTRAINTS
+
+- **Atomic migration**: For any event that is re-migrated as part of the fix, dispatch and all listener sites move in the same commit.
+- **No new DOM event listeners**: All fixed listeners must use `runtime.events.on()` or the `runtimeEventBridge.ts` deferred helper — never `window.addEventListener`.
+- **No `(window as any)` reintroduction**: All store/manager access must use the typed injector pattern established in OI-044/045.
+- **Verifier for each fix**: Each regression must have a named console verifier command (e.g. `window.__pryzm_verify_wall_creation()`) that can be run post-fix to confirm the regression is closed. Add these to the GA gate catalog.
+- **TypeScript clean**: `tsc --noEmit --skipLibCheck` must be 0 errors after the fix.
+- **GA gates**: All 20 current GA gates must remain green. Ratchet any affected gate counters.

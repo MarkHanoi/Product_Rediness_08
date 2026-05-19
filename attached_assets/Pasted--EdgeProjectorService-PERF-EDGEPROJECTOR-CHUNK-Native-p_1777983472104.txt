@@ -1,0 +1,182 @@
+[EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 5 group(s) in 2 chunk(s), 5 edge geometries across 5 ISO layer(s) (per-element UUID tagging active)
+engineLauncher-Ynplbd5k.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=10 (OBC-IFC=0, native=5, ifc-scene=0)
+engineLauncher-Ynplbd5k.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=4/14 layers
+engineLauncher-Ynplbd5k.js:2247 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+engineLauncher-Ynplbd5k.js:2247 [WallTool] wall.create dispatched to bus (busId: wall_4CDDAF5EE7C74C5E9AE944C137 ) — legacy path runs for geometry with id: 4cddaf5e-e7c7-4c5e-9ae9-44c13714a9a1
+engineLauncher-Ynplbd5k.js:2247 [WallTool] Executing CreateWallCommand with levelId: L0
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] snapshot commandType="No" scope=[wall,level] elapsed=0.2ms
+engineLauncher-Ynplbd5k.js:1595 [BimManager] Registered element 4cddaf5e-e7c7-4c5e-9ae9-44c13714a9a1 to level L0
+engineLauncher-Ynplbd5k.js:2247 Wall created via command: 4cddaf5e-e7c7-4c5e-9ae9-44c13714a9a1
+engineLauncher-Ynplbd5k.js:2323 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=15ms, resets=6)
+_scheduleRedetect @ engineLauncher-Ynplbd5k.js:2323Understand this warning
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-Ynplbd5k.js:1833 [PascalSceneLighting] Shadow flags set on 6 mesh(es).
+main-CwHZbBPL.js:29470 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+main-CwHZbBPL.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+engineLauncher-Ynplbd5k.js:1838 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ynplbd5k.js:1595 [NativeElementMeshExporter] Plan view — exporting 6 elements from levels overlapping Y=[-1.20, 0.00]
+EdgeProjectorService-DyUBTdv2.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-DyUBTdv2.js:1 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-DyUBTdv2.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 6 group(s) in 2 chunk(s), 6 edge geometries across 6 ISO layer(s) (per-element UUID tagging active)
+engineLauncher-Ynplbd5k.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=12 (OBC-IFC=0, native=6, ifc-scene=0)
+engineLauncher-Ynplbd5k.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=4/14 layers
+engineLauncher-Ynplbd5k.js:2247 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+engineLauncher-Ynplbd5k.js:2247 [WallTool] wall.create dispatched to bus (busId: wall_3DE3FBF648A24B8AA563B1B38C ) — legacy path runs for geometry with id: 3de3fbf6-48a2-4b8a-a563-b1b38c1a91b1
+engineLauncher-Ynplbd5k.js:2247 [WallTool] Executing CreateWallCommand with levelId: L0
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] snapshot commandType="No" scope=[wall,level] elapsed=0.2ms
+engineLauncher-Ynplbd5k.js:1595 [BimManager] Registered element 3de3fbf6-48a2-4b8a-a563-b1b38c1a91b1 to level L0
+engineLauncher-Ynplbd5k.js:2247 Wall created via command: 3de3fbf6-48a2-4b8a-a563-b1b38c1a91b1
+engineLauncher-Ynplbd5k.js:2323 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=12ms, resets=6)
+_scheduleRedetect @ engineLauncher-Ynplbd5k.js:2323Understand this warning
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-Ynplbd5k.js:1833 [PascalSceneLighting] Shadow flags set on 7 mesh(es).
+main-CwHZbBPL.js:29470 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+main-CwHZbBPL.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+engineLauncher-Ynplbd5k.js:1838 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ynplbd5k.js:1595 [NativeElementMeshExporter] Plan view — exporting 7 elements from levels overlapping Y=[-1.20, 0.00]
+EdgeProjectorService-DyUBTdv2.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-DyUBTdv2.js:1 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-DyUBTdv2.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 7 group(s) in 2 chunk(s), 7 edge geometries across 7 ISO layer(s) (per-element UUID tagging active)
+engineLauncher-Ynplbd5k.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=14 (OBC-IFC=0, native=7, ifc-scene=0)
+engineLauncher-Ynplbd5k.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=4/14 layers
+engineLauncher-Ynplbd5k.js:2247 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+engineLauncher-Ynplbd5k.js:2247 [WallTool] wall.create dispatched to bus (busId: wall_ACB374E189794CB79C62841604 ) — legacy path runs for geometry with id: acb374e1-8979-4cb7-9c62-841604954e3d
+engineLauncher-Ynplbd5k.js:2247 [WallTool] Executing CreateWallCommand with levelId: L0
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] snapshot commandType="No" scope=[wall,level] elapsed=0.2ms
+engineLauncher-Ynplbd5k.js:1595 [BimManager] Registered element acb374e1-8979-4cb7-9c62-841604954e3d to level L0
+engineLauncher-Ynplbd5k.js:2247 Wall created via command: acb374e1-8979-4cb7-9c62-841604954e3d
+engineLauncher-Ynplbd5k.js:2242 WallTool deactivated
+engineLauncher-Ynplbd5k.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-Ynplbd5k.js:2323 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=118ms, resets=6)
+_scheduleRedetect @ engineLauncher-Ynplbd5k.js:2323Understand this warning
+428Destroyed texture [Texture "ShadowDepthTexture"] used in a submit.
+ - While calling [Queue].Submit([[CommandBuffer from CommandEncoder "renderContext_6"]])
+Understand this warning
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-Ynplbd5k.js:2323 [PlanarTopologyEngine] Topology: 1 room(s) detected, outer face (8 vertices), 2 total faces
+engineLauncher-Ynplbd5k.js:2323 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+engineLauncher-Ynplbd5k.js:1595 [BimManager] Registered element 2f1f8eca-20b5-453d-a52b-77de92dc8ebc to level L0
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-Ynplbd5k.js:2323 [PlanarTopologyEngine] Topology: 1 room(s) detected, outer face (8 vertices), 2 total faces
+engineLauncher-Ynplbd5k.js:2323 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+engineLauncher-Ynplbd5k.js:7105 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-Ynplbd5k.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-Ynplbd5k.js:1833 [PascalSceneLighting] Shadow flags set on 8 mesh(es).
+main-CwHZbBPL.js:29470 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+main-CwHZbBPL.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] EXECUTE: CREATE_ANNOTATION
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] snapshot commandType="$n" scope=[annotation] elapsed=0.0ms
+engineLauncher-Ynplbd5k.js:1838 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 1 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed out of 1 live room(s).
+engineLauncher-Ynplbd5k.js:1595 [NativeElementMeshExporter] Plan view — exporting 9 elements from levels overlapping Y=[-1.20, 0.00]
+EdgeProjectorService-DyUBTdv2.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-DyUBTdv2.js:1 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-DyUBTdv2.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 8 group(s) in 2 chunk(s), 8 edge geometries across 8 ISO layer(s) (per-element UUID tagging active)
+engineLauncher-Ynplbd5k.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=16 (OBC-IFC=0, native=8, ifc-scene=0)
+engineLauncher-Ynplbd5k.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=4/14 layers
+engineLauncher-Ynplbd5k.js:1864 [RoomBoundaryBuilder] Compliance overlay: 2 error, 0 warning room(s) tinted
+2engineLauncher-Ynplbd5k.js:1864 [ProjectSerializer] Snapshot created: 9 elements, 1 levels, 8 walls, 0 slabs, 0 furniture
+engineLauncher-Ynplbd5k.js:1864 [captureThumbnail] Thumbnail captured: 400×190px, ~2KB
+PlatformShell-CUwZ5rrb.js:23 [PlatformSaveController] Thumbnail: captured (~2KB)
+PlatformShell-CUwZ5rrb.js:23 [PlatformSaveController] Version saved: "Auto-save" (9 elements, id: proj-1777983077960-dezax)
+PlatformShell-CUwZ5rrb.js:24 [PlatformSaveController] Thumbnail uploaded to server for project proj-1777983053972-hw7g4xy
+/api/projects/proj-1777983053972-hw7g4xy/versions:1  Failed to load resource: the server responded with a status of 403 ()Understand this error
+PlatformShell-CUwZ5rrb.js:1 [ServerSyncQueue] Version "Auto-save" rejected by server (403) — dropping: Object
+attemptSync @ PlatformShell-CUwZ5rrb.js:1Understand this warning
+PlatformShell-CUwZ5rrb.js:1 [ServerSyncQueue] Plan-gating latch engaged — future versions will stay local-only this session.
+attemptSync @ PlatformShell-CUwZ5rrb.js:1Understand this warning
+engineLauncher-Ynplbd5k.js:5926 [SlabModePicker] Mode selected: By Region
+engineLauncher-Ynplbd5k.js:1902 ToolManager: activateTool called for slab
+engineLauncher-Ynplbd5k.js:1902 ToolManager: deactivating previous tool none
+engineLauncher-Ynplbd5k.js:1902 ToolManager: executing activateFn for slab
+engineLauncher-Ynplbd5k.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] EXECUTE: CREATE_SLAB
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] snapshot commandType="qs" scope=[slab,level] elapsed=0.1ms
+engineLauncher-Ynplbd5k.js:1595 [BimManager] Registered element b21bcc4e-6a88-4a89-94a6-d87e14628f00 to level L0
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] outset slabId="b21bcc4e-6a88-4a89-94a6-d87e14628f00" vertices=8 elapsed=0.2ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] triangulate slabId="b21bcc4e-6a88-4a89-94a6-d87e14628f00" outerVertices=8 elapsed=0.4ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="b21bcc4e-6a88-4a89-94a6-d87e14628f00" totalMs=1.4ms
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] EXECUTE: UPDATE_SLAB_LAYERS
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] snapshot commandType="gc" scope=[slab] elapsed=0.1ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] outset slabId="b21bcc4e-6a88-4a89-94a6-d87e14628f00" vertices=8 elapsed=0.0ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] triangulate slabId="b21bcc4e-6a88-4a89-94a6-d87e14628f00" outerVertices=8 elapsed=0.3ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="b21bcc4e-6a88-4a89-94a6-d87e14628f00" totalMs=0.8ms
+engineLauncher-Ynplbd5k.js:556 [LevelPlaneConstraint] Locked Y=-0.2000 for element "Slab" id="b21bcc4e-6a88-4a89-94a6-d87e14628f00"
+engineLauncher-Ynplbd5k.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-Ynplbd5k.js:2323 [PlanarTopologyEngine] Topology: 1 room(s) detected, outer face (8 vertices), 2 total faces
+engineLauncher-Ynplbd5k.js:2323 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+main-CwHZbBPL.js:29470 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+main-CwHZbBPL.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+engineLauncher-Ynplbd5k.js:1838 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed out of 1 live room(s).
+engineLauncher-Ynplbd5k.js:1595 [NativeElementMeshExporter] Plan view — exporting 10 elements from levels overlapping Y=[-1.20, 0.00]
+EdgeProjectorService-DyUBTdv2.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-DyUBTdv2.js:1 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-DyUBTdv2.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 9 group(s) in 3 chunk(s), 9 edge geometries across 9 ISO layer(s) (per-element UUID tagging active)
+engineLauncher-Ynplbd5k.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=18 (OBC-IFC=0, native=9, ifc-scene=0)
+engineLauncher-Ynplbd5k.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=7/14 layers
+engineLauncher-Ynplbd5k.js:1964 Exiting tool via HUD button
+engineLauncher-Ynplbd5k.js:7105 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-Ynplbd5k.js:541 [CutFill] Updating: enabled=false, height=1.2
+2engineLauncher-Ynplbd5k.js:1864 [ProjectSerializer] Snapshot created: 10 elements, 1 levels, 8 walls, 1 slabs, 0 furniture
+PlatformShell-CUwZ5rrb.js:23 [PlatformSaveController] Version saved: "Auto-save" (10 elements, id: proj-1777983081608-dpr25)
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] EXECUTE: CREATE_LEVEL
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] snapshot commandType="Y9" scope=[level] elapsed=0.1ms
+engineLauncher-Ynplbd5k.js:2332 [CreateMultipleLevelsCommand] START count=10
+engineLauncher-Ynplbd5k.js:7262 [EngineBootstrap] Level switch → "Level 01" (target.Y: 0.86 → 3.00)
+engineLauncher-Ynplbd5k.js:1838 [initScene] LevelClipPlaneCache: registered level "L-01-1777983089668-1" at 3m
+engineLauncher-Ynplbd5k.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ynplbd5k.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-Ynplbd5k.js:2332 [CreateMultipleLevelsCommand] level=1/10 addLevel=8.8ms createPlanView=0.3ms iterTotal=9.1ms
+engineLauncher-Ynplbd5k.js:7262 [EngineBootstrap] Level switch → "Level 02" (target.Y: 3.00 → 6.50)
+engineLauncher-Ynplbd5k.js:1838 [initScene] LevelClipPlaneCache: registered level "L-02-1777983089677-2" at 6.5m
+engineLauncher-Ynplbd5k.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ynplbd5k.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-Ynplbd5k.js:2332 [CreateMultipleLevelsCommand] level=2/10 addLevel=6.3ms createPlanView=0.0ms iterTotal=6.3ms
+engineLauncher-Ynplbd5k.js:7262 [EngineBootstrap] Level switch → "Level 03" (target.Y: 6.50 → 10.00)
+engineLauncher-Ynplbd5k.js:1838 [initScene] LevelClipPlaneCache: registered level "L-03-1777983089683-3" at 10m
+engineLauncher-Ynplbd5k.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ynplbd5k.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-Ynplbd5k.js:2332 [CreateMultipleLevelsCommand] level=3/10 addLevel=6.4ms createPlanView=0.0ms iterTotal=6.4ms
+engineLauncher-Ynplbd5k.js:7262 [EngineBootstrap] Level switch → "Level 04" (target.Y: 10.00 → 13.50)
+engineLauncher-Ynplbd5k.js:1838 [initScene] LevelClipPlaneCache: registered level "L-04-1777983089690-4" at 13.5m
+engineLauncher-Ynplbd5k.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ynplbd5k.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-Ynplbd5k.js:2332 [CreateMultipleLevelsCommand] level=4/10 addLevel=5.4ms createPlanView=0.0ms iterTotal=5.4ms
+engineLauncher-Ynplbd5k.js:7262 [EngineBootstrap] Level switch → "Level 05" (target.Y: 13.50 → 17.00)
+engineLauncher-Ynplbd5k.js:1838 [initScene] LevelClipPlaneCache: registered level "L-05-1777983089695-5" at 17m
+engineLauncher-Ynplbd5k.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ynplbd5k.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-Ynplbd5k.js:2332 [CreateMultipleLevelsCommand] level=5/10 addLevel=7.5ms createPlanView=0.0ms iterTotal=7.6ms
+engineLauncher-Ynplbd5k.js:7262 [EngineBootstrap] Level switch → "Level 06" (target.Y: 17.00 → 20.50)
+engineLauncher-Ynplbd5k.js:1838 [initScene] LevelClipPlaneCache: registered level "L-06-1777983089703-6" at 20.5m
+engineLauncher-Ynplbd5k.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ynplbd5k.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-Ynplbd5k.js:2332 [CreateMultipleLevelsCommand] level=6/10 addLevel=6.6ms createPlanView=0.0ms iterTotal=6.6ms
+engineLauncher-Ynplbd5k.js:7262 [EngineBootstrap] Level switch → "Level 07" (target.Y: 20.50 → 24.00)
+engineLauncher-Ynplbd5k.js:1838 [initScene] LevelClipPlaneCache: registered level "L-07-1777983089709-7" at 24m
+engineLauncher-Ynplbd5k.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ynplbd5k.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-Ynplbd5k.js:2332 [CreateMultipleLevelsCommand] level=7/10 addLevel=5.7ms createPlanView=0.0ms iterTotal=5.8ms
+engineLauncher-Ynplbd5k.js:7262 [EngineBootstrap] Level switch → "Level 08" (target.Y: 24.00 → 27.50)
+engineLauncher-Ynplbd5k.js:1838 [initScene] LevelClipPlaneCache: registered level "L-08-1777983089715-8" at 27.5m
+engineLauncher-Ynplbd5k.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ynplbd5k.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-Ynplbd5k.js:2332 [CreateMultipleLevelsCommand] level=8/10 addLevel=5.6ms createPlanView=0.0ms iterTotal=5.6ms
+engineLauncher-Ynplbd5k.js:7262 [EngineBootstrap] Level switch → "Level 09" (target.Y: 27.50 → 31.00)
+engineLauncher-Ynplbd5k.js:1838 [initScene] LevelClipPlaneCache: registered level "L-09-1777983089721-9" at 31m
+engineLauncher-Ynplbd5k.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ynplbd5k.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-Ynplbd5k.js:2332 [CreateMultipleLevelsCommand] level=9/10 addLevel=6.8ms createPlanView=0.0ms iterTotal=6.8ms
+engineLauncher-Ynplbd5k.js:7262 [EngineBootstrap] Level switch → "Level 10" (target.Y: 31.00 → 34.50)

@@ -1,0 +1,45 @@
+Processing file: Lamp.png
+injected.js:37 [AICreatePanel] Filename updated in UI
+injected.js:37 [AICreatePanel] Calling gotoStep(2)...
+injected.js:37 [AICreatePanel] Transitioning to step 2
+injected.js:37 [AICreatePanel] Step 1: display=none
+injected.js:37 [AICreatePanel] Step 2: display=flex
+injected.js:37 [AICreatePanel] Step 3: display=none
+injected.js:37 [AICreatePanel] Step 4: display=none
+injected.js:37 [AICreatePanel] All steps found and updated successfully
+injected.js:37 [AICreatePanel] Step 2 Next button clicked
+injected.js:37 [AICreatePanel] Prompt set: "Floor Lamp with adjustable pole height"
+injected.js:37 [AICreatePanel] Transitioning to step 3
+injected.js:37 [AICreatePanel] Step 1: display=none
+injected.js:37 [AICreatePanel] Step 2: display=none
+injected.js:37 [AICreatePanel] Step 3: display=flex
+injected.js:37 [AICreatePanel] Step 4: display=none
+injected.js:37 [AICreatePanel] All steps found and updated successfully
+injected.js:37 [AICreatePanel] ▶ Generate button clicked - Starting Step 3 → Step 4 flow
+injected.js:37 [AICreatePanel] Prompt confirmed: "Floor Lamp with adjustable pole height"
+injected.js:37 [AICreatePanel] Level ID: L0
+injected.js:37 [AICreatePanel] Calling AIElementFactory.generate()...
+1af1d8ca-5f07-4015-b910-fcae31828ba2-00-11h2xn87kzk2o.picard.replit.dev/api/anthropic/v1/messages:1   Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+injected.js:37  [AICreatePanel] ✗ Generation error: [AIElementFactory] API error: 500 Internal Server Error Error: [AIElementFactory] API error: 500 Internal Server Error
+    at AIElementFactory.callClaudeAPI (AIElementFactory.ts:176:19)
+    at async AIElementFactory.fetchWithRetry (AIElementFactory.ts:118:26)
+    at async AIElementFactory.generate (AIElementFactory.ts:78:24)
+    at async handleGenerate (AICreatePanel.ts:214:24)
+(anonymous) @ injected.js:37
+injected.js:37 [AICreatePanel] Generate flow complete
+35988818f426e45d.js:14  Cache data may be lost when replacing the hostingBuildDeployActionUpdates field of a Subscription object.
+
+This could cause additional (usually avoidable) network requests to fetch data that were otherwise cached.
+
+To address this problem (which is not a bug in Apollo Client), either ensure all objects of type HostingBuildDeployLogAction and HostingBuildDeployStatusAction have an ID or a custom merge function, or define a custom merge function for the Subscription.hostingBuildDeployActionUpdates field, so InMemoryCache can safely merge these objects:
+
+  existing: {"__typename":"HostingBuildDeployLogAction","log":"\r\u001b[38;2;169;169;169m2026-03-09T02:48:15Z\u001b[37m \u001b[32minfo\u001b[37m: Build: 6efe30d0-bbc1-4703-90cd-9e951b0f2b9f\r\n"}
+  incoming: {"__typename":"HostingBuildDeployStatusAction","status":"security_scanning","message":null,"debugSummary":null,"build":{"__ref":"HostingBuild:6efe30d0-bbc1-4703-90cd-9e951b0f2b9f"}}
+
+For more information about these options, please refer to the documentation:
+
+  * Ensuring entity objects have IDs: https://go.apollo.dev/c/generating-unique-identifiers
+  * Defining custom merge functions: https://go.apollo.dev/c/merging-non-normalized-objects
+
+(anonymous) @ 35988818f426e45d.js:14
+index.mjs:11973 [Violation] 'requestAnimationFrame' handler took 87ms

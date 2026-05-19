@@ -1,0 +1,10 @@
+{
+  "name": "load.large.full",
+  "samples": 5,
+  "p50": 0.571,
+  "p95": 2.576,
+  "p99": 2.576,
+  "budgetMs": 12000,
+  "warnMs": 12000,
+  "recordedAt": "2026-05-09T23:08:39.539Z"
+}

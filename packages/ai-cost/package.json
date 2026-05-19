@@ -1,0 +1,25 @@
+{
+  "name": "@pryzm/ai-cost",
+  "version": "0.1.0",
+  "description": "PRYZM 2 — AI cost meter (S44 partial / SPEC-28 §5.3 + §4).  Records every AI call into the OTel meter `pryzm.ai.cost.usd` (sum + p95) tagged by surface + plan; tracks running totals against the per-project / per-day / per-call budgets from SPEC-28 §2 so the budget enforcement at S43 D9 has a single source of truth.  PURE: no transport, no API calls, no provider SDKs — the AI subsystem (S52+) imports this and calls record(...) after every model call.  Production meter export wiring lands at S43 D9 cutover (Honeycomb pipeline).",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

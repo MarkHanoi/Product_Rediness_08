@@ -1,0 +1,54 @@
+{
+  "id": "straight-3layer",
+  "description": "straight-3layer",
+  "wall": {
+    "id": "wall:01HZS00000000000000STRAIGH",
+    "type": "wall",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "baseLine": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 4,
+        "y": 0,
+        "z": 0
+      }
+    ],
+    "height": 2.5,
+    "thickness": 0.188,
+    "baseOffset": 0,
+    "openings": [],
+    "layers": [
+      {
+        "name": "cladding",
+        "function": "finish-exterior",
+        "thickness": 0.025,
+        "materialColor": "#9c8d72"
+      },
+      {
+        "name": "cmu",
+        "function": "structure",
+        "thickness": 0.15,
+        "materialColor": "#a3a3a3"
+      },
+      {
+        "name": "drywall",
+        "function": "finish-interior",
+        "thickness": 0.013,
+        "materialColor": "#f5f5f0"
+      }
+    ]
+  },
+  "joinData": {},
+  "worldY": 0
+}

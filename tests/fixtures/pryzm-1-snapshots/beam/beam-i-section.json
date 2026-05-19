@@ -1,0 +1,22 @@
+{
+  "id": "beam_01H8XK3J7M9N2P4QR5STVW6XYZ",
+  "type": "beam",
+  "parentId": "level_2",
+  "childrenIds": [],
+  "metadata": {
+    "createdAt": 1700000500000,
+    "modifiedAt": 1700000500000,
+    "createdBy": "fixture",
+    "version": 1
+  },
+  "levelId": "level_2",
+  "baseLine": [
+    { "x": 0, "y": 3, "z": 0 },
+    { "x": 6, "y": 3, "z": 0 }
+  ],
+  "shape": "i-section",
+  "width": 0.2,
+  "depth": 0.45,
+  "rotation": 0,
+  "materialId": "steel-s355"
+}

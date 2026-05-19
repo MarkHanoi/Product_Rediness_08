@@ -1,0 +1,47 @@
+[CommandManager] UNDO: CREATE_WALL (history remaining: 3)
+engineLauncher-omwye-2j.js:3 [BimManager] Unregistered element 0356636a-caa5-4aa2-9d1c-ef4736119c63
+main-BVXsE8Tg.js:29548 [VDT] §G3-STALE-EVENT for unregistered element 0356636a-caa5-4aa2-9d1c-ef4736119c63 type= wall — fallback to store-type view only
+_onStoreEvent @ main-BVXsE8Tg.js:29548
+UpdateViewDefinitionCommand-DiL5syNi.js:1 [CommandManager] UNDO result: success=true 
+engineLauncher-omwye-2j.js:2503 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=13ms, resets=6)
+_scheduleRedetect @ engineLauncher-omwye-2j.js:2503
+UpdateViewDefinitionCommand-DiL5syNi.js:1 [CommandManager] EXECUTE: REDETECT_ROOMS
+UpdateViewDefinitionCommand-DiL5syNi.js:1 [CommandManager] snapshot commandType="Di" scope=[room] elapsed=0.0ms
+UpdateViewDefinitionCommand-DiL5syNi.js:1 [CommandManager] EXECUTE: REDETECT_ROOMS
+UpdateViewDefinitionCommand-DiL5syNi.js:1 [CommandManager] snapshot commandType="Di" scope=[room] elapsed=0.0ms
+engineLauncher-omwye-2j.js:2010 [PascalSceneLighting] Shadow flags set on 3 mesh(es).
+main-BVXsE8Tg.js:29548 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+engineLauncher-omwye-2j.js:2015 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-omwye-2j.js:1772 [NativeElementMeshExporter] Plan view — exporting 3 elements from levels overlapping Y=[-1.20, 0.00]
+engineLauncher-omwye-2j.js:1772 [NME] §H2-NME-CACHE hits=0 misses=3 hitRate=0% cacheSize=24/500
+engineLauncher-omwye-2j.js:2015 [initScene] EdgeProjectorService lazy load failed: TypeError: Failed to fetch dynamically imported module: https://video-prep-5--kikolouranczo.replit.app/assets/EdgeProjectorService-DPymAjO5.js
+(anonymous) @ engineLauncher-omwye-2j.js:2015
+engineLauncher-omwye-2j.js:2015 [initScene] DOC-1.4/1.8: Re-projection failed for viewId=vd-sys-plan-l0 gen=18 TypeError: Failed to fetch dynamically imported module: https://video-prep-5--kikolouranczo.replit.app/assets/EdgeProjectorService-DPymAjO5.js
+ic.onReprojectionNeeded @ engineLauncher-omwye-2j.js:2015
+UpdateViewDefinitionCommand-DiL5syNi.js:1 [CommandManager] UNDO: CREATE_WALL (history remaining: 2)
+engineLauncher-omwye-2j.js:3 [BimManager] Unregistered element fa988fa6-3e97-48cb-bc98-fc0e28f950de
+main-BVXsE8Tg.js:29548 [VDT] §G3-STALE-EVENT for unregistered element fa988fa6-3e97-48cb-bc98-fc0e28f950de type= wall — fallback to store-type view only
+_onStoreEvent @ main-BVXsE8Tg.js:29548
+UpdateViewDefinitionCommand-DiL5syNi.js:1 [CommandManager] UNDO result: success=true 
+UpdateViewDefinitionCommand-DiL5syNi.js:1 [CommandManager] EXECUTE: REDETECT_ROOMS
+UpdateViewDefinitionCommand-DiL5syNi.js:1 [CommandManager] snapshot commandType="Di" scope=[room] elapsed=0.0ms
+engineLauncher-omwye-2j.js:2010 [PascalSceneLighting] Shadow flags set on 2 mesh(es).
+UpdateViewDefinitionCommand-DiL5syNi.js:1 [CommandManager] UNDO: CREATE_WALL (history remaining: 1)
+engineLauncher-omwye-2j.js:3 [BimManager] Unregistered element 1bf95b89-8dea-40e2-b59d-700a8b1856f6
+main-BVXsE8Tg.js:29548 [VDT] §G3-STALE-EVENT for unregistered element 1bf95b89-8dea-40e2-b59d-700a8b1856f6 type= wall — fallback to store-type view only
+_onStoreEvent @ main-BVXsE8Tg.js:29548
+UpdateViewDefinitionCommand-DiL5syNi.js:1 [CommandManager] UNDO result: success=true 
+main-BVXsE8Tg.js:29548 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+engineLauncher-omwye-2j.js:2015 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-omwye-2j.js:1772 [NativeElementMeshExporter] Plan view — exporting 1 elements from levels overlapping Y=[-1.20, 0.00]
+engineLauncher-omwye-2j.js:1772 [NME] §H2-NME-CACHE hits=0 misses=1 hitRate=0% cacheSize=10/500
+engineLauncher-omwye-2j.js:2015 [initScene] EdgeProjectorService lazy load failed: TypeError: Failed to fetch dynamically imported module: https://video-prep-5--kikolouranczo.replit.app/assets/EdgeProjectorService-DPymAjO5.js
+(anonymous) @ engineLauncher-omwye-2j.js:2015
+engineLauncher-omwye-2j.js:2015 [initScene] DOC-1.4/1.8: Re-projection failed for viewId=vd-sys-plan-l0 gen=20 TypeError: Failed to fetch dynamically imported module: https://video-prep-5--kikolouranczo.replit.app/assets/EdgeProjectorService-DPymAjO5.js
+ic.onReprojectionNeeded @ engineLauncher-omwye-2j.js:2015
+UpdateViewDefinitionCommand-DiL5syNi.js:1 [CommandManager] EXECUTE: REDETECT_ROOMS
+UpdateViewDefinitionCommand-DiL5syNi.js:1 [CommandManager] snapshot commandType="Di" scope=[room] elapsed=0.0ms
+engineLauncher-omwye-2j.js:2010 [PascalSceneLighting] Shadow flags set on 1 mesh(es).
+UpdateViewDefinitionCommand-DiL5syNi.js:1 [CommandManager] UNDO: CREATE_WALL (history remaining: 0)
+engineLauncher-omwye-2j.js:3 [BimManager] Unregistered element 8dbbce75-5322-4008-8b73-6fa62948dfed
+main-BVXsE8Tg.js:29548 [VDT] §G3-STALE-EVENT for unregistered element ...

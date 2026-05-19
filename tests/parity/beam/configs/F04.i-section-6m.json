@@ -1,0 +1,33 @@
+{
+  "id": "F04.i-section-6m",
+  "description": "0.2×0.6 steel I-section beam, 6 m span",
+  "beam": {
+    "id": "beam:01HZS000000000000BEMF0400",
+    "type": "beam",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "baseLine": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 6,
+        "y": 0,
+        "z": 0
+      }
+    ],
+    "shape": "i-section",
+    "width": 0.2,
+    "depth": 0.6,
+    "rotation": 0
+  },
+  "worldY": 0
+}

@@ -1,0 +1,828 @@
+{
+  "generatedAt": "2026-04-29T00:03:05.084Z",
+  "cycles": 200,
+  "cyclesPlanned": 200,
+  "warmup": 10,
+  "leakWindow": 5,
+  "leakFloorPct": 5,
+  "gc": "expose-gc",
+  "fixture": {
+    "path": "/home/runner/workspace/tests/fixtures/largest-project.pryzm-stub.json",
+    "wallCount": 10000,
+    "levels": 50
+  },
+  "baselineHeapMiB": 14.62,
+  "postWarmupHeapMiB": 14.61,
+  "finalHeapMiB": 14.64,
+  "totalGrowthPct": 0.22,
+  "leakDetected": false,
+  "leakDetectedAt": -1,
+  "elapsedMs": 4486,
+  "samples": [
+    {
+      "cycle": 0,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 1,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 2,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 3,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 4,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 5,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 6,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 7,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 8,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 9,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 10,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 11,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 12,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 13,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 14,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 15,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 16,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 17,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 18,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 19,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 20,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 21,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 22,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 23,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 24,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 25,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 26,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 27,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 28,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 29,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 30,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 31,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 32,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 33,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 34,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 35,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 36,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 37,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 38,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 39,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 40,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 41,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 42,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 43,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 44,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 45,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 46,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 47,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 48,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 49,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 50,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 51,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 52,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 53,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 54,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 55,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 56,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 57,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 58,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 59,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 60,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 61,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 62,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 63,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 64,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 65,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 66,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 67,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 68,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 69,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 70,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 71,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 72,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 73,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 74,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 75,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 76,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 77,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 78,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 79,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 80,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 81,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 82,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 83,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 84,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 85,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 86,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 87,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 88,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 89,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 90,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 91,
+      "heapMiB": 14.61
+    },
+    {
+      "cycle": 92,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 93,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 94,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 95,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 96,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 97,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 98,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 99,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 100,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 101,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 102,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 103,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 104,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 105,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 106,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 107,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 108,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 109,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 110,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 111,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 112,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 113,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 114,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 115,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 116,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 117,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 118,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 119,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 120,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 121,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 122,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 123,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 124,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 125,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 126,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 127,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 128,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 129,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 130,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 131,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 132,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 133,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 134,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 135,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 136,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 137,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 138,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 139,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 140,
+      "heapMiB": 14.63
+    },
+    {
+      "cycle": 141,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 142,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 143,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 144,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 145,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 146,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 147,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 148,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 149,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 150,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 151,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 152,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 153,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 154,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 155,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 156,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 157,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 158,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 159,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 160,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 161,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 162,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 163,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 164,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 165,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 166,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 167,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 168,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 169,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 170,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 171,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 172,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 173,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 174,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 175,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 176,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 177,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 178,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 179,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 180,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 181,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 182,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 183,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 184,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 185,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 186,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 187,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 188,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 189,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 190,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 191,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 192,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 193,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 194,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 195,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 196,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 197,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 198,
+      "heapMiB": 14.64
+    },
+    {
+      "cycle": 199,
+      "heapMiB": 14.64
+    }
+  ],
+  "notes": [
+    "In-process Node-side leak hunt only.  Does NOT cover DOM, WebGL, or GPU retainers.",
+    "4-hour session simulation per S69 D5 spec is the operator-side run on staging — invoke this script with PRYZM_LEAK_CYCLES=50000 against a session-like driver script for that.",
+    "Run with --expose-gc to lower the noise floor.  This run used: expose-gc."
+  ]
+}

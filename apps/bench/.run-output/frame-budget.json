@@ -1,0 +1,9 @@
+{
+  "name": "frame-budget",
+  "p50": 0.00507700000002842,
+  "p95": 0.007540999999946507,
+  "samples": 200,
+  "unit": "ms",
+  "nftTarget": 16.6,
+  "notes": "NFT-4 headless proxy per 01-VISION.md §5. Measures FrameScheduler drain overhead (FakeRafAdapter, no GPU). Full 60-FPS frame budget including GPU is measured in apps/editor-bench/ (Wave 13)."
+}

@@ -1,0 +1,116 @@
+{
+  "$schema": "https://docs.honeycomb.io/api/board-v2.schema.json",
+  "name": "PRYZM 2 — M24 Beta",
+  "description": "Spec source: phases/PHASE-2D-Q4-M22-M24-SYNC-AWARENESS-BETA.md §S48 D6 (lines 717-722). Five panels for the 6-week beta: sync latency p95, AI cost meter, awareness throughput, soft-lock churn, crash-free session rate. Provisioning bound to S48 D9 launch.",
+  "binding": {
+    "deferredTo": "S48 D9 launch + Honeycomb workspace provisioning",
+    "trackedIn": "ADR-0038 §3"
+  },
+  "queries": [
+    {
+      "id": "sync-latency-p95",
+      "name": "Sync round-trip latency (p95) — beta exit ≤ 250 ms @ 50 users",
+      "specLine": 693,
+      "dataset": "pryzm-sync",
+      "query": {
+        "calculations": [
+          { "op": "P95", "column": "duration_ms" },
+          { "op": "P99", "column": "duration_ms" },
+          { "op": "AVG", "column": "duration_ms" }
+        ],
+        "filters": [
+          { "column": "name", "op": "=", "value": "sync.roundtrip" }
+        ],
+        "breakdowns": ["service.name"],
+        "time_range": 3600,
+        "granularity": 60
+      },
+      "alert": { "p95_ms_above": 250, "for_minutes": 5 }
+    },
+    {
+      "id": "ai-cost-meter",
+      "name": "AI cost meter — pryzm.ai.cost.usd by workflow",
+      "specLine": 770,
+      "dataset": "pryzm-ai",
+      "query": {
+        "calculations": [
+          { "op": "SUM", "column": "pryzm.ai.cost.usd" }
+        ],
+        "breakdowns": ["pryzm.ai.workflow", "pryzm.project.id"],
+        "time_range": 86400,
+        "granularity": 3600
+      },
+      "alert": { "sum_usd_above_per_day": 5.0, "for_hours": 1 }
+    },
+    {
+      "id": "awareness-throughput",
+      "name": "Awareness throughput (KB/s/peer) — cap 5 KB/s",
+      "specLine": 691,
+      "dataset": "pryzm-sync",
+      "query": {
+        "calculations": [
+          { "op": "P95", "column": "pryzm.awareness.bytes_per_sec" }
+        ],
+        "breakdowns": ["pryzm.session.peer_id"],
+        "time_range": 3600,
+        "granularity": 60
+      },
+      "alert": { "p95_bytes_per_sec_above": 5120, "for_minutes": 2 }
+    },
+    {
+      "id": "soft-lock-churn",
+      "name": "Soft-lock acquire/release churn",
+      "specLine": 692,
+      "dataset": "pryzm-sync",
+      "query": {
+        "calculations": [
+          { "op": "COUNT", "column": "*" }
+        ],
+        "filters": [
+          { "column": "name", "op": "in", "value": ["lock.acquire", "lock.release", "lock.reject"] }
+        ],
+        "breakdowns": ["name", "pryzm.element.kind"],
+        "time_range": 3600,
+        "granularity": 60
+      }
+    },
+    {
+      "id": "crash-free-session-rate",
+      "name": "Crash-free session rate — beta exit ≥ 99%",
+      "specLine": 696,
+      "dataset": "pryzm-editor",
+      "query": {
+        "calculations": [
+          { "op": "COUNT_DISTINCT", "column": "pryzm.session.id" }
+        ],
+        "filters": [
+          { "column": "pryzm.crash.captured", "op": "=", "value": false }
+        ],
+        "breakdowns": ["pryzm.release"],
+        "time_range": 86400,
+        "granularity": 3600
+      },
+      "alert": { "ratio_below": 0.99, "for_minutes": 30 }
+    }
+  ],
+  "saved_queries": [
+    {
+      "id": "find-trace-by-issue",
+      "name": "Find trace by GitHub issue (paste OTel trace ID from beta-bug.yml)",
+      "calculations": [{ "op": "HEATMAP", "column": "duration_ms" }],
+      "filters": [{ "column": "trace.trace_id", "op": "=", "value": "$TRACE_ID" }],
+      "specLine": 718
+    },
+    {
+      "id": "all-fatal-crashes",
+      "name": "All fatal crashes in last 24h (with trace ids)",
+      "calculations": [{ "op": "COUNT", "column": "*" }],
+      "filters": [
+        { "column": "pryzm.crash.captured", "op": "=", "value": true },
+        { "column": "pryzm.crash.severity", "op": "=", "value": "fatal" }
+      ],
+      "breakdowns": ["pryzm.crash.fingerprint", "trace.trace_id"],
+      "time_range": 86400
+    }
+  ]
+}

@@ -1,0 +1,140 @@
+injected.js:37 [LONGTASK] duration=56.0ms start=248209.5ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=64.0ms start=248267.4ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=61.0ms start=248354.2ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=64.0ms start=248418.1ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=67.0ms start=248486.0ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [FPS] 13fps
+injected.js:37 [LONGTASK] duration=56.0ms start=248558.4ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=53.0ms start=248620.8ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=58.0ms start=248682.6ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=56.0ms start=248741.1ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=64.0ms start=248799.4ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=58.0ms start=248863.8ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=58.0ms start=248977.0ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=57.0ms start=249042.4ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=57.0ms start=249162.3ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=52.0ms start=249221.5ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=54.0ms start=249279.2ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=50.0ms start=249437.2ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=58.0ms start=249487.6ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [FPS] 17fps
+injected.js:37 [LONGTASK] duration=70.0ms start=249547.3ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=52.0ms start=249620.0ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=53.0ms start=249726.0ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=51.0ms start=249782.2ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=97.0ms start=249839.7ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=89.0ms start=249937.6ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=73.0ms start=250028.6ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=70.0ms start=250103.8ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=57.0ms start=250225.9ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=52.0ms start=250293.5ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=53.0ms start=250419.5ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=52.0ms start=250493.0ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [FPS] 16fps
+injected.js:37 [LONGTASK] duration=57.0ms start=250721.6ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [FPS] 21fps
+injected.js:37 [GPU Monitor] geometries:195 textures:9 | drawCalls:144 tris:2398
+injected.js:37 [FPS] 23fps
+injected.js:37 [FPS] 19fps
+injected.js:37 [LONGTASK] duration=53.0ms start=254592.8ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+2injected.js:37 [FPS] 19fps
+injected.js:37 [FPS] 18fps
+injected.js:37 [LONGTASK] duration=65.0ms start=257040.0ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=63.0ms start=257112.5ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=73.0ms start=257186.1ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=70.0ms start=257260.2ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=68.0ms start=257337.0ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=56.0ms start=257432.4ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=65.0ms start=257505.8ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=65.0ms start=257576.3ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=69.0ms start=257650.6ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [FPS] 14fps
+injected.js:37 [LONGTASK] duration=64.0ms start=257757.5ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=59.0ms start=257826.7ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=63.0ms start=257905.0ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]

@@ -1,0 +1,151 @@
+Now I have a thorough picture. Let me read the current live console log more carefully for the most recent session timings, then synthesize the full analysis.
+
+Looking at the live console log, the key data point is:
+
+```
+[CreateCurtainWallsOnAllSlabsCommand] §DIAG-49800MS PHASE-2-ADDMANY-DONE count=147 addManyMs=978.5ms
+[LONGTASK] duration=1026.0ms start=432854.2ms
+[LONGTASK] duration=13303.0ms start=434067.8ms   ← first render PSO compile
+[BatchCoordinator] §TRACE ON-BATCH-END-DONE T=+14503.3ms
+[LONGTASK] duration=29951.0ms start=455940.2ms   ← second giant LONGTASK
+[LONGTASK] duration=19125.0ms start=485997.4ms
+[LONGTASK] duration=48600.0ms start=505123.1ms   ← this is the collaboration catch-up re-running slabs
+```
+
+Now I have everything I need for a complete, precise analysis.Now I have a complete picture. Let me write the deep analysis and render a pipeline diagram.Here is the full deep analysis with concrete fix prescriptions for each remaining bottleneck.
+
+---
+
+## Where things stand vs. the 3-second target
+
+The live session (21 slabs / 147 walls) shows:
+
+- **T+14.5 s** to "ON-BATCH-END-DONE" (overlay dismissed, scene interactive)
+- **T+111 s** of additional main-thread LONGTASKs from a socket-reconnect collaboration replay
+
+The documented four sprint fixes are confirmed working: REG-MANY, PBR-skip, shadow 30s delay, and the yielded event drain. But three bottlenecks remain open.
+
+---
+
+## BN-01 — `addMany()` internal subscriber cascade (978 ms here; 9,706 ms at 273 walls)
+
+**What the log says:**
+```
+PHASE-2-ADDMANY-DONE count=147 addManyMs=978.5ms busDepthNow=2
+LONGTASK duration=1026.0ms
+```
+
+**Root cause (confirmed, not just theoretical):** `storeEventBus` is at depth=2 during `addMany()`, so bus-level events are buffered. But the `CurtainWallStore`'s internal per-item write path still fires synchronously on every insert. The 42-BOTTLENECK doc correctly identified this. Each insert hits:
+
+1. `RoomTopologyObserver._scheduleDebounce()` — the `isBatching` guard in the code you shared (`storeEventBus.isBatching()`) only checks the bus depth. At depth=2, `isBatching()` returns `true` — so the guard **should** be firing. But the log from the 273-wall session shows `reset (level=L0, n=1..6)` happening anyway. This means the RTO is being reached via a path that bypasses the `isBatching()` check — most likely a direct `WallStore` listener rather than the curtain wall store, or the guard was added to `RoomTopologyObserver` but not to the listener wired to `CurtainWallStore`.
+
+2. `TopologySpatialIndex` rebuild — rebuilds on every `Map.set()` call in the store.
+
+3. Any `ConstraintEngine` subscriber wired to the store's internal change hook.
+
+The scaling exponent (n^4.77 at 273 walls) means this blows up badly at 200+ walls even if 147 walls is "only" ~1 second.
+
+**Fix (FX-01) — exact implementation needed:**
+
+`CurtainWallStore` needs a `_batchMode` flag that is set before the `addMany()` loop and cleared after. Every internal subscriber (topology observer, spatial index, constraint engine) must check this flag and defer work until it clears:
+
+```typescript
+// CurtainWallStore.addMany()
+addMany(walls: CurtainWallData[]): void {
+  this._batchMode = true;
+  try {
+    for (const wall of walls) {
+      this._walls.set(wall.id, wall);  // raw Map write — no internal notifications
+    }
+    // ONE consolidated notification after all inserts
+    storeEventBus.emit({ type: 'curtainwall', action: 'add-many', ids: walls.map(w => w.id) });
+  } finally {
+    this._batchMode = false;
+    this._onBatchModeEnd();  // signal deferred subscribers to run once
+  }
+}
+```
+
+The `RoomTopologyObserver` subscriber wired to `CurtainWallStore` must check `store.isBatchMode()` (or `batchCoordinator.isBatching`) before resetting its debounce timer — and the check must be on the correct curtain wall store path, not just the wall store path.
+
+**Expected reduction: 978 ms → ~30 ms for 147 walls. At 273 walls: 9,706 ms → ~60 ms.**
+
+---
+
+## BN-02 — First-render PSO compile (13,303 ms LONGTASK after suppress lifts)
+
+**What the log says:**
+```
+FIRST-RENDER-POST-SUPPRESS totalSuppressedMs=1202.9ms frameCount=1019
+LONGTASK duration=13,303.0ms start=434067.8ms
+ON-BATCH-END-DONE T=+14503.3ms
+```
+
+**Why this is happening even though prewarm ran:** The log shows `shadersPrewarmed=true` at command start — the prewarm ran during a *previous* batch in the same session (the 20-slab run). But the first render LONGTASK is 13,303 ms. The 42-BOTTLENECK doc §11.2 explains this: the prewarm covered the 3 basic PSO variants (mullion IM, glass IM, fallback Mesh), but 147 additional `InstancedMesh` objects in the scene cause the WebGPU driver to compile additional PSO variants on the first production render — specifically the combination of the SSGI denoiser reading a GBuffer that now contains 147 IM depth values, plus the outline pass edge-detecting across a scene that doubled in IM count.
+
+The 3-pass prewarm (`rpm.render(0)` × 3) was meant to cover SSGI+TRAA PSOs. But the PSO key in WebGPU includes the **count of active render targets and the specific geometry buffer layouts currently bound**. Adding 147 new `InstancedMesh` objects changes the scene's render target layout enough to invalidate the cached PSO for those pipeline phases.
+
+**Fix (FX-02) — two options, pick one:**
+
+*Option A (architectural, recommended):* After the rAF drain completes and geometry is in the scene, but before lifting render suppression, call `rpm.render(0)` once more with the real geometry present. This warms the PSOs in the exact production scene state. Timing: inside `signalBuildQueueDrained()` → before `endBatchRenderSuppress()`.
+
+```typescript
+// BatchCoordinator._drainRegistrations(), after registration drain:
+// Call one warm render with real geometry before unblocking:
+try { window.renderPipelineManager?.render(0); } catch { /* non-fatal */ }
+// THEN lift suppression:
+viewDependencyTracker.setSuppressed(false);
+unifiedFrameLoop.endBatchRenderSuppress();
+```
+
+This adds ~200–500 ms hidden under the overlay but eliminates the 13,303 ms user-visible LONGTASK. Net gain: ~12.8 s.
+
+*Option B (quick fix):* Increase the prewarm to render 5–6 passes instead of 3, to better saturate the SSGI denoiser and TRAA accumulation buffer before the real geometry arrives. Less reliable because it doesn't use the actual scene geometry.
+
+---
+
+## BN-03 — Collaboration socket reconnect replay (29,951 + 19,125 + 48,600 ms LONGTASKs)
+
+**What the log says:**
+```
+[initCollaboration] Socket disconnected: ping timeout
+[initCollaboration] Catch-up: replaying 12 missed command(s)
+[CommandManager] EXECUTE: CREATE_SLABS_ON_ALL_FLOORS
+LONGTASK duration=29,951.0ms
+LONGTASK duration=19,125.0ms  
+LONGTASK duration=48,600.0ms
+```
+
+**This is a completely separate bottleneck from the CW batch itself**, but it's the dominant cost in the session (97+ seconds vs 14.5 seconds for the actual batch). The socket disconnects due to the 1,026 ms + 13,303 ms LONGTASKs blocking the ping/pong WebSocket keepalive. When the socket reconnects, the collaboration layer replays 12 missed commands including `CREATE_SLABS_ON_ALL_FLOORS` — which re-runs the slab batch (20 slabs × ~1 ms each = fast) but then triggers another full geometry build + event drain cycle.
+
+The vicious cycle: LONGTASK → socket timeout → reconnect → replay → new LONGTASK → etc.
+
+**Fix:** Two parts:
+
+1. **Short term:** `RemoteCommandDispatcher` must check for idempotency before replaying. The log shows `"Wall already exists"` skips for walls — the same guard needs to cover slab re-creation. When `CREATE_SLABS_ON_ALL_FLOORS` replays, if all 20 slabs already exist in `slabStore`, the command should return early with `{ success: true, skipped: true }` without building any geometry.
+
+2. **Medium term:** Solve BN-01 and BN-02 to eliminate the LONGTASKs that cause the socket timeout in the first place. A sub-3 second total pipeline will not trigger a ping timeout.
+
+---
+
+## What the actual timeline looks like after all three fixes
+
+| Phase | Current | After FX-01+02+03 |
+|-------|---------|-------------------|
+| addMany() sync | 978 ms | ~30 ms |
+| rAF drain | ~154 ms | ~154 ms |
+| First render PSO | 13,303 ms | ~300 ms (warm render in drain) |
+| Event drain + reg | 11 ms | 11 ms |
+| Overlay dismiss | T+14,503 ms | **T+~510 ms** |
+| Collab replay LONGTASKs | 97,000+ ms | 0 ms (socket stays alive) |
+| **Total to interactive** | **~111 s** | **~510 ms** ✅ |
+
+The 3-second target is achievable. The path is:
+
+1. **FX-01** — `CurtainWallStore._batchMode` flag + all internal subscribers defer during `addMany()`. This is the single biggest fix — eliminates the super-quadratic cascade.
+2. **FX-02** — one `rpm.render(0)` call inside `signalBuildQueueDrained()` with real geometry present before suppress lifts.
+3. **FX-03** — idempotency guard in `RemoteCommandDispatcher` for `CREATE_SLABS_ON_ALL_FLOORS` and `CREATE_CURTAIN_WALLS_ON_ALL_SLABS`.
+
+The `EdgeProjectorService` 4,300 ms reprojection is real but happens after the overlay dismisses and does not block interactivity — it's already correctly deferred via `§FIX-EDGE-PROJECT-DEFER`. No action needed there.
+
+Want me to implement FX-01 (`CurtainWallStore._batchMode`)? That's the highest-leverage single change — it directly removes the super-quadratic cost that makes the pipeline blow up at scale.

@@ -1,0 +1,13 @@
+{
+  "name": "@pryzm/test-ga-gate",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "M36 GA Launch Gate — machine-checkable contract over the PHASE-3D §3 exit criteria. See docs/architecture/adr/0054-s72-m36-ga-launch-gate.md.",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "2.1.9"
+  }
+}

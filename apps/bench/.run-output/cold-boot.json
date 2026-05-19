@@ -1,0 +1,9 @@
+{
+  "name": "cold-boot",
+  "p50": 16.00810999999885,
+  "p95": 18.317276999998285,
+  "p99": 18.317276999998285,
+  "samples": 20,
+  "unit": "ms",
+  "notes": "NFT-1 headless proxy per 01-VISION.md §5.  Measures cold composeRuntime() (no canvas) — the dominant single contributor to Stage 1 of the three-stage boot pipeline (02-ARCHITECTURE §6).  Wall-clock NFT-1 (< 2.5 s on M1/Chrome) and the per-step LCP sub-budget (< 600 ms, chunks/22 §22.1) are measured in-browser by apps/editor-bench/ (Wave 13)."
+}

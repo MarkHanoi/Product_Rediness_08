@@ -1,0 +1,33 @@
+{
+  "name": "@pryzm/constraint-solver",
+  "version": "0.1.0",
+  "description": "PRYZM 2 \u2014 2D geometric constraint solver (S52). Wraps the planegcs WASM behind a `SolverPorter` contract so the Element Creator's sketcher can solve up to 50-constraint systems in < 16 ms (per phase doc \u00a74.1 exit criterion). Real planegcs WASM binding lands at S53 alongside the 2D sketcher canvas in `apps/component-editor`; the package ships today with a `MockSolver` that handles the five first constraint kinds (distance-pp, parallel, perpendicular, coincident-pp, fixed) used by snapshot tests + the porter contract validation.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/types.ts",
+    "./engine": "./src/engine.ts",
+    "./worker": "./src/worker.ts",
+    "./compliance": "./src/ConstraintEngine.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@pryzm/geometry-wall": "workspace:*",
+    "@pryzm/core-app-model": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

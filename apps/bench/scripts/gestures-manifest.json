@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "as_of": "2026-04-29",
+  "spec": "PRYZM2-WIREUP-PLAN-S72/26-plan-self-corrections.md §26.1 (Z.5)",
+  "rationale": "User-visible gestures the platform-shell must support. Each gesture is the canonical name used in OTel spans (`pryzm.ui.<gesture>`) and bench fixtures. The check-gesture-coverage.mjs script asserts every gesture here has a bench harness or e2e test.",
+  "gestures": [
+    { "name": "project.create",        "owner": "ProjectHub",        "phase": "C.2.02" },
+    { "name": "project.delete",        "owner": "ProjectHub",        "phase": "C.2.04" },
+    { "name": "project.rename",        "owner": "ProjectHub",        "phase": "C.2.03" },
+    { "name": "project.duplicate",     "owner": "ProjectHub",        "phase": "C.2.05" },
+    { "name": "project.star",          "owner": "ProjectHub",        "phase": "C.2.06" },
+    { "name": "project.archive",       "owner": "ProjectHub",        "phase": "C.2.07" },
+    { "name": "project.open",          "owner": "PlatformRouter",    "phase": "C.3.01" },
+    { "name": "project.close",         "owner": "PlatformRouter",    "phase": "C.3.02" },
+    { "name": "auth.signOut",          "owner": "ProjectHub",        "phase": "C.1.07" },
+    { "name": "view.cube.click",       "owner": "ViewCube",          "phase": "D.10" },
+    { "name": "view.tab.switch",       "owner": "ViewTabBar",        "phase": "D.11" },
+    { "name": "workspace.mode.switch", "owner": "WorkspaceModeBar",  "phase": "D.12" },
+    { "name": "selection.set",         "owner": "SelectionOverlay",  "phase": "D.13" },
+    { "name": "selection.clear",       "owner": "SelectionOverlay",  "phase": "D.13" },
+    { "name": "panel.open",            "owner": "PanelManager",      "phase": "B.4" },
+    { "name": "panel.close",           "owner": "PanelManager",      "phase": "B.4" },
+    { "name": "panel.drag",            "owner": "PanelManager",      "phase": "B.4" },
+    { "name": "command.execute",       "owner": "CommandBus",        "phase": "C.0" },
+    { "name": "command.undo",          "owner": "RuntimeUndoStack",  "phase": "C.0" },
+    { "name": "command.redo",          "owner": "RuntimeUndoStack",  "phase": "C.0" }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "id": "F13.negative-base-offset",
+  "description": "slab with −0.5 m base offset",
+  "slab": {
+    "id": "slab:01HZS000000000000SLBF1300",
+    "type": "slab",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "boundary": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 4,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 4,
+        "y": 0,
+        "z": 4
+      },
+      {
+        "x": 0,
+        "y": 0,
+        "z": 4
+      }
+    ],
+    "holes": [],
+    "thickness": 0.2,
+    "baseOffset": -0.5
+  },
+  "worldY": 0
+}

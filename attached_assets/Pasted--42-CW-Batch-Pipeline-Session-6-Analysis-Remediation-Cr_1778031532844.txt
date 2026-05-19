@@ -1,0 +1,381 @@
+# 42 — CW Batch Pipeline: Session 6 Analysis & Remediation
+
+**Created:** 2026-05-06  
+**Session:** 315-wall / 21-slab live console log  
+**Previous sessions:** 66-wall (S1), 96-wall (S2), 189-wall (S3), 273-wall (S4), 294-wall (S5/BN-04)  
+**Status:** Active — three new bottlenecks identified; fixes specified below.  
+**Target:** ≤ 5 seconds total user-visible time.  
+
+---
+
+## Executive Summary
+
+The pipeline **correctly implements** all previously fixed bottlenecks (BN-01 through BN-04). The sync phase is excellent at 23.9ms for 315 walls. The rAF drain is now working as designed — 15 frames, budget stable at 20–25, total drain ~700ms. However, a **14,175ms PSO LONGTASK** still dominates the session, and the console log reveals exactly why: **the prewarm took only 11.1ms instead of the expected ~300ms**. This is an unambiguous prewarm failure. Two additional cross-batch interference issues also emerge in the log.
+
+---
+
+## Session 6 Timing Breakdown (315-wall / 21-slab, live console)
+
+| Phase | Measured | Status |
+|-------|----------|--------|
+| Ph 0 — Prewarm | **11.1ms** (3× rpm.render(0)) | ❌ **FAILED — PSOs not compiled** |
+| Ph 1 — Sync (slab loop + addMany + regQueue) | **23.9ms** | ✅ Excellent |
+| Ph 2 — rAF drain (15 frames) | **~700ms** (T+61→T+698ms) | ✅ BN-04 fix working |
+| Ph 3 — Registration drain (21 sync) | **5.9ms** | ✅ Excellent |
+| Ph 4 — Event drain (315 events, 2 chunks) | **44ms** | ✅ Acceptable |
+| Ph 5 — onComplete + suppress lift | **<1ms** | ✅ |
+| Ph 6 — First render PSO LONGTASK | **14,175ms** | ❌ **Critical — prewarm failed** |
+| Ph 7 — EdgeProjector | Deferred, background | ✅ Non-blocking |
+| Ph 8 — PBR upgrade (CW batch) | 0ms (skipPbrUpgrade=true) | ✅ |
+| Ph 9 — Shadow (setTimeout 30s) | Off critical path | ✅ |
+| **Total user-visible** | **~15,000ms** | ❌ Target: ≤5,000ms |
+
+**What the BN-04 fix achieved (comparing session 5 → session 6):**
+
+| Metric | Session 5 (294-wall, old thresholds) | Session 6 (315-wall, BN-04 fix) |
+|--------|-------------------------------------|----------------------------------|
+| Drain frames | 27 | **15** |
+| Budget floor | 7–8 | **20–25 (stable)** |
+| Frame 8 budget | 13 (still falling) | 23 (stable) |
+| Drain total | 807ms | **~700ms** |
+| SLOW_BUILD events | None | 1 (L-08, 17.6ms — isolated) |
+
+**BN-04 confirmed working.** The drain is now behaving correctly.
+
+---
+
+## Newly Identified Bottlenecks
+
+### BN-05 — Prewarm Produces 11.1ms: PSOs Are NOT Compiled (Critical)
+
+**Evidence from log:**
+```
+[CreateCurtainWallsOnAllSlabsCommand] §TRACE-CW#1 PREWARM-START estimatedWalls=315 T=+0.2ms
+[CreateCurtainWallsOnAllSlabsCommand] PERF-PREWARM: 3 PSO variants × 3 pipeline passes...
+[CreateCurtainWallsOnAllSlabsCommand] §TRACE-CW#1 PREWARM-DONE prewarmMs=11.1ms T=+11.3ms
+...
+[LONGTASK] duration=14175ms start=132198ms  ← PSO cold compile after overlay lifts
+```
+
+**Root cause diagnosis:**
+
+Three sequential `rpm.render(0)` calls completing in 11.1ms total is physically impossible if any WebGPU PSO compilation occurred. A single PSO compile for one InstancedMesh variant takes ~80–400ms. Three passes of a full scene pipeline should take 200–600ms. 11.1ms means the renders executed as complete no-ops.
+
+Two mutually exclusive root causes:
+
+**Cause A — `window.renderPipelineManager` is null or non-functional at call time.**  
+The console log shows `[PRYZM] WebGPU device lost` earlier in the session, followed by `[PRYZM] WebGPU device recovered — renderer recreated`. After device recovery, `onProjectSwitch()` is called, which rebuilds the pipeline. However, during the recovery window, `window.renderPipelineManager` may be in an error state (`phase: error` is logged: `[RenderPipelineManager] Pipeline init error: Cannot read properties of undefined (reading 'usedTimes')`). If the prewarm fires during or after the `phase: error` state, `rpm.render(0)` returns immediately as a no-op.
+
+**Cause B — The scale guard (`_prewarmWallCount × 1.5`) is firing a re-prewarm, but the renderer is not yet in a valid state.**  
+The scale guard resets `_shadersPrewarmed = false` when `estimatedWallCount > _prewarmWallCount × 1.5`. If a prior batch prewarmed at a smaller count and the current batch is 315 walls, the guard triggers a re-prewarm correctly — but if `rpm.render(0)` is a no-op at that moment (due to pipeline error state), the static flag `_shadersPrewarmed` is still set to `true`, marking future batches as "warmed" when they are not.
+
+**Cause C (secondary) — `renderPipelineManager` not yet bound at prewarm time.**  
+The WebGPU device loss / recovery cycle seen in the log (`duration=14175ms`, `duration=16976ms` LONGTASKs during PBR chunking) can leave the pipeline manager temporarily in a `phase: error` state. The `render(0)` method on `RenderPipelineManager` may guard against calling the underlying renderer when in error state, returning without compiling anything.
+
+**Fix BN-05a — Guard prewarm against pipeline error state:**
+
+In `CreateCurtainWallsOnAllSlabsCommand._prewarmCurtainWallShaders()`, before calling `rpm.render(0)`, validate that the pipeline is in a ready state:
+
+```typescript
+private async _prewarmCurtainWallShaders(): Promise<void> {
+    const rpm = window.renderPipelineManager;
+    if (!rpm) {
+        console.warn('[CreateCurtainWallsOnAllSlabsCommand] PREWARM-SKIP: renderPipelineManager not available');
+        return;
+    }
+    
+    // BN-05 fix: abort prewarm if pipeline is in error/initializing state
+    // rpm.render(0) is a no-op in these states — prewarm would silently fail,
+    // leaving _shadersPrewarmed=true with cold PSOs → 14,000ms LONGTASK.
+    const phase = (rpm as any).status?.phase ?? (rpm as any)._phase ?? 'unknown';
+    if (phase === 'error' || phase === 'initializing' || phase === 'binding') {
+        console.warn(
+            `[CreateCurtainWallsOnAllSlabsCommand] PREWARM-ABORT: pipeline phase="${phase}" — ` +
+            `prewarm skipped; _shadersPrewarmed NOT set (will retry on next execute)`
+        );
+        // Do NOT set _shadersPrewarmed = true — force retry on next call
+        return;
+    }
+    // ... rest of existing prewarm logic
+```
+
+**Fix BN-05b — Validate prewarm actually compiled something (timing guard):**
+
+```typescript
+    const __prewarmStart = performance.now();
+    // Add probe meshes and run 3x rpm.render(0) as before...
+    rpm.render(0);
+    rpm.render(0);
+    rpm.render(0);
+    const __prewarmMs = performance.now() - __prewarmStart;
+    
+    // BN-05b: A valid prewarm compiles at least one PSO variant.
+    // Minimum measured compile time for one WebGPU PSO ≈ 50ms.
+    // If total time < 30ms, the renders were no-ops — mark as NOT prewarmed.
+    const PREWARM_MIN_VALID_MS = 30;
+    if (__prewarmMs < PREWARM_MIN_VALID_MS) {
+        console.warn(
+            `[CreateCurtainWallsOnAllSlabsCommand] §PREWARM-FAILED ` +
+            `prewarmMs=${__prewarmMs.toFixed(1)}ms < ${PREWARM_MIN_VALID_MS}ms threshold — ` +
+            `PSOs not compiled. _shadersPrewarmed NOT set (will retry on next execute).`
+        );
+        // BN-05b critical: do NOT set _shadersPrewarmed = true
+        return; // exit without setting the flag
+    }
+    
+    CreateCurtainWallsOnAllSlabsCommand._shadersPrewarmed = true;
+    CreateCurtainWallsOnAllSlabsCommand._prewarmWallCount = estimatedWallCount;
+    console.log(`[CreateCurtainWallsOnAllSlabsCommand] §TRACE-CW#N PREWARM-DONE prewarmMs=${__prewarmMs.toFixed(1)}ms`);
+```
+
+**Fix BN-05c — Reset `_shadersPrewarmed` on WebGL/WebGPU context loss:**
+
+In `initScene.ts`, inside the `webglcontextlost` and WebGPU device-loss handlers:
+
+```typescript
+// In the webglcontextlost handler (initScene.ts ~line 837):
+_obcCanvas.addEventListener('webglcontextlost', (evt: Event) => {
+    evt.preventDefault();
+    // BN-05c: prewarm PSOs are lost with context — force re-prewarm on next CW batch
+    if (typeof (window as any).__resetCwPrewarm === 'function') {
+        (window as any).__resetCwPrewarm();
+        console.log('[initScene] WebGL context lost — CW prewarm reset (PSOs invalidated)');
+    }
+    // ... existing handling
+});
+
+// In the WebGPU device-lost callback (createRenderer.ts ~line 128):
+// (wherever [PRYZM] WebGPU device lost is currently logged)
+if (typeof (window as any).__resetCwPrewarm === 'function') {
+    (window as any).__resetCwPrewarm();
+    console.log('[initScene] WebGPU device lost — CW prewarm reset');
+}
+```
+
+**Expected outcome:** The 14,175ms PSO LONGTASK is entirely caused by a failed prewarm. With these three guards in place, any no-op prewarm is detected at `< 30ms` and the static flag is NOT set, forcing a valid re-prewarm on the next execute(). A valid prewarm running ~300ms eliminates the cold-PSO LONGTASK → first render drops from 14,175ms to ~50–200ms.
+
+---
+
+### BN-06 — PBR Upgrade Collision: 15,037-Mesh Traversal Running During CW Batch (High)
+
+**Evidence from log:**
+```
+[BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-IDLE-START idleCallbackT=314521ms
+[BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-TRAVERSE-DONE totalMeshes=15037 chunks=126
+[BatchCoordinator/P1.3] §TRACE PBR-CHUNK-1 meshes=120 remaining=14917 chunkMs=0.1ms
+...
+[BatchCoordinator/P1.3] §TRACE PBR-CHUNK-22 meshes=120 remaining=12397 chunkMs=0.0ms
+[GPU Monitor] geometries:8527 ...  ← CW geometry appears
+[GPU Monitor] ⚠ Geometry count grew 4585.2% (182 → 8527)  ← CW batch geometry added
+```
+
+**Root cause:** The `CREATE_SLABS_ON_ALL_FLOORS` command ran immediately before `CREATE_CURTAIN_WALLS_ON_ALL_SLABS`. Slab batch does NOT set `skipPbrUpgrade: true`, so its post-batch `requestIdleCallback` traverses ALL 15,037 scene meshes in 126 chunks. The CW batch fires its first render while PBR chunks 1–22 are already queued. The `requestIdleCallback` for PBR chunks fires during the CW batch's PSO LONGTASK window, because the LONGTASK blocks the main thread — and `requestIdleCallback` with no timeout eventually fires after the LONGTASK clears. During those first 22 PBR chunk firings, each chunk adds ~0.1ms to the scheduler backlog. Not the primary LONGTASK cause, but it starves the second batch (CREATE_SLABS_ON_ALL_FLOORS via reconnect, T+9998ms for first rAF drain).
+
+**Fix BN-06 — Add `skipPbrUpgrade: true` to `CREATE_SLABS_ON_ALL_FLOORS`:**
+
+Slab geometry (`MeshStandardMaterial` with explicit `metalness`/`roughness`) does NOT need the PBR upgrade pass for the same reason CW geometry does not. The slab builder already specifies material properties at build time. The PBR upgrade traversal for 21 slabs was producing 15,037 mesh traversals because it scans the **entire scene** including CW geometry added by prior operations.
+
+In `CreateSlabsOnAllFloorsCommand.ts`:
+```typescript
+batchCoordinator.runBatch(_processSlabs, {
+    levelIds: affectedLevelIds,
+    totalElementCount: slabCount,
+    skipRedetectRooms: false,  // slabs CAN define boundaries — keep redetect
+    skipPbrUpgrade: true,      // BN-06: slab materials are pre-specified MeshStandardMaterial
+});
+```
+
+This eliminates the 126-chunk PBR traversal entirely for slab batches. Cost reduction: ~15,037 mesh traversal × 0.1ms/chunk → 0ms.
+
+**Note:** Verify that `SlabFragmentBuilder` materials are `MeshStandardMaterial` with `metalness`/`roughness` set explicitly (not relying on PBR upgrade to set them). If they use `MeshPhongMaterial` or un-configured `MeshStandardMaterial`, this fix must not be applied.
+
+---
+
+### BN-07 — Second Batch Starvation: rAF Drain Delayed 10s by Ongoing PBR Chunks (Medium)
+
+**Evidence from log:**
+```
+[BatchCoordinator] §TRACE _setupBatch — 20 level(s), 20 elements expected.
+  suppressStartT=299718.7ms
+[BatchCoordinator] §TRACE DEFERRED-RESUME-FLUSH fired T=+9998.1ms
+```
+
+**Root cause:** The second `CREATE_SLABS_ON_ALL_FLOORS` batch (replayed via catch-up after reconnect) starts while 126 PBR chunks are still outstanding from the first slab batch. Each `requestIdleCallback` fires between frames. The FrameScheduler's `pre-render` slot competes with PBR chunk callbacks. The `DEFERRED-RESUME-FLUSH` `scheduleOnce('pre-render')` cannot fire until the event loop is free, which doesn't happen until the PBR chunk storm clears ~10 seconds later.
+
+This is a secondary consequence of BN-06. Fixing BN-06 (eliminating slab PBR upgrade) eliminates BN-07 as well: with no 126-chunk PBR traversal running, the second batch's rAF drain fires normally within 1–2 frames.
+
+**Additional guard — detect starvation and warn:**
+
+In `BatchCoordinator.ts`, the `DEFERRED-RESUME-FLUSH` `scheduleOnce` should log a warning if it fires more than 2000ms after being registered:
+
+```typescript
+const _resumeQueuedAt = performance.now();
+this._resumeFlushDispose = getFrameScheduler().scheduleOnce(
+    'batch-coordinator-resume-flush',
+    () => {
+        const delay = performance.now() - _resumeQueuedAt;
+        if (delay > 2000) {
+            console.warn(
+                `[BatchCoordinator] §WARN DEFERRED-RESUME-FLUSH delayed ${delay.toFixed(0)}ms ` +
+                `— main thread was blocked (PBR chunks? PSO compile?). ` +
+                `Check for concurrent requestIdleCallback storm.`
+            );
+        }
+        // ... existing resume logic
+    },
+    'pre-render',
+);
+```
+
+---
+
+### BN-08 — SLOW_BUILD Spike on L-08: Isolated but Warrants Investigation (Low)
+
+**Evidence from log:**
+```
+[CurtainWallBuilder] SLOW_BUILD wallId="05764acb-24df-423d-8e09-6fbf57154198"
+  levelId="L-08-1778029966525-8" elapsed=17.6ms
+[CurtainWallBuilder] §PERF-DRAIN built=24 remaining=162 frameMs=86.8ms nextBudget=23
+```
+
+One wall on L-08 took 17.6ms — approximately 8× the mean (1–2ms/wall). This caused the frame containing it to spike to 86.8ms, triggering the BN-04 batch-mode decrement (>45ms). The budget dropped from 24 to 23 for that frame only, then recovered. No cascade.
+
+**Root cause candidates:**
+1. `panelStore.getByCurtainWallId(cw.id)` — first call for this level may scan full panel store without an index
+2. `CurtainWallInstanceManager.buildInstancedMeshes()` — first call creates `InstancedMesh` objects; subsequent calls for same geometry are cache-hits
+3. `group.children` disposal — if L-08 walls have more children than average (e.g., more panels), disposal loop is proportionally longer
+
+**Recommended investigation:** Add `console.time`/`console.timeEnd` spans inside `build()` bracketing steps 5–9 (cell computation, panel fetch, mesh construction). The 17.6ms outlier should point to which sub-step is slow.
+
+**No code change yet.** SLOW_BUILD is isolated (1 of 315 walls) and the budget decrement self-corrects in 1 frame. Prioritise BN-05, BN-06, BN-07 first.
+
+---
+
+## Pipeline Correctness Audit (vs. 40-CW-PIPELINE-TRACE.md)
+
+The pipeline document is **accurate** for all previously described phases. Specific verifications:
+
+| Claim in doc | Verified in live log? | Verdict |
+|---|---|---|
+| Sync phase <25ms for 294+ walls | 23.9ms for 315 walls | ✅ Confirmed |
+| BN-04 dual-mode thresholds stabilise budget at 20–25 | Budget: 20→21→22→23→24→23 (stable) | ✅ Confirmed |
+| BN-04 no decrement until >45ms | Frame 8 (86.8ms) is the first decrement; all others <45ms | ✅ Confirmed |
+| skipPbrUpgrade=true for CW batch | PBR-UPGRADE-SKIPPED logged | ✅ Confirmed |
+| skipRedetectRooms=true for CW batch | REDETECT_ROOMS SKIPPED for 21 levels | ✅ Confirmed |
+| Shadow setTimeout 30s | SHADOW-REACTIVATION-DISPATCHED, then no shadow logs | ✅ Confirmed |
+| Registration drain sync for ≤50 entries | regQueue=21, sync drain, 5.9ms | ✅ Confirmed |
+| Event drain 2 chunks for 315 events | 200+115 events, 2 chunks | ✅ Confirmed |
+| markLevelsDirty deferred to post-render | §FIX-EDGE-PROJECT-DEFER logged T=+15068ms | ✅ Confirmed |
+| Prewarm validates `_prewarmWallCount × 1.5` scale guard | Scale guard fires correctly for 315 walls | ✅ Confirmed |
+| **Prewarm produces ~300ms compile time** | **Only 11.1ms — FAILURE** | ❌ **BN-05 — not in doc** |
+| **PBR upgrade eliminated for all batches that don't need it** | **Slab batch still runs 15,037 mesh PBR** | ❌ **BN-06 — gap in coverage** |
+| **Second batch fires promptly after first** | **10s delay from PBR chunk storm** | ❌ **BN-07 — derived from BN-06** |
+
+**One architectural gap not previously documented:** The pipeline docs focus exclusively on `CREATE_CURTAIN_WALLS_ON_ALL_SLABS`. The live session shows that `CREATE_SLABS_ON_ALL_FLOORS` runs immediately before it in the user's typical workflow. The slab batch's PBR upgrade tail (126 chunks, 15,037 meshes) overlaps with the CW batch's critical PSO first-render window. This cross-batch interference is not currently addressed in any doc.
+
+---
+
+## Remediation Plan (Priority Order)
+
+### Fix BN-05 — Prewarm Validity Guard (Highest Priority)
+
+**Files:** `CreateCurtainWallsOnAllSlabsCommand.ts`, `initScene.ts` (or `createRenderer.ts`)  
+**Effort:** ~2 hours  
+**Expected gain:** Eliminates 14,175ms PSO LONGTASK → ~50–200ms
+
+Three-part fix:
+1. **Phase check:** abort prewarm if `rpm.status.phase !== 'active'`
+2. **Timing guard:** if prewarm < 30ms, do NOT set `_shadersPrewarmed = true`
+3. **Context-loss hook:** call `__resetCwPrewarm()` inside `webglcontextlost` and WebGPU device-loss handlers
+
+Implementation detail: `window.__resetCwPrewarm` is already exposed as a dev tool. It resets both `_shadersPrewarmed` and `_prewarmWallCount`. It just needs to be called in the recovery paths.
+
+---
+
+### Fix BN-06 — Skip PBR Upgrade for Slab Batches (High Priority)
+
+**File:** `CreateSlabsOnAllFloorsCommand.ts`  
+**Effort:** 15 minutes  
+**Expected gain:** Eliminates 126-chunk / 15,037-mesh PBR traversal; fixes BN-07 as side effect
+
+**Prerequisite check:** Confirm `SlabFragmentBuilder` uses `MeshStandardMaterial` with `metalness` and `roughness` set explicitly. If confirmed, add `skipPbrUpgrade: true` to the `runBatch` call.
+
+---
+
+### Fix BN-07 — Starvation Warning (Low Priority — resolved by BN-06)
+
+**File:** `BatchCoordinator.ts`  
+**Effort:** 30 minutes  
+**Expected gain:** Observability only; actual fix comes from BN-06
+
+Add delay warning to `DEFERRED-RESUME-FLUSH` callback so future regressions surface immediately in logs.
+
+---
+
+## Updated Performance Projection
+
+With BN-05 + BN-06 fixes applied to the 315-wall / 21-slab scenario:
+
+| Phase | Current (session 6) | Post BN-05+06 |
+|-------|---------------------|---------------|
+| Prewarm | 11.1ms (failed) | **~300ms** (valid) |
+| Sync + drain | ~724ms | ~724ms (unchanged) |
+| First render PSO | **14,175ms** | **~100–200ms** (prewarm-warm) |
+| PBR upgrade (slab) | 126 chunks ongoing | **0ms** (skipPbrUpgrade=true) |
+| EdgeProjector | Background, non-blocking | Background, non-blocking |
+| **Total user-visible** | **~15,000ms** | **~1,200ms** |
+
+**This puts the 315-wall / 21-slab scenario well under the 5-second target.** The 1,200ms breakdown: ~300ms prewarm + ~724ms drain + ~200ms PSO first render = ~1,224ms.
+
+For 500-wall / 21-slab (projected): ~300ms prewarm + ~1,100ms drain (500/23×16ms) + ~200ms PSO = ~1,600ms — comfortably under 5s.
+
+For 1,000-wall / 50-slab (projected): ~300ms prewarm + ~2,200ms drain (1000/22×16ms) + ~300ms PSO = ~2,800ms — under 3s target.
+
+---
+
+## Documents to Update
+
+### 40-CW-PIPELINE-TRACE.md
+
+Add Session 6 timeline under "Complete Timeline":
+- Record all 15 drain frames with frame-by-frame budget
+- Mark PREWARM-FAILED (11.1ms) and note this is the BN-05 source
+- Add BN-05/BN-06/BN-07 to Current Bottlenecks table with statuses
+
+Update "Phase 0" section:
+- Add paragraph on prewarm validity guard (`< 30ms → abort, do not set flag`)
+- Add context-loss reset requirement
+
+### 41-BATCH-ERROS.md
+
+Add "Sixth-Pass Analysis" section covering:
+- BN-05 root cause and three-part fix (phase check, timing guard, context-loss hook)
+- BN-06 cross-batch PBR collision and single-line fix
+- BN-07 derived starvation (fixed by BN-06)
+- Updated outcome table showing 315-wall → ~1,200ms
+
+---
+
+## Files to Change (Sixth Pass)
+
+| File | Change | Fix |
+|------|--------|-----|
+| `CreateCurtainWallsOnAllSlabsCommand.ts` | Phase check + timing guard in `_prewarmCurtainWallShaders()` | BN-05a, BN-05b |
+| `initScene.ts` | Call `__resetCwPrewarm()` in `webglcontextlost` handler | BN-05c |
+| `createRenderer.ts` (or wherever device-loss is handled) | Call `__resetCwPrewarm()` in WebGPU device-loss callback | BN-05c |
+| `CreateSlabsOnAllFloorsCommand.ts` | Add `skipPbrUpgrade: true` to `runBatch()` call | BN-06 |
+| `BatchCoordinator.ts` | Add starvation delay warning to `DEFERRED-RESUME-FLUSH` callback | BN-07 |
+
+---
+
+## Architectural Note: Cross-Batch Interference
+
+The live log reveals an architectural gap: consecutive large batches (`SLABS` then `CW`) can interfere through shared global state:
+1. The slab batch's `requestIdleCallback` PBR chunks continue firing during the CW batch
+2. The CW batch's prewarm may execute while a prior batch's `rpm.render(0)` side effects are still settling
+
+The correct architectural invariant is:
+
+> **Each batch's post-batch async work (PBR upgrade, shadow reactivation, PBR chunks) must complete or be explicitly cancelled before a new batch's prewarm is allowed to run.**
+
+This is not currently enforced. The simplest enforcement: check `batchCoordinator.isBatching` from within PBR chunk callbacks and abort the chunk if a new batch has started. Since CW batches set `skipPbrUpgrade: true`, the slab PBR chunks would naturally be the ones to abort. However, the correct long-term fix is BN-06 (skipping the slab PBR traversal entirely), which makes the cancellation moot.

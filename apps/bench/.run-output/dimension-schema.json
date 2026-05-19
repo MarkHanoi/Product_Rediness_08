@@ -1,0 +1,12 @@
+{
+  "bench": "dimension-schema.parse-1000",
+  "sampleCount": 8,
+  "itemsPerBatch": 1000,
+  "p50": 4.779060999999956,
+  "p95": 10.708566000000019,
+  "p99": 10.708566000000019,
+  "budgetMs": 50,
+  "warnMs": 30,
+  "sprint": "S31",
+  "capturedAt": "2026-05-09T23:09:14.059Z"
+}

@@ -1,0 +1,80 @@
+{
+  "id": "F03.2x2-orthogonal",
+  "description": "2 vertical + 2 horizontal axes (2×2 grid)",
+  "grid": {
+    "id": "grid:01HZS000000000000GRDF0300",
+    "type": "grid",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "rotation": 0,
+    "lines": [
+      {
+        "id": "v1",
+        "label": "A",
+        "kind": "linear",
+        "start": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "end": {
+          "x": 0,
+          "y": 0,
+          "z": 8
+        }
+      },
+      {
+        "id": "v2",
+        "label": "B",
+        "kind": "linear",
+        "start": {
+          "x": 5,
+          "y": 0,
+          "z": 0
+        },
+        "end": {
+          "x": 5,
+          "y": 0,
+          "z": 8
+        }
+      },
+      {
+        "id": "h1",
+        "label": "1",
+        "kind": "linear",
+        "start": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "end": {
+          "x": 5,
+          "y": 0,
+          "z": 0
+        }
+      },
+      {
+        "id": "h2",
+        "label": "2",
+        "kind": "linear",
+        "start": {
+          "x": 0,
+          "y": 0,
+          "z": 8
+        },
+        "end": {
+          "x": 5,
+          "y": 0,
+          "z": 8
+        }
+      }
+    ]
+  },
+  "worldY": 0
+}

@@ -1,0 +1,1406 @@
+VM1978 ~:4 [Intervention] Images loaded lazily and replaced with placeholders. Load events are deferred. See https://go.microsoft.com/fwlink/?linkid=2048113
+481Tracking Prevention blocked access to storage for <URL>.
+0b.2-_hqqp_tu.js:72 
+      /////////////////////
+   ///////////////////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////        Curious and driven?
+  ///////////////@@@@@@@///////        Work with us!
+  ///////////////@@@@@@@///////
+  ///////////////@@@@@@@///////        https://join.replit.com/hack.with.us
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+   ///////////////////////////
+      /////////////////////
+      
+0b.2-_hqqp_tu.js:72 Download the Apollo DevTools for a better development experience: https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+0b.2-_hqqp_tu.js:72 [LaunchDarkly] LaunchDarkly client initialized
+ createNativeOauthConnect [object Object]
+ Opening OAuth popup window [object Object]
+ adding message event listener
+6Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'ambient-light-sensor'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'battery'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'execution-while-not-rendered'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'execution-while-out-of-viewport'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'layout-animations'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'legacy-image-formats'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'navigation-override'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'oversized-images'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'publickey-credentials'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'speaker-selection'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'unoptimized-images'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'unsized-media'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'pointer-lock'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Allow attribute will take precedence over 'allowfullscreen'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Allow attribute will take precedence over 'allowpaymentrequest'.
+C @ 0i8wy8tbht2ow.js:2
+056do-2sz0-iy.js:2 Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev') does not match the recipient window's origin ('https://replit.com').
+b @ 056do-2sz0-iy.js:2
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'ambient-light-sensor'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'battery'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'execution-while-not-rendered'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'execution-while-out-of-viewport'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'layout-animations'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'legacy-image-formats'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'navigation-override'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'oversized-images'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'publickey-credentials'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'speaker-selection'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'unoptimized-images'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'unsized-media'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Allow attribute will take precedence over 'allowfullscreen'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Allow attribute will take precedence over 'allowpaymentrequest'.
+6Framing '<URL>' violates the following report-only Content Security Policy directive: "frame-ancestors 'none'". The violation has been logged, but no further action has been taken.
+
+11The Content Security Policy directive 'upgrade-insecure-requests' is ignored when delivered in a report-only policy.
+6Loading the script '<URL>' violates the following Content Security Policy directive: "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The policy is report-only, so the violation has been logged but no further action has been taken.
+0b.2-_hqqp_tu.js:72 Haven't heard from the server in a while, resetting connection...
+(anonymous) @ 0b.2-_hqqp_tu.js:72
+(index):374 Executing inline event handler violates the following Content Security Policy directive 'script-src-attr 'none''. Either the 'unsafe-inline' keyword, a hash ('sha256-...'), or a nonce ('nonce-...') is required to enable inline execution. Note that hashes do not apply to event handlers, style attributes and javascript: navigations unless the 'unsafe-hashes' keyword is present. The policy is report-only, so the violation has been logged but no further action has been taken.
+injected.js:37 [LONGTASK] duration=81.0ms start=23627.3ms
+(anonymous) @ injected.js:37
+injected.js:37 [LONGTASK] duration=481.0ms start=82764.8ms [type=iframe src=https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/]
+(anonymous) @ injected.js:37
+8The Content Security Policy directive 'upgrade-insecure-requests' is ignored when delivered in a report-only policy.
+injected.js:37 [PluginRegistry] C06 §4 (Task 3.1) — 27 plugin tool activators registered with runtime.tools (9 original + 9 tool.ts + 9 command-dispatch bridges = 27 total in PluginRegistry)
+injected.js:37 [DataCommandCenter] Initialized
+injected.js:37 [SaveOrchestrator] Initialised — debounce: 1000 ms
+injected.js:37 [PlatformShell] Initialized — project ID: proj-1778733477037-qxk7v (runtime: composed)
+injected.js:37 [bootPlatform] D.1 — early PlatformShell created (delegates: deferred, post-paint, surface mounted)
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/node_modules/.pnpm/three@0.183.2/node_modules/three/build/three.webgpu.js?v=1131406b:78509 The powerPreference option is currently ignored when calling requestAdapter() on Windows. See https://crbug.com/369219127
+init @ 5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/node_modules/.pnpm/three@0.183.2/node_modules/three/build/three.webgpu.js?v=1131406b:78509
+injected.js:37 [renderer-three] backend: webgpu
+injected.js:37 [RendererPrewarm] webgpu renderer pre-warmed in 611 ms — LONGTASK eliminated from project-open critical path.
+injected.js:37 [PlatformRouter] Opening project: "arh" (proj-1778733514084-j0fr5e8) [new]
+injected.js:37 [FPS] 1fps
+injected.js:37 [AuditStack] Initialized v1.6 — Polymorphic Auditor
+injected.js:37 [WallPerfBench] Ready. Run: await window.__wallPerfBench.run()
+injected.js:37 Initializing Hybrid BIM Configurator...
+injected.js:37 [BriefInputPanel] Initialized
+injected.js:37 [VariantBrowserPanel] Initialized
+injected.js:37 [PortfolioQueryPanel] Initialized
+injected.js:37 [DataWorkbench] PostOccupancy surface deferred to plugins/lifecycle/ (S70 D8); panel slot is empty until the plugin ports it. See ADR-0052 §B.7.
+(anonymous) @ injected.js:37
+injected.js:37 [DataWorkbench] BIM 3.0 Lifecycle Hub initialized
+injected.js:37 [PRYZM] GPU backend detected: webgpu
+injected.js:37 THREE.THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.
+(anonymous) @ injected.js:37
+injected.js:37 [BimWorld] Camera constraints armed: minDist=1 m, maxDist=100 m, maxPolarAngle=π/2−0.1, infinityDolly=false, mode-patch active.
+injected.js:37 🌍 WORLD EXPOSED TO WINDOW SimpleWorld
+injected.js:37 [TopologyLayer] Scene bound — topology ready for queries.
+injected.js:37 [initScene] TopologyLayer ready.
+injected.js:37 [FrustumCullingService] Active — large-model threshold: 500 elements.
+injected.js:37 [initScene] FrustumCullingService ready.
+injected.js:37 [initScene] ViewRenderCache ready.
+injected.js:37 [initScene] UnifiedFrameLoop bridged to FrameCoordinator.
+injected.js:37 [initScene] LevelClipPlaneCache wired — OBC Clipper replaced with renderer-level planes. Plan views are safe.
+injected.js:37 [initScene] StairPlanSymbolRegistry ready — stair traverse replaced with O(k) registry.
+injected.js:37 [initScene] InstancedElementRenderer wired — Phase 7 GPU instancing active.
+injected.js:37 [ViewDependencyTracker] init() — subscribed to StoreEventBus and elementRegistry.onUnregister
+injected.js:37 [initScene] DOC-1.7: EdgeProjectorService façade installed (lazy — real service loads on first projection).
+injected.js:37 [initScene] Task 5.1: WebGL context loss handlers registered.
+all:1  Failed to load resource: the server responded with a status of 401 (Unauthorized)
+injected.js:37 [LONGTASK] duration=451.0ms start=150011.2ms [type=iframe src=https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/]
+(anonymous) @ injected.js:37
+injected.js:37 [LONGTASK] duration=65.0ms start=150463.9ms [type=iframe src=https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/]
+(anonymous) @ injected.js:37
+injected.js:37 [initScene] Phase 5: pre-warmed renderer consumed — 2,401 ms LONGTASK skipped.
+injected.js:37 [initScene] Phase 5 active — PRYZM renderer: webgpu
+injected.js:37 [PascalSceneLighting] Shadow flags set on 1 mesh(es).
+injected.js:37 [PascalSceneLighting] Applied — key: 4, fill: 0.75, rim: 1, ambient: 0.5, shadow.intensity: 0.4, scene.environment → null (HDRI cleared — Pascal has no IBL)
+injected.js:37 [RenderingPipelineCoordinator] Bound to scene + renderer.
+injected.js:37 [initScene] Phase 5 active — skipping HDRI, using standard PBR only.
+injected.js:37 [RenderingPipelineCoordinator] Activating level: "standard"
+injected.js:37 [PBRSceneUpgrader] Applied — meshes: 2 materials: 0 (metal: 0, glass: 0 rough: 0, polished: 0)
+injected.js:37 [ShadowQualityUpgrader] Applied "standard" — map: 512px radius: 1 bias: -0.0001 (1 light(s) upgraded)
+injected.js:37 [RenderingPipelineCoordinator] Level "standard" active.
+injected.js:37 [initScene] RenderingPipelineCoordinator ready.
+injected.js:37 [ViewportCrashGuard] Activated — monitoring viewport render errors.
+injected.js:37 [RenderPipelineManager] WebGPU renderer confirmed. Initialising TSL pipeline...
+injected.js:37 [initScene] Auto-activated quality "standard" (hdri: none) at startup.
+injected.js:37 [RenderPipelineManager] three/tsl loaded.
+injected.js:37 [RenderPipelineManager] Phase: phase2 | WebGPU: true | SSGI: false | TRAA: false
+injected.js:37 [RenderPipelineManager] Phase 2 pipeline active.
+injected.js:37 [ConstraintEngine] 17 rules registered (7 Tier 1, 5 Tier 2 spatial, 5 Tier 2 physics)
+injected.js:37 [RenderPipelineManager] SSGI activated (SSGINode r183 + DenoiseNode).
+injected.js:37 [RenderPipelineManager] §I2 pipeline.usedTimes is not a number (got undefined) — patching to 0 before dispose to prevent device-loss cascade.
+(anonymous) @ injected.js:37
+2injected.js:37 [RenderPipelineManager] Phase: phase3 | WebGPU: true | SSGI: true | TRAA: false
+injected.js:37 [RenderPipelineManager] Outlines activated (selected + hover).
+injected.js:37 [RenderPipelineManager] §I2 pipeline.usedTimes is not a number (got undefined) — patching to 0 before dispose to prevent device-loss cascade.
+(anonymous) @ injected.js:37
+2injected.js:37 [RenderPipelineManager] Phase: phase4 | WebGPU: true | SSGI: true | TRAA: false
+injected.js:37 [initScene] TSL pipeline at Phase 3/4 (SSGI + Outlines). TRAA OFF by default.
+injected.js:37 THREE.THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.
+(anonymous) @ injected.js:37
+injected.js:37 [UnifiedFrameLoop] Started (subscribed to @pryzm/frame-scheduler).
+injected.js:37 [initScene] UnifiedFrameLoop started — single rAF loop active.
+injected.js:37 [initScene] RenderPipelineManager ready.
+injected.js:37 [initScene] EnhancedBloomService deferred — lazy wrappers installed.
+injected.js:37 [initScene] SSGIService deferred — lazy wrappers installed.
+injected.js:37 [RenderPerformanceService] Bound — native DPR: 1.25
+injected.js:37 [RenderPerformanceService] Quality → high | DPR: 1.25 (100% of native 1.25)
+injected.js:37 [initScene] RenderPerformanceService ready.
+injected.js:37 [initScene] SplitViewManager ready.
+injected.js:37 [initScene] Scene subsystem fully initialised.
+injected.js:37 THREE.WebGLShadowMap: PCFSoftShadowMap has been deprecated. Using PCFShadowMap instead.
+(anonymous) @ injected.js:37
+injected.js:37 [initTransformControllers] Gizmo axes recoloured to PRYZM violet palette
+injected.js:37 [initBuilders] Column subsystem initialised
+injected.js:37 [CurtainPanelSyncHandler] Activated — panel store will sync with curtain wall store.
+injected.js:37 [initBuilders] CurtainWall subsystem stores initialised
+injected.js:37 [initBuilders] Slab subsystem initialised
+injected.js:37 [initBuilders] Ceiling subsystem initialised
+injected.js:37 [FloorSlabBindingHandler] Attached slab binding listeners.
+injected.js:37 [initBuilders] Floor finish subsystem initialised
+injected.js:37 [FPS] 30fps
+injected.js:37 [LONGTASK] duration=66.0ms start=151534.0ms [type=iframe src=https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/]
+(anonymous) @ injected.js:37
+injected.js:37 [LONGTASK] duration=206.0ms start=151602.7ms [type=iframe src=https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/]
+(anonymous) @ injected.js:37
+injected.js:37 [initBuilders] Room subsystem initialised
+injected.js:37 [initBuilders] Door/Window singleton stores exposed on window
+injected.js:37 [WallStore] attached to window WallStore
+injected.js:37 [FPS] 1fps
+injected.js:37 [LONGTASK] duration=1102.0ms start=151818.0ms [type=iframe src=https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/]
+(anonymous) @ injected.js:37
+injected.js:37 [initBuilders] Wall + Slab system type stores loaded
+injected.js:37 [initBuilders] Roof subsystem initialised
+injected.js:37 [initBuilders] Plumbing subsystem initialised
+injected.js:37 [initBuilders] Opening subsystem initialised — openingStore injected into slabBuilder
+injected.js:37 [DoorBuilder] activated
+injected.js:37 [WindowBuilder] activated
+injected.js:37 [initBuilders] Door + Window builders activated (with dependency trackers)
+injected.js:37 [initBuilders] Furniture subsystem initialised
+injected.js:37 [initBuilders] Lighting subsystem initialised
+injected.js:37 [initBuilders] Handrail subsystem initialised
+injected.js:37 [initBuilders] Stair subsystem initialised
+injected.js:37 [initBuilders] Beam subsystem initialised
+injected.js:37 [initBuilders] RoomContentsService — all element stores attached
+injected.js:37 [initBuilders] Grid subsystem initialised
+injected.js:37 [initBuilders] RoomBoundingLine subsystem initialised
+injected.js:37 [RoomFinishSyncService] Started — listening for room finish changes.
+injected.js:37 [initBuilders] RoomFinishSyncService started
+injected.js:37 [initBuilders] All builder subsystems fully initialised.
+injected.js:37 [SelectionManager] PickStrategy set: gpu-pick
+injected.js:37 [initTools] PickStrategy resolved: gpu-pick
+injected.js:37 [FloatingObjectCarousel] Mounted (hidden, render loop deferred)
+injected.js:37 [FurnitureDragDropHandler] Attached to canvas
+injected.js:37 [initTools] LightingTool initialised
+injected.js:37 [CurtainWallTool] SnapManager initialised (CurtainWall + Wall providers)
+injected.js:37 [initTools] RoomBoundingLineTool registered on window
+injected.js:37 BeamTool initialized with BeamStore: true
+injected.js:37 [StairTool] Constructed. meshBuilder: true deps: true
+injected.js:37 [UnderlayPersistence] Installed (per-project, v2)
+injected.js:37 [ProjectScopedStorage] Installed — auto-keyed by projectId
+injected.js:37 [ProjectIsolationAudit] Installed — will audit every empty project load
+injected.js:37 [GhostOverlayRenderer] Initialised — listening for pryzm-history-ghost-* events
+injected.js:37 [AnnotationManager] init complete — Phase V hover hints wired
+injected.js:37 [OBCAnnotationAdapter] LinearAnnotations not present in this OBC build — skipping subscribe.
+injected.js:37 [OBCAnnotationAdapter] AngleAnnotations not present in this OBC build — skipping subscribe.
+injected.js:37 [OBCAnnotationAdapter] SlopeAnnotations not present in this OBC build — skipping subscribe.
+injected.js:37 [OBCAnnotationAdapter] DOC-2.1: subscribed to OBC annotation system events
+injected.js:37 [initTools] DOC-2.2: DrawingEditor initialised; OBCAnnotationAdapter wired
+injected.js:37 [initTools] All BIM tools initialised and registered with ToolManager
+injected.js:37 [LONGTASK] duration=151.0ms start=152976.3ms [type=iframe src=https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/]
+(anonymous) @ injected.js:37
+injected.js:37 [EngineBootstrap] §ROOF-AUDIT §5.4: RoofSlopeSymbolBuilder wired.
+injected.js:37 [WallFragmentBuilder] WallInstanceBridge injected — simple walls will use GPU instancing.
+injected.js:37 [EngineBootstrap] §PHASE-3: WallInstanceBridge connected.
+injected.js:37 [initBatchLifecycle] BatchLoadingIndicator wired (§FIX-BATCH-RENDER-SUPPRESS + §L1-BATCH-PERF-MODE).
+injected.js:37 [initBusHandlers] §P0-A39: rooms.redetect registration failed (non-fatal): handler already registered: rooms.redetect
+(anonymous) @ injected.js:37
+injected.js:37 [initBusHandlers] §P2-A39: curtain-wall.create-on-all-slabs registered.
+injected.js:37 [initBusHandlers] §A40-W03: wall.create-on-all-slabs registered.
+injected.js:37 [initBusHandlers] §A40-W03: slab.create-on-all-floors registered.
+injected.js:37 [initBusHandlers] level.duplicate-floor-plan registered.
+injected.js:37 [initBusHandlers] §A40-W04: column.batch.create failed (non-fatal): handler already registered: column.batch.create
+(anonymous) @ injected.js:37
+injected.js:37 [initBusHandlers] §A40-W04: beam.batch.create failed (non-fatal): handler already registered: beam.batch.create
+(anonymous) @ injected.js:37
+injected.js:37 [initBusHandlers] §A40-W04: door.batch.create failed (non-fatal): handler already registered: door.batch.create
+(anonymous) @ injected.js:37
+injected.js:37 [initBusHandlers] §A40-W04: window.batch.create failed (non-fatal): handler already registered: window.batch.create
+(anonymous) @ injected.js:37
+injected.js:37 [initBusHandlers] §A40-W04: ceiling.batch.create failed (non-fatal): handler already registered: ceiling.batch.create
+(anonymous) @ injected.js:37
+injected.js:37 [initBusHandlers] §A40-W04: stair.batch.create failed (non-fatal): handler already registered: stair.batch.create
+(anonymous) @ injected.js:37
+injected.js:37 [BatchCoordinator] §II-2 registerBuilderControls() — wall=true cw=false slab=true
+injected.js:37 [initStores] StoreRegistry: 33 stores registered — visibility-intent, view-intent-instance, vg-governance, view, phase-filter, RoomRequirement, title-block, schedule, sheet, view-template, AssetCatalogEntry, wall, slab, column, beam, stair, stair-landing, stair-railing, stair-type, curtainwall, curtain-panel, door, window, roof, plumbing, furniture, handrail, opening, grid, room, ceiling, floor, annotation
+injected.js:37 [initDataPlatform] ElementCode auto-assignment wired to StoreEventBus
+injected.js:37 [SyncStateEngine] Started — subscribed to StoreEventBus
+injected.js:37 [initDataPlatform] SyncStateEngine started (paused until project load)
+injected.js:37 [initDataPlatform] RoomColourSystem.setSyncStateEngine wired
+injected.js:37 [DependencyResolver] Initialised — Phase F active: cascade rebuilds enabled
+injected.js:37 [initDataPlatform] DependencyResolver initialised — semantic graph monitoring active
+injected.js:37 [TemporalGraph] Initialised. sessionId=161e2275-f79f-4758-b080-86456d543504. Auto-recording element mutations via StoreEventBus.
+injected.js:37 [initDataPlatform] TemporalGraph initialised — sessionId=161e2275-f79f-4758-b080-86456d543504
+injected.js:37 [initDataPlatform] Data Platform stores + SemanticGraph + TemporalGraph + ConstraintEngine + DecisionRecordStore + PhysicsEngine exposed on window
+injected.js:37 [initDataPlatform] G-0.3: SelectionBus exposed on window
+injected.js:37 [initDataPlatform] ConstraintEngine auto-run wired to StoreEventBus (800ms debounce, load-quiet window)
+injected.js:37 [initDataPlatform] G-3: IntentPrompt wired to pryzm-constraints-updated
+injected.js:37 [PhysicsEngine] Initialised — FrameScheduler-batched queue active
+injected.js:37 [initDataPlatform] H-1: PhysicsEngine RAF-queue started
+injected.js:37 [PhysicsOverlayRenderer] Initialised
+injected.js:37 [initDataPlatform] H-2: PhysicsOverlayRenderer initialised
+injected.js:37 [TemplateStore] Seeded 15 built-in templates
+injected.js:37 [initDataPlatform] G-0.1: BuiltinTemplates seeded into TemplateStore
+injected.js:37 [initDataPlatform] G-0.3: SelectionBus subscribed to pryzm-element-selected
+injected.js:37 [initDataPlatform] H-1: PhysicsEngine room-create/update wiring active
+injected.js:37 [initDataPlatform] K-1: VoiceCommandIndicator mounted
+injected.js:37 [ConsequencePreviewOverlay] Initialised
+injected.js:37 [initDataPlatform] K-2: ConsequencePreviewOverlay initialised
+injected.js:37 [AmbientIndicator] Initialised
+injected.js:37 [initDataPlatform] K-3: AmbientIndicator mounted
+injected.js:37 [initDataPlatform] K-3: AmbientIntelligence wired to constraints + StoreEventBus
+injected.js:37 [initDataPlatform] Data Platform subsystem fully initialised.
+injected.js:37 [main] VG Governance Layer initialized
+injected.js:37 [main] View Range Filter Service initialized
+injected.js:37 [main] Crop Region Filter Service initialized
+injected.js:37 [main] Underlay Render Service initialized
+injected.js:37 [main] View Range Zone Applicator initialized
+injected.js:37 [main] Semantic Index initialized
+injected.js:37 [main] IFC Pset Adapter initialized (DOC-5.4)
+injected.js:37 [main] ViewDefinition Store initialized
+injected.js:37 [main] Visibility Intent stores initialized (panel lazy — loads on first use)
+injected.js:37 [DefaultViewsManager] Created default 3D view (id=vd-sys-3d-1)
+injected.js:37 [DefaultViewsManager] Created default Ground Floor plan view (id=vd-sys-plan-l0)
+injected.js:37 [DefaultViewsManager] Initialized — default views are guaranteed on every project.
+injected.js:37 [main] Visibility Rule Engine initialized
+injected.js:37 [main] Sheet Store initialized
+injected.js:37 [main] TitleBlock Store initialized (A0, A1, A3 templates seeded)
+injected.js:37 [main] Sheet Editor Panel registered (lazy — loads on first use)
+injected.js:37 [main] Sheet Export Service initialized
+injected.js:37 [DxfExportService] Initialised
+injected.js:37 [main] DXF Export Service initialized
+injected.js:37 [main] PDF Export Service registered (lazy — loads on first use)
+injected.js:37 [main] Sheet Index Service initialized (Drawing Register ready)
+injected.js:37 [main] Schedule Store initialized and default schedules seeded
+injected.js:37 [main] View Template Store initialized
+injected.js:37 [main] Phase Filter Store initialized (built-ins seeded)
+injected.js:37 [main] FastPathProjectorService initialized (sub-50ms interactive projection)
+injected.js:37 [initUI] ImportManagerPanel mounted
+injected.js:37 [CurtainWall] Store→Builder event wiring established
+injected.js:37 [CurtainWall] PanelStore→Builder event wiring established (§MI-02)
+injected.js:37 [ContextualEditBar] Initialized
+injected.js:37 [ContextualEditBar] Operation tools injected
+injected.js:37 [initUI] ShortcutCheatSheet installed (press ? to view all shortcuts)
+injected.js:37 [initUI] Split View toggle button mounted
+injected.js:37 [BatchCoordinator] §II-2 registerBuilderControls() — wall=true cw=true slab=true
+injected.js:37 [EngineBootstrap] §FIX-CW-CTRL-REREGISTER: cw=true
+injected.js:37 [LevelExplodeController] Initialized
+injected.js:37 [InspectModeCoordinator] Initialized
+injected.js:37 [PlatformShell] D.1 — real save/load delegates injected (engine ready)
+injected.js:37 [initPersistence] D.1 — real delegates injected into early PlatformShell
+injected.js:37 [initPersistence] runtime.stores hydrator registered
+injected.js:37 [initCollaboration] Collaboration subsystem initialised — waiting for pryzm-project-loaded
+injected.js:37 [LONGTASK] duration=97.0ms start=153484.8ms [type=iframe src=https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/]
+(anonymous) @ injected.js:37
+injected.js:37 [AICreatePanel] Initializing panel, going to step 1
+injected.js:37 [AICreatePanel] Transitioning to step 1
+injected.js:37 [AICreatePanel] Step 1: display=flex
+injected.js:37 [AICreatePanel] Step 2: display=none
+injected.js:37 [AICreatePanel] Step 3: display=none
+injected.js:37 [AICreatePanel] Step 4: display=none
+injected.js:37 [AICreatePanel] All steps found and updated successfully
+injected.js:37 [AICreatePanel] Attaching file input change listener
+injected.js:37 [AICreatePanel] Attaching all event listeners
+injected.js:37 [AICreatePanel] Attaching all event listeners...
+injected.js:37 [AICreatePanel] ✓ Step 2 Next button listener attached
+injected.js:37 [AICreatePanel] ✓ Step 2 Back button listener attached
+injected.js:37 [AICreatePanel] ✓ Step 3 Generate button listener attached
+injected.js:37 [AICreatePanel] ✓ Step 3 Back button listener attached
+injected.js:37 [AICreatePanel] ✓ Step 4 Open AI Actions button listener attached
+injected.js:37 [AICreatePanel] ✓ Step 4 Create Another button listener attached
+injected.js:37 [AICreatePanel] ✓ Prompt input keydown listener attached
+injected.js:37 [AICreatePanel] All event listeners attached successfully
+injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+injected.js:37 [LONGTASK] duration=57.0ms start=153847.1ms [type=iframe src=https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/]
+(anonymous) @ injected.js:37
+injected.js:37 [FPS] 25fps
+injected.js:37 [PlatformShell] Project context set: proj-1778733514084-j0fr5e8 arh
+injected.js:37 [initScene] pryzm-project-switch received — project: proj-1778733514084-j0fr5e8
+injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+injected.js:37 [ViewController] clearCameraStateStore — per-view camera state cleared for new project
+injected.js:37 [UnderlayPersistence] Project switch — saves suspended
+injected.js:37 [ProjectLifecycleController] C13 project-switch: cold-boot → (unknown)
+injected.js:37 [BatchCoordinator] C13 forceReset() — all batch state cleared for project switch
+injected.js:37 [WallRebuildCoordinator] C13 resetWallRebuildState() — wall pipeline clean for project switch
+injected.js:37 [ProjectLifecycleController] C13 teardown complete — Project B context loading
+injected.js:37 [PlatformShell] New project — clearing scene immediately (no server check)
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+ProjectLoader.ts:155 [ProjectLoader] Loading "arh" (0 elements)
+injected.js:37 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+injected.js:37 [ProjectLoader] Element-creation path: ImportProjectCommand (Phase 1)
+ClearProjectCommand.ts:40 [ClearProjectCommand] Clearing all project data
+injected.js:37   Removing 0 curtain panels
+injected.js:37   Removing 0 openings
+injected.js:37   Removing 0 walls
+injected.js:37   Removing 0 curtain walls
+injected.js:37   Removing 0 slabs
+injected.js:37   Removing 0 ceilings
+injected.js:37   Removing 0 columns
+injected.js:37   Removing 0 beams
+injected.js:37   Removing 0 stairs
+injected.js:37   Removing 0 roofs
+injected.js:37   Removing 0 furniture items
+injected.js:37   Removing 0 handrails
+injected.js:37   Removing 0 plumbing fixtures
+injected.js:37   Removing 0 rooms
+injected.js:37   Removing 0 room bounding lines
+injected.js:37   Removing 0 grids
+injected.js:37   Removing 1 levels
+injected.js:37 [BimManager] Cannot delete the default Ground level.
+(anonymous) @ injected.js:37
+injected.js:37 [ClearProjectCommand] Annotation store cleared
+injected.js:37   Cleared 0 floors
+injected.js:37 [DefaultViewsManager] Created default 3D view (id=vd-sys-3d-1)
+injected.js:37 [DefaultViewsManager] Created default Ground Floor plan view (id=vd-sys-plan-l0)
+injected.js:37 [TemporalGraph] Cleared (project switch).
+injected.js:37 [RoomGraphService] All graphs invalidated
+injected.js:37 [UnderlayPersistence] Clear skipped — no current project bound
+injected.js:37 [ViewRenderCache] All render targets disposed.
+injected.js:37 [ClearProjectCommand] ProjectScopeRegistry cleared 47 scopes: Array(47)
+injected.js:37 [ClearProjectCommand] activeLevelId reset to L0 (project-scoped state cleared).
+injected.js:37 [ProjectIsolation] WallFragmentBuilder disposed — scene cleared of wall geometry.
+injected.js:37 [RoomGraphService] All graphs invalidated
+injected.js:37 [TemporalGraph] Cleared (project switch).
+injected.js:37 [ClearProjectCommand] Clear complete
+injected.js:37 [ImportProjectCommand] Loading 0 levels
+injected.js:37 [ImportProjectCommand] Loading 0 grids
+injected.js:37 [ImportProjectCommand] Loading 0 columns
+injected.js:37 [ImportProjectCommand] Loading 0 walls
+injected.js:37 [ImportProjectCommand] Loading 0 slabs
+injected.js:37 [ImportProjectCommand] Loading 0 stairs
+injected.js:37 [ImportProjectCommand] Loading 0 furniture items
+injected.js:37 [ImportProjectCommand] Loading 0 roofs
+injected.js:37 [ImportProjectCommand] Loading 0 handrails
+injected.js:37 [ImportProjectCommand] Loading 0 plumbing fixtures
+injected.js:37 [ImportProjectCommand] Loading 0 curtain walls
+injected.js:37 [ImportProjectCommand] Loading 0 beams
+injected.js:37 [ProjectLoader] VG Governance state restored from snapshot
+injected.js:37 [ProjectLoader] ViewDefinition store restored from snapshot
+injected.js:37 [ProjectLoader] Visibility rule engine restored from snapshot
+injected.js:37 [VGToIntentMigration] Starting VG → Intent migration…
+injected.js:37 [VGToIntentMigration] Complete — 0 intents, 0 views, 0 overrides migrated.
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [initDataPlatform] DataWorkbench toolbar button + physics overlay dropdown injected
+injected.js:37 [ProjectLoader] Sheet store restored from snapshot
+injected.js:37 [ProjectLoader] Schedule store restored from snapshot
+injected.js:37 [ProjectLoader] SemanticGraph cleared (v1/v2 snapshot — no graph data)
+injected.js:37 [TemporalGraph] Cleared (project switch).
+injected.js:37 [ProjectLoader] TemporalGraph cleared (pre-v4 snapshot — no temporal data)
+injected.js:37 [ProjectLoader] DecisionRecordStore cleared (pre-v4 snapshot — no decision data)
+injected.js:37 [ProjectLoader] RequirementStore cleared (no requirement data in snapshot)
+injected.js:37 [AssetCatalogStore] setDirect(): restored 21 entries
+injected.js:37 [ProjectLoader] AssetCatalogStore seeded from defaults
+injected.js:37 [ProjectLoader] Annotation store cleared (no annotation data in snapshot)
+injected.js:37 [IntentStylePrewarmer] Pre-warmed 1224 style slots in 5.30ms
+injected.js:37 [ProjectLoader] AnnotationDependencyGraph rebuilt after restore
+injected.js:37 [ProjectLoader] Load complete: 0 loaded, 0 failed, 0 errors
+injected.js:37 [StoreEventBus] endBatch() — flushed 36 buffered event(s) in emission order (no coalescing — all events delivered).
+injected.js:37 [ProjectLoader] PHASE_TIMINGS total=261.4ms setup=0.0ms hydrate=0.0ms event_flush=0.0ms wall_rebuild_flush=0.0ms redetect_sweep=0.0ms [walls=0 slabs=0 levels=0 curtainWalls=0]
+injected.js:37 [ProjectSerializer] Snapshot created: 0 elements, 1 levels, 0 walls, 0 slabs, 0 furniture
+injected.js:37 [PlatformShell] New project ready — firing pryzm-project-loaded(empty:true)
+injected.js:37 [FrustumCullingService] pryzm-project-loaded(empty) — audit skipped, no geometry
+injected.js:37 [initScene] pryzm-project-loaded — empty project (no geometry)
+injected.js:37 [TemplateStore] Seeded 15 built-in templates
+injected.js:37 [initCollaboration] Project opened — collaboration active for proj-1778733514084-j0fr5e8
+injected.js:37 [EngineBootstrap] pryzm-project-loaded(empty) — skipping zoomToAll
+injected.js:37 [ProjectIsolationAudit] ✓ project proj-1778733514084-j0fr5e8 loaded clean — no leftover state
+injected.js:37 [AIAreaLayout] AI panel drag + resize wired. width=256px left=0px
+injected.js:37 [DefaultViewsManager] Created default 3D view (id=vd-sys-3d-1)
+injected.js:37 [DefaultViewsManager] Created default Ground Floor plan view (id=vd-sys-plan-l0)
+injected.js:37 [LONGTASK] duration=65.0ms start=154354.8ms [type=iframe src=https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/]
+(anonymous) @ 5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37
+injected.js:37 [VoiceCommandIndicator] Mounted (speechAPI=true)
+injected.js:37 [RenderPipelineManager] onProjectLoaded (debounced) — re-activating outlines.
+injected.js:37 [RenderPipelineManager] Outlines activated (selected + hover).
+injected.js:37 [RenderPipelineManager] §I2 pipeline.usedTimes is not a number (got undefined) — patching to 0 before dispose to prevent device-loss cascade.
+(anonymous) @ 5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37
+2injected.js:37 [RenderPipelineManager] Phase: phase4 | WebGPU: true | SSGI: true | TRAA: false
+injected.js:37 [LONGTASK] duration=132.0ms start=154587.0ms [type=iframe src=https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/]
+(anonymous) @ 5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37
+injected.js:37 [FPS] 28fps
+injected.js:37 [HomeView] Default viewpoint captured: Object Object
+injected.js:37 [SplitViewManager] Canvas2D context ready
+injected.js:37 [SvpPlanToolOverlay] Attached with snap service. viewId: vd-sys-plan-l0
+injected.js:37 [SplitViewManager] Split view activated (Canvas2D plan mode)
+injected.js:37 [initScene] Split view auto-opened on project load (idle)
+injected.js:37 [initDataPlatform] H-1: Physics compute enqueued for all rooms after project load (idle)
+injected.js:37 [initCollaboration] Socket connected — joining project room: proj-1778733514084-j0fr5e8
+injected.js:37 [initCollaboration] Catch-up: first connect — setting baseline timestamp
+injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+injected.js:37 [HomeView] Default viewpoint captured: Object Object
+injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+injected.js:37 [PlatformCollabPill] Socket connected — joining project room: proj-1778733514084-j0fr5e8
+injected.js:37 [initCollaboration] Collaborator joined: user-1778733511051-vowtlll Mirand Rui
+injected.js:37 [FPS] 6fps
+injected.js:37 [LONGTASK] duration=150.0ms start=158656.8ms [type=iframe src=https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/]
+(anonymous) @ 5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37
+injected.js:37 [FPS] 55fps
+
+stallwart.build.js:1 stallwart: failed ping 1
+injected.js:37 [FPS] 5fps
+injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+injected.js:37 [GPU Monitor] geometries:1 textures:5 | drawCalls:0 tris:0
+injected.js:37 [LONGTASK] duration=50.0ms start=165813.6ms [type=iframe src=https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/]
+(anonymous) @ 5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37
+(anonymous) @ 5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/src/main.ts:28
+injected.js:37 [LONGTASK] duration=96.0ms start=165987.8ms [type=iframe src=https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/]
+(anonymous) @ 5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37
+(anonymous) @ 5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/src/main.ts:28
+injected.js:37 [LONGTASK] duration=117.0ms start=166230.0ms
+(anonymous) @ 5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37
+(anonymous) @ 5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/src/main.ts:28
+injected.js:37 [FPS] 4fps
+injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+injected.js:37 [LONGTASK] duration=303.0ms start=166722.1ms
+(anonymous) @ 5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37
+(anonymous) @ 5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/src/main.ts:28
+stallwart.build.js:1 stallwart: failed ping 1
+stallwart.build.js:1 stallwart: failed ping 2
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37 [GPU Monitor] geometries:1 textures:5 | drawCalls:1 tris:1
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37 [FPS] 2fps
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37 [LONGTASK] duration=207.0ms start=175533.5ms [type=iframe src=https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/]
+(anonymous) @ 5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37
+(anonymous) @ 5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/src/main.ts:28
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37 [FPS] 45fps
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37 [LONGTASK] duration=268.0ms start=177161.4ms [type=iframe src=https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/]
+(anonymous) @ 5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37
+(anonymous) @ 5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/src/main.ts:28
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37 [FPS] 9fps
+25bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37 [GPU Monitor] geometries:1 textures:5 | drawCalls:0 tris:0
+25bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37 [FPS] 30fps
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37 [LONGTASK] duration=169.0ms start=198049.3ms
+(anonymous) @ 5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37
+(anonymous) @ 5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/src/main.ts:28
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37 [FPS] 30fps
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37 [LONGTASK] duration=64.0ms start=198776.7ms [type=iframe src=https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/]
+(anonymous) @ 5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37
+(anonymous) @ 5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/src/main.ts:28
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37 [LONGTASK] duration=193.0ms start=199086.3ms
+(anonymous) @ 5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37
+(anonymous) @ 5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/src/main.ts:28
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37 [LONGTASK] duration=180.0ms start=199442.7ms
+(anonymous) @ 5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37
+(anonymous) @ 5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/src/main.ts:28
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37 [FPS] 18fps
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37 [initCollaboration] Socket disconnected: io client disconnect
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37 [initCollaboration] Returned to hub — collaboration suspended
+55bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37 [GPU Monitor] geometries:1 textures:5 | drawCalls:0 tris:0
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37 [PlatformCollabPill] Socket disconnected: transport close
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/static/devtools/injected.js:37 [vite] server connection lost. Polling for restart...
+056do-2sz0-iy.js:2 Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev') does not match the recipient window's origin ('https://replit.com').
+b @ 056do-2sz0-iy.js:2
+e @ 12-8d991jy7rb.js:13
+(anonymous) @ 12-8d991jy7rb.js:13
+uI @ 0i8wy8tbht2ow.js:2
+oU @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+oI @ 0i8wy8tbht2ow.js:2
+o_ @ 0i8wy8tbht2ow.js:2
+r8 @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+oI @ 0i8wy8tbht2ow.js:2
+oS @ 0i8wy8tbht2ow.js:2
+E @ 0i8wy8tbht2ow.js:2
+L @ 0i8wy8tbht2ow.js:2
+postMessage
+o @ 0i8wy8tbht2ow.js:2
+L @ 0i8wy8tbht2ow.js:2
+postMessage
+o @ 0i8wy8tbht2ow.js:2
+L @ 0i8wy8tbht2ow.js:2
+postMessage
+o @ 0i8wy8tbht2ow.js:2
+R @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+ow @ 0i8wy8tbht2ow.js:2
+ok @ 0i8wy8tbht2ow.js:2
+aQ @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0k4cx1trib.8o.js:26
+o @ 07t--1uzqnmd~.js:2
+update @ 07t--1uzqnmd~.js:2
+_ @ 0l~ozg92~x0_2.js:2
+(anonymous) @ 0l~ozg92~x0_2.js:2
+push.e.864.o.emit @ 08vbxisnp9hms.js:10
+(anonymous) @ 08vbxisnp9hms.js:10
+(anonymous) @ 0vlt5jkszeo1x.js:2
+handleCommand @ 0vlt5jkszeo1x.js:2
+onSocketMessage @ 0vlt5jkszeo1x.js:2
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'ambient-light-sensor'.
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'battery'.
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'execution-while-not-rendered'.
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'execution-while-out-of-viewport'.
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'layout-animations'.
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'legacy-image-formats'.
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'navigation-override'.
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'oversized-images'.
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'publickey-credentials'.
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'speaker-selection'.
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'unoptimized-images'.
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'unsized-media'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Allow attribute will take precedence over 'allowfullscreen'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Allow attribute will take precedence over 'allowpaymentrequest'.
+injected.js:37 [vite] server connection lost. Polling for restart...
+5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/node_modules/.vite/deps/@thatopen_components.js?v=790595ca:13  GET https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/node_modules/.pnpm/three@0.183.2/node_modules/three/build/three.webgpu.js?v=790595ca net::ERR_ABORTED 502 (Bad Gateway)
+056do-2sz0-iy.js:2 Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev') does not match the recipient window's origin ('https://replit.com').
+b @ 056do-2sz0-iy.js:2
+e @ 12-8d991jy7rb.js:13
+(anonymous) @ 12-8d991jy7rb.js:13
+uI @ 0i8wy8tbht2ow.js:2
+oU @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+oI @ 0i8wy8tbht2ow.js:2
+o_ @ 0i8wy8tbht2ow.js:2
+r8 @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+oI @ 0i8wy8tbht2ow.js:2
+oS @ 0i8wy8tbht2ow.js:2
+E @ 0i8wy8tbht2ow.js:2
+L @ 0i8wy8tbht2ow.js:2
+postMessage
+o @ 0i8wy8tbht2ow.js:2
+L @ 0i8wy8tbht2ow.js:2
+postMessage
+o @ 0i8wy8tbht2ow.js:2
+L @ 0i8wy8tbht2ow.js:2
+postMessage
+o @ 0i8wy8tbht2ow.js:2
+R @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+ow @ 0i8wy8tbht2ow.js:2
+ok @ 0i8wy8tbht2ow.js:2
+aQ @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0k4cx1trib.8o.js:26
+o @ 07t--1uzqnmd~.js:2
+update @ 07t--1uzqnmd~.js:2
+_ @ 0l~ozg92~x0_2.js:2
+(anonymous) @ 0l~ozg92~x0_2.js:2
+push.e.864.o.emit @ 08vbxisnp9hms.js:10
+(anonymous) @ 08vbxisnp9hms.js:10
+(anonymous) @ 0vlt5jkszeo1x.js:2
+handleCommand @ 0vlt5jkszeo1x.js:2
+onSocketMessage @ 0vlt5jkszeo1x.js:2
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'ambient-light-sensor'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'battery'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'execution-while-not-rendered'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'execution-while-out-of-viewport'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'layout-animations'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'legacy-image-formats'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'navigation-override'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'oversized-images'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'publickey-credentials'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'speaker-selection'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'unoptimized-images'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'unsized-media'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Allow attribute will take precedence over 'allowfullscreen'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Allow attribute will take precedence over 'allowpaymentrequest'.
+(index):374 Executing inline event handler violates the following Content Security Policy directive 'script-src-attr 'none''. Either the 'unsafe-inline' keyword, a hash ('sha256-...'), or a nonce ('nonce-...') is required to enable inline execution. Note that hashes do not apply to event handlers, style attributes and javascript: navigations unless the 'unsafe-hashes' keyword is present. The policy is report-only, so the violation has been logged but no further action has been taken.
+injected.js:37 [LONGTASK] duration=1546.0ms start=46155.1ms [type=iframe src=https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [LONGTASK] duration=296.0ms start=47701.6ms
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [LONGTASK] duration=416.0ms start=47998.1ms [type=iframe src=https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [LONGTASK] duration=159.0ms start=53787.0ms [type=iframe src=https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [PluginRegistry] C06 §4 (Task 3.1) — 27 plugin tool activators registered with runtime.tools (9 original + 9 tool.ts + 9 command-dispatch bridges = 27 total in PluginRegistry)
+injected.js:37 [LONGTASK] duration=54.0ms start=63473.9ms
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [DataCommandCenter] Initialized
+injected.js:37 [SaveOrchestrator] Initialised — debounce: 1000 ms
+injected.js:37 [PlatformShell] Initialized — project ID: proj-1778733716683-ypmfs (runtime: composed)
+injected.js:37 [bootPlatform] D.1 — early PlatformShell created (delegates: deferred, post-paint, surface mounted)
+WebGPURendererAdapter.ts:150 The powerPreference option is currently ignored when calling requestAdapter() on Windows. See https://crbug.com/369219127
+init @ three.webgpu.js:78509
+await in init
+(anonymous) @ three.webgpu.js:57515
+init @ three.webgpu.js:57509
+(anonymous) @ WebGPURendererAdapter.ts:150
+await in (anonymous)
+(anonymous) @ RendererHandleFactory.ts:67
+(anonymous) @ createRenderer.ts:92
+(anonymous) @ rendererPrewarm.ts:79
+(anonymous) @ main.ts:503
+Promise.then
+(anonymous) @ main.ts:502
+await in (anonymous)
+bootPlatform @ main.ts:505
+await in bootPlatform
+(anonymous) @ main.ts:551
+(anonymous) @ main.ts:566
+injected.js:37 [renderer-three] backend: webgpu
+injected.js:37 [RendererPrewarm] webgpu renderer pre-warmed in 690 ms — LONGTASK eliminated from project-open critical path.
+injected.js:37 [PlatformRouter] Opening project: "ALS" (proj-1778733740270-km4oljl) [new]
+injected.js:37 [FPS] 1fps
+injected.js:37 [AuditStack] Initialized v1.6 — Polymorphic Auditor
+injected.js:37 [WallPerfBench] Ready. Run: await window.__wallPerfBench.run()
+injected.js:37 Initializing Hybrid BIM Configurator...
+injected.js:37 [BriefInputPanel] Initialized
+injected.js:37 [VariantBrowserPanel] Initialized
+injected.js:37 [PortfolioQueryPanel] Initialized
+injected.js:37 [DataWorkbench] PostOccupancy surface deferred to plugins/lifecycle/ (S70 D8); panel slot is empty until the plugin ports it. See ADR-0052 §B.7.
+(anonymous) @ injected.js:37
+(anonymous) @ LifecycleBucket.ts:26
+(anonymous) @ DataWorkbench.ts:418
+(anonymous) @ DataWorkbench.ts:291
+(anonymous) @ DataWorkbench.ts:234
+(anonymous) @ engineLauncher.ts:96
+startEngine @ main.ts:172
+await in startEngine
+(anonymous) @ main.ts:244
+await in (anonymous)
+(anonymous) @ main.ts:340
+(anonymous) @ buildPersistence.ts:231
+(anonymous) @ buildPersistence.ts:269
+(anonymous) @ PlatformRouter.ts:422
+(anonymous) @ PlatformRouter.ts:375
+(anonymous) @ PlatformRouter.ts:289
+(anonymous) @ ProjectHub.ts:1110
+(anonymous) @ ProjectHub.ts:1091
+await in (anonymous)
+(anonymous) @ ProjectHub.ts:1019
+(anonymous) @ ProjectHub.ts:407
+injected.js:37 [DataWorkbench] BIM 3.0 Lifecycle Hub initialized
+injected.js:37 [PRYZM] GPU backend detected: webgpu
+injected.js:37 THREE.THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.
+(anonymous) @ injected.js:37
+warn @ three.core.js:2001
+constructor @ three.core.js:55734
+constructor @ index.mjs:12717
+(anonymous) @ BimWorld.ts:8
+(anonymous) @ initScene.ts:166
+(anonymous) @ engineLauncher.ts:106
+startEngine @ main.ts:172
+await in startEngine
+(anonymous) @ main.ts:244
+await in (anonymous)
+(anonymous) @ main.ts:340
+(anonymous) @ buildPersistence.ts:231
+(anonymous) @ buildPersistence.ts:269
+(anonymous) @ PlatformRouter.ts:422
+(anonymous) @ PlatformRouter.ts:375
+(anonymous) @ PlatformRouter.ts:289
+(anonymous) @ ProjectHub.ts:1110
+(anonymous) @ ProjectHub.ts:1091
+await in (anonymous)
+(anonymous) @ ProjectHub.ts:1019
+(anonymous) @ ProjectHub.ts:407
+injected.js:37 [BimWorld] Camera constraints armed: minDist=1 m, maxDist=100 m, maxPolarAngle=π/2−0.1, infinityDolly=false, mode-patch active.
+injected.js:37 🌍 WORLD EXPOSED TO WINDOW SimpleWorld {isDisposeable: ƒ, isResizeable: ƒ, isUpdateable: ƒ, isHideable: ƒ, isConfigurable: ƒ, …}
+injected.js:37 [TopologyLayer] Scene bound — topology ready for queries.
+injected.js:37 [initScene] TopologyLayer ready.
+injected.js:37 [FrustumCullingService] Active — large-model threshold: 500 elements.
+injected.js:37 [initScene] FrustumCullingService ready.
+injected.js:37 [initScene] ViewRenderCache ready.
+injected.js:37 [initScene] UnifiedFrameLoop bridged to FrameCoordinator.
+injected.js:37 [initScene] LevelClipPlaneCache wired — OBC Clipper replaced with renderer-level planes. Plan views are safe.
+injected.js:37 [initScene] StairPlanSymbolRegistry ready — stair traverse replaced with O(k) registry.
+injected.js:37 [initScene] InstancedElementRenderer wired — Phase 7 GPU instancing active.
+injected.js:37 [ViewDependencyTracker] init() — subscribed to StoreEventBus and elementRegistry.onUnregister
+injected.js:37 [initScene] DOC-1.7: EdgeProjectorService façade installed (lazy — real service loads on first projection).
+injected.js:37 [initScene] Task 5.1: WebGL context loss handlers registered.
+injected.js:214  GET https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/api/v1/portfolio/benchmarks/all 401 (Unauthorized)
+apply @ injected.js:214
+(anonymous) @ PortfolioSemanticGraph.ts:97
+(anonymous) @ PortfolioQueryPanel.ts:373
+(anonymous) @ PortfolioQueryPanel.ts:259
+(anonymous) @ PortfolioQueryPanel.ts:123
+(anonymous) @ LifecycleBucket.ts:20
+(anonymous) @ DataWorkbench.ts:418
+(anonymous) @ DataWorkbench.ts:291
+(anonymous) @ DataWorkbench.ts:234
+(anonymous) @ engineLauncher.ts:96
+startEngine @ main.ts:172
+await in startEngine
+(anonymous) @ main.ts:244
+await in (anonymous)
+(anonymous) @ main.ts:340
+(anonymous) @ buildPersistence.ts:231
+(anonymous) @ buildPersistence.ts:269
+(anonymous) @ PlatformRouter.ts:422
+(anonymous) @ PlatformRouter.ts:375
+(anonymous) @ PlatformRouter.ts:289
+(anonymous) @ ProjectHub.ts:1110
+(anonymous) @ ProjectHub.ts:1091
+await in (anonymous)
+(anonymous) @ ProjectHub.ts:1019
+(anonymous) @ ProjectHub.ts:407
+injected.js:37 [LONGTASK] duration=881.0ms start=101377.6ms [type=iframe src=https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [LONGTASK] duration=50.0ms start=102259.9ms [type=iframe src=https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [initScene] Phase 5: pre-warmed renderer consumed — 2,401 ms LONGTASK skipped.
+injected.js:37 [initScene] Phase 5 active — PRYZM renderer: webgpu
+injected.js:37 [PascalSceneLighting] Shadow flags set on 1 mesh(es).
+injected.js:37 [PascalSceneLighting] Applied — key: 4, fill: 0.75, rim: 1, ambient: 0.5, shadow.intensity: 0.4, scene.environment → null (HDRI cleared — Pascal has no IBL)
+injected.js:37 [RenderingPipelineCoordinator] Bound to scene + renderer.
+injected.js:37 [initScene] Phase 5 active — skipping HDRI, using standard PBR only.
+injected.js:37 [RenderingPipelineCoordinator] Activating level: "standard"
+injected.js:37 [PBRSceneUpgrader] Applied — meshes: 2 materials: 0 (metal: 0, glass: 0 rough: 0, polished: 0)
+injected.js:37 [ShadowQualityUpgrader] Applied "standard" — map: 512px radius: 1 bias: -0.0001 (1 light(s) upgraded)
+injected.js:37 [RenderingPipelineCoordinator] Level "standard" active.
+injected.js:37 [initScene] RenderingPipelineCoordinator ready.
+injected.js:37 [ViewportCrashGuard] Activated — monitoring viewport render errors.
+injected.js:37 [RenderPipelineManager] WebGPU renderer confirmed. Initialising TSL pipeline...
+injected.js:37 [initScene] Auto-activated quality "standard" (hdri: none) at startup.
+injected.js:37 [RenderPipelineManager] three/tsl loaded.
+injected.js:37 [RenderPipelineManager] Phase: phase2 | WebGPU: true | SSGI: false | TRAA: false
+injected.js:37 [RenderPipelineManager] Phase 2 pipeline active.
+injected.js:37 [ConstraintEngine] 17 rules registered (7 Tier 1, 5 Tier 2 spatial, 5 Tier 2 physics)
+injected.js:37 [RenderPipelineManager] SSGI activated (SSGINode r183 + DenoiseNode).
+injected.js:37 [RenderPipelineManager] §I2 pipeline.usedTimes is not a number (got undefined) — patching to 0 before dispose to prevent device-loss cascade.
+(anonymous) @ injected.js:37
+(anonymous) @ RenderPipelineManager.ts:1155
+(anonymous) @ RenderPipelineManager.ts:1107
+await in (anonymous)
+(anonymous) @ RenderPipelineManager.ts:807
+await in (anonymous)
+(anonymous) @ initScene.ts:1696
+await in (anonymous)
+(anonymous) @ engineLauncher.ts:106
+startEngine @ main.ts:172
+await in startEngine
+(anonymous) @ main.ts:244
+await in (anonymous)
+(anonymous) @ main.ts:340
+(anonymous) @ buildPersistence.ts:231
+(anonymous) @ buildPersistence.ts:269
+(anonymous) @ PlatformRouter.ts:422
+(anonymous) @ PlatformRouter.ts:375
+(anonymous) @ PlatformRouter.ts:289
+(anonymous) @ ProjectHub.ts:1110
+(anonymous) @ ProjectHub.ts:1091
+await in (anonymous)
+(anonymous) @ ProjectHub.ts:1019
+(anonymous) @ ProjectHub.ts:407
+injected.js:37 [RenderPipelineManager] Phase: phase3 | WebGPU: true | SSGI: true | TRAA: false
+injected.js:37 [RenderPipelineManager] Phase: phase3 | WebGPU: true | SSGI: true | TRAA: false
+injected.js:37 [RenderPipelineManager] Outlines activated (selected + hover).
+injected.js:37 [RenderPipelineManager] §I2 pipeline.usedTimes is not a number (got undefined) — patching to 0 before dispose to prevent device-loss cascade.
+(anonymous) @ injected.js:37
+(anonymous) @ RenderPipelineManager.ts:1155
+(anonymous) @ RenderPipelineManager.ts:1107
+await in (anonymous)
+(anonymous) @ RenderPipelineManager.ts:1190
+(anonymous) @ RenderPipelineManager.ts:892
+await in (anonymous)
+(anonymous) @ initScene.ts:1697
+await in (anonymous)
+(anonymous) @ engineLauncher.ts:106
+startEngine @ main.ts:172
+await in startEngine
+(anonymous) @ main.ts:244
+await in (anonymous)
+(anonymous) @ main.ts:340
+(anonymous) @ buildPersistence.ts:231
+(anonymous) @ buildPersistence.ts:269
+(anonymous) @ PlatformRouter.ts:422
+(anonymous) @ PlatformRouter.ts:375
+(anonymous) @ PlatformRouter.ts:289
+(anonymous) @ ProjectHub.ts:1110
+(anonymous) @ ProjectHub.ts:1091
+await in (anonymous)
+(anonymous) @ ProjectHub.ts:1019
+(anonymous) @ ProjectHub.ts:407
+injected.js:37 [RenderPipelineManager] Phase: phase4 | WebGPU: true | SSGI: true | TRAA: false
+injected.js:37 [RenderPipelineManager] Phase: phase4 | WebGPU: true | SSGI: true | TRAA: false
+injected.js:37 [initScene] TSL pipeline at Phase 3/4 (SSGI + Outlines). TRAA OFF by default.
+injected.js:37 THREE.THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.
+(anonymous) @ injected.js:37
+warn @ three.core.js:2001
+constructor @ three.core.js:55734
+(anonymous) @ initScene.ts:1847
+await in (anonymous)
+(anonymous) @ engineLauncher.ts:106
+startEngine @ main.ts:172
+await in startEngine
+(anonymous) @ main.ts:244
+await in (anonymous)
+(anonymous) @ main.ts:340
+(anonymous) @ buildPersistence.ts:231
+(anonymous) @ buildPersistence.ts:269
+(anonymous) @ PlatformRouter.ts:422
+(anonymous) @ PlatformRouter.ts:375
+(anonymous) @ PlatformRouter.ts:289
+(anonymous) @ ProjectHub.ts:1110
+(anonymous) @ ProjectHub.ts:1091
+await in (anonymous)
+(anonymous) @ ProjectHub.ts:1019
+(anonymous) @ ProjectHub.ts:407
+injected.js:37 [UnifiedFrameLoop] Started (subscribed to @pryzm/frame-scheduler).
+injected.js:37 [initScene] UnifiedFrameLoop started — single rAF loop active.
+injected.js:37 [initScene] RenderPipelineManager ready.
+injected.js:37 [initScene] EnhancedBloomService deferred — lazy wrappers installed.
+injected.js:37 [initScene] SSGIService deferred — lazy wrappers installed.
+injected.js:37 [RenderPerformanceService] Bound — native DPR: 1.25
+injected.js:37 [RenderPerformanceService] Quality → high | DPR: 1.25 (100% of native 1.25)
+injected.js:37 [initScene] RenderPerformanceService ready.
+injected.js:37 [initScene] SplitViewManager ready.
+injected.js:37 [initScene] Scene subsystem fully initialised.
+injected.js:37 THREE.WebGLShadowMap: PCFSoftShadowMap has been deprecated. Using PCFShadowMap instead.
+(anonymous) @ injected.js:37
+warn @ three.core.js:2001
+(anonymous) @ three.module.js:9155
+(anonymous) @ three.module.js:17477
+(anonymous) @ index.mjs:18448
+updateCamera @ index.mjs:18404
+(anonymous) @ initViewpointsPanel.ts:135
+(anonymous) @ initViewpointsPanel.ts:135
+(anonymous) @ engineLauncher.ts:114
+await in (anonymous)
+startEngine @ main.ts:172
+await in startEngine
+(anonymous) @ main.ts:244
+await in (anonymous)
+(anonymous) @ main.ts:340
+(anonymous) @ buildPersistence.ts:231
+(anonymous) @ buildPersistence.ts:269
+(anonymous) @ PlatformRouter.ts:422
+(anonymous) @ PlatformRouter.ts:375
+(anonymous) @ PlatformRouter.ts:289
+(anonymous) @ ProjectHub.ts:1110
+(anonymous) @ ProjectHub.ts:1091
+await in (anonymous)
+(anonymous) @ ProjectHub.ts:1019
+(anonymous) @ ProjectHub.ts:407
+injected.js:37 [initTransformControllers] Gizmo axes recoloured to PRYZM violet palette
+injected.js:37 [initBuilders] Column subsystem initialised
+injected.js:37 [CurtainPanelSyncHandler] Activated — panel store will sync with curtain wall store.
+injected.js:37 [initBuilders] CurtainWall subsystem stores initialised
+injected.js:37 [initBuilders] Slab subsystem initialised
+injected.js:37 [initBuilders] Ceiling subsystem initialised
+injected.js:37 [FloorSlabBindingHandler] Attached slab binding listeners.
+injected.js:37 [initBuilders] Floor finish subsystem initialised
+injected.js:37 [FPS] 30fps
+injected.js:37 [LONGTASK] duration=158.0ms start=104901.0ms [type=iframe src=https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [LONGTASK] duration=263.0ms start=105059.8ms [type=iframe src=https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [initBuilders] Room subsystem initialised
+injected.js:37 [initBuilders] Door/Window singleton stores exposed on window
+injected.js:37 [WallStore] attached to window WallStore {walls: Map(0), projectContext: ProjectContext, bimKernel: BimManager, listeners: Array(0), windows: Map(0), …}
+injected.js:37 [LONGTASK] duration=59.0ms start=105370.7ms [type=iframe src=https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [initBuilders] Wall + Slab system type stores loaded
+injected.js:37 [initBuilders] Roof subsystem initialised
+injected.js:37 [initBuilders] Plumbing subsystem initialised
+injected.js:37 [initBuilders] Opening subsystem initialised — openingStore injected into slabBuilder
+injected.js:37 [DoorBuilder] activated
+injected.js:37 [WindowBuilder] activated
+injected.js:37 [initBuilders] Door + Window builders activated (with dependency trackers)
+injected.js:37 [initBuilders] Furniture subsystem initialised
+injected.js:37 [initBuilders] Lighting subsystem initialised
+injected.js:37 [initBuilders] Handrail subsystem initialised
+injected.js:37 [initBuilders] Stair subsystem initialised
+injected.js:37 [initBuilders] Beam subsystem initialised
+injected.js:37 [initBuilders] RoomContentsService — all element stores attached
+injected.js:37 [initBuilders] Grid subsystem initialised
+injected.js:37 [initBuilders] RoomBoundingLine subsystem initialised
+injected.js:37 [RoomFinishSyncService] Started — listening for room finish changes.
+injected.js:37 [initBuilders] RoomFinishSyncService started
+injected.js:37 [initBuilders] All builder subsystems fully initialised.
+injected.js:37 [SelectionManager] PickStrategy set: gpu-pick
+injected.js:37 [initTools] PickStrategy resolved: gpu-pick
+injected.js:37 [FloatingObjectCarousel] Mounted (hidden, render loop deferred)
+injected.js:37 [FurnitureDragDropHandler] Attached to canvas
+injected.js:37 [initTools] LightingTool initialised
+injected.js:37 [CurtainWallTool] SnapManager initialised (CurtainWall + Wall providers)
+injected.js:37 [initTools] RoomBoundingLineTool registered on window
+injected.js:37 BeamTool initialized with BeamStore: true
+injected.js:37 [StairTool] Constructed. meshBuilder: true deps: true
+injected.js:37 [UnderlayPersistence] Installed (per-project, v2)
+injected.js:37 [ProjectScopedStorage] Installed — auto-keyed by projectId
+injected.js:37 [ProjectIsolationAudit] Installed — will audit every empty project load
+injected.js:37 [GhostOverlayRenderer] Initialised — listening for pryzm-history-ghost-* events
+injected.js:37 [AnnotationManager] init complete — Phase V hover hints wired
+injected.js:37 [OBCAnnotationAdapter] LinearAnnotations not present in this OBC build — skipping subscribe.
+injected.js:37 [OBCAnnotationAdapter] AngleAnnotations not present in this OBC build — skipping subscribe.
+injected.js:37 [OBCAnnotationAdapter] SlopeAnnotations not present in this OBC build — skipping subscribe.
+injected.js:37 [OBCAnnotationAdapter] DOC-2.1: subscribed to OBC annotation system events
+injected.js:37 [initTools] DOC-2.2: DrawingEditor initialised; OBCAnnotationAdapter wired
+injected.js:37 [initTools] All BIM tools initialised and registered with ToolManager
+injected.js:37 [LONGTASK] duration=122.0ms start=105502.7ms [type=iframe src=https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [FPS] 15fps
+injected.js:37 [LONGTASK] duration=215.0ms start=106276.4ms
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [EngineBootstrap] §ROOF-AUDIT §5.4: RoofSlopeSymbolBuilder wired.
+injected.js:37 [WallFragmentBuilder] WallInstanceBridge injected — simple walls will use GPU instancing.
+injected.js:37 [EngineBootstrap] §PHASE-3: WallInstanceBridge connected.
+injected.js:37 [initBatchLifecycle] BatchLoadingIndicator wired (§FIX-BATCH-RENDER-SUPPRESS + §L1-BATCH-PERF-MODE).
+injected.js:37 [initBusHandlers] §P0-A39: rooms.redetect registration failed (non-fatal): handler already registered: rooms.redetect
+(anonymous) @ injected.js:37
+(anonymous) @ initBusHandlers.ts:35
+(anonymous) @ engineLauncher.ts:266
+await in (anonymous)
+startEngine @ main.ts:172
+await in startEngine
+(anonymous) @ main.ts:244
+await in (anonymous)
+(anonymous) @ main.ts:340
+(anonymous) @ buildPersistence.ts:231
+(anonymous) @ buildPersistence.ts:269
+(anonymous) @ PlatformRouter.ts:422
+(anonymous) @ PlatformRouter.ts:375
+(anonymous) @ PlatformRouter.ts:289
+(anonymous) @ ProjectHub.ts:1110
+(anonymous) @ ProjectHub.ts:1091
+await in (anonymous)
+(anonymous) @ ProjectHub.ts:1019
+(anonymous) @ ProjectHub.ts:407
+injected.js:37 [initBusHandlers] §P2-A39: curtain-wall.create-on-all-slabs registered.
+injected.js:37 [initBusHandlers] §A40-W03: wall.create-on-all-slabs registered.
+injected.js:37 [initBusHandlers] §A40-W03: slab.create-on-all-floors registered.
+injected.js:37 [initBusHandlers] level.duplicate-floor-plan registered.
+injected.js:37 [initBusHandlers] §A40-W04: column.batch.create failed (non-fatal): handler already registered: column.batch.create
+(anonymous) @ injected.js:37
+(anonymous) @ initBusHandlers.ts:148
+(anonymous) @ engineLauncher.ts:266
+await in (anonymous)
+startEngine @ main.ts:172
+await in startEngine
+(anonymous) @ main.ts:244
+await in (anonymous)
+(anonymous) @ main.ts:340
+(anonymous) @ buildPersistence.ts:231
+(anonymous) @ buildPersistence.ts:269
+(anonymous) @ PlatformRouter.ts:422
+(anonymous) @ PlatformRouter.ts:375
+(anonymous) @ PlatformRouter.ts:289
+(anonymous) @ ProjectHub.ts:1110
+(anonymous) @ ProjectHub.ts:1091
+await in (anonymous)
+(anonymous) @ ProjectHub.ts:1019
+(anonymous) @ ProjectHub.ts:407
+injected.js:37 [initBusHandlers] §A40-W04: beam.batch.create failed (non-fatal): handler already registered: beam.batch.create
+(anonymous) @ injected.js:37
+(anonymous) @ initBusHandlers.ts:148
+(anonymous) @ engineLauncher.ts:266
+await in (anonymous)
+startEngine @ main.ts:172
+await in startEngine
+(anonymous) @ main.ts:244
+await in (anonymous)
+(anonymous) @ main.ts:340
+(anonymous) @ buildPersistence.ts:231
+(anonymous) @ buildPersistence.ts:269
+(anonymous) @ PlatformRouter.ts:422
+(anonymous) @ PlatformRouter.ts:375
+(anonymous) @ PlatformRouter.ts:289
+(anonymous) @ ProjectHub.ts:1110
+(anonymous) @ ProjectHub.ts:1091
+await in (anonymous)
+(anonymous) @ ProjectHub.ts:1019
+(anonymous) @ ProjectHub.ts:407
+injected.js:37 [initBusHandlers] §A40-W04: door.batch.create failed (non-fatal): handler already registered: door.batch.create
+(anonymous) @ injected.js:37
+(anonymous) @ initBusHandlers.ts:148
+(anonymous) @ engineLauncher.ts:266
+await in (anonymous)
+startEngine @ main.ts:172
+await in startEngine
+(anonymous) @ main.ts:244
+await in (anonymous)
+(anonymous) @ main.ts:340
+(anonymous) @ buildPersistence.ts:231
+(anonymous) @ buildPersistence.ts:269
+(anonymous) @ PlatformRouter.ts:422
+(anonymous) @ PlatformRouter.ts:375
+(anonymous) @ PlatformRouter.ts:289
+(anonymous) @ ProjectHub.ts:1110
+(anonymous) @ ProjectHub.ts:1091
+await in (anonymous)
+(anonymous) @ ProjectHub.ts:1019
+(anonymous) @ ProjectHub.ts:407
+injected.js:37 [initBusHandlers] §A40-W04: window.batch.create failed (non-fatal): handler already registered: window.batch.create
+(anonymous) @ injected.js:37
+(anonymous) @ initBusHandlers.ts:148
+(anonymous) @ engineLauncher.ts:266
+await in (anonymous)
+startEngine @ main.ts:172
+await in startEngine
+(anonymous) @ main.ts:244
+await in (anonymous)
+(anonymous) @ main.ts:340
+(anonymous) @ buildPersistence.ts:231
+(anonymous) @ buildPersistence.ts:269
+(anonymous) @ PlatformRouter.ts:422
+(anonymous) @ PlatformRouter.ts:375
+(anonymous) @ PlatformRouter.ts:289
+(anonymous) @ ProjectHub.ts:1110
+(anonymous) @ ProjectHub.ts:1091
+await in (anonymous)
+(anonymous) @ ProjectHub.ts:1019
+(anonymous) @ ProjectHub.ts:407
+injected.js:37 [initBusHandlers] §A40-W04: ceiling.batch.create failed (non-fatal): handler already registered: ceiling.batch.create
+(anonymous) @ injected.js:37
+(anonymous) @ initBusHandlers.ts:148
+(anonymous) @ engineLauncher.ts:266
+await in (anonymous)
+startEngine @ main.ts:172
+await in startEngine
+(anonymous) @ main.ts:244
+await in (anonymous)
+(anonymous) @ main.ts:340
+(anonymous) @ buildPersistence.ts:231
+(anonymous) @ buildPersistence.ts:269
+(anonymous) @ PlatformRouter.ts:422
+(anonymous) @ PlatformRouter.ts:375
+(anonymous) @ PlatformRouter.ts:289
+(anonymous) @ ProjectHub.ts:1110
+(anonymous) @ ProjectHub.ts:1091
+await in (anonymous)
+(anonymous) @ ProjectHub.ts:1019
+(anonymous) @ ProjectHub.ts:407
+injected.js:37 [initBusHandlers] §A40-W04: stair.batch.create failed (non-fatal): handler already registered: stair.batch.create
+(anonymous) @ injected.js:37
+(anonymous) @ initBusHandlers.ts:148
+(anonymous) @ engineLauncher.ts:266
+await in (anonymous)
+startEngine @ main.ts:172
+await in startEngine
+(anonymous) @ main.ts:244
+await in (anonymous)
+(anonymous) @ main.ts:340
+(anonymous) @ buildPersistence.ts:231
+(anonymous) @ buildPersistence.ts:269
+(anonymous) @ PlatformRouter.ts:422
+(anonymous) @ PlatformRouter.ts:375
+(anonymous) @ PlatformRouter.ts:289
+(anonymous) @ ProjectHub.ts:1110
+(anonymous) @ ProjectHub.ts:1091
+await in (anonymous)
+(anonymous) @ ProjectHub.ts:1019
+(anonymous) @ ProjectHub.ts:407
+injected.js:37 [BatchCoordinator] §II-2 registerBuilderControls() — wall=true cw=false slab=true
+injected.js:37 [initStores] StoreRegistry: 33 stores registered — visibility-intent, view-intent-instance, vg-governance, view, phase-filter, RoomRequirement, title-block, schedule, sheet, view-template, AssetCatalogEntry, wall, slab, column, beam, stair, stair-landing, stair-railing, stair-type, curtainwall, curtain-panel, door, window, roof, plumbing, furniture, handrail, opening, grid, room, ceiling, floor, annotation
+injected.js:37 [initDataPlatform] ElementCode auto-assignment wired to StoreEventBus
+injected.js:37 [SyncStateEngine] Started — subscribed to StoreEventBus
+injected.js:37 [initDataPlatform] SyncStateEngine started (paused until project load)
+injected.js:37 [initDataPlatform] RoomColourSystem.setSyncStateEngine wired
+injected.js:37 [DependencyResolver] Initialised — Phase F active: cascade rebuilds enabled
+injected.js:37 [initDataPlatform] DependencyResolver initialised — semantic graph monitoring active
+injected.js:37 [TemporalGraph] Initialised. sessionId=12f8b444-2370-43c6-a006-7c5d426d5921. Auto-recording element mutations via StoreEventBus.
+injected.js:37 [initDataPlatform] TemporalGraph initialised — sessionId=12f8b444-2370-43c6-a006-7c5d426d5921
+injected.js:37 [initDataPlatform] Data Platform stores + SemanticGraph + TemporalGraph + ConstraintEngine + DecisionRecordStore + PhysicsEngine exposed on window
+injected.js:37 [initDataPlatform] G-0.3: SelectionBus exposed on window
+injected.js:37 [initDataPlatform] ConstraintEngine auto-run wired to StoreEventBus (800ms debounce, load-quiet window)
+injected.js:37 [initDataPlatform] G-3: IntentPrompt wired to pryzm-constraints-updated
+injected.js:37 [PhysicsEngine] Initialised — FrameScheduler-batched queue active
+injected.js:37 [initDataPlatform] H-1: PhysicsEngine RAF-queue started
+injected.js:37 [PhysicsOverlayRenderer] Initialised
+injected.js:37 [initDataPlatform] H-2: PhysicsOverlayRenderer initialised
+injected.js:37 [TemplateStore] Seeded 15 built-in templates
+injected.js:37 [initDataPlatform] G-0.1: BuiltinTemplates seeded into TemplateStore
+injected.js:37 [initDataPlatform] G-0.3: SelectionBus subscribed to pryzm-element-selected
+injected.js:37 [initDataPlatform] H-1: PhysicsEngine room-create/update wiring active
+injected.js:37 [initDataPlatform] K-1: VoiceCommandIndicator mounted
+injected.js:37 [ConsequencePreviewOverlay] Initialised
+injected.js:37 [initDataPlatform] K-2: ConsequencePreviewOverlay initialised
+injected.js:37 [AmbientIndicator] Initialised
+injected.js:37 [initDataPlatform] K-3: AmbientIndicator mounted
+injected.js:37 [initDataPlatform] K-3: AmbientIntelligence wired to constraints + StoreEventBus
+injected.js:37 [initDataPlatform] Data Platform subsystem fully initialised.
+injected.js:37 [main] VG Governance Layer initialized
+injected.js:37 [main] View Range Filter Service initialized
+injected.js:37 [main] Crop Region Filter Service initialized
+injected.js:37 [main] Underlay Render Service initialized
+injected.js:37 [main] View Range Zone Applicator initialized
+injected.js:37 [main] Semantic Index initialized
+injected.js:37 [main] IFC Pset Adapter initialized (DOC-5.4)
+injected.js:37 [main] ViewDefinition Store initialized
+injected.js:37 [main] Visibility Intent stores initialized (panel lazy — loads on first use)
+injected.js:37 [DefaultViewsManager] Created default 3D view (id=vd-sys-3d-1)
+injected.js:37 [DefaultViewsManager] Created default Ground Floor plan view (id=vd-sys-plan-l0)
+injected.js:37 [DefaultViewsManager] Initialized — default views are guaranteed on every project.
+injected.js:37 [main] Visibility Rule Engine initialized
+injected.js:37 [main] Sheet Store initialized
+injected.js:37 [main] TitleBlock Store initialized (A0, A1, A3 templates seeded)
+injected.js:37 [main] Sheet Editor Panel registered (lazy — loads on first use)
+injected.js:37 [main] Sheet Export Service initialized
+injected.js:37 [DxfExportService] Initialised
+injected.js:37 [main] DXF Export Service initialized
+injected.js:37 [main] PDF Export Service registered (lazy — loads on first use)
+injected.js:37 [main] Sheet Index Service initialized (Drawing Register ready)
+injected.js:37 [main] Schedule Store initialized and default schedules seeded
+injected.js:37 [main] View Template Store initialized
+injected.js:37 [main] Phase Filter Store initialized (built-ins seeded)
+injected.js:37 [main] FastPathProjectorService initialized (sub-50ms interactive projection)
+injected.js:37 [FPS] 9fps
+injected.js:37 [initUI] ImportManagerPanel mounted
+injected.js:37 [CurtainWall] Store→Builder event wiring established
+injected.js:37 [CurtainWall] PanelStore→Builder event wiring established (§MI-02)
+injected.js:37 [ContextualEditBar] Initialized
+injected.js:37 [ContextualEditBar] Operation tools injected
+injected.js:37 [initUI] ShortcutCheatSheet installed (press ? to view all shortcuts)
+injected.js:37 [initUI] Split View toggle button mounted
+injected.js:37 [BatchCoordinator] §II-2 registerBuilderControls() — wall=true cw=true slab=true
+injected.js:37 [EngineBootstrap] §FIX-CW-CTRL-REREGISTER: cw=true
+injected.js:37 [LevelExplodeController] Initialized
+injected.js:37 [InspectModeCoordinator] Initialized
+injected.js:37 [PlatformShell] D.1 — real save/load delegates injected (engine ready)
+injected.js:37 [initPersistence] D.1 — real delegates injected into early PlatformShell
+injected.js:37 [initPersistence] runtime.stores hydrator registered
+injected.js:37 [initCollaboration] Collaboration subsystem initialised — waiting for pryzm-project-loaded
+injected.js:37 [LONGTASK] duration=94.0ms start=107609.0ms [type=iframe src=https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [LONGTASK] duration=65.0ms start=107765.1ms
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [AICreatePanel] Initializing panel, going to step 1
+injected.js:37 [AICreatePanel] Transitioning to step 1
+injected.js:37 [AICreatePanel] Step 1: display=flex
+injected.js:37 [AICreatePanel] Step 2: display=none
+injected.js:37 [AICreatePanel] Step 3: display=none
+injected.js:37 [AICreatePanel] Step 4: display=none
+injected.js:37 [AICreatePanel] All steps found and updated successfully
+injected.js:37 [AICreatePanel] Attaching file input change listener
+injected.js:37 [AICreatePanel] Attaching all event listeners
+injected.js:37 [AICreatePanel] Attaching all event listeners...
+injected.js:37 [AICreatePanel] ✓ Step 2 Next button listener attached
+injected.js:37 [AICreatePanel] ✓ Step 2 Back button listener attached
+injected.js:37 [AICreatePanel] ✓ Step 3 Generate button listener attached
+injected.js:37 [AICreatePanel] ✓ Step 3 Back button listener attached
+injected.js:37 [AICreatePanel] ✓ Step 4 Open AI Actions button listener attached
+injected.js:37 [AICreatePanel] ✓ Step 4 Create Another button listener attached
+injected.js:37 [AICreatePanel] ✓ Prompt input keydown listener attached
+injected.js:37 [AICreatePanel] All event listeners attached successfully
+injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+injected.js:37 [LONGTASK] duration=88.0ms start=107966.1ms [type=iframe src=https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [PlatformShell] Project context set: proj-1778733740270-km4oljl ALS
+injected.js:37 [initScene] pryzm-project-switch received — project: proj-1778733740270-km4oljl
+injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+injected.js:37 [ViewController] clearCameraStateStore — per-view camera state cleared for new project
+injected.js:37 [UnderlayPersistence] Project switch — saves suspended
+injected.js:37 [ProjectLifecycleController] C13 project-switch: cold-boot → (unknown)
+injected.js:37 [BatchCoordinator] C13 forceReset() — all batch state cleared for project switch
+injected.js:37 [WallRebuildCoordinator] C13 resetWallRebuildState() — wall pipeline clean for project switch
+injected.js:37 [ProjectLifecycleController] C13 teardown complete — Project B context loading
+injected.js:37 [PlatformShell] New project — clearing scene immediately (no server check)
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+ProjectLoader.ts:235 [ProjectLoader] Loading "ALS" (0 elements)
+injected.js:37 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+injected.js:37 [ProjectLoader] Element-creation path: ImportProjectCommand (Phase 1)
+ClearProjectCommand.ts:59 [ClearProjectCommand] Clearing all project data
+injected.js:37   Removing 0 curtain panels
+injected.js:37   Removing 0 openings
+injected.js:37   Removing 0 walls
+injected.js:37   Removing 0 curtain walls
+injected.js:37   Removing 0 slabs
+injected.js:37   Removing 0 ceilings
+injected.js:37   Removing 0 columns
+injected.js:37   Removing 0 beams
+injected.js:37   Removing 0 stairs
+injected.js:37   Removing 0 roofs
+injected.js:37   Removing 0 furniture items
+injected.js:37   Removing 0 handrails
+injected.js:37   Removing 0 plumbing fixtures
+injected.js:37   Removing 0 rooms
+injected.js:37   Removing 0 room bounding lines
+injected.js:37   Removing 0 grids
+injected.js:37   Removing 1 levels
+injected.js:37 [BimManager] Cannot delete the default Ground level.
+(anonymous) @ injected.js:37
+(anonymous) @ BimKernel.ts:342
+(anonymous) @ ClearProjectCommand.ts:166
+(anonymous) @ ClearProjectCommand.ts:166
+(anonymous) @ ImportProjectCommand.ts:236
+(anonymous) @ ImportProjectCommand.ts:260
+(anonymous) @ CommandManager.ts:130
+(anonymous) @ ProjectLoader.ts:266
+(anonymous) @ ProjectLoader.ts:335
+(anonymous) @ initPersistence.ts:266
+(anonymous) @ PlatformShell.ts:182
+(anonymous) @ WorkspaceSurface.ts:188
+(anonymous) @ buildPersistence.ts:260
+await in (anonymous)
+(anonymous) @ buildPersistence.ts:269
+(anonymous) @ PlatformRouter.ts:422
+(anonymous) @ PlatformRouter.ts:375
+(anonymous) @ PlatformRouter.ts:289
+(anonymous) @ ProjectHub.ts:1110
+(anonymous) @ ProjectHub.ts:1091
+await in (anonymous)
+(anonymous) @ ProjectHub.ts:1019
+(anonymous) @ ProjectHub.ts:407
+injected.js:37 [ClearProjectCommand] Annotation store cleared
+injected.js:37   Cleared 0 floors
+injected.js:37 [DefaultViewsManager] Created default 3D view (id=vd-sys-3d-1)
+injected.js:37 [DefaultViewsManager] Created default Ground Floor plan view (id=vd-sys-plan-l0)
+injected.js:37 [TemporalGraph] Cleared (project switch).
+injected.js:37 [RoomGraphService] All graphs invalidated
+injected.js:37 [UnderlayPersistence] Clear skipped — no current project bound
+injected.js:37 [ViewRenderCache] All render targets disposed.
+injected.js:37 [ClearProjectCommand] ProjectScopeRegistry cleared 47 scopes: (47) ['visibilityIntentStore', 'viewIntentInstanceStore', 'hierarchyStore', 'templateStore', 'templateAssignmentStore', 'vgGovernanceStore', 'vgInstanceOverrideStore', 'ceilingSystemTypeStore', 'floorSystemTypeStore', 'handrailTypeStore', 'roomBoundingLineStore', 'doorStore', 'doorSystemTypeStore', 'windowStore', 'windowSystemTypeStore', 'viewDefinitionStore', 'phaseFilterStore', 'temporalGraphManager', 'semanticIndex', 'visibilityRuleEngine', 'topologySpatialIndex', 'topologyLayer', 'roomGraphService', 'wallSystemTypeStore', 'annotationStore', 'annotationVisibilityStore', 'constraintStore', 'slabSystemTypeStore', 'requirementStore', 'ifcProjectionStore', 'floorPlanUnderlay', 'viewRenderCache', 'sheetCommentStore', 'scheduleStore', 'sheetStore', 'viewTemplateStore', 'semanticGraphManager', 'roomSpatialIndex', 'assetCatalogStore', 'elementCodeStore', 'decisionRecordStore', 'dxfLayerStore', 'dxfOverlayStore', 'ifcModelStore', 'ifcConversionReportStore', 'sceneBoundsCache', 'viewVisibilityMap']
+injected.js:37 [ClearProjectCommand] activeLevelId reset to L0 (project-scoped state cleared).
+injected.js:37 [ProjectIsolation] WallFragmentBuilder disposed — scene cleared of wall geometry.
+injected.js:37 [RoomGraphService] All graphs invalidated
+injected.js:37 [TemporalGraph] Cleared (project switch).
+injected.js:37 [ClearProjectCommand] Clear complete
+injected.js:37 [ImportProjectCommand] Loading 0 levels
+injected.js:37 [ImportProjectCommand] Loading 0 grids
+injected.js:37 [ImportProjectCommand] Loading 0 columns
+injected.js:37 [ImportProjectCommand] Loading 0 walls
+injected.js:37 [ImportProjectCommand] Loading 0 slabs
+injected.js:37 [ImportProjectCommand] Loading 0 stairs
+injected.js:37 [ImportProjectCommand] Loading 0 furniture items
+injected.js:37 [ImportProjectCommand] Loading 0 roofs
+injected.js:37 [ImportProjectCommand] Loading 0 handrails
+injected.js:37 [ImportProjectCommand] Loading 0 plumbing fixtures
+injected.js:37 [ImportProjectCommand] Loading 0 curtain walls
+injected.js:37 [ImportProjectCommand] Loading 0 beams
+injected.js:37 [ProjectLoader] VG Governance state restored from snapshot
+injected.js:37 [ProjectLoader] ViewDefinition store restored from snapshot
+injected.js:37 [ProjectLoader] Visibility rule engine restored from snapshot
+injected.js:37 [VGToIntentMigration] Starting VG → Intent migration…
+injected.js:37 [VGToIntentMigration] Complete — 0 intents, 0 views, 0 overrides migrated.
+injected.js:37 [LONGTASK] duration=75.0ms start=108064.4ms [type=iframe src=https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [ProjectLoader] Sheet store restored from snapshot
+injected.js:37 [ProjectLoader] Schedule store restored from snapshot
+injected.js:37 [ProjectLoader] SemanticGraph cleared (v1/v2 snapshot — no graph data)
+injected.js:37 [TemporalGraph] Cleared (project switch).
+injected.js:37 [ProjectLoader] TemporalGraph cleared (pre-v4 snapshot — no temporal data)
+injected.js:37 [ProjectLoader] DecisionRecordStore cleared (pre-v4 snapshot — no decision data)
+injected.js:37 [ProjectLoader] RequirementStore cleared (no requirement data in snapshot)
+injected.js:37 [AssetCatalogStore] setDirect(): restored 21 entries
+injected.js:37 [ProjectLoader] AssetCatalogStore seeded from defaults
+injected.js:37 [ProjectLoader] Annotation store cleared (no annotation data in snapshot)
+injected.js:37 [IntentStylePrewarmer] Pre-warmed 1224 style slots in 7.60ms
+injected.js:37 [initDataPlatform] DataWorkbench toolbar button + physics overlay dropdown injected
+injected.js:37 [DefaultViewsManager] Created default 3D view (id=vd-sys-3d-1)
+injected.js:37 [DefaultViewsManager] Created default Ground Floor plan view (id=vd-sys-plan-l0)
+injected.js:37 [AIAreaLayout] AI panel drag + resize wired. width=256px left=0px
+injected.js:37 [FPS] 30fps
+injected.js:37 [ProjectLoader] AnnotationDependencyGraph rebuilt after restore
+injected.js:37 [ProjectLoader] Load complete: 0 loaded, 0 failed, 0 errors
+injected.js:37 [StoreEventBus] endBatch() — flushed 38 buffered event(s) in emission order (no coalescing — all events delivered).
+injected.js:37 [ProjectLoader] PHASE_TIMINGS total=466.0ms setup=0.0ms hydrate=0.0ms event_flush=0.0ms wall_rebuild_flush=0.0ms redetect_sweep=0.0ms [walls=0 slabs=0 levels=0 curtainWalls=0]
+injected.js:37 [ProjectSerializer] Snapshot created: 0 elements, 1 levels, 0 walls, 0 slabs, 0 furniture
+injected.js:37 [PlatformShell] New project ready — firing pryzm-project-loaded(empty:true)
+injected.js:37 [FrustumCullingService] pryzm-project-loaded(empty) — audit skipped, no geometry
+injected.js:37 [initScene] pryzm-project-loaded — empty project (no geometry)
+injected.js:37 [TemplateStore] Seeded 15 built-in templates
+injected.js:37 [initCollaboration] Project opened — collaboration active for proj-1778733740270-km4oljl
+injected.js:37 [EngineBootstrap] pryzm-project-loaded(empty) — skipping zoomToAll
+injected.js:37 [ProjectIsolationAudit] ✓ project proj-1778733740270-km4oljl loaded clean — no leftover state
+injected.js:37 [VoiceCommandIndicator] Mounted (speechAPI=true)
+injected.js:37 [LONGTASK] duration=125.0ms start=108635.3ms [type=iframe src=https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [LONGTASK] duration=65.0ms start=108772.0ms
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [SplitViewManager] Canvas2D context ready
+injected.js:37 [SvpPlanToolOverlay] Attached with snap service. viewId: vd-sys-plan-l0
+injected.js:37 [SplitViewManager] Split view activated (Canvas2D plan mode)
+injected.js:37 [initScene] Split view auto-opened on project load (idle)
+injected.js:37 [RenderPipelineManager] onProjectLoaded (debounced) — re-activating outlines.
+injected.js:37 [RenderPipelineManager] Outlines activated (selected + hover).
+injected.js:37 [RenderPipelineManager] §I2 pipeline.usedTimes is not a number (got undefined) — patching to 0 before dispose to prevent device-loss cascade.
+(anonymous) @ injected.js:37
+(anonymous) @ RenderPipelineManager.ts:1155
+(anonymous) @ RenderPipelineManager.ts:1107
+await in (anonymous)
+(anonymous) @ RenderPipelineManager.ts:1190
+(anonymous) @ RenderPipelineManager.ts:892
+await in (anonymous)
+(anonymous) @ RenderPipelineManager.ts:751
+setTimeout
+(anonymous) @ RenderPipelineManager.ts:746
+(anonymous) @ initScene.ts:1818
+(anonymous) @ PlatformShell.ts:188
+Promise.then
+(anonymous) @ PlatformShell.ts:183
+(anonymous) @ WorkspaceSurface.ts:188
+(anonymous) @ buildPersistence.ts:260
+await in (anonymous)
+(anonymous) @ buildPersistence.ts:269
+(anonymous) @ PlatformRouter.ts:422
+(anonymous) @ PlatformRouter.ts:375
+(anonymous) @ PlatformRouter.ts:289
+(anonymous) @ ProjectHub.ts:1110
+(anonymous) @ ProjectHub.ts:1091
+await in (anonymous)
+(anonymous) @ ProjectHub.ts:1019
+(anonymous) @ ProjectHub.ts:407
+injected.js:37 [RenderPipelineManager] Phase: phase4 | WebGPU: true | SSGI: true | TRAA: false
+injected.js:37 [RenderPipelineManager] Phase: phase4 | WebGPU: true | SSGI: true | TRAA: false
+injected.js:37 [initDataPlatform] H-1: Physics compute enqueued for all rooms after project load (idle)
+injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+injected.js:37 [HomeView] Default viewpoint captured: {x: 49.99999999999997, y: 49.99999999999995, z: 50.00000000000005} {x: -2.842170943040401e-14, y: -4.263256414560601e-14, z: 4.263256414560601e-14}
+injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+injected.js:37 [PlatformCollabPill] Socket connected — joining project room: proj-1778733740270-km4oljl
+injected.js:37 [HomeView] Default viewpoint captured: {x: 49.99999999999997, y: 49.99999999999995, z: 50.00000000000005} {x: -2.842170943040401e-14, y: -4.263256414560601e-14, z: 4.263256414560601e-14}
+injected.js:37 [initCollaboration] Socket connected — joining project room: proj-1778733740270-km4oljl
+injected.js:37 [initCollaboration] Catch-up: first connect — setting baseline timestamp
+injected.js:37 [initCollaboration] join-project denied for proj-1778733740270-km4oljl — reason: project not found
+(anonymous) @ injected.js:37
+(anonymous) @ initCollaboration.ts:409
+(anonymous) @ index.js:136
+emitEvent @ socket.js:552
+onevent @ socket.js:539
+onpacket @ socket.js:507
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48
+2injected.js:37 [GPU Monitor] geometries:1 textures:4 | drawCalls:1 tris:1
+injected.js:37 [FPS] 6fps
+injected.js:37 [LONGTASK] duration=154.0ms start=134736.8ms [type=iframe src=https://5bd83d2c-5f25-4cd6-a0dd-6237f2250c42-00-320sur24styo8.riker.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+3injected.js:37 [GPU Monitor] geometries:1 textures:5 | drawCalls:0 tris:0

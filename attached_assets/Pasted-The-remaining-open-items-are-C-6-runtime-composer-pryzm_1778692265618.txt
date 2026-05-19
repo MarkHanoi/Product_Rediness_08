@@ -1,0 +1,76 @@
+The remaining open items are C-6 (runtime-composer → @pryzm/editor dep chain, blocks headless publish — HIGH) and C-3b (ai-host window globals, blocks per-package compile gate — LOW). I need to fully understand each before touching anything. Let me read all the relevant files in parallel first.
+
+
+5 actions
+Critical files to read before touching anything — all in parallel.
+
+
+6 actions
+I need to read the bootstrap entry points before touching anything — these are the critical files for C-6.
+
+
+10 actions
+I need three more reads before I can design the C-6 solution.
+
+
+5 actions
+Now I have the full picture. Let me check the remaining files needed to execute C-6 and C-3b correctly.
+
+
+6 actions
+Now I have everything I need. Let me run the final parallel reads for both open items before starting implementation.
+
+
+5 actions
+Let me read the ComposeRuntimeOptions type and engineLauncher.ts call site in parallel, then I'll implement all changes.
+
+
+3 actions
+I need to see the engineLauncher's composeRuntime call site before I can safely modify it.
+
+
+3 actions
+The composeRuntime call is not in engineLauncher — need to find the real call site.
+
+
+4 actions
+I found the actual call site. Let me read it in full alongside the headless package tsconfig check.
+
+
+3 actions
+I have everything I need. Time to implement. Both C-6 and C-3b in parallel — the changes are independent. Starting with the reads I still need:
+
+
+3 actions
+I now have everything needed. Let me check the plugins directory and begin implementing both C-6 and C-3b simultaneously.
+
+
+2 actions
+All plugins live in plugins/ workspace. Now I have everything. Implementing C-6 and C-3b in parallel — writing all new files and edits simultaneously.
+
+
+7 actions
+Continuing with the remaining files — all independent, batch them all.
+
+
+3 actions
+Now the package.json updates and composeRuntime edits — all independent, all at once.
+
+
+5 actions
+Continuing. Need to see the static import at line 31 and the dynamic import at line 951 of composeRuntime.ts to make precise edits.
+
+
+4 actions
+I have everything I need. Now making all 5 edits simultaneously — 3 to composeRuntime.ts + 1 to the gate + 1 to check index.ts.
+
+
+5 actions
+You've reached your monthly free quota limit. It will reset on June 2, 2026.
+
+
+Checkpoint made
+3 hours ago
+
+Worked for 18 minutes
+CO

@@ -1,0 +1,47 @@
+{
+  "name": "@pryzm/bake-worker",
+  "version": "0.1.0",
+  "description": "PRYZM 2 — server-side bake worker (S21).  Receives event batches from the sync server, runs geometry producers in a worker_threads pool, writes content-addressed chunks to the storage driver (R2 / MinIO / InMemory), and emits per-event cost telemetry.  Implements [strategic ADR-005] (worker pool), [strategic ADR-010] (250 ms coalescing window), and [strategic ADR-003] (storage driver isolation).",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./jobs": "./src/jobs/RebakeChunkJob.ts",
+    "./jobs/family-instance": "./src/jobs/RebakeFamilyInstanceJob.ts",
+    "./coalescing": "./src/coalescing/CoalesceWindow.ts",
+    "./session": "./src/session/HeadlessBakeSession.ts",
+    "./cost": "./src/cost/CostMeter.ts",
+    "./queue": "./src/queue/InMemoryBakeQueue.ts"
+  },
+  "files": ["src", "dist"],
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@pryzm/command-bus": "workspace:*",
+    "@pryzm/family-instance": "workspace:*",
+    "@pryzm/family-loader": "workspace:*",
+    "@pryzm/file-format": "workspace:*",
+    "@pryzm/geometry-kernel": "workspace:*",
+    "@pryzm/persistence-client": "workspace:*",
+    "@pryzm/plugin-wall": "workspace:*",
+    "@pryzm/protocol": "workspace:*",
+    "@pryzm/schemas": "workspace:*",
+    "@pryzm/storage-driver": "workspace:*",
+    "@pryzm/stores": "workspace:*",
+    "express": "^5.1.0",
+    "ulid": "^3.0.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.5",
+    "tsx": "^4.20.7",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

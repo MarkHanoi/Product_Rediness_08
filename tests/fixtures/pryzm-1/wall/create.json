@@ -1,0 +1,31 @@
+{
+  "meta": {
+    "source": "src/commands/walls/CreateWallCommand.ts",
+    "capturedAt": "2026-04-26T18:30:00Z",
+    "description": "Create a single straight wall on lvl_test with default height/thickness — exercises CreateWallHandler's schema-default fan-out (id minted, levelId pinned).",
+    "deviationsFromPryzm1": [
+      "id minted via createId('wall') (ULID) — PRYZM 1 used crypto.randomUUID(); fixture pins id for deterministic comparison",
+      "no _neighbourSnapshot captured — join cascade deferred to S08 producer (see ADR-008 §3.D)",
+      "affectedStores collapses ['wall','level'] → ['wall'] — see ADR-008 §3.D"
+    ]
+  },
+  "command": {
+    "type": "wall.create",
+    "payload": {
+      "id": "wall_01HYY00000000000000000FX01",
+      "levelId": "lvl_test",
+      "baseLine": [
+        { "x": 0,   "y": 0, "z": 0 },
+        { "x": 4.0, "y": 0, "z": 0 }
+      ],
+      "height": 2.5,
+      "thickness": 0.1,
+      "materialColor": "#d4c5b0"
+    }
+  },
+  "expect": {
+    "valid": true,
+    "wallStoreSizeAfter": 1,
+    "undoRestoresEmptyStore": true
+  }
+}

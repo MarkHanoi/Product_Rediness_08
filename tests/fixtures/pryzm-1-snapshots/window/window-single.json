@@ -1,0 +1,21 @@
+{
+  "id": "window_01H8XK3J7M9N2P4QR5STVW6XYZ",
+  "type": "window",
+  "parentId": "wall_01H8XK3J7M9N2P4QR5STVW6XYZ",
+  "childrenIds": [],
+  "metadata": {
+    "createdAt": 1700000000000,
+    "modifiedAt": 1700000000000,
+    "createdBy": "fixture",
+    "version": 1
+  },
+  "wallId": "wall_01H8XK3J7M9N2P4QR5STVW6XYZ",
+  "openingId": "opening_window_1",
+  "windowType": "single",
+  "width": 1.2,
+  "height": 1.4,
+  "sillHeight": 0.9,
+  "offset": 2.5,
+  "frameThickness": 0.05,
+  "frameWidth": 0.05
+}

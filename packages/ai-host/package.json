@@ -1,0 +1,45 @@
+{
+  "name": "@pryzm/ai-host",
+  "version": "0.1.0",
+  "description": "PRYZM 2 — AI host (S47). Runs at architectural layer L7.5 per [strategic ADR-014]: above the editor shell (L7), below the user (L8). Public surface is `getAiHost(): Promise<AiHost>` — the impl is loaded via dynamic `import('./AiHost.impl.js')` so Vite tree-shakes `AiHost.impl` out of the editor's main bundle. Zero AI-host bytes in the editor's first-paint chunk per spec lines 587-611. Full L7.5 promotion + CV pipeline + generative workflows land at S49-S52.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/types.ts",
+    "./tracing": "./src/tracing.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@pryzm/ai-cost": "workspace:*",
+    "@pryzm/command-registry": "workspace:*",
+    "@pryzm/constraint-solver": "workspace:*",
+    "@pryzm/core-app-model": "workspace:*",
+    "@pryzm/file-format": "workspace:*",
+    "@pryzm/geometry-column": "workspace:*",
+    "@pryzm/geometry-curtain-wall": "workspace:*",
+    "@pryzm/geometry-furniture": "workspace:*",
+    "@pryzm/geometry-slab": "workspace:*",
+    "@pryzm/geometry-stair": "workspace:*",
+    "@pryzm/geometry-wall": "workspace:*",
+    "@pryzm/input-host": "workspace:*",
+    "@pryzm/renderer-three": "workspace:*",
+    "@pryzm/room-topology": "workspace:*",
+    "@pryzm/spatial-index": "workspace:*",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/uuid": "^9.0.8",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

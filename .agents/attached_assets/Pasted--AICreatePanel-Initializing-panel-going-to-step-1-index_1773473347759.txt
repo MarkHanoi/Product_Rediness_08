@@ -1,0 +1,72 @@
+[AICreatePanel] Initializing panel, going to step 1
+index-qDb419a9.js:9671 [AICreatePanel] Transitioning to step 1
+index-qDb419a9.js:9671 [AICreatePanel] Step 1: display=flex
+index-qDb419a9.js:9671 [AICreatePanel] Step 2: display=none
+index-qDb419a9.js:9671 [AICreatePanel] Step 3: display=none
+index-qDb419a9.js:9671 [AICreatePanel] Step 4: display=none
+index-qDb419a9.js:9671 [AICreatePanel] All steps found and updated successfully
+index-qDb419a9.js:9671 [AICreatePanel] Attaching file input change listener
+index-qDb419a9.js:9671 [AICreatePanel] Attaching all event listeners
+index-qDb419a9.js:9671 [AICreatePanel] Attaching all event listeners...
+index-qDb419a9.js:9671 [AICreatePanel] ✓ Step 2 Next button listener attached
+index-qDb419a9.js:9671 [AICreatePanel] ✓ Step 2 Back button listener attached
+index-qDb419a9.js:9671 [AICreatePanel] ✓ Step 3 Generate button listener attached
+index-qDb419a9.js:9671 [AICreatePanel] ✓ Step 3 Back button listener attached
+index-qDb419a9.js:9671 [AICreatePanel] ✓ Step 4 Open AI Actions button listener attached
+index-qDb419a9.js:9671 [AICreatePanel] ✓ Step 4 Create Another button listener attached
+index-qDb419a9.js:9671 [AICreatePanel] ✓ Prompt input keydown listener attached
+index-qDb419a9.js:9671 [AICreatePanel] All event listeners attached successfully
+index-qDb419a9.js:10833 Refreshing Spatial Tree...
+index-qDb419a9.js:10707 [FloorPlanImportPanel] PDF converted: 1000×1415px
+index-qDb419a9.js:10707 [FloorPlanImportPanel] Calibration: 97.0 px/m → 10.3m × 14.6m
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9416 [AIPanel] Proposal received via event: Object
+index-qDb419a9.js:9421 [AIPanel] Approving proposal: Object
+index-qDb419a9.js:8750 [CommandManager] EXECUTE: ADD_OPENING
+index-qDb419a9.js:9421 [AIPanel] Execution result: Object
+index-qDb419a9.js:11113 [StairTool] Mousedown event Object
+index-qDb419a9.js:11113 [StairTool] Mousedown event Object
+index-qDb419a9.js:11113 [StairTool] Mousedown event Object

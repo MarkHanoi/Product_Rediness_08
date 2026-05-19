@@ -1,0 +1,363 @@
+[BatchCoordinator] §TRACE §REG-MANY-P2 queue ≤ 50 (11) — draining synchronously (0 rAF frames) T=+567.6ms
+engineLauncher-Ynplbd5k.js:1595 [BimManager] §REG-MANY-P0: registered 8 element(s) to level "L0".
+engineLauncher-Ynplbd5k.js:1595 [BimManager] §REG-MANY-P0: registered 8 element(s) to level "L-01-1777983089668-1".
+engineLauncher-Ynplbd5k.js:1595 [BimManager] §REG-MANY-P0: registered 8 element(s) to level "L-02-1777983089677-2".
+engineLauncher-Ynplbd5k.js:1595 [BimManager] §REG-MANY-P0: registered 8 element(s) to level "L-03-1777983089683-3".
+engineLauncher-Ynplbd5k.js:1595 [BimManager] §REG-MANY-P0: registered 8 element(s) to level "L-04-1777983089690-4".
+engineLauncher-Ynplbd5k.js:1595 [BimManager] §REG-MANY-P0: registered 8 element(s) to level "L-05-1777983089695-5".
+engineLauncher-Ynplbd5k.js:1595 [BimManager] §REG-MANY-P0: registered 8 element(s) to level "L-06-1777983089703-6".
+engineLauncher-Ynplbd5k.js:1595 [BimManager] §REG-MANY-P0: registered 8 element(s) to level "L-07-1777983089709-7".
+engineLauncher-Ynplbd5k.js:1595 [BimManager] §REG-MANY-P0: registered 8 element(s) to level "L-08-1777983089715-8".
+engineLauncher-Ynplbd5k.js:1595 [BimManager] §REG-MANY-P0: registered 8 element(s) to level "L-09-1777983089721-9".
+engineLauncher-Ynplbd5k.js:1595 [BimManager] §REG-MANY-P0: registered 8 element(s) to level "L-10-1777983089728-10".
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE REGISTRATION-DRAIN-DONE 11 registration(s) complete T=+569.7ms
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE SHADOW-REACTIVATION-START T=+569.8ms
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE SHADOW-REACTIVATION-DISPATCHED (sliced across post-render frames) callMs=0.1ms T=+569.9ms
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE FINAL-SWEEP-START levels=11 skipRedetect=false T=+570.0ms (opening yielded event drain)
+main-CwHZbBPL.js:29470 [StoreEventBus] endBatchYielded() — 184 event(s) will be delivered in 1 chunk(s) of 200 via frame scheduler.
+main-CwHZbBPL.js:29470 [StoreEventBus] endBatchYielded() — all 184 event(s) delivered across 1 chunk(s) (last: 7.4ms). Calling onComplete().
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE ON-COMPLETE-START (all yielded events delivered) T=+589.8ms
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE §PERF-VIEW-BATCH-SUPPRESS suppression lifted; markLevelsDirty(11 level(s)) DEFERRED to post-render (§FIX-EDGE-PROJECT-DEFER). T=+589.9ms
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE ON-POST-BATCH-START (PBR upgrade + requestIdleCallback pending) T=+590.1ms
+engineLauncher-Ynplbd5k.js:1838 [BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-RUNNING (skipPbrUpgrade=false at post-batch callback time — running upgrade)
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE ON-POST-BATCH-DISPATCHED (PBR upgrade queued to requestIdleCallback) T=+590.2ms
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] Final sweep: firing 11 REDETECT_ROOMS command(s) (one per affected level). Observers re-enabled. StoreEventBus flushed (depth now 0).
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE §FIX-EDGE-PROJECT-DEFER markLevelsDirty(11 level(s)) fired post-render (EdgeProjector 300ms debounce starts after PSO compile frame). T=+603.4ms
+engineLauncher-Ynplbd5k.js:1838 [BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-IDLE-START idleCallbackT=113519.6ms (requestIdleCallback fired — scheduling post-render traversal)
+engineLauncher-Ynplbd5k.js:1838 [BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-TRAVERSE-DONE totalMeshes=266 chunks=3 traverseMs=0.3ms
+engineLauncher-Ynplbd5k.js:1838 [BatchCoordinator/P1.3] §TRACE PBR-CHUNK-1 meshes=120 remaining=146 chunkMs=0.1ms
+engineLauncher-Ynplbd5k.js:1838 [BatchCoordinator/P1.3] §TRACE PBR-CHUNK-2 meshes=120 remaining=26 chunkMs=0.2ms
+engineLauncher-Ynplbd5k.js:1838 [BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-COMPLETE 266 mesh(es) in 3 chunk(s) totalPbrMs=32.4ms (§FIX-POST-BATCH-PBR-CHUNK)
+engineLauncher-Ynplbd5k.js:1864 [ProjectSerializer] Snapshot created: 108 elements, 11 levels, 96 walls, 11 slabs, 0 furniture
+engineLauncher-Ynplbd5k.js:1864 [ProjectSerializer] Snapshot created: 108 elements, 11 levels, 96 walls, 11 slabs, 0 furniture
+PlatformShell-CUwZ5rrb.js:23 [PlatformSaveController] Version saved: "Auto-save" (108 elements, id: proj-1777983108077-39ben)
+PlatformShell-CUwZ5rrb.js:1 [PlatformCollabPill] Socket disconnected: transport close
+engineLauncher-Ynplbd5k.js:1864 [initCollaboration] Socket disconnected: transport close
+PlatformShell-CUwZ5rrb.js:1 [PlatformCollabPill] Socket connected — joining project room: proj-1777983053972-hw7g4xy
+engineLauncher-Ynplbd5k.js:1864 [initCollaboration] Socket connected — joining project room: proj-1777983053972-hw7g4xy
+engineLauncher-Ynplbd5k.js:1864 [initCollaboration] Catch-up: requesting commands since 2026-05-05T12:11:02.191Z
+engineLauncher-Ynplbd5k.js:1864 [initCollaboration] Collaborator joined: user-1777983028458-ieca947 Clemence Fily
+engineLauncher-Ynplbd5k.js:1864 [initCollaboration] Catch-up: replaying 13 missed command(s)
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-Ynplbd5k.js:1864 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+dispatch @ engineLauncher-Ynplbd5k.js:1864
+replayCatchUp @ engineLauncher-Ynplbd5k.js:1864
+C @ engineLauncher-Ynplbd5k.js:1864
+await in C
+(anonymous) @ engineLauncher-Ynplbd5k.js:1864
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48Understand this warning
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-Ynplbd5k.js:1864 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+dispatch @ engineLauncher-Ynplbd5k.js:1864
+replayCatchUp @ engineLauncher-Ynplbd5k.js:1864
+C @ engineLauncher-Ynplbd5k.js:1864
+await in C
+(anonymous) @ engineLauncher-Ynplbd5k.js:1864
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48Understand this warning
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-Ynplbd5k.js:1864 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+dispatch @ engineLauncher-Ynplbd5k.js:1864
+replayCatchUp @ engineLauncher-Ynplbd5k.js:1864
+C @ engineLauncher-Ynplbd5k.js:1864
+await in C
+(anonymous) @ engineLauncher-Ynplbd5k.js:1864
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48Understand this warning
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-Ynplbd5k.js:1864 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+dispatch @ engineLauncher-Ynplbd5k.js:1864
+replayCatchUp @ engineLauncher-Ynplbd5k.js:1864
+C @ engineLauncher-Ynplbd5k.js:1864
+await in C
+(anonymous) @ engineLauncher-Ynplbd5k.js:1864
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48Understand this warning
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-Ynplbd5k.js:1864 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+dispatch @ engineLauncher-Ynplbd5k.js:1864
+replayCatchUp @ engineLauncher-Ynplbd5k.js:1864
+C @ engineLauncher-Ynplbd5k.js:1864
+await in C
+(anonymous) @ engineLauncher-Ynplbd5k.js:1864
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48Understand this warning
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-Ynplbd5k.js:1864 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+dispatch @ engineLauncher-Ynplbd5k.js:1864
+replayCatchUp @ engineLauncher-Ynplbd5k.js:1864
+C @ engineLauncher-Ynplbd5k.js:1864
+await in C
+(anonymous) @ engineLauncher-Ynplbd5k.js:1864
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48Understand this warning
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-Ynplbd5k.js:1864 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+dispatch @ engineLauncher-Ynplbd5k.js:1864
+replayCatchUp @ engineLauncher-Ynplbd5k.js:1864
+C @ engineLauncher-Ynplbd5k.js:1864
+await in C
+(anonymous) @ engineLauncher-Ynplbd5k.js:1864
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48Understand this warning
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-Ynplbd5k.js:1864 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+dispatch @ engineLauncher-Ynplbd5k.js:1864
+replayCatchUp @ engineLauncher-Ynplbd5k.js:1864
+C @ engineLauncher-Ynplbd5k.js:1864
+await in C
+(anonymous) @ engineLauncher-Ynplbd5k.js:1864
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48Understand this warning
+engineLauncher-Ynplbd5k.js:1864 [RemoteCommandDispatcher] No factory for type: CREATE_ANNOTATION — toast-only
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] EXECUTE: CREATE_SLAB
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] snapshot commandType="qs" scope=[slab,level] elapsed=0.6ms
+engineLauncher-Ynplbd5k.js:1595 [BimManager] Registered element b21bcc4e-6a88-4a89-94a6-d87e14628f00 to level L0
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] outset slabId="b21bcc4e-6a88-4a89-94a6-d87e14628f00" vertices=8 elapsed=0.0ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] triangulate slabId="b21bcc4e-6a88-4a89-94a6-d87e14628f00" outerVertices=8 elapsed=0.8ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="b21bcc4e-6a88-4a89-94a6-d87e14628f00" totalMs=7.8ms
+engineLauncher-Ynplbd5k.js:1864 [RemoteCommandDispatcher] Applied remote command: CREATE_SLAB
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] EXECUTE: UPDATE_SLAB_LAYERS
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] snapshot commandType="gc" scope=[slab] elapsed=0.6ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] outset slabId="b21bcc4e-6a88-4a89-94a6-d87e14628f00" vertices=8 elapsed=0.0ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] triangulate slabId="b21bcc4e-6a88-4a89-94a6-d87e14628f00" outerVertices=8 elapsed=0.4ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="b21bcc4e-6a88-4a89-94a6-d87e14628f00" totalMs=1.9ms
+engineLauncher-Ynplbd5k.js:1864 [RemoteCommandDispatcher] Applied remote command: UPDATE_SLAB_LAYERS
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] EXECUTE: CREATE_LEVEL
+engineLauncher-Ynplbd5k.js:1864 [RemoteCommandDispatcher] Remote command failed validation: CREATE_LEVEL Elevation must be a valid number.
+dispatch @ engineLauncher-Ynplbd5k.js:1864
+replayCatchUp @ engineLauncher-Ynplbd5k.js:1864
+C @ engineLauncher-Ynplbd5k.js:1864
+await in C
+(anonymous) @ engineLauncher-Ynplbd5k.js:1864
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48Understand this warning
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] EXECUTE: CREATE_SLABS_ON_ALL_FLOORS
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] snapshot commandType="u2" scope=[slab,level] elapsed=0.4ms
+engineLauncher-Ynplbd5k.js:1864 [CreateSlabsOnAllFloorsCommand] START referenceSlabId="b21bcc4e-6a88-4a89-94a6-d87e14628f00" levels=10 polygonVertices=8
+engineLauncher-Ynplbd5k.js:1864 [CreateSlabsOnAllFloorsCommand] runBatch starting — 10 slab(s) deferred to rAF drain.
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE _setupBatch — 10 level(s), 10 elements expected. ViewDependencyTracker suppressed. T=+0ms (batch clock started)
+main-CwHZbBPL.js:29470 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+engineLauncher-Ynplbd5k.js:1595 [BimManager] Registered element 43d13d88-3b37-4005-978b-ea1caefd8a47 to level L-01-1777983089668-1
+engineLauncher-Ynplbd5k.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-01-1777983089668-1" success=true elapsed=1.6ms
+engineLauncher-Ynplbd5k.js:1595 [BimManager] Registered element c1c5e8e2-64db-4d45-9e33-c7b3b07acb99 to level L-02-1777983089677-2
+engineLauncher-Ynplbd5k.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-02-1777983089677-2" success=true elapsed=3.0ms
+engineLauncher-Ynplbd5k.js:1595 [BimManager] Registered element 8dfed47e-1316-4fed-85ac-94c60e0b8291 to level L-03-1777983089683-3
+engineLauncher-Ynplbd5k.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-03-1777983089683-3" success=true elapsed=1.9ms
+engineLauncher-Ynplbd5k.js:1595 [BimManager] Registered element 3c658f15-25a1-4105-b6fb-6d46712a2879 to level L-04-1777983089690-4
+engineLauncher-Ynplbd5k.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-04-1777983089690-4" success=true elapsed=1.8ms
+engineLauncher-Ynplbd5k.js:1595 [BimManager] Registered element c94746ea-aeb7-44ee-96f4-1f12b99a47c3 to level L-05-1777983089695-5
+engineLauncher-Ynplbd5k.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-05-1777983089695-5" success=true elapsed=1.9ms
+engineLauncher-Ynplbd5k.js:1595 [BimManager] Registered element d63ff8db-f35e-4e45-bdae-70a877ac8d9e to level L-06-1777983089703-6
+engineLauncher-Ynplbd5k.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-06-1777983089703-6" success=true elapsed=1.4ms
+engineLauncher-Ynplbd5k.js:1595 [BimManager] Registered element bee92dff-fcc9-4afc-b993-c53f9c62310e to level L-07-1777983089709-7
+engineLauncher-Ynplbd5k.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-07-1777983089709-7" success=true elapsed=1.4ms
+engineLauncher-Ynplbd5k.js:1595 [BimManager] Registered element 958cf9d8-5e53-4f45-91a5-d43b12371849 to level L-08-1777983089715-8
+engineLauncher-Ynplbd5k.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-08-1777983089715-8" success=true elapsed=1.3ms
+engineLauncher-Ynplbd5k.js:1595 [BimManager] Registered element 420adcd1-14d0-4e28-9695-851c8232ccbf to level L-09-1777983089721-9
+engineLauncher-Ynplbd5k.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-09-1777983089721-9" success=true elapsed=1.3ms
+engineLauncher-Ynplbd5k.js:1595 [BimManager] Registered element e3f68210-5f7a-406a-8cbc-15b9a4605023 to level L-10-1777983089728-10
+engineLauncher-Ynplbd5k.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-10-1777983089728-10" success=true elapsed=1.3ms
+engineLauncher-Ynplbd5k.js:1864 [CreateSlabsOnAllFloorsCommand] COMPLETE created=10 total=21.0ms
+engineLauncher-Ynplbd5k.js:1864 [RemoteCommandDispatcher] Applied remote command: CREATE_SLABS_ON_ALL_FLOORS
+engineLauncher-Ynplbd5k.js:1864 [RemoteCommandDispatcher] Catch-up complete: 3 applied, 10 skipped
+engineLauncher-Ynplbd5k.js:1864 [initCollaboration] Catch-up: applied=3 skipped=10
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE DEFERRED-RESUME-FLUSH fired (first rAF after runBatch returned) T=+23.3ms
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE RESUME-FLUSH-DISPATCHED wallResume+cwResume+slabResume called. CW rAF drain now in-flight. T=+23.8ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] outset slabId="43d13d88-3b37-4005-978b-ea1caefd8a47" vertices=8 elapsed=0.0ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] triangulate slabId="43d13d88-3b37-4005-978b-ea1caefd8a47" outerVertices=8 elapsed=0.4ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="43d13d88-3b37-4005-978b-ea1caefd8a47" totalMs=1.9ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] outset slabId="c1c5e8e2-64db-4d45-9e33-c7b3b07acb99" vertices=8 elapsed=0.0ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] triangulate slabId="c1c5e8e2-64db-4d45-9e33-c7b3b07acb99" outerVertices=8 elapsed=0.5ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="c1c5e8e2-64db-4d45-9e33-c7b3b07acb99" totalMs=1.9ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] outset slabId="8dfed47e-1316-4fed-85ac-94c60e0b8291" vertices=8 elapsed=0.1ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] triangulate slabId="8dfed47e-1316-4fed-85ac-94c60e0b8291" outerVertices=8 elapsed=0.3ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="8dfed47e-1316-4fed-85ac-94c60e0b8291" totalMs=2.4ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] outset slabId="3c658f15-25a1-4105-b6fb-6d46712a2879" vertices=8 elapsed=0.0ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] triangulate slabId="3c658f15-25a1-4105-b6fb-6d46712a2879" outerVertices=8 elapsed=0.3ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="3c658f15-25a1-4105-b6fb-6d46712a2879" totalMs=1.6ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] outset slabId="c94746ea-aeb7-44ee-96f4-1f12b99a47c3" vertices=8 elapsed=0.0ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] triangulate slabId="c94746ea-aeb7-44ee-96f4-1f12b99a47c3" outerVertices=8 elapsed=0.2ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="c94746ea-aeb7-44ee-96f4-1f12b99a47c3" totalMs=4.1ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] RAF_DRAIN built=5 remaining=5 queueBefore=10 frameMs=16.5ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] outset slabId="d63ff8db-f35e-4e45-bdae-70a877ac8d9e" vertices=8 elapsed=0.0ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] triangulate slabId="d63ff8db-f35e-4e45-bdae-70a877ac8d9e" outerVertices=8 elapsed=0.3ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="d63ff8db-f35e-4e45-bdae-70a877ac8d9e" totalMs=1.7ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] outset slabId="bee92dff-fcc9-4afc-b993-c53f9c62310e" vertices=8 elapsed=0.1ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] triangulate slabId="bee92dff-fcc9-4afc-b993-c53f9c62310e" outerVertices=8 elapsed=0.2ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="bee92dff-fcc9-4afc-b993-c53f9c62310e" totalMs=1.0ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] outset slabId="958cf9d8-5e53-4f45-91a5-d43b12371849" vertices=8 elapsed=0.0ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] triangulate slabId="958cf9d8-5e53-4f45-91a5-d43b12371849" outerVertices=8 elapsed=0.1ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="958cf9d8-5e53-4f45-91a5-d43b12371849" totalMs=0.7ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] outset slabId="420adcd1-14d0-4e28-9695-851c8232ccbf" vertices=8 elapsed=0.0ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] triangulate slabId="420adcd1-14d0-4e28-9695-851c8232ccbf" outerVertices=8 elapsed=0.1ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="420adcd1-14d0-4e28-9695-851c8232ccbf" totalMs=0.8ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] outset slabId="e3f68210-5f7a-406a-8cbc-15b9a4605023" vertices=8 elapsed=0.0ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] triangulate slabId="e3f68210-5f7a-406a-8cbc-15b9a4605023" outerVertices=8 elapsed=0.2ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="e3f68210-5f7a-406a-8cbc-15b9a4605023" totalMs=0.8ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] RAF_DRAIN built=5 remaining=0 queueBefore=5 frameMs=6.5ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] rAF queue drained — signalling BatchCoordinator.
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE BUILD-QUEUE-DRAINED regQueue=0 / totalExpected=10 T=+60.6ms (all geometry in scene; registration drain starting)
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE §REG-MANY-P2 queue ≤ 50 (0) — draining synchronously (0 rAF frames) T=+61.2ms
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE REGISTRATION-DRAIN-DONE 0 registration(s) complete T=+61.7ms
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE SHADOW-REACTIVATION-START T=+62.0ms
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE SHADOW-REACTIVATION-DISPATCHED (sliced across post-render frames) callMs=0.8ms T=+62.8ms
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE FINAL-SWEEP-START levels=10 skipRedetect=false T=+63.6ms (opening yielded event drain)
+main-CwHZbBPL.js:29470 [StoreEventBus] endBatchYielded() — 10 event(s) will be delivered in 1 chunk(s) of 200 via frame scheduler.
+main-CwHZbBPL.js:29470 [StoreEventBus] endBatchYielded() — all 10 event(s) delivered across 1 chunk(s) (last: 1.7ms). Calling onComplete().
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE ON-COMPLETE-START (all yielded events delivered) T=+80.0ms
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE §PERF-VIEW-BATCH-SUPPRESS suppression lifted; markLevelsDirty(10 level(s)) DEFERRED to post-render (§FIX-EDGE-PROJECT-DEFER). T=+80.4ms
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE ON-POST-BATCH-START (PBR upgrade + requestIdleCallback pending) T=+82.1ms
+engineLauncher-Ynplbd5k.js:1838 [BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-RUNNING (skipPbrUpgrade=false at post-batch callback time — running upgrade)
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE ON-POST-BATCH-DISPATCHED (PBR upgrade queued to requestIdleCallback) T=+83.4ms
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] Final sweep: firing 10 REDETECT_ROOMS command(s) (one per affected level). Observers re-enabled. StoreEventBus flushed (depth now 0).
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE §FIX-EDGE-PROJECT-DEFER markLevelsDirty(10 level(s)) fired post-render (EdgeProjector 300ms debounce starts after PSO compile frame). T=+168.4ms
+engineLauncher-Ynplbd5k.js:1833 [PascalSceneLighting] Shadow flags set on 116 mesh(es).
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-Ynplbd5k.js:2323 [PlanarTopologyEngine] Topology: 1 room(s) detected, outer face (8 vertices), 2 total faces
+engineLauncher-Ynplbd5k.js:2323 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+engineLauncher-Ynplbd5k.js:1838 [BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-IDLE-START idleCallbackT=371195.9ms (requestIdleCallback fired — scheduling post-render traversal)
+engineLauncher-Ynplbd5k.js:1838 [BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-TRAVERSE-DONE totalMeshes=276 chunks=3 traverseMs=0.6ms
+engineLauncher-Ynplbd5k.js:1838 [BatchCoordinator/P1.3] §TRACE PBR-CHUNK-1 meshes=120 remaining=156 chunkMs=0.1ms
+engineLauncher-Ynplbd5k.js:1838 [BatchCoordinator/P1.3] §TRACE PBR-CHUNK-2 meshes=120 remaining=36 chunkMs=0.2ms
+engineLauncher-Ynplbd5k.js:1838 [BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-COMPLETE 276 mesh(es) in 3 chunk(s) totalPbrMs=31.0ms (§FIX-POST-BATCH-PBR-CHUNK)
+engineLauncher-Ynplbd5k.js:1864 [ProjectSerializer] Snapshot created: 118 elements, 11 levels, 96 walls, 21 slabs, 0 furniture
+engineLauncher-Ynplbd5k.js:1864 [ProjectSerializer] Snapshot created: 118 elements, 11 levels, 96 walls, 21 slabs, 0 furniture
+PlatformShell-CUwZ5rrb.js:23 [PlatformSaveController] Version saved: "Auto-save" (118 elements, id: proj-1777983365804-238ts)

@@ -1,0 +1,240 @@
+[TemporalGraph] Initialised. sessionId=456ac064-4823-43fd-a24d-db32085676c5. Auto-recording element mutations via StoreEventBus.
+injected.js:37 [initDataPlatform] TemporalGraph initialised — sessionId=456ac064-4823-43fd-a24d-db32085676c5
+injected.js:37 [initDataPlatform] Data Platform stores + SemanticGraph + TemporalGraph + ConstraintEngine + DecisionRecordStore + PhysicsEngine exposed on window
+injected.js:37 [initDataPlatform] G-0.3: SelectionBus exposed on window
+injected.js:37 [initDataPlatform] ConstraintEngine auto-run wired to StoreEventBus (800ms debounce, load-quiet window)
+injected.js:37 [initDataPlatform] G-3: IntentPrompt wired to pryzm-constraints-updated
+injected.js:37 [PhysicsEngine] Initialised — FrameScheduler-batched queue active
+injected.js:37 [initDataPlatform] H-1: PhysicsEngine RAF-queue started
+injected.js:37 [PhysicsOverlayRenderer] Initialised
+injected.js:37 [initDataPlatform] H-2: PhysicsOverlayRenderer initialised
+injected.js:37 [TemplateStore] Seeded 15 built-in templates
+injected.js:37 [initDataPlatform] G-0.1: BuiltinTemplates seeded into TemplateStore
+injected.js:37 [initDataPlatform] G-0.3: SelectionBus subscribed to pryzm-element-selected
+injected.js:37 [initDataPlatform] H-1: PhysicsEngine room-create/update wiring active
+injected.js:37 [initDataPlatform] K-1: VoiceCommandIndicator mounted
+injected.js:37 [ConsequencePreviewOverlay] Initialised
+injected.js:37 [initDataPlatform] K-2: ConsequencePreviewOverlay initialised
+injected.js:37 [AmbientIndicator] Initialised
+injected.js:37 [initDataPlatform] K-3: AmbientIndicator mounted
+injected.js:37 [initDataPlatform] K-3: AmbientIntelligence wired to constraints + StoreEventBus
+injected.js:37 [initDataPlatform] Data Platform subsystem fully initialised.
+injected.js:37 [main] VG Governance Layer initialized
+injected.js:37 [main] View Range Filter Service initialized
+injected.js:37 [main] Crop Region Filter Service initialized
+injected.js:37 [main] Underlay Render Service initialized
+injected.js:37 [main] View Range Zone Applicator initialized
+injected.js:37 [main] Semantic Index initialized
+injected.js:37 [main] IFC Pset Adapter initialized (DOC-5.4)
+injected.js:37 [main] ViewDefinition Store initialized
+injected.js:37 [main] Visibility Intent stores initialized (panel lazy — loads on first use)
+injected.js:37 [DefaultViewsManager] Created default 3D view (id=vd-sys-3d-1)
+injected.js:37 [DefaultViewsManager] Created default Ground Floor plan view (id=vd-sys-plan-l0)
+injected.js:37 [DefaultViewsManager] Initialized — default views are guaranteed on every project.
+injected.js:37 [main] Visibility Rule Engine initialized
+injected.js:37 [main] Sheet Store initialized
+injected.js:37 [main] TitleBlock Store initialized (A0, A1, A3 templates seeded)
+injected.js:37 [main] Sheet Editor Panel registered (lazy — loads on first use)
+injected.js:37 [main] Sheet Export Service initialized
+injected.js:37 [DxfExportService] Initialised
+injected.js:37 [main] DXF Export Service initialized
+injected.js:37 [main] PDF Export Service registered (lazy — loads on first use)
+injected.js:37 [main] Sheet Index Service initialized (Drawing Register ready)
+injected.js:37 [main] Schedule Store initialized and default schedules seeded
+injected.js:37 [main] View Template Store initialized
+injected.js:37 [main] Phase Filter Store initialized (built-ins seeded)
+injected.js:37 [main] FastPathProjectorService initialized (sub-50ms interactive projection)
+injected.js:37 [initUI] ImportManagerPanel mounted
+injected.js:37 [CurtainWall] Store→Builder event wiring established
+injected.js:37 [CurtainWall] PanelStore→Builder event wiring established (§MI-02)
+injected.js:37 [ContextualEditBar] Initialized
+injected.js:37 [ContextualEditBar] Operation tools injected
+injected.js:37 [initUI] ShortcutCheatSheet installed (press ? to view all shortcuts)
+injected.js:37 [initUI] Split View toggle button mounted
+injected.js:37 [LevelExplodeController] Initialized
+injected.js:37 [InspectModeCoordinator] Initialized
+injected.js:37 [PlatformShell] D.1 — real save/load delegates injected (engine ready)
+injected.js:37 [initPersistence] D.1 — real delegates injected into early PlatformShell
+injected.js:37 [initPersistence] runtime.stores hydrator registered
+injected.js:37 [initCollaboration] Collaboration subsystem initialised — waiting for pryzm-project-loaded
+injected.js:37 [LONGTASK] duration=161.0ms start=56816.2ms [type=iframe src=https://ab72878d-8818-41f8-ae0c-023a2c7516c2-00-26f11zkmsqrnr.sisko.replit.dev/#/projects]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [FPS] 31fps
+injected.js:37 [LONGTASK] duration=58.0ms start=57039.9ms
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [AICreatePanel] Initializing panel, going to step 1
+injected.js:37 [AICreatePanel] Transitioning to step 1
+injected.js:37 [AICreatePanel] Step 1: display=flex
+injected.js:37 [AICreatePanel] Step 2: display=none
+injected.js:37 [AICreatePanel] Step 3: display=none
+injected.js:37 [AICreatePanel] Step 4: display=none
+injected.js:37 [AICreatePanel] All steps found and updated successfully
+injected.js:37 [AICreatePanel] Attaching file input change listener
+injected.js:37 [AICreatePanel] Attaching all event listeners
+injected.js:37 [AICreatePanel] Attaching all event listeners...
+injected.js:37 [AICreatePanel] ✓ Step 2 Next button listener attached
+injected.js:37 [AICreatePanel] ✓ Step 2 Back button listener attached
+injected.js:37 [AICreatePanel] ✓ Step 3 Generate button listener attached
+injected.js:37 [AICreatePanel] ✓ Step 3 Back button listener attached
+injected.js:37 [AICreatePanel] ✓ Step 4 Open AI Actions button listener attached
+injected.js:37 [AICreatePanel] ✓ Step 4 Create Another button listener attached
+injected.js:37 [AICreatePanel] ✓ Prompt input keydown listener attached
+injected.js:37 [AICreatePanel] All event listeners attached successfully
+injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+injected.js:37 [PlatformShell] Project context set: proj-1777935123577-pu8461z AFesg
+injected.js:37 [runtime] Phase F status pill mounted — ai.model=claude-haiku-4-5 plugins=38 ifc/rhino/bcf=ready pdf=queued
+injected.js:37 [initScene] pryzm-project-switch received — project: proj-1777935123577-pu8461z
+injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+injected.js:37 [ViewController] clearCameraStateStore — per-view camera state cleared for new project
+injected.js:37 [UnderlayPersistence] Project switch — saves suspended
+injected.js:37 [EngineBootstrap] C13 project-switch: cold-boot → (unknown)
+injected.js:37 [BatchCoordinator] C13 forceReset() — all batch state cleared for project switch
+injected.js:37 [EngineBootstrap] C13 resetWallRebuildState() — wall pipeline clean for project switch
+injected.js:37 [EngineBootstrap] C13 teardown complete — Project B context loading
+injected.js:37 [PlatformShell] New project — clearing scene immediately (no server check)
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+ProjectLoader.ts:234 [ProjectLoader] Loading "AFesg" (0 elements)
+injected.js:37 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+injected.js:37 [ProjectLoader] Element-creation path: ImportProjectCommand (Phase 1)
+injected.js:37 [LONGTASK] duration=56.0ms start=57259.3ms [type=iframe src=https://ab72878d-8818-41f8-ae0c-023a2c7516c2-00-26f11zkmsqrnr.sisko.replit.dev/#/projects]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=92.0ms start=57316.3ms [type=iframe src=https://ab72878d-8818-41f8-ae0c-023a2c7516c2-00-26f11zkmsqrnr.sisko.replit.dev/#/projects]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 Refreshing Spatial Tree...
+ClearProjectCommand.ts:59 [ClearProjectCommand] Clearing all project data
+injected.js:37   Removing 0 curtain panels
+injected.js:37   Removing 0 openings
+injected.js:37   Removing 0 walls
+injected.js:37   Removing 0 curtain walls
+injected.js:37   Removing 0 slabs
+injected.js:37   Removing 0 ceilings
+injected.js:37   Removing 0 columns
+injected.js:37   Removing 0 beams
+injected.js:37   Removing 0 stairs
+injected.js:37   Removing 0 roofs
+injected.js:37   Removing 0 furniture items
+injected.js:37   Removing 0 handrails
+injected.js:37   Removing 0 plumbing fixtures
+injected.js:37   Removing 0 rooms
+injected.js:37   Removing 0 room bounding lines
+injected.js:37   Removing 0 grids
+injected.js:37   Removing 1 levels
+injected.js:37 [BimManager] Cannot delete the default Ground level.
+(anonymous) @ injected.js:37
+(anonymous) @ BimKernel.ts:342
+(anonymous) @ ClearProjectCommand.ts:166
+(anonymous) @ ClearProjectCommand.ts:166
+(anonymous) @ ImportProjectCommand.ts:236
+(anonymous) @ ImportProjectCommand.ts:260
+(anonymous) @ CommandManager.ts:129
+(anonymous) @ ProjectLoader.ts:265
+(anonymous) @ ProjectLoader.ts:334
+await in (anonymous)
+(anonymous) @ initPersistence.ts:266
+(anonymous) @ PlatformShell.ts:198
+(anonymous) @ WorkspaceSurface.ts:188
+(anonymous) @ buildPersistence.ts:257
+await in (anonymous)
+(anonymous) @ buildPersistence.ts:266
+(anonymous) @ PlatformRouter.ts:422
+(anonymous) @ PlatformRouter.ts:375
+(anonymous) @ PlatformRouter.ts:289
+(anonymous) @ ProjectHub.ts:1110
+(anonymous) @ ProjectHub.ts:1091
+await in (anonymous)
+(anonymous) @ ProjectHub.ts:1019
+(anonymous) @ ProjectHub.ts:407Understand this warning
+injected.js:37 [ClearProjectCommand] Annotation store cleared
+injected.js:37   Cleared 0 floors
+injected.js:37 [DefaultViewsManager] Created default 3D view (id=vd-sys-3d-1)
+injected.js:37 [DefaultViewsManager] Created default Ground Floor plan view (id=vd-sys-plan-l0)
+injected.js:37 [TemporalGraph] Cleared (project switch).
+injected.js:37 [UnderlayPersistence] Clear skipped — no current project bound
+injected.js:37 [ViewRenderCache] All render targets disposed.
+injected.js:37 [RoomGraphService] All graphs invalidated
+injected.js:37 [ClearProjectCommand] ProjectScopeRegistry cleared 44 scopes: (44) ['visibilityIntentStore', 'viewIntentInstanceStore', 'viewDefinitionStore', 'requirementStore', 'assetCatalogStore', 'hierarchyStore', 'templateStore', 'templateAssignmentStore', 'doorStore', 'windowStore', 'semanticGraphManager', 'decisionRecordStore', 'doorSystemTypeStore', 'windowSystemTypeStore', 'ceilingSystemTypeStore', 'floorSystemTypeStore', 'handrailTypeStore', 'roomBoundingLineStore', 'temporalGraphManager', 'scheduleStore', 'viewTemplateStore', 'wallSystemTypeStore', 'slabSystemTypeStore', 'annotationStore', 'ifcProjectionStore', 'vgGovernanceStore', 'floorPlanUnderlay', 'sheetStore', 'topologySpatialIndex', 'topologyLayer', 'viewRenderCache', 'elementCodeStore', 'roomSpatialIndex', 'semanticIndex', 'visibilityRuleEngine', 'dxfOverlayStore', 'constraintStore', 'annotationVisibilityStore', 'vgInstanceOverrideStore', 'roomGraphService', 'dxfLayerStore', 'phaseFilterStore', 'sceneBoundsCache', 'viewVisibilityMap']
+injected.js:37 [ClearProjectCommand] activeLevelId reset to L0 (project-scoped state cleared).
+injected.js:37 [ProjectIsolation] WallFragmentBuilder disposed — scene cleared of wall geometry.
+injected.js:37 [RoomGraphService] All graphs invalidated
+injected.js:37 [TemporalGraph] Cleared (project switch).
+injected.js:37 [ClearProjectCommand] Clear complete
+injected.js:37 [ImportProjectCommand] Loading 0 levels
+injected.js:37 [ImportProjectCommand] Loading 0 grids
+injected.js:37 [ImportProjectCommand] Loading 0 columns
+injected.js:37 [ImportProjectCommand] Loading 0 walls
+injected.js:37 [ImportProjectCommand] Loading 0 slabs
+injected.js:37 [ImportProjectCommand] Loading 0 stairs
+injected.js:37 [ImportProjectCommand] Loading 0 furniture items
+injected.js:37 [ImportProjectCommand] Loading 0 roofs
+injected.js:37 [ImportProjectCommand] Loading 0 handrails
+injected.js:37 [ImportProjectCommand] Loading 0 plumbing fixtures
+injected.js:37 [ImportProjectCommand] Loading 0 curtain walls
+injected.js:37 [ImportProjectCommand] Loading 0 beams
+injected.js:37 [ProjectLoader] VG Governance state restored from snapshot
+injected.js:37 [ProjectLoader] ViewDefinition store restored from snapshot
+injected.js:37 [ProjectLoader] Visibility rule engine restored from snapshot
+injected.js:37 [VGToIntentMigration] Starting VG → Intent migration…
+injected.js:37 [VGToIntentMigration] Complete — 0 intents, 0 views, 0 overrides migrated.
+injected.js:37 [initDataPlatform] DataWorkbench toolbar button + physics overlay dropdown injected
+injected.js:37 [VoiceCommandIndicator] Mounted (speechAPI=true)
+injected.js:37 [DefaultViewsManager] Created default 3D view (id=vd-sys-3d-1)
+injected.js:37 [DefaultViewsManager] Created default Ground Floor plan view (id=vd-sys-plan-l0)
+injected.js:37 [ProjectLoader] Sheet store restored from snapshot
+injected.js:37 [ProjectLoader] Schedule store restored from snapshot
+injected.js:37 [ProjectLoader] SemanticGraph cleared (v1/v2 snapshot — no graph data)
+injected.js:37 [TemporalGraph] Cleared (project switch).
+injected.js:37 [ProjectLoader] TemporalGraph cleared (pre-v4 snapshot — no temporal data)
+injected.js:37 [ProjectLoader] DecisionRecordStore cleared (pre-v4 snapshot — no decision data)
+injected.js:37 [IntentStylePrewarmer] Pre-warmed 1224 style slots in 4.70ms
+injected.js:37 [ProjectLoader] RequirementStore cleared (no requirement data in snapshot)
+injected.js:37 [AssetCatalogStore] setDirect(): restored 21 entries
+injected.js:37 [ProjectLoader] AssetCatalogStore seeded from defaults
+injected.js:37 [ProjectLoader] Annotation store cleared (no annotation data in snapshot)
+injected.js:37 [ProjectLoader] AnnotationDependencyGraph rebuilt after restore
+injected.js:37 [ProjectLoader] Load complete: 0 loaded, 0 failed, 0 errors
+injected.js:37 [StoreEventBus] endBatch() — flushed 38 buffered event(s) in emission order (no coalescing — all events delivered).
+injected.js:37 [ProjectLoader] PHASE_TIMINGS total=819.5ms setup=0.0ms hydrate=0.0ms event_flush=0.0ms wall_rebuild_flush=0.0ms redetect_sweep=0.0ms [walls=0 slabs=0 levels=0 curtainWalls=0]
+injected.js:37 [ProjectSerializer] Snapshot created: 0 elements, 1 levels, 0 walls, 0 slabs, 0 furniture
+injected.js:37 [PlatformShell] New project ready — firing pryzm-project-loaded(empty:true)
+injected.js:37 [FrustumCullingService] pryzm-project-loaded(empty) — audit skipped, no geometry
+injected.js:37 [initScene] pryzm-project-loaded — empty project (no geometry)
+injected.js:37 [TemplateStore] Seeded 15 built-in templates
+injected.js:37 [initCollaboration] Project opened — collaboration active for proj-1777935123577-pu8461z
+injected.js:37 [EngineBootstrap] pryzm-project-loaded(empty) — skipping zoomToAll, no geometry
+injected.js:37 [ProjectIsolationAudit] ✓ project proj-1777935123577-pu8461z loaded clean — no leftover state
+injected.js:37 [FPS] 37fps
+injected.js:37 [RenderPipelineManager] Outlines activated (selected + hover).
+injected.js:37 [RenderPipelineManager] Phase: phase4 | WebGPU: true | SSGI: true | TRAA: false
+injected.js:37 [RenderPipelineManager] Phase: phase4 | WebGPU: true | SSGI: true | TRAA: false
+injected.js:37 [PlatformCollabPill] Socket connected — joining project room: proj-1777935123577-pu8461z
+injected.js:37 [LONGTASK] duration=118.0ms start=58159.1ms [type=iframe src=https://ab72878d-8818-41f8-ae0c-023a2c7516c2-00-26f11zkmsqrnr.sisko.replit.dev/#/projects]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=72.0ms start=58281.2ms [type=iframe src=https://ab72878d-8818-41f8-ae0c-023a2c7516c2-00-26f11zkmsqrnr.sisko.replit.dev/#/projects]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [HomeView] Default viewpoint captured: {x: 49.99999999999997, y: 49.99999999999995, z: 50.00000000000005} {x: -2.842170943040401e-14, y: -4.263256414560601e-14, z: 4.263256414560601e-14}
+injected.js:37 [SplitViewManager] Canvas2D context ready
+injected.js:37 [SvpPlanToolOverlay] Attached with snap service. viewId: vd-sys-plan-l0
+injected.js:37 [SplitViewManager] Split view activated (Canvas2D plan mode)
+injected.js:37 [initScene] Split view auto-opened on project load (idle)
+injected.js:37 [initDataPlatform] H-1: Physics compute enqueued for all rooms after project load (idle)
+injected.js:37 [initCollaboration] Socket connected — joining project room: proj-1777935123577-pu8461z
+injected.js:37 [initCollaboration] Catch-up: first connect — setting baseline timestamp
+2injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+injected.js:37 [HomeView] Default viewpoint captured: {x: 49.99999999999997, y: 49.99999999999995, z: 50.00000000000005} {x: -2.842170943040401e-14, y: -4.263256414560601e-14, z: 4.263256414560601e-14}
+injected.js:37 [SvpPlanToolOverlay] Detached
+injected.js:37 [SplitViewManager] Split view deactivated
+2injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+injected.js:37 [GPU Monitor] geometries:1 textures:5 | drawCalls:1 tris:1
+injected.js:37 [FPS] 30fps
+injected.js:37 [LONGTASK] duration=50.0ms start=64836.6ms [type=iframe src=https://ab72878d-8818-41f8-ae0c-023a2c7516c2-00-26f11zkmsqrnr.sisko.replit.dev/#/projects]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [FPS] 87fps
+injected.js:37 [WallModePicker] setActiveMode → ortho
+i

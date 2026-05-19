@@ -1,0 +1,43 @@
+[BatchCoordinator/P1.3] Post-batch PBR upgrade complete: 694 mesh(es) in 6 chunk(s) (§FIX-POST-BATCH-PBR-CHUNK).
+injected.js:37 [FPS] 30fps
+injected.js:37 [LONGTASK] duration=1778.0ms start=197306.0ms [type=iframe src=https://dab468f7-d3c3-455a-b8e2-d62a50c2652e-00-21fvmjce0ybg1.picard.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=89.0ms start=199084.3ms [type=iframe src=https://dab468f7-d3c3-455a-b8e2-d62a50c2652e-00-21fvmjce0ybg1.picard.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+stallwart.build.js:1 stallwart: failed ping 1
+stallwart.build.js:1 stallwart: failed ping 2
+stallwart.build.js:1 stallwart: failed ping 1
+injected.js:37 [FPS] 1fps
+injected.js:37 [LONGTASK] duration=16700.0ms start=199212.9ms [type=iframe src=https://dab468f7-d3c3-455a-b8e2-d62a50c2652e-00-21fvmjce0ybg1.picard.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [GPU Monitor] geometries:33 textures:9 | drawCalls:20 tris:300
+injected.js:37 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+injected.js:37 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+injected.js:37 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed out of 1 live room(s).
+injected.js:37 [NativeElementMeshExporter] Plan view — exporting 38 elements from levels overlapping Y=[-1.20, 0.00]
+injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+injected.js:37 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+injected.js:37 [EdgeProjectorService] Native projection done — 37 group(s), 1066 edge geometries across 37 ISO layer(s) (per-element UUID tagging active)
+injected.js:37 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=26 (OBC-IFC=0, native=37, ifc-scene=0)
+injected.js:37 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=7/14 layers
+injected.js:37 [LONGTASK] duration=130.0ms start=216547.6ms [type=iframe src=https://dab468f7-d3c3-455a-b8e2-d62a50c2652e-00-21fvmjce0ybg1.picard.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+stallwart.build.js:1 stallwart: failed ping 1
+stallwart.build.js:1 stallwart: failed ping 2
+stallwart.build.js:1 stallwart: failed ping 3
+stallwart.build.js:1 stallwart: failed ping 4
+stallwart.build.js:1 stallwart: failed ping 5
+injected.js:37 [FPS] 2fps
+injected.js:37 [LONGTASK] duration=30618.0ms start=218723.7ms [type=iframe src=https://dab468f7-d3c3-455a-b8e2-d62a50c2652e-00-21fvmjce0ybg1.picard.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+2injected.js:37 [GPU Monitor] geometries:33 textures:9 | drawCalls:20 tris:300
+0t2ec~96ujkk6.js:21 Haven't heard from the server in a while, resetting connection...
+(anonymous) @ 0t2ec~96ujkk6.js:21
+(anonymous) @ 0qfu1se.22i1c.js:518
+r @ 0t2ec~96ujkk6.js:21Understand this warning
+injected.js:37 [FPS] 1fps

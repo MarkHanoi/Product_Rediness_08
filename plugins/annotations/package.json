@@ -1,0 +1,37 @@
+{
+  "name": "@pryzm/plugin-annotations",
+  "version": "0.1.0",
+  "description": "PRYZM 2 \u2014 Annotations plugin (S34 / ADR-0026). 8 handlers: CreateAnnotation / DeleteAnnotation / MoveAnnotation / SetAnnotationText / SetAnnotationKind / SetAnnotationRotation / SetAnnotationTextHeight / SetAnnotationColor. Plus TextNoteTool + plan-view adapter.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./errors": "./src/errors.ts",
+    "./handlers": "./src/handlers/index.ts",
+    "./intent": "./src/intent.ts",
+    "./tool": "./src/tool.ts",
+    "./plan-view-adapter": "./src/plan-view-adapter.ts",
+    "./subsystem": "./src/subsystem/index.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@pryzm/plugin-sdk": "workspace:*",
+    "@pryzm/core-app-model": "workspace:*",
+    "@pryzm/renderer-three": "workspace:*",
+    "zod": "^3.22.4",
+    "@thatopen/components": "^3.4.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

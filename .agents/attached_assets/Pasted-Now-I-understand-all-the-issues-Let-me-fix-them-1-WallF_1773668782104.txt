@@ -1,0 +1,34 @@
+Now I understand all the issues. Let me fix them:1. WallFragmentBuilder.ts line 650 and 832: start and end are destructured from wall.baseLine and are WallPoint objects. PathResolver.toPolyline expects THREE.Vector3. Also computeStations expects THREE.Vector3. I need to find where start and end are destructured in these contexts (around lines 640-655 and 820-835) and convert them to THREE.Vector3.
+
+WallIntentResolver.ts lines 65 and 160: same issue — start and end are WallPoint and PathResolver.toPolyline expects THREE.Vector3. Also line 167 pointToSegmentDistance takes THREE.Vector3.
+
+DoorTool.ts and WindowTool.ts: Both have the same problem where start is a WallPoint but needs to be converted to THREE.Vector3 before calling clone().
+
+CreateWallCommand.ts: The worldY variable computed on line 97 appears to be unused now since only baseOffset is being used for the baseLine and curve control, so I should verify if it's referenced anywhere else in the execute function.
+
+Checking the rest of CreateWallCommand.ts to see if worldY is still needed...
+
+Let me read more context for the remaining CreateWallCommand and WallIntentResolver issues:
+
+Now I understand the remaining errors:
+
+WallFragmentBuilder.ts line 650: start, end destructured from wall.baseLine (which is [WallPoint, WallPoint]). PathResolver.toPolyline expects THREE.Vector3. Need to convert start and end to THREE.Vector3 in this context.
+
+WallFragmentBuilder.ts line 832: computeStations(start, end, ctrl, ...) - same issue.
+
+WallIntentResolver.ts lines 65 and 160: start, end destructured from wall.baseLine, passed to PathResolver.toPolyline.
+
+WallIntentResolver.ts line 167: pointToSegmentDistance(query, start, end) where start, end are WallPoint.
+
+DoorTool.ts line 172: start.clone() - start is WallPoint. Need to construct a THREE.Vector3 from the WallPoint coordinates and apply the scaled vector operation.
+
+WindowTool.ts line 189: same conversion needed.
+
+CreateWallCommand.ts line 97: worldY is computed but unused, so I'll remove it.
+
+For WallFragmentBuilder.ts, I can see that start and end come from destructuring wall.baseLine at lines 377-378, which now contains WallPoint objects. The cleanest fix is to convert these to THREE.Vector3 immediately after destructuring, then use the converted vectors throughout the rest of the function.
+
+I need to find where start and end are destructured in WallFragmentBuilder (around the buildFragments method that handles lines 650 and 832):
+
+You've reached your daily free quota limit. It will reset at 12:00 AM UTC.
+

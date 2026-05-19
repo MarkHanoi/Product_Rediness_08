@@ -1,0 +1,53 @@
+{
+  "name": "@pryzm/input-host",
+  "version": "0.1.0",
+  "description": "PRYZM 3 — Input-host slot owner + tool-layer extraction (Sprint AH). Owns the canonical keyboard / pointer / wheel / touch event source, typed selection/tool-bindings contracts, and the full src/engine/subsystems/tools/ domain promoted from src/.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@thatopen/components": "^3.4.2",
+    "@pryzm/engine": "workspace:*",
+    "@thatopen/components-front": "^3.4.2",
+    "@pryzm/renderer-three": "workspace:*",
+    "@pryzm/frame-scheduler": "workspace:*",
+    "@pryzm/core-app-model": "workspace:*",
+    "@pryzm/command-registry": "workspace:*",
+    "@pryzm/file-format": "workspace:*",
+    "@pryzm/geometry-wall": "workspace:*",
+    "@pryzm/geometry-window": "workspace:*",
+    "@pryzm/geometry-door": "workspace:*",
+    "@pryzm/geometry-slab": "workspace:*",
+    "@pryzm/geometry-stair": "workspace:*",
+    "@pryzm/geometry-column": "workspace:*",
+    "@pryzm/geometry-roof": "workspace:*",
+    "@pryzm/geometry-curtain-wall": "workspace:*",
+    "@pryzm/room-topology": "workspace:*",
+    "@pryzm/scene-committer": "workspace:*",
+    "@pryzm/spatial-index": "workspace:*",
+    "@pryzm/picking": "workspace:*",
+    "@pryzm/snapping": "workspace:*",
+    "@pryzm/plugin-structural": "workspace:*",
+    "@pryzm/plugin-annotations": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  },
+  "pryzm": {
+    "layer": "L7",
+    "bootstrapSpan": "pryzm.bootstrap.input",
+    "enginePointer": "src/engine/subsystems/initTools.ts"
+  }
+}

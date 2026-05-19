@@ -1,0 +1,367 @@
+ Undo / Redo / Move / Delete Robustness Audit
+
+**Date:** 2026-05-15  
+**Phase:** Analysis only — NO fixes applied in this session  
+**Scope:** All BIM element types: wall, window, door, slab, column, curtain wall, furniture, handrail, roof, floor, ceiling, beam, plumbing, stair  
+**Open items:** OI-034 through OI-041 in `docs/03_PRYZM3/07-OPEN-ITEMS.md`
+
+---
+
+## 1. Architecture Overview
+
+### 1.1 — The Two Undo Stacks
+
+The platform currently operates with **two parallel undo/redo stacks** that are NOT synchronized:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  PATH A — Legacy (CommandManager)                                   │
+│                                                                     │
+│  cmdMgr.execute(new SomeCommand(...))                               │
+│      → CommandManager.history[]         (snapshot-based, O(n) RAM) │
+│      → Toolbar undo button              (BimService.undo())         │
+│      → commandManager.undo()            (works ✅)                  │
+│                                                                     │
+│  Users of PATH A:                                                   │
+│    registerTransformDragHandler.ts  — wall drag, roof drag          │
+│    MovePlanToolHandler.ts           — ALL plan-view moves           │
+│    AlignPlanToolHandler.ts          — ALL plan-view aligns          │
+│    DeleteElementHandler.execute()   — via getCommandManagerBridge() │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│  PATH B — Ring-buffer (CommandBus + RingBufferUndoStack)            │
+│                                                                     │
+│  bus.executeCommand('element.delete', {...})                        │
+│      → CommandHandler.execute() → { forward: [], inverse: [] }     │
+│      → RingBufferUndoStack._entries[]   (Immer patches, O(1) RAM)  │
+│      → Ctrl+Z shortcut                  (applyRingBufferSide)       │
+│      → works ONLY if patches are non-empty                         │
+│                                                                     │
+│  Users of PATH B (that produce non-empty patches): NONE YET        │
+│  Users that go through PATH B but produce empty patches:           │
+│    DeleteElementHandler — returns { forward: [], inverse: [] }      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Current net effect:**
+- **Toolbar undo button** → PATH A → works for delete, move
+- **Ctrl+Z keyboard shortcut** → PATH B → broken for delete (empty patches); broken for move (no ring-buffer entry at all)
+
+---
+
+## 2. Issue Catalogue
+
+### ISSUE-01 (OI-034) — P0 — Ctrl+Z Delete is silently a no-op
+
+**Severity:** P0 — data loss risk (element deleted, keyboard undo does nothing)
+
+**Call chain:**
+```
+deleteSelected() in initUI.ts:2178
+  → window.runtime.bus.executeCommand('element.delete', { elementId, elementType })
+  → DeleteElementHandler.execute() in plugins/view/src/handlers/DeleteElement.ts
+      affectedStores: [] as const                     ← empty
+      return { forward: [], inverse: [] };             ← empty patches
+  → RingBufferUndoStack records { forward: [], inverse: [], affectedStores: [] }
+  → Ctrl+Z: applyRingBufferSide([], [], storeMap)     ← no-op
+```
+
+The real undo logic is performed by `DeleteElementCommand` (via legacy bridge), whose undo state lives in `CommandManager.history[]`. The toolbar undo button calls `commandManager.undo()` and restores the element correctly. The keyboard shortcut cannot reach the legacy stack.
+
+**Workaround:** Use toolbar undo button.
+
+**Fix direction (not applied):** Either (a) emit real Immer patches from `DeleteElementHandler` for each store mutation, OR (b) route `Ctrl+Z` to `commandManager.undo()` as a fallback when the ring-buffer entry has empty affectedStores.
+
+---
+
+### ISSUE-02 (OI-035) — P1 — Ring-buffer store map missing 9+ element-type stores
+
+**Severity:** P1 — future commands routed natively through CommandBus will silently fail Ctrl+Z
+
+**Location:** `apps/editor/src/engine/initUI.ts:2725-2743`
+
+**Current map:**
+```typescript
+function _buildRingBufferStoreMap() {
+    return {
+        wall:           window.wallStore,       // ✅
+        walls:          window.wallStore,       // ✅
+        slab:           window.slabStore,       // ✅
+        slabs:          window.slabStore,       // ✅
+        room:           window.roomStore,       // ✅
+        rooms:          window.roomStore,       // ✅
+        'curtain-wall': window.curtainWallStore,// ✅
+        curtainWalls:   window.curtainWallStore,// ✅
+        door:           window.doorStore,       // ✅
+        doors:          window.doorStore,       // ✅
+        window:         window.windowStore,     // ✅
+        windows:        window.windowStore,     // ✅
+        furniture:      window.furnitureStore,  // ✅
+        level:          window.levelStore,      // ✅
+        levels:         window.levelStore,      // ✅
+    };
+}
+```
+
+**Missing entries (NONE of these are mapped):**
+| Key | Window global | Element type |
+|-----|--------------|-------------|
+| `column` | `window.columnStore` | Column |
+| `beam` | `window.beamStore` | Beam |
+| `stair` | `window.stairStore` | Stair |
+| `stairRailing` | `window.stairRailingStore` | Stair railing |
+| `stairLanding` | `window.stairLandingStore` | Stair landing |
+| `handrail` | `window.handrailStore` | Handrail |
+| `roof` | `window.roofStore` | Roof |
+| `floor` | `window.floorStore` | Floor |
+| `ceiling` | `window.ceilingStore` | Ceiling |
+| `plumbing` | `window.plumbingStore` | Plumbing fixture |
+
+`applyRingBufferSide` silently skips absent keys (C03 §4.1). There is no warning, no error, no fallback.
+
+---
+
+### ISSUE-03 (OI-036) — P1 — Curtain wall delete execute() leaks elementRegistry + bimManager refs
+
+**Severity:** P1 — phantom hover/pick hits after delete
+
+**Location:** `packages/command-registry/src/walls/DeleteElementCommand.ts:248-257`
+
+```typescript
+// 6. Curtain Walls
+const cwStore = ctx.stores.curtainWallStore;
+const cw = cwStore?.get?.(id);
+if (cw) {
+    this.deletedData = { ...cw };
+    this.elementType = 'curtainwall';
+    cwStore.remove(id);                       // ← store only
+    // MISSING: elementRegistry.unregister(id)
+    // MISSING: bimManager.unregisterElement(id)
+    // MISSING: semanticGraphManager.removeAllRelationshipsForElement(id)
+    return { success: true, affectedElementIds: [id] };
+}
+```
+
+Compare with the wall branch (lines 143-163) which does all three cleanup steps. The curtain wall branch does none.
+
+**Observed consequences:**
+1. GPU pick buffer returns deleted ID on hover → phantom selection
+2. Level slot in bimManager is occupied by a non-existent element
+3. SemanticGraph retains stale edges
+
+---
+
+### ISSUE-04 (OI-037) — P1 — Curtain wall undo() restores store but not pick/spatial registries
+
+**Severity:** P1 — element reappears visually but is non-interactive after undo
+
+**Location:** `packages/command-registry/src/walls/DeleteElementCommand.ts:602-605`
+
+```typescript
+case 'curtainwall':
+    ctx.stores.curtainWallStore?.add?.(this.deletedData);   // ← visual reappears ✅
+    // MISSING: ctx.bimManager?.registerElement?.(id, levelId)
+    // MISSING: elementRegistry.registerSemantic(id, 'curtainwall')
+    break;
+```
+
+Compare with handrail undo (lines 649-658), roof undo (660-669), floor undo (671-680), ceiling undo (682-692), beam undo (694-735) — all call both `bimManager.registerElement` and `elementRegistry.registerSemantic`.
+
+**Observed consequences after undo:**
+1. Curtain wall fragment rebuilds (store event fires builder) → mesh appears ✅
+2. Element is NOT in `elementRegistry` → GPU pick fails → cannot be selected ❌
+3. Element is NOT in `bimManager` → no spatial indexing → level membership lost ❌
+4. Attempting to delete again: `canExecute` returns `{ ok: true }` (store has it), but the downstream bimManager call silently fails ❌
+
+---
+
+### ISSUE-05 (OI-038) — P1 — 3D gizmo drag commits to legacy CommandManager; Ctrl+Z undoes wrong thing
+
+**Severity:** P1 — keyboard undo after 3D drag is incorrect; move is effectively irrecoverable via Ctrl+Z
+
+**Location:** `apps/editor/src/engine/registerTransformDragHandler.ts:56,91`
+
+```typescript
+// Wall drag-end
+cmdMgr.execute(new UpdateWallBaselineCommand({ wallId, newBaseLine, prevBaseLine }));
+//     ↑ window.commandManager (legacy Path A) — no ring-buffer entry produced
+
+// Roof drag-end
+cmdMgr.execute(new UpdateRoofCommand(roofId, { footprint: {...} }));
+//     ↑ window.commandManager (legacy Path A) — no ring-buffer entry produced
+```
+
+After a drag, the ring-buffer cursor still points to the last non-drag command (e.g. the wall creation). Pressing Ctrl+Z undoes that creation, not the drag.
+
+**Plan-view move** (`MovePlanToolHandler.ts`): same pattern — ALL move commands (wall, door, window, furniture, curtain wall, column, slab, floor, ceiling, beam, roof) go through `cmdMgr.execute(...)`.
+
+**Alignment tool** (`AlignPlanToolHandler.ts`): same — `cmdMgr.execute(new UpdateWallBaselineCommand(...))`, `cmdMgr.execute(new UpdateFurnitureParametersCommand(...))`.
+
+**Workaround:** Toolbar undo button reaches the legacy `CommandManager` stack and correctly undoes the move.
+
+---
+
+### ISSUE-06 (OI-039) — P1 — 3D gizmo drag: element types without a handler branch produce NO command
+
+**Severity:** P1 — drag result silently discarded; data loss on next rebuild
+
+**Location:** `apps/editor/src/engine/registerTransformDragHandler.ts:27-115`
+
+The `'dragging-changed'` handler checks `elemType` sequentially:
+```
+door / window  → hostedDragController.handleDragEnd()   ✅
+roof           → UpdateRoofCommand via cmdMgr            ✅ (Path A only)
+wall           → UpdateWallBaselineCommand via cmdMgr    ✅ (Path A only)
+anything else  → falls through silently                  ❌
+```
+
+Elements that fall through (no drag-end command dispatched):
+| Element | Result |
+|---------|--------|
+| furniture | Visual position changes in Three.js; `furnitureStore` is NOT updated → resets on next re-render |
+| column | Same — `columnStore` not updated |
+| beam | Same — `beamStore` not updated |
+| stair | Same — `stairStore` not updated |
+| curtain wall | Same — `curtainWallStore` not updated |
+| floor | Same — `floorStore` not updated |
+| ceiling | Same — `ceilingStore` not updated |
+| handrail | Same — `handrailStore` not updated |
+
+**Note:** These element types also have no plan-view move handler in `MovePlanToolHandler.ts` for all cases (some do, others do not). The 3D gizmo gap is the most complete coverage hole.
+
+---
+
+### ISSUE-07 (OI-040) — P2 — Stair undo: stairLanding not re-registered in bimManager / elementRegistry
+
+**Severity:** P2 — landings render but are non-interactive after undo
+
+**Location:** `packages/command-registry/src/walls/DeleteElementCommand.ts:748-768`
+
+```typescript
+case 'stair': {
+    const snapshot = this.deletedData as StairData;
+    try { bimMgr?.registerElement?.(snapshot.id, snapshot.baseLevelId); } catch (_) {}   // stair ✅
+    try { elementRegistry.registerSemantic(snapshot.id, 'stair'); } catch (_) {}          // stair ✅
+
+    ctx.stores.stairStore.restoreSnapshot(snapshot);
+
+    this._stairRailingSnapshots.forEach(r => {
+        try { bimMgr?.registerElement?.(r.id, snapshot.baseLevelId); } catch (_) {}       // railing ✅
+        try { elementRegistry.registerSemantic(r.id, 'stair-railing'); } catch (_) {}     // railing ✅
+        ctx.stores.stairRailingStore?.add(r);
+    });
+    this._stairLandingSnapshots.forEach(l => {
+        // MISSING: bimMgr?.registerElement?.(l.id, snapshot.baseLevelId)
+        // MISSING: elementRegistry.registerSemantic(l.id, 'stair-landing')
+        ctx.stores.stairLandingStore?.add(l);                                              // landing store only ❌
+    });
+```
+
+Railings get the full treatment; landings only get the store restore. Hovering/picking a stair landing after undo-of-delete fails silently.
+
+---
+
+### ISSUE-08 (OI-041) — P2 — DeleteElementCommand.undo() guard throws misleading error for delegate paths
+
+**Severity:** P2 — confusing error; does not affect normal usage but surfaces in edge cases (double-undo, retry logic, serialization replay)
+
+**Location:** `packages/command-registry/src/walls/DeleteElementCommand.ts:451-452`
+
+```typescript
+undo(ctx: CommandContext): CommandResult {
+    if (!this.deletedData) throw new Error("Undo called before execute");
+    // ...
+    case 'slab':
+        if (this._slabDelegate) return this._slabDelegate.undo(ctx);
+        break;
+    case 'column':
+        if (this._columnDelegate) return this._columnDelegate.undo(ctx);
+        break;
+```
+
+For `slab` and `column` element types, `execute()` immediately delegates to `DeleteSlabCommand` / `DeleteColumnCommand` — `this.deletedData` is NEVER set. On any code path that calls `undo()` before `execute()`, or calls `undo()` a second time, the guard fires with `"Undo called before execute"` which is misleading (execute HAS been called; the issue is that `deletedData` is delegate-held).
+
+**Correct guard:**
+```typescript
+if (!this.deletedData && !this._slabDelegate && !this._columnDelegate) {
+    throw new Error("Undo called before execute");
+}
+```
+
+---
+
+## 3. Per-Element-Type Summary Matrix
+
+| Element | Delete execute() correct? | Delete undo() correct? | Move 3D gizmo command? | Move 3D gizmo undo (Ctrl+Z)? | Move plan-view command? | Move plan-view undo (Ctrl+Z)? |
+|---------|--------------------------|------------------------|------------------------|------------------------------|------------------------|-------------------------------|
+| Wall | ✅ full cleanup | ✅ full restore | ✅ UpdateWallBaselineCmd | ❌ Path A only | ✅ UpdateWallBaselineCmd | ❌ Path A only |
+| Window | ✅ | ✅ | ✅ hostedDragController | ❌ Path A only | ✅ SetWindowOffsetCmd | ❌ Path A only |
+| Door | ✅ | ✅ | ✅ hostedDragController | ❌ Path A only | ✅ SetDoorOffsetCmd | ❌ Path A only |
+| Slab | ✅ (delegate) | ✅ (delegate) | ❌ no branch | N/A | ✅ UpdateSlabPolygonCmd | ❌ Path A only |
+| Column | ✅ (delegate) | ✅ (delegate) | ❌ no branch | N/A | ✅ UpdateColumnCmd | ❌ Path A only |
+| Curtain wall | ❌ leaks elementRegistry + bimManager | ❌ missing bimManager + elementRegistry restore | ❌ no branch | N/A | ✅ UpdateCurtainWallCmd | ❌ Path A only |
+| Furniture | ✅ | ✅ | ❌ no branch | N/A | ✅ UpdateFurnitureParametersCmd | ❌ Path A only |
+| Handrail | ✅ | ✅ | ❌ no branch | N/A | ❌ no plan move handler found | N/A |
+| Roof | ✅ | ✅ | ✅ UpdateRoofCmd | ❌ Path A only | ✅ UpdateRoofCmd | ❌ Path A only |
+| Floor | ✅ | ✅ | ❌ no branch | N/A | ✅ UpdateFloorCmd | ❌ Path A only |
+| Ceiling | ✅ | ✅ | ❌ no branch | N/A | ✅ UpdateCeilingCmd | ❌ Path A only |
+| Beam | ✅ | ✅ (+ SemanticGraph) | ❌ no branch | N/A | ✅ UpdateBeamCmd | ❌ Path A only |
+| Plumbing | ✅ | ✅ | ❌ no branch | N/A | ❌ no plan move handler found | N/A |
+| Stair | ✅ (+ railings + landings) | ⚠️ landings missing bimManager + elementRegistry | ❌ no branch | N/A | ❌ no plan move handler found | N/A |
+
+**Legend:**
+- ✅ Correct and complete
+- ❌ Missing or broken
+- ⚠️ Partially correct
+- "Path A only" = works via toolbar undo button; NOT via Ctrl+Z
+
+---
+
+## 4. Undo / Redo Keyboard Shortcut Coverage
+
+```
+Ctrl+Z  → applyRingBufferSide(inverse, affectedStores, storeMap)
+Ctrl+Y  → applyRingBufferSide(forward, affectedStores, storeMap)
+```
+
+**Currently working for Ctrl+Z:**  
+Nothing yet — all existing commands go through the legacy bridge which returns empty patches.
+
+**Currently broken for Ctrl+Z (but working via toolbar):**  
+- Delete (all element types)
+- Move via 3D gizmo (wall, roof)
+- Move via plan-view (all element types)
+
+**Would be broken if new CommandBus-native commands were added for:**  
+- column, beam, stair, handrail, roof, floor, ceiling (missing from storeMap)
+
+---
+
+## 5. Root Cause Summary
+
+The fundamental tension is that the system is **mid-migration** from Path A (legacy `CommandManager`) to Path B (ring-buffer `CommandBus`). The migration was started in Wave 36 / Sprint A31 but the bridge handler (`DeleteElementHandler`) was implemented as a **thin wrapper** that calls the legacy stack — intentionally trading correctness for incremental safety. The `affectedStores: []` and `return { forward: [], inverse: [] }` in the bridge are explicit placeholders from the TODO comment: `// TODO(F-1.4): replace with authoritative multi-store element-deletion pipeline`.
+
+Undo via the toolbar works today because `BimService.undo()` routes to `commandManager.undo()` (legacy). The keyboard shortcut exclusively uses the ring-buffer and cannot fall back.
+
+---
+
+## 6. Fix Order and Implementation Status
+
+### Phase 1 — Completed 2026-05-15
+
+| Priority | Issue | Status | Files changed |
+|----------|-------|--------|--------------|
+| P0 | OI-034: Route Ctrl+Z/Y to commandManager when ring-buffer entry has empty affectedStores | ✅ Done | `apps/editor/src/engine/initUI.ts`, `apps/editor/src/types/globals.d.ts` |
+| P1 | OI-035: Add 10 missing stores to `_buildRingBufferStoreMap()` | ✅ Done | `apps/editor/src/engine/initUI.ts` |
+| P1 | OI-036: Curtain wall execute() — add elementRegistry + bimManager + SemanticGraph cleanup | ✅ Done | `packages/command-registry/src/walls/DeleteElementCommand.ts` |
+| P1 | OI-037: Curtain wall undo() — add bimManager.registerElement + elementRegistry.registerSemantic | ✅ Done | `packages/command-registry/src/walls/DeleteElementCommand.ts` |
+| P2 | OI-040: Stair landing undo — add bimManager + elementRegistry re-registration | ✅ Done | `packages/command-registry/src/walls/DeleteElementCommand.ts` |
+| P2 | OI-041: Fix misleading undo guard for delegate paths (slab, column) | ✅ Done | `packages/command-registry/src/walls/DeleteElementCommand.ts` |
+
+### Phase 2 — Open (not yet implemented)
+
+| Priority | Issue | Effort estimate |
+|----------|-------|----------------|
+| P1 | OI-038: Wire 3D gizmo drag-end through CommandBus (wall, roof) so Ctrl+Z covers moves | M — requires UpdateWallBaselineCmd / UpdateRoofCmd to produce real Immer patches |
+| P1 | OI-039: Add drag-end command branches for furniture, column, beam, stair, curtain wall, floor, ceiling, handrail in registerTransformDragHandler | M — one branch per element type |

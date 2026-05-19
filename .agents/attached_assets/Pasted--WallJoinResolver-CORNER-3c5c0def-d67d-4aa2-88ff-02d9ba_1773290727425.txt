@@ -1,0 +1,36 @@
+[WallJoinResolver] CORNER: 3c5c0def-d67d-4aa2-88ff-02d9baf101d6(start) ↔ 3506a767-0887-4173-8373-154106b78551(end)
+injected.js:37 [WJR-CORNER] epA=end epB=start
+injected.js:37 [WJR-CORNER] sharedPt=(13.619,37.530)
+injected.js:37 [WJR-CORNER] MN_A=(0.474,0.881) MN_B=(0.474,0.881)
+injected.js:37 [WallJoinResolver] CORNER: 6b515392-f6fa-44dd-9857-1826457b0bde(end) ↔ 017cd16c-cb30-47f6-93d2-75a806b3b7c7(start)
+injected.js:37 [WJR-CORNER] epA=end epB=start
+injected.js:37 [WJR-CORNER] sharedPt=(10.995,43.691)
+injected.js:37 [WJR-CORNER] MN_A=(-0.853,0.522) MN_B=(-0.853,0.522)
+injected.js:37 [WallJoinResolver] CORNER: 017cd16c-cb30-47f6-93d2-75a806b3b7c7(end) ↔ 3506a767-0887-4173-8373-154106b78551(start)
+PropertyInspector.ts:1511 [WARDROBE TRACE] INSPECTOR
+injected.js:37 Element From Store: undefined
+injected.js:37 Width Shown In UI: undefined
+injected.js:37 [StairTool] Mousedown event {active: false, controller: false}
+PropertyInspector.ts:1511 [WARDROBE TRACE] INSPECTOR
+injected.js:37 Element From Store: undefined
+injected.js:37 Width Shown In UI: undefined
+injected.js:37 [StairTool] Mousedown event {active: false, controller: false}
+PropertyInspector.ts:1511 [WARDROBE TRACE] INSPECTOR
+injected.js:37 Element From Store: undefined
+injected.js:37 Width Shown In UI: undefined
+injected.js:37 [StairTool] Mousedown event {active: false, controller: false}
+PropertyInspector.ts:1511 [WARDROBE TRACE] INSPECTOR
+injected.js:37 Element From Store: undefined
+injected.js:37 Width Shown In UI: undefined
+injected.js:37 [StairTool] Mousedown event {active: false, controller: false}
+PropertyInspector.ts:1511 [WARDROBE TRACE] INSPECTOR
+injected.js:37 Element From Store: undefined
+injected.js:37 Width Shown In UI: undefined
+injected.js:37 [CommandManager] EXECUTE: CREATE_SLAB
+injected.js:37 [SlabPickWalls] CreateSlabCommand failed: undefined
+(anonymous) @ injected.js:37
+complete @ SlabPickWallsController.ts:210
+(anonymous) @ SlabPickWallsController.ts:385
+handleEvent @ @thatopen_ui.js?v=09c13880:1484
+Be.onClick @ @thatopen_ui.js?v=09c13880:3814
+handleEvent @ @thatopen_ui.js?v=09c13880:1484Understand this warning

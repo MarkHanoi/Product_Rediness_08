@@ -1,0 +1,15 @@
+{
+  "name": "@pryzm/perf-budgets",
+  "version": "0.1.0",
+  "description": "PRYZM 2 — canonical NFT-target list mapping 08-VISION.md §6 contract rows to bench files and baseline keys. Single source of truth for K3-F regression-gate enforcement.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "test": "vitest run --reporter=default"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

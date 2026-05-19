@@ -1,0 +1,324 @@
+Prompt for Replit AI Agent
+
+You are a senior BIM platform architect and computational geometry engineer working inside this repository.
+
+Your task is to audit the current BIM engine implementation and estimate the engineering effort required to implement a full Curtain Wall system comparable to the capabilities available in Autodesk Revit.
+
+This project is a browser-based BIM modeling engine built on Three.js, with existing parametric elements such as walls, slabs, and hosted openings.
+
+The goal is to understand:
+
+• how far the current system is from supporting curtain walls
+• what architectural changes are required
+• the engineering effort required
+• how AI and world models could accelerate or simplify the implementation
+
+1. First: Audit the Current Architecture
+
+Analyze the repository and explain:
+
+Geometry kernel
+
+How geometry is generated (mesh, BRep, procedural)
+
+How parametric updates regenerate geometry
+
+Whether elements maintain topological relationships
+
+Element system
+
+Inspect how elements are structured:
+
+element registry
+
+element lifecycle
+
+parametric properties
+
+host relationships
+
+Evaluate:
+
+Wall
+Slab
+Opening
+Sketch loops
+Edges
+Faces
+
+Specifically determine if the system already supports:
+
+parametric sketches
+
+topology graph
+
+host-child relationships
+
+regeneration pipeline
+
+2. Evaluate Compatibility with Curtain Walls
+
+Determine how compatible the current system is with implementing:
+
+CurtainWall
+ ├─ CurtainGrid
+ ├─ CurtainPanel
+ └─ Mullion
+
+Evaluate whether the engine currently supports:
+
+Grid topology
+
+Curtain walls require a grid graph over a host surface.
+
+Check if the system can support:
+
+surface subdivision
+
+parametric grid lines
+
+dynamic recomputation of cells
+
+Cell generation
+
+Panels require computing cells from grid intersections.
+
+Determine whether we can generate:
+
+cells = planar graph faces
+
+from intersecting grid lines.
+
+Edge-based elements
+
+Mullions require:
+
+frame elements generated along grid edges
+
+intersection trimming
+
+corner conditions
+
+Evaluate if the engine can support edge-hosted parametric elements.
+
+3. Identify Missing Core Systems
+
+List the missing systems required for curtain walls:
+
+Possible examples:
+
+surface grid engine
+
+planar graph subdivision
+
+cell detection
+
+panel instancing
+
+mullion profile extrusion
+
+panel replacement system
+
+façade topology graph
+
+Explain how each one would integrate with the current architecture.
+
+4. Provide an Engineering Effort Estimate
+
+Estimate effort for implementing a production-ready curtain wall system.
+
+Break into phases:
+
+Phase 1 — MVP Curtain Walls
+
+Basic façade grid.
+
+Capabilities:
+
+rectangular grid
+
+auto panels
+
+simple mullions
+
+panel replacement
+
+Estimate engineering time.
+
+Phase 2 — Advanced Curtain Wall Features
+
+Add:
+
+manual grid editing
+
+angled grids
+
+partial grid segments
+
+panel family replacement
+
+parametric mullions
+
+Estimate engineering time.
+
+Phase 3 — Advanced Façade Systems
+
+Add:
+
+curved curtain walls
+
+curtain systems on surfaces
+
+adaptive panels
+
+pattern-based façades
+
+Estimate engineering time.
+
+5. Evaluate Performance Implications
+
+Analyze performance risks.
+
+Curtain walls create many parametric subelements.
+
+Estimate complexity for:
+
+grid recomputation
+
+panel regeneration
+
+mullion updates
+
+GPU mesh updates
+
+Explain what architectural improvements would help:
+
+instancing
+
+geometry caching
+
+incremental regeneration
+
+6. Propose a Curtain Wall Data Model
+
+Propose a clean architecture like:
+
+CurtainWall
+ ├─ HostSurface
+ ├─ GridSystem
+ │    ├─ UGrids
+ │    └─ VGrids
+ │
+ ├─ Cells
+ │    └─ Panels
+ │
+ └─ Mullions
+
+Explain how this should connect to:
+
+ElementRegistry
+
+Geometry builder
+
+Rendering system
+
+7. Evaluate AI Opportunities
+
+Now consider AI-native modelling workflows.
+
+Explain how AI could help generate curtain wall systems.
+
+Examples:
+
+AI façade generation
+
+User prompt:
+
+"Generate a 1.5m grid curtain wall with vertical emphasis"
+
+AI automatically:
+
+generates grid spacing
+
+assigns mullions
+
+creates panels
+
+AI façade optimization
+
+AI could optimize:
+
+daylight
+
+shading
+
+panel ratios
+
+constructability
+
+AI grid editing assistant
+
+AI could propose grid improvements:
+
+"This façade grid creates uneven panels. Suggest a better spacing?"
+8. World Model Integration
+
+Explain how world models could support façade systems.
+
+World models maintain a semantic representation of the building.
+
+Example structure:
+
+Building
+ ├─ Envelope
+ │   ├─ CurtainWalls
+ │   │    ├─ Panels
+ │   │    └─ Mullions
+
+AI could reason about:
+
+façade systems
+
+repetition
+
+structural alignment
+
+thermal zones
+
+Explain how integrating a world model layer above the BIM kernel would allow:
+
+AI reasoning
+
+generative design
+
+semantic building understanding
+
+9. Suggest a Development Roadmap
+
+Provide a recommended roadmap:
+
+Step 1 — Implement grid topology engine
+Step 2 — Generate façade cells
+Step 3 — Implement panels
+Step 4 — Implement mullions
+Step 5 — Build editing tools
+Step 6 — Add AI façade generation
+10. Final Output
+
+Provide a structured report including:
+
+Current system capabilities
+
+Missing systems
+
+Estimated implementation effort
+
+Proposed architecture
+
+AI opportunities
+
+World model integration
+
+Recommended roadmap
+
+Be very specific and reference actual files in the repository where relevant.

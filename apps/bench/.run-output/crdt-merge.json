@@ -1,0 +1,12 @@
+{
+  "name": "crdt-merge",
+  "p50": 0.10601300000007541,
+  "p95": 0.3214159999997719,
+  "opsPerSec": 9433,
+  "samples": 500,
+  "unit": "ms",
+  "nftTarget_p95_ms": 80,
+  "nftTarget_ops_per_sec": 50,
+  "implementation": "real-yjs-Y.Doc-merge",
+  "notes": "NFT-7 REAL per Wave A19-T10+T15. Two independent Y.Doc instances simulate two concurrent users. Y.applyUpdate merges both sides and convergence is verified. Replaces the WallStore LWW proxy (Wave A13 era)."
+}

@@ -1,0 +1,31 @@
+{
+  "id": "view_01H8XK3J7M9N2P4QR5STVW6XYZ",
+  "type": "view",
+  "parentId": null,
+  "childrenIds": [],
+  "metadata": {
+    "createdAt": 1700001500000,
+    "modifiedAt": 1700001500000,
+    "createdBy": "fixture",
+    "version": 1
+  },
+  "name": "Ground Floor Plan",
+  "kind": "plan",
+  "levelId": "level_ground",
+  "scale": 0.02,
+  "cutPlane": {
+    "origin": { "x": 0, "y": 1.2, "z": 0 },
+    "normal": { "x": 0, "y": 1, "z": 0 }
+  },
+  "camera": {
+    "projection": "orthographic",
+    "position": { "x": 0, "y": 100, "z": 0 },
+    "target": { "x": 0, "y": 0, "z": 0 },
+    "up": { "x": 0, "y": 0, "z": -1 },
+    "fov": 0.785,
+    "orthoHalfSize": 15,
+    "near": 0.1,
+    "far": 1000
+  },
+  "visibilityRulesetId": "default-plan"
+}

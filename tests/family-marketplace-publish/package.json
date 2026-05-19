@@ -1,0 +1,20 @@
+{
+  "name": "@pryzm/test-family-marketplace-publish",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "S59 deliverable: end-to-end test that exercises the marketplace publish flow — author keypair → packFamily(signingKey) → POST /api/v1/families → server-side schema/round-trip/signature/virus-scan validation → GET /api/v1/families list → GET /api/v1/families/:id detail → GET /api/v1/families/:id/download → unpackFamily(verifyingKey) round-trip. Mirrors the family-marketplace-publish CI gate row in `.replit`.",
+  "scripts": {
+    "test": "vitest run --reporter=default"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.9",
+    "supertest": "^7.0.0",
+    "express": "^4.21.1",
+    "@types/express": "^5.0.0",
+    "@types/supertest": "^6.0.2"
+  },
+  "dependencies": {
+    "@pryzm/file-format": "workspace:*"
+  }
+}

@@ -1,0 +1,34 @@
+What the new logs actually show (88 walls, 11 slabs, 10 levels):
+Prewarm:              151ms  ✅ 
+rAF drain:            887ms  ✅ (5 frames, adaptive budget working)
+Overlay visible:      905ms  ✅ fast
+─────────────────────────────────────────────────────────
+Post-overlay LONGTASK 1:  6,644ms  ❌ PSO compile — UNCHANGED
+Post-overlay LONGTASK 2:  4,983ms  ❌ EdgeProjector — 488 edges, 17 groups, 5 chunks
+Shadow LONGTASK:          GONE  ✅ 10-second delay working
+─────────────────────────────────────────────────────────
+Total user freeze: ~11.6 seconds (was ~26 seconds)
+The shadow fix worked. The 16,624ms LONGTASK from the previous session is completely absent. That's the biggest single win — ~15 seconds eliminated.
+EdgeProjector: still too slow. 17 groups / 5 chunks = 3.4 groups per chunk at ~293ms per group = ~996ms per chunk. Still over the 50ms threshold per chunk. The adaptive CHUNK_SIZE from the Replit fix should be producing CHUNK_SIZE=1 here since these are CW groups — but the log says "17 group(s) in 5 chunk(s)" which is 3-4 groups per chunk, not 1. The fix may not have deployed correctly, or the InstancedMesh detection probe isn't triggering for this geometry type.
+The 6,644ms PSO LONGTASK is the dominant remaining bottleneck. It's larger than previous sessions (4,398ms → 6,644ms) because there are more walls (54→88). This is the first render after suppression lifts hitting unwarmed PSOs. The prewarm ran but clearly didn't warm the right variants.
+Critical observation from GPU Monitor:
+After 6,644ms LONGTASK: geometries:23 drawCalls:10 tris:130
+This is the pre-CW geometry count. The CW geometry still hasn't appeared in the GPU Monitor after the 6,644ms LONGTASK completes — it only shows up later. This definitively confirms: the 6,644ms LONGTASK is not rendering CW geometry, it is compiling PSOs for the multi-pass pipeline (SSGI + outlines) before the first real render frame can execute. The prewarm's render(0) call is compiling PSOs for a minimal scene, but when the full SSGI+outline pipeline runs on a scene with 88 new InstancedMesh objects, it needs to compile additional PSO variants for those objects in each render pass.
+The real fix for the 6,644ms LONGTASK:
+The prewarm calls renderPipelineManager.render(0) once. But the production pipeline has 4 phases — ScenePass MRT, SSGI, TRAA, Outlines. Each phase is a separate WebGPU render pipeline. The prewarm compiles PSOs for phase 1 only (the forward pass), but phases 3 and 4 (SSGI denoiser + outlines) have their own PSO variants that don't get compiled until they first run.
+The fix is to call render(0) multiple times during prewarm — once per pipeline phase — or to force all 4 phases to execute during prewarm. Looking at RenderPipelineManager, the phases activate progressively. You need to force a full multi-pass render during prewarm, not just one render call.
+In CreateCurtainWallsOnAllSlabsCommand._prewarmCurtainWallShaders(), change:
+typescript// BEFORE — only compiles phase 1 PSOs
+window.renderPipelineManager.render(0);
+
+// AFTER — force all pipeline phases to compile their PSOs
+// Run multiple render passes to ensure SSGI + outline PSOs are compiled
+for (let i = 0; i < 3; i++) {
+    window.renderPipelineManager.render(0);
+}
+Three passes covers: ScenePass MRT (pass 1), SSGI+denoise (pass 2), outlines (pass 3). The cost is 3× the current 151ms prewarm = ~450ms, but it eliminates the 6,644ms post-batch LONGTASK. Net saving: ~6.2 seconds.
+EdgeProjector chunk size: verify the fix deployed.
+The log says 17 group(s) in 5 chunk(s) — that's ~3.4 groups/chunk. With CHUNK_SIZE=1, it should be 17 group(s) in 17 chunk(s). Either the fix didn't deploy, or the InstancedMesh detection at the first 5 groups returned false for this batch. The 488 edge geometries across 17 groups = 28.7 edges/group average, which should trigger the avgEdgesPerGroup > 20 threshold. Need to verify the actual deployed code in EdgeProjectorService.ts.
+Current state vs target:
+PhasePrevious sessionThis sessionTargetPrewarm89ms151ms~450ms (+3 passes)rAF drain764ms887ms~887ms (unchanged)Overlay visible777ms905ms~905msPSO LONGTASK4,398ms6,644ms~0ms (3-pass prewarm)EdgeProjector4,774ms4,983ms~250ms/chunk × 17 = backgroundShadow16,624msGONEGONE ✅Total freeze~26s~11.6s~2-3s
+The 3-pass prewarm is the last major code change needed. After that you're looking at ~2-3 seconds for 88 walls across 11 levels — which hits your 5-second target even for larger datasets.

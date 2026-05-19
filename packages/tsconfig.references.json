@@ -1,0 +1,22 @@
+{
+  "//": "Phase H (PHASE-H-PER-PACKAGE-COMPILE.md §3.3) — workspace project references.",
+  "//1": "Run via: tsc -b packages/tsconfig.references.json (added to root build).",
+  "//2": "Order is topological: leaves first, runtime-composer last.",
+  "//3": "Tracking ledger: docs/.../PRYZM2-WIREUP-PLAN-S72/27-phase-H-extraction-ledger.md",
+  "//4": "NOTE — `tsc -b` requires every listed project to set composite:true in its",
+  "//5": "tsconfig.build.json.  Until ALL Tier-1 leaves are extracted (Phases H.1–H.4)",
+  "//6": "the entries below carry composite:false and `tsc -b` will skip incremental",
+  "//7": "graph walking for them.  They can still be built individually with `pnpm",
+  "//8": "--filter <pkg> build`.  composite gets flipped on (and references between",
+  "//9": "packages added) once all direct deps also have build configs.",
+  "//10": "Sprint F-2.6 (2026-05-15): Added contracts packages — editor-ui, engine, views.",
+  "//11": "These are type-only (no output emit); the check-package-types.mjs script",
+  "//12": "validates them independently with `tsc -p tsconfig.json --noEmit`.",
+  "files": [],
+  "references": [
+    { "path": "file-format" },
+    { "path": "editor-ui" },
+    { "path": "engine" },
+    { "path": "views" }
+  ]
+}

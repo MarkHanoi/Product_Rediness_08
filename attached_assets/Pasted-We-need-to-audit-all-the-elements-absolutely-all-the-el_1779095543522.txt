@@ -1,0 +1,26 @@
+We need to audit all the elements, absolutely all the eleemnts against those issues found on some elements - the creation, deletation, movement, undo, redo, rotation and modification needs to be architecturally sound and perfectly working - this is not happening now - and the reason is triggered during: PRYZM3-MASTER-STATUS.md/ Before most of the element manipulation were working fine. The goal is not only to find analyse, and document and fix the issue but to make sure is not happening again - meaning with need a more robust and centralize way to manage this. please check editor folder for refenrece - we need to make sure that all elements behaver perfectly and not bugs on basic things like that are found. review - analyse - document and fix.
+
+Slab creation not working: Doesnt render preview on 3d scene - neither is created - On plan view it renders preview but it is not created - review this.
+
+Beam creation not working: Doesnt render preview on 3d scene - neither is created - On plan view it renders preview but it is not created - review this.
+
+Columns can not be created in plan view - the column element is showing the preview but the creation is not happening. 
+
+When a wall is moved and another element is either added, changed or deleted - the wall goes back to its original position - this is wrong - this happens only with walls that had before moving the wall a door or window hosted - other wise the wall can be moved and behaves appropierly. 
+
+Roof  creation not working: Doesnt render preview on 3d scene - neither is created - On plan view it renders preview but it is not created - review this.
+
+
+Stair preview in plan view is working but crashes with the following error: Uncaught TypeError: Cannot read properties of undefined (reading 'stairId')
+    at StairRailingBuilder.ts:23:53
+    at DOMEventBus.emit (DOMEventBus.ts:50:18)
+    at StairRailingStore.add (StairRailingStore.ts:31:14)
+    at CreateStairRailingCommand.execute (CreateStairRailingCommand.ts:110:22)
+    at CommandManager.execute (CommandManager.ts:130:36)
+    at CreateStairRailing.ts:46:14
+    at withHandlerSpan (tracing.ts:98:20)
+    at Object.execute (CreateStairRailing.ts:42:12)
+    at CommandBus.ts:260:38
+    at withSpan (otel.ts:24:26)
+
+Batch Curtain Wall by Slab - Has been heavy refactored and it is way quicker than original - all batch execution commands should be aligned to match its performance (e.g. At the moment changing colour of curtain walls batch all - takes way tooo long compared with the batch creation by slab - it should take 1 sec) We need review all batch executinios - this should be done using a modular robust yet super performance architecture - not short cuts - but proper great architecture approach.

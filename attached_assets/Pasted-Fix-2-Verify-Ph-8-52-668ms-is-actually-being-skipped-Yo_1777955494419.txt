@@ -1,0 +1,25 @@
+Fix 2 — Verify Ph 8 (52,668ms) is actually being skipped
+Your code already has skipPbrUpgrade: true in the runBatch call and the batchCoordinator.skipPbrUpgrade guard in initScene. But the console log shows 52,668ms across 4 chunks — meaning the guard isn't firing. Check your console for the PBR-UPGRADE-SKIPPED log line. If it's absent, the issue is likely that skipPbrUpgrade is being reset to false before the requestIdleCallback fires.
+In BatchCoordinator.ts, forceReset() at line 1155 resets _skipPbrUpgrade = false. If forceReset() is being called between runBatch completing and the idle callback firing, the guard check reads false. Verify by adding a temporary log:
+typescript// In initScene.ts, inside setPostBatchCallback:
+if (batchCoordinator.skipPbrUpgrade) {
+    console.log('[BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-SKIPPED ...');
+    return;
+}
+// ADD THIS:
+console.log('[BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-RUNNING skipPbrUpgrade=false at idle-callback time');
+If you see PBR-UPGRADE-RUNNING, move the _skipPbrUpgrade value into a local variable captured at runBatch time before it can be reset:
+typescript// In initScene.ts, setPostBatchCallback:
+batchCoordinator.setPostBatchCallback(() => {
+    const shouldSkipPbr = batchCoordinator.skipPbrUpgrade; // capture NOW before any reset
+    if (shouldSkipPbr) {
+        console.log('[BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-SKIPPED');
+        return;
+    }
+    // ... rest of runPbrUpgrade ...
+    requestIdleCallback(runPbrUpgrade, { timeout: 5000 });
+});
+
+Expected outcome after these two fixes
+PhaseBeforeAfterPh 0 prewarm218ms (wrong ctx, wasted)218ms (correct ctx, PSOs cached)Ph 6 first render10,923ms LONGTASK~0ms (cache hit)Ph 8 PBR upgrade52,668ms0ms (skip guard)Everything else~2,400ms~2,400msTotal~75s~2.6s
+Fix 1 is the critical one — two lines, eliminates the dominant cost. Fix 2 is likely already working but the console will tell you definitively. Both changes are safe: the ?? fallback means Phase 1–4 behaviour is unchanged, and the local-capture pattern means undo/redo paths are unaffected.

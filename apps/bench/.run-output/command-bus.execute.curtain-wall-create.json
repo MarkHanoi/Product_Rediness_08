@@ -1,0 +1,10 @@
+{
+  "name": "command-bus.execute.curtain-wall-create",
+  "samples": 200,
+  "p50": 4.464,
+  "p95": 14.253,
+  "p99": 33.552,
+  "budgetMs": 1,
+  "warnMs": 0.5,
+  "recordedAt": "2026-05-09T23:09:21.493Z"
+}

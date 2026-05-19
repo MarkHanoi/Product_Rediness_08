@@ -1,0 +1,22 @@
+{
+  "id": "slab_01H8XK3J7M9N2P4QR5STVW6XYZ",
+  "type": "slab",
+  "parentId": "level_ground",
+  "childrenIds": [],
+  "metadata": {
+    "createdAt": 1700000000000,
+    "modifiedAt": 1700000000000,
+    "createdBy": "fixture",
+    "version": 1
+  },
+  "levelId": "level_ground",
+  "boundary": [
+    { "x": 0, "y": 0, "z": 0 },
+    { "x": 6, "y": 0, "z": 0 },
+    { "x": 6, "y": 0, "z": 4 },
+    { "x": 0, "y": 0, "z": 4 }
+  ],
+  "holes": [],
+  "thickness": 0.25,
+  "baseOffset": 0
+}

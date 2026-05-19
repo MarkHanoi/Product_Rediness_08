@@ -1,0 +1,25 @@
+{
+  "pryzmPlugin": "1.0",
+  "id": "hello-plugin",
+  "version": "1.0.0",
+  "displayName": "Hello Plugin",
+  "description": "Minimal example plugin — adds a panel that displays the active selection size. Demonstrates onActivate, stores.subscribe, and PluginActivationContext consumption.",
+  "author": "PRYZM SDK Examples",
+  "homepage": "https://docs.pryzm.com/plugin-sdk/examples/hello-plugin",
+  "main": "index.ts",
+  "license": "MIT",
+  "permissions": [
+    "read:project",
+    "register:panel"
+  ],
+  "allowedOrigins": [],
+  "contributions": [
+    {
+      "kind": "panel",
+      "id": "hello-panel",
+      "location": "sidebar-right",
+      "label": "Hello"
+    }
+  ],
+  "minPRYZMVersion": "2.0.0"
+}

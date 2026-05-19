@@ -1,0 +1,119 @@
+First, the New Properties Panel is overlapping the Tools Panel. It needs to be placed just next to it (To the right of the tool Panel). Second. The Type Data and the layers data, all of it needs to be in the same panel. The existing Type wall modal panel should disapear and this data should be part of the main and unique properties panel. It should look basically like this > ┌────────────────────────────────────┐
+│ WALL │
+│ WA006 │
+│ ID: 293d5c7c-7841-40fd-9ccc… │
+│ Level: Ground │
+│ │
+│ Wall Type │
+│ [ — Plain Wall — ▼ ] [Apply] │
+├────────────────────────────────────┤
+
+▼ Identity
+────────────────────────────────────
+Type Wall
+Mark WA006
+Created By user_1
+Created At 2025-01-10
+Version 3
+
+Tags
+[ structural, exterior ]
+
+Description
+North facade wall
+
+▼ Spatial Context
+────────────────────────────────────
+Level Ground
+Level Elevation 0.00 m
+Base Offset 0.00 m
+
+Start X 0.00
+Start Z 0.00
+End X 8.50
+End Z 0.00
+
+Computed Z 0.00 m
+
+▼ Definition Properties
+────────────────────────────────────
+Thickness 100 mm
+Material System Layered
+
+Load Bearing ☑
+Fire Rating 60 min
+
+Layers
+────────────────────────────────────
+Name Function mm
+Plaster (Inner) fin.int 12
+Stud / Cavity struct 76
+Plaster (Outer) fin.ext 12
+
+[ + Add Layer ]
+
+Total Thickness: 100 mm
+
+[Save Layers]
+
+▼ Instance Properties
+────────────────────────────────────
+Height 2.80 m
+Rotation 0°
+Flip ☐
+
+Color Override
+[ None ▼ ]
+
+▼ Relationships
+────────────────────────────────────
+Hosts
+Window_01
+Window_02
+
+Connected To
+Wall_005
+Wall_007
+
+▼ Metadata / System
+────────────────────────────────────
+IFC Class
+IfcWall
+
+GlobalId
+56a10740-3eda-494b-a51b…
+
+Project Phase
+Existing Follow the instructions attached. Make sure that any changes are not impacting other tool's logic or functionalities. Don't do it using autonomous. Use modular coding, don't impact existing functionality and logic, if needed create a new file. Follow always the contract (docs/01-BIM-ENGINE-CORE-CONTRACT, 02-BIM-SPATIAL-PROJECTION-CONTRACT, 03-BIM-SEMANTIC-MODEL-CONTRACT, 04-BIM-AI-MODIFICATION-PROTOCOL).
+
+Let me first understand the current layout structure and find the existing wall type modal:
+
+Let me read the Layout structure and the floating wall type toolbar:
+
+Let me read the main layout structure and the tool panel positioning:
+
+Let me look at what the old PropertyInspector shows for wall type data and the existing layers section in the new PropertyPanel:
+
+Let me read the full PropertyPanel.ts to understand what's already built and what needs to change:
+
+Let me read the rest of the PropertyPanel.ts — particularly the wall type selector and layers building:
+
+Let me search for any separate wall type modal/popup and understand the Tools panel exact position:
+
+Let me read Layout.ts around the wall type picker in the Tools sidebar:
+
+Now I have a complete picture. Here's what needs to happen:
+
+Positioning: PropertyPanelAdapter._applyStyling() overrides the CSS with right: 0 — I need to remove those inline overrides and let the .gpp-panel CSS handle it (which already has right: 160px)
+Layers in Definition: Create a WallLayersEditor.ts and inject it into the Definition Properties section of PropertyPanel.ts
+"Type wall" in Tools menu: The createWallTypePicker in the Tools sidebar stays (it's for drawing new walls) — the user means the TYPE PICKER + LAYERS that should be visible in the Properties Panel when a wall is SELECTED (currently missing layers)
+Let me implement all three changes:
+
+Now let me check the structure of what renderPropSection returns to know how to inject layers into it:
+
+Now I have all the context I need. Let me now make the targeted changes to PropertyPanel.ts and PropertyPanelAdapter.ts:
+
+Now I'll implement all changes. First, fix the CSS positioning and add the import in PropertyPanel.ts:
+
+You've reached your daily free quota limit. It will reset at 12:00 AM UTC.
+

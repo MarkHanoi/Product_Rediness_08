@@ -1,0 +1,16 @@
+{
+  "name": "@pryzm/test-browser-matrix",
+  "version": "0.1.0",
+  "description": "PRYZM 2 — S70 D1+D5 browser-matrix CI scaffold per ADR-0052 §B.1. Playwright matrix (5 projects: chromium, firefox, webkit, edge, ipad-safari) for smoke + axe + visual-regression. Scaffold only — actual browser binaries are installed by the GitHub Actions runners; locally only the chromium project runs.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run config-shape.test.ts",
+    "test:e2e": "playwright test --project=chromium",
+    "test:e2e:matrix": "playwright test"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

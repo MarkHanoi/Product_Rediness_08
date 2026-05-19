@@ -1,0 +1,187 @@
+[BimManager] Registered element eb816a79-4b92-48f0-8ecd-1916349d72aa to level L0
+injected.js:37 [BatchCreateRoomsCommand] Created 1 room(s)
+injected.js:37 [ProjectLoader] VG Governance state restored from snapshot
+injected.js:37 [ProjectLoader] Semantic tag index restored from snapshot
+injected.js:37 [ProjectLoader] ViewDefinition store restored from snapshot
+injected.js:37 [ProjectLoader] Visibility rule engine restored from snapshot
+injected.js:37 [ProjectLoader] Visibility intent store restored from snapshot
+injected.js:37 [ProjectLoader] View intent instance store restored from snapshot
+injected.js:37 [VGToIntentMigration] Starting VG → Intent migration…
+injected.js:37 [VGToIntentMigration] Complete — 0 intents, 0 views, 0 overrides migrated.
+injected.js:37 [LONGTASK] duration=254.0ms start=123444.7ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [LONGTASK] duration=183.0ms start=123701.0ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [HomeView] Default viewpoint captured: {x: 49.99999999999997, y: 49.99999999999995, z: 50.00000000000005} {x: -2.842170943040401e-14, y: -4.263256414560601e-14, z: 4.263256414560601e-14}
+injected.js:37 [PascalSceneLighting] Shadow flags set on 38 mesh(es).
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.4ms
+injected.js:37 [PlanarTopologyEngine] Topology: 1 room(s) detected, outer face (21 vertices), 2 total faces
+injected.js:37 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [PlanarTopologyEngine] Topology: 1 room(s) detected, outer face (21 vertices), 2 total faces
+injected.js:37 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [PlanarTopologyEngine] Topology: 1 room(s) detected, outer face (21 vertices), 2 total faces
+injected.js:37 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [PlanarTopologyEngine] Topology: 1 room(s) detected, outer face (21 vertices), 2 total faces
+injected.js:37 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.1ms
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [PlatformCollabPill] Socket connected — joining project room: proj-1777946301570-lj6l71s
+injected.js:37 [ProjectLoader] Sheet store restored from snapshot
+injected.js:37 [ProjectLoader] Schedule store restored from snapshot
+injected.js:37 [ProjectLoader] Hierarchy store restored from snapshot (0 nodes)
+injected.js:37 [ProjectLoader] Template store restored from snapshot (15 templates, 0 assignments)
+injected.js:37 [ProjectLoader] Element code store restored from snapshot (28 codes)
+injected.js:37 [ProjectLoader] SemanticGraph restored (28 relationships)
+injected.js:37 [TemporalGraph] Cleared (project switch).
+injected.js:37 [TemporalGraph] Deserialised: 0 edges, 330 mutations.
+injected.js:37 [ProjectLoader] TemporalGraph restored (0 edges, 330 mutations)
+injected.js:37 [DecisionRecordStore] Restored 0 records
+injected.js:37 [IntentStylePrewarmer] Pre-warmed 1224 style slots in 7.80ms
+injected.js:37 [ProjectLoader] RequirementStore restored: 0 requirements
+injected.js:37 [AssetCatalogStore] setDirect(): restored 21 entries
+injected.js:37 [ProjectLoader] AssetCatalogStore restored: 21 entries
+injected.js:37 [ProjectLoader] Annotation store restored from snapshot (1 annotations, 0 dimensions)
+injected.js:37 [ProjectLoader] AnnotationDependencyGraph rebuilt after restore
+injected.js:37 [ProjectLoader] Load complete: 33 loaded, 0 failed, 0 errors
+injected.js:37 [StoreEventBus] endBatch() — flushed 68 buffered event(s) in emission order (no coalescing — all events delivered).
+injected.js:37 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=22ms, resets=6)
+(anonymous) @ injected.js:37
+(anonymous) @ RoomTopologyObserver.ts:454
+(anonymous) @ RoomTopologyObserver.ts:215
+(anonymous) @ WallStore.ts:1161
+(anonymous) @ WallStore.ts:550
+(anonymous) @ WallStore.ts:409
+(anonymous) @ engineLauncher.ts:1984
+(anonymous) @ engineLauncher.ts:1951
+(anonymous) @ engineLauncher.ts:1778
+(anonymous) @ ProjectLoader.ts:1333
+await in (anonymous)
+(anonymous) @ initPersistence.ts:266
+(anonymous) @ PlatformVersionController.ts:361
+(anonymous) @ PlatformShell.ts:194
+(anonymous) @ WorkspaceSurface.ts:188
+(anonymous) @ buildPersistence.ts:257
+await in (anonymous)
+(anonymous) @ buildPersistence.ts:266
+(anonymous) @ PlatformRouter.ts:422
+(anonymous) @ PlatformRouter.ts:375
+(anonymous) @ PlatformRouter.ts:289
+(anonymous) @ ProjectHub.ts:1110
+(anonymous) @ ProjectHub.ts:488
+injected.js:37 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=15ms, resets=6)
+(anonymous) @ injected.js:37
+(anonymous) @ RoomTopologyObserver.ts:454
+(anonymous) @ RoomTopologyObserver.ts:215
+(anonymous) @ WallStore.ts:1161
+(anonymous) @ WallStore.ts:550
+(anonymous) @ WallStore.ts:409
+(anonymous) @ engineLauncher.ts:1984
+(anonymous) @ engineLauncher.ts:1951
+(anonymous) @ engineLauncher.ts:1778
+(anonymous) @ ProjectLoader.ts:1333
+await in (anonymous)
+(anonymous) @ initPersistence.ts:266
+(anonymous) @ PlatformVersionController.ts:361
+(anonymous) @ PlatformShell.ts:194
+(anonymous) @ WorkspaceSurface.ts:188
+(anonymous) @ buildPersistence.ts:257
+await in (anonymous)
+(anonymous) @ buildPersistence.ts:266
+(anonymous) @ PlatformRouter.ts:422
+(anonymous) @ PlatformRouter.ts:375
+(anonymous) @ PlatformRouter.ts:289
+(anonymous) @ ProjectHub.ts:1110
+(anonymous) @ ProjectHub.ts:488
+injected.js:37 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=16ms, resets=6)
+(anonymous) @ injected.js:37
+(anonymous) @ RoomTopologyObserver.ts:454
+(anonymous) @ RoomTopologyObserver.ts:215
+(anonymous) @ WallStore.ts:1161
+(anonymous) @ WallStore.ts:550
+(anonymous) @ WallStore.ts:409
+(anonymous) @ engineLauncher.ts:1984
+(anonymous) @ engineLauncher.ts:1951
+(anonymous) @ engineLauncher.ts:1778
+(anonymous) @ ProjectLoader.ts:1333
+await in (anonymous)
+(anonymous) @ initPersistence.ts:266
+(anonymous) @ PlatformVersionController.ts:361
+(anonymous) @ PlatformShell.ts:194
+(anonymous) @ WorkspaceSurface.ts:188
+(anonymous) @ buildPersistence.ts:257
+await in (anonymous)
+(anonymous) @ buildPersistence.ts:266
+(anonymous) @ PlatformRouter.ts:422
+(anonymous) @ PlatformRouter.ts:375
+(anonymous) @ PlatformRouter.ts:289
+(anonymous) @ ProjectHub.ts:1110
+(anonymous) @ ProjectHub.ts:488
+injected.js:37 [LONGTASK] duration=85.0ms start=124223.5ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [PlanarTopologyEngine] Topology: 1 room(s) detected, outer face (21 vertices), 2 total faces
+injected.js:37 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.1ms
+injected.js:37 [PlanarTopologyEngine] Topology: 1 room(s) detected, outer face (21 vertices), 2 total faces
+injected.js:37 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [PlanarTopologyEngine] Topology: 1 room(s) detected, outer face (21 vertices), 2 total faces
+injected.js:37 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [PlanarTopologyEngine] Topology: 1 room(s) detected, outer face (21 vertices), 2 total faces
+injected.js:37 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.1ms
+injected.js:37 [PlanarTopologyEngine] Topology: 1 room(s) detected, outer face (21 vertices), 2 total faces
+injected.js:37 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.1ms
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.1ms
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [ProjectLoader] PHASE_TIMINGS total=1109.8ms setup=0.0ms hydrate=0.0ms event_flush=0.0ms wall_rebuild_flush=0.0ms redetect_sweep=0.0ms [walls=21 slabs=6 levels=6 curtainWalls=0]
+injected.js:37 [ProjectSerializer] Snapshot created: 28 elements, 6 levels, 21 walls, 6 slabs, 0 furniture
+injected.js:37 [initScene] pryzm-project-loaded — project: proj-1777946301570-lj6l71s
+injected.js:37 [initCollaboration] Project opened — collaboration active for proj-1777946301570-lj6l71s
+injected.js:37 [LONGTASK] duration=69.0ms start=124403.4ms
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [PascalSceneLighting] Shadow flags set on 21 mesh(es).
+injected.js:37 [LONGTASK] duration=141.0ms start=124485.8ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [RenderPipelineManager] Outlines activated (selected + hover).
+injected.js:37 [RenderPipelineManager] Phase: phase4 | WebGPU: true | SSGI: true | TRAA: false
+injected.js:37 [RenderPipelineManager] Phase: phase4 | WebGPU: true | SSGI: true | TRAA: false
+injected.js:37 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+injected.js:37 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed out of 1 live room(s).
+injected.js:37 [NativeElementMeshExporter] Plan view — exporting 23 elements from levels overlapping Y=[-1.20, 0.00]
+injected.js:37 [FPS] 6fps
+injected.js:37 [LONGTASK] duration=293.0ms start=124820

@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="PRYZM 3 — Browser-native BIM/AEC editor. Plugin-extensible, IFC, real-time collaboration, AI-assisted, offline-capable." />
+    <meta name="theme-color" content="#1e3a5f" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="PRYZM" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/icons/pryzm-pyramid-logo.png" />
+    <title>PRYZM 3 — BIM Editor</title>
+    <style>
+      /* S70 D7 — a11y tokens per ADR-0052 §B.2.  Inline-duplicated
+         from @pryzm/ui/src/a11y/tokens.ts so the boot shell carries
+         the skip-link CSS even before the editor bundle resolves. */
+      .skip-link {
+        position: absolute; left: -9999px; top: 4px; z-index: 100001;
+        background: #3a7bd5; color: #fff; padding: 8px 16px; border-radius: 4px;
+        font: 600 14px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif;
+        text-decoration: none;
+      }
+      .skip-link:focus, .skip-link:focus-visible {
+        left: 8px; outline: 2px solid #fff; outline-offset: 2px;
+      }
+      :focus-visible { outline: 2px solid #3a7bd5; outline-offset: 2px; }
+      .sr-only {
+        position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+        overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+      }
+    </style>
+    <style>
+      body { margin: 0; padding: 0; overflow: hidden; width: 100vw; height: 100vh; background: #e8edf6; }
+      /* Phase 1.1 — Docking Layout: dck-workspace is the top-level flex row that
+         contains left-dock / #container / right-dock so pinned panels push the
+         Three.js canvas inward instead of overlapping it. */
+      #dck-workspace {
+        position: absolute; inset: 0; display: flex; flex-direction: row; overflow: hidden; z-index: 0;
+      }
+      #dck-left-dock  {
+        flex-shrink: 0; width: 0; height: 100%; overflow: hidden;
+        transition: width 0.25s cubic-bezier(0.4,0,0.2,1); display: flex; flex-direction: column;
+      }
+      #dck-right-dock {
+        flex-shrink: 0; width: 0; height: 100%; overflow: hidden;
+        transition: width 0.25s cubic-bezier(0.4,0,0.2,1); display: flex; flex-direction: column;
+      }
+      #container { flex: 1 1 0; min-width: 0; height: 100%; position: relative; background: #e8edf6; }
+      bim-viewport { display: block; width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+    </style>
+    <!--
+      ── App-Shell critical CSS (Wave 1.5 paint-on-first-byte) ────────────────
+      Above-the-fold landing skeleton — painted before any JS executes so the
+      user never sees a blank pale-blue body while Vite resolves the ~233-module
+      plugin graph in dev mode.  Class names match `src/styles/panels/marketingPages.ts`
+      so the swap to the real `LandingPage` is visually seamless.
+
+      Discipline note: §05 §2.1 ("injectAppTheme is the sole CSS injection point")
+      governs *runtime* JS-managed CSS.  This block is the boot shell — it cannot
+      be JS-injected because its purpose is to paint *before* JS runs.  Identifier
+      prefix `lp-skel-` avoids any class-name collision with the real landing.
+
+      Authoring rule: keep this block under ~3 KB (uncompressed).  Above-the-fold
+      only; everything below the fold renders via the full LandingPage swap.
+    -->
+    <style>
+      :root {
+        --lp-skel-gradient: linear-gradient(135deg, #8B5CF6 0%, #6600FF 100%);
+        --lp-skel-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      }
+      /* PRYZM4 boot skeleton — mirrors the lp4-mesh-flow animated gradient.
+         Pure CSS static approximation (no @property here; those require
+         injectAppTheme to be already loaded). Uses a compound radial-gradient
+         that closely matches the 0% keyframe of lp4-mesh-flow so the swap
+         from skeleton → real LandingPage is visually seamless. */
+      .lp-skel-shell {
+        position: fixed; inset: 0;
+        background:
+          radial-gradient(ellipse 90% 70% at 5% 55%, #c8b6ff 0%, transparent 65%),
+          radial-gradient(ellipse 70% 60% at 92% 18%, #b8a2ff 0%, transparent 58%),
+          radial-gradient(ellipse 65% 55% at 72% 90%, #daceff 0%, transparent 55%),
+          radial-gradient(ellipse 55% 45% at 40% 5%, #ece7ff 0%, transparent 50%),
+          #f3f0ff;
+        display: flex; flex-direction: column;
+        font-family: var(--lp-skel-font); color: #1a2035; overflow: hidden; z-index: 10;
+      }
+      .lp-skel-nav {
+        display: none;
+      }
+      .lp-skel-brand { display: flex; align-items: center; gap: 14px; flex-shrink: 0; min-width: 151px; }
+      .lp-skel-logo-icon { width: 48px; height: 48px; display: block; flex-shrink: 0; overflow: visible; }
+      .lp-skel-wordmark { display: flex; flex-direction: column; gap: 3px; flex-shrink: 0; }
+      .lp-skel-name {
+        font-size: 20px; font-weight: 700; letter-spacing: 4px; color: #150830; line-height: 1;
+      }
+      .lp-skel-sub {
+        font-size: 7.5px; font-weight: 400; letter-spacing: 4.5px; color: #9ca3af;
+        text-transform: uppercase; line-height: 1;
+      }
+      .lp-skel-nav-spacer { flex: 1; }
+      .lp-skel-nav-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+      /* Wave 1.5c — `touch-action: manipulation` removes the 300 ms tap-delay
+         mobile browsers add to non-double-tap-zoomable buttons.  Combined with
+         `-webkit-tap-highlight-color: transparent` for a clean visual; the
+         `:active` state below provides immediate visual feedback so the user
+         knows the tap registered even before the LandingPage takes over. */
+      .lp-skel-login, .lp-skel-contact, .lp-skel-cta, .lp-skel-hero-btn {
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
+        transition: transform 90ms ease-out, opacity 90ms ease-out;
+      }
+      .lp-skel-login:active, .lp-skel-contact:active, .lp-skel-cta:active, .lp-skel-hero-btn:active {
+        transform: scale(0.97); opacity: 0.85;
+      }
+      .lp-skel-login {
+        background: none; border: none; font-size: 14px; font-weight: 500; color: #1a1a1a;
+        cursor: pointer; padding: 7px 12px; border-radius: 6px; font-family: var(--lp-skel-font);
+      }
+      .lp-skel-contact {
+        background: none; border: 1.5px solid #1a1a1a; font-size: 14px; font-weight: 600;
+        color: #1a1a1a; cursor: pointer; padding: 7px 14px; border-radius: 8px;
+        font-family: var(--lp-skel-font); white-space: nowrap;
+      }
+      .lp-skel-cta {
+        background: #1a1a1a; color: #ffffff; border: none; border-radius: 8px;
+        font-size: 14px; font-weight: 600; padding: 8px 16px; cursor: pointer;
+        font-family: var(--lp-skel-font); white-space: nowrap;
+      }
+      /* ── PRYZM4 skeleton hero — centred gradient layout ──────────────────
+         Mirrors the real LandingPage PRYZM4 centred hero: logo-block on top,
+         massive heading, subtitle, pill CTAs, feature-tag strip.
+         No mosaic, no white card — the gradient shell IS the background. */
+      .lp-skel-hero {
+        flex: 1; min-height: calc(100vh - 64px);
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        padding: 72px 24px 96px; text-align: center;
+      }
+      .lp-skel-hero-logo-block {
+        display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 40px;
+      }
+      .lp-skel-hero-icon { width: 44px; height: 44px; display: block; }
+      .lp-skel-hero-logoname {
+        font-size: 13px; font-weight: 700; letter-spacing: 5px; color: #1a2035;
+        text-transform: uppercase; line-height: 1;
+      }
+      .lp-skel-heading {
+        font-size: clamp(72px, 9.8vw, 146px); font-weight: 900; line-height: 1.0;
+        color: #ffffff;
+        text-shadow: 0 2px 24px rgba(90,30,200,0.22), 0 1px 4px rgba(60,20,150,0.14);
+        margin: 0 0 16px; letter-spacing: -0.01em; max-width: none; text-transform: uppercase;
+      }
+      .lp-skel-sub-copy {
+        font-size: clamp(17px, 1.9vw, 24px); color: #5a4282; line-height: 1.5;
+        margin: 0 0 40px; max-width: 480px; font-weight: 400;
+      }
+      .lp-skel-hero-ctas {
+        display: flex; gap: 12px; align-items: center; justify-content: center;
+        flex-wrap: wrap; margin-bottom: 44px;
+      }
+      .lp-skel-hero-btn {
+        display: inline-flex; align-items: center; gap: 10px;
+        background: rgba(0,0,0,0.28); backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        color: #fff; border: 1px solid rgba(255,255,255,0.22);
+        border-radius: 999px; font-size: 15px; font-weight: 300; font-style: italic;
+        padding: 13px 28px; cursor: pointer; font-family: var(--lp-skel-font);
+        letter-spacing: 0.06em; white-space: nowrap;
+      }
+      .lp-skel-hero-btn-demo {
+        display: inline-flex; align-items: center; gap: 10px;
+        background: rgba(255,255,255,0.18); backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        color: #fff; border: 1px solid rgba(255,255,255,0.28);
+        border-radius: 999px; font-size: 15px; font-weight: 300; font-style: italic;
+        padding: 13px 28px; cursor: pointer; font-family: var(--lp-skel-font);
+        letter-spacing: 0.06em; white-space: nowrap;
+      }
+      .lp-skel-hero-tags {
+        display: flex; gap: 0; align-items: center; justify-content: center;
+        flex-wrap: wrap; color: rgba(90,77,122,0.72); font-size: 12.5px;
+      }
+      .lp-skel-hero-tag {
+        padding: 0 12px; border-right: 1px solid rgba(139,92,246,0.22); line-height: 1;
+      }
+      .lp-skel-hero-tag:last-child { border-right: none; }
+      .lp-skel-hero-tag:first-child { padding-left: 0; }
+      /* Hamburger placeholder — hidden on desktop, shown on mobile.  Mirrors
+         `.lp-hamburger` in marketingPages.ts (44 × 44 px touch target per
+         Apple HIG / WCAG 2.5.5) so the nav layout doesn't shift when the
+         real LandingPage takes over. */
+      .lp-skel-hamburger {
+        display: none; align-items: center; justify-content: center;
+        width: 44px; height: 44px; background: none; border: none;
+        border-radius: 8px; cursor: pointer; color: #1a1a1a;
+        flex-shrink: 0; margin-left: auto; padding: 0;
+      }
+      @media (max-width: 768px) {
+        .lp-skel-nav { padding: 0 16px; height: 60px; }
+        .lp-skel-nav-actions { display: none; }
+        .lp-skel-hamburger { display: flex; }
+        .lp-skel-logo-icon { width: 36px; height: 36px; }
+        .lp-skel-name { font-size: 16px; letter-spacing: 3px; }
+        .lp-skel-sub { font-size: 6.5px; letter-spacing: 3.5px; }
+        .lp-skel-hero { padding: 40px 16px 60px; }
+        .lp-skel-heading { letter-spacing: -2px; }
+        .lp-skel-hero-btn { padding: 14px 28px; font-size: 15px; min-height: 48px; }
+        .lp-skel-hero-btn-demo { padding: 13px 24px; min-height: 48px; }
+        .lp-skel-hero-ctas { flex-direction: column; width: 100%; max-width: 280px; }
+        .lp-skel-hero-btn, .lp-skel-hero-btn-demo { width: 100%; text-align: center; }
+      }
+      /* Hide the landing skeleton for logged-in users — they will be routed
+         to the project hub, not the landing page.  Inline <script> below
+         sets `data-pryzm-auth="in"` on <html> from localStorage. */
+      html[data-pryzm-auth="in"] [data-pryzm-skeleton="landing"] { display: none; }
+    </style>
+    <script>
+      // App-Shell boot detection — runs before any module script.  Two jobs:
+      //   1. Set <html data-pryzm-auth="in"> if a session exists, so the
+      //      landing skeleton CSS rule above hides itself for logged-in users.
+      //   2. Capture pre-boot CTA clicks so users who tap the skeleton's
+      //      "Get started" / "Log in" buttons before LandingPage.ts has loaded
+      //      get their intent replayed once the real component mounts.
+      //      The real LandingPage drains `window.__pryzmPendingActions`.
+      (function () {
+        try {
+          if (localStorage.getItem('bim-platform-user')) {
+            document.documentElement.setAttribute('data-pryzm-auth', 'in');
+          }
+        } catch (_) { /* localStorage may be blocked */ }
+        window.__pryzmPendingActions = [];
+        window.__pryzmSkeletonClick = function (action) {
+          window.__pryzmPendingActions.push(action);
+        };
+
+        // ── Wave 1.5c — opportunistic skeleton-mosaic image swap ─────────
+        // The skeleton renders 3 drifting rows of soft-tinted placeholder
+        // tiles using pure CSS (paints on first byte).  Here we kick off a
+        // /api/media-list fetch *before* any module script has been parsed.
+        // When it resolves (typically <50 ms on Replit), we swap each tile's
+        // background colour for the real building photo — so the user sees
+        // the actual mosaic far earlier than the ~12 s LandingPage.ts boot
+        // window.  If anything fails (offline, 404, slow), the coloured
+        // placeholders simply remain — there is no broken state.
+        try {
+          fetch('/api/media-list', { cache: 'no-store' })
+            .then(function (r) { return r.ok ? r.json() : { files: [] }; })
+            .then(function (data) {
+              var files = (data && data.files) || [];
+              var imgs = files.filter(function (f) {
+                var lower = f.toLowerCase();
+                return !lower.endsWith('.mp4') && !lower.endsWith('.webm') && !lower.endsWith('.mov');
+              });
+              if (imgs.length === 0) return;
+              var rows = document.querySelectorAll('[data-skel-row]');
+              rows.forEach(function (row, rowIdx) {
+                var tiles = row.querySelectorAll('.lp-skel-mosaic-tile');
+                tiles.forEach(function (tile, tileIdx) {
+                  var src = imgs[(tileIdx + rowIdx * 2) % imgs.length];
+                  tile.style.backgroundImage = "url('" + src + "')";
+                  tile.style.backgroundSize = 'cover';
+                  tile.style.backgroundPosition = 'center';
+                });
+              });
+            })
+            .catch(function () { /* network failure — placeholders stay */ });
+        } catch (_) { /* fetch unavailable — placeholders stay */ }
+      })();
+    </script>
+  </head>
+  <body>
+    <!-- S70 D7 — Skip link (WCAG SC 2.4.1: bypass blocks).  First focusable element. -->
+    <a href="#main" class="skip-link">Skip to main content</a>
+    <!-- Platform root: landing page, auth, project hub — sits above #container -->
+    <div id="platform-root" style="position:fixed;inset:0;z-index:9990;">
+      <!--
+        ── Landing skeleton (Wave 1.5 paint-on-first-byte) ──────────────────
+        Identical visual layout to the real LandingPage's above-the-fold area.
+        Removed by `LandingPage.ts` constructor (and by `PlatformRouter` for
+        signed-in users routed to the hub) once the JS bundle has resolved.
+        `data-pryzm-skeleton="landing"` is the removal selector.
+      -->
+      <div class="lp-skel-shell" data-pryzm-skeleton="landing" aria-hidden="true">
+        <nav class="lp-skel-nav">
+          <div class="lp-skel-brand">
+            <svg class="lp-skel-logo-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+              <path d="M18.2 2.6 3.6 27.9 26.8 33.2 32.4 23.6 18.2 2.6Z" stroke="#0b0b12" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/>
+              <path d="M18.2 2.6 3.6 27.9" stroke="#6600FF" stroke-width="1.6" stroke-linecap="round"/>
+              <path d="M18.2 2.6 26.8 33.2" stroke="#0b0b12" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <div class="lp-skel-wordmark">
+              <span class="lp-skel-name">PRYZM</span>
+              <span class="lp-skel-sub">BIM PLATFORM</span>
+            </div>
+          </div>
+          <div class="lp-skel-nav-spacer"></div>
+          <div class="lp-skel-nav-actions">
+            <button class="lp-skel-login" type="button" onclick="window.__pryzmSkeletonClick('login')">Log in</button>
+            <button class="lp-skel-contact" type="button" onclick="window.__pryzmSkeletonClick('contactSales')">Contact sales</button>
+            <button class="lp-skel-cta" type="button" onclick="window.__pryzmSkeletonClick('getStarted')">Get started for free</button>
+          </div>
+          <!-- Wave 1.5c — mobile hamburger placeholder (matches `.lp-hamburger`
+               in marketingPages.ts so the layout doesn't shift when the real
+               LandingPage takes over).  Tapping it queues a 'login' action
+               (the most common reason users tap the menu); the real LandingPage
+               opens its drawer on its own when it mounts. -->
+          <button class="lp-skel-hamburger" type="button" aria-label="Menu" onclick="window.__pryzmSkeletonClick('login')">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+              <line x1="3" y1="6" x2="21" y2="6"/>
+              <line x1="3" y1="12" x2="21" y2="12"/>
+              <line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+          </button>
+        </nav>
+        <!-- PRYZM4 centred gradient hero skeleton -->
+        <section class="lp-skel-hero">
+          <!-- Pyramid logo + wordmark -->
+          <div class="lp-skel-hero-logo-block" aria-hidden="true">
+            <svg class="lp-skel-hero-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" focusable="false">
+              <path d="M18.2 2.6 3.6 27.9 26.8 33.2 32.4 23.6 18.2 2.6Z" stroke="white" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/>
+              <path d="M18.2 2.6 3.6 27.9" stroke="#6600FF" stroke-width="1.8" stroke-linecap="round"/>
+              <path d="M18.2 2.6 26.8 33.2" stroke="white" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+
+          <h1 class="lp-skel-heading">PRYZM</h1>
+          <p class="lp-skel-sub-copy">Build the future, intelligently.</p>
+
+          <div class="lp-skel-hero-ctas">
+            <button class="lp-skel-hero-btn" type="button" onclick="window.__pryzmSkeletonClick('getStarted')">
+              <svg width="14" height="18" viewBox="0 0 18 22" fill="none" aria-hidden="true" style="flex-shrink:0"><path d="M0 0L0 17.5L4.5 13L7.5 20L9.5 19.2L6.5 12H12L0 0Z" fill="white"/></svg>
+              Start for free
+            </button>
+            <button class="lp-skel-hero-btn-demo" type="button" onclick="window.__pryzmSkeletonClick('contactSales')">
+              <svg width="14" height="18" viewBox="0 0 18 22" fill="none" aria-hidden="true" style="flex-shrink:0"><path d="M0 0L0 17.5L4.5 13L7.5 20L9.5 19.2L6.5 12H12L0 0Z" fill="white"/></svg>
+              See a demo
+            </button>
+          </div>
+
+        </section>
+      </div>
+    </div>
+    <!-- Phase 1.1: dck-workspace flex row — left dock | canvas | right dock.
+         S70 D7: marked as the primary <main> landmark with id="main" so the
+         skip-link target resolves and AT users get a single named region. -->
+    <main id="main" role="main" aria-label="PRYZM 2 workspace">
+      <div id="dck-workspace">
+        <div id="dck-left-dock"></div>
+        <div id="container"></div>
+        <div id="dck-right-dock"></div>
+      </div>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

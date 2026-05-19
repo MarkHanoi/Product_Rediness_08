@@ -1,0 +1,21 @@
+{
+  "id": "door_01H8XK3J7M9N2P4QR5STVW6XYZ",
+  "type": "door",
+  "parentId": "wall_01H8XK3J7M9N2P4QR5STVW6XYZ",
+  "childrenIds": [],
+  "metadata": {
+    "createdAt": 1700000000000,
+    "modifiedAt": 1700000000000,
+    "createdBy": "fixture",
+    "version": 1
+  },
+  "wallId": "wall_01H8XK3J7M9N2P4QR5STVW6XYZ",
+  "openingId": "opening_door_1",
+  "doorType": "single",
+  "width": 0.9,
+  "height": 2.1,
+  "sillHeight": 0,
+  "offset": 1.2,
+  "frameThickness": 0.05,
+  "frameWidth": 0.05
+}

@@ -1,0 +1,43 @@
+{
+  "id": "mono-square-low-pitch",
+  "description": "mono 4×4 square, 10° pitch",
+  "roof": {
+    "id": "roof:mono-sq-lo",
+    "type": "roof",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "boundary": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 4,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 4,
+        "y": 0,
+        "z": 4
+      },
+      {
+        "x": 0,
+        "y": 0,
+        "z": 4
+      }
+    ],
+    "shape": "mono",
+    "pitch": 0.17453292519943295,
+    "overhang": 0,
+    "thickness": 0.2
+  },
+  "worldY": 0
+}

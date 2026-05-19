@@ -1,0 +1,42 @@
+{
+  "id": "F11.elevated-base-offset-1",
+  "description": "slab with 1.0 m base offset",
+  "slab": {
+    "id": "slab:01HZS000000000000SLBF1100",
+    "type": "slab",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "boundary": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 4,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 4,
+        "y": 0,
+        "z": 4
+      },
+      {
+        "x": 0,
+        "y": 0,
+        "z": 4
+      }
+    ],
+    "holes": [],
+    "thickness": 0.2,
+    "baseOffset": 1
+  },
+  "worldY": 0
+}

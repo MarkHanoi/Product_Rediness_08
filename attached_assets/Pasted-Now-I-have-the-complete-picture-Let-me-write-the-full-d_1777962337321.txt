@@ -1,0 +1,47 @@
+Now I have the complete picture. Let me write the full diagnosis.Here is the complete, precise diagnosis of why your batch pipeline takes ~47 seconds when you expected ~5.
+
+What the pipeline actually does — and where the time goes
+Here is the wall-clock breakdown from the log:
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 0.25s;
+    animation-timing-function: cubic-bezier(0.19, 1, 0.22, 1);
+  }
+VvisualizeVvisualize show_widgetWhat your logs prove, step by step
+Phase 1 — prewarm (90ms): works correctly. The three-pass rpm.render(0) call compiles MRT→SSGI→outlines PSOs. No problem here.
+Phase 2 — rAF geometry drain (~23ms of real work, ~1,000ms wall-clock): Four rAF frames drain 66 walls in chunks of 20/20/21/5. The geometry is actually built quickly. The bulk of the ~900ms is the endBatchYielded machinery, not geometry.
+Phase 3 — PSO LONGTASK: 5,293ms (Root cause R1). This is the first render frame after suppression lifts. The log says FIRST-RENDER-POST-SUPPRESS → [LONGTASK] duration=5293ms. The prewarm compiled 3 PSO variants against 3 probe objects. But your 66 curtain walls have InstancedMesh objects with distinct instance counts, geometry layouts, and material combinations — the WebGPU PSO key is not just the material type, it includes the vertex buffer layout and indirect draw buffer descriptor. Each unique {geometry × material × instance-count} tuple is a new PSO. With 66 walls × ~10 InstancedMesh each you have hundreds of unique descriptors the prewarm probes never saw. The GPU has to compile them all synchronously on the first draw call.
+Phase 4 — EdgeProjector fires inside the same storm (~15,000ms combined, Root cause R2). The log sequence is:
+5,293ms LONGTASK ends
+→ ViewDependencyTracker flush fires (300ms debounce already elapsed)
+→ NativeElementMeshExporter: 24 elements
+→ EdgeProjectorService: 23 group(s) in 23 chunk(s), 557 edge geometries
+The markLevelsDirty → 300ms debounce → queueLowPriority chain is designed to defer projection. But queueLowPriority just appends to _lowPriorityQueue, which executes on the next _tick(). Because the main thread is continuously occupied by LONGTASK frames (PSO compile, then each EdgeProjector chunk fires a new rAF which triggers the next chunk), there is no breathing room. The 23-chunk drain itself generates two more LONGTASKs of 5,036ms and 15,870ms. The 557 edge geometries for 23 CW groups is the expensive part — CW geometry is far more complex per group than wall geometry.
+Phase 5 — Shadow map LONGTASKs (20,906ms combined, Root cause R3). The log shows 500× "Destroyed texture [ShadowDepthTexture] used in a submit" immediately before the 15,870ms LONGTASK. The requestIdleCallback for shadow reactivation fires during the EdgeProjector storm because there is no genuine idle time — the browser is always in or recovering from a LONGTASK. When castShadow = true is set on hundreds of meshes mid-frame, Three.js tears down and rebuilds the shadow depth texture on every affected light, which shows up as the ShadowDepthTexture destruction warning. The 10-second setTimeout for the first shadow slice was calibrated against an ~9s total storm, but your storm runs ~21 seconds, so the shadow slice fires directly into the tail of the EdgeProjector LONGTASKs.
+
+The three specific fixes
+Fix R1 — Prewarm must cover the actual instance counts in the batch, not just 3 arbitrary probes.
+The current prewarm creates one InstancedMesh with count=1 for each variant. WebGPU PSO descriptors include the indirect buffer layout, which varies with count. Before the batch starts you know exactly how many walls and what geometry they'll produce. Build prewarm probes with representative instance counts — specifically the largest count you'll actually render. One probe with count = maxMullionsPerWall, one with count = maxPanelsPerWall. That covers the worst-case PSO descriptor and the GPU driver will promote lower counts as cache hits.
+Alternatively, after runBatch() returns but before suppression lifts, call rpm.render(0) once more with the actual scene geometry in place (during the rAF drain, the geometry is already in the scene but suppress is still on — you could fire one render pass at T+BUILD_DRAIN_COMPLETE to warm PSOs against the real objects).
+Fix R2 — EdgeProjector must not fire on the first post-suppress frame.
+The 300ms debounce in markLevelsDirty is not enough. The PSO LONGTASK alone is 5,293ms, which means the debounce timer has long expired by the time the first frame renders, and the queueLowPriority task is picked up on that exact first frame. You need to defer the plan-view projection until after the scene is stable.
+The clean fix is to add a postSuppressRenderCount guard in UnifiedFrameLoop. After suppression lifts, count rendered frames. Only call markLevelsDirty after N stable frames (N=3 is enough — typically 50–100ms at 60fps). This keeps the PSO compile LONGTASK isolated and allows the GPU to fully drain its command queue before EdgeProjector adds its own raycasting load.
+typescript// In endBatchRenderSuppress():
+this._postSuppressStabilizeFrames = 3;  // new field
+
+// In _tick(), after the FIRST-RENDER-POST-SUPPRESS log:
+if (this._postSuppressStabilizeFrames > 0) {
+    this._postSuppressStabilizeFrames--;
+    if (this._postSuppressStabilizeFrames === 0) {
+        this._onPostSuppressStable?.();  // callback — BatchCoordinator calls markLevelsDirty here
+    }
+    return;  // skip the full render on stabilize frames (no OBC/PASCAL)
+}
+Fix R3 — Shadow reactivation must not use requestIdleCallback during a LONGTASK cascade.
+requestIdleCallback is designed for when the browser is genuinely idle. During a 20-second LONGTASK storm it either never fires (starved) or fires between LONGTASKs at the worst possible moment. The current setTimeout(10000) for the first slice was calibrated for a 9-second storm but the storm runs 21 seconds.
+Replace with a proper post-stable callback: wire _reactivateShadows() to fire via the same _onPostSuppressStable hook from Fix R2, but deferred further — after postSuppressStabilizeFrames + 5 more frames (roughly 80ms after the scene is fully stable). This guarantees shadows reactivate into a quiet main thread, not into an active LONGTASK. Remove the requestIdleCallback calls from drainSlice too — replace with setTimeout(drainSlice, 200) as a minimum spacing between slices (200ms is longer than any single EdgeProjector chunk and allows the GPU to breathe).
+
+Why the "DONE" message fires at 5 seconds but the scene isn't live for 47 seconds
+The COMPLETE walls=66 totalMs=292.9ms and the overlay dismissal both happen at the end of ON-BATCH-END-DONE (~T+897ms from batch start). At that point the geometry is registered, the overlay is gone, and suppression lifted is logged. The code considers the batch done. But the main thread is then immediately occupied for another 45 seconds by R1+R2+R3. The batch pipeline's accounting ends at "geometry in scene + events delivered" — it doesn't account for the PSO compile cost, EdgeProjector cost, or shadow rebuild cost that follow. Those are considered "first-render side effects," but they're actually serial dependencies that the user experiences as the batch not being complete.
+The fix for the expectation mismatch is to keep a lightweight "scene settling" indicator (not the full batch overlay) visible until _onPostSuppressStable fires — that's the real moment the scene becomes interactive.

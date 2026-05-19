@@ -1,0 +1,10 @@
+{
+  "name": "family-load",
+  "p50": 4.865919000000304,
+  "p95": 54.39533600000004,
+  "samples": 20,
+  "typeCount": 10,
+  "unit": "ms",
+  "nftTarget": 300,
+  "notes": "NFT-12 production bench per 01-VISION.md §5. Measures loadFamilyFromBytes() for a family with 10 types — the full production path (pure Node/zlib, no WASM)."
+}

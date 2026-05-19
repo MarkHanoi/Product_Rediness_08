@@ -1,0 +1,20 @@
+{
+  "name": "@pryzm/render-pipeline",
+  "version": "0.1.0",
+  "description": "PRYZM 3 — TSL WebGPU render pipeline passes (ScenePass MRT, ZonePass, SSGIPass, TRAAPass, OutlinePass, BackgroundUniform, RenderPipelineManager). Extracted from src/engine/subsystems/rendering/pipeline/ via strangler-fig pattern (A16-T1, 2026-05-03). Layer L4.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@pryzm/renderer-three": "workspace:*"
+  }
+}

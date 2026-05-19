@@ -1,0 +1,139 @@
+This new log is extremely revealing. Let me be surgical about what's actually happening.
+
+**The smoking gun — a new 16,624ms LONGTASK:**
+
+```
+LONGTASK 4,398ms  @ 211245ms  ← PSO compile (same as before)
+LONGTASK 4,774ms  @ 216150ms  ← EdgeProjectorService (409 edges, 19 groups)
+LONGTASK   400ms  @ 228197ms  ← unknown
+LONGTASK 16,624ms @ 231619ms  ← NEW — this is the dominant blocker
+```
+
+That 16.6 second LONGTASK is new and was not in the previous session's logs. It fires ~17 seconds after suppression lifts, while FPS is at 1fps. This is **shadow reactivation**. Your Fix 4 moved it to `requestIdleCallback(timeout: 3000)` — but with 54 walls at 50/frame = 2 idle slices, the browser is treating this as a massive synchronous shadow map rebuild during an already-stressed render cycle. The 3000ms timeout fired the idle callback while the main thread was still under pressure from the PSO compile and EdgeProjector LONGTASKs, turning it into a blocking 16.6 second freeze.
+
+**The GPU Monitor confirms the diagnosis:**
+
+```
+@ 211245ms: geometries:26  drawCalls:11  ← CW geometry NOT yet in GPU monitor
+@ 228197ms: geometries:26  drawCalls:11  ← still not visible  
+@ 248292ms: geometries:85  drawCalls:69  ← geometry finally appears after 37 seconds
+```
+
+The CW geometry takes **37 seconds** to appear in the GPU monitor after the command completes. The scene is effectively frozen from user perspective for that entire window. Three sequential LONGTASKs are stacking: PSO compile → EdgeProjector → shadow reactivation.
+
+**Exact root cause breakdown for this session (54 walls, 6 slabs):**
+
+```
+Prewarm:                    89ms    ✅ working
+rAF drain:                 764ms    ✅ working (3 frames)  
+Overlay visible:           777ms    ✅ fast
+─────────────────────────────────────────
+Post-overlay LONGTASK 1:  4,398ms  ❌ PSO compile — prewarm didn't cover real variants
+Post-overlay LONGTASK 2:  4,774ms  ❌ EdgeProjector — 409 edges, 19 groups, chunks too large
+Post-overlay LONGTASK 3:    400ms  ❌ unknown (VGSceneApplicator?)
+Post-overlay LONGTASK 4: 16,624ms  ❌ Shadow reactivation fired during thread stress
+─────────────────────────────────────────
+Total user freeze:        ~26,196ms (~26 seconds)
+```
+
+**Fix 1 — The prewarm is still wrong. Here's why:**
+
+Your log says `PERF-PREWARM: 3 PSO variants pre-compiled` then immediately after suppression lifts: `LONGTASK 4,398ms — WebGPU PSO compile LONGTASK begins here`. This means the 3 probe meshes are not matching the actual PSO variants produced by `CurtainWallBuilder`. The builder creates geometry with a specific `instanceCount`, `frustumCulled` setting, and layer assignment that differs from the probes.
+
+The fix: replace the 3 generic probes with a real dry-run of `CurtainWallBuilder` itself:
+
+```typescript
+// In CreateCurtainWallsOnAllSlabsCommand._prewarmCurtainWallShaders()
+private async _prewarmCurtainWallShaders(): Promise<void> {
+    if (this._shadersPrewarmed) return;
+    
+    // Build ONE real curtain wall segment using the actual builder
+    // then render it synchronously, then immediately remove it
+    const refSlab = this._slabs[0];
+    const refEdge = this._getSlabEdges(refSlab)[0];
+    
+    // Use the real CurtainWallBuilder — same code path as production
+    const probeWallId = `__prewarm_${Date.now()}`;
+    await this._curtainWallBuilder.buildSingle(refEdge, probeWallId, {
+        visible: false,  // scale(0) — GPU compiles PSO but doesn't show
+        prewarmOnly: true
+    });
+    
+    // Synchronous render to compile PSOs
+    window.renderPipelineManager.render(0);
+    
+    // Remove probe immediately
+    this._curtainWallBuilder.remove(probeWallId);
+    
+    this._shadersPrewarmed = true;
+}
+```
+
+If `CurtainWallBuilder` doesn't support `prewarmOnly`, an alternative: build into a detached `THREE.Group` that is never added to the main scene, render it in an offscreen pass, dispose it. The critical point is the geometry must match production exactly — `instanceCount`, material variant, layer flags.
+
+**Fix 2 — EdgeProjectorService chunk size is wrong for CW geometry:**
+
+```
+19 groups / CHUNK_SIZE=4 = 5 chunks
+409 edge geometries / 5 chunks = ~82 edges per chunk
+```
+
+With 82 CW edges per chunk, each chunk takes ~955ms (`4774ms / 5`). That's 955ms per chunk — way over the 50ms LONGTASK threshold. Your `CHUNK_SIZE=4` assumes ~12ms per group (walls). CW groups are ~250ms each. You need `CHUNK_SIZE=1` for CW geometry:
+
+```typescript
+// In EdgeProjectorService.project()
+// Count edge geometries to detect CW-heavy batches
+const avgEdgesPerGroup = totalEdgeGeometries / groups.length;
+const CHUNK_SIZE = avgEdgesPerGroup > 20 ? 1 : 4;  // CW: 1, walls: 4
+```
+
+With `CHUNK_SIZE=1`: 19 chunks × 250ms = 4,774ms total wall-clock, but each chunk is ≤250ms. Only 4 chunks exceed 50ms — and those are genuinely unavoidable per-group work. You can't get below ~250ms per CW group without parallelizing the projection itself.
+
+**Fix 3 — Shadow reactivation: remove the 3000ms timeout entirely:**
+
+The `timeout: 3000` on `requestIdleCallback` is backfiring. When the browser has been frozen for 4+ seconds with LONGTASKs, it fires the idle callback as soon as any idle moment exists — which happens to be right when the next LONGTASK is starting. This creates the 16.6 second pile-up.
+
+Replace with a much longer timeout and a guard that checks if LONGTASKs are still active:
+
+```typescript
+// In CurtainWallBuilder._reactivateShadows()
+private _reactivateShadows(): void {
+    // Don't fire shadow reactivation until frame rate recovers
+    // Check FPS first — if still under stress, defer further
+    const waitForStableFrames = (callback: () => void, minFps = 20) => {
+        const check = () => {
+            const fps = window.__currentFps ?? 0;  // expose from FPS monitor
+            if (fps >= minFps) {
+                requestIdleCallback(callback, { timeout: 10000 });
+            } else {
+                setTimeout(() => check(), 500);  // retry in 500ms
+            }
+        };
+        setTimeout(() => check(), 2000);  // initial 2s cooldown
+    };
+    
+    waitForStableFrames(() => {
+        this._drainShadowSlice();
+    });
+}
+```
+
+This delays shadow reactivation until FPS recovers to at least 20fps, preventing it from piling onto an already-stressed main thread.
+
+**Fix 4 — The unknown 400ms LONGTASK at 228197ms:**
+
+Between EdgeProjector finishing and the shadow LONGTASK, there's a 400ms freeze. Looking at the timing: `VGSceneApplicator DOC-1.13 applyToProjectionLayers() — applied=7/14 layers` fires just before it. This is the visibility governance applying overrides to 409 edge geometry objects. It's iterating synchronously. Add a yield here too:
+
+```typescript
+// In VGSceneApplicator.applyToProjectionLayers()
+for (let i = 0; i < layers.length; i++) {
+    this._applyToLayer(layers[i]);
+    if (i % 2 === 0) await new Promise(r => setTimeout(r, 0));  // yield every 2 layers
+}
+```
+
+**Summary — what to implement in priority order:**
+
+The 16,624ms shadow LONGTASK is the biggest remaining blocker and the easiest to fix — just add the FPS guard before `requestIdleCallback`. Do that first. Then fix the prewarm to use the real builder. Then tighten EdgeProjector chunk size to 1 for CW-heavy batches. The 400ms VGSceneApplicator yield is a nice-to-have.
+
+With these four changes, the 54-wall / 6-level session should land at under 5 seconds of user-visible freeze — the PSO compile is irreducible below ~500ms, EdgeProjector background work is ~5s wall-clock but chunked into ≤250ms slices, and shadow reactivation moves to after frame rate recovery.

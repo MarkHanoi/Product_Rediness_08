@@ -1,0 +1,26 @@
+{
+  "id": "curtainwall_01H8XK3J7M9N2P4QR5STVW6XYZ",
+  "type": "curtainwall",
+  "parentId": "level_ground",
+  "childrenIds": [],
+  "metadata": {
+    "createdAt": 1700000200000,
+    "modifiedAt": 1700000200000,
+    "createdBy": "fixture",
+    "version": 1
+  },
+  "levelId": "level_ground",
+  "baseLine": [
+    { "x": 0, "y": 0, "z": 0 },
+    { "x": 6, "y": 0, "z": 0 }
+  ],
+  "height": 3,
+  "mullionThickness": 0.05,
+  "bayWidth": 2,
+  "bayHeight": 1.5,
+  "panels": [
+    { "id": "p-0-0", "row": 0, "col": 0, "kind": "glazed" },
+    { "id": "p-0-1", "row": 0, "col": 1, "kind": "spandrel" },
+    { "id": "p-1-0", "row": 1, "col": 0, "kind": "glazed" }
+  ]
+}

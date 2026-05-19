@@ -1,0 +1,31 @@
+{
+  "generatedAt": "2026-05-09T23:08:45.273Z",
+  "batchSize": 1000,
+  "results": [
+    {
+      "codec": "json",
+      "totalBytes": 762677,
+      "avgBytesPerEvent": 762.68
+    },
+    {
+      "codec": "msgpack",
+      "totalBytes": 643402,
+      "avgBytesPerEvent": 643.4
+    },
+    {
+      "codec": "msgpack-v2",
+      "totalBytes": 194546,
+      "avgBytesPerEvent": 194.55
+    }
+  ],
+  "target": {
+    "avgBytesPerEventLessThan": 200,
+    "scope": "ADR-004 byte-budget closure — v2 (aliased) codec is the production wire format; v1 retained as legacy reader."
+  },
+  "gapToTarget": {
+    "msgpackV1": 443.4,
+    "msgpackV2": -5.45,
+    "v2ImprovementVsV1": 0.698,
+    "v2VsJsonRatio": 0.255
+  }
+}

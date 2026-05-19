@@ -1,0 +1,198 @@
+PRYZM SECURITY & INTEGRITY AUDIT — Full Codebase Review
+
+You are conducting a security, billing, and architectural integrity audit of the PRYZM BIM platform.
+This is a TypeScript/Vite frontend + Node.js/Express backend application with Anthropic AI integration,
+[Socket.io](http://socket.io/) real-time collaboration, Supabase for persistence, Clerk for authentication, and Stripe
+for payments. Read the actual source files before answering each section. Do not guess — check the code.
+
+---
+
+## SECTION 1 — AI API Exposure (Financial Risk)
+
+1. Open `src/ai/AIElementFactory.ts` and `src/ai/FloorPlanAIFactory.ts`.
+    - What URL is being called for Anthropic requests? Is it the internal server proxy (`/api/anthropic`)
+    or an external hardcoded URL (Cloudflare Worker or direct [api.anthropic.com](http://api.anthropic.com/))?
+    - PASS: All AI requests route through the internal server at `/api/anthropic/v1/messages`
+    - FAIL: Any hardcoded external URL exists. Report the exact URL found.
+2. Open `server.js`. Find the route `POST /api/anthropic/v1/messages`.
+    - Is `authMiddleware` applied to this route before the handler executes?
+    - Is there a quota check against the user's plan before the Anthropic fetch is made?
+    - Is the Anthropic response's `usage` field (input_tokens, output_tokens) being logged?
+    - PASS: All three are present.
+    - FAIL: Report exactly which of the three are missing.
+3. Search the entire codebase for the string `ANTHROPIC_API_KEY`.
+    - Is it referenced only in `server.js` and environment config files?
+    - FAIL if found in: any file inside `src/`, any `.ts` or `.js` file that gets bundled to the client,
+    any `.env.local` or `.env` file committed to version control.
+
+---
+
+## SECTION 2 — Authentication & JWT Security
+
+1. Open `server.js`. Find the `authMiddleware` function.
+    - How is the JWT being validated? Is it manually base64-decoded, or is it verified using
+    Clerk's official backend SDK (`@clerk/backend` or `clerkClient.verifyToken`)?
+    - PASS: Clerk SDK is used to cryptographically verify the signature.
+    - FAIL: The token is only base64-decoded without signature verification. Report the exact line.
+2. Search for any route that handles user data (projects, versions, AI usage) and check if
+`authMiddleware` is applied.
+    - List every route that does NOT have `authMiddleware` but should (i.e., it reads or writes
+    user-specific data).
+3. Check the Clerk publishable key usage.
+    - Search for `VITE_CLERK_PUBLISHABLE_KEY` or `clerk.load(` in frontend files.
+    - Is the frontend SDK initialized and sending Bearer tokens with API requests?
+    - PASS: Yes, tokens are attached to requests.
+    - FAIL: Requests are being made without authentication headers.
+
+---
+
+## SECTION 3 — Entitlement Enforcement
+
+1. Open `src/commands/CommandManager.ts`.
+    - Is there a pre-execution hook or guard that checks feature entitlements before `execute()` runs?
+    - Specifically: is IFC export (`ExportIFCCommand` or the `export-ifc` custom event) gated
+    server-side or only client-side?
+    - PASS: Server issues a signed token before export is allowed, OR export is server-generated.
+    - WARN: Export is client-side only with a client-side entitlement check (report this).
+    - FAIL: No entitlement check exists anywhere in the export flow.
+2. Open `server.js`. Find `POST /api/projects/:id/versions`.
+    - Does this route check the user's plan and enforce a version limit before accepting the payload?
+    - PASS: Version count is checked server-side.
+    - FAIL: Any authenticated user can save unlimited versions regardless of plan.
+3. Search for `EntitlementStore` or equivalent plan-checking logic.
+    - Is there a single authoritative entitlement module, or is plan logic scattered across
+    multiple files?
+    - List all files that contain plan/tier checks (`'free'`, `'architect'`, `'studio'`, `canExport`,
+    `aiLimit`, etc.) and report if the logic is duplicated or inconsistent.
+
+---
+
+## SECTION 4 — Stripe & Billing Security
+
+1. Open `server.js`. Find `POST /api/stripe/webhook`.
+    - Is `stripe.webhooks.constructEvent()` being called to verify the webhook signature
+    using `STRIPE_WEBHOOK_SECRET` before any plan update logic runs?
+    - PASS: Signature verification is the first operation in the handler.
+    - FAIL: The webhook is processed without signature verification — this allows anyone to
+    fake a payment and upgrade their account for free. Report immediately.
+2. Find all locations where `users.plan` is updated in the database.
+    - Is the webhook handler the ONLY place that updates a user's plan, or can the plan be
+    changed through other routes (e.g., a user-facing API endpoint that accepts a plan parameter)?
+    - PASS: Plan is only updated via verified Stripe webhook events.
+    - FAIL: Any route allows direct plan mutation without Stripe verification.
+3. Search for `STRIPE_SECRET_KEY` in the codebase.
+    - Is it only used server-side in `server.js`?
+    - FAIL if found in any file inside `src/` or any client-bundled file.
+
+---
+
+## SECTION 5 — Database Security (Supabase)
+
+1. Check whether Supabase Row-Level Security (RLS) is enabled.
+    - Look for any Supabase schema migration files or policy definitions in the project.
+    - If RLS policies exist, list which tables they cover.
+    - WARN: If no RLS policy files exist, this means anyone with the anon key can read all
+    user data. Flag for immediate review.
+2. Search for `SUPABASE_SERVICE_ROLE_KEY` in the codebase.
+    - Is it used only in server-side code (`server.js`)?
+    - FAIL if found in any file inside `src/`, `public/`, or any Vite-bundled module —
+    this key has full database admin access and must never reach the client.
+3. Search for `SUPABASE_ANON_KEY` usage in `server.js`.
+    - Is the server using the anon key or the service role key for admin database operations?
+    - WARN: If the server uses the anon key, it is subject to RLS restrictions and may fail
+    on operations it should be able to perform. Server should use service role key.
+
+---
+
+## SECTION 6 — Rate Limiting & Abuse Prevention
+
+1. Open `server.js`. Search for `express-rate-limit` or any rate limiting middleware.
+    - Is rate limiting applied to: (a) the AI proxy route, (b) the auth routes, (c) globally?
+    - PASS: All three have rate limits configured.
+    - FAIL: Report which are missing.
+2. Search for any per-user AI quota enforcement in `server.js`.
+    - When the AI proxy receives a request, does it query the database to check how many AI
+    actions this user has used this billing period before forwarding to Anthropic?
+    - PASS: Quota is checked server-side before each AI call.
+    - FAIL: No server-side quota check exists (client-side only or none at all).
+3. Search for device fingerprinting or multi-account detection logic.
+    - Is there any mechanism to detect the same device creating multiple free accounts?
+    - PASS/WARN: Report what exists (none is acceptable but should be noted).
+
+---
+
+## SECTION 7 — [Socket.io](http://socket.io/) Security
+
+1. Open `server.js`. Find the [Socket.io](http://socket.io/) section with `io.on('connection', ...)`.
+    - When a client emits `join-project`, is the user's identity verified (JWT checked)
+    server-side before `socket.join()` is called?
+    - Is there a check that the user is a member of the workspace that owns the project?
+    - PASS: Both checks are present.
+    - FAIL: Report which are missing.
+2. Check for [Socket.io](http://socket.io/) payload validation.
+    - When `command-executed` is received, is the payload validated against a schema before
+    being rebroadcast?
+    - Is `maxHttpBufferSize` configured on the [Socket.io](http://socket.io/) server to prevent oversized payloads?
+    - PASS: Both are present.
+    - FAIL: Report which are missing.
+
+---
+
+## SECTION 8 — Secret & Key Hygiene
+
+1. Scan all files in the project root and `src/` for the following patterns and report any found:
+    - Any string starting with `sk-ant-` (Anthropic API key format)
+    - Any string starting with `sk_live_` or `sk_test_` (Stripe key format)
+    - Any string that looks like a Supabase service role JWT (long base64 string starting with `eyJ`)
+    - Any hardcoded password, secret, or token in non-environment-variable form
+    - PASS: None found.
+    - FAIL: Report exact file and line number for each finding.
+2. Check `.gitignore` for the following entries:
+    - `.env`
+    - `.env.local`
+    - `node_modules/`
+    - `dist/`
+    - WARN: Report any missing entries.
+
+---
+
+## SECTION 9 — CORS & Transport Security
+
+1. Open `server.js`. Is a CORS policy configured using the `cors` package or equivalent?
+    - If yes: what origins are allowed? Is it  (any origin) or a specific domain allowlist?
+    - PASS: Specific production domain is allowlisted.
+    - WARN:  (all origins) is set — report this.
+    - FAIL: No CORS policy at all.
+2. Check the `vite.config.ts` proxy configuration.
+    - Are any routes proxied in a way that could expose backend endpoints to the public without
+    going through the server's auth middleware?
+
+---
+
+## SECTION 10 — Dependency & Supply Chain
+
+1. Run a check on installed packages for known vulnerabilities:
+    - Check `package.json` for any packages pinned to versions known to have CVEs.
+    - Flag any packages that are significantly outdated (major version behind) in security-critical
+    positions: `express`, `socket.io`, `web-ifc`, `vite`.
+    - Note the Node.js version in use and whether it is an LTS release.
+2. Check for the Cloudflare Worker URL.
+    - Search the entire codebase for `workers.dev` or any `cloudflare` URL.
+    - PASS: No external worker URLs found — all AI calls go through the internal server.
+    - FAIL: External worker URL found. Report the file and line. This is a critical financial
+    exposure — AI costs are untracked and uncontrolled through this path.
+
+---
+
+## AUDIT OUTPUT FORMAT
+
+For each section, provide:
+
+- Section name
+- Each check: PASS / FAIL / WARN with one-sentence explanation
+- For FAILs: exact file name and line number where possible
+- End with a prioritized remediation list: CRITICAL (fix immediately) → HIGH (fix this sprint) → MEDIUM (fix this quarter)
+
+Do not summarize — provide specific findings only. If a check cannot be determined from the source
+code alone (e.g., Supabase RLS requires database access), say "CANNOT VERIFY FROM CODE — requires
+database inspection" rather than guessing.

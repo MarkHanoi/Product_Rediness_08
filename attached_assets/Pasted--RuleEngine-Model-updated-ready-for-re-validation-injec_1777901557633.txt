@@ -1,0 +1,162 @@
+[RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=2/10 addLevel=5.0ms createPlanView=0.0ms iterTotal=5.0ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 03" (target.Y: 6.50 → 10.00)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-03-1777901346545-3" at 10m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=3/10 addLevel=5.4ms createPlanView=0.0ms iterTotal=5.4ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 04" (target.Y: 10.00 → 13.50)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-04-1777901346551-4" at 13.5m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=4/10 addLevel=6.1ms createPlanView=0.0ms iterTotal=6.1ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 05" (target.Y: 13.50 → 17.00)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-05-1777901346557-5" at 17m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=5/10 addLevel=5.2ms createPlanView=0.0ms iterTotal=5.3ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 06" (target.Y: 17.00 → 20.50)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-06-1777901346562-6" at 20.5m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=6/10 addLevel=6.0ms createPlanView=0.0ms iterTotal=6.0ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 07" (target.Y: 20.50 → 24.00)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-07-1777901346568-7" at 24m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=7/10 addLevel=5.3ms createPlanView=0.0ms iterTotal=5.3ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 08" (target.Y: 24.00 → 27.50)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-08-1777901346573-8" at 27.5m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=8/10 addLevel=6.1ms createPlanView=0.0ms iterTotal=6.1ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 09" (target.Y: 27.50 → 31.00)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-09-1777901346580-9" at 31m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=9/10 addLevel=4.9ms createPlanView=0.1ms iterTotal=5.0ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 10" (target.Y: 31.00 → 34.50)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-10-1777901346585-10" at 34.5m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=10/10 addLevel=6.0ms createPlanView=0.2ms iterTotal=6.2ms
+injected.js:37 [CreateMultipleLevelsCommand] COMPLETE total=58.9ms
+injected.js:37 [AIApprovalStore] Audit record appended: f44d6ac8-3d99-4dde-946b-07e90f79ec65 (CREATE_LEVEL)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [FPS] 30fps
+injected.js:37 [LONGTASK] duration=67.0ms start=145009.4ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+2injected.js:37 [ProjectSerializer] Snapshot created: 14 elements, 11 levels, 12 walls, 1 slabs, 0 furniture
+injected.js:37 [PlatformSaveController] Version saved: "Auto-save" (14 elements, id: proj-1777901347591-ywa74)
+injected.js:37 [FPS] 77fps
+injected.js:37 [LONGTASK] duration=62.0ms start=146067.8ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [FPS] 86fps
+injected.js:37 [AIPanel] Proposal received via event — showing inline card: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_SLABS_ON_ALL_FLOORS
+injected.js:37 [CommandManager] snapshot commandType="CreateSlabsOnAllFloorsCommand" scope=[slab,level] elapsed=0.2ms
+injected.js:37 [CreateSlabsOnAllFloorsCommand] START referenceSlabId="a300a282-5ba8-455c-bf5b-e22c07e6e0fe" levels=10 polygonVertices=12
+injected.js:37 [CreateSlabsOnAllFloorsCommand] runBatch starting — 10 slab(s) deferred to rAF drain.
+injected.js:37 [BatchCoordinator] _setupBatch — 10 level(s), 10 elements expected.
+injected.js:37 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+injected.js:37 [BimManager] Registered element 9d16f1b0-8b68-4c44-b829-4ae84a7254d4 to level L-01-1777901346532-1
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-01-1777901346532-1" success=true elapsed=1.1ms
+injected.js:37 [BimManager] Registered element d71802a2-ff90-41ba-b548-484cd9809e57 to level L-02-1777901346540-2
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-02-1777901346540-2" success=true elapsed=0.7ms
+injected.js:37 [BimManager] Registered element 89081fb1-c85d-4fa9-83b9-2680eccd1d60 to level L-03-1777901346545-3
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-03-1777901346545-3" success=true elapsed=0.9ms
+injected.js:37 [BimManager] Registered element fa38d555-0aeb-4530-a4ae-aa781a11be43 to level L-04-1777901346551-4
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-04-1777901346551-4" success=true elapsed=1.0ms
+injected.js:37 [BimManager] Registered element c3ea6820-b9e2-4113-8ea1-b526beaadf3c to level L-05-1777901346557-5
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-05-1777901346557-5" success=true elapsed=1.4ms
+injected.js:37 [BimManager] Registered element 6bfe105a-0cb9-4977-b952-bab78f02f628 to level L-06-1777901346562-6
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-06-1777901346562-6" success=true elapsed=0.8ms
+injected.js:37 [BimManager] Registered element a93eea11-26eb-4411-9ca9-f0b2ab0b81e0 to level L-07-1777901346568-7
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-07-1777901346568-7" success=true elapsed=0.6ms
+injected.js:37 [BimManager] Registered element 82363962-448a-4e10-84c7-4e01d4bd4561 to level L-08-1777901346573-8
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-08-1777901346573-8" success=true elapsed=0.7ms
+injected.js:37 [BimManager] Registered element b06e1eeb-1cac-42a2-a23c-4d535e89ab2b to level L-09-1777901346580-9
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-09-1777901346580-9" success=true elapsed=0.6ms
+injected.js:37 [BimManager] Registered element 96f20a75-6163-4de5-8c63-bf55dd22ef3c to level L-10-1777901346585-10
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-10-1777901346585-10" success=true elapsed=0.4ms
+injected.js:37 [CreateSlabsOnAllFloorsCommand] COMPLETE created=10 total=13.0ms
+injected.js:37 [AIApprovalStore] Audit record appended: 9007a5d2-3d10-4b8a-9e81-a43c4195a90d (CREATE_SLABS_ON_ALL_FLOORS)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [SlabFragmentBuilder] outset slabId="9d16f1b0-8b68-4c44-b829-4ae84a7254d4" vertices=12 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="9d16f1b0-8b68-4c44-b829-4ae84a7254d4" outerVertices=12 elapsed=0.4ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="9d16f1b0-8b68-4c44-b829-4ae84a7254d4" totalMs=1.5ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="d71802a2-ff90-41ba-b548-484cd9809e57" vertices=12 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="d71802a2-ff90-41ba-b548-484cd9809e57" outerVertices=12 elapsed=0.2ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="d71802a2-ff90-41ba-b548-484cd9809e57" totalMs=0.6ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="89081fb1-c85d-4fa9-83b9-2680eccd1d60" vertices=12 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="89081fb1-c85d-4fa9-83b9-2680eccd1d60" outerVertices=12 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="89081fb1-c85d-4fa9-83b9-2680eccd1d60" totalMs=0.5ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="fa38d555-0aeb-4530-a4ae-aa781a11be43" vertices=12 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="fa38d555-0aeb-4530-a4ae-aa781a11be43" outerVertices=12 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="fa38d555-0aeb-4530-a4ae-aa781a11be43" totalMs=0.8ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="c3ea6820-b9e2-4113-8ea1-b526beaadf3c" vertices=12 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="c3ea6820-b9e2-4113-8ea1-b526beaadf3c" outerVertices=12 elapsed=0.2ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="c3ea6820-b9e2-4113-8ea1-b526beaadf3c" totalMs=0.8ms
+injected.js:37 [SlabFragmentBuilder] RAF_DRAIN built=5 remaining=5 queueBefore=10 frameMs=5.4ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="6bfe105a-0cb9-4977-b952-bab78f02f628" vertices=12 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="6bfe105a-0cb9-4977-b952-bab78f02f628" outerVertices=12 elapsed=0.2ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="6bfe105a-0cb9-4977-b952-bab78f02f628" totalMs=0.8ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="a93eea11-26eb-4411-9ca9-f0b2ab0b81e0" vertices=12 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="a93eea11-26eb-4411-9ca9-f0b2ab0b81e0" outerVertices=12 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="a93eea11-26eb-4411-9ca9-f0b2ab0b81e0" totalMs=0.7ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="82363962-448a-4e10-84c7-4e01d4bd4561" vertices=12 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="82363962-448a-4e10-84c7-4e01d4bd4561" outerVertices=12 elapsed=0.2ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="82363962-448a-4e10-84c7-4e01d4bd4561" totalMs=0.7ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="b06e1eeb-1cac-42a2-a23c-4d535e89ab2b" vertices=12 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="b06e1eeb-1cac-42a2-a23c-4d535e89ab2b" outerVertices=12 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="b06e1eeb-1cac-42a2-a23c-4d535e89ab2b" totalMs=1.0ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="96f20a75-6163-4de5-8c63-bf55dd22ef3c" vertices=12 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="96f20a75-6163-4de5-8c63-bf55dd22ef3c" outerVertices=12 elapsed=0.2ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="96f20a75-6163-4de5-8c63-bf55dd22ef3c" totalMs=0.8ms
+injected.js:37 [SlabFragmentBuilder] RAF_DRAIN built=5 remaining=0 queueBefore=5 frameMs=5.5ms
+injected.js:37 [SlabFragmentBuilder] rAF queue drained — signalling BatchCoordinator.
+injected.js:37 [BatchCoordinator] Build queue drained — beginning registration drain (0 queued / 10 expected).
+injected.js:37 [StoreEventBus] endBatchYielded() — 10 event(s) will be delivered in 1 chunk(s) of 200 via frame scheduler.
+injected.js:37 [StoreEventBus] endBatchYielded() — all 10 event(s) delivered across 1 chunk(s) (last: 0.5ms). Calling onComplete().
+injected.js:37 [BatchCoordinator] Final sweep: firing 10 REDETECT_ROOMS command(s) (one per affected level). Observers re-enabled. StoreEventBus flushed (depth now 0).
+injected.js:37 [PascalSceneLighting] Shadow flags set on 10 mesh(es).
+injected.js:37 [BatchCoordinator/P1.3] Post-batch geometry pass: shadow flags + PBR upgrade run once for 94 mesh(es) in scene.
+injected.js:37 [FPS] 40fps
+injected.js:37 [LONGTASK] duration=62.0ms start=148249.6ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+2injected.js:37 [ProjectSerializer] Snapshot created: 24 elements, 11 levels, 12 walls, 11 slabs, 0 furniture
+injected.js:37 [PlatformSaveController] Version saved: "Auto-save" (24 elements, id: proj-1777901350488-26jh6)
+injected.js:37 [LONGTASK] duration=70.0ms start=148963.6ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [FPS] 22fps
+injected.js:37 [GPU Monitor] geometries:28 textures:9 | drawCalls:14 tris:198
+injected.js:37 [CommandManager] EXECUTE: CREATE_CURTAIN_WALLS_ON_ALL_SLABS
+injected.js:37 [CommandManager] snapshot commandType="CreateCurtainWallsOnAllSlabsCommand" scope=[curtainWall] elapsed=0.0ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] START slabCount=11
+injected.js:37 [BatchCoordinator] _setupBatch — 11 level(s), 132 elements expected.
+injected.js:37 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="a300a282-5ba8-455c-bf5b-e22c07e6e0fe" walls=12 elapsed=9.6ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="9d16f1b0-8b68-4c44-b829-4ae84a7254d4" walls=12 elapsed=16.1ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="d71802a2-ff90-41ba-b548-484cd9809e57" walls=12 elapsed=19.1ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="89081fb1-c85d-4fa9-83b9-2680eccd1d60" walls=12 elapsed=33.1ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="fa38d555-0aeb-4530-a4ae-aa781a11be43" walls=12 elapsed=28.8ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="c3ea6820-b9e2-4113-8ea1-b526beaadf3c" walls=12 elapsed=49.7ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="6bfe105a-0cb9-4977-b952-bab78f02f628" walls=12 elapsed=42.4ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="a93eea11-26eb-4411-9ca9-f0b2ab0b81e0" walls=12 elapsed=56.3ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="82363962-448a-4e10-84c7-4e01d4bd4561" walls=12 elapsed=59.6ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="b06e1eeb-1cac-42a2-a23c-4d535e89ab2b" walls=12 elapsed=68.1ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="96f20a75-6163-4de5-8c63-bf55dd22ef3c" walls=12 elapsed=73.2ms
+injected.js:37 [CurtainWallBuilder] §BATCH-CW-PAUSE: resumeAndFlush — 132 walls transferred to pending queue, 1 rAF drain scheduled.
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] COMPLETE total=459.7ms
+injected.js:37 [AIApprovalStore] Audit record appended: ece145c9-281a-4c2b-ad55-1556ad3d5c15 (CREATE_CURTAIN_WALLS_ON_ALL_SLABS)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [BatchCoordinator] Build queue drained — beginning registration drain (132 queued / 132 expected).
+injected.js:37 [BimManager] Registered element 030ea501-7a64-4f84-8f40-605dfd3cae76 to level L0
+injected.js:37 [BimManager] Registered element c1dc9732-c473-4706-89da-e9bfd0eb17f3 to level L0
+injected.js:37 [BimManager] Registered element 4fd0b309-f461-4147-ada4-d7e2ef994e2d to level L0
+injected.js:37 [BimManager] Registered element a498dfc2-0626-415a-a39e-3c1271d46a85 to level L0
+injected.js:37 [BimManager] Registered element 86b3af6f-3634-4e1d-90a8-385c4a24c106 to level L0
+injected.js:37 [BimManager] Registered element f132ece5-4670-442b-8432-a09b0ad49436 to level L0

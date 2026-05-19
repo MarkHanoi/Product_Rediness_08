@@ -1,0 +1,1823 @@
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="0b705599-c5bf-44c8-8730-65d0bd8b09fe" batchId=667519d4 totalMs=0.6 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=16 panelReadMs=0.0 panels=0 panelBuildMs=0.4 mullionMs=0.1 uLines=9 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall d395ee98-f784-49ab-bac3-8a9837b05c7b — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="d395ee98-f784-49ab-bac3-8a9837b05c7b" batchId=667519d4 totalMs=0.3 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=6 panelReadMs=0.0 panels=0 panelBuildMs=0.2 mullionMs=0.0 uLines=4 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 6d040e87-0712-4da3-9f44-d17fbb8a53f5 — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="6d040e87-0712-4da3-9f44-d17fbb8a53f5" batchId=667519d4 totalMs=0.4 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=10 panelReadMs=0.0 panels=0 panelBuildMs=0.3 mullionMs=0.1 uLines=6 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 390662ce-0182-40b7-93d3-8a2b7a016e57 — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="390662ce-0182-40b7-93d3-8a2b7a016e57" batchId=667519d4 totalMs=1.1 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=44 panelReadMs=0.0 panels=0 panelBuildMs=0.9 mullionMs=0.1 uLines=23 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall fb614da9-e219-4cc3-9e4b-d680ea9cd051 — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="fb614da9-e219-4cc3-9e4b-d680ea9cd051" batchId=667519d4 totalMs=0.5 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=10 panelReadMs=0.0 panels=0 panelBuildMs=0.3 mullionMs=0.1 uLines=6 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall be1193a5-4e3c-4d80-83a9-a9c40e99b96f — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="be1193a5-4e3c-4d80-83a9-a9c40e99b96f" batchId=667519d4 totalMs=0.5 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=16 panelReadMs=0.0 panels=0 panelBuildMs=0.4 mullionMs=0.0 uLines=9 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 93bdbbc0-cf42-4eed-a15b-604fa9fa093c — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="93bdbbc0-cf42-4eed-a15b-604fa9fa093c" batchId=667519d4 totalMs=0.3 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=6 panelReadMs=0.0 panels=0 panelBuildMs=0.2 mullionMs=0.0 uLines=4 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 1577e650-a66d-4744-a494-5298f66b583c — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="1577e650-a66d-4744-a494-5298f66b583c" batchId=667519d4 totalMs=0.4 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=10 panelReadMs=0.0 panels=0 panelBuildMs=0.3 mullionMs=0.0 uLines=6 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §PERF-DRAIN built=22 remaining=47 queueBefore=69 frameMs=3.2ms nextBudget=23 isBatch=true
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall cc4f76fd-1de9-4859-a710-cd6384fad1f5 — falling back to synchronous build: Error: [GeometryWorkerPool] all workers dead — falling back to sync build
+    at iy.dispatch (engineLauncher-bbIXqTfg.js:1757:23182)
+    at mt._submitToWorker (engineLauncher-bbIXqTfg.js:1757:44519)
+    at mt._buildOrOffload (engineLauncher-bbIXqTfg.js:1757:42547)
+    at mt._drainBuildQueue (engineLauncher-bbIXqTfg.js:1757:31125)
+    at engineLauncher-bbIXqTfg.js:1757:31860
+    at Object.callback (main-C_EL1IFU.js:2:14564)
+    at Ci.tick (main-C_EL1IFU.js:2:16035)
+    at main-C_EL1IFU.js:2:15649
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="cc4f76fd-1de9-4859-a710-cd6384fad1f5" batchId=667519d4 totalMs=1.3 worldYMs=0.0 gridMs=0.4(migrated) cellsMs=0.0 cells=44 panelReadMs=0.0 panels=0 panelBuildMs=0.8 mullionMs=0.1 uLines=23 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall c7dd36c6-01c6-4783-bb82-67c55166faaf — falling back to synchronous build: Error: [GeometryWorkerPool] all workers dead — falling back to sync build
+    at iy.dispatch (engineLauncher-bbIXqTfg.js:1757:23182)
+    at mt._submitToWorker (engineLauncher-bbIXqTfg.js:1757:44519)
+    at mt._buildOrOffload (engineLauncher-bbIXqTfg.js:1757:42547)
+    at mt._drainBuildQueue (engineLauncher-bbIXqTfg.js:1757:31125)
+    at engineLauncher-bbIXqTfg.js:1757:31860
+    at Object.callback (main-C_EL1IFU.js:2:14564)
+    at Ci.tick (main-C_EL1IFU.js:2:16035)
+    at main-C_EL1IFU.js:2:15649
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="c7dd36c6-01c6-4783-bb82-67c55166faaf" batchId=667519d4 totalMs=0.6 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=12 panelReadMs=0.0 panels=0 panelBuildMs=0.3 mullionMs=0.1 uLines=7 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 2f89f3d1-ef11-45c5-9ff0-0378295bfafa — falling back to synchronous build: Error: [GeometryWorkerPool] all workers dead — falling back to sync build
+    at iy.dispatch (engineLauncher-bbIXqTfg.js:1757:23182)
+    at mt._submitToWorker (engineLauncher-bbIXqTfg.js:1757:44519)
+    at mt._buildOrOffload (engineLauncher-bbIXqTfg.js:1757:42547)
+    at mt._drainBuildQueue (engineLauncher-bbIXqTfg.js:1757:31125)
+    at engineLauncher-bbIXqTfg.js:1757:31860
+    at Object.callback (main-C_EL1IFU.js:2:14564)
+    at Ci.tick (main-C_EL1IFU.js:2:16035)
+    at main-C_EL1IFU.js:2:15649
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="2f89f3d1-ef11-45c5-9ff0-0378295bfafa" batchId=667519d4 totalMs=0.4 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=10 panelReadMs=0.0 panels=0 panelBuildMs=0.3 mullionMs=0.1 uLines=6 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 77925369-ff10-43de-b56c-9ed8057f0100 — falling back to synchronous build: Error: [GeometryWorkerPool] all workers dead — falling back to sync build
+    at iy.dispatch (engineLauncher-bbIXqTfg.js:1757:23182)
+    at mt._submitToWorker (engineLauncher-bbIXqTfg.js:1757:44519)
+    at mt._buildOrOffload (engineLauncher-bbIXqTfg.js:1757:42547)
+    at mt._drainBuildQueue (engineLauncher-bbIXqTfg.js:1757:31125)
+    at engineLauncher-bbIXqTfg.js:1757:31860
+    at Object.callback (main-C_EL1IFU.js:2:14564)
+    at Ci.tick (main-C_EL1IFU.js:2:16035)
+    at main-C_EL1IFU.js:2:15649
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="77925369-ff10-43de-b56c-9ed8057f0100" batchId=667519d4 totalMs=0.8 worldYMs=0.1 gridMs=0.1(migrated) cellsMs=0.0 cells=36 panelReadMs=0.0 panels=0 panelBuildMs=0.6 mullionMs=0.0 uLines=19 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall c465d004-7710-4437-8c5b-87b6ffa57f68 — falling back to synchronous build: Error: [GeometryWorkerPool] all workers dead — falling back to sync build
+    at iy.dispatch (engineLauncher-bbIXqTfg.js:1757:23182)
+    at mt._submitToWorker (engineLauncher-bbIXqTfg.js:1757:44519)
+    at mt._buildOrOffload (engineLauncher-bbIXqTfg.js:1757:42547)
+    at mt._drainBuildQueue (engineLauncher-bbIXqTfg.js:1757:31125)
+    at engineLauncher-bbIXqTfg.js:1757:31860
+    at Object.callback (main-C_EL1IFU.js:2:14564)
+    at Ci.tick (main-C_EL1IFU.js:2:16035)
+    at main-C_EL1IFU.js:2:15649
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="c465d004-7710-4437-8c5b-87b6ffa57f68" batchId=667519d4 totalMs=0.7 worldYMs=0.0 gridMs=0.1(migrated) cellsMs=0.0 cells=16 panelReadMs=0.0 panels=0 panelBuildMs=0.5 mullionMs=0.1 uLines=9 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall a87880f2-f6a2-4a1e-ab58-70ca943c461f — falling back to synchronous build: Error: [GeometryWorkerPool] all workers dead — falling back to sync build
+    at iy.dispatch (engineLauncher-bbIXqTfg.js:1757:23182)
+    at mt._submitToWorker (engineLauncher-bbIXqTfg.js:1757:44519)
+    at mt._buildOrOffload (engineLauncher-bbIXqTfg.js:1757:42547)
+    at mt._drainBuildQueue (engineLauncher-bbIXqTfg.js:1757:31125)
+    at engineLauncher-bbIXqTfg.js:1757:31860
+    at Object.callback (main-C_EL1IFU.js:2:14564)
+    at Ci.tick (main-C_EL1IFU.js:2:16035)
+    at main-C_EL1IFU.js:2:15649
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="a87880f2-f6a2-4a1e-ab58-70ca943c461f" batchId=667519d4 totalMs=1.4 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=30 panelReadMs=0.0 panels=0 panelBuildMs=1.2 mullionMs=0.1 uLines=16 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 31ceca1f-b1ed-4194-8164-3426f1d288d7 — falling back to synchronous build: Error: [GeometryWorkerPool] all workers dead — falling back to sync build
+    at iy.dispatch (engineLauncher-bbIXqTfg.js:1757:23182)
+    at mt._submitToWorker (engineLauncher-bbIXqTfg.js:1757:44519)
+    at mt._buildOrOffload (engineLauncher-bbIXqTfg.js:1757:42547)
+    at mt._drainBuildQueue (engineLauncher-bbIXqTfg.js:1757:31125)
+    at engineLauncher-bbIXqTfg.js:1757:31860
+    at Object.callback (main-C_EL1IFU.js:2:14564)
+    at Ci.tick (main-C_EL1IFU.js:2:16035)
+    at main-C_EL1IFU.js:2:15649
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="31ceca1f-b1ed-4194-8164-3426f1d288d7" batchId=667519d4 totalMs=0.6 worldYMs=0.0 gridMs=0.2(migrated) cellsMs=0.0 cells=6 panelReadMs=0.0 panels=0 panelBuildMs=0.3 mullionMs=0.1 uLines=4 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 8dbd5671-c74d-43a1-a62d-929d7ab8e375 — falling back to synchronous build: Error: [GeometryWorkerPool] all workers dead — falling back to sync build
+    at iy.dispatch (engineLauncher-bbIXqTfg.js:1757:23182)
+    at mt._submitToWorker (engineLauncher-bbIXqTfg.js:1757:44519)
+    at mt._buildOrOffload (engineLauncher-bbIXqTfg.js:1757:42547)
+    at mt._drainBuildQueue (engineLauncher-bbIXqTfg.js:1757:31125)
+    at engineLauncher-bbIXqTfg.js:1757:31860
+    at Object.callback (main-C_EL1IFU.js:2:14564)
+    at Ci.tick (main-C_EL1IFU.js:2:16035)
+    at main-C_EL1IFU.js:2:15649
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="8dbd5671-c74d-43a1-a62d-929d7ab8e375" batchId=667519d4 totalMs=0.5 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=14 panelReadMs=0.0 panels=0 panelBuildMs=0.4 mullionMs=0.0 uLines=8 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall c915270d-2c4c-4c58-ac47-e10e67085069 — falling back to synchronous build: Error: [GeometryWorkerPool] all workers dead — falling back to sync build
+    at iy.dispatch (engineLauncher-bbIXqTfg.js:1757:23182)
+    at mt._submitToWorker (engineLauncher-bbIXqTfg.js:1757:44519)
+    at mt._buildOrOffload (engineLauncher-bbIXqTfg.js:1757:42547)
+    at mt._drainBuildQueue (engineLauncher-bbIXqTfg.js:1757:31125)
+    at engineLauncher-bbIXqTfg.js:1757:31860
+    at Object.callback (main-C_EL1IFU.js:2:14564)
+    at Ci.tick (main-C_EL1IFU.js:2:16035)
+    at main-C_EL1IFU.js:2:15649
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="c915270d-2c4c-4c58-ac47-e10e67085069" batchId=667519d4 totalMs=0.4 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=10 panelReadMs=0.0 panels=0 panelBuildMs=0.3 mullionMs=0.0 uLines=6 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall e110b7a3-0318-4213-9c6f-c5eb554fecd3 — falling back to synchronous build: Error: [GeometryWorkerPool] all workers dead — falling back to sync build
+    at iy.dispatch (engineLauncher-bbIXqTfg.js:1757:23182)
+    at mt._submitToWorker (engineLauncher-bbIXqTfg.js:1757:44519)
+    at mt._buildOrOffload (engineLauncher-bbIXqTfg.js:1757:42547)
+    at mt._drainBuildQueue (engineLauncher-bbIXqTfg.js:1757:31125)
+    at engineLauncher-bbIXqTfg.js:1757:31860
+    at Object.callback (main-C_EL1IFU.js:2:14564)
+    at Ci.tick (main-C_EL1IFU.js:2:16035)
+    at main-C_EL1IFU.js:2:15649
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="e110b7a3-0318-4213-9c6f-c5eb554fecd3" batchId=667519d4 totalMs=1.3 worldYMs=0.0 gridMs=0.1(migrated) cellsMs=0.0 cells=32 panelReadMs=0.1 panels=0 panelBuildMs=1.0 mullionMs=0.1 uLines=17 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 6562888b-7092-4a43-8ed8-86a0cf3c1e7d — falling back to synchronous build: Error: [GeometryWorkerPool] all workers dead — falling back to sync build
+    at iy.dispatch (engineLauncher-bbIXqTfg.js:1757:23182)
+    at mt._submitToWorker (engineLauncher-bbIXqTfg.js:1757:44519)
+    at mt._buildOrOffload (engineLauncher-bbIXqTfg.js:1757:42547)
+    at mt._drainBuildQueue (engineLauncher-bbIXqTfg.js:1757:31125)
+    at engineLauncher-bbIXqTfg.js:1757:31860
+    at Object.callback (main-C_EL1IFU.js:2:14564)
+    at Ci.tick (main-C_EL1IFU.js:2:16035)
+    at main-C_EL1IFU.js:2:15649
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="6562888b-7092-4a43-8ed8-86a0cf3c1e7d" batchId=667519d4 totalMs=1.9 worldYMs=0.0 gridMs=0.1(migrated) cellsMs=0.0 cells=44 panelReadMs=0.0 panels=0 panelBuildMs=1.7 mullionMs=0.1 uLines=23 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 07de0e69-4ac4-4304-8d0b-04e825fcafae — falling back to synchronous build: Error: [GeometryWorkerPool] all workers dead — falling back to sync build
+    at iy.dispatch (engineLauncher-bbIXqTfg.js:1757:23182)
+    at mt._submitToWorker (engineLauncher-bbIXqTfg.js:1757:44519)
+    at mt._buildOrOffload (engineLauncher-bbIXqTfg.js:1757:42547)
+    at mt._drainBuildQueue (engineLauncher-bbIXqTfg.js:1757:31125)
+    at engineLauncher-bbIXqTfg.js:1757:31860
+    at Object.callback (main-C_EL1IFU.js:2:14564)
+    at Ci.tick (main-C_EL1IFU.js:2:16035)
+    at main-C_EL1IFU.js:2:15649
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="07de0e69-4ac4-4304-8d0b-04e825fcafae" batchId=667519d4 totalMs=0.8 worldYMs=0.1 gridMs=0.0(migrated) cellsMs=0.1 cells=12 panelReadMs=0.0 panels=0 panelBuildMs=0.6 mullionMs=0.1 uLines=7 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall b42807b9-1f30-4717-b159-a7f943368143 — falling back to synchronous build: Error: [GeometryWorkerPool] all workers dead — falling back to sync build
+    at iy.dispatch (engineLauncher-bbIXqTfg.js:1757:23182)
+    at mt._submitToWorker (engineLauncher-bbIXqTfg.js:1757:44519)
+    at mt._buildOrOffload (engineLauncher-bbIXqTfg.js:1757:42547)
+    at mt._drainBuildQueue (engineLauncher-bbIXqTfg.js:1757:31125)
+    at engineLauncher-bbIXqTfg.js:1757:31860
+    at Object.callback (main-C_EL1IFU.js:2:14564)
+    at Ci.tick (main-C_EL1IFU.js:2:16035)
+    at main-C_EL1IFU.js:2:15649
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="b42807b9-1f30-4717-b159-a7f943368143" batchId=667519d4 totalMs=0.6 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=10 panelReadMs=0.0 panels=0 panelBuildMs=0.4 mullionMs=0.1 uLines=6 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 2c7cb5d4-582d-44c0-a54b-c294f8d30957 — falling back to synchronous build: Error: [GeometryWorkerPool] all workers dead — falling back to sync build
+    at iy.dispatch (engineLauncher-bbIXqTfg.js:1757:23182)
+    at mt._submitToWorker (engineLauncher-bbIXqTfg.js:1757:44519)
+    at mt._buildOrOffload (engineLauncher-bbIXqTfg.js:1757:42547)
+    at mt._drainBuildQueue (engineLauncher-bbIXqTfg.js:1757:31125)
+    at engineLauncher-bbIXqTfg.js:1757:31860
+    at Object.callback (main-C_EL1IFU.js:2:14564)
+    at Ci.tick (main-C_EL1IFU.js:2:16035)
+    at main-C_EL1IFU.js:2:15649
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="2c7cb5d4-582d-44c0-a54b-c294f8d30957" batchId=667519d4 totalMs=1.1 worldYMs=0.0 gridMs=0.1(migrated) cellsMs=0.0 cells=36 panelReadMs=0.0 panels=0 panelBuildMs=0.9 mullionMs=0.1 uLines=19 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall d5ce4a83-5c59-4e2e-96ef-78aacdfd663c — falling back to synchronous build: Error: [GeometryWorkerPool] all workers dead — falling back to sync build
+    at iy.dispatch (engineLauncher-bbIXqTfg.js:1757:23182)
+    at mt._submitToWorker (engineLauncher-bbIXqTfg.js:1757:44519)
+    at mt._buildOrOffload (engineLauncher-bbIXqTfg.js:1757:42547)
+    at mt._drainBuildQueue (engineLauncher-bbIXqTfg.js:1757:31125)
+    at engineLauncher-bbIXqTfg.js:1757:31860
+    at Object.callback (main-C_EL1IFU.js:2:14564)
+    at Ci.tick (main-C_EL1IFU.js:2:16035)
+    at main-C_EL1IFU.js:2:15649
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="d5ce4a83-5c59-4e2e-96ef-78aacdfd663c" batchId=667519d4 totalMs=0.7 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=16 panelReadMs=0.0 panels=0 panelBuildMs=0.5 mullionMs=0.1 uLines=9 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 143a4b27-501e-4e2a-974b-6aabe244617b — falling back to synchronous build: Error: [GeometryWorkerPool] all workers dead — falling back to sync build
+    at iy.dispatch (engineLauncher-bbIXqTfg.js:1757:23182)
+    at mt._submitToWorker (engineLauncher-bbIXqTfg.js:1757:44519)
+    at mt._buildOrOffload (engineLauncher-bbIXqTfg.js:1757:42547)
+    at mt._drainBuildQueue (engineLauncher-bbIXqTfg.js:1757:31125)
+    at engineLauncher-bbIXqTfg.js:1757:31860
+    at Object.callback (main-C_EL1IFU.js:2:14564)
+    at Ci.tick (main-C_EL1IFU.js:2:16035)
+    at main-C_EL1IFU.js:2:15649
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="143a4b27-501e-4e2a-974b-6aabe244617b" batchId=667519d4 totalMs=1.5 worldYMs=0.0 gridMs=0.1(migrated) cellsMs=0.0 cells=30 panelReadMs=0.0 panels=0 panelBuildMs=1.3 mullionMs=0.1 uLines=16 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall edb8e336-3489-418c-913a-cd8c904500c6 — falling back to synchronous build: Error: [GeometryWorkerPool] all workers dead — falling back to sync build
+    at iy.dispatch (engineLauncher-bbIXqTfg.js:1757:23182)
+    at mt._submitToWorker (engineLauncher-bbIXqTfg.js:1757:44519)
+    at mt._buildOrOffload (engineLauncher-bbIXqTfg.js:1757:42547)
+    at mt._drainBuildQueue (engineLauncher-bbIXqTfg.js:1757:31125)
+    at engineLauncher-bbIXqTfg.js:1757:31860
+    at Object.callback (main-C_EL1IFU.js:2:14564)
+    at Ci.tick (main-C_EL1IFU.js:2:16035)
+    at main-C_EL1IFU.js:2:15649
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="edb8e336-3489-418c-913a-cd8c904500c6" batchId=667519d4 totalMs=0.4 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.1 cells=6 panelReadMs=0.0 panels=0 panelBuildMs=0.2 mullionMs=0.1 uLines=4 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 974c8f1b-5256-4bac-ad09-43be6be471c2 — falling back to synchronous build: Error: [GeometryWorkerPool] all workers dead — falling back to sync build
+    at iy.dispatch (engineLauncher-bbIXqTfg.js:1757:23182)
+    at mt._submitToWorker (engineLauncher-bbIXqTfg.js:1757:44519)
+    at mt._buildOrOffload (engineLauncher-bbIXqTfg.js:1757:42547)
+    at mt._drainBuildQueue (engineLauncher-bbIXqTfg.js:1757:31125)
+    at engineLauncher-bbIXqTfg.js:1757:31860
+    at Object.callback (main-C_EL1IFU.js:2:14564)
+    at Ci.tick (main-C_EL1IFU.js:2:16035)
+    at main-C_EL1IFU.js:2:15649
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="974c8f1b-5256-4bac-ad09-43be6be471c2" batchId=667519d4 totalMs=1.1 worldYMs=0.0 gridMs=0.1(migrated) cellsMs=0.0 cells=14 panelReadMs=0.0 panels=0 panelBuildMs=0.9 mullionMs=0.1 uLines=8 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall ed4f6a70-e319-432c-8e88-0fd28d322ff7 — falling back to synchronous build: Error: [GeometryWorkerPool] all workers dead — falling back to sync build
+    at iy.dispatch (engineLauncher-bbIXqTfg.js:1757:23182)
+    at mt._submitToWorker (engineLauncher-bbIXqTfg.js:1757:44519)
+    at mt._buildOrOffload (engineLauncher-bbIXqTfg.js:1757:42547)
+    at mt._drainBuildQueue (engineLauncher-bbIXqTfg.js:1757:31125)
+    at engineLauncher-bbIXqTfg.js:1757:31860
+    at Object.callback (main-C_EL1IFU.js:2:14564)
+    at Ci.tick (main-C_EL1IFU.js:2:16035)
+    at main-C_EL1IFU.js:2:15649
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="ed4f6a70-e319-432c-8e88-0fd28d322ff7" batchId=667519d4 totalMs=0.8 worldYMs=0.0 gridMs=0.1(migrated) cellsMs=0.2 cells=10 panelReadMs=0.0 panels=0 panelBuildMs=0.3 mullionMs=0.1 uLines=6 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 73e6d27a-d70d-4337-823f-ba18d3c2aa84 — falling back to synchronous build: Error: [GeometryWorkerPool] all workers dead — falling back to sync build
+    at iy.dispatch (engineLauncher-bbIXqTfg.js:1757:23182)
+    at mt._submitToWorker (engineLauncher-bbIXqTfg.js:1757:44519)
+    at mt._buildOrOffload (engineLauncher-bbIXqTfg.js:1757:42547)
+    at mt._drainBuildQueue (engineLauncher-bbIXqTfg.js:1757:31125)
+    at engineLauncher-bbIXqTfg.js:1757:31860
+    at Object.callback (main-C_EL1IFU.js:2:14564)
+    at Ci.tick (main-C_EL1IFU.js:2:16035)
+    at main-C_EL1IFU.js:2:15649
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="73e6d27a-d70d-4337-823f-ba18d3c2aa84" batchId=667519d4 totalMs=1.2 worldYMs=0.0 gridMs=0.1(migrated) cellsMs=0.0 cells=32 panelReadMs=0.0 panels=0 panelBuildMs=0.9 mullionMs=0.1 uLines=17 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 96da26c5-8980-4c7e-8d60-e70d8c78309c — falling back to synchronous build: Error: [GeometryWorkerPool] all workers dead — falling back to sync build
+    at iy.dispatch (engineLauncher-bbIXqTfg.js:1757:23182)
+    at mt._submitToWorker (engineLauncher-bbIXqTfg.js:1757:44519)
+    at mt._buildOrOffload (engineLauncher-bbIXqTfg.js:1757:42547)
+    at mt._drainBuildQueue (engineLauncher-bbIXqTfg.js:1757:31125)
+    at engineLauncher-bbIXqTfg.js:1757:31860
+    at Object.callback (main-C_EL1IFU.js:2:14564)
+    at Ci.tick (main-C_EL1IFU.js:2:16035)
+    at main-C_EL1IFU.js:2:15649
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="96da26c5-8980-4c7e-8d60-e70d8c78309c" batchId=667519d4 totalMs=1.6 worldYMs=0.0 gridMs=0.1(migrated) cellsMs=0.1 cells=44 panelReadMs=0.0 panels=0 panelBuildMs=1.3 mullionMs=0.1 uLines=23 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall e41949ed-f5c0-438a-8024-e7bd50e0af26 — falling back to synchronous build: Error: [GeometryWorkerPool] all workers dead — falling back to sync build
+    at iy.dispatch (engineLauncher-bbIXqTfg.js:1757:23182)
+    at mt._submitToWorker (engineLauncher-bbIXqTfg.js:1757:44519)
+    at mt._buildOrOffload (engineLauncher-bbIXqTfg.js:1757:42547)
+    at mt._drainBuildQueue (engineLauncher-bbIXqTfg.js:1757:31125)
+    at engineLauncher-bbIXqTfg.js:1757:31860
+    at Object.callback (main-C_EL1IFU.js:2:14564)
+    at Ci.tick (main-C_EL1IFU.js:2:16035)
+    at main-C_EL1IFU.js:2:15649
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="e41949ed-f5c0-438a-8024-e7bd50e0af26" batchId=667519d4 totalMs=0.6 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=12 panelReadMs=0.0 panels=0 panelBuildMs=0.5 mullionMs=0.1 uLines=7 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §PERF-DRAIN built=23 remaining=24 queueBefore=47 frameMs=2.8ms nextBudget=24 isBatch=true
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 1a4a3da3-222d-4717-9f03-d077d094561f — falling back to synchronous build: Error: [GeometryWorkerPool] all workers dead — falling back to sync build
+    at iy.dispatch (engineLauncher-bbIXqTfg.js:1757:23182)
+    at mt._submitToWorker (engineLauncher-bbIXqTfg.js:1757:44519)
+    at mt._buildOrOffload (engineLauncher-bbIXqTfg.js:1757:42547)
+    at mt._drainBuildQueue (engineLauncher-bbIXqTfg.js:1757:31125)
+    at engineLauncher-bbIXqTfg.js:1757:31860
+    at Object.callback (main-C_EL1IFU.js:2:14564)
+    at Ci.tick (main-C_EL1IFU.js:2:16035)
+    at main-C_EL1IFU.js:2:15649
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="1a4a3da3-222d-4717-9f03-d077d094561f" batchId=667519d4 totalMs=0.3 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=10 panelReadMs=0.0 panels=0 panelBuildMs=0.2 mullionMs=0.1 uLines=6 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall dd202a0e-92a2-4afc-8b7c-c8f9f501ad45 — falling back to synchronous build: Error: [GeometryWorkerPool] all workers dead — falling back to sync build
+    at iy.dispatch (engineLauncher-bbIXqTfg.js:1757:23182)
+    at mt._submitToWorker (engineLauncher-bbIXqTfg.js:1757:44519)
+    at mt._buildOrOffload (engineLauncher-bbIXqTfg.js:1757:42547)
+    at mt._drainBuildQueue (engineLauncher-bbIXqTfg.js:1757:31125)
+    at engineLauncher-bbIXqTfg.js:1757:31860
+    at Object.callback (main-C_EL1IFU.js:2:14564)
+    at Ci.tick (main-C_EL1IFU.js:2:16035)
+    at main-C_EL1IFU.js:2:15649
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="dd202a0e-92a2-4afc-8b7c-c8f9f501ad45" batchId=667519d4 totalMs=1.7 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=36 panelReadMs=0.0 panels=0 panelBuildMs=1.6 mullionMs=0.1 uLines=19 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 3cbf6d3f-79d8-4940-8ca5-cf9a74158413 — falling back to synchronous build: Error: [GeometryWorkerPool] all workers dead — falling back to sync build
+    at iy.dispatch (engineLauncher-bbIXqTfg.js:1757:23182)
+    at mt._submitToWorker (engineLauncher-bbIXqTfg.js:1757:44519)
+    at mt._buildOrOffload (engineLauncher-bbIXqTfg.js:1757:42547)
+    at mt._drainBuildQueue (engineLauncher-bbIXqTfg.js:1757:31125)
+    at engineLauncher-bbIXqTfg.js:1757:31860
+    at Object.callback (main-C_EL1IFU.js:2:14564)
+    at Ci.tick (main-C_EL1IFU.js:2:16035)
+    at main-C_EL1IFU.js:2:15649
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="3cbf6d3f-79d8-4940-8ca5-cf9a74158413" batchId=667519d4 totalMs=0.4 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=16 panelReadMs=0.0 panels=0 panelBuildMs=0.3 mullionMs=0.0 uLines=9 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall e60de94f-8de6-422d-89fe-1b55b242fd3e — falling back to synchronous build: Error: [GeometryWorkerPool] all workers dead — falling back to sync build
+    at iy.dispatch (engineLauncher-bbIXqTfg.js:1757:23182)
+    at mt._submitToWorker (engineLauncher-bbIXqTfg.js:1757:44519)
+    at mt._buildOrOffload (engineLauncher-bbIXqTfg.js:1757:42547)
+    at mt._drainBuildQueue (engineLauncher-bbIXqTfg.js:1757:31125)
+    at engineLauncher-bbIXqTfg.js:1757:31860
+    at Object.callback (main-C_EL1IFU.js:2:14564)
+    at Ci.tick (main-C_EL1IFU.js:2:16035)
+    at main-C_EL1IFU.js:2:15649
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="e60de94f-8de6-422d-89fe-1b55b242fd3e" batchId=667519d4 totalMs=0.8 worldYMs=0.0 gridMs=0.1(migrated) cellsMs=0.0 cells=30 panelReadMs=0.0 panels=0 panelBuildMs=0.6 mullionMs=0.0 uLines=16 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall b7298da3-0c2a-44b8-bfeb-fcdf34fb281c — falling back to synchronous build: Error: [GeometryWorkerPool] all workers dead — falling back to sync build
+    at iy.dispatch (engineLauncher-bbIXqTfg.js:1757:23182)
+    at mt._submitToWorker (engineLauncher-bbIXqTfg.js:1757:44519)
+    at mt._buildOrOffload (engineLauncher-bbIXqTfg.js:1757:42547)
+    at mt._drainBuildQueue (engineLauncher-bbIXqTfg.js:1757:31125)
+    at engineLauncher-bbIXqTfg.js:1757:31860
+    at Object.callback (main-C_EL1IFU.js:2:14564)
+    at Ci.tick (main-C_EL1IFU.js:2:16035)
+    at main-C_EL1IFU.js:2:15649
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="b7298da3-0c2a-44b8-bfeb-fcdf34fb281c" batchId=667519d4 totalMs=0.2 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=6 panelReadMs=0.0 panels=0 panelBuildMs=0.1 mullionMs=0.0 uLines=4 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall a68acd11-f4ed-45f5-8f60-7271801b1a9e — falling back to synchronous build: Error: [GeometryWorkerPool] all workers dead — falling back to sync build
+    at iy.dispatch (engineLauncher-bbIXqTfg.js:1757:23182)
+    at mt._submitToWorker (engineLauncher-bbIXqTfg.js:1757:44519)
+    at mt._buildOrOffload (engineLauncher-bbIXqTfg.js:1757:42547)
+    at mt._drainBuildQueue (engineLauncher-bbIXqTfg.js:1757:31125)
+    at engineLauncher-bbIXqTfg.js:1757:31860
+    at Object.callback (main-C_EL1IFU.js:2:14564)
+    at Ci.tick (main-C_EL1IFU.js:2:16035)
+    at main-C_EL1IFU.js:2:15649
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="a68acd11-f4ed-45f5-8f60-7271801b1a9e" batchId=667519d4 totalMs=0.3 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=14 panelReadMs=0.0 panels=0 panelBuildMs=0.2 mullionMs=0.0 uLines=8 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall f7331aa9-cad9-434a-bdf8-331b10957eda — falling back to synchronous build: Error: [GeometryWorkerPool] all workers dead — falling back to sync build
+    at iy.dispatch (engineLauncher-bbIXqTfg.js:1757:23182)
+    at mt._submitToWorker (engineLauncher-bbIXqTfg.js:1757:44519)
+    at mt._buildOrOffload (engineLauncher-bbIXqTfg.js:1757:42547)
+    at mt._drainBuildQueue (engineLauncher-bbIXqTfg.js:1757:31125)
+    at engineLauncher-bbIXqTfg.js:1757:31860
+    at Object.callback (main-C_EL1IFU.js:2:14564)
+    at Ci.tick (main-C_EL1IFU.js:2:16035)
+    at main-C_EL1IFU.js:2:15649
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="f7331aa9-cad9-434a-bdf8-331b10957eda" batchId=667519d4 totalMs=0.3 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=10 panelReadMs=0.0 panels=0 panelBuildMs=0.2 mullionMs=0.0 uLines=6 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 30f9f6f6-005c-4a07-8aac-2ca1ee108345 — falling back to synchronous build: Error: [GeometryWorkerPool] all workers dead — falling back to sync build
+    at iy.dispatch (engineLauncher-bbIXqTfg.js:1757:23182)
+    at mt._submitToWorker (engineLauncher-bbIXqTfg.js:1757:44519)
+    at mt._buildOrOffload (engineLauncher-bbIXqTfg.js:1757:42547)
+    at mt._drainBuildQueue (engineLauncher-bbIXqTfg.js:1757:31125)
+    at engineLauncher-bbIXqTfg.js:1757:31860
+    at Object.callback (main-C_EL1IFU.js:2:14564)
+    at Ci.tick (main-C_EL1IFU.js:2:16035)
+    at main-C_EL1IFU.js:2:15649
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="30f9f6f6-005c-4a07-8aac-2ca1ee108345" batchId=667519d4 totalMs=0.7 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=32 panelReadMs=0.0 panels=0 panelBuildMs=0.5 mullionMs=0.0 uLines=17 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall bff3f5f4-44f1-4759-b2ff-4200bd094887 — falling back to synchronous build: Error: [GeometryWorkerPool] all workers dead — falling back to sync build
+    at iy.dispatch (engineLauncher-bbIXqTfg.js:1757:23182)
+    at mt._submitToWorker (engineLauncher-bbIXqTfg.js:1757:44519)
+    at mt._buildOrOffload (engineLauncher-bbIXqTfg.js:1757:42547)
+    at mt._drainBuildQueue (engineLauncher-bbIXqTfg.js:1757:31125)
+    at engineLauncher-bbIXqTfg.js:1757:31860
+    at Object.callback (main-C_EL1IFU.js:2:14564)
+    at Ci.tick (main-C_EL1IFU.js:2:16035)
+    at main-C_EL1IFU.js:2:15649
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="bff3f5f4-44f1-4759-b2ff-4200bd094887" batchId=667519d4 totalMs=1.3 worldYMs=0.0 gridMs=0.1(migrated) cellsMs=0.0 cells=44 panelReadMs=0.0 panels=0 panelBuildMs=1.1 mullionMs=0.1 uLines=23 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall b981b915-d4bc-48ff-a126-2ed63f872a11 — falling back to synchronous build: Error: [GeometryWorkerPool] all workers dead — falling back to sync build
+    at iy.dispatch (engineLauncher-bbIXqTfg.js:1757:23182)
+    at mt._submitToWorker (engineLauncher-bbIXqTfg.js:1757:44519)
+    at mt._buildOrOffload (engineLauncher-bbIXqTfg.js:1757:42547)
+    at mt._drainBuildQueue (engineLauncher-bbIXqTfg.js:1757:31125)
+    at engineLauncher-bbIXqTfg.js:1757:31860
+    at Object.callback (main-C_EL1IFU.js:2:14564)
+    at Ci.tick (main-C_EL1IFU.js:2:16035)
+    at main-C_EL1IFU.js:2:15649
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="b981b915-d4bc-48ff-a126-2ed63f872a11" batchId=667519d4 totalMs=0.6 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=12 panelReadMs=0.0 panels=0 panelBuildMs=0.4 mullionMs=0.1 uLines=7 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall b15fc8f3-02e8-4ad7-88d2-df01d7472d9e — falling back to synchronous build: Error: [GeometryWorkerPool] all workers dead — falling back to sync build
+    at iy.dispatch (engineLauncher-bbIXqTfg.js:1757:23182)
+    at mt._submitToWorker (engineLauncher-bbIXqTfg.js:1757:44519)
+    at mt._buildOrOffload (engineLauncher-bbIXqTfg.js:1757:42547)
+    at mt._drainBuildQueue (engineLauncher-bbIXqTfg.js:1757:31125)
+    at engineLauncher-bbIXqTfg.js:1757:31860
+    at Object.callback (main-C_EL1IFU.js:2:14564)
+    at Ci.tick (main-C_EL1IFU.js:2:16035)
+    at main-C_EL1IFU.js:2:15649
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="b15fc8f3-02e8-4ad7-88d2-df01d7472d9e" batchId=667519d4 totalMs=0.4 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=10 panelReadMs=0.0 panels=0 panelBuildMs=0.3 mullionMs=0.0 uLines=6 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall c939c87b-60d1-4aaa-885a-88f91477c075 — falling back to synchronous build: Error: [GeometryWorkerPool] all workers dead — falling back to sync build
+    at iy.dispatch (engineLauncher-bbIXqTfg.js:1757:23182)
+    at mt._submitToWorker (engineLauncher-bbIXqTfg.js:1757:44519)
+    at mt._buildOrOffload (engineLauncher-bbIXqTfg.js:1757:42547)
+    at mt._drainBuildQueue (engineLauncher-bbIXqTfg.js:1757:31125)
+    at engineLauncher-bbIXqTfg.js:1757:31860
+    at Object.callback (main-C_EL1IFU.js:2:14564)
+    at Ci.tick (main-C_EL1IFU.js:2:16035)
+    at main-C_EL1IFU.js:2:15649

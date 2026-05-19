@@ -1,0 +1,29 @@
+{
+  "id": "straight-rotated",
+  "description": "straight stair rotated 30° in plan",
+  "stair": {
+    "id": "stair:str-rot",
+    "type": "stair",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "topLevelId": "level:1",
+    "shape": "straight",
+    "origin": {
+      "x": 2,
+      "y": 0,
+      "z": 1
+    },
+    "rotation": 0.5235987755982988,
+    "treadDepth": 0.28,
+    "riserHeight": 0.18,
+    "width": 1,
+    "numRisers": 15
+  },
+  "worldY": 0
+}

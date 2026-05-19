@@ -1,0 +1,12 @@
+{
+  "count": 5,
+  "ratchetAt": "2026-04-30",
+  "comment": "Wave 4 Track B PR 4.B.3 baseline. The 5 entries in TRANSITIONAL_ALLOWLIST in packages/eslint-plugin-pryzm/src/rules/no-l7-direct-import.js are grandfathered until @pryzm/sdk (Phase F) ships and the plugins migrate away from L0-L5 direct imports. Increasing this count requires explicit architectural approval and a ratchet PR. No new entries allowed.",
+  "entries": [
+    "packages/plugin-bcf",
+    "packages/plugin-ifc-export",
+    "packages/plugin-ifc-import",
+    "packages/plugin-ifc-inspector",
+    "packages/plugin-rhino-import"
+  ]
+}

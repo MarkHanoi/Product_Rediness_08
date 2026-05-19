@@ -1,0 +1,49 @@
+{
+  "name": "@pryzm/persistence-client",
+  "version": "0.1.0",
+  "description": "PRYZM 2 — L0 persistence client.  EventLog interface + pluggable Backend (InMemory + IndexedDb sketch) + JSON / MessagePack codecs.  Spec: phases/PHASE-1A-Q1-M1-M3-SKELETON-RAILS.md §S03-T6..T9.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./node": "./src/node.ts",
+    "./portfolio": "./src/portfolio/PortfolioSemanticGraph.ts"
+  },
+  "files": [
+    "src",
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:ci": "vitest run",
+    "test:quarantined": "vitest run __tests__/quarantined --passWithNoTests",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@gltf-transform/core": "^4.3.0",
+    "@gltf-transform/extensions": "^4.3.0",
+    "@msgpack/msgpack": "^3.1.3",
+    "@opentelemetry/api": "^1.9.0",
+    "@pryzm/command-bus": "workspace:*",
+    "@pryzm/protocol": "workspace:*",
+    "@pryzm/stores": "workspace:*",
+    "idb": "^8.0.3",
+    "jszip": "^3.10.1",
+    "ulid": "^2.3.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@opentelemetry/sdk-trace-base": "^1.30.1",
+    "fake-indexeddb": "^6.2.5",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  },
+  "optionalDependencies": {
+    "draco3dgltf": "^1.5.7",
+    "meshoptimizer": "^0.24.0"
+  }
+}

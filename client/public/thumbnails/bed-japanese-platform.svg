@@ -1,0 +1,16 @@
+<svg viewBox="0 0 80 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Wider platform base -->
+  <rect x="4" y="36" width="72" height="10" rx="1" fill="#c8a270" stroke="#a0784a" stroke-width="1.2"/>
+  <!-- Platform reveal gap -->
+  <rect x="6" y="44" width="68" height="3" rx="0.5" fill="#e8d4b0" opacity="0.6"/>
+  <!-- Mattress -->
+  <rect x="10" y="22" width="60" height="16" rx="2" fill="#f5f0e8" stroke="#d4c9b0" stroke-width="0.8"/>
+  <!-- Pillow left -->
+  <rect x="14" y="25" width="22" height="9" rx="3" fill="#fffef8" stroke="#e0d8c8" stroke-width="0.6"/>
+  <!-- Pillow right -->
+  <rect x="44" y="25" width="22" height="9" rx="3" fill="#fffef8" stroke="#e0d8c8" stroke-width="0.6"/>
+  <!-- Flat headboard -->
+  <rect x="4" y="8" width="72" height="15" rx="2" fill="#b89060" stroke="#9a7040" stroke-width="1"/>
+  <!-- Under-platform LED glow -->
+  <rect x="6" y="45" width="68" height="2" rx="1" fill="#ffe8a0" opacity="0.7"/>
+</svg>

@@ -1,0 +1,23 @@
+{
+  "id": "column_01H8XK3J7M9N2P4QR5STVW6XYZ",
+  "type": "column",
+  "parentId": "level_ground",
+  "childrenIds": [],
+  "metadata": {
+    "createdAt": 1700000400000,
+    "modifiedAt": 1700000400000,
+    "createdBy": "fixture",
+    "version": 1,
+    "tags": ["structural"]
+  },
+  "levelId": "level_ground",
+  "topLevelId": "level_2",
+  "origin": { "x": 4, "y": 0, "z": 4 },
+  "shape": "rectangular",
+  "width": 0.4,
+  "depth": 0.4,
+  "height": 3,
+  "baseOffset": 0,
+  "rotation": 0,
+  "materialId": "concrete-c30"
+}

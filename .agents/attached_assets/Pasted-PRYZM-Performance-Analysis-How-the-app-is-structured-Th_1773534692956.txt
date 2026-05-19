@@ -1,0 +1,75 @@
+PRYZM Performance Analysis
+How the app is structured
+The server detects whether a dist/ build exists — if yes, it runs in production mode serving pre-built files; if not, it starts Vite's dev server. The client is split into two bundles: a thin platform shell (~213KB) that loads the landing page and project hub, and the engine bootstrap (~7.1MB) that's dynamically imported only when a user opens a project.
+
+Critical — Startup / First Paint
+1. EngineBootstrap bundle: 7.1 MB (1.47 MB gzipped)
+The single largest issue. Everything — Three.js, the entire @thatopen stack, web-ifc (WebAssembly), Cesium, all element tools (walls, slabs, stairs, curtain walls, plumbing, roofs, beams, handrails…), AI services, PDF.js, and 49 instantiated objects — compiles into one monolithic chunk. A browser must fully download and parse this file before the 3D viewport can appear. On Replit's proxied connection this is the dominant cause of the 10-15 second open delay.
+
+Root cause in the module graph:
+
+Layout.ts line 3: import * as Cesium from 'cesium' — static import. Cesium is ~2 MB minified. It's pulled into EngineBootstrap unconditionally, even for users who never touch the geospatial panel.
+src/utils/PDFToImageConverter.ts imports pdfjs-dist — this produces the separate 2.1 MB pdf.worker chunk, but the static import in the chain still registers Cesium's and PDF.js's synchronous module cost.
+49 stores/tools/managers are instantiated sequentially in bootstrap(). Lazy construction of low-priority tools (plumbing, handrails, beams) could defer several hundred milliseconds.
+2. Two sequential dynamic imports during startup
+Lines 794–797 of EngineBootstrap await these one after the other:
+
+await import('../elements/walls/WallSystemTypeStore')
+await import('../elements/slabs/SlabSystemTypeStore')
+These are independent. The second waits for the first unnecessarily. Promise.all() would run them in parallel.
+
+3. No HTTP response compression
+The Express server has no compression() middleware. Every browser request for EngineBootstrap-C8inPr_w.js receives 7.1 MB uncompressed, even though browsers advertise Accept-Encoding: gzip. With gzip (already measured at 1.47 MB), this would be a ~79% size reduction on the wire — the single biggest server-side win available.
+
+4. No aggressive cache headers on hashed assets
+Vite content-hashes every asset filename on build (e.g. EngineBootstrap-C8inPr_w.js). These names change only when code changes, so the files are safe to cache forever. The current express.static() call sets no maxAge, meaning browsers check freshness on every revisit. Adding Cache-Control: max-age=31536000, immutable for dist/assets/ would eliminate repeat downloads entirely.
+
+High — Per-Interaction Performance
+5. Raycaster re-created on every mouse click
+SelectionManager.performSelection() allocates new THREE.Raycaster() and new THREE.Vector2() on every click event. These are short-lived objects that generate garbage collection pressure on each user interaction. They should be instance-level properties initialised once in the constructor.
+
+6. Full scene traverse on every click
+Inside performSelection(), world.scene.three.traverse() walks the entire scene graph on every click to build the candidates array. For a building with hundreds of elements this is O(n) per click. The selectable-objects set should be a live Set<THREE.Object3D> maintained by the element stores (add on creation, delete on removal), bypassing the per-click traverse entirely.
+
+7. updateAllMaterials() on visual style change
+WallFragmentBuilder.updateAllMaterials() recreates and disposes materials for every wall fragment whenever the user switches visual style. For a project with 100 walls this synchronously creates and disposes ~100 material objects — a potential multi-frame stall on the main thread.
+
+Medium — Memory & Runtime
+8. 24 event listeners registered, 0 removed in EngineBootstrap
+EngineBootstrap.bootstrap() registers 24 window.addEventListener() calls. The beforeunload handler disposes tools but does not call removeEventListener for any of the 24 listeners. If a user navigates back to the project hub and re-opens a project, a second bootstrap() call registers another 24 listeners on top of the first batch — doubling up handlers for bim-wall-added, bim-slab-added, export-ifc, etc.
+
+9. 393 Three.js geometry/mesh/material constructions
+There are 393 new THREE.Mesh/BufferGeometry/Material calls across the codebase. Many builders (walls, slabs, columns, curtain walls) recreate full geometry on every property update rather than mutating in place. Without proper disposal tracking these accumulate as GPU-allocated resources over a session.
+
+10. Logo assets not optimised
+public/pryzm-logo.png is 163 KB and public/pryzm-logo-text.png is 110 KB — both PNGs on the landing page. The logo is a vector-style design that would be a fraction of this size as SVG, or roughly 30-40 KB as WebP. This affects first-paint on the landing page.
+
+Server-Side
+11. 50 MB JSON body parser applied globally
+app.use(express.json({ limit: '50mb' })) runs on every request. The high limit is only needed for project save/load. Applied globally it also increases attack surface (any authenticated route becomes a 50 MB body dump target).
+
+12. In-memory plan store resets on every restart
+server/planStore.js uses JavaScript Maps in memory. AI usage quotas and plan assignments vanish on every server restart. Supabase is imported but SUPABASE_URL is not configured, so there is no durable backend. Quotas in production are effectively unenforced across server restarts.
+
+13. No Anthropic API key — AI features silently disabled
+ANTHROPIC_API_KEY is missing. The server starts with anthropic=false. All AI-assisted design features (query engine, rule engine, floor plan generation) are currently non-functional with no visible user warning.
+
+Summary Table
+#	Issue	Area	Severity	Fix Effort
+1	7.1 MB monolithic engine bundle (Cesium static import)	Build	Critical	Medium
+2	Sequential WallSystemTypeStore / SlabSystemTypeStore imports	Startup	High	Trivial
+3	No gzip compression on server	Server	Critical	Trivial
+4	No long-lived cache headers for hashed assets	Server	High	Trivial
+5	Raycaster re-allocated on every click	Runtime	High	Easy
+6	Full scene.traverse() on every click	Runtime	High	Medium
+7	updateAllMaterials() blocks main thread	Runtime	Medium	Medium
+8	24 event listener leaks on project re-open	Memory	Medium	Medium
+9	393 Three.js objects without disposal tracking	Memory	Medium	Hard
+10	Logo PNGs 270 KB total	Landing	Low	Easy
+11	50 MB body parser on all routes	Server	Medium	Easy
+12	In-memory plan store (no durability)	Server	Medium	Medium
+13	No Anthropic key — AI features down	Config	High	Needs secret
+The two highest-ROI fixes that require the least code change (beyond the CDN texture and fragments-worker fixes already done):
+
+Add gzip compression (npm install compression) — one app.use(compression()) line, instant ~79% wire-size reduction on the engine bundle.
+Add max-age cache headers to the express.static dist call — one option, eliminates all repeat downloads for returning users.

@@ -1,0 +1,27 @@
+{
+  "id": "sheet_01H8XK3J7M9N2P4QR5STVW6XYZ",
+  "type": "sheet",
+  "parentId": null,
+  "childrenIds": [],
+  "metadata": {
+    "createdAt": 1700001300000,
+    "modifiedAt": 1700001300000,
+    "createdBy": "fixture",
+    "version": 1
+  },
+  "number": "A101",
+  "title": "Ground Floor Plan",
+  "size": "A1",
+  "orientation": "landscape",
+  "viewports": [
+    {
+      "id": "vp-1",
+      "viewId": "view_01H8XK3J7M9N2P4QR5STVW6VVV",
+      "origin": { "x": 50, "y": 50 },
+      "size": { "x": 700, "y": 500 },
+      "scale": 0.02
+    }
+  ],
+  "titleBlockId": "tb-default",
+  "revision": "P01"
+}

@@ -1,0 +1,211 @@
+# PRYZM — Element Selection / Picking Deep Audit Prompt
+**For: Replit AI Code Audit**  
+**Issue: Incorrect element selection — wrong element selected, especially at distance or for specific element types**  
+**Version context: PRYZM 3, post-Wave-A20, rev 110**
+
+---
+
+## CONTEXT FOR THE AUDITOR
+
+PRYZM is a browser-native BIM application built on Three.js / WebGPU, with a layered monorepo architecture (L0–L7). The user has reported a critical UX defect:
+
+> "When selecting elements — especially when the camera is far from the model, or for specific element families — the wrong element is selected. The selected element is clearly not under the mouse pointer."
+
+This is a **picking accuracy defect**. The audit below covers every layer that participates in the hit-test pipeline. Do NOT limit the audit to one file or one mechanism — the bug may live in any of the following layers.
+
+---
+
+## SYSTEM COMPONENTS TO AUDIT (in pipeline order)
+
+### 1. `SelectionManager.ts`
+**Location**: `apps/editor/src/engine/subsystems/tools/SelectionManager.ts` (~2,141 LOC)  
+**Role**: Central coordinator of all pointer-driven selection. Receives pointer events, fires hit-tests, writes to `SelectionStore`.
+
+**Audit checklist:**
+
+- [ ] **Screen-to-world ray construction**: How is the NDC (Normalized Device Coordinate) ray built from a `PointerEvent`? Is the canvas `getBoundingClientRect()` used to correctly offset `clientX/clientY` into canvas-relative coordinates? Does it account for `devicePixelRatio`? A `devicePixelRatio` bug causes the ray to be offset at high-DPI screens, increasing error with distance.
+- [ ] **Canvas size mismatch**: Is `camera.aspect`, `renderer.domElement.width / height`, and the actual CSS-rendered canvas size all consistent at the time of the ray cast? A resize that updates CSS size but not `renderer.setSize()` will permanently skew all rays.
+- [ ] **Raycasting threshold / tolerance**: For `THREE.Raycaster`, what is `raycaster.params.Line.threshold` and `raycaster.params.Points.threshold`? Excessive thresholds cause "phantom" hits on lines and point geometry far from the pointer. This is a frequent source of "selects the wrong element" at distance because the threshold is world-space units — it becomes massive at far distances relative to the cursor's screen pixel footprint.
+- [ ] **`near` / `far` clip plane filtering**: Does the raycaster filter results by distance? Are elements behind the clip plane incorrectly included?
+- [ ] **Sort order of intersection results**: `THREE.Raycaster.intersectObjects()` returns results sorted by distance ascending (closest first). Is the code always taking `intersections[0]`? Is there any post-sort re-ordering that breaks this guarantee?
+- [ ] **Recursive flag**: `raycaster.intersectObjects(scene.children, true)` — is `recursive: true` being passed correctly? If not, child meshes of groups are missed. If LOD groups are not flattened, the wrong LOD level may be hit.
+- [ ] **GPU picking vs raycasting path**: The architecture documents reference a **GPU pick probe** (`WebGLRenderTarget` ID texture, Wave A15 / Wave 36 U-2) wired to hover + click. Is the GPU picking path active for click (select), or only for hover? If the hover path uses GPU picking but the click path uses raycasting, there is a visible discrepancy between the highlighted element and the selected element.
+- [ ] **GPU pick UV / pixel coordinate calculation**: If GPU picking is used, the pixel read-back coordinates must be in render-target space (accounting for `devicePixelRatio` and canvas CSS vs physical size). A mismatch here shifts the sampled pixel, reading a different element ID than the one visually under the pointer.
+- [ ] **Element type filtering (per-family hit masks)**: Does SelectionManager allow filtering by element family (walls, slabs, doors, etc.)? If a filter is incorrectly set (e.g. filtering out annotations but accidentally including annotation bounding-box geometry), a wrong element can be returned.
+- [ ] **Selection of instanced geometry**: For `THREE.InstancedMesh`, `intersectObjects` returns an `instanceId`. Is `instanceId` correctly resolved to a PRYZM element ID? A wrong instance ID mapping selects a different repeated element (e.g. the wrong window in a curtain wall grid).
+- [ ] **Selection tolerance at zoom / camera distance**: Is there a screen-space pixel tolerance applied before the ray is cast? If the tolerance is in world-space rather than screen-space it grows with distance, causing distant elements to "capture" clicks that visually belong to nearby elements.
+
+---
+
+### 2. `packages/picking/` — GPU Pick Package
+**Location**: `packages/picking/src/gpu-pick.ts` (and related files)  
+**Role**: GPU-accelerated element ID read-back via `WebGLRenderTarget`. Wired to hover and click in Wave 36 U-2.
+
+**Audit checklist:**
+
+- [ ] **ID texture resolution**: What is the resolution of the pick render target relative to the display canvas? If it is a fixed small size (e.g. 512×512 for a 1920×1080 canvas) then pixel-to-element mapping is coarse. At distance, many elements map to the same few pixels and the wrong one can be selected.
+- [ ] **Pixel coordinate mapping formula**: The formula to convert screen pointer coordinates to pick-texture coordinates must account for:
+  - CSS canvas size vs physical canvas size (`devicePixelRatio`)
+  - Any CSS `transform: scale()` on the canvas or its parents
+  - Canvas offset from page origin (`getBoundingClientRect()`)
+  - Pick texture size vs canvas size ratio
+  ```
+  pickX = Math.floor((pointerX / cssCanvasWidth) * pickTextureWidth)
+  pickY = Math.floor(((cssCanvasHeight - pointerY) / cssCanvasHeight) * pickTextureHeight)
+  ```
+  Any deviation from this exact formula introduces offset, increasingly visible at model edges and at distance.
+- [ ] **Read-back timing**: Is the GPU read-back (`renderer.readRenderTargetPixels()`) executed in the same frame as the pick render, before the next frame overwrites the target? An async/deferred read-back that runs one frame late reads stale data — the scene may have scrolled, causing a spatial mismatch.
+- [ ] **Element ID encoding/decoding**: How is a PRYZM element ID encoded into RGBA pixel values? Is there an off-by-one in the decode step? A decode error like `id = r + g * 255 + b * 255 * 255` instead of `r + g * 256 + b * 65536` will map every pixel to a wrong element.
+- [ ] **Background / empty pixel handling**: Pixel `(0, 0, 0, 0)` or a sentinel value should be treated as "no element hit". Is this sentinel check present? If not, clicking on an empty area selects element ID 0.
+- [ ] **Depth buffer accuracy**: The depth read-back (`DEPTH_PACK_MATERIAL` + `packDepthToRGBA` GLSL + `unpackRGBAToDepth`) — used for distance sorting in multi-select — must unpack with full 32-bit precision. A precision loss at far distances (logarithmic depth not used) causes depth-sort to reorder elements, selecting the wrong one in overlapping cases.
+- [ ] **Multi-select depth sort bug**: When multiple element IDs are at the same pixel (e.g. wall face + wall edge + annotation), how are they sorted? Is the sort stable? An unstable sort on equal depths is non-deterministic.
+
+---
+
+### 3. `FrustumCullingService.ts`
+**Location**: `apps/editor/src/engine/subsystems/core/rendering/FrustumCullingService.ts`  
+**Role**: Culls elements outside the camera frustum before rendering. If picking uses the same culled scene, culled elements cannot be picked — but if culling and picking are out of sync, an element visible on screen may be culled from the pick render and a different element behind it is selected.
+
+**Audit checklist:**
+
+- [ ] **Pick render uses pre-frustum-culled scene**: Is the GPU pick render pass applied to the same THREE scene graph state as the display render? If frustum culling runs after the pick render, elements that should be culled are in the pick render but absent from the display render.
+- [ ] **LOD level in pick pass**: The LOD system (`LODManager.ts`, 3 tiers: < 100m / 100–500m / ≥ 500m) replaces mesh geometry by distance. Does the pick pass use the same LOD level that is visually displayed? If the display shows LOD-2 (simplified geometry) but picking tests against LOD-0 (full geometry), the hit volumes don't match.
+- [ ] **Visibility overrides in pick pass**: `PerViewOverridesStore.ts` manages per-view element visibility. Hidden elements must be excluded from the pick render. Check that `userData.pryzmHidden` or equivalent flag causes the mesh to be excluded from the pick render target.
+
+---
+
+### 4. `InstancedElementRenderer.ts`
+**Location**: `apps/editor/src/engine/subsystems/core/rendering/InstancedElementRenderer.ts`  
+**Role**: Manages `THREE.InstancedMesh` for repeated geometry (structural members, curtain panels, repeated windows/doors).
+
+**Audit checklist:**
+
+- [ ] **Instance ID → element ID mapping table**: When `raycaster.intersectObjects()` or the GPU pick returns an `instanceId`, how is it resolved to a PRYZM element ID? Is the mapping table (`instanceId → elementId`) updated when instances are added, removed, or reordered?
+- [ ] **Stale mapping after instance deletion**: If an element is deleted and a new one is created, does the old instance slot get reused with a new ID? Is the mapping table cleared and rebuilt, or patched? A stale mapping maps a new element to the old ID.
+- [ ] **Instanced mesh frustum culling bounding box**: `THREE.InstancedMesh` computes a single bounding box enclosing all instances. If an individual instance is outside the view frustum but the group box is inside, the whole group is included in scene traversal. This is expected but means that picking can return a hit on an off-screen instance.
+
+---
+
+### 5. `PlanSnapEngine.ts` (Plan View Picking)
+**Location**: `apps/editor/src/engine/subsystems/core/views/PlanSnapEngine.ts`  
+**Role**: Snap engine for 2D plan view. If picking in plan view is 2D (canvas-based, not Three.js raycasting), different code handles element selection.
+
+**Audit checklist:**
+
+- [ ] **2D hit test vs 3D hit test dispatch**: Is plan-view selection handled by a separate 2D hit-test (canvas-coordinate polygon test) or routed through `SelectionManager`? If the plan-view canvas is a separate `<canvas>` element with its own coordinate system, pointer coordinates must be remapped.
+- [ ] **Plan view zoom/pan transform**: In 2D plan view, a zoom/pan matrix transforms world coordinates to screen. Is this transform correctly inverted when converting a pointer click back to model space? An incorrect inversion causes the click to land in the wrong world position, selecting a different element.
+- [ ] **Section cut plane filtering**: In plan view, only elements within the view range (section cut band) are shown. Does the plan-view pick test also filter by this band? If not, elements from a different floor level can be selected when clicking in plan.
+
+---
+
+### 6. `SpatialIndex.ts`
+**Location**: `apps/editor/src/engine/subsystems/core/SpatialIndex.ts` (real implementation) / `packages/spatial-index/` (stub)  
+**Role**: Spatial queries — "which elements are near this world-space point?" Used for snap targets, proximity queries, and potentially as a pre-filter for picking.
+
+**Audit checklist:**
+
+- [ ] **Is the spatial index used for picking pre-filtering?** If yes: are its AABB bounds kept in sync with element geometry updates? A stale index returns wrong candidates.
+- [ ] **AABB vs OBB**: Does the index store axis-aligned bounding boxes (AABB)? For rotated elements (angled walls, rotated equipment), an AABB is a loose fit. A pointer click near an AABB corner may pass the AABB test but miss the actual geometry — or vice versa.
+
+---
+
+### 7. Event Pipeline — Pointer Events to SelectionManager
+**Relevant files**: `packages/input-host/`, tool infrastructure, `apps/editor/src/engine/`
+
+**Audit checklist:**
+
+- [ ] **Pointer capture and coordinate origin**: When `pointerdown` is handled, is `event.target` the THREE.js canvas? If pointer events are captured on a parent element (e.g. the app shell `<div>`), `clientX/clientY` are relative to the page, not the canvas, causing a permanent offset equal to the canvas's page position.
+- [ ] **Event throttling / coalescing**: Are `pointermove` events throttled (e.g. `requestAnimationFrame`-gated)? If yes, on `pointerdown` (click), is the latest actual pointer position used — not the last throttled position? A throttled position can be several pixels stale at click time.
+- [ ] **Touch event handling**: On touch devices, `touches[0].clientX` must be used. If the code uses `event.clientX` on a touch event, coordinates are `undefined` or `0`, mapping to the canvas origin and selecting whatever is at the top-left corner of the scene.
+
+---
+
+### 8. Camera and Viewport State at Pick Time
+**Relevant files**: `packages/runtime-composer/`, camera controller, `packages/view-state/`
+
+**Audit checklist:**
+
+- [ ] **Camera matrix freshness**: The raycaster uses `camera.projectionMatrix` and `camera.matrixWorldInverse`. If the camera moves (pan/orbit) and the matrices are not yet updated when the pick runs (e.g. they update in `preRender` but picking runs in `postInput`), the ray is cast from the previous frame's camera position.
+- [ ] **Split-view / multiple viewports**: `SplitViewManager.ts` manages split viewports. In a split-view layout, which camera and which canvas dimensions are used to construct the ray? If the wrong viewport's camera is used for a click in the other viewport, the ray is cast from the wrong position.
+- [ ] **Camera near/far plane and perspective distortion at distance**: At large distances, perspective distortion means a small screen-space error in the ray translates to a large world-space offset. Is there any adaptive tolerance that accounts for this?
+
+---
+
+## SPECIFIC SCENARIOS TO REPRODUCE AND TRACE
+
+For each scenario below, trace through the code path from pointer event to `SelectionStore.setSelected()` and identify where accuracy breaks down:
+
+### Scenario A — "Wrong element selected at camera distance"
+1. Place camera 50+ metres from a cluster of walls.
+2. Click on a specific wall face.
+3. **Expected**: That wall is selected.
+4. **Actual**: A different wall (often one that is spatially close to the correct one, but slightly farther from camera) is selected.
+5. **Hypothesis to verify**: Raycaster threshold is in world-space and grows with distance; OR GPU pick pixel mapping is off by a fixed CSS-pixel offset that becomes visible at distance.
+
+### Scenario B — "Wrong element selected for specific element types"
+1. Identify which element families exhibit the bug most often (likely: annotations, dimensions, curtain wall mullions, or any line/edge geometry).
+2. **Hypothesis to verify**: Raycaster `Line.threshold` or `Points.threshold` is too large for these element types, creating oversized hit volumes. OR these elements use instanced geometry with a stale instance-ID mapping.
+
+### Scenario C — "Clicking empty space selects an element"
+1. Click clearly outside any visible geometry.
+2. **Hypothesis to verify**: GPU pick background sentinel check missing, selecting element ID 0. OR raycaster `far` is set to `Infinity` and hits a geometry that is outside the view frustum but not culled.
+
+### Scenario D — "Selection cursor appears correct but wrong element highlighted"
+1. Hover over an element — highlight appears on correct element.
+2. Click — different element is selected.
+3. **Hypothesis to verify**: Hover uses GPU picking; click uses raycasting. The two code paths disagree.
+
+---
+
+## FILES TO READ IN FULL (mandatory for audit)
+
+The auditor must read and report on every line of the following files:
+
+1. `apps/editor/src/engine/subsystems/tools/SelectionManager.ts` — full file (~2,141 LOC)
+2. `packages/picking/src/gpu-pick.ts` — full file
+3. `packages/picking/src/index.ts` — exports and public API
+4. `apps/editor/src/engine/subsystems/core/rendering/FrustumCullingService.ts` — focus on the section that controls what enters/exits the pick render pass
+5. `apps/editor/src/engine/subsystems/core/rendering/InstancedElementRenderer.ts` — focus on `instanceId → elementId` mapping and any raycaster integration
+6. `apps/editor/src/engine/subsystems/core/views/PlanSnapEngine.ts` — focus on 2D hit-test logic
+7. `packages/input-host/src/` — all files, focus on pointer event normalization
+8. Any file containing `raycaster.setFromCamera` or `raycaster.intersectObjects` — grep the full codebase for these calls and list every site
+
+---
+
+## OUTPUT FORMAT REQUESTED FROM REPLIT AI
+
+For each file audited, provide:
+
+```
+### [filename]
+**Bug found**: YES / NO / SUSPECTED
+**Severity**: P0 (selection broken) / P1 (wrong element sometimes) / P2 (edge case)
+**Location**: Line number(s)
+**Description**: What is wrong
+**Evidence**: Paste the specific code lines that are problematic
+**Fix recommendation**: What exact change is needed
+```
+
+Then produce a **ranked bug list** ordered by likelihood of being the root cause of the reported symptoms.
+
+Finally, answer these three questions explicitly:
+
+1. **Is there a single root cause, or multiple independent bugs?**
+2. **Does the GPU pick path and the raycaster path agree on which element is selected? If not, which path is used for click vs hover?**
+3. **Is `devicePixelRatio` correctly handled in all coordinate transformations in the picking pipeline?**
+
+---
+
+## ARCHITECTURE CONSTRAINTS (do not violate in any fix)
+
+Any fix proposed must respect these PRYZM architecture rules:
+
+- **P2**: THREE.js must only be imported from `packages/renderer-three/`. No direct `import * as THREE` in `SelectionManager.ts` or `packages/picking/`. Use the abstract renderer interface.
+- **P3**: No raw `requestAnimationFrame()` calls. Any animation-loop-gated picking must use `getFrameScheduler().scheduleOnce()`.
+- **P6**: `SelectionStore` must only be written via command bus dispatch (`selection.set` command), not direct `.setState()` calls from picking code.
+- **Layer rule**: `packages/picking/` is L1. It must not import from L2 or above. `SelectionManager.ts` (in `apps/editor/`) may import from any layer but must not bypass the command bus for store writes.
+- **Gate**: After any fix, `pnpm run ga-gates` must exit 0. `check-cast-count` must remain 0. `check-raf-count` must remain 1 owner.
+
+---
+
+*End of audit prompt. Provide full findings before any implementation begins.*

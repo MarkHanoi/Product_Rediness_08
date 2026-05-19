@@ -1,0 +1,19 @@
+{
+  "id": "F01.empty-grid",
+  "description": "empty grid (no lines — degenerate output)",
+  "grid": {
+    "id": "grid:01HZS000000000000GRDF0100",
+    "type": "grid",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "rotation": 0,
+    "lines": []
+  },
+  "worldY": 0
+}

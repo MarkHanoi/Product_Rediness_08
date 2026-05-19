@@ -1,0 +1,26 @@
+{
+  "name": "@pryzm/admin-overrides",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PRYZM enterprise admin plan/role/feature overrides — ADR-028 Part E. S65 deliverable per phase-doc-2 §S65 work-item 8. PURE: no transport; the api-gateway imports this and serves admin override CRUD over /v1/admin/overrides.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "vitest run --reporter=default",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.9"
+  }
+}

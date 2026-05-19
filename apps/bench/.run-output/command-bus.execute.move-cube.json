@@ -1,0 +1,10 @@
+{
+  "name": "command-bus.execute.move-cube",
+  "samples": 500,
+  "p50": 2.319,
+  "p95": 11.354,
+  "p99": 22.02,
+  "budgetMs": 1,
+  "warnMs": 0.5,
+  "recordedAt": "2026-05-09T23:10:07.005Z"
+}

@@ -1,0 +1,16 @@
+{
+  "sprint": "S52",
+  "bench": "pdf-to-bim-openings",
+  "scenarios": [
+    {
+      "scenario": "matchOpeningSymbols",
+      "cold": 1.7677120000000741,
+      "warmAvg": 0.18589095000000155,
+      "p50": 0.04811899999981506,
+      "p95": 0.443608999999924,
+      "p99": 4.305904000000055,
+      "budgetMs": 8
+    }
+  ],
+  "timestampUtc": "2026-05-09T23:09:17.697Z"
+}

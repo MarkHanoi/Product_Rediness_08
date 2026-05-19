@@ -1,0 +1,25 @@
+{
+  "name": "@pryzm/api-spec",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "PRYZM Public API OpenAPI 3.1 schema (canonical hand-authored YAML, S63 D1 — see ADR-0039)",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "files": [
+    "src",
+    "openapi.yaml"
+  ],
+  "scripts": {
+    "test": "vitest run --reporter=default",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "yaml": "^2.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^2.0.0"
+  }
+}

@@ -1,0 +1,21 @@
+3D BIM Configurator (TypeScript + Vite + Three.js). Follow all contracts in docs/.
+
+State: The SlabWallConnectivityService (src/services/SlabWallConnectivityService.ts) correctly extends/shortens the two walls adjacent to a user-moved wall (the "prev" and "next" walls in the slab sketch loop). However, the moved wall itself is not being trimmed or extended to reach those same corners.
+
+Bug: In propagateForSlab(), two corners are computed:
+
+corner_prev_curr = intersection of prevWall's line ∩ movedWall's new line
+corner_curr_next = intersection of movedWall's new line ∩ nextWall's line
+These corners are used to snap the prev/next wall endpoints — but the moved wall's own baseLine endpoints are never updated to these same corners. Revit-style behavior requires that the moved wall is also trimmed/extended so that:
+
+whichever end of the moved wall is closest to corner_prev_curr → snap that end to corner_prev_curr
+the other end → snap to corner_curr_next
+Fix location: src/services/SlabWallConnectivityService.ts, inside propagateForSlab(), after both corners are computed. Read both corners (not just one at a time), compute the moved wall's new full baseLine, then call wallStore.update(movedWallId, { baseLine: [...] }). This is safe inside the propagating = true block — the reentrancy guard prevents re-entry, and isJoinResolving() will be false (we're not inside WallJoinResolver's miter pass).
+
+Key architecture notes:
+
+Subscriber order: (0) SlabDependencyTracker, (1) WallJoinResolver (_joinsResolving flag, main.ts line ~939), (2) SlabWallConnectivityService (registered at main.ts line ~1032, receives () => _joinsResolving getter)
+SketchLoopIntersector.intersectLines() is the pure 2D intersection utility — reuse it
+WallFaceResolver.resolve(edge) returns {start:{x,y}, end:{x,y}} where y = world Z (XZ plane 2D convention)
+Corner coordinates: corner.x = world X, corner.y = world Z → Vector3 is new THREE.Vector3(corner.x, wall.baseLine[n].y, corner.y)
+Contract: use wallStore.update() (structural cascade), never direct store mutation or commands

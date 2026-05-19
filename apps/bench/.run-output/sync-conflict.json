@@ -1,0 +1,12 @@
+{
+  "name": "sync-conflict",
+  "p50": 0.1592239999999947,
+  "p95": 0.8635419999995975,
+  "samples": 200,
+  "conflictedCount": 0,
+  "autoMergedCount": 200,
+  "unit": "ms",
+  "nftTarget": 200,
+  "implementation": "real-yjs-CONFLICTED-state",
+  "notes": "NFT-8 REAL per Wave A19-T11. Measures two-client concurrent edit + Yjs CRDT merge + CRDTConflictResolver 3-way auto-merge + CONFLICTED state detection. Replaces the WallStore LWW proxy (Wave A13 era). CONFLICTED state is set when autoMerge returns null (string/semantic conflict) — user sees ConflictResolutionDialog."
+}

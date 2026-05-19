@@ -1,0 +1,42 @@
+{
+  "id": "cw-18-negative-x-start",
+  "description": "6×3 baseline starting at negative X",
+  "curtainWall": {
+    "id": "curtainwall_01HZS00000000000000CWNEGXS",
+    "type": "curtainwall",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "baseLine": [
+      {
+        "x": -3,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 3,
+        "y": 0,
+        "z": 0
+      }
+    ],
+    "height": 3,
+    "mullionThickness": 0.05,
+    "bayWidth": 1.5,
+    "bayHeight": 1.5,
+    "panels": []
+  },
+  "joinData": {
+    "startJoin": {
+      "kind": "none"
+    },
+    "endJoin": {
+      "kind": "none"
+    }
+  },
+  "worldY": 0
+}

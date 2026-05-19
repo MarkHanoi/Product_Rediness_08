@@ -1,0 +1,28 @@
+{
+  "name": "@pryzm/renderer-three",
+  "version": "0.1.0",
+  "description": "PRYZM 2 — L5 renderer-three workspace surface lifecycle. PR 4.A.4 (Wave 4 Track A) home for `WorkspaceSurface` — the typed mount/dispose handle that retires the legacy `(window as any).platformShell.setProjectContext(...)` cast in `src/main.ts workspaceMount.show()`. Successor concept to the deleted-in-D.4.5 `WorkspaceMountBridge`; carries no bridge semantics — just the typed lifecycle handle the runtime exposes through `runtime.workspace.surface`. Wave 7+8 (P2): sole THREE owner — all monorepo files import from '@pryzm/renderer-three/three' not from 'three' directly.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./three": "./src/three-re-export.ts",
+    "./geospatial": "./src/geospatial/CesiumThreeBridge.ts"
+  },
+  "files": ["src", "dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "three": "^0.183.2"
+  },
+  "devDependencies": {
+    "@types/three": "^0.183.1",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

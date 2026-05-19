@@ -1,0 +1,26 @@
+{
+  "name": "@pryzm/marketplace-web",
+  "version": "0.1.0",
+  "description": "PRYZM Family Marketplace browse/detail SPA (S59 deliverable). Browse published `.pryzm-family` artefacts produced by `apps/component-editor` via the publish flow at `apps/component-editor/src/marketplace/publishFlow.ts` and served by `server/familyMarketplaceRoutes.js` at `/api/v1/families`. Verifies Ed25519 signatures client-side using the author JWK embedded in the manifest before download links are exposed.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@pryzm/file-format": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "jsdom": "^25.0.1",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.2",
+    "vitest": "^2.1.9"
+  }
+}

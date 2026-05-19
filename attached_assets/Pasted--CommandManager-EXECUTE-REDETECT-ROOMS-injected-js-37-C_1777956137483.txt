@@ -1,0 +1,112 @@
+[CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [BimManager] Unregistered element 9c9cf1f3-9961-4eab-bfdd-1a0a6ed33e3a
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [ProjectSerializer] Snapshot created: 89 elements, 6 levels, 11 walls, 6 slabs, 0 furniture
+injected.js:37 [ProjectSerializer] Snapshot created: 89 elements, 6 levels, 11 walls, 6 slabs, 0 furniture
+injected.js:37 [PlatformSaveController] Version saved: "Auto-save" (89 elements, id: proj-1777956055438-kxx9c)
+injected.js:37 [FPS] 12fps
+injected.js:37 [LONGTASK] duration=298.0ms start=930283.8ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [LONGTASK] duration=59.0ms start=930583.2ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [LONGTASK] duration=78.0ms start=930647.3ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [FPS] 19fps
+injected.js:37 [PickResolver] strategy=gpu-pick hit=641ae7af-4460-4cf1-84f2-c7817a2a0a27
+injected.js:37 [LevelPlaneConstraint] Locked Y=2.8000 for element "Slab" id="641ae7af-4460-4cf1-84f2-c7817a2a0a27"
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [LONGTASK] duration=73.0ms start=932371.1ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [FPS] 21fps
+injected.js:37 [GPU Monitor] geometries:250 textures:8 | drawCalls:91 tris:1282
+injected.js:37 [GPU Monitor] ⚠ Geometry count grew 70.1% (147 → 250) in 10s — possible leak. Check WallFragmentBuilder.removeWallFragments() and CurtainWallBuilder._disposeChildren().
+(anonymous) @ injected.js:37
+(anonymous) @ initScene.ts:2324
+injected.js:37 [FPS] 22fps
+injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [PickResolver] strategy=gpu-pick hit=641ae7af-4460-4cf1-84f2-c7817a2a0a27
+injected.js:37 [LevelPlaneConstraint] Locked Y=2.8000 for element "Slab" id="641ae7af-4460-4cf1-84f2-c7817a2a0a27"
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [FPS] 25fps
+injected.js:37 [LONGTASK] duration=107.0ms start=934553.3ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [LONGTASK] duration=56.0ms start=934875.3ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [FPS] 17fps
+injected.js:37 [LONGTASK] duration=53.0ms start=936057.9ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [LONGTASK] duration=58.0ms start=936112.8ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [FPS] 20fps
+injected.js:37 [PickResolver] strategy=gpu-pick hit=641ae7af-4460-4cf1-84f2-c7817a2a0a27
+injected.js:37 [FPS] 24fps
+injected.js:37 [GPU Monitor] geometries:252 textures:8 | drawCalls:91 tris:1282
+injected.js:37 [FPS] 21fps
+injected.js:37 [PickResolver] strategy=gpu-pick hit=ae5995f3-3f56-4fef-bd5c-99a8b8eba0e5
+injected.js:37 [LevelPlaneConstraint] Locked Y=0.0000 for element "wall" id="ae5995f3-3f56-4fef-bd5c-99a8b8eba0e5"
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [WallTransform] Wall "ae5995f3-3f56-4fef-bd5c-99a8b8eba0e5" — gizmo aligned with direction Vector3 {x: 0.9615239476408232, y: 0, z: -0.274721127897378}
+injected.js:37 [FPS] 42fps
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [PickResolver] strategy=gpu-pick hit=ae5995f3-3f56-4fef-bd5c-99a8b8eba0e5
+injected.js:37 [LevelPlaneConstraint] Locked Y=0.0000 for element "wall" id="ae5995f3-3f56-4fef-bd5c-99a8b8eba0e5"
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [WallTransform] Wall "ae5995f3-3f56-4fef-bd5c-99a8b8eba0e5" — gizmo aligned with direction Vector3 {x: 0.9615239476408232, y: 0, z: -0.274721127897378}
+injected.js:37 [FPS] 45fps
+injected.js:37 [FPS] 42fps
+injected.js:37 [LONGTASK] duration=62.0ms start=946991.0ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [FPS] 39fps
+injected.js:37 [FPS] 20fps
+injected.js:37 [PickResolver] strategy=gpu-pick hit=641ae7af-4460-4cf1-84f2-c7817a2a0a27
+injected.js:37 [LevelPlaneConstraint] Locked Y=2.8000 for element "Slab" id="641ae7af-4460-4cf1-84f2-c7817a2a0a27"
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [LONGTASK] duration=73.0ms start=951068.2ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [LONGTASK] duration=51.0ms start=951334.4ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [FPS] 19fps
+injected.js:37 [PickResolver] strategy=gpu-pick hit=641ae7af-4460-4cf1-84f2-c7817a2a0a27
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [LONGTASK] duration=52.0ms start=952401.2ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [GPU Monitor] geometries:262 textures:8 | drawCalls:89 tris:1258
+injected.js:37 [FPS] 20fps
+injected.js:37 [FPS] 22fps
+injected.js:37 [PickResolver] strategy=gpu-pick hit=ae5995f3-3f56-4fef-bd5c-99a8b8eba0e5
+injected.js:37 [LevelPlaneConstraint] Locked Y=0.0000 for element "wall" id="ae5995f3-3f56-4fef-bd5c-99a8b8eba0e5"
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [WallTransform] Wall "ae5995f3-3f56-4fef-bd5c-99a8b8eba0e5" — gizmo aligned with direction Vector3 {x: 0.9615239476408232, y: 0, z: -0.274721127897378}
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [LONGTASK] duration=83.0ms start=954289.7ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [FPS] 19fps
+injected.js:37 [LONGTASK] duration=64.0ms start=955013.7ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+5injected.js:37 [GPU Monitor] geometries:262 textures:8 | drawCalls:91 tris:1282

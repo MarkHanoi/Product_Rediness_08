@@ -1,0 +1,4212 @@
+THREE.LineSegments.
+(anonymous) @ injected.js:37
+error @ three.core.js?v=24c66cce:2039
+_projectObject @ three.webgpu.js?v=24c66cce:59703
+_projectObject @ three.webgpu.js?v=24c66cce:59776
+_renderScene @ three.webgpu.js?v=24c66cce:58331
+render @ three.webgpu.js?v=24c66cce:58029
+updateBefore @ three.webgpu.js?v=24c66cce:39537
+updateBeforeNode @ three.webgpu.js?v=24c66cce:52187
+updateBefore @ three.webgpu.js?v=24c66cce:54033
+_renderObjectDirect @ three.webgpu.js?v=24c66cce:60141
+renderObject @ three.webgpu.js?v=24c66cce:60071
+_renderObjects @ three.webgpu.js?v=24c66cce:59866
+_renderScene @ three.webgpu.js?v=24c66cce:58410
+render @ three.webgpu.js?v=24c66cce:58029
+render @ three.webgpu.js?v=24c66cce:36831
+render @ three.webgpu.js?v=24c66cce:81349
+(anonymous) @ RenderPipelineManager.ts:317
+(anonymous) @ initScene.ts:1849
+(anonymous) @ UnifiedFrameLoop.ts:528
+(anonymous) @ UnifiedFrameLoop.ts:285
+(anonymous) @ FrameScheduler.ts:596
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:292
+(anonymous) @ FrameScheduler.ts:647
+(anonymous) @ FrameScheduler.ts:502
+(anonymous) @ initScene.ts:945
+dispatchEvent @ @thatopen_components.js?v=4972a8ba:236
+startDragging @ @thatopen_components.js?v=4972a8ba:901
+onPointerDown @ @thatopen_components.js?v=4972a8ba:699Understand this error
+injected.js:37 THREE.Renderer: Objects of type THREE.LineLoop are not supported. Please use THREE.Line or THREE.LineSegments.
+(anonymous) @ injected.js:37
+error @ three.core.js?v=24c66cce:2039
+_projectObject @ three.webgpu.js?v=24c66cce:59703
+_projectObject @ three.webgpu.js?v=24c66cce:59776
+_renderScene @ three.webgpu.js?v=24c66cce:58331
+render @ three.webgpu.js?v=24c66cce:58029
+renderShadow @ three.webgpu.js?v=24c66cce:43802
+updateShadow @ three.webgpu.js?v=24c66cce:43846
+updateBefore @ three.webgpu.js?v=24c66cce:43963
+updateBeforeNode @ three.webgpu.js?v=24c66cce:52205
+updateBefore @ three.webgpu.js?v=24c66cce:54033
+_renderObjectDirect @ three.webgpu.js?v=24c66cce:60141
+renderObject @ three.webgpu.js?v=24c66cce:60071
+_renderObjects @ three.webgpu.js?v=24c66cce:59866
+_renderScene @ three.webgpu.js?v=24c66cce:58410
+render @ three.webgpu.js?v=24c66cce:58029
+updateBefore @ three.webgpu.js?v=24c66cce:39537
+updateBeforeNode @ three.webgpu.js?v=24c66cce:52187
+updateBefore @ three.webgpu.js?v=24c66cce:54033
+_renderObjectDirect @ three.webgpu.js?v=24c66cce:60141
+renderObject @ three.webgpu.js?v=24c66cce:60071
+_renderObjects @ three.webgpu.js?v=24c66cce:59866
+_renderScene @ three.webgpu.js?v=24c66cce:58410
+render @ three.webgpu.js?v=24c66cce:58029
+render @ three.webgpu.js?v=24c66cce:36831
+render @ three.webgpu.js?v=24c66cce:81349
+(anonymous) @ RenderPipelineManager.ts:317
+(anonymous) @ initScene.ts:1849
+(anonymous) @ UnifiedFrameLoop.ts:528
+(anonymous) @ UnifiedFrameLoop.ts:285
+(anonymous) @ FrameScheduler.ts:596
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:292
+(anonymous) @ FrameScheduler.ts:647
+(anonymous) @ FrameScheduler.ts:502
+(anonymous) @ initScene.ts:945
+dispatchEvent @ @thatopen_components.js?v=4972a8ba:236
+startDragging @ @thatopen_components.js?v=4972a8ba:901
+onPointerDown @ @thatopen_components.js?v=4972a8ba:699Understand this error
+injected.js:37 THREE.Renderer: Objects of type THREE.LineLoop are not supported. Please use THREE.Line or THREE.LineSegments.
+(anonymous) @ injected.js:37
+error @ three.core.js?v=24c66cce:2039
+_projectObject @ three.webgpu.js?v=24c66cce:59703
+_projectObject @ three.webgpu.js?v=24c66cce:59776
+_renderScene @ three.webgpu.js?v=24c66cce:58331
+render @ three.webgpu.js?v=24c66cce:58029
+updateBefore @ OutlineNode.js?v=24c66cce:476
+updateBeforeNode @ three.webgpu.js?v=24c66cce:52187
+updateBefore @ three.webgpu.js?v=24c66cce:54033
+_renderObjectDirect @ three.webgpu.js?v=24c66cce:60141
+renderObject @ three.webgpu.js?v=24c66cce:60071
+_renderObjects @ three.webgpu.js?v=24c66cce:59866
+_renderScene @ three.webgpu.js?v=24c66cce:58410
+render @ three.webgpu.js?v=24c66cce:58029
+render @ three.webgpu.js?v=24c66cce:36831
+render @ three.webgpu.js?v=24c66cce:81349
+(anonymous) @ RenderPipelineManager.ts:317
+(anonymous) @ initScene.ts:1849
+(anonymous) @ UnifiedFrameLoop.ts:528
+(anonymous) @ UnifiedFrameLoop.ts:285
+(anonymous) @ FrameScheduler.ts:596
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:292
+(anonymous) @ FrameScheduler.ts:647
+(anonymous) @ FrameScheduler.ts:502
+(anonymous) @ initScene.ts:945
+dispatchEvent @ @thatopen_components.js?v=4972a8ba:236
+startDragging @ @thatopen_components.js?v=4972a8ba:901
+onPointerDown @ @thatopen_components.js?v=4972a8ba:699Understand this error
+injected.js:37 THREE.Renderer: Objects of type THREE.LineLoop are not supported. Please use THREE.Line or THREE.LineSegments.
+(anonymous) @ injected.js:37
+error @ three.core.js?v=24c66cce:2039
+_projectObject @ three.webgpu.js?v=24c66cce:59703
+_projectObject @ three.webgpu.js?v=24c66cce:59776
+_renderScene @ three.webgpu.js?v=24c66cce:58331
+render @ three.webgpu.js?v=24c66cce:58029
+updateBefore @ OutlineNode.js?v=24c66cce:494
+updateBeforeNode @ three.webgpu.js?v=24c66cce:52187
+updateBefore @ three.webgpu.js?v=24c66cce:54033
+_renderObjectDirect @ three.webgpu.js?v=24c66cce:60141
+renderObject @ three.webgpu.js?v=24c66cce:60071
+_renderObjects @ three.webgpu.js?v=24c66cce:59866
+_renderScene @ three.webgpu.js?v=24c66cce:58410
+render @ three.webgpu.js?v=24c66cce:58029
+render @ three.webgpu.js?v=24c66cce:36831
+render @ three.webgpu.js?v=24c66cce:81349
+(anonymous) @ RenderPipelineManager.ts:317
+(anonymous) @ initScene.ts:1849
+(anonymous) @ UnifiedFrameLoop.ts:528
+(anonymous) @ UnifiedFrameLoop.ts:285
+(anonymous) @ FrameScheduler.ts:596
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:292
+(anonymous) @ FrameScheduler.ts:647
+(anonymous) @ FrameScheduler.ts:502
+(anonymous) @ initScene.ts:945
+dispatchEvent @ @thatopen_components.js?v=4972a8ba:236
+startDragging @ @thatopen_components.js?v=4972a8ba:901
+onPointerDown @ @thatopen_components.js?v=4972a8ba:699Understand this error
+injected.js:37 THREE.Renderer: Objects of type THREE.LineLoop are not supported. Please use THREE.Line or THREE.LineSegments.
+(anonymous) @ injected.js:37
+error @ three.core.js?v=24c66cce:2039
+_projectObject @ three.webgpu.js?v=24c66cce:59703
+_projectObject @ three.webgpu.js?v=24c66cce:59776
+_renderScene @ three.webgpu.js?v=24c66cce:58331
+render @ three.webgpu.js?v=24c66cce:58029
+updateBefore @ OutlineNode.js?v=24c66cce:476
+updateBeforeNode @ three.webgpu.js?v=24c66cce:52187
+updateBefore @ three.webgpu.js?v=24c66cce:54033
+_renderObjectDirect @ three.webgpu.js?v=24c66cce:60141
+renderObject @ three.webgpu.js?v=24c66cce:60071
+_renderObjects @ three.webgpu.js?v=24c66cce:59866
+_renderScene @ three.webgpu.js?v=24c66cce:58410
+render @ three.webgpu.js?v=24c66cce:58029
+render @ three.webgpu.js?v=24c66cce:36831
+render @ three.webgpu.js?v=24c66cce:81349
+(anonymous) @ RenderPipelineManager.ts:317
+(anonymous) @ initScene.ts:1849
+(anonymous) @ UnifiedFrameLoop.ts:528
+(anonymous) @ UnifiedFrameLoop.ts:285
+(anonymous) @ FrameScheduler.ts:596
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:292
+(anonymous) @ FrameScheduler.ts:647
+(anonymous) @ FrameScheduler.ts:502
+(anonymous) @ initScene.ts:945
+dispatchEvent @ @thatopen_components.js?v=4972a8ba:236
+startDragging @ @thatopen_components.js?v=4972a8ba:901
+onPointerDown @ @thatopen_components.js?v=4972a8ba:699Understand this error
+injected.js:37 THREE.Renderer: Objects of type THREE.LineLoop are not supported. Please use THREE.Line or THREE.LineSegments.
+(anonymous) @ injected.js:37
+error @ three.core.js?v=24c66cce:2039
+_projectObject @ three.webgpu.js?v=24c66cce:59703
+_projectObject @ three.webgpu.js?v=24c66cce:59776
+_renderScene @ three.webgpu.js?v=24c66cce:58331
+render @ three.webgpu.js?v=24c66cce:58029
+updateBefore @ OutlineNode.js?v=24c66cce:494
+updateBeforeNode @ three.webgpu.js?v=24c66cce:52187
+updateBefore @ three.webgpu.js?v=24c66cce:54033
+_renderObjectDirect @ three.webgpu.js?v=24c66cce:60141
+renderObject @ three.webgpu.js?v=24c66cce:60071
+_renderObjects @ three.webgpu.js?v=24c66cce:59866
+_renderScene @ three.webgpu.js?v=24c66cce:58410
+render @ three.webgpu.js?v=24c66cce:58029
+render @ three.webgpu.js?v=24c66cce:36831
+render @ three.webgpu.js?v=24c66cce:81349
+(anonymous) @ RenderPipelineManager.ts:317
+(anonymous) @ initScene.ts:1849
+(anonymous) @ UnifiedFrameLoop.ts:528
+(anonymous) @ UnifiedFrameLoop.ts:285
+(anonymous) @ FrameScheduler.ts:596
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:292
+(anonymous) @ FrameScheduler.ts:647
+(anonymous) @ FrameScheduler.ts:502
+(anonymous) @ initScene.ts:945
+dispatchEvent @ @thatopen_components.js?v=4972a8ba:236
+startDragging @ @thatopen_components.js?v=4972a8ba:901
+onPointerDown @ @thatopen_components.js?v=4972a8ba:699Understand this error
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [SlabProfileEditor] ESC — cancelling profile edit.
+injected.js:37 [SlabProfileEditor] Deactivated — all preview geometry disposed.
+injected.js:37 [SlabTool] §11 Profile edit mode exited.
+injected.js:37 [SlabProfileEditor] Deactivated — all preview geometry disposed.
+injected.js:37 [FPS] 51fps
+injected.js:37 [PickResolver] strategy=gpu-pick hit=013188e6-acf8-46d8-a39b-16b3896e5a55
+injected.js:37 [LevelPlaneConstraint] Locked Y=0.0000 for element "wall" id="013188e6-acf8-46d8-a39b-16b3896e5a55"
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [WallTransform] Wall "013188e6-acf8-46d8-a39b-16b3896e5a55" — gizmo aligned with direction Vector3 {x: -1, y: 0, z: 0}
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [FPS] 59fps
+injected.js:37 [PickResolver] strategy=gpu-pick hit=013188e6-acf8-46d8-a39b-16b3896e5a55
+injected.js:37 [LevelPlaneConstraint] Locked Y=0.0000 for element "wall" id="013188e6-acf8-46d8-a39b-16b3896e5a55"
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [WallTransform] Wall "013188e6-acf8-46d8-a39b-16b3896e5a55" — gizmo aligned with direction Vector3 {x: -1, y: 0, z: 0}
+injected.js:37 [PickResolver] strategy=gpu-pick hit=013188e6-acf8-46d8-a39b-16b3896e5a55
+injected.js:37 [FPS] 46fps
+injected.js:37 [GPU Monitor] geometries:79 textures:10 | drawCalls:13 tris:181
+injected.js:37 [GPU Monitor] ⚠ Geometry count grew 49.1% (53 → 79) in 10s — possible leak. Check WallFragmentBuilder.removeWallFragments() and CurtainWallBuilder._disposeChildren().
+(anonymous) @ injected.js:37
+(anonymous) @ initScene.ts:2364Understand this warning
+2injected.js:37 [PickResolver] strategy=gpu-pick hit=013188e6-acf8-46d8-a39b-16b3896e5a55
+injected.js:37 [FPS] 69fps
+injected.js:37 [PickResolver] strategy=gpu-pick hit=013188e6-acf8-46d8-a39b-16b3896e5a55
+injected.js:37 [FPS] 62fps
+injected.js:37 [LONGTASK] duration=55.0ms start=301798.0ms [type=iframe src=https://2c0467dd-5be5-4184-8677-9d06fed24131-00-3u446s3y0zpo4.spock.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=55.0ms start=302263.9ms [type=iframe src=https://2c0467dd-5be5-4184-8677-9d06fed24131-00-3u446s3y0zpo4.spock.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [PickResolver] strategy=gpu-pick hit=013188e6-acf8-46d8-a39b-16b3896e5a55
+injected.js:37 [FPS] 58fps
+2injected.js:37 [PickResolver] strategy=gpu-pick hit=013188e6-acf8-46d8-a39b-16b3896e5a55
+injected.js:37 [FPS] 61fps
+injected.js:37 [PickResolver] strategy=gpu-pick hit=013188e6-acf8-46d8-a39b-16b3896e5a55
+injected.js:37 [PickResolver] strategy=gpu-pick hit=a25a16e5-eea1-4fa6-85bc-882e178d99e4
+injected.js:37 [LevelPlaneConstraint] Locked Y=0.4000 for element "Furniture" id="a25a16e5-eea1-4fa6-85bc-882e178d99e4"
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [FPS] 55fps
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [FPS] 53fps
+injected.js:37 [PickResolver] strategy=gpu-pick hit=292b79a6-a126-4338-95eb-e8141e695ce0
+injected.js:37 [LevelPlaneConstraint] Locked Y=0.0000 for element "wall" id="292b79a6-a126-4338-95eb-e8141e695ce0"
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [WallTransform] Wall "292b79a6-a126-4338-95eb-e8141e695ce0" — gizmo aligned with direction Vector3 {x: 0, y: 0, z: 1}
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [LONGTASK] duration=62.0ms start=306054.3ms [type=iframe src=https://2c0467dd-5be5-4184-8677-9d06fed24131-00-3u446s3y0zpo4.spock.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [FPS] 55fps
+injected.js:37 [PickResolver] strategy=gpu-pick hit=292b79a6-a126-4338-95eb-e8141e695ce0
+injected.js:37 [LevelPlaneConstraint] Locked Y=0.0000 for element "wall" id="292b79a6-a126-4338-95eb-e8141e695ce0"
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [WallTransform] Wall "292b79a6-a126-4338-95eb-e8141e695ce0" — gizmo aligned with direction Vector3 {x: 0, y: 0, z: 1}
+injected.js:37 [LONGTASK] duration=51.0ms start=307280.4ms [type=iframe src=https://2c0467dd-5be5-4184-8677-9d06fed24131-00-3u446s3y0zpo4.spock.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [FPS] 51fps
+2injected.js:37 [PickResolver] strategy=gpu-pick hit=292b79a6-a126-4338-95eb-e8141e695ce0
+injected.js:37 [PickResolver] strategy=gpu-pick hit=013188e6-acf8-46d8-a39b-16b3896e5a55
+injected.js:37 [LevelPlaneConstraint] Locked Y=0.0000 for element "wall" id="013188e6-acf8-46d8-a39b-16b3896e5a55"
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [WallTransform] Wall "013188e6-acf8-46d8-a39b-16b3896e5a55" — gizmo aligned with direction Vector3 {x: -1, y: 0, z: 0}
+injected.js:37 [FPS] 65fps
+injected.js:37 [GPU Monitor] geometries:90 textures:10 | drawCalls:15 tris:205
+injected.js:37 [GPU Monitor] ⚠ Geometry count grew 13.9% (79 → 90) in 10s — possible leak. Check WallFragmentBuilder.removeWallFragments() and CurtainWallBuilder._disposeChildren().
+(anonymous) @ injected.js:37
+(anonymous) @ initScene.ts:2364Understand this warning
+injected.js:37 [FPS] 57fps
+2injected.js:37 [PickResolver] strategy=gpu-pick hit=013188e6-acf8-46d8-a39b-16b3896e5a55
+injected.js:37 [FPS] 78fps
+injected.js:37 [SvpPlanToolOverlay] Detached
+injected.js:37 [SplitViewManager] Split view deactivated
+2injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+injected.js:37 [FPS] 76fps
+2injected.js:37 [PickResolver] strategy=gpu-pick hit=013188e6-acf8-46d8-a39b-16b3896e5a55
+injected.js:37 [FPS] 71fps
+2injected.js:37 [PickResolver] strategy=gpu-pick hit=013188e6-acf8-46d8-a39b-16b3896e5a55
+injected.js:37 [FPS] 88fps
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [PickResolver] strategy=gpu-pick hit=a25a16e5-eea1-4fa6-85bc-882e178d99e4
+injected.js:37 [LevelPlaneConstraint] Locked Y=0.4000 for element "Furniture" id="a25a16e5-eea1-4fa6-85bc-882e178d99e4"
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [FPS] 69fps
+injected.js:37 [PickResolver] strategy=gpu-pick hit=013188e6-acf8-46d8-a39b-16b3896e5a55
+injected.js:37 [LevelPlaneConstraint] Locked Y=0.0000 for element "wall" id="013188e6-acf8-46d8-a39b-16b3896e5a55"
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [WallTransform] Wall "013188e6-acf8-46d8-a39b-16b3896e5a55" — gizmo aligned with direction Vector3 {x: -1, y: 0, z: 0}
+injected.js:37 [FPS] 65fps
+2injected.js:37 [PickResolver] strategy=gpu-pick hit=013188e6-acf8-46d8-a39b-16b3896e5a55
+injected.js:37 [SlabProfileEditor] Activated — slab: c4731c0e-2321-4738-b02f-c8e472b777bc, vertices: 11, elevation: 0.000m
+injected.js:37 [SlabTool] §11 Profile edit mode entered — slab: c4731c0e-2321-4738-b02f-c8e472b777bc
+injected.js:37 THREE.Renderer: Objects of type THREE.LineLoop are not supported. Please use THREE.Line or THREE.LineSegments.
+(anonymous) @ injected.js:37
+error @ three.core.js?v=24c66cce:2039
+_projectObject @ three.webgpu.js?v=24c66cce:59703
+_projectObject @ three.webgpu.js?v=24c66cce:59776
+_renderScene @ three.webgpu.js?v=24c66cce:58331
+render @ three.webgpu.js?v=24c66cce:58029
+updateBefore @ three.webgpu.js?v=24c66cce:39537
+updateBeforeNode @ three.webgpu.js?v=24c66cce:52187
+updateBefore @ three.webgpu.js?v=24c66cce:54033
+_renderObjectDirect @ three.webgpu.js?v=24c66cce:60141
+renderObject @ three.webgpu.js?v=24c66cce:60071
+_renderObjects @ three.webgpu.js?v=24c66cce:59866
+_renderScene @ three.webgpu.js?v=24c66cce:58410
+render @ three.webgpu.js?v=24c66cce:58029
+render @ three.webgpu.js?v=24c66cce:36831
+render @ three.webgpu.js?v=24c66cce:81349
+(anonymous) @ RenderPipelineManager.ts:317
+(anonymous) @ initScene.ts:1849
+(anonymous) @ UnifiedFrameLoop.ts:528
+(anonymous) @ UnifiedFrameLoop.ts:285
+(anonymous) @ FrameScheduler.ts:596
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:292
+(anonymous) @ FrameScheduler.ts:647
+(anonymous) @ FrameScheduler.ts:502
+(anonymous) @ initScene.ts:945
+dispatchEvent @ @thatopen_components.js?v=4972a8ba:236
+startDragging @ @thatopen_components.js?v=4972a8ba:901
+onPointerDown @ @thatopen_components.js?v=4972a8ba:699Understand this error
+injected.js:37 THREE.Renderer: Objects of type THREE.LineLoop are not supported. Please use THREE.Line or THREE.LineSegments.
+(anonymous) @ injected.js:37
+error @ three.core.js?v=24c66cce:2039
+_projectObject @ three.webgpu.js?v=24c66cce:59703
+_projectObject @ three.webgpu.js?v=24c66cce:59776
+_renderScene @ three.webgpu.js?v=24c66cce:58331
+render @ three.webgpu.js?v=24c66cce:58029
+renderShadow @ three.webgpu.js?v=24c66cce:43802
+updateShadow @ three.webgpu.js?v=24c66cce:43846
+updateBefore @ three.webgpu.js?v=24c66cce:43963
+updateBeforeNode @ three.webgpu.js?v=24c66cce:52205
+updateBefore @ three.webgpu.js?v=24c66cce:54033
+_renderObjectDirect @ three.webgpu.js?v=24c66cce:60141
+renderObject @ three.webgpu.js?v=24c66cce:60071
+_renderObjects @ three.webgpu.js?v=24c66cce:59866
+_renderScene @ three.webgpu.js?v=24c66cce:58410
+render @ three.webgpu.js?v=24c66cce:58029
+updateBefore @ three.webgpu.js?v=24c66cce:39537
+updateBeforeNode @ three.webgpu.js?v=24c66cce:52187
+updateBefore @ three.webgpu.js?v=24c66cce:54033
+_renderObjectDirect @ three.webgpu.js?v=24c66cce:60141
+renderObject @ three.webgpu.js?v=24c66cce:60071
+_renderObjects @ three.webgpu.js?v=24c66cce:59866
+_renderScene @ three.webgpu.js?v=24c66cce:58410
+render @ three.webgpu.js?v=24c66cce:58029
+render @ three.webgpu.js?v=24c66cce:36831
+render @ three.webgpu.js?v=24c66cce:81349
+(anonymous) @ RenderPipelineManager.ts:317
+(anonymous) @ initScene.ts:1849
+(anonymous) @ UnifiedFrameLoop.ts:528
+(anonymous) @ UnifiedFrameLoop.ts:285
+(anonymous) @ FrameScheduler.ts:596
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:292
+(anonymous) @ FrameScheduler.ts:647
+(anonymous) @ FrameScheduler.ts:502
+(anonymous) @ initScene.ts:945
+dispatchEvent @ @thatopen_components.js?v=4972a8ba:236
+startDragging @ @thatopen_components.js?v=4972a8ba:901
+onPointerDown @ @thatopen_components.js?v=4972a8ba:699Understand this error
+injected.js:37 THREE.Renderer: Objects of type THREE.LineLoop are not supported. Please use THREE.Line or THREE.LineSegments.
+(anonymous) @ injected.js:37
+error @ three.core.js?v=24c66cce:2039
+_projectObject @ three.webgpu.js?v=24c66cce:59703
+_projectObject @ three.webgpu.js?v=24c66cce:59776
+_renderScene @ three.webgpu.js?v=24c66cce:58331
+render @ three.webgpu.js?v=24c66cce:58029
+updateBefore @ OutlineNode.js?v=24c66cce:476
+updateBeforeNode @ three.webgpu.js?v=24c66cce:52187
+updateBefore @ three.webgpu.js?v=24c66cce:54033
+_renderObjectDirect @ three.webgpu.js?v=24c66cce:60141
+renderObject @ three.webgpu.js?v=24c66cce:60071
+_renderObjects @ three.webgpu.js?v=24c66cce:59866
+_renderScene @ three.webgpu.js?v=24c66cce:58410
+render @ three.webgpu.js?v=24c66cce:58029
+render @ three.webgpu.js?v=24c66cce:36831
+render @ three.webgpu.js?v=24c66cce:81349
+(anonymous) @ RenderPipelineManager.ts:317
+(anonymous) @ initScene.ts:1849
+(anonymous) @ UnifiedFrameLoop.ts:528
+(anonymous) @ UnifiedFrameLoop.ts:285
+(anonymous) @ FrameScheduler.ts:596
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:292
+(anonymous) @ FrameScheduler.ts:647
+(anonymous) @ FrameScheduler.ts:502
+(anonymous) @ initScene.ts:945
+dispatchEvent @ @thatopen_components.js?v=4972a8ba:236
+startDragging @ @thatopen_components.js?v=4972a8ba:901
+onPointerDown @ @thatopen_components.js?v=4972a8ba:699Understand this error
+injected.js:37 THREE.Renderer: Objects of type THREE.LineLoop are not supported. Please use THREE.Line or THREE.LineSegments.
+(anonymous) @ injected.js:37
+error @ three.core.js?v=24c66cce:2039
+_projectObject @ three.webgpu.js?v=24c66cce:59703
+_projectObject @ three.webgpu.js?v=24c66cce:59776
+_renderScene @ three.webgpu.js?v=24c66cce:58331
+render @ three.webgpu.js?v=24c66cce:58029
+updateBefore @ OutlineNode.js?v=24c66cce:494
+updateBeforeNode @ three.webgpu.js?v=24c66cce:52187
+updateBefore @ three.webgpu.js?v=24c66cce:54033
+_renderObjectDirect @ three.webgpu.js?v=24c66cce:60141
+renderObject @ three.webgpu.js?v=24c66cce:60071
+_renderObjects @ three.webgpu.js?v=24c66cce:59866
+_renderScene @ three.webgpu.js?v=24c66cce:58410
+render @ three.webgpu.js?v=24c66cce:58029
+render @ three.webgpu.js?v=24c66cce:36831
+render @ three.webgpu.js?v=24c66cce:81349
+(anonymous) @ RenderPipelineManager.ts:317
+(anonymous) @ initScene.ts:1849
+(anonymous) @ UnifiedFrameLoop.ts:528
+(anonymous) @ UnifiedFrameLoop.ts:285
+(anonymous) @ FrameScheduler.ts:596
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:292
+(anonymous) @ FrameScheduler.ts:647
+(anonymous) @ FrameScheduler.ts:502
+(anonymous) @ initScene.ts:945
+dispatchEvent @ @thatopen_components.js?v=4972a8ba:236
+startDragging @ @thatopen_components.js?v=4972a8ba:901
+onPointerDown @ @thatopen_components.js?v=4972a8ba:699Understand this error
+injected.js:37 THREE.Renderer: Objects of type THREE.LineLoop are not supported. Please use THREE.Line or THREE.LineSegments.
+(anonymous) @ injected.js:37
+error @ three.core.js?v=24c66cce:2039
+_projectObject @ three.webgpu.js?v=24c66cce:59703
+_projectObject @ three.webgpu.js?v=24c66cce:59776
+_renderScene @ three.webgpu.js?v=24c66cce:58331
+render @ three.webgpu.js?v=24c66cce:58029
+updateBefore @ OutlineNode.js?v=24c66cce:476
+updateBeforeNode @ three.webgpu.js?v=24c66cce:52187
+updateBefore @ three.webgpu.js?v=24c66cce:54033
+_renderObjectDirect @ three.webgpu.js?v=24c66cce:60141
+renderObject @ three.webgpu.js?v=24c66cce:60071
+_renderObjects @ three.webgpu.js?v=24c66cce:59866
+_renderScene @ three.webgpu.js?v=24c66cce:58410
+render @ three.webgpu.js?v=24c66cce:58029
+render @ three.webgpu.js?v=24c66cce:36831
+render @ three.webgpu.js?v=24c66cce:81349
+(anonymous) @ RenderPipelineManager.ts:317
+(anonymous) @ initScene.ts:1849
+(anonymous) @ UnifiedFrameLoop.ts:528
+(anonymous) @ UnifiedFrameLoop.ts:285
+(anonymous) @ FrameScheduler.ts:596
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:292
+(anonymous) @ FrameScheduler.ts:647
+(anonymous) @ FrameScheduler.ts:502
+(anonymous) @ initScene.ts:945
+dispatchEvent @ @thatopen_components.js?v=4972a8ba:236
+startDragging @ @thatopen_components.js?v=4972a8ba:901
+onPointerDown @ @thatopen_components.js?v=4972a8ba:699Understand this error
+injected.js:37 THREE.Renderer: Objects of type THREE.LineLoop are not supported. Please use THREE.Line or THREE.LineSegments.
+(anonymous) @ injected.js:37
+error @ three.core.js?v=24c66cce:2039
+_projectObject @ three.webgpu.js?v=24c66cce:59703
+_projectObject @ three.webgpu.js?v=24c66cce:59776
+_renderScene @ three.webgpu.js?v=24c66cce:58331
+render @ three.webgpu.js?v=24c66cce:58029
+updateBefore @ OutlineNode.js?v=24c66cce:494
+updateBeforeNode @ three.webgpu.js?v=24c66cce:52187
+updateBefore @ three.webgpu.js?v=24c66cce:54033
+_renderObjectDirect @ three.webgpu.js?v=24c66cce:60141
+renderObject @ three.webgpu.js?v=24c66cce:60071
+_renderObjects @ three.webgpu.js?v=24c66cce:59866
+_renderScene @ three.webgpu.js?v=24c66cce:58410
+render @ three.webgpu.js?v=24c66cce:58029
+render @ three.webgpu.js?v=24c66cce:36831
+render @ three.webgpu.js?v=24c66cce:81349
+(anonymous) @ RenderPipelineManager.ts:317
+(anonymous) @ initScene.ts:1849
+(anonymous) @ UnifiedFrameLoop.ts:528
+(anonymous) @ UnifiedFrameLoop.ts:285
+(anonymous) @ FrameScheduler.ts:596
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:292
+(anonymous) @ FrameScheduler.ts:647
+(anonymous) @ FrameScheduler.ts:502
+(anonymous) @ initScene.ts:945
+dispatchEvent @ @thatopen_components.js?v=4972a8ba:236
+startDragging @ @thatopen_components.js?v=4972a8ba:901
+onPointerDown @ @thatopen_components.js?v=4972a8ba:699Understand this error
+injected.js:37 THREE.Renderer: Objects of type THREE.LineLoop are not supported. Please use THREE.Line or THREE.LineSegments.
+(anonymous) @ injected.js:37
+error @ three.core.js?v=24c66cce:2039
+_projectObject @ three.webgpu.js?v=24c66cce:59703
+_projectObject @ three.webgpu.js?v=24c66cce:59776
+_renderScene @ three.webgpu.js?v=24c66cce:58331
+render @ three.webgpu.js?v=24c66cce:58029
+updateBefore @ three.webgpu.js?v=24c66cce:39537
+updateBeforeNode @ three.webgpu.js?v=24c66cce:52187
+updateBefore @ three.webgpu.js?v=24c66cce:54033
+_renderObjectDirect @ three.webgpu.js?v=24c66cce:60141
+renderObject @ three.webgpu.js?v=24c66cce:60071
+_renderObjects @ three.webgpu.js?v=24c66cce:59866
+_renderScene @ three.webgpu.js?v=24c66cce:58410
+render @ three.webgpu.js?v=24c66cce:58029
+render @ three.webgpu.js?v=24c66cce:36831
+render @ three.webgpu.js?v=24c66cce:81349
+(anonymous) @ RenderPipelineManager.ts:317
+(anonymous) @ initScene.ts:1849
+(anonymous) @ UnifiedFrameLoop.ts:528
+(anonymous) @ UnifiedFrameLoop.ts:285
+(anonymous) @ FrameScheduler.ts:596
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:292
+(anonymous) @ FrameScheduler.ts:647
+(anonymous) @ FrameScheduler.ts:502
+(anonymous) @ initScene.ts:945
+dispatchEvent @ @thatopen_components.js?v=4972a8ba:236
+startDragging @ @thatopen_components.js?v=4972a8ba:901
+onPointerDown @ @thatopen_components.js?v=4972a8ba:699Understand this error
+injected.js:37 THREE.Renderer: Objects of type THREE.LineLoop are not supported. Please use THREE.Line or THREE.LineSegments.
+(anonymous) @ injected.js:37
+error @ three.core.js?v=24c66cce:2039
+_projectObject @ three.webgpu.js?v=24c66cce:59703
+_projectObject @ three.webgpu.js?v=24c66cce:59776
+_renderScene @ three.webgpu.js?v=24c66cce:58331
+render @ three.webgpu.js?v=24c66cce:58029
+renderShadow @ three.webgpu.js?v=24c66cce:43802
+updateShadow @ three.webgpu.js?v=24c66cce:43846
+updateBefore @ three.webgpu.js?v=24c66cce:43963
+updateBeforeNode @ three.webgpu.js?v=24c66cce:52205
+updateBefore @ three.webgpu.js?v=24c66cce:54033
+_renderObjectDirect @ three.webgpu.js?v=24c66cce:60141
+renderObject @ three.webgpu.js?v=24c66cce:60071
+_renderObjects @ three.webgpu.js?v=24c66cce:59866
+_renderScene @ three.webgpu.js?v=24c66cce:58410
+render @ three.webgpu.js?v=24c66cce:58029
+updateBefore @ three.webgpu.js?v=24c66cce:39537
+updateBeforeNode @ three.webgpu.js?v=24c66cce:52187
+updateBefore @ three.webgpu.js?v=24c66cce:54033
+_renderObjectDirect @ three.webgpu.js?v=24c66cce:60141
+renderObject @ three.webgpu.js?v=24c66cce:60071
+_renderObjects @ three.webgpu.js?v=24c66cce:59866
+_renderScene @ three.webgpu.js?v=24c66cce:58410
+render @ three.webgpu.js?v=24c66cce:58029
+render @ three.webgpu.js?v=24c66cce:36831
+render @ three.webgpu.js?v=24c66cce:81349
+(anonymous) @ RenderPipelineManager.ts:317
+(anonymous) @ initScene.ts:1849
+(anonymous) @ UnifiedFrameLoop.ts:528
+(anonymous) @ UnifiedFrameLoop.ts:285
+(anonymous) @ FrameScheduler.ts:596
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:292
+(anonymous) @ FrameScheduler.ts:647
+(anonymous) @ FrameScheduler.ts:502
+(anonymous) @ initScene.ts:945
+dispatchEvent @ @thatopen_components.js?v=4972a8ba:236
+startDragging @ @thatopen_components.js?v=4972a8ba:901
+onPointerDown @ @thatopen_components.js?v=4972a8ba:699Understand this error
+injected.js:37 THREE.Renderer: Objects of type THREE.LineLoop are not supported. Please use THREE.Line or THREE.LineSegments.
+(anonymous) @ injected.js:37
+error @ three.core.js?v=24c66cce:2039
+_projectObject @ three.webgpu.js?v=24c66cce:59703
+_projectObject @ three.webgpu.js?v=24c66cce:59776
+_renderScene @ three.webgpu.js?v=24c66cce:58331
+render @ three.webgpu.js?v=24c66cce:58029
+updateBefore @ OutlineNode.js?v=24c66cce:476
+updateBeforeNode @ three.webgpu.js?v=24c66cce:52187
+updateBefore @ three.webgpu.js?v=24c66cce:54033
+_renderObjectDirect @ three.webgpu.js?v=24c66cce:60141
+renderObject @ three.webgpu.js?v=24c66cce:60071
+_renderObjects @ three.webgpu.js?v=24c66cce:59866
+_renderScene @ three.webgpu.js?v=24c66cce:58410
+render @ three.webgpu.js?v=24c66cce:58029
+render @ three.webgpu.js?v=24c66cce:36831
+render @ three.webgpu.js?v=24c66cce:81349
+(anonymous) @ RenderPipelineManager.ts:317
+(anonymous) @ initScene.ts:1849
+(anonymous) @ UnifiedFrameLoop.ts:528
+(anonymous) @ UnifiedFrameLoop.ts:285
+(anonymous) @ FrameScheduler.ts:596
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:292
+(anonymous) @ FrameScheduler.ts:647
+(anonymous) @ FrameScheduler.ts:502
+(anonymous) @ initScene.ts:945
+dispatchEvent @ @thatopen_components.js?v=4972a8ba:236
+startDragging @ @thatopen_components.js?v=4972a8ba:901
+onPointerDown @ @thatopen_components.js?v=4972a8ba:699Understand this error
+injected.js:37 THREE.Renderer: Objects of type THREE.LineLoop are not supported. Please use THREE.Line or THREE.LineSegments.
+(anonymous) @ injected.js:37
+error @ three.core.js?v=24c66cce:2039
+_projectObject @ three.webgpu.js?v=24c66cce:59703
+_projectObject @ three.webgpu.js?v=24c66cce:59776
+_renderScene @ three.webgpu.js?v=24c66cce:58331
+render @ three.webgpu.js?v=24c66cce:58029
+updateBefore @ OutlineNode.js?v=24c66cce:494
+updateBeforeNode @ three.webgpu.js?v=24c66cce:52187
+updateBefore @ three.webgpu.js?v=24c66cce:54033
+_renderObjectDirect @ three.webgpu.js?v=24c66cce:60141
+renderObject @ three.webgpu.js?v=24c66cce:60071
+_renderObjects @ three.webgpu.js?v=24c66cce:59866
+_renderScene @ three.webgpu.js?v=24c66cce:58410
+render @ three.webgpu.js?v=24c66cce:58029
+render @ three.webgpu.js?v=24c66cce:36831
+render @ three.webgpu.js?v=24c66cce:81349
+(anonymous) @ RenderPipelineManager.ts:317
+(anonymous) @ initScene.ts:1849
+(anonymous) @ UnifiedFrameLoop.ts:528
+(anonymous) @ UnifiedFrameLoop.ts:285
+(anonymous) @ FrameScheduler.ts:596
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:292
+(anonymous) @ FrameScheduler.ts:647
+(anonymous) @ FrameScheduler.ts:502
+(anonymous) @ initScene.ts:945
+dispatchEvent @ @thatopen_components.js?v=4972a8ba:236
+startDragging @ @thatopen_components.js?v=4972a8ba:901
+onPointerDown @ @thatopen_components.js?v=4972a8ba:699Understand this error
+injected.js:37 THREE.Renderer: Objects of type THREE.LineLoop are not supported. Please use THREE.Line or THREE.LineSegments.
+(anonymous) @ injected.js:37
+error @ three.core.js?v=24c66cce:2039
+_projectObject @ three.webgpu.js?v=24c66cce:59703
+_projectObject @ three.webgpu.js?v=24c66cce:59776
+_renderScene @ three.webgpu.js?v=24c66cce:58331
+render @ three.webgpu.js?v=24c66cce:58029
+updateBefore @ OutlineNode.js?v=24c66cce:476
+updateBeforeNode @ three.webgpu.js?v=24c66cce:52187
+updateBefore @ three.webgpu.js?v=24c66cce:54033
+_renderObjectDirect @ three.webgpu.js?v=24c66cce:60141
+renderObject @ three.webgpu.js?v=24c66cce:60071
+_renderObjects @ three.webgpu.js?v=24c66cce:59866
+_renderScene @ three.webgpu.js?v=24c66cce:58410
+render @ three.webgpu.js?v=24c66cce:58029
+render @ three.webgpu.js?v=24c66cce:36831
+render @ three.webgpu.js?v=24c66cce:81349
+(anonymous) @ RenderPipelineManager.ts:317
+(anonymous) @ initScene.ts:1849
+(anonymous) @ UnifiedFrameLoop.ts:528
+(anonymous) @ UnifiedFrameLoop.ts:285
+(anonymous) @ FrameScheduler.ts:596
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:292
+(anonymous) @ FrameScheduler.ts:647
+(anonymous) @ FrameScheduler.ts:502
+(anonymous) @ initScene.ts:945
+dispatchEvent @ @thatopen_components.js?v=4972a8ba:236
+startDragging @ @thatopen_components.js?v=4972a8ba:901
+onPointerDown @ @thatopen_components.js?v=4972a8ba:699Understand this error
+injected.js:37 THREE.Renderer: Objects of type THREE.LineLoop are not supported. Please use THREE.Line or THREE.LineSegments.
+(anonymous) @ injected.js:37
+error @ three.core.js?v=24c66cce:2039
+_projectObject @ three.webgpu.js?v=24c66cce:59703
+_projectObject @ three.webgpu.js?v=24c66cce:59776
+_renderScene @ three.webgpu.js?v=24c66cce:58331
+render @ three.webgpu.js?v=24c66cce:58029
+updateBefore @ OutlineNode.js?v=24c66cce:494
+updateBeforeNode @ three.webgpu.js?v=24c66cce:52187
+updateBefore @ three.webgpu.js?v=24c66cce:54033
+_renderObjectDirect @ three.webgpu.js?v=24c66cce:60141
+renderObject @ three.webgpu.js?v=24c66cce:60071
+_renderObjects @ three.webgpu.js?v=24c66cce:59866
+_renderScene @ three.webgpu.js?v=24c66cce:58410
+render @ three.webgpu.js?v=24c66cce:58029
+render @ three.webgpu.js?v=24c66cce:36831
+render @ three.webgpu.js?v=24c66cce:81349
+(anonymous) @ RenderPipelineManager.ts:317
+(anonymous) @ initScene.ts:1849
+(anonymous) @ UnifiedFrameLoop.ts:528
+(anonymous) @ UnifiedFrameLoop.ts:285
+(anonymous) @ FrameScheduler.ts:596
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:638
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:622
+(anonymous) @ FrameScheduler.ts:545
+requestAnimationFrame
+(anonymous) @ RafAdapter.ts:41
+(anonymous) @ FrameScheduler.ts:545
+(anonymous) @ FrameScheduler.ts:292
+(anonymous) @ FrameScheduler.ts:647
+(anonymous) @ FrameScheduler.ts:502
+(anonymous) @ initScene.ts:945
+dispatchEvent @ @thatopen_components.js?v=4972a8ba:236
+startDragging @ @thatopen_components.js?v=4972a8ba:901
+onPointerDown @ @thatopen_components.js?v=4972a8ba:699Understand this error
+injected.js:37 [LONGTASK] duration=58.0ms start=317758.8ms [type=iframe src=https://2c0467dd-5be5-4184-8677-9d06fed24131-00-3u446s3y0zpo4.spock.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 THREE.Renderer: Objects of type THREE.LineLoop are not supported. Please use THREE.Line or THREE.LineSegments.

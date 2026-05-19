@@ -1,0 +1,10 @@
+{
+  "name": "command-bus.execute.wall-setDimensions",
+  "samples": 200,
+  "p50": 2.371,
+  "p95": 5.23,
+  "p99": 9.89,
+  "budgetMs": 1,
+  "warnMs": 0.5,
+  "recordedAt": "2026-05-09T23:09:34.107Z"
+}

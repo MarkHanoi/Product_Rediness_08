@@ -1,0 +1,32 @@
+{
+  "name": "@pryzm/ai-worker",
+  "version": "0.1.0",
+  "description": "PRYZM 2 — AI worker (S47 skeleton). BullMQ-style queue + handler registry behind a `createQueue({env})` factory mirroring the `createEventLog` selection pattern. v0 ships with `InMemoryQueue` (dev/test) and a `BullMqQueue` adapter loaded via dynamic import gated on `REDIS_URL`. Real Redis-backed live worker lands at S49+ when the `[strategic ADR-014]` AI host is promoted to L7.5 and the CV / generative workflows arrive.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./queue": "./src/queue.ts",
+    "./handlers": "./src/handlers.ts",
+    "./types": "./src/types.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@pryzm/ai-host": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "tsx": "^4.20.7",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

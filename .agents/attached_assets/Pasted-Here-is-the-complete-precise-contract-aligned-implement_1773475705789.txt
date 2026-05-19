@@ -1,0 +1,427 @@
+Here is the complete, precise, contract-aligned implementation plan.
+
+Full Implementation Plan: BIM Platform (Forma/ACC-class)
+Platform Overview
+┌─────────────────────────────────────────────────────────┐
+│ PLATFORM SHELL │
+│ (Login · Project Browser · Admin · Account Settings) │
+├─────────────────────────────────────────────────────────┤
+│ PROJECT WORKSPACE │
+│ (The current BIM engine — unchanged core) │
+│ ┌──────────────────────────────────────────────────┐ │
+│ │ UI/Tools → Commands → Stores → Builders → Scene │ │
+│ └──────────────────────────────────────────────────┘ │
+├─────────────────────────────────────────────────────────┤
+│ INFRASTRUCTURE LAYER │
+│ (Auth · Projects · Versions · Permissions · Realtime) │
+└─────────────────────────────────────────────────────────┘
+The BIM engine core is not modified. The platform wraps it. Every new feature is either a new UI surface or an infrastructure service that connects to the engine through its existing contract interfaces.
+
+Technology Stack (Replit-Independent)
+Concern Technology Reason
+Frontend hosting Cloudflare Pages Global CDN, free, zero vendor lock-in
+API server Railway Auto-deploys Express apps, scales to hundreds of users without config
+Auth Clerk Drop-in, supports orgs/teams natively, no Replit dependency
+Database Supabase PostgreSQL Postgres + real-time subscriptions + storage in one service
+File storage Cloudflare R2 S3-compatible, zero egress fees, stores IFC/PDF assets
+Real-time Socket.io (self-hosted on Railway) Command streaming fits your architecture exactly
+Claude proxy Cloudflare Worker Already live. Needs project-scoped rate limiting added
+Complete Database Schema
+────────────────────────────────────────────
+-- IDENTITY
+────────────────────────────────────────────
+users
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid()
+  clerk_id TEXT UNIQUE NOT NULL -- Clerk's user ID
+  email TEXT UNIQUE NOT NULL
+  display_name TEXT NOT NULL
+  avatar_url TEXT
+  role TEXT NOT NULL DEFAULT 'user'
+                  CHECK (role IN ('platform_admin', 'user'))
+  is_active BOOLEAN DEFAULT true
+  created_at TIMESTAMPTZ DEFAULT now()
+  last_seen_at TIMESTAMPTZ
+────────────────────────────────────────────
+-- ORGANISATIONS (optional team grouping)
+────────────────────────────────────────────
+organisations
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid()
+  name TEXT NOT NULL
+  slug TEXT UNIQUE NOT NULL -- URL-friendly name
+  logo_url TEXT
+  plan TEXT DEFAULT 'free'
+                  CHECK (plan IN ('free', 'pro', 'enterprise'))
+  owner_id UUID REFERENCES users(id)
+  created_at TIMESTAMPTZ DEFAULT now()
+organisation_members
+  org_id UUID REFERENCES organisations(id)
+  user_id UUID REFERENCES users(id)
+  role TEXT NOT NULL
+                  CHECK (role IN ('admin', 'member'))
+  added_at TIMESTAMPTZ DEFAULT now()
+  PRIMARY KEY (org_id, user_id)
+────────────────────────────────────────────
+-- PROJECTS
+────────────────────────────────────────────
+projects
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid()
+  name TEXT NOT NULL
+  description TEXT
+  location TEXT -- City / address (optional)
+  project_type TEXT -- 'residential','commercial','mixed'
+  owner_id UUID REFERENCES users(id)
+  org_id UUID REFERENCES organisations(id) -- null if personal project
+  thumbnail_url TEXT -- Cloudflare R2 URL
+  status TEXT DEFAULT 'active'
+                  CHECK (status IN ('active', 'archived', 'deleted'))
+  is_public BOOLEAN DEFAULT false
+  created_at TIMESTAMPTZ DEFAULT now()
+  updated_at TIMESTAMPTZ DEFAULT now()
+project_members
+  project_id UUID REFERENCES projects(id)
+  user_id UUID REFERENCES users(id)
+  role TEXT NOT NULL
+                  CHECK (role IN ('admin','editor','viewer'))
+  invited_by UUID REFERENCES users(id)
+  added_at TIMESTAMPTZ DEFAULT now()
+  PRIMARY KEY (project_id, user_id)
+────────────────────────────────────────────
+-- VERSIONS (File Versioning — Forma-style)
+────────────────────────────────────────────
+project_versions
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid()
+  project_id UUID REFERENCES projects(id)
+  version_number INTEGER NOT NULL -- auto-incremented per project
+  label TEXT -- "v1.2 - Structural review"
+  description TEXT -- what changed
+  snapshot JSONB NOT NULL -- FULL BIM model serialized state
+  thumbnail_url TEXT -- scene screenshot at save time
+  created_by UUID REFERENCES users(id)
+  created_at TIMESTAMPTZ DEFAULT now()
+  is_autosave BOOLEAN DEFAULT false
+  UNIQUE (project_id, version_number)
+────────────────────────────────────────────
+-- COMMAND LOG (multi-user real-time)
+────────────────────────────────────────────
+project_commands
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid()
+  project_id UUID REFERENCES projects(id)
+  user_id UUID REFERENCES users(id)
+  session_id TEXT NOT NULL -- client WebSocket session ID
+  command_type TEXT NOT NULL -- from CommandType enum
+  payload JSONB NOT NULL -- command.serialize() output exactly
+  client_ts BIGINT NOT NULL -- client timestamp
+  server_seq BIGSERIAL -- server-assigned ordering authority
+  created_at TIMESTAMPTZ DEFAULT now()
+────────────────────────────────────────────
+-- ASSETS (PDFs, IFC exports, AI images)
+────────────────────────────────────────────
+project_assets
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid()
+  project_id UUID REFERENCES projects(id)
+  uploaded_by UUID REFERENCES users(id)
+  asset_type TEXT NOT NULL
+                  CHECK (asset_type IN ('pdf_underlay','ifc_export',
+                         'ai_element_image','project_thumbnail'))
+  filename TEXT NOT NULL
+  r2_key TEXT NOT NULL -- Cloudflare R2 object key
+  url TEXT NOT NULL -- public URL
+  size_bytes INTEGER
+  metadata JSONB -- type-specific: pxPerMeter, etc.
+  created_at TIMESTAMPTZ DEFAULT now()
+────────────────────────────────────────────
+-- AUDIT LOG (ACC-style activity trail)
+────────────────────────────────────────────
+audit_log
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid()
+  project_id UUID REFERENCES projects(id) -- null for platform events
+  user_id UUID REFERENCES users(id)
+  action TEXT NOT NULL -- 'project.create','version.save',
+                                            -- 'member.invite','member.remove',
+                                            -- 'version.restore', etc.
+  target_type TEXT -- 'project','version','member'
+  target_id TEXT -- UUID of affected entity
+  metadata JSONB -- action-specific details
+  ip_address TEXT
+  created_at TIMESTAMPTZ DEFAULT now()
+────────────────────────────────────────────
+-- SESSIONS (presence tracking)
+────────────────────────────────────────────
+active_sessions
+  session_id TEXT PRIMARY KEY
+  project_id UUID REFERENCES projects(id)
+  user_id UUID REFERENCES users(id)
+  connected_at TIMESTAMPTZ DEFAULT now()
+  last_ping_at TIMESTAMPTZ DEFAULT now()
+  -- Cleaned up on disconnect
+Permission Matrix
+Action Viewer Editor Project Admin Platform Admin
+View 3D model ✅ ✅ ✅ ✅
+Create/edit BIM elements ❌ ✅ ✅ ✅
+Save version ❌ ✅ ✅ ✅
+Restore version ❌ ❌ ✅ ✅
+Delete version ❌ ❌ ✅ ✅
+Invite members ❌ ❌ ✅ ✅
+Remove members ❌ ❌ ✅ ✅
+Change member roles ❌ ❌ ✅ ✅
+Archive project ❌ ❌ ✅ ✅
+Delete project ❌ ❌ ❌ ✅
+Manage all users ❌ ❌ ❌ ✅
+View audit log ❌ ❌ ✅ ✅
+Use AI features ❌ ✅ ✅ ✅
+Phase-by-Phase Implementation Plan
+PHASE 1 — Deployment Foundation
+Duration: 2 days
+Goal: The app runs in production, independently of Replit
+
+Build pipeline: Confirm npm run build produces a clean dist/ folder. Fix any build warnings.
+Railway deployment: Connect GitHub repo to Railway. Set build command: npm run build. Set start command: node server.js. Set PORT=5000, NODE_ENV=production.
+Cloudflare Pages (optional — alternative for static assets): If you want to separate the frontend from the API, build the Vite frontend and deploy to Cloudflare Pages. The Express server becomes API-only.
+Environment variables on Railway: ANTHROPIC_API_KEY, CLERK_SECRET_KEY, SUPABASE_URL, SUPABASE_SERVICE_KEY, R2_ACCOUNT_ID, R2_ACCESS_KEY, R2_SECRET_KEY.
+Custom domain: Point your domain DNS to Railway (or Cloudflare Pages). SSL is automatic.
+Smoke test: Verify the app loads, the Anthropic proxy responds, WASM files load correctly.
+Contract compliance: Zero changes to BIM engine. Pure infrastructure.
+
+PHASE 2 — Authentication
+Duration: 3 days
+Goal: Users can register, log in, and be identified
+
+New files:
+
+server/middleware/auth.ts — Clerk JWT verification middleware
+server/routes/users.ts — user profile CRUD
+src/ui/auth/LoginPage.ts — login/register screen (Clerk hosted UI or embedded)
+src/ui/auth/UserMenu.ts — avatar dropdown in header (profile, settings, logout)
+Contract connection — ElementSchema:
+Contract 03 already defines metadata.createdBy: string on every element. Currently this is unpopulated. After Phase 2, every command receives the authenticated user's ID. This flows into:
+
+CommandMetadata.userId → ElementSchema.metadata.createdBy
+The CommandManager already has userId?: string in CommandMetadata. It just needs wiring to the authenticated session.
+
+Auth flow:
+
+App checks for valid Clerk session on load
+If none → redirect to login page
+On login → Clerk issues JWT → stored in session
+Every API request → Express middleware verifies JWT → injects req.user
+User object synced to users table on first login (Clerk webhook or middleware)
+Rate limiting on Claude proxy:
+Add per-user rate limiting to /api/anthropic/v1/messages immediately. 20 requests/minute per user. This is the single most important cost control.
+
+New API endpoints:
+
+GET /api/me — current user profile
+PUT /api/me — update display name, avatar
+DELETE /api/me — account deletion (GDPR)
+PHASE 3 — Project Infrastructure
+Duration: 4 days
+Goal: Users can create, list, open, and manage projects
+
+New server files:
+
+server/routes/projects.ts — project CRUD endpoints
+server/routes/members.ts — project membership management
+server/db/schema.ts — Supabase client + typed queries
+server/middleware/projectAccess.ts — permission check middleware (runs before every project endpoint)
+New frontend files:
+
+src/ui/platform/ProjectBrowser.ts — homepage: grid of project cards, "New Project" button
+src/ui/platform/ProjectCard.ts — thumbnail, name, last modified, member count, role badge
+src/ui/platform/NewProjectModal.ts — name, description, project type, location
+src/ui/platform/ProjectSettings.ts — project metadata, members panel, danger zone
+src/ui/platform/MemberPanel.ts — list members, invite by email, change role, remove
+Project card shows:
+
+Thumbnail (generated from first save, or a default BIM icon)
+Project name
+Last modified date + who modified
+Member count
+Your role (Admin / Editor / Viewer badge)
+New API endpoints:
+
+GET /api/projects — list projects where user is member
+POST /api/projects — create project (user becomes owner + admin)
+GET /api/projects/:id — get metadata (permission: any member)
+PUT /api/projects/:id — update name/description (permission: admin)
+POST /api/projects/:id/archive — soft delete (permission: admin)
+GET /api/projects/:id/members — list members
+POST /api/projects/:id/members — invite by email (permission: admin)
+PUT /api/projects/:id/members/:userId — change role (permission: admin)
+DELETE /api/projects/:id/members/:userId — remove (permission: admin, cannot remove owner)
+App startup flow change:
+
+Load → check auth → if authenticated, show ProjectBrowser
+User clicks a project → load project → open BIM workspace
+BIM workspace now has a header bar showing: project name, current user, collaborator avatars, save button
+PHASE 4 — Project Persistence (File Versioning)
+Duration: 2 weeks — the most technically careful phase
+Goal: Projects survive browser refresh. Full version history like Forma.
+
+This phase has the deepest contract implications.
+
+4A — ProjectSerializer (new Side System, read-only)
+New file: src/core/persistence/ProjectSerializer.ts
+
+Classification: Side System (alongside BimManager, SemanticGraph). Contract compliance:
+
+Reads stores via store.getAll() — read-only, never writes
+Never calls builders
+Never fires Store Event Bus
+Is not part of the command/store/builder flow
+Serializes all stores to a plain JSON snapshot:
+
+ProjectSnapshot {
+  version: number -- schema version for migration
+  savedAt: number -- timestamp
+  savedBy: string -- user ID
+  projectId: string
+  levels: LevelSnapshot[] -- BimManager level data
+  stores: {
+    walls: WallData[] -- serialized, THREE.js stripped to {x,y,z}
+    slabs: SlabData[]
+    doors: DoorData[]
+    windows: WindowData[]
+    columns: ColumnData[]
+    beams: BeamData[]
+    stairs: StairData[]
+    curtainWalls: CurtainWallData[]
+    furniture: FurnitureData[]
+    plumbing: PlumbingData[]
+    roofs: RoofData[]
+    handrails: HandrailData[]
+    grids: GridData[]
+  }
+  semanticGraph: GraphSnapshot -- all relationships
+  bimManager: BimManagerSnapshot -- levels, elevations
+}
+THREE.js serialisation rule: Every THREE.Vector3 becomes {x,y,z}. Every THREE.Euler becomes {x,y,z,order}. No THREE.js class instances in the JSON. This must be explicit for every store type — tested individually.
+
+4B — ProjectLoader (new Side System)
+New file: src/core/persistence/ProjectLoader.ts
+
+Loads a ProjectSnapshot by dispatching existing Create* commands through CommandManager. No direct store mutation — contract mandatory.
+
+Load sequence (order matters — respects contract and element dependencies):
+
+1. ClearProjectCommand (new — clears all stores, resets scene)
+2. AddLevelCommand × N (levels first — everything references levelId)
+3. AddGridCommand × N
+4. CreateColumnCommand × N
+5. CreateWallCommand × N
+6. CreateSlabCommand × N
+7. CreateBeamCommand × N
+8. CreateStairCommand × N
+9. CreateRoofCommand × N
+10. CreateCurtainWallCommand × N
+11. CreateWindowCommand × N (windows reference walls)
+12. CreateDoorCommand × N (doors reference walls)
+13. CreateFurnitureCommand × N
+14. CreatePlumbingFixtureCommand × N
+15. CreateHandrailCommand × N
+16. RestoreSemanticGraphCommand (new — restores relationships after all elements exist)
+Each Create* command flows through:
+CommandManager.execute() → Store.set() → Store Event Bus → DependencyResolver → Builders → Scene
+
+This is identical to a user creating every element manually. The scene rebuilds deterministically. The contract is fully preserved.
+
+4C — ClearProjectCommand (new command)
+New file: src/commands/project/ClearProjectCommand.ts
+
+Clears all stores and the scene. Used at the start of every project load. Classified A.
+
+4D — Version API
+New server file: server/routes/versions.ts
+
+New API endpoints:
+
+GET /api/projects/:id/versions — list all versions (number, label, thumbnail, created_by, created_at, is_autosave)
+POST /api/projects/:id/versions — save current state as new version. Body: {label, description, snapshot (JSONB), thumbnail_url}
+GET /api/projects/:id/versions/:versionId — get specific version snapshot
+POST /api/projects/:id/versions/:versionId/restore — restore a version (creates a new version first for safety, permission: admin)
+DELETE /api/projects/:id/versions/:versionId — delete a version (permission: admin, cannot delete if only one)
+4E — Version UI
+New files:
+
+src/ui/platform/VersionPanel.ts — slide-out panel from right edge
+src/ui/platform/VersionCard.ts — version number, label, timestamp, user avatar, thumbnail, Restore button
+src/ui/platform/SaveVersionModal.ts — label input, description, preview thumbnail
+Version Panel shows:
+
+Named versions (sorted newest first)
+Auto-saves (collapsible section)
+Each version: thumbnail, version number, label, date, author
+"Restore" button (disabled for viewers)
+"Delete" button (admin only)
+Save version flow:
+
+User clicks "Save Version" button in header
+SaveVersionModal opens — user types label and optional description
+On confirm: ProjectSerializer.serialize() → POST to /api/projects/:id/versions
+Server increments version_number, stores JSONB snapshot
+Auto-save: every 5 minutes if there are unsaved changes — creates version with is_autosave: true
+Unsaved changes indicator:
+Listen to Store Event Bus. Any StoreChangeEvent sets the "unsaved" flag in the header save button. Cleared on save.
+
+PHASE 5 — Admin Panel
+Duration: 4 days
+Goal: Platform admins can manage all users and projects
+
+New frontend files:
+
+src/ui/admin/AdminShell.ts — separate route /admin, only accessible to platform_admin role
+src/ui/admin/UserManagement.ts — table: all users, email, name, role, joined date, last seen, Active/Suspended toggle
+src/ui/admin/ProjectManagement.ts — table: all projects, owner, member count, version count, status, created date
+src/ui/admin/UsageStats.ts — total users, active this week, Claude API calls this month, storage used
+src/ui/admin/AuditLogViewer.ts — filterable table: user, action, target, timestamp, IP
+New API endpoints (platform_admin only):
+
+GET /api/admin/users — all users with stats
+PUT /api/admin/users/:id — change role, suspend, reactivate
+DELETE /api/admin/users/:id — hard delete (GDPR)
+GET /api/admin/projects — all projects across all users
+GET /api/admin/audit-log — full audit log with filters (user, date range, action type)
+GET /api/admin/stats — usage statistics
+Account Settings page (every user):
+
+src/ui/platform/AccountSettings.ts
+Profile: display name, avatar upload, email (via Clerk)
+Security: change password, connected accounts (via Clerk)
+Notifications: email preferences
+Danger zone: delete account
+PHASE 6 — Real-Time Multi-User Collaboration
+Duration: 2 weeks
+Goal: Multiple users in the same project simultaneously, live command streaming
+
+6A — WebSocket Server
+New server file: server/realtime/SocketServer.ts
+
+Uses Socket.io. Rooms are keyed by project_id.
+
+Events — Client → Server:
+
+join_project {projectId, userId, sessionId} → validate permission → join room → broadcast presence
+leave_project {projectId, sessionId} → leave room → broadcast departure
+execute_command {projectId, command: SerializedCommand, clientTs} → validate → store in DB → broadcast to room
+cursor_move {projectId, position: {x,y,z}} → broadcast to room (not stored)
+ping → update last_ping_at
+Events — Server → Client:
+
+user_joined {userId, displayName, avatarUrl, sessionId} → show avatar in presence bar
+user_left {sessionId} → remove avatar
+command_broadcast {command: SerializedCommand, userId, serverSeq} → client replays
+cursor_update {sessionId, userId, position} → update cursor indicator
+error {code, message} → show notification
+6B — Client-Side Command Sync
+New file: src/core/realtime/RealtimeCommandSync.ts
+
+Classification: UI/Tool layer (dispatches to CommandManager, never to stores directly). Contract compliance: all incoming remote commands go through CommandManager.execute(cmd, {source: 'REMOTE_USER', userId}).
+
+Local execute flow:
+
+User action → CommandManager.execute(cmd) → scene updates locally
+            → cmd.serialize() → WebSocket → server → broadcast
+Remote receive flow:
+
+WebSocket message → deserialize to Command instance (CommandType → class map)
+                 → CommandManager.execute(cmd, {source: 'REMOTE_USER'})
+                 → Store → Stor

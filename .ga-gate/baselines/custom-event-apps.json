@@ -1,0 +1,5 @@
+{
+  "count": 4,
+  "ratchedAt": "2026-05-17T05:35:22.227Z",
+  "comment": "G-NEW-04: CustomEvent dispatches in apps/editor/src/. Target: 0 (Phase F.events.2c). Use CUSTOMEVENT_APPS_CEILING env var to step ceiling down per sprint. Replace with runtime.events.emit() — see PryzmRuntimeEvents in packages/runtime-composer/src/types.ts."
+}

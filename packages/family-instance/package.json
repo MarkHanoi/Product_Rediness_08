@@ -1,0 +1,28 @@
+{
+  "name": "@pryzm/family-instance",
+  "version": "0.1.0",
+  "description": "PRYZM 2 — pure-Node family-instance bake pipeline (S56 D2/D3).  bakeFamilyInstance({ family, typeId, instanceOverrides }) resolves the family's parameters via @pryzm/family-runtime, evaluates each profile to a closed polygon, and dispatches @pryzm/geometry-kernel producers (extrude/sweep/loft/revolve).  Returns one BufferGeometryDescriptor per solid.  No THREE — the editor's THREE-side wrapper (FamilyInstanceCommitter) lives in apps/component-editor and consumes these descriptors.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@pryzm/family-runtime": "workspace:*",
+    "@pryzm/file-format": "workspace:*",
+    "@pryzm/geometry-kernel": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

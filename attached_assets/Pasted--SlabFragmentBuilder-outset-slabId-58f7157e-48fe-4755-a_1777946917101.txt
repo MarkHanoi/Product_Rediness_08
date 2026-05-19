@@ -1,0 +1,230 @@
+[SlabFragmentBuilder] outset slabId="58f7157e-48fe-4755-abea-110b5dd0d51f" vertices=21 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="58f7157e-48fe-4755-abea-110b5dd0d51f" outerVertices=21 elapsed=0.2ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="58f7157e-48fe-4755-abea-110b5dd0d51f" totalMs=1.9ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="3cefe121-465a-4391-bd1d-4d94064ca99b" vertices=21 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="3cefe121-465a-4391-bd1d-4d94064ca99b" outerVertices=21 elapsed=0.4ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="3cefe121-465a-4391-bd1d-4d94064ca99b" totalMs=1.6ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="aae81104-d53c-4c83-9428-43d230ef9265" vertices=21 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="aae81104-d53c-4c83-9428-43d230ef9265" outerVertices=21 elapsed=0.2ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="aae81104-d53c-4c83-9428-43d230ef9265" totalMs=2.6ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="9148bb3b-2700-4a7b-943a-ddaad2e4611b" vertices=21 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="9148bb3b-2700-4a7b-943a-ddaad2e4611b" outerVertices=21 elapsed=0.4ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="9148bb3b-2700-4a7b-943a-ddaad2e4611b" totalMs=2.2ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="870d8b1a-4d3b-4565-bf99-9398752980c5" vertices=21 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="870d8b1a-4d3b-4565-bf99-9398752980c5" outerVertices=21 elapsed=0.3ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="870d8b1a-4d3b-4565-bf99-9398752980c5" totalMs=3.0ms
+injected.js:37 [SlabFragmentBuilder] RAF_DRAIN built=5 remaining=0 queueBefore=5 frameMs=13.6ms
+injected.js:37 [SlabFragmentBuilder] rAF queue drained — signalling BatchCoordinator.
+injected.js:37 [BatchCoordinator] Build queue drained — beginning registration drain (0 queued / 5 expected).
+injected.js:37 [BatchCoordinator] §REG-MANY-P2: queue ≤ 50 entries (0) — draining synchronously (0 rAF frames).
+injected.js:37 [StoreEventBus] endBatchYielded() — 5 event(s) will be delivered in 1 chunk(s) of 200 via frame scheduler.
+injected.js:37 [FPS] 3fps
+injected.js:37 [LONGTASK] duration=194.0ms start=125956.4ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [LONGTASK] duration=300.0ms start=126173.9ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [StoreEventBus] endBatchYielded() — all 5 event(s) delivered across 1 chunk(s) (last: 0.8ms). Calling onComplete().
+injected.js:37 [BatchCoordinator] §PERF-VIEW-BATCH-SUPPRESS: suppression lifted; markLevelsDirty(5 level(s)) scheduled.
+injected.js:37 [UnifiedFrameLoop] §PERF-VIEW-BATCH-SUPPRESS: suppression lifted — OBC+PASCAL resuming; first render compiles all deferred shaders.
+injected.js:37 [BatchCoordinator] Final sweep: firing 5 REDETECT_ROOMS command(s) (one per affected level). Observers re-enabled. StoreEventBus flushed (depth now 0).
+injected.js:37 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+injected.js:37 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+injected.js:37 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed out of 1 live room(s).
+injected.js:37 [NativeElementMeshExporter] Plan view — exporting 23 elements from levels overlapping Y=[-1.20, 0.00]
+injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+injected.js:37 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+injected.js:37 [EdgeProjectorService] Native projection done — 22 group(s), 22 edge geometries across 22 ISO layer(s) (per-element UUID tagging active)
+injected.js:37 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=4 (OBC-IFC=0, native=22, ifc-scene=0)
+injected.js:37 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=7/14 layers
+injected.js:37 [LONGTASK] duration=131.0ms start=126593.5ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [LONGTASK] duration=480.0ms start=126728.2ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+injected.js:37 [GPU Monitor] geometries:35 textures:8 | drawCalls:1 tris:1
+injected.js:37 [LONGTASK] duration=94.0ms start=127251.9ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [initDataPlatform] H-1: Physics compute enqueued for all rooms after project load (idle)
+injected.js:37 [FPS] 9fps
+injected.js:37 [LONGTASK] duration=50.0ms start=127745.3ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [captureThumbnail] Thumbnail captured: 128×225px, ~4KB
+injected.js:37 [PlatformSaveController] Post-load thumbnail saved for project proj-1777946301570-lj6l71s (~4 KB)
+injected.js:37 [BatchCoordinator/P1.3] Post-batch PBR upgrade complete: 103 mesh(es) in 1 chunk(s) (§FIX-POST-BATCH-PBR-CHUNK).
+injected.js:37 [LONGTASK] duration=50.0ms start=128269.6ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [ProjectSerializer] Snapshot created: 33 elements, 6 levels, 21 walls, 11 slabs, 0 furniture
+injected.js:37 [ProjectSerializer] Snapshot created: 33 elements, 6 levels, 21 walls, 11 slabs, 0 furniture
+injected.js:37 [captureThumbnail] Thumbnail captured: 128×225px, ~4KB
+injected.js:37 [PlatformSaveController] Thumbnail: captured (~4KB)
+injected.js:37 [PlatformSaveController] Version saved: "Auto-save" (33 elements, id: proj-1777946610000-pfmk7)
+injected.js:37 [FPS] 26fps
+injected.js:37 [LONGTASK] duration=289.0ms start=128386.6ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+2injected.js:37 [PlatformSaveController] Thumbnail uploaded to server for project proj-1777946301570-lj6l71s
+injected.js:214  POST https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/api/projects/proj-1777946301570-lj6l71s/versions 403 (Forbidden)
+apply @ injected.js:214
+(anonymous) @ apiFetch.ts:65
+(anonymous) @ ServerSyncQueue.ts:253
+(anonymous) @ ServerSyncQueue.ts:228
+(anonymous) @ ServerSyncQueue.ts:208
+setTimeout
+(anonymous) @ ServerSyncQueue.ts:208
+(anonymous) @ ServerSyncQueue.ts:178
+(anonymous) @ PlatformSaveController.ts:251
+(anonymous) @ PlatformSaveController.ts:57
+(anonymous) @ SaveOrchestrator.ts:233
+(anonymous) @ SaveOrchestrator.ts:214
+setTimeout
+(anonymous) @ SaveOrchestrator.ts:213
+(anonymous) @ SaveOrchestrator.ts:190
+setTimeout
+(anonymous) @ SaveOrchestrator.ts:190
+(anonymous) @ SaveOrchestrator.ts:183
+(anonymous) @ SaveOrchestrator.ts:147
+(anonymous) @ SlabStore.ts:153
+(anonymous) @ SlabStore.ts:204
+(anonymous) @ CreateSlabCommand.ts:134
+(anonymous) @ CreateSlabsOnAllFloorsCommand.ts:103
+(anonymous) @ StoreEventBus.ts:110
+runBatch @ BatchCoordinator.ts:443
+(anonymous) @ CreateSlabsOnAllFloorsCommand.ts:119
+(anonymous) @ CommandManager.ts:129
+(anonymous) @ RemoteCommandDispatcher.ts:96
+(anonymous) @ RemoteCommandDispatcher.ts:137
+(anonymous) @ initCollaboration.ts:680
+await in (anonymous)
+(anonymous) @ initCollaboration.ts:403
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48
+injected.js:37 [ServerSyncQueue] Version "Auto-save" rejected by server (403) — dropping: {error: 'Version history is not available on your current plan.', plan: 'free', upgrade: 'architect'}
+(anonymous) @ injected.js:37
+(anonymous) @ ServerSyncQueue.ts:276
+await in (anonymous)
+(anonymous) @ ServerSyncQueue.ts:228
+(anonymous) @ ServerSyncQueue.ts:208
+setTimeout
+(anonymous) @ ServerSyncQueue.ts:208
+(anonymous) @ ServerSyncQueue.ts:178
+(anonymous) @ PlatformSaveController.ts:251
+(anonymous) @ PlatformSaveController.ts:57
+(anonymous) @ SaveOrchestrator.ts:233
+(anonymous) @ SaveOrchestrator.ts:214
+setTimeout
+(anonymous) @ SaveOrchestrator.ts:213
+(anonymous) @ SaveOrchestrator.ts:190
+setTimeout
+(anonymous) @ SaveOrchestrator.ts:190
+(anonymous) @ SaveOrchestrator.ts:183
+(anonymous) @ SaveOrchestrator.ts:147
+(anonymous) @ SlabStore.ts:153
+(anonymous) @ SlabStore.ts:204
+(anonymous) @ CreateSlabCommand.ts:134
+(anonymous) @ CreateSlabsOnAllFloorsCommand.ts:103
+(anonymous) @ StoreEventBus.ts:110
+runBatch @ BatchCoordinator.ts:443
+(anonymous) @ CreateSlabsOnAllFloorsCommand.ts:119
+(anonymous) @ CommandManager.ts:129
+(anonymous) @ RemoteCommandDispatcher.ts:96
+(anonymous) @ RemoteCommandDispatcher.ts:137
+(anonymous) @ initCollaboration.ts:680
+await in (anonymous)
+(anonymous) @ initCollaboration.ts:403
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48
+injected.js:37 [ServerSyncQueue] Plan-gating latch engaged — future versions will stay local-only this session.
+(anonymous) @ injected.js:37
+(anonymous) @ ServerSyncQueue.ts:301
+await in (anonymous)
+(anonymous) @ ServerSyncQueue.ts:228
+(anonymous) @ ServerSyncQueue.ts:208
+setTimeout
+(anonymous) @ ServerSyncQueue.ts:208
+(anonymous) @ ServerSyncQueue.ts:178
+(anonymous) @ PlatformSaveController.ts:251
+(anonymous) @ PlatformSaveController.ts:57
+(anonymous) @ SaveOrchestrator.ts:233
+(anonymous) @ SaveOrchestrator.ts:214
+setTimeout
+(anonymous) @ SaveOrchestrator.ts:213
+(anonymous) @ SaveOrchestrator.ts:190
+setTimeout
+(anonymous) @ SaveOrchestrator.ts:190
+(anonymous) @ SaveOrchestrator.ts:183
+(anonymous) @ SaveOrchestrator.ts:147
+(anonymous) @ SlabStore.ts:153
+(anonymous) @ SlabStore.ts:204
+(anonymous) @ CreateSlabCommand.ts:134
+(anonymous) @ CreateSlabsOnAllFloorsCommand.ts:103
+(anonymous) @ StoreEventBus.ts:110
+runBatch @ BatchCoordinator.ts:443
+(anonymous) @ CreateSlabsOnAllFloorsCommand.ts:119
+(anonymous) @ CommandManager.ts:129
+(anonymous) @ RemoteCommandDispatcher.ts:96
+(anonymous) @ RemoteCommandDispatcher.ts:137
+(anonymous) @ initCollaboration.ts:680
+await in (anonymous)
+(anonymous) @ initCollaboration.ts:403
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48
+injected.js:37 [FPS] 35fps
+injected.js:37 [PickResolver] strategy=gpu-pick hit=870d8b1a-4d3b-4565-bf99-9398752980c5
+injected.js:37 [LevelPlaneConstraint] Locked Y=14.8000 for element "Slab" id="870d8b1a-4d3b-4565-bf99-9398752980c5"
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [LONGTASK] duration=92.0ms start=130193.2ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [LONGTASK] duration=124.0ms start=130286.3ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]

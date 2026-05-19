@@ -1,0 +1,52 @@
+{
+  "name": "@pryzm/bench",
+  "version": "0.1.0",
+  "description": "PRYZM 2 — micro-bench harness.  Vitest-driven timing wrappers, per-bench JSON output, baseline regression gate.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "bench": "vitest run --config vitest.config.ts",
+    "bench:baseline": "node ./scripts/run-baseline.mjs",
+    "bench:check": "node ./scripts/check-regression.mjs"
+  },
+  "dependencies": {
+    "@pryzm/command-bus": "workspace:*",
+    "@pryzm/file-format": "workspace:*",
+    "@pryzm/frame-scheduler": "workspace:*",
+    "@pryzm/geometry-kernel": "workspace:*",
+    "@pryzm/persistence-client": "workspace:*",
+    "@pryzm/picking": "workspace:*",
+    "@pryzm/plugin-toy-cube": "workspace:*",
+    "@pryzm/plugin-wall": "workspace:*",
+    "@pryzm/plugin-curtain-wall": "workspace:*",
+    "@pryzm/scene-committer": "workspace:*",
+    "@pryzm/protocol": "workspace:*",
+    "@pryzm/schemas": "workspace:*",
+    "@pryzm/stores": "workspace:*",
+    "@pryzm/editor": "workspace:*",
+    "@pryzm/runtime-composer": "workspace:*",
+    "@pryzm/ui-base": "workspace:*",
+    "@pryzm/storage-driver": "workspace:*",
+    "@pryzm/bake-worker": "workspace:*",
+    "@pryzm/sync-server": "workspace:*",
+    "@pryzm/plugin-bcf": "workspace:*",
+    "@pryzm/plugin-ifc-import": "workspace:*",
+    "@pryzm/plugin-ifc-export": "workspace:*",
+    "@pryzm/family-loader": "workspace:*",
+    "@pryzm/ai-cost": "workspace:*",
+    "@pryzm/plugin-sdk": "workspace:*",
+    "ulid": "^3.0.1",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.13",
+    "esbuild": "^0.28.0",
+    "gzip-size": "^7.0.0",
+    "jsdom": "^25.0.1",
+    "pixelmatch": "^7.1.0",
+    "pngjs": "^7.0.0",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

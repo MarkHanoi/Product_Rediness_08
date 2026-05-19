@@ -1,0 +1,29 @@
+{
+  "id": "u-shape-residential",
+  "description": "U-shape 16-riser residential stair, 1.0 m wide, at grade",
+  "stair": {
+    "id": "stair:ush-res",
+    "type": "stair",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "topLevelId": "level:1",
+    "shape": "u-shape",
+    "origin": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "rotation": 0,
+    "treadDepth": 0.28,
+    "riserHeight": 0.18,
+    "width": 1,
+    "numRisers": 16
+  },
+  "worldY": 0
+}

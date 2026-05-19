@@ -1,0 +1,10 @@
+{
+  "name": "renderer.pass-cost.total",
+  "samples": 200,
+  "p50": 7.212,
+  "p95": 7.221,
+  "p99": 7.396,
+  "budgetMs": 8,
+  "warnMs": 6.4,
+  "recordedAt": "2026-04-27T22:47:50.233Z"
+}

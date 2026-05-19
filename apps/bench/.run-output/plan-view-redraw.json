@@ -1,0 +1,9 @@
+{
+  "name": "plan-view-redraw",
+  "p50": 0.010564000000158558,
+  "p95": 0.03338800000028641,
+  "samples": 500,
+  "unit": "ms",
+  "nftTarget": 100,
+  "notes": "NFT-5 headless proxy per 01-VISION.md §5. Measures WallStore applyPatch() → subscribeDirty() notification latency (store pipeline only). Full plan-view redraw including canvas 2D drawing is in apps/editor-bench/ (Wave 13 browser harness)."
+}

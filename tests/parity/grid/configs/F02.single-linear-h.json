@@ -1,0 +1,35 @@
+{
+  "id": "F02.single-linear-h",
+  "description": "single horizontal linear axis",
+  "grid": {
+    "id": "grid:01HZS000000000000GRDF0200",
+    "type": "grid",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "rotation": 0,
+    "lines": [
+      {
+        "id": "h1",
+        "label": "1",
+        "kind": "linear",
+        "start": {
+          "x": 0,
+          "y": 0,
+          "z": 5
+        },
+        "end": {
+          "x": 10,
+          "y": 0,
+          "z": 5
+        }
+      }
+    ]
+  },
+  "worldY": 0
+}

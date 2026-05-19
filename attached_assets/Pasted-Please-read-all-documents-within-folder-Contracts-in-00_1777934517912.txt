@@ -1,0 +1,278 @@
+Please read all documents within folder:
+Contracts in 00_Contracts
+All files in 03_PRYZM03
+SPECIALLY FOCUSSED ON THE 00-PROCESS-TRACKER, 01-VISION, 02-ARCHITECTURE and 03-CURRENT-STATE.md.
+Afer, Please check all waves documents from within: 04-PLAN-FORWARD
+We need to improve the performance of the curtain wall batch creation - is taking tooooo long - we need to improve the performance - is the BATCH CURTAIN WALL BY SLAB PROFILES PROCESS THE BEST WE CAN GET? IS IT FOLLOWING BY THE BOOK? all steps described on the contract and important docs?: 00_Contracts, 03_PRYZM3 > 32-TASK-WALL-CURTAINWALL-CMD-BUS-AUDIT.md, 33-PHASE-E5X-COMMANDMANAGER-FULL-MIGRATION.md, 34-HANDLER-PROTOCOL-GAP-ANALYSIS.md, PlEASE CHECK THE FOLLOWING; FIRST AATTCHEMENT I CREATE THE CURTAIN WALLS VIA COMMAND NORMAL: NormalCW.md, - then i created them via command normal, but i turn the camera on the scene so that we dont see the geometry - what means? it means that the creation takes nothings - however, the visualise the elements again takes time NOTLOOKINGCW.md (second attachment) - i want you analyse bottlenecks - check if the implementation has some errors and chck if the orchestration and architecture can be improve - i would like it be way quicker
+
+
+Show less
+38 minutes ago
+
+Show less
+
+Analyzing document retrieval strategy
+Let me read all the required documents in parallel to get a full picture before analyzing the performance issue.
+
+
+12 actions
+Now I have the full map. Let me read all the critical documents in parallel.
+
+
+14 actions
+Now let me read the remaining critical documents — PROCESS-TRACKER, VISION, ARCHITECTURE, CURRENT-STATE, and the actual source code for the curtain wall command and builder.
+
+
+4 actions
+Let me now read the actual source files for the curtain wall command and builder to complete my analysis.
+
+
+6 actions
+Let me read the remaining critical source files in parallel before writing the analysis.
+
+
+4 actions
+Now I have everything. Let me deliver the full analysis.
+
+Performance Analysis: CREATE_CURTAIN_WALLS_ON_ALL_SLABS
+1. What the logs actually measured
+Two captures were taken: NormalCW (camera on) and NOTLOOKINGCW (camera facing empty sky). Both are identical in timing — the batch completes in ~2210 ms across 21 slabs, producing 231 curtain walls across 11 levels.
+
+This is the critical finding from the paired test: the 2210 ms is entirely data-processing time, not rendering. Turning the camera away changes nothing because §BATCH-CW-PAUSE correctly defers all geometry to rAF. The rAF drain (BimManager registration + geometry build) is a separate cost that occurs after COMPLETE and is, by contract, off the critical path.
+
+The per-slab elapsed times from the logs exhibit a clear growth curve:
+
+Slab #	Elapsed (ms)	Δ from previous
+1	~13	—
+2	~31	+18
+3	~39	+8
+4	~62	+23
+5	~72	+10
+6	~94	+22
+7	~116	+22
+8	~175	+59
+9	~144	−31 (variance)
+…	…	…
+21	~237	—
+This is a near-textbook O(n²) accumulation — the cost of processing slab N scales with the total number of walls already committed to the store at that point.
+
+The C10 §3.2 NFT target for AI batch commands is ≤ 500 ms. At 2210 ms this is 4.4× over budget.
+
+2. Architecture compliance: what is correct
+Before cataloguing problems, it is worth being precise about what the Sprint A36/A37 work has made genuinely correct, because the audit trail in §9 of doc 34 is authoritative and accurately records it:
+
+✅ §BATCH-CW-PAUSE is active and confirmed
+The log shows [CurtainWallBuilder] §BATCH-CW-PAUSE: resumeAndFlush — 231 walls transferred to pending queue, 1 rAF drain scheduled firing at the correct moment — after storeEventBus.batch(fn) returns, before endBatch(). The CurtainWallBuilder._pendingBuildsMap dedup (Map-based, no duplicate builds on same wall ID) is working. All 231 walls land in the rAF queue in a single transfer.
+
+✅ FrameScheduler.schedule('pre-render', fn) is the drain mechanism
+Five call sites in CurtainWallBuilder all use the canonical FrameScheduler.schedule() API (A32). No raw requestAnimationFrame calls remain. check-raf-count.ts → 1 owner. This is correct per C11 §5.2 / §6.1.
+
+✅ endBatchYielded() is active (P1.4, A36)
+The NOTLOOKINGCW log shows: [StoreEventBus] endBatchYielded() — 9135 event(s) will be delivered in 46 chunk(s) of 200 via frame scheduler. The 9135-event flush that would previously have been a single synchronous ~500 ms LONGTASK is now distributed across 46 'pre-render' frames of ≤ 16 ms each. This is correct and complete per C11 §4.2 / C04 §3. The implementation is sound: StoreEventBus has no direct @pryzm/frame-scheduler import (the scheduler is injected by BatchCoordinator, honouring the C01 §2 layer boundary).
+
+✅ §PERF-BATCH-BUS (A37): double polygon iteration eliminated
+busCwSpecs: Array<CreateCurtainWallPayload> is now pre-populated during the first _processSlabs() pass (guarded !isRedo). The previous O(n·m) second polygon/winding/edge-loop iteration that re-scanned every slab after _processSlabs() returned has been deleted. This was a legitimate fix but addresses the setup cost, not the dominant per-slab accumulation.
+
+✅ §PERF-ADAPTIVE-DRAIN (A37): drain-phase adaptive budget
+CurtainWallBuilder._buildsPerFrame starts at 5, caps at 12, floors at 2, and self-adjusts each drain cycle based on frameMs. This is correct for the geometry drain phase and prevents the drain from starving other frame work. It does not affect the 2210 ms command-loop time since the drain is entirely post-COMPLETE.
+
+✅ BatchCoordinator watchdog (A36)
+30 s timeout in runBatch() ensures the batch bracket always closes — a last-resort safety net if signalBuildQueueDrained() is never called. Correct per C11 §4.2.
+
+✅ P1.3 post-batch mesh traversal deferred (A36)
+The 556-mesh scene.traverse() (shadow flags + PBR upgrade) now fires in scheduleOnce('post-render'), not setTimeout(0). Users see geometry first, then shadow/PBR enhances it. Eliminates the "second freeze" perception.
+
+3. Bottleneck 1: O(n²) accumulation in the command loop — DOMINANT (≈ 2210 ms)
+This is the root cause of the NFT breach. The per-slab times grow monotonically as the curtainWallStore grows, producing the characteristic curve above.
+
+Where it comes from:
+
+Inside CreateCurtainWallsOnAllSlabsCommand._processSlabs(), for each slab in the outer loop, the command calls curtainWallStore.add() (or equivalent) once per wall on that slab — creating 17–21 walls per iteration. Each curtainWallStore.add() call runs synchronously and, critically, triggers the store's internal subscriber notification path.
+
+Although storeEventBus.batch() is active (depth ≥ 1), the store-internal subscriber loop runs before the event reaches the bus — this is not buffered by the bus. The store notifies its own listeners (which include _pendingBuildsMap dedup guards, geometry-builder listeners, CurtainPanelSyncHandler, RoomTopologyObserver, and others) synchronously, inline, per add() call.
+
+Because these listeners iterate over Map entries or subscriber arrays that grow with the store size, the per-add() cost is O(current store size). After N slabs have been processed (each with W walls), the store has N×W walls. Processing slab N+1 means each of its W add() calls costs O(N×W). The total inner loop cost across all slabs is:
+
+Σ(i=1 to S) W × O(i × W) = O(S² × W²)
+
+For S=21 slabs, W≈11 walls/slab: 21² × 11² ≈ 53,361 units of work — matches the observed growth.
+
+The doc 34 §9.4 diagnosis confirms this specifically:
+
+"root cause is O(n²) wall-intersection detection as wall count grows per slab. Requires SlabWallCoupling / spatial-query optimization."
+
+The Wall-Intersection detection (checking whether a new curtain wall collides with or couples to existing walls) is the hottest inner operation. RoomTopologyObserver is attached to CurtainWallStore (confirmed in the boot log: [RoomTopologyObserver] attached to CurtainWallStore). Every add() call on the curtain wall store causes the observer to re-evaluate spatial relationships against the full current wall set.
+
+Fix path:
+
+There are two independent interventions:
+
+Fix 3a — addMany() API on curtainWallStore (C11 §4.2 required for batch paths): Instead of calling store.add(wall) N times, call store.addMany(walls) once per slab. The store fires subscriber notifications once (after all items are committed), not once per item. The RoomTopologyObserver and CurtainPanelSyncHandler listeners execute once per slab batch instead of once per wall. This converts the dominant inner cost from O(W_per_slab × current_store_size) to O(1) notification firings per slab, reducing total complexity from O(S²×W²) toward O(S×W).
+
+Fix 3b — Spatial index for wall-intersection queries: The SlabWallCoupling query that currently iterates the full curtain wall store to find intersections should use a spatial index (e.g., topologySpatialIndex — already initialised in the boot log). Replace the O(n) linear scan with an O(log n) range query. This caps the per-wall cost at O(log total_walls) regardless of store size.
+
+Both fixes are required — 3a eliminates the notification-loop accumulation; 3b eliminates the spatial scan accumulation. Either alone gives partial improvement; both together bring the 21-slab case from ~2210 ms toward the sub-500 ms NFT.
+
+4. Bottleneck 2: BimManager serial registration drain — SECONDARY (visible but post-COMPLETE)
+The log shows 231 sequential lines of:
+
+[BimManager] Registered element <uuid> to level L-0x-<timestamp>-x
+
+These fire synchronously in one block after signalBuildQueueDrained() (i.e., after the rAF drain empties). Each BimManager.registerElement() call appends to the level's element list and fires a level-update notification. With 231 walls across 11 levels, this is 231 sequential notify-and-update cycles.
+
+This is not in the 2210 ms window — it contributes to the time-to-first-visible-geometry gap (the user sees the loading indicator go away, then watches the building appear incrementally). In the NormalCW log, the registration block takes ~300–400 ms and is the main "after-COMPLETE latency" visible to the user.
+
+This registration drain does NOT use addMany() or batch notification. BimManager receives individual curtainwall-added events from endBatchYielded() chunks, and processes each one synchronously when it arrives.
+
+Fix path:
+
+Introduce a BimManager.registerMany(elements[]) method that does one pass over the element array, groups by level, and fires one notification per level (not one per element). Call this from the endBatchYielded() onComplete callback (or from a dedicated onBatchComplete hook in BatchCoordinator). For 231 walls across 11 levels, this replaces 231 notify calls with 11 — a 21× reduction.
+
+Alternatively, the existing endBatchYielded() chunked dispatch already groups events by frame (200 per 'pre-render' frame). If BimManager subscribes to the bus and processes the entire chunk at once rather than registering a per-element listener, the registration could be batch-grouped at the chunk boundary. This requires no new API — only a change to how BimManager subscribes.
+
+5. Bottleneck 3: Legacy commandManager.execute() routing — STRUCTURAL GAP
+The log shows:
+
+[CommandManager] EXECUTE: CREATE_CURTAIN_WALLS_ON_ALL_SLABS
+
+This is the legacy path, not runtime.commandBus.dispatch(). The live codebase has 201 active commandManager.execute() sites across 124 files in src/ — CreateCurtainWallsOnAllSlabsCommand.ts is one of the 265 legacy command classes in src/engine/subsystems/commands/ that have not yet been migrated to plugin handlers.
+
+Contracts violated by the legacy path:
+
+Contract	Clause	Violation
+C11 §8.1	commandManager.execute() MUST NOT be called for element creation	✅ violated — this is the only call path for this command
+C11 §5.2	Handler MUST have affectedStores declared	❌ no affectedStores — legacy class, not a plugin handler
+C10 §2	Every handler MUST have ≥1 OTel span (merge blocker)	❌ no withHandlerSpan — the 183/183 gate covers plugin handlers only
+C03 §4.2	Every source: 'user' command MUST push to RingBufferUndoStack	❌ no ULID, no PatchPair, no ring buffer entry
+C03 §2.2	Commands MUST carry ULID stamps	❌ CommandManager doesn't stamp ULIDs
+C03 §5	Wire types MUST be serialisable (MessagePack)	❌ not a typed EventRecord — never reaches PatchEmitter
+Does this affect the 2210 ms? Not directly. The legacy routing path is functionally equivalent for the execution of the command body — _processSlabs() runs the same code regardless of whether it was invoked via commandManager.execute() or commandBus.dispatch(). The performance cost from the legacy path is near-zero.
+
+The legacy path does prevent the following performance observability tooling from working on this command:
+
+OTel span trace — no span is emitted, so you cannot see this command in Jaeger/Honeycomb traces. The 2210 ms shows up as an opaque black box with no sub-span breakdown.
+event_log Postgres table — no row is inserted for this command invocation. The audit trail has a gap.
+endBatchYielded() is wired through BatchCoordinator._executeFinalSweep() (correct) — this works even on the legacy path because BatchCoordinator is injected directly and called from within the command body, not from the dispatcher.
+Fix path:
+
+Migrate CreateCurtainWallsOnAllSlabsCommand to plugins/curtain-wall/src/handlers/CreateCurtainWallsOnAllSlabsHandler.ts, following the same pattern as CreateCurtainWallBatch.ts. Register as 'curtain-wall.create-on-all-slabs' in commands.ts. Wire withHandlerSpan, affectedStores: ['curtainwall', 'curtain-panel'], and produceCommand<CurtainWallsState>. Add the call site in whatever UI/AI entry-point currently calls commandManager.execute('CREATE_CURTAIN_WALLS_ON_ALL_SLABS', ...) to use runtime.bus.executeCommand('curtain-wall.create-on-all-slabs', payload) instead. This is Wave A21 scope per the migration plan in doc 33.
+
+6. What is correctly staged and should not be touched
+The following are complete, verified, and must not be reverted or re-implemented:
+
+Item	Evidence
+§BATCH-CW-PAUSE — Map dedup + pause/resumeAndFlush	Live log: resumeAndFlush — 231 walls transferred
+§PERF-ADAPTIVE-DRAIN — _buildsPerFrame adaptive budget	Doc 34 §0: 5 hits in CurtainWallBuilder ✅
+§PERF-BATCH-BUS — hoisted busCwSpecs, deleted second polygon pass	Doc 34 §0: grep busCwSpecs → ✅
+§BATCH-LOADING-INDICATOR — BatchLoadingIndicator wired	Doc 34 §0: ✅ A37 DONE
+P1.4 endBatchYielded() — 9135 events in 46 chunks	NOTLOOKINGCW log: chunk 1/46, 2/46 … ✅
+P1.3 post-render slot — 556-mesh traverse deferred	Doc 34 §9.3 ✅
+BatchCoordinator watchdog — 30 s timeout	Doc 34 §9.3 ✅
+FrameScheduler.schedule('pre-render') in CurtainWallBuilder	Doc 34 §0: 5 hits ✅; check-raf-count.ts → 1 owner
+7. Prioritised fix list with expected impact
+Priority	Fix	Expected time saving	Sprint
+P0	curtainWallStore.addMany() — one notification per slab batch instead of one per wall	~1400–1700 ms (eliminates the subscriber-loop accumulation — the dominant O(n²) term)	Wave A21
+P1	Spatial index for SlabWallCoupling / wall-intersection queries (use topologySpatialIndex)	~300–400 ms (eliminates the linear scan over the growing store per intersection check)	Wave A21
+P2	BimManager.registerMany() — group 231 element registrations into 11 level-keyed batches	~250–350 ms off the post-COMPLETE first-visible latency	Wave A21
+P3	Migrate to plugin handler path (curtain-wall.create-on-all-slabs)	0 ms on 2210 ms — no execution-time saving, but unlocks OTel traces, event_log rows, ULID stamping, and ring-buffer undo coverage	Wave A21 (doc 33)
+With P0 + P1 together, the expected command-loop time for 21 slabs / 231 walls is:
+
+O(S×W) notification cost ≈ 21 × 11 × O(1) ≈ ~60–80 ms (store mutations only)
+O(S×W×log(S×W)) spatial queries ≈ 231 × log(231) × small constant ≈ ~30–50 ms
+Total estimated: ~100–150 ms — well inside the C10 §3.2 ≤ 500 ms NFT
+8. One thing the analysis cannot yet pinpoint
+The exact hot path inside curtainWallStore.add() requires a Perfetto / Chrome DevTools trace with JavaScript profiler running during the command. The analysis above is derived from log timestamps and source-code structure — it identifies what is O(n²) and where it lives, but cannot give instruction-level breakdown without a flame graph. The doc 34 §9.2 forensic recommendation ("Profile curtainWallStore.add() under Perfetto to identify the exact subscriber-notification hot path") stands. Before starting P0, capture a 10 s Perfetto trace while the batch runs — it will confirm which specific subscriber function accounts for the growing per-slab cost and whether P0 alone is sufficient or P1 is also required.
+
+Summary verdict
+The CREATE_CURTAIN_WALLS_ON_ALL_SLABS pipeline shape is architecturally compliant with C11 §4.2. The Sprint A36/A37 work (§BATCH-CW-PAUSE, §PERF-ADAPTIVE-DRAIN, §PERF-BATCH-BUS, P1.3, P1.4) has correctly deferred geometry, yielded the event flush, and eliminated redundant polygon iteration. None of that work should be undone.
+
+The 2210 ms command-loop time is a pure data-processing problem — O(n²) subscriber notification accumulation inside curtainWallStore.add() as the store grows per slab. The fix is addMany() on the store (one notification per slab batch) plus a spatial index for wall-intersection queries. Both fixes are entirely within Wave A21 scope, are non-breaking, and together should bring the command to ~100–150 ms — a 14× improvement and a clean C10 §3.2 pass.
+
+The legacy commandManager.execute() routing is a contract gap (C11 §8.1, C03 §4.2, C10 §2) but contributes zero milliseconds to the execution time. Migrate it to a plugin handler in Wave A21 alongside the performance fixes to gain OTel traceability and undo coverage simultaneously.
+
+
+Checkpoint made
+33 minutes ago
+
+Worked for 4 minutes
+I want you to document this as a implementation gap plan somewhere in 04-PLAN-FORWARD and start the implementation straight away to have 100/100 performance,
+
+28 minutes ago
+
+18 messages & 87 actions
+
+Checkpoint made
+14 minutes ago
+
+Worked for 13 minutes
+where fixes done by the book and fully aligend with the contracts and architecture >
+
+14 minutes ago
+
+Planning BimManager method verification (58 seconds)
+Good question — let me do the systematic cross-check right now against every contract the changes touch.
+
+
+5 actions
+Let me do the full contract audit before answering. Checking every invariant the changes touch.
+
+
+9 actions
+Now I have the full picture. Here is the systematic contract audit:
+
+Contract Compliance Audit — Sprint A38 §REG-MANY
+§02 §1.1 — Spatial Authority / Exclusive Containment
+registerMany() replicates every guard from registerElement() exactly:
+
+Guard	registerElement()	registerMany()
+Component Editor mode	throw SpatialResolutionError	✅ identical
+Empty/missing levelId	throw SpatialResolutionError	✅ identical
+Target level not found	throw SpatialResolutionError	✅ identical
+Exclusive containment (remove from other levels)	levels.forEach filter	✅ same levels.forEach filter — Set-based, single pass
+Dedup before append to target	.includes()	✅ Set-based dedup — same invariant, O(N) instead of O(N²)
+No contract shortcuts were taken to gain speed. The method is strictly additive.
+
+§2.4 — Registration must follow store mutation, never precede it
+Checked the live call ordering in CreateCurtainWallsOnAllSlabsCommand:
+
+line 231  curtainWallStore.add(cwData)          ← store mutation
+line 254  _regGroupsByLevel.get(...).push(cwId) ← accumulate ID
+...
+line 272  for (lvlId, ids) of _regGroupsByLevel  ← AFTER the slab loop
+line 274    batchCoordinator.trackRegistration() ← enqueue, deferred until signalBuildQueueDrained()
+
+All store.add() calls complete before any trackRegistration() lambda is enqueued. The lambda itself doesn't fire until after signalBuildQueueDrained() — which fires only after all geometry is built. §2.4 is strictly preserved — and more robustly so than the original, since the grouped approach eliminates any risk of a registration firing mid-slab-loop.
+
+§2.6 — No crypto.randomUUID() inside execute()
+Unchanged. The ID pool is still pre-generated in the constructor. The _nextId() helper only reads from the pool (or logs a warning and generates a fallback on overflow). registrationIds and _regGroupsByLevel never generate IDs — they receive already-allocated IDs. ✅
+
+§Critical #4 / #7 — Redo symmetry (createdIdsBySlabId not cleared by undo())
+undo() calls unregisterElement() and remove() per wall, then does NOT clear createdIdsBySlabId. On redo:
+
+isRedo = this.createdIdsBySlabId.size > 0 → true
+curtainWallStore.has(cwId) → false (undo removed them)
+Wall is re-added via store.add(), accumulated into _regGroupsByLevel, registered via registerMany() in a fresh _regGroupsByLevel accumulator on the redo _processSlabs() pass
+The redo path is fully symmetric. ✅
+
+§REG-MANY-P2 — Sync-drain event ordering in BatchCoordinator
+The sync-drain branch preserves the exact same call sequence as the rAF drain's terminal frame:
+
+Step	rAF drain (terminal frame)	Sync drain
+1	splice(0, REG_PER_FRAME) + run	splice(0) + run all
+2	_onShadowReactivation?.()	✅ _onShadowReactivation?.()
+3	_executeFinalSweep()	✅ _executeFinalSweep()
+_regDrainDispose is guaranteed null at this point — _setupBatch() cancels any in-flight drain and nulls it before the batch begins, and the rAF drain only starts from _drainRegistrations() which is on the else branch, never reached by the sync-drain path. No leak. ✅
+
+The storeEventBus depth at the point _executeFinalSweep() runs is 1 in both paths (runBatch's outer beginBatch() opened it; storeEventBus.batch(fn) closed its inner bracket back to 1). endBatchYielded() closes it to 0 and begins the yielded flush. Unchanged. ✅
+
+§2.7 — Store mutation path (store.add() → bus → subscriber → builder)
+Not touched by any of the four fixes. All curtainWallStore.add() calls are still the sole trigger for builder execution. ✅
+
+CreateCurtainWallsFromSlabCommand §REG-MANY-P3 — one edge case
+The has() guard that skips already-existing walls correctly excludes those IDs from registrationIds — so registerMany() is never called with IDs that are already registered. If no new walls were created (all skipped), registrationIds is empty and registerMany() is not called at all (the if (registrationIds.length > 0) guard handles this). ✅
+
+undo() paths — both commands
+Neither undo path was changed. Both still call unregisterElement() per ID. This is correct: there is no unregisterMany() (not needed for undo — undo is not on the hot path), and §2.4's reverse ordering (unregister before store.remove()) is preserved. ✅
+
+Summary verdict
+All four fixes are fully by the book. No contract was relaxed, bypassed, or silently ignored to achieve the performance gain. The speed improvement comes entirely from restructuring the work (batch set operations + sync drain), not from skipping correctness checks. The one structural risk — that the sync-drain call order might diverge from the rAF terminal-frame order — was explicitly verified and is identical step-for-step.

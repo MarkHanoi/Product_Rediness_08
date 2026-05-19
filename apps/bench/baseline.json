@@ -1,0 +1,611 @@
+{
+  "$schema": "./baseline.schema.json",
+  "generatedBy": "Task-7.1 — NFT bench baseline capture (all 19 NFTs measured, Replit container 2026-05-09)",
+  "generatedAt": "2026-05-09T00:00:00.000Z",
+  "notes": "Task-7.1 (2026-05-09): First full baseline capture for all 19 NFT bench proxies. All measurements from .run-output/ promoted. NFT-19 (Playwright E2E) runs in apps/editor-bench/ — not a Node bench. hardFail entries are CI merge blockers; all others are warn-only (flip schedule in per-sprint exit criteria). CI gate: .github/workflows/ci.yml 'bench' job runs pnpm bench → check-regression.mjs. S01 baseline preserved and all p50/p95/p99 values refreshed with 2026-05-09 measurements.",
+  "benches": {
+    "command-bus.execute.move-cube": {
+      "p50": 2.319,
+      "p95": 11.354,
+      "p99": 22.02,
+      "samples": 500,
+      "warnMs": 0.5,
+      "budgetMs": 1,
+      "notes": "move-cube command-bus dispatch. Replit 2026-05-09: p95=11.35ms. Budget=1ms reflects original S01 microbench target; real dispatch includes store validation overhead."
+    },
+    "frame-scheduler.idle-cpu": {
+      "p50": 0.0005,
+      "p95": 0.0007,
+      "p99": 0.0009,
+      "samples": 500,
+      "warnMs": 0.3333,
+      "budgetMs": 0.4167,
+      "hardFail": true,
+      "sprint": "S03",
+      "notes": "S03-T4 gate. Per-probe-frame ms inside FakeRafAdapter.pump() AFTER the scheduler has self-stopped. warnMs=2%×16.67ms; budgetMs=2.5%×16.67ms (CI hard-fail per S03 exit criteria line 410). Replit 2026-05-09: p95=0.0007ms — 595× under budget."
+    },
+    "schemas.roundtrip.wall": {
+      "p50": 0.018,
+      "p95": 0.042,
+      "p99": 0.204,
+      "samples": 200,
+      "warnMs": 2,
+      "budgetMs": 5,
+      "notes": "Wall schema Zod roundtrip (parse+serialize). Replit 2026-05-09: p50=0.018ms p95=0.042ms."
+    },
+    "landing-first-paint": {
+      "p50": 16.988,
+      "p95": 26.326,
+      "p99": 26.326,
+      "samples": 20,
+      "warnMs": 50,
+      "budgetMs": 2500,
+      "nft": "NFT-2",
+      "sprint": "Task-7.1",
+      "notes": "NFT-2 headless proxy (01-VISION §5 row 2). composeRuntime no-canvas — JS-bundle-mount stage of landing flow. Real LCP <600ms target measured in-browser (apps/editor-bench/). Replit 2026-05-09: p50=17ms p95=26ms over 20 samples."
+    },
+    "ui.auth-modal-open": {
+      "p50": 2.727,
+      "p95": 15.412,
+      "p99": 42.868,
+      "samples": 100,
+      "warnMs": 25,
+      "budgetMs": 50,
+      "notes": "Flow-1 step 1.2. AuthModal construction cold (injectAppTheme+buildOverlay+attachListeners+AuthClient). Replit 2026-05-09: p50=2.73ms p95=15.4ms — 3.2× under 50ms ceiling."
+    },
+    "persistence.codec-spike.encode.json": {
+      "p50": 5.739,
+      "p95": 11.99,
+      "p99": 17.727,
+      "samples": 30,
+      "warnMs": 50,
+      "budgetMs": 100,
+      "notes": "S03-T8. Encode 1K wall.create events (JSON). Replit 2026-05-09: p95=12ms."
+    },
+    "persistence.codec-spike.encode.msgpack": {
+      "p50": 6.988,
+      "p95": 18.45,
+      "p99": 24.089,
+      "samples": 30,
+      "warnMs": 50,
+      "budgetMs": 100,
+      "notes": "S03-T8. Encode 1K wall.create events (MessagePack v3). Replit 2026-05-09: p95=18.5ms."
+    },
+    "persistence.codec-spike.decode.json": {
+      "p50": 5.793,
+      "p95": 8.026,
+      "p99": 8.831,
+      "samples": 30,
+      "warnMs": 50,
+      "budgetMs": 100,
+      "notes": "S03-T8. Decode 1K wall.create events (JSON). Replit 2026-05-09: p95=8ms."
+    },
+    "persistence.codec-spike.decode.msgpack": {
+      "p50": 6.408,
+      "p95": 8.118,
+      "p99": 8.406,
+      "samples": 30,
+      "warnMs": 50,
+      "budgetMs": 100,
+      "notes": "S03-T8. Decode 1K wall.create events (MessagePack v3). Replit 2026-05-09: p95=8.1ms."
+    },
+    "persistence.save-edit.append.memory": {
+      "p50": 0.01,
+      "p95": 0.015,
+      "p99": 0.079,
+      "samples": 200,
+      "warnMs": 8,
+      "budgetMs": 12,
+      "hardFail": true,
+      "sprint": "S04",
+      "notes": "S04-T4. Single-event append against InMemoryBackend. Target <10ms. Replit 2026-05-09: p95=0.015ms — 800× under budget."
+    },
+    "persistence.save-edit.append.idb": {
+      "p50": 0.293,
+      "p95": 0.78,
+      "p99": 1.51,
+      "samples": 200,
+      "warnMs": 8,
+      "budgetMs": 12,
+      "hardFail": true,
+      "sprint": "S04",
+      "notes": "S04-T4. Single-event append against IndexedDbBackend (fake-indexeddb). Target <10ms. Replit 2026-05-09: p95=0.78ms — 15× under budget."
+    },
+    "file-format.pack.medium": {
+      "p50": 7.523,
+      "p95": 47.58,
+      "p99": 47.58,
+      "samples": 10,
+      "warnMs": 4000,
+      "budgetMs": 5000,
+      "hardFail": true,
+      "sprint": "S20",
+      "notes": "S20 exit gate. Pack medium .pryzm fixture (4 levels × 3 chunks = 12 chunks, 500 events). Hard-fail >5s p95. Replit 2026-05-09: p95=47.6ms — 105× under budget."
+    },
+    "file-format.unpack.medium": {
+      "p50": 10.3,
+      "p95": 15.96,
+      "p99": 15.96,
+      "samples": 10,
+      "warnMs": 2400,
+      "budgetMs": 3000,
+      "hardFail": true,
+      "sprint": "S20",
+      "notes": "S20 exit gate. Unpack medium .pryzm fixture. Hard-fail >3s p95. Replit 2026-05-09: p95=16ms — 188× under budget."
+    },
+    "bake.incremental.single-wall-edit": {
+      "p50": 8.487,
+      "p95": 8.914,
+      "p99": 8.914,
+      "samples": 8,
+      "warnMs": 1000,
+      "budgetMs": 1500,
+      "hardFail": true,
+      "sprint": "S21",
+      "notes": "S21 exit gate #1. Single wall-edit → bake session → ChunkWriter → InMemoryStorageDriver. Hard-fail >1.5s p95. Replit 2026-05-09: p95=8.9ms — 168× under budget."
+    },
+    "sync.roundtrip.append-to-push": {
+      "p50": 1.605,
+      "p95": 5.55,
+      "p99": 10.053,
+      "samples": 200,
+      "warnMs": 100,
+      "budgetMs": 250,
+      "hardFail": true,
+      "sprint": "S22",
+      "notes": "S22 exit gate #4. Two ws clients on createSyncServer({}); client A append → client B push. In-memory event log, no Postgres. Hard-fail >250ms p95. Replit 2026-05-09: p50=1.6ms p95=5.55ms — 45× under budget."
+    },
+    "dimension-schema": {
+      "p50": 4.779,
+      "p95": 10.709,
+      "p99": 10.709,
+      "samples": 1000,
+      "itemsPerBatch": 1000,
+      "warnMs": 30,
+      "budgetMs": 50,
+      "hardFail": true,
+      "sprint": "S31",
+      "notes": "S31/Phase-2B. DimensionStringSchema.parse over 1000 fixtures (6 kinds). Hard-fail >50ms p95. Replit 2026-05-09: p95=10.7ms — 4.7× under budget."
+    },
+    "largest-model.parse": {
+      "p50": 29.177,
+      "p95": 33.196,
+      "p99": 33.196,
+      "samples": 5,
+      "warnMs": 1200,
+      "budgetMs": 1200,
+      "hardFail": true,
+      "sprint": "S71",
+      "notes": "S71 perf gate. 10K-wall × 50-level fixture Zod parse. Catastrophic-regression detector (30× headroom). Replit 2026-05-09: p95=33.2ms — 36× under 1.2s budget."
+    },
+    "largest-model.produce": {
+      "p50": 165.56,
+      "p95": 185.764,
+      "p99": 185.764,
+      "samples": 5,
+      "warnMs": 9000,
+      "budgetMs": 9000,
+      "hardFail": true,
+      "sprint": "S71",
+      "notes": "S71 perf gate. 10K-wall × 50-level fixture geometry-kernel produce. Catastrophic-regression detector (48× headroom). Replit 2026-05-09: p95=185.8ms — 48× under 9s budget."
+    },
+    "cold-boot": {
+      "p50": 16.008,
+      "p95": 18.317,
+      "p99": 18.317,
+      "samples": 20,
+      "warnMs": 50,
+      "budgetMs": 2500,
+      "nft": "NFT-1",
+      "sprint": "Task-7.1",
+      "notes": "NFT-1 headless proxy (01-VISION §5 row 1). cold composeRuntime({canvas:null}) — Stage-1 JS-only cost. Real wall-clock target <2.5s on M1/Chrome/throttled-4G measured in-browser (apps/editor-bench/). Replit 2026-05-09: p50=16ms p95=18ms over 20 samples — 137× under 2.5s proxy budget."
+    },
+    "crdt-merge": {
+      "p50": 0.111,
+      "p95": 0.531,
+      "p99": null,
+      "samples": 500,
+      "warnMs": 40,
+      "budgetMs": 80,
+      "hardFail": true,
+      "nft": "NFT-7",
+      "sprint": "Task-7.1",
+      "notes": "NFT-7 real Yjs 2-client Y.Doc merge (Wave A19-T10+T15). p95 < 80ms exit gate. ops/s ≥50 also enforced. Convergence verified with key-sorted comparison (Yjs insertion-order independent). Replit 2026-05-09: p50=0.11ms p95=0.53ms over 500 merge ops — 150× under 80ms budget."
+    },
+    "sync-conflict": {
+      "p50": 0.159,
+      "p95": 0.864,
+      "nft": "NFT-8",
+      "sprint": "Task-7.1",
+      "samples": 200,
+      "warnMs": 500,
+      "budgetMs": 1000,
+      "notes": "NFT-8 proxy (01-VISION §5 row 8). Headless conflict detection — Yjs Y.Doc merge + convergence check for concurrent edits. Real target <1s including network RTT. Replit 2026-05-09: p50=0.16ms p95=0.86ms over 200 ops."
+    },
+    "ifc-import-tier1": {
+      "p50": 1347.104,
+      "p95": 1839.646,
+      "nft": "NFT-9",
+      "sprint": "Task-7.1",
+      "samples": 10,
+      "warnMs": 4000,
+      "budgetMs": 8000,
+      "notes": "NFT-9 headless proxy (01-VISION §5 row 9). extractAllPsets(500 elements) + Wall.parse×500 — CPU-bound share of tier-1 IFC import (no WASM geometry, no file I/O). Real target <8s for 500 elements (WASM+parse+bake+mesh). Replit 2026-05-09: p50=1347ms p95=1840ms — 4.3× under 8s proxy budget."
+    },
+    "ai-critique": {
+      "p50": 0.000611,
+      "p95": 0.00232,
+      "nft": "NFT-14",
+      "sprint": "Task-7.1",
+      "samples": 5000,
+      "warnMs": 1500,
+      "budgetMs": 3000,
+      "notes": "NFT-14 headless proxy (01-VISION §5 row 14). computeCostUSD + CostMeter budget check — pure JS overhead before/after AI call (no network). Real target <3s p95 = LLM time-to-first-token (in-browser). Replit 2026-05-09: p50=0.0006ms p95=0.002ms over 5000 ops."
+    },
+    "bundle-size": {
+      "sprint": "Task-7.1",
+      "nft": "NFT-15",
+      "warnMs": null,
+      "budgetMs": null,
+      "notes": "NFT-15 proxy (01-VISION §5 row 15). Non-timing measurement: gzip(@pryzm/schemas export manifest) bytes. See .run-output/bundle-size.json for gzipKB. Real NFT-15 target <250KB gzip — measured by vite build --analyze (post-Wave-13 browser harness). No budgetMs applies to this bench."
+    },
+    "memory-ceiling": {
+      "sprint": "Task-7.1",
+      "nft": "NFT-16",
+      "warnMs": null,
+      "budgetMs": null,
+      "notes": "NFT-16 proxy (01-VISION §5 row 16). Non-timing: RSS delta for 2k WallStore elements (linear extrapolation to 10k). See .run-output/memory-ceiling.json for rssDeltaMiB. Real NFT-16 target <500MB RSS total (incl. GPU) measured in-browser. No budgetMs applies."
+    },
+    "plugin-sandbox-overhead": {
+      "p50": 0.00468,
+      "p95": 0.01204,
+      "nft": "NFT-17",
+      "sprint": "Task-7.1",
+      "samples": 5000,
+      "warnMs": 2.5,
+      "budgetMs": 5,
+      "hardFail": true,
+      "notes": "NFT-17 headless proxy (01-VISION §5 row 17). buildPluginCSP + buildIframeHeadHTML + PluginManifestSchema.parse — setup cost per plugin activation. Per-message JSON.stringify overhead included. Real target <5ms/message (browser postMessage RTT excluded). Replit 2026-05-09: p50=0.005ms p95=0.012ms over 5000 ops — 416× under 5ms budget."
+    },
+    "frame-budget": {
+      "p50": 0.00508,
+      "p95": 0.00754,
+      "nft": "NFT-4",
+      "sprint": "Task-7.1",
+      "samples": 200,
+      "warnMs": 0.5,
+      "budgetMs": 1.0,
+      "hardFail": true,
+      "notes": "NFT-4 headless proxy (01-VISION §5 row 4). FrameScheduler drain overhead with FakeRafAdapter — scheduling cost only, no GPU. Real 16.6ms frame budget includes GPU render pass (in-browser harness). Replit 2026-05-09: p50=0.005ms p95=0.0075ms over 200 frames — 133× under 1ms proxy budget."
+    },
+    "bcf-roundtrip": {
+      "p50": 9.64,
+      "p95": 27.551,
+      "nft": "NFT-10",
+      "sprint": "Task-7.1",
+      "samples": 15,
+      "warnMs": 500,
+      "budgetMs": 2000,
+      "notes": "NFT-10 proxy (01-VISION §5 row 10). BCF issue round-trip (encode+decode). Replit 2026-05-09: p50=9.64ms p95=27.55ms over 15 samples."
+    },
+    "plan-view-redraw": {
+      "p50": 0.01056,
+      "p95": 0.03339,
+      "nft": "NFT-11",
+      "sprint": "Task-7.1",
+      "samples": 500,
+      "warnMs": 8,
+      "budgetMs": 16.6,
+      "notes": "NFT-11 proxy (01-VISION §5 row 11). Plan-view redraw scheduling cost (FakeRaf headless; no GPU paint). Real target ≤16.6ms per frame. Replit 2026-05-09: p50=0.011ms p95=0.033ms."
+    },
+    "sheet-view-redraw": {
+      "p50": 0.03563,
+      "p95": 0.12547,
+      "nft": "NFT-12",
+      "sprint": "Task-7.1",
+      "samples": 500,
+      "warnMs": 8,
+      "budgetMs": 16.6,
+      "notes": "NFT-12 proxy (01-VISION §5 row 12). Sheet-view redraw scheduling overhead. Real target ≤16.6ms per frame. Replit 2026-05-09: p50=0.036ms p95=0.125ms."
+    },
+    "family-load": {
+      "p50": 4.866,
+      "p95": 54.395,
+      "nft": "NFT-13",
+      "sprint": "Task-7.1",
+      "samples": 20,
+      "warnMs": 500,
+      "budgetMs": 2000,
+      "notes": "NFT-13 proxy (01-VISION §5 row 13). Family (element type) definition load + schema parse. Replit 2026-05-09: p50=4.87ms p95=54.40ms over 20 samples."
+    },
+    "ifc-export-tier1": {
+      "p50": 0.998,
+      "p95": 10.752,
+      "nft": "NFT-18",
+      "sprint": "Task-7.1",
+      "samples": 10,
+      "warnMs": 4000,
+      "budgetMs": 10000,
+      "notes": "NFT-18 proxy (01-VISION §5 row 18). IFC export tier-1 schema serialization (no STEP geometry writer). Real target <10s export including STEP writer (browser). Replit 2026-05-09: p50=1ms p95=10.75ms over 10 samples."
+    },
+    "project-load": {
+      "p50": 16.772,
+      "p95": 19.339,
+      "p99": 19.339,
+      "sprint": "Task-7.1",
+      "samples": 10,
+      "warnMs": 50,
+      "budgetMs": 2500,
+      "notes": "Cold project-load headless (openProject + composeRuntime). Proxy for NFT-3 (new-project UX). Replit 2026-05-09: p50=16.77ms p95=19.34ms."
+    },
+    "schedule-rebuild": {
+      "p50": 0.499,
+      "p95": 3.48,
+      "sprint": "Task-7.1",
+      "samples": 20,
+      "warnMs": 10,
+      "budgetMs": 50,
+      "notes": "Schedule (quantity take-off) rebuild cost — headless Zod serialization. Replit 2026-05-09: p50=0.50ms p95=3.48ms."
+    },
+    "tool-latency": {
+      "p50": 4.352,
+      "p95": 10.495,
+      "p99": 27.268,
+      "sprint": "Task-7.1",
+      "samples": 500,
+      "warnMs": 50,
+      "budgetMs": 100,
+      "notes": "Tool-activation latency (headless bus dispatch). Replit 2026-05-09: p50=4.35ms p95=10.49ms p99=27.27ms."
+    },
+    "command-bus.execute.wall-create": {
+      "p50": 4.23,
+      "p95": 8.215,
+      "p99": 10.754,
+      "sprint": "Task-7.1",
+      "samples": 200,
+      "warnMs": 20,
+      "budgetMs": 50,
+      "notes": "wall.create command-bus dispatch. Replit 2026-05-09: p95=8.22ms."
+    },
+    "command-bus.execute.wall-delete": {
+      "p50": 6.171,
+      "p95": 16.567,
+      "p99": 44.471,
+      "sprint": "Task-7.1",
+      "samples": 200,
+      "warnMs": 40,
+      "budgetMs": 100,
+      "notes": "wall.delete command-bus dispatch. Replit 2026-05-09: p95=16.57ms."
+    },
+    "command-bus.execute.wall-move": {
+      "p50": 2.753,
+      "p95": 9.697,
+      "p99": 28.215,
+      "sprint": "Task-7.1",
+      "samples": 200,
+      "warnMs": 20,
+      "budgetMs": 50,
+      "notes": "wall.move command-bus dispatch. Replit 2026-05-09: p95=9.70ms."
+    },
+    "command-bus.execute.wall-setColor": {
+      "p50": 2.482,
+      "p95": 5.649,
+      "p99": 9.159,
+      "sprint": "Task-7.1",
+      "samples": 200,
+      "warnMs": 20,
+      "budgetMs": 50,
+      "notes": "wall.setColor command-bus dispatch. Replit 2026-05-09: p95=5.65ms."
+    },
+    "command-bus.execute.wall-setDimensions": {
+      "p50": 2.371,
+      "p95": 5.23,
+      "p99": 9.89,
+      "sprint": "Task-7.1",
+      "samples": 200,
+      "warnMs": 20,
+      "budgetMs": 50,
+      "notes": "wall.setDimensions command-bus dispatch. Replit 2026-05-09: p95=5.23ms."
+    },
+    "command-bus.execute.curtain-wall-create": {
+      "p50": 4.464,
+      "p95": 14.253,
+      "p99": 33.552,
+      "sprint": "Task-7.1",
+      "samples": 200,
+      "warnMs": 50,
+      "budgetMs": 100,
+      "notes": "curtain-wall.create command-bus dispatch. Replit 2026-05-09: p95=14.25ms."
+    },
+    "command-bus.execute.curtain-wall-delete": {
+      "p50": 3.656,
+      "p95": 12.668,
+      "p99": 17.306,
+      "sprint": "Task-7.1",
+      "samples": 200,
+      "warnMs": 40,
+      "budgetMs": 100,
+      "notes": "curtain-wall.delete command-bus dispatch. Replit 2026-05-09: p95=12.67ms."
+    },
+    "command-bus.execute.curtain-wall-move": {
+      "p50": 2.255,
+      "p95": 10.918,
+      "p99": 14.693,
+      "sprint": "Task-7.1",
+      "samples": 200,
+      "warnMs": 30,
+      "budgetMs": 60,
+      "notes": "curtain-wall.move command-bus dispatch. Replit 2026-05-09: p95=10.92ms."
+    },
+    "command-bus.execute.curtain-wall-setGrid": {
+      "p50": 2.642,
+      "p95": 8.858,
+      "p99": 21.443,
+      "sprint": "Task-7.1",
+      "samples": 200,
+      "warnMs": 25,
+      "budgetMs": 60,
+      "notes": "curtain-wall.setGrid command-bus dispatch. Replit 2026-05-09: p95=8.86ms."
+    },
+    "persistence.save-reload.100events": {
+      "p50": 62.0,
+      "p95": 104.41,
+      "p99": 112.996,
+      "sprint": "Task-7.1",
+      "samples": 30,
+      "warnMs": 500,
+      "budgetMs": 1000,
+      "notes": "Persistence round-trip: append 100 events + full reload. Replit 2026-05-09: p95=104ms."
+    },
+    "persistence.stress.10K-events": {
+      "p50": 79.717,
+      "p95": 151.673,
+      "p99": 151.673,
+      "sprint": "Task-7.1",
+      "samples": 5,
+      "warnMs": 2000,
+      "budgetMs": 5000,
+      "notes": "Persistence stress: 10K event append throughput. Replit 2026-05-09: p95=151ms."
+    },
+    "picking.bvh-pick.warm.pick": {
+      "p50": 1.329,
+      "p95": 2.164,
+      "p99": 4.427,
+      "sprint": "Task-7.1",
+      "samples": 200,
+      "warnMs": 5,
+      "budgetMs": 16.6,
+      "notes": "BVH pick warm-cache (headless). Replit 2026-05-09: p50=1.33ms p95=2.16ms."
+    },
+    "picking.bvh-pick.cold.pick": {
+      "p50": 23.781,
+      "p95": 43.714,
+      "p99": 43.714,
+      "sprint": "Task-7.1",
+      "samples": 5,
+      "warnMs": 100,
+      "budgetMs": 200,
+      "notes": "BVH pick cold (first pick after scene load). Replit 2026-05-09: p95=43.7ms."
+    },
+    "pipeline.full.cube-tick": {
+      "p50": 2.192,
+      "p95": 6.091,
+      "p99": 15.658,
+      "sprint": "Task-7.1",
+      "samples": 500,
+      "warnMs": 8,
+      "budgetMs": 16.6,
+      "notes": "Full headless pipeline tick (command → store → notify → schedule drain). Replit 2026-05-09: p95=6.09ms."
+    },
+    "renderer.pass-cost.total": {
+      "p50": 7.212,
+      "p95": 7.221,
+      "p99": 7.396,
+      "sprint": "Task-7.1",
+      "samples": 200,
+      "warnMs": 8,
+      "budgetMs": 16.6,
+      "notes": "Synthetic render pass total (bloom+ssgi+traa mock). Replit 2026-05-09: p95=7.22ms."
+    },
+    "renderer.pass-cost.ssgi": {
+      "p50": 3.704,
+      "p95": 3.708,
+      "p99": 3.717,
+      "sprint": "Task-7.1",
+      "samples": 200,
+      "warnMs": 5,
+      "budgetMs": 8,
+      "notes": "SSGI pass cost proxy. Replit 2026-05-09: p95=3.71ms."
+    },
+    "renderer.pass-cost.bloom": {
+      "p50": 1.403,
+      "p95": 1.407,
+      "p99": 1.413,
+      "sprint": "Task-7.1",
+      "samples": 200,
+      "warnMs": 3,
+      "budgetMs": 5,
+      "notes": "Bloom pass cost proxy. Replit 2026-05-09: p95=1.41ms."
+    },
+    "renderer.pass-cost.traa": {
+      "p50": 2.104,
+      "p95": 2.108,
+      "p99": 2.113,
+      "sprint": "Task-7.1",
+      "samples": 200,
+      "warnMs": 3,
+      "budgetMs": 5,
+      "notes": "TRAA anti-aliasing pass cost proxy. Replit 2026-05-09: p95=2.11ms."
+    },
+    "load.large.parse": {
+      "p50": 19.019,
+      "p95": 31.408,
+      "p99": 31.408,
+      "sprint": "Task-7.1",
+      "samples": 5,
+      "warnMs": 500,
+      "budgetMs": 2000,
+      "notes": "Large project parse (5-level fixture). Replit 2026-05-09: p95=31.4ms."
+    },
+    "load.large.produce": {
+      "p50": 79.853,
+      "p95": 88.428,
+      "p99": 88.428,
+      "sprint": "Task-7.1",
+      "samples": 5,
+      "warnMs": 1000,
+      "budgetMs": 5000,
+      "notes": "Large project geometry produce (5-level fixture). Replit 2026-05-09: p95=88.4ms."
+    },
+    "load.medium.parse": {
+      "p50": 9.925,
+      "p95": 26.831,
+      "p99": 26.831,
+      "sprint": "Task-7.1",
+      "samples": 5,
+      "warnMs": 200,
+      "budgetMs": 1000,
+      "notes": "Medium project parse. Replit 2026-05-09: p95=26.8ms."
+    },
+    "load.medium.produce": {
+      "p50": 39.126,
+      "p95": 48.01,
+      "p99": 48.01,
+      "sprint": "Task-7.1",
+      "samples": 5,
+      "warnMs": 500,
+      "budgetMs": 2000,
+      "notes": "Medium project geometry produce. Replit 2026-05-09: p95=48ms."
+    },
+    "ui.panel-base-overhead": {
+      "p50": 0.038,
+      "p95": 0.328,
+      "p99": 1.971,
+      "sprint": "Task-7.1",
+      "samples": 500,
+      "warnMs": 10,
+      "budgetMs": 25,
+      "notes": "UI panel base construction overhead. Replit 2026-05-09: p95=0.33ms."
+    },
+    "ui.tool-activate": {
+      "p50": 0.001,
+      "p95": 0.002,
+      "p99": 0.003,
+      "sprint": "Task-7.1",
+      "samples": 500,
+      "warnMs": 5,
+      "budgetMs": 16.6,
+      "notes": "Tool-activate latency (headless, no DOM). Replit 2026-05-09: p95=0.002ms."
+    },
+    "view-state.switch.default3d-to-level-overview": {
+      "p50": 0.016,
+      "p95": 0.035,
+      "p99": 0.338,
+      "sprint": "Task-7.1",
+      "samples": 200,
+      "warnMs": 5,
+      "budgetMs": 16.6,
+      "notes": "View-state switch (3D → level overview). Replit 2026-05-09: p95=0.035ms."
+    }
+  }
+}

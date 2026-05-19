@@ -1,0 +1,1370 @@
+[SlabFragmentBuilder] triangulate slabId="3edd1063-537e-467c-ab3f-9175a705985c" outerVertices=10 elapsed=0.2ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] BUILD_COMPLETE slabId="3edd1063-537e-467c-ab3f-9175a705985c" totalMs=2.2ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] RAF_DRAIN built=5 remaining=5 queueBefore=10 frameMs=8.9ms
+engineLauncher-bbIXqTfg.js:2 [RenderPipelineManager] Rebuilding pipeline after shadow-map update.
+engineLauncher-bbIXqTfg.js:2 [RenderPipelineManager] SHADOW_REBUILD_COMPLETE elapsed=1.0ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] outset slabId="9afaa727-6d48-461a-8e11-0c2d968ce11b" vertices=10 elapsed=0.0ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] triangulate slabId="9afaa727-6d48-461a-8e11-0c2d968ce11b" outerVertices=10 elapsed=0.2ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] BUILD_COMPLETE slabId="9afaa727-6d48-461a-8e11-0c2d968ce11b" totalMs=1.1ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] outset slabId="caa5e160-bb3b-4420-944f-a697930f8571" vertices=10 elapsed=0.0ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] triangulate slabId="caa5e160-bb3b-4420-944f-a697930f8571" outerVertices=10 elapsed=0.1ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] BUILD_COMPLETE slabId="caa5e160-bb3b-4420-944f-a697930f8571" totalMs=0.5ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] outset slabId="1f52c368-7e34-40ca-ac48-327af75d61b6" vertices=10 elapsed=0.0ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] triangulate slabId="1f52c368-7e34-40ca-ac48-327af75d61b6" outerVertices=10 elapsed=0.1ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] BUILD_COMPLETE slabId="1f52c368-7e34-40ca-ac48-327af75d61b6" totalMs=0.4ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] outset slabId="cc67f865-7578-4e2a-acbf-151f733f438c" vertices=10 elapsed=0.0ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] triangulate slabId="cc67f865-7578-4e2a-acbf-151f733f438c" outerVertices=10 elapsed=0.1ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] BUILD_COMPLETE slabId="cc67f865-7578-4e2a-acbf-151f733f438c" totalMs=0.6ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] outset slabId="c3290e6e-bd6e-450e-9b8e-6210b78c54b6" vertices=10 elapsed=0.0ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] triangulate slabId="c3290e6e-bd6e-450e-9b8e-6210b78c54b6" outerVertices=10 elapsed=0.1ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] BUILD_COMPLETE slabId="c3290e6e-bd6e-450e-9b8e-6210b78c54b6" totalMs=0.4ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] RAF_DRAIN built=5 remaining=0 queueBefore=5 frameMs=4.0ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] rAF queue drained — signalling BatchCoordinator.
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §TRACE BUILD-QUEUE-DRAINED regQueue=0 / totalExpected=10 T=+201.4ms (all geometry in scene; registration drain starting)
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §TRACE §REG-MANY-P2 queue ≤ 50 (0) — draining synchronously (0 rAF frames) T=+201.5ms
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §TRACE REGISTRATION-DRAIN-DONE 0 registration(s) complete T=+201.5ms
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §TRACE SHADOW-REACTIVATION-START callbacks=1 T=+201.6ms
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §TRACE SHADOW-REACTIVATION-DISPATCHED (sliced across post-render frames) callMs=0.2ms T=+201.8ms
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §TRACE FINAL-SWEEP-START levels=10 skipRedetect=true T=+202.2ms (opening yielded event drain)
+main-C_EL1IFU.js:29510 [StoreEventBus] endBatchYielded() — 10 event(s) will be delivered in 1 chunk(s) of 200 via frame scheduler.
+engineLauncher-bbIXqTfg.js:2 [RenderPipelineManager] §I2 pipeline.usedTimes is not a number (got undefined) — patching to 0 before dispose to prevent device-loss cascade.
+_safeDisposeRenderPipeline @ engineLauncher-bbIXqTfg.js:2
+_buildPhase3Pipeline @ engineLauncher-bbIXqTfg.js:2
+await in _buildPhase3Pipeline
+_rebuildPipelineWithCurrentState @ engineLauncher-bbIXqTfg.js:2
+_rebuildPipeline @ engineLauncher-bbIXqTfg.js:2
+(anonymous) @ engineLauncher-bbIXqTfg.js:2
+setTimeout
+scheduleShadowRebuild @ engineLauncher-bbIXqTfg.js:2
+_setShadows @ engineLauncher-bbIXqTfg.js:6681
+_enablePerfMode @ engineLauncher-bbIXqTfg.js:6681
+autoEnablePerf @ engineLauncher-bbIXqTfg.js:6681
+(anonymous) @ engineLauncher-bbIXqTfg.js:7243
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:1864
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1826 [RenderPipelineManager] Phase: phase3 | WebGPU: true | SSGI: true | TRAA: false
+main-C_EL1IFU.js:29510 [StoreEventBus] endBatchYielded() — all 10 event(s) delivered across 1 chunk(s) (last: 1.1ms). Calling onComplete().
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §TRACE ON-COMPLETE-START (all yielded events delivered) T=+213.6ms
+engineLauncher-bbIXqTfg.js:484 [Collaboration] §E1-CRDT-BLACKOUT batchId=b00ea3ea duration=214ms elements=10
+engineLauncher-bbIXqTfg.js:2323 [RoomTopologyObserver] §G2 cancelled 0 pending redetect timer(s) for levels: [L-01-1778367874324-1, L-02-1778367874350-2, L-03-1778367874361-3, L-04-1778367874368-4, L-05-1778367874376-5, L-06-1778367874388-6, L-07-1778367874395-7, L-08-1778367874403-8, L-09-1778367874414-9, L-10-1778367874423-10]
+engineLauncher-bbIXqTfg.js:2323 [RoomTopologyObserver] §G2 post-batch cooldown armed until T=298050ms
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §G2-CANCELLED 10 pending redetect timer(s) for 10 level(s); 1s cooldown armed — REDETECT_ROOMS suppressed until T=298050ms
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §TRACE §G1 VDT suppression deferred through CASCADE; markLevelsDirtyImmediate(10 level(s)) will follow post-CASCADE. T=+215.4ms
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §FIX-POST-GEOMETRY-COMPILE-V2 SKIPPED (skipPbrUpgrade=true, elementCount=10) — prewarm covers PSOs for large CW/slab batches. T=+216.0ms
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §TRACE ON-BATCH-END-DEFERRED (suppress lifted NOW; overlay dismiss scheduled for post-render) T=+216.1ms
+main-C_EL1IFU.js:29510 [UnifiedFrameLoop] §TRACE §PERF-VIEW-BATCH-SUPPRESS suppression lifted after 215.0ms — OBC+PASCAL resuming on next tick.
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §TRACE ON-POST-BATCH-START (PBR upgrade + requestIdleCallback pending) T=+216.7ms
+engineLauncher-bbIXqTfg.js:1826 [BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-SKIPPED (skipPbrUpgrade=true — curtain-wall batch; materials are already PBR-ready)
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §TRACE ON-POST-BATCH-DISPATCHED (PBR upgrade queued to requestIdleCallback) T=+217.1ms
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] Final sweep: SKIPPING REDETECT_ROOMS for 10 level(s) (§FIX-SKIP-REDETECT-ROOMS — element type cannot define room boundaries). StoreEventBus flushed (depth now 0). markLevelsDirty already called above for plan-view reprojection.
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §G1-SUPPRESS-LIFTED post-CASCADE T=297053.2ms delay=2.5ms (DependencyResolver CASCADE settled; EPS Flush #2 eliminated).
+main-C_EL1IFU.js:29510 [UnifiedFrameLoop] §TRACE FIRST-RENDER-POST-SUPPRESS totalSuppressedMs=234.6ms frameCount=2340 — OBC+PASCAL about to execute (WebGPU PSO compile LONGTASK begins here)
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §TRACE GPU-COMPILE-WAIT framesRemaining=0 T=+614.8ms
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §TRACE §FIX-EDGE-PROJECT-DEFER §III-2 markLevelsDirtyImmediate(10 level(s)) fired post-render (debounce bypassed — flush queued to next low-priority frame). T=+615.3ms
+engineLauncher-bbIXqTfg.js:2 [RenderPipelineManager] §I2 pipeline.usedTimes is not a number (got undefined) — patching to 0 before dispose to prevent device-loss cascade.
+_safeDisposeRenderPipeline @ engineLauncher-bbIXqTfg.js:2
+_buildPhase3Pipeline @ engineLauncher-bbIXqTfg.js:2
+await in _buildPhase3Pipeline
+_fullRebuild @ engineLauncher-bbIXqTfg.js:2
+await in _fullRebuild
+_setSsgi @ engineLauncher-bbIXqTfg.js:6681
+_enablePerfMode @ engineLauncher-bbIXqTfg.js:6681
+autoEnablePerf @ engineLauncher-bbIXqTfg.js:6681
+(anonymous) @ engineLauncher-bbIXqTfg.js:7243
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:1864
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1826 [RenderPipelineManager] Phase: phase3 | WebGPU: true | SSGI: true | TRAA: false
+main-C_EL1IFU.js:29510 [ViewDependencyTracker] flush — 10 dirty view(s): L-01-177, L-02-177, L-03-177, L-04-177, L-05-177, L-06-177, L-07-177, L-08-177, L-09-177, L-10-177
+engineLauncher-bbIXqTfg.js:1826 [RoomTagAutoPopulator] viewId=L-01-1778367874324-1 level=L-01-1778367874324-1: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] Plan view — exporting 13 elements from levels overlapping Y=[1.80, 3.00]
+engineLauncher-bbIXqTfg.js:1583 [NME] §H2-NME-CACHE hits=0 misses=12 hitRate=0% cacheSize=68/500
+engineLauncher-bbIXqTfg.js:1826 [RoomTagAutoPopulator] viewId=L-02-1778367874350-2 level=L-02-1778367874350-2: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] Plan view — exporting 2 elements from levels overlapping Y=[4.80, 6.00]
+engineLauncher-bbIXqTfg.js:1583 [NME] §H2-NME-CACHE hits=0 misses=2 hitRate=0% cacheSize=70/500
+engineLauncher-bbIXqTfg.js:1826 [RoomTagAutoPopulator] viewId=L-03-1778367874361-3 level=L-03-1778367874361-3: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] Plan view — exporting 2 elements from levels overlapping Y=[7.80, 9.00]
+engineLauncher-bbIXqTfg.js:1583 [NME] §H2-NME-CACHE hits=0 misses=2 hitRate=0% cacheSize=72/500
+engineLauncher-bbIXqTfg.js:1826 [RoomTagAutoPopulator] viewId=L-04-1778367874368-4 level=L-04-1778367874368-4: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] Plan view — exporting 2 elements from levels overlapping Y=[10.80, 12.00]
+engineLauncher-bbIXqTfg.js:1583 [NME] §H2-NME-CACHE hits=0 misses=2 hitRate=0% cacheSize=74/500
+engineLauncher-bbIXqTfg.js:1826 [RoomTagAutoPopulator] viewId=L-05-1778367874376-5 level=L-05-1778367874376-5: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] Plan view — exporting 2 elements from levels overlapping Y=[13.80, 15.00]
+engineLauncher-bbIXqTfg.js:1583 [NME] §H2-NME-CACHE hits=0 misses=2 hitRate=0% cacheSize=76/500
+engineLauncher-bbIXqTfg.js:1826 [RoomTagAutoPopulator] viewId=L-06-1778367874388-6 level=L-06-1778367874388-6: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] Plan view — exporting 2 elements from levels overlapping Y=[16.80, 18.00]
+engineLauncher-bbIXqTfg.js:1583 [NME] §H2-NME-CACHE hits=0 misses=2 hitRate=0% cacheSize=78/500
+engineLauncher-bbIXqTfg.js:1826 [RoomTagAutoPopulator] viewId=L-07-1778367874395-7 level=L-07-1778367874395-7: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] Plan view — exporting 2 elements from levels overlapping Y=[19.80, 21.00]
+engineLauncher-bbIXqTfg.js:1583 [NME] §H2-NME-CACHE hits=0 misses=2 hitRate=0% cacheSize=80/500
+engineLauncher-bbIXqTfg.js:1826 [RoomTagAutoPopulator] viewId=L-08-1778367874403-8 level=L-08-1778367874403-8: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] Plan view — exporting 2 elements from levels overlapping Y=[22.80, 24.00]
+engineLauncher-bbIXqTfg.js:1583 [NME] §H2-NME-CACHE hits=0 misses=2 hitRate=0% cacheSize=82/500
+engineLauncher-bbIXqTfg.js:1826 [RoomTagAutoPopulator] viewId=L-09-1778367874414-9 level=L-09-1778367874414-9: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] Plan view — exporting 2 elements from levels overlapping Y=[25.80, 27.00]
+engineLauncher-bbIXqTfg.js:1583 [NME] §H2-NME-CACHE hits=0 misses=2 hitRate=0% cacheSize=84/500
+engineLauncher-bbIXqTfg.js:1826 [RoomTagAutoPopulator] viewId=L-10-1778367874423-10 level=L-10-1778367874423-10: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] Plan view — exporting 2 elements from levels overlapping Y=[28.80, 30.00]
+engineLauncher-bbIXqTfg.js:1583 [NME] §H2-NME-CACHE hits=0 misses=2 hitRate=0% cacheSize=86/500
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §TRACE ON-BATCH-END-DONE (overlay dismissed post-dual-PSO-compile; §FIX-DUAL-LONGTASK) T=+881.1ms
+engineLauncher-bbIXqTfg.js:2 [RenderPipelineManager] SHADOW_REBUILD_SCHEDULED meshCount=51
+engineLauncher-bbIXqTfg.js:2 [RenderPipelineManager] SHADOW_REBUILD_SCHEDULED meshCount=51
+engineLauncher-bbIXqTfg.js:6681 [PerformanceModePanel] Performance mode OFF — restoring quality
+engineLauncher-bbIXqTfg.js:6681 [PerformanceModePanel] Auto-performance mode OFF (IFC load complete)
+engineLauncher-bbIXqTfg.js:7243 [initBatchLifecycle] §L1-BATCH-PERF-MODE restored after batch drain
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-01-1778367874324-1 elevation=3.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] project() batchId=b00ea3ea viewId=L-01-1778367874324-1 dir=(0,-1,0) near=4.200 far=6.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=5c8ec09d-b426-4014-b6ab-25fcf20aacfb elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.2ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=eb4f28ff-e10f-4d36-9773-eac724c2a386 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.2ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#2 elemId=f96e9170-5944-4daf-b94d-067014240213 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#3 elemId=caf9c914-3c39-49bf-a151-bb8f3ec770b1 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-02-1778367874350-2 elevation=6.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] project() batchId=b00ea3ea viewId=L-02-1778367874350-2 dir=(0,-1,0) near=7.200 far=9.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=44e711cc-1841-4825-92e7-4f73c9823628 elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.3ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=e9aa8967-f35a-4602-a8f5-b698096c69be elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.3ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-03-1778367874361-3 elevation=9.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] project() batchId=b00ea3ea viewId=L-03-1778367874361-3 dir=(0,-1,0) near=10.200 far=12.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=e9aa8967-f35a-4602-a8f5-b698096c69be elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.3ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=2c2075be-c5c2-4f24-a63d-3f9f13dae12b elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.3ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-04-1778367874368-4 elevation=12.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] project() batchId=b00ea3ea viewId=L-04-1778367874368-4 dir=(0,-1,0) near=13.200 far=15.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=2c2075be-c5c2-4f24-a63d-3f9f13dae12b elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.2ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=6265fc8e-dfe3-47b4-ac7d-79d84114dfda elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-05-1778367874376-5 elevation=15.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] project() batchId=b00ea3ea viewId=L-05-1778367874376-5 dir=(0,-1,0) near=16.200 far=18.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=6265fc8e-dfe3-47b4-ac7d-79d84114dfda elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.2ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=3edd1063-537e-467c-ab3f-9175a705985c elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.2ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-06-1778367874388-6 elevation=18.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] project() batchId=b00ea3ea viewId=L-06-1778367874388-6 dir=(0,-1,0) near=19.200 far=21.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=3edd1063-537e-467c-ab3f-9175a705985c elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.2ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=9afaa727-6d48-461a-8e11-0c2d968ce11b elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.2ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-07-1778367874395-7 elevation=21.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] project() batchId=b00ea3ea viewId=L-07-1778367874395-7 dir=(0,-1,0) near=22.200 far=24.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=9afaa727-6d48-461a-8e11-0c2d968ce11b elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=caa5e160-bb3b-4420-944f-a697930f8571 elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-08-1778367874403-8 elevation=24.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] project() batchId=b00ea3ea viewId=L-08-1778367874403-8 dir=(0,-1,0) near=25.200 far=27.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=caa5e160-bb3b-4420-944f-a697930f8571 elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=1f52c368-7e34-40ca-ac48-327af75d61b6 elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.2ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-09-1778367874414-9 elevation=27.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] project() batchId=b00ea3ea viewId=L-09-1778367874414-9 dir=(0,-1,0) near=28.200 far=30.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=1f52c368-7e34-40ca-ac48-327af75d61b6 elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.2ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=cc67f865-7578-4e2a-acbf-151f733f438c elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.2ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-10-1778367874423-10 elevation=30.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] project() batchId=b00ea3ea viewId=L-10-1778367874423-10 dir=(0,-1,0) near=31.200 far=33.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=cc67f865-7578-4e2a-acbf-151f733f438c elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.2ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=c3290e6e-bd6e-450e-9b8e-6210b78c54b6 elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.2ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+engineLauncher-bbIXqTfg.js:1826 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-02-1778367874350-2 gen=2 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-bbIXqTfg.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-02-1778367874350-2 modelId=model-default applied=7/14 layers
+engineLauncher-bbIXqTfg.js:1826 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-03-1778367874361-3 gen=2 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-bbIXqTfg.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-03-1778367874361-3 modelId=model-default applied=7/14 layers
+engineLauncher-bbIXqTfg.js:1826 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-04-1778367874368-4 gen=2 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-bbIXqTfg.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-04-1778367874368-4 modelId=model-default applied=7/14 layers
+engineLauncher-bbIXqTfg.js:1826 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-05-1778367874376-5 gen=2 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-bbIXqTfg.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-05-1778367874376-5 modelId=model-default applied=7/14 layers
+engineLauncher-bbIXqTfg.js:1826 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-06-1778367874388-6 gen=2 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-bbIXqTfg.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-06-1778367874388-6 modelId=model-default applied=7/14 layers
+engineLauncher-bbIXqTfg.js:1826 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-07-1778367874395-7 gen=2 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-bbIXqTfg.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-07-1778367874395-7 modelId=model-default applied=7/14 layers
+engineLauncher-bbIXqTfg.js:1826 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-08-1778367874403-8 gen=2 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-bbIXqTfg.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-08-1778367874403-8 modelId=model-default applied=7/14 layers
+engineLauncher-bbIXqTfg.js:1826 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-09-1778367874414-9 gen=2 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-bbIXqTfg.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-09-1778367874414-9 modelId=model-default applied=7/14 layers
+engineLauncher-bbIXqTfg.js:1826 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-10-1778367874423-10 gen=2 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-bbIXqTfg.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-10-1778367874423-10 modelId=model-default applied=7/14 layers
+engineLauncher-bbIXqTfg.js:2 [RenderPipelineManager] Rebuilding pipeline after shadow-map update.
+engineLauncher-bbIXqTfg.js:2 [RenderPipelineManager] SHADOW_REBUILD_COMPLETE elapsed=0.2ms
+engineLauncher-bbIXqTfg.js:2 [RenderPipelineManager] §I2 pipeline.usedTimes is not a number (got undefined) — patching to 0 before dispose to prevent device-loss cascade.
+_safeDisposeRenderPipeline @ engineLauncher-bbIXqTfg.js:2
+_buildPhase3Pipeline @ engineLauncher-bbIXqTfg.js:2
+await in _buildPhase3Pipeline
+_rebuildPipelineWithCurrentState @ engineLauncher-bbIXqTfg.js:2
+_rebuildPipeline @ engineLauncher-bbIXqTfg.js:2
+(anonymous) @ engineLauncher-bbIXqTfg.js:2
+setTimeout
+scheduleShadowRebuild @ engineLauncher-bbIXqTfg.js:2
+_setSsgi @ engineLauncher-bbIXqTfg.js:6681
+_disablePerfMode @ engineLauncher-bbIXqTfg.js:6681
+autoDisablePerf @ engineLauncher-bbIXqTfg.js:6681
+(anonymous) @ engineLauncher-bbIXqTfg.js:7243
+c @ engineLauncher-bbIXqTfg.js:484
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:1864
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1826 [RenderPipelineManager] Phase: phase3 | WebGPU: true | SSGI: true | TRAA: false
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#4 elemId=e2d70429-115e-4250-bc50-2a60679a83de elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.4ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#5 elemId=7ae314a7-930b-4288-9682-cdbe44421a8f elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.2ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#6 elemId=dfe84388-c605-417c-88ad-9cb69b798fe5 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#7 elemId=2be9981f-0d89-421b-ac43-6475e44f6b3d elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+engineLauncher-bbIXqTfg.js:1864 [ProjectSerializer] Snapshot created: 22 elements, 11 levels, 10 walls, 11 slabs, 0 furniture
+engineLauncher-bbIXqTfg.js:1864 [ProjectSerializer] Snapshot created: 22 elements, 11 levels, 10 walls, 11 slabs, 0 furniture
+PlatformShell-C9mLyVyy.js:23 [PlatformSaveController] Version saved: "Auto-save" (22 elements, id: proj-1778367879383-vwv4z)
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#8 elemId=f452bb48-08d7-4c1e-ad44-8fe84451e03e elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.2ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#9 elemId=b3e07b06-e3df-4a57-88b0-bb454e4313af elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.2ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#10 elemId=132c9056-ea4c-46bf-9eb3-ade57c2ddbcd elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.3ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#11 elemId=44e711cc-1841-4825-92e7-4f73c9823628 elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.3ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 12 group(s) in 3 chunk(s), 12 edge geometries across 12 ISO layer(s) (per-element UUID tagging active)
+engineLauncher-bbIXqTfg.js:1826 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-01-1778367874324-1 gen=2 (OBC-IFC=0, native=12, ifc-scene=0)
+engineLauncher-bbIXqTfg.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-01-1778367874324-1 modelId=model-default applied=7/14 layers
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] EXECUTE: CREATE_CURTAIN_WALLS_ON_ALL_SLABS
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] snapshot commandType="$n" scope=[curtainWall] elapsed=0.1ms
+engineLauncher-bbIXqTfg.js:2332 [CreateCurtainWallsOnAllSlabsCommand] §TRACE-CW#1 START slabCount=11 isRedo=false shadersPrewarmed=false T=+0ms
+engineLauncher-bbIXqTfg.js:2332 [CreateCurtainWallsOnAllSlabsCommand] §TRACE-CW#1 PREWARM-START estimatedWalls=110 T=+0.2ms
+engineLauncher-bbIXqTfg.js:2332 [CreateCurtainWallsOnAllSlabsCommand] §K2-SHADOW-PSO-PREWARM complete — shadow-pass PSOs compiled in 4th render pass. K.1 T+30s slices will pay traverse cost only (≤2ms/slice).
+engineLauncher-bbIXqTfg.js:2332 [CreateCurtainWallsOnAllSlabsCommand] §I1-PREWARM-PHASE2 complete — 5 PSO variants × 3 pipeline passes pre-compiled via renderPipelineManager.render(0) (MRT→SSGI→TRAA+outlines): mullionIM + glassIM + fallbackMesh + shadowReceiverProbe (§I.1.2) + depthPrepassProbe (§I.1.3). prewarmRenderMs=165.9ms
+engineLauncher-bbIXqTfg.js:2332 [CreateCurtainWallsOnAllSlabsCommand] §TRACE-CW#1 PREWARM-DONE prewarmMs=166.9ms prewarmWallCount=110 T=+167.2ms
+engineLauncher-bbIXqTfg.js:2332 [CreateCurtainWallsOnAllSlabsCommand] §TRACE-CW#1 RUNBATCH-START levelCount=11 estimatedWalls=110 T=+167.3ms
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §BATCH-SHADOW-MAP-SUPPRESS shadowMap.enabled=false (was=true) — shadow depth pass suppressed for batch duration batchId=667519d4
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §TRACE _setupBatch — 11 level(s), 110 elements expected. ViewDependencyTracker suppressed. T=+0ms (batch clock started)
+main-C_EL1IFU.js:29510 [UnifiedFrameLoop] §TRACE §PERF-VIEW-BATCH-SUPPRESS: OBC+PASCAL render suppressed — WebGL shader compilation deferred until batch drain completes. suppressStartT=304917.6ms
+engineLauncher-bbIXqTfg.js:2 [RenderPipelineManager] SHADOW_REBUILD_SCHEDULED meshCount=51
+engineLauncher-bbIXqTfg.js:6681 [PerformanceModePanel] Performance mode ON — shadows/SSGI/TRAA disabled
+engineLauncher-bbIXqTfg.js:6681 [PerformanceModePanel] Auto-performance mode ON (IFC load in progress)
+engineLauncher-bbIXqTfg.js:7243 [initBatchLifecycle] §L1-BATCH-PERF-MODE engaged (110 elements)
+main-C_EL1IFU.js:29510 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+engineLauncher-bbIXqTfg.js:2332 [CreateCurtainWallsOnAllSlabsCommand] §DIAG-49800MS _processSlabs() ENTER busDepth=2 isBatching=true existingCwCount=0 T=+180.7ms
+engineLauncher-bbIXqTfg.js:2332 [CreateCurtainWallsOnAllSlabsCommand] slab="132c9056-ea4c-46bf-9eb3-ade57c2ddbcd" walls=10 elapsed=0.4ms
+engineLauncher-bbIXqTfg.js:2332 [CreateCurtainWallsOnAllSlabsCommand] slab="44e711cc-1841-4825-92e7-4f73c9823628" walls=10 elapsed=0.2ms
+engineLauncher-bbIXqTfg.js:2332 [CreateCurtainWallsOnAllSlabsCommand] slab="e9aa8967-f35a-4602-a8f5-b698096c69be" walls=10 elapsed=0.3ms
+engineLauncher-bbIXqTfg.js:2332 [CreateCurtainWallsOnAllSlabsCommand] slab="2c2075be-c5c2-4f24-a63d-3f9f13dae12b" walls=10 elapsed=0.1ms
+engineLauncher-bbIXqTfg.js:2332 [CreateCurtainWallsOnAllSlabsCommand] slab="6265fc8e-dfe3-47b4-ac7d-79d84114dfda" walls=10 elapsed=0.1ms
+engineLauncher-bbIXqTfg.js:2332 [CreateCurtainWallsOnAllSlabsCommand] slab="3edd1063-537e-467c-ab3f-9175a705985c" walls=10 elapsed=0.1ms
+engineLauncher-bbIXqTfg.js:2332 [CreateCurtainWallsOnAllSlabsCommand] slab="9afaa727-6d48-461a-8e11-0c2d968ce11b" walls=10 elapsed=0.0ms
+engineLauncher-bbIXqTfg.js:2332 [CreateCurtainWallsOnAllSlabsCommand] slab="caa5e160-bb3b-4420-944f-a697930f8571" walls=10 elapsed=0.0ms
+engineLauncher-bbIXqTfg.js:2332 [CreateCurtainWallsOnAllSlabsCommand] slab="1f52c368-7e34-40ca-ac48-327af75d61b6" walls=10 elapsed=0.1ms
+engineLauncher-bbIXqTfg.js:2332 [CreateCurtainWallsOnAllSlabsCommand] slab="cc67f865-7578-4e2a-acbf-151f733f438c" walls=10 elapsed=0.0ms
+engineLauncher-bbIXqTfg.js:2332 [CreateCurtainWallsOnAllSlabsCommand] slab="c3290e6e-bd6e-450e-9b8e-6210b78c54b6" walls=10 elapsed=0.0ms
+engineLauncher-bbIXqTfg.js:2332 [CreateCurtainWallsOnAllSlabsCommand] §DIAG-49800MS PHASE-1-SLAB-LOOP-DONE collected=110 slabLoopMs=2.4ms busDepthNow=2 T=+183.1ms
+engineLauncher-bbIXqTfg.js:1864 [CurtainWallStore] §BATCH-CW-PAUSE-ADDMANY §DIAG batchId=667519d4 n=110 phase1CloneMs=0.3ms addManyPausedMs=0.3ms busEmitMs=0.1ms totalPhase2Ms=0.4ms (fast batch path — per-item listener calls skipped)
+engineLauncher-bbIXqTfg.js:2332 [CreateCurtainWallsOnAllSlabsCommand] §DIAG-49800MS PHASE-2-ADDMANY-DONE count=110 addManyMs=1.3ms busDepthNow=2 T=+184.4ms
+engineLauncher-bbIXqTfg.js:2332 [CreateCurtainWallsOnAllSlabsCommand] §DIAG-49800MS PHASE-3-REG-QUEUED levelGroups=11 regQueueMs=0.1ms totalProcessSlabsMs=3.9ms busDepthNow=2 T=+184.6ms
+engineLauncher-bbIXqTfg.js:2332 [CreateCurtainWallsOnAllSlabsCommand] §TRACE-CW#1 RUNBATCH-RETURNED (sync phase done; rAF drain pending) runBatchMs=17.4ms T=+184.7ms
+engineLauncher-bbIXqTfg.js:2332 [CreateCurtainWallsOnAllSlabsCommand] §TRACE-CW#1 COMPLETE walls=110 isRedo=false totalMs=184.8ms (rAF geometry drain + registration + event drain still pending async)
+engineLauncher-bbIXqTfg.js:2392 [AIApprovalStore] Audit record appended: 974437cf-7f63-46f9-9110-2fe86e0474c5 (CREATE_CURTAIN_WALLS_ON_ALL_SLABS)
+engineLauncher-bbIXqTfg.js:4702 Refreshing Spatial Tree...
+engineLauncher-bbIXqTfg.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §TRACE DEFERRED-RESUME-FLUSH fired (first rAF after runBatch returned) delay=27.6ms T=+44.3ms
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §F2-RESUME-ONLY resume — 110 walls transferred to pending queue, 1 async pre-render drain scheduled.
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §TRACE RESUME-FLUSH-DISPATCHED wallResume+cwResume+slabResume called. CW rAF drain now in-flight. T=+45.0ms
+engineLauncher-bbIXqTfg.js:2 [RenderPipelineManager] Rebuilding pipeline after shadow-map update.
+engineLauncher-bbIXqTfg.js:2 [RenderPipelineManager] SHADOW_REBUILD_COMPLETE elapsed=0.1ms
+engineLauncher-bbIXqTfg.js:2 [RenderPipelineManager] §I2 pipeline.usedTimes is not a number (got undefined) — patching to 0 before dispose to prevent device-loss cascade.
+_safeDisposeRenderPipeline @ engineLauncher-bbIXqTfg.js:2
+_buildPhase3Pipeline @ engineLauncher-bbIXqTfg.js:2
+await in _buildPhase3Pipeline
+_rebuildPipelineWithCurrentState @ engineLauncher-bbIXqTfg.js:2
+_rebuildPipeline @ engineLauncher-bbIXqTfg.js:2
+(anonymous) @ engineLauncher-bbIXqTfg.js:2
+setTimeout
+scheduleShadowRebuild @ engineLauncher-bbIXqTfg.js:2
+_setShadows @ engineLauncher-bbIXqTfg.js:6681
+_enablePerfMode @ engineLauncher-bbIXqTfg.js:6681
+autoEnablePerf @ engineLauncher-bbIXqTfg.js:6681
+(anonymous) @ engineLauncher-bbIXqTfg.js:7243
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1826 [RenderPipelineManager] Phase: phase3 | WebGPU: true | SSGI: true | TRAA: false
+engineLauncher-bbIXqTfg.js:2 [RenderPipelineManager] §I2 pipeline.usedTimes is not a number (got undefined) — patching to 0 before dispose to prevent device-loss cascade.
+_safeDisposeRenderPipeline @ engineLauncher-bbIXqTfg.js:2
+_buildPhase3Pipeline @ engineLauncher-bbIXqTfg.js:2
+await in _buildPhase3Pipeline
+_fullRebuild @ engineLauncher-bbIXqTfg.js:2
+await in _fullRebuild
+_setSsgi @ engineLauncher-bbIXqTfg.js:6681
+_enablePerfMode @ engineLauncher-bbIXqTfg.js:6681
+autoEnablePerf @ engineLauncher-bbIXqTfg.js:6681
+(anonymous) @ engineLauncher-bbIXqTfg.js:7243
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1826 [RenderPipelineManager] Phase: phase3 | WebGPU: true | SSGI: true | TRAA: false
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §PERF-DRAIN built=20 remaining=90 queueBefore=110 frameMs=9.7ms nextBudget=21 isBatch=true
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §PERF-DRAIN built=21 remaining=69 queueBefore=90 frameMs=6.4ms nextBudget=22 isBatch=true
+/assets/geometry.worker-DzXLn_3y.ts:1 Failed to load module script: The server responded with a non-JavaScript MIME type of "video/mp2t". Strict MIME type checking is enforced for module scripts per HTML spec.
+engineLauncher-bbIXqTfg.js:1757 [GeometryWorkerPool] worker error: undefined Event {isTrusted: true, type: 'error', target: Worker, currentTarget: Worker, eventPhase: 2, …}
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 2288ffbb-61e4-460d-8801-275f427a819b — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+/assets/geometry.worker-DzXLn_3y.ts:1 Failed to load module script: The server responded with a non-JavaScript MIME type of "video/mp2t". Strict MIME type checking is enforced for module scripts per HTML spec.
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="2288ffbb-61e4-460d-8801-275f427a819b" batchId=667519d4 totalMs=2.6 worldYMs=0.1 gridMs=0.1(migrated) cellsMs=0.1 cells=32 panelReadMs=0.0 panels=0 panelBuildMs=1.8 mullionMs=0.5 uLines=17 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 09094f09-209d-477e-b185-1999b305b6aa — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="09094f09-209d-477e-b185-1999b305b6aa" batchId=667519d4 totalMs=0.9 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=12 panelReadMs=0.0 panels=0 panelBuildMs=0.6 mullionMs=0.1 uLines=7 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 52e29d98-c9ae-4e09-a85b-207b08c1394b — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="52e29d98-c9ae-4e09-a85b-207b08c1394b" batchId=667519d4 totalMs=1.7 worldYMs=0.0 gridMs=0.1(migrated) cellsMs=0.1 cells=36 panelReadMs=0.0 panels=0 panelBuildMs=1.4 mullionMs=0.1 uLines=19 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall a65af615-5073-40fe-aeba-43b06452d93f — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="a65af615-5073-40fe-aeba-43b06452d93f" batchId=667519d4 totalMs=1.5 worldYMs=0.0 gridMs=0.1(migrated) cellsMs=0.0 cells=30 panelReadMs=0.0 panels=0 panelBuildMs=1.2 mullionMs=0.1 uLines=16 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall a4a73430-7209-46c8-ad1a-50fb734214df — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="a4a73430-7209-46c8-ad1a-50fb734214df" batchId=667519d4 totalMs=0.8 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=14 panelReadMs=0.0 panels=0 panelBuildMs=0.6 mullionMs=0.1 uLines=8 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall c6a4e5d9-b998-4b99-823b-942c42b8bc74 — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="c6a4e5d9-b998-4b99-823b-942c42b8bc74" batchId=667519d4 totalMs=2.0 worldYMs=0.0 gridMs=0.1(migrated) cellsMs=0.0 cells=32 panelReadMs=0.0 panels=0 panelBuildMs=1.8 mullionMs=0.2 uLines=17 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 24390621-f206-4c8a-b32e-f70bf007b47a — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="24390621-f206-4c8a-b32e-f70bf007b47a" batchId=667519d4 totalMs=0.7 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=12 panelReadMs=0.0 panels=0 panelBuildMs=0.5 mullionMs=0.1 uLines=7 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 693ab42d-d5a0-40f5-ab07-f3c843dfb824 — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="693ab42d-d5a0-40f5-ab07-f3c843dfb824" batchId=667519d4 totalMs=2.1 worldYMs=0.0 gridMs=0.1(migrated) cellsMs=0.0 cells=36 panelReadMs=0.0 panels=0 panelBuildMs=1.8 mullionMs=0.2 uLines=19 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall c6e419f0-24e1-4ec9-9aba-c275203f696b — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="c6e419f0-24e1-4ec9-9aba-c275203f696b" batchId=667519d4 totalMs=1.5 worldYMs=0.1 gridMs=0.1(migrated) cellsMs=0.1 cells=30 panelReadMs=0.0 panels=0 panelBuildMs=1.2 mullionMs=0.1 uLines=16 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 3e839c39-0927-4b77-b209-66842d78b084 — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="3e839c39-0927-4b77-b209-66842d78b084" batchId=667519d4 totalMs=1.3 worldYMs=0.0 gridMs=0.1(migrated) cellsMs=0.1 cells=14 panelReadMs=0.0 panels=0 panelBuildMs=0.9 mullionMs=0.2 uLines=8 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 3ff4936b-1483-4ac0-8a94-31f1c43d3eef — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="3ff4936b-1483-4ac0-8a94-31f1c43d3eef" batchId=667519d4 totalMs=1.4 worldYMs=0.0 gridMs=0.1(migrated) cellsMs=0.0 cells=32 panelReadMs=0.0 panels=0 panelBuildMs=1.2 mullionMs=0.1 uLines=17 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 8bacd7b6-c333-4a5d-bfcd-3b21f746b053 — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="8bacd7b6-c333-4a5d-bfcd-3b21f746b053" batchId=667519d4 totalMs=0.6 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=12 panelReadMs=0.0 panels=0 panelBuildMs=0.5 mullionMs=0.1 uLines=7 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 0f11107a-4827-450e-bab3-1a99b4369d7b — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="0f11107a-4827-450e-bab3-1a99b4369d7b" batchId=667519d4 totalMs=1.2 worldYMs=0.0 gridMs=0.1(migrated) cellsMs=0.0 cells=36 panelReadMs=0.0 panels=0 panelBuildMs=1.0 mullionMs=0.1 uLines=19 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 6d21e9e5-1dda-4d5d-a69b-f03c8e2a3e7e — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="6d21e9e5-1dda-4d5d-a69b-f03c8e2a3e7e" batchId=667519d4 totalMs=1.6 worldYMs=0.0 gridMs=0.1(migrated) cellsMs=0.0 cells=30 panelReadMs=0.0 panels=0 panelBuildMs=1.4 mullionMs=0.1 uLines=16 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 1c9f3f66-b418-49fe-b98d-7aab99901e30 — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="1c9f3f66-b418-49fe-b98d-7aab99901e30" batchId=667519d4 totalMs=0.8 worldYMs=0.0 gridMs=0.1(migrated) cellsMs=0.0 cells=14 panelReadMs=0.0 panels=0 panelBuildMs=0.6 mullionMs=0.1 uLines=8 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall b043c142-1a7c-4961-bb64-d29a5f6dbc42 — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="b043c142-1a7c-4961-bb64-d29a5f6dbc42" batchId=667519d4 totalMs=1.3 worldYMs=0.0 gridMs=0.1(migrated) cellsMs=0.0 cells=32 panelReadMs=0.0 panels=0 panelBuildMs=1.1 mullionMs=0.1 uLines=17 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 05b2f28b-ea2a-44e4-b6ad-4dbd4fe5ac64 — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="05b2f28b-ea2a-44e4-b6ad-4dbd4fe5ac64" batchId=667519d4 totalMs=0.4 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=12 panelReadMs=0.0 panels=0 panelBuildMs=0.3 mullionMs=0.1 uLines=7 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall d95306e4-936f-4ef7-8dc3-bd8ddbf6f73a — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="d95306e4-936f-4ef7-8dc3-bd8ddbf6f73a" batchId=667519d4 totalMs=1.2 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=36 panelReadMs=0.0 panels=0 panelBuildMs=1.1 mullionMs=0.1 uLines=19 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 426db500-db42-41eb-9fc3-b47c2918fcc3 — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="426db500-db42-41eb-9fc3-b47c2918fcc3" batchId=667519d4 totalMs=0.7 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=30 panelReadMs=0.0 panels=0 panelBuildMs=0.6 mullionMs=0.0 uLines=16 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 9ba6df76-6c17-4dc4-ba11-5c2402ba5989 — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="9ba6df76-6c17-4dc4-ba11-5c2402ba5989" batchId=667519d4 totalMs=0.5 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=14 panelReadMs=0.0 panels=0 panelBuildMs=0.4 mullionMs=0.1 uLines=8 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall f37a9a2d-9b4c-45df-a8ab-31cf91af382a — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="f37a9a2d-9b4c-45df-a8ab-31cf91af382a" batchId=667519d4 totalMs=0.8 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=32 panelReadMs=0.0 panels=0 panelBuildMs=0.7 mullionMs=0.0 uLines=17 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [GeometryWorkerPool] worker error: undefined Event {isTrusted: true, type: 'error', target: Worker, currentTarget: Worker, eventPhase: 2, …}
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall cf818a26-5306-4ba8-8e31-4f2bbe64d493 — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="cf818a26-5306-4ba8-8e31-4f2bbe64d493" batchId=667519d4 totalMs=2.2 worldYMs=0.1 gridMs=0.2(migrated) cellsMs=0.1 cells=44 panelReadMs=0.0 panels=0 panelBuildMs=1.7 mullionMs=0.2 uLines=23 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 4d168fdc-3219-4313-a6f2-deaeffb77962 — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="4d168fdc-3219-4313-a6f2-deaeffb77962" batchId=667519d4 totalMs=0.5 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=10 panelReadMs=0.0 panels=0 panelBuildMs=0.3 mullionMs=0.1 uLines=6 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall a4ce509e-aeae-47b6-84b5-fe6526179241 — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="a4ce509e-aeae-47b6-84b5-fe6526179241" batchId=667519d4 totalMs=0.6 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.1 cells=16 panelReadMs=0.0 panels=0 panelBuildMs=0.4 mullionMs=0.1 uLines=9 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 7c980bb6-0a16-46d5-90bc-f1b3cc92ca2c — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="7c980bb6-0a16-46d5-90bc-f1b3cc92ca2c" batchId=667519d4 totalMs=0.3 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=6 panelReadMs=0.0 panels=0 panelBuildMs=0.2 mullionMs=0.0 uLines=4 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall da59ed1b-97c3-4512-9923-a0779acda731 — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="da59ed1b-97c3-4512-9923-a0779acda731" batchId=667519d4 totalMs=0.5 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=10 panelReadMs=0.0 panels=0 panelBuildMs=0.3 mullionMs=0.1 uLines=6 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 67f6ce89-bf02-4ed0-9bef-07a519021b6a — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="67f6ce89-bf02-4ed0-9bef-07a519021b6a" batchId=667519d4 totalMs=0.8 worldYMs=0.0 gridMs=0.1(migrated) cellsMs=0.0 cells=44 panelReadMs=0.0 panels=0 panelBuildMs=0.6 mullionMs=0.1 uLines=23 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 4e819039-393c-4314-9f52-a49ca4354e45 — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="4e819039-393c-4314-9f52-a49ca4354e45" batchId=667519d4 totalMs=0.3 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=10 panelReadMs=0.0 panels=0 panelBuildMs=0.3 mullionMs=0.0 uLines=6 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 825957bf-56ce-434c-8578-31b2e587d2f9 — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="825957bf-56ce-434c-8578-31b2e587d2f9" batchId=667519d4 totalMs=0.4 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=16 panelReadMs=0.0 panels=0 panelBuildMs=0.3 mullionMs=0.0 uLines=9 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 654f723c-f8a1-47d0-bab2-8038db02d22d — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="654f723c-f8a1-47d0-bab2-8038db02d22d" batchId=667519d4 totalMs=0.3 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=6 panelReadMs=0.0 panels=0 panelBuildMs=0.2 mullionMs=0.1 uLines=4 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall e24b5fb6-e28f-448c-994f-39a31d7892c7 — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="e24b5fb6-e28f-448c-994f-39a31d7892c7" batchId=667519d4 totalMs=0.5 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=10 panelReadMs=0.0 panels=0 panelBuildMs=0.3 mullionMs=0.1 uLines=6 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall 25de7785-b1b1-4b95-b46b-dc2fc74fa619 — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="25de7785-b1b1-4b95-b46b-dc2fc74fa619" batchId=667519d4 totalMs=1.1 worldYMs=0.0 gridMs=0.1(migrated) cellsMs=0.0 cells=44 panelReadMs=0.0 panels=0 panelBuildMs=0.9 mullionMs=0.1 uLines=23 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2 worker failed for wall b62ec9c8-42f5-4528-9710-8e6d93e3ebce — falling back to synchronous build: Error: Geometry worker error: undefined
+    at Worker.<anonymous> (engineLauncher-bbIXqTfg.js:1757:22676)
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+Promise.catch
+_submitToWorker @ engineLauncher-bbIXqTfg.js:1757
+_buildOrOffload @ engineLauncher-bbIXqTfg.js:1757
+_drainBuildQueue @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ engineLauncher-bbIXqTfg.js:1757
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §DIAG-BUILD-01 wallId="b62ec9c8-42f5-4528-9710-8e6d93e3ebce" batchId=667519d4 totalMs=0.3 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=10 panelReadMs=0.0 panels=0 panelBuildMs=0.2 mullionMs=0.1 uLines=6 vLines=3 orientMs=0.0

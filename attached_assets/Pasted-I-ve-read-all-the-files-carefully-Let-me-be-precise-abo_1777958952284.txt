@@ -1,0 +1,80 @@
+I've read all the files carefully. Let me be precise about what's actually happening.
+The core problem: Your fixes are working — the command completes in ~244ms and the batch coordinator drains correctly. But you have two separate post-batch LONGTASKs that your fixes don't cover, totalling ~8–9 seconds of main thread freeze after the overlay dismisses. For 63 walls on 9 levels, the console confirms this clearly.
+Let me trace what the logs actually show:
+What the logs reveal (63 walls, 9 slabs):
+CREATE_CURTAIN_WALLS_ON_ALL_SLABS command: 244.8ms ✅ (your fix works)
+rAF drain: ~923ms across 4 frames ✅ (Fix 3 working)
+BatchCoordinator final sweep: T=+931ms ✅
+Suppression lifted: T=+931ms ✅
+
+Then:
+LONGTASK 4,517ms @ 369591ms  ← FIRST post-overlay freeze
+LONGTASK 4,212ms @ 374695ms  ← SECOND post-overlay freeze
+Total user-visible freeze: ~8,729ms AFTER overlay dismisses
+Why the "DONE" lies to you: BatchCoordinator.ON-BATCH-END-DONE fires at T=+931ms — the overlay dismisses and the log says complete. But the WebGPU PSO compile LONGTASK fires on the next render tick after suppression lifts. Your prewarm ran before runBatch(), but 63 new curtain wall InstancedMesh objects were added to the scene during the batch. The GPU has to compile pipeline state objects for all of them on first render — and that's not covered by your 3 probe meshes.
+The second LONGTASK is EdgeProjectorService.project() — your Fix W2 chunking is in the code but the log shows §PERF-EDGEPROJECTOR-CHUNK Native projection done — 15 group(s) in 4 chunk(s) which completed fine. The 4,212ms LONGTASK is coming from somewhere else in that same frame — almost certainly the VGSceneApplicator or the WebGPU command buffer submission for 393 edge geometries.
+The real diagnosis — 3 remaining gaps:
+Gap 1: Prewarm doesn't cover per-level InstancedMesh variants. Your prewarm adds 3 probe meshes and calls render(0) once. But CurtainWallBuilder creates a new InstancedMesh per curtain wall per level — 63 meshes total. Each unique (geometry, material, instanceCount) combination is a distinct PSO. 3 probes → 3 PSOs warmed. 63 walls → potentially many more PSO variants compiled cold on first real render.
+Gap 2: The 4,517ms LONGTASK is the WebGPU command encoder submission, not just PSO compile. When suppression lifts and the first real frame renders 63 new InstancedMesh objects plus SSGI + outlines, the GPU command buffer is enormous. This can't be fixed by prewarm — it needs the scene to be rendered progressively, not all at once.
+Gap 3: Shadow reactivation at WALLS_PER_SHADOW_FRAME=50 with requestIdleCallback — your Fix 4 moved it off the critical path correctly, but the idle callbacks are still firing during those LONGTASKs, competing for the main thread. The logs don't show shadow slice timings post-fix so it's hard to confirm.
+Concrete fixes for each gap:
+For Gap 1 — your prewarm needs to reflect actual production geometry, not probes:
+typescript// In CreateCurtainWallsOnAllSlabsCommand._prewarmCurtainWallShaders()
+// Instead of 3 probe meshes, build ONE real curtain wall for the reference slab
+// then call render(0). This warms the exact PSO variants that the batch will produce.
+
+private async _prewarmCurtainWallShaders(): Promise<void> {
+    if (this._shadersPrewarmed) return;
+    
+    // Build a single real CW segment (not a probe) against the reference slab
+    // Use the first edge of slabs[0] — same geometry as production
+    const refSlab = this._slabs[0];
+    const refEdge = this._getSlabEdges(refSlab)[0];
+    
+    // Build one real segment, invisible, into a detached scene
+    const probeScene = new THREE.Scene();
+    this._buildSingleWallSegmentInto(refEdge, probeScene);
+    
+    // Render the probe scene — warms exact PSO variants
+    const rpm = window.renderPipelineManager;
+    rpm.render(0); // synchronous — PSOs warm before runBatch()
+    
+    // Dispose probe geometry immediately
+    probeScene.traverse(o => {
+        if (o instanceof THREE.Mesh || o instanceof THREE.InstancedMesh) {
+            o.geometry.dispose();
+        }
+    });
+    
+    this._shadersPrewarmed = true;
+}
+For Gap 2 — the first post-suppression render needs to be chunked, not all-at-once. In UnifiedFrameLoop, after suppression lifts, render in level-by-level increments:
+typescript// In UnifiedFrameLoop.endBatchRenderSuppress()
+// Instead of lifting suppression for all geometry at once:
+
+private async _progressiveLiftSuppression(levelIds: string[]): Promise<void> {
+    // Reveal geometry level by level across rAF frames
+    // This spreads PSO compile across multiple frames
+    for (const levelId of levelIds) {
+        this._revealLevelGeometry(levelId);
+        await new Promise(r => requestAnimationFrame(r)); // yield between levels
+    }
+    this._suppressActive = false; // lift suppression after all levels revealed
+}
+For Gap 3 — the 4,212ms second LONGTASK. Add this to EdgeProjectorService.project() — reduce CHUNK_SIZE from 4 to 2 for CW batches specifically, because 393 edge geometries at 15 groups means each chunk is still processing many geometries:
+typescript// In EdgeProjectorService.project()
+// CHUNK_SIZE=4 gives 47ms per chunk for wall geometry
+// But CW produces 393 edge geometries per group — much heavier
+// Detect CW context and halve chunk size:
+
+const CHUNK_SIZE = hasCurtainWallGeometry ? 2 : 4;
+The smoking gun in your logs:
+[LONGTASK] duration=4517.0ms start=369591.8ms
+[GPU Monitor] geometries:26 textures:9 | drawCalls:9 tris:113
+GPU Monitor shows only 26 geometries and 9 draw calls AFTER a 4.5 second LONGTASK — which means the LONGTASK is not rendering geometry, it's compiling PSOs. drawCalls:9 tris:113 is the pre-CW scene. The CW geometry hasn't appeared in the GPU monitor yet because the PSO compile is blocking the render. Your prewarm didn't warm the right variants.
+Then:
+[LONGTASK] duration=4212.0ms start=374695ms  
+[EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK ... 393 edge geometries across 15 ISO layers
+This is the EdgeProjectorService processing 393 edge geometries. Even with CHUNK_SIZE=4, each chunk processes 4 groups × 393/15 ≈ 104 edges — and at CW geometry complexity that's hitting the 50ms threshold. Reduce CHUNK_SIZE to 1 or 2 for large edge counts.
+Priority order to get under 5 seconds:
+Fix the prewarm first — it's the biggest win and lowest risk. Then reduce EdgeProjectorService chunk size for CW geometry. The progressive level reveal is the most complex change but eliminates the PSO cold-compile problem permanently. Done in that order you should land at 2–3 seconds for 9 levels, 63 walls.

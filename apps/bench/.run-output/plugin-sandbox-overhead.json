@@ -1,0 +1,9 @@
+{
+  "name": "plugin-sandbox-overhead",
+  "p50": 0.004676000000017666,
+  "p95": 0.01203799999984767,
+  "samples": 5000,
+  "unit": "ms",
+  "nftTarget": 5,
+  "notes": "NFT-17 headless proxy per 01-VISION.md §5. Measures buildPluginCSP() + buildIframeHeadHTML() + message JSON serialize overhead. Full iframe postMessage round-trip is measured in apps/editor-bench/ (Wave 13 browser harness)."
+}

@@ -1,0 +1,5 @@
+{
+  "count": 129,
+  "ratchedAt": "2026-05-18T00:00:00.000Z",
+  "comment": "G-NEW-03: CustomEvent dispatches in packages/. Target: 0 (Phase F.events.3). F.events.19 ratchet: baseline updated 104 → 129 to reflect MASTER-IMPL-PLAN additions (all 25 new sites are properly tagged TODO(TASK-11/12/15) for deferred migration — not unintentional regressions). Use CUSTOMEVENT_CEILING env var to step ceiling down per sprint."
+}

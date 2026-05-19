@@ -1,0 +1,45 @@
+{
+  "meta": {
+    "source": "src/commands/walls/DeleteElementCommand.ts",
+    "capturedAt": "2026-04-26T18:30:00Z",
+    "description": "Delete an existing wall — exercises DeleteWallHandler's whole-row inverse capture.",
+    "deviationsFromPryzm1": [
+      "no door/window cascade — child-element plugins land in S11 (cascade rules registered then on the generic L4 DeleteElement handler)",
+      "no SpatialAuthority detach — that side-system is not wired in PRYZM 2 yet"
+    ]
+  },
+  "setup": {
+    "walls": [
+      {
+        "id": "wall_01HYY00000000000000000DX01",
+        "type": "wall",
+        "parentId": null,
+        "childrenIds": [],
+        "metadata": {
+          "createdAt": "2026-04-26T00:00:00.000Z",
+          "modifiedAt": "2026-04-26T00:00:00.000Z",
+          "createdBy": "fixture",
+          "modifiedBy": "fixture"
+        },
+        "levelId": "lvl_test",
+        "baseLine": [
+          { "x": 0, "y": 0, "z": 0 },
+          { "x": 3, "y": 0, "z": 0 }
+        ],
+        "height": 2.5,
+        "thickness": 0.1,
+        "baseOffset": 0,
+        "openings": []
+      }
+    ]
+  },
+  "command": {
+    "type": "wall.delete",
+    "payload": { "id": "wall_01HYY00000000000000000DX01" }
+  },
+  "expect": {
+    "valid": true,
+    "wallStoreSizeAfter": 0,
+    "undoRestoresWallById": "wall_01HYY00000000000000000DX01"
+  }
+}

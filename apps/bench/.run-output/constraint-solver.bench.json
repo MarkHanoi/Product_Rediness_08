@@ -1,0 +1,16 @@
+{
+  "sprint": "S52",
+  "bench": "constraint-solver",
+  "scenarios": [
+    {
+      "scenario": "solve-50-constraints",
+      "cold": 4.4148210000000745,
+      "warmAvg": 0.28460658500000136,
+      "p50": 0.18218100000012782,
+      "p95": 0.5552600000000893,
+      "p99": 3.5502480000000105,
+      "budgetMs": 16
+    }
+  ],
+  "timestampUtc": "2026-05-09T23:09:01.336Z"
+}

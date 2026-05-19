@@ -1,0 +1,30 @@
+{
+  "name": "@pryzm/views",
+  "version": "0.1.0",
+  "description": "PRYZM 3 — View-layer public API contracts (Sprint F-2.3). Type-only interfaces for PlanViewManager, SectionViewService and SplitViewManager. Concrete implementations live in apps/editor/src/engine/views/ until Sprint F-2.5.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@pryzm/core-app-model": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  },
+  "pryzm": {
+    "layer": "L5",
+    "waveCreated": 21,
+    "sprintCreated": "F-2.3",
+    "note": "Sprint F-2.3 (2026-05-15): View-layer public API surface. Extraction of concrete implementations deferred to Sprint F-2.5. Roadmap: 51-POST-EXTRACTION-ROADMAP.md §Phase F-2.",
+    "forbiddenDependencies": [],
+    "surfaceAuditDoc": "../../packages/engine/SURFACE-AUDIT.md"
+  }
+}

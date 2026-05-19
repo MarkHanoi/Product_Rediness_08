@@ -1,0 +1,28 @@
+{
+  "id": "F01.rectangular-default",
+  "description": "0.4×0.4×3.0 m rectangular concrete column",
+  "column": {
+    "id": "column:01HZS000000000000COLF0100",
+    "type": "column",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "origin": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "shape": "rectangular",
+    "width": 0.4,
+    "depth": 0.4,
+    "height": 3,
+    "rotation": 0,
+    "baseOffset": 0
+  },
+  "worldY": 0
+}

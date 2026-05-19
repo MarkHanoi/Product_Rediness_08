@@ -1,0 +1,711 @@
+Connecting to 'https://thatopen.github.io/engine_fragment/resources/textures/envmaps/san_giuseppe_bridge_2k.hdr' violates the following Content Security Policy directive: "connect-src 'self' data: blob: https://api.cesium.com https://*.supabase.co wss: ws:". The policy is report-only, so the violation has been logged but no further action has been taken.
+VM6 injected.js:214 Connecting to 'https://thatopen.github.io/engine_fragment/resources/textures/envmaps/san_giuseppe_bridge_2k.hdr' violates the following Content Security Policy directive: "connect-src 'self' data: blob: https://api.cesium.com https://*.supabase.co wss: ws:". The policy is report-only, so the violation has been logged but no further action has been taken.
+54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/api/projects/proj-1777941071096-f588ki5/versions:1  Failed to load resource: the server responded with a status of 403 (Forbidden)
+VM6 injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+VM6 injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+VM6 injected.js:37 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+VM6 injected.js:37 [WallTool] wall.create dispatched to bus (busId: wall_2CF2D9AA13B348E9A5AA05ECC6 ) — legacy path runs for geometry with id: 2cf2d9aa-13b3-48e9-a5aa-05ecc647386a
+VM6 injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+VM6 injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+VM6 injected.js:37 [CommandManager] snapshot commandType="CreateWallCommand" scope=[wall,level] elapsed=0.3ms
+VM6 injected.js:37 [BimManager] Registered element 2cf2d9aa-13b3-48e9-a5aa-05ecc647386a to level L0
+VM6 injected.js:37 Wall created via command: 2cf2d9aa-13b3-48e9-a5aa-05ecc647386a
+VM6 injected.js:37 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=18ms, resets=6)
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+VM6 injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+VM6 injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+VM6 injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.1ms
+VM6 injected.js:37 [PascalSceneLighting] Shadow flags set on 8 mesh(es).
+VM6 injected.js:37 [LONGTASK] duration=89.0ms start=1137722.3ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+VM6 injected.js:37 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+VM6 injected.js:37 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+VM6 injected.js:37 [NativeElementMeshExporter] Plan view — exporting 8 elements from levels overlapping Y=[-1.20, 0.00]
+VM6 injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+VM6 injected.js:37 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+VM6 injected.js:37 [EdgeProjectorService] Native projection done — 8 group(s), 8 edge geometries across 8 ISO layer(s) (per-element UUID tagging active)
+VM6 injected.js:37 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=10 (OBC-IFC=0, native=8, ifc-scene=0)
+VM6 injected.js:37 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=4/14 layers
+VM6 injected.js:37 [WallModePicker] setActiveMode → linear
+VM6 injected.js:37 [FPS] 51fps
+VM6 injected.js:37 [LONGTASK] duration=62.0ms start=1138190.8ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=50.0ms start=1138254.3ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=57.0ms start=1138350.6ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=58.0ms start=1138543.8ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=50.0ms start=1138605.4ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+2VM6 injected.js:37 [ProjectSerializer] Snapshot created: 8 elements, 1 levels, 8 walls, 0 slabs, 0 furniture
+VM6 injected.js:37 [PlatformSaveController] Version saved: "Auto-save" (8 elements, id: proj-1777941122572-lylzq)
+VM6 injected.js:37 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+VM6 injected.js:37 [WallTool] wall.create dispatched to bus (busId: wall_242364C598B54C1CBF44640B85 ) — legacy path runs for geometry with id: 242364c5-98b5-4c1c-bf44-640b8500a831
+VM6 injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+VM6 injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+VM6 injected.js:37 [CommandManager] snapshot commandType="CreateWallCommand" scope=[wall,level] elapsed=0.3ms
+VM6 injected.js:37 [BimManager] Registered element 242364c5-98b5-4c1c-bf44-640b8500a831 to level L0
+VM6 injected.js:37 Wall created via command: 242364c5-98b5-4c1c-bf44-640b8500a831
+VM6 injected.js:37 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=21ms, resets=6)
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=73.0ms start=1138755.7ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+VM6 injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+VM6 injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+VM6 injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+VM6 injected.js:37 [PascalSceneLighting] Shadow flags set on 9 mesh(es).
+VM6 injected.js:37 [LONGTASK] duration=76.0ms start=1139059.7ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [FPS] 16fps
+VM6 injected.js:37 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+VM6 injected.js:37 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+VM6 injected.js:37 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+VM6 injected.js:37 [NativeElementMeshExporter] Plan view — exporting 9 elements from levels overlapping Y=[-1.20, 0.00]
+VM6 injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+VM6 injected.js:37 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+VM6 injected.js:37 [EdgeProjectorService] Native projection done — 9 group(s), 9 edge geometries across 9 ISO layer(s) (per-element UUID tagging active)
+VM6 injected.js:37 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=12 (OBC-IFC=0, native=9, ifc-scene=0)
+VM6 injected.js:37 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=4/14 layers
+VM6 injected.js:37 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+VM6 injected.js:37 [WallTool] wall.create dispatched to bus (busId: wall_CA8E93D138794FBF9CC284929A ) — legacy path runs for geometry with id: ca8e93d1-3879-4fbf-9cc2-84929af93f8e
+VM6 injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+VM6 injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+VM6 injected.js:37 [CommandManager] snapshot commandType="CreateWallCommand" scope=[wall,level] elapsed=0.2ms
+VM6 injected.js:37 [BimManager] Registered element ca8e93d1-3879-4fbf-9cc2-84929af93f8e to level L0
+VM6 injected.js:37 Wall created via command: ca8e93d1-3879-4fbf-9cc2-84929af93f8e
+VM6 injected.js:37 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=18ms, resets=6)
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+VM6 injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+VM6 injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+VM6 injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.1ms
+VM6 injected.js:37 [PascalSceneLighting] Shadow flags set on 10 mesh(es).
+VM6 injected.js:37 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+VM6 injected.js:37 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+VM6 injected.js:37 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+VM6 injected.js:37 [NativeElementMeshExporter] Plan view — exporting 10 elements from levels overlapping Y=[-1.20, 0.00]
+VM6 injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+VM6 injected.js:37 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+VM6 injected.js:37 [EdgeProjectorService] Native projection done — 10 group(s), 10 edge geometries across 10 ISO layer(s) (per-element UUID tagging active)
+VM6 injected.js:37 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=14 (OBC-IFC=0, native=10, ifc-scene=0)
+VM6 injected.js:37 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=4/14 layers
+VM6 injected.js:37 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+VM6 injected.js:37 [WallTool] wall.create dispatched to bus (busId: wall_B7B66BA32C004C89AEC62C7D40 ) — legacy path runs for geometry with id: b7b66ba3-2c00-4c89-aec6-2c7d409c849b
+VM6 injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+VM6 injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+VM6 injected.js:37 [CommandManager] snapshot commandType="CreateWallCommand" scope=[wall,level] elapsed=0.2ms
+VM6 injected.js:37 [BimManager] Registered element b7b66ba3-2c00-4c89-aec6-2c7d409c849b to level L0
+VM6 injected.js:37 Wall created via command: b7b66ba3-2c00-4c89-aec6-2c7d409c849b
+VM6 injected.js:37 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=23ms, resets=6)
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [PascalSceneLighting] Shadow flags set on 11 mesh(es).
+VM6 injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+VM6 injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+VM6 injected.js:37 [LONGTASK] duration=60.0ms start=1139976.1ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+VM6 injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+VM6 injected.js:37 [FPS] 34fps
+VM6 injected.js:37 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+VM6 injected.js:37 [WallTool] wall.create dispatched to bus (busId: wall_94D32112F8A3429AAC60A2EF1B ) — legacy path runs for geometry with id: 94d32112-f8a3-429a-ac60-a2ef1bee5a05
+VM6 injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+VM6 injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+VM6 injected.js:37 [CommandManager] snapshot commandType="CreateWallCommand" scope=[wall,level] elapsed=0.3ms
+VM6 injected.js:37 [BimManager] Registered element 94d32112-f8a3-429a-ac60-a2ef1bee5a05 to level L0
+VM6 injected.js:37 Wall created via command: 94d32112-f8a3-429a-ac60-a2ef1bee5a05
+VM6 injected.js:37 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=14ms, resets=6)
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=51.0ms start=1140180.0ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+VM6 injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.1ms
+VM6 injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+VM6 injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+VM6 injected.js:37 [PascalSceneLighting] Shadow flags set on 12 mesh(es).
+VM6 injected.js:37 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+VM6 injected.js:37 [WallTool] wall.create dispatched to bus (busId: wall_5D0939A1E9B0475EB7D24BA530 ) — legacy path runs for geometry with id: 5d0939a1-e9b0-475e-b7d2-4ba530be511a
+VM6 injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+VM6 injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+VM6 injected.js:37 [CommandManager] snapshot commandType="CreateWallCommand" scope=[wall,level] elapsed=0.3ms
+VM6 injected.js:37 [BimManager] Registered element 5d0939a1-e9b0-475e-b7d2-4ba530be511a to level L0
+VM6 injected.js:37 Wall created via command: 5d0939a1-e9b0-475e-b7d2-4ba530be511a
+VM6 injected.js:37 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=57ms, resets=6)
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=13ms, resets=6)
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=90.0ms start=1140437.9ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=74.0ms start=1140568.0ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=78.0ms start=1140647.3ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [PascalSceneLighting] Shadow flags set on 13 mesh(es).
+VM6 injected.js:37 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+VM6 injected.js:37 [WallTool] wall.create dispatched to bus (busId: wall_5E910B1F61CD4E2B91FA57BB9B ) — legacy path runs for geometry with id: 5e910b1f-61cd-4e2b-91fa-57bb9b2e8114
+VM6 injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+VM6 injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+VM6 injected.js:37 [CommandManager] snapshot commandType="CreateWallCommand" scope=[wall,level] elapsed=0.3ms
+VM6 injected.js:37 [BimManager] Registered element 5e910b1f-61cd-4e2b-91fa-57bb9b2e8114 to level L0
+VM6 injected.js:37 Wall created via command: 5e910b1f-61cd-4e2b-91fa-57bb9b2e8114
+VM6 injected.js:37 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=60ms, resets=6)
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=8ms, resets=6)
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=88.0ms start=1140883.9ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=67.0ms start=1140991.3ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=70.0ms start=1141067.5ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+VM6 injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.1ms
+VM6 injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+VM6 injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+VM6 injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+VM6 injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+VM6 injected.js:37 [FPS] 17fps
+VM6 injected.js:37 [PascalSceneLighting] Shadow flags set on 14 mesh(es).
+VM6 injected.js:37 [LONGTASK] duration=83.0ms start=1141298.3ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+VM6 injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.1ms
+VM6 injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+VM6 injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+VM6 injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+VM6 injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+VM6 injected.js:37 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+VM6 injected.js:37 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+VM6 injected.js:37 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+VM6 injected.js:37 [NativeElementMeshExporter] Plan view — exporting 14 elements from levels overlapping Y=[-1.20, 0.00]
+VM6 injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+VM6 injected.js:37 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+VM6 injected.js:37 [EdgeProjectorService] Native projection done — 14 group(s), 14 edge geometries across 14 ISO layer(s) (per-element UUID tagging active)
+VM6 injected.js:37 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=16 (OBC-IFC=0, native=14, ifc-scene=0)
+VM6 injected.js:37 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=4/14 layers
+VM6 injected.js:37 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+VM6 injected.js:37 [WallTool] wall.create dispatched to bus (busId: wall_8B019744B5CB486CABC78E8D78 ) — legacy path runs for geometry with id: 8b019744-b5cb-486c-abc7-8e8d78854c16
+VM6 injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+VM6 injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+VM6 injected.js:37 [CommandManager] snapshot commandType="CreateWallCommand" scope=[wall,level] elapsed=0.4ms
+VM6 injected.js:37 [BimManager] Registered element 8b019744-b5cb-486c-abc7-8e8d78854c16 to level L0
+VM6 injected.js:37 Wall created via command: 8b019744-b5cb-486c-abc7-8e8d78854c16
+VM6 injected.js:37 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=18ms, resets=6)
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=5ms, resets=6)
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=53.0ms start=1141535.6ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [PascalSceneLighting] Shadow flags set on 15 mesh(es).
+VM6 injected.js:37 [LONGTASK] duration=96.0ms start=1141711.4ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=54.0ms start=1141808.9ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+VM6 injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+VM6 injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+VM6 injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+VM6 injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+VM6 injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+VM6 injected.js:37 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+VM6 injected.js:37 [WallTool] wall.create dispatched to bus (busId: wall_4F9518BD32ED42DDB54BD80DCE ) — legacy path runs for geometry with id: 4f9518bd-32ed-42dd-b54b-d80dced8ea84
+VM6 injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+VM6 injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+VM6 injected.js:37 [CommandManager] snapshot commandType="CreateWallCommand" scope=[wall,level] elapsed=0.4ms
+VM6 injected.js:37 [BimManager] Registered element 4f9518bd-32ed-42dd-b54b-d80dced8ea84 to level L0
+VM6 injected.js:37 Wall created via command: 4f9518bd-32ed-42dd-b54b-d80dced8ea84
+VM6 injected.js:37 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=18ms, resets=6)
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=8ms, resets=6)
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [PascalSceneLighting] Shadow flags set on 16 mesh(es).
+VM6 injected.js:37 [FPS] 17fps
+VM6 injected.js:37 [LONGTASK] duration=87.0ms start=1142160.4ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+VM6 injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+VM6 injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+VM6 injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.1ms
+VM6 injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+VM6 injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+VM6 injected.js:37 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+VM6 injected.js:37 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+VM6 injected.js:37 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+VM6 injected.js:37 [NativeElementMeshExporter] Plan view — exporting 16 elements from levels overlapping Y=[-1.20, 0.00]
+VM6 injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+VM6 injected.js:37 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+VM6 injected.js:37 [EdgeProjectorService] Native projection done — 16 group(s), 16 edge geometries across 16 ISO layer(s) (per-element UUID tagging active)
+VM6 injected.js:37 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=18 (OBC-IFC=0, native=16, ifc-scene=0)
+VM6 injected.js:37 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=4/14 layers
+VM6 injected.js:37 [LONGTASK] duration=51.0ms start=1142350.3ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=55.0ms start=1142409.0ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=54.0ms start=1142466.0ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=59.0ms start=1142521.9ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+VM6 injected.js:37 [WallTool] wall.create dispatched to bus (busId: wall_F846C17939DA49959A5763D186 ) — legacy path runs for geometry with id: f846c179-39da-4995-9a57-63d186380b3a
+VM6 injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+VM6 injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+VM6 injected.js:37 [CommandManager] snapshot commandType="CreateWallCommand" scope=[wall,level] elapsed=0.3ms
+VM6 injected.js:37 [BimManager] Registered element f846c179-39da-4995-9a57-63d186380b3a to level L0
+VM6 injected.js:37 Wall created via command: f846c179-39da-4995-9a57-63d186380b3a
+VM6 injected.js:37 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=50ms, resets=6)
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=8ms, resets=6)
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=99.0ms start=1142588.7ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=59.0ms start=1142688.7ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=67.0ms start=1142748.7ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=65.0ms start=1142827.5ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [PascalSceneLighting] Shadow flags set on 17 mesh(es).
+VM6 injected.js:37 [LONGTASK] duration=62.0ms start=1142997.7ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+VM6 injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+VM6 injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+VM6 injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+VM6 injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+VM6 injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+VM6 injected.js:37 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+VM6 injected.js:37 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+VM6 injected.js:37 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+VM6 injected.js:37 [NativeElementMeshExporter] Plan view — exporting 17 elements from levels overlapping Y=[-1.20, 0.00]
+VM6 injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+VM6 injected.js:37 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+VM6 injected.js:37 [EdgeProjectorService] Native projection done — 17 group(s), 17 edge geometries across 17 ISO layer(s) (per-element UUID tagging active)
+VM6 injected.js:37 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=20 (OBC-IFC=0, native=17, ifc-scene=0)
+VM6 injected.js:37 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=4/14 layers
+VM6 injected.js:37 [FPS] 22fps
+VM6 injected.js:37 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+VM6 injected.js:37 [WallTool] wall.create dispatched to bus (busId: wall_4AE44C45D05F48ABB4A04643EB ) — legacy path runs for geometry with id: 4ae44c45-d05f-48ab-b4a0-4643eb8d5d40
+VM6 injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+VM6 injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+VM6 injected.js:37 [CommandManager] snapshot commandType="CreateWallCommand" scope=[wall,level] elapsed=0.5ms
+VM6 injected.js:37 [BimManager] Registered element 4ae44c45-d05f-48ab-b4a0-4643eb8d5d40 to level L0
+VM6 injected.js:37 Wall created via command: 4ae44c45-d05f-48ab-b4a0-4643eb8d5d40
+VM6 injected.js:37 WallTool deactivated
+VM6 injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+VM6 injected.js:37 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=274ms, resets=6)
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=8ms, resets=6)
+(anonymous) @ VM6 injected.js:37
+500Destroyed texture [Texture "ShadowDepthTexture"] used in a submit.
+ - While calling [Queue].Submit([[CommandBuffer from CommandEncoder "renderContext_6"]])
+
+VM6 injected.js:37 [LONGTASK] duration=282.0ms start=1143438.3ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=76.0ms start=1143720.6ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+VM6 injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+VM6 injected.js:37 [PascalSceneLighting] Shadow flags set on 18 mesh(es).
+VM6 injected.js:37 [LONGTASK] duration=216.0ms start=1143870.4ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=52.0ms start=1144118.4ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+VM6 injected.js:37 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+VM6 injected.js:37 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+VM6 injected.js:37 [NativeElementMeshExporter] Plan view — exporting 18 elements from levels overlapping Y=[-1.20, 0.00]
+VM6 injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+VM6 injected.js:37 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+VM6 injected.js:37 [EdgeProjectorService] Native projection done — 18 group(s), 18 edge geometries across 18 ISO layer(s) (per-element UUID tagging active)
+VM6 injected.js:37 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=22 (OBC-IFC=0, native=18, ifc-scene=0)
+VM6 injected.js:37 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=4/14 layers
+VM6 injected.js:37 [GPU Monitor] geometries:21 textures:8 | drawCalls:21 tris:824
+VM6 injected.js:37 [LONGTASK] duration=59.0ms start=1144179.6ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+VM6 injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+VM6 injected.js:37 [PlanarTopologyEngine] Topology: 1 room(s) detected, outer face (18 vertices), 2 total faces
+VM6 injected.js:37 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+VM6 injected.js:37 [BimManager] Registered element 4f43aab9-1fdc-4b33-8ea8-ea6d92c50c54 to level L0
+VM6 injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+VM6 injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+VM6 injected.js:37 [PlanarTopologyEngine] Topology: 1 room(s) detected, outer face (18 vertices), 2 total faces
+VM6 injected.js:37 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+VM6 injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+VM6 injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+VM6 injected.js:37 [PlanarTopologyEngine] Topology: 1 room(s) detected, outer face (18 vertices), 2 total faces
+VM6 injected.js:37 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+VM6 injected.js:37 [FPS] 19fps
+VM6 injected.js:37 [LONGTASK] duration=256.0ms start=1144415.8ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+2VM6 injected.js:37 [ProjectSerializer] Snapshot created: 19 elements, 1 levels, 18 walls, 0 slabs, 0 furniture
+VM6 injected.js:37 [PlatformSaveController] Version saved: "Auto-save" (19 elements, id: proj-1777941128658-67gxa)
+VM6 injected.js:37 [RoomBoundaryBuilder] Compliance overlay: 2 error, 0 warning room(s) tinted
+VM6 injected.js:37 [FPS] 31fps
+VM6 injected.js:37 [LONGTASK] duration=65.0ms start=1145299.8ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [FPS] 61fps
+VM6 injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+VM6 injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+VM6 injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+VM6 injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+VM6 injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+VM6 injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+VM6 injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+VM6 injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+VM6 injected.js:37 [FPS] 72fps
+VM6 injected.js:37 [FPS] 75fps
+VM6 injected.js:37 [SlabModePicker] Mode selected: By Region
+VM6 injected.js:37 ToolManager: activateTool called for slab
+VM6 injected.js:37 ToolManager: deactivating previous tool none
+VM6 injected.js:37 ToolManager: executing activateFn for slab
+VM6 injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+VM6 injected.js:37 [CommandManager] EXECUTE: CREATE_SLAB
+VM6 injected.js:37 [CommandManager] snapshot commandType="CreateSlabCommand" scope=[slab,level] elapsed=0.1ms
+VM6 injected.js:37 [BimManager] Registered element 1a4eb821-9773-4e71-a012-c8f8a02837fe to level L0
+VM6 injected.js:37 [SlabFragmentBuilder] outset slabId="1a4eb821-9773-4e71-a012-c8f8a02837fe" vertices=18 elapsed=0.3ms
+VM6 injected.js:37 [SlabFragmentBuilder] triangulate slabId="1a4eb821-9773-4e71-a012-c8f8a02837fe" outerVertices=18 elapsed=0.6ms
+VM6 injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="1a4eb821-9773-4e71-a012-c8f8a02837fe" totalMs=1.8ms
+VM6 injected.js:37 [CommandManager] EXECUTE: UPDATE_SLAB_LAYERS
+VM6 injected.js:37 [CommandManager] snapshot commandType="UpdateSlabLayersCommand" scope=[slab] elapsed=0.1ms
+VM6 injected.js:37 [SlabFragmentBuilder] outset slabId="1a4eb821-9773-4e71-a012-c8f8a02837fe" vertices=18 elapsed=0.1ms
+VM6 injected.js:37 [SlabFragmentBuilder] triangulate slabId="1a4eb821-9773-4e71-a012-c8f8a02837fe" outerVertices=18 elapsed=0.3ms
+VM6 injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="1a4eb821-9773-4e71-a012-c8f8a02837fe" totalMs=1.4ms
+VM6 injected.js:37 [LevelPlaneConstraint] Locked Y=-0.2000 for element "Slab" id="1a4eb821-9773-4e71-a012-c8f8a02837fe"
+VM6 injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+VM6 injected.js:37 [FPS] 60fps
+VM6 injected.js:37 Exiting tool via HUD button
+VM6 injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+VM6 injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+VM6 injected.js:37 [LONGTASK] duration=54.0ms start=1149227.4ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=260.0ms start=1149281.6ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=53.0ms start=1149594.6ms
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=379.0ms start=1149654.2ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+VM6 injected.js:37 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+VM6 injected.js:37 [CommandManager] EXECUTE: CREATE_ANNOTATION
+VM6 injected.js:37 [CommandManager] snapshot commandType="CreateAnnotationCommand" scope=[annotation] elapsed=0.0ms
+VM6 injected.js:37 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 1 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed out of 1 live room(s).
+VM6 injected.js:37 [NativeElementMeshExporter] Plan view — exporting 20 elements from levels overlapping Y=[-1.20, 0.00]
+VM6 injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+VM6 injected.js:37 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+VM6 injected.js:37 [EdgeProjectorService] Native projection done — 19 group(s), 19 edge geometries across 19 ISO layer(s) (per-element UUID tagging active)
+VM6 injected.js:37 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=24 (OBC-IFC=0, native=19, ifc-scene=0)
+VM6 injected.js:37 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=7/14 layers
+VM6 injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+VM6 injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.1ms
+VM6 injected.js:37 [PlanarTopologyEngine] Topology: 1 room(s) detected, outer face (18 vertices), 2 total faces
+VM6 injected.js:37 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+2VM6 injected.js:37 [ProjectSerializer] Snapshot created: 20 elements, 1 levels, 18 walls, 1 slabs, 0 furniture
+VM6 injected.js:37 [PlatformSaveController] Version saved: "Auto-save" (20 elements, id: proj-1777941134159-uqnuj)
+VM6 injected.js:37 [LONGTASK] duration=80.0ms start=1150242.4ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [FPS] 26fps
+VM6 injected.js:37 [FPS] 60fps
+VM6 injected.js:37 [FPS] 72fps
+54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/#/projects:1 WebGPU: too many warnings, no more warnings will be reported to the console for this GPUDevice.
+VM6 injected.js:37 [FPS] 78fps
+VM6 injected.js:37 [GPU Monitor] geometries:33 textures:8 | drawCalls:20 tris:300
+VM6 injected.js:37 [FPS] 79fps
+VM6 injected.js:37 [FPS] 75fps
+VM6 injected.js:37 [FPS] 81fps
+VM6 injected.js:37 [FPS] 79fps
+2VM6 injected.js:37 [FPS] 83fps
+VM6 injected.js:37 [FPS] 81fps
+VM6 injected.js:37 [CommandManager] EXECUTE: CREATE_LEVEL
+VM6 injected.js:37 [CommandManager] snapshot commandType="CreateMultipleLevelsCommand" scope=[level] elapsed=0.1ms
+VM6 injected.js:37 [CreateMultipleLevelsCommand] START count=5
+VM6 injected.js:37 [EngineBootstrap] Level switch → "Level 01" (target.Y: -0.00 → 3.00)
+VM6 injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-01-1777941144561-1" at 3m
+VM6 injected.js:37 Refreshing Spatial Tree...
+VM6 injected.js:37 [RuleEngine] Model updated, ready for re-validation
+VM6 injected.js:37 [CreateMultipleLevelsCommand] level=1/5 addLevel=15.2ms createPlanView=0.3ms iterTotal=15.5ms
+VM6 injected.js:37 [EngineBootstrap] Level switch → "Level 02" (target.Y: 3.00 → 6.00)
+VM6 injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-02-1777941144576-2" at 6m
+VM6 injected.js:37 Refreshing Spatial Tree...
+VM6 injected.js:37 [RuleEngine] Model updated, ready for re-validation
+VM6 injected.js:37 [CreateMultipleLevelsCommand] level=2/5 addLevel=7.7ms createPlanView=0.1ms iterTotal=7.8ms
+VM6 injected.js:37 [EngineBootstrap] Level switch → "Level 03" (target.Y: 6.00 → 9.00)
+VM6 injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-03-1777941144584-3" at 9m
+VM6 injected.js:37 Refreshing Spatial Tree...
+VM6 injected.js:37 [RuleEngine] Model updated, ready for re-validation
+VM6 injected.js:37 [CreateMultipleLevelsCommand] level=3/5 addLevel=6.8ms createPlanView=0.0ms iterTotal=6.8ms
+VM6 injected.js:37 [EngineBootstrap] Level switch → "Level 04" (target.Y: 9.00 → 12.00)
+VM6 injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-04-1777941144591-4" at 12m
+VM6 injected.js:37 Refreshing Spatial Tree...
+VM6 injected.js:37 [RuleEngine] Model updated, ready for re-validation
+VM6 injected.js:37 [CreateMultipleLevelsCommand] level=4/5 addLevel=7.8ms createPlanView=0.0ms iterTotal=7.8ms
+VM6 injected.js:37 [EngineBootstrap] Level switch → "Level 05" (target.Y: 12.00 → 15.00)
+VM6 injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-05-1777941144599-5" at 15m
+VM6 injected.js:37 Refreshing Spatial Tree...
+VM6 injected.js:37 [RuleEngine] Model updated, ready for re-validation
+VM6 injected.js:37 [CreateMultipleLevelsCommand] level=5/5 addLevel=6.1ms createPlanView=0.1ms iterTotal=6.2ms
+VM6 injected.js:37 [CreateMultipleLevelsCommand] COMPLETE total=44.6ms
+VM6 injected.js:37 [AIApprovalStore] Audit record appended: 9c837f7d-04a8-47fa-8f37-7cbdf91fee5b (CREATE_LEVEL)
+VM6 injected.js:37 Refreshing Spatial Tree...
+VM6 injected.js:37 [RuleEngine] Model updated, ready for re-validation
+VM6 injected.js:37 [LONGTASK] duration=54.0ms start=1160648.5ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [FPS] 68fps
+2VM6 injected.js:37 [ProjectSerializer] Snapshot created: 20 elements, 6 levels, 18 walls, 1 slabs, 0 furniture
+VM6 injected.js:37 [PlatformSaveController] Version saved: "Auto-save" (20 elements, id: proj-1777941145613-bkphe)
+VM6 injected.js:37 [LONGTASK] duration=84.0ms start=1161697.2ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [FPS] 36fps
+VM6 injected.js:37 [LONGTASK] duration=222.0ms start=1162418.8ms
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [AIPanel] Proposal received via event — showing inline card: Object
+VM6 injected.js:37 [FPS] 10fps
+VM6 injected.js:37 [GPU Monitor] geometries:33 textures:8 | drawCalls:20 tris:300
+VM6 injected.js:37 [CommandManager] EXECUTE: CREATE_SLABS_ON_ALL_FLOORS
+VM6 injected.js:37 [CommandManager] snapshot commandType="CreateSlabsOnAllFloorsCommand" scope=[slab,level] elapsed=0.2ms
+VM6 injected.js:37 [CreateSlabsOnAllFloorsCommand] START referenceSlabId="1a4eb821-9773-4e71-a012-c8f8a02837fe" levels=5 polygonVertices=18
+VM6 injected.js:37 [CreateSlabsOnAllFloorsCommand] runBatch starting — 5 slab(s) deferred to rAF drain.
+VM6 injected.js:37 [BatchCoordinator] _setupBatch — 5 level(s), 5 elements expected. ViewDependencyTracker suppressed.
+VM6 injected.js:37 [UnifiedFrameLoop] §PERF-VIEW-BATCH-SUPPRESS: OBC+PASCAL render suppressed — WebGL shader compilation deferred until batch drain completes.
+VM6 injected.js:37 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+VM6 injected.js:37 [BimManager] Registered element f7243390-72cd-40f1-9eeb-3fe0746cfb5d to level L-01-1777941144561-1
+VM6 injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-01-1777941144561-1" success=true elapsed=1.6ms
+VM6 injected.js:37 [BimManager] Registered element ea3ab270-3dde-43c2-bac3-d130c21d41fe to level L-02-1777941144576-2
+VM6 injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-02-1777941144576-2" success=true elapsed=1.1ms
+VM6 injected.js:37 [BimManager] Registered element 88aac754-a54d-4be9-a7c6-f5bacf09459a to level L-03-1777941144584-3
+VM6 injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-03-1777941144584-3" success=true elapsed=1.1ms
+VM6 injected.js:37 [BimManager] Registered element a713eab0-59ae-48f2-b40b-6e1ce30b83d4 to level L-04-1777941144591-4
+VM6 injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-04-1777941144591-4" success=true elapsed=1.0ms
+VM6 injected.js:37 [BimManager] Registered element 4b510e7a-1225-44da-880d-71a2756bb3cb to level L-05-1777941144599-5
+VM6 injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-05-1777941144599-5" success=true elapsed=1.1ms
+VM6 injected.js:37 [CreateSlabsOnAllFloorsCommand] COMPLETE created=5 total=18.0ms
+VM6 injected.js:37 [AIApprovalStore] Audit record appended: 5871cfbf-5605-4972-999b-0777b9608c88 (CREATE_SLABS_ON_ALL_FLOORS)
+VM6 injected.js:37 Refreshing Spatial Tree...
+VM6 injected.js:37 [RuleEngine] Model updated, ready for re-validation
+VM6 injected.js:37 [FPS] 20fps
+VM6 injected.js:37 [SlabFragmentBuilder] outset slabId="f7243390-72cd-40f1-9eeb-3fe0746cfb5d" vertices=18 elapsed=0.1ms
+VM6 injected.js:37 [SlabFragmentBuilder] triangulate slabId="f7243390-72cd-40f1-9eeb-3fe0746cfb5d" outerVertices=18 elapsed=0.2ms
+VM6 injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="f7243390-72cd-40f1-9eeb-3fe0746cfb5d" totalMs=1.8ms
+VM6 injected.js:37 [SlabFragmentBuilder] outset slabId="ea3ab270-3dde-43c2-bac3-d130c21d41fe" vertices=18 elapsed=0.0ms
+VM6 injected.js:37 [SlabFragmentBuilder] triangulate slabId="ea3ab270-3dde-43c2-bac3-d130c21d41fe" outerVertices=18 elapsed=0.1ms
+VM6 injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="ea3ab270-3dde-43c2-bac3-d130c21d41fe" totalMs=1.0ms
+VM6 injected.js:37 [SlabFragmentBuilder] outset slabId="88aac754-a54d-4be9-a7c6-f5bacf09459a" vertices=18 elapsed=0.0ms
+VM6 injected.js:37 [SlabFragmentBuilder] triangulate slabId="88aac754-a54d-4be9-a7c6-f5bacf09459a" outerVertices=18 elapsed=0.1ms
+VM6 injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="88aac754-a54d-4be9-a7c6-f5bacf09459a" totalMs=1.1ms
+VM6 injected.js:37 [SlabFragmentBuilder] outset slabId="a713eab0-59ae-48f2-b40b-6e1ce30b83d4" vertices=18 elapsed=0.0ms
+VM6 injected.js:37 [SlabFragmentBuilder] triangulate slabId="a713eab0-59ae-48f2-b40b-6e1ce30b83d4" outerVertices=18 elapsed=0.2ms
+VM6 injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="a713eab0-59ae-48f2-b40b-6e1ce30b83d4" totalMs=1.1ms
+VM6 injected.js:37 [SlabFragmentBuilder] outset slabId="4b510e7a-1225-44da-880d-71a2756bb3cb" vertices=18 elapsed=0.1ms
+VM6 injected.js:37 [SlabFragmentBuilder] triangulate slabId="4b510e7a-1225-44da-880d-71a2756bb3cb" outerVertices=18 elapsed=0.1ms
+VM6 injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="4b510e7a-1225-44da-880d-71a2756bb3cb" totalMs=1.4ms
+VM6 injected.js:37 [SlabFragmentBuilder] RAF_DRAIN built=5 remaining=0 queueBefore=5 frameMs=8.2ms
+VM6 injected.js:37 [SlabFragmentBuilder] rAF queue drained — signalling BatchCoordinator.
+VM6 injected.js:37 [BatchCoordinator] Build queue drained — beginning registration drain (0 queued / 5 expected).
+VM6 injected.js:37 [BatchCoordinator] §REG-MANY-P2: queue ≤ 50 entries (0) — draining synchronously (0 rAF frames).
+VM6 injected.js:37 [StoreEventBus] endBatchYielded() — 5 event(s) will be delivered in 1 chunk(s) of 200 via frame scheduler.
+VM6 injected.js:37 [StoreEventBus] endBatchYielded() — all 5 event(s) delivered across 1 chunk(s) (last: 0.4ms). Calling onComplete().
+VM6 injected.js:37 [BatchCoordinator] §PERF-VIEW-BATCH-SUPPRESS: suppression lifted; markLevelsDirty(5 level(s)) scheduled.
+VM6 injected.js:37 [UnifiedFrameLoop] §PERF-VIEW-BATCH-SUPPRESS: suppression lifted — OBC+PASCAL resuming; first render compiles all deferred shaders.
+VM6 injected.js:37 [BatchCoordinator] Final sweep: firing 5 REDETECT_ROOMS command(s) (one per affected level). Observers re-enabled. StoreEventBus flushed (depth now 0).
+VM6 injected.js:37 [BatchCoordinator/P1.3] Post-batch PBR upgrade complete: 95 mesh(es) in 1 chunk(s) (§FIX-POST-BATCH-PBR-CHUNK).
+2VM6 injected.js:37 [ProjectSerializer] Snapshot created: 25 elements, 6 levels, 18 walls, 6 slabs, 0 furniture
+VM6 injected.js:37 [PlatformSaveController] Version saved: "Auto-save" (25 elements, id: proj-1777941149605-o1zhl)
+VM6 injected.js:37 [FPS] 42fps
+VM6 injected.js:37 [LONGTASK] duration=118.0ms start=1165688.2ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [FPS] 18fps
+VM6 injected.js:37 [CommandManager] EXECUTE: CREATE_CURTAIN_WALLS_ON_ALL_SLABS
+VM6 injected.js:37 [CommandManager] snapshot commandType="CreateCurtainWallsOnAllSlabsCommand" scope=[curtainWall] elapsed=0.1ms
+VM6 injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] START slabCount=6
+VM6 injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] PERF-PREWARM: MeshStandardMaterial + MeshPhysicalMaterial shader pre-warm complete.
+VM6 injected.js:37 [BatchCoordinator] _setupBatch — 6 level(s), 108 elements expected. ViewDependencyTracker suppressed.
+VM6 injected.js:37 [UnifiedFrameLoop] §PERF-VIEW-BATCH-SUPPRESS: OBC+PASCAL render suppressed — WebGL shader compilation deferred until batch drain completes.
+VM6 injected.js:37 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+VM6 injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="1a4eb821-9773-4e71-a012-c8f8a02837fe" walls=18 elapsed=0.5ms
+VM6 injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="f7243390-72cd-40f1-9eeb-3fe0746cfb5d" walls=18 elapsed=0.2ms
+VM6 injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="ea3ab270-3dde-43c2-bac3-d130c21d41fe" walls=18 elapsed=0.1ms
+VM6 injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="88aac754-a54d-4be9-a7c6-f5bacf09459a" walls=18 elapsed=0.1ms
+VM6 injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="a713eab0-59ae-48f2-b40b-6e1ce30b83d4" walls=18 elapsed=0.0ms
+VM6 injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="4b510e7a-1225-44da-880d-71a2756bb3cb" walls=18 elapsed=0.0ms
+VM6 injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] PERF-ADDMANY: addMany(108) complete.
+VM6 injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] COMPLETE total=1036.4ms
+VM6 injected.js:37 [AIApprovalStore] Audit record appended: b3b8a3eb-2d01-4975-93df-cdc36d094b56 (CREATE_CURTAIN_WALLS_ON_ALL_SLABS)
+VM6 injected.js:37 Refreshing Spatial Tree...
+VM6 injected.js:37 [RuleEngine] Model updated, ready for re-validation
+VM6 injected.js:37 [CurtainWallBuilder] §BATCH-CW-PAUSE: resumeAndFlush — 108 walls transferred to pending queue, 1 rAF drain scheduled.
+VM6 injected.js:37 [FPS] 60fps
+VM6 injected.js:37 [LONGTASK] duration=1055.0ms start=1169810.7ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [BatchCoordinator] Build queue drained — beginning registration drain (6 queued / 108 expected).
+VM6 injected.js:37 [BatchCoordinator] §REG-MANY-P2: queue ≤ 50 entries (6) — draining synchronously (0 rAF frames).
+VM6 injected.js:37 [BimManager] §REG-MANY-P0: registered 18 element(s) to level "L0".
+VM6 injected.js:37 [BimManager] §REG-MANY-P0: registered 18 element(s) to level "L-01-1777941144561-1".
+VM6 injected.js:37 [BimManager] §REG-MANY-P0: registered 18 element(s) to level "L-02-1777941144576-2".
+VM6 injected.js:37 [BimManager] §REG-MANY-P0: registered 18 element(s) to level "L-03-1777941144584-3".
+VM6 injected.js:37 [BimManager] §REG-MANY-P0: registered 18 element(s) to level "L-04-1777941144591-4".
+VM6 injected.js:37 [BimManager] §REG-MANY-P0: registered 18 element(s) to level "L-05-1777941144599-5".
+VM6 injected.js:37 [StoreEventBus] endBatchYielded() — 108 event(s) will be delivered in 1 chunk(s) of 200 via frame scheduler.
+VM6 injected.js:37 [StoreEventBus] endBatchYielded() — all 108 event(s) delivered across 1 chunk(s) (last: 4.1ms). Calling onComplete().
+VM6 injected.js:37 [BatchCoordinator] §PERF-VIEW-BATCH-SUPPRESS: suppression lifted; markLevelsDirty(6 level(s)) scheduled.
+VM6 injected.js:37 [UnifiedFrameLoop] §PERF-VIEW-BATCH-SUPPRESS: suppression lifted — OBC+PASCAL resuming; first render compiles all deferred shaders.
+VM6 injected.js:37 [BatchCoordinator] Final sweep: firing 6 REDETECT_ROOMS command(s) (one per affected level). Observers re-enabled. StoreEventBus flushed (depth now 0).
+VM6 injected.js:37 [FPS] 14fps
+VM6 injected.js:37 [LONGTASK] duration=10885.0ms start=1171399.3ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [GPU Monitor] geometries:33 textures:8 | drawCalls:20 tris:300
+stallwart.build.js:1 stallwart: failed ping 1
+VM6 injected.js:37 [GPU Monitor] geometries:33 textures:8 | drawCalls:20 tris:300
+stallwart.build.js:1 stallwart: failed ping 2
+stallwart.build.js:1 stallwart: failed ping 3
+stallwart.build.js:1 stallwart: failed ping 4
+stallwart.build.js:1 stallwart: failed ping 5
+VM6 injected.js:37 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+VM6 injected.js:37 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+VM6 injected.js:37 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed out of 1 live room(s).
+VM6 injected.js:37 [NativeElementMeshExporter] Plan view — exporting 38 elements from levels overlapping Y=[-1.20, 0.00]
+VM6 injected.js:37 [FPS] 1fps
+VM6 injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+VM6 injected.js:37 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+VM6 injected.js:37 [EdgeProjectorService] Native projection done — 37 group(s), 937 edge geometries across 37 ISO layer(s) (per-element UUID tagging active)
+VM6 injected.js:37 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=26 (OBC-IFC=0, native=37, ifc-scene=0)
+VM6 injected.js:37 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=7/14 layers
+VM6 injected.js:37 [LONGTASK] duration=1221.0ms start=1189365.9ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+4VM6 injected.js:37 [GPU Monitor] geometries:33 textures:8 | drawCalls:20 tris:300
+157i1f348twpb.js:21 Haven't heard from the server in a while, resetting connection...
+(anonymous) @ 157i1f348twpb.js:21
+VM6 injected.js:37 [FPS] 1fps
+VM6 injected.js:37 [LONGTASK] duration=1373.0ms start=1225530.8ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [FPS] 1fps
+VM6 injected.js:37 [LONGTASK] duration=1231.0ms start=1232177.9ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [GPU Monitor] geometries:33 textures:8 | drawCalls:20 tris:300
+VM6 injected.js:37 [BatchCoordinator/P1.3] Post-batch PBR upgrade complete: 419 mesh(es) in 4 chunk(s) (§FIX-POST-BATCH-PBR-CHUNK).
+VM6 injected.js:37 [FPS] 1fps
+VM6 injected.js:37 [LONGTASK] duration=1206.0ms start=1238519.1ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [GPU Monitor] geometries:33 textures:8 | drawCalls:20 tris:300
+VM6 injected.js:37 [FPS] 1fps
+VM6 injected.js:37 [LONGTASK] duration=1142.0ms start=1244671.0ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [FPS] 1fps
+VM6 injected.js:37 [LONGTASK] duration=1235.0ms start=1250338.6ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [GPU Monitor] geometries:33 textures:8 | drawCalls:20 tris:300
+2VM6 injected.js:37 [FPS] 1fps
+VM6 injected.js:37 [LONGTASK] duration=5973.0ms start=1256585.9ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=1979.0ms start=1262560.0ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=4884.0ms start=1264539.6ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=1378.0ms start=1269424.5ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [GPU Monitor] geometries:147 textures:8 | drawCalls:133 tris:1936
+VM6 injected.js:37 [GPU Monitor] ⚠ Geometry count grew 345.5% (33 → 147) in 10s — possible leak. Check WallFragmentBuilder.removeWallFragments() and CurtainWallBuilder._disposeChildren().
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [FPS] 1fps
+VM6 injected.js:37 [LONGTASK] duration=1159.0ms start=1270907.6ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [GPU Monitor] geometries:147 textures:8 | drawCalls:133 tris:1936
+VM6 injected.js:37 [FPS] 1fps
+VM6 injected.js:37 [LONGTASK] duration=1052.0ms start=1275581.3ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [FPS] 1fps
+VM6 injected.js:37 [GPU Monitor] geometries:147 textures:8 | drawCalls:133 tris:1936
+VM6 injected.js:37 [FPS] 1fps
+VM6 injected.js:37 [FPS] 4fps
+VM6 injected.js:37 [LONGTASK] duration=65.0ms start=1290040.3ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=58.0ms start=1290105.8ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LevelPlaneConstraint] Locked Y=3.0000 for element "CurtainWall" id="a66d0367-eebc-42f3-b66f-09a8630bd651"
+VM6 injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+VM6 injected.js:37 [FPS] 12fps
+VM6 injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+VM6 injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+VM6 injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+VM6 injected.js:37 [LONGTASK] duration=80.0ms start=1290702.5ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=637.0ms start=1290782.8ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=80.0ms start=1291450.0ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [FPS] 2fps
+VM6 injected.js:37 [LONGTASK] duration=786.0ms start=1291582.2ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=82.0ms start=1292368.6ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=52.0ms start=1292453.1ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=59.0ms start=1292653.8ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=68.0ms start=1292764.8ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=52.0ms start=1292911.6ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=82.0ms start=1293023.8ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=96.0ms start=1293107.4ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=101.0ms start=1293204.8ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=82.0ms start=1293307.9ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [FPS] 17fps
+VM6 injected.js:37 [LONGTASK] duration=62.0ms start=1293444.2ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=81.0ms start=1293508.0ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=79.0ms start=1293596.8ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=73.0ms start=1293676.6ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=62.0ms start=1293752.2ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=53.0ms start=1294000.2ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [GPU Monitor] geometries:167 textures:9 | drawCalls:133 tris:1936
+VM6 injected.js:37 [GPU Monitor] ⚠ Geometry count grew 13.6% (147 → 167) in 10s — possible leak. Check WallFragmentBuilder.removeWallFragments() and CurtainWallBuilder._disposeChildren().
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=51.0ms start=1294138.9ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [LONGTASK] duration=50.0ms start=1294191.9ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+4VM6 injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+VM6 injected.js:37 [GPU Monitor] geometries:167 textures:9 | drawCalls:1 tris:1
+VM6 injected.js:37 [LONGTASK] duration=226.0ms start=1304922.9ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM9 main.ts:28
+VM6 injected.js:37 [LONGTASK] duration=471.0ms start=1305745.5ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM9 main.ts:28
+VM6 injected.js:37 [LONGTASK] duration=964.0ms start=1306744.4ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM9 main.ts:28
+VM6 injected.js:37 [GPU Monitor] geometries:167 textures:9 | drawCalls:1 tris:1
+2VM6 injected.js:37 [GPU Monitor] geometries:167 textures:9 | drawCalls:84 tris:1348
+VM6 injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+VM6 injected.js:37 [GPU Monitor] geometries:167 textures:9 | drawCalls:1 tris:1
+
+VM6 injected.js:37 [LONGTASK] duration=62.0ms start=1351522.8ms
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM9 main.ts:28
+2VM6 injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+VM6 injected.js:37 [GPU Monitor] geometries:167 textures:9 | drawCalls:1 tris:1
+VM6 injected.js:37 [LONGTASK] duration=68.0ms start=1358677.4ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM9 main.ts:28
+VM6 injected.js:37 [LONGTASK] duration=1361.0ms start=1358761.3ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM9 main.ts:28
+VM6 injected.js:37 [GPU Monitor] geometries:167 textures:9 | drawCalls:1 tris:1
+Framing 'https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/' violates the following report-only Content Security Policy directive: "frame-ancestors 'none'". The violation has been logged, but no further action has been taken.
+
+Framing 'https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/' violates the following report-only Content Security Policy directive: "frame-ancestors 'none'". The violation has been logged, but no further action has been taken.
+
+54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/#/projects:1 Loading the script 'https://replit-cdn.com/replit-pill/replit-pill.global.js' violates the following Content Security Policy directive: "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The policy is report-only, so the violation has been logged but no further action has been taken.

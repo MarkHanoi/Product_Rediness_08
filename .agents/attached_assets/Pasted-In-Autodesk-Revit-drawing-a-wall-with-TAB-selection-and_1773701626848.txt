@@ -1,0 +1,209 @@
+In Autodesk Revit, drawing a **wall with TAB selection and typed dimensions** follows a specific interaction model that combines **object snapping, temporary dimensions, and parametric constraints**. Below is a **technical breakdown of the behavior**.
+
+---
+
+## 1. Wall Creation Command Initialization
+
+When the user activates **Wall → Architectural Wall**, Revit enters a **sketch mode with parametric placement**.
+
+Internally the system:
+
+1. Loads the **current wall type** (thickness, structure, location line).
+2. Activates **cursor tracking** with snapping enabled.
+3. Enables **temporary dimension generation** and **chain inference**.
+
+The cursor now operates in a **continuous placement state machine**.
+
+---
+
+## 2. Cursor Placement and Snapping
+
+As the cursor moves:
+
+* Revit constantly evaluates **nearby geometric references**:
+
+  * endpoints
+  * edges
+  * grid lines
+  * centerlines
+  * faces
+  * intersections
+
+These are detected through the **Revit geometric reference system**.
+
+Each reference generates a **candidate snap point**.
+
+The system prioritizes snaps using a **proximity + reference hierarchy**.
+
+Example priority:
+
+1. explicit endpoints
+2. intersections
+3. perpendicular/parallel constraints
+4. faces/edges
+5. temporary references
+
+---
+
+## 3. TAB Cycling Mechanism
+
+When the user presses **TAB**, Revit cycles through **available references within the detection radius**.
+
+Technically this works as:
+
+```
+candidateReferences = queryNearbyReferences(cursorPosition)
+
+if TAB pressed:
+    currentReference = next(candidateReferences)
+```
+
+Important behaviors:
+
+* TAB can switch between:
+
+  * individual elements
+  * chains of edges
+  * entire wall centerlines
+* The highlight changes dynamically.
+
+This is known as **reference cycling**.
+
+---
+
+## 4. First Click – Anchor Point Creation
+
+When the user clicks:
+
+Revit creates the **start point of the wall segment**.
+
+Internally:
+
+```
+Wall.start = selectedReference.point
+Wall.direction = undefined
+```
+
+At this moment Revit begins generating **temporary dimensions**.
+
+---
+
+## 5. Dynamic Direction Tracking
+
+After the first click:
+
+The cursor movement defines a **vector direction**.
+
+Revit computes:
+
+```
+directionVector = normalize(cursor - startPoint)
+```
+
+The wall preview is rendered as a **parametric extrusion along that vector**.
+
+---
+
+## 6. Temporary Dimension Generation
+
+Revit automatically creates **temporary dimensions** relative to nearby references.
+
+Examples:
+
+* wall length
+* offset to nearest grid
+* offset to adjacent walls
+
+These dimensions are **editable input fields**.
+
+The primary dimension shown is typically:
+
+```
+Wall Length = distance(startPoint, cursor)
+```
+
+---
+
+## 7. Keyboard Dimension Input
+
+When the user **types a number** (e.g. `5000`):
+
+Revit intercepts keyboard input and interprets it as a **temporary dimension override**.
+
+Process:
+
+1. Replace the preview distance with the typed value.
+2. Lock the wall endpoint along the current direction.
+
+Mathematically:
+
+```
+endPoint = startPoint + (directionVector * typedLength)
+```
+
+This produces a **precisely constrained wall length**.
+
+---
+
+## 8. Confirmation and Wall Element Creation
+
+When the user confirms (Enter or click):
+
+Revit finalizes the element:
+
+```
+Wall = new Wall(
+    startPoint,
+    endPoint,
+    wallType,
+    level,
+    locationLine
+)
+```
+
+The wall becomes a **fully parametric BIM element**.
+
+---
+
+## 9. Parametric Behavior After Creation
+
+Once placed:
+
+The wall maintains parametric relationships:
+
+* constraints
+* joins
+* hosted elements
+* dimension references
+
+If dimensions are later edited:
+
+```
+Wall.length = newValue
+updateGeometry()
+propagateConstraints()
+```
+
+---
+
+## 10. Summary of Core Systems Involved
+
+The behavior relies on several Revit subsystems:
+
+| System                        | Role                            |
+| ----------------------------- | ------------------------------- |
+| Geometric Reference Engine    | Detects snap candidates         |
+| TAB Reference Cycling         | Allows selection disambiguation |
+| Temporary Dimension Engine    | Generates editable dimensions   |
+| Parametric Constraint Solver  | Maintains relationships         |
+| Sketch Interaction Controller | Handles cursor-driven creation  |
+
+---
+
+💡 **Why this interaction feels powerful**
+
+This workflow allows users to **design and constrain geometry simultaneously**, instead of drawing first and dimensioning later. It is a core principle of **parametric BIM authoring**.
+
+---
+
+If you want, I can also explain the **internal geometry logic Revit uses to keep walls connected (joins, cleanup, and constraints)**—this is extremely important if you're building your own BIM authoring tool like the one you mentioned earlier.

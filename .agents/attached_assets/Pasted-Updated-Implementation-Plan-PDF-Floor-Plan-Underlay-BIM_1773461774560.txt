@@ -1,0 +1,358 @@
+Updated Implementation Plan: PDF Floor Plan Underlay → BIM Creation
+What Changed From the Previous Plan
+Previous Plan New Plan
+Coordinates computed blindly User places PDF visually in scene (Revit-style underlay)
+Scale via user typing a room size Scale via calibration on a known architectural element
+Furniture not included Furniture and plumbing fixtures included
+One Claude call does everything Multi-stage, cost-optimised Claude strategy
+The Full Updated Workflow
+[1] Upload PDF
+        │
+        ▼
+[2] Browser converts PDF → high-res image (PDF.js)
+        │
+        ▼
+[3] Scale Calibration Step
+    User identifies a known element in the plan (e.g. front door)
+    and types its real-world dimension → computes px/meter ratio
+        │
+        ▼
+[4] PDF image placed as a 3D plane (underlay) in the active floor level
+    User drags, rotates, positions it in the scene
+        │
+        ▼
+[5] User clicks "Confirm Position"
+    System records the plane's world transform (position + rotation matrix)
+        │
+        ▼
+[6] Multi-stage Claude analysis (cost-optimised, see Phase 7)
+        │
+        ├── Stage A: Structure (walls, slab outline, openings)
+        └── Stage B: Furniture + Plumbing (only if user enabled)
+        │
+        ▼
+[7] Pixel coordinates → world coordinates 
+    (using PDF plane's world transform + px/meter scale)
+        │
+        ▼
+[8] FloorPlanCommandBatcher → CommandProposal[]
+    (CreateWallCommand, CreateSlabCommand, CreateFurnitureCommand, 
+     CreatePlumbingFixtureCommand, door/window commands)
+        │
+        ▼
+[9] All proposals pushed to commandProposalStore
+    User reviews + approves in AI Actions panel
+        │
+        ▼
+[10] Commands execute → BIM elements appear aligned with the underlay
+Phase 1 — PDF → Image (Unchanged)
+New file: src/utils/PDFToImageConverter.ts
+
+Uses pdfjs-dist (npm, browser-side, no server needed)
+Renders page 1 to a canvas at 2x scale
+Target: 1500–2000px wide (sufficient for Claude, see Phase 7 on why lower than before)
+Returns: { base64: string, widthPx: number, heightPx: number, blobUrl: string }
+The blobUrl is used immediately to create the THREE.js texture
+Phase 2 — Scale Calibration (Revised: Element-Based)
+Why this is better than "type a room size":
+Room dimensions are often unlabelled or ambiguous. Architectural elements have standard sizes that architects and technologists know by heart.
+
+Calibration options presented to user (in order of reliability):
+
+Reference Element Standard Size Why Reliable
+Standard interior door 0.825m wide Universal standard across EU/UK
+Main entrance door 0.9–1.0m wide Almost always this size
+Standard stair tread 0.25–0.28m deep Building code
+Annotated dimension Read from PDF Most accurate if present
+Room label + known size User types it Flexible fallback
+UX:
+
+Show the rendered floor plan image
+User selects calibration method from dropdown
+If "Door width": user types 0.825 — that's it. No clicking needed.
+System computes: pxPerMeter = detected_door_width_px / 0.825
+Door width in pixels: Claude extracts this in the pre-flight call (very short, cheap call — see Phase 7)
+Show confirmation: "Calculated plan dimensions: approx. 11.4m × 8.2m — does this look correct?"
+User can manually override the px/meter value if something looks wrong
+Important: The px/meter ratio is stored and attached to the PDF plane object so it's always available when computing world coordinates from pixel positions.
+
+Phase 3 — PDF Underlay in the Three.js Scene (The Revit Concept)
+New file: src/tools/FloorPlanUnderlayTool.ts
+
+This is the most novel and architecturally interesting part.
+
+What it creates in the scene:
+
+A THREE.Mesh with:
+
+Geometry: PlaneGeometry(planWidthMeters, planHeightMeters) — sized correctly using the px/meter ratio
+Material: MeshBasicMaterial({ map: texture, transparent: true, opacity: 0.5, depthWrite: false })
+Position: y = activeLevel.elevation + 0.01 (just above the floor slab, avoids z-fighting)
+Rotation: x = -Math.PI/2 (flat on XZ plane, facing up)
+userData: { type: 'floor_plan_underlay', pxPerMeter, widthPx, heightPx, isUnderlay: true }
+Interaction (no new physics or drag system needed):
+
+Use your existing raycasting infrastructure. The underlay mesh:
+
+Is selected by clicking it (shows a blue outline or opacity increase to 0.8 to confirm)
+Is moved by drag on the XZ plane (similar to how furniture is placed)
+Is rotated in 15° increments using R key while selected
+Is opacity toggled with a panel button (so walls being built don't get obscured)
+Has a "Lock" button in its Property Inspector entry that freezes it from accidental moves
+The critical piece: world transform capture
+
+When the user clicks "Confirm Position & Analyse", the system reads:
+
+underlayMesh.matrixWorld → a 4×4 transform matrix
+This matrix encodes exactly where pixel (0,0) maps to in world space and how the image is rotated. When Claude returns pixel coordinates (px, py), you compute world position:
+
+worldPoint = underlayMesh.localToWorld(
+    new THREE.Vector3(
+        (px / widthPx - 0.5) * planWidthMeters,
+        0,
+        (py / heightPx - 0.5) * planHeightMeters
+    )
+)
+This is elegant — the user's manual positioning IS the coordinate mapping. No complex geometry registration needed.
+
+Phase 4 — Furniture & Plumbing Detection
+What's already in your system (discovered in the audit):
+
+Furniture: bed, bedside_table, wardrobe, wardrobe_glass_door, corner_wardrobe, shower_glass_panel, sofa, corner_sofa, dining_table, dining_chair, coffee_table, lamp, entrance_table
+
+Plumbing: toilet, sink, bath (all via CreatePlumbingFixtureCommand)
+
+What Claude needs to detect from the floor plan:
+
+Architectural floor plans use standardised symbols:
+
+Bed: rectangle with a circle (pillow) at one end
+Wardrobe: rectangle with diagonal lines or sliding door marks
+Toilet: D-shape (cistern rectangle + oval bowl)
+Sink/basin: rectangle with a circle inside
+Shower: square with a diagonal (shower tray)
+Bath: rectangle with rounded ends
+Sofa: L-shape or rectangle with armrests
+Dining table: rectangle surrounded by small rectangles (chairs)
+Claude is very good at recognising these. They are well-represented in its training data because architectural floor plans are common.
+
+Output schema extension for furniture:
+
+interface DetectedFurniture {
+  id: string;
+  furnitureType: FurnitureType | 'bath'; // maps to existing types
+  centrePx: { x: number; y: number };
+  widthPx: number;
+  depthPx: number;
+  rotationDeg: number; // 0, 90, 180, 270
+  room: string; // "bedroom", "bathroom", etc.
+  confidence: "high" | "medium" | "low";
+}
+Mapping to commands:
+
+Detected Command
+bed, wardrobe, bedside_table, sofa, dining_table, dining_chair CreateFurnitureCommand
+toilet, sink CreatePlumbingFixtureCommand with fixtureType: 'toilet'/'sink'
+bath CreatePlumbingFixtureCommand with fixtureType: 'bath'
+shower CreateFurnitureCommand with furnitureType: 'shower_glass_panel'
+Important: All furniture positions use the same world transform calculation as walls — the underlay mesh's matrix handles all coordinate mapping automatically.
+
+Phase 5 — FloorPlanCommandBatcher (Updated)
+New file: src/ai/FloorPlanCommandBatcher.ts
+
+Input:
+
+FloorPlanAnalysis (walls + doors + windows + furniture + plumbing)
+underlayMesh: THREE.Mesh (for coordinate mapping)
+pxPerMeter: number
+targetLevelId: string
+Processing order (important for dependencies):
+
+Slab first — creates the floor boundary
+Walls — placed on the slab level
+Doors and windows — need the wall IDs to attach to
+Furniture — placed inside rooms
+Plumbing — placed in bathrooms/kitchen
+Each element → one CommandProposal with:
+
+source: 'pdf_import' tag for grouping in AI Actions panel
+rationale: e.g. "[PDF Import] Exterior wall, confidence: high"
+confidence: passed directly from Claude's output
+Corner snap post-processor (no AI cost):
+After building all wall proposals, run a deterministic pass:
+
+For any two wall endpoints within 0.15m of each other → snap them to their midpoint
+This is pure geometry, zero AI cost, massively improves join quality
+Phase 6 — FloorPlanImportPanel UI (Updated)
+New file: src/ui/ai/FloorPlanImportPanel.ts
+
+6-step wizard (one more step than before — the scene placement):
+
+Step 1 — Upload PDF
+
+File input, PDF.js conversion
+Shows thumbnail of rendered plan
+Step 2 — Scale Calibration
+
+Select reference element from dropdown (Door / Stair / Annotated dimension / Manual)
+Type known dimension in meters
+System shows calculated plan size for confirmation
+Step 3 — Place in Scene
+
+The PDF underlay appears in the scene at the active level
+Panel shows:
+"Drag the plan to position it. Press R to rotate 90°."
+Opacity slider (40%–80%)
+"Snap to origin" button
+"Confirm Position →" button locks the transform
+Step 4 — Analysis Options
+
+Checkboxes: ☑ Walls ☑ Slab ☑ Doors & Windows ☑ Furniture ☑ Plumbing
+Wall height (default: active level height)
+"Analyse" button → triggers multi-stage Claude calls
+Step 5 — Review Summary
+
+"Found: 16 walls · 3 doors · 8 windows · 4 furniture items · 3 plumbing fixtures"
+List grouped by type with confidence badges
+Low-confidence items highlighted in amber
+Option to uncheck specific items before creating proposals
+Step 6 — Proposal Ready
+
+"42 proposals added to AI Actions"
+Shortcut: "Approve All High-Confidence Items" (auto-approves anything with confidence: "high")
+Underlay remains visible — user can toggle it on/off as they build
+"Remove Underlay" button when done
+Phase 7 — The Token Cost Strategy (Most Important Section)
+This is where the plan becomes significantly smarter and cheaper.
+
+7A — Pre-processing Before Claude (Free)
+PDF text extraction:
+Digital PDFs contain embedded text. Before calling Claude at all, extract:
+
+Room labels ("Bedroom", "Bathroom", "Kitchen")
+Annotated dimensions ("3500", "4200" etc.)
+Title block info ("Scale 1:50")
+This is done entirely in the browser via PDF.js's text extraction API — zero Claude cost. The extracted text is passed as structured context to Claude's prompt, which means:
+
+Claude doesn't need to "read" text from the image (saves tokens)
+Scale can often be auto-detected from "Scale 1:50" in the title block
+Room labels help Claude understand spatial organisation
+Image optimisation before sending:
+
+Resize to maximum 1500px wide before base64 encoding
+Claude Vision's pricing is based on image tile count. At 1500px, a floor plan uses ~4-6 tiles. At 3000px, it uses ~16-24 tiles. This alone saves 60-75% of image token cost.
+Convert to JPEG at 85% quality (vs PNG) — Claude reads it just as well, smaller payload
+7B — The Two-Stage Claude Call Strategy
+Instead of one big call, use two focused calls:
+
+Stage A — Calibration Pre-flight (Claude Haiku, cheap):
+
+Sends the image at 800px (very small, very cheap)
+Only asks: "Identify the main entrance door. Return its bounding box in pixels: {left, top, right, bottom}"
+Used to auto-compute px/meter if user chose "door" as calibration reference
+Cost: approximately $0.002 per call (Haiku is 25× cheaper than Sonnet)
+Stage B — Structure Analysis (Claude Sonnet):
+
+Sends 1500px image with the system prompt
+Asks ONLY for: walls, slab polygon, doors, windows
+Does NOT ask for furniture yet
+This keeps the response JSON small and focused
+Cost: approximately $0.015-0.025 per call
+Stage C — Furniture Analysis (Claude Haiku, if enabled):
+
+Sends the same 1500px image
+Separate, focused prompt: "Identify furniture symbols in this architectural floor plan. Return only furniture items."
+By separating this from structure, each call is smaller and more accurate
+Using Haiku here is appropriate — furniture symbols are visually obvious
+Cost: approximately $0.003-0.005 per call
+Total estimated cost per floor plan: ~$0.02-0.035 vs ~$0.08-0.12 for a naive single-Sonnet approach. That's a 3-4× cost reduction.
+
+7C — Prompt Engineering for Token Efficiency
+System prompt techniques:
+
+Anthropic Prompt Caching — Mark the system prompt as cacheable. On the second call (Stage C), the cached system prompt tokens are charged at 10% of normal cost. This is a native Anthropic feature, just requires adding "cache_control": {"type": "ephemeral"} to the system prompt.
+
+No prose in responses — Explicitly instruct: "Return ONLY valid JSON. Zero explanation. Zero markdown. Zero prose." This eliminates wasted output tokens.
+
+Pixel coordinates only, no reasoning — Don't ask Claude to explain why it identified a wall. Just coordinates.
+
+Bounded response — Set max_tokens: 2000 for Structure call and max_tokens: 1000 for Furniture call. This prevents Claude from over-generating and caps cost.
+
+Ordinal wall references — Instead of Claude inventing wall IDs (which can be verbose), instruct it to use sequential IDs: w1, w2, w3.... The batcher generates proper UUIDs.
+
+7D — Post-processing After Claude (Free)
+Once Claude returns coordinates, run deterministic geometry operations at zero cost:
+
+Wall cleanup (no AI):
+
+Snap all endpoints to nearest 0.05m grid
+Merge walls within 0.1m tolerance of each other
+Close open corners: if two wall ends are within 0.2m, snap to midpoint
+Detect collinear walls and merge them into one
+Confidence boosting (no AI):
+
+If a detected wall connects two corners → mark as high confidence
+If a detected wall is isolated (no neighbours) → mark as low confidence
+If a furniture item's bounding box is in a room labelled "bathroom" → boost toilet/sink confidence
+This post-processing step: Makes Claude's raw output significantly better without a single additional API call.
+
+Phase 8 — New Integration Points Needed
+In Layout.ts:
+
+Add "Import Floor Plan" under File menu (or as a dedicated toolbar button)
+Toggle button to show/hide the active underlay mesh
+In SelectionManager.ts:
+
+Recognise userData.isUnderlay: true meshes as selectable-but-not-BIM
+Allow drag on XZ plane when underlay is selected
+R key → rotate 90° when underlay is selected
+In AIPanel.ts:
+
+Group proposals by source tag — all 'pdf_import' proposals shown together
+"Approve All High-Confidence" batch action
+Show proposal count per source group
+In PropertyInspector.ts:
+
+When underlay is selected, show: opacity slider, lock/unlock, remove button
+What the Underlay Gives You That Pure Computation Cannot
+The Revit-style underlay approach has a profound advantage: the user provides the spatial context, not the algorithm. The user knows:
+
+Which direction is "north"
+Where the apartment sits relative to other elements already in the scene
+Whether the plan is rotated (not all plans are north-facing)
+Whether there are structural elements already placed that the plan needs to align with
+By letting the user position the plane, you sidestep the hardest problems in automated floor plan processing (orientation detection, global coordinate alignment) and make them a 5-second human task.
+
+Updated Build Order
+Week 1:
+  Day 1 → PDF.js integration + PDFToImageConverter
+  Day 2 → Scale calibration logic + UI step
+  Day 3-4 → FloorPlanUnderlayTool (THREE.js plane, drag/rotate, world transform)
+  Day 5 → SelectionManager integration for underlay mesh
+Week 2:
+  Day 1 → FloorPlanAIFactory (Stage A Haiku pre-flight + Stage B Sonnet structure)
+  Day 2 → FloorPlanAnalysis schema + response validation
+  Day 3 → FloorPlanCommandBatcher (walls, slab, doors, windows)
+  Day 4 → Stage C furniture/plumbing extension + command mapping
+  Day 5 → Corner snap post-processor + confidence boosting
+Week 3:
+  Day 1-2 → FloorPlanImportPanel (6-step wizard UI)
+  Day 3 → Layout.ts + AIPanel.ts integration (grouping, batch approve)
+  Day 4 → PropertyInspector underlay support
+  Day 5 → End-to-end test on 3+ real apartment plans + prompt tuning
+Week 4 (polish):
+  Day 1-2 → Prompt caching implementation
+  Day 3 → Cost logging (show user estimated API cost before confirming analysis)
+  Day 4-5 → Edge case handling (multi-page PDFs, scanned vs CAD, rotated plans)
+Total: 4 weeks for a complete, production-quality feature.
+
+Summary of What Makes This Plan Strong
+Decision Why
+Manual scene placement (Revit-style) Solves coordinate registration — the hardest problem — with a 5s human action
+Element-based calibration (door width) More reliable than room dimensions; architects know standard sizes
+Two-stage Claude (Haiku + Sonnet) 3-4× cheaper; each model does what it's best at
+Image resize to 1500px 60-75% image token savings with no accuracy loss
+PDF text pre-extraction Free room labels and scale data before any AI call
+Deterministic post-processing Free quality improvement: snapping, merging, confidence boosting
+Furniture maps to existing commands Zero new command infrastructure needed; CreateFurnitureCommand and CreatePlumbingFixtureCommand already handle everything
+Proposals per element User keeps full control; can reject a misidentified wall without losing everything

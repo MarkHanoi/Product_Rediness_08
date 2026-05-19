@@ -1,0 +1,10 @@
+{
+  "name": "bake.incremental.single-wall-edit",
+  "samples": 8,
+  "p50": 8.487,
+  "p95": 8.914,
+  "p99": 8.914,
+  "budgetMs": 1500,
+  "warnMs": 1000,
+  "recordedAt": "2026-05-09T23:09:35.772Z"
+}

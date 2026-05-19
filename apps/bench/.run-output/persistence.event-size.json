@@ -1,0 +1,26 @@
+{
+  "generatedAt": "2026-04-27T22:47:51.625Z",
+  "batchSize": 1000,
+  "results": [
+    {
+      "codec": "json",
+      "avgBytesPerEvent": 762.68,
+      "maxBytesPerEvent": 764
+    },
+    {
+      "codec": "msgpack",
+      "avgBytesPerEvent": 643.41,
+      "maxBytesPerEvent": 644
+    },
+    {
+      "codec": "msgpack-v2",
+      "avgBytesPerEvent": 194.55,
+      "maxBytesPerEvent": 195
+    }
+  ],
+  "target": {
+    "avgBytesPerEventLessThan": 200,
+    "scope": "ADR-004 byte-budget closure (S04)"
+  },
+  "v2WithinBudget": true
+}

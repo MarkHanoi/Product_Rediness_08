@@ -1,0 +1,34 @@
+{
+  "pryzmPlugin": "1.0",
+  "id": "ai-workflow-plugin-example",
+  "version": "1.0.0",
+  "displayName": "AI Workflow Plugin Example",
+  "description": "Example AI workflow plugin — registers a command 'Critique active view' that runs the L7.5 critic workflow on the currently visible elements and renders the result in a panel. Demonstrates AiProxy.runWorkflow + permission-gated AI invocation.",
+  "author": "PRYZM SDK Examples",
+  "homepage": "https://docs.pryzm.com/plugin-sdk/examples/ai-workflow-plugin",
+  "main": "index.ts",
+  "license": "MIT",
+  "permissions": [
+    "read:project",
+    "write:project",
+    "register:command",
+    "register:panel"
+  ],
+  "allowedOrigins": [],
+  "contributions": [
+    {
+      "kind": "command",
+      "id": "ai-workflow.critique-view",
+      "label": "Critique active view (AI)",
+      "keybinding": "Ctrl+Shift+K",
+      "category": "AI"
+    },
+    {
+      "kind": "panel",
+      "id": "ai-workflow.critique-output",
+      "location": "bottom",
+      "label": "AI Critique"
+    }
+  ],
+  "minPRYZMVersion": "2.0.0"
+}

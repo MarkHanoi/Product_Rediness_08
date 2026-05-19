@@ -1,0 +1,364 @@
+WALL SYSTEM — FULL CONTRACT AUDIT REPORT
+PHASE 1: READ-ONLY, ZERO MODIFICATIONS
+Audit Date: 2026-03-16
+Files Analyzed: WallTypes.ts, WallStore.ts, WallTool.ts, WallFragmentBuilder.ts, SpatialAuthority.ts, CreateWallCommand.ts, UpdateWallDimensionsCommand.ts, UpdateWallHeightCommand.ts, UpdateWallVisualPropertiesCommand.ts, CreateWallOpeningCommand.ts, SetWallWidthCommand.ts, SetAllWallsWidthCommand.ts, CreateWallBetweenMarksCommand.ts, wallSnapshotUtils.ts
+
+Wall System Classification: B — Mostly Command-First
+Justification:
+The wall system is overwhelmingly command-first at the mutation layer. The WallTool never touches the store directly, never registers spatial elements, and always delegates creation to CreateWallCommand. However, the builder (WallFragmentBuilder.buildWall()) resolves world position via spatialAuthority.resolveWorldTransform() which internally reads all semantic stores through (window as any).wallStore — a cross-layer coupling that partially undermines §4 (Projection Layer must not access semantic layer directly). Additionally, active (window as any) fallbacks in WallTool and SpatialAuthority lower the classification below Fully Command-First.
+
+1️⃣ Command Symmetry Audit
+CreateWallCommand
+Check	Result
+Snapshot before mutation	N/A — CREATE command. Undo removes wall entirely; no pre-mutation snapshot is needed by design.
+structuredClone used	N/A (no snapshot)
+Full store replacement	wallStore.add(newWall) — atomic add to store ✅
+Undo restores full snapshot	N/A — undo calls wallStore.remove(), which is the correct inverse. ✅
+Redo reapplies identical state	✅ — canExecute guards against double-execute via getById(wallId). Wall ID pre-generated in constructor, stable across redo.
+No ID regeneration	✅ — this.wallId is constructor-injected, never re-generated in execute().
+Spatial unregister on undo	✅ — bimManager.unregisterElement(wallId) + elementRegistry.unregister(wallId) both called before wallStore.remove().
+Spatial re-register on redo	✅ — execute() calls bimManager.registerElement() then elementRegistry.registerSemantic() after wallStore.add().
+Builder triggered exactly once	✅ — via store 'add'/'remove' event → subscriber in main.ts. No direct builder call.
+Risk Level: 🟢 Low
+
+UpdateWallDimensionsCommand
+Check	Result
+Snapshot before mutation	⚠️ — structuredClone(currentState) called on a frozen WallData containing THREE.Vector3 class instances in baseLine. structuredClone does not guarantee correct cloning of class instances in all environments. Manual baseLine reconstruction immediately follows (lines 36–40), which is a documented workaround, but the initial structuredClone call is fragile.
+Undo replaces full state	✅ — wallStore.updateWall(this.prevSnapshot)
+Redo symmetry	✅ — execute() also uses updateWall(nextState) with full state
+Spatial compliance	✅ — Dimensions change doesn't affect spatial registration; no spatial calls needed.
+ID stability	✅
+Rebuild determinism	✅ — via store emit → subscriber
+Risk Level: 🟠 Major — structuredClone on objects containing THREE.Vector3 is fragile. On runtimes where structuredClone throws on non-serializable class instances, execute() would crash before the manual baseLine reconstruction rescue. Filed under §2.2 fragility.
+
+UpdateWallHeightCommand
+Check	Result
+Snapshot before mutation	✅ — Manual spread with plain {x,y,z} tuples for baseLine (correct approach for Vector3 safety).
+structuredClone used	Not used — manual spread is preferred for Vector3-containing objects. ✅
+Full store replacement	✅ — wallStore.updateWall(nextState) with full state object.
+Undo restores full snapshot	✅ — re-hydrates Vector3 from plain tuples, calls wallStore.updateWall(restoredWall).
+Redo symmetry	✅ — execute() and undo() are symmetric.
+Spatial compliance	✅ — Height change does not affect spatial registration.
+ID stability	✅
+Rebuild determinism	✅ — via store emit → subscriber
+Side effects	🟡 — emitWallUpdatedEvent() and triggerAIRefresh() dispatch raw CustomEvent via window.dispatchEvent(). This is a side-effect channel outside the documented Store Event Bus (§12).
+Risk Level: 🟡 Minor
+
+UpdateWallVisualPropertiesCommand
+Check	Result
+Snapshot before mutation	✅ — uses shared serializeWallSnapshot() helper for consistent baseLine serialization.
+Full store replacement	✅ — wallStore.updateWall(nextState).
+Undo restores full snapshot	✅ — wallStore.updateWall(snapshot).
+Redo symmetry	✅
+Scope	🟠 — Targets ALL walls in the store regardless of level or selection. This is functionally by design but architecturally risky. A single command mutates global state; a partial failure (one wall missing) silently skips it.
+Spatial compliance	✅ — Visual properties don't affect registration.
+Risk Level: 🟡 Minor (scope concern is design-level, not a contract violation per se)
+
+CreateWallOpeningCommand
+Check	Result
+IDs generated in constructor	✅ — openingId and openingElementId pre-generated in constructor (FIX C7 documented).
+Snapshot before mutation	✅ — manual spread with plain baseLine tuples stored as prevWallSnapshot.
+Undo removes correctly	✅ — wallStore.removeOpening() used (not snapshot-restore), which is correct because WallStore.update() silently strips the openings field from updateWall() calls.
+Spatial unregister on undo	✅ — bimManager.unregisterElement() + elementRegistry.unregister() called before removeOpening().
+Redo spatial re-register	✅ — execute() calls both registrations after wallStore.addOpening().
+ID stability	✅
+Rebuild determinism	✅
+Unused artifact	🟡 — prevWallSnapshot is captured in execute() but never used in undo() (undo uses removeOpening() instead). The snapshot adds maintenance surface with no functional benefit.
+Risk Level: 🟡 Minor
+
+SetWallWidthCommand / SetAllWallsWidthCommand
+Both follow identical patterns:
+
+Check	Result
+Snapshot before mutation	✅ — serializeWallSnapshot()
+Full replacement	✅ — wallStore.updateWall(nextState)
+Undo full restore	✅
+Redo symmetry	✅
+Guard against re-use	SetAllWallsWidthCommand throws if oldSnapshots.size > 0 (double-execute guard). SetWallWidthCommand clears snapshots at start of execute(). Both correct. ✅
+Risk Level: 🟢 Low
+
+CreateWallBetweenMarksCommand
+Check	Result
+ID pre-generated	✅ — this.wallId pre-generated in constructor (FIX C1).
+Snapshot before mutation	N/A — CREATE command.
+Undo uses stable ID	✅
+Spatial registration order	✅ — store.add → bimManager.registerElement → elementRegistry. Rollback on spatial failure.
+Redo determinism	🔴 CRITICAL VIOLATION — execute() computes mid1 and mid2 as midpoints of wall1.baseLine and wall2.baseLine at execute time. On redo, these source walls may have been updated (height, dimensions) or even moved since the original execution. The resulting wall baseline will differ from the original, producing a different wall on every redo. This violates §2.4 (Redo reapplies identical semantic state).
+canExecute validation	🟠 — canExecute() does NOT validate that height/thickness are positive, nor that a valid level exists. The level defaults to wall1.levelId inside execute() without pre-validation.
+Risk Level: 🔴 Critical — Non-deterministic redo.
+
+2️⃣ Store Integrity Audit (WallStore.ts)
+Internal Data Structure:
+
+Map<string, WallData> for walls ✅
+Separate Map<string, WindowData> and Map<string, DoorData> sub-maps for hosted elements ✅
+Mutation Strategy:
+
+add(): Full clone via cloneWallData() + Object.freeze() before store insertion ✅
+update(): New merged object via spread, cloned and frozen before walls.set() ✅
+remove(): Direct Map.delete() — correct ✅
+addOpening(), removeOpening(), updateOpening(): All clone-before-set ✅
+No .push() on stored arrays ✅
+No direct property assignment on stored objects ✅
+No partial patch — full object replaced ✅
+Atomicity Guarantee:
+
+✅ All mutations produce a new frozen object via cloneWallData()
+🟡 addOpening() mutates childrenIds and windows/doors sub-maps inside the same operation (non-atomic relative to the sub-maps vs the main Map). If an error occurs partway through, sub-maps could be inconsistent. No rollback mechanism.
+Event Emission:
+
+✅ All mutations emit 'add'/'update'/'remove' via storeEventBus
+External Mutation Risk:
+
+✅ getById() returns a clone via cloneWallData() — caller cannot affect internal state through the returned reference.
+✅ getAll() also maps through cloneWallData().
+✅ getByLevel() also clones.
+Reference Leak Test: PASSED — no live internal reference returned to callers.
+Rendering Coupling:
+
+✅ WallStore has no import of WallFragmentBuilder.
+✅ WallStore does not call builder methods.
+✅ WallStore does not access scene.
+Metadata corruption on undo:
+
+🟡 WallStore.update() always stamps a new modifiedAt and increments version on every call, including undo restore paths. This means undoing an action advances the modifiedAt timestamp and increments version, corrupting the audit trail (§03-1.1). A snapshot restore via undo should ideally preserve the original modifiedAt and version.
+updateWall() field whitelist:
+
+🟡 The updateWall() method has an explicit field whitelist that strips openings, childrenIds, parentId, levelId, id, type. This is correct for safety but parentId is also stripped — if parentId ever diverges from levelId (e.g., when hierarchical parenting is added), updates via updateWall() would silently lose that change.
+Contract Compliance Level: High — Core immutability contract is fully respected. Issues are at the detail level.
+
+3️⃣ Builder Contract Audit (WallFragmentBuilder.ts + SpatialAuthority.ts)
+Projection Purity:
+
+✅ Builder does NOT mutate WallStore.
+✅ Builder does NOT register spatial elements.
+✅ Builder does NOT modify the command stack.
+✅ Builder does NOT access UI (DOM elements).
+✅ WallStore reference was removed (§4.3 FIX documented). Opening render data now passed via OpeningRenderMap.
+🔴 CRITICAL VIOLATION (SpatialAuthority.getSemanticData()): WallFragmentBuilder.buildWall() calls spatialAuthority.resolveWorldTransform(wall.id) at line 387. SpatialAuthority.resolveWorldTransform() internally calls getSemanticData() (lines 168–196 of SpatialAuthority.ts), which reads directly from (window as any).wallStore, (window as any).slabStore, etc. This is a Builder → SpatialAuthority → window-global semantic store cross-layer read that violates §4 (Builder is Projection Only) and §12 (no cross-layer global access).
+worldY computation split-brain:
+
+🔴 CRITICAL: WallFragmentBuilder.updateWall() correctly computes worldY = level.elevation + (wall.baseOffset ?? 0) at line 280 and logs it. However, this computed value is never passed into buildWall(). Inside buildWall(), the wall group Y position is set from spatialAuthority.resolveWorldTransform(wall.id).position.y (line 390). There are therefore two separate elevation computation paths — the correct one in updateWall() (direct BimManager lookup) and the actual one used for positioning in buildWall() (via SpatialAuthority with window-global fallback). If these diverge (e.g., wall not yet registered), the worldY log in updateWall() would mislead debugging while the actual geometry is misplaced.
+Idempotency Status:
+
+✅ buildWall() calls wallGroup.clear() and removeWallFragments() before rebuilding — no geometry leaks.
+✅ rebuildingWalls Set prevents re-entrant rebuild loops.
+Root Lifecycle Integrity:
+
+✅ One root per wallId via wallRoots Map.
+✅ Root reused on rebuild (not re-created).
+✅ Scene is searched for orphan roots before creating new ones.
+✅ Children cleared before rebuild via wallGroup.clear().
+userData Preservation:
+
+✅ id, elementType, levelId, baseLine, height, thickness all set early in buildWall() before any early-return branch.
+✅ Fields are refreshed from semantic state on every rebuild.
+Memory Leak Risk:
+
+🟡 Fragment IDs are generated via crypto.randomUUID() inside buildWall() on every call. Old fragment entries in this.fragments and this.fragmentToEntityMap are not removed when fragments are cleared. removeWallFragments() does remove the mapping, but this.fragmentToEntityMap is not cleared — stale mappings accumulate indefinitely with each rebuild.
+4️⃣ Spatial Authority Audit
+Level Validation:
+
+✅ CreateWallCommand.canExecute() validates level exists via ctx.bimManager.getLevelById().
+✅ CreateWallCommand.execute() throws SpatialAuthorityError if level is missing.
+✅ WallStore.add() validates level exists and throws if not found.
+✅ WallTool.createWall() validates level before constructing command.
+✅ WallFragmentBuilder.updateWall() bails without geometry creation if level is missing.
+Elevation Determinism:
+
+✅ Semantic model stores only baseOffset (relative), never absolute Y — no worldY field in WallData.
+✅ CreateWallCommand.execute() computes worldY = level.elevation + baseOffset for baseLine.y stamping. This is stored in the semantic model for convenience but is re-derived by the builder.
+🟠 SpatialAuthority.resolveWorldTransform() line 104: const baseOffset = semanticData?.baseOffset || 0 uses || (falsy-check), meaning a wall with baseOffset = 0 would produce baseOffset = 0 (correct) but a wall with baseOffset = null/undefined silently substitutes 0. For walls, baseOffset is always set by CreateWallCommand, but this pattern is fragile for future element types.
+Registration Integrity:
+
+✅ Spatial registration happens in command layer only.
+✅ CreateWallCommand.execute(): bimManager.registerElement() → elementRegistry.registerSemantic().
+✅ CreateWallCommand.undo(): bimManager.unregisterElement() → elementRegistry.unregister().
+✅ CreateWallOpeningCommand mirrors this pattern for hosted elements.
+Fallback Detection:
+
+🔴 SpatialAuthority.resolveWorldTransform() line 100: Falls back to bimManager.getLevelById('L0') || levels[0] when an element is not found in any level. While this logs an error, it continues with the wrong elevation. This is a FORBIDDEN fallback per §13. Walls not yet registered (race condition between store-add and bimManager.registerElement during command execution) would be silently misplaced at the fallback level's elevation.
+5️⃣ userData Shadow Audit
+Shadow Integrity:
+
+✅ wallGroup.userData.id = wall.id — set explicitly.
+✅ wallGroup.userData.elementType = 'Wall' — constant, set explicitly.
+✅ wallGroup.userData.levelId = wall.levelId — set before any early-return branch.
+✅ wallGroup.userData.baseLine = wall.baseLine — Vector3 pair from store clone.
+✅ wallGroup.userData.height, .thickness set on every rebuild.
+Drift Risk:
+
+🟡 wallGroup.userData.baseLine = wall.baseLine stores a reference to the [Vector3, Vector3] tuple from the wall clone. Since the clone is frozen, external callers cannot mutate it through this reference. However, on subsequent rebuilds the group userData is overwritten wholesale, so drift is bounded to between two rebuilds.
+🟡 userData.materialId, userData.materialColor, userData.parentId, userData.childrenIds are updated via Object.assign(wallGroup.userData, {...}) at the end of buildWall() — but only on the plain-wall path. The layered-wall-with-openings early-return branch at line 514 calls its own Object.assign before returning. All branches appear to cover the critical fields. No structural drift detected.
+Improper Authority Usage:
+
+✅ No semantic authority logic reads from userData in any reviewed file.
+✅ WallStore never accesses userData.
+✅ SpatialAuthority.getSemanticData() reads from store APIs, not from userData.
+Window userData (hosted elements):
+
+✅ frameGroup.userData.id = opening.elementId — read-only enforced via Object.defineProperty.
+✅ Child meshes tagged with role: 'geometry' and selectable: false — correct isolation.
+6️⃣ Hosted Element Rule
+Structural compliance:
+
+✅ Openings (windows/doors) are embedded in WallData.openings[] — they are NOT independent top-level semantic entries per §6.3.
+✅ They do have sub-map entries (this.windows, this.doors) but these are render-support data caches, not separate ownership records.
+✅ CreateWallOpeningCommand.undo() correctly removes the hosted element from both the opening array and the sub-map.
+✅ WallStore.remove() cascades deletion to sub-map entries for all hosted elements.
+Undo hosted hole + frame:
+
+✅ On undo of CreateWallOpeningCommand, the opening is removed from wallStore → builder rebuild removes the geometry hole and frame.
+✅ On undo of CreateWallCommand, the whole wall including all openings is removed via wallStore.remove() which cascades.
+Future-safe preparation:
+
+🟡 If a wall is deleted while it has hosted windows/doors, wallStore.remove() deletes the sub-map entries but does not unregister the hosted elements from bimManager or elementRegistry. This is a hosted element cleanup gap — only the wall's own bimManager/elementRegistry entries are cleaned in command undo; the hosted element registrations would become orphaned.
+7️⃣ Rebuild Cascade Analysis
+✅ Store emits 'add'/'update'/'remove' via storeEventBus.
+✅ Subscriber in main.ts handles WallJoinResolver.resolveLevel() + WallFragmentBuilder.updateWall() for all affected walls.
+✅ Commands do NOT call the builder directly — the _resolveAndRebuild() removal is documented and compliant.
+✅ WallFragmentBuilder has a rebuildingWalls Set guard preventing re-entrant rebuild loops.
+🟡 WallStore.updateOpening() optionally triggers updateWindow() or updateDoor() which each emit 'update', potentially causing two rebuilds of the same wall for a single opening update (one from the outer updateOpening call, one from the inner updateWindow/Door call). The code comment notes this and suppresses the outer emit when a hosted element is present — but this is subtle and could break if the inner emit is removed.
+8️⃣ Tool Isolation Audit
+Tool Isolation Status:
+
+✅ WallTool.createWall() never calls wallStore.set/add/update directly.
+✅ WallTool never registers spatial elements.
+✅ WallTool never calls fragmentBuilder.buildWall() for final elements.
+✅ wallId is generated in WallTool.createWall() and injected into CreateWallCommand constructor — §18.3 compliant.
+✅ Preview meshes tagged with userData.isPreview = true — never reused as final roots.
+Preview Lifecycle Safety:
+
+✅ clearPreviewWall() disposes geometry and materials for both Mesh (line) and Group (arc) preview modes.
+✅ clearPreviewLine() disposes geometry and material.
+✅ clearStartMarker() disposes geometry and material.
+✅ clearPreview() called in cancel(), deactivate(), and cleanup().
+Window Global Fallbacks (migration debt):
+
+🟠 Eight active fallback sites in WallTool.ts: this.bimManager || (window as any).bimManager appears at lines 314, 554, 637, 662, 691, 943 and this.commandManager || (window as any).commandManager at lines 906, 987. These fallbacks keep the tool functional during migration but mean that callers who don't inject these objects bypass the constructor contract, producing silent degradation instead of explicit failures.
+🟠 createFromSelectedSlab() at line 888 uses (window as any).selectionManager and (window as any).slabTool without injection — these are not in WallToolCallbacks.
+9️⃣ Schema Validation Audit (WallTypes.ts)
+Required Fields:
+
+✅ id: string — required via CoreElement.
+✅ levelId: string — required, validated in WallStore.add().
+✅ baseLine: WallBaseline — required.
+✅ height: number, thickness: number, baseOffset: number — all required, validated.
+Unsafe Optional Fields:
+
+🟡 metadata?: WallMetadata — optional, meaning pre-existing walls in persistence may lack it. WallStore.update() handles this via the backfill path.
+🟡 layers?: WallLayer[] — optional (correct for backward compatibility). However, WallFragmentBuilder branches on wall.layers && wall.layers.length > 0 — this is safe but means the semantic schema cannot distinguish between "no layers configured" and "corrupted empty layers array."
+🟡 WallLayer.materialId?: string — optional. Builder falls back to materialColor when materialId is absent. Acceptable.
+Forbidden Fields:
+
+✅ No absolute worldY or absoluteY field in WallData.
+✅ curve.control stored as {x, y, z} plain object — structuredClone safe ✅.
+Enum Stability:
+
+✅ WallDrawingMode and WallToolState use string literal values — stable across serialization.
+Mutable Nested Arrays:
+
+✅ childrenIds: string[] and openings: Opening[] are Object.freeze()d by cloneWallData().
+Backward Compatibility Risk:
+
+🟡 WallToolCallbacks.bimManager?: any and .commandManager?: any are optional. Any caller that does not supply these falls back to window globals silently — this is migration debt that should eventually become required.
+🔟 Determinism Stress Test
+Scenario A: Create 3 walls → update dimensions → undo twice → redo twice
+
+Wall IDs are constructor-stable ✅
+Snapshot captured before each dimension update ✅
+Double-undo restores correct sequential snapshots ✅
+Double-redo re-applies the same dimension values ✅
+No ghost geometry — buildWall() clears children before each rebuild ✅
+No duplicate roots — wallRoots Map enforces one root per ID ✅
+Result: 🟢 PASSES
+Scenario B: Change level elevation
+
+spatialAuthority reconciliation listener fires 'spatial-authority-reconcile' event → re-resolves transforms for all walls in the level → repositions via spatialAuthority.resolveWorldTransform().
+🟠 This repositioning path reads from window globals and directly mutates obj.position in the reconciliation listener (line 161 of SpatialAuthority.ts) — bypassing the command/store/builder pipeline entirely. Scene objects are mutated without a store update or builder call.
+Result: 🟠 DESIGN WEAKNESS — reconciliation mutates scene objects directly, bypassing the standard update pipeline.
+Scenario C: Change wall levelId
+
+WallStore.update() guards against levelId mutation with throw new Error("Wall levelId cannot be modified after creation") ✅.
+No path exists to change levelId after creation — by design ✅.
+Result: 🟢 PASSES (by prevention)
+1️⃣1️⃣ Coupling Analysis
+Coupling	Status	Contract Section
+Builder ← SpatialAuthority ← window.wallStore	🔴 Cross-layer violation	§4, §12
+SpatialAuthority reconciliation listener → direct scene mutation	🔴 Bypasses command/store/builder pipeline	§2.1, §4
+WallTool → window globals (bimManager, commandManager)	🟠 Migration debt, active fallbacks	§1.1
+UpdateWallHeightCommand → window.dispatchEvent (CustomEvent)	🟡 Side-channel outside Event Bus	§12
+SpatialAuthority.getSemanticData → window.wallStore, etc.	🔴 Global coupling	§5, §12
+WallStore → storeEventBus	✅ Correct event bus usage	§10
+Commands → elementRegistry	✅ Correct — registry in command layer	§3.5
+Builder → spatialAuthority (global singleton)	🟠 Indirect coupling to semantic state	§4
+1️⃣2️⃣ Risk Summary
+🔴 Critical Architectural Violations
+CreateWallBetweenMarksCommand — Non-deterministic redo (§2.4)
+execute() computes wall baseline by taking midpoints of the CURRENT positions of source walls. On redo, if source walls have been modified, the midpoints will differ, producing a geometrically different wall than the original execution. Redo is not idempotent.
+
+SpatialAuthority.getSemanticData() reads from (window as any).wallStore (§4, §12)
+WallFragmentBuilder.buildWall() → spatialAuthority.resolveWorldTransform() → getSemanticData() reads semantic state from window globals. This is a Builder → Semantic Layer cross-layer violation. The builder must remain a pure projection function with no semantic data access.
+
+SpatialAuthority.resolveWorldTransform() fallback to L0 elevation (§13)
+When an element is not found in any BIM level, the authority falls back to getLevelById('L0') || levels[0] and continues with the wrong elevation. This is a forbidden elevation fallback per §13.
+
+SpatialAuthority reconciliation listener — Direct scene mutation bypassing pipeline (§2.1, §4)
+On level elevation change, the reconciliation listener directly mutates obj.position on scene objects without going through the store → event bus → builder path. This is an architectural bypass.
+
+Split-brain worldY in WallFragmentBuilder (§13)
+updateWall() correctly computes worldY = level.elevation + baseOffset and logs it but never passes it to buildWall(). buildWall() independently derives Y from spatialAuthority.resolveWorldTransform(). Two separate computation paths exist; if they diverge the logged value is misleading while the actual geometry is wrong.
+
+🟠 Major Design Weaknesses
+UpdateWallDimensionsCommand — structuredClone on THREE.Vector3-containing frozen objects (§2.2)
+structuredClone called on objects containing class instances is fragile. Environments that throw on non-serializable objects would crash execute() before the baseLine rescue. The serializeWallSnapshot() pattern used by other commands is the correct approach.
+
+Eight active window-global fallbacks in WallTool (§1.1)
+bimManager and commandManager are still resolved via (window as any) at 8 call sites if not injected. Migration is partially complete but callers that haven't been updated silently degrade rather than fail fast.
+
+createFromSelectedSlab() — selectionManager and slabTool accessed via window globals (§1.1, §23.1)
+These two cross-tool dependencies are not in WallToolCallbacks and have no injection path.
+
+WallFragmentBuilder.fragmentToEntityMap not purged on rebuild (memory leak)
+removeWallFragments() clears wallToFragmentsMap and fragments but fragmentToEntityMap entries are only added, never removed on rebuild. Stale entries accumulate indefinitely.
+
+Hosted element registry orphan on wall delete
+CreateWallCommand.undo() unregisters only the wall from bimManager and elementRegistry. Hosted opening elements (windows/doors) registered via CreateWallOpeningCommand are never unregistered from bimManager when their parent wall is deleted, creating orphaned spatial registrations.
+
+🟡 Minor Improvements
+WallStore.update() stamps new modifiedAt on undo restore paths
+Every undo call via wallStore.updateWall() advances modifiedAt and increments version, corrupting the audit trail. Undo should ideally restore the original metadata snapshot.
+
+UpdateWallVisualPropertiesCommand — Global scope (all walls)
+Targets all walls in the store. There is no scoped filter (by level or selection). Intentional but architecturally risky for large models.
+
+CreateWallOpeningCommand — Unused prevWallSnapshot field
+Captured in execute() but never used in undo() (which uses removeOpening() instead). Dead code that adds maintenance surface.
+
+UpdateWallHeightCommand — CustomEvent via window.dispatchEvent (§12)
+emitWallUpdatedEvent() and triggerAIRefresh() use raw window events as a side-effect channel outside the documented Store Event Bus, creating an undocumented coupling to AI and inspector listeners.
+
+WallStore.getLevelById() hardcodes height: 3.0
+The BimKernel's actual level height is discarded; any consumer of WallStore.getLevelById() who reads .height gets a constant 3.0 regardless of the real level height.
+
+WallToolCallbacks.bimManager and commandManager are typed any
+Should be typed to their concrete interfaces to enforce the injection contract at compile time.
+
+🟢 Fully Contract-Compliant Areas
+Store immutability — cloneWallData() + Object.freeze() correctly enforced on all read paths. No reference leaks.
+ID generation — All commands pre-generate IDs in constructors. No IDs generated inside execute().
+CreateWallCommand spatial ordering — store.add → bimManager.register → elementRegistry.register. Correct per §5.
+WallTool isolation — No store mutations, no spatial registrations, no final geometry creation. Preview lifecycle fully managed.
+Builder idempotency — Root reuse, full child clear on rebuild, duplicate-root detection.
+Rebuild cascade control — No command calls builder directly. All rebuilds flow through store event bus → subscriber.
+WallData schema — No absolute Y field; levelId required and validated; baseLine uses explicit WallBaseline type.
+CreateWallOpeningCommand ID stability — Pre-generated IDs, double-execute guard, correct undo via removeOpening().
+WallStore.update() blocks direct openings manipulation — Prevents callers from bypassing the opening API.
+serializeWallSnapshot() shared utility — Consistent, safe baseLine serialization across four commands.
+Overall Contract Compliance Score: 68 / 100
+Category	Deduction	Reason
+Critical violations (5)	−22	SpatialAuthority cross-layer reads, forbidden fallback, scene bypass, split-brain worldY, non-deterministic redo
+Major weaknesses (5)	−7	structuredClone fragility, window-global fallbacks, memory leak, hosted-element orphan, window-globals in createFromSelectedSlab
+Minor improvements (6)	−3	metadata corruption, unused snapshot, CustomEvent side-channel, hardcoded height, any types
+Score	68	
+The semantic model, immutability contract, and command-first architecture are well-implemented. The primary failure surface is the SpatialAuthority singleton, which acts as a hidden cross-layer bridge — its getSemanticData() reads from window-global stores and its reconciliation listener mutates scene objects directly, both violating the strict layer separation the rest of the architecture correctly enforces.

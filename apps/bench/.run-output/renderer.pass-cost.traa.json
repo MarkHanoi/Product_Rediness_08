@@ -1,0 +1,10 @@
+{
+  "name": "renderer.pass-cost.traa",
+  "samples": 200,
+  "p50": 2.104,
+  "p95": 2.108,
+  "p99": 2.113,
+  "budgetMs": 3,
+  "warnMs": 2.4000000000000004,
+  "recordedAt": "2026-04-27T22:47:50.204Z"
+}

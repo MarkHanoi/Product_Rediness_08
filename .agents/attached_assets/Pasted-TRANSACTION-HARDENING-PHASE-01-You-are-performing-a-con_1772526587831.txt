@@ -1,0 +1,125 @@
+TRANSACTION HARDENING (PHASE 01)
+
+You are performing a controlled architectural hardening task.
+
+⚠️ This is NOT a refactor.
+⚠️ Do NOT modify any files except those explicitly mentioned.
+⚠️ Do NOT change public interfaces.
+⚠️ Do NOT introduce new architecture.
+⚠️ Only implement transactional safety exactly as described.
+
+🎯 OBJECTIVE
+
+Install a transaction boundary in CommandManager.execute() to prevent catastrophic partial mutation when a command fails.
+
+Specifically:
+
+If command.execute() throws → restore previous state.
+
+If command.execute() returns { success: false } → restore previous state.
+
+Only push to history after successful commit.
+
+We are protecting:
+
+Store mutation integrity
+
+Undo stack consistency
+
+Paid pilot trust safety
+
+📂 FILES TO MODIFY
+
+src/commands/CommandManager.ts
+
+src/commands/walls/CreateWallsFromSlabCommand.ts
+
+DO NOT TOUCH ANY OTHER FILES.
+
+✅ STEP 1 — MODIFY CommandManager.execute()
+
+Replace the entire execute() method with this implementation:
+
+execute(command: Command, metadata: CommandMetadata = { source: 'HUMAN_DIRECT' }): CommandResult {
+    console.log(`[CommandManager] EXECUTE: ${command.type}`);
+
+    const validation = command.canExecute(this.context);
+    if (!validation.ok) {
+        return { success: false, affectedElementIds: [], info: [validation.reason || 'Validation failed'] };
+    }
+
+    // BEGIN TRANSACTION SNAPSHOT
+    const snapshot = this.createSnapshot();
+
+    try {
+        const result = command.execute(this.context);
+
+        if (!result.success) {
+            this.restoreSnapshot(snapshot);
+            return result;
+        }
+
+        this.history.push({ command, metadata });
+        this.redoStack = [];
+
+        return result;
+
+    } catch (err) {
+        console.error(`[CommandManager] FATAL ERROR DURING EXECUTION`, err);
+
+        this.restoreSnapshot(snapshot);
+
+        return {
+            success: false,
+            affectedElementIds: [],
+            info: ['Execution failed — state rolled back'],
+            error: err instanceof Error ? err.message : 'Unknown error'
+        };
+    }
+}
+✅ STEP 2 — ADD SNAPSHOT METHODS INSIDE CommandManager
+
+Add these private methods inside the same class:
+
+private createSnapshot() {
+    return {
+        wallStore: structuredClone(this.context.stores.wallStore.getAll()),
+        slabStore: structuredClone(this.context.stores.slabStore.getAll())
+    };
+}
+
+private restoreSnapshot(snapshot: any) {
+    // Restore walls
+    this.context.stores.wallStore.clear();
+    snapshot.wallStore.forEach((wall: any) => {
+        this.context.stores.wallStore.add(wall);
+    });
+
+    // Restore slabs
+    this.context.stores.slabStore.clear();
+    snapshot.slabStore.forEach((slab: any) => {
+        this.context.stores.slabStore.add(slab);
+    });
+}
+
+⚠️ Do not optimize.
+⚠️ Do not refactor stores.
+⚠️ Do not snapshot other stores yet.
+
+✅ STEP 3 — FIX CreateWallsFromSlabCommand
+
+Inside:
+
+CreateWallsFromSlabCommand.execute()
+
+Replace this line:
+
+const result = wallCommand.execute(context);
+
+WITH:
+
+const result = context.commandManager.execute(wallCommand, {
+    source: 'HUMAN_DIRECT'
+});
+
+Do NOT change anything else.

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RevitAddIns>
+  <AddIn Type="Command">
+    <Name>Export to PRYZM</Name>
+    <Assembly>PRYZM.Revit.Bridge.dll</Assembly>
+    <FullClassName>PRYZM.Revit.Bridge.Commands.ExportToPRYZMCommand</FullClassName>
+    <ClientId>3a2b1c4d-5e6f-7890-abcd-ef1234567890</ClientId>
+    <VendorId>PRYZM</VendorId>
+    <VendorDescription>PRYZM Spatial Intelligence — pryzm.app</VendorDescription>
+  </AddIn>
+  <AddIn Type="Command">
+    <Name>Set PRYZM Token</Name>
+    <Assembly>PRYZM.Revit.Bridge.dll</Assembly>
+    <FullClassName>PRYZM.Revit.Bridge.Commands.SetTokenCommand</FullClassName>
+    <ClientId>3a2b1c4d-5e6f-7890-abcd-ef1234567891</ClientId>
+    <VendorId>PRYZM</VendorId>
+    <VendorDescription>PRYZM Spatial Intelligence — pryzm.app</VendorDescription>
+  </AddIn>
+</RevitAddIns>

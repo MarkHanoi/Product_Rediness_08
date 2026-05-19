@@ -1,0 +1,43 @@
+{
+  "id": "gable-rect-tall-pitch",
+  "description": "gable 8×3 long rect, 35° pitch",
+  "roof": {
+    "id": "roof:gable-rect-tall",
+    "type": "roof",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "boundary": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 8,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 8,
+        "y": 0,
+        "z": 3
+      },
+      {
+        "x": 0,
+        "y": 0,
+        "z": 3
+      }
+    ],
+    "shape": "gable",
+    "pitch": 0.6108652381980153,
+    "overhang": 0,
+    "thickness": 0.2
+  },
+  "worldY": 0
+}

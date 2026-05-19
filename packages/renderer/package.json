@@ -1,0 +1,30 @@
+{
+  "name": "@pryzm/renderer",
+  "version": "0.1.0",
+  "description": "PRYZM 2 — L5 renderer (WebGPU / WebGL2 dual-mode, single forward pipeline).",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src", "dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@pryzm/frame-scheduler": "workspace:*",
+    "@pryzm/scene-committer": "workspace:*",
+    "@opentelemetry/api": "^1.9.0",
+    "three": "^0.183.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.183.1",
+    "@webgpu/types": "^0.1.69",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

@@ -1,0 +1,297 @@
+Implementation Plan: PDF → BIM Accuracy Fixes
+
+---
+
+FIX 1 — Replace Blind Scale Calibration with User Two-Point Measurement
+
+**Priority:** Critical (must be done first — all other fixes depend on accurate px/m)
+
+**Files changed:** `src/ui/ai/FloorPlanImportPanel.ts` only
+
+**New file needed:** None
+
+**Contract risk:** Zero — purely UI/wizard logic, no store or command mutations
+
+**What to do:**
+
+In Step 2 of the wizard (Scale Calibration), replace the current "select reference element → apply 8% heuristic" flow with a two-point ruler click:
+
+1. Show the PDF thumbnail in an `<img>` element that fills the Step 2 panel (same `blobUrl` already available in `state.pdfConversion`).
+2. Listen for two sequential `click` events on the image. Record the two `{x, y}` positions in image-relative pixel space using `e.offsetX / img.naturalWidth * widthPx` (to normalize to the actual PDF pixel coordinates at 1000px resolution).
+3. Calculate `distancePx = Math.hypot(p2.x - p1.x, p2.y - p1.y)`.
+4. Show a numeric input: "What is the real-world distance between these two points (in meters)?" pre-filled with 0.825 (a reasonable door default).
+5. On confirm: `pxPerMeter = distancePx / realWorldM`. This replaces all of the `estimatedDoorPx = widthPx * 0.08` logic.
+6. Show a visual line drawn on a canvas overlay between the two clicked points so the user can see what they measured.
+7. Still keep the "Override px/meter" manual input as a fallback for power users.
+
+**Remove entirely:**
+
+```
+// DELETE these lines:
+constestimatedDoorPx=state.pdfConversion.widthPx*0.08;
+constpxPerMeter=refKey!=='manual'?estimatedDoorPx/dimM:100;
+```
+
+**Replace REFERENCE_ELEMENTS** — the dropdown is no longer needed. Replace it with a single "Show ruler on image" button that activates the click-to-measure mode.
+
+---
+
+FIX 2 — Split Stage B into Two API Calls to Eliminate Truncation
+
+**Priority:** High (fixes missing walls, incomplete slab, dropped openings)
+
+**Files changed:** `src/ai/FloorPlanAIFactory.ts` only
+
+**New file needed:** None
+
+**Contract risk:** Zero — factory only returns data, never mutates stores
+
+**What to do:**
+
+Split `analyseStructure()` into two sequential Claude Sonnet calls:
+
+**Call B1 — Walls + Slab only** (`maxTokens: 6000`):
+
+```
+Schema: { "walls": [...], "slab": {...} }
+```
+
+Remove all opening fields from the prompt schema for this call. This keeps the response compact and ensures the full wall list is never truncated. With 60 walls at ~80 tokens each, 6000 tokens is more than sufficient.
+
+**Call B2 — Openings only** (`maxTokens: 4000`):
+
+Pass the confirmed wall list from B1 back to Claude as context in the user message:
+
+```
+"The following walls have been detected (use these exact IDs for hostWallId):
+w1: startPx {x:12, y:34} → endPx {x:100, y:34}
+w2: ..."
+```
+
+This means Claude gets the real IDs in context, making `hostWallId` references reliable instead of guessed.
+
+**Implementation inside `analyseStructure()`:**
+
+```
+// B1: walls + slab (no openings schema)
+const b1Result = await callClaude({ ..., maxTokens: 6000, systemPrompt: WALLS_SLAB_SYSTEM_PROMPT });
+const { walls, slab } = safeParseJSON(b1Result, 'walls-slab');
+
+// Build wall context string from B1 result
+const wallContext = walls.map(w => `${w.id}: ${JSON.stringify(w.startPx)} → ${JSON.stringify(w.endPx)}`).join('\n');
+
+// B2: openings only, with wall IDs injected
+const b2Result = await callClaude({ ..., maxTokens: 4000, systemPrompt: OPENINGS_SYSTEM_PROMPT,
+  userText: `...Wall IDs:\n${wallContext}\n\nAnalyse openings using only these wall IDs.` });
+const { openings } = safeParseJSON(b2Result, 'openings');
+```
+
+Two separate system prompts (already partially written, just needs splitting of the existing `STRUCTURE_SYSTEM_PROMPT`).
+
+---
+
+FIX 3 — Replace `hostWallId` Matching with Spatial Proximity Lookup
+
+**Priority:** High (fixes misplaced and phantom openings)
+
+**Files changed:** `src/ai/FloorPlanCommandBatcher.ts` only
+
+**New file needed:** None
+
+**Contract risk:** Zero — post-processing logic, no store/command changes
+
+**What to do:**
+
+In the openings loop (around line 270), instead of relying solely on `wallAiIdToEntry.get(opening.hostWallId)`, add a spatial fallback:
+
+1. Convert `opening.centrePx` → world point via `underlayTool.pixelToWorld()`.
+2. If `wallAiIdToEntry.get(opening.hostWallId)` returns nothing (ID mismatch), scan all walls in `wallAiIdToEntry` and find the one whose centreline (start→end segment) is closest to the opening world point.
+3. Use a maximum snap distance of `0.5m` — if no wall is within 0.5m, skip the opening (it's likely a false positive).
+4. Add a new helper function `findNearestWall(openingWorld, wallAiIdToEntry, maxDistM)` — pure math, no imports needed beyond THREE.js.
+
+The math for point-to-segment distance (already available via THREE.js `Line3.closestPointToPoint()`):
+
+```
+functionfindNearestWall(point,entries,maxDist){
+letbest=null,bestDist=Infinity;
+for(const[id,entry]ofentries){
+constline=newTHREE.Line3(entry.worldStart,entry.worldEnd);
+constclosest=newTHREE.Vector3();
+line.closestPointToPoint(point,true,closest);
+constdist=point.distanceTo(closest);
+if(dist<bestDist&&dist<maxDist){bestDist=dist;best=entry;}
+}
+returnbest;
+}
+```
+
+This means openings are spatially anchored to geometry, not to fragile AI string IDs.
+
+---
+
+FIX 4 — Increase AI Image Resolution and Use PNG Instead of JPEG
+
+**Priority:** High (improves all AI pixel coordinate accuracy)
+
+**Files changed:** `src/utils/PDFToImageConverter.ts` only
+
+**New file needed:** None
+
+**Contract risk:** Zero — pure utility, no stores or commands
+
+**What to do:**
+
+Three sub-changes, all in `convertPDFPage1ToImage()`:
+
+**4a. Raise `MAX_WIDTH_PX` from 1000 → 1500:**
+
+```
+constMAX_WIDTH_PX=1500;
+```
+
+At 1500px, a 0.3m exterior wall at 50px/m = 22px wide instead of 15px. Claude's pixel detection error of ±5px becomes ±3cm instead of ±4.5cm real-world.
+
+**4b. Remove grayscale conversion** — architectural PDFs use colour to distinguish hatching from text from walls. Keep the colour image for the AI call. The size saving from grayscale is not worth the information loss:
+
+```
+// DELETE the grayCanvas / grayCtx block entirely
+// Use `canvas` directly instead of `grayCanvas`
+constdataUrl=canvas.toDataURL('image/jpeg',JPEG_QUALITY);
+```
+
+**4c. Raise JPEG quality from 0.85 → 0.92** to reduce blurring on fine lines:
+
+```
+constJPEG_QUALITY=0.92;
+```
+
+Note: The blobUrl used for the THREE.js texture (the underlay mesh) and the base64 sent to Claude can be decoupled. The texture can remain at lower quality for rendering performance; only the base64 for the AI needs higher quality. This can be done by rendering two canvas sizes: one at `MAX_WIDTH_PX` for AI, and the existing scaled version for the texture. This avoids increasing the underlay mesh texture size.
+
+---
+
+FIX 5 — Fix Slab Reference Frame Conflict in System Prompt
+
+**Priority:** Medium (fixes slab shape and position mismatch)
+
+**Files changed:** `src/ai/FloorPlanAIFactory.ts` only
+
+**New file needed:** None
+
+**Contract risk:** Zero — only prompt text changes
+
+**What to do:**
+
+**5a. Change the slab prompt rule** — instead of asking for the outer face, ask for the centreline polygon (matching wall convention). This makes the spatial reference consistent:
+
+Current prompt (line 143–146):
+
+```
+SLAB RULES:
+- Trace the outermost boundary of the entire floor plan using the OUTER FACE of exterior walls.
+```
+
+Replace with:
+
+```
+SLAB RULES:
+- Trace the outermost boundary of the entire floor plan following the CENTERLINE of exterior walls (same reference as wall startPx/endPx).
+- The slab polygon vertices must match or be close to the wall endpoint coordinates already reported.
+- Use one polygon point per corner/junction (typically 6–20 points).
+```
+
+**5b. In `FloorPlanCommandBatcher.ts`**, add a half-thickness outward expansion of the slab polygon after conversion to world coordinates:
+
+For each polygon edge, compute the outward normal and expand each point by `exteriorWallThickness / 2` (derive this from the average thickness of walls tagged `wallType: 'exterior'` in the analysis). This corrects the slab to the real outer face without requiring the AI to do two different spatial tasks.
+
+---
+
+FIX 6 — Lower Opening Width Minimum and Add Confidence Filter
+
+**Priority:** Medium (reduces phantom windows)
+
+**Files changed:** `src/ai/FloorPlanCommandBatcher.ts` only
+
+**New file needed:** None
+
+**Contract risk:** Zero
+
+**What to do:**
+
+In the openings loop, two changes:
+
+**6a. Skip `low` confidence openings entirely:**
+
+```
+if(opening.confidence==='low'){skipped++;continue;}
+```
+
+Low confidence openings are the primary source of phantom windows in interior walls.
+
+**6b. Lower the minimum opening width** from 0.5m → 0.3m (a narrow window slit is valid):
+
+```
+constopeningWidthM=Math.max(0.3,Math.min(3.0,// was 0.5
+snapToGrid(opening.widthPx/imgWidthPx*planWidthMeters,SNAP_GRID_M)
+));
+```
+
+**6c. Add a wall-type filter for windows:** Only allow windows on `'exterior'` walls. If `opening.type === 'window'` and the host wall's `data.wallType === 'interior'`, skip the opening. This is a direct architectural rule that eliminates the majority of false windows:
+
+```
+consthostWallData=wallAiIdToEntry.get(opening.hostWallId)?.wallData;// needs wallData stored alongside
+if(opening.type==='window'&&hostWallData?.wallType==='interior'){skipped++;continue;}
+```
+
+This requires storing `wallType` alongside `wallUUID` and `worldStart/End` in `wallAiIdToEntry`. Change the map value type from `{ wallUUID, worldStart, worldEnd }` to `{ wallUUID, worldStart, worldEnd, wallType }`.
+
+---
+
+FIX 7 — Fix Wall Thickness Calculation
+
+**Priority:** Medium
+
+**Files changed:** `src/ai/FloorPlanCommandBatcher.ts` only
+
+**New file needed:** None
+
+**Contract risk:** Zero
+
+**What to do:**
+
+The current formula `thicknessPx / imageDimensions.widthPx * planWidthMeters` simplifies correctly to `thicknessPx / pxPerMeter`, but it uses `planWidthMeters` which is derived from the calibration. After Fix 1, calibration will be correct, so this formula will be accurate.
+
+However, there is a secondary problem: `thicknessPx` from Claude is often reported as a fraction of what a human would measure (the model tends to underestimate wall thickness by ~20–30% because it reports the visible gap between lines rather than the full thickness including the line widths).
+
+Add a correction multiplier:
+
+```
+constRAW_THICKNESS_CORRECTION=1.25;// Claude underestimates wall thickness
+constthicknessM=(data.thicknessPx/analysis.imageDimensions.widthPx*
+(underlayTool.getState()?.planWidthMeters??10))*RAW_THICKNESS_CORRECTION;
+```
+
+And per wall type, apply a floor/ceiling:
+
+```
+constminThick=data.wallType==='exterior'?0.2:0.08;
+constmaxThick=data.wallType==='exterior'?0.5:0.25;
+constthickness=Math.max(minThick,Math.min(maxThick,snapToGrid(thicknessM,SNAP_GRID_M)));
+```
+
+---
+
+File Change Summary
+
+| **Fix** | **File** | **Lines Changed** | **Risk** |
+| --- | --- | --- | --- |
+| 1 | `src/ui/ai/FloorPlanImportPanel.ts` | Step 2 UI + `handleCalibration()` | Zero |
+| 2 | `src/ai/FloorPlanAIFactory.ts` | Split `analyseStructure()` + new prompts | Zero |
+| 3 | `src/ai/FloorPlanCommandBatcher.ts` | Add `findNearestWall()` + fallback in openings loop | Zero |
+| 4 | `src/utils/PDFToImageConverter.ts` | `MAX_WIDTH_PX`, quality, remove grayscale | Zero |
+| 5 | `src/ai/FloorPlanAIFactory.ts` + `FloorPlanCommandBatcher.ts` | Slab prompt + polygon expansion | Zero |
+| 6 | `src/ai/FloorPlanCommandBatcher.ts` | Confidence filter + window wall-type filter | Zero |
+| 7 | `src/ai/FloorPlanCommandBatcher.ts` | Thickness correction multiplier + type bounds | Zero |
+
+**No new files required. No existing tool logic is touched. All 7 fixes are isolated to the 4 PDF import files.** No other tools (wall tool, slab tool, door/window tool, curtain wall, stairs, etc.) are modified at any point.
+
+[](https://www.notion.so/32403369f53980d4b2cee78106687d85?pvs=21)

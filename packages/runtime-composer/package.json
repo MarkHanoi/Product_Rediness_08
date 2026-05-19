@@ -1,0 +1,51 @@
+{
+  "name": "@pryzm/runtime-composer",
+  "version": "0.1.0",
+  "description": "PRYZM 2 — composition root (S73 / Phase A of PRYZM2-ENTERPRISE-WIREUP-PLAN-S72). Owns `composeRuntime()` — the one place where every L0–L7.5 piece is constructed and joined into a single typed `PryzmRuntime` handle. The handle is the contract between the white UI (`src/ui/`) and the engine; per the lint rule landed in Phase H, `src/ui/` may import only `@pryzm/runtime-composer/types`. This is not a bridge: it is a one-shot wire-up.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/types.ts",
+    "./showAppToast": "./src/showAppToast.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@pryzm/ai-host": "workspace:*",
+    "@pryzm/command-bus": "workspace:*",
+    "@pryzm/input-host": "workspace:*",
+    "@pryzm/persistence-client": "workspace:*",
+    "@pryzm/physics-host": "workspace:*",
+    "@pryzm/plugin-bcf": "workspace:*",
+    "@pryzm/plugin-ifc-export": "workspace:*",
+    "@pryzm/plugin-ifc-import": "workspace:*",
+    "@pryzm/plugin-ifc-inspector": "workspace:*",
+    "@pryzm/plugin-rhino-import": "workspace:*",
+    "@pryzm/protocol": "workspace:*",
+    "@pryzm/renderer": "workspace:*",
+    "@pryzm/renderer-three": "workspace:*",
+    "@pryzm/runtime-undo-stack": "workspace:*",
+    "@pryzm/stores": "workspace:*",
+    "@pryzm/crash-reporter": "workspace:*",
+    "@pryzm/sync-client": "workspace:*",
+    "@pryzm/view-state": "workspace:*",
+    "@pryzm/visibility": "workspace:*"
+  },
+  "devDependencies": {
+    "@pryzm/frame-scheduler": "workspace:*",
+    "@types/node": "^22.10.5",
+    "@types/three": "^0.183.0",
+    "happy-dom": "^15.11.7",
+    "three": "^0.183.0",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

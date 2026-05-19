@@ -1,0 +1,254 @@
+[OrgSwitcher] splitLink routing "preConnect" → org, selectedOrgId=none
+ [OrgSwitcher] org link headers: {"hasAuth":true,"hasCookie":false,"hasOrgHeader":false,"orgId":"none"}
+ createNativeOauthConnect [object Object]
+ Opening OAuth popup window [object Object]
+ adding message event listener
+30iwq7v9jgvn-2.js:21 Haven't heard from the server in a while, resetting connection...
+(anonymous) @ 0iwq7v9jgvn-2.js:21Understand this warning
+e17e77cead626a1fba27f7f0f87e113a6a9412c57695cb27d015206ae9fb0968:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+e17e77cead626a1fba27f7f0f87e113a6a9412c57695cb27d015206ae9fb0968:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+50iwq7v9jgvn-2.js:21 Haven't heard from the server in a while, resetting connection...
+(anonymous) @ 0iwq7v9jgvn-2.js:21Understand this warning
+ [OrgSwitcher] splitLink routing "preConnect" → org, selectedOrgId=none
+ [OrgSwitcher] org link headers: {"hasAuth":true,"hasCookie":false,"hasOrgHeader":false,"orgId":"none"}
+ createNativeOauthConnect [object Object]
+ Opening OAuth popup window [object Object]
+ adding message event listener
+30iwq7v9jgvn-2.js:21 Haven't heard from the server in a while, resetting connection...
+(anonymous) @ 0iwq7v9jgvn-2.js:21Understand this warning
+0iwq7v9jgvn-2.js:21 Cache data may be lost when replacing the recentRepls field of a Query object.
+
+This could cause additional (usually avoidable) network requests to fetch data that were otherwise cached.
+
+To address this problem (which is not a bug in Apollo Client), define a custom merge function for the Query.recentRepls field, so InMemoryCache can safely merge these objects:
+
+  existing: [{"__ref":"Repl:2552b729-29bc-4906-bf24-3ab5ce9e738f"},{"__ref":"Repl:0d9df28d-755c-413a-8472-4a1872fc4b48"}]
+  incoming: [{"__ref":"Repl:2552b729-29bc-4906-bf24-3ab5ce9e738f"}]
+
+For more information about these options, please refer to the documentation:
+
+  * Ensuring entity objects have IDs: https://go.apollo.dev/c/generating-unique-identifiers
+  * Defining custom merge functions: https://go.apollo.dev/c/merging-non-normalized-objects
+
+(anonymous) @ 0iwq7v9jgvn-2.js:21Understand this warning
+stallwart.build.js:1 stallwart: failed ping 1
+20iwq7v9jgvn-2.js:21 Haven't heard from the server in a while, resetting connection...
+(anonymous) @ 0iwq7v9jgvn-2.js:21
+(anonymous) @ 05gaw1_zp81e9.js:518
+r @ 0iwq7v9jgvn-2.js:21Understand this warning
+stallwart.build.js:1 stallwart: failed ping 1
+60iwq7v9jgvn-2.js:21 Haven't heard from the server in a while, resetting connection...
+(anonymous) @ 0iwq7v9jgvn-2.js:21Understand this warning
+e17e77cead626a1fba27f7f0f87e113a6a9412c57695cb27d015206ae9fb0968:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+30iwq7v9jgvn-2.js:21 Haven't heard from the server in a while, resetting connection...
+(anonymous) @ 0iwq7v9jgvn-2.js:21Understand this warning
+e17e77cead626a1fba27f7f0f87e113a6a9412c57695cb27d015206ae9fb0968:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+0iwq7v9jgvn-2.js:21 task queue exceeded allotted deadline by 188ms
+(anonymous) @ 0iwq7v9jgvn-2.js:21
+_process @ 0-3_.mfksc0fz.js:14
+(anonymous) @ 0-3_.mfksc0fz.js:14
+r @ 0iwq7v9jgvn-2.js:21Understand this warning
+stallwart.build.js:1 stallwart: failed ping 1
+stallwart.build.js:1 stallwart: failed ping 2
+stallwart.build.js:1 stallwart: failed ping 1
+stallwart.build.js:1 stallwart: failed ping 2
+2stallwart.build.js:1 stallwart: failed ping 1
+stallwart.build.js:1 stallwart: failed ping 2
+stallwart.build.js:1 stallwart: failed ping 3
+stallwart.build.js:1 stallwart: failed ping 4
+stallwart.build.js:1 stallwart: failed ping 5
+120iwq7v9jgvn-2.js:21 Haven't heard from the server in a while, resetting connection...
+(anonymous) @ 0iwq7v9jgvn-2.js:21Understand this warning
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'ambient-light-sensor'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'battery'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'execution-while-not-rendered'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'execution-while-out-of-viewport'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'layout-animations'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'legacy-image-formats'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'navigation-override'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'oversized-images'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'publickey-credentials'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'speaker-selection'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'unoptimized-images'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'unsized-media'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Allow attribute will take precedence over 'allowfullscreen'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Allow attribute will take precedence over 'allowpaymentrequest'.Understand this warning
+(index):1 Loading the script 'https://replit-cdn.com/replit-pill/replit-pill.global.js' violates the following Content Security Policy directive: "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The policy is report-only, so the violation has been logged but no further action has been taken.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:144 Loading the script 'https://replit.com/public/js/beacon.js' violates the following Content Security Policy directive: "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The policy is report-only, so the violation has been logged but no further action has been taken.
+injected.js:37 [LONGTASK] duration=64.0ms start=6294.8ms
+(anonymous) @ injected.js:37Understand this warning
+e17e77cead626a1fba27f7f0f87e113a6a9412c57695cb27d015206ae9fb0968:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+injected.js:37 [LONGTASK] duration=61.0ms start=27268.4ms [type=iframe src=https://2552b729-29bc-4906-bf24-3ab5ce9e738f-00-2vp5qnmbzfg28.pike.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=61.0ms start=31144.7ms
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=75.0ms start=31206.3ms
+(anonymous) @ injected.js:37Understand this warning
+e17e77cead626a1fba27f7f0f87e113a6a9412c57695cb27d015206ae9fb0968:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+injected.js:37 [DataCommandCenter] Initialized
+injected.js:37 [SaveOrchestrator] Initialised — debounce: 1000 ms
+injected.js:37 [PlatformShell] Initialized — project ID: proj-1777954990372-671ru (runtime: composed)
+injected.js:37 [bootPlatform] D.1 — early PlatformShell created (delegates: deferred, post-paint, surface mounted)
+three.webgpu.js?v=b1d3a9d0:78509 The powerPreference option is currently ignored when calling requestAdapter() on Windows. See https://crbug.com/369219127
+init @ three.webgpu.js?v=b1d3a9d0:78509Understand this warning
+injected.js:37 [PRYZM] WebGPURenderer initialized: webgpu
+injected.js:37 [RendererPrewarm] webgpu renderer pre-warmed in 463 ms — LONGTASK eliminated from project-open critical path.
+injected.js:37 [PlatformRouter] Opening project: "zsdgsd" (proj-1777954999265-7bnhmac) [new]
+injected.js:37 [AuditStack] Initialized v1.6 — Polymorphic Auditor
+injected.js:37 [WallPerfBench] Ready. Run: await window.__wallPerfBench.run()
+injected.js:37 Initializing Hybrid BIM Configurator...
+injected.js:37 [BriefInputPanel] Initialized
+injected.js:37 [VariantBrowserPanel] Initialized
+injected.js:37 [PortfolioQueryPanel] Initialized
+injected.js:37 [DataWorkbench] PostOccupancy surface deferred to plugins/lifecycle/ (S70 D8); panel slot is empty until the plugin ports it. See ADR-0052 §B.7.
+(anonymous) @ injected.js:37
+(anonymous) @ LifecycleBucket.ts:26
+(anonymous) @ DataWorkbench.ts:418
+(anonymous) @ DataWorkbench.ts:291
+(anonymous) @ DataWorkbench.ts:234
+(anonymous) @ engineLauncher.ts:352
+startEngine @ main.ts:172
+await in startEngine
+(anonymous) @ main.ts:244
+await in (anonymous)
+(anonymous) @ main.ts:319
+(anonymous) @ buildPersistence.ts:231
+(anonymous) @ buildPersistence.ts:266
+(anonymous) @ PlatformRouter.ts:422
+(anonymous) @ PlatformRouter.ts:375
+(anonymous) @ PlatformRouter.ts:289
+(anonymous) @ ProjectHub.ts:1110
+(anonymous) @ ProjectHub.ts:1091
+await in (anonymous)
+(anonymous) @ ProjectHub.ts:1019
+(anonymous) @ ProjectHub.ts:405Understand this warning
+injected.js:37 [DataWorkbench] BIM 3.0 Lifecycle Hub initialized
+injected.js:37 [EngineBootstrap] DataWorkbench instantiated
+injected.js:37 [PRYZM] GPU backend detected: webgpu
+injected.js:37 THREE.THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.
+(anonymous) @ injected.js:37
+warn @ three.core.js?v=b1d3a9d0:2001
+Clock @ three.core.js?v=b1d3a9d0:55734
+_Components2 @ @thatopen_components.js?v=b1d3a9d0:14705
+(anonymous) @ BimWorld.ts:8
+(anonymous) @ initScene.ts:166
+(anonymous) @ engineLauncher.ts:368
+startEngine @ main.ts:172
+await in startEngine
+(anonymous) @ main.ts:244
+await in (anonymous)
+(anonymous) @ main.ts:319
+(anonymous) @ buildPersistence.ts:231
+(anonymous) @ buildPersistence.ts:266
+(anonymous) @ PlatformRouter.ts:422
+(anonymous) @ PlatformRouter.ts:375
+(anonymous) @ PlatformRouter.ts:289
+(anonymous) @ ProjectHub.ts:1110
+(anonymous) @ ProjectHub.ts:1091
+await in (anonymous)
+(anonymous) @ ProjectHub.ts:1019
+(anonymous) @ ProjectHub.ts:405Understand this warning
+injected.js:37 [BimWorld] Camera constraints armed: minDist=1 m, maxDist=100 m, maxPolarAngle=π/2−0.1, infinityDolly=false, mode-patch active.
+injected.js:37 🌍 WORLD EXPOSED TO WINDOW SimpleWorld {isDisposeable: ƒ, isResizeable: ƒ, isUpdateable: ƒ, isHideable: ƒ, isConfigurable: ƒ, …}
+injected.js:37 [TopologyLayer] Scene bound — topology ready for queries.
+injected.js:37 [initScene] TopologyLayer ready.
+injected.js:37 [FrustumCullingService] Active — large-model threshold: 500 elements.
+injected.js:37 [initScene] FrustumCullingService ready.
+injected.js:37 [initScene] ViewRenderCache ready.
+injected.js:37 [initScene] UnifiedFrameLoop bridged to FrameCoordinator.
+injected.js:37 [initScene] LevelClipPlaneCache wired — OBC Clipper replaced with renderer-level planes. Plan views are safe.
+injected.js:37 [initScene] StairPlanSymbolRegistry ready — stair traverse replaced with O(k) registry.
+injected.js:37 [initScene] InstancedElementRenderer wired — Phase 7 GPU instancing active.
+injected.js:37 [ViewDependencyTracker] init() — subscribed to StoreEventBus
+injected.js:37 [initScene] DOC-1.7: EdgeProjectorService façade installed (lazy — real service loads on first projection).
+injected.js:37 [initScene] Task 5.1: WebGL context loss handlers registered.
+injected.js:214  GET https://2552b729-29bc-4906-bf24-3ab5ce9e738f-00-2vp5qnmbzfg28.pike.replit.dev/api/v1/portfolio/benchmarks/all 401 (Unauthorized)
+apply @ injected.js:214
+(anonymous) @ PortfolioSemanticGraph.ts:97
+(anonymous) @ PortfolioQueryPanel.ts:373
+(anonymous) @ PortfolioQueryPanel.ts:259
+(anonymous) @ PortfolioQueryPanel.ts:123
+(anonymous) @ LifecycleBucket.ts:20
+(anonymous) @ DataWorkbench.ts:418
+(anonymous) @ DataWorkbench.ts:291
+(anonymous) @ DataWorkbench.ts:234
+(anonymous) @ engineLauncher.ts:352
+startEngine @ main.ts:172
+await in startEngine
+(anonymous) @ main.ts:244
+await in (anonymous)
+(anonymous) @ main.ts:319
+(anonymous) @ buildPersistence.ts:231
+(anonymous) @ buildPersistence.ts:266
+(anonymous) @ PlatformRouter.ts:422
+(anonymous) @ PlatformRouter.ts:375
+(anonymous) @ PlatformRouter.ts:289
+(anonymous) @ ProjectHub.ts:1110
+(anonymous) @ ProjectHub.ts:1091
+await in (anonymous)
+(anonymous) @ ProjectHub.ts:1019
+(anonymous) @ ProjectHub.ts:405Understand this error
+injected.js:37 [LONGTASK] duration=3301.0ms start=89957.6ms [type=iframe src=https://2552b729-29bc-4906-bf24-3ab5ce9e738f-00-2vp5qnmbzfg28.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=54.0ms start=93288.4ms
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [initScene] Phase 5: pre-warmed renderer consumed — 2,401 ms LONGTASK skipped.
+injected.js:37 [initScene] Phase 5 active — PRYZM renderer: webgpu
+injected.js:37 [PascalSceneLighting] Shadow flags set on 1 mesh(es).
+injected.js:37 [PascalSceneLighting] Applied — key: 4, fill: 0.75, rim: 1, ambient: 0.5, shadow.intensity: 0.4, scene.environment → null (HDRI cleared — Pascal has no IBL)
+injected.js:37 [RenderingPipelineCoordinator] Bound to scene + renderer.
+injected.js:37 [initScene] Phase 5 active — skipping HDRI, using standard PBR only.
+injected.js:37 [RenderingPipelineCoordinator] Activating level: "standard"
+injected.js:37 [PBRSceneUpgrader] Applied — meshes: 2 materials: 0 (metal: 0, glass: 0 rough: 0, polished: 0)
+injected.js:37 [ShadowQualityUpgrader] Applied "standard" — map: 512px radius: 1 bias: -0.0001 (1 light(s) upgraded)
+injected.js:37 [RenderingPipelineCoordinator] Level "standard" active.
+injected.js:37 [initScene] RenderingPipelineCoordinator ready.
+injected.js:37 [ViewportCrashGuard] Activated — monitoring viewport render errors.
+injected.js:37 [RenderPipelineManager] WebGPU renderer confirmed. Initialising TSL pipeline...
+injected.js:37 [initScene] Auto-activated quality "standard" (hdri: none) at startup.
+injected.js:37 [RenderPipelineManager] three/tsl loaded.
+injected.js:37 [RenderPipelineManager] Phase: phase2 | WebGPU: true | SSGI: false | TRAA: false
+injected.js:37 [RenderPipelineManager] Phase 2 pipeline active.
+injected.js:37 [ConstraintEngine] 17 rules registered (7 Tier 1, 5 Tier 2 spatial, 5 Tier 2 physics)
+injected.js:37 [AIApprovalStore] Restored 6 audit records.
+injected.js:37 [RenderPipelineManager] SSGI activated (SSGINode r183 + DenoiseNode).
+injected.js:37 [RenderPipelineManager] Phase: phase3 | WebGPU: true | SSGI: true | TRAA: false
+injected.js:37 [RenderPipelineManager] Phase: phase3 | WebGPU: true | SSGI: true | TRAA: false
+injected.js:37 [RenderPipelineManager] Outlines activated (selected + hover).
+injected.js:37 [RenderPipelineManager] Phase: phase4 | WebGPU: true | SSGI: true | TRAA: false
+injected.js:37 [RenderPipelineManager] Phase: phase4 | WebGPU: true | SSGI: true | TRAA: false
+injected.js:37 [initScene] TSL pipeline at Phase 3/4 (SSGI + Outlines). TRAA OFF by default.
+injected.js:37 THREE.THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.
+(anonymous) @ injected.js:37
+warn @ three.core.js?v=b1d3a9d0:2001
+Clock @ three.core.js?v=b1d3a9d0:55734
+(anonymous) @ initScene.ts:1806
+await in (anonymous)
+(anonymous) @ engineLauncher.ts:368
+startEngine @ main.ts:172
+await in startEngine
+(anonymous) @ main.ts:244
+await in (anonymous)
+(anonymous) @ main.ts:319
+(anonymous) @ buildPersistence.ts:231
+(anonymous) @ buildPersistence.ts:266
+(anonymous) @ PlatformRouter.ts:422
+(anonymous) @ PlatformRouter.ts:375
+(anonymous) @ PlatformRouter.ts:289
+(anonymous) @ ProjectHub.ts:1110
+(anonymous) @ ProjectHub.ts:1091
+await in (anonymous)
+(anonymous) @ ProjectHub.ts:1019
+(anonymous) @ ProjectHub.ts:405Understand this warning
+injected.js:37 [UnifiedFrameLoop] Started (subscribed to @pryzm/frame-scheduler).
+injected.js:37 [initScene] UnifiedFrameLoop started — single rAF loop active.
+injected.js:37 [initScene] RenderPipelineManager ready.
+injected.js:37 [initScene] EnhancedBloomService deferred — lazy wrappers installed.
+injected.js:37 [initScene] SSGIService deferred — lazy wrappers installed.
+injected.js:37 [RenderPerformanceService] Bound — native DPR: 1.25
+injected.js:37 [RenderPerformanceService] Quality → high | DPR: 1.25 (100% of native 1.25)
+injected.js:37 [initScene] RenderPerformanceService ready.
+injected.js:37 [initScene] SplitViewManager ready.
+injected.js:37 [initScene] Scene subsystem fully initialised.

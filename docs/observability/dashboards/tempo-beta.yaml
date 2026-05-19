@@ -1,0 +1,75 @@
+apiVersion: tempo.pryzm.dev/v1
+kind: TraceSearchSavedViews
+metadata:
+  name: pryzm-2-beta
+  binding:
+    deferredTo: "S48 D9 launch + Tempo OSS provisioning"
+    trackedIn: "ADR-0038 §3"
+  spec:
+    source: "phases/PHASE-2D-Q4-M22-M24-SYNC-AWARENESS-BETA.md §S48 D6 line 718"
+    note: |
+      Saved trace-search views for the M24 beta. Each view maps a
+      common operator workflow (triage from GitHub issue, drill into
+      a slow sync round-trip, follow a crash report back to its
+      causal commands) to a one-click query. Mirrors the Honeycomb
+      board (honeycomb-beta.json) — beta operators may use either
+      backend depending on the workspace provisioning at launch.
+
+views:
+  - name: "Trace by ID (paste from beta-bug.yml issue)"
+    description: |
+      Beta bug-report issues require a `OTel trace link` field
+      (.github/ISSUE_TEMPLATE/beta-bug.yml). Paste the 32-char
+      hex trace id here to load the full waterfall.
+    query:
+      service: "*"
+      traceID: "${TRACE_ID}"
+
+  - name: "Slow sync round-trips (p95 > 250 ms)"
+    description: "Beta exit criteria — sync latency must hold ≤ 250 ms p95 at 50 users (spec line 693)."
+    query:
+      service: "@pryzm/sync-server"
+      operation: "sync.roundtrip"
+      minDuration: "250ms"
+      limit: 50
+
+  - name: "AI workflow approvals — cost ≥ $0.05"
+    description: "Per spec line 627 — flag any AI action whose estimated cost crossed the user-approval threshold ($0.05 per ADR-028)."
+    query:
+      service: "@pryzm/ai-host"
+      operation: "ai.workflow.submit"
+      tags:
+        pryzm.ai.cost.usd:
+          op: ">="
+          value: 0.05
+      limit: 100
+
+  - name: "Crashes (fatal) in last 24h"
+    description: "Crash-reporter integration — every report carries a trace_id (packages/crash-reporter/src/OtelLinkedReporter.ts)."
+    query:
+      service: "@pryzm/editor"
+      tags:
+        pryzm.crash.captured: "true"
+        pryzm.crash.severity: "fatal"
+      lookback: "24h"
+      limit: 200
+
+  - name: "Soft-lock contention — rejected acquires"
+    description: "Per S45 ratification — the LockManager fires `lock.reject` when a peer holds the element. Spike means a UX wedge."
+    query:
+      service: "@pryzm/sync-server"
+      operation: "lock.reject"
+      lookback: "1h"
+      limit: 100
+
+  - name: "Restore-verify nightly run trace"
+    description: "Per spec line 764 — nightly restore-verify must remain green for ≥ 14 consecutive nights before M24 BETA GATE flips fully."
+    query:
+      service: "@pryzm/restore-verify"
+      operation: "restore.verify.nightly"
+      lookback: "30d"
+
+correlation:
+  github_issue_template: ".github/ISSUE_TEMPLATE/beta-bug.yml"
+  triage_runbook: "docs/process/beta-triage.md"
+  crash_reporter: "packages/crash-reporter/src/OtelLinkedReporter.ts"

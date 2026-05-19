@@ -1,0 +1,32 @@
+{
+  "name": "@pryzm/plugin-ifc-import",
+  "version": "0.1.0",
+  "description": "PRYZM 2 \u2014 IFC Tier 2 import plugin (Phase 3-B Sprint S57). Reads IFC4 STEP files via web-ifc and produces transform-only proxies (IFCProxyDTO) for Tier 2 entities (furniture, structural proxy, MEP equipment) per PHASE-3B-Q2-M28-M30-IFC-REVIT-COMPONENT-EDITOR.md \u00a73.1. Closes the round-trip with @pryzm/plugin-ifc-export by repopulating the side-car IFCMetaStore on import. Pure TS / Node-compatible.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./tier2": "./src/converters/tier2-proxy.ts",
+    "./commands": "./src/commands/index.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
+    "@pryzm/plugin-ifc-export": "workspace:*",
+    "js-sha256": "^0.11.1",
+    "web-ifc": "^0.0.77",
+    "@pryzm/plugin-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.9"
+  }
+}

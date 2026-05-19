@@ -1,0 +1,24 @@
+New files (drop into your repo as-is)
+FileLocation in your repoPurposeAIElementConfig.tselements/furniture/The "Element DNA" schema — pure JSON, no any, structuredClone-safeAIElementValidator.tselements/furniture/Constraint-layer validator — called by canExecute(), explicit failures onlyAIElementEngine.tselements/furniture/Config-driven THREE.js geometry builder — mirrors WardrobeEngineCreateAIElementCommand.tscommands/furniture/Command: create an AI element through the existing proposal/approval flowUpdateAIElementParametersCommand.tscommands/furniture/Command: parametric slider updates with full structuredClone undoAIElementFactory.tsai/Tool-layer service: calls Claude Vision API → validates → returns CommandProposalAICreatePanel.tsui/ai/4-step wizard UI panel — wires into the existing commandProposalStore/AIPanel flow
+Updated files (replace the originals)
+FileWhat changedFurnitureTypes.tsAdded 'ai_element' to FurnitureType union; added aiElementConfig?: AIElementConfig to FurnitureData; tightened properties to no anyFurnitureFactory.tsAdded case 'ai_element' delegating to AIElementEngine.create()intents.tsAdded CREATE_AI_ELEMENT to AIIntentType enum
+Patch guides (not code — tells you the exact lines to edit)
+FileWhat it coversLayout.PATCH.ts3 insertions: import, createAICreatePanel() + toggleAICreatePanel(), ✦ button + <div id="ai-create-panel-container"> in the BUI templatemain.PATCH.ts1 insertion: bim-furniture-updated event listener (the event was already fired by FurnitureStore.update() but never caught in main.ts)
+The full data flow once wired
+User → AICreatePanel (step 3 "Generate")
+  → AIElementFactory.generate()
+      → validates levelId against BimManager (throws explicitly if missing)
+      → calls Claude Vision API with image + prompt
+      → AIElementValidator.validate() (re-prompts once on failure)
+      → CreateAIElementCommand { id, levelId, baseOffset, aiElementConfig }
+      → commandProposalStore.add(proposal)
+      → fires 'ai-proposal-added'
+  → AIPanel.showApprovalModal() (existing code, unchanged)
+      → User clicks Approve
+      → commandManager.execute(command, { source: 'AI_PROPOSAL' })
+          → CreateAIElementCommand.canExecute() — AIElementValidator + BimManager check
+          → .execute() — bimManager.registerElement() + furnitureStore.add()
+              → 'bim-furniture-added' → FurnitureFragmentBuilder.updateFurniture()
+                  → FurnitureFactory.getBuilder('ai_element')
+                      → AIElementEngine.create(aiElementConfig) → THREE.Group
+          → aiApprovalStore.append() (audit log — existing code, unchanged)

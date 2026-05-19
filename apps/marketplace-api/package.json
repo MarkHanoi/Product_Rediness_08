@@ -1,0 +1,32 @@
+{
+  "name": "@pryzm/marketplace-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PRYZM plugin marketplace API skeleton — browse, version, sign-verify, revoke. S64 D1 deliverable per phase-doc-2 §S64 + ADR-0040.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./app": "./src/app.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run --reporter=default",
+    "start": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@pryzm/api-rbac": "workspace:*",
+    "@pryzm/plugin-sdk": "workspace:*",
+    "@pryzm/rate-limit": "workspace:*",
+    "express": "^5.1.0",
+    "ulid": "^3.0.1",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^20.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.9"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "file-format.unpack.medium",
+  "samples": 10,
+  "p50": 10.3,
+  "p95": 15.96,
+  "p99": 15.96,
+  "budgetMs": 3000,
+  "warnMs": 2400,
+  "recordedAt": "2026-05-09T23:08:49.984Z"
+}

@@ -1,0 +1,43 @@
+{
+  "id": "F14.with-material-id",
+  "description": "slab with material ID override",
+  "slab": {
+    "id": "slab:01HZS000000000000SLBF1400",
+    "type": "slab",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "boundary": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 4,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 4,
+        "y": 0,
+        "z": 4
+      },
+      {
+        "x": 0,
+        "y": 0,
+        "z": 4
+      }
+    ],
+    "holes": [],
+    "thickness": 0.2,
+    "baseOffset": 0,
+    "materialId": "mat_concrete_dark"
+  },
+  "worldY": 0
+}

@@ -1,0 +1,98 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "gFXQ0I8bde5sRA8IjkqMc"
+uri = "file://docs/Photorealistic/PHOTOREALISTIC-CONSOLIDATION-PLAN.md"
+type = "text"
+title = "Photorealistic Consolidation Plan"
+
+[[outputs]]
+id = "Rjuw7YRtzSuoDlK_qjGws"
+uri = "file://docs/SUPABASE-MIGRATION-PLAN.md"
+type = "text"
+title = "Supabase Migration Plan — Feasibility Study & Implementation"
+
+[[outputs]]
+id = "ilPKH0CPVS60Na63sRQOp"
+uri = "file://docs/ROOM_FINISH_SYSTEM.md"
+type = "text"
+title = "Room Finish System — Master Data Document"
+
+[[outputs]]
+id = "LuUjFlK4dHnEqLiAAII24"
+uri = "file://docs/DATA_WORKBENCH_CAPABILITIES.md"
+type = "text"
+title = "PRYZM — Data Workbench Complete Capability Reference"
+
+[[outputs]]
+id = "ql66GfYktszLyzg-XO98X"
+uri = "file://PRYZM_UI_UX_Review.md"
+type = "text"
+title = "PRYZM — Complete UI/UX Review & Behaviour Reference"
+
+[[outputs]]
+id = "5YUIgvzsDZdBD5um78pIt"
+uri = "file://docs/40_UI/AUTHOR_INSPECT_DATA_WORKSPACE_DOCUMENTATION.md"
+type = "text"
+title = "Author / Inspect / Data — Full Workspace Documentation"
+
+[[outputs]]
+id = "GxO3E2G0iCyxVvhlWBMwK"
+uri = "file://docs/AUTONOMOUS_AUDITOR_IMPLEMENTATION_PLAN.md"
+type = "text"
+title = "PRYZM Autonomous Auditor — Full Implementation Plan"
+
+[[outputs]]
+id = "sCc5WXisw5nVgsXKyPcle"
+uri = "file://docs/03_VIEWS/VIEW-PERFORMANCE-EXTENDED-PLAN-PHASES-5-9.md"
+type = "text"
+title = "View System Performance — Extended Plan: Phases 5–9"
+
+[[outputs]]
+id = "Luc9QpEReXvP0jdJS1iIG"
+uri = "file://PERFORMANCE_AUDIT.md"
+type = "text"
+title = "PRYZM — System-Wide Performance Audit"
+
+[[outputs]]
+id = "3sX6QqPT2ZsSOwl0Q22GO"
+uri = "file://docs/feasibility-revit-rhino-interoperability.md"
+type = "text"
+title = "PRYZM — Revit & Rhino Interoperability Feasibility Study"
+
+[[outputs]]
+id = "lwFxr-wM46APxuqM_ZKAE"
+uri = "file://docs/02_DOCUMENTATION/IMPORT-EXPORT-FILE-TYPES.md"
+type = "text"
+title = "PRYZM — Import & Export File Types"
+
+[[outputs]]
+id = "kCIjsalLu-7dkGwGYmiLF"
+uri = "file://docs/FURNITURE-SECURITY-AND-PERSISTENCE-CONTRACT.md"
+type = "text"
+title = "Furniture Security & Persistence Contract"
+
+[[outputs]]
+id = "ojNllyk872ADvZ3gUTeB9"
+uri = "file://docs/01_ELEMENTS/03_VIEWS/09_VIEW_INTENT_SYSTEM_DEEP_ANALYSIS.md"
+type = "text"
+title = "View Intent System — Deep Analysis"
+
+[[outputs]]
+id = "Lb1Zh-cPBGeHF-0oYYx3u"
+uri = "file://docs/01_ELEMENTS/03_VIEWS/10_VIEW_INTENT_SYSTEM_IMPLEMENTATION_PLAN.md"
+type = "text"
+title = "View Intent System — Detailed Implementation Plan"
+
+[[outputs]]
+id = "581uHIezhqVlzM9pIUXbe"
+uri = "file://docs/03_PRYZM3/04-PLAN-FORWARD/AUDIT-3D-SCENE-ACCURACY-SELECTION.md"
+type = "text"
+title = "3D Scene Accuracy & Selection System — Engineering Audit"
+
+[[outputs]]
+id = "NIG9yCgeooZ5MxZLooDuW"
+uri = "file://docs/audits/selection-picking-audit-2026.md"
+type = "text"
+title = "Selection / Picking Deep Audit — 2026-05-15"

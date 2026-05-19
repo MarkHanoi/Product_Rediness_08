@@ -1,0 +1,30 @@
+{
+  "name": "@pryzm/plugin-floor",
+  "version": "0.1.0",
+  "description": "PRYZM floor finish element plugin (§P3.2-FL). Typed handlers for floor.create; legacy-store bridge in initTools.ts mirrors to FloorStore for FloorFragmentBuilder mesh.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./store": "./src/store.ts",
+    "./handlers": "./src/handlers/index.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@pryzm/plugin-sdk": "workspace:*",
+    "@pryzm/core-app-model": "workspace:*",
+    "immer": "^10.1.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

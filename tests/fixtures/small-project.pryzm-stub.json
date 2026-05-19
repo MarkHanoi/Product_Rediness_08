@@ -1,0 +1,19 @@
+{
+  "_comment": "PRYZM 2 — S09 small-project fixture (T1). Single wall, no openings, no system-type. Used by `apps/bench/src/benches/load-small.bench.ts` to assert the cold-load + first-commit latency budget. Schema-shaped (Wall.parse-clean) but stripped of metadata defaults to keep the file diffable. The bench rehydrates via `Wall.parse(...)` so any missing zod-default field is filled in by the schema, NOT by this fixture.",
+  "version": 1,
+  "walls": [
+    {
+      "id": "wall_01HZ0000000000000000000W01",
+      "type": "wall",
+      "levelId": "",
+      "baseLine": [
+        { "x": 0, "y": 0, "z": 0 },
+        { "x": 5, "y": 0, "z": 0 }
+      ],
+      "height": 2.7,
+      "thickness": 0.2,
+      "baseOffset": 0,
+      "materialColor": "#d4c5b0"
+    }
+  ]
+}

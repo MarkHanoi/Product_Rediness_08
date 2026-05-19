@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Upper trapezoid (wider at top, narrows to body) -->
+  <path d="M22 40 L9 14 Q9 10 13 10 L87 10 Q91 10 91 14 L78 40"
+        stroke="#1C1B3C" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Main body (rounded rectangle viewport) -->
+  <rect x="22" y="40" width="56" height="36" rx="10" stroke="#1C1B3C" stroke-width="5"/>
+  <!-- Bottom-left leg (angled outward) -->
+  <line x1="31" y1="76" x2="23" y2="92" stroke="#1C1B3C" stroke-width="5" stroke-linecap="round"/>
+  <!-- Bottom-right leg (angled outward) -->
+  <line x1="69" y1="76" x2="77" y2="92" stroke="#1C1B3C" stroke-width="5" stroke-linecap="round"/>
+</svg>

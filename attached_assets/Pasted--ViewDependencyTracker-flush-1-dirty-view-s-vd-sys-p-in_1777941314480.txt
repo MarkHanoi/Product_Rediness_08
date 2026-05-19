@@ -1,0 +1,81 @@
+[ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+injected.js:37 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+injected.js:37 [CommandManager] EXECUTE: CREATE_ANNOTATION
+injected.js:37 [CommandManager] snapshot commandType="CreateAnnotationCommand" scope=[annotation] elapsed=0.0ms
+injected.js:37 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 1 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed out of 1 live room(s).
+injected.js:37 [NativeElementMeshExporter] Plan view — exporting 20 elements from levels overlapping Y=[-1.20, 0.00]
+injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+injected.js:37 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+injected.js:37 [EdgeProjectorService] Native projection done — 19 group(s), 19 edge geometries across 19 ISO layer(s) (per-element UUID tagging active)
+injected.js:37 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=24 (OBC-IFC=0, native=19, ifc-scene=0)
+injected.js:37 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=7/14 layers
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.1ms
+injected.js:37 [PlanarTopologyEngine] Topology: 1 room(s) detected, outer face (18 vertices), 2 total faces
+injected.js:37 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+2injected.js:37 [ProjectSerializer] Snapshot created: 20 elements, 1 levels, 18 walls, 1 slabs, 0 furniture
+injected.js:37 [PlatformSaveController] Version saved: "Auto-save" (20 elements, id: proj-1777941134159-uqnuj)
+injected.js:37 [LONGTASK] duration=80.0ms start=1150242.4ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ injected.js:37
+injected.js:37 [FPS] 26fps
+injected.js:37 [FPS] 60fps
+injected.js:37 [FPS] 72fps
+54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/#/projects:1 WebGPU: too many warnings, no more warnings will be reported to the console for this GPUDevice.
+injected.js:37 [FPS] 78fps
+injected.js:37 [GPU Monitor] geometries:33 textures:8 | drawCalls:20 tris:300
+injected.js:37 [FPS] 79fps
+injected.js:37 [FPS] 75fps
+injected.js:37 [FPS] 81fps
+injected.js:37 [FPS] 79fps
+2injected.js:37 [FPS] 83fps
+injected.js:37 [FPS] 81fps
+injected.js:37 [CommandManager] EXECUTE: CREATE_LEVEL
+injected.js:37 [CommandManager] snapshot commandType="CreateMultipleLevelsCommand" scope=[level] elapsed=0.1ms
+injected.js:37 [CreateMultipleLevelsCommand] START count=5
+injected.js:37 [EngineBootstrap] Level switch → "Level 01" (target.Y: -0.00 → 3.00)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-01-1777941144561-1" at 3m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=1/5 addLevel=15.2ms createPlanView=0.3ms iterTotal=15.5ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 02" (target.Y: 3.00 → 6.00)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-02-1777941144576-2" at 6m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=2/5 addLevel=7.7ms createPlanView=0.1ms iterTotal=7.8ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 03" (target.Y: 6.00 → 9.00)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-03-1777941144584-3" at 9m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=3/5 addLevel=6.8ms createPlanView=0.0ms iterTotal=6.8ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 04" (target.Y: 9.00 → 12.00)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-04-1777941144591-4" at 12m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=4/5 addLevel=7.8ms createPlanView=0.0ms iterTotal=7.8ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 05" (target.Y: 12.00 → 15.00)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-05-1777941144599-5" at 15m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=5/5 addLevel=6.1ms createPlanView=0.1ms iterTotal=6.2ms
+injected.js:37 [CreateMultipleLevelsCommand] COMPLETE total=44.6ms
+injected.js:37 [AIApprovalStore] Audit record appended: 9c837f7d-04a8-47fa-8f37-7cbdf91fee5b (CREATE_LEVEL)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [LONGTASK] duration=54.0ms start=1160648.5ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ injected.js:37
+injected.js:37 [FPS] 68fps
+2injected.js:37 [ProjectSerializer] Snapshot created: 20 elements, 6 levels, 18 walls, 1 slabs, 0 furniture
+injected.js:37 [PlatformSaveController] Version saved: "Auto-save" (20 elements, id: proj-1777941145613-bkphe)
+injected.js:37 [LONGTASK] duration=84.0ms start=1161697.2ms [type=iframe src=https://54335b53-1217-4dfc-9988-7df3777d533b-00-2jtn48sf7x6d0.worf.replit.dev/]
+(anonymous) @ injected.js:37
+injected.js:37 [FPS] 36fps
+injected.js:37 [LONGTASK] duration=222.0ms start=1162418.8ms
+(anonymous) @ injected.js:37
+injected.js:37 [AIPanel] Proposal received via event — showing inline card: Object
+injected.js:37 [FPS] 10fps
+injected.js:37 [GPU Monitor] geometries:33 textures:8 | drawCalls:20 tris:300
+injected.js:37 [CommandManager] EXECUTE: CREATE_SLABS_ON_ALL_FLOORS
+injected.js:37 [CommandManager] snapshot commandType="CreateSlabsOnAllFloorsCommand" scope=[slab,level] elapsed=0.2ms
+injected.js:37 [CreateSlabsOnAllFloorsCommand] START referenceSlabId="1a4eb821-9773-4e71-a012-c8f8a02837fe" levels=5 polygonVertices=18
+injected.js:37 [CreateSlabsOnAllFloorsCommand] runBatch starting — 5 slab(s) deferred to rAF drain.
+injected.js:37 [BatchCoordinator] _setupBatch — 5 level(s), 5 elements expected. ViewDependencyTracker suppressed.

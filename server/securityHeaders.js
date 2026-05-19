@@ -1,0 +1,252 @@
+/**
+ * @file server/securityHeaders.js
+ * @description HTTP security-header middleware for PRYZM — helmet-powered.
+ *
+ * CONTRACT (C08 §4 — enterprise security baseline):
+ *   Every HTTP response is hardened via helmet with PRYZM-specific overrides for
+ *   Three.js shader compilation ('unsafe-eval'), Web Workers (blob:), Socket.io
+ *   WebSockets (wss:/ws:), and the Cesium ion CDN.  HSTS, COOP, and COEP are now
+ *   set globally on ALL responses rather than per-route.
+ *
+ * Header inventory (post-helmet):
+ *   Content-Security-Policy           — enforce in prod; report-only in dev
+ *   Cross-Origin-Embedder-Policy      — credentialless (enables SharedArrayBuffer)
+ *   Cross-Origin-Opener-Policy        — same-origin (required for cross-origin isolation)
+ *   Cross-Origin-Resource-Policy      — same-origin
+ *   Referrer-Policy                   — strict-origin-when-cross-origin
+ *   Strict-Transport-Security         — 2-year HSTS with preload (prod only)
+ *   X-Content-Type-Options            — nosniff
+ *   X-DNS-Prefetch-Control            — off
+ *   X-Frame-Options                   — SAMEORIGIN (removed entirely on /embed)
+ *   X-Permitted-Cross-Domain-Policies — none
+ *   X-XSS-Protection                  — 0 (disables the legacy browser auditor)
+ *   Origin-Agent-Cluster              — ?1
+ *
+ * Exports:
+ *   helmetMiddleware     — apply globally:  app.use(helmetMiddleware)
+ *   securityHeaders      — backward-compat alias for helmetMiddleware
+ *   applyEmbedHeaders(res) — call inside the GET /embed handler to relax framing
+ *
+ * TASK STATUS: DONE — Phase 0 Task 0.1 (R04 · C08 §4)
+ */
+
+// Node.js ESM can default-import CommonJS packages.  helmet exports
+// module.exports as the CommonJS default, which becomes the ESM default.
+import helmet from 'helmet';
+import { existsSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = dirname(__filename);
+
+// ── Environment detection ──────────────────────────────────────────────────────
+// Mirrors the isProd logic in server.js exactly:
+//   - npm_lifecycle_event is 'dev' when launched via `pnpm run dev`
+//   - dist/ must exist for a production build to be present
+//
+// WHY NOT just `npm_lifecycle_event !== 'dev'`:
+//   On Replit the workflow runner launches `pnpm run dev` via a shell task;
+//   npm_lifecycle_event may be undefined in that context.  Using only that
+//   flag would make IS_PROD=true in development, enforcing `frame-ancestors
+//   'none'` and `X-Frame-Options: SAMEORIGIN` — both of which block the
+//   Replit preview iframe (a cross-origin wrapper).  Requiring dist/ to
+//   exist as the second guard prevents accidental prod-mode in dev.
+//
+// CONTRACT: C08 §4 — header policy MUST use report-only in development so
+// engineers can observe violations without the Replit preview breaking.
+const IS_PROD = (process.env.NODE_ENV === 'production' || process.env.npm_lifecycle_event !== 'dev')
+    && existsSync(join(__dirname, '../dist'));
+
+// ── CSP: connect-src origins ──────────────────────────────────────────────────
+// Computed once at module initialisation; env vars do not change at runtime.
+// The CF_WORKER_URL is a server-side relay — browsers call the same-origin
+// BFF (/api/anthropic/v1/messages), not the CF URL directly.  Included here
+// for forward-compatibility if direct browser → CF calls are ever added.
+const CONNECT_SRC = [
+    "'self'",
+    'data:',
+    'blob:',
+    // Cesium ion terrain / asset CDN — C12 geospatial features
+    'https://api.cesium.com',
+    'https://assets.cesium.com',
+    'https://ionfetch.cesium.com',
+    // Supabase project REST API
+    'https://*.supabase.co',
+    // Socket.io WebSocket — real-time collaboration (C08 §3)
+    'wss:',
+    'ws:',
+];
+const _cfWorkerUrl = process.env.CF_WORKER_URL ?? null;
+if (_cfWorkerUrl) CONNECT_SRC.push(_cfWorkerUrl);
+
+// ── CSP: script-src ───────────────────────────────────────────────────────────
+// 'unsafe-eval' is required by Three.js shader compilation and Cesium's internal
+// eval() usage.  Tracked for removal in Phase J (ADR-047 WebGPU worker migration)
+// once the remaining shader-eval paths are eliminated.
+//
+// 'unsafe-inline' is granted ONLY in development for Vite HMR injected scripts.
+// ES module scripts loaded via <script type="module"> do not require it in prod.
+const SCRIPT_SRC_PROD = ["'self'", "'unsafe-eval'", 'blob:'];
+const SCRIPT_SRC_DEV  = ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'blob:'];
+
+// ── CSP: main-application directives ─────────────────────────────────────────
+// frame-ancestors 'none' prevents the app shell from being iframed.
+// The /embed route overrides this to 'frame-ancestors *' via applyEmbedHeaders().
+const MAIN_CSP_DIRECTIVES = {
+    defaultSrc:     ["'self'"],
+    scriptSrc:      IS_PROD ? SCRIPT_SRC_PROD : SCRIPT_SRC_DEV,
+    workerSrc:      ["'self'", 'blob:'],           // Web Workers + WASM workers (IFC, Cesium)
+    styleSrc:       ["'self'", "'unsafe-inline'"], // CSS-in-JS + Three.js CSS2DRenderer
+    imgSrc:         ["'self'", 'data:', 'blob:', 'https:'], // textures, thumbnails, Cesium tiles
+    fontSrc:        ["'self'", 'data:'],
+    connectSrc:     CONNECT_SRC,
+    frameAncestors: ["'none'"],
+    // frame-src is intentionally omitted: PRYZM does not embed external iframes
+    // in the main application shell.
+};
+
+// ── CSP: embed-mode string ────────────────────────────────────────────────────
+// Used exclusively by applyEmbedHeaders() on the GET /embed route.
+// 'frame-ancestors *' permits embedding from any third-party origin (C07 §6.1).
+// 'unsafe-inline' in script-src covers the inline bootstrap script in the embed
+// shell HTML (<script>window.__PRYZM_EMBED__ = …</script>).
+const EMBED_CSP_STRING = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:",
+    "style-src 'self' 'unsafe-inline'",
+    "connect-src 'self' wss: ws: https:",
+    "img-src 'self' data: blob:",
+    "worker-src 'self' blob:",
+    "frame-ancestors *",
+].join('; ');
+
+// ── helmet instance ───────────────────────────────────────────────────────────
+// Single shared middleware instance, constructed once at module load.
+// Option names are compatible with helmet ≥ 5.x (the version family that
+// introduced crossOriginEmbedderPolicy, crossOriginOpenerPolicy, and
+// crossOriginResourcePolicy).
+export const helmetMiddleware = helmet({
+
+    // ── Content-Security-Policy ───────────────────────────────────────────────
+    contentSecurityPolicy: {
+        directives: MAIN_CSP_DIRECTIVES,
+        // Enforce in production; report-only in development so engineers can
+        // observe violations in DevTools → Console without the app breaking.
+        reportOnly: !IS_PROD,
+    },
+
+    // ── Cross-Origin Embedder Policy (COEP) ───────────────────────────────────
+    // 'credentialless' grants SharedArrayBuffer access — required by Cesium WASM
+    // and the IFC WASM worker — while allowing cross-origin images and GLBs to
+    // load without a CORP header on every CDN sub-resource.
+    // Disabled in development so the Replit preview iframe (cross-origin) can
+    // embed the app without triggering COEP restrictions.
+    crossOriginEmbedderPolicy: IS_PROD ? { policy: 'credentialless' } : false,
+
+    // ── Cross-Origin Opener Policy (COOP) ─────────────────────────────────────
+    // 'same-origin' prevents foreign origins from retaining a JS window reference
+    // to this page, enabling cross-origin isolation (a prerequisite for
+    // SharedArrayBuffer in all modern browsers).
+    // Disabled in development so the Replit preview iframe can load the app.
+    crossOriginOpenerPolicy: IS_PROD ? { policy: 'same-origin' } : false,
+
+    // ── Cross-Origin Resource Policy (CORP) ───────────────────────────────────
+    // Restricts this server's responses to same-origin consumers.
+    // Individual static-file routes (/items, /mosaic) may set their own CORP
+    // header via express.static setHeaders — those per-response values take
+    // precedence over this global default.
+    // Relaxed in development to allow cross-origin Replit preview access.
+    crossOriginResourcePolicy: IS_PROD ? { policy: 'same-origin' } : false,
+
+    // ── Referrer-Policy ───────────────────────────────────────────────────────
+    // Send only the origin (no path or query) as Referer on cross-origin
+    // navigations, preventing project IDs and auth tokens from leaking.
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+
+    // ── Strict-Transport-Security (HSTS) ──────────────────────────────────────
+    // 2-year max-age, subdomain coverage, preload-list eligibility.
+    // Disabled in development — localhost does not support TLS and a stray HSTS
+    // header on localhost can break the browser for months.
+    hsts: IS_PROD
+        ? { maxAge: 63072000, includeSubDomains: true, preload: true }
+        : false,
+
+    // ── Origin-Agent-Cluster ──────────────────────────────────────────────────
+    // Opts this origin into origin-keyed agent clusters, improving process-level
+    // memory isolation between different origins in the same browsing session.
+    originAgentCluster: true,
+
+    // ── X-Content-Type-Options ────────────────────────────────────────────────
+    // nosniff — prevents MIME-type sniffing attacks (e.g. the browser executing
+    // a .png file as JavaScript).
+    noSniff: true,
+
+    // ── X-DNS-Prefetch-Control ────────────────────────────────────────────────
+    // Disables speculative DNS pre-resolution on page content (minor privacy
+    // benefit for a platform handling confidential BIM data).
+    dnsPrefetchControl: { allow: false },
+
+    // ── X-Frame-Options ───────────────────────────────────────────────────────
+    // SAMEORIGIN in production — prevents clickjacking while allowing same-origin
+    // iframe usage.  Disabled in development so Replit's canvas/preview iframe
+    // (which uses a cross-origin wrapper) can embed the app.
+    // applyEmbedHeaders() removes this header entirely for /embed so that
+    // third-party sites can embed the editor in an iframe.
+    frameguard: IS_PROD ? { action: 'sameorigin' } : false,
+
+    // ── X-Permitted-Cross-Domain-Policies ─────────────────────────────────────
+    // 'none' — prevents Adobe Flash and Acrobat from loading this server's
+    // cross-domain policy files.
+    permittedCrossDomainPolicies: { permittedPolicies: 'none' },
+
+    // ── X-XSS-Protection ──────────────────────────────────────────────────────
+    // 0 — disables the legacy browser XSS auditor, which can itself introduce
+    // XSS vulnerabilities.  The CSP above is the correct defence-in-depth layer.
+    xssFilter: false,
+
+    // ── X-Powered-By ──────────────────────────────────────────────────────────
+    // Belt-and-suspenders: server.js already calls app.disable('x-powered-by').
+    // hidePoweredBy removes the header if that call were ever missed.
+    hidePoweredBy: true,
+});
+
+// ── Backward-compatibility alias ──────────────────────────────────────────────
+// server.js previously imported { securityHeaders } from this module.
+// Export both names so any callers using the old name continue to work without
+// change during the migration period.
+export { helmetMiddleware as securityHeaders };
+
+/**
+ * Applies embed-mode header overrides to an Express response object.
+ *
+ * Call this inside the GET /embed route handler body.  Because
+ * app.use(helmetMiddleware) is mounted before all route handlers, helmet has
+ * already written the default security headers when the route handler runs.
+ * This function overrides just the two headers that embed mode must relax.
+ *
+ * CONTRACT (C07 §6.1): The /embed route MUST be embeddable inside iframes from
+ * any origin.  The global helmetMiddleware sets X-Frame-Options: SAMEORIGIN and
+ * CSP frame-ancestors 'none'; this function corrects both for embed mode.
+ *
+ * Design: We remove X-Frame-Options entirely rather than setting it to the
+ * non-standard value ALLOWALL (which is not defined in RFC 7034; only DENY and
+ * SAMEORIGIN are valid).  Modern browsers honour CSP frame-ancestors when
+ * X-Frame-Options is absent, making frame-ancestors the authoritative control.
+ *
+ * @param {import('express').Response} res
+ */
+export function applyEmbedHeaders(res) {
+    // (1) Remove X-Frame-Options — any value restricts embedding in browsers
+    //     that still check this legacy header before CSP frame-ancestors.
+    res.removeHeader('X-Frame-Options');
+
+    // (2) Remove report-only CSP if present (set by helmet in dev mode) so
+    //     the enforce header below is the sole CSP signal on this response.
+    res.removeHeader('Content-Security-Policy-Report-Only');
+
+    // (3) Set the embed-mode CSP that uses frame-ancestors * (C07 §6.1).
+    //     Always enforce (never report-only) so the embed route works in both
+    //     development and production without requiring a production build.
+    res.setHeader('Content-Security-Policy', EMBED_CSP_STRING);
+}

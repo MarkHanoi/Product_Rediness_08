@@ -1,0 +1,28 @@
+{
+  "id": "wall_01H8XK3J7M9N2P4QR5STVW6CRV",
+  "type": "wall",
+  "parentId": "level_ground",
+  "childrenIds": [],
+  "metadata": {
+    "createdAt": 1700000000000,
+    "modifiedAt": 1700000000000,
+    "createdBy": "fixture",
+    "version": 1
+  },
+  "levelId": "level_ground",
+  "baseLine": [
+    { "x": 0, "y": 0, "z": 0 },
+    { "x": 5, "y": 0, "z": 0 }
+  ],
+  "height": 2.7,
+  "thickness": 0.2,
+  "baseOffset": 0,
+  "openings": [],
+  "geometryKind": "curved",
+  "controlPoints": [
+    { "x": 0, "y": 0, "z": 0 },
+    { "x": 2.5, "y": 0, "z": 1.5 },
+    { "x": 5, "y": 0, "z": 0 }
+  ],
+  "_fixtureNote": "Curved wall extracted from PRYZM-1 snapshot — used by the S07-S09 wall-producer 30-case parity matrix per spec §S01-T7 line 282 (blocker mitigation: THREE distinct walls — straight + curved + arc — from the same fixture project)."
+}

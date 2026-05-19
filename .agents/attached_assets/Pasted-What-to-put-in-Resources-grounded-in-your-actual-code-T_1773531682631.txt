@@ -1,0 +1,73 @@
+What to put in "Resources" — grounded in your actual code
+
+The key principle: only recommend items that have real content behind them today, or that can be generated directly from existing code. Nothing made up.
+
+---
+
+What genuinely exists in your codebase
+
+| **Content** | **Where it lives** | **Usable as a Resource item?** |
+| --- | --- | --- |
+| AI query command reference | `src/ai/Documentation.md` — full written doc | ✓ Immediately |
+| IFC compatibility info | PricingPage FAQ — Revit, ArchiCAD, BIMcollab, Solibri, IFC2x3 + IFC4 | ✓ Immediately |
+| Plan FAQ | PricingPage `renderFAQ()` — 6 real questions with answers | ✓ Immediately |
+| AI features list | `SYSTEM_PROMPT.md` + `Documentation.md` — Design Advisor, Floor Plan AI, Element Creator, Wardrobe Factory | ✓ Source material exists |
+| Keyboard shortcuts | `PlatformShell.ts` — Ctrl+S for save, plus BIM workspace controls | ✓ Derivable |
+| Onboarding flow | `WelcomeModal.ts` — first-time user walkthrough | ✓ Already exists |
+| Bespoke enterprise | Your Stream 2 description | ✓ Already planned |
+
+---
+
+Recommended Resources dropdown structure
+
+Based on your codebase, two categories make sense — mirroring the Figma pattern of "GET STARTED" and "LEARN":
+
+**GET STARTED**
+
+- **Quick start guide** — walks through creating your first project, adding a level, placing a wall. Draws from the WelcomeModal onboarding flow. This content exists implicitly; it just needs a page.
+- **FAQ** — the 6 questions already in the PricingPage `renderFAQ()`. Pull them into their own standalone page.
+- **Keyboard shortcuts** — Ctrl+S (save), plus BIM workspace tool shortcuts. Derivable from the codebase in an afternoon.
+
+**LEARN**
+
+- **AI command reference** — this one is fully ready. `src/ai/Documentation.md` is a complete, structured document covering all query types, batch operations, and spatial queries. It just needs to be presented as a page.
+- **IFC compatibility** — your PricingPage FAQ already states: "PRYZM exports IFC2x3 and IFC4, compatible with Revit, ArchiCAD, BIMcollab, Solibri." Expand that one answer into a short guide.
+- **AI approval workflow** — how proposals work (you propose, review, approve). The `AIApprovalStore.ts` and `Documentation.md` together give you all the content.
+
+**CONTACT / SUPPORT** (bottom of dropdown, simpler)
+
+- **Contact support** — `mailto:hello@pryzm.io`, already used in multiple places
+- **Enterprise & bespoke** — links to the Stream 2 section you're adding to the pricing page
+
+---
+
+What NOT to add yet
+
+These appear in Figma/Lovable's Resources but you have no content for them:
+
+- **Blog / Changelog** — nothing exists; adding a dead link damages trust more than omitting it
+- **Templates** — no template library in the codebase
+- **Community** — no forum, Discord, or community exists
+- **Webinars / Demos** — none exist
+- **API docs** — API access is gated at Firm tier but no documentation exists yet
+- **Partners** — no partner programme exists
+
+---
+
+In practice: what you're actually building
+
+The dropdown would be a simple two-column flyout (matching the Figma example's pattern), like this:
+
+```
+GET STARTED              LEARN
+────────────             ────────────
+Quick start guide        AI command reference
+FAQ                      IFC compatibility guide
+Keyboard shortcuts       AI approval workflow
+
+                         ─────────────
+                         Contact support →
+                         Enterprise enquiries →
+```
+
+All six "GET STARTED" and "LEARN" items have real source material in your codebase today. None require inventing content. The "Contact" items reuse the `mailto:hello@pryzm.io` already wired throughout the app.

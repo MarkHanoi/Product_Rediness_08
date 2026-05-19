@@ -1,0 +1,83 @@
+Refreshing Spatial Tree...
+injected.js:37 [FloorPlanImportPanel] PDF converted: 1190×1684px
+injected.js:37 [FloorPlanImportPanel] Calibration: 115.4 px/m → 10.3m × 14.6m
+client:745 WebSocket connection to 'wss://95ccf42b-4bdb-4c93-9bd8-22ef12bdf6d5-00-2x64hl4ybgczo.picard.replit.dev:24678/?token=efN-JNrg12Ti' failed: 
+createConnection @ client:745
+connect @ client:411
+connect @ client:751
+connect @ client:289
+connect @ client:373
+(anonymous) @ client:823Understand this error
+ WebSocket connection to 'wss://95ccf42b-4bdb-4c93-9bd8-22ef12bdf6d5-00-2x64hl4ybgczo.picard.replit.dev:24678/?token=efN-JNrg12Ti' failed: 
+createConnection @ client:745
+connect @ client:411
+connect @ client:751
+connect @ client:289
+connect @ client:373
+(anonymous) @ client:823Understand this error
+injected.js:37 [vite] failed to connect to websocket (Error: WebSocket closed without opened.). 
+(anonymous) @ injected.js:37Understand this error
+client:423 Uncaught (in promise) Error: WebSocket closed without opened.
+    at WebSocket.<anonymous> (client:423:30)Understand this error
+client:745 WebSocket connection to 'wss://95ccf42b-4bdb-4c93-9bd8-22ef12bdf6d5-00-2x64hl4ybgczo.picard.replit.dev:24678/?token=efN-JNrg12Ti' failed: 
+createConnection @ client:745Understand this error
+client:772 [vite] failed to connect to websocket (Error: WebSocket closed without opened.). 
+connect @ client:772Understand this error
+client:423 Uncaught (in promise) Error: WebSocket closed without opened.
+    at WebSocket.<anonymous> (client:423:30)Understand this error
+injected.js:37 [JSONRepair] "structure" response was truncated — recovered partial result. Original length: 9136, repaired length: 9139.
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [JSONRepair] Repair attempt failed for "structure": SyntaxError: Expected ':' after property name in JSON at position 9135 (line 381 column 33)
+    at JSON.parse (<anonymous>)
+    at repairAndParseJSON (JSONRepair.ts:13:19)
+    at safeParseJSON (FloorPlanAIFactory.ts:119:18)
+    at FloorPlanAIFactory.analyseStructure (FloorPlanAIFactory.ts:143:20)
+    at async FloorPlanAIFactory.analyse (FloorPlanAIFactory.ts:185:25)
+    at async handleAnalyse (FloorPlanImportPanel.ts?t=1773469772555:187:22) 
+Repaired string:
+ {
+  "walls": [
+    {
+      "id": "w1",
+      "startPx": { "x": 239, "y": 35 },
+      "endPx": { "x": 670, "y": 35 },
+      "thicknessPx": 8,
+      "wallType": "exterior",
+      "confidence": "high"
+    },
+    {
+      "id": "w2",
+      "startPx": { "x": 670, "y": 35 },
+      "endPx": { "x": 670, "y": 90 },
+      "thicknessPx": 8,
+      "wallType": "exterior",
+      "confidence": "high"
+    },
+    {
+(anonymous) @ injected.js:37Understand this error
+injected.js:37 [JSONRepair] Cannot recover "structure" JSON. Raw (first 400 chars): {
+  "walls": [
+    {
+      "id": "w1",
+      "startPx": { "x": 239, "y": 35 },
+      "endPx": { "x": 670, "y": 35 },
+      "thicknessPx": 8,
+      "wallType": "exterior",
+      "confidence": "high"
+    },
+    {
+      "id": "w2",
+      "startPx": { "x": 670, "y": 35 },
+      "endPx": { "x": 670, "y": 90 },
+      "thicknessPx": 8,
+      "wallType": "exterior",
+      "confidence": "high"
+    },
+    {
+(anonymous) @ injected.js:37Understand this error
+injected.js:37 [FloorPlanImportPanel] Analysis error: Error: [FloorPlanAIFactory] Unrecoverable JSON from structure. See console for details.
+    at safeParseJSON (FloorPlanAIFactory.ts:121:9)
+    at FloorPlanAIFactory.analyseStructure (FloorPlanAIFactory.ts:143:20)
+    at async FloorPlanAIFactory.analyse (FloorPlanAIFactory.ts:185:25)
+    at async handleAnalyse (FloorPlanImportPanel.ts?t=1773469772555:187:22)
+(anonymous) @ injected.js:37Understand this error

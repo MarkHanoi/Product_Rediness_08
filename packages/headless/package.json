@@ -1,0 +1,27 @@
+{
+  "name": "@pryzm/headless",
+  "version": "1.0.0-rc.1",
+  "description": "PRYZM 3 headless runtime — run the full PryzmRuntime in Node.js without a browser (no canvas, no WebGL). Phase F boolean #8 implementation. Created 2026-05-02.",
+  "private": false,
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run --reporter=default",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@pryzm/runtime-composer": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}

@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PRYZM — Master Architectural Diagram</title>
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #141720;
+    --border: #252a38;
+    --text: #e2e8f0;
+    --muted: #8892a4;
+    --accent: #5b8fff;
+
+    --c-ui:      #1e3a5f;
+    --c-ui-b:    #3b82f6;
+    --c-bim:     #3b1f5f;
+    --c-bim-b:   #a855f7;
+    --c-cmd:     #1a3a2a;
+    --c-cmd-b:   #22c55e;
+    --c-render:  #1e2d4f;
+    --c-render-b:#38bdf8;
+    --c-ai:      #3a2010;
+    --c-ai-b:    #f97316;
+    --c-persist: #1a2a1a;
+    --c-persist-b:#4ade80;
+    --c-backend: #2a1818;
+    --c-backend-b:#f87171;
+    --c-db:      #1e1a10;
+    --c-db-b:    #fbbf24;
+    --c-ext:     #1a1a2a;
+    --c-ext-b:   #c084fc;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 13px;
+    line-height: 1.4;
+    padding: 24px;
+    min-width: 1000px;
+  }
+
+  .page-header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+
+  .page-header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+
+  .page-header .subtitle {
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .diagram {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  /* ── Layer row ───────────────────────────────────────────────────── */
+  .layer {
+    border-radius: 10px;
+    border: 1.5px solid var(--border);
+    overflow: hidden;
+  }
+
+  .layer-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    border-bottom: 1.5px solid var(--border);
+  }
+
+  .layer-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .layer-body {
+    padding: 10px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: flex-start;
+  }
+
+  /* ── Group inside a layer ─────────────────────────────────────────── */
+  .group {
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    padding: 6px 8px;
+    min-width: 130px;
+  }
+
+  .group-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  /* ── Module chip ─────────────────────────────────────────────────── */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 7px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: default;
+    transition: opacity 0.15s, transform 0.1s;
+    white-space: nowrap;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    position: relative;
+  }
+
+  .chip:hover {
+    opacity: 0.85;
+    transform: translateY(-1px);
+  }
+
+  .chip-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ── Arrows between layers ───────────────────────────────────────── */
+  .arrow-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    padding: 2px 0;
+  }
+
+  .arrow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+  }
+
+  .arrow-line {
+    width: 2px;
+    height: 10px;
+    background: var(--border);
+  }
+
+  .arrow-head {
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 7px solid var(--border);
+  }
+
+  .arrow-label {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  /* ── Legend ───────────────────────────────────────────────────────── */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 24px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    max-width: 1400px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+  }
+
+  /* ── Sequence section ──────────────────────────────────────────────── */
+  .section-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 28px 0 10px;
+    max-width: 1400px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .sequences {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .sequence-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    flex: 1;
+    min-width: 260px;
+    max-width: 400px;
+  }
+
+  .sequence-card h3 {
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 10px;
+    color: #fff;
+  }
+
+  .seq-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 5px;
+  }
+
+  .seq-num {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .seq-text {
+    font-size: 11.5px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .seq-text strong {
+    color: var(--text);
+  }
+
+  .seq-arrow {
+    margin-left: 8px;
+    color: var(--border);
+    font-size: 10px;
+  }
+
+  /* ── Layer colour themes ──────────────────────────────────────────── */
+  .layer-ui     { background: var(--c-ui);      }
+  .layer-bim    { background: var(--c-bim);     }
+  .layer-cmd    { background: var(--c-cmd);     }
+  .layer-ai     { background: var(--c-ai);      }
+  .layer-render { background: var(--c-render);  }
+  .layer-data   { background: var(--c-persist); }
+  .layer-backend{ background: var(--c-backend); }
+  .layer-db     { background: var(--c-db);      }
+  .layer-ext    { background: var(--c-ext);     }
+
+  .dot-ui     { background: var(--c-ui-b);      }
+  .dot-bim    { background: var(--c-bim-b);     }
+  .dot-cmd    { background: var(--c-cmd-b);     }
+  .dot-ai     { background: var(--c-ai-b);      }
+  .dot-render { background: var(--c-render-b);  }
+  .dot-data   { background: var(--c-persist-b); }
+  .dot-backend{ background: var(--c-backend-b); }
+  .dot-db     { background: var(--c-db-b);      }
+  .dot-ext    { background: var(--c-ext-b);     }
+
+  .chip-ui     { border-color: rgba(59,130,246,0.3);  color: #93c5fd; }
+  .chip-bim    { border-color: rgba(168,85,247,0.3);  color: #d8b4fe; }
+  .chip-cmd    { border-color: rgba(34,197,94,0.3);   color: #86efac; }
+  .chip-ai     { border-color: rgba(249,115,22,0.3);  color: #fdba74; }
+  .chip-render { border-color: rgba(56,189,248,0.3);  color: #7dd3fc; }
+  .chip-data   { border-color: rgba(74,222,128,0.3);  color: #86efac; }
+  .chip-backend{ border-color: rgba(248,113,113,0.3); color: #fca5a5; }
+  .chip-db     { border-color: rgba(251,191,36,0.3);  color: #fcd34d; }
+  .chip-ext    { border-color: rgba(192,132,252,0.3); color: #d8b4fe; }
+
+  .group-ui     { background: rgba(59,130,246,0.07); border-color: rgba(59,130,246,0.2); }
+  .group-bim    { background: rgba(168,85,247,0.07); border-color: rgba(168,85,247,0.2); }
+  .group-cmd    { background: rgba(34,197,94,0.07);  border-color: rgba(34,197,94,0.2); }
+  .group-ai     { background: rgba(249,115,22,0.07); border-color: rgba(249,115,22,0.2); }
+  .group-render { background: rgba(56,189,248,0.07); border-color: rgba(56,189,248,0.2); }
+  .group-data   { background: rgba(74,222,128,0.07); border-color: rgba(74,222,128,0.2); }
+  .group-backend{ background: rgba(248,113,113,0.07);border-color: rgba(248,113,113,0.2); }
+  .group-db     { background: rgba(251,191,36,0.07); border-color: rgba(251,191,36,0.2); }
+  .group-ext    { background: rgba(192,132,252,0.07);border-color: rgba(192,132,252,0.2); }
+
+  .gt-ui     { color: #3b82f6; border-color: rgba(59,130,246,0.3);  }
+  .gt-bim    { color: #a855f7; border-color: rgba(168,85,247,0.3);  }
+  .gt-cmd    { color: #22c55e; border-color: rgba(34,197,94,0.3);   }
+  .gt-ai     { color: #f97316; border-color: rgba(249,115,22,0.3);  }
+  .gt-render { color: #38bdf8; border-color: rgba(56,189,248,0.3);  }
+  .gt-data   { color: #4ade80; border-color: rgba(74,222,128,0.3);  }
+  .gt-backend{ color: #f87171; border-color: rgba(248,113,113,0.3); }
+  .gt-db     { color: #fbbf24; border-color: rgba(251,191,36,0.3);  }
+  .gt-ext    { color: #c084fc; border-color: rgba(192,132,252,0.3); }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>PRYZM — Master Architectural Diagram</h1>
+  <div class="subtitle">Based on actual source code in <code>src/</code> &amp; <code>server/</code> &nbsp;·&nbsp; All modules verified against the codebase</div>
+</div>
+
+<div class="diagram">
+
+  <!-- ─── A: UI / Client Shell ──────────────────────────────────────────── -->
+  <div class="layer layer-ui">
+    <div class="layer-header">
+      <div class="layer-dot dot-ui"></div>
+      A — Browser / UI Shell &nbsp;<span style="font-weight:400;color:#93c5fd;">src/ui/</span>
+    </div>
+    <div class="layer-body">
+
+      <div class="group group-ui">
+        <div class="group-title gt-ui">Workspace</div>
+        <div class="chips">
+          <span class="chip chip-ui">WorkspaceController</span>
+          <span class="chip chip-ui">ViewCube</span>
+          <span class="chip chip-ui">WallDrawingHUD</span>
+          <span class="chip chip-ui">SelectionOverlay</span>
+          <span class="chip chip-ui">CanvasController</span>
+        </div>
+      </div>
+
+      <div class="group group-ui">
+        <div class="group-title gt-ui">Side Rails &amp; Panels</div>
+        <div class="chips">
+          <span class="chip chip-ui">ViewBrowser / RailPanelController</span>
+          <span class="chip chip-ui">ToolsPanel / ToolsRailController</span>
+          <span class="chip chip-ui">ProjectBrowserPanel</span>
+          <span class="chip chip-ui">PropertyPanel / Inspector</span>
+          <span class="chip chip-ui">SchedulePanel</span>
+          <span class="chip chip-ui">SheetEditorPanel</span>
+          <span class="chip chip-ui">VGGovernancePanel</span>
+        </div>
+      </div>
+
+      <div class="group group-ui">
+        <div class="group-title gt-ui">Rail Panel Slots</div>
+        <div class="chips">
+          <span class="chip chip-ui">AIRailPanel</span>
+          <span class="chip chip-ui">SheetsRailPanel</span>
+          <span class="chip chip-ui">SchedulesRailPanel</span>
+          <span class="chip chip-ui">ViewsRailPanel</span>
+          <span class="chip chip-ui">TreeRailPanel</span>
+          <span class="chip chip-ui">LevelsGridsRailPanel</span>
+          <span class="chip chip-ui">DocumentsBrowserPanel</span>
+          <span class="chip chip-ui">PhysicsRailPanel</span>
+          <span class="chip chip-ui">CameraRailPanel</span>
+          <span class="chip chip-ui">UnifiedBrowserPanel</span>
+        </div>
+      </div>
+
+      <div class="group group-ui">
+        <div class="group-title gt-ui">AI / Voice UI</div>
+        <div class="chips">
+          <span class="chip chip-ui">AIPanel / AICreatePanel</span>
+          <span class="chip chip-ui">IntentPrompt</span>
+          <span class="chip chip-ui">VoiceCommandIndicator</span>
+          <span class="chip chip-ui">AmbientIndicator</span>
+          <span class="chip chip-ui">ConsequencePreviewOverlay</span>
+        </div>
+      </div>
+
+      <div class="group group-ui">
+        <div class="group-title gt-ui">Rendering Controls</div>
+        <div class="chips">
+          <span class="chip chip-ui">RenderPanel / RenderGallery</span>
+          <span class="chip chip-ui">PanoramaPanel</span>
+          <span class="chip chip-ui">RenderQueuePanel</span>
+          <span class="chip chip-ui">VisualizationEnginePanel</span>
+          <span class="chip chip-ui">WalkthroughPanel</span>
+          <span class="chip chip-ui">VideoExportPanel</span>
+          <span class="chip chip-ui">RealSunControl</span>
+          <span class="chip chip-ui">ExportStudioPanel</span>
+        </div>
+      </div>
+
+      <div class="group group-ui">
+        <div class="group-title gt-ui">Data Workbench</div>
+        <div class="chips">
+          <span class="chip chip-ui">DataWorkbench</span>
+          <span class="chip chip-ui">AnalyticsPanel</span>
+          <span class="chip chip-ui">CompliancePanel</span>
+          <span class="chip chip-ui">DataSheetPanel</span>
+          <span class="chip chip-ui">HierarchyTreePanel</span>
+          <span class="chip chip-ui">NLQueryPanel</span>
+          <span class="chip chip-ui">SpatialQueryPanel</span>
+          <span class="chip chip-ui">ProgrammePanel</span>
+          <span class="chip chip-ui">RelationshipExplorerPanel</span>
+          <span class="chip chip-ui">TemplateEditorPanel</span>
+          <span class="chip chip-ui">DesignHistoryPanel</span>
+          <span class="chip chip-ui">PortfolioQueryPanel</span>
+          <span class="chip chip-ui">RoomPathfinderPanel</span>
+          <span class="chip chip-ui">PhysicsPanel</span>
+        </div>
+      </div>
+
+      <div class="group group-ui">
+        <div class="group-title gt-ui">Generative Design UI</div>
+        <div class="chips">
+          <span class="chip chip-ui">BriefInputPanel</span>
+          <span class="chip chip-ui">VariantBrowserPanel</span>
+          <span class="chip chip-ui">FloorPlanImportPanel</span>
+          <span class="chip chip-ui">FloorPlanFullPlanViewer</span>
+        </div>
+      </div>
+
+      <div class="group group-ui">
+        <div class="group-title gt-ui">GIS / Geospatial UI</div>
+        <div class="chips">
+          <span class="chip chip-ui">GISRailPanel</span>
+          <span class="chip chip-ui">GeospatialPanels</span>
+        </div>
+      </div>
+
+      <div class="group group-ui">
+        <div class="group-title gt-ui">Component Editor</div>
+        <div class="chips">
+          <span class="chip chip-ui">ComponentEditor Ribbon</span>
+          <span class="chip chip-ui">ViewControls</span>
+          <span class="chip chip-ui">ComponentEditorTools</span>
+          <span class="chip chip-ui">ComponentEditorWorkspace</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- arrow -->
+  <div class="arrow-row">
+    <div class="arrow"><div class="arrow-line"></div><div class="arrow-head"></div><span class="arrow-label">user events → commands</span></div>
+    <div class="arrow"><div class="arrow-line"></div><div class="arrow-head"></div><span class="arrow-label">store updates → re-render</span></div>
+  </div>
+
+  <!-- ─── B: Tools / Interaction ─────────────────────────────────────────── -->
+  <div class="layer layer-cmd">
+    <div class="layer-header">
+      <div class="layer-dot dot-cmd"></div>
+      B — Interaction / Tools Layer &nbsp;<span style="font-weight:400;color:#86efac;">src/tools/ · src/snapping/</span>
+    </div>
+    <div class="layer-body">
+
+      <div class="group group-cmd">
+        <div class="group-title gt-cmd">Tool System</div>
+        <div class="chips">
+          <span class="chip chip-cmd">ToolManager</span>
+          <span class="chip chip-cmd">ToolRegistry</span>
+          <span class="chip chip-cmd">BaseTool</span>
+          <span class="chip chip-cmd">SelectionManager</span>
+          <span class="chip chip-cmd">WallTransformController</span>
+          <span class="chip chip-cmd">WallEndpointController</span>
+          <span class="chip chip-cmd">HostedElementDragController</span>
+          <span class="chip chip-cmd">LevelPlaneConstraint</span>
+          <span class="chip chip-cmd">BeamTool</span>
+          <span class="chip chip-cmd">FloorPlanUnderlayTool</span>
+        </div>
+      </div>
+
+      <div class="group group-cmd">
+        <div class="group-title gt-cmd">Snap System</div>
+        <div class="chips">
+          <span class="chip chip-cmd">SnapManager</span>
+          <span class="chip chip-cmd">SpatialGrid</span>
+          <span class="chip chip-cmd">SnapVisualizer</span>
+          <span class="chip chip-cmd">GeometryUtils</span>
+          <span class="chip chip-cmd">Snap Providers (x4)</span>
+        </div>
+      </div>
+
+      <div class="group group-cmd">
+        <div class="group-title gt-cmd">Topology</div>
+        <div class="chips">
+          <span class="chip chip-cmd">TopologyLayer</span>
+          <span class="chip chip-cmd">TopologySpatialIndex</span>
+          <span class="chip chip-cmd">LoadPathGraph</span>
+        </div>
+      </div>
+
+      <div class="group group-cmd">
+        <div class="group-title gt-cmd">Constraints</div>
+        <div class="chips">
+          <span class="chip chip-cmd">constraints/ module</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- arrow -->
+  <div class="arrow-row">
+    <div class="arrow"><div class="arrow-line"></div><div class="arrow-head"></div><span class="arrow-label">validated intent → CommandManager</span></div>
+  </div>
+
+  <!-- ─── C: Command System ──────────────────────────────────────────────── -->
+  <div class="layer layer-cmd" style="background: rgba(34,197,94,0.08);">
+    <div class="layer-header">
+      <div class="layer-dot dot-cmd"></div>
+      C — Command System (Undo/Redo + Transactions) &nbsp;<span style="font-weight:400;color:#86efac;">src/commands/ · src/history/</span>
+    </div>
+    <div class="layer-body">
+
+      <div class="group group-cmd">
+        <div class="group-title gt-cmd">Command Infrastructure</div>
+        <div class="chips">
+          <span class="chip chip-cmd">CommandManager</span>
+          <span class="chip chip-cmd">CommandProposalStore</span>
+          <span class="chip chip-cmd">CommandProposalFactory</span>
+          <span class="chip chip-cmd">UndoManager (history/)</span>
+          <span class="chip chip-cmd">Immer Patch Snapshots</span>
+          <span class="chip chip-cmd">Command types.ts</span>
+        </div>
+      </div>
+
+      <div class="group group-cmd">
+        <div class="group-title gt-cmd">Structural / Shell</div>
+        <div class="chips">
+          <span class="chip chip-cmd">CreateWall · UpdateWall</span>
+          <span class="chip chip-cmd">MoveDoor · UpdateDoor (×9)</span>
+          <span class="chip chip-cmd">UpdateWindow (×5)</span>
+          <span class="chip chip-cmd">CreateFloor · UpdateFloor · UpdateFloorLayers</span>
+          <span class="chip chip-cmd">CreateSlab · UpdateSlab</span>
+          <span class="chip chip-cmd">CreateCeiling · UpdateCeiling · UpdateCeilingLayers</span>
+          <span class="chip chip-cmd">CreateRoof · UpdateRoof</span>
+          <span class="chip chip-cmd">CreateColumn · UpdateColumn</span>
+          <span class="chip chip-cmd">CreateBeam · UpdateBeam · AssignBeamSupports</span>
+          <span class="chip chip-cmd">Stair commands (×N)</span>
+          <span class="chip chip-cmd">Handrail commands (×3)</span>
+        </div>
+      </div>
+
+      <div class="group group-cmd">
+        <div class="group-title gt-cmd">Curtain Walls</div>
+        <div class="chips">
+          <span class="chip chip-cmd">CreateCurtainWall</span>
+          <span class="chip chip-cmd">AddCurtainGridLine</span>
+          <span class="chip chip-cmd">RemoveCurtainGridLine</span>
+          <span class="chip chip-cmd">ReplacePanelType</span>
+          <span class="chip chip-cmd">ReplacePanelWithDoor</span>
+          <span class="chip chip-cmd">UpdateAllCurtainWalls</span>
+          <span class="chip chip-cmd">CreateCurtainWallsFromSlab</span>
+        </div>
+      </div>
+
+      <div class="group group-cmd">
+        <div class="group-title gt-cmd">Data / Meta</div>
+        <div class="chips">
+          <span class="chip chip-cmd">Furniture commands (×5)</span>
+          <span class="chip chip-cmd">Room commands</span>
+          <span class="chip chip-cmd">Level commands</span>
+          <span class="chip chip-cmd">Grid commands (×3)</span>
+          <span class="chip chip-cmd">Annotation commands (×6)</span>
+          <span class="chip chip-cmd">Hierarchy commands</span>
+          <span class="chip chip-cmd">Template commands</span>
+          <span class="chip chip-cmd">Requirement commands</span>
+          <span class="chip chip-cmd">View commands</span>
+          <span class="chip chip-cmd">VG commands</span>
+          <span class="chip chip-cmd">Catalog commands (×3)</span>
+          <span class="chip chip-cmd">Geospatial commands</span>
+          <span class="chip chip-cmd">Plumbing commands</span>
+          <span class="chip chip-cmd">Plan commands</span>
+          <span class="chip chip-cmd">UpdateElementParameter</span>
+          <span class="chip chip-cmd">TagElement</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- arrow -->
+  <div class="arrow-row">
+    <div class="arrow"><div class="arrow-line"></div><div class="arrow-head"></div><span class="arrow-label">mutates stores / scene</span></div>
+  </div>
+
+  <!-- ─── D: BIM Kernel ───────────────────────────────────────────────────── -->
+  <div class="layer layer-bim">
+    <div class="layer-header">
+      <div class="layer-dot dot-bim"></div>
+      D — BIM Kernel &amp; Element Stores &nbsp;<span style="font-weight:400;color:#d8b4fe;">src/core/ · src/elements/ · src/spatial/ · src/structural/</span>
+    </div>
+    <div class="layer-body">
+
+      <div class="group group-bim">
+        <div class="group-title gt-bim">Core Kernel</div>
+        <div class="chips">
+          <span class="chip chip-bim">BimManager (Levels + Grids)</span>
+          <span class="chip chip-bim">SpatialAuthority</span>
+          <span class="chip chip-bim">BimWorld</span>
+          <span class="chip chip-bim">BimService</span>
+          <span class="chip chip-bim">SemanticGraph</span>
+          <span class="chip chip-bim">SemanticIndex</span>
+          <span class="chip chip-bim">SemanticTagRegistry</span>
+          <span class="chip chip-bim">ElementRegistry</span>
+          <span class="chip chip-bim">DependencyResolver</span>
+          <span class="chip chip-bim">StoreRegistry</span>
+          <span class="chip chip-bim">StoreEventBus</span>
+          <span class="chip chip-bim">SpatialIndex</span>
+          <span class="chip chip-bim">TemporalGraph</span>
+          <span class="chip chip-bim">DecisionRecordStore</span>
+          <span class="chip chip-bim">SpeculativeEngine</span>
+          <span class="chip chip-bim">ArchitectureFragments</span>
+          <span class="chip chip-bim">ElementCodeStore</span>
+        </div>
+      </div>
+
+      <div class="group group-bim">
+        <div class="group-title gt-bim">Element Stores</div>
+        <div class="chips">
+          <span class="chip chip-bim">WallStore</span>
+          <span class="chip chip-bim">DoorStore</span>
+          <span class="chip chip-bim">WindowStore</span>
+          <span class="chip chip-bim">SlabStore</span>
+          <span class="chip chip-bim">FloorStore + FloorSystemTypeStore</span>
+          <span class="chip chip-bim">CeilingStore + CeilingSystemTypeStore</span>
+          <span class="chip chip-bim">RoofStore</span>
+          <span class="chip chip-bim">ColumnStore</span>
+          <span class="chip chip-bim">BeamStore</span>
+          <span class="chip chip-bim">StairStore</span>
+          <span class="chip chip-bim">HandrailStore</span>
+          <span class="chip chip-bim">CurtainWallStore</span>
+          <span class="chip chip-bim">FurnitureStore</span>
+          <span class="chip chip-bim">OpeningStore</span>
+          <span class="chip chip-bim">PlumbingStore</span>
+          <span class="chip chip-bim">RoomStore</span>
+          <span class="chip chip-bim">GridStore</span>
+          <span class="chip chip-bim">AnnotationStore</span>
+          <span class="chip chip-bim">DimensionStore</span>
+        </div>
+      </div>
+
+      <div class="group group-bim">
+        <div class="group-title gt-bim">Element Builders</div>
+        <div class="chips">
+          <span class="chip chip-bim">Wall builders</span>
+          <span class="chip chip-bim">Door builders</span>
+          <span class="chip chip-bim">Window builders</span>
+          <span class="chip chip-bim">Floor builders</span>
+          <span class="chip chip-bim">Ceiling builders</span>
+          <span class="chip chip-bim">Roof builders</span>
+          <span class="chip chip-bim">Stair builders</span>
+          <span class="chip chip-bim">CurtainWall builder</span>
+          <span class="chip chip-bim">Furniture builders</span>
+          <span class="chip chip-bim">Furniture engines</span>
+          <span class="chip chip-bim">Preview builders</span>
+        </div>
+      </div>
+
+      <div class="group group-bim">
+        <div class="group-title gt-bim">Spatial / Rooms</div>
+        <div class="chips">
+          <span class="chip chip-bim">RoomGraphService</span>
+          <span class="chip chip-bim">RoomQueryService</span>
+          <span class="chip chip-bim">RoomValidationService</span>
+          <span class="chip chip-bim">RoomAutoOrganiser</span>
+          <span class="chip chip-bim">RoomTypeInferenceEngine</span>
+          <span class="chip chip-bim">SlabWallConnectivityService</span>
+          <span class="chip chip-bim">SlabDependencyTracker</span>
+          <span class="chip chip-bim">WallFaceResolver</span>
+          <span class="chip chip-bim">SketchLoopIntersector</span>
+          <span class="chip chip-bim">RoomFinishSyncService</span>
+          <span class="chip chip-bim">MaterialService</span>
+        </div>
+      </div>
+
+      <div class="group group-bim">
+        <div class="group-title gt-bim">Views / Schedules</div>
+        <div class="chips">
+          <span class="chip chip-bim">ViewDefinitionStore</span>
+          <span class="chip chip-bim">ViewTemplateStore</span>
+          <span class="chip chip-bim">SheetStore + SheetCommentStore</span>
+          <span class="chip chip-bim">ScheduleRegistry + ScheduleExtractor</span>
+          <span class="chip chip-bim">PlanViewService</span>
+          <span class="chip chip-bim">SplitViewManager</span>
+          <span class="chip chip-bim">SectionViewService</span>
+          <span class="chip chip-bim">PhaseFilterStore</span>
+          <span class="chip chip-bim">TitleBlockStore</span>
+          <span class="chip chip-bim">HierarchyStore</span>
+          <span class="chip chip-bim">DefaultViewsManager</span>
+        </div>
+      </div>
+
+      <div class="group group-bim">
+        <div class="group-title gt-bim">Hierarchy / Templates</div>
+        <div class="chips">
+          <span class="chip chip-bim">HierarchyStore</span>
+          <span class="chip chip-bim">TemplateStore</span>
+          <span class="chip chip-bim">TemplateAssignmentStore</span>
+          <span class="chip chip-bim">ElementCodeStore</span>
+          <span class="chip chip-bim">CDE StructuredName</span>
+        </div>
+      </div>
+
+      <div class="group group-bim">
+        <div class="group-title gt-bim">Structural (Physics)</div>
+        <div class="chips">
+          <span class="chip chip-bim">PhysicsEngine</span>
+          <span class="chip chip-bim">structural/ module</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- arrow -->
+  <div class="arrow-row">
+    <div class="arrow"><div class="arrow-line"></div><div class="arrow-head"></div><span class="arrow-label">scene objects → GPU</span></div>
+    <div class="arrow"><div class="arrow-line"></div><div class="arrow-head"></div><span class="arrow-label">AI reads world model</span></div>
+  </div>
+
+  <!-- ─── Two columns: AI + Rendering ─────────────────────────────────────── -->
+  <div style="display:flex;gap:6px;">
+
+    <!-- E: AI Subsystem -->
+    <div class="layer layer-ai" style="flex:1;">
+      <div class="layer-header">
+        <div class="layer-dot dot-ai"></div>
+        E — AI &amp; Generative Design &nbsp;<span style="font-weight:400;color:#fdba74;">src/ai/ · src/generative/</span>
+      </div>
+      <div class="layer-body" style="flex-direction:column;">
+
+        <div class="group group-ai" style="width:100%;">
+          <div class="group-title gt-ai">AI Service Core</div>
+          <div class="chips">
+            <span class="chip chip-ai">AIService</span>
+            <span class="chip chip-ai">WorldModelAdapter</span>
+            <span class="chip chip-ai">AIReadModel</span>
+            <span class="chip chip-ai">AIResponseParser</span>
+            <span class="chip chip-ai">AIElementFactory</span>
+            <span class="chip chip-ai">AIApprovalStore</span>
+            <span class="chip chip-ai">AIApprovalRecord</span>
+            <span class="chip chip-ai">AmbientIntelligence</span>
+          </div>
+        </div>
+
+        <div class="group group-ai" style="width:100%;">
+          <div class="group-title gt-ai">Analysis Engines</div>
+          <div class="chips">
+            <span class="chip chip-ai">RuleEngine</span>
+            <span class="chip chip-ai">SemanticQueryEngine</span>
+            <span class="chip chip-ai">QueryEngine</span>
+            <span class="chip chip-ai">PlanarTopologyEngine</span>
+            <span class="chip chip-ai">WallCandidateScorer</span>
+            <span class="chip chip-ai">WallIntersectionResolver</span>
+            <span class="chip chip-ai">WallRegionExtractor</span>
+            <span class="chip chip-ai">WallTerminatorDoorDetector</span>
+            <span class="chip chip-ai">DoorGapInpainter</span>
+            <span class="chip chip-ai">DoorGeometricValidator</span>
+          </div>
+        </div>
+
+        <div class="group group-ai" style="width:100%;">
+          <div class="group-title gt-ai">Floor Plan AI</div>
+          <div class="chips">
+            <span class="chip chip-ai">FloorPlanAIFactory</span>
+            <span class="chip chip-ai">FloorPlanBatchExecutor</span>
+            <span class="chip chip-ai">FloorPlanCommandBatcher</span>
+            <span class="chip chip-ai">FloorPlanDiagnostics</span>
+            <span class="chip chip-ai">FloorPlanImageEnhancer</span>
+            <span class="chip chip-ai">ImagePreprocessor</span>
+            <span class="chip chip-ai">PdfToBimConstraints</span>
+          </div>
+        </div>
+
+        <div class="group group-ai" style="width:100%;">
+          <div class="group-title gt-ai">Generative Design</div>
+          <div class="chips">
+            <span class="chip chip-ai">GenerativeDesignAdvisor</span>
+            <span class="chip chip-ai">LayoutGenerator</span>
+            <span class="chip chip-ai">StairComplianceReporter</span>
+            <span class="chip chip-ai">VoiceSpatialInterface</span>
+            <span class="chip chip-ai">Room AI subsystem (×3)</span>
+            <span class="chip chip-ai">VG Intent Mapper</span>
+            <span class="chip chip-ai">ViewAuthoring IntentMapper</span>
+            <span class="chip chip-ai">intents.ts / types.ts</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- F: Rendering Pipeline -->
+    <div class="layer layer-render" style="flex:1;">
+      <div class="layer-header">
+        <div class="layer-dot dot-render"></div>
+        F — Rendering Pipeline &nbsp;<span style="font-weight:400;color:#7dd3fc;">src/rendering/ · src/render/ · src/core/rendering/</span>
+      </div>
+      <div class="layer-body" style="flex-direction:column;">
+
+        <div class="group group-render" style="width:100%;">
+          <div class="group-title gt-render">Renderer Factory</div>
+          <div class="chips">
+            <span class="chip chip-render">createRenderer.ts</span>
+            <span class="chip chip-render">WebGPU backend (primary)</span>
+            <span class="chip chip-render">WebGL2 fallback via TSL→GLSL</span>
+            <span class="chip chip-render">WebGL-only fallback</span>
+            <span class="chip chip-render">DPR cap = 1.5</span>
+            <span class="chip chip-render">GPU device-lost handler</span>
+          </div>
+        </div>
+
+        <div class="group group-render" style="width:100%;">
+          <div class="group-title gt-render">TSL Pipeline</div>
+          <div class="chips">
+            <span class="chip chip-render">pipeline/ (TSL shaders)</span>
+            <span class="chip chip-render">three-webgpu-types</span>
+            <span class="chip chip-render">three-tsl-types</span>
+            <span class="chip chip-render">three-gpu-pathtracer</span>
+            <span class="chip chip-render">three-mesh-bvh</span>
+          </div>
+        </div>
+
+        <div class="group group-render" style="width:100%;">
+          <div class="group-title gt-render">OBC Integration</div>
+          <div class="chips">
+            <span class="chip chip-render">@thatopen/components (OBC)</span>
+            <span class="chip chip-render">@thatopen/components-front (OBCF)</span>
+            <span class="chip chip-render">@thatopen/ui + ui-obc</span>
+            <span class="chip chip-render">@thatopen/fragments (WASM)</span>
+            <span class="chip chip-render">web-ifc (WASM parser)</span>
+          </div>
+        </div>
+
+        <div class="group group-render" style="width:100%;">
+          <div class="group-title gt-render">Scene / Lighting</div>
+          <div class="chips">
+            <span class="chip chip-render">SceneTheme</span>
+            <span class="chip chip-render">SceneLayers</span>
+            <span class="chip chip-render">SceneBoundsCache</span>
+            <span class="chip chip-render">SceneObjectClassifier</span>
+            <span class="chip chip-render">LevelVisualizer</span>
+            <span class="chip chip-render">BimGridRenderer</span>
+            <span class="chip chip-render">MaterialLibrary + VisualStyle</span>
+            <span class="chip chip-render">RGBELoader (HDRI)</span>
+            <span class="chip chip-render">TransformControls</span>
+            <span class="chip chip-render">camera-controls</span>
+          </div>
+        </div>
+
+        <div class="group group-render" style="width:100%;">
+          <div class="group-title gt-render">Overlays</div>
+          <div class="chips">
+            <span class="chip chip-render">PhysicsOverlayRenderer</span>
+            <span class="chip chip-render">PlanViewVisibilityCuller</span>
+            <span class="chip chip-render">PlanSymbolGenerator / Cache</span>
+            <span class="chip chip-render">ViewRenderCache</span>
+            <span class="chip chip-render">LevelClipPlaneCache</span>
+            <span class="chip chip-render">StairPlanSymbolRegistry</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- arrow -->
+  <div class="arrow-row">
+    <div class="arrow"><div class="arrow-line"></div><div class="arrow-head"></div><span class="arrow-label">serialize / sync / export</span></div>
+  </div>
+
+  <!-- ─── G: Persistence / Export / Import ──────────────────────────────── -->
+  <div class="layer layer-data">
+    <div class="layer-header">
+      <div class="layer-dot dot-data"></div>
+      G — Persistence, Sync &amp; Import/Export &nbsp;<span style="font-weight:400;color:#86efac;">src/core/persistence/ · src/core/sync/ · src/export/ · src/import/ · src/api/</span>
+    </div>
+    <div class="layer-body">
+
+      <div class="group group-data">
+        <div class="group-title gt-data">Persistence</div>
+        <div class="chips">
+          <span class="chip chip-data">ProjectSerializer</span>
+          <span class="chip chip-data">ProjectLoader</span>
+          <span class="chip chip-data">MigrationEngine</span>
+        </div>
+      </div>
+
+      <div class="group group-data">
+        <div class="group-title gt-data">Real-Time Sync</div>
+        <div class="chips">
+          <span class="chip chip-data">SyncStateEngine</span>
+          <span class="chip chip-data">initCollaboration subsystem</span>
+          <span class="chip chip-data">Socket.io client</span>
+        </div>
+      </div>
+
+      <div class="group group-data">
+        <div class="group-title gt-data">API Client</div>
+        <div class="chips">
+          <span class="chip chip-data">apiFetch.ts</span>
+          <span class="chip chip-data">REST v1 client</span>
+        </div>
+      </div>
+
+      <div class="group group-data">
+        <div class="group-title gt-data">IFC Export</div>
+        <div class="chips">
+          <span class="chip chip-data">IFC Exporter (src/export/ifc/)</span>
+          <span class="chip chip-data">IFC Readers (×N)</span>
+          <span class="chip chip-data">RationaleExporter</span>
+          <span class="chip chip-data">@thatopen/fragments WASM (deferred)</span>
+        </div>
+      </div>
+
+      <div class="group group-data">
+        <div class="group-title gt-data">Other Export</div>
+        <div class="chips">
+          <span class="chip chip-data">GLB Exporter (src/export/glb/)</span>
+          <span class="chip chip-data">Sheet Exporter (src/export/sheets/)</span>
+        </div>
+      </div>
+
+      <div class="group group-data">
+        <div class="group-title gt-data">IFC Import</div>
+        <div class="chips">
+          <span class="chip chip-data">IFC Importer (src/import/ifc/)</span>
+          <span class="chip chip-data">web-ifc WASM parser</span>
+        </div>
+      </div>
+
+      <div class="group group-data">
+        <div class="group-title gt-data">Geospatial</div>
+        <div class="chips">
+          <span class="chip chip-data">CesiumThreeBridge</span>
+          <span class="chip chip-data">Cesium SDK</span>
+          <span class="chip chip-data">SetGeoreferenceCommand</span>
+        </div>
+      </div>
+
+      <div class="group group-data">
+        <div class="group-title gt-data">Monetization / Lifecycle</div>
+        <div class="chips">
+          <span class="chip chip-data">AIUsageTracker</span>
+          <span class="chip chip-data">EntitlementStore</span>
+          <span class="chip chip-data">PlanConfig</span>
+          <span class="chip chip-data">lifecycle/ module</span>
+          <span class="chip chip-data">portfolio/ module</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- arrow -->
+  <div class="arrow-row">
+    <div class="arrow"><div class="arrow-line"></div><div class="arrow-head"></div><span class="arrow-label">HTTP / WebSocket</span></div>
+  </div>
+
+  <!-- ─── H: Backend (Node.js / Express) ─────────────────────────────────── -->
+  <div class="layer layer-backend">
+    <div class="layer-header">
+      <div class="layer-dot dot-backend"></div>
+      H — Backend — Node.js / Express &nbsp;<span style="font-weight:400;color:#fca5a5;">server.js · server/</span>
+    </div>
+    <div class="layer-body">
+
+      <div class="group group-backend">
+        <div class="group-title gt-backend">HTTP Server</div>
+        <div class="chips">
+          <span class="chip chip-backend">Express (server.js)</span>
+          <span class="chip chip-backend">Vite middleware (dev)</span>
+          <span class="chip chip-backend">Static dist/ (prod)</span>
+          <span class="chip chip-backend">gzip compression</span>
+          <span class="chip chip-backend">securityHeaders</span>
+          <span class="chip chip-backend">corsPolicy</span>
+          <span class="chip chip-backend">trust proxy = 1</span>
+        </div>
+      </div>
+
+      <div class="group group-backend">
+        <div class="group-title gt-backend">Auth</div>
+        <div class="chips">
+          <span class="chip chip-backend">authStore (JWT + bcrypt)</span>
+          <span class="chip chip-backend">SESSION_SECRET</span>
+          <span class="chip chip-backend">authMiddleware</span>
+          <span class="chip chip-backend">maybeAutoGrantOwner</span>
+          <span class="chip chip-backend">PRYZM_OWNER_EMAIL</span>
+        </div>
+      </div>
+
+      <div class="group group-backend">
+        <div class="group-title gt-backend">Project Store</div>
+        <div class="chips">
+          <span class="chip chip-backend">pgProjectStore (primary)</span>
+          <span class="chip chip-backend">In-memory fallback (_projects)</span>
+          <span class="chip chip-backend">Supabase store</span>
+          <span class="chip chip-backend">versionStateMachine (ISO 19650)</span>
+          <span class="chip chip-backend">projectAccess</span>
+        </div>
+      </div>
+
+      <div class="group group-backend">
+        <div class="group-title gt-backend">Collaboration</div>
+        <div class="chips">
+          <span class="chip chip-backend">Socket.io Server</span>
+          <span class="chip chip-backend">join-project (auth guarded)</span>
+          <span class="chip chip-backend">command-executed broadcast</span>
+          <span class="chip chip-backend">cursor-move</span>
+          <span class="chip chip-backend">sheet-comment events</span>
+          <span class="chip chip-backend">projectMembers</span>
+        </div>
+      </div>
+
+      <div class="group group-backend">
+        <div class="group-title gt-backend">AI Proxy</div>
+        <div class="chips">
+          <span class="chip chip-backend">POST /api/anthropic/v1/messages</span>
+          <span class="chip chip-backend">CF Worker relay (primary)</span>
+          <span class="chip chip-backend">Direct Anthropic (fallback)</span>
+          <span class="chip chip-backend">aiLimiter</span>
+          <span class="chip chip-backend">planStore (quota enforcement)</span>
+          <span class="chip chip-backend">POST /api/ai/brief/parse</span>
+          <span class="chip chip-backend">POST /api/ai/generative/advise</span>
+        </div>
+      </div>
+
+      <div class="group group-backend">
+        <div class="group-title gt-backend">REST API v1</div>
+        <div class="chips">
+          <span class="chip chip-backend">GET /api/v1/projects/:id/model</span>
+          <span class="chip chip-backend">GET /api/v1/projects/:id/rooms</span>
+          <span class="chip chip-backend">GET /api/v1/projects/:id/graph</span>
+          <span class="chip chip-backend">GET /api/v1/projects/:id/compliance</span>
+          <span class="chip chip-backend">GET .../schedules/:type</span>
+          <span class="chip chip-backend">apiLimiter (60 req/min)</span>
+        </div>
+      </div>
+
+      <div class="group group-backend">
+        <div class="group-title gt-backend">Render Service</div>
+        <div class="chips">
+          <span class="chip chip-backend">renderService.js</span>
+          <span class="chip chip-backend">multer (50MB memory upload)</span>
+          <span class="chip chip-backend">Render gallery CRUD</span>
+          <span class="chip chip-backend">Panorama gallery CRUD</span>
+        </div>
+      </div>
+
+      <div class="group group-backend">
+        <div class="group-title gt-backend">Security &amp; Rate Limiting</div>
+        <div class="chips">
+          <span class="chip chip-backend">globalLimiter (/api/*)</span>
+          <span class="chip chip-backend">aiLimiter</span>
+          <span class="chip chip-backend">apiLimiter</span>
+          <span class="chip chip-backend">exportGuard (signed tokens)</span>
+          <span class="chip chip-backend">permissions.js (ISO 19650 roles)</span>
+          <span class="chip chip-backend">webhookService</span>
+          <span class="chip chip-backend">namingValidator</span>
+        </div>
+      </div>
+
+      <div class="group group-backend">
+        <div class="group-title gt-backend">DB Migration</div>
+        <div class="chips">
+          <span class="chip chip-backend">dbMigrate.js</span>
+          <span class="chip chip-backend">schema.sql</span>
+          <span class="chip chip-backend">supabase-rls.sql</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- arrow -->
+  <div class="arrow-row">
+    <div class="arrow"><div class="arrow-line"></div><div class="arrow-head"></div><span class="arrow-label">SQL / ORM queries</span></div>
+  </div>
+
+  <!-- ─── I: Database ─────────────────────────────────────────────────────── -->
+  <div class="layer layer-db">
+    <div class="layer-header">
+      <div class="layer-dot dot-db"></div>
+      I — Database &amp; Storage &nbsp;<span style="font-weight:400;color:#fcd34d;">server/pgClient.js · server/supabaseClient.js</span>
+    </div>
+    <div class="layer-body">
+
+      <div class="group group-db">
+        <div class="group-title gt-db">Replit PostgreSQL (primary)</div>
+        <div class="chips">
+          <span class="chip chip-db">pgClient.js (pg pool)</span>
+          <span class="chip chip-db">DATABASE_URL</span>
+          <span class="chip chip-db">dbMigrate — schema auto-applied</span>
+          <span class="chip chip-db">projects, users, versions tables</span>
+          <span class="chip chip-db">render gallery tables</span>
+        </div>
+      </div>
+
+      <div class="group group-db">
+        <div class="group-title gt-db">Supabase (cloud DB)</div>
+        <div class="chips">
+          <span class="chip chip-db">supabaseClient.js</span>
+          <span class="chip chip-db">SUPABASE_SERVICE_ROLE_KEY (preferred)</span>
+          <span class="chip chip-db">SUPABASE_ANON_KEY (fallback)</span>
+          <span class="chip chip-db">Row Level Security (supabase-rls.sql)</span>
+          <span class="chip chip-db">portfolioGraphService</span>
+        </div>
+      </div>
+
+      <div class="group group-db">
+        <div class="group-title gt-db">In-Memory Fallback</div>
+        <div class="chips">
+          <span class="chip chip-db">_projects Map</span>
+          <span class="chip chip-db">_versions Map</span>
+          <span class="chip chip-db">(no env vars = dev mode)</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- arrow -->
+  <div class="arrow-row">
+    <div class="arrow"><div class="arrow-line"></div><div class="arrow-head"></div><span class="arrow-label">HTTPS / API calls</span></div>
+  </div>
+
+  <!-- ─── J: External Services ─────────────────────────────────────────────── -->
+  <div class="layer layer-ext">
+    <div class="layer-header">
+      <div class="layer-dot dot-ext"></div>
+      J — External Services
+    </div>
+    <div class="layer-body">
+
+      <div class="group group-ext">
+        <div class="group-title gt-ext">AI</div>
+        <div class="chips">
+          <span class="chip chip-ext">Anthropic Claude API</span>
+          <span class="chip chip-ext">Cloudflare Worker relay</span>
+          <span class="chip chip-ext">(flat-morning-358d)</span>
+        </div>
+      </div>
+
+      <div class="group group-ext">
+        <div class="group-title gt-ext">Geospatial</div>
+        <div class="chips">
+          <span class="chip chip-ext">Cesium ion</span>
+          <span class="chip chip-ext">vite-plugin-cesium</span>
+        </div>
+      </div>
+
+      <div class="group group-ext">
+        <div class="group-title gt-ext">Payments</div>
+        <div class="chips">
+          <span class="chip chip-ext">Stripe SDK</span>
+          <span class="chip chip-ext">webhookService (Stripe events)</span>
+        </div>
+      </div>
+
+      <div class="group group-ext">
+        <div class="group-title gt-ext">Supabase Cloud</div>
+        <div class="chips">
+          <span class="chip chip-ext">svftphdzoudsaxktjhhc.supabase.co</span>
+          <span class="chip chip-ext">Auth + Storage + RLS</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- ─── LEGEND ──────────────────────────────────────────────────────────── -->
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#3b82f6;"></div> A — UI Shell</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#22c55e;"></div> B — Tools / Snap</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#22c55e;"></div> C — Command System</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#a855f7;"></div> D — BIM Kernel &amp; Elements</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f97316;"></div> E — AI &amp; Generative</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#38bdf8;"></div> F — Rendering Pipeline</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#4ade80;"></div> G — Persistence / Export</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f87171;"></div> H — Backend (Express)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#fbbf24;"></div> I — Database</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#c084fc;"></div> J — External Services</div>
+</div>
+
+<!-- ─── KEY DATA FLOWS ─────────────────────────────────────────────────── -->
+<div class="section-title">— Key Data Flows (Sequence Diagrams)</div>
+<div class="sequences">
+
+  <div class="sequence-card">
+    <h3>🖊️ User Edits an Element (e.g. moves a wall)</h3>
+    <div class="seq-step"><div class="seq-num" style="background:#3b82f6;color:#fff;">1</div><div class="seq-text"><strong>UI</strong> — pointer event on canvas → SelectionManager</div></div>
+    <div class="seq-step"><div class="seq-num" style="background:#22c55e;color:#fff;">2</div><div class="seq-text"><strong>Tool</strong> — WallTransformController → drag delta</div></div>
+    <div class="seq-step"><div class="seq-num" style="background:#22c55e;color:#fff;">3</div><div class="seq-text"><strong>SnapManager</strong> — snap to grid / geometry</div></div>
+    <div class="seq-step"><div class="seq-num" style="background:#22c55e;color:#fff;">4</div><div class="seq-text"><strong>CommandManager</strong> → execute(UpdateWallCommand) + Immer snapshot</div></div>
+    <div class="seq-step"><div class="seq-num" style="background:#a855f7;color:#fff;">5</div><div class="seq-text"><strong>WallStore</strong> mutated → StoreEventBus fires</div></div>
+    <div class="seq-step"><div class="seq-num" style="background:#38bdf8;color:#fff;">6</div><div class="seq-text"><strong>Renderer</strong> rebuilds Three.js mesh for wall</div></div>
+    <div class="seq-step"><div class="seq-num" style="background:#4ade80;color:#0d0f14;">7</div><div class="seq-text"><strong>SyncStateEngine</strong> → diff → POST delta to server</div></div>
+    <div class="seq-step"><div class="seq-num" style="background:#f87171;color:#fff;">8</div><div class="seq-text"><strong>Socket.io</strong> broadcasts command-executed to other clients</div></div>
+  </div>
+
+  <div class="sequence-card">
+    <h3>🤖 AI Floor Plan Generation</h3>
+    <div class="seq-step"><div class="seq-num" style="background:#3b82f6;color:#fff;">1</div><div class="seq-text"><strong>BriefInputPanel</strong> — user types brief text</div></div>
+    <div class="seq-step"><div class="seq-num" style="background:#f87171;color:#fff;">2</div><div class="seq-text"><strong>POST /api/ai/brief/parse</strong> — Claude parses to GenerativeDesignBrief JSON</div></div>
+    <div class="seq-step"><div class="seq-num" style="background:#f97316;color:#fff;">3</div><div class="seq-text"><strong>LayoutGenerator</strong> — constraint-based room placement</div></div>
+    <div class="seq-step"><div class="seq-num" style="background:#f97316;color:#fff;">4</div><div class="seq-text"><strong>GenerativeDesignAdvisor</strong> — validates constraints; if fail → /api/ai/generative/advise</div></div>
+    <div class="seq-step"><div class="seq-num" style="background:#f97316;color:#fff;">5</div><div class="seq-text"><strong>FloorPlanBatchExecutor</strong> → FloorPlanCommandBatcher builds command batch</div></div>
+    <div class="seq-step"><div class="seq-num" style="background:#22c55e;color:#fff;">6</div><div class="seq-text"><strong>CommandManager</strong> → executes each CreateWall / CreateRoom command</div></div>
+    <div class="seq-step"><div class="seq-num" style="background:#3b82f6;color:#fff;">7</div><div class="seq-text"><strong>VariantBrowserPanel</strong> shows generated variants</div></div>
+  </div>
+
+  <div class="sequence-card">
+    <h3>💾 Save / Open Project</h3>
+    <div class="seq-step"><div class="seq-num" style="background:#3b82f6;color:#fff;">1</div><div class="seq-text"><strong>ProjectsRailPanel</strong> → "Save" action</div></div>
+    <div class="seq-step"><div class="seq-num" style="background:#4ade80;color:#0d0f14;">2</div><div class="seq-text"><strong>ProjectSerializer</strong> — serialises all stores → JSON snapshot</div></div>
+    <div class="seq-step"><div class="seq-num" style="background:#f87171;color:#fff;">3</div><div class="seq-text"><strong>POST /api/projects/:id/save</strong> with auth JWT</div></div>
+    <div class="seq-step"><div class="seq-num" style="background:#fbbf24;color:#0d0f14;">4</div><div class="seq-text"><strong>pgProjectStore</strong> — upserts to Replit PostgreSQL (or Supabase)</div></div>
+    <div class="seq-step"><div class="seq-num" style="background:#f87171;color:#fff;">5</div><div class="seq-text"><strong>versionStateMachine</strong> — records ISO 19650 state transition</div></div>
+    <div class="seq-step"><div class="seq-num" style="background:#4ade80;color:#0d0f14;">6</div><div class="seq-text">Open: <strong>ProjectLoader</strong> → <strong>MigrationEngine</strong> upgrades schema if needed → <strong>initStores</strong></div></div>
+  </div>
+
+  <div class="sequence-card">
+    <h3>🖥️ App Startup (cold load)</h3>
+    <div class="seq-step"><div class="seq-num" style="background:#3b82f6;color:#fff;">1</div><div class="seq-text"><strong>index.html</strong> → main.ts loads Platform UI (no engine bundle)</div></div>
+    <div class="seq-step"><div class="seq-num" style="background:#3b82f6;color:#fff;">2</div><div class="seq-text"><strong>Landing page + auth</strong> — login/signup with authStore JWT</div></div>
+    <div class="seq-step"><div class="seq-num" style="background:#3b82f6;color:#fff;">3</div><div class="seq-text"><strong>User opens project</strong> → dynamic import("EngineBootstrap")</div></div>
+    <div class="seq-step"><div class="seq-num" style="background:#22c55e;color:#fff;">4</div><div class="seq-text"><strong>initStores</strong> → registerAllStores</div></div>
+    <div class="seq-step"><div class="seq-num" style="background:#38bdf8;color:#fff;">5</div><div class="seq-text"><strong>createRenderer</strong> → WebGPU (or WebGL2 fallback)</div></div>
+    <div class="seq-step"><div class="seq-num" style="background:#22c55e;color:#fff;">6</div><div class="seq-text"><strong>initBuilders</strong> → initTools → initUI (parallel with WASM init)</div></div>
+    <div class="seq-step"><div class="seq-num" style="background:#f97316;color:#fff;">7</div><div class="seq-text"><strong>fragments.init()</strong> WASM — non-blocking, deferred until IFC export needed</div></div>
+    <div class="seq-step"><div class="seq-num" style="background:#4ade80;color:#0d0f14;">8</div><div class="seq-text"><strong>initPersistence</strong> → SyncStateEngine → Socket.io handshake</div></div>
+  </div>
+
+</div>
+
+<div style="text-align:center;color:var(--muted);font-size:11px;margin-top:24px;padding-bottom:16px;">
+  All modules verified against <code>src/</code> and <code>server/</code> source files &nbsp;·&nbsp; No assumptions from documentation
+</div>
+
+</body>
+</html>

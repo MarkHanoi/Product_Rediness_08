@@ -1,0 +1,76 @@
+1. Wall Representation
+
+In BIM software like Autodesk Revit:
+
+Walls are usually represented as 3D solids with base curves (lines, arcs, splines) and profiles.
+
+Each wall has parameters: thickness, height, location line (center, core, face), and structural type.
+
+2. Intersection Detection
+
+When two walls approach each other:
+
+The engine first detects potential intersection zones:
+
+Compute the projection of walls onto a 2D plane (usually the base level).
+
+Identify overlapping or touching bounding boxes.
+
+Determine the type of intersection:
+
+Butt (one wall ends at another’s face)
+
+Miter (walls meet at an angle and edges are trimmed to match)
+
+Tee (a perpendicular wall intersects the middle of another)
+
+Coplanar or overlapping (parallel walls with partial overlap)
+
+3. Trimming / Joining Algorithm
+
+Once the intersection type is recognized:
+
+Reference Faces
+
+Identify primary and secondary walls.
+
+For butt joints: the primary wall remains untrimmed; the secondary wall’s end face is trimmed to touch the primary wall’s face.
+
+Boolean Operations
+
+Walls are treated as extruded solids.
+
+Revit uses Boolean subtraction or union:
+
+For a butt join, the secondary wall’s solid is trimmed along the face of the primary wall.
+
+For a miter join, both walls are trimmed at the angle bisector.
+
+Edge Cleanup
+
+Remove overlapping geometry.
+
+Fix tiny gaps caused by rounding errors or non-orthogonal intersections.
+
+Maintain clean faces for rendering and fabrication.
+
+4. Dynamic Updates
+
+These algorithms are parametric, so if a wall moves:
+
+Intersections are recalculated.
+
+The trim/join updates automatically.
+
+This allows real-time visual consistency in the BIM model.
+
+5. Simplified Pseudocode for Butt-Style Wall Join
+for each wall_pair (wallA, wallB):
+    if walls_intersect(wallA, wallB):
+        if intersection_type == "butt":
+            primary_wall = choose_primary(wallA, wallB)
+            secondary_wall = other_wall(wallA, wallB)
+            secondary_wall.end_face = trim_to_face(secondary_wall, primary_wall)
+            clean_edges(secondary_wall)
+
+✅ Key Idea: Revit and similar BIM tools treat walls as parametric solids, detect intersections, classify the join type, then use Boolean trimming and edge cleanup to create a clean visual and constructible result.

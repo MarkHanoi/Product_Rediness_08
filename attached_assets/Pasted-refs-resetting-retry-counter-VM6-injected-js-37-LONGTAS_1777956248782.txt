@@ -1,0 +1,236 @@
+refs, resetting retry counter
+VM6 injected.js:37 [LONGTASK] duration=76.0ms start=708349.1ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 Refreshing Spatial Tree...
+VM6 injected.js:37 [PlatformShell] Project context set: proj-1777955794920-1ujj1c4 sfEF
+VM6 injected.js:37 [runtime] Phase F status pill mounted — ai.model=claude-haiku-4-5 plugins=38 ifc/rhino/bcf=ready pdf=queued
+VM6 injected.js:37 [initScene] pryzm-project-switch received — project: proj-1777955794920-1ujj1c4
+VM6 injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+VM6 injected.js:37 [ViewController] clearCameraStateStore — per-view camera state cleared for new project
+VM6 injected.js:37 [UnderlayPersistence] Project switch — saves suspended
+VM6 injected.js:37 [EngineBootstrap] C13 project-switch: cold-boot → (unknown)
+VM6 injected.js:37 [BatchCoordinator] C13 forceReset() — all batch state cleared for project switch
+VM6 injected.js:37 [EngineBootstrap] C13 resetWallRebuildState() — wall pipeline clean for project switch
+VM6 injected.js:37 [EngineBootstrap] C13 teardown complete — Project B context loading
+VM6 injected.js:37 [PlatformShell] New project — clearing scene immediately (no server check)
+VM6 injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+VM1089 ProjectLoader.ts:154 [ProjectLoader] Loading "sfEF" (0 elements)
+VM6 injected.js:37 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+VM6 injected.js:37 [ProjectLoader] Element-creation path: ImportProjectCommand (Phase 1)
+VM6 injected.js:37 [LONGTASK] duration=51.0ms start=708441.2ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM1317 ClearProjectCommand.ts:40 [ClearProjectCommand] Clearing all project data
+VM6 injected.js:37   Removing 0 curtain panels
+VM6 injected.js:37   Removing 0 openings
+VM6 injected.js:37   Removing 0 walls
+VM6 injected.js:37   Removing 0 curtain walls
+VM6 injected.js:37   Removing 0 slabs
+VM6 injected.js:37   Removing 0 ceilings
+VM6 injected.js:37   Removing 0 columns
+VM6 injected.js:37   Removing 0 beams
+VM6 injected.js:37   Removing 0 stairs
+VM6 injected.js:37   Removing 0 roofs
+VM6 injected.js:37   Removing 0 furniture items
+VM6 injected.js:37   Removing 0 handrails
+VM6 injected.js:37   Removing 0 plumbing fixtures
+VM6 injected.js:37   Removing 0 rooms
+VM6 injected.js:37   Removing 0 room bounding lines
+VM6 injected.js:37   Removing 0 grids
+VM6 injected.js:37   Removing 1 levels
+VM6 injected.js:37 [BimManager] Cannot delete the default Ground level.
+(anonymous) @ VM6 injected.js:37
+removeLevel @ VM988 BimKernel.ts:218
+(anonymous) @ VM1317 ClearProjectCommand.ts:105
+execute @ VM1317 ClearProjectCommand.ts:105
+runSub @ VM1834 ImportProjectCommand.ts:115
+execute @ VM1834 ImportProjectCommand.ts:131
+execute @ VM1093 CommandManager.ts:60
+exec @ VM1089 ProjectLoader.ts:166
+load @ VM1089 ProjectLoader.ts:190
+await in load
+load @ VM927 initPersistence.ts:125
+setProjectContext @ VM876 PlatformShell.ts:116
+setProjectContext @ VM280 WorkspaceSurface.ts:55
+(anonymous) @ VM261 buildPersistence.ts:120
+await in (anonymous)
+openProject @ VM261 buildPersistence.ts:127
+_openProjectViaRuntime @ VM13 PlatformRouter.ts:256
+launchWorkspace @ VM13 PlatformRouter.ts:231
+onOpenProject @ VM13 PlatformRouter.ts:176
+openProject @ VM24 ProjectHub.ts:822
+_createViaRuntime @ VM24 ProjectHub.ts:805
+await in _createViaRuntime
+handleCreate @ VM24 ProjectHub.ts:774
+(anonymous) @ VM24 ProjectHub.ts:288
+VM6 injected.js:37 [ClearProjectCommand] Annotation store cleared
+VM6 injected.js:37   Cleared 0 floors
+VM6 injected.js:37 [DefaultViewsManager] Created default 3D view (id=vd-sys-3d-1)
+VM6 injected.js:37 [DefaultViewsManager] Created default Ground Floor plan view (id=vd-sys-plan-l0)
+VM6 injected.js:37 [TemporalGraph] Cleared (project switch).
+VM6 injected.js:37 [UnderlayPersistence] Clear skipped — no current project bound
+VM6 injected.js:37 [ViewRenderCache] All render targets disposed.
+VM6 injected.js:37 [RoomGraphService] All graphs invalidated
+VM6 injected.js:37 [ClearProjectCommand] ProjectScopeRegistry cleared 44 scopes: (44) ['visibilityIntentStore', 'viewIntentInstanceStore', 'viewDefinitionStore', 'requirementStore', 'assetCatalogStore', 'hierarchyStore', 'templateStore', 'templateAssignmentStore', 'doorStore', 'windowStore', 'semanticGraphManager', 'decisionRecordStore', 'doorSystemTypeStore', 'windowSystemTypeStore', 'ceilingSystemTypeStore', 'floorSystemTypeStore', 'handrailTypeStore', 'roomBoundingLineStore', 'temporalGraphManager', 'scheduleStore', 'viewTemplateStore', 'wallSystemTypeStore', 'slabSystemTypeStore', 'annotationStore', 'ifcProjectionStore', 'vgGovernanceStore', 'floorPlanUnderlay', 'sheetStore', 'topologySpatialIndex', 'topologyLayer', 'viewRenderCache', 'elementCodeStore', 'roomSpatialIndex', 'semanticIndex', 'visibilityRuleEngine', 'dxfOverlayStore', 'constraintStore', 'annotationVisibilityStore', 'vgInstanceOverrideStore', 'roomGraphService', 'dxfLayerStore', 'phaseFilterStore', 'sceneBoundsCache', 'viewVisibilityMap']
+VM6 injected.js:37 [ClearProjectCommand] activeLevelId reset to L0 (project-scoped state cleared).
+VM6 injected.js:37 [ProjectIsolation] WallFragmentBuilder disposed — scene cleared of wall geometry.
+VM6 injected.js:37 [RoomGraphService] All graphs invalidated
+VM6 injected.js:37 [TemporalGraph] Cleared (project switch).
+VM6 injected.js:37 [ClearProjectCommand] Clear complete
+VM6 injected.js:37 [ImportProjectCommand] Loading 0 levels
+VM6 injected.js:37 [ImportProjectCommand] Loading 0 grids
+VM6 injected.js:37 [ImportProjectCommand] Loading 0 columns
+VM6 injected.js:37 [ImportProjectCommand] Loading 0 walls
+VM6 injected.js:37 [ImportProjectCommand] Loading 0 slabs
+VM6 injected.js:37 [ImportProjectCommand] Loading 0 stairs
+VM6 injected.js:37 [ImportProjectCommand] Loading 0 furniture items
+VM6 injected.js:37 [ImportProjectCommand] Loading 0 roofs
+VM6 injected.js:37 [ImportProjectCommand] Loading 0 handrails
+VM6 injected.js:37 [ImportProjectCommand] Loading 0 plumbing fixtures
+VM6 injected.js:37 [ImportProjectCommand] Loading 0 curtain walls
+VM6 injected.js:37 [ImportProjectCommand] Loading 0 beams
+VM6 injected.js:37 [ProjectLoader] VG Governance state restored from snapshot
+VM6 injected.js:37 [ProjectLoader] ViewDefinition store restored from snapshot
+VM6 injected.js:37 [ProjectLoader] Visibility rule engine restored from snapshot
+VM6 injected.js:37 [VGToIntentMigration] Starting VG → Intent migration…
+VM6 injected.js:37 [VGToIntentMigration] Complete — 0 intents, 0 views, 0 overrides migrated.
+VM6 injected.js:37 [initDataPlatform] DataWorkbench toolbar button + physics overlay dropdown injected
+VM6 injected.js:37 [VoiceCommandIndicator] Mounted (speechAPI=true)
+VM6 injected.js:37 [DefaultViewsManager] Created default 3D view (id=vd-sys-3d-1)
+VM6 injected.js:37 [DefaultViewsManager] Created default Ground Floor plan view (id=vd-sys-plan-l0)
+VM6 injected.js:37 [ProjectLoader] Sheet store restored from snapshot
+VM6 injected.js:37 [ProjectLoader] Schedule store restored from snapshot
+VM6 injected.js:37 [ProjectLoader] SemanticGraph cleared (v1/v2 snapshot — no graph data)
+VM6 injected.js:37 [TemporalGraph] Cleared (project switch).
+VM6 injected.js:37 [ProjectLoader] TemporalGraph cleared (pre-v4 snapshot — no temporal data)
+VM6 injected.js:37 [ProjectLoader] DecisionRecordStore cleared (pre-v4 snapshot — no decision data)
+VM6 injected.js:37 [IntentStylePrewarmer] Pre-warmed 1224 style slots in 8.80ms
+VM6 injected.js:37 [ProjectLoader] RequirementStore cleared (no requirement data in snapshot)
+VM6 injected.js:37 [AssetCatalogStore] setDirect(): restored 21 entries
+VM6 injected.js:37 [ProjectLoader] AssetCatalogStore seeded from defaults
+VM6 injected.js:37 [ProjectLoader] Annotation store cleared (no annotation data in snapshot)
+VM6 injected.js:37 [ProjectLoader] AnnotationDependencyGraph rebuilt after restore
+VM6 injected.js:37 [ProjectLoader] Load complete: 0 loaded, 0 failed, 0 errors
+VM6 injected.js:37 [StoreEventBus] endBatch() — flushed 38 buffered event(s) in emission order (no coalescing — all events delivered).
+VM6 injected.js:37 [ProjectLoader] PHASE_TIMINGS total=714.5ms setup=0.0ms hydrate=0.0ms event_flush=0.0ms wall_rebuild_flush=0.0ms redetect_sweep=0.0ms [walls=0 slabs=0 levels=0 curtainWalls=0]
+VM6 injected.js:37 [ProjectSerializer] Snapshot created: 0 elements, 1 levels, 0 walls, 0 slabs, 0 furniture
+VM6 injected.js:37 [PlatformShell] New project ready — firing pryzm-project-loaded(empty:true)
+VM6 injected.js:37 [FrustumCullingService] pryzm-project-loaded(empty) — audit skipped, no geometry
+VM6 injected.js:37 [initScene] pryzm-project-loaded — empty project (no geometry)
+VM6 injected.js:37 [TemplateStore] Seeded 15 built-in templates
+VM6 injected.js:37 [initCollaboration] Project opened — collaboration active for proj-1777955794920-1ujj1c4
+VM6 injected.js:37 [EngineBootstrap] pryzm-project-loaded(empty) — skipping zoomToAll, no geometry
+VM6 injected.js:37 [ProjectIsolationAudit] ✓ project proj-1777955794920-1ujj1c4 loaded clean — no leftover state
+VM6 injected.js:37 [FPS] 30fps
+VM6 injected.js:37 [RenderPipelineManager] Outlines activated (selected + hover).
+VM6 injected.js:37 [RenderPipelineManager] Phase: phase4 | WebGPU: true | SSGI: true | TRAA: false
+VM6 injected.js:37 [RenderPipelineManager] Phase: phase4 | WebGPU: true | SSGI: true | TRAA: false
+VM6 injected.js:37 [LONGTASK] duration=104.0ms start=709263.9ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [LONGTASK] duration=125.0ms start=709368.2ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [PlatformCollabPill] Socket connected — joining project room: proj-1777955794920-1ujj1c4
+VM6 injected.js:37 [HomeView] Default viewpoint captured: {x: 49.99999999999997, y: 49.99999999999995, z: 50.00000000000005} {x: -2.842170943040401e-14, y: -4.263256414560601e-14, z: 4.263256414560601e-14}
+VM6 injected.js:37 [initCollaboration] Socket connected — joining project room: proj-1777955794920-1ujj1c4
+VM6 injected.js:37 [initCollaboration] Catch-up: first connect — setting baseline timestamp
+VM6 injected.js:37 [SplitViewManager] Canvas2D context ready
+VM6 injected.js:37 [SvpPlanToolOverlay] Attached with snap service. viewId: vd-sys-plan-l0
+VM6 injected.js:37 [SplitViewManager] Split view activated (Canvas2D plan mode)
+VM6 injected.js:37 [initScene] Split view auto-opened on project load (idle)
+VM6 injected.js:37 [initDataPlatform] H-1: Physics compute enqueued for all rooms after project load (idle)
+VM6 injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+VM6 injected.js:37 [HomeView] Default viewpoint captured: {x: 49.99999999999997, y: 49.99999999999995, z: 50.00000000000005} {x: -2.842170943040401e-14, y: -4.263256414560601e-14, z: 4.263256414560601e-14}
+VM6 injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+VM6 injected.js:37 [SvpPlanToolOverlay] Detached
+VM6 injected.js:37 [SplitViewManager] Split view deactivated
+VM6 injected.js:37 [GPU Monitor] geometries:1 textures:5 | drawCalls:1 tris:1
+2VM6 injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+VM6 injected.js:37 [FPS] 30fps
+VM6 injected.js:37 [LONGTASK] duration=58.0ms start=713261.3ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [WallModePicker] setActiveMode → ortho
+VM6 injected.js:37 ToolManager: activateTool called for wall
+VM6 injected.js:37 ToolManager: deactivating previous tool none
+VM6 injected.js:37 ToolManager: executing activateFn for wall
+VM6 injected.js:37 WallTool activated with mode: POLYLINE_ORTHO
+VM6 injected.js:37 [EngineBootstrap] HDRI load started (lazy — Realistic style first requested)
+VM6 injected.js:37 RGBELoader has been deprecated. Please use HDRLoader instead.
+(anonymous) @ VM6 injected.js:37
+RGBELoader @ VM332 RGBELoader.js:9
+(anonymous) @ VM889 engineLauncher.ts:805
+getHdriTexture @ VM889 engineLauncher.ts:804
+activate @ VM1114 WallTool.ts:212
+(anonymous) @ VM1092 ToolManager.ts:492
+activateTool @ VM1092 ToolManager.ts:414
+await in activateTool
+activateWall @ VM1092 ToolManager.ts:490
+activateWallTool @ VM1402 BimService.ts:68
+service.activateWallTool @ VM1405 ToolsAreaLayout.ts:166
+_activateStructureTool @ VM1669 BottomActionMenu.ts:235
+_activateStructureToolByShortcut @ VM1669 BottomActionMenu.ts:226
+WA @ VM1669 BottomActionMenu.ts:172
+(anonymous) @ VM1669 BottomActionMenu.ts:193
+VM6 injected.js:214 Connecting to 'https://thatopen.github.io/engine_fragment/resources/textures/envmaps/san_giuseppe_bridge_2k.hdr' violates the following Content Security Policy directive: "connect-src 'self' data: blob: https://api.cesium.com https://*.supabase.co wss: ws:". The policy is report-only, so the violation has been logged but no further action has been taken.
+VM6 injected.js:214 Connecting to 'https://thatopen.github.io/engine_fragment/resources/textures/envmaps/san_giuseppe_bridge_2k.hdr' violates the following Content Security Policy directive: "connect-src 'self' data: blob: https://api.cesium.com https://*.supabase.co wss: ws:". The policy is report-only, so the violation has been logged but no further action has been taken.
+VM6 injected.js:37 [LONGTASK] duration=64.0ms start=714093.3ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [FPS] 58fps
+VM6 injected.js:37 [LONGTASK] duration=91.0ms start=714738.1ms
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [LONGTASK] duration=73.0ms start=714860.0ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [LONGTASK] duration=57.0ms start=715639.3ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+VM6 injected.js:37 [WallTool] wall.create dispatched to bus (busId: wall_7B260E0DDD7C47858186B4474F ) — legacy path runs for geometry with id: 7b260e0d-dd7c-4785-8186-b4474f7c1fdc
+VM6 injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+VM6 injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+VM6 injected.js:37 [CommandManager] snapshot commandType="CreateWallCommand" scope=[wall,level] elapsed=0.3ms
+VM6 injected.js:37 [BimManager] Registered element 7b260e0d-dd7c-4785-8186-b4474f7c1fdc to level L0
+VM6 injected.js:37 Wall created via command: 7b260e0d-dd7c-4785-8186-b4474f7c1fdc
+VM6 injected.js:37 [FPS] 8fps
+VM6 injected.js:37 [LONGTASK] duration=51.0ms start=715834.5ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [LONGTASK] duration=68.0ms start=715885.5ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [LONGTASK] duration=129.0ms start=715963.8ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [PascalSceneLighting] Shadow flags set on 39 mesh(es).
+VM6 injected.js:37 [LONGTASK] duration=94.0ms start=716158.3ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+VM6 injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.1ms
+VM6 injected.js:37 [ProjectSerializer] Snapshot created: 1 elements, 1 levels, 1 walls, 0 slabs, 0 furniture
+VM6 injected.js:37 [ProjectSerializer] Snapshot created: 1 elements, 1 levels, 1 walls, 0 slabs, 0 furniture
+VM6 injected.js:37 [captureThumbnail] Captured blank/transparent frame — skipping (WebGL buffer may have been cleared)
+(anonymous) @ VM6 injected.js:37
+captureThumbnail @ VM927 initPersistence.ts:86
+saveVersionInternal @ VM880 PlatformSaveController.ts:142
+onAutoSave @ VM880 PlatformSaveController.ts:33
+executeSave @ VM884 SaveOrchestrator.ts:156
+(anonymous) @ VM884 SaveOrchestrator.ts:125
+setTimeout
+scheduleDebounce @ VM884 SaveOrchestrator.ts:125
+handleMutation @ VM884 SaveOrchestrator.ts:119
+SaveOrchestrator.mutationHandler @ VM884 SaveOrchestrator.ts:88
+emit @ VM1047 WallStore.ts:894
+add @ VM1047 WallStore.ts:236
+execute @ VM1177 CreateWallCommand.ts:137
+execute @ VM1093 CommandManager.ts:60
+createWall @ VM1114 WallTool.ts:1162
+createWallFromPath @ VM1114 WallTool.ts:559
+onPointerDown @ VM1114 WallTool.ts:481
+pointerDownHandler @ VM1114 WallTool.ts:377
+VM6 injected.js:37 [PlatformSaveController] Thumbnail: not captured (will reuse existing)

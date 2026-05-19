@@ -1,0 +1,14 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "9BrXzDYNtW5CQMmFJlSyt"
+uri = "file://docs/08-SECURITY-AUDIT-STATUS.md"
+type = "text"
+title = "PRYZM Security Audit — Status Report"
+
+[[outputs]]
+id = "2bx3F2_gtyBTyEzPb_luU"
+uri = "file://docs/PDF_TO_BIM_PIPELINE.md"
+type = "text"
+title = "PDF to BIM Pipeline — Contractual Documentation"

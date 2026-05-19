@@ -1,0 +1,22 @@
+{
+  "name": "@pryzm/docs-site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "PRYZM developer docs site (Astro Starlight) — S63 D1 scaffold per ADR-0039",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "^0.30.0",
+    "astro": "^5.0.0"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.9",
+    "typescript": "^5.0.0"
+  }
+}

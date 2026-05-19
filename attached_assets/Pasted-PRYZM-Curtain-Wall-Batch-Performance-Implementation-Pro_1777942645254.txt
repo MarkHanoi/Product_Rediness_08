@@ -1,0 +1,21 @@
+PRYZM Curtain Wall Batch Performance — Implementation PromptYou are implementing performance optimisations for the PRYZM BIM engine's curtain wall batch creation system. The target is to reduce CREATE_CURTAIN_WALLS_ON_ALL_SLABS from ~9,000ms to under 1,000ms for a 20-slab / 400-wall project on a mid-range GPU (RTX 3060).Context You Must Read FirstBefore writing any code, read and fully understand these files:
+src/engine/subsystems/core/batch/BatchCoordinator.ts — the batch envelope, runBatch(), signalBuildQueueDrained(), _executeFinalSweep()
+src/engine/subsystems/commands/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts — the slab loop, _processSlabs(), runBatch() call
+src/engine/subsystems/commands/curtainwall/CreateCurtainWallsFromSlabCommand.ts — per-slab wall creation
+src/engine/subsystems/initScene.ts — _onPostBatch callback, PBR upgrade chunking
+src/engine/subsystems/core/rendering/UnifiedFrameLoop.ts — beginBatchRenderSuppress() / endBatchRenderSuppress()
+Any file named CurtainWallStore.ts or similar — the store's add() method and internal event emission. Root Causes You Are FixingProblem 1 — O(n²) subscriber cascade in the slab loop.
+curtainWallStore.add() is called 400 times inside the loop. Each call emits an internal store notification even inside the storeEventBus.batch() envelope. Subscribers that scan the growing store make each insertion progressively slower (15ms → 33ms → 60ms → 92ms → 135ms per slab, extrapolating to ~8,000ms at 400 walls).Problem 2 — Synchronous shader compilation on first post-batch render.
+After endBatchRenderSuppress() lifts, the first renderer.render() call compiles WebGL shader program variants for every new material. At 400 curtain walls with multiple unique materials, this is 800–1,200 synchronous shader compilations on the main thread (~1,500–2,500ms).Problem 3 — PBR upgrade blocks perceived completion.
+The post-batch PBR upgrade (shadow flags + material upgrades) runs immediately after endBatchYielded() completes, adding ~300ms of visible delay before the user can interact. This work is not needed for the geometry to appear correctly.Problem 4 — resumeAndFlush() populates the builder drain queue synchronously.
+Inside runBatch(), after _processSlabs() returns, window.__curtainWallRebuildControl?.resumeAndFlush?.() runs synchronously and transfers all 400 walls into the builder's pending queue before the JS event loop yields. This triggers subscriber cascades from the builder's internal state update. Implementation TasksTask 1 — Add addMany() to CurtainWallStoreFind the CurtainWall store file. Add an addMany(items: CurtainWallData[]): void method that:
+Inserts all items into the internal Map in a single loop with no per-item event emission
+Fires a single consolidated store notification after all items are inserted
+Emits one storeEventBus event (or respects the existing batch envelope — whichever the store uses) for the entire batch rather than one per item
+Is fully typed and matches the existing add() method signature pattern
+Then update CreateCurtainWallsOnAllSlabsCommand._processSlabs() to:
+Collect all CurtainWallData objects into an array during the slab loop instead of calling curtainWallStore.add() per wall
+Call curtainWallStore.addMany(collectedWalls) once after the loop
+Preserve all existing logic: CCW winding order, skip degenerate edges, createdIdsBySlabId population, busCwSpecs collection, _regGroupsByLevel accumulation . Do not change anything else in the command at this stage.
+Task 2 — Shader Pre-warm Before runBatch()
+In CreateCurtainWallsOnAllSlabsCommand.execute(), before the if (!isRedo) block that calls runBatch(), add a shader pre-warm function called _prewarmCurtainWallShaders().

@@ -1,0 +1,58 @@
+Current Baseline (extrapolated to your worst case)
+Your 6-slab / 108-wall batch shows the cascading O(n²) pattern clearly. Extrapolating to 20+ slabs / 400+ walls:
+Slab loop: 436ms at 108 walls → ~6,000–8,000ms at 400 walls (quadratic growth)
+endBatchYielded drain: 108 walls × 20 listeners = 2,160 calls → 400 walls × 20 = 8,000 calls → ~400ms in chunks
+PBR upgrade: 419 meshes at 108 walls → ~1,500 meshes at 400 walls → chunked across ~13 frames
+REDETECT_ROOMS: 6 levels → 20 levels, frame-yielded so ~320ms spread
+Total realistic worst case today: ~9,000–12,000ms visible freeze
+Your target is under 1,000ms. That means you need roughly a 10× speedup. Here is exactly where to get it.
+
+The Optimisations, Ranked by Impact
+1. Fix the O(n²) Slab Loop — saves ~5,000–7,000ms
+This is by far your biggest problem. The cascading times (15 → 33 → 60 → 92 → 135ms per slab) are caused by curtainWallStore.add() triggering subscribers that scan the growing store on every single insertion. At 400 walls this becomes catastrophic.
+The fix is to batch all store mutations into a single storeEventBus.batch() call where no subscriber fires mid-loop, then flush once at the end. Your runBatch() already does this — but the CurtainWall builder's §BATCH-CW-PAUSE resumeAndFlush is still happening synchronously after the loop, meaning the geometry build for all 108 walls runs on the main thread before signalBuildQueueDrained() is called.
+The concrete fix is to move the CurtainWall builder drain entirely into rAF slices BEFORE the registration phase, not after. Currently your code does:
+runBatch(fn)          → store.add() × 108   [buffered]
+resumeAndFlush()      → 108 walls transferred to pending queue
+                      → ONE rAF drain scheduled
+signalBuildQueueDrained() → called by builder when drain empties
+_executeFinalSweep()  → endBatchYielded()
+The problem is resumeAndFlush() runs synchronously inside runBatch(), which means all 108 walls get queued for the builder drain before the JS event loop yields. On a 400-wall project the drain itself (geometry upload) takes 800–1200ms spread across rAF frames, but the initial queue population is synchronous and triggers subscriber cascades.
+Fix: Gate resumeAndFlush() behind requestIdleCallback or a single scheduleOnce('pre-render') so the main thread yields before the drain begins. Estimated saving: 4,000–6,000ms.
+2. Eliminate Per-Material Shader Compilation — saves ~1,500–2,500ms
+Your §FIX-BATCH-RENDER-SUPPRESS already suppresses renders during the drain, but shader compilation happens the moment the drain ends and the first renderer.render() fires with new materials. For 400 curtain walls with 2–3 unique materials each, WebGL compiles ~800–1,200 shader program variants synchronously on that first frame.
+The fix is to pre-warm the shaders before the batch starts. Add a single invisible render call with a representative MeshStandardMaterial before runBatch():
+typescript// Before runBatch():
+const warmupMesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.001, 0.001),
+    new THREE.MeshStandardMaterial({ color: '#333333', transparent: true, opacity: 0 })
+);
+world.scene.three.add(warmupMesh);
+renderer.render(world.scene.three, world.camera.three); // compiles shaders now
+world.scene.three.remove(warmupMesh);
+warmupMesh.geometry.dispose();
+warmupMesh.material.dispose();
+This forces WebGL to compile the shader variant once before any curtain wall geometry arrives. Subsequent walls reuse the compiled program. Estimated saving: 1,200–2,000ms.
+3. Replace curtainWallStore.add() Loop with addMany() — saves ~500–800ms
+Every curtainWallStore.add() call currently emits a store event even inside a batch envelope, because storeEventBus.batch() only buffers the bus delivery, not the store's internal onItemSet notifiers. At 400 walls that is 400 separate internal notifications.
+Add an addMany(items: CurtainWallData[]) method to your CurtainWall store that pushes all items into the internal Map in one loop and fires a single onItemSet notification at the end. The bus event is still buffered by the outer envelope. Estimated saving: 400–600ms.
+4. Defer PBR Upgrade to Idle Time — saves ~200–400ms
+Your current post-batch PBR upgrade runs upgradeNewMeshes() chunked at 120 meshes/frame immediately after endBatchYielded() completes. For 1,500 meshes that is ~13 frames of post-render work that blocks the user seeing the result.
+Move it to requestIdleCallback with a timeout: 5000. The meshes look fine without PBR for the first 5 seconds — users are still absorbing the geometry appearing. Estimated saving in perceived load time: 300–500ms (the geometry appears visible sooner even if PBR upgrades are still in flight).
+5. Instanced Rendering for Panels — saves ~300ms per render frame ongoing
+Your WallInstanceBridge is already wired for walls. The same pattern applied to curtain wall panels (which are all rectangular PlaneGeometry with the same mullion material) would reduce draw calls from ~400 × 6 panels = 2,400 to ~6 (one per panel type). This does not help batch creation time but dramatically improves the frame rate after the batch, making it feel faster. Your InstancedElementRenderer singleton already exists for this.
+
+Realistic Time Budget After All Fixes
+PhaseBeforeAfterSlab loop (store mutations)~6,000ms~180msBuilder drain (geometry)~800ms spread~600ms spread, invisible behind overlayShader compilation~1,500ms~80ms (pre-warmed)endBatchYielded drain~400ms~200ms (addMany reduces events)PBR upgrade~300ms visibledeferred, invisibleREDETECT_ROOMS (20 levels)~320ms spread~160ms (frame-yielded, unchanged)Total visible freeze~9,000ms~650–850ms
+That lands you within your 1-second target for the 20-slab / 400-wall case on an RTX 3060, with the loading overlay covering the geometry drain frames.
+
+Recommended Implementation Order
+Do these in order — each one unlocks the next:
+
+addMany() on CurtainWallStore — one afternoon, self-contained, no risk
+Shader pre-warm before runBatch() — one hour, copy-paste into CreateCurtainWallsOnAllSlabsCommand.execute()
+Defer resumeAndFlush() to scheduleOnce('pre-render') — one day, touches BatchCoordinator.runBatch() and the CurtainWall pause/resume surface
+Defer PBR upgrade to requestIdleCallback — two hours, change one line in initScene.ts post-batch callback
+Panel instancing via InstancedElementRenderer — one week, new CurtainPanelInstanceBridge mirroring WallInstanceBridge
+
+The first three alone will get you to roughly 1.2–1.5 seconds. Adding four brings you to ~900ms. Five is a frame-rate win but does not affect batch time.

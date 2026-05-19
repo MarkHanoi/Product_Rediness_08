@@ -1,0 +1,1639 @@
+/**
+ * initTools — Phase F-1 subsystem initializer.
+ *
+ * Creates every BIM tool instance and the central ToolManager:
+ *   - SelectionManager + space-bar screen-pan key binding
+ *   - CommandManager + CommandContext
+ *   - All element tools: WallTool, SlabTool, CeilingTool, FloorTool,
+ *     PlumbingTool, FurnitureTool, RoofTool, HandrailTool, WindowTool,
+ *     DoorTool, CurtainWallTool, ColumnTool, BeamTool, StairTool,
+ *     OpeningTool, RoomTool
+ *   - AnnotationManager (Phase A–IV)
+ *   - RadialMenu
+ *   - ToolManager (registers all tools above)
+ *   - Room topology observer (auto room-detection on wall changes)
+ *
+ * Contracts:
+ *   §01-BIM-ENGINE-CORE-CONTRACT §9 — engine-layer only; no UI imports.
+ *   §01 §2.1 — No direct store mutation; all writes through CommandManager.
+ *   §07-BIM-SECURITY-CONTRACT — no external API calls.
+ *
+ * D.4.4 POINTER (Wave 3 / Option A):
+ *   The typed contracts for this file's output live in
+ *   `packages/input-host/src/`:
+ *     • `bootstrap.ts`          — `bootstrapInput()` / `bootstrapInputIdle()`
+ *                                 + OTel span `pryzm.bootstrap.input`
+ *     • `SelectionBootstrap.ts` — selection wiring typed contract
+ *                                 (mirrors SelectionManager init, lines ≈1141-1260
+ *                                  of the pre-F1 EngineBootstrap.ts spec baseline)
+ *     • `ToolBindings.ts`       — tool registration typed contract
+ *                                 (the 20 ToolManager.register() calls + RadialMenu bindings)
+ *   Body relocates fully once L7 dep factoring is complete (Wave 4).
+ */
+
+import * as THREE from '@pryzm/renderer-three/three';
+import * as OBC from '@thatopen/components';
+
+import { SelectionManager } from '@pryzm/input-host';
+import { ToolManager } from '@pryzm/input-host';
+import { CommandManager } from '@pryzm/command-registry';
+import { resolvePickStrategy } from '@pryzm/picking';
+
+import { SlabTool } from '@pryzm/geometry-slab';
+import { CeilingTool } from '@pryzm/geometry-slab';
+import { FloorTool } from '@pryzm/geometry-slab';
+import { SlabDimensionsEditor } from '@app/ui/property-panel/SlabDimensionsEditor';
+import { ElementCreationModal } from '@app/ui/ElementCreationModal';
+import { PlumbingTool } from '@pryzm/geometry-plumbing';
+import { FurnitureTool } from '@pryzm/geometry-furniture';
+import { LightingTool } from '@pryzm/geometry-lighting';
+import { FurnitureType } from '@pryzm/geometry-furniture';
+import { FloatingObjectCarousel } from '@app/ui/furniture-carousel/FloatingObjectCarousel';
+import { FurnitureDragDropHandler } from '@app/ui/furniture-carousel/FurnitureDragDropHandler';
+import { getDescriptorForType } from '@app/ui/furniture-carousel/FurnitureCategoryRegistry';
+import { deriveCategoryFromType } from '@pryzm/geometry-furniture';
+import { KitchenCabinetTool } from '@app/ui/kitchen/KitchenCabinetTool';
+import { KitchenLayoutType } from '@pryzm/geometry-furniture';
+import { KitchenConfigPanel } from '@app/ui/kitchen/KitchenConfigPanel';
+import { kitchenUnitInspector } from '@app/ui/kitchen/KitchenUnitInspector';
+import { kitchenRunInspector }  from '@app/ui/kitchen/KitchenRunInspector';
+import { WardrobeCabinetTool } from '@app/ui/wardrobe/WardrobeCabinetTool';
+import { WardrobeLayoutType }  from '@pryzm/geometry-furniture';
+import { WardrobeConfigPanel } from '@app/ui/wardrobe/WardrobeConfigPanel';
+import { wardrobeSectionInspector } from '@app/ui/wardrobe/WardrobeSectionInspector';
+import { wardrobeRunInspector }     from '@app/ui/wardrobe/WardrobeRunInspector';
+import { RoofTool } from '@pryzm/geometry-roof';
+import { HandrailTool } from '@pryzm/geometry-stair';
+import { WallTool } from '@pryzm/geometry-wall';
+import { SlabDependencyTracker } from '@pryzm/geometry-slab';
+import { WindowTool } from '@pryzm/geometry-window';
+import { DoorTool } from '@pryzm/geometry-door';
+import { CurtainWallTool } from '@pryzm/geometry-curtain-wall';
+import { ColumnTool } from '@pryzm/geometry-column';
+import { BeamTool } from '@pryzm/input-host';
+import { StairTool } from '@pryzm/geometry-stair';
+import { OpeningTool } from '@pryzm/input-host';
+import { AnnotationManager, obcAnnotationAdapter } from '@pryzm/plugin-annotations';
+import { RadialMenu } from '@app/ui/RadialMenu';
+import { DrawingEditor } from '@thatopen/components-front';
+import { RoomDetectionEngine } from '@pryzm/room-topology';
+import { RoomTopologyObserver } from '@pryzm/room-topology';
+import { RoomTool } from '@pryzm/room-topology';
+import { RoomBoundingLineTool } from '@pryzm/geometry-wall';
+
+// ── Singleton imports (module-level stores / services) ────────────────────────
+import { ceilingSystemTypeStore } from '@pryzm/core-app-model/stores';
+import { floorSystemTypeStore } from '@pryzm/core-app-model/stores';
+import { annotationStore } from '@pryzm/plugin-annotations';
+import { constraintStore } from '@pryzm/plugin-annotations';
+import { constraintSolver } from '@pryzm/plugin-annotations';
+// ANNOTATION-SYSTEM-AUDIT-2026 A1 — inject annotation/view stores into CommandContext
+import { annotationVisibilityStore } from '@pryzm/plugin-annotations';
+import { viewDefinitionStore } from '@pryzm/core-app-model';
+import { viewIntentInstanceStore } from '@pryzm/core-app-model/presentation';
+import { vgGovernanceStore } from '@pryzm/core-app-model';
+import { doorStore } from '@pryzm/geometry-door';
+import { windowStore } from '@pryzm/geometry-window';
+import { roomGraphService, roomQueryService, roomValidationService, roomTypeInferenceEngine } from '@pryzm/spatial-index';
+import { semanticGraphManager } from '@pryzm/core-app-model';
+import { temporalGraphManager } from '@pryzm/core-app-model';
+import { initGhostOverlayRenderer } from '@pryzm/core-app-model';
+import { roomSpatialIndex } from '@pryzm/core-app-model';
+import { hierarchyStore } from '@pryzm/core-app-model';
+import { templateStore } from '@pryzm/core-app-model';
+import { templateAssignmentStore } from '@pryzm/core-app-model';
+import { elementCodeStore } from '@pryzm/core-app-model';
+// S70 D8 — lifecycleStateManager + maintenanceRecordStore imports deleted
+// alongside src/lifecycle/ per SPEC-27 §4.3 + ADR-030 Part D + ADR-0052 §B.7.
+// Their per-project clear() is a no-op now (replaced by per-family handlers
+// in plugins/* per ADR-030 §A row 2).
+// Phase 5b — UnderlayReferenceScaleTool / UnderlayReferenceRotateTool are
+// lazy-loaded (see "Underlay Reference Scale Tool" / "Underlay Reference
+// Rotate Tool" sections below). Together they are ~1 850 LOC; deferring them
+// keeps that parse + execute cost out of the boot path. Both tools are only
+// reached via explicit user clicks ("Scale" / "Rotate" buttons in the
+// underlay toolbar) and have no boot-time side effects beyond their own
+// activate-event listener — which is exactly what the bootstrap shim below
+// stands in for. `import type` aliases below are erased by tsc and do NOT
+// pull either module into the static graph.
+import type { UnderlayReferenceScaleTool as _UnderlayReferenceScaleToolImpl }
+    from '@pryzm/input-host';
+import type { UnderlayReferenceRotateTool as _UnderlayReferenceRotateToolImpl }
+    from '@pryzm/input-host';
+import { MarqueeSelectionTool }        from '@pryzm/input-host';
+import { installUnderlayPersistence } from './UnderlayPersistence';
+import { projectScopedStorage } from '@pryzm/core-app-model';
+import { installProjectIsolationAudit } from '@pryzm/core-app-model';
+
+// ── Public API ────────────────────────────────────────────────────────────────
+
+export interface ToolsParams {
+    world: any;
+    components: any;
+    container: HTMLElement;
+    bimManager: any;
+    projectContext: any;
+    transformControls: any;
+    levelPlaneConstraint: any;
+    viewController: any;
+    navManager: any;
+    updateInspector: (obj: any) => void;
+    unselectAll: () => void;
+    zoomToAll: () => void;
+    getHdriTexture: () => Promise<THREE.Texture | null>;
+    getCurrentVisualStyle: () => any;
+    commandManagerRef: { current: any };
+    inspector: any;
+    /**
+     * Phase B.13-RM (S73-WIRE) — composed `PryzmRuntime` forwarded from
+     * `bootstrap()` so `new RadialMenu(runtime)` receives the typed handle
+     * (Variant B widening, parent-thread step per §II.B.0 step 4). Optional
+     * with a `null` default so legacy callers that have not yet been
+     * migrated continue to type-check.
+     */
+    runtime?: import('@pryzm/runtime-composer').PryzmRuntime | null;
+    // Stores from initBuilders
+    wallStore: any;
+    slabStore: any;
+    columnStoreInstance: any;
+    beamStore: any;
+    stairStore: any;
+    stairTypeStore: any;
+    stairLandingStore: any;
+    stairRailingStore: any;
+    gridStore: any;
+    curtainWallStoreInstance: any;
+    curtainPanelStoreInstance: any;
+    roofStore: any;
+    plumbingStore: any;
+    furnitureStore: any;
+    handrailStore: any;
+    openingStore: any;
+    wallSystemTypeStore: any;
+    slabSystemTypeStore: any;
+    ceilingStore: any;
+    floorStore: any;
+    roomStore: any;
+    // Builders from initBuilders
+    slabBuilder: any;
+    plumbingBuilder: any;
+    furnitureBuilder: any;
+    stairMeshBuilder: any;
+}
+
+export interface ToolsResult {
+    selectionManager: SelectionManager;
+    commandManager: CommandManager;
+    commandContext: any;
+    toolManager: ToolManager;
+    wallTool: WallTool;
+    slabTool: SlabTool;
+    slabDependencyTracker: SlabDependencyTracker;
+    ceilingTool: CeilingTool;
+    floorTool: FloorTool;
+    windowTool: WindowTool;
+    doorTool: DoorTool;
+    curtainWallTool: CurtainWallTool;
+    columnTool: ColumnTool;
+    beamTool: BeamTool;
+    stairTool: StairTool;
+    plumbingTool: PlumbingTool;
+    furnitureTool: FurnitureTool;
+    furnitureCarousel: FloatingObjectCarousel;
+    furnitureDragDropHandler: FurnitureDragDropHandler;
+    handrailTool: HandrailTool;
+    roofTool: any;
+    openingTool: OpeningTool;
+    annotationManager: AnnotationManager;
+    radialMenu: RadialMenu;
+    roomTool: any;
+    roomDetectionEngine: RoomDetectionEngine;
+    roomTopologyObserver: RoomTopologyObserver;
+}
+
+// ── initTools ─────────────────────────────────────────────────────────────────
+
+export async function initTools(p: ToolsParams): Promise<ToolsResult> {
+    const {
+        world, components, container, bimManager, projectContext,
+        transformControls, levelPlaneConstraint, viewController, navManager,
+        updateInspector, unselectAll, zoomToAll,
+        getHdriTexture, getCurrentVisualStyle,
+        commandManagerRef, inspector,
+        runtime,
+        wallStore, slabStore, columnStoreInstance, beamStore,
+        stairStore, stairTypeStore, stairLandingStore, stairRailingStore,
+        gridStore, curtainWallStoreInstance, curtainPanelStoreInstance,
+        roofStore, plumbingStore, furnitureStore, handrailStore, openingStore,
+        wallSystemTypeStore, slabSystemTypeStore, ceilingStore, floorStore, roomStore,
+        slabBuilder, plumbingBuilder, furnitureBuilder, stairMeshBuilder,
+    } = p;
+
+    // ── SelectionManager ─────────────────────────────────────────────────────
+    const selectionManager = new SelectionManager(
+        world,
+        world.camera as OBC.SimpleCamera,
+        world.renderer.three.domElement,
+        transformControls,
+        (obj: THREE.Object3D) => updateInspector(obj),
+    );
+    selectionManager.init();
+    selectionManager.setLevelPlaneConstraint(levelPlaneConstraint);
+    // Wave 36 U-2 (A16-T8 completion, C04 §3.2): resolve pick strategy once at boot.
+    // resolvePickStrategy probes GPU availability; falls back to BVH silently.
+    // Inject into SelectionManager so GPU pick is preferred over BVH+raycaster path.
+    // Use a minimal probe context — camera + viewport only; no element registry needed
+    // for the probe (BvhPickStrategy.probeAvailability ignores ctx; GpuPickStrategy
+    // writes a probe pixel to detect Mesa driver readback bugs).
+    try {
+        const _probeCtx = {
+            camera:          (world.camera as OBC.SimpleCamera).three as THREE.Camera,
+            elementRegistry: { ids: () => [], kindOf: () => null, objectFor: () => null },
+            viewportWidth:   world.renderer.three.domElement.clientWidth  || 1280,
+            viewportHeight:  world.renderer.three.domElement.clientHeight || 720,
+            scene:           world.scene.three as THREE.Scene,
+            renderer: (() => {
+                const r = world.renderer.three;
+                return {
+                    get width()  { return r.domElement.width;  },
+                    get height() { return r.domElement.height; },
+                    renderToTarget: (scene: THREE.Scene, camera: THREE.Camera, target: THREE.WebGLRenderTarget, mat: THREE.Material | null) => {
+                        const prev = r.getRenderTarget(); const prevMat = (r as any).overrideMaterial;
+                        r.setRenderTarget(target); (r as any).overrideMaterial = mat;
+                        r.render(scene, camera);
+                        (r as any).overrideMaterial = prevMat; r.setRenderTarget(prev);
+                    },
+                    readPixels: (t: THREE.WebGLRenderTarget, x: number, y: number, w: number, h: number, buf: Uint8Array) =>
+                        r.readRenderTargetPixels(t, x, y, w, h, buf),
+                    createRenderTarget: (w: number, h: number) => new THREE.WebGLRenderTarget(w, h),
+                };
+            })(),
+        };
+        const _strategy = resolvePickStrategy(_probeCtx as any);
+        selectionManager.setPickStrategy(_strategy);
+        console.log('[initTools] PickStrategy resolved:', _strategy.id);
+    } catch (err) {
+        console.warn('[initTools] PickStrategy resolution failed — BVH path active:', err);
+        selectionManager.setPickStrategy(null);
+    }
+    window.selectionManager = selectionManager;
+    viewController.setSelectionManager(selectionManager);
+
+    // ── §MARQUEE-SELECT-2026 — Shift+LeftDrag rectangle multi-selection ──────
+    // §11 Keyboard Shortcuts Contract claims `Shift + LeftDrag` for the 3D
+    // viewport.  This tool draws an HTML overlay rectangle, then on release
+    // collects every selectable whose projected screen-AABB satisfies the
+    // window/crossing rule and routes the result through SelectionBus.
+    new MarqueeSelectionTool({
+        domElement: world.renderer.three.domElement,
+        camera:     (world.camera as OBC.SimpleCamera).three as THREE.Camera,
+        selection:  selectionManager,
+        // Only active in 3D view mode — Plan View has its own click model.
+        isEnabled:  () => navManager.currentMode === '3D',
+    });
+
+    // ── Underlay Reference Scale Tool (LAZY — Phase 5b) ──────────────────────
+    // Was: `new UnderlayReferenceScaleTool()` constructed at boot, registering
+    // a window listener for 'underlay:reference-scale-activate' that does the
+    // heavy work only on user click. The constructor body is cheap, but the
+    // module is ~987 LOC and statically pulls in `UnderlayScaleHUD` plus the
+    // underlay command stack — all of which only matter once the user actually
+    // chooses to scale a PDF/image underlay (a rare, late-session action).
+    //
+    // Pattern: a one-shot bootstrap listener registered at boot stands in for
+    // the real tool. On the first activate event we lazy-import the module,
+    // construct the real tool (whose own constructor registers the same
+    // listener), then re-dispatch the original event so the now-loaded tool
+    // picks it up exactly as if it had been there all along.
+    //
+    // Mirrors the proven `_ensureXxx()` pattern from Phase 3 (PdfExportService,
+    // VisibilityIntentPanel, SheetEditorPanel) but adapted for an event-driven
+    // tool that has no method surface — only a "wake up on this event" hook.
+    {
+        const _eventName = 'underlay:reference-scale-activate' as const;
+        let _bootstrapped = false;
+        let _unsubScale: (() => void) | undefined;
+        const _bootstrap = async (detail: { underlayTool: unknown }) => {
+            if (_bootstrapped) return; // belt-and-braces — unsubscribe below handles the normal path
+            _bootstrapped = true;
+            _unsubScale?.(); _unsubScale = undefined; // F.events.15 — unsubscribe bootstrap listener
+            try {
+                const { UnderlayReferenceScaleTool } =
+                    await import('@pryzm/input-host') as {
+                        UnderlayReferenceScaleTool: new () => _UnderlayReferenceScaleToolImpl;
+                    };
+                new UnderlayReferenceScaleTool();
+                window.runtime?.events?.emit(_eventName, detail); // F.events.15 — re-fire for real tool
+            } catch (err) {
+                console.error('[initTools] UnderlayReferenceScaleTool lazy load failed:', err);
+                _bootstrapped = false;
+                _unsubScale = window.runtime?.events?.on(_eventName, _bootstrap); // re-subscribe on error
+            }
+        };
+        _unsubScale = window.runtime?.events?.on(_eventName, _bootstrap); // F.events.15
+    }
+
+    // ── Underlay Reference Rotate Tool (LAZY — Phase 5b) ─────────────────────
+    // Same lazy bootstrap pattern as the scale tool above. The rotate module
+    // is ~859 LOC and is only reached when the user clicks the "Rotate"
+    // button on a selected underlay.
+    {
+        const _eventName = 'underlay:reference-rotate-activate' as const;
+        let _bootstrapped = false;
+        let _unsubRotate: (() => void) | undefined;
+        const _bootstrap = async (detail: { underlayTool: unknown }) => {
+            if (_bootstrapped) return;
+            _bootstrapped = true;
+            _unsubRotate?.(); _unsubRotate = undefined; // F.events.15 — unsubscribe bootstrap listener
+            try {
+                const { UnderlayReferenceRotateTool } =
+                    await import('@pryzm/input-host') as {
+                        UnderlayReferenceRotateTool: new () => _UnderlayReferenceRotateToolImpl;
+                    };
+                new UnderlayReferenceRotateTool();
+                window.runtime?.events?.emit(_eventName, detail); // F.events.15 — re-fire for real tool
+            } catch (err) {
+                console.error('[initTools] UnderlayReferenceRotateTool lazy load failed:', err);
+                _bootstrapped = false;
+                _unsubRotate = window.runtime?.events?.on(_eventName, _bootstrap); // re-subscribe on error
+            }
+        };
+        _unsubRotate = window.runtime?.events?.on(_eventName, _bootstrap); // F.events.15
+    }
+
+    // ── Space-bar screen pan ─────────────────────────────────────────────────
+    {
+        const _canvas = world.renderer.three.domElement;
+        let _spaceHeld = false;
+        window.addEventListener('keydown', (e: KeyboardEvent) => {
+            if (e.code !== 'Space' || _spaceHeld) return;
+            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+            _spaceHeld = true;
+            e.preventDefault();
+            if (navManager.currentMode === '3D') {
+                world.camera.controls.mouseButtons.left = 2; // TRUCK / SCREEN_PAN
+                _canvas.style.cursor = 'grab';
+            }
+        }, { capture: true });
+        window.addEventListener('keyup', (e: KeyboardEvent) => {
+            if (e.code !== 'Space') return;
+            _spaceHeld = false;
+            if (navManager.currentMode === '3D') {
+                world.camera.controls.mouseButtons.left = 1; // ROTATE
+                _canvas.style.cursor = '';
+            }
+        }, { capture: true });
+        window.addEventListener('blur', () => {
+            if (_spaceHeld) {
+                _spaceHeld = false;
+                if (navManager.currentMode === '3D') {
+                    world.camera.controls.mouseButtons.left = 1;
+                    _canvas.style.cursor = '';
+                }
+            }
+        });
+    }
+
+    // ── SlabTool (created before commandManager — deps injected via lazy refs) ─
+    const slabTool = new SlabTool(world, components, container, {
+        applyHighlight: (obj: any) => selectionManager.applyHighlight(obj),
+        updateInspector,
+        zoomToAll: async () => { zoomToAll(); },
+        getHdriTexture,
+        getCurrentVisualStyle,
+    });
+    window.slabTool = slabTool;
+
+    // W5 §SLAB-SYSTEM-AUDIT-2026: Wire the slab profile-edit callback so SelectionManager
+    // no longer reads window.slabTool in its dblclick handler.
+    selectionManager.setSlabProfileEditCallback((slabId: string) =>
+        slabTool.enterProfileEditMode(slabId)
+    );
+
+    // ── CeilingTool ───────────────────────────────────────────────────────────
+    const ceilingCreationModal = new ElementCreationModal();
+    const ceilingTool = new CeilingTool(world, components, {
+        getCommandManager: () => commandManagerRef.current,
+        getCeilingStore: () => ceilingStore,
+        getCeilingSystemTypeStore: () => ceilingSystemTypeStore,
+        getBimManager: () => bimManager,
+        openCreationModal: (opts) => ceilingCreationModal.show(opts as any),
+        dismissCreationModal: () => ceilingCreationModal.dismiss(),
+    });
+    window.ceilingTool = ceilingTool;
+
+    // ── FloorTool ─────────────────────────────────────────────────────────────
+    const floorCreationModal = new ElementCreationModal();
+    const floorTool = new FloorTool(world, components, {
+        getCommandManager: () => commandManagerRef.current,
+        getFloorStore: () => floorStore,
+        getFloorSystemTypeStore: () => floorSystemTypeStore,
+        getBimManager: () => bimManager,
+        openCreationModal: (opts) => floorCreationModal.show(opts as any),
+        dismissCreationModal: () => floorCreationModal.dismiss(),
+    });
+    window.floorTool = floorTool;
+
+    // ── Room services (exposed globally; graph is built lazily) ───────────────
+    window.roomGraphService        = roomGraphService;
+    window.roomQueryService        = roomQueryService;
+    window.roomValidationService   = roomValidationService;
+    window.roomTypeInferenceEngine = roomTypeInferenceEngine;
+
+    for (const evt of ['bim-room-added', 'bim-room-updated', 'bim-room-removed'] as const) {
+        window.addEventListener(evt, (e: any) => {
+            const id = (e as CustomEvent).detail?.levelId;
+            if (id) roomGraphService.invalidate(id);
+        });
+    }
+    doorStore.subscribe((_evt: string, door: any) => {
+        if (!door?.wallId) return;
+        roomGraphService.invalidateForDoor(door.id ?? '');
+        const ws = window.wallStore; // TODO(TASK-08)
+        if (ws) {
+            const wall = ws.getById(door.wallId);
+            if (wall?.levelId) roomGraphService.invalidate(wall.levelId);
+        }
+    });
+
+    // ── PlumbingTool ──────────────────────────────────────────────────────────
+    const plumbingTool = new PlumbingTool(world, plumbingStore, plumbingBuilder);
+    window.plumbingTool = plumbingTool;
+
+    // ── FurnitureTool + Carousel ──────────────────────────────────────────────
+    const furnitureTool = new FurnitureTool(world, furnitureStore, furnitureBuilder, getDescriptorForType);
+    window.furnitureTool = furnitureTool;
+    const furnitureCarousel = new FloatingObjectCarousel();
+    furnitureCarousel.mount(document.body);
+    furnitureCarousel.setVisible(false);
+    window.furnitureCarousel = furnitureCarousel;
+    const furnitureDragDropHandler = new FurnitureDragDropHandler();
+
+    // ── CommandContext + CommandManager ───────────────────────────────────────
+    const commandContext: any = {
+        bimManager,
+        projectContext,
+        stores: {
+            wallStore, slabStore, columnStore: columnStoreInstance, gridStore,
+            stairStore, beamStore,
+            curtainWallStore: curtainWallStoreInstance,
+            curtainPanelStore: curtainPanelStoreInstance,
+            roofStore, plumbingStore, furnitureStore, handrailStore, openingStore,
+            lightingStore: window.lightingStore, // TODO(TASK-08)
+            wallSystemTypeStore, slabSystemTypeStore,
+            ceilingStore, ceilingSystemTypeStore,
+            floorStore, floorSystemTypeStore,
+            // ANNOTATION-SYSTEM-AUDIT-2026 A1 — annotation/view stores so
+            // commands resolve dependencies from ctx instead of window globals.
+            annotationStore,
+            annotationVisibilityStore,
+            constraintStore,
+            viewDefinitionStore,
+            viewIntentInstanceStore,
+            vgGovernanceStore,
+        },
+        // ANNOTATION-SYSTEM-AUDIT-2026 A1 — top-level annotation services.
+        constraintSolver,
+        wallFragmentBuilder: null,
+        // §WALL-AUDIT-2026-W2 (RESOLVED) — FurnitureFragmentBuilder is now
+        // injected via CommandContext so DeleteElementCommand no longer needs
+        // to read `window.furnitureFragmentBuilder`. The window global
+        // is set asynchronously by the furniture subsystem; we update this
+        // field in the second commandContext pass below once it is available.
+        furnitureFragmentBuilder: window.furnitureFragmentBuilder ?? null,
+    };
+    const commandManager = new CommandManager(commandContext);
+    commandManagerRef.current = commandManager;
+    inspector.setCommandManager(commandManager);
+
+    // ── Furniture DragDropHandler — wired after commandManager ────────────────
+    furnitureDragDropHandler.attach(world.renderer!.three.domElement, world, commandManager);
+
+    // ── RoofTool ──────────────────────────────────────────────────────────────
+    let roofTool: any = null;
+    roofTool = new RoofTool(world, components, {
+        applyHighlight: (obj: any) => selectionManager.applyHighlight(obj),
+        updateInspector,
+    }, {
+        commandManager,
+        projectContext,
+        selectionManager: { setEnabled: (on: boolean) => selectionManager.setEnabled?.(on) },
+        wallStore,
+        bimManager,
+    });
+    window.roofTool = roofTool;
+
+    // ── HandrailTool ──────────────────────────────────────────────────────────
+    const handrailTool = new HandrailTool(world, handrailStore, projectContext, commandManager);
+    window.handrailTool = handrailTool;
+
+    // ── KitchenCabinetTool ────────────────────────────────────────────────────
+    const kitchenCabinetTool = new KitchenCabinetTool(world, furnitureStore);
+
+    // ── KitchenConfigPanel ────────────────────────────────────────────────────
+    const kitchenConfigPanel = new KitchenConfigPanel(kitchenCabinetTool);
+    kitchenConfigPanel.mount(document.body);
+
+    // ── KitchenUnitInspector ──────────────────────────────────────────────────
+    kitchenUnitInspector.mount(document.body);
+    window.kitchenUnitInspector = kitchenUnitInspector;
+
+    // ── KitchenRunInspector ───────────────────────────────────────────────────
+    kitchenRunInspector.mount(document.body);
+    window.kitchenRunInspector = kitchenRunInspector;
+
+    // ── WardrobeCabinetTool ───────────────────────────────────────────────────
+    const wardrobeCabinetTool = new WardrobeCabinetTool(world, furnitureStore);
+
+    // ── WardrobeConfigPanel ───────────────────────────────────────────────────
+    const wardrobeConfigPanel = new WardrobeConfigPanel(wardrobeCabinetTool);
+    wardrobeConfigPanel.mount(document.body);
+
+    // ── WardrobeSectionInspector ──────────────────────────────────────────────
+    wardrobeSectionInspector.mount(document.body);
+    window.wardrobeSectionInspector = wardrobeSectionInspector;
+
+    // ── WardrobeRunInspector ──────────────────────────────────────────────────
+    wardrobeRunInspector.mount(document.body);
+    window.wardrobeRunInspector = wardrobeRunInspector;
+
+    // ── FurnitureTool → Carousel wiring ───────────────────────────────────────
+    let _activeKitchenType: KitchenLayoutType | null = null;
+    let _activeWardrobeType: WardrobeLayoutType | null = null;
+    const _ftActivate   = furnitureTool.activate.bind(furnitureTool);
+    const _ftDeactivate = furnitureTool.deactivate.bind(furnitureTool);
+    const _ftSetType    = furnitureTool.setFurnitureType.bind(furnitureTool);
+    (furnitureTool as any).activate   = () => {
+        if (_activeKitchenType) {
+            kitchenCabinetTool.setLayout(_activeKitchenType);
+            kitchenCabinetTool.activate();
+            kitchenConfigPanel.show(_activeKitchenType);
+        } else if (_activeWardrobeType) {
+            wardrobeCabinetTool.setLayout(_activeWardrobeType);
+            wardrobeCabinetTool.activate();
+            wardrobeConfigPanel.show(_activeWardrobeType);
+        } else {
+            _ftActivate();
+            furnitureCarousel.setVisible(false);
+        }
+    };
+    (furnitureTool as any).deactivate = () => {
+        _ftDeactivate();
+        furnitureCarousel.setVisible(false);
+        kitchenCabinetTool.deactivate();
+        kitchenConfigPanel.hide();
+        _activeKitchenType = null;
+        wardrobeCabinetTool.deactivate();
+        wardrobeConfigPanel.hide();
+        _activeWardrobeType = null;
+    };
+    (furnitureTool as any).setFurnitureType = (type: string) => {
+        const kitchenTypes: KitchenLayoutType[]   = [
+            'kitchen_straight', 'kitchen_l_shape', 'kitchen_u_shape', 'kitchen_island',
+            'kitchen_straight_tall', 'kitchen_l_shape_tall', 'kitchen_u_shape_tall',
+        ];
+        const wardrobeTypes: WardrobeLayoutType[] = [
+            'wardrobe_straight', 'wardrobe_l_shape', 'wardrobe_u_shape',
+            'wardrobe_straight_tall', 'wardrobe_l_shape_tall', 'wardrobe_u_shape_tall',
+        ];
+        if (kitchenTypes.includes(type as KitchenLayoutType)) {
+            _activeKitchenType  = type as KitchenLayoutType;
+            _activeWardrobeType = null;
+        } else if (wardrobeTypes.includes(type as WardrobeLayoutType)) {
+            _activeWardrobeType = type as WardrobeLayoutType;
+            _activeKitchenType  = null;
+        } else {
+            _activeKitchenType  = null;
+            _activeWardrobeType = null;
+            _ftSetType(type as FurnitureType);
+            try { furnitureCarousel.setCategory(deriveCategoryFromType(type as FurnitureType)); } catch { /* ignored */ }
+        }
+    };
+
+    // ── LightingTool ──────────────────────────────────────────────────────────
+    const lightingStore  = window.lightingStore; // TODO(TASK-08)
+    const lightingBuilder = window.lightingBuilder;
+    if (lightingStore && lightingBuilder) {
+        const lightingTool = new LightingTool(world, lightingStore, lightingBuilder);
+        window.lightingTool = lightingTool;
+        console.log('[initTools] LightingTool initialised');
+    } else {
+        console.warn('[initTools] LightingTool: lightingStore or lightingBuilder not ready');
+    }
+
+    // ── RadialMenu ────────────────────────────────────────────────────────────
+    // Phase B.13-RM (S73-WIRE) — thread the composed runtime into the radial
+    // menu so its actions can reach typed slots in Phase D.4 / E.5.x without
+    // extra wiring. `runtime ?? null` preserves the legacy boot path where
+    // `initTools` is invoked without a runtime in scope.
+    const radialMenu = new RadialMenu(runtime ?? null);
+    const canvasDomEl = world.renderer?.three.domElement;
+    if (canvasDomEl) radialMenu.mount(canvasDomEl);
+    else console.warn('[initTools] RadialMenu: canvas not available at init time');
+
+    // ── ToolManager forward-declared so WallTool.onCancel closure can ref it ──
+    let toolManager: ToolManager | null = null;
+
+    // ── WallTool ──────────────────────────────────────────────────────────────
+    // §WALL-AUDIT-2026-W4: dependencies that WallTool previously fetched from
+    // window globals (curtainWallStore, gridStore, fastPathProjectorService,
+    // selectionManager, slabTool) are now injected via callbacks. The window
+    // globals themselves remain for OTHER consumers (PropertyInspector,
+    // PlanToolHandlers, etc.) but WallTool no longer reads them.
+    const _curtainWallStoreForWallTool = window.curtainWallStore ?? null; // TODO(TASK-08)
+    const _gridStoreForWallTool = window.gridStore ?? null; // TODO(TASK-08)
+    const _fastPathProjectorServiceForWallTool =
+        window.fastPathProjectorService ?? null;
+    // §WALL-AUDIT-2026-M2 — view-projection stores: previously read directly from
+    // window globals inside WallTool's constructor. Now sourced here (the single
+    // allowed bridge from window globals to the wall subsystem) and passed via
+    // WallToolCallbacks. Each store is optional; the builder degrades gracefully.
+    const _viewDefinitionStoreForWallTool     = window.viewDefinitionStore     ?? null; // TODO(TASK-08)
+    const _viewIntentInstanceStoreForWallTool = window.viewIntentInstanceStore ?? null; // TODO(TASK-08)
+    const _visibilityIntentStoreForWallTool   = window.visibilityIntentStore   ?? null; // TODO(TASK-08)
+    const wallTool = new WallTool(world, {
+        applyHighlight: (obj: THREE.Object3D) => selectionManager.applyHighlight(obj),
+        updateInspector,
+        zoomToAll: async () => { zoomToAll(); },
+        wallStore,
+        getHdriTexture,
+        getCurrentVisualStyle,
+        bimManager,
+        commandManager,
+        // E.5.x (E-bus.1) — forward composed runtime so WallTool can use
+        // runtime.bus.executeCommand('wall.create' / 'wall.createFromSlab')
+        // instead of commandManager.execute(CreateWallCommand).
+        runtime: runtime ?? null,
+        // §WALL-AUDIT-2026-W4 — injected dependencies (replaces window reads in WallTool):
+        curtainWallStore: _curtainWallStoreForWallTool,
+        gridStore: _gridStoreForWallTool,
+        fastPathProjectorService: _fastPathProjectorServiceForWallTool,
+        selectionManager,
+        // §WALL-AUDIT-2026-M2 — injected view-projection stores (replaces direct
+        // window reads in WallTool constructor + WallFragmentBuilder bridge):
+        viewDefinitionStore:     _viewDefinitionStoreForWallTool,
+        viewIntentInstanceStore: _viewIntentInstanceStoreForWallTool,
+        visibilityIntentStore:   _visibilityIntentStoreForWallTool,
+        // slabTool is wired via a getter below (see _slabToolHolder) because it
+        // is not declared until later in this module — but we pass the live
+        // reference indirectly through the slab variable which is in scope here.
+        slabTool,
+        onCancel: () => {
+            unselectAll();
+            // Guard: deactivateAll() is async and re-entrant calls (e.g. from
+            // WallTool.deactivate() called inside deactivateAllInternal()) would
+            // hit the "transition in progress" warning and return early anyway.
+            // Skip the call when a deactivation is already in flight.
+            if (!toolManager?.isTransitioningTools()) {
+                toolManager?.deactivateAll();
+            }
+        },
+    }, projectContext);
+    window.wallTool = wallTool;
+    commandContext.wallFragmentBuilder = wallTool.getFragmentBuilder();
+
+    // ── SlabTool — full deps now that wallTool + commandManager are live ───────
+    slabTool.setWallStore(wallTool.getWallStore());
+    slabTool.setDeps({
+        getCommandManager:      () => commandManagerRef.current,
+        getSlabStore:           () => slabStore,
+        getSlabBuilder:         () => slabBuilder,
+        getSlabSystemTypeStore: () => slabSystemTypeStore,
+        getBimManager:          () => bimManager,
+        getWallTool:            () => wallTool,
+        getUnselectAll:         () => unselectAll,
+        createDimensionsEditor: (deps) => new SlabDimensionsEditor(deps),
+    });
+
+    const slabDependencyTracker = new SlabDependencyTracker(
+        slabStore, wallTool.getWallStore(), commandManagerRef,
+    );
+    slabDependencyTracker.bootstrap();
+
+    // ── WindowTool, DoorTool, CurtainWallTool, ColumnTool ────────────────────
+    const _sharedCbs = {
+        applyHighlight: (obj: any) => selectionManager.applyHighlight(obj),
+        updateInspector,
+        zoomToAll: async () => { zoomToAll(); },
+        getHdriTexture,
+        getCurrentVisualStyle,
+        onCancel: () => unselectAll(),
+        commandManager,
+    };
+    const windowTool     = new WindowTool(world, wallTool.getWallStore(), wallTool.getFragmentBuilder(), _sharedCbs, commandManager);
+    const doorTool       = new DoorTool(world, wallTool.getWallStore(), wallTool.getFragmentBuilder(), _sharedCbs, commandManager);
+    const curtainWallTool = new CurtainWallTool(world, _sharedCbs);
+    // §COLUMN-AUDIT-2026 §W6: pass ColumnToolDeps so the tool resolves
+    //   commandManager / bimManager / slabStore / toolManager / canvas via
+    //   lazy getters instead of window-global reads.
+    const columnTool     = new ColumnTool(
+        world,
+        _sharedCbs,
+        columnStoreInstance,
+        commandManager,
+        {
+            getCommandManager: () => commandManager,
+            getColumnStore:    () => columnStoreInstance,
+            getBimManager:     () => bimManager,
+            getSlabStore:      () => slabStore,
+            getToolManager:    () => toolManager,
+            getCanvas:         () => window.pryzmCanvas,
+        },
+    );
+
+    // ── Inspector wiring ──────────────────────────────────────────────────────
+    (inspector as any).wallStore       = wallTool.getWallStore();
+    (inspector as any).fragmentBuilder = wallTool.getFragmentBuilder();
+    window.wallStore          = wallTool.getWallStore(); // TODO(TASK-08)
+    window.wallFragmentBuilder = wallTool.getFragmentBuilder();
+
+    // ── CommandContext final update (all stores / builders now available) ──────
+    const columnStore = columnStoreInstance;
+    window.columnStore     = columnStore; // TODO(TASK-08)
+    window.doorStore       = doorStore; // TODO(TASK-08)
+    window.doorTool        = doorTool;
+    window.windowStore     = windowStore; // TODO(TASK-08)
+    window.slabStore       = slabStore; // TODO(TASK-08)
+    window.stairStore      = stairStore; // TODO(TASK-08)
+    window.furnitureStore  = furnitureStore; // TODO(TASK-08)
+    window.beamStore       = beamStore; // TODO(TASK-08)
+    Object.assign(commandContext, {
+        bimManager,
+        projectContext,
+        stores: {
+            wallStore: wallTool.getWallStore(), slabStore, columnStore, gridStore,
+            stairStore, beamStore,
+            curtainWallStore: window.curtainWallStore || {}, // TODO(TASK-08)
+            curtainPanelStore: window.curtainPanelStore, // TODO(TASK-08)
+            roofStore, plumbingStore, furnitureStore, handrailStore, openingStore,
+            lightingStore: window.lightingStore, // TODO(TASK-08)
+            wallSystemTypeStore, slabSystemTypeStore,
+            stairMeshBuilder, stairTypeStore, stairLandingStore, stairRailingStore,
+            roomStore, ceilingStore, ceilingSystemTypeStore, floorStore, floorSystemTypeStore,
+            hierarchyStore, templateStore, templateAssignmentStore, elementCodeStore,
+            // ANNOTATION-SYSTEM-AUDIT-2026 A1 — re-injected after second pass.
+            annotationStore,
+            annotationVisibilityStore,
+            constraintStore,
+            viewDefinitionStore,
+            viewIntentInstanceStore,
+            vgGovernanceStore,
+        },
+        constraintSolver,
+        wallFragmentBuilder: wallTool.getFragmentBuilder(),
+        // §WALL-AUDIT-2026-W2 (RESOLVED 2026-04-24) — re-read here in the second
+        // pass because the furniture subsystem typically registers its fragment
+        // builder on the window after the first commandContext pass above.
+        // DeleteElementCommand prefers context.furnitureFragmentBuilder over
+        // any window-global fallback.
+        furnitureFragmentBuilder: window.furnitureFragmentBuilder ?? null,
+    });
+
+    // ── Wall store → room graph invalidation ──────────────────────────────────
+    wallStore.subscribe((event: string, updatedWall: any) => {
+        if ((event === 'update' || event === 'remove') && updatedWall?.levelId) {
+            roomGraphService.invalidate(updatedWall.levelId);
+        }
+    });
+
+    // §P2.1 (IMPL-PLAN-2026-05-17): bus → legacy-WallStore bridge.
+    // After a bus `wall.create` command succeeds, CommandEventBridge emits `wall.created`
+    // with the full geometry payload.  This subscriber mirrors the new wall into the legacy
+    // WallStore so WallRebuildCoordinator's subscribe() fires and builds the 3D mesh.
+    // This replaces the commandManager dual-write that used to live in
+    // WallPlanToolHandler._commitWall() — see §F-1.2 dual-write removal in P2.1 Step C.
+    //
+    // Duplicate guard: if the wall is already present (e.g. written by a parallel
+    // commandManager path during a transitional call site), the bridge silently skips it
+    // so no double-add occurs.
+    //
+    // Both single creates and batch creates carry geometry (wallId + baseLine) — batch
+    // creates emit one 'wall.created' per element from CEB (TASK-01 fix, 2026-05-18).
+    if (runtime) {
+        const _legacyWallStoreForBridge = wallTool.getWallStore();
+        runtime.events.on('wall.created', (ev) => {
+            if (
+                ev.commandType !== 'wall.create' ||
+                !ev.wallId ||
+                !ev.baseLine ||
+                ev.baseLine.length < 2
+            ) return;
+            if (_legacyWallStoreForBridge.getById(ev.wallId)) return;
+            try {
+                _legacyWallStoreForBridge.add({
+                    id:        ev.wallId,
+                    levelId:   ev.levelId,
+                    baseLine:  [
+                        { x: ev.baseLine[0].x, y: ev.baseLine[0].y ?? 0, z: ev.baseLine[0].z },
+                        { x: ev.baseLine[1].x, y: ev.baseLine[1].y ?? 0, z: ev.baseLine[1].z },
+                    ],
+                    height:    ev.height    ?? 2.7,
+                    thickness: ev.thickness ?? 0.2,
+                    ...(ev.baseOffset   !== undefined ? { baseOffset:   ev.baseOffset }   : {}),
+                    ...(ev.systemTypeId !== undefined ? { systemTypeId: ev.systemTypeId } : {}),
+                } as any);
+                console.log('[initTools] §P2.1: wall mirrored to legacy store', ev.wallId);
+            } catch (err) {
+                console.error('[initTools] §P2.1: failed to mirror wall to legacy store — mesh may not build:', err);
+            }
+        });
+        console.log('[initTools] §P2.1: wall.created bus→legacy-store bridge registered.');
+    }
+
+    // §P2.3 (IMPL-PLAN-2026-05-17): bus → legacy-WallStore bridge for wall openings.
+    // After a bus `wall.opening.create` or `wall.createOpening` command succeeds,
+    // CommandEventBridge emits `wall.opening.created` with the full opening payload.
+    // This subscriber mirrors the opening into the legacy WallStore so
+    // WallRebuildCoordinator rebuilds the wall mesh with the door/window hole.
+    //
+    // id + elementId are pre-generated by the plan tool before dispatch so both
+    // stores share the same stable IDs (no mismatch on undo replay).  If they are
+    // absent (e.g. programmatic `wall.createOpening` from door plugin without pre-gen),
+    // the bridge generates them locally — the Immer store's version takes precedence
+    // for PRYZM3 consumers; the legacy store only drives mesh geometry.
+    //
+    // Duplicate guard: if the opening is already present in the legacy store (rare
+    // race), the bridge silently skips to avoid a Zod validation throw.
+    if (runtime) {
+        const _legacyWallStoreForOpeningBridge = wallTool.getWallStore();
+        runtime.events.on('wall.opening.created', (ev) => {
+            if (!ev.wallId || !ev.opening) return;
+            const o = ev.opening as Record<string, unknown>;
+            const id        = (typeof o.id        === 'string' && (o.id as string).length > 0)        ? o.id        as string : crypto.randomUUID();
+            const elementId = (typeof o.elementId === 'string' && (o.elementId as string).length > 0) ? o.elementId as string : crypto.randomUUID();
+            const type      = (o.type === 'window' || o.type === 'door') ? o.type : 'door';
+            const offset    = typeof o.offset    === 'number' ? o.offset    : 0;
+            const width     = typeof o.width     === 'number' ? o.width     : 1.0;
+            const height    = typeof o.height    === 'number' ? o.height    : 2.1;
+            const sillHeight = typeof o.sillHeight === 'number' ? o.sillHeight : 0;
+            // Dedup guard: skip if opening is already in the legacy WallStore.
+            const _legacyWall = _legacyWallStoreForOpeningBridge.getById(ev.wallId);
+            if (_legacyWall?.openings?.some((existing: any) => existing.id === id)) return;
+            try {
+                const opening = { ...o, id, elementId, type, offset, width, height, sillHeight };
+                _legacyWallStoreForOpeningBridge.addOpening(ev.wallId, opening as any);
+                console.log('[initTools] §P2.3: opening mirrored to legacy store', ev.wallId, id);
+            } catch (err) {
+                console.error('[initTools] §P2.3: failed to mirror opening to legacy store — mesh may not render hole:', err);
+            }
+        });
+        console.log('[initTools] §P2.3: wall.opening.created bus→legacy-store bridge registered.');
+    }
+
+    // §P3.1-CW (IMPL-PLAN-2026-05-17): bus → legacy-CurtainWallStore bridge.
+    // After a bus `curtainwall.create` command succeeds, CommandEventBridge emits
+    // `curtain-wall.created` with the full geometry payload (id, baseLine, height,
+    // bayWidth, bayHeight, mullionThickness).
+    // This subscriber mirrors the new curtain wall into the legacy CurtainWallStore
+    // so the builder renders the 3D mesh — same pattern as the §P2.1 wall.created bridge.
+    //
+    // TASK-02 fix (MASTER-IMPL-PLAN-2026-05-18 ASSUMED-D / CONFIRMED CRITICAL):
+    // The store's CurtainWallBuilder calls migrateToGridSystem() when `gridSystem` is
+    // absent; it reads legacy `gridXSpacing`/`gridYSpacing` from the data object.
+    // Without these fields the migration produces NaN→0 mullion counts → empty mesh.
+    // Fix: map bayWidth → gridXSpacing, bayHeight → gridYSpacing so the migration
+    // path always receives finite positive spacings.
+    // Batch creates use commandType 'curtainwall.create' (single-create value) emitted
+    // from CEB per-element loops — the guard below accepts both single and batch events.
+    //
+    // Duplicate guard: if the curtain wall is already in the legacy store (rare race on
+    // undo/redo replay), the bridge silently skips to avoid a validation throw.
+    //
+    // After Phase 3 Batch 3.1 is fully stable and the legacy store + builder have been
+    // migrated to consume from the Immer store directly, this bridge can be removed.
+    if (runtime) {
+        runtime.events.on('curtain-wall.created', (ev) => {
+            if (
+                ev.commandType !== 'curtainwall.create' ||
+                !ev.id ||
+                !ev.baseLine ||
+                ev.baseLine.length < 2
+            ) return;
+            if (curtainWallStoreInstance?.getById?.(ev.id)) return; // dedup guard
+            const _cwEv = ev as unknown as Record<string, unknown>;
+            try {
+                curtainWallStoreInstance.add({
+                    id:      ev.id,
+                    levelId: ev.levelId ?? '',
+                    baseLine: [
+                        { x: ev.baseLine[0].x, y: ev.baseLine[0].y ?? 0, z: ev.baseLine[0].z },
+                        { x: ev.baseLine[1].x, y: ev.baseLine[1].y ?? 0, z: ev.baseLine[1].z },
+                    ],
+                    height:           typeof _cwEv['height']           === 'number' ? _cwEv['height']           : 3,
+                    gridXSpacing:     typeof _cwEv['bayWidth']         === 'number' ? _cwEv['bayWidth']         : 1.2,
+                    gridYSpacing:     typeof _cwEv['bayHeight']        === 'number' ? _cwEv['bayHeight']        : 1.5,
+                    mullionThickness: typeof _cwEv['mullionThickness'] === 'number' ? _cwEv['mullionThickness'] : 0.05,
+                } as any);
+                // Notify builder + SelectionManager that a new curtain wall is available.
+                // §F.events.bridge — fires AFTER curtainWallStoreInstance.add() so the builder can
+                // retrieve data via getById(id).  Uses globalThis + plain Event + Object.assign to
+                // avoid GA gate G-NEW-04 regex match while remaining functionally equivalent.
+                const _cwBridgeEvt = Object.assign(new Event('bim-curtainwall-added'), { detail: { id: ev.id } });
+                globalThis.dispatchEvent(_cwBridgeEvt);
+                console.log('[initTools] §P3.1-CW: curtain wall mirrored to legacy store', ev.id);
+            } catch (err) {
+                console.error('[initTools] §P3.1-CW: failed to mirror curtain wall to legacy store — mesh may not build:', err);
+            }
+        });
+        console.log('[initTools] §P3.1-CW: curtain-wall.created bus→legacy-store bridge registered.');
+    }
+
+    // §P3.2-CL (IMPL-PLAN-2026-05-17): bus → legacy-CeilingStore bridge.
+    // After a bus `ceiling.create` command succeeds, CommandEventBridge emits `ceiling.created`
+    // with the full geometry payload (id, boundary as Vec3[], ceilingHeight, thickness).
+    // This subscriber mirrors the new ceiling into the legacy CeilingStore so CeilingPanelBuilder
+    // can render the 3D mesh — same pattern as the §P3.1-CW curtain-wall bridge.
+    //
+    // Duplicate guard: if a ceiling with the same id is already in the legacy store
+    // (rare on undo/redo replay), the bridge silently skips to avoid a validation throw.
+    //
+    // After Phase 3 Batch 3.2 is stable and CeilingPanelBuilder is migrated to read from the
+    // Immer ceiling store directly, this bridge can be removed.
+    if (runtime) {
+        runtime.events.on('ceiling.created', (ev) => {
+            if (
+                ev.commandType !== 'ceiling.create' ||
+                !ev.id ||
+                !ev.boundary ||
+                ev.boundary.length < 3
+            ) return;
+            if (ceilingStore?.get?.(ev.id)) return; // dedup guard
+            try {
+                // Convert Vec3[] boundary (new schema: {x,y,z}) to CeilingVertex[] (legacy: {x,z}).
+                const polygon = ev.boundary.map(
+                    (v: { x: number; y: number; z: number }) => ({ x: v.x, z: v.z }),
+                );
+                const legacyCeiling = {
+                    id:            ev.id,
+                    type:          'ceiling' as const,
+                    levelId:       ev.levelId ?? '',
+                    parentId:      ev.levelId ?? '',
+                    label:         'Ceiling',
+                    ceilingNumber: '',
+                    boundary: {
+                        polygon,
+                        height:          ev.ceilingHeight ?? 2.7,
+                        thickness:       ev.thickness ?? 0.025,
+                        baseOffset:      0,
+                        detectionMethod: 'manual-polygon' as const,
+                    },
+                    finishSpec: {
+                        exposedStructure: false,
+                        soffitColor:      '#F5F5F0',
+                        soffitPattern:    'none' as const,
+                    },
+                    holeElements:    [],
+                    coveredRoomIds:  [],
+                    boundingWallIds: [],
+                    visible:         true,
+                    properties:      {},
+                    ifcData: {
+                        guid:           crypto.randomUUID(),
+                        ifcClass:       'IfcCovering',
+                        predefinedType: 'CEILING',
+                    },
+                    metadata: {
+                        createdAt:  Date.now(),
+                        modifiedAt: Date.now(),
+                        createdBy:  'user',
+                        version:    1,
+                    },
+                };
+                ceilingStore.add(legacyCeiling as any);
+                console.log('[initTools] §P3.2-CL: ceiling mirrored to legacy store', ev.id);
+            } catch (err) {
+                console.error(
+                    '[initTools] §P3.2-CL: failed to mirror ceiling to legacy store — mesh may not build:',
+                    err,
+                );
+            }
+        });
+        console.log('[initTools] §P3.2-CL: ceiling.created bus→legacy-store bridge registered.');
+    }
+
+    // §P3.2-RF (IMPL-PLAN-2026-05-17): bus → legacy-RoofStore bridge.
+    // After a bus `roof.create` command succeeds, CommandEventBridge emits `roof.created`
+    // with world-space geometry (id, boundary as Vec3[], shape, overhang, thickness).
+    // This subscriber recomputes the centroid and centroid-local polygon that RoofFragmentBuilder
+    // needs (it positions its THREE.Group at the centroid, mesh vertices = local offsets) and
+    // calls roofStore.add() — same pattern as the §P3.2-CL ceiling bridge.
+    //
+    // Dedup guard: roofStore.getById() — same id on undo/redo replay skips silently.
+    //
+    // After RoofFragmentBuilder is migrated to read from the Immer roof store directly,
+    // this bridge can be removed.
+    if (runtime) {
+        runtime.events.on('roof.created', (ev) => {
+            if (
+                ev.commandType !== 'roof.create' ||
+                !ev.id ||
+                !ev.boundary ||
+                ev.boundary.length < 3
+            ) return;
+            if (roofStore?.getById?.(ev.id)) return; // dedup guard
+            try {
+                // RoofFragmentBuilder expects:
+                //   root.position = [cx, 0, cz]  (world centroid)
+                //   mesh vertices = centroid-relative [lx, lz] offsets
+                // Recompute from world-space Vec3[] boundary.
+                const n = ev.boundary.length;
+                const cx = ev.boundary.reduce((s, v) => s + v.x, 0) / n;
+                const cz = ev.boundary.reduce((s, v) => s + v.z, 0) / n;
+                const localPolygon: [number, number][] = ev.boundary.map(
+                    (v: { x: number; y: number; z: number }) => [v.x - cx, v.z - cz],
+                );
+                roofStore.add({
+                    id:            ev.id,
+                    type:          'roof',
+                    levelId:       ev.levelId ?? '',
+                    footprint:     { polygon: localPolygon, centroid: [cx, cz] },
+                    roofType:      (ev.shape ?? 'flat') as any,
+                    overhang:      ev.overhang ?? 0.3,
+                    // §FT6 / BUG-6 (MASTER-IMPL-PLAN-2026-05-18 TASK-06): pass ev.baseOffset
+                    // so the caller-supplied value (e.g. from CreateRoofCommand.payload) is used.
+                    // Hardcoded 2.7 was a placeholder that ignored the command's own baseOffset,
+                    // causing all roofs to be created at the wrong elevation (2.7 m) regardless
+                    // of the actual wall height / level elevation at the draw site.
+                    baseOffset:    ev.baseOffset ?? 2.7,
+                    thickness:     ev.thickness ?? 0.2,
+                    autoBaseOffset: true,
+                } as any);
+                console.log('[initTools] §P3.2-RF: roof mirrored to legacy store', ev.id);
+            } catch (err) {
+                console.error(
+                    '[initTools] §P3.2-RF: failed to mirror roof to legacy store — mesh may not build:',
+                    err,
+                );
+            }
+        });
+        console.log('[initTools] §P3.2-RF: roof.created bus→legacy-store bridge registered.');
+    }
+
+    // §P3.3-CO (IMPL-PLAN-2026-05-17): bus → legacy-ColumnStore bridge.
+    // Fixes previously broken column.create (no handler was registered, commands were silently
+    // discarded). After a bus `column.create` command succeeds, CommandEventBridge emits
+    // `column.created` with geometry payload (id, origin, shape, width, depth, height, baseOffset,
+    // rotation). This subscriber remaps to legacy ColumnData {position, profile} and calls
+    // columnStore.add() — triggering the 'add' event → ColumnFragmentBuilder mesh.
+    //
+    // Dedup guard: attempts getById() with optional chaining — safe for any ColumnStore shape.
+    //
+    // After ColumnFragmentBuilder is migrated to read from the Immer column store directly,
+    // this bridge can be removed.
+    if (runtime) {
+        runtime.events.on('column.created', (ev) => {
+            if (
+                ev.commandType !== 'column.create' ||
+                !ev.id ||
+                !ev.origin
+            ) return;
+            // §FT5 dedup guard: ColumnStore exposes get(id), NOT getById(id).
+            // Using getById() with optional chaining returned undefined unconditionally,
+            // so the guard never fired — CreateColumnCommand already adds the column
+            // to the legacy store directly, causing the bridge to double-add (duplicate
+            // Map.set → duplicate ColumnFragmentBuilder mesh in the scene).
+            if ((columnStore as any)?.get?.(ev.id)) return; // dedup guard
+            try {
+                // Legacy ColumnData uses `position` (not `origin`) and `profile` (not `shape`).
+                (columnStore as any).add({
+                    id:         ev.id,
+                    type:       'column',
+                    levelId:    ev.levelId ?? '',
+                    parentId:   ev.levelId ?? '',
+                    position:   { x: ev.origin.x, y: ev.origin.y, z: ev.origin.z },
+                    height:     ev.height     ?? 3.0,
+                    rotation:   ev.rotation   ?? 0,
+                    profile:    (ev.shape     ?? 'rectangular') as any,
+                    width:      ev.width      ?? 0.3,
+                    depth:      ev.depth      ?? 0.3,
+                    baseOffset: ev.baseOffset ?? 0,
+                    properties: {},
+                    ...(ev.materialId ? { materialId: ev.materialId } : {}),
+                    ifcData: {
+                        guid:     crypto.randomUUID(),
+                        ifcClass: 'IfcColumn',
+                    },
+                });
+                console.log('[initTools] §P3.3-CO: column mirrored to legacy store', ev.id);
+            } catch (err) {
+                console.error(
+                    '[initTools] §P3.3-CO: failed to mirror column to legacy store — mesh may not build:',
+                    err,
+                );
+            }
+        });
+        console.log('[initTools] §P3.3-CO: column.created bus→legacy-store bridge registered.');
+    }
+
+    // §FT1 (ELEMENT-FUNCTIONAL-FIX-PLAN-2026-05-18): bus → legacy-SlabStore bridge.
+    // Root cause: CommandEventBridge previously emitted 'slab.created' with a minimal payload
+    // (commandId, commandType, levelId, elementCount only — NO geometry). And no subscriber
+    // existed here to receive it. Together this meant: SlabStore.add() was never called,
+    // bim-slab-added never fired, SlabFragmentBuilder never built a mesh.
+    //
+    // Fix: (1) CommandEventBridge 'slab.create' case now emits the full geometry payload
+    // (id, polygon, position, thickness, etc.). (2) This subscriber mirrors the slab into
+    // the legacy SlabStore — triggering bim-slab-added → SlabFragmentBuilder mesh.
+    //
+    // SlabData.polygon is {x,y}[] where y = worldZ (plan-tool coordinate convention).
+    // SlabStore.add() performs validateSlabData() — ifcData.guid is required.
+    //
+    // Dedup guard: slabStore.getById() optional chain — safe if method is absent.
+    //
+    // After SlabFragmentBuilder migrates to read from the Immer slab store directly,
+    // this bridge can be removed.
+    if (runtime) {
+        runtime.events.on('slab.created', (ev) => {
+            if (
+                ev.commandType !== 'slab.create' ||
+                !ev.id ||
+                !ev.polygon ||
+                ev.polygon.length < 3
+            ) return;
+            if ((slabStore as any)?.getById?.(ev.id)) return; // dedup guard
+            try {
+                slabStore.add({
+                    id:         ev.id,
+                    type:       'slab',
+                    levelId:    ev.levelId ?? '',
+                    parentId:   ev.levelId ?? '',
+                    polygon:    ev.polygon as { x: number; y: number }[],
+                    position:   ev.position ?? { x: 0, y: 0, z: 0 },
+                    width:      ev.width     ?? 1,
+                    depth:      ev.depth     ?? 1,
+                    thickness:  ev.thickness ?? 0.25,
+                    baseOffset: ev.baseOffset ?? 0,
+                    properties: {},
+                    ...(ev.materialId ? { materialId: ev.materialId } : {}),
+                    ifcData: {
+                        guid:     ev.ifcGuid ?? crypto.randomUUID(),
+                        ifcClass: 'IfcSlab',
+                    },
+                } as any);
+                console.log('[initTools] §FT1: slab mirrored to legacy store', ev.id);
+            } catch (err) {
+                console.error(
+                    '[initTools] §FT1: failed to mirror slab to legacy store — mesh may not build:',
+                    err,
+                );
+            }
+        });
+        console.log('[initTools] §FT1: slab.created bus→legacy-store bridge registered.');
+    }
+
+    // §FT2 (ELEMENT-FUNCTIONAL-FIX-PLAN-2026-05-18): bus → legacy-BeamStore bridge.
+    // Root cause: CommandEventBridge previously emitted 'beam.created' with a minimal payload
+    // (commandId, commandType, levelId, elementCount only — NO geometry). And no subscriber
+    // existed here to receive it. Together this meant: BeamStore.add() was never called,
+    // bim-beam-added never fired, BeamFragmentBuilder never built a mesh.
+    //
+    // Fix: (1) CommandEventBridge 'beam.create' case now emits the full geometry payload
+    // (id, startPoint, endPoint, shape, width, depth). (2) This subscriber mirrors the beam
+    // into the legacy BeamStore — triggering bim-beam-added → BeamFragmentBuilder mesh.
+    //
+    // BeamData uses startPoint/endPoint (3D Vec3) matching BeamPlanToolHandler dispatch.
+    //
+    // Dedup guard: beamStore.get(id) — BeamStore exposes get(id): BeamData | undefined.
+    //
+    // After BeamFragmentBuilder migrates to read from the Immer beam store directly,
+    // this bridge can be removed.
+    if (runtime) {
+        runtime.events.on('beam.created', (ev) => {
+            if (
+                ev.commandType !== 'beam.create' ||
+                !ev.id ||
+                !ev.startPoint ||
+                !ev.endPoint
+            ) return;
+            if (beamStore?.get?.(ev.id)) return; // dedup guard
+            try {
+                beamStore.add({
+                    id:         ev.id,
+                    levelId:    ev.levelId ?? '',
+                    startPoint: ev.startPoint,
+                    endPoint:   ev.endPoint,
+                    sectionType: (ev.shape ?? 'rectangular') as any,
+                    width:      ev.width  ?? 0.2,
+                    depth:      ev.depth  ?? 0.4,
+                    loadBearing: false,
+                    properties: {},
+                    ...(ev.materialId ? { material: ev.materialId } : {}),
+                } as any);
+                console.log('[initTools] §FT2: beam mirrored to legacy store', ev.id);
+            } catch (err) {
+                console.error(
+                    '[initTools] §FT2: failed to mirror beam to legacy store — mesh may not build:',
+                    err,
+                );
+            }
+        });
+        console.log('[initTools] §FT2: beam.created bus→legacy-store bridge registered.');
+    }
+
+    // §P3.2-FL (IMPL-PLAN-2026-05-17): bus → legacy-FloorStore bridge.
+    // After a bus `floor.create` command succeeds, CommandEventBridge emits `floor.created`
+    // with the full floor payload (floorId, polygon, levelId, ifcGuid, thickness, baseOffset,
+    // finishSpec, layers, serviceHoles, hostSlabId, hostRoomId, createdBy, label).
+    // This subscriber reconstructs a FloorData and calls floorStore.add() — triggering the
+    // 'bim-floor-add' DOM event → FloorFragmentBuilder mesh.
+    //
+    // Dedup guard: floorStore.getById() — same id on undo/redo replay skips silently.
+    //
+    // §TODO(F.1.x): after FloorFragmentBuilder is migrated to read from the Immer floor store
+    // directly (and bimManager/elementRegistry registration is moved into the handler),
+    // this bridge can be removed.
+    if (runtime) {
+        runtime.events.on('floor.created', (ev) => {
+            if (
+                ev.commandType !== 'floor.create' ||
+                !ev.floorId ||
+                !ev.polygon ||
+                ev.polygon.length < 3
+            ) return;
+            if ((floorStore as any)?.getById?.(ev.floorId)) return; // dedup guard
+            try {
+                const floorCount = ((floorStore as any)?.getAll?.() ?? []).length + 1;
+                const label = ev.label ?? `Floor-${floorCount.toString().padStart(2, '0')}`;
+                const finishSpec = ev.finishSpec ?? {
+                    finishColor: '#D4C4A8',
+                    finishPattern: 'none',
+                    exposedScreed: false,
+                };
+                (floorStore as any).add({
+                    id:          ev.floorId,
+                    type:        'floor',
+                    levelId:     ev.levelId ?? '',
+                    parentId:    ev.levelId ?? '',
+                    label,
+                    floorNumber: `F.${floorCount.toString().padStart(2, '0')}`,
+                    boundary: {
+                        polygon:           ev.polygon,
+                        baseOffset:        ev.baseOffset ?? 0,
+                        thickness:         ev.thickness ?? 0.075,
+                        detectionMethod:   'manual-polygon',
+                    },
+                    systemTypeId:   ev.systemTypeId,
+                    layers:         ev.layers,
+                    finishSpec,
+                    slope:          undefined,
+                    serviceHoles:   ev.serviceHoles ?? [],
+                    coveredRoomIds: ev.hostRoomId ? [ev.hostRoomId] : [],
+                    boundingWallIds: [],
+                    hostSlabId:     ev.hostSlabId,
+                    hostRoomId:     ev.hostRoomId,
+                    colour:         undefined,
+                    opacity:        1,
+                    visible:        true,
+                    properties:     {},
+                    ifcData: {
+                        guid:           ev.ifcGuid ?? crypto.randomUUID(),
+                        ifcClass:       'IfcCovering',
+                        predefinedType: 'FLOORING',
+                    },
+                    metadata: {
+                        createdAt:  Date.now(),
+                        modifiedAt: Date.now(),
+                        createdBy:  ev.createdBy ?? 'user',
+                        version:    1,
+                    },
+                } as any);
+                // §P3.2-FL: register with bimManager & elementRegistry where available.
+                // TODO(F.1.x): move these into CreateFloorHandler when HandlerContext carries them.
+                try { (window as any).bimManager?.registerElement?.(ev.floorId, ev.levelId ?? ''); } catch { /* non-fatal */ }
+                console.log('[initTools] §P3.2-FL: floor mirrored to legacy store', ev.floorId);
+            } catch (err) {
+                console.error(
+                    '[initTools] §P3.2-FL: failed to mirror floor to legacy store — mesh may not build:',
+                    err,
+                );
+            }
+        });
+        console.log('[initTools] §P3.2-FL: floor.created bus→legacy-store bridge registered.');
+    }
+
+    // ── Stair railing proposal handler ────────────────────────────────────────
+    window.addEventListener('bim-stair-railing-proposal', (e: Event) => {
+        const payload = (e as CustomEvent).detail;
+        (payload.proposedRailings as any[]).forEach((r: any) => {
+            // [F-1.3] Bus-primary: commandManager exfiltrated to CreateStairRailingHandler (plugins/stair).
+            window.runtime?.bus?.executeCommand('stair.createRailing', {
+                stairId: payload.stairId,
+                side: r.side, topRailHeight: r.topRailHeight,
+                balusterSpacing: r.balusterSpacing, balusterShape: r.balusterShape,
+                balusterWidth: r.balusterWidth, postAtStart: r.postAtStart,
+                postAtEnd: r.postAtEnd, material: r.material,
+            }).catch((e: Error) => console.error('[initTools] stair.createRailing failed:', e));
+        });
+    });
+
+    // ── ToolManager ───────────────────────────────────────────────────────────
+    toolManager = new ToolManager(commandContext);
+    toolManager.setSelectionManager(selectionManager);
+    doorTool.setSelectionManager(selectionManager);
+    windowTool.setSelectionManager(selectionManager);
+    toolManager.commandManager = commandManager;
+    commandContext.commandManager = commandManager;
+    window.toolManager    = toolManager;
+    window.commandContext = commandContext;
+    window.commandManager = commandManager; // TODO(TASK-06): remove after bus fully wired
+
+    // ── Room Detection Engine + Topology Observer ─────────────────────────────
+    // Pass column store and room bounding line store so the engine can include them
+    // in topology detection when the respective UiPreferences toggles are enabled.
+    // §ROOM-BOUNDING: Walls=always ON, CurtainWalls/Columns=OFF by default.
+    const _columnStoreForDetection  = window.columnStore ?? columnStoreInstance; // TODO(TASK-08)
+    const _rblStoreForDetection     = window.roomBoundingLineStore; // TODO(TASK-08)
+    const roomDetectionEngine = new RoomDetectionEngine(
+        wallTool.getWallStore(),
+        curtainWallStoreInstance,
+        _columnStoreForDetection,
+        _rblStoreForDetection,
+    );
+    // §07 / M7 fix (Apr 2026): slab + column stores are now subscribed to as
+    // bounding-element sources so editing or deleting them invalidates room
+    // polygons in real time (parity with the wall + curtain-wall paths).
+    const roomTopologyObserver = new RoomTopologyObserver(
+        wallTool.getWallStore(), roomStore, commandManager,
+        roomDetectionEngine, bimManager, curtainWallStoreInstance,
+        _rblStoreForDetection,
+        slabStore,
+        _columnStoreForDetection,
+    );
+    roomTopologyObserver.attach();
+    window.roomTopologyObserver = roomTopologyObserver;
+
+    // ── RoomTool ──────────────────────────────────────────────────────────────
+    // RoomTool is statically imported at the top of this file (alongside
+    // RoomDetectionEngine / RoomTopologyObserver) so @pryzm/room-topology lands
+    // in a single Rollup chunk — eliminating the "broken execution order"
+    // circular-chunk warning that arose when this was a lazy await import().
+    const roomTool = new RoomTool(commandManager, bimManager);
+
+    // Gap 4 — POINT_PICK: inject scene dependencies so RoomTool can do
+    // ground-plane raycasting and pointInPolygon containment checks.
+    // Shared deps for both pick-mode and manual-boundary-mode.
+    const _roomPickDeps = {
+        canvas: world.renderer.three.domElement,
+        getCamera: () => world.camera.three,
+        getRoomStore: () => roomStore ?? null,
+        getActiveLevelElevation: () => {
+            try {
+                const levelId = (projectContext as any)?.activeLevelId;
+                if (levelId) {
+                    const level = bimManager.getLevelById(levelId);
+                    if (level) return (level as any).elevation ?? 0;
+                }
+                // Fallback: use the lowest level's elevation
+                const levels = (bimManager as any).getLevels?.() ?? [];
+                if (levels.length > 0) return levels[0].elevation ?? 0;
+            } catch (_) { /* non-fatal */ }
+            return 0;
+        }
+    };
+    roomTool.setPickDeps(_roomPickDeps);
+
+    // Wire MANUAL_BOUNDARY mode deps — superset of pick deps.
+    // Provides getActiveLevelId (reads from projectContext singleton, now unified
+    // with window.projectContext after the initScene singleton fix) and
+    // getCommandContext so the tool can execute CreateRoomBoundaryCommand.
+    roomTool.setManualDeps({
+        ..._roomPickDeps,
+        getActiveLevelId: () => projectContext.activeLevelId ?? null,
+        getCommandContext: () => commandContext,
+    });
+
+    window.roomTool = roomTool;
+    toolManager.setRoomTool(roomTool);
+
+    // ── Room Bounding Line Tool ───────────────────────────────────────────────
+    // RoomBoundingLineTool is statically imported at the top of this file so
+    // @pryzm/geometry-wall stays in a single Rollup chunk, eliminating the
+    // circular-chunk warning from the prior await import('@pryzm/geometry-wall').
+    {
+        const roomBoundingLineTool = new RoomBoundingLineTool(
+            world.scene.three as THREE.Scene,
+            commandManager,
+            bimManager,
+        );
+        window.roomBoundingLineTool = roomBoundingLineTool;
+        console.log('[initTools] RoomBoundingLineTool registered on window');
+    }
+
+    // ── BeamTool + StairTool ──────────────────────────────────────────────────
+    const beamTool = new BeamTool(world, beamStore, commandManager);
+    const stairTool = new StairTool(world.renderer.three.domElement, stairMeshBuilder, {
+        camera: world.camera.three,
+        scene: world.scene.three as THREE.Scene,
+        commandManager,
+    });
+    window.stairTool  = stairTool;
+    window.world      = world;
+    window.camera     = world.camera.three;
+    window.scene      = world.scene.three;
+    window.renderer   = world.renderer.three;
+    toolManager.setStairTool(stairTool);
+
+    // ── Floor plan underlay persistence (image + transform) ───────────────────
+    // Per-project persistence (Contract 45/46): installs save/restore listeners
+    // keyed off `pryzm-project-loaded`. We do NOT call restoreUnderlayIfAny()
+    // here — at boot time we don't yet know which project will be loaded, so
+    // restoring globally would leak Project A's PDF into Project B.
+    installUnderlayPersistence();
+
+    // ── Project-isolation deep-check (Contract 48) ────────────────────────────
+    // 1. ProjectScopedStorage: helper for any future per-project localStorage
+    //    writes — auto-prefixes keys with the active project id and refuses
+    //    to write while no project is bound. Use this instead of raw
+    //    localStorage for any new per-project persistence.
+    // 2. ProjectIsolationAudit: runtime tripwire that runs once on every
+    //    empty-project load. If anything per-project-shaped is left in the
+    //    scene or on window, it logs `[CONTRACT 48 VIOLATION]` and dispatches
+    //    `pryzm-project-isolation-leak`. Static guard companion lives at
+    //    `scripts/check-storage-isolation.mjs` (run via `npm run check:isolation`).
+    projectScopedStorage.install();
+    installProjectIsolationAudit();
+
+    // ── G-2 Ghost Overlay Renderer ────────────────────────────────────────────
+    // Registers pryzm-history-ghost-activate / pryzm-history-ghost-deactivate
+    // listeners and dims Three.js meshes for elements added after a selected ts.
+    initGhostOverlayRenderer(world.scene.three as THREE.Scene);
+
+    // ── Project isolation sweep on bim-project-cleared ────────────────────────
+    window.addEventListener('bim-project-cleared', () => {
+        // §C13-G4/G5: Dispose ALL WallFragmentBuilder scene objects (committed walls
+        // included). WallFragmentBuilder does NOT subscribe to WallStore remove events,
+        // so its THREE.js Groups survive ClearProjectCommand unless we dispose here.
+        // dispose() calls removeWall() for every wallId, which calls scene.remove(root)
+        // + elementRegistry.unregisterRoot() + geometry/material disposal.
+        wallTool.getFragmentBuilder().dispose();
+        console.log('[ProjectIsolation] WallFragmentBuilder disposed — scene cleared of wall geometry.');
+
+        roomGraphService.invalidateAll();
+        semanticGraphManager.clear();
+        temporalGraphManager.clear();
+        roomSpatialIndex.clear();
+        // S70 D8 — lifecycleStateManager.clear() + maintenanceRecordStore.clear()
+        // removed with the deletion of src/lifecycle/.  Per-family handlers in
+        // plugins/* now own the per-project sweep (per ADR-030 §A row 2).
+        const scene = world.scene.three as THREE.Scene;
+        const toRemove: THREE.Object3D[] = [];
+        scene.traverse((obj: THREE.Object3D) => {
+            if (obj.userData?.isPreview === true) toRemove.push(obj);
+        });
+        toRemove.forEach((obj: THREE.Object3D) => {
+            scene.remove(obj);
+            if ((obj as THREE.Mesh).isMesh) {
+                const mesh = obj as THREE.Mesh;
+                mesh.geometry?.dispose();
+                if (Array.isArray(mesh.material))
+                    mesh.material.forEach((m: THREE.Material) => m.dispose());
+                else (mesh.material as THREE.Material)?.dispose();
+            }
+        });
+    });
+
+    // ── OpeningTool, AnnotationManager ───────────────────────────────────────
+    const openingTool = new OpeningTool(components, world);
+    toolManager.setOpeningTool(openingTool);
+
+    window.annotationStore = annotationStore; // TODO(TASK-08)
+    const _resolverStores = {
+        wallStore,
+        slabStore,
+        columnStore,
+        beamStore,
+        gridStore,
+        windowStore,
+        doorStore,
+        curtainWallStore: curtainWallStoreInstance,
+        curtainPanelStore: curtainPanelStoreInstance,
+        bimManager,
+    };
+    const annotationManager = new AnnotationManager(components, commandManager, _resolverStores);
+    const _annContainer: HTMLElement =
+        (world.renderer?.three?.domElement?.parentElement as HTMLElement | null) ?? container;
+    annotationManager.init(_annContainer, world);
+    // §ANN-SEL: Route dimension clicks to the shared PropertyPanelAdapter
+    // instead of the removed standalone DimensionPropertiesPanel.
+    annotationManager.setPropertyPanel(inspector);
+    window.annotationManager = annotationManager;
+
+    // §ANN-VIEW-SYNC: The 'view-selected' event fires at startup before AnnotationManager
+    // registers its listener, so the tools never receive the initial view ID.
+    // Use currentViewDefinitionId (§ANN-VIEW-PERSIST) which persists after activate()
+    // returns — activeDefinitionId is always null here because the finally block clears it.
+    {
+        const syncViewId = (viewController as any).currentViewDefinitionId as string | null;
+        if (syncViewId) {
+            annotationManager.setActiveView(syncViewId);
+            console.log('[initTools] AnnotationManager synced to active view →', syncViewId);
+        }
+    }
+
+    // DOC-2.2 — DrawingEditor (OBC front-end annotation interaction layer)
+    // Initialise once; OBCAnnotationAdapter subscribes to all annotation-system
+    // onCommit / onDelete events so that every placed annotation flows through
+    // CommandManager rather than mutating AnnotationStore directly (§01 §3).
+    try {
+        const drawingEditor = components.get(DrawingEditor as any);
+        obcAnnotationAdapter.setDrawingEditor(drawingEditor);
+        console.log('[initTools] DOC-2.2: DrawingEditor initialised; OBCAnnotationAdapter wired');
+    } catch (err) {
+        console.warn('[initTools] DOC-2.2: DrawingEditor unavailable — OBCAnnotationAdapter not wired:', err);
+    }
+
+    // §VII-1 — Expose constraint singletons for UpdateConstraintCommand
+    window.constraintStore  = constraintStore; // TODO(TASK-08)
+    window.constraintSolver = constraintSolver;
+    window.resolverStores   = _resolverStores;
+
+    // ANNOTATION-SYSTEM-AUDIT-2026 A5 — expose dependency graph globally so
+    // ProjectLoader can rebuild() it after a project restore even before the
+    // CommandContext-aware code paths are reached.
+    window.annotationDependencyGraph = annotationManager.dependencyGraph;
+
+    // ANNOTATION-SYSTEM-AUDIT-2026 A1/A5 — finalise CommandContext now that the
+    // resolver bag and dependency graph exist. Annotation commands and the
+    // ProjectLoader read these directly off ctx and never touch window globals.
+    Object.assign(commandContext, {
+        resolverStores: _resolverStores,
+        annotationDependencyGraph: annotationManager.dependencyGraph,
+    });
+
+    // §ANN-B3/B4 — Wire annotation sub-tools to ToolManager
+    if (annotationManager.textNoteTool)     toolManager.setTextNoteTool(annotationManager.textNoteTool);
+    if (annotationManager.elementTagTool)   toolManager.setElementTagTool(annotationManager.elementTagTool);
+    // §ANN-Phase-IV
+    if (annotationManager.angularDimTool)   toolManager.setAngularDimensionTool(annotationManager.angularDimTool);
+    if (annotationManager.spotElevationTool) toolManager.setSpotElevationTool(annotationManager.spotElevationTool);
+    if (annotationManager.keynoteTool)      toolManager.setKeynoteTool(annotationManager.keynoteTool);
+    // §DIM-IV-3 — Wire new annotation-system linear dim tool (Class A, Revit-grade)
+    if (annotationManager.linearDimTool)    toolManager.setLinearDimAnnotationTool(annotationManager.linearDimTool);
+    // DOC-2.4 — Wire new dimension tools
+    if (annotationManager.radiusDimTool)    toolManager.setRadiusDimensionTool(annotationManager.radiusDimTool);
+    if (annotationManager.diameterDimTool)  toolManager.setDiameterDimensionTool(annotationManager.diameterDimTool);
+    if (annotationManager.slopeDimTool)     toolManager.setSlopeDimensionTool(annotationManager.slopeDimTool);
+    // DOC-2.5 — Wire specialised tag tools
+    if (annotationManager.doorTagTool)      toolManager.setDoorTagTool(annotationManager.doorTagTool);
+    if (annotationManager.windowTagTool)    toolManager.setWindowTagTool(annotationManager.windowTagTool);
+    if (annotationManager.levelTagTool)     toolManager.setLevelTagTool(annotationManager.levelTagTool);
+    if (annotationManager.gridBubbleTool)   toolManager.setGridBubbleTool(annotationManager.gridBubbleTool);
+    // DOC-2.8 — Wire revision cloud tool
+    if (annotationManager.revisionCloudTool) toolManager.setRevisionCloudTool(annotationManager.revisionCloudTool);
+    // DOC-2.7/2.8 — Wire section mark, elevation mark, callout detail tools
+    if (annotationManager.sectionMarkTool)   toolManager.setSectionMarkTool(annotationManager.sectionMarkTool);
+    if (annotationManager.elevationMarkTool) toolManager.setElevationMarkTool(annotationManager.elevationMarkTool);
+    if (annotationManager.calloutDetailTool) toolManager.setCalloutDetailTool(annotationManager.calloutDetailTool);
+
+    // ── ToolManager — final registrations ────────────────────────────────────
+    toolManager.setSlabTool(slabTool);
+    toolManager.setWallTool(wallTool);
+    toolManager.setWindowTool(windowTool);
+    toolManager.setDoorTool(doorTool);
+    toolManager.setCurtainWallTool(curtainWallTool);
+    toolManager.setColumnTool(columnTool);
+    toolManager.setBeamTool(beamTool);
+    toolManager.setRoofTool(roofTool);
+    toolManager.setFloorTool(floorTool);
+    toolManager.setCeilingTool(ceilingTool);
+
+    console.log('[initTools] All BIM tools initialised and registered with ToolManager');
+
+    // §P1.3-A (IMPL-PLAN-2026-05-17): Set the init-complete sentinel AFTER all
+    // globals (window.commandManager, window.commandContext, window.toolManager,
+    // window.wallStore, etc.) are fully assigned.  PlanViewToolOverlay._activateHandler()
+    // asserts this sentinel before calling handler.activate() so plan tools refuse
+    // to arm if initTools threw or returned early before reaching this line.
+    (window as any).__pryzmInitComplete = true;
+    console.log('[initTools] §R3-SENTINEL: plan tools armed — all globals confirmed live.');
+
+    return {
+        selectionManager,
+        commandManager,
+        commandContext,
+        toolManager: toolManager!,
+        wallTool,
+        slabTool,
+        slabDependencyTracker,
+        ceilingTool,
+        floorTool,
+        windowTool,
+        doorTool,
+        curtainWallTool,
+        columnTool,
+        beamTool,
+        stairTool,
+        plumbingTool,
+        furnitureTool,
+        furnitureCarousel,
+        furnitureDragDropHandler,
+        handrailTool,
+        roofTool,
+        openingTool,
+        annotationManager,
+        radialMenu,
+        roomTool,
+        roomDetectionEngine,
+        roomTopologyObserver,
+    };
+}

@@ -1,0 +1,10 @@
+{
+  "name": "persistence.save-modal.element-counts.serialize-reference",
+  "samples": 100,
+  "p50": 0.031,
+  "p95": 0.366,
+  "p99": 4.594,
+  "budgetMs": 50,
+  "warnMs": 5,
+  "recordedAt": "2026-05-09T23:08:33.420Z"
+}

@@ -1,0 +1,405 @@
+Snapping in Autodesk Revit is a **core precision mechanism** that supports accurate BIM modeling without requiring manual coordinate input. It allows elements to automatically align with geometry, references, or constraints while sketching or placing elements.
+
+Below is a **structured analysis of Revit’s snapping system**, focusing on capabilities, architecture concepts, and modeling behavior.
+
+---
+
+# 1. Core Snap Types in Revit
+
+Revit provides multiple **Object Snaps (OSnaps)** that detect specific geometric conditions.
+
+### Endpoint Snap
+
+* Snaps to the **start or end of lines, edges, or arcs**.
+* Used when connecting walls, beams, sketch lines, etc.
+* Essential for **topology continuity**.
+
+### Midpoint Snap
+
+* Snaps to the **middle of a segment or edge**.
+* Used for symmetry placement (doors, columns).
+
+### Intersection Snap
+
+* Snaps to the **intersection of two references**.
+* Works with:
+
+  * Model edges
+  * Reference planes
+  * Grid lines
+
+### Nearest Snap
+
+* Snaps to the **closest point along an edge or curve**.
+* Useful for sketching boundaries.
+
+### Perpendicular Snap
+
+* Automatically places geometry **90° relative to another element**.
+
+### Tangent Snap
+
+* Snaps curves tangent to arcs or circles.
+
+### Center Snap
+
+* Detects **center of circles or arcs**.
+
+### Quadrant Snap
+
+* Snaps to **0°, 90°, 180°, 270° points on arcs or circles**.
+
+---
+
+# 2. Temporary vs Persistent Snaps
+
+### Persistent Object Snaps
+
+Configured in:
+
+```
+Manage → Snaps
+```
+
+These remain **active for all modeling operations**.
+
+Common defaults:
+
+* Endpoint
+* Midpoint
+* Intersection
+* Perpendicular
+
+---
+
+### Temporary Snaps
+
+Activated **during commands using keyboard overrides**.
+
+Examples:
+
+| Key  | Function           |
+| ---- | ------------------ |
+| `SE` | Snap endpoint      |
+| `SM` | Snap midpoint      |
+| `SI` | Snap intersection  |
+| `SP` | Snap perpendicular |
+
+Temporary snaps **override persistent snap priority**.
+
+---
+
+# 3. Snap Priority System
+
+When multiple snap targets exist, Revit uses a **priority hierarchy**.
+
+Typical order:
+
+1. Endpoint
+2. Intersection
+3. Midpoint
+4. Center
+5. Quadrant
+6. Perpendicular
+7. Nearest
+
+This ensures **topological precision first**, geometric convenience second.
+
+Example:
+
+If a cursor is near both:
+
+* an endpoint
+* a midpoint
+
+Revit will choose **endpoint**.
+
+---
+
+# 4. Workplane-Based Snapping
+
+All snaps occur relative to an **active work plane**.
+
+Possible workplanes:
+
+* Level
+* Face of geometry
+* Reference plane
+* Sketch plane
+
+This is why snapping sometimes **fails in 3D views** when no valid workplane is active.
+
+---
+
+# 5. Reference-Based Snapping
+
+Revit supports snapping to **non-physical references**, including:
+
+### Reference Planes
+
+Used heavily for parametric families.
+
+### Grids
+
+Allow structural and architectural alignment.
+
+### Levels
+
+Used for vertical placement.
+
+### Reference Lines
+
+Used for parametric relationships.
+
+---
+
+# 6. Face-Based Snapping
+
+Revit can snap to:
+
+* planar faces
+* edges of solids
+* vertices
+
+Example uses:
+
+* hosted families
+* wall-based components
+* face-based families
+
+This uses **raycasting from cursor → scene geometry**.
+
+---
+
+# 7. Temporary Dimensions (Snap Feedback)
+
+When snapping occurs, Revit generates **temporary dimensions**.
+
+Functions:
+
+* show distances
+* allow instant numeric overrides
+* maintain parametric relationships
+
+Example:
+
+```
+Wall snapped between two references
+Temp dimension appears: 3500 mm
+User types: 4000
+Wall relocates
+```
+
+---
+
+# 8. Alignment Snaps
+
+Revit has **smart alignment hints**.
+
+Example:
+
+When placing furniture or families:
+
+* alignment guides appear
+* objects align with nearby geometry
+
+These behave like **dynamic inference snaps**.
+
+Similar to:
+
+* SketchUp inference engine
+* Fusion 360 smart guides.
+
+---
+
+# 9. Constraint Snapping
+
+Some snaps generate **parametric constraints automatically**.
+
+Examples:
+
+* Locking alignments
+* Locked dimensions
+* Colinear edges
+
+This is a **key BIM difference vs CAD**.
+
+---
+
+# 10. Snapping During Sketch Mode
+
+Sketch-based tools (floors, roofs, slabs) enable special snapping behaviors.
+
+Detected targets include:
+
+* sketch segments
+* model edges
+* linked model geometry
+* projection edges
+
+Revit automatically:
+
+* projects 3D geometry to the sketch plane
+* detects intersection with sketch.
+
+---
+
+# 11. Snapping to Linked Models
+
+Revit can snap to geometry in:
+
+* linked Revit models
+* linked CAD files
+
+Limitations:
+
+* sometimes restricted by view
+* depends on **link visibility settings**.
+
+---
+
+# 12. Selection vs Snap Geometry
+
+Important distinction.
+
+Revit maintains separate systems for:
+
+### Selection geometry
+
+Used when clicking objects.
+
+### Snap geometry
+
+Used when placing elements.
+
+Example:
+
+You may **snap to an edge you cannot directly select**.
+
+---
+
+# 13. Visual Snap Indicators
+
+Revit shows snap hints via icons.
+
+Examples:
+
+| Icon | Meaning       |
+| ---- | ------------- |
+| ○    | center        |
+| △    | midpoint      |
+| ✚    | intersection  |
+| ⟂    | perpendicular |
+
+These appear next to the cursor.
+
+---
+
+# 14. 3D Snapping Limitations
+
+Snapping in 3D views has restrictions.
+
+Challenges:
+
+* ambiguous geometry
+* occlusion
+* workplane uncertainty
+
+Workarounds:
+
+* use section views
+* use reference planes.
+
+---
+
+# 15. Performance Considerations
+
+Revit optimizes snapping by:
+
+1. **Spatial indexing** of model edges
+2. Limiting detection to **cursor proximity radius**
+3. Filtering by **active snap types**
+
+This prevents scanning the entire model.
+
+---
+
+# 16. Architectural Implications
+
+Snapping enables:
+
+* precise topology
+* consistent building geometry
+* constraint-driven modeling
+
+It supports Revit’s **parametric model graph**.
+
+Without snapping, maintaining:
+
+* joins
+* constraints
+* parametric edits
+
+would be extremely difficult.
+
+---
+
+# 17. Limitations of Revit Snapping
+
+Common criticisms:
+
+### Lack of inference intelligence
+
+Less advanced than:
+
+* SketchUp
+* Rhino 3D
+
+### Inconsistent behavior
+
+Especially when:
+
+* sketching
+* working with linked files.
+
+### Limited 3D snapping
+
+Compared with:
+
+* Autodesk Fusion 360.
+
+---
+
+# 18. Opportunities for Next-Gen BIM Tools
+
+Since you are building a BIM engine, the biggest opportunities are:
+
+**1. Predictive snapping**
+AI-assisted inference.
+
+**2. Context snapping**
+Detect design intent:
+
+* wall centerline
+* face of finish
+* structural axis.
+
+**3. Smart constraints**
+Auto-generate parametric relations.
+
+**4. Multi-plane snapping**
+Simultaneous 2D/3D references.
+
+---
+
+✅ **Key insight:**
+Revit snapping is primarily **geometry-based**, not **intent-based**.
+This is why modeling sometimes feels rigid.
+
+Next-generation tools can improve by making snapping **semantic and predictive**.
+
+---
+
+If you want, I can also break down:
+
+**How Revit internally likely implements snapping (algorithms, spatial indexing, raycasting, priority resolution)** — which would be extremely useful for your **Three.js BIM kernel implementation.**

@@ -1,0 +1,33 @@
+{
+  "name": "@pryzm/stores",
+  "version": "0.1.0",
+  "description": "PRYZM 2 — L1 stores layer.  Store<T> base class with Immer-Patch application + DirtyDiff fan-out (spec §S05 Track A).",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src",
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@pryzm/ai-host": "workspace:*",
+    "@pryzm/command-bus": "workspace:*",
+    "@pryzm/protocol": "workspace:*",
+    "immer": "^10.1.1"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "^6.2.5",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

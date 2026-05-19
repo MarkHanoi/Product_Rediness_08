@@ -1,0 +1,38 @@
+{
+  "pryzmPlugin": "1.0",
+  "id": "pryzm-schedules",
+  "version": "1.0.0",
+  "displayName": "PRYZM Schedules",
+  "description": "Quantity take-off and element schedule generator. Supports formula evaluation, multi-column sorting, CSV/XLSX export, and CSV import. Aggregates element properties from any IFC Pset.",
+  "author": "PRYZM",
+  "license": "MIT",
+  "main": "src/index.ts",
+  "minPRYZMVersion": "3.0.0",
+  "permissions": [
+    "read:project",
+    "write:project",
+    "register:panel",
+    "register:command"
+  ],
+  "allowedOrigins": [],
+  "contributions": [
+    {
+      "kind": "panel",
+      "id": "schedules.panel",
+      "location": "bottom",
+      "label": "Schedules"
+    },
+    {
+      "kind": "command",
+      "id": "schedules.new",
+      "label": "New Schedule…",
+      "category": "Schedules"
+    },
+    {
+      "kind": "command",
+      "id": "schedules.export-csv",
+      "label": "Export Schedule as CSV…",
+      "category": "Schedules"
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "name": "@pryzm/snapping",
+  "version": "0.1.0",
+  "description": "PRYZM 3 — Snapping engine (Wave 11 migration: implementation promoted from packages/picking/src/snapping/). Phase 1B deliverable; canonical snap types + providers + SnapManager. Per 15-PACKAGE-POPULATION-GAP.md §0.0.5.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@pryzm/spatial-index": "workspace:*",
+    "@pryzm/scene-committer": "workspace:*",
+    "@pryzm/stores": "workspace:*",
+    "@opentelemetry/api": "^1.9.0",
+    "three": "^0.183.0",
+    "three-mesh-bvh": "^0.9.9"
+  },
+  "devDependencies": {
+    "@types/three": "^0.183.1",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  },
+  "pryzm": {
+    "layer": "L3",
+    "forbiddenDependencies": ["react", "@thatopen/components"],
+    "waveCreated": 8,
+    "waveMigration": 11,
+    "migrationSource": "packages/picking/src/snapping/",
+    "migrationNote": "Wave 11 complete: packages/picking/src/snapping/ → packages/snapping/src/. SpatialGrid → @pryzm/spatial-index. packages/picking now depends on @pryzm/snapping."
+  }
+}

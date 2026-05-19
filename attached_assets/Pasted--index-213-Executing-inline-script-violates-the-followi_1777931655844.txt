@@ -1,0 +1,87 @@
+
+﻿
+(index):213 Executing inline script violates the following Content Security Policy directive 'script-src 'self' 'unsafe-eval' blob:'. Either the 'unsafe-inline' keyword, a hash ('sha256-YfBSRjMKpjJXsqrAeASbBhxmJJ/VTymEcVkY2sdUnN8='), or a nonce ('nonce-...') is required to enable inline execution. The action has been blocked.
+main-_zkuZlmX.js:31589 [sw] registered, scope: https://uisync-backup-15--cherrilblossom.replit.app/
+DataCommandCenter-6mDVnLDf.js:210 [DataCommandCenter] Initialized
+PlatformShell-CM-jB8EA.js:1 [SaveOrchestrator] Initialised — debounce: 1000 ms
+PlatformShell-CM-jB8EA.js:485 [PlatformShell] Initialized — project ID: proj-1777931054600-av4af (runtime: composed)
+main-_zkuZlmX.js:31589 [bootPlatform] D.1 — early PlatformShell created (delegates: deferred, post-paint, surface mounted)
+vendor-three-CVdZbV8N.js:4847 The powerPreference option is currently ignored when calling requestAdapter() on Windows. See https://crbug.com/369219127
+createRenderer-B3oUU10q.js:1 [PRYZM] WebGPURenderer initialized: webgpu
+rendererPrewarm-B1LTicyb.js:1 [RendererPrewarm] webgpu renderer pre-warmed in 128 ms — LONGTASK eliminated from project-open critical path.
+main-_zkuZlmX.js:31560 [PlatformRouter] Opening project: "ergs" (proj-1777931083972-0w1gngt) [new]
+engineLauncher-O2WLf3AK.js:7235 [AuditStack] Initialized v1.6 — Polymorphic Auditor
+engineLauncher-O2WLf3AK.js:7243 [WallPerfBench] Ready. Run: await window.__wallPerfBench.run()
+engineLauncher-O2WLf3AK.js:7243 Initializing Hybrid BIM Configurator...
+engineLauncher-O2WLf3AK.js:904 [BriefInputPanel] Initialized
+engineLauncher-O2WLf3AK.js:956 [VariantBrowserPanel] Initialized
+engineLauncher-O2WLf3AK.js:1344 [PortfolioQueryPanel] Initialized
+engineLauncher-O2WLf3AK.js:1411 [DataWorkbench] PostOccupancy surface deferred to plugins/lifecycle/ (S70 D8); panel slot is empty until the plugin ports it. See ADR-0052 §B.7.
+engineLauncher-O2WLf3AK.js:1518 [DataWorkbench] BIM 3.0 Lifecycle Hub initialized
+engineLauncher-O2WLf3AK.js:7243 [EngineBootstrap] DataWorkbench instantiated
+engineLauncher-O2WLf3AK.js:1838 [PRYZM] GPU backend detected: webgpu
+vendor-three-CVdZbV8N.js:1 THREE.THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.
+engineLauncher-O2WLf3AK.js:1595 [BimWorld] Camera constraints armed: minDist=1 m, maxDist=100 m, maxPolarAngle=π/2−0.1, infinityDolly=false, mode-patch active.
+engineLauncher-O2WLf3AK.js:1595 🌍 WORLD EXPOSED TO WINDOW 
+o2 {isDisposeable: ƒ, isResizeable: ƒ, isUpdateable: ƒ, isHideable: ƒ, isConfigurable: ƒ, …}
+engineLauncher-O2WLf3AK.js:1838 [TopologyLayer] Scene bound — topology ready for queries.
+engineLauncher-O2WLf3AK.js:1838 [initScene] TopologyLayer ready.
+engineLauncher-O2WLf3AK.js:1838 [FrustumCullingService] Active — large-model threshold: 500 elements.
+engineLauncher-O2WLf3AK.js:1838 [initScene] FrustumCullingService ready.
+engineLauncher-O2WLf3AK.js:1838 [initScene] ViewRenderCache ready.
+engineLauncher-O2WLf3AK.js:1838 [initScene] UnifiedFrameLoop bridged to FrameCoordinator.
+engineLauncher-O2WLf3AK.js:1838 [initScene] LevelClipPlaneCache wired — OBC Clipper replaced with renderer-level planes. Plan views are safe.
+engineLauncher-O2WLf3AK.js:1838 [initScene] StairPlanSymbolRegistry ready — stair traverse replaced with O(k) registry.
+engineLauncher-O2WLf3AK.js:1838 [initScene] InstancedElementRenderer wired — Phase 7 GPU instancing active.
+main-_zkuZlmX.js:29470 [ViewDependencyTracker] init() — subscribed to StoreEventBus
+engineLauncher-O2WLf3AK.js:1838 [initScene] DOC-1.7: EdgeProjectorService façade installed (lazy — real service loads on first projection).
+engineLauncher-O2WLf3AK.js:1838 [initScene] Task 5.1: WebGL context loss handlers registered.
+engineLauncher-O2WLf3AK.js:594 
+ GET https://uisync-backup-15--cherrilblossom.replit.app/api/v1/portfolio/benchmarks/all 401 (Unauthorized)
+engineLauncher-O2WLf3AK.js:1838 [initScene] Phase 5: pre-warmed renderer consumed — 2,401 ms LONGTASK skipped.
+engineLauncher-O2WLf3AK.js:1838 [initScene] Phase 5 active — PRYZM renderer: webgpu
+engineLauncher-O2WLf3AK.js:1833 [PascalSceneLighting] Shadow flags set on 1 mesh(es).
+engineLauncher-O2WLf3AK.js:1833 [PascalSceneLighting] Applied — key: 4, fill: 0.75, rim: 1, ambient: 0.5, shadow.intensity: 0.4, scene.environment → null (HDRI cleared — Pascal has no IBL)
+engineLauncher-O2WLf3AK.js:1833 [RenderingPipelineCoordinator] Bound to scene + renderer.
+engineLauncher-O2WLf3AK.js:1838 [initScene] Phase 5 active — skipping HDRI, using standard PBR only.
+engineLauncher-O2WLf3AK.js:1833 [RenderingPipelineCoordinator] Activating level: "standard"
+engineLauncher-O2WLf3AK.js:1833 [PBRSceneUpgrader] Applied — meshes: 2 materials: 0 (metal: 0, glass: 0 rough: 0, polished: 0)
+engineLauncher-O2WLf3AK.js:1833 [ShadowQualityUpgrader] Applied "standard" — map: 512px radius: 1 bias: -0.0001 (1 light(s) upgraded)
+engineLauncher-O2WLf3AK.js:1833 [RenderingPipelineCoordinator] Level "standard" active.
+engineLauncher-O2WLf3AK.js:1838 [initScene] RenderingPipelineCoordinator ready.
+engineLauncher-O2WLf3AK.js:1833 [ViewportCrashGuard] Activated — monitoring viewport render errors.
+engineLauncher-O2WLf3AK.js:1833 [RenderPipelineManager] WebGPU renderer confirmed. Initialising TSL pipeline...
+engineLauncher-O2WLf3AK.js:1838 [initScene] Auto-activated quality "standard" (hdri: none) at startup.
+engineLauncher-O2WLf3AK.js:1833 [RenderPipelineManager] three/tsl loaded.
+engineLauncher-O2WLf3AK.js:1838 [RenderPipelineManager] Phase: phase2 | WebGPU: true | SSGI: false | TRAA: false
+engineLauncher-O2WLf3AK.js:1833 [RenderPipelineManager] Phase 2 pipeline active.
+engineLauncher-O2WLf3AK.js:1833 [RenderPipelineManager] SSGI activated (SSGINode r183 + DenoiseNode).
+engineLauncher-O2WLf3AK.js:1838 [RenderPipelineManager] Phase: phase3 | WebGPU: true | SSGI: true | TRAA: false
+engineLauncher-O2WLf3AK.js:1838 [RenderPipelineManager] Phase: phase3 | WebGPU: true | SSGI: true | TRAA: false
+engineLauncher-O2WLf3AK.js:1833 [RenderPipelineManager] Outlines activated (selected + hover).
+engineLauncher-O2WLf3AK.js:1838 [RenderPipelineManager] Phase: phase4 | WebGPU: true | SSGI: true | TRAA: false
+engineLauncher-O2WLf3AK.js:1838 [RenderPipelineManager] Phase: phase4 | WebGPU: true | SSGI: true | TRAA: false
+engineLauncher-O2WLf3AK.js:1838 [initScene] TSL pipeline at Phase 3/4 (SSGI + Outlines). TRAA OFF by default.
+vendor-three-CVdZbV8N.js:1 THREE.THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.
+main-_zkuZlmX.js:29470 [UnifiedFrameLoop] Started (subscribed to @pryzm/frame-scheduler).
+engineLauncher-O2WLf3AK.js:1843 [initScene] UnifiedFrameLoop started — single rAF loop active.
+engineLauncher-O2WLf3AK.js:1843 [initScene] RenderPipelineManager ready.
+engineLauncher-O2WLf3AK.js:1843 [initScene] EnhancedBloomService deferred — lazy wrappers installed.
+engineLauncher-O2WLf3AK.js:1843 [initScene] SSGIService deferred — lazy wrappers installed.
+engineLauncher-O2WLf3AK.js:1833 [RenderPerformanceService] Bound — native DPR: 1.25
+engineLauncher-O2WLf3AK.js:1833 [RenderPerformanceService] Quality → high | DPR: 1.25 (100% of native 1.25)
+engineLauncher-O2WLf3AK.js:1843 [initScene] RenderPerformanceService ready.
+engineLauncher-O2WLf3AK.js:1843 [initScene] SplitViewManager ready.
+engineLauncher-O2WLf3AK.js:1843 [initScene] Scene subsystem fully initialised.
+vendor-three-CVdZbV8N.js:1 THREE.WebGLShadowMap: PCFSoftShadowMap has been deprecated. Using PCFShadowMap instead.
+engineLauncher-O2WLf3AK.js:7255 [a11y] Canvas aria-label + role + tabindex set (Wave A18-T21)
+engineLauncher-O2WLf3AK.js:7255 [EngineBootstrap] Gizmo axes recoloured to PRYZM violet palette
+engineLauncher-O2WLf3AK.js:1864 [initBuilders] Column subsystem initialised
+engineLauncher-O2WLf3AK.js:1864 [CurtainPanelSyncHandler] Activated — panel store will sync with curtain wall store.
+engineLauncher-O2WLf3AK.js:1864 [initBuilders] CurtainWall subsystem stores initialised
+engineLauncher-O2WLf3AK.js:1864 [initBuilders] Slab subsystem initialised
+engineLauncher-O2WLf3AK.js:1864 [initBuilders] Ceiling subsystem initialised
+engineLauncher-O2WLf3AK.js:1864 [FloorSlabBindingHandler] Attached slab binding listeners.
+engineLauncher-O2WLf3AK.js:1864 [initBuilders] Floor finish subsystem initialised
+engineLauncher-O2WLf3AK.js:1864 [initBuilders] Room subsystem initialised
+﻿

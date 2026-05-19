@@ -1,0 +1,10 @@
+{
+  "name": "load.small-preview.first-interactive",
+  "samples": 5,
+  "p50": 0.125,
+  "p95": 0.241,
+  "p99": 0.241,
+  "budgetMs": 800,
+  "warnMs": 800,
+  "recordedAt": "2026-05-09T23:09:25.504Z"
+}

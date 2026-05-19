@@ -1,0 +1,30 @@
+{
+  "id": "grid_01H8XK3J7M9N2P4QR5STVW6XYZ",
+  "type": "grid",
+  "parentId": "level_ground",
+  "childrenIds": [],
+  "metadata": {
+    "createdAt": 1700000300000,
+    "modifiedAt": 1700000300000,
+    "createdBy": "fixture",
+    "version": 1
+  },
+  "levelId": "level_ground",
+  "rotation": 0,
+  "lines": [
+    {
+      "id": "gl-A",
+      "label": "A",
+      "kind": "linear",
+      "start": { "x": 0, "y": 0, "z": 0 },
+      "end": { "x": 0, "y": 0, "z": 12 }
+    },
+    {
+      "id": "gl-1",
+      "label": "1",
+      "kind": "linear",
+      "start": { "x": 0, "y": 0, "z": 0 },
+      "end": { "x": 12, "y": 0, "z": 0 }
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "name": "persistence.save-edit.append.memory",
+  "samples": 200,
+  "p50": 0.01,
+  "p95": 0.015,
+  "p99": 0.079,
+  "budgetMs": 12,
+  "warnMs": 8,
+  "recordedAt": "2026-04-27T22:47:51.414Z"
+}

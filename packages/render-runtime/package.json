@@ -1,0 +1,34 @@
+{
+  "name": "@pryzm/render-runtime",
+  "version": "0.1.0",
+  "description": "PRYZM 2 \u2014 L5 render-runtime helpers.  Shared selection-highlight committer + edge-outline builder; consumed by element plugins to render selection without each one re-implementing the outline.  Spec: PHASE-1C \u00a7S16 D3.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src",
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@pryzm/scene-committer": "workspace:*",
+    "@pryzm/stores": "workspace:*",
+    "@opentelemetry/api": "^1.9.0",
+    "three": "^0.183.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.183.1",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  },
+  "deprecated": "Wave-12 DROP: @pryzm/render-runtime had 0 importers at Wave 8 close. Verdict: DROP per docs/03_PRYZM3/04-PLAN-FORWARD/17-WAVES-9-12-SRC-MIGRATION.md \u00a75"
+}

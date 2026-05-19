@@ -1,0 +1,53 @@
+{
+  "id": "l-shape-office",
+  "description": "L-shape office ceiling, 6×6 m envelope, 2.7 m commercial gypsum",
+  "ceiling": {
+    "id": "ceiling:lsh-off",
+    "type": "ceiling",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "boundary": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 6,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 6,
+        "y": 0,
+        "z": 3
+      },
+      {
+        "x": 3,
+        "y": 0,
+        "z": 3
+      },
+      {
+        "x": 3,
+        "y": 0,
+        "z": 6
+      },
+      {
+        "x": 0,
+        "y": 0,
+        "z": 6
+      }
+    ],
+    "ceilingHeight": 2.7,
+    "thickness": 0.015,
+    "materialId": "gypsum.standard",
+    "materialColor": "#ebebe8"
+  },
+  "worldY": 0
+}

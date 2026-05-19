@@ -1,0 +1,32 @@
+Analyzing large event batch delivery
+Let me read the rest of the attached file to understand the full picture of what's happening. Line 378 shows [StoreEventBus] endBatchYielded() — 10835 event(s) will be delivered in 55 chunk(s) of 200 via frame scheduler. - this is HUGE. 10,835 events! Let me read more.
+
+Let me read the rest of that critical section and the full console file:
+
+
+Show less
+
+Opened attached_assets/Pasted--SlabFragmentBuilder-outset-slabId-6e6c40de-3888-4076-b_1777901809909.txt
+
+Opened attached_assets/Pasted-injected-js-37-initScene-RenderPerformanceService-ready_1777902501176.txt
+
+Planning command execution chunking (160 seconds)
+Now I can see the full picture. Let me analyze the critical LONGTASKs from the attached file:
+
+From the first attached file (pre-fix, old data):
+
+Line 450: [LONGTASK] duration=16667.0ms at start=485198.7ms
+
+Line 452: [LONGTASK] duration=54140.0ms at start=501866.7ms — 54 SECONDS!
+
+Line 456: [ViewDependencyTracker] flush — 2 dirty view(s): vd-sys-3, vd-sys-p — 3D view is STILL being flushed!
+
+Line 434 shows the BatchCoordinator firing 11 REDETECT_ROOMS commands, followed by shadow flag updates across 310 meshes and a geometry pass affecting 592 meshes in the scene
+
+This was all before my fix, so I need to check the new logs to see if these performance bottlenecks have been resolved. Ah, so the second file is actually the new session with my fixes applied — I can see the ViewDependencyTracker suppression at line 431. But the user is still reporting frozen loading, so I need to trace what happens after the curtain walls creation in that new session to figure out where the bottleneck actually is now. Looking at the first file more carefully, I can see the massive 54-second LONGTASK happens after the room redetection commands fire, shadow flags get applied to the meshes, and then the post-batch geometry pass runs to upgrade the PBR materials across all those objects.
+
+The real culprit is likely the PBR material upgrade triggering shader compilation for each of those 592 meshes — that's what's causing the catastrophic UI freeze. The socket disconnected due to a ping timeout, and I'm seeing the GPU state with 224 geometries and 9 textures. Then there's a massive spike in long tasks — a 16-second task, followed by an enormous 54-second task that's clearly causing the performance collapse, with the frame rate dropping to 1fps. After that, the view dependency tracker is flushing dirty views, and the native element mesh exporter is processing 218 elements across 11 levels before the edge projector service completes its native projection work.
+
+Looking at the timing breakdown, the LONGTASK avalanche is coming from two sources: about 4.3 seconds from the REDETECT_ROOMS pass with shadow flags and PBR upgrades, then roughly 70 seconds from the curtain wall geometry builds running in the background. The 224 geometries appearing after the first 4-second task suggests the curtain wall builder is still draining the frame budget — with 165 curtain walls and only 5 builds per frame, that's going to take around 33 frames just to process them all.
+
+The real bottleneck is that creating the curtain walls themselves takes 4 seconds (look...

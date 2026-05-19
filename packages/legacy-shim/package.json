@@ -1,0 +1,8 @@
+{
+  "name": "@pryzm/legacy-shim",
+  "version": "0.0.0",
+  "description": "PRYZM 2 \u2014 fixture-only package used by `pryzm/no-raf` lint integration test.  Contains intentionally bad code that the rule must reject; nothing in here ships.",
+  "private": true,
+  "type": "module",
+  "deprecated": "Wave-12 DROP: @pryzm/legacy-shim had 0 importers at Wave 8 close. Verdict: DROP per docs/03_PRYZM3/04-PLAN-FORWARD/17-WAVES-9-12-SRC-MIGRATION.md \u00a75"
+}

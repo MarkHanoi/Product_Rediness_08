@@ -1,0 +1,33 @@
+{
+  "id": "F03.circular-diagonal",
+  "description": "0.3 m circular beam along a diagonal baseline",
+  "beam": {
+    "id": "beam:01HZS000000000000BEMF0300",
+    "type": "beam",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "baseLine": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 3,
+        "y": 0,
+        "z": 4
+      }
+    ],
+    "shape": "circular",
+    "width": 0.3,
+    "depth": 0.3,
+    "rotation": 0
+  },
+  "worldY": 0
+}

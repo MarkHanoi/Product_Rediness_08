@@ -1,0 +1,93 @@
+Good — all the documented fixes are already in the code. Now let me check what the console log actually shows vs what should be happening. The key is the 10,923ms LONGTASK fires **after** `renderer.compile()` supposedly ran. Let me find the smoking gun.Now I see the actual problem. The log shows:
+- `renderer.compile() fired before suppression lifted — PSO cache warm` ✓ 
+- But then STILL `10,423ms LONGTASK` on the first OBC render
+
+This means `renderer.compile()` IS running but it's not warming the right shaders. Let me check what OBC's `_obcCallback` actually does.Found it. There's no `setObcRenderCallback` call in initScene — only `setPascalRenderCallback`. The OBC render loop is driven by OBC's own internal rAF, **not** through `UnifiedFrameLoop._obcCallback`. So `renderer.compile()` inside `endBatchRenderSuppress()` is running against `window.bimWorld.renderer.three`, but OBC's actual render uses `PostproductionRenderer` internally — which has its own WebGPU pipeline. Let me verify:Now I have the complete picture. In Phase 5 (WebGPU active), `pryzmRenderer` is the `WebGPURenderer` from `rendererResult.renderer` — and `window.bimWorld.renderer` is still OBC's `PostproductionRenderer` (the WebGL one). The `renderer.compile()` calls in both `_prewarmCurtainWallShaders` and `endBatchRenderSuppress` are hitting `window.bimWorld.renderer.three` = OBC's **WebGL** renderer, but the actual production render uses `pryzmRenderer` (the **WebGPU** renderer). Two completely different GPU contexts. The PSOs compiled are thrown away.**Found the root cause.** `window.pryzmRenderer` IS the correct WebGPU renderer (set at line 1125). But both `_prewarmCurtainWallShaders` and `endBatchRenderSuppress` use `window.bimWorld.renderer.three` — which is OBC's PostproductionRenderer (WebGL). The fix is simple and surgical: change both to `window.pryzmRenderer`.Now I have the full picture. Let me also check the `CommandManager` and `ViewDependencyTracker` to understand if there are other contributing bottlenecks.I now have everything needed to write the precise fixes. The root cause is confirmed: **both `renderer.compile()` calls use `window.bimWorld.renderer.three` (OBC's WebGL PostproductionRenderer) but the actual production render uses `window.pryzmRenderer` (the WebGPU renderer)**. They are different GPU contexts. PSOs don't transfer.Now I have everything. Let me produce the definitive analysis and fix set.Here's the exact diagnosis and the two surgical fixes you need.
+
+---
+
+## What's actually happening
+
+All the fixes in your code are architecturally correct — but they're all calling `renderer.compile()` on **the wrong renderer**. Here's the chain:
+
+- `window.bimWorld.renderer` → OBC's `PostproductionRenderer` (WebGL)
+- `window.pryzmRenderer` → the actual `WebGPURenderer` that drives all production rendering after Phase 5 activates (set at `initScene.ts` line 1125)
+
+In Phase 5, OBC is locked to `MANUAL` mode and never renders again. Every real frame goes through `pryzmRenderer`. So `renderer.compile()` in `_prewarmCurtainWallShaders()` and in `endBatchRenderSuppress()` both compile PSOs into the WebGL context — and those PSOs are completely discarded when `pryzmRenderer.render()` fires in `_obcCallback` (actually the Pascal callback) and does a cold WebGPU compile. That's your 10,923ms LONGTASK.
+
+---
+
+## Fix 1 — Two-line change, eliminates the 10,923ms LONGTASK
+
+In `CreateCurtainWallsOnAllSlabsCommand.ts`, line ~531:
+```typescript
+// BEFORE:
+const renderer = (window.bimWorld as any)?.renderer?.three;
+
+// AFTER:
+const renderer = (window as any).pryzmRenderer ?? (window.bimWorld as any)?.renderer?.three;
+```
+
+In `UnifiedFrameLoop.ts`, line ~427–429:
+```typescript
+// BEFORE:
+const bw       = (window as any).bimWorld;
+const renderer = bw?.renderer?.three;
+const scene    = bw?.scene?.three;
+const camera   = bw?.camera?.three;
+
+// AFTER:
+const bw       = (window as any).bimWorld;
+const renderer = (window as any).pryzmRenderer ?? bw?.renderer?.three;
+const scene    = bw?.scene?.three;
+const camera   = bw?.camera?.three;
+```
+
+The `?? bw?.renderer?.three` fallback ensures it still works if Phase 5 didn't activate (e.g. WebGPU unavailable, falls back to OBC WebGL renderer — in which case they're the same instance and the fallback is a no-op).
+
+---
+
+## Fix 2 — Verify Ph 8 (52,668ms) is actually being skipped
+
+Your code already has `skipPbrUpgrade: true` in the `runBatch` call and the `batchCoordinator.skipPbrUpgrade` guard in `initScene`. But the console log shows 52,668ms across 4 chunks — meaning the guard isn't firing. Check your console for the `PBR-UPGRADE-SKIPPED` log line. If it's absent, the issue is likely that `skipPbrUpgrade` is being reset to `false` before the `requestIdleCallback` fires.
+
+In `BatchCoordinator.ts`, `forceReset()` at line 1155 resets `_skipPbrUpgrade = false`. If `forceReset()` is being called between `runBatch` completing and the idle callback firing, the guard check reads `false`. Verify by adding a temporary log:
+
+```typescript
+// In initScene.ts, inside setPostBatchCallback:
+if (batchCoordinator.skipPbrUpgrade) {
+    console.log('[BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-SKIPPED ...');
+    return;
+}
+// ADD THIS:
+console.log('[BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-RUNNING skipPbrUpgrade=false at idle-callback time');
+```
+
+If you see `PBR-UPGRADE-RUNNING`, move the `_skipPbrUpgrade` value into a local variable **captured at `runBatch` time** before it can be reset:
+
+```typescript
+// In initScene.ts, setPostBatchCallback:
+batchCoordinator.setPostBatchCallback(() => {
+    const shouldSkipPbr = batchCoordinator.skipPbrUpgrade; // capture NOW before any reset
+    if (shouldSkipPbr) {
+        console.log('[BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-SKIPPED');
+        return;
+    }
+    // ... rest of runPbrUpgrade ...
+    requestIdleCallback(runPbrUpgrade, { timeout: 5000 });
+});
+```
+
+---
+
+## Expected outcome after these two fixes
+
+| Phase | Before | After |
+|---|---|---|
+| Ph 0 prewarm | 218ms (wrong ctx, wasted) | 218ms (correct ctx, PSOs cached) |
+| Ph 6 first render | **10,923ms LONGTASK** | ~0ms (cache hit) |
+| Ph 8 PBR upgrade | **52,668ms** | 0ms (skip guard) |
+| Everything else | ~2,400ms | ~2,400ms |
+| **Total** | **~75s** | **~2.6s** |
+
+Fix 1 is the critical one — two lines, eliminates the dominant cost. Fix 2 is likely already working but the console will tell you definitively. Both changes are safe: the `?? fallback` means Phase 1–4 behaviour is unchanged, and the local-capture pattern means undo/redo paths are unaffected.

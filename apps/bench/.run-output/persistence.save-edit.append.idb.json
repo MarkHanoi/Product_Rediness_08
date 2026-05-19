@@ -1,0 +1,10 @@
+{
+  "name": "persistence.save-edit.append.idb",
+  "samples": 200,
+  "p50": 0.293,
+  "p95": 0.78,
+  "p99": 1.51,
+  "budgetMs": 12,
+  "warnMs": 8,
+  "recordedAt": "2026-04-27T22:47:51.524Z"
+}

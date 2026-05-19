@@ -1,0 +1,28 @@
+{
+  "id": "F02.rectangular-wide",
+  "description": "0.6×0.4×3.5 m rectangular column at offset origin",
+  "column": {
+    "id": "column:01HZS000000000000COLF0200",
+    "type": "column",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "origin": {
+      "x": 5,
+      "y": 0,
+      "z": 5
+    },
+    "shape": "rectangular",
+    "width": 0.6,
+    "depth": 0.4,
+    "height": 3.5,
+    "rotation": 0,
+    "baseOffset": 0
+  },
+  "worldY": 0
+}

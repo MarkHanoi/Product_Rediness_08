@@ -1,0 +1,44 @@
+{
+  "//": "Phase H (PHASE-H-PER-PACKAGE-COMPILE.md §3.1) — shared per-package emit config.",
+  "//1": "Each Tier-1/Tier-2 workspace package adds its own tsconfig.build.json that",
+  "//2": "extends THIS file via the relative path '../tsconfig.build.template.json'.",
+  "//3": "Authoring + tests stay driven by each package's tsconfig.json (noEmit:true).",
+  "//4": "NOTE — `outDir` and `rootDir` are deliberately OMITTED here.  TypeScript",
+  "//5": "resolves path-options relative to the file that DEFINES them, so writing",
+  "//6": "`rootDir: ./src` here would produce `packages/src` (wrong).  Each extending",
+  "//7": "package MUST set its own `outDir: ./dist` and `rootDir: ./src` overrides.",
+  "//8": "DESIGN CHOICE — the compilerOptions below mirror tsconfig.base.json so that",
+  "//9": "adding a tsconfig.build.json to an existing package does NOT also impose a",
+  "//10": "stricter type-check (e.g. exactOptionalPropertyTypes:true,",
+  "//11": "verbatimModuleSyntax:true).  Tightening those is its own opt-in pass.",
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "types": ["@webgpu/types", "node"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": false,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "verbatimModuleSyntax": false,
+    "useDefineForClassFields": true,
+
+    "noEmit": false,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "composite": true,
+    "incremental": true
+  },
+  "exclude": [
+    "**/__tests__/**",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "**/*.bench.ts"
+  ]
+}

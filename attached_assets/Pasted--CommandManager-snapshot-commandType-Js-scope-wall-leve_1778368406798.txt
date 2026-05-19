@@ -1,0 +1,1579 @@
+[CommandManager] snapshot commandType="Js" scope=[wall,level] elapsed=0.2ms
+main-C_EL1IFU.js:29510 [VDT] §G3-STALE-EVENT for unregistered element dfe84388-c605-417c-88ad-9cb69b798fe5 type= wall — fallback to store-type view only
+_onStoreEvent @ main-C_EL1IFU.js:29510
+(anonymous) @ main-C_EL1IFU.js:29510
+_dispatch @ main-C_EL1IFU.js:29510
+emit @ main-C_EL1IFU.js:29510
+emit @ engineLauncher-bbIXqTfg.js:1864
+add @ engineLauncher-bbIXqTfg.js:1864
+execute @ engineLauncher-bbIXqTfg.js:1583
+execute @ engineLauncher-bbIXqTfg.js:1902
+createWall @ engineLauncher-bbIXqTfg.js:2247
+createWallFromPath @ engineLauncher-bbIXqTfg.js:2247
+onPointerDown @ engineLauncher-bbIXqTfg.js:2242
+pointerDownHandler @ engineLauncher-bbIXqTfg.js:2242
+engineLauncher-bbIXqTfg.js:1583 [BimManager] Registered element dfe84388-c605-417c-88ad-9cb69b798fe5 to level L0
+engineLauncher-bbIXqTfg.js:2247 Wall created via command: dfe84388-c605-417c-88ad-9cb69b798fe5
+engineLauncher-bbIXqTfg.js:2323 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=16ms, resets=6)
+_scheduleRedetect @ engineLauncher-bbIXqTfg.js:2323
+(anonymous) @ engineLauncher-bbIXqTfg.js:2323
+emit @ engineLauncher-bbIXqTfg.js:1864
+_updateImpl @ engineLauncher-bbIXqTfg.js:1864
+update @ engineLauncher-bbIXqTfg.js:1864
+(anonymous) @ engineLauncher-bbIXqTfg.js:7243
+_flush @ engineLauncher-bbIXqTfg.js:7243
+(anonymous) @ engineLauncher-bbIXqTfg.js:7243
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-bbIXqTfg.js:1821 [PascalSceneLighting] Shadow flags set on 7 mesh(es).
+main-C_EL1IFU.js:29510 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+main-C_EL1IFU.js:29510 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+engineLauncher-bbIXqTfg.js:1826 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] Plan view — exporting 7 elements from levels overlapping Y=[-1.20, 0.00]
+engineLauncher-bbIXqTfg.js:1583 [NME] §H2-NME-CACHE hits=0 misses=7 hitRate=0% cacheSize=28/500
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] project() batchId=none viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=5c8ec09d-b426-4014-b6ab-25fcf20aacfb elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.2ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=eb4f28ff-e10f-4d36-9773-eac724c2a386 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#2 elemId=f96e9170-5944-4daf-b94d-067014240213 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#3 elemId=caf9c914-3c39-49bf-a151-bb8f3ec770b1 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#4 elemId=e2d70429-115e-4250-bc50-2a60679a83de elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#5 elemId=7ae314a7-930b-4288-9682-cdbe44421a8f elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#6 elemId=dfe84388-c605-417c-88ad-9cb69b798fe5 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 7 group(s) in 2 chunk(s), 7 edge geometries across 7 ISO layer(s) (per-element UUID tagging active)
+engineLauncher-bbIXqTfg.js:1826 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=14 (OBC-IFC=0, native=7, ifc-scene=0)
+engineLauncher-bbIXqTfg.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=4/14 layers
+engineLauncher-bbIXqTfg.js:2247 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+engineLauncher-bbIXqTfg.js:2247 [WallTool] wall.create dispatched to bus (busId: wall_2BE9981F0D89421BAC436475E4 ) — legacy path runs for geometry with id: 2be9981f-0d89-421b-ac43-6475e44f6b3d
+engineLauncher-bbIXqTfg.js:2247 [WallTool] Executing CreateWallCommand with levelId: L0
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] snapshot commandType="Js" scope=[wall,level] elapsed=0.2ms
+main-C_EL1IFU.js:29510 [VDT] §G3-STALE-EVENT for unregistered element 2be9981f-0d89-421b-ac43-6475e44f6b3d type= wall — fallback to store-type view only
+_onStoreEvent @ main-C_EL1IFU.js:29510
+(anonymous) @ main-C_EL1IFU.js:29510
+_dispatch @ main-C_EL1IFU.js:29510
+emit @ main-C_EL1IFU.js:29510
+emit @ engineLauncher-bbIXqTfg.js:1864
+add @ engineLauncher-bbIXqTfg.js:1864
+execute @ engineLauncher-bbIXqTfg.js:1583
+execute @ engineLauncher-bbIXqTfg.js:1902
+createWall @ engineLauncher-bbIXqTfg.js:2247
+createWallFromPath @ engineLauncher-bbIXqTfg.js:2247
+onPointerDown @ engineLauncher-bbIXqTfg.js:2242
+pointerDownHandler @ engineLauncher-bbIXqTfg.js:2242
+engineLauncher-bbIXqTfg.js:1583 [BimManager] Registered element 2be9981f-0d89-421b-ac43-6475e44f6b3d to level L0
+engineLauncher-bbIXqTfg.js:2247 Wall created via command: 2be9981f-0d89-421b-ac43-6475e44f6b3d
+engineLauncher-bbIXqTfg.js:2323 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=22ms, resets=6)
+_scheduleRedetect @ engineLauncher-bbIXqTfg.js:2323
+(anonymous) @ engineLauncher-bbIXqTfg.js:2323
+emit @ engineLauncher-bbIXqTfg.js:1864
+_updateImpl @ engineLauncher-bbIXqTfg.js:1864
+update @ engineLauncher-bbIXqTfg.js:1864
+(anonymous) @ engineLauncher-bbIXqTfg.js:7243
+_flush @ engineLauncher-bbIXqTfg.js:7243
+(anonymous) @ engineLauncher-bbIXqTfg.js:7243
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-bbIXqTfg.js:1821 [PascalSceneLighting] Shadow flags set on 8 mesh(es).
+main-C_EL1IFU.js:29510 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+main-C_EL1IFU.js:29510 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+engineLauncher-bbIXqTfg.js:1826 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] Plan view — exporting 8 elements from levels overlapping Y=[-1.20, 0.00]
+engineLauncher-bbIXqTfg.js:1583 [NME] §H2-NME-CACHE hits=0 misses=8 hitRate=0% cacheSize=36/500
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] project() batchId=none viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=5c8ec09d-b426-4014-b6ab-25fcf20aacfb elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=eb4f28ff-e10f-4d36-9773-eac724c2a386 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#2 elemId=f96e9170-5944-4daf-b94d-067014240213 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#3 elemId=caf9c914-3c39-49bf-a151-bb8f3ec770b1 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#4 elemId=e2d70429-115e-4250-bc50-2a60679a83de elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.2ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#5 elemId=7ae314a7-930b-4288-9682-cdbe44421a8f elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#6 elemId=dfe84388-c605-417c-88ad-9cb69b798fe5 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#7 elemId=2be9981f-0d89-421b-ac43-6475e44f6b3d elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 8 group(s) in 2 chunk(s), 8 edge geometries across 8 ISO layer(s) (per-element UUID tagging active)
+engineLauncher-bbIXqTfg.js:1826 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=16 (OBC-IFC=0, native=8, ifc-scene=0)
+engineLauncher-bbIXqTfg.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=4/14 layers
+engineLauncher-bbIXqTfg.js:1864 [ProjectSerializer] Snapshot created: 8 elements, 1 levels, 8 walls, 0 slabs, 0 furniture
+engineLauncher-bbIXqTfg.js:1864 [ProjectSerializer] Snapshot created: 8 elements, 1 levels, 8 walls, 0 slabs, 0 furniture
+engineLauncher-bbIXqTfg.js:1864 [captureThumbnail] Thumbnail captured: 204×225px, ~3KB
+PlatformShell-C9mLyVyy.js:23 [PlatformSaveController] Thumbnail: captured (~3KB)
+PlatformShell-C9mLyVyy.js:23 [PlatformSaveController] Version saved: "Auto-save" (8 elements, id: proj-1778367846386-da28q)
+engineLauncher-bbIXqTfg.js:2247 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+engineLauncher-bbIXqTfg.js:2247 [WallTool] wall.create dispatched to bus (busId: wall_F452BB4808D74C1EAD448FE844 ) — legacy path runs for geometry with id: f452bb48-08d7-4c1e-ad44-8fe84451e03e
+engineLauncher-bbIXqTfg.js:2247 [WallTool] Executing CreateWallCommand with levelId: L0
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] snapshot commandType="Js" scope=[wall,level] elapsed=0.3ms
+main-C_EL1IFU.js:29510 [VDT] §G3-STALE-EVENT for unregistered element f452bb48-08d7-4c1e-ad44-8fe84451e03e type= wall — fallback to store-type view only
+_onStoreEvent @ main-C_EL1IFU.js:29510
+(anonymous) @ main-C_EL1IFU.js:29510
+_dispatch @ main-C_EL1IFU.js:29510
+emit @ main-C_EL1IFU.js:29510
+emit @ engineLauncher-bbIXqTfg.js:1864
+add @ engineLauncher-bbIXqTfg.js:1864
+execute @ engineLauncher-bbIXqTfg.js:1583
+execute @ engineLauncher-bbIXqTfg.js:1902
+createWall @ engineLauncher-bbIXqTfg.js:2247
+createWallFromPath @ engineLauncher-bbIXqTfg.js:2247
+onPointerDown @ engineLauncher-bbIXqTfg.js:2242
+pointerDownHandler @ engineLauncher-bbIXqTfg.js:2242
+engineLauncher-bbIXqTfg.js:1583 [BimManager] Registered element f452bb48-08d7-4c1e-ad44-8fe84451e03e to level L0
+engineLauncher-bbIXqTfg.js:2247 Wall created via command: f452bb48-08d7-4c1e-ad44-8fe84451e03e
+engineLauncher-bbIXqTfg.js:2323 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=27ms, resets=6)
+_scheduleRedetect @ engineLauncher-bbIXqTfg.js:2323
+(anonymous) @ engineLauncher-bbIXqTfg.js:2323
+emit @ engineLauncher-bbIXqTfg.js:1864
+_updateImpl @ engineLauncher-bbIXqTfg.js:1864
+update @ engineLauncher-bbIXqTfg.js:1864
+(anonymous) @ engineLauncher-bbIXqTfg.js:7243
+_flush @ engineLauncher-bbIXqTfg.js:7243
+(anonymous) @ engineLauncher-bbIXqTfg.js:7243
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-bbIXqTfg.js:1821 [PascalSceneLighting] Shadow flags set on 9 mesh(es).
+main-C_EL1IFU.js:29510 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+main-C_EL1IFU.js:29510 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+engineLauncher-bbIXqTfg.js:1826 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] Plan view — exporting 9 elements from levels overlapping Y=[-1.20, 0.00]
+engineLauncher-bbIXqTfg.js:1583 [NME] §H2-NME-CACHE hits=0 misses=9 hitRate=0% cacheSize=45/500
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] project() batchId=none viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=5c8ec09d-b426-4014-b6ab-25fcf20aacfb elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=eb4f28ff-e10f-4d36-9773-eac724c2a386 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#2 elemId=f96e9170-5944-4daf-b94d-067014240213 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#3 elemId=caf9c914-3c39-49bf-a151-bb8f3ec770b1 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#4 elemId=e2d70429-115e-4250-bc50-2a60679a83de elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#5 elemId=7ae314a7-930b-4288-9682-cdbe44421a8f elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#6 elemId=dfe84388-c605-417c-88ad-9cb69b798fe5 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#7 elemId=2be9981f-0d89-421b-ac43-6475e44f6b3d elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#8 elemId=f452bb48-08d7-4c1e-ad44-8fe84451e03e elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 9 group(s) in 3 chunk(s), 9 edge geometries across 9 ISO layer(s) (per-element UUID tagging active)
+engineLauncher-bbIXqTfg.js:1826 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=18 (OBC-IFC=0, native=9, ifc-scene=0)
+engineLauncher-bbIXqTfg.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=4/14 layers
+engineLauncher-bbIXqTfg.js:2247 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+engineLauncher-bbIXqTfg.js:2247 [WallTool] wall.create dispatched to bus (busId: wall_B3E07B06E3DF4A5788B0BB454E ) — legacy path runs for geometry with id: b3e07b06-e3df-4a57-88b0-bb454e4313af
+engineLauncher-bbIXqTfg.js:2247 [WallTool] Executing CreateWallCommand with levelId: L0
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] snapshot commandType="Js" scope=[wall,level] elapsed=0.2ms
+main-C_EL1IFU.js:29510 [VDT] §G3-STALE-EVENT for unregistered element b3e07b06-e3df-4a57-88b0-bb454e4313af type= wall — fallback to store-type view only
+_onStoreEvent @ main-C_EL1IFU.js:29510
+(anonymous) @ main-C_EL1IFU.js:29510
+_dispatch @ main-C_EL1IFU.js:29510
+emit @ main-C_EL1IFU.js:29510
+emit @ engineLauncher-bbIXqTfg.js:1864
+add @ engineLauncher-bbIXqTfg.js:1864
+execute @ engineLauncher-bbIXqTfg.js:1583
+execute @ engineLauncher-bbIXqTfg.js:1902
+createWall @ engineLauncher-bbIXqTfg.js:2247
+closePolyline @ engineLauncher-bbIXqTfg.js:2247
+onKeyDown @ engineLauncher-bbIXqTfg.js:2247
+keyDownHandler @ engineLauncher-bbIXqTfg.js:2242
+engineLauncher-bbIXqTfg.js:1583 [BimManager] Registered element b3e07b06-e3df-4a57-88b0-bb454e4313af to level L0
+engineLauncher-bbIXqTfg.js:2247 Wall created via command: b3e07b06-e3df-4a57-88b0-bb454e4313af
+engineLauncher-bbIXqTfg.js:2242 WallTool deactivated
+engineLauncher-bbIXqTfg.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-bbIXqTfg.js:2323 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=233ms, resets=6)
+_scheduleRedetect @ engineLauncher-bbIXqTfg.js:2323
+(anonymous) @ engineLauncher-bbIXqTfg.js:2323
+emit @ engineLauncher-bbIXqTfg.js:1864
+_updateImpl @ engineLauncher-bbIXqTfg.js:1864
+update @ engineLauncher-bbIXqTfg.js:1864
+(anonymous) @ engineLauncher-bbIXqTfg.js:7243
+_flush @ engineLauncher-bbIXqTfg.js:7243
+(anonymous) @ engineLauncher-bbIXqTfg.js:7243
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+500Destroyed texture [Texture "ShadowDepthTexture"] used in a submit.
+ - While calling [Queue].Submit([[CommandBuffer from CommandEncoder "renderContext_6"]])
+
+engineLauncher-bbIXqTfg.js:7105 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-bbIXqTfg.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-bbIXqTfg.js:2323 [PlanarTopologyEngine] Topology: 1 room(s) detected, outer face (10 vertices), 2 total faces
+engineLauncher-bbIXqTfg.js:2323 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+engineLauncher-bbIXqTfg.js:1583 [BimManager] Registered element c7fe4ca4-12c0-4715-9e61-a05d29ffbd59 to level L0
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-bbIXqTfg.js:2323 [PlanarTopologyEngine] Topology: 1 room(s) detected, outer face (10 vertices), 2 total faces
+engineLauncher-bbIXqTfg.js:2323 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+engineLauncher-bbIXqTfg.js:1821 [PascalSceneLighting] Shadow flags set on 10 mesh(es).
+main-C_EL1IFU.js:29510 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+main-C_EL1IFU.js:29510 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] EXECUTE: CREATE_ANNOTATION
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] snapshot commandType="_o" scope=[annotation] elapsed=0.0ms
+engineLauncher-bbIXqTfg.js:1826 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 1 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed out of 1 live room(s).
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] Plan view — exporting 11 elements from levels overlapping Y=[-1.20, 0.00]
+engineLauncher-bbIXqTfg.js:1583 [NME] §H2-NME-CACHE hits=0 misses=10 hitRate=0% cacheSize=55/500
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] project() batchId=none viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=5c8ec09d-b426-4014-b6ab-25fcf20aacfb elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=eb4f28ff-e10f-4d36-9773-eac724c2a386 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#2 elemId=f96e9170-5944-4daf-b94d-067014240213 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#3 elemId=caf9c914-3c39-49bf-a151-bb8f3ec770b1 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#4 elemId=e2d70429-115e-4250-bc50-2a60679a83de elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.3ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#5 elemId=7ae314a7-930b-4288-9682-cdbe44421a8f elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#6 elemId=dfe84388-c605-417c-88ad-9cb69b798fe5 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#7 elemId=2be9981f-0d89-421b-ac43-6475e44f6b3d elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#8 elemId=f452bb48-08d7-4c1e-ad44-8fe84451e03e elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#9 elemId=b3e07b06-e3df-4a57-88b0-bb454e4313af elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 10 group(s) in 3 chunk(s), 10 edge geometries across 10 ISO layer(s) (per-element UUID tagging active)
+engineLauncher-bbIXqTfg.js:1826 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=20 (OBC-IFC=0, native=10, ifc-scene=0)
+engineLauncher-bbIXqTfg.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=4/14 layers
+engineLauncher-bbIXqTfg.js:1864 [ProjectSerializer] Snapshot created: 11 elements, 1 levels, 10 walls, 0 slabs, 0 furniture
+engineLauncher-bbIXqTfg.js:1864 [ProjectSerializer] Snapshot created: 11 elements, 1 levels, 10 walls, 0 slabs, 0 furniture
+engineLauncher-bbIXqTfg.js:1864 [captureThumbnail] Thumbnail captured: 204×225px, ~2KB
+PlatformShell-C9mLyVyy.js:23 [PlatformSaveController] Thumbnail: captured (~2KB)
+PlatformShell-C9mLyVyy.js:23 [PlatformSaveController] Version saved: "Auto-save" (11 elements, id: proj-1778367848820-6w4i4)
+engineLauncher-bbIXqTfg.js:1852 [RoomBoundaryBuilder] Compliance overlay: 2 error, 0 warning room(s) tinted
+PlatformShell-C9mLyVyy.js:24 [PlatformSaveController] Thumbnail uploaded to server for project proj-1778367796728-4p9p466
+engineLauncher-bbIXqTfg.js:5926 [SlabModePicker] Mode selected: By Region
+engineLauncher-bbIXqTfg.js:1902 ToolManager: activateTool called for slab
+engineLauncher-bbIXqTfg.js:1902 ToolManager: deactivating previous tool none
+engineLauncher-bbIXqTfg.js:1902 ToolManager: executing activateFn for slab
+engineLauncher-bbIXqTfg.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] EXECUTE: CREATE_SLAB
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] snapshot commandType="cs" scope=[slab,level] elapsed=0.1ms
+engineLauncher-bbIXqTfg.js:1583 [BimManager] Registered element 132c9056-ea4c-46bf-9eb3-ade57c2ddbcd to level L0
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] outset slabId="132c9056-ea4c-46bf-9eb3-ade57c2ddbcd" vertices=10 elapsed=0.3ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] triangulate slabId="132c9056-ea4c-46bf-9eb3-ade57c2ddbcd" outerVertices=10 elapsed=0.9ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] BUILD_COMPLETE slabId="132c9056-ea4c-46bf-9eb3-ade57c2ddbcd" totalMs=6.2ms
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] EXECUTE: UPDATE_SLAB_LAYERS
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] snapshot commandType="Qd" scope=[slab] elapsed=0.1ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] outset slabId="132c9056-ea4c-46bf-9eb3-ade57c2ddbcd" vertices=10 elapsed=0.0ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] triangulate slabId="132c9056-ea4c-46bf-9eb3-ade57c2ddbcd" outerVertices=10 elapsed=0.4ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] BUILD_COMPLETE slabId="132c9056-ea4c-46bf-9eb3-ade57c2ddbcd" totalMs=1.5ms
+engineLauncher-bbIXqTfg.js:7243 [LevelPlaneConstraint] Locked Y=-0.2000 for element "Slab" id="132c9056-ea4c-46bf-9eb3-ade57c2ddbcd"
+engineLauncher-bbIXqTfg.js:541 [CutFill] Updating: enabled=false, height=1.2
+main-C_EL1IFU.js:30301  POST https://video-prep-2--yonirolando1.replit.app/api/projects/proj-1778367796728-4p9p466/versions 403 (Forbidden)
+Be @ main-C_EL1IFU.js:30301
+attemptSync @ PlatformShell-C9mLyVyy.js:1
+flush @ PlatformShell-C9mLyVyy.js:1
+(anonymous) @ PlatformShell-C9mLyVyy.js:1
+setTimeout
+scheduleFlush @ PlatformShell-C9mLyVyy.js:1
+enqueue @ PlatformShell-C9mLyVyy.js:1
+saveVersionInternal @ PlatformShell-C9mLyVyy.js:23
+onAutoSave @ PlatformShell-C9mLyVyy.js:1
+executeSave @ PlatformShell-C9mLyVyy.js:1
+(anonymous) @ PlatformShell-C9mLyVyy.js:1
+setTimeout
+scheduleDebounce @ PlatformShell-C9mLyVyy.js:1
+handleMutation @ PlatformShell-C9mLyVyy.js:1
+W.mutationHandler @ PlatformShell-C9mLyVyy.js:1
+emit @ engineLauncher-bbIXqTfg.js:1864
+_updateImpl @ engineLauncher-bbIXqTfg.js:1864
+update @ engineLauncher-bbIXqTfg.js:1864
+(anonymous) @ engineLauncher-bbIXqTfg.js:7243
+_flush @ engineLauncher-bbIXqTfg.js:7243
+(anonymous) @ engineLauncher-bbIXqTfg.js:7243
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+PlatformShell-C9mLyVyy.js:24 [PlatformSaveController] Thumbnail uploaded to server for project proj-1778367796728-4p9p466
+PlatformShell-C9mLyVyy.js:1 [ServerSyncQueue] Version "Auto-save" rejected by server (403) — dropping: {error: 'Version history is not available on your current plan.', plan: 'free', upgrade: 'architect'}
+attemptSync @ PlatformShell-C9mLyVyy.js:1
+await in attemptSync
+flush @ PlatformShell-C9mLyVyy.js:1
+(anonymous) @ PlatformShell-C9mLyVyy.js:1
+setTimeout
+scheduleFlush @ PlatformShell-C9mLyVyy.js:1
+enqueue @ PlatformShell-C9mLyVyy.js:1
+saveVersionInternal @ PlatformShell-C9mLyVyy.js:23
+onAutoSave @ PlatformShell-C9mLyVyy.js:1
+executeSave @ PlatformShell-C9mLyVyy.js:1
+(anonymous) @ PlatformShell-C9mLyVyy.js:1
+setTimeout
+scheduleDebounce @ PlatformShell-C9mLyVyy.js:1
+handleMutation @ PlatformShell-C9mLyVyy.js:1
+W.mutationHandler @ PlatformShell-C9mLyVyy.js:1
+emit @ engineLauncher-bbIXqTfg.js:1864
+_updateImpl @ engineLauncher-bbIXqTfg.js:1864
+update @ engineLauncher-bbIXqTfg.js:1864
+(anonymous) @ engineLauncher-bbIXqTfg.js:7243
+_flush @ engineLauncher-bbIXqTfg.js:7243
+(anonymous) @ engineLauncher-bbIXqTfg.js:7243
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+PlatformShell-C9mLyVyy.js:1 [ServerSyncQueue] Plan-gating latch engaged — future versions will stay local-only this session.
+attemptSync @ PlatformShell-C9mLyVyy.js:1
+await in attemptSync
+flush @ PlatformShell-C9mLyVyy.js:1
+(anonymous) @ PlatformShell-C9mLyVyy.js:1
+setTimeout
+scheduleFlush @ PlatformShell-C9mLyVyy.js:1
+enqueue @ PlatformShell-C9mLyVyy.js:1
+saveVersionInternal @ PlatformShell-C9mLyVyy.js:23
+onAutoSave @ PlatformShell-C9mLyVyy.js:1
+executeSave @ PlatformShell-C9mLyVyy.js:1
+(anonymous) @ PlatformShell-C9mLyVyy.js:1
+setTimeout
+scheduleDebounce @ PlatformShell-C9mLyVyy.js:1
+handleMutation @ PlatformShell-C9mLyVyy.js:1
+W.mutationHandler @ PlatformShell-C9mLyVyy.js:1
+emit @ engineLauncher-bbIXqTfg.js:1864
+_updateImpl @ engineLauncher-bbIXqTfg.js:1864
+update @ engineLauncher-bbIXqTfg.js:1864
+(anonymous) @ engineLauncher-bbIXqTfg.js:7243
+_flush @ engineLauncher-bbIXqTfg.js:7243
+(anonymous) @ engineLauncher-bbIXqTfg.js:7243
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+main-C_EL1IFU.js:29510 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+main-C_EL1IFU.js:29510 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+engineLauncher-bbIXqTfg.js:1826 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed out of 1 live room(s).
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] Plan view — exporting 12 elements from levels overlapping Y=[-1.20, 0.00]
+engineLauncher-bbIXqTfg.js:1583 [NME] §H2-NME-CACHE hits=10 misses=1 hitRate=91% cacheSize=56/500
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] project() batchId=none viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=5c8ec09d-b426-4014-b6ab-25fcf20aacfb elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.2ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=eb4f28ff-e10f-4d36-9773-eac724c2a386 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#2 elemId=f96e9170-5944-4daf-b94d-067014240213 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#3 elemId=caf9c914-3c39-49bf-a151-bb8f3ec770b1 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-bbIXqTfg.js:2323 [PlanarTopologyEngine] Topology: 1 room(s) detected, outer face (10 vertices), 2 total faces
+engineLauncher-bbIXqTfg.js:2323 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#4 elemId=e2d70429-115e-4250-bc50-2a60679a83de elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.2ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#5 elemId=7ae314a7-930b-4288-9682-cdbe44421a8f elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#6 elemId=dfe84388-c605-417c-88ad-9cb69b798fe5 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.2ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#7 elemId=2be9981f-0d89-421b-ac43-6475e44f6b3d elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+engineLauncher-bbIXqTfg.js:1964 Exiting tool via HUD button
+engineLauncher-bbIXqTfg.js:7105 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-bbIXqTfg.js:541 [CutFill] Updating: enabled=false, height=1.2
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#8 elemId=f452bb48-08d7-4c1e-ad44-8fe84451e03e elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.2ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#9 elemId=b3e07b06-e3df-4a57-88b0-bb454e4313af elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.2ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#10 elemId=132c9056-ea4c-46bf-9eb3-ade57c2ddbcd elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.3ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 11 group(s) in 3 chunk(s), 11 edge geometries across 11 ISO layer(s) (per-element UUID tagging active)
+engineLauncher-bbIXqTfg.js:1826 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=22 (OBC-IFC=0, native=11, ifc-scene=0)
+engineLauncher-bbIXqTfg.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=7/14 layers
+engineLauncher-bbIXqTfg.js:1864 [ProjectSerializer] Snapshot created: 12 elements, 1 levels, 10 walls, 1 slabs, 0 furniture
+engineLauncher-bbIXqTfg.js:1864 [ProjectSerializer] Snapshot created: 12 elements, 1 levels, 10 walls, 1 slabs, 0 furniture
+PlatformShell-C9mLyVyy.js:23 [PlatformSaveController] Version saved: "Auto-save" (12 elements, id: proj-1778367852949-btkgb)
+engineLauncher-bbIXqTfg.js:1864 [PickResolver] strategy=gpu-pick hit=132c9056-ea4c-46bf-9eb3-ade57c2ddbcd
+engineLauncher-bbIXqTfg.js:7243 [LevelPlaneConstraint] Locked Y=-0.2000 for element "Slab" id="132c9056-ea4c-46bf-9eb3-ade57c2ddbcd"
+engineLauncher-bbIXqTfg.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-bbIXqTfg.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-bbIXqTfg.js:7105 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-bbIXqTfg.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] EXECUTE: CREATE_LEVEL
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] snapshot commandType="v9" scope=[level] elapsed=0.2ms
+engineLauncher-bbIXqTfg.js:2332 [CreateMultipleLevelsCommand] START count=10
+engineLauncher-bbIXqTfg.js:7258 [EngineBootstrap] Level switch → "Level 01" (target.Y: -3.24 → 3.00)
+engineLauncher-bbIXqTfg.js:1826 [initScene] LevelClipPlaneCache: registered level "L-01-1778367874324-1" at 3m
+engineLauncher-bbIXqTfg.js:4702 Refreshing Spatial Tree...
+engineLauncher-bbIXqTfg.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-bbIXqTfg.js:1533 [CreatePlanViewCommand] Created native plan view "Level 01" for level L-01-1778367874324-1 @ 3.000 m
+engineLauncher-bbIXqTfg.js:2332 [CreateMultipleLevelsCommand] level=1/10 addLevel=25.3ms createPlanView=1.1ms iterTotal=26.3ms
+engineLauncher-bbIXqTfg.js:7258 [EngineBootstrap] Level switch → "Level 02" (target.Y: 3.00 → 6.00)
+engineLauncher-bbIXqTfg.js:1826 [initScene] LevelClipPlaneCache: registered level "L-02-1778367874350-2" at 6m
+engineLauncher-bbIXqTfg.js:4702 Refreshing Spatial Tree...
+engineLauncher-bbIXqTfg.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-bbIXqTfg.js:1533 [CreatePlanViewCommand] Created native plan view "Level 02" for level L-02-1778367874350-2 @ 6.000 m
+engineLauncher-bbIXqTfg.js:2332 [CreateMultipleLevelsCommand] level=2/10 addLevel=9.9ms createPlanView=0.5ms iterTotal=10.5ms
+engineLauncher-bbIXqTfg.js:7258 [EngineBootstrap] Level switch → "Level 03" (target.Y: 6.00 → 9.00)
+engineLauncher-bbIXqTfg.js:1826 [initScene] LevelClipPlaneCache: registered level "L-03-1778367874361-3" at 9m
+engineLauncher-bbIXqTfg.js:4702 Refreshing Spatial Tree...
+engineLauncher-bbIXqTfg.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-bbIXqTfg.js:1533 [CreatePlanViewCommand] Created native plan view "Level 03" for level L-03-1778367874361-3 @ 9.000 m
+engineLauncher-bbIXqTfg.js:2332 [CreateMultipleLevelsCommand] level=3/10 addLevel=7.0ms createPlanView=0.5ms iterTotal=7.5ms
+engineLauncher-bbIXqTfg.js:7258 [EngineBootstrap] Level switch → "Level 04" (target.Y: 9.00 → 12.00)
+engineLauncher-bbIXqTfg.js:1826 [initScene] LevelClipPlaneCache: registered level "L-04-1778367874368-4" at 12m
+engineLauncher-bbIXqTfg.js:4702 Refreshing Spatial Tree...
+engineLauncher-bbIXqTfg.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-bbIXqTfg.js:1533 [CreatePlanViewCommand] Created native plan view "Level 04" for level L-04-1778367874368-4 @ 12.000 m
+engineLauncher-bbIXqTfg.js:2332 [CreateMultipleLevelsCommand] level=4/10 addLevel=6.8ms createPlanView=0.5ms iterTotal=7.3ms
+engineLauncher-bbIXqTfg.js:7258 [EngineBootstrap] Level switch → "Level 05" (target.Y: 12.00 → 15.00)
+engineLauncher-bbIXqTfg.js:1826 [initScene] LevelClipPlaneCache: registered level "L-05-1778367874376-5" at 15m
+engineLauncher-bbIXqTfg.js:4702 Refreshing Spatial Tree...
+engineLauncher-bbIXqTfg.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-bbIXqTfg.js:1533 [CreatePlanViewCommand] Created native plan view "Level 05" for level L-05-1778367874376-5 @ 15.000 m
+engineLauncher-bbIXqTfg.js:2332 [CreateMultipleLevelsCommand] level=5/10 addLevel=11.8ms createPlanView=0.5ms iterTotal=12.3ms
+engineLauncher-bbIXqTfg.js:7258 [EngineBootstrap] Level switch → "Level 06" (target.Y: 15.00 → 18.00)
+engineLauncher-bbIXqTfg.js:1826 [initScene] LevelClipPlaneCache: registered level "L-06-1778367874388-6" at 18m
+engineLauncher-bbIXqTfg.js:4702 Refreshing Spatial Tree...
+engineLauncher-bbIXqTfg.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-bbIXqTfg.js:1533 [CreatePlanViewCommand] Created native plan view "Level 06" for level L-06-1778367874388-6 @ 18.000 m
+engineLauncher-bbIXqTfg.js:2332 [CreateMultipleLevelsCommand] level=6/10 addLevel=7.0ms createPlanView=0.3ms iterTotal=7.3ms
+engineLauncher-bbIXqTfg.js:7258 [EngineBootstrap] Level switch → "Level 07" (target.Y: 18.00 → 21.00)
+engineLauncher-bbIXqTfg.js:1826 [initScene] LevelClipPlaneCache: registered level "L-07-1778367874395-7" at 21m
+engineLauncher-bbIXqTfg.js:4702 Refreshing Spatial Tree...
+engineLauncher-bbIXqTfg.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-bbIXqTfg.js:1533 [CreatePlanViewCommand] Created native plan view "Level 07" for level L-07-1778367874395-7 @ 21.000 m
+engineLauncher-bbIXqTfg.js:2332 [CreateMultipleLevelsCommand] level=7/10 addLevel=6.7ms createPlanView=0.6ms iterTotal=7.2ms
+engineLauncher-bbIXqTfg.js:7258 [EngineBootstrap] Level switch → "Level 08" (target.Y: 21.00 → 24.00)
+engineLauncher-bbIXqTfg.js:1826 [initScene] LevelClipPlaneCache: registered level "L-08-1778367874403-8" at 24m
+engineLauncher-bbIXqTfg.js:4702 Refreshing Spatial Tree...
+engineLauncher-bbIXqTfg.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-bbIXqTfg.js:1533 [CreatePlanViewCommand] Created native plan view "Level 08" for level L-08-1778367874403-8 @ 24.000 m
+engineLauncher-bbIXqTfg.js:2332 [CreateMultipleLevelsCommand] level=8/10 addLevel=10.9ms createPlanView=0.5ms iterTotal=11.4ms
+engineLauncher-bbIXqTfg.js:7258 [EngineBootstrap] Level switch → "Level 09" (target.Y: 24.00 → 27.00)
+engineLauncher-bbIXqTfg.js:1826 [initScene] LevelClipPlaneCache: registered level "L-09-1778367874414-9" at 27m
+engineLauncher-bbIXqTfg.js:4702 Refreshing Spatial Tree...
+engineLauncher-bbIXqTfg.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-bbIXqTfg.js:1533 [CreatePlanViewCommand] Created native plan view "Level 09" for level L-09-1778367874414-9 @ 27.000 m
+engineLauncher-bbIXqTfg.js:2332 [CreateMultipleLevelsCommand] level=9/10 addLevel=7.6ms createPlanView=0.8ms iterTotal=8.4ms
+engineLauncher-bbIXqTfg.js:7258 [EngineBootstrap] Level switch → "Level 10" (target.Y: 27.00 → 30.00)
+engineLauncher-bbIXqTfg.js:1826 [initScene] LevelClipPlaneCache: registered level "L-10-1778367874423-10" at 30m
+engineLauncher-bbIXqTfg.js:4702 Refreshing Spatial Tree...
+engineLauncher-bbIXqTfg.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-bbIXqTfg.js:1533 [CreatePlanViewCommand] Created native plan view "Level 10" for level L-10-1778367874423-10 @ 30.000 m
+engineLauncher-bbIXqTfg.js:2332 [CreateMultipleLevelsCommand] level=10/10 addLevel=6.1ms createPlanView=0.4ms iterTotal=6.5ms
+engineLauncher-bbIXqTfg.js:2332 [CreateMultipleLevelsCommand] COMPLETE total=106.0ms
+engineLauncher-bbIXqTfg.js:2392 [AIApprovalStore] Audit record appended: 8884236a-f8b0-41eb-b246-da05be1fd470 (CREATE_LEVEL)
+engineLauncher-bbIXqTfg.js:4702 Refreshing Spatial Tree...
+engineLauncher-bbIXqTfg.js:2325 [RuleEngine] Model updated, ready for re-validation
+/#/projects:1 WebGPU: too many warnings, no more warnings will be reported to the console for this GPUDevice.
+engineLauncher-bbIXqTfg.js:1864 [ProjectSerializer] Snapshot created: 12 elements, 11 levels, 10 walls, 1 slabs, 0 furniture
+engineLauncher-bbIXqTfg.js:1864 [ProjectSerializer] Snapshot created: 12 elements, 11 levels, 10 walls, 1 slabs, 0 furniture
+PlatformShell-C9mLyVyy.js:23 [PlatformSaveController] Version saved: "Auto-save" (12 elements, id: proj-1778367875438-jntp2)
+engineLauncher-bbIXqTfg.js:2400 [AIPanel] Proposal received via event — showing inline card: {id: 'bed17f96-ff38-410c-9e7e-0782b2e6ffb9', proposalId: 'e46e958f-14d5-486e-85b6-69746e3d530f', intentId: '9f5726ed-9f1e-4e7c-b123-1431e1303d4f', intentType: 'CREATE_SLABS_ON_ALL_FLOORS', rationale: 'Generating identical slabs on all floors based on the selected reference slab.', …}
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] EXECUTE: CREATE_SLABS_ON_ALL_FLOORS
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] snapshot commandType="UE" scope=[slab,level] elapsed=0.2ms
+engineLauncher-bbIXqTfg.js:1864 [CreateSlabsOnAllFloorsCommand] START referenceSlabId="132c9056-ea4c-46bf-9eb3-ade57c2ddbcd" levels=10 polygonVertices=10
+engineLauncher-bbIXqTfg.js:1864 [CreateSlabsOnAllFloorsCommand] runBatch starting — 10 slab(s) deferred to rAF drain.
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §BATCH-SHADOW-MAP-SUPPRESS shadowMap.enabled=false (was=true) — shadow depth pass suppressed for batch duration batchId=b00ea3ea
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §TRACE _setupBatch — 10 level(s), 10 elements expected. ViewDependencyTracker suppressed. T=+0ms (batch clock started)
+main-C_EL1IFU.js:29510 [UnifiedFrameLoop] §TRACE §PERF-VIEW-BATCH-SUPPRESS: OBC+PASCAL render suppressed — WebGL shader compilation deferred until batch drain completes. suppressStartT=296836.7ms
+engineLauncher-bbIXqTfg.js:1821 [ShadowQualityUpgrader] Shadow settings restored.
+engineLauncher-bbIXqTfg.js:2 [RenderPipelineManager] SHADOW_REBUILD_SCHEDULED meshCount=41
+engineLauncher-bbIXqTfg.js:6681 [PerformanceModePanel] Performance mode ON — shadows/SSGI/TRAA disabled
+engineLauncher-bbIXqTfg.js:6681 [PerformanceModePanel] Auto-performance mode ON (IFC load in progress)
+engineLauncher-bbIXqTfg.js:7243 [initBatchLifecycle] §L1-BATCH-PERF-MODE engaged (10 elements)
+main-C_EL1IFU.js:29510 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+engineLauncher-bbIXqTfg.js:1583 [BimManager] Registered element 44e711cc-1841-4825-92e7-4f73c9823628 to level L-01-1778367874324-1
+engineLauncher-bbIXqTfg.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-01-1778367874324-1" success=true elapsed=2.1ms
+engineLauncher-bbIXqTfg.js:1583 [BimManager] Registered element e9aa8967-f35a-4602-a8f5-b698096c69be to level L-02-1778367874350-2
+engineLauncher-bbIXqTfg.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-02-1778367874350-2" success=true elapsed=1.3ms
+engineLauncher-bbIXqTfg.js:1583 [BimManager] Registered element 2c2075be-c5c2-4f24-a63d-3f9f13dae12b to level L-03-1778367874361-3
+engineLauncher-bbIXqTfg.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-03-1778367874361-3" success=true elapsed=2.2ms
+engineLauncher-bbIXqTfg.js:1583 [BimManager] Registered element 6265fc8e-dfe3-47b4-ac7d-79d84114dfda to level L-04-1778367874368-4
+engineLauncher-bbIXqTfg.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-04-1778367874368-4" success=true elapsed=1.4ms
+engineLauncher-bbIXqTfg.js:1583 [BimManager] Registered element 3edd1063-537e-467c-ab3f-9175a705985c to level L-05-1778367874376-5
+engineLauncher-bbIXqTfg.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-05-1778367874376-5" success=true elapsed=1.5ms
+engineLauncher-bbIXqTfg.js:1583 [BimManager] Registered element 9afaa727-6d48-461a-8e11-0c2d968ce11b to level L-06-1778367874388-6
+engineLauncher-bbIXqTfg.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-06-1778367874388-6" success=true elapsed=2.2ms
+engineLauncher-bbIXqTfg.js:1583 [BimManager] Registered element caa5e160-bb3b-4420-944f-a697930f8571 to level L-07-1778367874395-7
+engineLauncher-bbIXqTfg.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-07-1778367874395-7" success=true elapsed=5.1ms
+engineLauncher-bbIXqTfg.js:1583 [BimManager] Registered element 1f52c368-7e34-40ca-ac48-327af75d61b6 to level L-08-1778367874403-8
+engineLauncher-bbIXqTfg.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-08-1778367874403-8" success=true elapsed=3.8ms
+engineLauncher-bbIXqTfg.js:1583 [BimManager] Registered element cc67f865-7578-4e2a-acbf-151f733f438c to level L-09-1778367874414-9
+engineLauncher-bbIXqTfg.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-09-1778367874414-9" success=true elapsed=2.3ms
+engineLauncher-bbIXqTfg.js:1583 [BimManager] Registered element c3290e6e-bd6e-450e-9b8e-6210b78c54b6 to level L-10-1778367874423-10
+engineLauncher-bbIXqTfg.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-10-1778367874423-10" success=true elapsed=2.4ms
+engineLauncher-bbIXqTfg.js:1864 [CreateSlabsOnAllFloorsCommand] COMPLETE created=10 total=50.6ms
+engineLauncher-bbIXqTfg.js:2392 [AIApprovalStore] Audit record appended: a3a9ab24-9ad9-4f64-bb77-aa9d19f19726 (CREATE_SLABS_ON_ALL_FLOORS)
+engineLauncher-bbIXqTfg.js:4702 Refreshing Spatial Tree...
+engineLauncher-bbIXqTfg.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §TRACE DEFERRED-RESUME-FLUSH fired (first rAF after runBatch returned) delay=28.9ms T=+78.5ms
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §TRACE RESUME-FLUSH-DISPATCHED wallResume+cwResume+slabResume called. CW rAF drain now in-flight. T=+79.1ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] outset slabId="44e711cc-1841-4825-92e7-4f73c9823628" vertices=10 elapsed=0.0ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] triangulate slabId="44e711cc-1841-4825-92e7-4f73c9823628" outerVertices=10 elapsed=0.3ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] BUILD_COMPLETE slabId="44e711cc-1841-4825-92e7-4f73c9823628" totalMs=1.3ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] outset slabId="e9aa8967-f35a-4602-a8f5-b698096c69be" vertices=10 elapsed=0.0ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] triangulate slabId="e9aa8967-f35a-4602-a8f5-b698096c69be" outerVertices=10 elapsed=0.1ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] BUILD_COMPLETE slabId="e9aa8967-f35a-4602-a8f5-b698096c69be" totalMs=0.8ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] outset slabId="2c2075be-c5c2-4f24-a63d-3f9f13dae12b" vertices=10 elapsed=0.0ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] triangulate slabId="2c2075be-c5c2-4f24-a63d-3f9f13dae12b" outerVertices=10 elapsed=0.1ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] BUILD_COMPLETE slabId="2c2075be-c5c2-4f24-a63d-3f9f13dae12b" totalMs=0.8ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] outset slabId="6265fc8e-dfe3-47b4-ac7d-79d84114dfda" vertices=10 elapsed=0.0ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] triangulate slabId="6265fc8e-dfe3-47b4-ac7d-79d84114dfda" outerVertices=10 elapsed=0.1ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] BUILD_COMPLETE slabId="6265fc8e-dfe3-47b4-ac7d-79d84114dfda" totalMs=1.0ms
+engineLauncher-bbIXqTfg.js:1821 [SlabFragmentBuilder] outset slabId="3edd1063-537e-467c-ab3f-9175a705985c" vertices=10 elapsed=0.0ms

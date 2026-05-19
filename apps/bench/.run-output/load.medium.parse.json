@@ -1,0 +1,10 @@
+{
+  "name": "load.medium.parse",
+  "samples": 5,
+  "p50": 9.925,
+  "p95": 26.831,
+  "p99": 26.831,
+  "budgetMs": 250,
+  "warnMs": 250,
+  "recordedAt": "2026-05-09T23:09:29.991Z"
+}

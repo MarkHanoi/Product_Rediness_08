@@ -1,0 +1,402 @@
+**Scope:** Full audit of current architecture against Revit-parity Curtain Wall feature set.
+
+---
+
+1. Current Architecture Capabilities
+
+Geometry Kernel
+
+The engine does **not** use a BRep (Boundary Representation) or CSG kernel. It is a **procedural mesh kernel**:
+
+| **Mechanism** | **Implementation** | **Key Files** |
+| --- | --- | --- |
+| Mesh generation | Custom `THREE.BufferGeometry` via Fragment Builders | `WallFragmentBuilder.ts`, `SlabFragmentBuilder.ts` |
+| Layered walls | Per-layer lateral offset prisms | `WallFragmentBuilder.ts` |
+| Openings in walls | Geometry splitting (segment-based, not CSG) | `LayeredWallOpeningBuilder.ts` |
+| Openings in slabs | `ShapeUtils.triangulateShape` + hole punching | `SlabFragmentBuilder.ts` |
+| Curved walls | Arc tessellation into linear segments | `CurvedWallLayerBuilder.ts` |
+| Complex geometry | Parametric builders per element type | `StairMeshBuilder.ts`, `RoofGeometryBuilder.ts` |
+| 2D intersection math | Line-line intersection in XZ plane | `GeometryUtils.ts`, `SketchLoopIntersector.ts` |
+
+**Critical Gap:** There is no topology graph. The engine cannot represent faces, edges, or adjacencies as first-class geometry objects. All geometry is generated fresh from parametric data on every rebuild.
+
+Element System
+
+| **Capability** | **Status** | **Notes** |
+| --- | --- | --- |
+| Parametric data model | ✅ Present | `CoreElement` base interface, typed per element |
+| Element registry | ✅ Present | `ElementRegistry.ts` — maps UUID → StoreType |
+| Level-based spatial hierarchy | ✅ Present | `BimManager.ts` — enforces exclusive containment |
+| Host-child relationships | ✅ Partial | `childrenIds`, `parentId`, `hostId` on data objects; no graph |
+| Semantic event bus | ✅ Present | `StoreEventBus.ts` — all stores emit here |
+| Command/undo system | ✅ Present | `CommandManager.ts`, `UndoManager.ts` |
+| Dependency cascading | ✅ Partial | `SlabDependencyTracker.ts`, `WallJoinResolver.ts` |
+| Parametric sketches | ✅ Present | Slab sketch loops via `SketchLoopIntersector.ts` |
+| Topology graph | ❌ Missing | Planned in §03 contract but not implemented |
+| Face/edge objects | ❌ Missing | Geometry is purely procedural; no persistent face/edge IDs |
+| IFC export | ✅ Present | `IfcExporter.ts`, `IfcGeometryWriter.ts` |
+
+Current Curtain Wall Implementation
+
+The existing system (`CurtainWallBuilder.ts`, `CurtainWallStore.ts`, `CurtainWallTypes.ts`) is a **Phase 1 parametric MVP**:
+
+**What it does:**
+
+- Stores a line segment (`baseLine`), height, uniform X/Y grid spacings, mullion size, panel thickness
+- At build time: divides the wall length into `N = floor(length / gridXSpacing)` uniform cells, same vertically
+- Generates box-geometry vertical and horizontal mullions, transparent glass panel planes
+- Positions and orients the whole group correctly in the scene
+- Follows the Semantic-First / Command / Store Event Bus contracts
+
+**What it cannot do:**
+
+| **Missing Capability** | **Revit Equivalent** |
+| --- | --- |
+| Non-uniform grid lines | "Add/remove grid line" in Curtain Grid |
+| Manually moveable grid lines | "Tab-select grid line, drag" |
+| Per-panel type replacement | Panel family replacement |
+| Per-panel material/opacity override | Panel instance properties |
+| Mullion profiles (L, T, rectangular profiles) | Mullion type families |
+| Corner mullion conditions | Corner join logic |
+| Angled / V-shaped grids | Non-orthogonal Curtain Grid |
+| Curved curtain walls | Curved host face support |
+| Sub-element selection (panel/mullion) as independent BIM elements | `CurtainGridLine`, `CurtainPanel`, `Mullion` element types |
+| Grid topology graph | Adjacency graph of U/V grid lines |
+| Panelization from intersection cells | Cell graph derived from grid intersections |
+| Embedded doors/windows in curtain panels | Hosted opening in a panel type |
+
+---
+
+2. Compatibility Evaluation with Revit Curtain Wall Hierarchy
+
+```
+CurtainWall          ← Exists (parametric baseline element)
+ ├─ CurtainGrid      ← MISSING — no grid topology object
+ │   ├─ U-GridLines  ← MISSING — no independent grid line entities
+ │   └─ V-GridLines  ← MISSING
+ ├─ CurtainPanel     ← Proto-exists (glass BoxGeometry), not a BIM element
+ └─ Mullion          ← Proto-exists (box geometry), not a BIM element
+```
+
+Grid Topology
+
+**Status: Not present.**
+
+The builder computes grid divisions directly from `Math.floor(length / gridXSpacing)`. There is no graph of grid lines. You cannot address, move, or delete an individual grid line. The `SketchLoopIntersector` and `GeometryUtils.lineLineIntersection2D` provide the raw math needed, but there is no system wiring them into a curtain grid object.
+
+Cell Generation
+
+**Status: Not present.**
+
+Cells are implicit — they exist as `(i, j)` loop indices during the build, not as persistent objects. There is no cell graph from which panels can be individually addressed, replaced, or overridden.
+
+Edge-Based Elements (Mullions)
+
+**Status: Primitive approximation only.**
+
+Mullions are `THREE.BoxGeometry` rectangles placed at uniform intervals. They have no profile (L, T, quad-face extrusion along an edge path), no corner trim logic, and no independent identity in the BIM model. They are sub-meshes with `userData.role = 'mullion'` and `parentId` pointing to the parent curtain wall — but they are not registered in `ElementRegistry`, have no store entry, and cannot be independently queried or mutated by commands.
+
+---
+
+3. Missing Core Systems
+
+3.1 CurtainGrid Engine
+
+**What:** A typed data model representing an ordered set of U-lines and V-lines across a ruled surface, each with a parametric `t` value (0.0–1.0 of wall length / height).
+
+**Integration:** Stored as a child of `CurtainWallData`; drawn from by the builder to generate cell intersections.
+
+**File to Create:** `src/elements/curtainwalls/CurtainGridSystem.ts`
+
+3.2 Planar Graph / Cell Detection
+
+**What:** Given a set of U-lines and V-lines, compute the set of rectangular cells (each defined by 4 corner points). This is a planar subdivision — not a general polygon triangulation.
+
+**Integration:** Called by `CurtainWallBuilder.build()` after resolving grid lines; produces `CurtainCellData[]` used to place panels.
+
+**File to Create:** `src/elements/curtainwalls/CurtainCellComputer.ts`
+
+3.3 Panel Instance Store
+
+**What:** Each cell is a `CurtainPanelData` — a BIM element with its own ID, type (glass, opaque, void), material override, and IFC GUID. Panels are independently addressable and replaceable.
+
+**Integration:** `CurtainPanelStore.ts` mirrors the pattern of `OpeningStore.ts`; `AIReadModel` reads from it; `PropertyInspector` inspects individual panels.
+
+**File to Create:** `src/elements/curtainwalls/CurtainPanelStore.ts`, `CurtainPanelTypes.ts`
+
+3.4 Mullion Profile Extrusion
+
+**What:** Mullions are extruded profiles (rectangular, L-section, T-section) swept along grid line edges. Requires a `TubeGeometry` or swept profile builder. Includes corner condition logic: butt, mitered, L-wrap.
+
+**Integration:** Called by `CurtainWallBuilder`; profile shapes defined in a `MullionTypeLibrary`.
+
+**File to Create:** `src/elements/curtainwalls/MullionProfileBuilder.ts`
+
+3.5 Mullion Instance Store
+
+**What:** Each grid edge (both U and V) maps to a `MullionData` element — independently typed, replaceable, removable, and IFC-tagged as `IfcMember`.
+
+**Integration:** Like `CurtainPanelStore`, mirrors existing stores; registered in `ElementRegistry`.
+
+**File to Create:** `src/elements/curtainwalls/MullionStore.ts`, `MullionTypes.ts`
+
+3.6 Façade Topology Graph
+
+**What:** A directed graph connecting the host curtain wall → its grid lines → its cells → its panels. Supports "select panel, change type" workflows and enables AI to reason about the façade structure.
+
+**Integration:** Plugs into `StoreEventBus` and `SemanticGraph` (§03 contract target).
+
+**File to Create:** `src/elements/curtainwalls/CurtainWallTopologyGraph.ts`
+
+3.7 Manual Grid Edit Tool
+
+**What:** Tool that allows click-to-add, drag, and delete of individual U/V grid lines. Fires commands (`AddGridLineCommand`, `MoveGridLineCommand`, `DeleteGridLineCommand`) that update `CurtainGridSystem`.
+
+**Integration:** Extends `BaseTool.ts`; uses `SnapManager` for alignment snapping.
+
+**File to Create:** `src/elements/curtainwalls/CurtainGridEditTool.ts`
+
+---
+
+4. Engineering Effort Estimate
+
+Phase 1 — Addressable Grid MVP (Replaces current uniform-only model)
+
+**Scope:**
+
+- `CurtainGridSystem` data type (U/V lines as `t`parameterized values)
+- `CurtainCellComputer` (rectangular cell derivation from U/V intersections)
+- `CurtainPanelStore` + `CurtainPanelTypes` (basic glass/opaque/void types)
+- `CurtainPanelBuilder` (replaces inline BoxGeometry loop in CurtainWallBuilder)
+- Update `PropertyInspector` to show per-panel properties
+- Commands: `AddCurtainGridLineCommand`, `RemoveCurtainGridLineCommand`, `ReplacePanelTypeCommand`
+
+**Effort: 3–4 weeks (1 engineer)**
+
+Phase 2 — Mullion Profiles + Manual Grid Editing
+
+**Scope:**
+
+- `MullionProfileBuilder` (rectangular, L, T section sweep along edge path)
+- `MullionStore` + `MullionTypes`
+- Corner join logic (butt, miter, L-wrap)
+- `CurtainGridEditTool` (click-to-add, drag grid line, snap to grid)
+- `MoveCurtainGridLineCommand`, `UpdateMullionTypeCommand`
+- Per-panel and per-mullion selection via `SelectionManager`
+
+**Effort: 4–5 weeks (1 engineer)**
+
+Phase 3 — Advanced Façade Systems
+
+**Scope:**
+
+- Curved curtain walls (baseLine replaced by arc descriptor; cell builder uses arc parametrization)
+- Angled / V-grids (non-orthogonal U/V line angles)
+- Partial grid segments (U-lines that do not span full height)
+- Embedded openings in panels (door/window hosted inside a `CurtainPanelData`)
+- Curtain system on arbitrary face (face-based host, not line-based)
+- Adaptive panels (panel corner points driven by UV coordinates on a surface)
+
+**Effort: 8–10 weeks (1 engineer)**
+
+| **Phase** | **Effort** | **Deliverable** |
+| --- | --- | --- |
+| Phase 1 | 3–4 weeks | Addressable uniform/non-uniform grid; panel type replacement |
+| Phase 2 | 4–5 weeks | Real mullion profiles; manual grid editing; per-element selection |
+| Phase 3 | 8–10 weeks | Curves, angled grids, hosted openings, face-based curtain systems |
+| **Total** | **15–19 weeks** | **Revit-parity curtain wall system** |
+
+---
+
+5. Performance Implications
+
+Current Baseline
+
+A curtain wall with `6 × 10` grid generates `7 + 11 = 18 mullions + 60 panels = 78 draw calls`. Each draw call is an independent `THREE.Mesh`. At 10 curtain walls on a floor, that is ~780 draw calls from curtain walls alone — before walls, slabs, and columns.
+
+Projected Complexity (Phase 2+)
+
+| **Element** | **Complexity** | **Risk** |
+| --- | --- | --- |
+| Grid recomputation | O(U × V) cell derivation | Low — pure math, fast |
+| Panel regeneration | O(N) mesh creates per rebuild | Medium — full dispose+recreate |
+| Mullion profile rebuild | O(edges × profile_verts) | Medium — swept geometry is heavier |
+| GPU mesh updates | No instancing → N draw calls | **High at scale** |
+
+Architectural Improvements Required
+
+**Instancing (highest priority):**
+
+`THREE.InstancedMesh` should be used for panels and mullions of the same type. A curtain wall with 60 identical glass panels should use 1 `InstancedMesh` with 60 instance matrices — reducing draw calls from 60 to 1. File to add: `CurtainWallInstanceManager.ts`.
+
+**Geometry Caching:**
+
+Mullion profile cross-sections (the 2D shape extruded along an edge) should be computed once and cached in a `MullionProfileLibrary`. Only the sweep path changes per grid edge.
+
+**Incremental Regeneration:**
+
+When a single grid line moves, only the adjacent cells and their panels/mullions need rebuilding. A dirty-flag system on `CurtainGridSystem` would mark only affected cells, so the builder skips unchanged ones.
+
+---
+
+6. Proposed Curtain Wall Data Model
+
+```
+CurtainWallData (CoreElement)           ← src/elements/curtainwalls/CurtainWallTypes.ts
+ ├─ baseLine: [Vector3, Vector3]         (host reference line in level plane)
+ ├─ height: number
+ ├─ levelId: string
+ ├─ baseOffset: number
+ │
+ ├─ gridSystem: CurtainGridSystem       ← NEW: src/.../CurtainGridSystem.ts
+ │   ├─ uLines: CurtainGridLine[]       (t ∈ [0,1] of length)
+ │   └─ vLines: CurtainGridLine[]       (t ∈ [0,1] of height)
+ │
+ ├─ panels: CurtainPanelData[]          ← NEW: src/.../CurtainPanelTypes.ts
+ │   └─ {id, cellIndex[i,j], panelType, materialOverride?, ifcData}
+ │
+ └─ mullions: MullionData[]             ← NEW: src/.../MullionTypes.ts
+     └─ {id, edgeRef (U/V line + side), mullionType, profileId, ifcData}
+```
+
+Store/Builder/Registry connections
+
+```
+CurtainWallStore.set()
+  → storeEventBus.emit()
+    → subscriber in main.ts
+      → CurtainWallBuilder.build()
+           → CurtainCellComputer.compute(gridSystem, baseLine, height)
+           → CurtainPanelBuilder.buildCell(cell, panel)   [instanced]
+           → MullionProfileBuilder.buildEdge(edge, mullion)
+```
+
+Each panel and mullion is registered in `ElementRegistry` on first build, allowing `SelectionManager` to resolve them directly. Commands (`ReplacePanelTypeCommand`, `UpdateMullionTypeCommand`) update `CurtainPanelStore`/`MullionStore`, which emit to `storeEventBus`, which triggers a partial rebuild via the dirty-flag system.
+
+---
+
+7. AI Opportunities
+
+7.1 Façade Generation from Prompt
+
+The existing `AIService` / `CommandProposalFactory` pipeline (`src/ai/AIService.ts`, `src/commands/CommandProposalFactory.ts`) already supports the Proposal-Approval pattern. Curtain wall generation would add:
+
+```
+User: "Generate a 1.5m grid curtain wall with vertical emphasis on all slabs"
+
+AI:
+1. Calls AIReadModel.getSlabs() → resolves perimeter edges per slab
+2. Creates CreateCurtainWallsOnAllSlabsCommand proposals:
+   { gridXSpacing: 1.5, gridYSpacing: 4.5 }   ← vertical emphasis = tall panels
+3. User approves → CommandManager executes batch
+```
+
+The `CreateCurtainWallsOnAllSlabsCommand` already exists. What is missing is the AI intent (`CurtainWallFacadeIntent`) in `src/ai/intents/types.ts`.
+
+7.2 AI Façade Optimization
+
+With `CurtainPanelStore` and panel area data available, the AI could:
+
+- Compute daylight factor approximations (panel area / floor area ratios)
+- Flag panels below a minimum size threshold (constructability)
+- Propose grid regularization: "This façade has 11 panels of 1.47m and 1 panel of 0.83m — suggest adjusting to 12 × 1.25m for uniformity."
+
+This fits neatly into the `RuleEngine` pattern (`src/ai/RuleEngine.ts`).
+
+7.3 Grid Edit Assistant
+
+After a user manually edits a grid line, the AI could trigger a `RuleEngine` check and surface proposals like:
+
+- "Panel (3,2) is now 0.3m wide — too narrow for standard glazing. Merge with adjacent panel?"
+
+---
+
+8. World Model Integration
+
+The `AIReadModel` (`src/ai/AIReadModel.ts`) currently exposes walls, slabs, columns, beams but **has no curtain wall accessor**. The World Model (§03 contract target) must be extended:
+
+```
+Building
+ └─ Envelope
+     └─ CurtainWalls[]
+         ├─ id, levelId, mark, length, height
+         ├─ gridSystem { uCount, vCount, uSpacing, vSpacing }
+         ├─ panels[]  { id, type, area, cellIndex }
+         └─ mullions[] { id, type, edgeRef }
+```
+
+**Additions needed in `AIReadModel.ts`:**
+
+```
+getCurtainWalls(): AICurtainWall[]
+getCurtainWallPanels(cwId: string):AICurtainPanel[]
+getCurtainWallMullions(cwId:string):AIMullion[]
+```
+
+This would allow the AI to reason about:
+
+- Total glazed area vs opaque area per level
+- Repetition patterns (façade symmetry)
+- Thermal zone alignment (panels adjacent to conditioned zones)
+- Structural alignment (mullions aligned to grid lines / columns)
+
+---
+
+9. Recommended Development Roadmap
+
+```
+Step 1  CurtainGridSystem data type + store serialization
+        → Replace scalar gridXSpacing/gridYSpacing with array of t-values
+        → Backward-compatible: uniform arrays derived from existing scalar values
+        → Files: CurtainGridSystem.ts, update CurtainWallTypes.ts
+
+Step 2  CurtainCellComputer
+        → Pure function: (uLines[], vLines[], length, height) → CurtainCell[]
+        → Unit-testable in isolation
+        → File: CurtainCellComputer.ts
+
+Step 3  CurtainPanelStore + builder integration
+        → Each cell maps to a CurtainPanelData with independent BIM identity
+        → Builder reads panels from store; uses InstancedMesh per panel type
+        → Files: CurtainPanelStore.ts, CurtainPanelTypes.ts, CurtainPanelBuilder.ts
+
+Step 4  MullionProfileBuilder
+        → Swept profile geometry along U/V edge paths
+        → MullionTypeLibrary (rectangular, L, T profiles)
+        → Files: MullionProfileBuilder.ts, MullionStore.ts, MullionTypes.ts
+
+Step 5  CurtainGridEditTool
+        → Click to add, drag, delete U/V lines
+        → Commands: AddCurtainGridLineCommand, MoveCurtainGridLineCommand,
+                    DeleteCurtainGridLineCommand
+        → Files: CurtainGridEditTool.ts + 3 command files
+
+Step 6  AI Façade Generation intent
+        → CurtainWallFacadeIntent in intents/types.ts
+        → AIReadModel.getCurtainWalls() accessor
+        → CommandProposalFactory curtain wall branch
+
+Step 7  Phase 3: Curved host surfaces, face-based curtain systems,
+        adaptive panels, partial grid segments
+```
+
+---
+
+10. Summary
+
+| **Dimension** | **Current State** | **Gap to Revit Parity** |
+| --- | --- | --- |
+| Grid topology | Uniform scalar only | Non-uniform, addressable U/V line graph |
+| Panel identity | Implicit loop index — not a BIM element | `CurtainPanelData` with ID, store, IFC GUID |
+| Mullion geometry | Box approximation | Profile-extruded sweep, corner joins |
+| Mullion identity | Sub-mesh with `parentId` | `MullionData` with ID, store, IFC GUID |
+| Panel replacement | Not supported | `ReplacePanelTypeCommand` per cell |
+| Grid editing | Not supported | `CurtainGridEditTool` + 3 commands |
+| Sub-element selection | Routed to parent via `parentId` | Direct per-panel, per-mullion selection |
+| Curved curtain walls | Not supported | Arc-parameterized host face |
+| AI integration | No curtain wall in AIReadModel | Facade intent + getCurtainWalls() accessor |
+| World model | No curtain wall layer | `AICurtainWall`, `AICurtainPanel`, `AIMullion` |
+| IFC export | IfcCurtainWall (wall only) | IfcCurtainWall + IfcMember + IfcPlate sub-elements |
+| Performance | 1 mesh per sub-element | InstancedMesh per panel/mullion type |
+
+**Total estimated effort to Revit-parity:** 15–19 engineer-weeks in 3 phases, none of which touch existing wall, slab, column, beam, or stair logic. All additions are new isolated files following the existing contract architecture.

@@ -1,0 +1,13 @@
+Looking at your console logs and source code, the bottlenecks in curtain wall batch creation are:
+1. Per-slice WebGL shader compilation (primary bottleneck)
+The CreateCurtainWallsOnAllSlabsCommand drains its build queue across many rAF frames, and between each slice the UnifiedFrameLoop was calling _obcCallback() → renderer.render() → WebGL compiles shader programs for each new material variant synchronously. For 108+ walls this was causing ~30,000ms of LONGTASKs. The §FIX-BATCH-RENDER-SUPPRESS mitigates this by suppressing OBC+PASCAL renders during the drain, but the suppression only works if BatchLoadingIndicator.show() and unifiedFrameLoop.beginBatchRenderSuppress() are properly wired — check your logs for that confirmation message.
+2. StoreEventBus event flood during endBatch() (secondary)
+For 108 curtain walls × ~20 registered listeners = ~2,160+ synchronous listener calls. The §BATCH-EVENT-YIELD fix (P1.4) spreads this across 200-event chunks via endBatchYielded(), but you're still seeing the [RoomTopologyObserver] forced fire warnings with resets=6 — meaning the debounce starvation guard is still firing mid-batch on some code path that bypasses isBatching.
+3. CREATE_CURTAIN_WALLS_ON_ALL_SLABS total time = 436.5ms just for the slab loop
+Your log shows:
+
+slab 1: 15ms, slab 2: 33ms, slab 3: 60ms, slab 4: 92ms...
+
+This is cumulative — each slab takes longer because curtainWallStore.add() triggers subscribers that grow with wall count. The §BATCH-WALL-PAUSE and §BATCH-CW-PAUSE should suppress this, but the CurtainWall builder's own rAF drain (§BATCH-CW-PAUSE: resumeAndFlush → 108 walls transferred) is still happening synchronously on the main thread.
+4. The §REG-MANY-P2 sync drain path is working (you can see registered 18 element(s) × 6 levels), but the post-batch PBR upgrade is still doing 419 mesh(es) in 4 chunk(s) which is chunked correctly — that part is fine.
+The biggest remaining win would be ensuring beginBatchRenderSuppress() is firing before runBatch() rather than inside _setupBatch() — your log shows the suppress message appearing but the slab timing suggests shader compilation is still happening between resumeAndFlush() and signalBuildQueueDrained().

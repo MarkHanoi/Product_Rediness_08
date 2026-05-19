@@ -1,0 +1,380 @@
+injected.js:37 [EngineBootstrap] Gizmo axes recoloured to PRYZM violet palette
+injected.js:37 [initBuilders] Column subsystem initialised
+injected.js:37 [CurtainPanelSyncHandler] Activated — panel store will sync with curtain wall store.
+injected.js:37 [initBuilders] CurtainWall subsystem stores initialised
+injected.js:37 [initBuilders] Slab subsystem initialised
+injected.js:37 [initBuilders] Ceiling subsystem initialised
+injected.js:37 [FloorSlabBindingHandler] Attached slab binding listeners.
+injected.js:37 [initBuilders] Floor finish subsystem initialised
+injected.js:37 [LONGTASK] duration=176.0ms start=93735.5ms [type=iframe src=https://2552b729-29bc-4906-bf24-3ab5ce9e738f-00-2vp5qnmbzfg28.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [initBuilders] Room subsystem initialised
+injected.js:37 [initBuilders] Door/Window singleton stores exposed on window
+injected.js:37 [WallStore] attached to window WallStore {walls: Map(0), projectContext: ProjectContext, bimKernel: BimManager, listeners: Array(0), windows: Map(0), …}
+injected.js:37 [initBuilders] Wall + Slab system type stores loaded
+injected.js:37 [initBuilders] Roof subsystem initialised
+injected.js:37 [initBuilders] Plumbing subsystem initialised
+injected.js:37 [initBuilders] Opening subsystem initialised — openingStore injected into slabBuilder
+injected.js:37 [DoorBuilder] activated
+injected.js:37 [WindowBuilder] activated
+injected.js:37 [initBuilders] Door + Window builders activated (with dependency trackers)
+injected.js:37 [initBuilders] Furniture subsystem initialised
+injected.js:37 [initBuilders] Lighting subsystem initialised
+injected.js:37 [initBuilders] Handrail subsystem initialised
+injected.js:37 [initBuilders] Stair subsystem initialised
+injected.js:37 [initBuilders] Beam subsystem initialised
+injected.js:37 [initBuilders] RoomContentsService — all element stores attached
+injected.js:37 [initBuilders] Grid subsystem initialised
+injected.js:37 [initBuilders] RoomBoundingLine subsystem initialised
+injected.js:37 [RoomFinishSyncService] Started — listening for room finish changes.
+injected.js:37 [initBuilders] RoomFinishSyncService started
+injected.js:37 [initBuilders] All builder subsystems fully initialised.
+injected.js:37 [SelectionManager] PickStrategy set: gpu-pick
+injected.js:37 [initTools] PickStrategy resolved: gpu-pick
+injected.js:37 [FloatingObjectCarousel] Mounted (hidden, render loop deferred)
+injected.js:37 [FurnitureDragDropHandler] Attached to canvas
+injected.js:37 [initTools] LightingTool initialised
+injected.js:37 [CurtainWallTool] SnapManager initialised (CurtainWall + Wall providers)
+injected.js:37 [RoomTopologyObserver] attached to WallStore
+injected.js:37 [RoomTopologyObserver] attached to CurtainWallStore
+injected.js:37 [RoomTopologyObserver] attached to RoomBoundingLineStore
+injected.js:37 [RoomTopologyObserver] attached to SlabStore
+injected.js:37 [RoomTopologyObserver] attached to ColumnStore
+injected.js:37 [RoomTopologyObserver] attached to bim-wall-mutation-committed (commit-barrier path)
+injected.js:37 [LONGTASK] duration=267.0ms start=93970.7ms [type=iframe src=https://2552b729-29bc-4906-bf24-3ab5ce9e738f-00-2vp5qnmbzfg28.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=57.0ms start=94307.5ms
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [RoomTool] Pick deps injected — POINT_PICK mode available
+injected.js:37 [RoomTool] Manual deps injected — MANUAL_BOUNDARY mode available
+injected.js:37 [initTools] RoomBoundingLineTool registered on window
+injected.js:37 BeamTool initialized with BeamStore: true
+injected.js:37 [StairTool] Constructed. meshBuilder: true deps: true
+injected.js:37 [UnderlayPersistence] Installed (per-project, v2)
+injected.js:37 [ProjectScopedStorage] Installed — auto-keyed by projectId
+injected.js:37 [ProjectIsolationAudit] Installed — will audit every empty project load
+injected.js:37 [GhostOverlayRenderer] Initialised — listening for pryzm-history-ghost-* events
+injected.js:37 [AnnotationManager] init complete — Phase V hover hints wired
+injected.js:37 [OBCAnnotationAdapter] LinearAnnotations not present in this OBC build — skipping subscribe.
+injected.js:37 [OBCAnnotationAdapter] AngleAnnotations not present in this OBC build — skipping subscribe.
+injected.js:37 [OBCAnnotationAdapter] SlopeAnnotations not present in this OBC build — skipping subscribe.
+injected.js:37 [OBCAnnotationAdapter] DOC-2.1: subscribed to OBC annotation system events
+injected.js:37 [initTools] DOC-2.2: DrawingEditor initialised; OBCAnnotationAdapter wired
+injected.js:37 [initTools] All BIM tools initialised and registered with ToolManager
+injected.js:37 [EngineBootstrap] §ROOF-AUDIT §5.4: RoofSlopeSymbolBuilder wired (constructor-DI).
+injected.js:37 [WallFragmentBuilder] WallInstanceBridge injected — simple walls will use GPU instancing.
+injected.js:37 [EngineBootstrap] §PHASE-3: WallInstanceBridge connected — simple walls will use GPU instancing.
+injected.js:37 [EngineBootstrap] BatchCoordinator injected.
+injected.js:37 [EngineBootstrap] BatchLoadingIndicator wired (§FIX-BATCH-RENDER-SUPPRESS active).
+injected.js:37 [EngineBootstrap] §P0-A39: rooms.redetect registration failed (non-fatal): handler already registered: rooms.redetect
+(anonymous) @ injected.js:37
+(anonymous) @ engineLauncher.ts:1355
+await in (anonymous)
+startEngine @ main.ts:172
+await in startEngine
+(anonymous) @ main.ts:244
+await in (anonymous)
+(anonymous) @ main.ts:319
+(anonymous) @ buildPersistence.ts:231
+(anonymous) @ buildPersistence.ts:266
+(anonymous) @ PlatformRouter.ts:422
+(anonymous) @ PlatformRouter.ts:375
+(anonymous) @ PlatformRouter.ts:289
+(anonymous) @ ProjectHub.ts:1110
+(anonymous) @ ProjectHub.ts:1091
+await in (anonymous)
+(anonymous) @ ProjectHub.ts:1019
+(anonymous) @ ProjectHub.ts:405Understand this error
+injected.js:37 [EngineBootstrap] §P2-A39: curtain-wall.create-on-all-slabs registered on runtime.bus.
+injected.js:37 [EngineBootstrap] §A40-W03: wall.create-on-all-slabs registered on runtime.bus.
+injected.js:37 [EngineBootstrap] §A40-W03: slab.create-on-all-floors registered on runtime.bus.
+injected.js:37 [EngineBootstrap] §A40-W04: column.batch.create registration failed (non-fatal): handler already registered: column.batch.create
+(anonymous) @ injected.js:37
+(anonymous) @ engineLauncher.ts:1484
+await in (anonymous)
+startEngine @ main.ts:172
+await in startEngine
+(anonymous) @ main.ts:244
+await in (anonymous)
+(anonymous) @ main.ts:319
+(anonymous) @ buildPersistence.ts:231
+(anonymous) @ buildPersistence.ts:266
+(anonymous) @ PlatformRouter.ts:422
+(anonymous) @ PlatformRouter.ts:375
+(anonymous) @ PlatformRouter.ts:289
+(anonymous) @ ProjectHub.ts:1110
+(anonymous) @ ProjectHub.ts:1091
+await in (anonymous)
+(anonymous) @ ProjectHub.ts:1019
+(anonymous) @ ProjectHub.ts:405Understand this error
+injected.js:37 [EngineBootstrap] §A40-W04: beam.batch.create registration failed (non-fatal): handler already registered: beam.batch.create
+(anonymous) @ injected.js:37
+(anonymous) @ engineLauncher.ts:1484
+await in (anonymous)
+startEngine @ main.ts:172
+await in startEngine
+(anonymous) @ main.ts:244
+await in (anonymous)
+(anonymous) @ main.ts:319
+(anonymous) @ buildPersistence.ts:231
+(anonymous) @ buildPersistence.ts:266
+(anonymous) @ PlatformRouter.ts:422
+(anonymous) @ PlatformRouter.ts:375
+(anonymous) @ PlatformRouter.ts:289
+(anonymous) @ ProjectHub.ts:1110
+(anonymous) @ ProjectHub.ts:1091
+await in (anonymous)
+(anonymous) @ ProjectHub.ts:1019
+(anonymous) @ ProjectHub.ts:405Understand this error
+injected.js:37 [EngineBootstrap] §A40-W04: door.batch.create registration failed (non-fatal): handler already registered: door.batch.create
+(anonymous) @ injected.js:37
+(anonymous) @ engineLauncher.ts:1484
+await in (anonymous)
+startEngine @ main.ts:172
+await in startEngine
+(anonymous) @ main.ts:244
+await in (anonymous)
+(anonymous) @ main.ts:319
+(anonymous) @ buildPersistence.ts:231
+(anonymous) @ buildPersistence.ts:266
+(anonymous) @ PlatformRouter.ts:422
+(anonymous) @ PlatformRouter.ts:375
+(anonymous) @ PlatformRouter.ts:289
+(anonymous) @ ProjectHub.ts:1110
+(anonymous) @ ProjectHub.ts:1091
+await in (anonymous)
+(anonymous) @ ProjectHub.ts:1019
+(anonymous) @ ProjectHub.ts:405Understand this error
+injected.js:37 [EngineBootstrap] §A40-W04: window.batch.create registration failed (non-fatal): handler already registered: window.batch.create
+(anonymous) @ injected.js:37
+(anonymous) @ engineLauncher.ts:1484
+await in (anonymous)
+startEngine @ main.ts:172
+await in startEngine
+(anonymous) @ main.ts:244
+await in (anonymous)
+(anonymous) @ main.ts:319
+(anonymous) @ buildPersistence.ts:231
+(anonymous) @ buildPersistence.ts:266
+(anonymous) @ PlatformRouter.ts:422
+(anonymous) @ PlatformRouter.ts:375
+(anonymous) @ PlatformRouter.ts:289
+(anonymous) @ ProjectHub.ts:1110
+(anonymous) @ ProjectHub.ts:1091
+await in (anonymous)
+(anonymous) @ ProjectHub.ts:1019
+(anonymous) @ ProjectHub.ts:405Understand this error
+injected.js:37 [EngineBootstrap] §A40-W04: ceiling.batch.create registration failed (non-fatal): handler already registered: ceiling.batch.create
+(anonymous) @ injected.js:37
+(anonymous) @ engineLauncher.ts:1484
+await in (anonymous)
+startEngine @ main.ts:172
+await in startEngine
+(anonymous) @ main.ts:244
+await in (anonymous)
+(anonymous) @ main.ts:319
+(anonymous) @ buildPersistence.ts:231
+(anonymous) @ buildPersistence.ts:266
+(anonymous) @ PlatformRouter.ts:422
+(anonymous) @ PlatformRouter.ts:375
+(anonymous) @ PlatformRouter.ts:289
+(anonymous) @ ProjectHub.ts:1110
+(anonymous) @ ProjectHub.ts:1091
+await in (anonymous)
+(anonymous) @ ProjectHub.ts:1019
+(anonymous) @ ProjectHub.ts:405Understand this error
+injected.js:37 [EngineBootstrap] §A40-W04: stair.batch.create registration failed (non-fatal): handler already registered: stair.batch.create
+(anonymous) @ injected.js:37
+(anonymous) @ engineLauncher.ts:1484
+await in (anonymous)
+startEngine @ main.ts:172
+await in startEngine
+(anonymous) @ main.ts:244
+await in (anonymous)
+(anonymous) @ main.ts:319
+(anonymous) @ buildPersistence.ts:231
+(anonymous) @ buildPersistence.ts:266
+(anonymous) @ PlatformRouter.ts:422
+(anonymous) @ PlatformRouter.ts:375
+(anonymous) @ PlatformRouter.ts:289
+(anonymous) @ ProjectHub.ts:1110
+(anonymous) @ ProjectHub.ts:1091
+await in (anonymous)
+(anonymous) @ ProjectHub.ts:1019
+(anonymous) @ ProjectHub.ts:405Understand this error
+injected.js:37 [initStores] StoreRegistry: 33 stores registered — visibility-intent, view-intent-instance, view, RoomRequirement, AssetCatalogEntry, schedule, view-template, vg-governance, sheet, phase-filter, title-block, wall, slab, column, beam, stair, stair-landing, stair-railing, stair-type, curtainwall, curtain-panel, door, window, roof, plumbing, furniture, handrail, opening, grid, room, ceiling, floor, annotation
+injected.js:37 [initDataPlatform] ElementCode auto-assignment wired to StoreEventBus
+injected.js:37 [SyncStateEngine] Started — subscribed to StoreEventBus
+injected.js:37 [initDataPlatform] SyncStateEngine started (paused until project load)
+injected.js:37 [initDataPlatform] RoomColourSystem.setSyncStateEngine wired
+injected.js:37 [DependencyResolver] Initialised — Phase F active: cascade rebuilds enabled
+injected.js:37 [initDataPlatform] DependencyResolver initialised — semantic graph monitoring active
+injected.js:37 [TemporalGraph] Initialised. sessionId=7d584491-e328-4b0a-a714-7fdc31b739d0. Auto-recording element mutations via StoreEventBus.
+injected.js:37 [initDataPlatform] TemporalGraph initialised — sessionId=7d584491-e328-4b0a-a714-7fdc31b739d0
+injected.js:37 [initDataPlatform] Data Platform stores + SemanticGraph + TemporalGraph + ConstraintEngine + DecisionRecordStore + PhysicsEngine exposed on window
+injected.js:37 [initDataPlatform] G-0.3: SelectionBus exposed on window
+injected.js:37 [initDataPlatform] ConstraintEngine auto-run wired to StoreEventBus (800ms debounce, load-quiet window)
+injected.js:37 [initDataPlatform] G-3: IntentPrompt wired to pryzm-constraints-updated
+injected.js:37 [PhysicsEngine] Initialised — FrameScheduler-batched queue active
+injected.js:37 [initDataPlatform] H-1: PhysicsEngine RAF-queue started
+injected.js:37 [PhysicsOverlayRenderer] Initialised
+injected.js:37 [initDataPlatform] H-2: PhysicsOverlayRenderer initialised
+injected.js:37 [TemplateStore] Seeded 15 built-in templates
+injected.js:37 [initDataPlatform] G-0.1: BuiltinTemplates seeded into TemplateStore
+injected.js:37 [initDataPlatform] G-0.3: SelectionBus subscribed to pryzm-element-selected
+injected.js:37 [initDataPlatform] H-1: PhysicsEngine room-create/update wiring active
+injected.js:37 [initDataPlatform] K-1: VoiceCommandIndicator mounted
+injected.js:37 [ConsequencePreviewOverlay] Initialised
+injected.js:37 [initDataPlatform] K-2: ConsequencePreviewOverlay initialised
+injected.js:37 [AmbientIndicator] Initialised
+injected.js:37 [initDataPlatform] K-3: AmbientIndicator mounted
+injected.js:37 [initDataPlatform] K-3: AmbientIntelligence wired to constraints + StoreEventBus
+injected.js:37 [initDataPlatform] Data Platform subsystem fully initialised.
+injected.js:37 [main] VG Governance Layer initialized
+injected.js:37 [main] View Range Filter Service initialized
+injected.js:37 [main] Crop Region Filter Service initialized
+injected.js:37 [main] Underlay Render Service initialized
+injected.js:37 [main] View Range Zone Applicator initialized
+injected.js:37 [main] Semantic Index initialized
+injected.js:37 [main] IFC Pset Adapter initialized (DOC-5.4)
+injected.js:37 [main] ViewDefinition Store initialized
+injected.js:37 [main] Visibility Intent stores initialized (panel lazy — loads on first use)
+injected.js:37 [DefaultViewsManager] Created default 3D view (id=vd-sys-3d-1)
+injected.js:37 [DefaultViewsManager] Created default Ground Floor plan view (id=vd-sys-plan-l0)
+injected.js:37 [DefaultViewsManager] Initialized — default views are guaranteed on every project.
+injected.js:37 [main] Visibility Rule Engine initialized
+injected.js:37 [main] Sheet Store initialized
+injected.js:37 [main] TitleBlock Store initialized (A0, A1, A3 templates seeded)
+injected.js:37 [main] Sheet Editor Panel registered (lazy — loads on first use)
+injected.js:37 [main] Sheet Export Service initialized
+injected.js:37 [DxfExportService] Initialised
+injected.js:37 [main] DXF Export Service initialized
+injected.js:37 [main] PDF Export Service registered (lazy — loads on first use)
+injected.js:37 [main] Sheet Index Service initialized (Drawing Register ready)
+injected.js:37 [main] Schedule Store initialized and default schedules seeded
+injected.js:37 [main] View Template Store initialized
+injected.js:37 [main] Phase Filter Store initialized (built-ins seeded)
+injected.js:37 [main] FastPathProjectorService initialized (sub-50ms interactive projection)
+injected.js:37 [LONGTASK] duration=119.0ms start=94975.4ms [type=iframe src=https://2552b729-29bc-4906-bf24-3ab5ce9e738f-00-2vp5qnmbzfg28.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [initUI] ImportManagerPanel mounted
+injected.js:37 [CurtainWall] Store→Builder event wiring established
+injected.js:37 [CurtainWall] PanelStore→Builder event wiring established (§MI-02)
+injected.js:37 [ContextualEditBar] Initialized
+injected.js:37 [ContextualEditBar] Operation tools injected
+injected.js:37 [initUI] ShortcutCheatSheet installed (press ? to view all shortcuts)
+injected.js:37 [initUI] Split View toggle button mounted
+injected.js:37 [LevelExplodeController] Initialized
+injected.js:37 [InspectModeCoordinator] Initialized
+injected.js:37 [PlatformShell] D.1 — real save/load delegates injected (engine ready)
+injected.js:37 [initPersistence] D.1 — real delegates injected into early PlatformShell
+injected.js:37 [initPersistence] runtime.stores hydrator registered
+injected.js:37 [initCollaboration] Collaboration subsystem initialised — waiting for pryzm-project-loaded
+injected.js:37 [LONGTASK] duration=143.0ms start=95385.9ms [type=iframe src=https://2552b729-29bc-4906-bf24-3ab5ce9e738f-00-2vp5qnmbzfg28.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=68.0ms start=95622.3ms
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=476.0ms start=96173.4ms
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [AICreatePanel] Initializing panel, going to step 1
+injected.js:37 [AICreatePanel] Transitioning to step 1
+injected.js:37 [AICreatePanel] Step 1: display=flex
+injected.js:37 [AICreatePanel] Step 2: display=none
+injected.js:37 [AICreatePanel] Step 3: display=none
+injected.js:37 [AICreatePanel] Step 4: display=none
+injected.js:37 [AICreatePanel] All steps found and updated successfully
+injected.js:37 [AICreatePanel] Attaching file input change listener
+injected.js:37 [AICreatePanel] Attaching all event listeners
+injected.js:37 [AICreatePanel] Attaching all event listeners...
+injected.js:37 [AICreatePanel] ✓ Step 2 Next button listener attached
+injected.js:37 [AICreatePanel] ✓ Step 2 Back button listener attached
+injected.js:37 [AICreatePanel] ✓ Step 3 Generate button listener attached
+injected.js:37 [AICreatePanel] ✓ Step 3 Back button listener attached
+injected.js:37 [AICreatePanel] ✓ Step 4 Open AI Actions button listener attached
+injected.js:37 [AICreatePanel] ✓ Step 4 Create Another button listener attached
+injected.js:37 [AICreatePanel] ✓ Prompt input keydown listener attached
+injected.js:37 [AICreatePanel] All event listeners attached successfully
+injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [initDataPlatform] DataWorkbench toolbar button + physics overlay dropdown injected
+injected.js:37 [VoiceCommandIndicator] Mounted (speechAPI=true)
+injected.js:37 [HomeView] Default viewpoint captured: {x: 49.99999999999997, y: 49.99999999999995, z: 50.00000000000005} {x: -2.842170943040401e-14, y: -4.263256414560601e-14, z: 4.263256414560601e-14}
+injected.js:37 [LONGTASK] duration=75.0ms start=98212.7ms
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [PlatformShell] Project context set: proj-1777954999265-7bnhmac zsdgsd
+injected.js:37 [runtime] Phase F status pill mounted — ai.model=claude-haiku-4-5 plugins=38 ifc/rhino/bcf=ready pdf=queued
+injected.js:37 [initScene] pryzm-project-switch received — project: proj-1777954999265-7bnhmac
+injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+injected.js:37 [ViewController] clearCameraStateStore — per-view camera state cleared for new project
+injected.js:37 [UnderlayPersistence] Project switch — saves suspended
+injected.js:37 [EngineBootstrap] C13 project-switch: cold-boot → (unknown)
+injected.js:37 [BatchCoordinator] C13 forceReset() — all batch state cleared for project switch
+injected.js:37 [EngineBootstrap] C13 resetWallRebuildState() — wall pipeline clean for project switch
+injected.js:37 [EngineBootstrap] C13 teardown complete — Project B context loading
+injected.js:37 [PlatformShell] New project — clearing scene immediately (no server check)
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+ProjectLoader.ts:234 [ProjectLoader] Loading "zsdgsd" (0 elements)
+injected.js:37 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+injected.js:37 [ProjectLoader] Element-creation path: ImportProjectCommand (Phase 1)
+injected.js:37 [LONGTASK] duration=76.0ms start=98489.3ms [type=iframe src=https://2552b729-29bc-4906-bf24-3ab5ce9e738f-00-2vp5qnmbzfg28.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+ClearProjectCommand.ts:59 [ClearProjectCommand] Clearing all project data
+injected.js:37   Removing 0 curtain panels
+injected.js:37   Removing 0 openings
+injected.js:37   Removing 0 walls
+injected.js:37   Removing 0 curtain walls
+injected.js:37   Removing 0 slabs
+injected.js:37   Removing 0 ceilings
+injected.js:37   Removing 0 columns
+injected.js:37   Removing 0 beams
+injected.js:37   Removing 0 stairs
+injected.js:37   Removing 0 roofs
+injected.js:37   Removing 0 furniture items
+injected.js:37   Removing 0 handrails
+injected.js:37   Removing 0 plumbing fixtures
+injected.js:37   Removing 0 rooms
+injected.js:37   Removing 0 room bounding lines
+injected.js:37   Removing 0 grids
+injected.js:37   Removing 1 levels
+injected.js:37 [BimManager] Cannot delete the default Ground level.
+(anonymous) @ injected.js:37
+(anonymous) @ BimKernel.ts:342
+(anonymous) @ ClearProjectCommand.ts:166
+(anonymous) @ ClearProjectCommand.ts:166
+(anonymous) @ ImportProjectCommand.ts:236
+(anonymous) @ ImportProjectCommand.ts:260
+(anonymous) @ CommandManager.ts:129
+(anonymous) @ ProjectLoader.ts:265
+(anonymous) @ ProjectLoader.ts:334
+await in (anonymous)
+(anonymous) @ initPersistence.ts:266
+(anonymous) @ PlatformShell.ts:198
+(anonymous) @ WorkspaceSurface.ts:188
+(anonymous) @ buildPersistence.ts:257
+await in (anonymous)
+(anonymous) @ buildPersistence.ts:266
+(anonymous) @ PlatformRouter.ts:422
+(anonymous) @ PlatformRouter.ts:375
+(anonymous) @ PlatformRouter.ts:289
+(anonymous) @ ProjectHub.ts:1110
+(anonymous) @ ProjectHub.ts:1091
+await in (anonymous)
+(anonymous) @ ProjectHub.ts:1019
+(anonymous) @ ProjectHub.ts:405Understand this warning
+injected.js:37 [ClearProjectCommand] Annotation store cleared
+injected.js:37   Cleared 0 floors
+injected.js:37 [DefaultViewsManager] Created default 3D view (id=vd-sys-3d-1)
+injected.js:37 [DefaultViewsManager] Created default Ground Floor plan view (id=vd-sys-plan-l0)
+injected.js:37 [TemporalGraph] Cleared (project switch).
+injected.js:37 [UnderlayPersistence] Clear skipped — no current project bound
+injected.js:37 [ViewRenderCache] All render targets disposed.
+injected.js:37 [RoomGraphService] All graphs invalidated

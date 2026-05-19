@@ -1,0 +1,87 @@
+name: Beta — Feedback / feature request
+description: Share feedback or request a feature during the PRYZM 2 private beta (M24 cohort)
+title: "[beta-feedback] "
+labels: ["beta", "feedback"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to share feedback. Beta is the
+        moment we shape the post-beta roadmap — every signal counts.
+
+        For BUGS use the "Beta — Bug report" template instead (it
+        requires an OTel trace link for fast triage).
+
+  - type: dropdown
+    id: cohort
+    attributes:
+      label: Beta cohort
+      options:
+        - C1 — Independent practitioner
+        - C2 — Small studio (2–5 users)
+        - C3 — Large practice IT
+        - Academic / educator
+    validations:
+      required: true
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of feedback?
+      options:
+        - Feature request
+        - UX friction (not a bug)
+        - Workflow / pricing / cohort fit
+        - Praise / what's working
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: How important to you?
+      options:
+        - P0 — Blocker for adopting PRYZM
+        - P1 — I'd use it noticeably more
+        - P2 — Nice to have
+        - P3 — Just an observation
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Tell us more
+      description: |
+        What are you trying to accomplish? What got in the way? If you
+        have a desired outcome, describe it from your perspective —
+        we'll turn it into a spec.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Workarounds / alternatives you've used
+      description: How do you currently solve this in your toolchain?
+
+  - type: input
+    id: relevant_trace
+    attributes:
+      label: Relevant trace ID (optional)
+      description: |
+        If your feedback relates to a specific session, paste the OTel
+        trace link from "Help → Copy trace link" — it helps us load
+        the relevant context.
+
+  - type: checkboxes
+    id: ack
+    attributes:
+      label: Acknowledgements
+      options:
+        - label: I have searched existing beta-feedback issues for duplicates
+          required: true
+        - label: I'm OK with the PRYZM team contacting me for follow-up (we will via the email on your beta signup)
+          required: false

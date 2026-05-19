@@ -1,0 +1,10 @@
+{
+  "name": "command-bus.execute.wall-move",
+  "samples": 200,
+  "p50": 2.753,
+  "p95": 9.697,
+  "p99": 28.215,
+  "budgetMs": 1,
+  "warnMs": 0.5,
+  "recordedAt": "2026-05-09T23:09:33.415Z"
+}

@@ -1,0 +1,14 @@
+{
+  "snapshotAt": "2026-04-30",
+  "snapshotSha": "3bb463e53306f34565c53f87730fcba74671e0d2",
+  "updatedAt": "2026-04-30-S86-WIRE",
+  "deletionTargetWave": 7,
+  "comment": "S86-WIRE close (Wave 7, 2026-04-30 evening). src/main.ts dynamic import redirected from './engine/EngineBootstrap' to './engine/engineLauncher'. EngineBootstrap.ts is now a ≤35 LOC type-alias shim. Boolean #5 (EngineBootstrap_LOC == 0) closes here. Structural importers = 0 (unchanged from D.4.5 baseline). Dynamic importers = 0 (was 1; src/main.ts now imports engineLauncher). 122 files mention 'EngineBootstrap' in comments — these are NOT structural importers and are targeted for S87-WIRE batch-rewrite. ESLint rule no-engine-bootstrap-shim remains active with empty allowlists — guards against any future attempt to import the shim.",
+  "structuralImporterCount": 0,
+  "dynamicImporterCount": 0,
+  "totalMentionCount": 122,
+  "specExpectedCount": 41,
+  "optionADeviation": "Spec expected ~41 structural type-importers that D.4.5 would allowlist. HEAD has 0 structural importers (from '...engine/EngineBootstrap'). Phase F-1 already eliminated them. S86-WIRE eliminates the one remaining dynamic importer (src/main.ts). Both allowlists are now empty.",
+  "files": [],
+  "dynamicImporters": []
+}

@@ -1,0 +1,10 @@
+{
+  "name": "ui.panel-base-overhead",
+  "samples": 500,
+  "p50": 0.038,
+  "p95": 0.328,
+  "p99": 1.971,
+  "budgetMs": 0.5,
+  "warnMs": 0.25,
+  "recordedAt": "2026-05-09T23:10:01.845Z"
+}

@@ -1,0 +1,373 @@
+You are a senior BIM platform engineer working inside this repository.
+
+Your task is to implement the next-generation Curtain Wall architecture described in the system audit below.
+
+The goal is to upgrade the current MVP curtain wall implementation into a fully addressable grid-based façade system similar to the capabilities found in Autodesk Revit.
+
+You must respect the current architecture patterns used across the repository.
+
+Key patterns already used:
+
+Element stores (Store pattern)
+
+Command system
+
+StoreEventBus
+
+ElementRegistry
+
+Parametric geometry builders
+
+Three.js rendering layer
+
+AI command proposal system
+
+Your implementation must follow these contracts exactly.
+
+Context: Current System
+
+The existing curtain wall implementation:
+
+Files:
+
+CurtainWallBuilder.ts
+CurtainWallStore.ts
+CurtainWallTypes.ts
+
+Current behavior:
+
+Curtain wall defined by baseLine + height
+
+Uniform grid spacing (gridXSpacing / gridYSpacing)
+
+Mullions created as simple BoxGeometry
+
+Glass panels created as planes
+
+Everything generated procedurally in a loop
+
+Major limitation:
+
+There is no topology model.
+
+Grid lines, panels, and mullions are not independent BIM elements.
+
+Goal:
+
+Upgrade this to a grid topology based façade system.
+
+Implementation Goal
+
+Implement Phase 1: Addressable Curtain Wall Grid + Panels
+
+This phase introduces:
+
+CurtainWall
+ ├─ CurtainGridSystem
+ │   ├─ UGridLines
+ │   └─ VGridLines
+ │
+ ├─ CurtainCells
+ │
+ └─ CurtainPanels
+
+This architecture must support:
+
+non-uniform grid spacing
+
+individually addressable panels
+
+panel type replacement
+
+AI façade reasoning
+
+Do NOT implement mullion profiles yet.
+
+Mullions remain simple geometry for Phase 1.
+
+Step 1 — Implement CurtainGridSystem
+
+Create file:
+
+src/elements/curtainwalls/CurtainGridSystem.ts
+
+Data structure:
+
+interface CurtainGridLine {
+    id: string
+    t: number        // normalized position 0..1
+}
+
+interface CurtainGridSystem {
+    uLines: CurtainGridLine[]
+    vLines: CurtainGridLine[]
+}
+
+Where:
+
+t = position along wall length or height
+
+Example:
+
+uLines = [0.0, 0.25, 0.5, 0.75, 1.0]
+vLines = [0.0, 0.33, 0.66, 1.0]
+
+Requirements:
+
+Must support serialization in CurtainWallData
+
+Must allow insertion/removal of grid lines
+
+Must remain backward compatible with existing scalar spacing
+
+Migration logic:
+
+If curtain wall has:
+
+gridXSpacing
+gridYSpacing
+
+Convert them into:
+
+uniform t-values
+Step 2 — Implement CurtainCellComputer
+
+Create file:
+
+src/elements/curtainwalls/CurtainCellComputer.ts
+
+Purpose:
+
+Compute façade cells from grid lines.
+
+Function signature:
+
+computeCurtainCells(
+  grid: CurtainGridSystem,
+  length: number,
+  height: number
+): CurtainCell[]
+
+Cell structure:
+
+interface CurtainCell {
+  i: number
+  j: number
+  corners: Vector3[4]
+}
+
+Algorithm:
+
+for each pair of U lines
+  for each pair of V lines
+     generate rectangular cell
+
+Cells must map to grid indices:
+
+(i,j)
+
+This function must be pure and unit-testable.
+
+Step 3 — Implement CurtainPanelData + Store
+
+Create files:
+
+CurtainPanelTypes.ts
+CurtainPanelStore.ts
+
+Panel data structure:
+
+interface CurtainPanelData extends CoreElement {
+    curtainWallId: string
+    cellIndex: [number, number]
+    panelType: string
+    materialOverride?: string
+}
+
+Panel types:
+
+SystemPanel_Glass
+SystemPanel_Opaque
+SystemPanel_Empty
+
+Panel store must follow the pattern used by:
+
+OpeningStore
+WallStore
+SlabStore
+
+Requirements:
+
+registered in ElementRegistry
+
+emit StoreEventBus events
+
+support CRUD operations
+
+Step 4 — Modify CurtainWallBuilder
+
+Update:
+
+CurtainWallBuilder.ts
+
+New build pipeline:
+
+build()
+
+  → read gridSystem
+  → compute cells via CurtainCellComputer
+  → resolve panel data from CurtainPanelStore
+  → generate panel meshes
+  → generate mullion meshes
+
+Panel generation must move to:
+
+CurtainPanelBuilder.ts
+
+This builder must:
+
+create panel mesh from cell corners
+
+Use:
+
+THREE.PlaneGeometry
+Step 5 — Panel Replacement Command
+
+Create command:
+
+ReplacePanelTypeCommand.ts
+
+Command payload:
+
+{
+  panelId: string
+  newPanelType: string
+}
+
+Command flow:
+
+CommandManager.execute
+   → CurtainPanelStore.update()
+   → StoreEventBus.emit()
+   → CurtainWallBuilder partial rebuild
+Step 6 — Selection System Integration
+
+Panels must become selectable BIM elements.
+
+SelectionManager must:
+
+resolve mesh → panelId
+
+route selection to CurtainPanelStore
+
+Update mesh metadata:
+
+mesh.userData.elementId = panelId
+mesh.userData.elementType = "CurtainPanel"
+Step 7 — Instanced Rendering
+
+Panels of identical type must use:
+
+THREE.InstancedMesh
+
+Implementation:
+
+Create:
+
+CurtainWallInstanceManager.ts
+
+Responsibilities:
+
+group panels by panelType
+
+create InstancedMesh
+
+assign instance matrices
+
+Goal:
+
+Reduce draw calls drastically.
+
+Example:
+
+60 panels → 1 draw call
+Step 8 — Extend AI World Model
+
+Update:
+
+src/ai/AIReadModel.ts
+
+Add methods:
+
+getCurtainWalls()
+getCurtainWallPanels(cwId)
+
+Data exposed:
+
+AICurtainWall
+AICurtainPanel
+
+Panel data should include:
+
+area
+panelType
+cellIndex
+
+This allows AI façade reasoning.
+
+Step 9 — AI Façade Intent
+
+Add intent type:
+
+CurtainWallFacadeIntent
+
+File:
+
+src/ai/intents/types.ts
+
+Example prompt:
+
+"Create curtain wall with 1.5m grid spacing"
+
+AI must generate:
+
+CreateCurtainWallCommand
+Step 10 — Requirements
+
+You must:
+
+follow existing repository architecture
+
+avoid modifying wall/slab logic
+
+isolate new curtain wall systems
+
+add clear comments explaining the topology model
+
+write modular code
+
+Do NOT implement:
+
+curved curtain walls
+
+mullion profile sweeps
+
+angled grids
+
+Those belong to Phase 2 and 3.
+
+Expected Output
+
+Produce:
+
+New files listed above
+
+Updates to CurtainWallBuilder
+
+Store registrations
+
+Example usage in code
+
+Comments explaining grid → cell → panel pipeline
+
+Ensure the system compiles and integrates with the current BIM engine.

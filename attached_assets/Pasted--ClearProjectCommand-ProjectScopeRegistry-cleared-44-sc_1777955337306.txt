@@ -1,0 +1,119 @@
+[ClearProjectCommand] ProjectScopeRegistry cleared 44 scopes: (44) ['visibilityIntentStore', 'viewIntentInstanceStore', 'viewDefinitionStore', 'requirementStore', 'assetCatalogStore', 'hierarchyStore', 'templateStore', 'templateAssignmentStore', 'doorStore', 'windowStore', 'semanticGraphManager', 'decisionRecordStore', 'doorSystemTypeStore', 'windowSystemTypeStore', 'ceilingSystemTypeStore', 'floorSystemTypeStore', 'handrailTypeStore', 'roomBoundingLineStore', 'temporalGraphManager', 'scheduleStore', 'viewTemplateStore', 'wallSystemTypeStore', 'slabSystemTypeStore', 'annotationStore', 'ifcProjectionStore', 'vgGovernanceStore', 'floorPlanUnderlay', 'sheetStore', 'topologySpatialIndex', 'topologyLayer', 'viewRenderCache', 'elementCodeStore', 'roomSpatialIndex', 'semanticIndex', 'visibilityRuleEngine', 'dxfOverlayStore', 'constraintStore', 'annotationVisibilityStore', 'vgInstanceOverrideStore', 'roomGraphService', 'dxfLayerStore', 'phaseFilterStore', 'sceneBoundsCache', 'viewVisibilityMap']
+injected.js:37 [ClearProjectCommand] activeLevelId reset to L0 (project-scoped state cleared).
+injected.js:37 [ProjectIsolation] WallFragmentBuilder disposed — scene cleared of wall geometry.
+injected.js:37 [RoomGraphService] All graphs invalidated
+injected.js:37 [TemporalGraph] Cleared (project switch).
+injected.js:37 [ClearProjectCommand] Clear complete
+injected.js:37 [ImportProjectCommand] Loading 0 levels
+injected.js:37 [ImportProjectCommand] Loading 0 grids
+injected.js:37 [ImportProjectCommand] Loading 0 columns
+injected.js:37 [ImportProjectCommand] Loading 0 walls
+injected.js:37 [ImportProjectCommand] Loading 0 slabs
+injected.js:37 [ImportProjectCommand] Loading 0 stairs
+injected.js:37 [ImportProjectCommand] Loading 0 furniture items
+injected.js:37 [ImportProjectCommand] Loading 0 roofs
+injected.js:37 [ImportProjectCommand] Loading 0 handrails
+injected.js:37 [ImportProjectCommand] Loading 0 plumbing fixtures
+injected.js:37 [ImportProjectCommand] Loading 0 curtain walls
+injected.js:37 [ImportProjectCommand] Loading 0 beams
+injected.js:37 [ProjectLoader] VG Governance state restored from snapshot
+injected.js:37 [ProjectLoader] ViewDefinition store restored from snapshot
+injected.js:37 [ProjectLoader] Visibility rule engine restored from snapshot
+injected.js:37 [VGToIntentMigration] Starting VG → Intent migration…
+injected.js:37 [VGToIntentMigration] Complete — 0 intents, 0 views, 0 overrides migrated.
+injected.js:37 [LONGTASK] duration=51.0ms start=98867.8ms [type=iframe src=https://2552b729-29bc-4906-bf24-3ab5ce9e738f-00-2vp5qnmbzfg28.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [ProjectLoader] Sheet store restored from snapshot
+injected.js:37 [ProjectLoader] Schedule store restored from snapshot
+injected.js:37 [ProjectLoader] SemanticGraph cleared (v1/v2 snapshot — no graph data)
+injected.js:37 [TemporalGraph] Cleared (project switch).
+injected.js:37 [ProjectLoader] TemporalGraph cleared (pre-v4 snapshot — no temporal data)
+injected.js:37 [ProjectLoader] DecisionRecordStore cleared (pre-v4 snapshot — no decision data)
+injected.js:37 [IntentStylePrewarmer] Pre-warmed 1224 style slots in 18.70ms
+injected.js:37 [ProjectLoader] RequirementStore cleared (no requirement data in snapshot)
+injected.js:37 [PlatformCollabPill] Socket connected — joining project room: proj-1777954999265-7bnhmac
+injected.js:37 [AssetCatalogStore] setDirect(): restored 21 entries
+injected.js:37 [ProjectLoader] AssetCatalogStore seeded from defaults
+injected.js:37 [ProjectLoader] Annotation store cleared (no annotation data in snapshot)
+injected.js:37 [ProjectLoader] AnnotationDependencyGraph rebuilt after restore
+injected.js:37 [ProjectLoader] Load complete: 0 loaded, 0 failed, 0 errors
+injected.js:37 [StoreEventBus] endBatch() — flushed 36 buffered event(s) in emission order (no coalescing — all events delivered).
+injected.js:37 [ProjectLoader] PHASE_TIMINGS total=935.5ms setup=0.0ms hydrate=0.0ms event_flush=0.0ms wall_rebuild_flush=0.0ms redetect_sweep=0.0ms [walls=0 slabs=0 levels=0 curtainWalls=0]
+injected.js:37 [ProjectSerializer] Snapshot created: 0 elements, 1 levels, 0 walls, 0 slabs, 0 furniture
+injected.js:37 [PlatformShell] New project ready — firing pryzm-project-loaded(empty:true)
+injected.js:37 [FrustumCullingService] pryzm-project-loaded(empty) — audit skipped, no geometry
+injected.js:37 [initScene] pryzm-project-loaded — empty project (no geometry)
+injected.js:37 [TemplateStore] Seeded 15 built-in templates
+injected.js:37 [initCollaboration] Project opened — collaboration active for proj-1777954999265-7bnhmac
+injected.js:37 [EngineBootstrap] pryzm-project-loaded(empty) — skipping zoomToAll, no geometry
+injected.js:37 [RenderPipelineManager] Outlines activated (selected + hover).
+injected.js:37 [RenderPipelineManager] Phase: phase4 | WebGPU: true | SSGI: true | TRAA: false
+injected.js:37 [RenderPipelineManager] Phase: phase4 | WebGPU: true | SSGI: true | TRAA: false
+injected.js:37 [initCollaboration] Socket connected — joining project room: proj-1777954999265-7bnhmac
+injected.js:37 [initCollaboration] Catch-up: first connect — setting baseline timestamp
+injected.js:37 [DefaultViewsManager] Created default 3D view (id=vd-sys-3d-1)
+injected.js:37 [DefaultViewsManager] Created default Ground Floor plan view (id=vd-sys-plan-l0)
+injected.js:37 [LONGTASK] duration=137.0ms start=100522.1ms [type=iframe src=https://2552b729-29bc-4906-bf24-3ab5ce9e738f-00-2vp5qnmbzfg28.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=68.0ms start=100664.2ms
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [HomeView] Default viewpoint captured: {x: 49.99999999999997, y: 49.99999999999995, z: 50.00000000000005} {x: -2.842170943040401e-14, y: -4.263256414560601e-14, z: 4.263256414560601e-14}
+injected.js:37 [SplitViewManager] Canvas2D context ready
+injected.js:37 [SvpPlanToolOverlay] Attached with snap service. viewId: vd-sys-plan-l0
+injected.js:37 [SplitViewManager] Split view activated (Canvas2D plan mode)
+injected.js:37 [initScene] Split view auto-opened on project load (idle)
+injected.js:37 [LONGTASK] duration=51.0ms start=101632.7ms
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [initDataPlatform] H-1: Physics compute enqueued for all rooms after project load (idle)
+injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+injected.js:37 [LONGTASK] duration=55.0ms start=103622.1ms
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [GPU Monitor] geometries:0 textures:2 | drawCalls:0 tris:0
+injected.js:37 [ProjectIsolationAudit] ✓ project proj-1777954999265-7bnhmac loaded clean — no leftover state
+injected.js:37 [FPS] 1fps
+injected.js:37 [LONGTASK] duration=518.0ms start=107304.2ms [type=iframe src=https://2552b729-29bc-4906-bf24-3ab5ce9e738f-00-2vp5qnmbzfg28.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [FPS] 1fps
+injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+injected.js:37 [LONGTASK] duration=983.0ms start=107850.2ms [type=iframe src=https://2552b729-29bc-4906-bf24-3ab5ce9e738f-00-2vp5qnmbzfg28.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [SvpPlanToolOverlay] Detached
+injected.js:37 [SplitViewManager] Split view deactivated
+2injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+injected.js:37 [GPU Monitor] geometries:1 textures:5 | drawCalls:0 tris:0
+injected.js:37 [FPS] 29fps
+injected.js:37 [WallModePicker] setActiveMode → ortho
+injected.js:37 ToolManager: activateTool called for wall
+injected.js:37 ToolManager: deactivating previous tool none
+injected.js:37 ToolManager: executing activateFn for wall
+injected.js:37 WallTool activated with mode: POLYLINE_ORTHO
+injected.js:37 [EngineBootstrap] HDRI load started (lazy — Realistic style first requested)
+injected.js:37 RGBELoader has been deprecated. Please use HDRLoader instead.
+(anonymous) @ injected.js:37
+RGBELoader @ RGBELoader.js?v=b1d3a9d0:9
+(anonymous) @ engineLauncher.ts:1142
+(anonymous) @ engineLauncher.ts:1141
+(anonymous) @ WallTool.ts:360
+(anonymous) @ ToolManager.ts:580
+(anonymous) @ ToolManager.ts:507
+await in (anonymous)
+(anonymous) @ ToolManager.ts:578
+(anonymous) @ BimService.ts:84
+(anonymous) @ ToolsAreaLayout.ts:222
+(anonymous) @ BottomActionMenu.ts:267
+(anonymous) @ BottomActionMenu.ts:257
+(anonymous) @ BottomActionMenu.ts:200
+(anonymous) @ BottomActionMenu.ts:221Understand this warning
+injected.js:214 Connecting to 'https://thatopen.github.io/engine_fragment/resources/textures/envmaps/san_giuseppe_bridge_2k.hdr' violates the following Content Security Policy directive: "connect-src 'self' data: blob: https://api.cesium.com https://*.supabase.co wss: ws:". The policy is report-only, so the violation has been logged but no further action has been taken.
+injected.js:214 Connecting to 'https://thatopen.github.io/engine_fragment/resources/textures/envmaps/san_giuseppe_bridge_2k.hdr' violates the following Content Security Policy directive: "connect-src 'self' data: blob: https://api.cesium.com https://*.supabase.co wss: ws:". The policy is report-only, so the violation has been logged but no further action has been taken.
+injected.js:37 [LONGTASK] duration=68.0ms start=114399.3ms [type=iframe src=https://2552b729-29bc-4906-bf24-3ab5ce9e738f-00-2vp5qnmbzfg28.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [FPS] 42fps

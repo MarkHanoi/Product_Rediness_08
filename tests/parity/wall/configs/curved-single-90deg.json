@@ -1,0 +1,42 @@
+{
+  "id": "curved-single-90deg",
+  "description": "90° single-layer arc",
+  "wall": {
+    "id": "wall:01HZS00000000000000CURVEDS",
+    "type": "wall",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "baseLine": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 4,
+        "y": 0,
+        "z": 0
+      }
+    ],
+    "height": 2.5,
+    "thickness": 0.2,
+    "baseOffset": 0,
+    "openings": [],
+    "curve": {
+      "control": {
+        "x": 2,
+        "y": 0,
+        "z": 1.5
+      },
+      "segments": 16
+    }
+  },
+  "joinData": {},
+  "worldY": 0
+}

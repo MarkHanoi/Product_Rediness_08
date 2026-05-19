@@ -1,0 +1,28 @@
+{
+  "id": "F04.i-section",
+  "description": "0.3×0.6×5.0 m steel I-section column",
+  "column": {
+    "id": "column:01HZS000000000000COLF0400",
+    "type": "column",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "origin": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "shape": "i-section",
+    "width": 0.3,
+    "depth": 0.6,
+    "height": 5,
+    "rotation": 0,
+    "baseOffset": 0
+  },
+  "worldY": 0
+}

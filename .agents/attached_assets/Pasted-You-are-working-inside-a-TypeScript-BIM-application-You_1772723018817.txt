@@ -1,0 +1,155 @@
+You are working inside a TypeScript BIM application.
+
+Your task is ONLY to restore the connection between the Property Inspector and the WallStore so that wall properties appear again in the inspector UI.
+
+⚠️ CRITICAL RULES
+
+DO NOT refactor architecture.
+DO NOT modify commands.
+DO NOT modify geometry logic.
+DO NOT modify wall builder.
+DO NOT change any data structures.
+
+Your task is ONLY to expose the existing WallStore instance globally so the inspector can access it.
+
+Problem
+
+The Property Inspector accesses walls using:
+
+(window as any).wallStore?.getById(...)
+
+But currently:
+
+window.wallStore === undefined
+
+Therefore:
+
+Height
+
+Thickness
+
+Width
+
+Geometry info
+
+do not appear in the inspector.
+
+The actual WallStore exists internally, but it is never attached to the window object.
+
+Required Fix
+
+Expose the existing WallStore instance globally.
+
+Step 1 — Locate WallStore Initialization
+
+Find where WallStore is instantiated.
+
+Example:
+
+const wallStore = new WallStore(...)
+
+or
+
+this.wallStore = new WallStore(...)
+
+This is usually inside:
+
+src/stores
+src/app
+src/engine
+src/bootstrap
+Step 2 — Attach WallStore to Window
+
+Immediately after the instance is created, add:
+
+(window as any).wallStore = wallStore;
+
+Example:
+
+const wallStore = new WallStore();
+
+(window as any).wallStore = wallStore;
+
+export default wallStore;
+
+or if inside a class:
+
+this.wallStore = new WallStore();
+
+(window as any).wallStore = this.wallStore;
+Step 3 — Do NOT Create a New Store
+
+Do NOT do this:
+
+(window as any).wallStore = new WallStore();
+
+This would create two stores, breaking the system.
+
+You must expose the existing instance.
+
+Step 4 — Add Debug Log
+
+Add a small debug log after attaching the store.
+
+console.log("[WallStore] attached to window", (window as any).wallStore);
+Expected Result
+
+After this fix:
+
+window.wallStore !== undefined
+
+Property inspector calls will work:
+
+window.wallStore.getById(wallId)
+
+and the inspector will correctly display:
+
+Width
+
+Height
+
+Thickness
+
+Geometry data
+
+Files That Should NOT Be Modified
+
+Do NOT change anything in:
+
+WallFragmentBuilder.ts
+WallTool.ts
+CreateWallCommand.ts
+UpdateWallDimensionsCommand.ts
+WallTypes.ts
+PropertyInspector.ts
+Verification Steps
+
+After implementing:
+
+Run the app
+
+Draw a wall
+
+Select the wall
+
+Check inspector panel
+
+Expected result:
+
+Wall properties appear:
+
+Width
+Height
+Thickness
+Length
+Deliverables
+
+Show the file where WallStore is instantiated
+
+Show the exact lines added
+
+Confirm that:
+
+window.wallStore
+
+is defined.

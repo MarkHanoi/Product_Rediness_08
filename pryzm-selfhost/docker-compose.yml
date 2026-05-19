@@ -1,0 +1,173 @@
+# pryzm-selfhost/docker-compose.yml
+#
+# S67 D1 — Self-host Docker Compose stack.
+# Source authority: docs/00_NEW_ARCHITECTURE/phases/PHASE-3D-Q4-M34-M36-HARDENING-GA.md
+#                   §S67 "Implementation Detail — docker-compose.yml" (verbatim base, with
+#                   build: directives added so a fresh checkout can `docker compose build`
+#                   without depending on ghcr.io publish — see ADR-0048 §B for rationale).
+#
+# Stack (6 services, see ADR-0048 §A for the spec-doc reconciliation 5→6):
+#   postgres       — Postgres 16, application DB.
+#   minio          — S3-compatible object store for bake artefacts + plugin bundles.
+#   sync-server    — CommandEvent linearisation + WS broadcast (apps/sync-server).
+#   bake-worker    — incremental bake job runner (apps/bake-worker).
+#   api-gateway    — REST + WS public surface (apps/api-gateway, S65).
+#   editor         — nginx serving the built editor SPA + reverse-proxying API/WS to api-gateway.
+#                    This 6th service exists so api-gateway code stays untouched (its 175
+#                    passing tests assume Express-only, no static-file serving).  See ADR-0048 §B.
+#
+# Front door:
+#   http://localhost:3000  → editor SPA (and /v1/* → api-gateway, /ws/* → api-gateway).
+#
+# Quick start (from this directory):
+#   ./install.sh                # one-shot: secrets + build + up
+#   docker compose ps           # all services should report healthy in <10 min
+#   docker compose logs -f      # tail logs
+#
+# Build context is the repository root (..) so each service Dockerfile can resolve
+# pnpm-workspace.yaml + packages/* + apps/<self>/* under one tree.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: pryzm-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: pryzm
+      POSTGRES_USER: pryzm
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d:ro
+    secrets:
+      - postgres_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pryzm -d pryzm"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    networks: [pryzm-net]
+
+  minio:
+    image: minio/minio:RELEASE.2026-01-01T00-00-00Z
+    container_name: pryzm-minio
+    restart: unless-stopped
+    command: server /data --console-address :9001
+    environment:
+      MINIO_ROOT_USER: pryzm
+      MINIO_ROOT_PASSWORD_FILE: /run/secrets/minio_password
+    volumes:
+      - minio-data:/data
+    secrets:
+      - minio_password
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    networks: [pryzm-net]
+
+  sync-server:
+    image: ghcr.io/pryzm/sync-server:2.0.0
+    build:
+      context: ..
+      dockerfile: apps/sync-server/Dockerfile
+    container_name: pryzm-sync-server
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://pryzm@postgres:5432/pryzm
+      SYNC_PORT: "4000"
+      LOG_LEVEL: info
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4000/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 15s
+    networks: [pryzm-net]
+
+  bake-worker:
+    image: ghcr.io/pryzm/bake-worker:2.0.0
+    build:
+      context: ..
+      dockerfile: apps/bake-worker/Dockerfile
+    container_name: pryzm-bake-worker
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://pryzm@postgres:5432/pryzm
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: pryzm
+      WORKER_CONCURRENCY: "4"
+      BAKE_PORT: "4001"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4001/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 15s
+    networks: [pryzm-net]
+
+  api-gateway:
+    image: ghcr.io/pryzm/api-gateway:2.0.0
+    build:
+      context: ..
+      dockerfile: apps/api-gateway/Dockerfile
+    container_name: pryzm-api-gateway
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      sync-server:
+        condition: service_healthy
+    environment:
+      API_GATEWAY_PORT: "5101"
+      SYNC_WS_URL: ws://sync-server:4000
+      DATABASE_URL: postgres://pryzm@postgres:5432/pryzm
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5101/v1/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 15s
+    networks: [pryzm-net]
+
+  editor:
+    image: ghcr.io/pryzm/editor:2.0.0
+    build:
+      context: ..
+      dockerfile: apps/editor/Dockerfile
+    container_name: pryzm-editor
+    restart: unless-stopped
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    ports:
+      - "3000:80"
+    networks: [pryzm-net]
+
+secrets:
+  postgres_password:
+    file: ./.secrets/postgres_password
+  minio_password:
+    file: ./.secrets/minio_password
+
+volumes:
+  postgres-data:
+    name: pryzm-postgres-data
+  minio-data:
+    name: pryzm-minio-data
+
+networks:
+  pryzm-net:
+    name: pryzm-net
+    driver: bridge

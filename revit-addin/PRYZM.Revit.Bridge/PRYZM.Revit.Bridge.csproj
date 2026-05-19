@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>PRYZM.Revit.Bridge</AssemblyName>
+    <RootNamespace>PRYZM.Revit.Bridge</RootNamespace>
+    <Configurations>Debug;Release</Configurations>
+    <Platforms>AnyCPU</Platforms>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      Revit 2024 API DLLs ship with Revit at:
+        C:\Program Files\Autodesk\Revit 2024\RevitAPI.dll
+        C:\Program Files\Autodesk\Revit 2024\RevitAPIUI.dll
+      The HintPath assumes a default Revit install. Override by setting
+      $(RevitInstallDir) in your local .csproj.user file.
+    -->
+    <Reference Include="RevitAPI">
+      <HintPath>$(RevitInstallDir)\RevitAPI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="RevitAPIUI">
+      <HintPath>$(RevitInstallDir)\RevitAPIUI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System.Net.Http" />
+    <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
+    <Reference Include="WindowsBase" />
+  </ItemGroup>
+
+  <PropertyGroup Condition=" '$(RevitInstallDir)' == '' ">
+    <RevitInstallDir>C:\Program Files\Autodesk\Revit 2024</RevitInstallDir>
+  </PropertyGroup>
+</Project>

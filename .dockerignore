@@ -1,0 +1,62 @@
+# .dockerignore — keep Docker build context lean for apps/*/Dockerfile builds.
+# S67 D3.  Anything listed here is NOT sent to the Docker daemon.
+
+# VCS + IDE
+.git
+.gitignore
+.idea
+.vscode
+.replit
+replit.nix
+.config
+.cache
+
+# pnpm + node_modules at every depth — pnpm install runs INSIDE the build.
+**/node_modules
+node_modules
+.pnpm-store
+
+# Build outputs (rebuilt inside)
+dist
+build
+**/dist
+**/build
+**/.next
+**/.astro
+.vite-cache
+
+# Test snapshots / coverage
+**/__snapshots__
+coverage
+.nyc_output
+
+# Logs + tmp
+*.log
+npm-debug.log*
+.tmp
+.local
+.replit-cache
+.upm
+
+# Env + secrets — NEVER ship these into a container.
+.env
+.env.*
+!.env.example
+pryzm-selfhost/.secrets
+pryzm-selfhost/.env
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Big static assets that aren't needed at build/runtime
+attached_assets
+generated_assets
+*.iso
+*.tar
+*.zip
+*.7z
+
+# Documentation site builds — only source needed.
+apps/docs-site/.astro
+apps/docs-site/dist

@@ -1,0 +1,25 @@
+{
+  "name": "@pryzm/expr-eval",
+  "version": "0.1.0",
+  "description": "PRYZM 2 — light parametric expression evaluator (S25, SPEC-01 §4.1).  Pure-TS, dependency-free, NO constraint solver.  Supports `length = a + b`, `angle = 90 * 0.5`, etc.  The Phase 3A constraint solver (`packages/constraint-solver/`) is a separate, larger surface that arrives at S49+.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

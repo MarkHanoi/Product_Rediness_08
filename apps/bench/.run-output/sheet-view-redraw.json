@@ -1,0 +1,9 @@
+{
+  "name": "sheet-view-redraw",
+  "p50": 0.03562600000009297,
+  "p95": 0.12547300000005635,
+  "samples": 500,
+  "unit": "ms",
+  "nftTarget": 200,
+  "notes": "NFT-6 headless proxy per 01-VISION.md §5. Measures Sheet schema parse/serialize round-trip (schema pipeline share of the sheet redraw budget). Full sheet-view DOM diff is in apps/editor-bench/ (Wave 13 browser harness)."
+}

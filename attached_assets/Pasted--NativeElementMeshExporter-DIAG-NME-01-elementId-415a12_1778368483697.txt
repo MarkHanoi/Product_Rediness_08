@@ -1,0 +1,368 @@
+[NativeElementMeshExporter] §DIAG-NME-01 elementId=415a12f4-321f-4259-a8ca-a7ec098d0284 elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=335d50c9-26ab-4050-a79a-2cfe200e55d2 elementType=CurtainWall instancedNodes=2 proxiesFromIM=20 proxiesFromMesh=32 totalProxies=52
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=fed12c4a-f2c5-44ad-a9f1-01961066873b elementType=CurtainWall instancedNodes=2 proxiesFromIM=26 proxiesFromMesh=44 totalProxies=70
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=4a0bb35b-db3e-474c-bf47-0739520a43ff elementType=CurtainWall instancedNodes=2 proxiesFromIM=10 proxiesFromMesh=12 totalProxies=22
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=f212bb1c-dc4c-49c4-a89e-0aa3b6bf6399 elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=d5e0be94-d98c-48e4-91c8-39384dd8a148 elementType=CurtainWall instancedNodes=2 proxiesFromIM=22 proxiesFromMesh=36 totalProxies=58
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=5cc4b4d3-0a78-4d5d-aa01-a8f2745d7d5d elementType=CurtainWall instancedNodes=2 proxiesFromIM=12 proxiesFromMesh=16 totalProxies=28
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=4af3ac14-db5b-4470-9cd4-a8027169950c elementType=CurtainWall instancedNodes=2 proxiesFromIM=19 proxiesFromMesh=30 totalProxies=49
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=b378dcd0-0117-4599-917c-331c9265f665 elementType=CurtainWall instancedNodes=2 proxiesFromIM=7 proxiesFromMesh=6 totalProxies=13
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=11b043d5-bbf4-4075-af10-af397394a620 elementType=CurtainWall instancedNodes=2 proxiesFromIM=11 proxiesFromMesh=14 totalProxies=25
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=bb2f8f08-50ac-4a79-b049-473fc6f89350 elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NME] §H2-NME-CACHE hits=2 misses=20 hitRate=9% cacheSize=296/500
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §TRACE ON-BATCH-END-DONE (overlay dismissed post-dual-PSO-compile; §FIX-DUAL-LONGTASK) T=+6048.3ms
+engineLauncher-bbIXqTfg.js:2 [RenderPipelineManager] SHADOW_REBUILD_SCHEDULED meshCount=161
+engineLauncher-bbIXqTfg.js:2 [RenderPipelineManager] SHADOW_REBUILD_SCHEDULED meshCount=161
+engineLauncher-bbIXqTfg.js:6681 [PerformanceModePanel] Performance mode OFF — restoring quality
+engineLauncher-bbIXqTfg.js:6681 [PerformanceModePanel] Auto-performance mode OFF (IFC load complete)
+engineLauncher-bbIXqTfg.js:7243 [initBatchLifecycle] §L1-BATCH-PERF-MODE restored after batch drain
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] project() batchId=667519d4 viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=0 mesh#0 elemType=wall faceCount=12 edgeVertices=24 allocMs=0.19ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=5c8ec09d-b426-4014-b6ab-25fcf20aacfb elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.4ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=projection-visible geoCount=1 mergedVerts=24 mergeMs=0.0ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-04 toDrawingSpace layer=projection-visible:proj inVerts=24 outVerts=24 tdsMs=0.0ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-01-1778367874324-1 elevation=3.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] project() batchId=667519d4 viewId=L-01-1778367874324-1 dir=(0,-1,0) near=4.200 far=6.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=0 mesh#0 elemType=wall faceCount=12 edgeVertices=24 allocMs=0.09ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=5c8ec09d-b426-4014-b6ab-25fcf20aacfb elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.3ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=projection-visible geoCount=1 mergedVerts=24 mergeMs=0.0ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-04 toDrawingSpace layer=projection-visible:beyond inVerts=24 outVerts=24 tdsMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-02-1778367874350-2 elevation=6.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] project() batchId=667519d4 viewId=L-02-1778367874350-2 dir=(0,-1,0) near=7.200 far=9.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=0 mesh#0 elemType=SlabPart faceCount=36 edgeVertices=60 allocMs=0.31ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=44e711cc-1841-4825-92e7-4f73c9823628 elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.5ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-FLOR geoCount=1 mergedVerts=60 mergeMs=0.0ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-04 toDrawingSpace layer=A-FLOR:beyond inVerts=60 outVerts=60 tdsMs=0.0ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-03-1778367874361-3 elevation=9.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] project() batchId=667519d4 viewId=L-03-1778367874361-3 dir=(0,-1,0) near=10.200 far=12.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=0 mesh#0 elemType=SlabPart faceCount=36 edgeVertices=60 allocMs=0.21ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=e9aa8967-f35a-4602-a8f5-b698096c69be elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.3ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-FLOR geoCount=1 mergedVerts=60 mergeMs=0.0ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-04 toDrawingSpace layer=A-FLOR:beyond inVerts=60 outVerts=60 tdsMs=0.0ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-04-1778367874368-4 elevation=12.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] project() batchId=667519d4 viewId=L-04-1778367874368-4 dir=(0,-1,0) near=13.200 far=15.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=0 mesh#0 elemType=SlabPart faceCount=36 edgeVertices=60 allocMs=0.18ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=2c2075be-c5c2-4f24-a63d-3f9f13dae12b elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.4ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-FLOR geoCount=1 mergedVerts=60 mergeMs=0.0ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-04 toDrawingSpace layer=A-FLOR:beyond inVerts=60 outVerts=60 tdsMs=0.0ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-05-1778367874376-5 elevation=15.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] project() batchId=667519d4 viewId=L-05-1778367874376-5 dir=(0,-1,0) near=16.200 far=18.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=0 mesh#0 elemType=SlabPart faceCount=36 edgeVertices=60 allocMs=0.20ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=6265fc8e-dfe3-47b4-ac7d-79d84114dfda elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.4ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-FLOR geoCount=1 mergedVerts=60 mergeMs=0.0ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-04 toDrawingSpace layer=A-FLOR:beyond inVerts=60 outVerts=60 tdsMs=0.0ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-06-1778367874388-6 elevation=18.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] project() batchId=667519d4 viewId=L-06-1778367874388-6 dir=(0,-1,0) near=19.200 far=21.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=0 mesh#0 elemType=SlabPart faceCount=36 edgeVertices=60 allocMs=0.20ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=3edd1063-537e-467c-ab3f-9175a705985c elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.4ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-FLOR geoCount=1 mergedVerts=60 mergeMs=0.0ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-04 toDrawingSpace layer=A-FLOR:beyond inVerts=60 outVerts=60 tdsMs=0.0ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-07-1778367874395-7 elevation=21.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] project() batchId=667519d4 viewId=L-07-1778367874395-7 dir=(0,-1,0) near=22.200 far=24.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=0 mesh#0 elemType=SlabPart faceCount=36 edgeVertices=60 allocMs=0.20ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=9afaa727-6d48-461a-8e11-0c2d968ce11b elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.3ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-FLOR geoCount=1 mergedVerts=60 mergeMs=0.0ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-04 toDrawingSpace layer=A-FLOR:beyond inVerts=60 outVerts=60 tdsMs=0.0ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-08-1778367874403-8 elevation=24.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] project() batchId=667519d4 viewId=L-08-1778367874403-8 dir=(0,-1,0) near=25.200 far=27.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=0 mesh#0 elemType=SlabPart faceCount=36 edgeVertices=60 allocMs=0.22ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=caa5e160-bb3b-4420-944f-a697930f8571 elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.4ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-FLOR geoCount=1 mergedVerts=60 mergeMs=0.0ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-04 toDrawingSpace layer=A-FLOR:beyond inVerts=60 outVerts=60 tdsMs=0.0ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-09-1778367874414-9 elevation=27.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] project() batchId=667519d4 viewId=L-09-1778367874414-9 dir=(0,-1,0) near=28.200 far=30.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=0 mesh#0 elemType=SlabPart faceCount=36 edgeVertices=60 allocMs=0.16ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=1f52c368-7e34-40ca-ac48-327af75d61b6 elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.3ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-FLOR geoCount=1 mergedVerts=60 mergeMs=0.0ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-04 toDrawingSpace layer=A-FLOR:beyond inVerts=60 outVerts=60 tdsMs=0.0ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-10-1778367874423-10 elevation=30.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] project() batchId=667519d4 viewId=L-10-1778367874423-10 dir=(0,-1,0) near=31.200 far=33.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=0 mesh#0 elemType=SlabPart faceCount=36 edgeVertices=60 allocMs=0.22ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=cc67f865-7578-4e2a-acbf-151f733f438c elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.4ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-FLOR geoCount=1 mergedVerts=60 mergeMs=0.0ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-04 toDrawingSpace layer=A-FLOR:beyond inVerts=60 outVerts=60 tdsMs=0.0ms
+engineLauncher-bbIXqTfg.js:2 [RenderPipelineManager] Rebuilding pipeline after shadow-map update.
+engineLauncher-bbIXqTfg.js:2 [RenderPipelineManager] SHADOW_REBUILD_COMPLETE elapsed=0.1ms
+engineLauncher-bbIXqTfg.js:2 [RenderPipelineManager] §I2 pipeline.usedTimes is not a number (got undefined) — patching to 0 before dispose to prevent device-loss cascade.
+_safeDisposeRenderPipeline @ engineLauncher-bbIXqTfg.js:2
+_buildPhase3Pipeline @ engineLauncher-bbIXqTfg.js:2
+await in _buildPhase3Pipeline
+_rebuildPipelineWithCurrentState @ engineLauncher-bbIXqTfg.js:2
+_rebuildPipeline @ engineLauncher-bbIXqTfg.js:2
+(anonymous) @ engineLauncher-bbIXqTfg.js:2
+setTimeout
+scheduleShadowRebuild @ engineLauncher-bbIXqTfg.js:2
+_setSsgi @ engineLauncher-bbIXqTfg.js:6681
+_disablePerfMode @ engineLauncher-bbIXqTfg.js:6681
+autoDisablePerf @ engineLauncher-bbIXqTfg.js:6681
+(anonymous) @ engineLauncher-bbIXqTfg.js:7243
+c @ engineLauncher-bbIXqTfg.js:484
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+start @ main-C_EL1IFU.js:2
+wakeIfStopped @ main-C_EL1IFU.js:2
+markDirty @ main-C_EL1IFU.js:2
+_setupBatch @ engineLauncher-bbIXqTfg.js:484
+runBatch @ engineLauncher-bbIXqTfg.js:484
+execute @ engineLauncher-bbIXqTfg.js:2332
+execute @ engineLauncher-bbIXqTfg.js:1902
+h @ engineLauncher-bbIXqTfg.js:2392
+B @ engineLauncher-bbIXqTfg.js:2392
+engineLauncher-bbIXqTfg.js:1826 [RenderPipelineManager] Phase: phase3 | WebGPU: true | SSGI: true | TRAA: false
+engineLauncher-bbIXqTfg.js:518 [InstancedMeshCoalescer] §ADR-046 post-batch coalesce: newIMs=220 mergedGroups=11 totalInstances=1265
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#0 elemType=wall faceCount=12 edgeVertices=24 allocMs=0.16ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=eb4f28ff-e10f-4d36-9773-eac724c2a386 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.3ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=projection-visible geoCount=1 mergedVerts=24 mergeMs=0.0ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-04 toDrawingSpace layer=projection-visible:proj inVerts=24 outVerts=24 tdsMs=0.0ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#0 elemType=wall faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=eb4f28ff-e10f-4d36-9773-eac724c2a386 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.2ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=projection-visible geoCount=1 mergedVerts=24 mergeMs=0.0ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-04 toDrawingSpace layer=projection-visible:beyond inVerts=24 outVerts=24 tdsMs=0.0ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#0 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.25ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#1 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.08ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#2 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#3 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#4 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#5 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.08ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#6 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#7 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#8 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#9 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#10 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#11 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#12 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#13 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#14 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#15 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.08ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#16 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.10ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#17 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.08ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#18 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.11ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#19 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.08ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#20 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.09ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#21 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#22 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#23 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.10ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#24 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.08ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#25 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.09ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#26 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.09ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#27 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.11ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#28 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.08ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#29 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.09ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#30 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.10ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#31 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.09ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#32 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.19ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#33 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.24ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#34 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.17ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#35 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.15ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#36 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.15ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#37 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.20ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#38 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.21ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#39 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.21ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#40 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.10ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#41 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.12ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#42 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.08ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#43 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.19ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#44 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.09ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#45 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.05ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#46 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#47 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#48 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.10ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#49 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.14ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#50 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#51 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=c6a4e5d9-b998-4b99-823b-942c42b8bc74 elemType=CurtainWall meshesProcessed=52 totalEdgeVerts=1248 layers=1 traverseMs=12.8ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=projection-visible geoCount=52 mergedVerts=1248 mergeMs=0.6ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-04 toDrawingSpace layer=projection-visible:proj inVerts=288 outVerts=288 tdsMs=0.0ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-04 toDrawingSpace layer=projection-visible:beyond inVerts=960 outVerts=960 tdsMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#0 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#1 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.05ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#2 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.03ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#3 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.08ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#4 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#5 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#6 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.05ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#7 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#8 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.04ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#9 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#10 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#11 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#12 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.04ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#13 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#14 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#15 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#16 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#17 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.08ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#18 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.05ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#19 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.05ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#20 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#21 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#22 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#23 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#24 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#25 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#26 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.08ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#27 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.09ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#28 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.08ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#29 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.16ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#30 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#31 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#32 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.09ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#33 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#34 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#35 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#36 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.13ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#37 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#38 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.08ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#39 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#40 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#41 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.09ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#42 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.08ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#43 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.08ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#44 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#45 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#46 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#47 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.09ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#48 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#49 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.09ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#50 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#51 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=3ff4936b-1483-4ac0-8a94-31f1c43d3eef elemType=CurtainWall meshesProcessed=52 totalEdgeVerts=1248 layers=1 traverseMs=10.6ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=projection-visible geoCount=52 mergedVerts=1248 mergeMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-04 toDrawingSpace layer=projection-visible:proj inVerts=288 outVerts=288 tdsMs=0.0ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-04 toDrawingSpace layer=projection-visible:beyond inVerts=960 outVerts=960 tdsMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#0 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.08ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#1 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.09ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#2 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.12ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#3 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.08ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#4 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.08ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#5 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.08ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#6 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#7 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#8 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.10ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#9 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.09ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#10 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.08ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#11 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#12 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#13 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.08ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#14 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.11ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#15 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#16 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#17 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#18 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.08ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#19 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#20 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#21 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#22 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.08ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#23 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.08ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#24 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#25 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#26 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#27 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#28 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.08ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#29 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#30 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#31 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#32 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=1.59ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#33 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.22ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#34 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.25ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#35 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.14ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#36 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.19ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#37 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.08ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#38 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#39 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.08ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#40 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#41 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#42 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#43 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#44 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.05ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#45 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#46 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#47 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#48 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.08ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#49 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.09ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#50 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.09ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#51 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.09ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=b043c142-1a7c-4961-bb64-d29a5f6dbc42 elemType=CurtainWall meshesProcessed=52 totalEdgeVerts=1248 layers=1 traverseMs=16.0ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=projection-visible geoCount=52 mergedVerts=1248 mergeMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-04 toDrawingSpace layer=projection-visible:proj inVerts=288 outVerts=288 tdsMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-04 toDrawingSpace layer=projection-visible:beyond inVerts=960 outVerts=960 tdsMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#0 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.12ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#1 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#2 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#3 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.13ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#4 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#5 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#6 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#7 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#8 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.08ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#9 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#10 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#11 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.12ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#12 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.08ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#13 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.09ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#14 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#15 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#16 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#17 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#18 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#19 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.05ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#20 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#21 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#22 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.08ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#23 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#24 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.07ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#25 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#26 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.08ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#27 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.09ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#28 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.04ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#29 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.05ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#30 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#31 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.04ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#32 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#33 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.06ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=1 mesh#34 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.08ms

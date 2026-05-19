@@ -1,0 +1,10 @@
+{
+  "name": "command-bus.execute.wall-delete",
+  "samples": 200,
+  "p50": 6.171,
+  "p95": 16.567,
+  "p99": 44.471,
+  "budgetMs": 1,
+  "warnMs": 0.5,
+  "recordedAt": "2026-05-09T23:09:32.489Z"
+}

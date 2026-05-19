@@ -1,0 +1,151 @@
+{
+  "generatedAt": "2026-04-28T11:06:30.941Z",
+  "sprint": "S61",
+  "spec": "SPEC-27 §4.3",
+  "engineBootstrap": {
+    "staticImporters": [],
+    "dynamicImporters": [
+      "src/main.ts"
+    ],
+    "requireImporters": [],
+    "activeImporterCount": 1
+  },
+  "zones": {
+    "src/core": {
+      "path": "src/core",
+      "deletionSprint": "S35",
+      "fileCount": 228,
+      "exists": true
+    },
+    "src/commands": {
+      "path": "src/commands",
+      "deletionSprint": "S37",
+      "fileCount": 265,
+      "exists": true
+    },
+    "src/styles": {
+      "path": "src/styles",
+      "deletionSprint": "S65",
+      "fileCount": 44,
+      "exists": true
+    },
+    "src/ai": {
+      "path": "src/ai",
+      "deletionSprint": "S52",
+      "fileCount": 37,
+      "exists": true
+    },
+    "src/engine": {
+      "path": "src/engine",
+      "deletionSprint": "S61 (this sprint)",
+      "fileCount": 13,
+      "exists": true
+    }
+  },
+  "windowAsAny": {
+    "totalCasts": 2123,
+    "filesWithCasts": 347,
+    "top25Files": [
+      {
+        "file": "src/ui/PropertyInspector.ts",
+        "count": 88
+      },
+      {
+        "file": "src/engine/subsystems/initScene.ts",
+        "count": 73
+      },
+      {
+        "file": "src/engine/subsystems/initTools.ts",
+        "count": 73
+      },
+      {
+        "file": "src/engine/subsystems/initUI.ts",
+        "count": 64
+      },
+      {
+        "file": "src/ui/property-panel/PropertyPanel.ts",
+        "count": 50
+      },
+      {
+        "file": "src/engine/subsystems/initBuilders.ts",
+        "count": 49
+      },
+      {
+        "file": "src/tools/SelectionManager.ts",
+        "count": 44
+      },
+      {
+        "file": "src/engine/EngineBootstrap.ts",
+        "count": 43
+      },
+      {
+        "file": "src/ai/QueryEngine.ts",
+        "count": 42
+      },
+      {
+        "file": "src/core/schedules/ScheduleExtractor.ts",
+        "count": 41
+      },
+      {
+        "file": "src/ui/rendering/VisualizationEnginePanel.ts",
+        "count": 41
+      },
+      {
+        "file": "src/ui/Layout.ts",
+        "count": 36
+      },
+      {
+        "file": "src/ui/dataworkbench/HierarchyTreePanel.ts",
+        "count": 36
+      },
+      {
+        "file": "src/ui/ViewBrowser/panels/UnifiedBrowserPanel.ts",
+        "count": 35
+      },
+      {
+        "file": "src/core/views/plantools/AlignPlanToolHandler.ts",
+        "count": 34
+      },
+      {
+        "file": "src/ui/SheetEditor/SheetEditorPanel.ts",
+        "count": 28
+      },
+      {
+        "file": "src/core/views/PlanViewInteraction.ts",
+        "count": 26
+      },
+      {
+        "file": "src/ui/SpatialTree.ts",
+        "count": 22
+      },
+      {
+        "file": "src/ui/bottom-menu/BottomActionMenu.ts",
+        "count": 22
+      },
+      {
+        "file": "src/ui/inspect/AuditStack.ts",
+        "count": 22
+      },
+      {
+        "file": "src/core/views/plantools/MovePlanToolHandler.ts",
+        "count": 21
+      },
+      {
+        "file": "src/ai/AIReadModel.ts",
+        "count": 20
+      },
+      {
+        "file": "src/core/views/plantools/CopyPlanToolHandler.ts",
+        "count": 20
+      },
+      {
+        "file": "src/ui/ai/FloorPlanImportPanel.ts",
+        "count": 19
+      },
+      {
+        "file": "src/ui/ViewPropertiesPanel.ts",
+        "count": 18
+      }
+    ]
+  }
+}

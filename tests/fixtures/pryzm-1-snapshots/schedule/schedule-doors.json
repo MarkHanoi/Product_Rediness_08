@@ -1,0 +1,24 @@
+{
+  "id": "schedule_01H8XK3J7M9N2P4QR5STVW6XYZ",
+  "type": "schedule",
+  "parentId": null,
+  "childrenIds": [],
+  "metadata": {
+    "createdAt": 1700001400000,
+    "modifiedAt": 1700001400000,
+    "createdBy": "fixture",
+    "version": 1
+  },
+  "kind": "door-schedule",
+  "title": "Door Schedule",
+  "source": "door",
+  "columns": [
+    { "id": "c-mark", "field": "mark", "header": "Mark", "widthMm": 20, "formatter": "plain" },
+    { "id": "c-w", "field": "width", "header": "W", "widthMm": 18, "formatter": "mm" },
+    { "id": "c-h", "field": "height", "header": "H", "widthMm": 18, "formatter": "mm" },
+    { "id": "c-fr", "field": "fireRating", "header": "Fire", "widthMm": 15, "formatter": "plain" }
+  ],
+  "sort": [
+    { "columnId": "c-mark", "direction": "asc" }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "id": "open-2doors",
+  "description": "open-2doors",
+  "wall": {
+    "id": "wall:01HZS00000000000000OPEN2DO",
+    "type": "wall",
+    "childrenIds": [
+      "door:01HZS00000000000000D110000-pair-0",
+      "door:01HZS00000000000000D130000-pair-1"
+    ],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "baseLine": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 4,
+        "y": 0,
+        "z": 0
+      }
+    ],
+    "height": 2.5,
+    "thickness": 0.2,
+    "baseOffset": 0,
+    "openings": [
+      {
+        "id": "op-d1-pair-0",
+        "type": "door",
+        "doorType": "single",
+        "offset": 1,
+        "width": 0.9,
+        "height": 2.1,
+        "sillHeight": 0,
+        "elementId": "door:01HZS00000000000000D110000-pair-0"
+      },
+      {
+        "id": "op-d1-pair-1",
+        "type": "door",
+        "doorType": "single",
+        "offset": 3,
+        "width": 0.9,
+        "height": 2.1,
+        "sillHeight": 0,
+        "elementId": "door:01HZS00000000000000D130000-pair-1"
+      }
+    ]
+  },
+  "joinData": {},
+  "worldY": 0
+}

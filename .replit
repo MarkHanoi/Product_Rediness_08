@@ -1,0 +1,53 @@
+modules = ["bash", "web", "nodejs-20", "postgresql-16", "python-3.11"]
+
+[nix]
+channel = "stable-25_05"
+packages = ["unzip"]
+
+[agent]
+expertMode = true
+stack = "GAMESTACK_JS"
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm install -g pnpm && pnpm install --no-frozen-lockfile"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm install --no-frozen-lockfile && node_modules/.bin/tsx server.js"
+waitForPort = 5000
+
+[deployment]
+build = ["npm", "run", "build"]
+run = ["node", "./dist/index.cjs"]
+deploymentTarget = "autoscale"
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[userenv]
+
+[userenv.shared]
+CF_WORKER_URL = "https://flat-morning-358d.antoniocanerosan.workers.dev/"
+PRYZM_OWNER_EMAIL = "antoniocanerosan@gmail.com"
+SUPABASE_URL = "https://svftphdzoudsaxktjhhc.supabase.co"

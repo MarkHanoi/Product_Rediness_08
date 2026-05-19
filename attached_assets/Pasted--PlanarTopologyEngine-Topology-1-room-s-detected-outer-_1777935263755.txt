@@ -1,0 +1,76 @@
+[PlanarTopologyEngine] Topology: 1 room(s) detected, outer face (6 vertices), 2 total faces
+injected.js:37 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+injected.js:37 Exiting tool via HUD button
+injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [ProjectSerializer] Snapshot created: 8 elements, 1 levels, 6 walls, 1 slabs, 0 furniture
+injected.js:37 [ProjectSerializer] Snapshot created: 8 elements, 1 levels, 6 walls, 1 slabs, 0 furniture
+injected.js:37 [PlatformSaveController] Version saved: "Auto-save" (8 elements, id: proj-1777935176356-a1bfu)
+injected.js:37 [FPS] 42fps
+injected.js:37 [FPS] 70fps
+injected.js:37 [FPS] 80fps
+injected.js:37 [FPS] 79fps
+injected.js:37 [FPS] 86fps
+ab72878d-8818-41f8-ae0c-023a2c7516c2-00-26f11zkmsqrnr.sisko.replit.dev/#/projects:1 WebGPU: too many warnings, no more warnings will be reported to the console for this GPUDevice.Understand this warning
+injected.js:37 [FPS] 87fps
+injected.js:37 [GPU Monitor] geometries:21 textures:9 | drawCalls:8 tris:96
+injected.js:37 [FPS] 90fps
+injected.js:37 [FPS] 92fps
+injected.js:37 [FPS] 87fps
+injected.js:37 [FPS] 72fps
+injected.js:37 [CommandManager] EXECUTE: CREATE_LEVEL
+injected.js:37 [CommandManager] snapshot commandType="CreateMultipleLevelsCommand" scope=[level] elapsed=0.1ms
+injected.js:37 [CreateMultipleLevelsCommand] START count=10
+injected.js:37 [EngineBootstrap] Level switch → "Level 01" (target.Y: -0.00 → 3.00)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-01-1777935186211-1" at 3m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=1/10 addLevel=13.1ms createPlanView=0.6ms iterTotal=13.8ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 02" (target.Y: 3.00 → 6.00)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-02-1777935186226-2" at 6m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=2/10 addLevel=8.1ms createPlanView=0.0ms iterTotal=8.1ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 03" (target.Y: 6.00 → 9.00)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-03-1777935186234-3" at 9m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=3/10 addLevel=8.0ms createPlanView=0.0ms iterTotal=8.0ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 04" (target.Y: 9.00 → 12.00)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-04-1777935186242-4" at 12m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=4/10 addLevel=8.4ms createPlanView=0.0ms iterTotal=8.4ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 05" (target.Y: 12.00 → 15.00)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-05-1777935186251-5" at 15m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=5/10 addLevel=9.3ms createPlanView=0.0ms iterTotal=9.3ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 06" (target.Y: 15.00 → 18.00)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-06-1777935186260-6" at 18m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=6/10 addLevel=7.1ms createPlanView=0.0ms iterTotal=7.1ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 07" (target.Y: 18.00 → 21.00)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-07-1777935186267-7" at 21m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=7/10 addLevel=7.5ms createPlanView=0.0ms iterTotal=7.5ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 08" (target.Y: 21.00 → 24.00)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-08-1777935186275-8" at 24m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=8/10 addLevel=8.8ms createPlanView=0.1ms iterTotal=8.9ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 09" (target.Y: 24.00 → 27.00)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-09-1777935186284-9" at 27m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=9/10 addLevel=9.3ms createPlanView=0.2ms iterTotal=9.5ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 10" (target.Y: 27.00 → 30.00)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-10-1777935186295-10" at 30m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=10/10 addLevel=9.2ms createPlanView=0.0ms iterTotal=9.2ms
+injected.js:37 [CreateMultipleLevelsCommand] COMPLETE total=92.7ms
+injected.js:37 [AIApprovalStore] Audit record appended: 0fe737a7-6aa2-4492-8b59-7dc66bbe9bea (CREATE_LEVEL)
+injected.js:37 Refreshing Spatial Tree...

@@ -1,0 +1,10 @@
+{
+  "name": "ifc-import-tier1",
+  "p50": 1347.1043020000006,
+  "p95": 1839.6464680000008,
+  "samples": 10,
+  "elementCount": 500,
+  "unit": "ms",
+  "nftTarget": 8000,
+  "notes": "NFT-9 headless proxy per 01-VISION.md §5. Measures extractAllPsets() + Wall.parse() for 500 in-memory IFC proxy DTOs. Full tier-1 import including web-ifc WASM decode is in apps/editor-bench/ (Wave 13 browser harness)."
+}

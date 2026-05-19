@@ -1,0 +1,63 @@
+{
+  "name": "PRYZM 3 — BIM Editor",
+  "short_name": "PRYZM",
+  "description": "Browser-native, layered, plugin-extensible BIM/AEC editor. IFC, real-time collaboration, AI-assisted design, offline-capable.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#1e3a5f",
+  "background_color": "#0f172a",
+  "lang": "en",
+  "scope": "/",
+  "categories": ["productivity", "utilities", "design"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/pryzm-pyramid-logo.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/editor.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "PRYZM 3D BIM Editor workspace"
+    },
+    {
+      "src": "/screenshots/mobile.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "PRYZM mobile view"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "New Project",
+      "url": "/?action=new",
+      "description": "Create a new BIM project"
+    },
+    {
+      "name": "Open Project",
+      "url": "/?action=open",
+      "description": "Open an existing project"
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
+}

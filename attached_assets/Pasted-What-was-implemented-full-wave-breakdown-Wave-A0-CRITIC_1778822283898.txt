@@ -1,0 +1,30 @@
+What was implemented — full wave breakdown
+Wave A0 — CRITICAL: Stale matrixWorld in GPU pick scene
+The root cause of the hover-vs-click mismatch confirmed in production logs. After CreateCurtainWallsOnAllSlabsCommand batch-creates elements on all floors, pick-scene clones for upper-floor elements (Y=27/30) were inheriting identity transforms (Y=0). GPU pick was selecting the wrong floor. Three coordinated fixes:
+
+gpu-pick.ts:596 — obj.updateMatrixWorld(false) → (true) for the Simple Mesh clone path
+gpu-pick.ts:552 — removed redundant (false) call before refreshInstancedPickClone (which already forces true internally)
+SelectionManager.ts:706 + 2419 — scene.updateMatrixWorld(true) injected before GPU pick in both performSelection() and _onHoverGpuPickRaf(), exactly as Three.js renderer does at every frame start
+Wave A1–A4 — Production correctness
+
+renderToTarget wrapped in try/finally — overrideMaterial never leaks on shader throw
+ResizeObserver on #container with rAF coalescing — panel expand/collapse no longer misaligns click targets
+dblclick slab scan now guards underlayActive — matches all other selection paths
+selectById() consults _selectableCache first and normalises through findSelectableRoot
+Wave B — TypeScript type safety (zero implicit any in selection path)
+
+apps/editor/src/types/globals.d.ts — 39 window.* globals declared with discriminated unions: isCameraDragging, __curtainSubElement (PryzmCurtainSubElementPanel | Mullion), __kitchenSubUnit, __wardrobeSubUnit, __underlayHit, activeLevelElevation, renderPipelineManager, __PRYZM_FLAGS__, and all tool/service singletons
+packages/renderer-three/src/accessors.ts + barrel export — getThreeRenderer(renderer) replaces every (world.renderer as any).three as any cast with a single controlled point of contact that throws a descriptive error if the renderer lacks .three
+visibilitychange + blur listeners reset isCameraDragging — previously, backgrounding the tab during a camera orbit left selection permanently locked until next drag
+Wave C — Plugin SDK correctness
+
+plugins/selection/src/tool.ts fully rewritten: pointerdown → click (mouse) + pointerup (touch fallback with pointerType !== 'mouse' guard), shared handleHit() logic, SelectionSelectPayload and SelectionClearPayload typed interfaces, SelectionCommandBus with concrete overloads
+Wave D — Performance
+
+gpu-pick.ts:_lastRegistrySig — sorted-ID signature detects a stable element set; the O(entries) remove-old pass is skipped entirely on every hover RAF and click where nothing was added or deleted
+What remains (Wave E — long-term architecture)
+ID	Description
+E1	Marquee AABB → OBB projection (angled marquee misses rotated walls)
+E2	SelectionBoundsRegistry extraction (bounds logic lives inside SelectionManager)
+E3	Delete key → commandBus dispatch (currently bypasses undo stack)
+Next, I can implement Wave E3 — routing the Delete key through the command bus so element deletions participate in the undo/redo stack rather than bypassing it silently. Would you like me to do that?

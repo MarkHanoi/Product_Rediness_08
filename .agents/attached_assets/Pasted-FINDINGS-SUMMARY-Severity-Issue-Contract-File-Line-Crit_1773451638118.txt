@@ -1,0 +1,19 @@
+FINDINGS SUMMARY
+Severity	Issue	Contract	File	Line
+🔴 Critical	PropertyInspector.triggerThreeUpdate calls builder.updateCurtainWall() directly from UI layer — double-rebuild, bypasses store→event→builder flow	§01 §2.7	PropertyInspector.ts	1561–1565
+🔴 Critical	UpdateAllCurtainWallsCommand uses wrong CommandType.UPDATE_CURTAIN_WALL for a bulk operation — misidentifies command in audit trail	§CommandType contract	UpdateAllCurtainWallsCommand.ts	29
+🟠 Major	properties.slabElevation stores absolute elevation value in semantic model — cached elevation, violates prohibition on cached elevation in semantic store	§02 §1.2	CreateCurtainWallsFromSlabCommand.ts, CreateCurtainWallsOnAllSlabsCommand.ts	147, 143
+🟠 Major	CurtainWallStore.add() generates ifcData.guid = crypto.randomUUID() — on every redo of FromSlab/OnAllSlabs commands, a new IFC GUID is generated, breaking IFC GUID stability	§2.4 redo symmetry	CurtainWallStore.ts	117
+🟡 Minor	CreateCurtainWallsFromSlabCommand and CreateCurtainWallsOnAllSlabsCommand generate IDs inside execute() — §2.6 violation, mitigated by saving IDs for redo but structurally wrong layer	§01 §2.6	Both FromSlab commands	124, 119
+🟡 Minor	CurtainWallBuilder.build() falls back to cw.baseOffset as worldY if BimManager/level unavailable — silent non-failure when it should throw	§02 §1.3	CurtainWallBuilder.ts	71–76
+🟢 Pass	Store: set() clones input; get() returns clone — no external mutation risk	§3.4	CurtainWallStore.ts	63–76
+🟢 Pass	Store: no builder import, no bimManager call, no scene access	§3.5	CurtainWallStore.ts	—
+🟢 Pass	Store: emits StoreEventBus on all mutations	§3.8	CurtainWallStore.ts	158–163
+🟢 Pass	Builder: root group reused, children disposed before rebuild	§4.4/§4.5	CurtainWallBuilder.ts	79–91
+🟢 Pass	Builder: full userData stamped (id, type, elementType, levelId, version, selectable)	§02 §3.2	CurtainWallBuilder.ts	171–183
+🟢 Pass	Builder: worldY = BimManager.elevation + baseOffset	§02 §1.2	CurtainWallBuilder.ts	72–76
+🟢 Pass	All commands: no direct builder calls	§01 §2.7	All commands	—
+🟢 Pass	UpdateCurtainWallCommand: full snapshot via store.get() deep clone; undo via store.set()	§2.2/§2.3	UpdateCurtainWallCommand.ts	66–82
+🟢 Pass	UpdateAllCurtainWallsCommand: per-element snapshots; undo restores all via store.set()	§2.2/§2.3	UpdateAllCurtainWallsCommand.ts	59–81
+🟢 Pass	All commands throw on missing level — no silent Y=0 fallback	§02 §1.3	All create commands	—
+🟢 Pass	Undo unregisters from bimManager + elementRegistry	§02 §1.3	All create commands	—

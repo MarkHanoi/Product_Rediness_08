@@ -1,0 +1,580 @@
+Download the Apollo DevTools for a better development experience: https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+0iwq7v9jgvn-2.js:21 [LaunchDarkly] LaunchDarkly client initialized
+gravatar.com/avatar/e17e77cead626a1fba27f7f0f87e113a6a9412c57695cb27d015206ae9fb0968?d=404:1  Failed to load resource: the server responded with a status of 404 ()
+ [OrgSwitcher] splitLink routing "preConnect" → org, selectedOrgId=none
+ [OrgSwitcher] org link headers: {"hasAuth":true,"hasCookie":false,"hasOrgHeader":false,"orgId":"none"}
+ createNativeOauthConnect [object Object]
+ Opening OAuth popup window [object Object]
+ adding message event listener
+0i8wy8tbht2ow.js:2 Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'ambient-light-sensor'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'battery'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'execution-while-not-rendered'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'execution-while-out-of-viewport'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'layout-animations'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'legacy-image-formats'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'navigation-override'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'oversized-images'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'publickey-credentials'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'speaker-selection'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'unoptimized-images'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'unsized-media'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'pointer-lock'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Allow attribute will take precedence over 'allowfullscreen'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Allow attribute will take precedence over 'allowpaymentrequest'.
+C @ 0i8wy8tbht2ow.js:2
+0ow.qrq9d--iz.js:9 Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev') does not match the recipient window's origin ('https://replit.com').
+ep @ 0ow.qrq9d--iz.js:9
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'ambient-light-sensor'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'battery'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'execution-while-not-rendered'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'execution-while-out-of-viewport'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'layout-animations'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'legacy-image-formats'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'navigation-override'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'oversized-images'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'publickey-credentials'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'speaker-selection'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'unoptimized-images'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'unsized-media'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Allow attribute will take precedence over 'allowfullscreen'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Allow attribute will take precedence over 'allowpaymentrequest'.
+0iwq7v9jgvn-2.js:21 Haven't heard from the server in a while, resetting connection...
+(anonymous) @ 0iwq7v9jgvn-2.js:21
+6Framing '<URL>' violates the following report-only Content Security Policy directive: "frame-ancestors 'none'". The violation has been logged, but no further action has been taken.
+
+5Loading the script '<URL>' violates the following Content Security Policy directive: "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The policy is report-only, so the violation has been logged but no further action has been taken.
+VM6 injected.js:37 [LONGTASK] duration=87.0ms start=22617.3ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+0iwq7v9jgvn-2.js:21 Haven't heard from the server in a while, resetting connection...
+(anonymous) @ 0iwq7v9jgvn-2.js:21
+VM6 injected.js:37 [LONGTASK] duration=50.0ms start=68298.3ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [DataCommandCenter] Initialized
+VM6 injected.js:37 [SaveOrchestrator] Initialised — debounce: 1000 ms
+VM6 injected.js:37 [PlatformShell] Initialized — project ID: proj-1777955199350-r2y5i (runtime: composed)
+VM6 injected.js:37 [bootPlatform] D.1 — early PlatformShell created (delegates: deferred, post-paint, surface mounted)
+VM888 three.webgpu.js:78509 The powerPreference option is currently ignored when calling requestAdapter() on Windows. See https://crbug.com/369219127
+init @ VM888 three.webgpu.js:78509
+VM6 injected.js:37 [LONGTASK] duration=59.0ms start=76924.8ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+VM6 injected.js:37 [PRYZM] WebGPURenderer initialized: webgpu
+VM6 injected.js:37 [RendererPrewarm] webgpu renderer pre-warmed in 2925 ms — LONGTASK eliminated from project-open critical path.
+0iwq7v9jgvn-2.js:21 Haven't heard from the server in a while, resetting connection...
+(anonymous) @ 0iwq7v9jgvn-2.js:21
+VM6 injected.js:37 [LONGTASK] duration=100.0ms start=169842.6ms
+(anonymous) @ VM6 injected.js:37
+gravatar.com/avatar/e17e77cead626a1fba27f7f0f87e113a6a9412c57695cb27d015206ae9fb0968?d=404:1  Failed to load resource: the server responded with a status of 404 ()
+gravatar.com/avatar/e17e77cead626a1fba27f7f0f87e113a6a9412c57695cb27d015206ae9fb0968?d=404:1  Failed to load resource: the server responded with a status of 404 ()
+gravatar.com/avatar/e17e77cead626a1fba27f7f0f87e113a6a9412c57695cb27d015206ae9fb0968?d=404:1  Failed to load resource: the server responded with a status of 404 ()
+0iwq7v9jgvn-2.js:21 Haven't heard from the server in a while, resetting connection...
+(anonymous) @ 0iwq7v9jgvn-2.js:21
+
+stallwart.build.js:1 stallwart: failed ping 1
+stallwart.build.js:1 stallwart: failed ping 2
+stallwart.build.js:1 stallwart: failed ping 3
+stallwart.build.js:1 stallwart: failed ping 4
+stallwart.build.js:1 stallwart: failed ping 1
+stallwart.build.js:1 stallwart: failed ping 2
+stallwart.build.js:1 stallwart: failed ping 3
+VM6 injected.js:37 [PlatformRouter] Opening project: "sfEF" (proj-1777955794920-1ujj1c4) [new]
+VM6 injected.js:37 [AuditStack] Initialized v1.6 — Polymorphic Auditor
+VM6 injected.js:37 [WallPerfBench] Ready. Run: await window.__wallPerfBench.run()
+VM6 injected.js:37 Initializing Hybrid BIM Configurator...
+VM6 injected.js:37 [BriefInputPanel] Initialized
+VM6 injected.js:37 [VariantBrowserPanel] Initialized
+VM6 injected.js:37 [PortfolioQueryPanel] Initialized
+VM6 injected.js:37 [DataWorkbench] PostOccupancy surface deferred to plugins/lifecycle/ (S70 D8); panel slot is empty until the plugin ports it. See ADR-0052 §B.7.
+(anonymous) @ VM6 injected.js:37
+mountLifecyclePanels @ VM980 LifecycleBucket.ts:5
+_buildContentArea @ VM911 DataWorkbench.ts:320
+_buildDOM @ VM911 DataWorkbench.ts:206
+DataWorkbench @ VM911 DataWorkbench.ts:157
+bootstrap @ VM889 engineLauncher.ts:184
+startEngine @ VM8 main.ts:68
+await in startEngine
+ensure @ VM8 main.ts:79
+await in ensure
+ensure @ VM8 main.ts:109
+(anonymous) @ VM261 buildPersistence.ts:111
+openProject @ VM261 buildPersistence.ts:127
+_openProjectViaRuntime @ VM13 PlatformRouter.ts:256
+launchWorkspace @ VM13 PlatformRouter.ts:231
+onOpenProject @ VM13 PlatformRouter.ts:176
+openProject @ VM24 ProjectHub.ts:822
+_createViaRuntime @ VM24 ProjectHub.ts:805
+await in _createViaRuntime
+handleCreate @ VM24 ProjectHub.ts:774
+(anonymous) @ VM24 ProjectHub.ts:288
+VM6 injected.js:37 [DataWorkbench] BIM 3.0 Lifecycle Hub initialized
+VM6 injected.js:37 [EngineBootstrap] DataWorkbench instantiated
+VM6 injected.js:37 [PRYZM] GPU backend detected: webgpu
+VM6 injected.js:37 THREE.THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.
+(anonymous) @ VM6 injected.js:37
+warn @ VM252 three.core.js:2001
+Clock @ VM252 three.core.js:55734
+_Components2 @ VM892 @thatopen_components.js:14705
+createBimWorld @ VM987 BimWorld.ts:7
+initScene @ VM924 initScene.ts:52
+bootstrap @ VM889 engineLauncher.ts:200
+startEngine @ VM8 main.ts:68
+await in startEngine
+ensure @ VM8 main.ts:79
+await in ensure
+ensure @ VM8 main.ts:109
+(anonymous) @ VM261 buildPersistence.ts:111
+openProject @ VM261 buildPersistence.ts:127
+_openProjectViaRuntime @ VM13 PlatformRouter.ts:256
+launchWorkspace @ VM13 PlatformRouter.ts:231
+onOpenProject @ VM13 PlatformRouter.ts:176
+openProject @ VM24 ProjectHub.ts:822
+_createViaRuntime @ VM24 ProjectHub.ts:805
+await in _createViaRuntime
+handleCreate @ VM24 ProjectHub.ts:774
+(anonymous) @ VM24 ProjectHub.ts:288
+VM6 injected.js:37 [BimWorld] Camera constraints armed: minDist=1 m, maxDist=100 m, maxPolarAngle=π/2−0.1, infinityDolly=false, mode-patch active.
+VM6 injected.js:37 🌍 WORLD EXPOSED TO WINDOW SimpleWorld {isDisposeable: ƒ, isResizeable: ƒ, isUpdateable: ƒ, isHideable: ƒ, isConfigurable: ƒ, …}
+VM6 injected.js:37 [TopologyLayer] Scene bound — topology ready for queries.
+VM6 injected.js:37 [initScene] TopologyLayer ready.
+VM6 injected.js:37 [FrustumCullingService] Active — large-model threshold: 500 elements.
+VM6 injected.js:37 [initScene] FrustumCullingService ready.
+VM6 injected.js:37 [initScene] ViewRenderCache ready.
+VM6 injected.js:37 [initScene] UnifiedFrameLoop bridged to FrameCoordinator.
+VM6 injected.js:37 [initScene] LevelClipPlaneCache wired — OBC Clipper replaced with renderer-level planes. Plan views are safe.
+VM6 injected.js:37 [initScene] StairPlanSymbolRegistry ready — stair traverse replaced with O(k) registry.
+VM6 injected.js:37 [initScene] InstancedElementRenderer wired — Phase 7 GPU instancing active.
+VM6 injected.js:37 [ViewDependencyTracker] init() — subscribed to StoreEventBus
+VM6 injected.js:37 [initScene] DOC-1.7: EdgeProjectorService façade installed (lazy — real service loads on first projection).
+VM6 injected.js:37 [initScene] Task 5.1: WebGL context loss handlers registered.
+VM6 injected.js:214  GET https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/api/v1/portfolio/benchmarks/all 401 (Unauthorized)
+apply @ VM6 injected.js:214
+fetchAllBenchmarks @ VM1219 PortfolioSemanticGraph.ts:20
+_loadAllBenchmarks @ VM1235 PortfolioQueryPanel.ts:281
+_build @ VM1235 PortfolioQueryPanel.ts:179
+PortfolioQueryPanel @ VM1235 PortfolioQueryPanel.ts:68
+mountLifecyclePanels @ VM980 LifecycleBucket.ts:3
+_buildContentArea @ VM911 DataWorkbench.ts:320
+_buildDOM @ VM911 DataWorkbench.ts:206
+DataWorkbench @ VM911 DataWorkbench.ts:157
+bootstrap @ VM889 engineLauncher.ts:184
+startEngine @ VM8 main.ts:68
+await in startEngine
+ensure @ VM8 main.ts:79
+await in ensure
+ensure @ VM8 main.ts:109
+(anonymous) @ VM261 buildPersistence.ts:111
+openProject @ VM261 buildPersistence.ts:127
+_openProjectViaRuntime @ VM13 PlatformRouter.ts:256
+launchWorkspace @ VM13 PlatformRouter.ts:231
+onOpenProject @ VM13 PlatformRouter.ts:176
+openProject @ VM24 ProjectHub.ts:822
+_createViaRuntime @ VM24 ProjectHub.ts:805
+await in _createViaRuntime
+handleCreate @ VM24 ProjectHub.ts:774
+(anonymous) @ VM24 ProjectHub.ts:288
+VM6 injected.js:37 [LONGTASK] duration=2446.0ms start=699154.5ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [initScene] Phase 5: pre-warmed renderer consumed — 2,401 ms LONGTASK skipped.
+VM6 injected.js:37 [initScene] Phase 5 active — PRYZM renderer: webgpu
+VM6 injected.js:37 [PascalSceneLighting] Shadow flags set on 1 mesh(es).
+VM6 injected.js:37 [PascalSceneLighting] Applied — key: 4, fill: 0.75, rim: 1, ambient: 0.5, shadow.intensity: 0.4, scene.environment → null (HDRI cleared — Pascal has no IBL)
+VM6 injected.js:37 [RenderingPipelineCoordinator] Bound to scene + renderer.
+VM6 injected.js:37 [initScene] Phase 5 active — skipping HDRI, using standard PBR only.
+VM6 injected.js:37 [RenderingPipelineCoordinator] Activating level: "standard"
+VM6 injected.js:37 [PBRSceneUpgrader] Applied — meshes: 2 materials: 0 (metal: 0, glass: 0 rough: 0, polished: 0)
+VM6 injected.js:37 [ShadowQualityUpgrader] Applied "standard" — map: 512px radius: 1 bias: -0.0001 (1 light(s) upgraded)
+VM6 injected.js:37 [RenderingPipelineCoordinator] Level "standard" active.
+VM6 injected.js:37 [initScene] RenderingPipelineCoordinator ready.
+VM6 injected.js:37 [ViewportCrashGuard] Activated — monitoring viewport render errors.
+VM6 injected.js:37 [RenderPipelineManager] WebGPU renderer confirmed. Initialising TSL pipeline...
+VM6 injected.js:37 [initScene] Auto-activated quality "standard" (hdri: none) at startup.
+VM6 injected.js:37 [RenderPipelineManager] three/tsl loaded.
+VM6 injected.js:37 [RenderPipelineManager] Phase: phase2 | WebGPU: true | SSGI: false | TRAA: false
+VM6 injected.js:37 [RenderPipelineManager] Phase 2 pipeline active.
+VM6 injected.js:37 [ConstraintEngine] 17 rules registered (7 Tier 1, 5 Tier 2 spatial, 5 Tier 2 physics)
+VM6 injected.js:37 [RenderPipelineManager] SSGI activated (SSGINode r183 + DenoiseNode).
+VM6 injected.js:37 [RenderPipelineManager] Phase: phase3 | WebGPU: true | SSGI: true | TRAA: false
+VM6 injected.js:37 [RenderPipelineManager] Phase: phase3 | WebGPU: true | SSGI: true | TRAA: false
+VM6 injected.js:37 [RenderPipelineManager] Outlines activated (selected + hover).
+VM6 injected.js:37 [RenderPipelineManager] Phase: phase4 | WebGPU: true | SSGI: true | TRAA: false
+VM6 injected.js:37 [RenderPipelineManager] Phase: phase4 | WebGPU: true | SSGI: true | TRAA: false
+VM6 injected.js:37 [initScene] TSL pipeline at Phase 3/4 (SSGI + Outlines). TRAA OFF by default.
+VM6 injected.js:37 THREE.THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.
+(anonymous) @ VM6 injected.js:37
+warn @ VM252 three.core.js:2001
+Clock @ VM252 three.core.js:55734
+initScene @ VM924 initScene.ts:871
+await in initScene
+bootstrap @ VM889 engineLauncher.ts:200
+startEngine @ VM8 main.ts:68
+await in startEngine
+ensure @ VM8 main.ts:79
+await in ensure
+ensure @ VM8 main.ts:109
+(anonymous) @ VM261 buildPersistence.ts:111
+openProject @ VM261 buildPersistence.ts:127
+_openProjectViaRuntime @ VM13 PlatformRouter.ts:256
+launchWorkspace @ VM13 PlatformRouter.ts:231
+onOpenProject @ VM13 PlatformRouter.ts:176
+openProject @ VM24 ProjectHub.ts:822
+_createViaRuntime @ VM24 ProjectHub.ts:805
+await in _createViaRuntime
+handleCreate @ VM24 ProjectHub.ts:774
+(anonymous) @ VM24 ProjectHub.ts:288
+VM6 injected.js:37 [UnifiedFrameLoop] Started (subscribed to @pryzm/frame-scheduler).
+VM6 injected.js:37 [initScene] UnifiedFrameLoop started — single rAF loop active.
+VM6 injected.js:37 [initScene] RenderPipelineManager ready.
+VM6 injected.js:37 [initScene] EnhancedBloomService deferred — lazy wrappers installed.
+VM6 injected.js:37 [initScene] SSGIService deferred — lazy wrappers installed.
+VM6 injected.js:37 [RenderPerformanceService] Bound — native DPR: 1.25
+VM6 injected.js:37 [RenderPerformanceService] Quality → high | DPR: 1.25 (100% of native 1.25)
+VM6 injected.js:37 [initScene] RenderPerformanceService ready.
+VM6 injected.js:37 [initScene] SplitViewManager ready.
+VM6 injected.js:37 [initScene] Scene subsystem fully initialised.
+VM6 injected.js:37 THREE.WebGLShadowMap: PCFSoftShadowMap has been deprecated. Using PCFShadowMap instead.
+(anonymous) @ VM6 injected.js:37
+warn @ VM252 three.core.js:2001
+WebGLShadowMap.render @ VM250 three.module.js:9155
+WebGLRenderer.render @ VM250 three.module.js:17477
+(anonymous) @ VM892 @thatopen_components.js:20270
+updateCamera @ VM892 @thatopen_components.js:20226
+(anonymous) @ VM889 engineLauncher.ts:340
+bootstrap @ VM889 engineLauncher.ts:342
+await in bootstrap
+startEngine @ VM8 main.ts:68
+await in startEngine
+ensure @ VM8 main.ts:79
+await in ensure
+ensure @ VM8 main.ts:109
+(anonymous) @ VM261 buildPersistence.ts:111
+openProject @ VM261 buildPersistence.ts:127
+_openProjectViaRuntime @ VM13 PlatformRouter.ts:256
+launchWorkspace @ VM13 PlatformRouter.ts:231
+onOpenProject @ VM13 PlatformRouter.ts:176
+openProject @ VM24 ProjectHub.ts:822
+_createViaRuntime @ VM24 ProjectHub.ts:805
+await in _createViaRuntime
+handleCreate @ VM24 ProjectHub.ts:774
+(anonymous) @ VM24 ProjectHub.ts:288
+VM6 injected.js:37 [a11y] Canvas aria-label + role + tabindex set (Wave A18-T21)
+VM6 injected.js:37 [EngineBootstrap] Gizmo axes recoloured to PRYZM violet palette
+VM6 injected.js:37 [initBuilders] Column subsystem initialised
+VM6 injected.js:37 [CurtainPanelSyncHandler] Activated — panel store will sync with curtain wall store.
+VM6 injected.js:37 [initBuilders] CurtainWall subsystem stores initialised
+VM6 injected.js:37 [initBuilders] Slab subsystem initialised
+VM6 injected.js:37 [initBuilders] Ceiling subsystem initialised
+VM6 injected.js:37 [FloorSlabBindingHandler] Attached slab binding listeners.
+VM6 injected.js:37 [initBuilders] Floor finish subsystem initialised
+VM6 injected.js:37 [FPS] 1fps
+VM6 injected.js:37 [LONGTASK] duration=103.0ms start=702913.9ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [LONGTASK] duration=312.0ms start=703018.7ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [initBuilders] Room subsystem initialised
+VM6 injected.js:37 [initBuilders] Door/Window singleton stores exposed on window
+VM6 injected.js:37 [WallStore] attached to window WallStore {walls: Map(0), projectContext: ProjectContext, bimKernel: BimManager, listeners: Array(0), windows: Map(0), …}
+VM6 injected.js:37 [FPS] 1fps
+VM6 injected.js:37 [LONGTASK] duration=3014.0ms start=703336.2ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [initBuilders] Wall + Slab system type stores loaded
+VM6 injected.js:37 [initBuilders] Roof subsystem initialised
+VM6 injected.js:37 [initBuilders] Plumbing subsystem initialised
+VM6 injected.js:37 [initBuilders] Opening subsystem initialised — openingStore injected into slabBuilder
+VM6 injected.js:37 [DoorBuilder] activated
+VM6 injected.js:37 [WindowBuilder] activated
+VM6 injected.js:37 [initBuilders] Door + Window builders activated (with dependency trackers)
+VM6 injected.js:37 [initBuilders] Furniture subsystem initialised
+VM6 injected.js:37 [initBuilders] Lighting subsystem initialised
+VM6 injected.js:37 [initBuilders] Handrail subsystem initialised
+VM6 injected.js:37 [initBuilders] Stair subsystem initialised
+VM6 injected.js:37 [initBuilders] Beam subsystem initialised
+VM6 injected.js:37 [initBuilders] RoomContentsService — all element stores attached
+VM6 injected.js:37 [initBuilders] Grid subsystem initialised
+VM6 injected.js:37 [initBuilders] RoomBoundingLine subsystem initialised
+VM6 injected.js:37 [RoomFinishSyncService] Started — listening for room finish changes.
+VM6 injected.js:37 [initBuilders] RoomFinishSyncService started
+VM6 injected.js:37 [initBuilders] All builder subsystems fully initialised.
+VM6 injected.js:37 [SelectionManager] PickStrategy set: gpu-pick
+VM6 injected.js:37 [initTools] PickStrategy resolved: gpu-pick
+VM6 injected.js:37 [FloatingObjectCarousel] Mounted (hidden, render loop deferred)
+VM6 injected.js:37 [FurnitureDragDropHandler] Attached to canvas
+VM6 injected.js:37 [initTools] LightingTool initialised
+VM6 injected.js:37 [CurtainWallTool] SnapManager initialised (CurtainWall + Wall providers)
+VM6 injected.js:37 [RoomTopologyObserver] attached to WallStore
+VM6 injected.js:37 [RoomTopologyObserver] attached to CurtainWallStore
+VM6 injected.js:37 [RoomTopologyObserver] attached to RoomBoundingLineStore
+VM6 injected.js:37 [RoomTopologyObserver] attached to SlabStore
+VM6 injected.js:37 [RoomTopologyObserver] attached to ColumnStore
+VM6 injected.js:37 [RoomTopologyObserver] attached to bim-wall-mutation-committed (commit-barrier path)
+VM6 injected.js:37 [LONGTASK] duration=240.0ms start=706503.9ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [RoomTool] Pick deps injected — POINT_PICK mode available
+VM6 injected.js:37 [RoomTool] Manual deps injected — MANUAL_BOUNDARY mode available
+VM6 injected.js:37 [initTools] RoomBoundingLineTool registered on window
+VM6 injected.js:37 BeamTool initialized with BeamStore: true
+VM6 injected.js:37 [StairTool] Constructed. meshBuilder: true deps: true
+VM6 injected.js:37 [UnderlayPersistence] Installed (per-project, v2)
+VM6 injected.js:37 [ProjectScopedStorage] Installed — auto-keyed by projectId
+VM6 injected.js:37 [ProjectIsolationAudit] Installed — will audit every empty project load
+VM6 injected.js:37 [GhostOverlayRenderer] Initialised — listening for pryzm-history-ghost-* events
+VM6 injected.js:37 [AnnotationManager] init complete — Phase V hover hints wired
+VM6 injected.js:37 [OBCAnnotationAdapter] LinearAnnotations not present in this OBC build — skipping subscribe.
+VM6 injected.js:37 [OBCAnnotationAdapter] AngleAnnotations not present in this OBC build — skipping subscribe.
+VM6 injected.js:37 [OBCAnnotationAdapter] SlopeAnnotations not present in this OBC build — skipping subscribe.
+VM6 injected.js:37 [OBCAnnotationAdapter] DOC-2.1: subscribed to OBC annotation system events
+VM6 injected.js:37 [initTools] DOC-2.2: DrawingEditor initialised; OBCAnnotationAdapter wired
+VM6 injected.js:37 [initTools] All BIM tools initialised and registered with ToolManager
+VM6 injected.js:37 [EngineBootstrap] §ROOF-AUDIT §5.4: RoofSlopeSymbolBuilder wired (constructor-DI).
+VM6 injected.js:37 [WallFragmentBuilder] WallInstanceBridge injected — simple walls will use GPU instancing.
+VM6 injected.js:37 [EngineBootstrap] §PHASE-3: WallInstanceBridge connected — simple walls will use GPU instancing.
+VM6 injected.js:37 [EngineBootstrap] BatchCoordinator injected.
+VM6 injected.js:37 [EngineBootstrap] BatchLoadingIndicator wired (§FIX-BATCH-RENDER-SUPPRESS active).
+VM6 injected.js:37 [EngineBootstrap] §P0-A39: rooms.redetect registration failed (non-fatal): handler already registered: rooms.redetect
+(anonymous) @ VM6 injected.js:37
+bootstrap @ VM889 engineLauncher.ts:987
+await in bootstrap
+startEngine @ VM8 main.ts:68
+await in startEngine
+ensure @ VM8 main.ts:79
+await in ensure
+ensure @ VM8 main.ts:109
+(anonymous) @ VM261 buildPersistence.ts:111
+openProject @ VM261 buildPersistence.ts:127
+_openProjectViaRuntime @ VM13 PlatformRouter.ts:256
+launchWorkspace @ VM13 PlatformRouter.ts:231
+onOpenProject @ VM13 PlatformRouter.ts:176
+openProject @ VM24 ProjectHub.ts:822
+_createViaRuntime @ VM24 ProjectHub.ts:805
+await in _createViaRuntime
+handleCreate @ VM24 ProjectHub.ts:774
+(anonymous) @ VM24 ProjectHub.ts:288
+VM6 injected.js:37 [EngineBootstrap] §P2-A39: curtain-wall.create-on-all-slabs registered on runtime.bus.
+VM6 injected.js:37 [EngineBootstrap] §A40-W03: wall.create-on-all-slabs registered on runtime.bus.
+VM6 injected.js:37 [EngineBootstrap] §A40-W03: slab.create-on-all-floors registered on runtime.bus.
+VM6 injected.js:37 [EngineBootstrap] §A40-W04: column.batch.create registration failed (non-fatal): handler already registered: column.batch.create
+(anonymous) @ VM6 injected.js:37
+bootstrap @ VM889 engineLauncher.ts:1088
+await in bootstrap
+startEngine @ VM8 main.ts:68
+await in startEngine
+ensure @ VM8 main.ts:79
+await in ensure
+ensure @ VM8 main.ts:109
+(anonymous) @ VM261 buildPersistence.ts:111
+openProject @ VM261 buildPersistence.ts:127
+_openProjectViaRuntime @ VM13 PlatformRouter.ts:256
+launchWorkspace @ VM13 PlatformRouter.ts:231
+onOpenProject @ VM13 PlatformRouter.ts:176
+openProject @ VM24 ProjectHub.ts:822
+_createViaRuntime @ VM24 ProjectHub.ts:805
+await in _createViaRuntime
+handleCreate @ VM24 ProjectHub.ts:774
+(anonymous) @ VM24 ProjectHub.ts:288
+VM6 injected.js:37 [EngineBootstrap] §A40-W04: beam.batch.create registration failed (non-fatal): handler already registered: beam.batch.create
+(anonymous) @ VM6 injected.js:37
+bootstrap @ VM889 engineLauncher.ts:1088
+await in bootstrap
+startEngine @ VM8 main.ts:68
+await in startEngine
+ensure @ VM8 main.ts:79
+await in ensure
+ensure @ VM8 main.ts:109
+(anonymous) @ VM261 buildPersistence.ts:111
+openProject @ VM261 buildPersistence.ts:127
+_openProjectViaRuntime @ VM13 PlatformRouter.ts:256
+launchWorkspace @ VM13 PlatformRouter.ts:231
+onOpenProject @ VM13 PlatformRouter.ts:176
+openProject @ VM24 ProjectHub.ts:822
+_createViaRuntime @ VM24 ProjectHub.ts:805
+await in _createViaRuntime
+handleCreate @ VM24 ProjectHub.ts:774
+(anonymous) @ VM24 ProjectHub.ts:288
+VM6 injected.js:37 [EngineBootstrap] §A40-W04: door.batch.create registration failed (non-fatal): handler already registered: door.batch.create
+(anonymous) @ VM6 injected.js:37
+bootstrap @ VM889 engineLauncher.ts:1088
+await in bootstrap
+startEngine @ VM8 main.ts:68
+await in startEngine
+ensure @ VM8 main.ts:79
+await in ensure
+ensure @ VM8 main.ts:109
+(anonymous) @ VM261 buildPersistence.ts:111
+openProject @ VM261 buildPersistence.ts:127
+_openProjectViaRuntime @ VM13 PlatformRouter.ts:256
+launchWorkspace @ VM13 PlatformRouter.ts:231
+onOpenProject @ VM13 PlatformRouter.ts:176
+openProject @ VM24 ProjectHub.ts:822
+_createViaRuntime @ VM24 ProjectHub.ts:805
+await in _createViaRuntime
+handleCreate @ VM24 ProjectHub.ts:774
+(anonymous) @ VM24 ProjectHub.ts:288
+VM6 injected.js:37 [EngineBootstrap] §A40-W04: window.batch.create registration failed (non-fatal): handler already registered: window.batch.create
+(anonymous) @ VM6 injected.js:37
+bootstrap @ VM889 engineLauncher.ts:1088
+await in bootstrap
+startEngine @ VM8 main.ts:68
+await in startEngine
+ensure @ VM8 main.ts:79
+await in ensure
+ensure @ VM8 main.ts:109
+(anonymous) @ VM261 buildPersistence.ts:111
+openProject @ VM261 buildPersistence.ts:127
+_openProjectViaRuntime @ VM13 PlatformRouter.ts:256
+launchWorkspace @ VM13 PlatformRouter.ts:231
+onOpenProject @ VM13 PlatformRouter.ts:176
+openProject @ VM24 ProjectHub.ts:822
+_createViaRuntime @ VM24 ProjectHub.ts:805
+await in _createViaRuntime
+handleCreate @ VM24 ProjectHub.ts:774
+(anonymous) @ VM24 ProjectHub.ts:288
+VM6 injected.js:37 [EngineBootstrap] §A40-W04: ceiling.batch.create registration failed (non-fatal): handler already registered: ceiling.batch.create
+(anonymous) @ VM6 injected.js:37
+bootstrap @ VM889 engineLauncher.ts:1088
+await in bootstrap
+startEngine @ VM8 main.ts:68
+await in startEngine
+ensure @ VM8 main.ts:79
+await in ensure
+ensure @ VM8 main.ts:109
+(anonymous) @ VM261 buildPersistence.ts:111
+openProject @ VM261 buildPersistence.ts:127
+_openProjectViaRuntime @ VM13 PlatformRouter.ts:256
+launchWorkspace @ VM13 PlatformRouter.ts:231
+onOpenProject @ VM13 PlatformRouter.ts:176
+openProject @ VM24 ProjectHub.ts:822
+_createViaRuntime @ VM24 ProjectHub.ts:805
+await in _createViaRuntime
+handleCreate @ VM24 ProjectHub.ts:774
+(anonymous) @ VM24 ProjectHub.ts:288
+VM6 injected.js:37 [EngineBootstrap] §A40-W04: stair.batch.create registration failed (non-fatal): handler already registered: stair.batch.create
+(anonymous) @ VM6 injected.js:37
+bootstrap @ VM889 engineLauncher.ts:1088
+await in bootstrap
+startEngine @ VM8 main.ts:68
+await in startEngine
+ensure @ VM8 main.ts:79
+await in ensure
+ensure @ VM8 main.ts:109
+(anonymous) @ VM261 buildPersistence.ts:111
+openProject @ VM261 buildPersistence.ts:127
+_openProjectViaRuntime @ VM13 PlatformRouter.ts:256
+launchWorkspace @ VM13 PlatformRouter.ts:231
+onOpenProject @ VM13 PlatformRouter.ts:176
+openProject @ VM24 ProjectHub.ts:822
+_createViaRuntime @ VM24 ProjectHub.ts:805
+await in _createViaRuntime
+handleCreate @ VM24 ProjectHub.ts:774
+(anonymous) @ VM24 ProjectHub.ts:288
+VM6 injected.js:37 [initStores] StoreRegistry: 33 stores registered — visibility-intent, view-intent-instance, view, RoomRequirement, AssetCatalogEntry, schedule, view-template, vg-governance, sheet, phase-filter, title-block, wall, slab, column, beam, stair, stair-landing, stair-railing, stair-type, curtainwall, curtain-panel, door, window, roof, plumbing, furniture, handrail, opening, grid, room, ceiling, floor, annotation
+VM6 injected.js:37 [initDataPlatform] ElementCode auto-assignment wired to StoreEventBus
+VM6 injected.js:37 [SyncStateEngine] Started — subscribed to StoreEventBus
+VM6 injected.js:37 [initDataPlatform] SyncStateEngine started (paused until project load)
+VM6 injected.js:37 [initDataPlatform] RoomColourSystem.setSyncStateEngine wired
+VM6 injected.js:37 [DependencyResolver] Initialised — Phase F active: cascade rebuilds enabled
+VM6 injected.js:37 [initDataPlatform] DependencyResolver initialised — semantic graph monitoring active
+VM6 injected.js:37 [TemporalGraph] Initialised. sessionId=9770fb4b-f72f-44fe-8a7f-8579e9b1dca5. Auto-recording element mutations via StoreEventBus.
+VM6 injected.js:37 [initDataPlatform] TemporalGraph initialised — sessionId=9770fb4b-f72f-44fe-8a7f-8579e9b1dca5
+VM6 injected.js:37 [initDataPlatform] Data Platform stores + SemanticGraph + TemporalGraph + ConstraintEngine + DecisionRecordStore + PhysicsEngine exposed on window
+VM6 injected.js:37 [initDataPlatform] G-0.3: SelectionBus exposed on window
+VM6 injected.js:37 [initDataPlatform] ConstraintEngine auto-run wired to StoreEventBus (800ms debounce, load-quiet window)
+VM6 injected.js:37 [initDataPlatform] G-3: IntentPrompt wired to pryzm-constraints-updated
+VM6 injected.js:37 [PhysicsEngine] Initialised — FrameScheduler-batched queue active
+VM6 injected.js:37 [initDataPlatform] H-1: PhysicsEngine RAF-queue started
+VM6 injected.js:37 [PhysicsOverlayRenderer] Initialised
+VM6 injected.js:37 [initDataPlatform] H-2: PhysicsOverlayRenderer initialised
+VM6 injected.js:37 [TemplateStore] Seeded 15 built-in templates
+VM6 injected.js:37 [initDataPlatform] G-0.1: BuiltinTemplates seeded into TemplateStore
+VM6 injected.js:37 [initDataPlatform] G-0.3: SelectionBus subscribed to pryzm-element-selected
+VM6 injected.js:37 [initDataPlatform] H-1: PhysicsEngine room-create/update wiring active
+VM6 injected.js:37 [initDataPlatform] K-1: VoiceCommandIndicator mounted
+VM6 injected.js:37 [ConsequencePreviewOverlay] Initialised
+VM6 injected.js:37 [initDataPlatform] K-2: ConsequencePreviewOverlay initialised
+VM6 injected.js:37 [AmbientIndicator] Initialised
+VM6 injected.js:37 [initDataPlatform] K-3: AmbientIndicator mounted
+VM6 injected.js:37 [initDataPlatform] K-3: AmbientIntelligence wired to constraints + StoreEventBus
+VM6 injected.js:37 [initDataPlatform] Data Platform subsystem fully initialised.
+VM6 injected.js:37 [main] VG Governance Layer initialized
+VM6 injected.js:37 [main] View Range Filter Service initialized
+VM6 injected.js:37 [main] Crop Region Filter Service initialized
+VM6 injected.js:37 [main] Underlay Render Service initialized
+VM6 injected.js:37 [main] View Range Zone Applicator initialized
+VM6 injected.js:37 [main] Semantic Index initialized
+VM6 injected.js:37 [main] IFC Pset Adapter initialized (DOC-5.4)
+VM6 injected.js:37 [main] ViewDefinition Store initialized
+VM6 injected.js:37 [main] Visibility Intent stores initialized (panel lazy — loads on first use)
+VM6 injected.js:37 [DefaultViewsManager] Created default 3D view (id=vd-sys-3d-1)
+VM6 injected.js:37 [DefaultViewsManager] Created default Ground Floor plan view (id=vd-sys-plan-l0)
+VM6 injected.js:37 [DefaultViewsManager] Initialized — default views are guaranteed on every project.
+VM6 injected.js:37 [main] Visibility Rule Engine initialized
+VM6 injected.js:37 [main] Sheet Store initialized
+VM6 injected.js:37 [main] TitleBlock Store initialized (A0, A1, A3 templates seeded)
+VM6 injected.js:37 [main] Sheet Editor Panel registered (lazy — loads on first use)
+VM6 injected.js:37 [main] Sheet Export Service initialized
+VM6 injected.js:37 [DxfExportService] Initialised
+VM6 injected.js:37 [main] DXF Export Service initialized
+VM6 injected.js:37 [main] PDF Export Service registered (lazy — loads on first use)
+VM6 injected.js:37 [main] Sheet Index Service initialized (Drawing Register ready)
+VM6 injected.js:37 [main] Schedule Store initialized and default schedules seeded
+VM6 injected.js:37 [main] View Template Store initialized
+VM6 injected.js:37 [main] Phase Filter Store initialized (built-ins seeded)
+VM6 injected.js:37 [main] FastPathProjectorService initialized (sub-50ms interactive projection)
+VM6 injected.js:37 [FPS] 29fps
+VM6 injected.js:37 [initUI] ImportManagerPanel mounted
+VM6 injected.js:37 [CurtainWall] Store→Builder event wiring established
+VM6 injected.js:37 [CurtainWall] PanelStore→Builder event wiring established (§MI-02)
+VM6 injected.js:37 [ContextualEditBar] Initialized
+VM6 injected.js:37 [ContextualEditBar] Operation tools injected
+VM6 injected.js:37 [initUI] ShortcutCheatSheet installed (press ? to view all shortcuts)
+VM6 injected.js:37 [initUI] Split View toggle button mounted
+VM6 injected.js:37 [LevelExplodeController] Initialized
+VM6 injected.js:37 [InspectModeCoordinator] Initialized
+VM6 injected.js:37 [PlatformShell] D.1 — real save/load delegates injected (engine ready)
+VM6 injected.js:37 [initPersistence] D.1 — real delegates injected into early PlatformShell
+VM6 injected.js:37 [initPersistence] runtime.stores hydrator registered
+VM6 injected.js:37 [initCollaboration] Collaboration subsystem initialised — waiting for pryzm-project-loaded
+VM6 injected.js:37 [LONGTASK] duration=141.0ms start=707898.2ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [LONGTASK] duration=57.0ms start=708131.9ms
+(anonymous) @ VM6 injected.js:37
+(anonymous) @ VM8 main.ts:28
+VM6 injected.js:37 [AICreatePanel] Initializing panel, going to step 1
+VM6 injected.js:37 [AICreatePanel] Transitioning to step 1
+VM6 injected.js:37 [AICreatePanel] Step 1: display=flex
+VM6 injected.js:37 [AICreatePanel] Step 2: display=none
+VM6 injected.js:37 [AICreatePanel] Step 3: display=none
+VM6 injected.js:37 [AICreatePanel] Step 4: display=none
+VM6 injected.js:37 [AICreatePanel] All steps found and updated successfully
+VM6 injected.js:37 [AICreatePanel] Attaching file input change listener
+VM6 injected.js:37 [AICreatePanel] Attaching all event listeners
+VM6 injected.js:37 [AICreatePanel] Attaching all event listeners...
+VM6 injected.js:37 [AICreatePanel] ✓ Step 2 Next button listener attached
+VM6 injected.js:37 [AICreatePanel] ✓ Step 2 Back button listener attached
+VM6 injected.js:37 [AICreatePanel] ✓ Step 3 Generate button listener attached
+VM6 injected.js:37 [AICreatePanel] ✓ Step 3 Back button listener attached
+VM6 injected.js:37 [AICreatePanel] ✓ Step 4 Open AI Actions button listener attached
+VM6 injected.js:37 [AICreatePanel] ✓ Step 4 Create Another button listener attached
+VM6 injected.js:37 [AICreatePanel] ✓ Prompt input keydown listener attached
+VM6 injected.js:37 [AICreatePanel] All event listeners attached successfully
+VM6 injected.js:37 [RenderPipelineManager] onP

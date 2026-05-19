@@ -1,0 +1,13 @@
+{
+  "name": "@pryzm/test-audit-log-s57",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Phase 3-B Sprint S57 — unit tests for server/auditLogMiddleware.js. Workspace member solely so the vitest binary resolves under pnpm; not shipped.",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.9"
+  }
+}

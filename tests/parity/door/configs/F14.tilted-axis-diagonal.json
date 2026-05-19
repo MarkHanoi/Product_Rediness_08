@@ -1,0 +1,45 @@
+{
+  "id": "F14.tilted-axis-diagonal",
+  "description": "door in a 45° diagonal wall",
+  "door": {
+    "id": "door:01HZS000000000000DOORF1400",
+    "type": "door",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "wallId": "wall:01HZS000000000000DOORW1000",
+    "openingId": "op-1",
+    "offset": 0,
+    "width": 0.9,
+    "height": 2.1,
+    "doorType": "single",
+    "sillHeight": 0,
+    "frameWidth": 0.05,
+    "frameThickness": 0.08,
+    "frameColor": "#5a4a3a",
+    "leafColor": "#7a6a5a"
+  },
+  "placement": {
+    "axis": {
+      "x": 0.7071067811865476,
+      "y": 0,
+      "z": 0.7071067811865476
+    },
+    "normal": {
+      "x": -0.7071067811865476,
+      "y": 0,
+      "z": 0.7071067811865476
+    },
+    "origin": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "wallThickness": 0.1
+  }
+}

@@ -1,0 +1,67 @@
+[VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=13/14 layers
+VM6 injected.js:37 [LONGTASK] duration=6279.0ms start=847949.9ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+3VM6 injected.js:37 [GPU Monitor] geometries:147 textures:8 | drawCalls:20 tris:430
+VM6 injected.js:37 [FPS] 1fps
+VM6 injected.js:37 [LONGTASK] duration=2622.0ms start=875660.3ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+3VM6 injected.js:37 [GPU Monitor] geometries:147 textures:8 | drawCalls:20 tris:430
+VM6 injected.js:37 [FPS] 1fps
+VM6 injected.js:37 [GPU Monitor] geometries:147 textures:8 | drawCalls:20 tris:430
+VM6 injected.js:37 [FPS] 1fps
+0iwq7v9jgvn-2.js:21 Haven't heard from the server in a while, resetting connection...
+(anonymous) @ 0iwq7v9jgvn-2.js:21
+(anonymous) @ 05gaw1_zp81e9.js:518
+r @ 0iwq7v9jgvn-2.js:21
+VM6 injected.js:37 [LONGTASK] duration=50.0ms start=922559.3ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+VM6 injected.js:37 [LONGTASK] duration=55.0ms start=922664.0ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+VM6 injected.js:37 [FPS] 19fps
+VM6 injected.js:37 [GPU Monitor] geometries:147 textures:8 | drawCalls:20 tris:430
+VM6 injected.js:37 [FPS] 2fps
+VM6 injected.js:37 [LONGTASK] duration=59.0ms start=924791.5ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+VM6 injected.js:37 [LONGTASK] duration=51.0ms start=925004.3ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+VM6 injected.js:37 [LONGTASK] duration=52.0ms start=925111.3ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+VM6 injected.js:37 [FPS] 23fps
+VM6 injected.js:37 [LONGTASK] duration=53.0ms start=925166.2ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+VM6 injected.js:37 [LONGTASK] duration=55.0ms start=925223.5ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+VM6 injected.js:37 [FPS] 21fps
+VM6 injected.js:37 [PickResolver] strategy=gpu-pick hit=8471ed25-52aa-4971-9bc5-83532066e4e2
+VM6 injected.js:37 [LevelPlaneConstraint] Locked Y=0.0000 for element "wall" id="8471ed25-52aa-4971-9bc5-83532066e4e2"
+VM6 injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+VM6 injected.js:37 [WallTransform] Wall "8471ed25-52aa-4971-9bc5-83532066e4e2" — gizmo aligned with direction Vector3 {x: 0, y: 0, z: 1}
+VM6 injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+VM6 injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+VM6 injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+VM6 injected.js:37 [LONGTASK] duration=180.0ms start=926571.4ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+VM6 injected.js:37 [LONGTASK] duration=51.0ms start=926752.1ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+VM6 injected.js:37 [LONGTASK] duration=65.0ms start=926804.8ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+VM6 injected.js:37 [LONGTASK] duration=103.0ms start=926967.2ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+VM6 injected.js:37 [LONGTASK] duration=54.0ms start=927086.2ms [type=iframe src=https://29a9b84c-9ce7-4df3-8c7d-322137f52344-00-1yh0m56myawdk.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+VM6 injected.js:37 [FPS] 12fps
+VM6 injected.js:37 [PickResolver] strategy=gpu-pick hit=0793dedb-a35a-4d15-8453-d852f4cc2a6c

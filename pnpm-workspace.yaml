@@ -1,0 +1,13 @@
+packages:
+  - 'packages/*'
+  - 'tools/*'
+  - 'apps/*'
+  - 'plugins/*'
+  - 'tests/audit-log-s57'
+  - 'tests/family-load-into-project'
+  - 'tests/family-marketplace-publish'
+  - 'tests/browser-matrix'
+  - 'tests/s70-lifecycle-deletion'
+  - 'tests/ga-gate'
+  - 'tests/integration'
+  - 'tests/commands'

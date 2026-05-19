@@ -1,0 +1,10 @@
+{
+  "name": "renderer.pass-cost.ssgi",
+  "samples": 200,
+  "p50": 3.704,
+  "p95": 3.708,
+  "p99": 3.717,
+  "budgetMs": 5,
+  "warnMs": 4,
+  "recordedAt": "2026-04-27T22:47:50.209Z"
+}

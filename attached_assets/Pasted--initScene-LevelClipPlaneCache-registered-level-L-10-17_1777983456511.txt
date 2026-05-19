@@ -1,0 +1,96 @@
+[initScene] LevelClipPlaneCache: registered level "L-10-1777983089728-10" at 34.5m
+engineLauncher-Ynplbd5k.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ynplbd5k.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-Ynplbd5k.js:2332 [CreateMultipleLevelsCommand] level=10/10 addLevel=8.3ms createPlanView=0.0ms iterTotal=8.4ms
+engineLauncher-Ynplbd5k.js:2332 [CreateMultipleLevelsCommand] COMPLETE total=68.7ms
+engineLauncher-Ynplbd5k.js:2392 [AIApprovalStore] Audit record appended: cf42a7d0-2535-46cf-bcc8-ed2b702f1688 (CREATE_LEVEL)
+engineLauncher-Ynplbd5k.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ynplbd5k.js:2325 [RuleEngine] Model updated, ready for re-validation
+2engineLauncher-Ynplbd5k.js:1864 [ProjectSerializer] Snapshot created: 10 elements, 11 levels, 8 walls, 1 slabs, 0 furniture
+PlatformShell-CUwZ5rrb.js:23 [PlatformSaveController] Version saved: "Auto-save" (10 elements, id: proj-1777983090735-vwrhj)
+engineLauncher-Ynplbd5k.js:1833 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+engineLauncher-Ynplbd5k.js:2400 [AIPanel] Proposal received via event — showing inline card: {id: 'dda7e07e-51f0-4da5-98a6-d70c95a3ddde', proposalId: '1a22e396-98a8-4cc3-b92e-1e83eacf0b7e', intentId: '3871007b-5bbc-4a0e-aba6-6a9871870b93', intentType: 'CREATE_SLABS_ON_ALL_FLOORS', rationale: 'Generating identical slabs on all floors based on the selected reference slab.', …}
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] EXECUTE: CREATE_SLABS_ON_ALL_FLOORS
+engineLauncher-Ynplbd5k.js:1902 [CommandManager] snapshot commandType="u2" scope=[slab,level] elapsed=0.2ms
+engineLauncher-Ynplbd5k.js:1864 [CreateSlabsOnAllFloorsCommand] START referenceSlabId="b21bcc4e-6a88-4a89-94a6-d87e14628f00" levels=10 polygonVertices=8
+engineLauncher-Ynplbd5k.js:1864 [CreateSlabsOnAllFloorsCommand] runBatch starting — 10 slab(s) deferred to rAF drain.
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE _setupBatch — 10 level(s), 10 elements expected. ViewDependencyTracker suppressed. T=+0ms (batch clock started)
+main-CwHZbBPL.js:29470 [UnifiedFrameLoop] §TRACE §PERF-VIEW-BATCH-SUPPRESS: OBC+PASCAL render suppressed — WebGL shader compilation deferred until batch drain completes. suppressStartT=107626.6ms
+main-CwHZbBPL.js:29470 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+engineLauncher-Ynplbd5k.js:1595 [BimManager] Registered element 26f4c4d7-5094-4a29-9061-8d8147ebaf35 to level L-01-1777983089668-1
+engineLauncher-Ynplbd5k.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-01-1777983089668-1" success=true elapsed=2.8ms
+engineLauncher-Ynplbd5k.js:1595 [BimManager] Registered element bdf259f1-ac2c-42e5-a4c3-5e99280108dc to level L-02-1777983089677-2
+engineLauncher-Ynplbd5k.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-02-1777983089677-2" success=true elapsed=2.6ms
+engineLauncher-Ynplbd5k.js:1595 [BimManager] Registered element 8a51fd23-6ec5-4a1d-bd33-42b17d46be7a to level L-03-1777983089683-3
+engineLauncher-Ynplbd5k.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-03-1777983089683-3" success=true elapsed=2.8ms
+engineLauncher-Ynplbd5k.js:1595 [BimManager] Registered element 6436a39f-e03b-4d04-99af-3dd31a6e3d84 to level L-04-1777983089690-4
+engineLauncher-Ynplbd5k.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-04-1777983089690-4" success=true elapsed=3.0ms
+engineLauncher-Ynplbd5k.js:1595 [BimManager] Registered element 85d8f203-5ca4-44e6-8aea-4e5ad5e74a1f to level L-05-1777983089695-5
+engineLauncher-Ynplbd5k.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-05-1777983089695-5" success=true elapsed=2.6ms
+engineLauncher-Ynplbd5k.js:1595 [BimManager] Registered element 75b9aa12-34d1-47ac-83bf-fe136dc4295b to level L-06-1777983089703-6
+engineLauncher-Ynplbd5k.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-06-1777983089703-6" success=true elapsed=2.6ms
+engineLauncher-Ynplbd5k.js:1595 [BimManager] Registered element b47befd3-c742-462a-be1b-7975bc4bf616 to level L-07-1777983089709-7
+engineLauncher-Ynplbd5k.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-07-1777983089709-7" success=true elapsed=2.2ms
+engineLauncher-Ynplbd5k.js:1595 [BimManager] Registered element ce4168ae-d008-4e0e-8228-e18507ca25f2 to level L-08-1777983089715-8
+engineLauncher-Ynplbd5k.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-08-1777983089715-8" success=true elapsed=1.9ms
+engineLauncher-Ynplbd5k.js:1595 [BimManager] Registered element baa130ec-e413-4dcc-9db6-8080fc67e80d to level L-09-1777983089721-9
+engineLauncher-Ynplbd5k.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-09-1777983089721-9" success=true elapsed=1.9ms
+engineLauncher-Ynplbd5k.js:1595 [BimManager] Registered element f701c6df-713a-4fcf-8ab0-30a371c5aa47 to level L-10-1777983089728-10
+engineLauncher-Ynplbd5k.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-10-1777983089728-10" success=true elapsed=1.2ms
+engineLauncher-Ynplbd5k.js:1864 [CreateSlabsOnAllFloorsCommand] COMPLETE created=10 total=36.0ms
+engineLauncher-Ynplbd5k.js:2392 [AIApprovalStore] Audit record appended: 47e34f93-4b1c-4e0b-bfb2-fe39479da257 (CREATE_SLABS_ON_ALL_FLOORS)
+engineLauncher-Ynplbd5k.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ynplbd5k.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE DEFERRED-RESUME-FLUSH fired (first rAF after runBatch returned) T=+49.1ms
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE RESUME-FLUSH-DISPATCHED wallResume+cwResume+slabResume called. CW rAF drain now in-flight. T=+49.3ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] outset slabId="26f4c4d7-5094-4a29-9061-8d8147ebaf35" vertices=8 elapsed=0.0ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] triangulate slabId="26f4c4d7-5094-4a29-9061-8d8147ebaf35" outerVertices=8 elapsed=0.2ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="26f4c4d7-5094-4a29-9061-8d8147ebaf35" totalMs=1.0ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] outset slabId="bdf259f1-ac2c-42e5-a4c3-5e99280108dc" vertices=8 elapsed=0.0ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] triangulate slabId="bdf259f1-ac2c-42e5-a4c3-5e99280108dc" outerVertices=8 elapsed=0.1ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="bdf259f1-ac2c-42e5-a4c3-5e99280108dc" totalMs=0.9ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] outset slabId="8a51fd23-6ec5-4a1d-bd33-42b17d46be7a" vertices=8 elapsed=0.0ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] triangulate slabId="8a51fd23-6ec5-4a1d-bd33-42b17d46be7a" outerVertices=8 elapsed=0.1ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="8a51fd23-6ec5-4a1d-bd33-42b17d46be7a" totalMs=0.7ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] outset slabId="6436a39f-e03b-4d04-99af-3dd31a6e3d84" vertices=8 elapsed=0.0ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] triangulate slabId="6436a39f-e03b-4d04-99af-3dd31a6e3d84" outerVertices=8 elapsed=0.1ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="6436a39f-e03b-4d04-99af-3dd31a6e3d84" totalMs=0.8ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] outset slabId="85d8f203-5ca4-44e6-8aea-4e5ad5e74a1f" vertices=8 elapsed=0.0ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] triangulate slabId="85d8f203-5ca4-44e6-8aea-4e5ad5e74a1f" outerVertices=8 elapsed=0.1ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="85d8f203-5ca4-44e6-8aea-4e5ad5e74a1f" totalMs=0.6ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] RAF_DRAIN built=5 remaining=5 queueBefore=10 frameMs=5.5ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] outset slabId="75b9aa12-34d1-47ac-83bf-fe136dc4295b" vertices=8 elapsed=0.0ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] triangulate slabId="75b9aa12-34d1-47ac-83bf-fe136dc4295b" outerVertices=8 elapsed=0.3ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="75b9aa12-34d1-47ac-83bf-fe136dc4295b" totalMs=1.3ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] outset slabId="b47befd3-c742-462a-be1b-7975bc4bf616" vertices=8 elapsed=0.0ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] triangulate slabId="b47befd3-c742-462a-be1b-7975bc4bf616" outerVertices=8 elapsed=0.2ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="b47befd3-c742-462a-be1b-7975bc4bf616" totalMs=1.4ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] outset slabId="ce4168ae-d008-4e0e-8228-e18507ca25f2" vertices=8 elapsed=0.0ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] triangulate slabId="ce4168ae-d008-4e0e-8228-e18507ca25f2" outerVertices=8 elapsed=0.4ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="ce4168ae-d008-4e0e-8228-e18507ca25f2" totalMs=1.2ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] outset slabId="baa130ec-e413-4dcc-9db6-8080fc67e80d" vertices=8 elapsed=0.0ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] triangulate slabId="baa130ec-e413-4dcc-9db6-8080fc67e80d" outerVertices=8 elapsed=0.2ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="baa130ec-e413-4dcc-9db6-8080fc67e80d" totalMs=0.9ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] outset slabId="f701c6df-713a-4fcf-8ab0-30a371c5aa47" vertices=8 elapsed=0.0ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] triangulate slabId="f701c6df-713a-4fcf-8ab0-30a371c5aa47" outerVertices=8 elapsed=0.1ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="f701c6df-713a-4fcf-8ab0-30a371c5aa47" totalMs=1.8ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] RAF_DRAIN built=5 remaining=0 queueBefore=5 frameMs=8.2ms
+engineLauncher-Ynplbd5k.js:1833 [SlabFragmentBuilder] rAF queue drained — signalling BatchCoordinator.
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE BUILD-QUEUE-DRAINED regQueue=0 / totalExpected=10 T=+106.5ms (all geometry in scene; registration drain starting)
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE §REG-MANY-P2 queue ≤ 50 (0) — draining synchronously (0 rAF frames) T=+106.9ms
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE REGISTRATION-DRAIN-DONE 0 registration(s) complete T=+107.2ms
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE SHADOW-REACTIVATION-START T=+107.5ms
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE SHADOW-REACTIVATION-DISPATCHED (sliced across post-render frames) callMs=0.6ms T=+108.0ms
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE FINAL-SWEEP-START levels=10 skipRedetect=false T=+108.5ms (opening yielded event drain)
+main-CwHZbBPL.js:29470 [StoreEventBus] endBatchYielded() — 10 event(s) will be delivered in 1 chunk(s) of 200 via frame scheduler.
+main-CwHZbBPL.js:29470 [StoreEventBus] endBatchYielded() — all 10 event(s) delivered across 1 chunk(s) (last: 1.3ms). Calling onComplete().
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE ON-COMPLETE-START (all yielded events delivered) T=+201.8ms
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE §PERF-VIEW-BATCH-SUPPRESS suppression lifted; markLevelsDirty(10 level(s)) DEFERRED to post-render (§FIX-EDGE-PROJECT-DEFER). T=+202.0ms
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE ON-BATCH-END-DEFERRED (suppress lifted NOW; overlay dismiss scheduled for post-render) T=+202.0ms
+main-CwHZbBPL.js:29470 [UnifiedFrameLoop] §TRACE §PERF-VIEW-BATCH-SUPPRESS suppression lifted after 201.5ms — OBC+PASCAL resuming on next tick.
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE ON-POST-BATCH-START (PBR upgrade + requestIdleCallback pending) T=+202.4ms
+engineLauncher-Ynplbd5k.js:1838 [BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-RUNNING (skipPbrUpgrade=false at post-batch callback time — running upgrade)
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE ON-POST-BATCH-DISPATCHED (PBR upgrade queued to requestIdleCallback) T=+202.7ms
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] Final sweep: firing 10 REDETECT_ROOMS command(s) (one per affected level). Observers re-enabled. StoreEventBus flushed (depth now 0).
+main-CwHZbBPL.js:29470 [UnifiedFrameLoop] §TRACE FIRST-RENDER-POST-SUPPRESS totalSuppressedMs=210.9ms frameCount=611 — OBC+PASCAL about to execute (WebGPU PSO compile LONGTASK begins here)
+engineLauncher-Ynplbd5k.js:484 [BatchCoordinator] §TRACE §FIX-EDGE-PROJECT-DEFER markLevelsDirty(10 level(s)) fired post-render (EdgeProjector 300ms debounce starts after PSO compile frame). T=+270.1ms

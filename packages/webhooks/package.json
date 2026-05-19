@@ -1,0 +1,26 @@
+{
+  "name": "@pryzm/webhooks",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PRYZM Webhooks — subscription store + HMAC-SHA256 signing + delivery scheduler with exponential backoff. S66 deliverable per phase-doc-1 §S66 (Webhooks) + ADR-0046.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run --reporter=default",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "ulid": "^3.0.1",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.9"
+  }
+}

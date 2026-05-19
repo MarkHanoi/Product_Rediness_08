@@ -1,0 +1,41 @@
+TASK: Fix wall join geometry in WallJoinResolver.ts
+I have a BIM application using Three.js. Walls are rendered as BoxGeometry meshes aligned along a baseLine (start/end Vector3 pair). The WallJoinResolver.resolveLevel() function adjusts wall endpoints when walls meet at corners.
+The builder works like this:
+
+Each wall is a BoxGeometry(wallLength, height, thickness)
+The box is centered on the midpoint of baseLine[0] → baseLine[1]
+The box is rotated to face along the wall direction
+The box end faces are always perpendicular to the wall direction — no slanting is possible
+wallLength = baseLine[0].distanceTo(baseLine[1])
+
+What I need:
+When two walls meet at a corner (L-join), both wall endpoints should be moved so the boxes visually overlap and fill the corner with no gap and no exposed end face.
+The correct geometry for a BoxGeometry L-join:
+Given two walls A and B meeting at corner point I:
+
+tA = unit vector pointing FROM wall A's endpoint INTO wall A's body (inward tangent)
+tB = unit vector pointing FROM wall B's endpoint INTO wall B's body (inward tangent)
+sinθ = |tA × tB| (cross product magnitude = sine of angle between walls)
+T = wall thickness (assume equal for both = 0.2m)
+
+The fix: Move each wall's endpoint from I to:
+newEndpointA = I + (T / (2 * sinθ)) * tA
+newEndpointB = I + (T / (2 * sinθ)) * tB
+This extends each wall past I into the corner, so the two boxes overlap. The overlap is hidden inside the geometry. The outer faces of both boxes meet cleanly at the corner with no gap.
+Current broken code in _L() method of WallJoinResolver.ts:
+The method correctly finds I (the corner point) and correctly computes tA, tB, sinθ. The only broken part is the final endpoint assignment. Replace whatever endpoint-setting logic is there with exactly:
+typescriptconst T = Math.max(rA.wall.thickness, rB.wall.thickness);
+const ext = Math.min(T / (2 * sinθ), T * 5); // cap at 5× to avoid extreme angles
+
+const epA = I.clone().addScaledVector(tA, ext);
+const epB = I.clone().addScaledVector(tB, ext);
+this._setEp(rA, epA, work);
+this._setEp(rB, epB, work);
+Do NOT:
+
+Set any miterNormal or startMN/endMN — the builder ignores them
+Move only one endpoint and leave the other at I
+Use -tA or -tB (negative direction) — that pulls walls AWAY from the corner
+Change anything outside the _L() method
+
+Verify by checking that after the fix, for two walls snapped together at a point, both wall endpoints in the store are positioned slightly past the shared corner point (each inside the other wall's volume).

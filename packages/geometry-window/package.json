@@ -1,0 +1,26 @@
+{
+  "name": "@pryzm/geometry-window",
+  "version": "0.1.0",
+  "description": "PRYZM — window geometry subsystem. Types, store, system-type store.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@pryzm/command-registry": "workspace:*",
+    "@pryzm/core-app-model": "workspace:*",
+    "@pryzm/frame-scheduler": "workspace:*",
+    "@pryzm/geometry-door": "workspace:*",
+    "@pryzm/geometry-wall": "workspace:*",
+    "@pryzm/renderer-three": "workspace:*",
+    "@pryzm/visibility": "workspace:*",
+    "zod": "^4.3.6"
+  }
+}

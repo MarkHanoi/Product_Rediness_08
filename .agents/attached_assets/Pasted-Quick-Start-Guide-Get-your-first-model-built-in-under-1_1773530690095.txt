@@ -1,0 +1,210 @@
+Quick Start Guide
+Get your first model built in under 10 minutes.
+
+Step 1 — Create your account
+Click "Get started for free" on the PRYZM homepage. Enter your name and email. No credit card required.
+
+Step 2 — Create your first project
+From the Project Hub, click "+ New Project". Give it a name (e.g. "Riverside House") and select a project type. Click "Create Project" to open the workspace.
+
+Step 3 — Set up your levels
+Every model starts with levels. Open the Levels panel and create your floor plates — Ground Floor, First Floor, etc. Each level has an elevation offset in metres. Levels are the vertical anchor for all elements.
+
+Step 4 — Place your first wall
+Select the Wall tool from the toolbar. Click to set the start point, click again to set the end point. Walls snap to the active level automatically. Hold Shift to constrain to 90° angles.
+
+Step 5 — Add openings
+With a wall selected, use the Door or Window tool to place openings. Doors and windows are hosted by a wall — they cannot exist without one. You can adjust width, height, sill height, and frame colour from the Properties panel on the right.
+
+Step 6 — Add a slab
+Use the Slab tool to create floor plates. Click to define the slab boundary polygon. The slab automatically inherits the elevation of the active level.
+
+Step 7 — Save your first version
+Press Ctrl+S (or Cmd+S on Mac) to open the Save Version dialog. Give this version a label like "Scheme A — Ground Floor". Version history lets you restore any saved state at any point.
+
+Step 8 — Export
+When ready, go to Export in the toolbar. PRYZM exports IFC (IFC2x3 and IFC4), GLB/GLTF for web viewers, and PDF for client presentations. IFC export is available from the Architect plan.
+
+FAQ
+Can I switch plans anytime?
+Yes. You can upgrade or downgrade at any time. When upgrading, you get immediate access to all features on the new plan. When downgrading, your current plan runs until the end of the billing period — you won't lose access mid-cycle.
+
+What happens to my projects if I downgrade?
+Your projects and all your data are always preserved. If you downgrade to the Free plan and have more than 3 projects, your existing projects remain fully accessible. You simply cannot create new ones until you are under the 3-project limit.
+
+How are AI actions counted?
+Each call to the Claude API counts as one action. This includes: Design Advisor queries, Floor Plan AI analysis runs, AI Element Creator generations, and Wardrobe Factory calls. If a generation fails validation and retries automatically, the retry also counts. Your monthly usage resets on the first of each billing month.
+
+Is the IFC export compliant with industry standards?
+Yes. PRYZM exports IFC2x3 and IFC4 formats. These are fully compatible with Revit, ArchiCAD, BIMcollab, Solibri, and all major BIM coordination platforms. Elements export with correct semantic classifications (IfcWall, IfcSlab, IfcDoor, IfcWindow, IfcBeam, etc.) and carry the properties set in the model.
+
+What modeling elements does PRYZM support?
+Walls (with fire rating, thickness, material), slabs, beams, stairs, roofs, doors, windows, curtain walls with custom grid lines and panel types, and AI-generated furniture and fittings. The element list expands with each release.
+
+Do you offer discounts for students or education?
+Yes. Architecture and engineering students get full Architect tier features free with a verified .edu email address. Contact hello@pryzm.io with your institutional email for access. Institutional licensing for universities is also available.
+
+Can multiple people work on the same project?
+Real-time collaboration is available on the Studio plan (up to 8 seats) and Firm plan (up to 25 seats). Team members see each other's cursors and receive model changes in real time via the shared workspace.
+
+What payment methods do you accept?
+All major credit and debit cards — Visa, Mastercard, American Express. Annual plans for the Firm and Enterprise tiers can be paid by invoice. Contact hello@pryzm.io to arrange invoice billing.
+
+What is the AI approval workflow?
+PRYZM's AI never changes your model without your consent. Every AI suggestion arrives as a Proposal in the AI Actions panel. You review the proposed change, see exactly what will be modified, and click Approve or Reject. Nothing is applied until you confirm. See the AI Approval Workflow page for the full explanation.
+
+Keyboard Shortcuts
+General
+Action	Windows / Linux	Mac
+Save version	Ctrl+S	Cmd+S
+Navigation
+Action	Keys
+Orbit camera	Middle mouse drag
+Pan camera	Shift + middle mouse drag
+Zoom	Scroll wheel
+Reset view	Home
+Modeling tools
+Action	Keys
+Wall tool	W
+Select / move	Escape
+Constrain to 90°	Hold Shift while placing
+Delete selected element	Delete or Backspace
+Undo	Ctrl+Z / Cmd+Z
+Redo	Ctrl+Y / Cmd+Shift+Z
+View modes
+Action	Keys
+Toggle floor plan view	F
+Toggle 3D perspective	3
+Toggle wireframe	Ctrl+W
+AI Command Reference
+PRYZM's AI understands natural language typed into the Design Advisor chat. Below are the supported command categories with example phrases.
+
+Query commands — read the model, no changes made
+Get a model summary
+
+"summarize", "summary", "overview", "what is in this model", "model summary"
+Returns a high-level count of all elements by type and level, plus IFC metadata readiness.
+
+Count elements
+
+"how many walls", "count all doors", "number of windows", "how many columns on level 1"
+Returns the count and a list of the specified element type, optionally filtered to a single level.
+
+Spatial queries
+
+"walls on Ground Floor", "how many doors on level 2", "slabs on first floor"
+Lists or counts elements belonging to a specific named level.
+
+Explain a rule violation
+
+"explain violation [ID]", "why was [ID] flagged", "details for [ID]"
+Provides a detailed explanation of why a specific element was flagged by the Rule Engine, including the relevant regulation or standard.
+
+Find elements missing IFC metadata
+
+"elements missing IFC metadata", "find missing IFC", "incomplete IFC"
+Lists all elements that lack required IFC classification properties for export.
+
+Dimensional queries
+
+"which windows exceed 1.5m width", "doors taller than 2100mm", "find orphaned doors"
+Filters elements by dimension thresholds. "Orphaned" means a door or window not currently hosted by any wall.
+
+Action commands — AI proposes a change, you approve it
+All actions produce a Proposal in the AI Actions panel. The model is not changed until you click Approve.
+
+Modify a single element property
+
+"make window [ID] 1.2m wide", "change width of door [ID] to 900mm", "set wall [ID] height to 3.5m"
+Proposes a property change on a specific named element. Replace [ID] with the element ID shown in the Properties panel.
+
+Batch updates — all elements of a type
+
+"make all windows 1.5m wide", "make all doors 2.1m tall", "make all window frames black", "make all door leaves white"
+Proposes the same change across every element of that type in the entire project. You see the full list of affected elements before approving.
+
+Auto-layout
+
+"move all windows to centre", "center all windows"
+Proposes repositioning every window to the mathematical centre of its host wall segment.
+
+Batch creation
+
+"create windows in all walls", "add windows to all walls"
+Proposes adding one window to every wall segment in the project.
+
+Important: proposals, not actions
+The AI cannot modify your model directly. Every command above produces a structured proposal that appears in the AI Actions panel. You review the target element, the proposed change, and the rationale — then click Approve or Reject. This is by design. Your model is always under your control.
+
+IFC Compatibility Guide
+What is IFC?
+IFC (Industry Foundation Classes) is the open international standard for exchanging BIM data between software. It allows architects, engineers, and contractors to share models across different platforms without data loss. The standard is maintained by buildingSMART International.
+
+What PRYZM exports
+
+PRYZM exports two IFC versions:
+
+IFC2x3 — the most widely supported version, compatible with virtually all BIM platforms and workflows built before 2020
+IFC4 — the current standard, with richer property sets and improved geometry representation
+Tested compatible platforms
+
+Platform	IFC2x3	IFC4
+Autodesk Revit	✓	✓
+Graphisoft ArchiCAD	✓	✓
+BIMcollab	✓	✓
+Solibri Model Checker	✓	✓
+Navisworks	✓	✓
+Tekla Structures	✓	—
+Open BIM viewers	✓	✓
+How elements are classified
+
+PRYZM element	IFC class
+Wall	IfcWall
+Slab	IfcSlab
+Beam	IfcBeam
+Stair	IfcStair
+Roof	IfcRoof
+Door	IfcDoor
+Window	IfcWindow
+Curtain wall	IfcCurtainWall
+Furniture / AI element	IfcFurnishingElement
+Properties exported per element
+
+Each element carries the properties set in the PRYZM Properties panel: dimensions (width, height, thickness), fire rating, material, sill height (windows), and all custom fields. These map to standard IFC property sets (Pset_WallCommon, Pset_DoorCommon, etc.) where applicable.
+
+IFC export availability
+
+IFC export is available on the Architect plan and above. Free plan users can model fully but cannot export to IFC. Upgrade from the pricing page or click the locked IFC button in the toolbar.
+
+AI Approval Workflow
+Why proposals instead of instant changes?
+
+PRYZM's AI never modifies your model without your review. This is a deliberate architectural decision. BIM data feeds downstream into structural calculations, cost estimates, and contractor drawings. A single unreviewed change to a wall thickness or fire rating could have real consequences. The approval system gives you full control.
+
+How the workflow works
+
+You ask — type a command in the Design Advisor chat, or use an AI tool (Floor Plan AI, Element Creator, Wardrobe Factory)
+AI proposes — the AI generates a structured proposal. Nothing is changed yet.
+Proposal appears — the proposal arrives in the AI Actions panel on the right side of the workspace. It shows: the target element, the specific property being changed, the current value, and the proposed new value.
+You review — read the rationale. Inspect the affected element in the 3D view.
+You decide — click Approve to apply the change, or Reject to discard it. Approved changes go through the standard Command system, which means they are fully undoable with Ctrl+Z.
+What a proposal looks like
+
+Each proposal shows:
+
+Element type and ID
+Property being changed (e.g. Width, Height, Fire Rating)
+Current value → Proposed value
+AI confidence score
+Rationale from the AI explaining why this change was suggested
+Batch proposals
+
+When you ask for a batch operation ("make all windows 1.5m wide"), the AI generates one proposal per element. You can approve all, approve individually, or reject all. The count is shown before you commit.
+
+Undo after approval
+
+Approved changes use PRYZM's Command system. This means every approved AI action is individually reversible with Ctrl+Z, just like any manual edit. There is no special "undo AI changes" step — it works exactly like the rest of the undo stack.
+
+The Rule Engine
+
+After proposals are applied, the Rule Engine runs automatically and flags any elements that violate architectural rules (e.g. a beam with no supports, a door that is too narrow for accessibility standards). These violations appear in the AI Actions panel as separate items for your review.

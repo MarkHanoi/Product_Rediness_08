@@ -1,0 +1,519 @@
+PRYZM Monetization — Full Implementation Blueprint
+This plan maps directly to your existing architecture. Every section names the exact files to create or modify and explains why, so there is no ambiguity when coding begins.
+
+Architecture Overview
+The monetization system has four independent layers that must be built in order, because each one depends on the previous:
+
+Layer 1: Identity & Subscription (Who is this user? What plan are they on?)
+    ↓
+Layer 2: Entitlement Store (What is this user allowed to do right now?)
+    ↓
+Layer 3: Enforcement Gates (Intercept forbidden actions before they execute)
+    ↓
+Layer 4: UI — Prompts, Paywalls, Counters (Show the user what's happening)
+Layer 1 — Identity & Subscription
+1.1 Database Schema (Supabase)
+You already have Supabase wired in server.js. You need three new tables alongside your existing projects and project_versions.
+
+Table: users
+
+id             TEXT PRIMARY KEY        -- Clerk userId (sub claim from JWT)
+email          TEXT
+display_name   TEXT
+plan           TEXT DEFAULT 'free'     -- 'free' | 'architect' | 'studio' | 'firm' | 'enterprise'
+plan_status    TEXT DEFAULT 'active'   -- 'active' | 'past_due' | 'cancelled' | 'trialing'
+trial_ends_at  TIMESTAMPTZ             -- set to NOW() + 21 days on first sign-in if plan = 'free'
+stripe_customer_id TEXT               -- Stripe customer ID, set when first payment created
+stripe_subscription_id TEXT
+created_at     TIMESTAMPTZ DEFAULT NOW()
+updated_at     TIMESTAMPTZ DEFAULT NOW()
+Table: workspaces
+This represents a Studio/Firm subscription that can have multiple members.
+
+id             TEXT PRIMARY KEY
+name           TEXT
+owner_id       TEXT REFERENCES users(id)
+plan           TEXT DEFAULT 'studio'  -- 'studio' | 'firm' | 'enterprise'
+plan_status    TEXT
+stripe_subscription_id TEXT
+seat_limit     INTEGER DEFAULT 8      -- 8 for Studio, 25 for Firm, -1 for Enterprise
+created_at     TIMESTAMPTZ
+Table: workspace_members
+
+workspace_id   TEXT REFERENCES workspaces(id)
+user_id        TEXT REFERENCES users(id)
+role           TEXT DEFAULT 'member'  -- 'owner' | 'admin' | 'member' | 'viewer'
+invited_at     TIMESTAMPTZ
+joined_at      TIMESTAMPTZ
+PRIMARY KEY (workspace_id, user_id)
+Table: ai_usage
+Tracks AI consumption per billing period.
+
+id             BIGSERIAL PRIMARY KEY
+user_id        TEXT REFERENCES users(id)
+workspace_id   TEXT                   -- null if individual plan
+action_type    TEXT                   -- 'design_advisor' | 'floor_plan_ai' | 'element_creator' | 'wardrobe_factory'
+model_used     TEXT                   -- 'claude-sonnet-4' | 'claude-3-5-haiku'
+input_tokens   INTEGER
+output_tokens  INTEGER
+cost_usd       NUMERIC(10,6)
+period_start   DATE                   -- first day of billing month
+created_at     TIMESTAMPTZ DEFAULT NOW()
+Table: ai_credits
+For purchased add-on credit packs.
+
+id             BIGSERIAL PRIMARY KEY
+user_id        TEXT
+workspace_id   TEXT
+credits_purchased INTEGER
+credits_remaining INTEGER
+purchased_at   TIMESTAMPTZ
+expires_at     TIMESTAMPTZ            -- 12 months from purchase
+stripe_payment_intent_id TEXT
+1.2 Clerk Authentication (Full Activation)
+Your server.js has Clerk middleware already written but currently defaults to anonymous. The existing authMiddleware function only needs the CLERK_SECRET_KEY environment secret added — the code path is already there.
+
+On the frontend, you need to add the Clerk frontend SDK to index.html or main.ts. Clerk provides a JS snippet that attaches to the DOM and manages session tokens. Every API call from the frontend should include the Clerk session token in the Authorization: Bearer <token> header.
+
+New file: src/auth/AuthService.ts
+This is a singleton that wraps Clerk's frontend SDK. It exposes:
+
+getCurrentUser() — returns { userId, email, displayName }
+getToken() — returns the current JWT for API requests
+onAuthChange(callback) — fires when user signs in or out
+signIn() — opens Clerk's hosted sign-in modal
+signOut() — ends session
+New file: src/auth/AuthStore.ts
+A reactive store (matching your existing store pattern) that holds:
+
+{
+  user: User | null,
+  plan: 'free' | 'architect' | 'studio' | 'firm' | 'enterprise',
+  planStatus: 'active' | 'trialing' | 'past_due' | 'cancelled',
+  trialEndsAt: Date | null,
+  daysLeftInTrial: number,
+  workspaceId: string | null,
+  workspaceRole: 'owner' | 'admin' | 'member' | 'viewer' | null,
+  workspaceMembers: WorkspaceMember[],
+  isLoading: boolean
+}
+On app boot (src/engine/EngineBootstrap.ts), after the Three.js scene initializes, call AuthStore.initialize(). This fetches the current user's plan from /api/me and hydrates the store. All gates read from this store synchronously after initialization.
+
+1.3 New Server Routes
+New route: GET /api/me
+Called on every app load. Returns the full user context:
+
+{
+  "user": { "id": "...", "email": "...", "displayName": "..." },
+  "plan": "architect",
+  "planStatus": "active",
+  "trialEndsAt": null,
+  "workspace": { "id": "...", "name": "...", "role": "admin", "members": [...] },
+  "aiUsage": { "used": 23, "limit": 50, "period": "2026-03" },
+  "aiCredits": { "remaining": 100 }
+}
+New route: GET /api/ai/usage
+Returns AI consumption for the current billing period. Reads from ai_usage table filtered by user_id and period_start = first day of current month.
+
+New route: POST /api/ai/log
+Called by the AI proxy after every Claude call. Logs the usage to ai_usage table. This is where you track tokens and compute cost.
+
+New route: POST /api/stripe/checkout
+Creates a Stripe Checkout session for a given plan. Returns a checkoutUrl that the frontend redirects to.
+
+New route: POST /api/stripe/webhook
+Stripe webhook endpoint. Handles checkout.session.completed, customer.subscription.updated, customer.subscription.deleted, and invoice.payment_failed. Updates the users table plan and status accordingly. This is the source of truth for subscription state.
+
+New route: POST /api/workspaces
+Creates a new workspace. Only callable by Studio/Firm/Enterprise users. Sets owner_id to current user and initializes seat_limit based on plan.
+
+New route: POST /api/workspaces/:id/invite
+Sends an email invite to join a workspace. Creates a pending workspace_members row.
+
+New route: DELETE /api/workspaces/:id/members/:userId
+Removes a member. Only workspace owner or admin can do this.
+
+Modified route: POST /api/anthropic/v1/messages
+This route currently just proxies to Anthropic with no tracking. It must now:
+
+Validate the user is authenticated (reject anonymous)
+Check AI usage against the plan limit via checkAIQuota(userId) — a utility function reading from Supabase
+If over quota, check ai_credits table for remaining purchased credits
+If both exhausted, return HTTP 402 with { error: 'ai_quota_exceeded', upgradeUrl: '/pricing' }
+If allowed, make the Anthropic request
+After response, call POST /api/ai/log with token counts from the response's usage field
+Return the response to the frontend
+Important: Your AIElementFactory.ts currently calls a Cloudflare Worker directly, bypassing your server entirely. Both factories must be redirected to go through /api/anthropic/v1/messages instead. This is how you gain enforcement control.
+
+Layer 2 — Entitlement Store
+New file: src/auth/EntitlementStore.ts
+
+This is the single source of truth for what a user can do. It reads from AuthStore and exposes pure computed properties. No gate should ever compute entitlements itself — all checks go through here.
+
+// Computed from AuthStore.plan + AuthStore.planStatus
+const EntitlementStore = {
+  // Projects
+  maxProjects: computed,          // 3 (free) | Infinity (paid)
+  canCreateProject: computed,     // false if at limit
+  // Export
+  canExportIFC: computed,         // false on free
+  canExportGLB: computed,         // false on free
+  // AI
+  aiActionsLimit: computed,       // 5 | 50 | 200 | 500 | Infinity
+  aiActionsUsed: computed,        // from live usage tracking
+  aiActionsRemaining: computed,   // limit - used + credits
+  canUseAI: computed,             // remaining > 0
+  canUseDesignAdvisor: computed,  // free gets limited version
+  canUseFloorPlanAI: computed,    // paid only
+  canUseElementCreator: computed, // paid only
+  canUseWardrobeFactory: computed,// paid only
+  // Geospatial
+  canUseCesium: computed,         // paid only
+  // Collaboration
+  canInviteMembers: computed,     // Studio+ only
+  maxSeats: computed,             // 1 | 1 | 8 | 25 | -1
+  currentSeats: computed,         // from workspace members
+  // Version History
+  maxVersions: computed,          // 0 (free) | 15 | Infinity | Infinity
+  // Trial
+  isOnTrial: computed,            // planStatus === 'trialing'
+  trialDaysLeft: computed,
+  // Upgrade
+  needsUpgrade(feature: Feature): boolean,
+  suggestedPlan(feature: Feature): Plan,
+}
+The Feature enum covers every gated capability:
+
+enum Feature {
+  IFC_EXPORT, GLB_EXPORT, AI_DESIGN_ADVISOR, AI_FLOOR_PLAN,
+  AI_ELEMENT_CREATOR, AI_WARDROBE, CESIUM_GIS, COLLABORATION,
+  VERSION_HISTORY, UNLIMITED_PROJECTS, ADDITIONAL_SEATS, API_ACCESS, SSO
+}
+Layer 3 — Enforcement Gates
+Gates intercept actions before execution and either allow them, block them with an upgrade prompt, or degrade gracefully.
+
+3.1 Command-Level Gate
+Modified file: src/commands/CommandManager.ts
+
+Before commandManager.execute(command) runs, add a pre-execution hook:
+
+CommandManager.execute(command):
+  1. Look up command.type in FeatureRequirements map
+  2. If command requires a feature, call EntitlementStore.needsUpgrade(feature)
+  3. If blocked: dispatch 'feature-blocked' event with { feature, command }
+     → Do NOT execute the command
+     → Do NOT add to history
+     → Return { blocked: true, reason: Feature.X }
+  4. If allowed: proceed with existing execute() logic
+New file: src/auth/FeatureRequirements.ts
+A map from command type to required feature:
+
+const FeatureRequirements: Record<CommandType, Feature | null> = {
+  ExportIFCCommand:        Feature.IFC_EXPORT,
+  ExportGLBCommand:        Feature.GLB_EXPORT,
+  InitCesiumCommand:       Feature.CESIUM_GIS,
+  SaveVersionCommand:      Feature.VERSION_HISTORY,
+  CreateProjectCommand:    Feature.UNLIMITED_PROJECTS, // checked against limit
+  // null means no restriction
+  CreateWallCommand:       null,
+  CreateSlabCommand:       null,
+  // ... all other commands
+}
+3.2 AI Request Gate
+Modified file: src/ai/AIElementFactory.ts and src/ai/FloorPlanAIFactory.ts
+
+Both factories currently call the Cloudflare Worker URL directly. Each must be changed to:
+
+Call EntitlementStore.canUseAI before making any request
+If false, throw AIQuotaExceededError (custom error class)
+If true, call /api/anthropic/v1/messages (your own server, not the Cloudflare worker)
+After response, increment EntitlementStore.aiActionsUsed optimistically in the local store
+Catch HTTP 402 from server and surface AIQuotaExceededError
+3.3 Collaboration Gate
+Modified file: src/ui/platform/PlatformShell.ts
+
+The save/versioning system lives here. Three modifications:
+
+Before creating a version snapshot, check EntitlementStore.maxVersions. If at limit, show the upgrade prompt instead of the save modal.
+Before auto-save, check the same limit silently (no prompt, just skip auto-save and fire a version-limit-reached event that shows a soft banner).
+When a user tries to share a project (if sharing is implemented), check EntitlementStore.canInviteMembers.
+3.4 Project Limit Gate
+Modified file: src/ui/platform/PlatformShell.ts (project creation flow)
+
+When the user creates a new project:
+
+Check EntitlementStore.canCreateProject
+If false (free user at 3 projects), intercept before calling POST /api/projects
+Dispatch feature-blocked event with Feature.UNLIMITED_PROJECTS
+3.5 Socket.io Collaboration Gate
+Modified file: server.js (Socket.io section)
+
+When a client emits join-project, verify server-side that:
+
+The user is authenticated (has valid JWT)
+The project belongs to a workspace the user is a member of
+The workspace plan allows collaboration (Studio+)
+If any check fails, emit collaboration-denied back to the socket and refuse socket.join().
+
+Layer 4 — UI Components
+4.1 Sign-In / Onboarding Flow
+New file: src/ui/auth/AuthModal.ts
+
+A BUI modal that appears when an unauthenticated user tries to perform any gated action. It contains:
+
+Clerk's hosted sign-in/sign-up embed (Clerk provides a drop-in component)
+Headline: "Create your free account to continue"
+Sub-text listing what free gives them
+No forced sign-in on first visit — only triggered by a gated action
+Modified file: src/engine/EngineBootstrap.ts
+
+After Three.js scene initialization, call AuthStore.initialize(). If the user is authenticated, hydrate normally. If not, the app loads fully but gates trigger AuthModal on first touch of a gated feature (not a login wall on entry).
+
+4.2 Upgrade Modal
+New file: src/ui/monetization/UpgradeModal.ts
+
+This is the central paywall component. It is triggered by the feature-blocked event dispatched by CommandManager or the AI gate.
+
+The modal must be context-aware — it shows different content based on which feature was blocked:
+
+feature-blocked { feature: Feature.IFC_EXPORT }
+→ "Export your model as IFC"
+   "IFC export is available on the Architect plan and above."
+   [Start 21-day trial]  [See pricing]
+feature-blocked { feature: Feature.AI_ELEMENT_CREATOR }
+→ "Generate elements from photos"
+   "You've used your 5 free AI actions this month."
+   [Buy 25 more for $9]  [Upgrade to Architect - $59/mo]
+feature-blocked { feature: Feature.COLLABORATION }
+→ "Invite your team"
+   "Real-time collaboration is available on Studio and above."
+   [Upgrade to Studio - $149/mo]
+The "Upgrade" buttons call POST /api/stripe/checkout with the target plan and redirect to Stripe Checkout. The "Buy credits" option calls the same endpoint with a credit pack product ID.
+
+4.3 Plan Badge & Usage Bar
+Modified file: src/ui/Layout.ts (top bar / header area)
+
+Add a persistent header element showing:
+
+Current plan name (colored badge: grey=Free, blue=Architect, purple=Studio, gold=Firm)
+If on trial: "Trial: 14 days left" with countdown
+AI usage: a small pill showing "23 / 50 AI actions" that expands on hover to a bar chart
+"Upgrade" button (only shown on Free and Architect plans)
+This header element reads from AuthStore and EntitlementStore reactively using the existing BUI template system.
+
+4.4 AI Usage Counter in AI Panel
+Modified file: src/ui/ai/AIPanel.ts and src/ui/ai/AICreatePanel.ts
+
+At the top of each AI panel, add:
+
+Current usage: "12 of 50 AI actions used"
+Progress bar (green → yellow → red as it fills)
+When at 80%: yellow warning "8 actions remaining this month"
+When at 100%: disable the AI input, show "Buy more actions" inline button
+For the free tier (5 actions): show the counter prominently from action 1 to create urgency.
+
+4.5 Tool Palette Gating
+Modified file: src/ui/Layout.ts (Tool Palette section)
+
+Certain buttons in the right-side tool palette must show visual gating:
+
+IFC Export button → if free tier, add a lock icon overlay and a tooltip "Available on Architect plan"
+GIS button (Cesium) → same lock treatment
+AI tools → if quota exhausted, grey out with "0 actions remaining"
+Do NOT hide gated buttons — always show them with a lock. Hidden features can't create desire. Locked features create aspiration.
+
+4.6 Workspace / Team Panel
+New file: src/ui/monetization/WorkspacePanel.ts
+
+A new panel accessible from the left sidebar (below the AI panel section) for Studio+ users. Contains:
+
+Workspace name (editable by owner)
+Member list with roles
+Invite by email (calls POST /api/workspaces/:id/invite)
+Seat usage: "4 of 8 seats used"
+For owners: remove member, change role
+Link to billing portal (Stripe Customer Portal URL from GET /api/stripe/portal)
+For Free/Architect users viewing this panel: show a teaser "Collaborate with your team" with an upgrade CTA instead of the member list.
+
+4.7 Pricing Page (In-App)
+New route in Vite: /pricing
+
+New file: src/pages/PricingPage.ts
+
+A full-page pricing grid showing all four paid tiers with feature comparison table. This page:
+
+Is accessible without authentication
+Shows the user's current plan highlighted (if signed in)
+Each "Get started" button triggers Stripe Checkout for that tier
+Includes an FAQ section addressing IFC compliance, team management, and AI limits
+This page is linked from the UpgradeModal, the header badge, and the main landing page.
+
+4.8 Trial Banner
+New file: src/ui/monetization/TrialBanner.ts
+
+A slim, non-intrusive banner at the very top of the app (above the tool palette, below the top bar) that appears when isOnTrial === true. It shows:
+
+Days 1–7: "Your full-access trial expires in X days. Enjoying it? Start your plan."
+Days 8–14: (same, yellow background)
+Days 15–21: "3 days left on your trial. Don't lose your work — add a payment method." (red background)
+Dismissible per session but returns on each new session during the last 7 days.
+
+Layer 5 — Multi-User Architecture
+This section covers how Studio/Firm collaboration actually works at the data and socket level.
+
+5.1 Project Ownership Model
+Modified table: projects (Supabase)
+
+Add columns:
+
+workspace_id   TEXT REFERENCES workspaces(id)  -- null for personal projects
+visibility     TEXT DEFAULT 'private'           -- 'private' | 'workspace' | 'shared-link'
+A project is either:
+
+Personal (workspace_id = null) — only the owner sees it
+Workspace (workspace_id = X) — all workspace members can access it based on their role
+Role permissions:
+
+viewer  → can open, view, cannot edit or export
+member  → can open, edit, save versions
+admin   → all member rights + invite/remove members
+owner   → all admin rights + delete workspace, manage billing
+5.2 Socket.io Multi-User State
+Modified file: server.js (Socket.io section)
+
+The existing join-project / command-executed / cursor-move structure is already correct. Additions needed:
+
+On join-project: server validates workspace membership, then emits room-state back with the list of currently-connected users in that project room
+On command-executed: server validates the emitting socket has at least member role before rebroadcasting (prevents rogue clients)
+Add user-presence event: periodically (every 30s) each client emits its cursor position and active tool; server aggregates and broadcasts to room
+New event: seat-limit-reached
+When a workspace's connected user count exceeds seat_limit, new connection attempts receive this event and are not admitted to the room.
+
+5.3 Conflict Resolution (Concurrent Edits)
+Your command-executed Socket.io event already broadcasts BIM changes to collaborators. The challenge is concurrent edits (two users modify the same wall simultaneously). The recommended approach for your architecture:
+
+Each CommandProposal from a remote user arrives as a command-executed socket event. The receiving client:
+
+Checks if it has any pending local commands that touch the same element ID
+If conflict: the server-side user (whoever emitted command-executed first) wins; the local client queues its command as a pending retry
+The CommandManager already has transactionality via snapshots — use this to safely apply remote commands without corrupting local state
+This is "last-write-wins at the element level," which is appropriate for BIM (unlike Google Docs where character-level merging matters).
+
+Layer 6 — Payment Integration (Stripe)
+6.1 Product and Price Setup in Stripe
+Create the following products in Stripe Dashboard (or via Stripe CLI):
+
+Product: PRYZM Architect
+  Price: $59/month (recurring, monthly)
+  Price: $590/year (recurring, yearly)
+Product: PRYZM Studio
+  Price: $149/month (recurring, monthly)
+  Price: $1,490/year (recurring, yearly)
+Product: PRYZM Firm
+  Price: $349/month (recurring, monthly)
+  Price: $3,490/year (recurring, yearly)
+Product: AI Credit Pack - 25 actions
+  Price: $9 (one-time)
+Product: AI Credit Pack - 100 actions
+  Price: $29 (one-time)
+Product: AI Credit Pack - 500 actions
+  Price: $99 (one-time)
+Store all Stripe Price IDs as environment variables (STRIPE_PRICE_ARCHITECT_MONTHLY, etc.) so they can be referenced in POST /api/stripe/checkout.
+
+6.2 Checkout Flow
+User clicks "Upgrade to Architect"
+  → Frontend calls POST /api/stripe/checkout { plan: 'architect', interval: 'monthly' }
+  → Server creates Stripe Checkout Session:
+      customer: stripe_customer_id (from users table, or create new)
+      line_items: [{ price: STRIPE_PRICE_ARCHITECT_MONTHLY, quantity: 1 }]
+      success_url: https://app.pryzm.io/app?checkout=success
+      cancel_url: https://app.pryzm.io/pricing
+      metadata: { userId: req.auth.userId, plan: 'architect' }
+  → Server returns { checkoutUrl }
+  → Frontend: window.location.href = checkoutUrl
+  → Stripe handles payment
+  → Stripe fires webhook to POST /api/stripe/webhook
+  → Webhook handler updates users.plan = 'architect', users.plan_status = 'active'
+  → User returns to app, AuthStore re-fetches /api/me, plan updated
+6.3 Webhook Handler (Critical Path)
+The webhook is the only reliable way to know a payment succeeded. It must handle:
+
+checkout.session.completed → set plan active, create workspace if Studio/Firm
+customer.subscription.updated → sync plan changes (upgrades, downgrades)
+customer.subscription.deleted → downgrade to free, mark workspaces as suspended
+invoice.payment_failed → set plan_status = 'past_due', email user (via Clerk or SendGrid)
+invoice.payment_succeeded → confirm active, reset plan_status if was past_due
+Always verify the Stripe webhook signature using your STRIPE_WEBHOOK_SECRET before processing.
+
+Implementation Sequence
+Build in this strict order — each step is independently testable before the next begins:
+
+Step 1 — Database & Auth (Week 1)
+Create Supabase tables. Activate Clerk (add CLERK_SECRET_KEY env var, add frontend SDK). Test that GET /api/me returns correct user data.
+
+Step 2 — Entitlement Store (Week 1–2)
+Build EntitlementStore.ts against mock data first. Write unit tests for every computed property. Confirm it reads from AuthStore correctly.
+
+Step 3 — AI Quota Enforcement (Week 2)
+Redirect both AI factories to your server proxy. Add quota checking and logging to the server. Test with a free account: confirm the 6th AI action returns 402.
+
+Step 4 — Command Gate (Week 2–3)
+Add the pre-execution hook to CommandManager. Test IFC export blocked on free tier. Test it passes on Architect tier.
+
+Step 5 — Stripe Integration (Week 3)
+Wire up checkout flow and webhook. Test with Stripe test mode. Confirm plan upgrades correctly update the database and re-hydrate AuthStore.
+
+Step 6 — UI Components (Week 3–4)
+Build UpgradeModal, trial banner, plan badge, usage counter. Wire to feature-blocked events. Test every gate has a corresponding upgrade path.
+
+Step 7 — Workspace / Collaboration (Week 4–5)
+Build workspace creation, member invite, role enforcement. Add server-side socket validation. Test concurrent edits between two browser sessions.
+
+Step 8 — Pricing Page (Week 5)
+Build the in-app pricing page. Link from all CTAs. Test the complete user journey: Free → discover gate → see pricing → checkout → plan active → gate removed.
+
+Environment Variables Required
+# Already present
+ANTHROPIC_API_KEY
+# Clerk (Authentication)
+CLERK_SECRET_KEY
+VITE_CLERK_PUBLISHABLE_KEY
+# Supabase (already wired, needs schema migration)
+SUPABASE_URL
+SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY    ← new, for server-side admin operations
+# Stripe
+STRIPE_SECRET_KEY
+STRIPE_WEBHOOK_SECRET
+STRIPE_PRICE_ARCHITECT_MONTHLY
+STRIPE_PRICE_ARCHITECT_YEARLY
+STRIPE_PRICE_STUDIO_MONTHLY
+STRIPE_PRICE_STUDIO_YEARLY
+STRIPE_PRICE_FIRM_MONTHLY
+STRIPE_PRICE_FIRM_YEARLY
+STRIPE_PRICE_CREDITS_25
+STRIPE_PRICE_CREDITS_100
+STRIPE_PRICE_CREDITS_500
+File Change Summary
+Action	File	What Changes
+Create	src/auth/AuthService.ts	Clerk SDK wrapper
+Create	src/auth/AuthStore.ts	Reactive user/plan state
+Create	src/auth/EntitlementStore.ts	All computed permissions
+Create	src/auth/FeatureRequirements.ts	Command → Feature map
+Create	src/ui/auth/AuthModal.ts	Sign-in modal
+Create	src/ui/monetization/UpgradeModal.ts	Contextual paywall modal
+Create	src/ui/monetization/TrialBanner.ts	Trial countdown banner
+Create	src/ui/monetization/WorkspacePanel.ts	Team management UI
+Create	src/pages/PricingPage.ts	Full pricing page
+Modify	src/commands/CommandManager.ts	Add pre-execution feature gate
+Modify	src/ai/AIElementFactory.ts	Redirect to server proxy, add quota check
+Modify	src/ai/FloorPlanAIFactory.ts	Redirect to server proxy, add quota check
+Modify	src/ui/ai/AIPanel.ts	Add usage counter and quota warnings
+Modify	src/ui/ai/AICreatePanel.ts	Add usage counter, block when exhausted
+Modify	src/ui/Layout.ts	Add plan badge, lock icons on gated tools
+Modify	src/ui/platform/PlatformShell.ts	Add version limit and project limit gates
+Modify	src/engine/EngineBootstrap.ts	Initialize AuthStore on boot
+Modify	server.js	Add 8 new routes, modify Anthropic proxy, add Socket.io auth
+Migrate	Supabase	5 new tables
+This is a complete, self-contained system. Every piece has a clear home in your existing architecture, and no existing feature needs to be rewritten — only extended or intercepted. The entire implementation can be done without ever touching your BIM engine, Three.js scene, or command logic beyond the single pre-execution hook in CommandManager.
+

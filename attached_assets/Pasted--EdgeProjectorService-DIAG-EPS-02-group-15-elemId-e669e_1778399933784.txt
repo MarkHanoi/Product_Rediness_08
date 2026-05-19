@@ -1,0 +1,98 @@
+[EdgeProjectorService] §DIAG-EPS-02 group#15 elemId=e669e1b4-cb80-466e-b2c0-5240a81ce175 elemType=Door meshesProcessed=7 totalEdgeVerts=168 layers=1 traverseMs=0.3ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-DOOR geoCount=7 mergedVerts=168 mergeMs=0.0ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#16 elemId=9417069b-d74e-498b-a7a4-ba9d348ff3c1 elemType=Door meshesProcessed=7 totalEdgeVerts=168 layers=1 traverseMs=0.3ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-DOOR geoCount=7 mergedVerts=168 mergeMs=0.0ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#17 elemId=433343c7-99ee-4f33-83da-7b9e5166d778 elemType=Door meshesProcessed=7 totalEdgeVerts=168 layers=1 traverseMs=0.4ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-DOOR geoCount=7 mergedVerts=168 mergeMs=0.0ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#18 elemId=c266606c-4a6a-4566-9f35-55202cd20368 elemType=Door meshesProcessed=7 totalEdgeVerts=168 layers=1 traverseMs=0.5ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-DOOR geoCount=7 mergedVerts=168 mergeMs=0.0ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#19 elemId=b06e7b7a-87a6-45d3-a56e-8ed2f6db115f elemType=Door meshesProcessed=7 totalEdgeVerts=168 layers=1 traverseMs=0.6ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-DOOR geoCount=7 mergedVerts=168 mergeMs=0.1ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#20 elemId=2e11fa6d-f476-4af7-9b39-9a4d049c2385 elemType=Window meshesProcessed=6 totalEdgeVerts=144 layers=1 traverseMs=0.4ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-GLAZ geoCount=6 mergedVerts=144 mergeMs=0.1ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#21 elemId=591b3091-93a6-43da-ab89-f7c28428bbf0 elemType=Window meshesProcessed=6 totalEdgeVerts=144 layers=1 traverseMs=0.2ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-GLAZ geoCount=6 mergedVerts=144 mergeMs=0.0ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#22 elemId=da33b5c7-f67b-4301-9bbf-1b867a6e17c1 elemType=Window meshesProcessed=6 totalEdgeVerts=144 layers=1 traverseMs=0.3ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-GLAZ geoCount=6 mergedVerts=144 mergeMs=0.0ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#23 elemId=690624d3-3327-4964-b500-f1395e1abe2a elemType=Stair meshesProcessed=2 totalEdgeVerts=1244 layers=1 traverseMs=1.9ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-STRS geoCount=2 mergedVerts=1244 mergeMs=0.1ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#24 elemId=60c0684b-385b-4f1e-a893-a1848c0debdc elemType=stair-railing meshesProcessed=41 totalEdgeVerts=984 layers=1 traverseMs=1.2ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-STRS geoCount=41 mergedVerts=984 mergeMs=0.0ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#25 elemId=44d9bec9-49c4-406a-bd2a-d111c996eb73 elemType=stair-railing meshesProcessed=41 totalEdgeVerts=984 layers=1 traverseMs=1.6ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-STRS geoCount=41 mergedVerts=984 mergeMs=0.2ms
+injected.js:37 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 26 group(s) in 7 chunk(s), 171 edge geometries across 26 ISO layer(s) (per-element UUID tagging active)
+injected.js:37 [DoorPlanSymbolBuilder] Injected 5 door swing arc(s) into view vd-sys-plan-l0 (level L0)
+injected.js:37 [WindowPlanSymbolBuilder] Injected 3 window symbol(s) into view vd-sys-plan-l0 (level L0)
+injected.js:37 [StairSymbolTechnicalDrawingBridge] Injected 2 line(s) + 1 arrow(s) into view vd-sys-plan-l0 (level L0)
+injected.js:37 [HiddenLineRemoval] v1 pass — 8 occluder(s), 1116/2396 segments removed
+injected.js:37 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=74 (OBC-IFC=0, native=26, ifc-scene=0)
+injected.js:37 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=21/14 layers
+injected.js:37 [ViewController] DOC-1.5a: PlanViewManager is active — TechnicalDrawing NOT mounted to 3D scene (Canvas2D only).
+injected.js:37 [RoomBoundaryBuilder] Compliance overlay: 3 error, 0 warning room(s) tinted
+2injected.js:37 [ProjectSerializer] Snapshot created: 18 elements, 2 levels, 12 walls, 1 slabs, 0 furniture
+injected.js:37 [PlatformSaveController] Version saved: "Auto-save" (18 elements, id: proj-1778399861806-br9mg)
+injected.js:37 [FPS] 28fps
+injected.js:37 [LONGTASK] duration=237.0ms start=371546.3ms [type=iframe src=https://2c0467dd-5be5-4184-8677-9d06fed24131-00-3u446s3y0zpo4.spock.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [FPS] 36fps
+injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [FPS] 30fps
+injected.js:37 [GPU Monitor] geometries:248 textures:11 | drawCalls:1 tris:1
+injected.js:37 [GPU Monitor] ⚠ Geometry count grew 50.3% (165 → 248) in 10s — possible leak. Check WallFragmentBuilder.removeWallFragments() and CurtainWallBuilder._disposeChildren().
+(anonymous) @ injected.js:37Understand this warning
+4injected.js:37 [GPU Monitor] geometries:248 textures:11 | drawCalls:1 tris:1
+injected.js:37 [FPS] 29fps
+0j-259l7suvg3.js:72 Missing field 'thinkingEnabled' while writing result {
+  "__typename": "AgentSettings",
+  "modelProfile": "MODEL_PROFILE_STANDARD",
+  "autonomyLevel": "low",
+  "chatMode": "general",
+  "enableAutomatedTesting": false,
+  "enableAutoCheckpointing": true,
+  "autoApprovePlan": false
+}
+(anonymous) @ 0j-259l7suvg3.js:72Understand this error
+0j-259l7suvg3.js:72 Missing field 'webSearchEnabled' while writing result {
+  "__typename": "AgentSettings",
+  "modelProfile": "MODEL_PROFILE_STANDARD",
+  "autonomyLevel": "low",
+  "chatMode": "general",
+  "enableAutomatedTesting": false,
+  "enableAutoCheckpointing": true,
+  "autoApprovePlan": false
+}
+(anonymous) @ 0j-259l7suvg3.js:72Understand this error
+0j-259l7suvg3.js:72 Missing field 'imageGenerationEnabled' while writing result {
+  "__typename": "AgentSettings",
+  "modelProfile": "MODEL_PROFILE_STANDARD",
+  "autonomyLevel": "low",
+  "chatMode": "general",
+  "enableAutomatedTesting": false,
+  "enableAutoCheckpointing": true,
+  "autoApprovePlan": false
+}
+(anonymous) @ 0j-259l7suvg3.js:72Understand this error
+0j-259l7suvg3.js:72 Missing field 'maxAutonomyEnabled' while writing result {
+  "__typename": "AgentSettings",
+  "modelProfile": "MODEL_PROFILE_STANDARD",
+  "autonomyLevel": "low",
+  "chatMode": "general",
+  "enableAutomatedTesting": false,
+  "enableAutoCheckpointing": true,
+  "autoApprovePlan": false
+}
+(anonymous) @ 0j-259l7suvg3.js:72Understand this error
+stallwart.build.js:1 stallwart: failed ping 1
+injected.js:37 [GPU Monitor] geometries:248 textures:11 | drawCalls:193 tris:2870
+injected.js:37 [LONGTASK] duration=118.0ms start=433477.2ms [type=iframe src=https://2c0467dd-5be5-4184-8677-9d06fed24131-00-3u446s3y0zpo4.spock.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=157.0ms start=433595.8ms [type=iframe src=https://2c0467dd-5be5-4184-8677-9d06fed24131-00-3u446s3y0zpo4.spock.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter

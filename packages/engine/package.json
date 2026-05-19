@@ -1,0 +1,32 @@
+{
+  "name": "@pryzm/engine",
+  "version": "0.1.0",
+  "description": "PRYZM 3 — Engine public API contracts (Sprint F-2.1). Type-only layer defining the BIM engine's public interface surface. Concrete implementations live in apps/editor/src/engine/ until Sprint F-2.2–F-2.5.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@pryzm/runtime-composer": "workspace:*",
+    "@pryzm/editor-ui": "workspace:*",
+    "@pryzm/views": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  },
+  "pryzm": {
+    "layer": "L5",
+    "waveCreated": 21,
+    "sprintCreated": "F-2.1",
+    "note": "Sprint F-2.1 (2026-05-15): Engine public API surface audit and interface definitions. Sprint F-2.5 (2026-05-15): Added @pryzm/views dep — ViewType, ViewMode, IViewController, IViewSwitchListener migrated to @pryzm/views; engine re-exports for backward compat. Roadmap: 51-POST-EXTRACTION-ROADMAP.md §Phase F-2.",
+    "forbiddenDependencies": [],
+    "surfaceAuditDoc": "SURFACE-AUDIT.md"
+  }
+}

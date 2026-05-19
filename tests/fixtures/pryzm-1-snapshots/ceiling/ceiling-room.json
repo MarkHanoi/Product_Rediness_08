@@ -1,0 +1,23 @@
+{
+  "id": "ceiling_01H8XK3J7M9N2P4QR5STVW6XYZ",
+  "type": "ceiling",
+  "parentId": "level_ground",
+  "childrenIds": [],
+  "metadata": {
+    "createdAt": 1700000800000,
+    "modifiedAt": 1700000800000,
+    "createdBy": "fixture",
+    "version": 1
+  },
+  "levelId": "level_ground",
+  "boundary": [
+    { "x": 0, "y": 0, "z": 0 },
+    { "x": 4, "y": 0, "z": 0 },
+    { "x": 4, "y": 0, "z": 5 },
+    { "x": 0, "y": 0, "z": 5 }
+  ],
+  "ceilingHeight": 2.7,
+  "thickness": 0.05,
+  "materialId": "gypsum-board",
+  "materialColor": "#f5f5f5"
+}

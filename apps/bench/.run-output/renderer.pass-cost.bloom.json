@@ -1,0 +1,10 @@
+{
+  "name": "renderer.pass-cost.bloom",
+  "samples": 200,
+  "p50": 1.403,
+  "p95": 1.407,
+  "p99": 1.413,
+  "budgetMs": 2,
+  "warnMs": 1.6,
+  "recordedAt": "2026-04-27T22:47:50.195Z"
+}

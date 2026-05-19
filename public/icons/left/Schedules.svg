@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Outer rounded rectangle -->
+  <rect x="12" y="12" width="76" height="76" rx="10" stroke="#1C1B3C" stroke-width="5"/>
+  <!-- Header row fill -->
+  <path d="M17 12 Q12 12 12 17 L12 34 L88 34 L88 17 Q88 12 83 12 Z"
+        fill="#E5E7EB"/>
+  <!-- Header bottom rule (bold) -->
+  <line x1="12" y1="34" x2="88" y2="34" stroke="#4B5563" stroke-width="5"/>
+  <!-- Vertical divider -->
+  <line x1="50" y1="34" x2="50" y2="88" stroke="#9CA3AF" stroke-width="3"/>
+  <!-- Horizontal midline -->
+  <line x1="12" y1="61" x2="88" y2="61" stroke="#9CA3AF" stroke-width="2.5"/>
+</svg>

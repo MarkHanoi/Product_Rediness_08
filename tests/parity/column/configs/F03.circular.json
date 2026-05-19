@@ -1,0 +1,28 @@
+{
+  "id": "F03.circular",
+  "description": "0.5 m diameter circular column, 4.0 m tall",
+  "column": {
+    "id": "column:01HZS000000000000COLF0300",
+    "type": "column",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "origin": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "shape": "circular",
+    "width": 0.5,
+    "depth": 0.5,
+    "height": 4,
+    "rotation": 0,
+    "baseOffset": 0
+  },
+  "worldY": 0
+}

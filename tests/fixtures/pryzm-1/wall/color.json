@@ -1,0 +1,51 @@
+{
+  "meta": {
+    "source": "src/commands/walls/UpdateWallColorCommand.ts",
+    "capturedAt": "2026-04-26T18:30:00Z",
+    "description": "Set materialColor and clear materialId in one atomic call — exercises SetWallColorHandler's 'either-but-not-neither' validation.",
+    "deviationsFromPryzm1": [
+      "materialId: null is the canonical 'unbind' sentinel (PRYZM 1 used the same convention)",
+      "no MaterialPool ref-count update — that is owned by the L5 committer when it lands in S09 D7"
+    ]
+  },
+  "setup": {
+    "walls": [
+      {
+        "id": "wall_01HYY00000000000000000CL01",
+        "type": "wall",
+        "parentId": null,
+        "childrenIds": [],
+        "metadata": {
+          "createdAt": "2026-04-26T00:00:00.000Z",
+          "modifiedAt": "2026-04-26T00:00:00.000Z",
+          "createdBy": "fixture",
+          "modifiedBy": "fixture"
+        },
+        "levelId": "lvl_test",
+        "baseLine": [
+          { "x": 0, "y": 0, "z": 0 },
+          { "x": 3, "y": 0, "z": 0 }
+        ],
+        "height": 2.5,
+        "thickness": 0.1,
+        "baseOffset": 0,
+        "openings": [],
+        "materialColor": "#aabbcc",
+        "materialId": "mat-old"
+      }
+    ]
+  },
+  "command": {
+    "type": "wall.setColor",
+    "payload": {
+      "id": "wall_01HYY00000000000000000CL01",
+      "materialColor": "#112233",
+      "materialId": null
+    }
+  },
+  "expect": {
+    "valid": true,
+    "wallAfter": { "materialColor": "#112233", "materialIdAbsent": true },
+    "undoRestoresOriginalColorAndMaterialId": true
+  }
+}

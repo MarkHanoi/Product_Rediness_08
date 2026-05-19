@@ -1,0 +1,43 @@
+{
+  "id": "mansard-square-tall-pitch",
+  "description": "mansard 6×6 square, 35° pitch",
+  "roof": {
+    "id": "roof:mans-sq-tall",
+    "type": "roof",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "boundary": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 6,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 6,
+        "y": 0,
+        "z": 6
+      },
+      {
+        "x": 0,
+        "y": 0,
+        "z": 6
+      }
+    ],
+    "shape": "mansard",
+    "pitch": 0.6108652381980153,
+    "overhang": 0,
+    "thickness": 0.2
+  },
+  "worldY": 0
+}

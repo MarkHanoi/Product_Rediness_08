@@ -1,0 +1,353 @@
+/**
+ * ServerSyncQueue — Reliable server synchronisation layer (Phase 1 + Phase 2).
+ *
+ * Replaces the fire-and-forget `trySaveToServer()` in PlatformShell with a
+ * queue-based approach that:
+ *   Phase 1:
+ *     • Retries failed POSTs (basic retry, 2 attempts at 5-second intervals)
+ *     • Sends X-Idempotency-Key so the server can deduplicate retries
+ *   Phase 2:
+ *     • Exponential backoff: 5 s, 15 s, 45 s, 2 min, 5 min
+ *     • Suspends the queue while the browser is offline; resumes on reconnect
+ *     • Persists the queue to localStorage so it survives page refresh (emergency
+ *       saves queued during 'beforeunload' are retried next session)
+ *     • Updates VersionRecord.syncStatus ('local-only' → 'sync-pending' → 'synced')
+ *       and notifies PlatformShell so the version history UI can show sync badges
+ *
+ * Contract compliance:
+ *   §07 §1.4 — All server calls go through Express authMiddleware + rate limiter.
+ *              The queue POSTs to /api/projects/:id/versions (existing route).
+ *   §06 §7   — localStorage writes: queue persistence uses its own dedicated key
+ *              ('pryzm-sync-queue'), distinct from bim-project-* and bim-projects-index.
+ *   §06 §1   — No BIM engine imports. Operates only on serialised VersionRecord data.
+ */
+
+import { VersionRecord } from './PlatformShellTypes';
+import { apiFetch } from '@pryzm/core-app-model';
+
+// ── Backoff schedule (Phase 2) ────────────────────────────────────────────────
+
+const BACKOFF_SCHEDULE_MS = [5_000, 15_000, 45_000, 120_000, 300_000] as const;
+
+function backoffMs(attemptIndex: number): number {
+    const idx = Math.min(attemptIndex, BACKOFF_SCHEDULE_MS.length - 1);
+    return BACKOFF_SCHEDULE_MS[idx];
+}
+
+// ── Queue persistence key ─────────────────────────────────────────────────────
+
+const QUEUE_STORAGE_KEY = 'pryzm-sync-queue';
+const MAX_QUEUE_ITEMS = 50;
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface QueueItem {
+    version: VersionRecord;
+    projectId: string;
+    attemptCount: number;
+    nextAttemptAt: number;
+}
+
+export interface ServerSyncQueueOptions {
+    /**
+     * Called when a version's sync status changes.
+     * PlatformShell uses this to update VersionRecord.syncStatus in localStorage
+     * and refresh the version history UI.
+     */
+    onSyncStatusChange?: (
+        versionId: string,
+        projectId: string,
+        status: 'synced' | 'sync-pending' | 'local-only'
+    ) => void;
+
+    /**
+     * Called when the server permanently rejects a save (HTTP 4xx).
+     * Provides the HTTP status and parsed response body so the UI can
+     * show an actionable warning (e.g. "Sign in to enable server saves").
+     */
+    onSaveRejected?: (status: number, body: Record<string, unknown>) => void;
+}
+
+// ── ServerSyncQueue ───────────────────────────────────────────────────────────
+
+/**
+ * @deprecated TODO(C.11.03) — Phase C exit gate.  Replaced by the
+ *   `ProjectListController` + `attachEventLog` queue inside the
+ *   persistence client (`@pryzm/persistence-client`) which the runtime
+ *   exposes as `runtime.persistence.client.enqueue(...)` semantics
+ *   (status changes flow through `runtime.events.on('persistence.status', ...)`).
+ *   Deletion blocked on `PlatformShell.ts` migrating its single
+ *   instantiation (line 689) to `runtime.persistence.*`.
+ *
+ *   ⚠️ Migration NOTE: the sticky `_planRejectsSync` latch (lines 92, 145–175,
+ *   272–274 — added 2026-04-29 to suppress retry storms when the user's plan
+ *   gates server-side version writes) MUST be ported into the new client's
+ *   429/402 handling path before deletion can land.
+ *
+ *   See `docs/03_PRYZM3/00_NEW_ARCHITECTURE/phases/audits/PHASES-A-F-RECONCILIATION-2026-04-29/03-phase-C-audit-and-plan.md`
+ *   §"C-cleanup.1".
+ */
+export class ServerSyncQueue {
+    private queue: QueueItem[] = [];
+    private isOnline: boolean = navigator.onLine;
+    private isFlushing: boolean = false;
+    private flushTimer: ReturnType<typeof setTimeout> | null = null;
+
+    /**
+     * PERF-FIX (2026-04-29) — sticky "plan rejects versions" latch.
+     * Once the server has returned a plan-gating 4xx (e.g. free plan, no
+     * version history), every subsequent enqueue short-circuits to a
+     * `local-only` status update without serialising, POSTing, or holding
+     * a queue slot.  Cleared only by a full page reload (a plan upgrade
+     * would also trigger a reload via the auth flow).
+     *
+     * Before this latch every wall/slab click on free-plan accounts paid
+     * ~150 ms of LONGTASK to build a snapshot, capture a thumbnail and
+     * round-trip a POST that the server immediately 403'd — the dominant
+     * cause of the per-wall jank reported in the 2026-04-29 logs.
+     */
+    private _planRejectsSync: boolean = false;
+    private _planRejectsReason: { status: number; body: Record<string, unknown> } | null = null;
+
+    private readonly onSyncStatusChange: NonNullable<ServerSyncQueueOptions['onSyncStatusChange']>;
+    private readonly onSaveRejected: NonNullable<ServerSyncQueueOptions['onSaveRejected']>;
+
+    private readonly onlineHandler: () => void;
+    private readonly offlineHandler: () => void;
+
+    /** Phase B (S73-WIRE) — runtime threaded by parent. */
+    public readonly runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null;
+
+    constructor(options: ServerSyncQueueOptions = {}, runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null = null) {
+        this.runtime = runtime;
+        this.onSyncStatusChange = options.onSyncStatusChange ?? (() => { });
+        this.onSaveRejected = options.onSaveRejected ?? (() => { });
+
+        this.onlineHandler = () => {
+            this.isOnline = true;
+            console.log('[ServerSyncQueue] Online — resuming sync queue');
+            this.scheduleFlush(1000);
+        };
+        this.offlineHandler = () => {
+            this.isOnline = false;
+            this.cancelFlush();
+            console.log('[ServerSyncQueue] Offline — sync queue suspended');
+        };
+
+        window.addEventListener('online', this.onlineHandler);
+        window.addEventListener('offline', this.offlineHandler);
+
+        this.loadPersistedQueue();
+
+        if (this.queue.length > 0) {
+            console.log(`[ServerSyncQueue] Resuming ${this.queue.length} queued item(s) from previous session`);
+            this.scheduleFlush(3000);
+        }
+    }
+
+    // ── Public API ────────────────────────────────────────────────────────────
+
+    /**
+     * Enqueue a version for server synchronisation.
+     * Call this immediately after writing to localStorage so the server sync
+     * happens asynchronously in the background.
+     *
+     * PERF-FIX (2026-04-29) — when `_planRejectsSync` is latched, skip the
+     * network round-trip entirely and immediately mark the version as
+     * `local-only` so the UI badge is correct.  PlatformShell also reads
+     * `isPlanRejected()` to skip the (heavy) thumbnail capture+upload on
+     * the same path.
+     */
+    enqueue(version: VersionRecord, projectId: string): void {
+        if (this._planRejectsSync) {
+            this.onSyncStatusChange(version.id, projectId, 'local-only');
+            return;
+        }
+        const existing = this.queue.findIndex(q => q.version.id === version.id);
+        if (existing >= 0) {
+            this.queue[existing] = { version, projectId, attemptCount: 0, nextAttemptAt: Date.now() };
+        } else {
+            if (this.queue.length >= MAX_QUEUE_ITEMS) {
+                console.warn('[ServerSyncQueue] Queue full — dropping oldest item');
+                this.queue.shift();
+            }
+            this.queue.push({ version, projectId, attemptCount: 0, nextAttemptAt: Date.now() });
+        }
+        this.onSyncStatusChange(version.id, projectId, 'sync-pending');
+        this.persistQueue();
+        this.scheduleFlush(500);
+    }
+
+    /**
+     * True once the server has returned a plan-gating 4xx response.
+     * PlatformShell uses this to skip the per-save thumbnail capture and
+     * upload, and SaveOrchestrator could use it to widen its debounce.
+     */
+    isPlanRejected(): boolean {
+        return this._planRejectsSync;
+    }
+
+    /** The 4xx response body that latched the rejection, for diagnostics. */
+    getPlanRejectionReason(): { status: number; body: Record<string, unknown> } | null {
+        return this._planRejectsReason;
+    }
+
+    /**
+     * Release all resources. Call from PlatformShell.dispose().
+     */
+    dispose(): void {
+        this.cancelFlush();
+        window.removeEventListener('online', this.onlineHandler);
+        window.removeEventListener('offline', this.offlineHandler);
+    }
+
+    // ── Flush logic ───────────────────────────────────────────────────────────
+
+    private scheduleFlush(delayMs: number): void {
+        this.cancelFlush();
+        this.flushTimer = setTimeout(() => this.flush(), delayMs);
+    }
+
+    private cancelFlush(): void {
+        if (this.flushTimer !== null) {
+            clearTimeout(this.flushTimer);
+            this.flushTimer = null;
+        }
+    }
+
+    private async flush(): Promise<void> {
+        if (this.isFlushing || !this.isOnline || this.queue.length === 0) return;
+
+        this.isFlushing = true;
+        const now = Date.now();
+
+        const ready = this.queue.filter(item => item.nextAttemptAt <= now);
+        let rescheduleMs: number | null = null;
+
+        for (const item of ready) {
+            const success = await this.attemptSync(item);
+            if (!success) {
+                const delay = backoffMs(item.attemptCount - 1);
+                item.nextAttemptAt = Date.now() + delay;
+                if (rescheduleMs === null || delay < rescheduleMs) {
+                    rescheduleMs = delay;
+                }
+            }
+        }
+
+        this.persistQueue();
+        this.isFlushing = false;
+
+        if (this.queue.length > 0) {
+            const minDelay = this.queue.reduce((min, item) => {
+                const wait = Math.max(0, item.nextAttemptAt - Date.now());
+                return Math.min(min, wait);
+            }, rescheduleMs ?? 60_000);
+            this.scheduleFlush(minDelay + 200);
+        }
+    }
+
+    private async attemptSync(item: QueueItem): Promise<boolean> {
+        const { version, projectId } = item;
+        try {
+            const res = await apiFetch(`/api/projects/${projectId}/versions`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Idempotency-Key': version.id,
+                },
+                body: JSON.stringify({
+                    label: version.label,
+                    snapshot: version.snapshot,
+                    elementCount: version.elementCount,
+                    versionId: version.id,
+                }),
+            });
+
+            if (res.status === 201 || res.status === 200) {
+                console.log(`[ServerSyncQueue] Synced version "${version.label}" (${version.id})`);
+                this.queue = this.queue.filter(q => q.version.id !== version.id);
+                this.onSyncStatusChange(version.id, projectId, 'synced');
+                return true;
+            }
+
+            if (res.status >= 400 && res.status < 500) {
+                const body = await res.json().catch(() => ({})) as Record<string, unknown>;
+                console.warn(`[ServerSyncQueue] Version "${version.label}" rejected by server (${res.status}) — dropping:`, body);
+                this.queue = this.queue.filter(q => q.version.id !== version.id);
+                this.onSyncStatusChange(version.id, projectId, 'local-only');
+
+                // PERF-FIX (2026-04-29) — latch the "plan rejects sync" flag
+                // for plan-gating responses (401/403 with a `plan` field, or
+                // an explicit `upgrade` field).  Future enqueue() calls then
+                // short-circuit without hitting the network.  Other 4xx (bad
+                // request, conflict, validation) are NOT latched — they only
+                // drop the offending version.
+                const looksLikePlanGate =
+                    (res.status === 401 || res.status === 403) &&
+                    (typeof body.plan === 'string' || typeof body.upgrade === 'string');
+                if (looksLikePlanGate && !this._planRejectsSync) {
+                    this._planRejectsSync = true;
+                    this._planRejectsReason = { status: res.status, body };
+                    // Drop everything that was queued before the latch — the
+                    // server will reject all of them with the same 4xx.
+                    if (this.queue.length > 0) {
+                        for (const q of this.queue) {
+                            this.onSyncStatusChange(q.version.id, q.projectId, 'local-only');
+                        }
+                        this.queue = [];
+                        this.persistQueue();
+                    }
+                    console.warn('[ServerSyncQueue] Plan-gating latch engaged — future versions will stay local-only this session.');
+                }
+
+                this.onSaveRejected(res.status, body);
+                return true;
+            }
+
+            item.attemptCount++;
+            console.warn(`[ServerSyncQueue] Attempt ${item.attemptCount} failed for "${version.label}" — status ${res.status}`);
+            return false;
+
+        } catch (err) {
+            item.attemptCount++;
+            console.warn(`[ServerSyncQueue] Attempt ${item.attemptCount} failed for "${version.label}":`, err);
+            return false;
+        }
+    }
+
+    // ── Queue persistence ─────────────────────────────────────────────────────
+
+    private persistQueue(): void {
+        if (this.queue.length === 0) {
+            try { localStorage.removeItem(QUEUE_STORAGE_KEY); } catch { }
+            return;
+        }
+        try {
+            const serialisable = this.queue.map(item => ({
+                version: item.version,
+                projectId: item.projectId,
+                attemptCount: item.attemptCount,
+                nextAttemptAt: item.nextAttemptAt,
+            }));
+            localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(serialisable));
+        } catch {
+            console.warn('[ServerSyncQueue] Could not persist queue to localStorage');
+        }
+    }
+
+    private loadPersistedQueue(): void {
+        try {
+            const raw = localStorage.getItem(QUEUE_STORAGE_KEY);
+            if (!raw) return;
+            const items = JSON.parse(raw) as QueueItem[];
+            if (!Array.isArray(items)) return;
+            this.queue = items.slice(0, MAX_QUEUE_ITEMS);
+            this.queue.forEach(item => {
+                item.nextAttemptAt = Date.now() + 5000;
+            });
+        } catch {
+            this.queue = [];
+        }
+    }
+}

@@ -1,0 +1,27 @@
+{
+  "id": "project_01H8XK3J7M9N2P4QR5STVW6XYZ",
+  "type": "project",
+  "parentId": null,
+  "childrenIds": [],
+  "metadata": {
+    "createdAt": 1700000000000,
+    "modifiedAt": 1700000000000,
+    "createdBy": "fixture",
+    "version": 1
+  },
+  "name": "Demo Project",
+  "number": "DEMO-001",
+  "units": "metric",
+  "location": {
+    "latitude": 51.5074,
+    "longitude": -0.1278,
+    "elevationAsl": 11,
+    "trueNorth": 0,
+    "basePoint": { "x": 0, "y": 0, "z": 0 }
+  },
+  "levels": [
+    { "id": "level_ground", "name": "Ground", "elevation": 0, "height": 3 },
+    { "id": "level_1", "name": "Level 1", "elevation": 3, "height": 3 }
+  ],
+  "schemaVersion": 1
+}

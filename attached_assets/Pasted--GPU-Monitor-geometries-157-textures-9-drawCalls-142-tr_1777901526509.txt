@@ -1,0 +1,88 @@
+[GPU Monitor] geometries:157 textures:9 | drawCalls:142 tris:2054
+injected.js:37 [GPU Monitor] ⚠ Geometry count grew 460.7% (28 → 157) in 10s — possible leak. Check WallFragmentBuilder.removeWallFragments() and CurtainWallBuilder._disposeChildren().
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [PlatformCollabPill] Socket disconnected: transport close
+injected.js:37 [LONGTASK] duration=55.0ms start=213758.7ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=57.0ms start=213816.2ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [FPS] 9fps
+injected.js:37 [LONGTASK] duration=103.0ms start=214211.3ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=53.0ms start=214315.0ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=53.0ms start=214696.4ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=94.0ms start=214750.2ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=173.0ms start=214844.3ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=65.0ms start=215018.1ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [initCollaboration] Socket connected — joining project room: proj-1777901288421-qxhvm7g
+injected.js:37 [initCollaboration] Catch-up: requesting commands since 2026-05-04T13:28:38.514Z
+injected.js:37 [FPS] 15fps
+injected.js:37 [initCollaboration] Catch-up: replaying 17 missed command(s)
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [RemoteCommandDispatcher] No factory for type: CREATE_ANNOTATION — toast-only
+injected.js:37 [CommandManager] EXECUTE: CREATE_SLAB
+injected.js:37 [CommandManager] snapshot commandType="CreateSlabCommand" scope=[slab,level] elapsed=0.4ms
+injected.js:37 [BimManager] Registered element a300a282-5ba8-455c-bf5b-e22c07e6e0fe to level L0
+injected.js:37 [SlabFragmentBuilder] outset slabId="a300a282-5ba8-455c-bf5b-e22c07e6e0fe" vertices=12 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="a300a282-5ba8-455c-bf5b-e22c07e6e0fe" outerVertices=12 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="a300a282-5ba8-455c-bf5b-e22c07e6e0fe" totalMs=0.8ms
+injected.js:37 [RemoteCommandDispatcher] Applied remote command: CREATE_SLAB
+injected.js:37 [CommandManager] EXECUTE: UPDATE_SLAB_LAYERS
+injected.js:37 [CommandManager] snapshot commandType="UpdateSlabLayersCommand" scope=[slab] elapsed=0.3ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="a300a282-5ba8-455c-bf5b-e22c07e6e0fe" vertices=12 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="a300a282-5ba8-455c-bf5b-e22c07e6e0fe" outerVertices=12 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="a300a282-5ba8-455c-bf5b-e22c07e6e0fe" totalMs=1.0ms
+injected.js:37 [RemoteCommandDispatcher] Applied remote command: UPDATE_SLAB_LAYERS
+injected.js:37 [CommandManager] EXECUTE: CREATE_LEVEL
+injected.js:37 [RemoteCommandDispatcher] Remote command failed validation: CREATE_LEVEL Elevation must be a valid number.
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [CommandManager] EXECUTE: CREATE_SLABS_ON_ALL_FLOORS
+injected.js:37 [CommandManager] snapshot commandType="CreateSlabsOnAllFloorsCommand" scope=[slab,level] elapsed=0.4ms
+injected.js:37 [CreateSlabsOnAllFloorsCommand] START referenceSlabId="a300a282-5ba8-455c-bf5b-e22c07e6e0fe" levels=10 polygonVertices=12
+injected.js:37 [CreateSlabsOnAllFloorsCommand] runBatch starting — 10 slab(s) deferred to rAF drain.
+injected.js:37 [BatchCoordinator] _setupBatch — 10 level(s), 10 elements expected.
+injected.js:37 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+injected.js:37 [BimManager] Registered element 21fb39da-45c0-4d4b-9c2b-8d1f864b6854 to level L-01-1777901346532-1
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-01-1777901346532-1" success=true elapsed=0.9ms
+injected.js:37 [BimManager] Registered element 7fe6690a-4d22-413a-a698-ac6d671ac447 to level L-02-1777901346540-2
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-02-1777901346540-2" success=true elapsed=0.6ms

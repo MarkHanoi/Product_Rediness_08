@@ -1,0 +1,392 @@
+[SlabFragmentBuilder] outset slabId="26488038-4f12-4734-9ff7-18e43308f3bc" vertices=16 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="26488038-4f12-4734-9ff7-18e43308f3bc" outerVertices=16 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="26488038-4f12-4734-9ff7-18e43308f3bc" totalMs=0.6ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="aa86232d-5c1a-44df-96ce-4eb6c69b30be" vertices=16 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="aa86232d-5c1a-44df-96ce-4eb6c69b30be" outerVertices=16 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="aa86232d-5c1a-44df-96ce-4eb6c69b30be" totalMs=0.6ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="e1b4e44f-4eb4-4ec8-9ae2-330b7c8b6759" vertices=16 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="e1b4e44f-4eb4-4ec8-9ae2-330b7c8b6759" outerVertices=16 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="e1b4e44f-4eb4-4ec8-9ae2-330b7c8b6759" totalMs=0.7ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="a8097698-dcc7-4455-a7f5-81ddfc06b0e2" vertices=16 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="a8097698-dcc7-4455-a7f5-81ddfc06b0e2" outerVertices=16 elapsed=0.2ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="a8097698-dcc7-4455-a7f5-81ddfc06b0e2" totalMs=0.9ms
+injected.js:37 [SlabFragmentBuilder] RAF_DRAIN built=5 remaining=5 queueBefore=10 frameMs=4.8ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="b711e3e9-7f99-460e-ac30-e597bcab523b" vertices=16 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="b711e3e9-7f99-460e-ac30-e597bcab523b" outerVertices=16 elapsed=0.2ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="b711e3e9-7f99-460e-ac30-e597bcab523b" totalMs=0.9ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="e026de49-c891-40f4-92c6-8995ac4e19a7" vertices=16 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="e026de49-c891-40f4-92c6-8995ac4e19a7" outerVertices=16 elapsed=0.2ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="e026de49-c891-40f4-92c6-8995ac4e19a7" totalMs=0.9ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="ba03b729-f7c5-4e33-99bd-3cfcfe1f65f4" vertices=16 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="ba03b729-f7c5-4e33-99bd-3cfcfe1f65f4" outerVertices=16 elapsed=0.9ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="ba03b729-f7c5-4e33-99bd-3cfcfe1f65f4" totalMs=1.3ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="8b7c8805-0d0f-40dd-8748-a92eda52474f" vertices=16 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="8b7c8805-0d0f-40dd-8748-a92eda52474f" outerVertices=16 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="8b7c8805-0d0f-40dd-8748-a92eda52474f" totalMs=0.4ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="4b04f8b3-8b90-4ce7-ad76-34f562daa544" vertices=16 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="4b04f8b3-8b90-4ce7-ad76-34f562daa544" outerVertices=16 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="4b04f8b3-8b90-4ce7-ad76-34f562daa544" totalMs=0.3ms
+injected.js:37 [SlabFragmentBuilder] RAF_DRAIN built=5 remaining=0 queueBefore=5 frameMs=4.2ms
+injected.js:37 [SlabFragmentBuilder] rAF queue drained — signalling BatchCoordinator.
+injected.js:37 [BatchCoordinator] Build queue drained — beginning registration drain (0 queued / 10 expected).
+injected.js:37 [StoreEventBus] endBatchYielded() — 10 event(s) will be delivered in 1 chunk(s) of 200 via frame scheduler.
+injected.js:37 [StoreEventBus] endBatchYielded() — all 10 event(s) delivered across 1 chunk(s) (last: 0.2ms). Calling onComplete().
+injected.js:37 [BatchCoordinator] §PERF-VIEW-BATCH-SUPPRESS: suppression lifted; markLevelsDirty(10 level(s)) scheduled.
+injected.js:37 [BatchCoordinator] Final sweep: firing 10 REDETECT_ROOMS command(s) (one per affected level). Observers re-enabled. StoreEventBus flushed (depth now 0).
+injected.js:37 [PascalSceneLighting] Shadow flags set on 10 mesh(es).
+injected.js:37 [BatchCoordinator/P1.3] Post-batch geometry pass: shadow flags + PBR upgrade run once for 98 mesh(es) in scene.
+injected.js:37 [FPS] 30fps
+injected.js:37 [GPU Monitor] geometries:31 textures:9 | drawCalls:18 tris:266
+2injected.js:37 [ProjectSerializer] Snapshot created: 28 elements, 11 levels, 16 walls, 11 slabs, 0 furniture
+injected.js:37 [PlatformSaveController] Version saved: "Auto-save" (28 elements, id: proj-1777903965716-pqrcn)
+injected.js:37 [LONGTASK] duration=61.0ms start=131635.2ms [type=iframe src=https://5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [FPS] 30fps
+injected.js:37 [CommandManager] EXECUTE: CREATE_CURTAIN_WALLS_ON_ALL_SLABS
+injected.js:37 [CommandManager] snapshot commandType="CreateCurtainWallsOnAllSlabsCommand" scope=[curtainWall] elapsed=0.1ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] START slabCount=11
+injected.js:37 [BatchCoordinator] _setupBatch — 11 level(s), 176 elements expected. ViewDependencyTracker suppressed.
+injected.js:37 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="17fe1dbc-16b0-48fb-80e7-d64dcbeb180b" walls=16 elapsed=13.8ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="5061274b-2a74-43ea-a970-7852e99fc425" walls=16 elapsed=14.9ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="26488038-4f12-4734-9ff7-18e43308f3bc" walls=16 elapsed=17.6ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="aa86232d-5c1a-44df-96ce-4eb6c69b30be" walls=16 elapsed=22.7ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="e1b4e44f-4eb4-4ec8-9ae2-330b7c8b6759" walls=16 elapsed=36.2ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="a8097698-dcc7-4455-a7f5-81ddfc06b0e2" walls=16 elapsed=44.7ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="b711e3e9-7f99-460e-ac30-e597bcab523b" walls=16 elapsed=33.5ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="e026de49-c891-40f4-92c6-8995ac4e19a7" walls=16 elapsed=46.7ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="ba03b729-f7c5-4e33-99bd-3cfcfe1f65f4" walls=16 elapsed=54.5ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="8b7c8805-0d0f-40dd-8748-a92eda52474f" walls=16 elapsed=111.8ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="4b04f8b3-8b90-4ce7-ad76-34f562daa544" walls=16 elapsed=60.7ms
+injected.js:37 [CurtainWallBuilder] §BATCH-CW-PAUSE: resumeAndFlush — 176 walls transferred to pending queue, 1 rAF drain scheduled.
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] COMPLETE total=460.3ms
+injected.js:37 [AIApprovalStore] Audit record appended: 0c2b0482-a690-4ac5-8416-5206d7dad334 (CREATE_CURTAIN_WALLS_ON_ALL_SLABS)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [BatchCoordinator] Build queue drained — beginning registration drain (176 queued / 176 expected).
+injected.js:37 [BimManager] Registered element f00ce4db-abea-4654-9c23-0ed5661cdabd to level L0
+injected.js:37 [BimManager] Registered element 9ecc2c06-64ae-4d91-ba6b-a529803d72d5 to level L0
+injected.js:37 [BimManager] Registered element 35c99c0c-1663-43d4-b90b-4931a4eab94c to level L0
+injected.js:37 [BimManager] Registered element 914348ca-f261-437e-9bf8-aeb95f3ff87b to level L0
+injected.js:37 [BimManager] Registered element a157f1ac-7998-4748-9a48-8dba02cdf170 to level L0
+injected.js:37 [BimManager] Registered element 2974f2c7-42b4-4544-946b-382a7d0118d4 to level L0
+injected.js:37 [BimManager] Registered element 47976902-c764-4b95-8f6a-f026818cd87c to level L0
+injected.js:37 [BimManager] Registered element 3f3f2e88-3926-442f-85f0-69175f04f452 to level L0
+injected.js:37 [BimManager] Registered element b751a9ba-7348-49bc-86b2-339a74b6a655 to level L0
+injected.js:37 [BimManager] Registered element 9ba3de63-668a-471a-940b-0494aa091f12 to level L0
+injected.js:37 [BimManager] Registered element 2d441360-459a-4dd2-9c6c-acfc773aabdd to level L0
+injected.js:37 [BimManager] Registered element 993e0a65-03ef-465d-a631-3798798f9e96 to level L0
+injected.js:37 [BimManager] Registered element 1d473014-c08d-4651-b06e-ca90cfaec135 to level L0
+injected.js:37 [BimManager] Registered element 6e243bfb-8cee-4fff-9b2a-b28423049fa6 to level L0
+injected.js:37 [BimManager] Registered element 5f1059db-b0f8-44b1-b812-194802f613e2 to level L0
+injected.js:37 [BimManager] Registered element f4bc8572-8a4f-4e71-9b57-553e22e0d1f3 to level L0
+injected.js:37 [BimManager] Registered element 86f5f83f-ffa5-47a0-a488-45c926592912 to level L-01-1777903961394-1
+injected.js:37 [BimManager] Registered element ae22dca0-ddb3-49c9-91aa-456615d97c3a to level L-01-1777903961394-1
+injected.js:37 [BimManager] Registered element d9fb4921-8f1d-4810-b6f9-0f1109fadace to level L-01-1777903961394-1
+injected.js:37 [BimManager] Registered element 7f595a08-c471-4eba-b2b6-ae59776658a8 to level L-01-1777903961394-1
+injected.js:37 [BimManager] Registered element cf4c9e6f-c649-4d00-9e7c-85a8f96f3a5c to level L-01-1777903961394-1
+injected.js:37 [BimManager] Registered element 1e07c0a3-42e3-45e6-a635-7d433df47852 to level L-01-1777903961394-1
+injected.js:37 [BimManager] Registered element fe91dc3a-f5fe-4f1b-a08f-670f138a6557 to level L-01-1777903961394-1
+injected.js:37 [BimManager] Registered element a28dcb90-4f3a-48cc-8132-73b81559d39f to level L-01-1777903961394-1
+injected.js:37 [BimManager] Registered element cdc61e51-9f6a-4798-9c4a-708fda3a47b6 to level L-01-1777903961394-1
+injected.js:37 [BimManager] Registered element 08525dcc-2840-4acd-a40d-ac466a4dc448 to level L-01-1777903961394-1
+injected.js:37 [BimManager] Registered element 2f5aed82-a6cf-4189-a360-2176bfd11f9e to level L-01-1777903961394-1
+injected.js:37 [BimManager] Registered element 58d7d48f-5513-4cf4-8172-7ed3c5610563 to level L-01-1777903961394-1
+injected.js:37 [BimManager] Registered element fc33a176-bf4d-44f6-bcf5-cad25e52ef19 to level L-01-1777903961394-1
+injected.js:37 [BimManager] Registered element 7e0d3a75-9d0e-42ec-b9cc-1426ff5dfd9f to level L-01-1777903961394-1
+injected.js:37 [BimManager] Registered element 4deeb9c3-5270-4a7f-98c2-109b76b4c468 to level L-01-1777903961394-1
+injected.js:37 [BimManager] Registered element 5cc23e29-ddb0-4f14-bb6b-b04bd321f34a to level L-01-1777903961394-1
+injected.js:37 [BimManager] Registered element 580033a4-ccf0-452c-a9c5-7606d3ad5122 to level L-02-1777903961404-2
+injected.js:37 [BimManager] Registered element 4fa7d60c-e590-497a-a507-284810773603 to level L-02-1777903961404-2
+injected.js:37 [BimManager] Registered element dad2fb7b-834e-4ab9-90ae-bb1b80ad35be to level L-02-1777903961404-2
+injected.js:37 [BimManager] Registered element 33f92295-aa9f-4b9f-9966-6e7dc14162e7 to level L-02-1777903961404-2
+injected.js:37 [BimManager] Registered element 5a3fea0b-b38b-4a0d-923f-6997da2e7eab to level L-02-1777903961404-2
+injected.js:37 [BimManager] Registered element f9f42ca0-b9a2-4911-9d95-ff1b15eb168d to level L-02-1777903961404-2
+injected.js:37 [BimManager] Registered element 3fe74865-f961-41ba-aa50-28191c74506b to level L-02-1777903961404-2
+injected.js:37 [BimManager] Registered element cf6c7c8f-bed3-40a7-b68d-8d1e83e8e24b to level L-02-1777903961404-2
+injected.js:37 [BimManager] Registered element 9153cca3-1e42-4dab-91b2-0ad5dbf1ac1d to level L-02-1777903961404-2
+injected.js:37 [BimManager] Registered element d85053b5-3ad6-4d1e-b8d4-d71c01e00ab4 to level L-02-1777903961404-2
+injected.js:37 [BimManager] Registered element 6a21199b-575d-4e78-811b-d611bc46d6a9 to level L-02-1777903961404-2
+injected.js:37 [BimManager] Registered element c97eb8e6-33a2-4df3-bb97-8ec7a792dd65 to level L-02-1777903961404-2
+injected.js:37 [BimManager] Registered element fe8561c8-e2ef-43dc-a312-db5d652149eb to level L-02-1777903961404-2
+injected.js:37 [BimManager] Registered element a4457daf-aec8-4d9a-a088-5f8643f4e15d to level L-02-1777903961404-2
+injected.js:37 [BimManager] Registered element ac9755b4-3f2b-40c0-aeef-266c011823f6 to level L-02-1777903961404-2
+injected.js:37 [BimManager] Registered element fa886cbe-f676-480f-83bd-a1bb364547e3 to level L-02-1777903961404-2
+injected.js:37 [BimManager] Registered element f6e42ccd-3726-403c-bd19-2fe42b7698db to level L-03-1777903961409-3
+injected.js:37 [BimManager] Registered element 7a46bb50-97f3-4736-bff0-2568fc9f5b14 to level L-03-1777903961409-3
+injected.js:37 [BimManager] Registered element ac8241df-328c-415f-a569-51d0cf03e99e to level L-03-1777903961409-3
+injected.js:37 [BimManager] Registered element 5fa6516d-a8aa-4b7d-a8c3-9fd0cd42e3a8 to level L-03-1777903961409-3
+injected.js:37 [BimManager] Registered element 8c0573d8-ae18-4e27-a78c-9621eae8f582 to level L-03-1777903961409-3
+injected.js:37 [BimManager] Registered element c65ceb56-d8d7-4bd1-ad05-910b3d9a3454 to level L-03-1777903961409-3
+injected.js:37 [BimManager] Registered element 951a3dd2-6b18-46ca-bd7c-5370c7bc34f9 to level L-03-1777903961409-3
+injected.js:37 [BimManager] Registered element f43a3d12-f335-40b4-8cf3-fadf87ae4bab to level L-03-1777903961409-3
+injected.js:37 [BimManager] Registered element 86f6d854-3ef8-4c52-ab20-731879dfae7e to level L-03-1777903961409-3
+injected.js:37 [BimManager] Registered element 6fa4abe4-5c23-40c0-967d-3fdbbdcc5d3c to level L-03-1777903961409-3
+injected.js:37 [BimManager] Registered element 1638e3f1-b848-4aef-8e75-29de01851e84 to level L-03-1777903961409-3
+injected.js:37 [BimManager] Registered element 51cdf5cf-ef60-411c-8f6a-bad256863198 to level L-03-1777903961409-3
+injected.js:37 [BimManager] Registered element 00dc164a-8ef8-44cd-9331-8b538ae9f44f to level L-03-1777903961409-3
+injected.js:37 [BimManager] Registered element 32273b4b-0a02-47e1-9821-11bc879d7502 to level L-03-1777903961409-3
+injected.js:37 [BimManager] Registered element 79c6248e-e770-47f9-9029-959cbce31693 to level L-03-1777903961409-3
+injected.js:37 [BimManager] Registered element 02699b02-df9f-44c2-a0ca-45f57b6ed179 to level L-03-1777903961409-3
+injected.js:37 [BimManager] Registered element 0a6978b2-1c27-4e37-b22b-6f6e7155cc74 to level L-04-1777903961414-4
+injected.js:37 [BimManager] Registered element 323c45af-8221-4fed-b292-bb05520fc9f7 to level L-04-1777903961414-4
+injected.js:37 [BimManager] Registered element fa480ad4-2b92-4788-a43f-cbe4757f47a8 to level L-04-1777903961414-4
+injected.js:37 [BimManager] Registered element 832f7799-e166-4ae8-a98c-3d8efa13cae6 to level L-04-1777903961414-4
+injected.js:37 [BimManager] Registered element da4b867b-2385-4c61-8f32-da85a0ab6816 to level L-04-1777903961414-4
+injected.js:37 [BimManager] Registered element 696d92b8-7049-4451-b3c0-341052c8cd2c to level L-04-1777903961414-4
+injected.js:37 [BimManager] Registered element 063336ff-d857-4850-8b7c-f02d1b33490b to level L-04-1777903961414-4
+injected.js:37 [BimManager] Registered element b86cc3c6-ac73-454e-9417-0f473f1ee883 to level L-04-1777903961414-4
+injected.js:37 [BimManager] Registered element 6ab98c9e-eeb0-44a1-954b-b7112344ad1c to level L-04-1777903961414-4
+injected.js:37 [BimManager] Registered element b107ca5b-3ccb-4c41-b78e-1142b09c7024 to level L-04-1777903961414-4
+injected.js:37 [BimManager] Registered element 724301e5-7e75-40c7-8601-74104df72a44 to level L-04-1777903961414-4
+injected.js:37 [BimManager] Registered element d634349f-7db7-4c0b-b2d5-631c9de47b58 to level L-04-1777903961414-4
+injected.js:37 [BimManager] Registered element 6c2b1271-91d8-43fe-a20e-384d7cc86cae to level L-04-1777903961414-4
+injected.js:37 [BimManager] Registered element d670c4af-f5e2-46fa-9a5e-3c3c300dcd91 to level L-04-1777903961414-4
+injected.js:37 [BimManager] Registered element d13c8e6e-be72-4a19-b56b-95ec16d4ffe7 to level L-04-1777903961414-4
+injected.js:37 [BimManager] Registered element 043144be-fe36-4921-8b61-86eef168b71c to level L-04-1777903961414-4
+injected.js:37 [BimManager] Registered element c39be1d1-baaa-4ace-ac52-b68b99f87575 to level L-05-1777903961420-5
+injected.js:37 [BimManager] Registered element ad4886ca-e72e-448b-811a-8e7621d02389 to level L-05-1777903961420-5
+injected.js:37 [BimManager] Registered element 20f3e785-fb90-4cc8-bd30-58820620f1d5 to level L-05-1777903961420-5
+injected.js:37 [BimManager] Registered element 84493f80-4f63-4fb8-9359-1ce41a36f029 to level L-05-1777903961420-5
+injected.js:37 [BimManager] Registered element 7f567391-207c-49ca-afc8-bdf04970bf72 to level L-05-1777903961420-5
+injected.js:37 [BimManager] Registered element b1d49478-4e60-4528-997c-3bd7b0f3a8b2 to level L-05-1777903961420-5
+injected.js:37 [BimManager] Registered element c5c8a19c-b680-4032-87d8-2069e88254ae to level L-05-1777903961420-5
+injected.js:37 [BimManager] Registered element 84652b76-8c42-4c14-9967-f694c14f93f0 to level L-05-1777903961420-5
+injected.js:37 [BimManager] Registered element 4f39f7ee-af1c-41c3-b346-4d8a151f7fe8 to level L-05-1777903961420-5
+injected.js:37 [BimManager] Registered element 9e4b7773-27b8-444f-8c3c-061ddcd3bca6 to level L-05-1777903961420-5
+injected.js:37 [BimManager] Registered element 5fa85df2-f1d6-4c29-8eb7-0e586f3cdca2 to level L-05-1777903961420-5
+injected.js:37 [BimManager] Registered element 4588000c-7634-4654-be04-420dd9b167e6 to level L-05-1777903961420-5
+injected.js:37 [BimManager] Registered element f499f80c-0b55-46a9-b4f5-8c163983bf5f to level L-05-1777903961420-5
+injected.js:37 [BimManager] Registered element f39f79b8-71ff-4720-a4cd-ed6dd924cdf8 to level L-05-1777903961420-5
+injected.js:37 [BimManager] Registered element de1866bd-d8b0-49f6-bcc2-b47b4838ddb3 to level L-05-1777903961420-5
+injected.js:37 [BimManager] Registered element 164681e7-0d1d-4edb-a76c-83b55967666e to level L-05-1777903961420-5
+injected.js:37 [BimManager] Registered element b5caf63a-1e82-40e5-99c3-52ea16382e8e to level L-06-1777903961428-6
+injected.js:37 [BimManager] Registered element b3fb5191-4978-4230-8f12-7f8cb98da14d to level L-06-1777903961428-6
+injected.js:37 [BimManager] Registered element 8c10a8e9-bdf9-41dd-a148-9e7bb4bdd4fa to level L-06-1777903961428-6
+injected.js:37 [BimManager] Registered element 91e5dc83-7165-4bf6-9ec0-14d77a09a937 to level L-06-1777903961428-6
+injected.js:37 [BimManager] Registered element 20f21282-7c22-409e-a730-511bd27bb9ae to level L-06-1777903961428-6
+injected.js:37 [BimManager] Registered element 9c5cc0f2-a7b0-4f89-a3c7-1600ae2591c7 to level L-06-1777903961428-6
+injected.js:37 [BimManager] Registered element 62b4bf56-e9be-434d-906a-3654641895f5 to level L-06-1777903961428-6
+injected.js:37 [BimManager] Registered element 67115373-ad3a-47ec-ab1b-ef5d1a46b9f9 to level L-06-1777903961428-6
+injected.js:37 [BimManager] Registered element a6bd1b94-05ef-49cc-adb8-1a54ff56ebfa to level L-06-1777903961428-6
+injected.js:37 [BimManager] Registered element d75fdba2-164f-4837-bbc9-58548cfb65dc to level L-06-1777903961428-6
+injected.js:37 [BimManager] Registered element e035a421-bbb0-47d8-93ff-c364089379f8 to level L-06-1777903961428-6
+injected.js:37 [BimManager] Registered element 6174a8aa-bdb1-42bc-bdcb-8edf0cfe419e to level L-06-1777903961428-6
+injected.js:37 [BimManager] Registered element 96017e11-277f-4320-8bc2-dce2ac5fc97a to level L-06-1777903961428-6
+injected.js:37 [BimManager] Registered element 113d1e51-fea9-4937-9d4e-a3ae2d23c299 to level L-06-1777903961428-6
+injected.js:37 [BimManager] Registered element b42dbc67-c040-4f6e-8904-fdba3b4fa51c to level L-06-1777903961428-6
+injected.js:37 [BimManager] Registered element cbac29ab-5c2c-40e4-81ff-9c068e599d6f to level L-06-1777903961428-6
+injected.js:37 [BimManager] Registered element 94c97b01-c8cd-448e-875f-a8e3b43ab6cd to level L-07-1777903961432-7
+injected.js:37 [BimManager] Registered element c851abe2-7a73-4de2-8569-11f6a0f5df34 to level L-07-1777903961432-7
+injected.js:37 [BimManager] Registered element b86bf882-46dc-449e-9fad-6076a8531fd3 to level L-07-1777903961432-7
+injected.js:37 [BimManager] Registered element 88f268b2-8f4a-4f68-9be2-a259d22132e0 to level L-07-1777903961432-7
+injected.js:37 [BimManager] Registered element aad8acb8-aecb-4137-8838-684152fd0285 to level L-07-1777903961432-7
+injected.js:37 [BimManager] Registered element 77aeff80-c355-4788-9a54-f5756b6b5650 to level L-07-1777903961432-7
+injected.js:37 [BimManager] Registered element 36d1b99d-948f-4c31-81e4-6f0b3ccdac68 to level L-07-1777903961432-7
+injected.js:37 [BimManager] Registered element 72d04f16-2d38-479b-a1fe-b0e23ab58a25 to level L-07-1777903961432-7
+injected.js:37 [BimManager] Registered element f4fc587a-7b1c-4c14-a99b-5ff2cd58e5ae to level L-07-1777903961432-7
+injected.js:37 [BimManager] Registered element 9de5b3af-332b-4e6f-b61d-d8faf6f31bdf to level L-07-1777903961432-7
+injected.js:37 [BimManager] Registered element 82146dd7-74ac-4fd0-b6d4-dbb46f1fd3fa to level L-07-1777903961432-7
+injected.js:37 [BimManager] Registered element 2bd5dd9e-94d8-4ac8-9153-837ab7078649 to level L-07-1777903961432-7
+injected.js:37 [BimManager] Registered element dc2b4143-9a17-4f75-9c24-e97bf6648c2e to level L-07-1777903961432-7
+injected.js:37 [BimManager] Registered element a66c6d8c-787d-4a2e-bb45-4f1f25f7d37f to level L-07-1777903961432-7
+injected.js:37 [BimManager] Registered element a9c71118-8f06-4f03-83d6-48b72c89f50d to level L-07-1777903961432-7
+injected.js:37 [BimManager] Registered element 9ea5488e-81d3-450c-8415-cb7d2170743c to level L-07-1777903961432-7
+injected.js:37 [BimManager] Registered element f0664207-fdcc-4c5e-aa6b-8ab64fec4fc8 to level L-08-1777903961438-8
+injected.js:37 [BimManager] Registered element a6daa7a2-1e69-4708-9de0-7e5ead26ecae to level L-08-1777903961438-8
+injected.js:37 [BimManager] Registered element 74be2776-f6f7-4bd3-8d97-12d5d3d1cb28 to level L-08-1777903961438-8
+injected.js:37 [BimManager] Registered element 4edcca94-d631-496a-8a04-5d72f065eefc to level L-08-1777903961438-8
+injected.js:37 [BimManager] Registered element 3ec14095-724a-44e1-94b2-89bf1aa4705e to level L-08-1777903961438-8
+injected.js:37 [BimManager] Registered element 88051484-0d90-4d11-8040-1b03da0b10b8 to level L-08-1777903961438-8
+injected.js:37 [BimManager] Registered element e47db51e-7aff-42fb-a78c-7b3396a9d4be to level L-08-1777903961438-8
+injected.js:37 [BimManager] Registered element 1f670741-da9e-40f8-b6bc-1df9ee2e7dfc to level L-08-1777903961438-8
+injected.js:37 [BimManager] Registered element d6032caa-7f6e-4061-9c23-3994968ca507 to level L-08-1777903961438-8
+injected.js:37 [BimManager] Registered element efbee40c-2606-4fc2-ba6b-6590f897bc67 to level L-08-1777903961438-8
+injected.js:37 [BimManager] Registered element cd26f92c-4359-41c9-8d1d-d87aa5029d8d to level L-08-1777903961438-8
+injected.js:37 [BimManager] Registered element c330a07a-48c5-4dc6-8165-3c110aa8b744 to level L-08-1777903961438-8
+injected.js:37 [BimManager] Registered element 84737b1f-69a9-4761-a479-41d57685d676 to level L-08-1777903961438-8
+injected.js:37 [BimManager] Registered element 1ddeb837-6ca8-47be-8d33-b38d0bd67a1c to level L-08-1777903961438-8
+injected.js:37 [BimManager] Registered element 114033f5-8957-41a5-ad75-ce2ef86010a4 to level L-08-1777903961438-8
+injected.js:37 [BimManager] Registered element 8d176498-bd74-4042-b2d6-3575e40013b1 to level L-08-1777903961438-8
+injected.js:37 [BimManager] Registered element 81a0513b-79e7-4c7c-acf0-0949ea73f56d to level L-09-1777903961446-9
+injected.js:37 [BimManager] Registered element a18fd6e2-83ec-4ef9-8cd0-87d88852f35c to level L-09-1777903961446-9
+injected.js:37 [BimManager] Registered element 0b498554-14be-4fd9-aeb4-f3b9caae21d0 to level L-09-1777903961446-9
+injected.js:37 [BimManager] Registered element 892516ee-d2f1-4938-a829-fd73bfde8b3f to level L-09-1777903961446-9
+injected.js:37 [BimManager] Registered element 3043d8d3-bb9c-4324-b489-8039161e6300 to level L-09-1777903961446-9
+injected.js:37 [BimManager] Registered element ef7317d1-43f0-41da-b09e-6c7bde2961d7 to level L-09-1777903961446-9
+injected.js:37 [BimManager] Registered element d1008a0e-3624-4fe2-a6f7-7ab2427700de to level L-09-1777903961446-9
+injected.js:37 [BimManager] Registered element c7ee8ffe-4664-402b-8153-99d99abfc25d to level L-09-1777903961446-9
+injected.js:37 [BimManager] Registered element 277596a9-af74-466f-acb0-6d3dea8dae18 to level L-09-1777903961446-9
+injected.js:37 [BimManager] Registered element f0ac5ac2-a849-4ba1-84e2-563d52fd37c8 to level L-09-1777903961446-9
+injected.js:37 [BimManager] Registered element 0e6703cd-7b99-4a21-9eda-53da78a537c0 to level L-09-1777903961446-9
+injected.js:37 [BimManager] Registered element 9da3a398-ba35-4ebb-a514-2e7fd05fb661 to level L-09-1777903961446-9
+injected.js:37 [BimManager] Registered element a089054d-7152-4b78-9481-935f6c4cd52c to level L-09-1777903961446-9
+injected.js:37 [BimManager] Registered element f7a542d4-9ea9-4062-a1f9-e15cf052e6f2 to level L-09-1777903961446-9
+injected.js:37 [BimManager] Registered element 59d5fc7f-6a08-4eb3-bb98-3b8399cfcefe to level L-09-1777903961446-9
+injected.js:37 [BimManager] Registered element a964dbe8-c5ee-42d7-8b84-c5495d9cef94 to level L-09-1777903961446-9
+injected.js:37 [BimManager] Registered element 9a74a04e-ebb6-4683-a89a-c12663de209b to level L-10-1777903961455-10
+injected.js:37 [BimManager] Registered element 2662c1e0-cf79-4605-a2e8-78d3c31337bd to level L-10-1777903961455-10
+injected.js:37 [BimManager] Registered element aaa3ce4a-32f6-465e-8d88-7ea64c6169e7 to level L-10-1777903961455-10
+injected.js:37 [BimManager] Registered element 3a1d58f8-d382-4cdd-82e5-cfe7a9f4ff86 to level L-10-1777903961455-10
+injected.js:37 [BimManager] Registered element 9380571c-b3bd-45d0-841b-ba6793874462 to level L-10-1777903961455-10
+injected.js:37 [BimManager] Registered element 37bd782b-86ea-4995-b5ba-c048af57f793 to level L-10-1777903961455-10
+injected.js:37 [BimManager] Registered element 70700b28-8eff-4718-a1a3-d1d232f7ae3e to level L-10-1777903961455-10
+injected.js:37 [BimManager] Registered element b89d0982-9fa2-4ed3-9448-ad34b70aa7c0 to level L-10-1777903961455-10
+injected.js:37 [BimManager] Registered element d536608b-7bf8-4344-8b1a-7e713933353d to level L-10-1777903961455-10
+injected.js:37 [BimManager] Registered element ac0c32c5-c1c3-431f-a0d2-99ee816ae244 to level L-10-1777903961455-10
+injected.js:37 [BimManager] Registered element 6aefd25a-ee0e-41fd-bd3e-9b30dcb8bfb2 to level L-10-1777903961455-10
+injected.js:37 [BimManager] Registered element 0f028fb5-1b85-469d-b11b-46e5f5880996 to level L-10-1777903961455-10
+injected.js:37 [BimManager] Registered element ffae3595-6450-48ff-b88a-3be095498c11 to level L-10-1777903961455-10
+injected.js:37 [BimManager] Registered element 43072811-ebf9-4ab9-b0e6-941b62320555 to level L-10-1777903961455-10
+injected.js:37 [BimManager] Registered element 25563ca7-d408-4f42-963f-b557b7a76732 to level L-10-1777903961455-10
+injected.js:37 [BimManager] Registered element 4b553525-32d2-41fb-a513-f1c2bf155349 to level L-10-1777903961455-10
+injected.js:37 [StoreEventBus] endBatchYielded() — 5698 event(s) will be delivered in 29 chunk(s) of 200 via frame scheduler.
+injected.js:37 [StoreEventBus] endBatchYielded chunk 1/29: 200/5698 events (1.6ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 2/29: 400/5698 events (1.7ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 3/29: 600/5698 events (1.7ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 4/29: 800/5698 events (1.1ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 5/29: 1000/5698 events (1.1ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 6/29: 1200/5698 events (1.4ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 7/29: 1400/5698 events (1.9ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 8/29: 1600/5698 events (1.1ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 9/29: 1800/5698 events (1.1ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 10/29: 2000/5698 events (1.0ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 11/29: 2200/5698 events (1.4ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 12/29: 2400/5698 events (1.1ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 13/29: 2600/5698 events (1.4ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 14/29: 2800/5698 events (0.9ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 15/29: 3000/5698 events (1.2ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 16/29: 3200/5698 events (1.6ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 17/29: 3400/5698 events (1.2ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 18/29: 3600/5698 events (1.2ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 19/29: 3800/5698 events (1.2ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 20/29: 4000/5698 events (1.0ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 21/29: 4200/5698 events (1.2ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 22/29: 4400/5698 events (1.5ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 23/29: 4600/5698 events (1.1ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 24/29: 4800/5698 events (1.0ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 25/29: 5000/5698 events (0.9ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 26/29: 5200/5698 events (0.9ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 27/29: 5400/5698 events (1.0ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded chunk 28/29: 5600/5698 events (1.4ms this chunk).
+injected.js:37 [StoreEventBus] endBatchYielded() — all 5698 event(s) delivered across 29 chunk(s) (last: 0.5ms). Calling onComplete().
+injected.js:37 [BatchCoordinator] §PERF-VIEW-BATCH-SUPPRESS: suppression lifted; markLevelsDirty(11 level(s)) scheduled.
+injected.js:37 [BatchCoordinator] Final sweep: firing 11 REDETECT_ROOMS command(s) (one per affected level). Observers re-enabled. StoreEventBus flushed (depth now 0).
+injected.js:37 [PascalSceneLighting] Shadow flags set on 332 mesh(es).
+injected.js:37 [BatchCoordinator/P1.3] Post-batch geometry pass: shadow flags + PBR upgrade run once for 626 mesh(es) in scene.
+injected.js:37 [FPS] 30fps
+injected.js:37 [LONGTASK] duration=482.0ms start=137008.0ms [type=iframe src=https://5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=109.0ms start=137490.0ms [type=iframe src=https://5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [FPS] 1fps
+injected.js:37 [LONGTASK] duration=14950.0ms start=137650.8ms [type=iframe src=https://5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [GPU Monitor] geometries:31 textures:9 | drawCalls:18 tris:266
+injected.js:37 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+injected.js:37 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+injected.js:37 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed out of 1 live room(s).
+injected.js:37 [NativeElementMeshExporter] Plan view — exporting 34 elements from levels overlapping Y=[-1.20, 0.00]
+injected.js:37 [FPS] 1fps
+injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+injected.js:37 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+injected.js:37 [EdgeProjectorService] Native projection done — 33 group(s), 834 edge geometries across 33 ISO layer(s) (per-element UUID tagging active)
+injected.js:37 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=36 (OBC-IFC=0, native=33, ifc-scene=0)
+injected.js:37 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=7/14 layers
+injected.js:37 [LONGTASK] duration=109.0ms start=153663.1ms [type=iframe src=https://5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+4injected.js:37 [GPU Monitor] geometries:31 textures:9 | drawCalls:18 tris:266
+0f_8qqb~i-af8.js:21 Haven't heard from the server in a while, resetting connection...
+(anonymous) @ 0f_8qqb~i-af8.js:21Understand this warning
+injected.js:37 [FPS] 1fps
+injected.js:37 [LONGTASK] duration=111.0ms start=196808.8ms [type=iframe src=https://5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=76.0ms start=196921.0ms [type=iframe src=https://5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=53.0ms start=197049.2ms [type=iframe src=https://5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=53.0ms start=197151.7ms [type=iframe src=https://5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=63.0ms start=197206.0ms [type=iframe src=https://5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=58.0ms start=197269.7ms [type=iframe src=https://5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=76.0ms start=197329.4ms [type=iframe src=https://5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=51.0ms start=197406.1ms [type=iframe src=https://5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=58.0ms start=197458.4ms [type=iframe src=https://5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=54.0ms start=197517.4ms [type=iframe src=https://5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [FPS] 19fps
+injected.js:37 [LONGTASK] duration=51.0ms start=197859.6ms [type=iframe src=https://5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=50.0ms start=197912.1ms [type=iframe src=https://5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=54.0ms start=198012.4ms [type=iframe src=https://5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=52.0ms start=198067.1ms [type=iframe src=https://5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=55.0ms start=198120.3ms [type=iframe src=https://5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [GPU Monitor] geometries:190 textures:9 | drawCalls:174 tris:2618
+injected.js:37 [GPU Monitor] ⚠ Geometry count grew 512.9% (31 → 190) in 10s — possible leak. Check WallFragmentBuilder.removeWallFragments() and CurtainWallBuilder._disposeChildren().
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [GPU Monitor] geometries:190 textures:7 | drawCalls:174 tris:2618
+injected.js:37 [LONGTASK] duration=242.0ms start=211445.4ms [type=iframe src=https://5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ 5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/src/main.ts:28Understand this warning
+injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+injected.js:37 [LONGTASK] duration=148.0ms start=211738.6ms [type=iframe src=https://5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ 5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/src/main.ts:28Understand this warning
+injected.js:37 [GPU Monitor] geometries:220 textures:9 | drawCalls:1 tris:1
+injected.js:37 [GPU Monitor] ⚠ Geometry count grew 15.8% (190 → 220) in 10s — possible leak. Check WallFragmentBuilder.removeWallFragments() and CurtainWallBuilder._disposeChildren().
+(anonymous) @ injected.js:37
+(anonymous) @ 5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/src/engine/subsystems/initScene.ts:1101Understand this warning
+5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/__replco/static/devtools/injected.js:37 [GPU Monitor] geometries:220 textures:9 | drawCalls:1 tris:1
+0f_8qqb~i-af8.js:21 Haven't heard from the server in a while, resetting connection...
+(anonymous) @ 0f_8qqb~i-af8.js:21
+(anonymous) @ 13yey0lla-l85.js:518
+r @ 0f_8qqb~i-af8.js:21Understand this warning
+5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/__replco/static/devtools/injected.js:37 [GPU Monitor] geometries:220 textures:9 | drawCalls:131 tris:2102
+5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/__replco/static/devtools/injected.js:37 [vite] server connection lost. Polling for restart...
+5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/__replco/static/devtools/injected.js:37 [initCollaboration] Socket disconnected: transport close
+5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/__replco/static/devtools/injected.js:37 [PlatformCollabPill] Socket disconnected: transport close
+5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/__replco/static/devtools/injected.js:37 [GPU Monitor] geometries:202 textures:9 | drawCalls:131 tris:2102
+5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/socket.io/socket.io.js:1482 WebSocket connection to 'wss://5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/socket.io/?EIO=4&transport=websocket' failed: 
+createSocket @ 5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/socket.io/socket.io.js:1482
+doOpen @ 5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/socket.io/socket.io.js:1371
+open @ 5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/socket.io/socket.io.js:827
+_open @ 5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/socket.io/socket.io.js:1828
+SocketWithoutUpgrade @ 5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/socket.io/socket.io.js:1782
+SocketWithUpgrade @ 5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/socket.io/socket.io.js:2180
+Socket @ 5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/socket.io/socket.io.js:2341
+open @ 5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/socket.io/socket.io.js:4639
+(anonymous) @ 5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/socket.io/socket.io.js:4876Understand this error
+5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/socket.io/socket.io.js:1482 WebSocket connection to 'wss://5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/socket.io/?EIO=4&transport=websocket' failed: 
+createSocket @ 5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/socket.io/socket.io.js:1482
+doOpen @ 5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/socket.io/socket.io.js:1371
+open @ 5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/socket.io/socket.io.js:827
+_open @ 5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/socket.io/socket.io.js:1828
+SocketWithoutUpgrade @ 5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/socket.io/socket.io.js:1782
+SocketWithUpgrade @ 5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/socket.io/socket.io.js:2180
+Socket @ 5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/socket.io/socket.io.js:2341
+open @ 5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/socket.io/socket.io.js:4639
+(anonymous) @ 5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/socket.io/socket.io.js:4876Understand this error
+5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/__replco/static/devtools/injected.js:37 [PlatformCollabPill] Socket connection error: websocket error
+(anonymous) @ 5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/__replco/static/devtools/injected.js:37
+(anonymous) @ 5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/src/ui/platform/PlatformCollabPill.ts:137
+Emitter.emit @ 5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/socket.io/socket.io.js:627
+onerror @ 5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/socket.io/socket.io.js:3978
+Emitter.emit @ 5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/socket.io/socket.io.js:627
+onError @ 5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/socket.io/socket.io.js:4653
+Emitter.emit @ 5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/socket.io/socket.io.js:627
+_onError @ 5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/socket.io/socket.io.js:2110
+Emitter.emit @ 5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/socket.io/socket.io.js:627
+onError @ 5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/socket.io/socket.io.js:819
+ws.onerror @ 5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/socket.io/socket.io.js:1401Understand this warning
+5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev:5000/__replco/workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.Understand this error
+5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev:5000/__replco/workspace_iframe.html?initialPath=%2F&id=default-start-application:159  GET https://5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev:5000/ 502 (Bad Gateway)
+(anonymous) @ 5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev:5000/__replco/workspace_iframe.html?initialPath=%2F&id=default-start-application:159Understand this error

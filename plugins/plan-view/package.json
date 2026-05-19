@@ -1,0 +1,33 @@
+{
+  "name": "@pryzm/plugin-plan-view",
+  "version": "0.1.0",
+  "description": "PRYZM 2 \u2014 Plan-view foundation (S29 / ADR-0028). Vanilla 2D-canvas plan view: pure projection, LevelStore, PlanCamera, FrameScheduler-driven CanvasHost (0 fps idle / 60 fps interactive).",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./store": "./src/LevelStore.ts",
+    "./camera": "./src/PlanCamera.ts",
+    "./projection": "./src/projection.ts",
+    "./host": "./src/PlanViewCanvasHost.ts",
+    "./renderer": "./src/PlanViewRenderer.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@pryzm/drawing-primitives": "workspace:*",
+    "@pryzm/plugin-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

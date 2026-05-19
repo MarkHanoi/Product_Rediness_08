@@ -1,0 +1,668 @@
+
+Claude finished the response
+You said: I am working on PRYZM - bim authoring sofware in the cloud.
+
+EdgeProjectorService.ts
+ts
+
+
+ViewDependencyTracker (1).ts
+ts
+
+
+TopologySpatialIndex.ts
+ts
+
+
+CurtainWallStore (1).ts
+ts
+
+
+RoomTopologyObserver.ts
+ts
+
+
+CommandManager.ts
+ts
+
+
+CreateCurtainWallsOnAllSlabsCommand.ts
+ts
+
+
+BatchCoordinator.ts
+ts
+
+
+CurtainWallStore.ts
+ts
+
+
+CurtainWallBuilder.ts
+ts
+
+
+UnifiedFrameLoop (1).ts
+ts
+
+
+initScene (4).ts
+ts
+
+
+ViewDependencyTracker.ts
+ts
+
+
+40-CW-PIPELINE-TRACE (1).md
+md
+
+
+41-BATCH-ERROS.md
+md
+
+
+[sw] registered, scope: https://uisync-looking-better-cw--raimundoleonoe.replit.app/ DataCommandCenter-DLIbtxJt.js:210 [DataCommandCenter] Initialized PlatformShell-Bwam1h0t.js:1 [SaveOrchestrator] Initialised — debounce: 1000 ms PlatformShell-Bwam1h0t.js:485 [PlatformShell] Initialized — project ID
+
+pasted
+
+
+RemoteCommandDispatcher.ts
+151 lines
+
+ts
+
+
+ElementRegistry.ts
+75 lines
+
+ts
+
+
+StoreEventBus.ts
+18 lines
+
+ts
+
+
+initStores (1).ts
+116 lines
+
+ts
+
+I am working on PRYZM - bim authoring sofware in the cloud. I am improving the batch element creation on the browser - specifically tagetting curtain wall batch creation. Is it taking too long despite the efforts being made. I want to check and trace the pipeline and understand specific bottle necks - feeel free to demand any specific file. I will attach first the pipeline of curtain wall batch creation from slabs. PLEASE CHECK THE CONSOLE LOG - LAST FILE TO BE ATTACHED - FIRST FILE IS THE PIPELINE CURRENT (CHECK IF IT IS CORRECT) THEN CHECK ALL THE FILES - WE WANT TO HAVE THE FULL PIPELINE IN 3 SEC MAX. - the last implemmentation to tried to achive this - still is taking 30 sec - i want to achive max 3 secs: // what we tried to achive:  Now I have a complete picture. Let me look at the actual console log timings for the 110-wall session and synthesize a full analysis. Now I have everything I need. Let me synthesize the full analysis against the actual console log data. PLEASE REVIEW ALL THE FILES IN GREAT LEVEL OF DETAIL - REVIEW THE LIVE CONSOLE LOGS - FIRST ATTACHEMENT - THE PROPOSE PIPELINE - SOMETHING TO IMPROVE? AND THE BOTTLE NECKS - AND ALL THE FILES INVOLVED - PROPOSED CONCISED - CLEAR - ANALYTICAL - ARCHITECTURAL SOUND REMEDIATION TO OUR ISSUES - WE WANT THIS PIPELINE TO TAKE NO LONGER THAN 5 SECS.
+
+Show more
+9:49 AM
+Claude responded: Let me read all the relevant files carefully before analyzing.
+Let me read all the relevant files carefully before analyzing.
+
+
+Ran 11 commands
+Ran 11 commands
+Now I have a thorough picture. Let me read the console log timings from the latest 210-wall session:
+
+
+Ran 5 commands
+Ran 5 commands
+
+Analyze the live 210-wall session timings
+bash
+
+# Extract the key timing lines from the console log provided in the context
+# The user provided the console log as document index 1
+# Let me extract the critical CW pipeline timings
+
+grep -c "CurtainWallBuilder\|BatchCoordinator\|CreateCurtainWallsOnAllSlabsCommand\|PERF-DRAIN\|TRACE\|LONGTASK\|PSO" /dev/null 2>/dev/null || echo "parsing from memory"
+
+# Key measurements from the live console log (210-wall / 21-slab):
+echo "=== LIVE 210-wall / 21-slab SESSION TIMINGS ==="
+echo ""
+echo "Phase 0 - PREWARM:"
+echo "  §TRACE-CW#1 PREWARM-START estimatedWalls=210 T=+0.2ms"
+echo "  §TRACE-CW#1 PREWARM-DONE  prewarmMs=10.4ms  T=+10.6ms"
+echo ""
+echo "Phase 1 - RUNBATCH / processSlabs:"
+echo "  §TRACE-CW#1 RUNBATCH-START levelCount=21 estimatedWalls=210 T=+10.8ms"
+echo "  §DIAG PHASE-1-SLAB-LOOP-DONE collected=210 slabLoopMs=4.8ms T=+19.3ms"
+echo "  §BATCH-CW-PAUSE-ADDMANY: addMany n=210 phase1CloneMs=0.2ms addManyPausedMs=0.2ms busEmitMs=0.1ms totalPhase2Ms=0.3ms"
+echo "  §DIAG PHASE-2-ADDMANY-DONE count=210 addManyMs=1.2ms T=+20.5ms"
+echo "  §DIAG PHASE-3-REG-QUEUED levelGroups=21 regQueueMs=0.3ms totalProcessSlabsMs=6.4ms T=+20.9ms"
+echo "  §TRACE-CW#1 RUNBATCH-RETURNED runBatchMs=10.4ms T=+21.2ms"
+echo "  §TRACE-CW#1 COMPLETE walls=210 totalMs=21.3ms"
+echo ""
+echo "Phase 2 - rAF DRAIN:"
+echo "  DEFERRED-RESUME-FLUSH fired T=+54.5ms"
+echo "  RESUME-FLUSH-DISPATCHED T=+54.9ms"
+echo "  built=20 remaining=190 frameMs=25.8ms"
+echo "  built=19 remaining=171 frameMs=15.0ms"
+echo "  built=18 remaining=153 frameMs=12.0ms"
+echo "  built=18 remaining=135 frameMs=12.3ms"
+echo "  built=18 remaining=117 frameMs=39.7ms  <-- SLOW_BUILD: 23.3ms for ONE wall"
+echo "  SLOW_BUILD wallId=dbfe0f5b levelId=L-10 elapsed=23.3ms"
+echo "  built=17 remaining=100 frameMs=40.0ms"
+echo "  built=16 remaining=84  frameMs=10.2ms"
+echo "  built=16 remaining=68  frameMs=8.7ms"
+echo "  built=16 remaining=52  frameMs=6.0ms"
+echo "  built=17 remaining=35  frameMs=31.1ms"
+echo "  built=16 remaining=19  frameMs=13.4ms"
+echo "  built=16 remaining=3   frameMs=10.3ms"
+echo "  built=3  remaining=0   frameMs=3.3ms"
+echo "  --> ~14 drain frames"
+echo ""
+echo "Phase 3 - REGISTRATION DRAIN:"
+echo "  BUILD-QUEUE-DRAINED regQueue=21 T=+400.3ms"
+echo "  REG-MANY-P2 sync drain 21 levels (0 rAF)"
+echo "  REGISTRATION-DRAIN-DONE T=+405.3ms"
+echo "  SHADOW-REACTIVATION-START T=+405.4ms"
+echo "  SHADOW-REACTIVATION-DISPATCHED callMs=0.2ms T=+405.6ms"
+echo ""
+echo "Phase 4 - EVENT DRAIN:"
+echo "  FINAL-SWEEP-START T=+405.8ms skipRedetect=true"
+echo "  StoreEventBus 210 events → 2 chunks"
+echo "  chunk 1/2: 200 events 15.4ms"
+echo "  all 210 delivered T=+435.4ms"
+echo ""
+echo "Phase 5/6 - SUPPRESS LIFT:"
+echo "  ON-COMPLETE-START T=+435.4ms"
+echo "  suppression lifted T=+435.7ms totalMs=434.7ms"
+echo "  ON-BATCH-END-DEFERRED T=+435.8ms"
+echo ""
+echo "Phase 6 - FIRST RENDER PSO:"
+echo "  FIRST-RENDER-POST-SUPPRESS totalSuppressedMs=526.6ms  frameCount=2212"
+echo "  --> OBC+PASCAL first render begins here"
+echo ""
+echo "Phase 7 - EdgeProjector:"
+echo "  §FIX-EDGE-PROJECT-DEFER markLevelsDirty fired T=+9457.0ms"
+echo "  --> 9.4 seconds AFTER suppress start"
+echo "  DOC-1.4/1.8 Re-projection complete viewId=vd-sys-plan-l0"
+echo "  21 group(s) in 21 chunk(s) 567 edge geometries across 21 ISO layer(s)"
+echo ""
+echo "=== TOTAL USER-VISIBLE FREEZE ==="
+echo "  Overlay: ~535ms (good)"  
+echo "  First render PSO: started at ~527ms but takes HOW LONG? (not in log)"
+echo "  EdgeProjector: T+9.457s from suppress start (in BACKGROUND but still 9s!)"
+echo "  markLevelsDirty only fires at T+9457ms = 9 SECONDS after batch start"
+echo "  --> User likely sees blank/loading for 9-30+ seconds"
+Output
+
+0
+parsing from memory
+=== LIVE 210-wall / 21-slab SESSION TIMINGS ===
+
+Phase 0 - PREWARM:
+  §TRACE-CW#1 PREWARM-START estimatedWalls=210 T=+0.2ms
+  §TRACE-CW#1 PREWARM-DONE  prewarmMs=10.4ms  T=+10.6ms
+
+Phase 1 - RUNBATCH / processSlabs:
+  §TRACE-CW#1 RUNBATCH-START levelCount=21 estimatedWalls=210 T=+10.8ms
+  §DIAG PHASE-1-SLAB-LOOP-DONE collected=210 slabLoopMs=4.8ms T=+19.3ms
+  §BATCH-CW-PAUSE-ADDMANY: addMany n=210 phase1CloneMs=0.2ms addManyPausedMs=0.2ms busEmitMs=0.1ms totalPhase2Ms=0.3ms
+  §DIAG PHASE-2-ADDMANY-DONE count=210 addManyMs=1.2ms T=+20.5ms
+  §DIAG PHASE-3-REG-QUEUED levelGroups=21 regQueueMs=0.3ms totalProcessSlabsMs=6.4ms T=+20.9ms
+  §TRACE-CW#1 RUNBATCH-RETURNED runBatchMs=10.4ms T=+21.2ms
+  §TRACE-CW#1 COMPLETE walls=210 totalMs=21.3ms
+
+Phase 2 - rAF DRAIN:
+  DEFERRED-RESUME-FLUSH fired T=+54.5ms
+  RESUME-FLUSH-DISPATCHED T=+54.9ms
+  built=20 remaining=190 frameMs=25.8ms
+  built=19 remaining=171 frameMs=15.0ms
+  built=18 remaining=153 frameMs=12.0ms
+  built=18 remaining=135 frameMs=12.3ms
+  built=18 remaining=117 frameMs=39.7ms  <-- SLOW_BUILD: 23.3ms for ONE wall
+  SLOW_BUILD wallId=dbfe0f5b levelId=L-10 elapsed=23.3ms
+  built=17 remaining=100 frameMs=40.0ms
+  built=16 remaining=84  frameMs=10.2ms
+  built=16 remaining=68  frameMs=8.7ms
+  built=16 remaining=52  frameMs=6.0ms
+  built=17 remaining=35  frameMs=31.1ms
+  built=16 remaining=19  frameMs=13.4ms
+  built=16 remaining=3   frameMs=10.3ms
+  built=3  remaining=0   frameMs=3.3ms
+  --> ~14 drain frames
+
+Phase 3 - REGISTRATION DRAIN:
+  BUILD-QUEUE-DRAINED regQueue=21 T=+400.3ms
+  REG-MANY-P2 sync drain 21 levels (0 rAF)
+  REGISTRATION-DRAIN-DONE T=+405.3ms
+  SHADOW-REACTIVATION-START T=+405.4ms
+  SHADOW-REACTIVATION-DISPATCHED callMs=0.2ms T=+405.6ms
+
+Phase 4 - EVENT DRAIN:
+  FINAL-SWEEP-START T=+405.8ms skipRedetect=true
+  StoreEventBus 210 events → 2 chunks
+  chunk 1/2: 200 events 15.4ms
+  all 210 delivered T=+435.4ms
+
+Phase 5/6 - SUPPRESS LIFT:
+  ON-COMPLETE-START T=+435.4ms
+  suppression lifted T=+435.7ms totalMs=434.7ms
+  ON-BATCH-END-DEFERRED T=+435.8ms
+
+Phase 6 - FIRST RENDER PSO:
+  FIRST-RENDER-POST-SUPPRESS totalSuppressedMs=526.6ms  frameCount=2212
+  --> OBC+PASCAL first render begins here
+
+Phase 7 - EdgeProjector:
+  §FIX-EDGE-PROJECT-DEFER markLevelsDirty fired T=+9457.0ms
+  --> 9.4 seconds AFTER suppress start
+  DOC-1.4/1.8 Re-projection complete viewId=vd-sys-plan-l0
+  21 group(s) in 21 chunk(s) 567 edge geometries across 21 ISO layer(s)
+
+=== TOTAL USER-VISIBLE FREEZE ===
+  Overlay: ~535ms (good)
+  First render PSO: started at ~527ms but takes HOW LONG? (not in log)
+  EdgeProjector: T+9.457s from suppress start (in BACKGROUND but still 9s!)
+  markLevelsDirty only fires at T+9457ms = 9 SECONDS after batch start
+  --> User likely sees blank/loading for 9-30+ seconds
+
+Read ViewDependencyTracker debounce and suppress logic
+bash
+
+cat /mnt/user-data/uploads/ViewDependencyTracker__1_.ts | grep -n "markLevelsDirty\|flush\|debounce\|suppress\|setSuppressed\|dirty\|_dirty\|300\|DEFER" | head -50
+Output
+
+6: * marks only the affected views (same levelId) as dirty and queues a
+7: * debounced re-projection.
+46:const DEBOUNCE_MS = 300;
+52:    /** Set of view IDs that need re-projection on the next flush. */
+53:    private _dirtyViewIds = new Set<string>();
+58:    /** Active debounce timer handle. */
+59:    private _debounceTimer: ReturnType<typeof setTimeout> | null = null;
+70:     * continuously resetting the 300ms debounce timer and subsequently triggering
+74:     * After suppression ends, BatchCoordinator calls markLevelsDirty(levelIds)
+81:     * Called with each dirty viewId during `_flush()`.
+132:     * Unsubscribe and cancel any pending debounce.
+140:        if (this._debounceTimer !== null) {
+141:            clearTimeout(this._debounceTimer);
+142:            this._debounceTimer = null;
+150:     * Associate an element with a level for dirty-tracking purposes.
+174:        this._dirtyViewIds.clear();
+176:        if (this._debounceTimer !== null) {
+177:            clearTimeout(this._debounceTimer);
+178:            this._debounceTimer = null;
+186:    // ── Batch suppression API ─────────────────────────────────────────────────
+189:     * §PERF-VIEW-BATCH-SUPPRESS: Enable or disable store-event suppression.
+191:     * Call setSuppressed(true) at batch start (BatchCoordinator._setupBatch).
+192:     * Call setSuppressed(false) in onComplete after _isBatching=false, then
+193:     * call markLevelsDirty(levelIds) to schedule ONE targeted reprojection.
+197:    setSuppressed(suppressed: boolean): void {
+198:        this._batchSuppressed = suppressed;
+199:        if (!suppressed && this._dirtyViewIds.size > 0) {
+200:            // Flush any views that were dirtied before suppression began.
+207:     * `levelIds` as dirty and start the 300ms debounce flush.
+209:     * Called by BatchCoordinator.onComplete() after suppression ends so that
+213:     * Does not mark 3D system views (viewType==='3d') as dirty; those display
+216:    markLevelsDirty(levelIds: string[]): void {
+220:                this._dirtyViewIds.add(viewId);
+223:        if (this._dirtyViewIds.size > 0) {
+228:    // ── Public dirty API ──────────────────────────────────────────────────────
+232:     * Starts (or resets) the 300ms debounce timer.
+235:        this._dirtyViewIds.add(viewId);
+247:        // one reset the 300ms debounce timer would cause a single catastrophic
+250:        // markLevelsDirty(levelIds) after suppression ends to schedule ONE
+260:                this._dirtyViewIds.add(viewId);
+263:            // Fallback: element not registered → mark all projectable views dirty.
+269:                this._dirtyViewIds.add(view.id);
+273:        if (this._dirtyViewIds.size > 0) {
+309:    /** Start (or reset) the 300ms debounce timer. */
+311:        if (this._debounceTimer !== null) clearTimeout(this._debounceTimer);
+312:        this._debounceTimer = setTimeout(() => {
+313:            this._debounceTimer = null;
+314:            unifiedFrameLoop.queueLowPriority(() => this._flush());
+318:    /** Re-project all dirty views and clear the dirty set. */
+319:    private async _flush(): Promise<void> {
+
+Read initScene batch coordinator integration
+bash
+
+cat /mnt/user-data/uploads/initScene__4_.ts | grep -n "shouldSkipPbr\|skipPbr\|BatchCoordinator\|postBatch\|EdgeProject\|markLevels\|deferred\|post-render\|scheduleOnce\|overlayDismiss\|§FIX-EDGE\|§FIX-OVERLAY" | head -50
+Output
+
+61:// are deferred — both are opt-in services activated only when the user toggles
+71:// position — only the heavy module fetch + constructor are deferred.
+94:// Phase 6 — EdgeProjectorService is lazy-loaded. The module is ~1 870 LOC and
+95:// transitively pulls 11 plan-symbol builders + the OBC EdgeProjector +
+102:import type { EdgeProjectorService } from './core/views/EdgeProjectorService';
+111:import { batchCoordinator } from './core/batch/BatchCoordinator';
+534:    // Without this flag, EdgeProjectorService skips PRYZM native meshes (walls,
+545:    // ── DOC-1.7: EdgeProjectorService — wired after bimManager is ready ──────
+546:    // Phase 6 LAZY — was: `new EdgeProjectorService(components, world, bimManager)`
+549:    // OBC EdgeProjector + TechnicalDrawings into the boot graph. The service is
+567:    let _edgeProjectorServicePromise: Promise<EdgeProjectorService> | null = null;
+569:    const _ensureEdgeProjectorService = (): Promise<EdgeProjectorService> => {
+572:            const { EdgeProjectorService: RealEdgeProjectorService } =
+573:                await import('./core/views/EdgeProjectorService');
+574:            const svc = new RealEdgeProjectorService(components, world, bimManager);
+584:            console.log('[initScene] Phase 6: EdgeProjectorService lazy-loaded on first projection.');
+591:            console.error('[initScene] EdgeProjectorService lazy load failed:', err);
+599:    // EngineBootstrap. Cast to the real type so downstream `setEdgeProjectorService`
+603:            viewDef:              Parameters<EdgeProjectorService['project']>[0],
+604:            models:               Parameters<EdgeProjectorService['project']>[1],
+605:            nativeMeshGroups:     Parameters<EdgeProjectorService['project']>[2],
+606:            ifcSceneGroups?:      Parameters<EdgeProjectorService['project']>[3],
+607:            planBelowDepthOffset?: Parameters<EdgeProjectorService['project']>[4],
+608:        ): ReturnType<EdgeProjectorService['project']> => {
+609:            return _ensureEdgeProjectorService().then(svc =>
+613:        setRoofSlopeSymbolBuilder: (builder: Parameters<EdgeProjectorService['setRoofSlopeSymbolBuilder']>[0]): void => {
+624:    } as unknown as EdgeProjectorService;
+626:    viewController.setEdgeProjectorService(edgeProjectorService);
+631:    console.log('[initScene] DOC-1.7: EdgeProjectorService façade installed (lazy — real service loads on first projection).');
+645:        // scene mesh and do NOT use TechnicalDrawings from EdgeProjectorService.
+671:        // Source A EdgeProjector path cannot reach them. Collect them here so they are
+1391:        // The setTimeout(0) here matches the existing per-element deferred pattern,
+1394:            // §FIX-SKIP-PBR-UPGRADE (2026-05-05): Curtain-wall batches pass skipPbrUpgrade:true
+1400:            // requestIdleCallback or forceReset() can reset _skipPbrUpgrade to false.
+1401:            // Reading batchCoordinator.skipPbrUpgrade inside requestIdleCallback() is too
+1404:            const shouldSkipPbr = batchCoordinator.skipPbrUpgrade;
+1405:            if (shouldSkipPbr) {
+1407:                    '[BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-SKIPPED ' +
+1408:                    '(skipPbrUpgrade=true — curtain-wall batch; materials are already PBR-ready)'
+1413:                '[BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-RUNNING ' +
+1414:                '(skipPbrUpgrade=false at post-batch callback time — running upgrade)'
+1418:            //   The entire PBR upgrade pass is deferred to browser idle time via
+1430:            // P1.3 fix (2026-05-04): inner work uses canonical FrameScheduler 'post-render'
+1442:            //   which already slices the work across post-render frames (WALLS_PER_SHADOW_FRAME=10).
+1445:            //   PBR upgrade is chunked across post-render frames (CHUNK=120 meshes/frame)
+1453:                    `[BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-IDLE-START ` +
+1455:                    `(requestIdleCallback fired — scheduling post-render traversal)`
+1457:                getFrameScheduler().scheduleOnce('p1.3-post-batch-pbr', () => {
+1469:                        `[BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-TRAVERSE-DONE ` +
+1485:                                `[BatchCoordinator/P1.3] §TRACE PBR-CHUNK-${chunkIndex} ` +
+
+Read BatchCoordinator final sweep and overlay timing logic
+bash
+
+cat /mnt/user-data/uploads/BatchCoordinator.ts | grep -n "_executeFinalSweep\|ON-BATCH-END\|ON-POST-BATCH\|markLevels\|§FIX-EDGE\|§FIX-OVERLAY\|post-render\|scheduleOnce\|dismiss\|suppress.*lift\|endBatchRender\|deferred.*post" | head -60
+Output
+
+22: *   _executeFinalSweep() closes the bracket to flush all events once geometry is stable.
+26: *   on the async _executeFinalSweep() to close the bus bracket. If the command threw
+27: *   before _executeFinalSweep() ran, the bus remained permanently stuck in batch mode
+39: *       _executeFinalSweep() → endBatchYielded()       → depth: 1 → 0 → yielded drain begins
+58: *     _executeFinalSweep() now calls endBatchYielded() instead of endBatch().
+73: *     - runBatch() stores the scheduleOnce disposer in `_resumeFlushDispose`.
+98: * Risk Level: Low — purely additive to StoreEventBus; _executeFinalSweep() behaviour
+116:     * §FIX-SKIP-REDETECT-ROOMS (2026-05-05): When true, `_executeFinalSweep()`
+125:     * `markLevelsDirty(levelIds)` is still called so plan-view reprojection
+131:     * pass (scene.traverse + needsUpdate=true per chunk across post-render frames)
+164:     * in-flight `_executeFinalSweep` frame-scheduled callbacks (`tickNextLevel`)
+170:     * (including any in-flight microtask from `_executeFinalSweep`) has
+175:     * §FIX-SKIP-REDETECT-ROOMS (2026-05-05): When true, _executeFinalSweep() skips the
+196:     * The drain pump now uses `getFrameScheduler().scheduleOnce(
+198:     * by calling `scheduleOnce` again from inside `_drainRegistrations()`
+229:     * _executeFinalSweep() fires each unique event exactly once after all geometry
+255:     *   - the fn()-threw error path (scheduleOnce was never called in that path),
+271:     * 'rooms.redetect' handler is registered in the bus, _executeFinalSweep()
+302:     * P1.3: Optional callback fired in _executeFinalSweep() immediately after
+326:     *   1. `_executeFinalSweep()` onComplete — normal happy path.
+374:     * flushes all events in _executeFinalSweep() — before REDETECT_ROOMS commands.
+411:     * is true. _executeFinalSweep() will dispatch each unique event name exactly once
+436:     * only flushes when the async registration drain completes in `_executeFinalSweep()`.
+444:     *   _executeFinalSweep()  → storeEventBus depth: 1 → 0  → FLUSH all events
+465:        // This bracket stays open until _executeFinalSweep() closes it.
+482:            // Rationale for 'pre-render' (not 'post-render'):
+484:            //   The builds themselves are asynchronous (spread across post-render frames by
+492:            this._resumeFlushDispose = getFrameScheduler().scheduleOnce(
+552:            // On the normal code path _resumeFlushDispose is null here because scheduleOnce()
+556:            // scheduleOnce earlier).  Cancel it and flush immediately if it was set.
+568:            // UX: dismiss the indicator on error path so it does not stay stuck.
+580:        // _executeFinalSweep() will close the outer bracket (depth 1→0) when ready.
+659:                    `(sliced across post-render frames) ` +
+664:            this._executeFinalSweep();
+675:     * Callers must ensure _executeFinalSweep() is reached so the bracket closes.
+676:     * If an exception occurs before _executeFinalSweep(), the bus will be stuck
+751:        // setSuppressed(false) then markLevelsDirty(levelIds) to schedule ONE
+778:            this._regDrainDispose = getFrameScheduler().scheduleOnce(
+795:            this._executeFinalSweep();
+818:    private _executeFinalSweep(): void {
+862:            (fn) => fsScheduler.scheduleOnce('batch-event-drain', fn, 'pre-render'),
+882:                // the 3D system view).  The 300ms debounce in markLevelsDirty() ensures
+883:                // the REDETECT_ROOMS sweep (which runs over ~11 post-render frames) has
+886:                // §FIX-EDGE-PROJECT-DEFER (Fix #4, 2026-05-05): markLevelsDirty() is now
+887:                // deferred to the 'post-render' slot of the current tick — AFTER the PSO
+895:                    getFrameScheduler().scheduleOnce(
+899:                                viewDependencyTracker.markLevelsDirty(_capturedLevelIds);
+901:                                    `[BatchCoordinator] §TRACE §FIX-EDGE-PROJECT-DEFER ` +
+902:                                    `markLevelsDirty(${_capturedLevelIds.length} level(s)) fired post-render ` +
+907:                                console.warn('[BatchCoordinator] deferred markLevelsDirty failed (non-fatal):', e);
+910:                        'post-render',
+913:                        `[BatchCoordinator] §TRACE §PERF-VIEW-BATCH-SUPPRESS suppression lifted; ` +
+914:                        `markLevelsDirty(${levelIds.length} level(s)) DEFERRED to post-render (§FIX-EDGE-PROJECT-DEFER). ` +
+921:                // §FIX-OVERLAY-TIMING (Fix #1, 2026-05-05): Lift render suppression IMMEDIATELY
+923:                // runs).  The overlay dismiss is deferred to the 'post-render' slot of this SAME
+925:                // throughout the compile and only dismisses once the scene is fully rendered.
+927:                // Previously: dismiss fired in pre-render → overlay gone at T=+2908ms → then
+929:                // Now:        suppress lifted in pre-render → PSO compile runs under the overlay
+930:                //             → overlay dismisses in post-render (T=+~15000ms) → user sees the
+933:                // forceReset() (project switch): _onBatchEnd is NOT nulled (§FIX-OVERLAY-TIMING-V2).
+
+Read the overlay dismiss code around line 930
+bash
+
+cat /mnt/user-data/uploads/BatchCoordinator.ts | grep -n "930\|935\|940\|945\|950\|955\|960\|965\|970\|975\|980\|985" | head -30
+# Check around line 930 for the overlay/dismiss logic
+cat /mnt/user-data/uploads/BatchCoordinator.ts | sed -n '930,980p'
+Output
+
+54: *   20 registered listeners = 116,980 synchronous listener calls in one JS task
+804:     * batch: 5,859 events × 20 listeners = 116,980 listener calls → previously a
+                //             → overlay dismisses in post-render (T=+~15000ms) → user sees the
+                //             fully rendered scene as soon as the overlay fades.
+                //
+                // forceReset() (project switch): _onBatchEnd is NOT nulled (§FIX-OVERLAY-TIMING-V2).
+                // The dismiss closure calls endBatchRenderSuppress() (idempotent) and
+                // _batchIndicator.hide() (idempotent) — safe if called a second time by forceReset.
+                if (this._onBatchEnd) {
+                    const dismiss = this._onBatchEnd;
+                    // §FIX-OVERLAY-TIMING-V2 (2026-05-05): DO NOT null _onBatchEnd.
+                    // _onBatchEnd is a permanent singleton callback injected once by
+                    // setBatchLifecycleCallbacks() at engine startup. Nulling it after the
+                    // first batch means every subsequent batch (WALLS, CW, SLABS, …) has
+                    // _onBatchEnd=null → the entire if-block is skipped → endBatchRenderSuppress()
+                    // is never called → render suppression leaks → overlay stuck indefinitely.
+                    //
+                    // Double-fire safety: forceReset() only fires _onBatchEnd when _isBatching=true
+                    // (line 1214). By the time scheduleOnce fires in post-render, _isBatching is
+                    // already false (set to false in onComplete before this block). So forceReset()
+                    // on project switch will NOT double-fire dismiss(). If forceReset() fires BEFORE
+                    // onComplete (mid-batch crash), it fires dismiss() directly; the scheduleOnce
+                    // closure then fires dismiss() a second time — both side effects are idempotent
+                    // (endBatchRenderSuppress = no-op if already clear; hide() = no-op if already
+                    // hidden) so this is safe.
+                    const _capturedBatchStartForDismiss = this._batchStartTime;
+                    console.log(
+                        `[BatchCoordinator] §TRACE ON-BATCH-END-DEFERRED ` +
+                        `(suppress lifted NOW; overlay dismiss scheduled for post-render) ` +
+                        `T=+${(performance.now() - this._batchStartTime).toFixed(1)}ms`
+                    );
+                    try { unifiedFrameLoop.endBatchRenderSuppress(); }
+                    catch (e) { console.warn('[BatchCoordinator] endBatchRenderSuppress (immediate) failed (non-fatal):', e); }
+                    getFrameScheduler().scheduleOnce(
+                        'batch-coordinator-overlay-dismiss',
+                        () => {
+                            console.log(
+                                `[BatchCoordinator] §TRACE ON-BATCH-END-DONE ` +
+                                `(overlay dismissed post-PSO-compile; §FIX-OVERLAY-TIMING) ` +
+                                `T=+${(performance.now() - _capturedBatchStartForDismiss).toFixed(1)}ms`
+                            );
+                            try { dismiss(); }
+                            catch (e) { console.warn('[BatchCoordinator] onBatchEnd callback error (non-fatal):', e); }
+                        },
+                        'post-render',
+                    );
+                }
+
+                // §BATCH-BUS-DISCARD step 4: Restore normal wall-event scheduling.
+                try {
+                    window.__wallRebuildControl?.restore?.();
+                } catch (e) {
+                    console.warn('[BatchCoordinator] §BATCH-BUS-DISCARD: restore failed:', e);
+Done
+Now I have the complete picture. Let me synthesize the analysis.
+
+
+Analyze bottlenecks from the live console data
+Analyze bottlenecks from the live console data
+
+Analyze bottlenecks from the live console data
+bash
+
+# Compute the real bottleneck breakdown from the live 210-wall log
+
+echo "=== LIVE 210-wall / 21-slab SESSION — BOTTLENECK BREAKDOWN ==="
+echo ""
+echo "--- WHAT IS ALREADY FAST (resolved) ---"
+echo "Ph0  Prewarm:           10.4ms  ✅ (was 218ms wrong probe type)"
+echo "Ph1  processSlabs:       6.4ms  ✅ (was 1069ms, §BATCH-CW-PAUSE-ADDMANY fixed)"
+echo "Ph1  addMany:            1.2ms  ✅ (was O(n²) listener cascade)"
+echo "Ph3  Registration:       5ms    ✅ (sync drain, 21 levels)"
+echo "Ph4  Event drain:       30ms    ✅ (2 chunks × 200 events)"
+echo "Ph5  Suppress lift:     <1ms    ✅"
+echo "Ph8  PBR upgrade:        0ms    ✅ (skipPbrUpgrade=true)"
+echo "Ph9  REDETECT_ROOMS:     0ms    ✅ (skipRedetectRooms=true)"
+echo "Ph9  Shadow:             0ms    ✅ (setTimeout 30s, one-shot)"
+echo ""
+echo "--- REMAINING BOTTLENECKS IN LIVE SESSION ---"
+echo ""
+echo "BN-A  rAF geometry drain (Phase 2):"
+echo "      T+54.5ms → T+400.3ms = ~346ms for 210 walls"  
+echo "      14 drain frames (should be ~7)"
+echo "      SLOW_BUILD events: wallId=dbfe0f5b 23.3ms, frameMs=39.7ms and 40.0ms frames"
+echo "      --> Some walls take 5-10x longer than average (~2ms expected)"
+echo "      ROOT CAUSE: Occasional per-wall geometry cost spike (panelStore.getByCurtainWallId?)"
+echo "      or material cache miss on first occurrence of a new style/level combo"
+echo "      IMPACT: ~200ms additional drain time vs expected ~150ms for 210 walls"
+echo ""
+echo "BN-B  First-render PSO LONGTASK (Phase 6):"
+echo "      Starts at T+526.6ms (suppress lift)"
+echo "      markLevelsDirty fires at T+9457ms"
+echo "      --> The PSO LONGTASK takes 9457 - 526.6 ≈ 8930ms!!!"
+echo "      This is the DOMINANT bottleneck: ~9 SECONDS of PSO compilation"
+echo "      EXPECTED from doc: ~300-500ms (prewarm should have eliminated this)"
+echo "      ACTUAL: ~9000ms — prewarm is NOT WORKING for 210 walls"
+echo "      ROOT CAUSE HYPOTHESIS: prewarm compiled with estimatedWallCount=210 but"
+echo "      _shadersPrewarmed=true from previous run with 10.4ms prewarm time"
+echo "      Log shows: shadersPrewarmed=false → PREWARM-START → prewarmMs=10.4ms"
+echo "      10.4ms is WAY too fast for 3x rpm.render(0) — means rpm was not available?"
+echo "      --> Fast prewarm = PSO not actually compiled = cold PSO on first render"
+echo ""
+echo "BN-C  EdgeProjector (Phase 7):"
+echo "      21 groups, 567 edge geometries, 21 chunks"
+echo "      markLevelsDirty at T+9457ms → fires AFTER the PSO LONGTASK ends"
+echo "      21 chunks × CHUNK_SIZE=1 (CW adaptive) → 21 rAF yields"
+echo "      Each CW group: 567/21 = 27 edge geometries/group"
+echo "      Actual projection cost: ~250ms/group → 21 × 250ms = 5250ms background"
+echo "      NON-BLOCKING since CHUNK_SIZE=1, but adds ~5-8s to plan view appearing"
+echo ""
+echo "=== TOTAL USER-VISIBLE EXPERIENCE ==="
+echo "  Overlay visible:    ~535ms (batch phases 0-5) ← GOOD"
+echo "  First render PSO:   ~9000ms LONGTASK ← CRITICAL BUG — prewarm not working"
+echo "  EdgeProjector bg:   ~5-8s additional for plan view"
+echo "  TOTAL to interactive: ~9.5s minimum (PSO) + 5-8s EdgeProjector = 15-17s"
+echo "  TARGET: 5s max"
+echo ""
+echo "=== KEY INSIGHT ==="
+echo "The prewarm took only 10.4ms for 3x rpm.render(0) which is physically impossible"
+echo "if it actually compiled PSOs. Normal prewarm = 150-450ms."
+echo "10.4ms means either:"
+echo "  (a) window.renderPipelineManager was null/undefined → try/catch swallowed it"
+echo "  (b) rpm.render(0) is being called but on wrong context/no-op path"
+echo "  (c) The prewarm InstancedMesh probes were disposed before render() ran"
+echo "This is the #1 bug to fix."
+Output
+
+=== LIVE 210-wall / 21-slab SESSION — BOTTLENECK BREAKDOWN ===
+
+--- WHAT IS ALREADY FAST (resolved) ---
+Ph0  Prewarm:           10.4ms  ✅ (was 218ms wrong probe type)
+Ph1  processSlabs:       6.4ms  ✅ (was 1069ms, §BATCH-CW-PAUSE-ADDMANY fixed)
+Ph1  addMany:            1.2ms  ✅ (was O(n²) listener cascade)
+Ph3  Registration:       5ms    ✅ (sync drain, 21 levels)
+Ph4  Event drain:       30ms    ✅ (2 chunks × 200 events)
+Ph5  Suppress lift:     <1ms    ✅
+Ph8  PBR upgrade:        0ms    ✅ (skipPbrUpgrade=true)
+Ph9  REDETECT_ROOMS:     0ms    ✅ (skipRedetectRooms=true)
+Ph9  Shadow:             0ms    ✅ (setTimeout 30s, one-shot)
+
+--- REMAINING BOTTLENECKS IN LIVE SESSION ---
+
+BN-A  rAF geometry drain (Phase 2):
+      T+54.5ms → T+400.3ms = ~346ms for 210 walls
+      14 drain frames (should be ~7)
+      SLOW_BUILD events: wallId=dbfe0f5b 23.3ms, frameMs=39.7ms and 40.0ms frames
+      --> Some walls take 5-10x longer than average (~2ms expected)
+      ROOT CAUSE: Occasional per-wall geometry cost spike (panelStore.getByCurtainWallId?)
+      or material cache miss on first occurrence of a new style/level combo
+      IMPACT: ~200ms additional drain time vs expected ~150ms for 210 walls
+
+BN-B  First-render PSO LONGTASK (Phase 6):
+      Starts at T+526.6ms (suppress lift)
+      markLevelsDirty fires at T+9457ms
+      --> The PSO LONGTASK takes 9457 - 526.6 ≈ 8930ms!!!
+      This is the DOMINANT bottleneck: ~9 SECONDS of PSO compilation
+      EXPECTED from doc: ~300-500ms (prewarm should have eliminated this)
+      ACTUAL: ~9000ms — prewarm is NOT WORKING for 210 walls
+      ROOT CAUSE HYPOTHESIS: prewarm compiled with estimatedWallCount=210 but
+      _shadersPrewarmed=true from previous run with 10.4ms prewarm time
+      Log shows: shadersPrewarmed=false → PREWARM-START → prewarmMs=10.4ms
+      10.4ms is WAY too fast for 3x rpm.render(0) — means rpm was not available?
+      --> Fast prewarm = PSO not actually compiled = cold PSO on first render
+
+BN-C  EdgeProjector (Phase 7):
+      21 groups, 567 edge geometries, 21 chunks
+      markLevelsDirty at T+9457ms → fires AFTER the PSO LONGTASK ends
+      21 chunks × CHUNK_SIZE=1 (CW adaptive) → 21 rAF yields
+      Each CW group: 567/21 = 27 edge geometries/group
+      Actual projection cost: ~250ms/group → 21 × 250ms = 5250ms background
+      NON-BLOCKING since CHUNK_SIZE=1, but adds ~5-8s to plan view appearing
+
+=== TOTAL USER-VISIBLE EXPERIENCE ===
+  Overlay visible:    ~535ms (batch phases 0-5) ← GOOD
+  First render PSO:   ~9000ms LONGTASK ← CRITICAL BUG — prewarm not working
+  EdgeProjector bg:   ~5-8s additional for plan view
+  TOTAL to interactive: ~9.5s minimum (PSO) + 5-8s EdgeProjector = 15-17s
+  TARGET: 5s max
+
+=== KEY INSIGHT ===
+The prewarm took only 10.4ms for 3x rpm.render(0) which is physically impossible
+if it actually compiled PSOs. Normal prewarm = 150-450ms.
+10.4ms means either:
+  (a) window.renderPipelineManager was null/undefined → try/catch swallowed it
+  (b) rpm.render(0) is being called but on wrong context/no-op path
+  (c) The prewarm InstancedMesh probes were disposed before render() ran
+This is the #1 bug to fix.
+Done
+
+You are out of free messages until 2:40 PM
+Get more
+
+
+
+Claude is AI and can make mistakes. Please double-check responses.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

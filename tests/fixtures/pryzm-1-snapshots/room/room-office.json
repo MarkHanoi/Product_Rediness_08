@@ -1,0 +1,30 @@
+{
+  "id": "room_01H8XK3J7M9N2P4QR5STVW6XYZ",
+  "type": "room",
+  "parentId": "level_ground",
+  "childrenIds": [],
+  "metadata": {
+    "createdAt": 1700000900000,
+    "modifiedAt": 1700000900000,
+    "createdBy": "fixture",
+    "version": 1
+  },
+  "levelId": "level_ground",
+  "name": "Office",
+  "number": "101",
+  "boundary": [
+    { "x": 0, "y": 0, "z": 0 },
+    { "x": 4, "y": 0, "z": 0 },
+    { "x": 4, "y": 0, "z": 5 },
+    { "x": 0, "y": 0, "z": 5 }
+  ],
+  "area": 20,
+  "volume": 54,
+  "programType": "Office",
+  "boundingWallIds": [
+    "wall_01H8XK3J7M9N2P4QR5STVW6XAA",
+    "wall_01H8XK3J7M9N2P4QR5STVW6XBB",
+    "wall_01H8XK3J7M9N2P4QR5STVW6XCC",
+    "wall_01H8XK3J7M9N2P4QR5STVW6XDD"
+  ]
+}

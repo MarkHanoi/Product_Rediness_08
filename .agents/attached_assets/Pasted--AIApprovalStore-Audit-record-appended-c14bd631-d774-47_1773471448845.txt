@@ -1,0 +1,671 @@
+[AIApprovalStore] Audit record appended: c14bd631-d774-47e7-bcc8-64f89f7510e5 (CREATE_SLAB)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [ViewBrowser] Update triggered. Total views: 7
+injected.js:37 [AIPanel] Approving proposal: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [WallFragmentBuilder] updateWall for c11bfd31-b4d7-493a-9139-f7d117f08c04 at worldY: 0
+injected.js:37 [BimManager] Registered element c11bfd31-b4d7-493a-9139-f7d117f08c04 to level L0
+injected.js:37 [AIPanel] Execution result: Object
+injected.js:37 [AIApprovalStore] Audit record appended: d6c0dbb2-df38-4b9e-b13c-d865e7e199cc (CREATE_WALL)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [ViewBrowser] Update triggered. Total views: 7
+injected.js:37 [AIPanel] Approving proposal: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [WallFragmentBuilder] updateWall for 68aaac0a-7d13-4ac1-8c31-f1adfe62faf4 at worldY: 0
+injected.js:37 [BimManager] Registered element 68aaac0a-7d13-4ac1-8c31-f1adfe62faf4 to level L0
+injected.js:37 [AIPanel] Execution result: Object
+injected.js:37 [AIApprovalStore] Audit record appended: 42bd3049-e3ea-4618-9fb9-fce6f359aa34 (CREATE_WALL)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [ViewBrowser] Update triggered. Total views: 7
+injected.js:37 [AIPanel] Approving proposal: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+2injected.js:37 [WallJoinResolver] T-JOIN: trim failed, skipping
+(anonymous) @ injected.js:37
+_applyT @ index-BhucFzuA.js:11140
+resolveLevel @ index-BhucFzuA.js:11140
+(anonymous) @ index-BhucFzuA.js:11152
+(anonymous) @ index-BhucFzuA.js:11095
+emit @ index-BhucFzuA.js:11095
+add @ index-BhucFzuA.js:11095
+execute @ index-BhucFzuA.js:8656
+execute @ index-BhucFzuA.js:8750
+E @ index-BhucFzuA.js:9421
+Me.onclick @ index-BhucFzuA.js:9416Understand this warning
+injected.js:37 [WallFragmentBuilder] updateWall for 7b7af0d9-3c38-46da-80a6-4ff3f4515bda at worldY: 0
+injected.js:37 [BimManager] Registered element 7b7af0d9-3c38-46da-80a6-4ff3f4515bda to level L0
+injected.js:37 [AIPanel] Execution result: Object
+injected.js:37 [AIApprovalStore] Audit record appended: 44d5536f-375d-4c8d-addd-57615cbdf846 (CREATE_WALL)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [ViewBrowser] Update triggered. Total views: 7
+injected.js:37 [AIPanel] Approving proposal: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+2injected.js:37 [WallJoinResolver] T-JOIN: trim failed, skipping
+(anonymous) @ injected.js:37
+_applyT @ index-BhucFzuA.js:11140
+resolveLevel @ index-BhucFzuA.js:11140
+(anonymous) @ index-BhucFzuA.js:11152
+(anonymous) @ index-BhucFzuA.js:11095
+emit @ index-BhucFzuA.js:11095
+add @ index-BhucFzuA.js:11095
+execute @ index-BhucFzuA.js:8656
+execute @ index-BhucFzuA.js:8750
+E @ index-BhucFzuA.js:9421
+Me.onclick @ index-BhucFzuA.js:9416Understand this warning
+injected.js:37 [WallFragmentBuilder] updateWall for 9d08bd6a-5a22-4c91-bdf3-e2ef20bfe485 at worldY: 0
+injected.js:37 [BimManager] Registered element 9d08bd6a-5a22-4c91-bdf3-e2ef20bfe485 to level L0
+injected.js:37 [AIPanel] Execution result: Object
+injected.js:37 [AIApprovalStore] Audit record appended: e311ad5a-8d43-455f-9e47-a81fe3773e4c (CREATE_WALL)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [ViewBrowser] Update triggered. Total views: 7
+injected.js:37 [AIPanel] Approving proposal: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+4injected.js:37 [WallJoinResolver] T-JOIN: trim failed, skipping
+(anonymous) @ injected.js:37
+_applyT @ index-BhucFzuA.js:11140
+resolveLevel @ index-BhucFzuA.js:11140
+(anonymous) @ index-BhucFzuA.js:11152
+(anonymous) @ index-BhucFzuA.js:11095
+emit @ index-BhucFzuA.js:11095
+add @ index-BhucFzuA.js:11095
+execute @ index-BhucFzuA.js:8656
+execute @ index-BhucFzuA.js:8750
+E @ index-BhucFzuA.js:9421
+Me.onclick @ index-BhucFzuA.js:9416Understand this warning
+injected.js:37 [WallFragmentBuilder] updateWall for 343ff84a-e299-4224-93c0-c476b6afaacd at worldY: 0
+injected.js:37 [BimManager] Registered element 343ff84a-e299-4224-93c0-c476b6afaacd to level L0
+injected.js:37 [AIPanel] Execution result: Object
+injected.js:37 [AIApprovalStore] Audit record appended: b2026963-d6c3-494d-9295-4f0f7658908d (CREATE_WALL)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [ViewBrowser] Update triggered. Total views: 7
+injected.js:37 [AIPanel] Approving proposal: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+4injected.js:37 [WallJoinResolver] T-JOIN: trim failed, skipping
+(anonymous) @ injected.js:37
+_applyT @ index-BhucFzuA.js:11140
+resolveLevel @ index-BhucFzuA.js:11140
+(anonymous) @ index-BhucFzuA.js:11152
+(anonymous) @ index-BhucFzuA.js:11095
+emit @ index-BhucFzuA.js:11095
+add @ index-BhucFzuA.js:11095
+execute @ index-BhucFzuA.js:8656
+execute @ index-BhucFzuA.js:8750
+E @ index-BhucFzuA.js:9421
+Me.onclick @ index-BhucFzuA.js:9416Understand this warning
+injected.js:37 [WallFragmentBuilder] updateWall for 7c6f73b0-9f13-404c-bb86-f34853850ff8 at worldY: 0
+injected.js:37 [BimManager] Registered element 7c6f73b0-9f13-404c-bb86-f34853850ff8 to level L0
+injected.js:37 [AIPanel] Execution result: Object
+injected.js:37 [AIApprovalStore] Audit record appended: 0cd92cb1-fb54-4043-b78e-8b036bf9e506 (CREATE_WALL)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [ViewBrowser] Update triggered. Total views: 7
+injected.js:37 [AIPanel] Approving proposal: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+4injected.js:37 [WallJoinResolver] T-JOIN: trim failed, skipping
+(anonymous) @ injected.js:37
+_applyT @ index-BhucFzuA.js:11140
+resolveLevel @ index-BhucFzuA.js:11140
+(anonymous) @ index-BhucFzuA.js:11152
+(anonymous) @ index-BhucFzuA.js:11095
+emit @ index-BhucFzuA.js:11095
+add @ index-BhucFzuA.js:11095
+execute @ index-BhucFzuA.js:8656
+execute @ index-BhucFzuA.js:8750
+E @ index-BhucFzuA.js:9421
+Me.onclick @ index-BhucFzuA.js:9416Understand this warning
+injected.js:37 [WallFragmentBuilder] updateWall for 4992714f-341c-480e-a9f9-5a5373c9fed6 at worldY: 0
+injected.js:37 [BimManager] Registered element 4992714f-341c-480e-a9f9-5a5373c9fed6 to level L0
+injected.js:37 [AIPanel] Execution result: Object
+injected.js:37 [AIApprovalStore] Audit record appended: 50b6a5af-25c1-4843-b86e-7446ee554630 (CREATE_WALL)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [ViewBrowser] Update triggered. Total views: 7
+injected.js:37 [AIPanel] Approving proposal: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+6injected.js:37 [WallJoinResolver] T-JOIN: trim failed, skipping
+(anonymous) @ injected.js:37
+_applyT @ index-BhucFzuA.js:11140
+resolveLevel @ index-BhucFzuA.js:11140
+(anonymous) @ index-BhucFzuA.js:11152
+(anonymous) @ index-BhucFzuA.js:11095
+emit @ index-BhucFzuA.js:11095
+add @ index-BhucFzuA.js:11095
+execute @ index-BhucFzuA.js:8656
+execute @ index-BhucFzuA.js:8750
+E @ index-BhucFzuA.js:9421
+Me.onclick @ index-BhucFzuA.js:9416Understand this warning
+injected.js:37 [WallFragmentBuilder] updateWall for 0d508556-0113-4a29-a67d-0d770144d2c2 at worldY: 0
+injected.js:37 [BimManager] Registered element 0d508556-0113-4a29-a67d-0d770144d2c2 to level L0
+injected.js:37 [AIPanel] Execution result: Object
+injected.js:37 [AIApprovalStore] Audit record appended: b94a8b6c-cf1c-4ecb-9de6-0bb655be6d81 (CREATE_WALL)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [ViewBrowser] Update triggered. Total views: 7
+injected.js:37 [AIPanel] Approving proposal: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+6injected.js:37 [WallJoinResolver] T-JOIN: trim failed, skipping
+(anonymous) @ injected.js:37
+_applyT @ index-BhucFzuA.js:11140
+resolveLevel @ index-BhucFzuA.js:11140
+(anonymous) @ index-BhucFzuA.js:11152
+(anonymous) @ index-BhucFzuA.js:11095
+emit @ index-BhucFzuA.js:11095
+add @ index-BhucFzuA.js:11095
+execute @ index-BhucFzuA.js:8656
+execute @ index-BhucFzuA.js:8750
+E @ index-BhucFzuA.js:9421
+Me.onclick @ index-BhucFzuA.js:9416Understand this warning
+injected.js:37 [WallFragmentBuilder] updateWall for cc8e431c-a67e-4e49-ac2a-b33c625edbf7 at worldY: 0
+injected.js:37 [BimManager] Registered element cc8e431c-a67e-4e49-ac2a-b33c625edbf7 to level L0
+injected.js:37 [AIPanel] Execution result: Object
+injected.js:37 [AIApprovalStore] Audit record appended: fc0a9b8d-cf38-46d2-9975-3c1a4e38b16b (CREATE_WALL)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [ViewBrowser] Update triggered. Total views: 7
+injected.js:37 [AIPanel] Approving proposal: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+6injected.js:37 [WallJoinResolver] T-JOIN: trim failed, skipping
+(anonymous) @ injected.js:37
+_applyT @ index-BhucFzuA.js:11140
+resolveLevel @ index-BhucFzuA.js:11140
+(anonymous) @ index-BhucFzuA.js:11152
+(anonymous) @ index-BhucFzuA.js:11095
+emit @ index-BhucFzuA.js:11095
+add @ index-BhucFzuA.js:11095
+execute @ index-BhucFzuA.js:8656
+execute @ index-BhucFzuA.js:8750
+E @ index-BhucFzuA.js:9421
+Me.onclick @ index-BhucFzuA.js:9416Understand this warning
+injected.js:37 [WallFragmentBuilder] updateWall for 9f963d2a-92df-409f-b019-bf23693c4525 at worldY: 0
+injected.js:37 [BimManager] Registered element 9f963d2a-92df-409f-b019-bf23693c4525 to level L0
+injected.js:37 [AIPanel] Execution result: Object
+injected.js:37 [AIApprovalStore] Audit record appended: f7276f07-a158-4247-b623-ddbef4685c32 (CREATE_WALL)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [ViewBrowser] Update triggered. Total views: 7
+injected.js:37 [AIPanel] Approving proposal: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+6injected.js:37 [WallJoinResolver] T-JOIN: trim failed, skipping
+(anonymous) @ injected.js:37
+_applyT @ index-BhucFzuA.js:11140
+resolveLevel @ index-BhucFzuA.js:11140
+(anonymous) @ index-BhucFzuA.js:11152
+(anonymous) @ index-BhucFzuA.js:11095
+emit @ index-BhucFzuA.js:11095
+add @ index-BhucFzuA.js:11095
+execute @ index-BhucFzuA.js:8656
+execute @ index-BhucFzuA.js:8750
+E @ index-BhucFzuA.js:9421
+Me.onclick @ index-BhucFzuA.js:9416Understand this warning
+injected.js:37 [WallFragmentBuilder] updateWall for 7f15395c-1775-4ebb-aa8b-131e023c4c81 at worldY: 0
+injected.js:37 [BimManager] Registered element 7f15395c-1775-4ebb-aa8b-131e023c4c81 to level L0
+injected.js:37 [AIPanel] Execution result: Object
+injected.js:37 [AIApprovalStore] Audit record appended: 4ca20c35-06a3-4ada-bcfc-25a1c81987d2 (CREATE_WALL)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [ViewBrowser] Update triggered. Total views: 7
+injected.js:37 [AIPanel] Approving proposal: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+8injected.js:37 [WallJoinResolver] T-JOIN: trim failed, skipping
+(anonymous) @ injected.js:37
+_applyT @ index-BhucFzuA.js:11140
+resolveLevel @ index-BhucFzuA.js:11140
+(anonymous) @ index-BhucFzuA.js:11152
+(anonymous) @ index-BhucFzuA.js:11095
+emit @ index-BhucFzuA.js:11095
+add @ index-BhucFzuA.js:11095
+execute @ index-BhucFzuA.js:8656
+execute @ index-BhucFzuA.js:8750
+E @ index-BhucFzuA.js:9421
+Me.onclick @ index-BhucFzuA.js:9416Understand this warning
+injected.js:37 [WallFragmentBuilder] updateWall for fe202afe-d1ca-464e-8579-ee04d98b288a at worldY: 0
+injected.js:37 [BimManager] Registered element fe202afe-d1ca-464e-8579-ee04d98b288a to level L0
+injected.js:37 [AIPanel] Execution result: Object
+injected.js:37 [AIApprovalStore] Audit record appended: dd2da377-c44d-499c-a607-e77269915be8 (CREATE_WALL)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [ViewBrowser] Update triggered. Total views: 7
+injected.js:37 [AIPanel] Approving proposal: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+14injected.js:37 [WallJoinResolver] T-JOIN: trim failed, skipping
+(anonymous) @ injected.js:37
+_applyT @ index-BhucFzuA.js:11140
+resolveLevel @ index-BhucFzuA.js:11140
+(anonymous) @ index-BhucFzuA.js:11152
+(anonymous) @ index-BhucFzuA.js:11095
+emit @ index-BhucFzuA.js:11095
+add @ index-BhucFzuA.js:11095
+execute @ index-BhucFzuA.js:8656
+execute @ index-BhucFzuA.js:8750
+E @ index-BhucFzuA.js:9421
+Me.onclick @ index-BhucFzuA.js:9416Understand this warning
+injected.js:37 [WallFragmentBuilder] updateWall for 9472d39b-6e76-4278-9c5e-ddd9cc2429f0 at worldY: 0
+injected.js:37 [BimManager] Registered element 9472d39b-6e76-4278-9c5e-ddd9cc2429f0 to level L0
+injected.js:37 [AIPanel] Execution result: Object
+injected.js:37 [AIApprovalStore] Audit record appended: 461eabe3-37a9-49f3-9891-ceba416c1776 (CREATE_WALL)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [ViewBrowser] Update triggered. Total views: 7
+injected.js:37 [AIPanel] Approving proposal: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+22injected.js:37 [WallJoinResolver] T-JOIN: trim failed, skipping
+(anonymous) @ injected.js:37
+_applyT @ index-BhucFzuA.js:11140
+resolveLevel @ index-BhucFzuA.js:11140
+(anonymous) @ index-BhucFzuA.js:11152
+(anonymous) @ index-BhucFzuA.js:11095
+emit @ index-BhucFzuA.js:11095
+add @ index-BhucFzuA.js:11095
+execute @ index-BhucFzuA.js:8656
+execute @ index-BhucFzuA.js:8750
+E @ index-BhucFzuA.js:9421
+Me.onclick @ index-BhucFzuA.js:9416Understand this warning
+injected.js:37 [WallFragmentBuilder] updateWall for 820c2c21-53ac-4cdd-846a-7164274fa868 at worldY: 0
+injected.js:37 [BimManager] Registered element 820c2c21-53ac-4cdd-846a-7164274fa868 to level L0
+injected.js:37 [AIPanel] Execution result: Object
+injected.js:37 [AIApprovalStore] Audit record appended: ba9dc592-7318-44de-9db9-0bc9a2137985 (CREATE_WALL)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [ViewBrowser] Update triggered. Total views: 7
+injected.js:37 [AIPanel] Approving proposal: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+22injected.js:37 [WallJoinResolver] T-JOIN: trim failed, skipping
+(anonymous) @ injected.js:37
+_applyT @ index-BhucFzuA.js:11140
+resolveLevel @ index-BhucFzuA.js:11140
+(anonymous) @ index-BhucFzuA.js:11152
+(anonymous) @ index-BhucFzuA.js:11095
+emit @ index-BhucFzuA.js:11095
+add @ index-BhucFzuA.js:11095
+execute @ index-BhucFzuA.js:8656
+execute @ index-BhucFzuA.js:8750
+E @ index-BhucFzuA.js:9421
+Me.onclick @ index-BhucFzuA.js:9416Understand this warning
+injected.js:37 [WallFragmentBuilder] updateWall for d444f8d4-8d24-464e-b638-e2db0f18de22 at worldY: 0
+injected.js:37 [BimManager] Registered element d444f8d4-8d24-464e-b638-e2db0f18de22 to level L0
+injected.js:37 [AIPanel] Execution result: Object
+injected.js:37 [AIApprovalStore] Audit record appended: 2304bef6-9f11-480b-bec2-765c46c9f9c6 (CREATE_WALL)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [ViewBrowser] Update triggered. Total views: 7
+injected.js:37 [AIPanel] Approving proposal: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+22injected.js:37 [WallJoinResolver] T-JOIN: trim failed, skipping
+(anonymous) @ injected.js:37
+_applyT @ index-BhucFzuA.js:11140
+resolveLevel @ index-BhucFzuA.js:11140
+(anonymous) @ index-BhucFzuA.js:11152
+(anonymous) @ index-BhucFzuA.js:11095
+emit @ index-BhucFzuA.js:11095
+add @ index-BhucFzuA.js:11095
+execute @ index-BhucFzuA.js:8656
+execute @ index-BhucFzuA.js:8750
+E @ index-BhucFzuA.js:9421
+Me.onclick @ index-BhucFzuA.js:9416Understand this warning
+injected.js:37 [WallFragmentBuilder] updateWall for 8e3aebf3-dae3-4bee-88de-ff10f0ef3870 at worldY: 0
+injected.js:37 [BimManager] Registered element 8e3aebf3-dae3-4bee-88de-ff10f0ef3870 to level L0
+injected.js:37 [AIPanel] Execution result: Object
+injected.js:37 [AIApprovalStore] Audit record appended: dabf4e7a-fec1-4806-81e3-f3556bfbbc73 (CREATE_WALL)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [ViewBrowser] Update triggered. Total views: 7
+injected.js:37 [AIPanel] Approving proposal: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+22injected.js:37 [WallJoinResolver] T-JOIN: trim failed, skipping
+(anonymous) @ injected.js:37
+_applyT @ index-BhucFzuA.js:11140
+resolveLevel @ index-BhucFzuA.js:11140
+(anonymous) @ index-BhucFzuA.js:11152
+(anonymous) @ index-BhucFzuA.js:11095
+emit @ index-BhucFzuA.js:11095
+add @ index-BhucFzuA.js:11095
+execute @ index-BhucFzuA.js:8656
+execute @ index-BhucFzuA.js:8750
+E @ index-BhucFzuA.js:9421
+Me.onclick @ index-BhucFzuA.js:9416Understand this warning
+injected.js:37 [WallFragmentBuilder] updateWall for 2afc0399-1681-48d1-b9d8-cd41f726c1a1 at worldY: 0
+injected.js:37 [BimManager] Registered element 2afc0399-1681-48d1-b9d8-cd41f726c1a1 to level L0
+injected.js:37 [AIPanel] Execution result: Object
+injected.js:37 [AIApprovalStore] Audit record appended: b4bb6e87-7960-4722-9a01-067b73566679 (CREATE_WALL)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [ViewBrowser] Update triggered. Total views: 7
+injected.js:37 [AIPanel] Approving proposal: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+22injected.js:37 [WallJoinResolver] T-JOIN: trim failed, skipping
+(anonymous) @ injected.js:37
+_applyT @ index-BhucFzuA.js:11140
+resolveLevel @ index-BhucFzuA.js:11140
+(anonymous) @ index-BhucFzuA.js:11152
+(anonymous) @ index-BhucFzuA.js:11095
+emit @ index-BhucFzuA.js:11095
+add @ index-BhucFzuA.js:11095
+execute @ index-BhucFzuA.js:8656
+execute @ index-BhucFzuA.js:8750
+E @ index-BhucFzuA.js:9421
+Me.onclick @ index-BhucFzuA.js:9416Understand this warning
+injected.js:37 [WallFragmentBuilder] updateWall for 2e8f74cf-82bc-4e78-b943-2a82aa7a4842 at worldY: 0
+injected.js:37 [BimManager] Registered element 2e8f74cf-82bc-4e78-b943-2a82aa7a4842 to level L0
+injected.js:37 [AIPanel] Execution result: Object
+injected.js:37 [AIApprovalStore] Audit record appended: 6a370cd5-5c6d-4e57-b470-54e7d3f76bba (CREATE_WALL)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [ViewBrowser] Update triggered. Total views: 7
+injected.js:37 [AIPanel] Approving proposal: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+36injected.js:37 [WallJoinResolver] T-JOIN: trim failed, skipping
+(anonymous) @ injected.js:37
+_applyT @ index-BhucFzuA.js:11140
+resolveLevel @ index-BhucFzuA.js:11140
+(anonymous) @ index-BhucFzuA.js:11152
+(anonymous) @ index-BhucFzuA.js:11095
+emit @ index-BhucFzuA.js:11095
+add @ index-BhucFzuA.js:11095
+execute @ index-BhucFzuA.js:8656
+execute @ index-BhucFzuA.js:8750
+E @ index-BhucFzuA.js:9421
+Me.onclick @ index-BhucFzuA.js:9416Understand this warning
+injected.js:37 [WallFragmentBuilder] updateWall for caa4ef64-98a0-4c8f-aa40-4294692b3ba9 at worldY: 0
+injected.js:37 [BimManager] Registered element caa4ef64-98a0-4c8f-aa40-4294692b3ba9 to level L0
+injected.js:37 [AIPanel] Execution result: Object
+injected.js:37 [AIApprovalStore] Audit record appended: 821c2ffa-86a3-47a0-87c9-aa8777ec26a6 (CREATE_WALL)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [ViewBrowser] Update triggered. Total views: 7
+injected.js:37 [AIPanel] Approving proposal: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+40injected.js:37 [WallJoinResolver] T-JOIN: trim failed, skipping
+(anonymous) @ injected.js:37
+_applyT @ index-BhucFzuA.js:11140
+resolveLevel @ index-BhucFzuA.js:11140
+(anonymous) @ index-BhucFzuA.js:11152
+(anonymous) @ index-BhucFzuA.js:11095
+emit @ index-BhucFzuA.js:11095
+add @ index-BhucFzuA.js:11095
+execute @ index-BhucFzuA.js:8656
+execute @ index-BhucFzuA.js:8750
+E @ index-BhucFzuA.js:9421
+Me.onclick @ index-BhucFzuA.js:9416Understand this warning
+injected.js:37 [WallFragmentBuilder] updateWall for c61dca44-fbae-4b39-b2c9-00dad9d43be5 at worldY: 0
+injected.js:37 [BimManager] Registered element c61dca44-fbae-4b39-b2c9-00dad9d43be5 to level L0
+injected.js:37 [AIPanel] Execution result: Object
+injected.js:37 [AIApprovalStore] Audit record appended: ffabdc53-02fa-47dc-b489-f6b443f2c894 (CREATE_WALL)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [ViewBrowser] Update triggered. Total views: 7
+injected.js:37 [AIPanel] Approving proposal: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+44injected.js:37 [WallJoinResolver] T-JOIN: trim failed, skipping
+(anonymous) @ injected.js:37
+_applyT @ index-BhucFzuA.js:11140
+resolveLevel @ index-BhucFzuA.js:11140
+(anonymous) @ index-BhucFzuA.js:11152
+(anonymous) @ index-BhucFzuA.js:11095
+emit @ index-BhucFzuA.js:11095
+add @ index-BhucFzuA.js:11095
+execute @ index-BhucFzuA.js:8656
+execute @ index-BhucFzuA.js:8750
+E @ index-BhucFzuA.js:9421
+Me.onclick @ index-BhucFzuA.js:9416Understand this warning
+injected.js:37 [WallFragmentBuilder] updateWall for 622fda77-b379-42b8-b7f0-bb38e5ce0a59 at worldY: 0
+injected.js:37 [BimManager] Registered element 622fda77-b379-42b8-b7f0-bb38e5ce0a59 to level L0
+injected.js:37 [AIPanel] Execution result: Object
+injected.js:37 [AIApprovalStore] Audit record appended: 9578b870-7601-46a1-ba8e-6d7924d4dd8d (CREATE_WALL)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [ViewBrowser] Update triggered. Total views: 7
+injected.js:37 [AIPanel] Approving proposal: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+44injected.js:37 [WallJoinResolver] T-JOIN: trim failed, skipping
+(anonymous) @ injected.js:37
+_applyT @ index-BhucFzuA.js:11140
+resolveLevel @ index-BhucFzuA.js:11140
+(anonymous) @ index-BhucFzuA.js:11152
+(anonymous) @ index-BhucFzuA.js:11095
+emit @ index-BhucFzuA.js:11095
+add @ index-BhucFzuA.js:11095
+execute @ index-BhucFzuA.js:8656
+execute @ index-BhucFzuA.js:8750
+E @ index-BhucFzuA.js:9421
+Me.onclick @ index-BhucFzuA.js:9416Understand this warning
+injected.js:37 [WallFragmentBuilder] updateWall for 2321c89c-d593-4682-926e-8c1684d0ae95 at worldY: 0
+injected.js:37 [BimManager] Registered element 2321c89c-d593-4682-926e-8c1684d0ae95 to level L0
+injected.js:37 [AIPanel] Execution result: Object
+injected.js:37 [AIApprovalStore] Audit record appended: 2dee73c5-a61a-42e7-9b4b-de7bcacc08c4 (CREATE_WALL)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [ViewBrowser] Update triggered. Total views: 7
+injected.js:37 [AIPanel] Approving proposal: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+46injected.js:37 [WallJoinResolver] T-JOIN: trim failed, skipping
+(anonymous) @ injected.js:37
+_applyT @ index-BhucFzuA.js:11140
+resolveLevel @ index-BhucFzuA.js:11140
+(anonymous) @ index-BhucFzuA.js:11152
+(anonymous) @ index-BhucFzuA.js:11095
+emit @ index-BhucFzuA.js:11095
+add @ index-BhucFzuA.js:11095
+execute @ index-BhucFzuA.js:8656
+execute @ index-BhucFzuA.js:8750
+E @ index-BhucFzuA.js:9421
+Me.onclick @ index-BhucFzuA.js:9416Understand this warning
+injected.js:37 [WallFragmentBuilder] updateWall for f6633794-1a0c-417b-b291-0a1ccc848853 at worldY: 0
+injected.js:37 [BimManager] Registered element f6633794-1a0c-417b-b291-0a1ccc848853 to level L0
+injected.js:37 [AIPanel] Execution result: Object
+injected.js:37 [AIApprovalStore] Audit record appended: ba8981f9-8ff3-4d66-a14c-41ef6e5bb746 (CREATE_WALL)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [ViewBrowser] Update triggered. Total views: 7
+injected.js:37 [AIPanel] Approving proposal: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+48injected.js:37 [WallJoinResolver] T-JOIN: trim failed, skipping
+(anonymous) @ injected.js:37
+_applyT @ index-BhucFzuA.js:11140
+resolveLevel @ index-BhucFzuA.js:11140
+(anonymous) @ index-BhucFzuA.js:11152
+(anonymous) @ index-BhucFzuA.js:11095
+emit @ index-BhucFzuA.js:11095
+add @ index-BhucFzuA.js:11095
+execute @ index-BhucFzuA.js:8656
+execute @ index-BhucFzuA.js:8750
+E @ index-BhucFzuA.js:9421
+Me.onclick @ index-BhucFzuA.js:9416Understand this warning
+injected.js:37 [WallFragmentBuilder] updateWall for b5e39602-2105-4248-8625-2cdfa66a026b at worldY: 0
+injected.js:37 [BimManager] Registered element b5e39602-2105-4248-8625-2cdfa66a026b to level L0
+injected.js:37 [AIPanel] Execution result: Object
+injected.js:37 [AIApprovalStore] Audit record appended: cf8bd77e-80ba-46dd-8f50-9d6e189612f8 (CREATE_WALL)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [ViewBrowser] Update triggered. Total views: 7
+injected.js:37 [AIPanel] Approving proposal: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+50injected.js:37 [WallJoinResolver] T-JOIN: trim failed, skipping
+(anonymous) @ injected.js:37
+_applyT @ index-BhucFzuA.js:11140
+resolveLevel @ index-BhucFzuA.js:11140
+(anonymous) @ index-BhucFzuA.js:11152
+(anonymous) @ index-BhucFzuA.js:11095
+emit @ index-BhucFzuA.js:11095
+add @ index-BhucFzuA.js:11095
+execute @ index-BhucFzuA.js:8656
+execute @ index-BhucFzuA.js:8750
+E @ index-BhucFzuA.js:9421
+Me.onclick @ index-BhucFzuA.js:9416Understand this warning
+injected.js:37 [WallFragmentBuilder] updateWall for 82aa6c75-1348-4a49-8b29-f80273939f31 at worldY: 0
+injected.js:37 [BimManager] Registered element 82aa6c75-1348-4a49-8b29-f80273939f31 to level L0
+injected.js:37 [AIPanel] Execution result: Object
+injected.js:37 [AIApprovalStore] Audit record appended: b20f957e-8205-40c4-a674-6d729e437b42 (CREATE_WALL)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [ViewBrowser] Update triggered. Total views: 7
+injected.js:37 [AIPanel] Approving proposal: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+50injected.js:37 [WallJoinResolver] T-JOIN: trim failed, skipping
+(anonymous) @ injected.js:37
+_applyT @ index-BhucFzuA.js:11140
+resolveLevel @ index-BhucFzuA.js:11140
+(anonymous) @ index-BhucFzuA.js:11152
+(anonymous) @ index-BhucFzuA.js:11095
+emit @ index-BhucFzuA.js:11095
+add @ index-BhucFzuA.js:11095
+execute @ index-BhucFzuA.js:8656
+execute @ index-BhucFzuA.js:8750
+E @ index-BhucFzuA.js:9421
+Me.onclick @ index-BhucFzuA.js:9416Understand this warning
+injected.js:37 [WallFragmentBuilder] updateWall for 393b4034-3085-42dc-af36-e3bdfe8e74d2 at worldY: 0
+injected.js:37 [BimManager] Registered element 393b4034-3085-42dc-af36-e3bdfe8e74d2 to level L0
+injected.js:37 [AIPanel] Execution result: Object
+injected.js:37 [AIApprovalStore] Audit record appended: a7361e27-6a40-4165-8678-e05fa48fd3ab (CREATE_WALL)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [ViewBrowser] Update triggered. Total views: 7
+injected.js:37 [AIPanel] Approving proposal: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+72injected.js:37 [WallJoinResolver] T-JOIN: trim failed, skipping
+(anonymous) @ injected.js:37
+_applyT @ index-BhucFzuA.js:11140
+resolveLevel @ index-BhucFzuA.js:11140
+(anonymous) @ index-BhucFzuA.js:11152
+(anonymous) @ index-BhucFzuA.js:11095
+emit @ index-BhucFzuA.js:11095
+add @ index-BhucFzuA.js:11095
+execute @ index-BhucFzuA.js:8656
+execute @ index-BhucFzuA.js:8750
+E @ index-BhucFzuA.js:9421
+Me.onclick @ index-BhucFzuA.js:9416Understand this warning
+injected.js:37 [WallFragmentBuilder] updateWall for 27386aab-6362-4284-9041-cc9b9fd97a87 at worldY: 0
+injected.js:37 [BimManager] Registered element 27386aab-6362-4284-9041-cc9b9fd97a87 to level L0
+injected.js:37 [AIPanel] Execution result: Object
+injected.js:37 [AIApprovalStore] Audit record appended: 7b8adc02-f5c0-44fe-a07a-6963a78ae1f4 (CREATE_WALL)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [ViewBrowser] Update triggered. Total views: 7
+injected.js:37 [StairTool] Mousedown event Object
+injected.js:37 [StairTool] Mousedown event Object
+injected.js:37 [WallTransform] Wall "622fda77-b379-42b8-b7f0-bb38e5ce0a59" — gizmo aligned with direction ee
+injected.js:37 [StairTool] Mousedown event Object
+injected.js:37 [StairTool] Mousedown event Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Approving proposal: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_SLAB
+injected.js:37 [BimManager] Registered element 3106ee95-3e80-42ea-9087-0b619e28d267 to level L0
+injected.js:37 [AIPanel] Execution result: Object
+injected.js:37 [AIApprovalStore] Audit record appended: af654eec-9967-4da2-a19c-03f5d8056c9e (CREATE_SLAB)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [ViewBrowser] Update triggered. Total views: 7
+injected.js:37 [AIPanel] Approving proposal: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [AIPanel] Execution result: Object
+injected.js:37 [AIPanel] Approving proposal: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [AIPanel] Execution result: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Proposal received via event: Object
+injected.js:37 [AIPanel] Approving proposal: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_SLAB
+injected.js:37 [BimManager] Registered element 3106ee95-3e80-42ea-9087-0b619e28d267 to level L0
+injected.js:37 [AIPanel] Execution result: Object
+injected.js:37 [AIApprovalStore] Audit record appended: 1797e970-fc19-4b68-8028-f8fb474ca7d4 (CREATE_SLAB)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [ViewBrowser] Update triggered. Total views: 7
+injected.js:37 [AIPanel] Approving proposal: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [AIPanel] Execution result: Object
+injected.js:37 [AIPanel] Approving proposal: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [AIPanel] Execution result: Object
+injected.js:37 [StairTool] Mousedown event Object
+injected.js:37 [StairTool] Mousedown event Object
+injected.js:37 [StairTool] Mousedown event Object
+injected.js:37 [StairTool] Mousedown event Object
+injected.js:37 [StairTool] Mousedown event Object
+injected.js:37 [StairTool] Mousedown event Object
+injected.js:37 [StairTool] Mousedown event Object

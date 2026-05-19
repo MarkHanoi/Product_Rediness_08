@@ -1,0 +1,29 @@
+{
+  "id": "straight-narrow",
+  "description": "straight stair with narrow 0.75 m width (minimum-clearance)",
+  "stair": {
+    "id": "stair:str-nar",
+    "type": "stair",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "topLevelId": "level:1",
+    "shape": "straight",
+    "origin": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "rotation": 0,
+    "treadDepth": 0.25,
+    "riserHeight": 0.2,
+    "width": 0.75,
+    "numRisers": 12
+  },
+  "worldY": 0
+}

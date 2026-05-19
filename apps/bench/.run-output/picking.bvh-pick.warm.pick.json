@@ -1,0 +1,10 @@
+{
+  "name": "picking.bvh-pick.warm.pick",
+  "samples": 200,
+  "p50": 1.329,
+  "p95": 2.164,
+  "p99": 4.427,
+  "budgetMs": 12,
+  "warnMs": 8,
+  "recordedAt": "2026-05-09T23:08:56.248Z"
+}

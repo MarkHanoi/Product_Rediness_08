@@ -1,0 +1,42 @@
+{
+  "id": "F03.rect-10x8-thick",
+  "description": "10×8 thick structural slab",
+  "slab": {
+    "id": "slab:01HZS000000000000SLBF0300",
+    "type": "slab",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "boundary": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 10,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 10,
+        "y": 0,
+        "z": 8
+      },
+      {
+        "x": 0,
+        "y": 0,
+        "z": 8
+      }
+    ],
+    "holes": [],
+    "thickness": 0.4,
+    "baseOffset": 0
+  },
+  "worldY": 0
+}

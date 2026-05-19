@@ -1,0 +1,50 @@
+{
+  "id": "F11.sliding-3x1-grid",
+  "description": "sliding window with 3×1 grid",
+  "window": {
+    "id": "window:01HZS000000000000WDWF1100",
+    "type": "window",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "wallId": "wall:01HZS000000000000WDWW1000",
+    "openingId": "op-1",
+    "offset": 0,
+    "width": 2.7,
+    "height": 1.2,
+    "windowType": "single",
+    "sillHeight": 0.9,
+    "frameWidth": 0.05,
+    "frameThickness": 0.08,
+    "frameColor": "#4a4a4a",
+    "glassColor": "#b0d0e8"
+  },
+  "placement": {
+    "axis": {
+      "x": 1,
+      "y": 0,
+      "z": 0
+    },
+    "normal": {
+      "x": 0,
+      "y": 0,
+      "z": 1
+    },
+    "origin": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "wallThickness": 0.1,
+    "grid": {
+      "columns": 3,
+      "rows": 1,
+      "mullionThickness": 0.06
+    }
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "id": "F06.rect-with-shaft-corner",
+  "description": "6×4 slab with corner shaft",
+  "slab": {
+    "id": "slab:01HZS000000000000SLBF0600",
+    "type": "slab",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "boundary": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 6,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 6,
+        "y": 0,
+        "z": 4
+      },
+      {
+        "x": 0,
+        "y": 0,
+        "z": 4
+      }
+    ],
+    "holes": [
+      [
+        {
+          "x": 0.5,
+          "y": 0,
+          "z": 0.5
+        },
+        {
+          "x": 2,
+          "y": 0,
+          "z": 0.5
+        },
+        {
+          "x": 2,
+          "y": 0,
+          "z": 2
+        },
+        {
+          "x": 0.5,
+          "y": 0,
+          "z": 2
+        }
+      ]
+    ],
+    "thickness": 0.2,
+    "baseOffset": 0
+  },
+  "worldY": 0
+}

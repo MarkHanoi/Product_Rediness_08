@@ -1,0 +1,33 @@
+Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+injected.js:37 [ProjectHub] Server sync failed (offline?): ProjectListClientError: [ProjectListClient] server-error (HTTP 500)
+    at ProjectListClient.req (ProjectListClient.ts:289:13)
+    at async ProjectListClient.list (ProjectListClient.ts:151:18)
+    at async ProjectHub._fetchSummaries (ProjectHub.ts:215:31)
+    at async ProjectHub.syncFromServer (ProjectHub.ts:120:31)
+(anonymous) @ injected.js:37
+eba692b7-83d1-4154-9466-754581fce3f5-00-3hkgka6vxfwrp.kirk.replit.dev/api/v1/projects:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+injected.js:37 [ProjectHub] runtime.persistence.client.create failed: ProjectListClientError: [ProjectListClient] server-error (HTTP 500)
+    at ProjectListClient.req (ProjectListClient.ts:289:13)
+    at async ProjectListClient.create (ProjectListClient.ts:164:18)
+    at async ProjectListController.create (ProjectListController.ts:59:21)
+    at async ProjectHub._createViaRuntime (ProjectHub.ts:1053:30)
+(anonymous) @ injected.js:37
+injected.js:37 [LONGTASK] duration=1409.0ms start=96274.9ms
+(anonymous) @ injected.js:37
+three.webgpu.js:78509 The powerPreference option is currently ignored when calling requestAdapter() on Windows. See https://crbug.com/369219127
+init @ three.webgpu.js:78509
+injected.js:37 [LONGTASK] duration=51.0ms start=99265.9ms [type=iframe src=https://eba692b7-83d1-4154-9466-754581fce3f5-00-3hkgka6vxfwrp.kirk.replit.dev/]
+(anonymous) @ injected.js:37
+injected.js:37 [renderer-three] backend: webgpu
+injected.js:37 [RendererPrewarm] webgpu renderer pre-warmed in 9334 ms — LONGTASK eliminated from project-open critical path.
+eba692b7-83d1-4154-9466-754581fce3f5-00-3hkgka6vxfwrp.kirk.replit.dev/api/v1/projects:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+injected.js:37 [ProjectHub] runtime.persistence.client.create failed: ProjectListClientError: [ProjectListClient] server-error (HTTP 500)
+    at ProjectListClient.req (ProjectListClient.ts:289:13)
+    at async ProjectListClient.create (ProjectListClient.ts:164:18)
+    at async ProjectListController.create (ProjectListController.ts:59:21)
+    at async ProjectHub._createViaRuntime (ProjectHub.ts:1053:30)
+(anonymous) @ injected.js:37
+injected.js:37 [LONGTASK] duration=5578.0ms start=100089.0ms
+(anonymous) @ injected.js:37
+
+injected.js:37 [LONGTASK] duration=277.0ms start=113921.3ms [type=iframe src=https://eba692b7-83d1-4154-9466-754581fce3f5-00-3hkgka6vxfwrp.kirk.replit.dev/]

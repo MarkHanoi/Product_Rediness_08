@@ -1,0 +1,43 @@
+{
+  "id": "mansard-rect-mid-pitch",
+  "description": "mansard 6×4 rect, 25° pitch",
+  "roof": {
+    "id": "roof:mans-rect",
+    "type": "roof",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "boundary": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 6,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 6,
+        "y": 0,
+        "z": 4
+      },
+      {
+        "x": 0,
+        "y": 0,
+        "z": 4
+      }
+    ],
+    "shape": "mansard",
+    "pitch": 0.4363323129985824,
+    "overhang": 0,
+    "thickness": 0.2
+  },
+  "worldY": 2.5
+}

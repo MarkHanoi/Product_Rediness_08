@@ -1,0 +1,99 @@
+Feasibility Analysis: Master CSS + BUI Decoupling
+
+What BUI (`@thatopen/ui`) actually provides in this app
+
+| **Mechanism** | **What it is** | **Where it appears** |
+| --- | --- | --- |
+| `BUI.html` | lit-html's `html` template tag, re-exported | 46 usages across 12 files |
+| `BUI.Component.create()` | Creates a lit-element reactive web component | 9 usages — Layout, ViewBrowser, AIPanel, AICreatePanel, HUD overlays |
+| `BUI.Manager.init()` | Registers all `bim-*` custom elements with the browser | 13 usages — must be called before any `bim-*` element is parsed |
+| `bim-button` | Custom element: icon + label button, powered by Iconify | **89 usages** — by far the most pervasive |
+| `bim-icon` | Custom element: Iconify icon renderer | 28 usages |
+| `bim-panel` / `bim-panel-section` | Custom elements: collapsible panel shell | 18 usages |
+| `bim-text-input`, `bim-dropdown`, `bim-table` | Form and data elements | ~10 usages |
+| Icon API | Icons fetched at runtime from `api.iconify.design` (remote CDN) | Bundled inside BUI — all `material-symbols:*` icons go through this |
+
+There is also `@thatopen/ui-obc` in `package.json` — this provides the BIM-specific `bim-table` used in `SchedulePanel`. That is a separate concern from the main UI.
+
+---
+
+Can a master CSS be added right now? Yes, with one important caveat
+
+The **Property Panel** already has its own standalone CSS in `PropertyPanelTheme.ts` and renders pure HTML elements — no `bim-*` custom elements inside it. That's why it can be styled fully independently.
+
+The **other panels** (ViewBrowser sidebar, Layout toolbar, AI panel, etc.) are rendered using `BUI.Component.create` + `BUI.html`, and their visual atoms are `bim-button` and `bim-icon` custom elements. CSS classes you add to a `<div>` wrapper **will apply**, but the custom elements themselves (`bim-button`, `bim-icon`) are Shadow DOM web components — their internals are invisible to external CSS unless you use `::part()` selectors or CSS custom properties (which BUI exposes as `--bim-button--bg`, `--bim-button--c`, etc.).
+
+So the honest answer is:
+
+- **Master CSS variables and panel shell classes** → Can be added immediately and will cover all the container/wrapper HTML
+- **The atoms inside** (`bim-button`, `bim-icon`) → You can tint them with BUI's own CSS variables but can't fully restyle them without replacing the elements
+
+---
+
+The two-phase path to full decoupling
+
+Phase 1 — Master CSS (additive, safe, can be done now)
+
+Create one `src/styles/app-theme.css` (or a TS-injected `AppTheme.ts` following the PropertyPanelTheme pattern) with CSS custom properties and utility classes:
+
+```
+Design tokens:
+  --app-bg:            #e8edf6   (scene + panel body)
+  --app-panel-bg:      #ffffff   (floating cards)
+  --app-gradient:      linear-gradient(135deg, #6e8efb, #a777e3)
+  --app-text:          #1a2035
+  --app-text-2:        #5a6a85
+  --app-border:        #e0e5f0
+  --app-radius-lg:     16px
+  --app-radius-md:     12px
+  --app-radius-sm:     6px
+  --app-shadow-panel:  0 8px 32px rgba(30,50,120,0.13), 0 2px 8px rgba(30,50,120,0.07)
+  --app-shadow-card:   0 2px 8px rgba(30,50,120,0.08)
+
+Utility classes:
+  .app-panel           (same structure as .gpp-panel)
+  .app-panel__header   (gradient or white variant)
+  .app-panel__section  (white card, shadow)
+  .app-btn             (replace <bim-button>)
+  .app-btn--primary    (gradient pill — same as .gpp-apply-btn)
+  .app-btn--ghost      (transparent, used in nav)
+  .app-btn--icon       (square icon-only)
+  .app-input           (underline-only, matches .gpp-input)
+  .app-select          (styled <select>)
+```
+
+This CSS will immediately apply to the `Layout.ts` sidebar wrappers, the AI panel containers, and any new panels written as plain HTML. It cannot pierce into `bim-button`'s shadow DOM, but all the surrounding chrome will be unified.
+
+Phase 2 — Replace BUI custom elements (iterative, file-by-file)
+
+| **File** | **Complexity** | **What changes** |
+| --- | --- | --- |
+| `SpatialTree.ts` | Low | 10× `bim-icon` → `<span class="app-icon">` |
+| `ViewControls.ts` | Low | 5× `bim-button` → `<button class="app-btn app-btn--icon">` |
+| `ViewBrowser.ts` | Medium | `BUI.Component.create` + `bim-panel-section` + `bim-button` → plain HTML accordion |
+| `Layout.ts` | Medium | ~15× `bim-button` + `bim-icon` + `BUI.Component.create` → plain DOM |
+| `AIPanel.ts` | Medium | `BUI.Component.create` → plain DOM, `bim-icon` → `<span>` |
+| `AICreatePanel.ts` | Medium | `BUI.Component.create` → plain DOM |
+| `ApplicationMenu.ts` | Medium | 7× `bim-button` → `<button>` |
+| `RoofTool.ts`, `SlabTool.ts`, `SlabPickWallsController.ts` | Low-Medium | HUD `bim-button`s → plain `<button>` |
+| `Ribbon.ts` + `CreateTab.ts` | Medium | ~30× `bim-button` toolbar → plain toolbar |
+| `PropertiesPalette.ts` | Medium | `bim-panel`, `bim-panel-section`, `bim-text-input`, `bim-dropdown` → native form elements + CSS |
+| `SchedulePanel.ts` | High | Uses `bim-table` — would need a table replacement |
+
+**Icons**: BUI pulls all icons from the Iconify CDN at runtime (`api.iconify.design`). Replacing `bim-icon` with a self-hosted approach means either adding the Google Material Symbols font (`@import url(...)` in CSS) or bundling the SVGs. The font approach is one line of CSS and covers all `material-symbols:*` icons used in the app.
+
+---
+
+Summary verdict
+
+| **Goal** | **Feasible?** | **Effort** |
+| --- | --- | --- |
+| Master CSS file with shared tokens (panels, shadows, colors) | Yes, immediately | Small — 1 new file, zero breakage |
+| Apply theme to all **container** wrappers | Yes, immediately | Small — adjust existing inline styles to use CSS classes |
+| Apply theme into `bim-button` / `bim-icon` internals | Partial — BUI CSS vars only | Minimal |
+| **Full BUI decoupling** | Yes | Medium — ~17 files, ~800 lines touched, iterative |
+| Remove the package entirely | Yes, at end of Phase 2 | Also removes `@thatopen/ui-obc` need (or keep just for `bim-table`) |
+
+**`@thatopen/components` and `@thatopen/components-front` are completely separate from BUI** — they are the 3D engine (IFC loading, fragment management, camera, grids). Those stay regardless.
+
+The cleanest path is: **start with the master CSS** (one file, zero risk), then migrate panels one at a time from the outside in, replacing `bim-*` elements with styled native HTML as you go. The Property Panel you already have is the exact template for how each migrated panel should look and work.

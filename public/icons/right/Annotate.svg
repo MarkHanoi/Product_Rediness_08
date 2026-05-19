@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Horizontal dimension line -->
+  <line x1="10" y1="68" x2="90" y2="68" stroke="#1C1B3C" stroke-width="5" stroke-linecap="round"/>
+  <!-- Left end cap -->
+  <line x1="10" y1="57" x2="10" y2="79" stroke="#1C1B3C" stroke-width="5" stroke-linecap="round"/>
+  <!-- Right end cap -->
+  <line x1="90" y1="57" x2="90" y2="79" stroke="#1C1B3C" stroke-width="5" stroke-linecap="round"/>
+  <!-- Vertical connector from label down to dim line -->
+  <line x1="50" y1="55" x2="50" y2="68" stroke="#1C1B3C" stroke-width="4" stroke-linecap="round"/>
+  <!-- Label rounded rectangle -->
+  <rect x="30" y="28" width="40" height="27" rx="7" stroke="#1C1B3C" stroke-width="4.5"/>
+  <!-- Label dash (minus) -->
+  <line x1="40" y1="41" x2="60" y2="41" stroke="#1C1B3C" stroke-width="4" stroke-linecap="round"/>
+</svg>

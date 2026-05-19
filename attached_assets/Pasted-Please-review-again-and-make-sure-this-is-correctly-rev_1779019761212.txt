@@ -1,0 +1,68 @@
+Please review again and make sure this is correctly reviewed - analysed and amended and fixed - architectrually sound: windows now move alognside the wall - but the opening is moved - but window dosnt (the oposite than before) please review and fix - Follow the door pattern - Doors are working great - and the element type is exactly the same - again this should be reflected on the contrual documentation (00_Contracts) and architectural documentation - again this should be reflected on the contrual documentation (00_Contracts) and architectural documentation - should reflect in great level of detail this process from a architectural robushness point of view - this is not admissible. Make sure this is in place.None of those issues should be solved in isolotation - we need to understand the big picture - why they occurred if they are impacting other system and which ones - knokon effects and which was the architectural failure and solve it in an architecturally sound way.
+
+
+Show less
+48 minutes ago
+
+Analyzing window-wall hosting behavior (5 seconds)
+The user is reporting that windows move alongside the wall (correct), but the window mesh doesn't move — only the opening void moves. The door works correctly. Let me investigate the window vs door difference.
+
+This is a hosted element issue — the window is a hosted element on a wall. When the wall moves, the opening void moves (because the wall is rebuilt), but the window mesh itself stays at its old position.
+
+Let me look at the door vs window implementation to find the difference. The key files to look at are:
+
+HostedElementDragController.ts or similar
+
+The window and door creation/update commands
+
+How doors and windows are positioned relative to their host wall
+
+The offset commands for windows versus doors
+
+How the wall builder reconstructs the mesh with hosted elements
+
+I need to search for where window and door meshes get positioned to understand why doors follow the wall correctly but windows don't.
+
+Investigating in parallel — I need to understand the full door vs window difference before touching any code.
+
+
+8 actions
+Reading door builder, window builder, wall rebuild coordinator, and wall fragment builder in parallel — I need to see the exact difference before touching anything.
+
+
+5 actions
+I need to see the critical WallRebuildCoordinator flush logic and the exact door/window builder wiring in initBuilders — the structural difference between door (working) and window (not working) is somewhere in this chain.
+
+
+6 actions
+I need to see the full _flush() orchestration — specifically what store is and whether baseLine in the store is updated before rebuildForWall fires. I also need to see the WallRebuildCoordinator init() deps and what store is bound to.
+
+
+3 actions
+I need to see exactly what initBuilders returns and what WindowDependencyTracker does — specifically whether something other than WindowBuilder is wired as deps.windowBuilder.
+
+
+5 actions
+Found it — the WallStore update() has an opening-offset adjustment section at line 443. I need to see exactly what it does to openings when baseLine changes, and also whether opening offsets in wallStore can diverge from windowStore.
+
+
+3 actions
+I need to read the WindowDependencyTracker to see if it fires a windowStore update on wall changes, which could overwrite the pending rebuild with a property-only change that silently skips repositioning.
+
+
+3 actions
+Now I have the critical information. Let me trace the exact race condition:
+
+The WindowDependencyTracker subscribes to wallStore — when a wall's baseLine changes it calls windowStore.touch(winId). This fires a windowStore 'update' event with prev = old_win and win = current_win (same reference, from touch()). The WindowBuilder subscriber picks it up and calls _enqueue(win, old_win).
+
+But then WallRebuildCoordinator._flush() also calls windowBuilder.rebuildForWall(wallId) which calls _enqueue(win, undefined). These two enqueues fight over the _pendingBuilds slot for the same window ID.
+
+The critical question is whether windowStore.touch() creates a new object reference or re-emits the same one — this determines what prev is, and whether _isPropertyOnlyChange short-circuits into _applyPropertyOnly (skipping reposition).
+
+
+Show less
+
+Ran grep
+
+Analyzing window rebuild timing issues (142 seconds)
+I've traced the two rebuild paths (DependencyTracker → touch → enqueue, and WallRebuildCoordinator → rebuildForWall → enqueue) and they structurally look correct. The critical piece I haven't checked is how UpdateWallBaselineCommand and registerTransformDragHandler get their wallStore references — if they're using a different instance than WindowBuilder, that's the source of the stale baseLine. Let me read those now.

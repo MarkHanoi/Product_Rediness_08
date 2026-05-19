@@ -1,0 +1,30 @@
+{
+  "name": "@pryzm/plugin-ifc-inspector",
+  "version": "0.1.0",
+  "description": "PRYZM 2 — IFC Pset editor panel (Phase 3-B Sprint S57). DOM/L7 component that renders the property-set editor for selected IFC elements (Tier 1 + Tier 2). Edits dispatch through an injected CommandBus as PsetUpdateCommand. Per PHASE-3B-Q2-M28-M30-IFC-REVIT-COMPONENT-EDITOR.md §3.2.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./pset-editor": "./src/pset-editor.ts",
+    "./commands": "./src/commands.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --out-dir dist",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
+    "@pryzm/plugin-ifc-export": "workspace:*",
+    "@pryzm/plugin-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "jsdom": "^24.1.3",
+    "vitest": "^2.1.9"
+  }
+}

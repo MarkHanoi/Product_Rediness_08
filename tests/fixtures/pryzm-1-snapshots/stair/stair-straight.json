@@ -1,0 +1,21 @@
+{
+  "id": "stair_01H8XK3J7M9N2P4QR5STVW6XYZ",
+  "type": "stair",
+  "parentId": "level_ground",
+  "childrenIds": [],
+  "metadata": {
+    "createdAt": 1700000600000,
+    "modifiedAt": 1700000600000,
+    "createdBy": "fixture",
+    "version": 1
+  },
+  "levelId": "level_ground",
+  "topLevelId": "level_2",
+  "shape": "straight",
+  "origin": { "x": 2, "y": 0, "z": 5 },
+  "rotation": 1.5707963267948966,
+  "treadDepth": 0.28,
+  "riserHeight": 0.18,
+  "width": 1.1,
+  "numRisers": 17
+}

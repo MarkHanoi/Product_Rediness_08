@@ -1,0 +1,75 @@
+// Basic wall representation
+interface Wall {
+    id: string;
+    start: Vector2; // 2D base start point
+    end: Vector2;   // 2D base end point
+    thickness: number;
+    height: number;
+    locationLine: "core" | "face"; // reference line
+}
+
+// Vector utility
+interface Vector2 { x: number; y: number; }
+
+// Check if two walls intersect (simplified 2D bounding box)
+function wallsIntersect(w1: Wall, w2: Wall): boolean {
+    const minX1 = Math.min(w1.start.x, w1.end.x);
+    const maxX1 = Math.max(w1.start.x, w1.end.x);
+    const minY1 = Math.min(w1.start.y, w1.end.y);
+    const maxY1 = Math.max(w1.start.y, w1.end.y);
+
+    const minX2 = Math.min(w2.start.x, w2.end.x);
+    const maxX2 = Math.max(w2.start.x, w2.end.x);
+    const minY2 = Math.min(w2.start.y, w2.end.y);
+    const maxY2 = Math.max(w2.start.y, w2.end.y);
+
+    return !(maxX1 < minX2 || minX1 > maxX2 || maxY1 < minY2 || minY1 > maxY2);
+}
+
+// Trim secondary wall to primary wall face for butt join
+function trimWallToFace(primary: Wall, secondary: Wall): Wall {
+    // Assume secondary.end should meet primary face
+    return {
+        ...secondary,
+        end: { ...primary.start } // simplistic: move end to primary start face
+    };
+}
+
+// Main function: clean wall intersections
+function cleanWallIntersections(walls: Wall[]): Wall[] {
+    for (let i = 0; i < walls.length; i++) {
+        for (let j = i + 1; j < walls.length; j++) {
+            const w1 = walls[i];
+            const w2 = walls[j];
+
+            if (wallsIntersect(w1, w2)) {
+                // Determine butt join: one wall terminates at the other
+                const primary = w1; // can choose based on rules like length or structural role
+                const secondary = w2;
+
+                walls[j] = trimWallToFace(primary, secondary);
+            }
+        }
+    }
+    return walls;
+}
+
+// Example usage
+const walls: Wall[] = [
+    { id: "A", start: { x: 0, y: 0 }, end: { x: 10, y: 0 }, thickness: 0.3, height: 3, locationLine: "core" },
+    { id: "B", start: { x: 5, y: -2 }, end: { x: 5, y: 2 }, thickness: 0.3, height: 3, locationLine: "core" }
+];
+
+const cleanedWalls = cleanWallIntersections(walls);
+console.log(cleanedWalls);
+✅ Notes:
+
+This is simplified 2D logic; real BIM software handles 3D solids, profiles, and boolean operations.
+
+The primary wall is usually determined by structural rules: main load-bearing wall vs. secondary.
+
+Edge cleanup and tiny gap fixes are usually part of Revit’s parametric geometry engine, not shown here.
+
+If you want, I can make a full 3D TypeScript version using wall extrusion and proper 3D boolean trimming, which would be almost like a mini-BIM engine snippet. That’s much closer to Revit’s real algorithm.
+
+Do you want me to do the 3D version?

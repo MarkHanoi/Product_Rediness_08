@@ -1,0 +1,23 @@
+{
+  "name": "@pryzm/types-builtin",
+  "version": "0.1.0",
+  "description": "PRYZM 2 \u2014 built-in type catalogues for door, window, roof (S11) and curtain-wall (S13). v1 starter sets per SPEC-05 \u00a77.3 (8 doors, 8 windows, 4 roofs, 4 curtain-wall systems + 5 panels + 4 mullions). Pure data; no runtime dependencies. Consumed by plugins/{door,window,roof,curtain-wall}/ as the default catalogue when no project-level type catalogue is wired.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./door": "./src/door/index.ts",
+    "./window": "./src/window/index.ts",
+    "./roof": "./src/roof/index.ts",
+    "./curtain-wall": "./src/curtain-wall/index.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "deprecated": "Wave-12 DROP: @pryzm/types-builtin had 0 importers at Wave 8 close. Verdict: DROP per docs/03_PRYZM3/04-PLAN-FORWARD/17-WAVES-9-12-SRC-MIGRATION.md \u00a75"
+}

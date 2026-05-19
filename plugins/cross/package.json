@@ -1,0 +1,31 @@
+{
+  "name": "@pryzm/plugin-cross",
+  "version": "0.1.0",
+  "description": "PRYZM 2 \u2014 Cross-element cascade rules.  Hosts L4 CascadeRules that wire one element plugin to another (e.g. slab\u2192wall edge-pinned cascade) without forcing a direct plugin-to-plugin import.  S12 inhabitants: slab-wall.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./slab-wall": "./src/slab-wall.ts",
+    "./stair-handrail": "./src/stair-handrail.ts",
+    "./wall-room": "./src/wall-room.ts",
+    "./tool": "./src/tool.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@pryzm/plugin-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

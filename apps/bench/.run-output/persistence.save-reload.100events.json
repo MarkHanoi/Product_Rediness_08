@@ -1,0 +1,10 @@
+{
+  "name": "persistence.save-reload.100events",
+  "samples": 30,
+  "p50": 62,
+  "p95": 104.41,
+  "p99": 112.996,
+  "budgetMs": 500,
+  "warnMs": 350,
+  "recordedAt": "2026-04-27T22:48:06.702Z"
+}

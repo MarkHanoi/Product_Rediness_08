@@ -1,0 +1,30 @@
+The Layered Structure: Exactly the same principal than for walls but for slabs. Through "Edit Type," slabs can have multiple material layers (e.g., concrete, insulation, finish) with precise thicknesses. Follow the instructions attached. Make sure that any changes are not impacting other tool's logic or functionalities. Don't do it using autonomous. Use modular coding, don't impact existing functionality and logic, if needed create a new file. Follow always the contract (docs/01-BIM-ENGINE-CORE-CONTRACT, 02-BIM-SPATIAL-PROJECTION-CONTRACT, 03-BIM-SEMANTIC-MODEL-CONTRACT, 04-BIM-AI-MODIFICATION-PROTOCOL, 05-BIM-UI-ARCHITECTURE-CONTRACT).
+
+Proposed list of changes:
+
+**New files:**
+
+1. `src/elements/slabs/SlabSystemTypeStore.ts` — Slab type store with presets
+2. `src/commands/slabs/UpdateSlabLayersCommand.ts` — Command for layer persistence
+3. `src/ui/property-panel/SlabTypeSelectorWidget.ts` — NOT needed, I'll inline it in PropertyInspector
+
+**Modified files:**
+
+1. `src/elements/slabs/SlabTypes.ts` — add SlabLayer, SlabLayerFunction, systemTypeId, layers to SlabData
+2. `src/elements/slabs/SlabFragmentBuilder.ts` — Fix the C7 issue and implement layered rendering
+3. `src/commands/slabs/CreateSlabCommand.ts` — Stabilize ifcGuid by generating it in the constructor
+4. `src/commands/types.ts` — Add UPDATE_SLAB_LAYERS command type and SlabSystemTypeStore to CommandContext
+5. `src/main.ts` — Wire up SlabSystemTypeStore and fix C7 by passing openingHoles to updateSlab
+6. `src/ui/PropertyInspector.ts` — Replace the slab section with a type selector and layer editor
+
+Let me start implementing these changes now.
+
+Proposal implementation
+
+ create the new store and command types along with modifications to existing type files, then handle the fragment builder and main entry point, and finally update the UI. For the SlabSystemTypeStore, setting up preset slab types like a 200mm monolithic RC slab, a 300mm composite deck with concrete and screed, and an insulated screed variant.
+
+Define the layer functions that describe what each layer does—finish surfaces, screeds, insulation, structural elements, substrates, and waterproofing membranes. For the UpdateSlabLayersCommand, I'm structuring the payload to handle layer modifications.
+
+Wire up the SlabSystemTypeStore in the CommandContext, then expose it globally in main.ts alongside fixing how opening holes get passed through to the slab update. For SlabFragmentBuilder, I'm refactoring the update and mesh creation methods to accept optional opening hole data as parameters.
+
+Updating PropertyInspector... Plan out the implementation order—types first, then the store, command, builder, and UI components. For the PropertyInspector, I need to figure out how to dispatch the UpdateSlabLayersCommand since it doesn't have direct access to the commandManager, so I'll need to route it through the window object like the wall implementation does.

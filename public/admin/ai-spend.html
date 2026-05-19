@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRYZM 2 — AI Spend Dashboard</title>
+<style>
+  :root {
+    --bg: #0f1216;
+    --panel: #161b22;
+    --border: #2a313a;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --warn: #f85149;
+    --ok: #3fb950;
+  }
+  * { box-sizing: border-box; }
+  html, body { background: var(--bg); color: var(--text); margin: 0; padding: 0;
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 16px 24px; border-bottom: 1px solid var(--border); display: flex;
+    align-items: center; justify-content: space-between; }
+  header h1 { font-size: 18px; margin: 0; }
+  header .meta { color: var(--muted); font-size: 12px; }
+  .container { padding: 24px; max-width: 1200px; margin: 0 auto; }
+  .totals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 16px; }
+  .card .label { color: var(--muted); font-size: 12px; text-transform: uppercase;
+    letter-spacing: 0.04em; }
+  .card .value { font-size: 28px; font-weight: 600; margin-top: 6px; }
+  .card .sub { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 500; text-transform: uppercase; font-size: 11px;
+    letter-spacing: 0.04em; }
+  td.right, th.right { text-align: right; font-variant-numeric: tabular-nums; }
+  .panel-title { display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px; }
+  .panel-title h2 { font-size: 14px; margin: 0; }
+  .panel-title .hint { color: var(--muted); font-size: 11px; }
+  .err { color: var(--warn); padding: 16px; background: var(--panel); border-radius: 8px;
+    border: 1px solid var(--warn); }
+  .empty { color: var(--muted); padding: 16px; text-align: center; font-style: italic; }
+  .controls { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; }
+  .controls input, .controls select { background: var(--panel); border: 1px solid var(--border);
+    color: var(--text); padding: 6px 10px; border-radius: 6px; font-size: 13px; }
+  .controls button { background: var(--accent); border: none; color: #0f1216; padding: 6px 14px;
+    border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .controls button:hover { filter: brightness(1.1); }
+  .controls .month-select { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<header>
+  <h1>PRYZM 2 — AI Spend Dashboard</h1>
+  <div class="meta">SPEC-28 §5.1 · ai_usage table</div>
+</header>
+<div class="container">
+  <div class="controls">
+    <label for="projectFilter">Project ID:</label>
+    <input id="projectFilter" type="text" placeholder="(all projects)" />
+    <label for="monthSelect">Month:</label>
+    <select id="monthSelect" class="month-select">
+      <option value="0">This month</option>
+      <option value="1">Last month</option>
+      <option value="2">2 months ago</option>
+      <option value="3">3 months ago</option>
+    </select>
+    <button id="refresh">Refresh</button>
+    <span id="loading" class="meta" style="display:none;">Loading…</span>
+  </div>
+
+  <div class="totals">
+    <div class="card">
+      <div class="label">Total Spend</div>
+      <div class="value" id="totalUsd">—</div>
+      <div class="sub" id="monthLabel">—</div>
+    </div>
+    <div class="card">
+      <div class="label">Total Calls</div>
+      <div class="value" id="totalCalls">—</div>
+      <div class="sub">across all workflows</div>
+    </div>
+    <div class="card">
+      <div class="label">Avg Cost / Call</div>
+      <div class="value" id="avgCost">—</div>
+      <div class="sub">USD per request</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="panel-title">
+        <h2>Per-Project Spend</h2>
+        <span class="hint">Top 50</span>
+      </div>
+      <table id="projectTable">
+        <thead><tr><th>Project ID</th><th class="right">Cost (USD)</th><th class="right">Calls</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="card">
+      <div class="panel-title">
+        <h2>Per-Workflow Spend</h2>
+        <span class="hint">All workflows this period</span>
+      </div>
+      <table id="workflowTable">
+        <thead><tr><th>Workflow</th><th class="right">Cost (USD)</th><th class="right">Calls</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <div class="panel-title">
+      <h2>Top 10 Surfaces</h2>
+      <span class="hint">Where the AI is being invoked from</span>
+    </div>
+    <table id="surfaceTable">
+      <thead><tr><th>Surface</th><th class="right">Cost (USD)</th><th class="right">Calls</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div id="err" class="err" style="display:none;"></div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const fmtUsd = (n) => '$' + (Number(n) || 0).toFixed(4);
+const fmtInt = (n) => (Number(n) || 0).toLocaleString();
+
+function renderTable(tbody, rows, keyCol, labelCol) {
+  tbody.innerHTML = '';
+  if (!rows || rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="3" class="empty">No data for this period.</td></tr>';
+    return;
+  }
+  for (const r of rows) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${escape(r[keyCol] || '(none)')}</td>` +
+      `<td class="right">${fmtUsd(r.costUsd)}</td>` +
+      `<td class="right">${fmtInt(r.callCount)}</td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+function escape(s) {
+  return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+async function refresh() {
+  $('loading').style.display = '';
+  $('err').style.display = 'none';
+  try {
+    const projectId = $('projectFilter').value.trim();
+    const monthsBack = $('monthSelect').value;
+    const params = new URLSearchParams();
+    if (projectId) params.set('projectId', projectId);
+    if (monthsBack) params.set('monthsBack', monthsBack);
+    const url = '/api/ai/spend/summary' + (params.toString() ? '?' + params.toString() : '');
+    const token = localStorage.getItem('pryzm.authToken') || '';
+    const res = await fetch(url, {
+      headers: token ? { 'Authorization': 'Bearer ' + token } : {},
+    });
+    if (!res.ok) {
+      const msg = await res.text();
+      throw new Error(`HTTP ${res.status}: ${msg}`);
+    }
+    const data = await res.json();
+    $('totalUsd').textContent = fmtUsd(data.totalUsd);
+    $('totalCalls').textContent = fmtInt(data.totalCalls);
+    const avg = data.totalCalls > 0 ? data.totalUsd / data.totalCalls : 0;
+    $('avgCost').textContent = fmtUsd(avg);
+    $('monthLabel').textContent = 'since ' + new Date(data.monthStart).toLocaleDateString();
+
+    renderTable($('projectTable').querySelector('tbody'), data.monthlyByProject, 'projectId');
+    renderTable($('workflowTable').querySelector('tbody'), data.monthlyByWorkflow, 'workflow');
+    renderTable($('surfaceTable').querySelector('tbody'), data.topSurfaces, 'surface');
+  } catch (err) {
+    $('err').textContent = 'Failed to load AI spend: ' + (err?.message || err);
+    $('err').style.display = '';
+  } finally {
+    $('loading').style.display = 'none';
+  }
+}
+
+$('refresh').addEventListener('click', refresh);
+$('projectFilter').addEventListener('keydown', (e) => { if (e.key === 'Enter') refresh(); });
+$('monthSelect').addEventListener('change', refresh);
+window.addEventListener('load', refresh);
+</script>
+</body>
+</html>

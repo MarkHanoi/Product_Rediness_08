@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Eraser / tag shape rotated ~45°, with folded top-right corner -->
+  <!-- Body parallelogram (rotated rectangle) -->
+  <path d="M16 84 L16 68 L68 16 L84 16 L84 32 L32 84 Z"
+        stroke="#1C1B3C" stroke-width="5" stroke-linejoin="round"/>
+  <!-- Folded corner crease (cap line across the top-right corner) -->
+  <line x1="68" y1="16" x2="84" y2="32" stroke="#1C1B3C" stroke-width="5" stroke-linecap="round"/>
+</svg>

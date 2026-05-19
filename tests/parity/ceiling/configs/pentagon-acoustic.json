@@ -1,0 +1,48 @@
+{
+  "id": "pentagon-acoustic",
+  "description": "pentagonal acoustic-tile ceiling",
+  "ceiling": {
+    "id": "ceiling:pent-aco",
+    "type": "ceiling",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "boundary": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 4,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 5,
+        "y": 0,
+        "z": 2
+      },
+      {
+        "x": 2,
+        "y": 0,
+        "z": 4
+      },
+      {
+        "x": -1,
+        "y": 0,
+        "z": 2
+      }
+    ],
+    "ceilingHeight": 2.7,
+    "thickness": 0.02,
+    "materialId": "acoustic.tile",
+    "materialColor": "#e2e2dd"
+  },
+  "worldY": 0
+}

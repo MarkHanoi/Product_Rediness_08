@@ -1,0 +1,39 @@
+What the reference (pascalorg/editor) does that we don't
+The Pascal editor uses a deliberately minimal SQLite store with a typed SceneStore interface. Comparing it line-by-line against PRYZM reveals 17 concrete gaps, grouped by severity:
+
+🔴 Critical (3 fixed right now)
+#	Gap	Root cause	Fix applied
+GAP-02	GET /api/projects/:id used .single() — a DB timeout or connection refusal was silently returned as HTTP 404 instead of 500, making outages invisible	.single() raises PGRST116 for both "no rows" AND real errors; both were caught identically	✅ Switched to .maybeSingle(). data===null → 404; error (real DB error) → 500 with logged message
+GAP-14	deleteProject manually deleted versions then the project in two separate queries — a crash between them left orphaned project_versions rows forever	Schema already has ON DELETE CASCADE; the manual delete was redundant and non-atomic	✅ Removed the explicit DELETE FROM project_versions — single atomic cascade
+GAP-15	listVersions(projectId, userId) skipped the ownership check when userId was falsy — internal server calls with no userId would return all versions to any caller	if (userId) guard was optional	✅ Made userId required; added listVersionsAdmin() for legitimate internal-only callers
+🟠 High — must fix before beta launch with real users
+#	Gap	What Pascal does	What we need
+GAP-01	No write-transaction isolation on version save	BEGIN IMMEDIATE wraps count-check + INSERT atomically	Supabase RPC function or PG BEGIN/COMMIT around count + upsert + insert
+GAP-03	ignoreDuplicates: true on project upsert has no post-write ownership verification — ID collision is silently swallowed	Explicit collision check throws SceneInvalidError before write	Check upsert result count; return 409 if existing row's owner ≠ caller
+GAP-05	No server-side snapshot size cap — a 100 MB snapshot hits Supabase's nginx 413 without a structured error body	Enforces maxSceneBytes (10 MB default) before every write	Buffer.byteLength(JSON.stringify(snapshot)) > MAX → 413 { error: 'snapshot_too_large' }
+GAP-07	All errors leak as String(err) — PGRST116 internals visible to clients	4 typed error classes → HTTP 404/409/400/413 with machine-readable codes	Define ProjectNotFoundError, SnapshotTooLargeError, VersionLimitError; central handleProjectError(err, res)
+🟡 Medium — improve before general availability
+#	Gap	Description
+GAP-04	ID collision probability: 5 base-36 chars from Math.random() ≈ 1 in 60k per project	Replace with crypto.randomBytes(8).toString('hex') for 16 hex chars; add isValidProjectId allowlist guard
+GAP-06	No expectedVersion / optimistic locking on version writes; no If-Match header support	Pascal returns ETag: "<version>" on GET, parses If-Match on PUT/DELETE → HTTP 409 on conflict
+GAP-08	touchProject does a subquery COUNT after the version INSERT — count can be stale if concurrent insert runs between them	Use UPDATE projects SET version_count = version_count + 1 instead of re-counting
+GAP-09	No DB-level CHECK constraints on tables — invalid data can enter via direct SQL or migration scripts	Add CHECK (length(name) BETWEEN 1 AND 200), CHECK (element_count >= 0)
+GAP-10	No scene_revisions table — no separate draft vs. checkpoint concept	Add project_drafts table for auto-save working state; project_versions becomes checkpoint-only
+GAP-11	Socket.io reconnect does a full model resend, not delta replay from project_command_log	Add GET /api/projects/:id/command-log?after=<cursor> and replay on reconnect
+GAP-12	Project list response has no nodeCount, isEmpty, sizeBytes — hub can't detect empty projects without loading them	Add (SELECT element_count … LIMIT 1) AS latest_element_count subquery to the list SELECT
+GAP-13	No ETag headers returned, no If-Match parsing	Pascal returns ETag: "<version>" on every GET; parses If-Match on writes
+GAP-17	No GET /api/projects/:id/status with graph hash — every project open transfers the full snapshot even if unchanged	Add status endpoint returning { latestVersionHash } so client skips download on hash match
+🟢 Low — polish
+#	Gap
+GAP-16	Zero automated tests for projectStore.js and projectAccess.js. Pascal has 327-line test suite with full round-trip, conflict, cascade, corruption, and size coverage
+What PRYZM does better than the reference
+Area	PRYZM advantage
+Multi-tier fallback	Supabase → PG → in-memory cascade. Pascal is single-backend only
+Idempotency keys	Version deduplication across all 3 tiers on retry storms. Pascal has none
+Client-side DEFLATE	4–8× compression before localStorage write. Pascal stores raw JSON
+Plan-enforced version limits	Server-side gate with plan hierarchy. Pascal has no plan model
+ISO 19650 audit trail	version_audit_log with state machine (state, revision_code, suitability_code)
+Webhook delivery	model.saved events pushed to registered URLs. Pascal has no notifications
+Thumbnail pipeline	Capture → compress → upload → serve from hub. Pascal has a URL field only
+Real-time collaboration	Socket.io rooms with CRDT ops and presence. Pascal uses SSE polling only
+The full analysis is written to docs/audit/PROJECT_STORAGE_AUDIT.md with every gap, every code location, and the full fix roadmap with time estimates.

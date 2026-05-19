@@ -1,0 +1,10 @@
+{
+  "name": "largest-model.produce",
+  "samples": 5,
+  "p50": 165.56,
+  "p95": 185.764,
+  "p99": 185.764,
+  "budgetMs": 9000,
+  "warnMs": 9000,
+  "recordedAt": "2026-05-09T23:09:09.609Z"
+}

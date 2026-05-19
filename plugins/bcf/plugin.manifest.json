@@ -1,0 +1,39 @@
+{
+  "pryzmPlugin": "1.0",
+  "id": "pryzm-bcf",
+  "version": "1.0.0",
+  "displayName": "PRYZM BCF",
+  "description": "BCF 3.0 reader/writer for issue tracking and clash review. Supports BCF ZIP exchange with Revit, Navisworks, and Solibri. Includes viewpoint restore, component selection/visibility/coloring, and IFC GlobalId resolution.",
+  "author": "PRYZM",
+  "license": "MIT",
+  "main": "src/index.ts",
+  "minPRYZMVersion": "3.0.0",
+  "permissions": [
+    "read:project",
+    "write:project",
+    "register:panel",
+    "register:command"
+  ],
+  "allowedOrigins": [],
+  "contributions": [
+    {
+      "kind": "panel",
+      "id": "bcf.issues-panel",
+      "location": "sidebar-right",
+      "label": "BCF Issues"
+    },
+    {
+      "kind": "command",
+      "id": "bcf.import",
+      "label": "Import BCF…",
+      "category": "BCF",
+      "keybinding": "Ctrl+Shift+B"
+    },
+    {
+      "kind": "command",
+      "id": "bcf.export",
+      "label": "Export BCF…",
+      "category": "BCF"
+    }
+  ]
+}

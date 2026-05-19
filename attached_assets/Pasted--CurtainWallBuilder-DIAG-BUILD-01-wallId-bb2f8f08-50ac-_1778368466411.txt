@@ -1,0 +1,285 @@
+[CurtainWallBuilder] §DIAG-BUILD-01 wallId="bb2f8f08-50ac-4a79-b049-473fc6f89350" batchId=667519d4 totalMs=0.3 worldYMs=0.0 gridMs=0.0(migrated) cellsMs=0.0 cells=10 panelReadMs=0.0 panels=0 panelBuildMs=0.2 mullionMs=0.0 uLines=6 vLines=3 orientMs=0.0
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §4.2-SIGNAL all queues empty (pendingBuilds=0, inflightWorkers=0, pendingMainThread=0) — signalling BatchCoordinator.signalBuildQueueDrained().
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §TRACE BUILD-QUEUE-DRAINED regQueue=11 / totalExpected=110 T=+1076.2ms (all geometry in scene; registration drain starting)
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §TRACE §REG-MANY-P2 queue ≤ 50 (11) — draining synchronously (0 rAF frames) T=+1076.3ms
+engineLauncher-bbIXqTfg.js:1583 [BimManager] §REG-MANY-P0: registered 10 element(s) to level "L0".
+engineLauncher-bbIXqTfg.js:1583 [BimManager] §REG-MANY-P0: registered 10 element(s) to level "L-01-1778367874324-1".
+engineLauncher-bbIXqTfg.js:1583 [BimManager] §REG-MANY-P0: registered 10 element(s) to level "L-02-1778367874350-2".
+engineLauncher-bbIXqTfg.js:1583 [BimManager] §REG-MANY-P0: registered 10 element(s) to level "L-03-1778367874361-3".
+engineLauncher-bbIXqTfg.js:1583 [BimManager] §REG-MANY-P0: registered 10 element(s) to level "L-04-1778367874368-4".
+engineLauncher-bbIXqTfg.js:1583 [BimManager] §REG-MANY-P0: registered 10 element(s) to level "L-05-1778367874376-5".
+engineLauncher-bbIXqTfg.js:1583 [BimManager] §REG-MANY-P0: registered 10 element(s) to level "L-06-1778367874388-6".
+engineLauncher-bbIXqTfg.js:1583 [BimManager] §REG-MANY-P0: registered 10 element(s) to level "L-07-1778367874395-7".
+engineLauncher-bbIXqTfg.js:1583 [BimManager] §REG-MANY-P0: registered 10 element(s) to level "L-08-1778367874403-8".
+engineLauncher-bbIXqTfg.js:1583 [BimManager] §REG-MANY-P0: registered 10 element(s) to level "L-09-1778367874414-9".
+engineLauncher-bbIXqTfg.js:1583 [BimManager] §REG-MANY-P0: registered 10 element(s) to level "L-10-1778367874423-10".
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §TRACE REGISTRATION-DRAIN-DONE 11 registration(s) complete T=+1078.3ms
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §TRACE SHADOW-REACTIVATION-START callbacks=1 T=+1078.4ms
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §K1 shadow reactivation START: 110 walls — 50 walls/slice via FrameScheduler (§K.2 PSOs pre-warmed — slice cost = traverse only, ≤2ms/slice target).
+engineLauncher-bbIXqTfg.js:1757 [CurtainWallBuilder] §SHADOW-30S-SCHEDULED 110 wall(s) queued for shadow reactivation at T+30s (batchId=667519d4)
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §TRACE SHADOW-REACTIVATION-DISPATCHED (sliced across post-render frames) callMs=0.4ms T=+1078.8ms
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §TRACE FINAL-SWEEP-START levels=11 skipRedetect=true T=+1078.9ms (opening yielded event drain)
+main-C_EL1IFU.js:29510 [StoreEventBus] endBatchYielded() — 110 event(s) will be delivered in 1 chunk(s) of 200 via frame scheduler.
+main-C_EL1IFU.js:29510 [StoreEventBus] endBatchYielded() — all 110 event(s) delivered across 1 chunk(s) (last: 5.1ms). Calling onComplete().
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §TRACE ON-COMPLETE-START (all yielded events delivered) T=+1089.8ms
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §BATCH-SHADOW-MAP-RESTORE-FALLBACK shadowMap.enabled=true (no CW shadow callbacks ran)
+engineLauncher-bbIXqTfg.js:484 [Collaboration] §E1-CRDT-BLACKOUT batchId=667519d4 duration=1090ms elements=110
+engineLauncher-bbIXqTfg.js:2323 [RoomTopologyObserver] §G2 cancelled 0 pending redetect timer(s) for levels: [L0, L-01-1778367874324-1, L-02-1778367874350-2, L-03-1778367874361-3, L-04-1778367874368-4, L-05-1778367874376-5, L-06-1778367874388-6, L-07-1778367874395-7, L-08-1778367874403-8, L-09-1778367874414-9, L-10-1778367874423-10]
+engineLauncher-bbIXqTfg.js:2323 [RoomTopologyObserver] §G2 post-batch cooldown armed until T=307007ms
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §G2-CANCELLED 11 pending redetect timer(s) for 11 level(s); 1s cooldown armed — REDETECT_ROOMS suppressed until T=307007ms
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §TRACE §G1 VDT suppression deferred through CASCADE; markLevelsDirtyImmediate(11 level(s)) will follow post-CASCADE. T=+1090.4ms
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §FIX-POST-GEOMETRY-COMPILE-V2 SKIPPED (skipPbrUpgrade=true, elementCount=110) — prewarm covers PSOs for large CW/slab batches. T=+1090.7ms
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §TRACE ON-BATCH-END-DEFERRED (suppress lifted NOW; overlay dismiss scheduled for post-render) T=+1090.8ms
+main-C_EL1IFU.js:29510 [UnifiedFrameLoop] §TRACE §PERF-VIEW-BATCH-SUPPRESS suppression lifted after 1090.4ms — OBC+PASCAL resuming on next tick.
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §TRACE ON-POST-BATCH-START (PBR upgrade + requestIdleCallback pending) T=+1091.1ms
+engineLauncher-bbIXqTfg.js:1826 [BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-SKIPPED (skipPbrUpgrade=true — curtain-wall batch; materials are already PBR-ready)
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §TRACE ON-POST-BATCH-DISPATCHED (PBR upgrade queued to requestIdleCallback) T=+1091.8ms
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] Final sweep: SKIPPING REDETECT_ROOMS for 11 level(s) (§FIX-SKIP-REDETECT-ROOMS — element type cannot define room boundaries). StoreEventBus flushed (depth now 0). markLevelsDirty already called above for plan-view reprojection.
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §G1-SUPPRESS-LIFTED post-CASCADE T=306009.2ms delay=1.7ms (DependencyResolver CASCADE settled; EPS Flush #2 eliminated).
+main-C_EL1IFU.js:29510 [UnifiedFrameLoop] §TRACE FIRST-RENDER-POST-SUPPRESS totalSuppressedMs=1109.4ms frameCount=2407 — OBC+PASCAL about to execute (WebGPU PSO compile LONGTASK begins here)
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §TRACE GPU-COMPILE-WAIT framesRemaining=0 T=+5643.4ms
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §TRACE §FIX-EDGE-PROJECT-DEFER §III-2 markLevelsDirtyImmediate(11 level(s)) fired post-render (debounce bypassed — flush queued to next low-priority frame). T=+5643.7ms
+main-C_EL1IFU.js:29510 [ViewDependencyTracker] flush — 11 dirty view(s): vd-sys-p, L-01-177, L-02-177, L-03-177, L-04-177, L-05-177, L-06-177, L-07-177, L-08-177, L-09-177, L-10-177
+main-C_EL1IFU.js:29510 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+engineLauncher-bbIXqTfg.js:1826 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed out of 1 live room(s).
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] Plan view — exporting 22 elements from levels overlapping Y=[-1.20, 0.00]
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=2288ffbb-61e4-460d-8801-275f427a819b elementType=CurtainWall instancedNodes=2 proxiesFromIM=20 proxiesFromMesh=32 totalProxies=52
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=cf818a26-5306-4ba8-8e31-4f2bbe64d493 elementType=CurtainWall instancedNodes=2 proxiesFromIM=26 proxiesFromMesh=44 totalProxies=70
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=09094f09-209d-477e-b185-1999b305b6aa elementType=CurtainWall instancedNodes=2 proxiesFromIM=10 proxiesFromMesh=12 totalProxies=22
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=4d168fdc-3219-4313-a6f2-deaeffb77962 elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=52e29d98-c9ae-4e09-a85b-207b08c1394b elementType=CurtainWall instancedNodes=2 proxiesFromIM=22 proxiesFromMesh=36 totalProxies=58
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=a4ce509e-aeae-47b6-84b5-fe6526179241 elementType=CurtainWall instancedNodes=2 proxiesFromIM=12 proxiesFromMesh=16 totalProxies=28
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=a65af615-5073-40fe-aeba-43b06452d93f elementType=CurtainWall instancedNodes=2 proxiesFromIM=19 proxiesFromMesh=30 totalProxies=49
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=7c980bb6-0a16-46d5-90bc-f1b3cc92ca2c elementType=CurtainWall instancedNodes=2 proxiesFromIM=7 proxiesFromMesh=6 totalProxies=13
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=a4a73430-7209-46c8-ad1a-50fb734214df elementType=CurtainWall instancedNodes=2 proxiesFromIM=11 proxiesFromMesh=14 totalProxies=25
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=da59ed1b-97c3-4512-9923-a0779acda731 elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NME] §H2-NME-CACHE hits=11 misses=10 hitRate=52% cacheSize=96/500
+main-C_EL1IFU.js:29510 [ViewTechnicalDrawingCache] invalidated viewId=L-01-1778367874324-1
+engineLauncher-bbIXqTfg.js:1826 [RoomTagAutoPopulator] viewId=L-01-1778367874324-1 level=L-01-1778367874324-1: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] Plan view — exporting 33 elements from levels overlapping Y=[1.80, 3.00]
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=2288ffbb-61e4-460d-8801-275f427a819b elementType=CurtainWall instancedNodes=2 proxiesFromIM=20 proxiesFromMesh=32 totalProxies=52
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=cf818a26-5306-4ba8-8e31-4f2bbe64d493 elementType=CurtainWall instancedNodes=2 proxiesFromIM=26 proxiesFromMesh=44 totalProxies=70
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=09094f09-209d-477e-b185-1999b305b6aa elementType=CurtainWall instancedNodes=2 proxiesFromIM=10 proxiesFromMesh=12 totalProxies=22
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=4d168fdc-3219-4313-a6f2-deaeffb77962 elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=52e29d98-c9ae-4e09-a85b-207b08c1394b elementType=CurtainWall instancedNodes=2 proxiesFromIM=22 proxiesFromMesh=36 totalProxies=58
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=a4ce509e-aeae-47b6-84b5-fe6526179241 elementType=CurtainWall instancedNodes=2 proxiesFromIM=12 proxiesFromMesh=16 totalProxies=28
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=a65af615-5073-40fe-aeba-43b06452d93f elementType=CurtainWall instancedNodes=2 proxiesFromIM=19 proxiesFromMesh=30 totalProxies=49
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=7c980bb6-0a16-46d5-90bc-f1b3cc92ca2c elementType=CurtainWall instancedNodes=2 proxiesFromIM=7 proxiesFromMesh=6 totalProxies=13
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=a4a73430-7209-46c8-ad1a-50fb734214df elementType=CurtainWall instancedNodes=2 proxiesFromIM=11 proxiesFromMesh=14 totalProxies=25
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=da59ed1b-97c3-4512-9923-a0779acda731 elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=c6a4e5d9-b998-4b99-823b-942c42b8bc74 elementType=CurtainWall instancedNodes=2 proxiesFromIM=20 proxiesFromMesh=32 totalProxies=52
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=67f6ce89-bf02-4ed0-9bef-07a519021b6a elementType=CurtainWall instancedNodes=2 proxiesFromIM=26 proxiesFromMesh=44 totalProxies=70
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=24390621-f206-4c8a-b32e-f70bf007b47a elementType=CurtainWall instancedNodes=2 proxiesFromIM=10 proxiesFromMesh=12 totalProxies=22
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=4e819039-393c-4314-9f52-a49ca4354e45 elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=693ab42d-d5a0-40f5-ab07-f3c843dfb824 elementType=CurtainWall instancedNodes=2 proxiesFromIM=22 proxiesFromMesh=36 totalProxies=58
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=825957bf-56ce-434c-8578-31b2e587d2f9 elementType=CurtainWall instancedNodes=2 proxiesFromIM=12 proxiesFromMesh=16 totalProxies=28
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=c6e419f0-24e1-4ec9-9aba-c275203f696b elementType=CurtainWall instancedNodes=2 proxiesFromIM=19 proxiesFromMesh=30 totalProxies=49
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=654f723c-f8a1-47d0-bab2-8038db02d22d elementType=CurtainWall instancedNodes=2 proxiesFromIM=7 proxiesFromMesh=6 totalProxies=13
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=3e839c39-0927-4b77-b209-66842d78b084 elementType=CurtainWall instancedNodes=2 proxiesFromIM=11 proxiesFromMesh=14 totalProxies=25
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=e24b5fb6-e28f-448c-994f-39a31d7892c7 elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NME] §H2-NME-CACHE hits=12 misses=20 hitRate=38% cacheSize=116/500
+main-C_EL1IFU.js:29510 [ViewTechnicalDrawingCache] invalidated viewId=L-02-1778367874350-2
+engineLauncher-bbIXqTfg.js:1826 [RoomTagAutoPopulator] viewId=L-02-1778367874350-2 level=L-02-1778367874350-2: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] Plan view — exporting 22 elements from levels overlapping Y=[4.80, 6.00]
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=c6a4e5d9-b998-4b99-823b-942c42b8bc74 elementType=CurtainWall instancedNodes=2 proxiesFromIM=20 proxiesFromMesh=32 totalProxies=52
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=67f6ce89-bf02-4ed0-9bef-07a519021b6a elementType=CurtainWall instancedNodes=2 proxiesFromIM=26 proxiesFromMesh=44 totalProxies=70
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=24390621-f206-4c8a-b32e-f70bf007b47a elementType=CurtainWall instancedNodes=2 proxiesFromIM=10 proxiesFromMesh=12 totalProxies=22
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=4e819039-393c-4314-9f52-a49ca4354e45 elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=693ab42d-d5a0-40f5-ab07-f3c843dfb824 elementType=CurtainWall instancedNodes=2 proxiesFromIM=22 proxiesFromMesh=36 totalProxies=58
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=825957bf-56ce-434c-8578-31b2e587d2f9 elementType=CurtainWall instancedNodes=2 proxiesFromIM=12 proxiesFromMesh=16 totalProxies=28
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=c6e419f0-24e1-4ec9-9aba-c275203f696b elementType=CurtainWall instancedNodes=2 proxiesFromIM=19 proxiesFromMesh=30 totalProxies=49
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=654f723c-f8a1-47d0-bab2-8038db02d22d elementType=CurtainWall instancedNodes=2 proxiesFromIM=7 proxiesFromMesh=6 totalProxies=13
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=3e839c39-0927-4b77-b209-66842d78b084 elementType=CurtainWall instancedNodes=2 proxiesFromIM=11 proxiesFromMesh=14 totalProxies=25
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=e24b5fb6-e28f-448c-994f-39a31d7892c7 elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=3ff4936b-1483-4ac0-8a94-31f1c43d3eef elementType=CurtainWall instancedNodes=2 proxiesFromIM=20 proxiesFromMesh=32 totalProxies=52
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=25de7785-b1b1-4b95-b46b-dc2fc74fa619 elementType=CurtainWall instancedNodes=2 proxiesFromIM=26 proxiesFromMesh=44 totalProxies=70
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=8bacd7b6-c333-4a5d-bfcd-3b21f746b053 elementType=CurtainWall instancedNodes=2 proxiesFromIM=10 proxiesFromMesh=12 totalProxies=22
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=b62ec9c8-42f5-4528-9710-8e6d93e3ebce elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=0f11107a-4827-450e-bab3-1a99b4369d7b elementType=CurtainWall instancedNodes=2 proxiesFromIM=22 proxiesFromMesh=36 totalProxies=58
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=0b705599-c5bf-44c8-8730-65d0bd8b09fe elementType=CurtainWall instancedNodes=2 proxiesFromIM=12 proxiesFromMesh=16 totalProxies=28
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=6d21e9e5-1dda-4d5d-a69b-f03c8e2a3e7e elementType=CurtainWall instancedNodes=2 proxiesFromIM=19 proxiesFromMesh=30 totalProxies=49
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=d395ee98-f784-49ab-bac3-8a9837b05c7b elementType=CurtainWall instancedNodes=2 proxiesFromIM=7 proxiesFromMesh=6 totalProxies=13
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=1c9f3f66-b418-49fe-b98d-7aab99901e30 elementType=CurtainWall instancedNodes=2 proxiesFromIM=11 proxiesFromMesh=14 totalProxies=25
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=6d040e87-0712-4da3-9f44-d17fbb8a53f5 elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NME] §H2-NME-CACHE hits=2 misses=20 hitRate=9% cacheSize=136/500
+main-C_EL1IFU.js:29510 [ViewTechnicalDrawingCache] invalidated viewId=L-03-1778367874361-3
+engineLauncher-bbIXqTfg.js:1826 [RoomTagAutoPopulator] viewId=L-03-1778367874361-3 level=L-03-1778367874361-3: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] Plan view — exporting 22 elements from levels overlapping Y=[7.80, 9.00]
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=3ff4936b-1483-4ac0-8a94-31f1c43d3eef elementType=CurtainWall instancedNodes=2 proxiesFromIM=20 proxiesFromMesh=32 totalProxies=52
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=25de7785-b1b1-4b95-b46b-dc2fc74fa619 elementType=CurtainWall instancedNodes=2 proxiesFromIM=26 proxiesFromMesh=44 totalProxies=70
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=8bacd7b6-c333-4a5d-bfcd-3b21f746b053 elementType=CurtainWall instancedNodes=2 proxiesFromIM=10 proxiesFromMesh=12 totalProxies=22
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=b62ec9c8-42f5-4528-9710-8e6d93e3ebce elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=0f11107a-4827-450e-bab3-1a99b4369d7b elementType=CurtainWall instancedNodes=2 proxiesFromIM=22 proxiesFromMesh=36 totalProxies=58
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=0b705599-c5bf-44c8-8730-65d0bd8b09fe elementType=CurtainWall instancedNodes=2 proxiesFromIM=12 proxiesFromMesh=16 totalProxies=28
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=6d21e9e5-1dda-4d5d-a69b-f03c8e2a3e7e elementType=CurtainWall instancedNodes=2 proxiesFromIM=19 proxiesFromMesh=30 totalProxies=49
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=d395ee98-f784-49ab-bac3-8a9837b05c7b elementType=CurtainWall instancedNodes=2 proxiesFromIM=7 proxiesFromMesh=6 totalProxies=13
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=1c9f3f66-b418-49fe-b98d-7aab99901e30 elementType=CurtainWall instancedNodes=2 proxiesFromIM=11 proxiesFromMesh=14 totalProxies=25
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=6d040e87-0712-4da3-9f44-d17fbb8a53f5 elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=b043c142-1a7c-4961-bb64-d29a5f6dbc42 elementType=CurtainWall instancedNodes=2 proxiesFromIM=20 proxiesFromMesh=32 totalProxies=52
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=390662ce-0182-40b7-93d3-8a2b7a016e57 elementType=CurtainWall instancedNodes=2 proxiesFromIM=26 proxiesFromMesh=44 totalProxies=70
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=05b2f28b-ea2a-44e4-b6ad-4dbd4fe5ac64 elementType=CurtainWall instancedNodes=2 proxiesFromIM=10 proxiesFromMesh=12 totalProxies=22
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=fb614da9-e219-4cc3-9e4b-d680ea9cd051 elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=d95306e4-936f-4ef7-8dc3-bd8ddbf6f73a elementType=CurtainWall instancedNodes=2 proxiesFromIM=22 proxiesFromMesh=36 totalProxies=58
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=be1193a5-4e3c-4d80-83a9-a9c40e99b96f elementType=CurtainWall instancedNodes=2 proxiesFromIM=12 proxiesFromMesh=16 totalProxies=28
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=426db500-db42-41eb-9fc3-b47c2918fcc3 elementType=CurtainWall instancedNodes=2 proxiesFromIM=19 proxiesFromMesh=30 totalProxies=49
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=93bdbbc0-cf42-4eed-a15b-604fa9fa093c elementType=CurtainWall instancedNodes=2 proxiesFromIM=7 proxiesFromMesh=6 totalProxies=13
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=9ba6df76-6c17-4dc4-ba11-5c2402ba5989 elementType=CurtainWall instancedNodes=2 proxiesFromIM=11 proxiesFromMesh=14 totalProxies=25
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=1577e650-a66d-4744-a494-5298f66b583c elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NME] §H2-NME-CACHE hits=2 misses=20 hitRate=9% cacheSize=156/500
+main-C_EL1IFU.js:29510 [ViewTechnicalDrawingCache] invalidated viewId=L-04-1778367874368-4
+engineLauncher-bbIXqTfg.js:1826 [RoomTagAutoPopulator] viewId=L-04-1778367874368-4 level=L-04-1778367874368-4: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] Plan view — exporting 22 elements from levels overlapping Y=[10.80, 12.00]
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=b043c142-1a7c-4961-bb64-d29a5f6dbc42 elementType=CurtainWall instancedNodes=2 proxiesFromIM=20 proxiesFromMesh=32 totalProxies=52
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=390662ce-0182-40b7-93d3-8a2b7a016e57 elementType=CurtainWall instancedNodes=2 proxiesFromIM=26 proxiesFromMesh=44 totalProxies=70
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=05b2f28b-ea2a-44e4-b6ad-4dbd4fe5ac64 elementType=CurtainWall instancedNodes=2 proxiesFromIM=10 proxiesFromMesh=12 totalProxies=22
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=fb614da9-e219-4cc3-9e4b-d680ea9cd051 elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=d95306e4-936f-4ef7-8dc3-bd8ddbf6f73a elementType=CurtainWall instancedNodes=2 proxiesFromIM=22 proxiesFromMesh=36 totalProxies=58
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=be1193a5-4e3c-4d80-83a9-a9c40e99b96f elementType=CurtainWall instancedNodes=2 proxiesFromIM=12 proxiesFromMesh=16 totalProxies=28
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=426db500-db42-41eb-9fc3-b47c2918fcc3 elementType=CurtainWall instancedNodes=2 proxiesFromIM=19 proxiesFromMesh=30 totalProxies=49
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=93bdbbc0-cf42-4eed-a15b-604fa9fa093c elementType=CurtainWall instancedNodes=2 proxiesFromIM=7 proxiesFromMesh=6 totalProxies=13
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=9ba6df76-6c17-4dc4-ba11-5c2402ba5989 elementType=CurtainWall instancedNodes=2 proxiesFromIM=11 proxiesFromMesh=14 totalProxies=25
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=1577e650-a66d-4744-a494-5298f66b583c elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=f37a9a2d-9b4c-45df-a8ab-31cf91af382a elementType=CurtainWall instancedNodes=2 proxiesFromIM=20 proxiesFromMesh=32 totalProxies=52
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=cc4f76fd-1de9-4859-a710-cd6384fad1f5 elementType=CurtainWall instancedNodes=2 proxiesFromIM=26 proxiesFromMesh=44 totalProxies=70
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=c7dd36c6-01c6-4783-bb82-67c55166faaf elementType=CurtainWall instancedNodes=2 proxiesFromIM=10 proxiesFromMesh=12 totalProxies=22
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=2f89f3d1-ef11-45c5-9ff0-0378295bfafa elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=77925369-ff10-43de-b56c-9ed8057f0100 elementType=CurtainWall instancedNodes=2 proxiesFromIM=22 proxiesFromMesh=36 totalProxies=58
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=c465d004-7710-4437-8c5b-87b6ffa57f68 elementType=CurtainWall instancedNodes=2 proxiesFromIM=12 proxiesFromMesh=16 totalProxies=28
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=a87880f2-f6a2-4a1e-ab58-70ca943c461f elementType=CurtainWall instancedNodes=2 proxiesFromIM=19 proxiesFromMesh=30 totalProxies=49
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=31ceca1f-b1ed-4194-8164-3426f1d288d7 elementType=CurtainWall instancedNodes=2 proxiesFromIM=7 proxiesFromMesh=6 totalProxies=13
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=8dbd5671-c74d-43a1-a62d-929d7ab8e375 elementType=CurtainWall instancedNodes=2 proxiesFromIM=11 proxiesFromMesh=14 totalProxies=25
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=c915270d-2c4c-4c58-ac47-e10e67085069 elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NME] §H2-NME-CACHE hits=2 misses=20 hitRate=9% cacheSize=176/500
+main-C_EL1IFU.js:29510 [ViewTechnicalDrawingCache] invalidated viewId=L-05-1778367874376-5
+engineLauncher-bbIXqTfg.js:1826 [RoomTagAutoPopulator] viewId=L-05-1778367874376-5 level=L-05-1778367874376-5: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] Plan view — exporting 22 elements from levels overlapping Y=[13.80, 15.00]
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=f37a9a2d-9b4c-45df-a8ab-31cf91af382a elementType=CurtainWall instancedNodes=2 proxiesFromIM=20 proxiesFromMesh=32 totalProxies=52
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=cc4f76fd-1de9-4859-a710-cd6384fad1f5 elementType=CurtainWall instancedNodes=2 proxiesFromIM=26 proxiesFromMesh=44 totalProxies=70
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=c7dd36c6-01c6-4783-bb82-67c55166faaf elementType=CurtainWall instancedNodes=2 proxiesFromIM=10 proxiesFromMesh=12 totalProxies=22
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=2f89f3d1-ef11-45c5-9ff0-0378295bfafa elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=77925369-ff10-43de-b56c-9ed8057f0100 elementType=CurtainWall instancedNodes=2 proxiesFromIM=22 proxiesFromMesh=36 totalProxies=58
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=c465d004-7710-4437-8c5b-87b6ffa57f68 elementType=CurtainWall instancedNodes=2 proxiesFromIM=12 proxiesFromMesh=16 totalProxies=28
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=a87880f2-f6a2-4a1e-ab58-70ca943c461f elementType=CurtainWall instancedNodes=2 proxiesFromIM=19 proxiesFromMesh=30 totalProxies=49
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=31ceca1f-b1ed-4194-8164-3426f1d288d7 elementType=CurtainWall instancedNodes=2 proxiesFromIM=7 proxiesFromMesh=6 totalProxies=13
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=8dbd5671-c74d-43a1-a62d-929d7ab8e375 elementType=CurtainWall instancedNodes=2 proxiesFromIM=11 proxiesFromMesh=14 totalProxies=25
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=c915270d-2c4c-4c58-ac47-e10e67085069 elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=e110b7a3-0318-4213-9c6f-c5eb554fecd3 elementType=CurtainWall instancedNodes=2 proxiesFromIM=20 proxiesFromMesh=32 totalProxies=52
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=6562888b-7092-4a43-8ed8-86a0cf3c1e7d elementType=CurtainWall instancedNodes=2 proxiesFromIM=26 proxiesFromMesh=44 totalProxies=70
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=07de0e69-4ac4-4304-8d0b-04e825fcafae elementType=CurtainWall instancedNodes=2 proxiesFromIM=10 proxiesFromMesh=12 totalProxies=22
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=b42807b9-1f30-4717-b159-a7f943368143 elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=2c7cb5d4-582d-44c0-a54b-c294f8d30957 elementType=CurtainWall instancedNodes=2 proxiesFromIM=22 proxiesFromMesh=36 totalProxies=58
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=d5ce4a83-5c59-4e2e-96ef-78aacdfd663c elementType=CurtainWall instancedNodes=2 proxiesFromIM=12 proxiesFromMesh=16 totalProxies=28
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=143a4b27-501e-4e2a-974b-6aabe244617b elementType=CurtainWall instancedNodes=2 proxiesFromIM=19 proxiesFromMesh=30 totalProxies=49
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=edb8e336-3489-418c-913a-cd8c904500c6 elementType=CurtainWall instancedNodes=2 proxiesFromIM=7 proxiesFromMesh=6 totalProxies=13
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=974c8f1b-5256-4bac-ad09-43be6be471c2 elementType=CurtainWall instancedNodes=2 proxiesFromIM=11 proxiesFromMesh=14 totalProxies=25
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=ed4f6a70-e319-432c-8e88-0fd28d322ff7 elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NME] §H2-NME-CACHE hits=2 misses=20 hitRate=9% cacheSize=196/500
+main-C_EL1IFU.js:29510 [ViewTechnicalDrawingCache] invalidated viewId=L-06-1778367874388-6
+engineLauncher-bbIXqTfg.js:1826 [RoomTagAutoPopulator] viewId=L-06-1778367874388-6 level=L-06-1778367874388-6: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] Plan view — exporting 22 elements from levels overlapping Y=[16.80, 18.00]
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=e110b7a3-0318-4213-9c6f-c5eb554fecd3 elementType=CurtainWall instancedNodes=2 proxiesFromIM=20 proxiesFromMesh=32 totalProxies=52
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=6562888b-7092-4a43-8ed8-86a0cf3c1e7d elementType=CurtainWall instancedNodes=2 proxiesFromIM=26 proxiesFromMesh=44 totalProxies=70
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=07de0e69-4ac4-4304-8d0b-04e825fcafae elementType=CurtainWall instancedNodes=2 proxiesFromIM=10 proxiesFromMesh=12 totalProxies=22
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=b42807b9-1f30-4717-b159-a7f943368143 elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=2c7cb5d4-582d-44c0-a54b-c294f8d30957 elementType=CurtainWall instancedNodes=2 proxiesFromIM=22 proxiesFromMesh=36 totalProxies=58
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=d5ce4a83-5c59-4e2e-96ef-78aacdfd663c elementType=CurtainWall instancedNodes=2 proxiesFromIM=12 proxiesFromMesh=16 totalProxies=28
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=143a4b27-501e-4e2a-974b-6aabe244617b elementType=CurtainWall instancedNodes=2 proxiesFromIM=19 proxiesFromMesh=30 totalProxies=49
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=edb8e336-3489-418c-913a-cd8c904500c6 elementType=CurtainWall instancedNodes=2 proxiesFromIM=7 proxiesFromMesh=6 totalProxies=13
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=974c8f1b-5256-4bac-ad09-43be6be471c2 elementType=CurtainWall instancedNodes=2 proxiesFromIM=11 proxiesFromMesh=14 totalProxies=25
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=ed4f6a70-e319-432c-8e88-0fd28d322ff7 elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=73e6d27a-d70d-4337-823f-ba18d3c2aa84 elementType=CurtainWall instancedNodes=2 proxiesFromIM=20 proxiesFromMesh=32 totalProxies=52
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=96da26c5-8980-4c7e-8d60-e70d8c78309c elementType=CurtainWall instancedNodes=2 proxiesFromIM=26 proxiesFromMesh=44 totalProxies=70
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=e41949ed-f5c0-438a-8024-e7bd50e0af26 elementType=CurtainWall instancedNodes=2 proxiesFromIM=10 proxiesFromMesh=12 totalProxies=22
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=1a4a3da3-222d-4717-9f03-d077d094561f elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=dd202a0e-92a2-4afc-8b7c-c8f9f501ad45 elementType=CurtainWall instancedNodes=2 proxiesFromIM=22 proxiesFromMesh=36 totalProxies=58
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=3cbf6d3f-79d8-4940-8ca5-cf9a74158413 elementType=CurtainWall instancedNodes=2 proxiesFromIM=12 proxiesFromMesh=16 totalProxies=28
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=e60de94f-8de6-422d-89fe-1b55b242fd3e elementType=CurtainWall instancedNodes=2 proxiesFromIM=19 proxiesFromMesh=30 totalProxies=49
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=b7298da3-0c2a-44b8-bfeb-fcdf34fb281c elementType=CurtainWall instancedNodes=2 proxiesFromIM=7 proxiesFromMesh=6 totalProxies=13
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=a68acd11-f4ed-45f5-8f60-7271801b1a9e elementType=CurtainWall instancedNodes=2 proxiesFromIM=11 proxiesFromMesh=14 totalProxies=25
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=f7331aa9-cad9-434a-bdf8-331b10957eda elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NME] §H2-NME-CACHE hits=2 misses=20 hitRate=9% cacheSize=216/500
+main-C_EL1IFU.js:29510 [ViewTechnicalDrawingCache] invalidated viewId=L-07-1778367874395-7
+engineLauncher-bbIXqTfg.js:1826 [RoomTagAutoPopulator] viewId=L-07-1778367874395-7 level=L-07-1778367874395-7: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] Plan view — exporting 22 elements from levels overlapping Y=[19.80, 21.00]
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=73e6d27a-d70d-4337-823f-ba18d3c2aa84 elementType=CurtainWall instancedNodes=2 proxiesFromIM=20 proxiesFromMesh=32 totalProxies=52
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=96da26c5-8980-4c7e-8d60-e70d8c78309c elementType=CurtainWall instancedNodes=2 proxiesFromIM=26 proxiesFromMesh=44 totalProxies=70
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=e41949ed-f5c0-438a-8024-e7bd50e0af26 elementType=CurtainWall instancedNodes=2 proxiesFromIM=10 proxiesFromMesh=12 totalProxies=22
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=1a4a3da3-222d-4717-9f03-d077d094561f elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=dd202a0e-92a2-4afc-8b7c-c8f9f501ad45 elementType=CurtainWall instancedNodes=2 proxiesFromIM=22 proxiesFromMesh=36 totalProxies=58
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=3cbf6d3f-79d8-4940-8ca5-cf9a74158413 elementType=CurtainWall instancedNodes=2 proxiesFromIM=12 proxiesFromMesh=16 totalProxies=28
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=e60de94f-8de6-422d-89fe-1b55b242fd3e elementType=CurtainWall instancedNodes=2 proxiesFromIM=19 proxiesFromMesh=30 totalProxies=49
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=b7298da3-0c2a-44b8-bfeb-fcdf34fb281c elementType=CurtainWall instancedNodes=2 proxiesFromIM=7 proxiesFromMesh=6 totalProxies=13
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=a68acd11-f4ed-45f5-8f60-7271801b1a9e elementType=CurtainWall instancedNodes=2 proxiesFromIM=11 proxiesFromMesh=14 totalProxies=25
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=f7331aa9-cad9-434a-bdf8-331b10957eda elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=30f9f6f6-005c-4a07-8aac-2ca1ee108345 elementType=CurtainWall instancedNodes=2 proxiesFromIM=20 proxiesFromMesh=32 totalProxies=52
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=bff3f5f4-44f1-4759-b2ff-4200bd094887 elementType=CurtainWall instancedNodes=2 proxiesFromIM=26 proxiesFromMesh=44 totalProxies=70
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=b981b915-d4bc-48ff-a126-2ed63f872a11 elementType=CurtainWall instancedNodes=2 proxiesFromIM=10 proxiesFromMesh=12 totalProxies=22
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=b15fc8f3-02e8-4ad7-88d2-df01d7472d9e elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=c939c87b-60d1-4aaa-885a-88f91477c075 elementType=CurtainWall instancedNodes=2 proxiesFromIM=22 proxiesFromMesh=36 totalProxies=58
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=759f6461-7b9d-4d0e-94f5-baab59575e76 elementType=CurtainWall instancedNodes=2 proxiesFromIM=12 proxiesFromMesh=16 totalProxies=28
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=79c6a3a7-c34d-4653-967f-b986e4785340 elementType=CurtainWall instancedNodes=2 proxiesFromIM=19 proxiesFromMesh=30 totalProxies=49
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=666126e7-c7e0-4702-a52d-c1f217711153 elementType=CurtainWall instancedNodes=2 proxiesFromIM=7 proxiesFromMesh=6 totalProxies=13
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=2345e5f7-3e8d-4286-8d5d-9aacb263f2ff elementType=CurtainWall instancedNodes=2 proxiesFromIM=11 proxiesFromMesh=14 totalProxies=25
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=b40812c1-1dcd-4bd5-990a-5b6f49648caf elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NME] §H2-NME-CACHE hits=2 misses=20 hitRate=9% cacheSize=236/500
+main-C_EL1IFU.js:29510 [ViewTechnicalDrawingCache] invalidated viewId=L-08-1778367874403-8
+engineLauncher-bbIXqTfg.js:1826 [RoomTagAutoPopulator] viewId=L-08-1778367874403-8 level=L-08-1778367874403-8: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] Plan view — exporting 22 elements from levels overlapping Y=[22.80, 24.00]
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=30f9f6f6-005c-4a07-8aac-2ca1ee108345 elementType=CurtainWall instancedNodes=2 proxiesFromIM=20 proxiesFromMesh=32 totalProxies=52
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=bff3f5f4-44f1-4759-b2ff-4200bd094887 elementType=CurtainWall instancedNodes=2 proxiesFromIM=26 proxiesFromMesh=44 totalProxies=70
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=b981b915-d4bc-48ff-a126-2ed63f872a11 elementType=CurtainWall instancedNodes=2 proxiesFromIM=10 proxiesFromMesh=12 totalProxies=22
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=b15fc8f3-02e8-4ad7-88d2-df01d7472d9e elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=c939c87b-60d1-4aaa-885a-88f91477c075 elementType=CurtainWall instancedNodes=2 proxiesFromIM=22 proxiesFromMesh=36 totalProxies=58
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=759f6461-7b9d-4d0e-94f5-baab59575e76 elementType=CurtainWall instancedNodes=2 proxiesFromIM=12 proxiesFromMesh=16 totalProxies=28
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=79c6a3a7-c34d-4653-967f-b986e4785340 elementType=CurtainWall instancedNodes=2 proxiesFromIM=19 proxiesFromMesh=30 totalProxies=49
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=666126e7-c7e0-4702-a52d-c1f217711153 elementType=CurtainWall instancedNodes=2 proxiesFromIM=7 proxiesFromMesh=6 totalProxies=13
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=2345e5f7-3e8d-4286-8d5d-9aacb263f2ff elementType=CurtainWall instancedNodes=2 proxiesFromIM=11 proxiesFromMesh=14 totalProxies=25
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=b40812c1-1dcd-4bd5-990a-5b6f49648caf elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=ee877de1-39bb-402e-873d-c24eca3bd336 elementType=CurtainWall instancedNodes=2 proxiesFromIM=20 proxiesFromMesh=32 totalProxies=52
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=29e021ef-9b7a-4d63-be68-e0e4859a4c9c elementType=CurtainWall instancedNodes=2 proxiesFromIM=26 proxiesFromMesh=44 totalProxies=70
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=09842e92-4f2a-43dc-9308-420b2bf7d54f elementType=CurtainWall instancedNodes=2 proxiesFromIM=10 proxiesFromMesh=12 totalProxies=22
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=5b02d202-ead1-4fc7-a2e3-09feab28711c elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=3672df4f-f164-4be0-a07e-144bd0ac5074 elementType=CurtainWall instancedNodes=2 proxiesFromIM=22 proxiesFromMesh=36 totalProxies=58
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=c10a26cd-6247-4f5f-96e8-95e4c452509d elementType=CurtainWall instancedNodes=2 proxiesFromIM=12 proxiesFromMesh=16 totalProxies=28
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=331b64bf-35dc-4343-92da-edd20903272c elementType=CurtainWall instancedNodes=2 proxiesFromIM=19 proxiesFromMesh=30 totalProxies=49
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=ef3ab88c-801d-45fe-a983-f1dc341016c3 elementType=CurtainWall instancedNodes=2 proxiesFromIM=7 proxiesFromMesh=6 totalProxies=13
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=7c2591c0-959f-4447-a071-c0ec9f712345 elementType=CurtainWall instancedNodes=2 proxiesFromIM=11 proxiesFromMesh=14 totalProxies=25
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=e4123e2f-544f-413b-821a-f370fe6c9e16 elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NME] §H2-NME-CACHE hits=2 misses=20 hitRate=9% cacheSize=256/500
+main-C_EL1IFU.js:29510 [ViewTechnicalDrawingCache] invalidated viewId=L-09-1778367874414-9
+engineLauncher-bbIXqTfg.js:1826 [RoomTagAutoPopulator] viewId=L-09-1778367874414-9 level=L-09-1778367874414-9: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] Plan view — exporting 22 elements from levels overlapping Y=[25.80, 27.00]
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=ee877de1-39bb-402e-873d-c24eca3bd336 elementType=CurtainWall instancedNodes=2 proxiesFromIM=20 proxiesFromMesh=32 totalProxies=52
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=29e021ef-9b7a-4d63-be68-e0e4859a4c9c elementType=CurtainWall instancedNodes=2 proxiesFromIM=26 proxiesFromMesh=44 totalProxies=70
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=09842e92-4f2a-43dc-9308-420b2bf7d54f elementType=CurtainWall instancedNodes=2 proxiesFromIM=10 proxiesFromMesh=12 totalProxies=22
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=5b02d202-ead1-4fc7-a2e3-09feab28711c elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=3672df4f-f164-4be0-a07e-144bd0ac5074 elementType=CurtainWall instancedNodes=2 proxiesFromIM=22 proxiesFromMesh=36 totalProxies=58
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=c10a26cd-6247-4f5f-96e8-95e4c452509d elementType=CurtainWall instancedNodes=2 proxiesFromIM=12 proxiesFromMesh=16 totalProxies=28
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=331b64bf-35dc-4343-92da-edd20903272c elementType=CurtainWall instancedNodes=2 proxiesFromIM=19 proxiesFromMesh=30 totalProxies=49
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=ef3ab88c-801d-45fe-a983-f1dc341016c3 elementType=CurtainWall instancedNodes=2 proxiesFromIM=7 proxiesFromMesh=6 totalProxies=13
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=7c2591c0-959f-4447-a071-c0ec9f712345 elementType=CurtainWall instancedNodes=2 proxiesFromIM=11 proxiesFromMesh=14 totalProxies=25
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=e4123e2f-544f-413b-821a-f370fe6c9e16 elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=aae56814-6145-4d06-959e-2a05b0b1741f elementType=CurtainWall instancedNodes=2 proxiesFromIM=20 proxiesFromMesh=32 totalProxies=52
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=62b53e6f-0757-4f5d-8029-270d9e88ae38 elementType=CurtainWall instancedNodes=2 proxiesFromIM=26 proxiesFromMesh=44 totalProxies=70
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=9e153791-ceea-4035-9568-ec565db35b6c elementType=CurtainWall instancedNodes=2 proxiesFromIM=10 proxiesFromMesh=12 totalProxies=22
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=bd806a7e-49f8-4039-aac1-ac9e70928a73 elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=c8cbc615-c771-4be6-b4a7-d53a701d1495 elementType=CurtainWall instancedNodes=2 proxiesFromIM=22 proxiesFromMesh=36 totalProxies=58
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=ea118b79-fd2f-4795-b99d-3b40d3998bc8 elementType=CurtainWall instancedNodes=2 proxiesFromIM=12 proxiesFromMesh=16 totalProxies=28
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=0dae6784-e0de-437b-a2f6-50a7650d5914 elementType=CurtainWall instancedNodes=2 proxiesFromIM=19 proxiesFromMesh=30 totalProxies=49
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=b46279dd-2055-4489-b899-bd2d464106b8 elementType=CurtainWall instancedNodes=2 proxiesFromIM=7 proxiesFromMesh=6 totalProxies=13
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=8bbee187-1bcc-4a7d-ae04-45a15410e5ea elementType=CurtainWall instancedNodes=2 proxiesFromIM=11 proxiesFromMesh=14 totalProxies=25
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=415a12f4-321f-4259-a8ca-a7ec098d0284 elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NME] §H2-NME-CACHE hits=2 misses=20 hitRate=9% cacheSize=276/500
+main-C_EL1IFU.js:29510 [ViewTechnicalDrawingCache] invalidated viewId=L-10-1778367874423-10
+engineLauncher-bbIXqTfg.js:1826 [RoomTagAutoPopulator] viewId=L-10-1778367874423-10 level=L-10-1778367874423-10: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] Plan view — exporting 22 elements from levels overlapping Y=[28.80, 30.00]
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=aae56814-6145-4d06-959e-2a05b0b1741f elementType=CurtainWall instancedNodes=2 proxiesFromIM=20 proxiesFromMesh=32 totalProxies=52
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=62b53e6f-0757-4f5d-8029-270d9e88ae38 elementType=CurtainWall instancedNodes=2 proxiesFromIM=26 proxiesFromMesh=44 totalProxies=70
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=9e153791-ceea-4035-9568-ec565db35b6c elementType=CurtainWall instancedNodes=2 proxiesFromIM=10 proxiesFromMesh=12 totalProxies=22
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=bd806a7e-49f8-4039-aac1-ac9e70928a73 elementType=CurtainWall instancedNodes=2 proxiesFromIM=9 proxiesFromMesh=10 totalProxies=19
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=c8cbc615-c771-4be6-b4a7-d53a701d1495 elementType=CurtainWall instancedNodes=2 proxiesFromIM=22 proxiesFromMesh=36 totalProxies=58
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=ea118b79-fd2f-4795-b99d-3b40d3998bc8 elementType=CurtainWall instancedNodes=2 proxiesFromIM=12 proxiesFromMesh=16 totalProxies=28
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=0dae6784-e0de-437b-a2f6-50a7650d5914 elementType=CurtainWall instancedNodes=2 proxiesFromIM=19 proxiesFromMesh=30 totalProxies=49
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=b46279dd-2055-4489-b899-bd2d464106b8 elementType=CurtainWall instancedNodes=2 proxiesFromIM=7 proxiesFromMesh=6 totalProxies=13
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=8bbee187-1bcc-4a7d-ae04-45a15410e5ea elementType=CurtainWall instancedNodes=2 proxiesFromIM=11 proxiesFromMesh=14 totalProxies=25
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] §DIAG-NME-01 elementId=415a12f4-321f-4259-a8ca-

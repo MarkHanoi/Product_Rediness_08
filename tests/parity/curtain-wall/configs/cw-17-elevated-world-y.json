@@ -1,0 +1,42 @@
+{
+  "id": "cw-17-elevated-world-y",
+  "description": "6×3 at elevated worldY = 8.5 m (level 3)",
+  "curtainWall": {
+    "id": "curtainwall_01HZS00000000000000CWELEV8",
+    "type": "curtainwall",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "baseLine": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 6,
+        "y": 0,
+        "z": 0
+      }
+    ],
+    "height": 3,
+    "mullionThickness": 0.05,
+    "bayWidth": 1.5,
+    "bayHeight": 1.5,
+    "panels": []
+  },
+  "joinData": {
+    "startJoin": {
+      "kind": "none"
+    },
+    "endJoin": {
+      "kind": "none"
+    }
+  },
+  "worldY": 8.5
+}

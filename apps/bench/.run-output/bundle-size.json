@@ -1,0 +1,8 @@
+{
+  "name": "bundle-size",
+  "gzipBytes": 318,
+  "gzipKB": 0.31,
+  "exportCount": 41,
+  "nftTargetKB": 250,
+  "notes": "NFT-15 proxy per 01-VISION.md §5. Measures gzip(@pryzm/schemas export manifest) as a conservative app-shell bundle proxy. Actual production bundle size is measured by vite build --analyze and the @pryzm/perf-budgets gate (post-Wave-13). Tree-shaking further reduces the production bundle below this baseline."
+}

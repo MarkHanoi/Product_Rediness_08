@@ -1,0 +1,50 @@
+{
+  "meta": {
+    "source": "src/commands/walls/UpdateWallDimensionsCommand.ts + SetWallWidthCommand.ts + UpdateWallHeightCommand.ts",
+    "capturedAt": "2026-04-26T18:30:00Z",
+    "description": "Atomic height + thickness + baseOffset patch — exercises the 3→1 collapse owned by SetWallDimensionsHandler.",
+    "deviationsFromPryzm1": [
+      "merges 3 separate PRYZM 1 commands (UpdateWallDimensions, SetWallWidth, UpdateWallHeight) into one (ADR-008 row 3)",
+      "no door/window height cascade — that lifts to L4 cascade infra in S10 D6"
+    ]
+  },
+  "setup": {
+    "walls": [
+      {
+        "id": "wall_01HYY00000000000000000DM01",
+        "type": "wall",
+        "parentId": null,
+        "childrenIds": [],
+        "metadata": {
+          "createdAt": "2026-04-26T00:00:00.000Z",
+          "modifiedAt": "2026-04-26T00:00:00.000Z",
+          "createdBy": "fixture",
+          "modifiedBy": "fixture"
+        },
+        "levelId": "lvl_test",
+        "baseLine": [
+          { "x": 0, "y": 0, "z": 0 },
+          { "x": 3, "y": 0, "z": 0 }
+        ],
+        "height": 2.5,
+        "thickness": 0.1,
+        "baseOffset": 0,
+        "openings": []
+      }
+    ]
+  },
+  "command": {
+    "type": "wall.setDimensions",
+    "payload": {
+      "id": "wall_01HYY00000000000000000DM01",
+      "height": 3.2,
+      "thickness": 0.2,
+      "baseOffset": 0.05
+    }
+  },
+  "expect": {
+    "valid": true,
+    "wallAfter": { "height": 3.2, "thickness": 0.2, "baseOffset": 0.05 },
+    "undoRestoresOriginalDimensions": true
+  }
+}

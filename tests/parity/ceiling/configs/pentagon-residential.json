@@ -1,0 +1,48 @@
+{
+  "id": "pentagon-residential",
+  "description": "pentagonal residential ceiling with plaster finish",
+  "ceiling": {
+    "id": "ceiling:pent-res",
+    "type": "ceiling",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "boundary": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 3,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 4,
+        "y": 0,
+        "z": 1.5
+      },
+      {
+        "x": 1.5,
+        "y": 0,
+        "z": 3
+      },
+      {
+        "x": -1,
+        "y": 0,
+        "z": 1.5
+      }
+    ],
+    "ceilingHeight": 2.4,
+    "thickness": 0.012,
+    "materialId": "plaster.painted",
+    "materialColor": "#f5f5f5"
+  },
+  "worldY": 0
+}

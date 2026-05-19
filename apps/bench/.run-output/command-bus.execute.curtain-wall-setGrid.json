@@ -1,0 +1,10 @@
+{
+  "name": "command-bus.execute.curtain-wall-setGrid",
+  "samples": 200,
+  "p50": 2.642,
+  "p95": 8.858,
+  "p99": 21.443,
+  "budgetMs": 1,
+  "warnMs": 0.5,
+  "recordedAt": "2026-05-09T23:09:24.780Z"
+}

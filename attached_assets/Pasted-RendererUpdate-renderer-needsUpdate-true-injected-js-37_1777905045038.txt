@@ -1,0 +1,122 @@
+RendererUpdate() — renderer.needsUpdate = true
+injected.js:37 [VST][+5.8ms] dispatching "view-activated" event (mode="3D", type="perspective")
+injected.js:37 [WallEdgeVisibilityService] Edge render mode set to '3d'.
+injected.js:37 [RenderPipelineManager] updateCamera: Phase C fast path (perspective) — camera swapped; _uIsOrthographic handles SSGI/TRAA bypass; no graph rebuild (select() uniform already written by notifyProjectionToggle).
+injected.js:37 [VST][+8.4ms] dispatching "view-selected" event (viewId="vd-sys-3d-1")
+injected.js:37 [AnnotationManager] active view set from view-selected → vd-sys-3d-1
+injected.js:37 [VST][+14.6ms] UnifiedFrameLoop.endViewSwitch() — PASCAL post-processing RE-ENABLED
+injected.js:37 [UnifiedFrameLoop] View switch complete in 14.1 ms.
+injected.js:37 [VST][+14.8ms] onAfterViewSwitch — notifying 2 listeners
+injected.js:37 [ViewController] ✅ View switch to "3D" completed in 14.9ms
+injected.js:37 [LONGTASK] duration=63.0ms start=631770.2ms [type=iframe src=https://5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [FPS] 42fps
+injected.js:37 [FPS] 106fps
+injected.js:37 [GPU Monitor] geometries:240 textures:8 | drawCalls:1 tris:1
+2injected.js:37 [RenderRailPanel] Badges synced — SSGI: ON, TRAA: OFF
+injected.js:37 [VST][+0.0ms] ViewController.activate("3D") ENTRY — activeDefinitionId=null
+injected.js:37 [VST][+0.0ms] SceneBoundsCache invalidated — dirty flag set
+injected.js:37 [VST][+0.1ms] onBeforeViewSwitch — notifying 2 listeners
+injected.js:37 [VST][+0.1ms] onBeforeViewSwitch — DONE
+injected.js:37 [VST][+0.2ms] selectionManager.unselectAll() — TransformControls detached
+injected.js:37 [VST][+0.2ms] UnifiedFrameLoop.beginViewSwitch() — PASCAL post-processing PAUSED
+injected.js:37 [VST][+0.2ms] deactivate() — START (departing view: "3D")
+injected.js:37 [VST][+0.3ms] deactivate — ViewCameraStateStore.save("3D")
+injected.js:37 [ViewCameraStateStore] save("3D") — pos(-2.07, 99.51, 47.21) target(-3.23, 31.00, 46.05) zoom=1.000
+injected.js:37 [VST][+0.3ms] deactivate — MultiViewCameraManager.saveSlot("perspective")
+injected.js:37 [MultiViewCameraManager] Saved slot "perspective" — pos(-2.07, 99.51, 47.21)
+injected.js:37 [VST][+0.4ms] deactivate — _cleanupAllListeners() (1 listeners) [MUST precede orthoPlanLock.deactivate]
+injected.js:37 [VST][+0.5ms] deactivate — PlanViewManager.deactivate()
+injected.js:37 [VST][+0.5ms] deactivate — OrthoPlanCameraLockController.deactivate()
+injected.js:37 [VST][+0.6ms] deactivate — groundFloorController.deactivate()
+injected.js:37 [VST][+0.7ms] deactivate — _clearClipping() (LevelClipPlaneCache or OBC Clipper)
+injected.js:37 [SectionViewService] Section deactivated
+injected.js:37 [VST][+0.8ms] deactivate — layer reset: enable BIM_LAYER, disable PLAN_SYMBOL_LAYER and DOCUMENTATION_LAYER
+injected.js:37 [VST][+0.8ms] deactivate — PlanViewVisibilityCuller.deactivate() — all hidden objects restored
+injected.js:37 [VST][+0.8ms] deactivate — _deepSceneCleanup() (previewRegistry.disposeAll)
+injected.js:37 [VST][+0.9ms] deactivate() — COMPLETE
+injected.js:37 [VST][+1.0ms] _applyGridState("perspective") — grid.fade=true
+injected.js:37 [VST][+1.0ms] routing to activation handler for viewMode="3D"
+injected.js:37 [VST][+1.0ms] _activate3DView() ENTRY
+injected.js:37 [VST][+1.0ms] _activate3DView — navManager.clearControlLock()
+injected.js:37 [VST][+1.1ms] _activate3DView — camera.layers explicit restore (BIM+ANNOTATION, PLAN_SYMBOL+DOCUMENTATION stay off)
+injected.js:37 [VST][+1.2ms] _activate3DView — rpm.notifyProjectionToggle(false) (fast path armed)
+injected.js:37 [RenderPipelineManager] notifyProjectionToggle(false) — fast path armed; _uIsOrthographic.value = 0.
+injected.js:37 [VST][+1.2ms] _activate3DView — camera already Perspective; projection.set skipped
+injected.js:37 [VST][+1.2ms] _activate3DView — _clearClipping() (renderer.clippingPlanes = [])
+injected.js:37 [VST][+1.4ms] _activate3DView — MultiViewCameraManager.restoreSlot("perspective")
+injected.js:37 [MultiViewCameraManager] Restored slot "perspective" — pos(-2.07, 99.51, 47.21)
+injected.js:37 [VST][+1.5ms] _activate3DView — perspective slot HIT (instant restore, no traversal)
+injected.js:37 [VST][+1.7ms] _activate3DView() COMPLETE
+injected.js:37 [VST][+1.7ms] activation handler COMPLETE
+injected.js:37 [VST][+1.8ms] _setupViewListeners("perspective") — camera-update listener registered
+injected.js:37 [VST][+1.9ms] _forceRendererUpdate() — renderer.needsUpdate = true
+injected.js:37 [VST][+1.9ms] dispatching "view-activated" event (mode="3D", type="perspective")
+injected.js:37 [WallEdgeVisibilityService] Edge render mode set to '3d'.
+injected.js:37 [RenderPipelineManager] updateCamera: Phase C fast path (perspective) — camera swapped; _uIsOrthographic handles SSGI/TRAA bypass; no graph rebuild (select() uniform already written by notifyProjectionToggle).
+injected.js:37 [VST][+3.0ms] dispatching "view-selected" event (viewId="null")
+injected.js:37 [VST][+3.3ms] UnifiedFrameLoop.endViewSwitch() — PASCAL post-processing RE-ENABLED
+injected.js:37 [UnifiedFrameLoop] View switch complete in 3.2 ms.
+injected.js:37 [VST][+3.4ms] onAfterViewSwitch — notifying 2 listeners
+injected.js:37 [ViewController] ✅ View switch to "3D" completed in 3.4ms
+injected.js:37 [FPS] 71fps
+injected.js:37 [VST][+0.0ms] ViewController.activate("3D") ENTRY — activeDefinitionId=null
+injected.js:37 [VST][+0.2ms] SceneBoundsCache invalidated — dirty flag set
+injected.js:37 [VST][+0.2ms] onBeforeViewSwitch — notifying 2 listeners
+injected.js:37 [VST][+0.2ms] onBeforeViewSwitch — DONE
+injected.js:37 [VST][+0.3ms] selectionManager.unselectAll() — TransformControls detached
+injected.js:37 [VST][+0.3ms] UnifiedFrameLoop.beginViewSwitch() — PASCAL post-processing PAUSED
+injected.js:37 [VST][+0.4ms] deactivate() — START (departing view: "3D")
+injected.js:37 [VST][+0.4ms] deactivate — ViewCameraStateStore.save("3D")
+injected.js:37 [ViewCameraStateStore] save("3D") — pos(-2.07, 99.51, 47.21) target(-3.23, 31.00, 46.05) zoom=1.000
+injected.js:37 [VST][+0.5ms] deactivate — MultiViewCameraManager.saveSlot("perspective")
+injected.js:37 [MultiViewCameraManager] Saved slot "perspective" — pos(-2.07, 99.51, 47.21)
+injected.js:37 [VST][+0.5ms] deactivate — _cleanupAllListeners() (1 listeners) [MUST precede orthoPlanLock.deactivate]
+injected.js:37 [VST][+0.5ms] deactivate — PlanViewManager.deactivate()
+injected.js:37 [VST][+0.5ms] deactivate — OrthoPlanCameraLockController.deactivate()
+injected.js:37 [VST][+0.5ms] deactivate — groundFloorController.deactivate()
+injected.js:37 [VST][+0.5ms] deactivate — _clearClipping() (LevelClipPlaneCache or OBC Clipper)
+injected.js:37 [SectionViewService] Section deactivated
+injected.js:37 [VST][+0.7ms] deactivate — layer reset: enable BIM_LAYER, disable PLAN_SYMBOL_LAYER and DOCUMENTATION_LAYER
+injected.js:37 [VST][+0.7ms] deactivate — PlanViewVisibilityCuller.deactivate() — all hidden objects restored
+injected.js:37 [VST][+0.7ms] deactivate — _deepSceneCleanup() (previewRegistry.disposeAll)
+injected.js:37 [VST][+0.9ms] deactivate() — COMPLETE
+injected.js:37 [VST][+1.0ms] _applyGridState("perspective") — grid.fade=true
+injected.js:37 [VST][+1.0ms] routing to activation handler for viewMode="3D"
+injected.js:37 [VST][+1.1ms] _activate3DView() ENTRY
+injected.js:37 [VST][+1.1ms] _activate3DView — navManager.clearControlLock()
+injected.js:37 [VST][+1.1ms] _activate3DView — camera.layers explicit restore (BIM+ANNOTATION, PLAN_SYMBOL+DOCUMENTATION stay off)
+injected.js:37 [VST][+1.1ms] _activate3DView — rpm.notifyProjectionToggle(false) (fast path armed)
+injected.js:37 [RenderPipelineManager] notifyProjectionToggle(false) — fast path armed; _uIsOrthographic.value = 0.
+injected.js:37 [VST][+1.2ms] _activate3DView — camera already Perspective; projection.set skipped
+injected.js:37 [VST][+1.2ms] _activate3DView — _clearClipping() (renderer.clippingPlanes = [])
+injected.js:37 [VST][+1.2ms] _activate3DView — MultiViewCameraManager.restoreSlot("perspective")
+injected.js:37 [MultiViewCameraManager] Restored slot "perspective" — pos(-2.07, 99.51, 47.21)
+injected.js:37 [VST][+1.4ms] _activate3DView — perspective slot HIT (instant restore, no traversal)
+injected.js:37 [VST][+1.4ms] _activate3DView() COMPLETE
+injected.js:37 [VST][+1.5ms] activation handler COMPLETE
+injected.js:37 [VST][+1.5ms] _setupViewListeners("perspective") — camera-update listener registered
+injected.js:37 [VST][+1.6ms] _forceRendererUpdate() — renderer.needsUpdate = true
+injected.js:37 [VST][+1.6ms] dispatching "view-activated" event (mode="3D", type="perspective")
+injected.js:37 [WallEdgeVisibilityService] Edge render mode set to '3d'.
+injected.js:37 [RenderPipelineManager] updateCamera: Phase C fast path (perspective) — camera swapped; _uIsOrthographic handles SSGI/TRAA bypass; no graph rebuild (select() uniform already written by notifyProjectionToggle).
+injected.js:37 [VST][+2.1ms] dispatching "view-selected" event (viewId="null")
+injected.js:37 [VST][+2.3ms] UnifiedFrameLoop.endViewSwitch() — PASCAL post-processing RE-ENABLED
+injected.js:37 [UnifiedFrameLoop] View switch complete in 2.1 ms.
+injected.js:37 [VST][+2.4ms] onAfterViewSwitch — notifying 2 listeners
+injected.js:37 [ViewController] ✅ View switch to "3D" completed in 2.4ms
+injected.js:37 [FPS] 54fps
+injected.js:37 [FPS] 15fps
+2injected.js:37 [RenderRailPanel] Badges synced — SSGI: ON, TRAA: OFF
+injected.js:37 [LONGTASK] duration=492.0ms start=643600.4ms [type=iframe src=https://5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=6297.0ms start=644094.3ms [type=iframe src=https://5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [GPU Monitor] geometries:332 textures:9 | drawCalls:309 tris:257938
+injected.js:37 [GPU Monitor] ⚠ Geometry count grew 38.3% (240 → 332) in 10s — possible leak. Check WallFragmentBuilder.removeWallFragments() and CurtainWallBuilder._disposeChildren().
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [FPS] 1fps
+2injected.js:37 [HomeView] Returned to default viewpoint
+injected.js:37 [LONGTASK] duration=16410.0ms start=650477.0ms [type=iframe src=https://5026fc9f-d074-481a-8979-d2baebdb9257-00-14df1rnwcjvhh.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] dura

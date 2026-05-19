@@ -1,0 +1,29 @@
+{
+  "id": "spiral-fallback",
+  "description": "spiral stair (v1 falls back to straight projection)",
+  "stair": {
+    "id": "stair:spr",
+    "type": "stair",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "topLevelId": "level:1",
+    "shape": "spiral",
+    "origin": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "rotation": 0,
+    "treadDepth": 0.25,
+    "riserHeight": 0.2,
+    "width": 0.8,
+    "numRisers": 14
+  },
+  "worldY": 0
+}

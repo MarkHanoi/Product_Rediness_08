@@ -1,0 +1,43 @@
+{
+  "id": "F15.with-material-color",
+  "description": "slab with material colour override",
+  "slab": {
+    "id": "slab:01HZS000000000000SLBF1500",
+    "type": "slab",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "boundary": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 4,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 4,
+        "y": 0,
+        "z": 4
+      },
+      {
+        "x": 0,
+        "y": 0,
+        "z": 4
+      }
+    ],
+    "holes": [],
+    "thickness": 0.2,
+    "baseOffset": 0,
+    "materialColor": "#7a5c3a"
+  },
+  "worldY": 0
+}

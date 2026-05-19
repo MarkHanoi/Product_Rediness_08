@@ -1,0 +1,362 @@
+WALL SYSTEM HARDENING — PHASE 2 (Controlled Refactor)
+OBJECTIVE
+
+Upgrade Wall system from:
+
+B — Mostly Command-First
+
+to:
+
+A — Fully Command-First
+
+Without:
+
+Breaking undo/redo
+
+Changing projection semantics
+
+Introducing schema drift
+
+Modifying unrelated files
+
+Altering element IDs
+
+Changing level logic contract
+
+This is a precision architectural hardening pass.
+
+⚠️ GLOBAL RULES (MANDATORY)
+
+Before modifying ANY file, you MUST declare:
+
+Layer Affected:
+Files Modified:
+Architectural Classification:
+Undo/Redo Impact:
+Spatial Impact:
+Semantic Schema Impact:
+Idempotency Impact:
+Risk Level:
+
+If not declared → modification invalid.
+
+🎯 TARGETED FIX LIST (STRICT ORDER)
+
+You must perform these in order.
+Do NOT combine steps.
+
+STEP 1 — STORE IMMUTABILITY HARDENING
+Problem
+
+WallStore.getById() returns live reference.
+Violates §3.1 (Immutability Required).
+
+Goal
+
+Make store externally immutable.
+
+Constraints
+
+Do NOT change WallData schema.
+
+Do NOT change builder.
+
+Do NOT change commands.
+
+Do NOT add deep proxy systems.
+
+Do NOT introduce freezing libraries.
+
+Must remain performant.
+
+Required Change
+
+getById() must return structuredClone(internalWall)
+
+getAll() must return cloned array
+
+Any accessor returning nested arrays (openings) must clone
+
+Validation Checklist
+
+External mutation cannot affect store
+
+Commands still function
+
+Undo/redo symmetry preserved
+
+No shared references
+
+No builder breakage
+
+No performance explosion
+
+After implementation, explicitly confirm:
+
+§3.1 satisfied
+
+No snapshot drift introduced
+
+No accidental double cloning inside commands
+
+STEP 2 — REMOVE SPATIAL LOGIC FROM STORE
+Problem
+
+WallStore performs elevation logic in add().
+
+Violates §3.2 — Store is Data Only.
+
+Goal
+
+Store must:
+
+Accept semantic data
+
+Validate required fields
+
+Not compute spatial values
+
+Not derive worldY
+
+Not adjust baseOffset
+
+Required Refactor
+
+If elevation logic exists in store:
+
+Move it to:
+
+CreateWallCommand (preferred)
+or
+
+Spatial resolution helper injected into command
+
+Store must become:
+
+Pure data container.
+
+Constraints
+
+No change to builder.
+
+No change to level elevation formula.
+
+No silent defaulting.
+
+No fallback to Z=0.
+
+Must fail explicitly if level invalid.
+
+After change, confirm:
+
+Store does not import BimManager
+
+Store does not compute elevation
+
+Store does not mutate baseOffset
+
+Spatial registration still occurs only in command
+
+STEP 3 — REMOVE GLOBAL FALLBACKS
+Problem
+
+window.bimManager fallback in command.
+
+Violates §13 + Hard Failure Policy.
+
+Goal
+
+All spatial dependencies must be:
+
+Injected via constructor or dependency context.
+
+Required Fix
+
+Remove window access
+
+Inject BimManager into command
+
+Validate levelId explicitly
+
+Throw hard error if invalid
+
+Constraints
+
+Do NOT create service locator
+
+Do NOT introduce global singleton
+
+Do NOT add console warnings instead of errors
+
+Must fail explicitly
+
+After change confirm:
+
+No window usage
+
+No implicit fallback
+
+Spatial authority singular
+
+STEP 4 — HARDEN SCHEMA (WITHOUT BREAKING BACKWARD COMPATIBILITY)
+Problem
+
+levelId optional in WallData.
+
+Risk under §13.3.
+
+Goal
+
+Strengthen type safety while preserving compatibility.
+
+Required Approach
+
+If possible:
+
+Make levelId required in interface.
+
+If breaking:
+
+Provide default migration logic inside CreateWallCommand ONLY.
+
+Not inside store.
+
+Not inside builder.
+
+Constraints
+
+Do NOT modify enum values
+
+Do NOT remove existing fields
+
+Do NOT change type names
+
+Do NOT break serialized data compatibility
+
+After change confirm:
+
+All walls must have valid levelId before projection
+
+No builder fallback logic exists
+
+No absolute Y stored
+
+STEP 5 — REBUILD CASCADE AUDIT
+
+After above changes:
+
+Validate:
+
+Commands trigger rebuild once
+
+Store does not trigger rebuild
+
+Builder does not trigger rebuild
+
+No nested loops
+
+No event-based implicit geometry updates
+
+If window.dispatchEvent('model-updated') affects rebuild:
+
+Ensure:
+
+It only triggers UI refresh
+Not projection rebuild
+
+Explicitly confirm separation.
+
+STEP 6 — FULL DETERMINISM STRESS PASS
+
+Mentally simulate:
+
+Scenario A:
+Create wall → update dimensions → undo → redo
+
+Scenario B:
+Create 3 walls → bulk height update → undo in reverse order
+
+Scenario C:
+Change level elevation
+
+Scenario D:
+Change wall levelId
+
+Confirm:
+
+No ghost geometry
+
+No duplicate roots
+
+No orphan roots
+
+No ID regeneration
+
+No stale userData
+
+Spatial reactivity intact
+
+Snapshot integrity preserved
+
+Explicit confirmation required.
+
+🚫 FORBIDDEN DURING HARDENING
+
+You must NOT:
+
+Refactor builder architecture
+
+Introduce new optional semantic fields
+
+Rename files
+
+Merge command classes
+
+Introduce event bus
+
+Change command signatures unnecessarily
+
+Add cleanup hacks
+
+Add scene audits to mask root cause
+
+If cross-layer change required:
+
+STOP and request approval.
+
+📦 REQUIRED FINAL OUTPUT FORMAT
+
+After completing all steps:
+
+Wall System Classification:
+Layer Modifications:
+Files Modified:
+Semantic Changes:
+Undo/Redo Impact:
+Spatial Impact:
+Idempotency Impact:
+Cross-Layer Risk:
+Determinism Status:
+Contract Compliance Confirmation (per section):
+Remaining Risks:
+Final Compliance Score (0–100):
+
+🎯 SUCCESS CRITERIA
+
+To reach A — Fully Command-First, the system must satisfy:
+
+No store reference leaks
+
+No store spatial logic
+
+No global fallbacks
+
+All spatial logic inside command layer
+
+Immutable semantic boundaries
+
+Deterministic rebuild flow
+
+Strict root lifecycle preservation
+
+Zero cross-layer coupling

@@ -1,0 +1,35 @@
+🟠 Major Design Weaknesses
+UpdateWallDimensionsCommand — structuredClone on THREE.Vector3-containing frozen objects (§2.2)
+structuredClone called on objects containing class instances is fragile. Environments that throw on non-serializable objects would crash execute() before the baseLine rescue. The serializeWallSnapshot() pattern used by other commands is the correct approach.
+
+Eight active window-global fallbacks in WallTool (§1.1)
+bimManager and commandManager are still resolved via (window as any) at 8 call sites if not injected. Migration is partially complete but callers that haven't been updated silently degrade rather than fail fast.
+
+createFromSelectedSlab() — selectionManager and slabTool accessed via window globals (§1.1, §23.1)
+These two cross-tool dependencies are not in WallToolCallbacks and have no injection path.
+
+WallFragmentBuilder.fragmentToEntityMap not purged on rebuild (memory leak)
+removeWallFragments() clears wallToFragmentsMap and fragments but fragmentToEntityMap entries are only added, never removed on rebuild. Stale entries accumulate indefinitely.
+
+Hosted element registry orphan on wall delete
+CreateWallCommand.undo() unregisters only the wall from bimManager and elementRegistry. Hosted opening elements (windows/doors) registered via CreateWallOpeningCommand are never unregistered from bimManager when their parent wall is deleted, creating orphaned spatial registrations.
+
+🟡 Minor Improvements
+WallStore.update() stamps new modifiedAt on undo restore paths
+Every undo call via wallStore.updateWall() advances modifiedAt and increments version, corrupting the audit trail. Undo should ideally restore the original metadata snapshot.
+
+UpdateWallVisualPropertiesCommand — Global scope (all walls)
+Targets all walls in the store. There is no scoped filter (by level or selection). Intentional but architecturally risky for large models.
+
+CreateWallOpeningCommand — Unused prevWallSnapshot field
+Captured in execute() but never used in undo() (which uses removeOpening() instead). Dead code that adds maintenance surface.
+
+UpdateWallHeightCommand — CustomEvent via window.dispatchEvent (§12)
+emitWallUpdatedEvent() and triggerAIRefresh() use raw window events as a side-effect channel outside the documented Store Event Bus, creating an undocumented coupling to AI and inspector listeners.
+
+WallStore.getLevelById() hardcodes height: 3.0
+The BimKernel's actual level height is discarded; any consumer of WallStore.getLevelById() who reads .height gets a constant 3.0 regardless of the real level height.
+
+WallToolCallbacks.bimManager and commandManager are typed any
+Should be typed to their concrete interfaces to enforce the injection contract at compile time.
+

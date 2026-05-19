@@ -1,0 +1,15 @@
+{
+  "name": "@pryzm/release",
+  "version": "0.1.0",
+  "description": "PRYZM 2 — GA gate orchestrator. Runs §23 verification scripts in order, exits non-zero on any failure. Z.6 of PRYZM2-WIREUP-PLAN-S72 §26.1.",
+  "private": true,
+  "type": "module",
+  "main": "./src/ga-gate.mjs",
+  "bin": {
+    "pryzm-ga-gate": "./src/ga-gate.mjs"
+  },
+  "scripts": {
+    "ga-gate": "node ./src/ga-gate.mjs",
+    "ga-gate:json": "node ./src/ga-gate.mjs --json"
+  }
+}

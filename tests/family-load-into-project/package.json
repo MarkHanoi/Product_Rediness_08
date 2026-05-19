@@ -1,0 +1,22 @@
+{
+  "name": "@pryzm/test-family-load-into-project",
+  "version": "0.1.0",
+  "description": "PRYZM 2 — `family-load-into-project` CI gate (S56 D4).  Drives a real .pryzm-family through pack → load → bake-instance × N to assert the main-editor placement codepath stays end-to-end-correct.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@pryzm/family-instance": "workspace:*",
+    "@pryzm/family-loader": "workspace:*",
+    "@pryzm/file-format": "workspace:*",
+    "@pryzm/storage-driver": "workspace:*"
+  },
+  "devDependencies": {
+    "@pryzm/bake-worker": "workspace:*",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

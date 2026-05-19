@@ -1,0 +1,59 @@
+{
+  "name": "@pryzm/plugin-sdk",
+  "version": "1.0.0",
+  "description": "PRYZM Plugin SDK 1.0 — locked descriptor schema, host proxies, iframe sandbox + CSP, Ed25519 signing, lifecycle hooks, and `pryzm dev` CLI. Spec: phases/PHASE-3C-Q3-M31-M33-PLUGIN-SDK-MARKETPLACE-APIS.md §2 + phases/PHASE-3C-Q3-M31-M33-SDK-MARKETPLACE-PUBLIC-API.md §S62. Schema lock: ADR-0038. Wave A20 (Phase F, 2026-05-03): K3-C gate closed (all 3 scripts PASS); version bumped to 1.0.0 per ADR-0038 §Decision D. Published to npm as @pryzm/sdk (see publishConfig).",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./descriptor": "./src/descriptor.ts",
+    "./types": "./src/types.ts",
+    "./lifecycle": "./src/lifecycle.ts",
+    "./hosts": "./src/hosts/index.ts",
+    "./sandbox": "./src/sandbox/index.ts",
+    "./signing": "./src/signing.ts",
+    "./dev": "./src/dev/cli.ts"
+  },
+  "bin": {
+    "pryzm": "./src/dev/bin.ts"
+  },
+  "publishConfig": {
+    "name": "@pryzm/sdk",
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "files": [
+    "src",
+    "examples",
+    "docs",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "test": "vitest run --reporter=default",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.23.8",
+    "@pryzm/command-bus": "workspace:*",
+    "@pryzm/stores": "workspace:*",
+    "@pryzm/schemas": "workspace:*",
+    "@pryzm/scene-committer": "workspace:*",
+    "@pryzm/geometry-kernel": "workspace:*",
+    "@pryzm/view-state": "workspace:*",
+    "@pryzm/frame-scheduler": "workspace:*",
+    "@pryzm/sync-client": "workspace:*",
+    "@pryzm/renderer": "workspace:*",
+    "@pryzm/types-builtin": "workspace:*",
+    "@pryzm/ui": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.9"
+  }
+}

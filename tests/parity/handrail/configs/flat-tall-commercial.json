@@ -1,0 +1,32 @@
+{
+  "id": "flat-tall-commercial",
+  "description": "flat-bar industrial rail, 1.1 m height, 6 m straight",
+  "handrail": {
+    "id": "handrail:fl-com",
+    "type": "handrail",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "path": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 6,
+        "y": 0,
+        "z": 0
+      }
+    ],
+    "shape": "flat",
+    "height": 1.1,
+    "diameter": 0.06
+  },
+  "worldY": 2.5
+}

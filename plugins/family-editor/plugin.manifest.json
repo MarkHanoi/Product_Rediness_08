@@ -1,0 +1,39 @@
+{
+  "pryzmPlugin": "1.0",
+  "id": "pryzm-family-editor",
+  "version": "1.0.0",
+  "displayName": "PRYZM Family Editor",
+  "description": "Parametric BIM family creator. Define geometry, parameters, IFC entity mappings, and property set bindings for reusable element families. Publish families to the PRYZM Marketplace as .pryzm-family artefacts.",
+  "author": "PRYZM",
+  "license": "MIT",
+  "main": "src/index.ts",
+  "minPRYZMVersion": "3.0.0",
+  "permissions": [
+    "read:project",
+    "write:project",
+    "register:panel",
+    "register:tool"
+  ],
+  "allowedOrigins": [],
+  "contributions": [
+    {
+      "kind": "panel",
+      "id": "family-editor.panel",
+      "location": "sidebar-right",
+      "label": "Family Editor"
+    },
+    {
+      "kind": "tool",
+      "id": "family-editor.place",
+      "label": "Place Family",
+      "icon": "tool:family",
+      "toolbar": "left"
+    },
+    {
+      "kind": "command",
+      "id": "family-editor.open",
+      "label": "Open Family Editor…",
+      "category": "Family"
+    }
+  ]
+}

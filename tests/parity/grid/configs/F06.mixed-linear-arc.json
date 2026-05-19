@@ -1,0 +1,82 @@
+{
+  "id": "F06.mixed-linear-arc",
+  "description": "mixed linear + arc axes",
+  "grid": {
+    "id": "grid:01HZS000000000000GRDF0600",
+    "type": "grid",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "rotation": 0,
+    "lines": [
+      {
+        "id": "l1",
+        "label": "A",
+        "kind": "linear",
+        "start": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "end": {
+          "x": 6,
+          "y": 0,
+          "z": 0
+        }
+      },
+      {
+        "id": "l2",
+        "label": "B",
+        "kind": "linear",
+        "start": {
+          "x": 0,
+          "y": 0,
+          "z": 4
+        },
+        "end": {
+          "x": 6,
+          "y": 0,
+          "z": 4
+        }
+      },
+      {
+        "id": "a1",
+        "label": "1",
+        "kind": "arc",
+        "start": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "end": {
+          "x": 0,
+          "y": 0,
+          "z": 4
+        },
+        "radius": 3
+      },
+      {
+        "id": "a2",
+        "label": "2",
+        "kind": "arc",
+        "start": {
+          "x": 6,
+          "y": 0,
+          "z": 0
+        },
+        "end": {
+          "x": 6,
+          "y": 0,
+          "z": 4
+        },
+        "radius": 3
+      }
+    ]
+  },
+  "worldY": 0
+}

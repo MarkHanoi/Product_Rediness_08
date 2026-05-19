@@ -1,0 +1,507 @@
+[sw] registered, scope: https://lookingbetter-was-working-backup-3-1--ronaldomanzano2.replit.app/
+PluginRegistry-BXacvS_0.js:1 [PluginRegistry] C06 §4 (Task 3.1) — 27 plugin tool activators registered with runtime.tools (9 original + 9 tool.ts + 9 command-dispatch bridges = 27 total in PluginRegistry)
+DataCommandCenter-9p7pDoYb.js:210 [DataCommandCenter] Initialized
+PlatformShell-1Ds_EK81.js:1 [SaveOrchestrator] Initialised — debounce: 1000 ms
+PlatformShell-1Ds_EK81.js:485 [PlatformShell] Initialized — project ID: proj-1778310640416-7di8r (runtime: composed)
+main-CupHNt2m.js:31589 [bootPlatform] D.1 — early PlatformShell created (delegates: deferred, post-paint, surface mounted)
+vendor-three-CNnqJpxH.js:4847 The powerPreference option is currently ignored when calling requestAdapter() on Windows. See https://crbug.com/369219127
+init @ vendor-three-CNnqJpxH.js:4847
+createRenderer-BL3WT2eV.js:1 [renderer-three] backend: webgpu
+rendererPrewarm-pIv8Zm4m.js:1 [RendererPrewarm] webgpu renderer pre-warmed in 246 ms — LONGTASK eliminated from project-open critical path.
+main-CupHNt2m.js:31560 [PlatformRouter] Opening project: "egarh" (proj-1778310649495-93szblh) [new]
+engineLauncher-C8PSzllS.js:7269 [AuditStack] Initialized v1.6 — Polymorphic Auditor
+engineLauncher-C8PSzllS.js:7277 [WallPerfBench] Ready. Run: await window.__wallPerfBench.run()
+engineLauncher-C8PSzllS.js:7277 Initializing Hybrid BIM Configurator...
+engineLauncher-C8PSzllS.js:904 [BriefInputPanel] Initialized
+engineLauncher-C8PSzllS.js:956 [VariantBrowserPanel] Initialized
+engineLauncher-C8PSzllS.js:1344 [PortfolioQueryPanel] Initialized
+engineLauncher-C8PSzllS.js:1411 [DataWorkbench] PostOccupancy surface deferred to plugins/lifecycle/ (S70 D8); panel slot is empty until the plugin ports it. See ADR-0052 §B.7.
+zz @ engineLauncher-C8PSzllS.js:1411
+engineLauncher-C8PSzllS.js:1518 [DataWorkbench] BIM 3.0 Lifecycle Hub initialized
+engineLauncher-C8PSzllS.js:7277 [EngineBootstrap] DataWorkbench instantiated
+engineLauncher-C8PSzllS.js:1838 [PRYZM] GPU backend detected: webgpu
+vendor-three-CNnqJpxH.js:1 THREE.THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.
+ce @ vendor-three-CNnqJpxH.js:1
+engineLauncher-C8PSzllS.js:1595 [BimWorld] Camera constraints armed: minDist=1 m, maxDist=100 m, maxPolarAngle=π/2−0.1, infinityDolly=false, mode-patch active.
+engineLauncher-C8PSzllS.js:1595 🌍 WORLD EXPOSED TO WINDOW o2
+engineLauncher-C8PSzllS.js:1838 [TopologyLayer] Scene bound — topology ready for queries.
+engineLauncher-C8PSzllS.js:1838 [initScene] TopologyLayer ready.
+engineLauncher-C8PSzllS.js:1838 [FrustumCullingService] Active — large-model threshold: 500 elements.
+engineLauncher-C8PSzllS.js:1838 [initScene] FrustumCullingService ready.
+engineLauncher-C8PSzllS.js:1838 [initScene] ViewRenderCache ready.
+engineLauncher-C8PSzllS.js:1838 [initScene] UnifiedFrameLoop bridged to FrameCoordinator.
+engineLauncher-C8PSzllS.js:1838 [initScene] LevelClipPlaneCache wired — OBC Clipper replaced with renderer-level planes. Plan views are safe.
+engineLauncher-C8PSzllS.js:1838 [initScene] StairPlanSymbolRegistry ready — stair traverse replaced with O(k) registry.
+engineLauncher-C8PSzllS.js:1838 [initScene] InstancedElementRenderer wired — Phase 7 GPU instancing active.
+main-CupHNt2m.js:29470 [ViewDependencyTracker] init() — subscribed to StoreEventBus and elementRegistry.onUnregister
+engineLauncher-C8PSzllS.js:1838 [initScene] DOC-1.7: EdgeProjectorService façade installed (lazy — real service loads on first projection).
+engineLauncher-C8PSzllS.js:1838 [initScene] Task 5.1: WebGL context loss handlers registered.
+/api/v1/portfolio/benchmarks/all:1  Failed to load resource: the server responded with a status of 401 ()
+engineLauncher-C8PSzllS.js:1838 [initScene] Phase 5: pre-warmed renderer consumed — 2,401 ms LONGTASK skipped.
+engineLauncher-C8PSzllS.js:1838 [initScene] Phase 5 active — PRYZM renderer: webgpu
+engineLauncher-C8PSzllS.js:1833 [PascalSceneLighting] Shadow flags set on 1 mesh(es).
+engineLauncher-C8PSzllS.js:1833 [PascalSceneLighting] Applied — key: 4, fill: 0.75, rim: 1, ambient: 0.5, shadow.intensity: 0.4, scene.environment → null (HDRI cleared — Pascal has no IBL)
+engineLauncher-C8PSzllS.js:1833 [RenderingPipelineCoordinator] Bound to scene + renderer.
+engineLauncher-C8PSzllS.js:1838 [initScene] Phase 5 active — skipping HDRI, using standard PBR only.
+engineLauncher-C8PSzllS.js:1833 [RenderingPipelineCoordinator] Activating level: "standard"
+engineLauncher-C8PSzllS.js:1833 [PBRSceneUpgrader] Applied — meshes: 2 materials: 0 (metal: 0, glass: 0 rough: 0, polished: 0)
+engineLauncher-C8PSzllS.js:1833 [ShadowQualityUpgrader] Applied "standard" — map: 512px radius: 1 bias: -0.0001 (1 light(s) upgraded)
+engineLauncher-C8PSzllS.js:1833 [RenderingPipelineCoordinator] Level "standard" active.
+engineLauncher-C8PSzllS.js:1838 [initScene] RenderingPipelineCoordinator ready.
+engineLauncher-C8PSzllS.js:1833 [ViewportCrashGuard] Activated — monitoring viewport render errors.
+engineLauncher-C8PSzllS.js:1833 [RenderPipelineManager] WebGPU renderer confirmed. Initialising TSL pipeline...
+engineLauncher-C8PSzllS.js:1838 [initScene] Auto-activated quality "standard" (hdri: none) at startup.
+engineLauncher-C8PSzllS.js:1833 [RenderPipelineManager] three/tsl loaded.
+engineLauncher-C8PSzllS.js:1838 [RenderPipelineManager] Phase: phase2 | WebGPU: true | SSGI: false | TRAA: false
+engineLauncher-C8PSzllS.js:1833 [RenderPipelineManager] Phase 2 pipeline active.
+engineLauncher-C8PSzllS.js:484 [ConstraintEngine] 17 rules registered (7 Tier 1, 5 Tier 2 spatial, 5 Tier 2 physics)
+engineLauncher-C8PSzllS.js:1833 [RenderPipelineManager] SSGI activated (SSGINode r183 + DenoiseNode).
+engineLauncher-C8PSzllS.js:1833 [RenderPipelineManager] §I2 pipeline.usedTimes is not a number (got undefined) — patching to 0 before dispose to prevent device-loss cascade.
+_safeDisposeRenderPipeline @ engineLauncher-C8PSzllS.js:1833
+2engineLauncher-C8PSzllS.js:1838 [RenderPipelineManager] Phase: phase3 | WebGPU: true | SSGI: true | TRAA: false
+engineLauncher-C8PSzllS.js:1833 [RenderPipelineManager] Outlines activated (selected + hover).
+engineLauncher-C8PSzllS.js:1833 [RenderPipelineManager] §I2 pipeline.usedTimes is not a number (got undefined) — patching to 0 before dispose to prevent device-loss cascade.
+_safeDisposeRenderPipeline @ engineLauncher-C8PSzllS.js:1833
+2engineLauncher-C8PSzllS.js:1838 [RenderPipelineManager] Phase: phase4 | WebGPU: true | SSGI: true | TRAA: false
+engineLauncher-C8PSzllS.js:1838 [initScene] TSL pipeline at Phase 3/4 (SSGI + Outlines). TRAA OFF by default.
+vendor-three-CNnqJpxH.js:1 THREE.THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.
+ce @ vendor-three-CNnqJpxH.js:1
+main-CupHNt2m.js:29470 [UnifiedFrameLoop] Started (subscribed to @pryzm/frame-scheduler).
+engineLauncher-C8PSzllS.js:1843 [initScene] UnifiedFrameLoop started — single rAF loop active.
+engineLauncher-C8PSzllS.js:1843 [initScene] RenderPipelineManager ready.
+engineLauncher-C8PSzllS.js:1843 [initScene] EnhancedBloomService deferred — lazy wrappers installed.
+engineLauncher-C8PSzllS.js:1843 [initScene] SSGIService deferred — lazy wrappers installed.
+engineLauncher-C8PSzllS.js:1833 [RenderPerformanceService] Bound — native DPR: 1.25
+engineLauncher-C8PSzllS.js:1833 [RenderPerformanceService] Quality → high | DPR: 1.25 (100% of native 1.25)
+engineLauncher-C8PSzllS.js:1843 [initScene] RenderPerformanceService ready.
+engineLauncher-C8PSzllS.js:1843 [initScene] SplitViewManager ready.
+engineLauncher-C8PSzllS.js:1843 [initScene] Scene subsystem fully initialised.
+vendor-three-CNnqJpxH.js:1 THREE.WebGLShadowMap: PCFSoftShadowMap has been deprecated. Using PCFShadowMap instead.
+ce @ vendor-three-CNnqJpxH.js:1
+engineLauncher-C8PSzllS.js:7289 [a11y] Canvas aria-label + role + tabindex set (Wave A18-T21)
+engineLauncher-C8PSzllS.js:7289 [EngineBootstrap] Gizmo axes recoloured to PRYZM violet palette
+engineLauncher-C8PSzllS.js:1864 [initBuilders] Column subsystem initialised
+engineLauncher-C8PSzllS.js:1864 [CurtainPanelSyncHandler] Activated — panel store will sync with curtain wall store.
+engineLauncher-C8PSzllS.js:1864 [initBuilders] CurtainWall subsystem stores initialised
+engineLauncher-C8PSzllS.js:1864 [initBuilders] Slab subsystem initialised
+engineLauncher-C8PSzllS.js:1864 [initBuilders] Ceiling subsystem initialised
+engineLauncher-C8PSzllS.js:1864 [FloorSlabBindingHandler] Attached slab binding listeners.
+engineLauncher-C8PSzllS.js:1864 [initBuilders] Floor finish subsystem initialised
+engineLauncher-C8PSzllS.js:1864 [initBuilders] Room subsystem initialised
+engineLauncher-C8PSzllS.js:1864 [initBuilders] Door/Window singleton stores exposed on window
+engineLauncher-C8PSzllS.js:1864 [WallStore] attached to window mN
+engineLauncher-C8PSzllS.js:1864 [initBuilders] Wall + Slab system type stores loaded
+engineLauncher-C8PSzllS.js:1864 [initBuilders] Roof subsystem initialised
+engineLauncher-C8PSzllS.js:1864 [initBuilders] Plumbing subsystem initialised
+engineLauncher-C8PSzllS.js:1864 [initBuilders] Opening subsystem initialised — openingStore injected into slabBuilder
+engineLauncher-C8PSzllS.js:1864 [DoorBuilder] activated
+engineLauncher-C8PSzllS.js:1864 [WindowBuilder] activated
+engineLauncher-C8PSzllS.js:1864 [initBuilders] Door + Window builders activated (with dependency trackers)
+engineLauncher-C8PSzllS.js:1864 [initBuilders] Furniture subsystem initialised
+engineLauncher-C8PSzllS.js:1864 [initBuilders] Lighting subsystem initialised
+engineLauncher-C8PSzllS.js:1864 [initBuilders] Handrail subsystem initialised
+engineLauncher-C8PSzllS.js:1864 [initBuilders] Stair subsystem initialised
+engineLauncher-C8PSzllS.js:1864 [initBuilders] Beam subsystem initialised
+engineLauncher-C8PSzllS.js:1864 [initBuilders] RoomContentsService — all element stores attached
+engineLauncher-C8PSzllS.js:1864 [initBuilders] Grid subsystem initialised
+engineLauncher-C8PSzllS.js:1864 [initBuilders] RoomBoundingLine subsystem initialised
+engineLauncher-C8PSzllS.js:1864 [RoomFinishSyncService] Started — listening for room finish changes.
+engineLauncher-C8PSzllS.js:1864 [initBuilders] RoomFinishSyncService started
+engineLauncher-C8PSzllS.js:1864 [initBuilders] All builder subsystems fully initialised.
+engineLauncher-C8PSzllS.js:1864 [SelectionManager] PickStrategy set: gpu-pick
+engineLauncher-C8PSzllS.js:2325 [initTools] PickStrategy resolved: gpu-pick
+engineLauncher-C8PSzllS.js:2037 [FloatingObjectCarousel] Mounted (hidden, render loop deferred)
+engineLauncher-C8PSzllS.js:2037 [FurnitureDragDropHandler] Attached to canvas
+engineLauncher-C8PSzllS.js:2325 [initTools] LightingTool initialised
+engineLauncher-C8PSzllS.js:2247 [CurtainWallTool] SnapManager initialised (CurtainWall + Wall providers)
+engineLauncher-C8PSzllS.js:2323 [RoomTopologyObserver] attached to WallStore
+engineLauncher-C8PSzllS.js:2323 [RoomTopologyObserver] attached to CurtainWallStore
+engineLauncher-C8PSzllS.js:2323 [RoomTopologyObserver] attached to RoomBoundingLineStore
+engineLauncher-C8PSzllS.js:2323 [RoomTopologyObserver] attached to SlabStore
+engineLauncher-C8PSzllS.js:2323 [RoomTopologyObserver] attached to ColumnStore
+engineLauncher-C8PSzllS.js:2323 [RoomTopologyObserver] attached to bim-wall-mutation-committed (commit-barrier path)
+RoomTool-BNpoPnsI.js:1 [RoomTool] Pick deps injected — POINT_PICK mode available
+RoomTool-BNpoPnsI.js:1 [RoomTool] Manual deps injected — MANUAL_BOUNDARY mode available
+engineLauncher-C8PSzllS.js:2325 [initTools] RoomBoundingLineTool registered on window
+engineLauncher-C8PSzllS.js:2285 BeamTool initialized with BeamStore: true
+engineLauncher-C8PSzllS.js:2317 [StairTool] Constructed. meshBuilder: true deps: true
+engineLauncher-C8PSzllS.js:2324 [UnderlayPersistence] Installed (per-project, v2)
+main-CupHNt2m.js:29470 [ProjectScopedStorage] Installed — auto-keyed by projectId
+engineLauncher-C8PSzllS.js:2325 [ProjectIsolationAudit] Installed — will audit every empty project load
+engineLauncher-C8PSzllS.js:2324 [GhostOverlayRenderer] Initialised — listening for pryzm-history-ghost-* events
+engineLauncher-C8PSzllS.js:2323 [AnnotationManager] init complete — Phase V hover hints wired
+engineLauncher-C8PSzllS.js:1864 [OBCAnnotationAdapter] LinearAnnotations not present in this OBC build — skipping subscribe.
+engineLauncher-C8PSzllS.js:1864 [OBCAnnotationAdapter] AngleAnnotations not present in this OBC build — skipping subscribe.
+engineLauncher-C8PSzllS.js:1864 [OBCAnnotationAdapter] SlopeAnnotations not present in this OBC build — skipping subscribe.
+engineLauncher-C8PSzllS.js:1864 [OBCAnnotationAdapter] DOC-2.1: subscribed to OBC annotation system events
+engineLauncher-C8PSzllS.js:2325 [initTools] DOC-2.2: DrawingEditor initialised; OBCAnnotationAdapter wired
+engineLauncher-C8PSzllS.js:2325 [initTools] All BIM tools initialised and registered with ToolManager
+engineLauncher-C8PSzllS.js:7296 [EngineBootstrap] §ROOF-AUDIT §5.4: RoofSlopeSymbolBuilder wired (constructor-DI).
+engineLauncher-C8PSzllS.js:2242 [WallFragmentBuilder] WallInstanceBridge injected — simple walls will use GPU instancing.
+engineLauncher-C8PSzllS.js:7296 [EngineBootstrap] §PHASE-3: WallInstanceBridge connected — simple walls will use GPU instancing.
+engineLauncher-C8PSzllS.js:7296 [EngineBootstrap] BatchCoordinator injected.
+engineLauncher-C8PSzllS.js:7296 [EngineBootstrap] BatchLoadingIndicator wired (§FIX-BATCH-RENDER-SUPPRESS + §FIX-GPU-COMPILE-LABEL + §L1-BATCH-PERF-MODE active).
+engineLauncher-C8PSzllS.js:7296 [EngineBootstrap] §P0-A39: rooms.redetect registration failed (non-fatal): handler already registered: rooms.redetect
+LJ @ engineLauncher-C8PSzllS.js:7296
+engineLauncher-C8PSzllS.js:7296 [EngineBootstrap] §P2-A39: curtain-wall.create-on-all-slabs registered on runtime.bus.
+engineLauncher-C8PSzllS.js:7296 [EngineBootstrap] §A40-W03: wall.create-on-all-slabs registered on runtime.bus.
+engineLauncher-C8PSzllS.js:7296 [EngineBootstrap] §A40-W03: slab.create-on-all-floors registered on runtime.bus.
+engineLauncher-C8PSzllS.js:7296 [EngineBootstrap] §A40-W04: column.batch.create registration failed (non-fatal): handler already registered: column.batch.create
+LJ @ engineLauncher-C8PSzllS.js:7296
+engineLauncher-C8PSzllS.js:7296 [EngineBootstrap] §A40-W04: beam.batch.create registration failed (non-fatal): handler already registered: beam.batch.create
+LJ @ engineLauncher-C8PSzllS.js:7296
+engineLauncher-C8PSzllS.js:7296 [EngineBootstrap] §A40-W04: door.batch.create registration failed (non-fatal): handler already registered: door.batch.create
+LJ @ engineLauncher-C8PSzllS.js:7296
+engineLauncher-C8PSzllS.js:7296 [EngineBootstrap] §A40-W04: window.batch.create registration failed (non-fatal): handler already registered: window.batch.create
+LJ @ engineLauncher-C8PSzllS.js:7296
+engineLauncher-C8PSzllS.js:7296 [EngineBootstrap] §A40-W04: ceiling.batch.create registration failed (non-fatal): handler already registered: ceiling.batch.create
+LJ @ engineLauncher-C8PSzllS.js:7296
+engineLauncher-C8PSzllS.js:7296 [EngineBootstrap] §A40-W04: stair.batch.create registration failed (non-fatal): handler already registered: stair.batch.create
+LJ @ engineLauncher-C8PSzllS.js:7296
+engineLauncher-C8PSzllS.js:484 [BatchCoordinator] §II-2 registerBuilderControls() — wall=true cw=false slab=true
+engineLauncher-C8PSzllS.js:556 [initStores] StoreRegistry: 33 stores registered — visibility-intent, view-intent-instance, view, RoomRequirement, AssetCatalogEntry, schedule, view-template, vg-governance, sheet, phase-filter, title-block, wall, slab, column, beam, stair, stair-landing, stair-railing, stair-type, curtainwall, curtain-panel, door, window, roof, plumbing, furniture, handrail, opening, grid, room, ceiling, floor, annotation
+engineLauncher-C8PSzllS.js:1856 [initDataPlatform] ElementCode auto-assignment wired to StoreEventBus
+SyncStateDetailDrawer-DqmFy87h.js:2 [SyncStateEngine] Started — subscribed to StoreEventBus
+engineLauncher-C8PSzllS.js:1856 [initDataPlatform] SyncStateEngine started (paused until project load)
+engineLauncher-C8PSzllS.js:1856 [initDataPlatform] RoomColourSystem.setSyncStateEngine wired
+engineLauncher-C8PSzllS.js:1843 [DependencyResolver] Initialised — Phase F active: cascade rebuilds enabled
+engineLauncher-C8PSzllS.js:1856 [initDataPlatform] DependencyResolver initialised — semantic graph monitoring active
+engineLauncher-C8PSzllS.js:871 [TemporalGraph] Initialised. sessionId=0b9e301f-7f25-4e24-949e-05934425a332. Auto-recording element mutations via StoreEventBus.
+engineLauncher-C8PSzllS.js:1856 [initDataPlatform] TemporalGraph initialised — sessionId=0b9e301f-7f25-4e24-949e-05934425a332
+engineLauncher-C8PSzllS.js:1856 [initDataPlatform] Data Platform stores + SemanticGraph + TemporalGraph + ConstraintEngine + DecisionRecordStore + PhysicsEngine exposed on window
+engineLauncher-C8PSzllS.js:1856 [initDataPlatform] G-0.3: SelectionBus exposed on window
+engineLauncher-C8PSzllS.js:1856 [initDataPlatform] ConstraintEngine auto-run wired to StoreEventBus (800ms debounce, load-quiet window)
+engineLauncher-C8PSzllS.js:1856 [initDataPlatform] G-3: IntentPrompt wired to pryzm-constraints-updated
+engineLauncher-C8PSzllS.js:1068 [PhysicsEngine] Initialised — FrameScheduler-batched queue active
+engineLauncher-C8PSzllS.js:1856 [initDataPlatform] H-1: PhysicsEngine RAF-queue started
+engineLauncher-C8PSzllS.js:1068 [PhysicsOverlayRenderer] Initialised
+engineLauncher-C8PSzllS.js:1856 [initDataPlatform] H-2: PhysicsOverlayRenderer initialised
+SyncStateDetailDrawer-DqmFy87h.js:2 [TemplateStore] Seeded 15 built-in templates
+engineLauncher-C8PSzllS.js:1856 [initDataPlatform] G-0.1: BuiltinTemplates seeded into TemplateStore
+engineLauncher-C8PSzllS.js:1856 [initDataPlatform] G-0.3: SelectionBus subscribed to pryzm-element-selected
+engineLauncher-C8PSzllS.js:1856 [initDataPlatform] H-1: PhysicsEngine room-create/update wiring active
+engineLauncher-C8PSzllS.js:1864 [initDataPlatform] K-1: VoiceCommandIndicator mounted
+engineLauncher-C8PSzllS.js:1856 [ConsequencePreviewOverlay] Initialised
+engineLauncher-C8PSzllS.js:1864 [initDataPlatform] K-2: ConsequencePreviewOverlay initialised
+engineLauncher-C8PSzllS.js:1856 [AmbientIndicator] Initialised
+engineLauncher-C8PSzllS.js:1864 [initDataPlatform] K-3: AmbientIndicator mounted
+engineLauncher-C8PSzllS.js:1864 [initDataPlatform] K-3: AmbientIntelligence wired to constraints + StoreEventBus
+engineLauncher-C8PSzllS.js:1864 [initDataPlatform] Data Platform subsystem fully initialised.
+engineLauncher-C8PSzllS.js:6969 [main] VG Governance Layer initialized
+engineLauncher-C8PSzllS.js:6969 [main] View Range Filter Service initialized
+engineLauncher-C8PSzllS.js:6969 [main] Crop Region Filter Service initialized
+engineLauncher-C8PSzllS.js:6969 [main] Underlay Render Service initialized
+engineLauncher-C8PSzllS.js:6969 [main] View Range Zone Applicator initialized
+engineLauncher-C8PSzllS.js:6969 [main] Semantic Index initialized
+engineLauncher-C8PSzllS.js:6969 [main] IFC Pset Adapter initialized (DOC-5.4)
+engineLauncher-C8PSzllS.js:6969 [main] ViewDefinition Store initialized
+engineLauncher-C8PSzllS.js:6969 [main] Visibility Intent stores initialized (panel lazy — loads on first use)
+engineLauncher-C8PSzllS.js:1833 [DefaultViewsManager] Created default 3D view (id=vd-sys-3d-1)
+engineLauncher-C8PSzllS.js:1833 [DefaultViewsManager] Created default Ground Floor plan view (id=vd-sys-plan-l0)
+engineLauncher-C8PSzllS.js:1833 [DefaultViewsManager] Initialized — default views are guaranteed on every project.
+engineLauncher-C8PSzllS.js:6969 [main] Visibility Rule Engine initialized
+engineLauncher-C8PSzllS.js:6969 [main] Sheet Store initialized
+engineLauncher-C8PSzllS.js:6969 [main] TitleBlock Store initialized (A0, A1, A3 templates seeded)
+engineLauncher-C8PSzllS.js:6969 [main] Sheet Editor Panel registered (lazy — loads on first use)
+engineLauncher-C8PSzllS.js:6969 [main] Sheet Export Service initialized
+engineLauncher-C8PSzllS.js:6834 [DxfExportService] Initialised
+engineLauncher-C8PSzllS.js:6969 [main] DXF Export Service initialized
+engineLauncher-C8PSzllS.js:6969 [main] PDF Export Service registered (lazy — loads on first use)
+engineLauncher-C8PSzllS.js:6969 [main] Sheet Index Service initialized (Drawing Register ready)
+engineLauncher-C8PSzllS.js:6969 [main] Schedule Store initialized and default schedules seeded
+engineLauncher-C8PSzllS.js:6969 [main] View Template Store initialized
+engineLauncher-C8PSzllS.js:6969 [main] Phase Filter Store initialized (built-ins seeded)
+engineLauncher-C8PSzllS.js:6969 [main] FastPathProjectorService initialized (sub-50ms interactive projection)
+engineLauncher-C8PSzllS.js:7096 [initUI] ImportManagerPanel mounted
+engineLauncher-C8PSzllS.js:7105 [CurtainWall] Store→Builder event wiring established
+engineLauncher-C8PSzllS.js:7105 [CurtainWall] PanelStore→Builder event wiring established (§MI-02)
+engineLauncher-C8PSzllS.js:6093 [ContextualEditBar] Initialized
+engineLauncher-C8PSzllS.js:6093 [ContextualEditBar] Operation tools injected
+engineLauncher-C8PSzllS.js:7105 [initUI] ShortcutCheatSheet installed (press ? to view all shortcuts)
+engineLauncher-C8PSzllS.js:7109 [initUI] Split View toggle button mounted
+engineLauncher-C8PSzllS.js:484 [BatchCoordinator] §II-2 registerBuilderControls() — wall=true cw=true slab=true
+engineLauncher-C8PSzllS.js:7296 [EngineBootstrap] §FIX-CW-CTRL-REREGISTER: builder controls re-registered after initUI() — cw=true
+engineLauncher-C8PSzllS.js:7109 [LevelExplodeController] Initialized
+engineLauncher-C8PSzllS.js:7109 [InspectModeCoordinator] Initialized
+PlatformShell-1Ds_EK81.js:485 [PlatformShell] D.1 — real save/load delegates injected (engine ready)
+engineLauncher-C8PSzllS.js:1864 [initPersistence] D.1 — real delegates injected into early PlatformShell
+engineLauncher-C8PSzllS.js:1864 [initPersistence] runtime.stores hydrator registered
+engineLauncher-C8PSzllS.js:1864 [initCollaboration] Collaboration subsystem initialised — waiting for pryzm-project-loaded
+PlatformShell-1Ds_EK81.js:485 [PlatformShell] Project context set: proj-1778310649495-93szblh egarh
+PlatformShell-1Ds_EK81.js:1 [runtime] Phase F status pill mounted — ai.model=claude-haiku-4-5 plugins=38 ifc/rhino/bcf=ready pdf=queued
+engineLauncher-C8PSzllS.js:1838 [initScene] pryzm-project-switch received — project: proj-1778310649495-93szblh
+engineLauncher-C8PSzllS.js:1833 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+engineLauncher-C8PSzllS.js:1833 [ViewController] clearCameraStateStore — per-view camera state cleared for new project
+engineLauncher-C8PSzllS.js:2324 [UnderlayPersistence] Project switch — saves suspended
+engineLauncher-C8PSzllS.js:7296 [EngineBootstrap] C13 project-switch: cold-boot → (unknown)
+engineLauncher-C8PSzllS.js:484 [BatchCoordinator] C13 forceReset() — all batch state cleared for project switch
+engineLauncher-C8PSzllS.js:7296 [EngineBootstrap] C13 resetWallRebuildState() — wall pipeline clean for project switch
+engineLauncher-C8PSzllS.js:7296 [EngineBootstrap] C13 teardown complete — Project B context loading
+PlatformShell-1Ds_EK81.js:485 [PlatformShell] New project — clearing scene immediately (no server check)
+engineLauncher-C8PSzllS.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-C8PSzllS.js:1864 [ProjectLoader] Loading "egarh" (0 elements)
+main-CupHNt2m.js:29470 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+engineLauncher-C8PSzllS.js:1864 [ProjectLoader] Element-creation path: ImportProjectCommand (Phase 1)
+engineLauncher-C8PSzllS.js:2559 [AICreatePanel] Initializing panel, going to step 1
+engineLauncher-C8PSzllS.js:2559 [AICreatePanel] Transitioning to step 1
+engineLauncher-C8PSzllS.js:2559 [AICreatePanel] Step 1: display=flex
+engineLauncher-C8PSzllS.js:2559 [AICreatePanel] Step 2: display=none
+engineLauncher-C8PSzllS.js:2559 [AICreatePanel] Step 3: display=none
+engineLauncher-C8PSzllS.js:2559 [AICreatePanel] Step 4: display=none
+engineLauncher-C8PSzllS.js:2559 [AICreatePanel] All steps found and updated successfully
+engineLauncher-C8PSzllS.js:2559 [AICreatePanel] Attaching file input change listener
+engineLauncher-C8PSzllS.js:2559 [AICreatePanel] Attaching all event listeners
+engineLauncher-C8PSzllS.js:2559 [AICreatePanel] Attaching all event listeners...
+engineLauncher-C8PSzllS.js:2559 [AICreatePanel] ✓ Step 2 Next button listener attached
+engineLauncher-C8PSzllS.js:2559 [AICreatePanel] ✓ Step 2 Back button listener attached
+engineLauncher-C8PSzllS.js:2559 [AICreatePanel] ✓ Step 3 Generate button listener attached
+engineLauncher-C8PSzllS.js:2559 [AICreatePanel] ✓ Step 3 Back button listener attached
+engineLauncher-C8PSzllS.js:2559 [AICreatePanel] ✓ Step 4 Open AI Actions button listener attached
+engineLauncher-C8PSzllS.js:2559 [AICreatePanel] ✓ Step 4 Create Another button listener attached
+engineLauncher-C8PSzllS.js:2559 [AICreatePanel] ✓ Prompt input keydown listener attached
+engineLauncher-C8PSzllS.js:2559 [AICreatePanel] All event listeners attached successfully
+engineLauncher-C8PSzllS.js:1864 [initDataPlatform] DataWorkbench toolbar button + physics overlay dropdown injected
+engineLauncher-C8PSzllS.js:1833 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+engineLauncher-C8PSzllS.js:4702 Refreshing Spatial Tree...
+engineLauncher-C8PSzllS.js:1856 [VoiceCommandIndicator] Mounted (speechAPI=true)
+engineLauncher-C8PSzllS.js:1864 [ClearProjectCommand] Clearing all project data
+engineLauncher-C8PSzllS.js:1864   Removing 0 curtain panels
+engineLauncher-C8PSzllS.js:1864   Removing 0 openings
+engineLauncher-C8PSzllS.js:1864   Removing 0 walls
+engineLauncher-C8PSzllS.js:1864   Removing 0 curtain walls
+engineLauncher-C8PSzllS.js:1864   Removing 0 slabs
+engineLauncher-C8PSzllS.js:1864   Removing 0 ceilings
+engineLauncher-C8PSzllS.js:1864   Removing 0 columns
+engineLauncher-C8PSzllS.js:1864   Removing 0 beams
+engineLauncher-C8PSzllS.js:1864   Removing 0 stairs
+engineLauncher-C8PSzllS.js:1864   Removing 0 roofs
+engineLauncher-C8PSzllS.js:1864   Removing 0 furniture items
+engineLauncher-C8PSzllS.js:1864   Removing 0 handrails
+engineLauncher-C8PSzllS.js:1864   Removing 0 plumbing fixtures
+engineLauncher-C8PSzllS.js:1864   Removing 0 rooms
+engineLauncher-C8PSzllS.js:1864   Removing 0 room bounding lines
+engineLauncher-C8PSzllS.js:1864   Removing 0 grids
+engineLauncher-C8PSzllS.js:1864   Removing 1 levels
+engineLauncher-C8PSzllS.js:1595 [BimManager] Cannot delete the default Ground level.
+removeLevel @ engineLauncher-C8PSzllS.js:1595
+engineLauncher-C8PSzllS.js:1864 [ClearProjectCommand] Annotation store cleared
+engineLauncher-C8PSzllS.js:1864   Cleared 0 floors
+engineLauncher-C8PSzllS.js:1833 [DefaultViewsManager] Created default 3D view (id=vd-sys-3d-1)
+engineLauncher-C8PSzllS.js:1833 [DefaultViewsManager] Created default Ground Floor plan view (id=vd-sys-plan-l0)
+engineLauncher-C8PSzllS.js:871 [TemporalGraph] Cleared (project switch).
+engineLauncher-C8PSzllS.js:2324 [UnderlayPersistence] Clear skipped — no current project bound
+engineLauncher-C8PSzllS.js:1838 [ViewRenderCache] All render targets disposed.
+engineLauncher-C8PSzllS.js:2323 [RoomGraphService] All graphs invalidated
+engineLauncher-C8PSzllS.js:1864 [ClearProjectCommand] ProjectScopeRegistry cleared 44 scopes: Array(44)
+engineLauncher-C8PSzllS.js:1864 [ClearProjectCommand] activeLevelId reset to L0 (project-scoped state cleared).
+engineLauncher-C8PSzllS.js:2325 [ProjectIsolation] WallFragmentBuilder disposed — scene cleared of wall geometry.
+engineLauncher-C8PSzllS.js:2323 [RoomGraphService] All graphs invalidated
+engineLauncher-C8PSzllS.js:871 [TemporalGraph] Cleared (project switch).
+engineLauncher-C8PSzllS.js:1864 [ClearProjectCommand] Clear complete
+ImportProjectCommand-DSOQPg3s.js:1 [ImportProjectCommand] Loading 0 levels
+ImportProjectCommand-DSOQPg3s.js:1 [ImportProjectCommand] Loading 0 grids
+ImportProjectCommand-DSOQPg3s.js:1 [ImportProjectCommand] Loading 0 columns
+ImportProjectCommand-DSOQPg3s.js:1 [ImportProjectCommand] Loading 0 walls
+ImportProjectCommand-DSOQPg3s.js:1 [ImportProjectCommand] Loading 0 slabs
+ImportProjectCommand-DSOQPg3s.js:1 [ImportProjectCommand] Loading 0 stairs
+ImportProjectCommand-DSOQPg3s.js:1 [ImportProjectCommand] Loading 0 furniture items
+ImportProjectCommand-DSOQPg3s.js:1 [ImportProjectCommand] Loading 0 roofs
+ImportProjectCommand-DSOQPg3s.js:1 [ImportProjectCommand] Loading 0 handrails
+ImportProjectCommand-DSOQPg3s.js:1 [ImportProjectCommand] Loading 0 plumbing fixtures
+ImportProjectCommand-DSOQPg3s.js:1 [ImportProjectCommand] Loading 0 curtain walls
+ImportProjectCommand-DSOQPg3s.js:1 [ImportProjectCommand] Loading 0 beams
+engineLauncher-C8PSzllS.js:1864 [ProjectLoader] VG Governance state restored from snapshot
+engineLauncher-C8PSzllS.js:1864 [ProjectLoader] ViewDefinition store restored from snapshot
+engineLauncher-C8PSzllS.js:1864 [ProjectLoader] Visibility rule engine restored from snapshot
+engineLauncher-C8PSzllS.js:1864 [VGToIntentMigration] Starting VG → Intent migration…
+engineLauncher-C8PSzllS.js:1864 [VGToIntentMigration] Complete — 0 intents, 0 views, 0 overrides migrated.
+engineLauncher-C8PSzllS.js:1833 [DefaultViewsManager] Created default 3D view (id=vd-sys-3d-1)
+engineLauncher-C8PSzllS.js:1833 [DefaultViewsManager] Created default Ground Floor plan view (id=vd-sys-plan-l0)
+engineLauncher-C8PSzllS.js:1864 [ProjectLoader] Sheet store restored from snapshot
+engineLauncher-C8PSzllS.js:1864 [ProjectLoader] Schedule store restored from snapshot
+engineLauncher-C8PSzllS.js:1864 [ProjectLoader] SemanticGraph cleared (v1/v2 snapshot — no graph data)
+engineLauncher-C8PSzllS.js:871 [TemporalGraph] Cleared (project switch).
+engineLauncher-C8PSzllS.js:1864 [ProjectLoader] TemporalGraph cleared (pre-v4 snapshot — no temporal data)
+engineLauncher-C8PSzllS.js:1864 [ProjectLoader] DecisionRecordStore cleared (pre-v4 snapshot — no decision data)
+engineLauncher-C8PSzllS.js:1864 [ProjectLoader] RequirementStore cleared (no requirement data in snapshot)
+engineLauncher-C8PSzllS.js:1864 [IntentStylePrewarmer] Pre-warmed 1224 style slots in 4.05ms
+engineLauncher-C8PSzllS.js:5919 [HomeView] Default viewpoint captured: Object Object
+DataCommandCenter-9p7pDoYb.js:1 [AssetCatalogStore] setDirect(): restored 21 entries
+engineLauncher-C8PSzllS.js:1864 [ProjectLoader] AssetCatalogStore seeded from defaults
+engineLauncher-C8PSzllS.js:1864 [ProjectLoader] Annotation store cleared (no annotation data in snapshot)
+engineLauncher-C8PSzllS.js:1864 [ProjectLoader] AnnotationDependencyGraph rebuilt after restore
+engineLauncher-C8PSzllS.js:1864 [ProjectLoader] Load complete: 0 loaded, 0 failed, 0 errors
+main-CupHNt2m.js:29470 [StoreEventBus] endBatch() — flushed 38 buffered event(s) in emission order (no coalescing — all events delivered).
+engineLauncher-C8PSzllS.js:1864 [ProjectLoader] PHASE_TIMINGS total=1830.6ms setup=0.0ms hydrate=0.0ms event_flush=0.0ms wall_rebuild_flush=0.0ms redetect_sweep=0.0ms [walls=0 slabs=0 levels=0 curtainWalls=0]
+engineLauncher-C8PSzllS.js:1864 [ProjectSerializer] Snapshot created: 0 elements, 1 levels, 0 walls, 0 slabs, 0 furniture
+PlatformShell-1Ds_EK81.js:485 [PlatformShell] New project ready — firing pryzm-project-loaded(empty:true)
+engineLauncher-C8PSzllS.js:1838 [FrustumCullingService] pryzm-project-loaded(empty) — audit skipped, no geometry
+engineLauncher-C8PSzllS.js:1843 [initScene] pryzm-project-loaded — empty project (no geometry)
+SyncStateDetailDrawer-DqmFy87h.js:2 [TemplateStore] Seeded 15 built-in templates
+engineLauncher-C8PSzllS.js:1864 [initCollaboration] Project opened — collaboration active for proj-1778310649495-93szblh
+engineLauncher-C8PSzllS.js:7296 [EngineBootstrap] pryzm-project-loaded(empty) — skipping zoomToAll, no geometry
+engineLauncher-C8PSzllS.js:2324 [ProjectIsolationAudit] ✓ project proj-1778310649495-93szblh loaded clean — no leftover state
+engineLauncher-C8PSzllS.js:1838 [SplitViewManager] Canvas2D context ready
+engineLauncher-C8PSzllS.js:1833 [SvpPlanToolOverlay] Attached with snap service. viewId: vd-sys-plan-l0
+engineLauncher-C8PSzllS.js:1833 [SplitViewManager] Split view activated (Canvas2D plan mode)
+engineLauncher-C8PSzllS.js:1843 [initScene] Split view auto-opened on project load (idle)
+engineLauncher-C8PSzllS.js:1833 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+engineLauncher-C8PSzllS.js:1833 [RenderPipelineManager] onProjectLoaded (debounced) — re-activating outlines.
+engineLauncher-C8PSzllS.js:1833 [RenderPipelineManager] Outlines activated (selected + hover).
+engineLauncher-C8PSzllS.js:1833 [RenderPipelineManager] §I2 pipeline.usedTimes is not a number (got undefined) — patching to 0 before dispose to prevent device-loss cascade.
+_safeDisposeRenderPipeline @ engineLauncher-C8PSzllS.js:1833
+2engineLauncher-C8PSzllS.js:1838 [RenderPipelineManager] Phase: phase4 | WebGPU: true | SSGI: true | TRAA: false
+engineLauncher-C8PSzllS.js:1856 [initDataPlatform] H-1: Physics compute enqueued for all rooms after project load (idle)
+engineLauncher-C8PSzllS.js:1833 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+engineLauncher-C8PSzllS.js:5919 [HomeView] Default viewpoint captured: Object Object
+engineLauncher-C8PSzllS.js:4702 [WallModePicker] setActiveMode → ortho
+engineLauncher-C8PSzllS.js:1902 ToolManager: activateTool called for wall
+engineLauncher-C8PSzllS.js:1902 ToolManager: deactivating previous tool none
+engineLauncher-C8PSzllS.js:1902 ToolManager: executing activateFn for wall
+engineLauncher-C8PSzllS.js:2242 WallTool activated with mode: POLYLINE_ORTHO
+engineLauncher-C8PSzllS.js:7296 [EngineBootstrap] HDRI load started (lazy — Realistic style first requested)
+vendor-three-CNnqJpxH.js:5719 RGBELoader has been deprecated. Please use HDRLoader instead.
+Ece @ vendor-three-CNnqJpxH.js:5719
+vendor-three-CNnqJpxH.js:5 Connecting to 'https://thatopen.github.io/engine_fragment/resources/textures/envmaps/san_giuseppe_bridge_2k.hdr' violates the following Content Security Policy directive: "connect-src 'self' data: blob: https://api.cesium.com https://assets.cesium.com https://ionfetch.cesium.com https://*.supabase.co wss: ws: https://flat-morning-358d.antoniocanerosan.workers.dev/". The action has been blocked.
+load @ vendor-three-CNnqJpxH.js:5
+vendor-three-CNnqJpxH.js:5 Fetch API cannot load https://thatopen.github.io/engine_fragment/resources/textures/envmaps/san_giuseppe_bridge_2k.hdr. Refused to connect because it violates the document's Content Security Policy.
+load @ vendor-three-CNnqJpxH.js:5
+engineLauncher-C8PSzllS.js:7296 [EngineBootstrap] HDRI environment map unavailable — Realistic mode will use flat lighting.
+(anonymous) @ engineLauncher-C8PSzllS.js:7296
+engineLauncher-C8PSzllS.js:1864 [initCollaboration] Socket connected — joining project room: proj-1778310649495-93szblh
+engineLauncher-C8PSzllS.js:1864 [initCollaboration] Catch-up: first connect — setting baseline timestamp
+engineLauncher-C8PSzllS.js:1833 [SvpPlanToolOverlay] Handler activated: wall
+engineLauncher-C8PSzllS.js:1595 [WallPlanToolHandler] Polyline start point set Object mode: ortho
+PlatformShell-1Ds_EK81.js:1 [PlatformCollabPill] Socket connected — joining project room: proj-1778310649495-93szblh
+engineLauncher-C8PSzllS.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-C8PSzllS.js:1902 [CommandManager] snapshot commandType="Wo" scope=[wall,level] elapsed=0.2ms
+main-CupHNt2m.js:29470 [VDT] §G3-STALE-EVENT for unregistered element 66f38ceb-2e88-4fab-9d81-8fdeef0267f3 type= wall — fallback to store-type view only
+_onStoreEvent @ main-CupHNt2m.js:29470
+engineLauncher-C8PSzllS.js:1595 [BimManager] Registered element 66f38ceb-2e88-4fab-9d81-8fdeef0267f3 to level L0
+engineLauncher-C8PSzllS.js:1595 [WallPlanToolHandler] Wall created 66f38ceb-2e88-4fab-9d81-8fdeef0267f3 mode: ortho (straight)
+engineLauncher-C8PSzllS.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-C8PSzllS.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.1ms
+engineLauncher-C8PSzllS.js:1864 [initCollaboration] Collaborator joined: user-1778310646588-3zrc4qp ricardo gonialo
+engineLauncher-C8PSzllS.js:1833 [PascalSceneLighting] Shadow flags set on 39 mesh(es).
+engineLauncher-C8PSzllS.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-C8PSzllS.js:1902 [CommandManager] snapshot commandType="Wo" scope=[wall,level] elapsed=0.2ms
+main-CupHNt2m.js:29470 [VDT] §G3-STALE-EVENT for unregistered element e8c86804-a4bb-46e5-8c3f-0114c270d2ee type= wall — fallback to store-type view only
+_onStoreEvent @ main-CupHNt2m.js:29470
+engineLauncher-C8PSzllS.js:1595 [BimManager] Registered element e8c86804-a4bb-46e5-8c3f-0114c270d2ee to level L0
+engineLauncher-C8PSzllS.js:1595 [WallPlanToolHandler] Wall created e8c86804-a4bb-46e5-8c3f-0114c270d2ee mode: ortho (straight)
+engineLauncher-C8PSzllS.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-C8PSzllS.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+main-CupHNt2m.js:29470 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+engineLauncher-C8PSzllS.js:1838 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-C8PSzllS.js:1595 [NativeElementMeshExporter] Plan view — exporting 2 elements from levels overlapping Y=[-1.20, 0.00]
+engineLauncher-C8PSzllS.js:1595 [NME] §H2-NME-CACHE hits=0 misses=1 hitRate=0% cacheSize=1/500
+engineLauncher-C8PSzllS.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-C8PSzllS.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-C8PSzllS.js:1833 [PascalSceneLighting] Shadow flags set on 2 mesh(es).
+engineLauncher-C8PSzllS.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-C8PSzllS.js:1902 [CommandManager] snapshot commandType="Wo" scope=[wall,level] elapsed=0.1ms
+main-CupHNt2m.js:29470 [VDT] §G3-STALE-EVENT for unregistered element 46aca997-b629-4f1f-b89e-f5b2fe31069e type= wall — fallback to store-type view only
+_onStoreEvent @ main-CupHNt2m.js:29470
+engineLauncher-C8PSzllS.js:1595 [BimManager] Registered element 46aca997-b629-4f1f-b89e-f5b2fe31069e to level L0
+engineLauncher-C8PSzllS.js:1595 [WallPlanToolHandler] Wall created 46aca997-b629-4f1f-b89e-f5b2fe31069e mode: ortho (straight)
+engineLauncher-C8PSzllS.js:1838 [initScene] Phase 6: EdgeProjectorService lazy-loaded on first projection.
+EdgeProjectorService-NyYBAqyz.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-NyYBAqyz.js:1 [EdgeProjectorService] project() batchId=none viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-NyYBAqyz.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=66f38ceb-2e88-4fab-9d81-8fdeef0267f3 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.4ms
+EdgeProjectorService-NyYBAqyz.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 1 group(s) in 1 chunk(s), 1 edge geometries across 1 ISO layer(s) (per-element UUID tagging active)
+engineLauncher-C8PSzllS.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=2 (OBC-IFC=0, native=1, ifc-scene=0)
+engineLauncher-C8PSzllS.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=4/14 layers
+engineLauncher-C8PSzllS.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-C8PSzllS.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-C8PSzllS.js:1833 [PascalSceneLighting] Shadow flags set on 3 mesh(es).
+main-CupHNt2m.js:29470 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+main-CupHNt2m.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+engineLauncher-C8PSzllS.js:1838 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-C8PSzllS.js:1595 [NativeElementMeshExporter] Plan view — exporting 3 elements from levels overlapping Y=[-1.20, 0.00]
+engineLauncher-C8PSzllS.js:1595 [NME] §H2-NME-CACHE hits=1 misses=2 hitRate=33% cacheSize=3/500
+EdgeProjectorService-NyYBAqyz.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-NyYBAqyz.js:1 [EdgeProjectorService] project() batchId=none viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-NyYBAqyz.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=66f38ceb-2e88-4fab-9d81-8fdeef0267f3 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.3ms
+EdgeProjectorService-NyYBAqyz.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=e8c86804-a4bb-46e5-8c3f-0114c270d2ee elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-NyYBAqyz.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#2 elemId=46aca997-b629-4f1f-b89e-f5b2fe31069e elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-NyYBAqyz.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 3 group(s) in 1 chunk(s), 3 edge geometries across 3 ISO layer(s) (per-element UUID tagging active)
+engineLauncher-C8PSzllS.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=4 (OBC-IFC=0, native=3, ifc-scene=0)
+engineLauncher-C8PSzllS.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=4/14 layers
+2engineLauncher-C8PSzllS.js:1864 [ProjectSerializer] Snapshot created: 3 elements, 1 levels, 3 walls, 0 slabs, 0 furniture
+engineLauncher-C8PSzllS.js:1864 [captureThumbnail] Thumbnail captured: 282×225px, ~2KB
+PlatformShell-1Ds_EK81.js:23 [PlatformSaveController] Thumbnail: captured (~2KB)
+PlatformShell-1Ds_EK81.js:23 [PlatformSaveController] Version saved: "Auto-save" (3 elements, id: proj-1778310665012-nipk6)
+PlatformShell-1Ds_EK81.js:24 [PlatformSaveController] Thumbnail uploaded to server for project proj-1778310649495-93szblh
+/api/projects/proj-1778310649495-93szblh/versions:1  Failed to load resource: the server responded with a status of 403 ()
+PlatformShell-1Ds_EK81.js:1 [ServerSyncQueue] Version "Auto-save" rejected by server (403) — dropping: Object
+attemptSync @ PlatformShell-1Ds_EK81.js:1
+PlatformShell-1Ds_EK81.js:1 [ServerSyncQueue] Plan-gating latch engaged — future versions will stay local-only this session.
+attemptSync @ PlatformShell-1Ds_EK81.js:1
+engineLauncher-C8PSzllS.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-C8PSzllS.js:1902 [CommandManager] snapshot commandType="Wo" scope=[wall,level] elapsed=0.2ms
+main-CupHNt2m.js:29470 [VDT] §G3-STALE-EVENT for unregistered element e3eb5497-08e8-4aa2-8d74-9ee8461e9c0c type= wall — fallback to store-type view only
+_onStoreEvent @ main-CupHNt2m.js:29470
+engineLauncher-C8PSzllS.js:1595 [BimManager] Registered element e3eb5497-08e8-4aa2-8d74-9ee8461e9c0c to level L0
+engineLauncher-C8PSzllS.js:1595 [WallPlanToolHandler] Wall created e3eb5497-08e8-4aa2-8d74-9ee8461e9c0c mode: ortho (straight)
+engineLauncher-C8PSzllS.js:1595 [WallPlanToolHandler] Polyline closed
+engineLauncher-C8PSzllS.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-C8PSzllS.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-C8PSzllS.js:2323 [PlanarTopologyEngine] Topology: 1 room(s) detected, outer face (4 vertices), 2 total faces
+engineLauncher-C8PSzllS.js:2323 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+engineLauncher-C8PSzllS.js:1595 [BimManager] Registered element e8595a10-4d98-488c-97f8-7f4ac82a8540 to level L0
+engineLauncher-C8PSzllS.js:1833 [PascalSceneLighting] Shadow flags set on 4 mesh(es).
+main-CupHNt2m.js:29470 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+main-CupHNt2m.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+engineLauncher-C8PSzllS.js:1902 [CommandManager] EXECUTE: CREATE_ANNOTATION
+engineLauncher-C8PSzllS.js:1902 [CommandManager] snapshot commandType="No" scope=[annotation] elapsed=0.0ms
+engineLauncher-C8PSzllS.js:1838 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 1 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed out of 1 live room(s).
+engineLauncher-C8PSzllS.js:1595 [NativeElementMeshExporter] Plan view — exporting 5 elements from levels overlapping Y=[-1.20, 0.00]
+engineLauncher-C8PSzllS.js:1595 [NME] §H2-NME-CACHE hits=3 misses=1 hitRate=75% cacheSize=4/500
+EdgeProjectorService-NyYBAqyz.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-NyYBAqyz.js:1 [EdgeProjectorService] project() batchId=none viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-NyYBAqyz.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=66f38ceb-2e88-4fab-9d81-8fdeef0267f3 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.2ms
+EdgeProjectorService-NyYBAqyz.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=e8c86804-a4bb-46e5-8c3f-0114c270d2ee elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-NyYBAqyz.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#2 elemId=46aca997-b629-4f1f-b89e-f5b2fe31069e elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-NyYBAqyz.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#3 elemId=e3eb5497-08e8-4aa2-8d74-9ee8461e9c0c elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-NyYBAqyz.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 4 group(s) in 1 chunk(s), 4 edge geometries across 4 ISO layer(s) (per-element UUID tagging active)
+engineLauncher-C8PSzllS.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=6 (OBC-IFC=0, native=4, ifc-scene=0)
+engineLauncher-C8PSzllS.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=4/14 layers
+engineLauncher-C8PSzllS.js:1864 [RoomBoundaryBuilder] Compliance overlay: 2 error, 0 warning room(s) tinted
+engineLauncher-C8PSzllS.js:2242 WallTool deactivated
+engineLauncher-C8PSzllS.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-C8PSzllS.js:7105 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-C8PSzllS.js:541 [CutFill] Updating: enabled=false, height=1.2
+500Destroyed texture [Texture "ShadowDepthTexture"] used in a submit.
+ - While calling [Queue].Submit([[CommandBuffer from CommandEncoder "renderContext_6"]])
+
+2engineLauncher-C8PSzllS.js:1864 [ProjectSerializer] Snapshot created: 5 elements, 1 levels, 4 walls, 0 slabs, 0 furniture
+PlatformShell-1Ds_EK81.js:23 [PlatformSaveController] Version saved: "Auto-save" (5 elements, id: proj-1778310667669-arx6o)
+/#/projects:1 WebGPU: too many warnings, no more warnings will be reported to the console for this GPUDevice.
+engineLauncher-C8PSzllS.js:556 [LevelPlaneConstraint] Locked Y=0.0000 for element "wall" id="e8c86804-a4bb-46e5-8c3f-0114c270d2ee"
+engineLauncher-C8PSzllS.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-C8PSzllS.js:556 [WallTransform] Wall "e8c86804-a4bb-46e5-8c3f-0114c270d2ee" — gizmo aligned with direction P
+engineLauncher-C8PSzllS.js:556 [LevelPlaneConstraint] Locked Y=0.0000 for element "wall" id="66f38ceb-2e88-4fab-9d81-8fdeef0267f3"
+engineLauncher-C8PSzllS.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-C8PSzllS.js:556 [WallTransform] Wall "66f38ceb-2e88-4fab-9d81-8fdeef0267f3" — gizmo aligned with direction P
+engineLauncher-C8PSzllS.js:1864 [PickResolver] strategy=gpu-pick hit=e8c86804-a4bb-46e5-8c3f-0114c270d2ee
+engineLauncher-C8PSzllS.js:556 [LevelPlaneConstraint] Locked Y=0.0000 for element "wall" id="e8c86804-a4bb-46e5-8c3f-0114c270d2ee"
+engineLauncher-C8PSzllS.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-C8PSzllS.js:556 [WallTransform] Wall "e8c86804-a4bb-46e5-8c3f-0114c270d2ee" — gizmo aligned with direction P
+engineLauncher-C8PSzllS.js:556 [LevelPlaneConstraint] Locked Y=0.0000 for element "wall" id="66f38ceb-2e88-4fab-9d81-8fdeef0267f3"
+engineLauncher-C8PSzllS.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-C8PSzllS.js:556 [WallTransform] Wall "66f38ceb-2e88-4fab-9d81-8fdeef0267f3" — gizmo aligned with direction P
+engineLauncher-C8PSzllS.js:1864 [PickResolver] strategy=gpu-pick hit=e8c86804-a4bb-46e5-8c3f-0114c270d2ee
+engineLauncher-C8PSzllS.js:556 [LevelPlaneConstraint] Locked Y=0.0000 for element "wall" id="e8c86804-a4bb-46e5-8c3f-0114c270d2ee"
+engineLauncher-C8PSzllS.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-C8PSzllS.js:556 [WallTransform] Wall "e8c86804-a4bb-46e5-8c3f-0114c270d2ee" — gizmo aligned with direction P
+engineLauncher-C8PSzllS.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-C8PSzllS.js:7105 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-C8PSzllS.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-C8PSzllS.js:556 [LevelPlaneConstraint] Locked Y=0.0000 for element "wall" id="66f38ceb-2e88-4fab-9d81-8fdeef0267f3"
+engineLauncher-C8PSzllS.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-C8PSzllS.js:556 [WallTransform] Wall "66f38ceb-2e88-4fab-9d81-8fdeef0267f3" — gizmo aligned with direction P
+engineLauncher-C8PSzllS.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-C8PSzllS.js:7105 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-C8PSzllS.js:541 [CutFill] Updating: enabled=false, height=1.2
+
+2engineLauncher-C8PSzllS.js:1833 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter

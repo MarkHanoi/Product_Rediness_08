@@ -1,0 +1,38 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "preserve",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "allowJs": true,
+    "esModuleInterop": true,
+    "types": ["@webgpu/types", "node"],
+    "baseUrl": ".",
+    "paths": {
+      "@app/ui/*": ["apps/editor/src/ui/*"],
+      "@app/engine/*": ["apps/editor/src/engine/*"],
+      "@app/rendering/*": ["apps/editor/src/rendering/*"]
+    }
+  },
+  "include": [
+    "src",
+    "apps/editor/src/ui",
+    "apps/editor/src/engine",
+    "apps/editor/src/rendering"
+  ],
+  "exclude": [
+    "apps/editor/src/ui/__tests__",
+    "apps/editor/src/ui/toolbar/__tests__"
+  ]
+}

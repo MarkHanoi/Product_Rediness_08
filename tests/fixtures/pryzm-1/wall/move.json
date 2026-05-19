@@ -1,0 +1,54 @@
+{
+  "meta": {
+    "source": "src/commands/walls/UpdateWallBaselineCommand.ts",
+    "capturedAt": "2026-04-26T18:30:00Z",
+    "description": "Replace both baseLine endpoints atomically — exercises MoveWallHandler's MIN_WALL_LEN guard + y-consistency invariant.",
+    "deviationsFromPryzm1": [
+      "renamed UpdateWallBaseline → wall.move per ADR-008 (verb-shape uniformity across element families)",
+      "single-endpoint moves rejected — caller must pass both endpoints (no implicit-null sugar)"
+    ]
+  },
+  "setup": {
+    "walls": [
+      {
+        "id": "wall_01HYY00000000000000000MV01",
+        "type": "wall",
+        "parentId": null,
+        "childrenIds": [],
+        "metadata": {
+          "createdAt": "2026-04-26T00:00:00.000Z",
+          "modifiedAt": "2026-04-26T00:00:00.000Z",
+          "createdBy": "fixture",
+          "modifiedBy": "fixture"
+        },
+        "levelId": "lvl_test",
+        "baseLine": [
+          { "x": 0, "y": 0, "z": 0 },
+          { "x": 4, "y": 0, "z": 0 }
+        ],
+        "height": 2.5,
+        "thickness": 0.1,
+        "baseOffset": 0,
+        "openings": []
+      }
+    ]
+  },
+  "command": {
+    "type": "wall.move",
+    "payload": {
+      "id": "wall_01HYY00000000000000000MV01",
+      "baseLine": [
+        { "x": 1, "y": 0, "z": 1 },
+        { "x": 5, "y": 0, "z": 1 }
+      ]
+    }
+  },
+  "expect": {
+    "valid": true,
+    "wallBaseLineAfter": [
+      { "x": 1, "y": 0, "z": 1 },
+      { "x": 5, "y": 0, "z": 1 }
+    ],
+    "undoRestoresOriginalBaseLine": true
+  }
+}

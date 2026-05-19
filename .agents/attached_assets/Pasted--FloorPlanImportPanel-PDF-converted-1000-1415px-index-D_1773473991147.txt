@@ -1,0 +1,242 @@
+[FloorPlanImportPanel] PDF converted: 1000×1415px
+index-DmKAEprT.js:10707 [FloorPlanImportPanel] Calibration: 97.0 px/m → 10.3m × 14.6m
+index-DmKAEprT.js:9416 [AIPanel] Proposal received via event: Object
+index-DmKAEprT.js:9416 [AIPanel] Proposal received via event: Object
+index-DmKAEprT.js:9416 [AIPanel] Proposal received via event: Object
+index-DmKAEprT.js:9416 [AIPanel] Proposal received via event: Object
+index-DmKAEprT.js:9416 [AIPanel] Proposal received via event: Object
+index-DmKAEprT.js:9416 [AIPanel] Proposal received via event: Object
+index-DmKAEprT.js:9416 [AIPanel] Proposal received via event: Object
+index-DmKAEprT.js:9416 [AIPanel] Proposal received via event: Object
+index-DmKAEprT.js:9416 [AIPanel] Proposal received via event: Object
+index-DmKAEprT.js:9416 [AIPanel] Proposal received via event: Object
+index-DmKAEprT.js:9416 [AIPanel] Proposal received via event: Object
+index-DmKAEprT.js:9416 [AIPanel] Proposal received via event: Object
+index-DmKAEprT.js:9416 [AIPanel] Proposal received via event: Object
+index-DmKAEprT.js:9416 [AIPanel] Proposal received via event: Object
+index-DmKAEprT.js:9416 [AIPanel] Proposal received via event: Object
+index-DmKAEprT.js:9416 [AIPanel] Proposal received via event: Object
+index-DmKAEprT.js:9416 [AIPanel] Proposal received via event: Object
+index-DmKAEprT.js:9416 [AIPanel] Proposal received via event: Object
+index-DmKAEprT.js:9416 [AIPanel] Proposal received via event: Object
+index-DmKAEprT.js:9416 [AIPanel] Proposal received via event: Object
+index-DmKAEprT.js:9416 [AIPanel] Proposal received via event: Object
+index-DmKAEprT.js:9416 [AIPanel] Proposal received via event: Object
+index-DmKAEprT.js:9416 [AIPanel] Proposal received via event: Object
+index-DmKAEprT.js:9416 [AIPanel] Proposal received via event: Object
+index-DmKAEprT.js:9416 [AIPanel] Proposal received via event: Object
+index-DmKAEprT.js:9416 [AIPanel] Proposal received via event: Object
+index-DmKAEprT.js:9416 [AIPanel] Proposal received via event: Object
+index-DmKAEprT.js:9416 [AIPanel] Proposal received via event: Object
+index-DmKAEprT.js:9416 [AIPanel] Proposal received via event: Object
+index-DmKAEprT.js:9416 [AIPanel] Proposal received via event: Object
+index-DmKAEprT.js:9416 [AIPanel] Proposal received via event: Object
+index-DmKAEprT.js:9416 [AIPanel] Proposal received via event: Object
+index-DmKAEprT.js:9421 [AIPanel] Approving proposal: Object
+index-DmKAEprT.js:9421 [AIPanel] Auto-executing parent wall before opening: 258212a7-5943-42ce-b24c-24d45684fe55
+index-DmKAEprT.js:8750 [CommandManager] EXECUTE: CREATE_WALL
+index-DmKAEprT.js:8656 [WallFragmentBuilder] updateWall for 258212a7-5943-42ce-b24c-24d45684fe55 at worldY: 0
+index-DmKAEprT.js:9285 [BimManager] Registered element 258212a7-5943-42ce-b24c-24d45684fe55 to level L0
+index-DmKAEprT.js:9368 [AIApprovalStore] Audit record appended: 7fed72df-b625-4220-9a39-90087698ebb9 (CREATE_WALL)
+index-DmKAEprT.js:8750 [CommandManager] EXECUTE: ADD_OPENING
+index-DmKAEprT.js:8656 [WallFragmentBuilder] updateWall for 258212a7-5943-42ce-b24c-24d45684fe55 at worldY: 0
+index-DmKAEprT.js:9285 [BimManager] Registered element e62b27b9-a75f-41fb-9069-78ef82295a72 to level L0
+index-DmKAEprT.js:9421 [AIPanel] Execution result: Object
+index-DmKAEprT.js:9368 [AIApprovalStore] Audit record appended: 13434e17-33e5-429f-9412-937ac15a71ee (ADD_OPENING)
+index-DmKAEprT.js:10833 Refreshing Spatial Tree...
+index-DmKAEprT.js:9301 [RuleEngine] Model updated, ready for re-validation
+index-DmKAEprT.js:9285 [ViewBrowser] Update triggered. Total views: 7
+index-DmKAEprT.js:9421 [AIPanel] Approving proposal: Object
+index-DmKAEprT.js:9421 [AIPanel] Auto-executing parent wall before opening: ebcddb2a-4f50-400f-9b39-edddbcffe46a
+index-DmKAEprT.js:8750 [CommandManager] EXECUTE: CREATE_WALL
+index-DmKAEprT.js:8656 [WallFragmentBuilder] updateWall for ebcddb2a-4f50-400f-9b39-edddbcffe46a at worldY: 0
+index-DmKAEprT.js:9285 [BimManager] Registered element ebcddb2a-4f50-400f-9b39-edddbcffe46a to level L0
+index-DmKAEprT.js:9368 [AIApprovalStore] Audit record appended: f78be750-c701-4c57-b5ed-6b308befa81c (CREATE_WALL)
+index-DmKAEprT.js:8750 [CommandManager] EXECUTE: ADD_OPENING
+index-DmKAEprT.js:8656 [WallFragmentBuilder] updateWall for ebcddb2a-4f50-400f-9b39-edddbcffe46a at worldY: 0
+index-DmKAEprT.js:9285 [BimManager] Registered element 6186abb3-44fa-451d-a873-bf7f6153102b to level L0
+index-DmKAEprT.js:9421 [AIPanel] Execution result: Object
+index-DmKAEprT.js:9368 [AIApprovalStore] Audit record appended: fd7e5eec-d96d-4efc-9511-c8d5e6b7decf (ADD_OPENING)
+index-DmKAEprT.js:10833 Refreshing Spatial Tree...
+index-DmKAEprT.js:9301 [RuleEngine] Model updated, ready for re-validation
+index-DmKAEprT.js:9285 [ViewBrowser] Update triggered. Total views: 7
+index-DmKAEprT.js:9421 [AIPanel] Approving proposal: Object
+index-DmKAEprT.js:9421 [AIPanel] Auto-executing parent wall before opening: 3b24fb8f-97af-4138-ae79-881c414d3a85
+index-DmKAEprT.js:8750 [CommandManager] EXECUTE: CREATE_WALL
+index-DmKAEprT.js:8656 [WallFragmentBuilder] updateWall for 3b24fb8f-97af-4138-ae79-881c414d3a85 at worldY: 0
+index-DmKAEprT.js:9285 [BimManager] Registered element 3b24fb8f-97af-4138-ae79-881c414d3a85 to level L0
+index-DmKAEprT.js:9368 [AIApprovalStore] Audit record appended: 1d0a378f-52f2-4631-9b18-a28e8f0e8e58 (CREATE_WALL)
+index-DmKAEprT.js:8750 [CommandManager] EXECUTE: ADD_OPENING
+index-DmKAEprT.js:8656 [WallFragmentBuilder] updateWall for 3b24fb8f-97af-4138-ae79-881c414d3a85 at worldY: 0
+index-DmKAEprT.js:9285 [BimManager] Registered element 4d797167-01a6-47de-8ef1-1c0c954624d0 to level L0
+index-DmKAEprT.js:9421 [AIPanel] Execution result: Object
+index-DmKAEprT.js:9368 [AIApprovalStore] Audit record appended: f73cf9b3-f1b8-4acf-87d5-6efd7c52424f (ADD_OPENING)
+index-DmKAEprT.js:10833 Refreshing Spatial Tree...
+index-DmKAEprT.js:9301 [RuleEngine] Model updated, ready for re-validation
+index-DmKAEprT.js:9285 [ViewBrowser] Update triggered. Total views: 7
+index-DmKAEprT.js:9421 [AIPanel] Approving proposal: Object
+index-DmKAEprT.js:9421 [AIPanel] Auto-executing parent wall before opening: 1806ad07-7837-4855-bb3e-5d922e94e88e
+index-DmKAEprT.js:8750 [CommandManager] EXECUTE: CREATE_WALL
+index-DmKAEprT.js:8656 [WallFragmentBuilder] updateWall for 1806ad07-7837-4855-bb3e-5d922e94e88e at worldY: 0
+index-DmKAEprT.js:9285 [BimManager] Registered element 1806ad07-7837-4855-bb3e-5d922e94e88e to level L0
+index-DmKAEprT.js:9368 [AIApprovalStore] Audit record appended: 4a28f18b-97f5-4cce-8bb0-f067bc77609e (CREATE_WALL)
+index-DmKAEprT.js:8750 [CommandManager] EXECUTE: ADD_OPENING
+index-DmKAEprT.js:8656 [WallFragmentBuilder] updateWall for 1806ad07-7837-4855-bb3e-5d922e94e88e at worldY: 0
+index-DmKAEprT.js:9285 [BimManager] Registered element 9033ac54-5d86-4263-8764-cc92536998dd to level L0
+index-DmKAEprT.js:9421 [AIPanel] Execution result: Object
+index-DmKAEprT.js:9368 [AIApprovalStore] Audit record appended: e7e27849-71c8-4284-b2cd-7feb5654b098 (ADD_OPENING)
+index-DmKAEprT.js:10833 Refreshing Spatial Tree...
+index-DmKAEprT.js:9301 [RuleEngine] Model updated, ready for re-validation
+index-DmKAEprT.js:9285 [ViewBrowser] Update triggered. Total views: 7
+index-DmKAEprT.js:9421 [AIPanel] Approving proposal: Object
+index-DmKAEprT.js:9421 [AIPanel] Auto-executing parent wall before opening: 1a4c0ecc-86a7-45d7-a184-cea067e73a00
+index-DmKAEprT.js:8750 [CommandManager] EXECUTE: CREATE_WALL
+index-DmKAEprT.js:8656 [WallFragmentBuilder] updateWall for 1a4c0ecc-86a7-45d7-a184-cea067e73a00 at worldY: 0
+index-DmKAEprT.js:9285 [BimManager] Registered element 1a4c0ecc-86a7-45d7-a184-cea067e73a00 to level L0
+index-DmKAEprT.js:9368 [AIApprovalStore] Audit record appended: 07b30eb5-eba1-47a3-baeb-6a77465e550a (CREATE_WALL)
+index-DmKAEprT.js:8750 [CommandManager] EXECUTE: ADD_OPENING
+index-DmKAEprT.js:8656 [WallFragmentBuilder] updateWall for 1a4c0ecc-86a7-45d7-a184-cea067e73a00 at worldY: 0
+index-DmKAEprT.js:9285 [BimManager] Registered element 202e4234-2968-4184-acc9-cc3c08676fd3 to level L0
+index-DmKAEprT.js:9421 [AIPanel] Execution result: Object
+index-DmKAEprT.js:9368 [AIApprovalStore] Audit record appended: f0a8f3d4-c2f6-44bc-8984-6cfd1c003cf2 (ADD_OPENING)
+index-DmKAEprT.js:10833 Refreshing Spatial Tree...
+index-DmKAEprT.js:9301 [RuleEngine] Model updated, ready for re-validation
+index-DmKAEprT.js:9285 [ViewBrowser] Update triggered. Total views: 7
+index-DmKAEprT.js:9421 [AIPanel] Approving proposal: Object
+index-DmKAEprT.js:9421 [AIPanel] Auto-executing parent wall before opening: edf98282-7ebb-4d6d-9eec-487990b9c7b9
+index-DmKAEprT.js:8750 [CommandManager] EXECUTE: CREATE_WALL
+index-DmKAEprT.js:8656 [WallFragmentBuilder] updateWall for edf98282-7ebb-4d6d-9eec-487990b9c7b9 at worldY: 0
+index-DmKAEprT.js:9285 [BimManager] Registered element edf98282-7ebb-4d6d-9eec-487990b9c7b9 to level L0
+index-DmKAEprT.js:9368 [AIApprovalStore] Audit record appended: a899da7e-e4f4-4db0-b26e-1aa72caac0f1 (CREATE_WALL)
+index-DmKAEprT.js:8750 [CommandManager] EXECUTE: ADD_OPENING
+index-DmKAEprT.js:8656 [WallFragmentBuilder] updateWall for edf98282-7ebb-4d6d-9eec-487990b9c7b9 at worldY: 0
+index-DmKAEprT.js:9285 [BimManager] Registered element 611fc978-4641-4ffa-9acc-8a7e37976333 to level L0
+index-DmKAEprT.js:9421 [AIPanel] Execution result: Object
+index-DmKAEprT.js:9368 [AIApprovalStore] Audit record appended: 9b60f5e1-e1e8-4908-a2cc-016cc07ee99d (ADD_OPENING)
+index-DmKAEprT.js:10833 Refreshing Spatial Tree...
+index-DmKAEprT.js:9301 [RuleEngine] Model updated, ready for re-validation
+index-DmKAEprT.js:9285 [ViewBrowser] Update triggered. Total views: 7
+index-DmKAEprT.js:9421 [AIPanel] Approving proposal: Object
+index-DmKAEprT.js:9421 [AIPanel] Auto-executing parent wall before opening: d40866fb-dddf-41f5-8f38-ab72a9caf274
+index-DmKAEprT.js:8750 [CommandManager] EXECUTE: CREATE_WALL
+index-DmKAEprT.js:11158 [WJR-CORNER] epA=start epB=end
+index-DmKAEprT.js:11158 [WJR-CORNER] sharedPt=(-0.350,-2.650)
+index-DmKAEprT.js:11158 [WJR-CORNER] MN_A=(0.707,0.707) MN_B=(0.707,0.707)
+index-DmKAEprT.js:11158 [WallJoinResolver] CORNER: edf98282-7ebb-4d6d-9eec-487990b9c7b9(start) ↔ d40866fb-dddf-41f5-8f38-ab72a9caf274(end)
+index-DmKAEprT.js:9285 [BimManager] Registered element d40866fb-dddf-41f5-8f38-ab72a9caf274 to level L0
+index-DmKAEprT.js:9368 [AIApprovalStore] Audit record appended: 2b836c72-4d65-4c6a-8fd1-5af058cced97 (CREATE_WALL)
+index-DmKAEprT.js:8750 [CommandManager] EXECUTE: ADD_OPENING
+index-DmKAEprT.js:11158 [WJR-CORNER] epA=start epB=end
+index-DmKAEprT.js:11158 [WJR-CORNER] sharedPt=(-0.350,-2.650)
+index-DmKAEprT.js:11158 [WJR-CORNER] MN_A=(0.707,0.707) MN_B=(0.707,0.707)
+index-DmKAEprT.js:11158 [WallJoinResolver] CORNER: edf98282-7ebb-4d6d-9eec-487990b9c7b9(start) ↔ d40866fb-dddf-41f5-8f38-ab72a9caf274(end)
+index-DmKAEprT.js:9285 [BimManager] Registered element e22bb52c-6465-4281-9b79-25559d4b6b8a to level L0
+index-DmKAEprT.js:9421 [AIPanel] Execution result: Object
+index-DmKAEprT.js:9368 [AIApprovalStore] Audit record appended: 79d1ea9e-04f2-4ff1-8b82-af08201f7148 (ADD_OPENING)
+index-DmKAEprT.js:10833 Refreshing Spatial Tree...
+index-DmKAEprT.js:9301 [RuleEngine] Model updated, ready for re-validation
+index-DmKAEprT.js:9285 [ViewBrowser] Update triggered. Total views: 7
+index-DmKAEprT.js:9421 [AIPanel] Approving proposal: Object
+index-DmKAEprT.js:8750 [CommandManager] EXECUTE: CREATE_SLAB
+index-DmKAEprT.js:9285 [BimManager] Registered element e7a00d1c-4fa5-40c4-ba18-3f572fa99018 to level L0
+index-DmKAEprT.js:9421 [AIPanel] Execution result: Object
+index-DmKAEprT.js:9368 [AIApprovalStore] Audit record appended: eb37cc6f-6423-4365-bf31-04065e825c1b (CREATE_SLAB)
+index-DmKAEprT.js:10833 Refreshing Spatial Tree...
+index-DmKAEprT.js:9301 [RuleEngine] Model updated, ready for re-validation
+index-DmKAEprT.js:9285 [ViewBrowser] Update triggered. Total views: 7
+index-DmKAEprT.js:9421 [AIPanel] Approving proposal: Object
+index-DmKAEprT.js:8750 [CommandManager] EXECUTE: CREATE_WALL
+index-DmKAEprT.js:9421 [AIPanel] Execution result: Object
+index-DmKAEprT.js:9421 [AIPanel] Approving proposal: Object
+index-DmKAEprT.js:8750 [CommandManager] EXECUTE: CREATE_WALL
+index-DmKAEprT.js:11158 [WJR-CORNER] epA=start epB=end
+index-DmKAEprT.js:11158 [WJR-CORNER] sharedPt=(-0.050,5.100)
+index-DmKAEprT.js:11158 [WJR-CORNER] MN_A=(0.707,0.707) MN_B=(0.707,0.707)
+index-DmKAEprT.js:11158 [WallJoinResolver] CORNER: 258212a7-5943-42ce-b24c-24d45684fe55(start) ↔ 9d9eca4a-7215-4cac-abe9-c23fc944bca5(end)
+index-DmKAEprT.js:11158 [WJR-CORNER] epA=start epB=end
+index-DmKAEprT.js:11158 [WJR-CORNER] sharedPt=(-0.350,-2.650)
+index-DmKAEprT.js:11158 [WJR-CORNER] MN_A=(0.707,0.707) MN_B=(0.707,0.707)
+index-DmKAEprT.js:11158 [WallJoinResolver] CORNER: edf98282-7ebb-4d6d-9eec-487990b9c7b9(start) ↔ d40866fb-dddf-41f5-8f38-ab72a9caf274(end)
+index-DmKAEprT.js:9285 [BimManager] Registered element 9d9eca4a-7215-4cac-abe9-c23fc944bca5 to level L0
+index-DmKAEprT.js:9421 [AIPanel] Execution result: Object
+index-DmKAEprT.js:9368 [AIApprovalStore] Audit record appended: d5ebbbbc-06ca-4ee6-a9b3-f9d681e1fb2f (CREATE_WALL)
+index-DmKAEprT.js:10833 Refreshing Spatial Tree...
+index-DmKAEprT.js:9301 [RuleEngine] Model updated, ready for re-validation
+index-DmKAEprT.js:9285 [ViewBrowser] Update triggered. Total views: 7
+index-DmKAEprT.js:9421 [AIPanel] Approving proposal: Object
+index-DmKAEprT.js:8750 [CommandManager] EXECUTE: CREATE_WALL
+index-DmKAEprT.js:11158 [WJR-CORNER] epA=start epB=end
+index-DmKAEprT.js:11158 [WJR-CORNER] sharedPt=(-0.050,5.100)
+index-DmKAEprT.js:11158 [WJR-CORNER] MN_A=(0.707,0.707) MN_B=(0.707,0.707)
+index-DmKAEprT.js:11158 [WallJoinResolver] CORNER: 258212a7-5943-42ce-b24c-24d45684fe55(start) ↔ 9d9eca4a-7215-4cac-abe9-c23fc944bca5(end)
+index-DmKAEprT.js:11158 [WJR-CORNER] epA=end epB=start
+index-DmKAEprT.js:11158 [WJR-CORNER] sharedPt=(-1.400,4.600)
+index-DmKAEprT.js:11158 [WJR-CORNER] MN_A=(0.707,0.707) MN_B=(0.707,0.707)
+index-DmKAEprT.js:11158 [WallJoinResolver] CORNER: ebcddb2a-4f50-400f-9b39-edddbcffe46a(end) ↔ cf5831a0-d1f1-4659-97ae-65a2aa5e7302(start)
+index-DmKAEprT.js:11158 [WJR-CORNER] epA=end epB=end
+index-DmKAEprT.js:11158 [WJR-CORNER] sharedPt=(-1.400,4.600)
+index-DmKAEprT.js:11158 [WJR-CORNER] MN_A=(0.707,0.707) MN_B=(-0.707,-0.707)
+index-DmKAEprT.js:11158 [WallJoinResolver] CORNER: ebcddb2a-4f50-400f-9b39-edddbcffe46a(end) ↔ cf5831a0-d1f1-4659-97ae-65a2aa5e7302(end)
+index-DmKAEprT.js:11158 [WJR-CORNER] epA=start epB=end
+index-DmKAEprT.js:11158 [WJR-CORNER] sharedPt=(-0.350,-2.650)
+index-DmKAEprT.js:11158 [WJR-CORNER] MN_A=(0.707,0.707) MN_B=(0.707,0.707)
+index-DmKAEprT.js:11158 [WallJoinResolver] CORNER: edf98282-7ebb-4d6d-9eec-487990b9c7b9(start) ↔ d40866fb-dddf-41f5-8f38-ab72a9caf274(end)
+index-DmKAEprT.js:11158 [WJR-CORNER] epA=start epB=start
+index-DmKAEprT.js:11158 [WJR-CORNER] sharedPt=(-1.400,5.100)
+index-DmKAEprT.js:11158 [WJR-CORNER] MN_A=(1.000,0.000) MN_B=(1.000,0.000)
+index-DmKAEprT.js:11158 [WallJoinResolver] CORNER: 9d9eca4a-7215-4cac-abe9-c23fc944bca5(start) ↔ cf5831a0-d1f1-4659-97ae-65a2aa5e7302(start)
+index-DmKAEprT.js:11158 [WJR-CORNER] epA=start epB=end
+index-DmKAEprT.js:11158 [WJR-CORNER] sharedPt=(-1.400,5.100)
+index-DmKAEprT.js:11158 [WJR-CORNER] MN_A=(0.707,-0.707) MN_B=(0.707,-0.707)
+index-DmKAEprT.js:11158 [WallJoinResolver] CORNER: 9d9eca4a-7215-4cac-abe9-c23fc944bca5(start) ↔ cf5831a0-d1f1-4659-97ae-65a2aa5e7302(end)
+index-DmKAEprT.js:9285 [BimManager] Registered element cf5831a0-d1f1-4659-97ae-65a2aa5e7302 to level L0
+index-DmKAEprT.js:9421 [AIPanel] Execution result: Object
+index-DmKAEprT.js:9368 [AIApprovalStore] Audit record appended: 10114609-98e3-4ee0-8efa-4ef656675c16 (CREATE_WALL)
+index-DmKAEprT.js:10833 Refreshing Spatial Tree...
+index-DmKAEprT.js:9301 [RuleEngine] Model updated, ready for re-validation
+index-DmKAEprT.js:9285 [ViewBrowser] Update triggered. Total views: 7
+index-DmKAEprT.js:9421 [AIPanel] Approving proposal: Object
+index-DmKAEprT.js:8750 [CommandManager] EXECUTE: CREATE_WALL
+index-DmKAEprT.js:9421 [AIPanel] Execution result: Object
+index-DmKAEprT.js:9421 [AIPanel] Approving proposal: Object
+index-DmKAEprT.js:8750 [CommandManager] EXECUTE: CREATE_WALL
+index-DmKAEprT.js:9421 [AIPanel] Execution result: Object
+index-DmKAEprT.js:9421 [AIPanel] Approving proposal: Object
+index-DmKAEprT.js:8750 [CommandManager] EXECUTE: CREATE_WALL
+index-DmKAEprT.js:11158 [WJR-CORNER] epA=start epB=end
+index-DmKAEprT.js:11158 [WJR-CORNER] sharedPt=(-0.050,5.100)
+index-DmKAEprT.js:11158 [WJR-CORNER] MN_A=(0.707,0.707) MN_B=(0.707,0.707)
+index-DmKAEprT.js:11158 [WallJoinResolver] CORNER: 258212a7-5943-42ce-b24c-24d45684fe55(start) ↔ 9d9eca4a-7215-4cac-abe9-c23fc944bca5(end)
+index-DmKAEprT.js:11158 [WJR-CORNER] epA=end epB=start
+index-DmKAEprT.js:11158 [WJR-CORNER] sharedPt=(-1.400,2.550)
+index-DmKAEprT.js:11158 [WJR-CORNER] MN_A=(-0.707,0.707) MN_B=(-0.707,0.707)
+index-DmKAEprT.js:11158 [WallJoinResolver] CORNER: 1806ad07-7837-4855-bb3e-5d922e94e88e(end) ↔ 4edb376a-4709-4815-8ca6-bb66994022a5(start)
+index-DmKAEprT.js:11158 [WJR-CORNER] epA=start epB=end
+index-DmKAEprT.js:11158 [WJR-CORNER] sharedPt=(-0.350,-2.650)
+index-DmKAEprT.js:11158 [WJR-CORNER] MN_A=(0.707,0.707) MN_B=(0.707,0.707)
+index-DmKAEprT.js:11158 [WallJoinResolver] CORNER: edf98282-7ebb-4d6d-9eec-487990b9c7b9(start) ↔ d40866fb-dddf-41f5-8f38-ab72a9caf274(end)
+index-DmKAEprT.js:9285 [BimManager] Registered element 4edb376a-4709-4815-8ca6-bb66994022a5 to level L0
+index-DmKAEprT.js:9421 [AIPanel] Execution result: Object
+index-DmKAEprT.js:9368 [AIApprovalStore] Audit record appended: 496555d5-8904-4fd2-b339-d7ca8817df76 (CREATE_WALL)
+index-DmKAEprT.js:10833 Refreshing Spatial Tree...
+index-DmKAEprT.js:9301 [RuleEngine] Model updated, ready for re-validation
+index-DmKAEprT.js:9285 [ViewBrowser] Update triggered. Total views: 7
+index-DmKAEprT.js:9421 [AIPanel] Approving proposal: Object
+index-DmKAEprT.js:8750 [CommandManager] EXECUTE: CREATE_WALL
+index-DmKAEprT.js:9421 [AIPanel] Execution result: Object
+index-DmKAEprT.js:11113 [StairTool] Mousedown event Object
+index-DmKAEprT.js:11090 [ViewNav] Mode: Top, Current Target: Array(3)
+index-DmKAEprT.js:11090 [ViewNav] Setting LookAt: Pos Array(3) Target Array(3)
+index-DmKAEprT.js:9285 [ViewBrowser] Update triggered. Total views: 7
+index-DmKAEprT.js:11113 [StairTool] Mousedown event Object
+index-DmKAEprT.js:11113 [StairTool] Mousedown event Object
+index-DmKAEprT.js:11113 [StairTool] Mousedown event Object
+index-DmKAEprT.js:11113 [StairTool] Mousedown event Object
+index-DmKAEprT.js:11113 [StairTool] Mousedown event Object
+index-DmKAEprT.js:11113 [StairTool] Mousedown event Object
+index-DmKAEprT.js:11090 [ViewNav] Mode: 3D, Current Target: Array(3)
+index-DmKAEprT.js:11090 [ViewNav] Setting LookAt: Pos Array(3) Target Array(3)
+index-DmKAEprT.js:9285 [ViewBrowser] Update triggered. Total views: 7
+index-DmKAEprT.js:11113 [StairTool] Mousedown event Object
+index-DmKAEprT.js:11113 [StairTool] Mousedown event Object
+index-DmKAEprT.js:11113 [StairTool] Mousedown event Object

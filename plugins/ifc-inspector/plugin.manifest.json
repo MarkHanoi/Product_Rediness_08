@@ -1,0 +1,28 @@
+{
+  "pryzmPlugin": "1.0",
+  "id": "pryzm-ifc-inspector",
+  "version": "1.0.0",
+  "displayName": "IFC Element Inspector",
+  "description": "Full IFC 4.3 element property browser — Psets, quantities, relationships, and geometry. Integrates with the buildingSMART Data Dictionary (bSDD) for authoritative property definitions, units, and allowed values.",
+  "author": "PRYZM",
+  "license": "MIT",
+  "main": "src/index.ts",
+  "minPRYZMVersion": "3.0.0",
+  "permissions": [
+    "read:project",
+    "register:panel",
+    "network:fetch"
+  ],
+  "allowedOrigins": [
+    "https://identifier.buildingsmart.org",
+    "https://api.bsdd.buildingsmart.org"
+  ],
+  "contributions": [
+    {
+      "kind": "panel",
+      "id": "ifc-inspector.properties-panel",
+      "location": "properties",
+      "label": "IFC Properties"
+    }
+  ]
+}

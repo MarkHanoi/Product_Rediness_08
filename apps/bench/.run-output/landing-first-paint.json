@@ -1,0 +1,9 @@
+{
+  "name": "landing-first-paint",
+  "p50": 16.987708000000566,
+  "p95": 26.325714999999946,
+  "p99": 26.325714999999946,
+  "samples": 20,
+  "unit": "ms",
+  "notes": "Headless proxy for Flow 1 NFT-1.  Measures cold composeRuntime() (no canvas) — JS-bundle-mount stage of the four-stage flow.  Wall-clock NFT-1 ≤ 2.5 s ships in the in-browser harness (apps/editor-bench/, Wave 13).  Wired 2026-04-30 — Flow 1 closeout."
+}

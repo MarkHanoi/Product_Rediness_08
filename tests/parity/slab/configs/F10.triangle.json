@@ -1,0 +1,37 @@
+{
+  "id": "F10.triangle",
+  "description": "triangular slab",
+  "slab": {
+    "id": "slab:01HZS000000000000SLBF1000",
+    "type": "slab",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "boundary": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 5,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 2.5,
+        "y": 0,
+        "z": 4
+      }
+    ],
+    "holes": [],
+    "thickness": 0.18,
+    "baseOffset": 0
+  },
+  "worldY": 0
+}

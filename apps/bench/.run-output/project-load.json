@@ -1,0 +1,10 @@
+{
+  "name": "project-load",
+  "p50": 16.771950999999717,
+  "p95": 19.33910999999989,
+  "p99": 19.33910999999989,
+  "samples": 10,
+  "unit": "ms",
+  "nftTarget": 6000,
+  "notes": "NFT-2 headless proxy per 01-VISION.md §5. Measures composeRuntime() Stage-1 (engine init, no canvas) — the dominant runtime contributor to NFT-2. Full 10k-element load including DB deserialization and scene mount is measured in apps/editor-bench/ (Wave 13 browser harness)."
+}

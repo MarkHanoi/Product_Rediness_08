@@ -1,0 +1,456 @@
+Here is the full documentation:
+
+---
+
+# PRYZM Curtain Wall Batch Performance — Project Documentation
+
+**Project:** PRYZM BIM Engine  
+**Goal:** Reduce `CREATE_CURTAIN_WALLS_ON_ALL_SLABS` from ~9,000ms to under 1,000ms for 20+ slabs / 400+ walls on RTX 3060  
+**Status:** Planning complete, implementation not yet started  
+**Last Updated:** May 5, 2026
+
+---
+
+## 1. Problem Statement
+
+When a user creates curtain walls on all slabs in a multi-storey building (20+ slabs, 400+ walls), the operation causes a visible UI freeze lasting 9,000–12,000ms. The browser main thread is blocked by cascading synchronous work. The target is under 1,000ms total visible freeze, with geometry appearing behind a loading overlay during the drain phase.
+
+### Observed Evidence
+
+From the attached console log session the following was measured on a 6-slab / 108-wall project:
+
+```
+CreateCurtainWallsOnAllSlabsCommand COMPLETE total=436.5ms
+  slab 1: 15.0ms
+  slab 2: 33.2ms
+  slab 3: 60.8ms
+  slab 4: 92.2ms
+  slab 5: 97.9ms
+  slab 6: 135.2ms
+```
+
+The cascading times confirm O(n²) growth. Extrapolating to 400 walls: **~6,000–8,000ms in the slab loop alone**, before shader compilation, event drain, or room detection.
+
+Additional evidence from the same session:
+
+- `[RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=5ms, resets=6)` — debounce starvation guard firing mid-batch, triggering premature REDETECT_ROOMS
+- `[BatchCoordinator/P1.3] Post-batch PBR upgrade complete: 419 mesh(es) in 4 chunk(s)` — PBR upgrade running immediately post-batch, blocking perceived completion
+- `§PERF-VIEW-BATCH-SUPPRESS: OBC+PASCAL render suppressed` — render suppression is wired correctly but the slab loop cascade happens before it can help
+- `WebGPU: too many warnings, no more warnings will be reported` — GPU warning flood confirming shader compilation pressure
+
+---
+
+## 2. Root Cause Analysis
+
+### Root Cause 1 — O(n²) Subscriber Cascade (PRIMARY, ~6,000ms at 400 walls)
+
+**File:** `CreateCurtainWallsOnAllSlabsCommand.ts`, `_processSlabs()`  
+**Mechanism:** `curtainWallStore.add()` is called once per wall inside the slab loop. Each call emits an internal store `onItemSet` notification. Subscribers that scan the growing store (room topology observer, constraint engine, visual graph applicator) make each subsequent insertion progressively more expensive. The `storeEventBus.batch()` envelope buffers the bus-level delivery but does NOT suppress the store's own internal `onItemSet` notifiers — those fire synchronously on every `add()` call regardless of batch state.
+
+**Why it grows quadratically:** At wall N, approximately N subscribers each do O(N) work scanning the store → O(N²) total. At 108 walls this produces the 15→135ms cascade. At 400 walls the same curve projects to ~1,800ms in the loop alone, plus the cascading secondary effects.
+
+### Root Cause 2 — Synchronous Shader Compilation (~1,500–2,500ms at 400 walls)
+
+**File:** `UnifiedFrameLoop.ts`, `initScene.ts`  
+**Mechanism:** `endBatchRenderSuppress()` lifts after the drain completes, then the first `renderer.render()` call compiles WebGL GLSL shader programs for every new material variant introduced by the batch. This is a WebGL API constraint — shader compilation is synchronous and blocks the main thread. For 400 curtain walls with `MeshStandardMaterial` (mullion color #333333), `MeshPhysicalMaterial` (glass panels), and shadow-receiving variants, the GPU driver compiles 800–1,200 program variants in one synchronous call.
+
+**Why pre-warming works:** WebGL caches compiled shader programs by material hash. A single render of a mesh using each target material before the batch forces compilation to happen once, quietly, before the geometry flood arrives.
+
+### Root Cause 3 — Synchronous `resumeAndFlush()` After `runBatch()` (~400–800ms)
+
+**File:** `BatchCoordinator.ts`, `runBatch()`  
+**Mechanism:** After `fn()` returns, three `resumeAndFlush()` calls fire synchronously:
+```
+window.__wallRebuildControl?.resumeAndFlush?.()
+window.__curtainWallRebuildControl?.resumeAndFlush?.()
+window.__slabRebuildControl?.resumeAndFlush?.()
+```
+The curtain wall `resumeAndFlush()` transfers all 400 walls into the builder's pending queue and schedules a single rAF drain. But the queue transfer itself is synchronous, triggering builder internal state updates that emit events before the JS event loop can yield. On a 400-wall project this synchronous queue population takes 200–400ms on the main thread.
+
+### Root Cause 4 — PBR Upgrade Blocks Perceived Completion (~300ms visible)
+
+**File:** `initScene.ts`, `setPostBatchCallback`  
+**Mechanism:** The post-batch PBR upgrade runs immediately after `endBatchYielded()` completes. It traverses the scene, finds all new meshes, and upgrades their materials across chunked frames. The chunking (120 meshes/frame) prevents a single LONGTASK but still adds ~300ms of post-render work before the user can interact. This work is not needed for geometry to appear correctly — the meshes render fine with their default materials.
+
+---
+
+## 3. Architecture of the Fix
+
+### Overview
+
+Four independent changes, each targeting one root cause. They are ordered by impact and implementation risk. Each can be implemented, tested, and merged independently.
+
+```
+Task 1: addMany()              → fixes Root Cause 1 → saves ~5,000–7,000ms
+Task 2: Shader pre-warm        → fixes Root Cause 2 → saves ~1,200–2,000ms  
+Task 3: Defer resumeAndFlush() → fixes Root Cause 3 → saves ~300–600ms
+Task 4: Defer PBR upgrade      → fixes Root Cause 4 → saves ~300ms perceived
+```
+
+Combined projected result at 20 slabs / 400 walls:
+
+| Phase | Before | After |
+|---|---|---|
+| Slab loop | ~6,000ms | ~180ms |
+| Shader compilation | ~1,500ms | ~80ms |
+| Builder drain (rAF, behind overlay) | ~800ms | ~600ms (invisible) |
+| endBatchYielded drain | ~400ms | ~200ms |
+| PBR upgrade | ~300ms visible | deferred, invisible |
+| REDETECT_ROOMS (20 levels) | ~320ms spread | ~160ms spread |
+| **Total visible freeze** | **~9,000ms** | **~650–850ms** |
+
+---
+
+## 4. File Map
+
+Every file that will be touched, what changes, and why:
+
+### `src/engine/subsystems/curtainwalls/CurtainWallStore.ts` (or equivalent path)
+**Task 1.** Add `addMany(items: CurtainWallData[]): void` method. Insert all items in one loop, fire one consolidated notification after all inserts. No per-item event emission.
+
+### `src/engine/subsystems/commands/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts`
+**Task 1.** Replace per-wall `curtainWallStore.add(cwData)` calls inside `_processSlabs()` with collection into a `pendingWalls: CurtainWallData[]` array, then call `curtainWallStore.addMany(pendingWalls)` once after the loop.  
+**Task 2.** Add `_prewarmCurtainWallShaders()` private method. Call it before `batchCoordinator.runBatch()` in `execute()` when `!isRedo`.
+
+### `src/engine/subsystems/core/batch/BatchCoordinator.ts`
+**Task 3.** Defer the three `resumeAndFlush()` calls inside `runBatch()` to a `getFrameScheduler().scheduleOnce('batch-coordinator-resume-flush', callback, 'pre-render')`. Add `private _resumeFlushDispose: TickListenerDisposer | null = null` field. Cancel and execute synchronously in `forceReset()`.
+
+### `src/engine/subsystems/initScene.ts`
+**Task 4.** Wrap the `setPostBatchCallback` body in `requestIdleCallback(callback, { timeout: 5000 })` with a `setTimeout(callback, 100)` fallback.
+
+---
+
+## 5. Detailed Implementation Specification
+
+### Task 1 — `addMany()` on CurtainWallStore
+
+**Step 1.1** — Locate the CurtainWall store. It will be a class with an `add(item: CurtainWallData)` method that inserts into an internal `Map<string, CurtainWallData>` and calls something like `this.emit('add', item)` or `storeEventBus.publish(...)`.
+
+**Step 1.2** — Add the following method, adapting the exact emit call to match whatever `add()` uses:
+
+```typescript
+addMany(items: CurtainWallData[]): void {
+    if (items.length === 0) return;
+    for (const item of items) {
+        this._map.set(item.id, item); // use actual internal map name
+    }
+    // Fire ONE consolidated notification after all inserts.
+    // Replace the emit call below with whatever add() uses,
+    // but only call it ONCE, not once per item.
+    this._onItemSetMany?.(items);
+    // If the store uses storeEventBus directly:
+    // storeEventBus.publish('curtainWall', 'addMany', items);
+}
+```
+
+**Step 1.3** — In `CreateCurtainWallsOnAllSlabsCommand._processSlabs()`, find the inner slab loop and replace:
+
+```typescript
+// BEFORE — remove this:
+curtainWallStore.add(cwData);
+```
+
+With collection into an array declared before the outer slab loop:
+
+```typescript
+// AFTER — declare before outer slab for-loop:
+const _pendingWalls: CurtainWallData[] = [];
+
+// Inside inner edge for-loop, replace add() with:
+_pendingWalls.push(cwData);
+```
+
+Then after the outer slab loop closes, before the `_regGroupsByLevel` trackRegistration block:
+
+```typescript
+// After outer slab loop:
+if (_pendingWalls.length > 0) {
+    curtainWallStore.addMany(_pendingWalls);
+}
+```
+
+**Step 1.4** — Verify `createdIdsBySlabId` is still populated. The population happens inside the inner edge loop via `slabCreatedIds.push(cwId)` and then `this.createdIdsBySlabId.set(slab.id, slabCreatedIds)`. This is unaffected by moving the store write — the IDs are collected independently of when the store is written.
+
+**Step 1.5** — Verify `busCwSpecs` is still populated. It is collected inside the inner edge loop independently of `curtainWallStore.add()`. Unaffected.
+
+**Step 1.6** — Verify rollback. The existing `undo()` loops through `createdIdsBySlabId` and calls `curtainWallStore.remove(id)` per wall. Since `addMany()` still inserts every item into the same Map, `remove()` still works per-item. No change needed to `undo()`.
+
+---
+
+### Task 2 — Shader Pre-warm
+
+Add this private method to `CreateCurtainWallsOnAllSlabsCommand`:
+
+```typescript
+private _prewarmCurtainWallShaders(): void {
+    try {
+        const scene = (window.bimWorld as any)?.scene?.three as THREE.Scene | undefined;
+        const camera = (window.bimWorld as any)?.camera?.three as THREE.Camera | undefined;
+        const renderer = window.pryzmRenderer as THREE.WebGLRenderer | undefined;
+        if (!scene || !camera || !renderer) return;
+
+        // Mullion material — most common variant
+        const mullionMat = new THREE.MeshStandardMaterial({
+            color: '#333333',
+            transparent: true,
+            opacity: 0,
+        });
+        // Glass panel material — second most common variant
+        const glassMat = new THREE.MeshPhysicalMaterial({
+            color: '#88ccff',
+            transparent: true,
+            opacity: 0,
+            roughness: 0,
+            metalness: 0,
+        });
+
+        const geom = new THREE.PlaneGeometry(0.001, 0.001);
+        const meshA = new THREE.Mesh(geom, mullionMat);
+        const meshB = new THREE.Mesh(geom, glassMat);
+
+        scene.add(meshA);
+        scene.add(meshB);
+
+        // Single render call — compiles both shader variants
+        renderer.render(scene, camera);
+
+        scene.remove(meshA);
+        scene.remove(meshB);
+        geom.dispose();
+        mullionMat.dispose();
+        glassMat.dispose();
+
+        console.log('[CreateCurtainWallsOnAllSlabsCommand] Shader pre-warm complete');
+    } catch (err) {
+        console.warn('[CreateCurtainWallsOnAllSlabsCommand] Shader pre-warm failed (non-fatal):', err);
+    }
+}
+```
+
+Call it in `execute()`:
+
+```typescript
+execute(context: CommandContext): CommandResult {
+    // ... existing validation ...
+
+    if (!isRedo) {
+        this._prewarmCurtainWallShaders(); // ADD THIS LINE
+        batchCoordinator.runBatch(_processSlabs, {
+            levelIds: affectedLevelIds,
+            totalElementCount: estimatedWallCount,
+        });
+    } else {
+        _processSlabs();
+    }
+    // ... rest of execute() ...
+}
+```
+
+---
+
+### Task 3 — Defer `resumeAndFlush()`
+
+**Step 3.1** — Add field to `BatchCoordinatorImpl`:
+
+```typescript
+private _resumeFlushDispose: import('@pryzm/frame-scheduler').TickListenerDisposer | null = null;
+```
+
+**Step 3.2** — In `runBatch()`, replace the three synchronous `resumeAndFlush()` calls and the watchdog setup with:
+
+```typescript
+// BEFORE — remove these lines:
+try { window.__wallRebuildControl?.resumeAndFlush?.(); } catch (e) { ... }
+try { window.__curtainWallRebuildControl?.resumeAndFlush?.(); } catch (e) { ... }
+try { window.__slabRebuildControl?.resumeAndFlush?.(); } catch (e) { ... }
+this._watchdogTimer = setTimeout(() => { ... }, 30_000);
+
+// AFTER — replace with:
+this._resumeFlushDispose = getFrameScheduler().scheduleOnce(
+    'batch-coordinator-resume-flush',
+    () => {
+        this._resumeFlushDispose = null;
+        try { window.__wallRebuildControl?.resumeAndFlush?.(); }
+        catch (e) { console.warn('[BatchCoordinator] §BATCH-WALL-PAUSE: resumeAndFlush failed:', e); }
+        try { window.__curtainWallRebuildControl?.resumeAndFlush?.(); }
+        catch (e) { console.warn('[BatchCoordinator] §BATCH-CW-PAUSE: curtainWall resumeAndFlush failed:', e); }
+        try { window.__slabRebuildControl?.resumeAndFlush?.(); }
+        catch (e) { console.warn('[BatchCoordinator] §BATCH-SLAB-PAUSE: slab resumeAndFlush failed:', e); }
+        // Watchdog starts HERE — after drain actually begins
+        this._watchdogTimer = setTimeout(() => {
+            if (!this._isBatching) return;
+            console.error('[BatchCoordinator] WATCHDOG: signalBuildQueueDrained() not called within 30s');
+            this.signalBuildQueueDrained();
+        }, 30_000);
+    },
+    'pre-render',
+);
+```
+
+**Step 3.3** — In `forceReset()`, add cancellation and synchronous cleanup before the existing step 2:
+
+```typescript
+// Cancel deferred resume if it has not fired yet
+if (this._resumeFlushDispose !== null) {
+    try { this._resumeFlushDispose(); } catch { /* ignore */ }
+    this._resumeFlushDispose = null;
+    // Execute synchronously as cleanup — mirrors existing forceReset() resumeAndFlush calls
+    try { window.__wallRebuildControl?.resumeAndFlush?.(); } catch { /* best effort */ }
+    try { window.__curtainWallRebuildControl?.resumeAndFlush?.(); } catch { /* best effort */ }
+    try { window.__slabRebuildControl?.resumeAndFlush?.(); } catch { /* best effort */ }
+}
+```
+
+**Step 3.4** — In the `runBatch()` error catch block, also cancel the deferred resume if it somehow got scheduled before the error:
+
+```typescript
+catch (err) {
+    if (this._resumeFlushDispose !== null) {
+        try { this._resumeFlushDispose(); } catch { /* ignore */ }
+        this._resumeFlushDispose = null;
+    }
+    if (this._watchdogTimer !== null) { clearTimeout(this._watchdogTimer); this._watchdogTimer = null; }
+    try { window.__wallRebuildControl?.resumeAndFlush?.(); } catch { /* best effort */ }
+    try { window.__curtainWallRebuildControl?.resumeAndFlush?.(); } catch { /* best effort */ }
+    try { window.__slabRebuildControl?.resumeAndFlush?.(); } catch { /* best effort */ }
+    storeEventBus.endBatch();
+    // ... rest of existing catch block ...
+}
+```
+
+---
+
+### Task 4 — Defer PBR Upgrade to Idle Time
+
+In `initScene.ts`, find the `batchCoordinator.setPostBatchCallback(() => { ... })` call. The entire callback body currently runs synchronously after `endBatchYielded()` completes.
+
+Wrap it:
+
+```typescript
+batchCoordinator.setPostBatchCallback(() => {
+    const _runPBRUpgrade = () => {
+        getFrameScheduler().scheduleOnce('p1.3-post-batch-pbr', () => {
+            // ... existing scene traversal and chunk loop unchanged ...
+        }, 'post-render');
+    };
+
+    if (typeof requestIdleCallback !== 'undefined') {
+        requestIdleCallback(_runPBRUpgrade, { timeout: 5000 });
+    } else {
+        setTimeout(_runPBRUpgrade, 100);
+    }
+});
+```
+
+The existing chunk loop inside the callback is unchanged — it still slices 120 meshes per frame via nested `scheduleOnce` calls. Only the start of that work is deferred to idle time.
+
+---
+
+## 6. Invariants That Must Not Break
+
+These are checked at review time. Each one must be verified by the implementor before submitting:
+
+| Invariant | How to verify |
+|---|---|
+| Undo removes all walls | Create 20 slabs, run command, undo, confirm zero curtain walls in scene and store |
+| Redo recreates same walls with same IDs | After undo, redo, confirm `createdIdsBySlabId` map matches pre-undo state |
+| No double-registration | After redo, check `bimManager.getElementLevel(id)` returns same level for all wall IDs |
+| `isBatching` gate unchanged | `batchCoordinator.isBatching` is true during `_processSlabs()` and false after `onComplete` |
+| `signalBuildQueueDrained()` still called | CurtainWallBuilder drain still empties and calls signal — do not touch builder |
+| `forceReset()` safe during deferred resume | Call `window.batchCoordinator.forceReset()` from console 50ms after a batch starts, confirm no stuck state and next project loads correctly |
+| Bus dispatch fires | `curtain-wall.batch.create` appears in console after command completes |
+| Plan view updates | After batch, 2D plan view shows curtain wall lines correctly |
+| Rooms detect correctly | After batch, `[RoomDetectionEngine] Detected N room(s)` appears for each affected level |
+
+---
+
+## 7. Testing Protocol
+
+### Manual Tests (required before merge)
+
+**Test A — Smoke test (6 slabs)**
+1. Open a project with 6 slabs, one per level
+2. Run Create Curtain Walls on All Slabs
+3. Confirm walls appear in 3D and plan view
+4. Undo → confirm walls removed
+5. Redo → confirm walls reappear
+
+**Test B — Performance test (20+ slabs)**
+1. Open or create a project with 20 slabs
+2. Open DevTools Performance tab, begin recording
+3. Run Create Curtain Walls on All Slabs
+4. Stop recording
+5. Confirm no single LONGTASK exceeds 200ms
+6. Confirm total wall-clock time from command start to loading overlay dismiss is under 1,000ms
+
+**Test C — Project switch safety**
+1. Begin a 20-slab batch
+2. Within 200ms, open browser console and run `window.batchCoordinator.forceReset()`
+3. Navigate to a different project
+4. Confirm new project loads without stuck batch state
+5. Run a fresh batch in the new project — confirm it completes normally
+
+**Test D — Redo after undo**
+1. 20-slab batch → complete
+2. Undo
+3. Redo
+4. Confirm same wall count, same IDs, no duplicates, correct geometry
+
+**Test E — Error resilience**
+1. Temporarily add `throw new Error('test')` at the start of `_processSlabs()`
+2. Run the command
+3. Confirm catch block fires, no curtain walls in scene, `isBatching` is false, bus is clean
+4. Remove the throw, run again — confirm normal operation
+
+### Automated Tests (if test suite exists)
+
+Check for existing unit tests for `BatchCoordinator`, `CreateCurtainWallsOnAllSlabsCommand`, and the CurtainWall store. Run them after each task. Add tests for:
+
+- `addMany()` inserts all items and fires exactly one notification
+- `runBatch()` deferred `resumeAndFlush()` fires on the next pre-render frame
+- `forceReset()` cancels deferred `resumeAndFlush()` when called before it fires
+
+---
+
+## 8. Rollback Plan
+
+If any task causes regressions, each can be reverted independently:
+
+- **Task 1 rollback:** Revert `addMany()` addition and restore `curtainWallStore.add(cwData)` inside the loop in `_processSlabs()`. No other files affected.
+- **Task 2 rollback:** Remove the `_prewarmCurtainWallShaders()` call from `execute()` and delete the method. No other files affected.
+- **Task 3 rollback:** Restore the three synchronous `resumeAndFlush()` calls and the original watchdog setup in `runBatch()`. Remove `_resumeFlushDispose` field and its references in `forceReset()` and the catch block.
+- **Task 4 rollback:** Remove the `requestIdleCallback` wrapper from `setPostBatchCallback`, restoring the direct `getFrameScheduler().scheduleOnce(...)` call.
+
+---
+
+## 9. Future Work (Not In This Sprint)
+
+These are known additional performance wins that were identified but are out of scope for the under-1-second target:
+
+**Panel GPU instancing via `InstancedElementRenderer`**  
+Create a `CurtainPanelInstanceBridge` mirroring `WallInstanceBridge`. All rectangular curtain wall panels share the same `PlaneGeometry` — instancing reduces draw calls from ~2,400 to ~6 per frame. Does not affect batch creation time but dramatically improves frame rate after the batch. Estimated effort: one week.
+
+**`addMany()` for WallStore and SlabStore**  
+The same O(n²) cascade exists in `CreateWallsOnAllSlabsCommand` and `CreateSlabsOnAllFloorsCommand`. After Task 1 proves the pattern for curtain walls, apply the same fix to those stores. Lower priority because wall and slab batches are smaller in practice.
+
+**Spatial index pre-building**  
+`TopologySpatialIndex` rebuilds on every store event. A bulk insert path that defers index rebuild to once per batch (rather than once per wall) would save 100–200ms on large batches. Requires adding an `indexMany()` method to `TopologySpatialIndex`.
+
+---
+
+## 10. Session Handoff Checklist
+
+If this work is interrupted and resumed in a new session, use this checklist to get back up to speed quickly:
+
+- [ ] Read Section 2 (Root Cause Analysis) to understand WHY each change is needed
+- [ ] Read Section 5 (Detailed Implementation Specification) for the exact code changes
+- [ ] Check which tasks are complete by looking for the Modification Declaration comment block at the top of each affected file
+- [ ] Run the smoke test (Test A) to confirm the current state is not broken before continuing
+- [ ] Resume from the first incomplete task in order: Task 1 → Task 2 → Task 3 → Task 4
+- [ ] Do not skip tasks — Task 3 depends on Task 1 being complete because the deferred resume needs the store to be stable before flushing
+
+**Key file paths to locate immediately on session resume:**
+- CurtainWall store: search for `class.*CurtainWallStore` or `curtainWallStore` assignment in `initBuilders.ts`
+- Batch command: `src/engine/subsystems/commands/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts`
+- BatchCoordinator: `src/engine/subsystems/core/batch/BatchCoordinator.ts`
+- initScene post-batch callback: search for `setPostBatchCallback` in `src/engine/subsystems/initScene.ts`

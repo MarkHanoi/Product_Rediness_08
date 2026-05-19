@@ -1,0 +1,156 @@
+Prompt for Replit AI
+
+We are debugging why wall height updates do not visually update the wall after changing properties in the Properties Inspector.
+
+Current behavior:
+
+window.wallStore is now correctly defined.
+
+Wall properties appear when selecting a wall.
+
+Changing a property and clicking Save Changes:
+
+The wall does not update visually
+
+The inspector loses the properties afterward
+
+We suspect the issue is in the Command → Store → Builder pipeline.
+
+Please perform the following diagnostic checks and fixes carefully without breaking the architecture.
+
+1️⃣ Verify WallStore.update() returns the updated wall
+
+Open:
+
+src/stores/WallStore.ts
+
+Locate:
+
+update(id, patch)
+
+Ensure the function returns the updated wall object, not a boolean.
+
+Correct implementation:
+
+update(id: string, patch: Partial<WallData>): WallData | undefined {
+    const wall = this.walls.get(id);
+    if (!wall) return;
+
+    const updated = {
+        ...wall,
+        ...patch
+    };
+
+    this.walls.set(id, updated);
+
+    return updated;
+}
+
+If the function currently returns true or boolean, fix it.
+
+Commands rely on receiving the updated wall object.
+
+2️⃣ Verify UpdateWallHeightCommand is using CommandContext
+
+Open:
+
+src/commands/walls/UpdateWallHeightCommand.ts
+
+Find this code:
+
+const builder = (window as any).wallFragmentBuilder || (window as any).wallBuilder;
+if (builder) {
+    builder.updateWall(updated);
+}
+
+Replace it with:
+
+const builder = ctx.wallFragmentBuilder;
+
+if (builder?.updateWall) {
+    builder.updateWall(updated);
+}
+
+Commands must not depend on window globals.
+
+3️⃣ Verify wallFragmentBuilder exists in CommandContext
+
+Open:
+
+src/commands/types.ts
+
+Ensure CommandContext includes:
+
+wallFragmentBuilder?: any;
+
+Example:
+
+export interface CommandContext {
+    stores: {
+        wallStore: WallStore;
+    };
+    wallFragmentBuilder?: any;
+}
+4️⃣ Verify the CommandManager provides the builder
+
+Open where CommandManager is created (likely main.ts).
+
+Ensure the context passed to commands includes the builder:
+
+Example:
+
+const commandContext: CommandContext = {
+    stores: {
+        wallStore
+    },
+    wallFragmentBuilder
+};
+5️⃣ Add temporary debugging logs
+
+Inside UpdateWallHeightCommand.execute() add:
+
+console.log("Updating wall:", wallId, "new height:", this.newHeight);
+
+const updated = ctx.stores.wallStore.update(wallId, { height: this.newHeight });
+
+console.log("Updated wall object:", updated);
+
+const builder = ctx.wallFragmentBuilder;
+console.log("Wall builder:", builder);
+
+This will confirm:
+
+Store update works
+
+Builder exists
+
+UpdateWall is triggered
+
+6️⃣ Confirm updateWall() is called
+
+Ensure WallFragmentBuilder.updateWall() actually rebuilds the geometry.
+
+Typical behavior:
+
+delete old mesh
+rebuild fragment
+insert new mesh
+Expected Result
+
+After fix:
+
+1️⃣ Change wall height
+2️⃣ Click Save Changes
+3️⃣ UpdateWallHeightCommand executes
+4️⃣ WallStore.update() returns updated wall
+5️⃣ wallFragmentBuilder.updateWall() rebuilds mesh
+6️⃣ Wall height updates visually
+7️⃣ Inspector properties remain visible
+
+Important Constraint
+
+Do not introduce new global variables like:
+
+window.wallFragmentBuilder
+
+Use CommandContext injection only.

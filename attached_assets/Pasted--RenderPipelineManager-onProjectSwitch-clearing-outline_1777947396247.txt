@@ -1,0 +1,186 @@
+[RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+ClearProjectCommand.ts:59 [ClearProjectCommand] Clearing all project data
+injected.js:37   Removing 0 curtain panels
+injected.js:37   Removing 0 openings
+injected.js:37   Removing 0 walls
+injected.js:37   Removing 0 curtain walls
+injected.js:37   Removing 0 slabs
+injected.js:37   Removing 0 ceilings
+injected.js:37   Removing 0 columns
+injected.js:37   Removing 0 beams
+injected.js:37   Removing 0 stairs
+injected.js:37   Removing 0 roofs
+injected.js:37   Removing 0 furniture items
+injected.js:37   Removing 0 handrails
+injected.js:37   Removing 0 plumbing fixtures
+injected.js:37   Removing 0 rooms
+injected.js:37   Removing 0 room bounding lines
+injected.js:37   Removing 0 grids
+injected.js:37   Removing 1 levels
+injected.js:37 [BimManager] Cannot delete the default Ground level.
+(anonymous) @ injected.js:37
+(anonymous) @ BimKernel.ts:342
+(anonymous) @ ClearProjectCommand.ts:166
+(anonymous) @ ClearProjectCommand.ts:166
+(anonymous) @ ImportProjectCommand.ts:236
+(anonymous) @ ImportProjectCommand.ts:260
+(anonymous) @ CommandManager.ts:129
+(anonymous) @ ProjectLoader.ts:265
+(anonymous) @ ProjectLoader.ts:334
+await in (anonymous)
+(anonymous) @ initPersistence.ts:266
+(anonymous) @ PlatformShell.ts:198
+(anonymous) @ WorkspaceSurface.ts:188
+(anonymous) @ buildPersistence.ts:257
+await in (anonymous)
+(anonymous) @ buildPersistence.ts:266
+(anonymous) @ PlatformRouter.ts:422
+(anonymous) @ PlatformRouter.ts:375
+(anonymous) @ PlatformRouter.ts:289
+(anonymous) @ ProjectHub.ts:1110
+(anonymous) @ ProjectHub.ts:1091
+await in (anonymous)
+(anonymous) @ ProjectHub.ts:1019
+(anonymous) @ ProjectHub.ts:405
+injected.js:37 [ClearProjectCommand] Annotation store cleared
+injected.js:37   Cleared 0 floors
+injected.js:37 [DefaultViewsManager] Created default 3D view (id=vd-sys-3d-1)
+injected.js:37 [DefaultViewsManager] Created default Ground Floor plan view (id=vd-sys-plan-l0)
+injected.js:37 [TemporalGraph] Cleared (project switch).
+injected.js:37 [UnderlayPersistence] Clear skipped — no current project bound
+injected.js:37 [ViewRenderCache] All render targets disposed.
+injected.js:37 [RoomGraphService] All graphs invalidated
+injected.js:37 [ClearProjectCommand] ProjectScopeRegistry cleared 44 scopes: (44) ['visibilityIntentStore', 'viewIntentInstanceStore', 'viewDefinitionStore', 'requirementStore', 'assetCatalogStore', 'hierarchyStore', 'templateStore', 'templateAssignmentStore', 'doorStore', 'windowStore', 'semanticGraphManager', 'decisionRecordStore', 'doorSystemTypeStore', 'windowSystemTypeStore', 'ceilingSystemTypeStore', 'floorSystemTypeStore', 'handrailTypeStore', 'roomBoundingLineStore', 'temporalGraphManager', 'scheduleStore', 'viewTemplateStore', 'wallSystemTypeStore', 'slabSystemTypeStore', 'annotationStore', 'ifcProjectionStore', 'vgGovernanceStore', 'floorPlanUnderlay', 'sheetStore', 'topologySpatialIndex', 'topologyLayer', 'viewRenderCache', 'elementCodeStore', 'roomSpatialIndex', 'semanticIndex', 'visibilityRuleEngine', 'dxfOverlayStore', 'constraintStore', 'annotationVisibilityStore', 'vgInstanceOverrideStore', 'roomGraphService', 'dxfLayerStore', 'phaseFilterStore', 'sceneBoundsCache', 'viewVisibilityMap']
+injected.js:37 [ClearProjectCommand] activeLevelId reset to L0 (project-scoped state cleared).
+injected.js:37 [ProjectIsolation] WallFragmentBuilder disposed — scene cleared of wall geometry.
+injected.js:37 [RoomGraphService] All graphs invalidated
+injected.js:37 [TemporalGraph] Cleared (project switch).
+injected.js:37 [ClearProjectCommand] Clear complete
+injected.js:37 [ImportProjectCommand] Loading 0 levels
+injected.js:37 [ImportProjectCommand] Loading 0 grids
+injected.js:37 [ImportProjectCommand] Loading 0 columns
+injected.js:37 [ImportProjectCommand] Loading 0 walls
+injected.js:37 [ImportProjectCommand] Loading 0 slabs
+injected.js:37 [ImportProjectCommand] Loading 0 stairs
+injected.js:37 [ImportProjectCommand] Loading 0 furniture items
+injected.js:37 [ImportProjectCommand] Loading 0 roofs
+injected.js:37 [ImportProjectCommand] Loading 0 handrails
+injected.js:37 [ImportProjectCommand] Loading 0 plumbing fixtures
+injected.js:37 [ImportProjectCommand] Loading 0 curtain walls
+injected.js:37 [ImportProjectCommand] Loading 0 beams
+injected.js:37 [ProjectLoader] VG Governance state restored from snapshot
+injected.js:37 [ProjectLoader] ViewDefinition store restored from snapshot
+injected.js:37 [ProjectLoader] Visibility rule engine restored from snapshot
+injected.js:37 [VGToIntentMigration] Starting VG → Intent migration…
+injected.js:37 [VGToIntentMigration] Complete — 0 intents, 0 views, 0 overrides migrated.
+injected.js:37 [DefaultViewsManager] Created default 3D view (id=vd-sys-3d-1)
+injected.js:37 [DefaultViewsManager] Created default Ground Floor plan view (id=vd-sys-plan-l0)
+injected.js:37 [ProjectLoader] Sheet store restored from snapshot
+injected.js:37 [ProjectLoader] Schedule store restored from snapshot
+injected.js:37 [ProjectLoader] SemanticGraph cleared (v1/v2 snapshot — no graph data)
+injected.js:37 [TemporalGraph] Cleared (project switch).
+injected.js:37 [ProjectLoader] TemporalGraph cleared (pre-v4 snapshot — no temporal data)
+injected.js:37 [ProjectLoader] DecisionRecordStore cleared (pre-v4 snapshot — no decision data)
+injected.js:37 [IntentStylePrewarmer] Pre-warmed 1224 style slots in 7.20ms
+injected.js:37 [ProjectLoader] RequirementStore cleared (no requirement data in snapshot)
+injected.js:37 [AssetCatalogStore] setDirect(): restored 21 entries
+injected.js:37 [ProjectLoader] AssetCatalogStore seeded from defaults
+injected.js:37 [ProjectLoader] Annotation store cleared (no annotation data in snapshot)
+injected.js:37 [ProjectLoader] AnnotationDependencyGraph rebuilt after restore
+injected.js:37 [ProjectLoader] Load complete: 0 loaded, 0 failed, 0 errors
+injected.js:37 [StoreEventBus] endBatch() — flushed 38 buffered event(s) in emission order (no coalescing — all events delivered).
+injected.js:37 [ProjectLoader] PHASE_TIMINGS total=974.8ms setup=0.0ms hydrate=0.0ms event_flush=0.0ms wall_rebuild_flush=0.0ms redetect_sweep=0.0ms [walls=0 slabs=0 levels=0 curtainWalls=0]
+injected.js:37 [ProjectSerializer] Snapshot created: 0 elements, 1 levels, 0 walls, 0 slabs, 0 furniture
+injected.js:37 [PlatformShell] New project ready — firing pryzm-project-loaded(empty:true)
+injected.js:37 [FrustumCullingService] pryzm-project-loaded(empty) — audit skipped, no geometry
+injected.js:37 [initScene] pryzm-project-loaded — empty project (no geometry)
+injected.js:37 [TemplateStore] Seeded 15 built-in templates
+injected.js:37 [initCollaboration] Project opened — collaboration active for proj-1777947264412-maegb98
+injected.js:37 [EngineBootstrap] pryzm-project-loaded(empty) — skipping zoomToAll, no geometry
+injected.js:37 [ProjectIsolationAudit] ✓ project proj-1777947264412-maegb98 loaded clean — no leftover state
+injected.js:37 [FPS] 6fps
+injected.js:37 [RenderPipelineManager] Outlines activated (selected + hover).
+injected.js:37 [RenderPipelineManager] Phase: phase4 | WebGPU: true | SSGI: true | TRAA: false
+injected.js:37 [RenderPipelineManager] Phase: phase4 | WebGPU: true | SSGI: true | TRAA: false
+injected.js:37 [LONGTASK] duration=242.0ms start=86421.5ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [LONGTASK] duration=152.0ms start=86667.5ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [PlatformCollabPill] Socket connected — joining project room: proj-1777947264412-maegb98
+injected.js:37 [initCollaboration] Socket connected — joining project room: proj-1777947264412-maegb98
+injected.js:37 [initCollaboration] Catch-up: first connect — setting baseline timestamp
+injected.js:37 [FPS] 20fps
+injected.js:37 [SplitViewManager] Canvas2D context ready
+injected.js:37 [SvpPlanToolOverlay] Attached with snap service. viewId: vd-sys-plan-l0
+injected.js:37 [SplitViewManager] Split view activated (Canvas2D plan mode)
+injected.js:37 [initScene] Split view auto-opened on project load (idle)
+injected.js:37 [HomeView] Default viewpoint captured: {x: 49.99999999999997, y: 49.99999999999995, z: 50.00000000000005} {x: -2.842170943040401e-14, y: -4.263256414560601e-14, z: 4.263256414560601e-14}
+injected.js:37 [initDataPlatform] H-1: Physics compute enqueued for all rooms after project load (idle)
+2injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+injected.js:37 [SvpPlanToolOverlay] Detached
+injected.js:37 [SplitViewManager] Split view deactivated
+2injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+injected.js:37 [FPS] 10fps
+injected.js:37 [LONGTASK] duration=53.0ms start=88710.1ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [WallModePicker] setActiveMode → ortho
+injected.js:37 ToolManager: activateTool called for wall
+injected.js:37 ToolManager: deactivating previous tool none
+injected.js:37 ToolManager: executing activateFn for wall
+injected.js:37 WallTool activated with mode: POLYLINE_ORTHO
+injected.js:37 [EngineBootstrap] HDRI load started (lazy — Realistic style first requested)
+injected.js:37 RGBELoader has been deprecated. Please use HDRLoader instead.
+(anonymous) @ injected.js:37
+constructor @ RGBELoader.js:9
+(anonymous) @ engineLauncher.ts:1142
+(anonymous) @ engineLauncher.ts:1141
+(anonymous) @ WallTool.ts:360
+(anonymous) @ ToolManager.ts:580
+(anonymous) @ ToolManager.ts:507
+await in (anonymous)
+(anonymous) @ ToolManager.ts:578
+(anonymous) @ BimService.ts:84
+(anonymous) @ ToolsAreaLayout.ts:222
+(anonymous) @ BottomActionMenu.ts:267
+(anonymous) @ BottomActionMenu.ts:257
+(anonymous) @ BottomActionMenu.ts:200
+(anonymous) @ BottomActionMenu.ts:221
+injected.js:214 Connecting to 'https://thatopen.github.io/engine_fragment/resources/textures/envmaps/san_giuseppe_bridge_2k.hdr' violates the following Content Security Policy directive: "connect-src 'self' data: blob: https://api.cesium.com https://*.supabase.co wss: ws:". The policy is report-only, so the violation has been logged but no further action has been taken.
+injected.js:214 Connecting to 'https://thatopen.github.io/engine_fragment/resources/textures/envmaps/san_giuseppe_bridge_2k.hdr' violates the following Content Security Policy directive: "connect-src 'self' data: blob: https://api.cesium.com https://*.supabase.co wss: ws:". The policy is report-only, so the violation has been logged but no further action has been taken.
+injected.js:37 [LONGTASK] duration=55.0ms start=89148.7ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [FPS] 32fps
+injected.js:37 [LONGTASK] duration=57.0ms start=89501.2ms
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [LONGTASK] duration=72.0ms start=89638.7ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [GPU Monitor] geometries:1 textures:5 | drawCalls:0 tris:0
+injected.js:37 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+injected.js:37 [WallTool] wall.create dispatched to bus (busId: wall_F53A9C80EEF140EEAAFF3255F0 ) — legacy path runs for geometry with id: f53a9c80-eef1-40ee-aaff-3255f05d060d
+injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [CommandManager] snapshot commandType="CreateWallCommand" scope=[wall,level] elapsed=0.1ms
+injected.js:37 [BimManager] Registered element f53a9c80-eef1-40ee-aaff-3255f05d060d to level L0
+injected.js:37 Wall created via command: f53a9c80-eef1-40ee-aaff-3255f05d060d
+injected.js:37 [LONGTASK] duration=52.0ms start=90521.4ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [LONGTASK] duration=79.0ms start=90579.4ms [type=iframe src=https://d39a0674-5385-4a4d-a9ba-9dbd0afd7335-00-bq94k490w0gl.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95
+injected.js:37 [PascalSceneLighting] Shadow flags set on 39 mesh(es).
+injected.js:37 [FPS] 7fps
+injected.js:37 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+injected.js:37 [WallTool] wall.create dispatched to bus (busId: wall_B5F57E09BEA7481B98EB06C779 ) — legacy path runs for geometry with id: b5f57e09-bea7-481b-98eb-06c7791d91d2
+injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [CommandManager] snapshot commandType="CreateWallCommand" scope=[wall,level] elapsed=0.1ms
+injected.js:37 [BimManager] Registered element b5f57e09-bea7-481b-98eb-06c7791d91d2 to level L0
+injected.js:37 Wall created via command: b5f57e09-bea7-481b-98eb-06c7791d91d2
+injected.js:37 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0

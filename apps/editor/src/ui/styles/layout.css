@@ -1,0 +1,249 @@
+/**
+ * PRYZM 3 — responsive layout breakpoints (Wave A20-T31)
+ *
+ * Tablet layout: 768–1024px — sidebar collapses to icon-only mode,
+ * toolbar compresses, properties panel moves to a sheet/drawer.
+ *
+ * CONTRACT (C07 §7 — mobile/PWA): G11 gap closure.
+ * Spec: Wave A20-T31 ("Tablet layout responsive breakpoint").
+ *
+ * Import this file from the shell layout component:
+ *   import '/ui/styles/layout.css';
+ * Or from the root CSS entry point.
+ */
+
+/* ── CSS custom properties — layout dimensions ───────────────────────────── */
+:root {
+  --pryzm-sidebar-width: 240px;
+  --pryzm-sidebar-icon-width: 52px;
+  --pryzm-toolbar-height: 48px;
+  --pryzm-toolbar-compact-height: 40px;
+  --pryzm-properties-width: 280px;
+  --pryzm-bottom-bar-height: 32px;
+  --pryzm-transition: 200ms ease;
+}
+
+/* ── Base layout (desktop, >1024px) ─────────────────────────────────────── */
+.pryzm-shell {
+  display: grid;
+  grid-template-columns: var(--pryzm-sidebar-width) 1fr var(--pryzm-properties-width);
+  grid-template-rows: var(--pryzm-toolbar-height) 1fr var(--pryzm-bottom-bar-height);
+  height: 100dvh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+.pryzm-toolbar {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  height: var(--pryzm-toolbar-height);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  background: var(--color-surface-1, #1a2332);
+  border-bottom: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
+  overflow: hidden;
+}
+
+.pryzm-sidebar {
+  grid-column: 1;
+  grid-row: 2;
+  width: var(--pryzm-sidebar-width);
+  overflow: hidden;
+  background: var(--color-surface-2, #151e2d);
+  border-right: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
+  display: flex;
+  flex-direction: column;
+  transition: width var(--pryzm-transition);
+}
+
+.pryzm-viewport {
+  grid-column: 2;
+  grid-row: 2;
+  position: relative;
+  overflow: hidden;
+  background: #0a0f1a;
+}
+
+.pryzm-properties {
+  grid-column: 3;
+  grid-row: 2;
+  width: var(--pryzm-properties-width);
+  overflow-y: auto;
+  background: var(--color-surface-2, #151e2d);
+  border-left: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
+  transition: transform var(--pryzm-transition), width var(--pryzm-transition);
+}
+
+.pryzm-status-bar {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  height: var(--pryzm-bottom-bar-height);
+  background: var(--color-surface-1, #1a2332);
+  border-top: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  font-size: 11px;
+  color: var(--color-text-muted, rgba(255, 255, 255, 0.5));
+  overflow: hidden;
+}
+
+/* ── Tablet breakpoint: 768px – 1024px ──────────────────────────────────── */
+@media (max-width: 1024px) and (min-width: 768px) {
+  :root {
+    --pryzm-sidebar-width: var(--pryzm-sidebar-icon-width);
+    --pryzm-toolbar-height: var(--pryzm-toolbar-compact-height);
+  }
+
+  .pryzm-shell {
+    grid-template-columns: var(--pryzm-sidebar-icon-width) 1fr;
+  }
+
+  /* On tablet, sidebar collapses to icon-only strip */
+  .pryzm-sidebar {
+    width: var(--pryzm-sidebar-icon-width);
+    align-items: center;
+    padding: 0;
+  }
+
+  /* Labels inside sidebar items are hidden on tablet */
+  .pryzm-sidebar .sidebar-label,
+  .pryzm-sidebar .sidebar-section-title {
+    display: none;
+  }
+
+  .pryzm-sidebar .sidebar-icon {
+    width: var(--pryzm-sidebar-icon-width);
+    display: flex;
+    justify-content: center;
+  }
+
+  /* Properties panel slides in as a drawer on tablet */
+  .pryzm-properties {
+    position: fixed;
+    right: 0;
+    top: var(--pryzm-toolbar-compact-height);
+    bottom: var(--pryzm-bottom-bar-height);
+    z-index: 100;
+    transform: translateX(100%);
+    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.4);
+    border-left: 1px solid var(--color-border, rgba(255, 255, 255, 0.12));
+  }
+
+  /* Add data-properties-open="true" to .pryzm-shell to slide in the drawer */
+  .pryzm-shell[data-properties-open="true"] .pryzm-properties {
+    transform: translateX(0);
+  }
+
+  /* Toolbar compresses on tablet */
+  .pryzm-toolbar {
+    padding: 0 4px;
+    gap: 2px;
+  }
+
+  .pryzm-toolbar .toolbar-label {
+    display: none;
+  }
+
+  /* Viewport takes full remaining width */
+  .pryzm-viewport {
+    grid-column: 2;
+  }
+
+  /* Touch-friendly hit targets on tablet */
+  .toolbar-btn,
+  .sidebar-item {
+    min-width: 40px;
+    min-height: 40px;
+  }
+}
+
+/* ── Mobile breakpoint: < 768px ─────────────────────────────────────────── */
+@media (max-width: 767px) {
+  :root {
+    --pryzm-toolbar-height: var(--pryzm-toolbar-compact-height);
+  }
+
+  .pryzm-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: var(--pryzm-toolbar-compact-height) 1fr var(--pryzm-bottom-bar-height);
+  }
+
+  /* Sidebar is a bottom sheet on mobile */
+  .pryzm-sidebar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: var(--pryzm-bottom-bar-height);
+    top: auto;
+    width: 100%;
+    height: 64px;
+    flex-direction: row;
+    border-right: none;
+    border-top: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
+    z-index: 50;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .pryzm-sidebar .sidebar-label {
+    font-size: 10px;
+  }
+
+  /* Viewport fills the space */
+  .pryzm-viewport {
+    grid-column: 1;
+    grid-row: 2;
+    padding-bottom: 64px; /* room for mobile sidebar strip */
+  }
+
+  /* Properties slide up as a bottom sheet on mobile */
+  .pryzm-properties {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 200;
+    width: 100%;
+    max-height: 60dvh;
+    overflow-y: auto;
+    transform: translateY(100%);
+    border-left: none;
+    border-top: 1px solid var(--color-border, rgba(255, 255, 255, 0.12));
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.5);
+  }
+
+  .pryzm-shell[data-properties-open="true"] .pryzm-properties {
+    transform: translateY(0);
+  }
+
+  /* Touch-friendly hit targets on mobile */
+  .toolbar-btn,
+  .sidebar-item {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* ── Reduced motion ──────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --pryzm-transition: 0ms;
+  }
+}
+
+/* ── Touch device optimizations ─────────────────────────────────────────── */
+@media (hover: none) and (pointer: coarse) {
+  /* Disable hover-only tooltips on touch devices */
+  [data-tooltip]:hover::after {
+    display: none;
+  }
+
+  /* Larger hit targets */
+  .toolbar-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}

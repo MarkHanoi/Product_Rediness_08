@@ -1,0 +1,42 @@
+{
+  "id": "F01.rect-2x2-standard",
+  "description": "2×2 standard-thickness slab",
+  "slab": {
+    "id": "slab:01HZS000000000000SLBF0100",
+    "type": "slab",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "boundary": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 2,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 2,
+        "y": 0,
+        "z": 2
+      },
+      {
+        "x": 0,
+        "y": 0,
+        "z": 2
+      }
+    ],
+    "holes": [],
+    "thickness": 0.2,
+    "baseOffset": 0
+  },
+  "worldY": 0
+}

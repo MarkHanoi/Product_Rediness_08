@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Document body -->
+  <rect x="19" y="8" width="58" height="72" rx="10" stroke="#1C1B3C" stroke-width="5"/>
+  <!-- Text line 1 (short, centred) -->
+  <line x1="31" y1="33" x2="53" y2="33" stroke="#9CA3AF" stroke-width="4" stroke-linecap="round"/>
+  <!-- Text line 2 (full width) -->
+  <line x1="31" y1="49" x2="69" y2="49" stroke="#9CA3AF" stroke-width="4" stroke-linecap="round"/>
+  <!-- Text line 3 (full width) -->
+  <line x1="31" y1="64" x2="69" y2="64" stroke="#9CA3AF" stroke-width="4" stroke-linecap="round"/>
+  <!-- Bottom-left corner bracket -->
+  <path d="M22 92 L13 92 L13 83" stroke="#1C1B3C" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Bottom-right corner bracket -->
+  <path d="M78 92 L87 92 L87 83" stroke="#1C1B3C" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

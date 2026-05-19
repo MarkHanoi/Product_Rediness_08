@@ -1,0 +1,25 @@
+{
+  "name": "@pryzm/email-transport",
+  "version": "0.1.0",
+  "description": "PRYZM 2 — transactional email transport (S48 D1). Public surface is `getEmailTransport(): Promise<EmailTransport>` — the impl is loaded via dynamic `import('./EmailTransport.impl.js')` so SMTP libs never ship in the editor's first-paint chunk. Mirrors the [strategic ADR-014] lazy pattern from @pryzm/ai-host. Real SMTP/Resend/Postmark adapter binds at S48 D9 launch when SMTP_URL is provisioned.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/types.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

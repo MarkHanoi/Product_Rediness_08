@@ -1,0 +1,273 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`computePocheFills — snapshots > fixture 1: single straight wall, no openings 1`] = `
+[
+  {
+    "elementId": "wall_00000000000000000000000011",
+    "hatchAngle": 0,
+    "polygon": [
+      {
+        "x": 0,
+        "y": 0.125,
+      },
+      {
+        "x": 5,
+        "y": 0.125,
+      },
+      {
+        "x": 5,
+        "y": -0.125,
+      },
+      {
+        "x": 0,
+        "y": -0.125,
+      },
+    ],
+  },
+]
+`;
+
+exports[`computePocheFills — snapshots > fixture 2: wall with door opening at mid-span 1`] = `
+[
+  {
+    "elementId": "wall_00000000000000000000000012",
+    "hatchAngle": 0,
+    "polygon": [
+      {
+        "x": 0,
+        "y": 0.125,
+      },
+      {
+        "x": 2,
+        "y": 0.125,
+      },
+      {
+        "x": 2,
+        "y": -0.125,
+      },
+      {
+        "x": 0,
+        "y": -0.125,
+      },
+    ],
+  },
+  {
+    "elementId": "wall_00000000000000000000000012",
+    "hatchAngle": 0,
+    "polygon": [
+      {
+        "x": 2.9,
+        "y": 0.125,
+      },
+      {
+        "x": 5,
+        "y": 0.125,
+      },
+      {
+        "x": 5,
+        "y": -0.125,
+      },
+      {
+        "x": 2.9,
+        "y": -0.125,
+      },
+    ],
+  },
+]
+`;
+
+exports[`computePocheFills — snapshots > fixture 3: diagonal wall at 45° — hatch angle test 1`] = `
+[
+  {
+    "elementId": "wall_00000000000000000000000013",
+    "hatchAngle": 45,
+    "polygon": [
+      {
+        "x": -0.07071067811865475,
+        "y": 0.07071067811865475,
+      },
+      {
+        "x": 3.9292893218813454,
+        "y": 4.070710678118655,
+      },
+      {
+        "x": 4.070710678118655,
+        "y": 3.9292893218813454,
+      },
+      {
+        "x": 0.07071067811865475,
+        "y": -0.07071067811865475,
+      },
+    ],
+  },
+]
+`;
+
+exports[`computePocheFills — snapshots > fixture 4: two walls with one shared door (only one wall has the door) 1`] = `
+[
+  {
+    "elementId": "wall_00000000000000000000000014",
+    "hatchAngle": 0,
+    "polygon": [
+      {
+        "x": 0,
+        "y": 0.1,
+      },
+      {
+        "x": 1.5,
+        "y": 0.1,
+      },
+      {
+        "x": 1.5,
+        "y": -0.1,
+      },
+      {
+        "x": 0,
+        "y": -0.1,
+      },
+    ],
+  },
+  {
+    "elementId": "wall_00000000000000000000000014",
+    "hatchAngle": 0,
+    "polygon": [
+      {
+        "x": 2.4,
+        "y": 0.1,
+      },
+      {
+        "x": 4,
+        "y": 0.1,
+      },
+      {
+        "x": 4,
+        "y": -0.1,
+      },
+      {
+        "x": 2.4,
+        "y": -0.1,
+      },
+    ],
+  },
+  {
+    "elementId": "wall_00000000000000000000000015",
+    "hatchAngle": 90,
+    "polygon": [
+      {
+        "x": 3.9,
+        "y": 0,
+      },
+      {
+        "x": 3.9,
+        "y": 4,
+      },
+      {
+        "x": 4.1,
+        "y": 4,
+      },
+      {
+        "x": 4.1,
+        "y": 0,
+      },
+    ],
+  },
+]
+`;
+
+exports[`computePocheFills — snapshots > fixture 5: custom cut height (2.0m) — window at sill 1.5m is intersected 1`] = `
+[
+  {
+    "elementId": "wall_00000000000000000000000016",
+    "hatchAngle": 0,
+    "polygon": [
+      {
+        "x": 0,
+        "y": 0.1,
+      },
+      {
+        "x": 1,
+        "y": 0.1,
+      },
+      {
+        "x": 1,
+        "y": -0.1,
+      },
+      {
+        "x": 0,
+        "y": -0.1,
+      },
+    ],
+  },
+  {
+    "elementId": "wall_00000000000000000000000016",
+    "hatchAngle": 0,
+    "polygon": [
+      {
+        "x": 2.2,
+        "y": 0.1,
+      },
+      {
+        "x": 4,
+        "y": 0.1,
+      },
+      {
+        "x": 4,
+        "y": -0.1,
+      },
+      {
+        "x": 2.2,
+        "y": -0.1,
+      },
+    ],
+  },
+]
+`;
+
+exports[`computePocheFills — snapshots > fixture 6: wall with inline opening in openings array 1`] = `
+[
+  {
+    "elementId": "wall_00000000000000000000000017",
+    "hatchAngle": 0,
+    "polygon": [
+      {
+        "x": 0,
+        "y": 0.15,
+      },
+      {
+        "x": 2.5,
+        "y": 0.15,
+      },
+      {
+        "x": 2.5,
+        "y": -0.15,
+      },
+      {
+        "x": 0,
+        "y": -0.15,
+      },
+    ],
+  },
+  {
+    "elementId": "wall_00000000000000000000000017",
+    "hatchAngle": 0,
+    "polygon": [
+      {
+        "x": 3.5,
+        "y": 0.15,
+      },
+      {
+        "x": 6,
+        "y": 0.15,
+      },
+      {
+        "x": 6,
+        "y": -0.15,
+      },
+      {
+        "x": 3.5,
+        "y": -0.15,
+      },
+    ],
+  },
+]
+`;

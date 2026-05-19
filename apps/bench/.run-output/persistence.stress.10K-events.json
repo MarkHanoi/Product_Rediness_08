@@ -1,0 +1,10 @@
+{
+  "name": "persistence.stress.10K-events",
+  "samples": 5,
+  "p50": 79.717,
+  "p95": 151.673,
+  "p99": 151.673,
+  "budgetMs": 2000,
+  "warnMs": 1500,
+  "recordedAt": "2026-05-09T23:09:16.487Z"
+}

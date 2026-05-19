@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-04-30T11:44:22.000Z",
+  "spec": "docs/00_NEW_ARCHITECTURE/phases/audits/PRYZM2-WIREUP-PLAN-S72/14-subphases-A-D.md §16.3 (Phase C — persistence rewire)",
+  "rationale": "Captures the count of `(window as any)` casts at the start of Phase C so the rewire's progress is auditable. Every sub-phase that rewires a panel through `runtime.persistence.*` is expected to drop the count; `scripts/track-window-cast-count.mjs` fails the build if the count rises above this baseline.",
+  "globs": ["**/*.ts", "**/*.tsx"],
+  "pattern": "(window as any)",
+  "totals": {
+    "occurrences": 1343,
+    "files": 255
+  },
+  "notes": [
+    "Excludes node_modules, dist, .git (default ripgrep behaviour).",
+    "Phase D (sync + workspace rewire) and Phase E (AI + plugin rewire) will continue to drop this number; the baseline file is updated only when a phase completes (per S70 ratchet pattern).",
+    "Wave 5 (2026-04-30): Eliminated all 777 `(window as any)` casts from src/ui/ (96 files). Created src/types/global-window.d.ts with 157 typed Window properties. Remaining 1,343 casts are in src/engine/, src/tools/, src/rendering/, and other engine-layer subsystems — scheduled for Wave 6/7 subsystem sweeps."
+  ]
+}

@@ -1,0 +1,456 @@
+[EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#9 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.10ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#10 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.10ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#11 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.10ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#12 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.10ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#13 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.00ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#14 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.00ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#15 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.00ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#16 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.10ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#17 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.10ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#18 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.10ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#19 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.00ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#20 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.00ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#21 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.10ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#22 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.10ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#23 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.00ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#24 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.00ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#25 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.10ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#26 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.00ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#27 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.10ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#28 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.00ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#29 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.00ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#30 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.00ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#31 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.00ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#32 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.10ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#33 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.10ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#34 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.00ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#35 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.10ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#36 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.10ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#37 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.10ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#38 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.00ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#39 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.10ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#40 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.00ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#41 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.00ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#42 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.00ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#43 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.10ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#44 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.00ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#45 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.00ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#46 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.10ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#47 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.10ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#48 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.10ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#49 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.00ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#50 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.00ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#51 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.00ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#52 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.00ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#53 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.00ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#54 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.00ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#55 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.00ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#56 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.00ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#57 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.10ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#58 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.10ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#59 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.00ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#60 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.00ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#61 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.00ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#62 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.10ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-01 edgesGeo group=40 mesh#63 elemType=CurtainWallPart faceCount=12 edgeVertices=24 allocMs=0.10ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#40 elemId=ab9d4c58-86fd-4d54-978d-61d3d13f5d12 elemType=CurtainWall meshesProcessed=64 totalEdgeVerts=1536 layers=1 traverseMs=9.5ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=projection-visible geoCount=64 mergedVerts=1536 mergeMs=0.0ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-04 toDrawingSpace layer=projection-visible:proj inVerts=1536 outVerts=1536 tdsMs=0.0ms
+injected.js:37 [FPS] 10fps
+injected.js:37 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 41 group(s) in 41 chunk(s), 1367 edge geometries across 41 ISO layer(s) (per-element UUID tagging active)
+injected.js:37 [EdgeProjectorService] §PERF-CACHE-STATS batchId=d60f22cb viewId=L-01-1778820363000-1 groups=41 cwGroups=0 cacheHits=0 cacheMisses=0 hitRate=n/a% cacheElements=0 cacheEntries=0/5000
+injected.js:37 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-01-1778820363000-1 gen=4 (OBC-IFC=0, native=41, ifc-scene=0)
+injected.js:37 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-01-1778820363000-1 modelId=model-default applied=7/14 layers
+injected.js:37 [LONGTASK] duration=105.0ms start=1728157.3ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=98.0ms start=1728268.8ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=86.0ms start=1728368.8ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=86.0ms start=1728456.4ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=87.0ms start=1728543.7ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=93.0ms start=1728632.1ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=92.0ms start=1728726.3ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=92.0ms start=1728818.9ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=90.0ms start=1728912.4ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=95.0ms start=1729003.9ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=91.0ms start=1729100.4ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=93.0ms start=1729192.1ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [FPS] 11fps
+injected.js:37 [LONGTASK] duration=92.0ms start=1729285.9ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=99.0ms start=1729379.2ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=92.0ms start=1729479.7ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=87.0ms start=1729572.8ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=87.0ms start=1729661.5ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=84.0ms start=1729748.8ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=84.0ms start=1729860.0ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [FPS] 7fps
+injected.js:37 [PickResolver] strategy=gpu-pick hit=316f8b87-4f46-4428-93d8-66d8915ef480
+injected.js:37 [LevelPlaneConstraint] Locked Y=26.8000 for element "Slab" id="316f8b87-4f46-4428-93d8-66d8915ef480"
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [FPS] 3fps
+injected.js:37 [LONGTASK] duration=84.0ms start=1731363.3ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=97.0ms start=1731447.9ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=91.0ms start=1731546.8ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=89.0ms start=1731638.0ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=837.0ms start=1731728.1ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [PickResolver] strategy=gpu-pick hit=316f8b87-4f46-4428-93d8-66d8915ef480
+injected.js:37 [LONGTASK] duration=92.0ms start=1732598.9ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=90.0ms start=1732692.5ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=368.0ms start=1732814.5ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=198.0ms start=1733183.2ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=95.0ms start=1733429.0ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [FPS] 5fps
+injected.js:37 [LONGTASK] duration=96.0ms start=1733528.8ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=91.0ms start=1733626.7ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [PickResolver] strategy=gpu-pick hit=30277d13-2e57-44c3-a631-85a3c6cfde63
+injected.js:37 [LevelPlaneConstraint] Locked Y=0.0000 for element "wall" id="30277d13-2e57-44c3-a631-85a3c6cfde63"
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [WallTransform] Wall "30277d13-2e57-44c3-a631-85a3c6cfde63" — gizmo aligned with direction Vector3 {x: 1, y: 0, z: 0}
+injected.js:37 [LONGTASK] duration=92.0ms start=1733719.0ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=86.0ms start=1733812.2ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=89.0ms start=1733899.4ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=83.0ms start=1733989.6ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=64.0ms start=1734073.1ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=314.0ms start=1734138.1ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [FPS] 8fps
+injected.js:37 [LONGTASK] duration=97.0ms start=1734480.1ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=104.0ms start=1734610.7ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=191.0ms start=1734715.5ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=90.0ms start=1734909.6ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=92.0ms start=1735001.4ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=98.0ms start=1735095.6ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=138.0ms start=1735195.1ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=164.0ms start=1735338.6ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=155.0ms start=1735505.3ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [GPU Monitor] geometries:4431 textures:10 | drawCalls:1 tris:1
+injected.js:37 [GPU Monitor] ⚠ Geometry count grew 6321.7% (69 → 4431) in 10s — possible leak. Check WallFragmentBuilder.removeWallFragments() and CurtainWallBuilder._disposeChildren().
+(anonymous) @ injected.js:37
+(anonymous) @ initScene.ts:2365Understand this warning
+injected.js:37 [FPS] 8fps
+injected.js:37 [LONGTASK] duration=133.0ms start=1735661.6ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=125.0ms start=1735796.0ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=116.0ms start=1735922.4ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=116.0ms start=1736039.8ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=123.0ms start=1736157.1ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=126.0ms start=1736281.5ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=115.0ms start=1736409.1ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=116.0ms start=1736525.4ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=114.0ms start=1736643.5ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [FPS] 9fps
+injected.js:37 [PickResolver] strategy=gpu-pick hit=b150a76e-ca37-47c1-9551-a3cdf11498cc
+injected.js:37 [LevelPlaneConstraint] Locked Y=20.8000 for element "Slab" id="b150a76e-ca37-47c1-9551-a3cdf11498cc"
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [LONGTASK] duration=107.0ms start=1736759.5ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=94.0ms start=1736867.3ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=66.0ms start=1736961.5ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=314.0ms start=1737028.4ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=118.0ms start=1737372.0ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=120.0ms start=1737526.5ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=201.0ms start=1737646.6ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=99.0ms start=1737849.5ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [FPS] 5fps
+2injected.js:37 [PickResolver] strategy=gpu-pick hit=b150a76e-ca37-47c1-9551-a3cdf11498cc
+injected.js:37 [LONGTASK] duration=100.0ms start=1737951.0ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=149.0ms start=1738052.3ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=95.0ms start=1738203.3ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=146.0ms start=1738299.5ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=95.0ms start=1738450.3ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=98.0ms start=1738546.8ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=97.0ms start=1738645.4ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=94.0ms start=1738743.9ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=94.0ms start=1738839.1ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=96.0ms start=1738934.6ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [FPS] 10fps
+injected.js:37 [LONGTASK] duration=96.0ms start=1739032.1ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=100.0ms start=1739129.0ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=98.0ms start=1739230.2ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=103.0ms start=1739329.1ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=107.0ms start=1739433.6ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=95.0ms start=1739541.9ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=100.0ms start=1739637.6ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=96.0ms start=1739739.2ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=100.0ms start=1739836.5ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=95.0ms start=1739937.5ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [FPS] 10fps
+injected.js:37 [CurtainWallBuilder] §K1-SHADOW-SLICE walls 0–49 (50 walls, 1714 meshes enabled). sliceMs=0.6ms T=1740134ms
+injected.js:37 [CurtainWallBuilder] §K1-SHADOW-SLICE walls 50–99 (50 walls, 1708 meshes enabled). sliceMs=0.3ms T=1742376ms
+injected.js:37 [FPS] 1fps
+injected.js:37 [LONGTASK] duration=98.0ms start=1740034.0ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=2243.0ms start=1740134.6ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [CurtainWallBuilder] §K1-SHADOW-SLICE walls 100–142 (43 walls, 1440 meshes enabled). sliceMs=0.2ms T=1744991ms
+injected.js:37 [CurtainWallBuilder] §K1-SHADOW-COMPLETE 143 walls reactivated. totalMs=34988.8ms (0 LONGTASKs expected — §K.2 PSOs pre-warmed).
+injected.js:37 [FPS] 1fps
+injected.js:37 [LONGTASK] duration=2254.0ms start=1742737.8ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [GPU Monitor] geometries:4842 textures:10 | drawCalls:311 tris:35015
+injected.js:37 [FPS] 1fps
+injected.js:37 [LONGTASK] duration=2406.0ms start=1746464.8ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [FPS] 1fps
+injected.js:37 [LONGTASK] duration=185.0ms start=1751858.8ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [GPU Monitor] geometries:4842 textures:10 | drawCalls:311 tris:35015
+injected.js:37 [FPS] 1fps
+injected.js:37 [LONGTASK] duration=584.0ms start=1756142.6ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=229.0ms start=1756727.9ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+injected.js:37 [LONGTASK] duration=102.0ms start=1756958.1ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=76.0ms start=1757066.0ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=154.0ms start=1757143.6ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=102.0ms start=1757304.0ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=103.0ms start=1757406.7ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=98.0ms start=1757516.9ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=100.0ms start=1757616.4ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [FPS] 8fps
+injected.js:37 [LONGTASK] duration=95.0ms start=1757722.6ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=94.0ms start=1757818.5ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=103.0ms start=1757918.9ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=123.0ms start=1758022.9ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=106.0ms start=1758152.4ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=96.0ms start=1758259.6ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=91.0ms start=1758362.4ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=93.0ms start=1758454.8ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=95.0ms start=1758554.5ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=90.0ms start=1758650.5ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [FPS] 10fps
+injected.js:37 [LONGTASK] duration=95.0ms start=1758747.3ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=105.0ms start=1758843.7ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=106.0ms start=1758954.8ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=106.0ms start=1759061.7ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=107.0ms start=1759171.8ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=134.0ms start=1759279.8ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=109.0ms start=1759414.8ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=97.0ms start=1759524.5ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [FPS] 9fps
+injected.js:37 [LONGTASK] duration=106.0ms start=1759622.5ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=117.0ms start=1759729.2ms [type=iframe src=https://ae2399d7-fbce-433b-9fa2-ed665aa5eb3b-00-rnylyjzcdouq.janeway.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+5injected.js:37 [GPU Monitor] geometries:4855 textures:10 | drawCalls:1 tris:1

@@ -1,0 +1,10 @@
+{
+  "name": "bcf-roundtrip",
+  "p50": 9.639756999999918,
+  "p95": 27.55143299999986,
+  "samples": 15,
+  "topicCount": 50,
+  "unit": "ms",
+  "nftTarget": 500,
+  "notes": "NFT-11 production bench per 01-VISION.md §5. Measures full writeBCF() → readBCF() round-trip for 50 BCF 3.0 topics. This IS the production path (no headless proxy — BCF write/read is pure Node/fflate)."
+}

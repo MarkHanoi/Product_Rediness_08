@@ -1,0 +1,408 @@
+# PRYZM Public API — OpenAPI 3.1 Schema
+#
+# Source spec: phases/PHASE-3C-Q3-M31-M33-SDK-MARKETPLACE-PUBLIC-API.md §S63 lines 290-340
+#              + §S65 work-items 1-3 + 7-9 (extension)
+# Authority:   SPEC-26 §8 (public REST surface for .pryzm import/export)
+#              + SPEC-28 §9 (Workspace Admin AI Spend view)
+#              + ADR-027 (formula library extraction)
+#              + ADR-028 Part E (enterprise admin overrides)
+#              + ADR-0042 (AI public API at S65)
+# Version:     pinned to '1.0.0-draft' until S65 GA — see ADR-0039 §D
+# Path:        ADR-0039 §A canonicalizes the workspace path as `packages/api-spec/`
+# Scopes:      keys are quoted (e.g. 'project:read') for YAML 1.2 unambiguity.
+#
+# ⚠ This YAML is the canonical contract. The byte-stable SHA-256 is pinned in
+#   __tests__/openapi-spec.test.ts; auto-formatter rewrites will fail CI.
+#   Schema changes go through ADR review (ADR-0039 §B + ADR-0038 §pattern).
+#   S65 extension authorized by ADR-0041 §B + ADR-0042 §A + ADR-0043 §A +
+#   ADR-0044 §C + ADR-0045 §A.
+
+openapi: 3.1.0
+info:
+  title: PRYZM Public API
+  version: 1.0.0-draft
+servers:
+  - url: https://api.pryzm.com/v1
+
+paths:
+  /projects/{projectId}/export.pryzm:
+    get:
+      summary: Export project as .pryzm v1
+      security:
+        - oauth2: ['project:read']
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Project exported as .pryzm v1 (ZIP archive per SPEC-26 §2)
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+
+  /projects/import:
+    post:
+      summary: Import .pryzm v1 → new project
+      security:
+        - oauth2: ['project:write']
+      requestBody:
+        required: true
+        content:
+          application/zip:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '201':
+          description: New project created from imported .pryzm
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+
+  /ai/workflows:
+    get:
+      summary: List registered AI workflow descriptors (read-only catalog)
+      description: |
+        Authenticated discovery surface — `project:read` per ADR-0042 §B
+        (revised: any authenticated workspace user can browse the catalog;
+        marketing-style anonymous browsing is delivered via the docs-site
+        rendered pages, not the live API).
+      security:
+        - oauth2: ['project:read']
+      responses:
+        '200':
+          description: List of workflow descriptors with predictable cost estimates.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [total, workflows]
+                properties:
+                  total:
+                    type: integer
+                    minimum: 0
+                  workflows:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WorkflowDescriptor'
+
+  /ai/workflows/{workflowId}:
+    get:
+      summary: Describe a single AI workflow
+      security:
+        - oauth2: ['project:read']
+      parameters:
+        - name: workflowId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Single workflow descriptor.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowDescriptor'
+        '404':
+          description: Workflow not registered.
+
+  /ai/workflows/{workflowId}/invoke:
+    post:
+      summary: Submit an AI workflow run (asynchronous)
+      description: |
+        Returns 202 + runId on accepted submissions; 422 on pre-flight rejection
+        (budget, missing workflow, etc.).  Clients poll commit events on the
+        WS `/projects/{projectId}/stream` channel rather than awaiting here —
+        the public-API contract does NOT block the HTTP request on AI completion.
+      security:
+        - oauth2: ['ai:invoke']
+      parameters:
+        - name: workflowId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [projectId]
+              properties:
+                projectId:
+                  type: string
+                input:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '202':
+          description: Run accepted and queued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiInvokeResponse'
+        '422':
+          description: Pre-flight rejection (budget exceeded, workflow not registered).
+
+  /admin/ai-spend:
+    get:
+      summary: Workspace Admin AI Spend view (SPEC-28 §9)
+      description: |
+        Aggregated AI cost roll-up.  `groupBy` selects the aggregation axis
+        (default `day`).  Requires admin role + `project:read` scope.
+      security:
+        - oauth2: ['project:read']
+      parameters:
+        - name: workspaceId
+          in: query
+          schema: { type: string }
+        - name: projectId
+          in: query
+          schema: { type: string }
+        - name: fromTs
+          in: query
+          schema: { type: integer, format: int64 }
+        - name: toTs
+          in: query
+          schema: { type: integer, format: int64 }
+        - name: groupBy
+          in: query
+          schema:
+            type: string
+            enum: [workspace, project, actor, surface, day, model, workflow]
+      responses:
+        '200':
+          description: Aggregated spend rollup with totals.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [groupBy, totals, rows]
+                properties:
+                  groupBy: { type: string }
+                  totals:
+                    $ref: '#/components/schemas/AiSpendTotals'
+                  rows:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AiSpendAggregateRow'
+        '403':
+          description: Missing admin role or insufficient scope.
+
+  /admin/overrides:
+    get:
+      summary: List enterprise admin plan/role/feature overrides (ADR-028 Part E)
+      security:
+        - oauth2: ['project:read']
+      responses:
+        '200':
+          description: Overrides in stable subjectKind:subjectId order.
+
+  /admin/overrides/{subjectKind}/{subjectId}:
+    parameters:
+      - name: subjectKind
+        in: path
+        required: true
+        schema:
+          type: string
+          enum: [workspace, user]
+      - name: subjectId
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      summary: Read a single override
+      security:
+        - oauth2: ['project:read']
+      responses:
+        '200': { description: Override record found. }
+        '404': { description: Override not found. }
+    put:
+      summary: Upsert an override (admin only)
+      security:
+        - oauth2: ['project:write']
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OverrideUpsertBody'
+      responses:
+        '200': { description: Override upserted. }
+        '400': { description: Invalid body or path. }
+    delete:
+      summary: Delete an override (admin only)
+      security:
+        - oauth2: ['project:write']
+      responses:
+        '204': { description: Override removed. }
+        '404': { description: Override not found. }
+
+  /formulas:
+    get:
+      summary: List built-in formula descriptors (ADR-027 + ADR-0044)
+      description: |
+        Read-only catalog exposing the @pryzm/formula-library descriptors.
+        Invocation is INTENTIONALLY NOT exposed — formula evaluation is
+        in-process (editor / plugin sandbox) per ADR-0044 §C.
+      security:
+        - oauth2: ['project:read']
+      responses:
+        '200':
+          description: List of formula descriptors.
+
+  /formulas/{formulaId}:
+    get:
+      summary: Describe a single built-in formula
+      security:
+        - oauth2: ['project:read']
+      parameters:
+        - name: formulaId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Formula descriptor. }
+        '404': { description: Unknown formula id. }
+
+# ──────────────────────────────────────────────────────────────────────
+#  WebSocket gateway — documented as OpenAPI extension (`x-websocket`).
+#  OpenAPI 3.1 has no native WebSocket primitive (see AsyncAPI for that);
+#  we annotate paths with `x-websocket: true` so client codegen tools
+#  that look for the marker can render typed clients per ADR-0041 §F.
+# ──────────────────────────────────────────────────────────────────────
+  /projects/{projectId}/stream:
+    get:
+      summary: Project event WebSocket channel (read-only commits)
+      description: |
+        WebSocket upgrade endpoint — bearer token (`Authorization: Bearer ...`
+        or `?token=` when allowQueryToken).  Server emits a welcome envelope
+        then forwards committed `WsEvent` JSON envelopes for the project.
+        Heartbeat ping/pong every 30 s; missed pong → close(1011, 'idle').
+      x-websocket: true
+      security:
+        - oauth2: ['project:read']
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '101': { description: Switching protocols → WS established. }
+        '401': { description: Unauthorized. }
+        '403': { description: Insufficient scope. }
+
+  /projects/{projectId}/awareness:
+    get:
+      summary: Project awareness WebSocket channel (read-only presence/cursors)
+      x-websocket: true
+      security:
+        - oauth2: ['project:read']
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '101': { description: Switching protocols → WS established. }
+        '401': { description: Unauthorized. }
+        '403': { description: Insufficient scope. }
+
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://auth.pryzm.com/oauth/authorize
+          tokenUrl: https://auth.pryzm.com/oauth/token
+          scopes:
+            'project:read': Read project state
+            'project:write': Create/update projects
+            'ai:invoke': Invoke AI workflows
+  schemas:
+    Project:
+      type: object
+      required:
+        - id
+        - name
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+        createdAt:
+          type: string
+          format: date-time
+        description:
+          type: string
+
+    WorkflowDescriptor:
+      type: object
+      required: [id, title, kind, estimatedCostUsd]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        kind: { type: string }
+        estimatedCostUsd: { type: number, minimum: 0 }
+
+    AiInvokeResponse:
+      type: object
+      required: [runId, workflowId, status, estimatedCostUsd]
+      properties:
+        runId: { type: string }
+        workflowId: { type: string }
+        status: { type: string, enum: [queued, rejected] }
+        estimatedCostUsd: { type: number, minimum: 0 }
+        reason: { type: string }
+
+    AiSpendTotals:
+      type: object
+      required: [count, totalCostUsd, distinctProjects, distinctActors]
+      properties:
+        count: { type: integer, minimum: 0 }
+        totalCostUsd: { type: number, minimum: 0 }
+        distinctProjects: { type: integer, minimum: 0 }
+        distinctActors: { type: integer, minimum: 0 }
+
+    AiSpendAggregateRow:
+      type: object
+      required: [key, count, totalCostUsd, firstSeenTs, lastSeenTs]
+      properties:
+        key: { type: string }
+        count: { type: integer, minimum: 0 }
+        totalCostUsd: { type: number, minimum: 0 }
+        firstSeenTs: { type: integer, format: int64 }
+        lastSeenTs: { type: integer, format: int64 }
+
+    OverrideUpsertBody:
+      type: object
+      required: [setBy, setAt, reason]
+      properties:
+        plan:
+          type: string
+          enum: [personal, team, business, enterprise]
+        roles:
+          type: array
+          items:
+            type: string
+            enum: [viewer, commenter, editor, admin, owner]
+        features:
+          type: object
+          additionalProperties: { type: boolean }
+        expiresAt: { type: integer, format: int64 }
+        setBy: { type: string }
+        setAt: { type: integer, format: int64 }
+        reason: { type: string, minLength: 1, maxLength: 500 }

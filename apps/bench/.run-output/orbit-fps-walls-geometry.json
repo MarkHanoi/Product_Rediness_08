@@ -1,0 +1,13 @@
+{
+  "path": "geometry-only",
+  "samples": 50,
+  "avgMs": 0.048638540000029026,
+  "p50Ms": 0.039623000000119646,
+  "p95Ms": 0.11271599999963655,
+  "p99Ms": 0.16314699999975346,
+  "maxMs": 0.16314699999975346,
+  "budgetMs": 18,
+  "materialPoolSizeAtEnd": 1,
+  "geometryRebuildsAtEnd": 55,
+  "materialRebindsAtEnd": 0
+}

@@ -1,0 +1,281 @@
+PRYZM — Deep Monetization Strategy & Execution Plan
+
+Part 1: What You Actually Have (Product Audit)
+
+Before pricing anything, it's critical to understand what you've built, because it's significantly more than a "BIM tool" — and underpricing it would be a strategic mistake.
+
+**Core BIM Engine:**
+
+Walls (single, polyline, curved, arcs, mixed, ortho, by-slab), Slabs with openings, Curtain walls (grid-based, configurable mullions, panel types), Doors & Windows (auto-cut hosted elements with Fire Rating, sill height, frame/leaf colors), Parametric Stairs (I, L, U shapes), Roofs, Parametric Furniture (beds, dining sets, wardrobes with dedicated layout engine), Beams & Columns, Load Path Graph (structural analysis), Levels & Grids, Linear Dimensioning.
+
+**AI Layer (your primary differentiator):**
+
+- Claude Vision API — 4-step wizard that processes a reference photo + text description, generates a 3D proposal, routes to an Approval Store requiring human confirmation before any model mutation
+- AI Design Advisor — semantic model analysis, compliance/pattern detection, intent-based suggestions
+- Floor Plan AI — extracts wall regions and semantic data directly from uploaded PDF or image floor plans
+- AI Wardrobe Factory — specialized generative system for complex wardrobe configurations
+
+**Geospatial (your secondary differentiator):**
+
+CesiumJS bridge synchronized with Three.js, WGS84 georeferencing, GLB export placed live on the globe — "BIM on Earth." No direct competitor at this price tier has this.
+
+**Collaboration & Data:**
+
+Real-time collaboration via Socket.io, version history with snapshots, Supabase-backed persistence (when configured), AI Proposal/Approval audit trail, IFC export, GLB/GLTF export.
+
+**UX Infrastructure:**
+
+Ribbon bar (Revit-like), Property Inspector, Spatial Tree, Project Browser, Schedule Panel, Snapping Manager, Wall Join Resolver, Undo/Redo with full store snapshots.
+
+**Verdict:** This is not a conceptual tool. This is a full-lifecycle BIM platform with AI at its core and geospatial capabilities no competitor at your planned price point offers. It sits between ArchiCAD Studio ($78/mo) and ArchiCAD Collaborate ($225/mo) in capability, and above Snaptrude ($49/mo) in depth.
+
+---
+
+Part 2: Market Context
+
+**Market size:** $11.1B (2024) → $33B (2032), growing at 14.9% CAGR. You are entering during the fastest growth window in AEC software history.
+
+**Competitive landscape:**
+
+| **Product** | **Monthly Price** | **Key Weakness You Exploit** |
+| --- | --- | --- |
+| Revit | $305/seat | Legacy desktop, no AI, no web, pricing ≈ hostile |
+| ArchiCAD Studio | $78/seat | No AI, no Cesium, local-only collaboration |
+| ArchiCAD Collaborate | $225/seat | No AI integration, no geospatial |
+| Snaptrude | $49–$100 | Conceptual only, no structural, no Cesium, limited BIM depth |
+| Arcol | Not yet public | Conceptual only, just funded, limited market presence |
+
+**Freemium reality in BIM:** Only ~6% of BIM tools use freemium. Most use subscription + trial. This is not a reason to avoid freemium — it's actually a reason freemium could be a meaningful acquisition weapon if structured correctly. The constraint is AI cost, not distribution cost.
+
+**Buyer behavior:** The AEC purchase cycle is 8–16 weeks for mid-market. Junior architects discover and advocate, principals approve. 95% of buyers decide before contacting sales. Self-service onboarding and transparent pricing matter enormously. Free access to your tool is your sales team for this demographic.
+
+**B2B freemium conversion:** 2–5% baseline, 8–15% for top performers with strong onboarding. Professional mid-market ($1K–$5K ACV) averages ~10% conversion. Your target.
+
+---
+
+Part 3: Your Cost Structure (AI)
+
+This is the variable cost that determines your free tier's limits.
+
+Using Claude 3.5 Sonnet ($3/M input, $15/M output):
+
+| **AI Action Type** | **Approx Tokens** | **Cost Per Action** |
+| --- | --- | --- |
+| AI Design Advisor query | ~3,000 in / ~1,500 out | ~$0.031 |
+| Floor Plan AI (image upload) | ~8,000 in / ~2,000 out | ~$0.054 |
+| AI Element Creator (photo + text) | ~10,000 in / ~3,000 out | ~$0.075 |
+| AI Wardrobe generation | ~4,000 in / ~2,000 out | ~$0.042 |
+
+With prompt caching (90% savings on repeated context like your system prompt): effective cost drops by ~40–60% in practice.
+
+**Monthly AI cost per active user at different usage levels:**
+
+| **Usage** | **Actions/Month** | **Approx Cost** |
+| --- | --- | --- |
+| Light | 10 | ~$0.40 |
+| Moderate | 50 | ~$2.00 |
+| Heavy | 200 | ~$8.00 |
+| Power | 500 | ~$20.00 |
+
+This means pricing must clear ~$20–$25/month gross margin floor for heavy users before any infrastructure or labor costs.
+
+---
+
+Part 4: Recommended Monetization Model
+
+The Model: Freemium + Tiered Subscription + AI Add-ons
+
+**Why freemium works here specifically:**
+
+1. BIM adoption inside a firm almost always starts with one advocate. Give them free access and they pull in the team.
+2. Your natural paywalls (IFC export, AI, Cesium) are the moments of professional use — they don't occur in casual exploration.
+3. Web-based with no installation removes friction entirely.
+4. Free tier is your sales motion for the 8–16 week firm purchasing cycle.
+
+---
+
+Tier Structure
+
+**Free Forever — $0**
+
+Target: Students, early evaluators, advocates within firms starting the sales cycle.
+
+What's included:
+
+- Up to 3 saved projects
+- All core modeling (walls, slabs, doors, windows, stairs, furniture)
+- Basic view modes
+- PNG export (watermarked)
+- 5 AI actions/month (teaser — Design Advisor only, not Vision)
+- Single user, no collaboration
+- No IFC export
+- No Cesium/geospatial
+- No version history
+
+Why this limit set: IFC export is the professional output gate. Cesium is a differentiator worth protecting. AI teaser creates pull without destroying margin. 3 projects is enough to get hooked but not enough to run a practice.
+
+---
+
+**Architect — $59/month or $590/year (save 17%)**
+
+Target: Solo practitioners, freelancers, junior architects doing independent projects.
+
+What's included:
+
+- Unlimited projects
+- All modeling features including curtain walls, roofs, structural elements, Load Path Graph
+- IFC export (full standard compliance)
+- GLB/GLTF export
+- 50 AI actions/month (all AI tools: Design Advisor, Floor Plan AI, Element Creator, Wardrobe Factory)
+- Geospatial/Cesium access
+- Version history (last 15 versions)
+- Single user
+- PDF export
+- Email support
+
+Pricing rationale: Sits exactly at Snaptrude's Individual plan ($49) but with significantly more depth. $59 is defensible as a small premium for the feature gap. At $590/year, it's 24% of ArchiCAD Studio's annual cost for a more AI-forward, web-native product. Your AI cost for 50 actions ≈ $2/month, leaving substantial margin.
+
+---
+
+**Studio — $149/month or $1,490/year (save 17%)**
+
+Target: Small architecture firms, 2–8 person teams, design-build studios.
+
+What's included:
+
+- Everything in Architect
+- Up to 8 seats (floating licenses — any 8 active at once)
+- Real-time collaboration (Socket.io multiplayer editing)
+- Shared project library
+- 200 AI actions/month (shared pool)
+- Unlimited version history
+- Custom roles and permissions
+- Priority email + chat support
+- Project export packages (full IFC + GLB bundle)
+
+Pricing rationale: $149/month for 8 seats = $18.60/seat/month. ArchiCAD Studio charges $78/month per seat for a less capable product. Snaptrude charges $100/month for 3 users. You're priced aggressively and the collaboration angle is what separates this tier. Your AI cost for 200 actions ≈ $8/month, still leaves healthy margin at $149.
+
+---
+
+**Firm — $349/month or $3,490/year (save 17%)**
+
+Target: Established architecture firms, 10–25 person teams, firms with IT requirements.
+
+What's included:
+
+- Everything in Studio
+- Up to 25 seats
+- 500 AI actions/month (shared pool)
+- Supabase-backed persistent cloud storage (enterprise reliability)
+- SSO / SAML authentication
+- Audit trail and AI Approval history export
+- API access (project data, version snapshots)
+- 99.9% uptime SLA
+- Dedicated onboarding session
+- Priority support with 4-hour response
+
+Pricing rationale: $349/month for 25 seats = $13.96/seat/month. This is dramatically cheaper than ArchiCAD Collaborate at $225/seat. Your AI cost for 500 actions ≈ $20/month, margin tightens but the seat count makes it highly profitable overall.
+
+---
+
+**Enterprise — Custom (starting ~$800/month)**
+
+Target: Large firms (25+ seats), construction companies, government/public sector, BIM consultancies.
+
+What's included:
+
+- Unlimited seats
+- Custom AI action limits
+- White-labeling options
+- On-premise deployment option (serve from their infrastructure)
+- Custom IFC schema configuration
+- Dedicated customer success manager
+- Custom SLAs
+- Volume discount on AI add-ons
+- Security review, DPA, MSA
+
+Pricing rationale: Enterprise AEC buyers are accustomed to $100K+ annual Revit enterprise agreements. Even a $10K/year contract is an easy win. Sales-assisted, relationship-driven.
+
+---
+
+**Add-on: AI Credit Packs**
+
+For users who exceed their monthly AI allocation without upgrading:
+
+- 25 additional actions — $9
+- 100 additional actions — $29
+- 500 additional actions — $99
+
+Available to all paid tiers. Prevents upgrade resistance for occasional heavy usage.
+
+---
+
+**Student/Education — Free**
+
+Target: Architecture and engineering students.
+
+What's included: Full Architect tier features, verified via .edu email or institutional license, non-commercial use only, max 5 projects.
+
+Why: Revit captured an entire generation through education. ArchiCAD offers free student plans. You need the same pipeline. Students graduate into firms; firms become customers. This is a 3–5 year acquisition investment, not a cost.
+
+---
+
+Part 5: Go-To-Market Phases
+
+**Phase 1 — Validation (Months 1–3)**
+
+- Launch with Free + Architect tiers only
+- Goal: 500 free users, 25 paying Architect subscribers = $1,475 MRR
+- Measure: AI action usage patterns, which features drive conversion, where users hit limits
+- Avoid building Studio/Firm tiers until you know what features matter to teams
+
+**Phase 2 — Team Growth (Months 4–8)**
+
+- Introduce Studio tier
+- Build referral mechanic: firms share project links → collaborators see the product → viral loop
+- Target: 150 Architect + 20 Studio subscribers = ~$11,850 MRR
+- Begin content for firm decision-makers: ROI calculators, IFC compliance docs, case studies
+
+**Phase 3 — Firm Sales (Months 9–18)**
+
+- Introduce Firm tier
+- Begin outbound: target 10–50 person architecture firms, specifically those on Revit looking for cost reduction
+- Build educational program, partner with architecture schools
+- Target: 200 Architect + 40 Studio + 10 Firm = ~~$21,290 MRR (~~$255K ARR)
+- Pursue first 2–3 Enterprise contracts
+
+**Phase 4 — Enterprise (Month 18+)**
+
+- Series A territory if growth trajectory holds
+- Focus on large firm deals, government sector (IFC compliance is a procurement requirement in many EU markets)
+- White-label partnerships with BIM consultancies
+
+---
+
+Part 6: Key Strategic Decisions
+
+**1. Price in USD globally, but offer regional purchasing power parity for emerging markets.** AEC is booming in Southeast Asia, Latin America, and India. A 40% discount for those markets is still profitable and captures enormous volume.
+
+**2. Annual billing as default, monthly as premium.** Show annual pricing first. Monthly is available at a 20% premium (not a 17% discount — framing matters). This drives cash flow and reduces churn.
+
+**3. The IFC export paywall is non-negotiable.** It is the single clearest professional signal in your product. Anyone who needs IFC output is working on a real project and will pay. Do not include it in Free.
+
+**4. Seed the Cesium/geospatial feature visually on the landing page.** It is your most visually spectacular differentiator and no competitor at your price point has it. Use it in every marketing touchpoint.
+
+**5. The AI Approval Store is a compliance feature waiting to be sold.** Large firms and government clients need audit trails of AI-suggested changes. This is an Enterprise selling point — "AI that you control, with full audit history."
+
+**6. Do not compete on Revit integration first.** Snaptrude leads with "export to Revit." That positions you as a Revit accessory. Position PRYZM as the platform — Revit is legacy infrastructure you can optionally hand off to.
+
+---
+
+Summary
+
+| **Tier** | **Price** | **Primary Hook** | **AI Cost/Month** | **Gross Margin** |
+| --- | --- | --- | --- | --- |
+| Free | $0 | Acquisition | ~$0.20 | (investment) |
+| Architect | $59/mo | IFC + AI + Cesium | ~$2 | ~$57 (96%) |
+| Studio | $149/mo | Collaboration | ~$8 | ~$141 (95%) |
+| Firm | $349/mo | SSO + Scale + API | ~$20 | ~$329 (94%) |
+| Enterprise | $800+/mo | Unlimited + White-label | Variable | Negotiated |
+
+The margin picture is unusually strong because your AI costs are low relative to the value delivered. The main risk is not pricing — it's activation. Users need to reach their "aha moment" (typically: completing an AI-generated element or exporting their first IFC file) within their first session. That is where you should invest engineering attention before monetization goes live.

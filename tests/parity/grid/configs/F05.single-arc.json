@@ -1,0 +1,36 @@
+{
+  "id": "F05.single-arc",
+  "description": "single radial arc grid line",
+  "grid": {
+    "id": "grid:01HZS000000000000GRDF0500",
+    "type": "grid",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "rotation": 0,
+    "lines": [
+      {
+        "id": "a1",
+        "label": "R1",
+        "kind": "arc",
+        "start": {
+          "x": -5,
+          "y": 0,
+          "z": 0
+        },
+        "end": {
+          "x": 5,
+          "y": 0,
+          "z": 0
+        },
+        "radius": 6
+      }
+    ]
+  },
+  "worldY": 0
+}

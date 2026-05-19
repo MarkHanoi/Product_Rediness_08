@@ -1,0 +1,304 @@
+[NME] §H2-NME-CACHE hits=16 misses=1 hitRate=94% cacheSize=500/500
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] project() batchId=none viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=fa4127a7-83a2-418b-aa4f-4d9eadb268ad elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=d14385a2-d85e-4e0b-a670-6499992fc5af elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#2 elemId=22af7757-2884-4b28-88a2-668021ef4375 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#3 elemId=dc303e94-82bd-4965-b47f-7672745392a2 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#4 elemId=8b34d26f-9efd-4502-8bdf-a70941e0f079 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#5 elemId=9e7b0a00-fddc-4009-80f8-955c474240e3 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#6 elemId=634e0d69-8ef5-4e1b-9366-f74ff6bfd866 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#7 elemId=a7c7923e-c77e-41dc-a1ab-6c7b5ed457a6 elemType=wall meshesProcessed=3 totalEdgeVerts=72 layers=1 traverseMs=0.2ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-WALL geoCount=3 mergedVerts=72 mergeMs=0.0ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#8 elemId=1ed906ef-2b18-4d66-aa21-3e1cff6a4656 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#9 elemId=14bc56e7-b0fb-4bc0-ad62-d899ddb0f8b0 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#10 elemId=c141144a-81ea-448a-9619-99cbe7be0c4d elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.2ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#11 elemId=c5b2a569-f245-4b96-8a76-132749cf7d34 elemType=wall meshesProcessed=3 totalEdgeVerts=72 layers=1 traverseMs=0.2ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-WALL geoCount=3 mergedVerts=72 mergeMs=0.0ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#12 elemId=2292dc20-3d75-41ce-825e-c6ff4426f66f elemType=wall meshesProcessed=3 totalEdgeVerts=72 layers=1 traverseMs=0.3ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-WALL geoCount=3 mergedVerts=72 mergeMs=0.0ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#13 elemId=afa3205a-aa9e-4a79-936e-56b1698e260d elemType=Door meshesProcessed=7 totalEdgeVerts=168 layers=1 traverseMs=0.4ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-DOOR geoCount=7 mergedVerts=168 mergeMs=0.0ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#14 elemId=2988d60a-d3af-4ba7-9ce3-cfb878732940 elemType=Door meshesProcessed=7 totalEdgeVerts=168 layers=1 traverseMs=0.3ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-DOOR geoCount=7 mergedVerts=168 mergeMs=0.0ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#15 elemId=1f6c9709-3609-4a35-ba3f-dde95911a55e elemType=Door meshesProcessed=7 totalEdgeVerts=168 layers=1 traverseMs=0.3ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-DOOR geoCount=7 mergedVerts=168 mergeMs=0.0ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#16 elemId=68f2fa11-3f2c-4b56-9f51-5d508366cb89 elemType=floor meshesProcessed=1 totalEdgeVerts=36 layers=1 traverseMs=0.3ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 17 group(s) in 5 chunk(s), 41 edge geometries across 17 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-CK9yg8qt.js:1 [DoorPlanSymbolBuilder] Injected 3 door swing arc(s) into view vd-sys-plan-l0 (level L0)
+EdgeProjectorService-CK9yg8qt.js:1 [HiddenLineRemoval] v1 pass — 3 occluder(s), 0/480 segments removed
+engineLauncher-CQ2djzcj.js:1821 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=34 (OBC-IFC=0, native=17, ifc-scene=0)
+engineLauncher-CQ2djzcj.js:6765 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=13/14 layers
+UpdateViewDefinitionCommand-CHeaVDpG.js:1 [CommandManager] EXECUTE: CREATE_FLOOR
+UpdateViewDefinitionCommand-CHeaVDpG.js:1 [CommandManager] snapshot commandType="Sa" scope=[floor] elapsed=0.2ms
+main-D1KryFlq.js:29510 [VDT] §G3-STALE-EVENT for unregistered element 4eb4c93f-5335-4227-9729-ecc42fa2db60 type= floor — fallback to store-type view only
+_onStoreEvent @ main-D1KryFlq.js:29510Understand this warning
+engineLauncher-CQ2djzcj.js:2 [BimManager] Registered element 4eb4c93f-5335-4227-9729-ecc42fa2db60 to level L0
+engineLauncher-CQ2djzcj.js:2041 [FloorTool] Floor created: 4eb4c93f-5335-4227-9729-ecc42fa2db60 with 6 vertices.
+engineLauncher-CQ2djzcj.js:2041 [FloorTool] AUTO_FROM_ROOM listener attached
+engineLauncher-CQ2djzcj.js:1816 [PascalSceneLighting] Shadow flags set on 1 mesh(es).
+main-D1KryFlq.js:29510 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+main-D1KryFlq.js:29510 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+engineLauncher-CQ2djzcj.js:1821 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed out of 2 live room(s).
+engineLauncher-CQ2djzcj.js:1578 [NativeElementMeshExporter] Plan view — exporting 42 elements from levels overlapping Y=[-1.20, 0.00]
+engineLauncher-CQ2djzcj.js:1578 [NME] §H2 evicted LRU entry key=3d021a6a-29d3-47f0-abda-e03abe1cc6d3:L-02-1778386991466-2:1:full
+engineLauncher-CQ2djzcj.js:1578 [NME] §H2-NME-CACHE hits=17 misses=1 hitRate=94% cacheSize=500/500
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] project() batchId=none viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=fa4127a7-83a2-418b-aa4f-4d9eadb268ad elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=d14385a2-d85e-4e0b-a670-6499992fc5af elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#2 elemId=22af7757-2884-4b28-88a2-668021ef4375 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#3 elemId=dc303e94-82bd-4965-b47f-7672745392a2 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#4 elemId=8b34d26f-9efd-4502-8bdf-a70941e0f079 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#5 elemId=9e7b0a00-fddc-4009-80f8-955c474240e3 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#6 elemId=634e0d69-8ef5-4e1b-9366-f74ff6bfd866 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#7 elemId=a7c7923e-c77e-41dc-a1ab-6c7b5ed457a6 elemType=wall meshesProcessed=3 totalEdgeVerts=72 layers=1 traverseMs=0.2ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-WALL geoCount=3 mergedVerts=72 mergeMs=0.0ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#8 elemId=1ed906ef-2b18-4d66-aa21-3e1cff6a4656 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#9 elemId=14bc56e7-b0fb-4bc0-ad62-d899ddb0f8b0 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#10 elemId=c141144a-81ea-448a-9619-99cbe7be0c4d elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#11 elemId=c5b2a569-f245-4b96-8a76-132749cf7d34 elemType=wall meshesProcessed=3 totalEdgeVerts=72 layers=1 traverseMs=0.2ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-WALL geoCount=3 mergedVerts=72 mergeMs=0.0ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#12 elemId=2292dc20-3d75-41ce-825e-c6ff4426f66f elemType=wall meshesProcessed=3 totalEdgeVerts=72 layers=1 traverseMs=0.2ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-WALL geoCount=3 mergedVerts=72 mergeMs=0.0ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#13 elemId=afa3205a-aa9e-4a79-936e-56b1698e260d elemType=Door meshesProcessed=7 totalEdgeVerts=168 layers=1 traverseMs=0.4ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-DOOR geoCount=7 mergedVerts=168 mergeMs=0.0ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#14 elemId=2988d60a-d3af-4ba7-9ce3-cfb878732940 elemType=Door meshesProcessed=7 totalEdgeVerts=168 layers=1 traverseMs=0.4ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-DOOR geoCount=7 mergedVerts=168 mergeMs=0.0ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#15 elemId=1f6c9709-3609-4a35-ba3f-dde95911a55e elemType=Door meshesProcessed=7 totalEdgeVerts=168 layers=1 traverseMs=0.4ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-DOOR geoCount=7 mergedVerts=168 mergeMs=0.0ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#16 elemId=68f2fa11-3f2c-4b56-9f51-5d508366cb89 elemType=floor meshesProcessed=1 totalEdgeVerts=36 layers=1 traverseMs=0.2ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#17 elemId=4eb4c93f-5335-4227-9729-ecc42fa2db60 elemType=floor meshesProcessed=1 totalEdgeVerts=36 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 18 group(s) in 5 chunk(s), 42 edge geometries across 18 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-CK9yg8qt.js:1 [DoorPlanSymbolBuilder] Injected 3 door swing arc(s) into view vd-sys-plan-l0 (level L0)
+EdgeProjectorService-CK9yg8qt.js:1 [HiddenLineRemoval] v1 pass — 3 occluder(s), 0/498 segments removed
+engineLauncher-CQ2djzcj.js:1821 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=36 (OBC-IFC=0, native=18, ifc-scene=0)
+engineLauncher-CQ2djzcj.js:6765 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=13/14 layers
+UpdateViewDefinitionCommand-CHeaVDpG.js:1 [CommandManager] EXECUTE: CREATE_FLOOR
+UpdateViewDefinitionCommand-CHeaVDpG.js:1 [CommandManager] snapshot commandType="Sa" scope=[floor] elapsed=0.2ms
+main-D1KryFlq.js:29510 [VDT] §G3-STALE-EVENT for unregistered element 91b8e6aa-9787-4744-a610-22617bbd720f type= floor — fallback to store-type view only
+_onStoreEvent @ main-D1KryFlq.js:29510Understand this warning
+engineLauncher-CQ2djzcj.js:2 [BimManager] Registered element 91b8e6aa-9787-4744-a610-22617bbd720f to level L0
+engineLauncher-CQ2djzcj.js:2041 [FloorTool] Floor created: 91b8e6aa-9787-4744-a610-22617bbd720f with 10 vertices.
+engineLauncher-CQ2djzcj.js:2041 [FloorTool] AUTO_FROM_ROOM listener attached
+engineLauncher-CQ2djzcj.js:1816 [PascalSceneLighting] Shadow flags set on 1 mesh(es).
+engineLauncher-CQ2djzcj.js:7109 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-CQ2djzcj.js:536 [CutFill] Updating: enabled=false, height=1.2
+main-D1KryFlq.js:29510 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+main-D1KryFlq.js:29510 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+engineLauncher-CQ2djzcj.js:1821 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed out of 2 live room(s).
+engineLauncher-CQ2djzcj.js:1578 [NativeElementMeshExporter] Plan view — exporting 43 elements from levels overlapping Y=[-1.20, 0.00]
+engineLauncher-CQ2djzcj.js:1578 [NME] §H2 evicted LRU entry key=eb5ada08-0683-463b-9b1c-a463305fc6ca:L-02-1778386991466-2:1:full
+engineLauncher-CQ2djzcj.js:1578 [NME] §H2-NME-CACHE hits=18 misses=1 hitRate=95% cacheSize=500/500
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] project() batchId=none viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=fa4127a7-83a2-418b-aa4f-4d9eadb268ad elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=d14385a2-d85e-4e0b-a670-6499992fc5af elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#2 elemId=22af7757-2884-4b28-88a2-668021ef4375 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#3 elemId=dc303e94-82bd-4965-b47f-7672745392a2 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#4 elemId=8b34d26f-9efd-4502-8bdf-a70941e0f079 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#5 elemId=9e7b0a00-fddc-4009-80f8-955c474240e3 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#6 elemId=634e0d69-8ef5-4e1b-9366-f74ff6bfd866 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#7 elemId=a7c7923e-c77e-41dc-a1ab-6c7b5ed457a6 elemType=wall meshesProcessed=3 totalEdgeVerts=72 layers=1 traverseMs=0.2ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-WALL geoCount=3 mergedVerts=72 mergeMs=0.0ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#8 elemId=1ed906ef-2b18-4d66-aa21-3e1cff6a4656 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.2ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#9 elemId=14bc56e7-b0fb-4bc0-ad62-d899ddb0f8b0 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#10 elemId=c141144a-81ea-448a-9619-99cbe7be0c4d elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#11 elemId=c5b2a569-f245-4b96-8a76-132749cf7d34 elemType=wall meshesProcessed=3 totalEdgeVerts=72 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-WALL geoCount=3 mergedVerts=72 mergeMs=0.0ms
+engineLauncher-CQ2djzcj.js:7109 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-CQ2djzcj.js:536 [CutFill] Updating: enabled=false, height=1.2
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#12 elemId=2292dc20-3d75-41ce-825e-c6ff4426f66f elemType=wall meshesProcessed=3 totalEdgeVerts=72 layers=1 traverseMs=0.2ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-WALL geoCount=3 mergedVerts=72 mergeMs=0.0ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#13 elemId=afa3205a-aa9e-4a79-936e-56b1698e260d elemType=Door meshesProcessed=7 totalEdgeVerts=168 layers=1 traverseMs=0.4ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-DOOR geoCount=7 mergedVerts=168 mergeMs=0.0ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#14 elemId=2988d60a-d3af-4ba7-9ce3-cfb878732940 elemType=Door meshesProcessed=7 totalEdgeVerts=168 layers=1 traverseMs=0.2ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-DOOR geoCount=7 mergedVerts=168 mergeMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#15 elemId=1f6c9709-3609-4a35-ba3f-dde95911a55e elemType=Door meshesProcessed=7 totalEdgeVerts=168 layers=1 traverseMs=0.2ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-DOOR geoCount=7 mergedVerts=168 mergeMs=0.0ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#16 elemId=68f2fa11-3f2c-4b56-9f51-5d508366cb89 elemType=floor meshesProcessed=1 totalEdgeVerts=36 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#17 elemId=4eb4c93f-5335-4227-9729-ecc42fa2db60 elemType=floor meshesProcessed=1 totalEdgeVerts=36 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#18 elemId=91b8e6aa-9787-4744-a610-22617bbd720f elemType=floor meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 19 group(s) in 5 chunk(s), 43 edge geometries across 19 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-CK9yg8qt.js:1 [DoorPlanSymbolBuilder] Injected 3 door swing arc(s) into view vd-sys-plan-l0 (level L0)
+EdgeProjectorService-CK9yg8qt.js:1 [HiddenLineRemoval] v1 pass — 3 occluder(s), 0/528 segments removed
+engineLauncher-CQ2djzcj.js:1821 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=38 (OBC-IFC=0, native=19, ifc-scene=0)
+engineLauncher-CQ2djzcj.js:6765 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=13/14 layers
+engineLauncher-CQ2djzcj.js:1859 [PickResolver] strategy=gpu-pick hit=a7c7923e-c77e-41dc-a1ab-6c7b5ed457a6
+engineLauncher-CQ2djzcj.js:7247 [LevelPlaneConstraint] Locked Y=0.0000 for element "wall" id="a7c7923e-c77e-41dc-a1ab-6c7b5ed457a6"
+engineLauncher-CQ2djzcj.js:536 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CQ2djzcj.js:7247 [WallTransform] Wall "a7c7923e-c77e-41dc-a1ab-6c7b5ed457a6" — gizmo aligned with direction P
+engineLauncher-CQ2djzcj.js:2041 [FloorTool] AUTO_FROM_ROOM listener attached
+engineLauncher-CQ2djzcj.js:536 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CQ2djzcj.js:7109 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-CQ2djzcj.js:536 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CQ2djzcj.js:7109 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-CQ2djzcj.js:536 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CQ2djzcj.js:7109 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-CQ2djzcj.js:536 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CQ2djzcj.js:7109 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-CQ2djzcj.js:536 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CQ2djzcj.js:7109 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-CQ2djzcj.js:536 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CQ2djzcj.js:7109 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-CQ2djzcj.js:536 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CQ2djzcj.js:2041 [FloorTool] AUTO_FROM_ROOM: no room found at clicked point
+_onRoomPick @ engineLauncher-CQ2djzcj.js:2041Understand this warning
+engineLauncher-CQ2djzcj.js:1859 [PickResolver] strategy=gpu-pick hit=a7c7923e-c77e-41dc-a1ab-6c7b5ed457a6
+engineLauncher-CQ2djzcj.js:7247 [LevelPlaneConstraint] Locked Y=0.0000 for element "wall" id="a7c7923e-c77e-41dc-a1ab-6c7b5ed457a6"
+engineLauncher-CQ2djzcj.js:536 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CQ2djzcj.js:7247 [WallTransform] Wall "a7c7923e-c77e-41dc-a1ab-6c7b5ed457a6" — gizmo aligned with direction P
+engineLauncher-CQ2djzcj.js:536 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CQ2djzcj.js:7109 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-CQ2djzcj.js:536 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CQ2djzcj.js:7109 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-CQ2djzcj.js:536 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CQ2djzcj.js:7109 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-CQ2djzcj.js:536 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CQ2djzcj.js:2041 [FloorTool] AUTO_FROM_ROOM: no room found at clicked point
+_onRoomPick @ engineLauncher-CQ2djzcj.js:2041Understand this warning
+engineLauncher-CQ2djzcj.js:1859 [PickResolver] strategy=gpu-pick hit=a7c7923e-c77e-41dc-a1ab-6c7b5ed457a6
+engineLauncher-CQ2djzcj.js:7247 [LevelPlaneConstraint] Locked Y=0.0000 for element "wall" id="a7c7923e-c77e-41dc-a1ab-6c7b5ed457a6"
+engineLauncher-CQ2djzcj.js:536 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CQ2djzcj.js:7247 [WallTransform] Wall "a7c7923e-c77e-41dc-a1ab-6c7b5ed457a6" — gizmo aligned with direction P
+engineLauncher-CQ2djzcj.js:2041 [FloorTool] AUTO_FROM_ROOM: no room found at clicked point
+_onRoomPick @ engineLauncher-CQ2djzcj.js:2041Understand this warning
+engineLauncher-CQ2djzcj.js:1859 [PickResolver] strategy=gpu-pick hit=a7c7923e-c77e-41dc-a1ab-6c7b5ed457a6
+engineLauncher-CQ2djzcj.js:536 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CQ2djzcj.js:7109 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-CQ2djzcj.js:536 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CQ2djzcj.js:7109 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-CQ2djzcj.js:536 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CQ2djzcj.js:7109 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-CQ2djzcj.js:536 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CQ2djzcj.js:2041 [FloorTool] AUTO_FROM_ROOM: no room found at clicked point
+_onRoomPick @ engineLauncher-CQ2djzcj.js:2041Understand this warning
+engineLauncher-CQ2djzcj.js:1859 [PickResolver] strategy=gpu-pick hit=a7c7923e-c77e-41dc-a1ab-6c7b5ed457a6
+engineLauncher-CQ2djzcj.js:7247 [LevelPlaneConstraint] Locked Y=0.0000 for element "wall" id="a7c7923e-c77e-41dc-a1ab-6c7b5ed457a6"
+engineLauncher-CQ2djzcj.js:536 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CQ2djzcj.js:7247 [WallTransform] Wall "a7c7923e-c77e-41dc-a1ab-6c7b5ed457a6" — gizmo aligned with direction P
+engineLauncher-CQ2djzcj.js:536 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CQ2djzcj.js:7109 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-CQ2djzcj.js:536 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CQ2djzcj.js:7109 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-CQ2djzcj.js:536 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CQ2djzcj.js:1897 ToolManager: activateTool called for column
+engineLauncher-CQ2djzcj.js:1897 ToolManager: deactivating previous tool none
+engineLauncher-CQ2djzcj.js:1897 ToolManager: executing activateFn for column
+UpdateViewDefinitionCommand-CHeaVDpG.js:1 [CommandManager] EXECUTE: CREATE_COLUMN
+UpdateViewDefinitionCommand-CHeaVDpG.js:1 [CommandManager] snapshot commandType="ts" scope=[column,level] elapsed=0.1ms
+main-D1KryFlq.js:29510 [VDT] §G3-STALE-EVENT for unregistered element bec108f2-959b-420d-bcea-47d87e395806 type= column — fallback to store-type view only
+_onStoreEvent @ main-D1KryFlq.js:29510Understand this warning
+engineLauncher-CQ2djzcj.js:2 [BimManager] Registered element bec108f2-959b-420d-bcea-47d87e395806 to level L0
+UpdateWindowWidthCommand-DRnqT97Y.js:2 [CreateColumnCommand] Created column bec108f2-959b-420d-bcea-47d87e395806 (mark=CO-00-001, guid=101fe03b-529f-43ce-bcfe-fd48e85ad038)
+UpdateViewDefinitionCommand-CHeaVDpG.js:1 [CommandManager] EXECUTE: REDETECT_ROOMS
+UpdateViewDefinitionCommand-CHeaVDpG.js:1 [CommandManager] snapshot commandType="vi" scope=[room] elapsed=0.0ms
+UpdateWindowWidthCommand-DRnqT97Y.js:2 [PlanarTopologyEngine] Topology: 2 room(s) detected, outer face (12 vertices), 3 total faces
+UpdateWindowWidthCommand-DRnqT97Y.js:2 [RoomDetectionEngine] Detected 2 room(s) on level 'L0'
+main-D1KryFlq.js:29510 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+main-D1KryFlq.js:29510 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+engineLauncher-CQ2djzcj.js:1821 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed out of 2 live room(s).
+engineLauncher-CQ2djzcj.js:1578 [NativeElementMeshExporter] Plan view — exporting 44 elements from levels overlapping Y=[-1.20, 0.00]
+engineLauncher-CQ2djzcj.js:1578 [NME] §H2 evicted LRU entry key=3d621d6d-ab7e-4234-bc8f-4f6dd940590e:L-02-1778386991466-2:1:full
+engineLauncher-CQ2djzcj.js:1578 [NME] §H2-NME-CACHE hits=19 misses=1 hitRate=95% cacheSize=500/500
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] project() batchId=none viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=fa4127a7-83a2-418b-aa4f-4d9eadb268ad elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=d14385a2-d85e-4e0b-a670-6499992fc5af elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#2 elemId=22af7757-2884-4b28-88a2-668021ef4375 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#3 elemId=dc303e94-82bd-4965-b47f-7672745392a2 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#4 elemId=8b34d26f-9efd-4502-8bdf-a70941e0f079 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.2ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#5 elemId=9e7b0a00-fddc-4009-80f8-955c474240e3 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#6 elemId=634e0d69-8ef5-4e1b-9366-f74ff6bfd866 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#7 elemId=a7c7923e-c77e-41dc-a1ab-6c7b5ed457a6 elemType=wall meshesProcessed=3 totalEdgeVerts=72 layers=1 traverseMs=0.2ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-WALL geoCount=3 mergedVerts=72 mergeMs=0.0ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#8 elemId=1ed906ef-2b18-4d66-aa21-3e1cff6a4656 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#9 elemId=14bc56e7-b0fb-4bc0-ad62-d899ddb0f8b0 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.2ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#10 elemId=c141144a-81ea-448a-9619-99cbe7be0c4d elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.3ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#11 elemId=c5b2a569-f245-4b96-8a76-132749cf7d34 elemType=wall meshesProcessed=3 totalEdgeVerts=72 layers=1 traverseMs=0.3ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-WALL geoCount=3 mergedVerts=72 mergeMs=0.0ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#12 elemId=2292dc20-3d75-41ce-825e-c6ff4426f66f elemType=wall meshesProcessed=3 totalEdgeVerts=72 layers=1 traverseMs=0.3ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-WALL geoCount=3 mergedVerts=72 mergeMs=0.0ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#13 elemId=afa3205a-aa9e-4a79-936e-56b1698e260d elemType=Door meshesProcessed=7 totalEdgeVerts=168 layers=1 traverseMs=0.5ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-DOOR geoCount=7 mergedVerts=168 mergeMs=0.0ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#14 elemId=2988d60a-d3af-4ba7-9ce3-cfb878732940 elemType=Door meshesProcessed=7 totalEdgeVerts=168 layers=1 traverseMs=0.3ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-DOOR geoCount=7 mergedVerts=168 mergeMs=0.0ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#15 elemId=1f6c9709-3609-4a35-ba3f-dde95911a55e elemType=Door meshesProcessed=7 totalEdgeVerts=168 layers=1 traverseMs=0.3ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-DOOR geoCount=7 mergedVerts=168 mergeMs=0.0ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#16 elemId=68f2fa11-3f2c-4b56-9f51-5d508366cb89 elemType=floor meshesProcessed=1 totalEdgeVerts=36 layers=1 traverseMs=0.2ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#17 elemId=4eb4c93f-5335-4227-9729-ecc42fa2db60 elemType=floor meshesProcessed=1 totalEdgeVerts=36 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#18 elemId=91b8e6aa-9787-4744-a610-22617bbd720f elemType=floor meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.2ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#19 elemId=bec108f2-959b-420d-bcea-47d87e395806 elemType=Column meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 20 group(s) in 5 chunk(s), 44 edge geometries across 20 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-CK9yg8qt.js:1 [DoorPlanSymbolBuilder] Injected 3 door swing arc(s) into view vd-sys-plan-l0 (level L0)
+engineLauncher-CQ2djzcj.js:1847 [ColumnPlanSymbolBuilder] Injected 1 symbol(s) in plan view "vd-sys-plan-l0"
+EdgeProjectorService-CK9yg8qt.js:1 [HiddenLineRemoval] v1 pass — 3 occluder(s), 0/540 segments removed
+engineLauncher-CQ2djzcj.js:1821 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=40 (OBC-IFC=0, native=20, ifc-scene=0)
+engineLauncher-CQ2djzcj.js:6765 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=15/14 layers
+engineLauncher-CQ2djzcj.js:2041 [FloorTool] AUTO_FROM_ROOM listener attached
+UpdateViewDefinitionCommand-CHeaVDpG.js:1 [CommandManager] EXECUTE: CREATE_COLUMN
+UpdateViewDefinitionCommand-CHeaVDpG.js:1 [CommandManager] snapshot commandType="ts" scope=[column,level] elapsed=0.2ms
+main-D1KryFlq.js:29510 [VDT] §G3-STALE-EVENT for unregistered element 91293b0c-c618-4a6e-b630-e6c278ca963a type= column — fallback to store-type view only
+_onStoreEvent @ main-D1KryFlq.js:29510Understand this warning
+engineLauncher-CQ2djzcj.js:2 [BimManager] Registered element 91293b0c-c618-4a6e-b630-e6c278ca963a to level L0
+UpdateWindowWidthCommand-DRnqT97Y.js:2 [CreateColumnCommand] Created column 91293b0c-c618-4a6e-b630-e6c278ca963a (mark=CO-00-002, guid=cae5322b-a512-491f-918b-ce23be0d6f8f)
+UpdateViewDefinitionCommand-CHeaVDpG.js:1 [CommandManager] EXECUTE: REDETECT_ROOMS
+UpdateViewDefinitionCommand-CHeaVDpG.js:1 [CommandManager] snapshot commandType="vi" scope=[room] elapsed=0.0ms
+UpdateWindowWidthCommand-DRnqT97Y.js:2 [PlanarTopologyEngine] Topology: 2 room(s) detected, outer face (12 vertices), 3 total faces
+UpdateWindowWidthCommand-DRnqT97Y.js:2 [RoomDetectionEngine] Detected 2 room(s) on level 'L0'
+main-D1KryFlq.js:29510 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+main-D1KryFlq.js:29510 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+engineLauncher-CQ2djzcj.js:1821 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed out of 2 live room(s).
+engineLauncher-CQ2djzcj.js:1578 [NativeElementMeshExporter] Plan view — exporting 45 elements from levels overlapping Y=[-1.20, 0.00]
+engineLauncher-CQ2djzcj.js:1578 [NME] §H2 evicted LRU entry key=b149245a-7248-4f85-b816-27330011a539:L-02-1778386991466-2:1:full
+engineLauncher-CQ2djzcj.js:1578 [NME] §H2-NME-CACHE hits=20 misses=1 hitRate=95% cacheSize=500/500
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] project() batchId=none viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=fa4127a7-83a2-418b-aa4f-4d9eadb268ad elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.3ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=d14385a2-d85e-4e0b-a670-6499992fc5af elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#2 elemId=22af7757-2884-4b28-88a2-668021ef4375 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#3 elemId=dc303e94-82bd-4965-b47f-7672745392a2 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#4 elemId=8b34d26f-9efd-4502-8bdf-a70941e0f079 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#5 elemId=9e7b0a00-fddc-4009-80f8-955c474240e3 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#6 elemId=634e0d69-8ef5-4e1b-9366-f74ff6bfd866 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#7 elemId=a7c7923e-c77e-41dc-a1ab-6c7b5ed457a6 elemType=wall meshesProcessed=3 totalEdgeVerts=72 layers=1 traverseMs=0.2ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-WALL geoCount=3 mergedVerts=72 mergeMs=0.0ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#8 elemId=1ed906ef-2b18-4d66-aa21-3e1cff6a4656 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#9 elemId=14bc56e7-b0fb-4bc0-ad62-d899ddb0f8b0 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#10 elemId=c141144a-81ea-448a-9619-99cbe7be0c4d elemType=Slab meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.2ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#11 elemId=c5b2a569-f245-4b96-8a76-132749cf7d34 elemType=wall meshesProcessed=3 totalEdgeVerts=72 layers=1 traverseMs=0.4ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-WALL geoCount=3 mergedVerts=72 mergeMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#12 elemId=2292dc20-3d75-41ce-825e-c6ff4426f66f elemType=wall meshesProcessed=3 totalEdgeVerts=72 layers=1 traverseMs=0.4ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-WALL geoCount=3 mergedVerts=72 mergeMs=0.0ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#13 elemId=afa3205a-aa9e-4a79-936e-56b1698e260d elemType=Door meshesProcessed=7 totalEdgeVerts=168 layers=1 traverseMs=0.7ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-DOOR geoCount=7 mergedVerts=168 mergeMs=0.0ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#14 elemId=2988d60a-d3af-4ba7-9ce3-cfb878732940 elemType=Door meshesProcessed=7 totalEdgeVerts=168 layers=1 traverseMs=0.6ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-DOOR geoCount=7 mergedVerts=168 mergeMs=0.0ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#15 elemId=1f6c9709-3609-4a35-ba3f-dde95911a55e elemType=Door meshesProcessed=7 totalEdgeVerts=168 layers=1 traverseMs=0.4ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-DOOR geoCount=7 mergedVerts=168 mergeMs=0.0ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#16 elemId=68f2fa11-3f2c-4b56-9f51-5d508366cb89 elemType=floor meshesProcessed=1 totalEdgeVerts=36 layers=1 traverseMs=0.2ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#17 elemId=4eb4c93f-5335-4227-9729-ecc42fa2db60 elemType=floor meshesProcessed=1 totalEdgeVerts=36 layers=1 traverseMs=0.2ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#18 elemId=91b8e6aa-9787-4744-a610-22617bbd720f elemType=floor meshesProcessed=1 totalEdgeVerts=60 layers=1 traverseMs=0.2ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#19 elemId=bec108f2-959b-420d-bcea-47d87e395806 elemType=Column meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#20 elemId=91293b0c-c618-4a6e-b630-e6c278ca963a elemType=Column meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-CK9yg8qt.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 21 group(s) in 6 chunk(s), 45 edge geometries across 21 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-CK9yg8qt.js:1 [DoorPlanSymbolBuilder] Injected 3 door swing arc(s) into view vd-sys-plan-l0 (level L0)
+engineLauncher-CQ2djzcj.js:1847 [ColumnPlanSymbolBuilder] Injected 2 symbol(s) in plan view "vd-sys-plan-l0"
+EdgeProjectorService-CK9yg8qt.js:1 [HiddenLineRemoval] v1 pass — 3 occluder(s), 0/552 segments removed
+engineLauncher-CQ2djzcj.js:1821 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=42 (OBC-IFC=0, native=21, ifc-scene=0)
+engineLauncher-CQ2djzcj.js:6765 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=15/14 layers
+engineLauncher-CQ2djzcj.js:2041 [FloorTool] AUTO_FROM_ROOM listener attached
+engineLauncher-CQ2djzcj.js:536 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CQ2djzcj.js:7109 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-CQ2djzcj.js:536 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CQ2djzcj.js:7109 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-CQ2djzcj.js:536 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CQ2djzcj.js:7109 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-CQ2djzcj.js:536 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CQ2djzcj.js:2 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+engineLauncher-CQ2djzcj.js:7109 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-CQ2djzcj.js:536 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CQ2djzcj.js:2 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+engineLauncher-CQ2djzcj.js:1816 [SvpPlanToolOverlay] Detached
+engineLauncher-CQ2djzcj.js:1816 [SplitViewManager] Split view deactivated
+3engineLauncher-CQ2djzcj.js:2 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter

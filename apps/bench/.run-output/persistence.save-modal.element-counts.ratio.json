@@ -1,0 +1,10 @@
+{
+  "name": "persistence.save-modal.element-counts.ratio",
+  "samples": 50,
+  "p50": 0.00044700000000830187,
+  "p95": 0.013401999999928194,
+  "p99": 29.982102907559923,
+  "budgetMs": 10,
+  "warnMs": 20,
+  "recordedAt": "2026-05-09T23:08:33.423Z"
+}

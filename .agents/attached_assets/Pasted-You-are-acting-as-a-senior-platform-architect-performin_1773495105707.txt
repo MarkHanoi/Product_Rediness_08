@@ -1,0 +1,318 @@
+You are acting as a senior platform architect performing a full architectural audit of this codebase.
+
+Your objective is to evaluate whether the platform layer architecture is correctly implemented according to the following contract:
+
+BIM PLATFORM UI CONTRACT
+(Platform Layer — Mandatory for All Platform UI Code Modifications)
+
+The platform entry flow is:
+
+LandingPage → AuthModal → ProjectHub → BIM Workspace
+
+PlatformRouter.start(engineInit) is the only legal entry point.
+
+The platform layer must:
+- run before the BIM engine initializes
+- be completely isolated from BIM engine modules
+- use pure DOM manipulation (no frameworks)
+- mount only inside #platform-root
+- never touch the Three.js canvas (#container)
+
+The platform components are:
+
+PlatformRouter
+LandingPage
+AuthModal
+ProjectHub
+PlatformShell
+
+Each component:
+- must be a TypeScript class
+- must implement destroy()
+- must build DOM in build()/render() methods
+- must follow CSS prefix ownership
+
+The BIM engine is initialized ONLY after a project is opened.
+
+The engine initialization flow is:
+
+User selects project
+→ PlatformRouter.launchWorkspace()
+→ 420ms fade out
+→ engineInit()
+→ shell.setProjectContext()
+
+Projects and users are currently stored in localStorage.
+
+localStorage keys:
+- bim-platform-user
+- bim-projects-index
+
+The architecture intentionally defers engine initialization.
+
+Your task is to analyze the codebase and produce a **complete architecture audit report**.
+
+----------------------------------------------------
+
+AUDIT TASKS
+
+1. ENTRY FLOW VERIFICATION
+
+Verify that:
+
+main.ts calls:
+
+PlatformRouter.start(init)
+
+and does NOT call init() directly.
+
+Confirm the following flow exists:
+
+Browser load
+→ PlatformRouter.start()
+→ session check
+→ LandingPage OR ProjectHub
+→ AuthModal
+→ ProjectHub
+→ project open
+→ fade
+→ engineInit()
+
+Report any violations.
+
+----------------------------------------------------
+
+2. PLATFORM / ENGINE BOUNDARY AUDIT
+
+Check every file inside:
+
+src/ui/platform/
+
+Verify that NONE of these files import from:
+
+src/core/
+src/commands/
+src/elements/
+src/ai/
+
+If any violation exists, list:
+
+file
+import statement
+risk level
+
+----------------------------------------------------
+
+3. DOM OWNERSHIP AUDIT
+
+Verify that platform components:
+
+- mount only inside #platform-root
+- never manipulate #container
+
+Search for:
+
+getElementById('container')
+
+If found inside platform components report it.
+
+----------------------------------------------------
+
+4. COMPONENT STRUCTURE AUDIT
+
+For each component:
+
+PlatformRouter
+LandingPage
+AuthModal
+ProjectHub
+PlatformShell
+
+Verify:
+
+- TypeScript class
+- constructor exists
+- DOM creation inside build() or render()
+- destroy() implemented
+
+List any components that violate these rules.
+
+----------------------------------------------------
+
+5. CSS GOVERNANCE AUDIT
+
+Verify that platform components do NOT inject styles manually.
+
+Search for:
+
+document.createElement('style')
+
+Confirm all styles are defined in:
+
+src/styles/AppTheme.ts
+
+Check that classes follow prefix rules:
+
+LandingPage → lp-
+AuthModal → am-
+ProjectHub → ph-
+PlatformShell → plat-
+
+Report any prefix violations.
+
+----------------------------------------------------
+
+6. COLOUR TOKEN AUDIT
+
+Verify that colours used in platform CSS reference tokens:
+
+--app-*
+
+Check for hardcoded colours like:
+
+#6600FF
+#8B5CF6
+
+Report any that are used outside permitted exceptions.
+
+----------------------------------------------------
+
+7. LOCALSTORAGE ACCESS CONTROL
+
+Verify that:
+
+AuthModal.ts is the only file accessing:
+
+bim-platform-user
+
+ProjectHub.ts is the only file writing:
+
+bim-projects-index
+
+Report any other files accessing these keys.
+
+----------------------------------------------------
+
+8. ENGINE INITIALIZATION SAFETY
+
+Confirm that:
+
+engineInit()
+
+is called only by PlatformRouter.launchWorkspace().
+
+Check for any other calls to init().
+
+Verify that engineInit is awaited if async.
+
+----------------------------------------------------
+
+9. PERFORMANCE AUDIT
+
+Evaluate:
+
+- whether the BIM engine bundle loads before project selection
+- whether engine code is statically imported
+
+If static imports exist, recommend converting to:
+
+dynamic import()
+
+Example:
+
+const engine = await import('./core/init');
+
+Explain performance impact.
+
+----------------------------------------------------
+
+10. URL ROUTING AUDIT
+
+Determine if the router supports URL routes such as:
+
+/projects
+/project/{id}
+
+If the router does NOT support URL paths, report this as a scalability limitation.
+
+Explain how routing could be implemented.
+
+----------------------------------------------------
+
+11. SCALABILITY ANALYSIS
+
+Evaluate whether the platform architecture is ready for:
+
+multiple users
+cloud persistence
+collaboration
+deep project linking
+
+Highlight the most critical missing abstractions.
+
+----------------------------------------------------
+
+12. DATA LAYER ANALYSIS
+
+Check if project storage is tightly coupled to localStorage.
+
+If so, recommend introducing:
+
+ProjectRepository abstraction
+
+Provide example interface.
+
+----------------------------------------------------
+
+13. FILE STRUCTURE ANALYSIS
+
+Verify the platform directory structure:
+
+src/ui/platform/
+
+Confirm that no platform code leaks into:
+
+src/ui/
+src/core/
+
+----------------------------------------------------
+
+OUTPUT FORMAT
+
+Return the audit using this structure:
+
+ARCHITECTURE AUDIT REPORT
+
+1. Entry Flow Compliance
+2. Platform / Engine Boundary
+3. DOM Ownership
+4. Component Structure
+5. CSS Governance
+6. Colour Token Compliance
+7. LocalStorage Access Control
+8. Engine Initialization Safety
+9. Performance Analysis
+10. URL Routing Capability
+11. Scalability Readiness
+12. Data Layer Design
+13. File Structure Integrity
+
+For each section include:
+
+Status: PASS / WARNING / FAIL
+
+Explanation
+
+Recommended Fix (if applicable)
+
+----------------------------------------------------
+
+IMPORTANT
+
+This is a READ-ONLY audit.
+
+Do NOT modify any files.
+
+Do NOT refactor code.
+
+Your job is only to analyze and report architecture compliance and risks.

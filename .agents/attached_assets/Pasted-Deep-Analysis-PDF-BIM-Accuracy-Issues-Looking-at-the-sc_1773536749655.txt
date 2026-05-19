@@ -1,0 +1,139 @@
+Deep Analysis: PDF → BIM Accuracy Issues
+
+Looking at the screenshots and the full pipeline, I've identified **7 distinct root causes** across the 5 files involved. They fall into two categories: a critical upstream bug that poisons everything downstream, and several secondary issues that compound the problem.
+
+---
+
+ROOT CAUSE 1 — Scale Calibration is a Blind Guess (CRITICAL — Affects Everything)
+
+**File:** `src/ui/ai/FloorPlanImportPanel.ts` — lines 141–149
+
+```
+// For door-width calibration: estimate door pixel width as ~8% of image width
+constestimatedDoorPx=state.pdfConversion.widthPx*0.08;
+
+constpxPerMeter=refKey!=='manual'
+?estimatedDoorPx/dimM
+:100;// fallback — user should override
+```
+
+This is the single most damaging issue. The code **assumes** a door occupies exactly 8% of the image width — a hardcoded heuristic that has no connection to the actual PDF. For a 1000px wide image, this gives 80px as the "door width". If the real door in this specific floor plan is 55px wide (common at smaller scale), or 110px wide (at larger scale), the computed `pxPerMeter` is wrong by 30–40%.
+
+**Cascade effect:** `pxPerMeter` feeds into `planWidthMeters = widthPx / pxPerMeter`, which is used in `pixelToWorld()`. Every single wall start/end, every opening centre, every slab vertex, and every furniture position is computed from `pixelToWorld()`. A 35% calibration error means ALL elements are 35% offset or differently scaled from where they should be.
+
+The code comment even acknowledges this is a placeholder: *"This is a heuristic; a dedicated Haiku call could refine this."*
+
+---
+
+ROOT CAUSE 2 — Wall Thickness Calculation Uses Wrong Denominator (Secondary)
+
+**File:** `src/ai/FloorPlanCommandBatcher.ts` — lines 201–203
+
+```
+constthicknessM=data.thicknessPx/analysis.imageDimensions.widthPx*
+(underlayTool.getState()?.planWidthMeters??10);
+```
+
+This simplifies mathematically to: `thicknessPx / pxPerMeter`. The result is proportional to the wrong `pxPerMeter` from Root Cause 1. An exterior wall intended to be 0.25m thick might get placed as 0.18m or 0.35m thick. This creates Z-fighting artefacts and makes joints look wrong at corners.
+
+Additionally, `analysis.imageDimensions.widthPx` is the **rendered canvas width** (capped at 1000px by the PDF converter), while the AI was told the image dimensions via `widthPx: opts.widthPx` in the user text. If these don't match exactly (e.g., rounding during canvas scaling), thickness gets a further error.
+
+---
+
+ROOT CAUSE 3 — Image Resolution Too Low for Accurate Pixel Detection (Secondary)
+
+**File:** `src/utils/PDFToImageConverter.ts` — lines 38, 64, 82–85
+
+```
+constMAX_WIDTH_PX=1000;
+// ...
+grayCtx.filter='grayscale(1)';
+grayCtx.drawImage(canvas,0,0);
+// Exported as JPEG at 0.85 quality
+```
+
+Three compounding sub-issues here:
+
+1. **1000px cap:** For a floor plan that spans 20m of real space, 1000px gives 50px per metre. An exterior wall at 0.3m thickness = 15px. Interior walls at 0.1m = 5px. Claude Vision's pixel-level precision at this resolution is ±5–15px, which is ±10–30cm real-world position error.
+2. **JPEG compression:** JPEG is lossy and introduces blurring on sharp architectural lines. This blurs wall edge detection and causes Claude to report centreline positions that are off by several pixels.
+3. **Grayscale conversion:** Removes the colour information in the plan. On many PDFs, colour is the clearest differentiator between wall types, room fills, and annotations. This increases ambiguity for the AI.
+
+---
+
+ROOT CAUSE 4 — AI Max Token Budget May Truncate Walls (Secondary — Explains Missing Walls)
+
+**File:** `src/ai/FloorPlanAIFactory.ts` — line 279
+
+```
+maxTokens:8192,
+```
+
+A complex floor plan with ~40 walls and ~20 openings can produce JSON output exceeding 8192 tokens. When this limit is hit, Claude stops mid-JSON. The `repairAndParseJSON` utility recovers the partial response, but **walls, openings, and slab vertices that appear late in the JSON array are simply lost**. This directly explains the "walls are missing" observation — Claude detected them, but they were cut off.
+
+The slab polygon, which comes after all walls and openings in the schema, is particularly vulnerable: it's always last, so any truncation hits it first, explaining the "slab not correctly located" issue.
+
+---
+
+ROOT CAUSE 5 — Opening Width Clamped at 0.5m Minimum (Secondary — Explains False Windows)
+
+**File:** `src/ai/FloorPlanCommandBatcher.ts` — lines 300–301
+
+```
+constopeningWidthM=Math.max(0.5,Math.min(3.0,
+snapToGrid(opening.widthPx/imgWidthPx*planWidthMeters,SNAP_GRID_M)
+```
+
+With the wrong `planWidthMeters` from Root Cause 1, the opening width calculation is systematically off. But more critically: the **minimum clamp of 0.5m** means any feature the AI loosely identifies as a window — even a narrow annotation or a hatch mark — gets placed as a 0.5m wide opening. This is why windows appear "where they don't exist": Claude is detecting thin parallel hatch lines in interior walls (which are wall thickness indicators, not windows) and the minimum clamp forces them into valid-looking openings.
+
+---
+
+ROOT CAUSE 6 — Opening–Wall Association is Fragile (Secondary — Explains Misplaced Doors/Windows)
+
+**File:** `src/ai/FloorPlanCommandBatcher.ts` — lines 271–296 and `src/ai/FloorPlanAIFactory.ts` — lines 108–110
+
+The AI system prompt asks Claude to populate `hostWallId` for each opening — referencing a wall `id` from the same response (e.g., `"hostWallId": "w5"`). Then in the batcher:
+
+```
+constwallEntry=wallAiIdToEntry.get(opening.hostWallId);
+if(!wallEntry){skipped++;continue;}
+```
+
+If Claude assigns an opening to the wrong wall ID (very common — the model struggles to maintain consistent ID reference across 60 objects in a single response), the opening is either **skipped entirely** or placed on a different wall. An opening's `offset` (distance along the wall from start) is then projected onto the wrong wall geometry, placing it at a completely wrong location in 3D space.
+
+---
+
+ROOT CAUSE 7 — Slab Polygon Uses Outer Face But Walls Use Centreline (Contract Violation)
+
+**File:** `src/ai/FloorPlanAIFactory.ts` — lines 143–146 vs lines 122–129
+
+The system prompt has a direct conflict:
+
+- **Walls:** `"Report each wall as a single straight LINE SEGMENT along the CENTERLINE"` (inner-face to inner-face midpoint)
+- **Slab:** `"Trace the outermost boundary of the entire floor plan using the OUTER FACE of exterior walls"`
+
+The AI is being asked to switch reference frames within the same response. In practice, Claude often applies the centreline rule to both (or inconsistently alternates), so the slab outline ends up offset from the wall geometry by half the exterior wall thickness (typ. 12–15cm). This is why the slab doesn't match the wall positions even when both look roughly correct.
+
+---
+
+Summary Table
+
+| **#** | **Issue** | **Root File** | **Impact** | **Element Affected** |
+| --- | --- | --- | --- | --- |
+| 1 | Scale calibration is a 8%-width guess, not actual measurement | `FloorPlanImportPanel.ts:143` | **Critical** — all coordinates wrong | All elements |
+| 2 | Wall thickness uses wrong dimensional denominator | `FloorPlanCommandBatcher.ts:201` | High — wrong thickness | Walls |
+| 3 | 1000px cap + JPEG compression + grayscale loses spatial precision | `PDFToImageConverter.ts:38` | High — AI pixel positions are coarse | All elements |
+| 4 | 8192 max_tokens truncates JSON, walls/slab at end of response get dropped | `FloorPlanAIFactory.ts:279` | High — missing walls & broken slab | Walls, Slab |
+| 5 | 0.5m minimum opening width turns annotations into false windows | `FloorPlanCommandBatcher.ts:300` | Medium — phantom openings | Windows, Doors |
+| 6 | Claude ID references (`hostWallId`) are unreliable across large single responses | `FloorPlanAIFactory.ts` prompt | Medium — misplaced openings | Doors, Windows |
+| 7 | Slab uses outer face, walls use centreline — conflicting frames in same prompt | `FloorPlanAIFactory.ts:128/145` | Medium — slab/wall offset mismatch | Slab |
+
+---
+
+Recommended Fix Strategy (Priority Order, no code changes here)
+
+1. **Fix calibration first** — Replace the 8% heuristic with a user-drawn measurement tool (click two known points on the underlay and enter the real distance in meters). This is the only reliable method without an AI call.
+2. **Increase max_tokens or split the response** — Split the Stage B call into two: one for walls/slab and a second for openings. This eliminates truncation and prevents opening IDs from drifting relative to wall IDs.
+3. **Raise image resolution** — Increase `MAX_WIDTH_PX` from 1000 to at least 1500 for the AI call (it's already used at different resolution for the underlay texture — these can be decoupled).
+4. **Remove the 0.5m opening minimum** or lower it to 0.1m and add a confidence filter (skip `low` confidence openings).
+5. **Unify the reference frame in the slab prompt** — Ask Claude to use the same centreline reference for the slab polygon and correct for the half-thickness offset programmatically in `FloorPlanCommandBatcher`.
+6. **Replace `hostWallId` string references with spatial proximity** — In `FloorPlanCommandBatcher`, instead of trusting Claude's `hostWallId`, find the nearest wall to each opening's `centrePx` computationally after the AI response is received.

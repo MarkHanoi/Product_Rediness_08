@@ -1,0 +1,43 @@
+{
+  "id": "gable-rect-low-pitch",
+  "description": "gable 6×4 rect, 10° pitch (ridge along x)",
+  "roof": {
+    "id": "roof:gable-rect-lo",
+    "type": "roof",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "boundary": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 6,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 6,
+        "y": 0,
+        "z": 4
+      },
+      {
+        "x": 0,
+        "y": 0,
+        "z": 4
+      }
+    ],
+    "shape": "gable",
+    "pitch": 0.17453292519943295,
+    "overhang": 0,
+    "thickness": 0.2
+  },
+  "worldY": 2.5
+}

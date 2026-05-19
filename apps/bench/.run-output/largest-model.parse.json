@@ -1,0 +1,10 @@
+{
+  "name": "largest-model.parse",
+  "samples": 5,
+  "p50": 29.177,
+  "p95": 33.196,
+  "p99": 33.196,
+  "budgetMs": 1200,
+  "warnMs": 1200,
+  "recordedAt": "2026-05-09T23:09:08.551Z"
+}

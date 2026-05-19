@@ -1,0 +1,116 @@
+<svg width="100%" viewBox="0 0 680 210" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    
+  </defs>
+
+  <!-- ===== COLUMN (simplified) ===== center x=85 ===== -->
+  <!-- base plate top -->
+  <polygon points="55,148 115,148 125,140 65,140" style="fill:rgb(38, 38, 36);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- base plate front -->
+  <polygon points="55,148 115,148 115,154 55,154" style="fill:rgb(20, 20, 19);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- base plate side -->
+  <polygon points="115,148 125,140 125,146 115,154" style="fill:rgb(20, 20, 19);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- shaft front -->
+  <polygon points="68,80 102,80 102,140 68,140" style="fill:rgb(38, 38, 36);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- shaft side -->
+  <polygon points="102,80 112,72 112,132 102,140" style="fill:rgb(20, 20, 19);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- cap plate top -->
+  <polygon points="55,72 115,72 125,64 65,64" style="fill:rgb(38, 38, 36);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- cap plate front -->
+  <polygon points="55,72 115,72 115,80 55,80" style="fill:rgb(20, 20, 19);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- cap plate side -->
+  <polygon points="115,72 125,64 125,72 115,80" style="fill:rgb(20, 20, 19);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- shaft top connects to cap -->
+  <polygon points="68,80 102,80 112,72 78,72" style="fill:rgb(38, 38, 36);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- label -->
+  <text x="85" y="176" style="fill:rgb(194, 192, 182);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">Column</text>
+
+  <!-- ===== BED ===== center x=255 ===== -->
+  <!-- frame bottom face -->
+  <polygon points="198,148 288,148 300,138 210,138" style="fill:rgb(20, 20, 19);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- frame front face -->
+  <polygon points="198,100 288,100 288,148 198,148" style="fill:rgb(38, 38, 36);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- frame side face -->
+  <polygon points="288,100 300,90 300,138 288,148" style="fill:rgb(20, 20, 19);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- mattress top -->
+  <polygon points="202,96 286,96 298,86 214,86" style="fill:rgb(38, 38, 36);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- mattress front edge -->
+  <polygon points="202,96 286,96 286,104 202,104" style="fill:rgb(38, 38, 36);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- mattress side edge -->
+  <polygon points="286,96 298,86 298,94 286,104" style="fill:rgb(20, 20, 19);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- headboard front -->
+  <polygon points="198,72 214,72 214,100 198,100" style="fill:rgb(38, 38, 36);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- headboard side -->
+  <polygon points="214,72 226,62 226,90 214,100" style="fill:rgb(20, 20, 19);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- headboard top -->
+  <polygon points="198,72 214,72 226,62 210,62" style="fill:rgb(38, 38, 36);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- pillow on mattress -->
+  <polygon points="218,88 252,88 260,82 226,82" style="fill:rgb(38, 38, 36);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <polygon points="252,88 260,82 260,88 252,94" style="fill:rgb(20, 20, 19);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <polygon points="218,88 252,88 252,94 218,94" style="fill:rgb(38, 38, 36);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- label -->
+  <text x="250" y="172" style="fill:rgb(194, 192, 182);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">Bed</text>
+
+  <!-- ===== SOFA ===== center x=425 ===== -->
+  <!-- seat base front -->
+  <polygon points="375,118 465,118 465,148 375,148" style="fill:rgb(38, 38, 36);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- seat base top -->
+  <polygon points="375,118 465,118 477,108 387,108" style="fill:rgb(38, 38, 36);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- seat base side -->
+  <polygon points="465,118 477,108 477,138 465,148" style="fill:rgb(20, 20, 19);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- back rest front -->
+  <polygon points="375,88 465,88 465,118 375,118" style="fill:rgb(38, 38, 36);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- back rest top -->
+  <polygon points="375,88 465,88 477,78 387,78" style="fill:rgb(38, 38, 36);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- back rest side -->
+  <polygon points="465,88 477,78 477,108 465,118" style="fill:rgb(20, 20, 19);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- left arm front -->
+  <polygon points="375,88 387,88 387,148 375,148" style="fill:rgb(38, 38, 36);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- left arm top -->
+  <polygon points="375,88 387,88 399,78 387,78" style="fill:rgb(38, 38, 36);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- left arm side (thin) -->
+  <polygon points="387,88 399,78 399,138 387,148" style="fill:rgb(20, 20, 19);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- right arm front -->
+  <polygon points="465,88 477,88 477,148 465,148" style="fill:rgb(38, 38, 36);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- right arm top -->
+  <polygon points="465,88 477,88 477,78 465,78" style="fill:rgb(38, 38, 36);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- cushion divider line -->
+  <line x1="420" y1="118" x2="420" y2="88" style="fill:none;stroke:rgb(194, 192, 182);color:rgb(255, 255, 255);stroke-width:0.8px;stroke-dasharray:2.5px, 2px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <line x1="420" y1="108" x2="432" y2="98" style="fill:none;stroke:rgb(194, 192, 182);color:rgb(255, 255, 255);stroke-width:0.8px;stroke-dasharray:2.5px, 2px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- legs -->
+  <line stroke="var(--color-text-primary)" stroke-width="1.5" stroke-linecap="round" x1="382" y1="148" x2="382" y2="158" style="fill:rgb(0, 0, 0);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <line stroke="var(--color-text-primary)" stroke-width="1.5" stroke-linecap="round" x1="458" y1="148" x2="458" y2="158" style="fill:rgb(0, 0, 0);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <line stroke="var(--color-text-primary)" stroke-width="1.5" stroke-linecap="round" x1="470" y1="138" x2="470" y2="148" style="fill:rgb(0, 0, 0);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- label -->
+  <text x="426" y="176" style="fill:rgb(194, 192, 182);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">Sofa</text>
+
+  <!-- ===== CHAIR ===== center x=595 ===== -->
+  <!-- seat front -->
+  <polygon points="558,118 618,118 618,138 558,138" style="fill:rgb(38, 38, 36);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- seat top -->
+  <polygon points="558,118 618,118 630,108 568,108" style="fill:rgb(38, 38, 36);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- seat side -->
+  <polygon points="618,118 630,108 630,128 618,138" style="fill:rgb(20, 20, 19);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- back rest front -->
+  <polygon points="558,78 618,78 618,118 558,118" style="fill:rgb(38, 38, 36);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- back rest top -->
+  <polygon points="558,78 618,78 630,68 568,68" style="fill:rgb(38, 38, 36);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- back rest side -->
+  <polygon points="618,78 630,68 630,108 618,118" style="fill:rgb(20, 20, 19);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- left armrest front -->
+  <polygon points="558,98 568,98 568,118 558,118" style="fill:rgb(38, 38, 36);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- left armrest top -->
+  <polygon points="558,98 568,98 580,88 570,88" style="fill:rgb(38, 38, 36);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- left armrest side -->
+  <polygon points="568,98 580,88 580,108 568,118" style="fill:rgb(20, 20, 19);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- right armrest front -->
+  <polygon points="618,98 630,98 630,118 618,118" style="fill:rgb(38, 38, 36);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- right armrest top -->
+  <polygon points="618,98 630,98 630,88 618,88" style="fill:rgb(38, 38, 36);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- legs -->
+  <line stroke="var(--color-text-primary)" stroke-width="1.5" stroke-linecap="round" x1="563" y1="138" x2="563" y2="158" style="fill:rgb(0, 0, 0);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <line stroke="var(--color-text-primary)" stroke-width="1.5" stroke-linecap="round" x1="613" y1="138" x2="613" y2="158" style="fill:rgb(0, 0, 0);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <line stroke="var(--color-text-primary)" stroke-width="1.5" stroke-linecap="round" x1="625" y1="128" x2="625" y2="148" style="fill:rgb(0, 0, 0);stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:round;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- label -->
+  <text x="594" y="176" style="fill:rgb(194, 192, 182);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">Chair</text>
+</svg>

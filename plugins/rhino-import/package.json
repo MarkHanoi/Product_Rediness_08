@@ -1,0 +1,26 @@
+{
+  "name": "@pryzm/plugin-rhino-import",
+  "version": "0.1.0",
+  "description": "PRYZM 2 — Rhino 3DM import plugin (Phase 3-B Sprint S57). Reads Rhino .3dm binary files via rhino3dm WASM and produces a normalised RhinoSceneDocument (curves, meshes, layers, points). Per PHASE-3B-Q2-M28-M30-PLUGINS-IFC-DXF-RHINO.md §S57. Pure TS / Node-compatible (rhino3dm provides node WASM bundle).",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./reader": "./src/reader.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
+    "rhino3dm": "^8.17.0"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.9"
+  }
+}

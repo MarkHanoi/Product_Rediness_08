@@ -1,0 +1,42 @@
+{
+  "id": "cw-12-tiny-bay-0.5x0.5",
+  "description": "3×3 m wall with 0.5×0.5 m micro-bays",
+  "curtainWall": {
+    "id": "curtainwall_01HZS00000000000000CWMICRO",
+    "type": "curtainwall",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "baseLine": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 3,
+        "y": 0,
+        "z": 0
+      }
+    ],
+    "height": 3,
+    "mullionThickness": 0.05,
+    "bayWidth": 0.5,
+    "bayHeight": 0.5,
+    "panels": []
+  },
+  "joinData": {
+    "startJoin": {
+      "kind": "none"
+    },
+    "endJoin": {
+      "kind": "none"
+    }
+  },
+  "worldY": 0
+}

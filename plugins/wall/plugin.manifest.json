@@ -1,0 +1,33 @@
+{
+  "pryzmPlugin": "1.0",
+  "id": "pryzm-wall",
+  "version": "1.0.0",
+  "displayName": "PRYZM Wall",
+  "description": "Wall creation, editing, and system-type management. Full IFC 4.3 IfcWallStandardCase support with layer-aware geometry, opening hosting, and constraint tracking.",
+  "author": "PRYZM",
+  "license": "MIT",
+  "main": "src/index.ts",
+  "minPRYZMVersion": "3.0.0",
+  "permissions": [
+    "read:project",
+    "write:project",
+    "register:tool",
+    "register:panel"
+  ],
+  "allowedOrigins": [],
+  "contributions": [
+    {
+      "kind": "tool",
+      "id": "wall.draw",
+      "label": "Wall",
+      "icon": "tool:wall",
+      "toolbar": "left"
+    },
+    {
+      "kind": "panel",
+      "id": "wall.properties-panel",
+      "location": "properties",
+      "label": "Wall Properties"
+    }
+  ]
+}

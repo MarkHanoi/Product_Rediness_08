@@ -1,0 +1,105 @@
+name: Beta — Bug report
+description: Report a bug encountered during the PRYZM 2 private beta (M24 cohort)
+title: "[beta-bug] "
+labels: ["beta", "bug"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a beta bug report.
+
+        **Required field**: please paste the OTel trace link from the
+        in-app "Help → Copy trace link" affordance. We use it to
+        1-click jump to the exact request in our observability stack
+        per the M24 beta gate (spec §S48 D6 line 718).
+
+  - type: input
+    id: trace_id
+    attributes:
+      label: OTel trace link
+      description: |
+        Paste the trace URL or the 32-char hex trace id. The Honeycomb /
+        Tempo `Trace by ID` saved view loads it directly.
+      placeholder: "https://ui.honeycomb.io/pryzm/trace/abcdef…  or  abcdef0123456789abcdef0123456789"
+    validations:
+      required: true
+
+  - type: input
+    id: release
+    attributes:
+      label: Release / commit
+      description: From the editor footer or `Help → About`.
+      placeholder: "v0.24.0-beta.1 (commit abc1234)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: cohort
+    attributes:
+      label: Beta cohort
+      options:
+        - C1 — Independent practitioner
+        - C2 — Small studio (2–5 users)
+        - C3 — Large practice IT
+        - Academic / educator
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - S0 — Data loss / cannot save
+        - S1 — Cannot complete intended workflow
+        - S2 — Workaround exists but painful
+        - S3 — Cosmetic / minor
+    validations:
+      required: true
+
+  - type: textarea
+    id: what_happened
+    attributes:
+      label: What happened?
+      description: One-paragraph description.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Numbered list. Reference the project file if relevant (we'll fetch it).
+      value: |
+        1. 
+        2. 
+        3. 
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs actual
+      placeholder: |
+        Expected: …
+        Actual: …
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Screenshots, console logs, project file ID, peer count if collaborative, etc.
+
+  - type: checkboxes
+    id: ack
+    attributes:
+      label: Acknowledgements
+      options:
+        - label: I have included the OTel trace link above (required for triage per docs/process/beta-triage.md)
+          required: true
+        - label: I have searched existing beta-bug issues for duplicates
+          required: true

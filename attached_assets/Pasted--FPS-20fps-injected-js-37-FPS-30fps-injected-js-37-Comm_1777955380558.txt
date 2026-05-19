@@ -1,0 +1,247 @@
+[FPS] 20fps
+injected.js:37 [FPS] 30fps
+injected.js:37 [CommandManager] EXECUTE: CREATE_LEVEL
+injected.js:37 [CommandManager] snapshot commandType="CreateMultipleLevelsCommand" scope=[level] elapsed=0.2ms
+injected.js:37 [CreateMultipleLevelsCommand] START count=10
+injected.js:37 [EngineBootstrap] Level switch → "Level 01" (target.Y: 0.14 → 3.00)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-01-1777955098212-1" at 3m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=1/10 addLevel=16.2ms createPlanView=1.4ms iterTotal=17.6ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 02" (target.Y: 3.00 → 6.00)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-02-1777955098230-2" at 6m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=2/10 addLevel=12.1ms createPlanView=0.0ms iterTotal=12.1ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 03" (target.Y: 6.00 → 9.00)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-03-1777955098243-3" at 9m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=3/10 addLevel=9.0ms createPlanView=0.0ms iterTotal=9.1ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 04" (target.Y: 9.00 → 12.00)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-04-1777955098252-4" at 12m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=4/10 addLevel=10.5ms createPlanView=0.0ms iterTotal=10.5ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 05" (target.Y: 12.00 → 15.00)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-05-1777955098263-5" at 15m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=5/10 addLevel=9.1ms createPlanView=0.1ms iterTotal=9.2ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 06" (target.Y: 15.00 → 18.00)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-06-1777955098272-6" at 18m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=6/10 addLevel=10.3ms createPlanView=0.1ms iterTotal=10.4ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 07" (target.Y: 18.00 → 21.00)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-07-1777955098283-7" at 21m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=7/10 addLevel=11.1ms createPlanView=0.0ms iterTotal=11.1ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 08" (target.Y: 21.00 → 24.00)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-08-1777955098294-8" at 24m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=8/10 addLevel=14.4ms createPlanView=0.0ms iterTotal=14.4ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 09" (target.Y: 24.00 → 27.00)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-09-1777955098309-9" at 27m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=9/10 addLevel=10.9ms createPlanView=0.2ms iterTotal=11.1ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 10" (target.Y: 27.00 → 30.00)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-10-1777955098320-10" at 30m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=10/10 addLevel=10.8ms createPlanView=0.0ms iterTotal=10.8ms
+injected.js:37 [CreateMultipleLevelsCommand] COMPLETE total=118.9ms
+injected.js:37 [AIApprovalStore] Audit record appended: 9eca4578-a437-44ef-9a76-4f77bbbe7468 (CREATE_LEVEL)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [LONGTASK] duration=132.0ms start=141300.0ms [type=iframe src=https://2552b729-29bc-4906-bf24-3ab5ce9e738f-00-2vp5qnmbzfg28.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [FPS] 37fps
+2552b729-29bc-4906-bf24-3ab5ce9e738f-00-2vp5qnmbzfg28.pike.replit.dev/#/projects:1 WebGPU: too many warnings, no more warnings will be reported to the console for this GPUDevice.Understand this warning
+injected.js:37 [ProjectSerializer] Snapshot created: 15 elements, 11 levels, 13 walls, 1 slabs, 0 furniture
+injected.js:37 [ProjectSerializer] Snapshot created: 15 elements, 11 levels, 13 walls, 1 slabs, 0 furniture
+injected.js:37 [PlatformSaveController] Version saved: "Auto-save" (15 elements, id: proj-1777955099353-wvc47)
+injected.js:37 [LONGTASK] duration=116.0ms start=142433.6ms [type=iframe src=https://2552b729-29bc-4906-bf24-3ab5ce9e738f-00-2vp5qnmbzfg28.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [FPS] 68fps
+injected.js:37 [AIPanel] Proposal received via event — showing inline card: {id: 'f0d7a471-a70c-4252-acb8-047828bb33b8', proposalId: '21587a5f-567f-4917-a088-e33bc7636bec', intentId: '93f2d5ba-e7a2-47fd-9f79-e8eaf4c1cde5', intentType: 'CREATE_SLABS_ON_ALL_FLOORS', rationale: 'Generating identical slabs on all floors based on the L0 reference slab.', …}
+injected.js:37 [CommandManager] EXECUTE: CREATE_SLABS_ON_ALL_FLOORS
+injected.js:37 [CommandManager] snapshot commandType="CreateSlabsOnAllFloorsCommand" scope=[slab,level] elapsed=0.2ms
+injected.js:37 [CreateSlabsOnAllFloorsCommand] START referenceSlabId="8dee5f6b-7ee8-402a-8a5c-68bdf87927f5" levels=10 polygonVertices=13
+injected.js:37 [CreateSlabsOnAllFloorsCommand] runBatch starting — 10 slab(s) deferred to rAF drain.
+injected.js:37 [BatchCoordinator] §TRACE _setupBatch — 10 level(s), 10 elements expected. ViewDependencyTracker suppressed. T=+0ms (batch clock started)
+injected.js:37 [UnifiedFrameLoop] §TRACE §PERF-VIEW-BATCH-SUPPRESS: OBC+PASCAL render suppressed — WebGL shader compilation deferred until batch drain completes. suppressStartT=143356.3ms
+injected.js:37 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+injected.js:37 [BimManager] Registered element 877dce4b-6da3-4727-b5ef-068180737a72 to level L-01-1777955098212-1
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-01-1777955098212-1" success=true elapsed=2.3ms
+injected.js:37 [BimManager] Registered element e19be851-d788-460c-9843-df69e0535870 to level L-02-1777955098230-2
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-02-1777955098230-2" success=true elapsed=1.7ms
+injected.js:37 [BimManager] Registered element 9e0058a2-f84f-4c0d-b5b0-e849f0e0329c to level L-03-1777955098243-3
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-03-1777955098243-3" success=true elapsed=1.6ms
+injected.js:37 [BimManager] Registered element db4e6b67-c161-485f-9f14-8c926ec748fd to level L-04-1777955098252-4
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-04-1777955098252-4" success=true elapsed=2.3ms
+injected.js:37 [BimManager] Registered element ac3b1bb5-0738-4eae-96b3-5b17d10a03fb to level L-05-1777955098263-5
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-05-1777955098263-5" success=true elapsed=1.9ms
+injected.js:37 [BimManager] Registered element 00682798-be2a-4784-8ab0-596fb9d1f8ea to level L-06-1777955098272-6
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-06-1777955098272-6" success=true elapsed=2.0ms
+injected.js:37 [BimManager] Registered element 17dc0e77-038e-48ba-a381-e4a1f64e93bf to level L-07-1777955098283-7
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-07-1777955098283-7" success=true elapsed=1.5ms
+injected.js:37 [BimManager] Registered element e334a661-da9c-4cb1-a378-5eb5679ed42c to level L-08-1777955098294-8
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-08-1777955098294-8" success=true elapsed=1.8ms
+injected.js:37 [BimManager] Registered element 7910f381-977a-4461-a06a-c580bc0865a6 to level L-09-1777955098309-9
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-09-1777955098309-9" success=true elapsed=1.3ms
+injected.js:37 [BimManager] Registered element c5c41bd8-d017-4a75-8f6c-3827f7dfb16d to level L-10-1777955098320-10
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-10-1777955098320-10" success=true elapsed=2.2ms
+injected.js:37 [CreateSlabsOnAllFloorsCommand] COMPLETE created=10 total=35.5ms
+injected.js:37 [AIApprovalStore] Audit record appended: 1d058453-e55e-4f8c-b485-0dae2c0c15cd (CREATE_SLABS_ON_ALL_FLOORS)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [BatchCoordinator] §TRACE DEFERRED-RESUME-FLUSH fired (first rAF after runBatch returned) T=+52.3ms
+injected.js:37 [BatchCoordinator] §TRACE RESUME-FLUSH-DISPATCHED wallResume+cwResume+slabResume called. CW rAF drain now in-flight. T=+52.6ms
+injected.js:37 [LONGTASK] duration=54.0ms start=143351.9ms [type=iframe src=https://2552b729-29bc-4906-bf24-3ab5ce9e738f-00-2vp5qnmbzfg28.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [SlabFragmentBuilder] outset slabId="877dce4b-6da3-4727-b5ef-068180737a72" vertices=13 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="877dce4b-6da3-4727-b5ef-068180737a72" outerVertices=13 elapsed=0.3ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="877dce4b-6da3-4727-b5ef-068180737a72" totalMs=1.7ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="e19be851-d788-460c-9843-df69e0535870" vertices=13 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="e19be851-d788-460c-9843-df69e0535870" outerVertices=13 elapsed=0.2ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="e19be851-d788-460c-9843-df69e0535870" totalMs=1.2ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="9e0058a2-f84f-4c0d-b5b0-e849f0e0329c" vertices=13 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="9e0058a2-f84f-4c0d-b5b0-e849f0e0329c" outerVertices=13 elapsed=0.2ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="9e0058a2-f84f-4c0d-b5b0-e849f0e0329c" totalMs=1.1ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="db4e6b67-c161-485f-9f14-8c926ec748fd" vertices=13 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="db4e6b67-c161-485f-9f14-8c926ec748fd" outerVertices=13 elapsed=0.2ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="db4e6b67-c161-485f-9f14-8c926ec748fd" totalMs=1.2ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="ac3b1bb5-0738-4eae-96b3-5b17d10a03fb" vertices=13 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="ac3b1bb5-0738-4eae-96b3-5b17d10a03fb" outerVertices=13 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="ac3b1bb5-0738-4eae-96b3-5b17d10a03fb" totalMs=1.1ms
+injected.js:37 [SlabFragmentBuilder] RAF_DRAIN built=5 remaining=5 queueBefore=10 frameMs=8.4ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="00682798-be2a-4784-8ab0-596fb9d1f8ea" vertices=13 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="00682798-be2a-4784-8ab0-596fb9d1f8ea" outerVertices=13 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="00682798-be2a-4784-8ab0-596fb9d1f8ea" totalMs=1.7ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="17dc0e77-038e-48ba-a381-e4a1f64e93bf" vertices=13 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="17dc0e77-038e-48ba-a381-e4a1f64e93bf" outerVertices=13 elapsed=0.4ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="17dc0e77-038e-48ba-a381-e4a1f64e93bf" totalMs=1.9ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="e334a661-da9c-4cb1-a378-5eb5679ed42c" vertices=13 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="e334a661-da9c-4cb1-a378-5eb5679ed42c" outerVertices=13 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="e334a661-da9c-4cb1-a378-5eb5679ed42c" totalMs=1.3ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="7910f381-977a-4461-a06a-c580bc0865a6" vertices=13 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="7910f381-977a-4461-a06a-c580bc0865a6" outerVertices=13 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="7910f381-977a-4461-a06a-c580bc0865a6" totalMs=1.1ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="c5c41bd8-d017-4a75-8f6c-3827f7dfb16d" vertices=13 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="c5c41bd8-d017-4a75-8f6c-3827f7dfb16d" outerVertices=13 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="c5c41bd8-d017-4a75-8f6c-3827f7dfb16d" totalMs=0.9ms
+injected.js:37 [SlabFragmentBuilder] RAF_DRAIN built=5 remaining=0 queueBefore=5 frameMs=8.9ms
+injected.js:37 [SlabFragmentBuilder] rAF queue drained — signalling BatchCoordinator.
+injected.js:37 [BatchCoordinator] §TRACE BUILD-QUEUE-DRAINED regQueue=0 / totalExpected=10 T=+182.6ms (all geometry in scene; registration drain starting)
+injected.js:37 [BatchCoordinator] §TRACE §REG-MANY-P2 queue ≤ 50 (0) — draining synchronously (0 rAF frames) T=+182.8ms
+injected.js:37 [BatchCoordinator] §TRACE REGISTRATION-DRAIN-DONE 0 registration(s) complete T=+183.0ms
+injected.js:37 [BatchCoordinator] §TRACE SHADOW-REACTIVATION-START T=+183.2ms
+injected.js:37 [BatchCoordinator] §TRACE SHADOW-REACTIVATION-DISPATCHED (sliced across post-render frames) callMs=0.6ms T=+183.8ms
+injected.js:37 [BatchCoordinator] §TRACE FINAL-SWEEP-START levels=10 skipRedetect=false T=+184.4ms (opening yielded event drain)
+injected.js:37 [StoreEventBus] endBatchYielded() — 10 event(s) will be delivered in 1 chunk(s) of 200 via frame scheduler.
+injected.js:37 [StoreEventBus] endBatchYielded() — all 10 event(s) delivered across 1 chunk(s) (last: 1.4ms). Calling onComplete().
+injected.js:37 [BatchCoordinator] §TRACE ON-COMPLETE-START (all yielded events delivered) T=+204.4ms
+injected.js:37 [BatchCoordinator] §TRACE §PERF-VIEW-BATCH-SUPPRESS suppression lifted; markLevelsDirty(10 level(s)) scheduled. T=+204.7ms (next render will compile all deferred CW shaders — LONGTASK expected)
+injected.js:37 [BatchCoordinator] §TRACE ON-BATCH-END-START T=+204.9ms
+injected.js:37 [UnifiedFrameLoop] §TRACE §PERF-RENDER-BEFORE-UNSUPPRESS: renderPipelineManager.render(0) fired before suppression lifted — PSO cache warm.
+injected.js:37 [UnifiedFrameLoop] §TRACE §PERF-VIEW-BATCH-SUPPRESS suppression lifted after 253.5ms — OBC+PASCAL resuming on next tick; PSO cache pre-warmed by compile() above.
+injected.js:37 [BatchCoordinator] §TRACE ON-BATCH-END-DONE (overlay dismissed, suppress lifted on UnifiedFrameLoop) T=+255.2ms
+injected.js:37 [BatchCoordinator] §TRACE ON-POST-BATCH-START (PBR upgrade + requestIdleCallback pending) T=+255.7ms
+injected.js:37 [BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-RUNNING (skipPbrUpgrade=false at post-batch callback time — running upgrade)
+injected.js:37 [BatchCoordinator] §TRACE ON-POST-BATCH-DISPATCHED (PBR upgrade queued to requestIdleCallback) T=+256.5ms
+injected.js:37 [BatchCoordinator] Final sweep: firing 10 REDETECT_ROOMS command(s) (one per affected level). Observers re-enabled. StoreEventBus flushed (depth now 0).
+injected.js:37 [FPS] 56fps
+injected.js:37 [LONGTASK] duration=58.0ms start=143556.4ms [type=iframe src=https://2552b729-29bc-4906-bf24-3ab5ce9e738f-00-2vp5qnmbzfg28.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [GPU Monitor] geometries:28 textures:9 | drawCalls:15 tris:215
+injected.js:37 [UnifiedFrameLoop] §TRACE FIRST-RENDER-POST-SUPPRESS totalSuppressedMs=512.9ms frameCount=786 — OBC+PASCAL about to execute (WebGPU PSO compile LONGTASK begins here)
+injected.js:37 [BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-IDLE-START idleCallbackT=144004.3ms (requestIdleCallback fired — scheduling post-render traversal)
+injected.js:37 [BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-TRAVERSE-DONE totalMeshes=95 chunks=1 traverseMs=0.2ms
+injected.js:37 [BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-COMPLETE 95 mesh(es) in 1 chunk(s) totalPbrMs=0.1ms (§FIX-POST-BATCH-PBR-CHUNK)
+injected.js:37 [ProjectSerializer] Snapshot created: 25 elements, 11 levels, 13 walls, 11 slabs, 0 furniture
+injected.js:37 [ProjectSerializer] Snapshot created: 25 elements, 11 levels, 13 walls, 11 slabs, 0 furniture
+injected.js:37 [PlatformSaveController] Version saved: "Auto-save" (25 elements, id: proj-1777955101335-0e3xg)
+injected.js:37 [LONGTASK] duration=102.0ms start=144419.5ms [type=iframe src=https://2552b729-29bc-4906-bf24-3ab5ce9e738f-00-2vp5qnmbzfg28.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [FPS] 37fps
+injected.js:37 [CommandManager] EXECUTE: CREATE_CURTAIN_WALLS_ON_ALL_SLABS
+injected.js:37 [CommandManager] snapshot commandType="CreateCurtainWallsOnAllSlabsCommand" scope=[curtainWall] elapsed=0.0ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] §TRACE-CW#1 START slabCount=11 isRedo=false shadersPrewarmed=false T=+0ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] §TRACE-CW#1 PREWARM-START T=+0.4ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] PERF-PREWARM: 3 PSO variants pre-compiled via renderPipelineManager.render(0) (production pipeline, correct FBOs): mullionIM + glassIM + fallbackMesh.
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] §TRACE-CW#1 PREWARM-DONE prewarmMs=118.6ms T=+119.0ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] §TRACE-CW#1 RUNBATCH-START levelCount=11 estimatedWalls=143 T=+119.1ms
+injected.js:37 [BatchCoordinator] §TRACE _setupBatch — 11 level(s), 143 elements expected. ViewDependencyTracker suppressed. T=+0ms (batch clock started)
+injected.js:37 [UnifiedFrameLoop] §TRACE §PERF-VIEW-BATCH-SUPPRESS: OBC+PASCAL render suppressed — WebGL shader compilation deferred until batch drain completes. suppressStartT=147838.2ms
+injected.js:37 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="8dee5f6b-7ee8-402a-8a5c-68bdf87927f5" walls=13 elapsed=0.2ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="877dce4b-6da3-4727-b5ef-068180737a72" walls=13 elapsed=0.1ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="e19be851-d788-460c-9843-df69e0535870" walls=13 elapsed=0.1ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="9e0058a2-f84f-4c0d-b5b0-e849f0e0329c" walls=13 elapsed=0.1ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="db4e6b67-c161-485f-9f14-8c926ec748fd" walls=13 elapsed=0.1ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="ac3b1bb5-0738-4eae-96b3-5b17d10a03fb" walls=13 elapsed=0.1ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="00682798-be2a-4784-8ab0-596fb9d1f8ea" walls=13 elapsed=0.1ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="17dc0e77-038e-48ba-a381-e4a1f64e93bf" walls=13 elapsed=0.1ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="e334a661-da9c-4cb1-a378-5eb5679ed42c" walls=13 elapsed=0.0ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="7910f381-977a-4461-a06a-c580bc0865a6" walls=13 elapsed=0.1ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="c5c41bd8-d017-4a75-8f6c-3827f7dfb16d" walls=13 elapsed=0.0ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] PERF-ADDMANY: addMany(143) complete.
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] §TRACE-CW#1 RUNBATCH-RETURNED (sync phase done; rAF drain pending) runBatchMs=1214.1ms T=+1333.2ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] §TRACE-CW#1 COMPLETE walls=143 isRedo=false totalMs=1333.3ms (rAF geometry drain + registration + event drain still pending async)
+injected.js:37 [AIApprovalStore] Audit record appended: 8feb5c01-936e-48bc-8a13-499f806098ad (CREATE_CURTAIN_WALLS_ON_ALL_SLABS)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [BatchCoordinator] §TRACE DEFERRED-RESUME-FLUSH fired (first rAF after runBatch returned) T=+1252.3ms
+injected.js:37 [CurtainWallBuilder] §BATCH-CW-PAUSE: resumeAndFlush — 143 walls transferred to pending queue, 1 rAF drain scheduled.
+injected.js:37 [BatchCoordinator] §TRACE RESUME-FLUSH-DISPATCHED wallResume+cwResume+slabResume called. CW rAF drain now in-flight. T=+1253.1ms
+injected.js:37 [FPS] 30fps
+injected.js:37 [LONGTASK] duration=1371.0ms start=147716.5ms [type=iframe src=https://2552b729-29bc-4906-bf24-3ab5ce9e738f-00-2vp5qnmbzfg28.pike.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [CurtainWallBuilder] §PERF-DRAIN built=20 remaining=123 queueBefore=143 frameMs=10.9ms nextBudget=20 isBatch=true
+injected.js:37 [CurtainWallBuilder] §PERF-DRAIN built=20 remaining=103 queueBefore=123 frameMs=5.7ms nextBudget=21 isBatch=true
+injected.js:37 [CurtainWallBuilder] §PERF-DRAIN built=21 remaining=82 queueBefore=103 frameMs=6.1ms nextBudget=22 isBatch=true
+injected.js:37 [CurtainWallBuilder] §PERF-DRAIN built=22 remaining=60 queueBefore=82 frameMs=5.2ms nextBudget=23 isBatch=true
+injected.js:37 [CurtainWallBuilder] §PERF-DRAIN built=23 remaining=37 queueBefore=60 frameMs=3.5ms nextBudget=24 isBatch=true
+injected.js:37 [CurtainWallBuilder] §PERF-DRAIN built=24 remaining=13 queueBefore=37 frameMs=4.6ms nextBudget=25 isBatch=true
+injected.js:37 [CurtainWallBuilder] §PERF-DRAIN built=13 remaining=0 queueBefore=13 frameMs=2.9ms nextBudget=26 isBatch=true
+injected.js:37 [CurtainWallBuilder] §PERF-DRAIN-COMPLETE rAF queue fully drained (0 built this frame, 0 remaining) — signalling BatchCoordinator.signalBuildQueueDrained().
+injected.js:37 [BatchCoordinator] §TRACE BUILD-QUEUE-DRAINED regQueue=11 / totalExpected=143 T=+1388.7ms (all geometry in scene; registration drain starting)
+injected.js:37 [BatchCoordinator] §TRACE §REG-MANY-P2 queue ≤ 50 (11) — draining synchronously (0 rAF frames) T=+1389.0ms
+injected.js:37 [BimManager] §REG-MANY-P0: registered 13 element(s) to level "L0".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 13 element(s) to level "L-01-1777955098212-1".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 13 element(s) to level "L-02-1777955098230-2".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 13 element(s) to level "L-03-1777955098243-3".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 13 element(s) to level "L-04-1777955098252-4".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 13 element(s) to level "L-05-1777955098263-5".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 13 element(s) to level "L-06-1777955098272-6".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 13 element(s) to level "L-07-1777955098283-7".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 13 element(s) to level "L-08-1777955098294-8".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 13 element(s) to level "L-09-1777955098309-9".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 13 element(s) to level "L-10-1777955098320-10".
+injected.js:37 [BatchCoordinator] §TRACE REGISTRATION-DRAIN-DONE 11 registration(s) complete T=+1392.5ms
+injected.js:37 [BatchCoordinator] §TRACE SHADOW-REACTIVATION-START T=+1392.8ms
+injected.js:37 [BatchCoordinator] §TRACE SHADOW-REACTIVATION-DISPATCHED (sliced across post-render frames) callMs=0.2ms T=+1393.0ms
+injected.js:37 [BatchCoordinator] §TRACE FINAL-SWEEP-START levels=11 skipRedetect=true T=+1393.2ms (opening yielded event drain)
+injected.js:37 [StoreEventBus] endBatchYielded() — 143 event(s) will be delivered in 1 chunk(s) of 200 via frame scheduler.
+injected.js:37 [StoreEventBus] endBatchYielded() — all 143 event(s) delivered across 1 chunk(s) (last: 11.5ms). Calling onComplete().
+injected.js:37 [BatchCoordinator] §TRACE ON-COMPLETE-START (all yielded events delivered) T=+1414.5ms
+injected.js:37 [BatchCoordinator] §TRACE §PERF-VIEW-BATCH-SUPPRESS suppression lifted; markLevelsDirty(11 level(s)) scheduled. T=+1414.8ms (next render will compile all deferred CW shaders — LONGTASK expected)
+injected.js:37 [BatchCoordinator] §TRACE ON-BATCH-END-START T=+1415.0ms
+injected.js:37 [UnifiedFrameLoop] §TRACE §PERF-RENDER-BEFORE-UNSUPPRESS: renderPipelineManager.render(0) fired before suppression lifted — PSO cache warm.
+injected.js:37 [UnifiedFrameLoop] §TRACE §PERF-VIEW-BATCH-SUPPRESS suppression lifted after 17054.2ms — OBC+PASCAL resuming on next tick; PSO cache pre-warmed by compile() above.
+injected.js:37 [BatchCoordinator] §TRACE ON-BATCH-END-DONE (overlay dismissed, suppress lifted on UnifiedFrameLoop) T=+17055.5ms
+injected.js:37 [BatchCoordinator] §TRACE ON-POST-BATCH-START (PBR upgrade + requestIdleCallback pending) T=+17056.3ms
+injected.js:37 [BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-SKIPPED (skipPbrUpgrade=true — curtain-wall batch; materials are already PBR-ready)
+injected.js:37 [BatchCoordinator] §TRACE ON-POST-BATCH-DISPATCHED (PBR upgrade queued to requestIdleCallback) T=+17057.0ms
+injected.js:37 [BatchCoordinator] Final sweep: SKIPPING REDETECT_ROOMS for 11 level(s) (§FIX-SKIP-REDETECT-ROOMS — element type cannot define room boundaries). StoreEventBus flushed (depth now 0). markLevelsDirty already called above for plan-view reprojection.
+injected.js:37 [FPS] 8fps

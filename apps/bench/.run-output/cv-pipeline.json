@@ -1,0 +1,29 @@
+{
+  "bench": "cv-pipeline",
+  "sprint": "S50",
+  "timestamp": "2026-05-09T23:09:14.404Z",
+  "runtimeKind": "cpu",
+  "runtimeMock": true,
+  "pageWidth": 600,
+  "pageHeight": 800,
+  "samples": [
+    {
+      "scenario": "classifyPage(mock)",
+      "cold": 0.24035699999990356,
+      "warmAvg": 0.0024222600000177864,
+      "p50": 0.001138000000082684,
+      "p95": 0.0032220000000506843,
+      "p99": 0.04049099999997452,
+      "budgetMs": 1
+    },
+    {
+      "scenario": "runSegmentationModel(mock, 600×800)",
+      "cold": 14.596072999999933,
+      "warmAvg": 2.947921549999991,
+      "p50": 2.3991499999999633,
+      "p95": 4.202368999999862,
+      "p99": 16.90610599999991,
+      "budgetMs": 50
+    }
+  ]
+}

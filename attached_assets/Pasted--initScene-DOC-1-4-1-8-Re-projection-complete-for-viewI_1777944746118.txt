@@ -1,0 +1,801 @@
+[initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=32 (OBC-IFC=0, native=17, ifc-scene=0)
+engineLauncher-CR4aPVRy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=4/14 layers
+engineLauncher-CR4aPVRy.js:1864 [RoomBoundaryBuilder] Compliance overlay: 2 error, 0 warning room(s) tinted
+2engineLauncher-CR4aPVRy.js:1864 [ProjectSerializer] Snapshot created: 18 elements, 1 levels, 17 walls, 0 slabs, 0 furniture
+PlatformShell-COYqdEM7.js:23 [PlatformSaveController] Version saved: "Auto-save" (18 elements, id: proj-1777944420469-tyy5s)
+engineLauncher-CR4aPVRy.js:5926 [SlabModePicker] Mode selected: By Region
+engineLauncher-CR4aPVRy.js:1902 ToolManager: activateTool called for slab
+engineLauncher-CR4aPVRy.js:1902 ToolManager: deactivating previous tool none
+engineLauncher-CR4aPVRy.js:1902 ToolManager: executing activateFn for slab
+engineLauncher-CR4aPVRy.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: CREATE_SLAB
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="qs" scope=[slab,level] elapsed=0.1ms
+engineLauncher-CR4aPVRy.js:1595 [BimManager] Registered element f711a405-d175-4978-a9ac-23c8e40a2a6b to level L0
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] outset slabId="f711a405-d175-4978-a9ac-23c8e40a2a6b" vertices=17 elapsed=0.2ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] triangulate slabId="f711a405-d175-4978-a9ac-23c8e40a2a6b" outerVertices=17 elapsed=0.5ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="f711a405-d175-4978-a9ac-23c8e40a2a6b" totalMs=1.5ms
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: UPDATE_SLAB_LAYERS
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="gc" scope=[slab] elapsed=0.1ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] outset slabId="f711a405-d175-4978-a9ac-23c8e40a2a6b" vertices=17 elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] triangulate slabId="f711a405-d175-4978-a9ac-23c8e40a2a6b" outerVertices=17 elapsed=0.3ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="f711a405-d175-4978-a9ac-23c8e40a2a6b" totalMs=0.9ms
+engineLauncher-CR4aPVRy.js:556 [LevelPlaneConstraint] Locked Y=-0.2000 for element "Slab" id="f711a405-d175-4978-a9ac-23c8e40a2a6b"
+engineLauncher-CR4aPVRy.js:541 [CutFill] Updating: enabled=false, height=1.2
+main-BzEHm2fD.js:29470 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+main-BzEHm2fD.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+engineLauncher-CR4aPVRy.js:1838 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed out of 1 live room(s).
+engineLauncher-CR4aPVRy.js:1595 [NativeElementMeshExporter] Plan view — exporting 19 elements from levels overlapping Y=[-1.20, 0.00]
+EdgeProjectorService-BiNTKAFW.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-BiNTKAFW.js:1 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-BiNTKAFW.js:1 [EdgeProjectorService] Native projection done — 18 group(s), 18 edge geometries across 18 ISO layer(s) (per-element UUID tagging active)
+engineLauncher-CR4aPVRy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=34 (OBC-IFC=0, native=18, ifc-scene=0)
+engineLauncher-CR4aPVRy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=7/14 layers
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:2323 [PlanarTopologyEngine] Topology: 1 room(s) detected, outer face (17 vertices), 2 total faces
+engineLauncher-CR4aPVRy.js:2323 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+engineLauncher-CR4aPVRy.js:1964 Exiting tool via HUD button
+engineLauncher-CR4aPVRy.js:7105 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-CR4aPVRy.js:541 [CutFill] Updating: enabled=false, height=1.2
+2engineLauncher-CR4aPVRy.js:1864 [ProjectSerializer] Snapshot created: 19 elements, 1 levels, 17 walls, 1 slabs, 0 furniture
+PlatformShell-COYqdEM7.js:23 [PlatformSaveController] Version saved: "Auto-save" (19 elements, id: proj-1777944423460-qr1cv)
+/#/projects:1 WebGPU: too many warnings, no more warnings will be reported to the console for this GPUDevice.Understand this warning
+engineLauncher-CR4aPVRy.js:7105 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-CR4aPVRy.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: CREATE_LEVEL
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="Y9" scope=[level] elapsed=0.2ms
+engineLauncher-CR4aPVRy.js:2332 [CreateMultipleLevelsCommand] START count=10
+engineLauncher-CR4aPVRy.js:7262 [EngineBootstrap] Level switch → "Level 01" (target.Y: -1.30 → 3.00)
+engineLauncher-CR4aPVRy.js:1838 [initScene] LevelClipPlaneCache: registered level "L-01-1777944440482-1" at 3m
+engineLauncher-CR4aPVRy.js:4702 Refreshing Spatial Tree...
+engineLauncher-CR4aPVRy.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-CR4aPVRy.js:2332 [CreateMultipleLevelsCommand] level=1/10 addLevel=10.2ms createPlanView=0.3ms iterTotal=10.5ms
+engineLauncher-CR4aPVRy.js:7262 [EngineBootstrap] Level switch → "Level 02" (target.Y: 3.00 → 6.50)
+engineLauncher-CR4aPVRy.js:1838 [initScene] LevelClipPlaneCache: registered level "L-02-1777944440493-2" at 6.5m
+engineLauncher-CR4aPVRy.js:4702 Refreshing Spatial Tree...
+engineLauncher-CR4aPVRy.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-CR4aPVRy.js:2332 [CreateMultipleLevelsCommand] level=2/10 addLevel=7.8ms createPlanView=0.1ms iterTotal=7.9ms
+engineLauncher-CR4aPVRy.js:7262 [EngineBootstrap] Level switch → "Level 03" (target.Y: 6.50 → 10.00)
+engineLauncher-CR4aPVRy.js:1838 [initScene] LevelClipPlaneCache: registered level "L-03-1777944440501-3" at 10m
+engineLauncher-CR4aPVRy.js:4702 Refreshing Spatial Tree...
+engineLauncher-CR4aPVRy.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-CR4aPVRy.js:2332 [CreateMultipleLevelsCommand] level=3/10 addLevel=10.9ms createPlanView=0.0ms iterTotal=10.9ms
+engineLauncher-CR4aPVRy.js:7262 [EngineBootstrap] Level switch → "Level 04" (target.Y: 10.00 → 13.50)
+engineLauncher-CR4aPVRy.js:1838 [initScene] LevelClipPlaneCache: registered level "L-04-1777944440512-4" at 13.5m
+engineLauncher-CR4aPVRy.js:4702 Refreshing Spatial Tree...
+engineLauncher-CR4aPVRy.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-CR4aPVRy.js:2332 [CreateMultipleLevelsCommand] level=4/10 addLevel=7.6ms createPlanView=0.1ms iterTotal=7.7ms
+engineLauncher-CR4aPVRy.js:7262 [EngineBootstrap] Level switch → "Level 05" (target.Y: 13.50 → 17.00)
+engineLauncher-CR4aPVRy.js:1838 [initScene] LevelClipPlaneCache: registered level "L-05-1777944440520-5" at 17m
+engineLauncher-CR4aPVRy.js:4702 Refreshing Spatial Tree...
+engineLauncher-CR4aPVRy.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-CR4aPVRy.js:2332 [CreateMultipleLevelsCommand] level=5/10 addLevel=6.4ms createPlanView=0.0ms iterTotal=6.4ms
+engineLauncher-CR4aPVRy.js:7262 [EngineBootstrap] Level switch → "Level 06" (target.Y: 17.00 → 20.50)
+engineLauncher-CR4aPVRy.js:1838 [initScene] LevelClipPlaneCache: registered level "L-06-1777944440526-6" at 20.5m
+engineLauncher-CR4aPVRy.js:4702 Refreshing Spatial Tree...
+engineLauncher-CR4aPVRy.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-CR4aPVRy.js:2332 [CreateMultipleLevelsCommand] level=6/10 addLevel=7.8ms createPlanView=0.0ms iterTotal=7.9ms
+engineLauncher-CR4aPVRy.js:7262 [EngineBootstrap] Level switch → "Level 07" (target.Y: 20.50 → 24.00)
+engineLauncher-CR4aPVRy.js:1838 [initScene] LevelClipPlaneCache: registered level "L-07-1777944440534-7" at 24m
+engineLauncher-CR4aPVRy.js:4702 Refreshing Spatial Tree...
+engineLauncher-CR4aPVRy.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-CR4aPVRy.js:2332 [CreateMultipleLevelsCommand] level=7/10 addLevel=12.5ms createPlanView=0.0ms iterTotal=12.5ms
+engineLauncher-CR4aPVRy.js:7262 [EngineBootstrap] Level switch → "Level 08" (target.Y: 24.00 → 27.50)
+engineLauncher-CR4aPVRy.js:1838 [initScene] LevelClipPlaneCache: registered level "L-08-1777944440546-8" at 27.5m
+engineLauncher-CR4aPVRy.js:4702 Refreshing Spatial Tree...
+engineLauncher-CR4aPVRy.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-CR4aPVRy.js:2332 [CreateMultipleLevelsCommand] level=8/10 addLevel=7.5ms createPlanView=0.0ms iterTotal=7.6ms
+engineLauncher-CR4aPVRy.js:7262 [EngineBootstrap] Level switch → "Level 09" (target.Y: 27.50 → 31.00)
+engineLauncher-CR4aPVRy.js:1838 [initScene] LevelClipPlaneCache: registered level "L-09-1777944440554-9" at 31m
+engineLauncher-CR4aPVRy.js:4702 Refreshing Spatial Tree...
+engineLauncher-CR4aPVRy.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-CR4aPVRy.js:2332 [CreateMultipleLevelsCommand] level=9/10 addLevel=7.1ms createPlanView=0.0ms iterTotal=7.2ms
+engineLauncher-CR4aPVRy.js:7262 [EngineBootstrap] Level switch → "Level 10" (target.Y: 31.00 → 34.50)
+engineLauncher-CR4aPVRy.js:1838 [initScene] LevelClipPlaneCache: registered level "L-10-1777944440561-10" at 34.5m
+engineLauncher-CR4aPVRy.js:4702 Refreshing Spatial Tree...
+engineLauncher-CR4aPVRy.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-CR4aPVRy.js:2332 [CreateMultipleLevelsCommand] level=10/10 addLevel=11.4ms createPlanView=0.1ms iterTotal=11.5ms
+engineLauncher-CR4aPVRy.js:2332 [CreateMultipleLevelsCommand] COMPLETE total=90.6ms
+engineLauncher-CR4aPVRy.js:2392 [AIApprovalStore] Audit record appended: 24d26561-3cbf-44d0-8c6f-5c1256ddb227 (CREATE_LEVEL)
+engineLauncher-CR4aPVRy.js:4702 Refreshing Spatial Tree...
+engineLauncher-CR4aPVRy.js:2325 [RuleEngine] Model updated, ready for re-validation
+2engineLauncher-CR4aPVRy.js:1864 [ProjectSerializer] Snapshot created: 19 elements, 11 levels, 17 walls, 1 slabs, 0 furniture
+PlatformShell-COYqdEM7.js:23 [PlatformSaveController] Version saved: "Auto-save" (19 elements, id: proj-1777944441576-fka2s)
+engineLauncher-CR4aPVRy.js:2400 [AIPanel] Proposal received via event — showing inline card: Object
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: CREATE_SLABS_ON_ALL_FLOORS
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="u2" scope=[slab,level] elapsed=0.3ms
+engineLauncher-CR4aPVRy.js:1864 [CreateSlabsOnAllFloorsCommand] START referenceSlabId="f711a405-d175-4978-a9ac-23c8e40a2a6b" levels=10 polygonVertices=17
+engineLauncher-CR4aPVRy.js:1864 [CreateSlabsOnAllFloorsCommand] runBatch starting — 10 slab(s) deferred to rAF drain.
+engineLauncher-CR4aPVRy.js:484 [BatchCoordinator] _setupBatch — 10 level(s), 10 elements expected. ViewDependencyTracker suppressed.
+main-BzEHm2fD.js:29470 [UnifiedFrameLoop] §PERF-VIEW-BATCH-SUPPRESS: OBC+PASCAL render suppressed — WebGL shader compilation deferred until batch drain completes.
+main-BzEHm2fD.js:29470 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+engineLauncher-CR4aPVRy.js:1595 [BimManager] Registered element f72b2384-451b-43e9-81b5-f9c9085ea41c to level L-01-1777944440482-1
+engineLauncher-CR4aPVRy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-01-1777944440482-1" success=true elapsed=1.5ms
+engineLauncher-CR4aPVRy.js:1595 [BimManager] Registered element 7fcf13c9-cc94-4b61-a18b-d42cd0489e7b to level L-02-1777944440493-2
+engineLauncher-CR4aPVRy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-02-1777944440493-2" success=true elapsed=0.6ms
+engineLauncher-CR4aPVRy.js:1595 [BimManager] Registered element 90d1ed5c-d2f2-487c-b94b-77b535488036 to level L-03-1777944440501-3
+engineLauncher-CR4aPVRy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-03-1777944440501-3" success=true elapsed=0.5ms
+engineLauncher-CR4aPVRy.js:1595 [BimManager] Registered element 415b59d3-e662-4923-a528-705daf44e1b9 to level L-04-1777944440512-4
+engineLauncher-CR4aPVRy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-04-1777944440512-4" success=true elapsed=0.5ms
+engineLauncher-CR4aPVRy.js:1595 [BimManager] Registered element 9bebb8b3-aa3d-4b20-85a7-8f8ad891da71 to level L-05-1777944440520-5
+engineLauncher-CR4aPVRy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-05-1777944440520-5" success=true elapsed=0.5ms
+engineLauncher-CR4aPVRy.js:1595 [BimManager] Registered element 10fe3cbf-7bf6-4868-b9ca-894b18f32709 to level L-06-1777944440526-6
+engineLauncher-CR4aPVRy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-06-1777944440526-6" success=true elapsed=0.4ms
+engineLauncher-CR4aPVRy.js:1595 [BimManager] Registered element 3540c9b2-a6ac-406a-b18f-ebb4ceafe696 to level L-07-1777944440534-7
+engineLauncher-CR4aPVRy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-07-1777944440534-7" success=true elapsed=0.6ms
+engineLauncher-CR4aPVRy.js:1595 [BimManager] Registered element 02c6d281-0d97-4961-a8b1-b70df473394d to level L-08-1777944440546-8
+engineLauncher-CR4aPVRy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-08-1777944440546-8" success=true elapsed=0.6ms
+engineLauncher-CR4aPVRy.js:1595 [BimManager] Registered element bb56703f-8222-4945-a288-f64370dd025b to level L-09-1777944440554-9
+engineLauncher-CR4aPVRy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-09-1777944440554-9" success=true elapsed=0.6ms
+engineLauncher-CR4aPVRy.js:1595 [BimManager] Registered element 7ba8cfe5-2ec0-4b1f-84d9-5c0e158246a4 to level L-10-1777944440561-10
+engineLauncher-CR4aPVRy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-10-1777944440561-10" success=true elapsed=0.6ms
+engineLauncher-CR4aPVRy.js:1864 [CreateSlabsOnAllFloorsCommand] COMPLETE created=10 total=11.8ms
+engineLauncher-CR4aPVRy.js:2392 [AIApprovalStore] Audit record appended: adf42d14-3799-4626-b40e-aa229338eda6 (CREATE_SLABS_ON_ALL_FLOORS)
+engineLauncher-CR4aPVRy.js:4702 Refreshing Spatial Tree...
+engineLauncher-CR4aPVRy.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] outset slabId="f72b2384-451b-43e9-81b5-f9c9085ea41c" vertices=17 elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] triangulate slabId="f72b2384-451b-43e9-81b5-f9c9085ea41c" outerVertices=17 elapsed=0.2ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="f72b2384-451b-43e9-81b5-f9c9085ea41c" totalMs=1.1ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] outset slabId="7fcf13c9-cc94-4b61-a18b-d42cd0489e7b" vertices=17 elapsed=0.1ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] triangulate slabId="7fcf13c9-cc94-4b61-a18b-d42cd0489e7b" outerVertices=17 elapsed=0.2ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="7fcf13c9-cc94-4b61-a18b-d42cd0489e7b" totalMs=0.7ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] outset slabId="90d1ed5c-d2f2-487c-b94b-77b535488036" vertices=17 elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] triangulate slabId="90d1ed5c-d2f2-487c-b94b-77b535488036" outerVertices=17 elapsed=0.2ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="90d1ed5c-d2f2-487c-b94b-77b535488036" totalMs=0.8ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] outset slabId="415b59d3-e662-4923-a528-705daf44e1b9" vertices=17 elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] triangulate slabId="415b59d3-e662-4923-a528-705daf44e1b9" outerVertices=17 elapsed=0.2ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="415b59d3-e662-4923-a528-705daf44e1b9" totalMs=0.9ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] outset slabId="9bebb8b3-aa3d-4b20-85a7-8f8ad891da71" vertices=17 elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] triangulate slabId="9bebb8b3-aa3d-4b20-85a7-8f8ad891da71" outerVertices=17 elapsed=0.1ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="9bebb8b3-aa3d-4b20-85a7-8f8ad891da71" totalMs=0.6ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] RAF_DRAIN built=5 remaining=5 queueBefore=10 frameMs=5.0ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] outset slabId="10fe3cbf-7bf6-4868-b9ca-894b18f32709" vertices=17 elapsed=0.1ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] triangulate slabId="10fe3cbf-7bf6-4868-b9ca-894b18f32709" outerVertices=17 elapsed=0.3ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="10fe3cbf-7bf6-4868-b9ca-894b18f32709" totalMs=1.4ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] outset slabId="3540c9b2-a6ac-406a-b18f-ebb4ceafe696" vertices=17 elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] triangulate slabId="3540c9b2-a6ac-406a-b18f-ebb4ceafe696" outerVertices=17 elapsed=0.2ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="3540c9b2-a6ac-406a-b18f-ebb4ceafe696" totalMs=0.8ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] outset slabId="02c6d281-0d97-4961-a8b1-b70df473394d" vertices=17 elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] triangulate slabId="02c6d281-0d97-4961-a8b1-b70df473394d" outerVertices=17 elapsed=0.3ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="02c6d281-0d97-4961-a8b1-b70df473394d" totalMs=1.0ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] outset slabId="bb56703f-8222-4945-a288-f64370dd025b" vertices=17 elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] triangulate slabId="bb56703f-8222-4945-a288-f64370dd025b" outerVertices=17 elapsed=0.2ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="bb56703f-8222-4945-a288-f64370dd025b" totalMs=0.7ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] outset slabId="7ba8cfe5-2ec0-4b1f-84d9-5c0e158246a4" vertices=17 elapsed=0.1ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] triangulate slabId="7ba8cfe5-2ec0-4b1f-84d9-5c0e158246a4" outerVertices=17 elapsed=0.2ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="7ba8cfe5-2ec0-4b1f-84d9-5c0e158246a4" totalMs=1.1ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] RAF_DRAIN built=5 remaining=0 queueBefore=5 frameMs=5.8ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] rAF queue drained — signalling BatchCoordinator.
+engineLauncher-CR4aPVRy.js:484 [BatchCoordinator] Build queue drained — beginning registration drain (0 queued / 10 expected).
+engineLauncher-CR4aPVRy.js:484 [BatchCoordinator] §REG-MANY-P2: queue ≤ 50 entries (0) — draining synchronously (0 rAF frames).
+main-BzEHm2fD.js:29470 [StoreEventBus] endBatchYielded() — 10 event(s) will be delivered in 1 chunk(s) of 200 via frame scheduler.
+main-BzEHm2fD.js:29470 [StoreEventBus] endBatchYielded() — all 10 event(s) delivered across 1 chunk(s) (last: 0.7ms). Calling onComplete().
+engineLauncher-CR4aPVRy.js:484 [BatchCoordinator] §PERF-VIEW-BATCH-SUPPRESS: suppression lifted; markLevelsDirty(10 level(s)) scheduled.
+main-BzEHm2fD.js:29470 [UnifiedFrameLoop] §PERF-VIEW-BATCH-SUPPRESS: suppression lifted — OBC+PASCAL resuming; first render compiles all deferred shaders.
+engineLauncher-CR4aPVRy.js:484 [BatchCoordinator] Final sweep: firing 10 REDETECT_ROOMS command(s) (one per affected level). Observers re-enabled. StoreEventBus flushed (depth now 0).
+engineLauncher-CR4aPVRy.js:1838 [BatchCoordinator/P1.3] Post-batch PBR upgrade complete: 99 mesh(es) in 1 chunk(s) (§FIX-POST-BATCH-PBR-CHUNK).
+2engineLauncher-CR4aPVRy.js:1864 [ProjectSerializer] Snapshot created: 29 elements, 11 levels, 17 walls, 11 slabs, 0 furniture
+PlatformShell-COYqdEM7.js:23 [PlatformSaveController] Version saved: "Auto-save" (29 elements, id: proj-1777944446110-wz54k)
+engineLauncher-CR4aPVRy.js:1864 [PickResolver] strategy=gpu-pick hit=f711a405-d175-4978-a9ac-23c8e40a2a6b
+engineLauncher-CR4aPVRy.js:556 [LevelPlaneConstraint] Locked Y=-0.2000 for element "Slab" id="f711a405-d175-4978-a9ac-23c8e40a2a6b"
+2engineLauncher-CR4aPVRy.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CR4aPVRy.js:7105 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-CR4aPVRy.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CR4aPVRy.js:1833 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: CREATE_CURTAIN_WALLS_ON_ALL_SLABS
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="le" scope=[curtainWall] elapsed=0.2ms
+CreateCurtainWallsOnAllSlabsCommand-C4IuBAOS.js:1 [CreateCurtainWallsOnAllSlabsCommand] START slabCount=11
+CreateCurtainWallsOnAllSlabsCommand-C4IuBAOS.js:1 [CreateCurtainWallsOnAllSlabsCommand] PERF-PREWARM: MeshStandardMaterial + MeshPhysicalMaterial shader pre-warm complete (isolated scene).
+engineLauncher-CR4aPVRy.js:484 [BatchCoordinator] _setupBatch — 11 level(s), 187 elements expected. ViewDependencyTracker suppressed.
+main-BzEHm2fD.js:29470 [UnifiedFrameLoop] §PERF-VIEW-BATCH-SUPPRESS: OBC+PASCAL render suppressed — WebGL shader compilation deferred until batch drain completes.
+main-BzEHm2fD.js:29470 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+CreateCurtainWallsOnAllSlabsCommand-C4IuBAOS.js:1 [CreateCurtainWallsOnAllSlabsCommand] slab="f711a405-d175-4978-a9ac-23c8e40a2a6b" walls=17 elapsed=0.6ms
+CreateCurtainWallsOnAllSlabsCommand-C4IuBAOS.js:1 [CreateCurtainWallsOnAllSlabsCommand] slab="f72b2384-451b-43e9-81b5-f9c9085ea41c" walls=17 elapsed=0.4ms
+CreateCurtainWallsOnAllSlabsCommand-C4IuBAOS.js:1 [CreateCurtainWallsOnAllSlabsCommand] slab="7fcf13c9-cc94-4b61-a18b-d42cd0489e7b" walls=17 elapsed=0.2ms
+CreateCurtainWallsOnAllSlabsCommand-C4IuBAOS.js:1 [CreateCurtainWallsOnAllSlabsCommand] slab="90d1ed5c-d2f2-487c-b94b-77b535488036" walls=17 elapsed=0.1ms
+CreateCurtainWallsOnAllSlabsCommand-C4IuBAOS.js:1 [CreateCurtainWallsOnAllSlabsCommand] slab="415b59d3-e662-4923-a528-705daf44e1b9" walls=17 elapsed=0.2ms
+CreateCurtainWallsOnAllSlabsCommand-C4IuBAOS.js:1 [CreateCurtainWallsOnAllSlabsCommand] slab="9bebb8b3-aa3d-4b20-85a7-8f8ad891da71" walls=17 elapsed=0.2ms
+CreateCurtainWallsOnAllSlabsCommand-C4IuBAOS.js:1 [CreateCurtainWallsOnAllSlabsCommand] slab="10fe3cbf-7bf6-4868-b9ca-894b18f32709" walls=17 elapsed=0.1ms
+CreateCurtainWallsOnAllSlabsCommand-C4IuBAOS.js:1 [CreateCurtainWallsOnAllSlabsCommand] slab="3540c9b2-a6ac-406a-b18f-ebb4ceafe696" walls=17 elapsed=0.1ms
+CreateCurtainWallsOnAllSlabsCommand-C4IuBAOS.js:1 [CreateCurtainWallsOnAllSlabsCommand] slab="02c6d281-0d97-4961-a8b1-b70df473394d" walls=17 elapsed=0.1ms
+CreateCurtainWallsOnAllSlabsCommand-C4IuBAOS.js:1 [CreateCurtainWallsOnAllSlabsCommand] slab="bb56703f-8222-4945-a288-f64370dd025b" walls=17 elapsed=0.2ms
+CreateCurtainWallsOnAllSlabsCommand-C4IuBAOS.js:1 [CreateCurtainWallsOnAllSlabsCommand] slab="7ba8cfe5-2ec0-4b1f-84d9-5c0e158246a4" walls=17 elapsed=0.2ms
+CreateCurtainWallsOnAllSlabsCommand-C4IuBAOS.js:1 [CreateCurtainWallsOnAllSlabsCommand] PERF-ADDMANY: addMany(187) complete.
+CreateCurtainWallsOnAllSlabsCommand-C4IuBAOS.js:1 [CreateCurtainWallsOnAllSlabsCommand] COMPLETE total=3177.1ms
+engineLauncher-CR4aPVRy.js:2392 [AIApprovalStore] Audit record appended: 88b2cc28-628b-4563-85ea-2dc75ec49a7a (CREATE_CURTAIN_WALLS_ON_ALL_SLABS)
+engineLauncher-CR4aPVRy.js:4702 Refreshing Spatial Tree...
+engineLauncher-CR4aPVRy.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-CR4aPVRy.js:1769 [CurtainWallBuilder] §BATCH-CW-PAUSE: resumeAndFlush — 187 walls transferred to pending queue, 1 rAF drain scheduled.
+engineLauncher-CR4aPVRy.js:484 [BatchCoordinator] Build queue drained — beginning registration drain (11 queued / 187 expected).
+engineLauncher-CR4aPVRy.js:484 [BatchCoordinator] §REG-MANY-P2: queue ≤ 50 entries (11) — draining synchronously (0 rAF frames).
+engineLauncher-CR4aPVRy.js:1595 [BimManager] §REG-MANY-P0: registered 17 element(s) to level "L0".
+engineLauncher-CR4aPVRy.js:1595 [BimManager] §REG-MANY-P0: registered 17 element(s) to level "L-01-1777944440482-1".
+engineLauncher-CR4aPVRy.js:1595 [BimManager] §REG-MANY-P0: registered 17 element(s) to level "L-02-1777944440493-2".
+engineLauncher-CR4aPVRy.js:1595 [BimManager] §REG-MANY-P0: registered 17 element(s) to level "L-03-1777944440501-3".
+engineLauncher-CR4aPVRy.js:1595 [BimManager] §REG-MANY-P0: registered 17 element(s) to level "L-04-1777944440512-4".
+engineLauncher-CR4aPVRy.js:1595 [BimManager] §REG-MANY-P0: registered 17 element(s) to level "L-05-1777944440520-5".
+engineLauncher-CR4aPVRy.js:1595 [BimManager] §REG-MANY-P0: registered 17 element(s) to level "L-06-1777944440526-6".
+engineLauncher-CR4aPVRy.js:1595 [BimManager] §REG-MANY-P0: registered 17 element(s) to level "L-07-1777944440534-7".
+engineLauncher-CR4aPVRy.js:1595 [BimManager] §REG-MANY-P0: registered 17 element(s) to level "L-08-1777944440546-8".
+engineLauncher-CR4aPVRy.js:1595 [BimManager] §REG-MANY-P0: registered 17 element(s) to level "L-09-1777944440554-9".
+engineLauncher-CR4aPVRy.js:1595 [BimManager] §REG-MANY-P0: registered 17 element(s) to level "L-10-1777944440561-10".
+main-BzEHm2fD.js:29470 [StoreEventBus] endBatchYielded() — 187 event(s) will be delivered in 1 chunk(s) of 200 via frame scheduler.
+main-BzEHm2fD.js:29470 [StoreEventBus] endBatchYielded() — all 187 event(s) delivered across 1 chunk(s) (last: 13.4ms). Calling onComplete().
+engineLauncher-CR4aPVRy.js:484 [BatchCoordinator] §PERF-VIEW-BATCH-SUPPRESS: suppression lifted; markLevelsDirty(11 level(s)) scheduled.
+main-BzEHm2fD.js:29470 [UnifiedFrameLoop] §PERF-VIEW-BATCH-SUPPRESS: suppression lifted — OBC+PASCAL resuming; first render compiles all deferred shaders.
+engineLauncher-CR4aPVRy.js:484 [BatchCoordinator] Final sweep: SKIPPING REDETECT_ROOMS for 11 level(s) (§FIX-SKIP-REDETECT-ROOMS — element type cannot define room boundaries). StoreEventBus flushed (depth now 0). markLevelsDirty already called above for plan-view reprojection.
+PlatformShell-COYqdEM7.js:1 [PlatformCollabPill] Socket disconnected: transport close
+PlatformShell-COYqdEM7.js:1 [PlatformCollabPill] Socket connected — joining project room: proj-1777944390594-s9279h9
+engineLauncher-CR4aPVRy.js:1864 [initCollaboration] Collaborator joined: user-1777944388124-ng8l753 antonio canero
+main-BzEHm2fD.js:29470 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+main-BzEHm2fD.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+engineLauncher-CR4aPVRy.js:1838 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed out of 1 live room(s).
+engineLauncher-CR4aPVRy.js:1595 [NativeElementMeshExporter] Plan view — exporting 36 elements from levels overlapping Y=[-1.20, 0.00]
+EdgeProjectorService-BiNTKAFW.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-BiNTKAFW.js:1 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-BiNTKAFW.js:1 [EdgeProjectorService] Native projection done — 35 group(s), 965 edge geometries across 35 ISO layer(s) (per-element UUID tagging active)
+engineLauncher-CR4aPVRy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=36 (OBC-IFC=0, native=35, ifc-scene=0)
+engineLauncher-CR4aPVRy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=7/14 layers
+engineLauncher-CR4aPVRy.js:1864 [initCollaboration] Socket disconnected: ping timeout
+PlatformShell-COYqdEM7.js:1 [PlatformCollabPill] Socket disconnected: transport close
+engineLauncher-CR4aPVRy.js:1864 [initCollaboration] Socket connected — joining project room: proj-1777944390594-s9279h9
+engineLauncher-CR4aPVRy.js:1864 [initCollaboration] Catch-up: requesting commands since 2026-05-05T01:26:38.230Z
+engineLauncher-CR4aPVRy.js:1864 [initCollaboration] Catch-up: replaying 22 missed command(s)
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-CR4aPVRy.js:1864 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+dispatch @ engineLauncher-CR4aPVRy.js:1864
+replayCatchUp @ engineLauncher-CR4aPVRy.js:1864
+C @ engineLauncher-CR4aPVRy.js:1864
+await in C
+(anonymous) @ engineLauncher-CR4aPVRy.js:1864
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48Understand this warning
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-CR4aPVRy.js:1864 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+dispatch @ engineLauncher-CR4aPVRy.js:1864
+replayCatchUp @ engineLauncher-CR4aPVRy.js:1864
+C @ engineLauncher-CR4aPVRy.js:1864
+await in C
+(anonymous) @ engineLauncher-CR4aPVRy.js:1864
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48Understand this warning
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-CR4aPVRy.js:1864 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+dispatch @ engineLauncher-CR4aPVRy.js:1864
+replayCatchUp @ engineLauncher-CR4aPVRy.js:1864
+C @ engineLauncher-CR4aPVRy.js:1864
+await in C
+(anonymous) @ engineLauncher-CR4aPVRy.js:1864
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48Understand this warning
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-CR4aPVRy.js:1864 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+dispatch @ engineLauncher-CR4aPVRy.js:1864
+replayCatchUp @ engineLauncher-CR4aPVRy.js:1864
+C @ engineLauncher-CR4aPVRy.js:1864
+await in C
+(anonymous) @ engineLauncher-CR4aPVRy.js:1864
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48Understand this warning
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-CR4aPVRy.js:1864 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+dispatch @ engineLauncher-CR4aPVRy.js:1864
+replayCatchUp @ engineLauncher-CR4aPVRy.js:1864
+C @ engineLauncher-CR4aPVRy.js:1864
+await in C
+(anonymous) @ engineLauncher-CR4aPVRy.js:1864
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48Understand this warning
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-CR4aPVRy.js:1864 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+dispatch @ engineLauncher-CR4aPVRy.js:1864
+replayCatchUp @ engineLauncher-CR4aPVRy.js:1864
+C @ engineLauncher-CR4aPVRy.js:1864
+await in C
+(anonymous) @ engineLauncher-CR4aPVRy.js:1864
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48Understand this warning
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-CR4aPVRy.js:1864 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+dispatch @ engineLauncher-CR4aPVRy.js:1864
+replayCatchUp @ engineLauncher-CR4aPVRy.js:1864
+C @ engineLauncher-CR4aPVRy.js:1864
+await in C
+(anonymous) @ engineLauncher-CR4aPVRy.js:1864
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48Understand this warning
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-CR4aPVRy.js:1864 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+dispatch @ engineLauncher-CR4aPVRy.js:1864
+replayCatchUp @ engineLauncher-CR4aPVRy.js:1864
+C @ engineLauncher-CR4aPVRy.js:1864
+await in C
+(anonymous) @ engineLauncher-CR4aPVRy.js:1864
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48Understand this warning
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-CR4aPVRy.js:1864 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+dispatch @ engineLauncher-CR4aPVRy.js:1864
+replayCatchUp @ engineLauncher-CR4aPVRy.js:1864
+C @ engineLauncher-CR4aPVRy.js:1864
+await in C
+(anonymous) @ engineLauncher-CR4aPVRy.js:1864
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48Understand this warning
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-CR4aPVRy.js:1864 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+dispatch @ engineLauncher-CR4aPVRy.js:1864
+replayCatchUp @ engineLauncher-CR4aPVRy.js:1864
+C @ engineLauncher-CR4aPVRy.js:1864
+await in C
+(anonymous) @ engineLauncher-CR4aPVRy.js:1864
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48Understand this warning
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-CR4aPVRy.js:1864 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+dispatch @ engineLauncher-CR4aPVRy.js:1864
+replayCatchUp @ engineLauncher-CR4aPVRy.js:1864
+C @ engineLauncher-CR4aPVRy.js:1864
+await in C
+(anonymous) @ engineLauncher-CR4aPVRy.js:1864
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48Understand this warning
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-CR4aPVRy.js:1864 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+dispatch @ engineLauncher-CR4aPVRy.js:1864
+replayCatchUp @ engineLauncher-CR4aPVRy.js:1864
+C @ engineLauncher-CR4aPVRy.js:1864
+await in C
+(anonymous) @ engineLauncher-CR4aPVRy.js:1864
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48Understand this warning
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-CR4aPVRy.js:1864 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+dispatch @ engineLauncher-CR4aPVRy.js:1864
+replayCatchUp @ engineLauncher-CR4aPVRy.js:1864
+C @ engineLauncher-CR4aPVRy.js:1864
+await in C
+(anonymous) @ engineLauncher-CR4aPVRy.js:1864
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48Understand this warning
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-CR4aPVRy.js:1864 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+dispatch @ engineLauncher-CR4aPVRy.js:1864
+replayCatchUp @ engineLauncher-CR4aPVRy.js:1864
+C @ engineLauncher-CR4aPVRy.js:1864
+await in C
+(anonymous) @ engineLauncher-CR4aPVRy.js:1864
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48Understand this warning
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-CR4aPVRy.js:1864 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+dispatch @ engineLauncher-CR4aPVRy.js:1864
+replayCatchUp @ engineLauncher-CR4aPVRy.js:1864
+C @ engineLauncher-CR4aPVRy.js:1864
+await in C
+(anonymous) @ engineLauncher-CR4aPVRy.js:1864
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48Understand this warning
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-CR4aPVRy.js:1864 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+dispatch @ engineLauncher-CR4aPVRy.js:1864
+replayCatchUp @ engineLauncher-CR4aPVRy.js:1864
+C @ engineLauncher-CR4aPVRy.js:1864
+await in C
+(anonymous) @ engineLauncher-CR4aPVRy.js:1864
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48Understand this warning
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-CR4aPVRy.js:1864 [RemoteCommandDispatcher] Remote command failed validation: CREATE_WALL Wall already exists
+dispatch @ engineLauncher-CR4aPVRy.js:1864
+replayCatchUp @ engineLauncher-CR4aPVRy.js:1864
+C @ engineLauncher-CR4aPVRy.js:1864
+await in C
+(anonymous) @ engineLauncher-CR4aPVRy.js:1864
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48Understand this warning
+engineLauncher-CR4aPVRy.js:1864 [RemoteCommandDispatcher] No factory for type: CREATE_ANNOTATION — toast-only
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: CREATE_SLAB
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="qs" scope=[slab,level] elapsed=0.8ms
+engineLauncher-CR4aPVRy.js:1595 [BimManager] Registered element f711a405-d175-4978-a9ac-23c8e40a2a6b to level L0
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] outset slabId="f711a405-d175-4978-a9ac-23c8e40a2a6b" vertices=17 elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] triangulate slabId="f711a405-d175-4978-a9ac-23c8e40a2a6b" outerVertices=17 elapsed=0.3ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="f711a405-d175-4978-a9ac-23c8e40a2a6b" totalMs=1.6ms
+engineLauncher-CR4aPVRy.js:1864 [RemoteCommandDispatcher] Applied remote command: CREATE_SLAB
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: UPDATE_SLAB_LAYERS
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="gc" scope=[slab] elapsed=1.0ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] outset slabId="f711a405-d175-4978-a9ac-23c8e40a2a6b" vertices=17 elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] triangulate slabId="f711a405-d175-4978-a9ac-23c8e40a2a6b" outerVertices=17 elapsed=0.2ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="f711a405-d175-4978-a9ac-23c8e40a2a6b" totalMs=1.9ms
+engineLauncher-CR4aPVRy.js:1864 [RemoteCommandDispatcher] Applied remote command: UPDATE_SLAB_LAYERS
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: CREATE_LEVEL
+engineLauncher-CR4aPVRy.js:1864 [RemoteCommandDispatcher] Remote command failed validation: CREATE_LEVEL Elevation must be a valid number.
+dispatch @ engineLauncher-CR4aPVRy.js:1864
+replayCatchUp @ engineLauncher-CR4aPVRy.js:1864
+C @ engineLauncher-CR4aPVRy.js:1864
+await in C
+(anonymous) @ engineLauncher-CR4aPVRy.js:1864
+(anonymous) @ index.js:136
+onconnect @ socket.js:612
+onpacket @ socket.js:499
+(anonymous) @ index.js:136
+(anonymous) @ manager.js:217
+Promise.then
+(anonymous) @ globals.js:4
+ondecoded @ manager.js:216
+(anonymous) @ index.js:136
+add @ index.js:142
+ondata @ manager.js:203
+(anonymous) @ index.js:136
+_onPacket @ socket.js:259
+(anonymous) @ index.js:136
+onPacket @ transport.js:99
+onData @ transport.js:91
+(anonymous) @ websocket.js:48Understand this warning
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] EXECUTE: CREATE_SLABS_ON_ALL_FLOORS
+engineLauncher-CR4aPVRy.js:1902 [CommandManager] snapshot commandType="u2" scope=[slab,level] elapsed=0.6ms
+engineLauncher-CR4aPVRy.js:1864 [CreateSlabsOnAllFloorsCommand] START referenceSlabId="f711a405-d175-4978-a9ac-23c8e40a2a6b" levels=10 polygonVertices=17
+engineLauncher-CR4aPVRy.js:1864 [CreateSlabsOnAllFloorsCommand] runBatch starting — 10 slab(s) deferred to rAF drain.
+engineLauncher-CR4aPVRy.js:484 [BatchCoordinator] _setupBatch — 10 level(s), 10 elements expected. ViewDependencyTracker suppressed.
+main-BzEHm2fD.js:29470 [UnifiedFrameLoop] §PERF-VIEW-BATCH-SUPPRESS: OBC+PASCAL render suppressed — WebGL shader compilation deferred until batch drain completes.
+main-BzEHm2fD.js:29470 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+engineLauncher-CR4aPVRy.js:1595 [BimManager] Registered element 0c0f6e4e-43e1-4a0b-b18b-9e1fad8601c8 to level L-01-1777944440482-1
+engineLauncher-CR4aPVRy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-01-1777944440482-1" success=true elapsed=1.7ms
+engineLauncher-CR4aPVRy.js:1595 [BimManager] Registered element ee29311f-b327-4617-8cae-68444913b3e8 to level L-02-1777944440493-2
+engineLauncher-CR4aPVRy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-02-1777944440493-2" success=true elapsed=1.2ms
+engineLauncher-CR4aPVRy.js:1595 [BimManager] Registered element 7438ff1c-38b5-485d-9ed4-99913fe79bc2 to level L-03-1777944440501-3
+engineLauncher-CR4aPVRy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-03-1777944440501-3" success=true elapsed=1.2ms
+engineLauncher-CR4aPVRy.js:1595 [BimManager] Registered element 2ba2e5a0-77ac-40f8-878b-96c0ef677c9e to level L-04-1777944440512-4
+engineLauncher-CR4aPVRy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-04-1777944440512-4" success=true elapsed=1.3ms
+engineLauncher-CR4aPVRy.js:1595 [BimManager] Registered element 3fbc1da7-58a3-4403-9bb1-0d4c65feae41 to level L-05-1777944440520-5
+engineLauncher-CR4aPVRy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-05-1777944440520-5" success=true elapsed=1.8ms
+engineLauncher-CR4aPVRy.js:1595 [BimManager] Registered element f5179bc1-2dae-43ba-992d-6bb96611a777 to level L-06-1777944440526-6
+engineLauncher-CR4aPVRy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-06-1777944440526-6" success=true elapsed=1.8ms
+engineLauncher-CR4aPVRy.js:1595 [BimManager] Registered element e8c3d459-f52e-4218-8d29-8875d4a19e07 to level L-07-1777944440534-7
+engineLauncher-CR4aPVRy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-07-1777944440534-7" success=true elapsed=1.9ms
+engineLauncher-CR4aPVRy.js:1595 [BimManager] Registered element f6898643-dfef-47ac-927c-760356e9891f to level L-08-1777944440546-8
+engineLauncher-CR4aPVRy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-08-1777944440546-8" success=true elapsed=1.4ms
+engineLauncher-CR4aPVRy.js:1595 [BimManager] Registered element e65620f4-cadf-4abe-8815-f044ef64a4b0 to level L-09-1777944440554-9
+engineLauncher-CR4aPVRy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-09-1777944440554-9" success=true elapsed=1.6ms
+engineLauncher-CR4aPVRy.js:1595 [BimManager] Registered element fb38aa84-cf3e-47b8-8055-5737dd1b9560 to level L-10-1777944440561-10
+engineLauncher-CR4aPVRy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-10-1777944440561-10" success=true elapsed=1.4ms
+engineLauncher-CR4aPVRy.js:1864 [CreateSlabsOnAllFloorsCommand] COMPLETE created=10 total=21.2ms
+engineLauncher-CR4aPVRy.js:1864 [RemoteCommandDispatcher] Applied remote command: CREATE_SLABS_ON_ALL_FLOORS
+engineLauncher-CR4aPVRy.js:1864 [RemoteCommandDispatcher] Catch-up complete: 3 applied, 19 skipped
+engineLauncher-CR4aPVRy.js:1864 [initCollaboration] Catch-up: applied=3 skipped=19
+engineLauncher-CR4aPVRy.js:1833 [PascalSceneLighting] Shadow flags set on 284 mesh(es).
+PlatformShell-COYqdEM7.js:1 [PlatformCollabPill] Socket connected — joining project room: proj-1777944390594-s9279h9
+engineLauncher-CR4aPVRy.js:1864 [initCollaboration] Collaborator joined: user-1777944388124-ng8l753 antonio canero
+engineLauncher-CR4aPVRy.js:1864 [ProjectSerializer] Snapshot created: 226 elements, 11 levels, 17 walls, 21 slabs, 0 furniture
+engineLauncher-CR4aPVRy.js:1864 [ProjectSerializer] Snapshot created: 226 elements, 11 levels, 17 walls, 21 slabs, 0 furniture
+PlatformShell-COYqdEM7.js:23 [PlatformSaveController] Version saved: "Auto-save" (226 elements, id: proj-1777944566069-vvh4v)
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] outset slabId="0c0f6e4e-43e1-4a0b-b18b-9e1fad8601c8" vertices=17 elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] triangulate slabId="0c0f6e4e-43e1-4a0b-b18b-9e1fad8601c8" outerVertices=17 elapsed=0.4ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="0c0f6e4e-43e1-4a0b-b18b-9e1fad8601c8" totalMs=2.6ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] outset slabId="ee29311f-b327-4617-8cae-68444913b3e8" vertices=17 elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] triangulate slabId="ee29311f-b327-4617-8cae-68444913b3e8" outerVertices=17 elapsed=0.3ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="ee29311f-b327-4617-8cae-68444913b3e8" totalMs=1.3ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] outset slabId="7438ff1c-38b5-485d-9ed4-99913fe79bc2" vertices=17 elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] triangulate slabId="7438ff1c-38b5-485d-9ed4-99913fe79bc2" outerVertices=17 elapsed=0.2ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="7438ff1c-38b5-485d-9ed4-99913fe79bc2" totalMs=1.2ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] outset slabId="2ba2e5a0-77ac-40f8-878b-96c0ef677c9e" vertices=17 elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] triangulate slabId="2ba2e5a0-77ac-40f8-878b-96c0ef677c9e" outerVertices=17 elapsed=0.2ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="2ba2e5a0-77ac-40f8-878b-96c0ef677c9e" totalMs=1.2ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] outset slabId="3fbc1da7-58a3-4403-9bb1-0d4c65feae41" vertices=17 elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] triangulate slabId="3fbc1da7-58a3-4403-9bb1-0d4c65feae41" outerVertices=17 elapsed=0.2ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="3fbc1da7-58a3-4403-9bb1-0d4c65feae41" totalMs=2.5ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] RAF_DRAIN built=5 remaining=5 queueBefore=10 frameMs=10.9ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] outset slabId="f5179bc1-2dae-43ba-992d-6bb96611a777" vertices=17 elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] triangulate slabId="f5179bc1-2dae-43ba-992d-6bb96611a777" outerVertices=17 elapsed=0.3ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="f5179bc1-2dae-43ba-992d-6bb96611a777" totalMs=1.9ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] outset slabId="e8c3d459-f52e-4218-8d29-8875d4a19e07" vertices=17 elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] triangulate slabId="e8c3d459-f52e-4218-8d29-8875d4a19e07" outerVertices=17 elapsed=0.2ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="e8c3d459-f52e-4218-8d29-8875d4a19e07" totalMs=1.1ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] outset slabId="f6898643-dfef-47ac-927c-760356e9891f" vertices=17 elapsed=0.0ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] triangulate slabId="f6898643-dfef-47ac-927c-760356e9891f" outerVertices=17 elapsed=0.2ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="f6898643-dfef-47ac-927c-760356e9891f" totalMs=1.1ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] outset slabId="e65620f4-cadf-4abe-8815-f044ef64a4b0" vertices=17 elapsed=0.1ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] triangulate slabId="e65620f4-cadf-4abe-8815-f044ef64a4b0" outerVertices=17 elapsed=0.6ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="e65620f4-cadf-4abe-8815-f044ef64a4b0" totalMs=2.2ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] outset slabId="fb38aa84-cf3e-47b8-8055-5737dd1b9560" vertices=17 elapsed=0.1ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] triangulate slabId="fb38aa84-cf3e-47b8-8055-5737dd1b9560" outerVertices=17 elapsed=0.3ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="fb38aa84-cf3e-47b8-8055-5737dd1b9560" totalMs=2.2ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] RAF_DRAIN built=5 remaining=0 queueBefore=5 frameMs=10.0ms
+engineLauncher-CR4aPVRy.js:1833 [SlabFragmentBuilder] rAF queue drained — signalling BatchCoordinator.
+engineLauncher-CR4aPVRy.js:484 [BatchCoordinator] Build queue drained — beginning registration drain (0 queued / 10 expected).
+engineLauncher-CR4aPVRy.js:484 [BatchCoordinator] §REG-MANY-P2: queue ≤ 50 entries (0) — draining synchronously (0 rAF frames).
+main-BzEHm2fD.js:29470 [StoreEventBus] endBatchYielded() — 10 event(s) will be delivered in 1 chunk(s) of 200 via frame scheduler.
+engineLauncher-CR4aPVRy.js:1838 [BatchCoordinator/P1.3] Post-batch PBR upgrade complete: 660 mesh(es) in 6 chunk(s) (§FIX-POST-BATCH-PBR-CHUNK).
+main-BzEHm2fD.js:29470 [StoreEventBus] endBatchYielded() — all 10 event(s) delivered across 1 chunk(s) (last: 2.5ms). Calling onComplete().
+engineLauncher-CR4aPVRy.js:484 [BatchCoordinator] §PERF-VIEW-BATCH-SUPPRESS: suppression lifted; markLevelsDirty(10 level(s)) scheduled.
+main-BzEHm2fD.js:29470 [UnifiedFrameLoop] §PERF-VIEW-BATCH-SUPPRESS: suppression lifted — OBC+PASCAL resuming; first render compiles all deferred shaders.
+engineLauncher-CR4aPVRy.js:484 [BatchCoordinator] Final sweep: firing 10 REDETECT_ROOMS command(s) (one per affected level). Observers re-enabled. StoreEventBus flushed (depth now 0).
+main-BzEHm2fD.js:29470 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+main-BzEHm2fD.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+engineLauncher-CR4aPVRy.js:1838 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed out of 1 live room(s).
+engineLauncher-CR4aPVRy.js:1595 [NativeElementMeshExporter] Plan view — exporting 36 elements from levels overlapping Y=[-1.20, 0.00]
+EdgeProjectorService-BiNTKAFW.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-BiNTKAFW.js:1 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-BiNTKAFW.js:1 [EdgeProjectorService] Native projection done — 35 group(s), 965 edge geometries across 35 ISO layer(s) (per-element UUID tagging active)
+engineLauncher-CR4aPVRy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=38 (OBC-IFC=0, native=35, ifc-scene=0)
+engineLauncher-CR4aPVRy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=7/14 layers
+engineLauncher-CR4aPVRy.js:1864 [PickResolver] strategy=gpu-pick hit=3540c9b2-a6ac-406a-b18f-ebb4ceafe696
+engineLauncher-CR4aPVRy.js:556 [LevelPlaneConstraint] Locked Y=23.8000 for element "Slab" id="3540c9b2-a6ac-406a-b18f-ebb4ceafe696"
+engineLauncher-CR4aPVRy.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CR4aPVRy.js:1864 [PickResolver] strategy=gpu-pick hit=9bebb8b3-aa3d-4b20-85a7-8f8ad891da71
+engineLauncher-CR4aPVRy.js:556 [LevelPlaneConstraint] Locked Y=16.8000 for element "Slab" id="9bebb8b3-aa3d-4b20-85a7-8f8ad891da71"
+engineLauncher-CR4aPVRy.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CR4aPVRy.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CR4aPVRy.js:7105 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-CR4aPVRy.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CR4aPVRy.js:1864 [PickResolver] strategy=gpu-pick hit=9bebb8b3-aa3d-4b20-85a7-8f8ad891da71
+engineLauncher-CR4aPVRy.js:556 [LevelPlaneConstraint] Locked Y=16.8000 for element "Slab" id="9bebb8b3-aa3d-4b20-85a7-8f8ad891da71"
+engineLauncher-CR4aPVRy.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CR4aPVRy.js:1864 [PickResolver] strategy=gpu-pick hit=9bebb8b3-aa3d-4b20-85a7-8f8ad891da71
+engineLauncher-CR4aPVRy.js:1864 [PickResolver] strategy=gpu-pick hit=3540c9b2-a6ac-406a-b18f-ebb4ceafe696
+engineLauncher-CR4aPVRy.js:556 [LevelPlaneConstraint] Locked Y=23.8000 for element "Slab" id="3540c9b2-a6ac-406a-b18f-ebb4ceafe696"
+engineLauncher-CR4aPVRy.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CR4aPVRy.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CR4aPVRy.js:7105 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-CR4aPVRy.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CR4aPVRy.js:7105 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-CR4aPVRy.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-CR4aPVRy.js:1838 [BatchCoordinator/P1.3] Post-batch PBR upgrade complete: 670 mesh(es) in 6 chunk(s) (§FIX-POST-BATCH-PBR-CHUNK).
+engineLauncher-CR4aPVRy.js:1864 [PickResolver] strategy=gpu-pick hit=10fe3cbf-7bf6-4868-b9ca-894b18f32709
+engineLauncher-CR4aPVRy.js:556 [LevelPlaneConstraint] Locked Y=20.3000 for element "Slab" id="10fe3cbf-7bf6-4868-b9ca-894b18f32709"
+engineLauncher-CR4aPVRy.js:541 [CutFill] Updating: enabled=false, height=1.2

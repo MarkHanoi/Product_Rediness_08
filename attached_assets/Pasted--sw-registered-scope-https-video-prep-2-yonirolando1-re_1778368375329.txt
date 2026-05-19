@@ -1,0 +1,832 @@
+[sw] registered, scope: https://video-prep-2--yonirolando1.replit.app/
+PluginRegistry-D49DP34L.js:1 [PluginRegistry] C06 §4 (Task 3.1) — 27 plugin tool activators registered with runtime.tools (9 original + 9 tool.ts + 9 command-dispatch bridges = 27 total in PluginRegistry)
+DataCommandCenter-GQYOuQSE.js:210 [DataCommandCenter] Initialized
+PlatformShell-C9mLyVyy.js:1 [SaveOrchestrator] Initialised — debounce: 1000 ms
+PlatformShell-C9mLyVyy.js:485 [PlatformShell] Initialized — project ID: proj-1778367582633-ugjkc (runtime: composed)
+main-C_EL1IFU.js:31719 [bootPlatform] D.1 — early PlatformShell created (delegates: deferred, post-paint, surface mounted)
+vendor-three-C5lBiMnB.js:4847 The powerPreference option is currently ignored when calling requestAdapter() on Windows. See https://crbug.com/369219127
+init @ vendor-three-C5lBiMnB.js:4847
+createRenderer-fjx_Zb1F.js:1 [renderer-three] backend: webgpu
+rendererPrewarm-DeLNAOY5.js:1 [RendererPrewarm] webgpu renderer pre-warmed in 328 ms — LONGTASK eliminated from project-open critical path.
+main-C_EL1IFU.js:31690 [PlatformRouter] Opening project: "aeryer" (proj-1778367796728-4p9p466) [new]
+engineLauncher-bbIXqTfg.js:7148 [AuditStack] Initialized v1.6 — Polymorphic Auditor
+engineLauncher-bbIXqTfg.js:7156 [WallPerfBench] Ready. Run: await window.__wallPerfBench.run()
+engineLauncher-bbIXqTfg.js:7258 Initializing Hybrid BIM Configurator...
+engineLauncher-bbIXqTfg.js:904 [BriefInputPanel] Initialized
+engineLauncher-bbIXqTfg.js:956 [VariantBrowserPanel] Initialized
+engineLauncher-bbIXqTfg.js:1344 [PortfolioQueryPanel] Initialized
+engineLauncher-bbIXqTfg.js:1411 [DataWorkbench] PostOccupancy surface deferred to plugins/lifecycle/ (S70 D8); panel slot is empty until the plugin ports it. See ADR-0052 §B.7.
+xz @ engineLauncher-bbIXqTfg.js:1411
+engineLauncher-bbIXqTfg.js:1518 [DataWorkbench] BIM 3.0 Lifecycle Hub initialized
+engineLauncher-bbIXqTfg.js:1826 [PRYZM] GPU backend detected: webgpu
+vendor-three-C5lBiMnB.js:1 THREE.THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.
+ce @ vendor-three-C5lBiMnB.js:1
+engineLauncher-bbIXqTfg.js:1583 [BimWorld] Camera constraints armed: minDist=1 m, maxDist=100 m, maxPolarAngle=π/2−0.1, infinityDolly=false, mode-patch active.
+engineLauncher-bbIXqTfg.js:1583 🌍 WORLD EXPOSED TO WINDOW o2
+engineLauncher-bbIXqTfg.js:1826 [TopologyLayer] Scene bound — topology ready for queries.
+engineLauncher-bbIXqTfg.js:1826 [initScene] TopologyLayer ready.
+engineLauncher-bbIXqTfg.js:1826 [FrustumCullingService] Active — large-model threshold: 500 elements.
+engineLauncher-bbIXqTfg.js:1826 [initScene] FrustumCullingService ready.
+engineLauncher-bbIXqTfg.js:1826 [initScene] ViewRenderCache ready.
+engineLauncher-bbIXqTfg.js:1826 [initScene] UnifiedFrameLoop bridged to FrameCoordinator.
+engineLauncher-bbIXqTfg.js:1826 [initScene] LevelClipPlaneCache wired — OBC Clipper replaced with renderer-level planes. Plan views are safe.
+engineLauncher-bbIXqTfg.js:1826 [initScene] StairPlanSymbolRegistry ready — stair traverse replaced with O(k) registry.
+engineLauncher-bbIXqTfg.js:1826 [initScene] InstancedElementRenderer wired — Phase 7 GPU instancing active.
+main-C_EL1IFU.js:29510 [ViewDependencyTracker] init() — subscribed to StoreEventBus and elementRegistry.onUnregister
+engineLauncher-bbIXqTfg.js:1826 [initScene] DOC-1.7: EdgeProjectorService façade installed (lazy — real service loads on first projection).
+engineLauncher-bbIXqTfg.js:1826 [initScene] Task 5.1: WebGL context loss handlers registered.
+/api/v1/portfolio/benchmarks/all:1  Failed to load resource: the server responded with a status of 401 ()
+engineLauncher-bbIXqTfg.js:1826 [initScene] Phase 5: pre-warmed renderer consumed — 2,401 ms LONGTASK skipped.
+engineLauncher-bbIXqTfg.js:1826 [initScene] Phase 5 active — PRYZM renderer: webgpu
+engineLauncher-bbIXqTfg.js:1821 [PascalSceneLighting] Shadow flags set on 1 mesh(es).
+engineLauncher-bbIXqTfg.js:1821 [PascalSceneLighting] Applied — key: 4, fill: 0.75, rim: 1, ambient: 0.5, shadow.intensity: 0.4, scene.environment → null (HDRI cleared — Pascal has no IBL)
+engineLauncher-bbIXqTfg.js:1821 [RenderingPipelineCoordinator] Bound to scene + renderer.
+engineLauncher-bbIXqTfg.js:1826 [initScene] Phase 5 active — skipping HDRI, using standard PBR only.
+engineLauncher-bbIXqTfg.js:1821 [RenderingPipelineCoordinator] Activating level: "standard"
+engineLauncher-bbIXqTfg.js:1821 [PBRSceneUpgrader] Applied — meshes: 2 materials: 0 (metal: 0, glass: 0 rough: 0, polished: 0)
+engineLauncher-bbIXqTfg.js:1821 [ShadowQualityUpgrader] Applied "standard" — map: 512px radius: 1 bias: -0.0001 (1 light(s) upgraded)
+engineLauncher-bbIXqTfg.js:1821 [RenderingPipelineCoordinator] Level "standard" active.
+engineLauncher-bbIXqTfg.js:1826 [initScene] RenderingPipelineCoordinator ready.
+engineLauncher-bbIXqTfg.js:1821 [ViewportCrashGuard] Activated — monitoring viewport render errors.
+engineLauncher-bbIXqTfg.js:2 [RenderPipelineManager] WebGPU renderer confirmed. Initialising TSL pipeline...
+engineLauncher-bbIXqTfg.js:1826 [initScene] Auto-activated quality "standard" (hdri: none) at startup.
+engineLauncher-bbIXqTfg.js:2 [RenderPipelineManager] three/tsl loaded.
+engineLauncher-bbIXqTfg.js:1826 [RenderPipelineManager] Phase: phase2 | WebGPU: true | SSGI: false | TRAA: false
+engineLauncher-bbIXqTfg.js:2 [RenderPipelineManager] Phase 2 pipeline active.
+engineLauncher-bbIXqTfg.js:484 [ConstraintEngine] 17 rules registered (7 Tier 1, 5 Tier 2 spatial, 5 Tier 2 physics)
+engineLauncher-bbIXqTfg.js:2 [RenderPipelineManager] SSGI activated (SSGINode r183 + DenoiseNode).
+engineLauncher-bbIXqTfg.js:2 [RenderPipelineManager] §I2 pipeline.usedTimes is not a number (got undefined) — patching to 0 before dispose to prevent device-loss cascade.
+_safeDisposeRenderPipeline @ engineLauncher-bbIXqTfg.js:2
+2engineLauncher-bbIXqTfg.js:1826 [RenderPipelineManager] Phase: phase3 | WebGPU: true | SSGI: true | TRAA: false
+engineLauncher-bbIXqTfg.js:2 [RenderPipelineManager] Outlines activated (selected + hover).
+engineLauncher-bbIXqTfg.js:2 [RenderPipelineManager] §I2 pipeline.usedTimes is not a number (got undefined) — patching to 0 before dispose to prevent device-loss cascade.
+_safeDisposeRenderPipeline @ engineLauncher-bbIXqTfg.js:2
+2engineLauncher-bbIXqTfg.js:1826 [RenderPipelineManager] Phase: phase4 | WebGPU: true | SSGI: true | TRAA: false
+engineLauncher-bbIXqTfg.js:1826 [initScene] TSL pipeline at Phase 3/4 (SSGI + Outlines). TRAA OFF by default.
+vendor-three-C5lBiMnB.js:1 THREE.THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.
+ce @ vendor-three-C5lBiMnB.js:1
+main-C_EL1IFU.js:29510 [UnifiedFrameLoop] Started (subscribed to @pryzm/frame-scheduler).
+engineLauncher-bbIXqTfg.js:1831 [initScene] UnifiedFrameLoop started — single rAF loop active.
+engineLauncher-bbIXqTfg.js:1831 [initScene] RenderPipelineManager ready.
+engineLauncher-bbIXqTfg.js:1831 [initScene] EnhancedBloomService deferred — lazy wrappers installed.
+engineLauncher-bbIXqTfg.js:1831 [initScene] SSGIService deferred — lazy wrappers installed.
+engineLauncher-bbIXqTfg.js:1821 [RenderPerformanceService] Bound — native DPR: 1.25
+engineLauncher-bbIXqTfg.js:1821 [RenderPerformanceService] Quality → high | DPR: 1.25 (100% of native 1.25)
+engineLauncher-bbIXqTfg.js:1831 [initScene] RenderPerformanceService ready.
+engineLauncher-bbIXqTfg.js:1831 [initScene] SplitViewManager ready.
+engineLauncher-bbIXqTfg.js:1831 [initScene] Scene subsystem fully initialised.
+vendor-three-C5lBiMnB.js:1 THREE.WebGLShadowMap: PCFSoftShadowMap has been deprecated. Using PCFShadowMap instead.
+ce @ vendor-three-C5lBiMnB.js:1
+engineLauncher-bbIXqTfg.js:7243 [initTransformControllers] Gizmo axes recoloured to PRYZM violet palette
+engineLauncher-bbIXqTfg.js:1864 [initBuilders] Column subsystem initialised
+engineLauncher-bbIXqTfg.js:1864 [CurtainPanelSyncHandler] Activated — panel store will sync with curtain wall store.
+engineLauncher-bbIXqTfg.js:1864 [initBuilders] CurtainWall subsystem stores initialised
+engineLauncher-bbIXqTfg.js:1864 [initBuilders] Slab subsystem initialised
+engineLauncher-bbIXqTfg.js:1864 [initBuilders] Ceiling subsystem initialised
+engineLauncher-bbIXqTfg.js:1852 [FloorSlabBindingHandler] Attached slab binding listeners.
+engineLauncher-bbIXqTfg.js:1864 [initBuilders] Floor finish subsystem initialised
+engineLauncher-bbIXqTfg.js:1864 [initBuilders] Room subsystem initialised
+engineLauncher-bbIXqTfg.js:1864 [initBuilders] Door/Window singleton stores exposed on window
+engineLauncher-bbIXqTfg.js:1864 [WallStore] attached to window BN
+engineLauncher-bbIXqTfg.js:1864 [initBuilders] Wall + Slab system type stores loaded
+engineLauncher-bbIXqTfg.js:1864 [initBuilders] Roof subsystem initialised
+engineLauncher-bbIXqTfg.js:1864 [initBuilders] Plumbing subsystem initialised
+engineLauncher-bbIXqTfg.js:1864 [initBuilders] Opening subsystem initialised — openingStore injected into slabBuilder
+engineLauncher-bbIXqTfg.js:1864 [DoorBuilder] activated
+engineLauncher-bbIXqTfg.js:1864 [WindowBuilder] activated
+engineLauncher-bbIXqTfg.js:1864 [initBuilders] Door + Window builders activated (with dependency trackers)
+engineLauncher-bbIXqTfg.js:1864 [initBuilders] Furniture subsystem initialised
+engineLauncher-bbIXqTfg.js:1864 [initBuilders] Lighting subsystem initialised
+engineLauncher-bbIXqTfg.js:1864 [initBuilders] Handrail subsystem initialised
+engineLauncher-bbIXqTfg.js:1864 [initBuilders] Stair subsystem initialised
+engineLauncher-bbIXqTfg.js:1864 [initBuilders] Beam subsystem initialised
+engineLauncher-bbIXqTfg.js:1864 [initBuilders] RoomContentsService — all element stores attached
+engineLauncher-bbIXqTfg.js:1864 [initBuilders] Grid subsystem initialised
+engineLauncher-bbIXqTfg.js:1864 [initBuilders] RoomBoundingLine subsystem initialised
+engineLauncher-bbIXqTfg.js:1864 [RoomFinishSyncService] Started — listening for room finish changes.
+engineLauncher-bbIXqTfg.js:1864 [initBuilders] RoomFinishSyncService started
+engineLauncher-bbIXqTfg.js:1864 [initBuilders] All builder subsystems fully initialised.
+engineLauncher-bbIXqTfg.js:1864 [SelectionManager] PickStrategy set: gpu-pick
+engineLauncher-bbIXqTfg.js:2325 [initTools] PickStrategy resolved: gpu-pick
+engineLauncher-bbIXqTfg.js:2037 [FloatingObjectCarousel] Mounted (hidden, render loop deferred)
+engineLauncher-bbIXqTfg.js:2037 [FurnitureDragDropHandler] Attached to canvas
+engineLauncher-bbIXqTfg.js:2325 [initTools] LightingTool initialised
+engineLauncher-bbIXqTfg.js:2247 [CurtainWallTool] SnapManager initialised (CurtainWall + Wall providers)
+engineLauncher-bbIXqTfg.js:2323 [RoomTopologyObserver] attached to WallStore
+engineLauncher-bbIXqTfg.js:2323 [RoomTopologyObserver] attached to CurtainWallStore
+engineLauncher-bbIXqTfg.js:2323 [RoomTopologyObserver] attached to RoomBoundingLineStore
+engineLauncher-bbIXqTfg.js:2323 [RoomTopologyObserver] attached to SlabStore
+engineLauncher-bbIXqTfg.js:2323 [RoomTopologyObserver] attached to ColumnStore
+engineLauncher-bbIXqTfg.js:2323 [RoomTopologyObserver] attached to bim-wall-mutation-committed (commit-barrier path)
+RoomTool-DL9PvBHB.js:1 [RoomTool] Pick deps injected — POINT_PICK mode available
+RoomTool-DL9PvBHB.js:1 [RoomTool] Manual deps injected — MANUAL_BOUNDARY mode available
+engineLauncher-bbIXqTfg.js:2325 [initTools] RoomBoundingLineTool registered on window
+engineLauncher-bbIXqTfg.js:2285 BeamTool initialized with BeamStore: true
+engineLauncher-bbIXqTfg.js:2317 [StairTool] Constructed. meshBuilder: true deps: true
+engineLauncher-bbIXqTfg.js:2324 [UnderlayPersistence] Installed (per-project, v2)
+main-C_EL1IFU.js:29510 [ProjectScopedStorage] Installed — auto-keyed by projectId
+engineLauncher-bbIXqTfg.js:2325 [ProjectIsolationAudit] Installed — will audit every empty project load
+engineLauncher-bbIXqTfg.js:2324 [GhostOverlayRenderer] Initialised — listening for pryzm-history-ghost-* events
+engineLauncher-bbIXqTfg.js:2323 [AnnotationManager] init complete — Phase V hover hints wired
+engineLauncher-bbIXqTfg.js:1864 [OBCAnnotationAdapter] LinearAnnotations not present in this OBC build — skipping subscribe.
+engineLauncher-bbIXqTfg.js:1864 [OBCAnnotationAdapter] AngleAnnotations not present in this OBC build — skipping subscribe.
+engineLauncher-bbIXqTfg.js:1864 [OBCAnnotationAdapter] SlopeAnnotations not present in this OBC build — skipping subscribe.
+engineLauncher-bbIXqTfg.js:1864 [OBCAnnotationAdapter] DOC-2.1: subscribed to OBC annotation system events
+engineLauncher-bbIXqTfg.js:2325 [initTools] DOC-2.2: DrawingEditor initialised; OBCAnnotationAdapter wired
+engineLauncher-bbIXqTfg.js:2325 [initTools] All BIM tools initialised and registered with ToolManager
+engineLauncher-bbIXqTfg.js:7258 [EngineBootstrap] §ROOF-AUDIT §5.4: RoofSlopeSymbolBuilder wired.
+engineLauncher-bbIXqTfg.js:2242 [WallFragmentBuilder] WallInstanceBridge injected — simple walls will use GPU instancing.
+engineLauncher-bbIXqTfg.js:7258 [EngineBootstrap] §PHASE-3: WallInstanceBridge connected.
+engineLauncher-bbIXqTfg.js:7243 [initBatchLifecycle] BatchLoadingIndicator wired (§FIX-BATCH-RENDER-SUPPRESS + §L1-BATCH-PERF-MODE).
+engineLauncher-bbIXqTfg.js:7156 [initBusHandlers] §P0-A39: rooms.redetect registration failed (non-fatal): handler already registered: rooms.redetect
+uJ @ engineLauncher-bbIXqTfg.js:7156
+engineLauncher-bbIXqTfg.js:7156 [initBusHandlers] §P2-A39: curtain-wall.create-on-all-slabs registered.
+engineLauncher-bbIXqTfg.js:7156 [initBusHandlers] §A40-W03: wall.create-on-all-slabs registered.
+engineLauncher-bbIXqTfg.js:7156 [initBusHandlers] §A40-W03: slab.create-on-all-floors registered.
+engineLauncher-bbIXqTfg.js:7156 [initBusHandlers] level.duplicate-floor-plan registered.
+engineLauncher-bbIXqTfg.js:7156 [initBusHandlers] §A40-W04: column.batch.create failed (non-fatal): handler already registered: column.batch.create
+uJ @ engineLauncher-bbIXqTfg.js:7156
+engineLauncher-bbIXqTfg.js:7156 [initBusHandlers] §A40-W04: beam.batch.create failed (non-fatal): handler already registered: beam.batch.create
+uJ @ engineLauncher-bbIXqTfg.js:7156
+engineLauncher-bbIXqTfg.js:7156 [initBusHandlers] §A40-W04: door.batch.create failed (non-fatal): handler already registered: door.batch.create
+uJ @ engineLauncher-bbIXqTfg.js:7156
+engineLauncher-bbIXqTfg.js:7156 [initBusHandlers] §A40-W04: window.batch.create failed (non-fatal): handler already registered: window.batch.create
+uJ @ engineLauncher-bbIXqTfg.js:7156
+engineLauncher-bbIXqTfg.js:7156 [initBusHandlers] §A40-W04: ceiling.batch.create failed (non-fatal): handler already registered: ceiling.batch.create
+uJ @ engineLauncher-bbIXqTfg.js:7156
+engineLauncher-bbIXqTfg.js:7156 [initBusHandlers] §A40-W04: stair.batch.create failed (non-fatal): handler already registered: stair.batch.create
+uJ @ engineLauncher-bbIXqTfg.js:7156
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §II-2 registerBuilderControls() — wall=true cw=false slab=true
+engineLauncher-bbIXqTfg.js:556 [initStores] StoreRegistry: 33 stores registered — visibility-intent, view-intent-instance, view, RoomRequirement, AssetCatalogEntry, schedule, view-template, vg-governance, sheet, phase-filter, title-block, wall, slab, column, beam, stair, stair-landing, stair-railing, stair-type, curtainwall, curtain-panel, door, window, roof, plumbing, furniture, handrail, opening, grid, room, ceiling, floor, annotation
+engineLauncher-bbIXqTfg.js:1844 [initDataPlatform] ElementCode auto-assignment wired to StoreEventBus
+SyncStateDetailDrawer-B-35hxbK.js:2 [SyncStateEngine] Started — subscribed to StoreEventBus
+engineLauncher-bbIXqTfg.js:1844 [initDataPlatform] SyncStateEngine started (paused until project load)
+engineLauncher-bbIXqTfg.js:1844 [initDataPlatform] RoomColourSystem.setSyncStateEngine wired
+engineLauncher-bbIXqTfg.js:1831 [DependencyResolver] Initialised — Phase F active: cascade rebuilds enabled
+engineLauncher-bbIXqTfg.js:1844 [initDataPlatform] DependencyResolver initialised — semantic graph monitoring active
+engineLauncher-bbIXqTfg.js:871 [TemporalGraph] Initialised. sessionId=af8cc549-b128-4a2d-a026-81526d14d9aa. Auto-recording element mutations via StoreEventBus.
+engineLauncher-bbIXqTfg.js:1844 [initDataPlatform] TemporalGraph initialised — sessionId=af8cc549-b128-4a2d-a026-81526d14d9aa
+engineLauncher-bbIXqTfg.js:1844 [initDataPlatform] Data Platform stores + SemanticGraph + TemporalGraph + ConstraintEngine + DecisionRecordStore + PhysicsEngine exposed on window
+engineLauncher-bbIXqTfg.js:1844 [initDataPlatform] G-0.3: SelectionBus exposed on window
+engineLauncher-bbIXqTfg.js:1844 [initDataPlatform] ConstraintEngine auto-run wired to StoreEventBus (800ms debounce, load-quiet window)
+engineLauncher-bbIXqTfg.js:1844 [initDataPlatform] G-3: IntentPrompt wired to pryzm-constraints-updated
+engineLauncher-bbIXqTfg.js:1068 [PhysicsEngine] Initialised — FrameScheduler-batched queue active
+engineLauncher-bbIXqTfg.js:1844 [initDataPlatform] H-1: PhysicsEngine RAF-queue started
+engineLauncher-bbIXqTfg.js:1068 [PhysicsOverlayRenderer] Initialised
+engineLauncher-bbIXqTfg.js:1844 [initDataPlatform] H-2: PhysicsOverlayRenderer initialised
+SyncStateDetailDrawer-B-35hxbK.js:2 [TemplateStore] Seeded 15 built-in templates
+engineLauncher-bbIXqTfg.js:1844 [initDataPlatform] G-0.1: BuiltinTemplates seeded into TemplateStore
+engineLauncher-bbIXqTfg.js:1844 [initDataPlatform] G-0.3: SelectionBus subscribed to pryzm-element-selected
+engineLauncher-bbIXqTfg.js:1844 [initDataPlatform] H-1: PhysicsEngine room-create/update wiring active
+engineLauncher-bbIXqTfg.js:1852 [initDataPlatform] K-1: VoiceCommandIndicator mounted
+engineLauncher-bbIXqTfg.js:1844 [ConsequencePreviewOverlay] Initialised
+engineLauncher-bbIXqTfg.js:1852 [initDataPlatform] K-2: ConsequencePreviewOverlay initialised
+engineLauncher-bbIXqTfg.js:1844 [AmbientIndicator] Initialised
+engineLauncher-bbIXqTfg.js:1852 [initDataPlatform] K-3: AmbientIndicator mounted
+engineLauncher-bbIXqTfg.js:1852 [initDataPlatform] K-3: AmbientIntelligence wired to constraints + StoreEventBus
+engineLauncher-bbIXqTfg.js:1852 [initDataPlatform] Data Platform subsystem fully initialised.
+engineLauncher-bbIXqTfg.js:6969 [main] VG Governance Layer initialized
+engineLauncher-bbIXqTfg.js:6969 [main] View Range Filter Service initialized
+engineLauncher-bbIXqTfg.js:6969 [main] Crop Region Filter Service initialized
+engineLauncher-bbIXqTfg.js:6969 [main] Underlay Render Service initialized
+engineLauncher-bbIXqTfg.js:6969 [main] View Range Zone Applicator initialized
+engineLauncher-bbIXqTfg.js:6969 [main] Semantic Index initialized
+engineLauncher-bbIXqTfg.js:6969 [main] IFC Pset Adapter initialized (DOC-5.4)
+engineLauncher-bbIXqTfg.js:6969 [main] ViewDefinition Store initialized
+engineLauncher-bbIXqTfg.js:6969 [main] Visibility Intent stores initialized (panel lazy — loads on first use)
+engineLauncher-bbIXqTfg.js:1821 [DefaultViewsManager] Created default 3D view (id=vd-sys-3d-1)
+engineLauncher-bbIXqTfg.js:1821 [DefaultViewsManager] Created default Ground Floor plan view (id=vd-sys-plan-l0)
+engineLauncher-bbIXqTfg.js:1821 [DefaultViewsManager] Initialized — default views are guaranteed on every project.
+engineLauncher-bbIXqTfg.js:6969 [main] Visibility Rule Engine initialized
+engineLauncher-bbIXqTfg.js:6969 [main] Sheet Store initialized
+engineLauncher-bbIXqTfg.js:6969 [main] TitleBlock Store initialized (A0, A1, A3 templates seeded)
+engineLauncher-bbIXqTfg.js:6969 [main] Sheet Editor Panel registered (lazy — loads on first use)
+engineLauncher-bbIXqTfg.js:6969 [main] Sheet Export Service initialized
+engineLauncher-bbIXqTfg.js:6834 [DxfExportService] Initialised
+engineLauncher-bbIXqTfg.js:6969 [main] DXF Export Service initialized
+engineLauncher-bbIXqTfg.js:6969 [main] PDF Export Service registered (lazy — loads on first use)
+engineLauncher-bbIXqTfg.js:6969 [main] Sheet Index Service initialized (Drawing Register ready)
+engineLauncher-bbIXqTfg.js:6969 [main] Schedule Store initialized and default schedules seeded
+engineLauncher-bbIXqTfg.js:6969 [main] View Template Store initialized
+engineLauncher-bbIXqTfg.js:6969 [main] Phase Filter Store initialized (built-ins seeded)
+engineLauncher-bbIXqTfg.js:6969 [main] FastPathProjectorService initialized (sub-50ms interactive projection)
+engineLauncher-bbIXqTfg.js:7096 [initUI] ImportManagerPanel mounted
+engineLauncher-bbIXqTfg.js:7105 [CurtainWall] Store→Builder event wiring established
+engineLauncher-bbIXqTfg.js:7105 [CurtainWall] PanelStore→Builder event wiring established (§MI-02)
+engineLauncher-bbIXqTfg.js:6093 [ContextualEditBar] Initialized
+engineLauncher-bbIXqTfg.js:6093 [ContextualEditBar] Operation tools injected
+engineLauncher-bbIXqTfg.js:7105 [initUI] ShortcutCheatSheet installed (press ? to view all shortcuts)
+engineLauncher-bbIXqTfg.js:7109 [initUI] Split View toggle button mounted
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] §II-2 registerBuilderControls() — wall=true cw=true slab=true
+engineLauncher-bbIXqTfg.js:7258 [EngineBootstrap] §FIX-CW-CTRL-REREGISTER: cw=true
+engineLauncher-bbIXqTfg.js:7109 [LevelExplodeController] Initialized
+engineLauncher-bbIXqTfg.js:7109 [InspectModeCoordinator] Initialized
+PlatformShell-C9mLyVyy.js:485 [PlatformShell] D.1 — real save/load delegates injected (engine ready)
+engineLauncher-bbIXqTfg.js:1864 [initPersistence] D.1 — real delegates injected into early PlatformShell
+engineLauncher-bbIXqTfg.js:1864 [initPersistence] runtime.stores hydrator registered
+engineLauncher-bbIXqTfg.js:1864 [initCollaboration] Collaboration subsystem initialised — waiting for pryzm-project-loaded
+PlatformShell-C9mLyVyy.js:485 [PlatformShell] Project context set: proj-1778367796728-4p9p466 aeryer
+engineLauncher-bbIXqTfg.js:1826 [initScene] pryzm-project-switch received — project: proj-1778367796728-4p9p466
+engineLauncher-bbIXqTfg.js:2 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+engineLauncher-bbIXqTfg.js:1821 [ViewController] clearCameraStateStore — per-view camera state cleared for new project
+engineLauncher-bbIXqTfg.js:2324 [UnderlayPersistence] Project switch — saves suspended
+ProjectLifecycleController-BXWhg3kn.js:1 [ProjectLifecycleController] C13 project-switch: cold-boot → (unknown)
+engineLauncher-bbIXqTfg.js:484 [BatchCoordinator] C13 forceReset() — all batch state cleared for project switch
+engineLauncher-bbIXqTfg.js:7243 [WallRebuildCoordinator] C13 resetWallRebuildState() — wall pipeline clean for project switch
+ProjectLifecycleController-BXWhg3kn.js:1 [ProjectLifecycleController] C13 teardown complete — Project B context loading
+PlatformShell-C9mLyVyy.js:485 [PlatformShell] New project — clearing scene immediately (no server check)
+engineLauncher-bbIXqTfg.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-bbIXqTfg.js:1864 [ProjectLoader] Loading "aeryer" (0 elements)
+main-C_EL1IFU.js:29510 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+engineLauncher-bbIXqTfg.js:1864 [ProjectLoader] Element-creation path: ImportProjectCommand (Phase 1)
+engineLauncher-bbIXqTfg.js:2559 [AICreatePanel] Initializing panel, going to step 1
+engineLauncher-bbIXqTfg.js:2559 [AICreatePanel] Transitioning to step 1
+engineLauncher-bbIXqTfg.js:2559 [AICreatePanel] Step 1: display=flex
+engineLauncher-bbIXqTfg.js:2559 [AICreatePanel] Step 2: display=none
+engineLauncher-bbIXqTfg.js:2559 [AICreatePanel] Step 3: display=none
+engineLauncher-bbIXqTfg.js:2559 [AICreatePanel] Step 4: display=none
+engineLauncher-bbIXqTfg.js:2559 [AICreatePanel] All steps found and updated successfully
+engineLauncher-bbIXqTfg.js:2559 [AICreatePanel] Attaching file input change listener
+engineLauncher-bbIXqTfg.js:2559 [AICreatePanel] Attaching all event listeners
+engineLauncher-bbIXqTfg.js:2559 [AICreatePanel] Attaching all event listeners...
+engineLauncher-bbIXqTfg.js:2559 [AICreatePanel] ✓ Step 2 Next button listener attached
+engineLauncher-bbIXqTfg.js:2559 [AICreatePanel] ✓ Step 2 Back button listener attached
+engineLauncher-bbIXqTfg.js:2559 [AICreatePanel] ✓ Step 3 Generate button listener attached
+engineLauncher-bbIXqTfg.js:2559 [AICreatePanel] ✓ Step 3 Back button listener attached
+engineLauncher-bbIXqTfg.js:2559 [AICreatePanel] ✓ Step 4 Open AI Actions button listener attached
+engineLauncher-bbIXqTfg.js:2559 [AICreatePanel] ✓ Step 4 Create Another button listener attached
+engineLauncher-bbIXqTfg.js:2559 [AICreatePanel] ✓ Prompt input keydown listener attached
+engineLauncher-bbIXqTfg.js:2559 [AICreatePanel] All event listeners attached successfully
+engineLauncher-bbIXqTfg.js:2 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+engineLauncher-bbIXqTfg.js:4702 Refreshing Spatial Tree...
+engineLauncher-bbIXqTfg.js:1852 [initDataPlatform] DataWorkbench toolbar button + physics overlay dropdown injected
+engineLauncher-bbIXqTfg.js:1844 [VoiceCommandIndicator] Mounted (speechAPI=true)
+engineLauncher-bbIXqTfg.js:4702 [AIAreaLayout] AI panel drag + resize wired. width=256px left=0px
+engineLauncher-bbIXqTfg.js:1864 [ClearProjectCommand] Clearing all project data
+engineLauncher-bbIXqTfg.js:1864   Removing 0 curtain panels
+engineLauncher-bbIXqTfg.js:1864   Removing 0 openings
+engineLauncher-bbIXqTfg.js:1864   Removing 0 walls
+engineLauncher-bbIXqTfg.js:1864   Removing 0 curtain walls
+engineLauncher-bbIXqTfg.js:1864   Removing 0 slabs
+engineLauncher-bbIXqTfg.js:1864   Removing 0 ceilings
+engineLauncher-bbIXqTfg.js:1864   Removing 0 columns
+engineLauncher-bbIXqTfg.js:1864   Removing 0 beams
+engineLauncher-bbIXqTfg.js:1864   Removing 0 stairs
+engineLauncher-bbIXqTfg.js:1864   Removing 0 roofs
+engineLauncher-bbIXqTfg.js:1864   Removing 0 furniture items
+engineLauncher-bbIXqTfg.js:1864   Removing 0 handrails
+engineLauncher-bbIXqTfg.js:1864   Removing 0 plumbing fixtures
+engineLauncher-bbIXqTfg.js:1864   Removing 0 rooms
+engineLauncher-bbIXqTfg.js:1864   Removing 0 room bounding lines
+engineLauncher-bbIXqTfg.js:1864   Removing 0 grids
+engineLauncher-bbIXqTfg.js:1864   Removing 1 levels
+engineLauncher-bbIXqTfg.js:1583 [BimManager] Cannot delete the default Ground level.
+removeLevel @ engineLauncher-bbIXqTfg.js:1583
+engineLauncher-bbIXqTfg.js:1864 [ClearProjectCommand] Annotation store cleared
+engineLauncher-bbIXqTfg.js:1864   Cleared 0 floors
+engineLauncher-bbIXqTfg.js:1821 [DefaultViewsManager] Created default 3D view (id=vd-sys-3d-1)
+engineLauncher-bbIXqTfg.js:1821 [DefaultViewsManager] Created default Ground Floor plan view (id=vd-sys-plan-l0)
+engineLauncher-bbIXqTfg.js:871 [TemporalGraph] Cleared (project switch).
+engineLauncher-bbIXqTfg.js:2324 [UnderlayPersistence] Clear skipped — no current project bound
+engineLauncher-bbIXqTfg.js:1826 [ViewRenderCache] All render targets disposed.
+engineLauncher-bbIXqTfg.js:2323 [RoomGraphService] All graphs invalidated
+engineLauncher-bbIXqTfg.js:1864 [ClearProjectCommand] ProjectScopeRegistry cleared 44 scopes: Array(44)
+engineLauncher-bbIXqTfg.js:1864 [ClearProjectCommand] activeLevelId reset to L0 (project-scoped state cleared).
+engineLauncher-bbIXqTfg.js:2325 [ProjectIsolation] WallFragmentBuilder disposed — scene cleared of wall geometry.
+engineLauncher-bbIXqTfg.js:2323 [RoomGraphService] All graphs invalidated
+engineLauncher-bbIXqTfg.js:871 [TemporalGraph] Cleared (project switch).
+engineLauncher-bbIXqTfg.js:1864 [ClearProjectCommand] Clear complete
+ImportProjectCommand-Cz7QcRq0.js:1 [ImportProjectCommand] Loading 0 levels
+ImportProjectCommand-Cz7QcRq0.js:1 [ImportProjectCommand] Loading 0 grids
+ImportProjectCommand-Cz7QcRq0.js:1 [ImportProjectCommand] Loading 0 columns
+ImportProjectCommand-Cz7QcRq0.js:1 [ImportProjectCommand] Loading 0 walls
+ImportProjectCommand-Cz7QcRq0.js:1 [ImportProjectCommand] Loading 0 slabs
+ImportProjectCommand-Cz7QcRq0.js:1 [ImportProjectCommand] Loading 0 stairs
+ImportProjectCommand-Cz7QcRq0.js:1 [ImportProjectCommand] Loading 0 furniture items
+ImportProjectCommand-Cz7QcRq0.js:1 [ImportProjectCommand] Loading 0 roofs
+ImportProjectCommand-Cz7QcRq0.js:1 [ImportProjectCommand] Loading 0 handrails
+ImportProjectCommand-Cz7QcRq0.js:1 [ImportProjectCommand] Loading 0 plumbing fixtures
+ImportProjectCommand-Cz7QcRq0.js:1 [ImportProjectCommand] Loading 0 curtain walls
+ImportProjectCommand-Cz7QcRq0.js:1 [ImportProjectCommand] Loading 0 beams
+engineLauncher-bbIXqTfg.js:1864 [ProjectLoader] VG Governance state restored from snapshot
+engineLauncher-bbIXqTfg.js:1864 [ProjectLoader] ViewDefinition store restored from snapshot
+engineLauncher-bbIXqTfg.js:1864 [ProjectLoader] Visibility rule engine restored from snapshot
+engineLauncher-bbIXqTfg.js:1864 [VGToIntentMigration] Starting VG → Intent migration…
+engineLauncher-bbIXqTfg.js:1864 [VGToIntentMigration] Complete — 0 intents, 0 views, 0 overrides migrated.
+engineLauncher-bbIXqTfg.js:1821 [DefaultViewsManager] Created default 3D view (id=vd-sys-3d-1)
+engineLauncher-bbIXqTfg.js:1821 [DefaultViewsManager] Created default Ground Floor plan view (id=vd-sys-plan-l0)
+engineLauncher-bbIXqTfg.js:5919 [HomeView] Default viewpoint captured: Object Object
+engineLauncher-bbIXqTfg.js:1864 [ProjectLoader] Sheet store restored from snapshot
+engineLauncher-bbIXqTfg.js:1864 [ProjectLoader] Schedule store restored from snapshot
+engineLauncher-bbIXqTfg.js:1864 [ProjectLoader] SemanticGraph cleared (v1/v2 snapshot — no graph data)
+engineLauncher-bbIXqTfg.js:871 [TemporalGraph] Cleared (project switch).
+engineLauncher-bbIXqTfg.js:1864 [ProjectLoader] TemporalGraph cleared (pre-v4 snapshot — no temporal data)
+engineLauncher-bbIXqTfg.js:1864 [ProjectLoader] DecisionRecordStore cleared (pre-v4 snapshot — no decision data)
+engineLauncher-bbIXqTfg.js:1864 [ProjectLoader] RequirementStore cleared (no requirement data in snapshot)
+engineLauncher-bbIXqTfg.js:1864 [IntentStylePrewarmer] Pre-warmed 1224 style slots in 5.21ms
+DataCommandCenter-GQYOuQSE.js:1 [AssetCatalogStore] setDirect(): restored 21 entries
+engineLauncher-bbIXqTfg.js:1864 [ProjectLoader] AssetCatalogStore seeded from defaults
+engineLauncher-bbIXqTfg.js:1864 [ProjectLoader] Annotation store cleared (no annotation data in snapshot)
+engineLauncher-bbIXqTfg.js:1864 [ProjectLoader] AnnotationDependencyGraph rebuilt after restore
+engineLauncher-bbIXqTfg.js:1864 [ProjectLoader] Load complete: 0 loaded, 0 failed, 0 errors
+main-C_EL1IFU.js:29510 [StoreEventBus] endBatch() — flushed 38 buffered event(s) in emission order (no coalescing — all events delivered).
+engineLauncher-bbIXqTfg.js:1864 [ProjectLoader] PHASE_TIMINGS total=5584.7ms setup=0.0ms hydrate=0.0ms event_flush=0.0ms wall_rebuild_flush=0.0ms redetect_sweep=0.0ms [walls=0 slabs=0 levels=0 curtainWalls=0]
+engineLauncher-bbIXqTfg.js:1864 [ProjectSerializer] Snapshot created: 0 elements, 1 levels, 0 walls, 0 slabs, 0 furniture
+PlatformShell-C9mLyVyy.js:485 [PlatformShell] New project ready — firing pryzm-project-loaded(empty:true)
+engineLauncher-bbIXqTfg.js:1826 [FrustumCullingService] pryzm-project-loaded(empty) — audit skipped, no geometry
+engineLauncher-bbIXqTfg.js:1831 [initScene] pryzm-project-loaded — empty project (no geometry)
+SyncStateDetailDrawer-B-35hxbK.js:2 [TemplateStore] Seeded 15 built-in templates
+engineLauncher-bbIXqTfg.js:1864 [initCollaboration] Project opened — collaboration active for proj-1778367796728-4p9p466
+engineLauncher-bbIXqTfg.js:7258 [EngineBootstrap] pryzm-project-loaded(empty) — skipping zoomToAll
+engineLauncher-bbIXqTfg.js:2324 [ProjectIsolationAudit] ✓ project proj-1778367796728-4p9p466 loaded clean — no leftover state
+engineLauncher-bbIXqTfg.js:2 [RenderPipelineManager] onProjectLoaded (debounced) — re-activating outlines.
+engineLauncher-bbIXqTfg.js:2 [RenderPipelineManager] Outlines activated (selected + hover).
+engineLauncher-bbIXqTfg.js:2 [RenderPipelineManager] §I2 pipeline.usedTimes is not a number (got undefined) — patching to 0 before dispose to prevent device-loss cascade.
+_safeDisposeRenderPipeline @ engineLauncher-bbIXqTfg.js:2
+2engineLauncher-bbIXqTfg.js:1826 [RenderPipelineManager] Phase: phase4 | WebGPU: true | SSGI: true | TRAA: false
+engineLauncher-bbIXqTfg.js:1826 [SplitViewManager] Canvas2D context ready
+engineLauncher-bbIXqTfg.js:1821 [SvpPlanToolOverlay] Attached with snap service. viewId: vd-sys-plan-l0
+engineLauncher-bbIXqTfg.js:1821 [SplitViewManager] Split view activated (Canvas2D plan mode)
+engineLauncher-bbIXqTfg.js:1831 [initScene] Split view auto-opened on project load (idle)
+engineLauncher-bbIXqTfg.js:1844 [initDataPlatform] H-1: Physics compute enqueued for all rooms after project load (idle)
+engineLauncher-bbIXqTfg.js:2 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+engineLauncher-bbIXqTfg.js:5919 [HomeView] Default viewpoint captured: Object Object
+engineLauncher-bbIXqTfg.js:7105 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-bbIXqTfg.js:541 [CutFill] Updating: enabled=false, height=1.2
+
+engineLauncher-bbIXqTfg.js:2 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+PlatformShell-C9mLyVyy.js:1 [PlatformCollabPill] Socket connected — joining project room: proj-1778367796728-4p9p466
+engineLauncher-bbIXqTfg.js:1864 [initCollaboration] Socket connected — joining project room: proj-1778367796728-4p9p466
+engineLauncher-bbIXqTfg.js:1864 [initCollaboration] Catch-up: first connect — setting baseline timestamp
+engineLauncher-bbIXqTfg.js:4702 [WallModePicker] setActiveMode → ortho
+engineLauncher-bbIXqTfg.js:1902 ToolManager: activateTool called for wall
+engineLauncher-bbIXqTfg.js:1902 ToolManager: deactivating previous tool none
+engineLauncher-bbIXqTfg.js:1902 ToolManager: executing activateFn for wall
+engineLauncher-bbIXqTfg.js:2242 WallTool activated with mode: POLYLINE_ORTHO
+vendor-three-C5lBiMnB.js:5719 RGBELoader has been deprecated. Please use HDRLoader instead.
+Ece @ vendor-three-C5lBiMnB.js:5719
+(anonymous) @ engineLauncher-bbIXqTfg.js:7258
+N @ engineLauncher-bbIXqTfg.js:7258
+activate @ engineLauncher-bbIXqTfg.js:2242
+(anonymous) @ engineLauncher-bbIXqTfg.js:1902
+activateTool @ engineLauncher-bbIXqTfg.js:1902
+await in activateTool
+activateWall @ engineLauncher-bbIXqTfg.js:1902
+activateWallTool @ engineLauncher-bbIXqTfg.js:2392
+e.activateWallTool @ engineLauncher-bbIXqTfg.js:4809
+_activateStructureTool @ engineLauncher-bbIXqTfg.js:6121
+_activateStructureToolByShortcut @ engineLauncher-bbIXqTfg.js:6121
+WA @ engineLauncher-bbIXqTfg.js:6121
+(anonymous) @ engineLauncher-bbIXqTfg.js:6121
+vendor-three-C5lBiMnB.js:5 Connecting to 'https://thatopen.github.io/engine_fragment/resources/textures/envmaps/san_giuseppe_bridge_2k.hdr' violates the following Content Security Policy directive: "connect-src 'self' data: blob: https://api.cesium.com https://assets.cesium.com https://ionfetch.cesium.com https://*.supabase.co wss: ws: https://flat-morning-358d.antoniocanerosan.workers.dev/". The action has been blocked.
+load @ vendor-three-C5lBiMnB.js:5
+load @ vendor-three-C5lBiMnB.js:5
+load @ vendor-three-C5lBiMnB.js:5719
+(anonymous) @ engineLauncher-bbIXqTfg.js:7258
+N @ engineLauncher-bbIXqTfg.js:7258
+activate @ engineLauncher-bbIXqTfg.js:2242
+(anonymous) @ engineLauncher-bbIXqTfg.js:1902
+activateTool @ engineLauncher-bbIXqTfg.js:1902
+await in activateTool
+activateWall @ engineLauncher-bbIXqTfg.js:1902
+activateWallTool @ engineLauncher-bbIXqTfg.js:2392
+e.activateWallTool @ engineLauncher-bbIXqTfg.js:4809
+_activateStructureTool @ engineLauncher-bbIXqTfg.js:6121
+_activateStructureToolByShortcut @ engineLauncher-bbIXqTfg.js:6121
+WA @ engineLauncher-bbIXqTfg.js:6121
+(anonymous) @ engineLauncher-bbIXqTfg.js:6121
+vendor-three-C5lBiMnB.js:5 Fetch API cannot load https://thatopen.github.io/engine_fragment/resources/textures/envmaps/san_giuseppe_bridge_2k.hdr. Refused to connect because it violates the document's Content Security Policy.
+load @ vendor-three-C5lBiMnB.js:5
+load @ vendor-three-C5lBiMnB.js:5
+load @ vendor-three-C5lBiMnB.js:5719
+(anonymous) @ engineLauncher-bbIXqTfg.js:7258
+N @ engineLauncher-bbIXqTfg.js:7258
+activate @ engineLauncher-bbIXqTfg.js:2242
+(anonymous) @ engineLauncher-bbIXqTfg.js:1902
+activateTool @ engineLauncher-bbIXqTfg.js:1902
+await in activateTool
+activateWall @ engineLauncher-bbIXqTfg.js:1902
+activateWallTool @ engineLauncher-bbIXqTfg.js:2392
+e.activateWallTool @ engineLauncher-bbIXqTfg.js:4809
+_activateStructureTool @ engineLauncher-bbIXqTfg.js:6121
+_activateStructureToolByShortcut @ engineLauncher-bbIXqTfg.js:6121
+WA @ engineLauncher-bbIXqTfg.js:6121
+(anonymous) @ engineLauncher-bbIXqTfg.js:6121
+engineLauncher-bbIXqTfg.js:7258 [EngineBootstrap] HDRI unavailable
+(anonymous) @ engineLauncher-bbIXqTfg.js:7258
+(anonymous) @ vendor-three-C5lBiMnB.js:5
+Promise.catch
+load @ vendor-three-C5lBiMnB.js:5
+load @ vendor-three-C5lBiMnB.js:5
+load @ vendor-three-C5lBiMnB.js:5719
+(anonymous) @ engineLauncher-bbIXqTfg.js:7258
+N @ engineLauncher-bbIXqTfg.js:7258
+activate @ engineLauncher-bbIXqTfg.js:2242
+(anonymous) @ engineLauncher-bbIXqTfg.js:1902
+activateTool @ engineLauncher-bbIXqTfg.js:1902
+await in activateTool
+activateWall @ engineLauncher-bbIXqTfg.js:1902
+activateWallTool @ engineLauncher-bbIXqTfg.js:2392
+e.activateWallTool @ engineLauncher-bbIXqTfg.js:4809
+_activateStructureTool @ engineLauncher-bbIXqTfg.js:6121
+_activateStructureToolByShortcut @ engineLauncher-bbIXqTfg.js:6121
+WA @ engineLauncher-bbIXqTfg.js:6121
+(anonymous) @ engineLauncher-bbIXqTfg.js:6121
+engineLauncher-bbIXqTfg.js:2242 WallTool deactivated
+engineLauncher-bbIXqTfg.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-bbIXqTfg.js:7105 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-bbIXqTfg.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-bbIXqTfg.js:7105 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-bbIXqTfg.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-bbIXqTfg.js:4702 [WallModePicker] setActiveMode → ortho
+engineLauncher-bbIXqTfg.js:1902 ToolManager: activateTool called for wall
+engineLauncher-bbIXqTfg.js:1902 ToolManager: deactivating previous tool none
+engineLauncher-bbIXqTfg.js:1902 ToolManager: executing activateFn for wall
+engineLauncher-bbIXqTfg.js:2242 WallTool activated with mode: POLYLINE_ORTHO
+engineLauncher-bbIXqTfg.js:2247 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+engineLauncher-bbIXqTfg.js:2247 [WallTool] wall.create dispatched to bus (busId: wall_5C8EC09DB4264014B6AB25FCF2 ) — legacy path runs for geometry with id: 5c8ec09d-b426-4014-b6ab-25fcf20aacfb
+engineLauncher-bbIXqTfg.js:2247 [WallTool] Executing CreateWallCommand with levelId: L0
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] snapshot commandType="Js" scope=[wall,level] elapsed=0.3ms
+main-C_EL1IFU.js:29510 [VDT] §G3-STALE-EVENT for unregistered element 5c8ec09d-b426-4014-b6ab-25fcf20aacfb type= wall — fallback to store-type view only
+_onStoreEvent @ main-C_EL1IFU.js:29510
+(anonymous) @ main-C_EL1IFU.js:29510
+_dispatch @ main-C_EL1IFU.js:29510
+emit @ main-C_EL1IFU.js:29510
+emit @ engineLauncher-bbIXqTfg.js:1864
+add @ engineLauncher-bbIXqTfg.js:1864
+execute @ engineLauncher-bbIXqTfg.js:1583
+execute @ engineLauncher-bbIXqTfg.js:1902
+createWall @ engineLauncher-bbIXqTfg.js:2247
+createWallFromPath @ engineLauncher-bbIXqTfg.js:2247
+onPointerDown @ engineLauncher-bbIXqTfg.js:2242
+pointerDownHandler @ engineLauncher-bbIXqTfg.js:2242
+engineLauncher-bbIXqTfg.js:1583 [BimManager] Registered element 5c8ec09d-b426-4014-b6ab-25fcf20aacfb to level L0
+engineLauncher-bbIXqTfg.js:2247 Wall created via command: 5c8ec09d-b426-4014-b6ab-25fcf20aacfb
+engineLauncher-bbIXqTfg.js:1821 [PascalSceneLighting] Shadow flags set on 39 mesh(es).
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.1ms
+main-C_EL1IFU.js:29510 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+engineLauncher-bbIXqTfg.js:1826 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] Plan view — exporting 1 elements from levels overlapping Y=[-1.20, 0.00]
+engineLauncher-bbIXqTfg.js:1583 [NME] §H2-NME-CACHE hits=0 misses=1 hitRate=0% cacheSize=1/500
+engineLauncher-bbIXqTfg.js:2247 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+engineLauncher-bbIXqTfg.js:2247 [WallTool] wall.create dispatched to bus (busId: wall_EB4F28FFE10F4D369773EAC724 ) — legacy path runs for geometry with id: eb4f28ff-e10f-4d36-9773-eac724c2a386
+engineLauncher-bbIXqTfg.js:2247 [WallTool] Executing CreateWallCommand with levelId: L0
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] snapshot commandType="Js" scope=[wall,level] elapsed=0.2ms
+main-C_EL1IFU.js:29510 [VDT] §G3-STALE-EVENT for unregistered element eb4f28ff-e10f-4d36-9773-eac724c2a386 type= wall — fallback to store-type view only
+_onStoreEvent @ main-C_EL1IFU.js:29510
+(anonymous) @ main-C_EL1IFU.js:29510
+_dispatch @ main-C_EL1IFU.js:29510
+emit @ main-C_EL1IFU.js:29510
+emit @ engineLauncher-bbIXqTfg.js:1864
+add @ engineLauncher-bbIXqTfg.js:1864
+execute @ engineLauncher-bbIXqTfg.js:1583
+execute @ engineLauncher-bbIXqTfg.js:1902
+createWall @ engineLauncher-bbIXqTfg.js:2247
+createWallFromPath @ engineLauncher-bbIXqTfg.js:2247
+onPointerDown @ engineLauncher-bbIXqTfg.js:2242
+pointerDownHandler @ engineLauncher-bbIXqTfg.js:2242
+engineLauncher-bbIXqTfg.js:1583 [BimManager] Registered element eb4f28ff-e10f-4d36-9773-eac724c2a386 to level L0
+engineLauncher-bbIXqTfg.js:2247 Wall created via command: eb4f28ff-e10f-4d36-9773-eac724c2a386
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-bbIXqTfg.js:1821 [PascalSceneLighting] Shadow flags set on 2 mesh(es).
+main-C_EL1IFU.js:29510 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+engineLauncher-bbIXqTfg.js:1826 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] Plan view — exporting 2 elements from levels overlapping Y=[-1.20, 0.00]
+engineLauncher-bbIXqTfg.js:1583 [NME] §H2-NME-CACHE hits=0 misses=2 hitRate=0% cacheSize=3/500
+engineLauncher-bbIXqTfg.js:2247 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+engineLauncher-bbIXqTfg.js:2247 [WallTool] wall.create dispatched to bus (busId: wall_F96E917059444DAFB94D067014 ) — legacy path runs for geometry with id: f96e9170-5944-4daf-b94d-067014240213
+engineLauncher-bbIXqTfg.js:2247 [WallTool] Executing CreateWallCommand with levelId: L0
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] snapshot commandType="Js" scope=[wall,level] elapsed=0.2ms
+main-C_EL1IFU.js:29510 [VDT] §G3-STALE-EVENT for unregistered element f96e9170-5944-4daf-b94d-067014240213 type= wall — fallback to store-type view only
+_onStoreEvent @ main-C_EL1IFU.js:29510
+(anonymous) @ main-C_EL1IFU.js:29510
+_dispatch @ main-C_EL1IFU.js:29510
+emit @ main-C_EL1IFU.js:29510
+emit @ engineLauncher-bbIXqTfg.js:1864
+add @ engineLauncher-bbIXqTfg.js:1864
+execute @ engineLauncher-bbIXqTfg.js:1583
+execute @ engineLauncher-bbIXqTfg.js:1902
+createWall @ engineLauncher-bbIXqTfg.js:2247
+createWallFromPath @ engineLauncher-bbIXqTfg.js:2247
+onPointerDown @ engineLauncher-bbIXqTfg.js:2242
+pointerDownHandler @ engineLauncher-bbIXqTfg.js:2242
+engineLauncher-bbIXqTfg.js:1583 [BimManager] Registered element f96e9170-5944-4daf-b94d-067014240213 to level L0
+engineLauncher-bbIXqTfg.js:2247 Wall created via command: f96e9170-5944-4daf-b94d-067014240213
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-bbIXqTfg.js:1821 [PascalSceneLighting] Shadow flags set on 3 mesh(es).
+main-C_EL1IFU.js:29510 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+engineLauncher-bbIXqTfg.js:1826 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] Plan view — exporting 3 elements from levels overlapping Y=[-1.20, 0.00]
+engineLauncher-bbIXqTfg.js:1583 [NME] §H2-NME-CACHE hits=0 misses=3 hitRate=0% cacheSize=6/500
+engineLauncher-bbIXqTfg.js:2247 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+engineLauncher-bbIXqTfg.js:2247 [WallTool] wall.create dispatched to bus (busId: wall_CAF9C9143C3949BFA151BB8F3E ) — legacy path runs for geometry with id: caf9c914-3c39-49bf-a151-bb8f3ec770b1
+engineLauncher-bbIXqTfg.js:2247 [WallTool] Executing CreateWallCommand with levelId: L0
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] snapshot commandType="Js" scope=[wall,level] elapsed=0.1ms
+main-C_EL1IFU.js:29510 [VDT] §G3-STALE-EVENT for unregistered element caf9c914-3c39-49bf-a151-bb8f3ec770b1 type= wall — fallback to store-type view only
+_onStoreEvent @ main-C_EL1IFU.js:29510
+(anonymous) @ main-C_EL1IFU.js:29510
+_dispatch @ main-C_EL1IFU.js:29510
+emit @ main-C_EL1IFU.js:29510
+emit @ engineLauncher-bbIXqTfg.js:1864
+add @ engineLauncher-bbIXqTfg.js:1864
+execute @ engineLauncher-bbIXqTfg.js:1583
+execute @ engineLauncher-bbIXqTfg.js:1902
+createWall @ engineLauncher-bbIXqTfg.js:2247
+createWallFromPath @ engineLauncher-bbIXqTfg.js:2247
+onPointerDown @ engineLauncher-bbIXqTfg.js:2242
+pointerDownHandler @ engineLauncher-bbIXqTfg.js:2242
+engineLauncher-bbIXqTfg.js:1583 [BimManager] Registered element caf9c914-3c39-49bf-a151-bb8f3ec770b1 to level L0
+engineLauncher-bbIXqTfg.js:2247 Wall created via command: caf9c914-3c39-49bf-a151-bb8f3ec770b1
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-bbIXqTfg.js:1821 [PascalSceneLighting] Shadow flags set on 4 mesh(es).
+main-C_EL1IFU.js:29510 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+engineLauncher-bbIXqTfg.js:1826 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] Plan view — exporting 4 elements from levels overlapping Y=[-1.20, 0.00]
+engineLauncher-bbIXqTfg.js:1583 [NME] §H2-NME-CACHE hits=0 misses=4 hitRate=0% cacheSize=10/500
+engineLauncher-bbIXqTfg.js:2247 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+engineLauncher-bbIXqTfg.js:2247 [WallTool] wall.create dispatched to bus (busId: wall_E2D70429115E4250BC502A6067 ) — legacy path runs for geometry with id: e2d70429-115e-4250-bc50-2a60679a83de
+engineLauncher-bbIXqTfg.js:2247 [WallTool] Executing CreateWallCommand with levelId: L0
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] snapshot commandType="Js" scope=[wall,level] elapsed=0.2ms
+main-C_EL1IFU.js:29510 [VDT] §G3-STALE-EVENT for unregistered element e2d70429-115e-4250-bc50-2a60679a83de type= wall — fallback to store-type view only
+_onStoreEvent @ main-C_EL1IFU.js:29510
+(anonymous) @ main-C_EL1IFU.js:29510
+_dispatch @ main-C_EL1IFU.js:29510
+emit @ main-C_EL1IFU.js:29510
+emit @ engineLauncher-bbIXqTfg.js:1864
+add @ engineLauncher-bbIXqTfg.js:1864
+execute @ engineLauncher-bbIXqTfg.js:1583
+execute @ engineLauncher-bbIXqTfg.js:1902
+createWall @ engineLauncher-bbIXqTfg.js:2247
+createWallFromPath @ engineLauncher-bbIXqTfg.js:2247
+onPointerDown @ engineLauncher-bbIXqTfg.js:2242
+pointerDownHandler @ engineLauncher-bbIXqTfg.js:2242
+engineLauncher-bbIXqTfg.js:1583 [BimManager] Registered element e2d70429-115e-4250-bc50-2a60679a83de to level L0
+engineLauncher-bbIXqTfg.js:2247 Wall created via command: e2d70429-115e-4250-bc50-2a60679a83de
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.2ms
+engineLauncher-bbIXqTfg.js:1821 [PascalSceneLighting] Shadow flags set on 5 mesh(es).
+main-C_EL1IFU.js:29510 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+engineLauncher-bbIXqTfg.js:1826 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] Plan view — exporting 5 elements from levels overlapping Y=[-1.20, 0.00]
+engineLauncher-bbIXqTfg.js:1583 [NME] §H2-NME-CACHE hits=0 misses=5 hitRate=0% cacheSize=15/500
+engineLauncher-bbIXqTfg.js:2247 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+engineLauncher-bbIXqTfg.js:2247 [WallTool] wall.create dispatched to bus (busId: wall_7AE314A7930B42889682CDBE44 ) — legacy path runs for geometry with id: 7ae314a7-930b-4288-9682-cdbe44421a8f
+engineLauncher-bbIXqTfg.js:2247 [WallTool] Executing CreateWallCommand with levelId: L0
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] EXECUTE: CREATE_WALL
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] snapshot commandType="Js" scope=[wall,level] elapsed=0.2ms
+main-C_EL1IFU.js:29510 [VDT] §G3-STALE-EVENT for unregistered element 7ae314a7-930b-4288-9682-cdbe44421a8f type= wall — fallback to store-type view only
+_onStoreEvent @ main-C_EL1IFU.js:29510
+(anonymous) @ main-C_EL1IFU.js:29510
+_dispatch @ main-C_EL1IFU.js:29510
+emit @ main-C_EL1IFU.js:29510
+emit @ engineLauncher-bbIXqTfg.js:1864
+add @ engineLauncher-bbIXqTfg.js:1864
+execute @ engineLauncher-bbIXqTfg.js:1583
+execute @ engineLauncher-bbIXqTfg.js:1902
+createWall @ engineLauncher-bbIXqTfg.js:2247
+createWallFromPath @ engineLauncher-bbIXqTfg.js:2247
+onPointerDown @ engineLauncher-bbIXqTfg.js:2242
+pointerDownHandler @ engineLauncher-bbIXqTfg.js:2242
+engineLauncher-bbIXqTfg.js:1583 [BimManager] Registered element 7ae314a7-930b-4288-9682-cdbe44421a8f to level L0
+engineLauncher-bbIXqTfg.js:2247 Wall created via command: 7ae314a7-930b-4288-9682-cdbe44421a8f
+engineLauncher-bbIXqTfg.js:2323 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=23ms, resets=6)
+_scheduleRedetect @ engineLauncher-bbIXqTfg.js:2323
+(anonymous) @ engineLauncher-bbIXqTfg.js:2323
+emit @ engineLauncher-bbIXqTfg.js:1864
+_updateImpl @ engineLauncher-bbIXqTfg.js:1864
+update @ engineLauncher-bbIXqTfg.js:1864
+(anonymous) @ engineLauncher-bbIXqTfg.js:7243
+_flush @ engineLauncher-bbIXqTfg.js:7243
+(anonymous) @ engineLauncher-bbIXqTfg.js:7243
+(anonymous) @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+requestAnimationFrame
+request @ main-C_EL1IFU.js:2
+scheduleNext @ main-C_EL1IFU.js:2
+tick @ main-C_EL1IFU.js:2
+(anonymous) @ main-C_EL1IFU.js:2
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-bbIXqTfg.js:1821 [PascalSceneLighting] Shadow flags set on 6 mesh(es).
+main-C_EL1IFU.js:29510 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+engineLauncher-bbIXqTfg.js:1826 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-bbIXqTfg.js:1583 [NativeElementMeshExporter] Plan view — exporting 6 elements from levels overlapping Y=[-1.20, 0.00]
+engineLauncher-bbIXqTfg.js:1583 [NME] §H2-NME-CACHE hits=0 misses=6 hitRate=0% cacheSize=21/500
+engineLauncher-bbIXqTfg.js:1826 [initScene] Phase 6: EdgeProjectorService lazy-loaded on first projection.
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] project() batchId=none viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=5c8ec09d-b426-4014-b6ab-25fcf20aacfb elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.4ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 1 group(s) in 1 chunk(s), 1 edge geometries across 1 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] project() batchId=none viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=5c8ec09d-b426-4014-b6ab-25fcf20aacfb elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.2ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=eb4f28ff-e10f-4d36-9773-eac724c2a386 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.2ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] project() batchId=none viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=5c8ec09d-b426-4014-b6ab-25fcf20aacfb elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=eb4f28ff-e10f-4d36-9773-eac724c2a386 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.2ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#2 elemId=f96e9170-5944-4daf-b94d-067014240213 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.2ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 3 group(s) in 1 chunk(s), 3 edge geometries across 3 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] project() batchId=none viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=5c8ec09d-b426-4014-b6ab-25fcf20aacfb elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=eb4f28ff-e10f-4d36-9773-eac724c2a386 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#2 elemId=f96e9170-5944-4daf-b94d-067014240213 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#3 elemId=caf9c914-3c39-49bf-a151-bb8f3ec770b1 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] project() batchId=none viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=5c8ec09d-b426-4014-b6ab-25fcf20aacfb elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=eb4f28ff-e10f-4d36-9773-eac724c2a386 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#2 elemId=f96e9170-5944-4daf-b94d-067014240213 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.2ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#3 elemId=caf9c914-3c39-49bf-a151-bb8f3ec770b1 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] project() batchId=none viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=5c8ec09d-b426-4014-b6ab-25fcf20aacfb elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=eb4f28ff-e10f-4d36-9773-eac724c2a386 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#2 elemId=f96e9170-5944-4daf-b94d-067014240213 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#3 elemId=caf9c914-3c39-49bf-a151-bb8f3ec770b1 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+main-C_EL1IFU.js:29510 [ViewTechnicalDrawingCache] Stale projection rejected — viewId=vd-sys-plan-l0 staleGen=2 currentGen=12
+main-C_EL1IFU.js:29510 [ViewTechnicalDrawingCache] Stale projection rejected — viewId=vd-sys-plan-l0 staleGen=4 currentGen=12
+main-C_EL1IFU.js:29510 [ViewTechnicalDrawingCache] Stale projection rejected — viewId=vd-sys-plan-l0 staleGen=6 currentGen=12
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 4 group(s) in 1 chunk(s), 4 edge geometries across 4 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#4 elemId=e2d70429-115e-4250-bc50-2a60679a83de elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.2ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 5 group(s) in 2 chunk(s), 5 edge geometries across 5 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#4 elemId=e2d70429-115e-4250-bc50-2a60679a83de elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#5 elemId=7ae314a7-930b-4288-9682-cdbe44421a8f elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-b0yhTir_.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 6 group(s) in 2 chunk(s), 6 edge geometries across 6 ISO layer(s) (per-element UUID tagging active)
+main-C_EL1IFU.js:29510 [ViewTechnicalDrawingCache] Stale projection rejected — viewId=vd-sys-plan-l0 staleGen=8 currentGen=12
+main-C_EL1IFU.js:29510 [ViewTechnicalDrawingCache] Stale projection rejected — viewId=vd-sys-plan-l0 staleGen=10 currentGen=12
+engineLauncher-bbIXqTfg.js:1826 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=12 (OBC-IFC=0, native=6, ifc-scene=0)
+engineLauncher-bbIXqTfg.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=4/14 layers
+engineLauncher-bbIXqTfg.js:2247 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+engineLauncher-bbIXqTfg.js:2247 [WallTool] wall.create dispatched to bus (busId: wall_DFE84388C605417C88AD9CB69B ) — legacy path runs for geometry with id: dfe84388-c605-417c-88ad-9cb69b798fe5
+engineLauncher-bbIXqTfg.js:2247 [WallTool] Executing CreateWallCommand with levelId: L0
+engineLauncher-bbIXqTfg.js:1902 [CommandManager] EXECUTE: CREATE_WALL

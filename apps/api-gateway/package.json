@@ -1,0 +1,42 @@
+{
+  "name": "@pryzm/api-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PRYZM Public API gateway — REST + WS surface served on PORT (default 5101). S65 deliverable per phase-doc-2 §S65 + ADR-0041 (composition root) + ADR-0042 (AI public API).",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./app": "./src/app.ts",
+    "./ports": "./src/ports.ts",
+    "./ws": "./src/ws.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run --reporter=default",
+    "start": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@pryzm/admin-overrides": "workspace:*",
+    "@pryzm/ai-cost": "workspace:*",
+    "@pryzm/ai-host": "workspace:*",
+    "@pryzm/ai-spend": "workspace:*",
+    "@pryzm/api-rbac": "workspace:*",
+    "@pryzm/api-spec": "workspace:*",
+    "@pryzm/formula-library": "workspace:*",
+    "@pryzm/rate-limit": "workspace:*",
+    "@pryzm/webhooks": "workspace:*",
+    "express": "^5.1.0",
+    "ulid": "^3.0.1",
+    "ws": "^8.18.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^20.0.0",
+    "@types/ws": "^8.5.12",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.9"
+  }
+}

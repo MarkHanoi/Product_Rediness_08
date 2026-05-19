@@ -1,0 +1,29 @@
+{
+  "id": "straight-commercial-tall",
+  "description": "straight 18-riser commercial stair, 1.2 m wide, on level 2",
+  "stair": {
+    "id": "stair:str-com",
+    "type": "stair",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "topLevelId": "level:1",
+    "shape": "straight",
+    "origin": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "rotation": 0,
+    "treadDepth": 0.3,
+    "riserHeight": 0.17,
+    "width": 1.2,
+    "numRisers": 18
+  },
+  "worldY": 5.4
+}

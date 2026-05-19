@@ -1,0 +1,39 @@
+{
+  "name": "@pryzm/plugin-wall",
+  "version": "0.1.0",
+  "description": "PRYZM 2 \u2014 Wall plugin.  Headless half (S07): Store<WallData>, system-type catalogue, typed errors, 5 handlers.  Producer (S08): pure-TS BufferGeometryDescriptor producer.  Committer + tool + selection-highlight (S09): THREE-touching scene reification under `src/committer/`, vanilla-TS WallCreationTool (Straight mode).  Remaining 9 handlers + Arc/Polyline tool modes land S10.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./store": "./src/store.ts",
+    "./errors": "./src/errors.ts",
+    "./system-type-store": "./src/system-type-store.ts",
+    "./handlers": "./src/handlers/index.ts",
+    "./tool": "./src/tool.ts",
+    "./committer": "./src/committer/index.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --out-dir dist",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "immer": "^10.1.1",
+    "three": "^0.183.2",
+    "ulid": "^2.3.0",
+    "@pryzm/plugin-sdk": "workspace:*",
+    "@pryzm/command-registry": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/three": "^0.183.1",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

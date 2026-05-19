@@ -1,0 +1,10 @@
+{
+  "name": "persistence.codec-spike.decode.msgpack",
+  "samples": 30,
+  "p50": 6.408,
+  "p95": 8.118,
+  "p99": 8.406,
+  "budgetMs": 100,
+  "warnMs": 50,
+  "recordedAt": "2026-05-09T23:08:46.380Z"
+}

@@ -1,0 +1,27 @@
+{
+  "name": "@pryzm/geometry-stair",
+  "version": "0.1.0",
+  "description": "PRYZM — stair geometry subsystem: types, builders, tools, stairPath.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@pryzm/core-app-model": "workspace:*",
+    "@pryzm/geometry-wall": "workspace:*",
+    "@pryzm/renderer-three": "workspace:*",
+    "@pryzm/command-registry": "workspace:*",
+    "@pryzm/scene-committer": "workspace:*",
+    "@pryzm/frame-scheduler": "workspace:*",
+    "@pryzm/snapping": "workspace:*",
+    "@thatopen/components": "^3.4.2",
+    "zod": "^4.3.6"
+  }
+}

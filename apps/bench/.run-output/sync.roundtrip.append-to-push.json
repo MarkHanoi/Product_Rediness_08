@@ -1,0 +1,10 @@
+{
+  "name": "sync.roundtrip.append-to-push",
+  "samples": 200,
+  "p50": 1.605,
+  "p95": 5.55,
+  "p99": 10.053,
+  "budgetMs": 250,
+  "warnMs": 100,
+  "recordedAt": "2026-05-09T23:09:06.371Z"
+}

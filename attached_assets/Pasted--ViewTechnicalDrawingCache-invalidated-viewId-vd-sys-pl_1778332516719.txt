@@ -1,0 +1,959 @@
+[ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+engineLauncher-Ddvw-WJy.js:1902 [CommandManager] EXECUTE: CREATE_ANNOTATION
+engineLauncher-Ddvw-WJy.js:1902 [CommandManager] snapshot commandType="Fo" scope=[annotation] elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 1 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed out of 1 live room(s).
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 35 elements from levels overlapping Y=[-1.20, 0.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=0 misses=8 hitRate=0% cacheSize=115/500
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=none viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=decf4f60-1d33-4f52-940b-92b95771f549 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=f52e4dbb-2b71-4a25-9dd1-0a87e14b0d07 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#2 elemId=d6291656-86ad-4000-af32-9f904b6974ed elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.0ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#3 elemId=edcbd561-bed3-4ac1-ac1b-608cfd0c484d elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.0ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#4 elemId=3227531e-cd18-459f-abdb-8bfd5fb50111 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#5 elemId=fe068a65-7259-44a0-9d99-b0b3ee62159a elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#6 elemId=180513a3-a458-4a0a-89c7-4e682b2606d2 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.0ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#7 elemId=5c052442-34e2-4c52-b222-d4e82be78fbe elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 8 group(s) in 2 chunk(s), 8 edge geometries across 8 ISO layer(s) (per-element UUID tagging active)
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=12 (OBC-IFC=0, native=8, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=4/14 layers
+engineLauncher-Ddvw-WJy.js:1864 [RoomBoundaryBuilder] Compliance overlay: 2 error, 0 warning room(s) tinted
+2engineLauncher-Ddvw-WJy.js:1864 [ProjectSerializer] Snapshot created: 9 elements, 1 levels, 8 walls, 0 slabs, 0 furniture
+PlatformShell-D0OoywpT.js:23 [PlatformSaveController] Version saved: "Auto-save" (9 elements, id: proj-1778332419596-rb4pn)
+engineLauncher-Ddvw-WJy.js:5926 [SlabModePicker] Mode selected: By Region
+engineLauncher-Ddvw-WJy.js:1902 ToolManager: activateTool called for slab
+engineLauncher-Ddvw-WJy.js:1902 ToolManager: deactivating previous tool none
+engineLauncher-Ddvw-WJy.js:1902 ToolManager: executing activateFn for slab
+engineLauncher-Ddvw-WJy.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-Ddvw-WJy.js:1902 [CommandManager] EXECUTE: CREATE_SLAB
+engineLauncher-Ddvw-WJy.js:1902 [CommandManager] snapshot commandType="Xs" scope=[slab,level] elapsed=0.1ms
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] Registered element 558d2f3d-305c-4f97-ac08-b10e91149f4d to level L0
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] outset slabId="558d2f3d-305c-4f97-ac08-b10e91149f4d" vertices=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] triangulate slabId="558d2f3d-305c-4f97-ac08-b10e91149f4d" outerVertices=8 elapsed=0.1ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="558d2f3d-305c-4f97-ac08-b10e91149f4d" totalMs=0.4ms
+engineLauncher-Ddvw-WJy.js:1902 [CommandManager] EXECUTE: UPDATE_SLAB_LAYERS
+engineLauncher-Ddvw-WJy.js:1902 [CommandManager] snapshot commandType="gc" scope=[slab] elapsed=0.1ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] outset slabId="558d2f3d-305c-4f97-ac08-b10e91149f4d" vertices=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] triangulate slabId="558d2f3d-305c-4f97-ac08-b10e91149f4d" outerVertices=8 elapsed=0.1ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="558d2f3d-305c-4f97-ac08-b10e91149f4d" totalMs=0.5ms
+engineLauncher-Ddvw-WJy.js:556 [LevelPlaneConstraint] Locked Y=-0.2000 for element "Slab" id="558d2f3d-305c-4f97-ac08-b10e91149f4d"
+engineLauncher-Ddvw-WJy.js:541 [CutFill] Updating: enabled=false, height=1.2
+engineLauncher-Ddvw-WJy.js:1902 [CommandManager] EXECUTE: REDETECT_ROOMS
+engineLauncher-Ddvw-WJy.js:1902 [CommandManager] snapshot commandType="P" scope=[room] elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:2323 [PlanarTopologyEngine] Topology: 1 room(s) detected, outer face (8 vertices), 2 total faces
+engineLauncher-Ddvw-WJy.js:2323 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+main-DJPzSbY9.js:29470 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+main-DJPzSbY9.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed out of 1 live room(s).
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 36 elements from levels overlapping Y=[-1.20, 0.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=8 misses=1 hitRate=89% cacheSize=116/500
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=none viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=decf4f60-1d33-4f52-940b-92b95771f549 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=f52e4dbb-2b71-4a25-9dd1-0a87e14b0d07 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#2 elemId=d6291656-86ad-4000-af32-9f904b6974ed elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.0ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#3 elemId=edcbd561-bed3-4ac1-ac1b-608cfd0c484d elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.0ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#4 elemId=3227531e-cd18-459f-abdb-8bfd5fb50111 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#5 elemId=fe068a65-7259-44a0-9d99-b0b3ee62159a elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#6 elemId=180513a3-a458-4a0a-89c7-4e682b2606d2 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.0ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#7 elemId=5c052442-34e2-4c52-b222-d4e82be78fbe elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#8 elemId=558d2f3d-305c-4f97-ac08-b10e91149f4d elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.2ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 9 group(s) in 3 chunk(s), 9 edge geometries across 9 ISO layer(s) (per-element UUID tagging active)
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=14 (OBC-IFC=0, native=9, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1964 Exiting tool via HUD button
+engineLauncher-Ddvw-WJy.js:7105 [EngineBootstrap] Shortcut Escape → deactivateAll
+engineLauncher-Ddvw-WJy.js:541 [CutFill] Updating: enabled=false, height=1.2
+2engineLauncher-Ddvw-WJy.js:1864 [ProjectSerializer] Snapshot created: 10 elements, 1 levels, 8 walls, 1 slabs, 0 furniture
+PlatformShell-D0OoywpT.js:23 [PlatformSaveController] Version saved: "Auto-save" (10 elements, id: proj-1778332422083-ohfmm)
+engineLauncher-Ddvw-WJy.js:1902 [CommandManager] EXECUTE: CREATE_LEVEL
+engineLauncher-Ddvw-WJy.js:1902 [CommandManager] snapshot commandType="K9" scope=[level] elapsed=0.2ms
+engineLauncher-Ddvw-WJy.js:2332 [CreateMultipleLevelsCommand] START count=20
+engineLauncher-Ddvw-WJy.js:7262 [EngineBootstrap] Level switch → "Level 01" (target.Y: 93.97 → 3.00)
+engineLauncher-Ddvw-WJy.js:1838 [initScene] LevelClipPlaneCache: registered level "L-01-1778332427203-1" at 3m
+engineLauncher-Ddvw-WJy.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ddvw-WJy.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-Ddvw-WJy.js:1533 [CreatePlanViewCommand] Created native plan view "Level 01" for level L-01-1778332427203-1 @ 3.000 m
+engineLauncher-Ddvw-WJy.js:2332 [CreateMultipleLevelsCommand] level=1/20 addLevel=4.0ms createPlanView=0.7ms iterTotal=4.7ms
+engineLauncher-Ddvw-WJy.js:7262 [EngineBootstrap] Level switch → "Level 02" (target.Y: 3.00 → 6.00)
+engineLauncher-Ddvw-WJy.js:1838 [initScene] LevelClipPlaneCache: registered level "L-02-1778332427208-2" at 6m
+engineLauncher-Ddvw-WJy.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ddvw-WJy.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-Ddvw-WJy.js:1533 [CreatePlanViewCommand] Created native plan view "Level 02" for level L-02-1778332427208-2 @ 6.000 m
+engineLauncher-Ddvw-WJy.js:2332 [CreateMultipleLevelsCommand] level=2/20 addLevel=3.5ms createPlanView=0.2ms iterTotal=3.6ms
+engineLauncher-Ddvw-WJy.js:7262 [EngineBootstrap] Level switch → "Level 03" (target.Y: 6.00 → 9.00)
+engineLauncher-Ddvw-WJy.js:1838 [initScene] LevelClipPlaneCache: registered level "L-03-1778332427212-3" at 9m
+engineLauncher-Ddvw-WJy.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ddvw-WJy.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-Ddvw-WJy.js:1533 [CreatePlanViewCommand] Created native plan view "Level 03" for level L-03-1778332427212-3 @ 9.000 m
+engineLauncher-Ddvw-WJy.js:2332 [CreateMultipleLevelsCommand] level=3/20 addLevel=4.2ms createPlanView=0.3ms iterTotal=4.5ms
+engineLauncher-Ddvw-WJy.js:7262 [EngineBootstrap] Level switch → "Level 04" (target.Y: 9.00 → 12.00)
+engineLauncher-Ddvw-WJy.js:1838 [initScene] LevelClipPlaneCache: registered level "L-04-1778332427216-4" at 12m
+engineLauncher-Ddvw-WJy.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ddvw-WJy.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-Ddvw-WJy.js:1533 [CreatePlanViewCommand] Created native plan view "Level 04" for level L-04-1778332427216-4 @ 12.000 m
+engineLauncher-Ddvw-WJy.js:2332 [CreateMultipleLevelsCommand] level=4/20 addLevel=3.0ms createPlanView=0.2ms iterTotal=3.2ms
+engineLauncher-Ddvw-WJy.js:7262 [EngineBootstrap] Level switch → "Level 05" (target.Y: 12.00 → 15.00)
+engineLauncher-Ddvw-WJy.js:1838 [initScene] LevelClipPlaneCache: registered level "L-05-1778332427220-5" at 15m
+engineLauncher-Ddvw-WJy.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ddvw-WJy.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-Ddvw-WJy.js:1533 [CreatePlanViewCommand] Created native plan view "Level 05" for level L-05-1778332427220-5 @ 15.000 m
+engineLauncher-Ddvw-WJy.js:2332 [CreateMultipleLevelsCommand] level=5/20 addLevel=3.4ms createPlanView=0.3ms iterTotal=3.7ms
+engineLauncher-Ddvw-WJy.js:7262 [EngineBootstrap] Level switch → "Level 06" (target.Y: 15.00 → 18.00)
+engineLauncher-Ddvw-WJy.js:1838 [initScene] LevelClipPlaneCache: registered level "L-06-1778332427223-6" at 18m
+engineLauncher-Ddvw-WJy.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ddvw-WJy.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-Ddvw-WJy.js:1533 [CreatePlanViewCommand] Created native plan view "Level 06" for level L-06-1778332427223-6 @ 18.000 m
+engineLauncher-Ddvw-WJy.js:2332 [CreateMultipleLevelsCommand] level=6/20 addLevel=5.2ms createPlanView=0.2ms iterTotal=5.5ms
+engineLauncher-Ddvw-WJy.js:7262 [EngineBootstrap] Level switch → "Level 07" (target.Y: 18.00 → 21.00)
+engineLauncher-Ddvw-WJy.js:1838 [initScene] LevelClipPlaneCache: registered level "L-07-1778332427229-7" at 21m
+engineLauncher-Ddvw-WJy.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ddvw-WJy.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-Ddvw-WJy.js:1533 [CreatePlanViewCommand] Created native plan view "Level 07" for level L-07-1778332427229-7 @ 21.000 m
+engineLauncher-Ddvw-WJy.js:2332 [CreateMultipleLevelsCommand] level=7/20 addLevel=3.7ms createPlanView=0.2ms iterTotal=3.9ms
+engineLauncher-Ddvw-WJy.js:7262 [EngineBootstrap] Level switch → "Level 08" (target.Y: 21.00 → 24.00)
+engineLauncher-Ddvw-WJy.js:1838 [initScene] LevelClipPlaneCache: registered level "L-08-1778332427233-8" at 24m
+engineLauncher-Ddvw-WJy.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ddvw-WJy.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-Ddvw-WJy.js:1533 [CreatePlanViewCommand] Created native plan view "Level 08" for level L-08-1778332427233-8 @ 24.000 m
+engineLauncher-Ddvw-WJy.js:2332 [CreateMultipleLevelsCommand] level=8/20 addLevel=3.2ms createPlanView=0.1ms iterTotal=3.4ms
+engineLauncher-Ddvw-WJy.js:7262 [EngineBootstrap] Level switch → "Level 09" (target.Y: 24.00 → 27.00)
+engineLauncher-Ddvw-WJy.js:1838 [initScene] LevelClipPlaneCache: registered level "L-09-1778332427236-9" at 27m
+engineLauncher-Ddvw-WJy.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ddvw-WJy.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-Ddvw-WJy.js:1533 [CreatePlanViewCommand] Created native plan view "Level 09" for level L-09-1778332427236-9 @ 27.000 m
+engineLauncher-Ddvw-WJy.js:2332 [CreateMultipleLevelsCommand] level=9/20 addLevel=3.5ms createPlanView=0.2ms iterTotal=3.6ms
+engineLauncher-Ddvw-WJy.js:7262 [EngineBootstrap] Level switch → "Level 10" (target.Y: 27.00 → 30.00)
+engineLauncher-Ddvw-WJy.js:1838 [initScene] LevelClipPlaneCache: registered level "L-10-1778332427240-10" at 30m
+engineLauncher-Ddvw-WJy.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ddvw-WJy.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-Ddvw-WJy.js:1533 [CreatePlanViewCommand] Created native plan view "Level 10" for level L-10-1778332427240-10 @ 30.000 m
+engineLauncher-Ddvw-WJy.js:2332 [CreateMultipleLevelsCommand] level=10/20 addLevel=5.0ms createPlanView=0.2ms iterTotal=5.2ms
+engineLauncher-Ddvw-WJy.js:7262 [EngineBootstrap] Level switch → "Level 11" (target.Y: 30.00 → 33.00)
+engineLauncher-Ddvw-WJy.js:1838 [initScene] LevelClipPlaneCache: registered level "L-11-1778332427245-11" at 33m
+engineLauncher-Ddvw-WJy.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ddvw-WJy.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-Ddvw-WJy.js:1533 [CreatePlanViewCommand] Created native plan view "Level 11" for level L-11-1778332427245-11 @ 33.000 m
+engineLauncher-Ddvw-WJy.js:2332 [CreateMultipleLevelsCommand] level=11/20 addLevel=3.4ms createPlanView=0.1ms iterTotal=3.5ms
+engineLauncher-Ddvw-WJy.js:7262 [EngineBootstrap] Level switch → "Level 12" (target.Y: 33.00 → 36.00)
+engineLauncher-Ddvw-WJy.js:1838 [initScene] LevelClipPlaneCache: registered level "L-12-1778332427249-12" at 36m
+engineLauncher-Ddvw-WJy.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ddvw-WJy.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-Ddvw-WJy.js:1533 [CreatePlanViewCommand] Created native plan view "Level 12" for level L-12-1778332427249-12 @ 36.000 m
+engineLauncher-Ddvw-WJy.js:2332 [CreateMultipleLevelsCommand] level=12/20 addLevel=4.4ms createPlanView=0.3ms iterTotal=4.8ms
+engineLauncher-Ddvw-WJy.js:7262 [EngineBootstrap] Level switch → "Level 13" (target.Y: 36.00 → 39.00)
+engineLauncher-Ddvw-WJy.js:1838 [initScene] LevelClipPlaneCache: registered level "L-13-1778332427253-13" at 39m
+engineLauncher-Ddvw-WJy.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ddvw-WJy.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-Ddvw-WJy.js:1533 [CreatePlanViewCommand] Created native plan view "Level 13" for level L-13-1778332427253-13 @ 39.000 m
+engineLauncher-Ddvw-WJy.js:2332 [CreateMultipleLevelsCommand] level=13/20 addLevel=4.3ms createPlanView=0.3ms iterTotal=4.6ms
+engineLauncher-Ddvw-WJy.js:7262 [EngineBootstrap] Level switch → "Level 14" (target.Y: 39.00 → 42.00)
+engineLauncher-Ddvw-WJy.js:1838 [initScene] LevelClipPlaneCache: registered level "L-14-1778332427258-14" at 42m
+engineLauncher-Ddvw-WJy.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ddvw-WJy.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-Ddvw-WJy.js:1533 [CreatePlanViewCommand] Created native plan view "Level 14" for level L-14-1778332427258-14 @ 42.000 m
+engineLauncher-Ddvw-WJy.js:2332 [CreateMultipleLevelsCommand] level=14/20 addLevel=4.0ms createPlanView=0.2ms iterTotal=4.2ms
+engineLauncher-Ddvw-WJy.js:7262 [EngineBootstrap] Level switch → "Level 15" (target.Y: 42.00 → 45.00)
+engineLauncher-Ddvw-WJy.js:1838 [initScene] LevelClipPlaneCache: registered level "L-15-1778332427262-15" at 45m
+engineLauncher-Ddvw-WJy.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ddvw-WJy.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-Ddvw-WJy.js:1533 [CreatePlanViewCommand] Created native plan view "Level 15" for level L-15-1778332427262-15 @ 45.000 m
+engineLauncher-Ddvw-WJy.js:2332 [CreateMultipleLevelsCommand] level=15/20 addLevel=3.8ms createPlanView=0.1ms iterTotal=3.9ms
+engineLauncher-Ddvw-WJy.js:7262 [EngineBootstrap] Level switch → "Level 16" (target.Y: 45.00 → 48.00)
+engineLauncher-Ddvw-WJy.js:1838 [initScene] LevelClipPlaneCache: registered level "L-16-1778332427266-16" at 48m
+engineLauncher-Ddvw-WJy.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ddvw-WJy.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-Ddvw-WJy.js:1533 [CreatePlanViewCommand] Created native plan view "Level 16" for level L-16-1778332427266-16 @ 48.000 m
+engineLauncher-Ddvw-WJy.js:2332 [CreateMultipleLevelsCommand] level=16/20 addLevel=4.8ms createPlanView=0.2ms iterTotal=5.0ms
+engineLauncher-Ddvw-WJy.js:7262 [EngineBootstrap] Level switch → "Level 17" (target.Y: 48.00 → 51.00)
+engineLauncher-Ddvw-WJy.js:1838 [initScene] LevelClipPlaneCache: registered level "L-17-1778332427271-17" at 51m
+engineLauncher-Ddvw-WJy.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ddvw-WJy.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-Ddvw-WJy.js:1533 [CreatePlanViewCommand] Created native plan view "Level 17" for level L-17-1778332427271-17 @ 51.000 m
+engineLauncher-Ddvw-WJy.js:2332 [CreateMultipleLevelsCommand] level=17/20 addLevel=4.0ms createPlanView=0.1ms iterTotal=4.1ms
+engineLauncher-Ddvw-WJy.js:7262 [EngineBootstrap] Level switch → "Level 18" (target.Y: 51.00 → 54.00)
+engineLauncher-Ddvw-WJy.js:1838 [initScene] LevelClipPlaneCache: registered level "L-18-1778332427275-18" at 54m
+engineLauncher-Ddvw-WJy.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ddvw-WJy.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-Ddvw-WJy.js:1533 [CreatePlanViewCommand] Created native plan view "Level 18" for level L-18-1778332427275-18 @ 54.000 m
+engineLauncher-Ddvw-WJy.js:2332 [CreateMultipleLevelsCommand] level=18/20 addLevel=4.3ms createPlanView=0.2ms iterTotal=4.5ms
+engineLauncher-Ddvw-WJy.js:7262 [EngineBootstrap] Level switch → "Level 19" (target.Y: 54.00 → 57.00)
+engineLauncher-Ddvw-WJy.js:1838 [initScene] LevelClipPlaneCache: registered level "L-19-1778332427280-19" at 57m
+engineLauncher-Ddvw-WJy.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ddvw-WJy.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-Ddvw-WJy.js:1533 [CreatePlanViewCommand] Created native plan view "Level 19" for level L-19-1778332427280-19 @ 57.000 m
+engineLauncher-Ddvw-WJy.js:2332 [CreateMultipleLevelsCommand] level=19/20 addLevel=4.5ms createPlanView=0.2ms iterTotal=4.7ms
+engineLauncher-Ddvw-WJy.js:7262 [EngineBootstrap] Level switch → "Level 20" (target.Y: 57.00 → 60.00)
+engineLauncher-Ddvw-WJy.js:1838 [initScene] LevelClipPlaneCache: registered level "L-20-1778332427285-20" at 60m
+engineLauncher-Ddvw-WJy.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ddvw-WJy.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-Ddvw-WJy.js:1533 [CreatePlanViewCommand] Created native plan view "Level 20" for level L-20-1778332427285-20 @ 60.000 m
+engineLauncher-Ddvw-WJy.js:2332 [CreateMultipleLevelsCommand] level=20/20 addLevel=3.9ms createPlanView=0.2ms iterTotal=4.0ms
+engineLauncher-Ddvw-WJy.js:2332 [CreateMultipleLevelsCommand] COMPLETE total=85.2ms
+engineLauncher-Ddvw-WJy.js:2392 [AIApprovalStore] Audit record appended: cabf8223-4051-4127-9359-351c7c060543 (CREATE_LEVEL)
+engineLauncher-Ddvw-WJy.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ddvw-WJy.js:2325 [RuleEngine] Model updated, ready for re-validation
+2engineLauncher-Ddvw-WJy.js:1864 [ProjectSerializer] Snapshot created: 10 elements, 21 levels, 8 walls, 1 slabs, 0 furniture
+PlatformShell-D0OoywpT.js:23 [PlatformSaveController] Version saved: "Auto-save" (10 elements, id: proj-1778332428292-w2qx6)
+engineLauncher-Ddvw-WJy.js:2400 [AIPanel] Proposal received via event — showing inline card: Object
+engineLauncher-Ddvw-WJy.js:1902 [CommandManager] EXECUTE: CREATE_SLABS_ON_ALL_FLOORS
+engineLauncher-Ddvw-WJy.js:1902 [CommandManager] snapshot commandType="f2" scope=[slab,level] elapsed=0.2ms
+engineLauncher-Ddvw-WJy.js:1864 [CreateSlabsOnAllFloorsCommand] START referenceSlabId="558d2f3d-305c-4f97-ac08-b10e91149f4d" levels=20 polygonVertices=8
+engineLauncher-Ddvw-WJy.js:1864 [CreateSlabsOnAllFloorsCommand] runBatch starting — 20 slab(s) deferred to rAF drain.
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §BATCH-SHADOW-MAP-SUPPRESS shadowMap.enabled=false (was=true) — shadow depth pass suppressed for batch duration batchId=e23498f2
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §TRACE _setupBatch — 20 level(s), 20 elements expected. ViewDependencyTracker suppressed. T=+0ms (batch clock started)
+main-DJPzSbY9.js:29470 [UnifiedFrameLoop] §TRACE §PERF-VIEW-BATCH-SUPPRESS: OBC+PASCAL render suppressed — WebGL shader compilation deferred until batch drain completes. suppressStartT=316825.2ms
+engineLauncher-Ddvw-WJy.js:1833 [RenderPipelineManager] SHADOW_REBUILD_SCHEDULED meshCount=42
+engineLauncher-Ddvw-WJy.js:6681 [PerformanceModePanel] Performance mode ON — shadows/SSGI/TRAA disabled
+engineLauncher-Ddvw-WJy.js:6681 [PerformanceModePanel] Auto-performance mode ON (IFC load in progress)
+engineLauncher-Ddvw-WJy.js:7262 [EngineBootstrap] §L1-BATCH-PERF-MODE engaged (${count} elements)
+main-DJPzSbY9.js:29470 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] Registered element 089b6a04-07df-4620-8ec1-00e038d61e11 to level L-01-1778332427203-1
+engineLauncher-Ddvw-WJy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-01-1778332427203-1" success=true elapsed=0.9ms
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] Registered element 7780d3c2-ed69-4f57-b2f4-7ee81ec4ed74 to level L-02-1778332427208-2
+engineLauncher-Ddvw-WJy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-02-1778332427208-2" success=true elapsed=0.5ms
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] Registered element 59479e7f-64ed-4876-b11a-f9f85039ed37 to level L-03-1778332427212-3
+engineLauncher-Ddvw-WJy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-03-1778332427212-3" success=true elapsed=0.4ms
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] Registered element d5f35be6-cc28-4d89-bc2b-0a0bae399401 to level L-04-1778332427216-4
+engineLauncher-Ddvw-WJy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-04-1778332427216-4" success=true elapsed=0.3ms
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] Registered element 2e3b4aa8-eaee-43f8-ab4d-678a000afb8f to level L-05-1778332427220-5
+engineLauncher-Ddvw-WJy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-05-1778332427220-5" success=true elapsed=0.3ms
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] Registered element 201e0747-2d4b-4dea-8cca-42b2a364cdd4 to level L-06-1778332427223-6
+engineLauncher-Ddvw-WJy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-06-1778332427223-6" success=true elapsed=0.3ms
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] Registered element 6b1a412c-111e-44c3-ab3b-b99fd348f9cc to level L-07-1778332427229-7
+engineLauncher-Ddvw-WJy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-07-1778332427229-7" success=true elapsed=0.4ms
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] Registered element 1f1b92ea-c154-431b-a520-df60615c5fa8 to level L-08-1778332427233-8
+engineLauncher-Ddvw-WJy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-08-1778332427233-8" success=true elapsed=0.4ms
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] Registered element 4cc0b324-100f-4394-89e3-5ccbfc36efcf to level L-09-1778332427236-9
+engineLauncher-Ddvw-WJy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-09-1778332427236-9" success=true elapsed=0.4ms
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] Registered element 41212837-d61e-476a-a236-4fe6b6699be0 to level L-10-1778332427240-10
+engineLauncher-Ddvw-WJy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-10-1778332427240-10" success=true elapsed=0.4ms
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] Registered element d4fb80bd-2b2f-401e-a89c-5b6d675005e2 to level L-11-1778332427245-11
+engineLauncher-Ddvw-WJy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-11-1778332427245-11" success=true elapsed=0.4ms
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] Registered element f392b9ed-3257-4cf3-999d-590189a22b0b to level L-12-1778332427249-12
+engineLauncher-Ddvw-WJy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-12-1778332427249-12" success=true elapsed=0.3ms
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] Registered element e3aca293-b348-4a84-a6be-af9a503195ca to level L-13-1778332427253-13
+engineLauncher-Ddvw-WJy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-13-1778332427253-13" success=true elapsed=0.4ms
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] Registered element 2615a12c-5fd6-4fd6-b543-af4a8522dcbb to level L-14-1778332427258-14
+engineLauncher-Ddvw-WJy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-14-1778332427258-14" success=true elapsed=0.3ms
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] Registered element 093a051f-7f06-43f6-bdf4-3c6e2f5ce1c6 to level L-15-1778332427262-15
+engineLauncher-Ddvw-WJy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-15-1778332427262-15" success=true elapsed=0.5ms
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] Registered element 0dca2c4e-9f70-48f2-a251-a0812e596926 to level L-16-1778332427266-16
+engineLauncher-Ddvw-WJy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-16-1778332427266-16" success=true elapsed=0.6ms
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] Registered element db66b388-121d-4288-a486-67a07d59d2a3 to level L-17-1778332427271-17
+engineLauncher-Ddvw-WJy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-17-1778332427271-17" success=true elapsed=0.4ms
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] Registered element f9df275f-933c-431c-a0bb-97599b85b42d to level L-18-1778332427275-18
+engineLauncher-Ddvw-WJy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-18-1778332427275-18" success=true elapsed=0.3ms
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] Registered element 7a243ccf-ba26-4495-918c-62c7c79bd1bd to level L-19-1778332427280-19
+engineLauncher-Ddvw-WJy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-19-1778332427280-19" success=true elapsed=0.4ms
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] Registered element b192e80d-d5d4-4b5f-bee2-f17254523a39 to level L-20-1778332427285-20
+engineLauncher-Ddvw-WJy.js:1864 [CreateSlabsOnAllFloorsCommand] slab levelId="L-20-1778332427285-20" success=true elapsed=0.4ms
+engineLauncher-Ddvw-WJy.js:1864 [CreateSlabsOnAllFloorsCommand] COMPLETE created=20 total=13.2ms
+engineLauncher-Ddvw-WJy.js:2392 [AIApprovalStore] Audit record appended: 17209fca-c40a-49f4-883a-f0c7839e4b0c (CREATE_SLABS_ON_ALL_FLOORS)
+engineLauncher-Ddvw-WJy.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ddvw-WJy.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §TRACE DEFERRED-RESUME-FLUSH fired (first rAF after runBatch returned) delay=8.4ms T=+21.4ms
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §TRACE RESUME-FLUSH-DISPATCHED wallResume+cwResume+slabResume called. CW rAF drain now in-flight. T=+21.5ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] outset slabId="089b6a04-07df-4620-8ec1-00e038d61e11" vertices=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] triangulate slabId="089b6a04-07df-4620-8ec1-00e038d61e11" outerVertices=8 elapsed=0.1ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="089b6a04-07df-4620-8ec1-00e038d61e11" totalMs=0.5ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] outset slabId="7780d3c2-ed69-4f57-b2f4-7ee81ec4ed74" vertices=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] triangulate slabId="7780d3c2-ed69-4f57-b2f4-7ee81ec4ed74" outerVertices=8 elapsed=0.1ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="7780d3c2-ed69-4f57-b2f4-7ee81ec4ed74" totalMs=0.5ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] outset slabId="59479e7f-64ed-4876-b11a-f9f85039ed37" vertices=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] triangulate slabId="59479e7f-64ed-4876-b11a-f9f85039ed37" outerVertices=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="59479e7f-64ed-4876-b11a-f9f85039ed37" totalMs=0.3ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] outset slabId="d5f35be6-cc28-4d89-bc2b-0a0bae399401" vertices=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] triangulate slabId="d5f35be6-cc28-4d89-bc2b-0a0bae399401" outerVertices=8 elapsed=0.1ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="d5f35be6-cc28-4d89-bc2b-0a0bae399401" totalMs=0.3ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] outset slabId="2e3b4aa8-eaee-43f8-ab4d-678a000afb8f" vertices=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] triangulate slabId="2e3b4aa8-eaee-43f8-ab4d-678a000afb8f" outerVertices=8 elapsed=0.1ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="2e3b4aa8-eaee-43f8-ab4d-678a000afb8f" totalMs=0.4ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] RAF_DRAIN built=5 remaining=15 queueBefore=20 frameMs=2.5ms
+engineLauncher-Ddvw-WJy.js:1833 [RenderPipelineManager] Rebuilding pipeline after shadow-map update.
+engineLauncher-Ddvw-WJy.js:1833 [RenderPipelineManager] SHADOW_REBUILD_COMPLETE elapsed=0.1ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] outset slabId="201e0747-2d4b-4dea-8cca-42b2a364cdd4" vertices=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] triangulate slabId="201e0747-2d4b-4dea-8cca-42b2a364cdd4" outerVertices=8 elapsed=0.1ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="201e0747-2d4b-4dea-8cca-42b2a364cdd4" totalMs=0.5ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] outset slabId="6b1a412c-111e-44c3-ab3b-b99fd348f9cc" vertices=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] triangulate slabId="6b1a412c-111e-44c3-ab3b-b99fd348f9cc" outerVertices=8 elapsed=0.1ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="6b1a412c-111e-44c3-ab3b-b99fd348f9cc" totalMs=0.3ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] outset slabId="1f1b92ea-c154-431b-a520-df60615c5fa8" vertices=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] triangulate slabId="1f1b92ea-c154-431b-a520-df60615c5fa8" outerVertices=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="1f1b92ea-c154-431b-a520-df60615c5fa8" totalMs=0.2ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] outset slabId="4cc0b324-100f-4394-89e3-5ccbfc36efcf" vertices=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] triangulate slabId="4cc0b324-100f-4394-89e3-5ccbfc36efcf" outerVertices=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="4cc0b324-100f-4394-89e3-5ccbfc36efcf" totalMs=0.2ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] outset slabId="41212837-d61e-476a-a236-4fe6b6699be0" vertices=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] triangulate slabId="41212837-d61e-476a-a236-4fe6b6699be0" outerVertices=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="41212837-d61e-476a-a236-4fe6b6699be0" totalMs=0.2ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] RAF_DRAIN built=5 remaining=10 queueBefore=15 frameMs=1.8ms
+engineLauncher-Ddvw-WJy.js:1833 [RenderPipelineManager] §I2 pipeline.usedTimes is not a number (got undefined) — patching to 0 before dispose to prevent device-loss cascade.
+_safeDisposeRenderPipeline @ engineLauncher-Ddvw-WJy.js:1833
+engineLauncher-Ddvw-WJy.js:1838 [RenderPipelineManager] Phase: phase3 | WebGPU: true | SSGI: true | TRAA: false
+engineLauncher-Ddvw-WJy.js:1833 [RenderPipelineManager] §I2 pipeline.usedTimes is not a number (got undefined) — patching to 0 before dispose to prevent device-loss cascade.
+_safeDisposeRenderPipeline @ engineLauncher-Ddvw-WJy.js:1833
+engineLauncher-Ddvw-WJy.js:1838 [RenderPipelineManager] Phase: phase3 | WebGPU: true | SSGI: true | TRAA: false
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] outset slabId="d4fb80bd-2b2f-401e-a89c-5b6d675005e2" vertices=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] triangulate slabId="d4fb80bd-2b2f-401e-a89c-5b6d675005e2" outerVertices=8 elapsed=0.1ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="d4fb80bd-2b2f-401e-a89c-5b6d675005e2" totalMs=0.6ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] outset slabId="f392b9ed-3257-4cf3-999d-590189a22b0b" vertices=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] triangulate slabId="f392b9ed-3257-4cf3-999d-590189a22b0b" outerVertices=8 elapsed=0.1ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="f392b9ed-3257-4cf3-999d-590189a22b0b" totalMs=0.4ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] outset slabId="e3aca293-b348-4a84-a6be-af9a503195ca" vertices=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] triangulate slabId="e3aca293-b348-4a84-a6be-af9a503195ca" outerVertices=8 elapsed=0.1ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="e3aca293-b348-4a84-a6be-af9a503195ca" totalMs=0.3ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] outset slabId="2615a12c-5fd6-4fd6-b543-af4a8522dcbb" vertices=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] triangulate slabId="2615a12c-5fd6-4fd6-b543-af4a8522dcbb" outerVertices=8 elapsed=0.1ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="2615a12c-5fd6-4fd6-b543-af4a8522dcbb" totalMs=0.3ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] outset slabId="093a051f-7f06-43f6-bdf4-3c6e2f5ce1c6" vertices=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] triangulate slabId="093a051f-7f06-43f6-bdf4-3c6e2f5ce1c6" outerVertices=8 elapsed=0.1ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="093a051f-7f06-43f6-bdf4-3c6e2f5ce1c6" totalMs=0.3ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] RAF_DRAIN built=5 remaining=5 queueBefore=10 frameMs=2.5ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] outset slabId="0dca2c4e-9f70-48f2-a251-a0812e596926" vertices=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] triangulate slabId="0dca2c4e-9f70-48f2-a251-a0812e596926" outerVertices=8 elapsed=0.1ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="0dca2c4e-9f70-48f2-a251-a0812e596926" totalMs=0.6ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] outset slabId="db66b388-121d-4288-a486-67a07d59d2a3" vertices=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] triangulate slabId="db66b388-121d-4288-a486-67a07d59d2a3" outerVertices=8 elapsed=0.1ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="db66b388-121d-4288-a486-67a07d59d2a3" totalMs=0.4ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] outset slabId="f9df275f-933c-431c-a0bb-97599b85b42d" vertices=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] triangulate slabId="f9df275f-933c-431c-a0bb-97599b85b42d" outerVertices=8 elapsed=0.1ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="f9df275f-933c-431c-a0bb-97599b85b42d" totalMs=0.4ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] outset slabId="7a243ccf-ba26-4495-918c-62c7c79bd1bd" vertices=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] triangulate slabId="7a243ccf-ba26-4495-918c-62c7c79bd1bd" outerVertices=8 elapsed=0.1ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="7a243ccf-ba26-4495-918c-62c7c79bd1bd" totalMs=0.4ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] outset slabId="b192e80d-d5d4-4b5f-bee2-f17254523a39" vertices=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] triangulate slabId="b192e80d-d5d4-4b5f-bee2-f17254523a39" outerVertices=8 elapsed=0.1ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] BUILD_COMPLETE slabId="b192e80d-d5d4-4b5f-bee2-f17254523a39" totalMs=0.4ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] RAF_DRAIN built=5 remaining=0 queueBefore=5 frameMs=2.8ms
+engineLauncher-Ddvw-WJy.js:1833 [SlabFragmentBuilder] rAF queue drained — signalling BatchCoordinator.
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §TRACE BUILD-QUEUE-DRAINED regQueue=0 / totalExpected=20 T=+52.1ms (all geometry in scene; registration drain starting)
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §TRACE §REG-MANY-P2 queue ≤ 50 (0) — draining synchronously (0 rAF frames) T=+52.1ms
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §TRACE REGISTRATION-DRAIN-DONE 0 registration(s) complete T=+52.2ms
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §TRACE SHADOW-REACTIVATION-START callbacks=1 T=+52.2ms
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §TRACE SHADOW-REACTIVATION-DISPATCHED (sliced across post-render frames) callMs=0.0ms T=+52.2ms
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §TRACE FINAL-SWEEP-START levels=20 skipRedetect=true T=+52.3ms (opening yielded event drain)
+main-DJPzSbY9.js:29470 [StoreEventBus] endBatchYielded() — 20 event(s) will be delivered in 1 chunk(s) of 200 via frame scheduler.
+main-DJPzSbY9.js:29470 [StoreEventBus] endBatchYielded() — all 20 event(s) delivered across 1 chunk(s) (last: 0.7ms). Calling onComplete().
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §TRACE ON-COMPLETE-START (all yielded events delivered) T=+59.1ms
+engineLauncher-Ddvw-WJy.js:484 [Collaboration] §E1-CRDT-BLACKOUT batchId=e23498f2 duration=59ms elements=20
+engineLauncher-Ddvw-WJy.js:2323 [RoomTopologyObserver] §G2 cancelled 0 pending redetect timer(s) for levels: [L-01-1778332427203-1, L-02-1778332427208-2, L-03-1778332427212-3, L-04-1778332427216-4, L-05-1778332427220-5, L-06-1778332427223-6, L-07-1778332427229-7, L-08-1778332427233-8, L-09-1778332427236-9, L-10-1778332427240-10, L-11-1778332427245-11, L-12-1778332427249-12, L-13-1778332427253-13, L-14-1778332427258-14, L-15-1778332427262-15, L-16-1778332427266-16, L-17-1778332427271-17, L-18-1778332427275-18, L-19-1778332427280-19, L-20-1778332427285-20]
+engineLauncher-Ddvw-WJy.js:2323 [RoomTopologyObserver] §G2 post-batch cooldown armed until T=317884ms
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §G2-CANCELLED 20 pending redetect timer(s) for 20 level(s); 1s cooldown armed — REDETECT_ROOMS suppressed until T=317884ms
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §TRACE §G1 VDT suppression deferred through CASCADE; markLevelsDirtyImmediate(20 level(s)) will follow post-CASCADE. T=+59.4ms
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §FIX-POST-GEOMETRY-COMPILE-V2 SKIPPED (skipPbrUpgrade=true, elementCount=20) — prewarm covers PSOs for large CW/slab batches. T=+59.5ms
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §TRACE ON-BATCH-END-DEFERRED (suppress lifted NOW; overlay dismiss scheduled for post-render) T=+59.5ms
+main-DJPzSbY9.js:29470 [UnifiedFrameLoop] §TRACE §PERF-VIEW-BATCH-SUPPRESS suppression lifted after 59.4ms — OBC+PASCAL resuming on next tick.
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §TRACE ON-POST-BATCH-START (PBR upgrade + requestIdleCallback pending) T=+59.6ms
+engineLauncher-Ddvw-WJy.js:1838 [BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-SKIPPED (skipPbrUpgrade=true — curtain-wall batch; materials are already PBR-ready)
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §TRACE ON-POST-BATCH-DISPATCHED (PBR upgrade queued to requestIdleCallback) T=+59.6ms
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] Final sweep: SKIPPING REDETECT_ROOMS for 20 level(s) (§FIX-SKIP-REDETECT-ROOMS — element type cannot define room boundaries). StoreEventBus flushed (depth now 0). markLevelsDirty already called above for plan-view reprojection.
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §G1-SUPPRESS-LIFTED post-CASCADE T=316884.8ms delay=0.4ms (DependencyResolver CASCADE settled; EPS Flush #2 eliminated).
+main-DJPzSbY9.js:29470 [UnifiedFrameLoop] §TRACE FIRST-RENDER-POST-SUPPRESS totalSuppressedMs=66.2ms frameCount=14601 — OBC+PASCAL about to execute (WebGPU PSO compile LONGTASK begins here)
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §TRACE GPU-COMPILE-WAIT framesRemaining=0 T=+243.2ms
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §TRACE §FIX-EDGE-PROJECT-DEFER §III-2 markLevelsDirtyImmediate(20 level(s)) fired post-render (debounce bypassed — flush queued to next low-priority frame). T=+243.3ms
+main-DJPzSbY9.js:29470 [ViewDependencyTracker] flush — 20 dirty view(s): L-01-177, L-02-177, L-03-177, L-04-177, L-05-177, L-06-177, L-07-177, L-08-177, L-09-177, L-10-177, L-11-177, L-12-177, L-13-177, L-14-177, L-15-177, L-16-177, L-17-177, L-18-177, L-19-177, L-20-177
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-01-1778332427203-1 level=L-01-1778332427203-1: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 37 elements from levels overlapping Y=[1.80, 3.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=0 misses=10 hitRate=0% cacheSize=126/500
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-02-1778332427208-2 level=L-02-1778332427208-2: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 2 elements from levels overlapping Y=[4.80, 6.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=0 misses=2 hitRate=0% cacheSize=128/500
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-03-1778332427212-3 level=L-03-1778332427212-3: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 2 elements from levels overlapping Y=[7.80, 9.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=0 misses=2 hitRate=0% cacheSize=130/500
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-04-1778332427216-4 level=L-04-1778332427216-4: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 2 elements from levels overlapping Y=[10.80, 12.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=0 misses=2 hitRate=0% cacheSize=132/500
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-05-1778332427220-5 level=L-05-1778332427220-5: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 2 elements from levels overlapping Y=[13.80, 15.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=0 misses=2 hitRate=0% cacheSize=134/500
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-06-1778332427223-6 level=L-06-1778332427223-6: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 2 elements from levels overlapping Y=[16.80, 18.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=0 misses=2 hitRate=0% cacheSize=136/500
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-07-1778332427229-7 level=L-07-1778332427229-7: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 2 elements from levels overlapping Y=[19.80, 21.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=0 misses=2 hitRate=0% cacheSize=138/500
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-08-1778332427233-8 level=L-08-1778332427233-8: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 2 elements from levels overlapping Y=[22.80, 24.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=0 misses=2 hitRate=0% cacheSize=140/500
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-09-1778332427236-9 level=L-09-1778332427236-9: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 2 elements from levels overlapping Y=[25.80, 27.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=0 misses=2 hitRate=0% cacheSize=142/500
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-10-1778332427240-10 level=L-10-1778332427240-10: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 2 elements from levels overlapping Y=[28.80, 30.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=0 misses=2 hitRate=0% cacheSize=144/500
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-11-1778332427245-11 level=L-11-1778332427245-11: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 2 elements from levels overlapping Y=[31.80, 33.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=0 misses=2 hitRate=0% cacheSize=146/500
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-12-1778332427249-12 level=L-12-1778332427249-12: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 2 elements from levels overlapping Y=[34.80, 36.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=0 misses=2 hitRate=0% cacheSize=148/500
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-13-1778332427253-13 level=L-13-1778332427253-13: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 2 elements from levels overlapping Y=[37.80, 39.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=0 misses=2 hitRate=0% cacheSize=150/500
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-14-1778332427258-14 level=L-14-1778332427258-14: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 2 elements from levels overlapping Y=[40.80, 42.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=0 misses=2 hitRate=0% cacheSize=152/500
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-15-1778332427262-15 level=L-15-1778332427262-15: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 2 elements from levels overlapping Y=[43.80, 45.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=0 misses=2 hitRate=0% cacheSize=154/500
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-16-1778332427266-16 level=L-16-1778332427266-16: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 2 elements from levels overlapping Y=[46.80, 48.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=0 misses=2 hitRate=0% cacheSize=156/500
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-17-1778332427271-17 level=L-17-1778332427271-17: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 2 elements from levels overlapping Y=[49.80, 51.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=0 misses=2 hitRate=0% cacheSize=158/500
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-18-1778332427275-18 level=L-18-1778332427275-18: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 2 elements from levels overlapping Y=[52.80, 54.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=0 misses=2 hitRate=0% cacheSize=160/500
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-19-1778332427280-19 level=L-19-1778332427280-19: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 2 elements from levels overlapping Y=[55.80, 57.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=0 misses=2 hitRate=0% cacheSize=162/500
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-20-1778332427285-20 level=L-20-1778332427285-20: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 2 elements from levels overlapping Y=[58.80, 60.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=0 misses=2 hitRate=0% cacheSize=164/500
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §TRACE ON-BATCH-END-DONE (overlay dismissed post-dual-PSO-compile; §FIX-DUAL-LONGTASK) T=+316.8ms
+2engineLauncher-Ddvw-WJy.js:1833 [RenderPipelineManager] SHADOW_REBUILD_SCHEDULED meshCount=62
+engineLauncher-Ddvw-WJy.js:6681 [PerformanceModePanel] Performance mode OFF — restoring quality
+engineLauncher-Ddvw-WJy.js:6681 [PerformanceModePanel] Auto-performance mode OFF (IFC load complete)
+engineLauncher-Ddvw-WJy.js:7262 [EngineBootstrap] §L1-BATCH-PERF-MODE restored after batch drain
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-01-1778332427203-1 elevation=3.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=e23498f2 viewId=L-01-1778332427203-1 dir=(0,-1,0) near=4.200 far=6.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=decf4f60-1d33-4f52-940b-92b95771f549 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=f52e4dbb-2b71-4a25-9dd1-0a87e14b0d07 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#2 elemId=d6291656-86ad-4000-af32-9f904b6974ed elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.0ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#3 elemId=edcbd561-bed3-4ac1-ac1b-608cfd0c484d elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.0ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-02-1778332427208-2 elevation=6.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=e23498f2 viewId=L-02-1778332427208-2 dir=(0,-1,0) near=7.200 far=9.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=089b6a04-07df-4620-8ec1-00e038d61e11 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=7780d3c2-ed69-4f57-b2f4-7ee81ec4ed74 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-03-1778332427212-3 elevation=9.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=e23498f2 viewId=L-03-1778332427212-3 dir=(0,-1,0) near=10.200 far=12.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=7780d3c2-ed69-4f57-b2f4-7ee81ec4ed74 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=59479e7f-64ed-4876-b11a-f9f85039ed37 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-04-1778332427216-4 elevation=12.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=e23498f2 viewId=L-04-1778332427216-4 dir=(0,-1,0) near=13.200 far=15.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=59479e7f-64ed-4876-b11a-f9f85039ed37 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=d5f35be6-cc28-4d89-bc2b-0a0bae399401 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-05-1778332427220-5 elevation=15.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=e23498f2 viewId=L-05-1778332427220-5 dir=(0,-1,0) near=16.200 far=18.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=d5f35be6-cc28-4d89-bc2b-0a0bae399401 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=2e3b4aa8-eaee-43f8-ab4d-678a000afb8f elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-06-1778332427223-6 elevation=18.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=e23498f2 viewId=L-06-1778332427223-6 dir=(0,-1,0) near=19.200 far=21.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=2e3b4aa8-eaee-43f8-ab4d-678a000afb8f elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=201e0747-2d4b-4dea-8cca-42b2a364cdd4 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-07-1778332427229-7 elevation=21.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=e23498f2 viewId=L-07-1778332427229-7 dir=(0,-1,0) near=22.200 far=24.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=201e0747-2d4b-4dea-8cca-42b2a364cdd4 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=6b1a412c-111e-44c3-ab3b-b99fd348f9cc elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-08-1778332427233-8 elevation=24.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=e23498f2 viewId=L-08-1778332427233-8 dir=(0,-1,0) near=25.200 far=27.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=6b1a412c-111e-44c3-ab3b-b99fd348f9cc elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=1f1b92ea-c154-431b-a520-df60615c5fa8 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-09-1778332427236-9 elevation=27.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=e23498f2 viewId=L-09-1778332427236-9 dir=(0,-1,0) near=28.200 far=30.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=1f1b92ea-c154-431b-a520-df60615c5fa8 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=4cc0b324-100f-4394-89e3-5ccbfc36efcf elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-10-1778332427240-10 elevation=30.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=e23498f2 viewId=L-10-1778332427240-10 dir=(0,-1,0) near=31.200 far=33.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=4cc0b324-100f-4394-89e3-5ccbfc36efcf elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=41212837-d61e-476a-a236-4fe6b6699be0 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-11-1778332427245-11 elevation=33.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=e23498f2 viewId=L-11-1778332427245-11 dir=(0,-1,0) near=34.200 far=36.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=41212837-d61e-476a-a236-4fe6b6699be0 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=d4fb80bd-2b2f-401e-a89c-5b6d675005e2 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-12-1778332427249-12 elevation=36.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=e23498f2 viewId=L-12-1778332427249-12 dir=(0,-1,0) near=37.200 far=39.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=d4fb80bd-2b2f-401e-a89c-5b6d675005e2 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=f392b9ed-3257-4cf3-999d-590189a22b0b elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-13-1778332427253-13 elevation=39.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=e23498f2 viewId=L-13-1778332427253-13 dir=(0,-1,0) near=40.200 far=42.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=f392b9ed-3257-4cf3-999d-590189a22b0b elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=e3aca293-b348-4a84-a6be-af9a503195ca elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-14-1778332427258-14 elevation=42.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=e23498f2 viewId=L-14-1778332427258-14 dir=(0,-1,0) near=43.200 far=45.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=e3aca293-b348-4a84-a6be-af9a503195ca elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=2615a12c-5fd6-4fd6-b543-af4a8522dcbb elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-15-1778332427262-15 elevation=45.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=e23498f2 viewId=L-15-1778332427262-15 dir=(0,-1,0) near=46.200 far=48.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=2615a12c-5fd6-4fd6-b543-af4a8522dcbb elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=093a051f-7f06-43f6-bdf4-3c6e2f5ce1c6 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-16-1778332427266-16 elevation=48.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=e23498f2 viewId=L-16-1778332427266-16 dir=(0,-1,0) near=49.200 far=51.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=093a051f-7f06-43f6-bdf4-3c6e2f5ce1c6 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=0dca2c4e-9f70-48f2-a251-a0812e596926 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-17-1778332427271-17 elevation=51.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=e23498f2 viewId=L-17-1778332427271-17 dir=(0,-1,0) near=52.200 far=54.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=0dca2c4e-9f70-48f2-a251-a0812e596926 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=db66b388-121d-4288-a486-67a07d59d2a3 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-18-1778332427275-18 elevation=54.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=e23498f2 viewId=L-18-1778332427275-18 dir=(0,-1,0) near=55.200 far=57.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=db66b388-121d-4288-a486-67a07d59d2a3 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=f9df275f-933c-431c-a0bb-97599b85b42d elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-19-1778332427280-19 elevation=57.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=e23498f2 viewId=L-19-1778332427280-19 dir=(0,-1,0) near=58.200 far=60.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=f9df275f-933c-431c-a0bb-97599b85b42d elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=7a243ccf-ba26-4495-918c-62c7c79bd1bd elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-20-1778332427285-20 elevation=60.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=e23498f2 viewId=L-20-1778332427285-20 dir=(0,-1,0) near=61.200 far=63.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=7a243ccf-ba26-4495-918c-62c7c79bd1bd elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=b192e80d-d5d4-4b5f-bee2-f17254523a39 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-02-1778332427208-2 gen=2 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-02-1778332427208-2 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-03-1778332427212-3 gen=2 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-03-1778332427212-3 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-04-1778332427216-4 gen=2 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-04-1778332427216-4 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-05-1778332427220-5 gen=2 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-05-1778332427220-5 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-06-1778332427223-6 gen=2 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-06-1778332427223-6 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-07-1778332427229-7 gen=2 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-07-1778332427229-7 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-08-1778332427233-8 gen=2 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-08-1778332427233-8 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-09-1778332427236-9 gen=2 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-09-1778332427236-9 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-10-1778332427240-10 gen=2 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-10-1778332427240-10 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-11-1778332427245-11 gen=2 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-11-1778332427245-11 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-12-1778332427249-12 gen=2 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-12-1778332427249-12 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-13-1778332427253-13 gen=2 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-13-1778332427253-13 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-14-1778332427258-14 gen=2 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-14-1778332427258-14 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-15-1778332427262-15 gen=2 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-15-1778332427262-15 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-16-1778332427266-16 gen=2 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-16-1778332427266-16 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-17-1778332427271-17 gen=2 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-17-1778332427271-17 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-18-1778332427275-18 gen=2 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-18-1778332427275-18 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-19-1778332427280-19 gen=2 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-19-1778332427280-19 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-20-1778332427285-20 gen=2 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-20-1778332427285-20 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1833 [RenderPipelineManager] Rebuilding pipeline after shadow-map update.
+engineLauncher-Ddvw-WJy.js:1833 [RenderPipelineManager] SHADOW_REBUILD_COMPLETE elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1833 [RenderPipelineManager] §I2 pipeline.usedTimes is not a number (got undefined) — patching to 0 before dispose to prevent device-loss cascade.
+_safeDisposeRenderPipeline @ engineLauncher-Ddvw-WJy.js:1833
+engineLauncher-Ddvw-WJy.js:1838 [RenderPipelineManager] Phase: phase3 | WebGPU: true | SSGI: true | TRAA: false
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#4 elemId=3227531e-cd18-459f-abdb-8bfd5fb50111 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#5 elemId=fe068a65-7259-44a0-9d99-b0b3ee62159a elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#6 elemId=180513a3-a458-4a0a-89c7-4e682b2606d2 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#7 elemId=5c052442-34e2-4c52-b222-d4e82be78fbe elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.0ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#8 elemId=558d2f3d-305c-4f97-ac08-b10e91149f4d elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#9 elemId=089b6a04-07df-4620-8ec1-00e038d61e11 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 10 group(s) in 3 chunk(s), 10 edge geometries across 10 ISO layer(s) (per-element UUID tagging active)
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-01-1778332427203-1 gen=2 (OBC-IFC=0, native=10, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-01-1778332427203-1 modelId=model-default applied=7/14 layers
+2engineLauncher-Ddvw-WJy.js:1864 [ProjectSerializer] Snapshot created: 30 elements, 21 levels, 8 walls, 21 slabs, 0 furniture
+PlatformShell-D0OoywpT.js:23 [PlatformSaveController] Version saved: "Auto-save" (30 elements, id: proj-1778332430859-3cp0f)
+engineLauncher-Ddvw-WJy.js:1902 [CommandManager] EXECUTE: CREATE_CURTAIN_WALLS_ON_ALL_SLABS
+engineLauncher-Ddvw-WJy.js:1902 [CommandManager] snapshot commandType="ei" scope=[curtainWall] elapsed=0.1ms
+engineLauncher-Ddvw-WJy.js:1533 [CreateCurtainWallsOnAllSlabsCommand] §TRACE-CW#3 START slabCount=21 isRedo=false shadersPrewarmed=true T=+0ms
+engineLauncher-Ddvw-WJy.js:1533 [CreateCurtainWallsOnAllSlabsCommand] §TRACE-CW#3 PREWARM-SKIP (already warm — PSO cache hit; prevScale=168 estimatedWalls=168) T=+0.0ms
+engineLauncher-Ddvw-WJy.js:1533 [CreateCurtainWallsOnAllSlabsCommand] §TRACE-CW#3 RUNBATCH-START levelCount=21 estimatedWalls=168 T=+0.1ms
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §BATCH-SHADOW-MAP-SUPPRESS shadowMap.enabled=false (was=true) — shadow depth pass suppressed for batch duration batchId=917567f9
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §TRACE _setupBatch — 21 level(s), 168 elements expected. ViewDependencyTracker suppressed. T=+0ms (batch clock started)
+main-DJPzSbY9.js:29470 [UnifiedFrameLoop] §TRACE §PERF-VIEW-BATCH-SUPPRESS: OBC+PASCAL render suppressed — WebGL shader compilation deferred until batch drain completes. suppressStartT=321636.3ms
+engineLauncher-Ddvw-WJy.js:1833 [RenderPipelineManager] SHADOW_REBUILD_SCHEDULED meshCount=62
+engineLauncher-Ddvw-WJy.js:6681 [PerformanceModePanel] Performance mode ON — shadows/SSGI/TRAA disabled
+engineLauncher-Ddvw-WJy.js:6681 [PerformanceModePanel] Auto-performance mode ON (IFC load in progress)
+engineLauncher-Ddvw-WJy.js:7262 [EngineBootstrap] §L1-BATCH-PERF-MODE engaged (${count} elements)
+main-DJPzSbY9.js:29470 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+engineLauncher-Ddvw-WJy.js:1533 [CreateCurtainWallsOnAllSlabsCommand] §DIAG-49800MS _processSlabs() ENTER busDepth=2 isBatching=true existingCwCount=0 T=+4.0ms
+engineLauncher-Ddvw-WJy.js:1533 [CreateCurtainWallsOnAllSlabsCommand] slab="558d2f3d-305c-4f97-ac08-b10e91149f4d" walls=8 elapsed=0.1ms
+engineLauncher-Ddvw-WJy.js:1533 [CreateCurtainWallsOnAllSlabsCommand] slab="089b6a04-07df-4620-8ec1-00e038d61e11" walls=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1533 [CreateCurtainWallsOnAllSlabsCommand] slab="7780d3c2-ed69-4f57-b2f4-7ee81ec4ed74" walls=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1533 [CreateCurtainWallsOnAllSlabsCommand] slab="59479e7f-64ed-4876-b11a-f9f85039ed37" walls=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1533 [CreateCurtainWallsOnAllSlabsCommand] slab="d5f35be6-cc28-4d89-bc2b-0a0bae399401" walls=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1533 [CreateCurtainWallsOnAllSlabsCommand] slab="2e3b4aa8-eaee-43f8-ab4d-678a000afb8f" walls=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1533 [CreateCurtainWallsOnAllSlabsCommand] slab="201e0747-2d4b-4dea-8cca-42b2a364cdd4" walls=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1533 [CreateCurtainWallsOnAllSlabsCommand] slab="6b1a412c-111e-44c3-ab3b-b99fd348f9cc" walls=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1533 [CreateCurtainWallsOnAllSlabsCommand] slab="1f1b92ea-c154-431b-a520-df60615c5fa8" walls=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1533 [CreateCurtainWallsOnAllSlabsCommand] slab="4cc0b324-100f-4394-89e3-5ccbfc36efcf" walls=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1533 [CreateCurtainWallsOnAllSlabsCommand] slab="41212837-d61e-476a-a236-4fe6b6699be0" walls=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1533 [CreateCurtainWallsOnAllSlabsCommand] slab="d4fb80bd-2b2f-401e-a89c-5b6d675005e2" walls=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1533 [CreateCurtainWallsOnAllSlabsCommand] slab="f392b9ed-3257-4cf3-999d-590189a22b0b" walls=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1533 [CreateCurtainWallsOnAllSlabsCommand] slab="e3aca293-b348-4a84-a6be-af9a503195ca" walls=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1533 [CreateCurtainWallsOnAllSlabsCommand] slab="2615a12c-5fd6-4fd6-b543-af4a8522dcbb" walls=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1533 [CreateCurtainWallsOnAllSlabsCommand] slab="093a051f-7f06-43f6-bdf4-3c6e2f5ce1c6" walls=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1533 [CreateCurtainWallsOnAllSlabsCommand] slab="0dca2c4e-9f70-48f2-a251-a0812e596926" walls=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1533 [CreateCurtainWallsOnAllSlabsCommand] slab="db66b388-121d-4288-a486-67a07d59d2a3" walls=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1533 [CreateCurtainWallsOnAllSlabsCommand] slab="f9df275f-933c-431c-a0bb-97599b85b42d" walls=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1533 [CreateCurtainWallsOnAllSlabsCommand] slab="7a243ccf-ba26-4495-918c-62c7c79bd1bd" walls=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1533 [CreateCurtainWallsOnAllSlabsCommand] slab="b192e80d-d5d4-4b5f-bee2-f17254523a39" walls=8 elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1533 [CreateCurtainWallsOnAllSlabsCommand] §DIAG-49800MS PHASE-1-SLAB-LOOP-DONE collected=168 slabLoopMs=0.9ms busDepthNow=2 T=+4.8ms
+engineLauncher-Ddvw-WJy.js:1864 [CurtainWallStore] §BATCH-CW-PAUSE-ADDMANY §DIAG batchId=917567f9 n=168 phase1CloneMs=0.1ms addManyPausedMs=0.0ms busEmitMs=0.0ms totalPhase2Ms=0.1ms (fast batch path — per-item listener calls skipped)
+engineLauncher-Ddvw-WJy.js:1533 [CreateCurtainWallsOnAllSlabsCommand] §DIAG-49800MS PHASE-2-ADDMANY-DONE count=168 addManyMs=0.2ms busDepthNow=2 T=+5.0ms
+engineLauncher-Ddvw-WJy.js:1533 [CreateCurtainWallsOnAllSlabsCommand] §DIAG-49800MS PHASE-3-REG-QUEUED levelGroups=21 regQueueMs=0.0ms totalProcessSlabsMs=1.1ms busDepthNow=2 T=+5.1ms
+engineLauncher-Ddvw-WJy.js:1533 [CreateCurtainWallsOnAllSlabsCommand] §TRACE-CW#3 RUNBATCH-RETURNED (sync phase done; rAF drain pending) runBatchMs=5.0ms T=+5.1ms
+engineLauncher-Ddvw-WJy.js:1533 [CreateCurtainWallsOnAllSlabsCommand] §TRACE-CW#3 COMPLETE walls=168 isRedo=false totalMs=5.1ms (rAF geometry drain + registration + event drain still pending async)
+engineLauncher-Ddvw-WJy.js:2392 [AIApprovalStore] Audit record appended: 5ee0ef94-399e-4414-90d4-a79162b15002 (CREATE_CURTAIN_WALLS_ON_ALL_SLABS)
+engineLauncher-Ddvw-WJy.js:4702 Refreshing Spatial Tree...
+engineLauncher-Ddvw-WJy.js:2325 [RuleEngine] Model updated, ready for re-validation
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §TRACE DEFERRED-RESUME-FLUSH fired (first rAF after runBatch returned) delay=22.1ms T=+26.7ms
+engineLauncher-Ddvw-WJy.js:1769 [CurtainWallBuilder] §F2-RESUME-ONLY resume — 168 walls transferred to pending queue, 1 async pre-render drain scheduled.
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §TRACE RESUME-FLUSH-DISPATCHED wallResume+cwResume+slabResume called. CW rAF drain now in-flight. T=+26.9ms
+engineLauncher-Ddvw-WJy.js:1769 [CurtainWallBuilder] §PERF-DRAIN built=20 remaining=148 queueBefore=168 frameMs=4.5ms nextBudget=21 isBatch=true
+engineLauncher-Ddvw-WJy.js:1833 [RenderPipelineManager] Rebuilding pipeline after shadow-map update.
+engineLauncher-Ddvw-WJy.js:1833 [RenderPipelineManager] SHADOW_REBUILD_COMPLETE elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1769 [CurtainWallBuilder] §PERF-DRAIN built=21 remaining=127 queueBefore=148 frameMs=3.7ms nextBudget=22 isBatch=true
+engineLauncher-Ddvw-WJy.js:1833 [RenderPipelineManager] §I2 pipeline.usedTimes is not a number (got undefined) — patching to 0 before dispose to prevent device-loss cascade.
+_safeDisposeRenderPipeline @ engineLauncher-Ddvw-WJy.js:1833
+engineLauncher-Ddvw-WJy.js:1838 [RenderPipelineManager] Phase: phase3 | WebGPU: true | SSGI: true | TRAA: false
+engineLauncher-Ddvw-WJy.js:1769 [CurtainWallBuilder] §PERF-DRAIN built=22 remaining=105 queueBefore=127 frameMs=4.0ms nextBudget=23 isBatch=true
+engineLauncher-Ddvw-WJy.js:1833 [RenderPipelineManager] §I2 pipeline.usedTimes is not a number (got undefined) — patching to 0 before dispose to prevent device-loss cascade.
+_safeDisposeRenderPipeline @ engineLauncher-Ddvw-WJy.js:1833
+engineLauncher-Ddvw-WJy.js:1838 [RenderPipelineManager] Phase: phase3 | WebGPU: true | SSGI: true | TRAA: false
+engineLauncher-Ddvw-WJy.js:1769 [CurtainWallBuilder] §PERF-DRAIN built=23 remaining=82 queueBefore=105 frameMs=5.4ms nextBudget=24 isBatch=true
+engineLauncher-Ddvw-WJy.js:1769 [CurtainWallBuilder] §PERF-DRAIN built=24 remaining=58 queueBefore=82 frameMs=6.3ms nextBudget=25 isBatch=true
+engineLauncher-Ddvw-WJy.js:1769 [CurtainWallBuilder] §PERF-DRAIN built=25 remaining=33 queueBefore=58 frameMs=5.6ms nextBudget=26 isBatch=true
+engineLauncher-Ddvw-WJy.js:1769 [CurtainWallBuilder] §PERF-DRAIN built=26 remaining=7 queueBefore=33 frameMs=3.9ms nextBudget=27 isBatch=true
+engineLauncher-Ddvw-WJy.js:1769 [CurtainWallBuilder] §PERF-DRAIN built=7 remaining=0 queueBefore=7 frameMs=2.2ms nextBudget=28 isBatch=true
+engineLauncher-Ddvw-WJy.js:1769 [CurtainWallBuilder] §B.4 cell cache cleared (had 168 entries)
+engineLauncher-Ddvw-WJy.js:1769 [CurtainWallBuilder] §4.2-WORKER rAF queue drained but 168 worker build(s) still inflight — deferring signalBuildQueueDrained() to _drainMainThreadWork().
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] WATCHDOG: signalBuildQueueDrained() not called within 30 s — force-completing batch to unblock StoreEventBus from depth-1 limbo.
+(anonymous) @ engineLauncher-Ddvw-WJy.js:484
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §TRACE BUILD-QUEUE-DRAINED regQueue=21 / totalExpected=168 T=+30027.5ms (all geometry in scene; registration drain starting)
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §TRACE §REG-MANY-P2 queue ≤ 50 (21) — draining synchronously (0 rAF frames) T=+30027.6ms
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] §REG-MANY-P0: registered 8 element(s) to level "L0".
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] §REG-MANY-P0: registered 8 element(s) to level "L-01-1778332427203-1".
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] §REG-MANY-P0: registered 8 element(s) to level "L-02-1778332427208-2".
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] §REG-MANY-P0: registered 8 element(s) to level "L-03-1778332427212-3".
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] §REG-MANY-P0: registered 8 element(s) to level "L-04-1778332427216-4".
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] §REG-MANY-P0: registered 8 element(s) to level "L-05-1778332427220-5".
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] §REG-MANY-P0: registered 8 element(s) to level "L-06-1778332427223-6".
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] §REG-MANY-P0: registered 8 element(s) to level "L-07-1778332427229-7".
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] §REG-MANY-P0: registered 8 element(s) to level "L-08-1778332427233-8".
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] §REG-MANY-P0: registered 8 element(s) to level "L-09-1778332427236-9".
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] §REG-MANY-P0: registered 8 element(s) to level "L-10-1778332427240-10".
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] §REG-MANY-P0: registered 8 element(s) to level "L-11-1778332427245-11".
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] §REG-MANY-P0: registered 8 element(s) to level "L-12-1778332427249-12".
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] §REG-MANY-P0: registered 8 element(s) to level "L-13-1778332427253-13".
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] §REG-MANY-P0: registered 8 element(s) to level "L-14-1778332427258-14".
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] §REG-MANY-P0: registered 8 element(s) to level "L-15-1778332427262-15".
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] §REG-MANY-P0: registered 8 element(s) to level "L-16-1778332427266-16".
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] §REG-MANY-P0: registered 8 element(s) to level "L-17-1778332427271-17".
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] §REG-MANY-P0: registered 8 element(s) to level "L-18-1778332427275-18".
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] §REG-MANY-P0: registered 8 element(s) to level "L-19-1778332427280-19".
+engineLauncher-Ddvw-WJy.js:1595 [BimManager] §REG-MANY-P0: registered 8 element(s) to level "L-20-1778332427285-20".
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §TRACE REGISTRATION-DRAIN-DONE 21 registration(s) complete T=+30029.0ms
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §TRACE SHADOW-REACTIVATION-START callbacks=1 T=+30029.0ms
+engineLauncher-Ddvw-WJy.js:1769 [CurtainWallBuilder] §K1 shadow reactivation START: 168 walls — 50 walls/slice via FrameScheduler (§K.2 PSOs pre-warmed — slice cost = traverse only, ≤2ms/slice target).
+engineLauncher-Ddvw-WJy.js:1769 [CurtainWallBuilder] §SHADOW-30S-SCHEDULED 168 wall(s) queued for shadow reactivation at T+30s (batchId=917567f9)
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §TRACE SHADOW-REACTIVATION-DISPATCHED (sliced across post-render frames) callMs=0.2ms T=+30029.2ms
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §TRACE FINAL-SWEEP-START levels=21 skipRedetect=true T=+30029.2ms (opening yielded event drain)
+main-DJPzSbY9.js:29470 [StoreEventBus] endBatchYielded() — 168 event(s) will be delivered in 1 chunk(s) of 200 via frame scheduler.
+main-DJPzSbY9.js:29470 [StoreEventBus] endBatchYielded() — all 168 event(s) delivered across 1 chunk(s) (last: 3.5ms). Calling onComplete().
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §TRACE ON-COMPLETE-START (all yielded events delivered) T=+30036.7ms
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §BATCH-SHADOW-MAP-RESTORE-FALLBACK shadowMap.enabled=true (no CW shadow callbacks ran)
+engineLauncher-Ddvw-WJy.js:484 [Collaboration] §E1-CRDT-BLACKOUT batchId=917567f9 duration=30037ms elements=168
+engineLauncher-Ddvw-WJy.js:2323 [RoomTopologyObserver] §G2 cancelled 0 pending redetect timer(s) for levels: [L0, L-01-1778332427203-1, L-02-1778332427208-2, L-03-1778332427212-3, L-04-1778332427216-4, L-05-1778332427220-5, L-06-1778332427223-6, L-07-1778332427229-7, L-08-1778332427233-8, L-09-1778332427236-9, L-10-1778332427240-10, L-11-1778332427245-11, L-12-1778332427249-12, L-13-1778332427253-13, L-14-1778332427258-14, L-15-1778332427262-15, L-16-1778332427266-16, L-17-1778332427271-17, L-18-1778332427275-18, L-19-1778332427280-19, L-20-1778332427285-20]
+engineLauncher-Ddvw-WJy.js:2323 [RoomTopologyObserver] §G2 post-batch cooldown armed until T=352673ms
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §G2-CANCELLED 21 pending redetect timer(s) for 21 level(s); 1s cooldown armed — REDETECT_ROOMS suppressed until T=352673ms
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §TRACE §G1 VDT suppression deferred through CASCADE; markLevelsDirtyImmediate(21 level(s)) will follow post-CASCADE. T=+30037.1ms
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §FIX-POST-GEOMETRY-COMPILE-V2 SKIPPED (skipPbrUpgrade=true, elementCount=168) — prewarm covers PSOs for large CW/slab batches. T=+30037.2ms
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §TRACE ON-BATCH-END-DEFERRED (suppress lifted NOW; overlay dismiss scheduled for post-render) T=+30037.3ms
+main-DJPzSbY9.js:29470 [UnifiedFrameLoop] §TRACE §PERF-VIEW-BATCH-SUPPRESS suppression lifted after 30037.2ms — OBC+PASCAL resuming on next tick.
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §TRACE ON-POST-BATCH-START (PBR upgrade + requestIdleCallback pending) T=+30037.4ms
+engineLauncher-Ddvw-WJy.js:1838 [BatchCoordinator/P1.3] §TRACE PBR-UPGRADE-SKIPPED (skipPbrUpgrade=true — curtain-wall batch; materials are already PBR-ready)
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §TRACE ON-POST-BATCH-DISPATCHED (PBR upgrade queued to requestIdleCallback) T=+30037.5ms
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] Final sweep: SKIPPING REDETECT_ROOMS for 21 level(s) (§FIX-SKIP-REDETECT-ROOMS — element type cannot define room boundaries). StoreEventBus flushed (depth now 0). markLevelsDirty already called above for plan-view reprojection.
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §G1-SUPPRESS-LIFTED post-CASCADE T=351673.9ms delay=0.6ms (DependencyResolver CASCADE settled; EPS Flush #2 eliminated).
+main-DJPzSbY9.js:29470 [UnifiedFrameLoop] §TRACE FIRST-RENDER-POST-SUPPRESS totalSuppressedMs=30040.0ms frameCount=18976 — OBC+PASCAL about to execute (WebGPU PSO compile LONGTASK begins here)
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §TRACE GPU-COMPILE-WAIT framesRemaining=0 T=+30198.2ms
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §TRACE §FIX-EDGE-PROJECT-DEFER §III-2 markLevelsDirtyImmediate(21 level(s)) fired post-render (debounce bypassed — flush queued to next low-priority frame). T=+30198.4ms
+main-DJPzSbY9.js:29470 [ViewDependencyTracker] flush — 21 dirty view(s): vd-sys-p, L-01-177, L-02-177, L-03-177, L-04-177, L-05-177, L-06-177, L-07-177, L-08-177, L-09-177, L-10-177, L-11-177, L-12-177, L-13-177, L-14-177, L-15-177, L-16-177, L-17-177, L-18-177, L-19-177, L-20-177
+main-DJPzSbY9.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed out of 1 live room(s).
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 44 elements from levels overlapping Y=[-1.20, 0.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=9 misses=8 hitRate=53% cacheSize=164/500
+main-DJPzSbY9.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=L-01-1778332427203-1
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-01-1778332427203-1 level=L-01-1778332427203-1: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 53 elements from levels overlapping Y=[1.80, 3.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=10 misses=16 hitRate=38% cacheSize=164/500
+main-DJPzSbY9.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=L-02-1778332427208-2
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-02-1778332427208-2 level=L-02-1778332427208-2: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 18 elements from levels overlapping Y=[4.80, 6.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=2 misses=16 hitRate=11% cacheSize=164/500
+main-DJPzSbY9.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=L-03-1778332427212-3
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-03-1778332427212-3 level=L-03-1778332427212-3: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 18 elements from levels overlapping Y=[7.80, 9.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=2 misses=16 hitRate=11% cacheSize=164/500
+main-DJPzSbY9.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=L-04-1778332427216-4
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-04-1778332427216-4 level=L-04-1778332427216-4: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 18 elements from levels overlapping Y=[10.80, 12.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=2 misses=16 hitRate=11% cacheSize=164/500
+main-DJPzSbY9.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=L-05-1778332427220-5
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-05-1778332427220-5 level=L-05-1778332427220-5: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 18 elements from levels overlapping Y=[13.80, 15.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=2 misses=16 hitRate=11% cacheSize=164/500
+main-DJPzSbY9.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=L-06-1778332427223-6
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-06-1778332427223-6 level=L-06-1778332427223-6: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 18 elements from levels overlapping Y=[16.80, 18.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=2 misses=16 hitRate=11% cacheSize=164/500
+main-DJPzSbY9.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=L-07-1778332427229-7
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-07-1778332427229-7 level=L-07-1778332427229-7: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 18 elements from levels overlapping Y=[19.80, 21.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=2 misses=16 hitRate=11% cacheSize=164/500
+main-DJPzSbY9.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=L-08-1778332427233-8
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-08-1778332427233-8 level=L-08-1778332427233-8: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 18 elements from levels overlapping Y=[22.80, 24.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=2 misses=16 hitRate=11% cacheSize=164/500
+main-DJPzSbY9.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=L-09-1778332427236-9
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-09-1778332427236-9 level=L-09-1778332427236-9: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 18 elements from levels overlapping Y=[25.80, 27.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=2 misses=16 hitRate=11% cacheSize=164/500
+main-DJPzSbY9.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=L-10-1778332427240-10
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-10-1778332427240-10 level=L-10-1778332427240-10: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 18 elements from levels overlapping Y=[28.80, 30.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=2 misses=16 hitRate=11% cacheSize=164/500
+main-DJPzSbY9.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=L-11-1778332427245-11
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-11-1778332427245-11 level=L-11-1778332427245-11: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 18 elements from levels overlapping Y=[31.80, 33.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=2 misses=16 hitRate=11% cacheSize=164/500
+main-DJPzSbY9.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=L-12-1778332427249-12
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-12-1778332427249-12 level=L-12-1778332427249-12: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 18 elements from levels overlapping Y=[34.80, 36.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=2 misses=16 hitRate=11% cacheSize=164/500
+main-DJPzSbY9.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=L-13-1778332427253-13
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-13-1778332427253-13 level=L-13-1778332427253-13: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 18 elements from levels overlapping Y=[37.80, 39.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=2 misses=16 hitRate=11% cacheSize=164/500
+main-DJPzSbY9.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=L-14-1778332427258-14
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-14-1778332427258-14 level=L-14-1778332427258-14: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 18 elements from levels overlapping Y=[40.80, 42.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=2 misses=16 hitRate=11% cacheSize=164/500
+main-DJPzSbY9.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=L-15-1778332427262-15
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-15-1778332427262-15 level=L-15-1778332427262-15: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 18 elements from levels overlapping Y=[43.80, 45.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=2 misses=16 hitRate=11% cacheSize=164/500
+main-DJPzSbY9.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=L-16-1778332427266-16
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-16-1778332427266-16 level=L-16-1778332427266-16: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 18 elements from levels overlapping Y=[46.80, 48.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=2 misses=16 hitRate=11% cacheSize=164/500
+main-DJPzSbY9.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=L-17-1778332427271-17
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-17-1778332427271-17 level=L-17-1778332427271-17: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 18 elements from levels overlapping Y=[49.80, 51.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=2 misses=16 hitRate=11% cacheSize=164/500
+main-DJPzSbY9.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=L-18-1778332427275-18
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-18-1778332427275-18 level=L-18-1778332427275-18: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 18 elements from levels overlapping Y=[52.80, 54.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=2 misses=16 hitRate=11% cacheSize=164/500
+main-DJPzSbY9.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=L-19-1778332427280-19
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-19-1778332427280-19 level=L-19-1778332427280-19: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 18 elements from levels overlapping Y=[55.80, 57.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=2 misses=16 hitRate=11% cacheSize=164/500
+main-DJPzSbY9.js:29470 [ViewTechnicalDrawingCache] invalidated viewId=L-20-1778332427285-20
+engineLauncher-Ddvw-WJy.js:1838 [RoomTagAutoPopulator] viewId=L-20-1778332427285-20 level=L-20-1778332427285-20: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+engineLauncher-Ddvw-WJy.js:1595 [NativeElementMeshExporter] Plan view — exporting 18 elements from levels overlapping Y=[58.80, 60.00]
+engineLauncher-Ddvw-WJy.js:1595 [NME] §H2-NME-CACHE hits=2 misses=16 hitRate=11% cacheSize=164/500
+engineLauncher-Ddvw-WJy.js:484 [BatchCoordinator] §TRACE ON-BATCH-END-DONE (overlay dismissed post-dual-PSO-compile; §FIX-DUAL-LONGTASK) T=+30387.2ms
+2engineLauncher-Ddvw-WJy.js:1833 [RenderPipelineManager] SHADOW_REBUILD_SCHEDULED meshCount=230
+engineLauncher-Ddvw-WJy.js:6681 [PerformanceModePanel] Performance mode OFF — restoring quality
+engineLauncher-Ddvw-WJy.js:6681 [PerformanceModePanel] Auto-performance mode OFF (IFC load complete)
+engineLauncher-Ddvw-WJy.js:7262 [EngineBootstrap] §L1-BATCH-PERF-MODE restored after batch drain
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=917567f9 viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=decf4f60-1d33-4f52-940b-92b95771f549 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=f52e4dbb-2b71-4a25-9dd1-0a87e14b0d07 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#2 elemId=d6291656-86ad-4000-af32-9f904b6974ed elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#3 elemId=edcbd561-bed3-4ac1-ac1b-608cfd0c484d elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-01-1778332427203-1 elevation=3.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=917567f9 viewId=L-01-1778332427203-1 dir=(0,-1,0) near=4.200 far=6.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=decf4f60-1d33-4f52-940b-92b95771f549 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.0ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=f52e4dbb-2b71-4a25-9dd1-0a87e14b0d07 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.0ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#2 elemId=d6291656-86ad-4000-af32-9f904b6974ed elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.0ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#3 elemId=edcbd561-bed3-4ac1-ac1b-608cfd0c484d elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.0ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-02-1778332427208-2 elevation=6.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=917567f9 viewId=L-02-1778332427208-2 dir=(0,-1,0) near=7.200 far=9.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=089b6a04-07df-4620-8ec1-00e038d61e11 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=7780d3c2-ed69-4f57-b2f4-7ee81ec4ed74 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-03-1778332427212-3 elevation=9.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=917567f9 viewId=L-03-1778332427212-3 dir=(0,-1,0) near=10.200 far=12.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=7780d3c2-ed69-4f57-b2f4-7ee81ec4ed74 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=59479e7f-64ed-4876-b11a-f9f85039ed37 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-04-1778332427216-4 elevation=12.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=917567f9 viewId=L-04-1778332427216-4 dir=(0,-1,0) near=13.200 far=15.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=59479e7f-64ed-4876-b11a-f9f85039ed37 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=d5f35be6-cc28-4d89-bc2b-0a0bae399401 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-05-1778332427220-5 elevation=15.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=917567f9 viewId=L-05-1778332427220-5 dir=(0,-1,0) near=16.200 far=18.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=d5f35be6-cc28-4d89-bc2b-0a0bae399401 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=2e3b4aa8-eaee-43f8-ab4d-678a000afb8f elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-06-1778332427223-6 elevation=18.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=917567f9 viewId=L-06-1778332427223-6 dir=(0,-1,0) near=19.200 far=21.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=2e3b4aa8-eaee-43f8-ab4d-678a000afb8f elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=201e0747-2d4b-4dea-8cca-42b2a364cdd4 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-07-1778332427229-7 elevation=21.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=917567f9 viewId=L-07-1778332427229-7 dir=(0,-1,0) near=22.200 far=24.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=201e0747-2d4b-4dea-8cca-42b2a364cdd4 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=6b1a412c-111e-44c3-ab3b-b99fd348f9cc elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-08-1778332427233-8 elevation=24.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=917567f9 viewId=L-08-1778332427233-8 dir=(0,-1,0) near=25.200 far=27.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=6b1a412c-111e-44c3-ab3b-b99fd348f9cc elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=1f1b92ea-c154-431b-a520-df60615c5fa8 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-09-1778332427236-9 elevation=27.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=917567f9 viewId=L-09-1778332427236-9 dir=(0,-1,0) near=28.200 far=30.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=1f1b92ea-c154-431b-a520-df60615c5fa8 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=4cc0b324-100f-4394-89e3-5ccbfc36efcf elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-10-1778332427240-10 elevation=30.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=917567f9 viewId=L-10-1778332427240-10 dir=(0,-1,0) near=31.200 far=33.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=4cc0b324-100f-4394-89e3-5ccbfc36efcf elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=41212837-d61e-476a-a236-4fe6b6699be0 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-11-1778332427245-11 elevation=33.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=917567f9 viewId=L-11-1778332427245-11 dir=(0,-1,0) near=34.200 far=36.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=41212837-d61e-476a-a236-4fe6b6699be0 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=d4fb80bd-2b2f-401e-a89c-5b6d675005e2 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-12-1778332427249-12 elevation=36.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=917567f9 viewId=L-12-1778332427249-12 dir=(0,-1,0) near=37.200 far=39.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=d4fb80bd-2b2f-401e-a89c-5b6d675005e2 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=f392b9ed-3257-4cf3-999d-590189a22b0b elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-13-1778332427253-13 elevation=39.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=917567f9 viewId=L-13-1778332427253-13 dir=(0,-1,0) near=40.200 far=42.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=f392b9ed-3257-4cf3-999d-590189a22b0b elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=e3aca293-b348-4a84-a6be-af9a503195ca elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-14-1778332427258-14 elevation=42.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=917567f9 viewId=L-14-1778332427258-14 dir=(0,-1,0) near=43.200 far=45.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=e3aca293-b348-4a84-a6be-af9a503195ca elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=2615a12c-5fd6-4fd6-b543-af4a8522dcbb elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-15-1778332427262-15 elevation=45.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=917567f9 viewId=L-15-1778332427262-15 dir=(0,-1,0) near=46.200 far=48.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=2615a12c-5fd6-4fd6-b543-af4a8522dcbb elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=093a051f-7f06-43f6-bdf4-3c6e2f5ce1c6 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-16-1778332427266-16 elevation=48.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=917567f9 viewId=L-16-1778332427266-16 dir=(0,-1,0) near=49.200 far=51.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=093a051f-7f06-43f6-bdf4-3c6e2f5ce1c6 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=0dca2c4e-9f70-48f2-a251-a0812e596926 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-17-1778332427271-17 elevation=51.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=917567f9 viewId=L-17-1778332427271-17 dir=(0,-1,0) near=52.200 far=54.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=0dca2c4e-9f70-48f2-a251-a0812e596926 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=db66b388-121d-4288-a486-67a07d59d2a3 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-18-1778332427275-18 elevation=54.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=917567f9 viewId=L-18-1778332427275-18 dir=(0,-1,0) near=55.200 far=57.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=db66b388-121d-4288-a486-67a07d59d2a3 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=f9df275f-933c-431c-a0bb-97599b85b42d elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-19-1778332427280-19 elevation=57.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=917567f9 viewId=L-19-1778332427280-19 dir=(0,-1,0) near=58.200 far=60.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=f9df275f-933c-431c-a0bb-97599b85b42d elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=7a243ccf-ba26-4495-918c-62c7c79bd1bd elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] resolveClipRange() levelId=L-20-1778332427285-20 elevation=60.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] project() batchId=917567f9 viewId=L-20-1778332427285-20 dir=(0,-1,0) near=61.200 far=63.000
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=7a243ccf-ba26-4495-918c-62c7c79bd1bd elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=b192e80d-d5d4-4b5f-bee2-f17254523a39 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 2 group(s) in 1 chunk(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-02-1778332427208-2 gen=4 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-02-1778332427208-2 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-03-1778332427212-3 gen=4 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-03-1778332427212-3 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-04-1778332427216-4 gen=4 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-04-1778332427216-4 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-05-1778332427220-5 gen=4 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-05-1778332427220-5 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-06-1778332427223-6 gen=4 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-06-1778332427223-6 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-07-1778332427229-7 gen=4 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-07-1778332427229-7 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-08-1778332427233-8 gen=4 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-08-1778332427233-8 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-09-1778332427236-9 gen=4 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-09-1778332427236-9 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-10-1778332427240-10 gen=4 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-10-1778332427240-10 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-11-1778332427245-11 gen=4 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-11-1778332427245-11 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-12-1778332427249-12 gen=4 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-12-1778332427249-12 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-13-1778332427253-13 gen=4 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-13-1778332427253-13 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-14-1778332427258-14 gen=4 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-14-1778332427258-14 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-15-1778332427262-15 gen=4 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-15-1778332427262-15 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-16-1778332427266-16 gen=4 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-16-1778332427266-16 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-17-1778332427271-17 gen=4 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-17-1778332427271-17 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-18-1778332427275-18 gen=4 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-18-1778332427275-18 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-19-1778332427280-19 gen=4 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-19-1778332427280-19 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-20-1778332427285-20 gen=4 (OBC-IFC=0, native=2, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-20-1778332427285-20 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1833 [RenderPipelineManager] Rebuilding pipeline after shadow-map update.
+engineLauncher-Ddvw-WJy.js:1833 [RenderPipelineManager] SHADOW_REBUILD_COMPLETE elapsed=0.0ms
+engineLauncher-Ddvw-WJy.js:1833 [RenderPipelineManager] §I2 pipeline.usedTimes is not a number (got undefined) — patching to 0 before dispose to prevent device-loss cascade.
+_safeDisposeRenderPipeline @ engineLauncher-Ddvw-WJy.js:1833
+engineLauncher-Ddvw-WJy.js:1838 [RenderPipelineManager] Phase: phase3 | WebGPU: true | SSGI: true | TRAA: false
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#4 elemId=3227531e-cd18-459f-abdb-8bfd5fb50111 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#5 elemId=fe068a65-7259-44a0-9d99-b0b3ee62159a elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#6 elemId=180513a3-a458-4a0a-89c7-4e682b2606d2 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#7 elemId=5c052442-34e2-4c52-b222-d4e82be78fbe elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#4 elemId=3227531e-cd18-459f-abdb-8bfd5fb50111 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#5 elemId=fe068a65-7259-44a0-9d99-b0b3ee62159a elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.0ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#6 elemId=180513a3-a458-4a0a-89c7-4e682b2606d2 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.0ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#7 elemId=5c052442-34e2-4c52-b222-d4e82be78fbe elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#8 elemId=558d2f3d-305c-4f97-ac08-b10e91149f4d elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.2ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 9 group(s) in 3 chunk(s), 9 edge geometries across 9 ISO layer(s) (per-element UUID tagging active)
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#8 elemId=558d2f3d-305c-4f97-ac08-b10e91149f4d elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.2ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §DIAG-EPS-02 group#9 elemId=089b6a04-07df-4620-8ec1-00e038d61e11 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.1ms
+EdgeProjectorService-Dbw1HWm-.js:1 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 10 group(s) in 3 chunk(s), 10 edge geometries across 10 ISO layer(s) (per-element UUID tagging active)
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=16 (OBC-IFC=0, native=9, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1838 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=L-01-1778332427203-1 gen=4 (OBC-IFC=0, native=10, ifc-scene=0)
+engineLauncher-Ddvw-WJy.js:6761 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=L-01-1778332427203-1 modelId=model-default applied=7/14 layers
+engineLauncher-Ddvw-WJy.js:1864 [PickResolver] strategy=gpu-pick hit=b192e80d-d5d4-4b5f-bee2-f17254523a39
+engineLauncher-Ddvw-WJy.js:556 [LevelPlaneConstraint] Locked Y=59.8000 for element "Slab" id="b192e80d-d5d4-4b5f-bee2-f17254523a39"
+engineLauncher-Ddvw-WJy.js:541 [CutFill] Updating: enabled=false, height=1.2
+
+3engineLauncher-Ddvw-WJy.js:1833 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+engineLauncher-Ddvw-WJy.js:1769 [CurtainWallBuilder] §K1-SHADOW-SLICE walls 0–49 (50 walls, 0 meshes enabled). sliceMs=0.0ms T=381670ms
+engineLauncher-Ddvw-WJy.js:1769 [CurtainWallBuilder] §K1-SHADOW-SLICE walls 50–99 (50 walls, 0 meshes enabled). sliceMs=0.0ms T=381682ms
+engineLauncher-Ddvw-WJy.js:1769 [CurtainWallBuilder] §K1-SHADOW-SLICE walls 100–149 (50 walls, 0 meshes enabled). sliceMs=0.0ms T=381688ms
+engineLauncher-Ddvw-WJy.js:1769 [CurtainWallBuilder] §K1-SHADOW-SLICE walls 150–167 (18 walls, 0 meshes enabled). sliceMs=0.0ms T=381695ms
+engineLauncher-Ddvw-WJy.js:1769 [CurtainWallBuilder] §K1-SHADOW-COMPLETE 168 walls reactivated. totalMs=30029.7ms (0 LONGTASKs expected — §K.2 PSOs pre-warmed).
+engineLauncher-Ddvw-WJy.js:1833 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter

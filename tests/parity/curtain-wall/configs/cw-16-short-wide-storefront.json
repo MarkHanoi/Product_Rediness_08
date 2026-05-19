@@ -1,0 +1,42 @@
+{
+  "id": "cw-16-short-wide-storefront",
+  "description": "12×2 m low-profile storefront",
+  "curtainWall": {
+    "id": "curtainwall_01HZS00000000000000CWSTFRT",
+    "type": "curtainwall",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "baseLine": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 12,
+        "y": 0,
+        "z": 0
+      }
+    ],
+    "height": 2,
+    "mullionThickness": 0.05,
+    "bayWidth": 2,
+    "bayHeight": 1,
+    "panels": []
+  },
+  "joinData": {
+    "startJoin": {
+      "kind": "none"
+    },
+    "endJoin": {
+      "kind": "none"
+    }
+  },
+  "worldY": 0
+}

@@ -1,0 +1,621 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`projectWallEdges — snapshots > fixture 1: single straight wall, no openings 1`] = `
+[
+  {
+    "elementId": "wall_00000000000000000000000001",
+    "end": {
+      "x": 5,
+      "y": 0.125,
+    },
+    "kind": "wall-outer",
+    "lineWeight": 0.5,
+    "start": {
+      "x": 0,
+      "y": 0.125,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000001",
+    "end": {
+      "x": 5,
+      "y": -0.125,
+    },
+    "kind": "wall-inner",
+    "lineWeight": 0.25,
+    "start": {
+      "x": 0,
+      "y": -0.125,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000001",
+    "end": {
+      "x": 0,
+      "y": -0.125,
+    },
+    "kind": "poche-boundary",
+    "lineWeight": 0.25,
+    "start": {
+      "x": 0,
+      "y": 0.125,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000001",
+    "end": {
+      "x": 5,
+      "y": -0.125,
+    },
+    "kind": "poche-boundary",
+    "lineWeight": 0.25,
+    "start": {
+      "x": 5,
+      "y": 0.125,
+    },
+  },
+]
+`;
+
+exports[`projectWallEdges — snapshots > fixture 2: wall with one door opening 1`] = `
+[
+  {
+    "elementId": "wall_00000000000000000000000002",
+    "end": {
+      "x": 1.5,
+      "y": 0.125,
+    },
+    "kind": "wall-outer",
+    "lineWeight": 0.5,
+    "start": {
+      "x": 0,
+      "y": 0.125,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000002",
+    "end": {
+      "x": 1.5,
+      "y": -0.125,
+    },
+    "kind": "wall-inner",
+    "lineWeight": 0.25,
+    "start": {
+      "x": 0,
+      "y": -0.125,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000002",
+    "end": {
+      "x": 5,
+      "y": 0.125,
+    },
+    "kind": "wall-outer",
+    "lineWeight": 0.5,
+    "start": {
+      "x": 2.4,
+      "y": 0.125,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000002",
+    "end": {
+      "x": 5,
+      "y": -0.125,
+    },
+    "kind": "wall-inner",
+    "lineWeight": 0.25,
+    "start": {
+      "x": 2.4,
+      "y": -0.125,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000002",
+    "end": {
+      "x": 1.5,
+      "y": -0.125,
+    },
+    "kind": "opening",
+    "lineWeight": 0.1,
+    "start": {
+      "x": 1.5,
+      "y": 0.125,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000002",
+    "end": {
+      "x": 2.4,
+      "y": -0.125,
+    },
+    "kind": "opening",
+    "lineWeight": 0.1,
+    "start": {
+      "x": 2.4,
+      "y": 0.125,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000002",
+    "end": {
+      "x": 0,
+      "y": -0.125,
+    },
+    "kind": "poche-boundary",
+    "lineWeight": 0.25,
+    "start": {
+      "x": 0,
+      "y": 0.125,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000002",
+    "end": {
+      "x": 5,
+      "y": -0.125,
+    },
+    "kind": "poche-boundary",
+    "lineWeight": 0.25,
+    "start": {
+      "x": 5,
+      "y": 0.125,
+    },
+  },
+]
+`;
+
+exports[`projectWallEdges — snapshots > fixture 3: wall with window above cut plane (no opening) 1`] = `
+[
+  {
+    "elementId": "wall_00000000000000000000000003",
+    "end": {
+      "x": 5,
+      "y": 0.125,
+    },
+    "kind": "wall-outer",
+    "lineWeight": 0.5,
+    "start": {
+      "x": 0,
+      "y": 0.125,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000003",
+    "end": {
+      "x": 5,
+      "y": -0.125,
+    },
+    "kind": "wall-inner",
+    "lineWeight": 0.25,
+    "start": {
+      "x": 0,
+      "y": -0.125,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000003",
+    "end": {
+      "x": 0,
+      "y": -0.125,
+    },
+    "kind": "poche-boundary",
+    "lineWeight": 0.25,
+    "start": {
+      "x": 0,
+      "y": 0.125,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000003",
+    "end": {
+      "x": 5,
+      "y": -0.125,
+    },
+    "kind": "poche-boundary",
+    "lineWeight": 0.25,
+    "start": {
+      "x": 5,
+      "y": 0.125,
+    },
+  },
+]
+`;
+
+exports[`projectWallEdges — snapshots > fixture 4: two perpendicular walls (L-junction) 1`] = `
+[
+  {
+    "elementId": "wall_00000000000000000000000004",
+    "end": {
+      "x": 4,
+      "y": 0.1,
+    },
+    "kind": "wall-outer",
+    "lineWeight": 0.5,
+    "start": {
+      "x": 0,
+      "y": 0.1,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000004",
+    "end": {
+      "x": 4,
+      "y": -0.1,
+    },
+    "kind": "wall-inner",
+    "lineWeight": 0.25,
+    "start": {
+      "x": 0,
+      "y": -0.1,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000004",
+    "end": {
+      "x": 0,
+      "y": -0.1,
+    },
+    "kind": "poche-boundary",
+    "lineWeight": 0.25,
+    "start": {
+      "x": 0,
+      "y": 0.1,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000004",
+    "end": {
+      "x": 4,
+      "y": -0.1,
+    },
+    "kind": "poche-boundary",
+    "lineWeight": 0.25,
+    "start": {
+      "x": 4,
+      "y": 0.1,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000005",
+    "end": {
+      "x": 3.9,
+      "y": 4,
+    },
+    "kind": "wall-outer",
+    "lineWeight": 0.5,
+    "start": {
+      "x": 3.9,
+      "y": 0,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000005",
+    "end": {
+      "x": 4.1,
+      "y": 4,
+    },
+    "kind": "wall-inner",
+    "lineWeight": 0.25,
+    "start": {
+      "x": 4.1,
+      "y": 0,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000005",
+    "end": {
+      "x": 4.1,
+      "y": 0,
+    },
+    "kind": "poche-boundary",
+    "lineWeight": 0.25,
+    "start": {
+      "x": 3.9,
+      "y": 0,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000005",
+    "end": {
+      "x": 4.1,
+      "y": 4,
+    },
+    "kind": "poche-boundary",
+    "lineWeight": 0.25,
+    "start": {
+      "x": 3.9,
+      "y": 4,
+    },
+  },
+]
+`;
+
+exports[`projectWallEdges — snapshots > fixture 5: door adjacent to wall start (opening starts at t=0) 1`] = `
+[
+  {
+    "elementId": "wall_00000000000000000000000006",
+    "end": {
+      "x": 4,
+      "y": 0.1,
+    },
+    "kind": "wall-outer",
+    "lineWeight": 0.5,
+    "start": {
+      "x": 1,
+      "y": 0.1,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000006",
+    "end": {
+      "x": 4,
+      "y": -0.1,
+    },
+    "kind": "wall-inner",
+    "lineWeight": 0.25,
+    "start": {
+      "x": 1,
+      "y": -0.1,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000006",
+    "end": {
+      "x": 0,
+      "y": -0.1,
+    },
+    "kind": "opening",
+    "lineWeight": 0.1,
+    "start": {
+      "x": 0,
+      "y": 0.1,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000006",
+    "end": {
+      "x": 1,
+      "y": -0.1,
+    },
+    "kind": "opening",
+    "lineWeight": 0.1,
+    "start": {
+      "x": 1,
+      "y": 0.1,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000006",
+    "end": {
+      "x": 4,
+      "y": -0.1,
+    },
+    "kind": "poche-boundary",
+    "lineWeight": 0.25,
+    "start": {
+      "x": 4,
+      "y": 0.1,
+    },
+  },
+]
+`;
+
+exports[`projectWallEdges — snapshots > fixture 6: wall with inline opening (wall.openings array) 1`] = `
+[
+  {
+    "elementId": "wall_00000000000000000000000007",
+    "end": {
+      "x": 2,
+      "y": 0.15,
+    },
+    "kind": "wall-outer",
+    "lineWeight": 0.5,
+    "start": {
+      "x": 0,
+      "y": 0.15,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000007",
+    "end": {
+      "x": 2,
+      "y": -0.15,
+    },
+    "kind": "wall-inner",
+    "lineWeight": 0.25,
+    "start": {
+      "x": 0,
+      "y": -0.15,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000007",
+    "end": {
+      "x": 6,
+      "y": 0.15,
+    },
+    "kind": "wall-outer",
+    "lineWeight": 0.5,
+    "start": {
+      "x": 3,
+      "y": 0.15,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000007",
+    "end": {
+      "x": 6,
+      "y": -0.15,
+    },
+    "kind": "wall-inner",
+    "lineWeight": 0.25,
+    "start": {
+      "x": 3,
+      "y": -0.15,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000007",
+    "end": {
+      "x": 2,
+      "y": -0.15,
+    },
+    "kind": "opening",
+    "lineWeight": 0.1,
+    "start": {
+      "x": 2,
+      "y": 0.15,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000007",
+    "end": {
+      "x": 3,
+      "y": -0.15,
+    },
+    "kind": "opening",
+    "lineWeight": 0.1,
+    "start": {
+      "x": 3,
+      "y": 0.15,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000007",
+    "end": {
+      "x": 0,
+      "y": -0.15,
+    },
+    "kind": "poche-boundary",
+    "lineWeight": 0.25,
+    "start": {
+      "x": 0,
+      "y": 0.15,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000007",
+    "end": {
+      "x": 6,
+      "y": -0.15,
+    },
+    "kind": "poche-boundary",
+    "lineWeight": 0.25,
+    "start": {
+      "x": 6,
+      "y": 0.15,
+    },
+  },
+]
+`;
+
+exports[`projectWallEdges — snapshots > fixture 7: custom cut height (1.5m) 1`] = `
+[
+  {
+    "elementId": "wall_00000000000000000000000008",
+    "end": {
+      "x": 1,
+      "y": 0.1,
+    },
+    "kind": "wall-outer",
+    "lineWeight": 0.5,
+    "start": {
+      "x": 0,
+      "y": 0.1,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000008",
+    "end": {
+      "x": 1,
+      "y": -0.1,
+    },
+    "kind": "wall-inner",
+    "lineWeight": 0.25,
+    "start": {
+      "x": 0,
+      "y": -0.1,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000008",
+    "end": {
+      "x": 4,
+      "y": 0.1,
+    },
+    "kind": "wall-outer",
+    "lineWeight": 0.5,
+    "start": {
+      "x": 2.2,
+      "y": 0.1,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000008",
+    "end": {
+      "x": 4,
+      "y": -0.1,
+    },
+    "kind": "wall-inner",
+    "lineWeight": 0.25,
+    "start": {
+      "x": 2.2,
+      "y": -0.1,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000008",
+    "end": {
+      "x": 1,
+      "y": -0.1,
+    },
+    "kind": "opening",
+    "lineWeight": 0.1,
+    "start": {
+      "x": 1,
+      "y": 0.1,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000008",
+    "end": {
+      "x": 2.2,
+      "y": -0.1,
+    },
+    "kind": "opening",
+    "lineWeight": 0.1,
+    "start": {
+      "x": 2.2,
+      "y": 0.1,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000008",
+    "end": {
+      "x": 0,
+      "y": -0.1,
+    },
+    "kind": "poche-boundary",
+    "lineWeight": 0.25,
+    "start": {
+      "x": 0,
+      "y": 0.1,
+    },
+  },
+  {
+    "elementId": "wall_00000000000000000000000008",
+    "end": {
+      "x": 4,
+      "y": -0.1,
+    },
+    "kind": "poche-boundary",
+    "lineWeight": 0.25,
+    "start": {
+      "x": 4,
+      "y": 0.1,
+    },
+  },
+]
+`;

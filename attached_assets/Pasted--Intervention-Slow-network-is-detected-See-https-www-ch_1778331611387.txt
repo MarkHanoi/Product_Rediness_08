@@ -1,0 +1,82 @@
+[Intervention] Slow network is detected. See https://www.chromestatus.com/feature/5636954674692096 for more details. Fallback font will be used while loading: https://replit.com/public/fonts/replit-icons.woff
+www.facebook.com/tr/?id=1153929076518158&ev=PageView&dl=https%3A%2F%2Freplit.com%2F%40juniordiasloure%2FVideoPrep1&rl=&if=false&ts=1778331501433&sw=1536&sh=864&v=2.9.281&r=stable&ec=0&o=4126&fbp=fb.1.1778246345112.143853345697776668&ler=empty&pmd[title]=Loading...%20-%20Replit&pmd[locale]=en&pmd[description]=Build%20and%20deploy%20software%20collaboratively%20with%20the%20power%20of%20AI%20without%20spending%20a%20second%20on%20setup.&pmd[keywords]=replit%2Cai%2Csoftware%2Cbuild%2Ccollaborate%2CIDE%2Cplatform%2Ccode%2Cdeploy%2Cprototype%2Conline%2Cagent&plt=2034.8999999910593&mdc[data]=%7B%22json_ld%22%3A%7B%22b%22%3A%22AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA%3D%22%7D%2C%22opengraph%22%3A%7B%22b%22%3A%226ogIAAA7gAAABwIkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA%3D%3D%22%7D%2C%22schema_org%22%3A%7B%22b%22%3A%22AAAAAAAAAAAAAAAA%22%7D%7D&mdc[version]=adffc505093caed58b7844498f9026ff&it=1778331501220&coo=false&expv2[0]=pl1&expv2[1]=el2&expv2[2]=bc1&expv2[3]=ra2&expv2[4]=rp2&expv2[5]=ct2&expv2[6]=hf1&rqm=GET:1  Failed to load resource: net::ERR_QUIC_PROTOCOL_ERROR.QUIC_NETWORK_IDLE_TIMEOUT
+5Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'ambient-light-sensor'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'battery'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'execution-while-not-rendered'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'execution-while-out-of-viewport'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'layout-animations'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'legacy-image-formats'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'navigation-override'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'oversized-images'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'publickey-credentials'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'speaker-selection'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'unoptimized-images'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'unsized-media'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'pointer-lock'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Allow attribute will take precedence over 'allowfullscreen'.
+C @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Allow attribute will take precedence over 'allowpaymentrequest'.
+C @ 0i8wy8tbht2ow.js:2
+0azyp1zv5s0v4.js:9 Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://eba692b7-83d1-4154-9466-754581fce3f5-00-3hkgka6vxfwrp.kirk.replit.dev') does not match the recipient window's origin ('https://replit.com').
+b @ 0azyp1zv5s0v4.js:9
+VideoPrep1:1 Banner not shown: beforeinstallpromptevent.preventDefault() called. The page must call beforeinstallpromptevent.prompt() to show the banner.
+0azyp1zv5s0v4.js:9 Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://eba692b7-83d1-4154-9466-754581fce3f5-00-3hkgka6vxfwrp.kirk.replit.dev') does not match the recipient window's origin ('https://replit.com').
+b @ 0azyp1zv5s0v4.js:9
+www.google.com/ccm/collect?rcb=0&frm=0&en=page_view&dl=https%3A%2F%2Freplit.com%2F%40juniordiasloure%2FVideoPrep1&scrsrc=www.googletagmanager.com&rnd=38198140.1778331511&dt=Video_Prep_1%20-%20Replit&auid=1083141219.1778246347&navt=n&npa=1&gtm=45be6562v9171242957za200zd9171242957xec&gcd=13l3l3l2l1l1&dma_cps=a&dma=1&tag_exp=0~115938466~115938469~118463261&apve=1&apvf=f&apvc=1&tids=AW-11411994397&tid=AW-11411994397&tft=1778331510812&tfd=11656:1  Failed to load resource: net::ERR_CONNECTION_TIMED_OUT
+Framing 'https://eba692b7-83d1-4154-9466-754581fce3f5-00-3hkgka6vxfwrp.kirk.replit.dev/' violates the following report-only Content Security Policy directive: "frame-ancestors 'none'". The violation has been logged, but no further action has been taken.
+
+www.facebook.com/tr/:1  Failed to load resource: net::ERR_CONNECTION_TIMED_OUT
+www.facebook.com/tr/:1  Failed to load resource: net::ERR_QUIC_PROTOCOL_ERROR.QUIC_NETWORK_IDLE_TIMEOUT
+0azyp1zv5s0v4.js:9 Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://eba692b7-83d1-4154-9466-754581fce3f5-00-3hkgka6vxfwrp.kirk.replit.dev') does not match the recipient window's origin ('https://replit.com').
+b @ 0azyp1zv5s0v4.js:9
+Framing 'https://eba692b7-83d1-4154-9466-754581fce3f5-00-3hkgka6vxfwrp.kirk.replit.dev/' violates the following report-only Content Security Policy directive: "frame-ancestors 'none'". The violation has been logged, but no further action has been taken.
+
+www.facebook.com/tr/:1  Failed to load resource: net::ERR_CONNECTION_TIMED_OUT
+www.google.com/ccm/collect?rcb=0&frm=0&en=page_view&dl=https%3A%2F%2Freplit.com%2F%40juniordiasloure%2FVideoPrep1&scrsrc=www.googletagmanager.com&rnd=38198140.1778331511&dt=Video_Prep_1%20-%20Replit&auid=1083141219.1778246347&navt=n&npa=1&gtm=45be6562v9171242957za200zd9171242957xec&gcd=13l3l3l2l1l1&dma_cps=a&dma=1&tag_exp=0~115938466~115938469~118463261&apve=1&apvf=f&apvc=1&tids=AW-11411994397&tid=AW-11411994397&tft=1778331510812&tfd=11656:1  Failed to load resource: net::ERR_CONNECTION_TIMED_OUT
+region1.analytics.google.com/g/collect?v=2&tid=G-MPJY3F1YEL&gtm=45je6562v9135634466za20g&_p=1778331510783&gcd=13l3lPl2l2l1&npa=0&dma_cps=a&dma=1&ecid=776367458&_eu=EBAIAGQC&are=1&cid=521544775.1778246646&ec_mode=a&frm=0&ir=1&pscdl=noapi&rcb=17&sr=1536x864&uaa=x86&uab=64&uafvl=Chromium%3B148.0.7778.97%7CMicrosoft%2520Edge%3B148.0.3967.54%7CNot%252FA)Brand%3B99.0.0.0&uam=&uamb=0&uap=Windows&uapv=19.0.0&uaw=0&ul=en-us&gaf=2&_s=1&tag_exp=0~115616986~115938466~115938468~118463262~118494634&dl=https%3A%2F%2Freplit.com%2F%40juniordiasloure%2FVideoPrep1&dp=%2F%40juniordiasloure%2FVideoPrep1&dt=replEnvironmentDesktop&sid=1778330453&sct=4&seg=1&_tu=wAQ&en=page_view&_ee=1&tfd=31013:1  Failed to load resource: net::ERR_CONNECTION_TIMED_OUT
+www.facebook.com/tr/:1  Failed to load resource: net::ERR_CONNECTION_TIMED_OUT
+www.facebook.com/tr/:1  Failed to load resource: net::ERR_CONNECTION_TIMED_OUT
+region1.analytics.google.com/g/collect?v=2&tid=G-MPJY3F1YEL&gtm=45je6562v9135634466za20g&_p=1778331510783&gcd=13l3lPl2l2l1&npa=0&dma_cps=a&dma=1&ecid=776367458&_eu=EBAIAGQC&are=1&cid=521544775.1778246646&frm=0&ir=1&pscdl=noapi&rcb=17&sr=1536x864&uaa=x86&uab=64&uafvl=Chromium%3B148.0.7778.97%7CMicrosoft%2520Edge%3B148.0.3967.54%7CNot%252FA)Brand%3B99.0.0.0&uam=&uamb=0&uap=Windows&uapv=19.0.0&uaw=0&ul=en-us&gaf=2&tag_exp=0~115616986~115938466~115938468~118463262~118494634&dl=https%3A%2F%2Freplit.com%2F%40juniordiasloure%2FVideoPrep1&dp=%2F%40juniordiasloure%2FVideoPrep1&dt=replEnvironmentDesktop&sid=1778330453&sct=4&seg=1&_tu=wAQ&_s=2&tfd=36026:1  Failed to load resource: net::ERR_CONNECTION_TIMED_OUT
+region1.analytics.google.com/g/collect?v=2&tid=G-MPJY3F1YEL&gtm=45je6562v9135634466za20g&_p=1778331510783&_gaz=1&gcd=13l3lPl2l2l1&npa=0&dma_cps=a&dma=1&ecid=776367458&_eu=EBAIAGQC&are=1&cid=521544775.1778246646&frm=0&ir=1&pscdl=noapi&rcb=17&sr=1536x864&uaa=x86&uab=64&uafvl=Chromium%3B148.0.7778.97%7CMicrosoft%2520Edge%3B148.0.3967.54%7CNot%252FA)Brand%3B99.0.0.0&uam=&uamb=0&uap=Windows&uapv=19.0.0&uaw=0&ul=en-us&gaf=2&_s=3&tag_exp=0~115616986~115938466~115938468~118463262~118494634&dl=https%3A%2F%2Freplit.com%2F%40juniordiasloure%2FVideoPrep1&dp=%2F%40juniordiasloure%2FVideoPrep1&dt=replEnvironmentDesktop&sid=1778330453&sct=4&seg=1&_tu=wAQ&en=Click&_ee=1&ep.event_category=All&ep.value=0&_et=5185&tfd=55324:1  Failed to load resource: net::ERR_CONNECTION_TIMED_OUT
+0azyp1zv5s0v4.js:9 Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://eba692b7-83d1-4154-9466-754581fce3f5-00-3hkgka6vxfwrp.kirk.replit.dev') does not match the recipient window's origin ('https://replit.com').
+b @ 0azyp1zv5s0v4.js:9
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'ambient-light-sensor'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'battery'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'execution-while-not-rendered'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'execution-while-out-of-viewport'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'layout-animations'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'legacy-image-formats'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'navigation-override'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'oversized-images'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'publickey-credentials'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'speaker-selection'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'unoptimized-images'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'unsized-media'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Allow attribute will take precedence over 'allowfullscreen'.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Allow attribute will take precedence over 'allowpaymentrequest'.
+
+Framing 'https://eba692b7-83d1-4154-9466-754581fce3f5-00-3hkgka6vxfwrp.kirk.replit.dev/' violates the following report-only Content Security Policy directive: "frame-ancestors 'none'". The violation has been logged, but no further action has been taken.
+
+(index):1 The Content Security Policy directive 'upgrade-insecure-requests' is ignored when delivered in a report-only policy.
+stallwart.build.js:1 stallwart: failed ping 1
+Framing 'https://eba692b7-83d1-4154-9466-754581fce3f5-00-3hkgka6vxfwrp.kirk.replit.dev/' violates the following report-only Content Security Policy directive: "frame-ancestors 'none'". The violation has been logged, but no further action has been taken.
+
+ga-audiences?v=1&t=sr&slf_rd=1&_r=4&tid=G-MPJY3F1YEL&cid=521544775.1778246646&gtm=45je6562v91356344…:1  Failed to load resource: net::ERR_CONNECTION_TIMED_OUT
+www.facebook.com/tr/:1  Failed to load resource: net::ERR_CONNECTION_TIMED_OUT
+region1.analytics.google.com/g/collect?v=2&tid=G-MPJY3F1YEL&gtm=45je6562v9135634466za20g&_p=1778331510783&gcd=13l3lPl2l2l1&npa=0&dma_cps=a&dma=1&ecid=776367458&_eu=EBAIAGQC&are=1&cid=521544775.1778246646&frm=0&ir=1&pscdl=noapi&rcb=17&sr=1536x864&uaa=x86&uab=64&uafvl=Chromium%3B148.0.7778.97%7CMicrosoft%2520Edge%3B148.0.3967.54%7CNot%252FA)Brand%3B99.0.0.0&uam=&uamb=0&uap=Windows&uapv=19.0.0&uaw=0&ul=en-us&gaf=2&tag_exp=0~115616986~115938466~115938468~118463262~118494634&dl=https%3A%2F%2Freplit.com%2F%40juniordiasloure%2FVideoPrep1&dp=%2F%40juniordiasloure%2FVideoPrep1&dt=replEnvironmentDesktop&sid=1778330453&sct=4&seg=1&_tu=wAQ&_s=4&tfd=63873:1  Failed to load resource: net::ERR_CONNECTION_TIMED_OUT
+(index):1 Loading the script 'https://replit-cdn.com/replit-pill/replit-pill.global.js' violates the following Content Security Policy directive: "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The policy is report-only, so the violation has been logged but no further action has been taken.
+region1.analytics.google.com/g/collect?v=2&tid=G-MPJY3F1YEL&gtm=45je6562v9135634466za20g&_p=1778331510783&gcd=13l3lPl2l2l1&npa=0&dma_cps=a&dma=1&ecid=776367458&_eu=EBAIAGQC&are=1&cid=521544775.1778246646&frm=0&ir=1&pscdl=noapi&rcb=17&sr=1536x864&uaa=x86&uab=64&uafvl=Chromium%3B148.0.7778.97%7CMicrosoft%2520Edge%3B148.0.3967.54%7CNot%252FA)Brand%3B99.0.0.0&uam=&uamb=0&uap=Windows&uapv=19.0.0&uaw=0&ul=en-us&gaf=2&tag_exp=0~115616986~115938466~115938468~118463262~118494634&dl=https%3A%2F%2Freplit.com%2F%40juniordiasloure%2FVideoPrep1&dp=%2F%40juniordiasloure%2FVideoPrep1&dt=replEnvironmentDesktop&sid=1778330453&sct=4&seg=1&_tu=wAQ&_s=5&tfd=81720:1  Failed to load resource: net::ERR_CONNECTION_TIMED_OUT

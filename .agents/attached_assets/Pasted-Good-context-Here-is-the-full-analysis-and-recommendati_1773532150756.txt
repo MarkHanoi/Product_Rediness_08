@@ -1,0 +1,73 @@
+Good context. Here is the full analysis and recommendation.
+
+---
+
+Solutions Dropdown — PRYZM Targeting Strategy
+
+The two reference examples use different strategies: **Figma** targets by use case + role + org type (broad horizontal platform). **Lovable** targets by job title alone (narrow, transactional). PRYZM sits in between — a specialist platform, but one that serves meaningfully different people in different ways.
+
+The right structure for PRYZM is **two columns**: who the person is, and what workflow they're trying to solve. This matches the actual split in your plan architecture (`architect` → solo; `studio` → team; `firm` → org) and in your feature set (AI tools vs. IFC compliance vs. collaboration).
+
+---
+
+Recommended structure
+
+```
+BY ROLE                          BY WORKFLOW
+──────────────────               ──────────────────────────
+Solo Architects                  Concept Design
+Architecture Studios             IFC Export & Coordination
+Established Practices            AI-Assisted Modelling
+BIM Managers                     Floor Plan Digitisation
+Interior Designers               Design Handoff
+Structural Engineers             Code Compliance Review
+Students & Graduates             Bespoke Platform Deployment
+```
+
+---
+
+Why each item belongs — grounded in your codebase
+
+**BY ROLE**
+
+| **Item** | **Justification** |
+| --- | --- |
+| Solo Architects | The `architect` plan is named for this person — $59/mo, solo IFC export, AI tools, version history. Your most common user. |
+| Architecture Studios | The `studio` plan tagline says explicitly "For small architecture firms, up to 8 seats." Real-time collaboration is gated here. |
+| Established Practices | The `firm` plan tagline says "For established firms, up to 25 seats." API access and SSO at this tier. |
+| BIM Managers | The Rule Engine, IFC compliance validation, and "elements missing IFC metadata" AI query exist specifically for this role. |
+| Interior Designers | The Wardrobe Factory feature (`AI_WARDROBE`) and AI Element Creator (`AI_ELEMENT_CREATOR`) are purpose-built for FF&E and fit-out design. |
+| Structural Engineers | Beams, slabs, load-bearing walls, and IFC coordination with Navisworks and Tekla are real features — structural engineers are a genuine secondary audience. |
+| Students & Graduates | Your pricing page already has a student discount (`free plan + education discount` entry in the FAQ). There is intentional audience design here. |
+
+**BY WORKFLOW**
+
+| **Item** | **Justification** |
+| --- | --- |
+| Concept Design | Fast 3D modelling with walls, slabs, roofs, curtain walls — the core app. The hero card says "Where the built world meets intelligence." |
+| IFC Export & Coordination | IFC2x3 and IFC4 export to Revit, ArchiCAD, BIMcollab, Solibri, Navisworks, Tekla — this is a primary differentiator explicitly stated in your FAQ. |
+| AI-Assisted Modelling | The Design Advisor, Element Creator, Floor Plan AI, and Wardrobe Factory are all live in the AI service layer. This is a major selling point. |
+| Floor Plan Digitisation | `AI_FLOOR_PLAN` feature — PDF upload → wall/door/window extraction. A very specific, high-value workflow that deserves its own entry. |
+| Design Handoff | GLB/GLTF export for web viewers, PDF export for clients. The export features exist and are gated at Architect level. |
+| Code Compliance Review | The Rule Engine flags violations — accessibility widths, unsupported beams, non-compliant elements. This is live functionality. |
+| Bespoke Platform Deployment | Your Stream 2 concept — enterprises who want PRYZM under their brand. Should appear in Solutions as well as the Landing and Pricing pages. |
+
+---
+
+One item NOT to include
+
+"Enterprise" as a standalone Solutions item — it will be confusing. Your nav already has or will have a direct "Pricing" link where Enterprise appears. Put enterprise scale under "Established Practices" and bespoke deployment under "Bespoke Platform Deployment." Don't duplicate.
+
+---
+
+Visual format recommendation
+
+Use the **Lovable pattern** (dark, two columns, bold labels, no category headers) rather than the Figma pattern (light, three columns, category headers). Reasons:
+
+- PRYZM's palette is dark violet — Lovable's dark flyout matches this; Figma's white mega-menu does not
+- You have 7 + 7 items — two clean columns, no need for three
+- Category headers ("USE CASES", "ROLES") add cognitive load that only pays off if you have 10+ items per column like Figma does
+
+The flyout should sit below the nav bar with a subtle backdrop-blur, `var(--app-surface)` background, `var(--app-radius-lg)` corners, and items in `var(--app-text)` that shift to `var(--app-violet-1)` on hover. That aligns exactly with your existing AppTheme design tokens.
+
+Add

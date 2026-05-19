@@ -1,0 +1,43 @@
+{
+  "name": "@pryzm/spatial-index",
+  "version": "0.1.0",
+  "description": "PRYZM 3 — Spatial index. Wave 8 stub creation; Wave 11 migration will move ElementSpatialIndex (src/core/drawing/ElementSpatialIndex.ts) and SpatialGrid (packages/picking/src/snapping/SpatialGrid.ts) into this package. Provides the ISpatialIndex<T> contract consumed by the snap engine and the element picking layer. Sprint AC: Room spatial services (RoomGraphService, RoomQueryService, RoomValidationService, RoomTypeInferenceEngine) promoted from src/engine/subsystems/spatial/. Per 15-PACKAGE-POPULATION-GAP.md §0.0.5 row src/spatial.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "three": "^0.183.0",
+    "@pryzm/core-app-model": "workspace:*",
+    "@pryzm/room-topology": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/three": "^0.183.1",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  },
+  "pryzm": {
+    "layer": "L2",
+    "forbiddenDependencies": ["react", "@thatopen/components"],
+    "waveCreated": 8,
+    "waveMigration": 11,
+    "migrationSources": [
+      "src/core/drawing/ElementSpatialIndex.ts",
+      "packages/picking/src/snapping/SpatialGrid.ts",
+      "src/engine/subsystems/spatial/RoomGraphService.ts",
+      "src/engine/subsystems/spatial/RoomQueryService.ts",
+      "src/engine/subsystems/spatial/RoomValidationService.ts",
+      "src/engine/subsystems/spatial/RoomTypeInferenceEngine.ts"
+    ],
+    "migrationNote": "Wave 11: move SpatialGrid and ElementSpatialIndex here; packages/picking/snapping imports ISpatialIndex from @pryzm/spatial-index instead of defining it inline. Sprint AC: room spatial services promoted; see 47-EXTRACTION-SUBPHASES-5.1-5.2.md §8."
+  }
+}

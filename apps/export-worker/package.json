@@ -1,0 +1,20 @@
+{
+  "name": "@pryzm/export-worker",
+  "version": "0.1.0",
+  "description": "PRYZM 3 — async export job queue worker (Phase 2C, S114-WIRE). Processes PDF/IFC/DXF export jobs off the main HTTP thread. Full pipeline deferred to Phase F.x (plugins/export-pdf handlers required; currently F-prereq.0 empty scaffold).",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "start": "node --loader tsx/esm src/index.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@pryzm/plugin-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.1",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "id": "hip-pentagon-mid-pitch",
+  "description": "hip convex pentagon, 25° pitch",
+  "roof": {
+    "id": "roof:hip-pent",
+    "type": "roof",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "boundary": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 4,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 5,
+        "y": 0,
+        "z": 2
+      },
+      {
+        "x": 2,
+        "y": 0,
+        "z": 4
+      },
+      {
+        "x": -1,
+        "y": 0,
+        "z": 2
+      }
+    ],
+    "shape": "hip",
+    "pitch": 0.4363323129985824,
+    "overhang": 0,
+    "thickness": 0.2
+  },
+  "worldY": 0
+}

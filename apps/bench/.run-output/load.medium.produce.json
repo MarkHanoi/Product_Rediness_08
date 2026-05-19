@@ -1,0 +1,10 @@
+{
+  "name": "load.medium.produce",
+  "samples": 5,
+  "p50": 39.126,
+  "p95": 48.01,
+  "p99": 48.01,
+  "budgetMs": 1500,
+  "warnMs": 1500,
+  "recordedAt": "2026-05-09T23:09:30.298Z"
+}

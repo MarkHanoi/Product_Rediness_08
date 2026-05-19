@@ -1,0 +1,42 @@
+{
+  "name": "@pryzm/command-registry",
+  "version": "0.1.0",
+  "description": "PRYZM — all BIM commands (walls, slabs, doors, rooms, hierarchy, etc.). Migrated from src/engine/subsystems/commands/ (Sprint H, 2026-05-10).",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src", "dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@pryzm/event-bus": "workspace:*",
+    "@pryzm/core-app-model": "workspace:*",
+    "@pryzm/geometry-wall": "workspace:*",
+    "@pryzm/geometry-slab": "workspace:*",
+    "@pryzm/geometry-curtain-wall": "workspace:*",
+    "@pryzm/geometry-door": "workspace:*",
+    "@pryzm/geometry-window": "workspace:*",
+    "@pryzm/geometry-column": "workspace:*",
+    "@pryzm/room-topology": "workspace:*",
+    "@pryzm/geometry-roof": "workspace:*",
+    "@pryzm/geometry-stair": "workspace:*",
+    "@pryzm/geometry-furniture": "workspace:*",
+    "@pryzm/geometry-lighting": "workspace:*",
+    "@pryzm/geometry-plumbing": "workspace:*",
+    "@pryzm/persistence-client": "workspace:*",
+    "@pryzm/ai-host": "workspace:*",
+    "@pryzm/plugin-annotations": "workspace:*",
+    "@pryzm/renderer-three": "workspace:*",
+    "uuid": "^9.0.0",
+    "zod": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

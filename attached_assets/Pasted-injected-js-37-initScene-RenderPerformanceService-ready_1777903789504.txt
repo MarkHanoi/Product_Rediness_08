@@ -1,0 +1,69 @@
+injected.js:37 [initScene] RenderPerformanceService ready.
+injected.js:37 [initScene] SplitViewManager ready.
+injected.js:37 [initScene] Scene subsystem fully initialised.
+injected.js:37 THREE.WebGLShadowMap: PCFSoftShadowMap has been deprecated. Using PCFShadowMap instead.
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [a11y] Canvas aria-label + role + tabindex set (Wave A18-T21)
+injected.js:37 [EngineBootstrap] Gizmo axes recoloured to PRYZM violet palette
+injected.js:37 [initBuilders] Column subsystem initialised
+injected.js:37 [CurtainPanelSyncHandler] Activated — panel store will sync with curtain wall store.
+injected.js:37 [initBuilders] CurtainWall subsystem stores initialised
+injected.js:37 [initBuilders] Slab subsystem initialised
+injected.js:37 [initBuilders] Ceiling subsystem initialised
+injected.js:37 [FloorSlabBindingHandler] Attached slab binding listeners.
+injected.js:37 [initBuilders] Floor finish subsystem initialised
+injected.js:37 [FPS] 1fps
+injected.js:37 [LONGTASK] duration=56.0ms start=92475.1ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=161.0ms start=92534.2ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [initBuilders] Room subsystem initialised
+injected.js:37 [initBuilders] Door/Window singleton stores exposed on window
+injected.js:37 [WallStore] attached to window WallStore
+injected.js:37 [LONGTASK] duration=600.0ms start=92697.6ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [initBuilders] Wall + Slab system type stores loaded
+injected.js:37 [initBuilders] Roof subsystem initialised
+injected.js:37 [initBuilders] Plumbing subsystem initialised
+injected.js:37 [initBuilders] Opening subsystem initialised — openingStore injected into slabBuilder
+injected.js:37 [DoorBuilder] activated
+injected.js:37 [WindowBuilder] activated
+injected.js:37 [initBuilders] Door + Window builders activated (with dependency trackers)
+injected.js:37 [initBuilders] Furniture subsystem initialised
+injected.js:37 [initBuilders] Lighting subsystem initialised
+injected.js:37 [initBuilders] Handrail subsystem initialised
+injected.js:37 [initBuilders] Stair subsystem initialised
+injected.js:37 [initBuilders] Beam subsystem initialised
+injected.js:37 [initBuilders] RoomContentsService — all element stores attached
+injected.js:37 [initBuilders] Grid subsystem initialised
+injected.js:37 [initBuilders] RoomBoundingLine subsystem initialised
+injected.js:37 [RoomFinishSyncService] Started — listening for room finish changes.
+injected.js:37 [initBuilders] RoomFinishSyncService started
+injected.js:37 [initBuilders] All builder subsystems fully initialised.
+injected.js:37 [SelectionManager] PickStrategy set: gpu-pick
+injected.js:37 [initTools] PickStrategy resolved: gpu-pick
+injected.js:37 [FloatingObjectCarousel] Mounted (hidden, render loop deferred)
+injected.js:37 [FurnitureDragDropHandler] Attached to canvas
+injected.js:37 [initTools] LightingTool initialised
+injected.js:37 [CurtainWallTool] SnapManager initialised (CurtainWall + Wall providers)
+injected.js:37 [RoomTopologyObserver] attached to WallStore
+injected.js:37 [RoomTopologyObserver] attached to CurtainWallStore
+injected.js:37 [RoomTopologyObserver] attached to RoomBoundingLineStore
+injected.js:37 [RoomTopologyObserver] attached to SlabStore
+injected.js:37 [RoomTopologyObserver] attached to ColumnStore
+injected.js:37 [RoomTopologyObserver] attached to bim-wall-mutation-committed (commit-barrier path)
+injected.js:37 [LONGTASK] duration=157.0ms start=93375.1ms [type=iframe src=https://a4b1057b-3602-4d03-8051-c49295b7ec5c-00-28y3x4emo57wj.sisko.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [FPS] 14fps
+injected.js:37 [RoomTool] Pick deps injected — POINT_PICK mode available
+injected.js:37 [RoomTool] Manual deps injected — MANUAL_BOUNDARY mode available
+injected.js:37 [initTools] RoomBoundingLineTool registered on window
+injected.js:37 BeamTool initialized with BeamStore: true
+injected.js:37 [StairTool] Constructed. meshBuilder: true deps: true
+injected.js:37 [UnderlayPersistence] Installed (per-project, v2)
+injected.js:37 [ProjectScopedStorage] Installed — auto-keyed by projectId
+injected.js:37 [ProjectIsolationAudit] Installed — will audit every empty project load
+injected.js:37 [GhostOverlayRenderer] Initialised — listening for pryzm-history-ghost-* events
+injected.js:37 [AnnotationManager] init complete — Phase V hover hints wired
+injected.js:37 [OBCAnnotationAdapter] LinearAnnotations not present in this OBC build — skipping subscribe.
+injected.js:37 [OBCAnnotationAdapter] AngleAnnotations not present in this OBC build — skipping subs...

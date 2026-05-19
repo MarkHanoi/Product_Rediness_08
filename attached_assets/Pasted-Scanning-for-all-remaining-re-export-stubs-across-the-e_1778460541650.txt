@@ -1,0 +1,354 @@
+Scanning for all remaining re-export stubs across the entire src/ tree.
+
+
+Show less
+
+Ran grep
+
+Ran ls
+
+Ran find
+
+Diagnosing remaining stub files (11 seconds)
+No remaining export * from '@pryzm' stubs found! But I see comparison/ and remediation/ still have files. Let me check if they're stubs or real files.
+
+Also, the src/engine/subsystems/core/rendering/ directory is empty now. Let me check what's in all the other subdirectories for any remaining stubs.
+
+Since grep found NO re-export stubs, the remaining files in comparison/ and remediation/ must be either real files or single-export stubs. Let me check their content.
+
+Let me also look at what the Sprint Q scope should be. Since all export * from '@pryzm' stubs are gone, I need to think about what the next architectural task is.
+
+Looking at the docs, persistence/ is blocked on domain subsystems, and schedules/ plus requirements/ were already completed in Sprint M. The full stub sweep is actually done — there are no remaining export * from '@pryzm' stubs anywhere. So Sprint Q needs to focus on something different, probably the large real-file extractions. Let me check what the architecture docs say about the next priorities. than the export * pattern they've been using elsewhere.
+
+No export * stubs left. Check comparison/remediation files and scan for named-re-export stubs and the next architectural priority.
+
+
+Show less
+
+Ran head
+
+Ran grep
+
+Ran find
+
+Ran grep
+
+Ran grep
+
+Planning stub re-export deletions (20 seconds)
+Found more named re-export stubs in 3 groups. Scanning all importers comprehensively before executing.
+
+
+Show less
+
+Ran grep
+
+Ran find
+
+Ran grep
+
+Ran grep
+Optimized Agent memory
+
+Identifying stubs to delete (32 seconds)
+I have a full picture. Sprint Q: delete all remaining named re-export stubs. Let me do the comprehensive importer scan first across all stub groups simultaneously.
+
+
+Show less
+
+Ran grep
+
+Ran grep
+
+Ran grep
+
+Ran grep
+
+Ran for
+
+Ran for
+
+Planning stub deletion strategy (103 seconds)
+I have a complete picture. Sprint Q: 35 stubs across 11 stub groups. Let me check for barrel files in stub dirs before executing.
+
+
+Show less
+
+Ran find
+
+Ran grep
+
+Ran find
+
+Checking additional file stubs (7 seconds)
+No barrel files in stub dirs. Now I'll check the remaining uncertain files and then execute the full migration.
+
+
+Show less
+
+Ran for
+
+Ran grep
+
+Ran grep
+
+Ran find
+
+Planning stub migration script (39 seconds)
+Now I have a complete picture. Let me catalog ALL stubs for Sprint Q:
+
+Stubs to delete and their importer routing:
+
+Group 1: → @pryzm/core-app-model
+
+core/ArchitectureFragments.ts → no importers
+
+core/BimWorld.ts → initScene.ts
+
+core/CoreElement.ts → 6 files
+
+core/DecisionRecordStore.ts → 4 files
+
+core/DependencyResolver.ts → initDataPlatform.ts
+
+core/InfiniteGrid3D.ts → no importers
+
+core/SceneTheme.ts → 3 files
+
+core/SelectionBus.ts → 2 files
+
+core/StoreRegistry.ts → 9 files
+
+core/batch/BatchCoordinator.ts → no direct src/ importers
+
+core/comparison/ComparisonEngine.ts → 3 files
+
+core/remediation/AutoRemediateCommand.ts → no importers
+
+core/context/ProjectContext.ts → 13 files
+
+core/drawing/HiddenLineRemoval.ts → no importers
+
+core/drawing/SymbolicRuleRenderer.ts → checking importers
+
+core/navigation/GeospatialAdapter.ts → no importers
+
+core/persistence/ProjectScopeRegistry.ts → 12 files
+
+core/persistence/ProjectScopedStorage.ts → initTools.ts
+
+core/persistence/ProjectIsolationAudit.ts → checking importers
+
+core/schedules/ScheduleRegistry.ts → 2 files
+
+Then I'm looking at files that should move to @pryzm/core-app-model/drawing like CutSectionExtractor and DrawingPipelineOrchestrator which have no importers, and starting to map out what goes to @pryzm/scene-committer.
+
+Continuing through the scene-related files, I see PreviewRegistry with no importers, SceneBoundsCache used in initScene, SceneObjectClassifier with no importers, SceneLayers referenced in a couple places, and StairPlanSymbolRegistry with 3 importers. Then moving into the stores group which includes BeamStore, BeamTypes, CeilingStore, CeilingSystemTypeStore and more.
+
+Now I'm noticing there are also type definition files like CeilingTypes, FloorTypes, HandrailTypes, OpeningTypes, and RoomBoundingLineTypes in the stores directory. The grep results show importers are pulling from these type files directly, but I need to figure out if these are stub files or actual type definitions being used.
+
+Looking at the line count data, these type files don't appear in the re-export stub pattern, which means they're real files with actual content — I should leave them as-is. Moving on to the next group of files related to annotation commands that need consolidation.
+
+For the selection barrel, I'm noticing that core/selection/index.ts re-exports from the SelectionBus stub, so once I delete that stub file, this barrel will break and I'll need to update it to point directly to the actual package instead.
+
+I should also scan for any files importing from core/selection/ to see what needs fixing, and then check for importers of the other stubs like ProjectIsolationAudit.ts and SymbolicRuleRenderer.ts. Let me also look at core/batch/BatchCoordinator.ts while I'm at it.
+
+Looking at the grep results, core/batch/BatchCoordinator only exports batchCoordinator from the package, and there are no importers of this stub anywhere. Since there's no barrel file in core/batch/, it's safe to delete. Now I'll write a Python migration script to handle all the stub-to-package mappings systematically.
+
+Writing migration script... Continuing to map out the remaining stub categories for drawing, scene management, and stores. Writing the regex patterns...
+
+Good. I also see SceneLayers.ts, SceneTheme.ts, SymbolicRuleRenderer.ts, ProjectIsolationAudit.ts, selection/index.ts are stubs too. Checking their importers, then executing all at once.
+
+
+Show less
+
+Ran grep
+
+Ran grep
+
+Ran grep
+
+Planning script execution and stub identification (20 seconds)
+All data gathered. Full stub census: 46 stubs across 11 groups. Writing the migration script now.
+
+
+Show less
+
+Created tools/migrate-stubs-q.py
+
+Planning parallel migration script execution
+
+Ran cd
+
+Opened src/engine/subsystems/commands/index.ts
+
+Planning file cleanup and updates
+76 files migrated. Now fix the commands barrel and delete all stubs simultaneously.
+
+
+Show less
+
+Edited src/engine/subsystems/commands/index.ts
+
+Ran rm
+
+Running TSC and GA gates
+All stubs deleted. Now run TSC and all 6 GA gates simultaneously.
+
+
+Show less
+
+Ran node_modules/.bin/tsc
+
+Planning supplemental migration script (46 seconds)
+Several errors to fix — the migration script missed some files because they import with different relative path patterns (e.g., from '../StoreRegistry' instead of from '../core/StoreRegistry'). These files are WITHIN the core/ directory itself, so they use shorter relative paths like ../StoreRegistry, ../scene/SceneBoundsCache, etc.
+
+Let me analyze all the errors:
+
+AnnotateViewCommand.ts(20) — imports from ./CreateAnnotationCommand (stub deleted)
+
+ClearProjectCommand.ts — implicit any type errors (pre-existing, not related to our changes)
+
+commands/types.ts has multiple import errors from ../core/context/ProjectContext, ../core/stores/BeamStore, and similar paths — these should have been caught by the migration script, so I need to check why the pattern matching didn't work on those imports.
+
+The regex pattern is looking for from '([^']*)" + suffix + "', which should match from '../core/context/ProjectContext' by capturing ../ and then matching the suffix. But commands/types.ts wasn't in the list of 76 modified files, which means the script didn't process it at all — likely because it's nested deeper in the directory structure than expected. The remaining errors are from different files that my grep patterns missed — some use different import syntaxes or relative paths. I should run a more comprehensive migration script that catches imports using broader path patterns like ../scene/SceneBoundsCache or ../StoreRegistry. Looking at the specific errors, most are related to relative imports within the commands directory, though a few like ClearProjectCommand.ts have unrelated type issues. continuing through the import chain — ProjectLoader.ts pulls in the floor and ceiling system stores along with the decision record store, while ProjectSerializer.ts has a much larger dependency footprint across room boundaries, beams, handrails, openings, and various system type stores. There are also some pre-existing implicit any type errors in a couple of files that aren't related to the stub deletions. The pattern here is that since the stubs lived inside core/, the files referencing them use relative paths like ../scene/X or ../StoreRegistry.
+
+My initial migration script only caught imports with core/ in the path, so I missed these shorter relative imports within the core/ subtree itself. I need to write a supplemental script or extend the existing logic to handle the within-core relative paths — files in src/engine/subsystems/core/ use patterns like '../scene/SceneLayers' or './persistence/ProjectScopeRegistry', while files in src/engine/subsystems/commands/ use longer paths like '../../core/context/ProjectContext'.
+
+Looking at commands/types.ts more closely, I notice the import uses import type { ProjectContext } from '../core/context/ProjectContext'. My regex should have caught this since it matches from '...' patterns, but let me verify the regex is actually working as expected — the pattern from '([^']*)core/context/ProjectContext' should match ../ as part of [^']*. Either the file was already correct, or there's something else going on with how the script processed it.
+
+Actually, I see the real issue now — AnnotateViewCommand.ts imports ./CreateAnnotationCommand with a relative path, which my script wouldn't catch because the suffix pattern expects the full path commands/annotations/CreateAnnotationCommand. I need to change that to import from @pryzm/plugin-annotations instead. Similarly, files in the core/ directory are using short relative paths like ../StoreRegistry and ../scene/SceneBoundsCache that need mapping to their respective package imports, so I'll need to add supplemental rules for those patterns.
+
+The implicit any errors in ClearProjectCommand.ts and ProjectSerializer.ts are likely pre-existing issues that were masked by the stub re-exports providing types — now that we've removed the stubs, these type gaps are surfacing. Let me verify whether these errors existed before the migration or if they're genuinely caused by the stub removal. These implicit any errors are likely pre-existing issues that were hidden before, possibly in callback functions where TypeScript can't infer types. I need to tackle this systematically: write a migration script for relative imports within core, fix AnnotateViewCommand.ts, and verify whether the type errors in ClearProjectCommand and ProjectSerializer are actually caused by our changes or were already there.
+
+Several import misses — files within core/ use short relative paths that the script didn't catch, plus AnnotateViewCommand.ts imports a deleted stub directly. Let me get the full error list and fix everything.
+
+
+Show less
+
+Ran node_modules/.bin/tsc
+
+Planning import path migration strategy (72 seconds)
+Good — I can see all 64 errors clearly. Let me categorize them:
+
+Category 1: Within-core short relative paths (files INSIDE core/ subdirs using short relative paths without core/ prefix)
+
+./persistence/ProjectScopeRegistry → @pryzm/core-app-model
+
+../StoreRegistry → @pryzm/core-app-model
+
+../persistence/ProjectScopeRegistry → @pryzm/core-app-model
+
+../scene/SceneBoundsCache → @pryzm/scene-committer
+
+../scene/SceneObjectClassifier → @pryzm/scene-committer
+
+../scene/SceneLayers → @pryzm/scene-committer
+
+../scene/PreviewRegistry → @pryzm/scene-committer
+
+../stores/BeamStore → @pryzm/core-app-model/stores
+
+../stores/HandrailStore → @pryzm/core-app-model/stores
+
+../stores/OpeningStore → @pryzm/core-app-model/stores
+
+../stores/CeilingStore → @pryzm/core-app-model/stores
+
+../stores/CeilingSystemTypeStore → @pryzm/core-app-model/stores
+
+../stores/FloorStore → @pryzm/core-app-model/stores
+
+../stores/FloorSystemTypeStore → @pryzm/core-app-model/stores
+
+../stores/RoomBoundingLineStore → @pryzm/core-app-model/stores
+
+../DecisionRecordStore → @pryzm/core-app-model
+
+../drawing/HiddenLineRemoval → @pryzm/core-app-model
+
+../selection (→ core/selection/index.ts deleted) → @pryzm/core-app-model
+
+../../../../engine/subsystems/core/selection → @pryzm/core-app-model
+
+../../../engine/subsystems/core/selection → @pryzm/core-app-model
+
+I'm also noticing a few other issues: the dynamic import type expressions in commands/types.ts use import('...') syntax which my regex didn't catch, AnnotateViewCommand.ts is importing a deleted annotation stub, and there are implicit any type errors in ClearProjectCommand.ts and ProjectSerializer.ts where the type stores are now returning different types.
+
+I need to write a supplemental migration script that handles the short relative paths within core, the dynamic import patterns, and the selection module mapping, then separately fix the implicit any errors by adding explicit type annotations to the callback parameters. Continuing with the store mappings for various architectural components like handrails, openings, ceilings, floors, and room bounding lines all pointing to @pryzm/core-app-model/stores, plus hidden line removal logic going to the core model, and then moving into selection-related exports.
+
+Now I'm realizing the shorter path patterns could be too broad and accidentally catch imports that the first script already handled. For instance, stores/BeamStore might match both ../core/stores/BeamStore and ../stores/BeamStore, but that's actually fine since both should map to the same destination anyway. The selection barrel is trickier though — matching just selection as a suffix could be overly permissive across different path depths. I need to handle both from '...' and dynamic import('...') patterns differently since they use different syntax. Rather than trying to write a comprehensive regex, it's more practical to directly fix the 25 affected files since I know exactly which ones need changes and what the issues are.
+
+Looking through the list: AnnotateViewCommand.ts needs an import path update, commands/types.ts has several dynamic imports to fix, ClearProjectCommand.ts has implicit any type issues, and then there are multiple files referencing ./persistence/ProjectScopeRegistry that need updating, plus AssetCatalogStore.ts with issues on specific lines.
+
+Continuing through the remaining files: ViewController.ts has scene-related imports to address, ProjectLoader.ts and ProjectSerializer.ts both need store and decision record imports fixed along with type annotations, EdgeProjectorService.ts needs a drawing module import, and FloorPlanUnderlayRef.ts plus IFCProjectionStore have persistence registry references to update. Continuing through the import path updates across more view and UI components, tracking where ../selection references need to be replaced with @pryzm/core-app-model and where ProjectScopeRegistry and StoreRegistry imports are located.
+
+Now I'm setting up a comprehensive Python script to handle all these import path corrections systematically, defining the mapping rules for short relative paths that appear within core files.
+
+Writing supplemental rules... Continuing with the import path matching...
+
+I'm realizing that using just /StoreRegistry as a suffix won't work because other paths like persistence/ProjectScopeRegistry would also match. Looking at the actual error messages, I need to be more careful about distinguishing between relative imports like '../StoreRegistry' and './' prefixes to properly identify what's being imported. — I can see all 64 errors clearly. Let me categorize them:
+
+Category 1: Within-core short relative paths (files INSIDE core/ subdirs using short relative paths without core/ prefix)
+
+./persistence/ProjectScopeRegistry → @pryzm/core-app-model
+
+../StoreRegistry → @pryzm/core-app-model
+
+../persistence/ProjectScopeRegistry → @pryzm/core-app-model
+
+../scene/SceneBoundsCache → @pryzm/scene-committer
+
+../scene/SceneObjectClassifier → @pryzm/scene-committer
+
+../scene/SceneLayers → @pryzm/scene-committer
+
+../scene/PreviewRegistry → @pryzm/scene-committer
+
+../stores/BeamStore → @pryzm/core-app-model/stores
+
+../stores/HandrailStore → @pryzm/core-app-model/stores
+
+../stores/OpeningStore → @pryzm/core-app-model/stores
+
+../stores/CeilingStore → @pryzm/core-app-model/stores
+
+../stores/CeilingSystemTypeStore → @pryzm/core-app-model/stores
+
+../stores/FloorStore → @pryzm/core-app-model/stores
+
+../stores/FloorSystemTypeStore → @pryzm/core-app-model/stores
+
+../stores/RoomBoundingLineStore → @pryzm/core-app-model/stores
+
+../DecisionRecordStore → @pryzm/core-app-model
+
+../drawing/HiddenLineRemoval → @pryzm/core-app-model
+
+../selection (→ core/selection/index.ts deleted) → @pryzm/core-app-model
+
+../../../../engine/subsystems/core/selection → @pryzm/core-app-model
+
+../../../engine/subsystems/core/selection → @pryzm/core-app-model
+
+I'm also noticing a few other issues: the dynamic import type expressions in commands/types.ts use import('...') syntax which my regex didn't catch, AnnotateViewCommand.ts is importing a deleted annotation stub, and there are implicit any type errors in ClearProjectCommand.ts and ProjectSerializer.ts where the type stores are now returning different types.
+
+I need to write a supplemental migration script that handles the short relative paths within core, the dynamic import patterns, and the selection module mapping, then separately fix the implicit any errors by adding explicit type annotations to the callback parameters. Continuing with the store mappings for various architectural components like handrails, openings, ceilings, floors, and room bounding lines all pointing to @pryzm/core-app-model/stores, plus hidden line removal logic going to the core model, and then moving into selection-related exports.
+
+Now I'm realizing the shorter path patterns could be too broad and accidentally catch imports that the first script already handled. For instance, stores/BeamStore might match both ../core/stores/BeamStore and ../stores/BeamStore, but that's actually fine since both should map to the same destination anyway. The selection barrel is trickier though — matching just selection as a suffix could be overly permissive across different path depths. I need to handle both from '...' and dynamic import('...') patterns differently since they use different syntax. Rather than trying to write a comprehensive regex, it's more practical to directly fix the 25 affected files since I know exactly which ones need changes and what the issues are.
+
+Looking through the list: AnnotateViewCommand.ts needs an import path update, commands/types.ts has several dynamic imports to fix, ClearProjectCommand.ts has implicit any type issues, and then there are multiple files referencing ./persistence/ProjectScopeRegistry that need updating, plus AssetCatalogStore.ts with issues on specific lines.
+
+Continuing through the remaining files: ViewController.ts has scene-related imports to address, ProjectLoader.ts and ProjectSerializer.ts both need store and decision record imports fixed along with type annotations, EdgeProjectorService.ts needs a drawing module import, and FloorPlanUnderlayRef.ts plus IFCProjectionStore have persistence registry references to update. Continuing through the import path updates across more view and UI components, tracking where ../selection references need to be replaced with @pryzm/core-app-model and where ProjectScopeRegistry and StoreRegistry imports are located.
+
+Now I'm setting up a comprehensive Python script to handle all these import path corrections systematically, defining the mapping rules for short relative paths that appear within core files.
+
+Writing supplemental rules... Continuing with the import path matching...
+
+I'm realizing that using just /StoreRegistry as a suffix won't work because other paths like persistence/ProjectScopeRegistry would also match. Looking at the actual error messages, I need to be more careful about distinguishing between relative imports like '../StoreRegistry' and './' prefixes to properly identify what's being imported. the project only has one StoreRegistry module and one selection module, both deleted, so any imports ending with those names are definitely pointing to the stubs and safe to replace. I'm moving through each suffix to verify there's no risk of accidentally changing legitimate imports.
+
+Now I'm realizing the script also needs to handle TypeScript's dynamic import syntax in type positions, like import('path').Type, which uses parentheses instead of from. I'll add a regex pattern to catch those cases alongside the standard from imports.
+
+The implicit any errors are stemming from type information loss during the migration — when openingStore gets imported from the new barrel export, its return types might not be properly inferred, causing the forEach callback parameter to lose its type annotation. The import path changed to use the package alias, so I need to verify that OpeningStore is properly exported with types from the new location. Let me tackle this systematically by running a supplemental migration script to handle the module resolution errors, then examining the affected files to understand what's causing the implicit any issues.
+
+Clear picture — two classes of misses: (1) within-core/ files use shorter relative paths without the core/ prefix, (2) import('...') type expressions in commands/types.ts. Writing the supplemental fix script and reading the any error files in parallel.

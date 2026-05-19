@@ -1,0 +1,95 @@
+No — **TAB does not activate orthogonal (ortho) drawing** in Autodesk Revit.
+
+TAB has a **completely different function**.
+
+---
+
+# What TAB Actually Does
+
+**TAB cycles through selectable references.**
+
+When the cursor is near multiple possible references, pressing TAB switches the active reference.
+
+Examples of what TAB cycles through:
+
+* wall **face**
+* wall **centerline**
+* wall **core centerline**
+* **edge**
+* **endpoint**
+* **entire chain of walls**
+
+Each TAB press changes the highlighted element.
+
+So TAB = **reference cycling / selection disambiguation**.
+
+---
+
+# What Activates Orthogonal Drawing
+
+Orthogonal alignment (0°, 90°, 180° etc.) is controlled by **SHIFT**.
+
+### SHIFT behavior
+
+Holding **SHIFT** temporarily locks the drawing direction.
+
+Example:
+
+1. Start drawing wall
+2. Move cursor horizontally
+3. Hold **SHIFT**
+
+The direction locks to the nearest orthogonal axis.
+
+Release SHIFT → free angle again.
+
+---
+
+# Example Workflow
+
+Draw a wall aligned with an existing wall centerline and exactly 5 m long.
+
+1. Start **Wall tool**
+2. Hover near existing wall
+3. Press **TAB** until **centerline highlights**
+4. Click start point
+5. Move cursor horizontally
+6. Hold **SHIFT** (lock horizontal)
+7. Type `5000`
+8. Press **Enter**
+
+Result:
+A **5 m orthogonal wall starting from the centerline**.
+
+---
+
+# Quick Summary
+
+| Key   | Function                      |
+| ----- | ----------------------------- |
+| TAB   | Cycle references under cursor |
+| SHIFT | Lock orthogonal direction     |
+| Enter | Confirm typed dimension       |
+| ESC   | Cancel command                |
+
+---
+
+# Why This Distinction Exists
+
+Revit separates:
+
+**Reference selection (TAB)**
+from
+**direction control (SHIFT)**
+
+This allows users to independently control:
+
+1. **what they snap to**
+2. **how the element is oriented**
+3. **the exact dimension**
+
+That separation is a major part of Revit's **precision modeling workflow**.
+
+---
+
+If you're building your **own BIM authoring tool**, I can also explain the **full snapping + inference system used in Revit** (reference priority, detection radius, predictive snapping). This is one of the hardest parts to replicate correctly in BIM software.

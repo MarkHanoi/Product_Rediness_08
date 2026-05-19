@@ -1,0 +1,83 @@
+[FPS] 32fps
+injected.js:37 [FPS] 61fps
+injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [FPS] 55fps
+injected.js:37 [GPU Monitor] geometries:165 textures:11 | drawCalls:1 tris:1
+injected.js:37 [GPU Monitor] ⚠ Geometry count grew 157.8% (64 → 165) in 10s — possible leak. Check WallFragmentBuilder.removeWallFragments() and CurtainWallBuilder._disposeChildren().
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [CommandManager] EXECUTE: CREATE_LEVEL
+injected.js:37 [CommandManager] snapshot commandType="AddLevelCommand" scope=[level] elapsed=0.1ms
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "5a63e9c3-3db1-4793-a759-5d710ca46e25" at 3m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 ToolManager: activateTool called for stair-path
+injected.js:37 ToolManager: deactivating previous tool none
+injected.js:37 ToolManager: executing activateFn for stair-path
+injected.js:37 [ToolManager] activateStairPath — plan view stair-path tool ready (shape: I)
+injected.js:37 [FPS] 24fps
+injected.js:37 [LONGTASK] duration=100.0ms start=362712.2ms [type=iframe src=https://2c0467dd-5be5-4184-8677-9d06fed24131-00-3u446s3y0zpo4.spock.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [FPS] 40fps
+2injected.js:37 [ProjectSerializer] Snapshot created: 17 elements, 2 levels, 12 walls, 1 slabs, 0 furniture
+injected.js:37 [PlatformSaveController] Version saved: "Auto-save" (17 elements, id: proj-1778399854883-px7a4)
+injected.js:37 [LONGTASK] duration=157.0ms start=364626.4ms [type=iframe src=https://2c0467dd-5be5-4184-8677-9d06fed24131-00-3u446s3y0zpo4.spock.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [FPS] 20fps
+injected.js:37 ToolManager: activateTool called for stair-path
+injected.js:37 ToolManager: deactivating previous tool none
+injected.js:37 ToolManager: executing activateFn for stair-path
+injected.js:37 [ToolManager] activateStairPath — plan view stair-path tool ready (shape: I)
+injected.js:37 [FPS] 30fps
+injected.js:37 [CommandManager] EXECUTE: CREATE_STAIR
+injected.js:37 [CreateStairCommand.canExecute] ctx.stores: Array(35)
+injected.js:37 [CreateStairCommand.canExecute] levels: Array(2)
+injected.js:37 [CommandManager] snapshot commandType="CreateStairCommand" scope=[stair,opening,slab] elapsed=0.1ms
+injected.js:37 [BimManager] Registered element 690624d3-3327-4964-b500-f1395e1abe2a to level L0
+injected.js:37 [StairMeshBuilder] Building geometry for: 690624d3-3327-4964-b500-f1395e1abe2a I
+injected.js:37 [StairMeshBuilder] Built group for stair 690624d3-3327-4964-b500-f1395e1abe2a (I, 17 risers, preview=false)
+injected.js:37 [StairStore] Added stair 690624d3-3327-4964-b500-f1395e1abe2a (I) from L0 to 5a63e9c3-3db1-4793-a759-5d710ca46e25
+injected.js:37 [CreateStairCommand] Auto-opening skipped: no slab on top level "5a63e9c3-3db1-4793-a759-5d710ca46e25"
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CommandManager] EXECUTE: CREATE_STAIR_RAILING
+injected.js:37 [CommandManager] snapshot commandType="CreateStairRailingCommand" scope=[stair,stair-railing] elapsed=0.1ms
+injected.js:37 [BimManager] Registered element 60c0684b-385b-4f1e-a893-a1848c0debdc to level L0
+injected.js:37 [StairRailingBuilder] Built railing 60c0684b-385b-4f1e-a893-a1848c0debdc (left, type=flat-bar) for stair 690624d3-3327-4964-b500-f1395e1abe2a — 1 flight(s)
+injected.js:37 [StairRailingStore] Added railing 60c0684b-385b-4f1e-a893-a1848c0debdc (left) for stair 690624d3-3327-4964-b500-f1395e1abe2a
+injected.js:37 [CreateStairRailingCommand] Created railing 60c0684b-385b-4f1e-a893-a1848c0debdc (left) for stair 690624d3-3327-4964-b500-f1395e1abe2a
+injected.js:37 [CommandManager] EXECUTE: CREATE_STAIR_RAILING
+injected.js:37 [CommandManager] snapshot commandType="CreateStairRailingCommand" scope=[stair,stair-railing] elapsed=0.1ms
+injected.js:37 [BimManager] Registered element 44d9bec9-49c4-406a-bd2a-d111c996eb73 to level L0
+injected.js:37 [StairRailingBuilder] Built railing 44d9bec9-49c4-406a-bd2a-d111c996eb73 (right, type=flat-bar) for stair 690624d3-3327-4964-b500-f1395e1abe2a — 1 flight(s)
+injected.js:37 [StairRailingStore] Added railing 44d9bec9-49c4-406a-bd2a-d111c996eb73 (right) for stair 690624d3-3327-4964-b500-f1395e1abe2a
+injected.js:37 [CreateStairRailingCommand] Created railing 44d9bec9-49c4-406a-bd2a-d111c996eb73 (right) for stair 690624d3-3327-4964-b500-f1395e1abe2a
+injected.js:37 [CreateStairCommand] Created stair 690624d3-3327-4964-b500-f1395e1abe2a (I) from L0 to 5a63e9c3-3db1-4793-a759-5d710ca46e25
+injected.js:37 [FPS] 30fps
+injected.js:37 [LONGTASK] duration=99.0ms start=370469.1ms [type=iframe src=https://2c0467dd-5be5-4184-8677-9d06fed24131-00-3u446s3y0zpo4.spock.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+injected.js:37 [NativeElementMeshExporter] Plan view — exporting 28 elements from levels overlapping Y=[-1.20, 0.00]
+injected.js:37 [NME] §H2-NME-CACHE hits=23 misses=3 hitRate=88% cacheSize=188/500
+injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+injected.js:37 [EdgeProjectorService] project() batchId=none viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000 belowY=-1.200
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=9ad87a30-b328-4006-8a33-6e7337832928 elemType=wall meshesProcessed=3 totalEdgeVerts=72 layers=1 traverseMs=0.3ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-WALL geoCount=3 mergedVerts=72 mergeMs=0.0ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=57d389b9-e266-447d-9f7f-e4be3f086b7d elemType=wall meshesProcessed=9 totalEdgeVerts=216 layers=1 traverseMs=1.1ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-WALL geoCount=9 mergedVerts=216 mergeMs=0.0ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#2 elemId=f54035c0-b300-4aff-9e4b-4385e4c5008f elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.2ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#3 elemId=0a649f44-dce3-459e-9dc7-38b8847a1326 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+injected.js:37 [PascalSceneLighting] Shadow flags set on 84 mesh(es).
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#4 elemId=ae2a0a2c-b9b0-4dc7-8aa1-5c5d7dee132f elemType=wall meshesProcessed=8 totalEdgeVerts=192 layers=1 traverseMs=0.8ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-WALL geoCount=8 mergedVerts=192 mergeMs=0.0ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#5 elemId=f2cfba99-d0e0-4411-9eff-45bfcdc994d7 elemType=wall meshesProcessed=3 totalEdgeVerts=72 layers=1 traverseMs=0.2ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-03 mergeGeometries layer=A-WALL geoCount=3 mergedVerts=72 mergeMs=0.0ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#6 elemId=9d9ef1f8-a89e-4c4d-a11c-968cefb20c7b elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#7 elemId=eeea18b9-a5d5-4057-9c88-a53e31486cb3 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+injected.js:37 [LONGTASK] duration=108.0ms start=370606.5ms [type=iframe src=https://2c0467dd-5be5-4184-8677-9d06fed24131-00-3u446s3y0zpo4.spock.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [GPU Monitor] geometries:165 textures:11 | drawCalls:1 tris:1
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#8 elemId=3171d93b-3ae9-4573-95e0-a472ab6af618 elemType=Slab meshesProcessed=1 totalEdgeVerts=48 layers=1 traverseMs=0.4ms

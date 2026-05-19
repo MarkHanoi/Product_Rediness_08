@@ -1,0 +1,22 @@
+{
+  "id": "dimension_01H8XK3J7M9N2P4QR5STVW6XYZ",
+  "type": "dimension",
+  "parentId": "view_01H8XK3J7M9N2P4QR5STVW6VVV",
+  "childrenIds": [],
+  "metadata": {
+    "createdAt": 1700001200000,
+    "modifiedAt": 1700001200000,
+    "createdBy": "fixture",
+    "version": 1
+  },
+  "viewId": "view_01H8XK3J7M9N2P4QR5STVW6VVV",
+  "kind": "linear",
+  "points": [
+    { "x": 0, "y": 0, "z": 0 },
+    { "x": 5, "y": 0, "z": 0 }
+  ],
+  "offsetMm": 8,
+  "units": "mm",
+  "precision": 0,
+  "overridden": false
+}

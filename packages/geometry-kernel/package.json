@@ -1,0 +1,43 @@
+{
+  "name": "@pryzm/geometry-kernel",
+  "version": "0.1.0",
+  "description": "PRYZM 2 — L4 geometry kernel.  Pure DTO → BufferGeometryDescriptor producers.  No THREE imports allowed (enforced by `pryzm/no-three-in-kernel`).",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./types/BufferGeometryDescriptor": "./src/types/BufferGeometryDescriptor.ts",
+    "./types/JoinData": "./src/types/JoinData.ts",
+    "./runners/headless-runner": "./src/runners/headless-runner.ts",
+    "./runners/browser-worker-runner": "./src/runners/browser-worker-runner.ts",
+    "./csg": "./src/csg/index.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@pryzm/schemas": "workspace:*",
+    "@pryzm/protocol": "workspace:*",
+    "@pryzm/drawing-primitives": "workspace:*"
+  },
+  "peerDependencies": {
+    "manifold-3d": "*",
+    "tsx": "*"
+  },
+  "peerDependenciesMeta": {
+    "manifold-3d": { "optional": true },
+    "tsx": { "optional": true }
+  },
+  "devDependencies": {
+    "@typescript-eslint/parser": "^8.59.0",
+    "eslint": "^9.39.4",
+    "eslint-plugin-pryzm": "workspace:*",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

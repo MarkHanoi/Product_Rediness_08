@@ -1,0 +1,21 @@
+G.1 — BatchCoordinator double-microtask VDT suppress lift
+BatchCoordinator.ts — setSuppressed(false) now defers through two queueMicrotask ticks so the DependencyResolver CASCADE (9 wall events × _onStoreEvent) finishes synchronously before VDT unlocks. This eliminates EPS Flush #2 as a 81ms LONGTASK during post-batch user navigation. A 2s hard timeout (§G1-TIMEOUT) prevents lockout if a dependency cycle is ever introduced.
+
+G.2 — RoomTopologyObserver batch cancel + cooldown
+
+RoomTopologyObserver.ts gains two new public methods — cancelPendingForLevels() clears in-flight debounce timers for the just-built level IDs, and setPostBatchCooldown() arms a 1-second suppression window that blocks any re-scheduled timers from firing during post-overlay user navigation.
+BatchCoordinator.ts calls both via window.roomTopologyObserver?. optional-chaining (no circular import).
+G.3 — ViewDependencyTracker targeted stale-event fallback
+ViewDependencyTracker.ts — the unregistered-element fallback now calls _markViewDirtyForStoreType() (a new private helper) and emits a §G3 warning log instead of silently marking every non-3D view dirty. Less aggressive scope on undo/redo cycles.
+
+I.1 — Phase 2 prewarm probes
+CreateCurtainWallsOnAllSlabsCommand.ts — two additional probe meshes added to _prewarmCurtainWallShaders():
+
+shadowReceiverProbe (receiveShadow=true, §I.1.2) — pre-compiles the PCF shadow-receiver PSO variant
+depthPrepassProbe (transparent, depthWrite=true, §I.1.3) — pre-compiles the depth pre-pass PSO variant
+Both are scale-zeroed and fully disposed in the finally block. Log now emits §I1-PREWARM-PHASE2 complete — 5 PSO variants × 3 pipeline passes.
+
+I.2.1 — RenderPipelineManager usedTimes null-guard
+_safeDisposeRenderPipeline() now checks typeof pipeline.usedTimes !== 'number' before calling dispose(). If the counter is missing (mid-compile device loss), it patches it to 0 and logs §I2. The rp.dispose?.() call in the render() error path was also updated to go through _safeDisposeRenderPipeline() instead of bypassing the guard.
+
+TypeScript: zero errors confirmed. Sprint map: S1=F ✅, S2=G+I ✅, S3=H+K, S4=C+D+E.

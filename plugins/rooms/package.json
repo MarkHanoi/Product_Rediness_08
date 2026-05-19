@@ -1,0 +1,38 @@
+{
+  "name": "@pryzm/plugin-rooms",
+  "version": "0.1.0",
+  "description": "PRYZM 2 \u2014 Rooms plugin (S25). Headless half: Store<RoomData>, typed errors, 8 handlers (CreateRoom / DeleteRoom / MoveRoom / SetRoomName / SetRoomNumber / SetRoomOccupancy / SetRoomMaterial / SetRoomHeightOffset). Producer (packages/geometry-kernel/src/producers/room.ts) does the half-edge flood-fill from a seed point per ADR-0022. Wall\u2192room cascade (boundary edits propagate the room recompute) lives in plugins/cross/wall-room.ts (S26). Committer / tool live under src/committer/.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./store": "./src/store.ts",
+    "./errors": "./src/errors.ts",
+    "./handlers": "./src/handlers/index.ts",
+    "./intent": "./src/intent.ts",
+    "./tool": "./src/tool.ts",
+    "./committer": "./src/committer/index.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "immer": "^10.1.1",
+    "three": "^0.183.2",
+    "ulid": "^2.3.0",
+    "@pryzm/plugin-sdk": "workspace:*",
+    "@pryzm/command-registry": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/three": "^0.183.1",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

@@ -1,0 +1,37 @@
+Everything is clean. The app is running with no TypeScript errors and no runtime crashes. Here's a summary of everything completed across both sessions:
+
+---
+
+**What was done — Curtain Wall BIM Enhancement**
+
+All work follows the contract docs (§01–§05) and touches only curtain wall modules.
+
+**New modules created:**
+
+- `CurtainGridSystem.ts` — parametric U/V grid with `migrateToGridSystem()` for backward compat
+- `CurtainCellComputer.ts` — pure cell-from-grid computation
+- `CurtainPanelTypes.ts` — Glass / Opaque / Empty panel type definitions
+- `CurtainPanelStore.ts` — §3.3–§3.8 compliant ElementStore for per-cell panel BIM data
+- `CurtainPanelBuilder.ts` — individual panel mesh construction
+- `CurtainWallInstanceManager.ts` — InstancedMesh batching grouped by panel type
+- `CurtainPanelSyncHandler.ts` — keeps panel store in sync with wall store events
+
+**New commands created (all snapshot-based undo, no direct builder calls):**
+
+- `AddCurtainGridLineCommand.ts`
+- `RemoveCurtainGridLineCommand.ts`
+- `ReplacePanelTypeCommand.ts`
+
+**Existing files surgically updated:**
+
+- `CurtainWallTypes.ts` — optional `gridSystem` field added
+- `CurtainWallStore.ts` — deep-clones `gridSystem` on update
+- `CurtainWallBuilder.ts` — new pipeline: grid → cells → panels → mullions → orient
+- `ElementRegistry.ts` — registered `'curtain-panel'` store type
+- `CoreElement.ts` — `'curtain-panel'` added to `ElementType` union + IFC class map
+- `commands/types.ts` — 3 new `CommandType` entries + optional `curtainPanelStore` in context
+- `commands/plans/PlanOrdering.ts` — priority entries for the 3 new command types
+- `AIReadModel.ts` — enriched `getAllCurtainWalls()` + new `getCurtainWallPanels()`
+- `ai/types.ts` — `AICurtainWall`, `AICurtainPanel` types
+- `ai/intents/types.ts` — `REPLACE_CURTAIN_PANEL`, `ADD_CURTAIN_GRID_LINE` intents
+- `main.ts` — `CurtainPanelStore` + `CurtainPanelSyncHandler` instantiated and wired into both `window` and the command context

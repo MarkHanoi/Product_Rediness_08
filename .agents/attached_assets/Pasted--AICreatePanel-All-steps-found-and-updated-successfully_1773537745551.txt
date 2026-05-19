@@ -1,0 +1,24 @@
+[AICreatePanel] All steps found and updated successfully
+EngineBootstrap-DFYf-hYV.js:9672 [AICreatePanel] Attaching file input change listener
+EngineBootstrap-DFYf-hYV.js:9672 [AICreatePanel] Attaching all event listeners
+EngineBootstrap-DFYf-hYV.js:9672 [AICreatePanel] Attaching all event listeners...
+EngineBootstrap-DFYf-hYV.js:9672 [AICreatePanel] ✓ Step 2 Next button listener attached
+EngineBootstrap-DFYf-hYV.js:9672 [AICreatePanel] ✓ Step 2 Back button listener attached
+EngineBootstrap-DFYf-hYV.js:9672 [AICreatePanel] ✓ Step 3 Generate button listener attached
+EngineBootstrap-DFYf-hYV.js:9672 [AICreatePanel] ✓ Step 3 Back button listener attached
+EngineBootstrap-DFYf-hYV.js:9672 [AICreatePanel] ✓ Step 4 Open AI Actions button listener attached
+EngineBootstrap-DFYf-hYV.js:9672 [AICreatePanel] ✓ Step 4 Create Another button listener attached
+EngineBootstrap-DFYf-hYV.js:9672 [AICreatePanel] ✓ Prompt input keydown listener attached
+EngineBootstrap-DFYf-hYV.js:9672 [AICreatePanel] All event listeners attached successfully
+EngineBootstrap-DFYf-hYV.js:10063 Refreshing Spatial Tree...
+EngineBootstrap-DFYf-hYV.js:9925 [FloorPlanImportPanel] PDF converted: 1190×1684px
+EngineBootstrap-DFYf-hYV.js:9925 [FloorPlanImportPanel] Ruler: 195.5 px between two points
+EngineBootstrap-DFYf-hYV.js:9925 [FloorPlanImportPanel] Ruler calibration: 195.5px = 2.3m → 85.0 px/m | plan: 14.0m × 19.8m
+EngineBootstrap-DFYf-hYV.js:9914 [FloorPlanAIFactory] Stage B1: requesting walls + slab…
+/api/anthropic/v1/messages:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+EngineBootstrap-DFYf-hYV.js:9925 [FloorPlanImportPanel] Analysis error: Error: [FloorPlanAIFactory] API error 404: {}
+    at Gle (EngineBootstrap-DFYf-hYV.js:9909:494)
+    at async Rie.analyseStructure (EngineBootstrap-DFYf-hYV.js:9914:239)
+    at async Rie.analyse (EngineBootstrap-DFYf-hYV.js:9925:575)
+    at async Zit (EngineBootstrap-DFYf-hYV.js:9925:24850)
+Zit @ EngineBootstrap-DFYf-hYV.js:9925Understand this error

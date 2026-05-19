@@ -1,0 +1,47 @@
+{
+  "id": "round-u-shape",
+  "description": "round rail tracking a U-shape stair (5-pt polyline)",
+  "handrail": {
+    "id": "handrail:rnd-u",
+    "type": "handrail",
+    "childrenIds": [],
+    "metadata": {
+      "createdAt": 0,
+      "modifiedAt": 0,
+      "createdBy": "fixture",
+      "version": 1
+    },
+    "levelId": "level:0",
+    "path": [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 0,
+        "y": 1.4,
+        "z": 0
+      },
+      {
+        "x": 1.2,
+        "y": 1.4,
+        "z": 0
+      },
+      {
+        "x": 1.2,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 2.4,
+        "y": 0,
+        "z": 0
+      }
+    ],
+    "shape": "round",
+    "height": 1,
+    "diameter": 0.045
+  },
+  "worldY": 0
+}

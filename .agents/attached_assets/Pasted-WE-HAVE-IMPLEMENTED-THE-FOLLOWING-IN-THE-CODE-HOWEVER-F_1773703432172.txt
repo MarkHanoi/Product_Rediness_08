@@ -1,0 +1,34 @@
+WE HAVE IMPLEMENTED THE FOLLOWING IN THE CODE, HOWEVER, FROM AN UI STAND POINT, I DONT SEE IT WORKING. USER SELECTE WALL POLYLINE, DEFINES FIRST POINT, BLUE DIM APPEARS, AT THIS STAGE, IF USER WANTS TO DEGINE THE LENGTH OF THIS WALL SEGMENT, SELECT TAB AND IS ABLE TO ADD A NUMBER FOR THE LENGTH... BUT THIS IS NOT HAPPENING WHY?? .Follow the instructions attached. Make sure that any changes are not impacting other tool's logic or functionalities. Don't do it using autonomous. Use modular coding, don't impact existing functionality and logic, if needed create a new file. Follow always the contract (docs/01-BIM-ENGINE-CORE-CONTRACT, 02-BIM-SPATIAL-PROJECTION-CONTRACT, 03-BIM-SEMANTIC-MODEL-CONTRACT, 04-BIM-AI-MODIFICATION-PROTOCOL, 05-BIM-UI-ARCHITECTURE-CONTRACT, 06-BIM-PLATFORM-UI-CONTRACT,07-BIM-SECURITY-CONTRACT)....What was delivered
+WallDimensionInput.ts — Revit-style typed millimetre entry
+
+Digit/period keystrokes build a mm buffer while in DRAWING state
+Backspace trims; Escape clears the buffer only (tool stays active)
+getLockedEndPoint(start, cursor) projects the typed length along the cursor direction
+isActive, getRawBuffer(), reset(), dispose() — clean lifecycle
+WallSnapCycler.ts — TAB snap reference cycling
+
+Each pointer-move refreshes candidates within 1.5 m (endpoints, midpoints, centerline points, deduplicated to 0.05 m)
+Tab cycles the index; moving the cursor >0.4 m resets it automatically
+isActive, getLockedPoint(), getLockedLabel(), getCandidateCount(), reset(), dispose()
+DimensionPreview.ts — extended for both features
+
+New inputOverride: string | null private field (already added last session)
+setInputOverride(text) method added
+update() now renders a dark-blue badge with a cyan outline when override is set; reverts to the auto-distance label when null
+WallTool.ts — integration (purely additive, no existing logic broken)
+
+Imports both modules; private fields dimensionInput and snapCycler
+Initialised in constructor; disposed in dispose(); reset in cancel() and on each click confirmation in onPointerDown
+onKeyDown routes: digits → dimension input → preview + label; Tab (non-ortho) → snap cycler; Tab (ortho modes) → unchanged ortho toggle; Enter → dimension-input confirmation → pathBuilder → polyline-chain or deactivate; Enter → snap-cycler confirmation (same flow); Escape clears buffer only if input was active, otherwise deactivates
+onPointerMove updates candidates every frame; picks the effective end-point in priority order (snap-cycler lock > dimension-input lock > cursor); sets the dim-override label accordingly
+Private helper isPolylineMode() avoids duplicating the polyline-mode check
+docs/WallContract/04-WALL-TOOL-STATE-MACHINE-CONTRACT.md — §12 and §13 added with full tables, rules, and API spec
+
+Let me explore the existing implementation to understand what's happening.
+
+Let me read all four files to understand the current implementation.
+
+Now let me read the WallTool to understand how the key handling is wired up.
+
+
+Scroll to latest

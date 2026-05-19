@@ -1,0 +1,24 @@
+<Window x:Class="PRYZM.Revit.Bridge.UI.ExportDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Export to PRYZM"
+        Height="220" Width="440"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <TextBlock Grid.Row="0" Text="Select PRYZM project:" Margin="0,0,0,8"/>
+        <ComboBox Grid.Row="1" x:Name="ProjectComboBox" Height="28"/>
+        <TextBlock Grid.Row="2" Text="The active Revit document will be exported to IFC4 and uploaded to the selected PRYZM project."
+                   TextWrapping="Wrap" Margin="0,12,0,0" Foreground="#666"/>
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Cancel" Width="80" Margin="0,0,8,0" Click="OnCancel"/>
+            <Button Content="Export" Width="80" Click="OnExport" IsDefault="True"/>
+        </StackPanel>
+    </Grid>
+</Window>

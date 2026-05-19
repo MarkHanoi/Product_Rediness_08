@@ -1,0 +1,23 @@
+{
+  "name": "@pryzm/plugin-render",
+  "version": "0.1.0",
+  "description": "PRYZM 2 \u2014 empty render plugin shell (F-prereq.0). Render-pipeline contributions (post-FX, lighting presets) land in F.x; this scaffold reserves the workspace package.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

@@ -1,0 +1,316 @@
+Full Implementation Plan: Stream 1 & Stream 2 — Contract-Compliant
+
+---
+
+Pre-Work: Contract Compliance Steps (Must be done before any code)
+
+---
+
+Pre-Step 1 — Register missing CSS prefixes in §05
+
+**File: `docs/05-BIM-UI-ARCHITECTURE-CONTRACT.md`**
+
+In the prefix table in Section 3, add two missing rows that already exist in the codebase but were never formally registered:
+
+| **Prefix** | **Panel** | **File** |
+| --- | --- | --- |
+| `pr-` | Pricing Page | `src/styles/AppTheme.ts` — `PRICING_PAGE_STYLES` |
+| `um-` | Upgrade Modal | `src/styles/AppTheme.ts` — `UPGRADE_MODAL_STYLES` |
+
+---
+
+Pre-Step 2 — Write the Modification Declarations
+
+Before touching any source file, the following two declarations must be recorded (they can be added as comments at the top of each modified file's git commit, or kept as a working note):
+
+**UI Modification Declaration (§05 §10):**
+
+```
+Panel Affected: LandingPage, PricingPage, ProjectHub
+CSS Scope: AppTheme.ts — LANDING_PAGE_STYLES (new lp-bespoke-* classes),
+           AppTheme.ts — PRICING_PAGE_STYLES (new pr-bespoke-* classes)
+Files Modified: LandingPage.ts, PricingPage.ts, ProjectHub.ts,
+                PlatformRouter.ts, PlanConfig.ts, AppTheme.ts
+Phase: Phase 1 (Shell — additive HTML/CSS only, no BUI atom replacement)
+Class Prefixes Used: lp- (registered), pr- (now registered), ph- (registered)
+Impact Assessment:
+  - Logic Impact: Yes — new callbacks on LandingPageCallbacks; ProjectHub condition change
+  - Store Impact: No
+  - BUI Shadow DOM: No
+  - display-toggle Safety: No JS-toggled section bodies affected
+  - z-index / positioning: No
+Risk Level: Low
+Rationale: Stream 2 entry points, broken nav fix, upgrade path for paid plan users.
+```
+
+**Platform Modification Declaration (§06 §11):**
+
+```
+Components Affected: LandingPage, PricingPage, ProjectHub, PlatformRouter
+CSS Constants Modified: LANDING_PAGE_STYLES, PRICING_PAGE_STYLES
+Files Modified: LandingPage.ts, PricingPage.ts, ProjectHub.ts,
+                PlatformRouter.ts, PlanConfig.ts, AppTheme.ts
+Impact Assessment:
+  - BIM Engine Touched: No
+  - localStorage Keys Modified: None
+  - New CSS Prefix: pr- and um- claimed in §05 §3 (Pre-Step 1)
+  - destroy() updated: No — lp-bespoke section is inside this.el;
+    LandingPage.destroy() calls this.el.remove() which removes it automatically
+  - New tokens added to DESIGN_TOKENS: No
+Risk Level: Low
+Rationale: Stream 2 entry points, broken nav fix, upgrade path for paid plan users.
+```
+
+---
+
+Implementation Changes
+
+---
+
+Change 1 — Register `pr-` and `um-` CSS constants in `injectAppTheme()`
+
+**File: `src/styles/AppTheme.ts`**
+
+The `PRICING_PAGE_STYLES` and `UPGRADE_MODAL_STYLES` constants must already exist in this file (PricingPage and UpgradeModal both call `injectAppTheme()`). Verify they are concatenated inside `injectAppTheme()`'s `style.textContent` assignment. If either is missing, add it. This is a verification step — no new content yet.
+
+---
+
+Change 2 — Wire the "Pricing" nav link on the Landing page
+
+**File: `src/ui/platform/LandingPage.ts`**
+
+Step 1. Add `onPricing: () => void` to the `LandingPageCallbacks` interface (currently only has `onGetStarted` and `onLogin`).
+
+Step 2. In the nav HTML inside `build()`, change:
+
+```
+<aclass="lp-nav-link"href="#">Pricing</a>
+```
+
+to:
+
+```
+<aclass="lp-nav-link"href="#"id="lp-nav-pricing">Pricing</a>
+```
+
+Step 3. In the event listener block at the bottom of `build()`, add:
+
+```
+el.querySelector('#lp-nav-pricing')!.addEventListener('click',(e) =>{
+e.preventDefault();
+this.callbacks.onPricing();
+});
+```
+
+**File: `src/ui/platform/PlatformRouter.ts`**
+
+Step 4. Inside `showLanding()`, the `LandingPage` constructor receives a callbacks object. Add:
+
+```
+onPricing:() =>this.showPricing(),
+```
+
+`showPricing()` already exists on the router — this connects the nav button to it.
+
+---
+
+Change 3 — Fix the "Contact sales" button on the Landing page
+
+**File: `src/ui/platform/LandingPage.ts`**
+
+Step 1. Add `onContactSales: () => void` to the `LandingPageCallbacks` interface.
+
+Step 2. In the event listener block, change the existing line:
+
+```
+el.querySelector('#lp-nav-contact')!.addEventListener('click',() =>this.callbacks.onLogin());
+```
+
+to:
+
+```
+el.querySelector('#lp-nav-contact')!.addEventListener('click',() =>this.callbacks.onContactSales());
+```
+
+**File: `src/ui/platform/PlatformRouter.ts`**
+
+Step 3. Inside `showLanding()`, add:
+
+```
+onContactSales:() =>window.open('mailto:hello@pryzm.io?subject=PRYZM+Sales+Enquiry','_blank'),
+```
+
+---
+
+Change 4 — Add Stream 2 section to the Landing page
+
+**File: `src/ui/platform/LandingPage.ts`**
+
+Step 1. After the closing `</section>` of the hero section (the last HTML block before the closing backtick of `el.innerHTML`), add a new `<section id="lp-bespoke">`. It must use only `lp-` prefixed classes. Content:
+
+- **Left column** (`lp-bespoke-col lp-bespoke-col--left`):
+    - Heading (`lp-bespoke-heading`): "Building your own platform?"
+    - Description (`lp-bespoke-desc`): "AI is making software cheap to build. We partner with enterprises to deploy a bespoke BIM platform under their brand — custom element libraries, your workflows, your infrastructure."
+    - Actions row (`lp-bespoke-actions`): two buttons:
+        - `id="lp-bespoke-contact"` labelled "Talk to us" — primary style
+        - `id="lp-bespoke-learn"` labelled "See enterprise options" — secondary style
+- **Right column** (`lp-bespoke-col lp-bespoke-col--right`):
+    - Unordered list (`lp-bespoke-list`) with these items:
+        - Custom element & material libraries
+        - Integration with Revit, ArchiCAD, and ERP systems
+        - White-label under your brand
+        - On-premise or private cloud deployment
+        - Dedicated build team and ongoing support
+
+Step 2. In the event listener block at the bottom of `build()`, add:
+
+```
+el.querySelector('#lp-bespoke-contact')!.addEventListener('click',() =>this.callbacks.onContactSales());
+el.querySelector('#lp-bespoke-learn')!.addEventListener('click',() =>this.callbacks.onPricing());
+```
+
+**File: `src/styles/AppTheme.ts`**
+
+Step 3. Inside the `LANDING_PAGE_STYLES` constant (the `lp-` block), append CSS for the new section. All rules must use `var(--app-*)` tokens — no hardcoded hex. Required classes and their roles:
+
+- `.lp-bespoke` — outer section; full-width; background uses `var(--app-violet-soft)` (the ultra-soft violet tint already defined); padding top/bottom ~80px
+- `.lp-bespoke-inner` — centered max-width container (same max-width as hero card); display flex; gap ~64px; align-items center
+- `.lp-bespoke-col` — flex child; flex: 1
+- `.lp-bespoke-heading` — font-size ~28px; font-weight 700; color `var(--app-text)`; margin-bottom 16px
+- `.lp-bespoke-desc` — font-size ~15px; color `var(--app-text-2)`; line-height 1.6; margin-bottom 28px
+- `.lp-bespoke-actions` — display flex; gap 12px; flex-wrap wrap
+- `.lp-bespoke-actions button:first-child` — primary style using `var(--app-gradient)` background; white text; same border-radius and padding as `.lp-hero-btn`
+- `.lp-bespoke-actions button:last-child` — secondary style; transparent background; border 1.5px solid `var(--app-violet-1)`; color `var(--app-violet-1)`
+- `.lp-bespoke-list` — list-style none; padding 0; display flex; flex-direction column; gap 12px
+- `.lp-bespoke-list li` — font-size ~14px; color `var(--app-text-2)`; padding-left 20px; position relative
+- `.lp-bespoke-list li::before` — content `"✓"`; position absolute; left 0; color `var(--app-violet-1)`
+
+Add a `@media (max-width: 768px)` rule: `.lp-bespoke-inner { flex-direction: column; }` so the two columns stack on mobile.
+
+---
+
+Change 5 — Add Stream 2 section to the Pricing page
+
+**File: `src/ui/platform/PricingPage.ts`**
+
+Step 1. In the `render()` method, after the closing `</div>` of `#pr-plans` and before the opening `<div class="pr-addons-section">`, insert a new `<div class="pr-bespoke-band">`. Content:
+
+- Left side (`pr-bespoke-content`):
+    - Heading (`pr-bespoke-heading`): "Enterprise custom deployments"
+    - Description (`pr-bespoke-desc`): "For organisations that need PRYZM deployed as their own product — white-labelled, on-premise, and fully customised to your workflows. Scoped and priced separately from the plans above."
+    - Unordered list (`pr-bespoke-list`):
+        - Discovery and scoping workshop
+        - Custom IFC schema configuration
+        - Bespoke element family and material libraries
+        - Integration with your existing tools (ERP, Revit, project management)
+        - White-label branding and private deployment
+        - Handover, training, and ongoing engineering support
+- Right side (`pr-bespoke-cta-wrap`):
+    - Button `id="pr-bespoke-cta"` labelled "Talk to us about a bespoke build"
+
+Step 2. Update `PLAN_FEATURES.enterprise` array. Add as the first item:
+
+```
+'Bespoke platform deployment (custom scoping — see below)',
+```
+
+Step 3. In `attachListeners()`, add:
+
+```
+el.querySelector('#pr-bespoke-cta')!.addEventListener('click',() =>{
+window.open('mailto:hello@pryzm.io?subject=PRYZM+Bespoke+Build+Enquiry','_blank');
+});
+```
+
+**File: `src/styles/AppTheme.ts`**
+
+Step 4. Inside the `PRICING_PAGE_STYLES` constant (the `pr-` block), append CSS for the new band. Required classes:
+
+- `.pr-bespoke-band` — full-width section; margin-top 48px; background `var(--app-violet-soft)`; border-radius `var(--app-radius-lg)`; padding 48px; display flex; gap 48px; align-items flex-start
+- `.pr-bespoke-content` — flex: 1
+- `.pr-bespoke-heading` — font-size 22px; font-weight 700; color `var(--app-text)`; margin-bottom 12px
+- `.pr-bespoke-desc` — font-size 14px; color `var(--app-text-2)`; line-height 1.6; margin-bottom 20px
+- `.pr-bespoke-list` — list-style none; padding 0; display flex; flex-direction column; gap 8px
+- `.pr-bespoke-list li` — font-size 13px; color `var(--app-text-2)`; padding-left 18px; position relative
+- `.pr-bespoke-list li::before` — content `"✓"`; position absolute; left 0; color `var(--app-violet-1)`
+- `.pr-bespoke-cta-wrap` — display flex; align-items center; flex-shrink 0
+- `.pr-bespoke-cta-wrap button` — uses `var(--app-gradient)` background; white text; padding 14px 28px; border-radius `var(--app-radius-sm)`; border none; cursor pointer; font-weight 600; white-space nowrap; box-shadow `var(--app-shadow-glow)`
+
+Add `@media (max-width: 768px)`: `.pr-bespoke-band { flex-direction: column; }`
+
+---
+
+Change 6 — Update Enterprise tagline in PlanConfig
+
+**File: `src/monetization/PlanConfig.ts`**
+
+In `PLAN_PRICING.enterprise`, change the `tagline` field from:
+
+```
+tagline:'Custom pricing for large organisations',
+```
+
+to:
+
+```
+tagline:'Custom pricing · SaaS or bespoke deployment',
+```
+
+This is a single data-only line change. It propagates automatically to the Pricing page card and the UpgradeModal plan badge.
+
+---
+
+Change 7 — Fix upgrade button visibility for paid plan users in ProjectHub
+
+**File: `src/ui/platform/ProjectHub.ts`**
+
+Current line 80:
+
+```
+${(this.user.plan||'free')==='free'?`<button class="ph-upgrade-btn" id="ph-upgrade-btn">✦ Upgrade</button>`:''}
+```
+
+This hides the upgrade button for Architect and Studio users, giving them no visible upgrade path to a higher tier.
+
+Replace with:
+
+```
+${(this.user.plan||'free')!=='enterprise'?`<button class="ph-upgrade-btn" id="ph-upgrade-btn">${(this.user.plan||'free')==='free'?'✦ Upgrade':'✦ Manage plan'}</button>`:''}
+```
+
+This shows the button for all plans except Enterprise. Free users see "✦ Upgrade". Paid users (Architect, Studio, Firm) see "✦ Manage plan". The click handler at line 235 already calls `this.callbacks.onUpgrade?.()` — no change needed there.
+
+---
+
+Post-Implementation: Required Checklist
+
+These steps are mandatory per §05 §5 and §06 §12 before the work is considered complete:
+
+- [ ]  Run `npx tsc --noEmit` — zero errors required
+- [ ]  No BIM engine imports added to any modified file (`src/core/`, `src/commands/`, `src/elements/`, `src/ai/`)
+- [ ]  All new CSS is in `AppTheme.ts` named constants — no `<style>` injection anywhere
+- [ ]  All new colours use `var(--app-*)` tokens — no hardcoded hex
+- [ ]  `destroy()` verified: `LandingPage.destroy()` calls `this.el.remove()` — covers all new child nodes automatically
+- [ ]  No `id=` attributes removed from existing JS-toggled elements
+- [ ]  Restart the workflow and confirm the app loads without console errors
+- [ ]  Confirm the Pricing nav link on the landing page opens the pricing page
+- [ ]  Confirm "Contact sales" opens a mail client, not the auth screen
+- [ ]  Confirm the Stream 2 section is visible on both the landing page and pricing page
+- [ ]  Confirm an Architect-plan user sees "✦ Manage plan" in the project hub header
+- [ ]  Update `docs/05-BIM-UI-ARCHITECTURE-CONTRACT.md` §3 table to confirm `pr-` and `um-` are registered (Pre-Step 1 now formally complete)
+
+---
+
+File Change Summary
+
+| **File** | **What changes** | **Risk** |
+| --- | --- | --- |
+| `docs/05-BIM-UI-ARCHITECTURE-CONTRACT.md` | Register `pr-` and `um-` in prefix table | None |
+| `src/ui/platform/LandingPage.ts` | Add `onPricing` + `onContactSales` to interface; wire Pricing nav link; fix Contact sales button; add Stream 2 section HTML and two new event listeners | Low |
+| `src/ui/platform/PlatformRouter.ts` | Pass `onPricing` and `onContactSales` in `showLanding()` callbacks object | None |
+| `src/ui/platform/PricingPage.ts` | Add `pr-bespoke-band` section; update Enterprise feature bullet; wire `#pr-bespoke-cta` button | Low |
+| `src/ui/platform/ProjectHub.ts` | Fix upgrade button condition; contextual button label | Low |
+| `src/monetization/PlanConfig.ts` | Change Enterprise `tagline` (1 line) | None |
+| `src/styles/AppTheme.ts` | Add `lp-bespoke-*` CSS to `LANDING_PAGE_STYLES`; add `pr-bespoke-*` CSS to `PRICING_PAGE_STYLES` | Low |
+
+No new files. No new localStorage keys. No backend changes. No BIM engine involvement.

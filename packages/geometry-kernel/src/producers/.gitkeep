@@ -1,0 +1,2 @@
+# Producers land here in S08 D2 onward.
+# Each producer is a pure function: `(dto, joinData, …) => BufferGeometryDescriptor`.

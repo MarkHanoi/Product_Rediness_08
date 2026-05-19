@@ -1,0 +1,24 @@
+{
+  "//": "Phase H.1 — emit config for @pryzm/file-format (FIRST per-package extraction).",
+  "//1": "Authoring + tests stay driven by ./tsconfig.json (extends ../../tsconfig.base.json, noEmit:true).",
+  "//2": "Tracking ledger: docs/.../PRYZM2-WIREUP-PLAN-S72/27-phase-H-extraction-ledger.md",
+  "//3": "Per-template contract: extending packages MUST set rootDir + outDir locally.",
+  "//4": "`composite:false` here — file-format imports types from @pryzm/persistence-client,",
+  "//5": "which is not yet a composite project.  Promotes to composite:true (and gains a",
+  "//6": "`references` block) in Phase H.4 once persistence-client also has tsconfig.build.json.",
+  "//7": "Until then file-format builds standalone via `pnpm --filter @pryzm/file-format build`.",
+  "extends": "../tsconfig.build.template.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "tsBuildInfoFile": "./dist/.tsbuildinfo",
+    "composite": false
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": [
+    "__tests__/**",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "**/*.bench.ts"
+  ]
+}

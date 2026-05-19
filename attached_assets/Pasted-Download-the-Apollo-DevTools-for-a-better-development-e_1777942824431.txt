@@ -1,0 +1,853 @@
+Download the Apollo DevTools for a better development experience: https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+157i1f348twpb.js:21 [LaunchDarkly] LaunchDarkly client initialized
+Performance-improvement-04Icons:1 Banner not shown: beforeinstallpromptevent.preventDefault() called. The page must call beforeinstallpromptevent.prompt() to show the banner.
+0i8wy8tbht2ow.js:2 Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+C @ 0i8wy8tbht2ow.js:2Understand this error
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'ambient-light-sensor'.
+C @ 0i8wy8tbht2ow.js:2Understand this warning
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'battery'.
+C @ 0i8wy8tbht2ow.js:2Understand this warning
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'execution-while-not-rendered'.
+C @ 0i8wy8tbht2ow.js:2Understand this warning
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'execution-while-out-of-viewport'.
+C @ 0i8wy8tbht2ow.js:2Understand this warning
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'layout-animations'.
+C @ 0i8wy8tbht2ow.js:2Understand this warning
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'legacy-image-formats'.
+C @ 0i8wy8tbht2ow.js:2Understand this warning
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'navigation-override'.
+C @ 0i8wy8tbht2ow.js:2Understand this warning
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'oversized-images'.
+C @ 0i8wy8tbht2ow.js:2Understand this warning
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'publickey-credentials'.
+C @ 0i8wy8tbht2ow.js:2Understand this warning
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'speaker-selection'.
+C @ 0i8wy8tbht2ow.js:2Understand this warning
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'unoptimized-images'.
+C @ 0i8wy8tbht2ow.js:2Understand this warning
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'unsized-media'.
+C @ 0i8wy8tbht2ow.js:2Understand this warning
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'pointer-lock'.
+C @ 0i8wy8tbht2ow.js:2Understand this warning
+0i8wy8tbht2ow.js:2 Allow attribute will take precedence over 'allowfullscreen'.
+C @ 0i8wy8tbht2ow.js:2Understand this warning
+0i8wy8tbht2ow.js:2 Allow attribute will take precedence over 'allowpaymentrequest'.
+C @ 0i8wy8tbht2ow.js:2Understand this warning
+14lt9o3_vg.y-.js:9 Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://496892d2-fd2d-45f8-b024-0772d7d5922c-00-1h9obgp1b0gh3.worf.replit.dev') does not match the recipient window's origin ('https://replit.com').
+w @ 14lt9o3_vg.y-.js:9Understand this warning
+Framing 'https://496892d2-fd2d-45f8-b024-0772d7d5922c-00-1h9obgp1b0gh3.worf.replit.dev/' violates the following report-only Content Security Policy directive: "frame-ancestors 'none'". The violation has been logged, but no further action has been taken.
+Understand this error
+0i8wy8tbht2ow.js:2 Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+C @ 0i8wy8tbht2ow.js:2Understand this error
+14lt9o3_vg.y-.js:9 Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev') does not match the recipient window's origin ('https://replit.com').
+w @ 14lt9o3_vg.y-.js:9Understand this warning
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.Understand this error
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'ambient-light-sensor'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'battery'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'execution-while-not-rendered'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'execution-while-out-of-viewport'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'layout-animations'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'legacy-image-formats'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'navigation-override'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'oversized-images'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'publickey-credentials'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'speaker-selection'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'unoptimized-images'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Unrecognized feature: 'unsized-media'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Allow attribute will take precedence over 'allowfullscreen'.Understand this warning
+workspace_iframe.html?initialPath=%2F&id=default-start-application:32 Allow attribute will take precedence over 'allowpaymentrequest'.Understand this warning
+Framing 'https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/' violates the following report-only Content Security Policy directive: "frame-ancestors 'none'". The violation has been logged, but no further action has been taken.
+Understand this error
+Framing 'https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/' violates the following report-only Content Security Policy directive: "frame-ancestors 'none'". The violation has been logged, but no further action has been taken.
+Understand this error
+(index):1 Loading the script 'https://replit-cdn.com/replit-pill/replit-pill.global.js' violates the following Content Security Policy directive: "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The policy is report-only, so the violation has been logged but no further action has been taken.
+workspace_iframe.html?initialPath=%2F&id=default-start-application:144 Loading the script 'https://replit.com/public/js/beacon.js' violates the following Content Security Policy directive: "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The policy is report-only, so the violation has been logged but no further action has been taken.
+157i1f348twpb.js:21 Haven't heard from the server in a while, resetting connection...
+(anonymous) @ 157i1f348twpb.js:21Understand this warning
+three.webgpu.js?v=a214a7f6:78509 The powerPreference option is currently ignored when calling requestAdapter() on Windows. See https://crbug.com/369219127
+init @ three.webgpu.js?v=a214a7f6:78509Understand this warning
+157i1f348twpb.js:21 Haven't heard from the server in a while, resetting connection...
+(anonymous) @ 157i1f348twpb.js:21Understand this warning
+cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/api/v1/portfolio/benchmarks/all:1  Failed to load resource: the server responded with a status of 401 (Unauthorized)Understand this error
+injected.js:37 [CurtainWall] Store→Builder event wiring established
+injected.js:37 [CurtainWall] PanelStore→Builder event wiring established (§MI-02)
+injected.js:37 [ContextualEditBar] Initialized
+injected.js:37 [ContextualEditBar] Operation tools injected
+injected.js:37 [initUI] ShortcutCheatSheet installed (press ? to view all shortcuts)
+injected.js:37 [initUI] Split View toggle button mounted
+injected.js:37 [LevelExplodeController] Initialized
+injected.js:37 [InspectModeCoordinator] Initialized
+injected.js:37 [PlatformShell] D.1 — real save/load delegates injected (engine ready)
+injected.js:37 [initPersistence] D.1 — real delegates injected into early PlatformShell
+injected.js:37 [initPersistence] runtime.stores hydrator registered
+injected.js:37 [initCollaboration] Collaboration subsystem initialised — waiting for pryzm-project-loaded
+injected.js:37 [LONGTASK] duration=87.0ms start=353086.5ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [AICreatePanel] Initializing panel, going to step 1
+injected.js:37 [AICreatePanel] Transitioning to step 1
+injected.js:37 [AICreatePanel] Step 1: display=flex
+injected.js:37 [AICreatePanel] Step 2: display=none
+injected.js:37 [AICreatePanel] Step 3: display=none
+injected.js:37 [AICreatePanel] Step 4: display=none
+injected.js:37 [AICreatePanel] All steps found and updated successfully
+injected.js:37 [AICreatePanel] Attaching file input change listener
+injected.js:37 [AICreatePanel] Attaching all event listeners
+injected.js:37 [AICreatePanel] Attaching all event listeners...
+injected.js:37 [AICreatePanel] ✓ Step 2 Next button listener attached
+injected.js:37 [AICreatePanel] ✓ Step 2 Back button listener attached
+injected.js:37 [AICreatePanel] ✓ Step 3 Generate button listener attached
+injected.js:37 [AICreatePanel] ✓ Step 3 Back button listener attached
+injected.js:37 [AICreatePanel] ✓ Step 4 Open AI Actions button listener attached
+injected.js:37 [AICreatePanel] ✓ Step 4 Create Another button listener attached
+injected.js:37 [AICreatePanel] ✓ Prompt input keydown listener attached
+injected.js:37 [AICreatePanel] All event listeners attached successfully
+injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+injected.js:37 [LONGTASK] duration=73.0ms start=353425.2ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [PlatformShell] Project context set: proj-1777942592807-x0u9kb9 wetawr
+injected.js:37 [runtime] Phase F status pill mounted — ai.model=claude-haiku-4-5 plugins=38 ifc/rhino/bcf=ready pdf=queued
+injected.js:37 [initScene] pryzm-project-switch received — project: proj-1777942592807-x0u9kb9
+injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+injected.js:37 [ViewController] clearCameraStateStore — per-view camera state cleared for new project
+injected.js:37 [UnderlayPersistence] Project switch — saves suspended
+injected.js:37 [EngineBootstrap] C13 project-switch: cold-boot → (unknown)
+injected.js:37 [BatchCoordinator] C13 forceReset() — all batch state cleared for project switch
+injected.js:37 [EngineBootstrap] C13 resetWallRebuildState() — wall pipeline clean for project switch
+injected.js:37 [EngineBootstrap] C13 teardown complete — Project B context loading
+injected.js:37 [PlatformShell] New project — clearing scene immediately (no server check)
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+ProjectLoader.ts:234 [ProjectLoader] Loading "wetawr" (0 elements)
+injected.js:37 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+injected.js:37 [ProjectLoader] Element-creation path: ImportProjectCommand (Phase 1)
+injected.js:37 Refreshing Spatial Tree...
+ClearProjectCommand.ts:59 [ClearProjectCommand] Clearing all project data
+injected.js:37   Removing 0 curtain panels
+injected.js:37   Removing 0 openings
+injected.js:37   Removing 0 walls
+injected.js:37   Removing 0 curtain walls
+injected.js:37   Removing 0 slabs
+injected.js:37   Removing 0 ceilings
+injected.js:37   Removing 0 columns
+injected.js:37   Removing 0 beams
+injected.js:37   Removing 0 stairs
+injected.js:37   Removing 0 roofs
+injected.js:37   Removing 0 furniture items
+injected.js:37   Removing 0 handrails
+injected.js:37   Removing 0 plumbing fixtures
+injected.js:37   Removing 0 rooms
+injected.js:37   Removing 0 room bounding lines
+injected.js:37   Removing 0 grids
+injected.js:37   Removing 1 levels
+injected.js:37 [BimManager] Cannot delete the default Ground level.
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [ClearProjectCommand] Annotation store cleared
+injected.js:37   Cleared 0 floors
+injected.js:37 [DefaultViewsManager] Created default 3D view (id=vd-sys-3d-1)
+injected.js:37 [DefaultViewsManager] Created default Ground Floor plan view (id=vd-sys-plan-l0)
+injected.js:37 [TemporalGraph] Cleared (project switch).
+injected.js:37 [UnderlayPersistence] Clear skipped — no current project bound
+injected.js:37 [ViewRenderCache] All render targets disposed.
+injected.js:37 [RoomGraphService] All graphs invalidated
+injected.js:37 [ClearProjectCommand] ProjectScopeRegistry cleared 44 scopes: Array(44)
+injected.js:37 [ClearProjectCommand] activeLevelId reset to L0 (project-scoped state cleared).
+injected.js:37 [ProjectIsolation] WallFragmentBuilder disposed — scene cleared of wall geometry.
+injected.js:37 [RoomGraphService] All graphs invalidated
+injected.js:37 [TemporalGraph] Cleared (project switch).
+injected.js:37 [ClearProjectCommand] Clear complete
+injected.js:37 [ImportProjectCommand] Loading 0 levels
+injected.js:37 [ImportProjectCommand] Loading 0 grids
+injected.js:37 [ImportProjectCommand] Loading 0 columns
+injected.js:37 [ImportProjectCommand] Loading 0 walls
+injected.js:37 [ImportProjectCommand] Loading 0 slabs
+injected.js:37 [ImportProjectCommand] Loading 0 stairs
+injected.js:37 [ImportProjectCommand] Loading 0 furniture items
+injected.js:37 [ImportProjectCommand] Loading 0 roofs
+injected.js:37 [ImportProjectCommand] Loading 0 handrails
+injected.js:37 [ImportProjectCommand] Loading 0 plumbing fixtures
+injected.js:37 [ImportProjectCommand] Loading 0 curtain walls
+injected.js:37 [ImportProjectCommand] Loading 0 beams
+injected.js:37 [ProjectLoader] VG Governance state restored from snapshot
+injected.js:37 [ProjectLoader] ViewDefinition store restored from snapshot
+injected.js:37 [ProjectLoader] Visibility rule engine restored from snapshot
+injected.js:37 [VGToIntentMigration] Starting VG → Intent migration…
+injected.js:37 [VGToIntentMigration] Complete — 0 intents, 0 views, 0 overrides migrated.
+injected.js:37 [initDataPlatform] DataWorkbench toolbar button + physics overlay dropdown injected
+injected.js:37 [DefaultViewsManager] Created default 3D view (id=vd-sys-3d-1)
+injected.js:37 [DefaultViewsManager] Created default Ground Floor plan view (id=vd-sys-plan-l0)
+injected.js:37 [ProjectLoader] Sheet store restored from snapshot
+injected.js:37 [ProjectLoader] Schedule store restored from snapshot
+injected.js:37 [ProjectLoader] SemanticGraph cleared (v1/v2 snapshot — no graph data)
+injected.js:37 [TemporalGraph] Cleared (project switch).
+injected.js:37 [ProjectLoader] TemporalGraph cleared (pre-v4 snapshot — no temporal data)
+injected.js:37 [ProjectLoader] DecisionRecordStore cleared (pre-v4 snapshot — no decision data)
+injected.js:37 [IntentStylePrewarmer] Pre-warmed 1224 style slots in 5.00ms
+injected.js:37 [ProjectLoader] RequirementStore cleared (no requirement data in snapshot)
+injected.js:37 [VoiceCommandIndicator] Mounted (speechAPI=true)
+injected.js:37 [AssetCatalogStore] setDirect(): restored 21 entries
+injected.js:37 [ProjectLoader] AssetCatalogStore seeded from defaults
+injected.js:37 [ProjectLoader] Annotation store cleared (no annotation data in snapshot)
+injected.js:37 [ProjectLoader] AnnotationDependencyGraph rebuilt after restore
+injected.js:37 [ProjectLoader] Load complete: 0 loaded, 0 failed, 0 errors
+injected.js:37 [StoreEventBus] endBatch() — flushed 38 buffered event(s) in emission order (no coalescing — all events delivered).
+injected.js:37 [ProjectLoader] PHASE_TIMINGS total=710.7ms setup=0.0ms hydrate=0.0ms event_flush=0.0ms wall_rebuild_flush=0.0ms redetect_sweep=0.0ms [walls=0 slabs=0 levels=0 curtainWalls=0]
+injected.js:37 [ProjectSerializer] Snapshot created: 0 elements, 1 levels, 0 walls, 0 slabs, 0 furniture
+injected.js:37 [PlatformShell] New project ready — firing pryzm-project-loaded(empty:true)
+injected.js:37 [FrustumCullingService] pryzm-project-loaded(empty) — audit skipped, no geometry
+injected.js:37 [initScene] pryzm-project-loaded — empty project (no geometry)
+injected.js:37 [TemplateStore] Seeded 15 built-in templates
+injected.js:37 [initCollaboration] Project opened — collaboration active for proj-1777942592807-x0u9kb9
+injected.js:37 [EngineBootstrap] pryzm-project-loaded(empty) — skipping zoomToAll, no geometry
+injected.js:37 [ProjectIsolationAudit] ✓ project proj-1777942592807-x0u9kb9 loaded clean — no leftover state
+injected.js:37 [FPS] 21fps
+injected.js:37 [RenderPipelineManager] Outlines activated (selected + hover).
+2injected.js:37 [RenderPipelineManager] Phase: phase4 | WebGPU: true | SSGI: true | TRAA: false
+injected.js:37 [PlatformCollabPill] Socket connected — joining project room: proj-1777942592807-x0u9kb9
+injected.js:37 [LONGTASK] duration=114.0ms start=354292.7ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=69.0ms start=354416.1ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [HomeView] Default viewpoint captured: Object Object
+injected.js:37 [initCollaboration] Socket connected — joining project room: proj-1777942592807-x0u9kb9
+injected.js:37 [initCollaboration] Catch-up: first connect — setting baseline timestamp
+injected.js:37 [SplitViewManager] Canvas2D context ready
+injected.js:37 [SvpPlanToolOverlay] Attached with snap service. viewId: vd-sys-plan-l0
+injected.js:37 [SplitViewManager] Split view activated (Canvas2D plan mode)
+injected.js:37 [initScene] Split view auto-opened on project load (idle)
+injected.js:37 [initDataPlatform] H-1: Physics compute enqueued for all rooms after project load (idle)
+2injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+injected.js:37 [HomeView] Default viewpoint captured: Object Object
+injected.js:37 [FPS] 30fps
+injected.js:37 [LONGTASK] duration=76.0ms start=357152.7ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=64.0ms start=357230.3ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [WallModePicker] setActiveMode → ortho
+injected.js:37 ToolManager: activateTool called for wall
+injected.js:37 ToolManager: deactivating previous tool none
+injected.js:37 ToolManager: executing activateFn for wall
+injected.js:37 WallTool activated with mode: POLYLINE_ORTHO
+injected.js:37 [EngineBootstrap] HDRI load started (lazy — Realistic style first requested)
+injected.js:37 RGBELoader has been deprecated. Please use HDRLoader instead.
+(anonymous) @ injected.js:37Understand this warning
+injected.js:214 Connecting to 'https://thatopen.github.io/engine_fragment/resources/textures/envmaps/san_giuseppe_bridge_2k.hdr' violates the following Content Security Policy directive: "connect-src 'self' data: blob: https://api.cesium.com https://*.supabase.co wss: ws:". The policy is report-only, so the violation has been logged but no further action has been taken.
+injected.js:214 Connecting to 'https://thatopen.github.io/engine_fragment/resources/textures/envmaps/san_giuseppe_bridge_2k.hdr' violates the following Content Security Policy directive: "connect-src 'self' data: blob: https://api.cesium.com https://*.supabase.co wss: ws:". The policy is report-only, so the violation has been logged but no further action has been taken.
+injected.js:37 [LONGTASK] duration=50.0ms start=357746.2ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [FPS] 34fps
+injected.js:37 [LONGTASK] duration=90.0ms start=358402.9ms
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=82.0ms start=358960.5ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=70.0ms start=359064.2ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [FPS] 13fps
+injected.js:37 [LONGTASK] duration=61.0ms start=359548.9ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+injected.js:37 [WallTool] wall.create dispatched to bus (busId: wall_5A8A818014924E1D8FDAFF7A5E ) — legacy path runs for geometry with id: 5a8a8180-1492-4e1d-8fda-ff7a5e5d0194
+injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [CommandManager] snapshot commandType="CreateWallCommand" scope=[wall,level] elapsed=0.2ms
+injected.js:37 [BimManager] Registered element 5a8a8180-1492-4e1d-8fda-ff7a5e5d0194 to level L0
+injected.js:37 Wall created via command: 5a8a8180-1492-4e1d-8fda-ff7a5e5d0194
+injected.js:37 [LONGTASK] duration=50.0ms start=359672.9ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=95.0ms start=359769.7ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=51.0ms start=359866.5ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [PascalSceneLighting] Shadow flags set on 39 mesh(es).
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+injected.js:37 [WallTool] wall.create dispatched to bus (busId: wall_E771F588BF2B488393227A1D65 ) — legacy path runs for geometry with id: e771f588-bf2b-4883-9322-7a1d658fba68
+injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [CommandManager] snapshot commandType="CreateWallCommand" scope=[wall,level] elapsed=0.1ms
+injected.js:37 [BimManager] Registered element e771f588-bf2b-4883-9322-7a1d658fba68 to level L0
+injected.js:37 Wall created via command: e771f588-bf2b-4883-9322-7a1d658fba68
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [GPU Monitor] geometries:1 textures:5 | drawCalls:0 tris:0
+injected.js:37 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+injected.js:37 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+injected.js:37 [NativeElementMeshExporter] Plan view — exporting 2 elements from levels overlapping Y=[-1.20, 0.00]
+injected.js:37 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+injected.js:37 [WallTool] wall.create dispatched to bus (busId: wall_4AD7BF1CB4BA4F198EC034AC26 ) — legacy path runs for geometry with id: 4ad7bf1c-b4ba-4f19-8ec0-34ac2627e2fc
+injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [CommandManager] snapshot commandType="CreateWallCommand" scope=[wall,level] elapsed=0.1ms
+injected.js:37 [BimManager] Registered element 4ad7bf1c-b4ba-4f19-8ec0-34ac2627e2fc to level L0
+injected.js:37 Wall created via command: 4ad7bf1c-b4ba-4f19-8ec0-34ac2627e2fc
+injected.js:37 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+injected.js:37 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+injected.js:37 [NativeElementMeshExporter] Plan view — exporting 3 elements from levels overlapping Y=[-1.20, 0.00]
+injected.js:37 [FPS] 11fps
+injected.js:37 [LONGTASK] duration=95.0ms start=360422.5ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=62.0ms start=360569.8ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [PascalSceneLighting] Shadow flags set on 3 mesh(es).
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+injected.js:37 [WallTool] wall.create dispatched to bus (busId: wall_0018C37A8F1942CC8ACF16B89E ) — legacy path runs for geometry with id: 0018c37a-8f19-42cc-8acf-16b89ecfb64d
+injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [CommandManager] snapshot commandType="CreateWallCommand" scope=[wall,level] elapsed=0.2ms
+injected.js:37 [BimManager] Registered element 0018c37a-8f19-42cc-8acf-16b89ecfb64d to level L0
+injected.js:37 Wall created via command: 0018c37a-8f19-42cc-8acf-16b89ecfb64d
+injected.js:37 [LONGTASK] duration=87.0ms start=360786.8ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=70.0ms start=360878.4ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [PascalSceneLighting] Shadow flags set on 4 mesh(es).
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+injected.js:37 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+injected.js:37 [NativeElementMeshExporter] Plan view — exporting 4 elements from levels overlapping Y=[-1.20, 0.00]
+injected.js:37 [LONGTASK] duration=97.0ms start=361232.9ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=52.0ms start=361441.9ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [initScene] Phase 6: EdgeProjectorService lazy-loaded on first projection.
+injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+injected.js:37 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+injected.js:37 [EdgeProjectorService] Native projection done — 1 group(s), 1 edge geometries across 1 ISO layer(s) (per-element UUID tagging active)
+injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+injected.js:37 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+injected.js:37 [EdgeProjectorService] Native projection done — 2 group(s), 2 edge geometries across 2 ISO layer(s) (per-element UUID tagging active)
+injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+injected.js:37 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+injected.js:37 [EdgeProjectorService] Native projection done — 4 group(s), 4 edge geometries across 4 ISO layer(s) (per-element UUID tagging active)
+injected.js:37 [ViewTechnicalDrawingCache] Stale projection rejected — viewId=vd-sys-plan-l0 staleGen=2 currentGen=6
+injected.js:37 [ViewTechnicalDrawingCache] Stale projection rejected — viewId=vd-sys-plan-l0 staleGen=4 currentGen=6
+injected.js:37 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=6 (OBC-IFC=0, native=4, ifc-scene=0)
+injected.js:37 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=4/14 layers
+injected.js:37 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+injected.js:37 [WallTool] wall.create dispatched to bus (busId: wall_32AB274BF2C24D218D9B4BBA4C ) — legacy path runs for geometry with id: 32ab274b-f2c2-4d21-8d9b-4bba4cbe7b7f
+injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [CommandManager] snapshot commandType="CreateWallCommand" scope=[wall,level] elapsed=0.2ms
+injected.js:37 [BimManager] Registered element 32ab274b-f2c2-4d21-8d9b-4bba4cbe7b7f to level L0
+injected.js:37 Wall created via command: 32ab274b-f2c2-4d21-8d9b-4bba4cbe7b7f
+injected.js:37 [FPS] 14fps
+injected.js:37 [PascalSceneLighting] Shadow flags set on 5 mesh(es).
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [LONGTASK] duration=74.0ms start=361796.7ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+injected.js:37 [WallTool] wall.create dispatched to bus (busId: wall_43A4F4E0110F437DBECDC2EDB1 ) — legacy path runs for geometry with id: 43a4f4e0-110f-437d-becd-c2edb1a4dfb1
+injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [CommandManager] snapshot commandType="CreateWallCommand" scope=[wall,level] elapsed=0.2ms
+injected.js:37 [BimManager] Registered element 43a4f4e0-110f-437d-becd-c2edb1a4dfb1 to level L0
+injected.js:37 Wall created via command: 43a4f4e0-110f-437d-becd-c2edb1a4dfb1
+injected.js:37 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=89ms, resets=6)
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=74.0ms start=361967.3ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=69.0ms start=362042.3ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=57.0ms start=362114.6ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+injected.js:37 [WallTool] wall.create dispatched to bus (busId: wall_CAA9D7AA8D9244FCB33AE98B72 ) — legacy path runs for geometry with id: caa9d7aa-8d92-44fc-b33a-e98b72bdae37
+injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [CommandManager] snapshot commandType="CreateWallCommand" scope=[wall,level] elapsed=0.1ms
+injected.js:37 [BimManager] Registered element caa9d7aa-8d92-44fc-b33a-e98b72bdae37 to level L0
+injected.js:37 Wall created via command: caa9d7aa-8d92-44fc-b33a-e98b72bdae37
+injected.js:37 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=56ms, resets=6)
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=57.0ms start=362297.7ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=81.0ms start=362365.8ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=104.0ms start=362503.7ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [PascalSceneLighting] Shadow flags set on 7 mesh(es).
+injected.js:37 [FPS] 15fps
+injected.js:37 [LONGTASK] duration=135.0ms start=362612.6ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=91.0ms start=362752.2ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+injected.js:37 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+injected.js:37 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+injected.js:37 [NativeElementMeshExporter] Plan view — exporting 7 elements from levels overlapping Y=[-1.20, 0.00]
+injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+injected.js:37 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+injected.js:37 [EdgeProjectorService] Native projection done — 7 group(s), 7 edge geometries across 7 ISO layer(s) (per-element UUID tagging active)
+injected.js:37 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=8 (OBC-IFC=0, native=7, ifc-scene=0)
+injected.js:37 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=4/14 layers
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [LONGTASK] duration=89.0ms start=362846.2ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=72.0ms start=362942.7ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+injected.js:37 [WallTool] wall.create dispatched to bus (busId: wall_091C28C4BC5540F3BB3545182A ) — legacy path runs for geometry with id: 091c28c4-bc55-40f3-bb35-45182a3e1430
+injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [CommandManager] snapshot commandType="CreateWallCommand" scope=[wall,level] elapsed=0.2ms
+injected.js:37 [BimManager] Registered element 091c28c4-bc55-40f3-bb35-45182a3e1430 to level L0
+injected.js:37 Wall created via command: 091c28c4-bc55-40f3-bb35-45182a3e1430
+injected.js:37 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=16ms, resets=6)
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.1ms
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [PascalSceneLighting] Shadow flags set on 8 mesh(es).
+injected.js:37 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+injected.js:37 [WallTool] wall.create dispatched to bus (busId: wall_425C3E4BACD548A598D4927F6F ) — legacy path runs for geometry with id: 425c3e4b-acd5-48a5-98d4-927f6f13c58f
+injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [CommandManager] snapshot commandType="CreateWallCommand" scope=[wall,level] elapsed=0.2ms
+injected.js:37 [BimManager] Registered element 425c3e4b-acd5-48a5-98d4-927f6f13c58f to level L0
+injected.js:37 Wall created via command: 425c3e4b-acd5-48a5-98d4-927f6f13c58f
+injected.js:37 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=42ms, resets=6)
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [FPS] 28fps
+injected.js:37 [LONGTASK] duration=87.0ms start=363577.4ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=52.0ms start=363665.3ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=65.0ms start=363764.7ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [PascalSceneLighting] Shadow flags set on 9 mesh(es).
+injected.js:37 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+injected.js:37 [WallTool] wall.create dispatched to bus (busId: wall_78EA04119DCD4E78B8EDB060B0 ) — legacy path runs for geometry with id: 78ea0411-9dcd-4e78-b8ed-b060b0a0ff50
+injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [CommandManager] snapshot commandType="CreateWallCommand" scope=[wall,level] elapsed=0.2ms
+injected.js:37 [BimManager] Registered element 78ea0411-9dcd-4e78-b8ed-b060b0a0ff50 to level L0
+injected.js:37 Wall created via command: 78ea0411-9dcd-4e78-b8ed-b060b0a0ff50
+injected.js:37 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=17ms, resets=6)
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.1ms
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.1ms
+injected.js:37 [PascalSceneLighting] Shadow flags set on 10 mesh(es).
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+injected.js:37 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+injected.js:37 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+injected.js:37 [NativeElementMeshExporter] Plan view — exporting 10 elements from levels overlapping Y=[-1.20, 0.00]
+injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+injected.js:37 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+injected.js:37 [EdgeProjectorService] Native projection done — 10 group(s), 10 edge geometries across 10 ISO layer(s) (per-element UUID tagging active)
+injected.js:37 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=10 (OBC-IFC=0, native=10, ifc-scene=0)
+injected.js:37 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=4/14 layers
+injected.js:37 [WallTool] Dispatching wall.create via runtime.bus (E.5.x P2b) for level L0
+injected.js:37 [WallTool] wall.create dispatched to bus (busId: wall_12258F613B6442E09846927795 ) — legacy path runs for geometry with id: 12258f61-3b64-42e0-9846-927795481c7c
+injected.js:37 [WallTool] Executing CreateWallCommand with levelId: L0
+injected.js:37 [CommandManager] EXECUTE: CREATE_WALL
+injected.js:37 [CommandManager] snapshot commandType="CreateWallCommand" scope=[wall,level] elapsed=0.3ms
+injected.js:37 [BimManager] Registered element 12258f61-3b64-42e0-9846-927795481c7c to level L0
+injected.js:37 Wall created via command: 12258f61-3b64-42e0-9846-927795481c7c
+injected.js:37 WallTool deactivated
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [RoomTopologyObserver] forced fire (level=L0, deadline=400ms, elapsed=261ms, resets=6)
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [FPS] 52fps
+injected.js:37 [LONGTASK] duration=90.0ms start=364670.6ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=252.0ms start=364784.1ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+500Destroyed texture [Texture "ShadowDepthTexture"] used in a submit.
+ - While calling [Queue].Submit([[CommandBuffer from CommandEncoder "renderContext_6"]])
+Understand this warning
+injected.js:37 [LONGTASK] duration=113.0ms start=365046.1ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [PascalSceneLighting] Shadow flags set on 11 mesh(es).
+injected.js:37 [LONGTASK] duration=177.0ms start=365226.6ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+injected.js:37 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+injected.js:37 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+injected.js:37 [NativeElementMeshExporter] Plan view — exporting 11 elements from levels overlapping Y=[-1.20, 0.00]
+injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+injected.js:37 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+injected.js:37 [EdgeProjectorService] Native projection done — 11 group(s), 11 edge geometries across 11 ISO layer(s) (per-element UUID tagging active)
+injected.js:37 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=12 (OBC-IFC=0, native=11, ifc-scene=0)
+injected.js:37 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=4/14 layers
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [PlanarTopologyEngine] Topology: 1 room(s) detected, outer face (11 vertices), 2 total faces
+injected.js:37 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+injected.js:37 [BimManager] Registered element d704392b-5ac3-47b8-910c-7b39715eac88 to level L0
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [PlanarTopologyEngine] Topology: 1 room(s) detected, outer face (11 vertices), 2 total faces
+injected.js:37 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+injected.js:37 [FPS] 24fps
+2injected.js:37 [ProjectSerializer] Snapshot created: 12 elements, 1 levels, 11 walls, 0 slabs, 0 furniture
+injected.js:37 [captureThumbnail] Thumbnail captured: 227×225px, ~2KB
+injected.js:37 [PlatformSaveController] Thumbnail: captured (~2KB)
+injected.js:37 [PlatformSaveController] Version saved: "Auto-save" (12 elements, id: proj-1777942661289-qud88)
+injected.js:37 [LONGTASK] duration=64.0ms start=366043.5ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [RoomBoundaryBuilder] Compliance overlay: 2 error, 0 warning room(s) tinted
+injected.js:37 [PlatformSaveController] Thumbnail uploaded to server for project proj-1777942592807-x0u9kb9
+injected.js:37 [ServerSyncQueue] Synced version "Auto-save" (proj-1777942661289-qud88)
+injected.js:37 [FPS] 65fps
+injected.js:37 [SlabModePicker] Mode selected: By Region
+injected.js:37 ToolManager: activateTool called for slab
+injected.js:37 ToolManager: deactivating previous tool none
+injected.js:37 ToolManager: executing activateFn for slab
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [LONGTASK] duration=72.0ms start=367580.8ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [CommandManager] EXECUTE: CREATE_SLAB
+injected.js:37 [CommandManager] snapshot commandType="CreateSlabCommand" scope=[slab,level] elapsed=0.1ms
+injected.js:37 [BimManager] Registered element a5dbd4e2-e94e-40c9-ba2d-4f53a76208ed to level L0
+injected.js:37 [SlabFragmentBuilder] outset slabId="a5dbd4e2-e94e-40c9-ba2d-4f53a76208ed" vertices=11 elapsed=0.2ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="a5dbd4e2-e94e-40c9-ba2d-4f53a76208ed" outerVertices=11 elapsed=0.5ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="a5dbd4e2-e94e-40c9-ba2d-4f53a76208ed" totalMs=1.3ms
+injected.js:37 [CommandManager] EXECUTE: UPDATE_SLAB_LAYERS
+injected.js:37 [CommandManager] snapshot commandType="UpdateSlabLayersCommand" scope=[slab] elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="a5dbd4e2-e94e-40c9-ba2d-4f53a76208ed" vertices=11 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="a5dbd4e2-e94e-40c9-ba2d-4f53a76208ed" outerVertices=11 elapsed=0.4ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="a5dbd4e2-e94e-40c9-ba2d-4f53a76208ed" totalMs=1.4ms
+injected.js:37 [LevelPlaneConstraint] Locked Y=-0.2000 for element "Slab" id="a5dbd4e2-e94e-40c9-ba2d-4f53a76208ed"
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [FPS] 53fps
+injected.js:37 [LONGTASK] duration=55.0ms start=367819.4ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=223.0ms start=367874.5ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=364.0ms start=368192.8ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+injected.js:37 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+injected.js:37 [CommandManager] EXECUTE: CREATE_ANNOTATION
+injected.js:37 [CommandManager] snapshot commandType="CreateAnnotationCommand" scope=[annotation] elapsed=0.0ms
+injected.js:37 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 1 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed out of 1 live room(s).
+injected.js:37 [NativeElementMeshExporter] Plan view — exporting 13 elements from levels overlapping Y=[-1.20, 0.00]
+injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+injected.js:37 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+injected.js:37 [EdgeProjectorService] Native projection done — 12 group(s), 12 edge geometries across 12 ISO layer(s) (per-element UUID tagging active)
+injected.js:37 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=14 (OBC-IFC=0, native=12, ifc-scene=0)
+injected.js:37 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=7/14 layers
+injected.js:37 Exiting tool via HUD button
+injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [PlanarTopologyEngine] Topology: 1 room(s) detected, outer face (11 vertices), 2 total faces
+injected.js:37 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+2injected.js:37 [ProjectSerializer] Snapshot created: 13 elements, 1 levels, 11 walls, 1 slabs, 0 furniture
+injected.js:37 [captureThumbnail] Thumbnail captured: 227×225px, ~3KB
+injected.js:37 [PlatformSaveController] Thumbnail: captured (~3KB)
+injected.js:37 [PlatformSaveController] Version saved: "Auto-save" (13 elements, id: proj-1777942664093-daoqp)
+injected.js:37 [LONGTASK] duration=57.0ms start=368847.0ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [PlatformSaveController] Thumbnail uploaded to server for project proj-1777942592807-x0u9kb9
+injected.js:37 [FPS] 28fps
+injected.js:37 [ServerSyncQueue] Synced version "Auto-save" (proj-1777942664093-daoqp)
+injected.js:37 [FPS] 51fps
+injected.js:37 [GPU Monitor] geometries:27 textures:9 | drawCalls:13 tris:181
+injected.js:37 [FPS] 79fps
+injected.js:37 [FPS] 95fps
+injected.js:37 [FPS] 99fps
+cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/#/projects:1 WebGPU: too many warnings, no more warnings will be reported to the console for this GPUDevice.Understand this warning
+injected.js:37 [FPS] 91fps
+injected.js:37 [CommandManager] EXECUTE: CREATE_LEVEL
+injected.js:37 [CommandManager] snapshot commandType="CreateMultipleLevelsCommand" scope=[level] elapsed=0.1ms
+injected.js:37 [CreateMultipleLevelsCommand] START count=10
+injected.js:37 [EngineBootstrap] Level switch → "Level 01" (target.Y: -0.00 → 3.00)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-01-1777942670174-1" at 3m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=1/10 addLevel=9.1ms createPlanView=0.4ms iterTotal=9.5ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 02" (target.Y: 3.00 → 6.50)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-02-1777942670184-2" at 6.5m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=2/10 addLevel=5.3ms createPlanView=0.0ms iterTotal=5.3ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 03" (target.Y: 6.50 → 10.00)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-03-1777942670189-3" at 10m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=3/10 addLevel=6.6ms createPlanView=0.1ms iterTotal=6.7ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 04" (target.Y: 10.00 → 13.50)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-04-1777942670196-4" at 13.5m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=4/10 addLevel=4.3ms createPlanView=0.0ms iterTotal=4.3ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 05" (target.Y: 13.50 → 17.00)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-05-1777942670200-5" at 17m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=5/10 addLevel=6.1ms createPlanView=0.1ms iterTotal=6.2ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 06" (target.Y: 17.00 → 20.50)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-06-1777942670207-6" at 20.5m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=6/10 addLevel=6.1ms createPlanView=0.0ms iterTotal=6.1ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 07" (target.Y: 20.50 → 24.00)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-07-1777942670213-7" at 24m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=7/10 addLevel=5.1ms createPlanView=0.0ms iterTotal=5.1ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 08" (target.Y: 24.00 → 27.50)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-08-1777942670218-8" at 27.5m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=8/10 addLevel=5.7ms createPlanView=0.0ms iterTotal=5.7ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 09" (target.Y: 27.50 → 31.00)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-09-1777942670224-9" at 31m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=9/10 addLevel=8.6ms createPlanView=0.1ms iterTotal=8.7ms
+injected.js:37 [EngineBootstrap] Level switch → "Level 10" (target.Y: 31.00 → 34.50)
+injected.js:37 [initScene] LevelClipPlaneCache: registered level "L-10-1777942670232-10" at 34.5m
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CreateMultipleLevelsCommand] level=10/10 addLevel=6.7ms createPlanView=0.1ms iterTotal=6.8ms
+injected.js:37 [CreateMultipleLevelsCommand] COMPLETE total=65.1ms
+injected.js:37 [AIApprovalStore] Audit record appended: fb46ddc9-0fb4-434f-80ba-2b06b3776a28 (CREATE_LEVEL)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [LONGTASK] duration=74.0ms start=374933.5ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [FPS] 83fps
+2injected.js:37 [ProjectSerializer] Snapshot created: 13 elements, 11 levels, 11 walls, 1 slabs, 0 furniture
+injected.js:37 [captureThumbnail] Captured blank/transparent frame — skipping (WebGL buffer may have been cleared)
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [PlatformSaveController] Thumbnail: not captured (will reuse existing)
+injected.js:37 [PlatformSaveController] Version saved: "Auto-save" (13 elements, id: proj-1777942671241-uwvai)
+injected.js:37 [LONGTASK] duration=70.0ms start=375999.1ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [FPS] 71fps
+injected.js:37 [ServerSyncQueue] Synced version "Auto-save" (proj-1777942671241-uwvai)
+injected.js:37 [LONGTASK] duration=240.0ms start=378690.4ms
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [GPU Monitor] geometries:27 textures:9 | drawCalls:13 tris:181
+injected.js:37 [FPS] 78fps
+injected.js:37 [AIPanel] Proposal received via event — showing inline card: Object
+injected.js:37 [CommandManager] EXECUTE: CREATE_SLABS_ON_ALL_FLOORS
+injected.js:37 [CommandManager] snapshot commandType="CreateSlabsOnAllFloorsCommand" scope=[slab,level] elapsed=0.3ms
+injected.js:37 [CreateSlabsOnAllFloorsCommand] START referenceSlabId="a5dbd4e2-e94e-40c9-ba2d-4f53a76208ed" levels=10 polygonVertices=11
+injected.js:37 [CreateSlabsOnAllFloorsCommand] runBatch starting — 10 slab(s) deferred to rAF drain.
+injected.js:37 [BatchCoordinator] _setupBatch — 10 level(s), 10 elements expected. ViewDependencyTracker suppressed.
+injected.js:37 [UnifiedFrameLoop] §PERF-VIEW-BATCH-SUPPRESS: OBC+PASCAL render suppressed — WebGL shader compilation deferred until batch drain completes.
+injected.js:37 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+injected.js:37 [BimManager] Registered element 0ad899ec-45d9-472a-8adf-123f03e7bdd8 to level L-01-1777942670174-1
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-01-1777942670174-1" success=true elapsed=1.3ms
+injected.js:37 [BimManager] Registered element 7fb37668-e032-48de-9e6a-cfae57ee6b6f to level L-02-1777942670184-2
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-02-1777942670184-2" success=true elapsed=0.7ms
+injected.js:37 [BimManager] Registered element b137a051-df65-4d53-8b82-89eb8e1701e9 to level L-03-1777942670189-3
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-03-1777942670189-3" success=true elapsed=0.5ms
+injected.js:37 [BimManager] Registered element 3de77310-577a-4f59-8f81-c1332a908f01 to level L-04-1777942670196-4
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-04-1777942670196-4" success=true elapsed=0.5ms
+injected.js:37 [BimManager] Registered element 128ea317-43e1-4370-bde0-39345a963d09 to level L-05-1777942670200-5
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-05-1777942670200-5" success=true elapsed=0.4ms
+injected.js:37 [BimManager] Registered element 3585ea92-27c9-4137-b95b-5f6651379a84 to level L-06-1777942670207-6
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-06-1777942670207-6" success=true elapsed=0.5ms
+injected.js:37 [BimManager] Registered element 82cbe0be-5dda-47ca-8071-b471a69faea4 to level L-07-1777942670213-7
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-07-1777942670213-7" success=true elapsed=0.5ms
+injected.js:37 [BimManager] Registered element 15839cc8-c67e-4ab9-8d4e-9443d0abcd5b to level L-08-1777942670218-8
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-08-1777942670218-8" success=true elapsed=0.7ms
+injected.js:37 [BimManager] Registered element ea361f29-28ae-4a82-ad7a-4884ec47ee17 to level L-09-1777942670224-9
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-09-1777942670224-9" success=true elapsed=0.6ms
+injected.js:37 [BimManager] Registered element 78f548bc-f14c-464b-9d88-7b6b33c776b4 to level L-10-1777942670232-10
+injected.js:37 [CreateSlabsOnAllFloorsCommand] slab levelId="L-10-1777942670232-10" success=true elapsed=0.4ms
+injected.js:37 [CreateSlabsOnAllFloorsCommand] COMPLETE created=10 total=11.4ms
+injected.js:37 [AIApprovalStore] Audit record appended: 33538759-950c-45e4-b373-49e1d5a75236 (CREATE_SLABS_ON_ALL_FLOORS)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [FPS] 30fps
+injected.js:37 [SlabFragmentBuilder] outset slabId="0ad899ec-45d9-472a-8adf-123f03e7bdd8" vertices=11 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="0ad899ec-45d9-472a-8adf-123f03e7bdd8" outerVertices=11 elapsed=0.5ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="0ad899ec-45d9-472a-8adf-123f03e7bdd8" totalMs=1.7ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="7fb37668-e032-48de-9e6a-cfae57ee6b6f" vertices=11 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="7fb37668-e032-48de-9e6a-cfae57ee6b6f" outerVertices=11 elapsed=0.3ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="7fb37668-e032-48de-9e6a-cfae57ee6b6f" totalMs=1.1ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="b137a051-df65-4d53-8b82-89eb8e1701e9" vertices=11 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="b137a051-df65-4d53-8b82-89eb8e1701e9" outerVertices=11 elapsed=0.2ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="b137a051-df65-4d53-8b82-89eb8e1701e9" totalMs=1.0ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="3de77310-577a-4f59-8f81-c1332a908f01" vertices=11 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="3de77310-577a-4f59-8f81-c1332a908f01" outerVertices=11 elapsed=0.2ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="3de77310-577a-4f59-8f81-c1332a908f01" totalMs=1.2ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="128ea317-43e1-4370-bde0-39345a963d09" vertices=11 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="128ea317-43e1-4370-bde0-39345a963d09" outerVertices=11 elapsed=0.2ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="128ea317-43e1-4370-bde0-39345a963d09" totalMs=1.1ms
+injected.js:37 [SlabFragmentBuilder] RAF_DRAIN built=5 remaining=5 queueBefore=10 frameMs=8.2ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="3585ea92-27c9-4137-b95b-5f6651379a84" vertices=11 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="3585ea92-27c9-4137-b95b-5f6651379a84" outerVertices=11 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="3585ea92-27c9-4137-b95b-5f6651379a84" totalMs=0.8ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="82cbe0be-5dda-47ca-8071-b471a69faea4" vertices=11 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="82cbe0be-5dda-47ca-8071-b471a69faea4" outerVertices=11 elapsed=0.2ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="82cbe0be-5dda-47ca-8071-b471a69faea4" totalMs=0.7ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="15839cc8-c67e-4ab9-8d4e-9443d0abcd5b" vertices=11 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="15839cc8-c67e-4ab9-8d4e-9443d0abcd5b" outerVertices=11 elapsed=0.4ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="15839cc8-c67e-4ab9-8d4e-9443d0abcd5b" totalMs=0.9ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="ea361f29-28ae-4a82-ad7a-4884ec47ee17" vertices=11 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="ea361f29-28ae-4a82-ad7a-4884ec47ee17" outerVertices=11 elapsed=0.2ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="ea361f29-28ae-4a82-ad7a-4884ec47ee17" totalMs=1.2ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="78f548bc-f14c-464b-9d88-7b6b33c776b4" vertices=11 elapsed=0.0ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="78f548bc-f14c-464b-9d88-7b6b33c776b4" outerVertices=11 elapsed=0.4ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="78f548bc-f14c-464b-9d88-7b6b33c776b4" totalMs=1.0ms
+injected.js:37 [SlabFragmentBuilder] RAF_DRAIN built=5 remaining=0 queueBefore=5 frameMs=6.3ms
+injected.js:37 [SlabFragmentBuilder] rAF queue drained — signalling BatchCoordinator.
+injected.js:37 [BatchCoordinator] Build queue drained — beginning registration drain (0 queued / 10 expected).
+injected.js:37 [BatchCoordinator] §REG-MANY-P2: queue ≤ 50 entries (0) — draining synchronously (0 rAF frames).
+injected.js:37 [StoreEventBus] endBatchYielded() — 10 event(s) will be delivered in 1 chunk(s) of 200 via frame scheduler.
+injected.js:37 [StoreEventBus] endBatchYielded() — all 10 event(s) delivered across 1 chunk(s) (last: 0.3ms). Calling onComplete().
+injected.js:37 [BatchCoordinator] §PERF-VIEW-BATCH-SUPPRESS: suppression lifted; markLevelsDirty(10 level(s)) scheduled.
+injected.js:37 [UnifiedFrameLoop] §PERF-VIEW-BATCH-SUPPRESS: suppression lifted — OBC+PASCAL resuming; first render compiles all deferred shaders.
+injected.js:37 [BatchCoordinator] Final sweep: firing 10 REDETECT_ROOMS command(s) (one per affected level). Observers re-enabled. StoreEventBus flushed (depth now 0).
+injected.js:37 [LONGTASK] duration=52.0ms start=382604.4ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [BatchCoordinator/P1.3] Post-batch PBR upgrade complete: 93 mesh(es) in 1 chunk(s) (§FIX-POST-BATCH-PBR-CHUNK).
+injected.js:37 [FPS] 45fps
+2injected.js:37 [ProjectSerializer] Snapshot created: 23 elements, 11 levels, 11 walls, 11 slabs, 0 furniture
+injected.js:37 [captureThumbnail] Thumbnail captured: 227×225px, ~6KB
+injected.js:37 [PlatformSaveController] Thumbnail: captured (~6KB)
+injected.js:37 [PlatformSaveController] Version saved: "Auto-save" (23 elements, id: proj-1777942678817-9g8oo)
+injected.js:37 [LONGTASK] duration=92.0ms start=383572.5ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [PlatformSaveController] Thumbnail uploaded to server for project proj-1777942592807-x0u9kb9
+injected.js:37 [ServerSyncQueue] Synced version "Auto-save" (proj-1777942678817-9g8oo)
+injected.js:37 [FPS] 15fps
+injected.js:37 [CommandManager] EXECUTE: CREATE_CURTAIN_WALLS_ON_ALL_SLABS
+injected.js:37 [CommandManager] snapshot commandType="CreateCurtainWallsOnAllSlabsCommand" scope=[curtainWall] elapsed=0.1ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] START slabCount=11
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] PERF-PREWARM: MeshStandardMaterial + MeshPhysicalMaterial shader pre-warm complete.
+injected.js:37 [BatchCoordinator] _setupBatch — 11 level(s), 121 elements expected. ViewDependencyTracker suppressed.
+injected.js:37 [UnifiedFrameLoop] §PERF-VIEW-BATCH-SUPPRESS: OBC+PASCAL render suppressed — WebGL shader compilation deferred until batch drain completes.
+injected.js:37 [StoreEventBus] beginBatch() — depth now 1. Prefer bus.batch(fn) for automatic flush guarantee.
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="a5dbd4e2-e94e-40c9-ba2d-4f53a76208ed" walls=11 elapsed=0.5ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="0ad899ec-45d9-472a-8adf-123f03e7bdd8" walls=11 elapsed=0.3ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="7fb37668-e032-48de-9e6a-cfae57ee6b6f" walls=11 elapsed=0.1ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="b137a051-df65-4d53-8b82-89eb8e1701e9" walls=11 elapsed=0.0ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="3de77310-577a-4f59-8f81-c1332a908f01" walls=11 elapsed=0.0ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="128ea317-43e1-4370-bde0-39345a963d09" walls=11 elapsed=0.0ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="3585ea92-27c9-4137-b95b-5f6651379a84" walls=11 elapsed=0.1ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="82cbe0be-5dda-47ca-8071-b471a69faea4" walls=11 elapsed=0.0ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="15839cc8-c67e-4ab9-8d4e-9443d0abcd5b" walls=11 elapsed=0.0ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="ea361f29-28ae-4a82-ad7a-4884ec47ee17" walls=11 elapsed=0.1ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] slab="78f548bc-f14c-464b-9d88-7b6b33c776b4" walls=11 elapsed=0.1ms
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] PERF-ADDMANY: addMany(121) complete.
+injected.js:37 [CreateCurtainWallsOnAllSlabsCommand] COMPLETE total=1201.7ms
+injected.js:37 [AIApprovalStore] Audit record appended: 862b9a9b-2600-4a1f-aba7-c8fbaf53be63 (CREATE_CURTAIN_WALLS_ON_ALL_SLABS)
+injected.js:37 Refreshing Spatial Tree...
+injected.js:37 [RuleEngine] Model updated, ready for re-validation
+injected.js:37 [CurtainWallBuilder] §BATCH-CW-PAUSE: resumeAndFlush — 121 walls transferred to pending queue, 1 rAF drain scheduled.
+injected.js:37 [FPS] 30fps
+injected.js:37 [LONGTASK] duration=1223.0ms start=388445.9ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [BatchCoordinator] Build queue drained — beginning registration drain (11 queued / 121 expected).
+injected.js:37 [BatchCoordinator] §REG-MANY-P2: queue ≤ 50 entries (11) — draining synchronously (0 rAF frames).
+injected.js:37 [BimManager] §REG-MANY-P0: registered 11 element(s) to level "L0".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 11 element(s) to level "L-01-1777942670174-1".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 11 element(s) to level "L-02-1777942670184-2".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 11 element(s) to level "L-03-1777942670189-3".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 11 element(s) to level "L-04-1777942670196-4".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 11 element(s) to level "L-05-1777942670200-5".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 11 element(s) to level "L-06-1777942670207-6".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 11 element(s) to level "L-07-1777942670213-7".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 11 element(s) to level "L-08-1777942670218-8".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 11 element(s) to level "L-09-1777942670224-9".
+injected.js:37 [BimManager] §REG-MANY-P0: registered 11 element(s) to level "L-10-1777942670232-10".
+injected.js:37 [StoreEventBus] endBatchYielded() — 121 event(s) will be delivered in 1 chunk(s) of 200 via frame scheduler.
+injected.js:37 [StoreEventBus] endBatchYielded() — all 121 event(s) delivered across 1 chunk(s) (last: 2.6ms). Calling onComplete().
+injected.js:37 [BatchCoordinator] §PERF-VIEW-BATCH-SUPPRESS: suppression lifted; markLevelsDirty(11 level(s)) scheduled.
+injected.js:37 [UnifiedFrameLoop] §PERF-VIEW-BATCH-SUPPRESS: suppression lifted — OBC+PASCAL resuming; first render compiles all deferred shaders.
+injected.js:37 [BatchCoordinator] Final sweep: firing 11 REDETECT_ROOMS command(s) (one per affected level). Observers re-enabled. StoreEventBus flushed (depth now 0).
+injected.js:37 [FPS] 15fps
+injected.js:37 [FPS] 1fps
+injected.js:37 [LONGTASK] duration=12738.0ms start=390059.7ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=1271.0ms start=402802.5ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+4injected.js:37 [GPU Monitor] geometries:27 textures:9 | drawCalls:13 tris:181
+injected.js:37 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+injected.js:37 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+injected.js:37 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed out of 1 live room(s).
+injected.js:37 [NativeElementMeshExporter] Plan view — exporting 24 elements from levels overlapping Y=[-1.20, 0.00]
+injected.js:37 [FPS] 1fps
+injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+injected.js:37 [EdgeProjectorService] project() viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+injected.js:37 [EdgeProjectorService] Native projection done — 23 group(s), 698 edge geometries across 23 ISO layer(s) (per-element UUID tagging active)
+injected.js:37 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=16 (OBC-IFC=0, native=23, ifc-scene=0)
+injected.js:37 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=7/14 layers
+injected.js:37 [LONGTASK] duration=10777.0ms start=437063.1ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=1863.0ms start=447841.2ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [GPU Monitor] geometries:158 textures:9 | drawCalls:144 tris:2033
+injected.js:37 [GPU Monitor] ⚠ Geometry count grew 485.2% (27 → 158) in 10s — possible leak. Check WallFragmentBuilder.removeWallFragments() and CurtainWallBuilder._disposeChildren().
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [FPS] 1fps
+injected.js:37 [LONGTASK] duration=1328.0ms start=449864.1ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [GPU Monitor] geometries:158 textures:9 | drawCalls:144 tris:2033
+injected.js:37 [FPS] 1fps
+injected.js:37 [LONGTASK] duration=1376.0ms start=451487.7ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [BatchCoordinator/P1.3] Post-batch PBR upgrade complete: 456 mesh(es) in 4 chunk(s) (§FIX-POST-BATCH-PBR-CHUNK).
+injected.js:37 [FPS] 1fps
+injected.js:37 [LONGTASK] duration=1328.0ms start=459650.6ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [GPU Monitor] geometries:158 textures:9 | drawCalls:144 tris:2033
+injected.js:37 [FPS] 1fps
+injected.js:37 [LONGTASK] duration=1285.0ms start=465097.1ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [GPU Monitor] geometries:158 textures:9 | drawCalls:144 tris:2033
+injected.js:37 [FPS] 1fps
+injected.js:37 [LONGTASK] duration=1215.0ms start=470343.1ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [FPS] 1fps
+injected.js:37 [LONGTASK] duration=1293.0ms start=475619.2ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [GPU Monitor] geometries:158 textures:9 | drawCalls:144 tris:2033
+injected.js:37 [FPS] 1fps
+injected.js:37 [LONGTASK] duration=1266.0ms start=480965.7ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [FPS] 1fps
+injected.js:37 [LONGTASK] duration=1300.0ms start=486356.1ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [FPS] 1fps
+injected.js:37 [LONGTASK] duration=1199.0ms start=487835.4ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [GPU Monitor] geometries:158 textures:9 | drawCalls:144 tris:2033
+2injected.js:37 [FPS] 1fps
+injected.js:37 [LONGTASK] duration=1204.0ms start=491781.4ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=9265.0ms start=492985.5ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=97.0ms start=502251.5ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [GPU Monitor] geometries:158 textures:9 | drawCalls:144 tris:2033
+injected.js:37 [LONGTASK] duration=183.0ms start=502362.8ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=86.0ms start=508136.3ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=960.0ms start=508223.2ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+injected.js:37 [LONGTASK] duration=506.0ms start=509236.3ms [type=iframe src=https://cf01f852-587e-4f84-8196-4ee22e7a8c9f-00-eopjbu42dwle.kirk.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [GPU Monitor] geometries:169 textures:9 | drawCalls:1 tris:1

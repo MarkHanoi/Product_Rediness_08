@@ -1,0 +1,10 @@
+{
+  "name": "load.large.parse",
+  "samples": 5,
+  "p50": 19.019,
+  "p95": 31.408,
+  "p99": 31.408,
+  "budgetMs": 600,
+  "warnMs": 600,
+  "recordedAt": "2026-05-09T23:08:38.983Z"
+}

@@ -1,0 +1,10 @@
+{
+  "name": "view-state.switch.default3d-to-level-overview",
+  "samples": 200,
+  "p50": 0.016,
+  "p95": 0.035,
+  "p99": 0.338,
+  "budgetMs": 250,
+  "warnMs": 220,
+  "recordedAt": "2026-04-27T22:48:00.497Z"
+}

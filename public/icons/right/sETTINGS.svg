@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Gear with 8 wide teeth (calculated at inner r=22, outer r=38, tooth half=9°, gap half=12.5°) -->
+  <path d="
+    M45.4,28.5 L44.1,12.5 L55.9,12.5 L54.6,28.5
+    L62.0,31.5 L72.3,19.3 L80.7,27.7 L68.5,38.0
+    L71.5,45.4 L87.5,44.1 L87.5,55.9 L71.5,54.6
+    L68.5,62.0 L80.7,72.3 L72.3,80.7 L62.0,68.5
+    L54.6,71.5 L55.9,87.5 L44.1,87.5 L45.4,71.5
+    L38.0,68.5 L27.7,80.7 L19.3,72.3 L31.5,62.0
+    L28.5,54.6 L12.5,55.9 L12.5,44.1 L28.5,45.4
+    L31.5,38.0 L19.3,27.7 L27.7,19.3 L38.0,31.5 Z"
+    stroke="#1C1B3C" stroke-width="3" stroke-linejoin="round"/>
+  <!-- Centre hole -->
+  <circle cx="50" cy="50" r="12" stroke="#1C1B3C" stroke-width="4.5"/>
+</svg>
