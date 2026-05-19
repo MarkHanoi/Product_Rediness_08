@@ -141,9 +141,17 @@ const OAUTH_BUTTONS_HTML = `
     <div class="am-divider"><span>or</span></div>
 `;
 
+interface Particle {
+    x: number; y: number;
+    vx: number; vy: number;
+    r: number;
+}
+
 export class AuthModal {
-    private overlay: HTMLElement;
+    private overlay!: HTMLElement;
+    private modalWrap!: HTMLElement;
     private mode: 'signin' | 'signup' = 'signin';
+    private _canvasRaf: number | null = null;
 
     /** Phase B (S73-WIRE) — runtime threaded by parent. May be null at
      *  legacy call sites that pre-date Phase B. */
@@ -198,14 +206,100 @@ export class AuthModal {
     private buildOverlay(): HTMLElement {
         const overlay = document.createElement('div');
         overlay.className = 'am-overlay';
-        overlay.innerHTML = this.renderContent();
+
+        // Live canvas background — injected before the modal card
+        const canvas = document.createElement('canvas');
+        canvas.className = 'am-canvas';
+        overlay.appendChild(canvas);
+
+        const inner = document.createElement('div');
+        inner.style.cssText = 'position:relative;z-index:1;display:flex;align-items:center;justify-content:center;width:100%;height:100%;pointer-events:none;';
+        const modalWrap = document.createElement('div');
+        modalWrap.style.cssText = 'pointer-events:auto;';
+        modalWrap.innerHTML = this.renderContent();
+        inner.appendChild(modalWrap);
+        overlay.appendChild(inner);
 
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) this.callbacks.onClose();
         });
 
-        this.attachListeners(overlay);
+        this.modalWrap = modalWrap;
+        this.attachListeners(modalWrap);
+        this._startCanvas(canvas);
         return overlay;
+    }
+
+    private _startCanvas(canvas: HTMLCanvasElement): void {
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const COUNT = 72;
+        const LINK  = 140;   // px — max distance for a connecting line
+        const particles: Particle[] = [];
+
+        const resize = () => {
+            canvas.width  = canvas.offsetWidth  || window.innerWidth;
+            canvas.height = canvas.offsetHeight || window.innerHeight;
+        };
+        resize();
+        window.addEventListener('resize', resize);
+
+        const W = () => canvas.width;
+        const H = () => canvas.height;
+
+        for (let i = 0; i < COUNT; i++) {
+            particles.push({
+                x:  Math.random() * W(),
+                y:  Math.random() * H(),
+                vx: (Math.random() - 0.5) * 0.38,
+                vy: (Math.random() - 0.5) * 0.38,
+                r:  Math.random() * 1.8 + 0.8,
+            });
+        }
+
+        const tick = () => {
+            this._canvasRaf = requestAnimationFrame(tick);
+            ctx.clearRect(0, 0, W(), H());
+
+            for (const p of particles) {
+                p.x += p.vx;
+                p.y += p.vy;
+                if (p.x < 0) p.x = W();
+                if (p.x > W()) p.x = 0;
+                if (p.y < 0) p.y = H();
+                if (p.y > H()) p.y = 0;
+            }
+
+            // Lines between nearby particles
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const a = particles[i], b = particles[j];
+                    const dx = a.x - b.x, dy = a.y - b.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < LINK) {
+                        ctx.beginPath();
+                        ctx.moveTo(a.x, a.y);
+                        ctx.lineTo(b.x, b.y);
+                        ctx.strokeStyle = `rgba(255,255,255,${0.13 * (1 - dist / LINK)})`;
+                        ctx.lineWidth = 0.7;
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            // Dots
+            for (const p of particles) {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255,255,255,0.55)';
+                ctx.fill();
+            }
+        };
+
+        tick();
+        // Clean up resize listener when canvas is garbage collected (best-effort)
+        (canvas as any).__amResizeCleanup = () => window.removeEventListener('resize', resize);
     }
 
     private renderContent(): string {
@@ -369,9 +463,9 @@ export class AuthModal {
 
     private switchMode(mode: 'signin' | 'signup'): void {
         this.mode = mode;
-        this.overlay.innerHTML = this.renderContent();
-        this.attachListeners(this.overlay);
-        setTimeout(() => (this.overlay.querySelector('#am-email') as HTMLInputElement)?.focus(), 50);
+        this.modalWrap.innerHTML = this.renderContent();
+        this.attachListeners(this.modalWrap);
+        setTimeout(() => (this.modalWrap.querySelector('#am-email') as HTMLInputElement)?.focus(), 50);
     }
 
     private async handleSubmit(overlay: HTMLElement): Promise<void> {
@@ -445,6 +539,14 @@ export class AuthModal {
     }
 
     destroy(): void {
+        // Cancel live canvas animation loop
+        if (this._canvasRaf !== null) {
+            cancelAnimationFrame(this._canvasRaf);
+            this._canvasRaf = null;
+        }
+        // Clean up canvas resize listener if stored
+        const canvas = this.overlay.querySelector('.am-canvas') as (HTMLCanvasElement & { __amResizeCleanup?: () => void }) | null;
+        canvas?.__amResizeCleanup?.();
         // OAuth popup listener lifecycle is owned by AuthClient now —
         // see chunks/22 §22.1 step 1.2 leg. Nothing for AuthModal to
         // tear down besides its own DOM overlay.
