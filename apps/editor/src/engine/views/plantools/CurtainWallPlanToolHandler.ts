@@ -34,6 +34,7 @@
 
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 import { CurtainWallBuilder } from '@pryzm/geometry-curtain-wall';
+import { createId } from '@pryzm/schemas';
 // §P2.2 (IMPL-PLAN-2026-05-17): CreateCurtainWallCommand + window.commandManager bridge (P4.4).
 // Curtain wall creation is now bus-only via the initBusHandlers §E.5.4 bridge.
 
@@ -325,10 +326,14 @@ export class CurtainWallPlanToolHandler implements PlanToolHandler {
             // Routes directly to CreateCurtainWallHandler (registered via registerCurtainWallHandlers
             // in engineLauncher.ts). The legacy bridge in initBusHandlers.ts §E.5.4 has been removed.
             // baseLine uses [Vec3, Vec3] format as required by CreateCurtainWallPayload.
+            // C11 §3.2 + C11 §7.0 FIX-CW-ID: pre-generate a branded curtainwall_<ulid>
+            // id per segment using createId('curtainwall') from @pryzm/schemas.
+            // The CEB extracts id from record.payload → emits ev.id on 'curtain-wall.created'.
+            // The initTools §P3.1-CW bridge guards on !ev.id — if id is omitted the
+            // guard silently drops every event → no mesh, no plan view projection.
             for (let i = 0; i < pts.length - 1; i++) {
-                // C11 §3.2 + defineElement invariant: tools MUST NOT pass `id` in bus dispatch.
-                // The handler auto-generates curtainwall_<ulid> via createId('curtainwall').
                 window.runtime?.bus?.executeCommand('curtainwall.create', {
+                    id:       createId('curtainwall'),
                     baseLine: [
                         { x: pts[i].worldX,     y: 0, z: pts[i].worldZ     },
                         { x: pts[i + 1].worldX, y: 0, z: pts[i + 1].worldZ },
@@ -355,12 +360,17 @@ export class CurtainWallPlanToolHandler implements PlanToolHandler {
         // §P3.1-CW (IMPL-PLAN-2026-05-17): typed bus dispatch — curtainwall.create (no hyphen).
         // Routes directly to CreateCurtainWallHandler (registered via registerCurtainWallHandlers
         // in engineLauncher.ts). The legacy curtain-wall.create bridge is removed.
-        // baseLine uses [Vec3, Vec3] format as required by CreateCurtainWallPayload.
-        // C11 §3.2 + defineElement invariant: tools MUST NOT pass `id` in bus dispatch.
-        // CurtainWall.parse() enforces ^curtainwall_[ULID]{26}$ — a raw crypto.randomUUID()
-        // fails the regex and throws CurtainWallSchemaError. Let the handler auto-generate
-        // the branded id via createId('curtainwall').
+        //
+        // C11 §3.2 + C11 §7.0 FIX-CW-ID: pre-generate a branded curtainwall_<ulid>
+        // id using createId('curtainwall') from @pryzm/schemas.
+        // The CEB extracts id from record.payload → emits ev.id on 'curtain-wall.created'.
+        // The initTools §P3.1-CW bridge guards on !ev.id — if id is omitted the guard
+        // silently drops every event → legacy store never updated → no mesh, no plan view.
+        // CurtainWall.parse() enforces ^curtainwall_[ULID]{26}$ — createId('curtainwall')
+        // generates that format. crypto.randomUUID() must NOT be used.
+        const cwId = createId('curtainwall');
         window.runtime?.bus?.executeCommand('curtainwall.create', {
+            id:       cwId,
             baseLine: [
                 { x: sp.worldX,    y: 0, z: sp.worldZ },
                 { x: endPt.worldX, y: 0, z: endPt.worldZ },

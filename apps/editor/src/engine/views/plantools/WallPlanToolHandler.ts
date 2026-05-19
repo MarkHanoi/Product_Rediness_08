@@ -24,6 +24,7 @@
 
 
 import { WallDimensionInput } from '@pryzm/geometry-wall';
+import { createId } from '@pryzm/schemas';
 import { isStrongSnap, type PlanToolHandler, type PlanToolDrawContext, type WorldPoint } from './PlanToolHandler';
 // §P2.1 (IMPL-PLAN-2026-05-17): CreateWallCommand + window.commandManager bridge (P4.4).
 // Wall creation is now bus-only; no @pryzm/command-registry import needed here.
@@ -296,20 +297,25 @@ export class WallPlanToolHandler implements PlanToolHandler {
 
         // §P2.1 / C11 §2 — bus-only single-pipeline dispatch.
         //
-        // CONTRACT (C11 §3.2, defineElement invariant):
-        //   • Do NOT pass `id` — the Wall schema's defineElement(..) auto-mints a
-        //     branded `wall_<ulid>` ID via `.default(() => createId('wall'))`.
-        //     Passing a raw crypto.randomUUID() would fail the `/^wall_<ulid>$/`
-        //     Zod regex and throw a WallSchemaError before the store is ever touched.
+        // CONTRACT (C11 §3.2 + C11 §7.0 FIX-WALL-ID):
+        //   • `id` MUST be pre-generated here using createId('wall') from @pryzm/schemas.
+        //     The CEB extracts id from record.payload → emits wallId on 'wall.created'.
+        //     The initTools §P2.1 bridge guards on !ev.wallId — if id is omitted from
+        //     the payload, wallId is undefined, the guard silently drops every event,
+        //     the legacy WallStore is never updated → no 3D mesh, no plan view projection.
+        //   • createId('wall') generates `wall_<ulid>` format which passes the
+        //     CreateWallHandler.WALL_ID_RE regex.  crypto.randomUUID() must NOT be used.
         //   • baseLine points MUST be full Vec3 `{ x, y, z }`.  The `y` component
         //     carries the level elevation (0 in plan view = ground level).
-        //     Omitting `y` yields a Zod `invalid_type` error.
         //
         // The handler (plugins/wall/src/handlers/CreateWall.ts) writes to the PRYZM3
         // Immer store; CommandEventBridge emits `wall.created`; the bridge in
         // initTools.ts §P2.1 mirrors into the legacy WallStore → WallRebuildCoordinator
-        // → 3D mesh.
+        // → 3D mesh.  Plan view: WallStore.add() emits storeEventBus →
+        // ViewTechnicalDrawingCache._onStoreChange → vd:projection-stale → Canvas2D.
+        const wallId = createId('wall');
         window.runtime?.bus?.executeCommand('wall.create', {
+            id:       wallId,
             baseLine:  [
                 { x: startPt.worldX, y: 0, z: startPt.worldZ },
                 { x: endPt.worldX,   y: 0, z: endPt.worldZ   },
