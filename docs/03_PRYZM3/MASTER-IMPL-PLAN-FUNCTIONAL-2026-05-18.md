@@ -1,6 +1,6 @@
 # MASTER IMPLEMENTATION PLAN — FUNCTIONAL FIXES
 # PRYZM3 — 2026-05-18
-**Status:** ACTIVE  
+**Status:** COMPLETE — all 14 tasks verified implemented; build gates clean as of 2026-05-19  
 **Supersedes:** `ELEMENT-FUNCTIONAL-FIX-PLAN-2026-05-18.md` (F1–F7 only; this plan is the full replacement)  
 **Contract refs:** C11 §5.2, C14 §3, C15 §8 §8.1, C20 §3, ADR-002 §2, P3, P4, P6  
 **Audit source:** `ELEMENT-FUNCTIONAL-AUDIT-FULL-2026-05-18.md`  

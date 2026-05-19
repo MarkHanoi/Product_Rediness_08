@@ -876,6 +876,62 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             } catch (err) {
                 console.error('[initTools] §P2.3: failed to mirror opening to legacy store — mesh may not render hole:', err);
             }
+
+            // §P2.3-DOOR: mirror to DoorStore so DoorPlanSymbolBuilder can inject the
+            // swing arc symbol into plan-view projections.
+            //
+            // BUG ROOT CAUSE (DOOR-PLAN-SYM-2026-05-19):
+            //   DoorPlanSymbolBuilder.inject() reads exclusively from doorStore.getAll().
+            //   When a door is placed from the plan-view tool, the bus path only writes
+            //   to the wall's openings array (via addOpening above).  No DoorStore entry
+            //   is ever created → the symbol builder finds nothing → no swing arc in plan.
+            //   CreateWallOpeningCommand (3D path) calls doorStore.add() at line 117 —
+            //   this branch replicates that step for the bus path.
+            //
+            // Contract compliance:
+            //   §C02 §3.2 / F-1.2 — bus→legacy-store bridge is the canonical mirroring site.
+            //   §C11 §3             — bus-only dispatch preserved; no legacy commandManager call.
+            //   §P2.3               — opening bridge extended to include element-store mirroring.
+            if (type === 'door' && !doorStore.has(elementId)) {
+                try {
+                    doorStore.add({
+                        id:           elementId,
+                        openingId:    id,
+                        wallId:       ev.wallId,
+                        offset,
+                        width,
+                        height,
+                        sillHeight,
+                        doorType:     (o.doorType === 'double' ? 'double' : 'single'),
+                        ...(typeof o.systemTypeId === 'string' && (o.systemTypeId as string).length > 0
+                            ? { systemTypeId: o.systemTypeId as string } : {}),
+                    });
+                    console.log('[initTools] §P2.3-DOOR: door mirrored to DoorStore — swing arc will render', elementId);
+                } catch (err) {
+                    console.error('[initTools] §P2.3-DOOR: doorStore.add failed (non-fatal) — swing arc symbol will be absent:', err);
+                }
+            }
+
+            // §P2.3-WIN: same pattern for windows — WindowPlanSymbolBuilder reads from
+            // windowStore.getAll() and will skip any window not present in the store.
+            if (type === 'window' && !windowStore.has(elementId)) {
+                try {
+                    windowStore.add({
+                        id:           elementId,
+                        openingId:    id,
+                        wallId:       ev.wallId,
+                        offset,
+                        width,
+                        height,
+                        sillHeight,
+                        ...(typeof o.systemTypeId === 'string' && (o.systemTypeId as string).length > 0
+                            ? { systemTypeId: o.systemTypeId as string } : {}),
+                    });
+                    console.log('[initTools] §P2.3-WIN: window mirrored to WindowStore — frame symbol will render', elementId);
+                } catch (err) {
+                    console.error('[initTools] §P2.3-WIN: windowStore.add failed (non-fatal) — window frame symbol will be absent:', err);
+                }
+            }
         });
         console.log('[initTools] §P2.3: wall.opening.created bus→legacy-store bridge registered.');
     }
