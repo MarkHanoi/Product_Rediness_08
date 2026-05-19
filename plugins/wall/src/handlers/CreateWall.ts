@@ -72,6 +72,10 @@ export class CreateWallHandler
    *  catalogue. */
   constructor(private readonly systemTypeStore?: WallSystemTypeStore) {}
 
+  // C11 §3.2: domain-invariant regex for branded wall IDs.
+  // Mirrors the regex inside defineElement('wall', ...) in @pryzm/schemas.
+  private static readonly WALL_ID_RE = /^wall_[0-9A-HJKMNP-TV-Z]{26}$/;
+
   canExecute(_ctx: HandlerContext<WallHandlerStores>, cmd: CreateWallPayload): ValidationResult {
     if (cmd.height !== undefined && (!Number.isFinite(cmd.height) || cmd.height <= 0)) {
       return { valid: false, reason: 'height must be > 0' };
@@ -79,8 +83,20 @@ export class CreateWallHandler
     if (cmd.thickness !== undefined && (!Number.isFinite(cmd.thickness) || cmd.thickness < 0.05)) {
       return { valid: false, reason: 'thickness must be ≥ 0.05 m' };
     }
-    if (cmd.id !== undefined && (typeof cmd.id !== 'string' || cmd.id.length === 0)) {
-      return { valid: false, reason: 'id must be a non-empty string' };
+    // C11 §3.2 / defineElement invariant: if the caller supplies an id it MUST
+    // already be in `wall_<ulid>` branded format.  Omitting id is the preferred
+    // pattern for interactive tools — the handler auto-mints via createId('wall').
+    if (cmd.id !== undefined) {
+      if (typeof cmd.id !== 'string' || cmd.id.length === 0) {
+        return { valid: false, reason: 'id must be a non-empty string' };
+      }
+      if (!CreateWallHandler.WALL_ID_RE.test(cmd.id)) {
+        return {
+          valid: false,
+          reason:
+            'id must be a branded wall_<ulid> — omit id to auto-generate, or use createId(\'wall\') from @pryzm/schemas',
+        };
+      }
     }
     if (
       cmd.systemTypeId !== undefined &&
