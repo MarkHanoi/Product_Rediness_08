@@ -1,0 +1,194 @@
+[CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+injected.js:37 [initTools] §P2.1: failed to mirror wall to legacy store — mesh may not build: Error: [WallStore.add] Schema validation failed: type: wall.type must be "wall"
+    at WallStore.add (WallStore.ts:192:23)
+    at initTools.ts:823:43
+    at EventBus.emit (EventBus.ts:45:9)
+    at CommandEventBridge.ts:90:18
+    at PatchEmitter.emit (PatchEmitter.ts:34:7)
+    at CommandBus.ts:293:22
+    at async withSpan (otel.ts:24:20)
+(anonymous) @ injected.js:37
+(anonymous) @ initTools.ts:837
+(anonymous) @ EventBus.ts:45
+(anonymous) @ CommandEventBridge.ts:90
+(anonymous) @ PatchEmitter.ts:34
+(anonymous) @ CommandBus.ts:293Understand this error
+injected.js:37 [WallPlanToolHandler] Wall dispatched — mode: ortho (straight)
+injected.js:37 [WallPlanToolHandler] Polyline closed
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+injected.js:37 [initTools] §P2.1: failed to mirror wall to legacy store — mesh may not build: Error: [WallStore.add] Schema validation failed: type: wall.type must be "wall"
+    at WallStore.add (WallStore.ts:192:23)
+    at initTools.ts:823:43
+    at EventBus.emit (EventBus.ts:45:9)
+    at CommandEventBridge.ts:90:18
+    at PatchEmitter.emit (PatchEmitter.ts:34:7)
+    at CommandBus.ts:293:22
+    at async withSpan (otel.ts:24:20)
+(anonymous) @ injected.js:37
+(anonymous) @ initTools.ts:837
+(anonymous) @ EventBus.ts:45
+(anonymous) @ CommandEventBridge.ts:90
+(anonymous) @ PatchEmitter.ts:34
+(anonymous) @ CommandBus.ts:293Understand this error
+injected.js:37 [FPS] 60fps
+injected.js:37 WallTool deactivated
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [FPS] 42fps
+injected.js:37 [GPU Monitor] geometries:10 textures:11 | drawCalls:5 tris:50
+injected.js:37 [GPU Monitor] ⚠ Geometry count grew 11.1% (9 → 10) in 10s — possible leak. Check WallFragmentBuilder.removeWallFragments() and CurtainWallBuilder._disposeChildren().
+(anonymous) @ injected.js:37
+(anonymous) @ initScene.ts:2397Understand this warning
+injected.js:37 [GPU Monitor] geometries:10 textures:11 | drawCalls:5 tris:50
+injected.js:37 [FPS] 48fps
+injected.js:37 [FPS] 111fps
+injected.js:37 [PickResolver] hover-anchor hit=wall_01KRZJJR9P8TZSYJBH04R6RV3Q
+injected.js:37 [LevelPlaneConstraint] Locked Y=0.0000 for element "wall" id="wall_01KRZJJR9P8TZSYJBH04R6RV3Q"
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [WallTransform] Wall "wall_01KRZJJR9P8TZSYJBH04R6RV3Q" — gizmo aligned with direction Vector3
+injected.js:37 [LONGTASK] duration=56.0ms start=323070.5ms [type=iframe src=https://01405e9e-f3c5-4c13-8168-a9021f2d324b-00-1cbpotvacnup6.picard.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [LONGTASK] duration=81.0ms start=323129.8ms [type=iframe src=https://01405e9e-f3c5-4c13-8168-a9021f2d324b-00-1cbpotvacnup6.picard.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [FPS] 79fps
+injected.js:37 [ScaleTool] Activated for element: wall_01KRZJJR9P8TZSYJBH04R6RV3Q (wall)
+injected.js:37 [ContextualEditBar] S → Scale
+injected.js:37 [FPS] 66fps
+injected.js:37 [ScaleTool] Cancelled
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [FPS] 94fps
+injected.js:37 [GPU Monitor] geometries:23 textures:11 | drawCalls:5 tris:50
+injected.js:37 [GPU Monitor] ⚠ Geometry count grew 130.0% (10 → 23) in 10s — possible leak. Check WallFragmentBuilder.removeWallFragments() and CurtainWallBuilder._disposeChildren().
+(anonymous) @ injected.js:37
+(anonymous) @ initScene.ts:2397Understand this warning
+3injected.js:37 [GPU Monitor] geometries:23 textures:11 | drawCalls:5 tris:50
+injected.js:37 [FPS] 78fps
+injected.js:37 [SlabModePicker] Mode selected: 2-Point
+injected.js:37 ToolManager: activateTool called for slab
+injected.js:37 ToolManager: deactivating previous tool none
+injected.js:37 ToolManager: executing activateFn for slab
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [FPS] 30fps
+injected.js:37 [SlabPlanToolHandler] activated — overlay ready, waiting for first click
+injected.js:37 [SvpPlanToolOverlay] Handler activated: slab
+injected.js:37 [SlabPlanToolHandler] 2-point slab first corner set worldX=0.766 worldZ=-33.484
+injected.js:37 [SlabPlanToolHandler] 2-point slab second corner set — committing rectangle
+injected.js:37 [SlabPlanToolHandler] slab.create failed: CommandBusError: slab.create: canExecute rejected — boundary has zero area
+    at CommandBus.ts:254:17
+    at withSpan (otel.ts:24:26)
+    at CommandBus.executeCommand (CommandBus.ts:244:12)
+    at Object.executeCommand (composeRuntime.ts:1116:26)
+    at SlabPlanToolHandler._commitSlab (SlabPlanToolHandler.ts:172:30)
+    at SlabPlanToolHandler.onClick (SlabPlanToolHandler.ts:89:22)
+    at SvpPlanToolOverlay._onMouseDown (SvpPlanToolOverlay.ts:475:37)
+(anonymous) @ injected.js:37
+(anonymous) @ SlabPlanToolHandler.ts:194Understand this error
+injected.js:37 [SlabPlanToolHandler] deactivated
+injected.js:37 [GPU Monitor] geometries:23 textures:11 | drawCalls:1 tris:1
+injected.js:37 Exiting tool via HUD button
+injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [FPS] 30fps
+injected.js:37 [LONGTASK] duration=57.0ms start=369408.8ms [type=iframe src=https://01405e9e-f3c5-4c13-8168-a9021f2d324b-00-1cbpotvacnup6.picard.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [FPS] 89fps
+injected.js:37 [FPS] 99fps
+injected.js:37 [FPS] 79fps
+injected.js:37 [SlabModePicker] Mode selected: 2-Point
+injected.js:37 ToolManager: activateTool called for slab
+injected.js:37 ToolManager: deactivating previous tool none
+injected.js:37 ToolManager: executing activateFn for slab
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [FPS] 50fps
+injected.js:37 [CommandManager] EXECUTE: CREATE_SLAB
+injected.js:37 [CommandManager] snapshot commandType="CreateSlabCommand" scope=[slab,level] elapsed=0.2ms
+injected.js:37 [BimManager] Registered element c6de7b86-d2dc-4533-be8f-c038d41a8335 to level L0
+injected.js:37 [SlabFragmentBuilder] outset slabId="c6de7b86-d2dc-4533-be8f-c038d41a8335" vertices=4 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="c6de7b86-d2dc-4533-be8f-c038d41a8335" outerVertices=4 elapsed=0.4ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="c6de7b86-d2dc-4533-be8f-c038d41a8335" totalMs=1.1ms
+injected.js:37 [CommandManager] EXECUTE: UPDATE_SLAB_LAYERS
+injected.js:37 [CommandManager] snapshot commandType="UpdateSlabLayersCommand" scope=[slab] elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] outset slabId="c6de7b86-d2dc-4533-be8f-c038d41a8335" vertices=4 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] triangulate slabId="c6de7b86-d2dc-4533-be8f-c038d41a8335" outerVertices=4 elapsed=0.1ms
+injected.js:37 [SlabFragmentBuilder] BUILD_COMPLETE slabId="c6de7b86-d2dc-4533-be8f-c038d41a8335" totalMs=0.7ms
+injected.js:37 [LevelPlaneConstraint] Locked Y=-0.2000 for element "Slab" id="c6de7b86-d2dc-4533-be8f-c038d41a8335"
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [FPS] 10fps
+injected.js:37 [LONGTASK] duration=76.0ms start=376049.1ms [type=iframe src=https://01405e9e-f3c5-4c13-8168-a9021f2d324b-00-1cbpotvacnup6.picard.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [CommandManager] EXECUTE: REDETECT_ROOMS
+injected.js:37 [CommandManager] snapshot commandType="ReDetectRoomsCommand" scope=[room] elapsed=0.0ms
+injected.js:37 [RoomDetectionEngine] Detected 1 room(s) on level 'L0'
+injected.js:37 [ViewDependencyTracker] flush — 1 dirty view(s): vd-sys-p
+injected.js:37 [ViewTechnicalDrawingCache] invalidated viewId=vd-sys-plan-l0
+injected.js:37 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed out of 1 live room(s).
+injected.js:37 [NativeElementMeshExporter] Plan view — exporting 6 elements from levels overlapping Y=[-1.20, 0.00]
+injected.js:37 [NME] §H2-NME-CACHE hits=4 misses=1 hitRate=80% cacheSize=8/500
+injected.js:37 [EdgeProjectorService] resolveClipRange() levelId=L0 elevation=0.000
+injected.js:37 [EdgeProjectorService] project() batchId=none viewId=vd-sys-plan-l0 dir=(0,-1,0) near=1.200 far=3.000
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#0 elemId=wall_01KRZJJQQSMHH636EZY43V73T6 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.3ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#1 elemId=wall_01KRZJJR0Z02X5597RBCH40PC9 elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#2 elemId=wall_01KRZJJR9P8TZSYJBH04R6RV3Q elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#3 elemId=wall_01KRZJJS6RB45D5JJFKS867PBS elemType=wall meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.1ms
+injected.js:37 [EdgeProjectorService] §DIAG-EPS-02 group#4 elemId=c6de7b86-d2dc-4533-be8f-c038d41a8335 elemType=Slab meshesProcessed=1 totalEdgeVerts=24 layers=1 traverseMs=0.3ms
+injected.js:37 [EdgeProjectorService] §PERF-EDGEPROJECTOR-CHUNK Native projection done — 5 group(s) in 2 chunk(s), 5 edge geometries across 5 ISO layer(s) (per-element UUID tagging active)
+injected.js:37 [initScene] DOC-1.4/1.8: Re-projection complete for viewId=vd-sys-plan-l0 gen=10 (OBC-IFC=0, native=5, ifc-scene=0)
+injected.js:37 [VGSceneApplicator] DOC-1.13 applyToProjectionLayers() — viewDefId=vd-sys-plan-l0 modelId=model-default applied=7/14 layers
+injected.js:37 [GPU Monitor] geometries:25 textures:10 | drawCalls:1 tris:1
+injected.js:37 [ProjectSerializer] Snapshot created: 13 elements, 1 levels, 4 walls, 1 slabs, 0 furniture
+injected.js:37 [ProjectSerializer] Snapshot created: 13 elements, 1 levels, 4 walls, 1 slabs, 0 furniture
+injected.js:37 [captureThumbnail] Thumbnail captured: 166×225px, ~5KB
+injected.js:37 [PlatformSaveController] Thumbnail: captured (~5KB)
+injected.js:37 [PlatformSaveController] Version saved: "Auto-save" (13 elements, id: proj-1779176406026-p3ujr)
+injected.js:37 [LONGTASK] duration=68.0ms start=377059.3ms [type=iframe src=https://01405e9e-f3c5-4c13-8168-a9021f2d324b-00-1cbpotvacnup6.picard.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [PlatformSaveController] Thumbnail uploaded to server for project proj-1779176091413-69246814a7ed
+injected.js:37 Exiting tool via HUD button
+injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [FPS] 30fps
+injected.js:37 [ServerSyncQueue] Synced version "Auto-save" (proj-1779176406026-p3ujr)
+injected.js:37 [FPS] 105fps
+injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [FPS] 113fps
+injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [FPS] 110fps
+injected.js:37 [FPS] 95fps
+injected.js:37 [FPS] 73fps
+injected.js:37 [GPU Monitor] geometries:25 textures:11 | drawCalls:6 tris:62
+injected.js:37 [FPS] 55fps
+injected.js:37 [LONGTASK] duration=72.0ms start=391573.0ms [type=iframe src=https://01405e9e-f3c5-4c13-8168-a9021f2d324b-00-1cbpotvacnup6.picard.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [FPS] 30fps
+injected.js:37 [GPU Monitor] geometries:25 textures:11 | drawCalls:6 tris:62
+injected.js:37 [FPS] 60fps
+injected.js:37 [FPS] 90fps
+5injected.js:37 [GPU Monitor] geometries:25 textures:11 | drawCalls:6 tris:62
+injected.js:37 [FPS] 60fps
+js.stripe.com/v3/controller-with-preconnect-d72b7696a8e5ffd704fedc38f6cfd5ba.html#__shared_params__[version]=acacia&__shared_params__[light_experiment_assignments]=%7B%22token%22%3A%221bd30580-47d6-4214-ab9d-1a8934b46c5f%22%2C%22assignments%22%3A%7B%22habanero_aa_v1%22%3A%22treatment%22%7D%7D&apiKey=pk_live_515YpNsJAmnYVOvfnsBqRdATWS6SzbNAslOz1z2tujdKuvRMDAwWMeFXp6dJL1YKRrQjB0WAp0UDGwlFYL7hxw7Fc00QkfxBFsL&apiVersion=2025-01-27.acacia&stripeJsId=1bd30580-47d6-4214-ab9d-1a8934b46c5f&stripeObjId=sobj-0e67f4fc-e673-4c97-bcb1-408654fcb3ae&firstStripeInstanceCreatedLatency=10&controllerCount=1&isCheckout=false&stripeJsLoadTime=1779175915007&manualBrowserDeprecationRollout=false&mids[guid]=NA&mids[muid]=2e70f17c-c10c-4ea9-bd16-31abfe980821f408aa&mids[sid]=49bb43a0-4494-4875-b5d2-3b3fed92baa559c893&referrer=https%3A%2F%2Freplit.com%2F~&controllerId=__privateStripeController7611:1 Access to fetch at 'https://r.stripe.com/b' from origin 'https://js.stripe.com' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header contains multiple values 'https://js.stripe.com, https://js.stripe.com', but only one is allowed. Have the server send the header with a valid value.Understand this error
+js.stripe.com/v3/controller-with-preconnect-d72b7696a8e5ffd704fedc38f6cfd5ba.html#__shared_params__[version]=acacia&__shared_params__[light_experiment_assignments]=%7B%22token%22%3A%221bd30580-47d6-4214-ab9d-1a8934b46c5f%22%2C%22assignments%22%3A%7B%22habanero_aa_v1%22%3A%22treatment%22%7D%7D&apiKey=pk_live_515YpNsJAmnYVOvfnsBqRdATWS6SzbNAslOz1z2tujdKuvRMDAwWMeFXp6dJL1YKRrQjB0WAp0UDGwlFYL7hxw7Fc00QkfxBFsL&apiVersion=2025-01-27.acacia&stripeJsId=1bd30580-47d6-4214-ab9d-1a8934b46c5f&stripeObjId=sobj-0e67f4fc-e673-4c97-bcb1-408654fcb3ae&firstStripeInstanceCreatedLatency=10&controllerCount=1&isCheckout=false&stripeJsLoadTime=1779175915007&manualBrowserDeprecationRollout=false&mids[guid]=NA&mids[muid]=2e70f17c-c10c-4ea9-bd16-31abfe980821f408aa&mids[sid]=49bb43a0-4494-4875-b5d2-3b3fed92baa559c893&referrer=https%3A%2F%2Freplit.com%2F~&controllerId=__privateStripeController7611:1 Access to fetch at 'https://r.stripe.com/b' from origin 'https://js.stripe.com' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header contains multiple values 'https://js.stripe.com, https://js.stripe.com', but only one is allowed. Have the server send the header with a valid value.Understand this error
+r.stripe.com/b:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+r.stripe.com/b:1  Failed to load resource: net::ERR_FAILEDUnderstand this error
+11injected.js:37 [GPU Monitor] geometries:25 textures:11 | drawCalls:6 tris:62
+0bb9pnbfpcdug.js:21 Haven't heard from the server in a while, resetting connection...
+(anonymous) @ 0bb9pnbfpcdug.js:21
+(anonymous) @ 0p31y1vu~s28j.js:21Understand this warning
+injected.js:37 [GPU Monitor] geometries:25 textures:11 | drawCalls:6 tris:62
+0bb9pnbfpcdug.js:21 Haven't heard from the server in a while, resetting connection...
+(anonymous) @ 0bb9pnbfpcdug.js:21
+(anonymous) @ 0p31y1vu~s28j.js:21Understand this warning
+js.stripe.com/v3/controller-with-preconnect-d72b7696a8e5ffd704fedc38f6cfd5ba.html#__shared_params__[version]=acacia&__shared_params__[light_experiment_assignments]=%7B%22token%22%3A%221bd30580-47d6-4214-ab9d-1a8934b46c5f%22%2C%22assignments%22%3A%7B%22habanero_aa_v1%22%3A%22treatment%22%7D%7D&apiKey=pk_live_515YpNsJAmnYVOvfnsBqRdATWS6SzbNAslOz1z2tujdKuvRMDAwWMeFXp6dJL1YKRrQjB0WAp0UDGwlFYL7hxw7Fc00QkfxBFsL&apiVersion=2025-01-27.acacia&stripeJsId=1bd30580-47d6-4214-ab9d-1a8934b46c5f&stripeObjId=sobj-0e67f4fc-e673-4c97-bcb1-408654fcb3ae&firstStripeInstanceCreatedLatency=10&controllerCount=1&isCheckout=false&stripeJsLoadTime=1779175915007&manualBrowserDeprecationRollout=false&mids[guid]=NA&mids[muid]=2e70f17c-c10c-4ea9-bd16-31abfe980821f408aa&mids[sid]=49bb43a0-4494-4875-b5d2-3b3fed92baa559c893&referrer=https%3A%2F%2Freplit.com%2F~&controllerId=__privateStripeController7611:1 Access to fetch at 'https://r.stripe.com/b' from origin 'https://js.stripe.com' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header contains multiple values 'https://js.stripe.com, https://js.stripe.com', but only one is allowed. Have the server send the header with a valid value.Understand this error
+js.stripe.com/v3/controller-with-preconnect-d72b7696a8e5ffd704fedc38f6cfd5ba.html#__shared_params__[version]=acacia&__shared_params__[light_experiment_assignments]=%7B%22token%22%3A%221bd30580-47d6-4214-ab9d-1a8934b46c5f%22%2C%22assignments%22%3A%7B%22habanero_aa_v1%22%3A%22treatment%22%7D%7D&apiKey=pk_live_515YpNsJAmnYVOvfnsBqRdATWS6SzbNAslOz1z2tujdKuvRMDAwWMeFXp6dJL1YKRrQjB0WAp0UDGwlFYL7hxw7Fc00QkfxBFsL&apiVersion=2025-01-27.acacia&stripeJsId=1bd30580-47d6-4214-ab9d-1a8934b46c5f&stripeObjId=sobj-0e67f4fc-e673-4c97-bcb1-408654fcb3ae&firstStripeInstanceCreatedLatency=10&controllerCount=1&isCheckout=false&stripeJsLoadTime=1779175915007&manualBrowserDeprecationRollout=false&mids[guid]=NA&mids[muid]=2e70f17c-c10c-4ea9-bd16-31abfe980821f408aa&mids[sid]=49bb43a0-4494-4875-b5d2-3b3fed92baa559c893&referrer=https%3A%2F%2Freplit.com%2F~&controllerId=__privateStripeController7611:1 Access to fetch at 'https://r.stripe.com/b' from origin 'https://js.stripe.com' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header contains multiple values 'https://js.stripe.com, https://js.stripe.com', but only one is allowed. Have the server send the header with a valid value.

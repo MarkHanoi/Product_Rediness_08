@@ -1,0 +1,143 @@
+Let me check the live logs immediately to see what's actually happening:
+
+
+Show less
+Checked console and system logs
+
+Diagnosing mirroring to legacy store (10 seconds)
+The error is crystal clear from the browser console:
+
+[initTools] §P2.1: failed to mirror wall to legacy store — mesh may not build: {}
+
+This is happening 4 times. The wall IS being dispatched (I can see [WallPlanToolHandler] Wall dispatched — mode: ortho (straight)) but the §P2.1 bridge is failing with an error when trying to mirror to the legacy store. The error object is {} which means the actual error is being swallowed.
+
+The §P2.1 bridge code catches errors and logs them. Let me look at what wallStore.add() might be throwing. The error is {} which means it's likely a Zod validation error or similar that doesn't serialize well.
+
+The logs show the wall is definitely being dispatched, but the bridge never successfully mirrors it to the legacy store — it fails every single time. So the id fix worked in that the bridge is now actually running (it wasn't before), but something in wallStore.add() is throwing an error that's not serializing properly.
+
+I need to trace through what the §P2.1 bridge is reconstructing from the wall event and compare it against what WallStore.add() actually expects, then check what fields the wall.created event carries.
+
+The error is clear: [initTools] §P2.1: failed to mirror wall to legacy store — mesh may not build: {}. The bridge IS now running (the id fix worked) but wallStore.add() is throwing. The error object {} means a non-serializable error (likely a Zod schema validation error). Let me read the bridge and WallStore simultaneously:
+
+
+Show less
+
+Opened initTools.ts
+
+Ran grep
+
+Ran grep
+
+Planning bridge and store integration (47 seconds)
+The error is clear. The §P2.1 bridge is being triggered (the id fix worked!), but wallStore.add() is throwing a Zod validation error that serializes as {}.
+
+The bridge passes:
+
+_legacyWallStoreForBridge.add({
+    id:        ev.wallId,
+    levelId:   ev.levelId,
+    baseLine:  [
+        { x: ev.baseLine[0].x, y: ev.baseLine[0].y ?? 0, z: ev.baseLine[0].z },
+        { x: ev.baseLine[1].x, y: ev.baseLine[1].y ?? 0, z: ev.baseLine[1].z },
+    ],
+    height:    ev.height    ?? 2.7,
+    thickness: ev.thickness ?? 0.2,
+    ...
+} as any);
+
+Now I need to figure out what ev actually contains when the CEB emits wall.created. Let me check what the CEB is sending at that emission point and whether baseLine is properly populated.
+
+Looking at the guard condition that checks the event type, wall ID, and baseline existence with at least 2 elements—the guard passes, so those fields are present. The error must be happening inside the Zod validation or one of the subsequent checks in WallStore.add(), like the baseline point validation, height positivity, thickness positivity, or the required levelId and id fields.
+
+The most likely culprits are either a LevelResolveError when the levelId doesn't match any level in the BimKernel, or a Zod schema validation failure that's not serializing properly in the error message. The error is likely a Zod validation error, since Zod's ZodError doesn't expose its message as an enumerable property, which would cause console.error() to display it as an empty object. I need to trace back through the WallPlanToolHandler to see what fields it's actually dispatching in the wall creation event.
+
+Looking at the browser logs, I notice that REDETECT_ROOMS is still firing through CommandManager right after the wall dispatch fails, which suggests the wall is being created through the legacy store path despite the new handler being active.
+
+The issue is that WallTool.ts is still using commandManager to create the wall in the legacy store, so by the time the bridge tries to add it via wallStore.add(), it already exists. There's a dedup guard at line 821 that should catch this and return early, but something's preventing it from working correctly — either getById isn't finding the wall, or the wall is being added through a different code path.
+
+Looking at the logs more carefully, REDETECT_ROOMS fires immediately after the wall dispatch through CommandManager, which suggests the legacy engineLauncher listener is still being triggered when the wall is created via the bus. This means both the new bus path and the old commandManager path are executing simultaneously. I'm wondering why wallStore.add() is throwing an empty object error. It could be a LevelResolveError if the levelId from the WallPlanToolHandler doesn't match what BimKernel has registered, though that would normally have a message. The empty object {} suggests it might be a ZodError or custom Error subclass with overridden toString() but no enumerable properties, and the console error indicates the wall failed to mirror to the legacy store which could prevent mesh building. I'm checking what field names WallPlanToolHandler actually uses when dispatching the wall creation command, and then tracing through to see what baseLine contains when the CEB emits the wall.created event. The fix with the wallId extraction seems to be working based on the logs, but I need to verify the exact structure of the data being passed through.
+
+The fix worked — the bridge IS now running — but wallStore.add() throws {}. That means the Zod schema validation is failing. I need to see exactly what the CEB emits for wall.created and what the WallPlanToolHandler sends:
+
+
+Show less
+
+Opened CommandEventBridge.ts
+
+Ran grep
+
+Ran grep
+
+Planning WallStore validation failure resolution (36 seconds)
+Now I can see the issue clearly!
+
+Looking at the WallPlanToolHandler dispatch (lines 317-326):
+
+window.runtime?.bus?.executeCommand('wall.create', {
+    id:       wallId,
+    baseLine:  [
+        // ... two points ...
+    ],
+    height:    WALL_DEFAULT_HEIGHT,
+    thickness: WALL_DEFAULT_THICKNESS,
+    levelId,
+    ...(systemTypeId  ? { systemTypeId }  : {}),
+
+And the CEB reads p.baseLine → baseLine: p.baseLine.
+
+The bridge guard checks:
+
+!ev.baseLine || ev.baseLine.length < 2
+
+So baseLine exists and has at least two points. The bridge then reconstructs the wall by extracting x, y, z coordinates from each point in the baseLine array, defaulting the y value to 0 if it's missing.
+
+Now when WallStore.add() validates this with Zod, the error comes back as an empty object, which suggests it's a custom error class like WallSchemaError or LevelResolveError that doesn't expose enumerable properties. The most likely culprit is a LevelResolveError at line 226 — the levelId from the CEB event is coming through as p.levelId ?? '', and when WallStore tries to resolve that level using the BimKernel, it can't find a matching level.
+
+Wait, I need to check which WallStore is actually being used here. The bridge gets its instance via wallTool.getWallStore(), which returns the WallTool's store. Looking at the geometry-wall package's WallStore, line 226 throws a LevelResolveError when it can't find the levelId in its internal level map. So if the levelId from the event doesn't match what the WallStore has registered, that's where the error originates.
+
+The 3D view is working though, which means walls are being created through the legacy command path and the WallStore has the level registered. So why would the bridge fail? Let me think about the error output more carefully. When console.error logs an Error object and shows {}, that's unusual because Error.message isn't enumerable. The error is likely a custom Error subclass, or there's something else going on with how the error is being logged.
+
+Looking at the WallStore validation code, it throws a standard Error with a formatted message, so that should display properly. But the {} output suggests maybe a Zod validation error that doesn't serialize well. I need to check what the WallDataAddSchema actually requires and see if there's a mismatch in the wall data being passed. The schema validation might be failing due to missing required fields like openings, or the real culprit could be a level lookup error—either no levels exist in the BimKernel or the specified level ID isn't found. Let me trace through how the WallTool accesses the WallStore to see where the actual failure point is. I'm realizing there are two separate WallStore implementations in different packages, and I need to figure out which one the bridge is actually using through wallTool.getWallStore(). The quickest path forward is to add better error logging to expose what's actually failing instead of just seeing an empty error object.
+
+Improving error handling...
+
+Found it. The WallPlanToolHandler sends baseLine with { x, z } points (2D, no y), but WallDataAddSchema requires y. The bridge reconstructs y: ev.baseLine[0].y ?? 0 — but if Zod schema validation fails, the error shows as {} because custom error classes don't have enumerable properties. Let me check the schema and expose the real error:
+
+
+Show less
+
+Ran cat
+
+Ran grep
+
+Opened initTools.ts
+
+Planning improved error logging (63 seconds)
+I see the issue now. The Point3DSchema requires y to be a finite number. The WallPlanToolHandler sends baseLine points as { x: worldX, y: 0, z: worldZ } (I can see from lines 319-322 of WallPlanToolHandler). Let me check what the baseLine looks like in the WallPlanToolHandler dispatch.
+
+From the grep output of WallPlanToolHandler lines 317-326:
+
+window.runtime?.bus?.executeCommand('wall.create', {
+    id:       wallId,
+    baseLine:  [
+        // ... two points ...
+
+But I need to see the actual baseLine content. Let me check line 319-323 more carefully. The points are likely { x: sp.worldX, z: sp.worldZ } based on the grep output showing lines 319-322 contain the baseLine array.
+
+Now I'm realizing the bridge already coerces missing y values to 0 on line 827, so by the time WallStore.add() runs validation, the payload should have y: 0. But maybe the issue is that WallDataAddSchema requires certain fields like openings: [] that the bridge isn't passing through, even though it has .passthrough() enabled.
+
+Actually, looking at the logs more carefully — the REDETECT_ROOMS command fires immediately after the wall dispatch, which means the legacy path is also triggering. The problem is that WallTool generates its own wall ID instead of using the pre-generated one from WallPlanToolHandler, so the dedup guard checking _legacyWallStoreForBridge.getById(ev.wallId) never catches the duplicate. The bridge is firing and passing the dedup guard, but then wallStore.add() throws an error. I need to figure out what required fields the WallDataAddSchema expects that aren't being provided. Looking at the error chain, I'm realizing the real problem might be that the bridge is pulling the WallStore from the legacy 3D WallTool, but the user is actually drawing walls in the plan view—so there's a mismatch between which tool's store is being used.
+
+Let me trace through the actual data being sent: the WallPlanToolHandler is constructing a baseLine with only x and z coordinates (no y values), and the bridge is trying to fill in missing y values with a default of 0. Continuing the error investigation...
+
+When console.error(err) displays as {}, it typically means either a plain object was thrown directly, or it's a custom Error subclass where the console isn't properly serializing the error properties. A standard Error or ZodError would show more detail in the browser console. Looking at the WallStore code around line 192-193, there's a throw statement being constructed—I need to see what's actually being thrown there to understand why it's appearing as an empty object. I'm seeing there are multiple WallStore implementations across different packages, so I need to figure out which one wallTool.getWallStore() is actually returning. Let me trace back where wallTool comes from in the bridge initialization.
+
+The real issue is that the error object is empty, making it impossible to debug. I should add better error logging to capture the actual error message, then verify that the WallStore being used is correct and has all the required fields. I'm also noticing the REDETECT_ROOMS command fires before the wall mirroring fails, which might be relevant to the sequence of events. So the room redetection fires synchronously during the handler execution via CustomEvent, and then afterwards the §P2.1 bridge runs when the CEB emits wall.created. The ordering makes sense now. The real issue is what the bridge is actually receiving — the baseLine has worldX/worldZ coordinates but no y values, so it defaults to 0, which should be fine.
+
+The actual problem might be that WallDataAddSchema requires something the bridge isn't providing, like an openings array. Looking at the WallStore.add() method, it validates the raw wall data against the schema and throws an error if validation fails.
+
+But here's what's interesting — the error message shows an empty object {} when logged, which typically happens when you console.error an Error object directly instead of its message property. This suggests the WallStore being called might be a different instance than the one in geometry-wall, possibly from core-app-model instead.
+
+The real fix is to improve error logging to actually show err.message and err.stack, and then examine what WallDataAddSchema actually requires. I need to look at the schema definition to understand what fields are being validated.
+
+The {} error means the thrown object has no enumerable properties — it's almost certainly a Zod validation error or a custom Error subclass. I need to fix the catch logging AND read the full schema to find what's missing:
