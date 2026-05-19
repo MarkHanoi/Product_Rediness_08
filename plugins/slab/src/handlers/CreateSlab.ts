@@ -26,6 +26,15 @@ export interface CreateSlabPayload {
   readonly id?: string;
   readonly levelId?: string;
   readonly boundary?: SlabData['boundary'];
+  /**
+   * §FT1-C11: `polygon` is the plan-tool field name for the slab outline
+   * ({x,y}[] where y = worldZ).  Accepted as an alias for `boundary` so
+   * SlabPlanToolHandler.dispatchCommand() does not need a field rename and
+   * the Immer slab store always receives a valid boundary for undo/redo,
+   * schedule extraction, and IFC export.
+   * Contract: C11 §3.2 — handler MUST produce a complete Immer patch.
+   */
+  readonly polygon?: SlabData['boundary'];
   readonly holes?: SlabData['holes'];
   readonly thickness?: number;
   readonly baseOffset?: number;
@@ -41,8 +50,9 @@ export class CreateSlabHandler implements CommandHandler<CreateSlabPayload, Slab
   readonly affectedStores = ['slab'] as const;
 
   canExecute(_ctx: HandlerContext<SlabHandlerStores>, cmd: CreateSlabPayload): ValidationResult {
-    if (cmd.boundary !== undefined) {
-      const v = validateSlabBoundary(cmd.boundary);
+    const resolvedBoundaryForValidation = cmd.boundary ?? cmd.polygon;
+    if (resolvedBoundaryForValidation !== undefined) {
+      const v = validateSlabBoundary(resolvedBoundaryForValidation);
       if (!v.ok) return { valid: false, reason: v.reason ?? 'invalid boundary' };
     }
     if (cmd.thickness !== undefined && (!Number.isFinite(cmd.thickness) || cmd.thickness <= 0)) {
@@ -63,6 +73,11 @@ export class CreateSlabHandler implements CommandHandler<CreateSlabPayload, Slab
   execute(ctx: HandlerContext<SlabHandlerStores>, cmd: CreateSlabPayload): HandlerResult {
     return withHandlerSpan(this.type + '.handler', { 'pryzm.command.type': this.type }, () => {
     const id = (cmd.id ?? createId('slab')) as SlabData['id'];
+    // §FT1-C11: accept `polygon` as an alias for `boundary` — SlabPlanToolHandler
+    // sends the outline as `polygon` ({x,y}[] where y = worldZ); CreateSlabHandler
+    // historically only read `boundary`, leaving the Immer slab store without a
+    // boundary on plan-tool creates (undo/redo and schedule extraction broken).
+    const resolvedBoundary = cmd.boundary ?? cmd.polygon;
     const seed: Partial<SlabData> = {
       id,
       levelId: cmd.levelId ?? '',
@@ -73,13 +88,13 @@ export class CreateSlabHandler implements CommandHandler<CreateSlabPayload, Slab
       materialColor: cmd.materialColor,
       systemTypeId: cmd.systemTypeId,
     };
-    if (cmd.boundary) seed.boundary = cmd.boundary;
+    if (resolvedBoundary) seed.boundary = resolvedBoundary;
 
     if (seed.thickness !== undefined && seed.thickness <= 0) {
       throw new SlabThicknessError(seed.thickness);
     }
-    if (seed.boundary) {
-      const v = validateSlabBoundary(seed.boundary);
+    if (resolvedBoundary) {
+      const v = validateSlabBoundary(resolvedBoundary);
       if (!v.ok) throw new SlabBoundaryError(v.reason ?? 'invalid');
     }
 

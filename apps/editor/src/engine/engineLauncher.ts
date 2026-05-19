@@ -579,21 +579,25 @@ export async function bootstrap(
     // ── F-1.4: rooms.redetect CustomEvent bridge listener ─────────────────────
     // RedetectRoomsHandler (plugins/rooms L4) dispatches 'pryzm-bus-rooms-redetect'
     // to avoid an L4→L7 import cycle (ADR-002 §3.D).  This L7 listener converts
-    // the CustomEvent back into a bus.executeCommand('rooms.redetect', ...) call
-    // (doc-36 U-3 closed: commandManager.execute removed from this bridge).
+    // the CustomEvent into a LEGACY commandManager.execute(ReDetectRoomsCommand) call.
+    //
+    // CRITICAL BUG FIX (F-1.4-REDETECT-LOOP):
+    //   The previous implementation called bus.executeCommand('rooms.redetect') here.
+    //   That re-entered RedetectRoomsHandler.execute() which dispatches this same
+    //   CustomEvent again → infinite recursion → RangeError: Maximum call stack size exceeded.
+    //   (Reported in live logs: RedetectRooms.ts:80 Uncaught RangeError.)
+    //   Fix: use commandManager.execute(ReDetectRoomsCommand) — the legacy path that
+    //   actually runs room detection without touching the bus.
+    //   Contract: C11 §6.3 event-driven path; C06 §3.D layer rule preserved.
     window.addEventListener('pryzm-bus-rooms-redetect', (e) => {
         const cmd = (e as CustomEvent<{ levelId: string; elevation: number; height: number }>).detail ?? {};
         if (!cmd.levelId) return;
-        if (window.runtime?.bus) {
-            (window.runtime.bus as any).executeCommand('rooms.redetect', {
-                levelId:   cmd.levelId,
-                elevation: cmd.elevation ?? 0,
-                height:    cmd.height ?? 3,
-            }).catch((err: unknown) => {
-                console.error('[EngineBootstrap] pryzm-bus-rooms-redetect: bus.executeCommand failed:', err);
-            });
-        } else {
-            console.warn('[EngineBootstrap] pryzm-bus-rooms-redetect: runtime.bus unavailable — redetect skipped');
+        try {
+            commandManager.execute(
+                new ReDetectRoomsCommand(cmd.levelId, cmd.elevation ?? 0, cmd.height ?? 3),
+            );
+        } catch (err) {
+            console.error('[EngineBootstrap] pryzm-bus-rooms-redetect: commandManager.execute failed:', err);
         }
     });
 

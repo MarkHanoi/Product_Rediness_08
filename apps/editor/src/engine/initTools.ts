@@ -89,7 +89,7 @@ import { constraintStore } from '@pryzm/plugin-annotations';
 import { constraintSolver } from '@pryzm/plugin-annotations';
 // ANNOTATION-SYSTEM-AUDIT-2026 A1 — inject annotation/view stores into CommandContext
 import { annotationVisibilityStore } from '@pryzm/plugin-annotations';
-import { viewDefinitionStore } from '@pryzm/core-app-model';
+import { viewDefinitionStore, storeEventBus } from '@pryzm/core-app-model';
 import { viewIntentInstanceStore } from '@pryzm/core-app-model/presentation';
 import { vgGovernanceStore } from '@pryzm/core-app-model';
 import { doorStore } from '@pryzm/geometry-door';
@@ -980,13 +980,25 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                     gridYSpacing:     typeof _cwEv['bayHeight']        === 'number' ? _cwEv['bayHeight']        : 1.5,
                     mullionThickness: typeof _cwEv['mullionThickness'] === 'number' ? _cwEv['mullionThickness'] : 0.05,
                 } as any);
+                // §P3.1-CW-PLAN-FIX: CurtainWallStore.add() uses the internal this.emit() path
+                // but does NOT call storeEventBus.emit().  Only addMany() does (batch path).
+                // Without storeEventBus, ViewTechnicalDrawingCache._onStoreChange never fires,
+                // vd:projection-stale is never dispatched, and curtain walls never appear in plan view.
+                // Fix: explicitly emit here — elementType 'curtainwall' is in ViewDependencyTracker's
+                // tracked set (packages/core-app-model/src/views/ViewDependencyTracker.ts:41).
+                storeEventBus.emit({
+                    elementType: 'curtainwall',
+                    elementId:   ev.id,
+                    operation:   'create',
+                    timestamp:   Date.now(),
+                });
                 // Notify builder + SelectionManager that a new curtain wall is available.
                 // §F.events.bridge — fires AFTER curtainWallStoreInstance.add() so the builder can
                 // retrieve data via getById(id).  Uses globalThis + plain Event + Object.assign to
                 // avoid GA gate G-NEW-04 regex match while remaining functionally equivalent.
                 const _cwBridgeEvt = Object.assign(new Event('bim-curtainwall-added'), { detail: { id: ev.id } });
                 globalThis.dispatchEvent(_cwBridgeEvt);
-                console.log('[initTools] §P3.1-CW: curtain wall mirrored to legacy store', ev.id);
+                console.log('[initTools] §P3.1-CW: curtain wall mirrored to legacy store + storeEventBus fired', ev.id);
             } catch (err) {
                 console.error('[initTools] §P3.1-CW: failed to mirror curtain wall to legacy store — mesh may not build:', err);
             }
