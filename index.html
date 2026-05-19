@@ -192,6 +192,44 @@
       }
       .lp-skel-hero-tag:last-child { border-right: none; }
       .lp-skel-hero-tag:first-child { padding-left: 0; }
+
+      /* ── CSS 3-D pyramid spinner — mirrors PryzmLogoSpinner.ts exactly ──
+         Inlined here so the skeleton paints the same solid spinning prism
+         as the real LandingPage; no flash of the old outline SVG. */
+      @keyframes pryzmLogoSpin {
+        from { transform: rotateX(-22deg) rotateY(0deg); }
+        to   { transform: rotateX(-22deg) rotateY(-360deg); }
+      }
+      .lp-skel-spinner-wrap {
+        display: inline-flex; align-items: center; justify-content: center;
+        flex-shrink: 0; overflow: visible;
+        width: 44px; height: 56px;
+        filter: drop-shadow(0px 8px 16px rgba(100,60,220,0.22));
+      }
+      .lp-skel-spinner-scene {
+        width: 36px; height: 52px;
+        position: relative; overflow: visible;
+        perspective: 220px; perspective-origin: 50% 42%;
+      }
+      .lp-skel-spinner-pyramid {
+        width: 36px; height: 52px; position: relative;
+        transform-style: preserve-3d;
+        animation: pryzmLogoSpin 4s linear infinite;
+      }
+      .lp-skel-spinner-face {
+        position: absolute; bottom: 0; left: 0;
+        width: 36px; height: 55px;
+        clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+        transform-origin: 50% 100%;
+        backface-visibility: hidden;
+      }
+      .lp-skel-spinner-face--front { background: rgba(255,255,255,0.28); transform: rotateY(0deg)   translateZ(18px) rotateX(19deg); }
+      .lp-skel-spinner-face--right { background: rgba(255,255,255,0.14); transform: rotateY(90deg)  translateZ(18px) rotateX(19deg); }
+      .lp-skel-spinner-face--back  { background: rgba(255,255,255,0.10); transform: rotateY(180deg) translateZ(18px) rotateX(19deg); }
+      .lp-skel-spinner-face--left  { background: rgba(255,255,255,0.20); transform: rotateY(270deg) translateZ(18px) rotateX(19deg); }
+      @media (prefers-reduced-motion: reduce) {
+        .lp-skel-spinner-pyramid { animation-duration: 20s; }
+      }
       /* Hamburger placeholder — hidden on desktop, shown on mobile.  Mirrors
          `.lp-hamburger` in marketingPages.ts (44 × 44 px touch target per
          Apple HIG / WCAG 2.5.5) so the nav layout doesn't shift when the
@@ -321,13 +359,18 @@
         </nav>
         <!-- PRYZM4 centred gradient hero skeleton -->
         <section class="lp-skel-hero">
-          <!-- Pyramid logo + wordmark -->
+          <!-- CSS 3-D spinning pyramid — identical to createPryzmLogoSpinner('lg') -->
           <div class="lp-skel-hero-logo-block" aria-hidden="true">
-            <svg class="lp-skel-hero-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" focusable="false">
-              <path d="M18.2 2.6 3.6 27.9 26.8 33.2 32.4 23.6 18.2 2.6Z" stroke="white" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/>
-              <path d="M18.2 2.6 3.6 27.9" stroke="#6600FF" stroke-width="1.8" stroke-linecap="round"/>
-              <path d="M18.2 2.6 26.8 33.2" stroke="white" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
+            <div class="lp-skel-spinner-wrap">
+              <div class="lp-skel-spinner-scene">
+                <div class="lp-skel-spinner-pyramid">
+                  <div class="lp-skel-spinner-face lp-skel-spinner-face--front"></div>
+                  <div class="lp-skel-spinner-face lp-skel-spinner-face--right"></div>
+                  <div class="lp-skel-spinner-face lp-skel-spinner-face--back"></div>
+                  <div class="lp-skel-spinner-face lp-skel-spinner-face--left"></div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <h1 class="lp-skel-heading">PRYZM</h1>
