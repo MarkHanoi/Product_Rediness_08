@@ -1,0 +1,254 @@
+ImportProjectCommand (Phase 1)
+ClearProjectCommand.ts:61 [ClearProjectCommand] Clearing all project data
+injected.js:37   Removing 0 curtain panels
+injected.js:37   Removing 0 openings
+injected.js:37   Removing 0 walls
+injected.js:37   Removing 0 curtain walls
+injected.js:37   Removing 0 slabs
+injected.js:37   Removing 0 ceilings
+injected.js:37   Removing 0 columns
+injected.js:37   Removing 0 beams
+injected.js:37   Removing 0 stairs
+injected.js:37   Removing 0 roofs
+injected.js:37   Removing 0 furniture items
+injected.js:37   Removing 0 handrails
+injected.js:37   Removing 0 plumbing fixtures
+injected.js:37   Removing 0 rooms
+injected.js:37   Removing 0 room bounding lines
+injected.js:37   Removing 0 grids
+injected.js:37   Removing 1 levels
+injected.js:37 [BimManager] Cannot delete the default Ground level.
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [ClearProjectCommand] Annotation store cleared
+injected.js:37   Cleared 0 floors
+injected.js:37 [DefaultViewsManager] Created default 3D view (id=vd-sys-3d-1)
+injected.js:37 [DefaultViewsManager] Created default Ground Floor plan view (id=vd-sys-plan-l0)
+injected.js:37 [TemporalGraph] Cleared (project switch).
+injected.js:37 [RoomGraphService] All graphs invalidated
+injected.js:37 [UnderlayPersistence] Clear skipped — no current project bound
+injected.js:37 [ViewRenderCache] All render targets disposed.
+injected.js:37 [ClearProjectCommand] ProjectScopeRegistry cleared 47 scopes: Array(47)
+injected.js:37 [ClearProjectCommand] activeLevelId reset to L0 (project-scoped state cleared).
+injected.js:37 [ProjectIsolation] WallFragmentBuilder disposed — scene cleared of wall geometry.
+injected.js:37 [RoomGraphService] All graphs invalidated
+injected.js:37 [TemporalGraph] Cleared (project switch).
+injected.js:37 [ClearProjectCommand] Clear complete
+injected.js:37 [ImportProjectCommand] Loading 0 levels
+injected.js:37 [ImportProjectCommand] Loading 0 grids
+injected.js:37 [ImportProjectCommand] Loading 0 columns
+injected.js:37 [ImportProjectCommand] Loading 0 walls
+injected.js:37 [ImportProjectCommand] Loading 0 slabs
+injected.js:37 [ImportProjectCommand] Loading 0 stairs
+injected.js:37 [ImportProjectCommand] Loading 0 furniture items
+injected.js:37 [ImportProjectCommand] Loading 0 roofs
+injected.js:37 [ImportProjectCommand] Loading 0 handrails
+injected.js:37 [ImportProjectCommand] Loading 0 plumbing fixtures
+injected.js:37 [ImportProjectCommand] Loading 0 curtain walls
+injected.js:37 [ImportProjectCommand] Loading 0 beams
+injected.js:37 [ProjectLoader] VG Governance state restored from snapshot
+injected.js:37 [ProjectLoader] ViewDefinition store restored from snapshot
+injected.js:37 [ProjectLoader] Visibility rule engine restored from snapshot
+injected.js:37 [VGToIntentMigration] Starting VG → Intent migration…
+injected.js:37 [VGToIntentMigration] Complete — 0 intents, 0 views, 0 overrides migrated.
+injected.js:37 [FPS] 54fps
+injected.js:37 [initDataPlatform] DataWorkbench toolbar button + physics overlay dropdown injected
+injected.js:37 [AIAreaLayout] AI panel drag + resize wired. width=256px left=0px
+injected.js:37 [DefaultViewsManager] Created default 3D view (id=vd-sys-3d-1)
+injected.js:37 [DefaultViewsManager] Created default Ground Floor plan view (id=vd-sys-plan-l0)
+injected.js:37 [VoiceCommandIndicator] Mounted (speechAPI=true)
+injected.js:37 [ProjectLoader] Sheet store restored from snapshot
+injected.js:37 [ProjectLoader] Schedule store restored from snapshot
+injected.js:37 [ProjectLoader] SemanticGraph cleared (v1/v2 snapshot — no graph data)
+injected.js:37 [TemporalGraph] Cleared (project switch).
+injected.js:37 [ProjectLoader] TemporalGraph cleared (pre-v4 snapshot — no temporal data)
+injected.js:37 [ProjectLoader] DecisionRecordStore cleared (pre-v4 snapshot — no decision data)
+injected.js:37 [ProjectLoader] RequirementStore cleared (no requirement data in snapshot)
+injected.js:37 [AssetCatalogStore] setDirect(): restored 21 entries
+injected.js:37 [ProjectLoader] AssetCatalogStore seeded from defaults
+injected.js:37 [ProjectLoader] Annotation store cleared (no annotation data in snapshot)
+injected.js:37 [IntentStylePrewarmer] Pre-warmed 1224 style slots in 4.10ms
+injected.js:37 [ProjectLoader] AnnotationDependencyGraph rebuilt after restore
+injected.js:37 [ProjectLoader] Load complete: 0 loaded, 0 failed, 0 errors
+injected.js:37 [StoreEventBus] endBatch() — flushed 38 buffered event(s) in emission order (no coalescing — all events delivered).
+injected.js:37 [ProjectLoader] PHASE_TIMINGS total=365.0ms setup=0.0ms hydrate=0.0ms event_flush=0.0ms wall_rebuild_flush=0.0ms redetect_sweep=0.0ms [walls=0 slabs=0 levels=0 curtainWalls=0]
+injected.js:37 [ProjectSerializer] Snapshot created: 0 elements, 1 levels, 0 walls, 0 slabs, 0 furniture
+injected.js:37 [PlatformShell] New project ready — firing pryzm-project-loaded(empty:true)
+injected.js:37 [initScene] pryzm-project-loaded — empty project (no geometry)
+injected.js:37 [TemplateStore] Seeded 15 built-in templates
+injected.js:37 [initCollaboration] Project opened — collaboration active for proj-1779172198717-ff360a02501a
+injected.js:37 [EngineBootstrap] pryzm-project-loaded(empty) — skipping zoomToAll
+injected.js:37 [runtime-composer/EventBus] listener for "pryzm-project-loaded" threw: TypeError: _unsubProjectLoaded is not a function
+    at handler (PlatformSaveController.ts:354:17)
+    at EventBus.emit (EventBus.ts:45:9)
+    at PlatformShell.ts:184:45
+(anonymous) @ injected.js:37Understand this error
+injected.js:37 [LONGTASK] duration=70.0ms start=99753.4ms [type=iframe src=https://d363f0b0-dcdd-47c1-b964-ae6896834ae2-00-27xgx6fdiike5.picard.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [SplitViewManager] Canvas2D context ready
+injected.js:37 [SvpPlanToolOverlay] Attached with snap service. viewId: vd-sys-plan-l0
+injected.js:37 [SplitViewManager] Split view activated (Canvas2D plan mode)
+injected.js:37 [initScene] Split view auto-opened on project load (idle)
+injected.js:37 [LONGTASK] duration=111.0ms start=99869.9ms [type=iframe src=https://d363f0b0-dcdd-47c1-b964-ae6896834ae2-00-27xgx6fdiike5.picard.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [RenderPipelineManager] onProjectLoaded (debounced) — re-activating outlines.
+injected.js:37 [RenderPipelineManager] Outlines activated (selected + hover).
+injected.js:37 [RenderPipelineManager] §I2 pipeline.usedTimes is not a number (got undefined) — patching to 0 before dispose to prevent device-loss cascade.
+(anonymous) @ injected.js:37Understand this warning
+2injected.js:37 [RenderPipelineManager] Phase: phase4 | WebGPU: true | SSGI: true | TRAA: false
+injected.js:37 [LONGTASK] duration=79.0ms start=100044.7ms [type=iframe src=https://d363f0b0-dcdd-47c1-b964-ae6896834ae2-00-27xgx6fdiike5.picard.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [initDataPlatform] H-1: Physics compute enqueued for all rooms after project load (idle)
+injected.js:37 [HomeView] Default viewpoint captured: Object Object
+injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+injected.js:37 [FPS] 53fps
+injected.js:37 [PlatformCollabPill] Socket connected — joining project room: proj-1779172198717-ff360a02501a
+injected.js:37 [HomeView] Default viewpoint captured: Object Object
+injected.js:37 [WallModePicker] setActiveMode → ortho
+injected.js:37 ToolManager: activateTool called for wall
+injected.js:37 ToolManager: deactivating previous tool none
+injected.js:37 ToolManager: executing activateFn for wall
+injected.js:37 WallTool activated with mode: POLYLINE_ORTHO
+injected.js:37 RGBELoader has been deprecated. Please use HDRLoader instead.
+(anonymous) @ injected.js:37Understand this warning
+injected.js:214 Connecting to 'https://thatopen.github.io/engine_fragment/resources/textures/envmaps/san_giuseppe_bridge_2k.hdr' violates the following Content Security Policy directive: "connect-src 'self' data: blob: https://api.cesium.com https://assets.cesium.com https://ionfetch.cesium.com https://*.supabase.co wss: ws: https://flat-morning-358d.antoniocanerosan.workers.dev/". The policy is report-only, so the violation has been logged but no further action has been taken.
+injected.js:214 Connecting to 'https://thatopen.github.io/engine_fragment/resources/textures/envmaps/san_giuseppe_bridge_2k.hdr' violates the following Content Security Policy directive: "connect-src 'self' data: blob: https://api.cesium.com https://assets.cesium.com https://ionfetch.cesium.com https://*.supabase.co wss: ws: https://flat-morning-358d.antoniocanerosan.workers.dev/". The policy is report-only, so the violation has been logged but no further action has been taken.
+injected.js:37 [SvpPlanToolOverlay] Handler activated: wall
+injected.js:37 [WallPlanToolHandler] Polyline start point set Object mode: ortho
+injected.js:37 [initCollaboration] Socket connected — joining project room: proj-1779172198717-ff360a02501a
+injected.js:37 [initCollaboration] Catch-up: first connect — setting baseline timestamp
+injected.js:37 [WallPlanToolHandler] Wall dispatched — mode: ortho (straight)
+RedetectRooms.ts:80 Uncaught RangeError: Maximum call stack size exceeded.
+    at RedetectRooms.ts:80:14
+    at withHandlerSpan (tracing.ts:98:20)
+    at RedetectRoomsHandler.execute (RedetectRooms.ts:70:12)
+    at CommandBus.ts:260:38
+    at withSpan (otel.ts:24:26)
+    at CommandBus.executeCommand (CommandBus.ts:244:12)
+    at Object.executeCommand (composeRuntime.ts:1116:26)
+    at engineLauncher.ts:588:41
+    at RedetectRooms.ts:80:14
+    at withHandlerSpan (tracing.ts:98:20)Understand this error
+injected.js:37 [WallPlanToolHandler] Wall dispatched — mode: ortho (straight)
+RedetectRooms.ts:80 Uncaught RangeError: Maximum call stack size exceeded.
+    at RedetectRooms.ts:80:14
+    at withHandlerSpan (tracing.ts:98:20)
+    at RedetectRoomsHandler.execute (RedetectRooms.ts:70:12)
+    at CommandBus.ts:260:38
+    at withSpan (otel.ts:24:26)
+    at CommandBus.executeCommand (CommandBus.ts:244:12)
+    at Object.executeCommand (composeRuntime.ts:1116:26)
+    at engineLauncher.ts:588:41
+    at RedetectRooms.ts:80:14
+    at withHandlerSpan (tracing.ts:98:20)Understand this error
+injected.js:37 [WallPlanToolHandler] Wall dispatched — mode: ortho (straight)
+RedetectRooms.ts:80 Uncaught RangeError: Maximum call stack size exceeded.
+    at RedetectRooms.ts:80:14
+    at withHandlerSpan (tracing.ts:98:20)
+    at RedetectRoomsHandler.execute (RedetectRooms.ts:70:12)
+    at CommandBus.ts:260:38
+    at withSpan (otel.ts:24:26)
+    at CommandBus.executeCommand (CommandBus.ts:244:12)
+    at Object.executeCommand (composeRuntime.ts:1116:26)
+    at engineLauncher.ts:588:41
+    at RedetectRooms.ts:80:14
+    at withHandlerSpan (tracing.ts:98:20)Understand this error
+injected.js:37 [WallPlanToolHandler] Wall dispatched — mode: ortho (straight)
+injected.js:37 [WallPlanToolHandler] Polyline closed
+RedetectRooms.ts:80 Uncaught RangeError: Maximum call stack size exceeded.
+    at RedetectRooms.ts:80:14
+    at withHandlerSpan (tracing.ts:98:20)
+    at RedetectRoomsHandler.execute (RedetectRooms.ts:70:12)
+    at CommandBus.ts:260:38
+    at withSpan (otel.ts:24:26)
+    at CommandBus.executeCommand (CommandBus.ts:244:12)
+    at Object.executeCommand (composeRuntime.ts:1116:26)
+    at engineLauncher.ts:588:41
+    at RedetectRooms.ts:80:14
+    at withHandlerSpan (tracing.ts:98:20)Understand this error
+injected.js:37 WallTool deactivated
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [EngineBootstrap] Shortcut Escape → deactivateAll
+injected.js:37 [CutFill] Updating: enabled=false, height=1.2
+injected.js:37 [FPS] 60fps
+injected.js:37 [LONGTASK] duration=66.0ms start=104327.9ms [type=iframe src=https://d363f0b0-dcdd-47c1-b964-ae6896834ae2-00-27xgx6fdiike5.picard.replit.dev/]
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=76.0ms start=106236.2ms
+(anonymous) @ injected.js:37Understand this warning
+injected.js:37 [LONGTASK] duration=164.0ms start=107336.4ms
+(anonymous) @ injected.js:37Understand this warning
+2injected.js:37 [GPU Monitor] geometries:3 textures:6 | drawCalls:1 tris:1
+injected.js:37 [FPS] 30fps
+stallwart.build.js:1 stallwart: failed ping 1
+injected.js:37 [FPS] 28fps
+injected.js:37 [GPU Monitor] geometries:3 textures:6 | drawCalls:0 tris:0
+injected.js:37 [LONGTASK] duration=112.0ms start=129015.2ms [type=iframe src=https://d363f0b0-dcdd-47c1-b964-ae6896834ae2-00-27xgx6fdiike5.picard.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+injected.js:37 [FPS] 35fps
+injected.js:37 [FPS] 27fps
+injected.js:37 [ViewsRailPanel] Selected view: Ground Floor (plan)
+injected.js:37 [ViewsRailPanel][+0ms] _onActivateView(viewId="vd-sys-plan-l0", viewType="plan")
+injected.js:37 [VST][+0.0ms] ViewController.activate("Top") ENTRY — activeDefinitionId=vd-sys-plan-l0
+injected.js:37 [VST][+0.2ms] SceneBoundsCache invalidated — dirty flag set
+injected.js:37 [VST][+0.3ms] onBeforeViewSwitch — notifying 2 listeners
+injected.js:37 [VST][+0.6ms] onBeforeViewSwitch — DONE
+injected.js:37 [VST][+0.7ms] selectionManager.unselectAll() — TransformControls detached
+injected.js:37 [VST][+0.9ms] UnifiedFrameLoop.beginViewSwitch() — PASCAL post-processing PAUSED
+injected.js:37 [VST][+1.0ms] deactivate() — START (departing view: "3D")
+injected.js:37 [VST][+1.2ms] deactivate — ViewCameraStateStore.save("3D")
+injected.js:37 [ViewCameraStateStore] save("3D") — pos(50.00, 50.00, 50.00) target(-0.00, -0.00, 0.00) zoom=1.000
+injected.js:37 [VST][+1.7ms] deactivate — MultiViewCameraManager.saveSlot("perspective")
+injected.js:37 [MultiViewCameraManager] Saved slot "perspective" — pos(50.00, 50.00, 50.00)
+injected.js:37 [VST][+2.0ms] deactivate — _cleanupAllListeners() (0 listeners) [MUST precede orthoPlanLock.deactivate]
+injected.js:37 [VST][+2.3ms] deactivate — PlanViewManager.deactivate()
+injected.js:37 [VST][+2.6ms] deactivate — OrthoPlanCameraLockController.deactivate()
+injected.js:37 [VST][+2.8ms] deactivate — groundFloorController.deactivate()
+injected.js:37 [VST][+3.0ms] deactivate — _clearClipping() (LevelClipPlaneCache or OBC Clipper)
+injected.js:37 [SectionViewService] Section deactivated
+injected.js:37 [VST][+3.3ms] deactivate — layer reset: enable BIM_LAYER, disable PLAN_SYMBOL_LAYER and DOCUMENTATION_LAYER
+injected.js:37 [VST][+3.4ms] deactivate — PlanViewVisibilityCuller.deactivate() — all hidden objects restored
+injected.js:37 [VST][+3.6ms] deactivate — _deepSceneCleanup() (previewRegistry.disposeAll)
+injected.js:37 [ViewsRailPanel][+6.1ms] _onActivateView COMPLETE
+injected.js:37 [VST][+5.9ms] deactivate() — COMPLETE
+injected.js:37 [VST][+6.3ms] _applyGridState("orthographic") — grid.fade=false
+injected.js:37 [VST][+6.4ms] routing to activation handler for viewMode="Top"
+injected.js:37 [VST][+8.2ms] _activateFloorPlanView() ENTRY
+injected.js:37 [VST][+8.5ms] _activateFloorPlanView — hasSafePath=true planViewsDisabled=false levelClipPlaneCache=true
+injected.js:37 [VST][+8.9ms] _activateFloorPlanView — DOC-4.7 underlayBaseLevelId="none" (orientation="n/a")
+injected.js:37 [VST][+9.0ms] _activateFloorPlanView — levelId="L0" (from ViewDefinition "vd-sys-plan-l0")
+injected.js:37 [VST][+9.2ms] _activateFloorPlanView — PlanViewManager.activate("vd-sys-plan-l0") START
+injected.js:37 [PlanViewToolOverlay] Attached for view vd-sys-plan-l0
+injected.js:37 [NativeElementMeshExporter] Plan view — exporting 0 elements from levels overlapping Y=[-1.20, 0.00]
+injected.js:37 [PlanViewManager] Activated Canvas2D plan view "vd-sys-plan-l0"
+injected.js:37 [VST][+22.6ms] _activateFloorPlanView — PlanViewManager.activate("vd-sys-plan-l0") DONE
+injected.js:37 [VST][+22.8ms] activation handler COMPLETE
+injected.js:37 [VST][+23.3ms] _setupViewListeners("orthographic") — camera-update listener registered
+injected.js:37 [VST][+23.5ms] _forceRendererUpdate() — renderer.needsUpdate = true
+injected.js:37 [VST][+23.6ms] dispatching "view-activated" event (mode="Top", type="orthographic")
+injected.js:37 [WallEdgeVisibilityService] Edge render mode set to 'plan'.
+injected.js:37 [initScene] Orthographic view — background forced to white (all layers), SSGI suspended.
+injected.js:37 [RenderPipelineManager] updateCamera: same camera object — skipping rebuild (orbit/pan or duplicate view-activated).
+injected.js:37 [VST][+26.3ms] dispatching "view-selected" event (viewId="vd-sys-plan-l0")
+injected.js:37 [RoomTagAutoPopulator] viewId=vd-sys-plan-l0 level=L0: 0 room-tag(s) created, 0 duplicate(s) removed, 0 orphan(s) removed — no live rooms.
+injected.js:37 [VST][+26.9ms] UnifiedFrameLoop.endViewSwitch() — PASCAL post-processing RE-ENABLED
+injected.js:37 [UnifiedFrameLoop] View switch complete in 26.2 ms.
+injected.js:37 [VST][+27.2ms] onAfterViewSwitch — notifying 2 listeners
+injected.js:37 [ViewController] ✅ View switch to "Top" completed in 27.4ms
+injected.js:37 [LONGTASK] duration=60.0ms start=132365.5ms [type=iframe src=https://d363f0b0-dcdd-47c1-b964-ae6896834ae2-00-27xgx6fdiike5.picard.replit.dev/]
+(anonymous) @ injected.js:37
+(anonymous) @ main.ts:95Understand this warning
+injected.js:37 [FPS] 32fps
+SplitViewManager.ts:660 Uncaught TypeError: _unsubSelectionChanged is not a function
+    at SplitViewManager.ts:660:47
+    at SplitViewManager._unsubscribeSelectionEvents (SplitViewManager.ts:714:60)
+    at SplitViewManager.deactivate (SplitViewManager.ts:263:14)
+    at SplitViewManager.toggle (SplitViewManager.ts:289:29)
+    at HTMLButtonElement.<anonymous> (initUI.ts:2947:17)
+(anonymous) @ SplitViewManager.ts:660
+(anonymous) @ SplitViewManager.ts:714
+(anonymous) @ SplitViewManager.ts:263
+(anonymous) @ SplitViewManager.ts:289
+(anonymous) @ initUI.ts:2947Understand this error
+injected.js:37 [RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter
+4injected.js:37 [GPU Monitor] geometries:3 textures:6 | drawCalls:1 tris:1
