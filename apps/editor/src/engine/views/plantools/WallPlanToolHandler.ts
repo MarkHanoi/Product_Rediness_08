@@ -283,34 +283,44 @@ export class WallPlanToolHandler implements PlanToolHandler {
             return;
         }
 
-        const wallId       = crypto.randomUUID();
         const systemTypeId = window.wallTool?.getSystemTypeId?.() ?? undefined;
         const mode         = _getMode();
 
-        let curveParam: { control: { x: number; y: number; z: number }; segments: number } | undefined;
+        let isCurved = false;
+        let curvePayload: { control: { x: number; y: number; z: number }; segments: number } | undefined;
         if (mode === 'curved' && this._arcMidPt) {
             const ctrl = _bezierControl(startPt, this._arcMidPt, endPt);
-            curveParam = { control: { x: ctrl.x, y: 0, z: ctrl.z }, segments: ARC_SEGMENTS };
+            curvePayload = { control: { x: ctrl.x, y: 0, z: ctrl.z }, segments: ARC_SEGMENTS };
+            isCurved = true;
         }
 
-        // §P2.1 (IMPL-PLAN-2026-05-17): bus-only dispatch — single pipeline path.
-        // The bus handler (plugins/wall/src/handlers/CreateWall.ts) writes to the PRYZM3
-        // Immer store; CommandEventBridge then emits `wall.created` with the full geometry
-        // payload; the bridge in initTools.ts §P2.1 mirrors the wall into the legacy
-        // WallStore so WallRebuildCoordinator fires and builds the 3D mesh.
-        // The commandManager dual-write (§F-1.2) has been removed — C11 §2 single pipeline.
+        // §P2.1 / C11 §2 — bus-only single-pipeline dispatch.
+        //
+        // CONTRACT (C11 §3.2, defineElement invariant):
+        //   • Do NOT pass `id` — the Wall schema's defineElement(..) auto-mints a
+        //     branded `wall_<ulid>` ID via `.default(() => createId('wall'))`.
+        //     Passing a raw crypto.randomUUID() would fail the `/^wall_<ulid>$/`
+        //     Zod regex and throw a WallSchemaError before the store is ever touched.
+        //   • baseLine points MUST be full Vec3 `{ x, y, z }`.  The `y` component
+        //     carries the level elevation (0 in plan view = ground level).
+        //     Omitting `y` yields a Zod `invalid_type` error.
+        //
+        // The handler (plugins/wall/src/handlers/CreateWall.ts) writes to the PRYZM3
+        // Immer store; CommandEventBridge emits `wall.created`; the bridge in
+        // initTools.ts §P2.1 mirrors into the legacy WallStore → WallRebuildCoordinator
+        // → 3D mesh.
         window.runtime?.bus?.executeCommand('wall.create', {
-            id:        wallId,
             baseLine:  [
-                { x: startPt.worldX, z: startPt.worldZ },
-                { x: endPt.worldX,   z: endPt.worldZ },
+                { x: startPt.worldX, y: 0, z: startPt.worldZ },
+                { x: endPt.worldX,   y: 0, z: endPt.worldZ   },
             ],
             height:    WALL_DEFAULT_HEIGHT,
             thickness: WALL_DEFAULT_THICKNESS,
             levelId,
-            ...(systemTypeId ? { systemTypeId } : {}),
+            ...(systemTypeId  ? { systemTypeId }  : {}),
+            ...(curvePayload  ? { curve: curvePayload } : {}),
         })?.catch((e: unknown) => console.error('[WallPlanToolHandler] wall.create bus failed:', e));
-        console.log('[WallPlanToolHandler] Wall created', wallId, 'mode:', mode, curveParam ? '(curved)' : '(straight)');
+        console.log('[WallPlanToolHandler] Wall dispatched — mode:', mode, isCurved ? '(curved)' : '(straight)');
         this._wallSegmentCount++;
 
         // Chain: endpoint becomes new start; clear arc state and dim input
