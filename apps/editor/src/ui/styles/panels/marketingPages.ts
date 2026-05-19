@@ -356,7 +356,7 @@ export const LANDING_PAGE_STYLES = `
         animation-delay: 0.35s;
     }
 
-    /* ─── Hero CTA row ────────────────────────────────────────────────── */
+    /* ─── Hero CTA row — offset slightly right per design ───────────── */
     .lp-hero-ctas {
         display: flex;
         gap: 12px;
@@ -364,12 +364,20 @@ export const LANDING_PAGE_STYLES = `
         justify-content: center;
         flex-wrap: wrap;
         margin-bottom: 44px;
+        transform: translateX(52px);
+    }
+
+    /* ─── Floating "alive" bob — runs forever after the entrance ─────── */
+    @keyframes lp-btn-float {
+        0%   { transform: translateY(0px); }
+        50%  { transform: translateY(-9px); }
+        100% { transform: translateY(0px); }
     }
 
     /* ─── "Start here" glass-pill CTA — MIAW CursorPrompt style ──────────
-       Delayed entrance so it floats up after the heading and subtitle
-       have already settled — same pattern as the MIAW "ask me anything"
-       prompt appearing last in the sequence.
+       entrance: fades up at 0.75s delay (0.75s duration → done at 1.5s)
+       float:    gentle bob begins at 1.6s, loops every 3.4s — "alive" feel
+       Hover brightens via filter so it doesn't fight the transform animation.
     ────────────────────────────────────────────────────────────────── */
     .lp-hero-btn {
         display: inline-flex;
@@ -392,22 +400,25 @@ export const LANDING_PAGE_STYLES = `
         touch-action: manipulation;
         -webkit-tap-highlight-color: transparent;
         user-select: none;
-        transition: background 0.18s, transform 0.18s, box-shadow 0.18s;
+        transition: background 0.18s, box-shadow 0.18s, filter 0.18s;
     }
     .lp-hero-btn--enter {
-        animation: lp-ama-fadein 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
-        animation-delay: 0.75s;
+        animation:
+            lp-ama-fadein 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.75s both,
+            lp-btn-float  3.4s ease-in-out 1.6s infinite;
     }
     .lp-hero-btn:hover {
-        background: rgba(0,0,0,0.42);
-        transform: translateY(-2px);
-        box-shadow: 0 8px 24px rgba(60,10,160,0.22);
+        background: rgba(0,0,0,0.44);
+        filter: brightness(1.18);
+        box-shadow: 0 8px 28px rgba(60,10,160,0.26);
+        animation-play-state: paused;
     }
     .lp-hero-btn:active {
-        transform: scale(0.97) translateY(0);
+        filter: brightness(0.92);
     }
     @media (prefers-reduced-motion: reduce) {
         .lp-hero-heading, .lp-hero-sub, .lp-hero-btn--enter { animation: none; }
+        .lp-hero-ctas { transform: translateX(52px); }
     }
 
     /* ─── Hero feature tags ───────────────────────────────────────────── */
