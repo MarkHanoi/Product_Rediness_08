@@ -173,15 +173,11 @@ export class LandingPage {
                 <!-- Tagline as subtitle -->
                 <p class="lp-hero-sub">Build the future, intelligently.</p>
 
-                <!-- CTA buttons — MIAW "ask me anything" glass-pill style -->
+                <!-- CTA button — MIAW "ask me anything" glass-pill style, delayed entrance -->
                 <div class="lp-hero-ctas">
-                    <button class="lp-hero-btn" id="lp-hero-btn">
+                    <button class="lp-hero-btn lp-hero-btn--enter" id="lp-hero-btn">
                         <svg width="14" height="18" viewBox="0 0 18 22" fill="none" aria-hidden="true" style="flex-shrink:0"><path d="M0 0L0 17.5L4.5 13L7.5 20L9.5 19.2L6.5 12H12L0 0Z" fill="currentColor"/></svg>
-                        Start for free
-                    </button>
-                    <button class="lp-hero-btn-demo" id="lp-hero-demo-btn">
-                        <svg width="14" height="18" viewBox="0 0 18 22" fill="none" aria-hidden="true" style="flex-shrink:0"><path d="M0 0L0 17.5L4.5 13L7.5 20L9.5 19.2L6.5 12H12L0 0Z" fill="currentColor"/></svg>
-                        See a demo
+                        Start here
                     </button>
                 </div>
 
@@ -241,7 +237,6 @@ export class LandingPage {
         el.querySelector('#lp-nav-contact')!.addEventListener('click', () => this.callbacks.onContactSales());
         el.querySelector('#lp-nav-cta')!.addEventListener('click', () => this.callbacks.onGetStarted());
         el.querySelector('#lp-hero-btn')!.addEventListener('click', () => this.callbacks.onGetStarted());
-        el.querySelector('#lp-hero-demo-btn')!.addEventListener('click', () => this.callbacks.onContactSales());
         el.querySelector('#lp-nav-pricing')!.addEventListener('click', (e) => {
             e.preventDefault();
             this.callbacks.onPricing();

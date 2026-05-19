@@ -337,12 +337,23 @@ export const LANDING_PAGE_STYLES = `
     }
 
     /* ─── AMA fade-in animation — mirrors MIAW CursorPrompt.css entry ────
-       logoFadeUp equivalent: slides up 16px while fading in. Buttons are
-       staggered (1.1s / 1.3s) so they arrive sequentially, not at once.
+       Slides up 20px while fading in — same easing as MIAW logoFadeUp.
+       Applied to heading, subtitle, and CTA with increasing delays so
+       each element arrives sequentially (heading → sub → button).
     ────────────────────────────────────────────────────────────────── */
     @keyframes lp-ama-fadein {
-        from { opacity: 0; transform: translateY(16px); }
+        from { opacity: 0; transform: translateY(20px); }
         to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Staggered entrance on hero elements */
+    .lp-hero-heading {
+        animation: lp-ama-fadein 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+        animation-delay: 0.05s;
+    }
+    .lp-hero-sub {
+        animation: lp-ama-fadein 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+        animation-delay: 0.35s;
     }
 
     /* ─── Hero CTA row ────────────────────────────────────────────────── */
@@ -355,12 +366,10 @@ export const LANDING_PAGE_STYLES = `
         margin-bottom: 44px;
     }
 
-    /* ─── "Ask me anything" glass-pill CTA buttons ────────────────────────
-       Adapted directly from Master-Foundation/artifacts/miaw CursorPrompt:
-         bg-black/25 (rgba 0,0,0,0.28) + backdrop-blur + rounded-full
-         cursor SVG icon · white light italic tracking-wide text
-       Primary uses slightly deeper black glass; secondary uses white glass
-       so the two pills are visually distinct but share the same language.
+    /* ─── "Start here" glass-pill CTA — MIAW CursorPrompt style ──────────
+       Delayed entrance so it floats up after the heading and subtitle
+       have already settled — same pattern as the MIAW "ask me anything"
+       prompt appearing last in the sequence.
     ────────────────────────────────────────────────────────────────── */
     .lp-hero-btn {
         display: inline-flex;
@@ -383,38 +392,22 @@ export const LANDING_PAGE_STYLES = `
         touch-action: manipulation;
         -webkit-tap-highlight-color: transparent;
         user-select: none;
-        transition: background 0.18s, transform 0.18s;
+        transition: background 0.18s, transform 0.18s, box-shadow 0.18s;
+    }
+    .lp-hero-btn--enter {
+        animation: lp-ama-fadein 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
+        animation-delay: 0.75s;
     }
     .lp-hero-btn:hover {
         background: rgba(0,0,0,0.42);
         transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(60,10,160,0.22);
     }
-    .lp-hero-btn-demo {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        background: rgba(255,255,255,0.18);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        color: #fff;
-        border: 1px solid rgba(255,255,255,0.28);
-        border-radius: 999px;
-        font-size: 9px;
-        font-weight: 300;
-        font-style: italic;
-        padding: 8px 17px;
-        cursor: pointer;
-        font-family: var(--app-font);
-        letter-spacing: 0.06em;
-        white-space: nowrap;
-        touch-action: manipulation;
-        -webkit-tap-highlight-color: transparent;
-        user-select: none;
-        transition: background 0.18s, transform 0.18s;
+    .lp-hero-btn:active {
+        transform: scale(0.97) translateY(0);
     }
-    .lp-hero-btn-demo:hover {
-        background: rgba(255,255,255,0.30);
-        transform: translateY(-2px);
+    @media (prefers-reduced-motion: reduce) {
+        .lp-hero-heading, .lp-hero-sub, .lp-hero-btn--enter { animation: none; }
     }
 
     /* ─── Hero feature tags ───────────────────────────────────────────── */
