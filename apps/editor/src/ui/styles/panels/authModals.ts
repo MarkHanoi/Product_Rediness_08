@@ -5,11 +5,13 @@
  * CONTRACT §05 §2 — CSS layer only, zero logic.
  */
 export const AUTH_MODAL_STYLES = `
-    /* ─── Overlay — dark stage for the live canvas ───────────────────── */
+    /* ─── Overlay — frosted tint over the landing page gradient ─────── */
     .am-overlay {
         position: fixed;
         inset: 0;
-        background: rgba(6,6,8,0.82);
+        background: rgba(30,10,70,0.38);
+        backdrop-filter: blur(12px) saturate(1.4);
+        -webkit-backdrop-filter: blur(12px) saturate(1.4);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -21,16 +23,6 @@ export const AUTH_MODAL_STYLES = `
         overflow: hidden;
     }
     @keyframes am-fade { from { opacity: 0; } to { opacity: 1; } }
-
-    /* ─── Live canvas — sits behind the modal ────────────────────────── */
-    .am-canvas {
-        position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-        pointer-events: none;
-        opacity: 0.55;
-    }
 
     /* ─── Modal card — white/canvas, crisp ───────────────────────────── */
     .am-modal {
