@@ -57,6 +57,7 @@ import { BeamStore, buildBeamHandlerSet } from '@pryzm/plugin-beam';
 import { StairStore, buildStairHandlerSet } from '@pryzm/plugin-stair';
 import { HandrailStore, buildHandrailHandlerSet } from '@pryzm/plugin-handrail';
 import { CeilingStore, buildCeilingHandlerSet } from '@pryzm/plugin-ceiling';
+import { FloorStore, buildFloorHandlerSet } from '@pryzm/plugin-floor';
 
 // ---- Wave 18: 2 non-element plugins with zero-dep handler factories ----
 import { buildSelectionHandlerSet } from '@pryzm/plugin-selection';
@@ -255,6 +256,18 @@ export const ALL_PLUGINS: readonly PluginDescriptor[] = [
     storeKey: 'ceiling',
     buildStore: () => new CeilingStore() as unknown as Store<object>,
     buildHandlers: () => buildCeilingHandlerSet() as readonly CommandHandler<unknown>[],
+  },
+
+  // ---- Floor (§P3.2-FL) ----
+  // FloorStore provides the L1 bus store so ctx.stores.floor is materialised
+  // for CreateFloorHandler / UpdateFloorLayersHandler.  The initTools.ts
+  // §P3.2-FL bridge mirrors Immer patches to the legacy FloorStore for
+  // FloorFragmentBuilder mesh rendering during the F-1.x migration window.
+  {
+    id: 'floor',
+    storeKey: 'floor',
+    buildStore: () => new FloorStore() as unknown as Store<object>,
+    buildHandlers: () => buildFloorHandlerSet() as readonly CommandHandler<unknown>[],
   },
 
   // ---- Furniture (E-finish.0.E orphan registration) ----

@@ -822,6 +822,7 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             try {
                 _legacyWallStoreForBridge.add({
                     id:        ev.wallId,
+                    type:      'wall' as const,
                     levelId:   ev.levelId,
                     baseLine:  [
                         { x: ev.baseLine[0].x, y: ev.baseLine[0].y ?? 0, z: ev.baseLine[0].z },
@@ -970,15 +971,23 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             try {
                 curtainWallStoreInstance.add({
                     id:      ev.id,
+                    type:    'curtain-wall',
                     levelId: ev.levelId ?? '',
                     baseLine: [
                         { x: ev.baseLine[0].x, y: ev.baseLine[0].y ?? 0, z: ev.baseLine[0].z },
                         { x: ev.baseLine[1].x, y: ev.baseLine[1].y ?? 0, z: ev.baseLine[1].z },
                     ],
-                    height:           typeof _cwEv['height']           === 'number' ? _cwEv['height']           : 3,
-                    gridXSpacing:     typeof _cwEv['bayWidth']         === 'number' ? _cwEv['bayWidth']         : 1.2,
-                    gridYSpacing:     typeof _cwEv['bayHeight']        === 'number' ? _cwEv['bayHeight']        : 1.5,
-                    mullionThickness: typeof _cwEv['mullionThickness'] === 'number' ? _cwEv['mullionThickness'] : 0.05,
+                    height:         typeof _cwEv['height']           === 'number' ? _cwEv['height']           : 3,
+                    baseOffset:     typeof _cwEv['baseOffset']       === 'number' ? _cwEv['baseOffset']       : 0,
+                    gridXSpacing:   typeof _cwEv['bayWidth']         === 'number' ? _cwEv['bayWidth']         : 1.2,
+                    gridYSpacing:   typeof _cwEv['bayHeight']        === 'number' ? _cwEv['bayHeight']        : 1.5,
+                    // §P3.1-CW-MULLION-FIX: CurtainWallData uses `mullionSize` (cross-section width/depth)
+                    // not `mullionThickness`.  The CreateCurtainWallPayload field is `mullionThickness`;
+                    // map it to the correct legacy store field here.  The previous bridge used
+                    // `mullionThickness` which is not a CurtainWallData field → undefined →
+                    // `build()` called `cw.mullionSize.toFixed(4)` → TypeError (logs as `{}`).
+                    mullionSize:    typeof _cwEv['mullionThickness']  === 'number' ? _cwEv['mullionThickness']  : 0.05,
+                    panelThickness: typeof _cwEv['panelThickness']    === 'number' ? _cwEv['panelThickness']    : 0.05,
                 } as any);
                 // §P3.1-CW-PLAN-FIX: CurtainWallStore.add() uses the internal this.emit() path
                 // but does NOT call storeEventBus.emit().  Only addMany() does (batch path).

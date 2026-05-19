@@ -9,7 +9,7 @@ export const PLUGIN_ID = 'floor' as const;
 export const PLUGIN_NAME = '@pryzm/plugin-floor' as const;
 
 export type { FloorsState, FloorId } from './store.js';
-export { INITIAL_FLOORS_STATE } from './store.js';
+export { INITIAL_FLOORS_STATE, FloorStore } from './store.js';
 
 export {
   FLOOR_HANDLER_TYPES,
