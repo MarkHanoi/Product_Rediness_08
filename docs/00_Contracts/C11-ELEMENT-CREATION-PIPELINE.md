@@ -1,11 +1,12 @@
 # C11 — Element Creation Pipeline
 
-> **Stamp**: 2026-05-03 · **Status**: CANONICAL  
-> **Scope**: The complete end-to-end pipeline for element creation in PRYZM — from user gesture or AI response, through the command bus, through store mutation, geometry build, event fan-out, and renderer update. Covers **both** the UI-initiated path (user clicks a tool) and the AI-initiated path (AI generates a floor plan).  
+> **Stamp**: 2026-05-03 · **Status**: CANONICAL · **Last amended**: 2026-05-19  
+> **Scope**: The complete end-to-end pipeline for element creation in PRYZM — from user gesture or AI response, through the command bus, through store mutation, geometry build, event fan-out, and renderer update. Covers **all three views** (3D, plan/2D, elevations) and **all element types** (wall, slab, curtain wall, ceiling, roof, column, beam, floor, opening, stair, handrail, furniture). Covers **both** the UI-initiated path (user clicks a tool) and the AI-initiated path (AI generates a floor plan).  
 > **Key principles**: P6 (commands are the only mutation path), P3 (single rAF / frame scheduler), P8 (every public function has ≥ 1 OTel span).  
-> **Companion contracts**: C03 (command bus contract), C04 (rendering and scheduling), C06 (tool registration), C09 (AI and visibility intent).  
+> **Companion contracts**: C03 (command bus contract), C04 (rendering and scheduling), C06 (tool registration), C09 (AI and visibility intent), C14 (legacy elimination — bridge-pattern invariants).  
 > **Authority**: When code disagrees with this contract, the code is wrong. When C03, C06 or C09 disagree with this contract on pipeline shape, this contract wins — it is the more specific authority.  
-> **Gap notice**: §7 documents where today's code violates this contract. Every site listed there carries a `TODO(E.5.x)` annotation in source. The AS-IS gaps are known, measured, and tracked in `docs/03_PRYZM3/04-PLAN-FORWARD/33-PHASE-E5X-COMMANDMANAGER-FULL-MIGRATION.md`.
+> **Gap notice**: §7 documents where today's code violates this contract. Every site listed there carries a `TODO(E.5.x)` annotation in source. The AS-IS gaps are known, measured, and tracked in `docs/03_PRYZM3/04-PLAN-FORWARD/33-PHASE-E5X-COMMANDMANAGER-FULL-MIGRATION.md`.  
+> **2026-05-19 amendments**: §6.2 rewritten to reflect the real plan-view trigger chain. §6.3 hardened with the RedetectRooms anti-pattern. §7 updated with 3 critical bugs fixed. §10 (Transitional Bridge Architecture) and §11 (Per-Element Compliance Matrix) added.
 
 ---
 
@@ -281,18 +282,110 @@ FrameScheduler 'pre-render' slot
 - The `FrameScheduler` is the single rAF owner (P3). Geometry builders MUST NOT call `requestAnimationFrame()` directly.
 - **§PERF-ADAPTIVE-DRAIN**: Geometry builders that drain a per-frame queue SHOULD implement an adaptive budget rather than a fixed constant. The `CurtainWallBuilder` is the reference implementation: instance variable `_buildsPerFrame` starts at 5, increments by 1 (cap 12) when the previous drain took < 8 ms, decrements by 1 (floor 2) when it took > 14 ms. Target is ≤ 10 ms per drain cycle. The budget resets to the baseline at builder construction (project open). All three builders (`WallFragmentBuilder`, `CurtainWallBuilder`, `SlabFragmentBuilder`) SHOULD adopt this pattern. Source: `src/engine/subsystems/curtainwalls/CurtainWallBuilder.ts` — `_buildsPerFrame` field; Sprint A37.
 
-### §6.2 — Plan-view update
+### §6.2 — Plan-view update (ACTUAL mechanism — 2026-05-19 rewrite)
 
-The 2D plan-view (Canvas2D pipeline) subscribes to `ElementStore` at 'render' priority via the frame scheduler. It re-renders automatically when `stores.elements.walls` changes. No explicit signal from the command handler is required.
+> **Note**: The previous description of this section ("subscribes to `ElementStore` at 'render' priority via the frame scheduler") was aspirational (target state). It did not match the AS-IS implementation. This rewrite documents the actual mechanism. The target-state version is preserved in §6.2.T below.
 
-- Plan-view re-render MUST complete within < 100 ms p95 after element mutation (C06 §5.1 / NFT 5).
-- Plan-view rendering MUST run on an OffscreenCanvas worker thread when available (C06 §5.1).
+**AS-IS mechanism (canonical as of 2026-05-19)**
+
+The plan-view (Canvas2D) update is NOT driven by a direct `ElementStore` subscription. It is driven by a **five-stage event chain** that begins with a legacy store mutation:
+
+```
+Stage 1 — Legacy store mutation
+  initTools.ts bus→legacy-store bridge (runtime.events subscriber)
+    calls LegacyXxxStore.add(element)
+        ↓
+Stage 2 — storeEventBus signal
+  Every legacy element store's add() MUST call:
+    storeEventBus.emit({ elementType, elementId, operation: 'create', timestamp })
+  (The storeEventBus singleton is packages/core-app-model/src/storeEventBus.ts)
+        ↓
+Stage 3 — ViewTechnicalDrawingCache._onStoreChange()
+  packages/core-app-model/src/views/ViewTechnicalDrawingCache.ts
+    Filters via GEOMETRY_ELEMENT_TYPES set (wall, slab, curtainwall, curtain-panel,
+    window, door, roof, stair, stair-landing, stair-railing, opening, ceiling,
+    floor, handrail, furniture, plumbing, column, beam)
+    Fires: window.dispatchEvent(new CustomEvent('vd:projection-stale', { detail: { viewId } }))
+        ↓
+Stage 4 — PlanViewManager debounce (300 ms)
+  apps/editor/src/engine/subsystems/planView/PlanViewManager.ts
+    Listens to 'vd:projection-stale'; debounces 300 ms to coalesce burst events
+    After debounce expires → calls EdgeProjectorService.project(viewId)
+        ↓
+Stage 5 — EdgeProjectorService + Canvas2D render
+  packages/core-app-model/src/views/EdgeProjectorService.ts
+    Reads BimManager.getLevelById(levelId).childrenIds for geometry
+    Computes 2D edge projection
+    Triggers Canvas2D render → plan-view refreshes
+```
+
+**Critical invariants (MUST — violation breaks plan-view for that element type)**
+
+- Every legacy element store's `add()` method MUST call `storeEventBus.emit()` with a valid `elementType` string that is present in `GEOMETRY_ELEMENT_TYPES` (`ViewDependencyTracker.ts` line 40).
+- The `initTools.ts` bridge subscriber MUST complete `LegacyStore.add()` before returning. If `add()` throws, plan-view will not update for that element.
+- The bridge MUST NOT call `storeEventBus.emit()` directly UNLESS the target store's `add()` is known to omit it. The one confirmed exception is `CurtainWallStore.add()` — it uses an internal `this.emit()` path and does NOT call `storeEventBus`; only `addMany()` does. The `initTools.ts §P3.1` bridge compensates with an explicit `storeEventBus.emit()` after `curtainWallStoreInstance.add()`. This asymmetry MUST be fixed in `CurtainWallStore.add()` itself (tracked as TODO-CW-STORE-BUS, Wave A16).
+- The 300 ms debounce in `PlanViewManager` is intentional — it absorbs burst events from batch creation without redundant projections. Single-element creation (user tool path) will appear in plan-view within ~330 ms of the `storeEventBus` signal (300 ms debounce + ~30 ms projection).
+
+**Plan-view update MUST complete within < 100 ms p95 after `storeEventBus` fires** (C06 §5.1 / NFT 5). The 300 ms debounce is outside this window and is a known transitional-state deviation; it MUST be reduced to ≤ 50 ms as part of the Stage-2 `storeEventBus` → frame-scheduler migration (Wave A21+).
+
+**Target-state mechanism (§6.2.T)**
+
+In the target state (post-Wave A21), the plan-view update will be driven by a direct frame-scheduler subscription to the Immer `ElementStore`, eliminating the storeEventBus intermediary:
+
+```ts
+// Target: packages/scene-committer/ or packages/plan-view-renderer/
+runtime.scheduler.onFrame(() => {
+  const snapshot = runtime.stores.elements.getSnapshot();
+  if (snapshot.version !== lastCommittedVersion) {
+    planViewRenderer.invalidate(snapshot);
+    lastCommittedVersion = snapshot.version;
+  }
+}, 'render');
+```
+
+The `initTools.ts` bridge layer and `storeEventBus` will be removed in this migration.
 
 ### §6.3 — Room redetection (event-driven, not imperative)
 
 Room boundaries are derived geometrically from walls, slabs, and ceiling elements. They MUST be recomputed after wall mutations. The trigger MUST be event-driven, not imperative.
 
-**Target mechanism**:
+**AS-IS mechanism (canonical as of 2026-05-19)**
+
+Room redetection uses a CustomEvent bridge (`pryzm-bus-rooms-redetect`) as a transitional L4→L7 escape hatch (ADR-002 §3.D). The `RedetectRoomsHandler.execute()` dispatches this CustomEvent; the listener in `engineLauncher.ts` calls `commandManager.execute(new ReDetectRoomsCommand(...))` to run detection.
+
+```ts
+// AS-IS: RedetectRooms.ts — handler dispatches CustomEvent
+window.dispatchEvent(new CustomEvent('pryzm-bus-rooms-redetect', {
+  detail: { levelId, elevation, height }
+}));
+
+// AS-IS: engineLauncher.ts — listener calls legacy commandManager
+window.addEventListener('pryzm-bus-rooms-redetect', (e) => {
+  const cmd = (e as CustomEvent).detail;
+  commandManager.execute(new ReDetectRoomsCommand(cmd.levelId, cmd.elevation, cmd.height));
+  //                      ↑ SYNCHRONOUS — returns CommandResult, NOT a Promise
+});
+```
+
+**CRITICAL ANTI-PATTERN — DO NOT DO THIS (Bug F-1.4-REDETECT-LOOP, fixed 2026-05-19)**
+
+The listener MUST NOT call `bus.executeCommand('rooms.redetect', ...)`. Doing so re-enters `RedetectRoomsHandler.execute()`, which fires `pryzm-bus-rooms-redetect` again → **infinite synchronous recursion → `RangeError: Maximum call stack size exceeded`**.
+
+```ts
+// ❌ FORBIDDEN — infinite loop:
+window.addEventListener('pryzm-bus-rooms-redetect', (e) => {
+  bus.executeCommand('rooms.redetect', e.detail);  // ← DO NOT DO THIS
+});
+
+// ✅ CORRECT — synchronous commandManager, no re-entry:
+window.addEventListener('pryzm-bus-rooms-redetect', (e) => {
+  const cmd = (e as CustomEvent).detail;
+  commandManager.execute(new ReDetectRoomsCommand(cmd.levelId, cmd.elevation, cmd.height));
+  //              ↑ synchronous, does NOT dispatch 'rooms.redetect' on the bus
+});
+```
+
+**Target mechanism (post-Wave A21)**:
 
 ```ts
 // plugins/rooms/src/handlers/redetectRoomsHandler.ts
@@ -358,7 +451,17 @@ The span MUST include: `elementType`, `source` (user/ai/remote), `levelId`, `wal
 
 ## §7 — AS-IS gaps (where today's code violates this contract)
 
-> **Last updated**: 2026-05-04. These are known, measured, and tracked. Every in-progress site carries a `TODO(E.5.x)` annotation in source. The full migration plan is in `docs/03_PRYZM3/04-PLAN-FORWARD/33-PHASE-E5X-COMMANDMANAGER-FULL-MIGRATION.md`. The comprehensive gap analysis including alignment with all contracts and all element families is in `docs/03_PRYZM3/04-PLAN-FORWARD/34-HANDLER-PROTOCOL-GAP-ANALYSIS.md`.
+> **Last updated**: 2026-05-19. These are known, measured, and tracked. Every in-progress site carries a `TODO(E.5.x)` annotation in source. The full migration plan is in `docs/03_PRYZM3/04-PLAN-FORWARD/33-PHASE-E5X-COMMANDMANAGER-FULL-MIGRATION.md`. The comprehensive gap analysis including alignment with all contracts and all element families is in `docs/03_PRYZM3/04-PLAN-FORWARD/34-HANDLER-PROTOCOL-GAP-ANALYSIS.md`.
+
+### §7.0 — Critical bugs fixed (2026-05-19)
+
+Three production-breaking defects in the element creation pipeline were identified and fixed on 2026-05-19. They are documented here permanently so they cannot recur silently.
+
+| ID | File | Bug | Root Cause | Fix | Contract clause |
+|---|---|---|---|---|---|
+| **F-1.4-REDETECT-LOOP** | `apps/editor/src/engine/engineLauncher.ts` | `RangeError: Maximum call stack size exceeded` on every wall/curtain-wall creation — engine hard-crashed. | `window.addEventListener('pryzm-bus-rooms-redetect', ...)` called `bus.executeCommand('rooms.redetect', ...)`, which re-entered `RedetectRoomsHandler.execute()`, which dispatched the CustomEvent again → infinite recursion. | Listener now calls `commandManager.execute(new ReDetectRoomsCommand(...))` — the synchronous legacy path that does NOT dispatch on the bus. See §6.3 anti-pattern. | §6.3 |
+| **P3.1-CW-PLAN** | `apps/editor/src/engine/initTools.ts` | Curtain walls never appeared in plan view after creation. | `CurtainWallStore.add()` uses an internal `this.emit()` path and does NOT call `storeEventBus.emit()`. Only the batch path (`addMany()`) does. Without `storeEventBus`, `ViewTechnicalDrawingCache._onStoreChange()` never fired, `vd:projection-stale` was never dispatched, and the plan-view projector never ran. All other stores (`WallStore`, `SlabStore`, `BeamStore`, `FloorStore`, `CeilingStore`) DO emit `storeEventBus` from `add()`. | Added explicit `storeEventBus.emit({ elementType: 'curtainwall', ... })` in the `curtain-wall.created` bridge in `initTools.ts §P3.1` after `curtainWallStoreInstance.add()`. `'curtainwall'` is present in `GEOMETRY_ELEMENT_TYPES` (ViewDependencyTracker.ts:41). | §6.2 |
+| **FT1-C11-SLAB-BOUNDARY** | `plugins/slab/src/handlers/CreateSlab.ts` | Part A: Slabs created via the plan tool stored `boundary: undefined` in the Immer slab store — breaking undo/redo, schedule extraction, and IFC export. Only the 3D mesh worked (via the legacy bridge which reads `ev.polygon`). Part B: After resolving boundary from `cmd.polygon`, `Slab.parse()` threw `SlabSchemaError: boundary[0].z undefined` because `SlabPlanToolHandler` sends polygon as `{x: worldX, y: worldZ}[]` (2D — no `z` field), but the Slab Zod schema requires `Vec3[] = {x, y, z}[]`. | Part A: `CreateSlabHandler.execute()` only read `cmd.boundary`, leaving Immer store without boundary. Part B: `polygon` points have no `z`, but `Slab.parse()` (via `packages/schemas/src/elements/Slab.ts`) requires all boundary Vec3 points to have a finite `z`. | Part A: `CreateSlabPayload` now accepts `polygon` as an alias for `boundary`. Part B: When resolving from `cmd.polygon`, `z` is coerced to `p.z ?? 0` in both `canExecute` and `execute` before calling `validateSlabBoundary()` and `Slab.parse()`. `PlanPoint2D` local type accepts `z?: number` for type safety. | §3.2, §5.2 (handler MUST produce complete Immer patch) |
 
 ### §7.1 — UI tool path violations (2 remaining)
 
@@ -476,7 +579,26 @@ Undo behavior:
   Ctrl+Y re-applies the wall
 ```
 
-### §8.4 — OTel verification
+### §8.4 — Runtime gates (plan-view — all element types, 2026-05-19)
+
+After creating each element type via its plan tool in split-view mode, the element MUST appear in the 2D plan panel within ≤ 400 ms (300 ms debounce + ≤ 100 ms projection time) with no page reload or manual refresh required.
+
+| Element type | Plan tool | Expected log on success | Plan-view appears? |
+|---|---|---|---|
+| Wall | Wall plan tool | `[initTools] §P2.1: wall mirrored to legacy store` | MUST |
+| Slab | Slab plan tool | `[initTools] §FT1: slab mirrored to legacy store` | MUST |
+| Curtain Wall | Curtain-wall plan tool | `[initTools] §P3.1-CW: curtain wall mirrored to legacy store + storeEventBus fired` | MUST |
+| Ceiling | Ceiling plan tool | `[initTools] §P3.2-CL: ceiling mirrored to legacy store` | MUST |
+| Roof | Roof plan tool | `[initTools] §P3.2-RF: roof mirrored to legacy store` | MUST |
+| Column | Column plan tool | `[initTools] §P3.3-CO: column mirrored to legacy store` | MUST |
+| Beam | Beam plan tool | `[initTools] §FT2: beam mirrored to legacy store` | MUST |
+| Floor | Floor plan tool | `[initTools] §P3.2-FL: floor mirrored to legacy store` | MUST |
+
+MUST NOT observe:
+- `RangeError: Maximum call stack size exceeded` (§7.0 bug F-1.4-REDETECT-LOOP — must never recur)
+- Any element type that creates a 3D mesh but does NOT appear in plan view (§7.0 bug P3.1-CW-PLAN pattern)
+
+### §8.5 — OTel verification
 
 ```bash
 # Every handler must emit at least one span
@@ -500,3 +622,148 @@ pnpm run ci:check-spans                                        # → 0 missing s
 | `BatchCoordinator` source | `src/engine/subsystems/core/batch/BatchCoordinator.ts` |
 | `WallTool` E-bus.1 deprecation notice | `src/engine/subsystems/walls/WallTool.ts:34–55` |
 | Live LONGTASK evidence diary entry | `docs/03_PRYZM3/03-CURRENT-STATE.md §10 2026-05-03d` |
+| Bridge pattern invariants (C14) | `C14-LEGACY-ELIMINATION-AND-PRYZM3-ENFORCEMENT.md` |
+| Per-element pipeline compliance | §11 (this document) |
+
+---
+
+## §10 — Transitional Bridge Architecture (AS-IS, 2026-05-19)
+
+This section documents the **accepted transitional architecture** for element creation in the current PRYZM3 codebase. It describes the two-layer bridge pattern that sits between the bus pipeline and the legacy geometry/plan-view systems. Engineers working on element creation MUST understand this pattern to avoid breaking plan-view, 3D-mesh, or room-redetect for any element type.
+
+### §10.1 — The two-layer bridge
+
+Element creation in the current codebase flows through two sequential bridges after the Immer store mutation:
+
+```
+PRYZM3 PIPELINE          │  BRIDGE LAYER 1           │  BRIDGE LAYER 2
+─────────────────────────┼───────────────────────────┼──────────────────────────────
+User/AI gesture           │                           │
+  → commandBus.dispatch() │                           │
+  → CommandHandler         │                           │
+    → Immer store patch   │                           │
+  → CommandEventBridge    │                           │
+    emits typed event     │                           │
+    (runtime.events)      │                           │
+                          │  initTools.ts subscriber  │
+                          │  runtime.events.on(        │
+                          │    'xxx.created', (ev) => │
+                          │    LegacyStore.add(ev)    │
+                          │  )                        │
+                          │                           │  LegacyStore.add()
+                          │                           │    → storeEventBus.emit()
+                          │                           │    → ViewTechnicalDrawing
+                          │                           │      Cache._onStoreChange()
+                          │                           │    → vd:projection-stale
+                          │                           │    → PlanViewManager (300ms)
+                          │                           │    → EdgeProjectorService
+                          │                           │    → Canvas2D render
+                          │                           │
+                          │  bim-xxx-added DOM event  │  (parallel)
+                          │  → XxxFragmentBuilder     │
+                          │    → THREE mesh build     │
+                          │    → 3D view update       │
+```
+
+### §10.2 — Bridge invariants (binding, must hold for every element type)
+
+1. **CommandEventBridge MUST emit a geometry-complete payload.** The `runtime.events` event for a creation command MUST include all geometry fields needed by `LegacyStore.add()` — id, levelId, and all shape-defining coordinates. A geometry-free payload (only `commandId`, `commandType`, `levelId`) is insufficient and breaks the 3D mesh build.
+
+2. **initTools.ts MUST have a subscriber for every element type dispatched via the bus.** If a bus command succeeds but no `runtime.events.on('xxx.created', ...)` subscriber exists in `initTools.ts`, the legacy store is never populated, no geometry is built, and neither the 3D view nor plan view will show the element.
+
+3. **Every legacy element store's `add()` MUST call `storeEventBus.emit()`** with an `elementType` in `GEOMETRY_ELEMENT_TYPES`. This is the only way the plan-view knows to re-project. The confirmed exception is `CurtainWallStore.add()` (tracked: TODO-CW-STORE-BUS, Wave A16) — the `initTools.ts §P3.1` bridge compensates with an explicit `storeEventBus.emit()` call.
+
+4. **The bridge subscriber MUST have a dedup guard** (`if (store.getById(id)) return;`) to prevent double-adds when the legacy commandManager path also populates the store directly (e.g., columns).
+
+5. **Bus command payload field names MUST match what the plan tool sends.** Field mismatches (e.g., `polygon` vs `boundary` in slabs — Bug FT1-C11-SLAB-BOUNDARY) corrupt the Immer store even when the 3D mesh builds correctly.
+
+6. **`commandManager.execute()` MUST be synchronous in CustomEvent bridge listeners.** It returns `CommandResult`, NOT a `Promise`. Do not add `.then()` or `.catch()` — call it bare. Adding `.catch()` hides the return type mismatch but does not make it asynchronous.
+
+### §10.3 — Bridge removal criteria (Wave A21+)
+
+A bridge for element type X MAY be removed when:
+1. The geometry builder for X reads directly from the Immer store (not from the legacy store).
+2. The plan-view pipeline subscribes directly to the Immer store change (not via `storeEventBus`).
+3. The `bimManager.registerElement()` call is moved into the command handler or a direct Immer store subscriber.
+
+The target state is zero bridges — all geometry builders read from Immer, plan-view subscribes to Immer via the frame scheduler (§6.2.T).
+
+---
+
+## §11 — Per-Element Pipeline Compliance Matrix (2026-05-19)
+
+This matrix is the normative record of which elements are fully wired through the bus pipeline for all three views (3D, plan, elevation). It MUST be updated whenever a bridge is added, removed, or repaired.
+
+**Column key:**
+
+- **CEB case** — `CommandEventBridge.ts` has a `case 'xxx.create'` with geometry-complete payload
+- **initTools bridge** — `initTools.ts` has a `runtime.events.on('xxx.created', ...)` subscriber that calls `LegacyStore.add()`
+- **Store `add()` → storeEventBus** — `LegacyStore.add()` emits `storeEventBus` (plan-view trigger)
+- **Plan-view tracked** — `elementType` string is in `GEOMETRY_ELEMENT_TYPES` (`ViewDependencyTracker.ts:40`)
+- **3D via bus** — 3D mesh builds via bus path (not legacy-only `commandManager.execute()`)
+- **Status** — overall bus-path correctness
+
+| Element | CEB case (geometry-complete) | initTools bridge | Store `add()` → storeEventBus | Plan-view tracked | 3D via bus | Status |
+|---|---|---|---|---|---|---|
+| **Wall** | ✅ `wall.create` + `wall.batch.create` | ✅ §P2.1 | ✅ `WallStore.add()` | ✅ `'wall'` | ✅ | ✅ FULL |
+| **Slab** | ✅ `slab.create` + `slab.batch.create` | ✅ §FT1 | ✅ `SlabStore.add()` | ✅ `'slab'` | ✅ | ✅ FULL |
+| **Curtain Wall** | ✅ `curtainwall.create` + `curtain-wall.batch.create` | ✅ §P3.1 (+ explicit `storeEventBus.emit`) | ⚠️ `CurtainWallStore.add()` omits storeEventBus — compensated by bridge emit | ✅ `'curtainwall'` | ✅ | ✅ FULL (workaround active — TODO-CW-STORE-BUS) |
+| **Ceiling** | ✅ `ceiling.create` + `ceiling.batch.create` | ✅ §P3.2-CL | ✅ `CeilingStore.add()` (line 148) | ✅ `'ceiling'` | ✅ | ✅ FULL |
+| **Roof** | ✅ `roof.create` | ✅ §P3.2-RF | ✅ `RoofStore.add()` | ✅ `'roof'` | ✅ | ✅ FULL |
+| **Column** | ✅ `column.create` + `column.batch.create` | ✅ §P3.3-CO (dedup: `store.get(id)`) | ✅ `ColumnStore.add()` (line 137) | ✅ `'column'` | ✅ | ✅ FULL |
+| **Beam** | ✅ `beam.create` + `beam.batch.create` | ✅ §FT2 | ✅ `BeamStore.add()` (line 63) | ✅ `'beam'` | ✅ | ✅ FULL |
+| **Floor** | ✅ `floor.create` | ✅ §P3.2-FL | ✅ `FloorStore.add()` (line 125) | ✅ `'floor'` | ✅ | ✅ FULL |
+| **Wall Opening (Door/Window)** | ✅ `wall.opening.create` + `wall.createOpening` | ✅ §P2.3 | ✅ `OpeningStore.add()` | ✅ `'opening'`, `'window'`, `'door'` | ✅ | ✅ FULL |
+| **Stair** | ❌ No CEB case (comment: "no initTools subscriber") | ❌ No bridge | ✅ `StairStore.add()` → storeEventBus (line 171) | ✅ `'stair'` | ❌ | ⚠️ LEGACY-ONLY — stair element is created via `commandManager` (legacy path), not bus |
+| **Handrail** | ⚠️ `handrail.create` case emits geometry-free payload (levelId only) | ❌ No bridge | ✅ `HandrailStore.add()` → storeEventBus (line 101) | ✅ `'handrail'` | ❌ | ⚠️ LEGACY-ONLY — handrail populated via legacy path; CEB payload insufficient for bridge |
+| **Furniture** | ⚠️ `furniture.create` case emits geometry-free payload (levelId only) | ❌ No bridge | ✅ `FurnitureStore.add()` → storeEventBus | ✅ `'furniture'` | ❌ | ⚠️ LEGACY-ONLY — furniture populated via legacy path; CEB payload insufficient for bridge |
+| **Lighting** | ⚠️ `lighting.create` case emits geometry-free payload | ❌ No bridge | ❓ Not audited | ❌ Not in `GEOMETRY_ELEMENT_TYPES` | ❌ | ⚠️ OUT-OF-SCOPE — not a geometry element in current schema |
+| **Room** | ✅ `room.create` | N/A (room derived, not tool-created) | Via `RoomStore` | ✅ indirect | N/A | ✅ Derived — redetected from walls/slabs |
+
+### §11.1 — Gaps requiring action (Wave A16 / Wave A21)
+
+| Gap | Element(s) | Action required | Sprint |
+|---|---|---|---|
+| **TODO-CW-STORE-BUS** | Curtain Wall | Fix `CurtainWallStore.add()` to emit `storeEventBus` directly (eliminate bridge workaround) | Wave A16 |
+| **STAIR-BUS-MIGRATION** | Stair | Add `stair.create` CEB case with geometry-complete payload; add `initTools.ts §FT-STAIR` bridge; migrate from `commandManager` path | Wave A21 |
+| **HANDRAIL-BUS-MIGRATION** | Handrail | Enrich `handrail.create` CEB payload with geometry fields; add `initTools.ts §FT-HANDRAIL` bridge | Wave A21 |
+| **FURNITURE-BUS-MIGRATION** | Furniture | Enrich `furniture.create` CEB payload with position/rotation/model; add `initTools.ts §FT-FURN` bridge | Wave A21 |
+| **SLAB-BATCH-COORDINATOR** | Slab | Implement `BatchCoordinator.runBatch()` in `CreateSlabBatch.ts` (§7.4) | Wave A21 |
+| **HANDLER-OTEL-SPANS** | All 177 handlers | Every handler MUST emit ≥ 1 OTel span (§5.2, C10 §2) | S03 |
+| **HANDLER-RUNTIME-EVENTS** | All 177 handlers | Every handler MUST call `runtime.events.emit(eventName, payload)` directly after store mutation (§5.2) — today this is done by CEB, not the handler itself | S03 |
+
+### §11.2 — How to add a new element type (checklist)
+
+When implementing a new element type `xxx`, the following MUST all be completed before the feature is considered done:
+
+```
+□ 1. Command handler (plugins/xxx/src/handlers/CreateXxx.ts)
+     - Validates all domain invariants
+     - Mutates Immer store via produceCommand()
+     - Wraps in withHandlerSpan() (C10 §2)
+     - Declares affectedStores: ['xxx'] as const
+
+□ 2. CommandEventBridge (packages/runtime-composer/src/CommandEventBridge.ts)
+     - case 'xxx.create': with FULL geometry payload (id, levelId, ALL shape coordinates)
+     - events.emit('xxx.created', { ...allGeometryFields })
+     - case 'xxx.batch.create': emits one 'xxx.created' per element
+
+□ 3. initTools.ts bridge (apps/editor/src/engine/initTools.ts)
+     - runtime.events.on('xxx.created', (ev) => { ... })
+     - Guards: commandType check, geometry presence check, dedup guard
+     - Calls LegacyXxxStore.add({ ...reconstructedFromEv })
+     - If LegacyXxxStore.add() does NOT emit storeEventBus: add explicit
+       storeEventBus.emit({ elementType: 'xxx', elementId: ev.id, ... })
+     - Log: console.log('[initTools] §FT-XXX: xxx mirrored to legacy store', ev.id)
+
+□ 4. Legacy store (packages/core-app-model/src/stores/XxxStore.ts or geometry-xxx/)
+     - add() MUST call storeEventBus.emit({ elementType: 'xxx', operation: 'create', ... })
+     - elementType string MUST be in GEOMETRY_ELEMENT_TYPES (ViewDependencyTracker.ts:40)
+
+□ 5. ViewDependencyTracker (packages/core-app-model/src/views/ViewDependencyTracker.ts)
+     - Add 'xxx' to GEOMETRY_ELEMENT_TYPES Set if it has plan-view geometry
+
+□ 6. Verify §11 matrix — update this table
+
+□ 7. Verify §8.4 runtime gate — test in split-view, confirm element appears in plan ≤ 400ms
+```
