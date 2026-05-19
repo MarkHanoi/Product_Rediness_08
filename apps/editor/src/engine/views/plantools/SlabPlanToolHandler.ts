@@ -1,4 +1,5 @@
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
+import { createId } from '@pryzm/schemas';
 
 const SLAB_FILL_COLOR   = '#64748b';
 const SLAB_EDGE_COLOR   = '#475569';
@@ -166,7 +167,7 @@ export class SlabPlanToolHandler implements PlanToolHandler {
             ? window.slabSystemTypeStore?.getById?.(systemTypeId) // TODO(TASK-08)
             : null;
         const thickness = slabType?.totalThickness ?? 0.25;
-        const slabId    = crypto.randomUUID();
+        const slabId    = createId('slab');
 
         window.runtime?.bus?.executeCommand('slab.create', {
             id:       slabId,

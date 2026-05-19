@@ -1,0 +1,109 @@
+Before continuing - check why the curtain wall element is not being created in plan view - but it does on 3d view scene - althought the preview doesnt generate in 3d view - Check the live logs - it was possible recently - check the logs - this needs to be fix robustly - architecturally sound - no short cuts (check if the contracts (00_COntract) cover this error and correct architecture for element creation on plan view as a rule for all) - then Continue with the next task from implementation of MASTER-IMPL-PLAN-FUNCTIONAL-2026-05-18.md
+
+EVERY TAKS NEEDS TO BE:
+
+Architectrually sound.
+Aligned with existing documentation, contracts, architecture and vision.
+Correct
+True.
+Complete.
+
+AT THE END OF EACH TASK - CHECK THAT THE PNPM RUN BUILD IS CLEAN - ARCHITECTURALLY SOUND
+
+
+Show more
+25 minutes ago
+
+Show less
+
+Analyzing curtain wall creation failures
+Let me attack this in parallel — check live logs, read the contracts, and locate the curtain wall plan tool handler all at once:
+
+
+2 actions
+Let me run a comprehensive parallel investigation — contracts, curtain wall plan tool, CEB path, and initTools subscriber simultaneously:
+
+
+5 actions
+Let me read the curtain wall plan tool handler and the key contracts in parallel:
+
+
+3 actions
+I can see the issue pattern forming. The plan tool dispatches with id: crypto.randomUUID() — a raw UUID — while the handler may have a branded-ID guard like wall's WALL_ID_RE. Let me verify this and read the contracts simultaneously:
+
+
+5 actions
+The root cause is becoming clearer — but I need to see how the 3D CurtainWallTool dispatches vs the plan tool, and read the C11 element pipeline contract. Let me read these in parallel:
+
+
+5 actions
+Critical finding! The 3D tool uses manager.execute(new CreateCurtainWallCommand(...)) — the legacy commandManager path, bypassing the bus entirely. The plan tool uses window.runtime?.bus?.executeCommand('curtainwall.create', ...) — the bus path. I need to verify the bus handler is registered and the full pipeline works. Let me read the contract and trace both paths:
+
+
+5 actions
+Now I have the complete picture. Let me check the three most likely failure points in parallel:
+
+Does CurtainWall.parse() reject raw UUIDs (schema enforcement)
+Is the curtainwall store slice mounted in HandlerContext
+What the CEB curtainwall.create actually emits
+
+8 actions
+Now I have the full picture. Let me read defineElement in BaseNode.ts to confirm it enforces the branded ID regex, and simultaneously read the C11 contract section on plan-view tools:
+
+
+4 actions
+Root cause definitively confirmed from BaseNode.ts lines 35-42:
+
+const idRe = new RegExp(`^${type}_[0-9A-HJKMNP-TV-Z]{26}$`);
+const idField = z.string().regex(idRe, `Expected ${type}_<ulid> id`)
+                          .default(() => createId(type) as string)
+
+When CurtainWallPlanToolHandler dispatches with id: crypto.randomUUID(), CurtainWall.parse(seed) in the handler throws a CurtainWallSchemaError because "550e8400-..." fails ^curtainwall_[ULID]{26}$. This violates the defineElement contract (scratchpad: "Tools must NEVER pass id in bus dispatch"). The 3D tool bypasses this entirely by using the legacy commandManager.execute(new CreateCurtainWallCommand(...)).
+
+Let me verify the bus error path and check _predrawConfig in parallel:
+
+
+4 actions
+Now I have everything to implement the fix. Let me verify CreateCurtainWallCommand (legacy path) and check the predraw mechanism simultaneously:
+
+
+4 actions
+Now I have complete data. Let me read the remaining critical files in parallel and then implement the comprehensive fix:
+
+
+5 actions
+I have everything I need. Let me now read the predraw section and the PlanViewManager storeEventBus pattern before implementing the fix:
+
+
+5 actions
+Complete diagnosis confirmed:
+
+Plan view creation bug: CurtainWallPlanToolHandler._commit() passes id: crypto.randomUUID() → CurtainWall.parse() enforces ^curtainwall_[ULID]{26}$ regex in defineElement → CurtainWallSchemaError. Contract: "Tools MUST NEVER pass id in bus dispatch."
+
+3D view "preview" (ghost box): Uses createGhostBoxBetween() with height/mullionSize defaults — this should work. The FINAL mesh is deferred via CurtainWallBuilder.endPlacementMode() placement accumulator until tool deactivation (PERF-FIX-3 intentional design).
+
+Now let me read the full _commit() in the plan tool handler to implement the precise fix:
+
+
+3 actions
+Now I need the exact _commit() context to make the precise edit:
+
+
+2 actions
+The fix is now perfectly clear. Both id: _cwId and id: _arcSegId violate C11 §3.2 + defineElement regex, causing CurtainWall.parse() to throw CurtainWallSchemaError. I'll remove them from both paths and add bayWidth/bayHeight/mullionThickness so the builder produces a visible mesh:
+
+
+2 actions
+Now fix both dispatch payloads — arc path and linear/ortho path — in one operation:
+
+
+2 actions
+Now fix the linear/ortho dispatch:
+
+
+2 actions
+Good. Both dispatch paths are now fixed. Let me verify the build is clean and check the new logs:
+
+
+3 actions
+Build is clean. Let me take a screenshot to verify the app is running, and also check the browser console for any post-fix errors:

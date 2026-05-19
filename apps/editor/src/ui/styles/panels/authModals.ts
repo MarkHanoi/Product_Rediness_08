@@ -24,15 +24,17 @@ export const AUTH_MODAL_STYLES = `
     }
     @keyframes am-fade { from { opacity: 0; } to { opacity: 1; } }
 
-    /* ─── Modal card — white/canvas, crisp ───────────────────────────── */
+    /* ─── Modal card — frosted glass, semi-transparent ───────────────── */
     .am-modal {
-        background: rgba(255,255,255,0.97);
-        border: 1px solid rgba(0,0,0,0.07);
+        background: rgba(255,255,255,0.62);
+        backdrop-filter: blur(28px) saturate(1.6);
+        -webkit-backdrop-filter: blur(28px) saturate(1.6);
+        border: 1px solid rgba(255,255,255,0.55);
         border-radius: 18px;
         box-shadow:
-            0 0 0 1px rgba(255,255,255,0.06),
-            0 32px 72px rgba(0,0,0,0.42),
-            0 4px 16px rgba(0,0,0,0.18);
+            0 0 0 1px rgba(255,255,255,0.18),
+            0 24px 60px rgba(60,20,120,0.18),
+            0 4px 16px rgba(0,0,0,0.10);
         width: 420px;
         max-width: 100%;
         padding: 30px 30px 24px;

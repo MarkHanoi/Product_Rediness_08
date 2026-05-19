@@ -1,0 +1,55 @@
+Before continuing check slab creation in plan view- Continue with the next task from implementation of MASTER-IMPL-PLAN-FUNCTIONAL-2026-05-18.md
+
+EVERY TAKS NEEDS TO BE:
+
+Architectrually sound.
+Aligned with existing documentation, contracts, architecture and vision.
+Correct
+True.
+Complete.
+
+AT THE END OF EACH TASK - CHECK THAT THE PNPM RUN BUILD IS CLEAN - ARCHITECTURALLY SOUNDengineLauncher-UDI3uhVE.js:1587 [SlabPlanToolHandler] 2-point slab first corner set worldX=-16.804 worldZ=-30.096
+engineLauncher-UDI3uhVE.js:1587 [SlabPlanToolHandler] 2-point slab second corner set — committing rectangle
+engineLauncher-UDI3uhVE.js:1587 [SlabPlanToolHandler] slab.create failed: SlabSchemaError: Slab schema validation failed: [
+{
+"origin": "string",
+"code": "invalid_format",
+"format": "regex",
+"pattern": "/^slab_[0-9A-HJKMNP-TV-Z]{26}$/",
+"path": [
+"id"
+],
+"message": "Expected slab_<ulid> id"
+}
+]
+at index-DlXDcSv7.js:1:51789
+at Ys (domain-engine-BbAHHdAB.js:126:73776)
+at bn.execute (index-DlXDcSv7.js:1:51303)
+at domain-engine-BbAHHdAB.js:122:133094
+at u6 (domain-engine-BbAHHdAB.js:122:129370)
+at f6.executeCommand (domain-engine-BbAHHdAB.js:122:132853)
+at Object.executeCommand (index-zyoe0YmS.js:2:29359)
+at lf.commitSlab (engineLauncher-UDI3uhVE.js:1587:69027)
+at lf.onClick (engineLauncher-UDI3uhVE.js:1587:67538)
+at aT.onMouseDown (engineLauncher-UDI3uhVE.js:1651:49024)Caused by: ZodError: [
+{
+"origin": "string",
+"code": "invalid_format",
+"format": "regex",
+"pattern": "/^slab[0-9A-HJKMNP-TV-Z]{26}$/",
+"path": [
+"id"
+],
+"message": "Expected slab<ulid> id"
+}
+]
+at index-DlXDcSv7.js:1:51765
+at Ys (domain-engine-BbAHHdAB.js:126:73776)
+at bn.execute (index-DlXDcSv7.js:1:51303)
+at domain-engine-BbAHHdAB.js:122:133094
+at u6 (domain-engine-BbAHHdAB.js:122:129370)
+at f6.executeCommand (domain-engine-BbAHHdAB.js:122:132853)
+at Object.executeCommand (index-zyoe0YmS.js:2:29359)
+at lf._commitSlab (engineLauncher-UDI3uhVE.js:1587:69027)
+at lf.onClick (engineLauncher-UDI3uhVE.js:1587:67538)
+at aT._onMouseDown (engineLauncher-UDI3uhVE.js:1651:49024)
