@@ -312,12 +312,13 @@ export const LANDING_PAGE_STYLES = `
     ────────────────────────────────────────────────────────────────── */
     .lp-hero-heading {
         font-size: clamp(72px, 9.8vw, 146px);
-        font-weight: 900;
+        font-weight: 800;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         line-height: 1.0;
         color: #ffffff;
         text-shadow: 0 2px 24px rgba(90,30,200,0.22), 0 1px 4px rgba(60,20,150,0.14);
         margin: 0 0 16px;
-        letter-spacing: -0.01em;
+        letter-spacing: -0.03em;
         max-width: none;
         text-transform: uppercase;
     }

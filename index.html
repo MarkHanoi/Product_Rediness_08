@@ -11,6 +11,9 @@
     <meta name="apple-mobile-web-app-title" content="PRYZM" />
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" href="/icons/pryzm-pyramid-logo.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" />
     <title>PRYZM 3 — BIM Editor</title>
     <style>
       /* S70 D7 — a11y tokens per ADR-0052 §B.2.  Inline-duplicated
@@ -68,7 +71,7 @@
     <style>
       :root {
         --lp-skel-gradient: linear-gradient(135deg, #8B5CF6 0%, #6600FF 100%);
-        --lp-skel-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        --lp-skel-font: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       }
       /* PRYZM4 boot skeleton — mirrors the lp4-mesh-flow animated gradient.
          Pure CSS static approximation (no @property here; those require
@@ -148,10 +151,11 @@
         text-transform: uppercase; line-height: 1;
       }
       .lp-skel-heading {
-        font-size: clamp(72px, 9.8vw, 146px); font-weight: 900; line-height: 1.0;
-        color: #ffffff;
-        text-shadow: 0 2px 24px rgba(90,30,200,0.22), 0 1px 4px rgba(60,20,150,0.14);
-        margin: 0 0 16px; letter-spacing: -0.01em; max-width: none; text-transform: uppercase;
+        font-size: clamp(72px, 9.8vw, 146px); font-weight: 800; line-height: 1.0;
+        font-family: var(--lp-skel-font);
+        color: rgba(255,255,255,0.92);
+        text-shadow: 0 2px 32px rgba(60,10,160,0.55), 0 4px 64px rgba(90,30,200,0.45), 0 1px 4px rgba(40,10,120,0.35);
+        margin: 0 0 16px; letter-spacing: -0.03em; max-width: none; text-transform: uppercase;
       }
       .lp-skel-sub-copy {
         font-size: clamp(17px, 1.9vw, 24px); color: #5a4282; line-height: 1.5;

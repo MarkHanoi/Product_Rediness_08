@@ -97,9 +97,9 @@ const MAIN_CSP_DIRECTIVES = {
     defaultSrc:     ["'self'"],
     scriptSrc:      IS_PROD ? SCRIPT_SRC_PROD : SCRIPT_SRC_DEV,
     workerSrc:      ["'self'", 'blob:'],           // Web Workers + WASM workers (IFC, Cesium)
-    styleSrc:       ["'self'", "'unsafe-inline'"], // CSS-in-JS + Three.js CSS2DRenderer
+    styleSrc:       ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'], // CSS-in-JS + Three.js CSS2DRenderer + Google Fonts
     imgSrc:         ["'self'", 'data:', 'blob:', 'https:'], // textures, thumbnails, Cesium tiles
-    fontSrc:        ["'self'", 'data:'],
+    fontSrc:        ["'self'", 'data:', 'https://fonts.gstatic.com'], // Google Fonts woff2
     connectSrc:     CONNECT_SRC,
     frameAncestors: ["'none'"],
     // frame-src is intentionally omitted: PRYZM does not embed external iframes

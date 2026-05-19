@@ -29,7 +29,7 @@ export const DESIGN_TOKENS = `
         --app-violet-2:      #7B3FF2;
         --app-violet-3:      #6600FF;
         --app-violet-soft:   rgba(102,0,255,0.08);
-        --app-font:          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        --app-font:          'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         --app-font-size-body:  10.8px;
         --app-font-size-label: 9.9px;
         --app-font-size-h3:    11.7px;
