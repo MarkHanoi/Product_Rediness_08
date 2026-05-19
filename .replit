@@ -33,7 +33,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "pnpm install --no-frozen-lockfile && node_modules/.bin/tsx server.js"
+args = "pnpm install --no-frozen-lockfile && pnpm run dev"
 waitForPort = 5000
 
 [deployment]
