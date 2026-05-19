@@ -89,7 +89,7 @@ import { constraintStore } from '@pryzm/plugin-annotations';
 import { constraintSolver } from '@pryzm/plugin-annotations';
 // ANNOTATION-SYSTEM-AUDIT-2026 A1 — inject annotation/view stores into CommandContext
 import { annotationVisibilityStore } from '@pryzm/plugin-annotations';
-import { viewDefinitionStore, storeEventBus } from '@pryzm/core-app-model';
+import { viewDefinitionStore, storeEventBus, viewDependencyTracker } from '@pryzm/core-app-model';
 import { viewIntentInstanceStore } from '@pryzm/core-app-model/presentation';
 import { vgGovernanceStore } from '@pryzm/core-app-model';
 import { doorStore } from '@pryzm/geometry-door';
@@ -834,6 +834,24 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                     ...(ev.systemTypeId !== undefined ? { systemTypeId: ev.systemTypeId } : {}),
                 } as any);
                 console.log('[initTools] §P2.1: wall mirrored to legacy store', ev.wallId);
+                // §P2.1-REG (FIX-WALL-PLAN-2026-05-19):
+                //   Two registrations required for plan-view rendering to work after the
+                //   bus-only creation path:
+                //
+                //   (A) viewDependencyTracker.registerElement — without this, VDT has no
+                //       entry in _elementLevelMap for this wallId.  Every storeEventBus
+                //       emission from WallStore.add() falls into the §G3-STALE-EVENT path
+                //       (fallback: mark all non-3D views dirty).  The fallback still
+                //       triggers a flush, but the targeted path is preferred for
+                //       performance and correctness on multi-level projects.
+                //
+                //   (B) bimManager.registerElement — without this, level.childrenIds
+                //       never contains the new wallId.  NativeElementMeshExporter reads
+                //       level.childrenIds to build its element list; an absent wallId
+                //       means exportForView() returns 0 elements → plan view renders
+                //       blank even after the VDT flush fires.
+                viewDependencyTracker.registerElement(ev.wallId, ev.levelId ?? 'L0');
+                try { bimManager.registerElement(ev.wallId, ev.levelId ?? 'L0'); } catch { /* non-fatal */ }
             } catch (err) {
                 console.error('[initTools] §P2.1: failed to mirror wall to legacy store — mesh may not build:', err);
             }

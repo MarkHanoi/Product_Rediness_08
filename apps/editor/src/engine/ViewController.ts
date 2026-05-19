@@ -1811,7 +1811,15 @@ export class ViewController implements IViewController {
         this._cleanupAllListeners();
 
         this._vst(`deactivate — PlanViewManager.deactivate()`);
-        this._planViewManager.deactivate();
+        try {
+            this._planViewManager.deactivate();
+        } catch (pvmErr) {
+            // §FIX-DEACTIVATE-GUARD (2026-05-19): PlanViewManager.deactivate() must never
+            // abort the view switch. If plan-view cleanup fails (e.g. runtime.events.emit
+            // propagates a handler throw, or canvas disposal hits a stale DOM ref), log
+            // the error and continue — 3D activation must always complete regardless.
+            console.error('[ViewController] PlanViewManager.deactivate() threw (non-fatal, continuing view switch):', pvmErr);
+        }
 
         this._vst(`deactivate — OrthoPlanCameraLockController.deactivate()`);
         this._orthoPlanLock.deactivate();

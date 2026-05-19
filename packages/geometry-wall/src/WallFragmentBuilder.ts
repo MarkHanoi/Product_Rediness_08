@@ -780,7 +780,10 @@ export class WallFragmentBuilder {
         direction.normalize();
         const wallHeight = wall.height;
         const wallThickness = wall.thickness;
-        const wallBaseOffset = wall.baseOffset;
+        // §FIX-NAN-Y (2026-05-19): wall.baseOffset is optional; undefined produces
+        // NaN in every vertex Y coordinate via `yBot = wallBaseOffset + height`.
+        // Default to 0 so walls with no explicit baseOffset render at floor level.
+        const wallBaseOffset = wall.baseOffset ?? 0;
 
         // Helper to position relative to root (start point) — straight walls only
         const positionLocal = (mesh: THREE.Mesh | THREE.Group, offset: number, localY: number) => {
@@ -2184,7 +2187,7 @@ export class WallFragmentBuilder {
             worldEnd,              // centerlineEnd = worldEnd
             wall.thickness / 2,
             wall.height,
-            wall.baseOffset,
+            wall.baseOffset ?? 0,  // §FIX-NAN-Y: guard against undefined baseOffset
             joinData?.startMN ?? null,
             joinData?.endMN   ?? null,
         );
