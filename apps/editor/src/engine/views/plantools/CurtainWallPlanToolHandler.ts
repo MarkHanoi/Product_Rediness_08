@@ -39,6 +39,8 @@ import { CurtainWallBuilder } from '@pryzm/geometry-curtain-wall';
 
 const DEFAULT_MULLION_DEPTH = 0.18;
 const DEFAULT_HEIGHT        = 3.0;
+const DEFAULT_BAY_WIDTH     = 1.2;
+const DEFAULT_BAY_HEIGHT    = 1.5;
 const FALLBACK_COLOUR       = '#0ea5e9';
 const ARC_SEGMENTS          = 16;
 
@@ -324,14 +326,17 @@ export class CurtainWallPlanToolHandler implements PlanToolHandler {
             // in engineLauncher.ts). The legacy bridge in initBusHandlers.ts §E.5.4 has been removed.
             // baseLine uses [Vec3, Vec3] format as required by CreateCurtainWallPayload.
             for (let i = 0; i < pts.length - 1; i++) {
-                const _arcSegId = crypto.randomUUID();
+                // C11 §3.2 + defineElement invariant: tools MUST NOT pass `id` in bus dispatch.
+                // The handler auto-generates curtainwall_<ulid> via createId('curtainwall').
                 window.runtime?.bus?.executeCommand('curtainwall.create', {
-                    id:      _arcSegId,
                     baseLine: [
                         { x: pts[i].worldX,     y: 0, z: pts[i].worldZ     },
                         { x: pts[i + 1].worldX, y: 0, z: pts[i + 1].worldZ },
                     ],
-                    height:  DEFAULT_HEIGHT,
+                    height:           DEFAULT_HEIGHT,
+                    bayWidth:         DEFAULT_BAY_WIDTH,
+                    bayHeight:        DEFAULT_BAY_HEIGHT,
+                    mullionThickness: DEFAULT_MULLION_DEPTH,
                     levelId,
                 })?.catch((e: Error) => console.error('[CurtainWallPlanToolHandler] curtainwall.create arc seg', i, 'failed:', e));
             }
@@ -351,14 +356,19 @@ export class CurtainWallPlanToolHandler implements PlanToolHandler {
         // Routes directly to CreateCurtainWallHandler (registered via registerCurtainWallHandlers
         // in engineLauncher.ts). The legacy curtain-wall.create bridge is removed.
         // baseLine uses [Vec3, Vec3] format as required by CreateCurtainWallPayload.
-        const _cwId = crypto.randomUUID();
+        // C11 §3.2 + defineElement invariant: tools MUST NOT pass `id` in bus dispatch.
+        // CurtainWall.parse() enforces ^curtainwall_[ULID]{26}$ — a raw crypto.randomUUID()
+        // fails the regex and throws CurtainWallSchemaError. Let the handler auto-generate
+        // the branded id via createId('curtainwall').
         window.runtime?.bus?.executeCommand('curtainwall.create', {
-            id:      _cwId,
             baseLine: [
                 { x: sp.worldX,    y: 0, z: sp.worldZ },
                 { x: endPt.worldX, y: 0, z: endPt.worldZ },
             ],
-            height:  DEFAULT_HEIGHT,
+            height:           DEFAULT_HEIGHT,
+            bayWidth:         DEFAULT_BAY_WIDTH,
+            bayHeight:        DEFAULT_BAY_HEIGHT,
+            mullionThickness: DEFAULT_MULLION_DEPTH,
             levelId,
         })?.catch((e: Error) => console.error('[CurtainWallPlanToolHandler] curtainwall.create bus failed:', e));
 
