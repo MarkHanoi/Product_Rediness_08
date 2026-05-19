@@ -1019,6 +1019,13 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                     operation:   'create',
                     timestamp:   Date.now(),
                 });
+                // §FIX-PLAN-VDT-BIMMANAGER (curtain wall): same two registrations required as for
+                // walls (§P2.1). Without viewDependencyTracker.registerElement the VDT has no
+                // _elementLevelMap entry → §G3-STALE-EVENT fallback fires for every curtain-wall panel.
+                // Without bimManager.registerElement level.childrenIds never contains the cwId →
+                // NativeElementMeshExporter exports 0 curtain-wall elements → plan view blank.
+                viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '');
+                try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { /* non-fatal */ }
                 // Notify builder + SelectionManager that a new curtain wall is available.
                 // §F.events.bridge — fires AFTER curtainWallStoreInstance.add() so the builder can
                 // retrieve data via getById(id).  Uses globalThis + plain Event + Object.assign to
@@ -1095,6 +1102,13 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                     },
                 };
                 ceilingStore.add(legacyCeiling as any);
+                // §FIX-PLAN-VDT-BIMMANAGER (ceiling): without these two calls, ceiling elements
+                // created via the bus path are invisible in plan view — same root cause as wall fix.
+                // viewDependencyTracker.registerElement → targeted dirty-marking (no §G3-STALE-EVENT).
+                // bimManager.registerElement → level.childrenIds contains ceilingId →
+                // NativeElementMeshExporter includes it in plan-view projections.
+                viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '');
+                try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { /* non-fatal */ }
                 console.log('[initTools] §P3.2-CL: ceiling mirrored to legacy store', ev.id);
             } catch (err) {
                 console.error(
@@ -1153,6 +1167,10 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                     thickness:     ev.thickness ?? 0.2,
                     autoBaseOffset: true,
                 } as any);
+                // §FIX-PLAN-VDT-BIMMANAGER (roof): without these two calls, roof elements
+                // created via the bus path are invisible in plan view — same root cause as wall fix.
+                viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '');
+                try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { /* non-fatal */ }
                 console.log('[initTools] §P3.2-RF: roof mirrored to legacy store', ev.id);
             } catch (err) {
                 console.error(
@@ -1209,6 +1227,10 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                         ifcClass: 'IfcColumn',
                     },
                 });
+                // §FIX-PLAN-VDT-BIMMANAGER (column): without these two calls, column elements
+                // created via the bus path are invisible in plan view — same root cause as wall fix.
+                viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '');
+                try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { /* non-fatal */ }
                 console.log('[initTools] §P3.3-CO: column mirrored to legacy store', ev.id);
             } catch (err) {
                 console.error(
@@ -1265,6 +1287,12 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                         ifcClass: 'IfcSlab',
                     },
                 } as any);
+                // §FIX-PLAN-VDT-BIMMANAGER (slab): without these two calls, slab elements
+                // created via the bus path are invisible in plan view — same root cause as wall fix.
+                // BeamStore.ts §3.5 comment confirms bimManager.registerElement() was removed from
+                // the store — bridges must call it explicitly.
+                viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '');
+                try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { /* non-fatal */ }
                 console.log('[initTools] §FT1: slab mirrored to legacy store', ev.id);
             } catch (err) {
                 console.error(
@@ -1314,6 +1342,12 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                     properties: {},
                     ...(ev.materialId ? { material: ev.materialId } : {}),
                 } as any);
+                // §FIX-PLAN-VDT-BIMMANAGER (beam): without these two calls, beam elements
+                // created via the bus path are invisible in plan view — same root cause as wall fix.
+                // BeamStore.ts §3.5 explicitly documents bimManager.registerElement was removed from
+                // the store — the bridge is the only registration site for the bus creation path.
+                viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '');
+                try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { /* non-fatal */ }
                 console.log('[initTools] §FT2: beam mirrored to legacy store', ev.id);
             } catch (err) {
                 console.error(
@@ -1392,9 +1426,14 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                         version:    1,
                     },
                 } as any);
-                // §P3.2-FL: register with bimManager & elementRegistry where available.
-                // TODO(F.1.x): move these into CreateFloorHandler when HandlerContext carries them.
-                try { (window as any).bimManager?.registerElement?.(ev.floorId, ev.levelId ?? ''); } catch { /* non-fatal */ }
+                // §FIX-PLAN-VDT-BIMMANAGER (floor) / §FIX-P4-FLOOR-BIMMANAGER:
+                // Previously used `(window as any).bimManager?.registerElement?.(...)` — a C14
+                // §LP-01 prohibited pattern (P4 window-as-namespace).  Replaced with the
+                // properly-imported `bimManager` (same instance, already in scope at L1).
+                // viewDependencyTracker.registerElement added for targeted dirty-marking parity
+                // with all other element bridges (§FIX-PLAN-VDT-BIMMANAGER).
+                viewDependencyTracker.registerElement(ev.floorId, ev.levelId ?? '');
+                try { bimManager.registerElement(ev.floorId, ev.levelId ?? ''); } catch { /* non-fatal */ }
                 console.log('[initTools] §P3.2-FL: floor mirrored to legacy store', ev.floorId);
             } catch (err) {
                 console.error(
