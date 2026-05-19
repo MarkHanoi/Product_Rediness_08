@@ -41,6 +41,7 @@
 
 import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
+import { createId } from '@pryzm/schemas';
 import type { CurtainWallDrawingMode, CurtainWallToolCallbacks } from './CurtainWallTypes.js';
 import { CurtainWallStore } from './CurtainWallStore.js';
 import { CurtainWallBuilder } from './CurtainWallBuilder.js';
@@ -790,7 +791,7 @@ export class CurtainWallTool {
         const ctx = this._getProjectContext();
         const activeLevelId = ctx?.activeLevelId || 'L0';
 
-        const cwId = crypto.randomUUID();  // §4.1 — generated in Tool layer
+        const cwId = createId('curtainwall');  // §4.1 — generated in Tool layer; must be curtainwall_<ULID>
 
         const command = new CreateCurtainWallCommand({
             id: cwId,

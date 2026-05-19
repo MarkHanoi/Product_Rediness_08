@@ -34,6 +34,7 @@ import {
     Command, CommandType, CommandValidationResult,
     CommandResult, SerializedCommand, CommandContext
 } from '../types';
+import { createId } from '@pryzm/schemas';
 import { ColumnData } from '@pryzm/geometry-column';
 import { resolveSlabBaseOffsetForPoint } from '@pryzm/geometry-column';
 import { semanticGraphManager } from '@pryzm/core-app-model';
@@ -90,7 +91,7 @@ export class CreateColumnCommand implements Command {
 
         this.payload = {
             ...payload,
-            id: payload.id ?? crypto.randomUUID(),
+            id: payload.id ?? createId('column'),
             ifcGuid: this._cachedGuid,
         };
         this.id = `cmd-column-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;

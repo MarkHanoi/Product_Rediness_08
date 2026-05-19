@@ -137,6 +137,15 @@ export class PlatformProjectBrowser {
      * with the current mode via the pryzm-workspace-mode event.
      */
     private _wireModeButtons(): void {
+        // ── Bridge: left-rail logo hub panel → handleHubMenuAction ──────────
+        // Registered HERE (before the mode-switcher guard) so that "Back to
+        // Projects" and "Sign out" always respond even when the mode-switcher
+        // DOM node is absent (e.g. when the toolbar is hidden).
+        // C06 §1 compliant — no cross-layer imports; event bus only.
+        window.runtime?.events?.on('pryzm-hub-action', (p: { action: string }) => { // F.events.15
+            if (p.action) this.handleHubMenuAction(p.action);
+        });
+
         const switcher = this.toolbarInner.querySelector('#plat-mode-switcher');
         if (!switcher) return;
 
@@ -165,13 +174,6 @@ export class PlatformProjectBrowser {
 
         // Sync to the mode already stored in localStorage at startup
         syncButtons(workspaceController.getMode());
-
-        // ── Bridge: left-rail logo hub panel → handleHubMenuAction ──────────
-        // ProjectBrowserPanel dispatches 'pryzm-hub-action' (§06 §1 compliant —
-        // no cross-layer imports) and PlatformProjectBrowser handles the logic.
-        window.runtime?.events?.on('pryzm-hub-action', (p: { action: string }) => { // F.events.15
-            if (p.action) this.handleHubMenuAction(p.action);
-        });
     }
 
     // ── Hub Menu (top-right PRYZM logo + dropdown) ────────────────────────────

@@ -15,6 +15,7 @@
 
 import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
+import { createId } from '@pryzm/schemas';
 import { ColumnStore } from './ColumnStore.js';
 import { SteelProfileLibrary } from '@pryzm/plugin-structural';
 import { generateColumnISection } from '@pryzm/plugin-structural';
@@ -208,7 +209,7 @@ export class ColumnTool {
             depth = steelProfile.D / 1000;
         }
 
-        const id = crypto.randomUUID();
+        const id = createId('column');
         const payload = {
             id,
             position:         { x: point.x, y: point.y, z: point.z },
