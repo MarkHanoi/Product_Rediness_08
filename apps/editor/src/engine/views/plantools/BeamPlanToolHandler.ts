@@ -1,3 +1,4 @@
+import { createId } from '@pryzm/schemas';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 
 const STROKE   = '#6366f1';
@@ -89,15 +90,17 @@ export class BeamPlanToolHandler implements PlanToolHandler {
             return;
         }
 
-        const beamY = this._beamElevation(levelId);
+        const beamY  = this._beamElevation(levelId);
+        const beamId = createId('beam');
         window.runtime?.bus?.executeCommand('beam.create', {
+            id:         beamId,
             startPoint: { x: sp.worldX,    y: beamY, z: sp.worldZ },
             endPoint:   { x: endPt.worldX, y: beamY, z: endPt.worldZ },
             width:   BEAM_W,
             depth:   BEAM_D,
             levelId,
         })?.catch((e: unknown) => console.error('[BeamPlanToolHandler] beam.create failed:', e));
-        console.log('[BeamPlanToolHandler] Beam created');
+        console.log('[BeamPlanToolHandler] Beam created', beamId);
 
         this._startPt  = null;
         this._cursorPt = null;

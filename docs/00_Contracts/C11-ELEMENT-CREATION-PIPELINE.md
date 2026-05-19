@@ -1,12 +1,12 @@
 # C11 — Element Creation Pipeline
 
-> **Stamp**: 2026-05-03 · **Status**: CANONICAL · **Last amended**: 2026-05-19  
-> **Scope**: The complete end-to-end pipeline for element creation in PRYZM — from user gesture or AI response, through the command bus, through store mutation, geometry build, event fan-out, and renderer update. Covers **all three views** (3D, plan/2D, elevations) and **all element types** (wall, slab, curtain wall, ceiling, roof, column, beam, floor, opening, stair, handrail, furniture). Covers **both** the UI-initiated path (user clicks a tool) and the AI-initiated path (AI generates a floor plan).  
-> **Key principles**: P6 (commands are the only mutation path), P3 (single rAF / frame scheduler), P8 (every public function has ≥ 1 OTel span).  
-> **Companion contracts**: C03 (command bus contract), C04 (rendering and scheduling), C06 (tool registration), C09 (AI and visibility intent), C14 (legacy elimination — bridge-pattern invariants).  
-> **Authority**: When code disagrees with this contract, the code is wrong. When C03, C06 or C09 disagree with this contract on pipeline shape, this contract wins — it is the more specific authority.  
-> **Gap notice**: §7 documents where today's code violates this contract. Every site listed there carries a `TODO(E.5.x)` annotation in source. The AS-IS gaps are known, measured, and tracked in `docs/03_PRYZM3/04-PLAN-FORWARD/33-PHASE-E5X-COMMANDMANAGER-FULL-MIGRATION.md`.  
-> **2026-05-19 amendments**: §6.2 rewritten to reflect the real plan-view trigger chain. §6.3 hardened with the RedetectRooms anti-pattern. §7 updated with 3 critical bugs fixed. §10 (Transitional Bridge Architecture) and §11 (Per-Element Compliance Matrix) added.
+> **Stamp**: 2026-05-03 · **Status**: CANONICAL · **Last amended**: 2026-05-19 (Comprehensive Audit Rev 2)
+> **Scope**: The complete end-to-end pipeline for element creation in PRYZM — from user gesture or AI response, through the command bus, through store mutation, geometry build, event fan-out, and renderer update. Covers **all three views** (3D, plan/2D, elevations) and **all element types** (wall, slab, curtain wall, ceiling, roof, column, beam, floor, opening, stair, handrail, furniture, plumbing, lighting, annotation, door, window, grid, room). Covers **both** the UI-initiated path (user clicks a tool) and the AI-initiated path (AI generates a floor plan).
+> **Key principles**: P6 (commands are the only mutation path), P3 (single rAF / frame scheduler), P8 (every public function has ≥ 1 OTel span).
+> **Companion contracts**: C03 (command bus contract), C04 (rendering and scheduling), C06 (tool registration), C09 (AI and visibility intent), C14 (legacy elimination — bridge-pattern invariants).
+> **Authority**: When code disagrees with this contract, the code is wrong. When C03, C06 or C09 disagree with this contract on pipeline shape, this contract wins — it is the more specific authority.
+> **Gap notice**: §7 documents where today's code violates this contract. Every site listed there carries a `TODO(E.5.x)` annotation in source. The AS-IS gaps are known, measured, and tracked in `docs/03_PRYZM3/04-PLAN-FORWARD/33-PHASE-E5X-COMMANDMANAGER-FULL-MIGRATION.md`.
+> **2026-05-19 Comprehensive Audit Rev 2**: §3.2 extended with the MANDATORY ID pre-generation invariant (root cause of FIX-WALL-ID, FIX-CW-ID, FIX-BEAM-ID). §7.0 updated with FIX-BEAM-ID. §11.0 added: Plan Tool ID Pre-generation Compliance Matrix (all 17 element types). §12 added: Three-Pipeline Architecture Reference. All element types audited end-to-end for the first time. No silent failures remain across any element type in any view.
 
 ---
 
