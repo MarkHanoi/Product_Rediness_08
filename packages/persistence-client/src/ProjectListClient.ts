@@ -32,7 +32,25 @@ export class ProjectListClientError extends Error {
   readonly body: unknown;
 
   constructor(kind: ProjectListClientErrorKind, status: number, body: unknown) {
-    super(`[ProjectListClient] ${kind} (HTTP ${status})`);
+    // §SERVER-500-CLIENT-VISIBILITY (DAILY-USE 2026-05-21, Round 39) —
+    // Surface the server-side `errorId` + structured `code` in the error
+    // MESSAGE so they appear in the architect's browser console
+    // without having to open the Network tab + inspect the response body.
+    //
+    // Rounds 25-36 added `errorId` to every 500 / 503 response from the
+    // server. The architect's console output previously showed only
+    // `[ProjectListClient] server-error (HTTP 500)` because the
+    // `body` field (which contains the errorId) was a property on the
+    // error object but NOT part of the message string. The browser's
+    // default console.error toString of the error showed only the
+    // message → the diagnostic was effectively invisible without an
+    // additional DevTools click. Now the message includes both fields
+    // when present, so a single `console.error(err)` in user code
+    // immediately surfaces the correlation key for support workflows.
+    const bodyObj = (body && typeof body === 'object') ? body as { errorId?: string; code?: string } : null;
+    const errorIdPart = bodyObj?.errorId ? ` errorId=${bodyObj.errorId}` : '';
+    const codePart    = bodyObj?.code    ? ` code=${bodyObj.code}`     : '';
+    super(`[ProjectListClient] ${kind} (HTTP ${status})${errorIdPart}${codePart}`);
     this.kind = kind;
     this.status = status;
     this.body = body;

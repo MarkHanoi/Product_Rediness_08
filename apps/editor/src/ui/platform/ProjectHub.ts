@@ -187,7 +187,18 @@ export class ProjectHub {
                 this.refreshGrid();
             }
         } catch (err) {
+            // §SERVER-500-CLIENT-VISIBILITY (Round 39) — surface the server
+            // response body too so the architect sees errorId + code in the
+            // browser console for support correlation. Round 39 already
+            // landed the errorId in the error message (see
+            // ProjectListClient.ts), but also logging the full body lets
+            // the architect right-click → Copy the entire envelope without
+            // having to expand the error object first.
             console.warn('[ProjectHub] Server sync failed (offline?):', err);
+            const errBody = (err as { body?: unknown })?.body;
+            if (errBody) {
+                console.warn('[ProjectHub] server response body:', errBody);
+            }
         }
     }
 
@@ -1114,10 +1125,28 @@ export class ProjectHub {
             this.closeNewModal();
             this.openProject(summary.id, summary.name, { isNewProject: true });
         } catch (err) {
+            // §SERVER-500-CLIENT-VISIBILITY (DAILY-USE 2026-05-21, Round 39) —
+            // ALSO log the full error body so the architect's browser console
+            // shows the structured { error, errorId, code } payload alongside
+            // the message. Round 39 made the message itself carry errorId + code
+            // (see ProjectListClient.ts), but logging the full body too means
+            // the architect can copy the entire diagnostic envelope with one
+            // right-click without having to expand the error object.
             console.error('[ProjectHub] runtime.persistence.client.create failed:', err);
+            const errBody = (err as { body?: unknown })?.body;
+            if (errBody) {
+                console.error('[ProjectHub] server response body:', errBody);
+            }
             restoreBtn();
             const msg = err instanceof Error ? err.message : String(err);
-            alert(`Failed to create project: ${msg}`);
+            // §SERVER-500-CLIENT-VISIBILITY — include errorId in the user-facing
+            // alert too so the architect can paste it directly from the dialog
+            // without opening DevTools.
+            const errorId = (errBody && typeof errBody === 'object'
+                ? (errBody as { errorId?: string }).errorId
+                : undefined);
+            const errorIdSuffix = errorId ? `\n\nReference ID: ${errorId}` : '';
+            alert(`Failed to create project: ${msg}${errorIdSuffix}`);
         }
     }
 

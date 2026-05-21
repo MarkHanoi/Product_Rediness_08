@@ -14,8 +14,66 @@
  */
 
 import { randomBytes } from 'crypto';
-import { query, withTransaction } from './pgClient.js';
+import { query, withTransaction, getPgPool } from './pgClient.js';
 import { ProjectConflictError, VersionLimitError, PreconditionFailedError } from './errors.js';
+
+// §SERVER-V1-INMEMORY-FALLBACK (DAILY-USE 2026-05-21, Round 40) — last-resort
+// in-memory fallback so the architect can create / list / open projects even
+// when the PG pool is not configured (missing SUPABASE_DB_URL / DATABASE_URL,
+// connection refused, schema not yet applied at startup, etc.).
+//
+// The unversioned /api/projects route (server.js:2418) has had an in-memory
+// fallback for ages — `_projects.get(id)` keeps the architect productive in
+// local-dev / first-boot scenarios. The /api/v1/projects routes did NOT have
+// this fallback; every call required a working PG pool. When the architect's
+// pool was misconfigured (the cause of the persistent project-create 500 the
+// architect has been blocked on across Rounds 25-39), every v1 call threw
+// 'PostgreSQL not configured' → Round 28 returned 503 db_not_configured —
+// technically correct, but the architect was still blocked from creating any
+// project at all.
+//
+// Round 40 adds a process-wide in-memory map. When the PG pool is absent,
+// every projectStore method falls back to the in-memory map; when the pool
+// IS present, it's bypassed. The fallback is owner-scoped (same isolation
+// invariant as the PG path).
+//
+// IMPORTANT: this is a DEV / first-boot helper. The data does NOT persist
+// across server restarts — every restart resets the map. Production
+// deployments should still configure a real DB; the fallback exists so
+// architects can iterate locally without the DB-config friction.
+const _inMemoryProjects = new Map(); // id → { id, name, owner_id, ... }
+function _inMemoryRowFor(id, name, userId) {
+    const now = new Date().toISOString();
+    return {
+        id,
+        name,
+        owner_id:      userId,
+        version_count: 0,
+        thumbnail:     null,
+        is_archived:   false,
+        is_starred:    false,
+        description:   null,
+        updated_at:    now,
+        created_at:    now,
+        latest_element_count: 0,
+        is_empty:      true,
+    };
+}
+function _hasPool() { return !!getPgPool(); }
+
+/**
+ * §SERVER-V1-INMEMORY-FALLBACK (Round 40b) — Exposed for cross-module read.
+ * The unversioned /api/projects/:id/versions route (server.js) keeps its OWN
+ * in-memory map for version snapshots; it needs to check whether the project
+ * id exists in projectStore's in-memory map too (because a v1 fallback create
+ * lands here, not in server.js's map). This getter is read-only by design;
+ * mutations go through the named functions (createProject, deleteProject, …)
+ * so cache-coherence invariants hold.
+ */
+export function _hasInMemoryProject(projectId, userId) {
+    const row = _inMemoryProjects.get(projectId);
+    return !!row && (!userId || row.owner_id === userId);
+}
 
 /**
  * GAP-04 fix — 48-bit cryptographic entropy instead of Math.random().
@@ -65,6 +123,15 @@ const PROJECT_COLUMNS = `
  * empty projects without opening them.
  */
 export async function listProjects(userId) {
+    // §SERVER-V1-INMEMORY-FALLBACK — no pool → list from in-memory map
+    if (!_hasPool()) {
+        const rows = [];
+        for (const row of _inMemoryProjects.values()) {
+            if (row.owner_id === userId) rows.push(row);
+        }
+        rows.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+        return rows.slice(0, 50);
+    }
     const result = await query(
         `SELECT
              p.id, p.name, p.owner_id, p.version_count, p.thumbnail,
@@ -90,6 +157,17 @@ export async function listProjects(userId) {
 
 export async function createProject(name, userId) {
     const id = generateId('proj');
+    // §SERVER-V1-INMEMORY-FALLBACK — no pool → write to in-memory map
+    if (!_hasPool()) {
+        if (_inMemoryProjects.has(id)) {
+            // Pathological collision (Date.now + 6 random bytes ≈ 1 in 10^10) — regenerate
+            return createProject(name, userId);
+        }
+        const row = _inMemoryRowFor(id, name, userId);
+        _inMemoryProjects.set(id, row);
+        console.log(`[projectStore] §SERVER-V1-INMEMORY-FALLBACK created in-memory project ${id} for user ${userId} (no PG pool configured)`);
+        return row;
+    }
     const result = await query(
         `INSERT INTO projects (id, name, owner_id)
          VALUES ($1, $2, $3)
@@ -100,6 +178,12 @@ export async function createProject(name, userId) {
 }
 
 export async function getProject(projectId, userId) {
+    // §SERVER-V1-INMEMORY-FALLBACK — no pool → read from in-memory map
+    if (!_hasPool()) {
+        const row = _inMemoryProjects.get(projectId);
+        if (!row || row.owner_id !== userId) return null;
+        return row;
+    }
     const result = await query(
         `SELECT ${PROJECT_COLUMNS}
          FROM projects
@@ -224,6 +308,13 @@ export async function duplicateProject(projectId, userId, explicitName) {
 }
 
 export async function deleteProject(projectId, userId) {
+    // §SERVER-V1-INMEMORY-FALLBACK — no pool → delete from in-memory map
+    if (!_hasPool()) {
+        const row = _inMemoryProjects.get(projectId);
+        if (!row || row.owner_id !== userId) return false;
+        _inMemoryProjects.delete(projectId);
+        return true;
+    }
     // GAP-14 fix: the schema declares project_versions with ON DELETE CASCADE.
     // Removing the manual DELETE of project_versions makes the operation atomic —
     // a single DELETE FROM projects cascades to versions in the same transaction,

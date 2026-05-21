@@ -178,7 +178,12 @@ export class CeilingPanelBuilder {
       console.warn(`[CeilingPanelBuilder] Sloped ceiling "${ceiling.id}" not supported in Phase 1. Building flat.`);
     }
 
+    // §57 Day 5 finish (DAILY-USE 2026-05-21, Round 36) — capture prior
+    // version so we can bump monotonically on the new userData below.
+    // CeilingPanelBuilder uses the REUSABLE-root pattern (line 187 keeps
+    // the root and clears children). Defaults to 0 for the first build.
     let root = this._ceilingRoots.get(ceiling.id);
+    const _priorVersion: number = (root?.userData?.version as number | undefined) ?? 0;
     if (!root) {
       root = new THREE.Group();
       root.name = `ceiling-${ceiling.id}`;
@@ -224,6 +229,11 @@ export class CeilingPanelBuilder {
       height: ceiling.boundary.height,
       thickness: ceiling.boundary.thickness,
       area: computeArea(polygon),
+      // §57 Day 5 finish — monotonic per-build counter so the NMEexporter
+      // proxy cache invalidates after every architect edit. Mirrors the
+      // pattern across wall/slab/roof/curtainwall/column/door/window/stair/
+      // beam/furniture/plumbing/lighting/handrail builders.
+      version: _priorVersion + 1,
     };
   }
 

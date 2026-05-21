@@ -618,6 +618,35 @@ async function _resolveEmailForUserId(userId) {
 }
 
 async function authMiddleware(req, _res, next) {
+    // §SERVER-500-AUTH-THROW-BYPASS (DAILY-USE 2026-05-21, Round 33) —
+    // Architect reported persistent `Failed to create project [ProjectList]
+    // server-error (HTTP 500)` on `POST /api/v1/projects` even AFTER Rounds
+    // 28-30 hardened the v1 router with errorId + SQL-state classification.
+    // Root cause: Rounds 28-30 only catch errors that REACH the v1 handler.
+    // authMiddleware is UPSTREAM and runs BEFORE the v1 router. Two await
+    // calls in the JWT path could throw without try/catch:
+    //   • `await _resolveEmailForUserId(payload.sub)` (line was 632)
+    //     — DB query; throws "PostgreSQL not configured" during the
+    //     migration-race window OR if the connection drops mid-request.
+    //   • `await maybeAutoGrantOwner(payload.sub, email)` (line was 635)
+    //     — DB UPSERT against pryzm_users; throws if the schema isn't
+    //     applied OR if Supabase RLS rejects the upsert OR if the pool
+    //     is exhausted.
+    // When either throws, the async middleware promise rejects → Express's
+    // global error handler returns 500 with NO error body, NO errorId,
+    // NO classification — bypasses every v1Router safeguard. The user
+    // sees `[ProjectListClient] server-error (HTTP 500)` from their UI
+    // and the server log has only the generic uncaught-rejection trace.
+    //
+    // Fix: wrap both await calls in best-effort try/catch. JWT auth was
+    // successful (payload validated, signature verified) — the user IS
+    // authenticated. The email-resolve and auto-grant-owner are AUXILIARY
+    // operations that improve telemetry + auto-provision admin status;
+    // their failure should not make the request fail. Log + continue.
+    //
+    // This is the architecturally correct invariant for any auth middleware:
+    // *authentication success or failure is the only outcome that gates
+    // request continuation; auxiliary side-effects must not poison the gate.*
     const authHeader = req.headers.authorization;
 
     // ── Path 1: Our SESSION_SECRET JWT ───────────────────────────────────────
@@ -625,14 +654,35 @@ async function authMiddleware(req, _res, next) {
         const token = authHeader.slice(7);
         const payload = authVerifyToken(token);
         if (payload && payload.sub) {
-            // Resolve email: prefer JWT claim, fall back to DB lookup for old tokens
-            // that were issued before the email claim was added to the JWT payload.
+            // §SERVER-500-AUTH-THROW-BYPASS — defensive email resolution.
+            // Prefer JWT claim; fall back to DB lookup for old tokens that
+            // were issued before the email claim was added. Falls back to
+            // null on DB error so the auth still proceeds.
             let email = payload.email ?? null;
             if (!email) {
-                email = await _resolveEmailForUserId(payload.sub);
+                try {
+                    email = await _resolveEmailForUserId(payload.sub);
+                } catch (err) {
+                    console.warn(
+                        '[authMiddleware] _resolveEmailForUserId() failed (non-fatal — auth still succeeds):',
+                        err?.message ?? err,
+                    );
+                    email = null;
+                }
             }
             req.auth = { userId: payload.sub, sessionId: null, email };
-            await maybeAutoGrantOwner(payload.sub, email);
+            // §SERVER-500-AUTH-THROW-BYPASS — defensive auto-grant-owner.
+            // Same fail-safe: if the auxiliary side-effect throws, log and
+            // continue. The user is still authenticated; the owner-grant
+            // can be retried on the next request without blocking this one.
+            try {
+                await maybeAutoGrantOwner(payload.sub, email);
+            } catch (err) {
+                console.warn(
+                    '[authMiddleware] maybeAutoGrantOwner() failed (non-fatal — auth still succeeds):',
+                    err?.message ?? err,
+                );
+            }
             return next();
         }
         // Token present but invalid — treat as anonymous
@@ -5257,10 +5307,50 @@ if (isProd) {
 app.use((err, req, res, _next) => {
     const status = (typeof err?.status === 'number' && err.status >= 400 && err.status < 600) ? err.status : 500;
     const isJsonParse = err?.type === 'entity.parse.failed' || err?.name === 'SyntaxError';
-    console.error(`[server] terminal error handler — ${req.method} ${req.originalUrl} → ${status}:`, err?.stack ?? err);
+
+    // §SERVER-500-TERMINAL-OBSERVABILITY (DAILY-USE 2026-05-21, Round 36) —
+    // Architect's persistent `[ProjectListClient] server-error (HTTP 500)`
+    // persisted after Rounds 28-33's per-handler classification, because
+    // any error escaping a middleware UPSTREAM of v1Router (apiLimiter,
+    // express.json body parser, helmet, COEP/COOP, etc.) lands HERE — the
+    // terminal handler — bypassing every classified handler. Previously
+    // the response body was just `{ error: 'Internal server error.' }`
+    // with no errorId → client could only report "HTTP 500" → server log
+    // had the stack but no correlation key.
+    //
+    // Round 36 fix: mint an errorId here too, include it in BOTH the log
+    // and the response body. EVERY 500 the client receives now carries an
+    // errorId → architect's bug report pastes it → server log grep
+    // finds the matching entry with the full stack in one step. Mirrors
+    // the same pattern Rounds 25 / 27 / 29-30 established for the per-
+    // handler classifiers, applied at the universal-fallback layer.
+    //
+    // Also surface err.code (Postgres SQL state / Node error code) and
+    // err.detail (PG ErrorResponse field) in the log for grep-ability —
+    // same shape as classifyV1Error's uncategorised branch in
+    // server/api/v1/routes.js. The response body deliberately does NOT
+    // include err.message (could leak internal paths / secrets); the
+    // errorId is the correlation key for support workflows.
+    const errorId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : `err-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    console.error(
+        `[server] terminal error handler — ${req.method} ${req.originalUrl} → ${status} errorId=${errorId}`,
+        {
+            stack:      err?.stack ?? String(err),
+            code:       err?.code,
+            detail:     err?.detail,
+            type:       err?.type,
+            name:       err?.name,
+            statusCode: err?.statusCode ?? err?.status,
+        },
+    );
+
     if (res.headersSent) return; // can't change response if already started
     res.status(isJsonParse ? 400 : status).json({
-        error: isJsonParse ? 'Malformed JSON body.' : 'Internal server error.',
+        error:   isJsonParse ? 'Malformed JSON body.' : 'Internal server error.',
+        errorId, // §SERVER-500-TERMINAL-OBSERVABILITY — correlation key
     });
 });
 
@@ -5285,6 +5375,85 @@ httpServer.on('error', (err) => {
 
 httpServer.listen(PORT, '0.0.0.0', async () => {
     console.log(`[server] Listening on port ${PORT} (${isProd ? 'production' : 'development'})`);
+    // §SERVER-BOOT-MARKER (DAILY-USE 2026-05-21, Round 38) — explicit boot
+    // marker so the architect can confirm the latest server code is running
+    // after every restart. If this line is absent in the server console
+    // BEFORE the next create attempt, the dev server (`npm run dev` →
+    // `tsx server.js`) is running an OLD in-memory process — restart it
+    // manually (Ctrl+C the `npm run dev` shell, then re-run). tsx does NOT
+    // hot-reload server.js changes by default.
+    //
+    // Every 500 the v1 router produces after this boot marker fires WILL
+    // include `errorId` in the response body (Rounds 25-36). If the
+    // architect's next failed create returns `{ error: 'Internal server
+    // error.' }` with NO errorId, the marker confirms the new code is
+    // loaded but the failure is from an even-deeper path — Round 39 will
+    // trace it.
+    console.log(
+        '[server] §SERVER-BOOT-MARKER Rounds 25-40 active — ' +
+        'every 500 from /api/v1/projects MUST include errorId in the response. ' +
+        'If the architect sees an opaque 500 (no errorId), the dev server has not been restarted.',
+    );
+
+    // §SERVER-BOOT-CONFIG-DIAGNOSTIC (DAILY-USE 2026-05-21, Round 41) —
+    // The architect's persistent project-create 500 across Rounds 25-40
+    // pointed to a possible environment-config issue. Round 40 added the
+    // in-memory fallback so the architect can proceed regardless, but the
+    // operator still needs to see WHICH database backend will be used —
+    // without leaking the credentials themselves.
+    //
+    // This diagnostic prints (a) WHICH env vars are set (boolean, never
+    // values); (b) the HOST portion of any DB URL with the password masked;
+    // (c) which connection mode the server has resolved to. Architect can
+    // see at a glance whether their .env is correctly loaded after every
+    // restart, without us having to print secrets.
+    //
+    // Mask format: `postgresql://user:***@host:port/database` — the user
+    // / host / port / database are visible (useful for diagnosis); the
+    // password is replaced with `***`. Same convention every modern
+    // monitoring tool uses (pgAdmin, datadog-agent, etc.).
+    function _maskDbUrl(url) {
+        if (typeof url !== 'string' || url.length === 0) return '<empty>';
+        try {
+            const u = new URL(url);
+            const user = u.username || '<no-user>';
+            const host = u.hostname || '<no-host>';
+            const port = u.port || '<no-port>';
+            const path = u.pathname || '/';
+            return `${u.protocol}//${user}:***@${host}:${port}${path}`;
+        } catch {
+            return '<malformed-url>';
+        }
+    }
+    const _envReport = {
+        SUPABASE_URL:               process.env.SUPABASE_URL ? '<set>' : '<MISSING>',
+        SUPABASE_SERVICE_ROLE_KEY:  process.env.SUPABASE_SERVICE_ROLE_KEY ? '<set>' : '<MISSING>',
+        SUPABASE_ANON_KEY:          process.env.SUPABASE_ANON_KEY ? '<set>' : '<MISSING>',
+        SUPABASE_DB_URL:            _maskDbUrl(process.env.SUPABASE_DB_URL ?? ''),
+        DATABASE_URL:               _maskDbUrl(process.env.DATABASE_URL ?? ''),
+        SESSION_SECRET:             process.env.SESSION_SECRET ? '<set>' : '<MISSING>',
+        PRYZM_OWNER_EMAIL:          process.env.PRYZM_OWNER_EMAIL ? '<set>' : '<MISSING>',
+        CF_WORKER_URL:              process.env.CF_WORKER_URL ? '<set>' : '<MISSING>',
+        ANTHROPIC_API_KEY:          process.env.ANTHROPIC_API_KEY ? '<set>' : '<MISSING>',
+        NODE_ENV:                   process.env.NODE_ENV ?? '<default:development>',
+    };
+    console.log('[server] §SERVER-BOOT-CONFIG-DIAGNOSTIC env state:', _envReport);
+
+    // Resolution summary — which backend will actually serve /api/v1/projects?
+    const _hasPgUrl = !!(process.env.SUPABASE_DB_URL || process.env.DATABASE_URL);
+    const _hasSupabaseRest = !!(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+    const _v1Backend =
+        _hasPgUrl ? 'direct-postgres-pool (preferred)' :
+        _hasSupabaseRest ? 'NONE — v1 routes WILL fall back to IN-MEMORY (Round 40)' :
+        'NONE — every endpoint will use the in-memory fallback (Round 40)';
+    console.log(`[server] §SERVER-BOOT-CONFIG-DIAGNOSTIC v1 backend: ${_v1Backend}`);
+    if (!_hasPgUrl) {
+        console.warn(
+            '[server] §SERVER-BOOT-CONFIG-DIAGNOSTIC WARNING — neither SUPABASE_DB_URL nor DATABASE_URL is set. ' +
+            'The /api/v1/projects routes will use the Round 40 in-memory fallback (DEV-only — data resets on restart). ' +
+            'To persist projects: add SUPABASE_DB_URL=postgresql://… to your .env (NOT just SUPABASE_URL — the REST API alone does not satisfy the v1 endpoints; they need a direct PostgreSQL connection).',
+        );
+    }
     // Now run migrations + supabase ping in the background.
     try {
         await runMigrations();

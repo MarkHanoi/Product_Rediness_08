@@ -95,6 +95,12 @@ export class LightingFragmentBuilder {
     // ── Public API ────────────────────────────────────────────────────────────
 
     add(data: LightingData): void {
+        // §57 Day 5 (DAILY-USE 2026-05-21, Round 34) — capture _priorVersion
+        // BEFORE remove() nukes the _roots-map entry. Same Round 19 column
+        // capture-then-stamp pattern. Defaults to 0 for the first add.
+        const _priorVersion: number =
+            (this._roots.get(data.id)?.userData?.version as number | undefined) ?? 0;
+
         if (this._roots.has(data.id)) this.remove(data.id);
 
         const group = this._buildFixture(data);
@@ -107,6 +113,9 @@ export class LightingFragmentBuilder {
         group.userData.selectable = true;
         group.userData.levelId    = data.levelId;
         group.userData.layerName  = 'A-LGHT';
+        // §57 Day 5 — monotonic per-build counter for NMEexporter cache
+        // invalidation. Writable so subsequent calls bump it.
+        group.userData.version    = _priorVersion + 1;
 
         const { x, y, z } = data.position;
         group.position.set(x, y, z);

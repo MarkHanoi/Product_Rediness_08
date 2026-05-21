@@ -20,13 +20,22 @@ export class FurnitureFragmentBuilder {
         let root = this.furnitureRoots.get(data.id);
         const isNewRoot = !root;
 
+        // §57 Day 5 (DAILY-USE 2026-05-21, Round 33) — capture prior version
+        // to bump on every update. FurnitureFragmentBuilder uses a REUSABLE
+        // root (keeps the same THREE.Group across updates and rebuilds only
+        // children) — so we stamp version BOTH on fresh-root creation AND on
+        // every subsequent update. Mirrors the established invariant that
+        // the NMEexporter's proxy cache invalidates after every rebuild.
+        const _priorVersion: number =
+            (root?.userData?.version as number | undefined) ?? 0;
+
         // Add default baseOffset = 0.2
         const baseOffset = data.baseOffset ?? 0.2;
 
         if (isNewRoot) {
             root = new THREE.Group();
 
-            root.userData = { 
+            root.userData = {
                 id: data.id,
                 elementType: 'Furniture',
                 modelId: 'model-default',
@@ -40,7 +49,9 @@ export class FurnitureFragmentBuilder {
                 width: data.width,
                 length: data.length,
                 height: data.height,
-                lo3: data.lo3 || 200
+                lo3: data.lo3 || 200,
+                // §57 Day 5 — monotonic per-update counter for cache invalidation.
+                version: _priorVersion + 1,
             };
 
             // Lock identity like Curtain Wall
@@ -63,6 +74,9 @@ export class FurnitureFragmentBuilder {
                 root.userData.width = data.width;
                 root.userData.length = data.length;
                 root.userData.height = data.height;
+                // §57 Day 5 — bump version on every reused-root update so the
+                // NMEexporter cache invalidates after each architect edit.
+                root.userData.version = _priorVersion + 1;
             }
         }
         if (root) elementRegistry.registerRoot(data.id, root);

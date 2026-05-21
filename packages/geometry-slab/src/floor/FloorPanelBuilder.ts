@@ -93,7 +93,12 @@ export class FloorPanelBuilder {
       console.warn(`[FloorPanelBuilder] Sloped floor "${floor.id}" not supported in Phase 1. Building flat.`);
     }
 
+    // §57 Day 5 finish (DAILY-USE 2026-05-21, Round 36) — capture prior
+    // version for monotonic per-build bumping. Reusable-root pattern (root
+    // preserved across rebuilds; only children cleared). Defaults to 0 on
+    // first build.
     let root = this._floorRoots.get(floor.id);
+    const _priorVersion: number = (root?.userData?.version as number | undefined) ?? 0;
     if (!root) {
       root = new THREE.Group();
       root.name = `floor-${floor.id}`;
@@ -144,6 +149,9 @@ export class FloorPanelBuilder {
       thickness: floor.boundary.thickness,
       area: computeArea(polygon),
       hostSlabId: floor.hostSlabId,
+      // §57 Day 5 finish — monotonic per-build counter for NMEexporter
+      // proxy cache invalidation. Mirrors CeilingPanelBuilder (Round 36).
+      version: _priorVersion + 1,
     };
 
     root.visible = floor.visible !== false;

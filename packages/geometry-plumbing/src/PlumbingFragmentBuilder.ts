@@ -14,7 +14,13 @@ export class PlumbingFragmentBuilder {
     }
 
     updateFixture(data: PlumbingFixtureData): void {
+        // §57 Day 5 (DAILY-USE 2026-05-21, Round 34) — capture prior version
+        // to bump monotonically on every update. PlumbingFragmentBuilder uses
+        // a REUSABLE root (keeps the same THREE.Group across updates and
+        // rebuilds children only). Mirrors FurnitureFragmentBuilder pattern
+        // (Round 33). Defaults to 0 for first build.
         let root = this.fixtureRoots.get(data.id);
+        const _priorVersion: number = (root?.userData?.version as number | undefined) ?? 0;
         if (!root) {
             root = new THREE.Group();
             root.userData = {
@@ -25,10 +31,16 @@ export class PlumbingFragmentBuilder {
                 levelId: data.levelId,
                 levelName: data.levelName,
                 levelElevation: data.levelElevation,
-                baseOffset: data.baseOffset
+                baseOffset: data.baseOffset,
+                // §57 Day 5 — monotonic per-update counter for cache invalidation.
+                version: _priorVersion + 1,
             };
             this.scene.add(root);
             this.fixtureRoots.set(data.id, root);
+        } else {
+            // §57 Day 5 — bump version on every reused-root update so the
+            // NMEexporter proxy cache invalidates after each architect edit.
+            root.userData.version = _priorVersion + 1;
         }
         elementRegistry.registerRoot(data.id, root);
 

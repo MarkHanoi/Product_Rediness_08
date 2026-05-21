@@ -55,7 +55,12 @@ export class HandrailFragmentBuilder {
         const baseOffset = handrail.baseOffset ?? 0;
         const worldY = elevation + baseOffset;
 
+        // §57 Day 5 (DAILY-USE 2026-05-21, Round 34) — capture _priorVersion
+        // BEFORE the disposeRoot path nukes the userData. Mirrors Round 19
+        // column pattern. Defaults to 0 for first build.
         let root = this.handrailRoots.get(handrail.id);
+        const _priorVersion: number = (root?.userData?.version as number | undefined) ?? 0;
+
         if (!root) {
             root = new THREE.Group();
             this.scene.add(root);
@@ -78,7 +83,10 @@ export class HandrailFragmentBuilder {
             pathStart: { x: start.x, z: start.z },
             pathEnd:   { x: end.x,   z: end.z   },
             totalLength: length,
-            height: handrail.height
+            height: handrail.height,
+            // §57 Day 5 — monotonic per-build counter. Enables NMEexporter
+            // proxy cache invalidation after every rebuild.
+            version: _priorVersion + 1,
         };
 
         root.position.set(start.x, worldY, start.z);

@@ -51,7 +51,12 @@
       "Bash(pnpm --filter @pryzm/geometry-door exec tsc --noEmit)",
       "Bash(pnpm --filter @pryzm/geometry-slab exec tsc --noEmit)",
       "Bash(pnpm --filter @pryzm/geometry-stair exec tsc --noEmit)",
-      "Bash(pnpm --filter @pryzm/geometry-beam exec tsc --noEmit)"
+      "Bash(pnpm --filter @pryzm/geometry-beam exec tsc --noEmit)",
+      "Bash(pnpm --filter @pryzm/geometry-furniture exec tsc --noEmit)",
+      "Bash(pnpm --filter @pryzm/geometry-plumbing exec tsc --noEmit)",
+      "Bash(pnpm --filter @pryzm/geometry-lighting exec tsc --noEmit)",
+      "PowerShell(Get-Process *)",
+      "Bash(pnpm --filter @pryzm/persistence-client exec tsc --noEmit)"
     ]
   }
 }
