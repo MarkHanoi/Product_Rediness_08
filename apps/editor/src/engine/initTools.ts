@@ -812,8 +812,21 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
     if (runtime) {
         const _legacyWallStoreForBridge = wallTool.getWallStore();
         runtime.events.on('wall.created', (ev) => {
+            // §51 U-B4 (DAILY-USE 2026-05-21, Round 35) — accept BOTH the
+            // single-create and the batch-create command type. CEB fans out
+            // a batch.create into per-element 'wall.created' events but
+            // preserves the original `commandType` so the bridge can
+            // distinguish them. Previously the strict equality check
+            // (`!== 'wall.create'`) rejected every batched wall → the
+            // batch-created walls landed in the PRYZM3 Immer store only,
+            // never reached the legacy WallStore → no 3D mesh, no plan-view
+            // projection. This was the "U-B4 reverse-bridges for
+            // *.batch.create" blocker (#51). Architect operations that
+            // dispatched batches (e.g. CreateWallsOnAllSlabsCommand, AI
+            // floor-plan import, multi-select duplicate) silently dropped
+            // every batched element on the 3D / plan-view side.
             if (
-                ev.commandType !== 'wall.create' ||
+                (ev.commandType !== 'wall.create' && ev.commandType !== 'wall.batch.create') ||
                 !ev.wallId ||
                 !ev.baseLine ||
                 ev.baseLine.length < 2
@@ -1040,8 +1053,26 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
     // migrated to consume from the Immer store directly, this bridge can be removed.
     if (runtime) {
         runtime.events.on('curtain-wall.created', (ev) => {
+            // §51 U-B4 (Round 35, 2026-05-21) — accept BOTH curtainwall.create
+            // AND curtainwall.batch.create / curtain-wall.batch.create. The
+            // comment block above line 1047 claims "the guard below accepts
+            // both single and batch events" — but the strict equality
+            // (`!== 'curtainwall.create'`) only accepted single creates.
+            // Now matches the documented intent: batch-created curtain walls
+            // (e.g. CreateCurtainWallsOnAllSlabsCommand) reach the legacy
+            // CurtainWallStore for proper 3D mesh + plan-view projection.
+            // §51 U-B4 — widen to `string` so all four accepted command-type
+            // forms compare cleanly. `ev.commandType` is narrowed by the
+            // event-payload type to a single literal; without this widening
+            // the other three branches trigger TS2367 ("no overlap").
+            const ct: string = ev.commandType ?? '';
+            const isCurtainCreate =
+                ct === 'curtainwall.create' ||
+                ct === 'curtainwall.batch.create' ||
+                ct === 'curtain-wall.create' ||
+                ct === 'curtain-wall.batch.create';
             if (
-                ev.commandType !== 'curtainwall.create' ||
+                !isCurtainCreate ||
                 !ev.id ||
                 !ev.baseLine ||
                 ev.baseLine.length < 2
@@ -1257,8 +1288,14 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
     // this bridge can be removed.
     if (runtime) {
         runtime.events.on('column.created', (ev) => {
+            // §51 U-B4 (Round 35, 2026-05-21) — accept BOTH column.create
+            // AND column.batch.create. Per-element events from CEB batch
+            // fan-out preserve the original commandType; bridge must accept
+            // both. Previously batch-created columns (e.g. from CreateColumns
+            // OnAllSlabsCommand or AI structural placement) never reached
+            // the legacy ColumnStore → no 3D mesh.
             if (
-                ev.commandType !== 'column.create' ||
+                (ev.commandType !== 'column.create' && ev.commandType !== 'column.batch.create') ||
                 !ev.id ||
                 !ev.origin
             ) return;
@@ -1323,8 +1360,12 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
     // this bridge can be removed.
     if (runtime) {
         runtime.events.on('slab.created', (ev) => {
+            // §51 U-B4 (Round 35, 2026-05-21) — accept BOTH slab.create AND
+            // slab.batch.create. CEB fans batch.create into per-element
+            // events; bridge must accept both. Previously batch-created slabs
+            // never reached the legacy SlabStore.
             if (
-                ev.commandType !== 'slab.create' ||
+                (ev.commandType !== 'slab.create' && ev.commandType !== 'slab.batch.create') ||
                 !ev.id ||
                 !ev.polygon ||
                 ev.polygon.length < 3

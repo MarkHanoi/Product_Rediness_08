@@ -1231,6 +1231,32 @@ export class EdgeProjectorService {
         // is handled.
         'stair',
         'beam',
+        // §57 Day 5 (Round 33-34, 2026-05-21) — furniture, plumbing,
+        // lighting, handrail now version-stamp on every build (Round 33
+        // FurnitureFragmentBuilder; Round 34 PlumbingFragmentBuilder +
+        // LightingFragmentBuilder + HandrailFragmentBuilder). All four
+        // promoted to the cache. Builder elementType strings normalise
+        // via .toLowerCase() — Furniture → 'furniture',
+        // PlumbingFixture → 'plumbingfixture', Lighting → 'lighting',
+        // Handrail → 'handrail'.
+        'furniture',
+        'plumbingfixture',
+        'lighting',
+        'handrail',
+        // §57 Day 5 absolute close (Round 37, 2026-05-21) — ceiling +
+        // floor now version-stamp on every build (Round 36 added the
+        // capture-then-stamp pattern to CeilingPanelBuilder.ts:181 and
+        // FloorPanelBuilder.ts:96). Both use the reusable-root pattern
+        // (root preserved across rebuilds; only children cleared). The
+        // version bump happens unconditionally at the end of each build,
+        // so the NMEexporter proxy cache invalidates correctly after
+        // every architect edit. The verification that slope handling +
+        // hole geometry refresh both reach the userData write was done
+        // by reading both builders end-to-end (no early-return paths
+        // bypass the version stamp — both methods write userData as the
+        // final step before returning).
+        'ceiling',
+        'floor',
     ]);
 
     /**
@@ -1589,7 +1615,6 @@ export class EdgeProjectorService {
                 //   one-line addition here (or it silently falls back to the
                 //   no-cache pipeline, which is the safe default).
                 const elemTypeLower = (group.userData?.elementType as string | undefined)?.toLowerCase();
-                const isCWElement = elemTypeLower === 'curtainwall';
                 const isCacheableElement = elemTypeLower !== undefined
                     && EdgeProjectorService.CACHEABLE_ELEMENT_TYPES.has(elemTypeLower);
                 const currentVer  = typeof group.userData?.version === 'number'

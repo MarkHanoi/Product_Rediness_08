@@ -4,6 +4,7 @@ export enum VisualStyle {
     CONSISTENT_COLORS = "consistent",
     TEXTURES = "textures",
     REALISTIC = "realistic",
+    SCHEMATIC = "schematic",
 }
 
 export type MaterialCategory =

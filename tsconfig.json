@@ -29,7 +29,8 @@
     "src",
     "apps/editor/src/ui",
     "apps/editor/src/engine",
-    "apps/editor/src/rendering"
+    "apps/editor/src/rendering",
+    "apps/editor/src/types"
   ],
   "exclude": [
     "apps/editor/src/ui/__tests__",
