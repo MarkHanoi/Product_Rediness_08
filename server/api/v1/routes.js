@@ -179,6 +179,12 @@ v1Router.get('/projects', async (req, res) => {
         return ok(res, rows);
     } catch (err) {
         console.error('[v1/projects] GET error:', err);
+        if (String(err?.message ?? err).includes('PostgreSQL not configured')) {
+            return res.status(503).json({
+                error: 'No database connection. The /api/v1 project API requires a direct PostgreSQL connection — set SUPABASE_DB_URL (or DATABASE_URL) in .env and restart. The Supabase REST keys alone do NOT work for this API.',
+                code: 'db_not_configured',
+            });
+        }
         return res.status(500).json({ error: 'Internal server error.' });
     }
 });
@@ -196,6 +202,12 @@ v1Router.post('/projects', async (req, res) => {
         return ok(res, row);
     } catch (err) {
         console.error('[v1/projects] POST error:', err);
+        if (String(err?.message ?? err).includes('PostgreSQL not configured')) {
+            return res.status(503).json({
+                error: 'No database connection. The /api/v1 project API requires a direct PostgreSQL connection — set SUPABASE_DB_URL (or DATABASE_URL) in .env and restart. The Supabase REST keys alone do NOT work for this API.',
+                code: 'db_not_configured',
+            });
+        }
         return res.status(500).json({ error: 'Internal server error.' });
     }
 });

@@ -120,6 +120,16 @@ export function buildFamilyMarketplaceRouter(opts = {}) {
 
   router.post('/', async (req, res) => {
     try {
+      // §B3 (audit) — reject anonymous publish. The router previously trusted
+      // the JWK header for identity, but the JWK is supplied by the publisher
+      // so it proves nothing about who is publishing. server.js now mounts the
+      // router behind authMiddleware which populates req.auth; require a real
+      // authenticated userId here.
+      const callerId = req.auth?.userId;
+      if (!callerId || callerId === 'anonymous') {
+        return res.status(401).json({ error: 'authentication required to publish a family package' });
+      }
+
       const bytes = req.body;
       if (!bytes || !Buffer.isBuffer(bytes) || bytes.byteLength === 0) {
         return res.status(400).json({ error: 'empty-body' });

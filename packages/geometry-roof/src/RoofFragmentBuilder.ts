@@ -34,11 +34,30 @@ interface RootBoundsRegistry {
  *   adaptive drain. `updateRoof()` enqueues the data; `_drainBuildQueue()`
  *   processes up to `_buildsPerFrame` items per pre-render tick.
  */
+/**
+ * §M-H1 follow-up (DAILY-USE-AUDIT 2026-05-20) — minimal shape of the
+ * STANDARD_MATERIAL_LIBRARY entry. Matches the wall/slab DI shape so a single
+ * library map can be shared across all builders without coupling each one to
+ * the full MaterialDefinition class.
+ */
+export interface RoofBuilderMaterialDef {
+    params?: Record<string, unknown>;
+    textures?: { color?: unknown; normal?: unknown; roughness?: unknown };
+}
+
 export class RoofFragmentBuilder {
     private scene: THREE.Scene;
     private _bimManager: BimManager;
     private _registry?: RootBoundsRegistry;
     public roofRoots = new Map<string, THREE.Group>();
+
+    /**
+     * §M-H1 follow-up — id→matDef map (STANDARD_MATERIAL_LIBRARY). When supplied
+     * and `data.materialId` resolves against it, the shingle slot is built from
+     * the matDef's PBR `params` instead of just `data.materialColor`. Optional;
+     * absence falls back to the existing materialColor-only behaviour.
+     */
+    private _materialMap: ReadonlyMap<string, RoofBuilderMaterialDef> | null = null;
 
     // ── C11 §2 step 3: FrameScheduler adaptive drain ──────────────────────────
     /** Pending roof builds keyed by id — later update wins (dedup). */
@@ -50,10 +69,18 @@ export class RoofFragmentBuilder {
     private static readonly _MAX_BUILDS = 12;
     private static readonly _MIN_BUILDS = 2;
 
-    constructor(scene: THREE.Scene, bimManager: BimManager, registry?: RootBoundsRegistry) {
-        this.scene       = scene;
-        this._bimManager = bimManager;
-        this._registry   = registry;
+    constructor(
+        scene: THREE.Scene,
+        bimManager: BimManager,
+        registry?: RootBoundsRegistry,
+        // §M-H1 follow-up — optional STANDARD_MATERIAL_LIBRARY map. Backward-
+        // compatible (callers that don't pass it keep current behaviour).
+        materialMap?: ReadonlyMap<string, RoofBuilderMaterialDef>,
+    ) {
+        this.scene        = scene;
+        this._bimManager  = bimManager;
+        this._registry    = registry;
+        this._materialMap = materialMap ?? null;
     }
 
     private _createMaterials(data: RoofData): THREE.Material[] {
@@ -83,13 +110,44 @@ export class RoofFragmentBuilder {
             side:      THREE.DoubleSide,
         });
 
-        // Slot 3 – Shingle (warm tan, driven by materialColor)
-        const shingleMat = new THREE.MeshStandardMaterial({
-            color:     shingleColor,
-            roughness: 0.85,
-            metalness: 0.0,
-            side:      THREE.DoubleSide,
-        });
+        // §M-H1 follow-up (DAILY-USE-AUDIT 2026-05-20) — Slot 3 (Shingle): when
+        // `data.materialId` resolves against the STANDARD_MATERIAL_LIBRARY map,
+        // build the shingle from the matDef's PBR `params` + textures so the
+        // architect's choice of "Terracotta Tile", "Standing-Seam Zinc", "Slate
+        // Charcoal", etc. actually changes the rendered material rather than
+        // collapsing to flat colour. Same pattern as WallFragmentBuilder and
+        // SlabFragmentBuilder. Per-roof `materialColor` is honoured as a tint
+        // when the matDef has no explicit colour (lets the architect re-colour
+        // a "standing-seam-zinc" PBR roof to red without losing the metalness).
+        const matId = (data as { materialId?: string }).materialId;
+        let shingleMat: THREE.MeshStandardMaterial | null = null;
+        if (matId && this._materialMap) {
+            const matDef = this._materialMap.get(matId);
+            if (matDef) {
+                const params: Record<string, unknown> = { ...(matDef.params ?? {}) };
+                if (matDef.textures) {
+                    params.map          = matDef.textures.color;
+                    params.normalMap    = matDef.textures.normal;
+                    params.roughnessMap = matDef.textures.roughness;
+                }
+                if (data.materialColor && params.color === undefined) {
+                    params.color = new THREE.Color(data.materialColor);
+                }
+                params.side = THREE.DoubleSide;
+                shingleMat = new THREE.MeshStandardMaterial(
+                    params as ConstructorParameters<typeof THREE.MeshStandardMaterial>[0],
+                );
+            }
+        }
+        if (!shingleMat) {
+            // Fallback — original materialColor-only path preserved exactly.
+            shingleMat = new THREE.MeshStandardMaterial({
+                color:     shingleColor,
+                roughness: 0.85,
+                metalness: 0.0,
+                side:      THREE.DoubleSide,
+            });
+        }
 
         return [trimMat, deckMat, interiorMat, shingleMat];
     }

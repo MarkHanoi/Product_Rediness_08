@@ -417,6 +417,23 @@ export class BimService implements IBimService {
                     mode,
                 };
 
+                // §STAIR-L-U-PLAN (DAILY-USE 2026-05-20) — Make the user's
+                // setup-panel selection (shape, width, typeId, mode, levels)
+                // visible to the plan-view StairPlanToolHandler.  The plan
+                // handler previously hard-coded `shape: 'I'` because it had
+                // no read path to this config.  Mirrors the existing
+                // `window.stairTool` / `window.activeLevelElevation` pattern
+                // (transitional global, flagged for later DI plumbing through
+                // PlanToolDrawContext per P4 — see TODO in StairPlanToolHandler).
+                window.activeStairConfig = {
+                    shape,
+                    width,
+                    typeId,
+                    mode,
+                    baseLevelId: baseLevel.id,
+                    topLevelId:  topLevel.id,
+                };
+
                 const stairTool = this.props.stairTool || window.stairTool;
                 if (stairTool) {
                     stairTool.activate(input);

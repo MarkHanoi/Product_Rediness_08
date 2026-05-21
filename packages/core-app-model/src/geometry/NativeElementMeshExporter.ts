@@ -254,6 +254,17 @@ export class NativeElementMeshExporter {
                         openings:    root.userData?.openings,
                         height:      root.userData?.height,
                         thickness:   root.userData?.thickness,
+                        // §PERF-CACHE-DIAG (DAILY-USE 2026-05-20) — propagate
+                        // the element root's per-rebuild version stamp through
+                        // to the exported proxy wrapper. Without this, the
+                        // downstream EdgeProjectorService cache gate
+                        // (`group.userData?.version`) always saw undefined and
+                        // every CW projection bypassed the cache (cwGroups=0,
+                        // cacheHits=0, cacheMisses=0 in §PERF-CACHE-STATS).
+                        // CurtainWallBuilder + WallFragmentBuilder + Slab/Roof
+                        // builders all bump `root.userData.version` on each
+                        // geometric rebuild; this propagation closes the loop.
+                        version:     root.userData?.version,
                         _nmeFromCache: true,  // §H.2 — skip geometry dispose in releaseGroups
                     };
                     groups.push(wrapper);
@@ -420,6 +431,13 @@ export class NativeElementMeshExporter {
                     openings:    root.userData?.openings,
                     height:      root.userData?.height,
                     thickness:   root.userData?.thickness,
+                    // §PERF-CACHE-DIAG — same fix as the cache-hit branch:
+                    // propagate `root.userData.version` so EdgeProjectorService's
+                    // `_cwCacheIsValid(elementUUID, viewId, version)` gate
+                    // actually receives a defined version. Mirrors the value
+                    // the cache-miss branch already records into the proxy
+                    // cache (line ~433 `version: currentVersion`).
+                    version:     currentVersion >= 0 ? currentVersion : undefined,
                 };
                 groups.push(wrapper);
 

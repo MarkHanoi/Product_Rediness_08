@@ -109,6 +109,20 @@ export class ServerSyncQueue {
     private _planRejectsSync: boolean = false;
     private _planRejectsReason: { status: number; body: Record<string, unknown> } | null = null;
 
+    /**
+     * §L-B2 (DAILY-USE-AUDIT 2026-05-20) — Optimistic-concurrency tracking.
+     * For each project this client has saved to, we remember the version count
+     * the server most recently confirmed. The next save sends
+     * `If-Match: "v${count}"` so the server (server.js:2806-2817) can detect
+     * concurrent edits from a second tab / second device / collaborator and
+     * return HTTP 412. Without this, all four scenarios silently last-writer-wins
+     * — the slower client's snapshot is appended to history but their working
+     * scene diverges silently from what's on the server. C05 §4 — the server
+     * already enforces the optimistic-concurrency contract; this is the missing
+     * client half.
+     */
+    private _serverVersionCountByProject: Map<string, number> = new Map();
+
     private readonly onSyncStatusChange: NonNullable<ServerSyncQueueOptions['onSyncStatusChange']>;
     private readonly onSaveRejected: NonNullable<ServerSyncQueueOptions['onSaveRejected']>;
 
@@ -250,12 +264,23 @@ export class ServerSyncQueue {
     private async attemptSync(item: QueueItem): Promise<boolean> {
         const { version, projectId } = item;
         try {
+            // §L-B2 — build headers with optional If-Match (only when the client
+            // has previously confirmed a server-side count for this project).
+            // The very first save for a fresh project has no expected count
+            // (server treats absent If-Match as "no precondition") — that's the
+            // correct semantics: first writer wins, every subsequent writer
+            // must reconcile against the last seen count.
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+                'X-Idempotency-Key': version.id,
+            };
+            const expectedCount = this._serverVersionCountByProject.get(projectId);
+            if (expectedCount !== undefined) {
+                headers['If-Match'] = `"v${expectedCount}"`;
+            }
             const res = await apiFetch(`/api/projects/${projectId}/versions`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Idempotency-Key': version.id,
-                },
+                headers,
                 body: JSON.stringify({
                     label: version.label,
                     snapshot: version.snapshot,
@@ -268,6 +293,53 @@ export class ServerSyncQueue {
                 console.log(`[ServerSyncQueue] Synced version "${version.label}" (${version.id})`);
                 this.queue = this.queue.filter(q => q.version.id !== version.id);
                 this.onSyncStatusChange(version.id, projectId, 'synced');
+                // §L-B2 — update the server-version-count cache from the response
+                // body (or, as a fallback, increment from the previous known
+                // count by 1 — every successful save adds exactly one version).
+                try {
+                    const body = await res.json().catch(() => null) as { versionCount?: number; count?: number; total?: number } | null;
+                    const serverCount =
+                        (body && (typeof body.versionCount === 'number' ? body.versionCount
+                                  : typeof body.count === 'number' ? body.count
+                                  : typeof body.total === 'number' ? body.total : undefined));
+                    if (typeof serverCount === 'number') {
+                        this._serverVersionCountByProject.set(projectId, serverCount);
+                    } else {
+                        const prior = this._serverVersionCountByProject.get(projectId) ?? 0;
+                        this._serverVersionCountByProject.set(projectId, prior + 1);
+                    }
+                } catch { /* non-fatal */ }
+                return true;
+            }
+
+            // §L-B2 — 412 Precondition Failed: a concurrent writer (other tab /
+            // collaborator / second device) saved a different version since we
+            // last knew. We MUST NOT drop the local snapshot — that would be
+            // exactly the silent data-loss the audit flagged. Mark it
+            // `local-only`, surface to the host via `onSaveRejected`, and clear
+            // the stale count cache so the next attempt sends no If-Match — the
+            // operator should reload to merge or pick from version history.
+            if (res.status === 412) {
+                const body = await res.json().catch(() => ({})) as { actual?: number; expected?: number; error?: string };
+                console.warn(
+                    `[ServerSyncQueue] §L-B2 412 Precondition Failed for "${version.label}" — ` +
+                    `expected ${body.expected}, server has ${body.actual}. Local copy preserved.`,
+                );
+                // Drop from active queue (won't retry — same 412 would recur)
+                // but the version stays in localStorage as `local-only` so the
+                // user can manually copy/export it after reload.
+                this.queue = this.queue.filter(q => q.version.id !== version.id);
+                this.onSyncStatusChange(version.id, projectId, 'local-only');
+                // Reset the cache: the next save will go without If-Match (or
+                // with a fresh count once a reload-and-re-init happens).
+                this._serverVersionCountByProject.delete(projectId);
+                this.onSaveRejected(412, {
+                    error: 'concurrent_edit',
+                    actual: body.actual,
+                    expected: body.expected,
+                    versionId: version.id,
+                    label: version.label,
+                });
                 return true;
             }
 

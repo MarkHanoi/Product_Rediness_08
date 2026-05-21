@@ -124,11 +124,28 @@ export async function upsertOAuthUser({ email, name, provider }) {
     return { id: userId, email: normalEmail, name: name ?? normalEmail.split('@')[0], plan, planStatus: 'active' };
 }
 
-/** Returns the public-facing base URL for building OAuth redirect URIs. */
+/** Returns the public-facing base URL for building OAuth redirect URIs.
+ *
+ *  §H4 (audit) — Order of trust (most → least): PUBLIC_BASE_URL env var,
+ *  REPLIT_DEV_DOMAIN (Replit sets this server-side, not client-controlled),
+ *  then ONLY as a last resort the request headers. Without an env-var lock,
+ *  an attacker setting `Host:` could influence the OAuth `redirect_uri`,
+ *  which is exactly the open-redirect / token-theft surface OAuth state
+ *  validation is supposed to close. In production we require one of the
+ *  two server-side sources and ignore client headers entirely.
+ */
 export function getBaseUrl(req) {
+    if (process.env.PUBLIC_BASE_URL) {
+        return process.env.PUBLIC_BASE_URL.replace(/\/+$/, '');
+    }
     if (process.env.REPLIT_DEV_DOMAIN) {
         return `https://${process.env.REPLIT_DEV_DOMAIN}`;
     }
+    if (process.env.NODE_ENV === 'production') {
+        // Fail loud rather than fall back to attacker-controlled Host header.
+        throw new Error('[oauthService] PUBLIC_BASE_URL must be set in production (§H4 audit).');
+    }
+    // Dev only: use the client-supplied host so local laptops just work.
     const proto = req.headers['x-forwarded-proto'] ?? 'https';
     return `${proto}://${req.headers.host}`;
 }

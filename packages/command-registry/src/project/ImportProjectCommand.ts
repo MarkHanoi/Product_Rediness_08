@@ -88,6 +88,14 @@ import { CreateColumnCommand } from '../columns/CreateColumnCommand';
 import { CreateWallCommand } from '../walls/CreateWallCommand';
 import { CreateWallOpeningCommand } from '../walls/CreateWallOpeningCommand';
 import { CreateSlabCommand } from '../slabs/CreateSlabCommand';
+// §L-B3 (DAILY-USE-AUDIT 2026-05-20) — standalone slab openings (stairwell cuts,
+// service penetrations, etc.) are persisted by ProjectSerializer.ts:670 but
+// were never restored on load: `ClearProjectCommand` cleared `openingStore`
+// and `ImportProjectCommand` never read back `snapshot.openings`. After one
+// autosave the field was permanently dropped. Restoring here closes the silent
+// data-loss class. Same legacy-command + `runSub` pattern as every other
+// element-type restoration in this file.
+import { CreateOpeningCommand } from '../slabs/CreateOpeningCommand';
 import { CreateCeilingCommand } from '../ceilings/CreateCeilingCommand';
 import { CreateFloorCommand } from '../floors/CreateFloorCommand';
 import { CreateStairCommand } from '../stair/CreateStairCommand';
@@ -472,6 +480,50 @@ export class ImportProjectCommand implements Command {
                     } catch (e) {
                         recordFail(`Floor ${floor.id ?? '?'}`,
                             { success: false, affectedElementIds: [], error: String(e) });
+                    }
+                }
+            }
+
+            // ── Step 5d: Standalone slab/floor openings (priority 21.9) ───────
+            // §L-B3 (DAILY-USE-AUDIT 2026-05-20) — restore standalone openings
+            // (stairwell cuts in slabs, service penetrations, etc.) that the
+            // serializer persists at `snapshot.openings`. Must run AFTER slabs
+            // (which provide the host) and BEFORE stairs (some stairs reference
+            // their landing opening). Per-element try/catch + `runSub` follows
+            // the same resilient-loop pattern as every other restoration step
+            // in this method (walls, slabs, ceilings, floors, etc.).
+            const snapshotOpenings = (snapshot as { openings?: unknown[] }).openings;
+            if (Array.isArray(snapshotOpenings) && snapshotOpenings.length > 0) {
+                console.log(`[ImportProjectCommand] Loading ${snapshotOpenings.length} standalone openings`);
+                for (const opening of snapshotOpenings as Array<{
+                    id?: string;
+                    hostId?: string;
+                    levelId?: string;
+                    profile?: { x: number; y: number }[];
+                    baseOffset?: number;
+                }>) {
+                    try {
+                        if (!opening.id || !opening.hostId || !opening.levelId || !Array.isArray(opening.profile)) {
+                            recordFail(
+                                `Opening ${opening.id ?? '?'}`,
+                                { success: false, affectedElementIds: [], info: ['malformed standalone opening — missing id/hostId/levelId/profile'] },
+                            );
+                            continue;
+                        }
+                        const cmd = new CreateOpeningCommand({
+                            id:         opening.id,
+                            hostId:     opening.hostId,
+                            levelId:    opening.levelId,
+                            profile:    opening.profile,
+                            baseOffset: opening.baseOffset ?? 0,
+                        });
+                        const r = runSub(cmd);
+                        r.success ? stats.loaded++ : recordFail(`Opening ${opening.id}`, r);
+                    } catch (e) {
+                        recordFail(
+                            `Opening ${opening.id ?? '?'}`,
+                            { success: false, affectedElementIds: [], info: [String(e)] },
+                        );
                     }
                 }
             }

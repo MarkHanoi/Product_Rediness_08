@@ -16,6 +16,12 @@ import { getFrameScheduler } from '@pryzm/frame-scheduler';
 import { PlatformRouter } from '@app/ui/platform/PlatformRouter';
 // Phase B.4 (S73-WIRE) — panelManager import for post-compose runtime wiring.
 import { panelManager } from '@app/ui/PanelManager';
+// §H11 (audit) — wire the crash reporter's global handlers. Previously dead
+// code: every uncaught error / unhandled rejection in the browser was
+// silently swallowed (only ViewportCrashGuard caught render-keyword-filtered
+// errors). installGlobalHandlers() funnels uncaught errors + rejections into
+// the lazy CrashReporter so telemetry actually sees them.
+import { installGlobalHandlers } from '@pryzm/crash-reporter';
 
 // ── PRYZM 1 SUNSET FLAG (S61 D1, additive) ────────────────────────────────────
 // `?pryzm1=1` is the *opt-in* test route for the upcoming D5 default flip.
@@ -166,10 +172,22 @@ let _bootstrapped = false;
 async function startEngine(runtime: import('@pryzm/runtime-composer').PryzmRuntime | null = null): Promise<void> {
     const mod = await loadEngine();
     if (!_bootstrapped) {
-        _bootstrapped = true;
-        // Pass the composed PryzmRuntime through to `bootstrap()` so initUI
-        // can route toasts via `runtime.toasts.show(...)`.
-        await mod.bootstrap(runtime);
+        // §H12 (audit) — set _bootstrapped = true ONLY after bootstrap() resolves.
+        // Previously the flag latched true before `await mod.bootstrap(runtime)`,
+        // so a bootstrap rejection (e.g. an initXxx throw) left a permanently
+        // half-initialised engine: the toolbar existed but the scene didn't,
+        // and retrying "Open Project" never re-ran bootstrap because the flag
+        // said it had already succeeded. Now a failed bootstrap remains
+        // retryable from the user's next action.
+        try {
+            // Pass the composed PryzmRuntime through to `bootstrap()` so initUI
+            // can route toasts via `runtime.toasts.show(...)`.
+            await mod.bootstrap(runtime);
+            _bootstrapped = true;
+        } catch (err) {
+            console.error('[main] bootstrap() failed — engine NOT marked bootstrapped, retry possible:', err);
+            throw err;
+        }
     }
     // Project context is updated by workspaceMount.show() via
     // window.platformShell.setProjectContext() after this function returns.
@@ -546,6 +564,15 @@ if ('serviceWorker' in navigator) {
 // ── BOOT IIFE (Phase D.2 — S77-WIRE) ─────────────────────────────────────────
 // Single-entry async boot.  The `?pryzm2=1` kill-switch path has been
 // removed (D.2); only `bootPlatform()` runs.
+// §H11 (audit) — install global error / rejection handlers BEFORE bootPlatform,
+// so even a boot-time crash is captured by telemetry. Idempotent per the
+// CrashReporter contract; safe to call once at boot.
+try {
+    installGlobalHandlers({ scope: 'browser' });
+} catch (err) {
+    console.warn('[main] installGlobalHandlers failed (non-fatal):', err);
+}
+
 void (async () => {
     try {
         await bootPlatform();
@@ -556,6 +583,32 @@ void (async () => {
             e?.message ?? String(err),
             '\n', e?.stack ?? '(no stack)',
         );
+        // §H10 (audit) — render a minimal DOM fallback so the user sees something
+        // and has a recovery path. Uses only document API + inline styles — no
+        // module imports — because the failure may be in module loading itself.
+        try {
+            const fallback = document.createElement('div');
+            fallback.id = 'pryzm-boot-fallback';
+            fallback.style.cssText = [
+                'position:fixed', 'inset:0', 'z-index:2147483647',
+                'display:flex', 'flex-direction:column', 'align-items:center', 'justify-content:center',
+                'background:#0f0f12', 'color:#e6e6ea',
+                'font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
+                'padding:24px', 'text-align:center',
+            ].join(';');
+            const detail = (e?.message ?? String(err)).slice(0, 240).replace(/[<>&]/g, '');
+            fallback.innerHTML = [
+                '<div style="font-size:18px;font-weight:600;margin-bottom:8px;">PRYZM failed to start</div>',
+                '<div style="font-size:13px;opacity:0.7;max-width:520px;margin-bottom:20px;">An error prevented the editor from initialising. Reloading the page usually fixes transient issues.</div>',
+                '<div style="font-size:11px;font-family:ui-monospace,Consolas,monospace;opacity:0.5;max-width:520px;margin-bottom:20px;word-break:break-word;">' + detail + '</div>',
+                '<button id="pryzm-boot-fallback-reload" style="padding:10px 24px;background:linear-gradient(135deg,#8B5CF6 0%,#6600FF 100%);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Reload</button>',
+            ].join('');
+            document.body.appendChild(fallback);
+            const btn = document.getElementById('pryzm-boot-fallback-reload');
+            btn?.addEventListener('click', () => location.reload());
+        } catch (_fbErr) {
+            // Last-resort: even DOM fallback failed. Nothing more we can do.
+        }
     }
 
     // Engine bundle is loaded on-demand when the user first opens a project

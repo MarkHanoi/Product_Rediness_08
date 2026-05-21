@@ -12,7 +12,7 @@ import { WallFragmentBuilder } from './WallFragmentBuilder';
 import { DimensionPreview } from './DimensionPreview';
 import { WallDimensionInput } from './WallDimensionInput';
 import { WallSnapCycler } from './WallSnapCycler';
-import { VisualStyle } from '@pryzm/core-app-model/material-library';
+import { VisualStyle, STANDARD_MATERIAL_LIBRARY } from '@pryzm/core-app-model/material-library';
 import { SnapManager } from '@pryzm/snapping';
 // §WALL-AUDIT-2026-W5: shared camera-zoom-aware tolerance — same value the
 // WallJoinResolver uses for its post-creation join pass.
@@ -189,6 +189,17 @@ export class WallTool {
         // treats each store as optional and degrades gracefully when any is
         // absent (intent resolution returns undefined; 3D-only rendering still
         // works correctly).
+        // §M-H1 (DAILY-USE-AUDIT 2026-05-20) — build the STANDARD_MATERIAL_LIBRARY
+        // map ONCE here so WallFragmentBuilder can resolve `wall.materialId`
+        // against PBR definitions (parity with SlabFragmentBuilder which already
+        // honours `materialId`). The library is module-scoped + immutable so a
+        // single Map suffices for the WallTool lifetime; passing as a prebuilt
+        // Map (vs an array + linear search) keeps the per-frame material build
+        // path O(1) instead of O(n). Same shape used by `SlabBuilderDeps`.
+        const _materialMap = new Map<string, (typeof STANDARD_MATERIAL_LIBRARY)[number]>(
+            STANDARD_MATERIAL_LIBRARY.map(m => [m.id, m] as const),
+        );
+
         this.fragmentBuilder = new WallFragmentBuilder(
             world.scene.three as THREE.Scene,
             this.bimManager,
@@ -196,6 +207,7 @@ export class WallTool {
                 viewDefinitionStore:     callbacks.viewDefinitionStore     ?? null,
                 viewIntentInstanceStore: callbacks.viewIntentInstanceStore ?? null,
                 visibilityIntentStore:   callbacks.visibilityIntentStore   ?? null,
+                materialMap:             _materialMap,
             },
         );
         this.intentResolver = new WallIntentResolver(this.wallStore);

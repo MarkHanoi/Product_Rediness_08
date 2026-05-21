@@ -388,9 +388,23 @@ export class SvpPlanToolOverlay {
         // would cause the panel to vanish mid-interaction (the primary flicker).
         if (this._isToolUiElement(e.relatedTarget)) return;
         this._svpFocused = false;
-        this._deactivateHandler();
+        // §T-B1 (DAILY-USE-AUDIT 2026-05-20) — DO NOT deactivate the handler if it is
+        // mid-stroke. Architect drawing a 6-point slab in the SVP reaches for the
+        // toolbar; without this guard `_deactivateHandler()` calls
+        // `handler.deactivate()` which sets `_points = []` / `_wallFirstPoint = null`
+        // and the entire polyline evaporates. We blur focus + hide the snap tooltip
+        // but PRESERVE the handler's intermediate state so the user can come back
+        // and continue the stroke. The handler's own `deactivate()` runs only on
+        // (a) Escape, (b) explicit tool switch (ToolManager), (c) project switch.
+        const handlerActiveStroke = !!(this._activeHandler as { hasActiveStroke?: () => boolean } | null)?.hasActiveStroke?.();
+        if (!handlerActiveStroke) {
+            this._deactivateHandler();
+        }
         this._hideSnapTooltip();
-        this._clearOverlay();
+        // Only clear the preview overlay when the handler IS being deactivated;
+        // mid-stroke we keep the partial polyline visible so the user can see
+        // what's pending when they return.
+        if (!handlerActiveStroke) this._clearOverlay();
         window.runtime?.events?.emit('svp:tool-blur', {}); // F.events.10
         this._updateCursor();
     }
@@ -555,9 +569,20 @@ export class SvpPlanToolOverlay {
         if (e.key === 'Escape') {
             this._activeHandler.cancel();
             this._hideSnapTooltip();
+            e.preventDefault();
+            e.stopPropagation();
             return;
         }
-        this._activeHandler.onKeyDown?.(e);
+        // §T-B2 (DAILY-USE-AUDIT 2026-05-20) — propagate handler's "I consumed it"
+        // signal so the global Backspace/Delete handler in initUI.ts doesn't also
+        // delete the previously-selected element when the user pops a polyline
+        // vertex. Mirrors the PlanViewToolOverlay fix; the PlanToolHandler interface
+        // contract declares `onKeyDown(e): boolean` for exactly this purpose.
+        const handled = this._activeHandler.onKeyDown?.(e);
+        if (handled === true) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
     }
 
     // ── Coordinate resolution ─────────────────────────────────────────────

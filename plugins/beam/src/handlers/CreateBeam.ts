@@ -17,6 +17,12 @@ export interface CreateBeamPayload {
   readonly id?: string;
   readonly levelId?: string;
   readonly baseLine?: BeamData['baseLine'];
+  /** §FIX-BEAM-PAYLOAD (C11 §7.0): the beam plan tool dispatches `startPoint` +
+   *  `endPoint` rather than `baseLine`. Accepted here as an alias and folded into
+   *  `baseLine` so the PRYZM3 Immer beam carries real geometry — mirrors the slab
+   *  handler's `polygon`/`boundary` alias precedent (FT1-C11-SLAB-BOUNDARY). */
+  readonly startPoint?: BeamData['baseLine'][0];
+  readonly endPoint?: BeamData['baseLine'][1];
   readonly shape?: BeamData['shape'];
   readonly width?: number;
   readonly depth?: number;
@@ -31,9 +37,20 @@ export class CreateBeamHandler implements CommandHandler<CreateBeamPayload, Beam
   readonly type = 'beam.create';
   readonly affectedStores = ['beam'] as const;
 
+  /** §FIX-BEAM-PAYLOAD: fold the `startPoint`/`endPoint` alias into a baseLine
+   *  tuple. `baseLine` (when supplied) always wins. */
+  private static resolveBaseLine(cmd: CreateBeamPayload): BeamData['baseLine'] | undefined {
+    if (cmd.baseLine !== undefined) return cmd.baseLine;
+    if (cmd.startPoint !== undefined && cmd.endPoint !== undefined) {
+      return [cmd.startPoint, cmd.endPoint] as BeamData['baseLine'];
+    }
+    return undefined;
+  }
+
   canExecute(_ctx: HandlerContext<BeamHandlerStores>, cmd: CreateBeamPayload): ValidationResult {
-    if (cmd.baseLine !== undefined) {
-      const [a, b] = cmd.baseLine;
+    const baseLine = CreateBeamHandler.resolveBaseLine(cmd);
+    if (baseLine !== undefined) {
+      const [a, b] = baseLine;
       if (!isFiniteVec3(a) || !isFiniteVec3(b)) {
         return { valid: false, reason: 'baseLine endpoints must be finite Vec3' };
       }
@@ -62,7 +79,8 @@ export class CreateBeamHandler implements CommandHandler<CreateBeamPayload, Beam
       rotation: cmd.rotation ?? 0,
       materialId: cmd.materialId ?? cmd.systemTypeId,
     };
-    if (cmd.baseLine) seed.baseLine = cmd.baseLine;
+    const baseLine = CreateBeamHandler.resolveBaseLine(cmd);
+    if (baseLine) seed.baseLine = baseLine;
     if (seed.baseLine && !isNonZeroBaseLine(seed.baseLine[0], seed.baseLine[1])) {
       throw new BeamGeometryError('baseLine endpoints must differ');
     }

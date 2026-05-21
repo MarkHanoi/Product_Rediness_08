@@ -171,12 +171,25 @@ export class WallSystemTypeStore {
     /**
      * Add or replace a user-defined wall type.
      * Built-in types cannot be overwritten.
+     *
+     * §M-B1 (DAILY-USE-AUDIT 2026-05-20) — callers (notably `ProjectLoader` on
+     * snapshot restore) MUST be able to preserve the original id. Previously
+     * `crypto.randomUUID()` was minted unconditionally, so on every save/load
+     * every wall referencing a custom type became a dangling reference and fell
+     * back to built-in defaults. Now `params.id` (when supplied) is honoured;
+     * fresh user-created types still get a random id.
      */
-    add(type: Omit<WallSystemType, 'id' | 'createdAt' | 'modifiedAt' | 'totalThickness'>): WallSystemType {
-        const id = crypto.randomUUID();
+    add(type: Omit<WallSystemType, 'id' | 'createdAt' | 'modifiedAt' | 'totalThickness'> & { id?: string }): WallSystemType {
+        // §M-B1 follow-up — strip `'id'` from the `Omit` set so the intersection
+        // with `{ id?: string }` actually makes id optional (a TS intersection
+        // of required + optional resolves to required, which broke existing
+        // callers that omit id). Now: id stripped by Omit, then added back as
+        // optional via the intersection — fresh callers may still omit it.
+        const id = (typeof type.id === 'string' && type.id.length > 0) ? type.id : crypto.randomUUID();
         const now = Date.now();
+        const { id: _drop, ...rest } = type as { id?: string } & Omit<WallSystemType, 'id' | 'createdAt' | 'modifiedAt' | 'totalThickness'>;
         const newType: WallSystemType = Object.freeze({
-            ...type,
+            ...rest,
             id,
             createdAt: now,
             modifiedAt: now,

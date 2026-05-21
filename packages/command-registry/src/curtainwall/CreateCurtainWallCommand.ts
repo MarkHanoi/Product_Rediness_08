@@ -56,6 +56,33 @@ export interface CreateCurtainWallPayload {
     gridXSpacing?: number;
     gridYSpacing?: number;
     baseOffset?: number;
+    /**
+     * §PERSIST-L1 (DAILY-USE 2026-05-20) — Architect-set curtain-wall mullion +
+     * glazing fields that the serializer already writes to the snapshot. Without
+     * these, the loader silently fell back to the hard-coded defaults
+     * (mullionSize=0.08, panelThickness=0.02, mullionColor='#333333') on every
+     * reload, wiping any user customisation. Optional; absence preserves the
+     * existing defaults for fresh creates via the CurtainWallTool.
+     */
+    mullionSize?: number;
+    panelThickness?: number;
+    mullionColor?: string;
+    /**
+     * §PERSIST-L1 — Non-uniform grid line system. The serializer persists
+     * `gridSystem` for curtain walls whose grid was edited (Add/Remove grid
+     * line commands). Without round-tripping it, a reload collapses any
+     * custom grid back to uniform spacing.
+     */
+    gridSystem?: import('@pryzm/geometry-curtain-wall').CurtainGridSystem;
+    /**
+     * §PERSIST-L1 — Properties bag (mark + any architect tags).
+     */
+    properties?: Record<string, unknown>;
+    /**
+     * §PERSIST-L1 — IFC GUID continuity across reload (otherwise IFC export
+     * generates a new GUID on every save, breaking external-tool linkage).
+     */
+    ifcGuid?: string;
 }
 
 export class CreateCurtainWallCommand implements Command {
@@ -108,17 +135,28 @@ export class CreateCurtainWallCommand implements Command {
             ],
             height: this.payload.height,
             baseOffset,
-            gridXSpacing: this.payload.gridXSpacing ?? 1.2,
-            gridYSpacing: this.payload.gridYSpacing ?? 1.5,
-            mullionSize: 0.08,
-            panelThickness: 0.02,
-            mullionColor: '#333333',
+            gridXSpacing:   this.payload.gridXSpacing   ?? 1.2,
+            gridYSpacing:   this.payload.gridYSpacing   ?? 1.5,
+            // §PERSIST-L1 — honour caller-supplied mullion + glazing first,
+            // fall back to the original defaults so fresh-create behaviour is
+            // unchanged for the CurtainWallTool.
+            mullionSize:    this.payload.mullionSize    ?? 0.08,
+            panelThickness: this.payload.panelThickness ?? 0.02,
+            mullionColor:   this.payload.mullionColor   ?? '#333333',
+            // §PERSIST-L1 — non-uniform grid layout round-trips when the
+            // architect added/removed grid lines pre-save.
+            gridSystem:     this.payload.gridSystem,
             properties: {
                 // Deterministic mark based on ID — no Math.random()
-                mark: `CW-${this.payload.id.slice(0, 6).toUpperCase()}`
+                mark: `CW-${this.payload.id.slice(0, 6).toUpperCase()}`,
+                // §PERSIST-L1 — caller-supplied properties win, so the mark
+                // and any architect tags survive a save/load round-trip.
+                ...(this.payload.properties ?? {}),
             },
-            // §2.4 redo symmetry: use payload.id as IFC GUID — deterministic and stable across redo
-            ifcData: { guid: this.payload.id, ifcClass: 'IfcCurtainWall' }
+            // §2.4 redo symmetry: use payload.id as IFC GUID — deterministic and stable across redo.
+            // §PERSIST-L1 — when restoring, prefer the snapshot's original IFC
+            // GUID so external tools (Solibri, BIMcollab) keep their linkage.
+            ifcData: { guid: this.payload.ifcGuid ?? this.payload.id, ifcClass: 'IfcCurtainWall' }
         };
 
         // 1️⃣ Store first — emits storeEventBus → subscriber in main.ts triggers builder.build()

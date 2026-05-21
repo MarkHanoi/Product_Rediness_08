@@ -29,6 +29,12 @@ export class FloorPlanToolHandler implements PlanToolHandler {
     private _cursorPoint: WorldPoint | null = null;
     private _rectAnchor:  WorldPoint | null = null;
 
+    // §T-B1 (DAILY-USE-AUDIT 2026-05-20) — opt-in stroke-preservation per the
+    // PlanToolHandler.hasActiveStroke?() contract. Returns true while a
+    // polygon/rectangle is being built so the overlay suspends focus (instead
+    // of deactivating + wiping state) when the user briefly leaves the canvas.
+    hasActiveStroke(): boolean { return this._points.length > 0 || this._rectAnchor !== null; }
+
     activate(ctx: PlanToolDrawContext): void {
         this._ctx         = ctx;
         this._points      = [];

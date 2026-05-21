@@ -78,7 +78,16 @@ export class WallRebuildCoordinator {
             const p = payload as { source?: string } | undefined;
             if (p?.source !== 'view-switch') return;
             this._viewSwitchInProgress = true;
-            getFrameScheduler().scheduleOnce('engine-bootstrap-view-switch-clear', () => { this._viewSwitchInProgress = false; });
+            getFrameScheduler().scheduleOnce('engine-bootstrap-view-switch-clear', () => {
+                this._viewSwitchInProgress = false;
+                // §FIX-VIEWSWITCH-DROP (C11 §7.0): drain wall mutations that arrived
+                // DURING the view switch. _scheduleFlush() now queues them and defers
+                // the flush while _viewSwitchInProgress is set; without this drain a
+                // wall drawn in the plan pane mid-switch never receives a 3D mesh.
+                if (this._pendingWallEvents.size > 0 && !this._wallRebuildPaused && this._wallRafHandle === null) {
+                    this._wallRafHandle = getFrameScheduler().scheduleOnce('engine-bootstrap-wall-flush', () => this._flush());
+                }
+            });
         });
 
         window.__wallRebuildControl = {
@@ -144,12 +153,20 @@ export class WallRebuildCoordinator {
     }
 
     private _scheduleFlush(event: 'add' | 'update' | 'remove', wall: WallData, prevState?: WallData): void {
-        if (this._viewSwitchInProgress) return;
+        // §BATCH-BUS-DISCARD: discard mode is an intentional drop (project teardown).
         if (this._wallRebuildDiscarding) return;
+        // §FIX-VIEWSWITCH-DROP (C11 §7.0): the mutation MUST be queued BEFORE any
+        // deferral check below. Returning early here (as the old code did for
+        // _viewSwitchInProgress) loses the wall permanently — there is no re-queue
+        // path. Queue first, then decide whether to flush now or defer.
         const existing = this._pendingWallEvents.get(wall.id);
         const resolvedPrev = prevState ?? existing?.prevState;
         this._pendingWallEvents.set(wall.id, { event, wall, prevState: resolvedPrev });
+        // Defer the flush — but never drop the event — while paused or mid view-switch.
+        // _resume()/_resumeAndFlush() drains the pause case; the 'view-activated'
+        // clear handler (see init()) drains the view-switch case.
         if (this._wallRebuildPaused) return;
+        if (this._viewSwitchInProgress) return;
         if (this._wallRafHandle === null) {
             this._wallRafHandle = getFrameScheduler().scheduleOnce('engine-bootstrap-wall-flush', () => this._flush());
         }

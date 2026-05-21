@@ -17,12 +17,29 @@
 
 /**
  * Returns the list of allowed origins from ALLOWED_ORIGIN env var.
- * Falls back to '*' when not set (development).
+ *
+ * §H1 (audit) — Fail closed in production. When `credentials: true` is set
+ * (it is), `origin: '*'` causes the cors package to reflect the request
+ * origin, effectively allowing any site to make credentialed requests. In
+ * dev (NODE_ENV !== 'production') we keep the '*' fallback so local
+ * workflows are not broken; in production we return an EMPTY array which
+ * the cors package treats as "deny all cross-origin requests" — preferable
+ * to silent over-permission. Operators are expected to set ALLOWED_ORIGIN.
+ *
  * @returns {string|string[]}
  */
 export function getAllowedOrigins() {
     const raw = process.env.ALLOWED_ORIGIN;
-    if (!raw) return '*';
+    if (!raw) {
+        if (process.env.NODE_ENV === 'production') {
+            console.warn(
+                '[corsPolicy] ALLOWED_ORIGIN is not set in production — denying all cross-origin requests. ' +
+                'Set ALLOWED_ORIGIN to your deployed origin(s) to enable the app.',
+            );
+            return []; // deny all cross-origin requests
+        }
+        return '*'; // dev convenience only
+    }
     const list = raw.split(',').map(s => s.trim()).filter(Boolean);
     return list.length === 1 ? list[0] : list;
 }

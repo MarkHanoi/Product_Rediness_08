@@ -38,6 +38,23 @@ const STAGES: { label: string; durationMs: number }[] = [
 
 const TOTAL_MS = STAGES.reduce((s, st) => s + st.durationMs, 0);
 
+/**
+ * §FIX-OVERLAY-DUP-ID (2026-05-19): monotonic counter used to mint a UNIQUE
+ * FrameScheduler tick-listener id per overlay instance.
+ *
+ * `FrameScheduler.addTickListener` throws `duplicate id` if the same id is
+ * registered twice (its contract — `FrameScheduler.ts:327` — is "each listener
+ * must register a unique id"), and the scheduler exposes no `removeTickListener(id)`.
+ * The engine-bootstrap overlay and the project-open overlay (`PlatformRouter
+ * ._openProjectViaRuntime`) are SEPARATE instances that can be alive at the same
+ * time; both calling `show()` with the constant id `engine-loading-progress`
+ * made the second `addTickListener` throw — an uncaught promise rejection that
+ * aborted project opening ("old projects don't open"). An instance-local
+ * `stopProgressTimers()` cannot prevent it: a fresh instance has `rafHandle = null`.
+ * Each instance now owns a distinct id, so two overlays never collide.
+ */
+let _overlayTickSeq = 0;
+
 export class EngineLoadingOverlay {
     private el: HTMLElement | null = null;
     private progressBar: HTMLElement | null = null;
@@ -45,6 +62,8 @@ export class EngineLoadingOverlay {
     private stageTimer: ReturnType<typeof setInterval> | null = null;
     private startTime = 0;
     private rafHandle: TickListenerDisposer | null = null;
+    /** §FIX-OVERLAY-DUP-ID — unique per instance; never collides across overlays. */
+    private readonly tickId = `engine-loading-progress-${++_overlayTickSeq}`;
 
     /** Phase B (S73-WIRE) — runtime threaded by parent. */
     public readonly runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null;
@@ -134,7 +153,7 @@ export class EngineLoadingOverlay {
         btn.addEventListener('mouseenter', () => { btn.style.opacity = '0.85'; });
         btn.addEventListener('mouseleave', () => { btn.style.opacity = '1'; });
         btn.addEventListener('click', () => {
-            window.runtime?.events?.emit('pryzm-go-hub', {}); // F.events.12
+            window.runtime?.events?.emit('pryzm-go-hub', {}); window.dispatchEvent(new Event('pryzm-go-hub')); // F.events.12 + §33-NAV-FIX
             this.hide();
         });
         this.el.appendChild(btn);
@@ -322,7 +341,7 @@ export class EngineLoadingOverlay {
             }
         };
         this.rafHandle = getFrameScheduler().addTickListener(
-            'engine-loading-progress',
+            this.tickId,   // §FIX-OVERLAY-DUP-ID — per-instance id, no cross-overlay collision
             animate,
             'overlay',
         );

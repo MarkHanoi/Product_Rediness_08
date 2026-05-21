@@ -818,43 +818,66 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 !ev.baseLine ||
                 ev.baseLine.length < 2
             ) return;
-            if (_legacyWallStoreForBridge.getById(ev.wallId)) return;
-            try {
-                _legacyWallStoreForBridge.add({
-                    id:        ev.wallId,
-                    type:      'wall' as const,
-                    levelId:   ev.levelId,
-                    baseLine:  [
-                        { x: ev.baseLine[0].x, y: ev.baseLine[0].y ?? 0, z: ev.baseLine[0].z },
-                        { x: ev.baseLine[1].x, y: ev.baseLine[1].y ?? 0, z: ev.baseLine[1].z },
-                    ],
-                    height:    ev.height    ?? 2.7,
-                    thickness: ev.thickness ?? 0.2,
-                    ...(ev.baseOffset   !== undefined ? { baseOffset:   ev.baseOffset }   : {}),
-                    ...(ev.systemTypeId !== undefined ? { systemTypeId: ev.systemTypeId } : {}),
-                } as any);
-                console.log('[initTools] §P2.1: wall mirrored to legacy store', ev.wallId);
-                // §P2.1-REG (FIX-WALL-PLAN-2026-05-19):
-                //   Two registrations required for plan-view rendering to work after the
-                //   bus-only creation path:
-                //
-                //   (A) viewDependencyTracker.registerElement — without this, VDT has no
-                //       entry in _elementLevelMap for this wallId.  Every storeEventBus
-                //       emission from WallStore.add() falls into the §G3-STALE-EVENT path
-                //       (fallback: mark all non-3D views dirty).  The fallback still
-                //       triggers a flush, but the targeted path is preferred for
-                //       performance and correctness on multi-level projects.
-                //
-                //   (B) bimManager.registerElement — without this, level.childrenIds
-                //       never contains the new wallId.  NativeElementMeshExporter reads
-                //       level.childrenIds to build its element list; an absent wallId
-                //       means exportForView() returns 0 elements → plan view renders
-                //       blank even after the VDT flush fires.
-                viewDependencyTracker.registerElement(ev.wallId, ev.levelId ?? 'L0');
-                try { bimManager.registerElement(ev.wallId, ev.levelId ?? 'L0'); } catch { /* non-fatal */ }
-            } catch (err) {
-                console.error('[initTools] §P2.1: failed to mirror wall to legacy store — mesh may not build:', err);
+            // §FIX-VDT-DUAL-PATH (DAILY-USE-AUDIT 2026-05-20 task #54) — the
+            // dedup guard previously short-circuited the WHOLE bridge body
+            // including the VDT + bimManager registration at the end. Result:
+            // when WallTool's legacy `commandManager.execute(CreateWallCommand)`
+            // path (sync) beat the bus dispatch (async, which it ALWAYS does),
+            // the wall existed in WallStore but had no VDT entry → every plan-
+            // view storeEventBus emission fell into the §G3-STALE-EVENT fallback
+            // path, evidenced by the user's runtime log showing one G3-STALE per
+            // plan-view wall create AND per undo. Fix: separate concerns — the
+            // dedup guard skips only the `add()` mirror; VDT + bimManager are
+            // ALWAYS registered (idempotent in both stores, so a duplicate
+            // register from the bridge after a direct legacy register is a
+            // no-op). Bus-first creates continue to work; legacy-first creates
+            // (the WallTool's E.5.x P2b dual-dispatch shape) now ALSO get VDT
+            // registered. Matches the principle in C11 §6.2 — every element
+            // that lands in a store MUST also be in VDT + level.childrenIds.
+            const alreadyMirrored = !!_legacyWallStoreForBridge.getById(ev.wallId);
+            if (!alreadyMirrored) {
+                try {
+                    _legacyWallStoreForBridge.add({
+                        id:        ev.wallId,
+                        type:      'wall' as const,
+                        levelId:   ev.levelId,
+                        baseLine:  [
+                            { x: ev.baseLine[0].x, y: ev.baseLine[0].y ?? 0, z: ev.baseLine[0].z },
+                            { x: ev.baseLine[1].x, y: ev.baseLine[1].y ?? 0, z: ev.baseLine[1].z },
+                        ],
+                        height:    ev.height    ?? 2.7,
+                        thickness: ev.thickness ?? 0.2,
+                        ...(ev.baseOffset   !== undefined ? { baseOffset:   ev.baseOffset }   : {}),
+                        ...(ev.systemTypeId !== undefined ? { systemTypeId: ev.systemTypeId } : {}),
+                    } as any);
+                    console.log('[initTools] §P2.1: wall mirrored to legacy store', ev.wallId);
+                } catch (err) {
+                    console.error('[initTools] §P2.1: failed to mirror wall to legacy store — mesh may not build:', err);
+                }
             }
+            // §P2.1-REG (FIX-WALL-PLAN-2026-05-19):
+            //   Two registrations required for plan-view rendering to work after the
+            //   bus-only creation path:
+            //
+            //   (A) viewDependencyTracker.registerElement — without this, VDT has no
+            //       entry in _elementLevelMap for this wallId.  Every storeEventBus
+            //       emission from WallStore.add() falls into the §G3-STALE-EVENT path
+            //       (fallback: mark all non-3D views dirty).  The fallback still
+            //       triggers a flush, but the targeted path is preferred for
+            //       performance and correctness on multi-level projects.
+            //
+            //   (B) bimManager.registerElement — without this, level.childrenIds
+            //       never contains the new wallId.  NativeElementMeshExporter reads
+            //       level.childrenIds to build its element list; an absent wallId
+            //       means exportForView() returns 0 elements → plan view renders
+            //       blank even after the VDT flush fires.
+            //
+            // §FIX-VDT-DUAL-PATH (task #54) — run UNCONDITIONALLY, outside the
+            // dedup guard above, so legacy-first dual-dispatch paths also register.
+            try { viewDependencyTracker.registerElement(ev.wallId, ev.levelId ?? 'L0'); }
+            catch (err) { console.warn('[initTools] §P2.1 VDT.registerElement failed (non-fatal):', err); }
+            try { bimManager.registerElement(ev.wallId, ev.levelId ?? 'L0'); }
+            catch { /* non-fatal — bimManager may already have it from legacy CreateWallCommand */ }
         });
         console.log('[initTools] §P2.1: wall.created bus→legacy-store bridge registered.');
     }
@@ -1443,6 +1466,179 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             }
         });
         console.log('[initTools] §P3.2-FL: floor.created bus→legacy-store bridge registered.');
+    }
+
+    // §FT-HANDRAIL (HANDRAIL-BUS-MIGRATION — C11 §11.9): bus → legacy-HandrailStore bridge.
+    // After a bus `handrail.create` command succeeds, CommandEventBridge emits
+    // `handrail.created` with the full geometry payload (id, path, height, diameter,
+    // shape, levelId). This subscriber translates the PRYZM3 `path[]`/`diameter`
+    // shape into the legacy HandrailData shape (`baseLine[2]`/`thickness`) and calls
+    // handrailStore.add() — HandrailStore.add() emits storeEventBus (plan-view
+    // projection) and `bim-handrail-added` (HandrailFragmentBuilder 3D mesh).
+    // Mirrors the §FT2 beam bridge. Without this bridge a handrail drawn from the
+    // plan tool reached the PRYZM3 Immer store but never rendered in either view.
+    if (runtime) {
+        runtime.events.on('handrail.created', (ev) => {
+            if (
+                ev.commandType !== 'handrail.create' ||
+                !ev.id ||
+                !ev.path ||
+                ev.path.length < 2
+            ) return;
+            if (handrailStore?.getById?.(ev.id)) return; // dedup guard
+            try {
+                const p0 = ev.path[0];
+                const p1 = ev.path[ev.path.length - 1];
+                handrailStore.add({
+                    id:        ev.id,
+                    type:      'handrail',
+                    levelId:   ev.levelId ?? '',
+                    parentId:  ev.levelId ?? '',
+                    baseLine:  [
+                        { x: p0.x, y: p0.y ?? 0, z: p0.z },
+                        { x: p1.x, y: p1.y ?? 0, z: p1.z },
+                    ],
+                    height:     ev.height   ?? 1.0,
+                    thickness:  ev.diameter ?? 0.04,
+                    baseOffset: 0,
+                    railProfile: ev.shape === 'rectangular' ? 'rectangular' : 'round',
+                    ...(ev.materialId ? { materialId: ev.materialId } : {}),
+                    properties: {},
+                } as any);
+                // §FIX-PLAN-VDT-BIMMANAGER (handrail): targeted VDT dirty-marking +
+                // level.childrenIds membership — required for plan-view projection.
+                viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '');
+                try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { /* non-fatal */ }
+                console.log('[initTools] §FT-HANDRAIL: handrail mirrored to legacy store', ev.id);
+            } catch (err) {
+                console.error('[initTools] §FT-HANDRAIL: failed to mirror handrail to legacy store — mesh may not build:', err);
+            }
+        });
+        console.log('[initTools] §FT-HANDRAIL: handrail.created bus→legacy-store bridge registered.');
+    }
+
+    // §FT-LIGHTING (LIGHTING-BUS-MIGRATION — C11 §11.11): bus → legacy-LightingStore.
+    // After a bus `lighting.create` succeeds, CommandEventBridge emits `lighting.created`
+    // with id/kind/origin. This subscriber translates the PRYZM3 `kind`/`origin` shape
+    // into the legacy `LightingData` (`fixtureType`/`position`) and calls
+    // lightingStore.add() — LightingStore.add() fires `bim-lighting-added` →
+    // LightingFragmentBuilder builds the 3D fixture mesh. Lighting is NOT in
+    // GEOMETRY_ELEMENT_TYPES (no plan-view projection — by design), so no
+    // viewDependencyTracker registration. Mirrors the §FT-HANDRAIL bridge.
+    if (runtime) {
+        runtime.events.on('lighting.created', (ev) => {
+            if (ev.commandType !== 'lighting.create' || !ev.id || !ev.origin) return;
+            const _ls = window.lightingStore as { add(d: unknown): void; has?(id: string): boolean } | undefined;
+            if (!_ls) return;
+            if (_ls.has?.(ev.id)) return; // dedup guard
+            try {
+                _ls.add({
+                    id:          ev.id,
+                    type:        'lighting',
+                    levelId:     ev.levelId ?? '',
+                    fixtureType: ev.kind ?? 'downlight',
+                    position:    { x: ev.origin.x, y: ev.origin.y, z: ev.origin.z },
+                });
+                try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { /* non-fatal */ }
+                console.log('[initTools] §FT-LIGHTING: lighting mirrored to legacy store', ev.id);
+            } catch (err) {
+                console.error('[initTools] §FT-LIGHTING: failed to mirror lighting to legacy store — mesh may not build:', err);
+            }
+        });
+        console.log('[initTools] §FT-LIGHTING: lighting.created bus→legacy-store bridge registered.');
+    }
+
+    // §FT-FURNITURE (FURNITURE-BUS-MIGRATION — C11 §11.10): bus → legacy-FurnitureStore.
+    // `furniture.create` is handled by the PRYZM3 Immer `CreateFurnitureHandler`,
+    // whose `CreateFurniturePayload` (catalogId / origin / size / representations —
+    // ADR-0027) does NOT match the legacy `FurnitureData` model (furnitureType +
+    // primitive dims) — and no bus→legacy bridge existed. So furniture placed from
+    // the plan tool / carousel drag-drop / kitchen / wardrobe tools reached neither
+    // the legacy `FurnitureStore` nor any builder → no 3D mesh, no plan symbol.
+    // CommandEventBridge now forwards the full plan-tool geometry on
+    // `furniture.created`; this subscriber translates it into legacy `FurnitureData`
+    // and calls `furnitureStore.add()` → `bim-furniture-added` → furniture builder
+    // 3D mesh + `storeEventBus` (plan-view symbol). Mirrors §FT-HANDRAIL / §FT-LIGHTING.
+    if (runtime) {
+        runtime.events.on('furniture.created', (ev) => {
+            if (ev.commandType !== 'furniture.create' || !ev.id || !ev.furnitureType || !ev.position) return;
+            const _fs = window.furnitureStore as { add(d: unknown): void; get?(id: string): unknown } | undefined;
+            if (!_fs) return;
+            if (_fs.get?.(ev.id)) return; // dedup guard
+            try {
+                _fs.add({
+                    id:             ev.id,
+                    type:           'furniture',
+                    furnitureType:  ev.furnitureType,
+                    position:       { x: ev.position.x, y: ev.position.y, z: ev.position.z },
+                    // §FIX-FURNITURE-ROTATION: the plan tool sends a SCALAR yaw;
+                    // legacy FurnitureData.rotation is an EulerDTO — lift yaw into .y.
+                    rotation:       { x: 0, y: ev.rotation ?? 0, z: 0 },
+                    levelId:        ev.levelId ?? '',
+                    levelName:      '',
+                    levelElevation: 0,
+                    baseOffset:     ev.baseOffset ?? 0,
+                    width:          ev.width  ?? 0.6,
+                    length:         ev.length ?? 0.6,
+                    height:         ev.height ?? 0.9,
+                    material:       ev.material ?? 'wood',
+                    properties:     {},
+                    ...(ev.furnitureCategory     ? { furnitureCategory: ev.furnitureCategory } : {}),
+                    ...(ev.kitchenConfig         ? { kitchenConfig: ev.kitchenConfig } : {}),
+                    ...(ev.wardrobeCabinetConfig ? { wardrobeCabinetConfig: ev.wardrobeCabinetConfig } : {}),
+                });
+                // §FIX-PLAN-VDT-BIMMANAGER (furniture): targeted VDT dirty-marking +
+                // level.childrenIds membership — required for plan-view export.
+                viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '');
+                try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { /* non-fatal */ }
+                console.log('[initTools] §FT-FURNITURE: furniture mirrored to legacy store', ev.id);
+            } catch (err) {
+                console.error('[initTools] §FT-FURNITURE: failed to mirror furniture to legacy store — mesh may not build:', err);
+            }
+        });
+        console.log('[initTools] §FT-FURNITURE: furniture.created bus→legacy-store bridge registered.');
+    }
+
+    // §13-CAM (C11 §12 — Split-View 3D Synchronization & Camera Framing):
+    // First-element 3D camera framing for plan-pane element creation.
+    //
+    // When split view is active and the FIRST geometry-element creation command
+    // of the project session completes, frame the shared 3D camera once via
+    // zoomToAll() so the newly created element is visible (and centred) in the
+    // mirrored 3D pane. Subsequent creations MUST NOT move the camera (C11 §12.2)
+    // — the user's framing is preserved while they keep drawing.
+    //
+    // The zoom is deferred ~300 ms so the element's geometry builder has committed
+    // its mesh into the THREE scene before zoomToAll() computes scene bounds;
+    // running it synchronously inside 'command.executed' would frame a scene that
+    // does not yet contain the new mesh.
+    //
+    // The one-shot flag is re-armed on 'pryzm-project-loaded' so each opened
+    // project frames its own first element (C11 §12.2 — per-project-session).
+    if (runtime) {
+        let _splitViewFirstFrameDone = false;
+        const _CREATE_CMD_RE =
+            /^(wall|slab|curtainwall|curtain-wall|column|beam|ceiling|roof|floor|stair|handrail)\.(create|batch\.create)$/;
+        runtime.events.on('command.executed', (ev) => {
+            if (_splitViewFirstFrameDone) return;
+            const cmdType = (ev as { type?: string } | undefined)?.type ?? '';
+            if (!_CREATE_CMD_RE.test(cmdType)) return;
+            // Only frame while split view is active (C11 §12.2). splitViewManager is
+            // typed `unknown` on Window — narrow it to the isActive surface.
+            const _sv = window.splitViewManager as { isActive?: boolean } | undefined;
+            if (!_sv?.isActive) return;
+            _splitViewFirstFrameDone = true;
+            setTimeout(() => {
+                try {
+                    zoomToAll();
+                    console.log('[initTools] §13-CAM: framed 3D camera on first plan-pane element —', cmdType);
+                } catch (err) {
+                    console.warn('[initTools] §13-CAM: zoomToAll() failed (non-fatal):', err);
+                }
+            }, 300);
+        });
+        runtime.events.on('pryzm-project-loaded', () => { _splitViewFirstFrameDone = false; });
+        console.log('[initTools] §13-CAM: split-view first-element camera framing registered.');
     }
 
     // ── Stair railing proposal handler ────────────────────────────────────────

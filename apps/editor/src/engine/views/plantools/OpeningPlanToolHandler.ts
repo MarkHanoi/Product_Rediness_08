@@ -59,6 +59,11 @@ export class OpeningPlanToolHandler implements PlanToolHandler {
     private _ctx: PlanToolDrawContext | null = null;
     private _points: WorldPoint[]            = [];
     private _cursorPt: WorldPoint | null     = null;
+
+    // §T-B1 (DAILY-USE-AUDIT 2026-05-20) — opt-in stroke-preservation per the
+    // PlanToolHandler.hasActiveStroke?() contract. Opening polylines must
+    // survive temporary off-canvas excursions during multi-click placement.
+    hasActiveStroke(): boolean { return this._points.length > 0; }
     private _hostSlabId: string | null       = null;
     private _mode: OpeningDrawingMode        = 'polyline';
     private _hud: HTMLElement | null         = null;

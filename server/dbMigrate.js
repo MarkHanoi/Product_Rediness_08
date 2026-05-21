@@ -189,9 +189,12 @@ CREATE TABLE IF NOT EXISTS visibility_intents (
 CREATE INDEX IF NOT EXISTS idx_visibility_intents_project ON visibility_intents(project_id);
 
 -- 12. Project Command Log (§30-REAL-TIME-COLLABORATION — catch-up for late joiners)
+-- §H22 (audit) — FK to projects(id) with ON DELETE CASCADE so deleting a
+-- project cleans up its command log; without this, rows lived forever and a
+-- recycled project_id inherited orphan commands across tenants.
 CREATE TABLE IF NOT EXISTS project_command_log (
     id           TEXT PRIMARY KEY,
-    project_id   TEXT NOT NULL,
+    project_id   TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     user_id      TEXT NOT NULL,
     command_type TEXT NOT NULL,
     payload      JSONB NOT NULL DEFAULT '{}',
@@ -354,15 +357,36 @@ CREATE INDEX IF NOT EXISTS idx_event_log_project_id ON event_log (project_id, cr
 CREATE INDEX IF NOT EXISTS idx_event_log_actor_id   ON event_log (actor_id, created_at DESC);
 `;
 
+// §B9 (audit) — advisory-lock key. A single hard-coded 64-bit lock key shared
+// by every server instance ensures only ONE process at a time runs DDL even
+// under Replit Autoscale's concurrent boot. The key value is arbitrary but
+// must stay stable. Generated once from sha256('pryzm-db-migrate') high bits.
+const MIGRATION_LOCK_KEY = 7401923875010843n;
+
 async function migrateViaPg(pool) {
     const client = await pool.connect();
+    let lockAcquired = false;
     try {
+        // §B9 — block until we own the lock; releases automatically on session
+        // end (client.release) but we also explicitly unlock in finally.
+        await client.query(`SELECT pg_advisory_lock($1)`, [MIGRATION_LOCK_KEY.toString()]);
+        lockAcquired = true;
+
         const cleanSql = SCHEMA_SQL
             .split('\n')
             .filter(line => !line.trimStart().startsWith('--'))
             .join('\n');
 
-        await client.query(cleanSql);
+        // §B9 — wrap the schema DDL in a transaction so a partial failure
+        // rolls the whole set back instead of leaving a half-applied schema.
+        await client.query('BEGIN');
+        try {
+            await client.query(cleanSql);
+            await client.query('COMMIT');
+        } catch (err) {
+            await client.query('ROLLBACK').catch(() => { /* best effort */ });
+            throw err;
+        }
 
         const columnMigrations = [
             `ALTER TABLE projects DROP CONSTRAINT IF EXISTS projects_owner_id_fkey`,
@@ -395,6 +419,11 @@ async function migrateViaPg(pool) {
             }
         }
     } finally {
+        // §B9 — release the advisory lock so concurrent boots can proceed.
+        if (lockAcquired) {
+            try { await client.query(`SELECT pg_advisory_unlock($1)`, [MIGRATION_LOCK_KEY.toString()]); }
+            catch (err) { console.warn('[dbMigrate] advisory unlock failed (non-fatal):', err.message); }
+        }
         client.release();
     }
 }

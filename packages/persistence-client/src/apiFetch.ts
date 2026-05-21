@@ -53,6 +53,22 @@ export function getCurrentUserId(): string | null {
 }
 
 /**
+ * §H14 (audit) — default request timeout. Without this every apiFetch caller
+ * (project load, catch-up replay, visibility-intent sync, etc.) hung
+ * indefinitely on a stalled server connection, leaving the UI permanently
+ * "loading" with no feedback. We default to 30 s; callers can override by
+ * passing their own `AbortSignal` in `init.signal` (we chain through).
+ */
+export class NetworkTimeoutError extends Error {
+    readonly code = 'NETWORK_TIMEOUT';
+    constructor(message = 'Network request timed out') {
+        super(message);
+        this.name = 'NetworkTimeoutError';
+    }
+}
+const DEFAULT_TIMEOUT_MS = 30_000;
+
+/**
  * Drop-in replacement for fetch() that adds Authorization: Bearer header.
  * Signature matches window.fetch so call-sites can swap without other changes.
  */
@@ -62,5 +78,26 @@ export function apiFetch(input: RequestInfo | URL, init: RequestInit = {}): Prom
     if (token && !headers.has('Authorization')) {
         headers.set('Authorization', `Bearer ${token}`);
     }
-    return fetch(input, { ...init, headers });
+
+    // §H14 — timeout via AbortController; respect caller-provided signal too.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+    if (typeof timer === 'object' && timer && 'unref' in timer && typeof (timer as { unref?: () => void }).unref === 'function') {
+        (timer as { unref: () => void }).unref();
+    }
+    if (init.signal) {
+        // If the caller's signal is already aborted, abort ours immediately.
+        if (init.signal.aborted) controller.abort();
+        else init.signal.addEventListener('abort', () => controller.abort(), { once: true });
+    }
+    return fetch(input, { ...init, headers, signal: controller.signal })
+        .catch((err) => {
+            if (err?.name === 'AbortError') {
+                throw new NetworkTimeoutError(
+                    `apiFetch timed out after ${DEFAULT_TIMEOUT_MS}ms: ${typeof input === 'string' ? input : (input as URL).toString?.() ?? '[Request]'}`
+                );
+            }
+            throw err;
+        })
+        .finally(() => clearTimeout(timer));
 }

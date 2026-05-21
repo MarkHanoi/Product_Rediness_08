@@ -15,11 +15,13 @@
     "plugins/*"
   ],
   "scripts": {
-    "dev": "node_modules/.bin/tsx server.js",
+    "dev": "tsx --env-file-if-exists=.env server.js",
+    "start": "node --env-file-if-exists=.env ./dist/index.cjs",
+    "migrate": "node --env-file-if-exists=.env scripts/migrate.mjs",
     "check:isolation": "node scripts/check-project-isolation.mjs && node scripts/check-storage-isolation.mjs",
     "check:commandmanager": "node scripts/ci-check-no-commandmanager.mjs",
     "scan": "node scripts/scan-logs.js",
-    "build": "node scripts/check-project-isolation.mjs && tsc --skipLibCheck && NODE_OPTIONS=--max-old-space-size=6144 vite build && node scripts/write-prod-shim.mjs",
+    "build": "node scripts/check-project-isolation.mjs && tsc --skipLibCheck && node --max-old-space-size=6144 node_modules/vite/bin/vite.js build && node scripts/write-prod-shim.mjs",
     "preview": "node server.js",
     "schemas:test": "npm test --workspace=@pryzm/schemas",
     "schemas:typecheck": "tsc -p packages/schemas/tsconfig.tests.json --noEmit",
@@ -55,7 +57,22 @@
     "vitest": "^4.1.5"
   },
   "overrides": {
-    "fast-xml-parser": "5.5.6"
+    "fast-xml-parser": "5.5.6",
+    "handlebars": "^4.7.9",
+    "three": "^0.183.2"
+  },
+  "pnpm": {
+    "overrides": {
+      "fast-xml-parser": "5.5.6",
+      "handlebars": "^4.7.9",
+      "three": "^0.183.2"
+    },
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp",
+      "protobufjs",
+      "core-js"
+    ]
   },
   "dependencies": {
     "@gltf-transform/functions": "^4.3.0",
@@ -237,12 +254,5 @@
     "yjs": "^13.6.30",
     "zod": "^4.3.6"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild",
-      "sharp",
-      "protobufjs",
-      "core-js"
-    ]
-  }
+  "//pnpmNote": "Moved into top-level pnpm.overrides above to satisfy §B16 jspdf/handlebars upgrade plan."
 }

@@ -115,11 +115,11 @@ export class MovePlanToolHandler implements PlanToolHandler {
             this._firstPt = null;
             this.redraw();
 
-            // Return to select mode after commit (UX: like Revit exits move after one operation)
-            const tm = window.toolManager;
-            if (tm?.setActiveTool) {
-                setTimeout(() => tm.setActiveTool('none'), 0);
-            }
+            // §T-H7 (DAILY-USE-AUDIT) — was `setTimeout(tm.setActiveTool('none'))` which
+            // exited Move after a SINGLE operation. The comment said "Revit-style" but
+            // Revit keeps Move active until Esc. This doubled clicks for repetitive layout
+            // work (move N walls = N × (click button → click pick → click target → click
+            // button again)). Removed: tool now stays active until user presses Esc.
         }
     }
 

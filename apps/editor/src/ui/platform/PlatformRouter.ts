@@ -149,8 +149,15 @@ export class PlatformRouter {
             }
         });
 
-        // CDE hub-menu events — fired by PlatformShell toolbar logo dropdown
-        window.runtime?.events?.on('pryzm-go-hub', () => { // F.events.12
+        // CDE hub-menu events — fired by PlatformShell toolbar logo dropdown.
+        // §33-NAV-FIX: these are PLATFORM-lifetime navigation events. PlatformRouter
+        // outlives any single project's `runtime` (and is constructed before the
+        // first runtime is composed), so listening via `window.runtime?.events?.on`
+        // at boot silently registered nothing — `window.runtime` was undefined and
+        // `?.` short-circuited. The hub-menu "Projects" / "Sign out" buttons then
+        // emitted into the void. Platform-nav events travel on the always-present
+        // `window` bus; every emitter also `window.dispatchEvent`s them.
+        window.addEventListener('pryzm-go-hub', () => { // §33-NAV-FIX
             const u = getCurrentUser();
             // Re-show platform root (hidden by launchWorkspace) and navigate to hub
             const platformRoot = document.getElementById(ROOT_ID);
@@ -169,7 +176,7 @@ export class PlatformRouter {
             }
         });
 
-        window.runtime?.events?.on('pryzm-sign-out', () => { // F.events.15
+        window.addEventListener('pryzm-sign-out', () => { // §33-NAV-FIX — platform-lifetime bus (see pryzm-go-hub above)
             signOut();
             const platformRoot = document.getElementById(ROOT_ID);
             if (platformRoot) {

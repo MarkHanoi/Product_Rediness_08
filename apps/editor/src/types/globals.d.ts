@@ -12,8 +12,8 @@
  *   • Every optional global is `T | undefined` (not just `T`) so TypeScript
  *     forces a null-check before use.
  *
- * This file is picked up automatically via `apps/editor/tsconfig.json`
- * `include: ["src/**/*"]`.  No explicit import is needed in consuming files.
+ * This file is picked up automatically by the editor tsconfig's source-tree
+ * include glob.  No explicit import is needed in consuming files.
  */
 
 // ── Sub-element shape declarations (inlined to avoid import cycles) ──────────
@@ -104,6 +104,23 @@ declare global {
         /** Y-elevation (metres) of the currently active floor level. */
         activeLevelElevation: number | undefined;
 
+        /**
+         * §STAIR-L-U-PLAN (DAILY-USE 2026-05-20) — Transitional global
+         * stamped by `BimService.createStair`'s setup-panel onConfirm so the
+         * plan-view `StairPlanToolHandler` can read the architect's choice
+         * of shape / width / typeId / mode without a new DI plumbing change.
+         * TODO(STAIR-PLAN-DI): replace with a `PlanToolDrawContext.stairConfig`
+         * slot threaded by the overlay so this complies with PRYZM-3 P4.
+         */
+        activeStairConfig: {
+            shape: 'I' | 'L' | 'U';
+            width?: number;
+            typeId?: string;
+            mode?: 'linear' | 'ortho';
+            baseLevelId?: string;
+            topLevelId?: string;
+        } | undefined;
+
         // ── Tool singletons (registered by initTools) ─────────────────────────
         slabTool: { enterProfileEditMode: (slab: object) => void } | undefined;
         ceilingTool:        unknown;
@@ -133,6 +150,9 @@ declare global {
             | undefined;
         gridStore:                  unknown;
         furnitureFragmentBuilder:   unknown;
+        /** §FT-FURNITURE (FURNITURE-BUS-MIGRATION): legacy FurnitureStore — set by
+         *  initBuilders.ts:609, consumed by the initTools §FT-FURNITURE bridge. */
+        furnitureStore:             unknown;
         lightingStore:              unknown;
         lightingBuilder:            unknown;
 

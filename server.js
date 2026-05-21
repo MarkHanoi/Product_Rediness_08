@@ -177,6 +177,60 @@ if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     }
 })();
 
+// ─────────────────────────────────────────────────────────────────────────────
+// §B4 (audit) — process-level crash safety.
+// Without these, a single async Socket.io handler rejection (e.g. `join-project`
+// hitting a transient DB blip) terminates the entire Node process on Node ≥15,
+// taking down every user. We log and KEEP RUNNING for unhandledRejection
+// (matches Node 14 legacy behaviour — safer for a long-lived BFF); we exit on
+// uncaughtException so the orchestrator restarts cleanly.
+// ─────────────────────────────────────────────────────────────────────────────
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[server] unhandledRejection — keeping process alive:', reason);
+    if (promise && typeof promise.catch === 'function') {
+        promise.catch(() => { /* drained */ });
+    }
+});
+process.on('uncaughtException', (err, origin) => {
+    console.error(`[server] uncaughtException (origin=${origin}) — exiting:`, err);
+    // Give logs a tick to flush, then hard-exit so the orchestrator restarts.
+    setTimeout(() => process.exit(1), 100).unref?.();
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §H16 / §B14 (audit) — fail fast on missing critical config in production.
+// In dev (`npm run dev`), missing vars degrade gracefully with warnings; in
+// production any of these unset means the server is in a broken state that
+// silently corrupts auth (SESSION_SECRET) or loses data (no DB). Refuse to
+// boot so the orchestrator surfaces the failure instead of running broken.
+// ─────────────────────────────────────────────────────────────────────────────
+function assertRequiredEnv() {
+    if (!isProd) return; // dev: warnings only
+    const missing = [];
+    if (!process.env.SESSION_SECRET) missing.push('SESSION_SECRET');
+    if (!process.env.DATABASE_URL && !process.env.SUPABASE_DB_URL) {
+        missing.push('DATABASE_URL or SUPABASE_DB_URL');
+    }
+    if (missing.length > 0) {
+        console.error('[server] FATAL — missing required production env vars:');
+        for (const v of missing) console.error('  •', v);
+        console.error('[server] Refusing to start. See .env.example for the full list.');
+        process.exit(1);
+    }
+    // Soft warnings (non-fatal but loud) — these degrade specific features.
+    const soft = [];
+    if (!process.env.ALLOWED_ORIGIN) soft.push('ALLOWED_ORIGIN (CORS will fail closed)');
+    if (!process.env.PUBLIC_BASE_URL) soft.push('PUBLIC_BASE_URL (OAuth redirects fragile)');
+    if (!process.env.CF_WORKER_URL && !process.env.ANTHROPIC_API_KEY) {
+        soft.push('CF_WORKER_URL or ANTHROPIC_API_KEY (AI features disabled)');
+    }
+    if (soft.length > 0) {
+        console.warn('[server] ⚠  Production env vars missing (functionality limited):');
+        for (const v of soft) console.warn('  •', v);
+    }
+}
+assertRequiredEnv();
+
 const app = express();
 app.disable('x-powered-by');
 const httpServer = createServer(app);
@@ -221,9 +275,17 @@ app.use('/api', globalLimiter);
 // Contract:  PRYZM_MASTER_ROADMAP_2026 §E-2 read endpoints; 07-BIM-SECURITY-CONTRACT §1
 // FAMILY-MARKETPLACE (S59) — mount BEFORE the generic v1Router so the raw-body
 // router takes precedence over the JSON-body router for /api/v1/families/*.
+// §B3 (audit) — family marketplace publish (POST /api/v1/families) had NO
+// auth: anyone on the public internet could publish .pryzm-family packages
+// that the EICAR-stub virus scanner would happily forward. authMiddleware is
+// fail-open, so it identifies the caller and `req.auth.userId` is available;
+// the router's POST handlers must reject `'anonymous'` themselves. (The GET /
+// catalog and GET /:id/download routes remain accessible to anonymous readers
+// — same model as the public `/marketplace` browse pages.)
 app.use(
     '/api/v1/families',
     apiLimiter,
+    authMiddleware,
     buildFamilyMarketplaceRouter({
         publicBaseUrl: process.env.PUBLIC_BASE_URL ?? '',
     }),
@@ -299,6 +361,20 @@ try {
         return true;
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // §B2 (audit) — Cross-tenant data-injection guard.
+    // `join-project` enforces canUserAccessProject and is the only gate that
+    // joins the socket to `project:${projectId}`. Every OTHER mutating socket
+    // event must verify this socket actually JOINED the requested project room
+    // before broadcasting or persisting — otherwise an authenticated (or
+    // anonymous) socket can inject forged commands/cursors/comments into any
+    // other tenant's project room using a client-supplied projectId.
+    // ─────────────────────────────────────────────────────────────────────────
+    function _socketInProjectRoom(socket, projectId) {
+        if (typeof projectId !== 'string' || !projectId) return false;
+        return socket.rooms.has(`project:${projectId}`);
+    }
+
     io.on('connection', (socket) => {
         // H3: Resolve user identity once on connection
         const resolvedUserId = resolveSocketUserId(socket);
@@ -362,6 +438,12 @@ try {
                 return;
             }
 
+            // §B2 (audit) — must have joined the room first via authorized join-project.
+            if (!_socketInProjectRoom(socket, data.projectId)) {
+                console.warn(`[socket.io] command-executed from ${socket.id} (${socket.data.userId}) for unjoined project ${data.projectId} — rejected (§B2)`);
+                return;
+            }
+
             // §30-REAL-TIME-COLLABORATION: persist command to log for catch-up.
             // Non-blocking — broadcast is not delayed by DB write.
             // PERF-FIX (Apr 2026): Prefer Supabase REST (works on Replit's IPv4-
@@ -419,26 +501,31 @@ try {
 
         socket.on('vi:intent-updated', (data) => {
             if (typeof data !== 'object' || data === null || typeof data.projectId !== 'string' || typeof data.intentId !== 'string') return;
+            if (!_socketInProjectRoom(socket, data.projectId)) return; // §B2
             socket.to(`project:${data.projectId}`).emit('vi:intent-updated', { ...data, userId: socket.data.userId });
         });
 
         socket.on('vi:override-set', (data) => {
             if (typeof data !== 'object' || data === null || typeof data.projectId !== 'string' || typeof data.viewId !== 'string') return;
+            if (!_socketInProjectRoom(socket, data.projectId)) return; // §B2
             socket.to(`project:${data.projectId}`).emit('vi:override-set', { ...data, userId: socket.data.userId });
         });
 
         // Stage S8 — broadcast view-intent instance + override-cleared events.
         socket.on('vi:instance-updated', (data) => {
             if (typeof data !== 'object' || data === null || typeof data.projectId !== 'string' || typeof data.viewId !== 'string') return;
+            if (!_socketInProjectRoom(socket, data.projectId)) return; // §B2
             socket.to(`project:${data.projectId}`).emit('vi:instance-updated', { ...data, userId: socket.data.userId });
         });
         socket.on('vi:overrides-cleared', (data) => {
             if (typeof data !== 'object' || data === null || typeof data.projectId !== 'string' || typeof data.viewId !== 'string') return;
+            if (!_socketInProjectRoom(socket, data.projectId)) return; // §B2
             socket.to(`project:${data.projectId}`).emit('vi:overrides-cleared', { ...data, userId: socket.data.userId });
         });
 
         socket.on('cursor-move', (data) => {
             if (typeof data !== 'object' || data === null || typeof data.projectId !== 'string') return;
+            if (!_socketInProjectRoom(socket, data.projectId)) return; // §B2
             // §50 CP-1: enrich with server-authoritative displayName (never trust client claim)
             socket.to(`project:${data.projectId}`).emit('remote-cursor', {
                 userId:      socket.data.userId,
@@ -451,6 +538,7 @@ try {
         socket.on('sheet-comment-add', (data) => {
             if (typeof data !== 'object' || data === null || typeof data.projectId !== 'string') return;
             if (typeof data.sheetId !== 'string' || typeof data.comment !== 'object') return;
+            if (!_socketInProjectRoom(socket, data.projectId)) return; // §B2
             socket.to(`project:${data.projectId}`).emit('remote-sheet-comment-add', {
                 userId: socket.data.userId,
                 sheetId: data.sheetId,
@@ -461,6 +549,7 @@ try {
         socket.on('sheet-comment-resolve', (data) => {
             if (typeof data !== 'object' || data === null || typeof data.projectId !== 'string') return;
             if (typeof data.sheetId !== 'string' || typeof data.commentId !== 'string') return;
+            if (!_socketInProjectRoom(socket, data.projectId)) return; // §B2
             socket.to(`project:${data.projectId}`).emit('remote-sheet-comment-resolve', {
                 userId:    socket.data.userId,
                 sheetId:   data.sheetId,
@@ -591,8 +680,40 @@ async function _httpCanAccess(userId, projectId) {
 // still accepted (no token → anonymous), but the userId is always resolved
 // before reaching the Anthropic API call so that server-side quota tracking
 // (§6) can identify the caller.
+// §B1 (audit) — clamp every AI request to a safe, server-controlled shape.
+// Prevents the open-cost class of attack: anonymous IP-rotating callers can no
+// longer drain the Anthropic budget, and authenticated callers cannot pick a
+// premium model or set max_tokens=200000 to inflict $$$ per call.
+const MAX_AI_TOKENS = 4096;
+const MAX_AI_BODY_BYTES = 256 * 1024; // 256 KB upper bound on prompt payload
+function sanitizeAiBody(body) {
+    if (!body || typeof body !== 'object') {
+        return { ok: false, reason: 'body must be a JSON object' };
+    }
+    // Hard byte cap (rough — JSON re-stringify) so a malicious 50MB prompt
+    // can't slip through the global 50MB JSON parser.
+    let approxBytes = 0;
+    try { approxBytes = Buffer.byteLength(JSON.stringify(body), 'utf8'); }
+    catch { return { ok: false, reason: 'body not serializable' }; }
+    if (approxBytes > MAX_AI_BODY_BYTES) {
+        return { ok: false, reason: `body too large (${approxBytes} > ${MAX_AI_BODY_BYTES} bytes)` };
+    }
+    // Server forces model — clients cannot pick a premium snapshot.
+    const clamped = { ...body, model: ANTHROPIC_MODEL_ID };
+    // Clamp max_tokens to a sane ceiling (default 1024 if missing).
+    const requested = Number.isFinite(clamped.max_tokens) ? Math.floor(clamped.max_tokens) : 1024;
+    clamped.max_tokens = Math.max(1, Math.min(requested, MAX_AI_TOKENS));
+    return { ok: true, body: clamped };
+}
+
 app.post('/api/anthropic/v1/messages', aiLimiter, authMiddleware, async (req, res) => {
     const callerId = req.auth?.userId ?? 'anonymous';
+
+    // §B1 (audit) — require auth on AI routes. Anonymous IP-rotating callers
+    // previously got an unlimited budget gated only by per-IP rate limits.
+    if (callerId === 'anonymous') {
+        return res.status(401).json({ error: 'AI proxy requires authentication.' });
+    }
     console.log(`[proxy] Request received — caller: ${callerId}`);
 
     // §1.4: CF_WORKER_URL takes priority; ANTHROPIC_API_KEY is the legacy fallback.
@@ -600,9 +721,15 @@ app.post('/api/anthropic/v1/messages', aiLimiter, authMiddleware, async (req, re
         return res.status(500).json({ error: 'No AI upstream configured: set CF_WORKER_URL or ANTHROPIC_API_KEY' });
     }
 
+    // §B1 (audit) — sanitize body: force model, clamp max_tokens, byte cap.
+    const sanitized = sanitizeAiBody(req.body);
+    if (!sanitized.ok) {
+        console.warn(`[proxy] Body rejected — caller: ${callerId} reason: ${sanitized.reason}`);
+        return res.status(400).json({ error: `Invalid AI request: ${sanitized.reason}` });
+    }
+    const safeBody = sanitized.body;
+
     // ── C4: Server-side quota enforcement ─────────────────────────────────────
-    // The server is the ONLY authoritative source of a user's AI quota.
-    // Client-side plan state (localStorage) is never consulted here.
     const quota = enforceAIQuota(callerId);
     if (!quota.allowed) {
         console.warn(`[proxy] Quota exceeded — caller: ${callerId} plan: ${quota.plan} limit: ${quota.limit}`);
@@ -616,15 +743,13 @@ app.post('/api/anthropic/v1/messages', aiLimiter, authMiddleware, async (req, re
     console.log(`[proxy] Quota OK — caller: ${callerId} plan: ${quota.plan} remaining: ${quota.remaining}`);
 
     try {
-        // §1.4 CF Worker relay: forward to Cloudflare Worker (holds API key as CF secret).
-        // Fallback: call Anthropic directly when only ANTHROPIC_API_KEY is available.
         let response;
         if (CF_WORKER_URL) {
             console.log(`[proxy] Routing via CF Worker: ${CF_WORKER_URL}`);
             response = await fetch(CF_WORKER_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(req.body),
+                body: JSON.stringify(safeBody),
             });
         } else {
             console.log('[proxy] Routing direct → api.anthropic.com');
@@ -635,7 +760,7 @@ app.post('/api/anthropic/v1/messages', aiLimiter, authMiddleware, async (req, re
                     'x-api-key': ANTHROPIC_API_KEY,
                     'anthropic-version': '2023-06-01',
                 },
-                body: JSON.stringify(req.body),
+                body: JSON.stringify(safeBody),
             });
         }
         const data = await response.json();
@@ -647,13 +772,14 @@ app.post('/api/anthropic/v1/messages', aiLimiter, authMiddleware, async (req, re
                 `[proxy] Token usage — caller: ${callerId}` +
                 ` input: ${usage.input_tokens ?? '?'}` +
                 ` output: ${usage.output_tokens ?? '?'}` +
-                ` model: ${data.model ?? req.body?.model ?? '?'}`
+                ` model: ${data.model ?? safeBody.model ?? '?'}`
             );
         }
         res.status(response.status).json(data);
     } catch (err) {
         console.error('[proxy] Fetch error:', err);
-        res.status(500).json({ error: String(err) });
+        // §H8 (audit) — never leak internal error text to the client.
+        res.status(500).json({ error: 'AI upstream request failed.' });
     }
 });
 
@@ -751,7 +877,7 @@ Available template options: ${JSON.stringify(templateOptions)}`;
         }
     } catch (err) {
         console.error('[brief/parse] Fetch error:', err);
-        return res.status(500).json({ error: String(err) });
+        return res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -814,7 +940,7 @@ Do not explain what went wrong in detail — just give actionable fixes. Keep ea
         return res.json({ rawText });
     } catch (err) {
         console.error('[generative/advise] Fetch error:', err);
-        return res.status(500).json({ error: String(err) });
+        return res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -900,7 +1026,7 @@ Do not repeat information already in the violation message — add value with co
         return res.json({ rawText });
     } catch (err) {
         console.error('[compliance/advise] Fetch error:', err);
-        return res.status(500).json({ error: String(err) });
+        return res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -995,7 +1121,7 @@ Guidelines:
         return res.json({ text });
     } catch (err) {
         console.error('[ai/portfolio/query] Fetch error:', err);
-        return res.status(500).json({ error: String(err) });
+        return res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -1104,7 +1230,7 @@ If you cannot resolve spatial references from the context, use intent="clarify".
         return res.json(parsed);
     } catch (err) {
         console.error('[ai/voice/parse] Error:', err);
-        return res.status(500).json({ error: String(err) });
+        return res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -1228,7 +1354,7 @@ Rules:
         });
     } catch (err) {
         console.error('[ai/ambient/analyse] Error:', err);
-        return res.status(500).json({ error: String(err) });
+        return res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -1396,7 +1522,7 @@ app.get('/api/media-list', (_req, res) => {
         }
         res.json({ files });
     } catch (err) {
-        res.status(500).json({ error: String(err) });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -1779,6 +1905,25 @@ app.use('/api/stripe', authMiddleware, stripeRouter);
 // Reports active DB backend, Supabase REST reachability, and schema integrity
 // so deployment issues are immediately visible without reading server logs.
 // Contract: C05-PERSISTENCE-AND-FILE-FORMAT §1.3 + §1.3.1
+// §H18 (audit) — split health into cheap LIVENESS and deep READINESS endpoints.
+// Load balancers and process supervisors should poll /api/health/live (no DB,
+// returns 200 as long as the process is alive); orchestrators that need to
+// route traffic away from a broken instance should poll /api/health/ready
+// (single-shot SELECT 1, returns 503 when the DB is down). The full deep
+// /api/health endpoint runs three information_schema queries and a FK check —
+// previously polled every few seconds it would self-DoS the PG pool.
+app.get('/api/health/live', (_req, res) => res.status(200).json({ ok: true }));
+app.get('/api/health/ready', async (_req, res) => {
+    try {
+        const pool = getPgPool();
+        if (!pool) return res.status(503).json({ ok: false, reason: 'no-db-pool' });
+        await pool.query('SELECT 1');
+        return res.status(200).json({ ok: true });
+    } catch (err) {
+        return res.status(503).json({ ok: false, reason: 'db-error' });
+    }
+});
+
 app.get('/api/health', async (_req, res) => {
     const pg = getBackendInfo();
 
@@ -1874,7 +2019,7 @@ app.post('/api/render/save', authMiddleware, renderUpload.single('image'), async
         res.json({ id, url, saved: true });
     } catch (err) {
         console.error('[render/save]', err);
-        res.status(500).json({ error: String(err) });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -1884,7 +2029,7 @@ app.get('/api/render/list', authMiddleware, async (req, res) => {
         const renders = await listRendersForUser(userId);
         res.json({ renders });
     } catch (err) {
-        res.status(500).json({ error: String(err) });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -1899,7 +2044,7 @@ app.get('/api/render/:id/image', authMiddleware, async (req, res) => {
         res.set('Cache-Control', 'private, max-age=86400');
         res.send(buffer);
     } catch (err) {
-        res.status(500).json({ error: String(err) });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -1910,7 +2055,7 @@ app.delete('/api/render/:id', authMiddleware, async (req, res) => {
         if (!deleted) return res.status(404).json({ error: 'Render not found.' });
         res.json({ deleted: true });
     } catch (err) {
-        res.status(500).json({ error: String(err) });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -1938,7 +2083,7 @@ app.post('/api/panorama/save', authMiddleware, panoramaUpload.single('image'), a
         res.json({ id, url, saved: true });
     } catch (err) {
         console.error('[panorama/save]', err);
-        res.status(500).json({ error: String(err) });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -1948,7 +2093,7 @@ app.get('/api/panorama/list', authMiddleware, async (req, res) => {
         const panoramas = await listPanoramasForUser(userId);
         res.json({ panoramas });
     } catch (err) {
-        res.status(500).json({ error: String(err) });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -1963,7 +2108,7 @@ app.get('/api/panorama/:id/image', authMiddleware, async (req, res) => {
         res.set('Cache-Control', 'private, max-age=86400');
         res.send(buffer);
     } catch (err) {
-        res.status(500).json({ error: String(err) });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -1974,7 +2119,7 @@ app.delete('/api/panorama/:id', authMiddleware, async (req, res) => {
         if (!deleted) return res.status(404).json({ error: 'Panorama not found.' });
         res.json({ deleted: true });
     } catch (err) {
-        res.status(500).json({ error: String(err) });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -2272,7 +2417,7 @@ app.get('/api/projects', authMiddleware, async (req, res) => {
             .sort((a, b) => b.updatedAt - a.updatedAt);
         res.json({ projects });
     } catch (err) {
-        res.status(500).json({ error: String(err) });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -2314,7 +2459,24 @@ app.post('/api/projects', authMiddleware, async (req, res) => {
         _projects.set(id, meta);
         res.status(201).json({ project: meta });
     } catch (err) {
-        res.status(500).json({ error: String(err) });
+        // §SCHEMA-GUARD: a missing `projects` table (Supabase schema never applied)
+        // surfaces here as a PostgREST / Postgres "relation does not exist" error.
+        // Return an actionable 503 instead of an opaque 500 so the operator knows
+        // to apply server/schema.sql — see server/supabaseMigrate.js header.
+        const m = err?.message ?? String(err);
+        const code = err?.code ?? '';
+        const schemaMissing =
+            code === '42P01' || code === 'PGRST205' || code === 'PGRST116' ||
+            /relation .* does not exist|could not find the table|schema cache/i.test(m);
+        if (schemaMissing) {
+            console.error('[POST /api/projects] Supabase schema not applied — cannot create project:', m);
+            return res.status(503).json({
+                error: 'Database schema not applied. Open the Supabase SQL Editor, run the contents of server/schema.sql, then restart the server.',
+                code: 'schema_not_applied',
+            });
+        }
+        console.error('[POST /api/projects] project creation failed:', m);
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -2426,7 +2588,7 @@ app.get('/api/projects/:id', authMiddleware, async (req, res) => {
         res.set('ETag', `"v${proj.versionCount ?? 0}"`);
         res.json({ project: proj });
     } catch (err) {
-        res.status(500).json({ error: String(err) });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -2466,7 +2628,7 @@ app.delete('/api/projects/:id', authMiddleware, async (req, res) => {
         return res.json({ deleted: true });
     } catch (err) {
         console.error('[DELETE /api/projects/:id]', err);
-        res.status(500).json({ error: String(err) });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -2522,7 +2684,7 @@ app.patch('/api/projects/:id/thumbnail', authMiddleware, async (req, res) => {
         return res.json({ ok: true });
     } catch (err) {
         console.error('[PATCH /api/projects/:id/thumbnail]', err);
-        res.status(500).json({ error: String(err) });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -2572,7 +2734,7 @@ app.get('/api/projects/:id/versions', authMiddleware, async (req, res) => {
             .map(v => ({ id: v.id, projectId: v.projectId, label: v.label, timestamp: v.timestamp, elementCount: v.elementCount }));
         res.json({ versions });
     } catch (err) {
-        res.status(500).json({ error: String(err) });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -2622,7 +2784,7 @@ app.get('/api/projects/:id/latest-version', authMiddleware, async (req, res) => 
         res.set('ETag', `"${all[0].id}"`);
         return res.json({ version: all[0] });
     } catch (err) {
-        res.status(500).json({ error: String(err) });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -3049,7 +3211,7 @@ app.get('/api/projects/:id/versions/:vid', authMiddleware, async (req, res) => {
         if (!ver) return res.status(404).json({ error: 'Not found' });
         res.json({ version: ver });
     } catch (err) {
-        res.status(500).json({ error: String(err) });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -3095,6 +3257,12 @@ function visibilityIntentPayload(body, fallbackId = null) {
 
 app.get('/api/projects/:id/visibility-intents', authMiddleware, async (req, res) => {
     const { id } = req.params;
+    // §H2 (audit) — was leaking any project's visibility config to any
+    // authenticated user. Restrict to members of the project.
+    const userId = req.auth?.userId ?? 'anonymous';
+    if (!await _httpCanAccess(userId, id)) {
+        return res.status(403).json({ error: 'Forbidden — no access to this project.' });
+    }
     try {
         const supabase = await getSupabaseClient();
         if (supabase) {
@@ -3117,7 +3285,7 @@ app.get('/api/projects/:id/visibility-intents', authMiddleware, async (req, res)
         }
         return res.json({ intents: (_visibilityIntents.get(id) ?? []).map(normalizeVisibilityIntentRow) });
     } catch (err) {
-        res.status(500).json({ error: String(err) });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -3171,7 +3339,7 @@ app.post('/api/projects/:id/visibility-intents', authMiddleware, async (req, res
         _visibilityIntents.set(id, list);
         return res.status(201).json({ intent: row });
     } catch (err) {
-        res.status(500).json({ error: String(err) });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -3224,7 +3392,7 @@ app.put('/api/projects/:id/visibility-intents/:intentId', authMiddleware, async 
         _visibilityIntents.set(id, list);
         return res.json({ intent: list[idx] });
     } catch (err) {
-        res.status(500).json({ error: String(err) });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -3259,7 +3427,7 @@ app.delete('/api/projects/:id/visibility-intents/:intentId', authMiddleware, asy
         _visibilityIntents.set(id, list.filter(intent => intent.id !== intentId || intent.isSystem));
         return res.status(204).end();
     } catch (err) {
-        res.status(500).json({ error: String(err) });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -3425,6 +3593,11 @@ app.get('/api/projects/:id/members', authMiddleware, async (req, res) => {
     const { id } = req.params;
     const userId = req.auth?.userId ?? 'anonymous';
     const isOwner = getUserPlan(userId) === 'owner';
+    // §H2 (audit) — every authenticated user could previously list any
+    // project's members. Owner-or-member only.
+    if (!isOwner && !await _httpCanAccess(userId, id)) {
+        return res.status(403).json({ error: 'Forbidden — no access to this project.' });
+    }
     try {
         const supabase = await getSupabaseClient();
         const members = supabase
@@ -3433,7 +3606,7 @@ app.get('/api/projects/:id/members', authMiddleware, async (req, res) => {
         res.json({ members });
     } catch (err) {
         console.error('[api/members] GET error:', err);
-        res.status(500).json({ error: String(err) });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -3465,7 +3638,7 @@ app.post('/api/projects/:id/members', authMiddleware, async (req, res) => {
         res.status(201).json({ member });
     } catch (err) {
         console.error('[api/members] POST error:', err);
-        res.status(500).json({ error: String(err) });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -3495,7 +3668,7 @@ app.patch('/api/projects/:id/members/:uid/role', authMiddleware, async (req, res
         res.json({ member });
     } catch (err) {
         console.error('[api/members] PATCH role error:', err);
-        res.status(500).json({ error: String(err) });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -3523,7 +3696,7 @@ app.delete('/api/projects/:id/members/:uid', authMiddleware, async (req, res) =>
         res.status(204).end();
     } catch (err) {
         console.error('[api/members] DELETE error:', err);
-        res.status(500).json({ error: String(err) });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -3578,12 +3751,17 @@ app.post('/api/projects/:id/versions/:vid/transition', authMiddleware, async (re
         res.json({ state: result.newState, auditEntry: result.auditEntry });
     } catch (err) {
         console.error('[api/versions/transition] error:', err);
-        res.status(500).json({ error: String(err) });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
 app.get('/api/projects/:id/versions/:vid/audit', authMiddleware, async (req, res) => {
     const { id, vid } = req.params;
+    // §H2 (audit) — restrict cross-tenant audit-log read.
+    const userId = req.auth?.userId ?? 'anonymous';
+    if (!await _httpCanAccess(userId, id)) {
+        return res.status(403).json({ error: 'Forbidden — no access to this project.' });
+    }
     try {
         const supabase = await getSupabaseClient();
         if (supabase) {
@@ -3599,12 +3777,17 @@ app.get('/api/projects/:id/versions/:vid/audit', authMiddleware, async (req, res
         res.json({ auditLog: getAuditLog(vid) });
     } catch (err) {
         console.error('[api/versions/audit] error:', err);
-        res.status(500).json({ error: String(err) });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
 app.get('/api/projects/:id/versions/:vid/state', authMiddleware, async (req, res) => {
     const { id, vid } = req.params;
+    // §H2 (audit) — restrict cross-tenant CDE-state read.
+    const userId = req.auth?.userId ?? 'anonymous';
+    if (!await _httpCanAccess(userId, id)) {
+        return res.status(403).json({ error: 'Forbidden — no access to this project.' });
+    }
     try {
         const supabase = await getSupabaseClient();
         if (supabase) {
@@ -3618,7 +3801,7 @@ app.get('/api/projects/:id/versions/:vid/state', authMiddleware, async (req, res
         res.json({ state: getVersionState(vid) });
     } catch (err) {
         console.error('[api/versions/state] error:', err);
-        res.status(500).json({ error: String(err) });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -3692,7 +3875,7 @@ Respond with ONLY a JSON object: { "name": "..." }`;
         res.json({ name: String(parsed.name).slice(0, 100) });
     } catch (err) {
         console.error('[/api/ai/rooms/suggest-name]', err);
-        res.status(500).json({ error: String(err) });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -3766,7 +3949,7 @@ Respond with ONLY a JSON object (no markdown):
         res.json({ finishes: parsed.finishes });
     } catch (err) {
         console.error('[/api/ai/rooms/suggest-finishes]', err);
-        res.status(500).json({ error: String(err) });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -3846,7 +4029,7 @@ Include 2–12 rooms maximum. Use only the occupancyType values listed above.`;
         res.json({ rooms });
     } catch (err) {
         console.error('[/api/ai/rooms/generate-programme]', err);
-        res.status(500).json({ error: String(err) });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -3930,7 +4113,7 @@ Respond with ONLY a JSON object:
         });
     } catch (err) {
         console.error('[/api/ai/rooms/analyse-adjacency]', err);
-        res.status(500).json({ error: String(err) });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -4909,19 +5092,101 @@ if (isProd) {
     app.use(vite.middlewares);
 }
 
-// ── DB AUTO-MIGRATION: runs schema DDL on every cold start ────────────────────
-// Ensures pryzm_users, projects, project_versions, etc. always exist.
-// Safe to re-run — all statements use IF NOT EXISTS.
-// This is what prevents "relation does not exist" errors on new Replit accounts.
-await runMigrations();
-
-// Start AI cache cleanup AFTER migrations so the table is guaranteed to exist.
-runCacheCleanup();
-setInterval(runCacheCleanup, CACHE_CLEANUP_INTERVAL_MS);
-
-const PORT = process.env.PORT || 5000;
-const supabaseActiveForLog = await getSupabaseClient().then(c => !!c).catch(() => false);
-httpServer.listen(PORT, '0.0.0.0', () => {
-    console.log(`[server] Running on port ${PORT} (${isProd ? 'production' : 'development'})`);
-    console.log(`[server] Features: authMode=jwt supabase=${supabaseActiveForLog} socketio=${!!io}`);
+// ─────────────────────────────────────────────────────────────────────────────
+// §B5 (audit) — terminal global error handler.
+// Express's default 4-arg error handler fires when any middleware/route calls
+// next(err) or a synchronous throw escapes the route handler (including
+// malformed JSON bodies from express.json() throwing SyntaxError). Without
+// this, Express returns a stack-trace HTML page in dev and a bare HTML 500
+// in prod. We log details server-side and return a generic JSON envelope.
+// MUST be the LAST middleware added.
+// ─────────────────────────────────────────────────────────────────────────────
+app.use((err, req, res, _next) => {
+    const status = (typeof err?.status === 'number' && err.status >= 400 && err.status < 600) ? err.status : 500;
+    const isJsonParse = err?.type === 'entity.parse.failed' || err?.name === 'SyntaxError';
+    console.error(`[server] terminal error handler — ${req.method} ${req.originalUrl} → ${status}:`, err?.stack ?? err);
+    if (res.headersSent) return; // can't change response if already started
+    res.status(isJsonParse ? 400 : status).json({
+        error: isJsonParse ? 'Malformed JSON body.' : 'Internal server error.',
+    });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §H18 (audit) — listen FIRST, then run migrations.
+// Previously `await runMigrations()` ran before listen(). If the DB was slow at
+// boot (cold pool, network blip) the port stayed closed for up to 10 s, the
+// LB declared the instance dead, and Replit killed it before it ever served.
+// Now we listen immediately so /api/health/live is reachable; migrations run
+// in the background and a flag tracks readiness for /api/health/ready.
+// ─────────────────────────────────────────────────────────────────────────────
+const PORT = process.env.PORT || 5000;
+let _migrationsReady = false;
+let _supabaseActiveForLog = false;
+
+// §M5 (audit) — surface listen() errors with a clear message instead of an
+// uncaught EADDRINUSE crash with an unhelpful stack.
+httpServer.on('error', (err) => {
+    console.error(`[server] httpServer error — ${err.code ?? ''} ${err.message}`);
+    if (err.code === 'EADDRINUSE') process.exit(1);
+});
+
+httpServer.listen(PORT, '0.0.0.0', async () => {
+    console.log(`[server] Listening on port ${PORT} (${isProd ? 'production' : 'development'})`);
+    // Now run migrations + supabase ping in the background.
+    try {
+        await runMigrations();
+        _migrationsReady = true;
+        console.log('[server] DB migrations complete.');
+    } catch (err) {
+        console.error('[server] runMigrations() failed (server still up; /ready will return 503):', err);
+    }
+    try {
+        _supabaseActiveForLog = await getSupabaseClient().then(c => !!c).catch(() => false);
+    } catch { /* non-fatal */ }
+    // Start AI cache cleanup AFTER migrations so the table exists.
+    runCacheCleanup();
+    setInterval(runCacheCleanup, CACHE_CLEANUP_INTERVAL_MS).unref?.();
+    console.log(`[server] Features: authMode=jwt supabase=${_supabaseActiveForLog} socketio=${!!io} migrationsReady=${_migrationsReady}`);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §B8 (audit) — graceful shutdown on SIGTERM/SIGINT.
+// Without this, every Replit Autoscale scale-down / redeploy hard-kills the
+// process: in-flight HTTP requests drop, Socket.io clients hard-disconnect,
+// the PG pool leaks server-side connections until timeout, fire-and-forget
+// _persistToDb() writes lose data. We stop accepting new connections, drain,
+// close io + pool, then exit. A 10 s force-exit timer covers a hung close.
+// ─────────────────────────────────────────────────────────────────────────────
+let _shuttingDown = false;
+function _shutdown(signal) {
+    if (_shuttingDown) return;
+    _shuttingDown = true;
+    console.log(`[server] ${signal} received — graceful shutdown starting…`);
+    const force = setTimeout(() => {
+        console.error('[server] graceful shutdown timed out — forcing exit.');
+        process.exit(1);
+    }, 10_000);
+    force.unref?.();
+
+    // Stop accepting new HTTP / Socket.io connections.
+    httpServer.close((err) => {
+        if (err) console.error('[server] httpServer.close error:', err);
+        else console.log('[server] httpServer closed.');
+    });
+    if (io) {
+        try { io.close(() => console.log('[server] socket.io closed.')); }
+        catch (e) { console.error('[server] io.close error:', e); }
+    }
+    // Drain the PG pool.
+    const pool = getPgPool();
+    if (pool) {
+        pool.end()
+            .then(() => console.log('[server] pg pool drained.'))
+            .catch((e) => console.error('[server] pool.end error:', e))
+            .finally(() => process.exit(0));
+    } else {
+        setTimeout(() => process.exit(0), 200).unref?.();
+    }
+}
+process.on('SIGTERM', () => _shutdown('SIGTERM'));
+process.on('SIGINT',  () => _shutdown('SIGINT'));

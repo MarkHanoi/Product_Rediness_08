@@ -656,8 +656,16 @@ export class SplitViewManager implements ISplitViewManager {
             this._lastRender = 0;
         };
         // F.events.16 — bim-selection-changed migrated to runtime.events typed bus.
+        // runtime.events.on() returns a Disposable ({ dispose() }), NOT an unsubscribe
+        // function (see packages/runtime-composer/src/EventBus.ts). Calling it as a
+        // function threw `TypeError: _unsubSelectionChanged is not a function` inside
+        // _unsubscribeSelectionEvents(), aborting deactivate() and wedging the split-view
+        // toggle button. Dispose via .dispose() — matches the svp:drawing-refreshed
+        // pattern immediately below.
         const _unsubSelectionChanged = window.runtime?.events?.on('bim-selection-changed', selectionHandler) ?? null;
-        this._selectionUnlisteners.push(() => _unsubSelectionChanged?.());
+        if (_unsubSelectionChanged) {
+            this._selectionUnlisteners.push(() => _unsubSelectionChanged.dispose());
+        }
 
         // When PlanViewManager finishes reprojecting the split view's elevation/section
         // (after a scope/crop change), reset the fit flag so the camera re-fits to the

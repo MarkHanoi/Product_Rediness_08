@@ -100,6 +100,39 @@ export class SelectionManager implements ISelectionManager {
     private _lastHoveredUuid: string | null = null;
     /** The actual last hovered semantic root — used by Enter-key selection. */
     private _lastHoveredObject: THREE.Object3D | null = null;
+    /**
+     * §SELECT-3D-1 (DAILY-USE 2026-05-20) — GPU-CONFIRMED last hovered semantic
+     * root.  Distinct from `_lastHoveredObject` (which is written by BOTH the
+     * BVH/raycaster fast-path AND the GPU rAF) — this field is set ONLY by the
+     * GPU pick rAF on a hit, and cleared on a miss.
+     *
+     * Architectural motivation:
+     *   The click-anchor branch in `performSelection()` (FIX-S16-ANCHOR) uses
+     *   `_lastHoverConfirmedClientX/Y` — coordinates that ONLY the GPU rAF
+     *   writes — as the gate, but then it dereferenced `_lastHoveredObject`,
+     *   which the BVH path also writes on every pointermove.  At far camera
+     *   distance (zoomed out), the BVH raycast can hit a different (often
+     *   front-most-AABB-overlap) element than the pixel-accurate GPU pick:
+     *
+     *     T0 pointermove#1 → BVH writes _lastHoveredObject=A, schedules GPU rAF
+     *     T1 GPU rAF      → writes _lastHoveredObject=B (correct), anchor=(x,y)
+     *     T2 pointermove#2 (same spot) → BVH writes _lastHoveredObject=A again
+     *     T3 click ←  anchor branch fires (cursor within 8px of T1 anchor),
+     *                 reads _lastHoveredObject=A → WRONG ELEMENT SELECTED.
+     *
+     *   Reported by the architect: "the selection of objects - plan view works
+     *   great - but 3d scene not - when I point element on far distance select
+     *   others. Normally when being close to the element works well - but in
+     *   the distance not."  (Daily-use audit 2026-05-20.)
+     *
+     * Fix: split the two refs. `_lastHoveredObjectGpu` is written only by the
+     * GPU path; the anchor branch dereferences IT — so even if the BVH later
+     * overwrites the cursor-feedback ref, the GPU-confirmed click target is
+     * untouched. The BVH ref keeps its role: immediate-feedback cursor swap
+     * + `bim-hover-changed` dispatch (TSL outline) — both unaffected if the
+     * BVH guess is slightly off, because they re-converge on the next rAF.
+     */
+    private _lastHoveredObjectGpu: THREE.Object3D | null = null;
 
     // ── §MARQUEE-SELECT-2026 — Multi-element marquee highlights ─────────────
     /**
@@ -342,6 +375,11 @@ export class SelectionManager implements ISelectionManager {
             this.domElement.style.cursor = '';
             this._lastHoveredUuid = null;
             this._lastHoveredObject = null;
+            // §SELECT-3D-1 — mirror reset for the GPU-confirmed hover ref so a
+            // stale tool-entry doesn't leak a pre-tool click target.
+            this._lastHoveredObjectGpu = null;
+            this._lastHoverConfirmedClientX = null;
+            this._lastHoverConfirmedClientY = null;
         }
     }
 
@@ -766,15 +804,23 @@ export class SelectionManager implements ISelectionManager {
         // Following the SelectionTool principle: the hover hitTest is the authoritative
         // source; the click honours it rather than running a competing independent pick.
         const CLICK_HOVER_SNAP_PX = 8;
+        // §SELECT-3D-1 (DAILY-USE 2026-05-20) — Use the GPU-CONFIRMED hover
+        // target (`_lastHoveredObjectGpu`), not the BVH-derived
+        // `_lastHoveredObject`. The GPU pick is pixel-accurate at any camera
+        // distance; the BVH raycast can hit a different element when many
+        // AABBs overlap on a single screen pixel at far zoom. Falls back to
+        // the BVH ref only when the GPU pick strategy is unavailable (legacy
+        // boot path / WebGL2 disabled), preserving previous behaviour there.
+        const _anchorTarget = this._lastHoveredObjectGpu ?? (this._pickStrategy ? null : this._lastHoveredObject);
         if (
-            this._lastHoveredObject !== null &&
+            _anchorTarget !== null &&
             this._lastHoverConfirmedClientX !== null &&
             this._lastHoverConfirmedClientY !== null
         ) {
             const dx = event.clientX - this._lastHoverConfirmedClientX;
             const dy = event.clientY - this._lastHoverConfirmedClientY;
             if (dx * dx + dy * dy <= CLICK_HOVER_SNAP_PX * CLICK_HOVER_SNAP_PX) {
-                const resolvedRoot = this.findSelectableRoot(this._lastHoveredObject) ?? this._lastHoveredObject;
+                const resolvedRoot = this.findSelectableRoot(_anchorTarget) ?? _anchorTarget;
                 // Dispatch bim-canvas-world-click via level-plane intersection
                 // (no depth buffer available on this fast path).
                 const levelY  = window.activeLevelElevation ?? 0;
@@ -1228,6 +1274,10 @@ export class SelectionManager implements ISelectionManager {
         this.domElement.style.cursor = '';
         this._lastHoveredUuid = null;
         this._lastHoveredObject = null;
+        // §SELECT-3D-1 — mirror reset for the GPU-confirmed ref + anchor.
+        this._lastHoveredObjectGpu = null;
+        this._lastHoverConfirmedClientX = null;
+        this._lastHoverConfirmedClientY = null;
 
         if (wasSelected) {
             window.dispatchEvent(new CustomEvent('bim-selection-changed', { detail: { object: null } })); // keep DOM for plugins
@@ -2137,6 +2187,10 @@ export class SelectionManager implements ISelectionManager {
                 this._lastHoverConfirmedClientY = this._pendingHoverClientY;
 
                 const hoveredRoot = hoverObj ? (this.findSelectableRoot(hoverObj) ?? hoverObj) : null;
+                // §SELECT-3D-1 — record the GPU-CONFIRMED hover target so the
+                // click-anchor branch can reach it without trusting the BVH
+                // ref (which may have been overwritten by a stale raycast).
+                this._lastHoveredObjectGpu = hoveredRoot;
                 const newUuid = hoveredRoot?.uuid ?? null;
                 if (newUuid !== this._lastHoveredUuid) {
                     this._lastHoveredUuid = newUuid;
@@ -2150,6 +2204,10 @@ export class SelectionManager implements ISelectionManager {
                 // mislead a click after the cursor has moved to empty space.
                 this._lastHoverConfirmedClientX = null;
                 this._lastHoverConfirmedClientY = null;
+                // §SELECT-3D-1 — also clear the GPU-confirmed ref so a stale
+                // result cannot leak into a later click whose new anchor
+                // happens to land within 8px of an old confirmed position.
+                this._lastHoveredObjectGpu = null;
                 _hoverSpan.setAttribute('pryzm.selection.hit', false);
             }
         } catch {

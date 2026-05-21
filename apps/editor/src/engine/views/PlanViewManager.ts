@@ -63,7 +63,7 @@ export class PlanViewManager implements IPlanViewManager {
      * SplitViewManager subscribes to the same event).
      */
     private readonly _boundSelectionChanged = () => { this._lastRender = 0; };
-    private _unsubSelectionChanged: (() => void) | null = null; // F.events.16
+    private _unsubSelectionChanged: { dispose(): void } | null = null; // F.events.16
     private _splitViewWasActiveAtActivation = false;
     private _activeSplitViewId: string | null = null;
 
@@ -77,18 +77,19 @@ export class PlanViewManager implements IPlanViewManager {
     private _leftPanelObserver: ResizeObserver | null = null;
     /** Disposable returned by runtime.events.on('vi:instance-updated', ...) — cleaned up in deactivate(). F.events.2b */
     private _viInstanceUpdatedDisposable: { dispose(): void } | null = null;
-    // F.events.7 — split-view typed-bus unsub handles (window.runtime returns () => void)
-    private _unsubSplitActivated:     (() => void) | null = null;
-    private _unsubSplitDeactivated:   (() => void) | null = null;
-    private _unsubSplitLayoutChanged: (() => void) | null = null;
-    private _unsubSplitViewChanged:   (() => void) | null = null;
+    // F.events.7 — split-view typed-bus unsub handles. runtime.events.on() returns a
+    // Disposable ({ dispose() }) — NOT an unsubscribe function (see EventBus.ts).
+    private _unsubSplitActivated:     { dispose(): void } | null = null;
+    private _unsubSplitDeactivated:   { dispose(): void } | null = null;
+    private _unsubSplitLayoutChanged: { dispose(): void } | null = null;
+    private _unsubSplitViewChanged:   { dispose(): void } | null = null;
     /** DOM adapter — still used for legacy `vi:overrides-cleared` (no viewId in detail). */
     private readonly _boundIntentInstanceUpdated = (e: Event) =>
         this._onIntentInstanceUpdatedCore((e as CustomEvent<{ viewId?: string }>).detail?.viewId);
     private readonly _boundIntentUpdated = this._onIntentUpdated.bind(this);
     private readonly _boundSyncHeaderOffset = () => this._syncHeaderOffset();
     private readonly _boundIfcProjectionChanged = this._onIfcProjectionChanged.bind(this);
-    private _unsubIfcImported: (() => void) | null = null;
+    private _unsubIfcImported: { dispose(): void } | null = null;
     private readonly _boundProjectionStale = this._onProjectionStale.bind(this);
     /** Coalesce bursts of element mutations into one re-projection per ~30 ms. */
     private _staleProjectionTimer: ReturnType<typeof setTimeout> | null = null;
@@ -193,17 +194,21 @@ export class PlanViewManager implements IPlanViewManager {
         window.removeEventListener('mouseup', this._boundMouseUp);
         window.removeEventListener('vd:view-updated', this._boundViewUpdated);
         // F.events.7 — split-view typed-bus unsub cleanup.
-        this._unsubSplitActivated?.();     this._unsubSplitActivated     = null;
-        this._unsubSplitDeactivated?.();   this._unsubSplitDeactivated   = null;
-        this._unsubSplitLayoutChanged?.(); this._unsubSplitLayoutChanged = null;
-        this._unsubSplitViewChanged?.();   this._unsubSplitViewChanged   = null;
+        // runtime.events.on() returns a Disposable — dispose via .dispose(), never call
+        // as a function. A bad `?.()` here threw `TypeError: ... is not a function`,
+        // aborting deactivate() mid-teardown and leaking every listener/timer below
+        // (the real root cause behind C11 §7.0 FIX-DEACTIVATE-GUARD).
+        this._unsubSplitActivated?.dispose();     this._unsubSplitActivated     = null;
+        this._unsubSplitDeactivated?.dispose();   this._unsubSplitDeactivated   = null;
+        this._unsubSplitLayoutChanged?.dispose(); this._unsubSplitLayoutChanged = null;
+        this._unsubSplitViewChanged?.dispose();   this._unsubSplitViewChanged   = null;
         this._viInstanceUpdatedDisposable?.dispose(); // F.events.2b — was window.removeEventListener('vi:instance-updated', ...)
         this._viInstanceUpdatedDisposable = null;
         window.removeEventListener('vi:overrides-cleared', this._boundIntentInstanceUpdated);
         window.removeEventListener('vi:intent-updated', this._boundIntentUpdated);
         window.removeEventListener(IFC_PROJECTION_CHANGED_EVENT, this._boundIfcProjectionChanged);
-        this._unsubIfcImported?.(); this._unsubIfcImported = null; // F.events.13
-        this._unsubSelectionChanged?.(); this._unsubSelectionChanged = null; // F.events.16
+        this._unsubIfcImported?.dispose(); this._unsubIfcImported = null; // F.events.13
+        this._unsubSelectionChanged?.dispose(); this._unsubSelectionChanged = null; // F.events.16
         window.removeEventListener('vd:projection-stale', this._boundProjectionStale);
         if (this._staleProjectionTimer !== null) {
             clearTimeout(this._staleProjectionTimer);
@@ -509,7 +514,14 @@ export class PlanViewManager implements IPlanViewManager {
             if (!viewDef) return;
             viewTechnicalDrawingCache.invalidate(viewDef.id);
             activePlanDrawingRef.drawing = null;
-            this._hasFitDrawing = false;
+            // §C-B2 (DAILY-USE-AUDIT 2026-05-20) — DO NOT reset _hasFitDrawing here.
+            // Architect was losing their working pan/zoom on every element commit
+            // because every store change emits a projection-stale event → reset →
+            // _render() fitToDrawing() overwrites their position. Fit-to-drawing is
+            // an INITIAL-ACTIVATION concern (already covered by activate() at line
+            // ~135 which resets the flag). Projection invalidation should re-project
+            // the drawing in place, never yank the camera. C04 §3.3 — per-view
+            // camera state is sticky across data mutations within the same view session.
             this._lastRender = 0;
             this._ensureProjection(viewDef);
         }, 30);
@@ -524,7 +536,8 @@ export class PlanViewManager implements IPlanViewManager {
         // Invalidate the cached drawing and re-project with the new depth settings.
         viewTechnicalDrawingCache.invalidate(this._viewDef.id);
         activePlanDrawingRef.drawing = null;
-        this._hasFitDrawing = false;
+        // §C-B2 (DAILY-USE-AUDIT 2026-05-20) — intent-driven projection-depth changes
+        // re-project but MUST NOT reset the user's camera (same reasoning as above).
         this._lastRender = 0;
         this._ensureProjection(this._viewDef);
     }

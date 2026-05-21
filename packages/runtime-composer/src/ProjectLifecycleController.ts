@@ -22,13 +22,25 @@ export class ProjectLifecycleController {
     private readonly _bc: IBatchCoordinatorTeardown;
     /** Optional callback fired at step 5 — for closure-private engine state (e.g. _levelCamReady = false). */
     private readonly _onAfterStep5: (() => void) | null;
+    /**
+     * §U-B1 (DAILY-USE-AUDIT 2026-05-20) — Optional callback to clear undo stacks
+     * on project switch. Composer threads in `() => runtime.bus.clearUndoStacks()`
+     * so the RingBufferUndoStack and legacy UndoStack are wiped BEFORE Project B
+     * starts producing events. Without this, Ctrl+Z in B applies inverse patches
+     * from A's edits (no-op on missing IDs / data corruption on ID collision).
+     * Runs as Step 0 (before BatchCoordinator reset) so any in-flight commands
+     * settle into the OLD stacks before we clear them.
+     */
+    private readonly _onClearUndoStacks: (() => void) | null;
 
     constructor(
         bc: IBatchCoordinatorTeardown,
         onAfterStep5: (() => void) | null = null,
+        onClearUndoStacks: (() => void) | null = null,
     ) {
         this._bc = bc;
         this._onAfterStep5 = onAfterStep5;
+        this._onClearUndoStacks = onClearUndoStacks;
     }
 
     /** Registers the pryzm-project-switch listener. Call once after engine boot. */
@@ -53,6 +65,12 @@ export class ProjectLifecycleController {
 
         const span = (window as any).runtime?.tracer?.startSpan?.('project.session.teardown') ?? null;
         try {
+            // §U-B1 Step 0 — Clear undo stacks (RingBuffer + legacy UndoStack)
+            // BEFORE any further teardown so that Project B never sees Project A's
+            // inverse patches in either Ctrl+Z stack.
+            try { this._onClearUndoStacks?.(); }
+            catch (err) { console.warn('[ProjectLifecycleController] §U-B1 clearUndoStacks failed:', err); }
+
             // Step 1 — BatchCoordinator (C13 §3.1)
             this._bc.forceReset();
 

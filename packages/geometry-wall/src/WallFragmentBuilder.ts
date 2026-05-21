@@ -189,6 +189,23 @@ export class WallFragmentBuilder {
     private injectedBimManager: any | null = null;
 
     /**
+     * §M-H1 (DAILY-USE-AUDIT 2026-05-20) — STANDARD_MATERIAL_LIBRARY id →
+     * `MaterialDefinition` map. When a wall carries `data.materialId` and this
+     * map resolves it, `createWallMaterial` builds a real PBR material from
+     * `matDef.params` (roughness / metalness / map / normalMap / roughnessMap)
+     * rather than the previous behaviour of reading only `data.materialColor`
+     * (a hex) and producing a matte plaster. The architect's choice between
+     * "Concrete Smooth" and "Steel Stainless Polished" now actually changes
+     * the rendered material. Mirrors the established `SlabFragmentBuilder`
+     * pattern (`packages/geometry-slab/src/SlabFragmentBuilder.ts:822-858`).
+     *
+     * Optional for backward compat — when absent, the builder falls back to
+     * the existing materialColor-only path, so callers that don't supply a
+     * material map continue to work exactly as before.
+     */
+    private injectedMaterialMap: Map<string, { params?: Record<string, unknown>; textures?: { color?: unknown; normal?: unknown; roughness?: unknown } }> | null = null;
+
+    /**
      * §WALL-AUDIT-2026-M2: View-projection stores (view definitions, view-intent
      * instances, visibility intents) are constructor-injected so that the builder
      * has no read-side dependency on `window.*`. Optional to keep legacy
@@ -216,6 +233,12 @@ export class WallFragmentBuilder {
             viewDefinitionStore?: any;
             viewIntentInstanceStore?: any;
             visibilityIntentStore?: any;
+            /**
+             * §M-H1 — STANDARD_MATERIAL_LIBRARY map. When supplied + `wall.materialId`
+             * is set, `createWallMaterial` resolves to a PBR material; otherwise the
+             * existing `materialColor`-only fallback applies.
+             */
+            materialMap?: Map<string, { params?: Record<string, unknown>; textures?: { color?: unknown; normal?: unknown; roughness?: unknown } }>;
         },
     ) {
         this.scene = scene;
@@ -223,6 +246,7 @@ export class WallFragmentBuilder {
         this.injectedViewDefinitionStore     = viewStores?.viewDefinitionStore ?? null;
         this.injectedViewIntentInstanceStore = viewStores?.viewIntentInstanceStore ?? null;
         this.injectedVisibilityIntentStore   = viewStores?.visibilityIntentStore ?? null;
+        this.injectedMaterialMap             = viewStores?.materialMap            ?? null;
 
         if (!this.injectedBimManager) {
             console.error(
@@ -2212,9 +2236,58 @@ export class WallFragmentBuilder {
     }
 
     private createWallMaterial(wall?: WallData): THREE.Material {
+        // §M-H1 (DAILY-USE-AUDIT 2026-05-20) — resolve `wall.materialId` against
+        // the STANDARD_MATERIAL_LIBRARY map (when both supplied) so picking
+        // "Steel Stainless Polished" vs "Concrete Smooth" actually changes the
+        // rendered PBR parameters instead of producing identical matte plaster.
+        // Mirrors `SlabFragmentBuilder.ts:822-858`. Falls back to the
+        // realistic/schematic + materialColor paths below when no map or no
+        // match — fully backward-compatible.
+        const matId = (wall as unknown as { materialId?: string } | undefined)?.materialId;
+        if (matId && this.injectedMaterialMap) {
+            const matDef = this.injectedMaterialMap.get(matId);
+            if (matDef) {
+                const params: Record<string, unknown> = { ...(matDef.params ?? {}) };
+                // Honour HDRI envMap on realistic style so user-picked metals
+                // still reflect the loaded environment correctly.
+                if (this.currentVisualStyle === VisualStyle.REALISTIC && this.hdriTexture) {
+                    params.envMap = this.hdriTexture;
+                    params.envMapIntensity = this.envMapIntensity;
+                } else if (this.currentVisualStyle === VisualStyle.SCHEMATIC) {
+                    // Schematic style: collapse PBR to flat matte (matches slab's
+                    // visualStyle === 1 branch — preserves the "everything looks
+                    // like cardboard" intent of schematic mode).
+                    params.metalness = 0;
+                    params.roughness = 1;
+                } else if (matDef.textures) {
+                    params.map           = matDef.textures.color;
+                    params.normalMap     = matDef.textures.normal;
+                    params.roughnessMap  = matDef.textures.roughness;
+                }
+                params.depthWrite = true;
+                params.depthTest  = true;
+                // Honour the per-wall materialColor as a tint when set — lets
+                // the architect re-colour a "concrete-smooth" PBR wall to red.
+                if (wall?.materialColor && params.color === undefined) {
+                    params.color = wall.materialColor;
+                }
+                return new THREE.MeshStandardMaterial(params as ConstructorParameters<typeof THREE.MeshStandardMaterial>[0]);
+            }
+            // matDef not found — fall through to the legacy material paths below
+            // and emit a one-shot warn so the gap is visible during dev.
+            if (!(this as unknown as { _warnedMissingMatIds?: Set<string> })._warnedMissingMatIds) {
+                (this as unknown as { _warnedMissingMatIds: Set<string> })._warnedMissingMatIds = new Set<string>();
+            }
+            const seen = (this as unknown as { _warnedMissingMatIds: Set<string> })._warnedMissingMatIds;
+            if (!seen.has(matId)) {
+                seen.add(matId);
+                console.warn(`[WallFragmentBuilder] materialId "${matId}" not in materialMap — falling back to materialColor. §M-H1 audit.`);
+            }
+        }
+
         if (this.currentVisualStyle === VisualStyle.REALISTIC && this.hdriTexture) {
             const mat = new THREE.MeshStandardMaterial({
-                color: WALL_REALISTIC_MATERIAL.color,
+                color: wall?.materialColor || WALL_REALISTIC_MATERIAL.color,
                 roughness: WALL_REALISTIC_MATERIAL.roughness,
                 metalness: WALL_REALISTIC_MATERIAL.metalness,
                 envMap: this.hdriTexture,

@@ -542,31 +542,92 @@ export function wireCommandEventBridge(
         }
 
         case 'handrail.create': {
-          const p = record.payload as { levelId?: string };
+          // §FT-HANDRAIL (HANDRAIL-BUS-MIGRATION, C11 §11.9): forward the full
+          // geometry payload so the initTools.ts §FT-HANDRAIL bridge can mirror
+          // the handrail into the legacy HandrailStore → HandrailFragmentBuilder
+          // mesh + plan-view projection. Mirrors the §FT2 beam.create enrichment.
+          const p = record.payload as {
+            id?: string;
+            levelId?: string;
+            path?: ReadonlyArray<{ x: number; y?: number; z: number }>;
+            height?: number;
+            diameter?: number;
+            shape?: string;
+            hostId?: string;
+            materialId?: string;
+          };
           events.emit('handrail.created', {
             commandId:   record.id,
             commandType: 'handrail.create',
             levelId:     p.levelId ?? '',
+            id:          p.id,
+            path:        p.path,
+            height:      p.height,
+            diameter:    p.diameter,
+            shape:       p.shape,
+            hostId:      p.hostId,
+            materialId:  p.materialId,
           });
           break;
         }
 
         case 'furniture.create': {
-          const p = record.payload as { levelId?: string };
+          // §FT-FURNITURE (FURNITURE-BUS-MIGRATION, C11 §11.10): forward the full
+          // geometry payload so the initTools.ts §FT-FURNITURE bridge can mirror
+          // the item into the legacy FurnitureStore → furniture builder 3D mesh.
+          // Mirrors the §FT-HANDRAIL / §FT-LIGHTING enrichment.
+          const p = record.payload as {
+            id?: string;
+            levelId?: string;
+            furnitureType?: string;
+            position?: { x: number; y: number; z: number };
+            rotation?: number;
+            baseOffset?: number;
+            width?: number;
+            length?: number;
+            height?: number;
+            material?: string;
+            furnitureCategory?: string;
+            kitchenConfig?: unknown;
+            wardrobeCabinetConfig?: unknown;
+          };
           events.emit('furniture.created', {
             commandId:   record.id,
             commandType: 'furniture.create',
             levelId:     p.levelId ?? '',
+            id:          p.id,
+            furnitureType:         p.furnitureType,
+            position:              p.position,
+            rotation:              p.rotation,
+            baseOffset:            p.baseOffset,
+            width:                 p.width,
+            length:                p.length,
+            height:                p.height,
+            material:              p.material,
+            furnitureCategory:     p.furnitureCategory,
+            kitchenConfig:         p.kitchenConfig,
+            wardrobeCabinetConfig: p.wardrobeCabinetConfig,
           });
           break;
         }
 
         case 'lighting.create': {
-          const p = record.payload as { levelId?: string };
+          // §FT-LIGHTING (LIGHTING-BUS-MIGRATION, C11 §11.11): forward the geometry
+          // so the initTools §FT-LIGHTING bridge can mirror the fixture into the
+          // legacy LightingStore → LightingFragmentBuilder 3D mesh.
+          const p = record.payload as {
+            id?: string;
+            levelId?: string;
+            kind?: string;
+            origin?: { x: number; y: number; z: number };
+          };
           events.emit('lighting.created', {
             commandId:   record.id,
             commandType: 'lighting.create',
             levelId:     p.levelId ?? '',
+            id:          p.id,
+            kind:        p.kind,
+            origin:      p.origin,
           });
           break;
         }

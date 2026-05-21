@@ -167,8 +167,19 @@ export function createBimWorld(container: HTMLElement) {
     //   _reapplyCameraConstraints so EngineBootstrap can call it after any
     //   camera position animation settles.
     {
-        const CAM_MIN_DIST = 1;    // metres — zoom-in guard
-        const CAM_MAX_DIST = 100;  // metres — exact Pascal maxDistance={100} hard cap
+        // §C-B3 / §C-B4 (DAILY-USE-AUDIT) — the previous values (maxDist=100m,
+        // maxPolar=π/2−0.1) inherited "Pascal demo parity" but were unworkable
+        // for real BIM: a single 80m office building couldn't be framed from
+        // a comfortable aerial view, and the polar clamp blocked true eye-level
+        // elevations + looking up at soffits/ceilings (industry standard in
+        // Revit/SketchUp/Blender). New values: 0.2m–10000m dolly range covers
+        // both inside-room navigation and master-plan-scale sites; polar 0..π
+        // with tiny epsilons allows full orbit (including below-horizon and
+        // near-zenith) without gimbal flip.
+        const CAM_MIN_DIST = 0.2;    // metres — close enough to inspect a doorknob
+        const CAM_MAX_DIST = 10000;  // metres — site-scale + comfortable aerial
+        const CAM_MIN_POLAR = 0.02;          // a hair below zenith
+        const CAM_MAX_POLAR = Math.PI - 0.02; // a hair above nadir (full below-horizon)
 
         const reapplyConstraints = () => {
             const c = world.camera.controls;
@@ -177,8 +188,8 @@ export function createBimWorld(container: HTMLElement) {
             c.infinityDolly = false;
             c.minDistance   = CAM_MIN_DIST;
             c.maxDistance   = CAM_MAX_DIST;
-            c.minPolarAngle = 0;
-            c.maxPolarAngle = Math.PI / 2 - 0.1;
+            c.minPolarAngle = CAM_MIN_POLAR;
+            c.maxPolarAngle = CAM_MAX_POLAR;
         };
 
         // Apply once immediately after init
@@ -197,7 +208,7 @@ export function createBimWorld(container: HTMLElement) {
         // Expose so EngineBootstrap can call it after camera animation settles
         (world as any)._reapplyCameraConstraints = reapplyConstraints;
 
-        console.log('[BimWorld] Camera constraints armed: minDist=1 m, maxDist=100 m, maxPolarAngle=π/2−0.1, infinityDolly=false, mode-patch active.');
+        console.log(`[BimWorld] Camera constraints armed: minDist=${CAM_MIN_DIST} m, maxDist=${CAM_MAX_DIST} m, polarRange=[${CAM_MIN_POLAR.toFixed(2)},${CAM_MAX_POLAR.toFixed(2)}], infinityDolly=false, mode-patch active. §C-B3/§C-B4 audit fix.`);
     }
 
     // ── Camera Anti-Clip: Projection Change Listener ─────────────────────────

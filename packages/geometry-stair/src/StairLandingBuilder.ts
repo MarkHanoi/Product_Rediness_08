@@ -17,18 +17,24 @@ export class StairLandingBuilder {
         });
 
         window.addEventListener('bim-stair-landing-added', (e: Event) => {
-            const { landing } = (e as CustomEvent<{ landing: StairLandingEntity }>).detail;
-            this.buildLanding(landing);
+            // §FIX-STAIR-EVENT-PAYLOAD (C11 §7.0): StairLandingStore.add() emits a
+            // lightweight `{ id }` notification, not `{ landing }`. Resolve the full
+            // entity from the store (the store is the authoritative source).
+            const { id } = (e as CustomEvent<{ id: string }>).detail;
+            const landing = id ? this.landingStore.get(id) : undefined;
+            if (landing) this.buildLanding(landing);
         });
 
         window.addEventListener('bim-stair-landing-removed', (e: Event) => {
-            const { landingId } = (e as CustomEvent<{ landingId: string }>).detail;
-            this.removeLanding(landingId);
+            // §FIX-STAIR-EVENT-PAYLOAD: store emits `{ id }`, not `{ landingId }`.
+            const { id } = (e as CustomEvent<{ id: string }>).detail;
+            if (id) this.removeLanding(id);
         });
 
         window.addEventListener('bim-stair-removed', (e: Event) => {
-            const { stairId } = (e as CustomEvent<{ stairId: string }>).detail;
-            this.landingStore.getByStairId(stairId).forEach(l => this.removeLanding(l.id));
+            // §FIX-STAIR-EVENT-PAYLOAD: StairStore emits `{ id }`, not `{ stairId }`.
+            const { id } = (e as CustomEvent<{ id: string }>).detail;
+            if (id) this.landingStore.getByStairId(id).forEach(l => this.removeLanding(l.id));
         });
     }
 

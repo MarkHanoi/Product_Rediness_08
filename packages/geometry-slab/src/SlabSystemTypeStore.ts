@@ -125,11 +125,23 @@ export class SlabSystemTypeStore {
 
     // ── Write API ─────────────────────────────────────────────────────────────
 
-    add(type: Omit<SlabSystemType, 'id' | 'createdAt' | 'modifiedAt' | 'totalThickness'>): SlabSystemType {
-        const id = crypto.randomUUID();
+    /**
+     * §M-B1 (DAILY-USE-AUDIT 2026-05-20) — caller may supply an explicit `id`
+     * (e.g. `ProjectLoader` restoring a custom slab type from a snapshot). The
+     * previous unconditional `crypto.randomUUID()` regenerated the id on every
+     * load, breaking every slab that referenced the custom type. Fresh types
+     * still get a random id.
+     */
+    add(type: Omit<SlabSystemType, 'id' | 'createdAt' | 'modifiedAt' | 'totalThickness'> & { id?: string }): SlabSystemType {
+        // §M-B1 follow-up — strip 'id' from Omit (see WallSystemTypeStore for
+        // the full reasoning) so intersection with `{ id?: string }` correctly
+        // makes the id field optional for fresh user-create paths while still
+        // honouring an explicit id passed by the project-loader restore path.
+        const id = (typeof type.id === 'string' && type.id.length > 0) ? type.id : crypto.randomUUID();
         const now = Date.now();
+        const { id: _drop, ...rest } = type as { id?: string } & Omit<SlabSystemType, 'id' | 'createdAt' | 'modifiedAt' | 'totalThickness'>;
         const newType: SlabSystemType = Object.freeze({
-            ...type,
+            ...rest,
             id,
             createdAt: now,
             modifiedAt: now,

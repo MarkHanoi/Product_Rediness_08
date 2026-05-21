@@ -1170,6 +1170,41 @@ export class EdgeProjectorService {
     private static readonly MAX_CW_PROJECTION_CACHE = 5_000;
 
     /**
+     * §PLAN-VIEW-INCREMENTAL-PROJECTION §4.1 (Day 1, 2026-05-20) — Element-type
+     * allow-list for the projection cache.  Membership means "the corresponding
+     * fragment builder reliably bumps `root.userData.version` on every geometric
+     * rebuild" — that is the cache key's invalidation signal, so any element
+     * without that contract must NOT enter the cache or it would serve stale
+     * line geometry forever.
+     *
+     * Verified to bump version per rebuild (grep history `userData.version =`):
+     *   - curtainwall   — CurtainWallBuilder.ts line ~878
+     *   - wall          — WallFragmentBuilder.ts:668  (every buildWall())
+     *   - slab          — SlabFragmentBuilder.ts:368
+     *   - roof          — RoofFragmentBuilder.ts:244
+     *   - room          — RoomBoundingLineBuilder.ts:114
+     *
+     * Not yet on the list (intentionally — pending audit of their builder's
+     * version-stamping discipline):
+     *   - door, window, opening, beam, column, ceiling, floor, stair,
+     *     stair-railing, handrail, furniture.  Each must be confirmed to set
+     *     `root.userData.version` on geometric mutation before it joins the
+     *     allow-list.  Wave 2 of #57 (Day 2) will sweep these builders and
+     *     widen the set accordingly.
+     *
+     * Stored lowercase — the gate normalises `elementType` via `.toLowerCase()`
+     * to defend against future casing drift (CurtainWallBuilder stamps
+     * 'CurtainWall', WallFragmentBuilder stamps 'wall', etc.).
+     */
+    private static readonly CACHEABLE_ELEMENT_TYPES: ReadonlySet<string> = new Set([
+        'curtainwall',
+        'wall',
+        'slab',
+        'roof',
+        'room',
+    ]);
+
+    /**
      * @param components  OBC components container (shared with engine).
      * @param world       OBC World used for visibility culling and scene placement.
      * @param bimManager  PRYZM BimManager — spatial authority for level elevations (§02).
@@ -1506,14 +1541,33 @@ export class EdgeProjectorService {
                 // A-1: element UUID stamped by NativeElementMeshExporter.exportForView()
                 const elementUUID = group.userData.elementUUID as string | undefined;
 
-                // §C.3 — Identify CW elements and check projection cache before the
-                // expensive traverse + EdgesGeometry + toDrawingSpace pipeline.
-                const isCWElement = (group.userData?.elementType as string | undefined)?.toLowerCase() === 'curtainwall';
+                // §C.3 — Cache gate: skip the expensive traverse + EdgesGeometry +
+                // toDrawingSpace pipeline when the element hasn't changed since the
+                // last projection.  Cache key: (elementUUID, viewId, version) — the
+                // `version` is stamped by every fragment builder on every rebuild,
+                // so a cache miss equals "geometry actually changed".
+                //
+                // §PLAN-VIEW-INCREMENTAL-PROJECTION §4.1 (Day 1, 2026-05-20):
+                //   The cache used to gate only on `elementType === 'curtainwall'`
+                //   even though the underlying storage is element-type-agnostic.
+                //   Widening it to every element type that has a stable per-rebuild
+                //   `userData.version` (walls, slabs, ceilings, floors, columns,
+                //   roofs, stairs, stair-railings, beams, doors, windows, openings)
+                //   gives every drawing edit the same skip-projection benefit that
+                //   curtain walls already enjoyed.  CACHEABLE_ELEMENT_TYPES is the
+                //   single source of truth for "the builder bumps version on
+                //   rebuild" — adding a new element type to the editor needs a
+                //   one-line addition here (or it silently falls back to the
+                //   no-cache pipeline, which is the safe default).
+                const elemTypeLower = (group.userData?.elementType as string | undefined)?.toLowerCase();
+                const isCWElement = elemTypeLower === 'curtainwall';
+                const isCacheableElement = elemTypeLower !== undefined
+                    && EdgeProjectorService.CACHEABLE_ELEMENT_TYPES.has(elemTypeLower);
                 const currentVer  = typeof group.userData?.version === 'number'
                     ? (group.userData.version as number)
                     : undefined;
 
-                if (isCWElement && elementUUID !== undefined && currentVer !== undefined) {
+                if (isCacheableElement && elementUUID !== undefined && currentVer !== undefined) {
                     if (this._cwCacheIsValid(elementUUID, viewId, currentVer)) {
                         // §C.3.2 — CACHE HIT: replay stored drawing-space geometries directly.
                         // Skips: group.traverse(), N×EdgesGeometry, N×matrixWorld, mergeGeometries,
@@ -1546,12 +1600,15 @@ export class EdgeProjectorService {
                     }
                 }
 
-                // §C.3.3 — CACHE MISS or non-CW element: run full pipeline.
-                // For CW elements, freshLayersCollector accumulates the projected
-                // geometry from each addProjectedLayer() call so it can be stored
-                // in the cache after all layers for this element are complete.
+                // §C.3.3 — CACHE MISS or non-cacheable element: run full pipeline.
+                // For cacheable elements, freshLayersCollector accumulates the
+                // projected geometry from each addProjectedLayer() call so it can
+                // be stored in the cache after all layers for this element are
+                // complete.
+                // §PLAN-VIEW-INCREMENTAL-PROJECTION §4.1 — gate widened to all
+                // cacheable element types (was: isCWElement only).
                 const freshLayersCollector: Map<string, THREE.BufferGeometry> | null =
-                    (isCWElement && elementUUID !== undefined && currentVer !== undefined)
+                    (isCacheableElement && elementUUID !== undefined && currentVer !== undefined)
                         ? new Map()
                         : null;
 
@@ -1969,14 +2026,21 @@ export class EdgeProjectorService {
             }
             // §D.5 — Cache statistics per projection run.
             // hitRate=100% on second run with no changes; hitRate=0% on first run.
-            if (_hasCWElements) {
-                const _totalCWGroups = cacheHits + cacheMisses;
+            //
+            // §PLAN-VIEW-INCREMENTAL-PROJECTION §4.1 (Day 1, 2026-05-20) —
+            // The stats now fire whenever ANY cache hit or miss occurred, not
+            // just when the batch contains CW elements. `cwGroups` retained
+            // as an alias for cacheable groups so existing log scrapers don't
+            // break; the new `cacheableGroups` field is the canonical name.
+            const _totalCacheableGroups = cacheHits + cacheMisses;
+            if (_totalCacheableGroups > 0) {
                 console.log(
                     `[EdgeProjectorService] §PERF-CACHE-STATS ` +
                     `batchId=${window.__activeBatchId ?? 'none'} ` +
                     `viewId=${viewId} groups=${nativeMeshGroups.length} ` +
-                    `cwGroups=${_totalCWGroups} cacheHits=${cacheHits} cacheMisses=${cacheMisses} ` +
-                    `hitRate=${_totalCWGroups > 0 ? ((cacheHits / _totalCWGroups) * 100).toFixed(0) : 'n/a'}% ` +
+                    `cwGroups=${_totalCacheableGroups} cacheableGroups=${_totalCacheableGroups} ` +
+                    `cacheHits=${cacheHits} cacheMisses=${cacheMisses} ` +
+                    `hitRate=${((cacheHits / _totalCacheableGroups) * 100).toFixed(0)}% ` +
                     `cacheElements=${this._cwProjectionCache.size} cacheEntries=${this._cwCacheEntryCount}/${EdgeProjectorService.MAX_CW_PROJECTION_CACHE}`,
                 );
             }

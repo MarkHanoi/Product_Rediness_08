@@ -51,26 +51,37 @@ export class StairMeshBuilder {
 
         // §01-BIM-ENGINE-CORE §1.4 — Builder is driven exclusively by window CustomEvents.
         // The store must never call the builder directly (§3.5 Store Is Data Only).
+        //
+        // §FIX-STAIR-EVENT-PAYLOAD (C11 §7.0): StairStore emits `bim-stair-added` /
+        // `bim-stair-updated` / `bim-stair-removed` with a lightweight `{ id }`
+        // payload (the F.events.18 / TASK-10 convention — the store is the
+        // authoritative source). The handlers below previously read
+        // `payload.stair` / `payload.stairId`, which `StairStore` never sends —
+        // so the stair body mesh was NEVER built on creation. They now resolve the
+        // StairData from the store by id, while still accepting an inline `.stair`
+        // (the transform-drag `runtime.events` channel sends the full object).
+        const resolveStair = (payload: { id?: string; stair?: unknown } | null | undefined): StairData | undefined => {
+            if (payload?.stair) return payload.stair as StairData;
+            return payload?.id ? this.stairStore?.get(payload.id) : undefined;
+        };
         const onAdded = (e: Event) => {
-            const payload = (e as CustomEvent).detail;
-            const stair = payload?.stair;
+            const stair = resolveStair((e as CustomEvent).detail);
             if (stair) this.updateStair(stair, false);
         };
         const onUpdated = (e: Event) => {
-            const payload = (e as CustomEvent).detail;
-            const stair = payload?.stair;
+            const stair = resolveStair((e as CustomEvent).detail);
             if (stair) this.updateStair(stair, false);
         };
         const onRemoved = (e: Event) => {
-            const payload = (e as CustomEvent).detail;
-            const stairId = payload?.stairId;
+            const detail = (e as CustomEvent).detail;
+            const stairId = detail?.stairId ?? detail?.id;
             if (stairId) this.removeStair(stairId);
         };
         window.addEventListener('bim-stair-added', onAdded);
         window.addEventListener('bim-stair-updated', onUpdated);
         const _unsubStairUpdated = (window as any).runtime?.events?.on('bim-stair-updated', (payload: { id?: string; stair?: unknown }) => { // F.events.15
-            const stair = payload?.stair;
-            if (stair) this.updateStair(stair as Parameters<typeof this.updateStair>[0], false);
+            const stair = resolveStair(payload);
+            if (stair) this.updateStair(stair, false);
         });
         window.addEventListener('bim-stair-removed', onRemoved);
         this._disposers.push(

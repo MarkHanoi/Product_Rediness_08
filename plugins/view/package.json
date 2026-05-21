@@ -18,7 +18,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "three": "^0.176.0",
+    "three": "^0.183.2",
     "@opentelemetry/api": "^1.9.0",
     "@pryzm/plugin-sdk": "workspace:*",
     "@pryzm/command-registry": "workspace:*"

@@ -44,8 +44,8 @@ import { PlumbingStore } from '@pryzm/geometry-plumbing';
 import { FurnitureStore } from '@pryzm/geometry-furniture';
 import { HandrailStore } from '@pryzm/core-app-model/stores';
 import { OpeningStore } from '@pryzm/core-app-model/stores';
-import { doorStore } from '@pryzm/geometry-door';
-import { windowStore } from '@pryzm/geometry-window';
+import { doorStore, doorSystemTypeStore } from '@pryzm/geometry-door';
+import { windowStore, windowSystemTypeStore } from '@pryzm/geometry-window';
 import { BimManager } from '@pryzm/core-app-model';
 import { MigrationEngine } from './MigrationEngine';
 import { semanticGraphManager, SemanticGraph } from '@pryzm/core-app-model';
@@ -140,6 +140,14 @@ export interface ProjectSnapshot {
     ceilings?: any[];
     /** Custom CeilingSystemType definitions. Optional for backward compat. */
     ceilingSystemTypes?: any[];
+    /**
+     * §M-H4 (DAILY-USE-AUDIT 2026-05-20) — Custom door/window finish types
+     * (frame profile, glazing assembly, hardware spec). Built-in presets are
+     * re-seeded from code each boot; only the custom types need persisting.
+     * Optional for backward compat with snapshots predating this addition.
+     */
+    doorSystemTypes?: any[];
+    windowSystemTypes?: any[];
     /** Floor finish subsystem — serialised FloorData array. Optional for backward compat. */
     floors?: any[];
     /** Custom FloorSystemType definitions. Optional for backward compat. */
@@ -707,6 +715,19 @@ export class ProjectSerializer {
                 .map(t => structuredClone(t))
             : [];
 
+        // §M-H4 (DAILY-USE-AUDIT 2026-05-20) — Persist only CUSTOM door/window
+        // finish types. The store's `isBuiltIn` field (vs the per-method
+        // `isBuiltIn(id)` API on wall/slab/ceiling/floor) is a small surface
+        // divergence we accept here rather than refactor 4 stores. Built-in
+        // presets are re-seeded from code each boot, so omitting them keeps
+        // snapshot size minimal. Structured-clone strips any frozen flag.
+        const doorSystemTypes = doorSystemTypeStore.getAll()
+            .filter(t => !t.isBuiltIn)
+            .map(t => structuredClone(t));
+        const windowSystemTypes = windowSystemTypeStore.getAll()
+            .filter(t => !t.isBuiltIn)
+            .map(t => structuredClone(t));
+
         const elementCount =
             walls.length + slabs.length + ceilings.length + floors.length + columns.length + stairs.length +
             beams.length + curtainWalls.length + roofs.length + furniture.length +
@@ -728,6 +749,9 @@ export class ProjectSerializer {
             floorSystemTypes: floorSystemTypes.length > 0 ? floorSystemTypes : undefined,
             slabSystemTypes: slabSystemTypes.length > 0 ? slabSystemTypes : undefined,
             wallSystemTypes: wallSystemTypes.length > 0 ? wallSystemTypes : undefined,
+            // §M-H4 — custom door / window finish types
+            doorSystemTypes:   doorSystemTypes.length   > 0 ? doorSystemTypes   : undefined,
+            windowSystemTypes: windowSystemTypes.length > 0 ? windowSystemTypes : undefined,
             vgGovernance:    vgGovernanceStore.serialize()     as ProjectSnapshot['vgGovernance'],
             semanticTags:    semanticIndex.serialize()         as ProjectSnapshot['semanticTags'],
             viewDefinitions: viewDefinitionStore.serialize()   as ProjectSnapshot['viewDefinitions'],

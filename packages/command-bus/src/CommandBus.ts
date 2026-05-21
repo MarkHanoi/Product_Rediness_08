@@ -233,13 +233,29 @@ export class CommandBus {
     return { audit, stores: provided as S };
   }
 
-  async executeCommand<T>(type: string, payload: T): Promise<EventRecord<T>> {
+  /**
+   * Execute a command by type with an arbitrary payload.
+   *
+   * §U-B2 / §U-B5 (DAILY-USE-AUDIT 2026-05-20) — `opts.suppressUndo` skips
+   * BOTH the legacy `undoStack.push()` and the ring-buffer `_ringBuffer.push()`.
+   * Two distinct production code paths need this:
+   *   1. **Remote/collaboration commands** (`bus.dispatch(..., { source: 'REMOTE' })`)
+   *      must not push onto the LOCAL user's undo stack — Ctrl+Z would otherwise
+   *      "undo" another collaborator's edit. §30-COLLAB §3.5.
+   *   2. **Bridge handlers that return empty `forward`/`inverse` arrays**
+   *      (e.g. `view/DeleteElement` which delegates to the legacy CommandManager).
+   *      A push with both arrays empty eats a ring-buffer cursor slot, mis-aligns
+   *      the cursor, and causes cascading mis-pops on subsequent Ctrl+Z. The
+   *      empty-patch case is auto-detected and skipped regardless of `opts`.
+   */
+  async executeCommand<T>(type: string, payload: T, opts?: { readonly suppressUndo?: boolean }): Promise<EventRecord<T>> {
     const handler = this.handlers.get(type) as CommandHandler<T, AnyStores> | undefined;
     if (!handler) {
       throw new CommandBusError(`no handler registered for: ${type}`);
     }
 
     const ctx = this.buildContext<AnyStores>(handler as CommandHandler<unknown, AnyStores>);
+    const suppressUndo = opts?.suppressUndo === true;
 
     return withSpan(
       'pryzm.command.execute',
@@ -292,8 +308,18 @@ export class CommandBus {
         // 4. Emit to PatchEmitter subscribers (EventLogPersistor, etc.).
         this.emitter.emit(record);
 
+        // §U-B2/§U-B5 (audit): three-way gate on undo-stack pushes.
+        // (a) `suppressUndo` (REMOTE-source commands) skips both stacks entirely.
+        // (b) An empty-patch record (forward.length === 0 && inverse.length === 0)
+        //     would poison the ring-buffer cursor — skip it. The legacy
+        //     `undoStack` still records it for legacy bridge accounting because
+        //     UndoStack is keyed on EventRecord not patches.
+        const isEmptyPatchRecord = result.forward.length === 0 && result.inverse.length === 0;
+        const skipLegacyUndo = suppressUndo;
+        const skipRingBuffer = suppressUndo || isEmptyPatchRecord;
+
         // 5. Push EventRecord to legacy UndoStack (backward-compat for tests + UI).
-        this.undoStack.push(record);
+        if (!skipLegacyUndo) this.undoStack.push(record);
 
         // 6. Sprint A31 (C03 §4.1): push forward/inverse PatchPair to RingBufferUndoStack.
         //    Converts Immer `(string | number)[]` paths to RFC 6902 JSON Pointer strings
@@ -301,7 +327,7 @@ export class CommandBus {
         //    `ringBuffer.current().inverse.ops` and applies them via `applyPatches`.
         //    Sprint A34 (C03 §4.1): `affectedStores` added so `applyRingBufferSide()`
         //    can route inverse patches to the correct stores at Ctrl-Z time (Phase D).
-        if (this._ringBuffer) {
+        if (this._ringBuffer && !skipRingBuffer) {
           try {
             this._ringBuffer.push({
               forward: {

@@ -62,8 +62,8 @@ import { scheduleStore } from '@pryzm/core-app-model';
 import { requirementStore, assetCatalogStore, buildDefaultAssetCatalog } from '@pryzm/core-app-model';
 import { annotationStore } from '@pryzm/plugin-annotations';
 import { ClearProjectCommand } from '@pryzm/command-registry';
-import { doorStore } from '@pryzm/geometry-door';
-import { windowStore } from '@pryzm/geometry-window';
+import { doorStore, doorSystemTypeStore } from '@pryzm/geometry-door';
+import { windowStore, windowSystemTypeStore } from '@pryzm/geometry-window';
 import { AddLevelCommand } from '@pryzm/command-registry';
 import { AddGridCommand } from '@pryzm/command-registry';
 import { CreateWallCommand } from '@pryzm/command-registry';
@@ -584,10 +584,25 @@ export class ProjectLoader {
             }
 
             // ── Step 6: Stairs (priority 22) ──────────────────────────────────
+            // §PERSIST-L1 (DAILY-USE 2026-05-20) — Previously this loop passed
+            // only 11 curated fields, silently dropping `id`, `typeId`,
+            // `typeSnapshot`, `properties` (mark + material + treadMaterial +
+            // railingType + …), `turnDirection`, `secondRunSide`,
+            // `stepsBeforeLanding`, `buildingCodeVariant`, and `metadata`.
+            // That gave the architect-reported symptom: "stair type goes back
+            // to default" after reload — the system-type-id was being thrown
+            // away on every save/load cycle. The fix mirrors the wall restore
+            // pattern (line 461-476) — every field the serializer wrote is
+            // threaded back through the command so the snapshot round-trips
+            // bit-identically.
             console.log(`[ProjectLoader] Loading ${snapshot.stairs.length} stairs`);
             for (const stair of snapshot.stairs) {
                 try {
                     const cmd = new CreateStairCommand({
+                        // §PERSIST-L1 — preserve the original UUID so railings,
+                        // openings, room boundaries, and selection state all
+                        // continue to resolve after reload.
+                        id: stair.id,
                         baseLevelId: stair.baseLevelId,
                         topLevelId: stair.topLevelId,
                         shape: stair.shape,
@@ -597,8 +612,31 @@ export class ProjectLoader {
                         startPosition: stair.startPosition ?? { x: 0, y: 0, z: 0 },
                         flights: stair.flights ?? [],
                         landings: stair.landings,
+                        // §PERSIST-L1 — code-compliance + shape-control fields.
                         fireRating: stair.fireRating,
-                        accessibilityType: stair.accessibilityType
+                        accessibilityType: stair.accessibilityType,
+                        buildingCodeVariant: stair.buildingCodeVariant,
+                        turnDirection: stair.turnDirection,
+                        secondRunSide: stair.secondRunSide,
+                        stepsBeforeLanding: stair.stepsBeforeLanding,
+                        // §PERSIST-L1 — the architect's system-type choice
+                        // (was silently dropped → stair reverted to default).
+                        typeId: stair.typeId,
+                        typeSnapshot: stair.typeSnapshot,
+                        // §PERSIST-L1 — full properties bag carries mark +
+                        // material + treadMaterial + riserMaterial + nosingType
+                        // + stringerType + handrail flags + railingType + tags +
+                        // description. CreateStairCommand merges these on top
+                        // of DEFAULT_STAIR_PROPERTIES and the type defaults.
+                        properties: stair.properties,
+                        // §PERSIST-L1 — Tag the audit trail so an import
+                        // is visibly distinct from a fresh user creation.
+                        metadata: { ...(stair.metadata ?? {}), source: 'import' },
+                        // §PERSIST-L1 — Skip the auto-opening punch on restore
+                        // (the opening was already created at original-author
+                        // time and serialised separately in slab.holes /
+                        // standalone openings). Re-punching would duplicate it.
+                        autoCreateOpening: false,
                     });
                     const r = exec(cmd);
                     r.success ? result.loaded++ : this.recordFail(result, `Stair ${stair.id}`, r);
@@ -740,6 +778,15 @@ export class ProjectLoader {
             }
 
             // ── Step 11: Curtain Walls (priority 26) ──────────────────────────
+            // §PERSIST-L1 (DAILY-USE 2026-05-20) — Previously this loop passed
+            // only 8 curated fields, silently dropping `mullionSize`,
+            // `panelThickness`, `mullionColor`, `gridSystem`, `properties`,
+            // and the IFC GUID. After reload every curtain wall fell back to
+            // the hard-coded mullion defaults (0.08m black mullions, 0.02m
+            // glazing) regardless of what the architect had picked. The fix
+            // mirrors the wall restore pattern (line 461-476) — every field
+            // the serializer wrote is threaded back through the command so
+            // the snapshot round-trips bit-identically.
             console.log(`[ProjectLoader] Loading ${snapshot.curtainWalls.length} curtain walls`);
             for (const cw of snapshot.curtainWalls) {
                 try {
@@ -752,7 +799,17 @@ export class ProjectLoader {
                         levelId: cw.levelId,
                         baseOffset: cw.baseOffset,
                         gridXSpacing: cw.gridXSpacing,
-                        gridYSpacing: cw.gridYSpacing
+                        gridYSpacing: cw.gridYSpacing,
+                        // §PERSIST-L1 — architect-set mullion + glazing fields.
+                        mullionSize:    cw.mullionSize,
+                        panelThickness: cw.panelThickness,
+                        mullionColor:   cw.mullionColor,
+                        // §PERSIST-L1 — non-uniform grid lines.
+                        gridSystem:     cw.gridSystem,
+                        // §PERSIST-L1 — architect-set mark / tags survive reload.
+                        properties:     cw.properties,
+                        // §PERSIST-L1 — IFC GUID continuity for external tools.
+                        ifcGuid:        cw.ifcData?.guid,
                     });
                     const r = exec(cmd);
                     r.success ? result.loaded++ : this.recordFail(result, `CurtainWall ${cw.id}`, r);
@@ -857,7 +914,12 @@ export class ProjectLoader {
                         // Only restore if not already present (avoids duplicates on re-load)
                         if (slabSystemTypeStore.getById(raw.id)) continue;
 
+                        // §M-B1 loader-side: pass `id: raw.id` so the store
+                        // preserves the snapshot's UUID. Without this, every
+                        // slab referencing the custom type became a dangling
+                        // reference on the next reload.
                         const restored = slabSystemTypeStore.add({
+                            id: raw.id,
                             name: raw.name,
                             description: raw.description,
                             layers: raw.layers,
@@ -894,7 +956,10 @@ export class ProjectLoader {
                         // Only restore if not already present (avoids duplicates on re-load)
                         if (wallSystemTypeStore.getById(raw.id)) continue;
 
+                        // §M-B1 loader-side: preserve the snapshot UUID — same
+                        // reasoning as the slabSystemTypeStore.add above.
                         const restored = wallSystemTypeStore.add({
+                            id: raw.id,
                             name: raw.name,
                             description: raw.description,
                             layers: raw.layers,
@@ -996,6 +1061,71 @@ export class ProjectLoader {
                 }
                 if (restoredFloorTypeCount > 0) {
                     console.log(`[ProjectLoader] Restored ${restoredFloorTypeCount} custom floor system type(s) from snapshot.`);
+                }
+            }
+
+            // §M-H4 (DAILY-USE-AUDIT 2026-05-20) — Restore custom DOOR system
+            // types. Without this, every door finish type the user authored
+            // ("Solid oak 35mm") was wiped on every project reload — only
+            // built-in presets survived (because they're re-seeded from code).
+            // Doors referencing the dropped type would then log the
+            // [DoorBuilder] "unknown systemTypeId" warning and fall back to
+            // inline parameters. The serializer pairs with this restore.
+            //
+            // Architectural note: door/window stores expose `getAll()` + simple
+            // `add(type)` API where the type carries its own `id` + `isBuiltIn`
+            // flag — slightly different from wall/slab's `addCustomType({...})`
+            // shape — so the loop here mirrors that store's contract. The
+            // duplicate-skip guard prevents re-adding a type already seeded
+            // from code (e.g. when a future build re-classifies a previously-
+            // custom type as built-in).
+            const snapshotDoorSystemTypes = (snapshot as { doorSystemTypes?: unknown[] }).doorSystemTypes;
+            if (Array.isArray(snapshotDoorSystemTypes) && snapshotDoorSystemTypes.length > 0) {
+                let restoredDoorTypeCount = 0;
+                for (const raw of snapshotDoorSystemTypes as Array<{ id?: string; name?: string; isBuiltIn?: boolean; [k: string]: unknown }>) {
+                    try {
+                        if (!raw.id || !raw.name) {
+                            console.warn('[ProjectLoader] Skipping malformed doorSystemType:', raw);
+                            continue;
+                        }
+                        const existing = doorSystemTypeStore.getById?.(raw.id);
+                        if (existing) continue; // already seeded (built-in or earlier custom)
+                        doorSystemTypeStore.add({ ...raw, isBuiltIn: false } as Parameters<typeof doorSystemTypeStore.add>[0]);
+                        // 'doorSystemType' is not (yet) in the StoreType enum; cast
+                        // via unknown so type registration is safe even though
+                        // the registry's enum doesn't list this kind today.
+                        try { elementRegistry.registerSemantic(raw.id, 'doorSystemType' as unknown as Parameters<typeof elementRegistry.registerSemantic>[1]); } catch { /* already registered */ }
+                        restoredDoorTypeCount++;
+                    } catch (e) {
+                        console.warn('[ProjectLoader] Failed to restore doorSystemType:', raw, e);
+                    }
+                }
+                if (restoredDoorTypeCount > 0) {
+                    console.log(`[ProjectLoader] Restored ${restoredDoorTypeCount} custom door system type(s) from snapshot.`);
+                }
+            }
+
+            // §M-H4 — Restore custom WINDOW system types (mirrors door above).
+            const snapshotWindowSystemTypes = (snapshot as { windowSystemTypes?: unknown[] }).windowSystemTypes;
+            if (Array.isArray(snapshotWindowSystemTypes) && snapshotWindowSystemTypes.length > 0) {
+                let restoredWindowTypeCount = 0;
+                for (const raw of snapshotWindowSystemTypes as Array<{ id?: string; name?: string; isBuiltIn?: boolean; [k: string]: unknown }>) {
+                    try {
+                        if (!raw.id || !raw.name) {
+                            console.warn('[ProjectLoader] Skipping malformed windowSystemType:', raw);
+                            continue;
+                        }
+                        const existing = windowSystemTypeStore.getById?.(raw.id);
+                        if (existing) continue;
+                        windowSystemTypeStore.add({ ...raw, isBuiltIn: false } as Parameters<typeof windowSystemTypeStore.add>[0]);
+                        try { elementRegistry.registerSemantic(raw.id, 'windowSystemType' as unknown as Parameters<typeof elementRegistry.registerSemantic>[1]); } catch { /* already registered */ }
+                        restoredWindowTypeCount++;
+                    } catch (e) {
+                        console.warn('[ProjectLoader] Failed to restore windowSystemType:', raw, e);
+                    }
+                }
+                if (restoredWindowTypeCount > 0) {
+                    console.log(`[ProjectLoader] Restored ${restoredWindowTypeCount} custom window system type(s) from snapshot.`);
                 }
             }
 
@@ -1365,11 +1495,18 @@ export class ProjectLoader {
             // ── End topology observer resume ──────────────────────────────────
 
             // ── UNDO STACK — clear after rehydration (Contract 20 GAP-3) ─────
-            // Even though PROJECT_LOAD-sourced commands are not pushed onto the
-            // undo stack, clear it defensively so any stale entries from before
-            // the open are gone. Users opening a project should always start
-            // with an empty undo history.
+            // §U-B1 (DAILY-USE-AUDIT 2026-05-20) — clear THREE stacks, not just the
+            // legacy commandManager. Before this fix, the PRYZM-3 RingBufferUndoStack
+            // and the command-bus EventRecord UndoStack survived project load: the
+            // user's first Ctrl+Z applied an inverse JSON-Patch from the PREVIOUS
+            // project (no-op on missing IDs, data corruption on ID collision).
+            // `runtime.bus.clearUndoStacks()` (added in composeRuntime §U-B1) wipes
+            // both PRYZM-3 stacks; commandManager.clearHistory wipes the legacy one.
             try { this.commandManager.clearHistory(); } catch (e) { /* no-op */ }
+            try {
+                const r = (window as { runtime?: { bus?: { clearUndoStacks?: () => void } } }).runtime;
+                r?.bus?.clearUndoStacks?.();
+            } catch (e) { /* no-op */ }
             // ── End undo stack clear ──────────────────────────────────────────
 
             // Reference loadedLevelIds so TS strict mode doesn't flag it unused.

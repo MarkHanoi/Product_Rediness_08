@@ -2155,12 +2155,17 @@ export class CurtainWallBuilder {
      * recursive; a flat for-loop over `group.children` is the correct shape.
      */
     private _disposeChildren(group: THREE.Group): void {
-        const children = group.children;
-        for (let i = 0, n = children.length; i < n; i++) {
-            const obj = children[i];
-            if (!(obj instanceof THREE.Mesh) && !(obj instanceof THREE.InstancedMesh)) continue;
+        // §H29 (audit) — was a flat for-loop over `group.children`. The
+        // assumption that curtain-wall groups are flat (mullion meshes only)
+        // does not hold: panel groups contain nested mullion + glazing meshes,
+        // and the runtime [GPU Monitor] reported `Geometry count grew 185.7%`
+        // immediately after wall deletions because nested mesh geometries
+        // were never disposed. group.traverse() walks the whole subtree —
+        // matching WallFragmentBuilder._disposeWallGroupChildren's pattern.
+        group.traverse((obj) => {
+            if (!(obj instanceof THREE.Mesh) && !(obj instanceof THREE.InstancedMesh)) return;
             if (!obj.userData?.sharedGeometry) {
-                obj.geometry.dispose();
+                obj.geometry?.dispose?.();
             }
             if (!obj.userData?.sharedMaterial) {
                 if (Array.isArray(obj.material)) {
@@ -2169,6 +2174,6 @@ export class CurtainWallBuilder {
                     (obj.material as THREE.Material).dispose();
                 }
             }
-        }
+        });
     }
 }

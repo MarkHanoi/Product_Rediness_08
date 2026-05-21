@@ -42,6 +42,16 @@ export class SlabPlanToolHandler implements PlanToolHandler {
         console.log('[SlabPlanToolHandler] deactivated');
     }
 
+    /**
+     * §T-B1 (DAILY-USE-AUDIT 2026-05-20) — opt-in stroke-preservation per the
+     * `PlanToolHandler.hasActiveStroke?()` contract. The overlay's mouse-leave
+     * path suspends focus instead of deactivating when this returns true, so
+     * the user's partial polygon survives a temporary excursion to the toolbar.
+     */
+    hasActiveStroke(): boolean {
+        return this._slabPoints.length > 0;
+    }
+
     onMouseMove(pt: WorldPoint): void {
         this._cursorPt = pt;
 
@@ -180,12 +190,24 @@ export class SlabPlanToolHandler implements PlanToolHandler {
             // double-offset every vertex and misplace the slab.
             position: { x: 0, y: 0, z: 0 },
             levelId,
-            polygon:  poly.map(p => ({ x: p.worldX, y: p.worldZ })),
+            // §FIX-SLAB-ZERO-AREA (C11 §7.0): the PRYZM3 CreateSlab handler validates
+            // the boundary via signedAreaXZ() — area in the X-Z plane. The legacy §FT1
+            // bridge / SlabStore, however, read the polygon as {x,y} with y=worldZ.
+            // The two consumers disagree on which axis carries the depth coordinate.
+            // Supplying worldZ in BOTH y and z satisfies both: x-z area is non-zero
+            // (handler passes) and x-y is the legacy plan polygon (3D mesh builds).
+            // TODO(C11 §7.4): unify on a single world-Vec3 convention {x,y:0,z} and
+            // translate in the §FT1 bridge — tracked as SLAB-BOUNDARY-CONVENTION.
+            polygon:  poly.map(p => ({ x: p.worldX, y: p.worldZ, z: p.worldZ })),
         })?.then(() => {
             console.log('[SlabPlanToolHandler] slab created', slabId);
             if (systemTypeId && slabType && Array.isArray(slabType.layers) && slabType.layers.length > 0) {
+                // §FIX-SLAB-UPDATE-ID (C11 §7.0): UpdateSlabHandler.canExecute
+                // checks `cmd.id` (`plugins/slab/src/handlers/UpdateSlab.ts:37`).
+                // The tool previously sent `slabId` → `cmd.id` undefined → every
+                // post-create layer update was rejected "slab id is required".
                 window.runtime?.bus?.executeCommand('slab.update', {
-                    slabId,
+                    id: slabId,
                     systemTypeId,
                     layers:    structuredClone(slabType.layers),
                     thickness: slabType.totalThickness,

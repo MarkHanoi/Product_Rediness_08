@@ -408,6 +408,17 @@ export interface RuntimeEvents {
     readonly commandId: string;
     readonly commandType: 'handrail.create';
     readonly levelId: string;
+    /** §FT-HANDRAIL (HANDRAIL-BUS-MIGRATION, C11 §11.9): geometry fields so the
+     *  initTools §FT-HANDRAIL bridge can mirror the handrail into the legacy
+     *  HandrailStore (HandrailFragmentBuilder mesh + plan-view projection).
+     *  Present for the bus-dispatched plan-tool path. */
+    readonly id?: string;
+    readonly path?: ReadonlyArray<{ readonly x: number; readonly y?: number; readonly z: number }>;
+    readonly height?: number;
+    readonly diameter?: number;
+    readonly shape?: string;
+    readonly hostId?: string;
+    readonly materialId?: string;
   };
 
   /** Fired after `furniture.create` succeeds. */
@@ -415,6 +426,21 @@ export interface RuntimeEvents {
     readonly commandId: string;
     readonly commandType: 'furniture.create';
     readonly levelId: string;
+    /** §FT-FURNITURE (FURNITURE-BUS-MIGRATION, C11 §11.10): geometry fields so the
+     *  initTools §FT-FURNITURE bridge can mirror the item into the legacy
+     *  FurnitureStore → furniture builder 3D mesh. */
+    readonly id?: string;
+    readonly furnitureType?: string;
+    readonly position?: { readonly x: number; readonly y: number; readonly z: number };
+    readonly rotation?: number;
+    readonly baseOffset?: number;
+    readonly width?: number;
+    readonly length?: number;
+    readonly height?: number;
+    readonly material?: string;
+    readonly furnitureCategory?: string;
+    readonly kitchenConfig?: unknown;
+    readonly wardrobeCabinetConfig?: unknown;
   };
 
   /** Fired after `lighting.create` succeeds. */
@@ -422,6 +448,12 @@ export interface RuntimeEvents {
     readonly commandId: string;
     readonly commandType: 'lighting.create';
     readonly levelId: string;
+    /** §FT-LIGHTING (LIGHTING-BUS-MIGRATION, C11 §11.11): geometry fields so the
+     *  initTools §FT-LIGHTING bridge can mirror the fixture into the legacy
+     *  LightingStore (LightingFragmentBuilder 3D mesh). */
+    readonly id?: string;
+    readonly kind?: string;
+    readonly origin?: { readonly x: number; readonly y: number; readonly z: number };
   };
 
   /** Fired after `plumbing.create` succeeds. */
@@ -3118,12 +3150,33 @@ export interface PryzmRuntime {
   // §2 PR 4.A.8`.
   readonly bus: {
     executeCommand(type: string, payload: unknown): unknown;
+    /**
+     * §U-B2 (DAILY-USE-AUDIT 2026-05-20) — formal dispatch entry point used by
+     * `RemoteCommandDispatcher` for collaboration catch-up + live broadcast.
+     * `opts.source === 'REMOTE'` makes the command bypass BOTH local undo
+     * stacks so a collaborator's edit cannot end up on the local user's
+     * Ctrl+Z (per §30-COLLAB §3.5). `'PROJECT_LOAD'` does the same for
+     * the bulk hydration path; `'LOCAL'` (default) keeps existing semantics.
+     */
+    dispatch(
+      type: string,
+      payload: unknown,
+      opts?: { readonly source?: 'LOCAL' | 'REMOTE' | 'PROJECT_LOAD' },
+    ): unknown;
     register(handler: CommandHandler<unknown>): Disposable;
     readonly registry: ReadonlyMap<string, CommandHandler<unknown, AnyStores>>;
     // Sprint F-2.0: expose ringBuffer on the narrow slot type so callers
     // can access undo/redo state without `as any` casts.
     readonly ringBuffer: RingBufferUndoStack | null;
     setRingBuffer(rb: RingBufferUndoStack): void;
+    /**
+     * §U-B1 (DAILY-USE-AUDIT 2026-05-20) — wipe BOTH the RingBufferUndoStack
+     * and the legacy command-bus UndoStack. Called by `ProjectLifecycleController`
+     * on project switch and by `ProjectLoader` after `commandManager.clearHistory()`
+     * on project load. Prevents Ctrl+Z in the new project from applying inverse
+     * patches recorded against the previous project's stores.
+     */
+    clearUndoStacks(): void;
   };
 
   // ── Slot 4 — selection (+ hover, + projectContext) ──────────────────────

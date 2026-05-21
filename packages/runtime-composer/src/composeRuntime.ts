@@ -1115,6 +1115,23 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       executeCommand(type: string, payload: unknown): unknown {
         return inner.bus.executeCommand(type, payload);
       },
+      /**
+       * §U-B2 (DAILY-USE-AUDIT 2026-05-20) — formal dispatch entry point used by
+       * `RemoteCommandDispatcher` (collaboration catch-up + live broadcast). The
+       * `source: 'REMOTE'` opt threads through to `executeCommand`'s `suppressUndo`,
+       * so a remote collaborator's edit does NOT land on the local user's undo
+       * stack (Ctrl+Z must never undo someone else's work — §30-COLLAB §3.5).
+       * Pre-existing local callers continue to use `executeCommand` directly; no
+       * call-site change required for them.
+       */
+      dispatch(
+        type: string,
+        payload: unknown,
+        opts?: { readonly source?: 'LOCAL' | 'REMOTE' | 'PROJECT_LOAD' },
+      ): unknown {
+        const suppressUndo = opts?.source === 'REMOTE' || opts?.source === 'PROJECT_LOAD';
+        return inner.bus.executeCommand(type, payload, { suppressUndo });
+      },
       register(handler: CommandHandler<unknown>): Disposable {
         inner.bus.register(handler);
         return {
@@ -1129,6 +1146,17 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       get ringBuffer() { return inner.bus.ringBuffer; },
       setRingBuffer(rb: Parameters<typeof inner.bus.setRingBuffer>[0]): void {
         inner.bus.setRingBuffer(rb);
+      },
+      /**
+       * §U-B1 (DAILY-USE-AUDIT 2026-05-20) — clear BOTH undo stacks. Called by
+       * `ProjectLifecycleController` on project switch and by `ProjectLoader`
+       * after `commandManager.clearHistory()` on project load. Without this,
+       * Ctrl+Z in Project B applies an inverse JSON-Patch from Project A's
+       * edits (either no-op'ing on missing element IDs or corrupting B's data).
+       */
+      clearUndoStacks(): void {
+        try { inner.bus.ringBuffer?.clear(); } catch { /* non-fatal */ }
+        try { (inner.bus as { undoStack?: { clear?: () => void } }).undoStack?.clear?.(); } catch { /* non-fatal */ }
       },
     };
 

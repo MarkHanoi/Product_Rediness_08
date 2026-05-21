@@ -283,7 +283,11 @@ export class FurniturePlanToolHandler implements PlanToolHandler {
                 id,
                 furnitureType: type as FurnitureType,
                 position:      { x: pt.worldX, y: 0, z: pt.worldZ },
-                rotation:      { x: 0, y: 0, z: 0 },
+                // §FIX-FURNITURE-ROTATION (C11 §7.0): furniture.create's canExecute
+            // validates `Number.isFinite(rotation)` — rotation is a SCALAR yaw
+            // angle (radians), not a Vec3. Passing { x, y, z } made the guard
+            // reject every furniture placement with "rotation must be finite".
+            rotation:      0,
                 levelId,
                 baseOffset:    0,
                 width:         cfg.length,
@@ -306,7 +310,11 @@ export class FurniturePlanToolHandler implements PlanToolHandler {
                 id,
                 furnitureType: type as FurnitureType,
                 position:      { x: pt.worldX, y: 0, z: pt.worldZ },
-                rotation:      { x: 0, y: 0, z: 0 },
+                // §FIX-FURNITURE-ROTATION (C11 §7.0): furniture.create's canExecute
+            // validates `Number.isFinite(rotation)` — rotation is a SCALAR yaw
+            // angle (radians), not a Vec3. Passing { x, y, z } made the guard
+            // reject every furniture placement with "rotation must be finite".
+            rotation:      0,
                 levelId,
                 baseOffset:    0,
                 width:         cfg.length,
@@ -327,7 +335,9 @@ export class FurniturePlanToolHandler implements PlanToolHandler {
             id,
             furnitureType: type,
             position:  { x: pt.worldX, y: 0, z: pt.worldZ },
-            rotation:  { x: 0, y: 0, z: 0 },
+            // §FIX-FURNITURE-ROTATION (C11 §7.0): rotation is a scalar yaw angle
+            // (radians) — furniture.create validates Number.isFinite(rotation).
+            rotation:  0,
             levelId,
             baseOffset: 0,
             width:    fp.w,

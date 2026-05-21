@@ -120,6 +120,11 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<Rendere
         if (handle.type === 'webgpu') {
             const gpuDevice: GPUDevice | undefined = (threeRenderer as any).backend?.device;
             if (gpuDevice) {
+                // §M2-err (audit) — `.catch` on the outer `.then` so an
+                // unexpected throw outside the inner try/catch (e.g. before
+                // the try block at line 146 or inside the setTimeout promise)
+                // does not become an unhandled rejection that the global
+                // handler installed in main.ts then reports as a fatal crash.
                 gpuDevice.lost.then(async (info: GPUDeviceLostInfo) => {
                     console.error(
                         `[createRenderer] WebGPU device lost: reason="${info.reason}", message="${info.message}"`,
@@ -174,6 +179,8 @@ export async function createRenderer(canvas: HTMLCanvasElement): Promise<Rendere
                     } catch (err) {
                         console.error('[createRenderer] WebGPU recovery failed:', err);
                     }
+                }).catch((err: unknown) => {
+                    console.error('[createRenderer] WebGPU device.lost handler rejected (non-fatal):', err);
                 });
             }
         }

@@ -29,6 +29,12 @@ export class CeilingPlanToolHandler implements PlanToolHandler {
     private _cursorPoint: WorldPoint | null = null;
     private _rectAnchor:  WorldPoint | null = null;
 
+    // §T-B1 (DAILY-USE-AUDIT 2026-05-20) — opt-in stroke-preservation per the
+    // PlanToolHandler.hasActiveStroke?() contract. Mirrors the FloorPlanToolHandler
+    // pattern so multi-step polygon/rectangle drawing survives temporary
+    // off-canvas excursions (e.g. reading a dimension on the toolbar).
+    hasActiveStroke(): boolean { return this._points.length > 0 || this._rectAnchor !== null; }
+
     activate(ctx: PlanToolDrawContext): void {
         this._ctx         = ctx;
         this._points      = [];

@@ -432,7 +432,7 @@ export class PlatformProjectBrowser {
     handleHubMenuAction(action: string): void {
         switch (action) {
             case 'back-hub':
-                window.runtime?.events?.emit('pryzm-go-hub', {}); // F.events.12
+                window.runtime?.events?.emit('pryzm-go-hub', {}); window.dispatchEvent(new Event('pryzm-go-hub')); // F.events.12 + §33-NAV-FIX (PlatformRouter listens on the platform-lifetime window bus)
                 break;
             case 'save':
                 this.saveCtrl.openSaveModal();
@@ -480,7 +480,7 @@ export class PlatformProjectBrowser {
                 this.openWorkspaceCDEStateModal();
                 break;
             case 'sign-out':
-                window.runtime?.events?.emit('pryzm-sign-out', {}); // F.events.15
+                window.runtime?.events?.emit('pryzm-sign-out', {}); window.dispatchEvent(new Event('pryzm-sign-out')); // F.events.15 + §33-NAV-FIX (PlatformRouter listens on the platform-lifetime window bus)
                 break;
         }
     }

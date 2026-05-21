@@ -137,7 +137,7 @@ export class ExistingProjectsPanel extends Panel<ExistingProjectsPanelOptions> {
             Project Hub
         `;
         hubBtn.addEventListener('click', () => {
-            window.runtime?.events?.emit('pryzm-go-hub', {}); // F.events.12
+            window.runtime?.events?.emit('pryzm-go-hub', {}); window.dispatchEvent(new Event('pryzm-go-hub')); // F.events.12 + §33-NAV-FIX
         });
         root.appendChild(hubBtn);
     }

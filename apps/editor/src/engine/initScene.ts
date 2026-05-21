@@ -929,9 +929,19 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
     // view camera).  Shadow updates are handled after geometry changes instead
     // (see bim-*-added / bim-*-updated handlers below).
     // Contract: 01-BIM-ENGINE-CORE §4.3 — no scene mutations from frame callbacks.
-    world.camera.controls.addEventListener("rest", async () => {
+    // §H15 (audit) — try/catch the async body. The listener is invoked by
+    // camera-controls every time the camera rests; an exception inside
+    // updateShadows() (the file's own comments document recurring "Destroyed
+    // texture used in a submit" GPU-stall errors) would produce an unhandled
+    // promise rejection on EVERY rest, polluting telemetry and previously
+    // terminating the engine bootstrap path before §H11's global handlers
+    // were wired.
+    world.camera.controls.addEventListener("rest", () => {
         if (isPhase5Active) return;
-        await world.scene.updateShadows();
+        void Promise.resolve().then(async () => {
+            try { await world.scene.updateShadows(); }
+            catch (err) { console.warn('[initScene] updateShadows() on camera rest failed (non-fatal):', err); }
+        });
     });
 
     // ── Camera Dragging Guard (Pascal §cameraDragging) ─────────────────────

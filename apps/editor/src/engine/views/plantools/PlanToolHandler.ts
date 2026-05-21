@@ -189,4 +189,31 @@ export interface PlanToolHandler {
      * (e.g. canvas resize). Handlers MUST be idempotent.
      */
     redraw(): void;
+
+    /**
+     * §T-B1 (DAILY-USE-AUDIT 2026-05-20) — OPT-IN stroke-preservation contract.
+     *
+     * Multi-step tools (Wall polyline, Slab polygon, Floor polygon, Roof polyline,
+     * Room boundary, Ceiling polygon, Opening, etc.) accumulate intermediate state
+     * across multiple clicks (`_points[]`, `_wallFirstPoint`, etc.). When the user
+     * temporarily leaves the canvas area mid-stroke (e.g. moves the cursor to the
+     * toolbar to read a dimension), the overlay would previously deactivate the
+     * handler — wiping the entire in-progress polyline.
+     *
+     * Handlers with multi-click state SHOULD implement this method to return
+     * `true` whenever they hold uncommitted state. The overlay's mouse-leave path
+     * will then SUSPEND focus (hide tooltip, blur) without calling `deactivate()`,
+     * so the partial stroke survives the user's brief excursion off-canvas.
+     *
+     * Single-click tools (Door, Window, Furniture single-placement, Plumbing
+     * fixture, Lighting, etc.) need NOT implement this — the default `undefined`
+     * is treated as "no active stroke" and the overlay's existing deactivate-on-leave
+     * behaviour applies.
+     *
+     * Lifecycle invariant: a handler returning `true` from `hasActiveStroke()`
+     * MUST also fully reset that state inside `cancel()` (Escape) and
+     * `deactivate()` (tool switch / project switch) — those are the only two
+     * paths that should ever discard pending stroke state.
+     */
+    hasActiveStroke?(): boolean;
 }

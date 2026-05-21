@@ -36,6 +36,36 @@ export interface CreateStairInput {
     /** L / U shapes: number of risers in flight 1 before the landing */
     stepsBeforeLanding?: number;
     /**
+     * §PERSIST-L1 (DAILY-USE 2026-05-20) — When supplied, the new stair adopts
+     * this id rather than generating a fresh UUID. ProjectLoader uses this to
+     * round-trip the snapshot id, preserving every reference to the stair
+     * (railings, openings, room boundaries, selection state). Mirrors the
+     * already-established pattern in CreateWallCommand(id, …) +
+     * CreateCurtainWallCommand({ id, … }) + CreateSlabCommand({ id, … }).
+     */
+    id?: string;
+    /**
+     * §PERSIST-L1 — Restore-time metadata override. ProjectLoader sets
+     * `source: 'import'` so the audit trail distinguishes a snapshot reload
+     * from a fresh creation. Defaults to `source: 'user'` for new stairs.
+     */
+    metadata?: Partial<StairData['metadata']>;
+    /**
+     * §PERSIST-L1 — Architect-tunable code-compliance fields that the
+     * snapshot persists but the loader was previously dropping. Threaded as
+     * optional with no default semantics change for the StairTool's fresh
+     * creates.
+     */
+    buildingCodeVariant?: string;
+    /**
+     * §PERSIST-L1 — Type snapshot captured at the moment of stair authoring,
+     * so a project that opens after the system type was modified or deleted
+     * still renders with the architect's original parameter set. Same idea
+     * as `wall.systemTypeSnapshot`. Optional; absence preserves current
+     * "resolve from typeId" behaviour.
+     */
+    typeSnapshot?: StairData['typeSnapshot'];
+    /**
      * When true (default), the command computes the stair's plan-view bounding
      * rectangle and automatically punches an opening on the slab whose
      * `levelId === topLevelId`, so the stair has clear vertical headroom.
@@ -189,7 +219,13 @@ export class CreateStairCommand implements Command {
     execute(ctx: CommandContext): CommandResult {
         const { stairStore } = ctx.stores;
 
-        const stairId = crypto.randomUUID();
+        // §PERSIST-L1 (DAILY-USE 2026-05-20) — Honour caller-supplied id so
+        // restored stairs keep their original UUID. Without this, every save/
+        // load cycle invalidated railing→stair links, opening→stair links,
+        // room→stair selection memory, and IFC mark continuity. Same shape as
+        // CreateWallCommand(wall.id, …). Falls back to a fresh UUID when no
+        // id is supplied (fresh creates from the StairTool).
+        const stairId = this.input.id ?? crypto.randomUUID();
         // §F11 fix (FIXED 2026-04-25): typed access via the public getter.
         const baseLevelId = this.input.baseLevelId || ctx.projectContext?.activeLevelId;
 
@@ -262,13 +298,29 @@ export class CreateStairCommand implements Command {
             fireRating: this.input.fireRating,
             accessibilityType: this.input.accessibilityType || 'standard',
             typeId: this.input.typeId,
+            // §PERSIST-L1 — Optional snapshot-captured type so the stair survives
+            // type deletion / modification after the project was saved.
+            typeSnapshot: this.input.typeSnapshot,
+            // §PERSIST-L1 — `properties` round-trips the architect's choices:
+            // mark, treadMaterial, riserMaterial, nosingType, stringerType,
+            // handrailHeight, railingType, tags, description. The merge order
+            // is DEFAULTS → type defaults → caller-supplied properties — so
+            // the snapshot wins over both, which is the correct semantic for
+            // a project reload.
             properties: { ...DEFAULT_STAIR_PROPERTIES, ...initialProperties },
             parameters: {},
+            // §PERSIST-L1 — code-compliance + accessibility round-trip.
+            buildingCodeVariant: this.input.buildingCodeVariant,
+            // §PERSIST-L1 — Caller-supplied metadata wins (ProjectLoader sets
+            // `source: 'import'` so the audit trail distinguishes restored
+            // stairs from user-created ones). Defaults preserved on fresh
+            // creates that don't pass an override.
             metadata: {
                 createdAt: now,
                 modifiedAt: now,
                 version: 0,
-                source: 'user'
+                source: 'user' as const,
+                ...(this.input.metadata ?? {}),
             }
         };
 

@@ -520,7 +520,21 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     // Must be retained so the subscription stays alive. Wave 7: shim.
     void roofLevelCleanupHandler;
 
-    const roofBuilder = new RoofFragmentBuilder(scene, bimManager);
+    // §M-H1 follow-up (DAILY-USE-AUDIT 2026-05-20) — thread the same
+    // STANDARD_MATERIAL_LIBRARY map into RoofFragmentBuilder that WallTool now
+    // threads into WallFragmentBuilder, so user-picked roof materials render
+    // as real PBR (terracotta tile, zinc seam, slate, etc.) instead of flat
+    // shingle colour. Lazy dynamic import keeps `initBuilders` decoupled from
+    // a renderer-layer library at module load time; the map is module-scoped
+    // + immutable so a single resolution per builder suffices.
+    let _roofMaterialMap: ReadonlyMap<string, { params?: Record<string, unknown>; textures?: { color?: unknown; normal?: unknown; roughness?: unknown } }> | undefined;
+    try {
+        const matLib = await import('@pryzm/core-app-model/material-library');
+        _roofMaterialMap = new Map(matLib.STANDARD_MATERIAL_LIBRARY.map(m => [m.id, m] as const));
+    } catch (err) {
+        console.warn('[initBuilders] §M-H1 roof materialMap unavailable (non-fatal):', err);
+    }
+    const roofBuilder = new RoofFragmentBuilder(scene, bimManager, undefined, _roofMaterialMap);
 
     // §DOM-EVENT-LISTENER-AUDIT-2026-05-18: RoofStore emits { id } (F.events.18
     // canonical shape).  Old listeners guarded on e.detail.roof / e.detail.roofId

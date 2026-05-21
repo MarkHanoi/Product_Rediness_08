@@ -13,6 +13,7 @@
  */
 
 import { LightingFixtureType, FLOOR_MOUNTED_FIXTURES } from '@pryzm/core-app-model';
+import { createId } from '@pryzm/schemas';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 
 const STROKE = '#0ea5e9';   // sky-500 — distinct from furniture violet & column cyan
@@ -88,10 +89,20 @@ export class LightingPlanToolHandler implements PlanToolHandler {
 
         const type = _activeType();
         const y    = _resolveY(levelId, type);
-        // [P6 E.5.4] §01-BIM-ENGINE-CORE-CONTRACT §1 — bus-primary
+        // [P6 E.5.4] §01-BIM-ENGINE-CORE-CONTRACT §1 — bus-primary.
+        // §FIX-LIGHTING-PAYLOAD (C11 §11.11): CreateLightingHandler's payload is
+        // `kind` + `origin` — NOT `fixtureType`/`position`. The two field names
+        // were a pure rename (LightingFixtureType and the schema LightingKind
+        // share the value space — both default 'downlight'). Sending the wrong
+        // names made the handler drop the click position (→ origin {0,0,0}) and
+        // the fixture kind (→ schema default). Conform to CreateLightingPayload.
         window.runtime?.bus?.executeCommand('lighting.create', {
-            fixtureType: type,
-            position: { x: pt.worldX, y, z: pt.worldZ },
+            // §FT-LIGHTING (C11 §11.11): pre-generate the branded id so the PRYZM3
+            // Immer store and the legacy LightingStore (via the §FT-LIGHTING bridge)
+            // share one stable id — mirrors the FIX-WALL-ID pattern.
+            id:     createId('lighting'),
+            kind:   type,
+            origin: { x: pt.worldX, y, z: pt.worldZ },
             levelId,
         })?.catch((e: Error) => console.error('[LightingPlanToolHandler] lighting.create failed:', e));
         console.log('[LightingPlanToolHandler] Lighting created', type, 'at', pt);

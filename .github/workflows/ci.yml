@@ -1,0 +1,132 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# PRYZM — Continuous Integration
+#
+# Closes audit finding §B6 (no CI/CD pipeline existed on disk despite the
+# CLAUDE.md governance claim that "the .github/workflows/ci.yml gate is hard-
+# fail — no PR merges without it green"). This workflow is the real merge gate.
+#
+# Required status checks should be enabled in repo Settings → Branches → main:
+#   - lint
+#   - isolation
+#   - command-manager
+#   - test-server
+#   - build
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Single concurrency group per ref — newer pushes cancel in-flight runs.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Match the engines pin in package.json
+  NODE_VERSION: '20'
+  PNPM_VERSION: '10.26.1'
+  # Make the memory-hungry build deterministic across runners.
+  NODE_OPTIONS: '--max-old-space-size=6144'
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run lint
+
+  isolation:
+    name: Isolation gates (project + storage)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run check:isolation
+
+  command-manager:
+    name: Command-manager gate (no legacy execute())
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run check:commandmanager
+
+  test-server:
+    name: Server tests (vitest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run test:server
+
+  ga-gate:
+    name: GA-gate (P1..P8 + perf budgets)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true   # advisory until §H33/H34/H35 (ratchet broadening) lands
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run ga-gate
+
+  build:
+    name: Build (tsc + vite + prod shim)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build

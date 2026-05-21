@@ -2866,9 +2866,34 @@ export async function initUI(p: UIParams): Promise<void> {
     });
 
     // ── Keyboard shortcut: Delete / Backspace → delete selected element ───────
+    // §T-B2 (DAILY-USE-AUDIT 2026-05-20) — three reinforced guards:
+    //   1. PlanViewToolOverlay / SvpPlanToolOverlay now call e.preventDefault() +
+    //      e.stopPropagation() when their active handler consumes the key (e.g.
+    //      Backspace pops a polyline vertex). This listener runs AFTER those
+    //      overlays during the bubbling phase, so a consumed event never reaches
+    //      `deleteSelected()`.
+    //   2. We additionally check for contenteditable / select / role=textbox so
+    //      typing Backspace inside a property-panel custom widget or sheet-editor
+    //      annotation text doesn't trigger element deletion.
+    //   3. If any tool is in DRAWING state, suppress deletion as a belt-and-braces
+    //      guard in case the overlay-consume mechanism is bypassed.
     window.addEventListener('keydown', (e: KeyboardEvent) => {
         if (e.key !== 'Delete' && e.key !== 'Backspace') return;
-        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+        // Defended by overlay preventDefault — but check defaultPrevented just in case.
+        if (e.defaultPrevented) return;
+        const t = e.target;
+        if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement) return;
+        if (t instanceof HTMLElement) {
+            if (t.isContentEditable) return;
+            if (t.matches?.('[contenteditable="true"], [role="textbox"], [role="combobox"]')) return;
+            // Custom widgets sometimes self-identify via data-attr.
+            if (t.closest?.('[data-pryzm-input], [data-text-edit]')) return;
+        }
+        // Suppress if a drawing tool is mid-stroke (belt-and-braces beyond the
+        // overlay's preventDefault — if a future tool forgets to return true,
+        // this still protects the user's selection).
+        const toolState = (window as { toolManager?: { getToolState?: () => string } }).toolManager?.getToolState?.();
+        if (toolState === 'DRAWING' || toolState === 'drawing') return;
         e.preventDefault();
         console.log('[EngineBootstrap] Shortcut Delete → deleteSelected');
         deleteSelected();

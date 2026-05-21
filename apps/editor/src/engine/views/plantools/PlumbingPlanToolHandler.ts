@@ -163,8 +163,16 @@ export class PlumbingPlanToolHandler implements PlanToolHandler {
             }
         }
 
-        // [P6 E.5.4] §01-BIM-ENGINE-CORE-CONTRACT §1 — bus-primary
-        window.runtime?.bus?.executeCommand('plumbing.create', {
+        // [P6 E.5.4] §01-BIM-ENGINE-CORE-CONTRACT §1 — bus-primary.
+        // §FIX-PLUMBING-FIXTURE-CMD (C11 §11.11): this tool creates a *fixture*
+        // (toilet/shower/bath/sink), so it MUST dispatch `plumbing.createFixture`
+        // — routed by CreatePlumbingFixtureHandler → legacy CreatePlumbingFixture-
+        // Command → fixture PlumbingStore → PlumbingFragmentBuilder mesh. The old
+        // `plumbing.create` target is the *pipe* handler (CreatePlumbingHandler
+        // models a pipe: kind/diameter/bendRadius) — it silently dropped every
+        // fixture field (fixtureType, position, variants). The payload below
+        // already matches CreatePlumbingFixturePayload (commands.ts:672) verbatim.
+        window.runtime?.bus?.executeCommand('plumbing.createFixture', {
             id,
             fixtureType:  type as any,
             toiletVariant: type === 'toilet' ? _getActiveToiletVariant() : undefined,
@@ -176,7 +184,7 @@ export class PlumbingPlanToolHandler implements PlanToolHandler {
             width:        fp.w,
             height:       fp.h,
             length:       fp.l,
-        })?.catch((e: Error) => console.error('[PlumbingPlanToolHandler] plumbing.create failed:', e));
+        })?.catch((e: Error) => console.error('[PlumbingPlanToolHandler] plumbing.createFixture failed:', e));
         console.log('[PlumbingPlanToolHandler] Fixture created', id, type, 'at', pt);
 
         // Stay active for multi-placement

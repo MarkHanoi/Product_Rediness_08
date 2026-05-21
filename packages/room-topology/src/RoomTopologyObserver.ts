@@ -197,6 +197,19 @@ export class RoomTopologyObserver {
   }
 
   private _scheduleRedetect(levelId: string, debounceMs: number = DEBOUNCE_MS): void {
+    // §FIX-ROOMOBSERVER-PAUSE (C11 §6.3 / task #32): `pause()` MUST make
+    // scheduling a COMPLETE no-op. Previously `this.paused` was honoured only
+    // inside the debounce-timer callback — but the forced-fire path below
+    // (MAX_DEBOUNCE_RESETS / MAX_DEADLINE_MS) calls `_executeRedetect()`
+    // DIRECTLY, bypassing the timer. During bulk project load `ProjectLoader`
+    // pauses the observer, yet every imported wall still reached this method,
+    // reset the debounce, and after 12 resets force-fired `ReDetectRoomsCommand`
+    // mid-import → main-thread thrash → "old projects stuck on load". Honour
+    // `paused` at the top so a paused observer accumulates nothing and never
+    // force-fires; `ProjectLoader` runs one explicit post-load redetect.
+    if (this.paused || this._disposed) {
+      return;
+    }
     if (batchCoordinator.isBatching) {
       console.debug(`[RoomTopologyObserver] suppressed (level=${levelId}, reason=isBatching, source=schedule)`);
       return;
@@ -282,6 +295,21 @@ export class RoomTopologyObserver {
 
   private _executeRedetect(levelId: string): void {
     if (this._disposed) return;
+    // §#48 (TASK queue 2026-05-20) — single source of truth for the paused
+    // gate. The C11 §FIX-ROOMOBSERVER-PAUSE fix added the paused check to
+    // `_scheduleRedetect`, but THREE other call sites (the cleanup-loop at
+    // line ~137, the forced-fire branch at line ~241, the batch-redetect-all
+    // at line ~277) invoke `_executeRedetect` DIRECTLY without going through
+    // `_scheduleRedetect`. During post-load wall-flush (ProjectLoader.ts:1326),
+    // those direct paths fired ReDetectRoomsCommand while the observer was
+    // still paused for the bulk import — producing the "forced fire resets=12"
+    // log + a redetect against half-built room polygons + a main-thread stall
+    // long enough to look like a project-load hang. Putting the paused check
+    // at this method's entry guarantees every redetect path honours it.
+    if (this.paused) {
+      console.debug(`[RoomTopologyObserver] _executeRedetect suppressed (paused, level=${levelId})`);
+      return;
+    }
     try {
       if (this._disposed) return;
       const level = this.bimManager.getLevelById(levelId);

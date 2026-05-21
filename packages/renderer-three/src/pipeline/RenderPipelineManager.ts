@@ -458,14 +458,48 @@ export class RenderPipelineManager implements IViewSwitchListener {
      */
     private _shadowRebuildTimer: ReturnType<typeof setTimeout> | null = null;
 
+    /**
+     * §#47 (TASK queue 2026-05-20) — in-flight + queued-follow-up guard for the
+     * SSGI shadow rebuild path. Closes the "Destroyed texture [ShadowDepthTexture]
+     * used in a submit" race during project load:
+     *
+     *   1. Project load fires `bim-*-added` for ~88 meshes in one event burst.
+     *   2. PascalSceneLighting calls `scheduleShadowRebuild()` 88×.
+     *   3. The setTimeout(16ms) coalesces those to ONE rebuild — but if any code
+     *      (e.g. updateCamera, splitViewActivate) triggers ANOTHER rebuild before
+     *      the in-flight one's `_fullRebuild()` completes, the WebGPU command
+     *      queue holds stale ShadowDepthTexture handles that have been disposed
+     *      and recreated mid-flight → 15× "Destroyed texture used in a submit".
+     *
+     * Fix: track `_rebuildInFlight`. If a schedule arrives while a rebuild is
+     * underway, set `_rebuildQueuedAfterFlight` — the completion handler then
+     * schedules exactly ONE follow-up rebuild. This serialises the GPU work
+     * without losing the final rebuild signal. Matches the same "in-flight +
+     * queued" pattern used by `WallRebuildCoordinator._scheduleFlush`.
+     */
+    private _rebuildInFlight = false;
+    private _rebuildQueuedAfterFlight = false;
+
     scheduleShadowRebuild(): void {
         if (!this._webGpuActive) return;
+
+        // §#47 — coalesce schedules during an in-flight rebuild into a single
+        // post-rebuild follow-up. Without this every scheduleShadowRebuild call
+        // during the in-flight window would re-arm the 16 ms timer and the
+        // SECOND fire would dispose ShadowDepthTextures the GPU queue still
+        // references.
+        if (this._rebuildInFlight) {
+            this._rebuildQueuedAfterFlight = true;
+            return;
+        }
+
         console.log(`[RenderPipelineManager] SHADOW_REBUILD_SCHEDULED meshCount=${(this as any)._scene?.children?.length ?? '?'}`);
         if (this._shadowRebuildTimer !== null) {
             clearTimeout(this._shadowRebuildTimer);
         }
         this._shadowRebuildTimer = setTimeout(() => {
             this._shadowRebuildTimer = null;
+            this._rebuildInFlight = true;
             console.log('[RenderPipelineManager] Rebuilding pipeline after shadow-map update.');
 
             // BUG-FIX (bugs 1 & 3): if returning from plan view with contaminated SSGI
@@ -484,16 +518,37 @@ export class RenderPipelineManager implements IViewSwitchListener {
                     this._hasPipelineError = false;
                     this._phase = 'error';
                     this._emitState();
+                }).finally(() => {
+                    this._finishRebuildAndDrainQueue();
                 });
                 return;
             }
 
             // Normal path: reuse cached SSGI nodes — safe because we have not been in
             // plan view since the last rebuild (no SSGI contamination).
-            const __t_shadow_start = performance.now();
-            this._rebuildPipeline();
-            console.log(`[RenderPipelineManager] SHADOW_REBUILD_COMPLETE elapsed=${(performance.now() - __t_shadow_start).toFixed(1)}ms`);
+            try {
+                const __t_shadow_start = performance.now();
+                this._rebuildPipeline();
+                console.log(`[RenderPipelineManager] SHADOW_REBUILD_COMPLETE elapsed=${(performance.now() - __t_shadow_start).toFixed(1)}ms`);
+            } finally {
+                this._finishRebuildAndDrainQueue();
+            }
         }, 16);
+    }
+
+    /**
+     * §#47 — clear the in-flight latch, then drain a single queued follow-up if
+     * any scheduleShadowRebuild calls arrived while the in-flight rebuild was
+     * running. Defers the follow-up via setTimeout(0) so it lands on a new
+     * macrotask AFTER any GPU submit work for the just-completed rebuild has
+     * drained from the WebGPU command queue.
+     */
+    private _finishRebuildAndDrainQueue(): void {
+        this._rebuildInFlight = false;
+        if (this._rebuildQueuedAfterFlight) {
+            this._rebuildQueuedAfterFlight = false;
+            setTimeout(() => this.scheduleShadowRebuild(), 0);
+        }
     }
 
     /**

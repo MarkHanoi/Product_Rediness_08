@@ -85,12 +85,18 @@ export class RailingPlanToolHandler implements PlanToolHandler {
         }
 
         const id = createId('handrail');
+        // §FIX-HANDRAIL-PAYLOAD (C11 §7.0): CreateHandrailHandler's payload is
+        // `path` (Vec3[]) + `diameter` — NOT start/end/thickness. Sending the
+        // wrong field names made the handler fall back to its default 1 m path
+        // at the origin, so the PRYZM3 Immer handrail carried no real geometry.
         window.runtime?.bus?.executeCommand('handrail.create', {
             id,
-            start:     { x: sp.worldX,    z: sp.worldZ },
-            end:       { x: endPt.worldX, z: endPt.worldZ },
-            height:    DEFAULT_HEIGHT,
-            thickness: DEFAULT_THICK,
+            path: [
+                { x: sp.worldX,    y: 0, z: sp.worldZ },
+                { x: endPt.worldX, y: 0, z: endPt.worldZ },
+            ],
+            height:   DEFAULT_HEIGHT,
+            diameter: DEFAULT_THICK,
             levelId,
         })?.catch((e: unknown) => console.error('[RailingPlanToolHandler] handrail.create failed:', e));
         console.log('[RailingPlanToolHandler] Railing created', id);

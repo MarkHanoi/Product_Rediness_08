@@ -88,6 +88,18 @@ export class WallPlanToolHandler implements PlanToolHandler {
     private _polylineFirstPoint: WorldPoint | null = null;
     private _arcMidPt: WorldPoint | null           = null;   // Phase 5: curved mode mid-click
     private _wallSegmentCount = 0;
+
+    // §T-B1 (DAILY-USE-AUDIT 2026-05-20) — opt-in stroke-preservation per
+    // PlanToolHandler.hasActiveStroke?(). The wall tool's chained-polyline mode
+    // accumulates segments via _wallFirstPoint + _polylineFirstPoint + arc-mode
+    // _arcMidPt. While ANY of these is non-null the user has uncommitted state
+    // and a temporary cursor excursion to the toolbar (e.g. picking a system
+    // type) must NOT wipe the stroke.
+    hasActiveStroke(): boolean {
+        return this._wallFirstPoint !== null
+            || this._polylineFirstPoint !== null
+            || this._arcMidPt !== null;
+    }
     private _wallCursorPoint: WorldPoint | null    = null;
     private _wallStatusOverlay: HTMLElement | null = null;
     private _dimInput: WallDimensionInput | null   = null;   // §04-12: typed dimension input

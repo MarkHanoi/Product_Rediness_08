@@ -80,7 +80,13 @@ import { initViewSetup }              from './initViewSetup';
 import { createAddFurniture }         from './initFurnitureInteraction';
 import { initWallLevelSubscribers }   from './initWallLevelSubscribers';
 import { ProjectLifecycleController } from '@pryzm/runtime-composer';
-import { YjsDocAdapter } from '@pryzm/sync-client';
+import { YjsDocAdapter, CRDTConflictResolver } from '@pryzm/sync-client';
+// §S-B1 (DAILY-USE-AUDIT 2026-05-20) — wire the P8 conflict-disclosure UI.
+// Both classes were already exported but `_yjsDocAdapter.onConflict(...)` was
+// never called from the editor app, so concurrent CRDT edits were silently
+// LWW'd in violation of C08 §3.1 / §3.3.
+import { ConflictDisclosureBanner } from '@app/ui/ConflictDisclosureBanner';
+import { ConflictResolutionDialog } from '@app/ui/ConflictResolutionDialog';
 import { aiService } from '@pryzm/ai-host';
 
 /**
@@ -444,6 +450,90 @@ export async function bootstrap(
         // returns { valid: false, reason: '...' } to surface feedback to the caller.
         try { registerSelectionHandlers(_bus); console.log('[EngineBootstrap] TASK-08: selection handlers (copy/paste) registered.'); }
         catch (e: any) { console.error('[EngineBootstrap] TASK-08: registerSelectionHandlers failed (non-fatal):', e?.message ?? e); }
+
+        // ── §C-B1 (DAILY-USE-AUDIT 2026-05-20) — register zoom-fit/zoom-selected ─
+        // The MainToolbar buttons dispatched these bus commands (declared in
+        // packages/command-bus/src/commands.ts:45-46), but no handler was
+        // registered anywhere → every click was a silent no-op. They're
+        // pure side-effect navigation commands (no store mutation), so they
+        // use the same shape as e.g. `view.create`: empty `affectedStores`,
+        // trivial canExecute, side-effect `execute`. The handlers are inline
+        // here because `zoomToAll` is the engineLauncher closure (line 173)
+        // and `viewController` is the constructed instance — both already in
+        // scope. Logged via `withHandlerSpan`-equivalent console marker so
+        // observability sees the command (P8 compliance: every public-API
+        // surface produces a trace marker).
+        try {
+            _bus.register({
+                type: 'zoom-fit',
+                affectedStores: [] as const,
+                canExecute: () => ({ valid: true }),
+                execute: () => {
+                    // zoomToAll handles 3D + plan/section/elevation via the camera-controls fit().
+                    void zoomToAll(true).catch((err) =>
+                        console.warn('[zoom-fit] zoomToAll failed (non-fatal):', err)
+                    );
+                    return { forward: [], inverse: [] };
+                },
+            });
+            console.log('[EngineBootstrap] §C-B1: zoom-fit handler registered.');
+        } catch (e: any) {
+            console.error('[EngineBootstrap] §C-B1: zoom-fit register failed:', e?.message ?? e);
+        }
+        try {
+            _bus.register({
+                type: 'zoom-selected',
+                affectedStores: [] as const,
+                canExecute: () => ({ valid: true }),
+                execute: () => {
+                    const sel = selectionManager?.selectedObject;
+                    if (!sel) {
+                        // No selection → fall back to fit-all so the button always does
+                        // something visible (better UX than silent no-op).
+                        void zoomToAll(true).catch(() => { /* non-fatal */ });
+                        return { forward: [], inverse: [] };
+                    }
+                    try {
+                        // Compute the Box3 of the selected object's mesh subtree and ask
+                        // the OBC camera-controls to fit it. Animate=true matches the
+                        // zoomToAll convention.
+                        const box = new THREE.Box3().setFromObject(sel);
+                        if (box.isEmpty()) {
+                            void zoomToAll(true).catch(() => { /* non-fatal */ });
+                            return { forward: [], inverse: [] };
+                        }
+                        const min = box.min;
+                        const max = box.max;
+                        // §C-B1 — the real `CameraControls` type doesn't structurally
+                        // overlap with our narrow shape, so cast through `unknown` as
+                        // TS recommends (TS2352 mitigation). We rely on duck-typing here
+                        // because camera-controls' API surface varies by build.
+                        const ctrls = world.camera.controls as unknown as {
+                            fitToBox?: (b: unknown, animate?: boolean) => Promise<void>;
+                            setLookAt?: (px: number, py: number, pz: number, tx: number, ty: number, tz: number, animate?: boolean) => Promise<void>;
+                        };
+                        if (typeof ctrls.fitToBox === 'function') {
+                            void ctrls.fitToBox(box, true).catch?.(() => { /* non-fatal */ });
+                        } else if (typeof ctrls.setLookAt === 'function') {
+                            // Fallback for camera-controls builds without fitToBox: aim at centre,
+                            // back off by 2× the bounding-sphere radius.
+                            const cx = (min.x + max.x) / 2;
+                            const cy = (min.y + max.y) / 2;
+                            const cz = (min.z + max.z) / 2;
+                            const r  = Math.max(max.x - min.x, max.y - min.y, max.z - min.z) || 1;
+                            const off = r * 2;
+                            void ctrls.setLookAt(cx + off, cy + off, cz + off, cx, cy, cz, true).catch?.(() => { /* non-fatal */ });
+                        }
+                    } catch (err) {
+                        console.warn('[zoom-selected] failed (non-fatal):', err);
+                    }
+                    return { forward: [], inverse: [] };
+                },
+            });
+            console.log('[EngineBootstrap] §C-B1: zoom-selected handler registered.');
+        } catch (e: any) {
+            console.error('[EngineBootstrap] §C-B1: zoom-selected register failed:', e?.message ?? e);
+        }
     }
 
     // ── Wall rebuild coordinator (§DIRTY-BATCH / C13) ─────────────────────────
@@ -576,6 +666,68 @@ export async function bootstrap(
         console.warn('[EngineBootstrap] G3-T2: runtime.inner.bus not accessible — CRDT applier not wired');
     }
 
+    // ── §S-B1 (DAILY-USE-AUDIT 2026-05-20) — wire P8 conflict-disclosure UI ──
+    // C08 §3.1 / §3.3: silent LWW is forbidden. When `YjsDocAdapter.emitConflict`
+    // fires (concurrent semantic edit detected by `CRDTConflictResolver` or by
+    // the in-batch elevation-mismatch detector), the user MUST see:
+    //   1. ConflictDisclosureBanner — non-blocking alert (role=alert, aria-live)
+    //      announcing that a remote edit overrode their change.
+    //   2. ConflictResolutionDialog (on banner click) — Keep mine / Keep theirs
+    //      / Merge picker. CRDTConflictResolver.applyResolution() returns the
+    //      chosen value; the actual re-dispatch to update the element happens
+    //      via the command bus using the element type's update handler.
+    //
+    // Architectural alignment: the resolver, dialog, banner, and emitConflict
+    // hook all already exist (Wave A19-T3/T6/T7); this is the missing wiring
+    // step at the L7 application layer. Singletons live for the engine lifetime;
+    // the dialog/banner manage their own DOM lifecycle (show/hide).
+    try {
+        const _conflictBanner   = new ConflictDisclosureBanner();
+        const _conflictDialog   = new ConflictResolutionDialog();
+        const _conflictResolver = new CRDTConflictResolver();
+        _yjsDocAdapter.onConflict((conflict) => {
+            _conflictBanner.show({
+                remoteAuthor: conflict.remoteAuthor,
+                propertyName: conflict.property,
+                onResolve: () => {
+                    _conflictDialog.show(conflict, (result) => {
+                        try {
+                            const finalValue = _conflictResolver.applyResolution(
+                                result.conflict,
+                                result.resolution,
+                                result.mergedValue,
+                            );
+                            // Route the resolved value back through `element.updateParameters`
+                            // — the generic update bridge (`initBusHandlers §E.5.x`) that
+                            // routes by elementId without needing the caller to know the
+                            // element type. If the bus dispatch fails we still emit a
+                            // resolution-recorded telemetry log so the resolver decision
+                            // is auditable. The remote LWW value has already been applied
+                            // by Yjs; this dispatch overrides it when the user picks
+                            // "Keep mine" / "Merge".
+                            const r = window.runtime as { bus?: { executeCommand?: (t: string, p: unknown) => Promise<unknown> } } | undefined;
+                            r?.bus?.executeCommand?.('element.updateParameters', {
+                                id: conflict.elementId,
+                                params: { [conflict.property]: finalValue },
+                            })?.catch?.((err: unknown) => {
+                                console.warn('[ConflictResolution] re-dispatch failed (logged for audit):', err);
+                            });
+                            console.log(
+                                `[ConflictResolution] resolved id=${conflict.elementId} prop=${conflict.property} ` +
+                                `→ resolution=${result.resolution} value=${JSON.stringify(finalValue)}`,
+                            );
+                        } catch (err) {
+                            console.error('[ConflictResolution] applyResolution failed:', err);
+                        }
+                    });
+                },
+            });
+        });
+        console.log('[EngineBootstrap] §S-B1: CRDT conflict UI wired — banner + dialog active.');
+    } catch (err) {
+        console.error('[EngineBootstrap] §S-B1: conflict UI wiring failed (non-fatal):', err);
+    }
+
     // ── F-1.4: rooms.redetect CustomEvent bridge listener ─────────────────────
     // RedetectRoomsHandler (plugins/rooms L4) dispatches 'pryzm-bus-rooms-redetect'
     // to avoid an L4→L7 import cycle (ADR-002 §3.D).  This L7 listener converts
@@ -617,6 +769,12 @@ export async function bootstrap(
     const _lifecycle = new ProjectLifecycleController(
         batchCoordinator,
         () => { _levelCamReady = false; }, // step-5 callback
+        // §U-B1 (DAILY-USE-AUDIT 2026-05-20) — clear undo stacks on project switch
+        // so Project B never sees Project A's Ctrl+Z entries.
+        () => {
+            const r = window.runtime as { bus?: { clearUndoStacks?: () => void } } | undefined;
+            r?.bus?.clearUndoStacks?.();
+        },
     );
     _lifecycle.bind();
     window.runtime?.events?.on('pryzm-project-loaded', () => { _levelCamReady = true; }); // F.events.9

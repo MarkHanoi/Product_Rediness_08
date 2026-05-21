@@ -579,9 +579,23 @@ export class PlanViewToolOverlay {
         if (e.key === 'Escape') {
             this._activeHandler.cancel();
             this._hideSnapTooltip();
+            e.preventDefault();
+            e.stopPropagation();
             return;
         }
-        this._activeHandler.onKeyDown?.(e);
+        // §T-B2 (DAILY-USE-AUDIT 2026-05-20) — propagate the handler's "I consumed
+        // this key" signal up the listener chain. Previously the return value was
+        // discarded so a Backspace pop-last-vertex inside a polyline tool was
+        // ALSO seen by the global Backspace handler in initUI.ts:2871 — which
+        // deleted the currently-selected element from a previous selection. This
+        // is a contract conformance fix: every plan-tool handler's `onKeyDown`
+        // returns `boolean` per the PlanToolHandler interface to signal exactly
+        // this "claimed" semantics; the overlay must honour it.
+        const handled = this._activeHandler.onKeyDown?.(e);
+        if (handled === true) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
     }
 
     private _onDblClick(e: MouseEvent): void {

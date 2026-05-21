@@ -1,10 +1,26 @@
 {
+  // NOTE: The canonical typecheck gate for the editor app is the ROOT
+  // tsconfig.json — that is what `pnpm run build` enforces and what this
+  // package's `typecheck` script runs (`tsc -p ../../tsconfig.json`).
+  // This file is kept consistent with that gate so editor-only tooling /
+  // IDE use does not surface errors the build does not. Do NOT re-introduce
+  // stricter flags here that the root build config does not also set.
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "rootDir": "./src",
     "outDir": "./dist",
     "composite": false,
-    "noEmit": false
+    "noEmit": false,
+    "jsx": "preserve",
+    "baseUrl": ".",
+    "paths": {
+      "@app/ui/*": ["src/ui/*"],
+      "@app/engine/*": ["src/engine/*"],
+      "@app/rendering/*": ["src/rendering/*"]
+    },
+    // tsconfig.base.json enables noUncheckedIndexedAccess; the root build
+    // config does not. Align with the build gate (see note above).
+    "noUncheckedIndexedAccess": false
   },
   "include": ["src/**/*"]
 }

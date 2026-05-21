@@ -19,18 +19,25 @@ export class StairRailingBuilder {
         this.stairStore = stairStore;
 
         window.addEventListener('bim-stair-railing-added', (e: Event) => {
-            const { railing } = (e as CustomEvent<{ railing: StairRailingConfig }>).detail;
-            // TASK-03 (MASTER-IMPL-PLAN-2026-05-18 BUG-2): explicit guard before resolveStair()
-            // so that any legacy path bypassing canExecute (e.g. direct commandManager bridge
-            // invocations, undo replay) surfaces a loud traceable error rather than silently
-            // skipping buildRailing() via the `if (stair)` guard at the next line.
+            // §FIX-STAIR-RAILING-EVENT (C11 §7.0): StairRailingStore.add() emits a
+            // lightweight `{ id }` notification — the store is the authoritative
+            // source of the StairRailingConfig (see the §P0-A40 design note in
+            // StairRailingStore: "consumers read the store"). The previous code
+            // destructured `detail.railing`, which the store NEVER sends, so
+            // `railing` was always undefined and EVERY railing mesh build was
+            // silently skipped by the stairId guard below. Resolve from the store.
+            const { id } = (e as CustomEvent<{ id: string }>).detail;
+            const railing = id ? this.railingStore.get(id) : undefined;
+            // Explicit guard before resolveStair() so any legacy path bypassing
+            // canExecute (direct commandManager bridge, undo replay) surfaces a
+            // loud traceable error rather than silently skipping buildRailing().
             // The authoritative rejection is in CreateStairRailingHandler.canExecute().
             if (!railing?.stairId) {
                 console.error(
                     '[StairRailingBuilder] railing.stairId is undefined — skipping mesh build.',
-                    'This indicates a handler validation bug: canExecute() should have rejected',
-                    'this command before it reached the store. Check the call site.',
-                    { railingId: railing?.id },
+                    'This indicates a handler validation bug, or the railing id is not in the store.',
+                    'The authoritative rejection is in CreateStairRailingHandler.canExecute().',
+                    { railingId: id },
                 );
                 return;
             }
@@ -39,19 +46,24 @@ export class StairRailingBuilder {
         });
 
         window.addEventListener('bim-stair-railing-removed', (e: Event) => {
-            const { railingId } = (e as CustomEvent<{ railingId: string }>).detail;
-            this.removeRailing(railingId);
+            // §FIX-STAIR-RAILING-EVENT: StairRailingStore.remove() and
+            // CreateStairRailingCommand.undo() emit `{ id }` — not `{ railingId }`.
+            const { id } = (e as CustomEvent<{ id: string }>).detail;
+            if (id) this.removeRailing(id);
         });
 
         window.addEventListener('bim-stair-removed', (e: Event) => {
-            const { stairId } = (e as CustomEvent<{ stairId: string }>).detail;
-            this.railingStore.getByStairId(stairId).forEach(r => this.removeRailing(r.id));
+            // §FIX-STAIR-RAILING-EVENT: StairStore emits `{ id }`, not `{ stairId }`.
+            const { id } = (e as CustomEvent<{ id: string }>).detail;
+            if (id) this.railingStore.getByStairId(id).forEach(r => this.removeRailing(r.id));
         });
 
         // Parametric rebuild: when stair geometry params change, rebuild all its railings.
         // F.events.15 — runtime.events.on picks up dispatches from registerTransformDragHandler (snap-back).
         (window as any).runtime?.events?.on('bim-stair-updated', (payload: { id?: string; stair?: StairData }) => {
-            const stair = payload?.stair;
+            // §FIX-STAIR-RAILING-EVENT: accept an inline `.stair` (transform-drag
+            // channel) or resolve the `{ id }` form StairStore emits.
+            const stair = payload?.stair ?? (payload?.id ? this.resolveStair(payload.id) : undefined);
             if (!stair) return;
             const railings = this.railingStore.getByStairId(stair.id);
             railings.forEach(r => {
@@ -63,7 +75,9 @@ export class StairRailingBuilder {
             });
         });
         window.addEventListener('bim-stair-updated', (e: Event) => {
-            const { stair } = (e as CustomEvent<{ stair: StairData; stairId: string }>).detail;
+            // §FIX-STAIR-RAILING-EVENT: StairStore emits `bim-stair-updated` as `{ id }`.
+            const detail = (e as CustomEvent<{ stair?: StairData; id?: string }>).detail;
+            const stair = detail?.stair ?? (detail?.id ? this.resolveStair(detail.id) : undefined);
             if (!stair) return;
             const railings = this.railingStore.getByStairId(stair.id);
             railings.forEach(r => {
