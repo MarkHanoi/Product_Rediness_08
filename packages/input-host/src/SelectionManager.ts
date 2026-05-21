@@ -101,6 +101,47 @@ export class SelectionManager implements ISelectionManager {
     /** The actual last hovered semantic root — used by Enter-key selection. */
     private _lastHoveredObject: THREE.Object3D | null = null;
     /**
+     * §SELECT-TAB-CYCLE (DAILY-USE 2026-05-21) — Architectural TAB-cycle for
+     * overlapping selection candidates (Revit / SketchUp / ArchiCAD convention).
+     * When the architect clicks at a position where multiple selectable
+     * elements project to the same pixel (e.g. a door INSIDE a wall, or a
+     * column BEHIND a slab edge), the first click selects the front-most
+     * candidate; subsequent TAB presses cycle to the next candidate without
+     * the architect having to move the camera.
+     *
+     * Fields:
+     *   • `_tabCycleCandidates` — the ordered list of candidates captured at
+     *     the last click. Ordered front-to-back by camera distance from BVH
+     *     raycast hits, deduplicated by selectable root.
+     *   • `_tabCycleIndex` — which candidate is currently selected (0 =
+     *     front-most, captured on the original click).
+     *   • `_tabCycleAnchorClientX/Y` — the cursor position at the time the
+     *     candidates were captured. TAB cycles only when the cursor is still
+     *     within TAB_CYCLE_ANCHOR_PX of this anchor; cursor drift beyond
+     *     that re-enumerates candidates from the new position on the next
+     *     click.
+     *
+     * Cleared on: every fresh click outside the anchor radius, on unselect,
+     * on tool switch, on Escape.
+     *
+     * Architectural alignment:
+     *   - Composable with #59 (Round 9 GPU/BVH split): candidate list is the
+     *     full BVH hit set; GPU pick still owns the FRONT-MOST claim.
+     *   - C13 §3 (selection authority) extended with cycle semantics — TAB
+     *     advances within the same authoritative candidate list, not a
+     *     parallel pick.
+     *   - C14 §2.3 (interaction precedence): TAB precedence above other
+     *     shortcuts when cycle state is non-null. `e.preventDefault()` so
+     *     the browser's tab-traversal doesn't move focus out of the canvas.
+     */
+    private _tabCycleCandidates: THREE.Object3D[] | null = null;
+    private _tabCycleIndex = 0;
+    private _tabCycleAnchorClientX: number | null = null;
+    private _tabCycleAnchorClientY: number | null = null;
+    /** Max cursor drift (CSS px) before TAB re-enumerates instead of cycling. */
+    private static readonly TAB_CYCLE_ANCHOR_PX = 16;
+
+    /**
      * §SELECT-3D-1 (DAILY-USE 2026-05-20) — GPU-CONFIRMED last hovered semantic
      * root.  Distinct from `_lastHoveredObject` (which is written by BOTH the
      * BVH/raycaster fast-path AND the GPU rAF) — this field is set ONLY by the
@@ -380,6 +421,13 @@ export class SelectionManager implements ISelectionManager {
             this._lastHoveredObjectGpu = null;
             this._lastHoverConfirmedClientX = null;
             this._lastHoverConfirmedClientY = null;
+            // §SELECT-TAB-CYCLE — clear cycle state on tool switch so the
+            // architect can't TAB through stale candidates from before the
+            // tool change.
+            this._tabCycleCandidates    = null;
+            this._tabCycleIndex         = 0;
+            this._tabCycleAnchorClientX = null;
+            this._tabCycleAnchorClientY = null;
         }
     }
 
@@ -482,6 +530,72 @@ export class SelectionManager implements ISelectionManager {
                         }
                     }
                     this.unselectAll();
+                }
+            }
+
+            // §SELECT-TAB-CYCLE (DAILY-USE 2026-05-21) — Generic cycle
+            // through overlapping selection candidates (Revit / SketchUp /
+            // ArchiCAD convention). Runs FIRST so the universal click-anchor
+            // cycle is always reachable for non-CW/non-kitchen/non-wardrobe
+            // element types. The special-case CW/kitchen/wardrobe Tab cases
+            // below take precedence only when the architect's CURRENT
+            // selection is one of those special types (they take the same
+            // e.preventDefault() so the page focus never moves).
+            if (e.key === 'Tab' && this.enabled && this._tabCycleCandidates !== null
+                && this._tabCycleCandidates.length > 1
+                && this._tabCycleAnchorClientX !== null
+                && this._tabCycleAnchorClientY !== null) {
+                // Anchor check: only cycle while the cursor is still close
+                // to where the click captured the candidates. Past that
+                // radius the architect has moved on; the next click will
+                // re-enumerate from the new position.
+                // _lastHoverConfirmedClientX/Y is updated by the GPU hover
+                // rAF (most recent confirmed cursor position); falls back
+                // to event.clientX/Y when the rAF hasn't fired yet.
+                const cx = this._lastHoverConfirmedClientX
+                    ?? (e as KeyboardEvent & { clientX?: number }).clientX
+                    ?? this._tabCycleAnchorClientX;
+                const cy = this._lastHoverConfirmedClientY
+                    ?? (e as KeyboardEvent & { clientY?: number }).clientY
+                    ?? this._tabCycleAnchorClientY;
+                const dx = cx - this._tabCycleAnchorClientX;
+                const dy = cy - this._tabCycleAnchorClientY;
+                const dist2 = dx * dx + dy * dy;
+                const r2 = SelectionManager.TAB_CYCLE_ANCHOR_PX * SelectionManager.TAB_CYCLE_ANCHOR_PX;
+                if (dist2 <= r2) {
+                    // Don't fire when the special-case CW/kitchen/wardrobe
+                    // sub-element cycle owns the current selection — they
+                    // have richer cycle semantics (sub-element drilling).
+                    const selType = this.selectedObject
+                        ? (this.selectedObject.userData?.type
+                            || this.selectedObject.userData?.elementType
+                            || '').toLowerCase()
+                        : '';
+                    const selIsCW = selType === 'curtain-wall' || selType === 'curtainwall';
+                    const selIsKitchenOrWardrobe = this.selectedObject
+                        ? (this.isKitchenFurniture(this.selectedObject)
+                            || this.isWardrobeFurniture(this.selectedObject))
+                        : false;
+                    if (!selIsCW && !selIsKitchenOrWardrobe) {
+                        e.preventDefault();
+                        // Shift+TAB cycles backward; TAB cycles forward.
+                        const n = this._tabCycleCandidates.length;
+                        const delta = e.shiftKey ? -1 : 1;
+                        this._tabCycleIndex = (this._tabCycleIndex + delta + n) % n;
+                        const next = this._tabCycleCandidates[this._tabCycleIndex];
+                        if (next) {
+                            console.log(
+                                `[SelectionManager] §SELECT-TAB-CYCLE cycle ` +
+                                `${this._tabCycleIndex + 1}/${n} → ` +
+                                `id=${(next.userData?.id ?? next.uuid)} ` +
+                                `type=${next.userData?.elementType ?? '?'}`,
+                            );
+                            window.__curtainSubElement = null;
+                            this.resetSubElementState();
+                            this.select(next);
+                        }
+                        return;
+                    }
                 }
             }
 
@@ -981,6 +1095,34 @@ export class SelectionManager implements ISelectionManager {
 
         // Sort by distance to camera
         validHits.sort((a, b) => a.hit.distance - b.hit.distance);
+
+        // §SELECT-TAB-CYCLE (DAILY-USE 2026-05-21) — capture the full
+        // dedupe-by-root ordered candidate list at the click position.
+        // Front-to-back by camera distance (already sorted above). The
+        // TAB-key handler in `init()` will advance through this list when
+        // the cursor is still within TAB_CYCLE_ANCHOR_PX of the anchor.
+        // Without this capture, every TAB press would behave identically
+        // to a fresh click — re-selecting the front-most element forever.
+        {
+            const seen = new Set<THREE.Object3D>();
+            const dedupedRoots: THREE.Object3D[] = [];
+            for (const v of validHits) {
+                if (v.root && !seen.has(v.root)) {
+                    seen.add(v.root);
+                    dedupedRoots.push(v.root);
+                }
+            }
+            this._tabCycleCandidates    = dedupedRoots;
+            this._tabCycleIndex         = 0;
+            this._tabCycleAnchorClientX = event.clientX;
+            this._tabCycleAnchorClientY = event.clientY;
+            if (dedupedRoots.length > 1) {
+                console.log(
+                    `[SelectionManager] §SELECT-TAB-CYCLE captured ${dedupedRoots.length} ` +
+                    `overlapping candidates at click — TAB to cycle`,
+                );
+            }
+        }
 
         const bestHit = validHits[0];
         const resolvedRoot = bestHit.root!;

@@ -344,12 +344,25 @@ export class CommandManager {
         }
         console.log(`[CommandManager] UNDO: ${entry.command.type} (history remaining: ${this.history.length})`);
 
-        const result = entry.command.undo(this.context);
-        console.log(`[CommandManager] UNDO result: success=${result.success}`, result.info ?? '');
-        if (result.success) {
-            this.redoStack.push(entry);
-        }
-        return result;
+        // §56 (DAILY-USE 2026-05-21) — pause RoomTopologyObserver +
+        // wallRebuildCoordinator for the duration of the undo so the storm of
+        // store events fired during undo (wall removed + opening removed +
+        // room boundary changed) coalesces into ONE re-detect + ONE wall
+        // rebuild pass when we resume. Without this, the user reported
+        // "2-3× redetect per single Ctrl+Z, ~80ms LONGTASK" — every undo
+        // produced multiple ReDetectRoomsCommand invocations because each
+        // intermediate store mutation tripped the observer's debouncer.
+        // Mirrors the §LOAD-RAF-PAUSE pattern that ProjectLoader uses
+        // around bulk hydration (apps/editor/src/engine/persistence/
+        // ProjectLoader.ts:279-296 + finally block at 1456-1495).
+        return this._withPausedObservers('UNDO', () => {
+            const result = entry.command.undo(this.context);
+            console.log(`[CommandManager] UNDO result: success=${result.success}`, result.info ?? '');
+            if (result.success) {
+                this.redoStack.push(entry);
+            }
+            return result;
+        });
     }
 
     redo(): CommandResult | null {
@@ -360,12 +373,45 @@ export class CommandManager {
         }
         console.log(`[CommandManager] REDO: ${entry.command.type} (redoStack remaining: ${this.redoStack.length})`);
 
-        const result = entry.command.execute(this.context);
-        console.log(`[CommandManager] REDO result: success=${result.success}`, result.info ?? '');
-        if (result.success) {
-            this.history.push(entry);
+        // §56 — same pause/resume scaffold for redo (re-executing a command
+        // fires the same store-event burst that the original execute did).
+        return this._withPausedObservers('REDO', () => {
+            const result = entry.command.execute(this.context);
+            console.log(`[CommandManager] REDO result: success=${result.success}`, result.info ?? '');
+            if (result.success) {
+                this.history.push(entry);
+            }
+            return result;
+        });
+    }
+
+    /**
+     * §56 (DAILY-USE 2026-05-21) — Pause RoomTopologyObserver +
+     * wallRebuildCoordinator around an undo/redo operation so the storm of
+     * intermediate store events coalesces into ONE re-detect + ONE wall
+     * rebuild pass on resume. Best-effort — if either global is unavailable
+     * (server-side / test environment) the operation still runs, just
+     * without the optimisation. Mirrors ProjectLoader's pause-during-bulk-
+     * load pattern exactly so the architectural invariant is consistent
+     * across all bulk-mutation paths.
+     */
+    private _withPausedObservers<T>(label: 'UNDO' | 'REDO', body: () => T): T {
+        type WallControl = { pause?: () => void; resumeAndFlush?: () => void };
+        type TopologyControl = { pause?: () => void; resume?: () => void };
+        const wallControl = (typeof window !== 'undefined'
+            ? (window as { __wallRebuildControl?: WallControl }).__wallRebuildControl
+            : undefined);
+        const topology   = (typeof window !== 'undefined'
+            ? (window as { roomTopologyObserver?: TopologyControl }).roomTopologyObserver
+            : undefined);
+        try { wallControl?.pause?.(); }   catch (e) { console.warn(`[CommandManager] §56 ${label}: wallControl.pause() failed`, e); }
+        try { topology?.pause?.(); }      catch (e) { console.warn(`[CommandManager] §56 ${label}: topology.pause() failed`, e); }
+        try {
+            return body();
+        } finally {
+            try { wallControl?.resumeAndFlush?.(); } catch (e) { console.warn(`[CommandManager] §56 ${label}: wallControl.resumeAndFlush() failed`, e); }
+            try { topology?.resume?.(); }            catch (e) { console.warn(`[CommandManager] §56 ${label}: topology.resume() failed`, e); }
         }
-        return result;
     }
 
     getHistory(): { command: Command, metadata: CommandMetadata }[] {

@@ -346,28 +346,19 @@ export class ProjectHub {
             }
         });
 
-        // Sign out — Phase C.10.04 (PRYZM2-WIREUP-PLAN-S72/14-subphases-A-D.md
-        // line 137).  Fire `runtime.persistence.client.signOut()` so the
-        // server invalidates the bearer token, then clear local-storage
-        // session via the legacy `signOut()` helper, then notify the
-        // shell to re-mount the auth modal.  We never await — the user
-        // experience must be instant; if the server call fails the
-        // local logout still completes (the token is gone from this
-        // browser regardless).
-        el.querySelector('#ph-sign-out')!.addEventListener('click', () => {
-            if (this.runtime) {
-                void this.runtime.persistence.client.signOut().catch(err => {
-                    console.warn('[ProjectHub] runtime.persistence.client.signOut failed (continuing local logout):', err);
-                });
-            }
-            signOut();
-            this.callbacks.onSignOut();
-        });
-
-        // Upgrade button
-        el.querySelector('#ph-upgrade-btn')?.addEventListener('click', () => {
-            this.callbacks.onUpgrade?.();
-        });
+        // §UI-MAIN-PANEL (DAILY-USE 2026-05-21) — The Sign out / New Project /
+        // Upgrade / Import-Upload click listeners have been MOVED into
+        // `attachSidebarListeners` (search "§UI-MAIN-PANEL" there). Reason:
+        // `refreshSidebar()` (line 303) does `sidebar.innerHTML = …` which
+        // destroys + recreates the sidebar DOM, blowing away every listener
+        // bound on those elements. Sidebar refreshes happen on plan changes,
+        // project add/remove, section nav, etc. — after the FIRST refresh
+        // the architect's clicks on Sign Out and New Project went silently
+        // unheard. `attachSidebarListeners` IS called by `refreshSidebar`,
+        // so binding there keeps refresh ↔ rebind symmetric. The architect
+        // reported: "the buttons on the left hand side panel don't get
+        // triggered." Root cause: orphaned listeners after every sidebar
+        // refresh.
 
         // Search filter
         el.querySelector('#ph-search')!.addEventListener('input', (e) => {
@@ -384,13 +375,9 @@ export class ProjectHub {
             });
         });
 
-        // New project button (header)
-        el.querySelector('#ph-new-btn')!.addEventListener('click', () => this.openNewModal());
-        el.querySelector('#ph-import-upload-btn')?.addEventListener('click', () => {
-            window.runtime?.events?.emit('import-ifc', {});
-        });
-
-        // Sidebar
+        // Sidebar — handles #ph-sign-out, #ph-new-btn, #ph-upgrade-btn,
+        // #ph-import-upload-btn, section nav, settings, world-model toggle
+        // (all re-bindable on refresh)
         this.attachSidebarListeners(el);
 
         // Grid
@@ -444,6 +431,43 @@ export class ProjectHub {
                 this.refreshSectionTitle();
                 this.refreshGrid();
             });
+        });
+
+        // §UI-MAIN-PANEL (DAILY-USE 2026-05-21) — moved here from
+        // attachListeners() so the handlers survive every refreshSidebar()
+        // (which calls innerHTML=… on the sidebar root and destroys all
+        // existing listeners). See the explanatory note in attachListeners
+        // above the `// Search filter` block.
+
+        // New project button (sidebar CTA — primary)
+        el.querySelector('#ph-new-btn')?.addEventListener('click', () => this.openNewModal());
+
+        // Import / Upload button (sidebar CTA — secondary, currently disabled
+        // but kept wired so flipping the disabled flag in markup is enough)
+        el.querySelector('#ph-import-upload-btn')?.addEventListener('click', () => {
+            window.runtime?.events?.emit('import-ifc', {});
+        });
+
+        // Upgrade button (footer — only present on free/trial plans)
+        el.querySelector('#ph-upgrade-btn')?.addEventListener('click', () => {
+            this.callbacks.onUpgrade?.();
+        });
+
+        // Sign out (footer) — Phase C.10.04 (PRYZM2-WIREUP-PLAN-S72/14-
+        // subphases-A-D.md line 137). Fires `runtime.persistence.client.signOut()`
+        // so the server invalidates the bearer token, then clears local-storage
+        // session via the legacy `signOut()` helper, then notifies the shell
+        // to re-mount the auth modal. Never await — the UX must be instant;
+        // if the server call fails the local logout still completes (the
+        // token is gone from this browser regardless).
+        el.querySelector('#ph-sign-out')?.addEventListener('click', () => {
+            if (this.runtime) {
+                void this.runtime.persistence.client.signOut().catch(err => {
+                    console.warn('[ProjectHub] runtime.persistence.client.signOut failed (continuing local logout):', err);
+                });
+            }
+            signOut();
+            this.callbacks.onSignOut();
         });
 
         // Phase 10: Platform Settings button (owner only)

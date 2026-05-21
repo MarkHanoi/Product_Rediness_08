@@ -92,9 +92,131 @@ export function getAuthToken(): string | null {
     return localStorage.getItem(AUTH_TOKEN_KEY);
 }
 
+/**
+ * §AUTH-SESSION-LEAK (DAILY-USE 2026-05-21) — CRITICAL SECURITY FIX.
+ *
+ * Before this round, `signOut()` removed only the two auth-token localStorage
+ * keys. The architect reported "I signed out and sign in with another user
+ * and the project where are already loaded from another user session - why
+ * this happens - this is not admissable". Root cause: every other piece of
+ * user-scoped client state survived the sign-out:
+ *   1. ProjectListStore in-memory project list
+ *   2. The currently-loaded project's scene (THREE.js renderer + all stores)
+ *   3. Yjs collab session (still connected to the old project's room)
+ *   4. localStorage caches of project metadata (last-opened, recent, …)
+ *   5. IndexedDB databases used for offline persistence
+ *   6. ProjectHub DOM state (refreshSidebar still showed User A's projects)
+ *
+ * Architectural fix (no shortcuts — defense in depth):
+ *   • Clear EVERY known PRYZM-prefixed localStorage key (explicit allowlist
+ *     prefix `pryzm-` and the AUTH_* keys).
+ *   • Clear IndexedDB databases with `pryzm` in the name (best-effort).
+ *   • Clear CacheStorage entries (best-effort).
+ *   • Hard page-reload as the FINAL guarantee — guarantees zero in-memory
+ *     state survives regardless of any cache/store we might have missed.
+ *     The reload lands on the auth modal cold-start, identical to a fresh
+ *     browser-tab open. Mirrors the `window.location.reload()` posture
+ *     enterprise auth proxies use after every credential change.
+ *
+ * The architectural invariant codified: **sign-out is an all-or-nothing
+ * tear-down. After sign-out, the page MUST be in a state identical to a
+ * fresh browser-tab cold-start.** Documented in §AUTH-PERM-MODEL.
+ *
+ * Compliance posture: this closes a GDPR / SOC-2 / ISO 27001 cross-tenant
+ * data-leak that would block any multi-user pilot. The page-reload makes the
+ * invariant trivially provable — after sign-out the entire page is
+ * reconstructed; no User A state can leak into User B's session.
+ */
 export function signOut(): void {
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-    localStorage.removeItem(AUTH_TOKEN_KEY);
+    // ── Step 1: clear auth tokens (the pre-existing behaviour) ─────────────
+    try { localStorage.removeItem(AUTH_STORAGE_KEY); } catch (e) { console.warn('[signOut] auth storage clear failed:', e); }
+    try { localStorage.removeItem(AUTH_TOKEN_KEY);   } catch (e) { console.warn('[signOut] auth token clear failed:', e); }
+
+    // ── Step 2: clear every PRYZM-prefixed localStorage key ────────────────
+    // Iterates a SNAPSHOT (Object.keys) so removal during iteration is safe.
+    try {
+        const keys = Object.keys(localStorage);
+        for (const k of keys) {
+            // Allowlist: only PRYZM-prefixed keys. Avoids nuking unrelated
+            // localStorage entries (e.g. browser extension state) that the
+            // user expects to persist across sign-outs.
+            if (k.startsWith('pryzm-') || k.startsWith('pryzm_') || k.startsWith('PRYZM_')) {
+                try { localStorage.removeItem(k); }
+                catch (e) { console.warn(`[signOut] removeItem(${k}) failed:`, e); }
+            }
+        }
+    } catch (e) {
+        console.warn('[signOut] localStorage iteration failed:', e);
+    }
+
+    // ── Step 3: clear sessionStorage (some PRYZM caches use it) ────────────
+    try { sessionStorage.clear(); } catch (e) { console.warn('[signOut] sessionStorage clear failed:', e); }
+
+    // ── Step 4: best-effort IndexedDB cleanup (async; doesn't block reload) ─
+    // PRYZM persists Yjs documents + project snapshots into IndexedDB. Clearing
+    // them ensures the post-reload editor doesn't rehydrate User A's data from
+    // disk-backed cache before the new user's auth resolves. Best-effort —
+    // if indexedDB.databases() is unsupported (older browsers, private mode),
+    // the post-reload page is still safe because the auth gate runs first.
+    try {
+        const idb = (typeof indexedDB !== 'undefined') ? indexedDB : null;
+        if (idb && typeof (idb as { databases?: () => Promise<{ name?: string }[]> }).databases === 'function') {
+            void (idb as { databases: () => Promise<{ name?: string }[]> })
+                .databases()
+                .then(dbs => {
+                    for (const db of dbs) {
+                        if (db.name && (db.name.includes('pryzm') || db.name.includes('PRYZM'))) {
+                            try { idb.deleteDatabase(db.name); }
+                            catch (e) { console.warn(`[signOut] deleteDatabase(${db.name}) failed:`, e); }
+                        }
+                    }
+                })
+                .catch(e => console.warn('[signOut] indexedDB.databases() failed:', e));
+        }
+    } catch (e) {
+        console.warn('[signOut] IndexedDB cleanup failed:', e);
+    }
+
+    // ── Step 5: best-effort CacheStorage cleanup ───────────────────────────
+    try {
+        if (typeof caches !== 'undefined' && typeof caches.keys === 'function') {
+            void caches.keys()
+                .then(names => Promise.all(
+                    names
+                        .filter(n => n.includes('pryzm') || n.includes('PRYZM'))
+                        .map(n => caches.delete(n).catch(e => console.warn(`[signOut] caches.delete(${n}) failed:`, e))),
+                ))
+                .catch(e => console.warn('[signOut] caches.keys() failed:', e));
+        }
+    } catch (e) {
+        console.warn('[signOut] CacheStorage cleanup failed:', e);
+    }
+
+    // ── Step 6: notify service worker (if any) to invalidate its own cache ─
+    try {
+        if (typeof navigator !== 'undefined' && navigator.serviceWorker?.controller) {
+            navigator.serviceWorker.controller.postMessage({ type: 'PRYZM_SIGN_OUT_CLEAR_CACHE' });
+        }
+    } catch (e) {
+        console.warn('[signOut] serviceWorker message failed:', e);
+    }
+
+    // ── Step 7: HARD RELOAD — the architectural guarantee ─────────────────
+    // After this line, the page is reconstructed from scratch. Any
+    // in-memory store, scene, controller, observer, Yjs session, or DOM
+    // state that survived steps 1-6 is destroyed by the navigation.
+    // The reload lands on the auth modal cold-start (no token → modal shown).
+    //
+    // Defer by one tick so any pending `runtime.persistence.client.signOut()`
+    // network call (fired by the ProjectHub Round 16 wiring) has a chance
+    // to dispatch its request BEFORE the reload aborts it. This is purely a
+    // courtesy — the server-side token invalidation is best-effort; the
+    // client-side reload is the security guarantee.
+    console.log('[signOut] §AUTH-SESSION-LEAK reloading page to guarantee all User-A state is destroyed.');
+    setTimeout(() => {
+        try { window.location.reload(); }
+        catch (e) { console.error('[signOut] location.reload() failed:', e); }
+    }, 50);
 }
 
 export interface AuthModalCallbacks {

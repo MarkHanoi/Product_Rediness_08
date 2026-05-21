@@ -98,6 +98,31 @@ export function getBackendInfo() {
     return { backend: resolved.backend, poolReady: _pool !== null };
 }
 
+// ── §SERVER-500-V1-MIGRATION-RACE (DAILY-USE 2026-05-21, Round 30) ────────────
+//
+// `runMigrations()` runs ASYNCHRONOUSLY after `httpServer.listen()` so the
+// port opens fast for the LB health probe (per the pre-existing comment in
+// server.js:5269-5274). The trade-off is a window — typically 200 ms-3 s —
+// where requests are accepted but the schema may not be fully applied. A
+// project-create that lands in that window can hit "column does not exist"
+// (42703) on the RETURNING clause when `runMigrations()`'s ALTER TABLE
+// additions for `is_archived` / `is_starred` / `description` haven't yet
+// committed.
+//
+// Round 30 fix: expose a shared `getMigrationsReady()` / `setMigrationsReady()`
+// flag pair here (where both server.js and the v1 router already import
+// from); the v1 router's per-request gate returns 503 `migrations_in_progress`
+// until the flag flips, eliminating the race entirely. The client retries
+// (it already handles 503 with exponential backoff per ProjectListClient).
+//
+// The flag lives in pgClient.js to avoid a circular dependency between
+// server.js (which calls runMigrations) and routes.js (which gates on it).
+// Both files already import from pgClient, so the shared-flag idiom is
+// architecturally clean.
+let _migrationsReady = false;
+export function getMigrationsReady() { return _migrationsReady; }
+export function setMigrationsReady(ready) { _migrationsReady = !!ready; }
+
 /**
  * GAP-01 fix — Run a callback inside a serialised BEGIN/COMMIT transaction
  * on a dedicated pool client.  The client is pinned for the duration of the

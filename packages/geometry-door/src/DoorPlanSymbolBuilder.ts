@@ -188,6 +188,38 @@ export class DoorPlanSymbolBuilder {
         const cutPositions:  number[] = [];   // §M5 leaf rectangle (cut by section plane)
         const projPositions: number[] = [];   // §M5 swing arc + open-position line (projection)
 
+        // §DOOR-WINDOW-PLAN-FRAME (DAILY-USE 2026-05-21) — Add the frame
+        // jamb cut symbols (two short perpendicular ticks at each jamb
+        // crossing the full wall thickness). Architect reported: "in plan
+        // view the 'Frame' doesn't render — We would like to see the frame
+        // of the door and window - of course - cut." This is the standard
+        // AEC convention symbol for the cut frame profile in plan view.
+        // The wall projection cuts at the door opening (so there's a gap
+        // in the wall line); the frame ticks bridge that gap by showing
+        // the frame's depth perpendicular to the wall axis. CUT layer
+        // (heavy line weight) because the section plane physically cuts
+        // through the frame member at every floor-plan slice elevation.
+        //
+        // Algorithm: at each of the two jambs, draw ONE line perpendicular
+        // to the wall axis, length = wall.thickness, centred on the wall
+        // centreline. This is the canonical "frame cut" symbol in Revit /
+        // AutoCAD / ArchiCAD plan views.
+        const wallThickness = Math.max(0.05, Number(wallData.thickness ?? 0.2));
+        const halfThk       = wallThickness / 2;
+        const leftJamb      = centre.clone().addScaledVector(dir, -(halfWidth - frameThick));
+        const rightJamb     = centre.clone().addScaledVector(dir, +(halfWidth - frameThick));
+        const tickHalf      = leftNormal.clone().multiplyScalar(halfThk);
+        // Left jamb tick (perpendicular line across the wall depth)
+        cutPositions.push(
+            leftJamb.x - tickHalf.x, 0, leftJamb.z - tickHalf.z,
+            leftJamb.x + tickHalf.x, 0, leftJamb.z + tickHalf.z,
+        );
+        // Right jamb tick
+        cutPositions.push(
+            rightJamb.x - tickHalf.x, 0, rightJamb.z - tickHalf.z,
+            rightJamb.x + tickHalf.x, 0, rightJamb.z + tickHalf.z,
+        );
+
         const isDouble = door.doorType === 'double';
 
         if (isDouble) {

@@ -45,6 +45,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { getSupabaseClient } from '../../supabaseClient.js';
 import * as pgProjectStore from '../../projectStore.js';
+import { getMigrationsReady } from '../../pgClient.js';
 import {
     registerWebhook,
     listWebhooks,
@@ -74,6 +75,122 @@ const TemplateRegistryPostSchema = z.object({
 });
 
 export const v1Router = Router();
+
+// ── §SERVER-500-V1-MIGRATION-RACE (DAILY-USE 2026-05-21, Round 30) ────────────
+//
+// Gate every v1 request behind the migration-ready flag. server.js opens the
+// listening socket BEFORE running migrations (so the LB health probe sees the
+// port immediately and the instance is not killed by autoscale) — the gap
+// between port-open and migrations-complete is typically 200 ms-3 s. A
+// project-create that lands in that window can hit "column does not exist"
+// (42703) on the RETURNING clause because runMigrations() hasn't yet
+// committed the ALTER TABLE for is_archived / is_starred / description.
+//
+// The gate returns 503 `migrations_in_progress` so the architect's UI knows
+// to wait + retry (ProjectListClient already handles 503 with exponential
+// backoff). After the flag flips (server.js setMigrationsReady(true) right
+// after runMigrations() succeeds), every subsequent request passes through.
+//
+// The /diagnostic endpoint is intentionally NOT gated — operators may need
+// to call it precisely BECAUSE migrations are stuck (lets them see the
+// pool-configured / table-exists state without waiting).
+v1Router.use((req, res, next) => {
+    // Diagnostic endpoint exempt — must work during migration window.
+    if (req.path === '/diagnostic') return next();
+    if (!getMigrationsReady()) {
+        const errorId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : `err-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        console.warn(`[v1Router] migrations_in_progress errorId=${errorId} path=${req.path}`);
+        return res.status(503)
+            .set('Retry-After', '2')
+            .json({
+                error:   'Server is starting up — database migrations in progress. Retry in a few seconds.',
+                code:    'migrations_in_progress',
+                errorId,
+            });
+    }
+    next();
+});
+
+// ── §SERVER-500-V1-DIAGNOSTIC (DAILY-USE 2026-05-21) ──────────────────────────
+//
+// `GET /api/v1/diagnostic` runs a series of read-only probes against the
+// database the v1 router uses and returns a structured report. Architect can
+// hit this endpoint AFTER seeing a 500 to immediately know whether:
+//   • the PG pool is configured
+//   • the projects table exists
+//   • the architect's userId can SELECT from projects (RLS / permissions)
+//   • the architect's userId can SELECT count rows (proxy for INSERT auth)
+//
+// Read-only — does NOT create or modify any rows. Owner-scoped to the
+// authenticated user. Pairs with the errorId+code logged by the create/list
+// 500 paths: when the architect reports "errorId=… code=…", hitting
+// `/api/v1/diagnostic` reveals the exact preconditions that failed.
+v1Router.get('/diagnostic', async (req, res) => {
+    const userId = req.auth?.userId ?? 'anonymous';
+    const report = {
+        userId,
+        ok: false,
+        probes: {
+            pgPoolConfigured:    null,
+            projectsTableExists: null,
+            canSelectProjects:   null,
+            projectCount:        null,
+        },
+        errors: {},
+    };
+    try {
+        // Probe 1: is the pool configured?
+        try {
+            await pgProjectStore.listProjects(userId);
+            report.probes.pgPoolConfigured = true;
+            report.probes.projectsTableExists = true;
+            report.probes.canSelectProjects = true;
+        } catch (err) {
+            const m = err?.message ?? String(err);
+            const code = err?.code ?? '';
+            if (m.includes('PostgreSQL not configured')) {
+                report.probes.pgPoolConfigured = false;
+                report.errors.pool = m;
+            } else if (code === '42P01' || /relation .* does not exist/i.test(m)) {
+                report.probes.pgPoolConfigured = true;
+                report.probes.projectsTableExists = false;
+                report.errors.table = m;
+            } else if (code === '42501' || /permission denied/i.test(m)) {
+                report.probes.pgPoolConfigured = true;
+                report.probes.projectsTableExists = true;
+                report.probes.canSelectProjects = false;
+                report.errors.permission = m;
+            } else {
+                report.errors.uncategorised = {
+                    message: m,
+                    code,
+                    detail:     err?.detail,
+                    hint:       err?.hint,
+                    table:      err?.table,
+                    constraint: err?.constraint,
+                };
+            }
+        }
+        // Probe 2: project count for this user (proxy for "can list at all")
+        if (report.probes.canSelectProjects) {
+            try {
+                const rows = await pgProjectStore.listProjects(userId);
+                report.probes.projectCount = rows.length;
+            } catch (err) {
+                report.errors.count = err?.message ?? String(err);
+            }
+        }
+        report.ok = report.probes.pgPoolConfigured === true
+            && report.probes.projectsTableExists === true
+            && report.probes.canSelectProjects === true;
+        return res.json(report);
+    } catch (err) {
+        report.errors.unexpected = err?.message ?? String(err);
+        return res.status(500).json(report);
+    }
+});
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -170,6 +287,167 @@ function ok(res, data, meta = {}) {
 // All four routes are auth-gated; every query is owner-scoped via
 // pgProjectStore so users only see / mutate their own projects.
 
+// §SERVER-500-V1-PROJECTS (DAILY-USE 2026-05-21) — shared error classifier
+// for every /api/v1/projects endpoint. The previous handlers had inconsistent
+// classification (only GET + POST checked for 'PostgreSQL not configured';
+// DELETE + PATCH fell straight through to opaque 500). Architect reported
+// `[ProjectListClient] server-error (HTTP 500)` from both LIST and CREATE.
+// Round 25/27 applied the same pattern to /api/projects (unversioned) —
+// turned out the client uses /api/v1/projects, so those rounds didn't reach
+// the actual handlers. This round applies it where it matters.
+//
+// Classification:
+//   PostgreSQL not configured → 503 db_not_configured (operator action)
+//   23505 unique_violation    → 409 id_collision (client retry with fresh id)
+//   23503 fk_violation        → 422 user_not_provisioned (account setup gap)
+//   42501 / PGRST301 RLS deny → 403 rls_denied (operator: check RLS policy)
+//   42P01 / PGRST205 missing  → 503 schema_not_applied (operator: run schema.sql)
+//   (uncategorised)           → 500 + errorId for support correlation
+function classifyV1Error(err, endpoint, userId) {
+    const m    = err?.message ?? String(err);
+    const code = err?.code ?? '';
+    const errorId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : `err-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    // db_not_configured (pre-existing detection — kept verbatim)
+    if (m.includes('PostgreSQL not configured')) {
+        console.error(`[${endpoint}] errorId=${errorId} userId=${userId} db not configured`);
+        return {
+            status: 503,
+            body: {
+                error: 'No database connection. The /api/v1 project API requires a direct PostgreSQL connection — set SUPABASE_DB_URL (or DATABASE_URL) in .env and restart. The Supabase REST keys alone do NOT work for this API.',
+                code:    'db_not_configured',
+                errorId,
+            },
+        };
+    }
+    // schema_not_applied — same surface as Round 27 §SERVER-500-PROJECT-CREATE
+    if (code === '42P01' || code === 'PGRST205' || code === 'PGRST116' ||
+        /relation .* does not exist|could not find the table|schema cache/i.test(m)) {
+        console.error(`[${endpoint}] errorId=${errorId} userId=${userId} schema not applied: ${m}`);
+        return {
+            status: 503,
+            body: {
+                error: 'Database schema not applied. Run server/schema.sql in the Supabase SQL Editor and restart the server.',
+                code:    'schema_not_applied',
+                errorId,
+            },
+        };
+    }
+    // id_collision
+    if (code === '23505' || /duplicate key|unique constraint/i.test(m)) {
+        console.error(`[${endpoint}] errorId=${errorId} userId=${userId} id collision: ${m}`);
+        return {
+            status: 409,
+            body: {
+                error: 'A project with that ID already exists. Retry without specifying an ID.',
+                code:    'id_collision',
+                errorId,
+            },
+        };
+    }
+    // user_not_provisioned (FK violation on owner_id)
+    if (code === '23503' || /foreign key|violates foreign key/i.test(m)) {
+        console.error(`[${endpoint}] errorId=${errorId} userId=${userId} FK violation (likely missing user row): ${m}`);
+        return {
+            status: 422,
+            body: {
+                error: 'User account is not provisioned. Sign out and back in to complete account setup, then retry.',
+                code:    'user_not_provisioned',
+                errorId,
+            },
+        };
+    }
+    // §SERVER-500-V1-COLUMN-MISSING (Round 30 — addresses the most likely
+    // remaining cause of the architect's reported 500 on POST /api/v1/projects)
+    //
+    // 42703 = undefined_column. Triggered when the SQL references a column
+    // that doesn't exist in the deployed schema. The architect's reported
+    // 500 most likely fires here: `pgProjectStore.createProject` (line 91)
+    // does `INSERT INTO projects (id, name, owner_id) ... RETURNING ${PROJECT_COLUMNS}`
+    // where PROJECT_COLUMNS includes is_archived / is_starred / description.
+    // These columns were added by `runMigrations()` in dbMigrate.js:397-399
+    // via ALTER TABLE statements. If the architect's Supabase database has
+    // an OLDER schema where those ALTERs never ran (e.g. fresh project where
+    // only the CREATE TABLE in SCHEMA_SQL ran but the ALTER block didn't,
+    // or a Supabase instance that was set up before those migrations
+    // existed), the RETURNING clause fails with 42703 → previously fell
+    // through to opaque 500.
+    //
+    // Now classified as 503 `schema_migration_pending`: the operator action
+    // is the same as schema_not_applied (run dbMigrate / re-deploy so the
+    // post-CREATE-TABLE ALTERs apply). Separated from schema_not_applied
+    // because the error message + remediation is subtly different — the
+    // tables EXIST, they're just missing recently-added columns.
+    if (code === '42703' || /column .* does not exist/i.test(m)) {
+        console.error(
+            `[${endpoint}] errorId=${errorId} userId=${userId} column missing (schema migration pending):`,
+            m,
+            err?.column ? `(column: ${err.column})` : '',
+            err?.table  ? `(table: ${err.table})`   : '',
+        );
+        return {
+            status: 503,
+            body: {
+                error: 'Database schema is missing recently-added columns. Restart the server to run pending migrations, or apply the latest server/dbMigrate.js ALTER TABLE statements via the Supabase SQL Editor.',
+                code:    'schema_migration_pending',
+                errorId,
+            },
+        };
+    }
+    // rls_denied
+    if (code === '42501' || code === 'PGRST301' || code === 'PGRST204' ||
+        /permission denied|insufficient/i.test(m)) {
+        console.error(`[${endpoint}] errorId=${errorId} userId=${userId} permission denied (RLS): ${m}`);
+        return {
+            status: 403,
+            body: {
+                error: 'Database permission denied. Check Supabase RLS policy for the projects table.',
+                code:    'rls_denied',
+                errorId,
+            },
+        };
+    }
+    // §SERVER-500-V1-UNCATEGORISED (Round 29 enhancement) — log every
+    // diagnostic field Postgres / node-postgres exposes so the live errorId
+    // reveals the actual failure without needing a follow-up debug round:
+    //   • code      — SQL state (5-char Postgres code, e.g. 23505)
+    //   • detail    — Postgres "DETAIL:" line (often names the offending row)
+    //   • hint      — Postgres "HINT:" line (suggested fix)
+    //   • table     — table name when the error has a relation context
+    //   • column    — column name when the error has a column context
+    //   • constraint— constraint name when a constraint was violated
+    //   • schema    — schema name (e.g. "public")
+    //   • severity  — Postgres severity (ERROR / FATAL / PANIC)
+    //   • routine   — Postgres internal routine name (helps Supabase support)
+    //   • stack     — JS stack trace
+    //
+    // These fields are populated by node-postgres on every PG error response;
+    // capturing them all means "uncategorised" 500s can be diagnosed from a
+    // single log line without server-restart-with-extra-logging.
+    console.error(
+        `[${endpoint}] errorId=${errorId} userId=${userId} uncategorised:`,
+        {
+            message:    err?.message ?? String(err),
+            code,
+            detail:     err?.detail,
+            hint:       err?.hint,
+            table:      err?.table,
+            column:     err?.column,
+            constraint: err?.constraint,
+            schema:     err?.schema,
+            severity:   err?.severity,
+            routine:    err?.routine,
+            stack:      err?.stack,
+        },
+    );
+    return {
+        status: 500,
+        body: { error: 'Internal server error.', errorId },
+    };
+}
+
 /** GET /api/v1/projects → ProjectSummary[]. */
 v1Router.get('/projects', async (req, res) => {
     const userId = req.auth?.userId;
@@ -178,14 +456,8 @@ v1Router.get('/projects', async (req, res) => {
         const rows = await pgProjectStore.listProjects(userId);
         return ok(res, rows);
     } catch (err) {
-        console.error('[v1/projects] GET error:', err);
-        if (String(err?.message ?? err).includes('PostgreSQL not configured')) {
-            return res.status(503).json({
-                error: 'No database connection. The /api/v1 project API requires a direct PostgreSQL connection — set SUPABASE_DB_URL (or DATABASE_URL) in .env and restart. The Supabase REST keys alone do NOT work for this API.',
-                code: 'db_not_configured',
-            });
-        }
-        return res.status(500).json({ error: 'Internal server error.' });
+        const { status, body } = classifyV1Error(err, 'GET /api/v1/projects', userId);
+        return res.status(status).json(body);
     }
 });
 
@@ -201,14 +473,8 @@ v1Router.post('/projects', async (req, res) => {
         const row = await pgProjectStore.createProject(name, userId);
         return ok(res, row);
     } catch (err) {
-        console.error('[v1/projects] POST error:', err);
-        if (String(err?.message ?? err).includes('PostgreSQL not configured')) {
-            return res.status(503).json({
-                error: 'No database connection. The /api/v1 project API requires a direct PostgreSQL connection — set SUPABASE_DB_URL (or DATABASE_URL) in .env and restart. The Supabase REST keys alone do NOT work for this API.',
-                code: 'db_not_configured',
-            });
-        }
-        return res.status(500).json({ error: 'Internal server error.' });
+        const { status, body } = classifyV1Error(err, 'POST /api/v1/projects', userId);
+        return res.status(status).json(body);
     }
 });
 
@@ -221,8 +487,8 @@ v1Router.delete('/projects/:id', async (req, res) => {
         if (!removed) return res.status(404).json({ error: 'Project not found.' });
         return res.status(204).end();
     } catch (err) {
-        console.error('[v1/projects/:id] DELETE error:', err);
-        return res.status(500).json({ error: 'Internal server error.' });
+        const { status, body } = classifyV1Error(err, `DELETE /api/v1/projects/${req.params.id}`, userId);
+        return res.status(status).json(body);
     }
 });
 
@@ -258,8 +524,8 @@ v1Router.patch('/projects/:id', async (req, res) => {
         if (!row) return res.status(404).json({ error: 'Project not found.' });
         return ok(res, row);
     } catch (err) {
-        console.error('[v1/projects/:id] PATCH error:', err);
-        return res.status(500).json({ error: 'Internal server error.' });
+        const { status, body } = classifyV1Error(err, `PATCH /api/v1/projects/${req.params.id}`, userId);
+        return res.status(status).json(body);
     }
 });
 

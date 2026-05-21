@@ -5,11 +5,23 @@ import {
     DEFAULT_SNAP_PIXEL_RADIUS,
     getWorldToleranceForActiveCamera,
 } from '@pryzm/core-app-model';
-import { doorStore } from '@pryzm/geometry-door';
-import { windowStore } from '@pryzm/geometry-window';
+import { doorStore, doorSystemTypeStore } from '@pryzm/geometry-door';
+import { windowStore, windowSystemTypeStore } from '@pryzm/geometry-window';
 
 // §4.3 FIX: Pre-resolves window/door display data into a plain OpeningRenderMap
 // before calling buildWall(). Exported for use by initWallLevelSubscribers.
+//
+// §M-H5 (DAILY-USE 2026-05-20) — Now also resolves the architect's system-type
+// finish colours (door panel + window glass) so the WallFragmentBuilder legacy
+// path renders them instead of the hard-coded `#8d6e63` / `#88ccff` defaults.
+// Resolution order:
+//   1. Try `doorStore.has(elementId)` / `windowStore.has(elementId)` — the new
+//      DoorBuilder / WindowBuilder path owns rendering, set skipLegacyFrame.
+//   2. Otherwise fall back to the legacy `wallStore.getDoor()` / .getWindow()
+//      record, which is what older projects (pre-doorStore migration) hold.
+//      Pull frameColor / leafColor / glazingOpacity directly from the record
+//      when present, OR derive them from the door/window system type when the
+//      record has a systemTypeId.
 export function resolveOpeningRenderMap(wall: WallData, store: WallStore): OpeningRenderMap {
     const map = new Map<string, OpeningRenderData>();
     for (const op of (wall.openings ?? [])) {
@@ -17,11 +29,62 @@ export function resolveOpeningRenderMap(wall: WallData, store: WallStore): Openi
         if (op.type === 'window') {
             if (windowStore.has(op.elementId)) { map.set(op.elementId, { skipLegacyFrame: true }); continue; }
             const wd = store.getWindow(op.elementId);
-            if (wd) map.set(op.elementId, { frameColor: wd.frameColor, windowType: wd.windowType as any, sillHeight: wd.sillHeight, baseOffset: (wd as any).baseOffset });
+            if (wd) {
+                // §M-H5 — resolve the system-type frame finish + glazing
+                // opacity when the legacy record carries a systemTypeId.
+                const wdSysTypeId = (wd as { systemTypeId?: string }).systemTypeId;
+                const wdSysType   = wdSysTypeId ? windowSystemTypeStore.getById(wdSysTypeId) : undefined;
+                const resolvedFrameColor = wd.frameColor
+                    ?? wdSysType?.frameFinish?.materialColor
+                    ?? undefined;
+                // §M-H5 — glass colour: tint preference from the legacy record
+                // wins; otherwise some window system types model glazing as a
+                // separate finish (when present); falls through to the
+                // WallFragmentBuilder default `#88ccff` clear glass.
+                const resolvedGlassColor = (wd as { glassColor?: string }).glassColor
+                    ?? (wdSysType as { glassFinish?: { materialColor?: string } } | undefined)?.glassFinish?.materialColor
+                    ?? undefined;
+                // §M-H5 — glazingOpacity from the system type (default 0.3
+                // matches the legacy hard-coded value, so absence is a no-op).
+                // WindowSystemType.glazingOpacity is the canonical field;
+                // 0 = clear glass (transparent), 1 = opaque (no see-through).
+                // The legacy WallFragmentBuilder uses Three.Material.opacity
+                // semantics where 1 = fully visible, so invert when present.
+                const resolvedGlassOpacity = typeof wdSysType?.glazingOpacity === 'number'
+                    ? Math.max(0, Math.min(1, 1 - wdSysType.glazingOpacity * 0.7))  // clear → 0.3 default, fully opaque → 1.0
+                    : undefined;
+                map.set(op.elementId, {
+                    frameColor:   resolvedFrameColor,
+                    glassColor:   resolvedGlassColor,
+                    glassOpacity: resolvedGlassOpacity,
+                    windowType:   wd.windowType as 'single' | 'double' | undefined,
+                    sillHeight:   wd.sillHeight,
+                    baseOffset:   (wd as { baseOffset?: number }).baseOffset,
+                });
+            }
         } else if (op.type === 'door') {
             if (doorStore.has(op.elementId)) { map.set(op.elementId, { skipLegacyFrame: true }); continue; }
             const dd = store.getDoor(op.elementId);
-            if (dd) map.set(op.elementId, { frameColor: dd.frameColor, doorType: dd.doorType as any, sillHeight: dd.sillHeight, baseOffset: (dd as any).baseOffset });
+            if (dd) {
+                // §M-H5 — same shape as the window branch above: prefer the
+                // explicit record colours, fall back to the door system type.
+                const ddSysTypeId = (dd as { systemTypeId?: string }).systemTypeId;
+                const ddSysType   = ddSysTypeId ? doorSystemTypeStore.getById(ddSysTypeId) : undefined;
+                const resolvedFrameColor = dd.frameColor
+                    ?? ddSysType?.frameFinish?.materialColor
+                    ?? undefined;
+                const resolvedLeafColor = (dd as { leafColor?: string }).leafColor
+                    ?? ddSysType?.leafFinish?.materialColor
+                    ?? undefined;
+                map.set(op.elementId, {
+                    frameColor:  resolvedFrameColor,
+                    leafColor:   resolvedLeafColor,
+                    panelColor:  resolvedLeafColor,  // alias — see WallOpeningRenderData.ts §M-H5
+                    doorType:    dd.doorType as 'single' | 'double' | undefined,
+                    sillHeight:  dd.sillHeight,
+                    baseOffset:  (dd as { baseOffset?: number }).baseOffset,
+                });
+            }
         }
     }
     return map;

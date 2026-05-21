@@ -720,6 +720,25 @@ export class SlabTool {
 
         e.preventDefault();
 
+        // §SLAB-3D-PREVIEW (DAILY-USE 2026-05-21) — throttled probe so the
+        // live log shows whether onPointerMove is firing AND in which tool
+        // mode + whether the gating "first point set" guard short-circuits.
+        // Throttled to 1 in 30 events to avoid log spam during cursor moves.
+        // Architect reported "Preview for slab creation on 3d is not present
+        // - doesnt render the preview". Two possibilities: (a) onPointerMove
+        // never fires (event-listener gap); (b) the firstPoint / polyline
+        // guard short-circuits before reaching the preview-render call.
+        // Probe distinguishes the two.
+        if (((this as { _slabPreviewProbeCount?: number })._slabPreviewProbeCount ?? 0) % 30 === 0) {
+            console.log(
+                `[SlabTool] §SLAB-3D-PREVIEW pointermove tool=${this.activeTool} ` +
+                `firstPointSet=${!!this.floorSketch?.firstPoint} ` +
+                `polylinePoints=${this.polylineData?.points?.length ?? 0}`,
+            );
+        }
+        (this as { _slabPreviewProbeCount?: number })._slabPreviewProbeCount =
+            ((this as { _slabPreviewProbeCount?: number })._slabPreviewProbeCount ?? 0) + 1;
+
         if (this.activeTool === 'FLOOR_SKETCH' || this.activeTool === 'HOLLOW_SLAB') {
             if (!this.floorSketch.firstPoint) return;
             const point = this.getPlanPoint(e);

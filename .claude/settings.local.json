@@ -46,7 +46,12 @@
       "Bash(pnpm --filter @pryzm/command-registry exec tsc --noEmit)",
       "Bash(pnpm --filter @pryzm/editor exec tsc --noEmit)",
       "Bash(pnpm --filter @pryzm/input-host exec tsc --noEmit)",
-      "Bash(pnpm --filter @pryzm/core-app-model exec tsc --noEmit)"
+      "Bash(pnpm --filter @pryzm/core-app-model exec tsc --noEmit)",
+      "Bash(pnpm --filter @pryzm/geometry-column exec tsc --noEmit)",
+      "Bash(pnpm --filter @pryzm/geometry-door exec tsc --noEmit)",
+      "Bash(pnpm --filter @pryzm/geometry-slab exec tsc --noEmit)",
+      "Bash(pnpm --filter @pryzm/geometry-stair exec tsc --noEmit)",
+      "Bash(pnpm --filter @pryzm/geometry-beam exec tsc --noEmit)"
     ]
   }
 }

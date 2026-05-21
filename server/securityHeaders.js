@@ -104,6 +104,25 @@ const MAIN_CSP_DIRECTIVES = {
     frameAncestors: ["'none'"],
     // frame-src is intentionally omitted: PRYZM does not embed external iframes
     // in the main application shell.
+
+    // §CSP-UPGRADE-INSECURE (DAILY-USE 2026-05-21) — helmet adds the
+    // `upgrade-insecure-requests` directive to its default CSP. Browsers
+    // explicitly IGNORE this directive when the policy is delivered in
+    // report-only mode (W3C CSP3 §2.5: "the directive has no effect if it
+    // appears in a Content-Security-Policy-Report-Only header") and emit a
+    // console warning per request. PRYZM uses report-only mode in
+    // development (line 136: `reportOnly: !IS_PROD`), so every dev page
+    // load fires the warning at least twice. Architect reported the spam:
+    // "The Content Security Policy directive 'upgrade-insecure-requests'
+    // is ignored when delivered in a report-only policy."
+    //
+    // Helmet's documented disable-a-default-directive idiom is to set the
+    // key to `null`. In production (`IS_PROD`), upgrade-insecure-requests
+    // IS effective and worth keeping; in development we explicitly null it
+    // out so the warnings stop. Same posture as hsts / coep / coop / corp
+    // / frameguard which are all disabled in dev for similar pragmatic
+    // reasons (see crossOriginEmbedderPolicy/Opener/Resource below).
+    ...(IS_PROD ? {} : { upgradeInsecureRequests: null }),
 };
 
 // ── CSP: embed-mode string ────────────────────────────────────────────────────

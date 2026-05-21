@@ -165,6 +165,15 @@ export class ColumnFragmentBuilder {
             resolvedY = elevation + slabOff;
         }
 
+        // §COLUMN-MOVE-PLAN-STALE — capture the prior root's userData.version
+        // BEFORE the dispose path nukes the meshes-map entry; we'll bump and
+        // re-stamp it on the new root below so downstream caches (NME proxy
+        // cache + future per-element EdgeProjector cache) see a fresh key on
+        // every move and don't serve stale geometry. Defaults to 0 for the
+        // first build of any given column.
+        const _priorVersion: number =
+            (this.meshes.get(column.id)?.userData?.version as number | undefined) ?? 0;
+
         // Remove existing mesh
         if (this.meshes.has(column.id)) {
             const old = this.meshes.get(column.id)!;
@@ -193,6 +202,20 @@ export class ColumnFragmentBuilder {
         }
 
         // ── Metadata ────────────────────────────────────────────────────────
+        // §COLUMN-MOVE-PLAN-STALE (DAILY-USE 2026-05-21) — _priorVersion was
+        // captured at the top of build() BEFORE the dispose path so we can
+        // monotonically bump it here. Without this, every rebuild (including
+        // after a column move) leaves `version` undefined →
+        // NativeElementMeshExporter's proxy cache key collapses to a constant
+        // `-1` → cache HIT returns the OLD proxy descriptors (which encode
+        // the OLD world position) → plan view shows a stale square at the
+        // original location even though the 3D mesh has correctly moved.
+        // Architect reported: "square remains in the original location ...
+        // correct location is the square with the cross but it is
+        // unselectable in plan view - only the square in the wrong location
+        // is selectable." Mirror of Round 10 §PERF-CACHE-DIAG fix on the NME
+        // side; this is the producer-side companion.
+
         root.userData = {
             id:            column.id,
             type:          'column',
@@ -214,6 +237,16 @@ export class ColumnFragmentBuilder {
             materialColor: column.materialColor,
             properties:    column.properties,
             ifcData:       column.ifcData,
+            // §COLUMN-MOVE-PLAN-STALE — monotonic per-build counter. Mirrors
+            // the established WallFragmentBuilder (line 668), SlabFragmentBuilder
+            // (368), RoofFragmentBuilder (244), CurtainWallBuilder pattern that
+            // Round 10 §PERF-CACHE-DIAG identified as the invariant for cache
+            // correctness. Every consumer that caches per element by version
+            // (NativeElementMeshExporter, EdgeProjectorService when columns
+            // join CACHEABLE_ELEMENT_TYPES) now sees a changed key after
+            // every build → cache miss → fresh descriptors → fresh world
+            // position → no stale square.
+            version:       _priorVersion + 1,
         };
 
         // §UI-contract: identity properties must not be overwritten by UI

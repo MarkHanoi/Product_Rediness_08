@@ -39,6 +39,16 @@ import * as OBC from '@thatopen/components';
 import { CommandManager } from '@pryzm/command-registry';
 import { FurnitureType } from '@pryzm/geometry-furniture';
 import { getDescriptorForType } from './FurnitureCategoryRegistry';
+// §FURN-PLUMB-3D-PREVIEW-OK-COMMIT-BROKEN (DAILY-USE 2026-05-21) — pre-generate
+// the furniture id at the dispatch site so the §FT-FURNITURE bus→legacy-store
+// bridge (initTools.ts:1564) actually fires. Mirrors WallPlanToolHandler's
+// `createId('wall')` pattern (line 328) and CurtainWallPlanToolHandler's
+// `createId('curtainwall')` pattern — every plan-tool / carousel dispatch
+// pre-generates the element id so the CEB → §FT-* bridge has the id field
+// to relay to the legacy store. Without this, the bridge's `if (!ev.id)`
+// guard rejected every drop → furniture written to the PRYZM-3 Immer store
+// only → never reached the legacy `furnitureStore` → no 3D mesh.
+import { createId } from '@pryzm/schemas';
 
 // ─── Drop preview geometry ───────────────────────────────────────────────────
 //
@@ -417,8 +427,18 @@ export class FurnitureDragDropHandler {
 
         const dim = descriptor.defaultDimensions;
 
+        // §FURN-PLUMB-3D-PREVIEW-OK-COMMIT-BROKEN — pre-generate furniture id
+        // (was missing from the dispatch payload). Without an explicit id the
+        // §FT-FURNITURE bus→legacy-store bridge at initTools.ts:1564 short-
+        // circuits on its `!ev.id` guard, the legacy furnitureStore.add()
+        // never fires, no 3D mesh is built. Same shape of pre-generated id
+        // as WallPlanToolHandler.ts:328 (`createId('wall')`) +
+        // CurtainWallPlanToolHandler.
+        const furnitureId = createId('furniture');
+
         // [F-1.3] Bus-primary: commandManager exfiltrated to CreateFurnitureHandler (plugins/furniture).
         window.runtime?.bus?.executeCommand('furniture.create', {
+            id:            furnitureId,           // §FURN-PLUMB-3D-PREVIEW-OK-COMMIT-BROKEN
             furnitureType: furnitureType as FurnitureType,
             position:    { x: worldPoint.x, y: worldPoint.y, z: worldPoint.z },
             rotation:    { x: 0, y: 0, z: 0 },
@@ -434,7 +454,7 @@ export class FurnitureDragDropHandler {
                 : undefined,
         } as any)
         .then(() => console.log(
-            `[FurnitureDragDropHandler] Placed ${furnitureType} at` +
+            `[FurnitureDragDropHandler] Placed ${furnitureType} id=${furnitureId} at` +
             ` (${worldPoint.x.toFixed(2)}, ${worldPoint.z.toFixed(2)})`,
         ))
         .catch((e: Error) => console.error('[FurnitureDragDropHandler] furniture.create failed:', e));

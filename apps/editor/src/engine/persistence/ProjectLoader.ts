@@ -247,13 +247,44 @@ export class ProjectLoader {
         const __t_load_start = performance.now();
         const __phase_starts: Record<string, number> = { __load: __t_load_start };
         const __phase_ms: Record<string, number> = {};
+        // §AUTOSAVE-LOAD-SLOW-OR-HANG (DAILY-USE 2026-05-21) — emit a console
+        // line at every phase boundary so the live log shows real-time load
+        // progress. Previously the phase summary was only printed at the
+        // END of load; if the load hung mid-phase, the user had no signal
+        // and saw the spinner forever. Now each phase fires `[ProjectLoader]
+        // §LOAD-PHASE name=… elapsed=…ms total=…ms` as it completes,
+        // making it instantly obvious which phase is the slow one.
         const __phase = (name: string) => {
             const now = performance.now();
             if (__phase_starts[name] !== undefined) {
                 __phase_ms[name] = now - __phase_starts[name]!;
             }
+            const sinceLoadStart = now - __t_load_start;
+            console.log(
+                `[ProjectLoader] §LOAD-PHASE name=${name} ` +
+                `elapsed=${(__phase_ms[name] ?? 0).toFixed(1)}ms ` +
+                `total=${sinceLoadStart.toFixed(1)}ms`,
+            );
             __phase_starts[name] = now;
         };
+        // §AUTOSAVE-LOAD-SLOW-OR-HANG — watchdog: if no phase completes
+        // within WATCHDOG_MS the load is hung in the current phase. The
+        // watchdog emits a console.warn every WATCHDOG_MS describing the
+        // current phase so the user has a heartbeat instead of silence.
+        // Self-cleared via clearInterval in the load's finally block (added
+        // below where __phase('redetect_sweep') is called).
+        const WATCHDOG_MS = 5000;
+        const __watchdog = setInterval(() => {
+            const now = performance.now();
+            const elapsed = now - __t_load_start;
+            const lastPhaseName = Object.keys(__phase_starts).pop() ?? '<unknown>';
+            const sinceLastPhase = now - (__phase_starts[lastPhaseName] ?? __t_load_start);
+            console.warn(
+                `[ProjectLoader] §LOAD-WATCHDOG load still running after ${(elapsed / 1000).toFixed(1)}s ` +
+                `— current phase="${lastPhaseName}" stuck for ${(sinceLastPhase / 1000).toFixed(1)}s. ` +
+                `If this keeps firing the load is hung; check the prior §LOAD-PHASE line for the last completed phase.`,
+            );
+        }, WATCHDOG_MS);
         // ── End PHASE-TIME INSTRUMENTATION ───────────────────────────────────
 
         // ── PROJECT-LOAD METADATA + EXEC HELPER ──────────────────────────────
@@ -1514,6 +1545,9 @@ export class ProjectLoader {
             void loadedLevelIds;
 
             __phase('redetect_sweep'); // explicit per-level ReDetectRoomsCommand sweep
+            // §AUTOSAVE-LOAD-SLOW-OR-HANG — clear the watchdog. Load has reached
+            // the summary line; no longer at risk of silent hang.
+            clearInterval(__watchdog);
             const __t_total = performance.now() - __t_load_start;
             // ONE summary line so the cold-open log shows the wall-clock budget
             // distribution at a glance.  Phases sum to total within ~0.1 ms; any
@@ -1531,6 +1565,11 @@ export class ProjectLoader {
                 `curtainWalls=${snapshot.curtainWalls?.length ?? 0}]`
             );
 
+            // §AUTOSAVE-LOAD-SLOW-OR-HANG — defensive clearInterval: if any
+            // exception thrown above bypasses the earlier clearInterval at
+            // the redetect_sweep phase, this guarantees the watchdog stops
+            // firing. Idempotent — clearInterval on a cleared id is a no-op.
+            clearInterval(__watchdog);
             console.groupEnd();
         }
 

@@ -572,8 +572,49 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
 
     const plumbingBuilder = new PlumbingFragmentBuilder(scene);
 
-    window.addEventListener('bim-plumbing-added',
-        (e: any) => { if (e.detail?.fixture) plumbingBuilder.updateFixture(e.detail.fixture); });
+    // §FURN-PLUMB-3D-PREVIEW-OK-COMMIT-BROKEN (DAILY-USE 2026-05-21) — Same
+    // payload-shape regression as the furniture listener (Round 17 §70 fix).
+    // PlumbingStore.add() emits `bim-plumbing-added { id }` (geometry-plumbing/
+    // PlumbingStore.ts:11) and core-app-model PlumbingStore matches; the
+    // listener guarded on `e.detail?.fixture` (full object) which the store
+    // NEVER emits. Every plumbing add was silently dropped. Plan view +
+    // Project Browser read the store directly so they correctly showed the
+    // new fixture; the 3D scene stayed empty. The architect reported
+    // "Furniture and plumbing fixture render on 3d preview - but not
+    // possible creation or rendering on 3d" — same shape as the furniture
+    // payload-mismatch bug Round 17 closed.
+    //
+    // Fix: resolve the fixture from the store using the `id` carried on the
+    // payload. Backward-compat with any legacy caller passing `fixture`
+    // inline. Same `_resolveFromEvent` pattern as the furniture listener;
+    // matches the §3.5 invariant "builders refetch from the authoritative
+    // store; never trust event payloads as transport".
+    const _resolvePlumbingFromEvent = (e: { detail?: { id?: string; fixture?: unknown; fixtureId?: string } }): unknown | null => {
+        const inline = e.detail?.fixture;
+        if (inline) return inline;
+        const id = e.detail?.id ?? e.detail?.fixtureId;
+        if (!id) return null;
+        const _ps = plumbingStore as { get?(id: string): unknown };
+        return _ps.get?.(id) ?? null;
+    };
+    window.addEventListener('bim-plumbing-added', (e: Event) => {
+        const f = _resolvePlumbingFromEvent(e as CustomEvent<{ id?: string; fixture?: unknown }>);
+        if (f) plumbingBuilder.updateFixture(f as any);
+        else console.warn('[PlumbingBuilder] bim-plumbing-added — no id/fixture in payload, and store has no matching record');
+    });
+    window.addEventListener('bim-plumbing-updated', (e: Event) => {
+        const f = _resolvePlumbingFromEvent(e as CustomEvent<{ id?: string; fixture?: unknown }>);
+        if (f) plumbingBuilder.updateFixture(f as any);
+    });
+    window.addEventListener('bim-plumbing-removed', (e: any) => {
+        const id = e.detail?.id ?? e.detail?.fixtureId;
+        if (id && (plumbingBuilder as { removeFixture?(id: string): void }).removeFixture) {
+            try { (plumbingBuilder as { removeFixture(id: string): void }).removeFixture(id); }
+            catch (err) {
+                console.warn('[PlumbingBuilder] bim-plumbing-removed failed', { id, message: (err as Error)?.message ?? String(err) });
+            }
+        }
+    });
     console.log('[initBuilders] Plumbing subsystem initialised');
 
     // ── Opening subsystem ─────────────────────────────────────────────────────
@@ -657,19 +698,51 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
             try { if (fd?.id) furnitureBuilder.removeFurniture(fd.id); } catch { /* noop */ }
         }
     };
-    window.addEventListener('bim-furniture-added', (e: any) => {
-        if (e.detail?.furniture) _safeFurnitureUpdate('bim-furniture-added', e.detail.furniture);
+    // §FURNITURE-3D-RENDER-REGRESSION (DAILY-USE 2026-05-21) — The store
+    // dispatches `bim-furniture-added`/`-updated`/`-removed` with payload
+    // `{ id }` only (FurnitureStore.ts:23, 34, 44 — both the legacy
+    // packages/geometry-furniture store AND the new core-app-model store).
+    // Previously these listeners checked `e.detail?.furniture` (a full
+    // furniture object), which the store NEVER emits — so the guard silently
+    // dropped every event and the 3D mesh never built. Plan view + Project
+    // Browser read the store directly so they correctly showed the new
+    // furniture; the 3D scene stayed empty. The architect reported
+    // "the element seems to be on the store ... but cannot see it on the
+    // 3d scene" — exactly this disconnect.
+    //
+    // Architectural fix: payload carries only the id; the listener
+    // dereferences it against the store (the store is the source of truth,
+    // not the event payload — matches the §3.5 invariant that builders
+    // never trust event payloads, they refetch from the authoritative store).
+    // Backward-compat: if a legacy caller still passes `e.detail.furniture`
+    // inline, that path also fires — defensive `??` handles both shapes.
+    const _resolveFurnitureFromEvent = (e: { detail?: { id?: string; furniture?: unknown; furnitureId?: string } }): unknown | null => {
+        const inline = e.detail?.furniture;
+        if (inline) return inline;
+        const id = e.detail?.id ?? e.detail?.furnitureId;
+        if (!id) return null;
+        return furnitureStore.get(id) ?? null;
+    };
+    window.addEventListener('bim-furniture-added', (e: Event) => {
+        const fd = _resolveFurnitureFromEvent(e as CustomEvent<{ id?: string; furniture?: unknown }>);
+        if (fd) _safeFurnitureUpdate('bim-furniture-added', fd);
+        else console.warn('[FurnitureBuilder] bim-furniture-added — no id/furniture in payload, and store has no matching record');
     });
-    window.addEventListener('bim-furniture-updated', (e: any) => {
-        if (e.detail?.furniture) _safeFurnitureUpdate('bim-furniture-updated', e.detail.furniture);
+    window.addEventListener('bim-furniture-updated', (e: Event) => {
+        const fd = _resolveFurnitureFromEvent(e as CustomEvent<{ id?: string; furniture?: unknown }>);
+        if (fd) _safeFurnitureUpdate('bim-furniture-updated', fd);
     });
     window.addEventListener('bim-furniture-removed', (e: any) => {
-        if (e.detail?.furnitureId) {
+        // Removed: cannot resolve from store (record is already gone). Read
+        // id from payload — payload key is either `id` (new shape) or
+        // `furnitureId` (legacy shape). Both supported.
+        const id = e.detail?.id ?? e.detail?.furnitureId;
+        if (id) {
             try {
-                furnitureBuilder.removeFurniture(e.detail.furnitureId);
+                furnitureBuilder.removeFurniture(id);
             } catch (err: any) {
                 console.warn('[FurnitureBuilder] bim-furniture-removed failed', {
-                    id: e.detail.furnitureId,
+                    id,
                     message: err?.message ?? String(err),
                 });
             }

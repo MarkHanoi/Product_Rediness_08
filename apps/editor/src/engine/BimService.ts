@@ -351,6 +351,31 @@ export class BimService implements IBimService {
      * Returns false and shows the StairLevelRequiredPanel when only one
      * level exists. The panel calls `onRetry` after the user adds a level,
      * which re-invokes the original activation path.
+     *
+     * §STAIR-LEVEL-ACTIVE-RESTORE (DAILY-USE 2026-05-21) — the architect
+     * activated the stair tool from a specific level (typically L0, the
+     * ground floor). The prerequisite gate adds a new level to satisfy the
+     * "≥ 2 levels" requirement; `AddLevelCommand.execute()` then sets the
+     * NEWLY-CREATED level as active (AddLevelCommand.ts:65) — correct
+     * default behaviour for users who explicitly add a level via the
+     * Levels panel because they want to start working on it, but WRONG
+     * for the stair-prerequisite path: the architect intends to draw a
+     * stair FROM their original level UP to the new level. Leaving the
+     * new level active forces them to manually switch back and risks
+     * `_resolveTopLevel(activeLevel)` returning null (active is already
+     * topmost) → "Add a second level before placing a stair" toast even
+     * though one was just added.
+     *
+     * Architecturally clean fix:
+     *   - Capture `projectContext.activeLevelId` BEFORE showing the panel.
+     *   - Wrap the caller's `onRetry` so that after AddLevelCommand runs,
+     *     we restore the original active level THEN invoke the original
+     *     onRetry. Single responsibility — the AddLevelCommand contract
+     *     is unchanged for every other caller; only this gate adjusts.
+     *
+     * Contract citation: C11 §6 (element-creation pipeline pre-conditions),
+     * §05-BIM-UI-ARCHITECTURE §7 (UI orchestration owns the user-flow
+     * context that individual commands cannot see).
      */
     private _ensureTwoLevelsForStair(onRetry: () => void): boolean {
         const levels = this.bimManager.getLevels();
@@ -367,13 +392,49 @@ export class BimService implements IBimService {
         const topElev    = top ? Number(top.elevation ?? 0) : 0;
         const nextNumber = levels.length;   // 1 level → next is "Level 1"
 
+        // §STAIR-LEVEL-ACTIVE-RESTORE — capture the level the architect was
+        // working on BEFORE the panel dispatches AddLevelCommand. The capture
+        // path matches how every command resolves the active level
+        // (CreateWallCommand, CreateSlabCommand, CreateStairCommand all read
+        // ctx.projectContext.activeLevelId), so the captured id is exactly the
+        // semantics the user expects to return to.
+        const originalActiveLevelId: string | undefined =
+            manager.context?.projectContext?.activeLevelId
+            ?? (typeof window !== 'undefined'
+                ? (window as { commandContext?: { projectContext?: { activeLevelId?: string } } }).commandContext?.projectContext?.activeLevelId
+                : undefined);
+
+        // §STAIR-LEVEL-ACTIVE-RESTORE — wrap the caller-supplied onRetry so
+        // we restore the architect's original active level AFTER AddLevelCommand
+        // promotes the new level. The restore is best-effort (try/catch) so a
+        // missing projectContext slot never blocks the retry — the worst case
+        // degrades to current behaviour (new level remains active).
+        const wrappedOnRetry = (): void => {
+            try {
+                const pc = manager.context?.projectContext
+                    ?? (typeof window !== 'undefined'
+                        ? (window as { commandContext?: { projectContext?: { activeLevelId?: string } } }).commandContext?.projectContext
+                        : undefined);
+                if (pc && originalActiveLevelId && pc.activeLevelId !== originalActiveLevelId) {
+                    pc.activeLevelId = originalActiveLevelId;
+                    console.log(
+                        `[BimService] §STAIR-LEVEL-ACTIVE-RESTORE active level restored to ` +
+                        `"${originalActiveLevelId}" after AddLevel (was "${pc.activeLevelId}")`,
+                    );
+                }
+            } catch (err) {
+                console.warn('[BimService] §STAIR-LEVEL-ACTIVE-RESTORE skipped:', err);
+            }
+            onRetry();
+        };
+
         const panel = new StairLevelRequiredPanel();
         panel.show({
             currentLevelCount: levels.length,
             topElevation:      topElev,
             suggestedName:     `Level ${nextNumber}`,
             commandManager:    manager,
-            onRetry,
+            onRetry:           wrappedOnRetry,
             onCancel: () => console.log('[BimService] Stair tool cancelled — fewer than 2 levels'),
         });
 

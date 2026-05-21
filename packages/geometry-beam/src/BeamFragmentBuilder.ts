@@ -126,6 +126,13 @@ export class BeamFragmentBuilder {
     }
 
     build(beam: BeamData): THREE.Object3D {
+        // §57 Day 4 (DAILY-USE 2026-05-21, Round 32) — capture _priorVersion
+        // BEFORE the dispose path nukes the meshes-map entry, so we can bump
+        // it monotonically on the new root.userData below. Same pattern Round
+        // 19 established for columns. Defaults to 0 for first build.
+        const _priorVersion: number =
+            (this.meshes.get(beam.id)?.userData?.version as number | undefined) ?? 0;
+
         // Remove existing mesh
         if (this.meshes.has(beam.id)) {
             const old = this.meshes.get(beam.id)!;
@@ -185,6 +192,11 @@ export class BeamFragmentBuilder {
             material:         beam.material,
             loadBearing:      beam.loadBearing,
             fireRating:       beam.fireRating,
+            // §57 Day 4 (Round 32) — monotonic per-build counter. Mirrors
+            // ColumnFragmentBuilder.ts:249. Enables NMEexporter proxy-cache
+            // invalidation on every rebuild — precondition for promotion to
+            // EdgeProjectorService.CACHEABLE_ELEMENT_TYPES.
+            version:          _priorVersion + 1,
         };
 
         Object.defineProperty(root.userData, 'id',          { writable: false });

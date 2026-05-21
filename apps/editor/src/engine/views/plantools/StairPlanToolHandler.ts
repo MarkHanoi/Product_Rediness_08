@@ -361,10 +361,26 @@ export class StairPlanToolHandler implements PlanToolHandler {
         const previewShape: 'I' | 'L' | 'U' =
             (window.activeStairConfig?.shape as 'I' | 'L' | 'U' | undefined) ?? 'I';
 
+        // §STAIR-PREVIEW-REGRESSION (DAILY-USE 2026-05-21) — probe so the
+        // runtime log shows which branch the preview takes for the current
+        // shape.  Helps diagnose user reports of "no preview renders" when
+        // the rectangle + treads + break line + arrow no longer appear.
+        console.log(
+            `[StairPlanToolHandler] preview redraw shape=${previewShape} ` +
+            `box=${rw.toFixed(0)}×${rh.toFixed(0)}px steps=${stepCount} ` +
+            `flightVertical=${flightIsVertical}`,
+        );
+
         // Tread lines along flight direction
         ctx.strokeStyle = STROKE;
         ctx.lineWidth = 0.75;
         ctx.setLineDash([]);
+        // §STAIR-PREVIEW-REGRESSION — wrap the shape-specific drawing in a
+        // try/catch so a single-shape bug (e.g. an L/U math edge case at
+        // stepCount=3 with an unusual bounding box) cannot take out the rest
+        // of the preview (break line + arrow + corner dots + label).  Errors
+        // are logged so the live log surfaces them for the next iteration.
+        try {
         if (previewShape === 'I') {
             // Straight: single set of treads across the whole box.
             if (flightIsVertical) {
@@ -469,6 +485,16 @@ export class StairPlanToolHandler implements PlanToolHandler {
                 ctx.lineTo(rx + rw, ry + halfH);
                 ctx.stroke();
             }
+        }
+        } catch (err) {
+            // §STAIR-PREVIEW-REGRESSION — if shape-specific drawing throws,
+            // surface the error so the live log shows the root cause AND
+            // fall through to the break line / arrow / dots so the architect
+            // still sees a usable preview (just without tread lines).
+            console.error(
+                `[StairPlanToolHandler] preview shape=${previewShape} draw failed:`,
+                err,
+            );
         }
 
         // Break line at midpoint (zigzag diagonal — standard plan-view stair convention)

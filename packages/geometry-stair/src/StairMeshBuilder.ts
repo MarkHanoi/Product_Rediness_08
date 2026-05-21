@@ -99,6 +99,17 @@ export class StairMeshBuilder {
     // ── Public API: build / update / remove ───────────────────────────────────
 
     updateStair(stair: StairData, isPreview: boolean = false): void {
+        // §57 Day 4 (DAILY-USE 2026-05-21, Round 32) — capture _priorVersion
+        // from the existing root BEFORE removeStair() nukes the stairRoots-map
+        // entry. Same pattern Round 19 established for columns (and Round 31
+        // recognised was already in place for doors/windows). Without this
+        // capture, every rebuild would stamp version = 1 → NMEexporter's
+        // proxy-cache key would never invalidate after the first build →
+        // stale plan-view geometry after stair moves / property edits.
+        // Defaults to 0 for the first build of any given stair.
+        const _priorVersion: number =
+            (this.stairRoots.get(stair.id)?.userData?.version as number | undefined) ?? 0;
+
         this.removeStair(stair.id);
 
         if (!stair.startPosition || !stair.flights || stair.flights.length === 0) {
@@ -144,7 +155,15 @@ export class StairMeshBuilder {
             fireRating: stair.fireRating,
             accessibilityType: stair.accessibilityType,
             typeId: stair.typeId,
-            ifcData: stair.ifcData || { guid: crypto.randomUUID(), ifcClass: 'IfcStair' }
+            ifcData: stair.ifcData || { guid: crypto.randomUUID(), ifcClass: 'IfcStair' },
+            // §57 Day 4 — monotonic per-build counter (captured BEFORE
+            // removeStair() above). Mirrors WallFragmentBuilder.ts:668 /
+            // SlabFragmentBuilder.ts:368 / RoofFragmentBuilder.ts:244 /
+            // ColumnFragmentBuilder.ts:249 (Round 19). Enables the
+            // NMEexporter's proxy-cache key to invalidate after every
+            // rebuild — necessary precondition for promotion to
+            // EdgeProjectorService.CACHEABLE_ELEMENT_TYPES.
+            version: _priorVersion + 1,
         };
 
         const group = new THREE.Group();

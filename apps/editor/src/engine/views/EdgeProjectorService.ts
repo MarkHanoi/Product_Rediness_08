@@ -1178,19 +1178,25 @@ export class EdgeProjectorService {
      * line geometry forever.
      *
      * Verified to bump version per rebuild (grep history `userData.version =`):
-     *   - curtainwall   — CurtainWallBuilder.ts line ~878
+     *   - curtainwall   — CurtainWallBuilder.ts:1306, 1838 (`this._nextVersion`)
      *   - wall          — WallFragmentBuilder.ts:668  (every buildWall())
      *   - slab          — SlabFragmentBuilder.ts:368
      *   - roof          — RoofFragmentBuilder.ts:244
      *   - room          — RoomBoundingLineBuilder.ts:114
+     *   - column        — ColumnFragmentBuilder.ts:249 (§COLUMN-MOVE-PLAN-STALE
+     *     Round 19, 2026-05-21 — Now reliably stamps `_priorVersion + 1` on
+     *     every build, captured BEFORE the dispose path so the counter survives
+     *     mesh replacement. Promoted to CACHEABLE list in Day 2.
      *
-     * Not yet on the list (intentionally — pending audit of their builder's
-     * version-stamping discipline):
-     *   - door, window, opening, beam, column, ceiling, floor, stair,
-     *     stair-railing, handrail, furniture.  Each must be confirmed to set
-     *     `root.userData.version` on geometric mutation before it joins the
-     *     allow-list.  Wave 2 of #57 (Day 2) will sweep these builders and
-     *     widen the set accordingly.
+     * Day 2 audit (2026-05-21) — NOT YET on the list:
+     *   - door, window, stair, beam, ceiling, floor, handrail, plumbing,
+     *     furniture, lighting, opening, stair-railing.
+     *   - DoorBuilder, WindowBuilder, StairMeshBuilder: NO `userData.version`
+     *     stamp found.  Adding them to the cache would serve stale line
+     *     geometry after every property edit (frameColor change, leafColor
+     *     change, dimension update, etc.).  Day 3 of #57 will sweep these
+     *     builders, add the version-stamp via the same _priorVersion + 1
+     *     pattern Round 19 established for columns, then promote to the set.
      *
      * Stored lowercase — the gate normalises `elementType` via `.toLowerCase()`
      * to defend against future casing drift (CurtainWallBuilder stamps
@@ -1202,6 +1208,29 @@ export class EdgeProjectorService {
         'slab',
         'roof',
         'room',
+        'column',  // §57 Day 2 — promoted after Round 19 §COLUMN-MOVE-PLAN-STALE
+        // §57 Day 3 (Round 31, 2026-05-21) — door + window already stamp
+        // `userData.version = Date.now()` on every build (DoorBuilder.ts:291
+        // + WindowBuilder.ts:309 — added by §DOOR-AUDIT-2026 W6 / §WINDOW-
+        // AUDIT-2026 W6 for stale-detection). Date.now() is strictly
+        // monotonic for the NMEexporter's proxy-cache key purposes, so the
+        // cache invalidates correctly on every rebuild (no staleness risk).
+        // Promoting both is a one-line config change with immediate perf
+        // benefit: every plan view with doors/windows now hits cache HIT
+        // on the second + subsequent projections instead of re-running the
+        // full traverse + EdgesGeometry + toDrawingSpace pipeline.
+        'door',
+        'window',
+        // §57 Day 4 (Round 32, 2026-05-21) — stair + beam now stamp
+        // `userData.version = _priorVersion + 1` on every build (Round 32
+        // applied the Round 19 capture-then-stamp pattern uniformly).
+        // Both promoted to the cache after the source-builder change.
+        // 'Stair' (PascalCase, StairMeshBuilder.ts:147) and 'beam' (lower,
+        // BeamFragmentBuilder.ts:172) both normalise via .toLowerCase() at
+        // the gate check (EdgeProjectorService.ts:1530), so casing drift
+        // is handled.
+        'stair',
+        'beam',
     ]);
 
     /**

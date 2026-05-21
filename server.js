@@ -2412,12 +2412,29 @@ app.get('/api/projects', authMiddleware, async (req, res) => {
         }
 
         // Final fallback: in-memory store (no database configured).
-        const projects = Array.from(_projects.values())
-            .filter(p => p.ownerId === userId || userId === 'anonymous')
-            .sort((a, b) => b.updatedAt - a.updatedAt);
+        // §AUTH-SESSION-LEAK (DAILY-USE 2026-05-21) — `userId === 'anonymous'`
+        // would otherwise return EVERY in-memory project. In production
+        // Supabase / PG paths are taken; this branch is reached only when no
+        // DB is configured (local dev). Tightened so anonymous is explicitly
+        // empty rather than returning every owner's data — defence in depth
+        // against an unconfigured-DB local environment leaking across users.
+        const projects = (userId === 'anonymous')
+            ? []
+            : Array.from(_projects.values())
+                .filter(p => p.ownerId === userId)
+                .sort((a, b) => b.updatedAt - a.updatedAt);
         res.json({ projects });
     } catch (err) {
-        res.status(500).json({ error: 'Internal server error.' });
+        // §SERVER-500-PROJECT-OPEN — log with errorId + context so the
+        // project-list endpoint's 500s are diagnosable.
+        const errorId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : `err-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        console.error(
+            `[GET /api/projects] errorId=${errorId} userId=${userId}`,
+            err,
+        );
+        res.status(500).json({ error: 'Internal server error.', errorId });
     }
 });
 
@@ -2459,24 +2476,85 @@ app.post('/api/projects', authMiddleware, async (req, res) => {
         _projects.set(id, meta);
         res.status(201).json({ project: meta });
     } catch (err) {
-        // §SCHEMA-GUARD: a missing `projects` table (Supabase schema never applied)
-        // surfaces here as a PostgREST / Postgres "relation does not exist" error.
-        // Return an actionable 503 instead of an opaque 500 so the operator knows
-        // to apply server/schema.sql — see server/supabaseMigrate.js header.
-        const m = err?.message ?? String(err);
+        // §SERVER-500-PROJECT-CREATE (DAILY-USE 2026-05-21) — Architecturally
+        // sound error classification + observability.  Architect reported
+        // "failed to create project: [ProjectListClient] server-error (HTTP
+        // 500)" — the generic 500 had no errorId for correlation and no
+        // structured code for the client UI to render a friendly message.
+        // This round adds the full Round-25 errorId+log pattern AND
+        // classifies the four known SQL state codes so the architect sees
+        // actionable feedback instead of an opaque server error.
+        const m    = err?.message ?? String(err);
         const code = err?.code ?? '';
+        const userId = req.auth?.userId ?? 'unknown';
+        const errorId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : `err-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+        // §SCHEMA-GUARD (pre-existing): a missing `projects` table (Supabase
+        // schema never applied) surfaces here as a PostgREST / Postgres
+        // "relation does not exist" error. Return an actionable 503 instead
+        // of an opaque 500 so the operator knows to apply server/schema.sql.
         const schemaMissing =
             code === '42P01' || code === 'PGRST205' || code === 'PGRST116' ||
             /relation .* does not exist|could not find the table|schema cache/i.test(m);
         if (schemaMissing) {
-            console.error('[POST /api/projects] Supabase schema not applied — cannot create project:', m);
+            console.error(`[POST /api/projects] errorId=${errorId} userId=${userId} schema not applied:`, m);
             return res.status(503).json({
                 error: 'Database schema not applied. Open the Supabase SQL Editor, run the contents of server/schema.sql, then restart the server.',
-                code: 'schema_not_applied',
+                code:    'schema_not_applied',
+                errorId,
             });
         }
-        console.error('[POST /api/projects] project creation failed:', m);
-        res.status(500).json({ error: 'Internal server error.' });
+
+        // §SERVER-500-PROJECT-CREATE — classify the known SQL state codes so
+        // the client UI renders a friendly message instead of a generic 500.
+        //
+        // 23505 = unique_violation — typically caused by a client-supplied id
+        //   colliding with an existing row. Client should retry with a fresh
+        //   id (POST without `id` → server mints one).
+        // 23503 = foreign_key_violation — typically a missing user row in the
+        //   auth_users table. The architect needs an account-provisioning
+        //   step before they can create projects.
+        // 42501 = insufficient_privilege — Supabase RLS denied the INSERT.
+        //   Usually a misconfigured RLS policy.
+        // PGRST301 / PGRST204 = PostgREST permission errors.
+        if (code === '23505' || /duplicate key|unique constraint/i.test(m)) {
+            console.error(`[POST /api/projects] errorId=${errorId} userId=${userId} id collision:`, m);
+            return res.status(409).json({
+                error:   'A project with that ID already exists. Retry without specifying an ID.',
+                code:    'id_collision',
+                errorId,
+            });
+        }
+        if (code === '23503' || /foreign key|violates foreign key/i.test(m)) {
+            console.error(`[POST /api/projects] errorId=${errorId} userId=${userId} FK violation (likely missing user row):`, m);
+            return res.status(422).json({
+                error:   'User account is not provisioned. Sign out and back in to complete account setup, then retry.',
+                code:    'user_not_provisioned',
+                errorId,
+            });
+        }
+        if (code === '42501' || code === 'PGRST301' || code === 'PGRST204' || /permission denied|insufficient/i.test(m)) {
+            console.error(`[POST /api/projects] errorId=${errorId} userId=${userId} permission denied (RLS):`, m);
+            return res.status(403).json({
+                error:   'Database permission denied. Check Supabase RLS policy for the projects table.',
+                code:    'rls_denied',
+                errorId,
+            });
+        }
+
+        // Generic fall-through — surface the errorId so the architect's bug
+        // report can be correlated 1:1 with the server log entry.
+        console.error(
+            `[POST /api/projects] errorId=${errorId} userId=${userId} project creation failed (uncategorised):`,
+            err,
+            code ? `(SQL state: ${code})` : '',
+        );
+        res.status(500).json({
+            error:   'Internal server error.',
+            errorId,
+        });
     }
 });
 
@@ -2588,7 +2666,26 @@ app.get('/api/projects/:id', authMiddleware, async (req, res) => {
         res.set('ETag', `"v${proj.versionCount ?? 0}"`);
         res.json({ project: proj });
     } catch (err) {
-        res.status(500).json({ error: 'Internal server error.' });
+        // §SERVER-500-PROJECT-OPEN (DAILY-USE 2026-05-21) — Previously this
+        // catch silently swallowed every error: no log, no stack trace, no
+        // diagnostic context. The architect reported "Server error http 500
+        // while trying to open a project already created" with zero server-
+        // side information to act on. Now logs the full error + a structured
+        // errorId so subsequent reports can be correlated with the server log
+        // and the actual stack can be traced. Mirrors the DELETE handler's
+        // already-present `console.error('[DELETE /api/projects/:id]', err)`
+        // pattern (line 2630).
+        const errorId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : `err-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        console.error(
+            `[GET /api/projects/:id] errorId=${errorId} projectId=${id} userId=${userId}`,
+            err,
+        );
+        res.status(500).json({
+            error:   'Internal server error.',
+            errorId, // returned to the client so they can correlate UI-side issues with server logs
+        });
     }
 });
 
@@ -2627,8 +2724,35 @@ app.delete('/api/projects/:id', authMiddleware, async (req, res) => {
         _projects.delete(id);
         return res.json({ deleted: true });
     } catch (err) {
-        console.error('[DELETE /api/projects/:id]', err);
-        res.status(500).json({ error: 'Internal server error.' });
+        // §SERVER-500-PROJECT-DELETE (DAILY-USE 2026-05-21) — log with the
+        // same errorId+context pattern as the GET handlers (Round 25 §75
+        // §SERVER-500-PROJECT-OPEN). Architect reports "could not delete
+        // project - server error http 500" — the existing console.error
+        // captures the stack but doesn't return the errorId to the client,
+        // so the architect cannot correlate their UI report with the
+        // server log entry. The errorId returned in the response body is
+        // the canonical correlation key for support workflows.
+        //
+        // Common 500 causes here (from §76 task analysis):
+        //   1. FK violation — a related table (project_command_log,
+        //      project_members, project_visibility_intents) lacks ON DELETE
+        //      CASCADE so the parent delete fails. Look for SQL state '23503'
+        //      in the logged stack trace.
+        //   2. Row-lock contention — concurrent POST /versions in flight.
+        //   3. Owner-permission lookup throws.
+        //
+        // Round 26 will land the architectural FK CASCADE audit + transaction
+        // wrapper once the live error reveals the SQL state code.
+        const errorId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : `err-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        console.error(
+            `[DELETE /api/projects/:id] errorId=${errorId} projectId=${id} userId=${userId}`,
+            err,
+            // Surface any SQL state code so FK violations are immediately diagnosable.
+            err?.code ? `(SQL state: ${err.code})` : '',
+        );
+        res.status(500).json({ error: 'Internal server error.', errorId });
     }
 });
 
@@ -2734,7 +2858,15 @@ app.get('/api/projects/:id/versions', authMiddleware, async (req, res) => {
             .map(v => ({ id: v.id, projectId: v.projectId, label: v.label, timestamp: v.timestamp, elementCount: v.elementCount }));
         res.json({ versions });
     } catch (err) {
-        res.status(500).json({ error: 'Internal server error.' });
+        // §SERVER-500-PROJECT-OPEN — log the error so 500s are diagnosable.
+        const errorId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : `err-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        console.error(
+            `[GET /api/projects/:id/versions] errorId=${errorId} projectId=${id} userId=${userId}`,
+            err,
+        );
+        res.status(500).json({ error: 'Internal server error.', errorId });
     }
 });
 
@@ -2784,7 +2916,18 @@ app.get('/api/projects/:id/latest-version', authMiddleware, async (req, res) => 
         res.set('ETag', `"${all[0].id}"`);
         return res.json({ version: all[0] });
     } catch (err) {
-        res.status(500).json({ error: 'Internal server error.' });
+        // §SERVER-500-PROJECT-OPEN (DAILY-USE 2026-05-21) — log the error so
+        // 500s on the most-frequently-hit project-open endpoint are
+        // diagnosable. This is the canonical "open my project" call:
+        // PlatformShell.loadLatestVersionFromServer() hits it once per open.
+        const errorId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : `err-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        console.error(
+            `[GET /api/projects/:id/latest-version] errorId=${errorId} projectId=${id} userId=${userId}`,
+            err,
+        );
+        res.status(500).json({ error: 'Internal server error.', errorId });
     }
 });
 
@@ -3211,7 +3354,17 @@ app.get('/api/projects/:id/versions/:vid', authMiddleware, async (req, res) => {
         if (!ver) return res.status(404).json({ error: 'Not found' });
         res.json({ version: ver });
     } catch (err) {
-        res.status(500).json({ error: 'Internal server error.' });
+        // §SERVER-500-PROJECT-OPEN — log the error so 500s on version fetches
+        // are diagnosable. Used by clients that load a specific historical
+        // version (Project Browser → "Open this version").
+        const errorId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : `err-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        console.error(
+            `[GET /api/projects/:id/versions/:vid] errorId=${errorId} projectId=${id} versionId=${vid} userId=${userId}`,
+            err,
+        );
+        res.status(500).json({ error: 'Internal server error.', errorId });
     }
 });
 
@@ -5136,6 +5289,16 @@ httpServer.listen(PORT, '0.0.0.0', async () => {
     try {
         await runMigrations();
         _migrationsReady = true;
+        // §SERVER-500-V1-MIGRATION-RACE (Round 30) — also flip the shared
+        // pgClient flag so the v1 router's gate middleware can stop
+        // returning 503 `migrations_in_progress` for new requests. The
+        // local `_migrationsReady` is kept for /api/health/ready parity.
+        try {
+            const { setMigrationsReady } = await import('./server/pgClient.js');
+            setMigrationsReady(true);
+        } catch (e) {
+            console.warn('[server] setMigrationsReady() failed (non-fatal):', e?.message ?? e);
+        }
         console.log('[server] DB migrations complete.');
     } catch (err) {
         console.error('[server] runMigrations() failed (server still up; /ready will return 503):', err);

@@ -1742,15 +1742,22 @@ export class WallFragmentBuilder {
             frameGroup.add(mesh);
         });
 
-        // Glass
+        // §M-H5 (DAILY-USE 2026-05-20) — Glass colour + opacity round-trip
+        // through OpeningRenderData. Falls back to the previous hard-coded
+        // `#88ccff` clear-glass / 0.3 opacity defaults when the architect
+        // hasn't picked a window system type that overrides them. Same
+        // pattern as `frameColor` above (line 1718): renderData populated
+        // by resolveOpeningRenderMap, which now reads the system type.
+        const glassColorStr = renderData?.glassColor ?? '#88ccff';
+        const glassOpacity  = renderData?.glassOpacity ?? 0.3;
         if (isDouble) {
             const glassWidth = (opening.width - frameWidth * 3) / 2;
             const glassGeo = new THREE.BoxGeometry(glassWidth, opening.height - frameWidth * 2, 0.02);
-            const glassMat = new THREE.MeshStandardMaterial({ 
-                color: 0x88ccff, 
-                transparent: true, 
-                opacity: 0.3,
-                side: THREE.DoubleSide
+            const glassMat = new THREE.MeshStandardMaterial({
+                color: new THREE.Color(glassColorStr),
+                transparent: true,
+                opacity: glassOpacity,
+                side: THREE.DoubleSide,
             });
 
             const leftGlass = new THREE.Mesh(glassGeo, glassMat);
@@ -1764,11 +1771,11 @@ export class WallFragmentBuilder {
             frameGroup.add(rightGlass);
         } else {
             const glassGeo = new THREE.BoxGeometry(opening.width - frameWidth * 2, opening.height - frameWidth * 2, 0.02);
-            const glassMat = new THREE.MeshStandardMaterial({ 
-                color: 0x88ccff, 
-                transparent: true, 
-                opacity: 0.3,
-                side: THREE.DoubleSide
+            const glassMat = new THREE.MeshStandardMaterial({
+                color: new THREE.Color(glassColorStr),
+                transparent: true,
+                opacity: glassOpacity,
+                side: THREE.DoubleSide,
             });
             const glass = new THREE.Mesh(glassGeo, glassMat);
             glass.position.set(0, 0, 0);
@@ -1907,11 +1914,19 @@ export class WallFragmentBuilder {
             frameGroup.add(mesh);
         });
 
-        // Door Panels
+        // §M-H5 (DAILY-USE 2026-05-20) — Door panel/leaf colour round-trips
+        // through OpeningRenderData. Falls back to the previous hard-coded
+        // `#8d6e63` warm-brown stained-oak default when the architect hasn't
+        // picked a door system type. `panelColor` is consulted first (the
+        // wall-fragment legacy term), then `leafColor` (the DoorBuilder
+        // canonical term), then the default — so a system type that stores
+        // EITHER name works without coercing every caller to one shape.
+        const panelColorStr = renderData?.panelColor ?? renderData?.leafColor ?? '#8d6e63';
+        const panelColor = new THREE.Color(panelColorStr);
         if (isDouble) {
             const panelWidth = (opening.width - frameWidth * 2) / 2;
             const panelGeo = new THREE.BoxGeometry(panelWidth, opening.height - frameWidth, 0.04);
-            const panelMat = new THREE.MeshStandardMaterial({ color: 0x8d6e63 });
+            const panelMat = new THREE.MeshStandardMaterial({ color: panelColor });
 
             const panelVerticalOffset = -(frameWidth / 2);
 
@@ -1926,7 +1941,7 @@ export class WallFragmentBuilder {
             frameGroup.add(rightPanel);
         } else {
             const panelGeo = new THREE.BoxGeometry(opening.width - frameWidth * 2, opening.height - frameWidth, 0.04);
-            const panelMat = new THREE.MeshStandardMaterial({ color: 0x8d6e63 });
+            const panelMat = new THREE.MeshStandardMaterial({ color: panelColor });
             const panel = new THREE.Mesh(panelGeo, panelMat);
             panel.position.set(0, -(frameWidth / 2), 0);
             panel.userData.role = 'legacyDoorFrame';

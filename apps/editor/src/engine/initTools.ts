@@ -92,8 +92,8 @@ import { annotationVisibilityStore } from '@pryzm/plugin-annotations';
 import { viewDefinitionStore, storeEventBus, viewDependencyTracker } from '@pryzm/core-app-model';
 import { viewIntentInstanceStore } from '@pryzm/core-app-model/presentation';
 import { vgGovernanceStore } from '@pryzm/core-app-model';
-import { doorStore } from '@pryzm/geometry-door';
-import { windowStore } from '@pryzm/geometry-window';
+import { doorStore, doorSystemTypeStore } from '@pryzm/geometry-door';
+import { windowStore, windowSystemTypeStore } from '@pryzm/geometry-window';
 import { roomGraphService, roomQueryService, roomValidationService, roomTypeInferenceEngine } from '@pryzm/spatial-index';
 import { semanticGraphManager } from '@pryzm/core-app-model';
 import { temporalGraphManager } from '@pryzm/core-app-model';
@@ -936,6 +936,19 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             //   §P2.3               — opening bridge extended to include element-store mirroring.
             if (type === 'door' && !doorStore.has(elementId)) {
                 try {
+                    // §DOOR-WINDOW-PLAN-FRAME (DAILY-USE 2026-05-21) — resolve
+                    // systemTypeId into frameColor / leafColor / frameFinish /
+                    // leafFinish so DoorBuilder.buildVisuals (DoorBuilder.ts:379-380)
+                    // sees the architect's chosen finish. Without this the
+                    // plan-tool path created a door with systemTypeId set but
+                    // frameColor/leafColor undefined → builder fell back to
+                    // hard-coded defaults → "timber door rendered without
+                    // materials." Mirrors CreateWallOpeningCommand.ts:104-134
+                    // which already does this resolution for the legacy 3D
+                    // path; this bridge replicates it for the plan-tool path.
+                    const sysTypeId = typeof o.systemTypeId === 'string' && o.systemTypeId.length > 0
+                        ? o.systemTypeId : undefined;
+                    const doorSysType = sysTypeId ? doorSystemTypeStore.getById(sysTypeId) : undefined;
                     doorStore.add({
                         id:           elementId,
                         openingId:    id,
@@ -945,10 +958,21 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                         height,
                         sillHeight,
                         doorType:     (o.doorType === 'double' ? 'double' : 'single'),
-                        ...(typeof o.systemTypeId === 'string' && (o.systemTypeId as string).length > 0
-                            ? { systemTypeId: o.systemTypeId as string } : {}),
-                    });
-                    console.log('[initTools] §P2.3-DOOR: door mirrored to DoorStore — swing arc will render', elementId);
+                        ...(sysTypeId    ? { systemTypeId: sysTypeId } : {}),
+                        ...(doorSysType  ? {
+                            frameFinish: { ...doorSysType.frameFinish },
+                            leafFinish:  { ...doorSysType.leafFinish },
+                            frameColor:  doorSysType.frameFinish.materialColor,
+                            leafColor:   doorSysType.leafFinish.materialColor,
+                        } : {}),
+                    } as Parameters<typeof doorStore.add>[0]);
+                    console.log(
+                        '[initTools] §P2.3-DOOR: door mirrored to DoorStore — ' +
+                        'swing arc will render id=' + elementId +
+                        ' systemTypeId=' + (sysTypeId ?? 'default') +
+                        ' frameColor=' + (doorSysType?.frameFinish?.materialColor ?? '<default>') +
+                        ' leafColor=' + (doorSysType?.leafFinish?.materialColor ?? '<default>'),
+                    );
                 } catch (err) {
                     console.error('[initTools] §P2.3-DOOR: doorStore.add failed (non-fatal) — swing arc symbol will be absent:', err);
                 }
@@ -958,6 +982,13 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             // windowStore.getAll() and will skip any window not present in the store.
             if (type === 'window' && !windowStore.has(elementId)) {
                 try {
+                    // §DOOR-WINDOW-PLAN-FRAME — same systemType-to-colour
+                    // resolution as the door branch above, applied to windows.
+                    // Mirrors CreateWallOpeningCommand.ts:144-178 which does
+                    // this resolution for the legacy 3D path.
+                    const sysTypeId = typeof o.systemTypeId === 'string' && o.systemTypeId.length > 0
+                        ? o.systemTypeId : undefined;
+                    const winSysType = sysTypeId ? windowSystemTypeStore.getById(sysTypeId) : undefined;
                     windowStore.add({
                         id:           elementId,
                         openingId:    id,
@@ -966,10 +997,18 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                         width,
                         height,
                         sillHeight,
-                        ...(typeof o.systemTypeId === 'string' && (o.systemTypeId as string).length > 0
-                            ? { systemTypeId: o.systemTypeId as string } : {}),
-                    });
-                    console.log('[initTools] §P2.3-WIN: window mirrored to WindowStore — frame symbol will render', elementId);
+                        ...(sysTypeId   ? { systemTypeId: sysTypeId } : {}),
+                        ...(winSysType  ? {
+                            frameFinish: { ...winSysType.frameFinish },
+                            frameColor:  winSysType.frameFinish.materialColor,
+                        } : {}),
+                    } as Parameters<typeof windowStore.add>[0]);
+                    console.log(
+                        '[initTools] §P2.3-WIN: window mirrored to WindowStore — ' +
+                        'frame symbol will render id=' + elementId +
+                        ' systemTypeId=' + (sysTypeId ?? 'default') +
+                        ' frameColor=' + (winSysType?.frameFinish?.materialColor ?? '<default>'),
+                    );
                 } catch (err) {
                     console.error('[initTools] §P2.3-WIN: windowStore.add failed (non-fatal) — window frame symbol will be absent:', err);
                 }
@@ -1617,8 +1656,28 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
     // project frames its own first element (C11 §12.2 — per-project-session).
     if (runtime) {
         let _splitViewFirstFrameDone = false;
+        // §FIRST-ELEMENT-3D-FRAME-FURNITURE (DAILY-USE 2026-05-21) — extend
+        // the §13-CAM first-element-framing regex to include every visible
+        // element type the architect can create in plan view. The original
+        // regex enumerated only the STRUCTURAL types (wall / slab /
+        // curtainwall / column / beam / ceiling / roof / floor / stair /
+        // handrail) and SILENTLY excluded the FURNISHING types (furniture /
+        // plumbing / lighting) — the architect reported "I created a sofa in
+        // plan view as the first element - it should zoom in to the element
+        // in 3D view." A sofa is the very-first geometry the architect
+        // places in a furnishing-only project (e.g. a residential interior
+        // refit on an existing slab); they deserve the same first-frame
+        // courtesy as a structural element. wall.opening.create added too
+        // so the first DOOR or WINDOW dropped in plan view frames the 3D
+        // pane as well.
+        //
+        // C11 §12.2 contract update queued: "first geometry element" should
+        // be read as "first VISIBLE element" — furniture and plumbing
+        // fixtures contribute spatial mass that the architect benefits from
+        // seeing in 3D, even though they don't extend the building envelope.
+        // Lighting fixtures included for parity (a lamp is a visible mesh).
         const _CREATE_CMD_RE =
-            /^(wall|slab|curtainwall|curtain-wall|column|beam|ceiling|roof|floor|stair|handrail)\.(create|batch\.create)$/;
+            /^(wall|slab|curtainwall|curtain-wall|column|beam|ceiling|roof|floor|stair|handrail|furniture|plumbing|lighting|wall\.opening)\.(create|batch\.create)$/;
         runtime.events.on('command.executed', (ev) => {
             if (_splitViewFirstFrameDone) return;
             const cmdType = (ev as { type?: string } | undefined)?.type ?? '';
@@ -1631,7 +1690,10 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             setTimeout(() => {
                 try {
                     zoomToAll();
-                    console.log('[initTools] §13-CAM: framed 3D camera on first plan-pane element —', cmdType);
+                    console.log(
+                        '[initTools] §13-CAM: framed 3D camera on first plan-pane element — ' +
+                        'type=' + cmdType,
+                    );
                 } catch (err) {
                     console.warn('[initTools] §13-CAM: zoomToAll() failed (non-fatal):', err);
                 }
@@ -1642,9 +1704,19 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
     }
 
     // ── Stair railing proposal handler ────────────────────────────────────────
+    // §RAILING-CREATE-BROKEN (DAILY-USE 2026-05-21) — diagnostic probes added
+    // through the proposal → bus.executeCommand → handler chain so the live
+    // log shows the full path when a user creates a stair: which railings
+    // were proposed, whether the bus dispatch fired, and any rejection
+    // reason. Mirrors the §STAIR-PREVIEW-REGRESSION probe pattern.
     window.addEventListener('bim-stair-railing-proposal', (e: Event) => {
         const payload = (e as CustomEvent).detail;
-        (payload.proposedRailings as any[]).forEach((r: any) => {
+        const proposed = (payload.proposedRailings as any[]) ?? [];
+        console.log(
+            '[initTools] §RAILING-CREATE-BROKEN bim-stair-railing-proposal received: ' +
+            'stairId=' + payload.stairId + ' proposedCount=' + proposed.length,
+        );
+        proposed.forEach((r: any) => {
             // [F-1.3] Bus-primary: commandManager exfiltrated to CreateStairRailingHandler (plugins/stair).
             window.runtime?.bus?.executeCommand('stair.createRailing', {
                 stairId: payload.stairId,
@@ -1652,7 +1724,15 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 balusterSpacing: r.balusterSpacing, balusterShape: r.balusterShape,
                 balusterWidth: r.balusterWidth, postAtStart: r.postAtStart,
                 postAtEnd: r.postAtEnd, material: r.material,
-            }).catch((e: Error) => console.error('[initTools] stair.createRailing failed:', e));
+            })?.then((res: unknown) => {
+                console.log(
+                    '[initTools] §RAILING-CREATE-BROKEN stair.createRailing ' +
+                    'side=' + r.side + ' result=' + JSON.stringify(res),
+                );
+            }).catch((err: Error) => console.error(
+                '[initTools] §RAILING-CREATE-BROKEN stair.createRailing side=' + r.side + ' failed:',
+                err,
+            ));
         });
     });
 
