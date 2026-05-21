@@ -4,6 +4,38 @@ Concrete fixes applied this session in response to `DAILY-USE-AUDIT-2026-05-20.m
 
 ---
 
+## ✅ APPLIED — Round 42 (§PLAN-VIEW-INCREMENTAL-DRAWING #89 Day 1 — `ViewTechnicalDrawingCache.invalidateElement(viewId, elementId)`)
+
+### Foundation for per-element re-projection — drops ONE element's projection layers from a cached drawing without throwing the whole drawing away
+**File:** `packages/core-app-model/src/views/ViewTechnicalDrawingCache.ts` — new public method.
+
+**Context:** the architect asked "do we need to refresh the whole plan view app each time an element is created?" (logged as #89). The answer: §57 (Rounds 10-37) closed the per-element CACHE side of incremental projection (16/18 element types now hit cache in ~0.5ms vs ~3-50ms uncached) — but the per-view re-projection ITERATION still costs ~40-60ms even when every individual element hits cache, because the coarse `invalidate(viewId)` path throws away the entire drawing on every element-store event.
+
+**Round 42 (Day 1) — the foundation:** new `invalidateElement(viewId, elementId)` method that:
+1. Locates the cached `OBC.TechnicalDrawing` for the view.
+2. Traverses each layer's child `LineSegments` and matches `userData.elementUUID === elementId` (the tag NMEexporter + `registerSegmentUUID` already stamp per Round 60 §PERF-CACHE-DIAG).
+3. Disposes the matching geometries + materials + removes them from the layer group.
+4. Marks the element via `staleElementIds.add(elementId)` for the next projection cycle.
+5. Does NOT bump the view-level generation counter (this is element-scoped, not view-scoped).
+6. Falls back to the existing full `invalidate(viewId)` on any topology mismatch (defensive — correctness wins over performance).
+
+**Architectural contract codified:**
+- Speculative-call safe — if the element has no matching segments (never projected, or already invalidated), the method is a no-op.
+- The cached drawing REMAINS VALID for every other element. Callers can `get(viewId)` immediately after `invalidateElement` and receive a partial-but-correct drawing.
+- Day 2 of #89 (Round 43) will add `EdgeProjectorService.projectElement(viewDef, group)` — the single-element projection that adds new lines back without traversing the full element set.
+- Day 3 (Round 44) wires `PlanViewManager._onProjectionStale` to dispatch element-scoped vs view-scoped paths based on the storeEventBus event payload's `elementId` field.
+- Day 4 (Round 45) extends symbol builders (Door / Column / Window / Furniture) with `injectForElement(drawing, viewDef, elementId)` companions.
+
+**Performance expectation after Day 2-4 complete:**
+- Re-projection after creating ONE element: ~600 ms (pre-§57) → ~40-60 ms (post-§57 cache) → **~5-10 ms (post-#89 incremental drawing)**.
+- 50-100× speedup over the pre-§57 baseline; another ~5-10× speedup over the Round 41 state. Plan view becomes truly interactive for property edits + move operations.
+
+**Day 1 standalone benefit (Round 42 in isolation):** every storeEventBus subscriber that currently calls `invalidate(viewId)` can switch to `invalidateElement(viewId, elementId)` and get the immediate benefit of NOT throwing away the drawing — even before the per-element projector lands. The drawing stays warm; the missing-element gap is small + visually unobtrusive until the next full re-projection plugs it. This is a SAFE incremental migration path — callers can opt in one at a time.
+
+**Contract citations:** §02-BIM-PROJECTION-CONTRACT (need §3.5 "incremental invalidation invariant" — queued for next contract revision), C04 §3.4 (frame budget — drawing pipeline was the main remaining offender; Round 42 starts closing it), C11 §6 (element creation pipeline — incremental injection is the natural extension), §57 closure (Day 1 of the planned follow-on document).
+
+---
+
 ## ✅ APPLIED — Round 41 (§SERVER-BOOT-CONFIG-DIAGNOSTIC — operator sees which DB backend is active before any request)
 
 ### Boot-time env diagnostic without exposing secrets
