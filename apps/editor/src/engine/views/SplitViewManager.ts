@@ -44,6 +44,7 @@ import {
 } from '@pryzm/core-app-model';
 // Contract 27 Phase 6 — SVP canvas click → element selection
 import { selectionBus } from '@pryzm/core-app-model';
+import { frameObject } from '@pryzm/core-app-model';
 // Contract 17 Phase 2 — SVP element creation parity
 import { svpPlanToolOverlay } from './SvpPlanToolOverlay';
 import { PlanViewInteraction } from './PlanViewInteraction';
@@ -160,6 +161,7 @@ export class SplitViewManager implements ISplitViewManager {
     private _boundMouseDown   = this._onMouseDown.bind(this);
     private _boundMouseMove   = this._onMouseMove.bind(this);
     private _boundMouseUp     = this._onMouseUp.bind(this);
+    private _boundDblClick    = this._onDblClick.bind(this);
     private _boundDividerDown = this._onDividerMouseDown.bind(this);
     private _boundDividerMove = this._onDividerMouseMove.bind(this);
     private _boundDividerUp   = this._onDividerMouseUp.bind(this);
@@ -453,6 +455,7 @@ export class SplitViewManager implements ISplitViewManager {
         // ── Register input events ─────────────────────────────────────────────
         canvas.addEventListener('wheel', this._boundWheel, { passive: false });
         canvas.addEventListener('mousedown', this._boundMouseDown);
+        canvas.addEventListener('dblclick', this._boundDblClick);
         window.addEventListener('mousemove', this._boundMouseMove);
         window.addEventListener('mouseup', this._boundMouseUp);
         divider.addEventListener('mousedown', this._boundDividerDown);
@@ -467,6 +470,7 @@ export class SplitViewManager implements ISplitViewManager {
     private _teardownDOM(): void {
         this._canvas?.removeEventListener('wheel', this._boundWheel);
         this._canvas?.removeEventListener('mousedown', this._boundMouseDown);
+        this._canvas?.removeEventListener('dblclick', this._boundDblClick);
         window.removeEventListener('mousemove', this._boundMouseMove);
         window.removeEventListener('mouseup', this._boundMouseUp);
         this._divider?.removeEventListener('mousedown', this._boundDividerDown);
@@ -1381,6 +1385,69 @@ export class SplitViewManager implements ISplitViewManager {
         if (!elemId) return;
         console.log(`[SplitViewManager] SVP click → element ${elemId}`);
         selectionBus.select(elemId, 'svp');
+    }
+
+    /**
+     * §SVP-DBLCLICK-FRAME — double-click an element in the split-view PLAN pane
+     * → select it on every surface AND frame the MAIN 3D camera on it.
+     *
+     * This is the plan-surface analogue of the main-viewport double-click-zoom
+     * (initUI.ts ~`container.addEventListener('dblclick', …)`), satisfying the
+     * architect's request: "if the user double-clicks an element in plan view
+     * and we are in split-view mode, the selected element should be zoomed in
+     * the 3D view."
+     *
+     * Contract alignment:
+     *   • Contract §43 (43-CAMERA-FRAMING-CONTRACT) §2 — `frameObject` with the
+     *     canonical double-click-focus defaults (minDist 2.5 m, dimMult 1.5).
+     *   • Contract C11 §12 (Split-View 3D Synchronization & Camera Framing) —
+     *     extends the §13-CAM family from "frame on first create" / "frame on
+     *     view-switch" to "frame on plan-pane double-click".
+     *   • Contract 27/38 (Cross-View Selection Parity) — selection is routed
+     *     through `selectionBus` so the 3D highlight, Properties Panel, and all
+     *     other surfaces stay in sync; framing reuses the resulting selection.
+     *
+     * Only fires in plan mode. In '3d' mirror mode the SVP forwards pointer
+     * events to the main canvas, where initUI's own dblclick-zoom already runs,
+     * so re-handling here would double-frame.
+     */
+    private async _onDblClick(e: MouseEvent): Promise<void> {
+        if (e.button !== 0) return;
+        if (this._svpMode !== 'plan') return;           // 3d-mirror handled by main canvas
+        if (!this._planCanvas || !this._canvas) return;
+
+        const rect = this._canvas.getBoundingClientRect();
+        const cx = e.clientX - rect.left;
+        const cy = e.clientY - rect.top;
+        const elemId = this._planCanvas.hitTest(cx, cy);
+        if (!elemId) return;
+
+        // Ensure the element is selected on every surface (idempotent — the
+        // first click of the double already routed through selection; this
+        // guarantees it even if the parity layer ordering missed it).
+        selectionBus.select(elemId, 'svp');
+
+        // Resolve the element's 3D object. SelectionManager.selectById() sets
+        // `selectedObject` synchronously; prefer it, else resolve via selectById.
+        const sm = window.selectionManager as
+            | {
+                  selectedObject?: { userData?: { id?: string } } | null;
+                  selectById?: (id: string) => boolean;
+              }
+            | undefined;
+        let obj = sm?.selectedObject ?? null;
+        if (!obj || obj.userData?.id !== elemId) {
+            obj = sm?.selectById?.(elemId) ? (sm.selectedObject ?? null) : null;
+        }
+
+        const controls = (this._world?.camera as { controls?: unknown } | undefined)?.controls;
+        if (!obj || !controls) {
+            console.log(`[SplitViewManager] §SVP-DBLCLICK-FRAME no 3D object/controls for ${elemId}`);
+            return;
+        }
+        console.log(`[SplitViewManager] §SVP-DBLCLICK-FRAME framing ${elemId} in 3D view`);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await frameObject(obj as any, controls as any);
     }
 
     // ── Divider Drag ──────────────────────────────────────────────────────────

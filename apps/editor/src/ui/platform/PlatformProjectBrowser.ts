@@ -219,13 +219,23 @@ export class PlatformProjectBrowser {
     }
 
     private _buildHubSection(label: string, bodyHtml: string): string {
+        // §HUB-MENU-CLICKABILITY (DAILY-USE 2026-05-22): sections default to
+        // EXPANDED. The collapsible-section CSS (.plat-hub-section-body) is
+        // `max-height:0; overflow:hidden` when not `--open`, which gives the
+        // body zero rendered height and CLIPS its children out of the hit-test
+        // area — so every action button (Back to Projects, Save, Export IFC,
+        // Print…) was physically unclickable until the user first expanded the
+        // section, and the click listener never fired (hence "nothing in the
+        // console"). Defaulting to expanded restores the pre-regression
+        // behaviour where all actions are immediately clickable, while the
+        // header toggle (line ~406) still lets the user collapse a section.
         const chevronSvg = `<svg class="plat-hub-section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>`;
         return `
-            <button class="plat-hub-section-hdr" aria-expanded="false" data-section="${label}">
+            <button class="plat-hub-section-hdr" aria-expanded="true" data-section="${label}">
                 <span class="plat-hub-section-hdr-label">${label}</span>
                 ${chevronSvg}
             </button>
-            <div class="plat-hub-section-body" data-section-body="${label}">
+            <div class="plat-hub-section-body plat-hub-section-body--open" data-section-body="${label}">
                 ${bodyHtml}
             </div>
         `;
@@ -430,6 +440,17 @@ export class PlatformProjectBrowser {
     }
 
     handleHubMenuAction(action: string): void {
+        // §HUB-ACTION (DAILY-USE 2026-05-22): observability for the hub menu.
+        // The architect reported the buttons "have no effect" with "nothing in
+        // the console". This single line proves the click reached the handler
+        // and reports whether the editor-lifetime `runtime.events` bus is live
+        // — the in-editor feature actions (export/import) emit ONLY on that bus,
+        // so `runtimeEvents=false` here would explain a silent no-op for those
+        // (navigation actions back-hub/sign-out also dual-dispatch on `window`).
+        console.log(
+            `[PlatformProjectBrowser] §HUB-ACTION action=${action} ` +
+            `runtimeEvents=${!!window.runtime?.events}`,
+        );
         switch (action) {
             case 'back-hub':
                 window.runtime?.events?.emit('pryzm-go-hub', {}); window.dispatchEvent(new Event('pryzm-go-hub')); // F.events.12 + §33-NAV-FIX (PlatformRouter listens on the platform-lifetime window bus)

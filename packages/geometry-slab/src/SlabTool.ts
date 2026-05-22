@@ -646,7 +646,26 @@ export class SlabTool {
             return planView2DCreationMode.resolvePoint(clientX, clientY, camera, canvas, elevation);
         }
 
-        // ── 3D view: existing OBC raycaster + Y=0 ground plane (unchanged) ───
+        // ── 3D view: OBC raycaster against the ACTIVE-LEVEL ground plane ──────
+        // §SLAB-3D-PREVIEW (DAILY-USE 2026-05-22): two root-cause fixes here.
+        //
+        //  (1) The plane was hard-coded at Y=0, but slabs (and their preview
+        //      rect) are authored at the active level's `elevation`. DOC-5.3
+        //      already moved the *plan-view* branch (above) onto the authoritative
+        //      level Y; the 3D branch was left on Y=0. On any upper level the
+        //      cursor resolved on Y=0 while the preview drew at `elevation`, so
+        //      with an angled 3D camera the rect parallax-shifted off the cursor
+        //      and read as "no preview". We resolve on the level plane instead.
+        //      THREE.Plane(normal, constant): point·normal + constant = 0, so for
+        //      a horizontal plane at y=elevation the constant is -elevation.
+        //
+        //  (2) THREE.Ray.intersectPlane returns null when the ray is parallel to
+        //      or points away from the plane, and leaves `target` UNMODIFIED at
+        //      (0,0,0). The old code ignored the return value and always returned
+        //      `target`, so a non-hit silently produced an origin-snapped point
+        //      and a degenerate preview. We now honour the return value and
+        //      return null, exactly like the 2D branch — every caller already
+        //      guards `if (!point) return;`.
         const rect = canvas.getBoundingClientRect();
         const x = ((clientX - rect.left) / rect.width) * 2 - 1;
         const y = -((clientY - rect.top) / rect.height) * 2 + 1;
@@ -656,10 +675,11 @@ export class SlabTool {
         const mouseVec = new THREE.Vector2(x, y);
         raycaster.setFromCamera(mouseVec, camera);
 
-        const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+        const elevation = this.resolveElevationForPreview(projectContext.activeLevelId);
+        const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -elevation);
         const target = new THREE.Vector3();
-        raycaster.ray.intersectPlane(plane, target);
-        return target;
+        const hit = raycaster.ray.intersectPlane(plane, target);
+        return hit ? target : null;
     }
 
     private onPointerDown = async (e: PointerEvent): Promise<void> => {

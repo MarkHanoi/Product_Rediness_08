@@ -24,7 +24,18 @@ export class PlanViewVGApplicator {
     vgCategoryForLayer(layerTag: string): string | null {
         const tag = layerTag.trim();
         for (const [prefix, category] of Object.entries(ISO_LAYER_TO_VG_CATEGORY)) {
-            if (tag === prefix || tag.startsWith(`${prefix}:`) || tag.includes(` ${prefix}`)) return category;
+            // §DOOR-WINDOW-PLAN-FRAME (2026-05-22): also match the hyphenated ISO
+            // sub-layer convention (`A-DOOR-CUT`, `A-GLAZ-PROJ`, …) emitted by the
+            // hosted-element symbol builders. Previously only the exact tag, the
+            // `prefix:` colon form, and the space-delimited form matched, so the
+            // `-CUT`/`-PROJ` sub-layers resolved to a null VG category — orphaning
+            // them from per-category visibility + graphic overrides.
+            if (
+                tag === prefix ||
+                tag.startsWith(`${prefix}:`) ||
+                tag.startsWith(`${prefix}-`) ||
+                tag.includes(` ${prefix}`)
+            ) return category;
         }
         return null;
     }

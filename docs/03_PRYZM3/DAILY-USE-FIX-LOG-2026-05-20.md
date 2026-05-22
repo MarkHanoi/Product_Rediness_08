@@ -4,6 +4,64 @@ Concrete fixes applied this session in response to `DAILY-USE-AUDIT-2026-05-20.m
 
 ---
 
+## ✅ APPLIED — Round 45 (§SLAB-3D-PREVIEW root-cause #69 + §HUB-MENU-BUTTONS-INERT #92)
+
+Two daily-use bugs closed by **static code inspection** (no probe log required) — the discipline shift this round: where the prior session left probes waiting on live logs, both root causes were found by reading the code carefully against the established contract patterns.
+
+### Round 45a — §SLAB-3D-PREVIEW (#69): two correctness bugs in `SlabTool.getPlanPoint()` 3D branch
+
+`packages/geometry-slab/src/SlabTool.ts` (3D-view branch of `getPlanPoint`, ~line 649). The architect reported "Slab creation in 3D scene shows no preview during drawing." Probe (Round 22b) was awaiting logs; instead, inspection found two genuine bugs:
+
+1. **Wrong resolution plane.** The 3D branch hard-coded `new THREE.Plane(new THREE.Vector3(0,1,0), 0)` — Y=0 — while slabs (and their preview rect) are authored at the active level's `elevation`. The **DOC-5.3** fix had already moved the *plan-view* branch onto the authoritative level Y (line 638-647 comment: "replaces the hardcoded Y=0 plane with the authoritative level Y"), but the 3D branch was left behind. On any upper level the cursor resolved on Y=0 while the preview drew at `elevation`; with an angled 3D camera the rect parallax-shifted off the cursor and read as "no preview." Fixed: `new THREE.Plane(new THREE.Vector3(0,1,0), -elevation)` using `resolveElevationForPreview(projectContext.activeLevelId)` — identical to the 2D branch.
+2. **Ignored `intersectPlane` return value.** `raycaster.ray.intersectPlane(plane, target); return target;` — `THREE.Ray.intersectPlane` returns `null` on a parallel / back-facing ray and leaves `target` UNMODIFIED at `(0,0,0)`. The old code always returned `target`, so a non-hit silently produced an origin-snapped point → degenerate preview. Fixed: `const hit = raycaster.ray.intersectPlane(plane, target); return hit ? target : null;` — matches the 2D branch's null-on-no-resolution contract; every caller already guards `if (!point) return;`.
+
+**Contract citations:** DOC-5.3 (level-Y resolution plane, previously applied to the 2D branch only), C11 §6 (element creation pipeline — preview must track the authored plane), §02-BIM-PROJECTION-CONTRACT (cursor→world resolution returns null when unresolved, never a silent origin).
+
+### Round 45b — §HUB-MENU-BUTTONS-INERT (#92): collapsed sections made every action unclickable
+
+`apps/editor/src/ui/platform/PlatformProjectBrowser.ts` (`_buildHubSection`, `handleHubMenuAction`). The architect reported the Project Hub dropdown buttons ("Back to Projects", "Save Version", "Export IFC", "Print"…) "have no effect" with "nothing in the console."
+
+**Root cause (confirmed via CSS, `platformToolbar.ts:477-484`):** `.plat-hub-section-body { overflow:hidden; max-height:0 }` until `.plat-hub-section-body--open`. `_buildHubSection` rendered every section `aria-expanded="false"` with no `--open` class → **zero rendered height, children clipped out of the hit-test area** → the action buttons were physically unclickable until the user first clicked each section header, and their click listeners never fired (exactly why "nothing in the console"). Regression introduced when the flat menu was wrapped in collapsible sections.
+
+**Fix:** `_buildHubSection` now defaults sections to **expanded** (`aria-expanded="true"` + `--open`), restoring immediate clickability while the header toggle (line ~406) still lets the user collapse a section. Plus a `§HUB-ACTION` observability line at the top of `handleHubMenuAction` logging `action` + `runtimeEvents=${!!window.runtime?.events}` — the in-editor export/import actions emit ONLY on the editor-lifetime `runtime.events` bus (navigation actions `back-hub`/`sign-out` also dual-dispatch on the `window` platform-lifetime bus per §33-NAV-FIX, NavigationAreaLayout.ts:124-133 / initUI.ts:1533/1683 / PlatformRouter.ts:160/179), so this line definitively disambiguates a future "action fired but feature inert" report.
+
+**Contract citations:** §33-NAV-FIX (platform-lifetime window bus vs editor-lifetime runtime bus — established split; this round adds the observability that proves which one a failing action targets), C14 §1 (toolbar/menu interaction must be reachable), §SERVER-OBSERVABILITY pattern (same errorId/probe discipline applied client-side: every user-visible action emits a correlatable console line). Both files typecheck clean (exit 0; only pre-existing `Window & typeof globalThis` baseline elsewhere).
+
+---
+
+## ✅ APPLIED — Round 43 + Round 44 (§PLAN-VIEW-INCREMENTAL-DRAWING P8 telemetry + §3D-FRAME-ON-VIEW-SWITCH)
+
+### Round 43 — P8 telemetry on `invalidateElement`
+**File:** `packages/core-app-model/src/views/ViewTechnicalDrawingCache.ts`.
+
+Round 42's new exported `invalidateElement` method needed an OpenTelemetry span per CLAUDE.md P8 ("every new exported function must add ≥1 OpenTelemetry span"). Round 43 imports the established `emitPlanViewMotionEvent` helper (`views/otel.ts`) and fires a `pryzm.plan-view.invalidate-element` span with `view_id`, `element_id`, `removed_line_segments`, `had_cached_drawing` attributes. Fire-and-done, no-op until the TracerProvider is wired (same as every other otel.ts call site). Brings Round 42 to full contract compliance.
+
+### Round 44 — §3D-FRAME-ON-VIEW-SWITCH (#91) — frame the 3D camera on first 3D-view activation
+**File:** `apps/editor/src/engine/initTools.ts`.
+
+**Before:** the architect reported "On plan view creation - the 3d scene should show the first item on zoom in 3d view". Round 24 (§FIRST-ELEMENT-3D-FRAME-FURNITURE) extended the §13-CAM framing to all element types — but the §13-CAM handler ONLY fires when `splitViewManager.isActive` (the plan + 3D side-by-side mode). The common workflow — draw in a PLAN-ONLY view, then SWITCH to the 3D view — was uncovered: the 3D camera stayed at boot default / wherever it last was, so the architect's freshly-drawn elements were off-screen or imperceptibly small until they manually pressed zoom-to-fit.
+
+**After:** a complementary `view-activated` handler frames the 3D camera ONCE on the first activation of a perspective (3D) view per project session, deferred 300ms (same posture as the §13-CAM split path) so the meshes' matrixWorld is committed before `zoomToAll()` reads scene bounds.
+
+Guards:
+- Fires only on `payload.type === 'perspective'` (the 3D view) — never on ortho/plan switch.
+- One-shot per project session via `_3dViewFirstFrameDone` (declared at the top of the `if (runtime)` block alongside `_splitViewFirstFrameDone` to avoid a temporal-dead-zone reference).
+- If the §13-CAM split-view live-framing already ran this session (`_splitViewFirstFrameDone`), the 3D-switch handler marks itself done without re-framing — no double-frame, no camera fight.
+- Re-armed on `pryzm-project-loaded` (per-project-session, same as §13-CAM).
+
+**The two handlers now cover both workflows:**
+
+| Workflow | Handler | Round |
+|----------|---------|-------|
+| Split view active: create in plan → 3D pane frames live | §13-CAM (`command.executed` + splitViewManager.isActive) | 24 |
+| Plan-only → switch to 3D view → 3D frames once | §3D-FRAME-ON-VIEW-SWITCH (`view-activated` perspective) | **44** |
+
+C11 §12.2 (user-camera preservation) is honoured in both: the first frame fires once per session; subsequent activations/creates preserve the architect's camera.
+
+**Contract citations:** C11 §12 (Split-View 3D Synchronization & Camera Framing), C11 §12.2 (user-camera preservation after first frame), C14 §1 (view-switch interaction), CLAUDE.md P8 (OTel span on new exported function — Round 43).
+
+---
+
 ## ✅ APPLIED — Round 42 (§PLAN-VIEW-INCREMENTAL-DRAWING #89 Day 1 — `ViewTechnicalDrawingCache.invalidateElement(viewId, elementId)`)
 
 ### Foundation for per-element re-projection — drops ONE element's projection layers from a cached drawing without throwing the whole drawing away

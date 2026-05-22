@@ -258,8 +258,16 @@ export class PlanViewCanvas {
                 child.parent?.userData?.layerName,
                 child.parent?.name,
             ].filter(Boolean).join(' ');
-            const isCut = /:cut$/i.test(layerTag);
-            const isBeyond = /:beyond$/i.test(layerTag);
+            // §DOOR-WINDOW-PLAN-FRAME (2026-05-22): accept BOTH the legacy
+            // colon convention (`A-WALL:cut`) and the hyphenated ISO sub-layer
+            // convention emitted by the hosted-element symbol builders
+            // (`A-DOOR-CUT`, `A-GLAZ-CUT`). Previously `/:cut$/` only matched
+            // the colon form, so door/window frame jambs — authored on the
+            // `-CUT` sub-layer to be drawn HEAVY as a section cut — were
+            // mis-classified as projection zone and rendered with light pen
+            // weight, so the "section cut frame" never read as a frame.
+            const isCut = /[:-]cut\b/i.test(layerTag);
+            const isBeyond = /[:-]beyond\b/i.test(layerTag);
             const isWall = /A-WALL|wall/i.test(layerTag);
             const isDoor = /A-DOOR|door/i.test(layerTag);
             const isSlab = /A-FLOR|slab/i.test(layerTag);

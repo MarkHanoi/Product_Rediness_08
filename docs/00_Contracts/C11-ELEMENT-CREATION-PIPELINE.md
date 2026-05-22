@@ -1123,3 +1123,35 @@ With split view active and an empty 3D scene:
 
 - The first-element framing is keyed on `command.executed` source-agnostically — it cannot yet distinguish a plan-pane creation from a 3D-pane creation. While split view is active this is benign (a single one-shot fit), but a precise implementation would carry the originating view on the command `meta`. Tracked for a future `HandlerContext` upgrade (see §10.2 Invariant 8 note).
 - Per-element-type 3D-sync compliance for split view is covered by the §11 matrix (the bus→builder path is shared). No separate split-view matrix is required.
+
+### §12.6 — Double-click-to-frame from the plan pane (NORMATIVE)
+
+> **Added**: 2026-05-22 (DAILY-USE). **Status**: CANONICAL.
+> **Scope**: explicit, user-initiated camera framing — distinct from §12.2's automatic *first-element* framing. Where §12.2 frames once per session without user action, §12.6 frames on demand, as many times as the user double-clicks.
+
+The split-view plan pane is the architect's primary drafting surface, and selection there is already routed to every surface via `selectionBus` (Contracts 27/38, Cross-View Selection Parity). The 3D pane shares the single camera (§12.1), so an architect double-clicking an element in the plan pane to "see it in 3D" is the direct analogue of the main-viewport double-click-zoom (`apps/editor/src/engine/initUI.ts` — `container.addEventListener('dblclick', …)`).
+
+- A **double-click on an element in the split-view PLAN pane MUST** (a) select that element on every surface (via `selectionBus.select(id, 'svp')`) and (b) frame the shared 3D camera on it.
+- Framing **MUST** use `frameObject` (Camera-Framing util) with the canonical double-click-focus defaults — `minDist = 2.5 m`, `dimMult = 1.5` — so a door/window/stair fills the viewport with ~40 % padding. These defaults are the **double-click contract**; callers needing a wider frame pass explicit values.
+- The handler **MUST** resolve the element's 3D `Object3D` from the authoritative selection (`SelectionManager.selectedObject`, set synchronously by `selectById`), NOT re-raycast — the plan-pane hit-test (`PlanViewCanvas.hitTest`) already identified the element id.
+- The handler **MUST** be a no-op in the SVP `'3d'` mirror mode: there, pointer events are forwarded to the main canvas (`_forward3dClickToMain`), where initUI's own dblclick-zoom runs — re-handling here would double-frame.
+- A framing failure (`frameObject` throws / no controls / unresolved object) **MUST** be logged non-fatally and **MUST NOT** interrupt selection — selection and framing are independent guarantees.
+- Unlike §12.2 (one-shot, re-armed per project), §12.6 framing is **not** rate-limited or one-shot — it is an explicit user gesture and fires every time.
+
+**Reference implementation**: `apps/editor/src/engine/views/SplitViewManager.ts` — `_onDblClick`, bound as a `dblclick` listener on the SVP canvas (registered in `_setupDOM`, removed in `_teardownDOM`). Annotated `§SVP-DBLCLICK-FRAME`. Console signal: `[SplitViewManager] §SVP-DBLCLICK-FRAME framing <id> in 3D view`.
+
+**Verification gate** (split view active, plan pane focused):
+
+```
+1. Double-click a wall/door/stair in the plan pane.
+   MUST: the element is selected (3D highlight + Properties Panel).
+   MUST: the 3D camera animates to frame that element (~fills viewport).
+   Console: [SplitViewManager] §SVP-DBLCLICK-FRAME framing <id> in 3D view
+
+2. Double-click empty plan-pane space.
+   MUST NOT: the camera move (hit-test returns no element → early return).
+
+3. Switch the SVP to 3D-mirror mode, double-click an element.
+   MUST: framing is handled by the main-canvas dblclick-zoom (§12.6 no-ops),
+         NOT double-framed.
+```

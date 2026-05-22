@@ -1697,6 +1697,11 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
     // project frames its own first element (C11 §12.2 — per-project-session).
     if (runtime) {
         let _splitViewFirstFrameDone = false;
+        // §3D-FRAME-ON-VIEW-SWITCH (#91, Round 44) — declared here (top of the
+        // `if (runtime)` block) so both the pryzm-project-loaded re-arm handler
+        // and the view-activated framing handler below close over the same
+        // binding without a temporal-dead-zone reference.
+        let _3dViewFirstFrameDone = false;
         // §FIRST-ELEMENT-3D-FRAME-FURNITURE (DAILY-USE 2026-05-21) — extend
         // the §13-CAM first-element-framing regex to include every visible
         // element type the architect can create in plan view. The original
@@ -1740,8 +1745,50 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 }
             }, 300);
         });
-        runtime.events.on('pryzm-project-loaded', () => { _splitViewFirstFrameDone = false; });
+        runtime.events.on('pryzm-project-loaded', () => {
+            _splitViewFirstFrameDone = false;
+            _3dViewFirstFrameDone = false; // §3D-FRAME-ON-VIEW-SWITCH re-arm per project session
+        });
         console.log('[initTools] §13-CAM: split-view first-element camera framing registered.');
+
+        // §3D-FRAME-ON-VIEW-SWITCH (#91, DAILY-USE 2026-05-21, Round 44) —
+        // The §13-CAM handler above only frames the 3D camera when SPLIT view
+        // is active (plan + 3D side-by-side). The architect reported "On plan
+        // view creation - the 3d scene should show the first item on zoom in
+        // 3d view" — i.e. the common workflow of drawing in a PLAN-ONLY view,
+        // then SWITCHING to the 3D view, expecting to SEE their work without
+        // manually pressing zoom-to-fit.
+        //
+        // This complementary handler fires zoomToAll() ONCE on the first
+        // activation of a 3D (perspective) view per project session, when
+        // geometry exists. Subsequent 3D-view switches preserve the
+        // architect's camera (C11 §12.2 — user-camera preservation after the
+        // first frame), re-armed on pryzm-project-loaded (per-session).
+        //
+        // The `view-activated` event carries `type: 'orthographic' | 'perspective'`.
+        // Perspective = the 3D view. We frame only on the perspective path.
+        // (`_3dViewFirstFrameDone` is declared at the top of this block.)
+        runtime.events.on('view-activated', (payload: unknown) => {
+            if (_3dViewFirstFrameDone) return;
+            const p = payload as { type?: string } | undefined;
+            // Only frame on the 3D (perspective) view — never on ortho/plan switch.
+            if (p?.type !== 'perspective') return;
+            // Don't double-frame if the split-view live-framing already ran this session.
+            if (_splitViewFirstFrameDone) { _3dViewFirstFrameDone = true; return; }
+            _3dViewFirstFrameDone = true;
+            // Defer so the 3D scene's meshes are fully committed + matrixWorld
+            // updated before zoomToAll() reads scene bounds (same 300ms posture
+            // as the §13-CAM split-view path).
+            setTimeout(() => {
+                try {
+                    zoomToAll();
+                    console.log('[initTools] §3D-FRAME-ON-VIEW-SWITCH: framed 3D camera on first 3D-view activation.');
+                } catch (err) {
+                    console.warn('[initTools] §3D-FRAME-ON-VIEW-SWITCH: zoomToAll() failed (non-fatal):', err);
+                }
+            }, 300);
+        });
+        console.log('[initTools] §3D-FRAME-ON-VIEW-SWITCH: first-3D-view-activation framing registered.');
     }
 
     // ── Stair railing proposal handler ────────────────────────────────────────

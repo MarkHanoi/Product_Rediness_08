@@ -21,6 +21,11 @@
 import * as OBC from '@thatopen/components';
 import { storeEventBus, type StoreChangeEvent } from '../StoreEventBus'; // TODO(TASK-08)
 import { viewIntentInstanceStore } from '../presentation/ViewIntentInstanceStore';
+// §PLAN-VIEW-INCREMENTAL-DRAWING Round 43 — P8 contract compliance for the
+// new exported `invalidateElement` method. Uses the canonical
+// `pryzm.plan-view.<verb>` span convention via the established
+// `emitPlanViewMotionEvent` helper.
+import { emitPlanViewMotionEvent } from './otel';
 
 const VIEW_DEFINITION_ELEMENT_TYPE = 'view-definition';
 
@@ -285,6 +290,19 @@ export class ViewTechnicalDrawingCache {
                 `viewId=${viewId} elementId=${elementId} removedLineSegments=${removedCount}`,
             );
         }
+
+        // §PLAN-VIEW-INCREMENTAL-DRAWING Round 43 — P8 contract compliance
+        // (`01-VISION.md §2` — every new exported function must add ≥1
+        // OpenTelemetry span). Uses the canonical pryzm.plan-view.<verb>
+        // convention via the existing emitPlanViewMotionEvent helper. The
+        // span fires fire-and-done; no-op when TracerProvider isn't installed
+        // (matches every other otel.ts call site in the codebase).
+        emitPlanViewMotionEvent('invalidate-element', {
+            'pryzm.plan_view.view_id':                viewId,
+            'pryzm.plan_view.element_id':             elementId,
+            'pryzm.plan_view.removed_line_segments':  removedCount,
+            'pryzm.plan_view.had_cached_drawing':     !!drawing,
+        });
     }
 
     /**

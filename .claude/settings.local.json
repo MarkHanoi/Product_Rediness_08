@@ -56,7 +56,12 @@
       "Bash(pnpm --filter @pryzm/geometry-plumbing exec tsc --noEmit)",
       "Bash(pnpm --filter @pryzm/geometry-lighting exec tsc --noEmit)",
       "PowerShell(Get-Process *)",
-      "Bash(pnpm --filter @pryzm/persistence-client exec tsc --noEmit)"
+      "Bash(pnpm --filter @pryzm/persistence-client exec tsc --noEmit)",
+      "Bash(pnpm --filter @pryzm/geometry-slab typecheck)",
+      "Bash(pnpm --filter @pryzm/editor typecheck)",
+      "Bash(powershell *)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\LENOVO\\\\OneDrive\\\\Desktop\\\\PRYZM\\\\Product_Rediness_08\\\\docs\\\\00_Contracts\\\\\" | Where-Object { $_.Name -match '^C[0-9]' } | Select-Object -ExpandProperty Name)",
+      "Bash(pnpm --filter @pryzm/core-app-model typecheck)"
     ]
   }
 }

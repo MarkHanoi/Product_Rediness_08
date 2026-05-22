@@ -196,7 +196,16 @@ export function symbolicRuleForLayer(layerTag: string, viewType: string): string
     const tag = layerTag.trim();
     // Beyond-zone layers must not use symbolic rendering — they fall through to
     // the generic dashed path so they share the same style as all other :beyond elements.
-    if (/:beyond$/i.test(tag)) return null;
+    if (/[:-]beyond\b/i.test(tag)) return null;
+    // §DOOR-WINDOW-PLAN-FRAME (2026-05-22): CUT-zone sub-layers (A-DOOR-CUT,
+    // A-GLAZ-CUT) carry the frame jambs + door leaf that are physically cut by
+    // the floor-plan section plane. They MUST render as HEAVY generic CUT lines
+    // (the "section cut frame" the architect requested) via the generic pen path
+    // — where `isCut` resolves the CUT pen weight + poché — NOT through the
+    // light, hard-coded 'projection'-state symbolic renderer. Returning null
+    // routes them to the generic path. The swing arc / cased glazing on the
+    // `…-PROJ` sub-layer keeps its symbolic rule (light projection symbol).
+    if (/[:-]cut\b/i.test(tag)) return null;
     if (/A-DOOR|door/i.test(tag)) return 'plan-door-swing';
     if (/A-GLAZ|window|curtain-panel/i.test(tag)) return 'plan-window-cased';
     return null;
