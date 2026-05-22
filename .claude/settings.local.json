@@ -61,7 +61,10 @@
       "Bash(pnpm --filter @pryzm/editor typecheck)",
       "Bash(powershell *)",
       "PowerShell(Get-ChildItem \"C:\\\\Users\\\\LENOVO\\\\OneDrive\\\\Desktop\\\\PRYZM\\\\Product_Rediness_08\\\\docs\\\\00_Contracts\\\\\" | Where-Object { $_.Name -match '^C[0-9]' } | Select-Object -ExpandProperty Name)",
-      "Bash(pnpm --filter @pryzm/core-app-model typecheck)"
+      "Bash(pnpm --filter @pryzm/core-app-model typecheck)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\LENOVO\\\\OneDrive\\\\Desktop\\\\PRYZM\\\\Product_Rediness_08\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(pnpm --filter @pryzm/input-host typecheck)"
     ]
   }
 }

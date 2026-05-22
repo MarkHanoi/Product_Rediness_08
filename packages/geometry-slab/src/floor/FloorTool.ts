@@ -28,7 +28,7 @@ import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
 import { CreateFloorCommand } from '@pryzm/command-registry';
 import { FloorVertex, FloorToolState, FloorLayer } from '@pryzm/core-app-model/stores';
-import { calculateFloorSnapPoint as calculateSnapPoint, computeFloorArea as computeArea } from '@pryzm/core-app-model/stores';
+import { computeFloorArea as computeArea } from '@pryzm/core-app-model/stores';
 import { projectContext } from '@pryzm/core-app-model';
 import { floorSystemTypeStore } from '@pryzm/core-app-model/stores';
 
@@ -46,7 +46,14 @@ export interface FloorModalOptions {
 
 export type FloorDrawingMode = 'LINEAR' | 'ORTHO' | 'ARC' | 'RECTANGLE' | 'AUTO_FROM_ROOM';
 
-const FLOOR_PREVIEW_COLOR = 0x8fb4c8;   // Muted blue — distinct from ceiling indigo #818cf8
+// §41 (2026-05-22): unified to the single PRYZM brand purple #6600FF — every
+// creation preview reads identically (was 0x8fb4c8 muted blue). NOTE: kept as a
+// LITERAL, not PREVIEW_COLOR.PRIMARY, deliberately. This const is evaluated at
+// module-load time, and core-app-model ↔ geometry-* form a circular dependency
+// (SCC); reading the core-app-model barrel here at load time can see an
+// uninitialised PREVIEW_COLOR (undefined) → TypeError → white screen. Keep the
+// value in sync with PREVIEW_COLOR.PRIMARY in PreviewStyle.ts (Contract §41 §2).
+const FLOOR_PREVIEW_COLOR = 0x6600ff;
 const CLOSURE_THRESHOLD = 0.25;         // metres — click this close to first point to close
 const DOUBLE_CLICK_MS = 300;
 
@@ -254,6 +261,18 @@ export class FloorTool {
     };
 
     this._onKeyDown = (e) => {
+      // §FLOOR-3D-ENTER (DAILY-USE 2026-05-22): probe BEFORE the _isActive guard
+      // so the live log distinguishes (a) this FloorTool's listener never being
+      // the active one in 3D (no log on Enter → ToolManager routed to the plan
+      // handler instead) from (b) active-but-points<3 (log shows points count).
+      // Architect: "after 2 lines, Enter should create the floor in 3D — works
+      // in plan, not in 3D."
+      if (e.key === 'Enter') {
+        console.log(
+          `[FloorTool] §FLOOR-3D-ENTER Enter pressed — active=${this._isActive} ` +
+          `points=${this._points.length} (commit requires >=3)`,
+        );
+      }
       if (!this._isActive) return;
       if (e.key === 'Shift') { this._shiftPressed = true; return; }
       if (e.key === 'Escape') { this.deactivate(); return; }
@@ -311,10 +330,15 @@ export class FloorTool {
       this._snappedCursorPos = dx >= dz
         ? { x: this._cursorPos.x, z: lastPt.z }
         : { x: lastPt.x, z: this._cursorPos.z };
-    } else if ((mode === 'LINEAR' || mode === 'ARC') && lastPt && !this._shiftPressed) {
-      // 0/45/90 polygon snap (matches the pre-mode behavior).
-      this._snappedCursorPos = calculateSnapPoint(this._cursorPos, lastPt, false);
     } else {
+      // §FLOOR-LINEAR-FREEFORM (2026-05-22): LINEAR (and ARC, which currently
+      // routes to LINEAR) are FREEFORM — any-angle segments, no axis/diagonal
+      // snap, per the FloorDrawingMode contract ("LINEAR — freeform straight
+      // segments, no axis snap"). The previous branch applied
+      // calculateSnapPoint's 0/45/90 snap in LINEAR mode ("pre-mode behavior"),
+      // so Lineal (L) behaved like a constrained orthogonal sketch — the
+      // architect's reported bug. Only ORTHO (O) snaps now; everything else
+      // (LINEAR, ARC, no last vertex, Shift held) uses the raw cursor.
       this._snappedCursorPos = { ...this._cursorPos };
     }
 

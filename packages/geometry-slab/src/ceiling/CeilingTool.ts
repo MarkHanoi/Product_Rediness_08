@@ -24,7 +24,7 @@ import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
 import { CreateCeilingCommand } from '@pryzm/command-registry';
 import { CeilingVertex, CeilingToolState, CeilingLayer } from '@pryzm/core-app-model/stores';
-import { calculateCeilingSnapPoint as calculateSnapPoint, computeCeilingArea as computeArea } from '@pryzm/core-app-model/stores';
+import { computeCeilingArea as computeArea } from '@pryzm/core-app-model/stores';
 import { projectContext } from '@pryzm/core-app-model';
 import { ceilingSystemTypeStore } from '@pryzm/core-app-model/stores';
 
@@ -42,7 +42,14 @@ export interface CeilingModalOptions {
 
 export type CeilingDrawingMode = 'LINEAR' | 'ORTHO' | 'ARC' | 'RECTANGLE' | 'AUTO_FROM_ROOM';
 
-const CEILING_PREVIEW_COLOR = 0x818cf8;   // Indigo — matches Pascal palette
+// §41 (2026-05-22): unified to the single PRYZM brand purple #6600FF — every
+// creation preview reads identically (was 0x818cf8 indigo). NOTE: kept as a
+// LITERAL, not PREVIEW_COLOR.PRIMARY, deliberately — this const is evaluated at
+// module-load time and core-app-model ↔ geometry-* form a circular dependency
+// (SCC); reading the barrel here at load time can see an uninitialised
+// PREVIEW_COLOR (undefined) → TypeError → white screen. Keep in sync with
+// PREVIEW_COLOR.PRIMARY in PreviewStyle.ts (Contract §41 §2).
+const CEILING_PREVIEW_COLOR = 0x6600ff;
 const CLOSURE_THRESHOLD = 0.25;           // metres
 const DOUBLE_CLICK_MS = 300;
 
@@ -244,6 +251,16 @@ export class CeilingTool {
     };
 
     this._onKeyDown = (e) => {
+      // §FLOOR-3D-ENTER (DAILY-USE 2026-05-22): probe BEFORE the _isActive guard
+      // — mirrors FloorTool. No log on Enter in 3D ⇒ this tool isn't the active
+      // handler there (ToolManager routed to the plan handler); a log with
+      // points<3 ⇒ vertices weren't captured in 3D.
+      if (e.key === 'Enter') {
+        console.log(
+          `[CeilingTool] §FLOOR-3D-ENTER Enter pressed — active=${this._isActive} ` +
+          `points=${this._points.length} (commit requires >=3)`,
+        );
+      }
       if (!this._isActive) return;
       if (e.key === 'Shift') { this._shiftPressed = true; return; }
       if (e.key === 'Escape') { this.deactivate(); return; }
@@ -293,9 +310,12 @@ export class CeilingTool {
       this._snappedCursorPos = dx >= dz
         ? { x: this._cursorPos.x, z: lastPt.z }
         : { x: lastPt.x, z: this._cursorPos.z };
-    } else if ((mode === 'LINEAR' || mode === 'ARC') && lastPt && !this._shiftPressed) {
-      this._snappedCursorPos = calculateSnapPoint(lastPt, this._cursorPos);
     } else {
+      // §FLOOR-LINEAR-FREEFORM (2026-05-22): LINEAR (and ARC, routing to LINEAR)
+      // are FREEFORM — any-angle segments, no axis/diagonal snap. Previously
+      // LINEAR called calculateSnapPoint (0/45/90 snap), so Lineal (L) behaved
+      // like a constrained orthogonal sketch — the architect's reported bug.
+      // Only ORTHO (O) snaps now. Mirrors the FloorTool fix.
       this._snappedCursorPos = { ...this._cursorPos };
     }
 

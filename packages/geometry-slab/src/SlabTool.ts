@@ -12,7 +12,7 @@ import { SlabProfileEditor } from './SlabProfileEditor.js';
 import { HostReferenceEdge, FreeLineEdge, SketchEdge } from './SketchTypes.js';
 import { WallFaceResolver } from './WallFaceResolver.js';
 import { VisualStyle } from '@pryzm/core-app-model/material-library';
-import { projectContext } from '@pryzm/core-app-model';
+import { projectContext, PREVIEW_COLOR } from '@pryzm/core-app-model';
 import { DimensionPreview } from '@pryzm/geometry-wall';
 import { SlabPickWallsController } from './SlabPickWallsController.js';
 import { snapToAxisOrDiagonal } from './SlabSnapUtils.js';
@@ -431,7 +431,7 @@ export class SlabTool {
         if (!this.floorSketch.previewRect) {
             const geo = new THREE.BufferGeometry().setFromPoints(corners);
             const mat = new THREE.LineBasicMaterial({
-                color: 0x007bff,
+                color: PREVIEW_COLOR.PRIMARY,
                 depthTest: false,
                 linewidth: 2
             });
@@ -461,7 +461,7 @@ export class SlabTool {
 
         const geo = new THREE.PlaneGeometry(width, depth);
         const mat = new THREE.MeshBasicMaterial({
-            color: 0x007bff,
+            color: PREVIEW_COLOR.PRIMARY,
             transparent: true,
             opacity: 0.4,
             side: THREE.DoubleSide,
@@ -567,7 +567,7 @@ export class SlabTool {
             this.floorSketch.firstPoint = snappedPoint;
 
             const dotGeo = new THREE.SphereGeometry(0.15, 16, 16);
-            const dotMat = new THREE.MeshBasicMaterial({ color: 0x007bff, depthTest: false });
+            const dotMat = new THREE.MeshBasicMaterial({ color: PREVIEW_COLOR.PRIMARY, depthTest: false });
             const dot = new THREE.Mesh(dotGeo, dotMat);
             dot.position.copy(snappedPoint);
             dot.userData.isPreview = true;
@@ -807,7 +807,7 @@ export class SlabTool {
         // Add visual marker
         const dotGeo = new THREE.SphereGeometry(0.1, 16, 16);
         const dotMat = new THREE.MeshBasicMaterial({ 
-            color: 0x007bff,
+            color: PREVIEW_COLOR.PRIMARY,
             depthTest: false,
             transparent: true,
             opacity: 0.9
@@ -874,7 +874,7 @@ export class SlabTool {
         if (!this.polylineData.previewLine) {
             const geo = new THREE.BufferGeometry().setFromPoints(points);
             const mat = new THREE.LineBasicMaterial({
-                color: 0x007bff,
+                color: PREVIEW_COLOR.PRIMARY,
                 linewidth: 2,
                 depthTest: false
             });
@@ -904,7 +904,7 @@ export class SlabTool {
             if (!this.polylineData.closingLinePreview) {
                 const geo = new THREE.BufferGeometry().setFromPoints(closingPts);
                 const mat = new THREE.LineBasicMaterial({
-                    color: 0x818cf8,
+                    color: PREVIEW_COLOR.PRIMARY,  // §41 unified PRYZM purple
                     depthTest: false,
                     transparent: true,
                     opacity: 0.5,
@@ -940,7 +940,7 @@ export class SlabTool {
 
             if (!this.polylineData.previewFillMesh) {
                 const mat = new THREE.MeshBasicMaterial({
-                    color: 0x818cf8,
+                    color: PREVIEW_COLOR.PRIMARY,  // §41 unified PRYZM purple
                     transparent: true,
                     opacity: 0.15,
                     side: THREE.DoubleSide,
@@ -1417,7 +1417,7 @@ export class SlabTool {
         const shape = new THREE.Shape(polygon);
         const geometry = new THREE.ShapeGeometry(shape);
         const material = new THREE.MeshBasicMaterial({
-            color: 0x007bff,
+            color: PREVIEW_COLOR.PRIMARY,
             transparent: true,
             opacity: 0.3,
             side: THREE.DoubleSide,

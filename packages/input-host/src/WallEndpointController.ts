@@ -60,8 +60,12 @@
 import { UpdateWallBaselineCommand } from '@pryzm/command-registry';
 import * as THREE from '@pryzm/renderer-three/three';
 
-const HANDLE_RADIUS  = 0.26;   // visual sphere radius (m)
-const HIT_RADIUS     = 0.52;   // invisible hit-zone radius — easier to grab in plan view
+// §WALL-HANDLE-STUDY (2026-05-22): visual sphere halved (0.26 → 0.13 m) per the
+// architect's request for a smaller, more professional handle. The invisible
+// hit-zone is kept generous (≈2.7× the visual) so the handle is still easy to
+// grab — robustness of the *grab* must not regress when the *visual* shrinks.
+const HANDLE_RADIUS  = 0.13;   // visual sphere radius (m) — half of the old 0.26
+const HIT_RADIUS     = 0.35;   // invisible hit-zone radius — easier to grab in plan view
 const HANDLE_SEGMENTS = 14;
 const HANDLE_COLOR_IDLE   = 0x2563eb; // blue-600
 const HANDLE_COLOR_HOVER  = 0x0ea5e9; // sky-500
@@ -405,7 +409,19 @@ export class WallEndpointController {
                     newBaseLine:  newBLPt,
                     prevBaseLine: prevBLPt,
                 });
+                // §WALL-DRAG-COMMIT (DAILY-USE 2026-05-22): timing probe around the
+                // rebuild command. The architect reports the scene FREEZES on
+                // endpoint drag. The drag itself is visual-only (cheap), so the
+                // freeze is on this commit — either the wall-rebuild → room-topology
+                // redetect cascade is a long synchronous task / loop, or the
+                // rebuild strands the WallTransformController's TransformControls
+                // proxy ("attached object must be part of the scene graph" →
+                // per-frame throw → freeze). If the "done" line never prints (or
+                // prints a huge ms), the hang is INSIDE execute() → rebuild storm.
+                const _t0 = performance.now();
+                console.log(`[WallEndpointController] §WALL-DRAG-COMMIT execute UpdateWallBaselineCommand wall=${this.activeWallId}`);
                 cmdMgr.execute(cmd); // TODO(TASK-06)
+                console.log(`[WallEndpointController] §WALL-DRAG-COMMIT done in ${(performance.now() - _t0).toFixed(1)}ms`);
             } else {
                 // §LIVE-DRAG-ISOLATION: drag was too short to commit.  The store
                 // is already at its pre-drag state (we never mutated it during

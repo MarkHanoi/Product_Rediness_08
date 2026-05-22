@@ -31,20 +31,31 @@
  *      `userData.isPreview = true` (read by selection, plan-view extractor,
  *      thumbnail capture, etc.). Use `tagPreview()`.
  *
- * Standard colour palette — keep in sync with `docs/element-preview.md`:
- *   - PRIMARY  0x2196f3  (blue)        — geometric building elements: wall,
+ * Standard colour palette — keep in sync with Contract §41
+ * (`docs/00_Contracts/41-ELEMENT-PREVIEW-VISUAL-CONTRACT.md`):
+ *
+ *   ⚠ 2026-05-22 UNIFICATION (architect directive): every user-facing
+ *   creation / placement preview now uses the SINGLE PRYZM brand purple
+ *   #6600FF (0x6600ff, rgb 102,0,255 — the app accent also used for the
+ *   selection glow). Previously each category had its own colour (blue for
+ *   building elements, green for door/window, …); the architect requires all
+ *   "ghost-before-create" feedback to read identically and on-brand. The named
+ *   keys are KEPT for call-site clarity but all resolve to the one colour.
+ *
+ *   - PRIMARY  0x6600ff  (PRYZM purple) — geometric building elements: wall,
  *                                         curtain wall, handrail, slab, floor,
  *                                         ceiling, opening
- *   - HOSTED   0x4CAF50  (green)       — wall-hosted: door, window
- *   - VOLUME   0x6600ff  (deep purple) — point-placed volumes: column
- *   - MEP      0xA855F7  (violet)      — AI ghost layer
- *   - OBJECT   0x8B5CF6  (PRYZM purple) — every object placed via the
+ *   - HOSTED   0x6600ff  (PRYZM purple) — wall-hosted: door, window
+ *   - VOLUME   0x6600ff  (PRYZM purple) — point-placed volumes: column
+ *   - OBJECT   0x6600ff  (PRYZM purple) — every object placed via the
  *                                          Furniture carousel and its sister
  *                                          tools (Furniture, Plumbing,
  *                                          Lighting, Kitchen, Decor, Outdoor,
  *                                          Bathroom, Soft Furnishings).
- *                                          See Contract §41 §3.1 — Object
- *                                          Placement Preview Standard.
+ *   - MEP      0xA855F7  (violet)       — AI-suggested ghost overlay. The ONE
+ *                                          intentional exception, so users can
+ *                                          tell AI proposals from their own
+ *                                          in-progress previews. See §41.
  *
  * Standard preview opacity:
  *   - 0.40 default body opacity (PRIMARY/HOSTED/VOLUME/MEP).
@@ -58,15 +69,24 @@ import * as THREE from '@pryzm/renderer-three/three';
 // ── Colour palette ──────────────────────────────────────────────────────────
 
 export const PREVIEW_COLOR = {
-    PRIMARY: 0x2196f3,
-    HOSTED:  0x4CAF50,
+    // §41 (2026-05-22): UNIFIED — all four user-creation/placement preview
+    // colours resolve to the one PRYZM brand purple #6600FF. Named keys kept
+    // for call-site readability; do not re-diverge their values without a
+    // superseding §41 decision.
+    PRIMARY: 0x6600ff,
+    HOSTED:  0x6600ff,
     VOLUME:  0x6600ff,
-    MEP:     0xA855F7,
     /**
-     * PRYZM brand purple — used for every "object placement" ghost (carousel
-     * drops, click-to-place flows). See Contract §41 §3.1.
+     * PRYZM brand purple — every "object placement" ghost (carousel drops,
+     * click-to-place flows). See Contract §41 §3.1.
      */
-    OBJECT:  0x8B5CF6,
+    OBJECT:  0x6600ff,
+    /**
+     * AI-suggested ghost overlay — the ONE intentional exception to the unified
+     * preview colour, kept distinct so AI proposals are visually separable from
+     * the user's own in-progress previews. See Contract §41 §4.
+     */
+    MEP:     0xA855F7,
 } as const;
 
 /**

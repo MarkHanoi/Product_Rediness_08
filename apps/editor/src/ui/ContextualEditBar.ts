@@ -87,6 +87,14 @@ export class ContextualEditBar {
     private readonly _opBtns = new Map<string, HTMLElement>();
 
     /**
+     * §EDIT-PROFILE (2026-05-22) — the "Edit Profile" button. Not an
+     * ElementCapabilities operation (it launches a polygon editor, not a
+     * transform), so its visibility is gated manually by element type
+     * (slab / floor / ceiling) in _refreshButtonVisibility() rather than via canDo().
+     */
+    private _editProfileBtn: HTMLElement | null = null;
+
+    /**
      * Two-key chord state for 'MV' → Activate Move tool (Contract 34).
      * When 'M' is pressed we arm a 650ms timer. If 'V' arrives within that
      * window we cancel the timer and activate the move tool. If the timer fires
@@ -146,6 +154,17 @@ export class ContextualEditBar {
 
         for (const action of this._getEditActions()) {
             inner.appendChild(this._buildBtn(action));
+        }
+
+        // §EDIT-PROFILE — the "Edit Profile" button is built here, hidden by
+        // default, and shown only for slab/floor/ceiling in _refreshButtonVisibility().
+        for (const action of this._getProfileActions()) {
+            const btn = this._buildBtn(action);
+            if (action.id === 'edit-profile') {
+                this._editProfileBtn = btn;
+                btn.style.display = 'none';   // shown per element type on selection
+            }
+            inner.appendChild(btn);
         }
 
         for (const action of this._getOperationActions()) {
@@ -243,6 +262,25 @@ export class ContextualEditBar {
                     console.log('[ContextualEditBar] Delete');
                     this._service.deleteSelected();
                 },
+            },
+        ];
+    }
+
+    /**
+     * §EDIT-PROFILE (2026-05-22) — "Edit Profile" launches the polygon profile
+     * editor for the selected slab / floor / ceiling. The architect requested
+     * this as a toolbar action (previously only reachable by double-clicking a
+     * slab). Visibility is gated by element type in _refreshButtonVisibility().
+     */
+    private _getProfileActions(): CebAction[] {
+        return [
+            {
+                id:       'edit-profile',
+                icon:     'material-symbols:polyline',
+                title:    'Edit Profile',
+                shortcut: 'P',
+                variant:  'default',
+                action:   () => this._activateProfileEditForContext(),
             },
         ];
     }
@@ -432,6 +470,14 @@ export class ContextualEditBar {
             const show = !!elementType && canDo(elementType, opId as OperationId);
             btn.style.display = show ? '' : 'none';
         }
+        // §EDIT-PROFILE — show the profile editor button only for the polygonal
+        // sketch-based families (slab / floor / ceiling).
+        if (this._editProfileBtn) {
+            const showProfile = elementType === 'slab'
+                || elementType === 'floor'
+                || elementType === 'ceiling';
+            this._editProfileBtn.style.display = showProfile ? '' : 'none';
+        }
         this._clearActiveOpHighlight();
     }
 
@@ -616,6 +662,16 @@ export class ContextualEditBar {
                     }
                     break;
                 }
+                // §EDIT-PROFILE — P launches the profile editor for slab/floor/ceiling.
+                case 'P': {
+                    if (this._elementType === 'slab'
+                        || this._elementType === 'floor'
+                        || this._elementType === 'ceiling') {
+                        this._activateProfileEditForContext();
+                        console.log('[ContextualEditBar] P → Edit Profile');
+                    }
+                    break;
+                }
                 case 'ESCAPE': {
                     this._cancelActiveTools();
                     break;
@@ -729,6 +785,43 @@ export class ContextualEditBar {
             console.log('[ContextualEditBar] Align → plan-view align tool (L)');
         } else {
             console.warn('[ContextualEditBar] Align requires an active plan, section, or elevation view');
+        }
+    }
+
+    /**
+     * §EDIT-PROFILE (2026-05-22) — launch the polygon profile editor for the
+     * selected slab / floor / ceiling. Routes to the geometry-slab-family tool's
+     * `enterProfileEditMode(id)` (slab is wired today; floor/ceiling activate
+     * automatically once their tools expose the same method). This mirrors the
+     * existing double-click-on-slab path (SelectionManager) as a toolbar action.
+     */
+    private _activateProfileEditForContext(): void {
+        const id = this._selectedObj?.userData?.id as string | undefined;
+        if (!id) return;
+        const type = this._elementType;
+
+        // Cast through `unknown`: globals.d.ts types floorTool/ceilingTool as
+        // `unknown` and slabTool with an `(slab: object)` signature — a local
+        // shape keeps this call site clean without touching the global decl.
+        const w = window as unknown as {
+            slabTool?:    { enterProfileEditMode?: (id: string) => unknown };
+            floorTool?:   { enterProfileEditMode?: (id: string) => unknown };
+            ceilingTool?: { enterProfileEditMode?: (id: string) => unknown };
+        };
+        const toolFor: Record<string, { enterProfileEditMode?: (id: string) => unknown } | undefined> = {
+            slab:    w.slabTool,
+            floor:   w.floorTool,
+            ceiling: w.ceilingTool,
+        };
+        const tool = toolFor[type];
+        if (tool && typeof tool.enterProfileEditMode === 'function') {
+            void tool.enterProfileEditMode(id);
+            console.log(`[ContextualEditBar] Edit Profile → ${type} ${id}`);
+        } else {
+            console.warn(
+                `[ContextualEditBar] Edit Profile not yet available for type=${type} ` +
+                `(tool.enterProfileEditMode missing — slab is supported; floor/ceiling pending)`,
+            );
         }
     }
 

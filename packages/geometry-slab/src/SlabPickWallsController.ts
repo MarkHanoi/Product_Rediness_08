@@ -4,7 +4,7 @@ import * as BUI from '@thatopen/ui';
 import { CreateSlabCommand } from '@pryzm/command-registry';
 import { HostReferenceEdge } from './SketchTypes.js';
 import { WallFaceResolver } from './WallFaceResolver.js';
-import { projectContext } from '@pryzm/core-app-model';
+import { projectContext, PREVIEW_COLOR } from '@pryzm/core-app-model';
 
 const HUD_ID = 'pick-walls-hud';
 
@@ -281,7 +281,7 @@ export class SlabPickWallsController {
         const closed = [...points3D, points3D[0].clone()];
         const lineGeo = new THREE.BufferGeometry().setFromPoints(closed);
         const lineMat = new THREE.LineBasicMaterial({
-            color: 0x007bff,
+            color: PREVIEW_COLOR.PRIMARY,  // §41 unified PRYZM purple
             depthTest: false,
             linewidth: 2
         });
@@ -293,7 +293,7 @@ export class SlabPickWallsController {
             const shape = new THREE.Shape(points3D.map(p => new THREE.Vector2(p.x, -p.z)));
             const fillGeo = new THREE.ShapeGeometry(shape);
             const fillMat = new THREE.MeshBasicMaterial({
-                color: 0x007bff,
+                color: PREVIEW_COLOR.PRIMARY,  // §41 unified PRYZM purple
                 transparent: true,
                 opacity: 0.2,
                 side: THREE.DoubleSide,
