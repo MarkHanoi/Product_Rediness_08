@@ -530,6 +530,22 @@ export class StairPathToolController {
     // ── Straight mode point management ───────────────────────────────────────
 
     private _addPoint(pt: Point2D): void {
+        // §STAIR-DEDUP (2026-05-23) — finishing a straight run by DOUBLE-CLICKING
+        // fires two `click` events (then `dblclick`), so the second click lands on
+        // top of the first and would append a near-coincident point. That makes a
+        // degenerate final run segment whose treadDepth ≈ 0 → the solver rejects the
+        // whole stair with "Run too short — tread 1 mm (min 220 mm)", so a stair can
+        // never be finished by double-click in plan/split view. Drop a click that is
+        // within DEDUP_EPS of the previous point. DEDUP_EPS (50 mm) is far below the
+        // solver's MIN_SEG_LEN (300 mm), so this only ever filters coincident
+        // double-click artifacts — never a legitimate run or landing corner.
+        const DEDUP_EPS = 0.05;
+        const last = this._model.last;
+        if (last) {
+            const dx = pt.x - last.x;
+            const dz = pt.z - last.z;
+            if ((dx * dx + dz * dz) < DEDUP_EPS * DEDUP_EPS) return;
+        }
         this._model.addPoint(pt);
         this._cursor = pt;
         this._dirty  = true;

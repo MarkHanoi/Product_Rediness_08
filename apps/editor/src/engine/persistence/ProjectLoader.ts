@@ -283,7 +283,17 @@ export class ProjectLoader {
             const sinceLastPhase = now - (__phase_starts[lastPhaseName] ?? __t_load_start);
             console.warn(
                 `[ProjectLoader] §LOAD-WATCHDOG load still running after ${(elapsed / 1000).toFixed(1)}s ` +
-                `— current phase="${lastPhaseName}" stuck for ${(sinceLastPhase / 1000).toFixed(1)}s. ` +
+                `— current phase="${lastPhaseName}" stuck for ${(sinceLastPhase / 1000).toFixed(1)}s ` +
+                // §AUTOSAVE-LOAD-DIAG (2026-05-23) — carry the model size on every
+                // heartbeat so the stuck phase AND the workload that's overwhelming it
+                // are visible from a SINGLE repeating line (the architect's "review the
+                // live logs" ask). A heartbeat that fires means the stall is across
+                // await points; if the tab is frozen with NO heartbeat, the hang is a
+                // synchronous block inside the phase named on the last §LOAD-PHASE line.
+                `[walls=${snapshot.walls?.length ?? 0} slabs=${snapshot.slabs?.length ?? 0} ` +
+                `levels=${snapshot.levels?.length ?? 0} curtainWalls=${snapshot.curtainWalls?.length ?? 0} ` +
+                `rooms=${(snapshot as { rooms?: any[] }).rooms?.length ?? 0} ` +
+                `doors=${snapshot.doors?.length ?? 0} windows=${snapshot.windows?.length ?? 0}]. ` +
                 `If this keeps firing the load is hung; check the prior §LOAD-PHASE line for the last completed phase.`,
             );
         }, WATCHDOG_MS);

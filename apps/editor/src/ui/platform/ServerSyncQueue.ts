@@ -123,6 +123,15 @@ export class ServerSyncQueue {
      */
     private _serverVersionCountByProject: Map<string, number> = new Map();
 
+    /**
+     * §L-B2-RECONCILE (2026-05-23) — version ids for which we have already adopted
+     * the server's actual count and retried after a 412. Bounds the self-heal to ONE
+     * reconcile per save so a genuine rapid-conflict storm cannot loop; a second 412
+     * for the same save falls through to the local-only preservation path. Cleared on
+     * successful sync. In-memory only (per session) — not persisted with the queue.
+     */
+    private _reconciledVersionIds: Set<string> = new Set();
+
     private readonly onSyncStatusChange: NonNullable<ServerSyncQueueOptions['onSyncStatusChange']>;
     private readonly onSaveRejected: NonNullable<ServerSyncQueueOptions['onSaveRejected']>;
 
@@ -292,16 +301,22 @@ export class ServerSyncQueue {
             if (res.status === 201 || res.status === 200) {
                 console.log(`[ServerSyncQueue] Synced version "${version.label}" (${version.id})`);
                 this.queue = this.queue.filter(q => q.version.id !== version.id);
+                this._reconciledVersionIds.delete(version.id);
                 this.onSyncStatusChange(version.id, projectId, 'synced');
                 // §L-B2 — update the server-version-count cache from the response
                 // body (or, as a fallback, increment from the previous known
                 // count by 1 — every successful save adds exactly one version).
+                // §L-B2-RECONCILE — also read `version.version_count` (the actual
+                // POST success shape is `{ version: <row> }`), so the cache is
+                // seeded authoritatively and the `prior+1` guess is rarely needed.
                 try {
-                    const body = await res.json().catch(() => null) as { versionCount?: number; count?: number; total?: number } | null;
+                    const body = await res.json().catch(() => null) as { versionCount?: number; count?: number; total?: number; version?: { version_count?: number } } | null;
                     const serverCount =
                         (body && (typeof body.versionCount === 'number' ? body.versionCount
                                   : typeof body.count === 'number' ? body.count
-                                  : typeof body.total === 'number' ? body.total : undefined));
+                                  : typeof body.total === 'number' ? body.total
+                                  : typeof body.version?.version_count === 'number' ? body.version.version_count
+                                  : undefined));
                     if (typeof serverCount === 'number') {
                         this._serverVersionCountByProject.set(projectId, serverCount);
                     } else {
@@ -321,6 +336,32 @@ export class ServerSyncQueue {
             // operator should reload to merge or pick from version history.
             if (res.status === 412) {
                 const body = await res.json().catch(() => ({})) as { actual?: number; expected?: number; error?: string };
+                const actual = typeof body.actual === 'number' ? body.actual : undefined;
+
+                // §L-B2-RECONCILE (2026-05-23) — a 412 means our expected version
+                // count was STALE. The most common cause is NOT a real concurrent
+                // edit but a client-side count desync: the POST success response
+                // carries no authoritative count, so the success path falls back to
+                // `prior+1` from an unseeded cache (→ "1") while the server is at 21.
+                // Every subsequent save then sends If-Match "v1" → permanent 412 →
+                // EVERY auto-save lost to `local-only` (exactly the architect's
+                // "expected 1, server has 21" loop).
+                //
+                // The server hands us the ACTUAL count in the 412 body — adopt it and
+                // retry ONCE inline. Versions are append-only, so re-basing onto the
+                // real count and re-posting never overwrites a concurrent writer's
+                // version: it appends ours after theirs (no data loss). Bounded to one
+                // reconcile per save id; a second 412 falls through to local-only.
+                if (actual !== undefined && !this._reconciledVersionIds.has(version.id)) {
+                    this._reconciledVersionIds.add(version.id);
+                    this._serverVersionCountByProject.set(projectId, actual);
+                    console.warn(
+                        `[ServerSyncQueue] §L-B2-RECONCILE 412 for "${version.label}" — ` +
+                        `expected ${body.expected}, server has ${actual}. Re-basing count + retrying once.`,
+                    );
+                    return await this.attemptSync(item); // retries with If-Match "v${actual}"
+                }
+
                 console.warn(
                     `[ServerSyncQueue] §L-B2 412 Precondition Failed for "${version.label}" — ` +
                     `expected ${body.expected}, server has ${body.actual}. Local copy preserved.`,
@@ -329,6 +370,7 @@ export class ServerSyncQueue {
                 // but the version stays in localStorage as `local-only` so the
                 // user can manually copy/export it after reload.
                 this.queue = this.queue.filter(q => q.version.id !== version.id);
+                this._reconciledVersionIds.delete(version.id);
                 this.onSyncStatusChange(version.id, projectId, 'local-only');
                 // Reset the cache: the next save will go without If-Match (or
                 // with a fresh count once a reload-and-re-init happens).

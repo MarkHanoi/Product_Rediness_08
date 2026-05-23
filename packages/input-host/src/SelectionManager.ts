@@ -1230,6 +1230,21 @@ export class SelectionManager implements ISelectionManager {
             if (wdRunInsp && furnitureId) wdRunInsp.show(furnitureId);
         }
 
+        // ── Kitchen run inspector ──────────────────────────────────────────────
+        // §KITCHEN-RUN-INSPECTOR-PARITY (2026-05-23) — show the kitchen run inspector
+        // immediately on click, exactly like the wardrobe above. Previously the
+        // kitchen run inspector only appeared after TAB-cycling through every unit +
+        // the countertop (the wrap branch in _advanceKcSubUnit), so the run-level
+        // dimensions the creation panel exposes (height / depth / unit count) were
+        // effectively unreachable once the kitchen was placed — "kitchen can only be
+        // configured on creation". This gives full post-selection edit parity with
+        // the wardrobe (the architect's request).
+        if (this.isKitchenFurniture(obj)) {
+            const kRunInsp = window.kitchenRunInspector;
+            const furnitureId = obj.userData?.id as string | undefined;
+            if (kRunInsp && furnitureId) kRunInsp.show(furnitureId);
+        }
+
         // Phase 6 — bidirectional selection: broadcast to all UI panels.
         // Source '3d' so that the listener in init() does not create a feedback loop.
         // BUG-04: elementIdOverride is set for InstancedElementRenderer instances
@@ -1493,6 +1508,14 @@ export class SelectionManager implements ISelectionManager {
         // Hide wardrobe run inspector on deselect
         const wdRunInsp = window.wardrobeRunInspector;
         if (wdRunInsp) wdRunInsp.hide();
+
+        // §KITCHEN-RUN-INSPECTOR-PARITY (2026-05-23) — hide the kitchen run + unit
+        // inspectors on deselect too (mirrors the wardrobe above), so they don't
+        // linger after the kitchen is deselected.
+        const kRunInsp = window.kitchenRunInspector;
+        if (kRunInsp) kRunInsp.hide();
+        const kUnitInsp = window.kitchenUnitInspector;
+        if (kUnitInsp) kUnitInsp.hide();
 
         // Reset hover cursor (element still under pointer but deselected)
         // _onPointerMove will restore 'pointer' on next move if element is still hovered

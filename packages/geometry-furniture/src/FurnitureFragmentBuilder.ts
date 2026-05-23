@@ -126,24 +126,45 @@ export class FurnitureFragmentBuilder {
 
         let mesh: THREE.Group;
 
-        // Use WardrobeEngine for wardrobes with config
-        if ((data.furnitureType === 'wardrobe' || data.furnitureType === 'wardrobe_glass_door' || data.furnitureType === 'corner_wardrobe') && data.wardrobeConfig) {
-            // Ensure config has ID for consistency — clone first as data is frozen
-            const config = { ...data.wardrobeConfig } as any;
-            if (!config.id) config.id = data.id;
-            
-            // Pass points for corner logic if available
-            if (data.furnitureType === 'corner_wardrobe') {
-                config.startPoint = data.startPoint;
-                config.cornerPoint = data.cornerPoint;
-                config.endPoint = data.endPoint;
+        // §FURN-3D-RESILIENCE (2026-05-23) — the root Group is already added to the
+        // scene above (isNewRoot branch). If the type-specific engine/builder THROWS,
+        // an unhandled exception would leave that root EMPTY while the plan-symbol
+        // builder still draws the 2D footprint — i.e. "creates in plan but not in 3D"
+        // (the architect's kitchen report). Wrap the build so a failing engine (a) is
+        // logged with the offending furnitureType + id (so the cause is visible in the
+        // console, not silent), and (b) degrades to an empty group rather than aborting
+        // the whole furniture rebuild. The underlying engine bug is then diagnosable
+        // from the logged error instead of a blank 3D scene.
+        try {
+            // Use WardrobeEngine for wardrobes with config
+            if ((data.furnitureType === 'wardrobe' || data.furnitureType === 'wardrobe_glass_door' || data.furnitureType === 'corner_wardrobe') && data.wardrobeConfig) {
+                // Ensure config has ID for consistency — clone first as data is frozen
+                const config = { ...data.wardrobeConfig } as any;
+                if (!config.id) config.id = data.id;
+
+                // Pass points for corner logic if available
+                if (data.furnitureType === 'corner_wardrobe') {
+                    config.startPoint = data.startPoint;
+                    config.cornerPoint = data.cornerPoint;
+                    config.endPoint = data.endPoint;
+                }
+
+                // §09 F-08: do not dump full config object to console.
+                mesh = this.wardrobeEngine.create(config, data.color);
+            } else {
+                const builder = FurnitureFactory.getBuilder(data.furnitureType, this);
+                mesh = builder.build(data);
             }
-            
-            // §09 F-08: do not dump full config object to console.
-            mesh = this.wardrobeEngine.create(config, data.color);
-        } else {
-            const builder = FurnitureFactory.getBuilder(data.furnitureType, this);
-            mesh = builder.build(data);
+        } catch (err) {
+            console.error(
+                `[FurnitureFragmentBuilder] §FURN-3D-RESILIENCE build FAILED for ` +
+                `furnitureType="${data.furnitureType}" id=${data.id} category="${data.furnitureCategory ?? '∅'}" — ` +
+                `3D mesh will be EMPTY (this is why such furniture appears in plan but not 3D). ` +
+                `hasKitchenConfig=${Boolean((data as { kitchenConfig?: unknown }).kitchenConfig)} ` +
+                `hasWardrobeConfig=${Boolean(data.wardrobeConfig)}:`,
+                err,
+            );
+            mesh = new THREE.Group();
         }
 
         if (root) {
