@@ -63,7 +63,17 @@ export class WindowPlanToolHandler implements PlanToolHandler {
         const ot           = c.activeOpeningTool ?? {};
         const windowType   = (ot.windowType ?? 'single') as 'single' | 'double';
         const WINDOW_WIDTH = windowType === 'double' ? 2.4 : 1.2;
-        const systemTypeId = ot.systemTypeId ?? undefined;
+        // §MAT-WINDOW-PLAN-PARITY (2026-05-23) — read the WINDOW tool's live
+        // systemTypeId directly. `activeOpeningTool` resolves via
+        // `window.windowTool ?? window.doorTool`, so binding to the window tool here
+        // keeps the chosen window type/material unambiguous (and recovers it even if
+        // activeOpeningTool surfaced a different opening tool). Without a resolved
+        // type the opening carries none and the 3D builder falls back to the
+        // schema-default grey frame.
+        const systemTypeId =
+            (window.windowTool as { systemTypeId?: string } | undefined)?.systemTypeId
+            ?? ot.systemTypeId ?? undefined;
+        console.log(`[WindowPlanToolHandler] §MAT systemTypeId=${systemTypeId ?? '∅'} (windowTool=${(window.windowTool as { systemTypeId?: string } | undefined)?.systemTypeId ?? '∅'})`);
 
         const offset = c.viewPlane.isVertical
             ? this._computeWallOffsetInVerticalView(pt.worldX, wallId, WINDOW_WIDTH, c, wallStore)

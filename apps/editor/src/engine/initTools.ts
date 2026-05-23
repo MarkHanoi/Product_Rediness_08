@@ -722,6 +722,16 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
     };
     const windowTool     = new WindowTool(world, wallTool.getWallStore(), wallTool.getFragmentBuilder(), _sharedCbs, commandManager);
     const doorTool       = new DoorTool(world, wallTool.getWallStore(), wallTool.getFragmentBuilder(), _sharedCbs, commandManager);
+    // §MAT-WINDOW-PLAN-PARITY (2026-05-23) — expose the window/door placement tools as
+    // window globals. The plan-view overlays resolve the active opening tool via
+    // `window.activeOpeningTool ?? window.windowTool ?? window.doorTool` to read the
+    // chosen systemTypeId for the new opening. These assignments were MISSING (no
+    // `window.windowTool =` existed anywhere), so that chain was always undefined →
+    // plan-placed windows carried NO systemTypeId → the 3D builder fell back to the
+    // schema-default grey frame ('#e8e8e8'). The 3D placement path was unaffected
+    // because it drives these same instances directly via the tool manager.
+    window.windowTool = windowTool;
+    window.doorTool   = doorTool;
     const curtainWallTool = new CurtainWallTool(world, _sharedCbs);
     // §COLUMN-AUDIT-2026 §W6: pass ColumnToolDeps so the tool resolves
     //   commandManager / bimManager / slabStore / toolManager / canvas via

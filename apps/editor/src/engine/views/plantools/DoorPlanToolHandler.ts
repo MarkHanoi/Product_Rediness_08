@@ -67,7 +67,15 @@ export class DoorPlanToolHandler implements PlanToolHandler {
         const ot           = c.activeOpeningTool ?? {};
         const doorType     = (ot.doorType ?? 'single') as 'single' | 'double';
         const DOOR_WIDTH   = doorType === 'double' ? 2.0 : 1.0;
-        const systemTypeId = ot.systemTypeId ?? 'dt-solid-timber';
+        // §MAT-WINDOW-PLAN-PARITY (2026-05-23) — read the DOOR tool's live systemTypeId
+        // directly. Now that window.windowTool is exposed, `activeOpeningTool` resolves
+        // via `window.windowTool ?? window.doorTool` (window FIRST), so reading
+        // ot.systemTypeId for a door would surface a WINDOW type id. Bind to the door
+        // tool here so a plan-placed door keeps its own type/material; the existing
+        // 'dt-solid-timber' default still guarantees a valid door type.
+        const systemTypeId =
+            (window.doorTool as { systemTypeId?: string } | undefined)?.systemTypeId
+            ?? 'dt-solid-timber';
 
         const offset = c.viewPlane.isVertical
             ? this._computeWallOffsetInVerticalView(pt.worldX, wallId, DOOR_WIDTH, c, wallStore)

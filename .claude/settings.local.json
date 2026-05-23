@@ -82,7 +82,10 @@
       "Bash(pnpm --filter @pryzm/core-app-model exec vitest run src/stores/UserMaterialStore.test.ts)",
       "Bash(pnpm --filter @pryzm/room-topology typecheck)",
       "Bash(pnpm --filter \"./plugins/wall\" typecheck)",
-      "Bash(pnpm --filter @pryzm/geometry-window typecheck)"
+      "Bash(pnpm --filter @pryzm/geometry-window typecheck)",
+      "Bash(kill -0 %1)",
+      "Bash(:)",
+      "PowerShell(Get-NetTCPConnection *)"
     ]
   }
 }

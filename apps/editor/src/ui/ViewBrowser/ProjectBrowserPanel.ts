@@ -199,7 +199,23 @@ export class ProjectBrowserPanel {
         root.className = 'phub-container';
 
         const dispatch = (action: string) => {
-            window.runtime?.events?.emit('pryzm-hub-action', { action }); // F.events.15
+            // §BACK-TO-PROJECT (2026-05-23) — navigation actions are emitted DIRECTLY on
+            // the platform-lifetime window bus, not only via pryzm-hub-action →
+            // PlatformProjectBrowser.handleHubMenuAction. The relay depends on the
+            // toolbar's PlatformProjectBrowser being constructed AND its
+            // window.runtime.events listener being live; when the right rail is used
+            // without that, "Back to Projects" silently did nothing. PlatformRouter
+            // listens for pryzm-go-hub / pryzm-sign-out on the `window` bus, so a direct
+            // dispatch (mirroring PlatformProjectBrowser's own dual-dispatch) always navigates.
+            if (action === 'back-hub') {
+                window.runtime?.events?.emit('pryzm-go-hub', {});
+                window.dispatchEvent(new Event('pryzm-go-hub'));
+            } else if (action === 'sign-out') {
+                window.runtime?.events?.emit('pryzm-sign-out', {});
+                window.dispatchEvent(new Event('pryzm-sign-out'));
+            } else {
+                window.runtime?.events?.emit('pryzm-hub-action', { action }); // F.events.15
+            }
             this._rail.close();
             this._refreshButtonStates();
         };
