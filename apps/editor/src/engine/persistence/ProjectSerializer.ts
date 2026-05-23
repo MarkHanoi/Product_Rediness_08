@@ -65,6 +65,7 @@ import { assetCatalogStore } from '@pryzm/core-app-model';
 import { dxfOverlayStore } from '@pryzm/file-format';
 import { sheetStore } from '@pryzm/core-app-model';
 import { scheduleStore } from '@pryzm/core-app-model';
+import { userMaterialStore } from '@pryzm/core-app-model'; // #105 Materials Repository
 import { annotationStore } from '@pryzm/plugin-annotations';
 // ANNOTATION-SYSTEM-AUDIT-2026 A4 / B8 / B9 — additional annotation slices
 import { constraintStore } from '@pryzm/plugin-annotations';
@@ -101,6 +102,8 @@ export interface ProjectSnapshot {
     handrails: any[];
     plumbing: any[];
     openings: any[];
+    /** §PERSIST-LIGHTING — lighting fixtures (were never serialized → lost on reload). */
+    lighting?: any[];
     elementCount: number;
     /** Room Bounding Lines — virtual partition elements (§ROOM-BOUNDING). Optional for backward compat. */
     roomBoundingLines?: any[];
@@ -283,6 +286,14 @@ export interface ProjectSnapshot {
     schedules?: {
         version: 1;
         schedules: any[];
+    };
+    /**
+     * #105 Materials Repository — user-created/uploaded material store snapshot.
+     * Optional for backward compat with snapshots created before the repository.
+     */
+    userMaterials?: {
+        version: 1;
+        materials: any[];
     };
     /**
      * §ANN-A2 — Annotation store snapshot.
@@ -676,6 +687,13 @@ export class ProjectSerializer {
         const handrails = handrailStore.getAll().map(serializeHandrail);
         const plumbing = plumbingStore.getAll().map(serializePlumbing);
         const openings = openingStore.getAll().map(o => deepStrip(o));
+        // §PERSIST-LIGHTING (2026-05-22) — lighting fixtures were NEVER serialized,
+        // so every light the user placed was silently lost on reload. The lighting
+        // store is window-managed (initBuilders sets window.lightingStore; the same
+        // ref CreateLightingCommand reads), so we source it from there rather than
+        // threading it through the `stores` param.
+        const lighting = (((window as { lightingStore?: { getAll?: () => unknown[] } }).lightingStore?.getAll?.()) ?? [])
+            .map((l) => deepStrip(l));
 
         // Room subsystem — deepStrip removes any residual THREE.js references
         const rooms = roomStore ? roomStore.getAll().map(r => deepStrip(r)) : [];
@@ -731,7 +749,7 @@ export class ProjectSerializer {
         const elementCount =
             walls.length + slabs.length + ceilings.length + floors.length + columns.length + stairs.length +
             beams.length + curtainWalls.length + roofs.length + furniture.length +
-            handrails.length + plumbing.length + rooms.length;
+            handrails.length + plumbing.length + rooms.length + lighting.length;
 
         const snapshot: ProjectSnapshot = {
             schemaVersion: SNAPSHOT_SCHEMA_VERSION,
@@ -742,6 +760,7 @@ export class ProjectSerializer {
             levels, grids, walls, windows, doors, slabs, columns,
             stairs, beams, curtainWalls, roofs, furniture, handrails,
             plumbing, openings, elementCount, rooms,
+            lighting: lighting.length > 0 ? lighting : undefined,
             roomBoundingLines: roomBoundingLines.length > 0 ? roomBoundingLines : undefined,
             ceilings: ceilings.length > 0 ? ceilings : undefined,
             ceilingSystemTypes: ceilingSystemTypes.length > 0 ? ceilingSystemTypes : undefined,
@@ -813,6 +832,9 @@ export class ProjectSerializer {
 
             // Phase III — Schedules (ScheduleDefinition records)
             schedules: scheduleStore.serialize() as ProjectSnapshot['schedules'],
+
+            // #105 Materials Repository — user-created/uploaded materials
+            userMaterials: userMaterialStore.serialize() as ProjectSnapshot['userMaterials'],
 
             // §ANN-A2 — Annotations + Dimensions (all AnnotationElement and DimensionElement)
             annotations: (() => {

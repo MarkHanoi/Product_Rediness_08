@@ -496,13 +496,20 @@ export const PROJECT_HUB_STYLES = `
     .ph-grid::-webkit-scrollbar-thumb:hover { background: #a8b3cf; background-clip: padding-box; border: 2px solid transparent; }
 
     /* ─── Project card ────────────────────────────────────────────────── */
+    /* §CANVAS-CARD (2026-05-22): frosted-glass "Canvas" card. The card surface
+       is a translucent glass panel over the hub's violet mesh-gradient (was a
+       solid white #fff card); the preview sits cleanly inset inside it. Phase 1
+       of the movable-Canvas-cards feature (drag-to-move follows in Phase 2). */
     .ph-card {
-        border-radius: 12px;
+        border-radius: 14px;
         overflow: hidden;
         cursor: pointer;
-        transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s;
-        border: 1.5px solid var(--app-border);
-        background: #fff;
+        transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s, background 0.18s;
+        border: 1px solid rgba(255,255,255,0.5);
+        background: rgba(255,255,255,0.28);
+        -webkit-backdrop-filter: blur(20px) saturate(1.3);
+        backdrop-filter: blur(20px) saturate(1.3);
+        box-shadow: 0 6px 22px rgba(40,30,90,0.10), inset 0 1px 0 rgba(255,255,255,0.4);
         position: relative;
     }
     .ph-card--project { cursor: grab; }
@@ -518,9 +525,26 @@ export const PROJECT_HUB_STYLES = `
         box-shadow: 3px 0 0 0 var(--app-accent);
     }
     .ph-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 24px rgba(30,50,120,0.10);
-        border-color: rgba(102,0,255,0.35);
+        transform: translateY(-3px);
+        box-shadow: 0 14px 36px rgba(40,30,90,0.18), inset 0 1px 0 rgba(255,255,255,0.5);
+        border-color: rgba(102,0,255,0.45);
+        background: rgba(255,255,255,0.52);
+    }
+
+    /* §ADD-PEOPLE (2026-05-22): "Invite collaborators" project chooser (shown in
+       the members modal when the user has more than one project). */
+    .ph-invite-picker { display: flex; flex-direction: column; gap: 6px; padding: 4px 0; }
+    .ph-invite-picker-row {
+        display: flex; align-items: center; justify-content: space-between;
+        width: 100%; padding: 10px 12px; border-radius: 8px;
+        border: 1px solid var(--app-border, #e2e6f0); background: #fff;
+        cursor: pointer; font-size: 13px; font-weight: 500; color: var(--app-text, #1a2035);
+        transition: background 0.12s, border-color 0.12s;
+    }
+    .ph-invite-picker-row:hover {
+        background: var(--app-violet-soft, rgba(102,0,255,0.06));
+        border-color: var(--app-accent, #6600ff);
+        color: var(--app-accent, #6600ff);
     }
 
     /* Thumbnail */

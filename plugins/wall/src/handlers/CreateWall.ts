@@ -125,6 +125,21 @@ export class CreateWallHandler
       throw new WallSystemTypeNotFoundError(cmd.systemTypeId);
     }
 
+    // §WALL-TYPE-THICKNESS (2026-05-22) — when a systemTypeId is supplied, the
+    // wall's thickness IS the type's total layer thickness, not the caller's
+    // placeholder default. The 3D builder re-resolves this from the type at render,
+    // but PLAN VIEW reads the stored `thickness` — so without resolving here, a
+    // plan-created wall rendered at the DEFAULT thickness and the chosen wall type
+    // appeared "not picked up" (3D OK, plan wrong). Resolving in the command (as the
+    // call-site comment always promised: "thickness is overridden by the command if
+    // a systemTypeId is set") makes the stored state correct for EVERY view. Safe +
+    // idempotent for 3D (it would re-resolve the identical value).
+    let resolvedThickness = cmd.thickness;
+    if (cmd.systemTypeId !== undefined && this.systemTypeStore !== undefined) {
+      const total = this.systemTypeStore.get(cmd.systemTypeId)?.totalThickness;
+      if (typeof total === 'number' && total > 0) resolvedThickness = total;
+    }
+
     // 1) Mint id (or accept the caller's deterministic id for tests).
     const id = cmd.id ?? createId('wall');
 
@@ -138,7 +153,7 @@ export class CreateWallHandler
         levelId: cmd.levelId ?? '',
         ...(cmd.baseLine !== undefined ? { baseLine: cmd.baseLine } : {}),
         ...(cmd.height !== undefined ? { height: cmd.height } : {}),
-        ...(cmd.thickness !== undefined ? { thickness: cmd.thickness } : {}),
+        ...(resolvedThickness !== undefined ? { thickness: resolvedThickness } : {}),
         ...(cmd.baseOffset !== undefined ? { baseOffset: cmd.baseOffset } : {}),
         ...(cmd.materialColor !== undefined ? { materialColor: cmd.materialColor } : {}),
         ...(cmd.materialId !== undefined ? { materialId: cmd.materialId } : {}),

@@ -161,18 +161,39 @@ export class PlatformRouter {
             const u = getCurrentUser();
             // Re-show platform root (hidden by launchWorkspace) and navigate to hub
             const platformRoot = document.getElementById(ROOT_ID);
+            // §BACK-TO-PROJECT (2026-05-23) — the architect reported "Back to
+            // Projects" not working. This proves the handler fired and records the
+            // navigation decision so a silent no-op is no longer opaque in the logs.
+            console.log(
+                `[PlatformRouter] §BACK-TO-PROJECT pryzm-go-hub fired — user=${u ? 'present' : 'null'} ` +
+                `platformRoot=${platformRoot ? 'found' : 'MISSING'} → ${u ? 'showHub' : 'showLanding'}`,
+            );
             if (platformRoot) {
                 platformRoot.style.display = '';
                 platformRoot.style.opacity = '1';
                 platformRoot.style.pointerEvents = '';
                 platformRoot.style.transition = 'opacity 0.35s ease';
-            }
-            if (u) {
-                router.hub?.destroy();
-                router.hub = null;
-                router.showHub(u);
+                // §BACK-TO-PROJECT — the editor's body-mounted chrome (toolbars,
+                // floating panels, HUDs, inline editors) can carry a z-index ABOVE
+                // the platform root's static 9990 (index.html), so merely un-hiding
+                // the root left editor UI floating over the hub → "Back to Projects
+                // did nothing." Raise the root above ALL editor chrome while the hub
+                // is shown; launchWorkspace sets display:none again on the next open,
+                // so this elevation is inert during editing.
+                platformRoot.style.zIndex = '2147483000';
             } else {
-                router.showLanding();
+                console.error('[PlatformRouter] §BACK-TO-PROJECT — #platform-root MISSING; cannot mount hub in place.');
+            }
+            try {
+                if (u) {
+                    router.hub?.destroy();
+                    router.hub = null;
+                    router.showHub(u);
+                } else {
+                    router.showLanding();
+                }
+            } catch (err) {
+                console.error('[PlatformRouter] §BACK-TO-PROJECT — showHub/showLanding threw (hub will not appear):', err);
             }
         });
 

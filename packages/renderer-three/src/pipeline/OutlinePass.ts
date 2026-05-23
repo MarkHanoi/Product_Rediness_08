@@ -127,9 +127,9 @@ export async function createOutlinePasses(
     //   visibleEdge → electric violet (#6600FF), hiddenEdge → electric violet (#6600FF)
     //   osc = oscSine(time / pulsePeriod × 2) × 0.5 + 0.5  →  [0.5, 1.0]
     //   outlinePulse = pulsePeriod > 0 ? outlineColor × osc : outlineColor
-    const hoverEdgeStrength  = uniform(5);
+    const hoverEdgeStrength  = uniform(6);
     const hoverEdgeGlow      = uniform(0.5);
-    const hoverEdgeThickness = uniform(1.5);
+    const hoverEdgeThickness = uniform(2);
     const hoverPulsePeriod   = uniform(3);
     const hoverVisibleColor  = uniform(new THREE.Color(HOVER_VISIBLE_COLOR));
     const hoverHiddenColor   = uniform(new THREE.Color(HIDDEN_EDGE_COLOR));
@@ -142,9 +142,12 @@ export async function createOutlinePasses(
     const { visibleEdge: hovVisible, hiddenEdge: hovHidden } = hoverOutlinePass;
 
     // period = time / pulsePeriod × 2
-    // osc    = oscSine(period) × 0.5 + 0.5   →  [0.5, 1.0]
+    // osc    = oscSine(period) × 0.3 + 0.7   →  [0.7, 1.0]
+    // §SELECT-HOVER-STRENGTH (DAILY-USE 2026-05-22) — raised the pulse FLOOR from
+    // 0.5 to 0.7 so the hover outline never dims to a weak half-strength; combined
+    // with edgeStrength 6 + thickness 2 it reads as a clear, strong violet hover.
     const period = time.div(hoverPulsePeriod).mul(2);
-    const osc    = oscSine(period).mul(0.5).add(0.5);
+    const osc    = oscSine(period).mul(0.3).add(0.7);
 
     const hoverOutlineColor: TSLNode = hovVisible
         .mul(hoverVisibleColor)

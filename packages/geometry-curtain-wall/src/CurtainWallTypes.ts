@@ -34,6 +34,14 @@ export interface CurtainWallData extends CoreElement {
     panelThickness: number;
     mullionColor?: string;
     /**
+     * §MAT-CW-GLAZING (#53) — optional glazing/panel colour resolved from the
+     * system type / material assignment, mirroring `mullionColor`. When absent the
+     * builder uses a realistic architectural-glass default (aligned with the CW
+     * plugin material-bridge). Forward-compatible with the #105 materials
+     * repository, which will populate this from a per-element material choice.
+     */
+    glazingColor?: string;
+    /**
      * Phase 1+ Addressable Grid System.
      *
      * When present, this fully describes the U/V grid topology (non-uniform spacing

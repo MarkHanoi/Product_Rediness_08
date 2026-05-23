@@ -48,7 +48,11 @@ import type { ISelectionManager } from '@pryzm/engine';
  */
 export class SelectionManager implements ISelectionManager {
     selectedObject: THREE.Object3D | null = null;
-    highlightMesh: THREE.Mesh | null = null;
+    // §SELECT-HIGHLIGHT-GEOMETRY — may be a single Mesh (registry mesh path /
+    // box fallback) OR a Group of geometry-overlay clones (the default for
+    // walls/doors/windows/columns/furniture/stairs…).  clearHighlight() disposes
+    // either shape and never disposes geometry buffers SHARED with live elements.
+    highlightMesh: THREE.Object3D | null = null;
     private touchStartTime = 0;
     private readonly TOUCH_THRESHOLD = 250;
     private isTransforming = false;
@@ -287,6 +291,27 @@ export class SelectionManager implements ISelectionManager {
      */
     setSlabProfileEditCallback(cb: (slabId: string) => Promise<void>): void {
         this._onSlabProfileEdit = cb;
+    }
+
+    /**
+     * §EDIT-PROFILE / §98 (2026-05-22) — public entry point for slab profile
+     * editing, now invoked by the contextual "Edit Profile" toolbar button
+     * (ContextualEditBar) instead of the old double-click handler (removed so
+     * double-click zooms like every other element). Prefers the injected
+     * callback (set via setSlabProfileEditCallback by initTools) so this class
+     * keeps no hard window dependency; falls back to window.slabTool for the
+     * bootstrap window before the callback is wired.
+     */
+    async enterSlabProfileEdit(slabId: string): Promise<void> {
+        if (!slabId) return;
+        if (this._onSlabProfileEdit) {
+            await this._onSlabProfileEdit(slabId);
+            return;
+        }
+        const slabTool = window.slabTool;
+        if (slabTool && typeof slabTool.enterProfileEditMode === 'function') {
+            await slabTool.enterProfileEditMode(slabId);
+        }
     }
 
     /**
@@ -689,71 +714,18 @@ export class SelectionManager implements ISelectionManager {
             this.performSelection(e as MouseEvent);
         });
 
-        // ── Double-click: enter slab profile edit mode ──────────────────────
-        // §11-SLAB-PROFILE-EDIT-CONTRACT §4.3: When the user double-clicks a
-        // slab, delegate to SlabTool.enterProfileEditMode(). The event is
-        // consumed (preventDefault) so that it does not trigger a second
-        // performSelection() call in the same frame.
-        //
-        // Filtering rules:
-        //   • isPreview handles (userData.isPreview) are excluded from raycasting
-        //     so the profile edit handles themselves never re-trigger this path.
-        //   • Only fires when SelectionManager is enabled.
-        //   • Does not fire when the camera is dragging (orbit guard).
-        this.domElement.addEventListener('dblclick', async (e: MouseEvent) => {
-            if (!this.enabled) return;
-            if (window.isCameraDragging) return;
-
-            const rect = this.domElement.getBoundingClientRect();
-            this._mouse.set(
-                ((e.clientX - rect.left) / rect.width) * 2 - 1,
-                -((e.clientY - rect.top) / rect.height) * 2 + 1
-            );
-            this._raycaster.setFromCamera(this._mouse, this.camera.three);
-
-            // ── PERF-AUDIT-2026 P2: Slab candidate — direct children scan ──
-            // BEFORE: scene.traverse() walked every Object3D in the scene tree
-            // (3,000–10,000 nodes for complex models) — O(N²) on large scenes.
-            // AFTER: Scan only direct scene.children — slab root groups are
-            // always top-level children, so O(direct-child count) is sufficient.
-            // The existing _selectableCache would work too, but direct-children
-            // guarantees we always see freshly added slabs even if the cache is
-            // stale. This replaces a 5–15 ms traverse with a <0.1 ms loop.
-            const slabCandidates: THREE.Object3D[] = [];
-            for (const child of this.world.scene.three.children) {
-                // F-P5: also guard underlayActive — matches performSelection() and _onPointerMove()
-                if (child.userData?.isHelper || child.userData?.isPreview ||
-                    child.userData?.underlayActive || !child.visible) continue;
-                const t = (child.userData?.elementType || child.userData?.type || '').toLowerCase();
-                if (t === 'slab') slabCandidates.push(child);
-            }
-            // ── End PERF-AUDIT-2026 P2 ──────────────────────────────────────
-
-            const hits = this._raycaster.intersectObjects(slabCandidates, true);
-            if (hits.length === 0) return;
-
-            const root = this.findSelectableRoot(hits[0].object);
-            if (!root) return;
-            const rootType = (root.userData?.type ?? root.userData?.elementType ?? '').toLowerCase();
-            if (rootType !== 'slab') return;
-
-            e.preventDefault();
-
-            const slabId = root.userData.id as string | undefined;
-            if (!slabId) return;
-
-            // W5 §SLAB-SYSTEM-AUDIT-2026: Use injected callback; window.slabTool is the
-            // legacy fallback for the bootstrap-order window before setSlabProfileEditCallback
-            // is called. Prefer the injected path so this class has no window dependency.
-            if (this._onSlabProfileEdit) {
-                await this._onSlabProfileEdit(slabId);
-            } else {
-                const slabTool = window.slabTool;
-                if (slabTool && typeof slabTool.enterProfileEditMode === 'function') {
-                    await slabTool.enterProfileEditMode(slabId);
-                }
-            }
-        });
+        // ── Double-click on a slab: DEPRECATED profile-edit trigger ─────────
+        // §EDIT-PROFILE / §98 (2026-05-22): the architect's directive is
+        // "double-click in general should zoom to the object", and slab profile
+        // editing now lives on the contextual edit toolbar ("Edit Profile"
+        // button + `P` shortcut, ContextualEditBar). Previously this handler
+        // raycast slabs and called `e.preventDefault()` → SlabTool.enterProfileEditMode,
+        // which SUPPRESSED the initUI double-click-zoom for slabs (the one
+        // element type that didn't zoom). Removing it lets the initUI dblclick
+        // handler frame the camera on a slab like every other element. The
+        // `_onSlabProfileEdit` callback + SlabTool.enterProfileEditMode remain
+        // the single profile-edit entry point, now invoked from the toolbar.
+        // (Intentionally no dblclick listener here.)
 
         // ── Touch / pointer fallback ────────────────────────────────────────
         // Keep the pointerdown+pointerup timing as a secondary path for touch
@@ -1036,7 +1008,33 @@ export class SelectionManager implements ISelectionManager {
                         return;
                     }
                 } else {
-                    console.debug(`[PickResolver] strategy=${this._pickStrategy.id} miss — falling back to BVH`);
+                    // §SELECT-3D-GPU-AUTHORITATIVE (DAILY-USE 2026-05-22): a GPU
+                    // pick MISS (null) is pixel-accurate and AUTHORITATIVE —
+                    // nothing selectable is rendered at this pixel. We MUST NOT
+                    // fall through to the BVH raycast: a BVH ray continues
+                    // through the whole scene and can intersect an OFF-SCREEN
+                    // element's geometry further along the ray, selecting
+                    // something the user can't even see (architect: "it selects
+                    // a wall I selected before that doesn't show on screen", and
+                    // it blocks selecting a sofa). Treat a GPU miss as an empty
+                    // click: dispatch the ground-plane world-click so operation
+                    // tools still get the point, clear the selection, and STOP.
+                    // The BVH path below remains the fallback ONLY when there is
+                    // no GPU strategy at all, or when the GPU pick THREW (catch).
+                    // This mirrors how production editors (pascalorg/editor,
+                    // SketchUp, Revit) treat the depth/pixel pick as the single
+                    // source of truth — no secondary ray into hidden geometry.
+                    console.debug(`[PickResolver] strategy=${this._pickStrategy.id} miss — authoritative empty (no BVH fallback)`);
+                    const _levelY = window.activeLevelElevation ?? 0;
+                    const _levelPl = new THREE.Plane(new THREE.Vector3(0, 1, 0), -_levelY);
+                    const _wp = new THREE.Vector3();
+                    this._raycaster.ray.intersectPlane(_levelPl, _wp);
+                    window.dispatchEvent(new CustomEvent('bim-canvas-world-click', { // TODO(TASK-11)
+                        detail: { worldPoint: { x: _wp.x, y: _wp.y, z: _wp.z }, elementId: null, elementType: null },
+                    }));
+                    if (window.__underlayHit) return;
+                    this.unselectAll();
+                    return;
                 }
             } catch (err) {
                 console.warn('[PickResolver] GPU pick threw — falling back to BVH:', err);
@@ -1323,8 +1321,36 @@ export class SelectionManager implements ISelectionManager {
             return;
         }
 
-        // ── OBB path (door, window, wall, curtain-wall, column, furniture, grid,
-        //              and AABB fallback for unregistered element types) ──────────
+        // ── Geometry-accurate fill overlay (DEFAULT for walls / doors / windows /
+        //    columns / furniture / stairs / beams / …) ────────────────────────────
+        // §SELECT-HIGHLIGHT-GEOMETRY (DAILY-USE 2026-05-22) — the previous
+        // translucent bounding BOX highlighted a box AROUND the element, not its
+        // actual shape: incomplete coverage ("doesn't completely highlight"), a
+        // faint 0.15 fill ("not strong"), and box-vs-surface z-fighting
+        // ("glitching").  Instead, clone the element's live meshes — SHARING their
+        // BufferGeometry — with a purple overlay pulled toward the camera, so the
+        // exact silhouette reads as a strong, complete purple fill.  This is
+        // independent of the TSL OutlinePass (works on plain WebGL too); together
+        // they give fill + crisp edge.  Falls through to the OBB/AABB box only when
+        // there is no clonable (non-instanced) geometry.
+        const overlay = this._buildGeometryHighlight(obj);
+        if (overlay) {
+            this.highlightMesh = overlay;
+            this.world.scene.three.add(overlay);
+            this.transformControls.attach(obj);
+            this.selectedObject = obj;
+            if (this.levelPlaneConstraint) {
+                this.levelPlaneConstraint.detach();
+                const elemTypeOv = (obj.userData?.elementType ?? '').toLowerCase();
+                const isHostedOv = elemTypeOv === 'door' || elemTypeOv === 'window';
+                if (!isHostedOv) {
+                    this.levelPlaneConstraint.attach(obj);
+                }
+            }
+            return;
+        }
+
+        // ── OBB path (fallback: instanced-only elements / no clonable meshes) ─────
         let center: THREE.Vector3;
         let size: THREE.Vector3;
         let highlightQuaternion: THREE.Quaternion | null = null;
@@ -1378,6 +1404,63 @@ export class SelectionManager implements ISelectionManager {
                 this.levelPlaneConstraint.attach(obj);
             }
         }
+    }
+
+    /**
+     * §SELECT-HIGHLIGHT-GEOMETRY — build a purple FILL overlay that matches the
+     * element's ACTUAL geometry (not a bounding box).  Each visible child mesh is
+     * cloned, SHARING its BufferGeometry (no buffer duplication), and rendered with
+     * a single shared purple overlay material pulled toward the camera via
+     * polygonOffset so it reads as a strong, complete highlight without z-fighting
+     * the surface.  Clones are flagged `sharedGeometry` so clearHighlight() never
+     * disposes the live element's geometry.  Returns null when there is no clonable
+     * (non-instanced) geometry — the caller then falls back to the OBB/AABB box.
+     */
+    private _buildGeometryHighlight(obj: THREE.Object3D): THREE.Group | null {
+        const mat = new THREE.MeshBasicMaterial({
+            color:               0x6600FF,
+            transparent:         true,
+            opacity:             0.4,
+            depthWrite:          false,
+            side:                THREE.DoubleSide,
+            polygonOffset:       true,
+            polygonOffsetFactor: -2,
+            polygonOffsetUnits:  -2,
+        });
+
+        const group = new THREE.Group();
+        group.name = 'selection-highlight-overlay';
+        group.userData.isHelper = true;
+
+        obj.updateMatrixWorld(true);
+        let count = 0;
+        obj.traverse((child) => {
+            const mesh = child as THREE.Mesh;
+            if (!mesh.isMesh) return;
+            // Skip helpers/previews and instanced geometry (handled by the box
+            // fallback / curtain-wall sub-highlight).
+            if (child.userData?.isHelper || child.userData?.isPreview) return;
+            if ((mesh as unknown as THREE.InstancedMesh).isInstancedMesh) return;
+            if (!mesh.visible) return;
+            const g = mesh.geometry as THREE.BufferGeometry | undefined;
+            if (!g) return;
+
+            const clone = new THREE.Mesh(g, mat);
+            clone.matrixAutoUpdate = false;
+            mesh.updateWorldMatrix(true, false);
+            clone.matrix.copy(mesh.matrixWorld);
+            clone.userData.isHelper = true;
+            clone.userData.sharedGeometry = true; // do NOT dispose g in clearHighlight
+            clone.renderOrder = 999;              // composite above the element surface
+            group.add(clone);
+            count++;
+        });
+
+        if (count === 0) {
+            mat.dispose();
+            return null;
+        }
+        return group;
     }
 
 
@@ -2040,8 +2123,30 @@ export class SelectionManager implements ISelectionManager {
     private clearHighlight() {
         if (this.highlightMesh) {
             this.world.scene.three.remove(this.highlightMesh);
-            this.highlightMesh.geometry.dispose();
-            (this.highlightMesh.material as THREE.Material).dispose();
+            // §SELECT-HIGHLIGHT-GEOMETRY — highlightMesh may be a single Mesh
+            // (registry mesh path / box fallback, with an edges child) OR a Group
+            // of geometry-overlay clones.  Traverse and dispose everything we own,
+            // but NEVER dispose geometry SHARED with a live element (overlay clones,
+            // flagged sharedGeometry) — that would destroy the real element's
+            // buffers.  Materials are deduped so a shared overlay material is
+            // disposed exactly once.
+            const disposedMats = new Set<THREE.Material>();
+            this.highlightMesh.traverse((child) => {
+                const m = child as THREE.Mesh & THREE.LineSegments;
+                if (!(m.isMesh || (m as unknown as THREE.Line).isLine)) return;
+                if (!child.userData?.sharedGeometry) {
+                    m.geometry?.dispose?.();
+                }
+                const mat = m.material as THREE.Material | THREE.Material[] | undefined;
+                if (Array.isArray(mat)) {
+                    for (const mm of mat) {
+                        if (mm && !disposedMats.has(mm)) { disposedMats.add(mm); mm.dispose(); }
+                    }
+                } else if (mat && !disposedMats.has(mat)) {
+                    disposedMats.add(mat);
+                    mat.dispose();
+                }
+            });
             this.highlightMesh = null;
         }
         this.transformControls.detach();
@@ -2316,7 +2421,11 @@ export class SelectionManager implements ISelectionManager {
                 renderer:        this._buildGpuPickRenderer(),
             };
 
-            const gpuHoverResult = this._pickStrategy.pick({ x: hx, y: hy }, hoverPickCtx);
+            // §SELECT-PERF — hover only needs the elementId for the outline; skip the
+            // depth pass so the per-frame hover pick is ONE render, not two. This is
+            // the cost that scales with scene element count ("selection worsens as
+            // more elements are added"). The click path keeps the full depth pick.
+            const gpuHoverResult = this._pickStrategy.pick({ x: hx, y: hy }, hoverPickCtx, { skipDepth: true });
             if (gpuHoverResult !== null) {
                 const hoverObj = hoverPickCtx.elementRegistry.objectFor(gpuHoverResult.elementId);
                 console.debug(`[PickResolver/rAF] strategy=${this._pickStrategy.id} hover-hit=${gpuHoverResult.elementId}`);

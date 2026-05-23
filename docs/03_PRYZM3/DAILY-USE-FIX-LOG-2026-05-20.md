@@ -4,6 +4,30 @@ Concrete fixes applied this session in response to `DAILY-USE-AUDIT-2026-05-20.m
 
 ---
 
+## ✅ APPLIED — Round 46 (2026-05-22 daily-use batch: #93/#94/#98/#100/#102/#103 + plans #96-p1/#101/#104)
+
+A large daily-use batch driven by live architect testing. All fixes typecheck-clean; all are client-package edits that go live on a hard browser refresh (Vite consumes `packages/*` as source — confirmed in `vite.config.ts`).
+
+### Shipped fixes
+- **#93 §SVP-DBLCLICK-FRAME** — double-click an element in the split-view PLAN pane now selects it AND frames the shared 3D camera (`SplitViewManager._onDblClick` → `frameObject`, plan-mode only). Documented **C11 §12.6 (NORMATIVE)**.
+- **#94 §DOOR-WINDOW-PLAN-FRAME-CUT-ZONE** — door/window side frames now render as a **heavy section cut** in plan. Three defects from the §M5 `-CUT`/`-PROJ` hyphen sub-layers not matching the renderer's `:cut` colon convention: (1) `PlanViewCanvas` `isCut/isBeyond` → `/[:-]cut\b/`; (2) `symbolicRuleForLayer` returns null for `-CUT` so jambs use the heavy generic-cut path not the light projection symbol; (3) `PlanViewVGApplicator.vgCategoryForLayer` matches `${prefix}-` sub-layers.
+- **#100 §PREVIEW-COLOR-UNIFY** — every creation preview unified to the single PRYZM brand purple `#6600FF` (was per-category blue/green/etc.). `PreviewStyle.ts` palette unified + holdouts migrated (SlabTool/SlabPickWallsController `0x007bff`, FloorTool `0x8fb4c8`, CeilingTool `0x818cf8`). New canonical **Contract §41** (`41-ELEMENT-PREVIEW-VISUAL-CONTRACT.md`) — was referenced everywhere but missing. MEP/AI-ghost kept distinct (documented exception).
+- **#103 §PREVIEW-WHITE-SCREEN** — regression from #100: FloorTool/CeilingTool read `PREVIEW_COLOR.PRIMARY` at **module-load** time; core-app-model ↔ geometry-* is a circular SCC, so the barrel could be uninitialised → `undefined.PRIMARY` throws at import → white screen. Fixed by reverting those two module-level consts to the literal `0x6600ff` (runtime usages elsewhere are safe). Lesson memorialised.
+- **#102 §FLOOR-LINEAR-FREEFORM** — floor/ceiling "Lineal (L)" mode now truly freeform; it was calling `calculateSnapPoint` (0/45/90 snap) in LINEAR mode, behaving orthogonal. Only ORTHO snaps now (`FloorTool`, `CeilingTool`).
+- **#98 §EDIT-PROFILE + dbl-click zoom** — added an "Edit Profile" button to `ContextualEditBar` (gated to slab/floor/ceiling, `P` shortcut) wired to `enterProfileEditMode`; and removed the slab-specific double-click→profile-edit handler in `SelectionManager` (it `preventDefault`-ed and blocked the zoom) so double-click now zooms uniformly for all elements. Added public `SelectionManager.enterSlabProfileEdit` as the canonical entry point.
+
+### Smaller-grip + probes
+- **#104-p1 §WALL-HANDLE-STUDY** — wall endpoint grips halved (`HANDLE_RADIUS 0.26→0.13`, hit-zone `0.52→0.35`); `§WALL-DRAG-COMMIT` freeze probe added; full study `SPEC-WALL-MOVEMENT-STUDY.md` (two-competing-move-systems root cause + Revit/pascalorg comparison + phased plan).
+- Probes shipped, awaiting live logs: `§FLOOR-3D-ENTER` (#99), `§SLAB-3D-PREVIEW` (#69/#95), `§WALL-DRAG-COMMIT` (#104), plus the existing `[PickResolver]` line (#97).
+
+### Plans + enabling steps (ready for execution sessions)
+- **#96-p1 §WALL-SINGLE-VOLUME-CSG** — exported the kernel CSG public surface (`KernelCSG.subtract/union/intersect`, `produceBoolean`, boolean types) from `geometry-kernel/src/index.ts`; the engine existed (manifold-3d WASM) but was unexported, blocking `wallSolid − openingBox`. Remaining: wall-builder integration (async) + IFC `IfcOpeningElement`/`IfcRelVoidsElement`.
+- **#101 §STAIR-3D-CREATION** — plan `SPEC-STAIR-3D-CREATION.md`: stair is plan-only solely because `StairPathToolController` is coupled to `PlanViewCanvas` for `worldToScreen/screenToWorld`; extract a `StairSketchCoordinateProvider` (plan wrapper + 3D raycast/project provider), everything downstream is already view-agnostic.
+
+**Contract citations:** C11 §12 (split-view camera) + §12.6 (new), §41 (preview visual, new), §43 (camera framing), DOC-5.3 (level-Y resolution plane), §M5 (cut/proj plan layers).
+
+---
+
 ## ✅ APPLIED — Round 45 (§SLAB-3D-PREVIEW root-cause #69 + §HUB-MENU-BUTTONS-INERT #92)
 
 Two daily-use bugs closed by **static code inspection** (no probe log required) — the discipline shift this round: where the prior session left probes waiting on live logs, both root causes were found by reading the code carefully against the established contract patterns.

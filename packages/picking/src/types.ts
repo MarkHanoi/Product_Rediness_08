@@ -151,12 +151,24 @@ export interface PickContext {
 }
 
 /** The single contract every pick implementation honours. */
+/** Per-call pick options. */
+export interface PickOptions {
+  /**
+   * §SELECT-PERF — skip the depth pass (hitPoint/distance). The HOVER path only
+   * needs the elementId to drive the outline, so the second (depth) render +
+   * readback is pure waste there; skipping it ~halves the per-frame hover cost,
+   * which is what scales with scene element count. The click path leaves it false
+   * so operation tools still receive an accurate world hit point.
+   */
+  readonly skipDepth?: boolean;
+}
+
 export interface PickStrategy {
   readonly id: PickStrategyId;
   /** `false` when the strategy probed unhealthy.  Resolver checks this
    *  to decide fallback. */
   readonly available: boolean;
-  pick(screenPoint: Point2D, ctx: PickContext): PickResult | null;
+  pick(screenPoint: Point2D, ctx: PickContext, opts?: PickOptions): PickResult | null;
   pickRect(screenRect: Rect2D, ctx: PickContext): readonly PickResult[];
   /** Probe the strategy's prerequisites (driver quirks, missing context).
    *  Cheap; resolver runs it once at boot. */

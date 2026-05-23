@@ -2422,6 +2422,15 @@ app.get('/api/me/plan', authMiddleware, (req, res) => {
 
 app.get('/api/projects', authMiddleware, async (req, res) => {
     const userId = req.auth?.userId ?? 'anonymous';
+    // §AUTH-SESSION-LEAK-2 diagnostic (architect: "check console log") — log the
+    // IDENTITY this request resolved to. If a brand-new account still sees other
+    // projects, this line is decisive: a fresh UNIQUE userId here (e.g.
+    // user-<ts>-<rand>) means the SERVER scoped correctly and the leak was the
+    // CLIENT cache (now purged by the account-switch guard); the SAME userId as a
+    // prior session means a STALE token was sent. The returned count is logged below.
+    const _authEmail = req.auth?.email ?? '(none)';
+    console.log(`[GET /api/projects] §AUTH-SCOPE userId=${userId} email=${_authEmail}`);
+    const _logCount = (n, src) => console.log(`[GET /api/projects] §AUTH-SCOPE userId=${userId} → ${n} project(s) from ${src}`);
     try {
         const supabase = await getSupabaseClient();
 
@@ -2452,12 +2461,15 @@ app.get('/api/projects', authMiddleware, async (req, res) => {
                     const tb = new Date(b.updated_at ?? 0).getTime() || (b.updatedAt ?? 0);
                     return tb - ta;
                 });
+                _logCount(merged.length, 'supabase+pg');
                 return res.json({ projects: merged });
             }
+            _logCount(pgProjects.length, 'pg');
             return res.json({ projects: pgProjects });
         }
 
         if (supabase) {
+            _logCount(supabaseProjects.length, 'supabase');
             return res.json({ projects: supabaseProjects });
         }
 
@@ -2473,6 +2485,7 @@ app.get('/api/projects', authMiddleware, async (req, res) => {
             : Array.from(_projects.values())
                 .filter(p => p.ownerId === userId)
                 .sort((a, b) => b.updatedAt - a.updatedAt);
+        _logCount(projects.length, 'in-memory');
         res.json({ projects });
     } catch (err) {
         // §SERVER-500-PROJECT-OPEN — log with errorId + context so the
@@ -2662,8 +2675,13 @@ app.get('/api/projects/:id/status', authMiddleware, async (req, res) => {
             return res.json({ status: statusBody });
         }
         // In-memory fallback
+        // §AUTH-SESSION-LEAK-2 hardening — ownership is enforced for EVERY caller,
+        // including anonymous (was: `userId !== 'anonymous' && …` let anonymous open
+        // ANY in-memory project). Anonymous now sees only its own anonymous-owned
+        // projects, matching the delete/thumbnail handlers. Supabase/PG paths above
+        // already scope by owner_id for all callers.
         const proj = _projects.get(id);
-        if (!proj || (userId !== 'anonymous' && proj.ownerId !== userId)) {
+        if (!proj || proj.ownerId !== userId) {
             return res.status(404).json({ error: 'Project not found', code: 'project_not_found' });
         }
         res.set('ETag', `"v0"`);
@@ -2710,7 +2728,10 @@ app.get('/api/projects/:id', authMiddleware, async (req, res) => {
         }
         const proj = _projects.get(id);
         if (!proj) return res.status(404).json({ error: 'Not found' });
-        if (userId !== 'anonymous' && proj.ownerId !== userId) {
+        // §AUTH-SESSION-LEAK-2 hardening — enforce ownership for EVERY caller
+        // (anonymous included; was bypassed). Consistent with delete/thumbnail and
+        // with the Supabase/PG owner_id scoping above.
+        if (proj.ownerId !== userId) {
             return res.status(403).json({ error: 'Forbidden' });
         }
         res.set('ETag', `"v${proj.versionCount ?? 0}"`);
@@ -3817,13 +3838,35 @@ app.post('/api/projects/:id/members', authMiddleware, async (req, res) => {
     const { id } = req.params;
     const userId = req.auth?.userId ?? 'anonymous';
     const isOwner = getUserPlan(userId) === 'owner';
-    const { userId: targetUserId, role } = req.body;
+    let { userId: targetUserId } = req.body;
+    const { role } = req.body;
 
     if (!targetUserId || !role) {
-        return res.status(400).json({ error: 'userId and role are required.' });
+        return res.status(400).json({ error: 'userId (or email) and role are required.' });
     }
     try {
         const supabase = await getSupabaseClient();
+
+        // §ADD-PEOPLE (2026-05-22): the invite field accepts "User ID or email"
+        // (ProjectMemberPanel placeholder). When an EMAIL is supplied, resolve it
+        // to the PRYZM userId via pryzm_users so invite-by-email completes — the
+        // POST body otherwise requires a raw userId nobody knows. Requires a DB
+        // connection; the invitee must already have a PRYZM account.
+        if (typeof targetUserId === 'string' && targetUserId.includes('@')) {
+            if (!supabase) {
+                return res.status(400).json({ error: 'Inviting by email requires the database connection.' });
+            }
+            const { data: u } = await supabase
+                .from('pryzm_users')
+                .select('id')
+                .ilike('email', targetUserId.trim())   // case-insensitive exact match (no wildcards)
+                .maybeSingle();
+            if (!u?.id) {
+                return res.status(404).json({ error: `No PRYZM user found with email "${targetUserId}". Ask them to sign up first.` });
+            }
+            targetUserId = u.id;
+        }
+
         // Resolve caller's project role
         const project = supabase
             ? (await supabase.from('projects').select('owner_id').eq('id', id).single()).data

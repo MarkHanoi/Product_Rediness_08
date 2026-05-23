@@ -183,6 +183,15 @@ export class StairCreationController {
         if (this.phase === StairCreationPhase.StartPoint) return;
         if (!this.startPosition) return;
 
+        // §STAIR-PREVIEW-FLOW (DAILY-USE 2026-05-22) — the I/L/U preview geometry
+        // depends ONLY on the flight direction(s), never on the drag distance (the
+        // riser count comes from the level height). Rebuilding the entire stair mesh
+        // on every raw pointermove — especially in ortho mode, where the snapped
+        // direction is one of just 4 axes and barely ever changes — made the preview
+        // stutter instead of flow. Skip the (expensive) updatePreview() whenever the
+        // resolved direction is unchanged within epsilon.
+        const DIR_EPS = 1e-6;
+
         if (this.phase === StairCreationPhase.FirstFlight) {
             const dir = currentPoint.clone().sub(this.startPosition);
             if (dir.lengthSq() > 0.0001) {
@@ -191,20 +200,32 @@ export class StairCreationController {
                 if (this._drawingMode === 'ortho') {
                     normalized = this._snapOrtho(normalized);
                 }
+                if (this.dir1 && this.dir1.distanceToSquared(normalized) < DIR_EPS) {
+                    return; // direction unchanged → identical geometry, skip rebuild
+                }
                 this.dir1 = normalized;
                 this.updatePreview();
             }
         } else if (this.phase === StairCreationPhase.SecondFlight && this.landingPos) {
+            let newDir2: THREE.Vector3 | null = null;
             if (this.shape === 'L' && this.dir1) {
-                this.dir2 = this._computeLDir2(this.dir1);
+                newDir2 = this._computeLDir2(this.dir1);
             } else if (this.shape === 'U' && this.dir1) {
-                this.dir2 = this.dir1.clone().negate();
+                newDir2 = this.dir1.clone().negate();
             } else {
                 const dir = currentPoint.clone().sub(this.landingPos);
                 if (dir.lengthSq() > 0.0001) {
-                    this.dir2 = dir.normalize();
+                    newDir2 = dir.normalize();
                 }
             }
+            if (!newDir2) return;
+            // L/U second-flight direction is DETERMINISTIC from dir1 (already fixed
+            // when flight 1 was confirmed), so it never changes as the mouse moves —
+            // the preview was already drawn on confirm (onConfirm → updatePreview).
+            if (this.dir2 && this.dir2.distanceToSquared(newDir2) < DIR_EPS) {
+                return; // unchanged → skip redundant rebuild
+            }
+            this.dir2 = newDir2;
             this.updatePreview();
         }
     }
@@ -229,6 +250,13 @@ export class StairCreationController {
             } else if (this.shape === 'U') {
                 this.dir2 = this.dir1.clone().negate();
             }
+
+            // §STAIR-PREVIEW-FLOW — draw the full two-flight preview the instant the
+            // first flight is confirmed (dir2 is already determined here). Without
+            // this, the second flight only appeared on the next mouse move; with the
+            // new onMouseMove guard (dir2 unchanged → skip) it would otherwise never
+            // be drawn until the direction changed.
+            this.updatePreview();
 
             console.log('[StairCreationController] Moved to SecondFlight. Landing at:', this.landingPos);
         } else if (this.phase === StairCreationPhase.SecondFlight) {

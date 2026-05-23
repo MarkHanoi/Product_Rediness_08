@@ -195,6 +195,25 @@ export {
   type WindowLikeEvaluator,
 } from './dimensions/evaluator.js';
 
+// ── CSG Boolean ops (manifold-3d backed) — public surface ────────────────────
+// §WALL-SINGLE-VOLUME-CSG phase 1 (2026-05-22): the kernel has had a complete
+// CSG engine (KernelCSG.subtract/union/intersect, backed by manifold-3d WASM,
+// THREE-free, lazily loaded) and a `produceBoolean` descriptor→descriptor
+// producer, but neither was exported from the public surface — so the wall
+// builder could not run `wallSolid − openingBox` to produce a SINGLE manifold
+// volume with a clean boolean void (the architect's "no seams in 3D / IFC"
+// requirement). Exporting them here is the safe enabling step (additive only;
+// no consumer wired yet). The wall-builder integration is the next phase — see
+// the WALL-SINGLE-VOLUME-CSG task + investigation notes.
+export { KernelCSG, descriptorToOperand, type CSGOperand } from './csg/index.js';
+export {
+  produceBoolean,
+  composeBooleanHash,
+  type BooleanOp,
+  type BooleanOptions,
+  type BooleanProducer,
+} from './producers/boolean.js';
+
 // ── S52 D1: Family Creator producers (extrude first; sweep / loft / revolve at S53) ──
 export {
   produceExtrude,

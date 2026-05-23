@@ -160,7 +160,10 @@ export class WindowBuilder {
         const glassMat = mats[1] as THREE.MeshStandardMaterial | undefined;
         const sillMat  = mats[2] as THREE.MeshStandardMaterial | undefined;
         try {
-            if (frameMat?.color) frameMat.color.set(win.frameColor);
+            // §MAT-WINDOW-PLAN-PARITY — resolve via the catalogue authority so a
+            // property patch never reverts a typed window to the schema-default grey.
+            const resolved = this._resolveFrameColor(win);
+            if (frameMat?.color) frameMat.color.set(resolved);
             if (glassMat) {
                 const op = Math.max(0, Math.min(1, win.glassOpacity));
                 glassMat.opacity = op;
@@ -168,7 +171,7 @@ export class WindowBuilder {
                 glassMat.needsUpdate = true;
             }
             // Sill, when present, mirrors the frame colour (see buildVisuals).
-            if (sillMat?.color) sillMat.color.set(win.frameColor);
+            if (sillMat?.color) sillMat.color.set(resolved);
         } catch (err) {
             console.warn(`[WindowBuilder] property-only patch failed for ${win.id}; falling back to rebuild:`, err);
             // Caller will not retry — but a subsequent geometric edit will rebuild.
@@ -385,6 +388,34 @@ export class WindowBuilder {
      * @param wallFrameDepth - actual depth to use (wall.thickness + 0.02) so the
      *   frame fully covers the void opening and no raw cut edges are visible.
      */
+    /**
+     * §MAT-WINDOW-PLAN-PARITY (2026-05-23) — frame-colour resolution authority.
+     *
+     * The builder is the rendering authority and must resolve a window's frame
+     * material from the system-type catalogue, not depend on every creation path
+     * pre-baking `frameColor`. A window placed via the plan tool can arrive without
+     * a baked colour, in which case `WindowOpeningSchema` fills the sentinel default
+     * '#e8e8e8' (light grey) → "timber window renders grey." Resolution order:
+     *   1) an explicit, user-customised colour (frameFinish.materialColor or
+     *      frameColor) that DIFFERS from the sentinel — preserved as-is,
+     *   2) the window's `systemTypeId` frame finish from the catalogue — the true
+     *      material for the chosen type,
+     *   3) the explicit/sentinel colour as a final non-empty fallback.
+     * Note '#e8e8e8' is also the LEGITIMATE colour of `wt-single-pane` (aluminium),
+     * so treating it as the sentinel is safe: that type resolves back to '#e8e8e8'.
+     */
+    private _resolveFrameColor(win: WindowOpening): string {
+        const SENTINEL = '#e8e8e8';
+        const explicit = win.frameFinish?.materialColor ?? win.frameColor;
+        if (typeof explicit === 'string' && explicit.length > 0 && explicit.toLowerCase() !== SENTINEL) {
+            return explicit;
+        }
+        const sysType = win.systemTypeId ? windowSystemTypeStore.getById(win.systemTypeId) : undefined;
+        const fromType = sysType?.frameFinish?.materialColor;
+        if (typeof fromType === 'string' && fromType.length > 0) return fromType;
+        return (typeof explicit === 'string' && explicit.length > 0) ? explicit : SENTINEL;
+    }
+
     private buildVisuals(win: WindowOpening, group: THREE.Group, wallFrameDepth?: number, vgStyle?: VGStyle): THREE.Material[] {
         const mats: THREE.Material[] = [];
         const { width: w, height: h, frameThickness: ft } = win;
@@ -394,7 +425,7 @@ export class WindowBuilder {
         // §WIN-AUDIT-2026 W5 — apply VG governance overrides on top of the
         // window's stored colours / opacity. Frame colour falls back to the
         // window-level colour; glass opacity is multiplied by the VG factor.
-        const frameColor = vgStyle?.colorOverride ?? win.frameColor;
+        const frameColor = vgStyle?.colorOverride ?? this._resolveFrameColor(win);
         const opacityFactor = vgStyle?.opacityFactor ?? 1;
         const frameTransparent = opacityFactor < 1;
         const frameOpacity = Math.max(0, Math.min(1, opacityFactor));

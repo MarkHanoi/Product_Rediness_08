@@ -285,6 +285,16 @@ export function renderSidebar(ctx: PhRenderCtx): string {
                 Import / Upload
                 <span style="margin-left:auto;font-size:10px;opacity:0.6;">Soon</span>
             </button>
+            <!-- §ADD-PEOPLE (2026-05-22): left-sidebar entry to invite collaborators
+                 to a project (the card "+" was removed; per-project members also
+                 live in each card's ⋯ menu). Opens the members flow. -->
+            <button class="ph-sidebar-cta-secondary" id="ph-invite-collab-btn" title="Invite collaborators to a project">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                    <line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/>
+                </svg>
+                Invite collaborators
+            </button>
         </div>
 
         <!-- ── Nav ────────────────────────────────────────────────── -->
@@ -381,7 +391,15 @@ export function renderCard(p: ProjectMeta): string {
              draggable="true"
              role="button" tabindex="0"
              title="Open ${escHtml(p.name)} (drag to reorder)">
-            <div class="ph-card-thumb" style="background:linear-gradient(145deg,${color}22 0%,${color}0a 100%);">
+            <!-- §CANVAS-CARD (2026-05-22): preview inset is TRANSPARENT so the
+                 hub's animated mesh-gradient shows through the glass card (was
+                 solid #ffffff → then translucent). A thumbnailed card's capture
+                 still covers this area; a no-thumbnail card is fully see-through
+                 glass with the initial / mini-grid / label in the project colour.
+                 NOTE: to also see the gradient *behind the model* in thumbnailed
+                 cards, the thumbnail capture must use a transparent clear colour
+                 (initPersistence captureThumbnail) — tracked as a follow-up. -->
+            <div class="ph-card-thumb" style="background:transparent;">
                 ${p.thumbnail ? `<img class="ph-card-thumb-img" src="${p.thumbnail}" alt="Project preview" draggable="false">` : ''}
                 ${isStarred ? `<div class="ph-card-star-badge" title="Starred">★</div>` : ''}
                 ${isArchived ? `<div class="ph-card-archive-badge" title="Archived">📦</div>` : ''}

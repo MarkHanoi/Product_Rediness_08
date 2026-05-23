@@ -1289,9 +1289,17 @@ export class SlabTool {
         const walls = this.wallStore.getAll();
         const segments: [THREE.Vector2, THREE.Vector2][] = [];
         for (const w of walls) {
-            const a = new THREE.Vector2(w.baseLine[0].x, w.baseLine[0].z);
-            const b = new THREE.Vector2(w.baseLine[1].x, w.baseLine[1].z);
-            segments.push([a, b]);
+            // §SLAB-REGION-CURVED (DAILY-USE 2026-05-22) — a curved wall is a
+            // quadratic Bézier (curve.control), not a straight baseLine chord.
+            // Previously this pushed ONE chord segment per wall, so a region bounded
+            // by curved walls was detected (and the slab built) as a straight cut
+            // across the arc. Tessellate curved walls into Bézier-sampled segments so
+            // the closed loop — and the slab polygon — follows the arc.
+            const pts = this._wallPlanCenterline(w.baseLine, w.curve);
+            for (let i = 0; i + 1 < pts.length; i++) {
+                const u = pts[i]; const v = pts[i + 1];
+                if (u && v) segments.push([u, v]);
+            }
         }
 
         const loops = this.buildClosedLoops(segments);
@@ -1304,6 +1312,43 @@ export class SlabTool {
         }
 
         return null;
+    }
+
+    /**
+     * §SLAB-REGION-CURVED — sample a wall's plan centreline into XZ points. Straight
+     * walls → [start, end]; curved walls → the quadratic-Bézier arc (curve.control)
+     * tessellated so each sub-segment exceeds buildClosedLoops' 0.15 m weld tolerance
+     * (otherwise the intermediate nodes would be welded back into a single chord and
+     * the curve would be lost). This makes a region bounded by curved walls trace the
+     * actual arc instead of a straight cut across it.
+     */
+    private _wallPlanCenterline(
+        baseLine: ReadonlyArray<{ x: number; z: number }>,
+        curve?: { control?: { x: number; z: number } } | null,
+    ): THREE.Vector2[] {
+        const p0 = baseLine[0];
+        const p1 = baseLine[1];
+        if (!p0 || !p1) return [];
+        const a = new THREE.Vector2(p0.x, p0.z);
+        const b = new THREE.Vector2(p1.x, p1.z);
+        const ctrl = curve?.control;
+        if (!ctrl) return [a, b];
+        const cx = ctrl.x;
+        const cz = ctrl.z;
+        // Segment count from chord length (~0.5 m/seg > 0.15 m weld tolerance),
+        // clamped so tiny arcs still get ≥2 segments and large arcs stay bounded.
+        const chord = a.distanceTo(b);
+        const n = Math.max(2, Math.min(48, Math.ceil(chord / 0.5)));
+        const out: THREE.Vector2[] = [];
+        for (let i = 0; i <= n; i++) {
+            const t = i / n;
+            const mt = 1 - t;
+            out.push(new THREE.Vector2(
+                mt * mt * a.x + 2 * mt * t * cx + t * t * b.x,
+                mt * mt * a.y + 2 * mt * t * cz + t * t * b.y,
+            ));
+        }
+        return out;
     }
 
     private buildClosedLoops(segments: [THREE.Vector2, THREE.Vector2][]): THREE.Vector2[][] {

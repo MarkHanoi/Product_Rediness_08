@@ -30,6 +30,8 @@ export interface ProjectSnapshot {
     viewDefinitions?: { version: 1; views: any[] };
     requirements?: { version: 1; records: any[] };
     rooms?: any[];
+    /** #105 Materials Repository — user-created/uploaded materials (userMaterialStore snapshot). */
+    userMaterials?: { version: 1; materials: any[] };
     [key: string]: unknown;
 }
 

@@ -278,6 +278,43 @@ export class CommandBus {
         // 3. Build the per-store patch envelopes (spec §1.2 PatchSnapshotEntry).
         const capturedAt = ctx.audit.timestamp;
         const stores = handler.affectedStores as readonly StoreId[];
+
+        // §U-B6 (DAILY-USE 2026-05-22, #117) — UNDO-ROUTING GUARD. A patch is routed
+        // onto the undo stack by its store. If a handler MUTATES a store it did not
+        // declare in affectedStores, that patch is silently dropped from the per-store
+        // routing built just below → Ctrl+Z applies an INCOMPLETE inverse, leaving
+        // orphaned state (the #117 robustness class). This dev-time guard surfaces the
+        // misconfiguration loudly at the exact source so affectedStores is corrected
+        // before it ships. It is observability only — no behaviour change. Two modes:
+        //   (a) zero declared stores but real patches → empty routing → undo delegates
+        //       to legacy (OI-034) and usually no-ops.
+        //   (b) multi-store handler whose patch path[0] (the store key, by the routing
+        //       convention `String(p.path[0]) === storeKey` used in `stores.map(...)`
+        //       below) is not in affectedStores.
+        // Single-store handlers are exempt — all their patches route to the one store
+        // regardless of path[0], so there is nothing to mis-route.
+        if (result.forward.length > 0 || result.inverse.length > 0) {
+          if (stores.length === 0) {
+            console.error(
+              `[CommandBus] §U-B6 UNDO-ROUTING BUG: handler "${handler.type}" produced ` +
+              `${result.forward.length} forward patch(es) but declares NO affectedStores → they are ` +
+              `dropped from undo routing (Ctrl+Z will not restore them). Declare affectedStores.`,
+            );
+          } else if (stores.length > 1) {
+            const declared = new Set<string>(stores as readonly string[]);
+            const offending = new Set<string>();
+            for (const p of result.forward) { const r = String(p.path[0]); if (r && !declared.has(r)) offending.add(r); }
+            for (const p of result.inverse) { const r = String(p.path[0]); if (r && !declared.has(r)) offending.add(r); }
+            if (offending.size > 0) {
+              console.error(
+                `[CommandBus] §U-B6 UNDO-ROUTING BUG: handler "${handler.type}" wrote to undeclared ` +
+                `store(s) [${[...offending].join(', ')}] (declared: [${[...declared].join(', ')}]). Those ` +
+                `patches are dropped from undo routing → Ctrl+Z applies an incomplete inverse. Add them to affectedStores.`,
+              );
+            }
+          }
+        }
+
         const patches: PatchSnapshotEntry[] = stores.length === 0
           ? []
           : stores.length === 1

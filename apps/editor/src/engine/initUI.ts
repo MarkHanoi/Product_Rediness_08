@@ -100,6 +100,7 @@ import { phaseFilterStore }      from '@pryzm/core-app-model';
 import { frameObject }             from '@pryzm/core-app-model';
 import { SectionBoxTool }          from '@pryzm/input-host';
 import { installShortcutCheatSheet } from '@app/ui/ShortcutCheatSheet';
+import { inlineLabelEditor }        from '@app/ui/InlineLabelEditor';
 
 // ── Params interface ──────────────────────────────────────────────────────────
 
@@ -2272,12 +2273,81 @@ export async function initUI(p: UIParams): Promise<void> {
         'roof', 'ifc-element', 'ifc-model', 'beam',
     ]);
 
+    // ── §ROOM-LABEL-EDIT (2026-05-23) — double-click a room label → inline edit ──
+    //
+    // A double-click on a room's centroid label opens a small inline editor for the
+    // room NAME + NUMBER at the cursor. Commit dispatches the canonical command-bus
+    // mutations (`room.setName` / `room.setNumber`) — the SAME path the Room property
+    // panel uses (C03 §P6: UI never writes the store directly), so the label re-renders
+    // through the established bus → bridge → `bim-room-updated` chain. This is the first
+    // consumer of the reusable InlineLabelEditor primitive; tags, dimensions and
+    // annotations follow the identical pattern (the architect's extension goal). The
+    // check runs BEFORE the camera-zoom path below and `preventDefault()`s on a hit so
+    // a label double-click EDITS rather than zooms.
+    const _roomLabelRaycaster = new THREE.Raycaster();
+    const _pickRoomLabelRoomId = (ev: MouseEvent): string | null => {
+        const cam = world.camera.three;
+        const scene = world.scene.three as unknown as THREE.Scene;
+        if (!cam || !scene) return null;
+        const rect = container.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return null;
+        const ndc = new THREE.Vector2(
+            ((ev.clientX - rect.left) / rect.width) * 2 - 1,
+            -((ev.clientY - rect.top) / rect.height) * 2 + 1,
+        );
+        _roomLabelRaycaster.setFromCamera(ndc, cam);
+        const sprites: THREE.Object3D[] = [];
+        scene.traverse((o) => { if (o.visible && o.userData?.type === 'room-label') sprites.push(o); });
+        if (sprites.length === 0) return null;
+        const hits = _roomLabelRaycaster.intersectObjects(sprites, false);
+        const roomId = hits[0]?.object?.userData?.roomId;
+        return typeof roomId === 'string' && roomId.length > 0 ? roomId : null;
+    };
+    const _openRoomLabelEditor = (roomId: string, clientX: number, clientY: number): void => {
+        const room = window.roomStore?.getById?.(roomId);
+        if (!room) return;
+        const curName = typeof room.name === 'string' ? room.name : '';
+        const curNumber = typeof room.roomNumber === 'string' ? room.roomNumber : '';
+        inlineLabelEditor.open({
+            x: clientX, y: clientY,
+            title: 'Room',
+            fields: [
+                { key: 'name', label: 'Name', value: curName, placeholder: 'Room name', maxLength: 60 },
+                { key: 'number', label: 'Number', value: curNumber, placeholder: 'e.g. 101', maxLength: 24 },
+            ],
+            onCommit: (vals) => {
+                const bus = window.runtime?.bus;
+                if (!bus) { console.warn('[room-label-edit] no command bus — edit dropped'); return; }
+                const nextName = (vals.name ?? '').trim();
+                const nextNumber = (vals.number ?? '').trim();
+                // Dispatch only the fields that actually changed (no empty undo steps).
+                // `room.setName` rejects empty names (handler invariant), so guard it;
+                // `room.setNumber` accepts '' to CLEAR the number, so a clear is valid.
+                if (nextName.length > 0 && nextName !== curName) {
+                    bus.executeCommand('room.setName', { roomId, name: nextName })?.catch?.(console.error);
+                }
+                if (nextNumber !== curNumber) {
+                    bus.executeCommand('room.setNumber', { roomId, number: nextNumber })?.catch?.(console.error);
+                }
+            },
+        });
+    };
+
     container.addEventListener('dblclick', async (e: MouseEvent) => {
         // Let SelectionManager's slab-profile dblclick handle slabs first
         // (it calls e.preventDefault() so we check defaultPrevented)
         if (e.defaultPrevented) return;
         const activeToolMode = toolManager.getActiveTool?.();
         if (activeToolMode && activeToolMode !== 'none') return;
+
+        // §ROOM-LABEL-EDIT — a double-click on a room label edits it (name + number)
+        // instead of zooming. Intercept before the camera-frame raycast below.
+        const labelRoomId = _pickRoomLabelRoomId(e);
+        if (labelRoomId) {
+            e.preventDefault();
+            _openRoomLabelEditor(labelRoomId, e.clientX, e.clientY);
+            return;
+        }
 
         const result = await caster.castRay();
         if (!result?.object) {
@@ -2737,6 +2807,32 @@ export async function initUI(p: UIParams): Promise<void> {
         };
     }
 
+    // §56-RINGBUFFER (DAILY-USE 2026-05-22) — the §56 observer-pause optimization
+    // that coalesces the RoomTopologyObserver redetect + wallRebuildCoordinator
+    // storm during undo/redo was wired ONLY into the legacy CommandManager.undo()/
+    // redo() (CommandManagerImpl._withPausedObservers). But the AUTHORITATIVE runtime
+    // path is the ring-buffer apply below — it previously fired the FULL storm on
+    // every Ctrl+Z (the ~80 ms LONGTASK §56 was meant to kill, plus per-undo plan-
+    // view re-projection). Wrap the synchronous patch-apply in the SAME pause/resume
+    // scaffold so the intermediate store-event burst coalesces into ONE re-detect +
+    // ONE wall rebuild on resume. Best-effort: if either global is absent (headless /
+    // test) the apply still runs, just without the optimisation. Mirrors
+    // CommandManagerImpl._withPausedObservers exactly so the invariant is consistent.
+    const _withPausedObserversForUndo = (label: 'UNDO' | 'REDO', body: () => void): void => {
+        type WallControl = { pause?: () => void; resumeAndFlush?: () => void };
+        type TopologyControl = { pause?: () => void; resume?: () => void };
+        const wallControl = (window as { __wallRebuildControl?: WallControl }).__wallRebuildControl;
+        const topology    = (window as { roomTopologyObserver?: TopologyControl }).roomTopologyObserver;
+        try { wallControl?.pause?.(); } catch (err) { console.warn(`[Undo] §56 ${label}: wallControl.pause() failed`, err); }
+        try { topology?.pause?.(); }    catch (err) { console.warn(`[Undo] §56 ${label}: topology.pause() failed`, err); }
+        try {
+            body();
+        } finally {
+            try { wallControl?.resumeAndFlush?.(); } catch (err) { console.warn(`[Undo] §56 ${label}: wallControl.resumeAndFlush() failed`, err); }
+            try { topology?.resume?.(); }            catch (err) { console.warn(`[Undo] §56 ${label}: topology.resume() failed`, err); }
+        }
+    };
+
     // ── Keyboard shortcut: Ctrl+Z / Cmd+Z → Undo ─────────────────────────────
     // CONTRACT Phase 7 — platform-wide undo/redo/delete keyboard shortcuts
     // Wave 36 U-1 (Phase D Ctrl-Z): prefer ring-buffer path (O(1), no LONGTASK)
@@ -2771,11 +2867,13 @@ export async function initUI(p: UIParams): Promise<void> {
                             try {
                                 span.setAttribute('pryzm.undo.affectedStores', (currentPair.affectedStores ?? []).join(','));
                                 span.setAttribute('pryzm.undo.side', 'inverse');
-                                applyRingBufferSide(
-                                    inverseSide,
-                                    currentPair.affectedStores ?? [],
-                                    _buildRingBufferStoreMap(),
-                                );
+                                _withPausedObserversForUndo('UNDO', () => {
+                                    applyRingBufferSide(
+                                        inverseSide,
+                                        currentPair.affectedStores ?? [],
+                                        _buildRingBufferStoreMap(),
+                                    );
+                                });
                                 console.log('[Undo] ring-buffer undo applied — stores:', currentPair.affectedStores);
                                 span.end();
                             } catch (err) {
@@ -2833,11 +2931,13 @@ export async function initUI(p: UIParams): Promise<void> {
                             try {
                                 span.setAttribute('pryzm.undo.affectedStores', (currentPair.affectedStores ?? []).join(','));
                                 span.setAttribute('pryzm.undo.side', 'forward');
-                                applyRingBufferSide(
-                                    forwardSide,
-                                    currentPair.affectedStores ?? [],
-                                    _buildRingBufferStoreMap(),
-                                );
+                                _withPausedObserversForUndo('REDO', () => {
+                                    applyRingBufferSide(
+                                        forwardSide,
+                                        currentPair.affectedStores ?? [],
+                                        _buildRingBufferStoreMap(),
+                                    );
+                                });
                                 console.log('[Undo] ring-buffer redo applied — stores:', currentPair.affectedStores);
                                 span.end();
                             } catch (err) {

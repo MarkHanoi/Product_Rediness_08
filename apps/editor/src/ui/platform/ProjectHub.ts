@@ -352,7 +352,7 @@ export class ProjectHub {
         // Auto-close sidebar on sidebar-item click (mobile UX)
         sidebar.addEventListener('click', (e) => {
             const target = e.target as HTMLElement;
-            if (target.closest('.ph-sidebar-item') || target.closest('#ph-new-btn') || target.closest('.ph-settings-btn') || target.closest('#ph-sign-out') || target.closest('#ph-upgrade-btn')) {
+            if (target.closest('.ph-sidebar-item') || target.closest('#ph-new-btn') || target.closest('#ph-invite-collab-btn') || target.closest('.ph-settings-btn') || target.closest('#ph-sign-out') || target.closest('#ph-upgrade-btn')) {
                 if (window.innerWidth <= 768) closeSidebar();
             }
         });
@@ -453,6 +453,11 @@ export class ProjectHub {
         // New project button (sidebar CTA — primary)
         el.querySelector('#ph-new-btn')?.addEventListener('click', () => this.openNewModal());
 
+        // §ADD-PEOPLE — Invite collaborators (sidebar CTA). Opens the members
+        // flow: 0 projects → prompt to create one; 1 → straight to its members;
+        // many → a quick project chooser, then that project's members modal.
+        el.querySelector('#ph-invite-collab-btn')?.addEventListener('click', () => this.openInviteCollaborators());
+
         // Import / Upload button (sidebar CTA — secondary, currently disabled
         // but kept wired so flipping the disabled flag in markup is enough)
         el.querySelector('#ph-import-upload-btn')?.addEventListener('click', () => {
@@ -501,6 +506,9 @@ export class ProjectHub {
             console.log(`[ProjectHub] Design Insights prompts → ${next}`);
         });
     }
+
+    /** §CANVAS-CARD Phase 2 — disposers for per-card free-drag listeners; cleared + rebuilt on each refreshGrid so document-level handlers never leak. */
+    private _cardDragDisposers: Array<() => void> = [];
 
     private attachGridListeners(el: HTMLElement): void {
         const grid = el.querySelector('#ph-grid') as HTMLElement;
@@ -594,6 +602,129 @@ export class ProjectHub {
             });
             this.refreshGrid();
         });
+
+        // §CANVAS-CARD Phase 2 — free drag-to-move layer. Lays the cards out as an
+        // absolutely-positioned canvas and disables the HTML5 reorder above (cards
+        // get draggable=false). Re-run every refresh; prior listeners disposed first.
+        this._attachCanvasDrag(grid);
+    }
+
+    // ── §CANVAS-CARD Phase 2 — free "Canvas" drag-to-move ──────────────────────
+    //
+    // Lays the project cards out as an absolutely-positioned canvas (replacing the
+    // CSS grid + HTML5 reorder) so each card can be dragged anywhere; its position
+    // is remembered per project in localStorage. Drag is DELTA-based (no
+    // getBoundingClientRect → correct regardless of grid scroll). Re-run on every
+    // refreshGrid; previous document-level listeners are disposed first so they
+    // never leak. A drag past a 5 px threshold suppresses the follow-up click so a
+    // move never accidentally opens the project; a plain click still opens it.
+    private _attachCanvasDrag(grid: HTMLElement): void {
+        for (const d of this._cardDragDisposers) d();
+        this._cardDragDisposers = [];
+
+        const CARD_W = 240;
+        const GAP    = 20;
+        const PAD    = 16;
+        const ROW_H  = 244; // approx card height + gap; cards auto-layout, user repositions
+
+        grid.style.position = 'relative';
+        grid.style.display  = 'block';
+
+        const cols  = Math.max(1, Math.floor((grid.clientWidth - PAD * 2 + GAP) / (CARD_W + GAP)));
+        const cards = Array.from(grid.querySelectorAll<HTMLElement>('.ph-card'));
+        let topZ = 10;
+
+        cards.forEach((card, i) => {
+            const pid   = card.dataset.projectId || null;
+            const saved = pid ? this._loadCardPos(pid) : null;
+            const col   = i % cols;
+            const row   = Math.floor(i / cols);
+            const left  = saved ? saved.x : PAD + col * (CARD_W + GAP);
+            const top   = saved ? saved.y : PAD + row * ROW_H;
+
+            card.style.position = 'absolute';
+            card.style.margin   = '0';
+            card.style.width    = `${CARD_W}px`;
+            card.style.left     = `${left}px`;
+            card.style.top      = `${top}px`;
+            card.style.zIndex   = String(topZ);
+            card.draggable      = false; // disable HTML5 reorder — replaced by free-drag
+
+            let sx = 0, sy = 0, ol = 0, ot = 0, dragging = false, moved = false;
+
+            const onDown = (e: MouseEvent): void => {
+                if (e.button !== 0) return;
+                // Don't start a drag when grabbing the menu (⋯) button.
+                if ((e.target as HTMLElement).closest('.ph-card-menu-btn')) return;
+                dragging = true; moved = false;
+                sx = e.clientX; sy = e.clientY;
+                ol = parseFloat(card.style.left) || 0;
+                ot = parseFloat(card.style.top)  || 0;
+                card.style.zIndex = String(++topZ); // click-to-front
+                e.preventDefault();
+            };
+            const onMove = (e: MouseEvent): void => {
+                if (!dragging) return;
+                const dx = e.clientX - sx, dy = e.clientY - sy;
+                if (!moved && dx * dx + dy * dy > 25) {
+                    moved = true;
+                    card.style.cursor    = 'grabbing';
+                    card.style.boxShadow = '0 20px 48px rgba(40,30,90,0.28)';
+                }
+                if (moved) {
+                    card.style.left = `${Math.max(0, ol + dx)}px`;
+                    card.style.top  = `${Math.max(0, ot + dy)}px`;
+                }
+            };
+            const suppressClick = (ev: Event): void => {
+                ev.stopPropagation();
+                ev.preventDefault();
+                card.removeEventListener('click', suppressClick, true);
+            };
+            const onUp = (): void => {
+                if (!dragging) return;
+                dragging = false;
+                card.style.cursor    = '';
+                card.style.boxShadow = '';
+                if (moved) {
+                    if (pid) this._saveCardPos(pid, parseFloat(card.style.left) || 0, parseFloat(card.style.top) || 0);
+                    // Suppress the click that follows a real drag (capture phase, one-shot).
+                    card.addEventListener('click', suppressClick, true);
+                }
+            };
+
+            card.addEventListener('mousedown', onDown);
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+            this._cardDragDisposers.push(() => {
+                card.removeEventListener('mousedown', onDown);
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+            });
+        });
+
+        // Size the canvas so it scrolls to fit the lowest card.
+        let maxBottom = 0;
+        for (const card of cards) {
+            maxBottom = Math.max(maxBottom, (parseFloat(card.style.top) || 0) + card.offsetHeight);
+        }
+        grid.style.minHeight = `${maxBottom + 40}px`;
+    }
+
+    private _cardPosKey(id: string): string { return `pryzm.hubCardPos.${id}`; }
+
+    private _loadCardPos(id: string): { x: number; y: number } | null {
+        try {
+            const raw = localStorage.getItem(this._cardPosKey(id));
+            if (!raw) return null;
+            const p = JSON.parse(raw) as { x: number; y: number };
+            return (typeof p.x === 'number' && typeof p.y === 'number') ? p : null;
+        } catch { return null; }
+    }
+
+    private _saveCardPos(id: string, x: number, y: number): void {
+        try { localStorage.setItem(this._cardPosKey(id), JSON.stringify({ x, y })); }
+        catch { /* quota / private mode — non-critical */ }
     }
 
     // ── Context menu ──────────────────────────────────────────────────────────
@@ -697,6 +828,45 @@ export class ProjectHub {
     // ── Members modal (ISO 19650 CDE Phase 1) ─────────────────────────────────
 
     private _memberPanel: ProjectMemberPanel | null = null;
+
+    /**
+     * §ADD-PEOPLE (2026-05-22) — sidebar "Invite collaborators" entry point.
+     * Members are per-project, so: 0 projects → ask to create one; exactly 1 →
+     * jump straight to its members modal; many → a quick project chooser inside
+     * the members modal, then open the chosen project's ProjectMemberPanel.
+     */
+    private openInviteCollaborators(): void {
+        const projects = projectRepository.listProjects();
+        if (!projects.length) {
+            alert('Create a project first — then you can invite collaborators to it.');
+            return;
+        }
+        if (projects.length === 1) {
+            this.openMembersModal(projects[0]);
+            return;
+        }
+        const modal = this.el.querySelector('#ph-members-modal') as HTMLElement;
+        const title = this.el.querySelector('#ph-members-modal-title') as HTMLElement;
+        const body  = this.el.querySelector('#ph-members-modal-body') as HTMLElement;
+        if (this._memberPanel) { this._memberPanel.destroy?.(); this._memberPanel = null; }
+        title.textContent = 'Invite collaborators — choose a project';
+        body.innerHTML = '';
+        const list = document.createElement('div');
+        list.className = 'ph-invite-picker';
+        for (const p of projects) {
+            const row = document.createElement('button');
+            row.className = 'ph-invite-picker-row';
+            row.type = 'button';
+            const name = document.createElement('span');
+            name.className = 'ph-invite-picker-name';
+            name.textContent = p.name;            // textContent — no XSS, no escape helper needed
+            row.appendChild(name);
+            row.addEventListener('click', () => this.openMembersModal(p)); // re-renders modal with the member panel
+            list.appendChild(row);
+        }
+        body.appendChild(list);
+        modal.style.display = 'flex';
+    }
 
     private openMembersModal(project: ProjectMeta): void {
         const modal = this.el.querySelector('#ph-members-modal') as HTMLElement;

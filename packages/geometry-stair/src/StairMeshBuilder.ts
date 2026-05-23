@@ -110,7 +110,9 @@ export class StairMeshBuilder {
         const _priorVersion: number =
             (this.stairRoots.get(stair.id)?.userData?.version as number | undefined) ?? 0;
 
-        this.removeStair(stair.id);
+        // §STAIR-PREVIEW-FLOW — pass isPreview so the per-build remove log is
+        // silenced during the live drag preview (it fires on every rebuild).
+        this.removeStair(stair.id, isPreview);
 
         if (!stair.startPosition || !stair.flights || stair.flights.length === 0) {
             console.warn('[StairMeshBuilder] Cannot build stair: missing startPosition or flights', stair);
@@ -212,10 +214,12 @@ export class StairMeshBuilder {
             this.scene.add(group);
         }
 
-        console.log(`[StairMeshBuilder] Built group for stair ${stair.id} (${stair.shape}, ${totalRiserCount} risers, preview=${isPreview})`);
+        if (!isPreview) {
+            console.log(`[StairMeshBuilder] Built group for stair ${stair.id} (${stair.shape}, ${totalRiserCount} risers, preview=${isPreview})`);
+        }
     }
 
-    removeStair(stairId: string): void {
+    removeStair(stairId: string, silentLog: boolean = false): void {
         const existing = this.stairRoots.get(stairId);
         if (existing) {
             if (this.scene) {
@@ -247,7 +251,9 @@ export class StairMeshBuilder {
             });
             this.stairRoots.delete(stairId);
             elementRegistry.unregisterRoot(stairId);
-            console.log(`[StairMeshBuilder] Removed group for stair ${stairId}`);
+            if (!silentLog) {
+                console.log(`[StairMeshBuilder] Removed group for stair ${stairId}`);
+            }
         }
     }
 
@@ -341,7 +347,9 @@ export class StairMeshBuilder {
     // ── Geometry construction ─────────────────────────────────────────────────
 
     buildStairGeometry(stair: StairData, isPreview: boolean = false): StairMeshData {
-        console.log('[StairMeshBuilder] Building geometry for:', stair.id, stair.shape);
+        if (!isPreview) {
+            console.log('[StairMeshBuilder] Building geometry for:', stair.id, stair.shape);
+        }
 
         let effectiveProps: StairProperties = { ...DEFAULT_STAIR_PROPERTIES, ...stair.properties };
 

@@ -272,15 +272,25 @@ export function mountAIArea(props: UIProps, runtime: PryzmRuntime | null): AIRes
 
     const toggleFloorPlanPanel = () => {
         const panel = document.getElementById('fp-import-panel-container');
-        if (panel) {
-            const isHidden = panel.style.display === 'none';
-            if (isHidden) {
-                panelManager.notifyOpened('panel:fp-import');
-                panel.style.display = 'flex';
-            } else {
-                panel.style.display = 'none';
-                panelManager.notifyClosed('panel:fp-import');
-            }
+        if (!panel) {
+            console.warn('[AIAreaLayout] toggleFloorPlanPanel: #fp-import-panel-container not in DOM — PDF/Image import panel not mounted');
+            return;
+        }
+        // §IMPORT-PDF-TOGGLE (2026-05-22): use COMPUTED display, not inline
+        // `panel.style.display`. The panel starts hidden via CSS / empty inline
+        // style, so `style.display === 'none'` was FALSE on the first click →
+        // the toggle ran the else-branch and hid an already-hidden panel (no
+        // visible effect; a second click was needed). Reported as "Import
+        // PDF/Image doesn't get triggered". The DXF toggle below already handled
+        // the empty case; this brings the floor-plan toggle to parity (and is
+        // more robust — getComputedStyle also catches class-based hiding).
+        const isHidden = getComputedStyle(panel).display === 'none';
+        if (isHidden) {
+            panelManager.notifyOpened('panel:fp-import');
+            panel.style.display = 'flex';
+        } else {
+            panel.style.display = 'none';
+            panelManager.notifyClosed('panel:fp-import');
         }
     };
     // Expose globally so ExportRailPanel (and any future caller) can open the panel

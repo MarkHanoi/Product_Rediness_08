@@ -459,6 +459,9 @@ export { titleBlockStore } from './views/TitleBlockStore.js';
 export type { TitleBlockStoreImpl } from './views/TitleBlockStore.js';
 export { scheduleStore } from './views/ScheduleStore.js';
 export type { ScheduleStoreImpl } from './views/ScheduleStore.js';
+// #105 Materials Repository — user-managed material store (Phase 1 data layer).
+export { userMaterialStore } from './stores/UserMaterialStore.js';
+export type { UserMaterialStoreImpl, UserMaterialDef, UserMaterialStoreSnapshot } from './stores/UserMaterialStore.js';
 export { sheetStore } from './views/SheetStore.js';
 export type { SheetStoreImpl } from './views/SheetStore.js';
 export type { ViewTemplate, ViewTemplateStoreSnapshot } from './views/ViewTemplateTypes.js';

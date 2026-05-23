@@ -178,6 +178,12 @@ export interface EventCatalog {
 
   // ── Auth events ───────────────────────────────────────────────────────────
   'pryzm:auth:signedOut': Record<string, never>;
+  // §AUTH-SESSION-LEAK-2 — fired by AuthClient.persistSession when a NEW identity
+  // is established on a browser that still holds a DIFFERENT user's cached state
+  // (account switch / new account without signing out first). Consumers MUST purge
+  // all user-scoped client caches + reload so the new account never sees the
+  // previous user's projects.
+  'pryzm:auth:identity-changed': { previousUserId: string; userId: string };
 
   // ── Room tool events ──────────────────────────────────────────────────────
   'pryzm-audit-room-select':      { roomId: string; source: string };

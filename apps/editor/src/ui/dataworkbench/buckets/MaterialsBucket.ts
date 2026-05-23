@@ -14,6 +14,7 @@
 
 import { STANDARD_MATERIAL_LIBRARY } from '@pryzm/core-app-model/material-library';
 import { RENDER_MATERIAL_LIBRARY }   from '@pryzm/core-app-model/rendering';
+import { userMaterialStore }         from '@pryzm/core-app-model'; // #105 Materials Repository
 import { wallSystemTypeStore }       from '@pryzm/geometry-wall';
 import { doorSystemTypeStore }       from '@pryzm/geometry-door';
 import { windowSystemTypeStore }     from '@pryzm/geometry-window';
@@ -46,7 +47,58 @@ function buildMaterialSelect(
                 `<option value="${escapeHtml(m.id)}"${m.id === currentId ? ' selected' : ''}>${escapeHtml(m.label)}</option>`
             ).join('')}</optgroup>`
         ).join('');
-    return `<select data-material-select ${dataAttrs} ${disabled ? 'disabled title="Duplicate this type to assign a library material"' : ''} style="font-size:10px;border:1px solid var(--dw-border,#e5e7eb);border-radius:6px;padding:3px 6px;background:#fff;color:var(--app-text,#1a2035);cursor:${disabled ? 'not-allowed' : 'pointer'};max-width:160px;"><option value="">— library material —</option>${optgroups}</select>`;
+    // #105 — surface user-created materials at the top so they're assignable to
+    // element-type finishes/layers exactly like built-in library materials.
+    const userMats = userMaterialStore.getAll();
+    const userOptgroup = userMats.length > 0
+        ? `<optgroup label="My Materials">${userMats.map(m =>
+            `<option value="${escapeHtml(m.id)}"${m.id === currentId ? ' selected' : ''}>${escapeHtml(m.label)}</option>`
+          ).join('')}</optgroup>`
+        : '';
+    return `<select data-material-select ${dataAttrs} ${disabled ? 'disabled title="Duplicate this type to assign a library material"' : ''} style="font-size:10px;border:1px solid var(--dw-border,#e5e7eb);border-radius:6px;padding:3px 6px;background:#fff;color:var(--app-text,#1a2035);cursor:${disabled ? 'not-allowed' : 'pointer'};max-width:160px;"><option value="">— library material —</option>${userOptgroup}${optgroups}</select>`;
+}
+
+// ── #105 Materials Repository — user-created materials section ─────────────────
+
+/**
+ * Render the "My Materials" section from userMaterialStore. Cards reuse
+ * `data-material-card` so the existing selection handler picks them up; a remove
+ * (×) button carries `data-remove-user-material`. Returned as a string so the
+ * mount can drop it into a `[data-user-materials-section]` container and refresh
+ * just that container on create/remove (no full re-mount → no duplicate listeners).
+ */
+function userMaterialsMarkup(): string {
+    const mats = userMaterialStore.getAll();
+    const header = `
+        <div style="display:flex;align-items:center;justify-content:space-between;margin:0 0 10px;">
+            <h4 style="margin:0;font-size:11px;letter-spacing:.09em;text-transform:uppercase;font-weight:800;color:var(--app-text,#1a2035);">My Materials</h4>
+            <span style="font-size:10px;color:var(--app-text-muted,#7a8aaa);">${mats.length}</span>
+        </div>`;
+    if (mats.length === 0) {
+        return `<section style="margin-bottom:20px;">${header}
+            <div style="font-size:10px;color:var(--app-text-muted,#7a8aaa);padding:2px 0 4px;">No custom materials yet — click <strong>+ New Material</strong> above.</div>
+        </section>`;
+    }
+    const cards = mats.map(m => {
+        const isTransparent = m.transparent && m.opacity < 1;
+        return `
+            <article data-material-card data-user-material data-material-id="${escapeHtml(m.id)}" data-material-color="${escapeHtml(m.color)}"
+                data-search="${escapeHtml(`${m.label} ${m.category} ${m.id}`.toLowerCase())}"
+                title="Click to select · ${escapeHtml(m.id)}"
+                style="border:1.5px solid var(--dw-border,#e5e7eb);border-radius:10px;background:var(--app-panel,#fff);overflow:hidden;cursor:pointer;position:relative;transition:border-color .12s,box-shadow .12s;">
+                <button data-remove-user-material="${escapeHtml(m.id)}" title="Remove material" style="position:absolute;top:4px;left:5px;z-index:2;font-size:11px;line-height:1;background:rgba(0,0,0,.42);color:#fff;border:none;border-radius:4px;padding:2px 6px;cursor:pointer;font-weight:700;">×</button>
+                <div style="height:44px;background:${escapeHtml(m.color)};${m.textureUrl ? `background-image:url('${escapeHtml(m.textureUrl)}');background-size:cover;background-position:center;` : ''}${isTransparent ? `opacity:${m.opacity.toFixed(2)};` : ''}"></div>
+                <div style="padding:8px 9px;">
+                    <div style="font-size:11px;font-weight:700;color:var(--app-text,#1a2035);line-height:1.3;margin-bottom:3px;">${escapeHtml(m.label)}</div>
+                    <div style="display:flex;gap:6px;font-size:9px;color:var(--app-text-muted,#7a8aaa);">
+                        <span>R ${m.roughness.toFixed(2)}</span><span>·</span><span>M ${m.metalness.toFixed(2)}</span>
+                    </div>
+                </div>
+            </article>`;
+    }).join('');
+    return `<section style="margin-bottom:20px;">${header}
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;">${cards}</div>
+    </section>`;
 }
 
 // ── BIM Material Library ──────────────────────────────────────────────────────
@@ -108,9 +160,28 @@ export function mountMaterialLibrary(panel: HTMLElement): void {
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
                     <span style="font-size:15px;font-weight:800;color:var(--app-text,#1a2035);">BIM Material Library</span>
                     <span style="font-size:10px;background:rgba(212,88,10,.12);color:#D4580A;border-radius:99px;padding:2px 8px;font-weight:700;">${STANDARD_MATERIAL_LIBRARY.length} materials</span>
+                    <button data-new-material title="Create a custom material" style="margin-left:auto;font-size:10px;font-weight:700;background:#D4580A;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;">+ New Material</button>
+                    <button data-upload-material title="Create a material from an uploaded image (texture)" style="font-size:10px;font-weight:700;background:#fff;color:#D4580A;border:1px solid #D4580A;border-radius:6px;padding:4px 10px;cursor:pointer;">Upload Image</button>
+                    <input type="file" accept="image/*" data-material-upload style="display:none;" />
                 </div>
                 <div style="font-size:11px;color:var(--app-text-muted,#7a8aaa);margin-bottom:8px;line-height:1.5;">
                     PBR materials for BIM authoring. Click any card to select it — the material ID can be assigned to wall layers, door finishes, and window finishes in the Element Types tab.
+                </div>
+                <div data-create-form style="display:none;flex-direction:column;gap:8px;padding:10px;margin-bottom:8px;background:rgba(212,88,10,.06);border:1px solid rgba(212,88,10,.25);border-radius:8px;">
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <input data-cf-name type="text" placeholder="Material name" style="flex:1;min-width:0;padding:6px 8px;border:1px solid var(--dw-border,#e5e7eb);border-radius:6px;font-size:12px;background:#fff;color:var(--app-text,#1a2035);" />
+                        <input data-cf-color type="color" value="#c8a96e" title="Base colour" style="width:38px;height:32px;border:1px solid var(--dw-border,#e5e7eb);border-radius:6px;background:#fff;cursor:pointer;padding:2px;" />
+                    </div>
+                    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:10px;color:var(--app-text-muted,#7a8aaa);">
+                        <label style="display:flex;align-items:center;gap:5px;">Roughness <input data-cf-rough type="range" min="0" max="1" step="0.05" value="0.6" style="width:80px;" /></label>
+                        <label style="display:flex;align-items:center;gap:5px;">Metalness <input data-cf-metal type="range" min="0" max="1" step="0.05" value="0" style="width:80px;" /></label>
+                        <label style="display:flex;align-items:center;gap:5px;"><input data-cf-transparent type="checkbox" /> Transparent</label>
+                        <label style="display:flex;align-items:center;gap:5px;">Opacity <input data-cf-opacity type="range" min="0.05" max="1" step="0.05" value="1" style="width:70px;" /></label>
+                    </div>
+                    <div style="display:flex;gap:8px;justify-content:flex-end;">
+                        <button data-cf-cancel style="font-size:10px;font-weight:700;background:#fff;color:var(--app-text-muted,#7a8aaa);border:1px solid var(--dw-border,#e5e7eb);border-radius:6px;padding:4px 12px;cursor:pointer;">Cancel</button>
+                        <button data-cf-create style="font-size:10px;font-weight:700;background:#D4580A;color:#fff;border:none;border-radius:6px;padding:4px 12px;cursor:pointer;">Create</button>
+                    </div>
                 </div>
                 <div data-selected-material-bar style="display:none;align-items:center;gap:8px;padding:7px 10px;background:rgba(212,88,10,.08);border:1px solid rgba(212,88,10,.25);border-radius:8px;margin-bottom:8px;">
                     <div data-selected-swatch style="width:20px;height:20px;border-radius:4px;flex-shrink:0;border:1px solid rgba(0,0,0,.12);"></div>
@@ -123,10 +194,16 @@ export function mountMaterialLibrary(panel: HTMLElement): void {
                 <input data-material-search type="search" placeholder="Search concrete, oak, marble, steel, glass..." style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--dw-border,#e5e7eb);border-radius:8px;font-size:12px;background:#fff;color:var(--app-text,#1a2035);outline:none;" />
             </div>
             <div style="flex:1;overflow:auto;padding:12px 14px;">
+                <div data-user-materials-section>${userMaterialsMarkup()}</div>
                 ${categoryMarkup}
             </div>
         </div>
     `;
+
+    const refreshUserSection = (): void => {
+        const sec = panel.querySelector('[data-user-materials-section]') as HTMLElement | null;
+        if (sec) sec.innerHTML = userMaterialsMarkup();
+    };
 
     const search       = panel.querySelector('[data-material-search]') as HTMLInputElement | null;
     const selectionBar = panel.querySelector('[data-selected-material-bar]') as HTMLElement | null;
@@ -143,8 +220,91 @@ export function mountMaterialLibrary(panel: HTMLElement): void {
         });
     });
 
+    // #105 Phase 5 — texture upload: image file → data-URL → user material.
+    const _fileInput = panel.querySelector('[data-material-upload]') as HTMLInputElement | null;
+    _fileInput?.addEventListener('change', () => {
+        const file = _fileInput.files?.[0];
+        _fileInput.value = ''; // reset so re-selecting the same file fires 'change'
+        if (!file) return;
+        if (!file.type.startsWith('image/')) { alert('Please choose an image file.'); return; }
+        const MAX_BYTES = 2 * 1024 * 1024; // 2 MB — data-URLs persist into the project snapshot.
+        if (file.size > MAX_BYTES) { alert('Image too large (max 2 MB). Please choose a smaller texture.'); return; }
+        const reader = new FileReader();
+        reader.onload = () => {
+            const dataUrl = String(reader.result ?? '');
+            if (!dataUrl) return;
+            const suggested = file.name.replace(/\.[^.]+$/, '');
+            const name = prompt('Material name:', suggested);
+            if (!name || !name.trim()) return;
+            const id = 'user-mat-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+            userMaterialStore.create({ id, label: name.trim(), category: 'Custom', color: '#cccccc', roughness: 0.8, textureUrl: dataUrl });
+            refreshUserSection();
+        };
+        reader.onerror = () => alert('Failed to read the image file.');
+        reader.readAsDataURL(file);
+    });
+
     panel.addEventListener('click', (e) => {
-        const card = (e.target as HTMLElement).closest('[data-material-card]') as HTMLElement | null;
+        const target = e.target as HTMLElement;
+
+        // #105 Phase 5 — trigger the hidden file picker for texture upload.
+        if (target.closest('[data-upload-material]')) {
+            _fileInput?.click();
+            return;
+        }
+
+        // #105 — toggle the inline create form (replaces the old double-prompt:
+        // proper name field + colour PICKER + roughness/metalness/opacity controls).
+        if (target.closest('[data-new-material]')) {
+            const form = panel.querySelector('[data-create-form]') as HTMLElement | null;
+            if (form) {
+                const open = form.style.display !== 'none';
+                form.style.display = open ? 'none' : 'flex';
+                if (!open) (form.querySelector('[data-cf-name]') as HTMLInputElement | null)?.focus();
+            }
+            return;
+        }
+
+        // #105 — create form: cancel.
+        if (target.closest('[data-cf-cancel]')) {
+            const form = panel.querySelector('[data-create-form]') as HTMLElement | null;
+            if (form) form.style.display = 'none';
+            return;
+        }
+
+        // #105 — create form: build the user material from the inputs.
+        if (target.closest('[data-cf-create]')) {
+            const form = panel.querySelector('[data-create-form]') as HTMLElement | null;
+            if (!form) return;
+            const nameEl = form.querySelector('[data-cf-name]') as HTMLInputElement | null;
+            const name = nameEl?.value.trim() ?? '';
+            if (!name) { nameEl?.focus(); return; }
+            const color = (form.querySelector('[data-cf-color]') as HTMLInputElement | null)?.value || '#cccccc';
+            const roughness = parseFloat((form.querySelector('[data-cf-rough]') as HTMLInputElement | null)?.value ?? '0.6');
+            const metalness = parseFloat((form.querySelector('[data-cf-metal]') as HTMLInputElement | null)?.value ?? '0');
+            const transparent = !!(form.querySelector('[data-cf-transparent]') as HTMLInputElement | null)?.checked;
+            const opacity = parseFloat((form.querySelector('[data-cf-opacity]') as HTMLInputElement | null)?.value ?? '1');
+            const id = 'user-mat-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+            userMaterialStore.create({ id, label: name, category: 'Custom', color, roughness, metalness, transparent, opacity });
+            if (nameEl) nameEl.value = '';
+            form.style.display = 'none';
+            refreshUserSection();
+            return;
+        }
+
+        // #105 Phase 3 — remove a user material.
+        const removeBtn = target.closest('[data-remove-user-material]') as HTMLElement | null;
+        if (removeBtn) {
+            e.stopPropagation();
+            const id = removeBtn.getAttribute('data-remove-user-material') ?? '';
+            if (id && confirm('Remove this material?')) {
+                userMaterialStore.delete(id);
+                refreshUserSection();
+            }
+            return;
+        }
+
+        const card = target.closest('[data-material-card]') as HTMLElement | null;
         if (!card) return;
 
         const id    = card.dataset.materialId ?? '';
@@ -475,7 +635,11 @@ export function mountElementTypes(panel: HTMLElement): void {
         const el         = sel as HTMLSelectElement;
         const materialId = el.value;
         const libEntry   = STANDARD_MATERIAL_LIBRARY.find(m => m.id === materialId);
-        const newColor   = libEntry ? formatMaterialColor(libEntry.params.color) : null;
+        // #105 — a chosen material may be a user-created one; resolve its colour too.
+        const userEntry  = libEntry ? undefined : userMaterialStore.get(materialId);
+        const newColor   = libEntry ? formatMaterialColor(libEntry.params.color)
+                         : userEntry ? userEntry.color
+                         : null;
 
         if (el.dataset.wallType && el.dataset.layerIndex !== undefined) {
             const typeId   = el.dataset.wallType;

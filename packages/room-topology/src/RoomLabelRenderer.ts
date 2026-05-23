@@ -88,12 +88,17 @@ export class RoomLabelRenderer {
         ctx.font        = 'bold 22px system-ui, sans-serif';
         ctx.textAlign   = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(this._truncate(name, 22), LABEL_W / 2, LABEL_H * 0.35);
+        ctx.fillText(this._truncate(name, 22), LABEL_W / 2, LABEL_H * 0.34);
 
-        const area = room.computed?.area ?? 0;
+        // §ROOM-LABEL-EDIT (2026-05-22) — show the room NUMBER (when set) alongside
+        // the area, so the double-click-editable number is visible on the label.
+        const area    = room.computed?.area ?? 0;
+        const number  = (room.roomNumber ?? '').trim();
+        const areaStr = `${area.toFixed(1)} m²`;
+        const subtitle = number ? `${this._truncate(number, 14)}  ·  ${areaStr}` : areaStr;
         ctx.fillStyle = '#555';
         ctx.font      = '18px system-ui, sans-serif';
-        ctx.fillText(`${area.toFixed(1)} m²`, LABEL_W / 2, LABEL_H * 0.68);
+        ctx.fillText(subtitle, LABEL_W / 2, LABEL_H * 0.68);
 
         const texture  = new THREE.CanvasTexture(canvas);
         const material = new THREE.SpriteMaterial({

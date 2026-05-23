@@ -1180,7 +1180,7 @@ export class CurtainWallBuilder {
             // §PERF-2026-Q2-CW-CREATE/F8: material is cache-owned + shared across
             // all fallback panels of every wall. Mark `sharedMaterial: true` so
             // `_disposeChildren` skips disposal on rebuild.
-            const fallbackPanelMat = this._getFallbackPanelMaterial();
+            const fallbackPanelMat = this._getFallbackPanelMaterial(cw.glazingColor);
             for (const cell of cells) {
                 const panelWidth  = Math.max(0.01, cell.width - cw.mullionSize);
                 const panelHeight = Math.max(0.01, cell.height - cw.mullionSize);
@@ -2120,19 +2120,27 @@ export class CurtainWallBuilder {
      * Used only when no `CurtainPanelStore` is wired up. Mesh consumers MUST
      * stamp `userData.sharedMaterial = true`.
      */
-    private _getFallbackPanelMaterial(): THREE.MeshStandardMaterial {
-        const key = 'default-glass';
-        let mat = this._fallbackPanelMatCache.get(key);
+    private _getFallbackPanelMaterial(glazingColor?: string): THREE.MeshStandardMaterial {
+        // §MAT-CW-GLAZING (DAILY-USE 2026-05-22, #53) — resolve the glazing colour
+        // from the curtain-wall DTO (cw.glazingColor), like mullionColor, instead of
+        // a single hard-coded 0x88ccff (the last surviving instance of the bright-blue
+        // glass literal that M-H5/#52 removed for windows). Falls back to a realistic
+        // low-saturation architectural-glass tint (#9bc8e4) aligned with the CW plugin
+        // material-bridge / STANDARD_MATERIAL_LIBRARY. Cache keyed by colour so each
+        // distinct glazing tint shares ONE material across all walls (mirrors
+        // mullionMaterialCache); disposal already iterates _fallbackPanelMatCache.
+        const color = (glazingColor && glazingColor.length > 0) ? glazingColor : '#9bc8e4';
+        let mat = this._fallbackPanelMatCache.get(color);
         if (!mat) {
             mat = new THREE.MeshStandardMaterial({
-                color:       0x88ccff,
+                color:       new THREE.Color(color),
                 transparent: true,
                 opacity:     0.4,
                 metalness:   0.1,
                 roughness:   0.1,
                 side:        THREE.DoubleSide,
             });
-            this._fallbackPanelMatCache.set(key, mat);
+            this._fallbackPanelMatCache.set(color, mat);
         }
         return mat;
     }

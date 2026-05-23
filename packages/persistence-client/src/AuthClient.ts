@@ -380,9 +380,36 @@ export class AuthClient {
   }
 
   private persistSession(user: AuthUser, token: string): void {
+    // §AUTH-SESSION-LEAK-2 (CRITICAL SECURITY) — detect an IDENTITY CHANGE before
+    // overwriting the stored session. If a DIFFERENT user was previously cached on
+    // this browser (account switch / new account created without signing out), the
+    // previous user's CLIENT-SIDE caches (ProjectListStore, IndexedDB, localStorage
+    // project metadata) survive a plain token overwrite — so the new account sees
+    // (and 404s when opening/deleting) the previous user's projects. We capture the
+    // previous identity here and, AFTER persisting the new one, emit
+    // `pryzm:auth:identity-changed` so the app purges all user-scoped caches +
+    // reloads. Covers EVERY auth path (email + OAuth) because all of them persist
+    // the session through this single method.
+    let previousUserId: string | null = null;
+    try {
+      const raw = this.storageImpl?.getItem(AUTH_USER_KEY);
+      previousUserId = raw ? ((JSON.parse(raw) as AuthUser)?.id ?? null) : null;
+    } catch { previousUserId = null; }
+
     try {
       this.storageImpl?.setItem(AUTH_USER_KEY, JSON.stringify(user));
       this.storageImpl?.setItem(AUTH_TOKEN_KEY, token);
     } catch { /* sandbox / private mode — no-op */ }
+
+    if (previousUserId !== null && previousUserId !== user.id) {
+      try {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[AuthClient] §AUTH-SESSION-LEAK-2 identity changed (${previousUserId} → ${user.id}) — ` +
+          `signalling client-cache purge to prevent cross-user project leak.`,
+        );
+        _bus.emit('pryzm:auth:identity-changed', { previousUserId, userId: user.id }); // F.events.18
+      } catch { /* no DOM bus — app boot will still load the correct (server-scoped) list */ }
+    }
   }
 }

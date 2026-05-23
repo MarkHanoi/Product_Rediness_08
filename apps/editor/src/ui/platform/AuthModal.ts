@@ -32,6 +32,7 @@
 
 import { injectAppTheme } from '../styles/AppTheme';
 import { Plan, PlanStatus } from '@pryzm/core-app-model';
+import { DOMEventBus } from '@pryzm/event-bus';
 import {
     AuthClient,
     AuthClientError,
@@ -39,6 +40,10 @@ import {
     AUTH_USER_KEY as AC_USER_KEY,
     type AuthUser,
 } from '@pryzm/persistence-client';
+
+// §AUTH-SESSION-LEAK-2 — window-backed bus shared with AuthClient so the
+// account-switch guard (below) receives `pryzm:auth:identity-changed`.
+const _authBus = new DOMEventBus(typeof window !== 'undefined' ? window : undefined);
 
 // Re-export the canonical localStorage keys under the legacy names so
 // any existing string-literal reads continue to compile. These are the
@@ -127,37 +132,33 @@ export function getAuthToken(): string | null {
  * invariant trivially provable — after sign-out the entire page is
  * reconstructed; no User A state can leak into User B's session.
  */
-export function signOut(): void {
-    // ── Step 1: clear auth tokens (the pre-existing behaviour) ─────────────
-    try { localStorage.removeItem(AUTH_STORAGE_KEY); } catch (e) { console.warn('[signOut] auth storage clear failed:', e); }
-    try { localStorage.removeItem(AUTH_TOKEN_KEY);   } catch (e) { console.warn('[signOut] auth token clear failed:', e); }
-
-    // ── Step 2: clear every PRYZM-prefixed localStorage key ────────────────
-    // Iterates a SNAPSHOT (Object.keys) so removal during iteration is safe.
+/**
+ * §AUTH-SESSION-LEAK-2 — purge EVERY user-scoped client cache without removing the
+ * auth token/user keys. Clears: every PRYZM-prefixed localStorage key, all of
+ * sessionStorage, PRYZM IndexedDB databases, PRYZM CacheStorage entries, and pings
+ * the service worker. The auth keys (`bim-platform-user` / `bim-platform-token`) are
+ * NOT pryzm-prefixed, so a freshly-established session SURVIVES this purge — which is
+ * exactly what the account-switch guard needs (purge the old user's caches but keep
+ * the new user's just-stored token). `signOut()` additionally removes the auth keys.
+ */
+export function purgeUserScopedClientState(label = 'purge'): void {
+    // ── every PRYZM-prefixed localStorage key (snapshot keys so removal is safe) ──
     try {
         const keys = Object.keys(localStorage);
         for (const k of keys) {
-            // Allowlist: only PRYZM-prefixed keys. Avoids nuking unrelated
-            // localStorage entries (e.g. browser extension state) that the
-            // user expects to persist across sign-outs.
             if (k.startsWith('pryzm-') || k.startsWith('pryzm_') || k.startsWith('PRYZM_')) {
                 try { localStorage.removeItem(k); }
-                catch (e) { console.warn(`[signOut] removeItem(${k}) failed:`, e); }
+                catch (e) { console.warn(`[${label}] removeItem(${k}) failed:`, e); }
             }
         }
     } catch (e) {
-        console.warn('[signOut] localStorage iteration failed:', e);
+        console.warn(`[${label}] localStorage iteration failed:`, e);
     }
 
-    // ── Step 3: clear sessionStorage (some PRYZM caches use it) ────────────
-    try { sessionStorage.clear(); } catch (e) { console.warn('[signOut] sessionStorage clear failed:', e); }
+    // ── sessionStorage (some PRYZM caches use it) ──
+    try { sessionStorage.clear(); } catch (e) { console.warn(`[${label}] sessionStorage clear failed:`, e); }
 
-    // ── Step 4: best-effort IndexedDB cleanup (async; doesn't block reload) ─
-    // PRYZM persists Yjs documents + project snapshots into IndexedDB. Clearing
-    // them ensures the post-reload editor doesn't rehydrate User A's data from
-    // disk-backed cache before the new user's auth resolves. Best-effort —
-    // if indexedDB.databases() is unsupported (older browsers, private mode),
-    // the post-reload page is still safe because the auth gate runs first.
+    // ── best-effort IndexedDB cleanup (async; doesn't block reload) ──
     try {
         const idb = (typeof indexedDB !== 'undefined') ? indexedDB : null;
         if (idb && typeof (idb as { databases?: () => Promise<{ name?: string }[]> }).databases === 'function') {
@@ -167,57 +168,98 @@ export function signOut(): void {
                     for (const db of dbs) {
                         if (db.name && (db.name.includes('pryzm') || db.name.includes('PRYZM'))) {
                             try { idb.deleteDatabase(db.name); }
-                            catch (e) { console.warn(`[signOut] deleteDatabase(${db.name}) failed:`, e); }
+                            catch (e) { console.warn(`[${label}] deleteDatabase(${db.name}) failed:`, e); }
                         }
                     }
                 })
-                .catch(e => console.warn('[signOut] indexedDB.databases() failed:', e));
+                .catch(e => console.warn(`[${label}] indexedDB.databases() failed:`, e));
         }
     } catch (e) {
-        console.warn('[signOut] IndexedDB cleanup failed:', e);
+        console.warn(`[${label}] IndexedDB cleanup failed:`, e);
     }
 
-    // ── Step 5: best-effort CacheStorage cleanup ───────────────────────────
+    // ── best-effort CacheStorage cleanup ──
     try {
         if (typeof caches !== 'undefined' && typeof caches.keys === 'function') {
             void caches.keys()
                 .then(names => Promise.all(
                     names
                         .filter(n => n.includes('pryzm') || n.includes('PRYZM'))
-                        .map(n => caches.delete(n).catch(e => console.warn(`[signOut] caches.delete(${n}) failed:`, e))),
+                        .map(n => caches.delete(n).catch(e => console.warn(`[${label}] caches.delete(${n}) failed:`, e))),
                 ))
-                .catch(e => console.warn('[signOut] caches.keys() failed:', e));
+                .catch(e => console.warn(`[${label}] caches.keys() failed:`, e));
         }
     } catch (e) {
-        console.warn('[signOut] CacheStorage cleanup failed:', e);
+        console.warn(`[${label}] CacheStorage cleanup failed:`, e);
     }
 
-    // ── Step 6: notify service worker (if any) to invalidate its own cache ─
+    // ── notify service worker (if any) to invalidate its own cache ──
     try {
         if (typeof navigator !== 'undefined' && navigator.serviceWorker?.controller) {
             navigator.serviceWorker.controller.postMessage({ type: 'PRYZM_SIGN_OUT_CLEAR_CACHE' });
         }
     } catch (e) {
-        console.warn('[signOut] serviceWorker message failed:', e);
+        console.warn(`[${label}] serviceWorker message failed:`, e);
     }
+}
 
-    // ── Step 7: HARD RELOAD — the architectural guarantee ─────────────────
-    // After this line, the page is reconstructed from scratch. Any
-    // in-memory store, scene, controller, observer, Yjs session, or DOM
-    // state that survived steps 1-6 is destroyed by the navigation.
-    // The reload lands on the auth modal cold-start (no token → modal shown).
-    //
-    // Defer by one tick so any pending `runtime.persistence.client.signOut()`
-    // network call (fired by the ProjectHub Round 16 wiring) has a chance
-    // to dispatch its request BEFORE the reload aborts it. This is purely a
-    // courtesy — the server-side token invalidation is best-effort; the
-    // client-side reload is the security guarantee.
+export function signOut(): void {
+    // Sign-out = remove the auth keys + purge ALL user-scoped caches + hard reload.
+    try { localStorage.removeItem(AUTH_STORAGE_KEY); } catch (e) { console.warn('[signOut] auth storage clear failed:', e); }
+    try { localStorage.removeItem(AUTH_TOKEN_KEY);   } catch (e) { console.warn('[signOut] auth token clear failed:', e); }
+
+    purgeUserScopedClientState('signOut');
+
+    // HARD RELOAD — the architectural guarantee. After this line the page is
+    // reconstructed from scratch; any in-memory store/scene/controller/Yjs
+    // session that survived the purge is destroyed by the navigation. Lands on
+    // the auth-modal cold-start (no token → modal shown).
     console.log('[signOut] §AUTH-SESSION-LEAK reloading page to guarantee all User-A state is destroyed.');
     setTimeout(() => {
         try { window.location.reload(); }
         catch (e) { console.error('[signOut] location.reload() failed:', e); }
     }, 50);
 }
+
+/**
+ * §AUTH-SESSION-LEAK-2 (CRITICAL SECURITY) — account-switch guard. AuthClient emits
+ * `pryzm:auth:identity-changed` whenever a DIFFERENT user authenticates on a browser
+ * that still holds the previous user's session (account switch, OR a new account
+ * created without signing out first). Without this, the previous user's CLIENT-SIDE
+ * caches (ProjectListStore in-memory, IndexedDB, localStorage project metadata)
+ * survive the token swap, so the new account SEES the previous user's projects — and
+ * gets HTTP 404 when opening/deleting them, because the server correctly scopes by
+ * owner. The guard purges those caches (the just-stored NEW token survives — it is
+ * `bim-platform-*`, not pryzm-prefixed) and hard-reloads so the app boots clean and
+ * loads ONLY the new user's server-scoped projects. Covers EVERY auth path (email +
+ * OAuth) because AuthClient.persistSession is the single session-persist chokepoint.
+ * Idempotent.
+ */
+let _accountSwitchGuardInstalled = false;
+export function installAccountSwitchGuard(): void {
+    if (_accountSwitchGuardInstalled) return;
+    _accountSwitchGuardInstalled = true;
+    try {
+        _authBus.on('pryzm:auth:identity-changed', (detail: { previousUserId: string; userId: string }) => {
+            console.warn(
+                `[AccountSwitchGuard] §AUTH-SESSION-LEAK-2 identity changed (${detail.previousUserId} → ${detail.userId}) — ` +
+                `purging previous user's client caches + reloading so the new account sees ONLY its own projects.`,
+            );
+            try { purgeUserScopedClientState('AccountSwitchGuard'); }
+            catch (e) { console.warn('[AccountSwitchGuard] purge failed:', e); }
+            setTimeout(() => {
+                try { window.location.reload(); }
+                catch (e) { console.error('[AccountSwitchGuard] reload failed:', e); }
+            }, 50);
+        });
+    } catch (e) {
+        console.warn('[AccountSwitchGuard] install failed:', e);
+    }
+}
+
+// Install at module load: this module is imported to render the sign-up / sign-in
+// form, so the guard is active before any auth flow can fire persistSession.
+installAccountSwitchGuard();
 
 export interface AuthModalCallbacks {
     onSuccess: (user: PlatformUser) => void;

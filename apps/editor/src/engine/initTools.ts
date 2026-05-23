@@ -995,13 +995,35 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             // windowStore.getAll() and will skip any window not present in the store.
             if (type === 'window' && !windowStore.has(elementId)) {
                 try {
-                    // §DOOR-WINDOW-PLAN-FRAME — same systemType-to-colour
-                    // resolution as the door branch above, applied to windows.
-                    // Mirrors CreateWallOpeningCommand.ts:144-178 which does
-                    // this resolution for the legacy 3D path.
-                    const sysTypeId = typeof o.systemTypeId === 'string' && o.systemTypeId.length > 0
+                    // §MAT-WINDOW-PLAN-PARITY (2026-05-23) — a plan-created window MUST
+                    // carry its system type's frame finish into the WindowStore, or
+                    // WindowBuilder.buildVisuals falls back to the WindowOpening schema
+                    // default frameColor '#e8e8e8' (light grey) → "timber window placed
+                    // in plan renders grey, the same window placed in 3D is correct."
+                    //
+                    // ROOT CAUSE: the old code only stamped frameFinish/frameColor WHEN
+                    // the opening carried a systemTypeId. When the plan tool's systemTypeId
+                    // was missing for any reason, the window arrived with neither field →
+                    // schema-default grey. The 3D path always passes the WindowTool's
+                    // systemTypeId, so it never hit this.
+                    //
+                    // FIX: resolve a type with explicit fallbacks so the entry is NEVER
+                    // grey and reflects the architect's selection:
+                    //   1) the systemTypeId carried on the opening (the plan tool's choice),
+                    //   2) the LIVE WindowTool selection (the SAME source the 3D placement
+                    //      path uses — set by PropertyPanelPreDraw on type selection), so a
+                    //      window placed in plan inherits the type last chosen in 3D,
+                    //   3) the catalogue default — last resort so a window always has a
+                    //      real material. Then ALWAYS stamp systemTypeId + frameFinish +
+                    //      frameColor from the resolved type.
+                    const fromOpening = typeof o.systemTypeId === 'string' && o.systemTypeId.length > 0
                         ? o.systemTypeId : undefined;
-                    const winSysType = sysTypeId ? windowSystemTypeStore.getById(sysTypeId) : undefined;
+                    const fromTool = (window.windowTool as { systemTypeId?: string } | undefined)?.systemTypeId;
+                    const resolvedTypeId =
+                        (fromOpening && windowSystemTypeStore.getById(fromOpening) ? fromOpening : undefined) ??
+                        (fromTool    && windowSystemTypeStore.getById(fromTool)    ? fromTool    : undefined) ??
+                        'wt-single-pane';
+                    const winSysType = windowSystemTypeStore.getById(resolvedTypeId);
                     windowStore.add({
                         id:           elementId,
                         openingId:    id,
@@ -1010,17 +1032,17 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                         width,
                         height,
                         sillHeight,
-                        ...(sysTypeId   ? { systemTypeId: sysTypeId } : {}),
+                        systemTypeId: resolvedTypeId,
                         ...(winSysType  ? {
                             frameFinish: { ...winSysType.frameFinish },
                             frameColor:  winSysType.frameFinish.materialColor,
                         } : {}),
                     } as Parameters<typeof windowStore.add>[0]);
                     console.log(
-                        '[initTools] §P2.3-WIN: window mirrored to WindowStore — ' +
-                        'frame symbol will render id=' + elementId +
-                        ' systemTypeId=' + (sysTypeId ?? 'default') +
-                        ' frameColor=' + (winSysType?.frameFinish?.materialColor ?? '<default>'),
+                        '[initTools] §P2.3-WIN/MAT: window mirrored to WindowStore id=' + elementId +
+                        ' systemTypeId=' + resolvedTypeId +
+                        ' (opening=' + (fromOpening ?? '∅') + ' tool=' + (fromTool ?? '∅') + ')' +
+                        ' frameColor=' + (winSysType?.frameFinish?.materialColor ?? '<none>'),
                     );
                 } catch (err) {
                     console.error('[initTools] §P2.3-WIN: windowStore.add failed (non-fatal) — window frame symbol will be absent:', err);

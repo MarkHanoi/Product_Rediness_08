@@ -66,6 +66,7 @@ import {
   type ElementRegistry,
   type GpuPickRenderer,
   type PickContext,
+  type PickOptions,
   type PickProbeResult,
   type PickResult,
   type PickStrategy,
@@ -132,8 +133,30 @@ export class GpuPickStrategy implements PickStrategy {
   readonly id = 'gpu-pick' as const;
   available = true;
 
-  private readonly targetWidth: number;
-  private readonly targetHeight: number;
+  /**
+   * Pick-target dimensions.  MUTABLE: when the strategy auto-sizes (no explicit
+   * opts — the production path), these track the live viewport so the pick is
+   * 1:1 with what the user sees.  FIXED when the caller passes
+   * targetWidth/targetHeight (unit tests), preserving their exact-pixel
+   * expectations.
+   */
+  private targetWidth: number;
+  private targetHeight: number;
+
+  /** True when no explicit target size was supplied → match the viewport. */
+  private readonly _autoSize: boolean;
+
+  /**
+   * §SELECT-3D-FORGIVING — cursor search tolerance in CSS px when auto-sized.
+   * Converted to target px in pickInternal so it stays constant regardless of
+   * the auto-sized resolution.  Mirrors the few-px "magnetic" pick tolerance of
+   * Revit / SketchUp / pascalorg/editor.
+   */
+  private static readonly SCREEN_SEARCH_RADIUS_PX = 8;
+
+  /** Upper bound on either auto-sized target axis (memory + render-cost guard). */
+  private static readonly MAX_AUTO_DIM = 1280;
+
   private readonly pickScene = new THREE.Scene();
   private readonly entries = new Map<ElementId, PickEntry>();
   private readonly indexToId = new Map<number, ElementId>();
@@ -164,6 +187,10 @@ export class GpuPickStrategy implements PickStrategy {
   private _lastRegistrySig = '';
 
   constructor(opts: GpuPickOptions = {}) {
+    // Auto-size only when NEITHER dimension is supplied.  Production
+    // (resolvePickStrategy → new GpuPickStrategy({})) auto-sizes to the
+    // viewport; unit tests pass explicit dims and keep a fixed target.
+    this._autoSize = opts.targetWidth === undefined && opts.targetHeight === undefined;
     this.targetWidth = Math.max(1, opts.targetWidth ?? 256);
     this.targetHeight = Math.max(1, opts.targetHeight ?? 256);
   }
@@ -246,7 +273,7 @@ export class GpuPickStrategy implements PickStrategy {
     }
   }
 
-  pick(screenPoint: Point2D, ctx: PickContext): PickResult | null {
+  pick(screenPoint: Point2D, ctx: PickContext, opts?: PickOptions): PickResult | null {
     return withSpanSync(
       'pryzm.picking.pick',
       {
@@ -256,7 +283,7 @@ export class GpuPickStrategy implements PickStrategy {
       },
       (span) => {
         const t0 = performance.now();
-        const result = this.pickInternal(screenPoint, ctx);
+        const result = this.pickInternal(screenPoint, ctx, opts);
         const dur = performance.now() - t0;
         span.setAttribute('result.found', result !== null);
         if (result !== null) span.setAttribute('result.elementKind', result.elementKind);
@@ -320,49 +347,77 @@ export class GpuPickStrategy implements PickStrategy {
     return this._freeSlots.length > 0 ? this._freeSlots.pop()! : this.nextSlot++;
   }
 
-  private pickInternal(point: Point2D, ctx: PickContext): PickResult | null {
+  private pickInternal(point: Point2D, ctx: PickContext, opts?: PickOptions): PickResult | null {
     if (!ctx.renderer || !ctx.scene) return null;
+    this._syncTargetSize(ctx);
     this.syncPickScene(ctx.elementRegistry);
     const rt = this.ensureRenderTarget(ctx.renderer);
 
-    if (this.pixelBuffer.length < 4) this.pixelBuffer = new Uint8Array(4);
     ctx.renderer.renderToTarget(this.pickScene, ctx.camera, rt, null);
 
-    // Map screen point into the RT — for a 1×1 readback we use rt-local
-    // coords scaled from viewport to target.
+    // Map screen point into the RT (centre pixel).
     //
     // COORDINATE CONVENTION: CSS y=0 is at the TOP of the element, increasing
     // downward.  WebGL readPixels / gl.readPixels uses y=0 at the BOTTOM of the
     // framebuffer, increasing upward.  We must flip Y here so that a click at
     // the CSS top of the canvas reads from the top row of the render target
     // (high WebGL y), not from the bottom (low WebGL y).
-    const rx = Math.max(
+    const cx = Math.max(
       0,
       Math.min(this.targetWidth - 1, Math.floor((point.x / ctx.viewportWidth) * this.targetWidth)),
     );
-    const ry = Math.max(
+    const cy = Math.max(
       0,
       Math.min(
         this.targetHeight - 1,
         this.targetHeight - 1 - Math.floor((point.y / ctx.viewportHeight) * this.targetHeight),
       ),
     );
-    ctx.renderer.readPixels(rt, rx, ry, 1, 1, this.pixelBuffer);
 
-    const r = this.pixelBuffer[0] ?? 0;
-    const g = this.pixelBuffer[1] ?? 0;
-    const b = this.pixelBuffer[2] ?? 0;
-    const a = this.pixelBuffer[3] ?? 0;
-    const slot = decodeRGBAToIndex(r, g, b, a);
+    // §SELECT-3D-FORGIVING — centre pixel first; on a background centre, snap to
+    // the nearest element pixel within a screen-px tolerance (converted to target
+    // px).  Radius 0 for fixed-size callers (tests) → exact-pixel behaviour.
+    const radiusTargetPx = this._autoSize
+      ? Math.max(
+          1,
+          Math.round(
+            GpuPickStrategy.SCREEN_SEARCH_RADIUS_PX * (this.targetWidth / Math.max(1, ctx.viewportWidth)),
+          ),
+        )
+      : 0;
+    const { slot, winX, winY } = this._readNearestSlot(ctx.renderer, rt, cx, cy, radiusTargetPx);
     if (slot === 0) return null;
     const id = this.indexToId.get(slot);
     if (id === undefined) return null;
     const kind = ctx.elementRegistry.kindOf(id);
     if (kind === null) return null;
 
+    // §SELECT-PERF — HOVER passes skipDepth: it only needs the elementId for the
+    // outline, so the SECOND (depth) render + readback is pure waste. Skipping it
+    // ~halves the per-frame hover cost — the part that scales with element count
+    // (the cause of "selection worsens as more elements are added"). hitPoint is the
+    // cheap near-plane unprojection; hover ignores it.
+    if (opts?.skipDepth) {
+      return {
+        elementId: id,
+        elementKind: kind,
+        hitPoint: unprojectScreenToWorld(point, ctx),
+        distance: 0,
+      };
+    }
+
     // Task 2.4: depth readback — second render pass with DEPTH_PACK_MATERIAL.
-    // Falls back to near-plane hitPoint + distance=0 on any failure.
-    const { hitPoint, distance } = this.readDepthResult(ctx, rx, ry, point);
+    // When the pick snapped to a neighbour pixel, sample depth + unproject at
+    // THAT pixel so hitPoint matches the element actually selected; otherwise use
+    // the exact cursor point (preserves prior behaviour for centre hits + tests).
+    const snapped = winX !== cx || winY !== cy;
+    const depthScreen: Point2D = snapped
+      ? {
+          x: ((winX + 0.5) / this.targetWidth) * ctx.viewportWidth,
+          y: ((this.targetHeight - 1 - winY + 0.5) / this.targetHeight) * ctx.viewportHeight,
+        }
+      : point;
+    const { hitPoint, distance } = this.readDepthResult(ctx, winX, winY, depthScreen);
 
     return {
       elementId: id,
@@ -375,6 +430,7 @@ export class GpuPickStrategy implements PickStrategy {
   private pickRectInternal(rect: Rect2D, ctx: PickContext): readonly PickResult[] {
     if (!ctx.renderer || !ctx.scene) return [];
     if (rect.w <= 0 || rect.h <= 0) return [];
+    this._syncTargetSize(ctx);
     this.syncPickScene(ctx.elementRegistry);
     const rt = this.ensureRenderTarget(ctx.renderer);
     ctx.renderer.renderToTarget(this.pickScene, ctx.camera, rt, null);
@@ -563,6 +619,95 @@ export class GpuPickStrategy implements PickStrategy {
     if (this.depthTarget !== null) return this.depthTarget;
     this.depthTarget = renderer.createRenderTarget(this.targetWidth, this.targetHeight);
     return this.depthTarget;
+  }
+
+  /**
+   * §SELECT-3D-FORGIVING — when auto-sizing, match the pick render target to the
+   * live viewport (capped to MAX_AUTO_DIM, aspect-preserving) so the pick is 1:1
+   * with the rendered image.  The previous fixed 256² target downscaled a
+   * 1920-wide viewport by ~7.5×, so thin elements (railings, edge-on walls, slim
+   * furniture) produced no pixels and were unhittable.  Recreates the (id + depth)
+   * targets when the size changes, disposing the old ones first.  No-op for
+   * fixed-size callers (unit tests) so their exact-pixel expectations hold.
+   */
+  private _syncTargetSize(ctx: PickContext): void {
+    if (!this._autoSize) return;
+    const vw = ctx.viewportWidth;
+    const vh = ctx.viewportHeight;
+    if (!(vw > 0) || !(vh > 0)) return;
+    const scale = Math.min(1, GpuPickStrategy.MAX_AUTO_DIM / Math.max(vw, vh));
+    const tw = Math.max(1, Math.round(vw * scale));
+    const th = Math.max(1, Math.round(vh * scale));
+    if (tw === this.targetWidth && th === this.targetHeight && this.renderTarget !== null) return;
+    // Size changed (first pick, or viewport resize) — drop old targets so the
+    // ensure*Target helpers recreate them at the new resolution.  Optional
+    // dispose() guards the fake render targets used in tests (auto-size off).
+    (this.renderTarget as { dispose?: () => void } | null)?.dispose?.();
+    (this.depthTarget as { dispose?: () => void } | null)?.dispose?.();
+    this.renderTarget = null;
+    this.depthTarget = null;
+    this.targetWidth = tw;
+    this.targetHeight = th;
+  }
+
+  /**
+   * §SELECT-3D-FORGIVING — read the slot at the centre pixel; if it is background
+   * (0) and a search radius is given, scan the (2r+1)² neighbourhood and return
+   * the non-background slot NEAREST the cursor.  Returns the winning slot plus the
+   * target-space pixel it came from (so the depth pass samples the right place).
+   * The centre-first fast path means a direct hit is identical to the old 1×1 read.
+   */
+  private _readNearestSlot(
+    renderer: GpuPickRenderer,
+    rt: THREE.WebGLRenderTarget,
+    cx: number,
+    cy: number,
+    radius: number,
+  ): { slot: number; winX: number; winY: number } {
+    if (this.pixelBuffer.length < 4) this.pixelBuffer = new Uint8Array(4);
+    renderer.readPixels(rt, cx, cy, 1, 1, this.pixelBuffer);
+    const centreSlot = decodeRGBAToIndex(
+      this.pixelBuffer[0] ?? 0,
+      this.pixelBuffer[1] ?? 0,
+      this.pixelBuffer[2] ?? 0,
+      this.pixelBuffer[3] ?? 0,
+    );
+    if (centreSlot !== 0 || radius <= 0) {
+      return { slot: centreSlot, winX: cx, winY: cy };
+    }
+
+    const x0 = Math.max(0, cx - radius);
+    const y0 = Math.max(0, cy - radius);
+    const x1 = Math.min(this.targetWidth - 1, cx + radius);
+    const y1 = Math.min(this.targetHeight - 1, cy + radius);
+    const bw = x1 - x0 + 1;
+    const bh = y1 - y0 + 1;
+    if (bw <= 0 || bh <= 0) return { slot: 0, winX: cx, winY: cy };
+
+    const buf = new Uint8Array(bw * bh * 4);
+    renderer.readPixels(rt, x0, y0, bw, bh, buf);
+
+    let bestSlot = 0;
+    let bestDistSq = Infinity;
+    let bestX = cx;
+    let bestY = cy;
+    for (let py = 0; py < bh; py++) {
+      for (let px = 0; px < bw; px++) {
+        const i = (py * bw + px) * 4;
+        const s = decodeRGBAToIndex(buf[i] ?? 0, buf[i + 1] ?? 0, buf[i + 2] ?? 0, buf[i + 3] ?? 0);
+        if (s === 0) continue;
+        const ax = x0 + px;
+        const ay = y0 + py;
+        const dsq = (ax - cx) * (ax - cx) + (ay - cy) * (ay - cy);
+        if (dsq < bestDistSq) {
+          bestDistSq = dsq;
+          bestSlot = s;
+          bestX = ax;
+          bestY = ay;
+        }
+      }
+    }
+    return { slot: bestSlot, winX: bestX, winY: bestY };
   }
 
   private syncPickScene(registry: ElementRegistry): void {

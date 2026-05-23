@@ -31,6 +31,7 @@ import {
   type ElementKind,
   type ElementRegistry,
   type PickContext,
+  type PickOptions,
   type PickProbeResult,
   type PickResult,
   type PickStrategy,
@@ -95,7 +96,9 @@ export class BvhPickStrategy implements PickStrategy {
     return { ok: true };
   }
 
-  pick(screenPoint: Point2D, ctx: PickContext): PickResult | null {
+  // §SELECT-PERF — `opts` accepted for PickStrategy parity; the BVH raycast already
+  // yields the hit point for free, so skipDepth is a no-op here.
+  pick(screenPoint: Point2D, ctx: PickContext, _opts?: PickOptions): PickResult | null {
     return withSpanSync(
       'pryzm.picking.pick',
       {

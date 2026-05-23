@@ -59,6 +59,7 @@ import { viewIntentInstanceStore } from '@pryzm/core-app-model/presentation';
 import { runVGToIntentMigration, prewarmIntentStyleCache } from '@pryzm/core-app-model';
 import { sheetStore } from '@pryzm/core-app-model';
 import { scheduleStore } from '@pryzm/core-app-model';
+import { userMaterialStore } from '@pryzm/core-app-model'; // #105 Materials Repository
 import { requirementStore, assetCatalogStore, buildDefaultAssetCatalog } from '@pryzm/core-app-model';
 import { annotationStore } from '@pryzm/plugin-annotations';
 import { ClearProjectCommand } from '@pryzm/command-registry';
@@ -76,6 +77,7 @@ import { CreateRoofCommand } from '@pryzm/command-registry';
 import { CreateFurnitureCommand } from '@pryzm/command-registry';
 import { CreateHandrailCommand } from '@pryzm/command-registry';
 import { CreatePlumbingFixtureCommand } from '@pryzm/command-registry';
+import { CreateLightingCommand } from '@pryzm/command-registry'; // §PERSIST-LIGHTING
 import { CreateColumnCommand } from '@pryzm/command-registry';
 import { CreateRoomBoundingLineCommand } from '@pryzm/command-registry';
 import { RoofType, RoofFootprint } from '@pryzm/geometry-roof';
@@ -802,6 +804,37 @@ export class ProjectLoader {
                 }
             }
 
+            // ── Step 10b: Lighting fixtures ──────────────────────────────────
+            // §PERSIST-LIGHTING (2026-05-22) — lighting was serialized nowhere AND
+            // restored nowhere, so every light fixture the user placed was lost on
+            // reload. Mirrors the plumbing/furniture restore: recreate each fixture
+            // via CreateLightingCommand so the LightingStore + LightingFragmentBuilder
+            // rebuild it (the command fires bim-lighting-placed). `lighting` is
+            // optional on the snapshot for backward compat with pre-fix projects.
+            const snapshotLighting = (snapshot as { lighting?: any[] }).lighting;
+            if (Array.isArray(snapshotLighting) && snapshotLighting.length > 0) {
+                console.log(`[ProjectLoader] Loading ${snapshotLighting.length} lighting fixtures`);
+                for (const lt of snapshotLighting) {
+                    try {
+                        const cmd = new CreateLightingCommand({
+                            id: lt.id,
+                            fixtureType: lt.fixtureType,
+                            position: lt.position,
+                            rotation: lt.rotation,
+                            levelId: lt.levelId,
+                            roomId: lt.roomId,
+                            hostId: lt.hostId,
+                            tags: lt.tags,
+                            properties: lt.properties,
+                        });
+                        const r = exec(cmd);
+                        r.success ? result.loaded++ : this.recordFail(result, `Lighting ${lt.id}`, r);
+                    } catch (e) {
+                        this.recordFail(result, `Lighting ${lt.id}`, { success: false, affectedElementIds: [], error: String(e) });
+                    }
+                }
+            }
+
             // ── Cancellation check (before Step 11) ───────────────────────────
             if (cancelled()) {
                 console.log('[ProjectLoader] Load cancelled before curtain walls.');
@@ -1245,6 +1278,12 @@ export class ProjectLoader {
             } else {
                 // Seed default schedules if none were in the snapshot
                 scheduleStore.seedDefaultSchedules();
+            }
+
+            // #105 Materials Repository — restore user-created/uploaded materials.
+            if ((snapshot as any).userMaterials) {
+                userMaterialStore.deserialize((snapshot as any).userMaterials);
+                console.log('[ProjectLoader] User materials restored from snapshot');
             }
 
             // Data Platform — Phase 4 (schema v2)

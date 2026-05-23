@@ -64,7 +64,25 @@
       "Bash(pnpm --filter @pryzm/core-app-model typecheck)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\LENOVO\\\\OneDrive\\\\Desktop\\\\PRYZM\\\\Product_Rediness_08\" -Directory)",
       "Bash(Select-Object Name)",
-      "Bash(pnpm --filter @pryzm/input-host typecheck)"
+      "Bash(pnpm --filter @pryzm/input-host typecheck)",
+      "Bash(pnpm --filter @pryzm/geometry-kernel typecheck)",
+      "Bash(npx vitest *)",
+      "Bash(pnpm --filter @pryzm/picking test)",
+      "Bash(pnpm --filter @pryzm/picking --filter @pryzm/input-host --filter @pryzm/renderer-three typecheck)",
+      "Bash(xargs -I {} sh -c 'echo \"=== {} ===\" && grep -A5 \"undo\\(\" {}')",
+      "Bash(xargs grep -l \"undo\\\\|redo\")",
+      "Bash(pnpm --filter @pryzm/geometry-stair typecheck)",
+      "Bash(pnpm --filter @pryzm/command-bus typecheck)",
+      "Bash(pnpm --filter @pryzm/command-bus test)",
+      "Bash(pnpm --filter @pryzm/window-plugin typecheck)",
+      "Bash(pnpm --filter \"./plugins/window\" typecheck)",
+      "Bash(pnpm --filter \"./plugins/door\" typecheck)",
+      "Bash(pnpm --filter @pryzm/geometry-curtain-wall typecheck)",
+      "Bash(pnpm --filter @pryzm/persistence-client --filter @pryzm/event-bus typecheck)",
+      "Bash(pnpm --filter @pryzm/core-app-model exec vitest run src/stores/UserMaterialStore.test.ts)",
+      "Bash(pnpm --filter @pryzm/room-topology typecheck)",
+      "Bash(pnpm --filter \"./plugins/wall\" typecheck)",
+      "Bash(pnpm --filter @pryzm/geometry-window typecheck)"
     ]
   }
 }
