@@ -87,7 +87,8 @@
       "Bash(:)",
       "PowerShell(Get-NetTCPConnection *)",
       "Bash(sleep 1)",
-      "Bash(pnpm --filter @pryzm/geometry-furniture typecheck)"
+      "Bash(pnpm --filter @pryzm/geometry-furniture typecheck)",
+      "Bash(grep -iv \"rgba\\(255,255,255\\\\|//.*snap to\\\\|snap range\\\\|snap service\")"
     ]
   }
 }

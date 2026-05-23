@@ -805,8 +805,8 @@ export class PlanViewToolOverlay {
         switch (snapType) {
             case 'endpoint': {
                 // Green diamond
-                ctx.strokeStyle = '#22c55e';
-                ctx.fillStyle   = 'rgba(34,197,94,0.18)';
+                ctx.strokeStyle = '#6600ff';
+                ctx.fillStyle   = 'rgba(102,0,255,0.18)';
                 ctx.lineWidth   = 1.5 * dpr;
                 ctx.beginPath();
                 ctx.moveTo(px,       py - SZ);
@@ -820,8 +820,8 @@ export class PlanViewToolOverlay {
             }
             case 'midpoint': {
                 // Cyan triangle
-                ctx.strokeStyle = '#06b6d4';
-                ctx.fillStyle   = 'rgba(6,182,212,0.18)';
+                ctx.strokeStyle = '#6600ff';
+                ctx.fillStyle   = 'rgba(102,0,255,0.18)';
                 ctx.lineWidth   = 1.5 * dpr;
                 ctx.beginPath();
                 ctx.moveTo(px,       py - SZ);
@@ -834,7 +834,7 @@ export class PlanViewToolOverlay {
             }
             case 'perpendicular': {
                 // Lavender × with centre circle
-                ctx.strokeStyle = '#a78bfa';
+                ctx.strokeStyle = '#6600ff';
                 ctx.lineWidth   = 1.5 * dpr;
                 ctx.beginPath();
                 ctx.moveTo(px - SZ, py - SZ); ctx.lineTo(px + SZ, py + SZ);
@@ -847,8 +847,8 @@ export class PlanViewToolOverlay {
             }
             case 'grid-line': {
                 // Amber double-bar perpendicular to a grid datum
-                ctx.strokeStyle = '#facc15';
-                ctx.fillStyle   = 'rgba(250,204,21,0.18)';
+                ctx.strokeStyle = '#6600ff';
+                ctx.fillStyle   = 'rgba(102,0,255,0.18)';
                 ctx.lineWidth   = 1.75 * dpr;
                 ctx.beginPath();
                 ctx.arc(px, py, SZ, 0, Math.PI * 2);
@@ -863,8 +863,8 @@ export class PlanViewToolOverlay {
             case 'grid-intersection': {
                 // Strong orange filled square + concentric ring (Revit-style intersection mark)
                 const S = SZ + 1 * dpr;
-                ctx.strokeStyle = '#f97316';
-                ctx.fillStyle   = 'rgba(249,115,22,0.22)';
+                ctx.strokeStyle = '#6600ff';
+                ctx.fillStyle   = 'rgba(102,0,255,0.22)';
                 ctx.lineWidth   = 2 * dpr;
                 ctx.beginPath();
                 ctx.rect(px - S, py - S, S * 2, S * 2);
@@ -877,7 +877,7 @@ export class PlanViewToolOverlay {
             }
             case 'intersection': {
                 // Indigo X (segment × segment)
-                ctx.strokeStyle = '#6366f1';
+                ctx.strokeStyle = '#6600ff';
                 ctx.lineWidth   = 2 * dpr;
                 ctx.beginPath();
                 ctx.moveTo(px - SZ, py - SZ); ctx.lineTo(px + SZ, py + SZ);
@@ -887,7 +887,7 @@ export class PlanViewToolOverlay {
             }
             case 'nearest': {
                 // Faint slate hourglass — low-priority fallback indicator
-                ctx.strokeStyle = '#94a3b8';
+                ctx.strokeStyle = '#6600ff';
                 ctx.lineWidth   = 1.25 * dpr;
                 ctx.beginPath();
                 ctx.moveTo(px - SZ, py - SZ); ctx.lineTo(px + SZ, py - SZ);

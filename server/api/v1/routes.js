@@ -484,7 +484,17 @@ v1Router.delete('/projects/:id', async (req, res) => {
     if (!userId || userId === 'anonymous') return res.status(401).json({ error: 'Authentication required.' });
     try {
         const removed = await pgProjectStore.deleteProject(req.params.id, userId);
-        if (!removed) return res.status(404).json({ error: 'Project not found.' });
+        if (!removed) {
+            // §PROJECT-DELETE-IDEMPOTENT (2026-05-23) — DELETE is idempotent. A project
+            // the server doesn't have (the in-memory store is volatile and is empty after
+            // a restart, or the project only ever lived in the client's localStorage) is
+            // ALREADY in the requested end-state (absent), so report success instead of
+            // 404. The old 404 made ProjectHub.handleDelete RESTORE the optimistically-
+            // removed entry → "404 doesn't allow me to remove projects". deleteProject's
+            // WHERE owner_id guarantees we never delete another owner's row, so a non-owner
+            // simply drops it from their own view (project isolation, §122).
+            console.log(`[v1 DELETE /projects/:id] idempotent no-op (not present for owner) id=${req.params.id} userId=${userId}`);
+        }
         return res.status(204).end();
     } catch (err) {
         const { status, body } = classifyV1Error(err, `DELETE /api/v1/projects/${req.params.id}`, userId);

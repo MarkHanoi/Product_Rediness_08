@@ -1,7 +1,11 @@
 import { createId } from '@pryzm/schemas';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 
-const STROKE = '#6366f1';
+// §PREVIEW-COLOR-UNIFY (2026-05-23, §41 / #100) — the roof plan preview used
+// indigo #6600ff, off-brand vs the unified PRYZM plan-preview purple #6600ff used
+// by the wall/window/door plan handlers. Aligned so every plan-view creation
+// preview shares one colour.
+const STROKE = '#6600ff';
 
 /**
  * Plan-view roof creation handler — supports RECTANGLE (2-point) and
@@ -208,7 +212,7 @@ export class RoofPlanToolHandler implements PlanToolHandler {
             const rh = Math.abs(p2w.sy - p1w.sy);
 
             ctx.globalAlpha = 0.14;
-            ctx.fillStyle   = '#6366f1';
+            ctx.fillStyle   = '#6600ff';
             ctx.fillRect(rx, ry, rw, rh);
             ctx.globalAlpha = 1;
 
@@ -228,7 +232,7 @@ export class RoofPlanToolHandler implements PlanToolHandler {
         // Hint text
         const hint = 'Click second corner to place roof';
         ctx.font      = 'bold 11px sans-serif';
-        ctx.fillStyle = 'rgba(99,102,241,0.9)';
+        ctx.fillStyle = 'rgba(102,0,255,0.9)';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'bottom';
         ctx.fillText(hint, 12, cssH - 12);
@@ -249,7 +253,7 @@ export class RoofPlanToolHandler implements PlanToolHandler {
 
         if (sPts.length >= 3) {
             ctx.globalAlpha = 0.14;
-            ctx.fillStyle   = '#6366f1';
+            ctx.fillStyle   = '#6600ff';
             ctx.beginPath();
             ctx.moveTo(sPts[0].sx, sPts[0].sy);
             for (let i = 1; i < sPts.length; i++) ctx.lineTo(sPts[i].sx, sPts[i].sy);
@@ -284,7 +288,7 @@ export class RoofPlanToolHandler implements PlanToolHandler {
 
         if (sPts.length >= 3 && this._cursor) {
             ctx.setLineDash([3, 3]);
-            ctx.strokeStyle = 'rgba(99,102,241,0.4)';
+            ctx.strokeStyle = 'rgba(102,0,255,0.4)';
             ctx.lineWidth   = 1;
             const cur = planCanvas.worldToScreen(this._cursor.worldX, this._cursor.worldZ);
             ctx.beginPath();
@@ -299,7 +303,7 @@ export class RoofPlanToolHandler implements PlanToolHandler {
             ? 'Dbl-click or Enter to close roof'
             : `${need} more point${need !== 1 ? 's' : ''} needed`;
         ctx.font      = 'bold 11px sans-serif';
-        ctx.fillStyle = 'rgba(99,102,241,0.9)';
+        ctx.fillStyle = 'rgba(102,0,255,0.9)';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'bottom';
         ctx.fillText(hint, 12, cssH - 12);

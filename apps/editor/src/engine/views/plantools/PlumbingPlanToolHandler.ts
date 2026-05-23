@@ -43,8 +43,8 @@ const DEFAULT_FOOTPRINT: { w: number; l: number; h: number } = { w: 0.40, l: 0.6
 
 // PRYZM brand purple (Contract 05/06 + ColourPalette) for valid placement;
 // red for invalid (no nearby wall — required for wall-hosted fixtures).
-const PRYZM_PURPLE        = '#8B5CF6';
-const PRYZM_PURPLE_FILL   = 'rgba(139,92,246,0.16)';
+const PRYZM_PURPLE        = '#6600ff';
+const PRYZM_PURPLE_FILL   = 'rgba(102,0,255,0.16)';
 const PRYZM_PURPLE_SYMBOL = '#6D28D9';
 const INVALID_RED         = '#EF4444';
 const INVALID_RED_FILL    = 'rgba(239,68,68,0.16)';
@@ -277,14 +277,14 @@ export class PlumbingPlanToolHandler implements PlanToolHandler {
         const ly = sy + ext + 12;
         ctx.fillStyle = 'rgba(255,255,255,0.92)';
         ctx.fillRect(sx - tw / 2 - 4, ly - 8, tw + 8, 15);
-        ctx.fillStyle    = valid ? '#4C1D95' : '#7F1D1D';
+        ctx.fillStyle    = valid ? '#6600ff' : '#7F1D1D';
         ctx.textAlign    = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(labelText, sx, ly);
 
         // Hint at bottom-left
         ctx.font         = '11px sans-serif';
-        ctx.fillStyle    = 'rgba(76,29,149,0.85)';
+        ctx.fillStyle    = 'rgba(102,0,255,0.85)';
         ctx.textAlign    = 'left';
         ctx.textBaseline = 'bottom';
         ctx.fillText('Click to place · Esc to cancel', 12, cssH - 12);

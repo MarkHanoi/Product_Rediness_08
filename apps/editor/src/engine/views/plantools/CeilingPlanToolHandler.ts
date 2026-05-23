@@ -20,8 +20,8 @@ import { createId } from '@pryzm/schemas';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 import type { CeilingPickerMode } from '@app/ui/CeilingModePicker';
 
-const STROKE = '#8b5cf6';
-const FILL_A = 'rgba(139,92,246,0.10)';
+const STROKE = '#6600ff';
+const FILL_A = 'rgba(102,0,255,0.10)';
 
 export class CeilingPlanToolHandler implements PlanToolHandler {
     private _ctx:         PlanToolDrawContext | null = null;
@@ -330,7 +330,7 @@ export class CeilingPlanToolHandler implements PlanToolHandler {
 
         if (screenPts.length >= 3 && this._cursorPoint) {
             ctx.setLineDash([3, 3]);
-            ctx.strokeStyle = 'rgba(139,92,246,0.4)';
+            ctx.strokeStyle = 'rgba(102,0,255,0.4)';
             ctx.lineWidth   = 1;
             const cur = planCanvas.worldToScreen(this._cursorPoint.worldX, this._cursorPoint.worldZ);
             ctx.beginPath();
@@ -350,7 +350,7 @@ export class CeilingPlanToolHandler implements PlanToolHandler {
 
     private _drawHint(ctx: CanvasRenderingContext2D, cssH: number, text: string): void {
         ctx.font      = 'bold 11px sans-serif';
-        ctx.fillStyle = 'rgba(139,92,246,0.9)';
+        ctx.fillStyle = 'rgba(102,0,255,0.9)';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'bottom';
         ctx.fillText(text, 12, cssH - 12);

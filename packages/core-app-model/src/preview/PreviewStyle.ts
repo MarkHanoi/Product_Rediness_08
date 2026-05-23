@@ -94,6 +94,26 @@ export const PREVIEW_COLOR = {
  */
 export const OBJECT_PREVIEW_OPACITY = 0.55;
 
+/**
+ * §41 — CSS-string mirror of the unified preview palette, for 2D <canvas>
+ * overlays (plan-view + elevation creation handlers) that draw with a
+ * CanvasRenderingContext2D and therefore cannot use the THREE numeric colours
+ * above. ALWAYS reference these instead of hardcoding a hex/rgba so plan, 3D
+ * and elevation creation previews share ONE on-brand colour (the architect
+ * directive — "all preview colours must use the contractual colours"). Keep in
+ * sync with PREVIEW_COLOR / Contract §41; `#6600ff` === 0x6600ff === rgb(102,0,255).
+ */
+export const PREVIEW_CSS = {
+    /** Stroke / line / marker colour for any user-creation preview. */
+    PRIMARY:      '#6600ff',
+    /** Translucent fill (≈0.14 alpha) for footprint polygons. */
+    PRIMARY_FILL: 'rgba(102,0,255,0.14)',
+    /** Slightly stronger translucent fill (≈0.16 alpha). */
+    PRIMARY_FILL_STRONG: 'rgba(102,0,255,0.16)',
+    /** AI-suggested ghost (the one §41 exception) as CSS. */
+    MEP:          '#a855f7',
+} as const;
+
 export type PreviewColor = number;
 
 // ── Material factories ──────────────────────────────────────────────────────

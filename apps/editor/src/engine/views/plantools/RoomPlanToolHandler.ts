@@ -170,7 +170,7 @@ export class RoomPlanToolHandler implements PlanToolHandler {
 
         if (screenPts.length >= 3) {
             ctx.globalAlpha = 0.12;
-            ctx.fillStyle = '#6366f1';
+            ctx.fillStyle = '#6600ff';
             ctx.beginPath();
             ctx.moveTo(screenPts[0].sx, screenPts[0].sy);
             for (let i = 1; i < screenPts.length; i++) ctx.lineTo(screenPts[i].sx, screenPts[i].sy);
@@ -185,7 +185,7 @@ export class RoomPlanToolHandler implements PlanToolHandler {
 
         ctx.setLineDash([5, 3]);
         ctx.lineWidth   = 1.5;
-        ctx.strokeStyle = '#6366f1';
+        ctx.strokeStyle = '#6600ff';
         ctx.beginPath();
         ctx.moveTo(screenPts[0].sx, screenPts[0].sy);
         for (let i = 1; i < screenPts.length; i++) ctx.lineTo(screenPts[i].sx, screenPts[i].sy);
@@ -196,7 +196,7 @@ export class RoomPlanToolHandler implements PlanToolHandler {
         ctx.stroke();
         ctx.setLineDash([]);
 
-        ctx.fillStyle = '#6366f1';
+        ctx.fillStyle = '#6600ff';
         for (const p of screenPts) {
             ctx.beginPath();
             ctx.arc(p.sx, p.sy, 4, 0, Math.PI * 2);
@@ -205,7 +205,7 @@ export class RoomPlanToolHandler implements PlanToolHandler {
 
         if (screenPts.length >= 3 && this._roomCursorPoint) {
             ctx.setLineDash([3, 3]);
-            ctx.strokeStyle = 'rgba(99,102,241,0.4)';
+            ctx.strokeStyle = 'rgba(102,0,255,0.4)';
             ctx.lineWidth = 1;
             const cur = planCanvas.worldToScreen(this._roomCursorPoint.worldX, this._roomCursorPoint.worldZ);
             ctx.beginPath();
@@ -219,7 +219,7 @@ export class RoomPlanToolHandler implements PlanToolHandler {
             ? 'Dbl-click or Enter to close'
             : `${3 - this._roomPoints.length} more point${3 - this._roomPoints.length !== 1 ? 's' : ''} needed`;
         ctx.font = 'bold 11px sans-serif';
-        ctx.fillStyle = 'rgba(99,102,241,0.9)';
+        ctx.fillStyle = 'rgba(102,0,255,0.9)';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'bottom';
         ctx.fillText(hint, 12, cssH - 12);

@@ -220,11 +220,21 @@ export class KitchenPlanSymbolBuilder {
             offsetZ?: number;
             rotY?:    number;
             withCountertopOverhang?: boolean;
+            /**
+             * §KITCHEN-PLAN-SYMBOL (2026-05-23) — REFLECTION transform (x'=v, z'=u)
+             * instead of a pure rotation. The L-shape LEFT arm in KitchenCabinetEngine
+             * is placed as a reflection of the arm-local frame (run → +Z, front → +X),
+             * which no rotation can reproduce (a pure +π/2 rotation gives run → −Z, so
+             * the symbol's L pointed the OPPOSITE way to the 3-D mesh — "L-shape flipped").
+             * When true, rotY is ignored.
+             */
+            swapUV?: boolean;
         } = {},
     ): void {
         const offsetX = opts.offsetX ?? 0;
         const offsetZ = opts.offsetZ ?? 0;
         const rotY    = opts.rotY    ?? 0;
+        const swapUV  = opts.swapUV === true;
         const cosR = Math.cos(rotY);
         const sinR = Math.sin(rotY);
 
@@ -264,12 +274,18 @@ export class KitchenPlanSymbolBuilder {
 
         // ── Apply arm-local rotation + translation, then push to out ─────
         for (let i = 0; i < tmp.length; i += 6) {
-            const ax = tmp[i],     az = tmp[i + 2];
-            const bx = tmp[i + 3], bz = tmp[i + 5];
-            const rxA =  ax * cosR + az * sinR;
-            const rzA = -ax * sinR + az * cosR;
-            const rxB =  bx * cosR + bz * sinR;
-            const rzB = -bx * sinR + bz * cosR;
+            // tmp is filled in 6-number tuples (x,y,z,x,y,z), so these indices are
+            // always present; `?? 0` keeps the type `number` (noUncheckedIndexedAccess).
+            const ax = tmp[i]     ?? 0, az = tmp[i + 2] ?? 0;
+            const bx = tmp[i + 3] ?? 0, bz = tmp[i + 5] ?? 0;
+            // §KITCHEN-PLAN-SYMBOL — swapUV is a REFLECTION (x'=v, z'=u): run → +Z,
+            // front → +X, matching the engine's left arm. The pure-rotation branch
+            // (x'=u·cos+v·sin, z'=−u·sin+v·cos) sent run → −Z for rotY=+π/2, which
+            // pointed the L the opposite way to the 3-D mesh.
+            const rxA = swapUV ? az :  ax * cosR + az * sinR;
+            const rzA = swapUV ? ax : -ax * sinR + az * cosR;
+            const rxB = swapUV ? bz :  bx * cosR + bz * sinR;
+            const rzB = swapUV ? bx : -bx * sinR + bz * cosR;
             out.push(rxA + offsetX, 0, rzA + offsetZ,
                      rxB + offsetX, 0, rzB + offsetZ);
         }
@@ -408,14 +424,15 @@ export class KitchenPlanSymbolBuilder {
             withCountertopOverhang: true,
         });
 
-        // Left arm: rotated +π/2 so arm-local +u (run) → root +Z and arm-local
-        // +v (front) → root +X.  Back-left corner (u=0, v=0) sits at
-        // (root x = -length/2, root z = +depth/2).
+        // Left arm: REFLECTED (swapUV: x'=v, z'=u) so arm-local +u (run) → root +Z
+        // and arm-local +v (front) → root +X. Back-left corner (u=0, v=0) sits at
+        // (root x = -length/2, root z = +depth/2). NB: a pure +π/2 rotation sent the
+        // run to −Z, which mirrored the L vs the 3-D mesh (§KITCHEN-PLAN-SYMBOL).
         if (leftLen > 0 && numL > 0) {
             this._drawArm(out, leftLen, depth, leftUnits, numL, {
                 offsetX: -length / 2,
                 offsetZ:  depth  / 2,
-                rotY:     Math.PI / 2,
+                swapUV:   true,
                 withCountertopOverhang: true,
             });
         }
@@ -447,7 +464,7 @@ export class KitchenPlanSymbolBuilder {
             this._drawArm(out, leftLen, depth, leftUnits, numL, {
                 offsetX: -length / 2,
                 offsetZ:  depth  / 2,
-                rotY:     Math.PI / 2,
+                swapUV:   true,
                 withCountertopOverhang: true,
             });
         }

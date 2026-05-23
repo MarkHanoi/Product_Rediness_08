@@ -476,7 +476,7 @@ export class LinearDimPlanToolHandler implements PlanToolHandler {
         const wall = wallStore?.getById?.(hit.wallId);
         if (!wall?.baseLine || wall.baseLine.length < 2) {
             const sf = planCanvas.worldToScreen(hit.facePoint.x, hit.facePoint.z);
-            ctx.strokeStyle = '#4499ff'; ctx.lineWidth = 2; ctx.setLineDash([]);
+            ctx.strokeStyle = '#6600ff'; ctx.lineWidth = 2; ctx.setLineDash([]);
             ctx.beginPath(); ctx.arc(sf.sx, sf.sy, 8, 0, Math.PI * 2); ctx.stroke();
             return;
         }
@@ -497,21 +497,21 @@ export class LinearDimPlanToolHandler implements PlanToolHandler {
         const sfA = planCanvas.worldToScreen(faceA.x, faceA.z);
         const sfB = planCanvas.worldToScreen(faceB.x, faceB.z);
 
-        ctx.strokeStyle = '#4499ff'; ctx.lineWidth = 2; ctx.setLineDash([]);
+        ctx.strokeStyle = '#6600ff'; ctx.lineWidth = 2; ctx.setLineDash([]);
         ctx.beginPath(); ctx.moveTo(sfA.sx, sfA.sy); ctx.lineTo(sfB.sx, sfB.sy); ctx.stroke();
 
         const baseA = planCanvas.worldToScreen(bl[0].x, bl[0].z);
         const baseB = planCanvas.worldToScreen(bl[1].x, bl[1].z);
-        ctx.fillStyle = 'rgba(68,153,255,0.18)';
+        ctx.fillStyle = 'rgba(102,0,255,0.18)';
         ctx.beginPath();
         ctx.moveTo(baseA.sx, baseA.sy); ctx.lineTo(baseB.sx, baseB.sy);
         ctx.lineTo(sfB.sx, sfB.sy); ctx.lineTo(sfA.sx, sfA.sy);
         ctx.closePath(); ctx.fill();
 
         const sf = planCanvas.worldToScreen(hit.facePoint.x, hit.facePoint.z);
-        ctx.strokeStyle = '#4499ff'; ctx.lineWidth = 2; ctx.setLineDash([]);
+        ctx.strokeStyle = '#6600ff'; ctx.lineWidth = 2; ctx.setLineDash([]);
         ctx.beginPath(); ctx.arc(sf.sx, sf.sy, 7, 0, Math.PI * 2); ctx.stroke();
-        ctx.fillStyle = '#4499ff';
+        ctx.fillStyle = '#6600ff';
         ctx.beginPath(); ctx.arc(sf.sx, sf.sy, 3, 0, Math.PI * 2); ctx.fill();
     }
 

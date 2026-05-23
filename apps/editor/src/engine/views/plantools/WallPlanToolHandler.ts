@@ -411,7 +411,7 @@ export class WallPlanToolHandler implements PlanToolHandler {
             const ctrl = _bezierControl(this._wallFirstPoint, this._arcMidPt, this._wallCursorPoint);
             const sc   = planCanvas.worldToScreen(ctrl.x, ctrl.z);
 
-            ctx.strokeStyle = '#8B5CF6';
+            ctx.strokeStyle = '#6600ff';
             ctx.lineWidth   = 2.5;
             ctx.setLineDash([]);
             ctx.beginPath();
@@ -420,7 +420,7 @@ export class WallPlanToolHandler implements PlanToolHandler {
             ctx.stroke();
 
             // Arc midpoint indicator
-            ctx.fillStyle = '#8B5CF6';
+            ctx.fillStyle = '#6600ff';
             ctx.beginPath(); ctx.arc(sm.sx, sm.sy, 5, 0, Math.PI * 2); ctx.fill();
             ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
             ctx.stroke();
@@ -436,13 +436,13 @@ export class WallPlanToolHandler implements PlanToolHandler {
             const tw = ctx.measureText(label).width;
             ctx.fillStyle = 'rgba(255,255,255,0.90)';
             ctx.fillRect(midX - tw / 2 - 4, midY - 9, tw + 8, 16);
-            ctx.fillStyle = '#4c1d95';
+            ctx.fillStyle = '#6600ff';
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillText(label, midX, midY);
 
         } else if (mode === 'curved' && !this._arcMidPt) {
             // ── Curved mode state 1: awaiting arc midpoint — draw dashed preview line ──
-            ctx.strokeStyle = '#8B5CF6';
+            ctx.strokeStyle = '#6600ff';
             ctx.lineWidth   = 2;
             ctx.setLineDash([6, 4]);
             ctx.beginPath();
@@ -472,8 +472,8 @@ export class WallPlanToolHandler implements PlanToolHandler {
                     { x: e.sx - perpX * halfWidth, y: e.sy - perpY * halfWidth },
                     { x: e.sx + perpX * halfWidth, y: e.sy + perpY * halfWidth },
                 ];
-                ctx.fillStyle = 'rgba(139,92,246,0.35)';
-                ctx.strokeStyle = '#8B5CF6';
+                ctx.fillStyle = 'rgba(102,0,255,0.35)';
+                ctx.strokeStyle = '#6600ff';
                 ctx.lineWidth = 1.5;
                 ctx.setLineDash([]);
                 ctx.beginPath();

@@ -115,8 +115,8 @@ const FOOTPRINTS: Record<string, { w: number; l: number; h: number }> = {
 };
 const DEFAULT_FOOTPRINT = { w: 0.60, l: 0.60, h: 0.90 };
 
-const STROKE_COLOUR = '#7c3aed';   // violet-700 — distinct from column (#0891b2) and wall (#8B5CF6)
-const FILL_COLOUR   = 'rgba(124,58,237,0.12)';
+const STROKE_COLOUR = '#6600ff';   // violet-700 — distinct from column (#6600ff) and wall (#6600ff)
+const FILL_COLOUR   = 'rgba(102,0,255,0.12)';
 const DEFAULT_MATERIAL: FurnitureMaterial = 'wood';
 
 function _getActiveType(): FurnitureType {
@@ -531,7 +531,7 @@ export class FurniturePlanToolHandler implements PlanToolHandler {
         const tw = ctx.measureText(labelText).width;
         ctx.fillStyle = 'rgba(255,255,255,0.92)';
         ctx.fillRect(labelCx - tw / 2 - 4, labelLy - 8, tw + 8, 15);
-        ctx.fillStyle    = '#4c1d95';
+        ctx.fillStyle    = '#6600ff';
         ctx.textAlign    = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(labelText, labelCx, labelLy);

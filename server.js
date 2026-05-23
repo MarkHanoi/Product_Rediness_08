@@ -2786,12 +2786,15 @@ app.delete('/api/projects/:id', authMiddleware, async (req, res) => {
             return res.json({ deleted: true });
         }
         if (getPgPool()) {
-            const deleted = await pgProjectStore.deleteProject(id, userId);
-            if (!deleted) return res.status(404).json({ error: 'Project not found or access denied.' });
+            // §PROJECT-DELETE-IDEMPOTENT (2026-05-23) — mirror the v1 handler: a DELETE
+            // of an already-absent project reports success rather than 404, so the client
+            // can always remove a project the server no longer has (volatile store / restart).
+            // deleteProject's WHERE owner_id still protects other owners' rows.
+            await pgProjectStore.deleteProject(id, userId);
             return res.json({ deleted: true });
         }
-        // In-memory fallback
-        if (!_projects.has(id)) return res.status(404).json({ error: 'Project not found.' });
+        // In-memory fallback — idempotent: deleting an absent project still succeeds
+        // (Map.delete on a missing key is a harmless no-op).
         _projects.delete(id);
         return res.json({ deleted: true });
     } catch (err) {
@@ -2980,8 +2983,18 @@ app.get('/api/projects/:id/latest-version', authMiddleware, async (req, res) => 
             return res.json({ version: full ?? null });
         }
         // In-memory fallback
+        // §PROJECT-OPEN-FAIL-FRESH (2026-05-23, #74) — the legacy in-memory map
+        // `_projects` is NOT the only volatile store: projects created through the
+        // v1 API live in pgProjectStore's `_inMemoryProjects` map, and after a server
+        // restart BOTH maps are empty while the client still lists the project from
+        // localStorage. The old `if (!proj …) 404` therefore failed to open a freshly-
+        // created (or post-restart) project — "just-created project fails to open".
+        // Fix: only 404 when the project EXISTS here AND is owned by someone else
+        // (preserves cross-user isolation, #122). An unknown id falls through to the
+        // "no versions yet" branch → `{ version: null }` → the client opens it empty,
+        // which is correct for a project that has no server-side saved version.
         const proj = _projects.get(id);
-        if (!proj || proj.ownerId !== userId) return res.status(404).json({ error: 'Project not found.' });
+        if (proj && proj.ownerId !== userId) return res.status(404).json({ error: 'Project not found.' });
         const all = (_versions.get(id) ?? []).slice().reverse();
         if (all.length === 0) return res.json({ version: null });
         res.set('ETag', `"${all[0].id}"`);

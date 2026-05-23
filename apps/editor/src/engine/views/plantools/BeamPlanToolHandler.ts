@@ -1,8 +1,8 @@
 import { createId } from '@pryzm/schemas';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 
-const STROKE   = '#6366f1';
-const FILL_A   = 'rgba(99,102,241,0.10)';
+const STROKE   = '#6600ff';
+const FILL_A   = 'rgba(102,0,255,0.10)';
 const BEAM_W   = 0.2;   // metres
 const BEAM_D   = 0.3;   // metres
 
@@ -173,7 +173,7 @@ export class BeamPlanToolHandler implements PlanToolHandler {
 
         // Hint label
         ctx.font = 'bold 11px sans-serif';
-        ctx.fillStyle = 'rgba(99,102,241,0.9)';
+        ctx.fillStyle = 'rgba(102,0,255,0.9)';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'bottom';
         ctx.fillText('Click end point to place beam', 12, cssH - 12);

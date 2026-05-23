@@ -4,8 +4,8 @@ import { canvasHitToWorld3D } from '@pryzm/core-app-model';
 // Door placement is now bus-only via WallOpeningLegacyAdapterHandler (plugins/wall).
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 
-const PRYZM_PREVIEW_PURPLE = '#8B5CF6';
-const PRYZM_PREVIEW_PURPLE_FILL = 'rgba(139,92,246,0.16)';
+const PRYZM_PREVIEW_PURPLE = '#6600ff';
+const PRYZM_PREVIEW_PURPLE_FILL = 'rgba(102,0,255,0.16)';
 
 export class DoorPlanToolHandler implements PlanToolHandler {
     private _ctx: PlanToolDrawContext | null = null;

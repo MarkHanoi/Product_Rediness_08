@@ -150,6 +150,8 @@ export class SvpPlanToolOverlay {
 
     // Injected on attach
     private _svpCanvas:  HTMLCanvasElement | null = null;
+    /** §GRID-SPLITVIEW (2026-05-23) — "+ Grid" entry point for the split-view plan pane. */
+    private _gridBtn:    HTMLButtonElement | null = null;
     private _planCanvas: PlanViewCanvas   | null = null;
     private _viewId:     string                  = DEFAULT_PLAN_VIEW_ID;
 
@@ -247,6 +249,7 @@ export class SvpPlanToolOverlay {
         this._snapTooltip = tip;
 
         this._syncOverlaySize();
+        this._mountGridButton();
 
         // ── SVP canvas events ─────────────────────────────────────────────
         svpCanvas.addEventListener('mouseenter', this._bMouseEnter);
@@ -321,6 +324,10 @@ export class SvpPlanToolOverlay {
         this._overlay?.remove();
         this._overlay = null;
         this._ctx     = null;
+
+        // §GRID-SPLITVIEW — tear down the "+ Grid" entry button with the overlay.
+        this._gridBtn?.remove();
+        this._gridBtn = null;
 
         this._snapTooltip?.remove();
         this._snapTooltip = null;
@@ -615,6 +622,60 @@ export class SvpPlanToolOverlay {
         const ph  = Math.round(rect.height * dpr);
         if (this._overlay.width  !== pw) this._overlay.width  = pw;
         if (this._overlay.height !== ph) this._overlay.height = ph;
+        this._positionGridButton();
+    }
+
+    // ── §GRID-SPLITVIEW (2026-05-23) — "+ Grid" entry point for the split-view ──
+    // plan pane. The SVP overlay already registers the grid plan-tool handler and
+    // routes it (ACTIVE_TOOL_KEYS includes 'grid'), but there was NO way to ACTIVATE
+    // grid from split view — the only "+ Grid" affordance lived in PlanViewToolOverlay
+    // (the MAIN plan view). So grid lines could be created in the main plan view but
+    // not in the split-view plan pane. This button mirrors that affordance and calls
+    // the same toolManager.activateGrid(); the existing SVP handler dispatch then
+    // takes the clicks once the pane is focused (identical to wall/window/stair).
+    private _mountGridButton(): void {
+        if (this._gridBtn) return;
+        const viewDef = viewDefinitionStore.get(this._viewId) ?? null;
+        const vt = viewDef?.viewType;
+        if (vt !== 'plan' && vt !== 'structural-plan') return; // grids are a plan-view concept
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = '+ Grid';
+        btn.title = 'Create a structural grid line in this plan view';
+        Object.assign(btn.style, {
+            position: 'fixed', zIndex: '10002', padding: '8px 14px',
+            background: 'linear-gradient(180deg,#7c3aed 0%,#6d28d9 100%)',
+            color: '#ffffff', border: '1px solid rgba(255,255,255,0.18)',
+            borderRadius: '8px', fontSize: '12px', fontFamily: 'system-ui, sans-serif',
+            fontWeight: '600', letterSpacing: '0.02em', cursor: 'pointer',
+            boxShadow: '0 4px 12px rgba(76,29,149,0.35)', userSelect: 'none', display: 'none',
+        } as Partial<CSSStyleDeclaration>);
+        btn.addEventListener('mouseenter', () => { btn.style.background = 'linear-gradient(180deg,#8b5cf6 0%,#7c3aed 100%)'; });
+        btn.addEventListener('mouseleave', () => { btn.style.background = 'linear-gradient(180deg,#7c3aed 0%,#6d28d9 100%)'; });
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const tm = window.toolManager;
+            if (tm?.activateGrid) {
+                tm.activateGrid();
+                console.log('[SvpPlanToolOverlay] §GRID-SPLITVIEW grid tool activated from split-view "+ Grid" button');
+            } else {
+                console.warn('[SvpPlanToolOverlay] toolManager.activateGrid not available');
+            }
+        });
+        document.body.appendChild(btn);
+        this._gridBtn = btn;
+        this._positionGridButton();
+    }
+
+    private _positionGridButton(): void {
+        const btn = this._gridBtn;
+        const canvas = this._svpCanvas;
+        if (!btn || !canvas) return;
+        const rect = canvas.getBoundingClientRect();
+        btn.style.left    = `${rect.left + 16}px`;
+        btn.style.top     = `${rect.bottom - (btn.offsetHeight || 34) - 16}px`;
+        btn.style.display = 'block';
     }
 
     private _clearOverlay(): void {
@@ -697,9 +758,16 @@ export class SvpPlanToolOverlay {
         ctx.save();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
 
+        // §PREVIEW-COLOR-UNIFY-2D (2026-05-23, architect directive) — snap markers
+        // now use the single contractual PRYZM purple #6600ff. The snap TYPE remains
+        // identifiable by the distinct marker SHAPE (diamond=endpoint, triangle=
+        // midpoint, square=grid, X=intersection, circle=nearest) + the snap tooltip,
+        // so colour unification keeps the brand consistent without losing snap info.
+        const SNAP = '#6600ff';
+        const SNAP_FILL = 'rgba(102,0,255,0.18)';
         if (snapType === 'endpoint') {
-            ctx.strokeStyle = '#22c55e';
-            ctx.fillStyle   = 'rgba(34,197,94,0.18)';
+            ctx.strokeStyle = SNAP;
+            ctx.fillStyle   = SNAP_FILL;
             ctx.lineWidth   = 1.5 * dpr;
             ctx.beginPath();
             ctx.moveTo(px,       py - SZ);
@@ -711,8 +779,8 @@ export class SvpPlanToolOverlay {
             ctx.stroke();
 
         } else if (snapType === 'midpoint') {
-            ctx.strokeStyle = '#06b6d4';
-            ctx.fillStyle   = 'rgba(6,182,212,0.18)';
+            ctx.strokeStyle = SNAP;
+            ctx.fillStyle   = SNAP_FILL;
             ctx.lineWidth   = 1.5 * dpr;
             ctx.beginPath();
             ctx.moveTo(px,       py - SZ);
@@ -723,9 +791,9 @@ export class SvpPlanToolOverlay {
             ctx.stroke();
 
         } else if (snapType === 'grid-line' || snapType === 'grid-intersection') {
-            // Grid snaps — orange square with a centered dot (Revit convention).
-            ctx.strokeStyle = '#f59e0b';
-            ctx.fillStyle   = 'rgba(245,158,11,0.20)';
+            // Grid snaps — square with a centered dot (Revit convention; brand purple).
+            ctx.strokeStyle = SNAP;
+            ctx.fillStyle   = 'rgba(102,0,255,0.20)';
             ctx.lineWidth   = 1.5 * dpr;
             ctx.beginPath();
             ctx.rect(px - SZ, py - SZ, SZ * 2, SZ * 2);
@@ -734,13 +802,13 @@ export class SvpPlanToolOverlay {
             if (snapType === 'grid-intersection') {
                 ctx.beginPath();
                 ctx.arc(px, py, SZ * 0.35, 0, Math.PI * 2);
-                ctx.fillStyle = '#f59e0b';
+                ctx.fillStyle = SNAP;
                 ctx.fill();
             }
 
         } else if (snapType === 'intersection') {
-            // Geometry intersection — yellow X.
-            ctx.strokeStyle = '#facc15';
+            // Geometry intersection — X marker.
+            ctx.strokeStyle = SNAP;
             ctx.lineWidth   = 1.7 * dpr;
             ctx.beginPath();
             ctx.moveTo(px - SZ, py - SZ); ctx.lineTo(px + SZ, py + SZ);
@@ -749,14 +817,14 @@ export class SvpPlanToolOverlay {
 
         } else if (snapType === 'nearest') {
             // Lowest-priority — small hollow circle.
-            ctx.strokeStyle = '#94a3b8';
+            ctx.strokeStyle = SNAP;
             ctx.lineWidth   = 1.2 * dpr;
             ctx.beginPath();
             ctx.arc(px, py, SZ * 0.55, 0, Math.PI * 2);
             ctx.stroke();
 
         } else {
-            ctx.strokeStyle = '#a78bfa';
+            ctx.strokeStyle = SNAP;
             ctx.lineWidth   = 1.5 * dpr;
             ctx.beginPath();
             ctx.moveTo(px - SZ, py - SZ); ctx.lineTo(px + SZ, py + SZ);
@@ -764,7 +832,7 @@ export class SvpPlanToolOverlay {
             ctx.stroke();
             ctx.beginPath();
             ctx.arc(px, py, SZ * 0.45, 0, Math.PI * 2);
-            ctx.strokeStyle = '#a78bfa';
+            ctx.strokeStyle = SNAP;
             ctx.stroke();
         }
 

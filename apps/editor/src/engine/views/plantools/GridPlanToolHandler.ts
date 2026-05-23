@@ -29,8 +29,8 @@ import { gridModePicker } from '@app/ui/GridModePicker';
 import { gridDrawingHUD } from '@app/ui/GridDrawingHUD';
 import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToolHandler';
 
-const STROKE   = '#7c3aed';   // violet-700
-const DASHED   = 'rgba(124,58,237,0.6)';
+const STROKE   = '#6600ff';   // violet-700
+const DASHED   = 'rgba(102,0,255,0.6)';
 const BUBBLE_R = 10;          // px — grid bubble radius
 // §40 §6 — Adjacency preview styling.
 const ADJ_DIM_COLOR = '#0f766e'; // teal-700 — distance dimension line / text
@@ -503,7 +503,7 @@ export class GridPlanToolHandler implements PlanToolHandler {
             const tw = ctx.measureText(posLabel).width;
             ctx.fillStyle = 'rgba(255,255,255,0.92)';
             ctx.fillRect(cx + 10, cy - 9, tw + 8, 16);
-            ctx.fillStyle    = '#4c1d95';
+            ctx.fillStyle    = '#6600ff';
             ctx.textAlign    = 'left';
             ctx.textBaseline = 'middle';
             ctx.fillText(posLabel, cx + 14, cy);
@@ -565,7 +565,7 @@ export class GridPlanToolHandler implements PlanToolHandler {
         ctx.fill();
         ctx.stroke();
 
-        ctx.fillStyle    = '#4c1d95';
+        ctx.fillStyle    = '#6600ff';
         ctx.font         = `bold ${Math.min(9, Math.floor(BUBBLE_R * 1.3))}px sans-serif`;
         ctx.textAlign    = 'center';
         ctx.textBaseline = 'middle';
@@ -574,7 +574,7 @@ export class GridPlanToolHandler implements PlanToolHandler {
 
     private _drawHint(ctx: CanvasRenderingContext2D, _w: number, h: number, text: string): void {
         ctx.font         = '11px sans-serif';
-        ctx.fillStyle    = 'rgba(76,29,149,0.85)';
+        ctx.fillStyle    = 'rgba(102,0,255,0.85)';
         ctx.textAlign    = 'left';
         ctx.textBaseline = 'bottom';
         ctx.fillText(text, 12, h - 12);

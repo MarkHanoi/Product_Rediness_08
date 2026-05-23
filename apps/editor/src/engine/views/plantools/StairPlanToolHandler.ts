@@ -3,8 +3,8 @@ import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToo
 // Dispatch is bus-only via 'stair.create'. The §E.5.4 bridge in initBusHandlers.ts
 // routes stair.create → _cmExec(new CreateStairCommand(cmd)) → legacy stair store → mesh rebuild.
 
-const STROKE = '#6366f1';
-const FILL_A = 'rgba(99,102,241,0.10)';
+const STROKE = '#6600ff';
+const FILL_A = 'rgba(102,0,255,0.10)';
 
 /**
  * D-1 — Stair creation in plan view.
@@ -317,7 +317,7 @@ export class StairPlanToolHandler implements PlanToolHandler {
             const hint = 'Click first corner to start stair bounding box';
             const tw   = ctx.measureText(hint).width;
             ctx.fillRect(8, cssH - 30, tw + 14, 20);
-            ctx.fillStyle = 'rgba(99,102,241,0.95)';
+            ctx.fillStyle = 'rgba(102,0,255,0.95)';
             ctx.fillText(hint, 14, cssH - 14);
             ctx.restore();
             return;
@@ -410,7 +410,7 @@ export class StairPlanToolHandler implements PlanToolHandler {
                 const f2W = rw;
                 const f2H = rh - f1H;
                 // Landing rectangle at the elbow
-                ctx.fillStyle = 'rgba(99,102,241,0.18)';
+                ctx.fillStyle = 'rgba(102,0,255,0.18)';
                 ctx.fillRect(f2X, f2Y, f2W, f2H);
                 for (let i = 1; i < half; i++) {
                     const y = (ry + f2H) + (f1H / half) * i;
@@ -427,7 +427,7 @@ export class StairPlanToolHandler implements PlanToolHandler {
                 const f2Y = ry;
                 const f2W = rw - f1W;
                 const f2H = rh;
-                ctx.fillStyle = 'rgba(99,102,241,0.18)';
+                ctx.fillStyle = 'rgba(102,0,255,0.18)';
                 ctx.fillRect(f2X, f2Y, f2W, f2H);
                 for (let i = 1; i < half; i++) {
                     const x = rx + (f1W / half) * i;
@@ -451,7 +451,7 @@ export class StairPlanToolHandler implements PlanToolHandler {
                 const landingH = rh * 0.18;
                 const flightH  = rh - landingH;
                 const halfW    = rw / 2;
-                ctx.fillStyle = 'rgba(99,102,241,0.18)';
+                ctx.fillStyle = 'rgba(102,0,255,0.18)';
                 ctx.fillRect(rx, ry, rw, landingH);
                 for (let i = 1; i < half; i++) {
                     const y = (ry + landingH) + (flightH / half) * i;
@@ -470,7 +470,7 @@ export class StairPlanToolHandler implements PlanToolHandler {
                 const landingW = rw * 0.18;
                 const flightW  = rw - landingW;
                 const halfH    = rh / 2;
-                ctx.fillStyle = 'rgba(99,102,241,0.18)';
+                ctx.fillStyle = 'rgba(102,0,255,0.18)';
                 ctx.fillRect(rx, ry, landingW, rh);
                 for (let i = 1; i < half; i++) {
                     const x = (rx + landingW) + (flightW / half) * i;
@@ -498,7 +498,7 @@ export class StairPlanToolHandler implements PlanToolHandler {
         }
 
         // Break line at midpoint (zigzag diagonal — standard plan-view stair convention)
-        ctx.strokeStyle = 'rgba(99,102,241,0.7)';
+        ctx.strokeStyle = 'rgba(102,0,255,0.7)';
         ctx.lineWidth = 1.5;
         if (flightIsVertical) {
             const midY = ry + rh / 2;
@@ -560,7 +560,7 @@ export class StairPlanToolHandler implements PlanToolHandler {
         ctx.beginPath(); ctx.arc(sB.sx, sB.sy, 4, 0, Math.PI * 2); ctx.fill();
 
         ctx.font = 'bold 11px sans-serif';
-        ctx.fillStyle = 'rgba(99,102,241,0.9)';
+        ctx.fillStyle = 'rgba(102,0,255,0.9)';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'bottom';
         ctx.fillText(`Click opposite corner to place stair (~${stepCount} treads)`, 12, cssH - 12);

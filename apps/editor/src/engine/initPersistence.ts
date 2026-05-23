@@ -191,6 +191,20 @@ export function initPersistence(params: {
                     return null;
                 }
 
+                // §PROJECT-PREVIEW-WHITE-BG (2026-05-23, #107) — the source renderer
+                // canvas uses an alpha:true GL/WebGPU context, so its background pixels
+                // are TRANSPARENT (alpha=0). Drawn straight to the thumbnail, that
+                // transparent backdrop renders as a flat WHITE tile on the project card
+                // ("white project previews"). Paint an opaque, viewport-matching backdrop
+                // BEHIND the captured geometry — `destination-over` composites the fill
+                // UNDER the existing pixels, so the geometry stays on top and the blank
+                // check above still measured geometry-only signal. Now the preview shows
+                // the model over the editor's backdrop instead of blank white.
+                ctx.globalCompositeOperation = 'destination-over';
+                ctx.fillStyle = '#e8edf6'; // matches the #container viewport background (index.html)
+                ctx.fillRect(0, 0, dstW, dstH);
+                ctx.globalCompositeOperation = 'source-over';
+
                 const dataUrl = thumb.toDataURL('image/webp', 0.72);
                 console.log(`[captureThumbnail] Thumbnail captured: ${dstW}×${dstH}px, ~${Math.round(dataUrl.length / 1024)}KB`);
                 return dataUrl;

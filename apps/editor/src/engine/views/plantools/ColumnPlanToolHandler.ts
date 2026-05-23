@@ -86,16 +86,16 @@ export class ColumnPlanToolHandler implements PlanToolHandler {
 
         ctx.save();
         ctx.setLineDash([4, 3]);
-        ctx.strokeStyle = '#8B5CF6';
+        ctx.strokeStyle = '#6600ff';
         ctx.lineWidth = 1.5;
-        ctx.fillStyle = 'rgba(139,92,246,0.14)';
+        ctx.fillStyle = 'rgba(102,0,255,0.14)';
         ctx.beginPath();
         ctx.rect(sx - hw, sy - hd, hw * 2, hd * 2);
         ctx.fill();
         ctx.stroke();
         ctx.setLineDash([]);
 
-        ctx.strokeStyle = '#8B5CF6';
+        ctx.strokeStyle = '#6600ff';
         ctx.lineWidth = 0.75;
         ctx.beginPath();
         ctx.moveTo(sx - hw - 4, sy); ctx.lineTo(sx + hw + 4, sy);
