@@ -115,6 +115,7 @@ declare global {
     roofTool?: any;
     wallTool?: any;
     stairPathTool?: any;
+    stairPath3DTool?: any;
     stairTool?: any;
     ceilingTool?: any;
     floorTool?: any;

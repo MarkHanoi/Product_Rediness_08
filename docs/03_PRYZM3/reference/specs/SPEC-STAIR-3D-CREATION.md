@@ -1,6 +1,8 @@
 # SPEC — Stair Creation in the 3D View
 
-> **Status**: PLAN / proposed spec. **Created**: 2026-05-22.
+> **Status**: IMPLEMENTED (2026-05-23, type-clean; runtime verification pending —
+> see §6 gate). Phases 1–4 of §4 landed; the legacy click-by-click `StairTool`
+> remains as the `createStair` fallback. **Created**: 2026-05-22.
 > **Trigger**: architect — "every element can be created in plan OR 3D except
 > the stair, which is plan-only. Enable stair creation in 3D following the same
 > '2D sketch' concept, adapted to 3D. Plan it carefully, no shortcuts."
@@ -88,14 +90,30 @@ existing §13-CAM / C11 §12 framing applies; standalone 3D uses §43 framing.
 
 ## 4. Phased plan
 
-1. **Extract** `StairSketchCoordinateProvider`; refactor controller to use it;
-   wrap `PlanViewCanvas` as the plan provider (no behaviour change — pure refactor,
-   guarded by existing plan-view stair tests).
-2. **Implement** the 3D provider (raycast + project). Unit-test round-trip
-   (worldToScreen∘screenToWorld ≈ identity on the ground plane).
-3. **Wire** `activateStairTool` 3D branch + main-canvas pointer forwarding.
-4. **Preview**: ensure the overlay tracks the 3D camera; add the 3D ghost (S2).
-5. **Verify** I/L/U + curved stairs create identically in 3D and plan.
+1. ✅ **Extract** `StairSketchCoordinateProvider`; refactor controller to use it;
+   wrap `PlanViewCanvas` as the plan provider (no behaviour change — pure refactor).
+   *Done 2026-05-23:* `StairSketchCoordinateProvider.ts` + `planViewSketchProvider`;
+   the controller resolves `_coordProvider` once (explicit provider wins, else wraps
+   `planViewCanvas`) and both overlay draw calls go through it. `planViewCanvas` is
+   now optional in `StairPathToolConfig`.
+2. ✅ **Implement** the 3D provider (project) + ground-plane raycast (screen→world).
+   *Done 2026-05-23:* `StairPath3DToolHandler.worldToScreen` projects through the
+   active perspective camera; pointer events resolve via
+   `raycaster.ray.intersectPlane(Plane(0,1,0,-groundY))` (honours the null return).
+3. ✅ **Wire** the activation 3D branch + main-canvas pointer forwarding.
+   *Done 2026-05-23:* `BimService.activateStairPathTool` routes to
+   `window.stairPath3DTool` when `planView2DCreationMode.isInPlanView(world.camera.three)`
+   is false (3D view); the plan/split-plan-pane path is unchanged. The handler is
+   constructed in `initTools` with live `getWorld`/level accessors. Pointer
+   `down → feedClick`, `move → feedMove`, `dblclick → feedDoubleClick`,
+   `contextmenu → feedRightClick`; keyboard (Enter/Esc/Backspace/Shift) stays in
+   the controller's own document listeners.
+4. ✅ **Preview**: the overlay canvas is sized to the 3D canvas and re-projects on
+   every `feedMove` (orbit is a drag → pointermove → re-project, so the overlay
+   tracks the 3D camera). The optional standalone 3D ghost (S2) is deferred — the
+   overlay is sufficient for v1.
+5. ⏳ **Verify** I/L/U + curved stairs create identically in 3D and plan (the §6
+   gate — needs the architect's runtime pass; type-clean as of 2026-05-23).
 
 ## 5. Risks & mitigations
 

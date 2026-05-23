@@ -1257,6 +1257,11 @@ export class EdgeProjectorService {
         // final step before returning).
         'ceiling',
         'floor',
+        // §89 (2026-05-23) — stair-railing now version-stamps on every build
+        // (StairRailingBuilder.buildRailing captures the prior version + 1; single
+        // clean exit, no early-return bypass). Promoting it extends the per-element
+        // projection cache to railings — the last common projectable stair part.
+        'stair-railing',
     ]);
 
     /**

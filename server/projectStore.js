@@ -75,6 +75,90 @@ export function _hasInMemoryProject(projectId, userId) {
     return !!row && (!userId || row.owner_id === userId);
 }
 
+// ── §STORE-UNIFY (2026-05-23) — single in-memory PROJECT authority ──────────────
+// The unversioned /api/projects routes in server.js used to keep their OWN
+// `_projects` Map; the v1 /api/v1/projects routes create projects in
+// `_inMemoryProjects` here. The two maps DIVERGED: a v1-created project was
+// invisible to the v0 open / list / delete / version-save fallbacks, so a
+// just-created project failed to open (#74), delete restored it (#76), and
+// auto-save version counts desynced (#134) — all previously patched defensively.
+//
+// These accessors make `_inMemoryProjects` the ONE in-memory project store.
+// server.js now delegates to them and no longer keeps a parallel `_projects`
+// map. Rows are translated to the v0 shape the unversioned routes expect
+// ({ id, name, updatedAt:<ms>, versionCount, ownerId }) so server.js's existing
+// field reads (`.ownerId`, `.versionCount`, `.updatedAt`) are unchanged.
+//
+// They write/read `_inMemoryProjects` UNCONDITIONALLY (not gated on `_hasPool()`):
+// the v0 routes seed this map as a Socket.io join-project race-window cache even
+// when Supabase/PG is the durable store (server.js create path), exactly as the
+// old `_projects` map did. The `is_empty` / `latest_element_count` fields keep
+// the v1 hub list accurate after an in-memory version save.
+
+function _toV0Project(row) {
+    if (!row) return null;
+    return {
+        id:           row.id,
+        name:         row.name,
+        updatedAt:    new Date(row.updated_at).getTime(),
+        versionCount: row.version_count ?? 0,
+        ownerId:      row.owner_id,
+    };
+}
+
+/** v0-shaped read of the single in-memory project store; null when absent. */
+export function imGetProject(projectId) {
+    return _toV0Project(_inMemoryProjects.get(projectId) ?? null);
+}
+
+/** All v0-shaped rows (optionally owner-filtered), newest-first. */
+export function imListProjects(userId) {
+    const out = [];
+    for (const row of _inMemoryProjects.values()) {
+        if (!userId || row.owner_id === userId) out.push(_toV0Project(row));
+    }
+    out.sort((a, b) => b.updatedAt - a.updatedAt);
+    return out;
+}
+
+/** Create-or-update the in-memory row; returns the v0-shaped row. */
+export function imUpsertProject(projectId, name, ownerId) {
+    const existing = _inMemoryProjects.get(projectId);
+    if (existing) {
+        if (name != null) existing.name = name;
+        existing.updated_at = new Date().toISOString();
+        return _toV0Project(existing);
+    }
+    const row = _inMemoryRowFor(projectId, name ?? 'Untitled', ownerId);
+    _inMemoryProjects.set(projectId, row);
+    return _toV0Project(row);
+}
+
+/** Delete; returns true when a row was removed. */
+export function imDeleteProject(projectId) {
+    return _inMemoryProjects.delete(projectId);
+}
+
+/**
+ * Record a version save against the in-memory row: bump updated_at + set the
+ * authoritative version_count (server.js owns the in-memory version list), and
+ * refresh the hub-display derived fields so the v1 project list stops showing a
+ * saved-into project as empty.
+ */
+export function imRecordVersionSave(projectId, versionCount, elementCount) {
+    const row = _inMemoryProjects.get(projectId);
+    if (!row) return;
+    row.updated_at = new Date().toISOString();
+    if (typeof versionCount === 'number') row.version_count = versionCount;
+    if (typeof elementCount === 'number') {
+        row.latest_element_count = elementCount;
+        row.is_empty = false;
+    }
+}
+
+/** Map-like adapter for canUserAccessProject's `projectsMap` (reads `.ownerId`). */
+export const imProjectsMapAdapter = { get: (projectId) => imGetProject(projectId) };
+
 /**
  * GAP-04 fix — 48-bit cryptographic entropy instead of Math.random().
  * Format: <prefix>-<13-digit ms timestamp>-<12 hex chars>

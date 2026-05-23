@@ -134,4 +134,80 @@ describe('BvhPickStrategy (S16-T2)', () => {
     // Cache still has one entry but it points to the new geometry.
     expect(strategy.cacheSize()).toBe(1);
   });
+
+  // ── #113 — hidden elements must not be selectable ───────────────────────────
+  // THREE's Raycaster ignores `.visible`; the strategy adds an effective-visibility
+  // guard so an isolate/hide-d element (root or ancestor `.visible = false`) is
+  // never returned. These lock that behaviour in.
+
+  it('does not pick an element whose mesh is hidden (visible=false)', () => {
+    const strategy = new BvhPickStrategy();
+    const mesh = makeMesh(0, 0, 0);
+    mesh.visible = false; // hidden — must be skipped despite being under the cursor
+    const registry = buildRegistry([{ id: 'wall-1', kind: 'wall', mesh }]);
+    const ctx: PickContext = {
+      camera: makeCamera(),
+      elementRegistry: registry,
+      viewportWidth: 100,
+      viewportHeight: 100,
+    };
+    expect(strategy.pick({ x: 50, y: 50 }, ctx)).toBeNull();
+  });
+
+  it('does not pick an element whose ANCESTOR is hidden (e.g. hidden level group)', () => {
+    const strategy = new BvhPickStrategy();
+    const group = new THREE.Group();
+    group.visible = false; // e.g. an isolated-out level root
+    const mesh = makeMesh(0, 0, 0);
+    group.add(mesh);
+    group.updateMatrixWorld(true);
+    const registry = buildRegistry([{ id: 'wall-1', kind: 'wall', mesh }]);
+    const ctx: PickContext = {
+      camera: makeCamera(),
+      elementRegistry: registry,
+      viewportWidth: 100,
+      viewportHeight: 100,
+    };
+    expect(strategy.pick({ x: 50, y: 50 }, ctx)).toBeNull();
+  });
+
+  it('a hidden element is transparent to picking — the visible element behind it wins', () => {
+    const strategy = new BvhPickStrategy();
+    const frontHidden = makeMesh(0, 0, 2, 1);
+    frontHidden.visible = false;
+    const backVisible = makeMesh(0, 0, -2, 1);
+    const registry = buildRegistry([
+      { id: 'front-hidden', kind: 'door', mesh: frontHidden },
+      { id: 'back-visible', kind: 'wall', mesh: backVisible },
+    ]);
+    const ctx: PickContext = {
+      camera: makeCamera(), // at z=5 looking at origin
+      elementRegistry: registry,
+      viewportWidth: 100,
+      viewportHeight: 100,
+    };
+    const result = strategy.pick({ x: 50, y: 50 }, ctx);
+    expect(result).not.toBeNull();
+    expect(result!.elementId).toBe('back-visible'); // front is hidden → skipped
+  });
+
+  it('pickRect excludes hidden elements', () => {
+    const strategy = new BvhPickStrategy();
+    const a = makeMesh(-1, 0, 0);
+    const b = makeMesh(1, 0, 0);
+    b.visible = false; // hidden — must not appear in marquee results
+    const registry = buildRegistry([
+      { id: 'a', kind: 'wall', mesh: a },
+      { id: 'b', kind: 'door', mesh: b },
+    ]);
+    const ctx: PickContext = {
+      camera: makeCamera(),
+      elementRegistry: registry,
+      viewportWidth: 100,
+      viewportHeight: 100,
+    };
+    const ids = new Set(strategy.pickRect({ x: 0, y: 0, w: 100, h: 100 }, ctx).map((r) => r.elementId));
+    expect(ids.has('a')).toBe(true);
+    expect(ids.has('b')).toBe(false);
+  });
 });

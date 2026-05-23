@@ -1731,3 +1731,329 @@ Per the explicit user requirement "no shortcuts, architecturally sound, aligned 
 
 **For full daily-use audit context:** `DAILY-USE-AUDIT-2026-05-20.md`.
 **For production-readiness audit:** `PRODUCTION-READINESS-AUDIT-2026-05-20.md` + `PRODUCTION-READINESS-FIX-LOG-2026-05-20.md`.
+
+---
+
+# 2026-05-23 daily-use session (tasks #127–#145)
+
+Continuation of live architect testing. All fixes type-clean. Server fixes need a dev-server restart (`tsx` does not hot-reload `server.js`); client fixes need a browser refresh. Contracts: C03 (commands), C11 (element creation), §41 (preview visual), §122 (project isolation).
+
+## Selection / interaction
+
+### §SELECT-PERF-HOVER (#127) — selection degrades as element count grows
+**File:** `packages/picking/src/{types.ts,gpu-pick.ts,bvh-pick.ts}`, `packages/input-host/src/SelectionManager.ts`.
+**Before:** the per-frame hover pick ran the FULL GPU pick — id pass AND depth pass + 2 readbacks — over every element; the depth result is unused by hover, and cost scaled with element count.
+**After:** `PickOptions{ skipDepth }` added to `PickStrategy.pick`; gpu-pick returns id-only on `skipDepth` (one render); hover rAF passes `{ skipDepth: true }`. Click path keeps full depth.
+
+### §ROOM-LABEL-DBLCLICK-EDIT (#128) — double-click a room label to rename/renumber
+**File:** `apps/editor/src/ui/InlineLabelEditor.ts` (primitive), `apps/editor/src/engine/initUI.ts`.
+**After:** a room-label sprite double-click opens an inline Name+Number editor; commit dispatches `room.setName`/`room.setNumber` via the bus (C03 §P6); intercepts before the camera-zoom raycast. Reusable primitive for tags/dimensions next.
+
+## Materials (plan-vs-3D parity)
+
+### §MAT-WINDOW-PLAN-PARITY (#129, #131) — plan-created window renders grey in 3D
+**File:** `initTools.ts`, `WindowPlanToolHandler.ts`, `DoorPlanToolHandler.ts`, `packages/geometry-window/src/WindowBuilder.ts`.
+**Before:** REAL cause — `window.windowTool` was never assigned, so the plan overlays' `activeOpeningTool` chain was always undefined → plan windows carried no `systemTypeId` → bridge fell back to schema-default `frameColor #e8e8e8` (grey). 3D worked (local tool instance, default `wt-timber-casement`).
+**After:** initTools exposes `window.windowTool`/`window.doorTool`; handlers read their own tool's systemTypeId (door binds to doorTool to avoid inheriting the window type); WindowBuilder._resolveFrameColor resolves from the catalogue so a typed window never renders grey.
+
+## Project management (server — restart required)
+
+### §AUTOSAVE-412-DESYNC (#134) — every auto-save lost to 412
+**File:** `apps/editor/src/ui/platform/ServerSyncQueue.ts`.
+**Before:** `If-Match: "v{count}"`; the POST success body has no count → success path used `prior+1` from an unseeded cache → "v1" while the server had 21 → permanent 412 → work parked `local-only` (silent data loss).
+**After:** on 412, adopt `body.actual` and retry once inline (bounded by `_reconciledVersionIds`); also read `body.version.version_count`. Append-only versions → re-basing never overwrites a concurrent writer.
+
+### §PROJECT-DELETE-IDEMPOTENT (#76, #140) — 404 prevented removing projects
+**File:** `server.js` + `server/api/v1/routes.js` DELETE handlers.
+**Before:** `deleteProject` returns false for projects absent from the volatile in-memory map (restart / localStorage-only) → 404 → `handleDelete` RESTORED the optimistically-removed entry.
+**After:** idempotent DELETE — already-absent reports success (v1 204 / v0 `{deleted:true}`); `WHERE owner_id` still protects other owners.
+
+### §PROJECT-OPEN-FAIL-FRESH (#74, #141) — just-created project fails to open
+**File:** `server.js` GET /api/projects/:id/latest-version.
+**Before:** in-memory fallback gated on `_projects` (server.js), but v1-created projects live in `_inMemoryProjects` (projectStore) — both empty after restart → fresh project 404'd on open.
+**After:** only 404 when the project exists here AND is owned by another user; unknown id → `{ version: null }` → opens empty. FOLLOW-UP: unify the two volatile stores.
+
+### §PROJECT-PREVIEW-WHITE-BG (#107, #142) — project thumbnails white
+**File:** `apps/editor/src/engine/initPersistence.ts` `captureThumbnail`.
+**After:** paint an opaque viewport backdrop BEHIND the captured geometry (`destination-over`). (#107 part 1, Import-PDF first-click, was verified already fixed by the 2026-05-22 getComputedStyle toggle.)
+
+## Navigation / tools
+
+### §BACK-TO-PROJECT (#130, #132) — "Back to Projects" did nothing
+**File:** `PlatformRouter.ts`, `ProjectBrowserPanel.ts`.
+**After:** `pryzm-go-hub` handler raises the platform root above editor chrome (z-index) + try/catch + diagnostic log; the right rail emits `pryzm-go-hub`/`pryzm-sign-out` DIRECTLY (not only the toolbar-dependent `pryzm-hub-action` relay).
+
+### §GRID-SPLITVIEW (#136) — grid only creatable in main plan view
+**File:** `SvpPlanToolOverlay.ts`.
+**After:** ported the "+ Grid" contextual button into the split-view overlay (`toolManager.activateGrid()`); the handler was already registered + routed.
+
+### §STAIR-RUN-TOO-SHORT (#133) — plan stair finish rejected "tread 1 mm"
+**File:** `packages/geometry-stair/src/stairPath/StairPathToolController.ts` `_addPoint`.
+**Before:** double-click-finish fires two clicks → a near-coincident point → degenerate final segment (`treadDepth ≈ 0`) → solver rejects.
+**After:** `_addPoint` dedupes a click within 50 mm of the previous point (≪ 300 mm MIN_SEG_LEN).
+
+## Kitchen (parametric furniture)
+
+### §KITCHEN-3D-MISSING (#135) — kitchen in plan but not 3D (resilience + diagnostic)
+**File:** `packages/geometry-furniture/src/FurnitureFragmentBuilder.ts`.
+**After:** wrapped the type-engine build in try/catch (`§FURN-3D-RESILIENCE`) — a throwing engine logs furnitureType+id+config and degrades to an empty group instead of leaving a silently-empty root. PENDING the architect's logged error to fix the engine throw.
+
+### §KITCHEN-PLAN-SYMBOL-FLIPPED (#137, #139) — L-shape plan symbol mirrored vs 3D
+**File:** `packages/geometry-furniture/src/builders/KitchenPlanSymbolBuilder.ts`.
+**Before:** `_drawArm` used a pure +π/2 rotation for the L/U left arm (run → −Z), but the engine extends the left arm +Z (a reflection) → symbol pointed opposite the mesh.
+**After:** added a `swapUV` reflection mode (x'=v, z'=u) for the left arms; guarded `tmp[]` reads (`?? 0`).
+
+### §KITCHEN-RUN-INSPECTOR-PARITY (#138) — placed kitchen not editable like wardrobe
+**File:** `packages/input-host/src/SelectionManager.ts`.
+**After:** the full KitchenRunInspector (depth/length/height/units/arms/materials → UpdateFurnitureParametersCommand) now shows immediately on kitchen selection (mirroring the wardrobe) + hides on deselect. It existed but only appeared after TAB-cycling every unit.
+
+## Preview colour unification (architect directive)
+
+### §PREVIEW-COLOR-UNIFY-2D (#144) — all plan/elevation creation previews → #6600ff
+**File:** `PreviewStyle.ts` (added `PREVIEW_CSS`), all 13 `plantools/*` handlers, `LinearDimPlanToolHandler.ts`, both overlays' snap markers.
+**Before:** #100 unified only the 3D `PREVIEW_COLOR`; 2D handlers carried a legacy per-element rainbow + per-type snap colours.
+**After:** added `PREVIEW_CSS` (CSS mirror) as the 2D source; swept all plan/elevation creation previews + dimension + snap markers → `#6600ff` (snap type read by shape + tooltip). Preserved §2.4 out-of-scope colours (edit-state, buttons, committed symbols, invalid-red).
+
+### §CONTRACT-41-UPDATE (#145) — Element Preview Visual Contract revised
+**File:** `docs/00_Contracts/41-ELEMENT-PREVIEW-VISUAL-CONTRACT.md`.
+**After:** §1 documents `PREVIEW_CSS`; §2.2/§2.3 make 2D handlers + snap markers normative; §2.4 lists out-of-scope colours; §5 parity satisfied; §6 verification gate extended.
+
+## Feature: stair sketch-in-3D
+
+### §STAIR-3D-CREATION (#101) — sketch the polyline stair (I/L/U/curved) in the 3D view
+**File:** `packages/geometry-stair/src/stairPath/StairSketchCoordinateProvider.ts` (new),
+`StairPathToolController.ts`, `apps/editor/src/engine/views/plantools/StairPath3DToolHandler.ts` (new),
+`apps/editor/src/engine/{initTools.ts,BimService.ts}`, `src/global-window.d.ts`.
+Governing spec: `docs/03_PRYZM3/reference/specs/SPEC-STAIR-3D-CREATION.md` (now IMPLEMENTED).
+**Before:** the modern path-sketch stair (StairPathToolController — I/L/U + curved,
+param panel) was **plan-only**: its sole view coupling was
+`PlanViewCanvas.worldToScreen`, so it could not run in the 3D view. (The legacy
+click-by-click `StairTool` was 3D-capable but a different, older UX.)
+**After (architecture, per spec §3):**
+- **S1** Abstracted the one coupling behind `StairSketchCoordinateProvider`
+  (`worldToScreen` only — screen→world is the host handler's job). The controller
+  resolves `_coordProvider` once: explicit provider wins, else wraps
+  `planViewCanvas`. Plan path is byte-for-byte unchanged (`planViewCanvas` now
+  optional). Pure refactor, type-clean.
+- **S2** `StairPath3DToolHandler` supplies a 3D provider that projects the
+  ground-plane world point through the active perspective camera, and forwards
+  3D-canvas pointer events as world points via a ground-plane raycast
+  (`intersectPlane(Plane(0,1,0,-groundY))`, honouring the null return) — the
+  proven SlabTool/StairTool pattern. THREE via the sanctioned
+  `@pryzm/renderer-three/three` facade (P2).
+- **S3** `BimService.activateStairPathTool` routes to the 3D handler when
+  `planView2DCreationMode.isInPlanView(world.camera.three)` is false (3D view),
+  with a fallback to the plan/legacy path; plan + split-plan-pane paths unchanged.
+- **S4** Commit is the SAME `CreateStairCommand` — geometry, auto-opening,
+  railings, persistence, undo are identical to plan-created stairs.
+**Status:** type-clean (geometry-stair + editor, 0 errors in all touched files).
+Runtime verification pending (spec §6 gate): activate Stair in 3D, click start/end,
+Enter → ghost tracks the ground plane and the stair commits identically to plan.
+
+## Selection correctness
+
+### §HIDDEN-NOT-SELECTABLE (#113 part) — a hidden element must not be pickable
+**File:** `packages/picking/src/bvh-pick.ts`, `packages/input-host/src/SelectionManager.ts`.
+**Before:** the isolate/hide path sets an element root's `.visible = false`
+(e.g. `initUI.ts:1663/1824`, `LevelExplodeController:181`). The **GpuPickStrategy**
+primary path already excludes invisible subtrees, but **THREE's `Raycaster`
+ignores `.visible`** (it tests layers only and recurses into children of invisible
+parents). So the **BvhPickStrategy** (Strategy-B + marquee `pickRect`) and the
+SelectionManager **raw-raycast fallback** (used on GPU-pick exception / no-strategy)
+would still hit a hidden element → it stayed selectable.
+**After:** added an `isEffectivelyVisible(obj)` guard (object AND every ancestor
+`.visible`, mirroring THREE's render-skip semantics):
+- `bvh-pick.ts` — skip hidden elements in both `pickInternal` (click) and
+  `pickRectInternal` (marquee).
+- `SelectionManager.ts` — filter raw-raycast hits through
+  `isObjectEffectivelyVisible` so the legacy fallback reaches parity.
+**Scope:** this closes the *selectability* half of #113. The other half (isolate/
+hide by level & type) was found to **already exist** in
+`apps/editor/src/ui/ViewBrowser/panels/unified-browser/ProjectVisibilitySection.ts`
+(`applyLevelVisibility`, `applyCategoryVisibility`, `applyCategoryTypeVisibility`,
+`applyIsolate`, `handleVisibilityCommand`) — so #113 is likely near-complete and
+needs a runtime test, not a rebuild. (Noted-but-unverified: `applyIsolate`'s
+un-isolate reconciliation, lines 84–109, recomputes visibility from level/elem/type
+overrides but ignores `catVisible`/`catTypeVisible` — a category-hide may be lost
+after isolate→un-isolate.)
+**Verification:** type-clean (picking + input-host; the lone input-host error near
+the change is the pre-existing `window.activeLevelElevation` Window-shim baseline,
+clean under the root tsconfig). **Regression tests added** —
+`packages/picking/__tests__/bvh-pick.test.ts` now has 4 cases locking the guard in:
+hidden mesh not picked, ancestor-hidden (level group) not picked, a hidden element
+is transparent so the visible element behind it is picked, and `pickRect` excludes
+hidden. All 4 pass. (The 1 failing test in that package — `PickStrategyResolver`
+expecting gpu-pick — is a pre-existing headless WebGL-probe limitation, unrelated:
+`git diff` shows only `bvh-pick.ts` changed.)
+
+## Architecture: in-memory project store unification
+
+### §STORE-UNIFY (refactor) — one in-memory project authority
+**File:** `server/projectStore.js` (new accessors), `server.js` (delegation), `server/projectAccess.js` (unchanged — fed via adapter).
+**Before:** TWO volatile in-memory project maps that diverged:
+- `server.js` `_projects` (`{id,name,updatedAt:<ms>,versionCount,ownerId}`) — used by the unversioned `/api/projects/*` routes' fallback + Socket.io join-project race-window cache.
+- `projectStore.js` `_inMemoryProjects` (PG-aligned row) — used by the v1 `/api/v1/projects/*` routes when no PG pool.
+The client creates/lists/deletes via v1 (`_inMemoryProjects`) but opens/saves versions via v0 (`_projects`). A v1-created project was invisible to the v0 fallbacks → just-created project failed to open (#74), delete restored it (#76), auto-save version counts desynced (#134). Those were patched DEFENSIVELY; this removes the root cause.
+**After:** `_inMemoryProjects` is the SINGLE in-memory project authority. New `projectStore` accessors — `imGetProject` / `imListProjects` / `imUpsertProject` / `imDeleteProject` / `imRecordVersionSave` / `imProjectsMapAdapter` — return/accept the **v0 shape** the unversioned routes expect (translated from the rich row), so server.js's existing field reads (`.ownerId`, `.versionCount`, `.updatedAt`) are unchanged. server.js's `_projects` map was **removed**; all ~16 call sites now delegate to the accessors; `canUserAccessProject` is fed `imProjectsMapAdapter` (a Map-like `{get}` returning v0 rows). `_versions` (version snapshots) stays in server.js — it is the single version store (no duplicate ever existed for versions); `imRecordVersionSave` keeps the project row's `version_count` + `is_empty`/`latest_element_count` in sync after an in-memory save.
+**Notes:** PG/Supabase deployments are unaffected — the accessors write `_inMemoryProjects` as the same race-window cache the old `_projects` map was; durable reads still go to PG/Supabase. A self-caught bug during the refactor: `imGetProject` returns a v0-shaped COPY, so the version-save path was switched from mutating that copy to `imRecordVersionSave` (mutates the actual row).
+**Verification:** `node --check` clean on both files; all 6 accessor call-sites resolve to exports; `check:isolation` green; eslint clean on the changed code; `npm run test:server` green **30/30** — including a new dedicated `server/__tests__/projectStore-inmemory.test.ts` (9 cases: v0-shape translation, owner-scoped list, create-or-update, copy-independence, idempotent delete, version-save bookkeeping on the real row, and the `imProjectsMapAdapter` access shape). End-to-end CRUD on a dev-server restart (create → open → save → delete) still recommended before fully trusting the unversioned-route refactor.
+
+## Verification / progress (no behaviour change)
+
+### §MATERIALS-REPOSITORY-VERIFIED (#105) — umbrella confirmed complete, task closed
+Verified all sub-features of #105 exist + are wired: user material store
+(`UserMaterialStore.ts`, with its own test), Materials Library UI
+(`MaterialsBucket.ts` — cards, create/remove), texture upload (image→data-URL→
+user material, 2 MB cap), per-(element-type) assignment (material-select dropdowns
+on wall layers / door+window finishes via Element Types), and the timber-window
+grey root fix (#119/#131). The "pending" status was stale — phases #120/#121/#123
+all completed. Closed.
+
+### §WALL-CSG-PHASE2 (#96 phase 2) — pure single-volume-wall CSG core + tests
+**File:** `packages/geometry-kernel/src/producers/wallVoids.ts` (new), kernel
+`index.ts` export, `packages/geometry-kernel/__tests__/produceWallWithVoids.test.ts` (new).
+Spec: `SPEC-WALL-SINGLE-VOLUME-CSG.md` (phase 2 marked done).
+**What:** `produceWallWithVoids(wallSolid, openingBoxes, opts?)` — pure async
+descriptor→descriptor helper that subtracts each opening box from the wall solid
+(looping `produceBoolean('subtract', …)`), giving ONE manifold descriptor with
+clean voids instead of ~3 abutting box segments (the source of the division-line
+seams in 3D/IFC the architect flagged). Carries the wall material; returns the
+solid unchanged with no openings; bails on an emptied intermediate so the builder
+can fall back. 6 unit tests, all green.
+**Risk:** none to the running app — this is additive and **not wired into the
+wall builder**. Phase 3 (route `WallFragmentBuilder`/`LayeredWallOpeningBuilder`
+through it on the async path behind a `__wallSingleVolume` flag, segmented mesh as
+fallback) is the part that touches the working render and needs the architect's
+verification per SPEC §5; deferred deliberately.
+
+### §WALL-CSG-PHASE3 (#96 phase 3) — wall-CSG wired into the builder (flag-gated)
+**File:** `geometry-wall/src/descriptorToBufferGeometry.ts` (new),
+`WallFragmentBuilder.ts` (DI seam `setSingleVolumeProducer` + flag-gated async
+`_tryUpgradeWallToSingleVolume` swap, staleness-guarded, segment fallback,
+one wall-body fragment), `apps/editor/src/engine/singleVolumeWallProducer.ts` (new),
+`initTools.ts` injection; `@pryzm/geometry-kernel` added to `apps/editor` (pnpm install ran).
+**What:** plain straight walls with openings can now render as ONE boolean-void
+solid (no division-line seams) when `window.__wallSingleVolume === true`. Default
+OFF → segmented walls render exactly as today (zero risk). DI keeps geometry-wall
+THREE-only; apps/editor owns the kernel dep + injects the producer. **Verification:**
+typecheck zero errors in all added code (geometry-wall + editor), eslint no
+boundary/P2 violations, kernel import resolves. **Ships unverified** — spec §5
+visual (no seams / z-fighting) + IFC checks are the architect's; layered/curved
+walls + IFC voids (phase 4) are follow-ups. Spec marked phase 3 IMPLEMENTED.
+
+### §SELECT-PIPELINE-AUDIT + §SELECT-SVP3D-ANCHOR-SKIP — split-view 3D selection "reverts to last selected"
+**Trigger (architect, high importance):** "audit the complete selection pipeline …
+the mouse will hover over elements but would not be selected — it will go back to
+the latest element selected by default … selection works **better on main 3D than
+in split-view 3D** … could it be a matter of pixel accuracy?"
+
+**Audit — the 3D selection pipeline, step by step.**
+1. Click → `SelectionManager.performSelection(e)` (input-host).
+2. Coords: `rect = this.domElement.getBoundingClientRect()` (the **main** canvas);
+   `x/y = clientX/Y − rect.left/top`. Hardcoded to the main view.
+3. **Hover-anchor fast path** (≈L919): if the click is within 8 px of the last
+   GPU-**hover**-confirmed point, it selects `_lastHoveredObjectGpu` directly
+   (skips a fresh pick) — a §SELECT-3D-FORGIVING magnetic affordance.
+4. Else GPU pick: `PickContext{ camera: this.camera.three, viewportW/H: rect.w/h }`
+   → `GpuPickStrategy.pick` (id render → slot → elementId, 8 px search radius).
+5. Hit → select(root); miss → unselectAll (authoritative, no BVH fallback).
+
+**How split-view 3D feeds that pipeline.** The SVP secondary pane is **Canvas2D**,
+not a second renderer. In '3d' mode it is a **1:1 pixel mirror of the main canvas
+through the same camera** (`SplitViewManager` L1319). A click in the pane is
+**forwarded** to the main canvas: `_onMouseUp` → `_forward3dClickToMain` (L1331)
+maps SVP NDC → main-canvas client coords and **synthesises pointer/mouse/click
+events on the main canvas**, so the main `SelectionManager` does the actual pick.
+Crucially there is **no `_forward3dMoveToMain`** — hover/pointermove is NOT
+forwarded.
+
+**Root cause (the dominant symptom).** Because hover is not forwarded, while the
+cursor is over the SVP pane the **main canvas receives no hover rAF**, so
+`_lastHoveredObjectGpu` / `_lastHoverConfirmedClient*` stay **stale** — they hold
+the last element hovered/selected on the *main* canvas. The forwarded click then
+hits the hover-anchor fast path (step 3) and snaps back to that stale element →
+exactly the architect's "selection reverts to the latest selected" — and it only
+happens in split-view 3D, matching "works better on main 3D than split."
+
+**Fix (`§SELECT-SVP3D-ANCHOR-SKIP`, additive, low-risk).**
+- `SplitViewManager._forward3dClickToMain` now tags every synthetic event with
+  `__pryzmForwarded = true`.
+- `SelectionManager.performSelection` skips the hover-anchor fast path when
+  `event.__pryzmForwarded` is set, forcing a **fresh pick** at the forwarded point.
+- Main-canvas clicks are completely unchanged (the anchor still applies there).
+
+**On "pixel accuracy?" (the architect's question).** Yes — a *secondary*
+contributor, not the split-vs-main cause. `gpu-pick` auto-sizes the id target with
+`MAX_AUTO_DIM = 1280`, so a viewport wider than 1280 px is downscaled (>1 screen px
+per id texel); thin/edge-on elements (railings, slim walls) can lose their texels,
+and the 8 px "nearest non-background" snap can then grab a neighbour. This degrades
+dense scenes on **any** view and explains "works with few elements, fails with
+specific ones." It is a perf-sensitive tuning change (the id render runs every hover
+frame; the architect's session was already at 14 fps) and needs runtime profiling
+before raising the cap — left as a follow-up (`§SELECT-PICK-RESOLUTION`), distinct
+from the split-view fix shipped here.
+
+**Verification:** typecheck — `SplitViewManager` zero errors; the `SelectionManager`
+edit (L919–933) adds no new errors (the file's remaining `window.*`/narrowing errors
+are pre-existing, resolved under the root `tsc` global-augmentation build).
+**Ships unverified at runtime** — needs the architect to confirm split-view 3D
+selection no longer reverts.
+
+**Coordinate mapping verified correct (not a bug).** Checked whether
+`_forward3dClickToMain`'s NDC mapping is wrong when the SVP pane and main canvas have
+different aspect ratios. It is **not**: the mirror is `ctx.drawImage(src, 0,0,bw,bh)`
+(`_render3dMirror` L1168) — the *entire* main canvas stretched into the *entire* SVP
+canvas — and the forward mapping reduces to
+`mainClientX = mainRect.left + (cx/svpW)·mainRect.width`, the exact proportional
+**inverse** of that stretch (the NDC round-trip cancels). So a point under the cursor
+in the mirror maps to the correct main-canvas point at any aspect ratio. The stale
+hover-anchor was therefore the **sole** split-3D selection defect. Remaining follow-up:
+`§SELECT-PICK-RESOLUTION` (pixel-accuracy tuning) only.
+
+### §SELECT-SEMANTIC-TYPE-NAMES — selectable semantic-type whitelist named non-existent types
+**Trigger:** investigating #97 ("slab wins selection over stair") — traced the
+selectable-cache + `findSelectableRoot` gate in `SelectionManager`.
+**Found (latent correctness bug):** `SEMANTIC_TYPES` listed **`'stairs'`** (plural)
+and **`'railing'`** — neither matches any element the builders stamp. Real types
+(lower-cased): stair = **`'stair'`** (`StairMeshBuilder.ts:145` `'Stair'`), railing =
+**`'handrail'`** (`HandrailFragmentBuilder.ts:79`, root `selectable:true`) and
+**`'stair-railing'`** (`StairRailingBuilder`, `selectable:false` **by design** — must
+stay OUT of the list, since `isSemanticType` ORs over the `selectable` flag and would
+otherwise force-select it). **Scope (honest):** stairs already reached the selectable
+cache via `userData.selectable:true` (`_ensureSelectableCache` L2572 / `getSelectableCache`
+L2227 both OR in `selectable`) and resolved via `findSelectableRoot`'s step-4
+`selectable` fallback — so single-click stair selection was **already working** and
+this change is **behavior-neutral there**. What it fixes is the *semantic-gated* paths
+that do NOT consult `selectable` — `findSelectableRoot` **step-3** (L833,
+`id && (isSemanticType||slab)`) — so stairs/handrails are now recognised as semantic
+roots directly instead of relying solely on the fallback (more robust if any future
+stair path ships `selectable:false`). **Corrected** `'stairs'→'stair'`,
+`'railing'→'handrail'`.
+**Does NOT by itself resolve #97's "slab wins":** with both slab (whitelisted) and
+stair (selectable) in the pick scene, the click outcome is decided by **per-pixel depth**
+in the GPU id render — i.e. whichever is genuinely frontmost at the clicked pixel. That
+is a runtime/visual determination (gap-click between treads vs a true depth issue) and
+needs the architect's on-screen confirmation or a click-time diagnostic before a
+depth/tie-break change is justified.
+**Verification:** typecheck — no new errors at the edit (L275–296); pure string-literal
+array change. Additive, zero behavior regression for existing selectable elements.
+
+## Cumulative summary (2026-05-23)
+~18 fixes + 4 features/refactors (stair sketch-in-3D #101; in-memory store
+unification §STORE-UNIFY; wall single-volume CSG core #96 phase 2 + builder wiring
+#96 phase 3) across selection perf + correctness, plan-vs-3D material parity,
+project CRUD idempotency + store unification, navigation, stair/kitchen creation, a
+full preview-colour unification + its governing contract, 3D stair sketching,
+hidden-not-selectable hardening, the boolean-void wall kernel + its builder
+integration, and a pending-invite store (#114 ph1). #105 + #65 verified-and-closed.
+Server fixes (#134/#140/#141/§STORE-UNIFY) require a dev-server restart; client
+fixes + #101 + #113-part a browser refresh; #96 needs a browser refresh + the flag.
+Tests added this session: 9 (store-unify) + 4 (bvh-pick hidden) + 6 (wall-CSG) + 7
+(pending-invite) = 26 new, all green. C05 contract records the store-unification.
+Open follow-ups needing the architect's runtime input: #135 (kitchen engine throw
+— `§FURN-3D-RESILIENCE`), #99 (floor/ceiling ENTER — `§FLOOR-3D-ENTER`), #106
+(toilet rotation — visual; suspect lines narrowed), #101 (3D stair — spec §6
+pass), §STORE-UNIFY (end-to-end CRUD smoke test), #96 (flip `__wallSingleVolume`
++ visual/IFC verify; then layered/curved + IFC phase 4). #113 remainder:
+isolate/hide-by-level/type (logic already exists in `ProjectVisibilitySection.ts`
+— needs a runtime test); #114 integration (endpoint + signup + Supabase + email).

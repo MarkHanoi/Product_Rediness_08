@@ -88,7 +88,16 @@
       "PowerShell(Get-NetTCPConnection *)",
       "Bash(sleep 1)",
       "Bash(pnpm --filter @pryzm/geometry-furniture typecheck)",
-      "Bash(grep -iv \"rgba\\(255,255,255\\\\|//.*snap to\\\\|snap range\\\\|snap service\")"
+      "Bash(grep -iv \"rgba\\(255,255,255\\\\|//.*snap to\\\\|snap range\\\\|snap service\")",
+      "PowerShell(pnpm *)",
+      "Bash(pnpm --filter @pryzm/geometry-kernel exec vitest run __tests__/produceWallWithVoids.test.ts)",
+      "Bash(pnpm --filter @pryzm/editor add @pryzm/geometry-kernel@workspace:*)",
+      "Bash(echo \"=== exit: $? ===\")",
+      "Bash(npx eslint *)",
+      "Bash(Get-ChildItem -Directory)",
+      "PowerShell(cd \"C:\\\\Users\\\\LENOVO\\\\OneDrive\\\\Desktop\\\\PRYZM\\\\Product_Rediness_08\" && \\(Get-ChildItem packages\\).Name)",
+      "Bash(xargs grep -l \"\\\\.visible.*=\\\\|applyVisibility\\\\|LevelGroup\")",
+      "Bash(xargs grep -l \"level.*visible\\\\|visible.*level\\\\|LevelRoot\\\\|level.*group\")"
     ]
   }
 }

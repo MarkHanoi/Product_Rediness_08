@@ -11,6 +11,27 @@ import { clusterOpenings, buildLayeredWallSegmentsAroundOpenings } from './Layer
 import { buildMiterPrism } from './MiterPrismBuilder';
 import { OpeningRenderData, OpeningRenderMap } from './WallOpeningRenderData';
 import { buildWallEdgeOverlay } from './WallEdgeOverlayBuilder';
+import { descriptorToBufferGeometry } from './descriptorToBufferGeometry';
+
+// ── §WALL-SINGLE-VOLUME-CSG (#96 phase 3) DI seam types ─────────────────────────
+/** Local-frame params handed to the injected single-volume CSG producer. */
+export interface SingleVolumeWallParams {
+    readonly length: number;
+    readonly thickness: number;
+    readonly height: number;
+    readonly baseOffset: number;
+    readonly openings: ReadonlyArray<{ offset: number; width: number; sillHeight: number; height: number }>;
+}
+/** Booled wall geometry descriptor (structural — produced via the kernel). */
+export interface SingleVolumeWallDescriptor {
+    readonly position: Float32Array;
+    readonly normal?: Float32Array;
+    readonly uv?: Float32Array;
+    readonly index: Uint32Array | Uint16Array;
+}
+/** Injected by apps/editor (kernel-backed); geometry-wall stays THREE-only. */
+export type SingleVolumeWallProducer =
+    (params: SingleVolumeWallParams) => Promise<SingleVolumeWallDescriptor | null>;
 import { JoinData } from '@pryzm/core-app-model';
 import type { WallInstanceBridge } from './WallInstanceBridge';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
@@ -105,6 +126,19 @@ export class WallFragmentBuilder {
     // Null until EngineBootstrap injects it after initScene wires InstancedElementRenderer.
     // When set, simple walls (no openings, not curved, no miter) route to GPU instancing.
     private _instanceBridge: WallInstanceBridge | null = null;
+
+    // §WALL-SINGLE-VOLUME-CSG (#96 phase 3) — optional injected CSG producer.
+    // Null until apps/editor injects it (it imports @pryzm/geometry-kernel's
+    // produceWallWithVoids + produceExtrude). When `window.__wallSingleVolume`
+    // is on AND this is set, a plain straight wall with openings is upgraded
+    // from abutting box segments to one boolean-void solid. Default-off; the
+    // segmented mesh always renders first and remains the fallback.
+    private _singleVolumeProducer: SingleVolumeWallProducer | null = null;
+
+    /** #96 ph3 DI seam — apps/editor injects the kernel-backed CSG producer. */
+    setSingleVolumeProducer(fn: SingleVolumeWallProducer | null): void {
+        this._singleVolumeProducer = fn;
+    }
 
     // ── Task 5.6 Phase 5: Wall Rebuild Counter (monitoring) ──────────────────
     // Incremented on every updateWall() call that performs a real geometry rebuild.
@@ -1683,8 +1717,119 @@ export class WallFragmentBuilder {
             this._syncMutableWallUserData(wallGroup, wall);
         }
 
+        // §WALL-SINGLE-VOLUME-CSG (#96 ph3) — opt-in async upgrade. The segmented
+        // wall above is the immediate render + the fallback; when the flag is on
+        // and a producer is injected, swap a plain straight wall's body segments
+        // for one boolean-void solid (no division-line seams). Fire-and-forget;
+        // the swap self-guards against a stale/disposed group. Plain straight
+        // walls only — layered/curved keep the segmented path (SPEC §3).
+        if (
+            typeof window !== 'undefined' &&
+            (window as { __wallSingleVolume?: boolean }).__wallSingleVolume === true &&
+            this._singleVolumeProducer !== null &&
+            wall.openings && wall.openings.length > 0 &&
+            !wall.curve && !(wall.layers && wall.layers.length > 0)
+        ) {
+            void this._tryUpgradeWallToSingleVolume(wallGroup, wall, {
+                length: wallLength,
+                thickness: wallThickness,
+                height: wallHeight,
+                baseOffset: wallBaseOffset,
+                angle: Math.atan2(direction.z, direction.x),
+            });
+        }
+
         this.wallToFragmentsMap.set(wall.id, fragmentIds);
         return fragmentIds;
+    }
+
+    /**
+     * §WALL-SINGLE-VOLUME-CSG (#96 ph3) — replace a plain straight wall's abutting
+     * body segments with a single boolean-void solid produced by the injected
+     * kernel CSG producer. Async (manifold-3d is lazy WASM). On any failure or a
+     * stale group, the segmented mesh is left untouched (never an empty wall).
+     */
+    private async _tryUpgradeWallToSingleVolume(
+        wallGroup: THREE.Group,
+        wall: WallData,
+        ctx: { length: number; thickness: number; height: number; baseOffset: number; angle: number },
+    ): Promise<void> {
+        const producer = this._singleVolumeProducer;
+        if (!producer) return;
+        try {
+            const descriptor = await producer({
+                length: ctx.length,
+                thickness: ctx.thickness,
+                height: ctx.height,
+                baseOffset: ctx.baseOffset,
+                openings: (wall.openings ?? []).map((o) => ({
+                    offset: o.offset,
+                    width: o.width,
+                    sillHeight: o.sillHeight ?? 0,
+                    height: o.height,
+                })),
+            });
+            // Staleness guard — the wall may have been rebuilt/disposed while we awaited.
+            if (!descriptor || wallGroup.parent === null) return;
+            const geo = descriptorToBufferGeometry(descriptor);
+            if (!geo) return;
+
+            // Remove only the abutting wall-body segments (keep door/window frames,
+            // edge overlays, etc.). Body segments are tagged elementType 'WallPart'.
+            const toRemove: THREE.Object3D[] = [];
+            for (const child of wallGroup.children) {
+                const ud = (child as THREE.Object3D & { userData?: { elementType?: string } }).userData;
+                if (ud?.elementType === 'WallPart') toRemove.push(child);
+            }
+            for (const m of toRemove) {
+                wallGroup.remove(m);
+                const mesh = m as THREE.Mesh;
+                mesh.geometry?.dispose?.();
+            }
+
+            // Add the single solid. Descriptor is in wall-local frame (x along the
+            // wall); rotate by -angle so local-x maps to the wall direction (matches
+            // the per-segment positionLocal convention), origin at the group (start).
+            const csgMesh = new THREE.Mesh(geo, this.createWallMaterial(wall));
+            csgMesh.rotation.y = -ctx.angle;
+            csgMesh.position.set(0, 0, 0);
+            csgMesh.userData = {
+                materialId: wall.materialId,
+                materialColor: wall.materialColor,
+                elementType: 'WallPart',
+                modelId: 'model-default',
+                role: 'geometry',
+                selectable: false,
+                singleVolume: true,
+            };
+            wallGroup.add(csgMesh);
+
+            // Register as one wall-body fragment so selection/picking resolve it.
+            const fragmentId = crypto.randomUUID();
+            this.fragments.set(fragmentId, {
+                id: fragmentId,
+                wallId: wall.id,
+                mesh: csgMesh as unknown as THREE.Mesh,
+                type: 'wall-body',
+                parentId: wall.id,
+                levelId: wall.levelId,
+            } as WallFragment);
+            this.fragmentToEntityMap.set(fragmentId, {
+                fragmentId,
+                elementId: wall.id,
+                type: 'wall',
+                entityType: 'wall',
+                entityId: wall.id,
+            });
+            const existing = this.wallToFragmentsMap.get(wall.id) ?? [];
+            this.wallToFragmentsMap.set(wall.id, [...existing, fragmentId]);
+        } catch (err) {
+            // CSG failed — keep the segmented mesh (SPEC §4: never an empty wall).
+            console.warn(
+                '[WallFragmentBuilder] §WALL-SINGLE-VOLUME-CSG upgrade failed, keeping segments:',
+                (err as Error)?.message ?? err,
+            );
+        }
     }
 
     // §4.3 FIX: renderData is pre-resolved by the subscriber; no store access here.

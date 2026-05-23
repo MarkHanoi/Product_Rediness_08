@@ -51,6 +51,29 @@ The fallback hierarchy MUST be transparent to callers — the same API works aga
 - `packages/persistence-client/src/attachEventLog.ts` — PatchEmitter wiring
 - `src/ui/OfflineBanner.ts` — offline indicator UI
 
+#### §1.2.2 — Single in-memory project authority (tier 3) — §STORE-UNIFY (2026-05-23)
+
+The tier-3 in-memory fallback has **exactly one** project map: `_inMemoryProjects`
+in `server/projectStore.js`. The unversioned `/api/projects/*` routes in
+`server.js` MUST NOT keep a parallel project map — they delegate to the
+`projectStore` accessors (`imGetProject` / `imListProjects` / `imUpsertProject` /
+`imDeleteProject` / `imRecordVersionSave` / `imProjectsMapAdapter`), which return
+the v0 shape (`{ id, name, updatedAt:<ms>, versionCount, ownerId }`) those routes
+expect.
+
+**Why (regression guard):** there used to be two divergent volatile maps —
+`server.js` `_projects` (v0 routes) and `projectStore._inMemoryProjects` (v1
+routes). The client creates/lists/deletes via v1 but opens/saves versions via v0,
+so a v1-created project was invisible to the v0 fallbacks: it failed to open
+(#74), delete restored it (#76), and auto-save version counts desynced (#134). A
+second project map at tier 3 is therefore **forbidden** — a future contributor
+adding one re-opens that whole bug class.
+
+Version snapshots remain in `server.js` `_versions` (the single in-memory version
+store — no duplicate ever existed); `imRecordVersionSave` keeps the project row's
+`version_count` / `is_empty` / `latest_element_count` consistent after a save.
+Covered by `server/__tests__/projectStore-inmemory.test.ts`.
+
 ### §1.3 — Server-side PostgreSQL routing (`server/pgClient.js`)
 
 The server uses a direct PostgreSQL connection (not the REST API) for project and version CRUD.

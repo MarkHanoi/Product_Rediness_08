@@ -72,6 +72,8 @@ import { CurtainWallTool } from '@pryzm/geometry-curtain-wall';
 import { ColumnTool } from '@pryzm/geometry-column';
 import { BeamTool } from '@pryzm/input-host';
 import { StairTool } from '@pryzm/geometry-stair';
+import { StairPath3DToolHandler } from './views/plantools/StairPath3DToolHandler';
+import { singleVolumeWallProducer } from './singleVolumeWallProducer';
 import { OpeningTool } from '@pryzm/input-host';
 import { AnnotationManager, obcAnnotationAdapter } from '@pryzm/plugin-annotations';
 import { RadialMenu } from '@app/ui/RadialMenu';
@@ -691,6 +693,11 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
     }, projectContext);
     window.wallTool = wallTool;
     commandContext.wallFragmentBuilder = wallTool.getFragmentBuilder();
+
+    // §WALL-SINGLE-VOLUME-CSG (#96 ph3) — inject the kernel-backed CSG producer
+    // (apps/editor owns @pryzm/geometry-kernel; geometry-wall stays THREE-only).
+    // Inert until `window.__wallSingleVolume === true` flips it on (default-off).
+    wallTool.getFragmentBuilder().setSingleVolumeProducer?.(singleVolumeWallProducer);
 
     // ── SlabTool — full deps now that wallTool + commandManager are live ───────
     slabTool.setWallStore(wallTool.getWallStore());
@@ -1960,6 +1967,20 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
     window.scene      = world.scene.three;
     window.renderer   = world.renderer.three;
     toolManager.setStairTool(stairTool);
+
+    // ── Stair sketch-in-3D (#101 / SPEC-STAIR-3D-CREATION) ────────────────────
+    // The modern polyline stair (I/L/U/curved) can now be sketched directly in
+    // the 3D view, mirroring slab/floor. BimService.activateStairPathTool routes
+    // to this handler when the active camera is NOT a plan view; the plan-tool
+    // overlay path is unchanged. The handler reads camera/canvas live from the
+    // world and resolves the base level from the active-level context.
+    const stairPath3DTool = new StairPath3DToolHandler({
+        getWorld: () => world,
+        commandManager,
+        getActiveLevelId: () => commandContext?.projectContext?.activeLevelId ?? null,
+        getLevels: () => bimManager.getLevels(),
+    });
+    window.stairPath3DTool = stairPath3DTool;
 
     // ── Floor plan underlay persistence (image + transform) ───────────────────
     // Per-project persistence (Contract 45/46): installs save/restore listeners

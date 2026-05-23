@@ -43,6 +43,10 @@ import { StairPathParamPanel, type StairLevelOption, type StairParams } from './
 import { CurvedStairSolver } from './CurvedStairSolver';
 import { CurvedStairRenderer } from './CurvedStairRenderer';
 import type { PlanViewCanvas } from '@pryzm/core-app-model';
+import {
+    type StairSketchCoordinateProvider,
+    planViewSketchProvider,
+} from './StairSketchCoordinateProvider';
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
 
@@ -61,8 +65,19 @@ export interface StairPathToolConfig {
      * so the overlay is sized/positioned correctly even when a sidebar is present.
      */
     coordinateCanvas: HTMLElement;
-    /** The active PlanViewCanvas — provides worldToScreen / screenToWorld. */
-    planViewCanvas: PlanViewCanvas;
+    /**
+     * The active PlanViewCanvas — provides worldToScreen for the overlay.
+     * Optional now that the controller is view-agnostic: supply EITHER this
+     * (plan view) OR `coordinateProvider` (3D view). When both are given the
+     * explicit provider wins. SPEC-STAIR-3D-CREATION §3 S1.
+     */
+    planViewCanvas?: PlanViewCanvas;
+    /**
+     * Explicit coordinate provider — used by the 3D sketch path to project the
+     * overlay polyline through the perspective camera. When omitted, the
+     * controller wraps `planViewCanvas` (unchanged plan-view behaviour).
+     */
+    coordinateProvider?: StairSketchCoordinateProvider;
     /** CommandManager instance for CreateStairCommand dispatch. */
     commandManager: { execute: (cmd: unknown) => void };
     // ── Stair parameters ──────────────────────────────────────────────────
@@ -118,6 +133,11 @@ export class StairPathToolController {
     // ── Canvas overlay ────────────────────────────────────────────────────────
     private _overlayCanvas: HTMLCanvasElement;
 
+    // ── Coordinate transform (view-agnostic; SPEC-STAIR-3D-CREATION §3 S1) ─────
+    // Resolved once in the constructor: an explicit provider (3D path) or a
+    // wrapper over the supplied PlanViewCanvas (plan path, unchanged).
+    private _coordProvider: StairSketchCoordinateProvider;
+
     // ── Live state ────────────────────────────────────────────────────────────
     private _cursor:     Point2D | null = null;
     private _shiftDown   = false;
@@ -140,6 +160,19 @@ export class StairPathToolController {
     private _onResize!:  () => void;
 
     constructor(private _config: StairPathToolConfig) {
+        // Resolve the coordinate transform once. Explicit provider (3D path)
+        // wins; otherwise wrap the PlanViewCanvas (plan path — unchanged).
+        // SPEC-STAIR-3D-CREATION §3 S1.
+        if (_config.coordinateProvider) {
+            this._coordProvider = _config.coordinateProvider;
+        } else if (_config.planViewCanvas) {
+            this._coordProvider = planViewSketchProvider(_config.planViewCanvas);
+        } else {
+            throw new Error(
+                '[StairPathToolController] requires either planViewCanvas or coordinateProvider',
+            );
+        }
+
         this._currentStraightShape = _config.initialShape ?? null;
         this._expectedSegments =
             _config.initialShape === 'I' ? 1 :
@@ -793,7 +826,7 @@ export class StairPathToolController {
             committed,
             snappedCursor,
             (x, z) => {
-                const s = this._config.planViewCanvas.worldToScreen(x, z);
+                const s = this._coordProvider.worldToScreen(x, z);
                 return { sx: s.sx, sy: s.sy };
             },
             this._state === 'drawing',
@@ -811,7 +844,7 @@ export class StairPathToolController {
         const cursor = this._cursor;
 
         const toScreen = (x: number, z: number) => {
-            const s = this._config.planViewCanvas.worldToScreen(x, z);
+            const s = this._coordProvider.worldToScreen(x, z);
             return { sx: s.sx, sy: s.sy };
         };
 

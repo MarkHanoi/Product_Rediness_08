@@ -40,6 +40,9 @@ export type {
     StairPathToolConfig,
 }                                from './StairPathToolController';
 
+export { planViewSketchProvider } from './StairSketchCoordinateProvider';
+export type { StairSketchCoordinateProvider } from './StairSketchCoordinateProvider';
+
 export { StairPathHUD }          from './StairPathHUD';
 
 export { StairPathParamPanel } from './StairPathParamPanel';

@@ -18,7 +18,9 @@
     "./projects": "./src/projects/index.ts",
     "./router": "./src/router.ts"
   },
-  "files": ["src"],
+  "files": [
+    "src"
+  ],
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
@@ -27,7 +29,9 @@
   "dependencies": {
     "@pryzm/command-bus": "workspace:*",
     "@pryzm/frame-scheduler": "workspace:*",
+    "@pryzm/geometry-kernel": "workspace:*",
     "@pryzm/persistence-client": "workspace:*",
+    "@pryzm/plugin-annotations": "workspace:*",
     "@pryzm/plugin-beam": "workspace:*",
     "@pryzm/plugin-ceiling": "workspace:*",
     "@pryzm/plugin-column": "workspace:*",
@@ -40,7 +44,6 @@
     "@pryzm/plugin-plumbing": "workspace:*",
     "@pryzm/plugin-roof": "workspace:*",
     "@pryzm/plugin-rooms": "workspace:*",
-    "@pryzm/plugin-annotations": "workspace:*",
     "@pryzm/plugin-selection": "workspace:*",
     "@pryzm/plugin-slab": "workspace:*",
     "@pryzm/plugin-stair": "workspace:*",

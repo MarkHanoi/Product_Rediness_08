@@ -404,7 +404,7 @@ try {
             const access = await canUserAccessProject(
                 socket.data.userId,
                 projectId,
-                { supabase, pgPool: getPgPool(), projectsMap: _projects }
+                { supabase, pgPool: getPgPool(), projectsMap: pgProjectStore.imProjectsMapAdapter }
             );
 
             if (!access.allowed) {
@@ -695,10 +695,17 @@ async function authMiddleware(req, _res, next) {
     return next();
 }
 
-// ── In-memory project/version store (fallback when Supabase not configured) ──
+// ── In-memory version store (fallback when Supabase not configured) ──
 // getSupabaseClient() is imported from server/supabaseClient.js (M-SUPABASE-KEY fix):
 // it prefers SUPABASE_SERVICE_ROLE_KEY over SUPABASE_ANON_KEY.
-const _projects = new Map();
+//
+// §STORE-UNIFY (2026-05-23): the former `_projects` Map was REMOVED. In-memory
+// project metadata now lives in the single authority `pgProjectStore`'s
+// `_inMemoryProjects` map, accessed via `pgProjectStore.imGetProject/imUpsertProject/
+// imDeleteProject/imListProjects/imRecordVersionSave`. This eliminates the
+// project-store divergence that caused #74 (open-fresh), #76 (delete-restore) and
+// #134 (auto-save count desync). `_versions` (version snapshots) stays here — it
+// is the single in-memory version store (no duplicate ever existed for versions).
 const _versions = new Map();
 const _visibilityIntents = new Map();
 
@@ -716,7 +723,7 @@ async function _httpCanAccess(userId, projectId) {
         const access = await canUserAccessProject(userId, projectId, {
             supabase,
             pgPool: getPgPool(),
-            projectsMap: _projects,
+            projectsMap: pgProjectStore.imProjectsMapAdapter,
         });
         return access.allowed;
     } catch (err) {
@@ -2482,9 +2489,7 @@ app.get('/api/projects', authMiddleware, async (req, res) => {
         // against an unconfigured-DB local environment leaking across users.
         const projects = (userId === 'anonymous')
             ? []
-            : Array.from(_projects.values())
-                .filter(p => p.ownerId === userId)
-                .sort((a, b) => b.updatedAt - a.updatedAt);
+            : pgProjectStore.imListProjects(userId); // §STORE-UNIFY — single in-memory authority (owner-filtered, newest-first)
         _logCount(projects.length, 'in-memory');
         res.json({ projects });
     } catch (err) {
@@ -2513,17 +2518,18 @@ app.post('/api/projects', authMiddleware, async (req, res) => {
         const supabase = await getSupabaseClient();
         if (supabase) {
             const id = isValidClientId ? clientId : `proj-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-            // CONTRACT (C13 — race-window fix): Seed _projects in-memory immediately so that
+            // CONTRACT (C13 — race-window fix): Seed the in-memory store immediately so that
             // the Socket.io join-project check (canUserAccessProject path 3) can authorize the
             // client during the window between this optimistic open and the Supabase INSERT
             // completing.  The in-memory entry is intentionally short-lived — once the Supabase
             // row exists, path 1 takes over and the in-memory entry is simply ignored.
-            _projects.set(id, { id, name, updatedAt: Date.now(), versionCount: 0, ownerId: req.auth.userId });
+            // §STORE-UNIFY: single in-memory authority (pgProjectStore).
+            pgProjectStore.imUpsertProject(id, name, req.auth.userId);
             const { data, error } = await supabase
                 .from('projects').insert({ id, name, owner_id: req.auth.userId })
                 .select().single();
             if (error) {
-                _projects.delete(id); // rollback in-memory seed on Supabase failure
+                pgProjectStore.imDeleteProject(id); // rollback in-memory seed on Supabase failure
                 throw error;
             }
             return res.status(201).json({ project: data });
@@ -2531,12 +2537,11 @@ app.post('/api/projects', authMiddleware, async (req, res) => {
         if (getPgPool()) {
             const project = await pgProjectStore.createProject(name, req.auth.userId);
             // Also seed in-memory for join-project race window (PG path).
-            _projects.set(project.id, { id: project.id, name: project.name, updatedAt: Date.now(), versionCount: 0, ownerId: req.auth.userId });
+            pgProjectStore.imUpsertProject(project.id, project.name, req.auth.userId);
             return res.status(201).json({ project });
         }
         const id = isValidClientId ? clientId : `proj-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-        const meta = { id, name, updatedAt: Date.now(), versionCount: 0, ownerId: req.auth.userId };
-        _projects.set(id, meta);
+        const meta = pgProjectStore.imUpsertProject(id, name, req.auth.userId); // §STORE-UNIFY — returns v0 shape {id,name,updatedAt,versionCount,ownerId}
         res.status(201).json({ project: meta });
     } catch (err) {
         // §SERVER-500-PROJECT-CREATE (DAILY-USE 2026-05-21) — Architecturally
@@ -2680,7 +2685,7 @@ app.get('/api/projects/:id/status', authMiddleware, async (req, res) => {
         // ANY in-memory project). Anonymous now sees only its own anonymous-owned
         // projects, matching the delete/thumbnail handlers. Supabase/PG paths above
         // already scope by owner_id for all callers.
-        const proj = _projects.get(id);
+        const proj = pgProjectStore.imGetProject(id); // §STORE-UNIFY — single in-memory authority
         if (!proj || proj.ownerId !== userId) {
             return res.status(404).json({ error: 'Project not found', code: 'project_not_found' });
         }
@@ -2726,7 +2731,7 @@ app.get('/api/projects/:id', authMiddleware, async (req, res) => {
             res.set('ETag', `"v${project.version_count ?? 0}"`);
             return res.json({ project });
         }
-        const proj = _projects.get(id);
+        const proj = pgProjectStore.imGetProject(id); // §STORE-UNIFY — single in-memory authority
         if (!proj) return res.status(404).json({ error: 'Not found' });
         // §AUTH-SESSION-LEAK-2 hardening — enforce ownership for EVERY caller
         // (anonymous included; was bypassed). Consistent with delete/thumbnail and
@@ -2794,8 +2799,8 @@ app.delete('/api/projects/:id', authMiddleware, async (req, res) => {
             return res.json({ deleted: true });
         }
         // In-memory fallback — idempotent: deleting an absent project still succeeds
-        // (Map.delete on a missing key is a harmless no-op).
-        _projects.delete(id);
+        // (delete on a missing key is a harmless no-op). §STORE-UNIFY single authority.
+        pgProjectStore.imDeleteProject(id);
         return res.json({ deleted: true });
     } catch (err) {
         // §SERVER-500-PROJECT-DELETE (DAILY-USE 2026-05-21) — log with the
@@ -2875,7 +2880,7 @@ app.patch('/api/projects/:id/thumbnail', authMiddleware, async (req, res) => {
             return res.json({ ok: true });
         }
         // In-memory fallback
-        const proj = _projects.get(id);
+        const proj = pgProjectStore.imGetProject(id); // §STORE-UNIFY — single in-memory authority
         if (!proj) return res.status(404).json({ error: 'Project not found.' });
         if (proj.ownerId !== userId) return res.status(403).json({ error: 'Forbidden' });
         proj.thumbnail = thumbnail;
@@ -2924,7 +2929,7 @@ app.get('/api/projects/:id/versions', authMiddleware, async (req, res) => {
             return res.json({ versions });
         }
         // In-memory fallback: scope by userId stored in project meta.
-        const proj = _projects.get(id);
+        const proj = pgProjectStore.imGetProject(id); // §STORE-UNIFY — single in-memory authority
         if (!proj || proj.ownerId !== userId) {
             return res.status(404).json({ error: 'Project not found.' });
         }
@@ -2983,17 +2988,17 @@ app.get('/api/projects/:id/latest-version', authMiddleware, async (req, res) => 
             return res.json({ version: full ?? null });
         }
         // In-memory fallback
-        // §PROJECT-OPEN-FAIL-FRESH (2026-05-23, #74) — the legacy in-memory map
-        // `_projects` is NOT the only volatile store: projects created through the
-        // v1 API live in pgProjectStore's `_inMemoryProjects` map, and after a server
-        // restart BOTH maps are empty while the client still lists the project from
-        // localStorage. The old `if (!proj …) 404` therefore failed to open a freshly-
-        // created (or post-restart) project — "just-created project fails to open".
-        // Fix: only 404 when the project EXISTS here AND is owned by someone else
-        // (preserves cross-user isolation, #122). An unknown id falls through to the
-        // "no versions yet" branch → `{ version: null }` → the client opens it empty,
-        // which is correct for a project that has no server-side saved version.
-        const proj = _projects.get(id);
+        // §PROJECT-OPEN-FAIL-FRESH (2026-05-23, #74) — read the single in-memory
+        // project authority (§STORE-UNIFY: pgProjectStore.imGetProject; the former
+        // server.js `_projects` map was removed because it diverged from the v1
+        // store). After a server restart the in-memory store is empty while the
+        // client still lists the project from localStorage, so a hard 404 on
+        // "project absent" wrongly failed to open a freshly-created / post-restart
+        // project. Fix: only 404 when the project EXISTS here AND is owned by
+        // someone else (preserves cross-user isolation, #122). An unknown id falls
+        // through to the "no versions yet" branch → `{ version: null }` → the client
+        // opens it empty, correct for a project with no server-side saved version.
+        const proj = pgProjectStore.imGetProject(id); // §STORE-UNIFY — single in-memory authority
         if (proj && proj.ownerId !== userId) return res.status(404).json({ error: 'Project not found.' });
         const all = (_versions.get(id) ?? []).slice().reverse();
         if (all.length === 0) return res.json({ version: null });
@@ -3303,8 +3308,9 @@ app.post('/api/projects/:id/versions', authMiddleware, async (req, res) => {
             ? idempotencyKey
             : `ver-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
-        // [GAP-03] In-memory ownership check
-        if (_projects.has(id) && _projects.get(id).ownerId !== req.auth.userId) {
+        // [GAP-03] In-memory ownership check — §STORE-UNIFY single authority.
+        const _existingProj = pgProjectStore.imGetProject(id);
+        if (_existingProj && _existingProj.ownerId !== req.auth.userId) {
             throw new ProjectConflictError(id, 'Project is owned by a different user');
         }
 
@@ -3316,8 +3322,10 @@ app.post('/api/projects/:id/versions', authMiddleware, async (req, res) => {
             }
         }
 
-        if (!_projects.has(id)) {
-            _projects.set(id, { id, name: (snapshot?.projectName ?? 'Untitled').slice(0, 200), updatedAt: Date.now(), versionCount: 0, ownerId: req.auth.userId });
+        // §STORE-UNIFY — create the project row in the single in-memory authority
+        // only when absent (don't clobber an existing project's name on every save).
+        if (!_existingProj) {
+            pgProjectStore.imUpsertProject(id, (snapshot?.projectName ?? 'Untitled').slice(0, 200), req.auth.userId);
         }
 
         const version = { id: versionId, projectId: id, label, timestamp: Date.now(), elementCount, snapshot };
@@ -3326,8 +3334,9 @@ app.post('/api/projects/:id/versions', authMiddleware, async (req, res) => {
         if (existing.length > 20) existing.splice(0, existing.length - 20);
         _versions.set(id, existing);
 
-        const proj = _projects.get(id);
-        if (proj) { proj.updatedAt = Date.now(); proj.versionCount = existing.length; }
+        // §STORE-UNIFY — bump the single in-memory row's version_count + derived
+        // fields (mutates the actual row, not a v0-shaped copy returned by imGetProject).
+        pgProjectStore.imRecordVersionSave(id, existing.length, elementCount);
 
         if (io) io.to(`project:${id}`).emit('version-saved', { versionId, label, elementCount });
         deliverWebhookEvent(id, 'model.saved', { versionId, label, elementCount, projectId: id }).catch(() => {});
@@ -3431,7 +3440,7 @@ app.get('/api/projects/:id/versions/:vid', authMiddleware, async (req, res) => {
             return res.json({ version: ver });
         }
         // In-memory fallback: scope by userId.
-        const proj = _projects.get(id);
+        const proj = pgProjectStore.imGetProject(id); // §STORE-UNIFY — single in-memory authority
         if (!proj || proj.ownerId !== userId) return res.status(404).json({ error: 'Not found' });
         const versions = _versions.get(id) ?? [];
         const ver = versions.find(v => v.id === vid);

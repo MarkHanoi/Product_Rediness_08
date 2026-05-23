@@ -1357,11 +1357,19 @@ export class SplitViewManager implements ISplitViewManager {
                 pointerType: 'mouse',
                 pointerId:  1,
             };
+            // §SELECT-SVP3D-ANCHOR-SKIP — tag the synthetic event so the main
+            // SelectionManager skips its hover-anchor fast path. The cursor was over
+            // the SVP pane, so the main canvas's last-hover state is stale; honouring
+            // it would snap the click back to the previously-selected element instead
+            // of picking what is under the cursor in the mirror.
+            let evt: Event;
             try {
-                mainCanvas.dispatchEvent(new (EventCtor as any)(type, init));
+                evt = new (EventCtor as any)(type, init);
             } catch {
-                mainCanvas.dispatchEvent(new MouseEvent(type, init as MouseEventInit));
+                evt = new MouseEvent(type, init as MouseEventInit);
             }
+            (evt as { __pryzmForwarded?: boolean }).__pryzmForwarded = true;
+            mainCanvas.dispatchEvent(evt);
         };
         // SelectionManager listens to pointerdown / pointerup and click —
         // fire the full sequence so its mousedown/up timing check passes.

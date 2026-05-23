@@ -17,6 +17,24 @@ import { startSpan } from './otel.js';
 import type { ISelectionManager } from '@pryzm/engine';
 
 /**
+ * Effective scene visibility — true only when `obj` AND every ancestor is
+ * `.visible`. THREE's Raycaster ignores `.visible`, so a hidden element
+ * (root `.visible = false`, set by isolate/hide, or a hidden level root) would
+ * otherwise stay selectable through the raw-raycast fallback below
+ * (#113 — hidden elements must not be selectable). The GpuPickStrategy primary
+ * path and the BvhPickStrategy already exclude hidden elements; this brings the
+ * legacy fallback to parity.
+ */
+function isObjectEffectivelyVisible(obj: THREE.Object3D): boolean {
+    let cur: THREE.Object3D | null = obj;
+    while (cur !== null) {
+        if (cur.visible === false) return false;
+        cur = cur.parent;
+    }
+    return true;
+}
+
+/**
  * SelectionManager
  *
  * Handles all 3D scene click-selection, transform-control attachment,
@@ -257,9 +275,20 @@ export class SelectionManager implements ISelectionManager {
     // userData.isInstancedGroup === true early-return in findSelectableRoot() and the
     // matching include-guard in _ensureSelectableCache() (BUG-04).  Listing the type
     // here ensures isSemanticType() returns true for completeness and future callers.
+    // §SELECT-SEMANTIC-TYPE-NAMES (2026-05-23) — these MUST match the actual
+    // `userData.elementType` strings the builders stamp (lower-cased). Two entries
+    // were stale and never matched any element: 'stairs' (plural) — the real type
+    // is 'stair' (StairMeshBuilder.ts:145 'Stair'); and 'railing' — the real types
+    // are 'handrail' (HandrailFragmentBuilder.ts:79 'Handrail', root selectable) and
+    // 'stair-railing' (StairRailingBuilder, deliberately selectable:false so it is
+    // intentionally NOT listed here). Single-click on a stair still worked via the
+    // findSelectableRoot() step-4 `selectable:true` fallback, but the semantic-type
+    // gated paths — findSelectableRoot() step-3 and the overlapping-candidate
+    // collection (~L2562, the TAB-cycle / slab-vs-stair tie-break) — silently
+    // dropped stairs, letting a slab underneath win. Corrected to the real names.
     private readonly SEMANTIC_TYPES = [
         'wall', 'window', 'door', 'slab', 'furniture', 'column',
-        'beam', 'roof', 'stairs', 'ramp', 'railing', 'opening',
+        'beam', 'roof', 'stair', 'ramp', 'handrail', 'opening',
         'curtainwall', 'ceiling', 'floor', 'lighting',
         'instancedelement',
     ].map(type => type.toLowerCase());
@@ -898,7 +927,17 @@ export class SelectionManager implements ISelectionManager {
         // the BVH ref only when the GPU pick strategy is unavailable (legacy
         // boot path / WebGL2 disabled), preserving previous behaviour there.
         const _anchorTarget = this._lastHoveredObjectGpu ?? (this._pickStrategy ? null : this._lastHoveredObject);
+        // §SELECT-SVP3D-ANCHOR-SKIP — a click SYNTHESISED by the split-view 3D pane
+        // (SplitViewManager._forward3dClickToMain) carries `__pryzmForwarded`. While
+        // the cursor was over the SVP pane the MAIN canvas received no hover rAF, so
+        // `_lastHoveredObjectGpu` / `_lastHoverConfirmedClient*` are STALE — they hold
+        // the last element hovered/selected on the main canvas. Honouring the anchor
+        // here makes a forwarded click "snap back" to that stale element (the
+        // architect's "selection reverts to the latest selected"). Skip the anchor
+        // for forwarded clicks so they always run a fresh pick at the forwarded point.
+        const _isForwarded = (event as { __pryzmForwarded?: boolean }).__pryzmForwarded === true;
         if (
+            !_isForwarded &&
             _anchorTarget !== null &&
             this._lastHoverConfirmedClientX !== null &&
             this._lastHoverConfirmedClientY !== null
@@ -1045,7 +1084,9 @@ export class SelectionManager implements ISelectionManager {
         // O(n·triangles) mesh-level raycast.  Falls back to full cache when BVH
         // is unavailable or when all elements are candidates (small scenes).
         const candidates = this._bvhPruneCandidates(this._selectableCache!);
-        const hits = this._raycaster.intersectObjects(candidates, true);
+        // #113 — drop hits on hidden elements (THREE's raycast ignores `.visible`).
+        const hits = this._raycaster.intersectObjects(candidates, true)
+            .filter(h => isObjectEffectivelyVisible(h.object));
 
         // ── Phase D: bim-canvas-world-click dispatch ────────────────────────
         // Compute the world-space point on the current level plane and dispatch

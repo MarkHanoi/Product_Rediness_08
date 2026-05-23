@@ -166,6 +166,10 @@ export class BvhPickStrategy implements PickStrategy {
       const obj = ctx.elementRegistry.objectFor(id);
       const mesh = firstMesh(obj);
       if (mesh === null || obj === null) continue;
+      // #113 — never pick a hidden element. THREE's raycast ignores `.visible`,
+      // so an isolate/hide-d element (root `.visible = false`) would otherwise
+      // stay selectable via this path. (GpuPickStrategy already excludes it.)
+      if (!isEffectivelyVisible(obj)) continue;
 
       this.ensureBvh(id, mesh.geometry as THREE.BufferGeometry, ctx.elementRegistry);
 
@@ -209,6 +213,8 @@ export class BvhPickStrategy implements PickStrategy {
       const obj = ctx.elementRegistry.objectFor(id);
       const mesh = firstMesh(obj);
       if (mesh === null) continue;
+      // #113 — exclude hidden elements from marquee/rect selection too.
+      if (obj === null || !isEffectivelyVisible(obj)) continue;
       this.ensureBvh(id, mesh.geometry as THREE.BufferGeometry, ctx.elementRegistry);
       tmpBox.setFromObject(mesh);
       if (tmpBox.isEmpty()) continue;
@@ -265,6 +271,24 @@ export class BvhPickStrategy implements PickStrategy {
     (geometry as { boundsTree?: MeshBVH }).boundsTree = bvh;
     this.cache.set(id, { bvh, hash, geometry });
   }
+}
+
+/**
+ * Effective scene visibility — an object is pickable only when it AND every
+ * ancestor is `.visible`. THREE's Raycaster checks layers, NOT `.visible`, and
+ * recurses into children of invisible parents, so without this guard a hidden
+ * element (root `.visible = false`, set by the isolate/hide path, or a hidden
+ * level root) would still be raycast and become selectable
+ * (#113 — hidden elements must not be selectable). Walking ancestors mirrors
+ * THREE's render behaviour (a subtree is skipped if any ancestor is invisible).
+ */
+function isEffectivelyVisible(obj: THREE.Object3D): boolean {
+  let cur: THREE.Object3D | null = obj;
+  while (cur !== null) {
+    if (cur.visible === false) return false;
+    cur = cur.parent;
+  }
+  return true;
 }
 
 function firstMesh(obj: THREE.Object3D | null): THREE.Mesh | null {

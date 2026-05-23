@@ -214,6 +214,16 @@ export {
   type BooleanProducer,
 } from './producers/boolean.js';
 
+// §WALL-SINGLE-VOLUME-CSG phase 2 (#96, 2026-05-23): pure helper that subtracts a
+// wall's opening boxes from its solid → one manifold descriptor with clean voids
+// (no abutting-segment seams). Additive only — NOT wired into the wall builder
+// yet (phase 3 routes it on the async path behind a feature flag with a segmented
+// fallback). Unit-tested in __tests__/produceWallWithVoids.test.ts.
+export {
+  produceWallWithVoids,
+  type WallVoidsOptions,
+} from './producers/wallVoids.js';
+
 // ── S52 D1: Family Creator producers (extrude first; sweep / loft / revolve at S53) ──
 export {
   produceExtrude,

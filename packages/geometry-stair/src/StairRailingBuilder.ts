@@ -102,6 +102,16 @@ export class StairRailingBuilder {
     }
 
     buildRailing(railing: StairRailingConfig, stair: StairData): void {
+        // §89 (plan-view incremental projection) — capture the prior version
+        // BEFORE removeRailing() drops the old group, then stamp +1 on the new
+        // group below. This lets EdgeProjectorService's per-element projection
+        // cache invalidate the railing on rebuild and HIT on unchanged
+        // projections (same capture-then-+1 pattern as stair/beam/furniture).
+        // Without a monotonic version the cache would serve stale railing
+        // geometry (the #60 class of bug) — so this MUST land before
+        // 'stair-railing' is added to CACHEABLE_ELEMENT_TYPES.
+        const priorVersion =
+            (this.meshGroups.get(railing.id)?.userData?.version as number | undefined) ?? 0;
         this.removeRailing(railing.id);
 
         const group = new THREE.Group();
@@ -128,7 +138,8 @@ export class StairRailingBuilder {
             elementType: 'stair-railing',
             stairId: railing.stairId,
             levelId: stair.levelId || stair.baseLevelId,
-            selectable: false
+            selectable: false,
+            version: priorVersion + 1, // §89 — per-element plan-projection cache key
         };
 
         group.traverse(child => {

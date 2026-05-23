@@ -5,7 +5,7 @@ import { StairSetupPanel } from '@app/ui/StairSetupPanel';
 import { StairLevelRequiredPanel } from '@app/ui/StairLevelRequiredPanel';
 import { deleteIfcImportedElement, isIfcImportedElement } from '@pryzm/file-format';
 
-import { BimManager } from '@pryzm/core-app-model';
+import { BimManager, planView2DCreationMode } from '@pryzm/core-app-model';
 import type { IBimService } from '@pryzm/engine';
 
 export class BimService implements IBimService {
@@ -335,6 +335,18 @@ export class BimService implements IBimService {
         // project only has one level and surface the StairLevelRequiredPanel.
         if (!this._ensureTwoLevelsForStair(() => this.activateStairPathTool(shape))) {
             return;
+        }
+
+        // #101 / SPEC-STAIR-3D-CREATION — when the active view is the 3D view
+        // (camera is NOT an orthographic plan camera with a mounted drawing),
+        // sketch the stair directly in 3D via StairPath3DToolHandler. The plan
+        // and split-plan-pane paths below are unchanged. `world.camera.three`
+        // reflects the active view's camera (same accessor SlabTool relies on).
+        const cam = window.world?.camera?.three;
+        const inPlanView = cam ? planView2DCreationMode.isInPlanView(cam) : false;
+        if (!inPlanView && window.stairPath3DTool) {
+            if (window.stairPath3DTool.activate(shape)) return;
+            console.warn('[BimService] 3D stair activation declined — falling back to plan/legacy path');
         }
 
         const toolManager = this.props.toolManager as any;

@@ -66,13 +66,68 @@ subtracted via `IfcRelVoidsElement`, with the door/window filling it via
 
 1. **Done (2026-05-22)** — export kernel CSG (`KernelCSG`, `produceBoolean`,
    boolean types) from `geometry-kernel/src/index.ts`.
-2. **Geometry core** — add a pure kernel helper `produceWallWithVoids(wallSolid,
-   openingBoxes)` (thin wrapper over `produceBoolean` looping the openings) +
-   unit tests (manifold count == 1, genus matches opening count, watertight).
+2. **Done (2026-05-23)** — pure kernel helper `produceWallWithVoids(wallSolid,
+   openingBoxes, opts?)` added at `geometry-kernel/src/producers/wallVoids.ts`
+   (loops `produceBoolean('subtract', …)` over the openings, carries the wall
+   material, returns the solid unchanged when there are no openings, and bails on
+   an emptied intermediate so the caller can fall back). Exported from the kernel
+   public surface. Unit-tested in `__tests__/produceWallWithVoids.test.ts`
+   (6 cases: no-op identity, single void has more faces than a box + stays within
+   the wall AABB, material carried, two-openings adds geometry, deterministic
+   hash, missing-wall rejection) — all green. NOT wired into the builder (phase 3).
 3. **Builder integration** — route `WallFragmentBuilder` / `LayeredWallOpeningBuilder`
    through the booled descriptor on the async path (§2.1 option b). Feature-flag
    it first (`__wallSingleVolume`) so the segmented path remains a fallback until
    verified, then flip the default.
+
+   **✅ IMPLEMENTED 2026-05-23** (type-clean end-to-end, flag-gated default-off,
+   plain straight walls; needs the §5 visual + IFC verify before flipping the
+   default). Files: `geometry-wall/src/descriptorToBufferGeometry.ts` (new),
+   `WallFragmentBuilder.ts` (DI seam `setSingleVolumeProducer` + flag-gated async
+   `_tryUpgradeWallToSingleVolume` swap with staleness guard + segment fallback),
+   `apps/editor/src/engine/singleVolumeWallProducer.ts` (new, kernel-backed) +
+   `initTools.ts` injection; `@pryzm/geometry-kernel` added to `apps/editor` deps.
+   Enable with `window.__wallSingleVolume = true` then create/edit a wall with an
+   opening. Layered/curved walls + IFC voids (phase 4) remain follow-ups.
+
+   **Validated implementation plan (2026-05-23 analysis — as built):**
+   - **Dependency seam (do NOT add `@pryzm/geometry-kernel` to `geometry-wall`).**
+     `geometry-wall` depends only on `@pryzm/renderer-three` (THREE), and
+     `command-registry` has no kernel dep either. Adding one needs a `pnpm install`.
+     Instead use **dependency injection**, mirroring the existing `_instanceBridge`
+     pattern in `WallFragmentBuilder`: add an optional
+     `_singleVolumeProducer?: (p: SingleVolumeWallParams) => Promise<BufferGeometryDescriptorLike | null>`
+     with a public setter. `apps/editor` (which already composes the kernel)
+     imports `produceExtrude` + `produceWallWithVoids` and injects the producer at
+     boot. `geometry-wall` stays THREE-only.
+   - **Local frame (verified against the segmented path).** The `wallGroup` is
+     translated to `start` with NO rotation; each child mesh is individually
+     rotated `rotation.y = -atan2(dir.z, dir.x)` so its local-x runs along the
+     wall direction. So the single CSG mesh is built in **wall-local space**
+     (x ∈ [0, length] along the wall, y ∈ [baseOffset, baseOffset+height],
+     z ∈ [−thickness/2, +thickness/2]) and placed at the group origin with
+     `rotation.y = −angle`, `position = (0,0,0)`.
+   - **Descriptor assembly (in the injected producer).**
+     wall solid = `produceExtrude([{x:0,z:−t/2},{x:L,z:−t/2},{x:L,z:t/2},{x:0,z:t/2}],
+     height, { worldY: baseOffset })`; per opening (SPEC §4 — inset past faces)
+     box = `produceExtrude([offset−w/2 … offset+w/2] × [−t/2−ε … t/2+ε], op.height,
+     { worldY: op.sillHeight − ε })`; then `produceWallWithVoids(solid, boxes)`.
+   - **descriptor → THREE.** ✅ **Shipped 2026-05-23** —
+     `packages/geometry-wall/src/descriptorToBufferGeometry.ts`
+     (`descriptorToBufferGeometry(descriptorLike) → THREE.BufferGeometry | null`).
+     Structural input type (no `@pryzm/geometry-kernel` dep added); returns null
+     on an empty descriptor so the caller falls back to segments. Type-clean.
+   - **Wiring in `buildWall` plain-opening branch (~line 1437).** Build the
+     segments synchronously as today (immediate render + fallback). If
+     `window.__wallSingleVolume` AND `_singleVolumeProducer` AND not curved/layered:
+     call the producer async; on resolve, **with a staleness guard** (verify the
+     `wallGroup` is still attached / still the current group for `wall.id` via
+     `wallToFragmentsMap`), remove the segment meshes + add the single CSG mesh
+     (one fragment id, registered like a wall body). On producer failure → keep
+     segments (never an empty wall).
+   - **Scope first cut to plain straight walls.** Layered (`LayeredWallOpeningBuilder`,
+     per-layer subtract) + curved are a follow-up; they keep the segmented path.
+   - **Verify (SPEC §5) before flipping the default** — visual (no seams) + IFC.
 4. **IFC** — `IfcOpeningElement` + `IfcRelVoidsElement` + `IfcRelFillsElement` in
    `plugins/ifc-export`.
 5. **Promote** §2.1/§2.2 into C15 §3 as the canonical void-geometry contract.
