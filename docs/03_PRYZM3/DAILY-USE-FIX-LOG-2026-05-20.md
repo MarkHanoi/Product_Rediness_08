@@ -28,9 +28,29 @@ reveal, the box corners) stay hard/crisp. Added `toCreasedNormals` + `mergeVerti
 sanctioned `@pryzm/renderer-three` addon barrel (P2 — the only authorised three/examples
 re-export site).
 **Verification:** `renderer-three` + `geometry-wall` typecheck clean at the edited files.
-Client-package edit → live on a hard browser refresh. **Pending the architect's visual
-confirm** — if a line REMAINS after this, it is a wall-to-wall join corner (real geometry,
-separate concern), not the boolean.
+Client-package edit → live on a hard browser refresh.
+
+### #96 §96-LAYERED-SEAM-FIX — the SAME seam on LAYERED walls (the real one the architect hit)
+**Trigger:** after the CSG seam fix the architect still saw evenly-spaced full-height
+vertical lines beside the opening, **even deselected**. **Correction to my earlier
+deduction:** "the void cuts through" is satisfied by BOTH the plain-CSG path AND the
+**layered** path (segments/cells leave a hole), so it did NOT prove the wall was plain.
+The architect's walls are **layered** (a WallSystemType with layers is stamped at create),
+so they render via `LayeredWallOpeningBuilder.buildContinuousLayerGeometry` — NOT the CSG
+path (which excludes layered). **Root cause:** that function **grid-discretises** the layer:
+it collects x-breaks `[0, openingLeft, openingRight, wallLength]` + y-breaks and emits ONE
+front/back quad **per grid cell**. A door therefore puts a coplanar quad boundary at the
+opening's left/right x running the **full wall height** → the visible "division lines".
+**Fix (`buildContinuousLayerGeometry`):** (1) FRONT/BACK faces now **greedy-merge** adjacent
+solid cells into maximal rectangles, so away from the opening the face is a single quad —
+the full-height internal edges are gone. (2) REVEAL (side/sill/head) faces stay per-cell at
+void boundaries (real opening faces, kept crisp). (3) `toCreasedNormals(30°)` on the result —
+one shared normal per coplanar region, hard edges only at the reveal — matching the plain-CSG
+path. Type-clean (new code uses `!` assertions; the file's other errors are pre-existing
+strict-null at the `solid[][]` grid). Live on a hard browser refresh. **This is the path the
+architect's walls actually use**, so it should remove the lines they kept seeing.
+**Note:** the selected (purple) highlight fill is UNLIT, so it can't show a shading fix —
+judge seamlessness in the DESELECTED view.
 
 ---
 

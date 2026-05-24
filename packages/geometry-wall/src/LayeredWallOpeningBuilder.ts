@@ -1,4 +1,5 @@
 import * as THREE from '@pryzm/renderer-three/three';
+import { toCreasedNormals } from '@pryzm/renderer-three';
 import { WallData, Opening, WallLayer } from './WallTypes';
 
 export interface OpeningCluster {
@@ -159,17 +160,43 @@ function buildContinuousLayerGeometry(
     const isSolid = (i: number, j: number): boolean =>
         i >= 0 && i < xCount && j >= 0 && j < yCount && solid[i][j];
 
+    // §96-LAYERED-SEAM-FIX (2026-05-24) — FRONT/BACK faces: greedy-merge adjacent
+    // solid cells into maximal rectangles. The old per-cell emission put a quad
+    // boundary at every grid break (e.g. the opening's left/right x), so a door
+    // produced a FULL-HEIGHT coplanar edge beside it — the "division lines" the
+    // architect saw on the wall face. Merging removes those internal face edges;
+    // away from the opening the face is now a single quad.
+    const covered: boolean[][] = Array.from({ length: xCount }, () => new Array<boolean>(yCount).fill(false));
     for (let i = 0; i < xCount; i++) {
         for (let j = 0; j < yCount; j++) {
-            if (!solid[i][j]) continue;
-            const x0 = xs[i];
-            const x1 = xs[i + 1];
-            const y0 = ys[j];
-            const y1 = ys[j + 1];
+            if (!solid[i]![j] || covered[i]![j]) continue;
+            // widen along x while the cell is solid + not yet covered
+            let w = 1;
+            while (i + w < xCount && solid[i + w]![j] && !covered[i + w]![j]) w++;
+            // grow along y while the WHOLE [i..i+w) span of row (j+h) is solid + uncovered
+            let h = 1;
+            growY: while (j + h < yCount) {
+                for (let k = i; k < i + w; k++) {
+                    if (!solid[k]![j + h] || covered[k]![j + h]) break growY;
+                }
+                h++;
+            }
+            for (let a = i; a < i + w; a++) for (let b = j; b < j + h; b++) covered[a]![b] = true;
+            const X0 = xs[i]!, X1 = xs[i + w]!, Y0 = ys[j]!, Y1 = ys[j + h]!;
+            addQuad([X0, Y0, front], [X1, Y0, front], [X1, Y1, front], [X0, Y1, front]);
+            addQuad([X1, Y0, back], [X0, Y0, back], [X0, Y1, back], [X1, Y1, back]);
+        }
+    }
 
-            addQuad([x0, y0, front], [x1, y0, front], [x1, y1, front], [x0, y1, front]);
-            addQuad([x1, y0, back], [x0, y0, back], [x0, y1, back], [x1, y1, back]);
-
+    // REVEAL (side / sill / head) faces: emit per cell only where the neighbour is
+    // void. These are the real perpendicular faces of the opening — kept crisp.
+    for (let i = 0; i < xCount; i++) {
+        for (let j = 0; j < yCount; j++) {
+            if (!solid[i]![j]) continue;
+            const x0 = xs[i]!;
+            const x1 = xs[i + 1]!;
+            const y0 = ys[j]!;
+            const y1 = ys[j + 1]!;
             if (!isSolid(i - 1, j)) {
                 addQuad([x0, y0, back], [x0, y0, front], [x0, y1, front], [x0, y1, back]);
             }
@@ -191,7 +218,14 @@ function buildContinuousLayerGeometry(
     geometry.computeVertexNormals();
     geometry.computeBoundingBox();
     geometry.computeBoundingSphere();
-    return geometry;
+    // §96-LAYERED-SEAM-FIX — creased normals: one shared normal per coplanar region
+    // (the merged face shades as a single seamless surface) while the 90° reveal
+    // edges stay hard. Mirrors the plain-wall CSG path (descriptorToBufferGeometry).
+    const creased = toCreasedNormals(geometry, THREE.MathUtils.degToRad(30));
+    geometry.dispose();
+    creased.computeBoundingBox();
+    creased.computeBoundingSphere();
+    return creased;
 }
 
 /**
