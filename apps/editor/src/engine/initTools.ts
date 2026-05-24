@@ -1759,34 +1759,18 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
         // fixtures contribute spatial mass that the architect benefits from
         // seeing in 3D, even though they don't extend the building envelope.
         // Lighting fixtures included for parity (a lamp is a visible mesh).
-        const _CREATE_CMD_RE =
-            /^(wall|slab|curtainwall|curtain-wall|column|beam|ceiling|roof|floor|stair|handrail|furniture|plumbing|lighting|wall\.opening)\.(create|batch\.create)$/;
-        runtime.events.on('command.executed', (ev) => {
-            if (_splitViewFirstFrameDone) return;
-            const cmdType = (ev as { type?: string } | undefined)?.type ?? '';
-            if (!_CREATE_CMD_RE.test(cmdType)) return;
-            // Only frame while split view is active (C11 §12.2). splitViewManager is
-            // typed `unknown` on Window — narrow it to the isActive surface.
-            const _sv = window.splitViewManager as { isActive?: boolean } | undefined;
-            if (!_sv?.isActive) return;
-            _splitViewFirstFrameDone = true;
-            setTimeout(() => {
-                try {
-                    zoomToAll();
-                    console.log(
-                        '[initTools] §13-CAM: framed 3D camera on first plan-pane element — ' +
-                        'type=' + cmdType,
-                    );
-                } catch (err) {
-                    console.warn('[initTools] §13-CAM: zoomToAll() failed (non-fatal):', err);
-                }
-            }, 300);
-        });
+        // §13-CAM REMOVED (2026-05-24, user request): the split-view "frame the 3D
+        // camera on the FIRST element created in plan view" behaviour (a deferred
+        // zoomToAll() on the first wall/element create while split view is active) was
+        // unwanted — it hijacked the user's chosen 3D framing the moment they drew their
+        // first wall. The complementary on-view-SWITCH framing (§3D-FRAME-ON-VIEW-SWITCH
+        // below) is a different trigger and is RETAINED. `_splitViewFirstFrameDone` now
+        // stays permanently false, which simply leaves the view-switch handler's
+        // double-frame guard (line ~1814) inert — harmless.
         runtime.events.on('pryzm-project-loaded', () => {
             _splitViewFirstFrameDone = false;
             _3dViewFirstFrameDone = false; // §3D-FRAME-ON-VIEW-SWITCH re-arm per project session
         });
-        console.log('[initTools] §13-CAM: split-view first-element camera framing registered.');
 
         // §3D-FRAME-ON-VIEW-SWITCH (#91, DAILY-USE 2026-05-21, Round 44) —
         // The §13-CAM handler above only frames the 3D camera when SPLIT view
