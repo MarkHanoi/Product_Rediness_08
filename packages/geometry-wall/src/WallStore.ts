@@ -1029,7 +1029,16 @@ export class WallStore implements ILevelProvider {
 
             const frozen = cloneWallData({
                 ...wall,
-                openings
+                openings,
+                // §VIEW-DIRTY-CHECK §2.2: bump the render version so WallFragmentBuilder's
+                // composite cache key changes and buildWall() actually re-runs. buildWall()
+                // rebuilds the SEGMENTED wall (the immediate render + permanent fallback)
+                // with the opening at its new offset. Without this bump _buildWallInternal()
+                // short-circuits on the version guard, buildWall() never runs, and the
+                // ORIGINAL opening hole persists at the old location on a move/resize.
+                // NOTE: this does NOT enable the CSG single-volume upgrade — that path
+                // self-fails (wasm) and keeps the freshly-rebuilt segments.
+                _renderVersion: (wall._renderVersion ?? 0) + 1,
             });
 
             this.walls.set(wallId, frozen);
@@ -1084,7 +1093,16 @@ export class WallStore implements ILevelProvider {
 
             const frozen = cloneWallData({
                 ...wall,
-                openings
+                openings,
+                // §VIEW-DIRTY-CHECK §2.2: bump the render version so WallFragmentBuilder's
+                // composite cache key changes and buildWall() actually re-runs. buildWall()
+                // rebuilds the SEGMENTED wall (the immediate render + permanent fallback)
+                // with the opening at its new offset. Without this bump _buildWallInternal()
+                // short-circuits on the version guard, buildWall() never runs, and the
+                // ORIGINAL opening hole persists at the old location on a move/resize.
+                // NOTE: this does NOT enable the CSG single-volume upgrade — that path
+                // self-fails (wasm) and keeps the freshly-rebuilt segments.
+                _renderVersion: (wall._renderVersion ?? 0) + 1,
             });
 
             this.walls.set(wallId, frozen);
