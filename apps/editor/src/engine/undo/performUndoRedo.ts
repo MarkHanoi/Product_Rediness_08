@@ -270,12 +270,19 @@ export function performRedo(): void {
       const cm = _cm();
 
       const tryRingBuffer = (): boolean => {
-        if (!rb?.canRedo?.()) return false;
-        const pair = rb.peek?.() ?? null;
+        const canRedo = !!rb?.canRedo?.();
+        const pair = canRedo ? (rb!.peek?.() ?? null) : null;
         const stores = pair?.affectedStores ?? [];
         const map = buildUndoStoreMap();
-        if (!_covered(stores, map)) return false;
-        const forwardSide = rb.redoPatch?.();   // step cursor forward + return forward
+        const covered = _covered(stores, map);
+        // §REDO-DIAG (2026-05-24) — conclusive decision-point trace so a live redo
+        // log distinguishes (a) redo-branch truncated by a post-undo push (canRedo=false)
+        // from (b) an uncovered store from (c) the apply failing/no-op'ing.
+        console.log('[Redo-DIAG] canRedo=', canRedo, 'stores=', stores.join(',') || '(none)',
+          'covered=', covered, 'fwdOps=', pair?.forward?.ops?.length ?? 0);
+        if (!canRedo) return false;
+        if (!covered) return false;
+        const forwardSide = rb!.redoPatch?.();   // step cursor forward + return forward
         if (!forwardSide) return false;
         let outcome: ApplyRingBufferOutcome = { applied: [], failed: [] };
         _withPausedObservers('REDO', () => {
@@ -288,7 +295,7 @@ export function performRedo(): void {
           console.log('[Redo] ring-buffer applied — stores:', stores.join(','));
           return true;
         }
-        console.warn('[Redo] ring-buffer apply failed (stores:', outcome.failed.join(','), ')');
+        console.warn('[Redo] ring-buffer apply failed (stores:', outcome.failed.join(','), ') — applied nothing');
         return false;
       };
 
