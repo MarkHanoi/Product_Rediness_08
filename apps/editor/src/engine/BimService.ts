@@ -152,6 +152,9 @@ export class BimService implements IBimService {
     undo() {
         // F-1.4: prefer ring-buffer path (O(1), no LONGTASK) — mirrors initUI.ts Ctrl-Z handler.
         const rb = window.runtime?.bus?.ringBuffer;
+        // §UNDO-DIAG (2026-05-24) — conclusive ring-buffer state when this path fires.
+        console.log('[Undo-DIAG/BimService] rb=', !!rb, 'canUndo=', rb?.canUndo?.(),
+            'size=', (rb as any)?.size, 'current.affectedStores=', (rb?.current?.() as any)?.affectedStores);
         if (rb?.canUndo()) {
             const currentPair = rb.current();
             const inverseSide = rb.undoPatch();

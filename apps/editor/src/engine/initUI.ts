@@ -2858,6 +2858,9 @@ export async function initUI(p: UIParams): Promise<void> {
         console.log('[EngineBootstrap] Shortcut Ctrl+Z → undo');
 
         const rb = window.runtime?.bus?.ringBuffer;
+        // §UNDO-DIAG (2026-05-24) — conclusive ring-buffer state at Ctrl+Z time.
+        console.log('[Undo-DIAG/initUI] rb=', !!rb, 'canUndo=', rb?.canUndo?.(),
+            'size=', (rb as any)?.size, 'current.affectedStores=', (rb?.current?.() as any)?.affectedStores);
         if (rb?.canUndo()) {
             const currentPair = rb.current();       // capture affectedStores BEFORE cursor moves
             // ISSUE-01 (OI-034): If the ring-buffer entry has empty affectedStores the

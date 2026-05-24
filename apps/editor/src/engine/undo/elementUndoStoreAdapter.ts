@@ -76,21 +76,26 @@ function _remove(store: LegacyElementStoreLike, id: string): void {
 export function elementUndoStoreAdapter(store: LegacyElementStoreLike): PatchApplicableAdapter {
   return {
     applyPatch(patches: readonly unknown[]): void {
+      // §ADR-051-DIAG (2026-05-24) — temporary diagnostic so a live Ctrl+Z log
+      // pinpoints exactly what the adapter did. Remove once undo is confirmed live.
+      console.log('[elementUndoStoreAdapter] applyPatch — ops:', patches.length,
+        'surface:', { add: typeof store.add, remove: typeof store.remove, delete: typeof store.delete, getById: typeof store.getById, get: typeof store.get, update: typeof store.update });
       for (const raw of patches) {
         const p = raw as UndoPatchOp;
         try {
           const id = p.path.length > 0 ? String(p.path[0]) : '';
-          if (id.length === 0) continue;
+          if (id.length === 0) { console.warn('[elementUndoStoreAdapter] skip — empty id, path=', p.path); continue; }
           const exists = _exists(store, id);
 
           if (p.path.length === 1) {
             // Whole-element op — the create/undo/redo case.
             if (p.op === 'remove') {
-              if (exists) _remove(store, id);                 // undo of a create
+              if (exists) { _remove(store, id); console.log('[elementUndoStoreAdapter] UNDO removed', id); }   // undo of a create
+              else console.warn('[elementUndoStoreAdapter] skip remove — not found in store:', id);
             } else if (p.op === 'add') {
               if (!exists && p.value != null && typeof store.add === 'function') {
-                store.add(p.value);                            // redo of a create
-              }
+                store.add(p.value); console.log('[elementUndoStoreAdapter] REDO added', id);                   // redo of a create
+              } else console.warn('[elementUndoStoreAdapter] skip add — exists?', exists, 'hasAdd?', typeof store.add === 'function');
             } else if (p.op === 'replace') {
               if (p.value == null) continue;
               if (exists && typeof store.update === 'function') store.update(id, p.value as Record<string, unknown>);
