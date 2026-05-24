@@ -510,17 +510,6 @@ export class ProjectHub {
     /** §CANVAS-CARD Phase 2 — disposers for per-card free-drag listeners; cleared + rebuilt on each refreshGrid so document-level handlers never leak. */
     private _cardDragDisposers: Array<() => void> = [];
 
-    /** §HUB-CANVAS-PANZOOM — Miro/Mural-style canvas state. pan in screen px, zoom is a
-     * scale factor. Persisted across refreshGrid() so creating/deleting a project does
-     * not reset the view; fit-all runs once per hub open (_fitAllDone). */
-    private _panX = 0;
-    private _panY = 0;
-    private _zoom = 1;
-    private _fitAllDone = false;
-    private _canvasViewDisposers: Array<() => void> = [];
-    private static readonly _ZOOM_MIN = 0.2;
-    private static readonly _ZOOM_MAX = 2.5;
-
     private attachGridListeners(el: HTMLElement): void {
         const grid = el.querySelector('#ph-grid') as HTMLElement;
 
@@ -632,34 +621,17 @@ export class ProjectHub {
     private _attachCanvasDrag(grid: HTMLElement): void {
         for (const d of this._cardDragDisposers) d();
         this._cardDragDisposers = [];
-        for (const d of this._canvasViewDisposers) d();
-        this._canvasViewDisposers = [];
 
         const CARD_W = 240;
         const GAP    = 20;
         const PAD    = 16;
         const ROW_H  = 244; // approx card height + gap; cards auto-layout, user repositions
 
-        // §HUB-CANVAS-PANZOOM: the grid is the clipping viewport; one inner content
-        // layer holds every card and carries the pan/zoom transform. Cards keep their
-        // absolute left/top in CANVAS space (independent of pan/zoom).
         grid.style.position = 'relative';
         grid.style.display  = 'block';
-        grid.style.overflow = 'hidden';
-        grid.style.cursor   = 'grab';
-
-        const content = document.createElement('div');
-        content.className = 'ph-canvas-content';
-        content.style.cssText = 'position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform;';
-        const cards = Array.from(grid.querySelectorAll<HTMLElement>('.ph-card'));
-        for (const c of cards) content.appendChild(c);
-        grid.appendChild(content);
-
-        const applyTransform = (): void => {
-            content.style.transform = `translate(${this._panX}px, ${this._panY}px) scale(${this._zoom})`;
-        };
 
         const cols  = Math.max(1, Math.floor((grid.clientWidth - PAD * 2 + GAP) / (CARD_W + GAP)));
+        const cards = Array.from(grid.querySelectorAll<HTMLElement>('.ph-card'));
         let topZ = 10;
 
         cards.forEach((card, i) => {
@@ -690,15 +662,11 @@ export class ProjectHub {
                 ot = parseFloat(card.style.top)  || 0;
                 card.style.zIndex = String(++topZ); // click-to-front
                 e.preventDefault();
-                e.stopPropagation(); // don't also start a background pan
             };
             const onMove = (e: MouseEvent): void => {
                 if (!dragging) return;
-                // Screen-space delta → canvas space (÷ zoom) so the card tracks the
-                // cursor 1:1 at any zoom level.
-                const z  = this._zoom || 1;
-                const dx = (e.clientX - sx) / z, dy = (e.clientY - sy) / z;
-                if (!moved && dx * dx + dy * dy > 25 / (z * z)) {
+                const dx = e.clientX - sx, dy = e.clientY - sy;
+                if (!moved && dx * dx + dy * dy > 25) {
                     moved = true;
                     card.style.cursor    = 'grabbing';
                     card.style.boxShadow = '0 20px 48px rgba(40,30,90,0.28)';
@@ -735,88 +703,12 @@ export class ProjectHub {
             });
         });
 
-        // ── Wheel zoom, anchored at the cursor ──────────────────────────────────
-        const onWheel = (e: WheelEvent): void => {
-            e.preventDefault();
-            const rect = grid.getBoundingClientRect();
-            const cx = e.clientX - rect.left;
-            const cy = e.clientY - rect.top;
-            const z0 = this._zoom || 1;
-            const canvasX = (cx - this._panX) / z0;
-            const canvasY = (cy - this._panY) / z0;
-            const factor  = e.deltaY < 0 ? 1.12 : 1 / 1.12;
-            const z1 = Math.min(ProjectHub._ZOOM_MAX, Math.max(ProjectHub._ZOOM_MIN, z0 * factor));
-            this._zoom = z1;
-            this._panX = cx - canvasX * z1;
-            this._panY = cy - canvasY * z1;
-            applyTransform();
-        };
-        grid.addEventListener('wheel', onWheel, { passive: false });
-        this._canvasViewDisposers.push(() => grid.removeEventListener('wheel', onWheel));
-
-        // ── Background drag to pan (grabbing empty canvas, not a card) ───────────
-        let panning = false, ppx = 0, ppy = 0, pp0x = 0, pp0y = 0;
-        const onPanDown = (e: MouseEvent): void => {
-            if (e.button !== 0) return;
-            if ((e.target as HTMLElement).closest('.ph-card')) return;
-            panning = true;
-            ppx = e.clientX; ppy = e.clientY; pp0x = this._panX; pp0y = this._panY;
-            grid.style.cursor = 'grabbing';
-            e.preventDefault();
-        };
-        const onPanMove = (e: MouseEvent): void => {
-            if (!panning) return;
-            this._panX = pp0x + (e.clientX - ppx);
-            this._panY = pp0y + (e.clientY - ppy);
-            applyTransform();
-        };
-        const onPanUp = (): void => {
-            if (!panning) return;
-            panning = false;
-            grid.style.cursor = 'grab';
-        };
-        grid.addEventListener('mousedown', onPanDown);
-        document.addEventListener('mousemove', onPanMove);
-        document.addEventListener('mouseup', onPanUp);
-        this._canvasViewDisposers.push(() => {
-            grid.removeEventListener('mousedown', onPanDown);
-            document.removeEventListener('mousemove', onPanMove);
-            document.removeEventListener('mouseup', onPanUp);
-        });
-
-        // ── Fit all projects into view (once per hub open) ──────────────────────
-        if (!this._fitAllDone && cards.length > 0) {
-            this._fitAllDone = true;
-            this._fitAllToView(grid, cards);
-        }
-        applyTransform();
-    }
-
-    /** §HUB-CANVAS-PANZOOM — compute pan/zoom so every card's bounding box fits the
-     * viewport (with padding) and is centred. Clamped to the allowed zoom range. */
-    private _fitAllToView(grid: HTMLElement, cards: HTMLElement[]): void {
-        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        // Size the canvas so it scrolls to fit the lowest card.
+        let maxBottom = 0;
         for (const card of cards) {
-            const l = parseFloat(card.style.left) || 0;
-            const t = parseFloat(card.style.top)  || 0;
-            const w = card.offsetWidth  || 240;
-            const h = card.offsetHeight || 244;
-            minX = Math.min(minX, l); minY = Math.min(minY, t);
-            maxX = Math.max(maxX, l + w); maxY = Math.max(maxY, t + h);
+            maxBottom = Math.max(maxBottom, (parseFloat(card.style.top) || 0) + card.offsetHeight);
         }
-        if (!isFinite(minX)) return;
-        const bboxW = Math.max(1, maxX - minX);
-        const bboxH = Math.max(1, maxY - minY);
-        const vw = grid.clientWidth  || 1;
-        const vh = grid.clientHeight || 1;
-        const PAD_RATIO = 0.9;
-        const z = Math.min(
-            ProjectHub._ZOOM_MAX,
-            Math.max(ProjectHub._ZOOM_MIN, Math.min((vw / bboxW) * PAD_RATIO, (vh / bboxH) * PAD_RATIO, 1)),
-        );
-        this._zoom = z;
-        this._panX = (vw - bboxW * z) / 2 - minX * z;
-        this._panY = (vh - bboxH * z) / 2 - minY * z;
+        grid.style.minHeight = `${maxBottom + 40}px`;
     }
 
     private _cardPosKey(id: string): string { return `pryzm.hubCardPos.${id}`; }
