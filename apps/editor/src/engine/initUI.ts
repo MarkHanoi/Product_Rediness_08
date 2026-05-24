@@ -35,6 +35,7 @@ import { escHtml } from '@pryzm/ui-base';
 
 import { apiFetch }              from '@pryzm/core-app-model';
 import { VisualStyle }           from '@pryzm/core-app-model/material-library';
+import { wallUndoStoreAdapter }  from './undo/wallUndoStoreAdapter.js'; // §ADR-051 wall slice (OI-054)
 import { createMainLayout }      from '@app/ui/Layout';
 import { CurtainWallBuilder }    from '@pryzm/geometry-curtain-wall';
 // Contract 47 §5.11 (Step 3′) — IFC export wrappers are loaded lazily on first
@@ -2784,8 +2785,10 @@ export async function initUI(p: UIParams): Promise<void> {
     // future CommandBus-native commands for these types can reach Ctrl+Z correctly.
     function _buildRingBufferStoreMap(): Record<string, { applyPatch: (p: unknown[]) => void } | undefined> {
         return {
-            wall:           window.wallStore, // TODO(TASK-08)
-            walls:          window.wallStore, // TODO(TASK-08)
+            // §ADR-051 wall slice (OI-054 B1+B2) — adapt the live legacy wall store to
+            // applyPatch via add/remove so undo+redo revert both DATA and MESH.
+            wall:           window.wallStore ? wallUndoStoreAdapter(window.wallStore as never) : undefined,
+            walls:          window.wallStore ? wallUndoStoreAdapter(window.wallStore as never) : undefined,
             slab:           window.slabStore, // TODO(TASK-08)
             slabs:          window.slabStore, // TODO(TASK-08)
             room:           window.roomStore, // TODO(TASK-08)

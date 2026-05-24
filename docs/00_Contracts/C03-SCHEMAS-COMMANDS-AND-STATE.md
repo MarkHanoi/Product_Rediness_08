@@ -240,8 +240,11 @@ Three layered bugs make plan-view-create undo a silent no-op today:
   **Interim fix (2026-05-24):** `applyRingBufferSide` now returns an `ApplyRingBufferOutcome`
   ({applied, failed}) and logs the missing-`applyPatch` store loudly instead of swallowing it;
   `initUI`/`BimService` stop logging false "undo applied" and fall back to `commandManager.undo()`
-  on total failure (B3 closed). **Real fix:** route all four through `runtime.undoStack.undo()/redo()`
-  (§4.5, U-5) once B2 is resolved.
+  on total failure (B3 closed). **Wall slice shipped 2026-05-24 (ADR-051):** the four sites' `wall`
+  entry now uses `wallUndoStoreAdapter(window.wallStore)` — an `applyPatch` surface over the live
+  legacy store's `add`/`remove`/`update`, which DRIVE the mesh — so wall undo+redo revert both data
+  and geometry (B1+B2 closed for walls; unit-gated, live-verify pending). **Real end-state:** route
+  all four through `runtime.undoStack` (U-5) once each type's mesh derives from its L1 store (U-7).
 - **B2 — mesh not reverted (deeper).** Even via `runtime.undoStack` the inverse patch applies to the
   **L1** store, which does not drive the mesh (§4.4). So data reverts but the wall mesh remains.
   **Fix:** TASK-08 store-unification (U-7) — make the mesh-driving store the L1 store (or have it

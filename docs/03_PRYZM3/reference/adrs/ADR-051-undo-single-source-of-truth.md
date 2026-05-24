@@ -100,6 +100,37 @@ Only after a type passes both gates is its Path-A dual-write removed.
 | **C** | Transitional: dual-write plan-view creates to `commandManager` so the B3 fallback reverts via Path A. | Rejected as the *end-state* (re-grows the retired dual-write, C02 §3.2; risks double-add vs the §P2.1 bridge), but acceptable as a stop-gap for a single type if a faster interim is needed. |
 | **D** | Command-inverse undo (re-dispatch the inverse command, e.g. undo create = dispatch delete through the full pipeline). | Viable + robust, but a different undo model than the existing ring-buffer patch infra; larger blast radius than A. Revisit if A's dirty-bridge proves fragile. |
 
+## Deep-trace addendum (2026-05-24) — the snapshot finding + executed wall slice
+
+A full trace to ground truth (every layer) surfaced a detail that sharpens the plan:
+
+- `produceCommand` is **pure** (`produceWithPatches`) and `CommandBus.executeCommand` **never
+  commits `nextStates`** to a store. The L1 `Store<T>` is mutated only by **`attachStores`**
+  (`bootstrap.ts:103`), which re-applies the **forward** patches from the PatchEmitter.
+- The production bus `storesProvider` returns a **snapshot `Record`** view
+  (`storesAsRecordView` = `Object.fromEntries(store.getState())`) — **not** the live `Store<T>`.
+  So `bus.fetchStores()` (used by the canonical `runtime.undoStack`) hands back a plain object
+  with **no `applyPatch`** → even that path can't apply inverse patches as written. Undo never
+  flows through `attachStores` (the only live-store applicator).
+- The hand-rolled UI handlers instead map `wall → window.wallStore` — the **live legacy** store
+  that *does* drive the mesh (`add`/`remove` → `WallFragmentBuilder`) but has no `applyPatch`.
+
+**Executed first slice (walls) — shipped 2026-05-24, behaviour-preserving, live-gated:**
+`apps/editor/src/engine/undo/wallUndoStoreAdapter.ts` adapts the live legacy wall store to an
+`applyPatch` surface implemented via its own `add`/`remove`/`update` (which drive the mesh):
+inverse `{op:'remove',path:[id]}` → `remove(id)` (undo), forward `{op:'add',path:[id],value}` →
+`add(value)` (**redo**), field `replace` → `update`. Wired into **all four** hand-rolled sites
+(`initUI`, `BimService`, `NavigationAreaLayout`, `DockingLayout`) so wall undo/redo revert **both
+data and mesh**. Unit-gated (`apps/editor/__tests__/wallUndoStoreAdapter.test.ts`, 6/6: undo,
+redo, round-trip, field, idempotency, degenerate). It touches only the wall undo entries — create
+and other element types are unchanged. This is the per-type bridge; the end-state (single store +
+derived mesh, retiring `window.wallStore` + the snapshot/`fetchStores` undo path) still stands.
+
+**Refined plan consequence:** the canonical `runtime.undoStack` path must additionally route
+inverse patches through the **live-store applicator** (`attachStores`/`Store.applyPatch`), not the
+`fetchStores` snapshot — fold this into the per-type migration when each type's mesh derives from
+its L1 store.
+
 ## Open question for the architect
 
 A's per-type migration changes the create/render path and **must be live-verified**. Confirm

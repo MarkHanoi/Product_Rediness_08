@@ -9,6 +9,7 @@ import type { BimService } from '@app/engine/BimService';
 import type { GISCallbacks } from './GISAreaLayout';
 import type { AIResult } from './AIAreaLayout';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
+import { wallUndoStoreAdapter } from '@app/engine/undo/wallUndoStoreAdapter'; // §ADR-051 wall slice (OI-054)
 
 export interface NavResult {
     vbPanelWrapper: HTMLElement;
@@ -104,7 +105,7 @@ export function mountNavigationArea(
                 if (side && pair) {
                     import('@pryzm/command-bus').then(({ applyRingBufferSide }) => {
                         applyRingBufferSide(side, pair.affectedStores ?? [], {
-                            wall: (window as any).wallStore,    walls: (window as any).wallStore, // TODO(TASK-08)
+                            wall: (window as any).wallStore ? wallUndoStoreAdapter((window as any).wallStore) : undefined,    walls: (window as any).wallStore ? wallUndoStoreAdapter((window as any).wallStore) : undefined, // §ADR-051 wall slice
                             slab: (window as any).slabStore,    slabs: (window as any).slabStore, // TODO(TASK-08)
                             room: (window as any).roomStore,    rooms: (window as any).roomStore, // TODO(TASK-08)
                             level: (window as any).levelStore,  levels: (window as any).levelStore, // TODO(TASK-08)

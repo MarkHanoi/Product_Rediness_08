@@ -7,6 +7,7 @@ import { deleteIfcImportedElement, isIfcImportedElement } from '@pryzm/file-form
 
 import { BimManager, planView2DCreationMode } from '@pryzm/core-app-model';
 import type { IBimService } from '@pryzm/engine';
+import { wallUndoStoreAdapter } from './undo/wallUndoStoreAdapter.js'; // §ADR-051 wall slice (OI-054)
 
 export class BimService implements IBimService {
     private bimManager: BimManager;
@@ -202,8 +203,10 @@ export class BimService implements IBimService {
 
     private static _buildStoreMap(): Record<string, { applyPatch: (p: unknown[]) => void } | undefined> {
         return {
-            wall:           (window as any).wallStore, // TODO(TASK-08)
-            walls:          (window as any).wallStore, // TODO(TASK-08)
+            // §ADR-051 wall slice (OI-054 B1+B2) — adapt the live legacy wall store to
+            // applyPatch via add/remove so undo+redo revert both DATA and MESH.
+            wall:           (window as any).wallStore ? wallUndoStoreAdapter((window as any).wallStore) : undefined,
+            walls:          (window as any).wallStore ? wallUndoStoreAdapter((window as any).wallStore) : undefined,
             slab:           (window as any).slabStore, // TODO(TASK-08)
             slabs:          (window as any).slabStore, // TODO(TASK-08)
             room:           (window as any).roomStore, // TODO(TASK-08)
