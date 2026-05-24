@@ -5,7 +5,7 @@
 // Subscribe returns the disposer — caller stores it and calls dispose()
 // in `unmount()` / `tearDown()`.
 
-import type { Disposable, RuntimeEvents, TypedEventEmitter } from './types.js';
+import type { EventSubscription, RuntimeEvents, TypedEventEmitter } from './types.js';
 
 export class EventBus implements TypedEventEmitter<RuntimeEvents> {
   private readonly listeners: Map<keyof RuntimeEvents, Set<(payload: unknown) => void>> = new Map();
@@ -13,7 +13,7 @@ export class EventBus implements TypedEventEmitter<RuntimeEvents> {
   on<K extends keyof RuntimeEvents>(
     event: K,
     handler: (payload: RuntimeEvents[K]) => void,
-  ): Disposable {
+  ): EventSubscription {
     let bucket = this.listeners.get(event);
     if (bucket === undefined) {
       bucket = new Set();
@@ -21,12 +21,19 @@ export class EventBus implements TypedEventEmitter<RuntimeEvents> {
     }
     const wrapped = handler as (payload: unknown) => void;
     bucket.add(wrapped);
-    return {
-      dispose: (): void => {
-        const b = this.listeners.get(event);
-        if (b !== undefined) b.delete(wrapped);
-      },
+    // §EVENTBUS-CALLABLE-DISPOSABLE (2026-05-24) — return a CALLABLE Disposable so
+    // BOTH `unsub()` (the ~dozens of F.events-migration call sites) AND
+    // `unsub.dispose()` (Disposable consumers) work. A pure `{ dispose }` object
+    // made every `unsub()` site throw `TypeError: … is not a function` on teardown
+    // (PlatformSaveController:354 on every project load; InspectModeCoordinator,
+    // initTools scale/rotate, LevelExplodeController on deactivate; etc.).
+    const dispose = (): void => {
+      const b = this.listeners.get(event);
+      if (b !== undefined) b.delete(wrapped);
     };
+    const sub = dispose as EventSubscription;
+    (sub as { dispose: () => void }).dispose = dispose;
+    return sub;
   }
 
   off<K extends keyof RuntimeEvents>(

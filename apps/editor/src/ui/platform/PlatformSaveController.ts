@@ -393,6 +393,9 @@ export class PlatformSaveController {
             }, CAPTURE_DELAY_MS);
         };
 
+        // §EVENTBUS-CALLABLE-DISPOSABLE (2026-05-24) — `events.on()` now returns a
+        // callable Disposable, so `_unsubProjectLoaded?.()` (lines 354/358) works.
+        // (Previously it returned a pure { dispose } → "is not a function" here.)
         _unsubProjectLoaded = window.runtime?.events?.on('pryzm-project-loaded', handler); // F.events.9
     }
 

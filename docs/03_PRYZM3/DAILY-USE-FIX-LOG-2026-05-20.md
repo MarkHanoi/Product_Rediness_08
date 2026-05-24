@@ -4,6 +4,25 @@ Concrete fixes applied this session in response to `DAILY-USE-AUDIT-2026-05-20.m
 
 ---
 
+## ✅ APPLIED — Round 53 (2026-05-24: §EVENTBUS-CALLABLE-DISPOSABLE — systemic `events.on()` "is not a function" fix)
+
+### Trigger (architect boot log, every project load)
+```
+EventBus.ts:48 listener for "pryzm-project-loaded" threw:
+  TypeError: _unsubProjectLoaded is not a function  at PlatformSaveController.ts:354
+```
+
+### Root cause (systemic — not one site)
+`runtime.events.on()` ([`packages/runtime-composer/src/EventBus.ts`](../../packages/runtime-composer/src/EventBus.ts)) returned a **pure `{ dispose() }` Disposable**, but the **F.events migration** left **~dozens** of call sites storing the return and calling it as a **function** — `_unsub?.()` — across `PlatformSaveController` (fires on EVERY project load), `InspectModeCoordinator` (×8), `initTools` (scale/rotate), `LevelExplodeController`, `initCollaboration`, etc. Optional chaining (`?.()`) does NOT guard a non-function, so each threw `TypeError: … is not a function` on its teardown/handler path.
+
+### Fix (root-cause, one change fixes the whole class)
+`EventBus.on()` now returns a **callable Disposable** — a function that disposes, WITH a `.dispose()` method — so BOTH `unsub()` (the F.events sites) AND `unsub.dispose()` (Disposable consumers) work. Typed as new `export type EventSubscription = Disposable & (() => void)` in [`types.ts`](../../packages/runtime-composer/src/types.ts); `TypedEventEmitter.on` return widened to it. `PlatformSaveController` reverted to the plain assignment (the systemic fix makes `?.()` work). Backward-compatible: existing `.dispose()` consumers unaffected; the widened return is assignable to both `Disposable` and `() => void`, so it also clears the corresponding pre-existing type errors at those sites.
+
+### Verification
+`runtime-composer` typecheck clean for `EventBus.ts`/`types.ts` (no EventSubscription / not-callable errors); editor typecheck clean for `PlatformSaveController`/`InspectModeCoordinator`/`LevelExplodeController`. `runtime-composer` tests 79/79 pass (the 1 failed suite is a pre-existing `window is not defined` Node-env collection error — confirmed identical with changes stashed). **Contract:** C02 §3.1 (F.events bootstrap), C10 (loud-fail-soft — the listener-threw log that surfaced this is preserved). Client+package edit → live on a hard browser refresh / dev-server restart.
+
+---
+
 ## ✅ APPLIED — Round 52 (2026-05-24: OI-053a — idempotent handler registration + project-open/create pipeline SPEC)
 
 ### OI-053a — kill the per-open duplicate-handler-registration throw/spam

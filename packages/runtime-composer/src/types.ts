@@ -44,6 +44,14 @@ export interface Disposable {
   dispose(): void;
 }
 
+/** §EVENTBUS-CALLABLE-DISPOSABLE (2026-05-24) — a subscription handle that is
+ *  BOTH callable (`unsub()`) AND a `Disposable` (`unsub.dispose()`).
+ *  `TypedEventEmitter.on` returns this so the ~dozens of F.events-migration call
+ *  sites that store the return and call it as a function keep working alongside
+ *  `Disposable` consumers. Previously `on` returned a pure `{ dispose }` object,
+ *  so every `unsub()` site threw `TypeError: … is not a function` on teardown. */
+export type EventSubscription = Disposable & (() => void);
+
 /** Toast severity levels — matches the existing `AppToast.ToastType`
  *  alphabet so the wrapper is a no-op transformation. */
 export type ToastKind = 'info' | 'success' | 'warn' | 'error';
@@ -57,7 +65,7 @@ export type ToastKind = 'info' | 'success' | 'warn' | 'error';
 // constraint would reject our own contract.  `object` is sufficient for
 // the type-mapper logic below (we only ever read `keyof TMap`).
 export interface TypedEventEmitter<TMap extends object> {
-  on<K extends keyof TMap>(event: K, handler: (payload: TMap[K]) => void): Disposable;
+  on<K extends keyof TMap>(event: K, handler: (payload: TMap[K]) => void): EventSubscription;
   off<K extends keyof TMap>(event: K, handler: (payload: TMap[K]) => void): void;
   emit<K extends keyof TMap>(event: K, payload: TMap[K]): void;
 }
