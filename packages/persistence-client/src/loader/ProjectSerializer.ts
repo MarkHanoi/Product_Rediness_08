@@ -480,6 +480,10 @@ function serializeCurtainWall(c: any): any {
         gridXSpacing: c.gridXSpacing, gridYSpacing: c.gridYSpacing,
         mullionSize: c.mullionSize, panelThickness: c.panelThickness,
         mullionColor: c.mullionColor,
+        // §MAT-CW-MATERIAL (#53) — glazing colour + mullion/glazing material-library IDs.
+        glazingColor: c.glazingColor,
+        mullionMaterialId: c.mullionMaterialId,
+        glazingMaterialId: c.glazingMaterialId,
         gridSystem: c.gridSystem ? deepStrip(c.gridSystem) : undefined,
         properties: c.properties ? { ...c.properties } : {},
         ifcData: c.ifcData ? { ...c.ifcData } : undefined

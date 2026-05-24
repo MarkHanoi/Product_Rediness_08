@@ -141,6 +141,14 @@ export interface CurtainWallBuilderDependencies {
      * Optional — missing at construction time is valid (lazy EPS facade not yet created).
      */
     edgeProjectorService?: { invalidateCwElement: (id: string) => void };
+    /**
+     * §MAT-CW-MATERIAL (#53 / M-H1-Part-2, 2026-05-24) — STANDARD_MATERIAL_LIBRARY
+     * id → def map. When supplied AND a curtain wall sets `mullionMaterialId` /
+     * `glazingMaterialId`, the builder resolves each slot to a PBR material from
+     * `matDef.params`/`textures`; otherwise it uses `mullionColor` / `glazingColor`.
+     * Mirrors the WallFragmentBuilder / RoofFragmentBuilder material injection.
+     */
+    materialMap?: ReadonlyMap<string, { params?: Record<string, unknown>; textures?: { color?: unknown; normal?: unknown; roughness?: unknown } }>;
 }
 
 // ---------------------------------------------------------------------------
@@ -1133,17 +1141,9 @@ export class CurtainWallBuilder {
         }
 
         // ── 7. Mullion material — resolved from cache (§MI-07) ───────────────
-        const mullionColor = cw.mullionColor || '#333333';
-        let mullionMat = this.mullionMaterialCache.get(mullionColor);
-        if (!mullionMat) {
-            mullionMat = new THREE.MeshStandardMaterial({
-                color: new THREE.Color(mullionColor),
-                metalness: 0.1,
-                roughness: 0.2,
-                emissive: new THREE.Color(mullionColor).multiplyScalar(0.05)
-            });
-            this.mullionMaterialCache.set(mullionColor, mullionMat);
-        }
+        // §MAT-CW-MATERIAL (#53) — resolve mullionMaterialId → PBR when the library
+        // map is injected, else the legacy mullionColor tint (see _getMullionMaterial).
+        const mullionMat = this._getMullionMaterial(cw);
 
         const __t_panels_read_done = performance.now();
 
@@ -1180,7 +1180,7 @@ export class CurtainWallBuilder {
             // §PERF-2026-Q2-CW-CREATE/F8: material is cache-owned + shared across
             // all fallback panels of every wall. Mark `sharedMaterial: true` so
             // `_disposeChildren` skips disposal on rebuild.
-            const fallbackPanelMat = this._getFallbackPanelMaterial(cw.glazingColor);
+            const fallbackPanelMat = this._getFallbackPanelMaterial(cw);
             for (const cell of cells) {
                 const panelWidth  = Math.max(0.01, cell.width - cw.mullionSize);
                 const panelHeight = Math.max(0.01, cell.height - cw.mullionSize);
@@ -1795,19 +1795,12 @@ export class CurtainWallBuilder {
             this._interactiveShadowPending.delete(cw.id);
         }
 
-        // ── Mullion material from cache ───────────────────────────────────
-        const mullionColor = cw.mullionColor ?? '#333333';
-        let mullionMat = this.mullionMaterialCache.get(mullionColor);
-        if (!mullionMat) {
-            mullionMat = new THREE.MeshStandardMaterial({
-                color:    new THREE.Color(mullionColor),
-                metalness: 0.1,
-                roughness: 0.2,
-                emissive:  new THREE.Color(mullionColor).multiplyScalar(0.05),
-            });
-            this.mullionMaterialCache.set(mullionColor, mullionMat);
-        }
-        const fallbackPanelMat = this._getFallbackPanelMaterial();
+        // ── Mullion + glazing material from cache ─────────────────────────
+        // §MAT-CW-MATERIAL (#53) — same library resolution as the build() path.
+        // (Previously this worker path also ignored cw.glazingColor entirely —
+        // _getFallbackPanelMaterial() was called with no argument.)
+        const mullionMat = this._getMullionMaterial(cw);
+        const fallbackPanelMat = this._getFallbackPanelMaterial(cw);
 
         // ── Create/clear root group + position immediately ────────────────
         // The group is added to the scene and positioned before the worker
@@ -2120,16 +2113,90 @@ export class CurtainWallBuilder {
      * Used only when no `CurtainPanelStore` is wired up. Mesh consumers MUST
      * stamp `userData.sharedMaterial = true`.
      */
-    private _getFallbackPanelMaterial(glazingColor?: string): THREE.MeshStandardMaterial {
-        // §MAT-CW-GLAZING (DAILY-USE 2026-05-22, #53) — resolve the glazing colour
-        // from the curtain-wall DTO (cw.glazingColor), like mullionColor, instead of
-        // a single hard-coded 0x88ccff (the last surviving instance of the bright-blue
-        // glass literal that M-H5/#52 removed for windows). Falls back to a realistic
-        // low-saturation architectural-glass tint (#9bc8e4) aligned with the CW plugin
-        // material-bridge / STANDARD_MATERIAL_LIBRARY. Cache keyed by colour so each
-        // distinct glazing tint shares ONE material across all walls (mirrors
-        // mullionMaterialCache); disposal already iterates _fallbackPanelMatCache.
-        const color = (glazingColor && glazingColor.length > 0) ? glazingColor : '#9bc8e4';
+    /**
+     * §MAT-CW-MATERIAL (#53 / M-H1-Part-2, 2026-05-24) — mullion (frame) material.
+     * Resolves `cw.mullionMaterialId` against the injected STANDARD_MATERIAL_LIBRARY
+     * map to a real PBR material (anodised aluminium, bronze, …); falls back to the
+     * legacy `mullionColor` tint when no map / no id / no library match. Mirrors
+     * WallFragmentBuilder.createWallMaterial + RoofFragmentBuilder. Cached (key =
+     * `mat:<id>` when resolved, else the colour string) so each distinct finish
+     * shares ONE material across all walls + rebuilds (§MI-07); disposal already
+     * iterates mullionMaterialCache.
+     */
+    private _getMullionMaterial(cw: CurtainWallData): THREE.MeshStandardMaterial {
+        const matId  = cw.mullionMaterialId;
+        const matMap = this._deps.materialMap;
+        if (matId && matMap) {
+            const cacheKey = `mat:${matId}`;
+            const cached = this.mullionMaterialCache.get(cacheKey);
+            if (cached) return cached;
+            const matDef = matMap.get(matId);
+            if (matDef) {
+                const params: Record<string, unknown> = { ...(matDef.params ?? {}) };
+                if (matDef.textures) {
+                    params.map          = matDef.textures.color;
+                    params.normalMap    = matDef.textures.normal;
+                    params.roughnessMap = matDef.textures.roughness;
+                }
+                // per-wall mullionColor acts as a tint when the def has no colour.
+                if (cw.mullionColor && params.color === undefined) params.color = cw.mullionColor;
+                const m = new THREE.MeshStandardMaterial(params as ConstructorParameters<typeof THREE.MeshStandardMaterial>[0]);
+                this.mullionMaterialCache.set(cacheKey, m);
+                return m;
+            }
+            // id not in the library — fall through to the colour path below.
+        }
+        const mullionColor = cw.mullionColor || '#333333';
+        let m = this.mullionMaterialCache.get(mullionColor);
+        if (!m) {
+            m = new THREE.MeshStandardMaterial({
+                color:     new THREE.Color(mullionColor),
+                metalness: 0.1,
+                roughness: 0.2,
+                emissive:  new THREE.Color(mullionColor).multiplyScalar(0.05),
+            });
+            this.mullionMaterialCache.set(mullionColor, m);
+        }
+        return m;
+    }
+
+    private _getFallbackPanelMaterial(cw?: { glazingColor?: string; glazingMaterialId?: string }): THREE.MeshStandardMaterial {
+        // §MAT-CW-MATERIAL (#53 / M-H1-Part-2, 2026-05-24) — glazing (glass) material.
+        // First resolve `cw.glazingMaterialId` against the injected library map to a
+        // real PBR glass material; glass invariants (transparent + DoubleSide) are
+        // always re-asserted so a library def can't accidentally produce an opaque
+        // panel. Falls back to the legacy `glazingColor` tint, then a realistic
+        // low-saturation architectural-glass default (#9bc8e4) — the colour path that
+        // §MAT-CW-GLAZING (#53, Round 46) introduced to replace the hard-coded bright
+        // blue. Cache keyed by `mat:<id>` or the colour so each distinct glazing
+        // shares ONE material across all walls (mirrors mullionMaterialCache);
+        // disposal already iterates _fallbackPanelMatCache.
+        const matId  = cw?.glazingMaterialId;
+        const matMap = this._deps.materialMap;
+        if (matId && matMap) {
+            const cacheKey = `mat:${matId}`;
+            const cached = this._fallbackPanelMatCache.get(cacheKey);
+            if (cached) return cached;
+            const matDef = matMap.get(matId);
+            if (matDef) {
+                const params: Record<string, unknown> = { ...(matDef.params ?? {}) };
+                if (matDef.textures) {
+                    params.map          = matDef.textures.color;
+                    params.normalMap    = matDef.textures.normal;
+                    params.roughnessMap = matDef.textures.roughness;
+                }
+                // Glass invariants — keep see-through + both faces visible.
+                if (params.transparent === undefined) params.transparent = true;
+                if (params.opacity === undefined) params.opacity = 0.4;
+                params.side = THREE.DoubleSide;
+                if (cw?.glazingColor && params.color === undefined) params.color = cw.glazingColor;
+                const m = new THREE.MeshStandardMaterial(params as ConstructorParameters<typeof THREE.MeshStandardMaterial>[0]);
+                this._fallbackPanelMatCache.set(cacheKey, m);
+                return m;
+            }
+            // id not in the library — fall through to the colour path below.
+        }
+        const color = (cw?.glazingColor && cw.glazingColor.length > 0) ? cw.glazingColor : '#9bc8e4';
         let mat = this._fallbackPanelMatCache.get(color);
         if (!mat) {
             mat = new THREE.MeshStandardMaterial({

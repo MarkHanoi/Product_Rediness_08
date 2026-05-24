@@ -42,6 +42,18 @@ export interface CurtainWallData extends CoreElement {
      */
     glazingColor?: string;
     /**
+     * §MAT-CW-MATERIAL (#53 / M-H1-Part-2, 2026-05-24) — optional material-library
+     * IDs for the mullion (frame metal) and glazing (glass) slots. When set AND the
+     * builder has the STANDARD_MATERIAL_LIBRARY map injected, the builder resolves
+     * each to a real PBR material (e.g. anodised-aluminium mullions, tempered-glass
+     * glazing) instead of a flat colour — mirroring `wall.materialId` /
+     * `roof.materialId` (DAILY-USE-AUDIT §M-H1). When absent the builder falls back
+     * to `mullionColor` / `glazingColor`. Forward-compatible with the #105 materials
+     * repository, which will populate these from a per-element material choice.
+     */
+    mullionMaterialId?: string;
+    glazingMaterialId?: string;
+    /**
      * Phase 1+ Addressable Grid System.
      *
      * When present, this fully describes the U/V grid topology (non-uniform spacing

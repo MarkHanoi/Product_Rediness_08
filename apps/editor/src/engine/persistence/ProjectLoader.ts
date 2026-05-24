@@ -878,6 +878,11 @@ export class ProjectLoader {
                         mullionSize:    cw.mullionSize,
                         panelThickness: cw.panelThickness,
                         mullionColor:   cw.mullionColor,
+                        // §MAT-CW-MATERIAL (#53) — glazing colour + material-library IDs
+                        // round-trip so a reloaded curtain wall keeps its PBR finish.
+                        glazingColor:      cw.glazingColor,
+                        mullionMaterialId: cw.mullionMaterialId,
+                        glazingMaterialId: cw.glazingMaterialId,
                         // §PERSIST-L1 — non-uniform grid lines.
                         gridSystem:     cw.gridSystem,
                         // §PERSIST-L1 — architect-set mark / tags survive reload.

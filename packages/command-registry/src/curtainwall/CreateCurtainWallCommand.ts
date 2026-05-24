@@ -68,6 +68,16 @@ export interface CreateCurtainWallPayload {
     panelThickness?: number;
     mullionColor?: string;
     /**
+     * §MAT-CW-MATERIAL (#53 / M-H1-Part-2, 2026-05-24) — glazing colour + the
+     * mullion/glazing material-library IDs. These round-trip through the snapshot so
+     * an architect's curtain-wall material choice (resolved to PBR by the builder)
+     * survives reload. Optional; absence preserves the existing colour defaults for
+     * fresh creates via CurtainWallTool.
+     */
+    glazingColor?: string;
+    mullionMaterialId?: string;
+    glazingMaterialId?: string;
+    /**
      * §PERSIST-L1 — Non-uniform grid line system. The serializer persists
      * `gridSystem` for curtain walls whose grid was edited (Add/Remove grid
      * line commands). Without round-tripping it, a reload collapses any
@@ -143,6 +153,11 @@ export class CreateCurtainWallCommand implements Command {
             mullionSize:    this.payload.mullionSize    ?? 0.08,
             panelThickness: this.payload.panelThickness ?? 0.02,
             mullionColor:   this.payload.mullionColor   ?? '#333333',
+            // §MAT-CW-MATERIAL (#53) — optional glazing colour + material-library
+            // IDs; undefined for fresh creates (builder falls back to colours).
+            glazingColor:      this.payload.glazingColor,
+            mullionMaterialId: this.payload.mullionMaterialId,
+            glazingMaterialId: this.payload.glazingMaterialId,
             // §PERSIST-L1 — non-uniform grid layout round-trips when the
             // architect added/removed grid lines pre-save.
             gridSystem:     this.payload.gridSystem,

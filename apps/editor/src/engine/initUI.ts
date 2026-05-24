@@ -1995,7 +1995,20 @@ export async function initUI(p: UIParams): Promise<void> {
 
     // ── §DW-04: CurtainWallBuilder (bootstrap layer — tools must not own builders) ─
     window.curtainWallStore = (curtainWallTool as any).store; // TODO(TASK-08)
-    window.curtainWallBuilder = new CurtainWallBuilder(world.scene.three as THREE.Scene);
+    // §MAT-CW-MATERIAL (#53 / M-H1-Part-2, 2026-05-24) — thread the same
+    // STANDARD_MATERIAL_LIBRARY map into CurtainWallBuilder that WallTool /
+    // RoofFragmentBuilder use, so a curtain wall's mullionMaterialId /
+    // glazingMaterialId render as real PBR instead of a flat colour. Lazy dynamic
+    // import keeps initUI decoupled from the renderer-layer library at module load;
+    // the library is module-scoped + immutable so one resolution suffices.
+    let _cwMaterialMap: ReadonlyMap<string, { params?: Record<string, unknown>; textures?: { color?: unknown; normal?: unknown; roughness?: unknown } }> | undefined;
+    try {
+        const matLib = await import('@pryzm/core-app-model/material-library');
+        _cwMaterialMap = new Map(matLib.STANDARD_MATERIAL_LIBRARY.map(m => [m.id, m] as const));
+    } catch (err) {
+        console.warn('[initUI] §MAT-CW-MATERIAL curtain-wall materialMap unavailable (non-fatal):', err);
+    }
+    window.curtainWallBuilder = new CurtainWallBuilder(world.scene.three as THREE.Scene, { materialMap: _cwMaterialMap });
 
     // ── §3.8 / §Critical #3 FIX: Wire CurtainWallStore → CurtainWallBuilder ──
     {

@@ -4,6 +4,31 @@ Concrete fixes applied this session in response to `DAILY-USE-AUDIT-2026-05-20.m
 
 ---
 
+## ✅ APPLIED — Round 51 (2026-05-24: #53 §MAT-CW-MATERIAL — curtain-wall mullion + glazing PBR material resolution)
+
+### What + why
+**#53 / §M-H1-Part-2** — the last element class in the M-H1 material-fidelity series. Walls (Round 5), roofs (Round 6), and slabs (the original pattern) already resolve a `materialId` to a real PBR `MeshStandardMaterial` from `STANDARD_MATERIAL_LIBRARY`; **curtain walls were the outlier** — they only ever had `mullionColor` / `glazingColor` (flat colours), so an architect's choice of "anodised aluminium" vs "bronze" mullions, or a specific glass spec, could never change the rendered PBR. This round adds the two material-library slots and resolves them via the **identical dependency-injection pattern** walls/roofs use — zero change to the perf-critical instanced render path.
+
+### Changes (vertical slice — type → builder → command → persistence → wiring)
+1. **`CurtainWallTypes.ts`** — added optional `mullionMaterialId?` + `glazingMaterialId?` to `CurtainWallData` (mirrors `wall.materialId` / `roof.materialId`).
+2. **`CurtainWallBuilder.ts`** — added `materialMap?` to `CurtainWallBuilderDependencies`; new `_getMullionMaterial(cw)` resolves `mullionMaterialId` → PBR (else the legacy `mullionColor` cache); rewrote `_getFallbackPanelMaterial(cw)` to resolve `glazingMaterialId` → PBR glass (re-asserting glass invariants `transparent` + `DoubleSide` so a library def can't produce an opaque panel) else the `glazingColor` tint. Both cache keyed `mat:<id>` (distinct keyspace from colour keys). Replaced the two duplicated inline mullion-material blocks (build path + worker-apply path) with the helper; **also fixed a latent bug** — the worker-apply path called `_getFallbackPanelMaterial()` with NO argument, so it ignored `glazingColor` entirely.
+3. **`CreateCurtainWallCommand.ts`** — payload + `cwData` now carry `glazingColor` / `mullionMaterialId` / `glazingMaterialId` (optional; undefined for fresh creates → colour fallback unchanged).
+4. **Persistence round-trip** — `ProjectLoader.ts` threads the 3 fields into the restore command; **both** serializers (`apps/editor/.../ProjectSerializer.ts` + `packages/persistence-client/.../ProjectSerializer.ts`) now write them. Also closed a pre-existing gap: `glazingColor` was in the type but **never serialized** — now persisted.
+5. **`initUI.ts`** — builds the `STANDARD_MATERIAL_LIBRARY` id→def map (lazy dynamic import, mirroring the roof DI in `initBuilders.ts`) and injects it via `new CurtainWallBuilder(scene, { materialMap })`.
+
+### Scope boundary (documented follow-up)
+The **per-panel-override** path (`CurtainPanelBuilder` / `CurtainWallInstanceManager`, used only when a `CurtainPanelStore` holds explicit per-cell panel data) keeps its own material handling — that's per-panel material assignment, a separate feature. The common case (a freshly-created curtain wall with no per-panel overrides) hits the procedural-fallback glazing + mullion racks fixed here.
+
+### Verification
+`pnpm --filter @pryzm/geometry-curtain-wall typecheck` / `@pryzm/command-registry` / `@pryzm/persistence-client` — **no new errors** referencing the added symbols (the only `geometry-curtain-wall` errors are the pre-existing `window.*` `TS2339` backlog). apps/editor typecheck filtered to the edited files. Client-package edits → live on a hard browser refresh.
+
+**Contract citations:** C11 §6 (element creation pipeline — builder resolves authored material), DAILY-USE-AUDIT §M-H1 (the wall/roof/slab pattern this completes), §41 (element visual contract). Forward-compatible with #105 materials repository (will populate `mullionMaterialId`/`glazingMaterialId` from a per-element material choice).
+
+### Also queued this round
+**OI-053 (project create + open performance)** added to `PRYZM3-MASTER-STATUS.md §11` at the architect's request — full engine bootstrap re-runs per open (844 ms / 1008 ms LONGTASKs, FPS → 1–7), double handler-registration noise, render-pipeline phase churn. See the register entry for the actionable sub-items.
+
+---
+
 ## ✅ APPLIED — Round 50 (2026-05-24: §SERVER-503-MIGRATION-GATE-DEADLOCK + DB deep audit)
 
 ### The bug (live, blocking): every project create/open returns 503 `migrations_in_progress` forever
