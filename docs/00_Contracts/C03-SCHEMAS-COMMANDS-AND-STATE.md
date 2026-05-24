@@ -257,6 +257,13 @@ Three layered bugs make plan-view-create undo a silent no-op today:
 slab/room/curtain-wall/door/window/furniture). This unevenness disappears when U-5 (single apply
 path) + U-7 (store unification) land.
 
+**Resolution — ADR-051** (`reference/adrs/ADR-051-undo-single-source-of-truth.md`): adopt the
+pascalorg-aligned model — one source-of-truth store, the mesh + plan **derived** from it via a
+dirty-diff subscription, and patch-inverse undo through the **single** `runtime.undoStack` apply
+path (Path A retired). Migration is **incremental per element type, live-gated** — undo is an
+interactive behaviour and MUST be verified in the running app per type. The B3 honesty/fallback
+fix above is the behaviour-preserving interim until ADR-051 lands.
+
 ---
 
 ## §6 — `level.add` Command Bus Type Contract
