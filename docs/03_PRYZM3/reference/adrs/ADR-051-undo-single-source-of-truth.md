@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **Proposed** — 2026-05-24 |
+| Status | **Proposed** (end-state) — **interim SHIPPED 2026-05-24** (see "Interim shipped" below) |
 | Closes | OI-054 (undo broken on plan-view create); U-B1–U-B5 cluster; the §4.7 B1/B2 gaps |
 | Supersedes (on accept) | the transitional dual-path bridge described in C03 §4.3 |
 | Owner | State / undo architecture |
@@ -32,6 +32,36 @@ the mesh (B2). Four UI sites hand-roll the apply against the legacy map (B1).
 **Pascalorg does it the sound way:** one store; undo restores it (Zundo snapshots); the existing
 **dirty→geometry** pipeline that handles normal edits *also* handles undo. There is no second
 store to keep in sync, so undo can never desync data from mesh.
+
+## Interim shipped (2026-05-24) — single undo PATH (precedes the single STORE)
+
+The live bug turned out to be a **trigger divergence**, not a broken applicator: the undo
+**button** (`SaveUndoRedoHUD`) called `commandManager.undo()` only and never consulted the ring
+buffer, while plan-view elements (bus-only) live only in the ring buffer. The keyboard handler
+already did ring-buffer-first, so undo "worked" via keyboard but not the button — and the user was
+clicking the button.
+
+Shipped, as the behaviour-preserving step toward this ADR:
+
+1. **One undo path** — `apps/editor/src/engine/undo/performUndoRedo.ts` (`performUndo`/`performRedo`).
+   Every trigger (HUD buttons, `initUI` keydown, `BimService` ← `ContextualEditBar`, the
+   Nav/Docking GIS-reset) calls it; the four hand-rolled `applyRingBufferSide` maps are deleted.
+   Realises C03 §4.6 **U-5**.
+2. **Ring-buffer-first + coverage pre-check** — applies the inverse patch via the
+   `elementUndoStoreAdapter` (drives the legacy mesh store); if the affected stores aren't all
+   covered (hosted door/window, `level`) the cursor is NOT stepped and it falls back to
+   `commandManager.undo()`.
+3. **Shadow-drop (U-8)** — after a ring-buffer undo, the dual-dispatch twin (the 8 legacy 3D tools
+   run `commandManager.execute(CreateXCommand)` too) is removed via
+   `commandManager.dropEntriesForTargets(ids)` so one action = one undo (no phantom keypress).
+4. **Adapter spatial/semantic cleanup** — the adapter now also unregisters/re-registers
+   `bimManager` (`level.childrenIds`) + `elementRegistry` on whole-element remove/add, replacing
+   the cleanup the shadow-dropped command used to do (no registration leak).
+
+This is **not** the end-state: there are still two stores (L1 Immer + legacy mesh) bridged by the
+adapter, the dual-dispatch still exists (shadow-dropped, not removed), and cross-stack redo
+ordering is best-effort. Those collapse only when the single-store decision below lands. Gated by
+12/12 unit tests (`performUndoRedo.test.ts` 5/5, `elementUndoStoreAdapter.test.ts` 7/7).
 
 ## Decision
 

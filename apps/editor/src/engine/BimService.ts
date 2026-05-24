@@ -7,20 +7,20 @@ import { deleteIfcImportedElement, isIfcImportedElement } from '@pryzm/file-form
 
 import { BimManager, planView2DCreationMode } from '@pryzm/core-app-model';
 import type { IBimService } from '@pryzm/engine';
-import { adaptElementStoreMap } from './undo/elementUndoStoreAdapter.js'; // §ADR-051 undo rollout (OI-054)
 
 export class BimService implements IBimService {
     private bimManager: BimManager;
     private wallTool: any;
     private slabTool: any;
-    private undoManager: any;
     private selectionManager: any;
 
     constructor(private props: any) {
         this.bimManager = props.bimManager;
         this.wallTool = props.wallTool;
         this.slabTool = props.slabTool;
-        this.undoManager = props.undoManager;
+        // §OI-054 — undoManager field removed: undo()/redo() now delegate to the
+        // single unified path (performUndoRedo.ts); the legacy UndoManager is no
+        // longer referenced here.
         this.selectionManager = props.selectionManager;
 
         // Initialize AI Service on window for QueryEngine manual overrides
@@ -150,87 +150,15 @@ export class BimService implements IBimService {
     }
 
     undo() {
-        // F-1.4: prefer ring-buffer path (O(1), no LONGTASK) — mirrors initUI.ts Ctrl-Z handler.
-        const rb = window.runtime?.bus?.ringBuffer;
-        // §UNDO-DIAG (2026-05-24) — conclusive ring-buffer state when this path fires.
-        console.log('[Undo-DIAG/BimService] rb=', !!rb, 'canUndo=', rb?.canUndo?.(),
-            'size=', (rb as any)?.size, 'current.affectedStores=', (rb?.current?.() as any)?.affectedStores);
-        if (rb?.canUndo()) {
-            const currentPair = rb.current();
-            const inverseSide = rb.undoPatch();
-            if (inverseSide && currentPair) {
-                import('@pryzm/command-bus').then(({ applyRingBufferSide }) => {
-                    const outcome = applyRingBufferSide(
-                        inverseSide,
-                        currentPair.affectedStores ?? [],
-                        BimService._buildStoreMap(),
-                    );
-                    // §B3 (C03 §4.7) — on total failure (legacy store without applyPatch)
-                    // fall back to the legacy UndoManager instead of a silent no-op.
-                    if (outcome.applied.length === 0 && outcome.failed.length > 0) {
-                        console.warn('[BimService.undo] ring-buffer apply INCOMPLETE — store(s) without applyPatch:', outcome.failed, '(C03 §4.7 B1) — falling back to legacy undo.');
-                        this.undoManager.undo();
-                    }
-                }).catch((err: unknown) => {
-                    console.error('[BimService.undo] ring-buffer apply failed:', err);
-                    this.undoManager.undo();
-                });
-                return;
-            }
-        }
-        this.undoManager.undo();
+        // §OI-054 (2026-05-24) — delegate to THE single unified undo path
+        // (C03 §4.6 U-5). The ring-buffer-first + shadow-drop + commandManager
+        // fallback logic (formerly duplicated here and in initUI) now lives in one
+        // module so every trigger behaves identically.
+        void import('./undo/performUndoRedo.js').then(m => m.performUndo());
     }
 
     redo() {
-        // F-1.4: prefer ring-buffer path (O(1), no LONGTASK) — mirrors initUI.ts Ctrl-Y handler.
-        const rb = window.runtime?.bus?.ringBuffer;
-        if (rb?.canRedo()) {
-            const forwardSide = rb.redoPatch();
-            const currentPair = rb.current();
-            if (forwardSide && currentPair) {
-                import('@pryzm/command-bus').then(({ applyRingBufferSide }) => {
-                    applyRingBufferSide(
-                        forwardSide,
-                        currentPair.affectedStores ?? [],
-                        BimService._buildStoreMap(),
-                    );
-                }).catch((err: unknown) => {
-                    console.error('[BimService.redo] ring-buffer apply failed:', err);
-                    this.undoManager.redo();
-                });
-                return;
-            }
-        }
-        this.undoManager.redo();
-    }
-
-    private static _buildStoreMap(): Record<string, { applyPatch: (p: unknown[]) => void } | undefined> {
-        // §ADR-051 per-type undo rollout (OI-054 B1+B2) — adapt every live legacy
-        // element store to applyPatch (via add/remove/update → drives mesh) so
-        // undo+redo revert data + geometry for all element types.
-        const w = window as any;
-        return {
-            ...adaptElementStoreMap({
-                wall:           w.wallStore,        walls:        w.wallStore,
-                slab:           w.slabStore,        slabs:        w.slabStore,
-                room:           w.roomStore,        rooms:        w.roomStore,
-                'curtain-wall': w.curtainWallStore, curtainWalls: w.curtainWallStore,
-                furniture:      w.furnitureStore,
-                column:         w.columnStore,      columns:      w.columnStore,
-                beam:           w.beamStore,        beams:        w.beamStore,
-                stair:          w.stairStore,       stairs:       w.stairStore,
-                handrail:       w.handrailStore,    handrails:    w.handrailStore,
-                roof:           w.roofStore,        roofs:        w.roofStore,
-                floor:          w.floorStore,       floors:       w.floorStore,
-                ceiling:        w.ceilingStore,     ceilings:     w.ceilingStore,
-                plumbing:       w.plumbingStore,
-            }),
-            // RAW → B3 fallback to commandManager.undo(): door/window (hosted,
-            // two-part opening undo — ADR-051 follow-up) + level (Path-A).
-            door:   w.doorStore,   doors:   w.doorStore,
-            window: w.windowStore, windows: w.windowStore,
-            level:  w.levelStore,  levels:  w.levelStore,
-        };
+        void import('./undo/performUndoRedo.js').then(m => m.performRedo());
     }
 
     exportIfc(options: { exportScope?: 'native-only' | 'native-and-imported' } = {}) {

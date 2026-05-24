@@ -9,7 +9,6 @@ import type { BimService } from '@app/engine/BimService';
 import type { GISCallbacks } from './GISAreaLayout';
 import type { AIResult } from './AIAreaLayout';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
-import { adaptElementStoreMap } from '@app/engine/undo/elementUndoStoreAdapter'; // §ADR-051 undo rollout (OI-054)
 
 export interface NavResult {
     vbPanelWrapper: HTMLElement;
@@ -97,37 +96,10 @@ export function mountNavigationArea(
         gisPlaceBim:          () => gis.placeBimOnEarth(),
         gisGizmoMode:         (mode) => gis.gizmoMode(String(mode)),
         gisResetGeoreference: () => {
-            // F-1.4: ring-buffer undo for GIS georeference reset.
-            const rb = runtime?.bus?.ringBuffer;
-            if (rb?.canUndo()) {
-                const pair = rb.current();
-                const side = rb.undoPatch();
-                if (side && pair) {
-                    import('@pryzm/command-bus').then(({ applyRingBufferSide }) => {
-                        applyRingBufferSide(side, pair.affectedStores ?? [], {
-                            // §ADR-051 undo rollout — element stores adapted to applyPatch (drives mesh).
-                            ...adaptElementStoreMap({
-                                wall: (window as any).wallStore, walls: (window as any).wallStore,
-                                slab: (window as any).slabStore, slabs: (window as any).slabStore,
-                                room: (window as any).roomStore, rooms: (window as any).roomStore,
-                                'curtain-wall': (window as any).curtainWallStore, curtainWalls: (window as any).curtainWallStore,
-                                furniture: (window as any).furnitureStore,
-                                column: (window as any).columnStore, columns: (window as any).columnStore,
-                                beam: (window as any).beamStore, beams: (window as any).beamStore,
-                                stair: (window as any).stairStore, stairs: (window as any).stairStore,
-                                handrail: (window as any).handrailStore, handrails: (window as any).handrailStore,
-                                roof: (window as any).roofStore, roofs: (window as any).roofStore,
-                                floor: (window as any).floorStore, floors: (window as any).floorStore,
-                                ceiling: (window as any).ceilingStore, ceilings: (window as any).ceilingStore,
-                            }),
-                            // RAW → B3 fallback: door/window (hosted), level (Path-A).
-                            level: (window as any).levelStore,  levels: (window as any).levelStore,
-                            door: (window as any).doorStore,    doors: (window as any).doorStore,
-                            window: (window as any).windowStore, windows: (window as any).windowStore,
-                        });
-                    }).catch(() => {});
-                }
-            }
+            // §OI-054 (2026-05-24) — route through THE single unified undo path (C03 §4.6 U-5)
+            // instead of a hand-rolled ring-buffer apply. Undoes the most recent action (the
+            // just-placed georeference), with the same coverage/shadow-drop/fallback semantics.
+            void import('@app/engine/undo/performUndoRedo').then(m => m.performUndo());
         },
         toggleShadows,
         applyVisualStyle: props.applyVisualStyle,

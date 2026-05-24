@@ -2595,3 +2595,42 @@ malformed CSG cut can't ship). Both browser-refresh. Remaining pending items are
 runtime-gated (need the live app / architect logs / backend) or deferred as
 unverifiable-in-dev (the #96 leaf-placement datum fix). No blind changes were made
 to the working segmented render path.
+
+## Round 56 — OI-054 undo: root cause found + unified single path (2026-05-24)
+
+The two live traces the architect pasted were the breakthrough. **3D** Ctrl+Z (button)
+WORKED — stack `SaveUndoRedoHUD.ts:123 → CommandManagerImpl.undo → CreateWallCommand.undo`.
+**Plan** Ctrl+Z (button) → `CommandManager UNDO: history empty`. Same button, opposite result.
+
+**Root cause — trigger divergence, not a broken applicator.** `SaveUndoRedoHUD`'s undo button
+has `runtime === null`, so it called `commandManager.undo()` **only** and NEVER consulted the
+CommandBus ring buffer. Plan-view creation is **bus-only** (every `PlanToolHandler` →
+`runtime.bus.executeCommand`), so a plan wall lives ONLY in the ring buffer → "history empty".
+3D tools **dual-dispatch** (`WallTool` also runs `commandManager.execute(CreateWallCommand)`),
+so a 3D wall WAS in `commandManager.history` → the button undid it. The keyboard handler already
+did ring-buffer-first (and the §ADR-051 adapter on it was correct), so undo "worked" via keyboard
+but the architect was clicking the button. All my prior `[Undo-DIAG]`/`[elementUndoStoreAdapter]`
+diagnostics never fired because the button path never reached them.
+
+**Fix — ONE unified path (C03 §4.6 U-5).** New `apps/editor/src/engine/undo/performUndoRedo.ts`
+(`performUndo`/`performRedo`); EVERY trigger now calls it: `SaveUndoRedoHUD` buttons, `initUI`
+Ctrl+Z/Ctrl+Y keydown, `BimService.undo/redo` (← `ContextualEditBar`), `NavigationAreaLayout` +
+`DockingLayout` GIS-reset. Algorithm: **ring-buffer-first** (apply inverse via
+`elementUndoStoreAdapter` → drives the mesh) with a **coverage pre-check** (if the entry's stores
+aren't all adapter-covered — hosted door/window, `level` — the cursor is NOT stepped and it falls
+back to `commandManager.undo()`); on success it **shadow-drops** the dual-dispatch twin via the
+new `CommandManager.dropEntriesForTargets(ids)` (C03 §4.6 **U-8**) so one action = one undo (no
+phantom keypress). The 4 hand-rolled `applyRingBufferSide` maps (initUI, BimService, Nav, Docking)
+are deleted; `buildUndoStoreMap()` is the single map. The adapter now also unregisters/re-registers
+`bimManager` (`level.childrenIds`) + `elementRegistry` on whole-element remove/add (replaces the
+cleanup the shadow-dropped command did → no registration leak); temp DIAG log removed.
+
+**Docs:** C03 §4.5 (single path) / §4.6 (U-5 redefined to `performUndoRedo`, new U-8) / §4.7
+(rewritten — B1/B2/B3 closed; follow-ups = hosted door/window two-part undo, cross-stack redo
+ordering, L1/legacy single store) + ADR-051 "Interim shipped" + master status OI-054 + this round.
+
+**Gates:** `@pryzm/editor` typecheck **0 errors**; `@pryzm/command-registry` clean in
+`CommandManagerImpl.ts` (pre-existing plugin TS debt unrelated). Unit tests **12/12**:
+`performUndoRedo.test.ts` 5/5 (covered-apply, shadow-drop, uncovered-fallback, empty-fallback,
+redo) + `elementUndoStoreAdapter.test.ts` 7/7. **Live-verify pending (architect):** plan-view
+Ctrl+Z (button + keyboard) reverts a wall; 3D Ctrl+Z reverts exactly once (no phantom).

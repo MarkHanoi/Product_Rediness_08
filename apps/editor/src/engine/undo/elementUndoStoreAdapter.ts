@@ -33,6 +33,49 @@
 // commandManager) are intentionally NOT adapted by the call sites; left raw they
 // fall through to the B3 `commandManager.undo()` fallback. See ADR-051.
 
+import { elementRegistry } from '@pryzm/core-app-model/element-registry';
+
+// §OI-054 SPATIAL-CLEANUP (2026-05-24) — when the unified undo path
+// (performUndoRedo.ts) reverts a CREATE via the ring buffer, it shadow-drops the
+// dual-dispatch twin `CreateXCommand` from commandManager (so there's no phantom
+// Ctrl+Z). That command's `undo()` used to ALSO unregister the element from
+// `bimManager` (level.childrenIds) + `elementRegistry` (semantic id→type). Since
+// it no longer runs, the adapter MUST do that cleanup itself — otherwise every
+// undo/redo cycle leaks a spatial + semantic registration (the exact accumulation
+// CreateWallCommand.undo's comment warns about), and a stale `level.childrenIds`
+// entry trips §G3-STALE-EVENT + makes NativeElementMeshExporter export a ghost id.
+// Both are best-effort (absent in headless/test) and MUST NOT throw (C03 §4.6 U-4).
+
+interface BimManagerLike {
+  registerElement?(id: string, levelId: string): void;
+  unregisterElement?(id: string): void;
+}
+function _bim(): BimManagerLike | undefined {
+  if (typeof window === 'undefined') return undefined;   // headless / unit-test env
+  return (window as { bimManager?: BimManagerLike }).bimManager;
+}
+
+/** Undo of a create removed the element from its store — also drop its spatial +
+ *  semantic registrations so they don't leak across undo/redo cycles. */
+function _onElementRemoved(id: string): void {
+  try { _bim()?.unregisterElement?.(id); } catch (err) { console.warn('[elementUndoStoreAdapter] bimManager.unregisterElement failed:', err); }
+  try { elementRegistry.unregister(id); } catch (err) { console.warn('[elementUndoStoreAdapter] elementRegistry.unregister failed:', err); }
+}
+
+/** Redo of a create re-added the element — re-register spatial + semantic so the
+ *  re-created element is a first-class citizen again (selection, plan export). */
+function _onElementAdded(id: string, value: unknown): void {
+  const v = value as { levelId?: string; type?: string } | null | undefined;
+  try { if (v?.levelId) _bim()?.registerElement?.(id, v.levelId); } catch (err) { console.warn('[elementUndoStoreAdapter] bimManager.registerElement failed:', err); }
+  // registerSemanticOrReplace is the redo-safe variant (plain registerSemantic
+  // throws on a duplicate id — the historical #1 redo crash). The cast keeps the
+  // adapter free of an explicit StoreType import; an element's `type` string is
+  // the registry's storeType for every element family.
+  try {
+    if (v?.type) elementRegistry.registerSemanticOrReplace(id, v.type as Parameters<typeof elementRegistry.registerSemanticOrReplace>[1]);
+  } catch (err) { console.warn('[elementUndoStoreAdapter] elementRegistry.registerSemanticOrReplace failed:', err); }
+}
+
 /** Duck-typed union of the legacy element-store mutator surface. */
 export interface LegacyElementStoreLike {
   add?(element: unknown): void;
@@ -76,10 +119,6 @@ function _remove(store: LegacyElementStoreLike, id: string): void {
 export function elementUndoStoreAdapter(store: LegacyElementStoreLike): PatchApplicableAdapter {
   return {
     applyPatch(patches: readonly unknown[]): void {
-      // §ADR-051-DIAG (2026-05-24) — temporary diagnostic so a live Ctrl+Z log
-      // pinpoints exactly what the adapter did. Remove once undo is confirmed live.
-      console.log('[elementUndoStoreAdapter] applyPatch — ops:', patches.length,
-        'surface:', { add: typeof store.add, remove: typeof store.remove, delete: typeof store.delete, getById: typeof store.getById, get: typeof store.get, update: typeof store.update });
       for (const raw of patches) {
         const p = raw as UndoPatchOp;
         try {
@@ -90,16 +129,16 @@ export function elementUndoStoreAdapter(store: LegacyElementStoreLike): PatchApp
           if (p.path.length === 1) {
             // Whole-element op — the create/undo/redo case.
             if (p.op === 'remove') {
-              if (exists) { _remove(store, id); console.log('[elementUndoStoreAdapter] UNDO removed', id); }   // undo of a create
+              if (exists) { _remove(store, id); _onElementRemoved(id); }                         // undo of a create
               else console.warn('[elementUndoStoreAdapter] skip remove — not found in store:', id);
             } else if (p.op === 'add') {
               if (!exists && p.value != null && typeof store.add === 'function') {
-                store.add(p.value); console.log('[elementUndoStoreAdapter] REDO added', id);                   // redo of a create
+                store.add(p.value); _onElementAdded(id, p.value);                                // redo of a create
               } else console.warn('[elementUndoStoreAdapter] skip add — exists?', exists, 'hasAdd?', typeof store.add === 'function');
             } else if (p.op === 'replace') {
               if (p.value == null) continue;
               if (exists && typeof store.update === 'function') store.update(id, p.value as Record<string, unknown>);
-              else if (!exists && typeof store.add === 'function') store.add(p.value);
+              else if (!exists && typeof store.add === 'function') { store.add(p.value); _onElementAdded(id, p.value); }
             }
           } else {
             // Field-level op: path = [id, field, …]. Best-effort single-field update

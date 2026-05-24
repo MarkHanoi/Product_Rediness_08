@@ -21,7 +21,6 @@
 
 import * as THREE from '@pryzm/renderer-three/three';
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
-import { trace, SpanStatusCode } from '@opentelemetry/api';
 import * as OBC from '@thatopen/components';
 import * as OBCF from '@thatopen/components-front';
 // Phase A.6 close (2026-04-29) — `showAppToast` removed; replaced by
@@ -35,7 +34,7 @@ import { escHtml } from '@pryzm/ui-base';
 
 import { apiFetch }              from '@pryzm/core-app-model';
 import { VisualStyle }           from '@pryzm/core-app-model/material-library';
-import { adaptElementStoreMap }  from './undo/elementUndoStoreAdapter.js'; // §ADR-051 undo rollout (OI-054)
+import { performUndo, performRedo } from './undo/performUndoRedo.js'; // §OI-054 — single unified undo path (C03 §4.6 U-5)
 import { createMainLayout }      from '@app/ui/Layout';
 import { CurtainWallBuilder }    from '@pryzm/geometry-curtain-wall';
 // Contract 47 §5.11 (Step 3′) — IFC export wrappers are loaded lazily on first
@@ -2775,72 +2774,11 @@ export async function initUI(p: UIParams): Promise<void> {
         }
     });
 
-    // ── Wave 36 U-1: ring-buffer store map builder ────────────────────────────
-    // Maps the affectedStores keys declared by each CommandHandler to the L1
-    // store instances registered on window.*. Keys cover both singular and
-    // plural spellings to match whichever convention a handler uses.
-    // CONTRACT (C03 §4.1): never throws — applyRingBufferSide silently skips
-    // any store key absent from this map.
-    // ISSUE-02 (OI-035): Added 10 previously-missing element-type stores so that
-    // future CommandBus-native commands for these types can reach Ctrl+Z correctly.
-    function _buildRingBufferStoreMap(): Record<string, { applyPatch: (p: unknown[]) => void } | undefined> {
-        // §ADR-051 per-type undo rollout (OI-054 B1+B2) — adapt EVERY live legacy
-        // element store to an applyPatch surface (via add/remove/update — which drive
-        // the mesh) so undo+redo revert BOTH data and geometry for all element types.
-        return {
-            ...adaptElementStoreMap({
-                wall:           window.wallStore,            walls:        window.wallStore,
-                slab:           window.slabStore,            slabs:        window.slabStore,
-                room:           window.roomStore,            rooms:        window.roomStore,
-                'curtain-wall': window.curtainWallStore,     curtainWalls: window.curtainWallStore,
-                furniture:      window.furnitureStore,
-                column:         (window as any).columnStore, columns:      (window as any).columnStore,
-                beam:           (window as any).beamStore,   beams:        (window as any).beamStore,
-                stair:          (window as any).stairStore,  stairs:       (window as any).stairStore,
-                stairRailing:   (window as any).stairRailingStore,
-                stairLanding:   (window as any).stairLandingStore,
-                handrail:       (window as any).handrailStore, handrails:  (window as any).handrailStore,
-                roof:           (window as any).roofStore,   roofs:        (window as any).roofStore,
-                floor:          (window as any).floorStore,  floors:       (window as any).floorStore,
-                ceiling:        (window as any).ceilingStore, ceilings:    (window as any).ceilingStore,
-                plumbing:       (window as any).plumbingStore,
-            }),
-            // RAW (no applyPatch) → applyRingBufferSide reports failed → the B3
-            // fallback routes these to commandManager.undo():
-            //   • level/levels — managed by Path-A AddLevelCommand (commandManager).
-            //   • door/window  — HOSTED elements: undo must also remove the wall
-            //     opening, a two-part undo deferred to its own ADR-051 slice.
-            door:   window.doorStore,   doors:   window.doorStore,   // TODO(ADR-051 hosted slice)
-            window: window.windowStore, windows: window.windowStore, // TODO(ADR-051 hosted slice)
-            level:  window.levelStore,  levels:  window.levelStore,  // Path-A (commandManager)
-        };
-    }
-
-    // §56-RINGBUFFER (DAILY-USE 2026-05-22) — the §56 observer-pause optimization
-    // that coalesces the RoomTopologyObserver redetect + wallRebuildCoordinator
-    // storm during undo/redo was wired ONLY into the legacy CommandManager.undo()/
-    // redo() (CommandManagerImpl._withPausedObservers). But the AUTHORITATIVE runtime
-    // path is the ring-buffer apply below — it previously fired the FULL storm on
-    // every Ctrl+Z (the ~80 ms LONGTASK §56 was meant to kill, plus per-undo plan-
-    // view re-projection). Wrap the synchronous patch-apply in the SAME pause/resume
-    // scaffold so the intermediate store-event burst coalesces into ONE re-detect +
-    // ONE wall rebuild on resume. Best-effort: if either global is absent (headless /
-    // test) the apply still runs, just without the optimisation. Mirrors
-    // CommandManagerImpl._withPausedObservers exactly so the invariant is consistent.
-    const _withPausedObserversForUndo = (label: 'UNDO' | 'REDO', body: () => void): void => {
-        type WallControl = { pause?: () => void; resumeAndFlush?: () => void };
-        type TopologyControl = { pause?: () => void; resume?: () => void };
-        const wallControl = (window as { __wallRebuildControl?: WallControl }).__wallRebuildControl;
-        const topology    = (window as { roomTopologyObserver?: TopologyControl }).roomTopologyObserver;
-        try { wallControl?.pause?.(); } catch (err) { console.warn(`[Undo] §56 ${label}: wallControl.pause() failed`, err); }
-        try { topology?.pause?.(); }    catch (err) { console.warn(`[Undo] §56 ${label}: topology.pause() failed`, err); }
-        try {
-            body();
-        } finally {
-            try { wallControl?.resumeAndFlush?.(); } catch (err) { console.warn(`[Undo] §56 ${label}: wallControl.resumeAndFlush() failed`, err); }
-            try { topology?.resume?.(); }            catch (err) { console.warn(`[Undo] §56 ${label}: topology.resume() failed`, err); }
-        }
-    };
+    // §OI-054 (2026-05-24) — the ring-buffer store-map builder + observer-pause
+    // scaffold that used to live here have moved into the single unified undo
+    // module (apps/editor/src/engine/undo/performUndoRedo.ts, exported as
+    // `buildUndoStoreMap`). The Ctrl+Z / Ctrl+Y handlers below now delegate to
+    // performUndo() / performRedo() — see C03 §4.6 U-5.
 
     // ── Keyboard shortcut: Ctrl+Z / Cmd+Z → Undo ─────────────────────────────
     // CONTRACT Phase 7 — platform-wide undo/redo/delete keyboard shortcuts
@@ -2856,80 +2794,12 @@ export async function initUI(p: UIParams): Promise<void> {
         if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
         e.preventDefault();
         console.log('[EngineBootstrap] Shortcut Ctrl+Z → undo');
-
-        const rb = window.runtime?.bus?.ringBuffer;
-        // §UNDO-DIAG (2026-05-24) — conclusive ring-buffer state at Ctrl+Z time.
-        console.log('[Undo-DIAG/initUI] rb=', !!rb, 'canUndo=', rb?.canUndo?.(),
-            'size=', (rb as any)?.size, 'current.affectedStores=', (rb?.current?.() as any)?.affectedStores);
-        if (rb?.canUndo()) {
-            const currentPair = rb.current();       // capture affectedStores BEFORE cursor moves
-            // ISSUE-01 (OI-034): If the ring-buffer entry has empty affectedStores the
-            // entry was produced by a legacy-bridge handler (e.g. DeleteElementHandler,
-            // Move handlers) that stores its real undo state in CommandManager.history[].
-            // Applying an empty patch set is a no-op, so we fall through to the
-            // commandManager fallback instead of consuming a ring-buffer cursor slot.
-            const hasRealPatches = (currentPair?.affectedStores?.length ?? 0) > 0;
-            if (hasRealPatches) {
-                const inverseSide = rb.undoPatch();     // step cursor back + return inverse PatchSide
-                if (inverseSide && currentPair) {
-                    import('@pryzm/command-bus').then(({ applyRingBufferSide }) => {
-                        // Wave 36 U-4: OTel span on ring-buffer undo path (C10 §2).
-                        const tracer = trace.getTracer('pryzm-engine');
-                        tracer.startActiveSpan('pryzm.undo.apply', (span) => {
-                            try {
-                                span.setAttribute('pryzm.undo.affectedStores', (currentPair.affectedStores ?? []).join(','));
-                                span.setAttribute('pryzm.undo.side', 'inverse');
-                                let _outcome: { applied: readonly string[]; failed: readonly string[] } = { applied: [], failed: [] };
-                                _withPausedObserversForUndo('UNDO', () => {
-                                    _outcome = applyRingBufferSide(
-                                        inverseSide,
-                                        currentPair.affectedStores ?? [],
-                                        _buildRingBufferStoreMap(),
-                                    );
-                                });
-                                if (_outcome.failed.length === 0) {
-                                    console.log('[Undo] ring-buffer undo applied — stores:', currentPair.affectedStores);
-                                } else {
-                                    // §B3 (C03 §4.7) — do NOT claim success: the inverse patch could not apply
-                                    // to store(s) lacking applyPatch (legacy store — C03 §4.7 B1). Fall back to
-                                    // the legacy CommandManager when NOTHING applied (safe: a failed ring-buffer
-                                    // apply mutated nothing, so no double-undo). Real fix: route via
-                                    // runtime.undoStack (U-5) + TASK-08 store unification.
-                                    console.warn(
-                                        '[Undo] ring-buffer apply INCOMPLETE — store(s) without applyPatch:',
-                                        _outcome.failed,
-                                        '(C03 §4.7 B1). Fix: route via runtime.undoStack (U-5) + TASK-08.',
-                                    );
-                                    span.setAttribute('pryzm.undo.failedStores', _outcome.failed.join(','));
-                                    if (_outcome.applied.length === 0 && commandManager?.canUndo?.()) {
-                                        commandManager.undo();
-                                        console.log('[Undo] legacy undo executed (ring-buffer B1 fallback — C03 §4.7)');
-                                    }
-                                }
-                                span.end();
-                            } catch (err) {
-                                span.recordException(err as Error);
-                                span.setStatus({ code: SpanStatusCode.ERROR });
-                                span.end();
-                            }
-                        });
-                    }).catch((err: unknown) => {
-                        console.error('[Undo] ring-buffer undo failed:', err);
-                    });
-                    return;
-                }
-            }
-            // OI-034 fallback: ring-buffer entry has empty patches — delegate to
-            // legacy CommandManager which holds the real undo state for this operation.
-            console.log('[Undo] ring-buffer entry has empty affectedStores — delegating to legacy undo stack');
-        }
-        // Fallback: ring buffer unavailable, empty, or entry has no patches — use legacy stack.
-        if (commandManager?.canUndo?.()) {
-            commandManager.undo(); // TODO(Wave36) — remove when E.5.x migration routes all commands through bus
-            console.log('[Undo] legacy undo executed (ring-buffer fallback path — Wave36 pending)');
-        } else {
-            console.log('[Undo] ring-buffer empty or unavailable — undo skipped');
-        }
+        // §OI-054 (2026-05-24) — THE single unified undo path (C03 §4.6 U-5).
+        // Ring-buffer-first + shadow-drop + commandManager fallback all live in
+        // performUndoRedo.ts so keyboard, the SaveUndoRedoHUD button, BimService,
+        // and ContextualEditBar can never diverge again (the divergence is what
+        // made the undo button fail on plan-view elements).
+        performUndo();
     });
 
     // ── Keyboard shortcut: Ctrl+Shift+Z / Cmd+Shift+Z / Ctrl+Y → Redo ────────
@@ -2944,56 +2814,8 @@ export async function initUI(p: UIParams): Promise<void> {
         if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
         e.preventDefault();
         console.log('[EngineBootstrap] Shortcut Ctrl+Shift+Z / Ctrl+Y → redo');
-
-        const rb = window.runtime?.bus?.ringBuffer;
-        if (rb?.canRedo()) {
-            // OI-034 mirror: peek at the NEXT entry's affectedStores before consuming it.
-            // redoPatch() steps the cursor forward, so we must peek before calling it.
-            const nextPair = rb.peekRedo?.() ?? rb.current();
-            const hasRealPatches = (nextPair?.affectedStores?.length ?? 0) > 0;
-            if (hasRealPatches) {
-                const forwardSide = rb.redoPatch();     // step cursor forward + return forward PatchSide
-                const currentPair = rb.current();       // cursor now at just-redone entry
-                if (forwardSide && currentPair) {
-                    import('@pryzm/command-bus').then(({ applyRingBufferSide }) => {
-                        // Wave 36 U-4: OTel span on ring-buffer redo path (C10 §2).
-                        const tracer = trace.getTracer('pryzm-engine');
-                        tracer.startActiveSpan('pryzm.undo.apply', (span) => {
-                            try {
-                                span.setAttribute('pryzm.undo.affectedStores', (currentPair.affectedStores ?? []).join(','));
-                                span.setAttribute('pryzm.undo.side', 'forward');
-                                _withPausedObserversForUndo('REDO', () => {
-                                    applyRingBufferSide(
-                                        forwardSide,
-                                        currentPair.affectedStores ?? [],
-                                        _buildRingBufferStoreMap(),
-                                    );
-                                });
-                                console.log('[Undo] ring-buffer redo applied — stores:', currentPair.affectedStores);
-                                span.end();
-                            } catch (err) {
-                                span.recordException(err as Error);
-                                span.setStatus({ code: SpanStatusCode.ERROR });
-                                span.end();
-                            }
-                        });
-                    }).catch((err: unknown) => {
-                        console.error('[Undo] ring-buffer redo failed:', err);
-                    });
-                    return;
-                }
-            }
-            // OI-034 fallback: next ring-buffer entry has empty patches — delegate to
-            // legacy CommandManager which holds the real redo state for this operation.
-            console.log('[Redo] ring-buffer entry has empty affectedStores — falling back to commandManager.redo()');
-        }
-        // Fallback: ring buffer unavailable, empty, or entry has no patches — use legacy stack.
-        if (commandManager?.canRedo?.()) {
-            commandManager.redo();
-            console.log('[Redo] commandManager.redo() executed (legacy fallback)');
-        } else {
-            console.log('[Redo] ring-buffer empty or unavailable — redo skipped');
-        }
+        // §OI-054 (2026-05-24) — THE single unified redo path (C03 §4.6 U-5).
+        performRedo();
     });
 
     // ── Keyboard shortcut: Delete / Backspace → delete selected element ───────

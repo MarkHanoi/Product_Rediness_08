@@ -428,4 +428,37 @@ export class CommandManager {
         this.history = [];
         this.redoStack = [];
     }
+
+    /**
+     * §OI-054 SHADOW-DROP (C03 §4.6 U-5) — remove every undo/redo entry whose
+     * `targetIds` are a SUBSET of `ids`, returning the count removed.
+     *
+     * WHY: the 3D create tools (WallTool, Slab, Roof, Furniture, Plumbing,
+     * Stair, Handrail, Beam) DUAL-DISPATCH — they run `bus.executeCommand(...)`
+     * (→ CommandBus ring buffer) AND `commandManager.execute(CreateXCommand)`
+     * (→ this.history) for the SAME element. The unified undo path
+     * (apps/editor/src/engine/undo/performUndoRedo.ts) undoes such an element via
+     * the ring buffer. The orphaned `CreateXCommand` left here would then cause a
+     * PHANTOM second Ctrl+Z — its `undo()` finds the element already gone and
+     * no-ops, but still consumes a keypress. performUndo calls this right after a
+     * successful ring-buffer undo to discard that twin, so one action ⇒ one undo.
+     *
+     * Subset (not intersection) match: only drop an entry when ALL of its targets
+     * were just reverted, so a multi-target legacy command that merely overlaps is
+     * preserved. Entries with no declared targetIds are never dropped.
+     */
+    dropEntriesForTargets(ids: readonly string[]): number {
+        if (ids.length === 0) return 0;
+        const wanted = new Set(ids);
+        const covers = (entry: { command: Command }): boolean => {
+            const targets = entry.command.targetIds;
+            return Array.isArray(targets) && targets.length > 0 && targets.every(t => wanted.has(t));
+        };
+        let removed = 0;
+        const before = this.history.length + this.redoStack.length;
+        this.history = this.history.filter(e => !covers(e));
+        this.redoStack = this.redoStack.filter(e => !covers(e));
+        removed = before - (this.history.length + this.redoStack.length);
+        return removed;
+    }
 }

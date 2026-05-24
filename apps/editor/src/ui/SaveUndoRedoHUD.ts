@@ -111,22 +111,20 @@ export class SaveUndoRedoHUD {
         const divider = document.createElement('div');
         divider.className = 'surh-divider';
 
-        // Phase B (S78-WIRE) — undo/redo wired through runtime.undoStack
-        // (the typed UndoStackSlot from `@pryzm/runtime-composer/types`).
-        // The legacy commandManager global reads have been removed; if
-        // `runtime` is null (older boot path) we fall back to the global
-        // so behaviour is unchanged in dev sessions that have not yet
-        // wired the runtime through Layout.
+        // §OI-054 (2026-05-24) — route the buttons through the SINGLE unified undo
+        // path (C03 §4.6 U-5). Previously this called `runtime.undoStack.undo()`
+        // (snapshot stack, non-functional) or, when `runtime` was null, ONLY
+        // `commandManager.undo()` — which NEVER consults the CommandBus ring buffer,
+        // so the undo BUTTON could not undo plan-view (bus-only) elements ("UNDO:
+        // history empty" — the live bug). performUndo() is ring-buffer-first with a
+        // commandManager fallback, identical to the keyboard Ctrl+Z, so button and
+        // keyboard can never diverge again.
         const undoBtn = this._makeBtn('Undo (Ctrl+Z)', UNDO_ICON, () => {
-            if (this.runtime) { this.runtime.undoStack.undo(); return; }
-            const cmGlobal = (globalThis as { commandManager?: { undo?: () => void } }).commandManager;
-            cmGlobal?.undo?.();
+            void import('../engine/undo/performUndoRedo.js').then(m => m.performUndo());
         });
 
         const redoBtn = this._makeBtn('Redo (Ctrl+Y)', REDO_ICON, () => {
-            if (this.runtime) { this.runtime.undoStack.redo(); return; }
-            const cmGlobal = (globalThis as { commandManager?: { redo?: () => void } }).commandManager;
-            cmGlobal?.redo?.();
+            void import('../engine/undo/performUndoRedo.js').then(m => m.performRedo());
         });
 
         bar.appendChild(saveBtn);
