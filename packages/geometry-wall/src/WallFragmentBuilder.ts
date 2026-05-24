@@ -1897,13 +1897,30 @@ export class WallFragmentBuilder {
                 m.updateMatrix();
                 const g = m.geometry.clone();
                 g.applyMatrix4(m.matrix);          // bake position/rotation into the verts
-                geos.push(g.toNonIndexed());       // uniform shape for mergeGeometries
-                g.dispose();
+                // Only convert when indexed — toNonIndexed() on an already-non-indexed
+                // geometry logs a warning and returns the SAME object (which would then
+                // be double-disposed below). Guard both.
+                const ni = g.index ? g.toNonIndexed() : g;
+                if (ni !== g) g.dispose();         // free the indexed temp clone
+                geos.push(ni);
+            }
+
+            // §WALL-PLAIN-SEAM-MERGE-GUARD (2026-05-24): mergeGeometries() REQUIRES every
+            // geometry to share the same attribute set. Plain box segments carry a `uv`
+            // attribute; miter-prism join segments do not — feeding both made
+            // mergeGeometries log an error and return null (console-error spam on every
+            // joined-wall rebuild, e.g. during project load). Pre-check attribute
+            // uniformity and skip the merge cleanly when they differ: the wall keeps its
+            // separate segments (the same safe fallback) WITHOUT the error noise.
+            const sig = (g: THREE.BufferGeometry): string => Object.keys(g.attributes).sort().join(',');
+            const first = geos[0];
+            if (!first || !geos.every((g) => sig(g) === sig(first))) {
+                geos.forEach((g) => g.dispose());
+                return;
             }
 
             const merged = mergeGeometries(geos, false);
             geos.forEach((g) => g.dispose());
-            // Attribute mismatch (e.g. a joined wall's miter prisms) → keep segments.
             if (!merged) return;
 
             const creased = toCreasedNormals(merged, THREE.MathUtils.degToRad(30));
