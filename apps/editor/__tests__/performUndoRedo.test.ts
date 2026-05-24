@@ -10,7 +10,7 @@
 //   • an empty ring buffer falls back to commandManager.undo().
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { performUndo, performRedo } from '../src/engine/undo/performUndoRedo.js';
+import { performUndo, performRedo, buildUndoStoreMap } from '../src/engine/undo/performUndoRedo.js';
 
 interface Op { op: 'add' | 'remove' | 'replace'; path: string; value?: unknown }
 interface Pair { forward: { ops: Op[] }; inverse: { ops: Op[] }; affectedStores: string[] }
@@ -144,5 +144,34 @@ describe('performUndoRedo — unified undo routing (OI-054)', () => {
     performRedo();
 
     expect(store.map.has(WALL_ID)).toBe(true);          // forward patch re-created the wall
+  });
+});
+
+// §OI-054 ALL-ELEMENTS coverage gate. Every plan-creatable element's bus create
+// handler declares an `affectedStores` KEY; that exact key MUST resolve to an
+// applyPatch adapter in buildUndoStoreMap, or that element's undo silently falls
+// to commandManager ("history empty"). This caught the live `curtainwall` gap
+// (handler said 'curtainwall', the map only had 'curtain-wall'/'curtainWall').
+describe('buildUndoStoreMap — coverage of every create-handler affectedStores key', () => {
+  // key → the window.<storeName> the adapter must wrap (verified against each
+  // plugins/<x>/src/handlers/Create*.ts `affectedStores` + window.*Store assignment).
+  const KEY_TO_WINDOW_STORE: Record<string, string> = {
+    wall: 'wallStore', slab: 'slabStore', room: 'roomStore',
+    curtainwall: 'curtainWallStore', curtainPanel: 'curtainPanelStore',
+    column: 'columnStore', beam: 'beamStore', furniture: 'furnitureStore',
+    ceiling: 'ceilingStore', floor: 'floorStore', roof: 'roofStore',
+    stair: 'stairStore', handrail: 'handrailStore', lighting: 'lightingStore',
+    plumbing: 'plumbingStore', grid: 'gridStore', annotation: 'annotationStore',
+  };
+
+  it('maps every create-handler store key to a live applyPatch adapter', () => {
+    // Make every backing window store present (truthy) so the adapter wraps it.
+    for (const storeName of new Set(Object.values(KEY_TO_WINDOW_STORE))) {
+      (window as any)[storeName] = { add() {}, remove() {}, getById() {}, update() {} };
+    }
+    const map = buildUndoStoreMap();
+    for (const key of Object.keys(KEY_TO_WINDOW_STORE)) {
+      expect(typeof map[key]?.applyPatch, `store key "${key}" must have an applyPatch adapter`).toBe('function');
+    }
   });
 });

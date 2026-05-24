@@ -2634,3 +2634,27 @@ ordering, L1/legacy single store) + ADR-051 "Interim shipped" + master status OI
 `performUndoRedo.test.ts` 5/5 (covered-apply, shadow-drop, uncovered-fallback, empty-fallback,
 redo) + `elementUndoStoreAdapter.test.ts` 7/7. **Live-verify pending (architect):** plan-view
 Ctrl+Z (button + keyboard) reverts a wall; 3D Ctrl+Z reverts exactly once (no phantom).
+**LIVE-CONFIRMED working by architect** (plan-view wall undo) → pushed (`2bd910b`).
+
+## Round 57 — OI-054 all-elements undo audit + curtain-wall gap fix (2026-05-24)
+
+Architect confirmed Round 56 fixed wall undo; requested the same for ALL elements. Audited every
+plan-creatable element's bus create handler `affectedStores` key vs `buildUndoStoreMap()` coverage
+vs the `window.<x>Store` inventory (full table now in **C03 §4.8**). Result: the unified path is
+element-agnostic, so 15+ types were already covered (wall, slab, room, column, beam, furniture,
+ceiling, floor, roof, stair, handrail, lighting, annotation/dimension, + door/window in plan via
+`wall.opening.create` on the host `wall`); grid/plumbing/view/sheet are commandManager **bridges**
+(empty ring entry → cm fallback by design).
+
+**One real gap found + fixed — curtain-wall.** `plugins/curtain-wall/src/handlers/CreateCurtainWall.ts`
+declares `affectedStores=['curtainwall']` (one word, lowercase); `buildUndoStoreMap` only had
+`'curtain-wall'`/`'curtainWall'`/`'curtainWalls'` → curtain-wall undo fell to `commandManager`
+("history empty") — the **identical** bug walls had. Added `curtainwall` → `curtainWallStore`
+(+ `curtainPanel` → `curtainPanelStore`). Added a **coverage regression gate** (6th test in
+`performUndoRedo.test.ts`) that asserts every create-handler key resolves to an `applyPatch`
+adapter, so a future spelling drift fails CI. Documented C03 §4.8 table.
+
+**Gates:** editor typecheck 0 errors; `performUndoRedo.test.ts` **6/6** (5 routing + 1 coverage) +
+adapter 7/7. **Live-verify pending:** plan-view curtain-wall draw → Ctrl+Z reverts it.
+**Open follow-ups (do NOT regress):** hosted door/window standalone two-part undo; section/structural
+(no window store) on cm fallback; cross-stack redo ordering; ADR-051 single-store end-state.

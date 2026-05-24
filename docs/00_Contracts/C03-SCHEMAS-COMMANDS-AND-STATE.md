@@ -306,6 +306,41 @@ dirty-diff subscription, and patch-inverse undo through the single `performUndoR
 (Path A retired, dual-dispatch removed). Migration is **incremental per element type, live-gated**
 — undo is an interactive behaviour and MUST be verified in the running app per type.
 
+### §4.8 — Per-element undo coverage (OI-054 all-elements audit, 2026-05-24)
+
+The unified path (§4.5) is element-agnostic. Whether a given element's undo works reduces to ONE
+rule: **its bus create handler's `affectedStores` key MUST resolve to an `applyPatch` adapter in
+`buildUndoStoreMap()`** (a covered key → ring-buffer undo drives the mesh; an uncovered key → the
+coverage pre-check skips the ring buffer and the legacy `commandManager.undo()` fallback runs). A
+regression test (`apps/editor/__tests__/performUndoRedo.test.ts` → "coverage of every
+create-handler affectedStores key") enforces the table below so a future key drift fails CI.
+
+| Element | bus create cmd | handler `affectedStores` | window store | undo route |
+|---|---|---|---|---|
+| wall | `wall.create` | `['wall']` | `wallStore` | ring-buffer adapter |
+| slab | `slab.create` | `['slab']` | `slabStore` | ring-buffer adapter |
+| room | `room.create` | `['room']` | `roomStore` | ring-buffer adapter |
+| **curtain-wall** | `curtainwall.create` | `['curtainwall']` | `curtainWallStore` | ring-buffer adapter — **key `curtainwall` (one word) was MISSING from the map → fixed 2026-05-24** (was the same "history empty" bug as walls) |
+| column | `column.create` | `['column']` | `columnStore` | ring-buffer adapter |
+| beam | `beam.create` | `['beam']` | `beamStore` | ring-buffer adapter |
+| furniture | `furniture.create` | `['furniture']` | `furnitureStore` | ring-buffer adapter |
+| ceiling | `ceiling.create` | `['ceiling']` | `ceilingStore` | ring-buffer adapter |
+| floor | `floor.create` | `['floor']` | `floorStore` | ring-buffer adapter |
+| roof | `roof.create` | `['roof']` | `roofStore` | ring-buffer adapter |
+| stair | `stair.create` | `['stair']` | `stairStore` | ring-buffer adapter |
+| handrail | `handrail.create` | `['handrail']` | `handrailStore` | ring-buffer adapter |
+| lighting | `lighting.create` | `['lighting']` | `lightingStore` | ring-buffer adapter |
+| annotation/dimension | `annotation.create` | `['annotation']` | `annotationStore` | ring-buffer adapter (plan dimensions dispatch `annotation.create`) |
+| door / window (in plan) | `wall.opening.create` | `['wall']` | `wallStore` | ring-buffer adapter via the **host wall** (the opening is a field of the wall) |
+| grid | `grid.add` | `[]` (cm bridge: `_cmExec(new AddGridCommand)`) | — | `commandManager.undo()` fallback (the entry is empty by design) |
+| plumbing | `plumbing.createFixture` | `[]` (cm bridge: `cm.execute(CreatePlumbingFixtureCommand)`) | — | `commandManager.undo()` fallback |
+| view / sheet / schedule / vg | `view.*`, `sheet.*` … | `[]` (cm bridges) | — | `commandManager.undo()` fallback |
+
+**Not yet patch-undoable (route to `commandManager` / open follow-ups):** standalone `door`/`window`
+property edits (hosted two-part undo — §4.7 follow-up 1); `section.create` (`['section']`) and
+`structural.create` (`['structural']`) have no `window.<x>Store`, so they rely on the legacy
+fallback; `level` is Path-A by design. These do not regress the covered set above.
+
 ---
 
 ## §6 — `level.add` Command Bus Type Contract

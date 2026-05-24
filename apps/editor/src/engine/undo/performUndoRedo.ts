@@ -110,7 +110,13 @@ export function buildUndoStoreMap(): Record<string, PatchApplicableAdapter | und
       wall:           w.wallStore,        walls:        w.wallStore,
       slab:           w.slabStore,        slabs:        w.slabStore,
       room:           w.roomStore,        rooms:        w.roomStore,
+      // Curtain wall: the bus handler declares affectedStores=['curtainwall'] (one
+      // word, lowercase) — that EXACT key MUST be present or curtain-wall undo falls
+      // to commandManager ("history empty"), the identical bug walls had (OI-054
+      // all-elements audit). The hyphen/camel spellings are kept for legacy callers.
+      curtainwall:    w.curtainWallStore,
       'curtain-wall': w.curtainWallStore, curtainWall:  w.curtainWallStore, curtainWalls: w.curtainWallStore,
+      curtainPanel:   w.curtainPanelStore,
       furniture:      w.furnitureStore,
       column:         w.columnStore,      columns:      w.columnStore,
       beam:           w.beamStore,        beams:        w.beamStore,
