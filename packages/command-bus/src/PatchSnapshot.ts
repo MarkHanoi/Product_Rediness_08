@@ -248,31 +248,72 @@ export interface PatchApplicable {
  *
  * CONTRACT (C03 §4.1): MUST NOT throw.
  */
+/**
+ * Outcome of an {@link applyRingBufferSide} call (C03 §4.6 U-4, §4.7 B3).
+ *
+ * Before the deep-audit fix (2026-05-24) this function returned `void` and
+ * swallowed every failure, so a caller could not tell whether the inverse patch
+ * actually applied — it logged "undo applied" even when a legacy store had no
+ * `applyPatch` (C03 §4.7 B1/B3). It now reports per-store success so callers can
+ * log honestly and fall back. It still **MUST NOT throw** (C03 §4.6 U-4).
+ */
+export interface ApplyRingBufferOutcome {
+  /** Store keys whose inverse/forward patch applied successfully. */
+  readonly applied: readonly string[];
+  /** Store keys skipped or failed: absent from the map, missing `applyPatch`, or `applyPatch` threw. */
+  readonly failed: readonly string[];
+}
+
 export function applyRingBufferSide(
   side: PatchSide,
   affectedStores: readonly string[],
   storeMap: Readonly<Record<string, PatchApplicable | undefined>>,
-): void {
-  if (affectedStores.length === 0 || side.ops.length === 0) return;
+): ApplyRingBufferOutcome {
+  const applied: string[] = [];
+  const failed: string[] = [];
+  if (affectedStores.length === 0 || side.ops.length === 0) return { applied, failed };
+
+  let patches: ReturnType<typeof patchSideToImmer>;
   try {
-    const patches = patchSideToImmer(side);
-    if (affectedStores.length === 1) {
-      // Single-store: all ops belong to the one affected store.
-      const store = storeMap[affectedStores[0]!];
-      if (store) store.applyPatch(patches);
-    } else {
-      // Multi-store: route each op to the store whose key matches path[0].
-      for (const storeKey of affectedStores) {
-        const storePatch = patches.filter(p => String(p.path[0]) === storeKey);
-        if (storePatch.length > 0) {
-          const store = storeMap[storeKey];
-          if (store) store.applyPatch(storePatch);
-        }
-      }
-    }
+    patches = patchSideToImmer(side);
   } catch (err) {
-    console.error('[applyRingBufferSide] failed — skipping store update:', err);
+    console.error('[applyRingBufferSide] patch decode failed — nothing applied:', err);
+    return { applied, failed: [...affectedStores] };
   }
+
+  // §B3 (C03 §4.7) — apply per store with per-store reporting. A store that is
+  // absent or lacks `applyPatch` (a legacy non-Immer store, C03 §4.7 B1) is
+  // recorded as FAILED and logged, never silently treated as success.
+  const applyOne = (storeKey: string, ops: typeof patches): void => {
+    const store = storeMap[storeKey];
+    if (!store || typeof (store as { applyPatch?: unknown }).applyPatch !== 'function') {
+      console.error(
+        `[applyRingBufferSide] store "${storeKey}" missing or has no applyPatch() — ` +
+        `inverse patch NOT applied (C03 §4.7 B1). Route undo via runtime.undoStack (C03 §4.6 U-5).`,
+      );
+      failed.push(storeKey);
+      return;
+    }
+    try {
+      store.applyPatch(ops);
+      applied.push(storeKey);
+    } catch (err) {
+      console.error(`[applyRingBufferSide] store "${storeKey}".applyPatch() threw — skipping:`, err);
+      failed.push(storeKey);
+    }
+  };
+
+  if (affectedStores.length === 1) {
+    // Single-store: all ops belong to the one affected store.
+    applyOne(affectedStores[0]!, patches);
+  } else {
+    // Multi-store: route each op to the store whose key matches path[0].
+    for (const storeKey of affectedStores) {
+      const storePatch = patches.filter(p => String(p.path[0]) === storeKey) as typeof patches;
+      if (storePatch.length > 0) applyOne(storeKey, storePatch);
+    }
+  }
+  return { applied, failed };
 }
 
 // ── Re-export produceWithPatchesPerStore for convenience ─────────────────────

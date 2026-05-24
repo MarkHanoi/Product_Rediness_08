@@ -156,11 +156,17 @@ export class BimService implements IBimService {
             const inverseSide = rb.undoPatch();
             if (inverseSide && currentPair) {
                 import('@pryzm/command-bus').then(({ applyRingBufferSide }) => {
-                    applyRingBufferSide(
+                    const outcome = applyRingBufferSide(
                         inverseSide,
                         currentPair.affectedStores ?? [],
                         BimService._buildStoreMap(),
                     );
+                    // §B3 (C03 §4.7) — on total failure (legacy store without applyPatch)
+                    // fall back to the legacy UndoManager instead of a silent no-op.
+                    if (outcome.applied.length === 0 && outcome.failed.length > 0) {
+                        console.warn('[BimService.undo] ring-buffer apply INCOMPLETE — store(s) without applyPatch:', outcome.failed, '(C03 §4.7 B1) — falling back to legacy undo.');
+                        this.undoManager.undo();
+                    }
                 }).catch((err: unknown) => {
                     console.error('[BimService.undo] ring-buffer apply failed:', err);
                     this.undoManager.undo();

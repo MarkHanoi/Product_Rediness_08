@@ -2880,14 +2880,33 @@ export async function initUI(p: UIParams): Promise<void> {
                             try {
                                 span.setAttribute('pryzm.undo.affectedStores', (currentPair.affectedStores ?? []).join(','));
                                 span.setAttribute('pryzm.undo.side', 'inverse');
+                                let _outcome: { applied: readonly string[]; failed: readonly string[] } = { applied: [], failed: [] };
                                 _withPausedObserversForUndo('UNDO', () => {
-                                    applyRingBufferSide(
+                                    _outcome = applyRingBufferSide(
                                         inverseSide,
                                         currentPair.affectedStores ?? [],
                                         _buildRingBufferStoreMap(),
                                     );
                                 });
-                                console.log('[Undo] ring-buffer undo applied — stores:', currentPair.affectedStores);
+                                if (_outcome.failed.length === 0) {
+                                    console.log('[Undo] ring-buffer undo applied — stores:', currentPair.affectedStores);
+                                } else {
+                                    // §B3 (C03 §4.7) — do NOT claim success: the inverse patch could not apply
+                                    // to store(s) lacking applyPatch (legacy store — C03 §4.7 B1). Fall back to
+                                    // the legacy CommandManager when NOTHING applied (safe: a failed ring-buffer
+                                    // apply mutated nothing, so no double-undo). Real fix: route via
+                                    // runtime.undoStack (U-5) + TASK-08 store unification.
+                                    console.warn(
+                                        '[Undo] ring-buffer apply INCOMPLETE — store(s) without applyPatch:',
+                                        _outcome.failed,
+                                        '(C03 §4.7 B1). Fix: route via runtime.undoStack (U-5) + TASK-08.',
+                                    );
+                                    span.setAttribute('pryzm.undo.failedStores', _outcome.failed.join(','));
+                                    if (_outcome.applied.length === 0 && commandManager?.canUndo?.()) {
+                                        commandManager.undo();
+                                        console.log('[Undo] legacy undo executed (ring-buffer B1 fallback — C03 §4.7)');
+                                    }
+                                }
                                 span.end();
                             } catch (err) {
                                 span.recordException(err as Error);

@@ -54,7 +54,7 @@ export {
   patchSideToImmer,           // Sprint A33 — C03 §4.1: PatchSide → Immer Patch[] for applyPatches
   applyRingBufferSide,        // Sprint A34 — C03 §4.1: Phase D undo/redo store applicator
 } from './PatchSnapshot.js';
-export type { PatchApplicable } from './PatchSnapshot.js';
+export type { PatchApplicable, ApplyRingBufferOutcome } from './PatchSnapshot.js';
 export {
   CascadeRunner,
   CascadeRunnerError,
