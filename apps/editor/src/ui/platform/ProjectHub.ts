@@ -639,8 +639,23 @@ export class ProjectHub {
             const saved = pid ? this._loadCardPos(pid) : null;
             const col   = i % cols;
             const row   = Math.floor(i / cols);
-            const left  = saved ? saved.x : PAD + col * (CARD_W + GAP);
-            const top   = saved ? saved.y : PAD + row * ROW_H;
+            const defLeft = PAD + col * (CARD_W + GAP);
+            const defTop  = PAD + row * ROW_H;
+
+            // §HUB-CARD-RECOVER: the grid clips horizontally and a free-dragged card
+            // persists its x/y in localStorage; a position past the right edge (or
+            // negative / absurdly far) hides the card with no pan or scroll to reach
+            // it — so projects appear "missing". When the width is known, re-flow any
+            // out-of-bounds saved position back to its default grid slot and heal the
+            // stored value so every project stays visible. In-bounds custom positions
+            // are preserved untouched.
+            const clientW = grid.clientWidth;
+            const maxLeft = clientW - CARD_W - PAD;
+            const outOfBounds = saved != null && clientW > 400 &&
+                (saved.x < 0 || saved.x > maxLeft || saved.y < 0 || saved.y > 20000);
+            const left = (saved && !outOfBounds) ? saved.x : defLeft;
+            const top  = (saved && !outOfBounds) ? saved.y : defTop;
+            if (outOfBounds && pid) this._saveCardPos(pid, left, top);
 
             card.style.position = 'absolute';
             card.style.margin   = '0';
