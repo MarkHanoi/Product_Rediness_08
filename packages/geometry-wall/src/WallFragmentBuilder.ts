@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 
 import * as THREE from '@pryzm/renderer-three/three';
+import { mergeGeometries, toCreasedNormals } from '@pryzm/renderer-three';
 import { WallData, Opening, FragmentEntityMapping } from './WallTypes';
 import { VisualStyle, WALL_REALISTIC_MATERIAL, WALL_SCHEMATIC_MATERIAL } from '@pryzm/core-app-model/material-library';
 import { spatialAuthority, SpatialAuthorityError } from '@pryzm/core-app-model';
@@ -1712,6 +1713,14 @@ export class WallFragmentBuilder {
                 wallGroup.add(outlineEdges);
             }
 
+            // §WALL-PLAIN-SEAM-MERGE (#96): collapse the abutting body box segments
+            // (before / sill / lintel / header / after) into ONE creased-normal mesh
+            // so the coplanar segment boundaries stop rendering as shaded "division
+            // lines" beside openings under SSGI. Mirrors the layered-wall grid fix
+            // (greedy-merge + toCreasedNormals) without needing CSG/WASM. Safe: on any
+            // failure it leaves the original separate segments untouched.
+            this._mergeWallBodySegments(wallGroup, wall);
+
             // §WALL-AUDIT-2026-C1 (move-restore): identity is locked once at the
             // top of buildWall(); only mutable fields sync here.
             this._syncMutableWallUserData(wallGroup, wall);
@@ -1850,6 +1859,76 @@ export class WallFragmentBuilder {
             // CSG failed — keep the segmented mesh (SPEC §4: never an empty wall).
             console.warn(
                 '[WallFragmentBuilder] §WALL-SINGLE-VOLUME-CSG upgrade failed, keeping segments:',
+                (err as Error)?.message ?? err,
+            );
+        }
+    }
+
+    /**
+     * §WALL-PLAIN-SEAM-MERGE (#96, 2026-05-24) — collapse a plain straight wall's
+     * abutting body box segments (each tagged elementType:'WallPart') into ONE mesh
+     * with creased normals. The segmented path emits before/sill/lintel/header/after
+     * as separate coplanar boxes; under SSGI their shared boundaries shade as faint
+     * "division lines" beside openings (the default-wall analog of the layered-wall
+     * grid seams fixed by greedy-merge + toCreasedNormals). Merging into one surface
+     * removes the internal boundaries; toCreasedNormals(30°) keeps the real opening
+     * reveals sharp while smoothing the now-coplanar joins.
+     *
+     * SAFE BY CONSTRUCTION: any failure (attribute mismatch with miter-prism join
+     * segments, null merge result, etc.) is caught and the original separate
+     * segments are left in place — never an empty wall. Selection/visibility are
+     * unaffected (the merged mesh carries the same WallPart userData; openings'
+     * door/window frames and the edge overlay are not touched).
+     */
+    private _mergeWallBodySegments(wallGroup: THREE.Group, wall: WallData): void {
+        try {
+            const parts: THREE.Mesh[] = [];
+            for (const child of wallGroup.children) {
+                const m = child as THREE.Mesh;
+                if (m.isMesh && (m.userData as { elementType?: string })?.elementType === 'WallPart') {
+                    parts.push(m);
+                }
+            }
+            // Single segment → no internal boundary to merge; leave as-is.
+            if (parts.length < 2) return;
+
+            const geos: THREE.BufferGeometry[] = [];
+            for (const m of parts) {
+                m.updateMatrix();
+                const g = m.geometry.clone();
+                g.applyMatrix4(m.matrix);          // bake position/rotation into the verts
+                geos.push(g.toNonIndexed());       // uniform shape for mergeGeometries
+                g.dispose();
+            }
+
+            const merged = mergeGeometries(geos, false);
+            geos.forEach((g) => g.dispose());
+            // Attribute mismatch (e.g. a joined wall's miter prisms) → keep segments.
+            if (!merged) return;
+
+            const creased = toCreasedNormals(merged, THREE.MathUtils.degToRad(30));
+            merged.dispose();
+
+            const mesh = new THREE.Mesh(creased, this.createWallMaterial(wall));
+            mesh.position.set(0, 0, 0);
+            mesh.userData = {
+                materialId: wall.materialId,
+                materialColor: wall.materialColor,
+                elementType: 'WallPart',
+                modelId: 'model-default',
+                role: 'geometry',
+                selectable: false,
+                mergedBody: true,
+            };
+
+            for (const m of parts) {
+                wallGroup.remove(m);
+                m.geometry.dispose();
+            }
+            wallGroup.add(mesh);
+        } catch (err) {
+            console.warn(
+                '[WallFragmentBuilder] §WALL-PLAIN-SEAM-MERGE failed, keeping segments:',
                 (err as Error)?.message ?? err,
             );
         }
