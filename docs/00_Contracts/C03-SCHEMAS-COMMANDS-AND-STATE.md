@@ -202,10 +202,22 @@ undo() {
 }
 ```
 
-This is correct **for the L1 data layer**: `bus.fetchStores` and `buildContext` both call the same
-`storesProvider` (`CommandBus.ts:204/219`), so the patch shape matches and `applyPatch` exists.
-**Any Ctrl+Z / redo entry point MUST route through `runtime.undoStack`** — it MUST NOT re-derive
-its own store map (see §4.7 anti-pattern).
+> **⚠️ AS-IS CORRECTION (verified 2026-05-24):** `bus.fetchStores` and `buildContext` both call
+> `storesProvider`, but in production (`apps/editor/src/bootstrap.ts`) `storesProvider` returns
+> `storesAsRecordView(stores)` = `Object.fromEntries(store.getState())` — **plain snapshot
+> `Record`s, NOT the live `Store<T>` instances**. Snapshots have **no `applyPatch`**, so
+> `buildPhaseDUndoStackSlot` → `applyRingBufferSide(side, ids, fetchStores(ids))` calls
+> `applyPatch` on an object that does not have it → the apply silently fails (it now *reports*
+> the failure after B3). **`runtime.undoStack` is therefore NON-FUNCTIONAL for patch apply as
+> written.** Forward patches reach the live L1 store only via `attachStores` (the PatchEmitter
+> applier); undo never goes through that path. The actually-working apply route today is the
+> per-type **legacy-store adapter** (§4.7), which applies inverse patches to the live legacy
+> `window.<x>Store` — the store that drives the mesh.
+>
+> **Reconciliation:** U-5 (below) keeps `runtime.undoStack` as the single-path TARGET, but it
+> MUST be fed a store provider that returns **applyPatch-capable, mesh-driving** stores (the
+> adapter), not the snapshot view — folded into the ADR-051 migration. Until then the
+> entry points use the shared adapter (the documented interim).
 
 ### §4.6 — Binding invariants (robust undo)
 
@@ -245,9 +257,22 @@ Three layered bugs make plan-view-create undo a silent no-op today:
   duck-typed `applyPatch` surface over each live legacy store's `add`/`remove`(or `delete`)/`update`,
   which DRIVE the mesh — so undo+redo revert both data and geometry for **wall, slab, room,
   curtain-wall, furniture, column, beam, stair, handrail, roof, floor, ceiling, plumbing**
-  (B1+B2 closed for these; unit-gated 7/7, live-verify pending). `door`/`window` (hosted — two-part
-  wall-opening undo) and `level` (Path-A) are left RAW → B3 fallback. **Real end-state:** route all
-  four through `runtime.undoStack` (U-5) once each type's mesh derives from its L1 store (U-7).
+  (adapter unit-gated 7/7). `door`/`window` (hosted — two-part wall-opening undo) and `level`
+  (Path-A) are left RAW → B3 fallback.
+  > **⚠️ AS-IS (live trace 2026-05-24):** the adapter is wired but a live Ctrl+Z after drawing
+  > walls in plan view **never reaches it** — the trace shows `commandManager.undo()`
+  > (`UNDO: CREATE_ANNOTATION → history empty`) with **no** `[elementUndoStoreAdapter]`,
+  > `[Undo]`, or `[EngineBootstrap] Shortcut Ctrl+Z` line. So undo is firing through a path
+  > that consults `commandManager`, **not** the ring buffer. Either (a) the ring buffer is
+  > **empty** in the handler's view (a **U-1** violation — wall creates not pushed) so every
+  > handler falls through, or (b) one of the **≥5 fragmented entry points** runs (a **U-5**
+  > violation): `initUI` keydown, `BimService.undo/redo` (← `ContextualEditBar` Ctrl+Z),
+  > `NavigationAreaLayout`, `DockingLayout`, `SaveUndoRedoHUD` (→ the non-functional
+  > `runtime.undoStack`). Diagnostics added (`[Undo-DIAG/*]`) to pin it down. **B1/B2 are NOT
+  > confirmed closed** until a live Ctrl+Z reverts a plan-created wall.
+  **Real end-state:** consolidate ALL entry points onto the single `runtime.undoStack` path
+  (U-5), fed an adapter-wrapped mesh-driving store provider, once each type's mesh derives from
+  its store (U-7).
 - **B2 — mesh not reverted (deeper).** Even via `runtime.undoStack` the inverse patch applies to the
   **L1** store, which does not drive the mesh (§4.4). So data reverts but the wall mesh remains.
   **Fix:** TASK-08 store-unification (U-7) — make the mesh-driving store the L1 store (or have it
