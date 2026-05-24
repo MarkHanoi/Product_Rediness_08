@@ -16,7 +16,7 @@
  * Contract: §07-BIM-SECURITY-CONTRACT §11 — DB access confined to server/.
  */
 
-import { getPgPool } from './pgClient.js';
+import { getPgPool, pgPreflight } from './pgClient.js';
 import { migrateViaSupabaseRest, ensureOwnerAccountInSupabase } from './supabaseMigrate.js';
 
 const SCHEMA_SQL = `
@@ -367,10 +367,39 @@ async function migrateViaPg(pool) {
     const client = await pool.connect();
     let lockAcquired = false;
     try {
-        // §B9 — block until we own the lock; releases automatically on session
-        // end (client.release) but we also explicitly unlock in finally.
-        await client.query(`SELECT pg_advisory_lock($1)`, [MIGRATION_LOCK_KEY.toString()]);
-        lockAcquired = true;
+        // §D2 (DAILY-USE 2026-05-24) — bounded, NON-BLOCKING advisory-lock
+        // acquisition + a lock_timeout. The old blocking `pg_advisory_lock()`
+        // could HANG indefinitely if another session held the lock and never
+        // released it (a crashed boot, a pooled connection that kept the lock).
+        // connectionTimeoutMillis only covers acquiring a connection — NOT a hung
+        // query — so the runMigrations() retry loop could never recover (it only
+        // retries on THROW, and a hang never throws). A hung migration leaves the
+        // v1 gate permanently closed (the Round 50 D1 deadlock, by another route).
+        //
+        // lock_timeout bounds the object-lock wait inside the DDL itself (ALTER
+        // TABLE needs ACCESS EXCLUSIVE — if another session holds the table it
+        // would otherwise wait forever). pg_try_advisory_lock() returns instantly
+        // (true/false) so we poll a bounded number of times instead of blocking.
+        try { await client.query(`SET lock_timeout = '5s'`); }
+        catch (e) { console.warn('[dbMigrate] could not set lock_timeout (non-fatal):', e.message); }
+
+        const LOCK_POLL_ATTEMPTS = 10; // 10 × 500ms = up to 5s waiting for a peer migration
+        for (let i = 0; i < LOCK_POLL_ATTEMPTS; i++) {
+            const { rows } = await client.query(
+                `SELECT pg_try_advisory_lock($1) AS locked`,
+                [MIGRATION_LOCK_KEY.toString()],
+            );
+            if (rows[0]?.locked) { lockAcquired = true; break; }
+            await new Promise((r) => setTimeout(r, 500));
+        }
+        if (!lockAcquired) {
+            // Another instance is actively migrating (Replit Autoscale concurrent
+            // boot). Its idempotent CREATE TABLE IF NOT EXISTS / ALTER … IF NOT
+            // EXISTS will apply the schema; ours would be a redundant no-op. Return
+            // cleanly so runMigrations() flips the ready flag rather than throwing.
+            console.warn('[dbMigrate] migration lock held by another instance — skipping DDL (peer will apply schema).');
+            return;
+        }
 
         const cleanSql = SCHEMA_SQL
             .split('\n')
@@ -409,6 +438,14 @@ async function migrateViaPg(pool) {
             `ALTER TABLE projects ADD CONSTRAINT chk_projects_name_len CHECK (char_length(name) >= 1 AND char_length(name) <= 200)`,
             `ALTER TABLE project_versions ADD CONSTRAINT chk_pv_element_count CHECK (element_count >= 0)`,
             `ALTER TABLE project_versions ADD CONSTRAINT chk_pv_label_len CHECK (char_length(label) >= 1)`,
+            // §D5 (DAILY-USE 2026-05-24) — referential integrity on version_audit_log.project_id.
+            // Deletion is ALREADY handled transitively (project → project_versions → version_audit_log
+            // via the version_id CASCADE), so this is defense-in-depth: it (a) makes an audit insert
+            // for a non-existent project fail fast, and (b) makes the CASCADE explicit on project_id
+            // too. PG has no `ADD CONSTRAINT IF NOT EXISTS`, so a re-run logs a non-fatal "already
+            // exists" warning via the loop's try/catch (same as the GAP-09 CHECKs above). If a legacy
+            // DB has pre-existing orphans the ADD will warn-and-skip — harmless (audit is append-only).
+            `ALTER TABLE version_audit_log ADD CONSTRAINT version_audit_log_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE`,
         ];
 
         for (const sql of columnMigrations) {
@@ -424,6 +461,9 @@ async function migrateViaPg(pool) {
             try { await client.query(`SELECT pg_advisory_unlock($1)`, [MIGRATION_LOCK_KEY.toString()]); }
             catch (err) { console.warn('[dbMigrate] advisory unlock failed (non-fatal):', err.message); }
         }
+        // §D2 — RESET the migration-only lock_timeout so the pooled connection
+        // returns to the pool with the default (other callers are unaffected).
+        try { await client.query('RESET lock_timeout'); } catch { /* best effort */ }
         client.release();
     }
 }
@@ -431,5 +471,38 @@ async function migrateViaPg(pool) {
 export async function runMigrations() {
     const pool = getPgPool();
     if (!pool) return;
-    await migrateViaPg(pool);
+    // §D3 (2026-05-24): fail FAST on an unreachable URL. Without this, an
+    // unreachable pool burns ~10s on the 4-attempt backoff below before the
+    // caller (server.js) settles the v1 gate to the in-memory fallback. A short
+    // SELECT 1 throws in a few seconds → server.js opens the gate + schedules
+    // self-heal much sooner. A reachable-but-cold pool that loses this race is
+    // recovered by the 30s self-heal.
+    await pgPreflight();
+    // §DB-MIGRATE-RESILIENCE (2026-05-24): the Supabase pooler connection can time out
+    // transiently at boot ("Connection terminated due to connection timeout"). A single
+    // failure left migrationsReady=false, so EVERY /api/v1/projects returned 503
+    // `migrations_in_progress` forever until a manual restart (the recurring "server
+    // instability"). Retry the connection-bound migration a few times with exponential
+    // backoff so a transient blip self-recovers within the boot window.
+    const MAX_ATTEMPTS = 4;
+    let lastErr;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        try {
+            await migrateViaPg(pool);
+            if (attempt > 1) console.log(`[dbMigrate] migrations succeeded on attempt ${attempt}/${MAX_ATTEMPTS}.`);
+            return;
+        } catch (err) {
+            lastErr = err;
+            const msg = `${err?.message ?? ''} ${err?.cause?.message ?? ''}`;
+            const transient = /timeout|terminated|ECONNRESET|ETIMEDOUT|ECONNREFUSED|connection/i.test(msg);
+            console.warn(
+                `[dbMigrate] migration attempt ${attempt}/${MAX_ATTEMPTS} failed` +
+                `${transient ? ' (transient — will retry)' : ''}: ${err?.message ?? err}`,
+            );
+            if (attempt < MAX_ATTEMPTS) {
+                await new Promise((r) => setTimeout(r, 1500 * Math.pow(2, attempt - 1))); // 1.5s, 3s, 6s
+            }
+        }
+    }
+    throw lastErr;
 }

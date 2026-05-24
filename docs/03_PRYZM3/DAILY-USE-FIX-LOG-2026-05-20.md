@@ -4,6 +4,67 @@ Concrete fixes applied this session in response to `DAILY-USE-AUDIT-2026-05-20.m
 
 ---
 
+## ✅ APPLIED — Round 50 (2026-05-24: §SERVER-503-MIGRATION-GATE-DEADLOCK + DB deep audit)
+
+### The bug (live, blocking): every project create/open returns 503 `migrations_in_progress` forever
+**Trigger (architect, with screenshots + console):**
+```
+Failed to create project: [ProjectListClient] server-error (HTTP 503)
+errorId=2cd5e036-… code=migrations_in_progress
+```
+Repeated across CREATE (`ProjectHub._createViaRuntime`) and OPEN/LIST (`PlatformRouter._openProjectViaRuntime`) for multiple projects; client also showed a 62 s LONGTASK + 1 fps (the futile retry storm against a permanent 503).
+
+### Root cause — an architectural contradiction between two resilience mechanisms built in different rounds
+1. **Round 30 gate** ([`server/api/v1/routes.js`](../../server/api/v1/routes.js) `v1Router.use`) 503s every v1 request while `getMigrationsReady() === false`. Its **stated** purpose is only to bridge the ~200 ms–3 s boot *race window* (port opens before `runMigrations()` commits the `ALTER TABLE`s, so a real INSERT could hit 42703 "column does not exist").
+2. **Round 40/150 in-memory fallback** ([`server/projectStore.js`](../../server/projectStore.js) `§SERVER-PG-DEGRADE`): when a pool exists but the live query throws, `createProject`/`listProjects`/`deleteProject` degrade to the in-memory map so the architect can keep working.
+
+These **fight each other**. When a PG URL is configured but **unreachable** (a stale/remote `DATABASE_URL` or `SUPABASE_DB_URL` in a local `.env` that can't connect from this Windows box — note [`pgClient.js`](../../server/pgClient.js) itself documents `SUPABASE_DB_URL` → `db.<project>.supabase.co:5432` as commonly unreachable), `migrateViaPg` fails all 4 attempts → `runMigrations()` throws → the `server.js` catch block **never calls `setMigrationsReady(true)`** → the flag stays false **permanently** → the gate 503s every request. **And because the gate runs BEFORE the route handlers, the `§SERVER-PG-DEGRADE` in-memory fallback is never reached.** The no-pool case worked (runMigrations returns early → flag flips), which is why this only bit users with a *configured-but-broken* DB.
+
+### Fix — the gate keys on "migration SETTLED", not "migration SUCCEEDED"
+Split one conflated flag into two facts in [`server/pgClient.js`](../../server/pgClient.js):
+- `_migrationsReady` — "schema genuinely applied" (success only; for honest health/boot-log parity). `setMigrationsReady(true)` now also implies settled.
+- `_migrationsSettled` — "the boot migration has FINISHED TRYING" (success, no pool, OR terminal failure). New `getMigrationsSettled()` + `markMigrationsSettled()` (the latter opens the gate **without** claiming schema-ready).
+
+Then:
+- **`routes.js`** gate now checks `!getMigrationsSettled()` (was `!getMigrationsReady()`). Once settled, requests fall through to the handlers, which own DB-error handling (try real query → degrade to in-memory on throw).
+- **`server.js`** terminal-failure catch now calls `markMigrationsSettled()` → the gate opens → create/list/open/delete serve from the in-memory degrade path. The 30 s self-heal still runs; if the DB recovers it calls `setMigrationsReady(true)`, upgrading to real persistence with no restart.
+
+Net: the gate still 503s during the genuine boot race (settled=false until the first attempt completes — client retries with backoff, exactly as designed), but it **can no longer permanently wall off the app** when the DB is down. `/api/health/ready` stays honest (it does its own live `SELECT 1`; never read the flag).
+
+**Verification:** `node --check` clean on all three files; `npm run test:server` 37/37 green. **Server-side change → requires a dev-server RESTART** (`tsx` does not hot-reload `server.js`; the §SERVER-BOOT-MARKER line confirms the new process). After restart, watch for `§SERVER-BOOT-CONFIG-DIAGNOSTIC v1 backend:` to see which backend resolved.
+
+**Contract citations:** C13 (Project Lifecycle & Isolation — the architect must be able to proceed; a transient infra fault must not brick the session), C05 §1.1/§1.3 (persistence client is the single write gateway; DATABASE_URL priority), C08 §1 (DB access confined to `server/`), C10 (graceful degradation + observability — the failure is now logged AND recoverable, not a silent permanent wall).
+
+### Deep DB audit — other findings (documented; severity-ranked)
+| # | Sev | Finding | Status |
+|---|-----|---------|--------|
+| D1 | **CRITICAL** | Migration-gate deadlock walls off the app when a configured pool is unreachable (above). | ✅ **FIXED** this round |
+| D2 | **HIGH** | `migrateViaPg` used blocking `pg_advisory_lock` with **no `lock_timeout`**. If another session held the lock (or a crashed boot left a pooled connection holding it), the query *hangs* (not throws) — `connectionTimeoutMillis` only covers acquiring a connection, not a hung query — so the retry loop could never recover. | ✅ **FIXED** this round |
+| D3 | **MEDIUM** | No **connection preflight**: boot spent ~10 s (4 backoff attempts) against a dead URL before settling to in-memory. | ✅ **FIXED** this round |
+| D4 | **MEDIUM** | No pool-level `statement_timeout`/`idle_in_transaction_session_timeout`. A single hung query (or a leaked open transaction) could occupy a pool slot (max:10) indefinitely; under load this starves the pool. | ✅ **FIXED** this round |
+| D5 | **LOW** | `version_audit_log.project_id` is not a FK (only `version_id` is). Deletion is already handled transitively (project → project_versions → version_audit_log via the version_id CASCADE); a direct FK is referential-integrity defense-in-depth. | ✅ **FIXED** this round |
+| D6 | **LOW** | Self-heal logged every 30 s forever against a permanently-dead URL (noise). | ✅ **FIXED** this round |
+| D7 | **INFO** | `projects.owner_id` intentionally NOT a FK (documented, C05 §1.3 — auth users live in Supabase, not the Replit PG copy; isolation is enforced by server-side ownership guards). Correct by design — not a bug. | ✅ By design |
+
+### D5/D6 fixes (applied 2026-05-24, same round)
+- **D5 — `version_audit_log.project_id` FK** ([`server/dbMigrate.js`](../../server/dbMigrate.js) `columnMigrations`). `ALTER TABLE … ADD CONSTRAINT … FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE`, in the try/catch-wrapped block (PG has no `ADD CONSTRAINT IF NOT EXISTS`; a re-run logs a non-fatal "already exists" — same pattern as the GAP-09 CHECKs). Note: this is defense-in-depth — audit rows were ALREADY removed on project delete via the `version_id → project_versions → projects` cascade chain; the new FK adds insert-time integrity + an explicit cascade on `project_id`.
+- **D6 — self-heal exponential backoff + cap** ([`server.js`](../../server.js) terminal-failure catch). Fixed-30s `setInterval` → self-scheduling `setTimeout` whose delay doubles 30s→60s→120s→…→**5min cap**. A permanently-dead URL settles into a quiet 5-min heartbeat (no more every-30s spam) while a transient outage is still retried promptly; the success log now reports the attempt count.
+
+**Verification (D5/D6):** `node --check` clean on both files; `npm run test:server` 37/37 green. **Server-side → requires a dev-server RESTART.**
+
+**Net DB-audit result: D1–D6 all fixed; D7 confirmed by-design. The database layer is now resilient to: configured-but-unreachable pool (D1), hung advisory lock (D2), dead-URL boot stall (D3), runaway query / leaked transaction (D4), audit-row orphans (D5), and self-heal log spam (D6).**
+
+### D2/D3/D4 fixes (applied 2026-05-24, same round)
+- **D2 — bounded non-blocking advisory lock + `lock_timeout`** ([`server/dbMigrate.js`](../../server/dbMigrate.js) `migrateViaPg`). `pg_advisory_lock` (blocks forever) → `pg_try_advisory_lock` polled 10×500 ms (≤5 s). If a peer instance holds it (Replit Autoscale concurrent boot), we log + return cleanly — its idempotent `CREATE TABLE IF NOT EXISTS`/`ALTER … IF NOT EXISTS` applies the schema. Added `SET lock_timeout='5s'` (bounds the ALTER's ACCESS EXCLUSIVE wait) + `RESET lock_timeout` in `finally` so the pooled connection returns clean. A hung lock can no longer brick boot.
+- **D3 — fast connection preflight** ([`server/pgClient.js`](../../server/pgClient.js) `pgPreflight()`, called at the top of `runMigrations`). `SELECT 1` raced against a 6 s timer. A dead host (ECONNREFUSED/ENOTFOUND) rejects in <1 s via the query itself; the timer only bounds black-hole hosts. On failure `runMigrations` throws fast → `server.js` opens the gate (D1) + schedules self-heal in seconds instead of ~10 s. A cold-but-alive pool that loses the race is recovered by the 30 s self-heal.
+- **D4 — pool-wide query/transaction timeouts** ([`server/pgClient.js`](../../server/pgClient.js) `getPgPool` `pool.on('connect')`). `SET statement_timeout='60s'` + `idle_in_transaction_session_timeout='30s'` on every connection. Applied via `SET`-on-connect (not Pool config keys) wrapped in `.catch` so a transaction-mode pooler (pgbouncer/Supabase :6543) that rejects them degrades gracefully instead of failing the connection. 60 s is far above any legitimate snapshot/IFC write — it only reaps truly stuck statements.
+
+**Verification (D2–D4):** `node --check` clean on both files; `npm run test:server` 37/37 green; module-level gate-logic smoke test passed (settled starts false → gate 503s during boot race; `markMigrationsSettled()` opens the gate without flipping `ready`; success implies settled; no-pool `pgPreflight()` is a clean no-op). **Server-side → requires a dev-server RESTART.**
+
+**Contract citations (D2–D4):** C10 (Performance & Observability — bounded resource use; no unbounded waits/leaked pool slots), C05 §1.1 (single write gateway; transactions reaped on leak), C13 (boot resilience — a transient/unreachable DB must not brick the session), C08 §1 (DB access confined to `server/`).
+
+---
+
 ## ✅ APPLIED — Round 49 (2026-05-24: #96 follow-up — CSG flat-face seam lines)
 
 ### #96 §96-CSG-SEAM-FIX — division lines on the single-volume wall surface

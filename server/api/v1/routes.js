@@ -45,7 +45,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { getSupabaseClient } from '../../supabaseClient.js';
 import * as pgProjectStore from '../../projectStore.js';
-import { getMigrationsReady } from '../../pgClient.js';
+import { getMigrationsSettled } from '../../pgClient.js';
 import {
     registerWebhook,
     listWebhooks,
@@ -88,8 +88,20 @@ export const v1Router = Router();
 //
 // The gate returns 503 `migrations_in_progress` so the architect's UI knows
 // to wait + retry (ProjectListClient already handles 503 with exponential
-// backoff). After the flag flips (server.js setMigrationsReady(true) right
-// after runMigrations() succeeds), every subsequent request passes through.
+// backoff). After the boot migration SETTLES (server.js — success flips
+// setMigrationsReady(true); terminal failure / no usable pool flips
+// markMigrationsSettled()), every subsequent request passes through.
+//
+// §SERVER-503-MIGRATION-GATE-DEADLOCK (2026-05-24): the gate keys on
+// getMigrationsSettled(), NOT getMigrationsReady(). The earlier "ready-only"
+// predicate permanently walled off the app whenever a configured pool was
+// unreachable: the boot migration failed → ready stayed false forever → every
+// v1 request 503'd → and because this gate runs BEFORE the route handlers, the
+// §SERVER-PG-DEGRADE in-memory fallback in projectStore.js was never reached.
+// "Settled" means the boot migration has FINISHED TRYING (succeeded, no pool,
+// or gave up after retries); once settled, the downstream handlers own DB-error
+// handling (real query first, degrade to in-memory on throw). The gate's only
+// job is bridging the brief boot race window — it must not block permanently.
 //
 // The /diagnostic endpoint is intentionally NOT gated — operators may need
 // to call it precisely BECAUSE migrations are stuck (lets them see the
@@ -97,7 +109,7 @@ export const v1Router = Router();
 v1Router.use((req, res, next) => {
     // Diagnostic endpoint exempt — must work during migration window.
     if (req.path === '/diagnostic') return next();
-    if (!getMigrationsReady()) {
+    if (!getMigrationsSettled()) {
         const errorId = (typeof crypto !== 'undefined' && crypto.randomUUID)
             ? crypto.randomUUID()
             : `err-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;

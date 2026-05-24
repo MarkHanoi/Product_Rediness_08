@@ -5536,7 +5536,7 @@ httpServer.listen(PORT, '0.0.0.0', async () => {
         );
     }
     // Now run migrations + supabase ping in the background.
-    try {
+    const _applyMigrations = async () => {
         await runMigrations();
         _migrationsReady = true;
         // §SERVER-500-V1-MIGRATION-RACE (Round 30) — also flip the shared
@@ -5550,8 +5550,51 @@ httpServer.listen(PORT, '0.0.0.0', async () => {
             console.warn('[server] setMigrationsReady() failed (non-fatal):', e?.message ?? e);
         }
         console.log('[server] DB migrations complete.');
+    };
+    try {
+        await _applyMigrations();
     } catch (err) {
-        console.error('[server] runMigrations() failed (server still up; /ready will return 503):', err);
+        console.error('[server] runMigrations() failed after retries — opening v1 gate to in-memory fallback + scheduling background self-heal:', err);
+        // §SERVER-503-MIGRATION-GATE-DEADLOCK (2026-05-24): a failed boot migration used to
+        // leave the v1 gate CLOSED forever (migrationsReady=false) → every /api/v1/projects
+        // returned 503 `migrations_in_progress`. Because that gate runs BEFORE the route
+        // handlers, the §SERVER-PG-DEGRADE in-memory fallback in projectStore.js was never
+        // reached — so a configured-but-unreachable pool (stale/remote DB URL in a local
+        // .env) bricked project create/open entirely. Mark the migration SETTLED — WITHOUT
+        // claiming schema-ready, so /api/health/ready stays honest — which opens the gate so
+        // create/list/open/delete fall through to the in-memory degrade path and the architect
+        // can keep working. The self-heal below still upgrades to real persistence if the DB
+        // recovers (setMigrationsReady(true) then flips schema-ready too).
+        try {
+            const { markMigrationsSettled } = await import('./server/pgClient.js');
+            markMigrationsSettled();
+        } catch (e) {
+            console.warn('[server] markMigrationsSettled() failed (non-fatal):', e?.message ?? e);
+        }
+        // §DB-MIGRATE-SELF-HEAL (2026-05-24): keep retrying in the background so the server
+        // upgrades to real persistence on its own once the DB is reachable again.
+        // §D6 (2026-05-24): exponential backoff with a cap instead of a fixed 30s setInterval.
+        // A permanently-dead URL used to log a warning every 30s forever (console spam); now the
+        // retry interval doubles 30s → 60s → 120s → … capped at 5min, so a genuinely-unreachable
+        // DB settles into a quiet heartbeat while a transient outage is still retried promptly.
+        let _healDelayMs = 30000;
+        const HEAL_MAX_DELAY_MS = 300000; // 5 min cap
+        let _healAttempts = 0;
+        const _scheduleSelfHeal = () => {
+            const t = setTimeout(async () => {
+                _healAttempts++;
+                try {
+                    await _applyMigrations();
+                    console.log(`[server] DB migrations self-healed after ${_healAttempts} attempt(s) — /api/v1 now on real persistence (no restart needed).`);
+                } catch (e) {
+                    _healDelayMs = Math.min(_healDelayMs * 2, HEAL_MAX_DELAY_MS);
+                    console.warn(`[server] migration self-heal attempt ${_healAttempts} failed; next retry in ${Math.round(_healDelayMs / 1000)}s:`, e?.message ?? e);
+                    _scheduleSelfHeal();
+                }
+            }, _healDelayMs);
+            t.unref?.();
+        };
+        _scheduleSelfHeal();
     }
     try {
         _supabaseActiveForLog = await getSupabaseClient().then(c => !!c).catch(() => false);

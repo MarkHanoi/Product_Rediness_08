@@ -66,6 +66,24 @@ export function getPgPool() {
         _pool.on('error', (err) => {
             console.error('[pgClient] Unexpected pool error:', err.message);
         });
+        // §D4 (DAILY-USE 2026-05-24) — cap runaway queries + leaked open
+        // transactions on EVERY pooled connection. Without a statement_timeout a
+        // single hung query holds a pool slot (max:10) indefinitely; under load
+        // that starves the pool. idle_in_transaction_session_timeout reaps a
+        // transaction that BEGINs and never COMMITs (a leaked withTransaction()).
+        // 60s is generous — far above any legitimate snapshot/IFC write — so it
+        // only kills truly stuck statements.
+        //
+        // Applied via `SET` on connect (NOT Pool config keys) so a transaction-
+        // mode pooler (pgbouncer / Supabase :6543) that rejects these as startup
+        // parameters degrades gracefully (best-effort, non-fatal) instead of
+        // failing the whole connection. Direct connections (the supported config)
+        // honour them fully.
+        _pool.on('connect', (client) => {
+            client.query(
+                `SET statement_timeout = '60s'; SET idle_in_transaction_session_timeout = '30s'`,
+            ).catch((e) => console.warn('[pgClient] could not set session timeouts (transaction pooler?):', e.message));
+        });
         console.log('[pgClient] Pool initialised');
     }
     return _pool;
@@ -83,6 +101,43 @@ export async function query(text, params) {
     const pool = getPgPool();
     if (!pool) throw new Error('PostgreSQL not configured (neither SUPABASE_DB_URL nor DATABASE_URL is set)');
     return pool.query(text, params);
+}
+
+/**
+ * §D3 (DAILY-USE 2026-05-24) — fast connection preflight. A single `SELECT 1`
+ * raced against a short timeout so an UNREACHABLE DB URL is detected in a few
+ * seconds instead of burning ~10s on the migration retry loop's exponential
+ * backoff before the caller settles the v1 gate to the in-memory fallback.
+ *
+ * A genuinely-dead host (ECONNREFUSED / ENOTFOUND) rejects almost instantly via
+ * the query promise; the timer only bounds the BLACK-HOLE case (packets dropped,
+ * no RST) which would otherwise hang until connectionTimeoutMillis (10s). A
+ * slow-but-alive host that connects within the window passes. On a false-fail
+ * (cold pooler slower than the window) the boot self-heal upgrades to real
+ * persistence within 30s — strictly better than a hang.
+ *
+ * Throws on failure (message names the masked host); resolves on success.
+ * No-op when no pool is configured (caller already handles in-memory mode).
+ *
+ * @param {number} [timeoutMs=6000]
+ */
+export async function pgPreflight(timeoutMs = 6000) {
+    const pool = getPgPool();
+    if (!pool) return;
+    let timer;
+    const timeout = new Promise((_, reject) => {
+        timer = setTimeout(
+            () => reject(new Error(`pg preflight timed out after ${timeoutMs}ms`)),
+            timeoutMs,
+        );
+    });
+    const q = pool.query('SELECT 1');
+    q.catch(() => { /* prevent unhandled rejection if the timeout wins the race */ });
+    try {
+        await Promise.race([q, timeout]);
+    } finally {
+        clearTimeout(timer);
+    }
 }
 
 /**
@@ -120,8 +175,38 @@ export function getBackendInfo() {
 // Both files already import from pgClient, so the shared-flag idiom is
 // architecturally clean.
 let _migrationsReady = false;
+// §SERVER-503-MIGRATION-GATE-DEADLOCK (DAILY-USE 2026-05-24) ───────────────────
+// The v1 gate (routes.js) must open once the boot migration has SETTLED — i.e.
+// finished trying — NOT only when it SUCCEEDED. Two distinct facts:
+//   • _migrationsReady   = "schema genuinely applied" (success only; for honest
+//                          health/ready + boot-log parity).
+//   • _migrationsSettled = "the boot migration has finished" (success, no-pool,
+//                          OR terminal failure).
+// The gate keys on SETTLED so that when a configured pool is UNREACHABLE
+// (e.g. a stale/remote DATABASE_URL or SUPABASE_DB_URL in a local .env that
+// can't connect), requests fall THROUGH to the §SERVER-PG-DEGRADE in-memory
+// fallback in projectStore.js instead of being walled off by a permanent 503
+// `migrations_in_progress`. The gate exists ONLY to bridge the brief boot race
+// window (port-open before the ALTER TABLEs commit); it must never permanently
+// block when the DB is down. Before this fix, a failed boot migration left
+// _migrationsReady=false forever and — because the gate runs BEFORE the route
+// handlers — the in-memory degrade path was unreachable (the architect's
+// recurring "can't create/open projects — 503 migrations_in_progress").
+let _migrationsSettled = false;
 export function getMigrationsReady() { return _migrationsReady; }
-export function setMigrationsReady(ready) { _migrationsReady = !!ready; }
+export function setMigrationsReady(ready) {
+    _migrationsReady = !!ready;
+    if (ready) _migrationsSettled = true; // success implies the boot migration is settled
+}
+export function getMigrationsSettled() { return _migrationsSettled; }
+/**
+ * Mark the boot migration as settled WITHOUT claiming the schema is ready —
+ * called on terminal migration failure / no usable pool so the v1 gate opens
+ * and the §SERVER-PG-DEGRADE in-memory degrade path can serve. Intentionally
+ * does NOT flip `_migrationsReady`, so /api/health/ready stays honest (it does
+ * its own live `SELECT 1` anyway).
+ */
+export function markMigrationsSettled() { _migrationsSettled = true; }
 
 /**
  * GAP-01 fix — Run a callback inside a serialised BEGIN/COMMIT transaction
