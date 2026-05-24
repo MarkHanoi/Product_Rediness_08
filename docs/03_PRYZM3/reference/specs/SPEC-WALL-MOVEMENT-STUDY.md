@@ -58,7 +58,7 @@ professional practice.
 
 ## 4. Recommended robust strategy (TO-BE)
 
-**S1 — One interaction model, mutually exclusive.**
+**S1 — One interaction model, mutually exclusive.** *(DONE 2026-05-24 — §WALL-MOVEMENT-STUDY S1.)*
 - Endpoint **grips** (the spheres) = stretch an endpoint.
 - Drag the **wall body** = move the whole wall (keep `TransformControls` for this
   OR replace with a body-drag; either way only ONE is interactive at a time).
@@ -66,6 +66,13 @@ professional practice.
   (`transformControls.enabled = false`) and re-enable on release. Requires wiring
   a `TransformControls` reference (or a shared "wall edit mode" flag) into
   `WallEndpointController`. This kills P1 and removes the gizmo-stranding path of P3(b).
+  **Implemented:** `WallEndpointController` now takes an optional shared
+  `TransformControls` (wired in `initTransformControllers.ts`); `suppressGizmo()` on
+  grip-drag-start sets `enabled=false`, `restoreGizmo()` on mouse-up **and** on
+  `deactivate()` restores it. Self-tracking via `_gizmoDisabled` so it only ever
+  re-enables a gizmo it disabled. **Scope note:** this makes the two systems mutually
+  exclusive *during a grip drag*; both affordances are still shown when idle —
+  full at-rest exclusivity (one interactive affordance) remains Phase 4.
 
 **S2 — Fix the freeze (P3).** Use the `§WALL-DRAG-COMMIT` probe to confirm:
 - If the hang is inside `execute()` → apply the room-redetect pause/`_withPausedObservers` pattern (already used for undo/redo) around the baseline commit, and debounce room redetection.
@@ -84,11 +91,15 @@ hover → lighter, active → amber; consistent across plan and 3D.
 ## 5. Phased plan
 
 1. **Done (2026-05-22)**: halve grip size; add `§WALL-DRAG-COMMIT` freeze probe.
-2. **Next**: disable `TransformControls` during an endpoint grip drag (S1) +
-   confirm freeze cause from the probe and apply S2.
+2. **S1 done (2026-05-24)**: `TransformControls` disabled during an endpoint grip
+   drag (gizmo + grips mutually exclusive while dragging). **S2 still pending** —
+   confirm freeze cause from the `§WALL-DRAG-COMMIT` probe log, then apply the
+   room-redetect pause (if the hang is inside `execute()`) or the gizmo-detach-on-
+   rebuild fix (if it's the stranded TransformControls).
 3. **Then**: snapping + live dimension during endpoint drag (S3).
-4. **Then**: unify so only one affordance is interactive at a time; consider
-   replacing the whole-wall gizmo with a body-drag for a Revit-like feel.
+4. **Then**: unify so only one affordance is interactive at a time (at rest, not
+   just during a drag); consider replacing the whole-wall gizmo with a body-drag
+   for a Revit-like feel.
 
 ## 6. Verification gate
 

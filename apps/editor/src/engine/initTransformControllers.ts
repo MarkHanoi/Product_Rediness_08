@@ -65,6 +65,9 @@ export function createTransformControllers(world: any): TransformControllerSet {
         world.scene.three as THREE.Scene,
         world.camera.three as THREE.Camera,
         world.renderer.three.domElement,
+        // §WALL-MOVEMENT-STUDY S1: share the move gizmo so an endpoint-grip drag
+        // can disable it for the gesture's duration (one move system at a time).
+        transformControls,
     );
 
     return { transformControls, levelPlaneConstraint, hostedDragController, wallTransformController, wallEndpointController };

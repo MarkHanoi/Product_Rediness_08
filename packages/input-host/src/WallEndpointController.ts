@@ -55,10 +55,24 @@
  * Instantiated once in EngineBootstrap after WallTransformController.
  * activateFor(obj) / deactivate() are called from the bim-selection-changed
  * listener in EngineBootstrap, in the same block as WallTransformController.
+ *
+ * §WALL-MOVEMENT-STUDY S1 — ONE INTERACTION AT A TIME (2026-05-24)
+ * ---------------------------------------------------------------
+ * A selected wall shows BOTH the endpoint grips (this controller) AND the
+ * whole-wall move gizmo (WallTransformController's TransformControls). Per
+ * SPEC-WALL-MOVEMENT-STUDY P1 those two move systems fought on the same canvas.
+ * Fix: an optional shared `TransformControls` reference is wired in; while an
+ * endpoint-grip drag is active we set `transformControls.enabled = false` and
+ * restore it on release (or on deactivate, if the drag was interrupted). The
+ * gizmo and the grips are now mutually exclusive — grips stretch an endpoint,
+ * the gizmo moves the whole wall, never both at once. This also removes the
+ * gizmo-stranding freeze path (P3b): with the gizmo inert during the grip drag,
+ * the post-commit wall rebuild cannot drive a stale TransformControls change.
  */
 
 import { UpdateWallBaselineCommand } from '@pryzm/command-registry';
 import * as THREE from '@pryzm/renderer-three/three';
+import type { TransformControls } from '@pryzm/renderer-three';
 
 // §WALL-HANDLE-STUDY (2026-05-22): visual sphere halved (0.26 → 0.13 m) per the
 // architect's request for a smaller, more professional handle. The invisible
@@ -75,6 +89,15 @@ export class WallEndpointController {
     private readonly scene:     THREE.Scene;
     private readonly camera:    THREE.Camera;
     private readonly domEl:     HTMLElement;
+
+    /**
+     * §WALL-MOVEMENT-STUDY S1 — the shared whole-wall move gizmo. Optional so
+     * existing callers / tests that construct without it still work. When present,
+     * it is disabled for the duration of an endpoint-grip drag (see `_gizmoDisabled`).
+     */
+    private readonly transformControls: TransformControls | null;
+    /** True while THIS controller has forced `transformControls.enabled = false`. */
+    private _gizmoDisabled = false;
 
     /** Visible sphere at baseLine[0] */
     private handleStart: THREE.Mesh | null = null;
@@ -110,10 +133,16 @@ export class WallEndpointController {
     private _onMouseUp:   (e: MouseEvent) => void;
     private _onKeyDown:   (e: KeyboardEvent) => void;
 
-    constructor(scene: THREE.Scene, camera: THREE.Camera, domEl: HTMLElement) {
+    constructor(
+        scene: THREE.Scene,
+        camera: THREE.Camera,
+        domEl: HTMLElement,
+        transformControls: TransformControls | null = null,
+    ) {
         this.scene  = scene;
         this.camera = camera;
         this.domEl  = domEl;
+        this.transformControls = transformControls;
 
         this._onMouseDown = this.onMouseDown.bind(this);
         this._onMouseMove = this.onMouseMove.bind(this);
@@ -205,6 +234,10 @@ export class WallEndpointController {
     }
 
     deactivate(): void {
+        // §WALL-MOVEMENT-STUDY S1: if a grip drag was interrupted by a selection
+        // change (deactivate runs before activateFor re-binds), make sure we never
+        // leave the gizmo stuck disabled.
+        this.restoreGizmo();
         if (this.handleStart) { this.scene.remove(this.handleStart); this.handleStart = null; }
         if (this.handleEnd)   { this.scene.remove(this.handleEnd);   this.handleEnd   = null; }
         if (this.hitStart)    { this.scene.remove(this.hitStart);    this.hitStart    = null; }
@@ -326,6 +359,10 @@ export class WallEndpointController {
         const visualHandle = idx === 0 ? this.handleStart : this.handleEnd;
         this.setHandleColor(visualHandle, HANDLE_COLOR_ACTIVE);
 
+        // §WALL-MOVEMENT-STUDY S1: a grip drag has begun — silence the whole-wall
+        // gizmo so the two move systems cannot fight (restored in onMouseUp).
+        this.suppressGizmo();
+
         e.stopPropagation();
     }
 
@@ -446,10 +483,31 @@ export class WallEndpointController {
         this.tabFocusedHandle = null;
         this.setHandleColor(this.handleStart, HANDLE_COLOR_IDLE);
         this.setHandleColor(this.handleEnd,   HANDLE_COLOR_IDLE);
+
+        // §WALL-MOVEMENT-STUDY S1: grip drag is over — hand the gizmo back.
+        this.restoreGizmo();
     }
 
     private setHandleColor(mesh: THREE.Mesh | null, hex: number): void {
         if (!mesh) return;
         (mesh.material as THREE.MeshStandardMaterial).color.setHex(hex);
+    }
+
+    /**
+     * §WALL-MOVEMENT-STUDY S1 — suppress the whole-wall move gizmo for the
+     * duration of an endpoint-grip drag, and restore it afterwards. Idempotent
+     * and self-tracking via `_gizmoDisabled` so we only ever re-enable a gizmo
+     * that WE disabled (never clobber TransformControls state we didn't set).
+     */
+    private suppressGizmo(): void {
+        if (!this.transformControls || this._gizmoDisabled) return;
+        this.transformControls.enabled = false;
+        this._gizmoDisabled = true;
+    }
+
+    private restoreGizmo(): void {
+        if (!this.transformControls || !this._gizmoDisabled) return;
+        this.transformControls.enabled = true;
+        this._gizmoDisabled = false;
     }
 }

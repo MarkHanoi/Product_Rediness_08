@@ -4,6 +4,38 @@ Concrete fixes applied this session in response to `DAILY-USE-AUDIT-2026-05-20.m
 
 ---
 
+## ✅ APPLIED — Round 47 (2026-05-24: WALL-MOVEMENT-STUDY S1 — gizmo/grip mutual exclusion)
+
+### #104-S1 §WALL-MOVEMENT-STUDY — disable the move gizmo during an endpoint-grip drag
+**Trigger (architect, SPEC-WALL-MOVEMENT-STUDY P1):** a selected wall shows BOTH the
+whole-wall move gizmo (`WallTransformController`'s `TransformControls`) AND the two
+endpoint grip spheres (`WallEndpointController`), both bound to pointer events on the
+same canvas — they fight and the user can't tell which affordance does what. Revit never
+shows two move gizmos at once.
+**Fix (S1 of the phased plan):** `WallEndpointController` now accepts an **optional**
+shared `TransformControls` (wired in `apps/editor/src/engine/initTransformControllers.ts`;
+optional so existing 3-arg callers/tests are unaffected). A grip-drag-start calls
+`suppressGizmo()` → `transformControls.enabled = false`; mouse-up calls `restoreGizmo()`
+→ `enabled = true`. `deactivate()` also restores, so a drag interrupted by a selection
+change can never leave the gizmo stuck disabled. A `_gizmoDisabled` flag makes the toggle
+self-tracking — we only ever re-enable a gizmo **we** disabled, never clobbering
+`TransformControls` state we didn't set.
+**Why this also helps the freeze (P3b):** with the gizmo inert during the grip drag, the
+post-commit wall rebuild cannot drive a stale `TransformControls` `change` event against a
+removed `wallGroup` — one of the two candidate freeze paths is removed. (The other
+candidate — a rebuild/room-redetect storm inside `execute()` — is **S2**, still gated on
+the `§WALL-DRAG-COMMIT` probe log.)
+**Scope (honest):** mutual exclusivity holds **during a grip drag**; both affordances are
+still shown when idle. Full at-rest "one interactive affordance" is Phase 4.
+**Verification:** `pnpm --filter @pryzm/input-host typecheck` — the only
+`WallEndpointController` errors are the **pre-existing** two (`hits[0]` possibly-undefined
+under `noUncheckedIndexedAccess`, at the same code, line-shifted by the edit); **zero new**
+errors. `transformControls.enabled` typechecks against the re-exported type. Client-package
+edit — goes live on a hard browser refresh. **Manual gate** (SPEC §6): select a wall, drag
+an endpoint grip → gizmo does not react during the drag; release → gizmo interactive again.
+
+---
+
 ## ✅ APPLIED — Round 46 (2026-05-22 daily-use batch: #93/#94/#98/#100/#102/#103 + plans #96-p1/#101/#104)
 
 A large daily-use batch driven by live architect testing. All fixes typecheck-clean; all are client-package edits that go live on a hard browser refresh (Vite consumes `packages/*` as source — confirmed in `vite.config.ts`).
