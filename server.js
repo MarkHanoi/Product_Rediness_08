@@ -192,9 +192,25 @@ process.on('unhandledRejection', (reason, promise) => {
     }
 });
 process.on('uncaughtException', (err, origin) => {
-    console.error(`[server] uncaughtException (origin=${origin}) — exiting:`, err);
-    // Give logs a tick to flush, then hard-exit so the orchestrator restarts.
-    setTimeout(() => process.exit(1), 100).unref?.();
+    if (isProd) {
+        // Production runs under an orchestrator (PM2 / container restart policy) that
+        // brings the process back cleanly, so a hard exit is the safe response to a
+        // possibly-corrupt state.
+        console.error(`[server] uncaughtException (origin=${origin}) — exiting for orchestrator restart:`, err);
+        setTimeout(() => process.exit(1), 100).unref?.();
+        return;
+    }
+    // §DEV-SERVER-STABILITY (2026-05-24): `npm run dev` is `tsx server.js` with NO
+    // orchestrator — exiting here leaves the dev server permanently dead
+    // (ERR_CONNECTION_REFUSED / "vite server connection lost" until a manual restart),
+    // which was the recurring dev instability. In dev we LOG LOUDLY and KEEP RUNNING
+    // (same posture as unhandledRejection above) so a stray throw never takes the
+    // session down; the stack below is the cause to fix.
+    console.error(
+        `[server] uncaughtException (origin=${origin}) — DEV: keeping process alive. ` +
+        `FIX THE CAUSE BELOW (this used to kill the dev server):`,
+        err,
+    );
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
