@@ -2231,7 +2231,10 @@ export class SelectionManager implements ISelectionManager {
             this._selectableCache = [];
             this.world.scene.three.traverse(obj => {
                 if (obj.userData?.isHelper || obj.userData?.isPreview
-                    || obj.userData?.underlayActive || !obj.visible) return;
+                    // §148 HIDDEN-LEVEL-NOT-SELECTABLE — cumulative ancestor visibility
+                    // (matches the GPU/BVH pick) so an element under a hidden level/group
+                    // is excluded even if its own .visible flag is still true.
+                    || obj.userData?.underlayActive || !isObjectEffectivelyVisible(obj)) return;
                 const type = (obj.userData?.elementType
                            || obj.userData?.type
                            || '').toLowerCase();
@@ -2566,7 +2569,9 @@ export class SelectionManager implements ISelectionManager {
         this._selectableCache = [];
         this.world.scene.three.traverse(obj => {
             // §21-VR-4: Exclude underlay ghost objects (set by UnderlayRenderService).
-            if (obj.userData?.isHelper || obj.userData?.isPreview || obj.userData?.underlayActive || !obj.visible) return;
+            // §148 HIDDEN-LEVEL-NOT-SELECTABLE — use cumulative ancestor visibility (matches
+            // GPU/BVH pick) so elements under a hidden level/group are not selectable.
+            if (obj.userData?.isHelper || obj.userData?.isPreview || obj.userData?.underlayActive || !isObjectEffectivelyVisible(obj)) return;
             const type = (obj.userData?.elementType || obj.userData?.type || '').toLowerCase();
             if (
                 obj.userData?.selectable

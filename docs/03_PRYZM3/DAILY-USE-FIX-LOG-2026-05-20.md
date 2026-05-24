@@ -2038,6 +2038,72 @@ depth/tie-break change is justified.
 **Verification:** typecheck — no new errors at the edit (L275–296); pure string-literal
 array change. Additive, zero behavior regression for existing selectable elements.
 
+### §SERVER-PG-DEGRADE — create/delete 500 recurred (pool exists but query throws)
+**Trigger (architect, recurring):** "server error 500 on project creation AND deletion — again, that was already solved."
+**Root pattern:** the §87 in-memory fallback in `createProject`/`deleteProject`
+(`server/projectStore.js`) only triggers when **no** pool is configured (`!_hasPool()`).
+A pool that **exists but whose `query()` throws** — dropped connection, transient DB
+outage, pending migration, or an FK violation on delete — fell straight through to a
+hard 500. Because `_hasPool()` returns true for a *broken-but-present* pool, the
+fallback never engaged. Both create and delete failing together points at a
+connection/transient fault rather than one bad statement.
+**Fix:** wrapped the PG `INSERT` (createProject) and PG `DELETE` (deleteProject) in
+try/catch that **degrades to the in-memory store** (the §STORE-UNIFY single authority
+the no-pool path already uses) and **logs loudly with the SQL state** (`code=…`). The
+500 is eliminated regardless of the underlying DB fault; the architect keeps working.
+Delete also clears the in-memory shadow so a degraded create can't resurrect a deleted
+project. **Caveat (documented in-code):** a `23503` FK violation on delete leaves the
+PG row (a child table — `project_command_log` / `project_members` /
+`project_visibility_intents` — lacks `ON DELETE CASCADE`); it would reappear on the
+next PG-backed list and needs the targeted CASCADE/child-delete fix — now pinpointed by
+the logged `code`.
+**Verification:** `node --check server/projectStore.js` passes; existing
+`projectStore.test.js` source-string assertions (exported, no manual project_versions
+delete, `DELETE FROM projects` + `owner_id` present) all still hold. **REQUIRES A
+DEV-SERVER RESTART** (tsx has no hot-reload) — the fix is inert until then, which is
+also the likeliest reason the "already solved" 500 reappeared (prior server fixes not
+picked up without a restart).
+**Schema audit (2026-05-23, FK hypothesis RULED OUT):** `server/dbMigrate.js` shows ALL
+six tables referencing `projects(id)` — `project_versions`, `project_members`,
+`project_webhooks`, `visibility_intents`, `project_command_log`, `ifc_uploads` — declare
+`ON DELETE CASCADE`. So a `23503` FK violation is NOT expected against this schema and the
+in-code delete caveat does not apply here. FK is therefore NOT the cause. Both create and
+delete are WRITES, and they fail while reads (list/open) still work — so this is a
+**write-path fault**, not a full outage: most likely connection instability, a
+read-only/replica endpoint, or a write-permission/RLS denial. The exact one is named by
+the `§SERVER-PG-DEGRADE … code=…` line (`ECONNREFUSED`/`connection terminated` →
+connection; `25006`/read-only → replica; `42501`/RLS → permission). #150's graceful
+degradation unblocks the architect for ALL of these (writes fall back to the in-memory
+store), so it is the complete *interim* remedy; the `code=` then tells us whether any
+infra fix (DB endpoint / role / RLS policy) is warranted.
+
+### §148 HIDDEN-LEVEL-NOT-SELECTABLE — hidden-level elements stayed selectable
+**Trigger (architect):** "when a floor level is hidden in the Project Browser, its
+elements must not be selectable."
+**Root cause:** `SelectionManager`'s selectable-cache builders (`_ensureSelectableCache`
+L2569 + `getSelectableCache` L2234) filtered on per-object **`!obj.visible`**, while the
+GPU/BVH pick already filtered on **cumulative ancestor visibility** (`isEffectivelyVisible`).
+An element whose ancestor was hidden but whose own `.visible` was still true stayed in the
+cache → selectable-but-invisible.
+**Fix:** both cache builders now use the existing module helper
+`isObjectEffectivelyVisible(obj)` (walks the parent chain), matching the pick. Enforces
+the invariant "what you can't see, you can't select." Additive, type-clean.
+
+### §149 ISOLATE-LEVEL-HOSTED-MISSING — isolating a floor plan hid its own doors/windows
+**Trigger (architect):** "isolating a floor plan — the doors and windows of that floor
+don't appear."
+**Root cause:** `BrowserDataHelpers.getElementsForLevel` selected elements by
+`String(el.levelId) === levelId`. Doors/windows are **hosted** — their store records
+(`DoorStore`/`WindowStore`) carry only `wallId`/`openingId`, **no `levelId`** — so
+`'undefined' === levelId` was always false and hosted elements matched **no** level. On
+isolate (`obj.visible = id ∈ targetSet`) they were therefore set invisible.
+**Fix:** `getElementsForLevel` now resolves a hosted element's level through its host wall
+(`window.wallStore.getById(el.wallId).levelId`) when the element has no own `levelId`
+(C15 hosted-element semantics). A level's openings now travel with the level. Type-clean;
+behaviour unchanged for non-hosted elements (they still use their own `levelId`).
+**Architecture note:** both fixes + the full visibility/selection orchestration are now
+documented in `reference/ARCHITECTURE-VISIBILITY-AND-SELECTION.md`.
+
 ## Cumulative summary (2026-05-23)
 ~18 fixes + 4 features/refactors (stair sketch-in-3D #101; in-memory store
 unification §STORE-UNIFY; wall single-volume CSG core #96 phase 2 + builder wiring

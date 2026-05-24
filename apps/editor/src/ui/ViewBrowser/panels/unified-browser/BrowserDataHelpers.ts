@@ -193,13 +193,30 @@ export function getElementsForLevel(bag: UBPBag, levelId: string): any[] {
         return getIfcElementsForStorey(levelId.slice('ifc-storey:'.length));
     }
     const result: any[] = [];
+    const target = String(levelId);
+    // §149 ISOLATE-LEVEL-HOSTED-MISSING — doors/windows/openings are HOSTED on a wall
+    // and carry NO `levelId` of their own in their store record (only `wallId`; see
+    // DoorStore/WindowStore). Matching purely on `el.levelId` therefore yielded
+    // 'undefined' === levelId → false for every hosted element, so isolating/hiding a
+    // floor plan wrongly EXCLUDED that level's doors & windows and they vanished. Resolve
+    // a hosted element's level through its host wall (C15 hosted-element semantics) so a
+    // level's openings travel with their host.
+    const ws = window.wallStore; // TODO(E.wall.S): legacy wallStore — replace with runtime.stores.wall
+    const levelOfElement = (el: any): string | undefined => {
+        if (el?.levelId != null) return String(el.levelId);
+        if (el?.wallId != null && typeof ws?.getById === 'function') {
+            const host = ws.getById(String(el.wallId));
+            if (host?.levelId != null) return String(host.levelId);
+        }
+        return undefined;
+    };
     for (const store of getAllStores(bag)) {
         if (!store?.getAll) continue;
         for (const el of store.getAll()) {
-            if (String(el.levelId) === String(levelId)) result.push(el);
+            if (levelOfElement(el) === target) result.push(el);
         }
     }
-    const nativeLevel = getLevels().find(l => String(l.id) === String(levelId));
+    const nativeLevel = getLevels().find(l => String(l.id) === target);
     if (nativeLevel) result.push(...getIfcElementsForStorey(nativeLevel.name));
     return result;
 }

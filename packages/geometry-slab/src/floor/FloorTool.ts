@@ -268,9 +268,16 @@ export class FloorTool {
       // Architect: "after 2 lines, Enter should create the floor in 3D — works
       // in plan, not in 3D."
       if (e.key === 'Enter') {
+        // §FLOOR-3D-ENTER self-diagnosing probe: the single line below now states the
+        // exact decision so one 3D Enter press pinpoints the cause without a back-and-forth.
+        const reason = !this._isActive
+          ? 'IGNORED — tool not active in this view (routing/activation problem)'
+          : this._points.length < 3
+            ? 'IGNORED — fewer than 3 points (clicks not accumulating in 3D — raycast/level?)'
+            : 'COMMITTING — calling _commitPolygon()';
         console.log(
-          `[FloorTool] §FLOOR-3D-ENTER Enter pressed — active=${this._isActive} ` +
-          `points=${this._points.length} (commit requires >=3)`,
+          `[FloorTool] §FLOOR-3D-ENTER Enter — active=${this._isActive} ` +
+          `points=${this._points.length} → ${reason}`,
         );
       }
       if (!this._isActive) return;

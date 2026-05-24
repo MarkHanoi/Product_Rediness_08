@@ -252,13 +252,32 @@ export async function createProject(name, userId) {
         console.log(`[projectStore] §SERVER-V1-INMEMORY-FALLBACK created in-memory project ${id} for user ${userId} (no PG pool configured)`);
         return row;
     }
-    const result = await query(
-        `INSERT INTO projects (id, name, owner_id)
-         VALUES ($1, $2, $3)
-         RETURNING ${PROJECT_COLUMNS}`,
-        [id, name, userId]
-    );
-    return result.rows[0];
+    try {
+        const result = await query(
+            `INSERT INTO projects (id, name, owner_id)
+             VALUES ($1, $2, $3)
+             RETURNING ${PROJECT_COLUMNS}`,
+            [id, name, userId]
+        );
+        return result.rows[0];
+    } catch (err) {
+        // §SERVER-PG-DEGRADE (2026-05-23) — a pool EXISTS but the live INSERT threw
+        // (dropped connection, transient DB outage, pending migration). The §87
+        // in-memory fallback only triggers when NO pool is configured, so a broken-but-
+        // present pool fell through to a hard 500 that blocked ALL project creation
+        // (architect: "server error 500 on create — again"). Degrade to the in-memory
+        // store (the §STORE-UNIFY single authority the no-pool path already uses) so the
+        // architect stays productive; the project is volatile until the DB recovers.
+        // Logged loudly WITH the SQL state so the underlying DB fault is still diagnosable.
+        console.error(
+            `[projectStore] §SERVER-PG-DEGRADE createProject PG error → in-memory fallback. ` +
+            `id=${id} userId=${userId} code=${err?.code ?? 'n/a'}:`,
+            err?.message ?? err,
+        );
+        const row = _inMemoryRowFor(id, name, userId);
+        _inMemoryProjects.set(id, row);
+        return row;
+    }
 }
 
 export async function getProject(projectId, userId) {
@@ -403,11 +422,37 @@ export async function deleteProject(projectId, userId) {
     // Removing the manual DELETE of project_versions makes the operation atomic —
     // a single DELETE FROM projects cascades to versions in the same transaction,
     // preventing orphaned version rows if the server crashes between two statements.
-    const result = await query(
-        `DELETE FROM projects WHERE id = $1 AND owner_id = $2 RETURNING id`,
-        [projectId, userId]
-    );
-    return result.rows.length > 0;
+    try {
+        const result = await query(
+            `DELETE FROM projects WHERE id = $1 AND owner_id = $2 RETURNING id`,
+            [projectId, userId]
+        );
+        // Mirror cleanup: drop any in-memory shadow so a previously degraded create
+        // can't resurrect a project the user just deleted.
+        _inMemoryProjects.delete(projectId);
+        return result.rows.length > 0;
+    } catch (err) {
+        // §SERVER-PG-DEGRADE (2026-05-23) — a pool EXISTS but the live DELETE threw, which
+        // previously surfaced as a hard 500 ("server error 500 on delete — again"). For a
+        // connection/transient fault, degrade to removing the in-memory shadow so the
+        // architect's delete still takes effect this session. Logged WITH the SQL state.
+        // CAVEAT: if code === '23503' the failure is a FOREIGN-KEY violation (a child table
+        // — project_command_log / project_members / project_visibility_intents — lacks
+        // ON DELETE CASCADE); the PG row then survives and reappears on the next PG-backed
+        // list. That case needs the targeted CASCADE / child-delete fix — the logged code
+        // pinpoints it so we stop guessing.
+        console.error(
+            `[projectStore] §SERVER-PG-DEGRADE deleteProject PG error → in-memory fallback. ` +
+            `id=${projectId} userId=${userId} code=${err?.code ?? 'n/a'}:`,
+            err?.message ?? err,
+        );
+        const row = _inMemoryProjects.get(projectId);
+        if (row && row.owner_id === userId) {
+            _inMemoryProjects.delete(projectId);
+            return true;
+        }
+        return false;
+    }
 }
 
 /**

@@ -256,9 +256,16 @@ export class CeilingTool {
       // handler there (ToolManager routed to the plan handler); a log with
       // points<3 ⇒ vertices weren't captured in 3D.
       if (e.key === 'Enter') {
+        // §FLOOR-3D-ENTER self-diagnosing probe (mirrors FloorTool): one 3D Enter press
+        // now states the exact decision/cause.
+        const reason = !this._isActive
+          ? 'IGNORED — tool not active in this view (routing/activation problem)'
+          : this._points.length < 3
+            ? 'IGNORED — fewer than 3 points (clicks not accumulating in 3D — raycast/level?)'
+            : 'COMMITTING — calling _commitPolygon()';
         console.log(
-          `[CeilingTool] §FLOOR-3D-ENTER Enter pressed — active=${this._isActive} ` +
-          `points=${this._points.length} (commit requires >=3)`,
+          `[CeilingTool] §FLOOR-3D-ENTER Enter — active=${this._isActive} ` +
+          `points=${this._points.length} → ${reason}`,
         );
       }
       if (!this._isActive) return;
