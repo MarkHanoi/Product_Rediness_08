@@ -135,7 +135,13 @@ export function buildProjectCard(bag: UBPBag): HTMLElement {
         // TODO(E.5.x): metadata { source: 'HUMAN_DIRECT' } not forwarded here (command bus
         //              does not accept metadata in the current API shape; wire when E.5.x lands).
         const bimManager = window.bimManager; // TODO(D.4): legacy bimManager — replace with runtime.tools
-        if (!bag.runtime?.bus || !bimManager) {
+        // §ADD-LEVEL-RUNTIME-FIX (C02/P1): bag.runtime is captured at panel construction
+        // and is null when the browser panel is built before composeRuntime() publishes
+        // the runtime — so "Add level" silently no-opped (same root cause as the
+        // view-create no-op, fix §VIEW-CREATE-RUNTIME-FIX). Prefer the composed handle,
+        // fall back to the live global runtime so the button never silently drops.
+        const bus = bag.runtime?.bus ?? window.runtime?.bus;
+        if (!bus || !bimManager) {
             console.warn('[UBP] runtime.bus not available — cannot add level; TODO(E.5.x)');
             return;
         }
@@ -150,7 +156,7 @@ export function buildProjectCard(bag: UBPBag): HTMLElement {
         const newId   = `L${Date.now()}`;
         const newName = `Level ${currentLevels.length}`;
         const cmd = new AddLevelCommand({ levelId: newId, name: newName, elevation: newElev, height: floorH });
-        bag.runtime.bus.executeCommand(cmd.type, cmd);
+        bus.executeCommand(cmd.type, cmd);
     });
     tree.appendChild(addRow);
 
