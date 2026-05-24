@@ -31,7 +31,8 @@ export interface WallTypeApplyPayload {
  */
 export function buildWallTypeSelectorWidget(
     elementData: Record<string, any>,
-    onApply: (payload: WallTypeApplyPayload) => void
+    onApply: (payload: WallTypeApplyPayload) => void,
+    opts?: { applyOnChange?: boolean }
 ): HTMLElement | null {
 
     const elType = (elementData.elementType ?? elementData.type ?? '').toLowerCase();
@@ -126,6 +127,20 @@ export function buildWallTypeSelectorWidget(
     applyBtn.textContent = 'Apply';
     applyBtn.className = 'wts-apply-btn';
 
+    // Build the apply payload for a concrete selected type id ('' = plain wall).
+    function buildPayload(selectedId: string): WallTypeApplyPayload {
+        const newType = selectedId ? typeStore?.getById?.(selectedId) : null;
+        return {
+            systemTypeId: selectedId || null,
+            layers: newType
+                ? (structuredClone(newType.layers) as any[]).map((l: any) => ({ ...l }))
+                : null,
+            thickness: newType
+                ? parseFloat(newType.totalThickness.toFixed(6))
+                : null,
+        };
+    }
+
     // ── Event handlers ────────────────────────────────────────────────────────
     sel.addEventListener('change', () => {
         const v = sel.value;
@@ -142,6 +157,16 @@ export function buildWallTypeSelectorWidget(
         }
 
         refreshStrip();
+
+        // §WALL-TYPE-PLAN-FIX: in the new-wall pre-draw context (applyOnChange),
+        // selecting a type from the dropdown applies it immediately — the user no
+        // longer has to ALSO click "Apply" (which is the trap that left plan-drawn
+        // walls stuck on the default). The existing-wall properties panel leaves
+        // applyOnChange off, so browsing its dropdown still does NOT mutate the wall
+        // until Apply is pressed.
+        if (opts?.applyOnChange && !v.startsWith('__')) {
+            onApply(buildPayload(v));
+        }
     });
 
     applyBtn.addEventListener('click', () => {
@@ -149,19 +174,7 @@ export function buildWallTypeSelectorWidget(
 
         if (selectedId.startsWith('__')) return;
 
-        const newType = selectedId ? typeStore?.getById?.(selectedId) : null;
-
-        const payload: WallTypeApplyPayload = {
-            systemTypeId: selectedId || null,
-            layers: newType
-                ? (structuredClone(newType.layers) as any[]).map((l: any) => ({ ...l }))
-                : null,
-            thickness: newType
-                ? parseFloat(newType.totalThickness.toFixed(6))
-                : null,
-        };
-
-        onApply(payload);
+        onApply(buildPayload(selectedId));
 
         // Visual feedback
         applyBtn.textContent = '✓ Applied';

@@ -117,16 +117,21 @@ export function showWallPreDraw(host: PreDrawPanelHost, wallTool: any): void {
     hint.textContent = 'Choose a type, then click on the canvas to draw.';
     header.appendChild(hint);
 
-    const currentTypeId: string = wallTool?.getSystemTypeId?.() ?? '';
+    // §WALL-TYPE-PLAN-FIX: resolve the canonical wall tool — the instance the plan
+    // WallPlanToolHandler reads at commit (window.wallTool.getSystemTypeId()). The
+    // passed `wallTool` arg can be a null/stale reference in some layout paths, so a
+    // setSystemTypeId() on it silently no-ops and plan-drawn walls stay on the default.
+    const canonicalWallTool = (window as { wallTool?: any }).wallTool ?? wallTool;
+    const currentTypeId: string = canonicalWallTool?.getSystemTypeId?.() ?? '';
     const pseudoData = { elementType: 'wall', systemTypeId: currentTypeId };
 
     const typeWidget = buildWallTypeSelectorWidget(pseudoData, (payload) => {
-        wallTool?.setSystemTypeId?.(payload.systemTypeId ?? undefined);
+        canonicalWallTool?.setSystemTypeId?.(payload.systemTypeId ?? undefined);
         hint.textContent = payload.systemTypeId
             ? `✓ Type set — click on canvas to draw`
             : `✓ Plain Wall — click on canvas to draw`;
         hint.style.color = 'rgba(255,255,255,0.85)';
-    });
+    }, { applyOnChange: true });
 
     if (typeWidget) header.appendChild(typeWidget);
 
