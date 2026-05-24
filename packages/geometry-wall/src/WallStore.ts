@@ -857,13 +857,17 @@ export class WallStore implements ILevelProvider {
         const wall = this.walls.get(wallId);
         if (!wall) return undefined;
 
-        const openings = (wall.openings ?? []).map(o => 
+        const openings = (wall.openings ?? []).map(o =>
             o.id === opening.id ? cloneOpening(opening) : cloneOpening(o)
         );
 
         const updatedWall = cloneWallData({
             ...wall,
-            openings
+            openings,
+            // §VIEW-DIRTY-CHECK §2.2: bump so a non-hosted opening edit invalidates the
+            // builder cache. (Hosted openings delegate to updateWindow/updateDoor below,
+            // which bump again — harmless; the goal is simply a version change.)
+            _renderVersion: (wall._renderVersion ?? 0) + 1,
         });
 
         this.walls.set(wallId, updatedWall);
@@ -916,7 +920,12 @@ export class WallStore implements ILevelProvider {
         const updatedWall = cloneWallData({
             ...wall,
             openings,
-            childrenIds
+            childrenIds,
+            // §VIEW-DIRTY-CHECK §2.2: bump the render version so the builder rebuilds the
+            // wall WITHOUT the removed opening. Without this the deleted door/window's
+            // hole lingers in the mesh (the version guard skips the rebuild) — the same
+            // root cause as the move-stale bug fixed in updateWindow/updateDoor.
+            _renderVersion: (wall._renderVersion ?? 0) + 1,
         });
 
         this.walls.set(wallId, updatedWall);
@@ -945,7 +954,10 @@ export class WallStore implements ILevelProvider {
         const updatedWall = cloneWallData({
             ...wall,
             openings,
-            childrenIds
+            childrenIds,
+            // §VIEW-DIRTY-CHECK §2.2: bump so the restored opening (undo of a delete)
+            // re-cuts its hole in the rebuilt wall mesh instead of being skipped.
+            _renderVersion: (wall._renderVersion ?? 0) + 1,
         });
 
         this.walls.set(wallId, updatedWall);
