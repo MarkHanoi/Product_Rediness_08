@@ -64,6 +64,21 @@ import { annotationStore } from '@pryzm/plugin-annotations';
 const DEFAULT_NEAR_OFFSET = 1.2;
 
 /**
+ * §EPS-VERBOSE (OI-054 (a) perf, 2026-05-24) — master gate for the per-mesh /
+ * per-element projection diagnostics (§DIAG-EPS-01..04, §PERF-CACHE-HIT/MISS).
+ *
+ * These were temporarily wired to fire for EVERY edge mesh whenever ANY curtain
+ * wall is present (`_hasCWElements`). With N curtain walls × ~25 parts × M views
+ * that is THOUSANDS of `console.log` calls inside the hot projection loop — a real
+ * perf hit (console I/O + DevTools rendering) and the log "storm" the architect saw.
+ * Default OFF. Genuine slow-op alerts (>2 ms edge alloc, >5 ms toDrawingSpace) and
+ * the once-per-projection summaries (§PERF-CACHE-STATS, §PERF-EDGEPROJECTOR-CHUNK)
+ * are KEPT regardless so real regressions still surface. Flip to `true` (or wire to
+ * a debug query param) when profiling edge projection.
+ */
+const EPS_VERBOSE = false;
+
+/**
  * DOC-1.13 — Projection layer names per ISO 13567.
  *
  * Maps each native-element userData.elementType to the DXF layer name used
@@ -1648,7 +1663,7 @@ export class EdgeProjectorService {
                             }
                             drawing.addProjectionLines(hitLines, sublayerName);
                         }
-                        console.log(
+                        if (EPS_VERBOSE) console.log(
                             `[EdgeProjectorService] §PERF-CACHE-HIT ` +
                             `elementId=${elementUUID} version=${currentVer} ` +
                             `layers=${cachedLayers.size} viewId=${viewId}`,
@@ -1750,7 +1765,7 @@ export class EdgeProjectorService {
                             const edgesGeo = new THREE.EdgesGeometry(mesh.geometry, angleDeg);
                             const __edge_ms = performance.now() - __t_edge;
                             const __edge_verts = edgesGeo.getAttribute('position')?.count ?? 0;
-                            if (__edge_ms > 2 || _hasCWElements) {
+                            if (EPS_VERBOSE || __edge_ms > 2) {
                                 console.log(
                                     `[EdgeProjectorService] §DIAG-EPS-01 edgesGeo ` +
                                     `group=${__diag_group_idx} mesh#${__diag_mesh_count} ` +
@@ -1779,7 +1794,7 @@ export class EdgeProjectorService {
 
                 // §DIAG-EPS-02: per-group traverse summary — total proxies processed and edge vertices.
                 const __t_traverse_done = performance.now();
-                console.log(
+                if (EPS_VERBOSE) console.log(
                     `[EdgeProjectorService] §DIAG-EPS-02 group#${__diag_group_idx} ` +
                     `elemId=${elementUUID ?? 'n/a'} elemType=${group.userData?.elementType ?? '?'} ` +
                     `meshesProcessed=${__diag_mesh_count} totalEdgeVerts=${__diag_edge_count} ` +
@@ -1834,7 +1849,7 @@ export class EdgeProjectorService {
                     }
                     const __t_merge_done = performance.now();
                     const __merged_verts = mergedGeo?.getAttribute('position')?.count ?? 0;
-                    if (_hasCWElements || geos.length > 1) {
+                    if (EPS_VERBOSE) {
                         console.log(
                             `[EdgeProjectorService] §DIAG-EPS-03 mergeGeometries ` +
                             `layer=${layerName} geoCount=${geos.length} ` +
@@ -1861,7 +1876,7 @@ export class EdgeProjectorService {
                         const __t_tds_start = performance.now();
                         const projected = OBC.TechnicalDrawing.toDrawingSpace(lines, drawing);
                         const __tds_ms = performance.now() - __t_tds_start;
-                        if (__tds_ms > 5 || _hasCWElements) {
+                        if (EPS_VERBOSE || __tds_ms > 5) {
                             const __tds_verts = (projected.geometry as THREE.BufferGeometry | undefined)
                                 ?.getAttribute?.('position')?.count ?? '?';
                             console.log(
@@ -2032,7 +2047,7 @@ export class EdgeProjectorService {
                     && elementUUID !== undefined && currentVer !== undefined) {
                     this._putCwCache(elementUUID, viewId, currentVer, freshLayersCollector);
                     cacheMisses++;
-                    console.log(
+                    if (EPS_VERBOSE) console.log(
                         `[EdgeProjectorService] §PERF-CACHE-MISS ` +
                         `elementId=${elementUUID} version=${currentVer} ` +
                         `layers=${freshLayersCollector.size} viewId=${viewId}`,

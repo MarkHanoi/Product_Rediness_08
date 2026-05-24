@@ -2714,3 +2714,29 @@ cache is the place to look.)
 **Gates:** editor typecheck 0 errors; `ViewDependencyTracker.ts` clean (core-app-model errors are
 pre-existing ai-host debt); 14/14 undo tests still green. **Live-verify pending:** draw curtain wall →
 the `[VDT] §G3-STALE-EVENT … curtain-panel` storm is gone (targeted re-projection instead).
+
+## Round 60 — EdgeProjector/NME diagnostic-log storm gated (perf) (2026-05-24)
+
+Architect's CW-heavy console showed a SECOND storm: thousands of EdgeProjectorService per-mesh/per-element
+diagnostics — `§DIAG-EPS-01 edgesGeo …` (one PER edge mesh: N curtain walls × ~25 parts × ~10 views),
+plus `§DIAG-EPS-02/03/04` and `§PERF-CACHE-HIT/MISS` per element, and `§DIAG-NME-01` per CW element.
+Root cause: these were wired to fire whenever ANY curtain wall is present (`_hasCWElements`), i.e. always
+in a CW project. `console.log` inside the hot projection loop is a real perf hit (sync I/O + DevTools
+render) and buries real signal — it contributes to the 75 ms LONGTASKs seen.
+
+**Fix:** gated all per-mesh/per-element projection diagnostics behind a default-OFF debug flag —
+`EPS_VERBOSE` (`EdgeProjectorService.ts`) for §DIAG-EPS-01..04 + §PERF-CACHE-HIT/MISS, and `NME_VERBOSE`
+(`NativeElementMeshExporter.ts`) for §DIAG-NME-01. Genuine slow-op alerts are KEPT (>2 ms edge alloc,
+>5 ms toDrawingSpace) and so are the once-per-projection summaries (§PERF-CACHE-STATS,
+§PERF-EDGEPROJECTOR-CHUNK). `_hasCWElements` is unchanged for its real use (adaptive chunk size). Flip
+either flag to `true` to profile.
+
+**Not a leak (assessed):** the per-projection EdgesGeometry allocations ARE disposed in the §G1-T6
+`finally` (`tempGeosToDispose` Set). The `version=1` / 0 % cache-hit across L-01…L-10 is FIRST-LOAD bulk
+projection (10 views each projecting their own level's CWs); subsequent projections cache-hit. If that
+bulk projection is ever observed to recur per-edit, that's a separate cache-invalidation investigation
+(not addressed here).
+
+**Gates:** editor typecheck 0 errors; `NativeElementMeshExporter.ts` clean; logging-only change (no
+behaviour). **Live-verify:** CW project console is quiet during projection (only summaries + genuine
+slow-op lines).

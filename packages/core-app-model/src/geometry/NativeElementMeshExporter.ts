@@ -11,6 +11,12 @@ import {
 const _scratchBox = new THREE.Box3();
 const _scratchVec = new THREE.Vector3();
 
+/** §NME-VERBOSE (OI-054 (a) perf, 2026-05-24) — gate for the per-element
+ *  §DIAG-NME-01 InstancedMesh→proxy-expansion log. Fires once per curtain-wall
+ *  element per export; off by default to keep the console clean during bulk
+ *  projection. Flip to `true` when profiling proxy-expansion cost. */
+const NME_VERBOSE = false;
+
 /**
  * DOC-4.4 — Tests whether a Three.js Group's world-space AABB intersects a
  * 2D XZ crop region.  Used to pre-filter elements before the expensive
@@ -410,7 +416,7 @@ export class NativeElementMeshExporter {
             // CW InstancedMesh nodes (mullion-v-instanced, mullion-h-instanced, panel IM)
             // each expand to N plain Mesh proxy objects — this is the hidden per-element
             // allocation cost before EdgeProjectorService sees the group.
-            if (__instanced_nodes > 0) {
+            if (NME_VERBOSE && __instanced_nodes > 0) {
                 console.log(
                     `[NativeElementMeshExporter] §DIAG-NME-01 elementId=${elementId} ` +
                     `elementType=${root.userData?.elementType ?? 'unknown'} ` +
