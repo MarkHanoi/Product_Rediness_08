@@ -862,6 +862,21 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             // (the WallTool's E.5.x P2b dual-dispatch shape) now ALSO get VDT
             // registered. Matches the principle in C11 §6.2 — every element
             // that lands in a store MUST also be in VDT + level.childrenIds.
+            // §G3-STALE-FIX (DAILY-USE 2026-05-24) — register the wall in VDT + bimManager
+            // BEFORE the add() mirror below. WallStore.add() SYNCHRONOUSLY fires
+            // StoreEventBus → VDT._onStoreChange; if the wallId is not yet in
+            // VDT._elementLevelMap it falls into the §G3-STALE-EVENT fallback (mark ALL
+            // non-3D views dirty — slower + a console warn) on EVERY plan-view wall create.
+            // Registering first → _onStoreChange takes the targeted per-level path, no stale
+            // event. Unconditional (outside the dedup guard) so legacy-first dual-dispatch
+            // paths register too (§FIX-VDT-DUAL-PATH). registerElement only does
+            // _elementLevelMap.set / level.childrenIds.push — neither reads the store, so
+            // running before add() is safe.
+            try { viewDependencyTracker.registerElement(ev.wallId, ev.levelId ?? 'L0'); }
+            catch (err) { console.warn('[initTools] §P2.1 VDT.registerElement failed (non-fatal):', err); }
+            try { bimManager.registerElement(ev.wallId, ev.levelId ?? 'L0'); }
+            catch { /* non-fatal — bimManager may already have it from legacy CreateWallCommand */ }
+
             const alreadyMirrored = !!_legacyWallStoreForBridge.getById(ev.wallId);
             if (!alreadyMirrored) {
                 try {
@@ -900,12 +915,10 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             //       means exportForView() returns 0 elements → plan view renders
             //       blank even after the VDT flush fires.
             //
-            // §FIX-VDT-DUAL-PATH (task #54) — run UNCONDITIONALLY, outside the
-            // dedup guard above, so legacy-first dual-dispatch paths also register.
-            try { viewDependencyTracker.registerElement(ev.wallId, ev.levelId ?? 'L0'); }
-            catch (err) { console.warn('[initTools] §P2.1 VDT.registerElement failed (non-fatal):', err); }
-            try { bimManager.registerElement(ev.wallId, ev.levelId ?? 'L0'); }
-            catch { /* non-fatal — bimManager may already have it from legacy CreateWallCommand */ }
+            // §G3-STALE-FIX (2026-05-24): VDT + bimManager registration MOVED ABOVE the
+            // add() mirror (see the comment there) so WallStore.add()'s synchronous
+            // StoreEventBus emission finds the wall already registered → no §G3-STALE-EVENT
+            // and no all-views-dirty fallback on every plan-view wall create.
         });
         console.log('[initTools] §P2.1: wall.created bus→legacy-store bridge registered.');
     }

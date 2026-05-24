@@ -4,6 +4,25 @@ Concrete fixes applied this session in response to `DAILY-USE-AUDIT-2026-05-20.m
 
 ---
 
+## ✅ APPLIED — Round 54 (2026-05-24: §G3-STALE-FIX — VDT register-before-add on plan-view wall create)
+
+### Trigger (architect log, every plan-view wall create)
+```
+[VDT] §G3-STALE-EVENT for unregistered element wall_… type= wall — fallback to store-type view only
+```
+…fires once per wall created in plan view (the OI-054 secondary #1 / `§FIX-VDT-DUAL-PATH` regression).
+
+### Root cause (ordering)
+The `§P2.1` bus→legacy-store bridge ([`apps/editor/src/engine/initTools.ts`](../../apps/editor/src/engine/initTools.ts)) called `_legacyWallStoreForBridge.add(...)` **before** `viewDependencyTracker.registerElement(...)`. `WallStore.add()` **synchronously** fires `StoreEventBus` → `ViewDependencyTracker._onStoreChange`, which looks the element up in `_elementLevelMap` ([`ViewDependencyTracker.ts:314`](../../packages/core-app-model/src/views/ViewDependencyTracker.ts#L314)). Because `registerElement` ran *after* the add, the map had no entry → the §G3-STALE-EVENT fallback (mark ALL non-3D views dirty + a console warn) on every create — slower than the targeted per-level dirty path, and noisy.
+
+### Fix
+Moved the VDT + `bimManager` `registerElement` calls to **before** the `add()` mirror. `registerElement` only does `_elementLevelMap.set` / `level.childrenIds.push` (verified — neither reads the store), so running before `add()` is safe; `_onStoreChange` now finds the wall registered and takes the targeted path — no stale event, no all-views fallback. Still unconditional (outside the dedup guard) so legacy-first dual-dispatch paths register too (preserves `§FIX-VDT-DUAL-PATH`).
+
+### Verification
+`editor` typecheck clean for `initTools.ts`. Behaviour-preserving reorder (same calls, earlier). **Live check:** drawing a wall in plan no longer logs `§G3-STALE-EVENT`; plan view still updates. Resolves OI-054 secondary #1. Client edit → browser refresh.
+
+---
+
 ## ✅ APPLIED — Round 53 (2026-05-24: §EVENTBUS-CALLABLE-DISPOSABLE — systemic `events.on()` "is not a function" fix)
 
 ### Trigger (architect boot log, every project load)
