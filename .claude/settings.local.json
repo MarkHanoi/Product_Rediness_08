@@ -97,7 +97,20 @@
       "Bash(Get-ChildItem -Directory)",
       "PowerShell(cd \"C:\\\\Users\\\\LENOVO\\\\OneDrive\\\\Desktop\\\\PRYZM\\\\Product_Rediness_08\" && \\(Get-ChildItem packages\\).Name)",
       "Bash(xargs grep -l \"\\\\.visible.*=\\\\|applyVisibility\\\\|LevelGroup\")",
-      "Bash(xargs grep -l \"level.*visible\\\\|visible.*level\\\\|LevelRoot\\\\|level.*group\")"
+      "Bash(xargs grep -l \"level.*visible\\\\|visible.*level\\\\|LevelRoot\\\\|level.*group\")",
+      "Bash(awk '/private _raycastGroundPlane/,/^  }/' packages/geometry-slab/src/floor/FloorTool.ts)",
+      "Bash(pnpm --filter @pryzm/picking typecheck)",
+      "Bash(pnpm --filter @pryzm/geometry-kernel test)",
+      "Bash(pnpm --filter @pryzm/geometry-wall typecheck)",
+      "Bash(mkdir -p .tmp-typecheck)",
+      "Bash(pnpm -r --no-bail run typecheck)",
+      "Bash(echo \"DONE exit=$? lines=$\\(wc -l < .tmp-typecheck/all.txt\\)\")",
+      "Bash(pnpm --filter @pryzm/renderer-three typecheck)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\LENOVO\\\\OneDrive\\\\Desktop\\\\PRYZM\\\\Product_Rediness_08\" -Directory)",
+      "Bash(cd \"c:/Users/LENOVO/.claude/projects/c--Users-LENOVO-OneDrive-Desktop-PRYZM-Product-Rediness-08/memory\" && rm -f wall-opening-renderversion-and-manifold-wasm.md && echo \"deleted memory file\")"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\LENOVO\\.claude\\projects\\c--Users-LENOVO-OneDrive-Desktop-PRYZM-Product-Rediness-08\\memory"
     ]
   }
 }
