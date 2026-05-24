@@ -74,7 +74,7 @@ panels are **tab singletons** (`main.ts`): `engineLauncher` bootstrap runs **onc
 | O10 | Hydrate snapshot | `ProjectLoader.load` | Replays the project snapshot through `Create*Command`s per element type (walls, slabs, curtain walls, …), then triggers plan/3D re-projection (`EdgeProjectorService`). | Batch + incremental projection. |
 
 **OPEN invariants (binding):**
-- **O-INV-1 (singleton)** `engineLauncher` bootstrap (O2/O4–O9) MUST run **once per tab**, not once per open. Subsequent opens in a session run ONLY teardown (C13) + O10 hydrate. *(AS-IS gap: verify no full re-bootstrap on second open.)*
+- **O-INV-1 (singleton)** `engineLauncher` bootstrap (O2/O4–O9) MUST run **once per tab**, not once per open. Subsequent opens in a session run ONLY teardown (C13) + O10 hydrate. **✅ Satisfied (verified 2026-05-24):** `startEngine()` is guarded by the module-level `_bootstrapped` flag ([`src/main.ts`](../../../../src/main.ts) §170–191) — set true only after `bootstrap()` resolves (so a failed boot stays retryable). A second open returns early; only `workspaceMount.show()` → `setProjectContext()` + `ProjectLoader` run. **Consequence:** the heavy O4–O8 LONGTASKs are a **one-time cold-boot cost per tab**, not a per-open cost.
 - **O-INV-2 (single registrar; idempotent interim)** The **canonical** rule (C02 §1) is that plugin handlers are registered **once**, via `composeRuntime()`'s `registries` input. The O9 re-registration (`engineLauncher` F-1.3/§P3.x + `initBusHandlers`) is a **migration-phase bridge** (C02 §3 family) whose **exit** is its own deletion once every type is proven covered by `composeRuntime`. **Until that exit**, registration MUST be idempotent — registering an already-present type MUST be a silent no-op, never a thrown+caught error ("first registration wins" = composeRuntime's). **(OI-053a — idempotent guard implemented 2026-05-24; see §4. The retirement is the follow-up.)**
 - **O-INV-3 (P6)** Hydration MUST flow through commands (`ProjectLoader` → `Create*Command`), never direct store writes (C03/C11).
 - **O-INV-4 (isolation)** All per-project mutable state MUST be torn down on `pryzm-project-switch` before the next project loads (C13 §3).
@@ -118,7 +118,7 @@ LONGTASKs of **844 ms** + **1008 ms** (plus 6× 130–280 ms) during O4–O8; FP
 |-----|------|--------|
 | **a** | Idempotent handler registration (§4) — kill the ~25–50 duplicate-register throws/logs. | ✅ **Done 2026-05-24** |
 | **b** | rAF-slice / defer the O5 (`initBuilders`) + O7 (`initDataPlatform`) LONGTASKs. | 🔍 Open (needs profiler) |
-| **c** | **Biggest lever:** guarantee O-INV-1 — no full re-bootstrap on second+ open; defer non-critical subsystems (DataWorkbench, Portfolio, AI panels) off the open critical path. | 🔍 Open |
+| **c** | O-INV-1 (no re-bootstrap per open) is **already satisfied** (engine is a `_bootstrapped`-guarded tab singleton — verified 2026-05-24). Remaining lever: defer non-critical subsystems (DataWorkbench, Portfolio, AI panels) off the **cold-boot** critical path so the one-time boot is lighter. | 🔍 Open (cold-boot deferral only) |
 | **d** | `RenderPipelineManager` phase-ramp churn (`§I2 pipeline.usedTimes` dispose/recreate during SSGI/outline activation). | 🔍 Open |
 | **e** | O10 hydrate: batch commands + incremental projection (`EdgeProjector` 0% cache hit on rapid create — see OI-054). | 🔍 Open |
 
