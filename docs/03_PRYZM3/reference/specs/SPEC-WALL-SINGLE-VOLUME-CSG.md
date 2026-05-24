@@ -90,6 +90,26 @@ subtracted via `IfcRelVoidsElement`, with the door/window filling it via
    Enable with `window.__wallSingleVolume = true` then create/edit a wall with an
    opening. Layered/curved walls + IFC voids (phase 4) remain follow-ups.
 
+   **✅ DEFAULT-ON 2026-05-24 (§96-DEFAULT-ON)** — the architect re-reported the
+   seamed multi-box wall ("I thought this was solved"); root cause was that the
+   gate `window.__wallSingleVolume === true` was **never set anywhere**, so the
+   built+tested feature shipped **inert**. Fixed two things in `WallFragmentBuilder`:
+   - **Flipped to opt-OUT:** the condition is now
+     `__wallSingleVolume !== false` (single-volume is the DEFAULT for plain straight
+     walls with openings; set `window.__wallSingleVolume = false` to revert to the
+     segmented path). Producer is injected unconditionally in `initTools`.
+   - **§96-STALE-GUARD (real bug fixed):** the async swap's only staleness check
+     was `wallGroup.parent === null`, but the wallGroup is **reused across rebuilds**
+     (`wallRoots.get`), so a stale boolean result from build N could clobber build
+     N+1. Now the call site captures `this._geometrySeq` and the swap aborts unless
+     `wallGroup.userData.version` still equals it; it also defensively removes any
+     prior `singleVolume` mesh before adding the new one.
+   Verification: all 600 `@pryzm/geometry-kernel` tests green (incl.
+   `produceWallWithVoids` ×6, `produceWall.openings` ×7); `geometry-wall` typecheck
+   shows no new errors in the edited regions. Client-package edit → live on a hard
+   browser refresh. **Still pending:** §5 visual confirmation on the architect's
+   model, layered/curved walls (segmented fallback by design), and IFC voids (phase 4).
+
    **Validated implementation plan (2026-05-23 analysis — as built):**
    - **Dependency seam (do NOT add `@pryzm/geometry-kernel` to `geometry-wall`).**
      `geometry-wall` depends only on `@pryzm/renderer-three` (THREE), and

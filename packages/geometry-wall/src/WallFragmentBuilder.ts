@@ -1717,15 +1717,20 @@ export class WallFragmentBuilder {
             this._syncMutableWallUserData(wallGroup, wall);
         }
 
-        // §WALL-SINGLE-VOLUME-CSG (#96 ph3) — opt-in async upgrade. The segmented
-        // wall above is the immediate render + the fallback; when the flag is on
-        // and a producer is injected, swap a plain straight wall's body segments
-        // for one boolean-void solid (no division-line seams). Fire-and-forget;
-        // the swap self-guards against a stale/disposed group. Plain straight
-        // walls only — layered/curved keep the segmented path (SPEC §3).
+        // §WALL-SINGLE-VOLUME-CSG (#96 ph3) — async upgrade to ONE boolean-void
+        // solid (no division-line seams). The segmented wall built above is the
+        // immediate render + the fallback; when a producer is injected, swap a
+        // plain straight wall's body segments for the single solid. Fire-and-forget;
+        // the swap self-guards against a stale/disposed/rebuilt group (version token).
+        // Plain straight walls only — layered/curved keep the segmented path (SPEC §3).
+        //
+        // §96-DEFAULT-ON (2026-05-24): now ENABLED BY DEFAULT (opt-OUT). The prior
+        // `=== true` flag was never set anywhere, so the feature shipped inert and
+        // the architect kept seeing the seamed multi-box wall. Set
+        // `window.__wallSingleVolume = false` to fall back to the segmented path.
         if (
-            typeof window !== 'undefined' &&
-            (window as { __wallSingleVolume?: boolean }).__wallSingleVolume === true &&
+            (typeof window === 'undefined' ||
+                (window as { __wallSingleVolume?: boolean }).__wallSingleVolume !== false) &&
             this._singleVolumeProducer !== null &&
             wall.openings && wall.openings.length > 0 &&
             !wall.curve && !(wall.layers && wall.layers.length > 0)
@@ -1736,6 +1741,11 @@ export class WallFragmentBuilder {
                 height: wallHeight,
                 baseOffset: wallBaseOffset,
                 angle: Math.atan2(direction.z, direction.x),
+                // §96-STALE-GUARD: capture this build's generation token; the async
+                // swap aborts if a newer buildWall() restamps userData.version while
+                // we await the (lazy-WASM) boolean — the wallGroup is REUSED across
+                // rebuilds (wallRoots.get), so parent!==null alone is insufficient.
+                version: this._geometrySeq,
             });
         }
 
@@ -1752,7 +1762,7 @@ export class WallFragmentBuilder {
     private async _tryUpgradeWallToSingleVolume(
         wallGroup: THREE.Group,
         wall: WallData,
-        ctx: { length: number; thickness: number; height: number; baseOffset: number; angle: number },
+        ctx: { length: number; thickness: number; height: number; baseOffset: number; angle: number; version: number },
     ): Promise<void> {
         const producer = this._singleVolumeProducer;
         if (!producer) return;
@@ -1769,13 +1779,20 @@ export class WallFragmentBuilder {
                     height: o.height,
                 })),
             });
-            // Staleness guard — the wall may have been rebuilt/disposed while we awaited.
-            if (!descriptor || wallGroup.parent === null) return;
+            // §96-STALE-GUARD: the wall may have been rebuilt/disposed while we awaited
+            // the lazy-WASM boolean. The wallGroup is REUSED across rebuilds, so a
+            // detached check is not enough — also verify the generation token still
+            // matches this build. A newer buildWall() bumps userData.version, and its
+            // own upgrade will run; applying THIS stale result would clobber it.
+            const liveVersion = (wallGroup.userData as { version?: number }).version;
+            if (!descriptor || wallGroup.parent === null || liveVersion !== ctx.version) return;
             const geo = descriptorToBufferGeometry(descriptor);
             if (!geo) return;
 
-            // Remove only the abutting wall-body segments (keep door/window frames,
-            // edge overlays, etc.). Body segments are tagged elementType 'WallPart'.
+            // Remove the abutting wall-body segments (keep door/window frames, edge
+            // overlays, etc.) AND any prior single-volume CSG mesh (defensive — the
+            // version guard already prevents a double-apply, but never leave two
+            // bodies). Body segments are tagged elementType 'WallPart'.
             const toRemove: THREE.Object3D[] = [];
             for (const child of wallGroup.children) {
                 const ud = (child as THREE.Object3D & { userData?: { elementType?: string } }).userData;

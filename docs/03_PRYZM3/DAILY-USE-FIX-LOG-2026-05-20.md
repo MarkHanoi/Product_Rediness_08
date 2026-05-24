@@ -4,6 +4,48 @@ Concrete fixes applied this session in response to `DAILY-USE-AUDIT-2026-05-20.m
 
 ---
 
+## ✅ APPLIED — Round 48 (2026-05-24: #96 WALL-SINGLE-VOLUME-CSG turned ON by default)
+
+### #96 §96-DEFAULT-ON — wall-with-opening now ONE boolean-void solid (no seam lines)
+**Trigger (architect, high importance, recurring):** "I thought this was already
+solved — when a door/window is hosted on a wall, the 'cut' lines on the wall are
+present. The wall profile with the opening should be a single volume with openings,
+not a merge of volumes forming a wall. Check what was done, analyse, review, document,
+fix." (Screenshot: a door opening whose reveal shows the abutting left/lintel/right
+box seams of the plain segmented wall.)
+**Analysis — what was already built (#96 ph1–3, all real + unit-tested):** kernel CSG
+(`produceBoolean`/`KernelCSG`, manifold-3d WASM) → `produceWallWithVoids` pure helper
+(6 green tests) → `descriptorToBufferGeometry` THREE bridge → `singleVolumeWallProducer`
+(apps/editor, kernel-backed, inset cutters) → `WallFragmentBuilder._tryUpgradeWallToSingleVolume`
+async swap, injected via DI in `initTools`. The pipeline was complete and correct.
+**Root cause it still seamed:** the gate was `window.__wallSingleVolume === true` — a flag
+**set nowhere in the codebase** — so the feature shipped **inert**; production always rendered
+the segmented (multi-box) path. (The architect's wall is the plain segmented kind the impl
+targets, so this is the right fix for it.)
+**Fix (`WallFragmentBuilder.ts`):**
+1. **Opt-OUT default:** condition flipped to `__wallSingleVolume !== false` — single-volume
+   is now the DEFAULT for plain straight walls with openings; `window.__wallSingleVolume = false`
+   reverts to segments. The producer is already injected unconditionally in `initTools`.
+2. **§96-STALE-GUARD (latent bug, fixed while enabling):** the async swap's only staleness
+   check was `wallGroup.parent === null`, but `wallGroup` is **reused across rebuilds**
+   (`wallRoots.get`), so a stale boolean (build N) could clobber a fresh wall (build N+1).
+   The call site now captures `this._geometrySeq`; the swap aborts unless
+   `wallGroup.userData.version` still equals it, and defensively removes any prior
+   `singleVolume` mesh before adding the new one.
+**Safety:** the segmented mesh still renders first and remains the fallback — CSG failure,
+empty result, or a degenerate opening keeps the segments (never an empty wall, SPEC §4).
+**Verification:** 600/600 `@pryzm/geometry-kernel` tests green (`produceWallWithVoids` ×6,
+`produceWall.openings` ×7); `geometry-wall` typecheck — no new errors in the edited regions
+(the file's other errors are pre-existing `noUncheckedIndexedAccess` at L1238–1274). Client edit
+→ live on a hard browser refresh.
+**Still pending (explicit):** (a) the architect's §5 visual confirmation on their model;
+(b) layered + curved walls (still take the segmented path by design — phase 4 per-layer
+subtract); (c) **IFC voids** — `IfcOpeningElement`/`IfcRelVoidsElement`/`IfcRelFillsElement`
+(phase 4) — the IFC export still emits a solid wall + detached fixtures, so the architect's
+"very clearly in IFC export" complaint is NOT yet addressed by this round.
+
+---
+
 ## ✅ APPLIED — Round 47b (2026-05-24: SELECT-3D decisive diagnostics — #97 + §SELECT-PICK-RESOLUTION)
 
 Two SELECT-3D follow-ups were genuinely runtime-gated (the "right" value trades off
