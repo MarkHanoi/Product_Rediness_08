@@ -107,7 +107,8 @@
       "Bash(echo \"DONE exit=$? lines=$\\(wc -l < .tmp-typecheck/all.txt\\)\")",
       "Bash(pnpm --filter @pryzm/renderer-three typecheck)",
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\LENOVO\\\\OneDrive\\\\Desktop\\\\PRYZM\\\\Product_Rediness_08\" -Directory)",
-      "Bash(cd \"c:/Users/LENOVO/.claude/projects/c--Users-LENOVO-OneDrive-Desktop-PRYZM-Product-Rediness-08/memory\" && rm -f wall-opening-renderversion-and-manifold-wasm.md && echo \"deleted memory file\")"
+      "Bash(cd \"c:/Users/LENOVO/.claude/projects/c--Users-LENOVO-OneDrive-Desktop-PRYZM-Product-Rediness-08/memory\" && rm -f wall-opening-renderversion-and-manifold-wasm.md && echo \"deleted memory file\")",
+      "Bash(xargs grep -l \"wallSystemType\\\\|wallTypeId\\\\|selectedWallType\\\\|activeWallType\\\\|WallSystemTypeStore\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\LENOVO\\.claude\\projects\\c--Users-LENOVO-OneDrive-Desktop-PRYZM-Product-Rediness-08\\memory"
