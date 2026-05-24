@@ -1129,6 +1129,16 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             ) return;
             if (curtainWallStoreInstance?.getById?.(ev.id)) return; // dedup guard
             const _cwEv = ev as unknown as Record<string, unknown>;
+            // §G3-STALE-FIX-CW (OI-054 (a), 2026-05-24) — register the curtain wall in VDT +
+            // bimManager BEFORE add(), mirroring the wall §P2.1 fix. curtainWallStoreInstance.add()
+            // SYNCHRONOUSLY drives CurtainPanelSyncHandler, which fires a storeEventBus event per
+            // panel (`<cwId>::row:col`); the VDT attributes each panel to its parent (§CW-PANEL-PARENT)
+            // — but only if the PARENT is already registered. Registering first means both the parent
+            // and all its panels take the targeted per-level path instead of the §G3-STALE storm.
+            try { viewDependencyTracker.registerElement(ev.id, ev.levelId ?? ''); }
+            catch (err) { console.warn('[initTools] §P3.1-CW VDT.registerElement failed (non-fatal):', err); }
+            try { bimManager.registerElement(ev.id, ev.levelId ?? ''); }
+            catch { /* non-fatal — may already be registered */ }
             try {
                 curtainWallStoreInstance.add({
                     id:      ev.id,
@@ -1162,13 +1172,8 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                     operation:   'create',
                     timestamp:   Date.now(),
                 });
-                // §FIX-PLAN-VDT-BIMMANAGER (curtain wall): same two registrations required as for
-                // walls (§P2.1). Without viewDependencyTracker.registerElement the VDT has no
-                // _elementLevelMap entry → §G3-STALE-EVENT fallback fires for every curtain-wall panel.
-                // Without bimManager.registerElement level.childrenIds never contains the cwId →
-                // NativeElementMeshExporter exports 0 curtain-wall elements → plan view blank.
-                viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '');
-                try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { /* non-fatal */ }
+                // §FIX-PLAN-VDT-BIMMANAGER (curtain wall): the VDT + bimManager registration that
+                // used to live HERE (after add) moved ABOVE the add() call — see §G3-STALE-FIX-CW.
                 // Notify builder + SelectionManager that a new curtain wall is available.
                 // §F.events.bridge — fires AFTER curtainWallStoreInstance.add() so the builder can
                 // retrieve data via getById(id).  Uses globalThis + plain Event + Object.assign to

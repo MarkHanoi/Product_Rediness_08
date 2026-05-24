@@ -311,7 +311,20 @@ export class ViewDependencyTracker {
         // targeted reprojection of only the affected plan views.
         if (this._batchSuppressed) return;
 
-        const levelId = this._elementLevelMap.get(event.elementId) ?? this._resolveElementLevelId?.(event.elementId);
+        let levelId = this._elementLevelMap.get(event.elementId) ?? this._resolveElementLevelId?.(event.elementId);
+
+        // §CW-PANEL-PARENT (OI-054 (a), 2026-05-24) — CHILD elements use a composite
+        // id `<parentId>::<suffix>` (curtain panels: `curtainwall_<ulid>::row:col`).
+        // They are never registered independently in `_elementLevelMap`, so without this
+        // every panel store-event (N per curtain wall, fired on create/undo/redo by
+        // CurtainPanelSyncHandler) fell into the §G3-STALE fallback below — an O(views)
+        // sweep + a console.warn PER PANEL (the 300–560 ms LONGTASK storm). A child's
+        // geometry change is covered by re-projecting the PARENT's level, so attribute
+        // it to the parent (which IS registered). General for any `parent::child` id.
+        if (!levelId && event.elementId.includes('::')) {
+            const parentId = event.elementId.slice(0, event.elementId.indexOf('::'));
+            levelId = this._elementLevelMap.get(parentId) ?? this._resolveElementLevelId?.(parentId);
+        }
 
         if (levelId) {
             // Targeted: mark only views on the same level.

@@ -55,6 +55,24 @@ function _bim(): BimManagerLike | undefined {
   return (window as { bimManager?: BimManagerLike }).bimManager;
 }
 
+interface VdtLike { registerElement?(id: string, levelId: string): void }
+function _vdt(): VdtLike | undefined {
+  if (typeof window === 'undefined') return undefined;
+  return (window as { __viewDependencyTracker?: VdtLike }).__viewDependencyTracker;
+}
+
+/** Redo of a create re-adds the element via the store, which SYNCHRONOUSLY fires
+ *  child-element store events (curtain-wall panels). The ViewDependencyTracker
+ *  attributes those children to their parent (§CW-PANEL-PARENT) only if the parent
+ *  is already registered — so register it BEFORE the add (mirrors the §G3-STALE-FIX
+ *  for create). On create the §P*.x bridge does this; on redo the bridge does NOT
+ *  fire (we add directly), so the adapter must. */
+function _onElementWillAdd(id: string, value: unknown): void {
+  const v = value as { levelId?: string } | null | undefined;
+  if (!v?.levelId) return;
+  try { _vdt()?.registerElement?.(id, v.levelId); } catch (err) { console.warn('[elementUndoStoreAdapter] vdt.registerElement failed:', err); }
+}
+
 /** Undo of a create removed the element from its store — also drop its spatial +
  *  semantic registrations so they don't leak across undo/redo cycles. */
 function _onElementRemoved(id: string): void {
@@ -163,12 +181,13 @@ export function elementUndoStoreAdapter(store: LegacyElementStoreLike): PatchApp
               // redo regenerates downstream geometry (e.g. curtain-wall panels) exactly.
               const restore = _undoRestoreSnapshots.get(id) ?? p.value;
               if (!exists && restore != null && typeof store.add === 'function') {
+                _onElementWillAdd(id, restore);                                                       // VDT-register parent BEFORE add (panel-storm fix)
                 store.add(restore); _undoRestoreSnapshots.delete(id); _onElementAdded(id, restore);   // redo of a create
               } else console.warn('[elementUndoStoreAdapter] skip add — exists?', exists, 'hasAdd?', typeof store.add === 'function');
             } else if (p.op === 'replace') {
               if (p.value == null) continue;
               if (exists && typeof store.update === 'function') store.update(id, p.value as Record<string, unknown>);
-              else if (!exists && typeof store.add === 'function') { store.add(p.value); _onElementAdded(id, p.value); }
+              else if (!exists && typeof store.add === 'function') { _onElementWillAdd(id, p.value); store.add(p.value); _onElementAdded(id, p.value); }
             }
           } else {
             // Field-level op: path = [id, field, …]. Best-effort single-field update

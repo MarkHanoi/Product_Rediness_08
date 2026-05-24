@@ -2681,3 +2681,36 @@ element type, not just curtain walls (walls: no-op improvement since shapes alre
 **Gates:** editor typecheck 0 errors; **14/14** undo tests (`performUndoRedo` 6 + adapter 8,
 incl. new "redo restores the LEGACY object captured at undo, not the L1 forward value"). C03 §4.7
 B4 + this round. **Live-verify pending:** curtain-wall draw → undo → **redo brings it back with panels**.
+**LIVE-CONFIRMED (architect):** curtain-wall undo+redo works (panels regenerate).
+
+## Round 59 — OI-054 (a): curtain-panel §G3-STALE storm (perf) + geometry-leak assessment (2026-05-24)
+
+Architect's CW logs showed a §G3-STALE-EVENT **storm** — one `[VDT] §G3-STALE-EVENT … type=curtain-panel`
+per panel (N per curtain wall) on create/undo/redo, driving 300–560 ms LONGTASKs. Root cause: curtain
+PANELS use composite child ids (`<cwId>::row:col`), are never registered independently in
+`ViewDependencyTracker._elementLevelMap`, and `'curtain-panel'` is in `GEOMETRY_ELEMENT_TYPES` — so
+every panel event fell into the §G3-STALE fallback (an O(views) sweep + a `console.warn` PER PANEL).
+
+**Fix (3 parts):**
+1. **§CW-PANEL-PARENT** (`ViewDependencyTracker._onStoreEvent`): when an element id contains `::` and
+   isn't registered, attribute it to the PARENT (`id.slice(0, indexOf('::'))`) — a child's geometry
+   change is covered by re-projecting the parent's level. General for any `parent::child` id; kills the
+   storm wherever the parent is registered (targeted path, no warn).
+2. **§G3-STALE-FIX-CW** (`initTools.ts` §P3.1-CW bridge): register the curtain wall in VDT + bimManager
+   BEFORE `curtainWallStoreInstance.add()` (was after) — so the synchronous panel events during add find
+   the parent registered (mirrors the wall §P2.1 §G3-STALE-FIX).
+3. **adapter redo** (`elementUndoStoreAdapter._onElementWillAdd`): on redo the §P3.1-CW bridge does NOT
+   fire (we add directly), so the adapter now VDT-registers the parent (`window.__viewDependencyTracker`)
+   BEFORE `store.add`, so panel events on redo also take the targeted path.
+
+**Geometry-leak assessment — NO real undo leak.** The GPU monitor "Geometry count grew 600% (1→7)" is a
+heuristic on a tiny absolute count. The disposal path is correct + wired: `curtainWallStore.remove` →
+(initUI subscriber) → `CurtainWallBuilder.remove(id)` → `_disposeChildren` which `group.traverse()`-es and
+disposes every non-shared Mesh/InstancedMesh geometry+material; shared/cached panel-type geometry is
+intentionally KEPT (the cache owns it — that's the 7). Undo fires this path. No risky change made to the
+working render/disposal path. (If unbounded growth across many cycles is ever observed, the InstanceManager
+cache is the place to look.)
+
+**Gates:** editor typecheck 0 errors; `ViewDependencyTracker.ts` clean (core-app-model errors are
+pre-existing ai-host debt); 14/14 undo tests still green. **Live-verify pending:** draw curtain wall →
+the `[VDT] §G3-STALE-EVENT … curtain-panel` storm is gone (targeted re-projection instead).
