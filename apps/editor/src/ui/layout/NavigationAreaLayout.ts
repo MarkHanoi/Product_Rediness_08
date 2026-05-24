@@ -9,7 +9,7 @@ import type { BimService } from '@app/engine/BimService';
 import type { GISCallbacks } from './GISAreaLayout';
 import type { AIResult } from './AIAreaLayout';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
-import { wallUndoStoreAdapter } from '@app/engine/undo/wallUndoStoreAdapter'; // §ADR-051 wall slice (OI-054)
+import { adaptElementStoreMap } from '@app/engine/undo/elementUndoStoreAdapter'; // §ADR-051 undo rollout (OI-054)
 
 export interface NavResult {
     vbPanelWrapper: HTMLElement;
@@ -105,12 +105,25 @@ export function mountNavigationArea(
                 if (side && pair) {
                     import('@pryzm/command-bus').then(({ applyRingBufferSide }) => {
                         applyRingBufferSide(side, pair.affectedStores ?? [], {
-                            wall: (window as any).wallStore ? wallUndoStoreAdapter((window as any).wallStore) : undefined,    walls: (window as any).wallStore ? wallUndoStoreAdapter((window as any).wallStore) : undefined, // §ADR-051 wall slice
-                            slab: (window as any).slabStore,    slabs: (window as any).slabStore, // TODO(TASK-08)
-                            room: (window as any).roomStore,    rooms: (window as any).roomStore, // TODO(TASK-08)
-                            level: (window as any).levelStore,  levels: (window as any).levelStore, // TODO(TASK-08)
-                            door: (window as any).doorStore,    doors: (window as any).doorStore, // TODO(TASK-08)
-                            window: (window as any).windowStore, windows: (window as any).windowStore, // TODO(TASK-08)
+                            // §ADR-051 undo rollout — element stores adapted to applyPatch (drives mesh).
+                            ...adaptElementStoreMap({
+                                wall: (window as any).wallStore, walls: (window as any).wallStore,
+                                slab: (window as any).slabStore, slabs: (window as any).slabStore,
+                                room: (window as any).roomStore, rooms: (window as any).roomStore,
+                                'curtain-wall': (window as any).curtainWallStore, curtainWalls: (window as any).curtainWallStore,
+                                furniture: (window as any).furnitureStore,
+                                column: (window as any).columnStore, columns: (window as any).columnStore,
+                                beam: (window as any).beamStore, beams: (window as any).beamStore,
+                                stair: (window as any).stairStore, stairs: (window as any).stairStore,
+                                handrail: (window as any).handrailStore, handrails: (window as any).handrailStore,
+                                roof: (window as any).roofStore, roofs: (window as any).roofStore,
+                                floor: (window as any).floorStore, floors: (window as any).floorStore,
+                                ceiling: (window as any).ceilingStore, ceilings: (window as any).ceilingStore,
+                            }),
+                            // RAW → B3 fallback: door/window (hosted), level (Path-A).
+                            level: (window as any).levelStore,  levels: (window as any).levelStore,
+                            door: (window as any).doorStore,    doors: (window as any).doorStore,
+                            window: (window as any).windowStore, windows: (window as any).windowStore,
                         });
                     }).catch(() => {});
                 }

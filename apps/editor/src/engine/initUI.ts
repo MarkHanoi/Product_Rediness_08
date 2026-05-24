@@ -35,7 +35,7 @@ import { escHtml } from '@pryzm/ui-base';
 
 import { apiFetch }              from '@pryzm/core-app-model';
 import { VisualStyle }           from '@pryzm/core-app-model/material-library';
-import { wallUndoStoreAdapter }  from './undo/wallUndoStoreAdapter.js'; // §ADR-051 wall slice (OI-054)
+import { adaptElementStoreMap }  from './undo/elementUndoStoreAdapter.js'; // §ADR-051 undo rollout (OI-054)
 import { createMainLayout }      from '@app/ui/Layout';
 import { CurtainWallBuilder }    from '@pryzm/geometry-curtain-wall';
 // Contract 47 §5.11 (Step 3′) — IFC export wrappers are loaded lazily on first
@@ -2784,42 +2784,35 @@ export async function initUI(p: UIParams): Promise<void> {
     // ISSUE-02 (OI-035): Added 10 previously-missing element-type stores so that
     // future CommandBus-native commands for these types can reach Ctrl+Z correctly.
     function _buildRingBufferStoreMap(): Record<string, { applyPatch: (p: unknown[]) => void } | undefined> {
+        // §ADR-051 per-type undo rollout (OI-054 B1+B2) — adapt EVERY live legacy
+        // element store to an applyPatch surface (via add/remove/update — which drive
+        // the mesh) so undo+redo revert BOTH data and geometry for all element types.
         return {
-            // §ADR-051 wall slice (OI-054 B1+B2) — adapt the live legacy wall store to
-            // applyPatch via add/remove so undo+redo revert both DATA and MESH.
-            wall:           window.wallStore ? wallUndoStoreAdapter(window.wallStore as never) : undefined,
-            walls:          window.wallStore ? wallUndoStoreAdapter(window.wallStore as never) : undefined,
-            slab:           window.slabStore, // TODO(TASK-08)
-            slabs:          window.slabStore, // TODO(TASK-08)
-            room:           window.roomStore, // TODO(TASK-08)
-            rooms:          window.roomStore, // TODO(TASK-08)
-            'curtain-wall': window.curtainWallStore, // TODO(TASK-08)
-            curtainWalls:   window.curtainWallStore, // TODO(TASK-08)
-            door:           window.doorStore, // TODO(TASK-08)
-            doors:          window.doorStore, // TODO(TASK-08)
-            window:         window.windowStore, // TODO(TASK-08)
-            windows:        window.windowStore, // TODO(TASK-08)
-            furniture:      window.furnitureStore, // TODO(TASK-08)
-            level:          window.levelStore, // TODO(TASK-08)
-            levels:         window.levelStore, // TODO(TASK-08)
-            // OI-035: previously missing — added now
-            column:         (window as any).columnStore, // TODO(TASK-08)
-            columns:        (window as any).columnStore, // TODO(TASK-08)
-            beam:           (window as any).beamStore, // TODO(TASK-08)
-            beams:          (window as any).beamStore, // TODO(TASK-08)
-            stair:          (window as any).stairStore, // TODO(TASK-08)
-            stairs:         (window as any).stairStore, // TODO(TASK-08)
-            stairRailing:   (window as any).stairRailingStore, // TODO(TASK-08)
-            stairLanding:   (window as any).stairLandingStore, // TODO(TASK-08)
-            handrail:       (window as any).handrailStore, // TODO(TASK-08)
-            handrails:      (window as any).handrailStore, // TODO(TASK-08)
-            roof:           (window as any).roofStore, // TODO(TASK-08)
-            roofs:          (window as any).roofStore, // TODO(TASK-08)
-            floor:          (window as any).floorStore, // TODO(TASK-08)
-            floors:         (window as any).floorStore, // TODO(TASK-08)
-            ceiling:        (window as any).ceilingStore, // TODO(TASK-08)
-            ceilings:       (window as any).ceilingStore, // TODO(TASK-08)
-            plumbing:       (window as any).plumbingStore, // TODO(TASK-08)
+            ...adaptElementStoreMap({
+                wall:           window.wallStore,            walls:        window.wallStore,
+                slab:           window.slabStore,            slabs:        window.slabStore,
+                room:           window.roomStore,            rooms:        window.roomStore,
+                'curtain-wall': window.curtainWallStore,     curtainWalls: window.curtainWallStore,
+                furniture:      window.furnitureStore,
+                column:         (window as any).columnStore, columns:      (window as any).columnStore,
+                beam:           (window as any).beamStore,   beams:        (window as any).beamStore,
+                stair:          (window as any).stairStore,  stairs:       (window as any).stairStore,
+                stairRailing:   (window as any).stairRailingStore,
+                stairLanding:   (window as any).stairLandingStore,
+                handrail:       (window as any).handrailStore, handrails:  (window as any).handrailStore,
+                roof:           (window as any).roofStore,   roofs:        (window as any).roofStore,
+                floor:          (window as any).floorStore,  floors:       (window as any).floorStore,
+                ceiling:        (window as any).ceilingStore, ceilings:    (window as any).ceilingStore,
+                plumbing:       (window as any).plumbingStore,
+            }),
+            // RAW (no applyPatch) → applyRingBufferSide reports failed → the B3
+            // fallback routes these to commandManager.undo():
+            //   • level/levels — managed by Path-A AddLevelCommand (commandManager).
+            //   • door/window  — HOSTED elements: undo must also remove the wall
+            //     opening, a two-part undo deferred to its own ADR-051 slice.
+            door:   window.doorStore,   doors:   window.doorStore,   // TODO(ADR-051 hosted slice)
+            window: window.windowStore, windows: window.windowStore, // TODO(ADR-051 hosted slice)
+            level:  window.levelStore,  levels:  window.levelStore,  // Path-A (commandManager)
         };
     }
 

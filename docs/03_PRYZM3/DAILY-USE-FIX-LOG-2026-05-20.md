@@ -4,6 +4,21 @@ Concrete fixes applied this session in response to `DAILY-USE-AUDIT-2026-05-20.m
 
 ---
 
+## ✅ APPLIED — Round 55 (2026-05-24: ADR-051 per-type undo rollout — undo+redo for ALL geometry element types)
+
+### Scope
+Generalised the wall undo slice to **every geometry element type** (architect: "we want undo for all elements"). Store-surface analysis confirmed all element stores share `add` + `remove` (CurtainWall also `delete`) + an existence check (`getById`/`get`) + `update`.
+
+### Change
+- `apps/editor/src/engine/undo/wallUndoStoreAdapter.ts` → **renamed/generalised** to `elementUndoStoreAdapter.ts`: a **duck-typed** `applyPatch` adapter over the legacy-store mutator union (drives the mesh); inverse `remove`→`remove`/`delete` (undo), forward `add`→`add` (redo), field→`update`; **never throws** (C03 §4.6 U-4). New `adaptElementStoreMap()` wraps a whole `{key→store}` map.
+- Wired into **all 4** hand-rolled undo/redo sites (`initUI._buildRingBufferStoreMap`, `BimService._buildStoreMap`, `NavigationAreaLayout`, `DockingLayout`) for **wall, slab, room, curtain-wall, furniture, column, beam, stair, handrail, roof, floor, ceiling, plumbing** (+ plural aliases).
+- **Excluded → left RAW (B3 fallback to `commandManager.undo()`):** `door`/`window` (HOSTED — undo must also remove the wall opening; two-part undo = next ADR-051 slice) and `level` (Path-A).
+
+### Verification
+`apps/editor/__tests__/elementUndoStoreAdapter.test.ts` **7/7** (undo via `remove()`; undo via `delete()`+`get()` variant; redo via `add()`; round-trip on both store shapes; field replace; idempotent/never-throw incl. method-less store; `adaptElementStoreMap` wrapping). Editor typecheck clean for all 5 touched files (only the pre-existing `window.*` TS2339 baseline). **Live-verify pending** (architect): draw each element type in plan/3D → Ctrl+Z reverts data+mesh, Ctrl+Y re-adds. **Contract:** ADR-051 (per-type rollout), C03 §4.7 B1+B2. Client edit → browser refresh.
+
+---
+
 ## ✅ APPLIED — Round 54 (2026-05-24: §G3-STALE-FIX — VDT register-before-add on plan-view wall create)
 
 ### Trigger (architect log, every plan-view wall create)

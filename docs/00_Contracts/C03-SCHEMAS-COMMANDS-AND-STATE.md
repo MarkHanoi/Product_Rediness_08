@@ -240,11 +240,14 @@ Three layered bugs make plan-view-create undo a silent no-op today:
   **Interim fix (2026-05-24):** `applyRingBufferSide` now returns an `ApplyRingBufferOutcome`
   ({applied, failed}) and logs the missing-`applyPatch` store loudly instead of swallowing it;
   `initUI`/`BimService` stop logging false "undo applied" and fall back to `commandManager.undo()`
-  on total failure (B3 closed). **Wall slice shipped 2026-05-24 (ADR-051):** the four sites' `wall`
-  entry now uses `wallUndoStoreAdapter(window.wallStore)` — an `applyPatch` surface over the live
-  legacy store's `add`/`remove`/`update`, which DRIVE the mesh — so wall undo+redo revert both data
-  and geometry (B1+B2 closed for walls; unit-gated, live-verify pending). **Real end-state:** route
-  all four through `runtime.undoStack` (U-5) once each type's mesh derives from its L1 store (U-7).
+  on total failure (B3 closed). **Per-type rollout shipped 2026-05-24 (ADR-051):** all four sites
+  now wrap their element entries via `adaptElementStoreMap()` → `elementUndoStoreAdapter` — a
+  duck-typed `applyPatch` surface over each live legacy store's `add`/`remove`(or `delete`)/`update`,
+  which DRIVE the mesh — so undo+redo revert both data and geometry for **wall, slab, room,
+  curtain-wall, furniture, column, beam, stair, handrail, roof, floor, ceiling, plumbing**
+  (B1+B2 closed for these; unit-gated 7/7, live-verify pending). `door`/`window` (hosted — two-part
+  wall-opening undo) and `level` (Path-A) are left RAW → B3 fallback. **Real end-state:** route all
+  four through `runtime.undoStack` (U-5) once each type's mesh derives from its L1 store (U-7).
 - **B2 — mesh not reverted (deeper).** Even via `runtime.undoStack` the inverse patch applies to the
   **L1** store, which does not drive the mesh (§4.4). So data reverts but the wall mesh remains.
   **Fix:** TASK-08 store-unification (U-7) — make the mesh-driving store the L1 store (or have it

@@ -7,7 +7,7 @@ import { deleteIfcImportedElement, isIfcImportedElement } from '@pryzm/file-form
 
 import { BimManager, planView2DCreationMode } from '@pryzm/core-app-model';
 import type { IBimService } from '@pryzm/engine';
-import { wallUndoStoreAdapter } from './undo/wallUndoStoreAdapter.js'; // §ADR-051 wall slice (OI-054)
+import { adaptElementStoreMap } from './undo/elementUndoStoreAdapter.js'; // §ADR-051 undo rollout (OI-054)
 
 export class BimService implements IBimService {
     private bimManager: BimManager;
@@ -202,24 +202,31 @@ export class BimService implements IBimService {
     }
 
     private static _buildStoreMap(): Record<string, { applyPatch: (p: unknown[]) => void } | undefined> {
+        // §ADR-051 per-type undo rollout (OI-054 B1+B2) — adapt every live legacy
+        // element store to applyPatch (via add/remove/update → drives mesh) so
+        // undo+redo revert data + geometry for all element types.
+        const w = window as any;
         return {
-            // §ADR-051 wall slice (OI-054 B1+B2) — adapt the live legacy wall store to
-            // applyPatch via add/remove so undo+redo revert both DATA and MESH.
-            wall:           (window as any).wallStore ? wallUndoStoreAdapter((window as any).wallStore) : undefined,
-            walls:          (window as any).wallStore ? wallUndoStoreAdapter((window as any).wallStore) : undefined,
-            slab:           (window as any).slabStore, // TODO(TASK-08)
-            slabs:          (window as any).slabStore, // TODO(TASK-08)
-            room:           (window as any).roomStore, // TODO(TASK-08)
-            rooms:          (window as any).roomStore, // TODO(TASK-08)
-            'curtain-wall': (window as any).curtainWallStore, // TODO(TASK-08)
-            curtainWalls:   (window as any).curtainWallStore, // TODO(TASK-08)
-            door:           (window as any).doorStore, // TODO(TASK-08)
-            doors:          (window as any).doorStore, // TODO(TASK-08)
-            window:         (window as any).windowStore, // TODO(TASK-08)
-            windows:        (window as any).windowStore, // TODO(TASK-08)
-            furniture:      (window as any).furnitureStore, // TODO(TASK-08)
-            level:          (window as any).levelStore, // TODO(TASK-08)
-            levels:         (window as any).levelStore, // TODO(TASK-08)
+            ...adaptElementStoreMap({
+                wall:           w.wallStore,        walls:        w.wallStore,
+                slab:           w.slabStore,        slabs:        w.slabStore,
+                room:           w.roomStore,        rooms:        w.roomStore,
+                'curtain-wall': w.curtainWallStore, curtainWalls: w.curtainWallStore,
+                furniture:      w.furnitureStore,
+                column:         w.columnStore,      columns:      w.columnStore,
+                beam:           w.beamStore,        beams:        w.beamStore,
+                stair:          w.stairStore,       stairs:       w.stairStore,
+                handrail:       w.handrailStore,    handrails:    w.handrailStore,
+                roof:           w.roofStore,        roofs:        w.roofStore,
+                floor:          w.floorStore,       floors:       w.floorStore,
+                ceiling:        w.ceilingStore,     ceilings:     w.ceilingStore,
+                plumbing:       w.plumbingStore,
+            }),
+            // RAW → B3 fallback to commandManager.undo(): door/window (hosted,
+            // two-part opening undo — ADR-051 follow-up) + level (Path-A).
+            door:   w.doorStore,   doors:   w.doorStore,
+            window: w.windowStore, windows: w.windowStore,
+            level:  w.levelStore,  levels:  w.levelStore,
         };
     }
 

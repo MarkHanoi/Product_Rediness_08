@@ -115,16 +115,22 @@ A full trace to ground truth (every layer) surfaced a detail that sharpens the p
 - The hand-rolled UI handlers instead map `wall → window.wallStore` — the **live legacy** store
   that *does* drive the mesh (`add`/`remove` → `WallFragmentBuilder`) but has no `applyPatch`.
 
-**Executed first slice (walls) — shipped 2026-05-24, behaviour-preserving, live-gated:**
-`apps/editor/src/engine/undo/wallUndoStoreAdapter.ts` adapts the live legacy wall store to an
-`applyPatch` surface implemented via its own `add`/`remove`/`update` (which drive the mesh):
-inverse `{op:'remove',path:[id]}` → `remove(id)` (undo), forward `{op:'add',path:[id],value}` →
-`add(value)` (**redo**), field `replace` → `update`. Wired into **all four** hand-rolled sites
-(`initUI`, `BimService`, `NavigationAreaLayout`, `DockingLayout`) so wall undo/redo revert **both
-data and mesh**. Unit-gated (`apps/editor/__tests__/wallUndoStoreAdapter.test.ts`, 6/6: undo,
-redo, round-trip, field, idempotency, degenerate). It touches only the wall undo entries — create
-and other element types are unchanged. This is the per-type bridge; the end-state (single store +
-derived mesh, retiring `window.wallStore` + the snapshot/`fetchStores` undo path) still stands.
+**Executed — all geometry element types (2026-05-24, behaviour-preserving, live-gated):**
+`apps/editor/src/engine/undo/elementUndoStoreAdapter.ts` adapts any live legacy element store to
+an `applyPatch` surface via its own mutators (which drive the mesh): inverse `{op:'remove',path:[id]}`
+→ `remove(id)`/`delete(id)` (undo), forward `{op:'add',path:[id],value}` → `add(value)` (**redo**),
+field `replace` → `update`. **Duck-typed** over the verified store surface union (`add` + `remove`
+or `delete` + `getById` or `get` + `update`) and **never throws**. `adaptElementStoreMap()` wraps a
+whole `{key→store}` map; wired into **all four** hand-rolled undo/redo sites (`initUI`, `BimService`,
+`NavigationAreaLayout`, `DockingLayout`) for **wall, slab, room, curtain-wall, furniture, column,
+beam, stair, handrail, roof, floor, ceiling, plumbing** (+ plural aliases). So undo/redo revert
+**both data and mesh** for every geometry element type. Unit-gated
+(`apps/editor/__tests__/elementUndoStoreAdapter.test.ts`, 7/7: undo, redo, round-trip on both
+store shapes, field, idempotency/never-throw, map-wrapper). **Excluded (left RAW → B3 fallback to
+`commandManager.undo()`):** `door`/`window` (HOSTED — undo must also remove the wall opening, a
+two-part undo = the next ADR-051 slice) and `level` (Path-A). This is the per-type bridge; the
+end-state (single store + derived mesh, retiring `window.*Store` + the snapshot/`fetchStores` undo
+path) still stands.
 
 **Refined plan consequence:** the canonical `runtime.undoStack` path must additionally route
 inverse patches through the **live-store applicator** (`attachStores`/`Store.applyPatch`), not the
