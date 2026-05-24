@@ -52,6 +52,12 @@ TAB OPEN
                     └─► PROJECT B SESSION — active
 ```
 
+> **Companion spec**: the detailed stage-by-stage trace of the OPEN + CREATE pipelines
+> (composeRuntime → engineLauncher → ProjectLoader), their performance characteristics, and
+> the handler-registration single-registrar rule (C02 §1) live in
+> `docs/03_PRYZM3/reference/specs/SPEC-PROJECT-OPEN-CREATE-PIPELINE.md`. Performance work is
+> tracked as `PRYZM3-MASTER-STATUS.md §11 → OI-053`.
+
 ---
 
 ## §3 — Isolation invariants (binding)

@@ -111,6 +111,10 @@ export function initBusHandlers(
         { type: 'stair.batch.create',   stores: ['stair']   },  // DEFERRED: stairs migration pending
     ];
     for (const { type, stores } of __batchTypes) {
+        // §OI-053 (PERF 2026-05-24) — skip if composeRuntime()/a plugin already
+        // registered this type; CommandBus.register() throws on duplicate, which
+        // was caught + logged as a red console.error per boot (noise + stack cost).
+        if (runtime.bus.registry?.has?.(type as any)) continue;
         try {
             runtime.bus.register({
                 type: type as any,
@@ -631,6 +635,10 @@ export function initBusHandlers(
     ];
 
     for (const spec of __bridges) {
+        // §OI-053 (PERF 2026-05-24) — skip if already registered (composeRuntime /
+        // a plugin / engineLauncher F-1.3). Avoids the duplicate-register throw that
+        // was caught + logged as a red console.error per boot.
+        if (runtime.bus.registry?.has?.(spec.type as any)) continue;
         try {
             runtime.bus.register({
                 type: spec.type as any,

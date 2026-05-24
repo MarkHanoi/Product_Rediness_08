@@ -364,7 +364,32 @@ export async function bootstrap(
         // the underlying value IS always a CommandBus instance.  Same pattern as
         // the CRDT-applier wiring below (line ~407).
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const _bus = runtime.bus as any;
+        const _busRaw = runtime.bus as any;
+        // §OI-053 (PERF 2026-05-24) — idempotent register facade. composeRuntime()
+        // already registers the authoritative plugin handlers, and initBusHandlers()
+        // (line 335) registers more, so the registerXxxHandlers() calls below
+        // re-register the SAME command types. CommandBus.register() throws
+        // "handler already registered" on a duplicate, so this block previously threw
+        // ~25× per boot — each caught + logged as a red console.error WITH a stack
+        // trace (a real cost with DevTools open, and it buried genuine errors). This
+        // facade makes register() skip-if-present: "first registration wins" is
+        // exactly the shipped behaviour (the duplicate always threw + was discarded),
+        // so this is behaviour-preserving — it only removes the throw/catch/spam and
+        // makes the block safe to re-run on project re-open. Genuine handler-shape
+        // errors (bad affectedStores / missing execute) still throw + surface.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const _bus: any = new Proxy(_busRaw, {
+            get(target, prop, receiver) {
+                if (prop === 'register') {
+                    return (handler: any) => {
+                        const t = handler?.type;
+                        if (t && (target.registry?.has?.(t) ?? target.has?.(t))) return;
+                        return target.register(handler);
+                    };
+                }
+                return Reflect.get(target, prop, receiver);
+            },
+        });
         try { registerWallHandlers(_bus); console.log('[EngineBootstrap] F-1.3: wall handlers registered.'); }
         catch (e: any) { console.error('[EngineBootstrap] F-1.3: registerWallHandlers failed (non-fatal):', e?.message ?? e); }
         try { registerRoomHandlers(_bus); console.log('[EngineBootstrap] F-1.3: room handlers registered.'); }

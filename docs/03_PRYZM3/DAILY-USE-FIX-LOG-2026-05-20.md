@@ -4,6 +4,60 @@ Concrete fixes applied this session in response to `DAILY-USE-AUDIT-2026-05-20.m
 
 ---
 
+## ✅ APPLIED — Round 52 (2026-05-24: OI-053a — idempotent handler registration + project-open/create pipeline SPEC)
+
+### OI-053a — kill the per-open duplicate-handler-registration throw/spam
+**Trigger (architect boot log):** ~25–50 red `console.error` lines per project open —
+`[EngineBootstrap] …: registerXHandlers failed (non-fatal): handler already registered: <type>`
+and `[initBusHandlers] §E.5.x/§A40: <type> failed (non-fatal): handler already registered`.
+
+**Root cause:** `composeRuntime()` registers the authoritative plugin handlers (C02 §1 — "MUST
+register all plugin contributions passed via `registries`"). Then `initBusHandlers()` and the
+`engineLauncher` F-1.3/§P3.x block **re-register the same command types**. `CommandBus.register()`
+([packages/command-bus/src/CommandBus.ts:85-86](../../packages/command-bus/src/CommandBus.ts#L85))
+throws `handler already registered` on a duplicate → each caught + logged as a red error **with a
+stack trace** (a real cost with DevTools open, and it buried genuine errors).
+
+**Fix (behaviour-preserving):**
+- [`engineLauncher.ts`](../../apps/editor/src/engine/engineLauncher.ts) wraps the registration bus
+  in a `Proxy` whose `register()` skips when `bus.registry.has(type)` — covering the plugin
+  `registerXxxHandlers()` internal `register()` calls + the inline zoom-fit/zoom-selected. `_bus` is
+  used ONLY for `.register()` during bootstrap (verified — never `executeCommand`, never persisted),
+  so the proxy cannot leak into a runtime command path.
+- [`initBusHandlers.ts`](../../apps/editor/src/engine/initBusHandlers.ts) `continue`s past any type
+  already in `bus.registry` (batch-stub loop + §E.5.x bridge loop).
+
+Because the duplicate **always threw and was discarded**, "first registration wins" (composeRuntime's)
+is exactly the shipped behaviour — so this changes **which handler is active for zero types**; it only
+removes the throw/catch/stack-trace spam and makes registration re-open-safe.
+
+**Verification:** `pnpm --filter @pryzm/editor typecheck` — no new errors in `engineLauncher.ts` /
+`initBusHandlers.ts` (only the pre-existing `window.*` TS2339 backlog). Client-package → live on refresh.
+
+### Contractual documentation (architect request)
+New normative reference spec **`reference/specs/SPEC-PROJECT-OPEN-CREATE-PIPELINE.md`** — the how/why/what
+of the CREATE + OPEN pipelines (ProjectHub → ProjectListClient → server v1 → `composeRuntime` →
+`engineLauncher` O1–O10 stages → `ProjectLoader`), their perf characteristics, and the binding
+invariants. Linked as a companion from `C13 §2`. Governs OI-053 perf work.
+
+### Alignment review (Contracts + Architecture + Vision)
+Reviewed OI-053a against C02 (Composition Root & Boot), C13 (Lifecycle), P1/P4, and 01-VISION/
+02-ARCHITECTURE:
+- ✅ **P1** — no parallel `composeRuntime()`/runtime; the proxy is a thin local registration facade
+  delegating to the single bus. The P1 CI gate (`ci-check-single-compose.ts`) greps for parallel
+  compose **calls** — unaffected.
+- ✅ **P4** — no `window`; reuses the existing `runtime.bus as any` (eslint-disable retained).
+- ✅ **C02 §3 family** — the O9 re-registration is a *migration-phase bridge* (same class as the
+  documented dual-write / `_skipBridge` / F.events bridges); an idempotent guard is the sanctioned
+  safe interim.
+- ⚠️ **Canonical end-state (documented, not yet done):** C02 §1 makes `composeRuntime` `registries`
+  the **single** registrar. The fully-aligned fix is to **retire** the O9 re-registration once every
+  type is proven covered by composeRuntime; the idempotent guard is the interim. Captured as the
+  migration-exit in SPEC §4 + O-INV-2. **Not silently elevating "idempotent registration" above the
+  single-registrar rule** — the SPEC subordinates it explicitly.
+
+---
+
 ## ✅ APPLIED — Round 51 (2026-05-24: #53 §MAT-CW-MATERIAL — curtain-wall mullion + glazing PBR material resolution)
 
 ### What + why
