@@ -639,6 +639,24 @@ export class GpuPickStrategy implements PickStrategy {
     const tw = Math.max(1, Math.round(vw * scale));
     const th = Math.max(1, Math.round(vh * scale));
     if (tw === this.targetWidth && th === this.targetHeight && this.renderTarget !== null) return;
+    // §SELECT-PICK-RESOLUTION diagnostic — print the EFFECTIVE pick resolution
+    // exactly once per size change (the guard above throttles it to first-pick +
+    // each viewport resize). The rendered image is `viewport × devicePixelRatio`,
+    // so `pick:rendered < 1` means the pick under-samples what the user sees and
+    // thin elements (railings, edge-on walls) are hard to hit. Two causes are
+    // visible here without guessing: (1) MAX_AUTO_DIM cap clamps wide viewports;
+    // (2) we size to CSS px, ignoring dpr, so HiDPI is sub-1:1 even below the cap.
+    // The fix (raise cap and/or dpr-scale) trades hover render cost, so it is
+    // gated on this number rather than applied blindly.
+    const dpr = (globalThis as { devicePixelRatio?: number }).devicePixelRatio ?? 1;
+    const pickToRendered = tw / Math.max(1, vw * dpr);
+    console.log(
+      `[GpuPick] §SELECT-PICK-RESOLUTION target=${tw}x${th} viewport=${vw}x${vh} ` +
+      `dpr=${dpr} cap=${GpuPickStrategy.MAX_AUTO_DIM} pick:rendered=${pickToRendered.toFixed(2)}` +
+      (pickToRendered < 0.999
+        ? ' (SUB-1:1 — thin elements under-sample; raise cap and/or dpr-scale if picks feel imprecise)'
+        : ' (>=1:1)'),
+    );
     // Size changed (first pick, or viewport resize) — drop old targets so the
     // ensure*Target helpers recreate them at the new resolution.  Optional
     // dispose() guards the fake render targets used in tests (auto-size off).

@@ -1006,7 +1006,20 @@ export class SelectionManager implements ISelectionManager {
                 const gpuResult = this._pickStrategy.pick({ x, y }, pickCtx);
                 if (gpuResult !== null) {
                     const obj = pickCtx.elementRegistry.objectFor(gpuResult.elementId);
-                    console.log(`[PickResolver] strategy=${this._pickStrategy.id} hit=${gpuResult.elementId}`);
+                    // §97 SLAB-VS-STAIR — decisive click log. The GPU pick is authoritative
+                    // and "frontmost-at-the-clicked-pixel wins" (the professional standard).
+                    // The old log printed only an opaque UUID, so a human couldn't tell WHAT
+                    // was selected. Now it states the element TYPE + depth-distance, so ONE
+                    // click distinguishes the two #97 hypotheses: if you click a stair tread
+                    // and this prints type=slab at a plausibly-deeper dist, the slab was
+                    // genuinely visible through a tread gap (expected, gap-click); if type=slab
+                    // at a dist SHALLOWER than the tread you aimed at, that's a real depth
+                    // artifact worth a tie-break fix.
+                    const _hitType = (obj?.userData?.elementType ?? obj?.userData?.type ?? 'unknown');
+                    console.log(
+                        `[PickResolver] §97 click hit type=${_hitType} id=${gpuResult.elementId} ` +
+                        `dist=${gpuResult.distance.toFixed(2)} strategy=${this._pickStrategy.id}`,
+                    );
                     if (obj) {
                         // GPU pick succeeded — dispatch world-click event then select.
                         {

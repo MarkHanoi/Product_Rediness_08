@@ -4,6 +4,39 @@ Concrete fixes applied this session in response to `DAILY-USE-AUDIT-2026-05-20.m
 
 ---
 
+## ✅ APPLIED — Round 47b (2026-05-24: SELECT-3D decisive diagnostics — #97 + §SELECT-PICK-RESOLUTION)
+
+Two SELECT-3D follow-ups were genuinely runtime-gated (the "right" value trades off
+against the hover render cost the team already optimised; and "frontmost-at-pixel wins"
+is the correct default for slab-vs-stair). Per this log's established discipline (ship a
+**decisive probe**, don't guess), both diagnostics are now self-explaining so the
+architect's NEXT single click closes them — instead of a blind radius/tie-break change.
+
+### #97 SLAB-VS-STAIR — `[PickResolver]` click log now states the element TYPE
+**Was:** `[PickResolver] strategy=gpu-pick hit=<uuid>` — an opaque UUID; a human could not
+tell *what* was selected. **Now** (`SelectionManager.performSelection`, GPU-hit branch):
+`[PickResolver] §97 click hit type=<elementType> id=<id> dist=<n> strategy=gpu-pick`.
+Production uses the GPU pick **only** (no BVH fallback when GPU is present), so slab-vs-stair
+is decided purely by per-pixel depth — there is no inspectable tie-break bug. The TYPE + depth
+let one click distinguish the two hypotheses: `type=slab` at a **deeper** dist than the tread
+aimed at ⇒ slab seen through a tread gap (expected gap-click); `type=slab` at a **shallower**
+dist ⇒ a real depth artifact worth a tie-break fix.
+
+### §SELECT-PICK-RESOLUTION — surface the EFFECTIVE pick resolution
+`GpuPickStrategy._syncTargetSize` now logs once per size change (throttled to first-pick +
+viewport resize): `[GpuPick] §SELECT-PICK-RESOLUTION target=WxH viewport=VWxVH dpr=D
+cap=MAX pick:rendered=R (SUB-1:1 …| >=1:1)`. The rendered image is `viewport × dpr`, so
+`pick:rendered < 1` means the pick under-samples what the user sees (thin railings/edge-on
+walls hard to hit). Two non-guessed causes become visible: (1) the `MAX_AUTO_DIM=1280` cap
+clamps wide viewports; (2) the target is sized in CSS px (ignores dpr) so HiDPI is sub-1:1
+even below the cap. The fix (raise cap and/or dpr-scale) raises hover render cost, so it is
+**gated on this number** rather than applied blindly.
+**Verification:** typecheck — `gpu-pick.ts` CLEAN; new `SelectionManager` lines (1006–1022)
+CLEAN (the package's other errors are the pre-existing `window.*` augmentation + strict-index
+set, unrelated). Both are client-package edits → live on a hard browser refresh.
+
+---
+
 ## ✅ APPLIED — Round 47 (2026-05-24: WALL-MOVEMENT-STUDY S1 — gizmo/grip mutual exclusion)
 
 ### #104-S1 §WALL-MOVEMENT-STUDY — disable the move gizmo during an endpoint-grip drag
