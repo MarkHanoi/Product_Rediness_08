@@ -18,6 +18,7 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
+import { toCreasedNormals } from '@pryzm/renderer-three';
 
 /** Structural shape of a kernel BufferGeometryDescriptor (subset this needs). */
 export interface BufferGeometryDescriptorLike {
@@ -40,20 +41,28 @@ export function descriptorToBufferGeometry(
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(d.position, 3));
     geo.setIndex(new THREE.BufferAttribute(d.index, 1));
-
+    // A normal attribute is required by toCreasedNormals' input geometry; the
+    // descriptor already carries flat per-face normals (boolean.ts), but we recrease
+    // below regardless, so any provided normals are just a valid starting point.
     if (d.normal && d.normal.length === d.position.length) {
         geo.setAttribute('normal', new THREE.BufferAttribute(d.normal, 3));
     } else {
-        // Descriptor without normals → derive them (after setIndex so the index
-        // drives the per-face normal accumulation).
         geo.computeVertexNormals();
     }
 
-    if (d.uv && d.uv.length === (d.position.length / 3) * 2) {
-        geo.setAttribute('uv', new THREE.BufferAttribute(d.uv, 2));
-    }
+    // §96-CSG-SEAM-FIX (2026-05-24) — the boolean (manifold) explodes its result
+    // into per-triangle soup with flat per-face normals. On the FLAT wall face the
+    // hole is triangulated by a fan of coplanar triangles whose per-face normals
+    // differ by tiny float amounts; under SSGI/lighting those coplanar triangle
+    // edges read as faint "division lines" radiating from the opening corners —
+    // exactly the seams the architect sees on the wall surface (even unselected).
+    // toCreasedNormals welds coincident vertices and gives every coplanar region ONE
+    // shared normal, so the flat face shades as a single seamless surface, while the
+    // 90° opening reveal stays crisp (its edges exceed the crease angle → kept hard).
+    const creased = toCreasedNormals(geo, THREE.MathUtils.degToRad(30));
+    geo.dispose();
 
-    geo.computeBoundingBox();
-    geo.computeBoundingSphere();
-    return geo;
+    creased.computeBoundingBox();
+    creased.computeBoundingSphere();
+    return creased;
 }

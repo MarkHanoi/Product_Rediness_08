@@ -41,7 +41,7 @@ export { Sky } from './addons/Sky.js';
 export { CSS2DRenderer, CSS2DObject } from './addons/CSS2DRenderer.js';
 export type { CSS2DParameters } from './addons/CSS2DRenderer.js';
 
-export { mergeGeometries } from './addons/BufferGeometryUtils.js';
+export { mergeGeometries, toCreasedNormals, mergeVertices } from './addons/BufferGeometryUtils.js';
 
 export { EffectComposer, Pass } from './addons/postprocessing/EffectComposer.js';
 export { RenderPass } from './addons/postprocessing/RenderPass.js';

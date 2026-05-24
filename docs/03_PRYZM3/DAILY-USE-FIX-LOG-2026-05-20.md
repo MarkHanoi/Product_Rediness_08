@@ -4,6 +4,36 @@ Concrete fixes applied this session in response to `DAILY-USE-AUDIT-2026-05-20.m
 
 ---
 
+## ✅ APPLIED — Round 49 (2026-05-24: #96 follow-up — CSG flat-face seam lines)
+
+### #96 §96-CSG-SEAM-FIX — division lines on the single-volume wall surface
+**Trigger (architect, after Round 48 confirmed the void cuts correctly):** "there are
+visible seam/division lines on the wall surface at the boolean cut edges … the wall face
+should look seamless" — and, on follow-up, "they are visible even without selecting the
+wall." (Screenshots: a full-height faint line aligned with the opening's side on the flat
+grey wall.)
+**Analysis (ruled out, in order):** (1) NOT the selection highlight — the lines show
+deselected, and the outline pass is selected/hover-only. (2) NOT leftover segments — every
+body piece (before / gap-below-sill / header-lintel / final) is tagged `elementType:'WallPart'`
+and the swap removes them all. (3) NOT the wall edge overlay — `buildWallEdgeOverlay` sets
+`visible=false` in 3D. **Root cause:** `produceBoolean` (manifold) explodes its result into
+per-triangle soup with flat per-face normals; the flat wall face around the hole is a fan of
+coplanar triangles whose per-face normals differ by tiny float amounts, so under SSGI/lighting
+the coplanar triangle edges (running from the opening corners to the wall edges) read as faint
+division lines on the surface.
+**Fix:** `descriptorToBufferGeometry` now post-processes the CSG geometry with THREE's
+`toCreasedNormals(geo, 30°)` — welds coincident vertices and gives every coplanar region ONE
+shared normal (flat face shades as a single seamless surface) while edges ≥30° (the opening
+reveal, the box corners) stay hard/crisp. Added `toCreasedNormals` + `mergeVertices` to the
+sanctioned `@pryzm/renderer-three` addon barrel (P2 — the only authorised three/examples
+re-export site).
+**Verification:** `renderer-three` + `geometry-wall` typecheck clean at the edited files.
+Client-package edit → live on a hard browser refresh. **Pending the architect's visual
+confirm** — if a line REMAINS after this, it is a wall-to-wall join corner (real geometry,
+separate concern), not the boolean.
+
+---
+
 ## ✅ APPLIED — Round 48 (2026-05-24: #96 WALL-SINGLE-VOLUME-CSG turned ON by default)
 
 ### #96 §96-DEFAULT-ON — wall-with-opening now ONE boolean-void solid (no seam lines)
