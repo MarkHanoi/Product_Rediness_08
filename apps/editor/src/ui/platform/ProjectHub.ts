@@ -510,6 +510,14 @@ export class ProjectHub {
     /** §CANVAS-CARD Phase 2 — disposers for per-card free-drag listeners; cleared + rebuilt on each refreshGrid so document-level handlers never leak. */
     private _cardDragDisposers: Array<() => void> = [];
 
+    /** §HUB-CANVAS-ZOOM (slice 1) — wheel-zoom scale for the project canvas. 1 = identity
+     * (default; cards render exactly as laid out — no fit-all). Persisted across
+     * refreshGrid so creating/deleting a project keeps the zoom. Panning is provided by
+     * the grid's own scrollbars; drag-to-pan + fit-all are later slices. */
+    private _hubZoom = 1;
+    private static readonly _HUB_ZOOM_MIN = 0.3;
+    private static readonly _HUB_ZOOM_MAX = 2.0;
+
     private attachGridListeners(el: HTMLElement): void {
         const grid = el.querySelector('#ph-grid') as HTMLElement;
 
@@ -680,8 +688,11 @@ export class ProjectHub {
             };
             const onMove = (e: MouseEvent): void => {
                 if (!dragging) return;
-                const dx = e.clientX - sx, dy = e.clientY - sy;
-                if (!moved && dx * dx + dy * dy > 25) {
+                // §HUB-CANVAS-ZOOM: screen delta → content delta (÷ zoom) so the card
+                // tracks the cursor 1:1 at any zoom level (identity at zoom 1).
+                const z = this._hubZoom || 1;
+                const dx = (e.clientX - sx) / z, dy = (e.clientY - sy) / z;
+                if (!moved && dx * dx + dy * dy > 25 / (z * z)) {
                     moved = true;
                     card.style.cursor    = 'grabbing';
                     card.style.boxShadow = '0 20px 48px rgba(40,30,90,0.28)';
@@ -718,12 +729,60 @@ export class ProjectHub {
             });
         });
 
-        // Size the canvas so it scrolls to fit the lowest card.
-        let maxBottom = 0;
+        // §HUB-CANVAS-ZOOM (slice 1): wrap the cards in a scaled content layer inside a
+        // "sizer" that reserves the (scaled) scroll extent, so the grid's own scrollbars
+        // pan the canvas and Ctrl/Cmd + wheel zooms it toward the cursor. At zoom 1 this
+        // is identity — cards render exactly as laid out above (safe default; NO fit-all,
+        // so the empty-grid regression cannot recur). Plain wheel still scrolls natively.
+        let maxBottom = 0, maxRight = 0;
         for (const card of cards) {
-            maxBottom = Math.max(maxBottom, (parseFloat(card.style.top) || 0) + card.offsetHeight);
+            maxBottom = Math.max(maxBottom, (parseFloat(card.style.top)  || 0) + (card.offsetHeight || ROW_H));
+            maxRight  = Math.max(maxRight,  (parseFloat(card.style.left) || 0) + CARD_W);
         }
-        grid.style.minHeight = `${maxBottom + 40}px`;
+        const contentW = maxRight  + PAD;
+        const contentH = maxBottom + 40;
+
+        const content = document.createElement('div');
+        content.className = 'ph-canvas-content';
+        content.style.cssText = 'position:absolute;top:0;left:0;transform-origin:0 0;';
+        for (const c of cards) content.appendChild(c);
+
+        const sizer = document.createElement('div');
+        sizer.className = 'ph-canvas-sizer';
+        sizer.style.position = 'relative';
+        sizer.appendChild(content);
+
+        grid.style.overflow = 'auto';
+        grid.appendChild(sizer);
+
+        const applyZoom = (): void => {
+            const z = this._hubZoom;
+            content.style.transform = `scale(${z})`;
+            sizer.style.width  = `${contentW * z}px`;
+            sizer.style.height = `${contentH * z}px`;
+        };
+        applyZoom();
+
+        // Ctrl/Cmd + wheel = zoom toward cursor; plain wheel = native scroll (pan).
+        const onWheel = (e: WheelEvent): void => {
+            if (!e.ctrlKey && !e.metaKey) return;
+            e.preventDefault();
+            const rect = grid.getBoundingClientRect();
+            const vx = e.clientX - rect.left;
+            const vy = e.clientY - rect.top;
+            const z0 = this._hubZoom || 1;
+            const contentX = (grid.scrollLeft + vx) / z0;
+            const contentY = (grid.scrollTop  + vy) / z0;
+            const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+            const z1 = Math.min(ProjectHub._HUB_ZOOM_MAX, Math.max(ProjectHub._HUB_ZOOM_MIN, z0 * factor));
+            if (z1 === z0) return;
+            this._hubZoom = z1;
+            applyZoom();
+            grid.scrollLeft = contentX * z1 - vx;   // keep the point under the cursor fixed
+            grid.scrollTop  = contentY * z1 - vy;
+        };
+        grid.addEventListener('wheel', onWheel, { passive: false });
+        this._cardDragDisposers.push(() => grid.removeEventListener('wheel', onWheel));
     }
 
     private _cardPosKey(id: string): string { return `pryzm.hubCardPos.${id}`; }
