@@ -288,6 +288,16 @@ secondary; all three are now closed by the unification:
   ceiling, plumbing, lighting, grid, annotation.
 - **B3 (silent-success) — CLOSED.** `applyRingBufferSide` returns `{applied, failed}`; `performUndo`
   shadow-drops + returns only on `applied > 0`, otherwise falls back to `commandManager.undo()`.
+- **B4 (REDO-SHAPE) — CLOSED 2026-05-24.** Redo re-adds the element to the legacy store. The ring
+  buffer's forward patch carries the **L1 (Immer) shape**, but complex elements are built in the
+  legacy store by a §P*.x bridge that **renames** L1 fields to legacy fields (curtain wall:
+  `bayWidth→gridXSpacing`, `bayHeight→gridYSpacing`, `mullionThickness→mullionSize` — `initTools.ts`
+  §P3.1-CW). Re-adding the raw L1 value skipped the rename → `migrateToGridSystem` read `undefined`
+  → **0 panels** → "redo did nothing" (walls were unaffected — their L1/legacy shapes align). **Fix:**
+  `elementUndoStoreAdapter` now **snapshots the exact legacy object on undo-remove and restores IT
+  on redo-add** (`_undoRestoreSnapshots`), so redo regenerates downstream geometry (panels) faithfully
+  for **every** element type. Unit-gated (`elementUndoStoreAdapter.test.ts` — "redo restores the
+  LEGACY object…").
 
 **Scoped follow-ups (do NOT regress §4.5/§4.6):**
 1. **Hosted door/window** (`door`/`window` are intentionally absent from `buildUndoStoreMap` →

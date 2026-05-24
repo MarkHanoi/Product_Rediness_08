@@ -3,12 +3,17 @@
 // duck-typed surface variants (getById vs get, remove vs delete) so Ctrl+Z / Ctrl+Y
 // revert both data and geometry for every element type.
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
   elementUndoStoreAdapter,
   adaptElementStoreMap,
+  __resetUndoRestoreSnapshots,
   type LegacyElementStoreLike,
 } from '../src/engine/undo/elementUndoStoreAdapter.js';
+
+// Module-level redo-restore stash is shared across adapter instances — reset per
+// test so cases that reuse the same element id don't leak snapshots into each other.
+beforeEach(() => __resetUndoRestoreSnapshots());
 
 /** Standard store: add/remove/update/getById (Wall/Slab/Room/Roof/Floor/Ceiling/Handrail). */
 function makeStandardStore(): LegacyElementStoreLike & { map: Map<string, any> } {
@@ -67,6 +72,23 @@ describe('elementUndoStoreAdapter', () => {
       a.applyPatch([{ op: 'add', path: [EL.id], value: EL }]);
       expect(s.map.get(EL.id)).toEqual(EL);
     }
+  });
+
+  it('redo restores the LEGACY object captured at undo, not the L1 forward value (REDO-SHAPE-FIX)', () => {
+    // Simulates the curtain-wall divergence: the legacy store holds bridge-mapped
+    // fields (gridXSpacing) that the L1 forward-patch value (bayWidth) lacks.
+    const s = makeStandardStore();
+    const legacy = { id: 'curtainwall_X', type: 'curtain-wall', levelId: 'L0', gridXSpacing: 1.2, gridYSpacing: 1.5 };
+    s.add(legacy);
+    const a = elementUndoStoreAdapter(s);
+    // undo (remove) → captures the legacy object
+    a.applyPatch([{ op: 'remove', path: ['curtainwall_X'] }]);
+    expect(s.map.has('curtainwall_X')).toBe(false);
+    // redo (add) with the L1-shaped value (bayWidth, NO gridXSpacing) → adapter MUST
+    // restore the captured legacy object instead, preserving gridXSpacing.
+    a.applyPatch([{ op: 'add', path: ['curtainwall_X'], value: { id: 'curtainwall_X', type: 'curtain-wall', levelId: 'L0', bayWidth: 1.2, bayHeight: 1.5 } }]);
+    expect(s.map.get('curtainwall_X')).toEqual(legacy);                 // legacy shape restored
+    expect((s.map.get('curtainwall_X') as any).gridXSpacing).toBe(1.2); // grid field preserved → panels regenerate
   });
 
   it('field-level replace updates a single field', () => {

@@ -11,6 +11,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { performUndo, performRedo, buildUndoStoreMap } from '../src/engine/undo/performUndoRedo.js';
+import { __resetUndoRestoreSnapshots } from '../src/engine/undo/elementUndoStoreAdapter.js';
 
 interface Op { op: 'add' | 'remove' | 'replace'; path: string; value?: unknown }
 interface Pair { forward: { ops: Op[] }; inverse: { ops: Op[] }; affectedStores: string[] }
@@ -77,6 +78,7 @@ function install(rb: any, cm: any, wallStore: any): void {
 
 describe('performUndoRedo — unified undo routing (OI-054)', () => {
   beforeEach(() => {
+    __resetUndoRestoreSnapshots();
     delete (window as any).runtime;
     delete (globalThis as any).commandManager;
     delete (window as any).wallStore;

@@ -100,16 +100,38 @@ export interface PatchApplicableAdapter {
   applyPatch(patches: readonly unknown[]): void;
 }
 
-function _exists(store: LegacyElementStoreLike, id: string): boolean {
+function _getValue(store: LegacyElementStoreLike, id: string): unknown {
   const getter = typeof store.getById === 'function' ? store.getById
     : typeof store.get === 'function' ? store.get
     : undefined;
-  return getter ? getter.call(store, id) != null : false;
+  return getter ? getter.call(store, id) : undefined;
+}
+
+function _exists(store: LegacyElementStoreLike, id: string): boolean {
+  return _getValue(store, id) != null;
 }
 
 function _remove(store: LegacyElementStoreLike, id: string): void {
   if (typeof store.remove === 'function') { store.remove(id); return; }
   if (typeof store.delete === 'function') { store.delete(id); return; }
+}
+
+// §OI-054 REDO-SHAPE-FIX (2026-05-24) — redo MUST restore the EXACT legacy object
+// that undo removed, NOT the L1-shaped forward-patch value. WHY: complex elements
+// are built in the legacy store by a §P*.x bridge that RENAMES L1 fields to legacy
+// fields (curtain wall: bayWidth→gridXSpacing, bayHeight→gridYSpacing,
+// mullionThickness→mullionSize — initTools.ts §P3.1-CW). The ring buffer's forward
+// patch carries the raw L1 value (bayWidth/bayHeight, panels:[]); re-adding THAT on
+// redo skips the rename → migrateToGridSystem reads undefined → 0 panels → "redo did
+// nothing". Capturing the legacy object on remove and re-adding IT round-trips for
+// EVERY element type (walls included — their shapes already align, so this is a
+// no-op improvement for them). Keyed by element id; consumed (deleted) on restore.
+const _undoRestoreSnapshots = new Map<string, unknown>();
+
+/** Test-only: clear the redo-restore snapshot stash between cases (it is module
+ *  state shared across adapter instances). Harmless in production. */
+export function __resetUndoRestoreSnapshots(): void {
+  _undoRestoreSnapshots.clear();
 }
 
 /**
@@ -129,11 +151,19 @@ export function elementUndoStoreAdapter(store: LegacyElementStoreLike): PatchApp
           if (p.path.length === 1) {
             // Whole-element op — the create/undo/redo case.
             if (p.op === 'remove') {
-              if (exists) { _remove(store, id); _onElementRemoved(id); }                         // undo of a create
-              else console.warn('[elementUndoStoreAdapter] skip remove — not found in store:', id);
+              if (exists) {
+                const snapshot = _getValue(store, id);       // capture the LEGACY object BEFORE remove (has bridge-mapped fields)
+                _remove(store, id);
+                if (snapshot != null) _undoRestoreSnapshots.set(id, snapshot);  // for a faithful redo
+                _onElementRemoved(id);                       // undo of a create
+              } else console.warn('[elementUndoStoreAdapter] skip remove — not found in store:', id);
             } else if (p.op === 'add') {
-              if (!exists && p.value != null && typeof store.add === 'function') {
-                store.add(p.value); _onElementAdded(id, p.value);                                // redo of a create
+              // Prefer the snapshot captured at undo time over the L1 forward-patch
+              // value — the snapshot is the legacy-shaped object the bridge built, so
+              // redo regenerates downstream geometry (e.g. curtain-wall panels) exactly.
+              const restore = _undoRestoreSnapshots.get(id) ?? p.value;
+              if (!exists && restore != null && typeof store.add === 'function') {
+                store.add(restore); _undoRestoreSnapshots.delete(id); _onElementAdded(id, restore);   // redo of a create
               } else console.warn('[elementUndoStoreAdapter] skip add — exists?', exists, 'hasAdd?', typeof store.add === 'function');
             } else if (p.op === 'replace') {
               if (p.value == null) continue;

@@ -2655,6 +2655,29 @@ declares `affectedStores=['curtainwall']` (one word, lowercase); `buildUndoStore
 adapter, so a future spelling drift fails CI. Documented C03 §4.8 table.
 
 **Gates:** editor typecheck 0 errors; `performUndoRedo.test.ts` **6/6** (5 routing + 1 coverage) +
-adapter 7/7. **Live-verify pending:** plan-view curtain-wall draw → Ctrl+Z reverts it.
+adapter 7/7. **Live-confirmed (architect):** plan-view curtain-wall UNDO works; wall undo+redo works.
 **Open follow-ups (do NOT regress):** hosted door/window standalone two-part undo; section/structural
 (no window store) on cm fallback; cross-stack redo ordering; ADR-051 single-store end-state.
+
+## Round 58 — OI-054 redo: curtain-wall "redo did nothing" → REDO-SHAPE-FIX (2026-05-24)
+
+Architect: wall undo+redo OK; curtain-wall undo OK but **redo did nothing**. Root cause confirmed
+**from code** (no guess): the §P3.1-CW bridge (`initTools.ts:1133`) builds the legacy curtain wall
+by RENAMING L1 fields — `bayWidth→gridXSpacing`, `bayHeight→gridYSpacing`,
+`mullionThickness→mullionSize` — and `CreateCurtainWall` writes the L1 value with `bayWidth`/
+`bayHeight` + `panels:[]`. The ring buffer's forward patch carries that raw **L1 shape**; on redo
+the adapter did `curtainWallStore.add(L1value)` which lacks `gridXSpacing`/`gridYSpacing` →
+`migrateToGridSystem` read `undefined` → **0 panels** → redo produced nothing. Walls were fine
+(their L1/legacy shapes align).
+
+**Fix (general, all elements) — REDO-SHAPE-FIX (C03 §4.7 B4):** `elementUndoStoreAdapter` now
+**snapshots the exact legacy object on undo-remove** (`_getValue` before `_remove`) into
+`_undoRestoreSnapshots`, and on redo-add **restores that captured object** in preference to the L1
+forward value (consumed/deleted after use). Redo therefore re-adds the bridge-shaped object
+(`gridXSpacing` present) → `CurtainPanelSyncHandler` regenerates panels faithfully — for EVERY
+element type, not just curtain walls (walls: no-op improvement since shapes already align).
+`[Redo-DIAG]` decision-point trace added to `performRedo` (kept until live-confirmed).
+
+**Gates:** editor typecheck 0 errors; **14/14** undo tests (`performUndoRedo` 6 + adapter 8,
+incl. new "redo restores the LEGACY object captured at undo, not the L1 forward value"). C03 §4.7
+B4 + this round. **Live-verify pending:** curtain-wall draw → undo → **redo brings it back with panels**.
