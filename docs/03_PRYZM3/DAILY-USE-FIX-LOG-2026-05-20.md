@@ -2280,3 +2280,125 @@ pass), §STORE-UNIFY (end-to-end CRUD smoke test), #96 (flip `__wallSingleVolume
 + visual/IFC verify; then layered/curved + IFC phase 4). #113 remainder:
 isolate/hide-by-level/type (logic already exists in `ProjectVisibilitySection.ts`
 — needs a runtime test); #114 integration (endpoint + signup + Supabase + email).
+
+# 2026-05-24 daily-use session
+
+## Hosted openings (doors / windows in walls)
+
+### §WALL-OPENING-MOVE-STALE — moving a door/window left the ORIGINAL opening behind (FIXED)
+**Symptom:** after placing a door/window in a wall, moving (or resizing) it leaves
+the original opening hole cut into the wall at the OLD location — the wall is not
+re-cut at the new offset.
+
+**Root cause:** `WallFragmentBuilder._buildWallInternal()` short-circuits the
+rebuild via a composite cache key `${wall._renderVersion}|${joinHash}|${slabTag}`
+([WallFragmentBuilder.ts](../../packages/geometry-wall/src/WallFragmentBuilder.ts)).
+An isolated wall (no join neighbours) routes a door/window edit through the
+version-guarded `updateWall()` path, but the WallStore opening mutators
+`updateWindow`/`updateDoor` rebuilt the frozen wall **without bumping
+`_renderVersion`** — so the key was unchanged, `buildWall()` never re-ran, and the
+old hole persisted. `addOpening` (create) DID bump, which is why creation worked
+but move/resize did not.
+
+**Fix:** bump `_renderVersion: (wall._renderVersion ?? 0) + 1` in `updateWindow`
+and `updateDoor` ([WallStore.ts](../../packages/geometry-wall/src/WallStore.ts)),
+matching `addOpening`. `buildWall()` rebuilds the **segmented** wall (the immediate
+render + permanent fallback) with the opening at its new offset. The door/window
+*leaf* mesh moves via its own builder, so only the wall *hole* was stale.
+Segmented path only — does NOT enable the CSG single-volume upgrade. Commit
+`084c3fd`. Client fix — browser refresh.
+
+> Scope note: the identical latent staleness also affects **delete** (`removeOpening`)
+> and **undo-of-delete** (`restoreOpening`) — same one-line `_renderVersion` bump.
+> Left out of this commit to keep it minimal; queued as a follow-up.
+
+## Wall single-volume CSG (#96)
+
+### §WALL-CSG-DATUM (#96) — reverted CSG to OPT-IN; malformed-cut root cause documented
+**Background:** `§96-DEFAULT-ON` (commit 9f9147f) enabled the boolean-void
+single-volume wall by default to remove the segmented "division-line" seams.
+
+**What went wrong:** in dev the manifold-3d WASM 404s (Vite pre-bundles it; see
+`§MANIFOLD-WASM-MIME` analysis below) so CSG silently fails and keeps segments —
+the feature was effectively dormant. When the WASM *does* load (prod, or a dev
+config that serves it), the CSG cut renders **malformed**: uncut wall covers part
+of the opening (a door showed a solid "sill" across its lower portion).
+
+**Root-cause analysis (datum mismatch):** the wall group is positioned at
+`level.elevation + slabBaseOffset + wall.baseOffset`
+([WallFragmentBuilder.ts:504](../../packages/geometry-wall/src/WallFragmentBuilder.ts#L504)),
+and both the segmented hole and the CSG void are computed in that frame. But the
+door/window **leaf** meshes are placed at `level.elevation + sillHeight + height/2`
+with **no slab / no baseOffset** term — `DoorBuilder.positionGroup`
+([DoorBuilder.ts:354](../../packages/geometry-door/src/DoorBuilder.ts#L354)) and
+`WindowBuilder.positionGroup`
+([WindowBuilder.ts:375](../../packages/geometry-window/src/WindowBuilder.ts#L375))
+are identical here (no door/window asymmetry). So when `slab` or `baseOffset` ≠ 0
+the leaf and the opening void/hole disagree vertically by that amount. This is a
+**leaf-vs-wall placement bug that affects BOTH render paths**, not a CSG producer
+bug: the kernel producers (`produceExtrude`, `produceBoolean`, `produceWallWithVoids`)
+are individually correct, and with the canonical `slab=baseOffset=0` the void and
+leaf align. The CSG path simply made the latent mismatch visible because it was the
+active path in a slab-bearing door scene.
+
+**Fix applied:** reverted the gate to **opt-in** — CSG runs only when
+`window.__wallSingleVolume === true`
+([WallFragmentBuilder.ts](../../packages/geometry-wall/src/WallFragmentBuilder.ts),
+`§96-OPT-IN`). The segmented path is the reliable default everywhere and prod can
+no longer auto-activate the malformed cut. Client fix — browser refresh.
+
+**Deliberately NOT fixed (deferred):** the leaf-vs-wall datum mismatch. The correct
+fix is to place the door/window leaf on the SAME datum as the wall group
+(`elevation + slabBaseOffset + baseOffset + sillHeight + height/2`), but that
+touches the working segmented leaf placement and **cannot be verified in dev**
+(CSG dormant; most scenes have slab≈0 so the change is a no-op there and only
+exercised in slab scenes). Do NOT flip `§96` back to default-on until: (1) this
+datum fix lands, AND (2) it is visually verified with a slab present and the WASM
+loading. The kernel producers do NOT need a slab parameter — the descriptor is
+placed at the wall-group origin, which already carries the slab via the group
+transform; threading slab into the producer would double-count.
+
+### §MANIFOLD-WASM-MIME (diagnosis only — NOT changed) — CSG WASM 404s in dev
+Console: `wasm streaming compile failed … expected magic word 00 61 73 6d, found
+3c 21 44 4f` (= `<!DO`, the SPA index.html). `manifold-3d` locates its payload via
+`new URL("manifold.wasm", import.meta.url)`; Vite's dep optimizer pre-bundles it so
+the URL resolves into `/node_modules/.vite/deps/` where the WASM was never copied →
+404 → HTML fallback → MIME rejection. The one-line fix is to add `'manifold-3d'` to
+`optimizeDeps.exclude` in `vite.config.ts` (same as `web-ifc`). **Intentionally left
+unchanged**: making the WASM load would un-dormant the malformed CSG cut above.
+Apply this ONLY together with the §WALL-CSG-DATUM leaf-placement fix, as part of a
+verified #96 re-enable.
+
+## Pending-item triage (analysed; runtime-gated — not code-fixable this session)
+
+- **#113 (isolate / hide by level / type)** — VERIFIED present and complete at
+  [ProjectVisibilitySection.ts](../../apps/editor/src/ui/ViewBrowser/panels/unified-browser/ProjectVisibilitySection.ts):
+  `applyElementVisibility` (L62), `applyIsolate` (L80), `applyLevelVisibility`
+  (L23), `applyCategoryTypeVisibility` (L181), dispatched by
+  `handleVisibilityCommand` (L200). Works today but writes THREE scene state
+  directly (no command/intent dispatch) — flagged `TODO(D.13)` for the P6/P7
+  runtime migration. Remaining work = runtime test + the deferred D.13 migration
+  (risky refactor of a working path) — not done here.
+- **#135 (kitchen/furniture in plan but not 3D)** — resilience VERIFIED present:
+  `§FURN-3D-RESILIENCE` try/catch at
+  [FurnitureFragmentBuilder.ts:138-168](../../packages/geometry-furniture/src/FurnitureFragmentBuilder.ts#L138-L168)
+  catches the type-engine throw (wardrobe + `FurnitureFactory` paths, kitchen
+  included), degrades to an empty group, and logs furnitureType + id + category +
+  config-presence flags. Both build calls are synchronous so the catch is real.
+  BLOCKED: the underlying engine throw can only be fixed once the architect pastes
+  the logged error. Diagnostic gap: config VALUES are intentionally redacted (F-08),
+  so the log identifies WHICH furniture threw but not the parameters — a safe
+  config-summary enhancement is an option if the error alone proves insufficient.
+- **#99 (floor/ceiling ENTER), #106 (toilet rotation), #101 (3D stair §6),
+  §STORE-UNIFY (CRUD smoke), #114 (pending-invite integration)** — all remain
+  blocked on running the live app (architect console logs / visual checks / backend
+  + email integration). No safe static code change available; status unchanged from
+  the 2026-05-23 summary above.
+
+### Cumulative (2026-05-24)
+2 client fixes shipped — `§WALL-OPENING-MOVE-STALE` (opening follows a moved/resized
+door/window; commit `084c3fd`) and `§WALL-CSG-DATUM` (#96 reverted to opt-in so the
+malformed CSG cut can't ship). Both browser-refresh. Remaining pending items are
+runtime-gated (need the live app / architect logs / backend) or deferred as
+unverifiable-in-dev (the #96 leaf-placement datum fix). No blind changes were made
+to the working segmented render path.

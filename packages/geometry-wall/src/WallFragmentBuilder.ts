@@ -1724,13 +1724,19 @@ export class WallFragmentBuilder {
         // the swap self-guards against a stale/disposed/rebuilt group (version token).
         // Plain straight walls only — layered/curved keep the segmented path (SPEC §3).
         //
-        // §96-DEFAULT-ON (2026-05-24): now ENABLED BY DEFAULT (opt-OUT). The prior
-        // `=== true` flag was never set anywhere, so the feature shipped inert and
-        // the architect kept seeing the seamed multi-box wall. Set
-        // `window.__wallSingleVolume = false` to fall back to the segmented path.
+        // §96-OPT-IN (2026-05-24): reverted to OPT-IN (default OFF). The default-on
+        // experiment (§96-DEFAULT-ON) shipped a malformed cut in production: the CSG
+        // void's vertical datum does not match the door/window mesh placement (the
+        // producer never receives the slab offset, and DoorBuilder/WindowBuilder place
+        // the leaf at `level.elevation + sillHeight` without slab/baseOffset), leaving
+        // uncut wall across the opening's lower portion. The segmented path is the
+        // reliable default and remains the fallback either way. Re-enable for verified
+        // testing ONLY by setting `window.__wallSingleVolume = true`. Do NOT flip the
+        // default back until the datum mismatch is fixed AND visually verified with a
+        // slab present (see DAILY-USE-FIX-LOG §WALL-CSG-DATUM, #96).
         if (
-            (typeof window === 'undefined' ||
-                (window as { __wallSingleVolume?: boolean }).__wallSingleVolume !== false) &&
+            typeof window !== 'undefined' &&
+            (window as { __wallSingleVolume?: boolean }).__wallSingleVolume === true &&
             this._singleVolumeProducer !== null &&
             wall.openings && wall.openings.length > 0 &&
             !wall.curve && !(wall.layers && wall.layers.length > 0)
