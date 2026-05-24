@@ -520,7 +520,7 @@ export class ViewsRailPanel {
 
     private _deleteView(view: ViewDefinition): void {
         if (!confirm(`Delete view "${view.name}"? This cannot be undone.`)) return;
-        this.runtime?.bus?.executeCommand('view.deleteDefinition', { viewId: view.id });
+        this._bus()?.executeCommand('view.deleteDefinition', { viewId: view.id });
         if (this._activeViewId === view.id) this._activeViewId = null;
         this._rail.refreshIfActive(this._sectionId);
         console.log(`[ViewsRailPanel] Deleted view: ${view.name} (${view.id})`);
@@ -531,7 +531,7 @@ export class ViewsRailPanel {
     private _duplicateView(view: ViewDefinition): void {
         const newId   = `vd-${view.viewType}-${crypto.randomUUID()}`;
         const newName = `${view.name} (Copy)`;
-        this.runtime?.bus?.executeCommand('view.createDefinition', {
+        this._bus()?.executeCommand('view.createDefinition', {
             id:           newId,
             name:         newName,
             viewType:     view.viewType,
@@ -676,6 +676,26 @@ export class ViewsRailPanel {
         return form;
     }
 
+    /**
+     * §VIEW-CREATE-RUNTIME-FIX (C02/P1) — resolve the LIVE command bus.
+     *
+     * `this.runtime` is captured at panel construction; in the current boot order the
+     * navigation panels can be built before `composeRuntime()` has published the runtime,
+     * so the captured handle is `null` and `this.runtime?.bus?.executeCommand(...)` was a
+     * SILENT no-op — clicking "Create" did nothing while the unconditional success log
+     * still printed. All working command dispatchers (e.g. WallPlanToolHandler) read the
+     * live global runtime at call time, which is why walls worked but views did not.
+     *
+     * Prefer the composed handle (P1/C02); fall back to the live global runtime so a
+     * stale-null capture never silently drops a user command. Resolved lazily per call.
+     */
+    private _bus(): { executeCommand: (type: string, payload: unknown) => unknown } | null {
+        type BusLike = { executeCommand: (type: string, payload: unknown) => unknown };
+        const rt = (this.runtime ?? (window as { runtime?: { bus?: BusLike } }).runtime) as { bus?: BusLike } | null | undefined;
+        const bus = rt?.bus;
+        return (bus && typeof bus.executeCommand === 'function') ? bus : null;
+    }
+
     private _executeCreateView(
         name:     string,
         viewType: ViewDefinition['viewType'],
@@ -691,7 +711,7 @@ export class ViewsRailPanel {
             ? { ...spatialBase, viewRange: { ...VIEW_RANGE_PRESETS.structural } }
             : (options?.levelId ? spatialBase : undefined);
 
-        this.runtime?.bus?.executeCommand('view.createDefinition', {
+        this._bus()?.executeCommand('view.createDefinition', {
             id,
             name,
             viewType,
@@ -886,7 +906,7 @@ export class ViewsRailPanel {
                 if (!isPlacedOnThisSheet && !isAlreadyPlacedElsewhere) {
                     entry.addEventListener('click', () => {
                         this._dismissContextMenu();
-                        this.runtime?.bus?.executeCommand('sheet.addViewport', {
+                        this._bus()?.executeCommand('sheet.addViewport', {
                             sheetId:    sheet.id,
                             viewportId: crypto.randomUUID(),
                             viewId:     view.id,
