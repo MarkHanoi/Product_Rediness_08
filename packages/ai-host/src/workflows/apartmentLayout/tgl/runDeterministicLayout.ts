@@ -47,9 +47,9 @@ export function generateDeterministicLayouts(
         seed: makeSeed(perimeter, program),
         weights,
         count: Math.max(1, count),
-        shellAreaM2: shell.netAreaM2 > 0 ? shell.netAreaM2 : undefined,
-        wallThicknessM: constraints.wallThickness > 0 ? constraints.wallThickness / 1000 : undefined,
-        wallHeightM: constraints.floorToCeiling > 0 ? constraints.floorToCeiling / 1000 : undefined,
+        ...(shell.netAreaM2 > 0 ? { shellAreaM2: shell.netAreaM2 } : {}),
+        ...(constraints.wallThickness > 0 ? { wallThicknessM: constraints.wallThickness / 1000 } : {}),
+        ...(constraints.floorToCeiling > 0 ? { wallHeightM: constraints.floorToCeiling / 1000 } : {}),
     });
 
     return candidates.map(c => {

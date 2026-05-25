@@ -79,11 +79,12 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     const placements: RoomPlacement[] = placementsT.map(p => ({ roomId: p.roomId, rect: xfRect(p.rect, t.inv) }));
 
     const { segments, openings } = buildWallsAndDoors(placements, bubble, {
-        wallThicknessM: input.wallThicknessM, doorWidthM: input.doorWidthM,
+        ...(input.wallThicknessM !== undefined ? { wallThicknessM: input.wallThicknessM } : {}),
+        ...(input.doorWidthM !== undefined ? { doorWidthM: input.doorWidthM } : {}),
     });
     const graph = buildSemanticGraph(placements, segments, openings, bubble, {
         levelId: input.levelId, seed: `${input.seed}|${strategyKey(s)}`, shellAreaM2: shellArea,
-        wallHeightM: input.wallHeightM,
+        ...(input.wallHeightM !== undefined ? { wallHeightM: input.wallHeightM } : {}),
     });
     const entryGuid = graph.nodes.find(n => n.kind === 'Space' && n.sourceId === bubble.entryId)?.guid ?? null;
     const metrics = computeSpaceSyntax(graph, entryGuid);
