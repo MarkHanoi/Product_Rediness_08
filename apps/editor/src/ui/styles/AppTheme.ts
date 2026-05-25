@@ -27,6 +27,7 @@
  */
 
 import { DESIGN_TOKENS } from './tokens';
+import { APARTMENT_LAYOUT_MODAL_STYLES } from './panels/apartmentLayoutModal';
 import { TOOLS_PANEL_STYLES, VIEW_BROWSER_STYLES, VIEW_PROPERTIES_PANEL_STYLES, VIEW_PROPERTIES_SECTION_STYLES, INTENT_SPINE_STYLES } from './panels/viewerPanels';
 import { PROJECT_BROWSER_STYLES, PHYS_RAIL_PANEL_STYLES } from './panels/projectBrowser';
 import { CURTAIN_WALL_STYLES, FLOOR_PLAN_IMPORT_STYLES } from './panels/constructionPanels';
@@ -194,7 +195,8 @@ export function injectAppTheme(): void {
         + IMPORTED_MODELS_STYLES
         + IMPORT_MANAGER_STYLES
         + CONFIRM_DIALOG_STYLES
-        + COLLABORATIVE_PRESENCE_STYLES;
+        + COLLABORATIVE_PRESENCE_STYLES
+        + APARTMENT_LAYOUT_MODAL_STYLES;
     if (!existing) document.head.appendChild(style);
 }
 
