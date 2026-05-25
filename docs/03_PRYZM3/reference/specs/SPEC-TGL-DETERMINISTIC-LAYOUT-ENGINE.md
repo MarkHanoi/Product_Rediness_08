@@ -357,28 +357,44 @@ The emitted geometry is **provably watertight** and **detectable** by the editor
   (a T‑junction within the engine's 0.5 m split threshold). `RoomDetectionEngine`'s
   `_snapNearbyCorners → _splitAtBodyCrossings → _splitAtTJunctions → buildWallGraph`
   then closes every cell. (Verified: `tglEnclosure.test.ts`.)
-- **Interior‑only emit.** `emitGeometry({ interiorWallsOnly: true })` (used by the
-  editor path) drops perimeter walls so D‑TGL **never duplicates the existing
-  shell** — coincident double walls would corrupt detection. Doors host on interior
-  walls only, so none are orphaned. (The shell supplies the perimeter; D‑TGL adds
-  partitions + doors, matching the "shell untouched" contract.)
+- **Door reconciliation (no sealed rooms).** After placing the doors the bubble
+  graph requests (where those rooms ended up adjacent), P4 **reconciles**: it adds
+  doors across shared walls — Kruskal‑style over the room‑adjacency graph,
+  preferring walls that touch circulation (corridor/hall/living) — until **every
+  room is reachable from the entry** via doors + open thresholds. This removes the
+  "a bedroom whose corridor wasn't placed adjacent ends up door‑less/sealed"
+  failure. One door per wall, fit‑checked. (Verified: `tglWallsAndDoors.test.ts`
+  reachability test; the end‑to‑end engine detects 6 rooms incl. a distinct
+  corridor for the 2‑bed program.)
+- **Preview vs build (perimeter shown, not duplicated).** `emitGeometry` emits ALL
+  walls, flagging perimeter walls `isExternal`, so the **preview shows the complete
+  plan**; the build uses `buildLayoutPlan({ skipExteriorWalls })` to skip them, so
+  D‑TGL **never duplicates the existing shell** (coincident double walls would
+  corrupt detection). Doors host on interior walls only, so none are orphaned. The
+  door wallRef remap absorbs the skipped walls. (The shell supplies the perimeter;
+  D‑TGL adds partitions + doors, matching the "shell untouched" contract.)
+- **Naming.** Rooms carry their semantic name + footprint centroid; after the build
+  the executor matches each detected room to the largest D‑TGL room whose centroid
+  falls inside it and dispatches `room.rename` (open‑plan zone → dominant space's
+  name). Doors are labelled by the rooms they connect in the preview.
 
 ### §11.2 — Known limitations (tracked)
 
-1. **Adjacency‑awareness.** P3b squarifies by area; it does not yet *guarantee* that
-   every `via:'door'` bubble edge lands on two adjacent rooms, so a door edge whose
-   rooms aren't adjacent in a given tiling is skipped (P4 is best‑effort). The 8‑way
-   enumeration mitigates this (the ranked winner realises more adjacencies); a future
-   P3c slicing‑tree placement keyed by the bubble graph would make it exact.
-2. **Corridor merges into the public zone.** Because `hall↔corridor` is an `open`
-   edge, the corridor joins the public open zone (no dedicated corridor room). This
-   is watertight and valid for open‑plan; a distinct corridor would need that edge
-   to become a doorway (and the door's adjacency realised — see #1).
-3. **Semantic open‑adjacency is direct‑edge only.** P5 records `ADJACENT_TO(open)`
-   for *direct* `via:'open'` edges; two same‑zone rooms that are adjacent only
-   transitively (hall↔kitchen) have no explicit edge (connectivity still holds via
-   the chain). A geometric‑adjacency pass would complete the graph for the twin.
-4. **Rectilinear shells.** Slanted shell edges are stair‑step approximated (P1);
+1. **Adjacency‑awareness / nicer layouts.** P3b squarifies by area; it does not yet
+   *guarantee* the exact bubble‑edge rooms land adjacent — door **reconciliation**
+   (§11.1) guarantees *reachability*, but the resulting circulation isn't always the
+   most elegant. A future **P3c** slicing‑tree placement keyed by the bubble graph
+   would honour the intended adjacencies (bedrooms strictly off the corridor) and
+   produce architect‑grade plans.
+2. **Door names need a schema field.** Rooms are named in the model (`Room` has a
+   `name`); the `Door` schema has **no** name field, so doors are labelled only in
+   the preview. Model‑level door names would need an additive `name` on the `Door`
+   element (committer + schedule consumers) — out of scope here.
+3. **Rectilinear shells.** Slanted shell edges are stair‑step approximated (P1);
    exact for rectangles / L / T / U.
-5. **Windows.** P4 emits doors only; the `Window` node is in the schema but not yet
+4. **Windows.** P4 emits doors only; the `Window` node is in the schema but not yet
    generated — daylight is scored from façade adjacency as a proxy. P10/next.
+5. **Editor perf (not D‑TGL).** The D‑TGL build is a single coalesced `runBatch`
+   (one room‑redetect, batch render‑suppress). Slowness observed during *manual*
+   drawing — each `wall.create` triggers a room redetect + full plan re‑projection —
+   is an editor‑wide concern tracked separately from this engine.
