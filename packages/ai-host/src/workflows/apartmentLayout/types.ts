@@ -77,3 +77,15 @@ export interface LayoutScore {
 export interface ScoredLayoutOption extends LayoutOption {
     score: LayoutScore;
 }
+
+/** Generate-phase payload (SPEC §3). Units: mm for constraints; areas m². */
+export interface ApartmentGenerateLayoutPayload {
+    levelId: string;
+    shellWallIds: string[];
+    entranceDoorId: string;
+    windowIds: string[];
+    program: ApartmentProgram;
+    constraints: ApartmentConstraints;
+    options: { count: number; scoringWeights: ScoringWeights };
+}
+
