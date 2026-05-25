@@ -29,7 +29,7 @@ import { getPreviewManager } from '@app/engine/preview/PreviewManager';
 import type { ElementSchema } from '@app/engine/preview/PreviewManager';
 // C17 CB-8 — the AI panel surfaces the SAME batch catalogue as the CREATE panel,
 // dispatched through the SAME path (dispatchBatchEntry → Path-A commandManager.execute).
-import { groupCatalogue, dispatchBatchEntry, SHIPPED_PHASE, type BatchDeps } from '../create/batchCatalogue';
+import { groupCatalogue, dispatchBatchEntry, type BatchDeps } from '../create/batchCatalogue';
 // SPEC-SEMANTIC §3.1 / Phase 2 — surface the existing room auto-organise (tag-by-type) flow.
 import { openAutoOrganiseModal } from '../property-inspector/RoomAutoOrganiser';
 
@@ -875,7 +875,7 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
             for (const entries of sys.values()) {
                 for (const e of entries) {
                     if (e.params && e.params.length > 0) continue; // parameterised → NL pills
-                    if (e.phase > SHIPPED_PHASE || e.status !== 'live') {
+                    if (e.status !== 'live') {
                         leaves.push({
                             label: e.label,
                             hint: `Phase ${e.phase}`,

@@ -17,7 +17,6 @@ import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
 import {
     groupCatalogue,
     dispatchBatchEntry,
-    SHIPPED_PHASE,
     type BatchCatalogEntry,
     type BatchDeps,
 } from '../create/batchCatalogue';
@@ -452,10 +451,12 @@ export function mountCreatePanel(
     // layer; parameterless → dispatches on click. Phase-gated / precondition-failing
     // entries render disabled with a reason tooltip (CB-4 / CB-5).
     const toBatchLeaf = (entry: BatchCatalogEntry): any => {
-        const phaseGated = entry.phase > SHIPPED_PHASE;
+        // Gate on STATUS: only 'live' entries dispatch; 'phased'/'partial' render
+        // disabled with their precondition reason (e.g. "Coming in Phase N").
+        const notLive = entry.status !== 'live';
         const disabledReason = () => {
-            if (phaseGated) return `Coming in Phase ${entry.phase}`;
             const p = entry.precondition(batchDeps);
+            if (notLive) return p.reason ?? `Coming in Phase ${entry.phase}`;
             return p.ok ? undefined : p.reason;
         };
         if (entry.params && entry.params.length > 0) {
@@ -463,7 +464,7 @@ export function mountCreatePanel(
                 label: entry.label,
                 icon: entry.icon,
                 batch: true,
-                disabled: () => phaseGated,
+                disabled: () => notLive,
                 disabledReason,
                 children: { title: entry.label, batchForm: entry },
             };
@@ -473,7 +474,7 @@ export function mountCreatePanel(
             icon: entry.icon,
             batch: true,
             disabled: () =>
-                props.bimManager.getLevels().length === 0 || phaseGated || !entry.precondition(batchDeps).ok,
+                props.bimManager.getLevels().length === 0 || notLive || !entry.precondition(batchDeps).ok,
             disabledReason,
             action: () => runDispatch(entry),
         };

@@ -72,6 +72,7 @@ export * from './doors/UpdateDoorWidthCommand';
 
 // ─── Floors ───────────────────────────────────────────────────────────────
 export * from './floors/CreateFloorCommand';
+export * from './floors/CreateFloorsByRoomTypeCommand';
 export * from './floors/RemoveFloorCommand';
 export * from './floors/UpdateFloorCommand';
 export * from './floors/UpdateFloorLayersCommand';

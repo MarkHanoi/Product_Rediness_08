@@ -97,7 +97,7 @@ Columns: **Path** = `Discipline › System › ⚡Batch › label`. **Prompt** =
 | Architecture › Room › ⚡ | "Detect rooms on the active level" | `DETECT_ROOM_FROM_WALLS` | — | on-active-level | 1 | ✅ |
 | Architecture › Room › ⚡ | "Name/tag every room by type" | `TAG_ELEMENT` (+SL-1) | — | per-room | 2 | ⏳ |
 | Architecture › Ceiling › ⚡ | "Add a ceiling to every enclosed room" | — | — | per-room | 3 | ⏳ |
-| Architecture › Floor › ⚡ | "Apply floor finish by room type" | — | — | per-room | 2 | ⏳ |
+| Architecture › Floor › ⚡ | "Floor finish by room type" | `CREATE_FLOORS_BY_ROOM_TYPE` | — | per-room | 2 | ✅ (catalogId `floors.finish-by-room-type`; consumes `room.occupancyType`) |
 
 ### §4.2 — Structure
 

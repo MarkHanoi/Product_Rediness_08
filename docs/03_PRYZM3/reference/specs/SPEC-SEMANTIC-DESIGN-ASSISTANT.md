@@ -125,7 +125,7 @@ New/changed surfaces:
 |---|---|---|
 | **1** ✅ | C17 batch catalogue + panel binding (CREATE + AI panel) + feasible-today subset wired | **LANDED** (commits 29a9415, edb1776). AS-IS semantics audited (§3.1). |
 | **2a** ✅ | **Apply SL-1 — "tag rooms by type"** already exists: `RoomAutoOrganiser` (`propose(levelId)` = `inferType` per room → proposals; `apply()` → `room.setOccupancy` + `room.rename`; `openAutoOrganiseModal`). Was reachable **only** from the room property inspector. **This turn:** surfaced on the main surfaces — CREATE › Architecture › Room › "Auto-Organise (tag by type)" + AI panel "Auto-organise rooms" (both call the existing modal). | tagging reachable from CREATE + AI; rooms carry `occupancyType` |
-| **2b** | **First consuming command** — #34 "floor finish by room type": per room read `occupancyType` → map to a floor finish system type (timber for living/bedroom, tile for kitchen/bathroom) → create a floor in the room boundary, one undo unit (runBatch). Then #28/#29/#31/#33/#41 (per-room ceilings/slabs/screed/lighting). | floors land per room with the right finish; gate: reference plan |
+| **2b** ✅ (#34) | **First consuming command LANDED** — `CreateFloorsByRoomTypeCommand` (`command-registry/floors`): per room read `occupancyType` → finish category (timber: living/bedroom/dining; tile-stone: kitchen/bathroom/wc/utility) → `CreateFloorCommand` in the room boundary (`RoomVertex`/`FloorVertex` both `{x,z}`), `hostRoomId` linked, dedup on existing host floor, one undo unit via `runBatch`. Wired into C17 catalogue (Architecture › Floor › "Floor finish by room type") + AI panel; status-gating switched live-vs-phased. **Next:** #28/#29/#31/#33/#41 (per-room ceilings/slabs/screed/lighting) reuse this exact pattern. | floors land per room with the right finish |
 | **3** | **SL-3 façade orientation** (new service in `spatial-index`) + **adjacency-driven openings** (consume SL-2): windows on exterior/oriented façades; doors between adjacent rooms (per-room/per-facade batch commands) | façade query returns N/E/S/W for a known model; doors land only between truly adjacent rooms |
 | **4** | **SL-5 furniture placement engine** (room-type + clearance + adjacency anchors) → FURNITURE/plumbing/lighting per room | #46–50, #41–44 place correctly per room; no overlaps; clearances hold |
 | **5** | Structural (columns@grid via existing grid + new placement command, beams@columns via a structural graph) + **SL-4 fire compartments** + compartment-aware fire-rated doors/walls | BEAMS + structural prompts; compartment boundaries match fire-rated wall sets |
@@ -190,7 +190,7 @@ The architect's verbatim batch prompts (2026-05-24/25), each classified by **sco
 31. *Floor slab per room bounded by walls…* — per-room · SL-1 ✅ + room boundary · **P3** (whole-floor slabs = P1).
 32. *Raised access floor in server/IT areas…* — per-room · SL-1 ✅ · **P4**.
 33. *Screed over slabs except raised-floor areas…* — per-room · SL-1 ✅ · **P3**.
-34. *Floor finish: timber in living/bedroom, tile in kitchen/bathroom…* — per-room · SL-1 ✅ · **P2** (pure room-type → finish; first SL-1-apply win).
+34. *Floor finish: timber in living/bedroom, tile in kitchen/bathroom…* — per-room · SL-1 ✅ · **P2 ✅ LANDED** (`CreateFloorsByRoomTypeCommand` — first consuming semantic command; CREATE › Architecture › Floor + AI panel).
 35. *Balcony slab from living-room exterior walls on S/W façades…* — per-facade · SL-1 ✅ + SL-3 ❌ · **P3**.
 
 **STAIRS & HANDRAILS**

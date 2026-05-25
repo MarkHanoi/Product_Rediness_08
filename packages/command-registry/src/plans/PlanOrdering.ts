@@ -248,6 +248,7 @@ export class PlanOrdering {
         [CommandType.REMOVE_CEILINGS_ON_LEVEL]:  95,
         // ── Floors ─────────────────────────────────────────────────────────
         [CommandType.CREATE_FLOOR]:              21,
+        [CommandType.CREATE_FLOORS_BY_ROOM_TYPE]: 21,
         [CommandType.UPDATE_FLOOR]:              41,
         [CommandType.REMOVE_FLOOR]:              90,
         [CommandType.UPDATE_FLOOR_BOUNDARY]:     41,

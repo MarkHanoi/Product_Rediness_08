@@ -35,6 +35,7 @@ import {
     ReplicateSelectedSlabToAllLevelsCommand,
     CreateMultipleLevelsCommand,
     CreateGridSystemCommand,
+    CreateFloorsByRoomTypeCommand,
 } from '@pryzm/command-registry';
 
 /** The phase currently shipped. Entries with `phase > SHIPPED_PHASE` render disabled (CB-4). */
@@ -211,6 +212,19 @@ export const BATCH_CATALOGUE: BatchCatalogEntry[] = [
         icon: 'material-symbols:dashboard', scope: 'per-room', phase: 3, status: 'phased',
         precondition: () => phaseGate(3), build: () => null,
     },
+    {
+        // SPEC-SEMANTIC §10 #34 — first CONSUMING semantic command (Phase 2b, LIVE).
+        // Consumes room.occupancyType (set by Auto-Organise) → floor finish per room.
+        catalogId: 'floors.finish-by-room-type', discipline: 'Architecture', system: 'Floor',
+        label: 'Floor finish by room type',
+        prompt: 'Create floor finishes by room type — timber in living/bedroom, tile in kitchen/bathroom — on this level',
+        icon: 'material-symbols:layers', scope: 'per-room', phase: 2, status: 'live',
+        precondition: (d) => d.getActiveLevelId() ? OK : { ok: false, reason: 'No active level' },
+        build: (d) => {
+            const lvl = d.getActiveLevelId();
+            return lvl ? new CreateFloorsByRoomTypeCommand(lvl) : null;
+        },
+    },
 
     // ── Structure › Slab ─────────────────────────────────────────────────────
     {
@@ -377,7 +391,14 @@ export function dispatchBatchEntry(
     deps: BatchDeps,
     params?: Record<string, number>,
 ): BatchDispatchResult {
-    if (entry.phase > SHIPPED_PHASE) return { ok: false, reason: `Coming in Phase ${entry.phase}` };
+    // Gate on STATUS (not phase number): only 'live' entries are dispatchable;
+    // 'phased'/'partial' entries surface their precondition reason (e.g. "Coming
+    // in Phase N"). A newly-landed capability flips status→'live' regardless of
+    // its phase label (e.g. #34 floors-by-room is Phase 2 but live).
+    if (entry.status !== 'live') {
+        const p = entry.precondition(deps);
+        return { ok: false, reason: p.reason ?? `Coming in Phase ${entry.phase}` };
+    }
     const pre = entry.precondition(deps);
     if (!pre.ok) return { ok: false, reason: pre.reason };
     if (!deps.commandManager) return { ok: false, reason: 'CommandManager not available' };

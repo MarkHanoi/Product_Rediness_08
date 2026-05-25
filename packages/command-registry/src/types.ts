@@ -247,6 +247,8 @@ export enum CommandType {
     UPDATE_CEILING_LAYERS             = 'UPDATE_CEILING_LAYERS',
     REMOVE_CEILINGS_ON_LEVEL          = 'REMOVE_CEILINGS_ON_LEVEL',
     CREATE_FLOOR                      = 'CREATE_FLOOR',
+    // SPEC-SEMANTIC §10 #34 — batch floor-finish by room type (consumes room.occupancyType).
+    CREATE_FLOORS_BY_ROOM_TYPE        = 'CREATE_FLOORS_BY_ROOM_TYPE',
     UPDATE_FLOOR                      = 'UPDATE_FLOOR',
     REMOVE_FLOOR                      = 'REMOVE_FLOOR',
     UPDATE_FLOOR_BOUNDARY             = 'UPDATE_FLOOR_BOUNDARY',
