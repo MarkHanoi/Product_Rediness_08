@@ -20,6 +20,45 @@ import {
 
 // ── Scene visibility helpers ──────────────────────────────────────────────────
 
+// ── §INSTANCED-ISOLATE-FIX (2026-05-25) ───────────────────────────────────────
+// Instanced / aggregated geometry (plain batch walls created by "walls on all
+// slabs / from slab", structural columns, …) renders in a per-level group whose
+// userData carries { levelId, elementType, isInstancedGroup } but NO per-element
+// userData.id (one InstancedMesh stands in for many walls on a level). The
+// id-keyed visibility traverses below all `return` on objects without
+// userData.id, so isolate / re-apply / reset never touched these groups — batch
+// walls stayed visible no matter which level was isolated (curtain walls worked
+// because their group carries a real id). These helpers resolve such aggregates
+// by level (+ type), the only handles an instanced group exposes.
+function _isInstancedGroup(obj: any): boolean {
+    return obj?.userData?.isInstancedGroup === true;
+}
+function _instancedGroupVisibleFromBag(obj: any, bag: UBPBag): boolean {
+    const lid     = String(obj.userData.levelId ?? '');
+    const lvlVis  = bag.levelVisible.get(lid) ?? true;
+    const typeKey = `${lid}:${obj.userData.elementType ?? obj.userData.type ?? ''}`;
+    const typeVis = bag.typeVisible.get(typeKey) ?? true;
+    return bag.buildingVisible && lvlVis && typeVis;
+}
+function _instancedGroupInIsolateScope(obj: any, targetKey: string): boolean {
+    const lid   = String(obj.userData.levelId ?? '');
+    const etype = String(obj.userData.elementType ?? obj.userData.type ?? '').toLowerCase();
+    if (targetKey.startsWith('level:')) {
+        return lid === targetKey.slice('level:'.length);
+    }
+    if (targetKey.startsWith('type:')) {
+        // key shape: 'type:<levelId>:<typeName>'
+        const rest = targetKey.slice('type:'.length);
+        const sep  = rest.lastIndexOf(':');
+        const lvl  = sep >= 0 ? rest.slice(0, sep) : rest;
+        const typ  = sep >= 0 ? rest.slice(sep + 1) : '';
+        return lid === lvl && (typ === '' || etype === typ.toLowerCase());
+    }
+    // element / category isolate cannot reduce an aggregate to a single element —
+    // hide it so isolation never leaks other-level instanced geometry.
+    return false;
+}
+
 export function applyLevelVisibility(_bag: UBPBag, levelId: string, visible: boolean): void {
     const scene = window.selectionManager?.world?.scene?.three; // TODO(D.13)
     if (!scene) return;
@@ -85,6 +124,10 @@ export function applyIsolate(bag: UBPBag, targetKey: string, getElemIds: () => s
         bag.isolateMode = null;
         scene.traverse((obj: any) => {
             if (obj.userData?.role === 'edges') return;
+            if (_isInstancedGroup(obj)) {                       // §INSTANCED-ISOLATE-FIX
+                obj.visible = _instancedGroupVisibleFromBag(obj, bag);
+                return;
+            }
             if (!obj.userData?.id) return;
 
             const elemId  = String(obj.userData.id);
@@ -111,8 +154,12 @@ export function applyIsolate(bag: UBPBag, targetKey: string, getElemIds: () => s
         bag.isolateMode = targetKey;
         const targetIds = new Set(getElemIds().map(String));
         scene.traverse((obj: any) => {
-            if (!obj.userData?.id) return;
             if (obj.userData?.role === 'edges') return;
+            if (_isInstancedGroup(obj)) {                       // §INSTANCED-ISOLATE-FIX
+                obj.visible = _instancedGroupInIsolateScope(obj, targetKey);
+                return;
+            }
+            if (!obj.userData?.id) return;
             obj.visible = targetIds.has(String(obj.userData.id));
         });
     }
@@ -145,6 +192,7 @@ export function resetAllVisibility(bag: UBPBag): void {
     if (scene) {
         scene.traverse((obj: any) => {
             if (obj.userData?.role === 'edges') return;
+            if (_isInstancedGroup(obj)) { obj.visible = true; return; }  // §INSTANCED-ISOLATE-FIX
             if (!obj.userData?.id) return;
             obj.visible = true;
         });

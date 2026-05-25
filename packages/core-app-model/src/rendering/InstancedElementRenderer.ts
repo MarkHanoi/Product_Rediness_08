@@ -109,6 +109,7 @@ export class InstancedElementRenderer {
         material: THREE.Material,
         matrix: THREE.Matrix4,
         levelId?: string,
+        elementType?: string,
     ): void {
         const key = this._hashGeometry(geometry, material, levelId);
 
@@ -158,7 +159,13 @@ export class InstancedElementRenderer {
                 }
                 return undefined;
             };
-            group.mesh.userData.elementType = 'InstancedElement';
+            // §INSTANCED-ISOLATE-FIX (2026-05-25) — stamp the REAL element type (e.g.
+            // 'wall') rather than the generic placeholder so the Project Browser's
+            // isolate/hide-by-type traverses (ProjectVisibilitySection) can resolve this
+            // per-level aggregate group. The group key includes geometry+material+levelId,
+            // so every instance in a group shares one element type. Falls back to the
+            // generic label when the caller does not supply a type.
+            group.mesh.userData.elementType = elementType ?? 'InstancedElement';
             group.mesh.userData.isInstancedGroup = true;
             // §INSTANCED-LEVEL-VIS (2026-05-25) — stamp the group's levelId so the
             // Project Browser's hide-by-level (ProjectVisibilitySection.applyLevelVisibility,

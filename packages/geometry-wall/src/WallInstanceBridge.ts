@@ -96,7 +96,10 @@ export class WallInstanceBridge {
             .multiply(new THREE.Matrix4().makeRotationY(angle))
             .multiply(new THREE.Matrix4().makeScale(wallLength, wall.height, wall.thickness));
 
-        this._renderer.register(wall.id, geo, mat, matrix, wall.levelId);
+        // §INSTANCED-ISOLATE-FIX — pass the element type so the instanced group can be
+        // resolved by the Project Browser's isolate/hide-by-type traverses (the group
+        // has no per-element userData.id, so type+level are the only handles).
+        this._renderer.register(wall.id, geo, mat, matrix, wall.levelId, 'wall');
 
         geo.dispose();
     }

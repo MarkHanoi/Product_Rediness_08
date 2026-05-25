@@ -21,6 +21,8 @@ export interface IInstancedRenderer {
         material: THREE.Material,
         matrix: THREE.Matrix4,
         levelId: string,
+        /** Element type stamped on the group mesh so level/type isolation can resolve it. */
+        elementType?: string,
     ): void;
 
     /** Update the world-space transform of an already-registered element. */
