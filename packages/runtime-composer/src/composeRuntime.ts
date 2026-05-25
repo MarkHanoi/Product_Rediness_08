@@ -42,6 +42,7 @@ import {
   type RenderEverythingBootstrapFn,
 } from '@pryzm/renderer';
 import type { SyncClient } from '@pryzm/sync-client';
+import { LayoutOptionsStore, AiApprovalQueueStore } from '@pryzm/stores';
 
 import { EventBus } from './EventBus.js';
 import { wireCommandEventBridge } from './CommandEventBridge.js';
@@ -507,7 +508,10 @@ function buildVisibilitySlot(): VisibilitySlot {
 // fills it in without a contract change.
 const DEFAULT_AI_MODEL = 'claude-haiku-4-5';
 
-function buildAiSlot(): AiSlot {
+function buildAiSlot(
+  approvalQueue: AiApprovalQueueStore,
+  layoutOptions: LayoutOptionsStore,
+): AiSlot {
   let loaded = false;
   let cached: unknown | null = null;
   let activeModel: string = DEFAULT_AI_MODEL;
@@ -524,11 +528,18 @@ function buildAiSlot(): AiSlot {
     async getHost() {
       if (cached !== null) return cached;
       const mod = await import('@pryzm/ai-host');
-      cached = await mod.getAiHost();
+      // #51 A5.3 — pass the approval queue so createAiHost constructs the
+      // in-process AiPlane (workflows register on `host.plane`). Without a
+      // queue the host has no plane and submit() only POSTs to the worker.
+      cached = await mod.getAiHost({ approvalQueue });
       loaded = true;
       return cached;
     },
     isLoaded() { return loaded; },
+
+    // ── #51 Apartment Layout stores (A5.3) ─────────────────────────────
+    layoutOptions,
+    approvalQueue,
 
     // ── Phase F.7 surface (new) ────────────────────────────────────────
     get model() { return activeModel; },
@@ -697,6 +708,14 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
     // ── 1. Cross-cutting singletons (no I/O) ──────────────────────────────
     const events = new EventBus();
     const userPreferences = new UserPreferences();
+    // #51 A5.3 — AI workflow stores. `aiApprovalQueue` is passed to
+    // `getAiHost({ approvalQueue })` so the in-process AiPlane is constructed
+    // (workflows register on it); `layoutOptions` is the AIStore the
+    // apartment-layout workflow persists scored options into. Both are exposed
+    // on `runtime.ai` so the editor's post-compose registration + the §11 modal
+    // reach them without a global. No I/O — pure in-memory stores.
+    const aiApprovalQueue = new AiApprovalQueueStore();
+    const layoutOptions = new LayoutOptionsStore();
     // F-launch.1 (S81 F.1.01) — boot-time contributions land in the
     // PluginHost via the constructor.  When `pluginContributions` is
     // omitted, the host keeps its empty registry and `register()` calls
@@ -787,7 +806,7 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
     // Phase 1B's `DomInputHost` lands by passing `loadEngineInput` to
     // `bootstrapInput()`.  Body: `@pryzm/input-host/src/bootstrap.ts`.
     const inputHost: InputHostSlot = bootstrapInputIdle().inputHost;
-    const ai = buildAiSlot();
+    const ai = buildAiSlot(aiApprovalQueue, layoutOptions);
 
     // ── 4. Persistence + sync + undoStack ─────────────────────────────────
     // D.4.2 Day-8: `workspaceMount` no longer flows through here.  The

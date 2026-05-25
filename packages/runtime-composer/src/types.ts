@@ -28,6 +28,7 @@
 
 import type { AnyStores, CommandHandler, RingBufferUndoStack } from '@pryzm/command-bus';
 import type { SyncClient, PryzmAwareness } from '@pryzm/sync-client';
+import type { LayoutOptionsStore, AiApprovalQueueStore } from '@pryzm/stores';
 import type { Renderer, MaterialPool, FrameScheduler, CommitterHost, CameraController, PlainPose } from '@pryzm/renderer';
 import type { WorkspaceSurface } from '@pryzm/renderer-three';
 import type { VisibilityElement, VisibilityView, VisibilityFeatureFlags, WaveVisibilityResult } from '@pryzm/visibility';
@@ -111,6 +112,15 @@ export interface RuntimeEvents {
    *  selection set.  Replaces the legacy `'pryzm-selection-changed'`
    *  DOM event. */
   'selection.changed': { ids: readonly string[] };
+
+  // ── #51 Apartment Layout (SPEC-APARTMENT-LAYOUT-GENERATOR §13) ─────────────
+
+  /** Fired by the `apartment-layout-generate` workflow when N ranked,
+   *  validated, scored interior-layout options are ready. The §11 modal
+   *  subscribes; `options` are `ScoredLayoutOption[]` (typed loosely here
+   *  to keep this contract free of an ai-host import — the modal narrows).
+   *  Replaces a `window.dispatchEvent` (P4). */
+  'apartment.layout-options-ready': { runId: string; options: readonly unknown[] };
 
   // ── Wave 4 Track A — typed-slot events ────────────────────────────────────
 
@@ -2294,6 +2304,17 @@ export interface AiSlot {
   /** Cheap predicate — `true` once `getHost()` has resolved at least
    *  once this session.  Useful for UI to gate "AI is warm" affordances. */
   isLoaded(): boolean;
+
+  // ── #51 Apartment Layout (SPEC-APARTMENT-LAYOUT-GENERATOR §13, A5.3) ──
+  /** The AIStore `pendingLayoutOptions` slice — the apartment-layout
+   *  workflow persists scored options here; the §11 modal + the execute
+   *  handler (A6) read/clear it. Owned by the composition root so it is
+   *  reachable through the runtime without a global. */
+  readonly layoutOptions: LayoutOptionsStore;
+  /** The AI approval queue store passed to `getAiHost({ approvalQueue })`
+   *  so the in-process AiPlane exists (workflows register on it). Also the
+   *  sink for the existing approval-queue panel. */
+  readonly approvalQueue: AiApprovalQueueStore;
 
   // ── Phase F.7 (relay surface) ────────────────────────────────────────
   /** Currently selected Anthropic model id (e.g. `'claude-haiku-4-5'`). */
