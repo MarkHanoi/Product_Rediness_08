@@ -36,6 +36,7 @@ import {
     CreateMultipleLevelsCommand,
     CreateGridSystemCommand,
     CreateFloorsByRoomTypeCommand,
+    CreateCeilingsByRoomCommand,
 } from '@pryzm/command-registry';
 
 /** The phase currently shipped. Entries with `phase > SHIPPED_PHASE` render disabled (CB-4). */
@@ -207,10 +208,16 @@ export const BATCH_CATALOGUE: BatchCatalogEntry[] = [
         precondition: () => phaseGate(3), build: () => null,
     },
     {
+        // SPEC-SEMANTIC §10 #28/#29 — LIVE: suspended grid for office/meeting rooms,
+        // plasterboard elsewhere; one ceiling per room boundary.
         catalogId: 'ceilings.per-room', discipline: 'Architecture', system: 'Ceiling',
-        label: 'Ceiling in every room', prompt: 'Add a ceiling to every enclosed room',
-        icon: 'material-symbols:dashboard', scope: 'per-room', phase: 3, status: 'phased',
-        precondition: () => phaseGate(3), build: () => null,
+        label: 'Ceiling in every room', prompt: 'Add a ceiling to every room by type (suspended grid in offices, plasterboard elsewhere)',
+        icon: 'material-symbols:dashboard', scope: 'per-room', phase: 2, status: 'live',
+        precondition: (d) => d.getActiveLevelId() ? OK : { ok: false, reason: 'No active level' },
+        build: (d) => {
+            const lvl = d.getActiveLevelId();
+            return lvl ? new CreateCeilingsByRoomCommand(lvl) : null;
+        },
     },
     {
         // SPEC-SEMANTIC §10 #34 — first CONSUMING semantic command (Phase 2b, LIVE).

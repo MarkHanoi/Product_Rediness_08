@@ -241,6 +241,8 @@ export enum CommandType {
     REMOVE_SLABS_ON_LEVEL             = 'REMOVE_SLABS_ON_LEVEL',
     // ── Ceilings ───────────────────────────────────────────────────────────
     CREATE_CEILING                    = 'CREATE_CEILING',
+    // SPEC-SEMANTIC §10 #28/#29 — batch ceiling-by-room (consumes room.occupancyType).
+    CREATE_CEILINGS_BY_ROOM           = 'CREATE_CEILINGS_BY_ROOM',
     UPDATE_CEILING                    = 'UPDATE_CEILING',
     REMOVE_CEILING                    = 'REMOVE_CEILING',
     UPDATE_CEILING_BOUNDARY           = 'UPDATE_CEILING_BOUNDARY',

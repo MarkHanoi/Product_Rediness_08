@@ -36,6 +36,7 @@ export * from './catalog/UpdateAssetCatalogEntryCommand';
 
 // ─── Ceilings ─────────────────────────────────────────────────────────────
 export * from './ceilings/CreateCeilingCommand';
+export * from './ceilings/CreateCeilingsByRoomCommand';
 export * from './ceilings/RemoveCeilingCommand';
 export * from './ceilings/UpdateCeilingCommand';
 export * from './ceilings/UpdateCeilingLayersCommand';

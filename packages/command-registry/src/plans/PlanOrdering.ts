@@ -241,6 +241,7 @@ export class PlanOrdering {
         [CommandType.REMOVE_SLABS_ON_LEVEL]:   95,
         // ── Ceilings ───────────────────────────────────────────────────────
         [CommandType.CREATE_CEILING]:            21,
+        [CommandType.CREATE_CEILINGS_BY_ROOM]:   21,
         [CommandType.UPDATE_CEILING]:            41,
         [CommandType.REMOVE_CEILING]:            90,
         [CommandType.UPDATE_CEILING_BOUNDARY]:   41,

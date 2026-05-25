@@ -27,6 +27,7 @@ import {
 } from '../types';
 import { CreateFloorCommand } from './CreateFloorCommand';
 import { batchCoordinator } from '@pryzm/core-app-model';
+import { buildPerRoomBoundaryElements, roomsOnLevel, roomsWithBoundary, type PerRoomCtx } from '../rooms/perRoomBoundary';
 
 /** occupancyType → finish category. #34: timber in living/bedroom, tile in kitchen/bathroom. */
 const TIMBER_TYPES = new Set([
@@ -50,13 +51,12 @@ export class CreateFloorsByRoomTypeCommand implements Command {
     }
 
     canExecute(context: CommandContext): CommandValidationResult {
-        const roomStore = context.stores.roomStore as any;
-        if (!roomStore) return { ok: false, reason: 'Room store not available.' };
-        const rooms = this._roomsOnLevel(roomStore);
+        if (!context.stores.roomStore) return { ok: false, reason: 'Room store not available.' };
+        const rooms = roomsWithBoundary(context, this.levelId);
         if (rooms.length === 0) {
-            return { ok: false, reason: `No rooms on this level — detect rooms first.` };
+            return { ok: false, reason: `No rooms with a boundary on this level — detect rooms first.` };
         }
-        const typed = rooms.filter((r: any) => this._finishCategory(r.occupancyType) !== null);
+        const typed = rooms.filter(r => this._finishCategory(r.occupancyType) !== null);
         if (typed.length === 0) {
             return { ok: false, reason: 'No rooms with a floor-mappable type — run Auto-Organise (tag rooms) first.' };
         }
@@ -64,57 +64,43 @@ export class CreateFloorsByRoomTypeCommand implements Command {
     }
 
     execute(context: CommandContext): CommandResult {
-        const roomStore = context.stores.roomStore as any;
-        if (!roomStore) return { success: false, affectedElementIds: [] };
-        const floorStore = context.stores.floorStore as any;
+        if (!context.stores.roomStore) return { success: false, affectedElementIds: [] };
+        const floorStore = context.stores.floorStore as unknown as { getAll?: () => Array<{ hostRoomId?: string }> } | undefined;
         const finishStore = (context.stores as any).floorSystemTypeStore;
-
-        const rooms = this._roomsOnLevel(roomStore);
         const affectedIds: string[] = [];
 
-        const _process = (): void => {
-            for (const room of rooms) {
-                const category = this._finishCategory(room.occupancyType);
-                if (!category) continue;
-
-                const poly = room.boundary?.polygon;
-                if (!poly || poly.length < 3) continue;
-
-                // Dedup: skip rooms that already have a floor linked to them.
-                if (floorStore?.getAll && floorStore.getAll().some((f: any) => f.hostRoomId === room.id)) continue;
-
-                const systemTypeId = this._resolveFinishTypeId(finishStore, category);
-
-                const cmd = new CreateFloorCommand({
-                    floorId: crypto.randomUUID(),
-                    ifcGuid: crypto.randomUUID(),
-                    polygon: poly.map((p: { x: number; z: number }) => ({ x: p.x, z: p.z })),
-                    levelId: this.levelId,
-                    systemTypeId,
-                    hostRoomId: room.id,
-                    label: `${room.name ?? 'Room'} Floor`,
-                });
-
-                const res = cmd.execute(context);
-                if (res.success && res.affectedElementIds.length) {
-                    this.createdCommands.push(cmd);
-                    affectedIds.push(...res.affectedElementIds);
-                }
-            }
+        // occupancyType → floor finish; skip rooms with no mapping or an existing host floor.
+        const factory = (room: PerRoomCtx): CreateFloorCommand | null => {
+            const category = this._finishCategory(room.occupancyType);
+            if (!category) return null;
+            if (floorStore?.getAll && floorStore.getAll().some(f => f.hostRoomId === room.id)) return null;
+            return new CreateFloorCommand({
+                floorId: crypto.randomUUID(),
+                ifcGuid: crypto.randomUUID(),
+                polygon: room.boundary!.polygon!.map(p => ({ x: p.x, z: p.z })),
+                levelId: this.levelId,
+                systemTypeId: this._resolveFinishTypeId(finishStore, category),
+                hostRoomId: room.id,
+                label: `${room.name ?? 'Room'} Floor`,
+            });
         };
 
-        // First execute → coalesce store events + suppress the per-floor reprojection
-        // / redetect storm (floors do not bound rooms → skipRedetectRooms).
-        // Redo (createdCommands already populated) runs directly (mirrors the slab
-        // on-all-floors commands).
+        const run = (): void => {
+            const r = buildPerRoomBoundaryElements(context, this.levelId, factory);
+            this.createdCommands = r.createdCommands as CreateFloorCommand[];
+            affectedIds.push(...r.affectedElementIds);
+        };
+
+        // First execute coalesces store events + suppresses the per-floor reprojection /
+        // redetect storm (floors don't bound rooms). Redo runs directly (re-creates).
         if (this.createdCommands.length === 0) {
-            batchCoordinator.runBatch(_process, {
+            batchCoordinator.runBatch(run, {
                 levelIds: [this.levelId],
-                totalElementCount: rooms.length,
+                totalElementCount: roomsOnLevel(context, this.levelId).length,
                 skipRedetectRooms: true,
             });
         } else {
-            _process();
+            run();
         }
 
         this.targetIds.push(...affectedIds);
@@ -145,12 +131,6 @@ export class CreateFloorsByRoomTypeCommand implements Command {
     }
 
     // ── Internal ────────────────────────────────────────────────────────────────
-
-    private _roomsOnLevel(roomStore: any): any[] {
-        return typeof roomStore.getByLevel === 'function'
-            ? roomStore.getByLevel(this.levelId)
-            : roomStore.getAll().filter((r: any) => r.levelId === this.levelId);
-    }
 
     private _finishCategory(occ: string | undefined): 'timber' | 'tile-stone' | null {
         if (!occ) return null;
