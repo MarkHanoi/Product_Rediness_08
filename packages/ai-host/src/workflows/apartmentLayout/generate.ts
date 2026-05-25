@@ -22,6 +22,7 @@ import type { ShellAnalysis } from './shellAnalysis.js';
 import { validateLayout } from './validate.js';
 import { scoreLayout } from './score.js';
 import { generateProceduralLayout } from './proceduralLayout.js';
+import { generateDeterministicLayouts } from './tgl/runDeterministicLayout.js';
 
 export const LAYOUT_MODEL = 'claude-haiku-4-5-20251014';
 export const LAYOUT_MAX_TOKENS = 3000;
@@ -190,12 +191,21 @@ export async function generateLayoutOptions(
     valid.sort((a, b) => b.score.overall - a.score.overall);
     const options = valid.slice(0, input.count);
 
-    // Procedural fallback (opt-in): when the AI produced no valid layout
-    // (offline / 401 / all-invalid), generate a real shell-fitted layout so the
-    // feature still delivers — summaries say "(offline demo)". Off by default so
-    // the pure orchestrator keeps strict "rejected" semantics; the live editor
-    // registration enables it.
+    // Offline fallback (opt-in): when the AI produced no valid layout (offline /
+    // 401 / all-invalid), run the deterministic D-TGL engine (rectilinear
+    // dissection → bubble graph → squarified subdivision → walls/doors → semantic
+    // graph → Space-Syntax-weighted Pareto rank → geometry) so the feature still
+    // delivers a real, architecturally-sound layout — summaries say
+    // "(offline · D-TGL)". Off by default so the pure orchestrator keeps strict
+    // "rejected" semantics; the live editor registration enables it. The strip
+    // slicer (generateProceduralLayout) remains a last-resort safety net.
     if (options.length === 0 && opts.proceduralFallback) {
+        const deterministic = generateDeterministicLayouts(
+            input.shell, input.program, input.constraints, input.weights, input.count,
+        );
+        if (deterministic.length > 0) {
+            return { options: deterministic, status: 'ok', attempts: attempt, reason: 'AI unavailable — deterministic D-TGL offline layout' };
+        }
         const procedural = generateProceduralLayout(
             input.shell, input.program, input.constraints, input.weights, input.count,
         );

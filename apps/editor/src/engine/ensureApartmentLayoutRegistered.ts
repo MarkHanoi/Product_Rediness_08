@@ -42,9 +42,14 @@ export async function ensureApartmentLayoutRegistered(
             // → CF Worker / Anthropic). MUST use the editor's authed apiFetch (adds
             // Authorization: Bearer <jwt>) — plain fetch returns 401 (the route is
             // behind authMiddleware). If the server has no AI upstream configured
-            // (ANTHROPIC_API_KEY / CF_WORKER_URL) it returns 500 and the generation
-            // is rejected with a clear reason (no fabricated layout).
+            // (ANTHROPIC_API_KEY / CF_WORKER_URL) it returns 500 — and the offline
+            // fallback below produces a real layout instead of failing.
             relay: aiHost.createCfWorkerRelay(undefined, apiFetch),
+            // Offline fallback: when the AI is unavailable (no key / 401 / 500),
+            // run the deterministic D-TGL engine (SPEC-TGL-DETERMINISTIC-LAYOUT-
+            // ENGINE) — a real rectilinear, space-syntax-ranked, semantically-rich
+            // layout, NOT placeholder strips. So the feature always delivers.
+            proceduralFallback: true,
             getWall,
             // SL-3: one wall's compass orientation (recomputes facades per call —
             // negligible for the handful of perimeter walls a shell has).

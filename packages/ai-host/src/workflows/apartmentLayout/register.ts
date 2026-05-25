@@ -86,7 +86,7 @@ export interface ApartmentLayoutRegistrationDeps {
     readonly getOrientation?: ShellReaderDeps['getOrientation'];
     /** Relay override (defaults to MockAnthropicRelay — SPEC-47 §7). */
     readonly relay?: RelayPorter;
-    /** Opt in to the non-AI procedural fallback (off by default — see below). */
+    /** Opt in to the deterministic offline (D-TGL) fallback (off by default — see below). */
     readonly proceduralFallback?: boolean;
 }
 
