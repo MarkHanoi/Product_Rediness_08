@@ -161,6 +161,7 @@ declare global {
         roomQueryService:       unknown;
         roomValidationService:  unknown;
         roomTypeInferenceEngine:unknown;
+        facadeOrientationService: unknown; // SL-3 (SPEC-SEMANTIC §3)
         wallStore:              unknown;
 
         // ── Command dispatch globals ──────────────────────────────────────────

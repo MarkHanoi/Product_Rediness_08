@@ -80,3 +80,16 @@ export {
   roomTypeInferenceEngine,
 } from './RoomTypeInferenceEngine.js';
 export type { RoomTypeInferenceSuggestion } from './RoomTypeInferenceEngine.js';
+
+// ── SL-3: Façade orientation (SPEC-SEMANTIC-DESIGN-ASSISTANT §3) ──────────────
+// Pure math + types live in FacadeOrientationMath (no barrel-load side effects —
+// import that module directly in tests). The store-backed service + singleton
+// pull in @pryzm/core-app-model (storeRegistry).
+export {
+  classifyFacades,
+  orientationFromNormal,
+  outwardNormal,
+  polygonCentroid,
+} from './FacadeOrientationMath.js';
+export type { Compass4, FacadeInfo, FacadeWall, FacadeRoom } from './FacadeOrientationMath.js';
+export { FacadeOrientationService, facadeOrientationService } from './FacadeOrientationService.js';

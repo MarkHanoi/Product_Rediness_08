@@ -191,6 +191,7 @@ declare global {
     roomQueryService?: any;
     roomTypeInferenceEngine?: any;
     roomValidationService?: any;
+    facadeOrientationService?: any; // SL-3 (SPEC-SEMANTIC §3)
     elementRegistry?: any;
     programmeStore?: any;
     worldModelAdapter?: any;

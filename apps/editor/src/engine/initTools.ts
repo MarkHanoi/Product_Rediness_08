@@ -96,7 +96,7 @@ import { viewIntentInstanceStore } from '@pryzm/core-app-model/presentation';
 import { vgGovernanceStore } from '@pryzm/core-app-model';
 import { doorStore, doorSystemTypeStore } from '@pryzm/geometry-door';
 import { windowStore, windowSystemTypeStore } from '@pryzm/geometry-window';
-import { roomGraphService, roomQueryService, roomValidationService, roomTypeInferenceEngine } from '@pryzm/spatial-index';
+import { roomGraphService, roomQueryService, roomValidationService, roomTypeInferenceEngine, facadeOrientationService } from '@pryzm/spatial-index';
 import { semanticGraphManager } from '@pryzm/core-app-model';
 import { temporalGraphManager } from '@pryzm/core-app-model';
 import { initGhostOverlayRenderer } from '@pryzm/core-app-model';
@@ -441,6 +441,7 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
     window.roomQueryService        = roomQueryService;
     window.roomValidationService   = roomValidationService;
     window.roomTypeInferenceEngine = roomTypeInferenceEngine;
+    window.facadeOrientationService = facadeOrientationService; // SL-3 (SPEC-SEMANTIC §3)
 
     for (const evt of ['bim-room-added', 'bim-room-updated', 'bim-room-removed'] as const) {
         window.addEventListener(evt, (e: any) => {
