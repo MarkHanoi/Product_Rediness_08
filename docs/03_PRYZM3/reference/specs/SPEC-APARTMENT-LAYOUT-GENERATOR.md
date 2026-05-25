@@ -198,15 +198,15 @@ On `apartment.layout-options-ready`: a modal with `count` cards, each: a **2D pl
 
 | Step | Scope | Gate |
 |---|---|---|
-| **A1** | L0 Zod schemas (§3 payload + §7 layout-option) | parse round-trips; unit tests |
-| **A2** | pure `validateLayout` (§8) + `scoreLayout` (§9) + unit tests | rules + scores correct on fixtures |
-| **A3** | shell analysis (§5) reusing SL-3 | face classes correct on a known shell |
+| **A1** ✅ | TS types (§3/§7); runtime Zod parse lands with A4 | types compile; used by A2 |
+| **A2** ✅ | pure `validateLayout` (§8) + `scoreLayout` (§9) — `apartmentLayout/{validate,score}.ts`, 11 tests | rules + scores correct on fixtures |
+| **A3** ✅ | shell analysis (§5) reusing SL-3 — `apartmentLayout/shellAnalysis.ts` (`wallsToPolygon` + `polygonAreaM2` + `analyseShell`), 5 tests | area/dims + face classes correct on a known shell |
 | **A4** | generate workflow (§4) on `MockAnthropicRelay` (deterministic JSON) + retry + AIStore + event | options-ready emitted; 0 mutation |
 | **A5** | modal UI (§11) — cards, FrameScheduler thumbnail, score breakdown | renders N options |
 | **A6** | execute handler (§12) — runBatch wall+door, one undo, redetect | one undo unit; rooms detected |
 | **A7** | swap MockRelay → live CF relay (SPEC-47 §7 dependency) | real generations |
 
-**This turn (A1–A2):** the genuinely-new pure pieces — schemas + validator + scorer + tests — landed first (no AI-relay dependency), per "document in great detail then implement".
+**Landed (A1–A3):** the pure, AI-relay-independent foundation — types + validator + scorer + shell analysis (16 tests total). **Next (A4):** the generate workflow on `MockAnthropicRelay` (deterministic JSON) wiring shell analysis → prompt → parse → validate (§8) → retry (§10) → score (§9) → AIStore → `apartment.layout-options-ready`, following the `Generate3Options` workflow factory.
 
 ## §17 — Cross-references
 
