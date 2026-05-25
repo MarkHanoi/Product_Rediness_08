@@ -2,8 +2,8 @@
 
 | Field | Value |
 |---|---|
-| Status | **Plan — normative target (not yet implemented).** Deep analysis + design for the automatic room-furnishing engine: beds/bedside tables/wardrobes (bedroom), sofa/coffee-table/TV (living), cabinet run (kitchen), table+chairs (dining), fixtures (bath). The companion to D-TGL (which produces rooms); this furnishes them. |
-| Version | 0.1 (2026-05-25) |
+| Status | **Pure engine BUILT (F2–F8, 20 tests); editor glue (F1/F9) pending.** Automatic room-furnishing engine: beds/bedside tables/wardrobes (bedroom), sofa/coffee-table (living), cabinet run (kitchen), table+chairs (dining), fixtures (bath). Companion to D-TGL (rooms); this furnishes them. Lives in `packages/ai-host/src/workflows/furnishLayout/` (ai-host has the test infra; geometry-furniture has none). |
+| Version | 0.2 (2026-05-25) — pure core implemented |
 | Owner | Computational design / BIM3.0 architecture |
 | Governed by | C09 (AI & generative L7.5), C11 (element creation), C15 (hosted), C16 (command authoring), SPEC-TGL-DETERMINISTIC-LAYOUT-ENGINE (room producer), SPEC-APARTMENT-LAYOUT-GENERATOR (consumer) |
 | Hard constraints | **Deterministic** (same rooms → byte-identical furniture), **synchronous in-browser < 1 s for a flat**, **unit-testable / pure core**, **no stochastic placement** (no random jitter, no annealing), reuses existing furniture geometry + the `furniture.create` bus path (no new render path). |
