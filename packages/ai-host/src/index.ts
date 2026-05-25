@@ -34,6 +34,7 @@ export {
 } from './AnthropicRelay.js';
 export {
   createCfWorkerRelay,
+  createResilientRelay,
   modelClassOf,
   DEFAULT_RELAY_ENDPOINT,
 } from './CfWorkerRelay.js';

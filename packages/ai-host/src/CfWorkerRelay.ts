@@ -19,6 +19,33 @@ import { computeCostUSD, type ModelClass } from '@pryzm/ai-cost';
 /** Default relay endpoint — the server's transparent Anthropic proxy. */
 export const DEFAULT_RELAY_ENDPOINT = '/api/anthropic/v1/messages';
 
+/**
+ * Wrap a primary relay so a failure transparently falls back to a secondary
+ * (e.g. the live CfWorkerRelay → MockAnthropicRelay demo layouts when the server
+ * has no AI upstream configured). On fallback it logs loudly + invokes `onFallback`
+ * so the UI can tell the user the result is demo data, not real AI. Never hides a
+ * fallback silently.
+ */
+export function createResilientRelay(
+    primary: RelayPorter,
+    fallback: RelayPorter,
+    onFallback?: (err: unknown) => void,
+): RelayPorter {
+    return {
+        async complete(req: RelayRequest): Promise<RelayResponse> {
+            try {
+                return await primary.complete(req);
+            } catch (err) {
+                if (typeof console !== 'undefined') {
+                    console.warn('[ai-host/ResilientRelay] primary relay failed — using fallback (demo) relay:', err);
+                }
+                try { onFallback?.(err); } catch { /* listener error is non-fatal */ }
+                return fallback.complete(req);
+            }
+        },
+    };
+}
+
 /** Map an Anthropic model id to a pricing class (defaults to haiku). */
 export function modelClassOf(model: string): ModelClass {
     if (/opus/i.test(model)) return 'opus';

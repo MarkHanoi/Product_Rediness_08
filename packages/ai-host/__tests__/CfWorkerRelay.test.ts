@@ -4,7 +4,8 @@
 // and the cost computed from usage tokens (no live network).
 
 import { describe, expect, it, vi } from 'vitest';
-import { createCfWorkerRelay, modelClassOf, DEFAULT_RELAY_ENDPOINT } from '../src/CfWorkerRelay.js';
+import { createCfWorkerRelay, createResilientRelay, modelClassOf, DEFAULT_RELAY_ENDPOINT } from '../src/CfWorkerRelay.js';
+import type { RelayPorter, RelayResponse } from '../src/AnthropicRelay.js';
 
 function jsonResponse(body: unknown, ok = true, status = 200): Response {
     return { ok, status, statusText: ok ? 'OK' : 'ERR', json: async () => body } as unknown as Response;
@@ -69,5 +70,39 @@ describe('createCfWorkerRelay', () => {
 
     it('defaults the endpoint to the server proxy path', () => {
         expect(DEFAULT_RELAY_ENDPOINT).toBe('/api/anthropic/v1/messages');
+    });
+});
+
+describe('createResilientRelay', () => {
+    const resp = (text: string): RelayResponse => ({ text, costUsd: 0.01, model: 'm', tokens: { input: 1, output: 1 } });
+    const ok = (text: string): RelayPorter => ({ complete: vi.fn(async () => resp(text)) });
+    const fail = (): RelayPorter => ({ complete: vi.fn(async () => { throw new Error('relay down'); }) });
+
+    it('returns the primary result when the primary succeeds (no fallback)', async () => {
+        const primary = ok('PRIMARY');
+        const fallback = ok('FALLBACK');
+        const onFallback = vi.fn();
+        const r = createResilientRelay(primary, fallback, onFallback);
+        const out = await r.complete({ model: 'm', system: 's', user: 'u' });
+        expect(out.text).toBe('PRIMARY');
+        expect(fallback.complete).not.toHaveBeenCalled();
+        expect(onFallback).not.toHaveBeenCalled();
+    });
+
+    it('falls back to the secondary when the primary throws + notifies onFallback', async () => {
+        const primary = fail();
+        const fallback = ok('FALLBACK');
+        const onFallback = vi.fn();
+        const r = createResilientRelay(primary, fallback, onFallback);
+        const out = await r.complete({ model: 'm', system: 's', user: 'u' });
+        expect(out.text).toBe('FALLBACK');
+        expect(fallback.complete).toHaveBeenCalledTimes(1);
+        expect(onFallback).toHaveBeenCalledTimes(1);
+    });
+
+    it('a throwing onFallback listener does not break the fallback', async () => {
+        const r = createResilientRelay(fail(), ok('FALLBACK'), () => { throw new Error('listener boom'); });
+        const out = await r.complete({ model: 'm', system: 's', user: 'u' });
+        expect(out.text).toBe('FALLBACK');
     });
 });
