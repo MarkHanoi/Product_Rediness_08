@@ -160,6 +160,16 @@ export class InstancedElementRenderer {
             };
             group.mesh.userData.elementType = 'InstancedElement';
             group.mesh.userData.isInstancedGroup = true;
+            // §INSTANCED-LEVEL-VIS (2026-05-25) — stamp the group's levelId so the
+            // Project Browser's hide-by-level (ProjectVisibilitySection.applyLevelVisibility,
+            // which matches `obj.userData.levelId === levelId`) can hide instanced elements.
+            // Without this, walls that qualify for GPU instancing (plain: no openings, not
+            // curved, no joins) rendered via this InstancedMesh stayed visible when their
+            // level was hidden — while curtain walls + non-instanced walls (which stamp
+            // levelId on their group) hid correctly. SAFE: the group key
+            // (`_hashGeometry(geometry, material, levelId)`) includes levelId, so EVERY
+            // instance in this group is on the same level.
+            if (levelId !== undefined) group.mesh.userData.levelId = levelId;
 
             if (this._scene) {
                 this._scene.add(group.mesh);

@@ -2805,3 +2805,27 @@ debt unrelated); behaviour-preserving (same slabs created, same dedup, same undo
 pending:** "create all slabs from level to all floors" on a multi-slab, multi-level project → smooth
 (no N-rebuild stutter), slabs correct. **Documented as the canonical batch-perf reference here**
 (no separate *-AUDIT.md per CLAUDE.md governance).
+
+## Round 63 — §INSTANCED-LEVEL-VIS: walls-from-slab don't hide by level (2026-05-25)
+
+Architect: walls created via "create walls from/on slab(s)" stay visible when their level is hidden in
+the Project Browser, though curtain walls (same op) hide. Both are correctly assigned to the level.
+
+Root cause (traced): `ProjectVisibilitySection.applyLevelVisibility` hides scene objects by matching
+`obj.userData.levelId === levelId`. A PLAIN wall (no openings, not curved, no joins) is GPU-instanced via
+`WallInstanceBridge.register` → `InstancedElementRenderer.register(id, geo, mat, matrix, wall.levelId)`.
+The renderer groups per-level (the group key `_hashGeometry(geo, mat, levelId)` includes levelId) but
+NEVER stamped `group.mesh.userData.levelId` — it only set `elementType`/`isInstancedGroup`. So the
+InstancedMesh carrying the wall geometry had no `levelId` → the hide traverse skipped it. Curtain walls
++ non-instanced walls (layered/with-openings/curved) stamp `userData.levelId` on their group, so they hid.
+(This is why the batch-from-slab case surfaced it: slab-perimeter walls are plain rectangles → all
+instanced.)
+
+Fix: stamp `group.mesh.userData.levelId = levelId` when the InstanceGroup is created
+(`InstancedElementRenderer.ts`, after `isInstancedGroup`). SAFE because the group key includes levelId,
+so every instance in the group is on that level. Fixes hide-by-level for ALL instanced elements, not
+just walls. One line + comment; behaviour otherwise unchanged.
+
+**Gates:** `@pryzm/core-app-model` typecheck clean for the changed file (pre-existing ai-host debt
+unrelated). **Live-verify pending:** create walls from slab → hide that level in Project Browser → the
+walls hide (and re-show on unhide).
