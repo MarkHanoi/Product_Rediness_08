@@ -341,15 +341,44 @@ build pipeline are identical for both.
   stable key. The global determinism test (`enumerate` deep‑equal on rerun, incl.
   GUIDs) passes.
 
-### §11.1 — Known limitations (tracked)
+### §11.1 — Room‑enclosure guarantee (end‑to‑end)
+
+The emitted geometry is **provably watertight** and **detectable** by the editor's
+`RoomDetectionEngine` (`@pryzm/room-topology`):
+
+- **Zone‑based wall omission (P4).** Rooms transitively linked by `via:'open'` form
+  an open‑plan *zone*; every wall *within* a zone is omitted, so no partial wall
+  survives as a **stub** jutting into open space (the original "hall|kitchen wall
+  dangles into the open hall–living–kitchen–dining area" defect). A wall is kept
+  only between different zones or against the void ⇒ each zone is one watertight
+  detected room (correct open‑plan behaviour).
+- **No dangling ends.** Every wall endpoint anchors to another wall — at a shared
+  corner (coincident within the engine's 20 mm node grid) or on a wall interior
+  (a T‑junction within the engine's 0.5 m split threshold). `RoomDetectionEngine`'s
+  `_snapNearbyCorners → _splitAtBodyCrossings → _splitAtTJunctions → buildWallGraph`
+  then closes every cell. (Verified: `tglEnclosure.test.ts`.)
+- **Interior‑only emit.** `emitGeometry({ interiorWallsOnly: true })` (used by the
+  editor path) drops perimeter walls so D‑TGL **never duplicates the existing
+  shell** — coincident double walls would corrupt detection. Doors host on interior
+  walls only, so none are orphaned. (The shell supplies the perimeter; D‑TGL adds
+  partitions + doors, matching the "shell untouched" contract.)
+
+### §11.2 — Known limitations (tracked)
 
 1. **Adjacency‑awareness.** P3b squarifies by area; it does not yet *guarantee* that
    every `via:'door'` bubble edge lands on two adjacent rooms, so a door edge whose
    rooms aren't adjacent in a given tiling is skipped (P4 is best‑effort). The 8‑way
-   enumeration mitigates this (the ranked winner tends to realise more adjacencies);
-   a future P3c slicing‑tree placement keyed by the bubble graph would make it exact.
-2. **Rectilinear shells.** Slanted shell edges are stair‑step approximated (P1);
+   enumeration mitigates this (the ranked winner realises more adjacencies); a future
+   P3c slicing‑tree placement keyed by the bubble graph would make it exact.
+2. **Corridor merges into the public zone.** Because `hall↔corridor` is an `open`
+   edge, the corridor joins the public open zone (no dedicated corridor room). This
+   is watertight and valid for open‑plan; a distinct corridor would need that edge
+   to become a doorway (and the door's adjacency realised — see #1).
+3. **Semantic open‑adjacency is direct‑edge only.** P5 records `ADJACENT_TO(open)`
+   for *direct* `via:'open'` edges; two same‑zone rooms that are adjacent only
+   transitively (hall↔kitchen) have no explicit edge (connectivity still holds via
+   the chain). A geometric‑adjacency pass would complete the graph for the twin.
+4. **Rectilinear shells.** Slanted shell edges are stair‑step approximated (P1);
    exact for rectangles / L / T / U.
-3. **Windows.** P4 emits doors only; window placement (and the `Window` node) is
-   modelled in the graph schema but not yet generated — daylight is scored from
-   façade adjacency as a proxy. P10/next.
+5. **Windows.** P4 emits doors only; the `Window` node is in the schema but not yet
+   generated — daylight is scored from façade adjacency as a proxy. P10/next.

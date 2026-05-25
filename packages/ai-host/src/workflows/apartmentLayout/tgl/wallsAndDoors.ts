@@ -6,8 +6,12 @@
 //     wall that bounds both (never two stacked walls);
 //   • a wall touching the void (only one room) is an exterior wall;
 //   • bubble edges (P2) are realised as openings: `via:'door'` → one centred door
-//     on the shared wall; `via:'open'` → the shared wall is OMITTED (open-plan
-//     threshold) so the two spaces read as one.
+//     on the shared wall;
+//   • open-plan: rooms transitively linked by `via:'open'` form a ZONE, and every
+//     wall WITHIN a zone is omitted (not just directly-linked pairs) — so e.g. a
+//     hall|kitchen wall doesn't survive as a stub jutting into the open
+//     hall–living–kitchen–dining space (which would break room detection). A wall
+//     is kept only where it separates two different zones, or a zone from the void.
 //
 // The extraction sweeps vertical walls (constant x) then horizontal walls
 // (constant z): along each wall line the rooms on the −/+ side of every elementary
@@ -116,9 +120,22 @@ export function buildWallsAndDoors(
         hFaces.push({ coord: r.z1, s0: r.x0, s1: r.x1, roomId, side: 'neg' });   // top face
     }
 
-    // Open-plan pairs: their shared wall is omitted entirely.
-    const openPairs = new Set<string>();
-    for (const e of graph.edges) if (e.via === 'open') openPairs.add(pairKey(e.a, e.b));
+    // Open-plan ZONES: rooms connected (transitively) by 'open' thresholds form one
+    // open space. A wall between any two rooms in the SAME zone is omitted — not just
+    // directly-linked pairs. (Otherwise e.g. a hall|kitchen wall survives as a stub
+    // jutting into the open hall–living–kitchen–dining space, which breaks room
+    // detection.) Union-find over the 'open' edges gives the zones.
+    const zoneRoot = new Map<string, string>();
+    const find = (x: string): string => {
+        let r = x;
+        while ((zoneRoot.get(r) ?? r) !== r) r = zoneRoot.get(r)!;
+        while ((zoneRoot.get(x) ?? x) !== r) { const n = zoneRoot.get(x)!; zoneRoot.set(x, r); x = n; }
+        return r;
+    };
+    const union = (a: string, b: string): void => { zoneRoot.set(find(a), find(b)); };
+    for (const r of graph.rooms) zoneRoot.set(r.id, r.id);
+    for (const e of graph.edges) if (e.via === 'open') union(e.a, e.b);
+    const sameZone = (a: string, b: string): boolean => find(a) === find(b);
 
     const segments: WallSeg[] = [];
     const sharedWallByPair = new Map<string, WallSeg>();
@@ -127,7 +144,7 @@ export function buildWallsAndDoors(
     const emit = (axis: 'v' | 'h', coord: number, run: Run): void => {
         const ids = [run.neg, run.pos].filter((x): x is string => x !== null);
         const bounds = ids.length === 2 ? [...ids].sort() : ids;
-        if (bounds.length === 2 && openPairs.has(pairKey(bounds[0]!, bounds[1]!))) return; // open threshold
+        if (bounds.length === 2 && sameZone(bounds[0]!, bounds[1]!)) return; // intra-zone (open-plan) threshold
         const a: Pt = axis === 'v' ? { x: coord, z: run.start } : { x: run.start, z: coord };
         const b: Pt = axis === 'v' ? { x: coord, z: run.end } : { x: run.end, z: coord };
         const seg: WallSeg = { id: `w${wid++}`, a, b, thickness, boundsRoomIds: bounds };

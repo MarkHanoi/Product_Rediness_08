@@ -25,15 +25,25 @@ export interface EmittedLayout {
     readonly spaceGuids: readonly string[];
 }
 
+export interface EmitGeometryOpts {
+    /** Emit only INTERIOR partition walls (drop perimeter/exterior walls). Use when
+     *  building into an EXISTING shell so D-TGL never duplicates the shell's
+     *  perimeter walls — duplicate coincident walls break room detection. Doors are
+     *  hosted on interior walls only, so dropping exterior walls orphans none. */
+    readonly interiorWallsOnly?: boolean;
+}
+
 const MM = 1000;
 const mm = (m: number): number => Math.round(m * MM * 1e6) / 1e6;
 const num = (v: unknown, d = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 const str = (v: unknown, d = ''): string => (typeof v === 'string' ? v : d);
 
 /** Project a LayoutGraph to a LayoutOption (+ aligned GUIDs). */
-export function emitGeometry(graph: LayoutGraph): EmittedLayout {
+export function emitGeometry(graph: LayoutGraph, opts: EmitGeometryOpts = {}): EmittedLayout {
     const spaceNodes = graph.nodes.filter(n => n.kind === 'Space');
-    const wallNodes = graph.nodes.filter(n => n.kind === 'Wall');
+    const allWallNodes = graph.nodes.filter(n => n.kind === 'Wall');
+    // Interior-only build drops perimeter walls (the shell already supplies them).
+    const wallNodes = opts.interiorWallsOnly ? allWallNodes.filter(n => n.attrs.isExternal !== true) : allWallNodes;
     const doorNodes = graph.nodes.filter(n => n.kind === 'Door');
     const openingByGuid = new Map(graph.nodes.filter(n => n.kind === 'Opening').map(n => [n.guid, n]));
 
@@ -56,8 +66,9 @@ export function emitGeometry(graph: LayoutGraph): EmittedLayout {
         else if (e.kind === 'CONNECTS_THROUGH') { addNb(e.from, e.to); addPerm(e.from, e.to); }
     }
 
-    // External walls bounding a space → window capability.
-    const externalWalls = new Set(wallNodes.filter(n => n.attrs.isExternal === true).map(n => n.guid));
+    // External walls bounding a space → window capability. Always computed from the
+    // FULL wall set, so window/daylight is correct even in interior-only emit.
+    const externalWalls = new Set(allWallNodes.filter(n => n.attrs.isExternal === true).map(n => n.guid));
     const frontsFacade = new Set<string>();
     for (const e of graph.edges) if (e.kind === 'BOUNDS' && externalWalls.has(e.from)) frontsFacade.add(e.to);
 
