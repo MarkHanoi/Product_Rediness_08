@@ -173,6 +173,7 @@ export { validateLayout } from './workflows/apartmentLayout/validate.js';
 export { scoreLayout } from './workflows/apartmentLayout/score.js';
 export {
   buildLayoutPlan,
+  buildLayoutCommands,
   MIN_WALL_LENGTH_M,
   DEFAULT_WALL_HEIGHT_M,
   DEFAULT_WALL_THICKNESS_M,
@@ -185,6 +186,10 @@ export type {
   WallCreateSpec,
   DoorPlanItem,
   Vec3m,
+  LayoutCommand,
+  LayoutCommandSet,
+  IdMinter,
+  IdPrefix,
 } from './workflows/apartmentLayout/executePlan.js';
 export {
   analyseShell,

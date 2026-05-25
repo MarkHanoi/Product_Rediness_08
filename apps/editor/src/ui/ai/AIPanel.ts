@@ -32,15 +32,17 @@ import type { ElementSchema } from '@app/engine/preview/PreviewManager';
 import { groupCatalogue, dispatchBatchEntry, type BatchDeps } from '../create/batchCatalogue';
 // SPEC-SEMANTIC §3.1 / Phase 2 — surface the existing room auto-organise (tag-by-type) flow.
 import { openAutoOrganiseModal } from '../property-inspector/RoomAutoOrganiser';
-// #51 (SPEC-APARTMENT-LAYOUT-GENERATOR §11) — the AI apartment-layout generate flow.
+// #51 (SPEC-APARTMENT-LAYOUT-GENERATOR §11/§12) — the AI apartment-layout flow.
 import { ApartmentLayoutController, requestApartmentLayout } from '../apartment-layout/ApartmentLayoutController';
+import { ApartmentLayoutExecutor } from '../apartment-layout/ApartmentLayoutExecutor';
 import { gatherLayoutPayload } from '../apartment-layout/gatherLayoutPayload';
 import type { ComposedRuntime } from '@pryzm/runtime-composer';
 
-// #51 — one controller per session drives the §11 options modal. attach() is
-// idempotent + only subscribes to runtime.events (no getHost), so wiring it on
-// first use adds zero AI bytes at first-paint (lazy K3-A preserved).
+// #51 — one controller + one executor per session drive the §11 modal + the §12
+// commit. attach() is idempotent + only subscribes to runtime.events (no getHost),
+// so wiring on first use adds zero AI bytes at first-paint (lazy K3-A preserved).
 const _apartmentLayoutController = new ApartmentLayoutController();
+const _apartmentLayoutExecutor = new ApartmentLayoutExecutor();
 
 // ─── Command-Aware Suggestion Tree ───────────────────────────────────────────
 //
@@ -151,6 +153,7 @@ const COMMAND_TREE: SuggestionNode[] = [
                         return;
                     }
                     _apartmentLayoutController.attach(rt); // idempotent — modal shows on options-ready
+                    _apartmentLayoutExecutor.attach(rt);   // idempotent — commits on the user's pick
                     window.runtime?.events?.emit('pryzm:toast', {
                         message: 'Generating apartment layouts…',
                         severity: 'info',

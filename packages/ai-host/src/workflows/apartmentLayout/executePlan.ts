@@ -167,3 +167,108 @@ export function buildLayoutPlan(option: LayoutOption, opts: LayoutExecuteOptions
         warnings,
     };
 }
+
+// ── A6-wire — the dispatchable command SET (pre-minted ids, no read-back) ──────
+//
+// The execute handler resolves each door's host wall by PRE-MINTING wall ids and
+// referencing them directly — so the whole layout is one flat, ordered command
+// sequence with NO store read-back (deterministic; no batch-timing coupling).
+// `mintId` is injected (createId('wall'|'door'|'opening') from @pryzm/schemas in
+// production; a deterministic stub in tests) so this stays pure + Node-testable.
+
+export type IdPrefix = 'wall' | 'door' | 'opening';
+export type IdMinter = (prefix: IdPrefix) => string;
+
+/** A single dispatchable bus command (verb + payload). */
+export interface LayoutCommand {
+    readonly command: string;
+    readonly payload: unknown;
+}
+
+export interface LayoutCommandSet {
+    readonly levelId: string;
+    /** `wall.batch.create` with pre-minted wall ids. */
+    readonly wallBatch: LayoutCommand;
+    /** One `wall.createOpening` per door (reserves opening id + door elementId). */
+    readonly openingCommands: readonly LayoutCommand[];
+    /** `door.batch.create` for all doors, or null when there are none. */
+    readonly doorBatch: LayoutCommand | null;
+    /** Minted wall ids, index-aligned with the plan's kept walls. */
+    readonly wallIds: readonly string[];
+    /** Minted door ids, index-aligned with `doorPlan`. */
+    readonly doorIds: readonly string[];
+    /** walls + doors — feeds BatchCoordinator.runBatch totalElementCount. */
+    readonly totalElementCount: number;
+    /** Dropped/degenerate inputs (loud-fail-soft; from buildLayoutPlan). */
+    readonly warnings: readonly string[];
+}
+
+/**
+ * Build the full dispatchable command set for a chosen option. Composes
+ * `buildLayoutPlan` (mm→m + drops) then pre-mints ids so doors reference their
+ * host walls directly. Door `wall.createOpening` opening.elementId === the door
+ * id (required by the C15 cascade so undo removes both). Pure + deterministic.
+ */
+export function buildLayoutCommands(
+    option: LayoutOption,
+    opts: LayoutExecuteOptions,
+    mintId: IdMinter,
+): LayoutCommandSet {
+    const plan = buildLayoutPlan(option, opts);
+
+    const wallIds = plan.walls.map(() => mintId('wall'));
+    const wallsWithIds = plan.walls.map((w, i) => ({ ...w, id: wallIds[i]!, levelId: opts.levelId }));
+    const wallBatch: LayoutCommand = {
+        command: 'wall.batch.create',
+        payload: { walls: wallsWithIds, levelId: opts.levelId },
+    };
+
+    const openingCommands: LayoutCommand[] = [];
+    const doors: unknown[] = [];
+    const doorIds: string[] = [];
+    for (const d of plan.doorPlan) {
+        const wallId = wallIds[d.wallRef]!;
+        const openingId = mintId('opening');
+        const doorId = mintId('door');
+        doorIds.push(doorId);
+        openingCommands.push({
+            command: 'wall.createOpening',
+            payload: {
+                wallId,
+                opening: {
+                    id: openingId,
+                    type: 'door',
+                    offset: d.offset,
+                    width: d.width,
+                    height: d.height,
+                    sillHeight: d.sillHeight,
+                    elementId: doorId,        // === door id (C15 cascade)
+                    doorType: d.doorType,
+                },
+            },
+        });
+        doors.push({
+            id: doorId,
+            wallId,
+            openingId,
+            offset: d.offset,
+            width: d.width,
+            height: d.height,
+            sillHeight: d.sillHeight,
+            doorType: d.doorType,
+        });
+    }
+    const doorBatch: LayoutCommand | null =
+        doors.length > 0 ? { command: 'door.batch.create', payload: { doors } } : null;
+
+    return {
+        levelId: opts.levelId,
+        wallBatch,
+        openingCommands,
+        doorBatch,
+        wallIds,
+        doorIds,
+        totalElementCount: plan.totalElementCount,
+        warnings: plan.warnings,
+    };
+}
