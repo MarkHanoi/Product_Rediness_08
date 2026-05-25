@@ -12,9 +12,11 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
     'bedroom': {
         occupancy: 'bedroom', minAreaM2: 6,
         items: [
+            // Rules: every bedroom requires a bed, 2 bedside tables, lighting, a wardrobe.
             { kind: 'bed', anchor: 'wall-opposite-door', facing: 'to-wall', required: true, group: 'bed' },
-            { kind: 'bedside_table', anchor: 'beside', facing: 'to-wall', required: false, group: 'bed', count: 2 },
-            { kind: 'wardrobe', anchor: 'wall-longest', facing: 'to-wall', required: false },
+            { kind: 'bedside_table', anchor: 'beside', facing: 'to-wall', required: true, group: 'bed', count: 2 },
+            { kind: 'wardrobe', anchor: 'wall-longest', facing: 'to-wall', required: true },
+            { kind: 'lamp', anchor: 'corner', facing: 'into-room', required: true },   // lighting
         ],
     },
     'living-room': {
@@ -22,6 +24,7 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
         items: [
             { kind: 'sofa', anchor: 'wall-longest', facing: 'into-room', required: true, group: 'sofa' },
             { kind: 'coffee_table', anchor: 'beside', facing: 'into-room', required: false, group: 'sofa' },
+            { kind: 'lamp', anchor: 'corner', facing: 'into-room', required: false },   // lighting
         ],
     },
     'kitchen': {
@@ -39,9 +42,13 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
     },
     'bathroom': {
         occupancy: 'bathroom', minAreaM2: 2.5,
+        // Rules: a bathroom requires a toilet, a washbasin and a shower/bath. The
+        // washbasin is a Plumbing-system fixture (no plain furniture kind yet); it is
+        // listed as a requiredFixture in the rules DB and sourced from the plumbing
+        // catalogue at the wiring layer. The renderable furniture kinds are placed here.
         items: [
             { kind: 'toilet_radiator', anchor: 'wall-longest', facing: 'into-room', required: true },
-            { kind: 'shower_glass_panel', anchor: 'corner', facing: 'into-room', required: false },
+            { kind: 'shower_glass_panel', anchor: 'corner', facing: 'into-room', required: true },
         ],
     },
     'entrance-lobby': {

@@ -85,6 +85,53 @@ describe('buildWallsAndDoors (TGL P4)', () => {
         expect(JSON.stringify(out1)).toEqual(JSON.stringify(out2));
     });
 
+    it('reconciliation NEVER doors a forbidden pair when a legal route exists (no bedroom-through-bedroom)', () => {
+        // Two bedrooms + a corridor in a row: corridor | bed1 | bed2 horizontally.
+        // bed2 is adjacent only to bed1 + corridor-via-bed1? No — lay them so bed2
+        // touches the corridor too is impossible in a row, so the ONLY way to reach
+        // bed2 is via bed1 (forbidden) OR via the corridor if adjacent. We arrange a
+        // 2×2 so both bedrooms touch the corridor → the legal route must win.
+        const corridor: RoomPlacement = { roomId: 'cor', rect: { x0: 0, z0: 0, x1: 10, z1: 1.2 } };
+        const bed1: RoomPlacement = { roomId: 'b1', rect: { x0: 0, z0: 1.2, x1: 5, z1: 5 } };
+        const bed2: RoomPlacement = { roomId: 'b2', rect: { x0: 5, z0: 1.2, x1: 10, z1: 5 } };
+        const rooms: ProgramRoom[] = [
+            { id: 'cor', type: 'corridor', name: 'cor', targetAreaM2: 12, isPrivate: false, needsWindow: false },
+            { id: 'b1', type: 'bedroom', name: 'b1', targetAreaM2: 19, isPrivate: true, needsWindow: true },
+            { id: 'b2', type: 'bedroom', name: 'b2', targetAreaM2: 19, isPrivate: true, needsWindow: true },
+        ];
+        const g: BubbleGraph = { rooms, edges: [], corridorId: 'cor', entryId: 'cor' };
+        const { openings, compromises } = buildWallsAndDoors([corridor, bed1, bed2], g);
+        // No bedroom↔bedroom door — both bedrooms door onto the corridor instead.
+        const bedToBed = openings.some(o => {
+            const s = new Set(o.betweenRoomIds);
+            return s.has('b1') && s.has('b2');
+        });
+        expect(bedToBed).toBe(false);
+        expect(compromises).toBe(0);
+        // both bedrooms are reachable (each has a corridor door)
+        for (const id of ['b1', 'b2']) {
+            expect(openings.some(o => o.betweenRoomIds.includes(id) && o.betweenRoomIds.includes('cor'))).toBe(true);
+        }
+    });
+
+    it('respects the bathroom privacy cap — a bathroom never gets two doors', () => {
+        // corridor | bathroom | bedroom in a row: the bathroom is adjacent to BOTH,
+        // but maxDoors(bathroom)=1, so reconciliation gives it ONE door (to the
+        // corridor) and routes the bedroom to the corridor — not through the bath.
+        const corridor: RoomPlacement = { roomId: 'cor', rect: { x0: 0, z0: 0, x1: 12, z1: 1.2 } };
+        const bath: RoomPlacement = { roomId: 'ba', rect: { x0: 0, z0: 1.2, x1: 4, z1: 5 } };
+        const bed: RoomPlacement = { roomId: 'bd', rect: { x0: 4, z0: 1.2, x1: 12, z1: 5 } };
+        const rooms: ProgramRoom[] = [
+            { id: 'cor', type: 'corridor', name: 'cor', targetAreaM2: 14, isPrivate: false, needsWindow: false },
+            { id: 'ba', type: 'bathroom', name: 'ba', targetAreaM2: 15, isPrivate: true, needsWindow: false },
+            { id: 'bd', type: 'bedroom', name: 'bd', targetAreaM2: 31, isPrivate: true, needsWindow: true },
+        ];
+        const g: BubbleGraph = { rooms, edges: [], corridorId: 'cor', entryId: 'cor' };
+        const { openings } = buildWallsAndDoors([corridor, bath, bed], g);
+        const bathDoors = openings.filter(o => o.betweenRoomIds.includes('ba'));
+        expect(bathDoors.length).toBeLessThanOrEqual(1);
+    });
+
     it('reconciliation guarantees every room is reachable from the entry (no sealed rooms)', () => {
         const program: ApartmentProgram = {
             bedrooms: 3, bathrooms: 2, masterEnSuite: true,

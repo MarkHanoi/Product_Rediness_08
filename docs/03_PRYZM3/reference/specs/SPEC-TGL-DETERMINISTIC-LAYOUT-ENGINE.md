@@ -48,11 +48,11 @@ frame `{x, z}`** (z = world Z = plan "up"), and round to 1e‑6 m at boundaries.
 | **P2** | `bubbleGraph.ts` | `ApartmentProgram`, availableAreaM2 → `BubbleGraph` (rooms + targets + adjacency edges) | ✅ 6 tests |
 | **P3a** | `squarify.ts` | `Rect`, `AreaItem[]` → `PlacedItem[]` (squarified treemap) | ✅ 6 tests |
 | **P3b** | `subdivide.ts` | `Rect[]` + `BubbleGraph` → `RoomPlacement[]` (rooms→footprints; pack across rects, squarify each, corridor cell) | ✅ 5 tests |
-| **P4** | `wallsAndDoors.ts` | `RoomPlacement[]` + `BubbleGraph` → `{ segments: WallSeg[]; openings: OpeningSpec[] }` (dedup shared walls; doors on realised adjacencies) | ✅ 5 tests |
+| **P4** | `wallsAndDoors.ts` | `RoomPlacement[]` + `BubbleGraph` → `{ segments: WallSeg[]; openings: OpeningSpec[]; compromises }` (dedup shared walls; doors on realised adjacencies, **rule-permitted only** + privacy caps — see [SPEC-ARCHITECTURAL-PROGRAM-RULES](./SPEC-ARCHITECTURAL-PROGRAM-RULES.md)) | ✅ 7 tests |
 | **P5** | `semanticGraph.ts` | `RoomPlacement[]`+`WallSeg[]`+`OpeningSpec[]`+`BubbleGraph` → `LayoutGraph` (the persistent BIM3.0 graph; §3) | ✅ 6 tests (+4 `ifcGuid`) |
 | **P6** | `spaceSyntax.ts` | `LayoutGraph` → `SyntaxMetrics` (per‑space depth, mean depth, RA, integration; §4) | ✅ 5 tests |
 | **P7** | `objectives.ts` | `LayoutGraph`+`SyntaxMetrics`+`BubbleGraph` → `ObjectiveVector` (5 raw axes; §4 — weights applied in P8) | ✅ 5 tests |
-| **P8** | `enumerate.ts` | shell+program+weights → `TglCandidate[]` (graph+objectives+rank; run P1–P7 over a fixed 8-strategy set; Pareto‑rank; §2.2) | ✅ 7 tests |
+| **P8** | `enumerate.ts` | shell+program+weights → `TglCandidate[]` (graph+objectives+rank; run P1–P7 over a fixed 8-strategy set; **legality gate** then Pareto‑rank; §2.2) | ✅ 7 tests |
 | **P9** | `emitGeometry.ts` | `LayoutGraph` → `LayoutOption` (+ aligned GUIDs) (mm `{x,y}` walls+doors for `buildLayoutCommands`) | ✅ 5 tests |
 | **P10** | `ifc5/` | `LayoutGraph` → IFC5 + RDF/OWL (§5) | ⏳ (post‑MVP) |
 

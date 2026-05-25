@@ -14,6 +14,7 @@
 
 import type { LayoutOption, LayoutRoom, RoomType } from '../types.js';
 import type { GraphNode, LayoutGraph } from './semanticGraph.js';
+import { occupancyOf } from '../rules/programRules.js';
 
 export interface EmittedLayout {
     readonly option: LayoutOption;
@@ -29,13 +30,8 @@ export interface EmittedLayout {
 const MM = 1000;
 const mm = (m: number): number => Math.round(m * MM * 1e6) / 1e6;
 
-/** D-TGL RoomType → editor RoomOccupancyType (string), so detected rooms are
- *  coloured/tagged by use. Values match @pryzm/room-topology RoomOccupancyType. */
-const OCCUPANCY_BY_TYPE: Record<string, string> = {
-    master: 'bedroom', bedroom: 'bedroom', living: 'living-room', kitchen: 'kitchen',
-    dining: 'dining-room', bathroom: 'bathroom', ensuite: 'bathroom', hall: 'entrance-lobby',
-    corridor: 'corridor', study: 'private-office', utility: 'utility-room',
-};
+// D-TGL RoomType → editor RoomOccupancyType comes from the single-source-of-truth
+// rules database (occupancyOf), so detected rooms are coloured/tagged by use.
 const num = (v: unknown, d = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 const str = (v: unknown, d = ''): string => (typeof v === 'string' ? v : d);
 
@@ -95,7 +91,7 @@ export function emitGeometry(graph: LayoutGraph): EmittedLayout {
             hasDirectAccess: (permeable.get(n.guid)?.size ?? 0) > 0,
             adjacentTo: [...(neighbours.get(n.guid) ?? [])].map(g => nameByGuid.get(g) ?? g).sort(),
             centroid: { x: mm(cx), y: mm(cz) },
-            occupancy: OCCUPANCY_BY_TYPE[spaceType] ?? 'unclassified',
+            occupancy: occupancyOf(spaceType),
         });
     }
 

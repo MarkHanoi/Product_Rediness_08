@@ -1,9 +1,9 @@
-// Apartment Layout Generator — pre-execution validator (SPEC §8).
+// Apartment Layout Generator — pre-execution validator (SPEC §8 + SPEC-ARCHITECTURAL-PROGRAM-RULES).
 //
-// PURE: no stores, no DOM, no THREE, no network. Hard rules V1–V7; any failure
+// PURE: no stores, no DOM, no THREE, no network. Hard rules V1–V9; any failure
 // rejects the option, and `failures[]` are fed back into the retry prompt (§10).
-// This is the "pre-execution validator" the architect identified as the only
-// genuinely-new logic piece besides the prompt template + scorer.
+// Minima, mandatory windows and the door-permission matrix are read from the
+// SINGLE SOURCE OF TRUTH rules database (rules/programRules.ts) — never duplicated.
 
 import type {
     LayoutOption,
@@ -12,14 +12,7 @@ import type {
     ApartmentProgram,
     ValidationResult,
 } from './types.js';
-
-/** V1 — minimum net floor areas (m²) per room type. */
-const MIN_AREA_M2: Partial<Record<LayoutRoom['type'], number>> = {
-    master: 12, bedroom: 9, living: 18, kitchen: 8, bathroom: 4, ensuite: 4,
-};
-
-/** V2 — room types that MUST have at least one window. */
-const NEEDS_WINDOW: ReadonlyArray<LayoutRoom['type']> = ['master', 'bedroom', 'living', 'kitchen'];
+import { roomRule, doorAllowedBetween } from './rules/programRules.js';
 
 /** V5 — minimum door clear width (mm). */
 const MIN_DOOR_CLEARANCE_MM = 600;
@@ -34,17 +27,17 @@ export function validateLayout(
     const typeOf = (name: string): LayoutRoom['type'] | undefined => byName.get(name)?.type;
     const countType = (t: LayoutRoom['type']): number => option.rooms.filter(r => r.type === t).length;
 
-    // V1 — minimum area.
+    // V1 — minimum area (rules DB; enforced only where a minimum is defined).
     for (const r of option.rooms) {
-        const min = MIN_AREA_M2[r.type];
-        if (min !== undefined && r.area < min) {
+        const min = roomRule(r.type).minAreaM2;
+        if (min > 0 && r.area < min) {
             failures.push(`${r.name} (${r.type}) area ${r.area.toFixed(1)}m² is below the ${min}m² minimum`);
         }
     }
 
-    // V2 — natural light for habitable rooms.
+    // V2 — natural light for rooms that legally require a window (rules DB).
     for (const r of option.rooms) {
-        if (NEEDS_WINDOW.includes(r.type) && r.windowCount < 1) {
+        if (roomRule(r.type).windowMandatory && r.windowCount < 1) {
             failures.push(`${r.name} (${r.type}) has no window — habitable rooms need natural light`);
         }
     }
@@ -92,6 +85,37 @@ export function validateLayout(
     }
     if (program.livingRoom && countType('living') < 1) {
         failures.push('program requires a living room but none is present');
+    }
+
+    // V8 — connectivity legality: every room must have at least one PERMITTED access
+    // neighbour (a room type it is allowed to share a door with). A room boxed in by
+    // only forbidden neighbours (e.g. a bedroom surrounded solely by bedrooms) cannot
+    // be reached logically. Circulation rooms connect to everything → always pass.
+    for (const r of option.rooms) {
+        if (roomRule(r.type).privacy === 'circulation') continue;
+        const hasPermitted = r.adjacentTo.some(n => {
+            const t = typeOf(n);
+            return t !== undefined && doorAllowedBetween(r.type, t);
+        });
+        if (r.adjacentTo.length > 0 && !hasPermitted) {
+            failures.push(`${r.name} (${r.type}) has no architecturally-permitted access — its only neighbours are forbidden door pairs`);
+        }
+    }
+
+    // V9 — access-target rules: a bedroom's access must come from circulation or a
+    // social space; a bathroom only from a corridor/hall or a bedroom (never a
+    // kitchen / living / dining). Uses the rules DB's accessFrom whitelist.
+    const adjacentTypes = (r: LayoutRoom): Set<string> =>
+        new Set(r.adjacentTo.map(n => typeOf(n)).filter((t): t is LayoutRoom['type'] => t !== undefined));
+    for (const r of option.rooms) {
+        if (r.type !== 'bedroom' && r.type !== 'bathroom') continue;
+        const allowed = roomRule(r.type).accessFrom;
+        const adj = adjacentTypes(r);
+        const hasTarget = allowed.some(t => adj.has(t));
+        if (adj.size > 0 && !hasTarget) {
+            const list = allowed.join(' / ');
+            failures.push(`${r.name} (${r.type}) is not adjacent to a valid access space (needs one of: ${list})`);
+        }
     }
 
     return { valid: failures.length === 0, failures };

@@ -22,6 +22,7 @@
 import type { BubbleGraph } from './bubbleGraph.js';
 import type { Pt, Rect } from './rectDecomposition.js';
 import type { RoomPlacement } from './subdivide.js';
+import { doorAllowedBetween, isCirculation, maxDoorsFor } from '../rules/programRules.js';
 
 export interface WallSeg {
     readonly id: string;
@@ -46,6 +47,13 @@ export interface OpeningSpec {
 export interface WallsAndDoors {
     readonly segments: readonly WallSeg[];
     readonly openings: readonly OpeningSpec[];
+    /**
+     * Reconciliation doors that violated the program rules (a forbidden room-type
+     * pair or a privacy door-cap) but were placed anyway as a LAST RESORT to avoid
+     * sealing a room. 0 ⇒ a fully rule-legal layout. P8 prefers candidates with
+     * the fewest compromises (so the user gets a logical plan whenever one exists).
+     */
+    readonly compromises: number;
 }
 
 export interface WallsAndDoorsOpts {
@@ -156,15 +164,22 @@ export function buildWallsAndDoors(
     for (const { coord, faces } of groupByCoord(hFaces)) for (const run of runsForLine(faces)) emit('h', coord, run);
 
     // ── Doors ────────────────────────────────────────────────────────────────────
-    // A door needs a real shared wall + must fit; one door per wall. We first place
-    // the doors the bubble graph asks for (where the rooms ended up adjacent), then
-    // RECONCILE: add doors across shared walls until every room is reachable from
-    // the entry (spanning-tree over the room-adjacency graph, preferring doors that
-    // touch circulation). This guarantees NO sealed/door-less room even when the
-    // squarified placement didn't land the exact bubble-edge rooms adjacent.
+    // A door needs a real shared wall + must fit; one door per wall. The pipeline:
+    //   (1) place the doors the bubble graph asks for (intended adjacencies);
+    //   (2a) RECONCILE over PERMITTED pairs only — Kruskal over shared walls where
+    //        `doorAllowedBetween` holds AND neither room is over its privacy cap,
+    //        circulation first — so every room reachable from the entry through
+    //        ARCHITECTURALLY LEGAL doors (no bedroom-through-bedroom, no bathroom
+    //        off a kitchen, no en-suite off a corridor);
+    //   (2b) LAST RESORT — if a room is still sealed, connect it across ANY shared
+    //        wall (ignoring permission/caps) so it is never door-less, counting each
+    //        such door as a `compromise` (P8 then prefers candidates with zero).
     const openings: OpeningSpec[] = [];
     const wallHasDoor = new Set<string>();
+    const doorCount = new Map<string, number>(graph.rooms.map(r => [r.id, 0]));
+    const typeOf = new Map(graph.rooms.map(r => [r.id, r.type]));
     let oid = 0;
+    let compromises = 0;
     const addDoor = (wall: WallSeg, a: string, b: string): boolean => {
         if (wallHasDoor.has(wall.id)) return false;
         const len = Math.hypot(wall.b.x - wall.a.x, wall.b.z - wall.a.z);
@@ -176,8 +191,13 @@ export function buildWallsAndDoors(
             betweenRoomIds: [a, b],
         });
         wallHasDoor.add(wall.id);
+        doorCount.set(a, (doorCount.get(a) ?? 0) + 1);
+        doorCount.set(b, (doorCount.get(b) ?? 0) + 1);
         return true;
     };
+    const underCap = (id: string): boolean => (doorCount.get(id) ?? 0) < maxDoorsFor(typeOf.get(id) ?? '');
+    const permitted = (a: string, b: string): boolean =>
+        doorAllowedBetween(typeOf.get(a) ?? '', typeOf.get(b) ?? '');
 
     // Connectivity DSU (rooms connected via open thresholds + placed doors).
     const cRoot = new Map<string, string>(graph.rooms.map(r => [r.id, r.id]));
@@ -185,27 +205,45 @@ export function buildWallsAndDoors(
     const cUnion = (a: string, b: string): void => { const ra = cFind(a), rb = cFind(b); if (ra !== rb) cRoot.set(ra, rb); };
     for (const e of graph.edges) if (e.via === 'open') cUnion(e.a, e.b);
 
-    // (1) bubble-requested doors, where realised.
+    // (1) bubble-requested doors, where realised. These are the INTENDED adjacencies
+    // (corridor→bedroom, master↔ensuite, corridor→bathroom) — all rule-legal by
+    // construction, so they are placed unconditionally and seed the door caps.
     for (const e of graph.edges) {
         if (e.via !== 'door') continue;
         const wall = sharedWallByPair.get(pairKey(e.a, e.b));
         if (wall && addDoor(wall, e.a, e.b)) cUnion(e.a, e.b);
     }
 
-    // (2) reconcile to full reachability — Kruskal over shared walls, circulation first.
-    const circulation = new Set<string>(['corridor', 'hall', 'living']);
-    const typeOf = new Map(graph.rooms.map(r => [r.id, r.type]));
-    const candidates = segments
+    // Shared-wall candidates, ranked: circulation-touching first, then longer walls,
+    // then stable id (deterministic).
+    const shared = segments
         .filter(s => s.boundsRoomIds.length === 2)
         .map(s => {
             const [a, b] = s.boundsRoomIds as readonly [string, string];
-            const touchesCirc = circulation.has(typeOf.get(a) ?? '') || circulation.has(typeOf.get(b) ?? '') ? 1 : 0;
+            const touchesCirc = isCirculation(typeOf.get(a) ?? '') || isCirculation(typeOf.get(b) ?? '') ? 1 : 0;
             return { seg: s, a, b, pref: touchesCirc, len: Math.hypot(s.b.x - s.a.x, s.b.z - s.a.z) };
         })
         .sort((p, q) => q.pref - p.pref || q.len - p.len || (p.seg.id < q.seg.id ? -1 : 1));
-    for (const c of candidates) {
-        if (cFind(c.a) !== cFind(c.b) && addDoor(c.seg, c.a, c.b)) cUnion(c.a, c.b);
+
+    // (2a) reconcile over PERMITTED, under-cap pairs only.
+    for (const c of shared) {
+        if (cFind(c.a) === cFind(c.b)) continue;
+        if (!permitted(c.a, c.b)) continue;
+        if (!underCap(c.a) || !underCap(c.b)) continue;
+        if (addDoor(c.seg, c.a, c.b)) cUnion(c.a, c.b);
     }
 
-    return { segments, openings };
+    // (2b) last resort — any remaining sealed room gets a door across whatever shared
+    // wall reconnects it, even if that breaks a rule. Counted as a compromise.
+    for (const c of shared) {
+        if (cFind(c.a) === cFind(c.b)) continue;
+        if (addDoor(c.seg, c.a, c.b)) { cUnion(c.a, c.b); compromises++; }
+    }
+
+    return { segments, openings, compromises };
+}
+
+/** True when a door between these two room types satisfies the program rules. */
+export function isLegalDoorPair(typeA: string, typeB: string): boolean {
+    return doorAllowedBetween(typeA, typeB);
 }

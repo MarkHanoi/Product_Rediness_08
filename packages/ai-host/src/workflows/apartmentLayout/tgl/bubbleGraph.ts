@@ -8,6 +8,7 @@
 // connectivity (space syntax) against them. Pure: ZERO imports except types.
 
 import type { ApartmentProgram, RoomType } from '../types.js';
+import { roomRule } from '../rules/programRules.js';
 
 export interface ProgramRoom {
     readonly id: string;            // unique in this layout, e.g. 'r0'
@@ -33,18 +34,8 @@ export interface BubbleGraph {
     readonly entryId: string | null;
 }
 
-/** Relative area weights — bigger rooms get more of the shell. */
-const AREA_WEIGHT: Readonly<Record<RoomType, number>> = {
-    living: 1.7, master: 1.3, bedroom: 1.0, kitchen: 0.95, dining: 0.9, study: 0.85,
-    hall: 0.5, corridor: 0.45, bathroom: 0.45, ensuite: 0.4, utility: 0.4,
-};
-
-/** Hard minimum areas (m²) — mirrors validate.ts §8 V1. */
-const MIN_AREA: Partial<Record<RoomType, number>> = {
-    master: 12, bedroom: 9, living: 18, kitchen: 8, bathroom: 4, ensuite: 4,
-};
-
-const NEEDS_WINDOW: ReadonlySet<RoomType> = new Set<RoomType>(['master', 'bedroom', 'living', 'kitchen', 'study']);
+// Area weights, minima + habitability are read from the single-source-of-truth
+// rules database (rules/programRules.ts) — never duplicated here.
 const cap = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 
 /**
@@ -57,7 +48,7 @@ export function buildBubbleGraph(program: ApartmentProgram, availableAreaM2: num
     const rooms: ProgramRoom[] = [];
     const push = (type: RoomType, name: string, isPrivate: boolean): string => {
         const id = `r${rooms.length}`;
-        rooms.push({ id, type, name, targetAreaM2: 0, isPrivate, needsWindow: NEEDS_WINDOW.has(type) });
+        rooms.push({ id, type, name, targetAreaM2: 0, isPrivate, needsWindow: roomRule(type).needsWindow });
         return id;
     };
 
@@ -79,10 +70,10 @@ export function buildBubbleGraph(program: ApartmentProgram, availableAreaM2: num
     for (let i = 0; i < baths; i++) push('bathroom', baths > 1 ? `Bathroom ${i + 1}` : 'Bathroom', true);
 
     // ── Area targets: weight-scaled to fill the shell, then clamped up to minima.
-    const totalWeight = rooms.reduce((s, r) => s + (AREA_WEIGHT[r.type] ?? 0.5), 0) || 1;
+    const totalWeight = rooms.reduce((s, r) => s + roomRule(r.type).areaWeight, 0) || 1;
     const withAreas: ProgramRoom[] = rooms.map(r => {
-        const raw = availableAreaM2 * ((AREA_WEIGHT[r.type] ?? 0.5) / totalWeight);
-        const targetAreaM2 = Math.max(raw, MIN_AREA[r.type] ?? 3);
+        const raw = availableAreaM2 * (roomRule(r.type).areaWeight / totalWeight);
+        const targetAreaM2 = Math.max(raw, roomRule(r.type).minAreaM2 || 3);
         return { ...r, targetAreaM2 };
     });
 

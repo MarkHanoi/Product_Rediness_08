@@ -8,7 +8,7 @@
  *  (kept as a plain string so the pure engine carries no geometry dependency). */
 export type FurnitureKind =
     | 'bed' | 'bedside_table' | 'wardrobe' | 'sofa' | 'coffee_table'
-    | 'dining_table' | 'dining_chair' | 'entrance_table'
+    | 'dining_table' | 'dining_chair' | 'entrance_table' | 'lamp'
     | 'toilet_radiator' | 'shower_glass_panel'
     | 'kitchen_l_shape' | 'kitchen_straight' | 'kitchen_u_shape';
 

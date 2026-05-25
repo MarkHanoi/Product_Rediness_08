@@ -38,6 +38,11 @@ export interface TglCandidate {
     readonly objectives: ObjectiveVector;
     readonly weighted: number;                 // weighted-sum score (0..1)
     readonly rank: number;                     // Pareto rank (0 = best front)
+    /** Reconciliation doors that broke a program rule (forbidden pair / over-cap).
+     *  0 ⇒ an architecturally-legal plan; lower is better (legality gate, §rules). */
+    readonly compromises: number;
+    /** Every space reachable from the entry through doors/open thresholds. */
+    readonly connected: boolean;
 }
 
 const EPS = 1e-9;
@@ -78,7 +83,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     if (placementsT.length === 0) return null;
     const placements: RoomPlacement[] = placementsT.map(p => ({ roomId: p.roomId, rect: xfRect(p.rect, t.inv) }));
 
-    const { segments, openings } = buildWallsAndDoors(placements, bubble, {
+    const { segments, openings, compromises } = buildWallsAndDoors(placements, bubble, {
         ...(input.wallThicknessM !== undefined ? { wallThicknessM: input.wallThicknessM } : {}),
         ...(input.doorWidthM !== undefined ? { doorWidthM: input.doorWidthM } : {}),
     });
@@ -89,7 +94,11 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     const entryGuid = graph.nodes.find(n => n.kind === 'Space' && n.sourceId === bubble.entryId)?.guid ?? null;
     const metrics = computeSpaceSyntax(graph, entryGuid);
     const objectives = computeObjectives(graph, metrics, bubble);
-    return { strategy: strategyKey(s), graph, objectives, weighted: weightedSum(objectives, input.weights), rank: 0 };
+    return {
+        strategy: strategyKey(s), graph, objectives,
+        weighted: weightedSum(objectives, input.weights), rank: 0,
+        compromises, connected: metrics.connected,
+    };
 }
 
 /** Map the 4 user weights onto the 5 axes (regularity gets a fixed weight), normalise, sum. */
@@ -148,7 +157,16 @@ export function enumerateLayouts(input: EnumerateInput): TglCandidate[] {
     }
     if (candidates.length === 0) return [];
 
-    const ranked = assignParetoRanks(candidates).sort((a, b) =>
+    // LEGALITY GATE (§rules): an architecturally-legal plan — every room reachable
+    // through rule-PERMITTED doors (connected, zero compromises) — beats any plan
+    // that needed a forbidden door (e.g. bedroom-through-bedroom). We PRE-FILTER the
+    // pool to the best achievable legality tier, THEN Pareto-rank within it (so the
+    // returned list stays Pareto-consistent). Tiers: legal → reachable → anything.
+    const connected = candidates.filter(c => c.connected);
+    const legal = connected.filter(c => c.compromises === 0);
+    const pool = legal.length > 0 ? legal : connected.length > 0 ? connected : candidates;
+
+    const ranked = assignParetoRanks(pool).sort((a, b) =>
         a.rank - b.rank ||
         b.weighted - a.weighted ||
         (a.strategy < b.strategy ? -1 : a.strategy > b.strategy ? 1 : 0));   // stable tie-break

@@ -21,6 +21,8 @@ const FP: Readonly<Record<FurnitureKind, Footprint>> = {
     dining_chair:   { w: 0.50, l: 0.50, h: 0.90, baseOffset: 0, clearFront: 0.00, clearSides: 0.00 },
     // Entrance
     entrance_table: { w: 1.00, l: 0.40, h: 0.80, baseOffset: 0, clearFront: 0.30, clearSides: 0.00 },
+    // Lighting (floor / corner lamp) — small footprint, kept out of circulation.
+    lamp:           { w: 0.35, l: 0.35, h: 1.50, baseOffset: 0, clearFront: 0.10, clearSides: 0.00 },
     // Bathroom fixtures
     toilet_radiator:    { w: 0.40, l: 0.70, h: 0.80, baseOffset: 0, clearFront: 0.60, clearSides: 0.10 },
     shower_glass_panel: { w: 0.90, l: 0.90, h: 2.00, baseOffset: 0, clearFront: 0.20, clearSides: 0.00 },
