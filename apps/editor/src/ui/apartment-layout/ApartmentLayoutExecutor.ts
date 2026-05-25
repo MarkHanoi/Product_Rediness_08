@@ -72,27 +72,45 @@ export class ApartmentLayoutExecutor {
             // per-command, so a failed door never aborts the walls and never spams
             // uncaught rejections. Walls are the structural layout; openings/doors
             // are best-effort.
-            const dispatch = (cmd: string, payload: unknown, label: string): void => {
+            // Telemetry: doors/openings are dispatched best-effort; tally outcomes so a
+            // build that "loses" doors is diagnosable (the failure reason distinguishes
+            // ordering ["wall not found"] vs fit ["occupancy"/"does not fit"] vs render).
+            const pending: Array<Promise<unknown>> = [];
+            const fail: Record<string, number> = { wall: 0, opening: 0, door: 0 };
+            const firstErr: Record<string, string> = {};
+            const dispatch = (cmd: string, payload: unknown, label: string, kind: 'wall' | 'opening' | 'door'): void => {
                 try {
                     const r = runtime.bus.executeCommand(cmd, payload) as unknown;
-                    if (r && typeof (r as { catch?: unknown }).catch === 'function') {
-                        (r as Promise<unknown>).catch((e: unknown) =>
-                            console.warn(`[apartment-layout] ${label} failed (skipped):`, e));
+                    if (r && typeof (r as { then?: unknown }).then === 'function') {
+                        pending.push((r as Promise<unknown>).catch((e: unknown) => {
+                            fail[kind]++; firstErr[kind] ??= String(e);
+                            console.warn(`[apartment-layout] ${label} failed (skipped):`, e);
+                        }));
                     }
                 } catch (e) {
+                    fail[kind]++; firstErr[kind] ??= String(e);
                     console.warn(`[apartment-layout] ${label} threw (skipped):`, e);
                 }
             };
 
             // One coalesced undo unit; rooms redetect after (walls define boundaries).
             batchCoordinator.runBatch(() => {
-                dispatch(set.wallBatch.command, set.wallBatch.payload, 'wall.batch.create');
-                for (const op of set.openingCommands) dispatch(op.command, op.payload, 'wall.createOpening');
-                if (set.doorBatch) dispatch(set.doorBatch.command, set.doorBatch.payload, 'door.batch.create');
+                dispatch(set.wallBatch.command, set.wallBatch.payload, 'wall.batch.create', 'wall');
+                for (const op of set.openingCommands) dispatch(op.command, op.payload, 'wall.createOpening', 'opening');
+                if (set.doorBatch) dispatch(set.doorBatch.command, set.doorBatch.payload, 'door.batch.create', 'door');
             }, {
                 levelIds: [level.id],
                 totalElementCount: set.totalElementCount,
                 skipRedetectRooms: false,
+            });
+
+            // Summarise once all async dispatches settle — one clear diagnostic line.
+            void Promise.allSettled(pending).then(() => {
+                console.log(
+                    `[apartment-layout] build telemetry — walls:${set.wallIds.length}(fail ${fail.wall}) ` +
+                    `openings:${set.openingCommands.length}(fail ${fail.opening}) doors:${set.doorIds.length}(fail ${fail.door})`,
+                    fail.opening || fail.door || fail.wall ? firstErr : '',
+                );
             });
 
             // Name the freshly-detected rooms with D-TGL's semantic names (matched
