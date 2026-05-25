@@ -47,7 +47,7 @@ frame `{x, z}`** (z = world Z = plan "up"), and round to 1e‑6 m at boundaries.
 | **P1** | `rectDecomposition.ts` | `Pt[]` shell polygon → `Rect[]` (axis‑aligned, slab sweep) | ✅ 8 tests |
 | **P2** | `bubbleGraph.ts` | `ApartmentProgram`, availableAreaM2 → `BubbleGraph` (rooms + targets + adjacency edges) | ✅ 6 tests |
 | **P3a** | `squarify.ts` | `Rect`, `AreaItem[]` → `PlacedItem[]` (squarified treemap) | ✅ 6 tests |
-| **P3b** | `subdivide.ts` | `Rect[]` + `BubbleGraph` → `RoomPlacement[]` (rooms→footprints; pack across rects, squarify each, corridor cell) | ⏳ |
+| **P3b** | `subdivide.ts` | `Rect[]` + `BubbleGraph` → `RoomPlacement[]` (rooms→footprints; pack across rects, squarify each, corridor cell) | ✅ 5 tests |
 | **P4** | `wallsAndDoors.ts` | `RoomPlacement[]` + `BubbleGraph` → `{ segments: WallSeg[]; openings: OpeningSpec[] }` (dedup shared walls; doors on realised adjacencies) | ⏳ |
 | **P5** | `semanticGraph.ts` | `RoomPlacement[]`+`WallSeg[]`+`OpeningSpec[]`+`BubbleGraph` → `LayoutGraph` (the persistent BIM3.0 graph; §3) | ⏳ |
 | **P6** | `spaceSyntax.ts` | `LayoutGraph` → `SyntaxMetrics` (per‑space depth, mean depth, RA, integration; §4) | ⏳ |
