@@ -56,3 +56,45 @@ export interface FurnitureArchetype {
     readonly minAreaM2: number;
     readonly items: readonly FurnitureItemSpec[];
 }
+
+// ── F1/F4 — room input (assembled by the editor; consumed by the pure solver) ──
+
+/** An opening (door/window) with a world pose. `normal` points INTO the room. */
+export interface OpeningPose {
+    readonly type: 'door' | 'window';
+    readonly center: Pt;
+    readonly normal: Pt;       // unit, into the room
+    readonly width: number;
+}
+
+/** A room boundary wall segment with the openings on it and its inward normal. */
+export interface RoomWallSeg {
+    readonly a: Pt;
+    readonly b: Pt;
+    readonly inwardNormal: Pt;  // unit, into the room
+    readonly length: number;
+    readonly isExterior: boolean;
+}
+
+/** Everything the solver needs about one room (world XZ, metres). */
+export interface FurnishRoomInput {
+    readonly roomId: string;
+    readonly levelId: string;
+    readonly occupancy: string;
+    readonly polygon: readonly Pt[];
+    readonly centroid: Pt;
+    readonly areaM2: number;
+    readonly walls: readonly RoomWallSeg[];
+    readonly doors: readonly OpeningPose[];
+    readonly windows: readonly OpeningPose[];
+    readonly levelElevation: number;
+}
+
+/** A placed furniture instance (world position + yaw). */
+export interface PlacedFurniture {
+    readonly kind: FurnitureKind;
+    readonly position: { readonly x: number; readonly y: number; readonly z: number };
+    readonly rotationY: number;     // radians
+    readonly footprint: Footprint;
+    readonly hostedSpaceId: string;
+}
