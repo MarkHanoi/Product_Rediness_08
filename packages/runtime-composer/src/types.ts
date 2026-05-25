@@ -122,6 +122,18 @@ export interface RuntimeEvents {
    *  Replaces a `window.dispatchEvent` (P4). */
   'apartment.layout-options-ready': { runId: string; options: readonly unknown[] };
 
+  /** Fired by the §11 modal when the user picks an option ("Use this
+   *  layout"). The A6 execute handler subscribes → reads
+   *  `runtime.ai.layoutOptions.optionAt(optionIndex)` → builds the batch. */
+  'apartment.layout-execute': { optionIndex: number };
+
+  /** Fired by the A6 execute handler after the layout is committed as one
+   *  undoable batch (rooms then auto-redetect). */
+  'apartment.layout-executed': { createdWallCount: number; createdDoorCount: number };
+
+  /** Fired by the §11 modal on cancel — the AIStore pending run is cleared. */
+  'apartment.layout-cancel': Record<string, never>;
+
   // ── Wave 4 Track A — typed-slot events ────────────────────────────────────
 
   /** PR 4.A.1 (D.11-prep) — emitted by `buildViewRegistrySlot.activate()`
