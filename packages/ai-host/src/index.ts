@@ -32,6 +32,11 @@ export {
   DEFAULT_CRITIQUE_FIXTURE,
   loadRelay,
 } from './AnthropicRelay.js';
+export {
+  createCfWorkerRelay,
+  modelClassOf,
+  DEFAULT_RELAY_ENDPOINT,
+} from './CfWorkerRelay.js';
 export type {
   RelayPorter,
   RelayRequest,

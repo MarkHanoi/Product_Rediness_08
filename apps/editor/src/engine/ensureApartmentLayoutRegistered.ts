@@ -38,6 +38,11 @@ export async function ensureApartmentLayoutRegistered(
 
         return aiHost.createApartmentLayoutRegistration({
             host: host as { plane?: unknown },
+            // A7 — live relay through the server BFF (POST /api/anthropic/v1/messages,
+            // which routes to the CF Worker / Anthropic). Same-origin → the session
+            // cookie satisfies the route auth. Loud-fail-soft: relay errors surface as
+            // a rejected generation with a reason, not fabricated layouts.
+            relay: aiHost.createCfWorkerRelay(),
             getWall,
             // SL-3: one wall's compass orientation (recomputes facades per call —
             // negligible for the handful of perimeter walls a shell has).

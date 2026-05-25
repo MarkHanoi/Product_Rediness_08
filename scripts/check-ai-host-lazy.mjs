@@ -92,7 +92,11 @@ const violations = [];
 // Rule 1 + 3: scan source for forbidden static / dynamic imports.
 for (const root of SCAN_ROOTS) {
   for (const file of walk(root)) {
-    const rel = relative(ROOT, file);
+    // Normalise to forward slashes so the ALLOWED_PATH_FRAGMENTS allowlist
+    // (written with `/`) matches on Windows too — `relative()` yields `\` paths
+    // there, which previously caused legitimate AiHost.ts/AiHost.impl.ts lines to
+    // be flagged as false positives (the gate still passed on Linux CI).
+    const rel = relative(ROOT, file).split('\\').join('/');
     if (isAllowed(rel)) continue;
     let src;
     try { src = readFileSync(file, 'utf8'); } catch { continue; }
