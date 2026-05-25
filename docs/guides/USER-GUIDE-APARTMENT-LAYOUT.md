@@ -177,7 +177,8 @@ is planned; see [Limitations](#8-limitations--whats-next).)
 | *"No active level — create or open a level first."* | No level is active. | Create/open a level and make it active, then retry. |
 | *"Need at least 3 exterior walls on the active level."* | The shell isn't closed / has too few perimeter walls. | Draw the perimeter walls so they enclose the apartment (≥ 3 outer walls). |
 | Modal shows **"No valid layouts were generated."** | The AI couldn't produce a layout that passes the rules for your shell (e.g. the shell is too small for the default program). | Try a larger shell, or wait for the configurable-program form to request fewer rooms. |
-| *"Layout generation failed"* toast | The AI service was unreachable, rate-limited, or over quota. | Check your connection / plan quota and retry. Nothing was changed. |
+| *"Layout generation failed"* toast | The AI service was unreachable, rate-limited, or over quota **and** the offline engine also couldn't place a layout (e.g. a degenerate shell). | Check the shell is a closed, sensible polygon and retry. With a valid shell the offline D-TGL engine should always deliver (see §10). Nothing was changed. |
+| Summaries say **"(offline · D-TGL)"** | The AI was unavailable, so the built-in deterministic engine generated the layouts. | Expected — these are real layouts. Configure an AI upstream (server `ANTHROPIC_API_KEY` / `CF_WORKER_URL`) to use the AI path instead. |
 | *"Failed to build the layout."* | An error occurred while creating the walls/doors. | Undo (to be safe), then retry. If it persists, report it. |
 | Thumbnails look empty | The option had no internal walls (rare). | Pick a different option or regenerate. |
 
@@ -246,6 +247,36 @@ AI panel: "Generate apartment layout (AI)"
 - **Runs in-process** on the AiPlane (C09 §2.4), loaded lazily so the AI code adds
   nothing to PRYZM's startup time.
 
+### Offline mode — the deterministic engine (no AI key needed)
+
+If the server has no AI connection configured (or it's temporarily unavailable),
+PRYZM doesn't give up — it generates the layouts with a built-in **deterministic
+design engine (D-TGL)** that runs entirely in your browser, no tokens, in under
+two seconds. You get the same ranked, scored cards in the same modal; the only
+difference is the summary reads **"(offline · D-TGL)"**.
+
+What it does, in order:
+
+1. **Decompose the shell** into rectangles (handles L / T / U shapes, not just boxes).
+2. **Bubble diagram** — turn your program into the rooms to place + the adjacencies
+   an architect would draw (entry → living ↔ kitchen/dining; bedrooms + baths off a
+   corridor; master ↔ en-suite), with each room sized to fill the shell.
+3. **Subdivide** — pack the rooms into the shell as sensible near-square footprints
+   (a squarified treemap), public space near the entrance.
+4. **Walls + doors** — extract shared/exterior walls (no duplicates) and place doors
+   on the required adjacencies; open-plan links get no wall.
+5. **Semantic model** — build a typed graph of spaces, walls, openings and doors
+   (the BIM3.0 "digital twin" payload, IFC-ready), each with a stable id.
+6. **Score with Space Syntax** — rank candidates on five axes (efficiency,
+   adjacency, daylight, circulation, regularity); "circulation" rewards the classic
+   public-shallow / private-deep gradient.
+7. **Emit geometry** — the winning layouts become the same walls + hosted doors the
+   AI path produces, built through the same one-undo batch.
+
+It tries **eight different layout strategies** and shows you the best ones. Because
+it's deterministic, the *same shell + program always produces the same layouts* —
+useful for comparing changes. Full detail: `SPEC-TGL-DETERMINISTIC-LAYOUT-ENGINE.md`.
+
 ---
 
 ## 11. FAQ
@@ -262,12 +293,19 @@ shell and were dropped. You get every valid option, up to the requested count.
 **Can I run it again?** Yes. Each run replaces the previous pending options. Pick
 from the newest set.
 
-**Is the result deterministic?** No — it's a live AI generation, so results vary
-between runs. The validation and scoring are deterministic, so whatever you see is
-always rule-compliant and ranked consistently.
+**Is the result deterministic?** It depends which engine ran. With a live AI
+connection, results vary between runs (the validation and scoring are deterministic,
+so whatever you see is always rule-compliant and ranked consistently). In **offline
+mode** (the built-in D-TGL engine, summaries marked "offline · D-TGL"), it is fully
+deterministic — the same shell + program always yields the same layouts.
+
+**Do I need an AI key / internet for this to work?** No. If the AI is unavailable
+the deterministic offline engine takes over automatically and still produces real,
+architecturally-sound layouts (see §10, "Offline mode").
 
 ---
 
 *See also:* `SPEC-APARTMENT-LAYOUT-GENERATOR.md` (full specification),
+`SPEC-TGL-DETERMINISTIC-LAYOUT-ENGINE.md` (the offline deterministic engine),
 `C09 §2.4 / §3.4` (AI contract), `C15` (hosted doors), `C16`/`C17` (command &
 catalogue contracts).
