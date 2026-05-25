@@ -27,6 +27,9 @@ import { aiApprovalStore } from '@pryzm/ai-host';
 import { AIResponseParser } from '@pryzm/ai-host';
 import { getPreviewManager } from '@app/engine/preview/PreviewManager';
 import type { ElementSchema } from '@app/engine/preview/PreviewManager';
+// C17 CB-8 — the AI panel surfaces the SAME batch catalogue as the CREATE panel,
+// dispatched through the SAME path (dispatchBatchEntry → Path-A commandManager.execute).
+import { groupCatalogue, dispatchBatchEntry, SHIPPED_PHASE, type BatchDeps } from '../create/batchCatalogue';
 
 // ─── Command-Aware Suggestion Tree ───────────────────────────────────────────
 //
@@ -44,6 +47,7 @@ interface SuggestionNode {
     isHubList?: boolean;            // Render children as vertical scrollable list (All Commands hub)
     scopeBadge?: string;            // Right-side badge: 'batch' | 'pick levels' | 'manual'
     prompt?: string;                // Question shown above options in parametric flow
+    action?: () => void;            // C17 CB-8 — direct catalogue dispatch (no NL query)
 }
 
 // Full command tree — sourced from actual QueryEngine patterns
@@ -821,8 +825,65 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
 
     // ── Command-aware Suggestion System (Task 9.3) ─────────────────────────
 
+    // C17 CB-8 / DI-1 — batch dispatch deps for the AI panel, resolved from the
+    // documented legacy globals (typed shims, not `window as any` — P4). The
+    // catalogue performs no window reads of its own; this is the single sink.
+    const _bim = window.bimManager as unknown as {
+        getActiveLevel?: () => { id: string } | undefined;
+        getLevels?: () => Array<{ id: string; elevation: number; height?: number }>;
+    } | undefined;
+    const _sel = window.selectionManager as unknown as {
+        selectedObject?: { userData?: { elementId?: string } } | null;
+    } | undefined;
+    const batchDeps: BatchDeps = {
+        commandManager: (window.commandManager as unknown as BatchDeps['commandManager']) ?? null,
+        getActiveLevelId: () => _bim?.getActiveLevel?.()?.id ?? null,
+        getLevels: () => _bim?.getLevels?.() ?? [],
+        getSelectedElementId: () => _sel?.selectedObject?.userData?.elementId ?? null,
+        slabStore: (window.slabStore as unknown as BatchDeps['slabStore']) ?? null,
+    };
+
+    // Catalogue-sourced "Batch ⚡" branch (C17 §4). Live parameterless entries
+    // dispatch directly via the catalogue; phased entries explain their phase.
+    // Parameterised entries (levels-N, grid system) keep the existing rich NL
+    // pills (Levels / Structural Grid) which offer concrete variants.
+    const batchCatalogueNode: SuggestionNode = ((): SuggestionNode => {
+        const grouped = groupCatalogue();
+        const disciplines: SuggestionNode[] = [];
+        for (const [discipline, sys] of grouped) {
+            const leaves: SuggestionNode[] = [];
+            for (const entries of sys.values()) {
+                for (const e of entries) {
+                    if (e.params && e.params.length > 0) continue; // parameterised → NL pills
+                    if (e.phase > SHIPPED_PHASE || e.status !== 'live') {
+                        leaves.push({
+                            label: e.label,
+                            hint: `Phase ${e.phase}`,
+                            action: () => addMessage('assistant', `"${e.label}" arrives in Phase ${e.phase} of the Semantic Design Assistant.`),
+                        });
+                    } else {
+                        leaves.push({
+                            label: e.label,
+                            hint: e.prompt,
+                            action: () => {
+                                const r = dispatchBatchEntry(e, batchDeps);
+                                addMessage('assistant', r.ok ? `Done — ${e.label}.` : `Couldn't run "${e.label}": ${r.reason ?? 'failed'}`);
+                                if (r.ok) {
+                                    window.runtime?.events?.emit('update-view-browser', {}); // F.events.12
+                                    window.runtime?.events?.emit('model-updated', {});       // F.events.8
+                                }
+                            },
+                        });
+                    }
+                }
+            }
+            if (leaves.length > 0) disciplines.push({ label: discipline, hint: `${leaves.length} batch action(s)`, children: leaves });
+        }
+        return { label: 'Batch ⚡', hint: 'one-click batch creation (C17 catalogue)', category: 'create', children: disciplines };
+    })();
+
     const currentNodes = (): SuggestionNode[] => {
-        if (suggestionState.stack.length === 0) return COMMAND_TREE;
+        if (suggestionState.stack.length === 0) return [...COMMAND_TREE, batchCatalogueNode];
         return suggestionState.stack[suggestionState.stack.length - 1].nodes;
     };
 
@@ -954,6 +1015,7 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
             pill.title = node.query ?? node.prefill ?? node.hint ?? '';
 
             pill.addEventListener('click', async () => {
+                if (node.action) { node.action(); return; }   // C17 CB-8 — direct catalogue dispatch
                 if (node.children && node.children.length > 0) {
                     // Drill down into children
                     suggestionState.stack.push({
