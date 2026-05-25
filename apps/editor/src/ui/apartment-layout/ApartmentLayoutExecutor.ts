@@ -94,14 +94,20 @@ export class ApartmentLayoutExecutor {
     }
 
     /**
-     * Once the rooms are detected (which proves the walls are committed to the legacy
-     * store), create the doors — D-TGL's reconciliation openings, realised via the
-     * LEGACY `CreateWallOpeningCommand` (the same synchronous path manual doors use:
-     * it reads `context.stores.wallStore`, creates the opening void + the door store
-     * record + spatial registration). The async PLUGIN `wall.createOpening` failed
-     * with "wall not found" because it ran before the walls landed; this legacy path
-     * runs after detection and reads the committed store, so it actually finds them.
-     * Then name the rooms. Best-effort + telemetry; one coalesced undo unit.
+     * Once the interior walls are committed to the wall store, create the doors —
+     * D-TGL's reconciliation openings, realised via the LEGACY `CreateWallOpeningCommand`
+     * (the same synchronous path manual doors use: it reads `context.stores.wallStore`,
+     * creates the opening void + the door store record + spatial registration). The async
+     * PLUGIN `wall.createOpening` failed "wall not found" because it ran before the walls
+     * landed.
+     *
+     * GATE: we poll the SAME wall store the command reads (`storeRegistry.getStoreForType
+     * ('wall')` === `wallTool.getWallStore()` === `context.stores.wallStore`) until EVERY
+     * wall a door is hosted on actually exists by id. This is the precise readiness signal
+     * — the earlier "≥1 room detected" proxy was wrong: a pre-existing shell already yields
+     * one room, so the gate could fire BEFORE the new interior partition walls landed,
+     * and every door then failed "wall not found". Best-effort + telemetry; one coalesced
+     * undo unit. Then name the rooms.
      */
     private _finishLayout(runtime: PryzmRuntime, levelId: string, set: LayoutCommandSet, option: ScoredLayoutOption): void {
         const emitDone = (doorCount: number): void => {
@@ -109,23 +115,25 @@ export class ApartmentLayoutExecutor {
             runtime.events?.emit('pryzm:toast', { message: `Built layout — ${set.wallIds.length} walls, ${doorCount} doors.`, severity: 'success' });
         };
 
-        const roomStore = storeRegistry.getStoreForType('room') as unknown as {
-            getByLevel?: (id: string) => Array<unknown>;
-            subscribe?: (fn: () => void) => (() => void);
+        // Unique host-wall ids the doors need — the build is done when these exist.
+        const neededWallIds = [...new Set(set.openingCommands.map(op => (op.payload as { wallId: string }).wallId))];
+        if (neededWallIds.length === 0) { this._nameDetectedRooms(runtime, levelId, option); emitDone(0); return; }
+
+        const wallStore = storeRegistry.getStoreForType('wall') as unknown as {
+            getById?: (id: string) => unknown;
         } | undefined;
-        if (!roomStore?.getByLevel) { this._nameDetectedRooms(runtime, levelId, option); emitDone(0); return; }
+        const wallsReady = (): boolean =>
+            !!wallStore?.getById && neededWallIds.every(id => wallStore.getById!(id) != null);
 
         let done = false;
-        let unsub: () => void = () => { /* until set */ };
-        let settle: ReturnType<typeof setTimeout> | undefined;
-        let hard: ReturnType<typeof setTimeout> | undefined;
+        let poll: ReturnType<typeof setTimeout> | undefined;
 
         const go = (force: boolean): void => {
             if (done) return;
-            const roomsReady = (roomStore.getByLevel!(levelId)?.length ?? 0) > 0;
-            if (!force && !roomsReady) return;                    // walls/rooms not committed yet — wait
-            done = true; unsub(); if (settle) clearTimeout(settle); if (hard) clearTimeout(hard);
+            if (!force && !wallsReady()) return;                  // interior walls not committed yet — wait
+            done = true; if (poll) clearTimeout(poll);
 
+            const landed = wallStore?.getById ? neededWallIds.filter(id => wallStore.getById!(id) != null).length : 0;
             // Doors via the legacy command (reads the committed legacy wall store).
             let doorsMade = 0; let firstErr = '';
             const cm = (window as unknown as { commandManager?: { execute(c: unknown): void } }).commandManager;
@@ -142,15 +150,20 @@ export class ApartmentLayoutExecutor {
             } else if (!cm) {
                 console.warn('[apartment-layout] commandManager unavailable — doors skipped');
             }
-            console.log(`[apartment-layout] doors built — ${doorsMade}/${set.openingCommands.length} via legacy CreateWallOpeningCommand`, firstErr || '');
+            console.log(`[apartment-layout] doors built — ${doorsMade}/${set.openingCommands.length} (host walls present ${landed}/${neededWallIds.length})${force && landed < neededWallIds.length ? ' — FORCED before all walls landed' : ''} via legacy CreateWallOpeningCommand`, firstErr || '');
 
             emitDone(doorsMade);
             this._nameDetectedRooms(runtime, levelId, option);
         };
 
-        if (roomStore.subscribe) unsub = roomStore.subscribe(() => { if (settle) clearTimeout(settle); settle = setTimeout(() => go(false), 80); });
-        hard = setTimeout(() => go(true), 3000);                  // fallback if detection events don't fire
-        go(false);                                               // immediate (rooms may already be present)
+        // Poll the wall store (~150 ms cadence). Fire as soon as the walls are present;
+        // after the budget (~6 s) force a best-effort attempt so we never silently hang.
+        const tick = (n: number): void => {
+            if (done) return;
+            if (wallsReady() || n <= 0) { go(true); return; }
+            poll = setTimeout(() => tick(n - 1), 150);
+        };
+        tick(40);
     }
 
     /**
