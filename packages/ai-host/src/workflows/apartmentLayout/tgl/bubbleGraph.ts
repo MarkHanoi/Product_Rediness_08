@@ -92,7 +92,9 @@ export function buildBubbleGraph(program: ApartmentProgram, availableAreaM2: num
         if (a && b && a !== b) edges.push({ a, b, via });
     };
     link(entryId, livingId, 'open');
-    link(entryId, corridorId, 'open');
+    // Corridor is a DISTINCT circulation room (door from the hall), not merged into
+    // the open public zone — so the layout reads as rooms-off-a-corridor.
+    link(entryId, corridorId, 'door');
     link(livingId ?? entryId, kitchenId, program.openPlanKitchenDining ? 'open' : 'door');
     link(kitchenId, diningId, 'open');
     link(livingId, diningId, 'open');

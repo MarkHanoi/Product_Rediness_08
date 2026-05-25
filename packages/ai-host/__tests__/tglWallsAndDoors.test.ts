@@ -79,10 +79,34 @@ describe('buildWallsAndDoors (TGL P4)', () => {
         for (const s of out1.segments) expect(s.boundsRoomIds.length).toBeLessThanOrEqual(2);
         const keys = out1.segments.map(segKey);
         expect(new Set(keys).size).toBe(keys.length);                 // no duplicate walls
-        const doorEdges = g.edges.filter(e => e.via === 'door').length;
-        expect(out1.openings.length).toBeLessThanOrEqual(doorEdges);  // ≤ one per door edge
+        expect(out1.openings.every(o => o.wallId)).toBe(true);        // every door hosts on a wall
         // deterministic
         const out2 = buildWallsAndDoors(placements, g);
         expect(JSON.stringify(out1)).toEqual(JSON.stringify(out2));
+    });
+
+    it('reconciliation guarantees every room is reachable from the entry (no sealed rooms)', () => {
+        const program: ApartmentProgram = {
+            bedrooms: 3, bathrooms: 2, masterEnSuite: true,
+            openPlanKitchenDining: true, livingRoom: true, entranceHall: true,
+        };
+        const poly: Pt[] = [{ x: 0, z: 0 }, { x: 16, z: 0 }, { x: 16, z: 11 }, { x: 0, z: 11 }];
+        const g = buildBubbleGraph(program, 176);
+        const placements = subdivide(decomposeToRects(poly), g);
+        const { openings } = buildWallsAndDoors(placements, g);
+
+        // permeability graph: open thresholds + door openings
+        const adj = new Map<string, Set<string>>();
+        const link = (a: string, b: string) => {
+            (adj.get(a) ?? adj.set(a, new Set()).get(a)!).add(b);
+            (adj.get(b) ?? adj.set(b, new Set()).get(b)!).add(a);
+        };
+        for (const e of g.edges) if (e.via === 'open') link(e.a, e.b);
+        for (const o of openings) if (o.betweenRoomIds[1]) link(o.betweenRoomIds[0], o.betweenRoomIds[1]);
+
+        const start = g.entryId ?? g.rooms[0]!.id;
+        const seen = new Set([start]); const q = [start];
+        while (q.length) { const c = q.shift()!; for (const n of adj.get(c) ?? []) if (!seen.has(n)) { seen.add(n); q.push(n); } }
+        for (const r of g.rooms) expect(seen.has(r.id)).toBe(true);    // EVERY room reachable
     });
 });

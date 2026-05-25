@@ -155,22 +155,56 @@ export function buildWallsAndDoors(
     for (const { coord, faces } of groupByCoord(vFaces)) for (const run of runsForLine(faces)) emit('v', coord, run);
     for (const { coord, faces } of groupByCoord(hFaces)) for (const run of runsForLine(faces)) emit('h', coord, run);
 
-    // Doors: one centred opening per realised `via:'door'` adjacency.
+    // ── Doors ────────────────────────────────────────────────────────────────────
+    // A door needs a real shared wall + must fit; one door per wall. We first place
+    // the doors the bubble graph asks for (where the rooms ended up adjacent), then
+    // RECONCILE: add doors across shared walls until every room is reachable from
+    // the entry (spanning-tree over the room-adjacency graph, preferring doors that
+    // touch circulation). This guarantees NO sealed/door-less room even when the
+    // squarified placement didn't land the exact bubble-edge rooms adjacent.
     const openings: OpeningSpec[] = [];
+    const wallHasDoor = new Set<string>();
     let oid = 0;
+    const addDoor = (wall: WallSeg, a: string, b: string): boolean => {
+        if (wallHasDoor.has(wall.id)) return false;
+        const len = Math.hypot(wall.b.x - wall.a.x, wall.b.z - wall.a.z);
+        const width = Math.min(doorW, len - 2 * clear);
+        if (width < 0.6 - EPS) return false;                    // wall too short for a usable door
+        openings.push({
+            id: `o${oid++}`, wallId: wall.id, type: 'door',
+            offsetM: round6((len - width) / 2), widthM: round6(width), heightM: doorH, sillM: 0,
+            betweenRoomIds: [a, b],
+        });
+        wallHasDoor.add(wall.id);
+        return true;
+    };
+
+    // Connectivity DSU (rooms connected via open thresholds + placed doors).
+    const cRoot = new Map<string, string>(graph.rooms.map(r => [r.id, r.id]));
+    const cFind = (x: string): string => { while (cRoot.get(x)! !== x) { cRoot.set(x, cRoot.get(cRoot.get(x)!)!); x = cRoot.get(x)!; } return x; };
+    const cUnion = (a: string, b: string): void => { const ra = cFind(a), rb = cFind(b); if (ra !== rb) cRoot.set(ra, rb); };
+    for (const e of graph.edges) if (e.via === 'open') cUnion(e.a, e.b);
+
+    // (1) bubble-requested doors, where realised.
     for (const e of graph.edges) {
         if (e.via !== 'door') continue;
         const wall = sharedWallByPair.get(pairKey(e.a, e.b));
-        if (!wall) continue;                                    // not adjacent in this placement
-        const len = Math.hypot(wall.b.x - wall.a.x, wall.b.z - wall.a.z);
-        const width = Math.min(doorW, len - 2 * clear);
-        if (width < 0.6 - EPS) continue;                        // wall too short for a usable door
-        const offset = round6((len - width) / 2);
-        openings.push({
-            id: `o${oid++}`, wallId: wall.id, type: 'door',
-            offsetM: offset, widthM: round6(width), heightM: doorH, sillM: 0,
-            betweenRoomIds: [e.a, e.b],
-        });
+        if (wall && addDoor(wall, e.a, e.b)) cUnion(e.a, e.b);
+    }
+
+    // (2) reconcile to full reachability — Kruskal over shared walls, circulation first.
+    const circulation = new Set<string>(['corridor', 'hall', 'living']);
+    const typeOf = new Map(graph.rooms.map(r => [r.id, r.type]));
+    const candidates = segments
+        .filter(s => s.boundsRoomIds.length === 2)
+        .map(s => {
+            const [a, b] = s.boundsRoomIds as readonly [string, string];
+            const touchesCirc = circulation.has(typeOf.get(a) ?? '') || circulation.has(typeOf.get(b) ?? '') ? 1 : 0;
+            return { seg: s, a, b, pref: touchesCirc, len: Math.hypot(s.b.x - s.a.x, s.b.z - s.a.z) };
+        })
+        .sort((p, q) => q.pref - p.pref || q.len - p.len || (p.seg.id < q.seg.id ? -1 : 1));
+    for (const c of candidates) {
+        if (cFind(c.a) !== cFind(c.b) && addDoor(c.seg, c.a, c.b)) cUnion(c.a, c.b);
     }
 
     return { segments, openings };
