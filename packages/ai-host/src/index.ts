@@ -187,6 +187,12 @@ export {
   wallsToPolygon,
   polygonAreaM2,
 } from './workflows/apartmentLayout/shellAnalysis.js';
+export { createStoreShellReader } from './workflows/apartmentLayout/shellReader.js';
+export type {
+  ShellReaderDeps,
+  ShellWallRecord,
+  Compass,
+} from './workflows/apartmentLayout/shellReader.js';
 export type {
   ShellAnalysis,
   ShellWallInput,
