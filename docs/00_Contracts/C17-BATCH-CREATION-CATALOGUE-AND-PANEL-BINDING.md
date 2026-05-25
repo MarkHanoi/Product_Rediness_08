@@ -129,7 +129,7 @@ Columns: **Path** = `Discipline › System › ⚡Batch › label`. **Prompt** =
 | Project › Levels › ⚡ | "Duplicate this floor plan to other levels" | `DUPLICATE_FLOOR_PLAN` | — | project | 1 | ✅ |
 | Project › Grid › ⚡ | "Create a structural grid system" | `CREATE_GRID_SYSTEM` | `CREATE_GRID_SYSTEM` | project | 1 | ✅ |
 | Project › Grid › ⚡ | "Delete all grids" | `DELETE_ALL_GRIDS` | `DELETE_ALL_GRIDS` | project | 1 | ✅ |
-| Project › AI › ⚡ | **"Generate apartment layout"** (#51 capstone) | `apartment.generate-layout` → `apartment.layout-execute` | (AI workflow) | project | 6 | ⏳ (two-phase generative; `SPEC-APARTMENT-LAYOUT-GENERATOR`; A1–A2 pure foundation landed) |
+| AI panel › "Generate apartment layout (AI)" | **"Generate apartment layout"** (#51 capstone) | `apartment.generate-layout` → `apartment.layout-execute` | (AI workflow — NOT a batch command) | project | 6 | ✅ A1–A7 complete (`SPEC-APARTMENT-LAYOUT-GENERATOR` §16). Two-phase generative L7.5 (C09 §3.4): reached from the **AI panel** leaf (not `dispatchBatchEntry` — it is a generative workflow, not a deterministic batch), runs in-process on the AiPlane (C09 §2.4), commits via the command bus in one `runBatch`. |
 
 > The 50-prompt verbatim catalogue (`SPEC-SEMANTIC-DESIGN-ASSISTANT` §4) is the superset; the **feasible-today (Phase 1, ✅)** rows above are exactly what wires into the panel first. Each ⏳ row renders disabled with a "Coming in Phase N" tooltip until its semantic layer lands.
 

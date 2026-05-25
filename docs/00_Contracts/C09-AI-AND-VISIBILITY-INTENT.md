@@ -47,6 +47,21 @@ The browser MUST NOT call `api.anthropic.com` directly. All AI requests flow thr
 
 `enforceAIQuota(userId, tokens)` in `server/planStore.js` MUST be called before any AI call. If the user has exceeded their plan quota, the call MUST be rejected with HTTP 429 and a user-visible quota message. Quota counters reset monthly.
 
+### §2.4 — In-process workflow registration (the AiPlane, L7.5)
+
+Two execution modes exist for AI workflows:
+
+1. **Server worker** — `getAiHost().submit(req)` POSTs to `/api/ai-worker`. The classic path for workflows that run server-side.
+2. **In-process plane** — the `AiPlane` (`packages/ai-host/src/AiPlane.ts`) runs a registered workflow's impl **in the browser**, calling the relay via the §2.2 proxy. This is how generative L7.5 workflows (e.g. apartment-layout, §3.4) run today.
+
+The in-process plane is wired through the **single composition root** (P1, C02): `composeRuntime()` constructs an `AiApprovalQueueStore` + a `LayoutOptionsStore` and passes `getAiHost({ approvalQueue })` so the host builds its `AiPlane` (without an approval queue the host has no plane). The plane + its stores are exposed as `runtime.ai.{ getHost, layoutOptions, approvalQueue }`.
+
+Rules:
+
+- **Registration is lazy (K3-A).** Workflows are bound onto `host.plane` only on first use (e.g. the editor's first generate click), via a `*.attach(runtime)` / `ensure*Registered(runtime)` helper that **dynamic-imports** `@pryzm/ai-host`. No AI bytes in the first-paint chunk; `scripts/check-ai-host-lazy.mjs` enforces no static `AiHost.impl` import.
+- **Dep-clean layering.** `packages/runtime-composer` (P1 root) and `packages/ai-host` MUST NOT import the editor's stores/services (`core-app-model` `storeRegistry`, `spatial-index` `FacadeOrientationService`). Those accessors are **injected from L5** (the editor) into the registration helper. Pure cores (prompt/validate/score/shell/command builders) take injected ports (relay, `mintId`, store readers) so they unit-test in plain Node.
+- **Pipeline + observability.** Every `plane.submit()` runs budget pre-check (CostMeter, SPEC-28) → impl → cost record → enqueue, inside one `pryzm.ai.workflow.{kind}` OTel span (P8). Generative workflows are read-only at submit (ADR-014): they emit **zero** `proposedCommands`; mutation happens only in a later, explicit execute step that goes through the command bus (P6).
+
 ---
 
 ## §3 — AI Workflows
@@ -70,6 +85,17 @@ The browser MUST NOT call `api.anthropic.com` directly. All AI requests flow thr
 - Input: a natural-language question about the current model.
 - Output: a text answer with optional element IDs highlighted.
 - MUST NOT mutate any store.
+
+### §3.4 — Apartment Layout Generation (SPEC-APARTMENT-LAYOUT-GENERATOR)
+
+The capstone generative workflow (`apartment-layout-generate`; Semantic Design Assistant prompt #51). A **two-phase, in-process (§2.4) L7.5 workflow** following the SPEC-47 pattern: *generate → preview/approve → execute*.
+
+- **Input:** an apartment **shell** already in the model — perimeter walls + the entrance door + windows (the shell's exterior walls on the active level). Built by `gatherLayoutPayload` from the wall store + `FacadeOrientationService` (SL-3).
+- **Output:** N ranked, **hard-validated** (§8: min areas, natural light, direct access, corridor width, door clearance, adjacency, program satisfaction) and **scored** (§9: light / privacy / kitchen-workflow / corridor-efficiency) interior layouts — internal walls + hosted doors.
+- **Phase A — generate (read-only, ADR-014):** prompt → relay (§2.2 proxy) → loud-fail-soft parse → validate → retry ≤3 (feeding failures back) → score → rank. Persists to `runtime.ai.layoutOptions` (the AIStore) + emits `apartment.layout-options-ready` on `runtime.events` (P4). **Zero mutation.** Surfaced as the §11 modal (cards with an SVG plan thumbnail — declarative, no rAF, P3-trivial — score breakdown, room areas).
+- **Phase B — execute (on the user's pick):** `apartment.layout-execute {optionIndex}` → `buildLayoutCommands` pre-mints `wall_`/`door_`/`opening_` ids (`createId`) so doors reference host walls with **no read-back** → dispatches `wall.batch.create` + per-door `wall.createOpening` (`opening.elementId === door id`, the C15 hosted-element cascade) + `door.batch.create` through the command bus (P6) **inside one `batchCoordinator.runBatch`** → **one undo entry** → rooms auto-redetect (`skipRedetectRooms: false`).
+- **Cost:** estimate ≤ $0.18 (SPEC-28 §3 ceiling); recorded per-run by the plane CostMeter.
+- **Governed by:** SPEC-APARTMENT-LAYOUT-GENERATOR (normative), C15 (hosted doors), C16 (command authoring), C17 §#51 (catalogue), SPEC-28 (cost), SPEC-07 (approval surface). **User guide:** `docs/guides/USER-GUIDE-APARTMENT-LAYOUT.md`.
 
 ---
 
