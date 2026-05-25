@@ -26,17 +26,27 @@ export class ApartmentLayoutController {
         if (this._dispose) return;
         const sub = runtime.events.on('apartment.layout-options-ready', () => {
             // Source of truth is the AIStore (typed); the event is just the signal.
-            const options = runtime.ai.layoutOptions.options() as readonly ScoredLayoutOption[];
-            this.modal.show(options, {
-                onSelect: (index: number) => {
-                    runtime.events.emit('apartment.layout-execute', { optionIndex: index });
-                },
-                onCancel: () => {
-                    runtime.ai.layoutOptions.clear();
-                    runtime.events.emit('apartment.layout-cancel', {});
-                },
-            });
+            // Wrapped in try/catch because the EventBus swallows per-listener errors —
+            // without this a throw in the modal would vanish silently.
+            try {
+                const options = runtime.ai.layoutOptions.options() as readonly ScoredLayoutOption[];
+                console.log('[apartment-layout] options-ready received —', options.length, 'option(s); opening modal');
+                this.modal.show(options, {
+                    onSelect: (index: number) => {
+                        console.log('[apartment-layout] modal: option', index, 'selected → execute');
+                        runtime.events.emit('apartment.layout-execute', { optionIndex: index });
+                    },
+                    onCancel: () => {
+                        runtime.ai.layoutOptions.clear();
+                        runtime.events.emit('apartment.layout-cancel', {});
+                    },
+                });
+            } catch (err) {
+                console.error('[apartment-layout] failed to open the options modal:', err);
+                runtime.events?.emit('pryzm:toast', { message: `Could not open the layouts modal: ${String(err)}`, severity: 'error' });
+            }
         });
+        console.log('[apartment-layout] controller attached — listening for options-ready');
         this._dispose = typeof sub === 'function' ? sub : () => { /* non-disposer */ };
     }
 

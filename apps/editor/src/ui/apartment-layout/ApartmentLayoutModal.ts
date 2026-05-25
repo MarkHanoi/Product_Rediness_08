@@ -56,6 +56,7 @@ export class ApartmentLayoutModal {
 
         document.body.appendChild(overlay);
         this._el = overlay;
+        console.log('[apartment-layout] modal mounted to <body> —', cards.length, 'card(s), overlay z-index', getComputedStyle(overlay).zIndex || '(unstyled — alm- CSS missing?)');
     }
 
     /** Remove the overlay + listeners. Idempotent. */

@@ -16,8 +16,7 @@ import { batchCoordinator } from '@pryzm/core-app-model';
 import { createId } from '@pryzm/schemas';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import type { ScoredLayoutOption, IdPrefix, LayoutExecuteOptions } from '@pryzm/ai-host';
-
-interface ActiveLevel { id: string; elevation?: number; height?: number }
+import { resolveActiveLevel } from './activeLevel.js';
 
 /** Default internal-wall type id (matches DEFAULT_CONSTRAINTS.wallTypeId). */
 const DEFAULT_WALL_TYPE_ID = 'partition';
@@ -38,15 +37,22 @@ export class ApartmentLayoutExecutor {
 
     private async _execute(runtime: PryzmRuntime, optionIndex: number): Promise<void> {
         try {
+            console.log('[apartment-layout] executor: building option', optionIndex);
             const option = runtime.ai.layoutOptions.optionAt(optionIndex) as ScoredLayoutOption | null;
-            if (!option) return;
+            if (!option) {
+                console.warn('[apartment-layout] executor: no option at index', optionIndex);
+                return;
+            }
 
-            const level = (window.bimManager as { getActiveLevel?: () => ActiveLevel | undefined } | undefined)
-                ?.getActiveLevel?.();
+            // Robust active-level resolution (project context first) — the same
+            // resolver the trigger uses; bimManager.getActiveLevel() returns
+            // undefined in the white-UI runtime.
+            const level = resolveActiveLevel();
             if (!level?.id) {
                 runtime.events?.emit('pryzm:toast', { message: 'No active level — cannot build the layout.', severity: 'error' });
                 return;
             }
+            console.log('[apartment-layout] executor: level', level.id, 'walls', option.walls.length, 'doors', option.doors.length);
 
             // Pure command-set (dynamic import keeps ai-host off first-paint).
             const { buildLayoutCommands } = await import('@pryzm/ai-host');

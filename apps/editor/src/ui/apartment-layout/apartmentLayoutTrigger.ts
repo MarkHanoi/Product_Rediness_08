@@ -10,25 +10,10 @@ import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { ApartmentLayoutController, requestApartmentLayout } from './ApartmentLayoutController.js';
 import { ApartmentLayoutExecutor } from './ApartmentLayoutExecutor.js';
 import { gatherLayoutPayload } from './gatherLayoutPayload.js';
+import { resolveActiveLevelId } from './activeLevel.js';
 
 const _controller = new ApartmentLayoutController();
 const _executor = new ApartmentLayoutExecutor();
-
-function activeLevelId(): string | undefined {
-    // Canonical source is the project context singleton (what AICreatePanel +
-    // the editor tools read); fall back to the bim manager / command context.
-    const w = window as unknown as {
-        projectContext?: { activeLevelId?: string | null };
-        bimManager?: { getActiveLevel?: () => { id?: string } | undefined };
-        commandContext?: { projectContext?: { activeLevelId?: string | null } };
-    };
-    return (
-        w.projectContext?.activeLevelId ||
-        w.bimManager?.getActiveLevel?.()?.id ||
-        w.commandContext?.projectContext?.activeLevelId ||
-        undefined
-    ) ?? undefined;
-}
 
 /**
  * Generate AI apartment layouts for the active level's exterior shell. Resolves
@@ -42,7 +27,7 @@ export function triggerApartmentLayout(runtimeArg?: PryzmRuntime | null): void {
     };
     try {
         console.log('[apartment-layout] trigger invoked');
-        const lid = activeLevelId();
+        const lid = resolveActiveLevelId();
         const hasStore = !!(rt?.ai as { layoutOptions?: unknown } | undefined)?.layoutOptions;
         console.log('[apartment-layout] runtime?', !!rt, 'activeLevel?', lid, 'ai.layoutOptions?', hasStore);
 
