@@ -89,7 +89,7 @@ Columns: **Path** = `Discipline › System › ⚡Batch › label`. **Prompt** =
 | Architecture › Wall › ⚡ | "Add interior partitions between adjacent rooms" | — | — | per-room | 3 | ⏳ |
 | Architecture › Curtain Wall › ⚡ | "Create curtain walls on all slabs" | `CREATE_CURTAIN_WALLS_ON_ALL_SLABS` | `CREATE_CURTAIN_WALLS_ON_ALL_SLABS` | on-all-slabs | 1 | ✅ |
 | Architecture › Curtain Wall › ⚡ | "Create curtain walls from selected slab" | `CREATE_CURTAIN_WALLS_FROM_SLAB` | `CREATE_CURTAIN_WALLS_ON_SLAB` | from-selected | 1 | ✅ |
-| Architecture › Door › ⚡ | "Add a door between every pair of adjacent rooms" | — | — | per-room | 3 | ⏳ |
+| Architecture › Door › ⚡ | "Doors between adjacent rooms" | `CREATE_DOORS_BETWEEN_ADJACENT_ROOMS` | — | per-room | 3 | ✅ (catalogId `doors.between-adjacent-rooms`; consumes SL-2 — rooms sharing a wall; optional type filter for #7/#9/#10) |
 | Architecture › Door › ⚡ | "Add fire-rated doors on every compartment boundary" | — | — | per-compartment | 5 | ⏳ |
 | Architecture › Window › ⚡ | "Windows on every south façade" | `CREATE_WINDOWS_ON_WALLS` | — | per-facade | 3 | ✅ (catalogId `windows.per-facade`; consumes SL-3; build resolves S exterior walls, command distributes windows) |
 | Architecture › Window › ⚡ | "Add punched windows to all exterior walls" | — | — | per-facade | 3 | ⏳ |

@@ -39,6 +39,7 @@ import {
     CreateCeilingsByRoomCommand,
     CreateLightingByRoomCommand,
     CreateWindowsOnWallsCommand,
+    CreateDoorsBetweenAdjacentRoomsCommand,
 } from '@pryzm/command-registry';
 
 /** The phase currently shipped. Entries with `phase > SHIPPED_PHASE` render disabled (CB-4). */
@@ -226,10 +227,16 @@ export const BATCH_CATALOGUE: BatchCatalogEntry[] = [
         },
     },
     {
+        // SPEC-SEMANTIC §10 #7/#9/#10 — LIVE: consumes SL-2 adjacency (rooms sharing a
+        // wall) → centred door on each shared interior wall.
         catalogId: 'doors.between-adjacent-rooms', discipline: 'Architecture', system: 'Door',
-        label: 'Doors between adjacent rooms', prompt: 'Add a door between every pair of adjacent rooms',
-        icon: 'material-symbols:door-front', scope: 'per-room', phase: 3, status: 'phased',
-        precondition: () => phaseGate(3), build: () => null,
+        label: 'Doors between adjacent rooms', prompt: 'Add a door between every pair of adjacent rooms on this level',
+        icon: 'material-symbols:door-front', scope: 'per-room', phase: 3, status: 'live',
+        precondition: (d) => d.getActiveLevelId() ? OK : { ok: false, reason: 'No active level' },
+        build: (d) => {
+            const lvl = d.getActiveLevelId();
+            return lvl ? new CreateDoorsBetweenAdjacentRoomsCommand(lvl) : null;
+        },
     },
     {
         // SPEC-SEMANTIC §10 #28/#29 — LIVE: suspended grid for office/meeting rooms,
