@@ -146,11 +146,15 @@ export type {
 } from './workflows/apartmentLayout/workflow.js';
 export {
   registerApartmentLayoutWorkflow,
+  createApartmentLayoutRegistration,
   APARTMENT_LAYOUT_WORKFLOW_ID,
 } from './workflows/apartmentLayout/register.js';
 export type {
   WorkflowRegistrarLike,
   ApartmentLayoutRegisterDeps,
+  PlaneLike,
+  ApartmentLayoutRegistrationDeps,
+  ApartmentLayoutRegistrationResult,
 } from './workflows/apartmentLayout/register.js';
 export {
   generateLayoutOptions,
