@@ -168,6 +168,21 @@ export type {
 export { validateLayout } from './workflows/apartmentLayout/validate.js';
 export { scoreLayout } from './workflows/apartmentLayout/score.js';
 export {
+  buildLayoutPlan,
+  MIN_WALL_LENGTH_M,
+  DEFAULT_WALL_HEIGHT_M,
+  DEFAULT_WALL_THICKNESS_M,
+  DEFAULT_DOOR_HEIGHT_M,
+  DEFAULT_DOOR_WIDTH_M,
+} from './workflows/apartmentLayout/executePlan.js';
+export type {
+  LayoutPlan,
+  LayoutExecuteOptions,
+  WallCreateSpec,
+  DoorPlanItem,
+  Vec3m,
+} from './workflows/apartmentLayout/executePlan.js';
+export {
   analyseShell,
   wallsToPolygon,
   polygonAreaM2,
