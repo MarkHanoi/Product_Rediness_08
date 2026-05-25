@@ -15,8 +15,19 @@ const _controller = new ApartmentLayoutController();
 const _executor = new ApartmentLayoutExecutor();
 
 function activeLevelId(): string | undefined {
-    return (window.bimManager as { getActiveLevel?: () => { id: string } | undefined } | undefined)
-        ?.getActiveLevel?.()?.id;
+    // Canonical source is the project context singleton (what AICreatePanel +
+    // the editor tools read); fall back to the bim manager / command context.
+    const w = window as unknown as {
+        projectContext?: { activeLevelId?: string | null };
+        bimManager?: { getActiveLevel?: () => { id?: string } | undefined };
+        commandContext?: { projectContext?: { activeLevelId?: string | null } };
+    };
+    return (
+        w.projectContext?.activeLevelId ||
+        w.bimManager?.getActiveLevel?.()?.id ||
+        w.commandContext?.projectContext?.activeLevelId ||
+        undefined
+    ) ?? undefined;
 }
 
 /**
