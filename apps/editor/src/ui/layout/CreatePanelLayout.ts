@@ -11,6 +11,16 @@ import { floorPickerToToolMode, ceilingPickerToToolMode, type PickerInstances } 
 import type { UIProps } from '../Layout';
 import type { BimService } from '@app/engine/BimService';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
+// C17 — Batch Creation Catalogue & Panel Binding. Single source of truth for the
+// batch-creation prompts surfaced as `⚡ Batch` leaves (CB-1 additive; CB-8 shared
+// prompt strings). Dispatch goes through the documented Path-A sink (C17 §10/§11).
+import {
+    groupCatalogue,
+    dispatchBatchEntry,
+    SHIPPED_PHASE,
+    type BatchCatalogEntry,
+    type BatchDeps,
+} from '../create/batchCatalogue';
 
 export function mountCreatePanel(
     props: UIProps,
@@ -350,6 +360,144 @@ export function mountCreatePanel(
         ]
     };
 
+    // ── C17 — Batch Creation Catalogue wiring ────────────────────────────────────
+    // Dependencies the catalogue needs (C17 DI-3). The panel resolves these from
+    // `props` + the documented legacy stores; the catalogue performs no window reads
+    // of its own except the commandManager execution sink (C17 §10.1 / DI-1).
+    const batchDeps: BatchDeps = {
+        commandManager: (window.commandManager as unknown as BatchDeps['commandManager']) ?? null,
+        getActiveLevelId: () => props.bimManager.getActiveLevel?.()?.id ?? null,
+        getLevels: () => props.bimManager.getLevels(),
+        getSelectedElementId: () =>
+            (props.selectionManager.selectedObject?.userData?.elementId as string | undefined) ?? null,
+        slabStore: (window.slabStore as unknown as BatchDeps['slabStore']) ?? null, // TODO(E.slab.S): runtime.stores.slab
+    };
+
+    // C17 DI-1 — dispatch through the documented path; surface success/failure as a
+    // toast (CB-5: never a silent no-op).
+    const runDispatch = (entry: BatchCatalogEntry, params?: Record<string, number>) => {
+        const r = dispatchBatchEntry(entry, batchDeps, params);
+        window.runtime?.events?.emit('pryzm:toast', {
+            message: r.ok ? `Created: ${entry.label}` : (r.reason ?? 'Batch command failed'),
+            severity: r.ok ? 'success' : 'error',
+        });
+        if (r.ok) {
+            window.runtime?.events?.emit('update-view-browser', {}); // F.events.12
+            window.runtime?.events?.emit('model-updated', {});       // F.events.8
+        }
+    };
+
+    // Parameterised entries (C17 §6 PS-2) render a small inline form before dispatch.
+    const renderBatchForm = (container: HTMLElement, entry: BatchCatalogEntry) => {
+        const values: Record<string, number> = {};
+        const form = document.createElement('div');
+        form.className = 'ci-batch-form';
+        form.style.cssText = 'padding:8px 4px;';
+
+        const desc = document.createElement('div');
+        desc.textContent = entry.prompt;
+        desc.style.cssText = 'font-size:12px;color:var(--app-text-muted);margin-bottom:10px;';
+        form.appendChild(desc);
+
+        (entry.params ?? []).forEach((p) => {
+            values[p.key] = p.default;
+            const row = document.createElement('label');
+            row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px 0;';
+            const span = document.createElement('span');
+            span.textContent = p.label;
+            span.style.cssText = 'font-size:12px;color:var(--app-text);';
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.value = String(p.default);
+            if (p.min != null) input.min = String(p.min);
+            if (p.max != null) input.max = String(p.max);
+            if (p.step != null) input.step = String(p.step);
+            input.style.cssText = 'width:84px;padding:4px 6px;border-radius:4px;border:1px solid var(--app-border);background:var(--app-bg);color:var(--app-text);';
+            input.oninput = () => { const v = parseFloat(input.value); if (!Number.isNaN(v)) values[p.key] = v; };
+            row.appendChild(span);
+            row.appendChild(input);
+            form.appendChild(row);
+        });
+
+        const btn = document.createElement('button');
+        btn.textContent = 'Create';
+        // §41 unified action colour.
+        btn.style.cssText = 'margin-top:12px;width:100%;padding:8px;border:none;border-radius:6px;background:#6600FF;color:#fff;font-weight:600;cursor:pointer;';
+        btn.onclick = () => {
+            runDispatch(entry, values);
+            createNavigationStack.pop();
+            renderCreateContent();
+        };
+        form.appendChild(btn);
+        container.appendChild(form);
+    };
+
+    // Build a CREATE-panel leaf for a catalogue entry. Parameterised → opens a form
+    // layer; parameterless → dispatches on click. Phase-gated / precondition-failing
+    // entries render disabled with a reason tooltip (CB-4 / CB-5).
+    const toBatchLeaf = (entry: BatchCatalogEntry): any => {
+        const phaseGated = entry.phase > SHIPPED_PHASE;
+        const disabledReason = () => {
+            if (phaseGated) return `Coming in Phase ${entry.phase}`;
+            const p = entry.precondition(batchDeps);
+            return p.ok ? undefined : p.reason;
+        };
+        if (entry.params && entry.params.length > 0) {
+            return {
+                label: entry.label,
+                icon: entry.icon,
+                batch: true,
+                disabled: () => phaseGated,
+                disabledReason,
+                children: { title: entry.label, batchForm: entry },
+            };
+        }
+        return {
+            label: entry.label,
+            icon: entry.icon,
+            batch: true,
+            disabled: () =>
+                props.bimManager.getLevels().length === 0 || phaseGated || !entry.precondition(batchDeps).ok,
+            disabledReason,
+            action: () => runDispatch(entry),
+        };
+    };
+
+    // Inject `⚡ Batch` submenus into CREATE_CONFIG — additive (CB-1): existing
+    // single-element tools are untouched. One `Batch` submenu per existing discipline
+    // that has entries; new disciplines (e.g. Project) are appended as top-level items.
+    {
+        const grouped = groupCatalogue();
+        const leavesFor = (discipline: string): any[] => {
+            const sys = grouped.get(discipline);
+            if (!sys) return [];
+            const out: any[] = [];
+            for (const entries of sys.values()) for (const e of entries) out.push(toBatchLeaf(e));
+            return out;
+        };
+        const existing = new Set<string>(CREATE_CONFIG.items.map((i: any) => i.label));
+        for (const item of CREATE_CONFIG.items as any[]) {
+            const leaves = leavesFor(item.label);
+            if (leaves.length > 0 && item.children?.items) {
+                item.children.items.push({
+                    label: 'Batch',
+                    icon: 'material-symbols:bolt',
+                    children: { title: `${item.label} — Batch`, items: leaves },
+                });
+            }
+        }
+        for (const [discipline, sys] of grouped) {
+            if (existing.has(discipline)) continue;
+            const out: any[] = [];
+            for (const entries of sys.values()) for (const e of entries) out.push(toBatchLeaf(e));
+            CREATE_CONFIG.items.push({
+                label: discipline,
+                icon: 'material-symbols:layers',
+                children: { title: discipline, items: out },
+            });
+        }
+    }
+
     const renderCreateContent = () => {
         const container = document.getElementById('create-navigation-container');
         if (!container) return;
@@ -402,6 +550,12 @@ export function mountCreatePanel(
             return;
         }
 
+        // ── C17 — Batch parameter form layer (parameterised entries) ──────────────
+        if ((currentLayer as any).batchForm) {
+            renderBatchForm(container, (currentLayer as any).batchForm as BatchCatalogEntry);
+            return;
+        }
+
         // Grid of items
         const grid = document.createElement('div');
         grid.className = 'ci-grid';
@@ -424,6 +578,13 @@ export function mountCreatePanel(
             itemEl.className = isDisabled
                 ? 'create-item-grid-element create-item-grid-element--disabled'
                 : 'create-item-grid-element';
+
+            // C17 CB-4 / CB-5 — surface why a batch leaf is disabled (phase gate or
+            // unmet precondition) as a hover tooltip; never hide it.
+            if (isDisabled && typeof item.disabledReason === 'function') {
+                const reason = item.disabledReason();
+                if (reason) itemEl.title = reason;
+            }
 
             if (!isDisabled) {
                 itemEl.onclick = () => {
