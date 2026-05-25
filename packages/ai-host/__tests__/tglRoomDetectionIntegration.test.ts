@@ -68,15 +68,34 @@ describe('D-TGL → RoomDetectionEngine (end-to-end)', () => {
     it('a closed single-bedroom program yields several distinct rooms', () => {
         const program: ApartmentProgram = { bedrooms: 1, bathrooms: 1, masterEnSuite: false, openPlanKitchenDining: false, livingRoom: true, entranceHall: true };
         const { option } = builtWalls(program, RECT);
-        const walls = option.walls.map((w, i) => ({
-            id: `w${i}`,
-            baseLine: [
-                { x: w.start.x / 1000, y: 0, z: w.start.y / 1000 },
-                { x: w.end.x / 1000, y: 0, z: w.end.y / 1000 },
-            ] as [{ x: number; y: number; z: number }, { x: number; y: number; z: number }],
-        }));
+        const walls = toEngineWalls(option);
         const engine = new RoomDetectionEngine(mockWallStore(walls));
         const rooms = engine.detectRoomsForLevel('L0', 0, 2.7);
         expect(rooms.length).toBeGreaterThanOrEqual(3);
     });
+
+    it('detects multiple rooms across shapes + programs (no disconnected partitions)', () => {
+        const L: Pt[] = [{ x: 0, z: 0 }, { x: 14, z: 0 }, { x: 14, z: 7 }, { x: 7, z: 7 }, { x: 7, z: 12 }, { x: 0, z: 12 }];
+        const cases: Array<{ program: ApartmentProgram; poly: Pt[]; min: number }> = [
+            { program: PROGRAM, poly: L, min: 4 },                                   // 2-bed on an L-shape
+            { program: { bedrooms: 3, bathrooms: 2, masterEnSuite: true, openPlanKitchenDining: true, livingRoom: true, entranceHall: true },
+              poly: [{ x: 0, z: 0 }, { x: 16, z: 0 }, { x: 16, z: 11 }, { x: 0, z: 11 }], min: 6 }, // 3-bed rectangle
+        ];
+        for (const c of cases) {
+            const { option } = builtWalls(c.program, c.poly);
+            const engine = new RoomDetectionEngine(mockWallStore(toEngineWalls(option)));
+            const rooms = engine.detectRoomsForLevel('L0', 0, 2.7);
+            expect(rooms.length).toBeGreaterThanOrEqual(c.min);
+        }
+    });
 });
+
+function toEngineWalls(option: { walls: Array<{ start: { x: number; y: number }; end: { x: number; y: number } }> }) {
+    return option.walls.map((w, i) => ({
+        id: `w${i}`,
+        baseLine: [
+            { x: w.start.x / 1000, y: 0, z: w.start.y / 1000 },
+            { x: w.end.x / 1000, y: 0, z: w.end.y / 1000 },
+        ] as [{ x: number; y: number; z: number }, { x: number; y: number; z: number }],
+    }));
+}
