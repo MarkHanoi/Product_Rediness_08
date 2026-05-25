@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm --filter @pryzm/runtime-composer typecheck)",
+      "Bash(pnpm --filter @pryzm/runtime-composer test)"
+    ]
+  }
+}

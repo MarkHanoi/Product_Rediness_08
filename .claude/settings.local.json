@@ -108,7 +108,12 @@
       "Bash(pnpm --filter @pryzm/renderer-three typecheck)",
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\LENOVO\\\\OneDrive\\\\Desktop\\\\PRYZM\\\\Product_Rediness_08\" -Directory)",
       "Bash(cd \"c:/Users/LENOVO/.claude/projects/c--Users-LENOVO-OneDrive-Desktop-PRYZM-Product-Rediness-08/memory\" && rm -f wall-opening-renderversion-and-manifold-wasm.md && echo \"deleted memory file\")",
-      "Bash(xargs grep -l \"wallSystemType\\\\|wallTypeId\\\\|selectedWallType\\\\|activeWallType\\\\|WallSystemTypeStore\")"
+      "Bash(xargs grep -l \"wallSystemType\\\\|wallTypeId\\\\|selectedWallType\\\\|activeWallType\\\\|WallSystemTypeStore\")",
+      "Bash(npm run *)",
+      "Bash(curl -s -o /dev/null -w \"/api/v1/projects → HTTP %{http_code}\\\\n\" --max-time 4 http://localhost:5000/api/v1/projects)",
+      "Bash(tail -n 60 \"C:\\\\Users\\\\LENOVO\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-LENOVO-OneDrive-Desktop-PRYZM-Product-Rediness-08\\\\8b565b9c-a5c2-4521-a9ca-bb1f75a1acfd\\\\tasks\\\\boajqcjih.output\")",
+      "Bash(pnpm --filter @pryzm/command-registry typecheck)",
+      "Bash(pnpm --filter @pryzm/persistence-client typecheck)"
     ],
     "additionalDirectories": [
       "c:\\Users\\LENOVO\\.claude\\projects\\c--Users-LENOVO-OneDrive-Desktop-PRYZM-Product-Rediness-08\\memory"
