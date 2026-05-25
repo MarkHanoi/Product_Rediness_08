@@ -14,6 +14,7 @@
 
 import { batchCoordinator, storeRegistry } from '@pryzm/core-app-model';
 import { createId } from '@pryzm/schemas';
+import { CreateWallOpeningCommand } from '@pryzm/command-registry';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import type { ScoredLayoutOption, IdPrefix, LayoutExecuteOptions, LayoutCommandSet } from '@pryzm/ai-host';
 import { resolveActiveLevel } from './activeLevel.js';
@@ -85,7 +86,7 @@ export class ApartmentLayoutExecutor {
             } catch (e) { wallFail++; console.warn('[apartment-layout] wall.batch.create threw (skipped):', e); }
 
             runtime.ai.layoutOptions.clear();                       // option consumed
-            this._buildOpeningsDoorsThenName(runtime, level.id, set, option);
+            this._finishLayout(runtime, level.id, set, option);
         } catch (err) {
             console.warn('[ApartmentLayoutExecutor] execute failed (non-fatal):', err);
             runtime.events?.emit('pryzm:toast', { message: 'Failed to build the layout.', severity: 'error' });
@@ -93,73 +94,63 @@ export class ApartmentLayoutExecutor {
     }
 
     /**
-     * Dispatch the openings (wall.createOpening) + doors (door.batch.create) ONCE the
-     * walls have landed in the wall store, then name the rooms. The async bus drains
-     * the wall batch after runBatch returns, so we subscribe to the wall store and
-     * fire when every minted wall id is present (debounced), with a hard-timeout
-     * fallback. No `await` (which would deadlock the drain). Best-effort + telemetry.
+     * Once the rooms are detected (which proves the walls are committed to the legacy
+     * store), create the doors — D-TGL's reconciliation openings, realised via the
+     * LEGACY `CreateWallOpeningCommand` (the same synchronous path manual doors use:
+     * it reads `context.stores.wallStore`, creates the opening void + the door store
+     * record + spatial registration). The async PLUGIN `wall.createOpening` failed
+     * with "wall not found" because it ran before the walls landed; this legacy path
+     * runs after detection and reads the committed store, so it actually finds them.
+     * Then name the rooms. Best-effort + telemetry; one coalesced undo unit.
      */
-    private _buildOpeningsDoorsThenName(runtime: PryzmRuntime, levelId: string, set: LayoutCommandSet, option: ScoredLayoutOption): void {
-        const finish = (): void => this._nameDetectedRooms(runtime, levelId, option);
+    private _finishLayout(runtime: PryzmRuntime, levelId: string, set: LayoutCommandSet, option: ScoredLayoutOption): void {
         const emitDone = (doorCount: number): void => {
             runtime.events.emit('apartment.layout-executed', { createdWallCount: set.wallIds.length, createdDoorCount: doorCount });
             runtime.events?.emit('pryzm:toast', { message: `Built layout — ${set.wallIds.length} walls, ${doorCount} doors.`, severity: 'success' });
         };
-        if (set.openingCommands.length === 0 && !set.doorBatch) { emitDone(0); finish(); return; }
 
-        try {
-            const wallStore = storeRegistry.getStoreForType('wall') as unknown as {
-                getById?: (id: string) => unknown;
-                subscribe?: (fn: () => void) => (() => void);
-            } | undefined;
-            const present = (): boolean => !wallStore?.getById ? true : set.wallIds.every(id => !!wallStore.getById!(id));
+        const roomStore = storeRegistry.getStoreForType('room') as unknown as {
+            getByLevel?: (id: string) => Array<unknown>;
+            subscribe?: (fn: () => void) => (() => void);
+        } | undefined;
+        if (!roomStore?.getByLevel) { this._nameDetectedRooms(runtime, levelId, option); emitDone(0); return; }
 
-            let done = false;
-            let unsub: () => void = () => { /* until set */ };
-            let settle: ReturnType<typeof setTimeout> | undefined;
-            let hard: ReturnType<typeof setTimeout> | undefined;
+        let done = false;
+        let unsub: () => void = () => { /* until set */ };
+        let settle: ReturnType<typeof setTimeout> | undefined;
+        let hard: ReturnType<typeof setTimeout> | undefined;
 
-            const go = (force: boolean): void => {
-                if (done) return;
-                if (!force && !present()) return;                 // walls not committed yet — keep waiting
-                done = true; unsub(); if (settle) clearTimeout(settle); if (hard) clearTimeout(hard);
+        const go = (force: boolean): void => {
+            if (done) return;
+            const roomsReady = (roomStore.getByLevel!(levelId)?.length ?? 0) > 0;
+            if (!force && !roomsReady) return;                    // walls/rooms not committed yet — wait
+            done = true; unsub(); if (settle) clearTimeout(settle); if (hard) clearTimeout(hard);
 
-                const fail: Record<string, number> = { opening: 0, door: 0 };
-                const firstErr: Record<string, string> = {};
-                const pending: Array<Promise<unknown>> = [];
-                const dispatch = (cmd: string, payload: unknown, label: string, kind: 'opening' | 'door'): void => {
-                    try {
-                        const r = runtime.bus.executeCommand(cmd, payload) as unknown;
-                        if (r && typeof (r as { then?: unknown }).then === 'function') {
-                            pending.push((r as Promise<unknown>).catch((e: unknown) => {
-                                fail[kind]++; firstErr[kind] ??= String(e);
-                                console.warn(`[apartment-layout] ${label} failed (skipped):`, e);
-                            }));
+            // Doors via the legacy command (reads the committed legacy wall store).
+            let doorsMade = 0; let firstErr = '';
+            const cm = (window as unknown as { commandManager?: { execute(c: unknown): void } }).commandManager;
+            if (cm && set.openingCommands.length > 0) {
+                try {
+                    batchCoordinator.runBatch(() => {
+                        for (const op of set.openingCommands) {
+                            const p = op.payload as { wallId: string; opening: unknown };
+                            try { cm.execute(new CreateWallOpeningCommand({ wallId: p.wallId, openingData: p.opening })); doorsMade++; }
+                            catch (e) { firstErr ||= String(e); console.warn('[apartment-layout] door (createOpening) failed (skipped):', e); }
                         }
-                    } catch (e) { fail[kind]++; firstErr[kind] ??= String(e); console.warn(`[apartment-layout] ${label} threw (skipped):`, e); }
-                };
+                    }, { levelIds: [levelId], totalElementCount: set.openingCommands.length, skipRedetectRooms: false });
+                } catch (e) { console.warn('[apartment-layout] doors batch failed (non-fatal):', e); }
+            } else if (!cm) {
+                console.warn('[apartment-layout] commandManager unavailable — doors skipped');
+            }
+            console.log(`[apartment-layout] doors built — ${doorsMade}/${set.openingCommands.length} via legacy CreateWallOpeningCommand`, firstErr || '');
 
-                for (const op of set.openingCommands) dispatch(op.command, op.payload, 'wall.createOpening', 'opening');
-                if (set.doorBatch) dispatch(set.doorBatch.command, set.doorBatch.payload, 'door.batch.create', 'door');
+            emitDone(doorsMade);
+            this._nameDetectedRooms(runtime, levelId, option);
+        };
 
-                void Promise.allSettled(pending).then(() => {
-                    console.log(
-                        `[apartment-layout] doors built — openings:${set.openingCommands.length}(fail ${fail.opening}) ` +
-                        `doors:${set.doorIds.length}(fail ${fail.door})`,
-                        fail.opening || fail.door ? firstErr : '',
-                    );
-                    emitDone(set.doorIds.length - fail.door);
-                    finish();
-                });
-            };
-
-            if (wallStore?.subscribe) unsub = wallStore.subscribe(() => { if (settle) clearTimeout(settle); settle = setTimeout(() => go(false), 60); });
-            hard = setTimeout(() => go(true), 3000);               // fallback: attempt even if not all present
-            go(false);                                            // immediate (in case walls already present)
-        } catch (e) {
-            console.warn('[apartment-layout] openings/doors failed (non-fatal):', e);
-            finish();
-        }
+        if (roomStore.subscribe) unsub = roomStore.subscribe(() => { if (settle) clearTimeout(settle); settle = setTimeout(() => go(false), 80); });
+        hard = setTimeout(() => go(true), 3000);                  // fallback if detection events don't fire
+        go(false);                                               // immediate (rooms may already be present)
     }
 
     /**
