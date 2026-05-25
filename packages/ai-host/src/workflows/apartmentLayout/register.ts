@@ -86,6 +86,8 @@ export interface ApartmentLayoutRegistrationDeps {
     readonly getOrientation?: ShellReaderDeps['getOrientation'];
     /** Relay override (defaults to MockAnthropicRelay — SPEC-47 §7). */
     readonly relay?: RelayPorter;
+    /** Opt in to the non-AI procedural fallback (off by default — see below). */
+    readonly proceduralFallback?: boolean;
 }
 
 export interface ApartmentLayoutRegistrationResult {
@@ -119,9 +121,11 @@ export function createApartmentLayoutRegistration(
     const id = registerApartmentLayoutWorkflow(plane, {
         shellReader,
         setPendingLayouts: deps.setPendingLayouts,
-        // Live editor path: fall back to a shell-fitted procedural layout when the
-        // AI is unavailable, so a generation always yields a real, buildable layout.
-        proceduralFallback: true,
+        // Procedural fallback is intentionally OFF — the value of this feature is
+        // the AI's real space planning. When the AI is unavailable we reject
+        // honestly (a clear toast) rather than drawing meaningless strip-walls.
+        // Caller may opt in via deps.proceduralFallback if a non-AI demo is wanted.
+        ...(deps.proceduralFallback ? { proceduralFallback: true } : {}),
         ...(deps.emit ? { emit: deps.emit } : {}),
         ...(deps.relay ? { relay: deps.relay } : {}),
     });
