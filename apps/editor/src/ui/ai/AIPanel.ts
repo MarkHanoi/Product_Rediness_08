@@ -134,38 +134,44 @@ const COMMAND_TREE: SuggestionNode[] = [
                 label: 'Generate apartment layout (AI)',
                 hint: 'AI interior layouts from the level shell — pick one to build',
                 action: () => {
-                    const rt = window.runtime as unknown as ComposedRuntime | undefined;
-                    const lid = (window.bimManager as { getActiveLevel?: () => { id: string } | undefined } | undefined)
-                        ?.getActiveLevel?.()?.id;
-                    if (!rt || !lid) {
-                        window.runtime?.events?.emit('pryzm:toast', {
-                            message: 'No active level — create or open a level first.',
-                            severity: 'error',
-                        });
-                        return;
-                    }
-                    const payload = gatherLayoutPayload(lid);
-                    if (!payload || payload.shellWallIds.length < 3) {
-                        window.runtime?.events?.emit('pryzm:toast', {
-                            message: 'Need at least 3 exterior walls on the active level.',
-                            severity: 'error',
-                        });
-                        return;
-                    }
-                    _apartmentLayoutController.attach(rt); // idempotent — modal shows on options-ready
-                    _apartmentLayoutExecutor.attach(rt);   // idempotent — commits on the user's pick
-                    window.runtime?.events?.emit('pryzm:toast', {
-                        message: 'Generating apartment layouts…',
-                        severity: 'info',
-                    });
-                    void requestApartmentLayout(rt, payload).then(r => {
-                        if (!r.ok) {
-                            window.runtime?.events?.emit('pryzm:toast', {
-                                message: r.reason ?? 'Layout generation failed',
-                                severity: 'error',
-                            });
+                    // Bulletproof + diagnostic: the click ALWAYS logs a marker and
+                    // ALWAYS surfaces a toast, so the trigger can never silently
+                    // do nothing (a throw in gathering/registration is reported).
+                    const toast = (message: string, severity: 'info' | 'success' | 'error') =>
+                        window.runtime?.events?.emit('pryzm:toast', { message, severity });
+                    try {
+                        console.log('[apartment-layout] generate clicked');
+                        const rt = window.runtime as unknown as ComposedRuntime | undefined;
+                        const lid = (window.bimManager as { getActiveLevel?: () => { id: string } | undefined } | undefined)
+                            ?.getActiveLevel?.()?.id;
+                        console.log('[apartment-layout] runtime?', !!rt, 'activeLevel?', lid,
+                            'ai.layoutOptions?', !!(rt?.ai as { layoutOptions?: unknown } | undefined)?.layoutOptions);
+                        if (!rt || !lid) {
+                            toast('No active level — create or open a level first.', 'error');
+                            return;
                         }
-                    });
+                        if (!(rt.ai as { layoutOptions?: unknown }).layoutOptions) {
+                            toast('AI runtime is stale — restart the dev server (npm run dev) and reload.', 'error');
+                            console.warn('[apartment-layout] runtime.ai.layoutOptions is undefined — the running composeRuntime predates the #51 changes. Restart the dev server.');
+                            return;
+                        }
+                        const payload = gatherLayoutPayload(lid);
+                        console.log('[apartment-layout] payload', payload);
+                        if (!payload || payload.shellWallIds.length < 3) {
+                            toast(`Need at least 3 exterior walls on the active level (found ${payload?.shellWallIds.length ?? 0}).`, 'error');
+                            return;
+                        }
+                        _apartmentLayoutController.attach(rt); // idempotent — modal shows on options-ready
+                        _apartmentLayoutExecutor.attach(rt);   // idempotent — commits on the user's pick
+                        toast('Generating apartment layouts…', 'info');
+                        void requestApartmentLayout(rt, payload).then(r => {
+                            console.log('[apartment-layout] requestApartmentLayout result', r);
+                            if (!r.ok) toast(r.reason ?? 'Layout generation failed', 'error');
+                        });
+                    } catch (err) {
+                        console.error('[apartment-layout] generate action threw:', err);
+                        toast(`Apartment layout failed: ${String(err)}`, 'error');
+                    }
                 },
             },
             {
