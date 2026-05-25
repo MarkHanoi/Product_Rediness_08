@@ -2740,3 +2740,28 @@ bulk projection is ever observed to recur per-edit, that's a separate cache-inva
 **Gates:** editor typecheck 0 errors; `NativeElementMeshExporter.ts` clean; logging-only change (no
 behaviour). **Live-verify:** CW project console is quiet during projection (only summaries + genuine
 slow-op lines).
+
+## Round 61 — OI-054 (b): hosted door/window two-part undo (2026-05-25)
+
+A door/window placement dispatches `wall.opening.create` (affectedStores=['wall']): the opening is
+written into the host wall's `openings` (the ring-buffer patch), but the §P2.3 bridge SEPARATELY adds a
+`doorStore`/`windowStore` record (the leaf/frame mesh + plan swing-arc) as an event side-effect that is
+NOT in the patch. So the unified undo's generic `wallStore.update(wallId, {openings})` closed the hole
+but left the door behind (and `update` on openings is the wrong API — WallStore warns against it). The
+canonical two-part removal is `CreateWallOpeningCommand.undo`: `wallStore.removeOpening(wallId, openingId)`
+(closes the hole + drops the WallStore-internal door) + `doorStore.remove(elementId)` (removes the leaf
+mesh + swing arc).
+
+**Fix (C03 §4.7 B5):** `elementUndoStoreAdapter` now detects a field patch on a host wall's `openings`
+(a store exposing `removeOpening`+`addOpening`) and routes it to `_reconcileWallOpenings`, which diffs the
+wall's current openings vs the patch target and drives the canonical APIs:
+  - removed opening (undo) → `removeOpening` + `doorStore/windowStore.remove` + snapshot the hosted record;
+  - added opening (redo) → `addOpening` + restore the hosted record from the snapshot (exact record, no
+    systemType re-resolution).
+The derived `childrenIds` field patch on a host wall is skipped (removeOpening/addOpening manage it).
+Create is untouched (the adapter only runs on undo/redo; the §P2.3 bridge still handles first-create).
+
+**Gates:** editor typecheck 0 errors; undo tests **15/15** (`elementUndoStoreAdapter` 9 incl. new
+"hosted door undo/redo…" + `performUndoRedo` 6). **Live-verify pending:** place a door in plan → undo
+(hole closes AND door/swing-arc gone) → redo (door returns). **Open follow-up:** undoing a WALL that
+still hosts doors doesn't yet cascade-remove the global door/window records (opening-level undo is done).

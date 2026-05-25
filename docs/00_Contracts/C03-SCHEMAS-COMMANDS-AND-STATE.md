@@ -298,11 +298,25 @@ secondary; all three are now closed by the unification:
   on redo-add** (`_undoRestoreSnapshots`), so redo regenerates downstream geometry (panels) faithfully
   for **every** element type. Unit-gated (`elementUndoStoreAdapter.test.ts` — "redo restores the
   LEGACY object…").
+- **B5 (HOSTED two-part) — CLOSED 2026-05-24.** A door/window placement (`wall.opening.create`,
+  affectedStores=`['wall']`) writes the opening into the host wall's `openings` (the ring-buffer
+  patch) while the §P2.3 bridge SEPARATELY adds a `doorStore`/`windowStore` record (the leaf/frame
+  mesh + plan swing-arc) as an event side-effect that is NOT in the patch — so a naive
+  `wallStore.update(wallId, {openings})` on undo closed the hole but left the door. **Fix:** the
+  adapter detects a field patch on a host wall's `openings` and routes it to a hosted-aware
+  reconciler (`_reconcileWallOpenings`) that diffs current vs target openings and drives the
+  canonical APIs — `wallStore.removeOpening` + `doorStore/windowStore.remove` on undo (closes the
+  hole AND removes the door mesh + swing arc), `wallStore.addOpening` + restore-from-snapshot on
+  redo (so the exact door/window record returns without re-resolving systemType finishes). The
+  derived `childrenIds` field patch is skipped (managed by removeOpening/addOpening). Unit-gated
+  (`elementUndoStoreAdapter.test.ts` — "hosted door undo/redo…"). Remaining hosted gap:
+  undoing a WALL that still hosts doors does not yet cascade-remove the global door/window records
+  (you'd normally undo the opening first) — tracked as a follow-up.
 
 **Scoped follow-ups (do NOT regress §4.5/§4.6):**
-1. **Hosted door/window** (`door`/`window` are intentionally absent from `buildUndoStoreMap` →
-   they route to `commandManager.undo()`). True patch-based undo must remove the host wall's
-   opening too — the two-part hosted undo (C15) is the next adapter slice.
+1. **Wall-delete cascade for hosted children.** Undoing a *wall* (whole-element remove) that still
+   has door/window openings reverts the wall but does not yet remove the global door/window records
+   for its children (the §P2.3 bridge only mirrors on create). The opening-level undo (B5) is done.
 2. **Cross-stack ordering.** The two stacks have independent cursors; `performRedo` mirrors the
    last undo's stack (`_lastSource`) which covers "undo N then redo N (same stack)" but a
    *mixed* undo sequence can mis-route. Single-timeline ordering is the ADR-051 end-state.

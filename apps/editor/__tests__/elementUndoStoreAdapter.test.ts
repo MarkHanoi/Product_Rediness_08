@@ -1,3 +1,5 @@
+// @vitest-environment happy-dom
+//
 // §ADR-051 per-type undo rollout — unit gate for elementUndoStoreAdapter (OI-054 B1+B2).
 // Proves undo (remove) + redo (add) drive the legacy store's mutators across the
 // duck-typed surface variants (getById vs get, remove vs delete) so Ctrl+Z / Ctrl+Y
@@ -89,6 +91,40 @@ describe('elementUndoStoreAdapter', () => {
     a.applyPatch([{ op: 'add', path: ['curtainwall_X'], value: { id: 'curtainwall_X', type: 'curtain-wall', levelId: 'L0', bayWidth: 1.2, bayHeight: 1.5 } }]);
     expect(s.map.get('curtainwall_X')).toEqual(legacy);                 // legacy shape restored
     expect((s.map.get('curtainwall_X') as any).gridXSpacing).toBe(1.2); // grid field preserved → panels regenerate
+  });
+
+  it('hosted door undo/redo: removeOpening + doorStore.remove on undo; addOpening + restore on redo (§HOSTED-OPENING-UNDO)', () => {
+    const doorMap = new Map<string, any>();
+    (window as any).doorStore = {
+      add: (r: any) => doorMap.set(r.id, r),
+      remove: (id: string) => doorMap.delete(id),
+      getById: (id: string) => doorMap.get(id),
+      has: (id: string) => doorMap.has(id),
+    };
+    const door = { id: 'd1', openingId: 'o1', wallId: 'W1', width: 0.9, frameColor: '#abc' };
+    doorMap.set('d1', door);
+    const opening = { id: 'o1', elementId: 'd1', type: 'door' };
+    const wall: any = { id: 'W1', openings: [opening], childrenIds: ['d1'] };
+    const removed: string[] = []; const added: any[] = [];
+    const wallStore: any = {
+      getById: (id: string) => (id === 'W1' ? wall : undefined),
+      update: () => { throw new Error('generic update() must NOT be used for openings'); },
+      removeOpening: (_w: string, oid: string) => { wall.openings = wall.openings.filter((o: any) => o.id !== oid); removed.push(oid); },
+      addOpening: (_w: string, o: any) => { wall.openings = [...wall.openings, o]; added.push(o); },
+    };
+    const a = elementUndoStoreAdapter(wallStore);
+
+    // UNDO of the placement: openings → [] (childrenIds patch is skipped for wall stores)
+    a.applyPatch([{ op: 'replace', path: ['W1', 'openings'], value: [] }]);
+    expect(removed).toEqual(['o1']);              // hole closed via removeOpening (not update)
+    expect(doorMap.has('d1')).toBe(false);        // hosted door mesh/record removed
+    expect(wall.openings.length).toBe(0);
+
+    // REDO: openings → [opening]
+    a.applyPatch([{ op: 'replace', path: ['W1', 'openings'], value: [opening] }]);
+    expect(added.length).toBe(1);                 // hole re-cut via addOpening
+    expect(doorMap.get('d1')).toEqual(door);      // hosted door restored from snapshot
+    delete (window as any).doorStore;
   });
 
   it('field-level replace updates a single field', () => {

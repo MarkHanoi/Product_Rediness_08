@@ -94,6 +94,92 @@ function _onElementAdded(id: string, value: unknown): void {
   } catch (err) { console.warn('[elementUndoStoreAdapter] elementRegistry.registerSemanticOrReplace failed:', err); }
 }
 
+// ── §HOSTED-OPENING-UNDO (OI-054 (b), 2026-05-24) ─────────────────────────────
+// Doors/windows are HOSTED: placing one (`wall.opening.create`, affectedStores=['wall'])
+// writes the opening into the host wall's `openings` array (the ring-buffer patch),
+// while the §P2.3 bridge SEPARATELY adds a doorStore/windowStore record (the door
+// leaf/frame mesh + plan swing-arc) as an event side-effect that is NOT in the patch.
+// So a naive `wallStore.update(wallId, {openings})` on undo closes the hole but leaves
+// the door element behind. The canonical two-part removal (CreateWallOpeningCommand.undo)
+// is `wallStore.removeOpening(wallId, openingId)` (closes the hole + drops the WallStore-
+// internal door) + `doorStore.remove(elementId)` (removes the leaf mesh + swing arc).
+// This reconciler diffs the wall's current openings against the target the undo/redo
+// patch sets and drives those exact APIs, snapshotting the removed hosted record so a
+// subsequent redo restores it faithfully (mirrors the whole-element snapshot pattern).
+
+interface OpeningLike { readonly id: string; readonly elementId?: string; readonly type?: string }
+interface HostedStoreLike {
+  add?(rec: unknown): void;
+  remove?(id: string): unknown;
+  getById?(id: string): unknown;
+  get?(id: string): unknown;
+  has?(id: string): boolean;
+}
+interface WallOpeningStoreLike extends LegacyElementStoreLike {
+  removeOpening?(wallId: string, openingId: string): unknown;
+  addOpening?(wallId: string, opening: unknown): unknown;
+}
+
+/** Captured hosted door/window records, keyed by elementId, so redo restores the
+ *  exact record removed on undo (avoids re-resolving systemType finishes). */
+const _hostedRestoreSnapshots = new Map<string, { type: string; record: unknown }>();
+
+function _hostedStore(type: string | undefined): HostedStoreLike | undefined {
+  if (typeof window === 'undefined') return undefined;
+  const w = window as unknown as Record<string, unknown>;
+  return (type === 'window' ? w.windowStore : w.doorStore) as HostedStoreLike | undefined;
+}
+function _hostedGet(store: HostedStoreLike | undefined, id: string): unknown {
+  if (!store) return undefined;
+  return typeof store.getById === 'function' ? store.getById(id)
+    : typeof store.get === 'function' ? store.get(id) : undefined;
+}
+
+/** True if this store is the host-wall store (exposes the opening mutators). */
+function _isWallOpeningStore(store: LegacyElementStoreLike): store is WallOpeningStoreLike {
+  const s = store as WallOpeningStoreLike;
+  return typeof s.removeOpening === 'function' && typeof s.addOpening === 'function';
+}
+
+/**
+ * Reconcile a host wall's openings to `target` using the hosted-aware APIs:
+ * removed openings → `removeOpening` + drop (and snapshot) the door/window record;
+ * added openings → `addOpening` + restore the door/window record from the snapshot.
+ */
+function _reconcileWallOpenings(store: WallOpeningStoreLike, wallId: string, target: readonly OpeningLike[]): void {
+  const wall = _getValue(store, wallId) as { openings?: OpeningLike[] } | null | undefined;
+  if (wall == null) { console.warn('[elementUndoStoreAdapter] reconcileWallOpenings — wall not found:', wallId); return; }
+  const current = wall.openings ?? [];
+  const targetIds = new Set(target.map(o => o.id));
+  const currentIds = new Set(current.map(o => o.id));
+
+  // Removed openings = undo of a placement → remove hole + hosted element.
+  for (const o of current) {
+    if (targetIds.has(o.id)) continue;
+    if (o.elementId) {
+      const hs = _hostedStore(o.type);
+      const rec = _hostedGet(hs, o.elementId);
+      if (rec != null) _hostedRestoreSnapshots.set(o.elementId, { type: o.type ?? 'door', record: rec });
+      try { hs?.remove?.(o.elementId); } catch (err) { console.error('[elementUndoStoreAdapter] hosted remove failed:', err); }
+      try { elementRegistry.unregister(o.elementId); } catch { /* best-effort §3.5 */ }
+    }
+    try { store.removeOpening?.(wallId, o.id); } catch (err) { console.error('[elementUndoStoreAdapter] removeOpening failed:', err); }
+  }
+
+  // Added openings = redo of a placement → re-cut hole + restore hosted element.
+  for (const o of target) {
+    if (currentIds.has(o.id)) continue;
+    try { store.addOpening?.(wallId, o); } catch (err) { console.error('[elementUndoStoreAdapter] addOpening failed:', err); }
+    if (o.elementId) {
+      const hs = _hostedStore(o.type);
+      const stashed = _hostedRestoreSnapshots.get(o.elementId);
+      if (stashed != null && hs?.has?.(o.elementId) !== true && typeof hs?.add === 'function') {
+        try { hs.add(stashed.record); _hostedRestoreSnapshots.delete(o.elementId); } catch (err) { console.error('[elementUndoStoreAdapter] hosted restore failed:', err); }
+      }
+    }
+  }
+}
+
 /** Duck-typed union of the legacy element-store mutator surface. */
 export interface LegacyElementStoreLike {
   add?(element: unknown): void;
@@ -150,6 +236,7 @@ const _undoRestoreSnapshots = new Map<string, unknown>();
  *  state shared across adapter instances). Harmless in production. */
 export function __resetUndoRestoreSnapshots(): void {
   _undoRestoreSnapshots.clear();
+  _hostedRestoreSnapshots.clear();
 }
 
 /**
@@ -190,12 +277,24 @@ export function elementUndoStoreAdapter(store: LegacyElementStoreLike): PatchApp
               else if (!exists && typeof store.add === 'function') { _onElementWillAdd(id, p.value); store.add(p.value); _onElementAdded(id, p.value); }
             }
           } else {
-            // Field-level op: path = [id, field, …]. Best-effort single-field update
-            // (deep sub-paths collapse to the top field — sufficient for create/undo;
-            // deep field undo is the ADR-051 single-store-unification follow-up).
-            if (!exists || typeof store.update !== 'function') continue;
+            // Field-level op: path = [id, field, …].
             const field = p.path[1];
             if (field == null) continue;
+            // §HOSTED-OPENING-UNDO (OI-054 (b)) — reverting a host wall's `openings`
+            // array is a TWO-PART operation (close the hole + remove the hosted
+            // door/window mesh). The generic update() below is the wrong API for it
+            // (WallStore warns + the door stays). Route to the hosted-aware reconciler.
+            if (String(field) === 'openings' && _isWallOpeningStore(store)) {
+              _reconcileWallOpenings(store, id, Array.isArray(p.value) ? (p.value as OpeningLike[]) : []);
+              continue;
+            }
+            // `childrenIds` on a host wall is managed by removeOpening/addOpening above
+            // — skip the generic update so it doesn't clobber what the reconciler set.
+            if (String(field) === 'childrenIds' && _isWallOpeningStore(store)) continue;
+            // Best-effort single-field update (deep sub-paths collapse to the top
+            // field — sufficient for create/undo; deep field undo is the ADR-051
+            // single-store-unification follow-up).
+            if (!exists || typeof store.update !== 'function') continue;
             store.update(id, { [String(field)]: p.value });
           }
         } catch (err) {
