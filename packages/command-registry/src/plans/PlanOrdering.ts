@@ -28,6 +28,7 @@ export class PlanOrdering {
         [CommandType.CREATE_STAIR]: 22,
         [CommandType.CREATE_FURNITURE]: 23,
         [CommandType.ADD_OPENING]: 30,
+        [CommandType.CREATE_WINDOWS_ON_WALLS]: 30,
         [CommandType.UPDATE_WALL_PROPERTIES]: 40,
         [CommandType.UPDATE_WALL_HEIGHT]: 41,
         [CommandType.UPDATE_STAIR_PARAMETERS]: 42,

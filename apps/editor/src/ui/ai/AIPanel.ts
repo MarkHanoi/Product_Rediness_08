@@ -861,6 +861,12 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
         getLevels: () => _bim?.getLevels?.() ?? [],
         getSelectedElementId: () => _sel?.selectedObject?.userData?.elementId ?? null,
         slabStore: (window.slabStore as unknown as BatchDeps['slabStore']) ?? null,
+        getFacadeWallIds: (levelId, orientation) => {
+            const svc = window.facadeOrientationService as {
+                facadesByOrientation?: (l: string, o: string, n?: number) => Array<{ wallId: string }>;
+            } | undefined;
+            return svc?.facadesByOrientation?.(levelId, orientation, 0)?.map(f => f.wallId) ?? [];
+        },
     };
 
     // Catalogue-sourced "Batch ⚡" branch (C17 §4). Live parameterless entries

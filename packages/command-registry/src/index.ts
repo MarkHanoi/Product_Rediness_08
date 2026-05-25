@@ -303,6 +303,7 @@ export * from './walls/ChangeWallLevelCommand';
 export * from './walls/CreateWallBetweenMarksCommand';
 export * from './walls/CreateWallCommand';
 export * from './walls/CreateWallOpeningCommand';
+export * from './walls/CreateWindowsOnWallsCommand';
 export * from './walls/CreateWallsFromSlabCommand';
 export * from './walls/CreateWallsOnAllSlabsCommand';
 export * from './walls/DeleteElementCommand';

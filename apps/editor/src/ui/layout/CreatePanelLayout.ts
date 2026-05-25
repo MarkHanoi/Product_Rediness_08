@@ -386,6 +386,13 @@ export function mountCreatePanel(
         getSelectedElementId: () =>
             (props.selectionManager.selectedObject?.userData?.elementId as string | undefined) ?? null,
         slabStore: (window.slabStore as unknown as BatchDeps['slabStore']) ?? null, // TODO(E.slab.S): runtime.stores.slab
+        getFacadeWallIds: (levelId, orientation) => {
+            // SL-3 — resolve exterior walls facing a compass direction (trueNorth=0 default).
+            const svc = window.facadeOrientationService as {
+                facadesByOrientation?: (l: string, o: string, n?: number) => Array<{ wallId: string }>;
+            } | undefined;
+            return svc?.facadesByOrientation?.(levelId, orientation, 0)?.map(f => f.wallId) ?? [];
+        },
     };
 
     // C17 DI-1 — dispatch through the documented path; surface success/failure as a

@@ -91,7 +91,7 @@ Columns: **Path** = `Discipline › System › ⚡Batch › label`. **Prompt** =
 | Architecture › Curtain Wall › ⚡ | "Create curtain walls from selected slab" | `CREATE_CURTAIN_WALLS_FROM_SLAB` | `CREATE_CURTAIN_WALLS_ON_SLAB` | from-selected | 1 | ✅ |
 | Architecture › Door › ⚡ | "Add a door between every pair of adjacent rooms" | — | — | per-room | 3 | ⏳ |
 | Architecture › Door › ⚡ | "Add fire-rated doors on every compartment boundary" | — | — | per-compartment | 5 | ⏳ |
-| Architecture › Window › ⚡ | "Add windows to every south façade" (N/E/S/W) | — | — | per-facade | 2 | ⏳ |
+| Architecture › Window › ⚡ | "Windows on every south façade" | `CREATE_WINDOWS_ON_WALLS` | — | per-facade | 3 | ✅ (catalogId `windows.per-facade`; consumes SL-3; build resolves S exterior walls, command distributes windows) |
 | Architecture › Window › ⚡ | "Add punched windows to all exterior walls" | — | — | per-facade | 3 | ⏳ |
 | Architecture › Room › ⚡ | "Detect all rooms" | `DETECT_ALL_ROOMS` / `BATCH_CREATE_ROOMS` | — | on-all-levels | 1 | ✅ |
 | Architecture › Room › ⚡ | "Detect rooms on the active level" | `DETECT_ROOM_FROM_WALLS` | — | on-active-level | 1 | ✅ |

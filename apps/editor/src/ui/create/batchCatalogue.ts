@@ -38,6 +38,7 @@ import {
     CreateFloorsByRoomTypeCommand,
     CreateCeilingsByRoomCommand,
     CreateLightingByRoomCommand,
+    CreateWindowsOnWallsCommand,
 } from '@pryzm/command-registry';
 
 /** The phase currently shipped. Entries with `phase > SHIPPED_PHASE` render disabled (CB-4). */
@@ -82,6 +83,13 @@ export interface BatchDeps {
     getLevels(): LevelLike[];
     getSelectedElementId(): string | null;
     slabStore: SlabStoreLike | null;
+    /**
+     * SL-3 (SPEC-SEMANTIC §3) — wall ids of exterior walls on a level facing a
+     * compass direction. Resolved by the panel from `window.facadeOrientationService`
+     * (scope resolution in the build layer — C17 §10). Absent in environments
+     * where the service is not wired.
+     */
+    getFacadeWallIds?(levelId: string, orientation: 'N' | 'E' | 'S' | 'W'): string[];
 }
 
 /** A typed numeric parameter for parameterised entries (C17 §6 PS-2). */
@@ -197,10 +205,25 @@ export const BATCH_CATALOGUE: BatchCatalogEntry[] = [
 
     // ── Architecture › Window / Door / Ceiling (phased — semantic) ───────────
     {
+        // SPEC-SEMANTIC §10 #11-#13 — LIVE: consumes SL-3 façade orientation. The
+        // build layer resolves the south exterior walls; the command distributes
+        // windows along each (C17 §10 scope-resolution-in-build).
         catalogId: 'windows.per-facade', discipline: 'Architecture', system: 'Window',
-        label: 'Windows on every south façade', prompt: 'Add windows to every south façade',
-        icon: 'material-symbols:window', scope: 'per-facade', phase: 2, status: 'phased',
-        precondition: () => phaseGate(2), build: () => null,
+        label: 'Windows on every south façade', prompt: 'Add windows to every south-facing exterior wall on this level',
+        icon: 'material-symbols:window', scope: 'per-facade', phase: 3, status: 'live',
+        precondition: (d) => {
+            const lvl = d.getActiveLevelId();
+            if (!lvl) return { ok: false, reason: 'No active level' };
+            if (!d.getFacadeWallIds) return { ok: false, reason: 'Façade service unavailable' };
+            return d.getFacadeWallIds(lvl, 'S').length > 0
+                ? OK
+                : { ok: false, reason: 'No south-facing exterior walls (tag/detect rooms first)' };
+        },
+        build: (d) => {
+            const lvl = d.getActiveLevelId();
+            const wallIds = (lvl && d.getFacadeWallIds) ? d.getFacadeWallIds(lvl, 'S') : [];
+            return wallIds.length ? new CreateWindowsOnWallsCommand({ wallIds, width: 1.2, height: 1.4, sillHeight: 0.9 }) : null;
+        },
     },
     {
         catalogId: 'doors.between-adjacent-rooms', discipline: 'Architecture', system: 'Door',
