@@ -76,10 +76,23 @@ export class MockAnthropicRelay implements RelayPorter {
    *  When unset, returns the built-in 3-item fixture below. */
   fixtureItems: readonly unknown[] | null = null;
 
+  /** Override the options the mock returns for apartment-layout
+   *  requests (SPEC-APARTMENT-LAYOUT-GENERATOR §4, A4-register). When
+   *  unset, returns the built-in canonical 3-bed fixture below — valid
+   *  against the SPEC worked-example program/constraints so the local
+   *  in-process path yields `status:'ok'` until the CF relay lands. */
+  layoutFixture: readonly unknown[] | null = null;
+
   async complete(req: RelayRequest): Promise<RelayResponse> {
     const inputTokens = roughTokenCount(req.system) + roughTokenCount(req.user);
     let payload: unknown;
-    if (/critique|review|issue|conflict/i.test(req.user)) {
+    // Apartment-layout requests are routed by the system prompt (the
+    // space-planner persona — see workflows/apartmentLayout/generate.ts
+    // LAYOUT_SYSTEM_PROMPT). Checked first so it never collides with the
+    // critique heuristic below.
+    if (/space planner/i.test(req.system)) {
+      payload = this.layoutFixture ?? DEFAULT_LAYOUT_FIXTURE;
+    } else if (/critique|review|issue|conflict/i.test(req.user)) {
       payload = this.fixtureItems ?? DEFAULT_CRITIQUE_FIXTURE;
     } else {
       payload = [];
@@ -132,6 +145,38 @@ export const DEFAULT_CRITIQUE_FIXTURE: ReadonlyArray<{
     confidence: 0.62,
   },
 ];
+
+/** Deterministic apartment-layout fixture used by the mock relay +
+ *  the A4-register in-process path. Two near-identical 3-bedroom
+ *  options (so the modal shows a choice). Shaped to PASS the §8
+ *  validator for the SPEC worked-example program — 3 bedrooms (incl.
+ *  master), 1 bathroom, master en-suite, open-plan kitchen+dining,
+ *  living room, entrance hall — with `minCorridorWidth ≤ 1000 mm`.
+ *  The real CF relay (S52 D3) replaces this with arbitrary programs. */
+export const DEFAULT_LAYOUT_FIXTURE: readonly unknown[] = (() => {
+  const rooms = [
+    { name: 'Hall', type: 'hall', area: 5, windowCount: 0, hasDirectAccess: true, adjacentTo: ['Living', 'Corridor'] },
+    { name: 'Living', type: 'living', area: 22, windowCount: 2, hasDirectAccess: true, adjacentTo: ['Hall', 'Dining'] },
+    { name: 'Dining', type: 'dining', area: 11, windowCount: 1, hasDirectAccess: true, adjacentTo: ['Living', 'Kitchen'] },
+    { name: 'Kitchen', type: 'kitchen', area: 10, windowCount: 1, hasDirectAccess: true, adjacentTo: ['Dining'] },
+    { name: 'Corridor', type: 'corridor', area: 4, windowCount: 0, hasDirectAccess: true, adjacentTo: ['Hall', 'Master', 'Bed2', 'Bed3', 'Bath'] },
+    { name: 'Master', type: 'master', area: 14, windowCount: 1, hasDirectAccess: true, adjacentTo: ['Corridor', 'Ensuite'] },
+    { name: 'Ensuite', type: 'ensuite', area: 4.2, windowCount: 0, hasDirectAccess: false, adjacentTo: ['Master'] },
+    { name: 'Bed2', type: 'bedroom', area: 10, windowCount: 1, hasDirectAccess: true, adjacentTo: ['Corridor'] },
+    { name: 'Bed3', type: 'bedroom', area: 9.5, windowCount: 1, hasDirectAccess: true, adjacentTo: ['Corridor'] },
+    { name: 'Bath', type: 'bathroom', area: 5, windowCount: 0, hasDirectAccess: true, adjacentTo: ['Corridor'] },
+  ];
+  const base = {
+    corridorWidthMin: 1000,
+    walls: [{ start: { x: 0, y: 0 }, end: { x: 1000, y: 0 } }],
+    doors: [{ wallRef: 0, offset: 300, width: 900 }],
+    rooms,
+  };
+  return [
+    { ...base, summary: 'Central corridor — bedrooms north, living south.' },
+    { ...base, summary: 'Compact hall — open-plan kitchen/dining to the east.' },
+  ];
+})();
 
 /** Selector mirroring `selectRuntimeKind` / `createStorage` from the
  *  CV namespace. Returns the mock unless `ANTHROPIC_RELAY_URL` is

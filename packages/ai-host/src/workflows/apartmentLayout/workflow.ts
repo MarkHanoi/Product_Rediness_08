@@ -82,7 +82,9 @@ export function createApartmentLayoutImpl(deps: ApartmentLayoutDeps): WorkflowIm
                 count: payload.options.count,
             },
             deps.relay,
-            { maxRetries: deps.maxRetries ?? 3, model: deps.model },
+            // Build opts conditionally — passing `model: undefined` violates
+            // exactOptionalPropertyTypes against generateLayoutOptions' opts.
+            { maxRetries: deps.maxRetries ?? 3, ...(deps.model !== undefined ? { model: deps.model } : {}) },
         );
 
         // SPEC steps 12-13: persist + emit (only when we have options). No mutation (step 11).

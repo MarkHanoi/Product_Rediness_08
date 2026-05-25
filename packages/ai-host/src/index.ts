@@ -132,6 +132,71 @@ export type {
   VoiceTranscriberPorter,
 } from './workflows/VoiceCommand.js';
 
+// ── #51 Apartment Layout Generator (SPEC-APARTMENT-LAYOUT-GENERATOR) ───────────
+// Read-only generative workflow: shell → N ranked/validated/scored layout
+// options → AIStore + modal; commit via apartment.layout-execute (A6).
+export {
+  apartmentLayoutDescriptor,
+  createApartmentLayoutImpl,
+  APARTMENT_LAYOUT_COST_USD_ESTIMATE,
+} from './workflows/apartmentLayout/workflow.js';
+export type {
+  ApartmentLayoutDeps,
+  ApartmentLayoutWorkflowResult,
+} from './workflows/apartmentLayout/workflow.js';
+export {
+  registerApartmentLayoutWorkflow,
+  APARTMENT_LAYOUT_WORKFLOW_ID,
+} from './workflows/apartmentLayout/register.js';
+export type {
+  WorkflowRegistrarLike,
+  ApartmentLayoutRegisterDeps,
+} from './workflows/apartmentLayout/register.js';
+export {
+  generateLayoutOptions,
+  buildLayoutPrompt,
+  parseLayoutOptions,
+  parseLayoutOption,
+  LAYOUT_MODEL,
+  LAYOUT_MAX_TOKENS,
+  LAYOUT_SYSTEM_PROMPT,
+} from './workflows/apartmentLayout/generate.js';
+export type {
+  GenerateLayoutInput,
+  GenerateLayoutResult,
+} from './workflows/apartmentLayout/generate.js';
+export { validateLayout } from './workflows/apartmentLayout/validate.js';
+export { scoreLayout } from './workflows/apartmentLayout/score.js';
+export {
+  analyseShell,
+  wallsToPolygon,
+  polygonAreaM2,
+} from './workflows/apartmentLayout/shellAnalysis.js';
+export type {
+  ShellAnalysis,
+  ShellWallInput,
+  ShellAnalysisOptions,
+  ShellFaceInfo,
+  FaceClass,
+} from './workflows/apartmentLayout/shellAnalysis.js';
+export type {
+  ApartmentGenerateLayoutPayload,
+  ApartmentProgram,
+  ApartmentConstraints,
+  ScoringWeights,
+  LayoutOption,
+  LayoutRoom,
+  LayoutWall,
+  LayoutDoor,
+  ScoredLayoutOption,
+  LayoutScore,
+  LayoutScoreBreakdown,
+  ValidationResult,
+  RoomType,
+  Vec2mm,
+} from './workflows/apartmentLayout/types.js';
+export { DEFAULT_LAYOUT_FIXTURE } from './AnthropicRelay.js';
+
 // ── Sprint H P9 (2026-05-10) — GenerativeTypes ────────────────────────────────
 export * from './generative/GenerativeTypes';
 export { layoutGenerator, roomColour } from './generative/LayoutGenerator.js';
