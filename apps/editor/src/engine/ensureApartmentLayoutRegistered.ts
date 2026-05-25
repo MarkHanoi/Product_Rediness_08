@@ -40,19 +40,12 @@ export async function ensureApartmentLayoutRegistered(
             host: host as { plane?: unknown },
             // A7 — live relay through the server BFF (POST /api/anthropic/v1/messages,
             // which routes to the CF Worker / Anthropic). Same-origin → the session
-            // cookie satisfies the route auth. Wrapped in a RESILIENT relay: if the
-            // live AI is unreachable (no CF_WORKER_URL / ANTHROPIC_API_KEY, auth/quota
-            // error, offline), it transparently falls back to the MockAnthropicRelay's
-            // built-in DEMO layouts so the feature is always demoable end-to-end. The
-            // fallback logs loudly + emits a toast so the user knows it is demo data.
-            relay: aiHost.createResilientRelay(
-                aiHost.createCfWorkerRelay(),
-                new aiHost.MockAnthropicRelay(),
-                () => runtime.events?.emit('pryzm:toast', {
-                    message: 'AI unreachable — showing built-in demo layouts.',
-                    severity: 'info',
-                }),
-            ),
+            // cookie satisfies the route auth. When the live AI is unreachable
+            // (no CF_WORKER_URL / ANTHROPIC_API_KEY, auth/quota error, offline) the
+            // generate orchestrator falls back to a SHELL-FITTED procedural layout
+            // (generateProceduralLayout) so the feature still produces real geometry
+            // for the actual shell — option summaries say "(offline demo)".
+            relay: aiHost.createCfWorkerRelay(),
             getWall,
             // SL-3: one wall's compass orientation (recomputes facades per call —
             // negligible for the handful of perimeter walls a shell has).

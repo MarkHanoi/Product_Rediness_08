@@ -50,6 +50,9 @@ export interface ApartmentLayoutDeps {
     readonly emit?: (event: string, payload: unknown) => void;
     readonly model?: string;
     readonly maxRetries?: number;
+    /** When true + the AI yields no valid layout, fall back to a shell-fitted
+     *  procedural layout (offline demo). The live editor binding enables this. */
+    readonly proceduralFallback?: boolean;
 }
 
 /** The parent json preview returned to the AiPlane. */
@@ -84,7 +87,11 @@ export function createApartmentLayoutImpl(deps: ApartmentLayoutDeps): WorkflowIm
             deps.relay,
             // Build opts conditionally — passing `model: undefined` violates
             // exactOptionalPropertyTypes against generateLayoutOptions' opts.
-            { maxRetries: deps.maxRetries ?? 3, ...(deps.model !== undefined ? { model: deps.model } : {}) },
+            {
+                maxRetries: deps.maxRetries ?? 3,
+                ...(deps.model !== undefined ? { model: deps.model } : {}),
+                ...(deps.proceduralFallback ? { proceduralFallback: true } : {}),
+            },
         );
 
         // SPEC steps 12-13: persist + emit (only when we have options). No mutation (step 11).

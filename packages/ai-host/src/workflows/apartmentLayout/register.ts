@@ -119,6 +119,9 @@ export function createApartmentLayoutRegistration(
     const id = registerApartmentLayoutWorkflow(plane, {
         shellReader,
         setPendingLayouts: deps.setPendingLayouts,
+        // Live editor path: fall back to a shell-fitted procedural layout when the
+        // AI is unavailable, so a generation always yields a real, buildable layout.
+        proceduralFallback: true,
         ...(deps.emit ? { emit: deps.emit } : {}),
         ...(deps.relay ? { relay: deps.relay } : {}),
     });

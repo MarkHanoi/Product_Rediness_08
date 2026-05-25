@@ -177,6 +177,7 @@ export type {
 } from './workflows/apartmentLayout/generate.js';
 export { validateLayout } from './workflows/apartmentLayout/validate.js';
 export { scoreLayout } from './workflows/apartmentLayout/score.js';
+export { generateProceduralLayout } from './workflows/apartmentLayout/proceduralLayout.js';
 export {
   buildLayoutPlan,
   buildLayoutCommands,

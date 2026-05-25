@@ -63,15 +63,28 @@ export class ApartmentLayoutExecutor {
             };
             const set = buildLayoutCommands(option, opts, (p: IdPrefix) => createId(p));
 
+            // Best-effort dispatch: a bus verb may reject SYNC (throw) or ASYNC
+            // (returns a rejecting promise → "Uncaught (in promise)"). Catch both +
+            // per-command, so a failed door never aborts the walls and never spams
+            // uncaught rejections. Walls are the structural layout; openings/doors
+            // are best-effort.
+            const dispatch = (cmd: string, payload: unknown, label: string): void => {
+                try {
+                    const r = runtime.bus.executeCommand(cmd, payload) as unknown;
+                    if (r && typeof (r as { catch?: unknown }).catch === 'function') {
+                        (r as Promise<unknown>).catch((e: unknown) =>
+                            console.warn(`[apartment-layout] ${label} failed (skipped):`, e));
+                    }
+                } catch (e) {
+                    console.warn(`[apartment-layout] ${label} threw (skipped):`, e);
+                }
+            };
+
             // One coalesced undo unit; rooms redetect after (walls define boundaries).
             batchCoordinator.runBatch(() => {
-                runtime.bus.executeCommand(set.wallBatch.command, set.wallBatch.payload);
-                for (const op of set.openingCommands) {
-                    runtime.bus.executeCommand(op.command, op.payload);
-                }
-                if (set.doorBatch) {
-                    runtime.bus.executeCommand(set.doorBatch.command, set.doorBatch.payload);
-                }
+                dispatch(set.wallBatch.command, set.wallBatch.payload, 'wall.batch.create');
+                for (const op of set.openingCommands) dispatch(op.command, op.payload, 'wall.createOpening');
+                if (set.doorBatch) dispatch(set.doorBatch.command, set.doorBatch.payload, 'door.batch.create');
             }, {
                 levelIds: [level.id],
                 totalElementCount: set.totalElementCount,

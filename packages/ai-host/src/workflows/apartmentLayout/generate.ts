@@ -21,6 +21,7 @@ import type {
 import type { ShellAnalysis } from './shellAnalysis.js';
 import { validateLayout } from './validate.js';
 import { scoreLayout } from './score.js';
+import { generateProceduralLayout } from './proceduralLayout.js';
 
 export const LAYOUT_MODEL = 'claude-haiku-4-5-20251014';
 export const LAYOUT_MAX_TOKENS = 3000;
@@ -152,7 +153,7 @@ export function parseLayoutOptions(text: string): LayoutOption[] {
 export async function generateLayoutOptions(
     input: GenerateLayoutInput,
     relay: RelayPorter,
-    opts: { maxRetries?: number; model?: string; maxTokens?: number } = {},
+    opts: { maxRetries?: number; model?: string; maxTokens?: number; proceduralFallback?: boolean } = {},
 ): Promise<GenerateLayoutResult> {
     const maxRetries = opts.maxRetries ?? 3;
     const valid: ScoredLayoutOption[] = [];
@@ -172,8 +173,10 @@ export async function generateLayoutOptions(
             });
             text = resp.text;
         } catch (err) {
+            // A thrown relay error (offline / 401 / 5xx) won't fix itself on retry —
+            // stop and fall through to the procedural fallback below.
             failures = [`relay error: ${String(err)}`];
-            continue;
+            break;
         }
 
         failures = [];
@@ -186,6 +189,21 @@ export async function generateLayoutOptions(
 
     valid.sort((a, b) => b.score.overall - a.score.overall);
     const options = valid.slice(0, input.count);
+
+    // Procedural fallback (opt-in): when the AI produced no valid layout
+    // (offline / 401 / all-invalid), generate a real shell-fitted layout so the
+    // feature still delivers — summaries say "(offline demo)". Off by default so
+    // the pure orchestrator keeps strict "rejected" semantics; the live editor
+    // registration enables it.
+    if (options.length === 0 && opts.proceduralFallback) {
+        const procedural = generateProceduralLayout(
+            input.shell, input.program, input.constraints, input.weights, input.count,
+        );
+        if (procedural.length > 0) {
+            return { options: procedural, status: 'ok', attempts: attempt, reason: 'AI unavailable — procedural offline layout' };
+        }
+    }
+
     return options.length > 0
         ? { options, status: 'ok', attempts: attempt }
         : { options: [], status: 'rejected', attempts: attempt, reason: failures.slice(0, 6).join('; ') || 'no valid layouts' };
