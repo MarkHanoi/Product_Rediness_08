@@ -2765,3 +2765,43 @@ Create is untouched (the adapter only runs on undo/redo; the §P2.3 bridge still
 "hosted door undo/redo…" + `performUndoRedo` 6). **Live-verify pending:** place a door in plan → undo
 (hole closes AND door/swing-arc gone) → redo (door returns). **Open follow-up:** undoing a WALL that
 still hosts doors doesn't yet cascade-remove the global door/window records (opening-level undo is done).
+
+## Round 62 — Batch element-creation performance audit + fix (2026-05-25)
+
+Full audit of every batch element-creation path: **9 bus batch handlers** (wall/slab/curtain-wall/
+column/beam/ceiling/door/window/stair `*.batch.create`) + **7 legacy "on-all / from-slab" commands** +
+the shared `BatchCoordinator` (`core-app-model`) and `BatchPatchCompactor` (`command-bus`).
+
+**Findings (comparison):**
+- **Bus batch handlers — all GOOD (uniform, A-grade).** Each does ONE `produceCommand` over the whole
+  set → ONE forward/inverse `PatchPair` → ONE undo entry (verified e.g. `CreateWallBatch.ts:154`,
+  `CreateSlabBatch`, `CreateCurtainWallBatch`, …). `CommandEventBridge` intentionally fans out one
+  per-element `X.created` event per batch element (TASK-01) so the §P*.x bridges can mirror each into
+  the legacy store + register it; that per-element registration is O(N) but cheap (Map.set +
+  childrenIds.push) and the mesh rebuild is coalesced by the builders. No change needed.
+- **Legacy "on-all / from-slab" commands — mostly already optimized.** `CreateCurtainWallsOnAllSlabs`
+  (A+: `store.addMany` + per-level `registerMany` §REG-MANY-P1 + `runBatch` + style prewarm),
+  `CreateCurtainWallsFromSlab` (A: per-level `registerMany`), `CreateSlabsOnAllFloors` (A: `runBatch`
+  with `skipPbrUpgrade`/`skipRedetectRooms`), `CreateWallsOnAllSlabs` (A−: `runBatch` + per-level
+  `registerMany`; per-subcommand undo but it's ONE parent commandManager entry, so one user undo).
+  `CreateWallsFromSlab` (per-wall register, no `runBatch`) is only ~4 walls/slab → negligible; left as-is.
+- **The one real laggard — `CreateAllSlabsFromLevelToAllFloorsCommand` (was F-grade).** It (a) called
+  `slabStore.getAll().filter(levelId)` INSIDE the inner (target-level × source-slab) loop, re-scanning
+  the whole growing slab store every iteration → **O(L × S × totalSlabs)**, and (b) ran the mutation
+  loop with NO `batchCoordinator.runBatch`, so every `slab.add()` fired an immediate event + builder
+  rebuild (N rebuilds, no coalescing). This is the multi-slab twin of the already-optimized
+  `CreateSlabsOnAllFloors`, so it should have shared the same pattern.
+
+**Fix (§BATCH-PERF):** mirrored the proven sibling exactly —
+  1. hoisted the duplicate scan to ONE `getAll().filter` per target level (`existingByLevel` map),
+     appending created slabs to the per-level bucket so intra-run dedup keeps the original tolerance
+     semantics → O(L) scans instead of O(L×S);
+  2. wrapped the mutation loop in `batchCoordinator.runBatch(_processLevels, {levelIds,
+     totalElementCount, skipPbrUpgrade:true, skipRedetectRooms:true})` on first execute (direct
+     `_processLevels()` on redo) → ONE builder drain + ONE buffered event flush.
+
+**Gates:** `@pryzm/command-registry` typecheck clean for the changed file (pre-existing plugin/ai-host
+debt unrelated); behaviour-preserving (same slabs created, same dedup, same undo). **Live-verify
+pending:** "create all slabs from level to all floors" on a multi-slab, multi-level project → smooth
+(no N-rebuild stutter), slabs correct. **Documented as the canonical batch-perf reference here**
+(no separate *-AUDIT.md per CLAUDE.md governance).
