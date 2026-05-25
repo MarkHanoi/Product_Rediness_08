@@ -35,8 +35,10 @@ export interface Vec3m { x: number; y: number; z: number }
 export interface LayoutExecuteOptions {
     /** Level the walls + doors belong to. */
     readonly levelId: string;
-    /** Wall type id → CreateWallPayload.systemTypeId (from constraints.wallTypeId). */
-    readonly wallTypeId: string;
+    /** Wall type id → CreateWallPayload.systemTypeId. OPTIONAL: omit (or pass '')
+     *  to let the wall handler use its default type — passing an id the wall
+     *  system-type store doesn't know throws "unknown systemTypeId" at dispatch. */
+    readonly wallTypeId?: string;
     /** World Y (m) of the level base; both baseLine endpoints share this y. Default 0. */
     readonly baseElevationM?: number;
     /** Wall height (m); from constraints.floorToCeiling (mm). Default 2.7. */
@@ -55,7 +57,8 @@ export interface WallCreateSpec {
     readonly baseLine: readonly [Vec3m, Vec3m];
     readonly height: number;        // m
     readonly thickness: number;     // m
-    readonly systemTypeId: string;
+    /** Omitted when no wall type id is supplied → wall handler uses its default. */
+    readonly systemTypeId?: string;
 }
 
 /** A door to create, METRES. `wallRef` indexes into the produced walls[];
@@ -121,7 +124,14 @@ export function buildLayoutPlan(option: LayoutOption, opts: LayoutExecuteOptions
             return;
         }
         remap[i] = walls.length;
-        walls.push({ baseLine: [a, b], height: wallHeightM, thickness: wallThicknessM, systemTypeId: opts.wallTypeId });
+        walls.push({
+            baseLine: [a, b],
+            height: wallHeightM,
+            thickness: wallThicknessM,
+            // Only set systemTypeId when a real type id was supplied — an unknown
+            // id is rejected by wall.batch.create; omitting → the handler default.
+            ...(opts.wallTypeId ? { systemTypeId: opts.wallTypeId } : {}),
+        });
     });
 
     // Build the door plan, resolving each door's host wall through the remap.

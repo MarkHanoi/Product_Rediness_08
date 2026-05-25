@@ -18,9 +18,6 @@ import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import type { ScoredLayoutOption, IdPrefix, LayoutExecuteOptions } from '@pryzm/ai-host';
 import { resolveActiveLevel } from './activeLevel.js';
 
-/** Default internal-wall type id (matches DEFAULT_CONSTRAINTS.wallTypeId). */
-const DEFAULT_WALL_TYPE_ID = 'partition';
-
 export class ApartmentLayoutExecutor {
     private _dispose: (() => void) | null = null;
 
@@ -58,7 +55,9 @@ export class ApartmentLayoutExecutor {
             const { buildLayoutCommands } = await import('@pryzm/ai-host');
             const opts: LayoutExecuteOptions = {
                 levelId: level.id,
-                wallTypeId: DEFAULT_WALL_TYPE_ID,
+                // No wallTypeId → walls use the editor's DEFAULT wall type. Passing an
+                // id the wall system-type store doesn't know (e.g. 'partition') makes
+                // wall.batch.create reject the whole batch ("unknown systemTypeId").
                 baseElevationM: level.elevation ?? 0,
                 ...(level.height ? { wallHeightM: level.height } : {}),
             };
