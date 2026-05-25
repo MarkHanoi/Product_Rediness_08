@@ -179,10 +179,99 @@ Rules:
 
 - **Phase 1 (wire now):** all ✅ rows — walls/curtain-walls on-all-slabs + from-selected; slabs on-all-floors / from-level variants / similar-to-selected; roof by region; detect rooms; levels (×N) + duplicate floor plan; grid system + delete-all-grids. These map to **existing** commands/intents and only need the CB-compliant panel leaves + the shared catalogue module.
 - **Phase 2–5:** ⏳ rows unlock as SL-1…SL-5 land (`SPEC-SEMANTIC-DESIGN-ASSISTANT` §7): windows-by-façade (2), per-room ceilings/partitions/doors (3), furniture/plumbing per room (4), structural beams + compartment-aware doors (5).
-- **Implementation note:** introduce one catalogue module (e.g. `apps/editor/src/ui/create/batchCatalogue.ts`) exporting the §4 rows; `CreatePanelLayout` renders `⚡ Batch` layers from it; the AI panel reads the same module for its prompt list. This guarantees CB-8 / G-2 by construction.
+- **Implementation note:** introduce one catalogue module (e.g. `apps/editor/src/ui/create/batchCatalogue.ts`) exporting the §4 rows; `CreatePanelLayout` renders `⚡ Batch` layers from it; the AI panel reads the same module for its prompt list. This guarantees CB-8 / G-2 by construction. **The exact AS-IS dispatch path each entry must use (legacy command class, constructor args, scope/selection resolution, preconditions, gaps) is documented in §10–§11 — read those before wiring.**
 
 ---
 
-## §9 — Cross-references
+## §10 — AS-IS dispatch reference (analysed 2026-05-25, before implementation)
 
-C16 (authoring substrate — every entry is a §5 command, batch = §8/CA-12), `SPEC-SEMANTIC-DESIGN-ASSISTANT` (phases + the 50-prompt superset), C11 (creation pipeline + §6.6 BatchLoadingIndicator), C09 (AI intents), §41 (preview). Live anchors: `CreatePanelLayout.ts` `CREATE_CONFIG`, `command-registry/src/types.ts` `CommandType`, `ai-host/src/intents.ts` `AIIntentType`.
+> Mandatory pre-implementation audit: this section records **exactly how each batch command is dispatched today** so the catalogue wires through the real path — no fake/shortcut dispatch, no re-implemented loops, no direct store writes. Verified against source on 2026-05-25.
+
+### §10.1 — The execution contract (how a batch command actually runs)
+
+```
+AIService.getCommandProposals()                 packages/ai-host/src/AIService.ts (~§200–317)
+  → constructs a LEGACY `Command` object per intent (new CreateXCommand(args))
+  → wraps it in a CommandProposal { command, intentType, validation, … }
+AIPanel approve handler                          apps/editor/src/ui/ai/AIPanel.ts:704–726
+  → const cmd = proposal.command
+  → manager.execute(cmd, { source: 'AI_PROPOSAL', proposalId })   ← manager = window.commandManager
+```
+
+Findings (binding context):
+
+1. **The live path is Path A (`commandManager.execute`)**, not the bus. AI proposals are legacy `Command` instances executed by `window.commandManager.execute(cmd, meta)` — one undo-history entry per batch (undoable as one unit).
+2. **The legacy command is the COMPLETE path.** Each batch command internally (a) wraps its mutation loop in `batchCoordinator.runBatch(...)` (C16 §8 coalescing) **and** (b) fire-and-forget dispatches the parallel `*.batch.create` **bus** event for event-sourcing in the plugin store (e.g. `CreateWallsOnAllSlabsCommand` §P2e-walls). So executing the legacy command yields geometry **and** the event-sourced record.
+3. **Bus handlers exist but are NOT the geometry trigger today.** `wall.create-on-all-slabs`, `slab.create-on-all-floors`, `curtain-wall.create-on-all-slabs`, `level.duplicate-floor-plan` are registered (PRYZM3 migration target) but the legacy `wallStore.add()` path remains authoritative (per each command's §P2e comment). The bus handler alone writes a parallel plugin-store record.
+
+**DI decision:** the catalogue dispatches via `commandManager.execute(new XCommand(args), { source: 'CREATE_PANEL_BATCH' })` — the **same** proven path as the AI panel (CB-2's explicit Path-A allowance). Identical undo/runBatch/event-sourcing behaviour; zero new mutation path. Bus migration tracked by the existing `commandManager.execute` ratchet (C14), not blocked on here.
+
+### §10.2 — Per-command dispatch table (Phase-1 ✅ rows)
+
+| catalogId | Legacy command class · file (`packages/command-registry/src/…`) | Constructor args | Bus type (target, not used today) | Scope resolution |
+|---|---|---|---|---|
+| `walls.on-all-slabs` | `CreateWallsOnAllSlabsCommand` · `walls/` | `{ wallHeight=3.0, wallThickness=0.2 }` | `wall.create-on-all-slabs` | none (all slabs) |
+| `walls.from-selected-slab` | `CreateWallsFromSlabCommand` · `walls/` | `{ slabId, wallHeight=3.0, wallThickness=0.2 }` | — | selected slab id |
+| `curtain-walls.on-all-slabs` | `CreateCurtainWallsOnAllSlabsCommand` · `curtainwall/` | `{ height=3.0 }` | `curtain-wall.create-on-all-slabs` | none |
+| `curtain-walls.from-selected-slab` | `CreateCurtainWallsFromSlabCommand` · `curtainwall/` | `{ slabId, height=3.0 }` | — | selected slab id |
+| `slabs.on-all-floors` | `CreateSlabsOnAllFloorsCommand` · `slabs/` | `referenceSlabId: string` **(positional)** | `slab.create-on-all-floors` | selected slab, else first slab on active level |
+| `slabs.from-level-to-all-floors` | `CreateAllSlabsFromLevelToAllFloorsCommand` · `slabs/` | `sourceLevelId: string` **(positional)** | — | active level id |
+| `slabs.from-level-to-top` | `CreateAllSlabsFromLevelToTopLevelCommand` · `slabs/` | `sourceLevelId: string` **(positional)** | — | active level id |
+| `slabs.similar-to-selected` | `ReplicateSelectedSlabToAllLevelsCommand` · `slabs/CreateSlabOnLevelSimilarToSelectedCommand.ts` ⚠ class name ≠ file/catalogue | `{ referenceSlabId }` | — | selected slab id (needs ≥2 levels) |
+| `levels.create-n` | `CreateMultipleLevelsCommand` · `levels/` | `{ count, baseElevation, heightPerLevel }` | — (intent `CREATE_MULTIPLE_LEVELS`) | `count`,`heightPerLevel` params; `baseElevation` = topLevel.elevation + (topLevel.height ‖ heightPerLevel) |
+| `grid.create-system` | `CreateGridSystemCommand` · `grids/` | `{ xCount=5, yCount=5, xSpacing=8, ySpacing=8, xOrigin=0, yOrigin=0 }` | — | params with defaults |
+
+All classes verified exported from the `@pryzm/command-registry` barrel (`src/index.ts` lines 53,54,94,115,118,184,187 + walls/slabs).
+
+### §10.3 — Scope / selection resolution (normative)
+
+- **Active level** → `bimManager.getActiveLevel()?.id`.
+- **Levels list / top level** → `bimManager.getLevels()`; top = max `elevation`.
+- **Selected element** → `selectionManager.selectedObject?.userData?.elementId` (+ `?.userData?.elementType`). `userData.elementId` is the standard accessor (set by `WallFragmentBuilder`, `WindowBuilder`, `WallStore`, …). Validate slab-reference scopes against `slabStore.getById(id)?.type === 'slab'`.
+- **"first slab on active level"** fallback → `slabStore.getAll().filter(s => s.levelId === activeLevelId)[0]`.
+
+### §10.4 — Preconditions (the CB-5 reasons)
+
+| catalogId | Precondition (else disabled with reason) |
+|---|---|
+| `*.on-all-slabs` | ≥1 slab exists |
+| `*.from-selected-slab` | a slab is currently selected |
+| `slabs.on-all-floors` | a slab selected **or** ≥1 slab on active level; ≥2 levels |
+| `slabs.from-level-*` | active level has ≥1 slab; ≥2 levels |
+| `slabs.similar-to-selected` | a slab selected **and** ≥2 levels |
+| `levels.create-n` | `count` ≥ 1 |
+| all | ≥1 level exists (existing `hasLevels` gate) |
+
+### §10.5 — Gaps found (document; do NOT fake-wire)
+
+- **G-D1** `DELETE_ALL_GRIDS` is a `CommandType` + `AIIntentType` value with **no command class** (only `PlanOrdering` references it). Excluded from Phase-1 until a `DeleteAllGridsCommand` (or bus handler) is authored per C16.
+- **G-D2** `DuplicateFloorPlanCommand` requires `{ sourceLevelId, targetLevelIds[] }` — `targetLevelIds` needs a **target picker** ("to which levels?"). Deferred to a parameterized-leaf sub-step; not a parameterless Phase-1 dispatch.
+- **G-D3** Class/name mismatch (G-D table footnote): `ReplicateSelectedSlabToAllLevelsCommand` ↔ type `CREATE_SLAB_ON_LEVEL_SIMILAR_TO_SELECTED`. The catalogue keys by `catalogId`; the class name is recorded in §10.2.
+- **G-D4** `roof.by-region` **auto** mode (AIService extracts the outermost region from the highest level's walls via `WallRegionExtractor`) is deferred — the interactive `Roof › By Region` tool already exists in the panel; no duplicate batch leaf, and the auto version needs `WallRegionExtractor` (ai-host, L2).
+
+---
+
+## §11 — Catalogue dispatch implementation contract (`DI-1` … `DI-6`)
+
+- **DI-1** Dispatch via `commandManager.execute(new XCommand(args), { source: 'CREATE_PANEL_BATCH' })` (Path A; matches AIPanel §10.1). MUST NOT hand-roll store writes or re-implement the per-element loop.
+- **DI-2** One catalogue module `apps/editor/src/ui/create/batchCatalogue.ts` is the single source. Each entry:
+  ```ts
+  interface BatchCatalogEntry {
+    catalogId: string; discipline: string; system: string;
+    label: string; prompt: string;            // §6 — shared by panel + AI
+    scope: BatchScope;                          // §3
+    phase: 1|2|3|4|5; status: 'live'|'partial'|'phased';
+    build(deps: BatchDeps): Command | null;     // constructs the legacy command (§10.2), or null
+    precondition(deps: BatchDeps): { ok: boolean; reason?: string };  // §10.4
+  }
+  ```
+- **DI-3** `build(deps)` resolves scope per §10.3 and returns the constructed legacy command, or `null` when `precondition` fails. `BatchDeps = { bimManager, selectionManager, slabStore, getLevels }`, injected by the panel — no `window.*` reads inside the catalogue except the documented `commandManager` execution sink.
+- **DI-4** Feasibility: entries with `phase > SHIPPED_PHASE` render **disabled** with a "Coming in Phase N" tooltip (CB-4); never dispatch.
+- **DI-5** Precondition failure surfaces as a toast/inline reason (CB-5) — never a silent no-op.
+- **DI-6** Each dispatch is exactly one undo unit (the legacy command is one history entry) and carries its own OTel span + `runBatch` (C16 §8/CA-14). The catalogue introduces **no** second mutation path (G-2 holds by construction).
+
+---
+
+## §12 — Cross-references
+
+C16 (authoring substrate — every entry is a §5 command, batch = §8/CA-12), `SPEC-SEMANTIC-DESIGN-ASSISTANT` (phases + the 50-prompt superset), C11 (creation pipeline + §6.6 BatchLoadingIndicator), C09 (AI intents), §41 (preview). Live anchors: `CreatePanelLayout.ts` `CREATE_CONFIG`, `command-registry/src/types.ts` `CommandType`, `ai-host/src/intents.ts` `AIIntentType`, `ai-host/src/AIService.ts` (construction) + `ui/ai/AIPanel.ts:726` (execution).
