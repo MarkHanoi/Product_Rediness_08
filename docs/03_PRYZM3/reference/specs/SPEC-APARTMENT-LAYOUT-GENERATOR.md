@@ -201,7 +201,8 @@ On `apartment.layout-options-ready`: a modal with `count` cards, each: a **2D pl
 | **A1** ✅ | TS types (§3/§7); runtime Zod parse lands with A4 | types compile; used by A2 |
 | **A2** ✅ | pure `validateLayout` (§8) + `scoreLayout` (§9) — `apartmentLayout/{validate,score}.ts`, 11 tests | rules + scores correct on fixtures |
 | **A3** ✅ | shell analysis (§5) reusing SL-3 — `apartmentLayout/shellAnalysis.ts` (`wallsToPolygon` + `polygonAreaM2` + `analyseShell`), 5 tests | area/dims + face classes correct on a known shell |
-| **A4** | generate workflow (§4) on `MockAnthropicRelay` (deterministic JSON) + retry + AIStore + event | options-ready emitted; 0 mutation |
+| **A4-core** ✅ | generation orchestrator — `apartmentLayout/generate.ts`: `buildLayoutPrompt` + loud-fail-soft `parseLayoutOptions` + `generateLayoutOptions` (relay→parse→validate→retry≤3→score→rank→truncate); RelayPorter injected (Mock in tests). 7 tests. **0 mutation.** | returns ≥1 ranked scored option; retries on invalid; never throws |
+| **A4-wire** | register the `WorkflowDescriptor`/`WorkflowImpl` (Generate3Options factory) + AiPlane + cost meter (SPEC-28) + `MockAnthropicRelay` binding; on run → AIStore `pendingLayoutOptions` + emit `apartment.layout-options-ready` | options-ready emitted through the AI plane |
 | **A5** | modal UI (§11) — cards, FrameScheduler thumbnail, score breakdown | renders N options |
 | **A6** | execute handler (§12) — runBatch wall+door, one undo, redetect | one undo unit; rooms detected |
 | **A7** | swap MockRelay → live CF relay (SPEC-47 §7 dependency) | real generations |
