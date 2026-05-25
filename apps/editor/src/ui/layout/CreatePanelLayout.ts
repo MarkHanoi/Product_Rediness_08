@@ -167,6 +167,22 @@ export function mountCreatePanel(
                                         }
                                     },
                                     {
+                                        // SPEC-SEMANTIC §3.1 / Phase 2 — surface the EXISTING RoomAutoOrganiser
+                                        // (spatial-index RoomTypeInferenceEngine.inferLevel → SET_ROOM_OCCUPANCY +
+                                        // room.rename) on the main creation surface. Previously reachable only
+                                        // from the room property inspector (a room had to be selected first).
+                                        // Tags/names every room on the active level by inferred type.
+                                        label: "Auto-Organise (tag by type)",
+                                        icon: "material-symbols:auto-fix",
+                                        action: () => {
+                                            const lvl = props.bimManager.getActiveLevel?.();
+                                            if (!lvl) { console.warn('[Create] Auto-Organise: no active level'); return; }
+                                            import('../property-inspector/RoomAutoOrganiser')
+                                                .then(m => m.openAutoOrganiseModal(lvl.id))
+                                                .catch(e => console.error('[Create] Auto-Organise failed to load:', e));
+                                        }
+                                    },
+                                    {
                                         label: "Clear All Rooms",
                                         icon: "material-symbols:delete-sweep",
                                         action: () => {

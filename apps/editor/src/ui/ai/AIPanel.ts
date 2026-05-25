@@ -30,6 +30,8 @@ import type { ElementSchema } from '@app/engine/preview/PreviewManager';
 // C17 CB-8 — the AI panel surfaces the SAME batch catalogue as the CREATE panel,
 // dispatched through the SAME path (dispatchBatchEntry → Path-A commandManager.execute).
 import { groupCatalogue, dispatchBatchEntry, SHIPPED_PHASE, type BatchDeps } from '../create/batchCatalogue';
+// SPEC-SEMANTIC §3.1 / Phase 2 — surface the existing room auto-organise (tag-by-type) flow.
+import { openAutoOrganiseModal } from '../property-inspector/RoomAutoOrganiser';
 
 // ─── Command-Aware Suggestion Tree ───────────────────────────────────────────
 //
@@ -95,6 +97,24 @@ const COMMAND_TREE: SuggestionNode[] = [
                 hint: 'create slabs on every level',
                 query: 'create slabs in all levels',
                 autoSend: true,
+            },
+            {
+                // SPEC-SEMANTIC §3.1 / Phase 2 — auto-tag rooms by inferred type
+                // (RoomTypeInferenceEngine → SET_ROOM_OCCUPANCY) via the existing modal.
+                label: 'Auto-organise rooms',
+                hint: 'tag all rooms by type on the active level',
+                action: () => {
+                    const lid = (window.bimManager as { getActiveLevel?: () => { id: string } | undefined } | undefined)
+                        ?.getActiveLevel?.()?.id;
+                    if (lid) {
+                        openAutoOrganiseModal(lid);
+                    } else {
+                        window.runtime?.events?.emit('pryzm:toast', {
+                            message: 'No active level — create or open a level first.',
+                            severity: 'error',
+                        });
+                    }
+                },
             },
             {
                 label: 'Perimeter walls',
