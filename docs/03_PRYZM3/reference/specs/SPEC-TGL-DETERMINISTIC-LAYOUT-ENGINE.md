@@ -53,7 +53,7 @@ frame `{x, z}`** (z = world Z = plan "up"), and round to 1e‑6 m at boundaries.
 | **P6** | `spaceSyntax.ts` | `LayoutGraph` → `SyntaxMetrics` (per‑space depth, mean depth, RA, integration; §4) | ✅ 5 tests |
 | **P7** | `objectives.ts` | `LayoutGraph`+`SyntaxMetrics`+`BubbleGraph` → `ObjectiveVector` (5 raw axes; §4 — weights applied in P8) | ✅ 5 tests |
 | **P8** | `enumerate.ts` | shell+program+weights → `TglCandidate[]` (graph+objectives+rank; run P1–P7 over a fixed 8-strategy set; Pareto‑rank; §2.2) | ✅ 7 tests |
-| **P9** | `emitGeometry.ts` | `LayoutGraph` → `LayoutOption` (mm `{x,y}` walls+doors for `buildLayoutCommands`) | ⏳ |
+| **P9** | `emitGeometry.ts` | `LayoutGraph` → `LayoutOption` (+ aligned GUIDs) (mm `{x,y}` walls+doors for `buildLayoutCommands`) | ✅ 5 tests |
 | **P10** | `ifc5/` | `LayoutGraph` → IFC5 + RDF/OWL (§5) | ⏳ (post‑MVP) |
 
 ### §2.1 — Data contracts between phases
