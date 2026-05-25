@@ -35,6 +35,23 @@ export type CommandPayloadRef = Readonly<{
   payload: unknown;
 }>;
 
+// ── #51 Apartment Layout — option types re-exported on the LEAN surface ────────
+// `workflows/apartmentLayout/types.ts` has ZERO imports (pure types), so this
+// re-export keeps `@pryzm/ai-host/types` importable from L3 stores
+// (LayoutOptionsStore) WITHOUT dragging the main barrel + core-app-model
+// (window-at-load) into a Node store. Type-only edge — no runtime, no cycle.
+export type {
+  ScoredLayoutOption,
+  LayoutOption,
+  LayoutRoom,
+  LayoutWall,
+  LayoutDoor,
+  LayoutScore,
+  LayoutScoreBreakdown,
+  RoomType,
+  Vec2mm,
+} from './workflows/apartmentLayout/types.js';
+
 /** Preview attached to a pending action so the approval-queue UI can
  *  render before the user accepts.  `image` is for CV / generative
  *  workflows; `json` is for rules / floorplan / voice. */

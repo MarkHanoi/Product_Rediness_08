@@ -61,6 +61,10 @@ export {
   type AiPendingActionId,
   type AiApprovalQueueState,
 } from './AiApprovalQueueStore.js';
+export {
+  LayoutOptionsStore,
+  type PendingLayoutRun,
+} from './LayoutOptionsStore.js';
 export type { DirtyDiff, DirtyListener, Disposer, Id, Patch } from './types.js';
 // ── ADR-048 · Task 4.3: Virtualized ElementStore ──────────────────────────
 export {
