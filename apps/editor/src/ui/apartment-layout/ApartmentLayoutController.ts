@@ -10,7 +10,7 @@
 // `attach()` is safe at boot — it only subscribes to runtime.events; it does NOT
 // call getHost(), so it adds zero AI bytes to first-paint (lazy K3-A preserved).
 
-import type { ComposedRuntime } from '@pryzm/runtime-composer';
+import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import type { ScoredLayoutOption } from '@pryzm/ai-host';
 import { ApartmentLayoutModal } from './ApartmentLayoutModal.js';
 import { ensureApartmentLayoutRegistered } from '../../engine/ensureApartmentLayoutRegistered.js';
@@ -22,7 +22,7 @@ export class ApartmentLayoutController {
     private _dispose: (() => void) | null = null;
 
     /** Subscribe + drive the modal. Idempotent (a second attach is a no-op). */
-    attach(runtime: ComposedRuntime): void {
+    attach(runtime: PryzmRuntime): void {
         if (this._dispose) return;
         const sub = runtime.events.on('apartment.layout-options-ready', () => {
             // Source of truth is the AIStore (typed); the event is just the signal.
@@ -71,7 +71,7 @@ interface PlaneSubmitLike {
  * controller turns into the modal. Never throws — returns {ok,reason}.
  */
 export async function requestApartmentLayout(
-    runtime: ComposedRuntime,
+    runtime: PryzmRuntime,
     payload: ApartmentGenerateLayoutPayload,
     ctx: { projectId?: string; actorId?: string } = {},
 ): Promise<RequestApartmentLayoutResult> {

@@ -14,7 +14,7 @@
 
 import { storeRegistry } from '@pryzm/core-app-model';
 import { facadeOrientationService } from '@pryzm/spatial-index';
-import type { ComposedRuntime } from '@pryzm/runtime-composer';
+import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import type { ApartmentLayoutRegistrationResult } from '@pryzm/ai-host';
 import { buildGetWall, type WallStoreLike } from './apartmentLayoutWallMapper.js';
 
@@ -25,7 +25,7 @@ import { buildGetWall, type WallStoreLike } from './apartmentLayoutWallMapper.js
  * failure so the caller (modal / command) can decide to proceed or surface it.
  */
 export async function ensureApartmentLayoutRegistered(
-    runtime: ComposedRuntime,
+    runtime: PryzmRuntime,
 ): Promise<ApartmentLayoutRegistrationResult> {
     try {
         // getHost loads the lazy ai-host chunk on first call — appropriate here

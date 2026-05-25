@@ -33,16 +33,9 @@ import { groupCatalogue, dispatchBatchEntry, type BatchDeps } from '../create/ba
 // SPEC-SEMANTIC §3.1 / Phase 2 — surface the existing room auto-organise (tag-by-type) flow.
 import { openAutoOrganiseModal } from '../property-inspector/RoomAutoOrganiser';
 // #51 (SPEC-APARTMENT-LAYOUT-GENERATOR §11/§12) — the AI apartment-layout flow.
-import { ApartmentLayoutController, requestApartmentLayout } from '../apartment-layout/ApartmentLayoutController';
-import { ApartmentLayoutExecutor } from '../apartment-layout/ApartmentLayoutExecutor';
-import { gatherLayoutPayload } from '../apartment-layout/gatherLayoutPayload';
-import type { ComposedRuntime } from '@pryzm/runtime-composer';
-
-// #51 — one controller + one executor per session drive the §11 modal + the §12
-// commit. attach() is idempotent + only subscribes to runtime.events (no getHost),
-// so wiring on first use adds zero AI bytes at first-paint (lazy K3-A preserved).
-const _apartmentLayoutController = new ApartmentLayoutController();
-const _apartmentLayoutExecutor = new ApartmentLayoutExecutor();
+// Single shared trigger (also exposed as the console command
+// pryzmGenerateApartmentLayout()), so the leaf + console behave identically.
+import { triggerApartmentLayout } from '../apartment-layout/apartmentLayoutTrigger';
 
 // ─── Command-Aware Suggestion Tree ───────────────────────────────────────────
 //
@@ -133,46 +126,7 @@ const COMMAND_TREE: SuggestionNode[] = [
                 // shows ranked/scored options to pick from.
                 label: 'Generate apartment layout (AI)',
                 hint: 'AI interior layouts from the level shell — pick one to build',
-                action: () => {
-                    // Bulletproof + diagnostic: the click ALWAYS logs a marker and
-                    // ALWAYS surfaces a toast, so the trigger can never silently
-                    // do nothing (a throw in gathering/registration is reported).
-                    const toast = (message: string, severity: 'info' | 'success' | 'error') =>
-                        window.runtime?.events?.emit('pryzm:toast', { message, severity });
-                    try {
-                        console.log('[apartment-layout] generate clicked');
-                        const rt = window.runtime as unknown as ComposedRuntime | undefined;
-                        const lid = (window.bimManager as { getActiveLevel?: () => { id: string } | undefined } | undefined)
-                            ?.getActiveLevel?.()?.id;
-                        console.log('[apartment-layout] runtime?', !!rt, 'activeLevel?', lid,
-                            'ai.layoutOptions?', !!(rt?.ai as { layoutOptions?: unknown } | undefined)?.layoutOptions);
-                        if (!rt || !lid) {
-                            toast('No active level — create or open a level first.', 'error');
-                            return;
-                        }
-                        if (!(rt.ai as { layoutOptions?: unknown }).layoutOptions) {
-                            toast('AI runtime is stale — restart the dev server (npm run dev) and reload.', 'error');
-                            console.warn('[apartment-layout] runtime.ai.layoutOptions is undefined — the running composeRuntime predates the #51 changes. Restart the dev server.');
-                            return;
-                        }
-                        const payload = gatherLayoutPayload(lid);
-                        console.log('[apartment-layout] payload', payload);
-                        if (!payload || payload.shellWallIds.length < 3) {
-                            toast(`Need at least 3 exterior walls on the active level (found ${payload?.shellWallIds.length ?? 0}).`, 'error');
-                            return;
-                        }
-                        _apartmentLayoutController.attach(rt); // idempotent — modal shows on options-ready
-                        _apartmentLayoutExecutor.attach(rt);   // idempotent — commits on the user's pick
-                        toast('Generating apartment layouts…', 'info');
-                        void requestApartmentLayout(rt, payload).then(r => {
-                            console.log('[apartment-layout] requestApartmentLayout result', r);
-                            if (!r.ok) toast(r.reason ?? 'Layout generation failed', 'error');
-                        });
-                    } catch (err) {
-                        console.error('[apartment-layout] generate action threw:', err);
-                        toast(`Apartment layout failed: ${String(err)}`, 'error');
-                    }
-                },
+                action: () => { triggerApartmentLayout(); },
             },
             {
                 label: 'Perimeter walls',

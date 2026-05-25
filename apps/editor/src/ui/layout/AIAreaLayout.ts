@@ -2,6 +2,7 @@ import * as OBC from '@thatopen/components';
 import * as THREE from '@pryzm/renderer-three/three';
 import { createAIPanel } from '../ai/AIPanel';
 import { createAICreatePanel } from '../ai/AICreatePanel';
+import { installApartmentLayoutConsoleTrigger } from '../apartment-layout/apartmentLayoutTrigger';
 import { createFloorPlanImportPanel } from '../ai/FloorPlanImportPanel';
 import { createDxfImportPanel } from '../import/DxfImportPanel';
 import { createSpatialTree } from '../SpatialTree';
@@ -179,6 +180,11 @@ export function mountAIArea(props: UIProps, runtime: PryzmRuntime | null): AIRes
     if (!_aiEntitled) {
         console.debug('[AIAreaLayout] ai entitlement not granted — AI panels will be suppressed (Phase F.7.1 stub: always true)');
     }
+
+    // #51 — register the console command `pryzmGenerateApartmentLayout()` so the
+    // apartment-layout generator can be triggered regardless of which AI panel
+    // is visible (the UI leaf lives in the AIPanel command tree → Create).
+    installApartmentLayoutConsoleTrigger(runtime ?? null);
 
     // Phase B.31 (S73-WIRE) — thread the composed runtime so AIPanel can reach
     // typed slots (runtime.ai.streamCompletion / runtime.persistence.proposals)

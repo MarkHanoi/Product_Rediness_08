@@ -14,7 +14,7 @@
 
 import { batchCoordinator } from '@pryzm/core-app-model';
 import { createId } from '@pryzm/schemas';
-import type { ComposedRuntime } from '@pryzm/runtime-composer';
+import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import type { ScoredLayoutOption, IdPrefix, LayoutExecuteOptions } from '@pryzm/ai-host';
 
 interface ActiveLevel { id: string; elevation?: number; height?: number }
@@ -26,7 +26,7 @@ export class ApartmentLayoutExecutor {
     private _dispose: (() => void) | null = null;
 
     /** Subscribe to apartment.layout-execute. Idempotent. */
-    attach(runtime: ComposedRuntime): void {
+    attach(runtime: PryzmRuntime): void {
         if (this._dispose) return;
         const sub = runtime.events.on('apartment.layout-execute', (payload: { optionIndex: number }) => {
             void this._execute(runtime, payload.optionIndex);
@@ -36,7 +36,7 @@ export class ApartmentLayoutExecutor {
 
     detach(): void { this._dispose?.(); this._dispose = null; }
 
-    private async _execute(runtime: ComposedRuntime, optionIndex: number): Promise<void> {
+    private async _execute(runtime: PryzmRuntime, optionIndex: number): Promise<void> {
         try {
             const option = runtime.ai.layoutOptions.optionAt(optionIndex) as ScoredLayoutOption | null;
             if (!option) return;

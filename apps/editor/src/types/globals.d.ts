@@ -163,6 +163,8 @@ declare global {
         roomTypeInferenceEngine:unknown;
         facadeOrientationService: unknown; // SL-3 (SPEC-SEMANTIC §3)
         wallStore:              unknown;
+        /** #51 — DevTools console command to generate AI apartment layouts. */
+        pryzmGenerateApartmentLayout?: () => void;
 
         // ── Command dispatch globals ──────────────────────────────────────────
         commandManager:
