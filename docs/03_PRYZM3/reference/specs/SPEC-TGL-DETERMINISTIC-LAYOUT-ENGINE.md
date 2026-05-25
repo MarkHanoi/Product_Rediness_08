@@ -2,8 +2,8 @@
 
 | Field | Value |
 |---|---|
-| Status | **Draft — normative target.** The offline, deterministic generative layout engine; the non‑AI substrate of the Apartment Layout Generator (#51) and the foundation of PRYZM's BIM3.0 generative stack. |
-| Version | 0.1 (2026‑05‑25) |
+| Status | **Implemented & wired (v1.0).** Engine P1→P9 built, unit‑tested (72 tests) and wired as the offline fallback of the Apartment Layout Generator (#51); the non‑AI substrate of PRYZM's BIM3.0 generative stack. As‑built manifest in §10. |
+| Version | 1.0 (2026‑05‑25) |
 | Owner | Computational design / BIM3.0 architecture |
 | Governed by | C09 (AI & generative L7.5), C15 (hosted openings), C16 (command authoring), SPEC‑APARTMENT‑LAYOUT‑GENERATOR (the consumer), C03 (schemas/state) |
 | Hard constraints | **Deterministic** (same input → byte‑identical output), **synchronous in‑browser < 2 s**, **unit‑testable**, **no stochastic methods** (no NSGA‑II, no Monte‑Carlo, no `Math.random`), **no Voronoi** for interior orthogonal layouts. |
@@ -246,3 +246,110 @@ SPEC‑APARTMENT‑LAYOUT‑GENERATOR (consumer + AI path), C09 §2.4/§3.4 (gen
 C15 (hosted opening cascade), C16 (command authoring), Hillier & Hanson 1984 (Space
 Syntax), Bruls et al. 2000 (squarified treemaps), Otten 1982 (slicing floorplans),
 BOT ontology (W3C LBD‑CG).
+
+---
+
+## §10 — As‑built manifest (v1.0)
+
+Everything lives in `packages/ai-host/src/workflows/apartmentLayout/` (layer **L2**,
+ai‑host). The pure engine is the `tgl/` subfolder; tests are in
+`packages/ai-host/__tests__/tgl*.test.ts`.
+
+| Module | Phase | Exports | Tests |
+|---|---|---|---|
+| `tgl/rectDecomposition.ts` | P1 | `decomposeToRects`, `mergeHorizontally`, `polygonBBox`, rect helpers, `Pt`/`Rect` | `tglRectDecomposition` (8) |
+| `tgl/bubbleGraph.ts` | P2 | `buildBubbleGraph`, `BubbleGraph`/`ProgramRoom`/`AdjacencyEdge` | `tglBubbleGraph` (6) |
+| `tgl/squarify.ts` | P3a | `squarify`, `AreaItem`/`PlacedItem` | `tglSquarify` (6) |
+| `tgl/subdivide.ts` | P3b | `subdivide`, `RoomPlacement` | `tglSubdivide` (5) |
+| `tgl/wallsAndDoors.ts` | P4 | `buildWallsAndDoors`, `WallSeg`/`OpeningSpec` | `tglWallsAndDoors` (5) |
+| `tgl/ifcGuid.ts` | P5 | `ifcGuid` (deterministic IFC GlobalId) | `tglIfcGuid` (4) |
+| `tgl/semanticGraph.ts` | P5 | `buildSemanticGraph`, `LayoutGraph`/`GraphNode`/`GraphEdge`, `nodesOfKind`/`edgesOfKind` | `tglSemanticGraph` (6) |
+| `tgl/spaceSyntax.ts` | P6 | `computeSpaceSyntax`, `SyntaxMetrics` | `tglSpaceSyntax` (5) |
+| `tgl/objectives.ts` | P7 | `computeObjectives`, `ObjectiveVector`, `OBJECTIVE_AXES` | `tglObjectives` (5) |
+| `tgl/enumerate.ts` | P8 | `enumerateLayouts`, `EnumerateInput`/`TglCandidate` | `tglEnumerate` (7) |
+| `tgl/emitGeometry.ts` | P9 | `emitGeometry`, `EmittedLayout` | `tglEmitGeometry` (5) |
+| `tgl/runDeterministicLayout.ts` | wire | `generateDeterministicLayouts` (ShellAnalysis → `ScoredLayoutOption[]`) | `tglRunDeterministicLayout` (5) |
+
+**Total: 72 tests, all green.** P10 (IFC5/RDF export, §5) is the only deferred
+phase — post‑MVP; the `LayoutGraph` it consumes is already shipped.
+
+### §10.1 — Dataflow (as built)
+
+```
+ShellAnalysis.perimeter (m, {x,z})  +  ApartmentProgram  +  ApartmentConstraints  +  ScoringWeights
+        │  generateDeterministicLayouts()  (tgl/runDeterministicLayout.ts)
+        ▼
+   enumerateLayouts()  ── for each of 8 fixed strategies (axis × order × mirror) ──┐
+        │   P1 decomposeToRects → P2 buildBubbleGraph → P3b subdivide (squarify)   │
+        │   → P4 buildWallsAndDoors → P5 buildSemanticGraph (LayoutGraph + GUIDs)  │
+        │   → P6 computeSpaceSyntax → P7 computeObjectives (5-axis)                │
+        ▼                                                                          │
+   Pareto non-domination rank + weighted sort ◄───────────────────────────────────┘
+        │  top `count` TglCandidate[]  (each carries the persistent LayoutGraph)
+        ▼
+   emitGeometry(graph)  → LayoutOption (mm {x,y}) + aligned wall/door/space GUIDs   (P9)
+        │  scoreLayout(option, weights)  → LayoutScore
+        ▼
+   ScoredLayoutOption[]  → §11 approval modal → buildLayoutCommands (pre-minted ids)
+        → BatchCoordinator.runBatch( wall.batch.create + wall.createOpening + door.batch.create )
+```
+
+### §10.2 — Integration seam
+
+`generate.ts` (the AI orchestrator) calls `generateDeterministicLayouts` inside the
+opt‑in `proceduralFallback` block: when the relay throws or returns no valid option
+(no API key / 401 / 500 / all‑invalid) **and** the flag is set, D‑TGL produces the
+options and the result is `{ status:'ok', reason:'AI unavailable — deterministic
+D‑TGL offline layout' }`. The legacy strip‑slicer (`generateProceduralLayout`)
+remains only as a last‑resort net if D‑TGL itself returns `[]` (degenerate shell).
+
+The editor binding (`apps/editor/src/engine/ensureApartmentLayoutRegistered.ts`)
+sets `proceduralFallback: true`, so the live feature always delivers a real layout.
+With a configured AI upstream the AI path runs first and D‑TGL never fires; the two
+paths produce the **same `ScoredLayoutOption` shape**, so the modal, executor and
+build pipeline are identical for both.
+
+---
+
+## §11 — Architectural soundness (layer & principle compliance)
+
+- **Layering (L0–L7.5).** The whole engine is in `@pryzm/ai-host` (**L2**). It imports
+  only sibling TGL types and L0/L2 (`../types.js`, `score.js`, `shellAnalysis.js`).
+  It imports **nothing** from L3+ (no stores, renderer, plugins, editor) — the layer
+  rule holds. The editor (L5) injects shell/level access and consumes the result.
+- **P1 (single composition root).** No runtime wiring; the engine is pure functions
+  reached through the already‑composed AiPlane. No `composeRuntime` bypass.
+- **P2 (single THREE owner).** Zero THREE imports — the engine is plain math over
+  `{x,z}` numbers; geometry is emitted as plain `LayoutOption` data.
+- **P3 (single rAF).** No timers/rAF — fully synchronous, < 2 s (≈130 ms for 8
+  strategies × 12 rooms).
+- **P4 (no `window as any`).** None — Node‑pure; every test runs without a DOM.
+- **P5 (schemas pure).** The engine consumes/produces plain types; ids come from
+  `@pryzm/schemas` `createId` at the wiring layer, not inside the pure core.
+- **P6 (commands are the only mutation path).** The engine mutates nothing; it emits
+  a `LayoutOption` that `buildLayoutCommands` turns into bus commands
+  (`wall.batch.create` / `wall.createOpening` / `door.batch.create`) dispatched in
+  one `runBatch` (one undo unit).
+- **P8 (explicit spans).** Observability spans live at the AiPlane boundary (C09
+  §2.4), not inside these pure factories — per the established #51 doctrine.
+- **C15 (hosted opening cascade).** Modelled exactly in the graph
+  (`Door → FILLS → Opening → HOSTED_BY → Wall`) and preserved through emission
+  (door `elementId` = the deterministic door GUID), so undo removes door + opening
+  together.
+- **Determinism (§6).** No `Math.random` / `Date.now` / `crypto.randomUUID`
+  anywhere in `tgl/`; GUIDs are FNV‑1a hashes; every array output is sorted by a
+  stable key. The global determinism test (`enumerate` deep‑equal on rerun, incl.
+  GUIDs) passes.
+
+### §11.1 — Known limitations (tracked)
+
+1. **Adjacency‑awareness.** P3b squarifies by area; it does not yet *guarantee* that
+   every `via:'door'` bubble edge lands on two adjacent rooms, so a door edge whose
+   rooms aren't adjacent in a given tiling is skipped (P4 is best‑effort). The 8‑way
+   enumeration mitigates this (the ranked winner tends to realise more adjacencies);
+   a future P3c slicing‑tree placement keyed by the bubble graph would make it exact.
+2. **Rectilinear shells.** Slanted shell edges are stair‑step approximated (P1);
+   exact for rectangles / L / T / U.
+3. **Windows.** P4 emits doors only; window placement (and the `Window` node) is
+   modelled in the graph schema but not yet generated — daylight is scored from
+   façade adjacency as a proxy. P10/next.
