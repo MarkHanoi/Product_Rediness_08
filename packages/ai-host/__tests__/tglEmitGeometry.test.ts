@@ -39,6 +39,23 @@ describe('emitGeometry (TGL P9)', () => {
         expect(doorGuids.length).toBe(option.doors.length);
     });
 
+    it('names every room + door, carries room centroids, and flags perimeter walls', () => {
+        const g = fixtureGraph();
+        const { option } = emitGeometry(g);
+        // rooms: semantic names + centroids
+        for (const r of option.rooms) {
+            expect(r.name.length).toBeGreaterThan(0);
+            expect(r.centroid).toBeDefined();
+        }
+        expect(option.rooms.some(r => /living/i.test(r.name))).toBe(true);
+        expect(option.rooms.some(r => /bedroom|master/i.test(r.name))).toBe(true);
+        // doors: named by the rooms they connect
+        for (const d of option.doors) expect(d.name && d.name.length).toBeGreaterThan(0);
+        // walls: both perimeter (isExternal) and interior present
+        expect(option.walls.some(w => w.isExternal === true)).toBe(true);
+        expect(option.walls.some(w => !w.isExternal)).toBe(true);
+    });
+
     it('converts metres → millimetres exactly (×1000)', () => {
         const g = fixtureGraph();
         const wallNodes = g.nodes.filter(n => n.kind === 'Wall');

@@ -9,6 +9,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { emitGeometry } from '../src/workflows/apartmentLayout/tgl/emitGeometry.js';
+import { buildLayoutCommands } from '../src/workflows/apartmentLayout/executePlan.js';
 import { buildSemanticGraph, type LayoutGraph } from '../src/workflows/apartmentLayout/tgl/semanticGraph.js';
 import { buildWallsAndDoors } from '../src/workflows/apartmentLayout/tgl/wallsAndDoors.js';
 import { subdivide } from '../src/workflows/apartmentLayout/tgl/subdivide.js';
@@ -124,20 +125,20 @@ describe('D-TGL room enclosure', () => {
         });
     });
 
-    it('interior-only emit drops every exterior wall but keeps all doors with valid host refs', () => {
+    it('preview emits ALL walls (perimeter flagged); build skips exterior, keeps all doors', () => {
         const { graph } = fixture();
-        const full = emitGeometry(graph);
-        const interior = emitGeometry(graph, { interiorWallsOnly: true });
-        const exteriorCount = graph.nodes.filter(n => n.kind === 'Wall' && n.attrs.isExternal === true).length;
-        expect(exteriorCount).toBeGreaterThan(0);
-        expect(interior.option.walls.length).toBe(full.option.walls.length - exteriorCount);
-        expect(interior.option.doors.length).toBe(full.option.doors.length);
-        for (const d of interior.option.doors) {
-            expect(d.wallRef).toBeGreaterThanOrEqual(0);
-            expect(d.wallRef).toBeLessThan(interior.option.walls.length);
-        }
-        for (const guid of interior.wallGuids) {
-            expect(graph.nodes.find(n => n.guid === guid)!.attrs.isExternal).not.toBe(true);
-        }
+        const { option } = emitGeometry(graph);
+        const exterior = option.walls.filter(w => w.isExternal === true).length;
+        const interior = option.walls.filter(w => !w.isExternal).length;
+        expect(exterior).toBeGreaterThan(0);                 // preview shows the perimeter
+        expect(interior).toBeGreaterThan(0);
+
+        // Build with skipExteriorWalls → only interior partitions are created, every
+        // door survives (hosted on interior walls) and references a built wall.
+        let n = 0;
+        const set = buildLayoutCommands(option, { levelId: 'L0', skipExteriorWalls: true }, () => `id-${n++}`);
+        expect(set.wallIds.length).toBe(interior);
+        expect(set.doorIds.length).toBe(option.doors.length);
+        expect(set.warnings).toEqual([]);
     });
 });

@@ -50,6 +50,11 @@ export interface LayoutExecuteOptions {
     /** plan(mm) → world(m) XZ mapping. Default { x: p.x/1000, z: p.y/1000 }.
      *  Override to apply the shell's origin/rotation frame at the wiring layer. */
     readonly planToWorldXZ?: (p: Vec2mm) => { x: number; z: number };
+    /** Skip walls flagged `isExternal` — the perimeter/shell already exists in the
+     *  model, so building it again would duplicate (coincident) shell walls and
+     *  corrupt room detection. The preview still shows them; only the BUILD omits
+     *  them. Doors host on interior walls only, so the wallRef remap keeps doors. */
+    readonly skipExteriorWalls?: boolean;
 }
 
 /** A single wall spec, METRES — structurally a CreateWallPayload. */
@@ -71,6 +76,7 @@ export interface DoorPlanItem {
     readonly height: number;        // m
     readonly sillHeight: number;    // m (0 for doors)
     readonly doorType: 'single' | 'double';
+    readonly name?: string;         // semantic name (e.g. "Bedroom – Corridor Door")
 }
 
 export interface LayoutPlan {
@@ -115,6 +121,7 @@ export function buildLayoutPlan(option: LayoutOption, opts: LayoutExecuteOptions
     const remap: number[] = new Array(option.walls.length).fill(-1);
 
     option.walls.forEach((w, i) => {
+        if (opts.skipExteriorWalls && w.isExternal) return;     // shell already exists — don't duplicate it
         const s = toWorld(w.start);
         const e = toWorld(w.end);
         const a: Vec3m = { x: s.x, y: baseElevationM, z: s.z };
@@ -161,6 +168,7 @@ export function buildLayoutPlan(option: LayoutOption, opts: LayoutExecuteOptions
             height: doorHeightM,
             sillHeight: 0,
             doorType: 'single',
+            ...(d.name ? { name: d.name } : {}),
         });
     });
 
@@ -266,6 +274,7 @@ export function buildLayoutCommands(
             height: d.height,
             sillHeight: d.sillHeight,
             doorType: d.doorType,
+            ...(d.name ? { name: d.name } : {}),
         });
     }
     const doorBatch: LayoutCommand | null =

@@ -12,7 +12,7 @@
 // the generate step); only batchCoordinator (core-app-model) + createId (schemas,
 // L0) are static — both already in the editor graph.
 
-import { batchCoordinator } from '@pryzm/core-app-model';
+import { batchCoordinator, storeRegistry } from '@pryzm/core-app-model';
 import { createId } from '@pryzm/schemas';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import type { ScoredLayoutOption, IdPrefix, LayoutExecuteOptions } from '@pryzm/ai-host';
@@ -60,6 +60,10 @@ export class ApartmentLayoutExecutor {
                 // wall.batch.create reject the whole batch ("unknown systemTypeId").
                 baseElevationM: level.elevation ?? 0,
                 ...(level.height ? { wallHeightM: level.height } : {}),
+                // The shell already exists — build INTERIOR partitions only; the
+                // perimeter walls (flagged isExternal, shown in the preview) are
+                // skipped so we never duplicate the shell (would corrupt detection).
+                skipExteriorWalls: true,
             };
             const set = buildLayoutCommands(option, opts, (p: IdPrefix) => createId(p));
 
@@ -91,6 +95,11 @@ export class ApartmentLayoutExecutor {
                 skipRedetectRooms: false,
             });
 
+            // Name the freshly-detected rooms with D-TGL's semantic names (matched
+            // by centroid). Runs after the batch — the rooms only exist once the
+            // batch's room-redetect has run.
+            this._nameDetectedRooms(runtime, level.id, option);
+
             runtime.ai.layoutOptions.clear();
             runtime.events.emit('apartment.layout-executed', {
                 createdWallCount: set.wallIds.length,
@@ -103,6 +112,58 @@ export class ApartmentLayoutExecutor {
         } catch (err) {
             console.warn('[ApartmentLayoutExecutor] execute failed (non-fatal):', err);
             runtime.events?.emit('pryzm:toast', { message: 'Failed to build the layout.', severity: 'error' });
+        }
+    }
+
+    /**
+     * Apply D-TGL's semantic room names to the rooms the engine just detected.
+     * Each detected room is matched to the LARGEST D-TGL room whose footprint
+     * centroid falls inside it — so an open-plan zone (one detected room spanning
+     * several D-TGL spaces) takes the dominant space's name (e.g. "Living Room").
+     * Best-effort + its own undo unit (cosmetic; no geometry change).
+     */
+    private _nameDetectedRooms(runtime: PryzmRuntime, levelId: string, option: ScoredLayoutOption): void {
+        try {
+            const roomStore = storeRegistry.getStoreForType('room') as unknown as {
+                getByLevel?: (id: string) => Array<{ id: string; boundary?: { polygon?: Array<{ x: number; z: number }> } }>;
+            } | undefined;
+            const detected = roomStore?.getByLevel?.(levelId) ?? [];
+            if (detected.length === 0) return;
+
+            // D-TGL rooms with world centroids (mm→m, plan-y = world-z), largest first.
+            const tgl = option.rooms
+                .filter(r => r.centroid)
+                .map(r => ({ name: r.name, area: r.area, cx: r.centroid!.x / 1000, cz: r.centroid!.y / 1000 }))
+                .sort((a, b) => b.area - a.area);
+            if (tgl.length === 0) return;
+
+            const inside = (px: number, pz: number, poly: Array<{ x: number; z: number }>): boolean => {
+                let hit = false;
+                for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+                    const xi = poly[i]!.x, zi = poly[i]!.z, xj = poly[j]!.x, zj = poly[j]!.z;
+                    if (((zi > pz) !== (zj > pz)) && (px < ((xj - xi) * (pz - zi)) / (zj - zi) + xi)) hit = !hit;
+                }
+                return hit;
+            };
+
+            const renames: Array<{ roomId: string; name: string }> = [];
+            for (const room of detected) {
+                const poly = room.boundary?.polygon ?? [];
+                if (poly.length < 3) continue;
+                const match = tgl.find(t => inside(t.cx, t.cz, poly));   // largest contained D-TGL room
+                if (match?.name) renames.push({ roomId: room.id, name: match.name });
+            }
+            if (renames.length === 0) return;
+
+            batchCoordinator.runBatch(() => {
+                for (const r of renames) {
+                    try { void runtime.bus.executeCommand('room.rename', r); }
+                    catch (e) { console.warn('[apartment-layout] room.rename failed (skipped):', e); }
+                }
+            }, { levelIds: [levelId], totalElementCount: renames.length, skipRedetectRooms: true });
+            console.log('[apartment-layout] named', renames.length, 'room(s)');
+        } catch (e) {
+            console.warn('[apartment-layout] room naming failed (non-fatal):', e);
         }
     }
 }

@@ -53,10 +53,10 @@ export function generateDeterministicLayouts(
     });
 
     return candidates.map(c => {
-        // interiorWallsOnly: the shell already exists in the model, so emit only the
-        // new INTERIOR partitions + doors — never duplicate the perimeter (coincident
-        // walls break room detection; matches the "shell untouched" contract).
-        const { option } = emitGeometry(c.graph, { interiorWallsOnly: true });
+        // Emit ALL walls (perimeter flagged isExternal) so the preview shows the
+        // full plan; the executor builds with skipExteriorWalls so the existing
+        // shell is never duplicated (coincident walls break room detection).
+        const { option } = emitGeometry(c.graph);
         const labelled = { ...option, summary: `${option.summary} (offline · D-TGL)` };
         return { ...labelled, score: scoreLayout(labelled, weights) };
     });

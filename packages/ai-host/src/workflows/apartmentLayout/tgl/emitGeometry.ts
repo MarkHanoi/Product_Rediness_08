@@ -25,27 +25,26 @@ export interface EmittedLayout {
     readonly spaceGuids: readonly string[];
 }
 
-export interface EmitGeometryOpts {
-    /** Emit only INTERIOR partition walls (drop perimeter/exterior walls). Use when
-     *  building into an EXISTING shell so D-TGL never duplicates the shell's
-     *  perimeter walls — duplicate coincident walls break room detection. Doors are
-     *  hosted on interior walls only, so dropping exterior walls orphans none. */
-    readonly interiorWallsOnly?: boolean;
-}
 
 const MM = 1000;
 const mm = (m: number): number => Math.round(m * MM * 1e6) / 1e6;
 const num = (v: unknown, d = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 const str = (v: unknown, d = ''): string => (typeof v === 'string' ? v : d);
 
-/** Project a LayoutGraph to a LayoutOption (+ aligned GUIDs). */
-export function emitGeometry(graph: LayoutGraph, opts: EmitGeometryOpts = {}): EmittedLayout {
+/** Project a LayoutGraph to a LayoutOption (+ aligned GUIDs).
+ *  ALL walls are emitted (perimeter walls flagged `isExternal`) so the preview
+ *  shows the complete plan; the build step skips exterior walls (the shell already
+ *  exists) — see buildLayoutPlan({ skipExteriorWalls }). */
+export function emitGeometry(graph: LayoutGraph): EmittedLayout {
     const spaceNodes = graph.nodes.filter(n => n.kind === 'Space');
     const allWallNodes = graph.nodes.filter(n => n.kind === 'Wall');
-    // Interior-only build drops perimeter walls (the shell already supplies them).
-    const wallNodes = opts.interiorWallsOnly ? allWallNodes.filter(n => n.attrs.isExternal !== true) : allWallNodes;
+    const wallNodes = allWallNodes;
     const doorNodes = graph.nodes.filter(n => n.kind === 'Door');
     const openingByGuid = new Map(graph.nodes.filter(n => n.kind === 'Opening').map(n => [n.guid, n]));
+    const nameByGuidAll = new Map(spaceNodes.map(n => [n.guid, str(n.attrs.name, n.sourceId)]));
+    // Door → the two spaces it connects (CONNECTS_THROUGH carries via = door guid).
+    const doorConnects = new Map<string, [string, string]>();
+    for (const e of graph.edges) if (e.kind === 'CONNECTS_THROUGH' && e.via) doorConnects.set(e.via, [e.from, e.to]);
 
     const wallIndex = new Map(wallNodes.map((n, i) => [n.guid, i]));
     const nameByGuid = new Map(spaceNodes.map(n => [n.guid, str(n.attrs.name, n.sourceId)]));
@@ -78,6 +77,7 @@ export function emitGeometry(graph: LayoutGraph, opts: EmitGeometryOpts = {}): E
     for (const n of spaceNodes) {
         spaceGuids.push(n.guid);
         const needsWindow = n.attrs.needsWindow === true;
+        const { cx, cz } = polyCentroid(n);
         rooms.push({
             name: str(n.attrs.name, n.sourceId),
             type: (str(n.attrs.spaceType, 'utility') as RoomType),
@@ -85,6 +85,7 @@ export function emitGeometry(graph: LayoutGraph, opts: EmitGeometryOpts = {}): E
             windowCount: needsWindow && frontsFacade.has(n.guid) ? 1 : 0,
             hasDirectAccess: (permeable.get(n.guid)?.size ?? 0) > 0,
             adjacentTo: [...(neighbours.get(n.guid) ?? [])].map(g => nameByGuid.get(g) ?? g).sort(),
+            centroid: { x: mm(cx), y: mm(cz) },
         });
     }
 
@@ -103,7 +104,9 @@ export function emitGeometry(graph: LayoutGraph, opts: EmitGeometryOpts = {}): E
         const wallRef = wallGuid !== undefined ? wallIndex.get(wallGuid) : undefined;
         const opening = openGuid ? openingByGuid.get(openGuid) : undefined;
         if (wallRef === undefined || !opening) continue;            // broken cascade → skip
-        doors.push({ wallRef, offset: mm(num(opening.attrs.offsetM)), width: mm(num(opening.attrs.widthM)) });
+        const conn = doorConnects.get(d.guid);
+        const name = conn ? `${nameByGuidAll.get(conn[0]) ?? '?'} – ${nameByGuidAll.get(conn[1]) ?? '?'} Door` : 'Door';
+        doors.push({ wallRef, offset: mm(num(opening.attrs.offsetM)), width: mm(num(opening.attrs.widthM)), name });
         doorGuids.push(d.guid);
     }
 
@@ -127,7 +130,7 @@ function wallToLayout(n: GraphNode): LayoutOption['walls'][number] {
     const bl = n.geometry?.baseLine;
     const a = bl?.[0] ?? { x: 0, z: 0 };
     const b = bl?.[1] ?? { x: 0, z: 0 };
-    return { start: { x: mm(a.x), y: mm(a.z) }, end: { x: mm(b.x), y: mm(b.z) } };
+    return { start: { x: mm(a.x), y: mm(a.z) }, end: { x: mm(b.x), y: mm(b.z) }, isExternal: n.attrs.isExternal === true };
 }
 
 function polyWH(n: GraphNode): { w: number; h: number } {
@@ -136,4 +139,12 @@ function polyWH(n: GraphNode): { w: number; h: number } {
     let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
     for (const pt of p) { if (pt.x < x0) x0 = pt.x; if (pt.x > x1) x1 = pt.x; if (pt.z < z0) z0 = pt.z; if (pt.z > z1) z1 = pt.z; }
     return { w: x1 - x0, h: z1 - z0 };
+}
+
+function polyCentroid(n: GraphNode): { cx: number; cz: number } {
+    const p = n.geometry?.polygon ?? [];
+    if (p.length === 0) return { cx: 0, cz: 0 };
+    let sx = 0, sz = 0;
+    for (const pt of p) { sx += pt.x; sz += pt.z; }
+    return { cx: sx / p.length, cz: sz / p.length };
 }

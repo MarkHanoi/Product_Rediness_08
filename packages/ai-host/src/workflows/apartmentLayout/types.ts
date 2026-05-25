@@ -19,11 +19,16 @@ export interface LayoutRoom {
     hasDirectAccess: boolean;
     /** Names of rooms this one is adjacent to (shares a wall / a door). */
     adjacentTo: string[];
+    /** Footprint centroid (plan mm) — lets the build match this room to the
+     *  detected room and apply its semantic name/type. */
+    centroid?: Vec2mm;
 }
 
 export interface Vec2mm { x: number; y: number }      // plan coords, mm
-export interface LayoutWall { start: Vec2mm; end: Vec2mm }
-export interface LayoutDoor { wallRef: number; offset: number; width: number } // mm
+/** A wall in a layout. `isExternal` marks a perimeter/shell wall — shown in the
+ *  preview for context but skipped at build (the shell already exists). */
+export interface LayoutWall { start: Vec2mm; end: Vec2mm; isExternal?: boolean }
+export interface LayoutDoor { wallRef: number; offset: number; width: number; name?: string } // mm
 
 export interface LayoutOption {
     summary: string;
