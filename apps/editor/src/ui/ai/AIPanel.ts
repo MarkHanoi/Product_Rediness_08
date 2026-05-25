@@ -32,6 +32,15 @@ import type { ElementSchema } from '@app/engine/preview/PreviewManager';
 import { groupCatalogue, dispatchBatchEntry, type BatchDeps } from '../create/batchCatalogue';
 // SPEC-SEMANTIC §3.1 / Phase 2 — surface the existing room auto-organise (tag-by-type) flow.
 import { openAutoOrganiseModal } from '../property-inspector/RoomAutoOrganiser';
+// #51 (SPEC-APARTMENT-LAYOUT-GENERATOR §11) — the AI apartment-layout generate flow.
+import { ApartmentLayoutController, requestApartmentLayout } from '../apartment-layout/ApartmentLayoutController';
+import { gatherLayoutPayload } from '../apartment-layout/gatherLayoutPayload';
+import type { ComposedRuntime } from '@pryzm/runtime-composer';
+
+// #51 — one controller per session drives the §11 options modal. attach() is
+// idempotent + only subscribes to runtime.events (no getHost), so wiring it on
+// first use adds zero AI bytes at first-paint (lazy K3-A preserved).
+const _apartmentLayoutController = new ApartmentLayoutController();
 
 // ─── Command-Aware Suggestion Tree ───────────────────────────────────────────
 //
@@ -114,6 +123,46 @@ const COMMAND_TREE: SuggestionNode[] = [
                             severity: 'error',
                         });
                     }
+                },
+            },
+            {
+                // #51 (SPEC-APARTMENT-LAYOUT-GENERATOR §11) — generate AI interior
+                // layouts from the active level's exterior shell; the §11 modal
+                // shows ranked/scored options to pick from.
+                label: 'Generate apartment layout (AI)',
+                hint: 'AI interior layouts from the level shell — pick one to build',
+                action: () => {
+                    const rt = window.runtime as unknown as ComposedRuntime | undefined;
+                    const lid = (window.bimManager as { getActiveLevel?: () => { id: string } | undefined } | undefined)
+                        ?.getActiveLevel?.()?.id;
+                    if (!rt || !lid) {
+                        window.runtime?.events?.emit('pryzm:toast', {
+                            message: 'No active level — create or open a level first.',
+                            severity: 'error',
+                        });
+                        return;
+                    }
+                    const payload = gatherLayoutPayload(lid);
+                    if (!payload || payload.shellWallIds.length < 3) {
+                        window.runtime?.events?.emit('pryzm:toast', {
+                            message: 'Need at least 3 exterior walls on the active level.',
+                            severity: 'error',
+                        });
+                        return;
+                    }
+                    _apartmentLayoutController.attach(rt); // idempotent — modal shows on options-ready
+                    window.runtime?.events?.emit('pryzm:toast', {
+                        message: 'Generating apartment layouts…',
+                        severity: 'info',
+                    });
+                    void requestApartmentLayout(rt, payload).then(r => {
+                        if (!r.ok) {
+                            window.runtime?.events?.emit('pryzm:toast', {
+                                message: r.reason ?? 'Layout generation failed',
+                                severity: 'error',
+                            });
+                        }
+                    });
                 },
             },
             {
