@@ -242,4 +242,5 @@ COMMAND: <type>   KIND (§3): <single | batch | bus-batch | hosted | update | de
 - C03 §2 (interface), §4.5 (`performUndoRedo`), §4.6 (binding undo invariants).
 - C11 §2 (pipeline), §5 (handler contract), §10 (two-layer bridge), §11.2 (add element type), §11.5 (wall = reference).
 - C15 (hosted two-part commands). C09 (AI). C10 (NFTs/OTel). C13 (project isolation). §41 (preview).
+- **C17** (Batch Creation Catalogue & Panel Binding) — the registry of batch prompts that each resolve to a §8/CA-12 command and surface in the CREATE panel.
 - `01-VISION.md §2` (P1–P8). Memory: `batch-creation-perf-pattern`, `undo-architecture-three-stores`, `gpu-pick-resolution-and-highlight`.

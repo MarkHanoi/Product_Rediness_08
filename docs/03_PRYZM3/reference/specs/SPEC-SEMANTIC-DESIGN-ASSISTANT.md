@@ -64,6 +64,8 @@ The verbatim 50 prompts (captured in the architect's 2026-05-24 message; enumera
 
 **Phase 1 ships the F column**: the AI panel lists all 50 prompts; the feasible subset executes through existing batch commands; the S column shows a "coming in Phase N" affordance instead of failing silently.
 
+> The **panel-shaped registry** of these prompts — mapped to the live `CREATE › Discipline › System › ⚡Batch › item` form, with one shared prompt string per entry — is **C17 (Batch Creation Catalogue & Panel Binding)**. C17 §4 is the catalogue; this SPEC §4 is the AI-side superset and phasing. Both read one catalogue module (C17 §8).
+
 ---
 
 ## §5 — Architecture
