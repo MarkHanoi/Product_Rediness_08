@@ -129,6 +129,7 @@ Columns: **Path** = `Discipline › System › ⚡Batch › label`. **Prompt** =
 | Project › Levels › ⚡ | "Duplicate this floor plan to other levels" | `DUPLICATE_FLOOR_PLAN` | — | project | 1 | ✅ |
 | Project › Grid › ⚡ | "Create a structural grid system" | `CREATE_GRID_SYSTEM` | `CREATE_GRID_SYSTEM` | project | 1 | ✅ |
 | Project › Grid › ⚡ | "Delete all grids" | `DELETE_ALL_GRIDS` | `DELETE_ALL_GRIDS` | project | 1 | ✅ |
+| Project › AI › ⚡ | **"Generate apartment layout"** (#51 capstone) | `apartment.generate-layout` → `apartment.layout-execute` | (AI workflow) | project | 6 | ⏳ (two-phase generative; `SPEC-APARTMENT-LAYOUT-GENERATOR`; A1–A2 pure foundation landed) |
 
 > The 50-prompt verbatim catalogue (`SPEC-SEMANTIC-DESIGN-ASSISTANT` §4) is the superset; the **feasible-today (Phase 1, ✅)** rows above are exactly what wires into the panel first. Each ⏳ row renders disabled with a "Coming in Phase N" tooltip until its semantic layer lands.
 
