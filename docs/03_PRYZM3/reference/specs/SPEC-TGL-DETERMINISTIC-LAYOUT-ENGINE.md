@@ -50,7 +50,7 @@ frame `{x, z}`** (z = world Z = plan "up"), and round to 1e‑6 m at boundaries.
 | **P3b** | `subdivide.ts` | `Rect[]` + `BubbleGraph` → `RoomPlacement[]` (rooms→footprints; pack across rects, squarify each, corridor cell) | ✅ 5 tests |
 | **P4** | `wallsAndDoors.ts` | `RoomPlacement[]` + `BubbleGraph` → `{ segments: WallSeg[]; openings: OpeningSpec[] }` (dedup shared walls; doors on realised adjacencies) | ✅ 5 tests |
 | **P5** | `semanticGraph.ts` | `RoomPlacement[]`+`WallSeg[]`+`OpeningSpec[]`+`BubbleGraph` → `LayoutGraph` (the persistent BIM3.0 graph; §3) | ✅ 6 tests (+4 `ifcGuid`) |
-| **P6** | `spaceSyntax.ts` | `LayoutGraph` → `SyntaxMetrics` (per‑space depth, mean depth, RA, integration; §4) | ⏳ |
+| **P6** | `spaceSyntax.ts` | `LayoutGraph` → `SyntaxMetrics` (per‑space depth, mean depth, RA, integration; §4) | ✅ 5 tests |
 | **P7** | `score.ts` (extend) | `LayoutGraph`+`SyntaxMetrics`+weights → `ObjectiveVector` (5 axes; §4) | ⏳ |
 | **P8** | `enumerate.ts` | shell+program+constraints → `ScoredLayoutOption[]` (run P1–P7 over a fixed strategy set; Pareto‑rank; §2.2) | ⏳ |
 | **P9** | `emitGeometry.ts` | `LayoutGraph` → `LayoutOption` (mm `{x,y}` walls+doors for `buildLayoutCommands`) | ⏳ |
