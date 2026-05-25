@@ -119,7 +119,7 @@ Columns: **Path** = `Discipline › System › ⚡Batch › label`. **Prompt** =
 | Plumbing › Fixtures › ⚡ | "Put a WC set in every bathroom" | `CREATE_PLUMBING_FIXTURE` (+SL-1/SL-5) | — | per-room | 4 | ⏳ |
 | Interior › Furniture › ⚡ | "Place a bed in every bedroom" | `CREATE_FURNITURE` (+SL-5) | — | per-room | 4 | ⏳ |
 | Interior › Furniture › ⚡ | "Place a desk in every office" | `CREATE_FURNITURE` (+SL-5) | — | per-room | 4 | ⏳ |
-| Interior › Lighting › ⚡ | "Add a centred light to every room" | `CREATE_LIGHTING` (+SL-1) | — | per-room | 2 | ⏳ |
+| Interior › Lighting › ⚡ | "Downlight in every room" | `CREATE_LIGHTING_BY_ROOM` | — | per-room | 2 | ✅ (catalogId `lighting.per-room`; one centred downlight, excl. circulation) |
 
 ### §4.4 — Project (project-scope structural ops) — *the "CREATE › FLOOR LEVELS" home*
 

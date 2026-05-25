@@ -79,6 +79,8 @@ export enum CommandType {
     CREATE_FURNITURE = 'CREATE_FURNITURE',
     // ── Lighting (first-class citizen) ───────────────────────────────────────
     CREATE_LIGHTING            = 'CREATE_LIGHTING',
+    // SPEC-SEMANTIC §10 #41 — one downlight per (non-circulation) room.
+    CREATE_LIGHTING_BY_ROOM    = 'CREATE_LIGHTING_BY_ROOM',
     DELETE_LIGHTING            = 'DELETE_LIGHTING',
     MOVE_LIGHTING              = 'MOVE_LIGHTING',
     UPDATE_LIGHTING_PARAMETERS = 'UPDATE_LIGHTING_PARAMETERS',

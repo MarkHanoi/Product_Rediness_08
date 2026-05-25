@@ -37,6 +37,7 @@ import {
     CreateGridSystemCommand,
     CreateFloorsByRoomTypeCommand,
     CreateCeilingsByRoomCommand,
+    CreateLightingByRoomCommand,
 } from '@pryzm/command-registry';
 
 /** The phase currently shipped. Entries with `phase > SHIPPED_PHASE` render disabled (CB-4). */
@@ -314,6 +315,18 @@ export const BATCH_CATALOGUE: BatchCatalogEntry[] = [
         label: 'Bed in every bedroom', prompt: 'Place a bed in every bedroom',
         icon: 'material-symbols:bed', scope: 'per-room', phase: 4, status: 'phased',
         precondition: () => phaseGate(4), build: () => null,
+    },
+    {
+        // SPEC-SEMANTIC §10 #41 — LIVE: one ceiling downlight centred per
+        // non-circulation room (per-room grid is a later refinement).
+        catalogId: 'lighting.per-room', discipline: 'Interior', system: 'Lighting',
+        label: 'Downlight in every room', prompt: 'Add a centred ceiling downlight to every room (excluding circulation)',
+        icon: 'material-symbols:lightbulb', scope: 'per-room', phase: 2, status: 'live',
+        precondition: (d) => d.getActiveLevelId() ? OK : { ok: false, reason: 'No active level' },
+        build: (d) => {
+            const lvl = d.getActiveLevelId();
+            return lvl ? new CreateLightingByRoomCommand(lvl) : null;
+        },
     },
 
     // ── Project › Levels ─────────────────────────────────────────────────────

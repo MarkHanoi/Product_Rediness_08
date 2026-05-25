@@ -122,6 +122,7 @@ export * from './levels/UpdateLevelCommand';
 
 // ─── Lighting ─────────────────────────────────────────────────────────────
 export * from './lighting/CreateLightingCommand';
+export * from './lighting/CreateLightingByRoomCommand';
 export * from './lighting/DeleteLightingCommand';
 export * from './lighting/MoveLightingCommand';
 export * from './lighting/UpdateLightingParametersCommand';

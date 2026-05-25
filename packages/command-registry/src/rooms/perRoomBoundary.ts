@@ -48,6 +48,34 @@ export function roomsWithBoundary(context: CommandContext, levelId: string): Per
 }
 
 /**
+ * Area-weighted centroid of a room boundary polygon (world X-Z). Used by
+ * point-placed per-room elements (lighting, furniture anchors). Falls back to the
+ * vertex average for a degenerate (near-zero-area) polygon. For a concave room the
+ * area centroid can fall outside the polygon — acceptable for a first-cut "centred"
+ * placement; per-room layout refinement is a later phase.
+ */
+export function roomCentroid(polygon: Array<{ x: number; z: number }>): { x: number; z: number } {
+    let area = 0, cx = 0, cz = 0;
+    for (let i = 0; i < polygon.length; i++) {
+        const a = polygon[i]!;
+        const b = polygon[(i + 1) % polygon.length]!;
+        const cross = a.x * b.z - b.x * a.z;
+        area += cross;
+        cx += (a.x + b.x) * cross;
+        cz += (a.z + b.z) * cross;
+    }
+    area *= 0.5;
+    if (Math.abs(area) < 1e-6) {
+        const n = polygon.length || 1;
+        return {
+            x: polygon.reduce((s, p) => s + p.x, 0) / n,
+            z: polygon.reduce((s, p) => s + p.z, 0) / n,
+        };
+    }
+    return { x: cx / (6 * area), z: cz / (6 * area) };
+}
+
+/**
  * For each room on the level with a usable boundary, build one element via
  * `factory(room)` (returns a constructed sub-command, or `null` to skip the room
  * — filter / dedup / no-mapping), execute it, and track it for undo.

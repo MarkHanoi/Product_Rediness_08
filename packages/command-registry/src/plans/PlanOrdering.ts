@@ -303,6 +303,7 @@ export class PlanOrdering {
         [CommandType.CREATE_CALLOUT_DETAIL]:             25,
         // ── Phase L — Lighting ─────────────────────────────────────────────
         [CommandType.CREATE_LIGHTING]:                   25,
+        [CommandType.CREATE_LIGHTING_BY_ROOM]:           25,
         [CommandType.MOVE_LIGHTING]:                     55,
         [CommandType.UPDATE_LIGHTING_PARAMETERS]:        55,
         [CommandType.DELETE_LIGHTING]:                   90,

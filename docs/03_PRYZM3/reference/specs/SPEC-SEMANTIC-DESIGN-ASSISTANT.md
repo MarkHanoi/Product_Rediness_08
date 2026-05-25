@@ -201,7 +201,7 @@ The architect's verbatim batch prompts (2026-05-24/25), each classified by **sco
 40. *Spiral staircase at [X,Y] [L]→[L+1]…* — explicit position · stair type · **P2** (concrete params, no semantics).
 
 **LIGHTING**
-41. *Recessed downlights grid across ceilings excl. circulation…* — per-room · SL-1 ✅ · **P2**.
+41. *Recessed downlights grid across ceilings excl. circulation…* — per-room · SL-1 ✅ · **P2 ✅ LANDED** (`CreateLightingByRoomCommand` — one centred downlight per non-circulation room; per-room grid is a refinement).
 42. *Pendant over every dining table…* — per-furniture · SL-5 ❌ (furniture detection) · **P4**.
 43. *Bedside lights beside every bed…* — per-furniture · SL-5 ❌ · **P4**.
 44. *Strip lighting under kitchen wall cabinets…* — per-furniture · SL-5 ❌ · **P4**.
