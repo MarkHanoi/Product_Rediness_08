@@ -28,6 +28,14 @@ export interface EmittedLayout {
 
 const MM = 1000;
 const mm = (m: number): number => Math.round(m * MM * 1e6) / 1e6;
+
+/** D-TGL RoomType → editor RoomOccupancyType (string), so detected rooms are
+ *  coloured/tagged by use. Values match @pryzm/room-topology RoomOccupancyType. */
+const OCCUPANCY_BY_TYPE: Record<string, string> = {
+    master: 'bedroom', bedroom: 'bedroom', living: 'living-room', kitchen: 'kitchen',
+    dining: 'dining-room', bathroom: 'bathroom', ensuite: 'bathroom', hall: 'entrance-lobby',
+    corridor: 'corridor', study: 'private-office', utility: 'utility-room',
+};
 const num = (v: unknown, d = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 const str = (v: unknown, d = ''): string => (typeof v === 'string' ? v : d);
 
@@ -78,14 +86,16 @@ export function emitGeometry(graph: LayoutGraph): EmittedLayout {
         spaceGuids.push(n.guid);
         const needsWindow = n.attrs.needsWindow === true;
         const { cx, cz } = polyCentroid(n);
+        const spaceType = str(n.attrs.spaceType, 'utility');
         rooms.push({
             name: str(n.attrs.name, n.sourceId),
-            type: (str(n.attrs.spaceType, 'utility') as RoomType),
+            type: (spaceType as RoomType),
             area: num(n.attrs.netAreaM2),
             windowCount: needsWindow && frontsFacade.has(n.guid) ? 1 : 0,
             hasDirectAccess: (permeable.get(n.guid)?.size ?? 0) > 0,
             adjacentTo: [...(neighbours.get(n.guid) ?? [])].map(g => nameByGuid.get(g) ?? g).sort(),
             centroid: { x: mm(cx), y: mm(cz) },
+            occupancy: OCCUPANCY_BY_TYPE[spaceType] ?? 'unclassified',
         });
     }
 

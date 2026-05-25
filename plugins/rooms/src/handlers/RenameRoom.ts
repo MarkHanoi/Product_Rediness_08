@@ -9,12 +9,16 @@ import {
   type HandlerResult,
   type ValidationResult,
 } from '@pryzm/plugin-sdk';
-import { RenameRoomCommand  } from '@pryzm/command-registry';
+import { RenameRoomCommand, SetRoomOccupancyCommand } from '@pryzm/command-registry';
 
 export interface RenameRoomPayload {
   readonly roomId: string;
   readonly name?: string;
   readonly roomNumber?: string;
+  /** Optional RoomOccupancyType — when present, also applied (via the legacy
+   *  SetRoomOccupancyCommand on the RoomStore) so the room is coloured/tagged by
+   *  use. Additive: existing callers that omit it are unaffected. */
+  readonly occupancy?: string;
 }
 
 export const RenameRoomHandler: CommandHandler<RenameRoomPayload, Record<string, unknown>> = {
@@ -42,6 +46,9 @@ export const RenameRoomHandler: CommandHandler<RenameRoomPayload, Record<string,
       if (cm) {
         try {
           cm.execute(new RenameRoomCommand(cmd.roomId, { name: cmd.name, roomNumber: cmd.roomNumber }));
+          if (cmd.occupancy && cmd.occupancy.length > 0) {
+            cm.execute(new SetRoomOccupancyCommand(cmd.roomId, cmd.occupancy as never));
+          }
         } catch (e) {
           console.error('[room.rename.handler] bridge failed:', e);
         }

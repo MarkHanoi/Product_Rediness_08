@@ -42,13 +42,18 @@ describe('emitGeometry (TGL P9)', () => {
     it('names every room + door, carries room centroids, and flags perimeter walls', () => {
         const g = fixtureGraph();
         const { option } = emitGeometry(g);
-        // rooms: semantic names + centroids
+        // rooms: semantic names + centroids + use-occupancy
         for (const r of option.rooms) {
             expect(r.name.length).toBeGreaterThan(0);
             expect(r.centroid).toBeDefined();
+            expect(r.occupancy).toBeTruthy();
+            expect(r.occupancy).not.toBe('unclassified');
         }
         expect(option.rooms.some(r => /living/i.test(r.name))).toBe(true);
         expect(option.rooms.some(r => /bedroom|master/i.test(r.name))).toBe(true);
+        // occupancy mapped to editor RoomOccupancyType strings
+        expect(option.rooms.some(r => r.occupancy === 'living-room')).toBe(true);
+        expect(option.rooms.some(r => r.occupancy === 'bedroom')).toBe(true);
         // doors: named by the rooms they connect
         for (const d of option.doors) expect(d.name && d.name.length).toBeGreaterThan(0);
         // walls: both perimeter (isExternal) and interior present

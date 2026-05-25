@@ -126,14 +126,14 @@ export class ApartmentLayoutExecutor {
         try {
             const roomStore = storeRegistry.getStoreForType('room') as unknown as {
                 getByLevel?: (id: string) => Array<{ id: string; boundary?: { polygon?: Array<{ x: number; z: number }> } }>;
+                subscribe?: (fn: () => void) => (() => void);
             } | undefined;
-            const detected = roomStore?.getByLevel?.(levelId) ?? [];
-            if (detected.length === 0) return;
+            if (!roomStore?.getByLevel) return;
 
             // D-TGL rooms with world centroids (mm→m, plan-y = world-z), largest first.
             const tgl = option.rooms
                 .filter(r => r.centroid)
-                .map(r => ({ name: r.name, area: r.area, cx: r.centroid!.x / 1000, cz: r.centroid!.y / 1000 }))
+                .map(r => ({ name: r.name, occupancy: r.occupancy, area: r.area, cx: r.centroid!.x / 1000, cz: r.centroid!.y / 1000 }))
                 .sort((a, b) => b.area - a.area);
             if (tgl.length === 0) return;
 
@@ -146,22 +146,48 @@ export class ApartmentLayoutExecutor {
                 return hit;
             };
 
-            const renames: Array<{ roomId: string; name: string }> = [];
-            for (const room of detected) {
-                const poly = room.boundary?.polygon ?? [];
-                if (poly.length < 3) continue;
-                const match = tgl.find(t => inside(t.cx, t.cz, poly));   // largest contained D-TGL room
-                if (match?.name) renames.push({ roomId: room.id, name: match.name });
-            }
-            if (renames.length === 0) return;
+            // The build's room-redetect is DEFERRED (runBatch drains via endBatchYielded;
+            // REDETECT_ROOMS fires in a scheduled onComplete). So the rooms DON'T exist
+            // synchronously here — apply names when the room store settles after the
+            // redetect (debounced so all rooms land first), with a hard-timeout fallback.
+            let done = false;
+            let unsub: () => void = () => { /* no-op until set */ };
+            let settle: ReturnType<typeof setTimeout> | undefined;
+            let hard: ReturnType<typeof setTimeout> | undefined;
 
-            batchCoordinator.runBatch(() => {
-                for (const r of renames) {
-                    try { void runtime.bus.executeCommand('room.rename', r); }
-                    catch (e) { console.warn('[apartment-layout] room.rename failed (skipped):', e); }
+            const apply = (): void => {
+                if (done) return;
+                const detected = roomStore.getByLevel!(levelId);
+                if (detected.length === 0) return;                 // redetect not run yet — keep waiting
+                done = true;
+                unsub();
+                if (settle) clearTimeout(settle);
+                if (hard) clearTimeout(hard);
+
+                const renames: Array<{ roomId: string; name: string; occupancy?: string }> = [];
+                for (const room of detected) {
+                    const poly = room.boundary?.polygon ?? [];
+                    if (poly.length < 3) continue;
+                    const match = tgl.find(t => inside(t.cx, t.cz, poly));   // largest contained D-TGL room
+                    if (match?.name) renames.push({ roomId: room.id, name: match.name, ...(match.occupancy ? { occupancy: match.occupancy } : {}) });
                 }
-            }, { levelIds: [levelId], totalElementCount: renames.length, skipRedetectRooms: true });
-            console.log('[apartment-layout] named', renames.length, 'room(s)');
+                if (renames.length === 0) return;
+
+                // Coalesce the rename reprojection into one (no redetect needed — names
+                // don't change boundaries).
+                batchCoordinator.runBatch(() => {
+                    for (const r of renames) {
+                        try { void runtime.bus.executeCommand('room.rename', r); }
+                        catch (e) { console.warn('[apartment-layout] room.rename failed (skipped):', e); }
+                    }
+                }, { levelIds: [levelId], totalElementCount: renames.length, skipRedetectRooms: true });
+                console.log('[apartment-layout] named', renames.length, 'room(s)');
+            };
+
+            if (roomStore.subscribe) {
+                unsub = roomStore.subscribe(() => { if (settle) clearTimeout(settle); settle = setTimeout(apply, 80); });
+            }
+            hard = setTimeout(apply, 2500);   // fallback if no room events fire
         } catch (e) {
             console.warn('[apartment-layout] room naming failed (non-fatal):', e);
         }

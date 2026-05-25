@@ -22,6 +22,9 @@ export interface LayoutRoom {
     /** Footprint centroid (plan mm) — lets the build match this room to the
      *  detected room and apply its semantic name/type. */
     centroid?: Vec2mm;
+    /** RoomOccupancyType string (e.g. 'bedroom','living-room') applied to the
+     *  detected room post-build so it is coloured/tagged by use. */
+    occupancy?: string;
 }
 
 export interface Vec2mm { x: number; y: number }      // plan coords, mm
