@@ -14,7 +14,7 @@ import type { ApartmentProgram, ScoringWeights } from '../types.js';
 import { decomposeToRects, polygonBBox, rectArea, type Pt, type Rect } from './rectDecomposition.js';
 import { buildBubbleGraph, type BubbleGraph } from './bubbleGraph.js';
 import { subdivide, type RoomPlacement } from './subdivide.js';
-import { buildWallsAndDoors } from './wallsAndDoors.js';
+import { buildWallsAndDoors, type BoundarySeg } from './wallsAndDoors.js';
 import { buildSemanticGraph, type LayoutGraph } from './semanticGraph.js';
 import { computeSpaceSyntax } from './spaceSyntax.js';
 import { computeObjectives, OBJECTIVE_AXES, type ObjectiveVector } from './objectives.js';
@@ -43,6 +43,9 @@ export interface TglCandidate {
     readonly compromises: number;
     /** Every space reachable from the entry through doors/open thresholds. */
     readonly connected: boolean;
+    /** Virtual room-bounding lines at open-plan thresholds (no wall, no door)
+     *  in METRES; the LayoutOption converts to mm at emit time. */
+    readonly boundaries: readonly BoundarySeg[];
 }
 
 const EPS = 1e-9;
@@ -83,7 +86,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     if (placementsT.length === 0) return null;
     const placements: RoomPlacement[] = placementsT.map(p => ({ roomId: p.roomId, rect: xfRect(p.rect, t.inv) }));
 
-    const { segments, openings, compromises } = buildWallsAndDoors(placements, bubble, {
+    const { segments, openings, boundaries, compromises } = buildWallsAndDoors(placements, bubble, {
         ...(input.wallThicknessM !== undefined ? { wallThicknessM: input.wallThicknessM } : {}),
         ...(input.doorWidthM !== undefined ? { doorWidthM: input.doorWidthM } : {}),
     });
@@ -97,7 +100,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     return {
         strategy: strategyKey(s), graph, objectives,
         weighted: weightedSum(objectives, input.weights), rank: 0,
-        compromises, connected: metrics.connected,
+        compromises, connected: metrics.connected, boundaries,
     };
 }
 

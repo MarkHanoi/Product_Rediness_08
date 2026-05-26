@@ -56,8 +56,17 @@ export function generateDeterministicLayouts(
         // Emit ALL walls (perimeter flagged isExternal) so the preview shows the
         // full plan; the executor builds with skipExteriorWalls so the existing
         // shell is never duplicated (coincident walls break room detection).
+        // Boundaries (open-plan virtual splitters) live OUTSIDE the LayoutGraph
+        // (they aren't BIM elements, just a room-detection helper) and are merged
+        // into the LayoutOption alongside the graph projection.
         const { option } = emitGeometry(c.graph);
-        const labelled = { ...option, summary: `${option.summary} (offline · D-TGL)` };
+        const MM = 1000;
+        const mm = (n: number): number => Math.round(n * MM * 1e6) / 1e6;
+        const boundaries = c.boundaries.map(b => ({
+            start: { x: mm(b.a.x), y: mm(b.a.z) },
+            end:   { x: mm(b.b.x), y: mm(b.b.z) },
+        }));
+        const labelled = { ...option, boundaries, summary: `${option.summary} (offline · D-TGL)` };
         return { ...labelled, score: scoreLayout(labelled, weights) };
     });
 }

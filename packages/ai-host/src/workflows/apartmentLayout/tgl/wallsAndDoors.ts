@@ -44,9 +44,20 @@ export interface OpeningSpec {
     readonly betweenRoomIds: readonly [string, string?];
 }
 
+/** A virtual room-bounding line on an open-plan threshold (no wall, no door). */
+export interface BoundarySeg {
+    readonly a: Pt;
+    readonly b: Pt;
+    readonly betweenRoomIds: readonly [string, string];
+}
+
 export interface WallsAndDoors {
     readonly segments: readonly WallSeg[];
     readonly openings: readonly OpeningSpec[];
+    /** Virtual room-splitters along intra-zone (open-plan) shared boundaries. The
+     *  built scene has no wall there, but the RoomDetectionEngine consumes these
+     *  exactly like wall segments and so registers each open-plan room separately. */
+    readonly boundaries: readonly BoundarySeg[];
     /**
      * Reconciliation doors that violated the program rules (a forbidden room-type
      * pair or a privacy door-cap) but were placed anyway as a LAST RESORT to avoid
@@ -146,15 +157,24 @@ export function buildWallsAndDoors(
     const sameZone = (a: string, b: string): boolean => find(a) === find(b);
 
     const segments: WallSeg[] = [];
+    const boundaries: BoundarySeg[] = [];
     const sharedWallByPair = new Map<string, WallSeg>();
     let wid = 0;
 
     const emit = (axis: 'v' | 'h', coord: number, run: Run): void => {
         const ids = [run.neg, run.pos].filter((x): x is string => x !== null);
         const bounds = ids.length === 2 ? [...ids].sort() : ids;
-        if (bounds.length === 2 && sameZone(bounds[0]!, bounds[1]!)) return; // intra-zone (open-plan) threshold
         const a: Pt = axis === 'v' ? { x: coord, z: run.start } : { x: run.start, z: coord };
         const b: Pt = axis === 'v' ? { x: coord, z: run.end } : { x: run.end, z: coord };
+        if (bounds.length === 2 && sameZone(bounds[0]!, bounds[1]!)) {
+            // Intra-zone (open-plan) shared boundary: no wall, no door — but emit a
+            // virtual RoomBoundingLine so the editor's RoomDetectionEngine still
+            // separates the two open-plan spaces (the user's "room boundary" device,
+            // matching how kitchen↔living is already split today). Without this they
+            // collapse into one merged room on detection.
+            boundaries.push({ a, b, betweenRoomIds: [bounds[0]!, bounds[1]!] });
+            return;
+        }
         const seg: WallSeg = { id: `w${wid++}`, a, b, thickness, boundsRoomIds: bounds };
         segments.push(seg);
         if (bounds.length === 2) sharedWallByPair.set(pairKey(bounds[0]!, bounds[1]!), seg);
@@ -233,14 +253,18 @@ export function buildWallsAndDoors(
         if (addDoor(c.seg, c.a, c.b)) cUnion(c.a, c.b);
     }
 
-    // (2b) last resort — any remaining sealed room gets a door across whatever shared
-    // wall reconnects it, even if that breaks a rule. Counted as a compromise.
+    // (2b) last resort — over-cap fallback. We RELAX the per-room maxDoors cap to
+    // reconnect a still-sealed room, but we NEVER cross a forbidden pair (the user's
+    // explicit rule: "there is a bedroom connected directly and only to another
+    // bedroom — this is not acceptable"). A room that has no permitted neighbour at
+    // all stays sealed; enumerate's legality gate then chooses a different strategy.
     for (const c of shared) {
         if (cFind(c.a) === cFind(c.b)) continue;
+        if (!permitted(c.a, c.b)) continue;                   // HARD reject forbidden pairs
         if (addDoor(c.seg, c.a, c.b)) { cUnion(c.a, c.b); compromises++; }
     }
 
-    return { segments, openings, compromises };
+    return { segments, openings, boundaries, compromises };
 }
 
 /** True when a door between these two room types satisfies the program rules. */

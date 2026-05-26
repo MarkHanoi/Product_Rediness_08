@@ -14,7 +14,7 @@
 
 import { batchCoordinator, storeRegistry } from '@pryzm/core-app-model';
 import { createId } from '@pryzm/schemas';
-import { CreateWallOpeningCommand } from '@pryzm/command-registry';
+import { CreateWallOpeningCommand, CreateRoomBoundingLineCommand } from '@pryzm/command-registry';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import type { ScoredLayoutOption, IdPrefix, LayoutExecuteOptions, LayoutCommandSet } from '@pryzm/ai-host';
 import { resolveActiveLevel } from './activeLevel.js';
@@ -134,10 +134,14 @@ export class ApartmentLayoutExecutor {
             done = true; if (poll) clearTimeout(poll);
 
             const landed = wallStore?.getById ? neededWallIds.filter(id => wallStore.getById!(id) != null).length : 0;
-            // Doors via the legacy command (reads the committed legacy wall store).
+            // Doors + boundaries via the legacy synchronous commands (read the
+            // committed legacy stores). Boundaries are the virtual splitters between
+            // open-plan rooms (hall↔living, kitchen↔living, …) — without them the
+            // RoomDetectionEngine merges the whole open-plan zone into one big room.
             let doorsMade = 0; let firstErr = '';
+            let boundariesMade = 0; let firstBoundaryErr = '';
             const cm = (window as unknown as { commandManager?: { execute(c: unknown): void } }).commandManager;
-            if (cm && set.openingCommands.length > 0) {
+            if (cm && (set.openingCommands.length > 0 || set.boundaryCommands.length > 0)) {
                 try {
                     batchCoordinator.runBatch(() => {
                         for (const op of set.openingCommands) {
@@ -145,12 +149,22 @@ export class ApartmentLayoutExecutor {
                             try { cm.execute(new CreateWallOpeningCommand({ wallId: p.wallId, openingData: p.opening })); doorsMade++; }
                             catch (e) { firstErr ||= String(e); console.warn('[apartment-layout] door (createOpening) failed (skipped):', e); }
                         }
-                    }, { levelIds: [levelId], totalElementCount: set.openingCommands.length, skipRedetectRooms: false });
-                } catch (e) { console.warn('[apartment-layout] doors batch failed (non-fatal):', e); }
+                        for (const bc of set.boundaryCommands) {
+                            const p = bc.payload as { id: string; levelId: string; start: { x: number; z: number }; end: { x: number; z: number } };
+                            try { cm.execute(new CreateRoomBoundingLineCommand({ id: p.id, levelId: p.levelId, start: p.start, end: p.end })); boundariesMade++; }
+                            catch (e) { firstBoundaryErr ||= String(e); console.warn('[apartment-layout] boundary failed (skipped):', e); }
+                        }
+                    }, {
+                        levelIds: [levelId],
+                        totalElementCount: set.openingCommands.length + set.boundaryCommands.length,
+                        skipRedetectRooms: false,
+                    });
+                } catch (e) { console.warn('[apartment-layout] doors+boundaries batch failed (non-fatal):', e); }
             } else if (!cm) {
-                console.warn('[apartment-layout] commandManager unavailable — doors skipped');
+                console.warn('[apartment-layout] commandManager unavailable — doors+boundaries skipped');
             }
-            console.log(`[apartment-layout] doors built — ${doorsMade}/${set.openingCommands.length} (host walls present ${landed}/${neededWallIds.length})${force && landed < neededWallIds.length ? ' — FORCED before all walls landed' : ''} via legacy CreateWallOpeningCommand`, firstErr || '');
+            console.log(`[apartment-layout] doors built — ${doorsMade}/${set.openingCommands.length} (host walls present ${landed}/${neededWallIds.length})${force && landed < neededWallIds.length ? ' — FORCED before all walls landed' : ''}`, firstErr || '');
+            console.log(`[apartment-layout] boundaries built — ${boundariesMade}/${set.boundaryCommands.length}`, firstBoundaryErr || '');
 
             emitDone(doorsMade);
             this._nameDetectedRooms(runtime, levelId, option);

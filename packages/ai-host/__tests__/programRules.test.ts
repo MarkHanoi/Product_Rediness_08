@@ -8,6 +8,7 @@ import {
     ROOM_RULES, ALL_ROOM_RULES, roomRule, occupancyOf, isCirculation, isPrivate,
     doorAllowedBetween, maxDoorsFor, programForOccupancy,
 } from '../src/workflows/apartmentLayout/rules/programRules.js';
+import { scaleProgramToShell } from '../src/workflows/apartmentLayout/tgl/bubbleGraph.js';
 import type { RoomType } from '../src/workflows/apartmentLayout/types.js';
 
 const ALL_TYPES: RoomType[] = [
@@ -39,24 +40,39 @@ describe('programRules — database integrity', () => {
 });
 
 describe('programRules — connectivity matrix (the user\'s rules)', () => {
-    it('a bedroom door connects to a corridor, living or dining — NEVER another bedroom', () => {
+    it('a bedroom door connects to a corridor, living or dining — NEVER another bedroom, NEVER the entrance hall', () => {
         expect(doorAllowedBetween('bedroom', 'corridor')).toBe(true);
         expect(doorAllowedBetween('bedroom', 'living')).toBe(true);
         expect(doorAllowedBetween('bedroom', 'dining')).toBe(true);
-        expect(doorAllowedBetween('bedroom', 'hall')).toBe(true);
+        // bedroom↔hall is now FORBIDDEN: the entrance hall is a clean lobby that
+        // distributes only to living/corridor; bedrooms must come off a corridor.
+        expect(doorAllowedBetween('bedroom', 'hall')).toBe(false);
         // the explicit defect the user reported:
         expect(doorAllowedBetween('bedroom', 'bedroom')).toBe(false);
         expect(doorAllowedBetween('bedroom', 'master')).toBe(false);
     });
 
-    it('a bathroom connects only to a corridor/hall or a bedroom — never kitchen/living/dining', () => {
+    it('a bathroom connects only to a corridor or a bedroom — NEVER the entrance hall, never kitchen/living/dining', () => {
         expect(doorAllowedBetween('bathroom', 'corridor')).toBe(true);
-        expect(doorAllowedBetween('bathroom', 'hall')).toBe(true);
         expect(doorAllowedBetween('bathroom', 'bedroom')).toBe(true);
+        // The user's explicit feedback: "the entrance door is connected with a
+        // bathroom — this is not possible." Hall ↔ bathroom is now forbidden.
+        expect(doorAllowedBetween('bathroom', 'hall')).toBe(false);
         expect(doorAllowedBetween('bathroom', 'kitchen')).toBe(false);
         expect(doorAllowedBetween('bathroom', 'living')).toBe(false);
         expect(doorAllowedBetween('bathroom', 'dining')).toBe(false);
         expect(doorAllowedBetween('bathroom', 'bathroom')).toBe(false);
+    });
+
+    it('the entrance hall is a CLEAN lobby — only living + corridor (the user\'s rule)', () => {
+        expect(doorAllowedBetween('hall', 'living')).toBe(true);
+        expect(doorAllowedBetween('hall', 'corridor')).toBe(true);
+        expect(doorAllowedBetween('hall', 'bathroom')).toBe(false);
+        expect(doorAllowedBetween('hall', 'bedroom')).toBe(false);
+        expect(doorAllowedBetween('hall', 'master')).toBe(false);
+        expect(doorAllowedBetween('hall', 'kitchen')).toBe(false);
+        expect(doorAllowedBetween('hall', 'dining')).toBe(false);
+        expect(doorAllowedBetween('hall', 'utility')).toBe(false);
     });
 
     it('an en-suite is reached ONLY through its master bedroom', () => {
@@ -98,6 +114,30 @@ describe('programRules — privacy door caps', () => {
         expect(isPrivate('bedroom')).toBe(true);
         expect(isPrivate('master')).toBe(true);
         expect(isPrivate('living')).toBe(false);
+    });
+});
+
+describe('programRules — auto-scale bedrooms/baths from shell area (the user\'s rule)', () => {
+    const base = { bedrooms: 2, bathrooms: 1, masterEnSuite: false, openPlanKitchenDining: true, livingRoom: true, entranceHall: true };
+
+    it('small shell preserves the user\'s stated program', () => {
+        const out = scaleProgramToShell(base, 120);
+        expect(out.bedrooms).toBe(2);
+        expect(out.bathrooms).toBe(1);
+    });
+
+    it('large shell scales bedrooms up and enables masterEnSuite at ≥3 bedrooms', () => {
+        const out = scaleProgramToShell(base, 800);
+        // 800/80 = 10 → capped at 8 bedrooms; ⌈8/2⌉ = 4 bathrooms.
+        expect(out.bedrooms).toBe(8);
+        expect(out.bathrooms).toBe(4);
+        expect(out.masterEnSuite).toBe(true);
+    });
+
+    it('never downscales the user\'s stated count', () => {
+        const out = scaleProgramToShell({ ...base, bedrooms: 5, bathrooms: 3 }, 80);
+        expect(out.bedrooms).toBeGreaterThanOrEqual(5);
+        expect(out.bathrooms).toBeGreaterThanOrEqual(3);
     });
 });
 

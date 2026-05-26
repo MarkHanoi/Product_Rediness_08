@@ -211,6 +211,10 @@ export interface LayoutCommandSet {
     readonly openingCommands: readonly LayoutCommand[];
     /** `door.batch.create` for all doors, or null when there are none. */
     readonly doorBatch: LayoutCommand | null;
+    /** One virtual room-bounding line per open-plan threshold (the editor uses the
+     *  legacy `CreateRoomBoundingLineCommand` to materialise these — they have NO
+     *  bus verb yet). Carries `{id, levelId, start:{x,z}, end:{x,z}}` in METRES. */
+    readonly boundaryCommands: readonly LayoutCommand[];
     /** Minted wall ids, index-aligned with the plan's kept walls. */
     readonly wallIds: readonly string[];
     /** Minted door ids, index-aligned with `doorPlan`. */
@@ -280,11 +284,31 @@ export function buildLayoutCommands(
     const doorBatch: LayoutCommand | null =
         doors.length > 0 ? { command: 'door.batch.create', payload: { doors } } : null;
 
+    // Virtual room-bounding lines (open-plan splitters). LayoutBoundary is in mm in
+    // the LayoutOption; the editor's `CreateRoomBoundingLineCommand` takes METRES,
+    // so we divide by MM_PER_M here exactly like buildLayoutPlan does for doors.
+    // RoomBoundingLine is not a `@pryzm/schemas` ElementType, so we mint ids INLINE
+    // (just a string id, the legacy command stamps the canonical mark itself).
+    const boundaryCommands: LayoutCommand[] = [];
+    for (let i = 0; i < (option.boundaries ?? []).length; i++) {
+        const b = option.boundaries![i]!;
+        boundaryCommands.push({
+            command: 'roomBoundingLine.create',           // legacy-sync path; no bus verb yet
+            payload: {
+                id: `rbl_${opts.levelId}_${i}_${Math.random().toString(36).slice(2, 10)}`,
+                levelId: opts.levelId,
+                start: { x: b.start.x / MM_PER_M, z: b.start.y / MM_PER_M },
+                end:   { x: b.end.x   / MM_PER_M, z: b.end.y   / MM_PER_M },
+            },
+        });
+    }
+
     return {
         levelId: opts.levelId,
         wallBatch,
         openingCommands,
         doorBatch,
+        boundaryCommands,
         wallIds,
         doorIds,
         totalElementCount: plan.totalElementCount,

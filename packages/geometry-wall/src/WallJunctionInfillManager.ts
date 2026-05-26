@@ -22,11 +22,23 @@ export class WallJunctionInfillManager {
 
     constructor() {
         // Match the default wall surface appearance as closely as possible.
+        // `polygonOffset` pulls the infill prism *toward* the camera in the depth
+        // buffer by a tiny fraction of a fragment so its faces always WIN the
+        // depth test against the surrounding wall solids — without that, the
+        // void-polygon vertices computed by `WallJunctionInfill.computeJunctionInfills`
+        // sit exactly on the wall-edge intersections, and the prism faces z-fight
+        // against the wall caps at T/L/X junctions. The visible symptom was a
+        // BLACK overlap (depth-test losses producing back-face hits where lighting
+        // gives a near-zero diffuse term). One-pixel z-bias resolves it cleanly
+        // for every wall thickness.
         this._material = new THREE.MeshStandardMaterial({
             color:     0xf2f2f2,
             roughness: 0.75,
             metalness: 0.0,
             side:      THREE.DoubleSide,
+            polygonOffset:       true,
+            polygonOffsetFactor: -1,
+            polygonOffsetUnits:  -1,
         });
     }
 

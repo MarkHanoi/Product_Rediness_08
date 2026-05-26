@@ -132,7 +132,13 @@ describe('buildWallsAndDoors (TGL P4)', () => {
         expect(bathDoors.length).toBeLessThanOrEqual(1);
     });
 
-    it('reconciliation guarantees every room is reachable from the entry (no sealed rooms)', () => {
+    it('reconciliation NEVER places a forbidden door pair (hard rule — even if a room ends up sealed)', async () => {
+        // The user's explicit constraint: a bedroom must not be reachable only
+        // through another bedroom; a bathroom not directly off the entrance hall; etc.
+        // Phase 2b is now permitted-only — if the squarified placement can't be
+        // connected through legal doors, the room stays sealed and the legality gate
+        // in P8 picks a different strategy. Here we assert the invariant directly.
+        const { doorAllowedBetween } = await import('../src/workflows/apartmentLayout/rules/programRules.js');
         const program: ApartmentProgram = {
             bedrooms: 3, bathrooms: 2, masterEnSuite: true,
             openPlanKitchenDining: true, livingRoom: true, entranceHall: true,
@@ -141,19 +147,13 @@ describe('buildWallsAndDoors (TGL P4)', () => {
         const g = buildBubbleGraph(program, 176);
         const placements = subdivide(decomposeToRects(poly), g);
         const { openings } = buildWallsAndDoors(placements, g);
+        const typeOf = new Map(g.rooms.map(r => [r.id, r.type]));
 
-        // permeability graph: open thresholds + door openings
-        const adj = new Map<string, Set<string>>();
-        const link = (a: string, b: string) => {
-            (adj.get(a) ?? adj.set(a, new Set()).get(a)!).add(b);
-            (adj.get(b) ?? adj.set(b, new Set()).get(b)!).add(a);
-        };
-        for (const e of g.edges) if (e.via === 'open') link(e.a, e.b);
-        for (const o of openings) if (o.betweenRoomIds[1]) link(o.betweenRoomIds[0], o.betweenRoomIds[1]);
-
-        const start = g.entryId ?? g.rooms[0]!.id;
-        const seen = new Set([start]); const q = [start];
-        while (q.length) { const c = q.shift()!; for (const n of adj.get(c) ?? []) if (!seen.has(n)) { seen.add(n); q.push(n); } }
-        for (const r of g.rooms) expect(seen.has(r.id)).toBe(true);    // EVERY room reachable
+        for (const o of openings) {
+            const [a, b] = o.betweenRoomIds;
+            if (!b) continue;
+            const ta = typeOf.get(a)!, tb = typeOf.get(b)!;
+            expect(doorAllowedBetween(ta, tb), `forbidden door pair ${ta}↔${tb} was placed`).toBe(true);
+        }
     });
 });

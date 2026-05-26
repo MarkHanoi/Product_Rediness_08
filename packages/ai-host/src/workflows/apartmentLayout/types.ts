@@ -32,12 +32,20 @@ export interface Vec2mm { x: number; y: number }      // plan coords, mm
  *  preview for context but skipped at build (the shell already exists). */
 export interface LayoutWall { start: Vec2mm; end: Vec2mm; isExternal?: boolean }
 export interface LayoutDoor { wallRef: number; offset: number; width: number; name?: string } // mm
+/** A virtual room-bounding line (no wall, no door) that splits two adjacent
+ *  open-plan spaces logically so room detection sees them as separate rooms.
+ *  Built via the editor's `CreateRoomBoundingLineCommand` at execute time. */
+export interface LayoutBoundary { start: Vec2mm; end: Vec2mm }
 
 export interface LayoutOption {
     summary: string;
     rooms: LayoutRoom[];
     walls: LayoutWall[];
     doors: LayoutDoor[];
+    /** Virtual room-splitters for open-plan thresholds (hall↔living, kitchen↔living,
+     *  kitchen↔dining, …). Optional for back-compat with AI-produced options that
+     *  predate this field. */
+    boundaries?: LayoutBoundary[];
     corridorWidthMin: number;      // mm
 }
 

@@ -74,30 +74,38 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         areaWeight: 1.7, minAreaM2: 18, minShortSideM: 2.7, needsWindow: true, windowMandatory: true,
         accessFrom: ['hall', 'corridor', 'kitchen', 'dining'], maxDoors: INF,
         requiredFurniture: ['sofa'], optionalFurniture: ['coffee_table', 'lamp'], requiredFixtures: [],
-        description: 'Primary social space. Front of the privacy gradient; open to kitchen/dining and the entrance.',
+        description: 'Primary social space. Front of the privacy gradient; open to kitchen/dining and the entrance hall.',
     },
     kitchen: {
         type: 'kitchen', occupancy: 'kitchen', privacy: 'public',
         areaWeight: 0.95, minAreaM2: 8, minShortSideM: 1.8, needsWindow: true, windowMandatory: true,
-        accessFrom: ['hall', 'corridor', 'living', 'dining', 'utility'], maxDoors: INF,
+        // No direct hall→kitchen: kitchen is reached via the living/dining zone.
+        accessFrom: ['corridor', 'living', 'dining', 'utility'], maxDoors: INF,
         requiredFurniture: ['kitchen_l_shape'], optionalFurniture: [], requiredFixtures: ['sink'],
-        description: 'Food preparation. Works open-plan with dining; never opens to a wet room or bedroom.',
+        description: 'Food preparation. Works open-plan with dining; reached via the living/dining zone, never directly off the entrance hall.',
     },
     dining: {
         type: 'dining', occupancy: 'dining-room', privacy: 'public',
         areaWeight: 0.9, minAreaM2: 6, minShortSideM: 2.4, needsWindow: true, windowMandatory: false,
-        accessFrom: ['hall', 'corridor', 'living', 'kitchen'], maxDoors: INF,
+        // No direct hall→dining: same reason as kitchen.
+        accessFrom: ['corridor', 'living', 'kitchen'], maxDoors: INF,
         requiredFurniture: ['dining_table', 'dining_chair'], optionalFurniture: ['lamp'], requiredFixtures: [],
-        description: 'Eating space. Typically open to kitchen + living; a valid bedroom-door target.',
+        description: 'Eating space. Typically open to kitchen + living; reached via the living/kitchen zone.',
     },
 
     // ── Circulation ──────────────────────────────────────────────────────────────
     hall: {
         type: 'hall', occupancy: 'entrance-lobby', privacy: 'circulation',
         areaWeight: 0.5, minAreaM2: 0, minShortSideM: 1.2, needsWindow: false, windowMandatory: false,
-        accessFrom: ['living', 'corridor', 'kitchen', 'dining', 'bedroom', 'master', 'bathroom', 'study', 'utility'], maxDoors: INF,
+        // The entrance hall is a CLEAN lobby: it distributes ONLY to the living space
+        // and the corridor — never directly to a bedroom, bathroom or service room.
+        // The front (perimeter) door lands in the hall; you then choose social
+        // (→ living) or private (→ corridor → bedrooms/baths). This is the user's
+        // explicit rule and the only sane interpretation of "the entrance is connected
+        // to a bathroom" being not acceptable.
+        accessFrom: ['living', 'corridor'], maxDoors: INF,
         requiredFurniture: [], optionalFurniture: ['entrance_table'], requiredFixtures: [],
-        description: 'Entrance lobby where the front door lands. Distributes to the living zone + the corridor.',
+        description: 'Entrance lobby — the door on the perimeter lands here. Opens ONLY to the living space and the corridor.',
     },
     corridor: {
         type: 'corridor', occupancy: 'corridor', privacy: 'circulation',
@@ -111,8 +119,9 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
     master: {
         type: 'master', occupancy: 'bedroom', privacy: 'private',
         areaWeight: 1.3, minAreaM2: 12, minShortSideM: 2.6, needsWindow: true, windowMandatory: true,
-        // Master is reached from circulation/social AND connects to its en-suite.
-        accessFrom: ['corridor', 'hall', 'living', 'dining', 'ensuite'], maxDoors: 2,
+        // Master is reached from CORRIDOR / living / dining AND connects to its
+        // en-suite — never directly off the entrance hall (the user's rule).
+        accessFrom: ['corridor', 'living', 'dining', 'ensuite'], maxDoors: 2,
         requiredFurniture: ['bed', 'bedside_table', 'wardrobe', 'lamp'], optionalFurniture: [], requiredFixtures: [],
         description: 'Master bedroom. One door to circulation, one to its en-suite. Requires bed, 2 bedside tables, lighting, a wardrobe.',
     },
@@ -120,28 +129,30 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         type: 'bedroom', occupancy: 'bedroom', privacy: 'private',
         areaWeight: 1.0, minAreaM2: 9, minShortSideM: 2.1, needsWindow: true, windowMandatory: true,
         // A bedroom's door MUST land on circulation or a social space — never another
-        // bedroom and never (as a primary route) a kitchen.
-        accessFrom: ['corridor', 'hall', 'living', 'dining'], maxDoors: 1,
+        // bedroom and never directly off the entrance hall. The user's explicit rule:
+        // "bedrooms should connect with the door to a corridor / living / dining."
+        accessFrom: ['corridor', 'living', 'dining'], maxDoors: 1,
         requiredFurniture: ['bed', 'bedside_table', 'wardrobe', 'lamp'], optionalFurniture: [], requiredFixtures: [],
         description: 'Bedroom. Exactly one door, onto a corridor / living / dining. Requires bed, 2 bedside tables, lighting, a wardrobe.',
     },
     study: {
         type: 'study', occupancy: 'private-office', privacy: 'private',
         areaWeight: 0.85, minAreaM2: 5, minShortSideM: 2.0, needsWindow: true, windowMandatory: false,
-        accessFrom: ['corridor', 'hall', 'living'], maxDoors: 1,
+        accessFrom: ['corridor', 'living'], maxDoors: 1,
         requiredFurniture: ['dining_table'], optionalFurniture: ['dining_chair', 'lamp'], requiredFixtures: [],
-        description: 'Home office / study. One door to circulation or the living space.',
+        description: 'Home office / study. One door to the corridor or the living space.',
     },
 
     // ── Wet rooms ────────────────────────────────────────────────────────────────
     bathroom: {
         type: 'bathroom', occupancy: 'bathroom', privacy: 'private',
         areaWeight: 0.45, minAreaM2: 4, minShortSideM: 1.5, needsWindow: false, windowMandatory: false,
-        // A bathroom connects to exactly ONE of: a corridor, the hall, or a bedroom.
-        accessFrom: ['corridor', 'hall', 'bedroom', 'master'], maxDoors: 1,
+        // A bathroom connects to exactly ONE of: a corridor or a bedroom — NEVER the
+        // entrance hall (the user's explicit rule), never a kitchen / living / dining.
+        accessFrom: ['corridor', 'bedroom', 'master'], maxDoors: 1,
         requiredFurniture: ['toilet_radiator', 'shower_glass_panel'], optionalFurniture: [],
         requiredFixtures: ['toilet', 'washbasin', 'shower'],
-        description: 'Shared bathroom. Exactly one door (corridor / hall / a bedroom). Requires a toilet, a washbasin, and a shower or bath.',
+        description: 'Shared bathroom. Exactly one door — to a corridor or a bedroom; never the entrance hall. Requires a toilet, a washbasin, and a shower or bath.',
     },
     ensuite: {
         type: 'ensuite', occupancy: 'bathroom', privacy: 'private',
@@ -157,9 +168,9 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
     utility: {
         type: 'utility', occupancy: 'utility-room', privacy: 'service',
         areaWeight: 0.4, minAreaM2: 0, minShortSideM: 1.5, needsWindow: false, windowMandatory: false,
-        accessFrom: ['corridor', 'hall', 'kitchen'], maxDoors: 1,
+        accessFrom: ['corridor', 'kitchen'], maxDoors: 1,
         requiredFurniture: [], optionalFurniture: [], requiredFixtures: ['sink'],
-        description: 'Utility / laundry. One door to circulation or the kitchen.',
+        description: 'Utility / laundry. One door to the corridor or the kitchen.',
     },
 };
 
