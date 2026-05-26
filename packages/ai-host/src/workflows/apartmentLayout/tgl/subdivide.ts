@@ -17,6 +17,7 @@
 import type { BubbleGraph, ProgramRoom } from './bubbleGraph.js';
 import { rectArea, type Rect } from './rectDecomposition.js';
 import { squarify } from './squarify.js';
+import { roomRule } from '../rules/programRules.js';
 
 /** A room's realised footprint inside the shell. */
 export interface RoomPlacement {
@@ -40,12 +41,33 @@ function placeInRect(rect: Rect, rooms: readonly ProgramRoom[]): RoomPlacement[]
 }
 
 /**
+ * Reorder rooms for rect allocation so the LIVING ROOM (the user's priority) gets
+ * the largest rect, and other public rooms land in larger rects before the private
+ * ones. Within each privacy class the input order is preserved (stable), so the P8
+ * enumerate `rev` strategy still produces secondary variety. Privacy is read from
+ * the rules database (single source of truth, see SPEC-ARCHITECTURAL-PROGRAM-RULES).
+ */
+function allocationOrder(rooms: readonly ProgramRoom[]): ProgramRoom[] {
+    const head = rooms.find(r => r.type === 'living');
+    const rest = head ? rooms.filter(r => r !== head) : [...rooms];
+    const rank = (r: ProgramRoom): number => {
+        const p = roomRule(r.type).privacy;
+        return p === 'public' ? 0 : p === 'circulation' ? 1 : p === 'private' ? 2 : 3;
+    };
+    // Stable sort by privacy rank.
+    const tagged = rest.map((r, i) => ({ r, i }));
+    tagged.sort((a, b) => rank(a.r) - rank(b.r) || a.i - b.i);
+    const sorted = tagged.map(t => t.r);
+    return head ? [head, ...sorted] : sorted;
+}
+
+/**
  * Subdivide the shell `rects` among the program rooms. Returns exactly one
  * footprint per room; footprints lie inside the shell rects, do not overlap, and
  * together tile the shell. Degenerate input (no rects / no rooms) → [].
  */
 export function subdivide(rects: readonly Rect[], graph: BubbleGraph): RoomPlacement[] {
-    const rooms = graph.rooms;
+    const rooms = allocationOrder(graph.rooms);
     const valid = rects.filter(r => rectArea(r) > EPS).sort(byAreaDesc);
     if (valid.length === 0 || rooms.length === 0) return [];
 
