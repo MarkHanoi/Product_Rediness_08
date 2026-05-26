@@ -166,6 +166,17 @@ export class ApartmentLayoutExecutor {
             console.log(`[apartment-layout] doors built — ${doorsMade}/${set.openingCommands.length} (host walls present ${landed}/${neededWallIds.length})${force && landed < neededWallIds.length ? ' — FORCED before all walls landed' : ''}`, firstErr || '');
             console.log(`[apartment-layout] boundaries built — ${boundariesMade}/${set.boundaryCommands.length}`, firstBoundaryErr || '');
 
+            // Post-build room-detection diagnostic. After the door+boundary batch
+            // settles, the RoomDetectionEngine should produce ~one detected room per
+            // D-TGL space. A large mismatch (e.g. 5 detected vs 9 expected) is the
+            // open-plan-merge defect — boundary lines didn't split the zone.
+            setTimeout(() => {
+                const rs = storeRegistry.getStoreForType('room') as unknown as { getByLevel?: (id: string) => Array<unknown> } | undefined;
+                const detected = rs?.getByLevel?.(levelId)?.length ?? -1;
+                const expected = option.rooms.length;
+                console.log(`[apartment-layout] room-detection diagnostic — detected=${detected} / D-TGL expected=${expected}${detected >= 0 && detected < expected ? ' ⚠ open-plan rooms may be merging (boundary lines not splitting)' : ''}`);
+            }, 500);
+
             emitDone(doorsMade);
             this._nameDetectedRooms(runtime, levelId, option);
         };

@@ -41,15 +41,20 @@ function placeInRect(rect: Rect, rooms: readonly ProgramRoom[]): RoomPlacement[]
 }
 
 /**
- * Reorder rooms for rect allocation so the LIVING ROOM (the user's priority) gets
- * the largest rect, and other public rooms land in larger rects before the private
- * ones. Within each privacy class the input order is preserved (stable), so the P8
- * enumerate `rev` strategy still produces secondary variety. Privacy is read from
- * the rules database (single source of truth, see SPEC-ARCHITECTURAL-PROGRAM-RULES).
+ * Reorder rooms for rect allocation so the **two largest rooms** (Living + Master)
+ * land at the front and get the best aspect from squarify, then other public rooms
+ * before the private ones. Without hoisting Master the squarifier leaves it a thin
+ * leftover strip when there are many small rooms — the user's "Master Bedroom is a
+ * corridor-shape strip" defect. Within each privacy class the input order is
+ * preserved (stable), so the P8 enumerate `rev` strategy still produces secondary
+ * variety. Privacy is read from the rules database (SPEC-ARCHITECTURAL-PROGRAM-RULES).
  */
 function allocationOrder(rooms: readonly ProgramRoom[]): ProgramRoom[] {
-    const head = rooms.find(r => r.type === 'living');
-    const rest = head ? rooms.filter(r => r !== head) : [...rooms];
+    const living = rooms.find(r => r.type === 'living');
+    const master = rooms.find(r => r.type === 'master');
+    const hoisted = [living, master].filter((r): r is ProgramRoom => r !== undefined);
+    const hoistedSet = new Set(hoisted);
+    const rest = rooms.filter(r => !hoistedSet.has(r));
     const rank = (r: ProgramRoom): number => {
         const p = roomRule(r.type).privacy;
         return p === 'public' ? 0 : p === 'circulation' ? 1 : p === 'private' ? 2 : 3;
@@ -58,7 +63,7 @@ function allocationOrder(rooms: readonly ProgramRoom[]): ProgramRoom[] {
     const tagged = rest.map((r, i) => ({ r, i }));
     tagged.sort((a, b) => rank(a.r) - rank(b.r) || a.i - b.i);
     const sorted = tagged.map(t => t.r);
-    return head ? [head, ...sorted] : sorted;
+    return [...hoisted, ...sorted];
 }
 
 /**

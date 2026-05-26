@@ -41,23 +41,29 @@ const cap = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 /**
  * Scale the program up to match the shell area. The user explicitly required this:
  * "the number of bedrooms and bathrooms should depend on the net area within the
- * perimeter external walls." We never DOWNSCALE (the user's stated bedroom/bath
- * counts are a floor); we only ADD rooms when the shell is large enough that the
- * default program would produce ridiculous room sizes (e.g. an 800 m² shell with
- * 2 bedrooms gives a 200 m² Living Room — the user's screenshot).
+ * perimeter external walls." We never DOWNSCALE (the user's stated counts are a
+ * floor); we only ADD rooms when the shell is large enough.
  *
- * Heuristic: target ~80 m² of total area per bedroom (residential rule of thumb
- * for a generous unit incl. its share of common/circulation), capped at 8 bedrooms
- * so a very-large shell becomes a luxury unit with big rooms rather than a bedsit
- * tower. Bathrooms = ⌈bedrooms / 2⌉, capped at 4. Auto-enable masterEnSuite once
- * we have ≥3 bedrooms (the shell can carry it without crowding).
+ * Heuristic (post-feedback, 2026-05-26): target ~130 m² of total area per bedroom
+ * (an upscale residential rule of thumb that yields a recognisable LUXURY apartment
+ * rather than a boarding house). Capped at 5 bedrooms — above that you're not
+ * laying out an apartment, you're laying out an HMO / hostel and the brief should
+ * be authored explicitly. Bathrooms = ⌊bedrooms/2⌋, capped at 3 (4 bathrooms in a
+ * single residential unit is excess). Auto-enable masterEnSuite at ≥3 bedrooms.
+ *
+ * Curve (with default 2-bed/1-bath input preserved as the floor):
+ *   100 m²  → 2 beds / 1 bath          (preserves default)
+ *   260 m²  → 2 beds / 1 bath
+ *   400 m²  → 3 beds / 1 bath + ensuite
+ *   500 m²  → 4 beds / 2 baths + ensuite
+ *   650 m²+ → 5 beds / 2 baths + ensuite (cap)
  */
 export function scaleProgramToShell(program: ApartmentProgram, shellAreaM2: number): ApartmentProgram {
     // An EXPLICIT studio request (bedrooms === 0 AND bathrooms === 0) stays a
     // studio — auto-scale never invents rooms the caller deliberately omitted.
     if (program.bedrooms === 0 && program.bathrooms === 0) return program;
-    const targetBedrooms = Math.min(8, Math.max(program.bedrooms, Math.round(shellAreaM2 / 80)));
-    const targetBathrooms = Math.min(4, Math.max(program.bathrooms, Math.ceil(targetBedrooms / 2)));
+    const targetBedrooms = Math.min(5, Math.max(program.bedrooms, Math.round(shellAreaM2 / 130)));
+    const targetBathrooms = Math.min(3, Math.max(program.bathrooms, Math.max(1, Math.floor(targetBedrooms / 2))));
     return {
         ...program,
         bedrooms: targetBedrooms,

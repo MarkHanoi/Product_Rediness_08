@@ -128,9 +128,9 @@ describe('programRules — auto-scale bedrooms/baths from shell area (the user\'
 
     it('large shell scales bedrooms up and enables masterEnSuite at ≥3 bedrooms', () => {
         const out = scaleProgramToShell(base, 800);
-        // 800/80 = 10 → capped at 8 bedrooms; ⌈8/2⌉ = 4 bathrooms.
-        expect(out.bedrooms).toBe(8);
-        expect(out.bathrooms).toBe(4);
+        // 800/130 ≈ 6.15 → capped at 5 bedrooms; ⌊5/2⌋ = 2 bathrooms; ensuite on.
+        expect(out.bedrooms).toBe(5);
+        expect(out.bathrooms).toBe(2);
         expect(out.masterEnSuite).toBe(true);
     });
 
