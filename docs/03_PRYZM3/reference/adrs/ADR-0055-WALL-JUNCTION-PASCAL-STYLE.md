@@ -87,12 +87,23 @@ L-corners (2-wall) are a special case of N=2: `wall_i.left = wall_{i+1}.right` i
 
 ## Implementation phases
 
-1. **P1 — port the resolver.** New `JunctionResolver.ts` + tests for L / T / Y / X cases. No editor wiring yet.
-2. **P2 — new footprint builder.** `WallFootprint2D.ts` + tests for the 5/6-vertex polygon shape.
-3. **P3 — switch `MiterPrismBuilder`.** Replace its corner-computation stage; keep extrusion. Visual diff vs. current scene.
-4. **P4 — retire infill.** Delete `WallJunctionInfill*`. Remove polygonOffset patch. Confirm scene has no wedges.
-5. **P5 — door / window opening builders.** Confirm they still read wall thickness + centerline correctly (no schema change expected).
+1. **P1 — port the resolver.** New [`JunctionResolverV2.ts`](../../../../packages/geometry-wall/src/JunctionResolverV2.ts) + 16 tests for L / T / Y / X / closed-loop cases. No editor wiring yet. **✅ SHIPPED 2026-05-26 — commit `5840358`.**
+2. **P2 — new footprint builder.** [`WallFootprint2D.ts`](../../../../packages/geometry-wall/src/WallFootprint2D.ts) + 16 tests for the 4 / 5 / 6-vertex polygon shape and the **edge-coincidence invariant** (adjacent walls share 2–3 vertices on the junction line — the void is gone by construction). **✅ SHIPPED 2026-05-26.**
+3. **P3a — polygon extruder.** [`WallPolygonExtruder.ts`](../../../../packages/geometry-wall/src/WallPolygonExtruder.ts) + 13 tests, including the **T-junction 3-D edge-coincidence proof**: wall B's start corners sit exactly on wall A's outer-face plane within A's X-range — no overlap, no gap. Top fan + bottom fan + side quads per polygon edge; per-face outward normals (hard edges for plan-view edge projection). **✅ SHIPPED 2026-05-26.**
+4. **P3b — wiring.** Replace `MiterPrismBuilder` in `WallFragmentBuilder` with the new pipeline, gated behind a feature flag so the old path stays available for one release. **⏳ next.**
+5. **P4 — retire infill.** Delete `WallJunctionInfill*` once P3b is verified. Remove the `polygonOffset` patch in `WallJunctionInfillManager`. Confirm the scene has no wedges live.
+6. **P5 — door / window opening builders.** Confirm they still read wall thickness + centerline correctly (no schema change expected).
+
+### Vertex-count contract (P3a)
+
+| Junction context | Polygon vertices | Extruder vertex count |
+|------------------|:--:|:--:|
+| No junction (free wall) | 4 | 36 |
+| One end at junction (L / T-abutting) | 5 | 48 |
+| Both ends at junctions (closed loop) | 6 | 60 |
+
+Formula: `verts = 6·(n − 2)  +  6·n` (top fan + bottom fan + n side quads). Pinned in [`expectedVertexCount(n)`](../../../../packages/geometry-wall/src/WallPolygonExtruder.ts) and asserted in [`wallPolygonExtruder.test.ts`](../../../../packages/ai-host/__tests__/wallPolygonExtruder.test.ts).
 
 ## Until the rewrite ships — interim mitigation
 
-Inflate the existing infill prism's vertices outward from the consensus point by a small epsilon (≈ wall thickness × 0.25, capped at 25 mm) so the prism overlaps the wall caps with slack. This is a band-aid — it can leave the prism slightly proud of the wall's outer face at acute angles. It is replaced by P1–P4.
+`polygonOffset` on the `WallJunctionInfillManager` material — pushes the infill prism toward the camera so it wins the depth test against the wall caps at T/L/X junctions ([`WallJunctionInfillManager.ts`](../../../../packages/geometry-wall/src/WallJunctionInfillManager.ts)). This is a **band-aid that only helps the 3-D z-fight on 3+ wall clusters**; it does NOT close the L-corner triangle visible in plan view (L-junctions don't go through `WallJunctionInfill` at all — only the 3+ wall clusters do), and the 2-D edge projector still inherits the gap. The user's screenshot from 2026-05-26 confirms the band-aid is insufficient. The fix is P3b + P4.
