@@ -87,6 +87,36 @@ describe('WallPolygonExtruder — free wall (4-vertex rectangle)', () => {
         }
     });
 
+    it('side-face triangle WINDING matches the declared normal (no back-face flip)', () => {
+        // Regression test for the 2026-05-27 manual-wall "near-black" defect: an
+        // earlier winding produced triangles whose CCW cross product opposed the
+        // declared normal, so three.js culled the visible side. For every side-
+        // face triangle, the geometric cross-product normal must point in the
+        // SAME hemisphere as the declared normal — i.e. dot(cross, declared) > 0.
+        const g = buildWallExtrusion(fp, { height: HEIGHT });
+        const pos = g.getAttribute('position').array;
+        const norm = g.getAttribute('normal').array;
+        // Side faces start at vertex 12 (skip 6 top + 6 bottom). 4 sides × 6 verts = 24.
+        for (let triStart = 12; triStart < 36; triStart += 3) {
+            const a = vertAt(pos, triStart);
+            const b = vertAt(pos, triStart + 1);
+            const c = vertAt(pos, triStart + 2);
+            const ab: [number, number, number] = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+            const ac: [number, number, number] = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+            const cross: [number, number, number] = [
+                ab[1] * ac[2] - ab[2] * ac[1],
+                ab[2] * ac[0] - ab[0] * ac[2],
+                ab[0] * ac[1] - ab[1] * ac[0],
+            ];
+            // Use the first vertex's declared normal (all 3 verts share it for a hard edge).
+            const nx = norm[triStart * 3]!;
+            const ny = norm[triStart * 3 + 1]!;
+            const nz = norm[triStart * 3 + 2]!;
+            const dot = cross[0] * nx + cross[1] * ny + cross[2] * nz;
+            expect(dot, `triangle starting at vertex ${triStart} winds OPPOSITE to its normal`).toBeGreaterThan(0);
+        }
+    });
+
     it('bounding box matches the footprint XZ extent × height', () => {
         const g = buildWallExtrusion(fp, { height: HEIGHT });
         const bb = g.boundingBox!;

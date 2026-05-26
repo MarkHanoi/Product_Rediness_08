@@ -94,10 +94,20 @@ export function buildWallExtrusion(
 
     // ── Side faces: one outward-facing quad per polygon edge ─────────────────
     // For a CCW polygon (viewed from +Y), the OUTWARD normal of an edge a→b is
-    // the perpendicular obtained by rotating (b − a) by −90° in XZ, i.e.
+    // the perpendicular obtained by rotating (b − a) by −90° in XZ:
     //   n = ( (b.z − a.z),  0,  −(b.x − a.x) )  normalised.
-    // (Two triangles per quad; the second triangle keeps the same normal so the
-    // edge stays hard for plan-view edge projection.)
+    //
+    // FRONT-FACE WINDING (three.js: CCW from the camera → front-facing). Stand
+    // OUTSIDE the prism looking inward along −n: a is on your LEFT, b on your
+    // RIGHT, top is UP, bottom is DOWN. The CCW vertex order is
+    //   a-bot → b-top → b-bot   (T1)
+    //   a-bot → a-top → b-top   (T2)
+    // Cross-checked: (b−a) × (top−bot) = h·(ez, 0, −ex) = h·n ✓ — the winding's
+    // computed face normal aligns with the declared `n`, so three.js's default
+    // back-face culling renders the face from the outward side (the previous
+    // [a-bot, b-bot, a-top] winding had a flipped sign and the wall rendered
+    // back-side-out, giving the near-black, metallic-looking surface the user
+    // reported in the 2026-05-27 manual-wall test).
     for (let i = 0; i < n; i++) {
         const a = polygon[i]!;
         const b = polygon[(i + 1) % n]!;
@@ -107,14 +117,14 @@ export function buildWallExtrusion(
         const nx =  ez / L;
         const nz = -ex / L;
 
-        // Triangle 1: a-bottom, b-bottom, a-top
+        // Triangle 1: a-bottom → b-top → b-bottom  (CCW from outward)
         pushV(a.x, yBot, a.z, nx, 0, nz);
-        pushV(b.x, yBot, b.z, nx, 0, nz);
-        pushV(a.x, yTop, a.z, nx, 0, nz);
-        // Triangle 2: b-bottom, b-top, a-top
-        pushV(b.x, yBot, b.z, nx, 0, nz);
         pushV(b.x, yTop, b.z, nx, 0, nz);
+        pushV(b.x, yBot, b.z, nx, 0, nz);
+        // Triangle 2: a-bottom → a-top → b-top    (CCW from outward)
+        pushV(a.x, yBot, a.z, nx, 0, nz);
         pushV(a.x, yTop, a.z, nx, 0, nz);
+        pushV(b.x, yTop, b.z, nx, 0, nz);
     }
 
     const geom = new THREE.BufferGeometry();
