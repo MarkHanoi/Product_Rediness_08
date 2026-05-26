@@ -22,7 +22,7 @@
 import type { BubbleGraph } from './bubbleGraph.js';
 import type { Pt, Rect } from './rectDecomposition.js';
 import type { RoomPlacement } from './subdivide.js';
-import { doorAllowedBetween, isCirculation, maxDoorsFor } from '../rules/programRules.js';
+import { doorAllowedBetween, isCirculation, maxDoorsFor, roomRule } from '../rules/programRules.js';
 
 export interface WallSeg {
     readonly id: string;
@@ -245,12 +245,42 @@ export function buildWallsAndDoors(
         })
         .sort((p, q) => q.pref - p.pref || q.len - p.len || (p.seg.id < q.seg.id ? -1 : 1));
 
-    // (2a) reconcile over PERMITTED, under-cap pairs only.
+    // (2a) reconcile over PERMITTED, under-cap pairs only. TWO PASSES so a private
+    // room's PRIMARY door always lands on circulation/public — never on a bathroom
+    // (the user's bug: "bedrooms connect with bathrooms only"). With a single pass
+    // a bedroom adjacent to both a corridor and a bathroom could spend its
+    // maxDoors=1 budget on the bathroom and never connect to circulation.
+    //
+    // pass-i: only doors where a 'private' room reaches a 'circulation' / 'public'
+    //         neighbour (the primary-access rule).
+    // pass-ii: any remaining permitted pair (ensuite ↔ master, bathroom ↔ bedroom
+    //         as a SECONDARY access once both have circulation).
+    const isCircOrPublic = (t: string): boolean => {
+        const p = roomRule(t).privacy;
+        return p === 'circulation' || p === 'public';
+    };
+    const isPrimaryAccessPair = (a: string, b: string): boolean => {
+        const ta = typeOf.get(a) ?? '', tb = typeOf.get(b) ?? '';
+        const pa = roomRule(ta).privacy, pb = roomRule(tb).privacy;
+        // A door is "primary access" when it connects a private/service room to
+        // a circulation/public room. We also accept circulation↔circulation /
+        // circulation↔public in this pass (those are uncapped public connectivity).
+        if (pa === 'private' || pa === 'service') return isCircOrPublic(tb);
+        if (pb === 'private' || pb === 'service') return isCircOrPublic(ta);
+        return isCircOrPublic(ta) && isCircOrPublic(tb);
+    };
     for (const c of shared) {
         if (cFind(c.a) === cFind(c.b)) continue;
         if (!permitted(c.a, c.b)) continue;
         if (!underCap(c.a) || !underCap(c.b)) continue;
+        if (!isPrimaryAccessPair(c.a, c.b)) continue;       // pass-i: primary access only
         if (addDoor(c.seg, c.a, c.b)) cUnion(c.a, c.b);
+    }
+    for (const c of shared) {
+        if (cFind(c.a) === cFind(c.b)) continue;
+        if (!permitted(c.a, c.b)) continue;
+        if (!underCap(c.a) || !underCap(c.b)) continue;
+        if (addDoor(c.seg, c.a, c.b)) cUnion(c.a, c.b);     // pass-ii: any remaining permitted
     }
 
     // (2b) last resort — over-cap fallback. We RELAX the per-room maxDoors cap to

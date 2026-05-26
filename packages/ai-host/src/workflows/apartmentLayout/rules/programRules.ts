@@ -120,7 +120,10 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         type: 'corridor', occupancy: 'corridor', privacy: 'circulation',
         // DB-062 main corridor clear 1.0 m mandatory (Part M); 1.2 m recommended HQI;
         // DB-064 secondary corridor 0.9 m mandatory. Pick 1.0 m as the default minimum.
-        areaWeight: 0.45, minAreaM2: 0, minShortSideM: 1.0, needsWindow: false, windowMandatory: false,
+        // areaWeight bumped 0.45 → 0.85: the corridor must physically span all
+        // private rooms so each bedroom shares a wall with it (the bedroom-to-bath-
+        // -only defect comes from a small corridor that only touches 1–2 bedrooms).
+        areaWeight: 0.85, minAreaM2: 0, minShortSideM: 1.0, needsWindow: false, windowMandatory: false,
         accessFrom: ['hall', 'living', 'kitchen', 'dining', 'bedroom', 'master', 'bathroom', 'study', 'utility'], maxDoors: INF,
         requiredFurniture: [], optionalFurniture: [], requiredFixtures: [],
         description: 'Private-zone circulation spine. Serves bedrooms, bathrooms, study, utility; never an en-suite.',
