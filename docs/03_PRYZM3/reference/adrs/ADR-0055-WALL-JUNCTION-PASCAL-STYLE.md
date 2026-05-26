@@ -90,8 +90,34 @@ L-corners (2-wall) are a special case of N=2: `wall_i.left = wall_{i+1}.right` i
 1. **P1 — port the resolver.** New [`JunctionResolverV2.ts`](../../../../packages/geometry-wall/src/JunctionResolverV2.ts) + 16 tests for L / T / Y / X / closed-loop cases. No editor wiring yet. **✅ SHIPPED 2026-05-26 — commit `5840358`.**
 2. **P2 — new footprint builder.** [`WallFootprint2D.ts`](../../../../packages/geometry-wall/src/WallFootprint2D.ts) + 16 tests for the 4 / 5 / 6-vertex polygon shape and the **edge-coincidence invariant** (adjacent walls share 2–3 vertices on the junction line — the void is gone by construction). **✅ SHIPPED 2026-05-26.**
 3. **P3a — polygon extruder.** [`WallPolygonExtruder.ts`](../../../../packages/geometry-wall/src/WallPolygonExtruder.ts) + 13 tests, including the **T-junction 3-D edge-coincidence proof**: wall B's start corners sit exactly on wall A's outer-face plane within A's X-range — no overlap, no gap. Top fan + bottom fan + side quads per polygon edge; per-face outward normals (hard edges for plan-view edge projection). **✅ SHIPPED 2026-05-26.**
-4. **P3b — wiring.** Replace `MiterPrismBuilder` in `WallFragmentBuilder` with the new pipeline, gated behind a feature flag so the old path stays available for one release. **⏳ next.**
-5. **P4 — retire infill.** Delete `WallJunctionInfill*` once P3b is verified. Remove the `polygonOffset` patch in `WallJunctionInfillManager`. Confirm the scene has no wedges live.
+4. **P3b — wiring (initial cut).** [`WallPipelineV2.ts`](../../../../packages/geometry-wall/src/WallPipelineV2.ts) shim (cache + feature flag + one-shot, 13 tests) **AND** the wired branch inside [`WallFragmentBuilder.createWallBodyFragment`](../../../../packages/geometry-wall/src/WallFragmentBuilder.ts) (non-layered, no-openings — the simplest call site). Old `MiterPrismBuilder` path remains the default; the V2 path is gated by `window.__pryzmWallPipelineV2 === true` AND a populated cache. **✅ SHIPPED 2026-05-27.** Layered + opening sites are follow-up commits once this is live-verified.
+
+   **DevTools opt-in for verification:**
+
+   ```js
+   // Enable the new pipeline.
+   window.__pryzmWallPipelineV2 = true;
+
+   // Build a level-wide cache from the live wall store.
+   const { WallPipelineV2Cache } = await import('@pryzm/geometry-wall');
+   const cache = new WallPipelineV2Cache();
+   const all = window.WallStore?.getAll?.() ?? [];
+   const levelId = window.projectContext?.activeLevelId ?? 'L0';
+   cache.refresh(all.filter(w => w.levelId === levelId).map(w => ({
+       id: w.id,
+       startXZ: { x: w.baseLine[0].x, z: w.baseLine[0].z },
+       endXZ:   { x: w.baseLine[1].x, z: w.baseLine[1].z },
+       thickness: w.thickness,
+   })));
+   window.__pryzmWallV2Cache = cache;
+
+   // Force a rebuild — drag any wall by 1 mm and back, or call:
+   window.WallRebuildCoordinator?.scheduleRebuild?.(levelId);
+   ```
+
+   Verify the rebuilt walls have `mesh.userData.pipelineV2 === true` (the diagnostic flag). L-corners + T-junctions should render WITHOUT the black wedge.
+
+5. **P4 — retire infill.** Once P3b is live-verified for non-layered walls AND the orchestrator (`WallRebuildCoordinator`) is wired to call `refreshV2Cache(levelWalls)` automatically: extend the V2 branch to the layered + opening call sites; delete `WallJunctionInfill*`; remove the `polygonOffset` patch in `WallJunctionInfillManager`. Confirm the scene has no wedges live.
 6. **P5 — door / window opening builders.** Confirm they still read wall thickness + centerline correctly (no schema change expected).
 
 ### Vertex-count contract (P3a)

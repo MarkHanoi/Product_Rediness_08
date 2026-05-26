@@ -36,6 +36,14 @@ export * from './CurvedWallLayerBuilder';
 export * from './CurvedWallCapMiter';
 export * from './MiterPrismBuilder';
 
+// ── ADR-0055 Pascal-style wall junction pipeline ─────────────────────────────
+// New L/T/X-clean geometry: P1 resolver → P2 footprint → P3a extruder → P3b shim.
+// Opt in per session with `window.__pryzmWallPipelineV2 = true`. Default OFF.
+export * from './JunctionResolverV2';
+export * from './WallFootprint2D';
+export * from './WallPolygonExtruder';
+export * from './WallPipelineV2';
+
 // ── Edge overlay ──────────────────────────────────────────────────────────────
 export * from './WallEdgeOverlayBuilder';
 

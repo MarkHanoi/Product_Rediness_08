@@ -10,6 +10,13 @@ import { buildCurvedLayerGeometry, computeStations } from './CurvedWallLayerBuil
 import { projectCapVertex } from './CurvedWallCapMiter';
 import { clusterOpenings, buildLayeredWallSegmentsAroundOpenings } from './LayeredWallOpeningBuilder';
 import { buildMiterPrism } from './MiterPrismBuilder';
+// ADR-0055 P3b: opt-in Pascal-style wall pipeline (feature-flagged; default off).
+import {
+    WallPipelineV2Cache,
+    buildWallV2Geometry,
+    isWallPipelineV2Enabled,
+    type LevelWallSpec,
+} from './WallPipelineV2';
 import { OpeningRenderData, OpeningRenderMap } from './WallOpeningRenderData';
 import { buildWallEdgeOverlay } from './WallEdgeOverlayBuilder';
 import { descriptorToBufferGeometry } from './descriptorToBufferGeometry';
@@ -2471,6 +2478,54 @@ export class WallFragmentBuilder {
     private createWallBodyFragment(wall: WallData, joinData?: JoinData | null): WallFragment {
         const material = this.createWallMaterial(wall);
 
+        // ─── ADR-0055 P3b — Pascal-style wall pipeline (opt-in, feature-flagged) ───
+        // When `window.__pryzmWallPipelineV2 === true` AND a level-wide miter cache
+        // has been refreshed (`this.refreshV2Cache(levelWalls)` or via the global
+        // `__pryzmWallV2Cache`), build the geometry from the resolver→footprint→
+        // extruder chain instead of MiterPrismBuilder. The new pipeline guarantees
+        // edge-coincident corners at L/T/X junctions BY CONSTRUCTION — no wedge,
+        // no overlap, no need for the WallJunctionInfill prism / polygonOffset hack
+        // that P4 retires once this path is live-verified.
+        //
+        // The polygon is in WORLD-XZ; we translate the geometry by −baseLine[0] so
+        // the mesh attaches at the wallGroup local origin, matching every other
+        // wall mesh in the scene.
+        const v2Cache = this.getEffectiveV2Cache();
+        if (isWallPipelineV2Enabled() && v2Cache && v2Cache.getMiter(wall.id)) {
+            const spec: LevelWallSpec = {
+                id: wall.id,
+                startXZ: { x: wall.baseLine[0].x, z: wall.baseLine[0].z },
+                endXZ:   { x: wall.baseLine[1].x, z: wall.baseLine[1].z },
+                thickness: wall.thickness,
+            };
+            const { geometry: worldGeom } = buildWallV2Geometry(spec, v2Cache, {
+                height: wall.height,
+                baseOffset: wall.baseOffset ?? 0,
+                elevation: 0,
+            });
+            // Translate world-XZ vertices to wallGroup-local (the group is at baseLine[0]).
+            worldGeom.translate(-wall.baseLine[0].x, 0, -wall.baseLine[0].z);
+
+            const meshV2 = new THREE.Mesh(worldGeom, material);
+            meshV2.userData = {
+                id: wall.id,
+                materialId: wall.materialId,
+                materialColor: wall.materialColor,
+                role: 'geometry',
+                selectable: false,
+                pipelineV2: true,    // diagnostic — DevTools can filter `userData.pipelineV2`.
+            };
+            return {
+                id: crypto.randomUUID(),
+                wallId: wall.id,
+                mesh: meshV2 as any,
+                type: 'wall-body',
+                parentId: wall.id,
+                levelId: wall.levelId,
+            };
+        }
+        // ────────────────────────────────────────────────────────────────────────
+
         // Use miter prism geometry so plain straight walls also get correct
         // oblique miter cuts at joins.  For free ends (no joinAngles) the
         // prism produces a standard perpendicular end face — same as BoxGeometry.
@@ -2512,6 +2567,29 @@ export class WallFragmentBuilder {
             parentId: wall.id,
             levelId: wall.levelId
         };
+    }
+
+    // ─── ADR-0055 P3b: V2 pipeline cache plumbing ────────────────────────────
+    // Owned by the builder (one per level rebuild). Refreshed by the
+    // orchestrator (or via DevTools for early verification) before
+    // `createWallBodyFragment` runs. The effective cache returned to the
+    // builder is `this._v2Cache` first; failing that, a globalThis cache
+    // (`window.__pryzmWallV2Cache`) is honoured so the user can opt in via
+    // DevTools without re-wiring the orchestrator yet.
+    private _v2Cache: WallPipelineV2Cache | null = null;
+
+    /** Refresh the per-level miter cache used by the ADR-0055 P3b pipeline.
+     *  Call once per level rebuild with EVERY straight wall on that level.
+     *  Cheap + idempotent (O(n) plus the resolver's O(k log k) per junction). */
+    public refreshV2Cache(levelWalls: readonly LevelWallSpec[]): void {
+        if (!this._v2Cache) this._v2Cache = new WallPipelineV2Cache();
+        this._v2Cache.refresh(levelWalls);
+    }
+
+    private getEffectiveV2Cache(): WallPipelineV2Cache | null {
+        if (this._v2Cache && this._v2Cache.junctionEnds > 0) return this._v2Cache;
+        const fromGlobal = (globalThis as { __pryzmWallV2Cache?: WallPipelineV2Cache }).__pryzmWallV2Cache;
+        return fromGlobal ?? this._v2Cache ?? null;
     }
 
     private createWallMaterial(wall?: WallData): THREE.Material {
