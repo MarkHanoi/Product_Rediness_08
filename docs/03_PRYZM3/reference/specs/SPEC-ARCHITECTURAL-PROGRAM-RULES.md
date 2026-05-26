@@ -6,7 +6,7 @@
 - **Single source of truth (code):** [`packages/ai-host/src/workflows/apartmentLayout/rules/programRules.ts`](../../../../packages/ai-host/src/workflows/apartmentLayout/rules/programRules.ts)
 - **Governs / is consumed by:** `tgl/bubbleGraph.ts` (sizing + program), `tgl/wallsAndDoors.ts` (door permission + caps), `tgl/enumerate.ts` (legality gate), `validate.ts` (V1–V9), `tgl/emitGeometry.ts` (occupancy), `furnishLayout/archetypes.ts` (furniture program).
 - **Conflict order:** VISION → ARCHITECTURE → C-contracts → this SPEC → code. When code disagrees with this table, **the code is wrong** — fix the code or supersede this SPEC.
-- **Related:** [SPEC-TGL-DETERMINISTIC-LAYOUT-ENGINE](./SPEC-TGL-DETERMINISTIC-LAYOUT-ENGINE.md), [SPEC-FURNITURE-LAYOUT-ENGINE](./SPEC-FURNITURE-LAYOUT-ENGINE.md), [C09](../../../00_Contracts/C09-AI-AND-VISIBILITY-INTENT.md), [C15](../../../00_Contracts/C15-HOSTED-ELEMENTS.md).
+- **Related:** [SPEC-LAYOUT-CONSTRAINT-DATABASE](./SPEC-LAYOUT-CONSTRAINT-DATABASE.md) (248 normative constraints — UK Building Regs / London Plan / HQI / BS / BRE / CIBSE / NKBA / IEE / ISO 16739; this SPEC is the connectivity + program subset that drives the engine today), [SPEC-TGL-DETERMINISTIC-LAYOUT-ENGINE](./SPEC-TGL-DETERMINISTIC-LAYOUT-ENGINE.md), [SPEC-FURNITURE-LAYOUT-ENGINE](./SPEC-FURNITURE-LAYOUT-ENGINE.md), [C09](../../../00_Contracts/C09-AI-AND-VISIBILITY-INTENT.md), [C15](../../../00_Contracts/C15-HOSTED-ELEMENTS.md).
 
 ---
 

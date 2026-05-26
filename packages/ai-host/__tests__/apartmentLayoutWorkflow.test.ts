@@ -38,8 +38,8 @@ function validOption(summary: string) {
             { name: 'Corridor', type: 'corridor', area: 4, windowCount: 0, hasDirectAccess: true, adjacentTo: ['Hall', 'Master', 'Bed2', 'Bed3', 'Bath'] },
             { name: 'Master', type: 'master', area: 14, windowCount: 1, hasDirectAccess: true, adjacentTo: ['Corridor', 'Ensuite'] },
             { name: 'Ensuite', type: 'ensuite', area: 4.2, windowCount: 0, hasDirectAccess: false, adjacentTo: ['Master'] },
-            { name: 'Bed2', type: 'bedroom', area: 10, windowCount: 1, hasDirectAccess: true, adjacentTo: ['Corridor'] },
-            { name: 'Bed3', type: 'bedroom', area: 9.5, windowCount: 1, hasDirectAccess: true, adjacentTo: ['Corridor'] },
+            { name: 'Bed2', type: 'bedroom', area: 12, windowCount: 1, hasDirectAccess: true, adjacentTo: ['Corridor'] },
+            { name: 'Bed3', type: 'bedroom', area: 11.5, windowCount: 1, hasDirectAccess: true, adjacentTo: ['Corridor'] },
             { name: 'Bath', type: 'bathroom', area: 5, windowCount: 0, hasDirectAccess: true, adjacentTo: ['Corridor'] },
         ],
     };

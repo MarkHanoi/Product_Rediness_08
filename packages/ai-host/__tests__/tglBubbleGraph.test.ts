@@ -33,8 +33,10 @@ describe('buildBubbleGraph (TGL P2)', () => {
     it('enforces §8 minima even on a tiny shell', () => {
         const g = buildBubbleGraph(PROGRAM, 20);
         for (const r of g.rooms) {
-            if (r.type === 'bedroom') expect(r.targetAreaM2).toBeGreaterThanOrEqual(9);
-            if (r.type === 'living') expect(r.targetAreaM2).toBeGreaterThanOrEqual(18);
+            // UK Building Regs / HQI mandatory minima (constraint DB):
+            // DB-026 double bedroom 11.5 m²; DB-047 living 14 m².
+            if (r.type === 'bedroom') expect(r.targetAreaM2).toBeGreaterThanOrEqual(11.5);
+            if (r.type === 'living')  expect(r.targetAreaM2).toBeGreaterThanOrEqual(14);
         }
     });
 

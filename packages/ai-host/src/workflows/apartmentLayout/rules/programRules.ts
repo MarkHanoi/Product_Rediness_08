@@ -69,16 +69,23 @@ const INF = Number.POSITIVE_INFINITY;
  */
 export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
     // ── Public / social ────────────────────────────────────────────────────────
+    // Numeric minima below are the UK BUILDING REGULATIONS / HQI mandatory values
+    // from the 248-constraint database (SPEC-LAYOUT-CONSTRAINT-DATABASE) — every
+    // value carries the constraint id it implements (e.g. DB-047 = constraint #047).
+
     living: {
         type: 'living', occupancy: 'living-room', privacy: 'public',
-        areaWeight: 1.7, minAreaM2: 18, minShortSideM: 2.7, needsWindow: true, windowMandatory: true,
+        // DB-047 minAreaM2 14 (HQI mandatory); DB-049 minShortSide 3.2 m.
+        areaWeight: 1.7, minAreaM2: 14, minShortSideM: 3.2, needsWindow: true, windowMandatory: true,
         accessFrom: ['hall', 'corridor', 'kitchen', 'dining'], maxDoors: INF,
         requiredFurniture: ['sofa'], optionalFurniture: ['coffee_table', 'lamp'], requiredFixtures: [],
         description: 'Primary social space. Front of the privacy gradient; open to kitchen/dining and the entrance hall.',
     },
     kitchen: {
         type: 'kitchen', occupancy: 'kitchen', privacy: 'public',
-        areaWeight: 0.95, minAreaM2: 8, minShortSideM: 1.8, needsWindow: true, windowMandatory: true,
+        // DB-052 minAreaM2 6.0 (galley HQI mandatory); DB-054 min galley aisle 1.0 m,
+        // counter depth 600 mm ⇒ min short side ≈ 1.8 m for a working galley.
+        areaWeight: 0.95, minAreaM2: 6, minShortSideM: 1.8, needsWindow: true, windowMandatory: true,
         // No direct hall→kitchen: kitchen is reached via the living/dining zone.
         accessFrom: ['corridor', 'living', 'dining', 'utility'], maxDoors: INF,
         requiredFurniture: ['kitchen_l_shape'], optionalFurniture: [], requiredFixtures: ['sink'],
@@ -86,7 +93,8 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
     },
     dining: {
         type: 'dining', occupancy: 'dining-room', privacy: 'public',
-        areaWeight: 0.9, minAreaM2: 6, minShortSideM: 2.4, needsWindow: true, windowMandatory: false,
+        // DB-060 minAreaM2 9.0 (HQI separate dining mandatory).
+        areaWeight: 0.9, minAreaM2: 9, minShortSideM: 2.4, needsWindow: true, windowMandatory: false,
         // No direct hall→dining: same reason as kitchen.
         accessFrom: ['corridor', 'living', 'kitchen'], maxDoors: INF,
         requiredFurniture: ['dining_table', 'dining_chair'], optionalFurniture: ['lamp'], requiredFixtures: [],
@@ -96,7 +104,8 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
     // ── Circulation ──────────────────────────────────────────────────────────────
     hall: {
         type: 'hall', occupancy: 'entrance-lobby', privacy: 'circulation',
-        areaWeight: 0.5, minAreaM2: 0, minShortSideM: 1.2, needsWindow: false, windowMandatory: false,
+        // DB-065 minAreaM2 2.5 (HQI mandatory); DB-062 main corridor clear 1.0 m.
+        areaWeight: 0.5, minAreaM2: 2.5, minShortSideM: 1.2, needsWindow: false, windowMandatory: false,
         // The entrance hall is a CLEAN lobby: it distributes ONLY to the living space
         // and the corridor — never directly to a bedroom, bathroom or service room.
         // The front (perimeter) door lands in the hall; you then choose social
@@ -109,7 +118,9 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
     },
     corridor: {
         type: 'corridor', occupancy: 'corridor', privacy: 'circulation',
-        areaWeight: 0.45, minAreaM2: 0, minShortSideM: 0.9, needsWindow: false, windowMandatory: false,
+        // DB-062 main corridor clear 1.0 m mandatory (Part M); 1.2 m recommended HQI;
+        // DB-064 secondary corridor 0.9 m mandatory. Pick 1.0 m as the default minimum.
+        areaWeight: 0.45, minAreaM2: 0, minShortSideM: 1.0, needsWindow: false, windowMandatory: false,
         accessFrom: ['hall', 'living', 'kitchen', 'dining', 'bedroom', 'master', 'bathroom', 'study', 'utility'], maxDoors: INF,
         requiredFurniture: [], optionalFurniture: [], requiredFixtures: [],
         description: 'Private-zone circulation spine. Serves bedrooms, bathrooms, study, utility; never an en-suite.',
@@ -118,7 +129,10 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
     // ── Private (sleeping / work) ──────────────────────────────────────────────
     master: {
         type: 'master', occupancy: 'bedroom', privacy: 'private',
-        areaWeight: 1.3, minAreaM2: 12, minShortSideM: 2.6, needsWindow: true, windowMandatory: true,
+        // DB-020 master minAreaM2 12 (Building Regs mandatory); DB-022 min clear width
+        // 2.75 m to fit a double bed with circulation both sides; DB-023 clear length
+        // 3.2 m recommended HQI; DB-021 recommended 16-20 m².
+        areaWeight: 1.3, minAreaM2: 12, minShortSideM: 2.75, needsWindow: true, windowMandatory: true,
         // Master is reached from CORRIDOR / living / dining AND connects to its
         // en-suite — never directly off the entrance hall (the user's rule).
         accessFrom: ['corridor', 'living', 'dining', 'ensuite'], maxDoors: 2,
@@ -127,7 +141,10 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
     },
     bedroom: {
         type: 'bedroom', occupancy: 'bedroom', privacy: 'private',
-        areaWeight: 1.0, minAreaM2: 9, minShortSideM: 2.1, needsWindow: true, windowMandatory: true,
+        // DB-026 double bedroom minAreaM2 11.5 (Building Regs mandatory); DB-028 min
+        // clear width 2.6 m. (Single bedroom 7.5 m² / 2.15 m is permitted by Building
+        // Regs DB-030/031 but we default to double-capable to avoid box rooms.)
+        areaWeight: 1.0, minAreaM2: 11.5, minShortSideM: 2.6, needsWindow: true, windowMandatory: true,
         // A bedroom's door MUST land on circulation or a social space — never another
         // bedroom and never directly off the entrance hall. The user's explicit rule:
         // "bedrooms should connect with the door to a corridor / living / dining."
@@ -146,7 +163,9 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
     // ── Wet rooms ────────────────────────────────────────────────────────────────
     bathroom: {
         type: 'bathroom', occupancy: 'bathroom', privacy: 'private',
-        areaWeight: 0.45, minAreaM2: 4, minShortSideM: 1.5, needsWindow: false, windowMandatory: false,
+        // DB-035 full bathroom minAreaM2 5.0 (BS 8300 mandatory); DB-037 min clear
+        // width 1.8 m. DB-039 shower-room only is 3.5 m² — we default to full.
+        areaWeight: 0.45, minAreaM2: 5, minShortSideM: 1.8, needsWindow: false, windowMandatory: false,
         // A bathroom connects to exactly ONE of: a corridor or a bedroom — NEVER the
         // entrance hall (the user's explicit rule), never a kitchen / living / dining.
         accessFrom: ['corridor', 'bedroom', 'master'], maxDoors: 1,
@@ -156,7 +175,8 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
     },
     ensuite: {
         type: 'ensuite', occupancy: 'bathroom', privacy: 'private',
-        areaWeight: 0.4, minAreaM2: 4, minShortSideM: 1.2, needsWindow: false, windowMandatory: false,
+        // DB-039 shower-room minAreaM2 3.5 (BS 8300 mandatory); DB-040 min width 1.5 m.
+        areaWeight: 0.4, minAreaM2: 3.5, minShortSideM: 1.5, needsWindow: false, windowMandatory: false,
         // An en-suite is reached ONLY through its master bedroom.
         accessFrom: ['master'], maxDoors: 1,
         requiredFurniture: ['toilet_radiator', 'shower_glass_panel'], optionalFurniture: [],
@@ -167,7 +187,8 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
     // ── Service ──────────────────────────────────────────────────────────────────
     utility: {
         type: 'utility', occupancy: 'utility-room', privacy: 'service',
-        areaWeight: 0.4, minAreaM2: 0, minShortSideM: 1.5, needsWindow: false, windowMandatory: false,
+        // DB-068 utility room minAreaM2 3.5 (HQI recommended, washer + dryer side-by-side).
+        areaWeight: 0.4, minAreaM2: 3.5, minShortSideM: 1.5, needsWindow: false, windowMandatory: false,
         accessFrom: ['corridor', 'kitchen'], maxDoors: 1,
         requiredFurniture: [], optionalFurniture: [], requiredFixtures: ['sink'],
         description: 'Utility / laundry. One door to the corridor or the kitchen.',

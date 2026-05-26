@@ -35,8 +35,8 @@ function validLayout(): LayoutOption {
             { name: 'Corridor', type: 'corridor', area: 4, windowCount: 0, hasDirectAccess: true, adjacentTo: ['Hall', 'Master', 'Bed2', 'Bed3', 'Bath'] },
             { name: 'Master', type: 'master', area: 14, windowCount: 1, hasDirectAccess: true, adjacentTo: ['Corridor', 'Ensuite'] },
             { name: 'Ensuite', type: 'ensuite', area: 4.2, windowCount: 0, hasDirectAccess: false, adjacentTo: ['Master'] },
-            { name: 'Bed2', type: 'bedroom', area: 10, windowCount: 1, hasDirectAccess: true, adjacentTo: ['Corridor'] },
-            { name: 'Bed3', type: 'bedroom', area: 9.5, windowCount: 1, hasDirectAccess: true, adjacentTo: ['Corridor'] },
+            { name: 'Bed2', type: 'bedroom', area: 12, windowCount: 1, hasDirectAccess: true, adjacentTo: ['Corridor'] },
+            { name: 'Bed3', type: 'bedroom', area: 11.5, windowCount: 1, hasDirectAccess: true, adjacentTo: ['Corridor'] },
             { name: 'Bath', type: 'bathroom', area: 5, windowCount: 0, hasDirectAccess: true, adjacentTo: ['Corridor'] },
         ],
     };
@@ -54,7 +54,7 @@ describe('validateLayout (SPEC §8)', () => {
         l.rooms.find(r => r.name === 'Bed3')!.area = 7;
         const r = validateLayout(l, constraints, program);
         expect(r.valid).toBe(false);
-        expect(r.failures.some(f => /Bed3.*below the 9/.test(f))).toBe(true);
+        expect(r.failures.some(f => /Bed3.*below the 11\.5/.test(f))).toBe(true);
     });
 
     it('V2 — rejects a windowless bedroom', () => {
