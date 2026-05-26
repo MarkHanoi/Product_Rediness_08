@@ -168,12 +168,27 @@ export function computeJunctionInfills(walls: WallData[]): JunctionInfillData[] 
             Math.max(m, Math.hypot(v.x - consensusPoint.x, v.z - consensusPoint.z)), 0);
         if (maxDist < 1e-4) continue;
 
+        // §JUNCTION-INFLATE (interim mitigation per ADR-0055): inflate each vertex
+        // outward from the consensus point so the prism OVERLAPS the surrounding wall
+        // caps with slack — without this, T/X junctions at oblique angles leave a
+        // dark V-wedge between the cap face and the prism perimeter. Inflation is
+        // capped at the smallest wall thickness × 0.25 to stay inside the wall body.
+        const minThickness = entries.reduce((m, e) => Math.min(m, e.thickness), Infinity);
+        const inflate = Math.min(0.025, isFinite(minThickness) ? minThickness * 0.25 : 0.025);
+        const inflatedVerts = voidVerts.map(v => {
+            const dx = v.x - consensusPoint.x, dz = v.z - consensusPoint.z;
+            const d = Math.hypot(dx, dz);
+            if (d < 1e-6) return v;
+            const k = (d + inflate) / d;
+            return { x: consensusPoint.x + dx * k, z: consensusPoint.z + dz * k };
+        });
+
         const avgHeight   = entries.reduce((s, e) => s + e.height, 0) / entries.length;
         const clusterKey  = [...wallIdsInCluster].sort().join('|');
 
         infills.push({
             clusterKey,
-            vertices:  voidVerts,
+            vertices:  inflatedVerts,
             elevation: entries[0].elevation,
             height:    avgHeight,
         });
