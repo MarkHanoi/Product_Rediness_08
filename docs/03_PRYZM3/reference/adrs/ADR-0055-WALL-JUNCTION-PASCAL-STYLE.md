@@ -90,35 +90,25 @@ L-corners (2-wall) are a special case of N=2: `wall_i.left = wall_{i+1}.right` i
 1. **P1 — port the resolver.** New [`JunctionResolverV2.ts`](../../../../packages/geometry-wall/src/JunctionResolverV2.ts) + 16 tests for L / T / Y / X / closed-loop cases. No editor wiring yet. **✅ SHIPPED 2026-05-26 — commit `5840358`.**
 2. **P2 — new footprint builder.** [`WallFootprint2D.ts`](../../../../packages/geometry-wall/src/WallFootprint2D.ts) + 16 tests for the 4 / 5 / 6-vertex polygon shape and the **edge-coincidence invariant** (adjacent walls share 2–3 vertices on the junction line — the void is gone by construction). **✅ SHIPPED 2026-05-26.**
 3. **P3a — polygon extruder.** [`WallPolygonExtruder.ts`](../../../../packages/geometry-wall/src/WallPolygonExtruder.ts) + 13 tests, including the **T-junction 3-D edge-coincidence proof**: wall B's start corners sit exactly on wall A's outer-face plane within A's X-range — no overlap, no gap. Top fan + bottom fan + side quads per polygon edge; per-face outward normals (hard edges for plan-view edge projection). **✅ SHIPPED 2026-05-26.**
-4. **P3b — wiring (initial cut).** [`WallPipelineV2.ts`](../../../../packages/geometry-wall/src/WallPipelineV2.ts) shim (cache + feature flag + one-shot, 13 tests) **AND** the wired branch inside [`WallFragmentBuilder.createWallBodyFragment`](../../../../packages/geometry-wall/src/WallFragmentBuilder.ts) (non-layered, no-openings — the simplest call site). Old `MiterPrismBuilder` path remains the default; the V2 path is gated by `window.__pryzmWallPipelineV2 === true` AND a populated cache. **✅ SHIPPED 2026-05-27.** Layered + opening sites are follow-up commits once this is live-verified.
+4. **P3b — wiring + auto-wired orchestrator.** [`WallPipelineV2.ts`](../../../../packages/geometry-wall/src/WallPipelineV2.ts) shim (cache + feature flag + one-shot, 13 tests) wired into [`WallFragmentBuilder.createWallBodyFragment`](../../../../packages/geometry-wall/src/WallFragmentBuilder.ts) (non-layered, no-openings — the simplest call site). The orchestrator [`WallRebuildCoordinator._flush`](../../../../apps/editor/src/engine/WallRebuildCoordinator.ts) now calls `builder.refreshV2Cache(specs)` **once per affected level rebuild**, immediately after `WallJoinResolver.resolveLevel`. **Default ON since 2026-05-27** — `window.__pryzmWallPipelineV2 = false` is the emergency opt-out. **✅ SHIPPED.**
 
-   **DevTools opt-in for verification:**
+   **Architectural alignment:**
+   - **C01 layer matrix** — `geometry-wall` (L1) does NOT reach into any store. The orchestrator (apps/editor, drives L3 stores → L1 builder) reads `levelWalls` once + passes the slice as a value via `refreshV2Cache(LevelWallSpec[])`. Pure data hand-off; no downward layer leak.
+   - **C04 rendering** — V2 produces a single `BufferGeometry` per wall (top fan + bottom fan + n side quads). No new rAF, no extra render passes, no shadow-map changes.
+   - **C11 element creation** — wall command flow unchanged. The V2 swap is **geometry-generation only**; CommandManager, WallStore, BimManager, projection cache all see identical artefacts (same wall id, same baseline, same userData identity-triple), just a different `BufferGeometry` shape that closes the void.
+   - **C10 performance** — resolver is O(n + k log k), called once per affected level rebuild (not per wall). No per-wall cost beyond the legacy path.
+   - The diagnostic `userData.pipelineV2 === true` lets DevTools / future tests filter V2-built meshes.
 
-   ```js
-   // Enable the new pipeline.
-   window.__pryzmWallPipelineV2 = true;
-
-   // Build a level-wide cache from the live wall store.
-   const { WallPipelineV2Cache } = await import('@pryzm/geometry-wall');
-   const cache = new WallPipelineV2Cache();
-   const all = window.WallStore?.getAll?.() ?? [];
-   const levelId = window.projectContext?.activeLevelId ?? 'L0';
-   cache.refresh(all.filter(w => w.levelId === levelId).map(w => ({
-       id: w.id,
-       startXZ: { x: w.baseLine[0].x, z: w.baseLine[0].z },
-       endXZ:   { x: w.baseLine[1].x, z: w.baseLine[1].z },
-       thickness: w.thickness,
-   })));
-   window.__pryzmWallV2Cache = cache;
-
-   // Force a rebuild — drag any wall by 1 mm and back, or call:
-   window.WallRebuildCoordinator?.scheduleRebuild?.(levelId);
-   ```
-
-   Verify the rebuilt walls have `mesh.userData.pipelineV2 === true` (the diagnostic flag). L-corners + T-junctions should render WITHOUT the black wedge.
-
-5. **P4 — retire infill.** Once P3b is live-verified for non-layered walls AND the orchestrator (`WallRebuildCoordinator`) is wired to call `refreshV2Cache(levelWalls)` automatically: extend the V2 branch to the layered + opening call sites; delete `WallJunctionInfill*`; remove the `polygonOffset` patch in `WallJunctionInfillManager`. Confirm the scene has no wedges live.
+5. **P4 — retire infill.** Extend V2 to the layered + opening call sites; delete `WallJunctionInfill*`; remove the `polygonOffset` patch in `WallJunctionInfillManager`. ⏳
 6. **P5 — door / window opening builders.** Confirm they still read wall thickness + centerline correctly (no schema change expected).
+
+## How to opt out
+
+```js
+// Emergency rollback to the legacy `MiterPrismBuilder` path:
+window.__pryzmWallPipelineV2 = false;
+// Trigger a rebuild — drag any wall by 1 mm or reload the project.
+```
 
 ### Vertex-count contract (P3a)
 

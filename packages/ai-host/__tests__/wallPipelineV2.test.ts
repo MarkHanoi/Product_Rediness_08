@@ -37,15 +37,17 @@ describe('WallPipelineV2 — feature flag', () => {
     beforeEach(() => { delete g.__pryzmWallPipelineV2; });
     afterEach(()  => { delete g.__pryzmWallPipelineV2; });
 
-    it('returns false by default (must be explicitly enabled per session)', () => {
-        expect(isWallPipelineV2Enabled()).toBe(false);
+    it('returns true by default (Pascal pipeline is now the standard path)', () => {
+        expect(isWallPipelineV2Enabled()).toBe(true);
     });
 
-    it('returns true ONLY when globalThis.__pryzmWallPipelineV2 === true (no truthy coercion)', () => {
-        (g as any).__pryzmWallPipelineV2 = 1;       // truthy but not strictly `true`
+    it('returns false ONLY when globalThis.__pryzmWallPipelineV2 === false (literal-false escape hatch)', () => {
+        g.__pryzmWallPipelineV2 = false;
         expect(isWallPipelineV2Enabled()).toBe(false);
-        (g as any).__pryzmWallPipelineV2 = 'true';  // string
-        expect(isWallPipelineV2Enabled()).toBe(false);
+        (g as any).__pryzmWallPipelineV2 = 0;       // falsy but not strictly `false`
+        expect(isWallPipelineV2Enabled()).toBe(true);
+        (g as any).__pryzmWallPipelineV2 = null;
+        expect(isWallPipelineV2Enabled()).toBe(true);
         g.__pryzmWallPipelineV2 = true;
         expect(isWallPipelineV2Enabled()).toBe(true);
     });

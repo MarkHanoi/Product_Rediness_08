@@ -28,16 +28,14 @@ import { buildWallExtrusion, type ExtrudeOpts } from './WallPolygonExtruder';
 // ─── Feature flag ─────────────────────────────────────────────────────────────
 
 /**
- * Opt-in switch for the new Pascal-style wall pipeline. Default OFF until P3b is
- * live-verified — at which point P4 retires the old `WallJunctionInfill*` + the
- * `polygonOffset` patch. Set from DevTools with:
- *
- *   window.__pryzmWallPipelineV2 = true; window.windowTool?.refresh?.();
- *
- * Reads `globalThis` so it works in browser + Node (the latter for tests).
+ * Pascal-style wall pipeline switch. **DEFAULT ON as of 2026-05-27.** The
+ * legacy `MiterPrismBuilder` path is retained as an emergency opt-out — set
+ * `window.__pryzmWallPipelineV2 = false` to fall back. Returns ON unless that
+ * literal-false escape hatch is set. Reads `globalThis` so it works in browser
+ * + Node (the latter for tests).
  */
 export function isWallPipelineV2Enabled(): boolean {
-    return (globalThis as { __pryzmWallPipelineV2?: boolean }).__pryzmWallPipelineV2 === true;
+    return (globalThis as { __pryzmWallPipelineV2?: boolean }).__pryzmWallPipelineV2 !== false;
 }
 
 // ─── Per-level miter cache ────────────────────────────────────────────────────

@@ -10,7 +10,11 @@ import { buildCurvedLayerGeometry, computeStations } from './CurvedWallLayerBuil
 import { projectCapVertex } from './CurvedWallCapMiter';
 import { clusterOpenings, buildLayeredWallSegmentsAroundOpenings } from './LayeredWallOpeningBuilder';
 import { buildMiterPrism } from './MiterPrismBuilder';
-// ADR-0055 P3b: opt-in Pascal-style wall pipeline (feature-flagged; default off).
+// ADR-0055 — Pascal-style wall pipeline (default ON since 2026-05-27).
+// The orchestrator (`WallRebuildCoordinator._flush`) calls `refreshV2Cache()`
+// once per level rebuild with the same `levelWalls` slice it feeds to
+// `WallJoinResolver.resolveLevel`. The builder NEVER reaches into any store —
+// pure data hand-off (L1→L1) so the architectural layering stays clean.
 import {
     WallPipelineV2Cache,
     buildWallV2Geometry,
@@ -2478,14 +2482,18 @@ export class WallFragmentBuilder {
     private createWallBodyFragment(wall: WallData, joinData?: JoinData | null): WallFragment {
         const material = this.createWallMaterial(wall);
 
-        // ─── ADR-0055 P3b — Pascal-style wall pipeline (opt-in, feature-flagged) ───
-        // When `window.__pryzmWallPipelineV2 === true` AND a level-wide miter cache
-        // has been refreshed (`this.refreshV2Cache(levelWalls)` or via the global
-        // `__pryzmWallV2Cache`), build the geometry from the resolver→footprint→
-        // extruder chain instead of MiterPrismBuilder. The new pipeline guarantees
-        // edge-coincident corners at L/T/X junctions BY CONSTRUCTION — no wedge,
-        // no overlap, no need for the WallJunctionInfill prism / polygonOffset hack
-        // that P4 retires once this path is live-verified.
+        // ─── ADR-0055 — Pascal-style wall pipeline (default ON since 2026-05-27) ───
+        // Default-ON: when the V2 flag isn't explicitly false (escape hatch:
+        // `window.__pryzmWallPipelineV2 = false`), build geometry from the
+        // resolver→footprint→extruder chain instead of `MiterPrismBuilder`. The
+        // new pipeline guarantees edge-coincident corners at L/T/X junctions BY
+        // CONSTRUCTION — no wedge, no overlap, no need for the WallJunctionInfill
+        // prism / polygonOffset hack (P4 retires those entirely once verified).
+        //
+        // The miter cache is refreshed by the orchestrator (WallRebuildCoordinator
+        // ._flush) immediately after WallJoinResolver.resolveLevel — pure data
+        // hand-off, no store reach-down from the builder. The builder reads the
+        // pre-computed cache and consumes it as a value.
         //
         // The polygon is in WORLD-XZ; we translate the geometry by −baseLine[0] so
         // the mesh attaches at the wallGroup local origin, matching every other
@@ -2569,25 +2577,28 @@ export class WallFragmentBuilder {
         };
     }
 
-    // ─── ADR-0055 P3b: V2 pipeline cache plumbing ────────────────────────────
-    // Owned by the builder (one per level rebuild). Refreshed by the
-    // orchestrator (or via DevTools for early verification) before
-    // `createWallBodyFragment` runs. The effective cache returned to the
-    // builder is `this._v2Cache` first; failing that, a globalThis cache
-    // (`window.__pryzmWallV2Cache`) is honoured so the user can opt in via
-    // DevTools without re-wiring the orchestrator yet.
+    // ─── ADR-0055: V2 pipeline cache ─────────────────────────────────────────
+    // Owned by the builder. Populated by `WallRebuildCoordinator._flush` once
+    // per level rebuild with the SAME `levelWalls` slice it feeds to
+    // `WallJoinResolver.resolveLevel`. The builder never reads any store —
+    // pure data hand-off keeps the layer boundaries clean (L1 builder / L3
+    // orchestrator). A DevTools-injected `__pryzmWallV2Cache` is also honoured
+    // as a debugging hook; it never escapes the manual-test surface.
     private _v2Cache: WallPipelineV2Cache | null = null;
 
-    /** Refresh the per-level miter cache used by the ADR-0055 P3b pipeline.
-     *  Call once per level rebuild with EVERY straight wall on that level.
-     *  Cheap + idempotent (O(n) plus the resolver's O(k log k) per junction). */
+    /** Refresh the per-level miter cache used by the Pascal-style pipeline.
+     *  Idempotent; cheap (O(n) + the resolver's O(k log k) per junction). The
+     *  orchestrator (`WallRebuildCoordinator._flush`) calls this exactly once
+     *  per affected level, immediately after `WallJoinResolver.resolveLevel`. */
     public refreshV2Cache(levelWalls: readonly LevelWallSpec[]): void {
         if (!this._v2Cache) this._v2Cache = new WallPipelineV2Cache();
         this._v2Cache.refresh(levelWalls);
     }
 
     private getEffectiveV2Cache(): WallPipelineV2Cache | null {
+        // Orchestrator-populated cache wins if it carries any junctions.
         if (this._v2Cache && this._v2Cache.junctionEnds > 0) return this._v2Cache;
+        // DevTools escape hatch — never set in production code paths.
         const fromGlobal = (globalThis as { __pryzmWallV2Cache?: WallPipelineV2Cache }).__pryzmWallV2Cache;
         return fromGlobal ?? this._v2Cache ?? null;
     }

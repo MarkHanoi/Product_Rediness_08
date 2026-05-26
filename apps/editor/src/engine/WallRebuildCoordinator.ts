@@ -304,6 +304,36 @@ export class WallRebuildCoordinator {
                 const snapR   = getWorldToleranceForActiveCamera(DEFAULT_SNAP_PIXEL_RADIUS, _cam, _canvas);
                 const adjustments = WallJoinResolver.resolveLevel(levelWalls, { snapRadius: snapR });
 
+                // ─── ADR-0055 — Pascal wall pipeline cache refresh ─────────────
+                // Orchestrator owns the level-wide miter cache used by the new
+                // resolver→footprint→extruder chain in `WallFragmentBuilder`. We
+                // refresh it ONCE per level rebuild here — after `resolveLevel`
+                // returns the trimmed baselines, so the V2 resolver sees the same
+                // wall geometry the legacy `MiterPrismBuilder` path consumes.
+                // Pure data hand-off (L1→L1, no store reach-down inside the
+                // builder); the builder owns geometry only, the coordinator owns
+                // orchestration. Skipped silently if the builder lacks the method
+                // (older runtimes) — V2 then falls back to the per-call auto path.
+                try {
+                    const refresh = (builder as unknown as {
+                        refreshV2Cache?: (specs: ReadonlyArray<{ id: string; startXZ: { x: number; z: number }; endXZ: { x: number; z: number }; thickness: number }>) => void;
+                    }).refreshV2Cache;
+                    if (typeof refresh === 'function') {
+                        const specs = levelWalls
+                            .filter(w => w.baseLine?.length >= 2 && typeof w.thickness === 'number')
+                            .map(w => ({
+                                id: w.id,
+                                startXZ: { x: w.baseLine[0].x, z: w.baseLine[0].z },
+                                endXZ:   { x: w.baseLine[1].x, z: w.baseLine[1].z },
+                                thickness: w.thickness,
+                            }));
+                        refresh.call(builder, specs);
+                    }
+                } catch (err) {
+                    console.warn('[WallRebuildCoordinator] V2 cache refresh failed (non-fatal):', err);
+                }
+                // ────────────────────────────────────────────────────────────────
+
                 const _rebuiltWallIds = new Set<string>();
 
                 adjustments.forEach((adjustment: JoinData & { baseLine: [THREE.Vector3, THREE.Vector3] }, wallId: string) => {
