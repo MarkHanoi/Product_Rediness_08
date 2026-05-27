@@ -150,7 +150,16 @@ export class ApartmentLayoutExecutor {
      */
     private _finishLayout(runtime: PryzmRuntime, levelId: string, set: LayoutCommandSet, option: ScoredLayoutOption): void {
         const emitDone = (doorCount: number): void => {
-            runtime.events.emit('apartment.layout-executed', { createdWallCount: set.wallIds.length, createdDoorCount: doorCount });
+            // §PREVIEW-VS-BUILD — surface the drops on the completion event too so
+            // downstream automation (tests, telemetry, AI follow-ups) can observe
+            // partial builds without scraping the console.
+            runtime.events.emit('apartment.layout-executed', {
+                createdWallCount: set.wallIds.length,
+                createdDoorCount: doorCount,
+                previewWallCount: option.walls.length,
+                droppedWallCount: set.warnings.length,
+                warnings: [...set.warnings],
+            });
             runtime.events?.emit('pryzm:toast', { message: `Built layout — ${set.wallIds.length} walls, ${doorCount} doors.`, severity: 'success' });
         };
 

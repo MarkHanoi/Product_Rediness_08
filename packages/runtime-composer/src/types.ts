@@ -129,7 +129,17 @@ export interface RuntimeEvents {
 
   /** Fired by the A6 execute handler after the layout is committed as one
    *  undoable batch (rooms then auto-redetect). */
-  'apartment.layout-executed': { createdWallCount: number; createdDoorCount: number };
+  'apartment.layout-executed': {
+    createdWallCount: number;
+    createdDoorCount: number;
+    /** §PREVIEW-VS-BUILD (2026-05-27) — drop visibility: how many walls the
+     *  chosen LayoutOption carried vs how many actually landed. Lets tests,
+     *  telemetry, and AI follow-ups observe partial builds without scraping
+     *  the console. Optional for back-compat with older emitters. */
+    previewWallCount?: number;
+    droppedWallCount?: number;
+    warnings?: readonly string[];
+  };
 
   /** Fired by the §11 modal on cancel — the AIStore pending run is cleared. */
   'apartment.layout-cancel': Record<string, never>;
