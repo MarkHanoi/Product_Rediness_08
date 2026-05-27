@@ -144,6 +144,20 @@ export interface RuntimeEvents {
   /** Fired by the §11 modal on cancel — the AIStore pending run is cleared. */
   'apartment.layout-cancel': Record<string, never>;
 
+  // ── #52 D-FLE Furniture Layout Engine — events ────────────────────────────
+  /** Fired by the trigger (console command / apartment.layout-executed auto-
+   *  fire) to ask the FurnishLayoutExecutor to furnish every furnishable room
+   *  on the active level. Payload empty; the executor reads the active level
+   *  from `window.projectContext.activeLevelId`. */
+  'furnish.layout-execute': Record<string, never>;
+  /** Fired by FurnishLayoutExecutor after the runBatch settles. `placedCount`
+   *  is the total number of furniture.create commands dispatched. */
+  'furnish.layout-executed': {
+    placedCount: number;
+    roomCount: number;
+    levelId: string;
+  };
+
   // ── Wave 4 Track A — typed-slot events ────────────────────────────────────
 
   /** PR 4.A.1 (D.11-prep) — emitted by `buildViewRegistrySlot.activate()`

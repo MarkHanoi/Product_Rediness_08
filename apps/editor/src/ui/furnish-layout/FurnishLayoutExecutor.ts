@@ -1,0 +1,282 @@
+// Furnish Layout — A6-style executor for the D-FLE engine.
+//
+// Mirrors ApartmentLayoutExecutor: subscribes to a runtime event
+// ('furnish.layout-execute'), pulls every furnishable room on the active level
+// out of the live wall/room/door/window stores, builds the per-room
+// `FurnishRoomInput`, runs `furnishRoom`, and dispatches the resulting
+// `furniture.create` commands INSIDE ONE `batchCoordinator.runBatch` so the
+// whole furnishing is ONE undo unit + the room redetect is skipped (furniture
+// doesn't change room topology).
+//
+// PURE wiring: the pure engine (`@pryzm/ai-host` furnishLayout) is dynamic-
+// imported on first invoke so the chunk stays off first-paint. Console
+// command `window.pryzmFurnishAllRooms()` bypasses the AI panel for testing.
+
+import { batchCoordinator, storeRegistry } from '@pryzm/core-app-model';
+import { createId } from '@pryzm/schemas';
+import type { PryzmRuntime } from '@pryzm/runtime-composer';
+import type {
+    FurnishRoomInput,
+    OpeningPose,
+    PlacedFurniture,
+    RoomWallSeg,
+} from '@pryzm/ai-host';
+import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
+
+interface Pt { x: number; z: number }
+
+interface RoomLike {
+    id: string;
+    levelId: string;
+    occupancyType?: string;
+    boundary?: { polygon?: ReadonlyArray<{ x: number; z: number }>; height?: number };
+    computed?: { area?: number; centroid?: { x: number; z: number } };
+    boundingWallIds?: string[];
+}
+interface WallLike {
+    id: string;
+    levelId: string;
+    thickness?: number;
+    baseLine?: ReadonlyArray<{ x: number; y?: number; z: number }>;
+    openings?: ReadonlyArray<{
+        type: 'door' | 'window';
+        elementId?: string;
+        offset?: number;       // m along baseLine[0] → baseLine[1]
+        width?: number;        // m
+    }>;
+}
+interface FacadeLike {
+    getFacades?: (levelId: string) => Map<string, { isExterior?: boolean }>;
+}
+
+const EPS = 1e-6;
+
+function dist(a: Pt, b: Pt): number { return Math.hypot(a.x - b.x, a.z - b.z); }
+function dot(a: Pt, b: Pt): number  { return a.x * b.x + a.z * b.z; }
+function sub(a: Pt, b: Pt): Pt      { return { x: a.x - b.x, z: a.z - b.z }; }
+function add(a: Pt, b: Pt): Pt      { return { x: a.x + b.x, z: a.z + b.z }; }
+function mul(a: Pt, k: number): Pt  { return { x: a.x * k, z: a.z * k }; }
+function unit(a: Pt): Pt { const L = Math.hypot(a.x, a.z) || 1; return { x: a.x / L, z: a.z / L }; }
+function leftPerp(a: Pt): Pt { return { x: -a.z, z: a.x }; }
+
+/** Find the wall (from `walls`) whose centerline lies along the polygon edge
+ *  `a → b`. A match means the edge endpoints are within `tol` (default 0.2 m,
+ *  half a typical wall thickness) of the wall's two endpoints in either order. */
+function matchWallToEdge(
+    a: Pt, b: Pt, walls: readonly WallLike[], tol: number,
+): WallLike | undefined {
+    for (const w of walls) {
+        const bl = w.baseLine;
+        if (!bl || bl.length < 2) continue;
+        const wa: Pt = { x: bl[0]!.x, z: bl[0]!.z };
+        const wb: Pt = { x: bl[1]!.x, z: bl[1]!.z };
+        // Edges match if BOTH endpoints are within tol (in either order).
+        if ((dist(a, wa) < tol && dist(b, wb) < tol) ||
+            (dist(a, wb) < tol && dist(b, wa) < tol)) {
+            return w;
+        }
+        // Polygon edge may also LIE ALONG a longer wall (passthrough at T/X).
+        // Detect: both `a` and `b` project onto the wall segment AND have
+        // negligible perpendicular distance.
+        const wd = sub(wb, wa);
+        const wlen = Math.hypot(wd.x, wd.z) || 1;
+        const u: Pt = { x: wd.x / wlen, z: wd.z / wlen };
+        const projA = dot(sub(a, wa), u);
+        const projB = dot(sub(b, wa), u);
+        const perpA = Math.abs(dot(sub(a, wa), leftPerp(u)));
+        const perpB = Math.abs(dot(sub(b, wa), leftPerp(u)));
+        const onLine = perpA < tol && perpB < tol;
+        const onSegA = projA > -tol && projA < wlen + tol;
+        const onSegB = projB > -tol && projB < wlen + tol;
+        if (onLine && onSegA && onSegB) return w;
+    }
+    return undefined;
+}
+
+function shoelaceCentroid(poly: readonly Pt[]): { centroid: Pt; area: number } {
+    if (poly.length < 3) return { centroid: { x: 0, z: 0 }, area: 0 };
+    let cx = 0, cz = 0, A = 0;
+    for (let i = 0; i < poly.length; i++) {
+        const p = poly[i]!;
+        const q = poly[(i + 1) % poly.length]!;
+        const cross = p.x * q.z - q.x * p.z;
+        A += cross;
+        cx += (p.x + q.x) * cross;
+        cz += (p.z + q.z) * cross;
+    }
+    A *= 0.5;
+    if (Math.abs(A) < EPS) return { centroid: { x: 0, z: 0 }, area: 0 };
+    return { centroid: { x: cx / (6 * A), z: cz / (6 * A) }, area: Math.abs(A) };
+}
+
+export class FurnishLayoutExecutor {
+    private _dispose: (() => void) | null = null;
+
+    /** Subscribe to 'furnish.layout-execute'. Idempotent. */
+    attach(runtime: PryzmRuntime): void {
+        if (this._dispose) return;
+        const events = runtime.events as unknown as {
+            on?: (k: string, fn: (p: unknown) => void) => (() => void) | void;
+        };
+        const sub = events.on?.('furnish.layout-execute', () => {
+            void this._execute(runtime);
+        });
+        this._dispose = typeof sub === 'function' ? sub : () => { /* */ };
+    }
+    detach(): void { this._dispose?.(); this._dispose = null; }
+
+    private async _execute(runtime: PryzmRuntime): Promise<void> {
+        const toast = (message: string, severity: 'info' | 'success' | 'error' | 'warn'): void => {
+            runtime.events?.emit('pryzm:toast', { message, severity });
+        };
+        try {
+            const level = resolveActiveLevel();
+            if (!level?.id) { toast('No active level — open a project first.', 'error'); return; }
+
+            const wallStore = storeRegistry.getStoreForType('wall') as unknown as
+                { getAll?(): WallLike[] } | undefined;
+            const roomStore = storeRegistry.getStoreForType('room') as unknown as
+                { getAll?(): RoomLike[] } | undefined;
+            const allRooms = (roomStore?.getAll?.() ?? []).filter(r => r.levelId === level.id);
+            const allWalls = (wallStore?.getAll?.() ?? []).filter(w => w.levelId === level.id);
+            if (allRooms.length === 0) {
+                toast('No rooms detected on the active level — generate or draw walls first.', 'warn');
+                return;
+            }
+
+            // Facade orientation (for isExterior flag). Lazy + optional.
+            let facades: Map<string, { isExterior?: boolean }> | undefined;
+            try {
+                const w = window as unknown as { facadeOrientationService?: FacadeLike };
+                facades = w.facadeOrientationService?.getFacades?.(level.id);
+            } catch { facades = undefined; }
+
+            // Dynamic-import the pure engine on first invoke.
+            const { furnishRoom, buildFurnishCommands } = await import('@pryzm/ai-host');
+
+            const levelElevation = level.elevation ?? 0;
+            const allPlaced: PlacedFurniture[] = [];
+            let roomsProcessed = 0;
+            let roomsSkipped = 0;
+            for (const r of allRooms) {
+                const poly = (r.boundary?.polygon ?? []) as readonly Pt[];
+                if (poly.length < 3) { roomsSkipped++; continue; }
+                const occupancy = r.occupancyType ?? '';
+                const { centroid, area } = shoelaceCentroid(poly);
+                const cx = r.computed?.centroid?.x ?? centroid.x;
+                const cz = r.computed?.centroid?.z ?? centroid.z;
+                const areaM2 = r.computed?.area ?? area;
+
+                // Build wall segments + openings per polygon edge.
+                const wallSegs: RoomWallSeg[] = [];
+                const doors: OpeningPose[] = [];
+                const windows: OpeningPose[] = [];
+                for (let i = 0; i < poly.length; i++) {
+                    const a = poly[i]!;
+                    const b = poly[(i + 1) % poly.length]!;
+                    const len = dist(a, b);
+                    if (len < EPS) continue;
+                    const dirU = unit(sub(b, a));
+                    // Inward normal: choose the perpendicular that points toward the centroid.
+                    const perp = leftPerp(dirU);
+                    const mid = mul(add(a, b), 0.5);
+                    const toCent = sub({ x: cx, z: cz }, mid);
+                    const inwardSign = dot(perp, toCent) > 0 ? 1 : -1;
+                    const inwardNormal: Pt = mul(perp, inwardSign);
+
+                    const w = matchWallToEdge(a, b, allWalls, 0.2);
+                    const isExterior = w ? (facades?.get(w.id)?.isExterior ?? false) : false;
+                    wallSegs.push({ a, b, inwardNormal, length: len, isExterior });
+
+                    // Openings: project from wall.openings to world coords, normal = inwardNormal.
+                    if (w) {
+                        for (const op of w.openings ?? []) {
+                            if (typeof op.offset !== 'number' || typeof op.width !== 'number') continue;
+                            const bl = w.baseLine!;
+                            const ws: Pt = { x: bl[0]!.x, z: bl[0]!.z };
+                            const we: Pt = { x: bl[1]!.x, z: bl[1]!.z };
+                            const wdir = unit(sub(we, ws));
+                            const centerWorld = add(ws, mul(wdir, op.offset + op.width / 2));
+                            const pose: OpeningPose = {
+                                type: op.type,
+                                center: centerWorld,
+                                normal: inwardNormal,
+                                width: op.width,
+                            };
+                            if (op.type === 'door') doors.push(pose);
+                            else windows.push(pose);
+                        }
+                    }
+                }
+
+                const input: FurnishRoomInput = {
+                    roomId: r.id,
+                    levelId: level.id,
+                    occupancy,
+                    polygon: poly,
+                    centroid: { x: cx, z: cz },
+                    areaM2,
+                    walls: wallSegs,
+                    doors,
+                    windows,
+                    levelElevation,
+                };
+                const placed = furnishRoom(input);
+                if (placed.length > 0) { roomsProcessed++; allPlaced.push(...placed); }
+                else roomsSkipped++;
+            }
+
+            console.log(
+                '[furnish-layout] §FURNISH-SUMMARY ' +
+                `rooms_total=${allRooms.length} rooms_furnished=${roomsProcessed} ` +
+                `rooms_skipped=${roomsSkipped} items_placed=${allPlaced.length}`,
+            );
+
+            if (allPlaced.length === 0) {
+                toast('No furniture placed — no rooms match a furnishable archetype.', 'warn');
+                runtime.events.emit('furnish.layout-executed', {
+                    placedCount: 0, roomCount: allRooms.length, levelId: level.id,
+                });
+                return;
+            }
+
+            const set = buildFurnishCommands(allPlaced, level.id, levelElevation, () => createId('furniture'));
+            if (set.warnings.length > 0) {
+                for (const w of set.warnings) console.warn('[furnish-layout] warning:', w);
+            }
+
+            // Dispatch every furniture.create inside one runBatch — ONE undo unit,
+            // skip room redetect (furniture isn't a room-bounding element).
+            let fails = 0;
+            try {
+                batchCoordinator.runBatch(() => {
+                    for (const cmd of set.commands) {
+                        const r = runtime.bus.executeCommand(cmd.command, cmd.payload) as unknown;
+                        if (r && typeof (r as { catch?: unknown }).catch === 'function') {
+                            (r as Promise<unknown>).catch((e: unknown) => {
+                                fails++; console.warn('[furnish-layout] furniture.create failed:', e);
+                            });
+                        }
+                    }
+                }, { levelIds: [level.id], totalElementCount: set.commands.length, skipRedetectRooms: true });
+            } catch (e) {
+                console.warn('[furnish-layout] runBatch threw:', e);
+                toast('Furnishing failed — see console.', 'error');
+                return;
+            }
+
+            runtime.events.emit('furnish.layout-executed', {
+                placedCount: set.commands.length,
+                roomCount: allRooms.length,
+                levelId: level.id,
+            });
+            toast(
+                `Furnished ${roomsProcessed}/${allRooms.length} rooms — ${set.commands.length} items placed.`,
+                'success',
+            );
+        } catch (err) {
+            console.warn('[FurnishLayoutExecutor] execute failed (non-fatal):', err);
+            runtime.events?.emit('pryzm:toast', { message: 'Furnishing failed.', severity: 'error' });
+        }
+    }
+}

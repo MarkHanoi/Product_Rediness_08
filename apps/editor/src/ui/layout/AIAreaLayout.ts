@@ -3,6 +3,7 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { createAIPanel } from '../ai/AIPanel';
 import { createAICreatePanel } from '../ai/AICreatePanel';
 import { installApartmentLayoutConsoleTrigger } from '../apartment-layout/apartmentLayoutTrigger';
+import { installFurnishLayoutTrigger } from '../furnish-layout/furnishLayoutTrigger';
 import { createFloorPlanImportPanel } from '../ai/FloorPlanImportPanel';
 import { createDxfImportPanel } from '../import/DxfImportPanel';
 import { createSpatialTree } from '../SpatialTree';
@@ -185,6 +186,12 @@ export function mountAIArea(props: UIProps, runtime: PryzmRuntime | null): AIRes
     // apartment-layout generator can be triggered regardless of which AI panel
     // is visible (the UI leaf lives in the AIPanel command tree → Create).
     installApartmentLayoutConsoleTrigger(runtime ?? null);
+    // #52 — register the D-FLE furniture-layout trigger:
+    //   • console command `pryzmFurnishAllRooms()` (manual test)
+    //   • auto-fire on `apartment.layout-executed` (continuous flow:
+    //     generate apartment → build walls/doors → redetect rooms →
+    //     auto-furnish every room with an archetype). Idempotent.
+    installFurnishLayoutTrigger(runtime ?? null);
 
     // Phase B.31 (S73-WIRE) — thread the composed runtime so AIPanel can reach
     // typed slots (runtime.ai.streamCompletion / runtime.persistence.proposals)

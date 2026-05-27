@@ -234,6 +234,32 @@ export type {
 } from './workflows/apartmentLayout/types.js';
 export { DEFAULT_LAYOUT_FIXTURE } from './AnthropicRelay.js';
 
+// ── D-FLE Furniture Layout Engine — public surface ───────────────────────────
+// The deterministic per-room furniture layout engine (SPEC-FURNITURE-LAYOUT-ENGINE).
+// Pure: zero THREE, zero DOM. Consumed by the editor's furnish trigger
+// (apps/editor/src/ui/furnish-layout/) which assembles FurnishRoomInput from
+// the live room/wall/door/window stores and dispatches buildFurnishCommands()
+// inside batchCoordinator.runBatch — same pattern as the apartment generator.
+export { furnishRoom } from './workflows/furnishLayout/furnishRoom.js';
+export { buildFurnishCommands } from './workflows/furnishLayout/buildFurnishCommands.js';
+export { archetypeFor } from './workflows/furnishLayout/archetypes.js';
+export type {
+  FurnitureKind,
+  FurnishableOccupancy,
+  Footprint,
+  Anchor,
+  FurnitureItemSpec,
+  FurnitureArchetype,
+  OpeningPose,
+  RoomWallSeg,
+  FurnishRoomInput,
+  PlacedFurniture,
+} from './workflows/furnishLayout/types.js';
+export type {
+  FurnishCommand,
+  FurnishCommandSet,
+} from './workflows/furnishLayout/buildFurnishCommands.js';
+
 // ── Sprint H P9 (2026-05-10) — GenerativeTypes ────────────────────────────────
 export * from './generative/GenerativeTypes';
 export { layoutGenerator, roomColour } from './generative/LayoutGenerator.js';
