@@ -113,7 +113,17 @@
       "Bash(curl -s -o /dev/null -w \"/api/v1/projects → HTTP %{http_code}\\\\n\" --max-time 4 http://localhost:5000/api/v1/projects)",
       "Bash(tail -n 60 \"C:\\\\Users\\\\LENOVO\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-LENOVO-OneDrive-Desktop-PRYZM-Product-Rediness-08\\\\8b565b9c-a5c2-4521-a9ca-bb1f75a1acfd\\\\tasks\\\\boajqcjih.output\")",
       "Bash(pnpm --filter @pryzm/command-registry typecheck)",
-      "Bash(pnpm --filter @pryzm/persistence-client typecheck)"
+      "Bash(pnpm --filter @pryzm/persistence-client typecheck)",
+      "Bash(pnpm --filter @pryzm/ai-host test apartmentLayoutGenerate)",
+      "Bash(pnpm --filter @pryzm/ai-host exec vitest run __tests__/tglEmitGeometry.test.ts)",
+      "Bash(pnpm --filter @pryzm/ai-host exec vitest run __tests__/tgl)",
+      "Bash(pnpm --filter @pryzm/ai-host exec vitest run __tests__/tglRunDeterministicLayout.test.ts)",
+      "Bash(pnpm --filter @pryzm/ai-host exec vitest run)",
+      "Bash(grep -l \"apartmentLayout\\\\|runDeterministic\\\\|generate.js\" packages/ai-host/__tests__/AiHost.test.ts packages/ai-host/__tests__/AiHost.lazy.test.ts)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(pnpm --filter @pryzm/ai-host run typecheck)",
+      "Bash(echo \"=== exit grep: $? \\(1 = no TGL errors found\\) ===\")",
+      "Bash(echo \"=== TGL-specific errors above \\(none = clean\\). grep exit: $? ===\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\LENOVO\\.claude\\projects\\c--Users-LENOVO-OneDrive-Desktop-PRYZM-Product-Rediness-08\\memory"
