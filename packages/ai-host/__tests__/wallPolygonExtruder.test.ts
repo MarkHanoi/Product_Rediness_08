@@ -254,3 +254,45 @@ describe('WallPolygonExtruder — closed 4-wall rectangle (6-vertex polygons)', 
         }
     });
 });
+
+// ─── ADR-0055 §P3a-FAN-WIND-FIX regression test (2026-05-27) ─────────────────
+// Pins that every emitted triangle's GEOMETRIC face normal (computed from the
+// cross product of its actual vertex positions) points the SAME direction as
+// the declared per-vertex normal. Without this guarantee, three.js back-face
+// culling silently hides faces whose declared normal disagrees with their
+// winding — the live defect that turned wall bodies into "thin planes" in 3D
+// while the plan view stayed correct. The fix swapped the top + bottom fan
+// orders so the geometric normal matches the declared (0, ±1, 0).
+describe('WallPolygonExtruder — face normal vs winding (back-face-cull regression)', () => {
+    const wall: WallInput = { id: 'A', start: { x: 0, z: 0 }, end: { x: 5, z: 0 }, thickness: T };
+    const miters = resolveJunctions([wall]);
+    const fp = buildAllFootprints([wall], miters)[0]!;
+
+    it('every triangle\'s cross-product normal aligns with its declared vertex normal', () => {
+        const g = buildWallExtrusion(fp, { height: HEIGHT });
+        const positions = g.getAttribute('position').array;
+        const normals = g.getAttribute('normal').array;
+        const triCount = positions.length / 9;   // 3 verts × 3 coords per triangle
+        expect(triCount).toBeGreaterThan(0);
+
+        for (let t = 0; t < triCount; t++) {
+            const i0 = t * 9, i1 = i0 + 3, i2 = i0 + 6;
+            // Geometric face normal (un-normalised — sign is all that matters).
+            const ex1 = positions[i1]!     - positions[i0]!;
+            const ey1 = positions[i1 + 1]! - positions[i0 + 1]!;
+            const ez1 = positions[i1 + 2]! - positions[i0 + 2]!;
+            const ex2 = positions[i2]!     - positions[i0]!;
+            const ey2 = positions[i2 + 1]! - positions[i0 + 1]!;
+            const ez2 = positions[i2 + 2]! - positions[i0 + 2]!;
+            const cx = ey1 * ez2 - ez1 * ey2;
+            const cy = ez1 * ex2 - ex1 * ez2;
+            const cz = ex1 * ey2 - ey1 * ex2;
+            // Declared normal at vertex 0 (all 3 verts of a tri share the same n).
+            const nx = normals[i0]!, ny = normals[i0 + 1]!, nz = normals[i0 + 2]!;
+            const dot = cx * nx + cy * ny + cz * nz;
+            // Must be STRICTLY POSITIVE (back-face culling demands face normal
+            // points the SAME way the declared normal does).
+            expect(dot, `triangle ${t} face normal vs declared`).toBeGreaterThan(0);
+        }
+    });
+});

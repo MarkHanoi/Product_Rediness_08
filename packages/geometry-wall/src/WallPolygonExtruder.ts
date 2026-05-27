@@ -78,18 +78,43 @@ export function buildWallExtrusion(
         normals.push(nx, ny, nz);
     };
 
-    // ── Top face (+Y, CCW from above) ────────────────────────────────────────
+    // ── Top face (+Y) — REVERSED winding ─────────────────────────────────────
+    // ADR-0055 §P3a-FAN-WIND-FIX (2026-05-27, live-fix after architect screenshot
+    // showing wall bodies rendering as planar slabs in 3D, plan view correct):
+    //
+    // `WallFootprint2D` emits the polygon as `[sR, eR, (endPivot?), eL, sL,
+    // (startPivot?)]`. With `leftPerp = (-d.z, d.x)`, sL sits on the +Z side of
+    // the start and sR on the −Z side; the polygon CW when viewed from +Y
+    // (the polygon's geometric normal — computed via `(v1−v0) × (v2−v0)` — points
+    // -Y, NOT +Y). This matches Pascal's footprint order (`wall-footprint.ts`:
+    // `[pStartRight, pEndRight, …, pStartLeft]` is also CW in world XZ; Pascal
+    // compensates with the `y = -z` flip when feeding `THREE.Shape` to
+    // `ExtrudeGeometry`).
+    //
+    // Our hand-built extruder previously used the forward fan order (P0, Pi,
+    // Pi+1) for the top face and the reversed order for the bottom — the SAME
+    // assumption Pascal makes about the polygon being CCW from +Y. That
+    // produced geometric face normals OPPOSITE to the declared (0, ±1, 0):
+    // top fan computed normal -Y but declared +Y → top BACK-FACE-CULLED from
+    // above. Bottom fan computed +Y but declared -Y → bottom culled from below.
+    // The side faces stay correct (their `(b−a) × (top−bot)` = +h·n matches
+    // the declared outward normal). Result: only the SIDE faces render → wall
+    // looks like a thin paper-thin slab from any angle but has the correct
+    // outline in plan (the polygon is what the plan view exports).
+    //
+    // Fix: SWAP the fan orders. Top now reverses (P0, Pi+1, Pi); bottom now
+    // forwards (P0, Pi, Pi+1). Geometric normals match declared ones again.
     for (let i = 1; i < n - 1; i++) {
         pushV(polygon[0]!.x,     yTop, polygon[0]!.z,     0, 1, 0);
-        pushV(polygon[i]!.x,     yTop, polygon[i]!.z,     0, 1, 0);
         pushV(polygon[i + 1]!.x, yTop, polygon[i + 1]!.z, 0, 1, 0);
+        pushV(polygon[i]!.x,     yTop, polygon[i]!.z,     0, 1, 0);
     }
 
-    // ── Bottom face (−Y, reversed winding so the normal really points down) ──
+    // ── Bottom face (−Y) — FORWARD winding (matches CW-from-+Y polygon) ───────
     for (let i = 1; i < n - 1; i++) {
         pushV(polygon[0]!.x,     yBot, polygon[0]!.z,     0, -1, 0);
-        pushV(polygon[i + 1]!.x, yBot, polygon[i + 1]!.z, 0, -1, 0);
         pushV(polygon[i]!.x,     yBot, polygon[i]!.z,     0, -1, 0);
+        pushV(polygon[i + 1]!.x, yBot, polygon[i + 1]!.z, 0, -1, 0);
     }
 
     // ── Side faces: one outward-facing quad per polygon edge ─────────────────
