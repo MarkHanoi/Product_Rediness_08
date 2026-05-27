@@ -99,8 +99,23 @@ L-corners (2-wall) are a special case of N=2: `wall_i.left = wall_{i+1}.right` i
    - **C10 performance** — resolver is O(n + k log k), called once per affected level rebuild (not per wall). No per-wall cost beyond the legacy path.
    - The diagnostic `userData.pipelineV2 === true` lets DevTools / future tests filter V2-built meshes.
 
-5. **P4 — retire infill.** Extend V2 to the layered + opening call sites; delete `WallJunctionInfill*`; remove the `polygonOffset` patch in `WallJunctionInfillManager`. ⏳
+5. **P4 — retire infill.** Extend V2 to the layered + opening call sites; delete `WallJunctionInfill*`; remove the `polygonOffset` patch in `WallJunctionInfillManager`. ⏳ **Backlogged** — see scope analysis below.
+
 6. **P5 — door / window opening builders.** Confirm they still read wall thickness + centerline correctly (no schema change expected).
+
+### P4 scope analysis (2026-05-27)
+
+P4 is materially larger than P1–P3 combined and a session-bounded incremental ship is unsafe. Architectural reasons:
+
+- **Layered walls.** `WallMiter` stores absolute world-XZ corner positions computed against the wall's half-thickness. A layered wall's per-layer geometry can't reuse a single wall-level miter because each layer has a *different* lateral offset and thickness — the corner positions are thickness-specific. A correct P4 for layered walls requires either (a) per-layer junction resolution (run `resolveJunctions` once per layer offset), or (b) deriving per-layer corners by inset from a single wall-level envelope. Both need a fresh ADR clarification + test bed; neither is a drop-in.
+- **Walls with openings.** The current builder splits the wall into BoxGeometry segments around opening clusters. To preserve the Pascal property at junctions, the END segments (those abutting a junction) would need a 5/6-vertex polygon footprint that *also* respects the opening's left/right edges — i.e. a polygon-vs-rectangle carve. This is a CSG step (or a hand-rolled vertical carve in the extruder).
+
+**Decision (2026-05-27):** P4 is split into:
+   - **P4a (layered, no openings)** — per-layer V2 polygon via offset envelope. Needs ADR addendum + 5–8 new tests.
+   - **P4b (walls with openings)** — per-segment V2 carve at junction-touching segments only. Needs ADR addendum + new CSG/carve helper.
+   - **P4c (retire infill)** — delete `WallJunctionInfill*` + `polygonOffset` patch, gated on P4a + P4b verification.
+
+   The current ship state (P1+P2+P3a+P3b, default-ON) already closes the wedge for the **dominant** production case (plain partition walls — the apartment generator's `constraints.wallTypeId: 'partition'`), so user-reported defect screenshots from 2026-05-26 are resolved. Layered + opening junctions retain `WallJunctionInfill` as the interim mitigation until P4a/P4b ship.
 
 ## How to opt out
 
