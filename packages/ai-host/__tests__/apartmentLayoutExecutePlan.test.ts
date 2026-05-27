@@ -115,3 +115,110 @@ describe('buildLayoutPlan (A6-core)', () => {
         expect(MIN_WALL_LENGTH_M).toBe(0.05);
     });
 });
+
+// ─── §COLLINEAR-MERGE regression tests (2026-05-27) ───────────────────────────
+// Architect screenshots showed the apartment generator producing 3 walls at a
+// T-junction and 4 walls at a +-junction — D-TGL sweeps per-room-edge and emits
+// one segment per (room, room) pair, so a passthrough wall traversing multiple
+// room boundaries arrives as N collinear adjacent segments. `buildLayoutPlan`
+// now merges those collinear runs so the emitted wall count matches the
+// architectural topology.
+
+describe('§COLLINEAR-MERGE — passthrough wall merging at T / X junctions', () => {
+    it('T-junction: 2 collinear horizontal halves + 1 abutting vertical → 2 walls', () => {
+        // Two horizontal segments (0,0)→(5,0) and (5,0)→(10,0) ARE a passthrough
+        // and should fold into a single 0→10 wall. The vertical (5,0)→(5,5)
+        // is a separate abutting wall.
+        const opt: LayoutOption = {
+            summary: 'T-junction', rooms: [], doors: [], corridorWidthMin: 0,
+            walls: [
+                { start: { x: 0,    y: 0 }, end: { x: 5000, y: 0    } },
+                { start: { x: 5000, y: 0 }, end: { x: 10000, y: 0   } },
+                { start: { x: 5000, y: 0 }, end: { x: 5000, y: 5000 } },
+            ],
+        };
+        const plan = buildLayoutPlan(opt, OPTS);
+        expect(plan.walls).toHaveLength(2);
+        // The merged horizontal wall spans 0 → 10 m.
+        const horiz = plan.walls.find(w =>
+            Math.abs(w.baseLine[0].z) < 1e-6 && Math.abs(w.baseLine[1].z) < 1e-6);
+        expect(horiz).toBeDefined();
+        expect(horiz!.baseLine[0].x).toBeCloseTo(0, 6);
+        expect(horiz!.baseLine[1].x).toBeCloseTo(10, 6);
+        // And the abutting vertical is intact.
+        const vert = plan.walls.find(w => w !== horiz);
+        expect(vert).toBeDefined();
+        expect(vert!.baseLine[0].x).toBeCloseTo(5, 6);
+        expect(vert!.baseLine[1].x).toBeCloseTo(5, 6);
+    });
+
+    it('+ junction: 4 collinear halves → 2 crossing passthrough walls', () => {
+        // Two horizontal halves AND two vertical halves cross at (5, 0).
+        // Both axes merge to single passthrough walls.
+        const opt: LayoutOption = {
+            summary: '+ junction', rooms: [], doors: [], corridorWidthMin: 0,
+            walls: [
+                { start: { x: 0,    y: 0     }, end: { x: 5000,  y: 0    } }, // h: west half
+                { start: { x: 5000, y: 0     }, end: { x: 10000, y: 0    } }, // h: east half
+                { start: { x: 5000, y: -5000 }, end: { x: 5000,  y: 0    } }, // v: south half
+                { start: { x: 5000, y: 0     }, end: { x: 5000,  y: 5000 } }, // v: north half
+            ],
+        };
+        const plan = buildLayoutPlan(opt, OPTS);
+        expect(plan.walls).toHaveLength(2);
+        // Verify one is the full horizontal (z=0, x: 0→10) and the other is
+        // the full vertical (x=5, z: -5→5).
+        const horiz = plan.walls.find(w =>
+            Math.abs(w.baseLine[0].z) < 1e-6 && Math.abs(w.baseLine[1].z) < 1e-6);
+        const vert = plan.walls.find(w =>
+            Math.abs(w.baseLine[0].x - 5) < 1e-6 && Math.abs(w.baseLine[1].x - 5) < 1e-6);
+        expect(horiz).toBeDefined();
+        expect(vert).toBeDefined();
+        expect(horiz!.baseLine[0].x).toBeCloseTo(0, 6);
+        expect(horiz!.baseLine[1].x).toBeCloseTo(10, 6);
+        expect(Math.min(vert!.baseLine[0].z, vert!.baseLine[1].z)).toBeCloseTo(-5, 6);
+        expect(Math.max(vert!.baseLine[0].z, vert!.baseLine[1].z)).toBeCloseTo(5, 6);
+    });
+
+    it('door on a merged passthrough wall: wallRef + offset are remapped correctly', () => {
+        // T-junction with a door on the EAST half of the horizontal wall
+        // (door offset=500 in mm = 0.5 m from the east half's start at x=5).
+        // After merge, the door should reference the SINGLE merged wall with
+        // offset = 5.0 (east half's start position) + 0.5 = 5.5 m.
+        const opt: LayoutOption = {
+            summary: 'T with door on east half', rooms: [], doors: [
+                { wallRef: 1, offset: 500, width: 900 },  // on east half
+            ], corridorWidthMin: 0,
+            walls: [
+                { start: { x: 0,    y: 0 }, end: { x: 5000, y: 0    } },  // west half
+                { start: { x: 5000, y: 0 }, end: { x: 10000, y: 0   } },  // east half
+                { start: { x: 5000, y: 0 }, end: { x: 5000, y: 5000 } },  // vertical
+            ],
+        };
+        const plan = buildLayoutPlan(opt, OPTS);
+        expect(plan.walls).toHaveLength(2);
+        expect(plan.doorPlan).toHaveLength(1);
+        const door = plan.doorPlan[0]!;
+        // The merged horizontal wall is plan.walls[0] (deterministic, key 'h@0').
+        const horizIdx = plan.walls.findIndex(w =>
+            Math.abs(w.baseLine[0].z) < 1e-6 && Math.abs(w.baseLine[1].z) < 1e-6);
+        expect(door.wallRef).toBe(horizIdx);
+        expect(door.offset).toBeCloseTo(5.5, 6);
+        expect(door.width).toBeCloseTo(0.9, 6);
+    });
+
+    it('non-mergeable (non-adjacent collinear) walls stay separate', () => {
+        // Two horizontal walls on z=0 but separated by a gap [5, 6]:
+        // they share the line but NOT an endpoint, so the merger must not
+        // collapse them — that would extend a wall over a corridor.
+        const opt: LayoutOption = {
+            summary: 'non-adjacent', rooms: [], doors: [], corridorWidthMin: 0,
+            walls: [
+                { start: { x: 0,    y: 0 }, end: { x: 5000, y: 0    } },
+                { start: { x: 6000, y: 0 }, end: { x: 10000, y: 0   } },
+            ],
+        };
+        const plan = buildLayoutPlan(opt, OPTS);
+        expect(plan.walls).toHaveLength(2);   // NOT merged
+    });
+});

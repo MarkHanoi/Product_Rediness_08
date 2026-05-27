@@ -101,6 +101,150 @@ function lengthXZ(a: Vec3m, b: Vec3m): number {
     return Math.hypot(a.x - b.x, a.z - b.z);
 }
 
+const COLLINEAR_EPS_M = 0.001;          // 1 mm — tighter than the 0.05 m min-wall guard
+const round6m = (n: number): number => Math.round(n * 1e6) / 1e6;
+
+interface AxisAlignedWall {
+    readonly originalIdx: number;       // index into the input walls array
+    readonly axis: 'h' | 'v';            // h = constant z, v = constant x
+    readonly constCoord: number;         // rounded to 1e-6
+    readonly lo: number;                 // min variable coord
+    readonly hi: number;                 // max variable coord
+    /** Whether the original wall's baseLine direction is hi → lo (rare, but the
+     *  engine doesn't guarantee a sort). Used to adjust door offset on remap. */
+    readonly reversed: boolean;
+    readonly origBaseLine: readonly [Vec3m, Vec3m];
+}
+
+function classifyAxisWall(idx: number, w: WallCreateSpec): AxisAlignedWall | null {
+    const [a, b] = w.baseLine;
+    const dx = b.x - a.x;
+    const dz = b.z - a.z;
+    if (Math.abs(dx) < COLLINEAR_EPS_M && Math.abs(dz) > COLLINEAR_EPS_M) {
+        const lo = Math.min(a.z, b.z), hi = Math.max(a.z, b.z);
+        return {
+            originalIdx: idx, axis: 'v', constCoord: round6m(a.x), lo, hi,
+            reversed: a.z > b.z, origBaseLine: [a, b],
+        };
+    }
+    if (Math.abs(dz) < COLLINEAR_EPS_M && Math.abs(dx) > COLLINEAR_EPS_M) {
+        const lo = Math.min(a.x, b.x), hi = Math.max(a.x, b.x);
+        return {
+            originalIdx: idx, axis: 'h', constCoord: round6m(a.z), lo, hi,
+            reversed: a.x > b.x, origBaseLine: [a, b],
+        };
+    }
+    return null;
+}
+
+/**
+ * §COLLINEAR-MERGE (2026-05-27, live-fix after architect screenshot of 3-wall
+ * T-junction + 4-wall + junction): the D-TGL engine sweeps per-room-edge and
+ * emits ONE WallSeg per (room, room) pair. Where one PHYSICAL wall traverses
+ * multiple room boundaries (a passthrough at a T- or X-junction), this produces
+ * 2 or 4 collinear adjacent segments instead of the architecturally-correct
+ * 1 passthrough + N abutting walls.
+ *
+ * This post-process merges axis-aligned collinear adjacent segments into a
+ * single wall. T-junction: 2 horizontal halves → 1 horizontal wall + 1
+ * abutting vertical = 2 walls total. + junction: both axes have collinear
+ * halves → each axis merges to 1 wall = 2 crossing passthrough walls total
+ * (V2's resolver won't detect a junction without shared endpoints, so they
+ * cross without a miter cut — the 0.1 × 0.1 m overlap at the centre is
+ * visually negligible for partition walls).
+ *
+ * Door wallRef + offset are remapped: original wall W mapped to merged wall M
+ * with shift = (W's lo position − M's lo position). If W was reversed (its
+ * baseLine direction is hi → lo while M is lo → hi), the door offset within
+ * W's local frame inverts: new_offset = W.length − old_offset + shift.
+ *
+ * Diagonal/degenerate walls pass through unchanged.
+ */
+function mergeCollinearWalls(walls: readonly WallCreateSpec[]): {
+    walls: WallCreateSpec[];
+    remap: ReadonlyMap<number, number>;
+    /** For each original wall idx, the (start-axis) offset shift in METRES
+     *  applied when remapping a door from the original wall to the merged wall. */
+    shift: ReadonlyMap<number, number>;
+    /** For each original wall idx, whether the merged wall's direction is
+     *  OPPOSITE the original's. Used to invert door offset before adding shift. */
+    reversedVsMerged: ReadonlyMap<number, boolean>;
+} {
+    const remap = new Map<number, number>();
+    const shift = new Map<number, number>();
+    const reversedVsMerged = new Map<number, boolean>();
+    const out: WallCreateSpec[] = [];
+
+    const axisWalls: AxisAlignedWall[] = [];
+    const passthroughIndices: number[] = [];      // diagonal or degenerate — copy as-is
+    walls.forEach((w, i) => {
+        const cls = classifyAxisWall(i, w);
+        if (cls) axisWalls.push(cls);
+        else passthroughIndices.push(i);
+    });
+
+    // Group by line: (axis, constCoord). Within each group, sort by lo and
+    // merge adjacent runs (end of one ≈ start of next within COLLINEAR_EPS_M).
+    const groups = new Map<string, AxisAlignedWall[]>();
+    for (const aw of axisWalls) {
+        const key = `${aw.axis}@${aw.constCoord}`;
+        (groups.get(key) ?? groups.set(key, []).get(key)!).push(aw);
+    }
+    for (const [, g] of groups) g.sort((a, b) => a.lo - b.lo);
+
+    // Deterministic group order: sorted by key string.
+    const orderedKeys = [...groups.keys()].sort();
+    for (const key of orderedKeys) {
+        const group = groups.get(key)!;
+        let runIdx: AxisAlignedWall[] = [];
+        const flush = (): void => {
+            if (runIdx.length === 0) return;
+            const first = runIdx[0]!;
+            const last = runIdx[runIdx.length - 1]!;
+            const sample = walls[first.originalIdx]!;
+            const newStart: Vec3m = first.axis === 'v'
+                ? { x: first.constCoord, y: first.origBaseLine[0].y, z: first.lo }
+                : { x: first.lo, y: first.origBaseLine[0].y, z: first.constCoord };
+            const newEnd: Vec3m = first.axis === 'v'
+                ? { x: first.constCoord, y: last.origBaseLine[0].y, z: last.hi }
+                : { x: last.hi, y: last.origBaseLine[0].y, z: first.constCoord };
+            const newIdx = out.length;
+            out.push({
+                baseLine: [newStart, newEnd],
+                height: sample.height,
+                thickness: sample.thickness,
+                ...(sample.systemTypeId ? { systemTypeId: sample.systemTypeId } : {}),
+            });
+            // Every wall in the run remaps to newIdx with shift = wall.lo − run.lo,
+            // i.e. its start position along the merged wall (merged runs lo→hi).
+            for (const aw of runIdx) {
+                remap.set(aw.originalIdx, newIdx);
+                shift.set(aw.originalIdx, aw.lo - first.lo);
+                reversedVsMerged.set(aw.originalIdx, aw.reversed);
+            }
+            runIdx = [];
+        };
+        for (const aw of group) {
+            if (runIdx.length === 0) { runIdx.push(aw); continue; }
+            const prev = runIdx[runIdx.length - 1]!;
+            if (Math.abs(aw.lo - prev.hi) < COLLINEAR_EPS_M) runIdx.push(aw);
+            else { flush(); runIdx.push(aw); }
+        }
+        flush();
+    }
+
+    // Pass through diagonals / degenerates unchanged.
+    for (const i of passthroughIndices) {
+        const newIdx = out.length;
+        out.push(walls[i]!);
+        remap.set(i, newIdx);
+        shift.set(i, 0);
+        reversedVsMerged.set(i, false);
+    }
+
+    return { walls: out, remap, shift, reversedVsMerged };
+}
+
 /**
  * Build the execute plan for a chosen layout option. Pure + loud-fail-soft:
  * degenerate walls (< 0.05 m) and doors that reference a dropped/out-of-range
@@ -117,8 +261,8 @@ export function buildLayoutPlan(option: LayoutOption, opts: LayoutExecuteOptions
 
     // Build wall specs, keeping a remap from the option's wall index → the
     // produced index (or -1 when dropped) so door wallRefs stay correct.
-    const walls: WallCreateSpec[] = [];
-    const remap: number[] = new Array(option.walls.length).fill(-1);
+    const rawWalls: WallCreateSpec[] = [];
+    const dropRemap: number[] = new Array(option.walls.length).fill(-1);
 
     option.walls.forEach((w, i) => {
         if (opts.skipExteriorWalls && w.isExternal) return;     // shell already exists — don't duplicate it
@@ -130,8 +274,8 @@ export function buildLayoutPlan(option: LayoutOption, opts: LayoutExecuteOptions
             warnings.push(`wall[${i}] dropped — length ${lengthXZ(a, b).toFixed(3)} m < ${MIN_WALL_LENGTH_M} m minimum`);
             return;
         }
-        remap[i] = walls.length;
-        walls.push({
+        dropRemap[i] = rawWalls.length;
+        rawWalls.push({
             baseLine: [a, b],
             height: wallHeightM,
             thickness: wallThicknessM,
@@ -141,28 +285,54 @@ export function buildLayoutPlan(option: LayoutOption, opts: LayoutExecuteOptions
         });
     });
 
-    // Build the door plan, resolving each door's host wall through the remap.
+    // §COLLINEAR-MERGE — fold collinear adjacent segments into single passthrough
+    // walls (T → 2 walls, X → 2 crossing walls). The merge is applied to
+    // `rawWalls`; doors then resolve via dropRemap → mergeRemap with offset shift.
+    const merge = mergeCollinearWalls(rawWalls);
+    const walls = merge.walls;
+    if (rawWalls.length !== walls.length) {
+        warnings.push(`§COLLINEAR-MERGE: ${rawWalls.length} segments → ${walls.length} walls (${rawWalls.length - walls.length} merged into passthroughs)`);
+    }
+
+    // Build the door plan, resolving each door's host wall through:
+    //   option.doors[i].wallRef → dropRemap → mergeRemap, with offset shift
+    //   (and reversal-vs-merged inverted if the original wall was oriented hi → lo).
     const doorPlan: DoorPlanItem[] = [];
     option.doors.forEach((d, i) => {
         if (d.wallRef < 0 || d.wallRef >= option.walls.length) {
             warnings.push(`door[${i}] dropped — wallRef ${d.wallRef} out of range [0, ${option.walls.length})`);
             return;
         }
-        const newRef = remap[d.wallRef]!;
-        if (newRef === -1) {
+        const rawRef = dropRemap[d.wallRef]!;
+        if (rawRef === -1) {
             warnings.push(`door[${i}] dropped — host wall[${d.wallRef}] was dropped`);
             return;
         }
-        const offsetM = d.offset / MM_PER_M;
+        const mergedRef = merge.remap.get(rawRef);
+        if (mergedRef === undefined) {
+            warnings.push(`door[${i}] dropped — host wall[${rawRef}] missing from merge remap`);
+            return;
+        }
+        const shift = merge.shift.get(rawRef) ?? 0;
+        const reversed = merge.reversedVsMerged.get(rawRef) ?? false;
+
+        const offsetM_local = d.offset / MM_PER_M;
         const widthM = (d.width || DEFAULT_DOOR_WIDTH_M * MM_PER_M) / MM_PER_M;
-        const host = walls[newRef]!;
+        const raw = rawWalls[rawRef]!;
+        const rawLenM = lengthXZ(raw.baseLine[0], raw.baseLine[1]);
+        // If the raw wall was reversed relative to the merged direction, invert
+        // the door offset within the wall's own length before adding the shift.
+        const localOnRaw = reversed ? (rawLenM - offsetM_local - widthM) : offsetM_local;
+        const offsetM = shift + localOnRaw;
+
+        const host = walls[mergedRef]!;
         const wallLenM = lengthXZ(host.baseLine[0], host.baseLine[1]);
-        if (offsetM < 0 || offsetM + widthM > wallLenM) {
-            warnings.push(`door[${i}] dropped — span [${offsetM.toFixed(2)}, ${(offsetM + widthM).toFixed(2)}] m does not fit host wall (${wallLenM.toFixed(2)} m)`);
+        if (offsetM < 0 || offsetM + widthM > wallLenM + 1e-3) {
+            warnings.push(`door[${i}] dropped — span [${offsetM.toFixed(2)}, ${(offsetM + widthM).toFixed(2)}] m does not fit merged host wall (${wallLenM.toFixed(2)} m)`);
             return;
         }
         doorPlan.push({
-            wallRef: newRef,
+            wallRef: mergedRef,
             offset: offsetM,
             width: widthM,
             height: doorHeightM,
