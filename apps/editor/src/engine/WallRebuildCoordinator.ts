@@ -319,14 +319,29 @@ export class WallRebuildCoordinator {
                         refreshV2Cache?: (specs: ReadonlyArray<{ id: string; startXZ: { x: number; z: number }; endXZ: { x: number; z: number }; thickness: number }>) => void;
                     }).refreshV2Cache;
                     if (typeof refresh === 'function') {
+                        // §V2-PRETRIM-FIX (2026-05-27): feed the V2 resolver the
+                        // PRE-TRIM baselines. The store can hold POST-TRIM baselines
+                        // from a previous _flush — those endpoints sit `halfT` apart
+                        // from the junction centre, which is far outside V2's 1 mm
+                        // `snapEpsilonM` cluster radius, so junction detection MISSES
+                        // and `cache.getMiter(id)` returns null → V2 silently falls
+                        // back to MiterPrismBuilder and the wedge re-appears.
+                        // `wall._sourceBaseLine` is the archived pre-trim baseline
+                        // written by this coordinator on each trim; when absent
+                        // (fresh wall, no trim yet), `baseLine` itself is pre-trim.
                         const specs = levelWalls
                             .filter(w => w.baseLine?.length >= 2 && typeof w.thickness === 'number')
-                            .map(w => ({
-                                id: w.id,
-                                startXZ: { x: w.baseLine[0].x, z: w.baseLine[0].z },
-                                endXZ:   { x: w.baseLine[1].x, z: w.baseLine[1].z },
-                                thickness: w.thickness,
-                            }));
+                            .map(w => {
+                                const srcBL = (w as unknown as { _sourceBaseLine?: ReadonlyArray<{ x: number; z: number }> })._sourceBaseLine;
+                                const pStart = srcBL?.[0] ?? w.baseLine[0];
+                                const pEnd   = srcBL?.[1] ?? w.baseLine[1];
+                                return {
+                                    id: w.id,
+                                    startXZ: { x: pStart.x, z: pStart.z },
+                                    endXZ:   { x: pEnd.x,   z: pEnd.z },
+                                    thickness: w.thickness,
+                                };
+                            });
                         refresh.call(builder, specs);
                     }
                 } catch (err) {

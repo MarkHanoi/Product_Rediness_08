@@ -2500,10 +2500,26 @@ export class WallFragmentBuilder {
         // wall mesh in the scene.
         const v2Cache = this.getEffectiveV2Cache();
         if (isWallPipelineV2Enabled() && v2Cache && v2Cache.getMiter(wall.id)) {
+            // §V2-PRETRIM-FIX (2026-05-27, live-fix after architect screenshot):
+            // V2's `WallMiter` corners are solved by `JunctionResolverV2` against the
+            // PRE-TRIM baselines (the original wall centerlines, before `WallJoinResolver`
+            // shortens each side by halfT to make the legacy MiterPrism abut cleanly).
+            // The footprint builder mixes those override corners with `wall.start`/`end`-
+            // derived DEFAULTS (sLDefault = wall.start + halfT * leftPerp, etc.). If we
+            // pass POST-TRIM start/end to the spec, the defaults sit `halfT` along the
+            // wall axis AWAY from where the cache's miter corners live — the resulting
+            // polygon zig-zags between the two coordinate frames and degenerates to a
+            // near-zero-area sliver (the "plane not volume" defect in the live screenshot
+            // 2026-05-27). Use the archived `_sourceBaseLine` (pre-trim) so defaults +
+            // overrides share the same frame; fall back to baseLine when no trim has
+            // happened yet (fresh wall create) — there pre-trim ≡ post-trim by construction.
+            const srcBL = (wall as unknown as { _sourceBaseLine?: ReadonlyArray<{ x: number; z: number }> })._sourceBaseLine;
+            const preTrimStart = srcBL?.[0] ?? wall.baseLine[0];
+            const preTrimEnd   = srcBL?.[1] ?? wall.baseLine[1];
             const spec: LevelWallSpec = {
                 id: wall.id,
-                startXZ: { x: wall.baseLine[0].x, z: wall.baseLine[0].z },
-                endXZ:   { x: wall.baseLine[1].x, z: wall.baseLine[1].z },
+                startXZ: { x: preTrimStart.x, z: preTrimStart.z },
+                endXZ:   { x: preTrimEnd.x,   z: preTrimEnd.z },
                 thickness: wall.thickness,
             };
             const { geometry: worldGeom } = buildWallV2Geometry(spec, v2Cache, {
@@ -2511,7 +2527,10 @@ export class WallFragmentBuilder {
                 baseOffset: wall.baseOffset ?? 0,
                 elevation: 0,
             });
-            // Translate world-XZ vertices to wallGroup-local (the group is at baseLine[0]).
+            // Translate world-XZ vertices to wallGroup-local. The wallGroup is positioned
+            // at the POST-TRIM start (`wall.baseLine[0]`), so translating by that delta
+            // lets the rendered geometry sit at its TRUE pre-trim WORLD position —
+            // Pascal-style, the wall body extends to the actual junction (no trim).
             worldGeom.translate(-wall.baseLine[0].x, 0, -wall.baseLine[0].z);
 
             const meshV2 = new THREE.Mesh(worldGeom, material);
