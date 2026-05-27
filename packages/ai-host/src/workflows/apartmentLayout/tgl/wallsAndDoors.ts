@@ -72,6 +72,16 @@ export interface WallsAndDoorsOpts {
     readonly doorWidthM?: number;          // default 0.9 m
     readonly doorHeightM?: number;         // default 2.1 m
     readonly minClearanceM?: number;       // wall left over each side; default 0.1 m
+    /** §EXTEND-TO-PERIMETER (2026-05-27, live-fix for non-rectilinear shells):
+     *  the original SHELL POLYGON (NOT the bounding box). If supplied, every
+     *  axis-aligned exterior-bounding wall (boundsRoomIds.length === 1) whose
+     *  endpoint sits STRICTLY INSIDE the polygon is extended along its axis
+     *  until it hits the polygon perimeter. Closes the architect-reported gap
+     *  between interior walls and a slanted exterior wall (the rectilinear
+     *  decomposition emits the wall at the bounding-box edge, which sits
+     *  inside the actual shell). When the wall ALREADY ends on the perimeter
+     *  (rectilinear shell) the pass is a no-op. */
+    readonly shellPolygon?: readonly Pt[];
 }
 
 const EPS = 1e-6;
@@ -110,6 +120,135 @@ function runsForLine(faces: readonly Face[]): Run[] {
         }
     }
     return runs;
+}
+
+// ─── §EXTEND-TO-PERIMETER helpers (2026-05-27) ───────────────────────────────
+// For non-rectilinear shell polygons, the rect-decomposition uses axis-aligned
+// rectangles, so interior wall endpoints land on the BOUNDING-BOX edges — not
+// the actual perimeter. Where the perimeter slants, this leaves a visible gap
+// between the interior wall and the exterior wall (architect's red-arrow
+// screenshot 2026-05-27).
+//
+// The fix is purely geometric: for each axis-aligned wall, walk along its
+// AXIS direction in the OUTWARD direction (away from the wall's room) and
+// find the first intersection with the shell polygon. Move the endpoint
+// there. Walls already ending on the polygon perimeter (rectilinear case)
+// hit at distance ≈ 0 → no-op.
+
+const POLY_EPS = 1e-4;
+
+/** True if `p` lies on (within POLY_EPS of) any polygon edge. */
+function pointOnPolygonBoundary(p: Pt, poly: readonly Pt[]): boolean {
+    if (poly.length < 2) return false;
+    for (let i = 0; i < poly.length; i++) {
+        const a = poly[i]!, b = poly[(i + 1) % poly.length]!;
+        const ex = b.x - a.x, ez = b.z - a.z;
+        const L2 = ex * ex + ez * ez;
+        if (L2 < 1e-20) continue;
+        const wx = p.x - a.x, wz = p.z - a.z;
+        const t = (wx * ex + wz * ez) / L2;
+        if (t < -POLY_EPS || t > 1 + POLY_EPS) continue;
+        const projx = a.x + t * ex, projz = a.z + t * ez;
+        const dx = p.x - projx, dz = p.z - projz;
+        if (dx * dx + dz * dz <= POLY_EPS * POLY_EPS) return true;
+    }
+    return false;
+}
+
+/** Standard point-in-polygon (ray-cast). True if `p` is STRICTLY inside `poly`.
+ *  Points ON the polygon boundary return FALSE (so an exterior wall whose
+ *  endpoint already sits on the perimeter is not "inside" — no extension). */
+function pointInPolygon(p: Pt, poly: readonly Pt[]): boolean {
+    if (poly.length < 3) return false;
+    if (pointOnPolygonBoundary(p, poly)) return false;     // on the edge ⇒ NOT inside
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const a = poly[i]!, b = poly[j]!;
+        const yi = a.z, yj = b.z, xi = a.x, xj = b.x;
+        const intersect = ((yi > p.z) !== (yj > p.z)) &&
+            (p.x < (xj - xi) * (p.z - yi) / ((yj - yi) || 1e-30) + xi);
+        if (intersect) inside = !inside;
+    }
+    return inside;
+}
+
+/** Cast a ray from `from` along (dx, dz) (unit) and return the t parameter to
+ *  the FIRST polygon edge it crosses. Returns Infinity if no hit.
+ *
+ *  Solve: from + t·D = a + u·(b−a),  with t > 0 and 0 ≤ u ≤ 1.
+ *  In matrix form [D | -(b−a)] · [t, u]ᵀ = a − from.
+ *  det = Dx·(−ez) − (−ex)·Dz = ex·Dz − Dx·ez. */
+function rayHitPolygon(from: Pt, dx: number, dz: number, poly: readonly Pt[]): number {
+    let best = Number.POSITIVE_INFINITY;
+    if (poly.length < 2) return best;
+    for (let i = 0; i < poly.length; i++) {
+        const a = poly[i]!, b = poly[(i + 1) % poly.length]!;
+        const ex = b.x - a.x;
+        const ez = b.z - a.z;
+        const det = ex * dz - dx * ez;
+        if (Math.abs(det) < 1e-12) continue;                  // parallel
+        const wx = a.x - from.x;
+        const wz = a.z - from.z;
+        // Cramer's rule on  [Dx  -ex] [t]   [wx]
+        //                   [Dz  -ez] [u] = [wz]
+        const t = (wx * (-ez) - wz * (-ex)) / det;
+        const u = (dx * wz - dz * wx) / det;
+        if (t > POLY_EPS && u >= -POLY_EPS && u <= 1 + POLY_EPS && t < best) {
+            best = t;
+        }
+    }
+    return best;
+}
+
+/** Extend the endpoint `from` along (dx, dz) (unit) up to the first polygon
+ *  perimeter hit (if any) and return the new endpoint. `from` MUST be strictly
+ *  inside the polygon (or this is a no-op). */
+function extendToPolygon(from: Pt, dx: number, dz: number, poly: readonly Pt[]): Pt {
+    const t = rayHitPolygon(from, dx, dz, poly);
+    if (!Number.isFinite(t) || t < POLY_EPS) return from;
+    return { x: from.x + dx * t, z: from.z + dz * t };
+}
+
+/** For each exterior-bounding wall whose endpoint is strictly INSIDE the
+ *  shell polygon, extend that endpoint along the wall's axis (outward) to
+ *  the polygon perimeter. Returns a NEW segments array (immutable swap). */
+function extendExteriorWallsToShell(
+    segments: readonly WallSeg[],
+    poly: readonly Pt[],
+): WallSeg[] {
+    if (poly.length < 3) return [...segments];
+    const out: WallSeg[] = [];
+    for (const s of segments) {
+        // Only walls bounding ONE room (the "exterior-facing" side of the
+        // partition) need extension. Interior shared walls (2 rooms) stay
+        // as they are — both rooms agree on the wall endpoints.
+        if (s.boundsRoomIds.length !== 1) { out.push(s); continue; }
+
+        const dx = s.b.x - s.a.x, dz = s.b.z - s.a.z;
+        const L = Math.hypot(dx, dz) || 1;
+        const ux = dx / L, uz = dz / L;
+
+        // For axis-aligned walls only — the engine emits axis-aligned segments
+        // so this is always true; the guard keeps the helper robust if that
+        // ever changes.
+        const isV = Math.abs(ux) < POLY_EPS;
+        const isH = Math.abs(uz) < POLY_EPS;
+        if (!isV && !isH) { out.push(s); continue; }
+
+        let newA = s.a, newB = s.b;
+        // For each endpoint, extend OUTWARD along the wall axis if it's
+        // strictly inside the polygon.
+        if (pointInPolygon(s.a, poly)) {
+            // Outward from a = AWAY from b = direction −u.
+            newA = extendToPolygon(s.a, -ux, -uz, poly);
+        }
+        if (pointInPolygon(s.b, poly)) {
+            // Outward from b = AWAY from a = direction +u.
+            newB = extendToPolygon(s.b, +ux, +uz, poly);
+        }
+        out.push({ ...s, a: newA, b: newB });
+    }
+    return out;
 }
 
 /**
@@ -294,7 +433,14 @@ export function buildWallsAndDoors(
         if (addDoor(c.seg, c.a, c.b)) { cUnion(c.a, c.b); compromises++; }
     }
 
-    return { segments, openings, boundaries, compromises };
+    // §EXTEND-TO-PERIMETER — for non-rectilinear shells, walk every exterior-
+    // bounding wall and extend any endpoint that's strictly inside the shell
+    // polygon outward to the perimeter. Rectilinear shells: pass-through.
+    const segmentsOut = opts.shellPolygon && opts.shellPolygon.length >= 3
+        ? extendExteriorWallsToShell(segments, opts.shellPolygon)
+        : segments;
+
+    return { segments: segmentsOut, openings, boundaries, compromises };
 }
 
 /** True when a door between these two room types satisfies the program rules. */

@@ -115,6 +115,12 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     const { segments, openings, boundaries, compromises } = buildWallsAndDoors(placements, bubble, {
         ...(input.wallThicknessM !== undefined ? { wallThicknessM: input.wallThicknessM } : {}),
         ...(input.doorWidthM !== undefined ? { doorWidthM: input.doorWidthM } : {}),
+        // §EXTEND-TO-PERIMETER — pass the WORLD-frame shell polygon so interior
+        // walls bounding the void extend out to the actual perimeter (closes
+        // the gap visible at slanted exterior walls in screenshot 2026-05-27).
+        // `placements` are already in world frame (transformed back via t.inv),
+        // so we use `input.shellPolygon` directly, not `polyT`.
+        shellPolygon: input.shellPolygon,
     });
     const graph = buildSemanticGraph(placements, segments, openings, bubble, {
         levelId: input.levelId, seed: `${input.seed}|${strategyKey(s)}`, shellAreaM2: shellArea,
