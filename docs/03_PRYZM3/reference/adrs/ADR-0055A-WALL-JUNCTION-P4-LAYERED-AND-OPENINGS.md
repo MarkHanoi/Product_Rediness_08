@@ -67,6 +67,39 @@ The polygon-vs-vertical-plane intersection is a 2-D operation on the wall's foot
 - **P4b (walls with openings)** → **Algorithm "junction-abutting segment carve":** polygon-vs-vertical-plane intersection for segments that abut a junction; existing BoxGeometry for internal segments.
 - **P4c (retire infill)** → delete `WallJunctionInfill*` + the `polygonOffset` patch once P4a + P4b ship and the wedge no longer appears in any junction visualisation.
 
+## Blocker 3 — V2 ↔ legacy corner conventions are MATHEMATICALLY INCOMPATIBLE (2026-05-27)
+
+Surfaced live by architect screenshot 3 (L-junction between V2 interior partition + legacy perimeter wall with windows). Independent paired audit confirmed:
+
+**Pure V2 + V2 junction:** walls OVERLAP at a triangle. For two perpendicular 0.1 m walls meeting at world (5, 0, 0), each wall's polygon includes the THREE points {outside-L (4.95, −0.05), pivot (5, 0), inside-L (5.05, +0.05)}. Both walls cover the corner area; edge-coincident by construction.
+
+**Pure legacy + legacy junction:** walls SHARE AN EDGE — the 45° bisector miter cut from (5.05, −0.05) to (4.95, +0.05) (line `z = 5 − x`). Each wall projects its outer-face corner onto this miter plane via `outward · dir = 0` plane. Edge-coincident by construction.
+
+**Mixed V2 + legacy junction:** the two conventions resolve the outer corner on **OPPOSITE 45° lines** through the junction:
+
+| Convention | Outer-L corner | Inner-L corner | Miter line slope through (5,0) |
+|---|---|---|---|
+| V2 | (4.95, −0.05) | (5.05, +0.05) | +1 (NE–SW) |
+| Legacy | (4.95, +0.05) | (5.05, −0.05) | −1 (NW–SE) |
+
+The two conventions are MIRROR IMAGES across the wall axis. A V2 wall's "outside-L beak" pokes to (4.95, −0.05); the legacy wall at the same junction stops at (4.95, +0.05). The unfilled `halfT × halfT` square between them renders as a dark wedge (screenshot 3).
+
+This is **not** fixable by tuning thresholds, snap epsilons, or the cache phase — it's a structural choice. The two conventions cannot share a junction without a wedge in the general 90° case.
+
+### Implication for P4b
+
+P4b's "polygon-vs-vertical-plane carve for opening-bearing walls" must produce **V2-convention corners**, not legacy bisector corners. Otherwise the carved segment-end polygon won't share corners with the V2 wall on the other side of the junction. Concretely: when slicing a wall-with-openings into segments, the segment that abuts a junction inherits the wall's V2 polygon corners at that end (sLDefault/sR overrides with miter.startLeft/startRight + startPivot), and the slice at the opening edge gets a perpendicular cap.
+
+### Interim mitigation (NOT shipped — recorded here for the next session)
+
+Two pragmatic interim options, both with caveats:
+
+(a) **Per-junction V2 disable** — in `WallRebuildCoordinator._flush`, after the V2 cache refresh, walk every junction in the resolved cluster set. If any participant has `openings.length > 0` or `layers.length > 0` or a curve, mark the junction "legacy-only" and delete the V2 miter corners for ALL its participants (so all walls at that junction take legacy). PROBLEM: the deleted V2 corners would also remove V2 from walls at the same junction that have a different junction at their other end with another V2-only wall — cascade. Needs per-end (not per-wall) state.
+
+(b) **Hybrid wall polygon** — extend `WallFootprint2D` to mix V2 corners (3-vert bevel) on one end and legacy miter-cut corners (2-vert bevel) on the other. Requires the legacy miter normal to be available at footprint-build time + a new branch in the polygon assembler. The right architectural answer; estimated at the same complexity as P4b proper.
+
+Until either lands, the screenshot-3 wedge remains in mixed L-junctions. The Issue-A height-match fix (interior partition height = max perimeter wall height) may reduce its visibility by eliminating the secondary "exposed strip above shorter wall" artefact, but the corner-geometry wedge itself is still there.
+
 ## Test plan
 
 ### P4a
