@@ -28,7 +28,9 @@ function makeSeed(poly: readonly Pt[], program: ApartmentProgram): string {
 /**
  * Generate ranked, scored offline layouts for a shell using the D-TGL engine.
  * Returns up to `count` options, best-first. Empty only when the shell can't be
- * decomposed (degenerate perimeter).
+ * decomposed (degenerate perimeter). `windowSpansWorld` (optional) — axis-aligned
+ * WORLD-XZ window spans on the shell perimeter; when supplied, the subdivide step
+ * snaps interior partition coords clear of every window opening.
  */
 export function generateDeterministicLayouts(
     shell: ShellAnalysis,
@@ -36,6 +38,7 @@ export function generateDeterministicLayouts(
     constraints: ApartmentConstraints,
     weights: ScoringWeights,
     count: number,
+    windowSpansWorld?: ReadonlyArray<{ a: { x: number; z: number }; b: { x: number; z: number } }>,
 ): ScoredLayoutOption[] {
     const perimeter = shell.perimeter as Pt[];
     if (!perimeter || perimeter.length < 3) return [];
@@ -50,6 +53,7 @@ export function generateDeterministicLayouts(
         ...(shell.netAreaM2 > 0 ? { shellAreaM2: shell.netAreaM2 } : {}),
         ...(constraints.wallThickness > 0 ? { wallThicknessM: constraints.wallThickness / 1000 } : {}),
         ...(constraints.floorToCeiling > 0 ? { wallHeightM: constraints.floorToCeiling / 1000 } : {}),
+        ...(windowSpansWorld && windowSpansWorld.length > 0 ? { windowSpansWorld } : {}),
     });
 
     return candidates.map(c => {

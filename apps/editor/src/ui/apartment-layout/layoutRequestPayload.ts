@@ -12,11 +12,22 @@ import type {
     ScoringWeights,
 } from '@pryzm/ai-host';
 
-/** A wall as the builder needs it: id, exterior flag, and its openings. */
+/** A wall as the builder needs it: id, exterior flag, baseline (world XZ), and
+ *  its openings (with metre offsets + widths so we can resolve window spans to
+ *  WORLD coordinates for partition-snap avoidance). */
 export interface PayloadWall {
     readonly id: string;
     readonly isExterior: boolean;
-    readonly openings: ReadonlyArray<{ type: 'window' | 'door'; elementId?: string }>;
+    /** [start, end] in WORLD metres, XZ plane. */
+    readonly baseLine?: readonly [{ x: number; z: number }, { x: number; z: number }];
+    readonly openings: ReadonlyArray<{
+        type: 'window' | 'door';
+        elementId?: string;
+        /** Offset along the wall (metres) from baseLine[0]. */
+        offset?: number;
+        /** Opening width (metres). */
+        width?: number;
+    }>;
 }
 
 export interface BuildPayloadInput {
@@ -54,11 +65,28 @@ export function buildLayoutRequestPayload(input: BuildPayloadInput): ApartmentGe
 
     const windowIds: string[] = [];
     const doorIds: string[] = [];
+    const windowSpansWorld: Array<{ a: { x: number; z: number }; b: { x: number; z: number } }> = [];
     for (const w of exterior) {
         for (const o of w.openings) {
             if (!o.elementId) continue;
             if (o.type === 'window') windowIds.push(o.elementId);
             else if (o.type === 'door') doorIds.push(o.elementId);
+
+            // Resolve window span to WORLD coords (for D-TGL partition snap).
+            // Needs baseLine + offset + width. Silently skip if any are missing —
+            // back-compat with older payload producers that pre-date this field.
+            if (o.type === 'window' && w.baseLine && typeof o.offset === 'number' && typeof o.width === 'number') {
+                const [s, e] = w.baseLine;
+                const dx = e.x - s.x;
+                const dz = e.z - s.z;
+                const L = Math.hypot(dx, dz);
+                if (L > 1e-6) {
+                    const ux = dx / L, uz = dz / L;
+                    const a = { x: s.x + ux * o.offset,             z: s.z + uz * o.offset };
+                    const b = { x: s.x + ux * (o.offset + o.width), z: s.z + uz * (o.offset + o.width) };
+                    windowSpansWorld.push({ a, b });
+                }
+            }
         }
     }
 
@@ -67,6 +95,7 @@ export function buildLayoutRequestPayload(input: BuildPayloadInput): ApartmentGe
         shellWallIds,
         entranceDoorId: doorIds[0] ?? '',
         windowIds,
+        ...(windowSpansWorld.length > 0 ? { windowSpansWorld } : {}),
         program: input.program,
         constraints: input.constraints,
         options: {

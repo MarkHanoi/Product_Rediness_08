@@ -56,4 +56,30 @@ describe('buildLayoutRequestPayload (A5-modal)', () => {
         expect(p.windowIds).toEqual([]);
         expect(p.entranceDoorId).toBe('');
     });
+
+    it('computes windowSpansWorld from window opening offset+width along the wall baseLine', () => {
+        // Horizontal south wall from (0,0) → (10,0), one window at 4 m offset, 2 m wide.
+        const wallsW: PayloadWall[] = [{
+            id: 's', isExterior: true,
+            baseLine: [{ x: 0, z: 0 }, { x: 10, z: 0 }],
+            openings: [{ type: 'window', elementId: 'win-s', offset: 4, width: 2 }],
+        }];
+        const p = buildLayoutRequestPayload({ ...base, walls: wallsW });
+        expect(p.windowSpansWorld).toBeDefined();
+        expect(p.windowSpansWorld!.length).toBe(1);
+        const span = p.windowSpansWorld![0]!;
+        expect(span.a.x).toBeCloseTo(4, 6);
+        expect(span.a.z).toBeCloseTo(0, 6);
+        expect(span.b.x).toBeCloseTo(6, 6);
+        expect(span.b.z).toBeCloseTo(0, 6);
+    });
+
+    it('omits windowSpansWorld when no window has both offset + width + baseLine', () => {
+        const wallsW: PayloadWall[] = [{
+            id: 's', isExterior: true,
+            openings: [{ type: 'window', elementId: 'win-s' }],   // no offset/width
+        }];
+        const p = buildLayoutRequestPayload({ ...base, walls: wallsW });
+        expect(p.windowSpansWorld).toBeUndefined();
+    });
 });

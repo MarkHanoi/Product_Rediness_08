@@ -45,6 +45,11 @@ export interface GenerateLayoutInput {
     weights: ScoringWeights;
     /** How many ranked options to return. */
     count: number;
+    /** Optional axis-aligned WORLD-XZ window spans on the shell perimeter (metres).
+     *  Forwarded to the D-TGL offline engine so interior partitions never terminate
+     *  inside a shell-wall window opening. AI path ignores this (the AI sees the
+     *  shell's FACES summary instead). */
+    windowSpansWorld?: ReadonlyArray<{ a: { x: number; z: number }; b: { x: number; z: number } }>;
 }
 
 export interface GenerateLayoutResult {
@@ -202,6 +207,7 @@ export async function generateLayoutOptions(
     if (options.length === 0 && opts.proceduralFallback) {
         const deterministic = generateDeterministicLayouts(
             input.shell, input.program, input.constraints, input.weights, input.count,
+            input.windowSpansWorld,
         );
         if (deterministic.length > 0) {
             return { options: deterministic, status: 'ok', attempts: attempt, reason: 'AI unavailable — deterministic D-TGL offline layout' };

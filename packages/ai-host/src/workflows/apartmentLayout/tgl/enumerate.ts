@@ -15,6 +15,7 @@ import { decomposeToRects, polygonBBox, rectArea, type Pt, type Rect } from './r
 import { buildBubbleGraph, type BubbleGraph } from './bubbleGraph.js';
 import { subdivide, type RoomPlacement } from './subdivide.js';
 import { buildWallsAndDoors, type BoundarySeg } from './wallsAndDoors.js';
+import { snapRectsAwayFromWindows, type WindowSpan } from './windowAvoidance.js';
 import { buildSemanticGraph, type LayoutGraph } from './semanticGraph.js';
 import { computeSpaceSyntax } from './spaceSyntax.js';
 import { computeObjectives, OBJECTIVE_AXES, type ObjectiveVector } from './objectives.js';
@@ -30,6 +31,13 @@ export interface EnumerateInput {
     readonly wallThicknessM?: number;
     readonly wallHeightM?: number;
     readonly doorWidthM?: number;
+    /** Axis-aligned WORLD-XZ window spans on the shell perimeter (metres).
+     *  Passed to `snapRectsAwayFromWindows` so interior partitions never
+     *  terminate inside a window opening. Omitted/empty ⇒ no snap. */
+    readonly windowSpansWorld?: readonly WindowSpan[];
+    /** Minimum clearance (metres) between a partition coord line and any
+     *  window-span boundary. Defaults to 0.1 m. */
+    readonly windowClearanceM?: number;
 }
 
 export interface TglCandidate {
@@ -84,7 +92,25 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
 
     const placementsT = subdivide(rectsT, bubble);
     if (placementsT.length === 0) return null;
-    const placements: RoomPlacement[] = placementsT.map(p => ({ roomId: p.roomId, rect: xfRect(p.rect, t.inv) }));
+    let placements: RoomPlacement[] = placementsT.map(p => ({ roomId: p.roomId, rect: xfRect(p.rect, t.inv) }));
+
+    // ── Window-aware partition snap (post-subdivide, WORLD frame) ─────────
+    // For every interior partition coordinate that lands inside a shell-wall
+    // window span, nudge it to the nearest clearance edge so the partition
+    // never terminates inside a window opening (user-reported defect).
+    // No-op when `windowSpansWorld` is omitted/empty.
+    if (input.windowSpansWorld && input.windowSpansWorld.length > 0) {
+        const idMap = new Map<string, RoomPlacement>();
+        const rectsWithIds = placements.map(p => {
+            const r = { id: p.roomId, x0: p.rect.x0, z0: p.rect.z0, x1: p.rect.x1, z1: p.rect.z1 };
+            idMap.set(r.id, p);
+            return r;
+        });
+        const { rects: snapped } = snapRectsAwayFromWindows(
+            rectsWithIds, input.windowSpansWorld, input.windowClearanceM ?? 0.1,
+        );
+        placements = snapped.map(r => ({ roomId: r.id, rect: { x0: r.x0, z0: r.z0, x1: r.x1, z1: r.z1 } }));
+    }
 
     const { segments, openings, boundaries, compromises } = buildWallsAndDoors(placements, bubble, {
         ...(input.wallThicknessM !== undefined ? { wallThicknessM: input.wallThicknessM } : {}),

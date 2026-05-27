@@ -69,4 +69,32 @@ describe('generateDeterministicLayouts (TGL wiring)', () => {
         expect(res.status).toBe('rejected');
         expect(res.options).toEqual([]);
     });
+
+    it('windowSpansWorld param keeps interior partitions out of window openings (snap fires)', () => {
+        // The 12×10 shell with a 3 m window centred at (x=5, z=0). A partition that
+        // would otherwise land at x ≈ 5 should snap clear by ≥ 0.1 m clearance.
+        const windowSpans = [{ a: { x: 3.5, z: 0 }, b: { x: 6.5, z: 0 } }];
+        const layouts = generateDeterministicLayouts(
+            SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, 3, windowSpans,
+        );
+        expect(layouts.length).toBeGreaterThan(0);
+
+        // Every interior (non-shell) wall whose start lies on the south shell wall
+        // (z ≈ 0) must avoid the window span [3.5, 6.5] — same for the end vertex.
+        // (Walls in mm; window span here is 3500..6500 mm with 100 mm clearance.)
+        const CLEAR_MM = 100;
+        const xMinBlock = 3500 - CLEAR_MM;
+        const xMaxBlock = 6500 + CLEAR_MM;
+        for (const opt of layouts) {
+            for (const w of opt.walls) {
+                if (w.isExternal) continue;
+                for (const v of [w.start, w.end]) {
+                    if (Math.abs(v.y) < 1) {                                   // on south perimeter
+                        const inWindow = v.x > xMinBlock && v.x < xMaxBlock;
+                        expect(inWindow).toBe(false);
+                    }
+                }
+            }
+        }
+    });
 });

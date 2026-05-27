@@ -19,7 +19,13 @@ import {
 interface WallRecord {
     id: string;
     levelId: string;
-    openings?: ReadonlyArray<{ type: 'window' | 'door'; elementId?: string }>;
+    baseLine?: ReadonlyArray<{ x: number; y?: number; z: number }>;
+    openings?: ReadonlyArray<{
+        type: 'window' | 'door';
+        elementId?: string;
+        offset?: number;    // metres along the wall from baseLine[0]
+        width?: number;     // metres
+    }>;
 }
 
 /**
@@ -37,11 +43,23 @@ export function gatherLayoutPayload(levelId: string): ApartmentGenerateLayoutPay
     if (onLevel.length === 0) return null;
 
     const facades = facadeOrientationService.getFacades(levelId);
-    const walls: PayloadWall[] = onLevel.map(w => ({
-        id: w.id,
-        isExterior: facades.get(w.id)?.isExterior ?? false,
-        openings: (w.openings ?? []).map(o => ({ type: o.type, elementId: o.elementId })),
-    }));
+    const walls: PayloadWall[] = onLevel.map(w => {
+        const bl = w.baseLine;
+        const baseLine = bl && bl.length >= 2
+            ? ([{ x: bl[0]!.x, z: bl[0]!.z }, { x: bl[1]!.x, z: bl[1]!.z }] as const)
+            : undefined;
+        return {
+            id: w.id,
+            isExterior: facades.get(w.id)?.isExterior ?? false,
+            ...(baseLine ? { baseLine } : {}),
+            openings: (w.openings ?? []).map(o => ({
+                type: o.type,
+                elementId: o.elementId,
+                ...(typeof o.offset === 'number' ? { offset: o.offset } : {}),
+                ...(typeof o.width  === 'number' ? { width:  o.width  } : {}),
+            })),
+        };
+    });
 
     return buildLayoutRequestPayload({
         levelId,

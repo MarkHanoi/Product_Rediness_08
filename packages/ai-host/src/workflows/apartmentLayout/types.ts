@@ -100,6 +100,10 @@ export interface ApartmentGenerateLayoutPayload {
     shellWallIds: string[];
     entranceDoorId: string;
     windowIds: string[];
+    /** Optional: WORLD-XZ axis-aligned window spans on the shell perimeter
+     *  (metres). Fed to D-TGL's subdivide so interior partitions never
+     *  terminate inside a window opening. Empty/omitted ⇒ no snap. */
+    windowSpansWorld?: Array<{ a: { x: number; z: number }; b: { x: number; z: number } }>;
     program: ApartmentProgram;
     constraints: ApartmentConstraints;
     options: { count: number; scoringWeights: ScoringWeights };
