@@ -1,6 +1,6 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-scheduler';
-import { WallStore, WallData, WallBaseline, OpeningRenderMap, OpeningRenderData, WallJoinResolver, JoinData, WallJunctionInfillManager, computeJunctionInfills, resolveSlabBaseOffsetForWall } from '@pryzm/geometry-wall';
+import { WallStore, WallData, WallBaseline, OpeningRenderMap, OpeningRenderData, WallJoinResolver, JoinData, WallJunctionInfillManager, computeJunctionInfills, resolveSlabBaseOffsetForWall, isWallPipelineV2Enabled } from '@pryzm/geometry-wall';
 import {
     DEFAULT_SNAP_PIXEL_RADIUS,
     getWorldToleranceForActiveCamera,
@@ -404,7 +404,31 @@ export class WallRebuildCoordinator {
                 }
 
                 const _freshWalls = store.getAll().filter((w: any) => w.levelId === levelId);
-                this._infillManager.update(computeJunctionInfills(_freshWalls), this._world.scene.three as THREE.Scene);
+
+                // ADR-0055 §P4c (live-fix 2026-05-27) — when the V2 pipeline is the
+                // active path for a wall, its footprint polygon already has
+                // edge-coincident corners at every junction by construction
+                // (the wedge is closed). The legacy `WallJunctionInfill` prism on
+                // top of that produces a visible dark triangle — it's redundant
+                // geometry that doesn't align with the V2 corners, so it shows
+                // through as the user-reported "L/T black triangle" defect.
+                // Filter the infill input to walls that DO NOT take the V2 path
+                // (layered, or with openings — those still use MiterPrismBuilder
+                // and still need the infill to plug their junction gap). Pure
+                // partition walls (the apartment generator's production output
+                // and the user's manual-wall test case) skip the infill cleanly.
+                // This is the targeted slice of P4c that retires infill on the
+                // call sites V2 already covers; the full retirement waits for
+                // P4a+P4b per ADR-0055A.
+                const _walls_for_infill = isWallPipelineV2Enabled()
+                    ? _freshWalls.filter((w: any) =>
+                        (w.openings && w.openings.length > 0) ||
+                        (w.layers   && w.layers.length   > 0))
+                    : _freshWalls;
+                this._infillManager.update(
+                    computeJunctionInfills(_walls_for_infill),
+                    this._world.scene.three as THREE.Scene,
+                );
             } finally {
                 this._joinsResolving = false;
             }

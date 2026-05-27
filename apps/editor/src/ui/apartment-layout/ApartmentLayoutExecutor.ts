@@ -68,6 +68,31 @@ export class ApartmentLayoutExecutor {
             };
             const set = buildLayoutCommands(option, opts, (p: IdPrefix) => createId(p));
 
+            // §PREVIEW-VS-BUILD diagnostics (2026-05-27, live-fix): every wall the
+            // preview drew is in `option.walls`; the build drops 3 categories:
+            //   (1) exterior walls — by design (the shell already exists)
+            //   (2) walls shorter than MIN_WALL_LENGTH_M (0.05 m, surfaced as warnings)
+            //   (3) walls that the wall.batch.create handler rejects (counted by
+            //       wallFail below; usually canExecute failures)
+            // Without surfacing the count breakdown the user sees "preview doesn't
+            // match execution" with no signal as to which filter ate which wall.
+            const previewCount  = option.walls.length;
+            const externalCount = option.walls.filter(w => w.isExternal).length;
+            const submitted     = set.wallIds.length;
+            const drops_from_warnings = set.warnings.length;
+            console.log(
+                '[apartment-layout] §PREVIEW-VS-BUILD ' +
+                `preview=${previewCount} external_skip=${externalCount} ` +
+                `length_drop=${drops_from_warnings} submitted=${submitted}`,
+            );
+            if (set.warnings.length > 0) {
+                for (const w of set.warnings) console.warn('[apartment-layout] plan warning:', w);
+                runtime.events?.emit('pryzm:toast', {
+                    message: `${set.warnings.length} wall(s) dropped (degenerate). See console for details.`,
+                    severity: 'warn',
+                });
+            }
+
             // The bus is ASYNC: a command's promise resolves only when the batch
             // DRAINS, and wall.createOpening's canExecute READS the wall store — which
             // isn't populated until that drain. So walls + openings cannot share one
@@ -80,10 +105,24 @@ export class ApartmentLayoutExecutor {
                 batchCoordinator.runBatch(() => {
                     const r = runtime.bus.executeCommand(set.wallBatch.command, set.wallBatch.payload) as unknown;
                     if (r && typeof (r as { catch?: unknown }).catch === 'function') {
-                        (r as Promise<unknown>).catch((e: unknown) => { wallFail++; console.warn('[apartment-layout] wall.batch.create failed (skipped):', e); });
+                        (r as Promise<unknown>).catch((e: unknown) => {
+                            wallFail++;
+                            console.warn('[apartment-layout] wall.batch.create failed (skipped):', e);
+                            runtime.events?.emit('pryzm:toast', {
+                                message: 'wall.batch.create rejected — some walls did not build. See console.',
+                                severity: 'error',
+                            });
+                        });
                     }
                 }, { levelIds: [level.id], totalElementCount: set.wallIds.length, skipRedetectRooms: false });
-            } catch (e) { wallFail++; console.warn('[apartment-layout] wall.batch.create threw (skipped):', e); }
+            } catch (e) {
+                wallFail++;
+                console.warn('[apartment-layout] wall.batch.create threw (skipped):', e);
+                runtime.events?.emit('pryzm:toast', {
+                    message: 'wall.batch.create threw — layout build aborted. See console.',
+                    severity: 'error',
+                });
+            }
 
             runtime.ai.layoutOptions.clear();                       // option consumed
             this._finishLayout(runtime, level.id, set, option);
