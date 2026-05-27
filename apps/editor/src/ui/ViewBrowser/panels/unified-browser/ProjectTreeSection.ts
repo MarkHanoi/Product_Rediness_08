@@ -4,12 +4,19 @@
  * Renders: Site → Building → Level blocks → Type groups → Element/Child rows.
  * Also contains the unified level system (IFC + native PRYZM levels merged).
  *
- * P6b fix (Wave 14):
- *   BEFORE: `window.the legacy command manager)` (line 466 original)
- *   AFTER:  `bag.runtime.bus.executeCommand(cmd.type, cmd)` — runtime.bus is the
- *            correct PryzmRuntime API; `runtime.commandBus` does not exist on the type.
- *   Metadata `{ source: 'HUMAN_DIRECT' }` was not passed to execute in the original
- *   either — no behaviour change; TODO(E.5.x) metadata preserved via console.log note.
+ * P6b fix (Wave 14) + §OI-055 fix (2026-05-27):
+ *   BEFORE: `window.commandManager.execute(cmd)` (P6 violation).
+ *   INTERIM (Wave 14): `bag.runtime.bus.executeCommand(cmd.type, cmd)` — typed
+ *     against the runtime.bus API but the type AND payload shape were both wrong
+ *     (`cmd.type` = `'CREATE_LEVEL'` has no bus handler; the handler under type
+ *     `'level.add'` consumes a raw payload, not a Command instance). The
+ *     unhandled-rejection from the no-handler throw was swallowed, producing the
+ *     OI-055 "silent no-op" symptom in the Project Browser.
+ *   FIXED: `bag.runtime.bus.executeCommand('level.add', { levelId, name,
+ *     elevation, height })` — matches the canonical pattern used by the 3 other
+ *     `level.add` call sites (PlanViewToolOverlay, StairLevelRequiredPanel,
+ *     GridsLevelsRailPanel). Metadata `{ source: 'HUMAN_DIRECT' }` was never
+ *     passed here — no behaviour change to undo/source tracking.
  *
  * window.bimManager (line 451 original) retained with TODO(D.4) — read-only for
  * getLevels()/getActive() — not a mutation, not a P6 violation.
@@ -35,7 +42,13 @@ import {
     selectElements,
 } from './ProjectVisibilitySection';
 import { selectionBus }     from '@pryzm/core-app-model';
-import { AddLevelCommand }  from '@pryzm/command-registry';
+// §OI-055 fix (2026-05-27): AddLevelCommand import removed — the bus dispatch
+// pattern is `executeCommand('level.add', { levelId, name, elevation, height })`,
+// not `executeCommand(cmd.type, cmd)`. The handler registered in
+// `initBusHandlers.ts` consumes the RAW PAYLOAD shape, and `cmd.type` is the
+// legacy enum value `'CREATE_LEVEL'` (no bus handler) — both wrong. Pattern
+// matches the 3 other call sites: PlanViewToolOverlay, StairLevelRequiredPanel,
+// GridsLevelsRailPanel.
 
 // ── PROJECT card ──────────────────────────────────────────────────────────────
 
@@ -155,8 +168,12 @@ export function buildProjectCard(bag: UBPBag): HTMLElement {
         const newElev = Math.round((maxElev + floorH) * 100) / 100;
         const newId   = `L${Date.now()}`;
         const newName = `Level ${currentLevels.length}`;
-        const cmd = new AddLevelCommand({ levelId: newId, name: newName, elevation: newElev, height: floorH });
-        bus.executeCommand(cmd.type, cmd);
+        // §OI-055 fix (2026-05-27): dispatch via bus type 'level.add' with the
+        // raw payload — matches the handler signature in initBusHandlers.ts:257.
+        // Previously dispatched `cmd.type` (= 'CREATE_LEVEL', no handler) with
+        // the full Command instance (handler expects raw payload) → silent
+        // no-op (no-handler throw swallowed by the unhandled-rejection path).
+        bus.executeCommand('level.add', { levelId: newId, name: newName, elevation: newElev, height: floorH });
     });
     tree.appendChild(addRow);
 

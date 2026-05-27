@@ -10,7 +10,12 @@
  * All window.* reaches are preserved with their original TODO annotations.
  */
 
-import { UpdateFloorCommand } from '@pryzm/command-registry';
+// §OI-055-SIBLING fix (2026-05-27): UpdateFloorCommand import removed — the bus
+// dispatch pattern is `executeCommand('floor.update', { floorId, updates })`,
+// not `executeCommand(cmd.type, cmd)`. The handler registered in
+// `initBusHandlers.ts:184` consumes the RAW PAYLOAD shape, and `cmd.type` is the
+// legacy enum value `'UPDATE_FLOOR'` (no bus handler) — both wrong. Same
+// class of defect as the ProjectBrowser "Add level" button (OI-055).
 
 type AddPropFn = (
     parent: HTMLElement,
@@ -170,16 +175,20 @@ export function appendFloorIdentitySection(
     saveBtn.textContent = 'Save Layers';
     saveBtn.style.cssText = 'margin-top:6px;width:100%;font-size:11px;padding:4px 8px;background:var(--app-accent,#2196f3);color:#fff;border:none;border-radius:5px;cursor:pointer;';
     saveBtn.addEventListener('click', () => {
-        const cmd = new UpdateFloorCommand({
-            floorId: floor.id,
-            updates: { layers: editableLayers.map((l: any) => ({ ...l })) }
-        });
         // [P6-E.5.1] Migrated: window.commandManager → runtime.bus (01-BIM-ENGINE-CORE-CONTRACT §1).
+        // §OI-055-SIBLING fix (2026-05-27): dispatch via bus type 'floor.update'
+        // with the raw payload — matches the handler signature in
+        // initBusHandlers.ts:184. Previously dispatched `cmd.type` (= 'UPDATE_FLOOR',
+        // no handler) with the full Command instance (handler expects raw payload)
+        // → silent no-op (same class as OI-055).
         if (!window.runtime?.bus) {
             console.warn('[FloorPropertySection] runtime.bus not available — UpdateFloor skipped');
             return;
         }
-        window.runtime.bus.executeCommand(cmd.type, cmd);
+        window.runtime.bus.executeCommand('floor.update', {
+            floorId: floor.id,
+            updates: { layers: editableLayers.map((l: any) => ({ ...l })) },
+        });
         saveBtn.textContent = '✓ Saved';
         saveBtn.style.background = 'var(--app-status-success,#22c55e)';
         setTimeout(() => {

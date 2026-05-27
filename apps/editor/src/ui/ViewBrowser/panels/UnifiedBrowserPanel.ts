@@ -31,10 +31,14 @@
  *   ELEMENTS card renderer:    unified-browser/ElementsSummarySection.ts
  *   Data helpers + UBPBag:     unified-browser/BrowserDataHelpers.ts
  *
- * P6b fix (Wave 14):
- *   BEFORE: `window.the legacy command manager)` (original line 466)
- *   AFTER:  `bag.runtime.bus.executeCommand(cmd.type, cmd)` in ProjectTreeSection.ts
- *   See ProjectTreeSection.ts header for full fix details.
+ * P6b fix (Wave 14) + §OI-055 fix (2026-05-27):
+ *   BEFORE: `window.commandManager.execute(cmd)` (P6 violation).
+ *   INTERIM (Wave 14): `bag.runtime.bus.executeCommand(cmd.type, cmd)` —
+ *     migrated to the bus API but the dispatch type AND payload shape were
+ *     both wrong, producing the OI-055 "Add level" silent no-op.
+ *   FIXED: `bag.runtime.bus.executeCommand('level.add', { levelId, name,
+ *     elevation, height })`. See ProjectTreeSection.ts header for full
+ *     fix details.
  */
 
 import type { ProjectBrowserPanelProps } from '../ProjectBrowserTypes';
