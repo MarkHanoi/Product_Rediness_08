@@ -187,6 +187,13 @@ function cornerPoints(input: FurnishRoomInput, inset: number): Pt[] {
  * Place an archetype's items into a room. Returns the placed furniture (best-effort:
  * items that can't fit are skipped; a required item that can't be placed downgrades
  * the rest of its group). Deterministic.
+ *
+ * SINGLE-PASS ARCHETYPE ORDER: items are placed in archetype order, with 'beside'
+ * items resolved against their group leader (which the archetype guarantees is
+ * earlier in the list — see test pinning in furnishRules.test.ts). This is what
+ * keeps bedside_tables from being shoved aside by a later corner-anchored lamp:
+ * the bedsides are placed BEFORE the lamp, become obstacles, and the lamp yields
+ * to another corner.
  */
 export function placeRoom(input: FurnishRoomInput, archetype: FurnitureArchetype): PlacedFurniture[] {
     if (input.areaM2 < archetype.minAreaM2 || input.walls.length === 0) return [];
@@ -194,9 +201,13 @@ export function placeRoom(input: FurnishRoomInput, archetype: FurnitureArchetype
     const placed: Placement[] = [];
     const leaders = new Map<string, Placement>();
 
-    // Pass 1 — anchored (non-beside) items, in order.
     for (const spec of archetype.items) {
-        if (spec.anchor === 'beside') continue;
+        if (spec.anchor === 'beside') {
+            const leader = spec.group ? leaders.get(spec.group) : undefined;
+            if (!leader) continue;       // leader couldn't place → drop the dependents
+            for (const p of placeBeside(spec, leader, input, obstacles)) placed.push(p);
+            continue;
+        }
         let p: Placement | null = null;
         if (spec.anchor === 'center') {
             p = placeAtPoint(spec.kind, input.centroid, 0, input, obstacles);
@@ -212,14 +223,6 @@ export function placeRoom(input: FurnishRoomInput, archetype: FurnitureArchetype
             }
         }
         if (p) { placed.push(p); obstacles.push(p.rect); if (spec.group) leaders.set(spec.group, p); }
-    }
-
-    // Pass 2 — beside items, relative to their group leader.
-    for (const spec of archetype.items) {
-        if (spec.anchor !== 'beside' || !spec.group) continue;
-        const leader = leaders.get(spec.group);
-        if (!leader) continue;
-        for (const p of placeBeside(spec, leader, input, obstacles)) placed.push(p);
     }
 
     return placed.map(p => p.item);

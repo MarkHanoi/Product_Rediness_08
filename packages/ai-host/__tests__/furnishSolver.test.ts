@@ -169,4 +169,21 @@ describe('furnishRoom (D-FLE F5/F7)', () => {
             expect(items.some(i => i.kind === 'wardrobe')).toBe(true);
         });
     });
+
+    describe('single-pass archetype order (bedsides placed before lamp)', () => {
+        // Architect's rule: bedroom has BED + 2 BEDSIDE TABLES + WARDROBE + LAMP.
+        // With the prior two-pass model the lamp (Pass 1, corner) was placed
+        // before the bedsides (Pass 2, beside-leader) and took the corner one
+        // bedside needed — only 1 bedside fit. Single-pass in archetype order
+        // places the bedsides immediately after the bed; the lamp yields.
+        it('bedroom with window opposite door places BOTH bedsides', () => {
+            const base = rectRoom('bedroom', 4, 3);
+            const room: FurnishRoomInput = {
+                ...base,
+                windows: [{ type: 'window', center: { x: 2, z: 3 }, normal: { x: 0, z: -1 }, width: 1.5 }],
+            };
+            const items = furnishRoom(room);
+            expect(items.filter(i => i.kind === 'bedside_table').length).toBe(2);
+        });
+    });
 });
