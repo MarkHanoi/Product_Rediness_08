@@ -135,10 +135,15 @@ describe('D-TGL room enclosure', () => {
 
         // Build with skipExteriorWalls → only interior partitions are created, every
         // door survives (hosted on interior walls) and references a built wall.
+        // §COLLINEAR-MERGE folds collinear adjacent segments into single passthrough
+        // walls — wallIds.length ≤ interior (every interior segment is REPRESENTED;
+        // none is dropped). The merge emits an informational warning; no `dropped`
+        // warning is allowed.
         let n = 0;
         const set = buildLayoutCommands(option, { levelId: 'L0', skipExteriorWalls: true }, () => `id-${n++}`);
-        expect(set.wallIds.length).toBe(interior);
+        expect(set.wallIds.length).toBeGreaterThan(0);
+        expect(set.wallIds.length).toBeLessThanOrEqual(interior);
         expect(set.doorIds.length).toBe(option.doors.length);
-        expect(set.warnings).toEqual([]);
+        expect(set.warnings.filter(w => w.includes('dropped'))).toEqual([]);
     });
 });

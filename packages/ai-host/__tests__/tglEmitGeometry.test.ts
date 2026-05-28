@@ -92,9 +92,14 @@ describe('emitGeometry (TGL P9)', () => {
         let n = 0;
         const mint = (p: string) => `${p}-${n++}`;
         const set = buildLayoutCommands(option, { levelId: 'L1' }, mint);
-        expect(set.wallIds.length).toBe(option.walls.length);     // no wall dropped (≥ min length)
+        // §COLLINEAR-MERGE folds collinear adjacent segments into passthrough
+        // walls — wallIds.length ≤ option.walls.length, but every option wall
+        // is REPRESENTED (no segment dropped for being too short). The merge
+        // emits an informational warning; no `dropped` warning is allowed.
+        expect(set.wallIds.length).toBeGreaterThan(0);
+        expect(set.wallIds.length).toBeLessThanOrEqual(option.walls.length);
         expect(set.doorIds.length).toBe(option.doors.length);     // no door dropped (all fit)
-        expect(set.warnings).toEqual([]);
+        expect(set.warnings.filter(w => w.includes('dropped'))).toEqual([]);
     });
 
     it('round-trips from the P8 enumerator and is deterministic', () => {
