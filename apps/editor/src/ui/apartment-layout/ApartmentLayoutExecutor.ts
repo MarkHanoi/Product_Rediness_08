@@ -278,9 +278,13 @@ export class ApartmentLayoutExecutor {
 
     /**
      * Apply D-TGL's semantic room names to the rooms the engine just detected.
-     * Each detected room is matched to the LARGEST D-TGL room whose footprint
-     * centroid falls inside it — so an open-plan zone (one detected room spanning
-     * several D-TGL spaces) takes the dominant space's name (e.g. "Living Room").
+     * Each detected room is matched to ALL D-TGL rooms whose footprint centroid
+     * falls inside it. When several D-TGL rooms merge into one detected room (the
+     * open-plan zone: hall + living + kitchen + dining), we build a COMPOUND
+     * name like "Living Room / Kitchen / Dining" so each program room is visible
+     * in the editor — the prior largest-only rule made the kitchen "disappear"
+     * because living always won on area weight. Occupancy = the dominant
+     * (largest-area) sub-room's occupancy so the editor still colours the zone.
      * Best-effort + its own undo unit (cosmetic; no geometry change).
      */
     private _nameDetectedRooms(runtime: PryzmRuntime, levelId: string, option: ScoredLayoutOption): void {
@@ -329,8 +333,14 @@ export class ApartmentLayoutExecutor {
                 for (const room of detected) {
                     const poly = room.boundary?.polygon ?? [];
                     if (poly.length < 3) continue;
-                    const match = tgl.find(t => inside(t.cx, t.cz, poly));   // largest contained D-TGL room
-                    if (match?.name) renames.push({ roomId: room.id, name: match.name, ...(match.occupancy ? { occupancy: match.occupancy } : {}) });
+                    // ALL D-TGL rooms whose centroid is inside this detected room.
+                    // `tgl` is sorted by area desc so matches[0] is the dominant one.
+                    const matches = tgl.filter(t => inside(t.cx, t.cz, poly));
+                    if (matches.length === 0) continue;
+                    const compoundName = matches.map(m => m.name).filter(Boolean).join(' / ');
+                    if (!compoundName) continue;
+                    const dominantOccupancy = matches[0]!.occupancy;
+                    renames.push({ roomId: room.id, name: compoundName, ...(dominantOccupancy ? { occupancy: dominantOccupancy } : {}) });
                 }
                 if (renames.length === 0) return;
 

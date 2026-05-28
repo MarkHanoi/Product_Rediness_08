@@ -186,4 +186,26 @@ describe('furnishRoom (D-FLE F5/F7)', () => {
             expect(items.filter(i => i.kind === 'bedside_table').length).toBe(2);
         });
     });
+
+    describe('§FURNITURE-SPEC clearFront (working zone reserved)', () => {
+        // The toilet has 60 cm knee clearance; later items must not occupy
+        // the strip in front of it. The bathroom shower (corner-anchored) is
+        // placed AFTER the toilet — it must avoid the toilet's clear-front.
+        it('bathroom shower never sits inside the toilet knee-clearance zone', () => {
+            const room = rectRoom('bathroom', 2.5, 2);
+            const items = furnishRoom(room);
+            const toilet = items.find(i => i.kind === 'toilet_radiator');
+            const shower = items.find(i => i.kind === 'shower_glass_panel');
+            expect(toilet).toBeDefined();
+            expect(shower).toBeDefined();
+            // Toilet on top wall (z ≈ 1.63) faces -z; its clear-front zone is
+            // the strip at z ∈ [1.63 − 0.7/2 − 0.6, 1.63 − 0.7/2] ≈ [0.68, 1.28]
+            // over the toilet's x span. The shower's centre must NOT lie inside.
+            const tcx = toilet!.position.x, tcz = toilet!.position.z;
+            const dx = Math.abs(shower!.position.x - tcx);
+            const dz = tcz - shower!.position.z;
+            const inFront = dx < (0.4 / 2 + 0.9 / 2) && dz > 0.35 && dz < 0.95;
+            expect(inFront).toBe(false);
+        });
+    });
 });

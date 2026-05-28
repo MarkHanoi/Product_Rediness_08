@@ -29,6 +29,25 @@ function doorObstacles(input: FurnishRoomInput): Rect[] {
 
 interface Placement { item: PlacedFurniture; rect: Rect }
 
+/**
+ * §FURNITURE-SPEC clearFront — the keep-clear zone in front of the item where
+ * the user stands / opens drawers / accesses the unit (kitchen working zone,
+ * toilet knee clearance, wardrobe drawer slide-out). Built as a rect extending
+ * `fp.clearFront` metres FROM the item's front edge along the wall's inward
+ * normal (the item was placed with its back to the wall, so its `+front` is
+ * `+inwardNormal`). Returns null when the item has no clear-front zone or its
+ * yaw is not a wall-anchor yaw (center / corner items leave this null).
+ */
+function clearFrontRectFor(p: Placement): Rect | null {
+    const fp = p.item.footprint;
+    if (fp.clearFront <= 0) return null;
+    const yaw = p.item.rotationY;
+    const n: Pt = { x: Math.sin(yaw), z: Math.cos(yaw) };
+    const cx = p.item.position.x + n.x * (fp.l / 2 + fp.clearFront / 2);
+    const cz = p.item.position.z + n.z * (fp.l / 2 + fp.clearFront / 2);
+    return footprintRect(cx, cz, fp.w, fp.clearFront, yaw);
+}
+
 /** Try to place `kind` against `wall`, sliding along it until it fits. */
 function placeAgainstWall(
     kind: PlacedFurniture['kind'], wall: RoomWallSeg,
@@ -222,7 +241,19 @@ export function placeRoom(input: FurnishRoomInput, archetype: FurnitureArchetype
                 if (p) break;
             }
         }
-        if (p) { placed.push(p); obstacles.push(p.rect); if (spec.group) leaders.set(spec.group, p); }
+        if (p) {
+            placed.push(p);
+            obstacles.push(p.rect);
+            // §FURNITURE-SPEC clearFront: reserve the working/knee-clearance
+            // zone in front of items that have NO group members (sofa→coffee
+            // table, bed→bedsides, dining_table→chairs intentionally sit in
+            // the leader's clear-front, so we skip when there's a group).
+            if (!spec.group) {
+                const cf = clearFrontRectFor(p);
+                if (cf) obstacles.push(cf);
+            }
+            if (spec.group) leaders.set(spec.group, p);
+        }
     }
 
     return placed.map(p => p.item);
