@@ -200,12 +200,24 @@ function rayHitPolygon(from: Pt, dx: number, dz: number, poly: readonly Pt[]): n
     return best;
 }
 
+/** §EXTEND-CAP-2026-05-28: a wall endpoint should only need a tiny nudge to
+ *  reach a slanted perimeter (≈ halfThickness for typical 0.1 m walls — say,
+ *  up to 0.5 m for steeply slanted shells). If the rayHitPolygon returns
+ *  much further than that, the wall is being extended THROUGH an interior
+ *  void (e.g. a dropped-room strip from §HARD-MIN-SIDE-2M), and pushing it
+ *  to the far perimeter would connect adjacent rooms — the apartment
+ *  collapses to a single room on detection (architect screenshot
+ *  2026-05-28, modal showed 8 rooms / real result showed 1).
+ *  The cap PRESERVES the slanted-perimeter fix and BLOCKS the shoot-through. */
+const EXTEND_CAP_M = 0.5;
+
 /** Extend the endpoint `from` along (dx, dz) (unit) up to the first polygon
  *  perimeter hit (if any) and return the new endpoint. `from` MUST be strictly
- *  inside the polygon (or this is a no-op). */
+ *  inside the polygon (or this is a no-op). Capped at EXTEND_CAP_M. */
 function extendToPolygon(from: Pt, dx: number, dz: number, poly: readonly Pt[]): Pt {
     const t = rayHitPolygon(from, dx, dz, poly);
     if (!Number.isFinite(t) || t < POLY_EPS) return from;
+    if (t > EXTEND_CAP_M) return from;                     // §EXTEND-CAP — leave unchanged
     return { x: from.x + dx * t, z: from.z + dz * t };
 }
 

@@ -36,6 +36,8 @@ import { openAutoOrganiseModal } from '../property-inspector/RoomAutoOrganiser';
 // Single shared trigger (also exposed as the console command
 // pryzmGenerateApartmentLayout()), so the leaf + console behave identically.
 import { triggerApartmentLayout } from '../apartment-layout/apartmentLayoutTrigger';
+import { triggerFurnishLayout } from '../furnish-layout/furnishLayoutTrigger';
+import { triggerLightingLayout } from '../lighting-layout/lightingLayoutTrigger';
 
 // ─── Command-Aware Suggestion Tree ───────────────────────────────────────────
 //
@@ -127,6 +129,32 @@ const COMMAND_TREE: SuggestionNode[] = [
                 label: 'Generate apartment layout (AI)',
                 hint: 'AI interior layouts from the level shell — pick one to build',
                 action: () => { triggerApartmentLayout(); },
+            },
+            {
+                // #52 D-FLE — auto-place furniture in every furnishable room on
+                // the active level. Auto-fires after "Generate apartment layout"
+                // too, so a manual trigger is only needed for hand-drawn walls.
+                label: 'Furnish all rooms (AI)',
+                hint: 'auto-place furniture per occupancy archetype',
+                action: () => { triggerFurnishLayout(); },
+            },
+            {
+                // #53 D-LE — auto-place a ceiling fixture in every room.
+                // Auto-fires after "Furnish all rooms" too.
+                label: 'Light all rooms (AI)',
+                hint: 'auto-place one ceiling fixture per room',
+                action: () => { triggerLightingLayout(); },
+            },
+            {
+                // Manual full-pipeline: furniture + lighting in one click for
+                // hand-drawn walls (no apartment-generator run needed).
+                label: 'Furnish + light all rooms (AI)',
+                hint: 'one click — furniture then auto-light',
+                action: () => {
+                    triggerFurnishLayout();
+                    // Lighting auto-fires on `furnish.layout-executed`; no
+                    // explicit call needed.
+                },
             },
             {
                 label: 'Perimeter walls',
