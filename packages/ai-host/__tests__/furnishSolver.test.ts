@@ -80,4 +80,93 @@ describe('furnishRoom (D-FLE F5/F7)', () => {
         expect(furnishRoom(rectRoom('bedroom', 1.5, 1.5))).toEqual([]);   // below minAreaM2
         expect(furnishRoom(rectRoom('corridor', 6, 1.2))).toEqual([]);    // unfurnished type
     });
+
+    describe('§FURNITURE-SPEC excludeWindowWall (door-vector-aware placement)', () => {
+        // Same 4 × 3 bedroom (door on the bottom wall) but the wall OPPOSITE
+        // the door (z = 3) now carries a window. Without the exclusion,
+        // `wall-opposite-door` lands the bed on the window wall (z ≈ 2.05) and
+        // `wall-longest` may pick it for the wardrobe — the architect's spec
+        // forbids both (privacy + thermal envelope + daylight blocking).
+        const windowOppositeDoor = (w: number, d: number): FurnishRoomInput => {
+            const r = rectRoom('bedroom', w, d);
+            return { ...r, windows: [{ type: 'window', center: { x: w / 2, z: d }, normal: { x: 0, z: -1 }, width: 1.5 }] };
+        };
+
+        it('bedroom bed never anchors on the window wall', () => {
+            const room = windowOppositeDoor(4, 3);
+            const bed = furnishRoom(room).find(i => i.kind === 'bed');
+            expect(bed).toBeDefined();
+            // A bed against the window wall (z = 3) has centre z ≈ 3 − 1.9/2 ≈ 2.05.
+            // A side-wall placement puts the centre near the room z-midpoint (1.5).
+            expect(bed!.position.z).toBeLessThan(2.0);
+        });
+
+        it('bedroom wardrobe never anchors on the window wall', () => {
+            const room = windowOppositeDoor(4, 3);
+            const wardrobe = furnishRoom(room).find(i => i.kind === 'wardrobe');
+            // The wardrobe is `required: true` — must be placed somewhere — but
+            // never against the window wall (whose footprint would put z ≈ 2.7).
+            if (wardrobe) expect(wardrobe.position.z).toBeLessThan(2.5);
+        });
+    });
+
+    describe('§FURNITURE-SPEC corner-anchor sort (farthest from door)', () => {
+        // Architect's rule: the shower / lamp / plant goes in the corner
+        // FARTHEST from the door — not the first corner the loop happens to
+        // hit. A 3 × 2 bathroom (door bottom-centre) is the boundary case: the
+        // bottom-left/right corners just clear the door swing rect and would
+        // be picked first by the old fixed-order loop.
+
+        it('bathroom shower lands in a far-from-door (top half) corner', () => {
+            const room = rectRoom('bathroom', 3, 2);
+            const shower = furnishRoom(room).find(i => i.kind === 'shower_glass_panel');
+            expect(shower).toBeDefined();
+            // Door centre is at z = 0; the FAR corners are at z ≈ 1.53 (top
+            // half of the room). A near-corner placement would have z ≈ 0.47.
+            expect(shower!.position.z).toBeGreaterThan(1.0);
+        });
+    });
+
+    describe('§FURNITURE-SPEC excludeDoorSwing (anchor wall ≠ door wall)', () => {
+        // Bathroom toilet anchored 'wall-longest' would land on the BOTTOM wall
+        // (the door wall, tied length 2.5 m with the top wall but first in
+        // input order), slid past the door obstacle to (2.0, 0.37) — toilet
+        // greets the user as they open the door. excludeDoorSwing prefers a
+        // wall WITHOUT the door so the toilet anchors on the TOP wall instead.
+        it('bathroom toilet anchors on the wall opposite the door', () => {
+            const room = rectRoom('bathroom', 2.5, 2);
+            const toilet = furnishRoom(room).find(i => i.kind === 'toilet_radiator');
+            expect(toilet).toBeDefined();
+            // Toilet on the top wall has centre z ≈ 2 − 0.7/2 − 0.02 ≈ 1.63;
+            // toilet on the bottom (door) wall would have centre z ≈ 0.37.
+            expect(toilet!.position.z).toBeGreaterThan(1.0);
+        });
+
+        // Kitchen run on the door wall blocks the working triangle. The L-run
+        // should anchor on a wall without the door — picks the opposite wall.
+        it('kitchen run anchors on the wall opposite the door', () => {
+            // 3.5 × 3 room — door on the bottom wall; the L-run must clear it.
+            const room = rectRoom('kitchen', 3.5, 3);
+            const run = furnishRoom(room).find(i => i.kind === 'kitchen_l_shape');
+            expect(run).toBeDefined();
+            // The kitchen run (3.0 × 0.6) anchored on the TOP wall has centre
+            // z ≈ 3 − 0.6/2 − 0.02 ≈ 2.68; on the bottom (door) wall it would
+            // sit at z ≈ 0.32.
+            expect(run!.position.z).toBeGreaterThan(1.5);
+        });
+
+        // Bedroom wardrobe MUST still be placed (it's required) even when
+        // both filters (window-wall + door-wall) leave only two short side
+        // walls and the bed has already claimed one of them.
+        it('bedroom wardrobe still places when filters over-constrain (cascading fallback)', () => {
+            const base = rectRoom('bedroom', 4, 3);
+            const room: FurnishRoomInput = {
+                ...base,
+                windows: [{ type: 'window', center: { x: 2, z: 3 }, normal: { x: 0, z: -1 }, width: 1.5 }],
+            };
+            const items = furnishRoom(room);
+            expect(items.some(i => i.kind === 'bed')).toBe(true);
+            expect(items.some(i => i.kind === 'wardrobe')).toBe(true);
+        });
+    });
 });

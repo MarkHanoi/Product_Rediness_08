@@ -49,6 +49,17 @@ export interface FurnitureItemSpec {
     readonly group?: string;
     /** how many to place (default 1) — e.g. 2 bedside tables, N dining chairs. */
     readonly count?: number;
+    /** §FURNITURE-SPEC: when true, the item may NOT anchor on a wall carrying a
+     *  window. Tall/wide pieces (bed head, wardrobe) block daylight and break
+     *  the privacy + thermal envelope. The solver falls back to the next-best
+     *  wall (longest non-window) when the anchor resolves to a window wall. */
+    readonly excludeWindowWall?: boolean;
+    /** §FURNITURE-SPEC: when true, the item may NOT anchor on a wall carrying a
+     *  door. A toilet / bed / wardrobe / sofa / kitchen run slid past the door
+     *  on the SAME wall is awkward to use; the solver prefers a perpendicular
+     *  wall, falling back through the rest if no other wall fits. The door's
+     *  swing-area keep-clear rect still applies to every item. */
+    readonly excludeDoorSwing?: boolean;
 }
 
 export interface FurnitureArchetype {

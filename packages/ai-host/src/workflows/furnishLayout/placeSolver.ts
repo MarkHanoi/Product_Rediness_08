@@ -11,7 +11,7 @@ import type {
 } from './types.js';
 import { footprintOf } from './footprints.js';
 import { footprintRect, overlapsAny, rectInPolygon } from './collision.js';
-import { longestWall, wallOppositeDoor, wallWithWindow, wallMid, wallDir, yawFromNormal } from './wallAnalysis.js';
+import { longestWall, wallOppositeDoor, wallWithWindow, wallHasWindow, wallHasDoor, wallMid, wallDir, yawFromNormal } from './wallAnalysis.js';
 
 const GAP = 0.02;
 const SLIDE_STEP = 0.25;
@@ -61,13 +61,60 @@ function placeAtPoint(kind: PlacedFurniture['kind'], c: Pt, yaw: number, input: 
     return null;
 }
 
-function resolveAnchorWall(spec: FurnitureItemSpec, input: FurnishRoomInput) {
+/** Apply the spec's anchor rule to a candidate wall set. */
+function pickByAnchor(
+    spec: FurnitureItemSpec, walls: readonly RoomWallSeg[], input: FurnishRoomInput,
+): RoomWallSeg | null {
     switch (spec.anchor) {
-        case 'wall-opposite-door': return wallOppositeDoor(input.walls, input.doors);
-        case 'wall-window': return wallWithWindow(input.walls, input.windows);
+        case 'wall-opposite-door': return wallOppositeDoor(walls, input.doors);
+        case 'wall-window': return wallWithWindow(walls, input.windows);
         case 'wall-longest':
-        default: return longestWall(input.walls);
+        default: return longestWall(walls);
     }
+}
+
+/**
+ * Ordered wall candidates for `spec` — the placement loop tries them in order
+ * until placeAgainstWall succeeds. §FURNITURE-SPEC `excludeWindowWall` and
+ * `excludeDoorSwing` prune the preferred set; cascading fallbacks ensure a
+ * required item still finds SOME wall when filters over-constrain (e.g. a
+ * bedroom wardrobe that should avoid the window+door walls but only has those
+ * two walls free).
+ *
+ * Priority:
+ *   1. Anchor-best of the FILTERED set (no window wall, no door wall).
+ *   2. Remaining filtered walls in their input order.
+ *   3. Anchor-best of the ANCHOR-only set (only the wall-window exclusion is
+ *      kept — door is acceptable, window still not).
+ *   4. Remaining anchor-only walls.
+ *   5. Anchor-best of the FULL set (final fallback).
+ *   6. Remaining full-set walls.
+ *
+ * Deduplicated. The 'wall-window' anchor ignores `excludeWindowWall` (self-
+ * contradictory).
+ */
+function resolveAnchorWalls(spec: FurnitureItemSpec, input: FurnishRoomInput): RoomWallSeg[] {
+    const dropWindow = !!spec.excludeWindowWall && spec.anchor !== 'wall-window';
+    const dropDoor = !!spec.excludeDoorSwing;
+    const allWalls = input.walls;
+    const noWindow = (w: RoomWallSeg): boolean => !dropWindow || !wallHasWindow(w, input.windows);
+    const noDoor = (w: RoomWallSeg): boolean => !dropDoor || !wallHasDoor(w, input.doors);
+    const tiers: (readonly RoomWallSeg[])[] = [];
+    if (dropWindow || dropDoor) tiers.push(allWalls.filter(w => noWindow(w) && noDoor(w)));
+    if (dropDoor && dropWindow) tiers.push(allWalls.filter(noWindow));   // relax door
+    tiers.push(allWalls);
+
+    const seen = new Set<RoomWallSeg>();
+    const ordered: RoomWallSeg[] = [];
+    const push = (w: RoomWallSeg | null): void => {
+        if (w && !seen.has(w)) { seen.add(w); ordered.push(w); }
+    };
+    for (const tier of tiers) {
+        if (tier.length === 0) continue;
+        push(pickByAnchor(spec, tier, input));
+        for (const w of tier) push(w);
+    }
+    return ordered;
 }
 
 /** Place the 'beside' items of a group relative to its already-placed leader. */
@@ -112,14 +159,28 @@ function placeBeside(spec: FurnitureItemSpec, leader: Placement, input: FurnishR
     return out;
 }
 
-/** Corner candidates (room bbox corners inset by half the footprint). */
+/** Corner candidates (room bbox corners inset by half the footprint). The
+ *  primary door, if any, is used to sort the corners by distance DESCENDING
+ *  — §FURNITURE-SPEC: corner-anchored items (shower, lamp) prefer the corner
+ *  farthest from the door. Falls back to the bbox order when there's no door
+ *  (deterministic: ties broken by lower x then z). */
 function cornerPoints(input: FurnishRoomInput, inset: number): Pt[] {
     let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
     for (const p of input.polygon) { x0 = Math.min(x0, p.x); z0 = Math.min(z0, p.z); x1 = Math.max(x1, p.x); z1 = Math.max(z1, p.z); }
-    return [
+    const corners: Pt[] = [
         { x: x0 + inset, z: z0 + inset }, { x: x1 - inset, z: z0 + inset },
         { x: x1 - inset, z: z1 - inset }, { x: x0 + inset, z: z1 - inset },
     ];
+    const door = input.doors[0];
+    if (!door) return corners;
+    const dx = door.center.x, dz = door.center.z;
+    const dist2 = (c: Pt): number => (c.x - dx) * (c.x - dx) + (c.z - dz) * (c.z - dz);
+    return [...corners].sort((a, b) => {
+        const da = dist2(a), db = dist2(b);
+        if (db !== da) return db - da;                // farthest first
+        if (a.x !== b.x) return a.x - b.x;            // stable tiebreak: lower x
+        return a.z - b.z;                              // then lower z
+    });
 }
 
 /**
@@ -145,8 +206,10 @@ export function placeRoom(input: FurnishRoomInput, archetype: FurnitureArchetype
                 p = placeAtPoint(spec.kind, c, 0, input, obstacles); if (p) break;
             }
         } else {
-            const wall = resolveAnchorWall(spec, input);
-            if (wall) p = placeAgainstWall(spec.kind, wall, input, obstacles);
+            for (const wall of resolveAnchorWalls(spec, input)) {
+                p = placeAgainstWall(spec.kind, wall, input, obstacles);
+                if (p) break;
+            }
         }
         if (p) { placed.push(p); obstacles.push(p.rect); if (spec.group) leaders.set(spec.group, p); }
     }

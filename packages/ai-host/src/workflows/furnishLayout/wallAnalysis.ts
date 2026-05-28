@@ -44,20 +44,35 @@ export function wallOppositeDoor(walls: readonly RoomWallSeg[], doors: readonly 
     return best ?? longestWall(walls);
 }
 
+/** True when an opening (window or door) sits on a wall: its centre lies near
+ *  the wall's infinite line AND within its span. The same geometric test that
+ *  `wallWithWindow` used internally — exported so the placement solver can
+ *  enforce §FURNITURE-SPEC `excludeWindowWall` against any wall. */
+export function openingOnWall(o: OpeningPose, w: RoomWallSeg): boolean {
+    const d = wallDir(w);
+    const t = (o.center.x - w.a.x) * d.x + (o.center.z - w.a.z) * d.z;
+    if (t < -0.05 || t > w.length + 0.05) return false;
+    const px = w.a.x + d.x * t, pz = w.a.z + d.z * t;
+    return Math.hypot(o.center.x - px, o.center.z - pz) < 0.3;
+}
+
+/** True when ANY window lies on `w`. */
+export const wallHasWindow = (w: RoomWallSeg, windows: readonly OpeningPose[]): boolean =>
+    windows.some(win => openingOnWall(win, w));
+
+/** True when ANY door lies on `w`. Used by §FURNITURE-SPEC `excludeDoorSwing`
+ *  to keep door-respecting items (toilet, bed, wardrobe, sofa, kitchen run)
+ *  off the wall the door is in — an item slid past the door on the same wall
+ *  is awkward to use (you face it side-on as the door swings beside you). */
+export const wallHasDoor = (w: RoomWallSeg, doors: readonly OpeningPose[]): boolean =>
+    doors.some(d => openingOnWall(d, w));
+
 /** A wall carrying a window (the window's center lies on the wall span). Prefers
  *  the longest such wall. Falls back to the longest wall overall. */
 export function wallWithWindow(walls: readonly RoomWallSeg[], windows: readonly OpeningPose[]): RoomWallSeg | null {
-    const onWall = (win: OpeningPose, w: RoomWallSeg): boolean => {
-        // window center close to the wall's infinite line AND within its span
-        const d = wallDir(w);
-        const t = (win.center.x - w.a.x) * d.x + (win.center.z - w.a.z) * d.z;
-        if (t < -0.05 || t > w.length + 0.05) return false;
-        const px = w.a.x + d.x * t, pz = w.a.z + d.z * t;
-        return Math.hypot(win.center.x - px, win.center.z - pz) < 0.3;
-    };
     let best: RoomWallSeg | null = null;
     for (const w of walls) {
-        if (windows.some(win => onWall(win, w)) && (!best || w.length > best.length)) best = w;
+        if (wallHasWindow(w, windows) && (!best || w.length > best.length)) best = w;
     }
     return best ?? longestWall(walls);
 }

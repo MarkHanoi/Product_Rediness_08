@@ -18,7 +18,9 @@ describe('footprints (F3)', () => {
         }
     });
     it('footprintArea = w × l', () => {
-        expect(footprintArea('bed')).toBeCloseTo(1.6 * 2.0, 6);
+        // §FURNITURE-SPEC (2026-05-28): bed revised to UK double 1.35 × 1.90 m
+        // (architect's interactive plan database). Pinned by furnishRules.test.ts.
+        expect(footprintArea('bed')).toBeCloseTo(1.35 * 1.90, 6);
     });
 });
 

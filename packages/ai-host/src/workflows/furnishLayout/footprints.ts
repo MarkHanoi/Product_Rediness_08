@@ -10,7 +10,10 @@ import type { Footprint, FurnitureKind } from './types.js';
 
 const FP: Readonly<Record<FurnitureKind, Footprint>> = {
     // Bedroom
-    bed:            { w: 1.60, l: 2.00, h: 0.50, baseOffset: 0, clearFront: 0.70, clearSides: 0.10 },
+    // §FURNITURE-SPEC (2026-05-28): UK double 1.35 × 1.90 m + 0.60 m circulation
+    // each side + 0.80 m clearance at the foot. Mirrors programRules.bedroom
+    // furnitureSpec[bed]; pinned by the furnishRules.test.ts consistency check.
+    bed:            { w: 1.35, l: 1.90, h: 0.50, baseOffset: 0, clearFront: 0.80, clearSides: 0.60 },
     bedside_table:  { w: 0.45, l: 0.40, h: 0.50, baseOffset: 0, clearFront: 0.00, clearSides: 0.00 },
     wardrobe:       { w: 1.20, l: 0.60, h: 2.00, baseOffset: 0, clearFront: 0.90, clearSides: 0.00 },
     // Living

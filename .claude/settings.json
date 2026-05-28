@@ -2,7 +2,26 @@
   "permissions": {
     "allow": [
       "Bash(pnpm --filter @pryzm/runtime-composer typecheck)",
-      "Bash(pnpm --filter @pryzm/runtime-composer test)"
+      "Bash(pnpm --filter @pryzm/runtime-composer test)",
+      "Bash(pnpm --filter @pryzm/ai-host exec vitest run __tests__/tglWallsAndDoors.test.ts)",
+      "Bash(pnpm --filter @pryzm/ai-host exec vitest run __tests__/tglWallsAndDoors.test.ts __tests__/tglRunDeterministicLayout.test.ts __tests__/tglEnumerate.test.ts __tests__/tglRoomDetectionIntegration.test.ts __tests__/apartmentLayoutExecutePlan.test.ts)",
+      "Bash(pnpm --filter @pryzm/ai-host exec vitest run __tests__/lightingLayout.test.ts)",
+      "Bash(pnpm --filter @pryzm/ai-host exec vitest run __tests__/apartmentLayoutExecutePlan.test.ts __tests__/tglSubdivide.test.ts __tests__/tglRunDeterministicLayout.test.ts __tests__/tglEnumerate.test.ts)",
+      "Bash(pnpm --filter @pryzm/ai-host exec vitest run __tests__/tglWallsAndDoors.test.ts __tests__/tglRunDeterministicLayout.test.ts __tests__/tglEnumerate.test.ts)",
+      "Bash(pnpm --filter @pryzm/ai-host exec vitest run __tests__/ceilingLayout.test.ts)",
+      "Bash(pnpm --filter @pryzm/ai-host exec tsc --noEmit)",
+      "Bash(pnpm --filter @pryzm/ai-host exec vitest run __tests__/programRules.test.ts __tests__/tglEnclosure.test.ts __tests__/tglEmitGeometry.test.ts)",
+      "Bash(pnpm --filter @pryzm/ai-host exec vitest run __tests__/tglEnclosure.test.ts __tests__/tglEmitGeometry.test.ts)",
+      "Bash(pnpm --filter @pryzm/ai-host exec vitest run __tests__/AiHost.lazy.test.ts)",
+      "Bash(pnpm --filter @pryzm/ai-host exec vitest run __tests__/programRules.test.ts __tests__/tglSubdivide.test.ts __tests__/tglWallsAndDoors.test.ts __tests__/tglEnclosure.test.ts __tests__/tglEmitGeometry.test.ts)",
+      "Bash(pnpm --filter @pryzm/ai-host exec vitest run __tests__/programRules.test.ts __tests__/tglSubdivide.test.ts __tests__/tglWallsAndDoors.test.ts __tests__/tglEnclosure.test.ts __tests__/tglEmitGeometry.test.ts __tests__/ceilingLayout.test.ts)",
+      "Bash(pnpm --filter @pryzm/ai-host exec vitest run __tests__/tglWallsAndDoors.test.ts __tests__/programRules.test.ts __tests__/tglSubdivide.test.ts __tests__/ceilingLayout.test.ts)",
+      "Bash(pnpm --filter @pryzm/ai-host exec vitest run __tests__/tglSubdivide.test.ts __tests__/programRules.test.ts __tests__/tglWallsAndDoors.test.ts __tests__/ceilingLayout.test.ts)",
+      "Bash(pnpm --filter @pryzm/ai-host exec vitest run __tests__/furnishRules.test.ts __tests__/programRules.test.ts)",
+      "Bash(pnpm --filter @pryzm/ai-host exec vitest run __tests__/furnishFoundations.test.ts)",
+      "Bash(pnpm --filter @pryzm/ai-host exec vitest run __tests__/furnishRules.test.ts __tests__/furnishFoundations.test.ts __tests__/programRules.test.ts)",
+      "Bash(pnpm --filter @pryzm/ai-host exec vitest run __tests__/furnishSolver.test.ts __tests__/furnishRules.test.ts __tests__/furnishFoundations.test.ts __tests__/furnishEmit.test.ts)",
+      "Bash(pnpm --filter @pryzm/ai-host exec vitest run __tests__/furnishSolver.test.ts __tests__/furnishRules.test.ts __tests__/furnishFoundations.test.ts __tests__/furnishEmit.test.ts __tests__/programRules.test.ts)"
     ]
   }
 }

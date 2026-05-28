@@ -13,16 +13,21 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
         occupancy: 'bedroom', minAreaM2: 6,
         items: [
             // Rules: every bedroom requires a bed, 2 bedside tables, lighting, a wardrobe.
-            { kind: 'bed', anchor: 'wall-opposite-door', facing: 'to-wall', required: true, group: 'bed' },
+            // §FURNITURE-SPEC: bed + wardrobe NEVER on the window wall (privacy +
+            // thermal envelope + the wardrobe would block daylight) and prefer a
+            // wall WITHOUT the door (you don't sleep next to the door swing).
+            { kind: 'bed', anchor: 'wall-opposite-door', facing: 'to-wall', required: true, group: 'bed', excludeWindowWall: true, excludeDoorSwing: true },
             { kind: 'bedside_table', anchor: 'beside', facing: 'to-wall', required: true, group: 'bed', count: 2 },
-            { kind: 'wardrobe', anchor: 'wall-longest', facing: 'to-wall', required: true },
+            { kind: 'wardrobe', anchor: 'wall-longest', facing: 'to-wall', required: true, excludeWindowWall: true, excludeDoorSwing: true },
             { kind: 'lamp', anchor: 'corner', facing: 'into-room', required: true },   // lighting
         ],
     },
     'living-room': {
         occupancy: 'living-room', minAreaM2: 9,
         items: [
-            { kind: 'sofa', anchor: 'wall-longest', facing: 'into-room', required: true, group: 'sofa' },
+            // §FURNITURE-SPEC: sofa prefers a wall WITHOUT the door — the door wall
+            // is the entry path; the sofa anchors on the opposite/long wall.
+            { kind: 'sofa', anchor: 'wall-longest', facing: 'into-room', required: true, group: 'sofa', excludeDoorSwing: true },
             { kind: 'coffee_table', anchor: 'beside', facing: 'into-room', required: false, group: 'sofa' },
             { kind: 'lamp', anchor: 'corner', facing: 'into-room', required: false },   // lighting
         ],
@@ -30,7 +35,9 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
     'kitchen': {
         occupancy: 'kitchen', minAreaM2: 5,
         items: [
-            { kind: 'kitchen_l_shape', anchor: 'wall-longest', facing: 'to-wall', required: true },
+            // §FURNITURE-SPEC: the L-run avoids the door wall — door swings into the
+            // working zone otherwise, and there is no working triangle.
+            { kind: 'kitchen_l_shape', anchor: 'wall-longest', facing: 'to-wall', required: true, excludeDoorSwing: true },
         ],
     },
     'dining-room': {
@@ -46,15 +53,19 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
         // washbasin is a Plumbing-system fixture (no plain furniture kind yet); it is
         // listed as a requiredFixture in the rules DB and sourced from the plumbing
         // catalogue at the wiring layer. The renderable furniture kinds are placed here.
+        // §FURNITURE-SPEC: the toilet is NOT on the door wall — you face it side-on
+        // as you open the door, and the door swing collides with the toilet zone.
         items: [
-            { kind: 'toilet_radiator', anchor: 'wall-longest', facing: 'into-room', required: true },
+            { kind: 'toilet_radiator', anchor: 'wall-longest', facing: 'into-room', required: true, excludeDoorSwing: true },
             { kind: 'shower_glass_panel', anchor: 'corner', facing: 'into-room', required: true },
         ],
     },
     'entrance-lobby': {
         occupancy: 'entrance-lobby', minAreaM2: 3,
         items: [
-            { kind: 'entrance_table', anchor: 'wall-longest', facing: 'into-room', required: false },
+            // §FURNITURE-SPEC: the entrance table is on a wall perpendicular to the
+            // front door (the door wall is the swing zone — it must stay clear).
+            { kind: 'entrance_table', anchor: 'wall-longest', facing: 'into-room', required: false, excludeDoorSwing: true },
         ],
     },
     'private-office': {
