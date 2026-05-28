@@ -158,6 +158,18 @@ export interface RuntimeEvents {
     levelId: string;
   };
 
+  // ── #53 D-LE Lighting Layout Engine — events ──────────────────────────────
+  /** Fired by the trigger (console command / furnish.layout-executed auto-
+   *  fire) to ask the LightingLayoutExecutor to auto-place ceiling fixtures
+   *  in every room on the active level. */
+  'lighting.layout-execute': Record<string, never>;
+  /** Fired by LightingLayoutExecutor after the runBatch settles. */
+  'lighting.layout-executed': {
+    placedCount: number;
+    roomCount: number;
+    levelId: string;
+  };
+
   // ── Wave 4 Track A — typed-slot events ────────────────────────────────────
 
   /** PR 4.A.1 (D.11-prep) — emitted by `buildViewRegistrySlot.activate()`

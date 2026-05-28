@@ -260,6 +260,29 @@ export type {
   FurnishCommandSet,
 } from './workflows/furnishLayout/buildFurnishCommands.js';
 
+// ── D-LE Lighting Layout Engine — public surface ─────────────────────────────
+// Per-room ceiling-fixture auto-placer (MVP: one fixture at the room centroid,
+// kind chosen by occupancy + area). Pure: zero THREE, zero DOM. Consumed by
+// the editor's lighting trigger which assembles `LightRoomInput` from the
+// live room store and dispatches `lighting.create` inside one `runBatch` —
+// same pattern as furniture (D-FLE). Auto-fires AFTER furnish completes so
+// every room ends up lit when the apartment generator finishes.
+export { lightRoom } from './workflows/lightingLayout/lightRoom.js';
+export { archetypeForLighting, LIGHTING_ARCHETYPES } from './workflows/lightingLayout/archetypes.js';
+export { buildLightingCommands } from './workflows/lightingLayout/buildLightingCommands.js';
+export type {
+  LightKind,
+  LightableOccupancy,
+  LightRoomInput,
+  PlacedLight,
+  LightingArchetype,
+} from './workflows/lightingLayout/types.js';
+export type {
+  LightingCommand,
+  LightingCommandSet,
+  LightIdMinter,
+} from './workflows/lightingLayout/buildLightingCommands.js';
+
 // ── Sprint H P9 (2026-05-10) — GenerativeTypes ────────────────────────────────
 export * from './generative/GenerativeTypes';
 export { layoutGenerator, roomColour } from './generative/LayoutGenerator.js';

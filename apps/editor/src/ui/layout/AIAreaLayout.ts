@@ -4,6 +4,7 @@ import { createAIPanel } from '../ai/AIPanel';
 import { createAICreatePanel } from '../ai/AICreatePanel';
 import { installApartmentLayoutConsoleTrigger } from '../apartment-layout/apartmentLayoutTrigger';
 import { installFurnishLayoutTrigger } from '../furnish-layout/furnishLayoutTrigger';
+import { installLightingLayoutTrigger } from '../lighting-layout/lightingLayoutTrigger';
 import { createFloorPlanImportPanel } from '../ai/FloorPlanImportPanel';
 import { createDxfImportPanel } from '../import/DxfImportPanel';
 import { createSpatialTree } from '../SpatialTree';
@@ -192,6 +193,14 @@ export function mountAIArea(props: UIProps, runtime: PryzmRuntime | null): AIRes
     //     generate apartment → build walls/doors → redetect rooms →
     //     auto-furnish every room with an archetype). Idempotent.
     installFurnishLayoutTrigger(runtime ?? null);
+    // #53 — register the D-LE lighting-layout trigger:
+    //   • console command `pryzmLightAllRooms()` (manual test)
+    //   • auto-fire on `furnish.layout-executed` (continuous flow:
+    //     furnish → auto-light every room with a ceiling fixture per
+    //     occupancy archetype). The pipeline now reads:
+    //       apartment generate → walls/doors → redetect rooms →
+    //       furnish → LIGHT.
+    installLightingLayoutTrigger(runtime ?? null);
 
     // Phase B.31 (S73-WIRE) — thread the composed runtime so AIPanel can reach
     // typed slots (runtime.ai.streamCompletion / runtime.persistence.proposals)
