@@ -47,6 +47,19 @@ export function installFurnishLayoutTrigger(runtime: PryzmRuntime | null): void 
     if (typeof window !== 'undefined') {
         window.pryzmFurnishAllRooms = () => triggerFurnishLayout(runtime);
         console.log('[furnish-layout] console command ready — run pryzmFurnishAllRooms() to furnish all rooms.');
+        // §FULL-PIPELINE shortcut: chain furniture + lighting on demand for the
+        // manual-walls test case (architect drew walls themselves; the
+        // apartment generator never fired, so the auto-chain didn't start).
+        const w = window as unknown as {
+            pryzmLightAllRooms?: () => void;
+            pryzmFurnishAndLightAllRooms?: () => void;
+        };
+        w.pryzmFurnishAndLightAllRooms = (): void => {
+            triggerFurnishLayout(runtime);
+            // The furnish run emits 'furnish.layout-executed' which auto-fires
+            // the lighting trigger — no explicit lighting call needed.
+        };
+        console.log('[furnish-layout] full-pipeline shortcut ready — run pryzmFurnishAndLightAllRooms() to furnish + auto-light in one go.');
     }
     if (runtime) {
         _executor.attach(runtime);

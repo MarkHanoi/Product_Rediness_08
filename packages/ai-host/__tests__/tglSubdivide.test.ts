@@ -21,19 +21,35 @@ const overlaps = (a: Rect, b: Rect): boolean =>
 const insideShell = (f: Rect, shell: readonly Rect[]): boolean =>
     shell.some(s => f.x0 >= s.x0 - 1e-6 && f.z0 >= s.z0 - 1e-6 && f.x1 <= s.x1 + 1e-6 && f.z1 <= s.z1 + 1e-6);
 
+const HARD_MIN_SIDE = 2.0;   // matches HARD_MIN_SHORT_SIDE_M in subdivide.ts
+const shortSide = (r: Rect): number => Math.min(r.x1 - r.x0, r.z1 - r.z0);
+
 const assertContract = (placements: ReturnType<typeof subdivide>, shell: readonly Rect[], roomIds: readonly string[]): void => {
-    // one footprint per room, covering exactly the room set
-    expect(placements.map(p => p.roomId).sort()).toEqual([...roomIds].sort());
-    // footprints ⊆ shell
-    for (const p of placements) expect(insideShell(p.rect, shell)).toBe(true);
-    // non-overlapping
+    // §HARD-MIN-SIDE-2M (2026-05-28): placements MAY be a strict subset of the
+    // room set — rooms that would produce a short side < 2 m are dropped.
+    // Every placement that DOES land must clear the 2 m floor.
+    const placedIds = placements.map(p => p.roomId).sort();
+    const roomIdsSorted = [...roomIds].sort();
+    expect(new Set(placedIds).size).toBe(placedIds.length);   // no duplicates
+    expect(placedIds.every(id => roomIdsSorted.includes(id))).toBe(true);
+    for (const p of placements) {
+        expect(insideShell(p.rect, shell), `placement ${p.roomId} inside shell`).toBe(true);
+        expect(shortSide(p.rect), `placement ${p.roomId} short side ≥ ${HARD_MIN_SIDE} m`).toBeGreaterThanOrEqual(HARD_MIN_SIDE - 1e-6);
+    }
     for (let i = 0; i < placements.length; i++)
         for (let j = i + 1; j < placements.length; j++)
             expect(overlaps(placements[i]!.rect, placements[j]!.rect)).toBe(false);
-    // total footprint area ≈ shell area
+    // Total footprint area ≤ shell area (drops leave slack — neighbours absorb
+    // it via squarify on the surviving pool, so equality is typical but not
+    // mandatory after a drop). Strict equality is only required when no room
+    // was dropped.
     const footArea = placements.reduce((s, p) => s + rectArea(p.rect), 0);
     const shellArea = shell.reduce((s, r) => s + rectArea(r), 0);
-    expect(footArea).toBeCloseTo(shellArea, 3);
+    expect(footArea).toBeLessThanOrEqual(shellArea + 1e-3);
+    if (placedIds.length === roomIdsSorted.length) {
+        // No drops → strict tiling of the shell.
+        expect(footArea).toBeCloseTo(shellArea, 3);
+    }
 };
 
 describe('subdivide (TGL P3b)', () => {

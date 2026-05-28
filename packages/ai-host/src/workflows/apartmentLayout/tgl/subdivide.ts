@@ -34,10 +34,41 @@ function byAreaDesc(a: Rect, b: Rect): number {
     return rectArea(b) - rectArea(a) || a.x0 - b.x0 || a.z0 - b.z0;
 }
 
-/** squarify a room set into one rect → footprints (rounded). */
+/** Architect-mandated hard floor (2026-05-28): no D-TGL room may be created
+ *  with a SHORT-SIDE < 2 m. Per-room `minShortSideM` in `programRules.ts` is
+ *  the *target* minimum (some types like kitchen-galley allow 1.8 m); this
+ *  HARD floor is the absolute lower bound across all room types. Rooms that
+ *  would violate it are dropped from the placement (their bubble-graph node
+ *  remains but has no rect — downstream walls/doors skip cleanly via
+ *  `sharedWallByPair.get(...)` returning undefined). */
+const HARD_MIN_SHORT_SIDE_M = 2.0;
+
+function shortSideM(r: Rect): number {
+    return Math.min(r.x1 - r.x0, r.z1 - r.z0);
+}
+
+/** squarify a room set into one rect → footprints (rounded). Iteratively
+ *  drops the LOWEST-PRIORITY room (the LAST entry, since `allocationOrder`
+ *  has public-first / private-last) until every placement clears the
+ *  HARD_MIN_SHORT_SIDE_M floor. Empty `rooms[]` → []. */
 function placeInRect(rect: Rect, rooms: readonly ProgramRoom[]): RoomPlacement[] {
-    const items = rooms.map(r => ({ id: r.id, area: Math.max(EPS, r.targetAreaM2) }));
-    return squarify(rect, items).map(p => ({ roomId: p.id, rect: roundRect(p.rect) }));
+    let pool = [...rooms];
+    while (pool.length > 0) {
+        const items = pool.map(r => ({ id: r.id, area: Math.max(EPS, r.targetAreaM2) }));
+        const placements = squarify(rect, items)
+            .map(p => ({ roomId: p.id, rect: roundRect(p.rect) }));
+        const tooNarrow = placements.find(p => shortSideM(p.rect) < HARD_MIN_SHORT_SIDE_M - EPS);
+        if (!tooNarrow) return placements;
+        // Drop the last room (lowest priority in allocation order) and retry.
+        const dropped = pool[pool.length - 1]!;
+        console.warn(
+            `[D-TGL subdivide] §HARD-MIN-SIDE-2M: room "${dropped.id}" (${dropped.type}) ` +
+            `would produce short side ${shortSideM(tooNarrow.rect).toFixed(2)} m ` +
+            `< ${HARD_MIN_SHORT_SIDE_M} m hard floor — dropping and re-squarifying.`,
+        );
+        pool = pool.slice(0, -1);
+    }
+    return [];
 }
 
 /**

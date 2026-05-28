@@ -29,6 +29,13 @@ export const DEFAULT_WALL_HEIGHT_M = 2.7;
 export const DEFAULT_WALL_THICKNESS_M = 0.1;
 export const DEFAULT_DOOR_HEIGHT_M = 2.1;
 export const DEFAULT_DOOR_WIDTH_M = 0.9;
+/** §APARTMENT-DOOR-DEFAULT (2026-05-28): the apartment generator's interior
+ *  doors default to the editor's standard residential timber leaf
+ *  (DoorSystemTypeStore.ts → 'solid-timber' = "Solid Timber (Default)"). The
+ *  same id the user picks in the door property panel — keeps generated and
+ *  hand-drawn doors visually consistent. Override via
+ *  `LayoutExecuteOptions.doorSystemTypeId`. */
+export const DEFAULT_DOOR_SYSTEM_TYPE_ID = 'solid-timber';
 
 export interface Vec3m { x: number; y: number; z: number }
 
@@ -47,6 +54,11 @@ export interface LayoutExecuteOptions {
     readonly wallThicknessM?: number;
     /** Door leaf height (m). Default 2.1. */
     readonly doorHeightM?: number;
+    /** Door system-type id (DoorSystemTypeStore key). Defaults to
+     *  `DEFAULT_DOOR_SYSTEM_TYPE_ID` = `'solid-timber'` so apartment-generated
+     *  doors carry the same "Solid Timber (Default)" finish the user picks in
+     *  the door property panel. Pass `''` to omit (handler default kicks in). */
+    readonly doorSystemTypeId?: string;
     /** plan(mm) → world(m) XZ mapping. Default { x: p.x/1000, z: p.y/1000 }.
      *  Override to apply the shell's origin/rotation frame at the wiring layer. */
     readonly planToWorldXZ?: (p: Vec2mm) => { x: number; z: number };
@@ -415,6 +427,16 @@ export function buildLayoutCommands(
         payload: { walls: wallsWithIds, levelId: opts.levelId },
     };
 
+    // §APARTMENT-DOOR-DEFAULT (2026-05-28): pick the door system type. Empty
+    // string ⇒ omit and let the handler apply its own default. Non-empty
+    // string ⇒ stamp on every door so all generated doors carry the same
+    // finish (default = 'solid-timber' = "Solid Timber (Default)").
+    const resolvedDoorSysType = opts.doorSystemTypeId !== undefined
+        ? opts.doorSystemTypeId
+        : DEFAULT_DOOR_SYSTEM_TYPE_ID;
+    const stampDoorSysType: { systemTypeId: string } | Record<string, never> =
+        resolvedDoorSysType ? { systemTypeId: resolvedDoorSysType } : {};
+
     const openingCommands: LayoutCommand[] = [];
     const doors: unknown[] = [];
     const doorIds: string[] = [];
@@ -448,6 +470,7 @@ export function buildLayoutCommands(
             height: d.height,
             sillHeight: d.sillHeight,
             doorType: d.doorType,
+            ...stampDoorSysType,
             ...(d.name ? { name: d.name } : {}),
         });
     }
