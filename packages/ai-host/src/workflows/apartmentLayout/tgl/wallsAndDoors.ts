@@ -351,14 +351,73 @@ export function buildWallsAndDoors(
     const typeOf = new Map(graph.rooms.map(r => [r.id, r.type]));
     let oid = 0;
     let compromises = 0;
+
+    // §DOOR-CLEAR-OFFSET (2026-05-28): a door's footprint along its host wall must
+    // NOT contain a perpendicular wall's endpoint — otherwise that perpendicular
+    // wall visibly slices the door cavity (architect's main-entrance screenshot:
+    // an interior partition meeting the perimeter exactly at the front-door
+    // centre). The default has always been "centre the door"; we now search for
+    // the offset CLOSEST to centre that keeps the doorway clear of every other
+    // wall endpoint that projects onto the host wall.
+    const findClearOffset = (host: WallSeg, width: number): number => {
+        const dxh = host.b.x - host.a.x, dzh = host.b.z - host.a.z;
+        const len = Math.hypot(dxh, dzh);
+        const ux = dxh / len, uz = dzh / len;
+        const centred = (len - width) / 2;
+        const minOff = clear, maxOff = len - width - clear;
+        if (maxOff < minOff - EPS) return centred;          // wall too short to slide; centre
+
+        // Collect host-line crossings from OTHER segments. We project each
+        // endpoint of every other segment onto the host wall's parametric axis;
+        // if the perpendicular distance is ~0 AND the projection lies inside
+        // [0, len], it's a crossing point.
+        const crossings: number[] = [];
+        for (const s of segments) {
+            if (s.id === host.id) continue;
+            for (const p of [s.a, s.b]) {
+                const wx = p.x - host.a.x, wz = p.z - host.a.z;
+                const t = wx * ux + wz * uz;                // along-host parameter
+                if (t < -EPS || t > len + EPS) continue;
+                const perpX = wx - t * ux, perpZ = wz - t * uz;
+                if (Math.hypot(perpX, perpZ) > 1e-3) continue;
+                crossings.push(t);
+            }
+        }
+        if (crossings.length === 0) return centred;
+
+        // A blocked zone for an endpoint at parameter `t` is [t - width, t]:
+        // any door offset inside that zone has the endpoint inside [off, off+width].
+        const blocked = (off: number): boolean =>
+            crossings.some(t => off > t - width - EPS && off < t + EPS);
+        if (!blocked(centred)) return centred;
+
+        // Candidate offsets: just outside each blocked zone, plus the two wall
+        // ends. Pick the one closest to the centred default that is feasible.
+        const candidates: number[] = [minOff, maxOff];
+        for (const t of crossings) {
+            candidates.push(t + EPS);            // door starts just after the endpoint
+            candidates.push(t - width - EPS);    // door ends just before the endpoint
+        }
+        let best = centred, bestD = Infinity, found = false;
+        for (const c of candidates) {
+            if (c < minOff - EPS || c > maxOff + EPS) continue;
+            const off = Math.min(Math.max(c, minOff), maxOff);
+            if (blocked(off)) continue;
+            const d = Math.abs(off - centred);
+            if (d < bestD) { best = off; bestD = d; found = true; }
+        }
+        return found ? best : centred;
+    };
+
     const addDoor = (wall: WallSeg, a: string, b: string): boolean => {
         if (wallHasDoor.has(wall.id)) return false;
         const len = Math.hypot(wall.b.x - wall.a.x, wall.b.z - wall.a.z);
         const width = Math.min(doorW, len - 2 * clear);
         if (width < 0.6 - EPS) return false;                    // wall too short for a usable door
+        const offset = findClearOffset(wall, width);
         openings.push({
             id: `o${oid++}`, wallId: wall.id, type: 'door',
-            offsetM: round6((len - width) / 2), widthM: round6(width), heightM: doorH, sillM: 0,
+            offsetM: round6(offset), widthM: round6(width), heightM: doorH, sillM: 0,
             betweenRoomIds: [a, b],
         });
         wallHasDoor.add(wall.id);

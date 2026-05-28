@@ -34,14 +34,17 @@ function byAreaDesc(a: Rect, b: Rect): number {
     return rectArea(b) - rectArea(a) || a.x0 - b.x0 || a.z0 - b.z0;
 }
 
-/** Architect-mandated hard floor (2026-05-28): no D-TGL room may be created
- *  with a SHORT-SIDE < 2 m. Per-room `minShortSideM` in `programRules.ts` is
- *  the *target* minimum (some types like kitchen-galley allow 1.8 m); this
- *  HARD floor is the absolute lower bound across all room types. Rooms that
- *  would violate it are dropped from the placement (their bubble-graph node
- *  remains but has no rect — downstream walls/doors skip cleanly via
- *  `sharedWallByPair.get(...)` returning undefined). */
-const HARD_MIN_SHORT_SIDE_M = 2.0;
+/** §HARD-MIN-SIDE-PER-ROOM (2026-05-28, updated): no D-TGL room may be created
+ *  with a SHORT-SIDE smaller than its own architectural minimum
+ *  (`minShortSideM` in programRules.ts — e.g. kitchen-galley 1.8 m, corridor
+ *  1.0 m, bedroom 2.6 m). The previous uniform 2 m floor was too aggressive
+ *  for narrow service rooms — it dropped the kitchen entirely when the
+ *  squarified rect came in just under 2 m, and made a real-corridor strip
+ *  (1.0–1.4 m × longer) impossible. Rooms below their own floor are dropped
+ *  (their bubble-graph node remains but has no rect — downstream walls/doors
+ *  skip cleanly via `sharedWallByPair.get(...)` returning undefined). */
+
+const ABSOLUTE_MIN_SHORT_SIDE_M = 0.9;  // sanity floor: a room narrower than this is unusable.
 
 function shortSideM(r: Rect): number {
     return Math.min(r.x1 - r.x0, r.z1 - r.z0);
@@ -49,22 +52,30 @@ function shortSideM(r: Rect): number {
 
 /** squarify a room set into one rect → footprints (rounded). Iteratively
  *  drops the LOWEST-PRIORITY room (the LAST entry, since `allocationOrder`
- *  has public-first / private-last) until every placement clears the
- *  HARD_MIN_SHORT_SIDE_M floor. Empty `rooms[]` → []. */
+ *  has public-first / private-last) until every placement clears its
+ *  per-type minShortSideM (or the absolute floor). Empty `rooms[]` → []. */
 function placeInRect(rect: Rect, rooms: readonly ProgramRoom[]): RoomPlacement[] {
     let pool = [...rooms];
     while (pool.length > 0) {
         const items = pool.map(r => ({ id: r.id, area: Math.max(EPS, r.targetAreaM2) }));
         const placements = squarify(rect, items)
             .map(p => ({ roomId: p.id, rect: roundRect(p.rect) }));
-        const tooNarrow = placements.find(p => shortSideM(p.rect) < HARD_MIN_SHORT_SIDE_M - EPS);
-        if (!tooNarrow) return placements;
+        const placementById = new Map(placements.map(p => [p.roomId, p]));
+        const tooNarrowRoom = pool.find(r => {
+            const p = placementById.get(r.id);
+            if (!p) return false;
+            const floor = Math.max(ABSOLUTE_MIN_SHORT_SIDE_M, roomRule(r.type).minShortSideM || ABSOLUTE_MIN_SHORT_SIDE_M);
+            return shortSideM(p.rect) < floor - EPS;
+        });
+        if (!tooNarrowRoom) return placements;
         // Drop the last room (lowest priority in allocation order) and retry.
         const dropped = pool[pool.length - 1]!;
+        const placement = placementById.get(tooNarrowRoom.id)!;
+        const floor = Math.max(ABSOLUTE_MIN_SHORT_SIDE_M, roomRule(tooNarrowRoom.type).minShortSideM || ABSOLUTE_MIN_SHORT_SIDE_M);
         console.warn(
-            `[D-TGL subdivide] §HARD-MIN-SIDE-2M: room "${dropped.id}" (${dropped.type}) ` +
-            `would produce short side ${shortSideM(tooNarrow.rect).toFixed(2)} m ` +
-            `< ${HARD_MIN_SHORT_SIDE_M} m hard floor — dropping and re-squarifying.`,
+            `[D-TGL subdivide] §HARD-MIN-SIDE-PER-ROOM: room "${tooNarrowRoom.id}" (${tooNarrowRoom.type}) ` +
+            `would produce short side ${shortSideM(placement.rect).toFixed(2)} m ` +
+            `< ${floor.toFixed(2)} m per-type floor — dropping "${dropped.id}" (${dropped.type}) and re-squarifying.`,
         );
         pool = pool.slice(0, -1);
     }

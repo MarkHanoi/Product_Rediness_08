@@ -5,8 +5,9 @@
 
 import { describe, expect, it } from 'vitest';
 import { subdivide } from '../src/workflows/apartmentLayout/tgl/subdivide.js';
-import { buildBubbleGraph } from '../src/workflows/apartmentLayout/tgl/bubbleGraph.js';
+import { buildBubbleGraph, type ProgramRoom } from '../src/workflows/apartmentLayout/tgl/bubbleGraph.js';
 import { decomposeToRects, rectArea, type Pt, type Rect } from '../src/workflows/apartmentLayout/tgl/rectDecomposition.js';
+import { roomRule } from '../src/workflows/apartmentLayout/rules/programRules.js';
 import type { ApartmentProgram } from '../src/workflows/apartmentLayout/types.js';
 
 const PROGRAM: ApartmentProgram = {
@@ -21,20 +22,25 @@ const overlaps = (a: Rect, b: Rect): boolean =>
 const insideShell = (f: Rect, shell: readonly Rect[]): boolean =>
     shell.some(s => f.x0 >= s.x0 - 1e-6 && f.z0 >= s.z0 - 1e-6 && f.x1 <= s.x1 + 1e-6 && f.z1 <= s.z1 + 1e-6);
 
-const HARD_MIN_SIDE = 2.0;   // matches HARD_MIN_SHORT_SIDE_M in subdivide.ts
+const ABSOLUTE_MIN_SIDE = 0.9;   // matches ABSOLUTE_MIN_SHORT_SIDE_M in subdivide.ts
 const shortSide = (r: Rect): number => Math.min(r.x1 - r.x0, r.z1 - r.z0);
 
-const assertContract = (placements: ReturnType<typeof subdivide>, shell: readonly Rect[], roomIds: readonly string[]): void => {
-    // §HARD-MIN-SIDE-2M (2026-05-28): placements MAY be a strict subset of the
-    // room set — rooms that would produce a short side < 2 m are dropped.
-    // Every placement that DOES land must clear the 2 m floor.
+const assertContract = (placements: ReturnType<typeof subdivide>, shell: readonly Rect[], rooms: readonly ProgramRoom[]): void => {
+    // §HARD-MIN-SIDE-PER-ROOM (2026-05-28, updated): placements MAY be a strict
+    // subset of the room set — rooms that would produce a short side smaller
+    // than their per-type minShortSideM are dropped. Every placement that DOES
+    // land must clear its own per-type floor.
     const placedIds = placements.map(p => p.roomId).sort();
+    const roomIds = rooms.map(r => r.id);
     const roomIdsSorted = [...roomIds].sort();
+    const typeById = new Map(rooms.map(r => [r.id, r.type]));
     expect(new Set(placedIds).size).toBe(placedIds.length);   // no duplicates
     expect(placedIds.every(id => roomIdsSorted.includes(id))).toBe(true);
     for (const p of placements) {
         expect(insideShell(p.rect, shell), `placement ${p.roomId} inside shell`).toBe(true);
-        expect(shortSide(p.rect), `placement ${p.roomId} short side ≥ ${HARD_MIN_SIDE} m`).toBeGreaterThanOrEqual(HARD_MIN_SIDE - 1e-6);
+        const type = typeById.get(p.roomId)!;
+        const floor = Math.max(ABSOLUTE_MIN_SIDE, roomRule(type).minShortSideM || ABSOLUTE_MIN_SIDE);
+        expect(shortSide(p.rect), `placement ${p.roomId} (${type}) short side ≥ ${floor} m`).toBeGreaterThanOrEqual(floor - 1e-6);
     }
     for (let i = 0; i < placements.length; i++)
         for (let j = i + 1; j < placements.length; j++)
@@ -57,7 +63,7 @@ describe('subdivide (TGL P3b)', () => {
         const shell = [{ x0: 0, z0: 0, x1: 12, z1: 10 }]; // 120 m²
         const g = buildBubbleGraph(PROGRAM, rectArea(shell[0]!));
         const out = subdivide(shell, g);
-        assertContract(out, shell, g.rooms.map(r => r.id));
+        assertContract(out, shell, g.rooms);
     });
 
     it('L-shaped shell (two rects): every rect is used, contract holds', () => {
@@ -71,7 +77,7 @@ describe('subdivide (TGL P3b)', () => {
         const shellArea = shell.reduce((s, r) => s + rectArea(r), 0);
         const g = buildBubbleGraph(PROGRAM, shellArea);
         const out = subdivide(shell, g);
-        assertContract(out, shell, g.rooms.map(r => r.id));
+        assertContract(out, shell, g.rooms);
     });
 
     it('corridor footprint present iff the graph has a corridor', () => {
@@ -84,7 +90,7 @@ describe('subdivide (TGL P3b)', () => {
         const g2 = buildBubbleGraph(studio, 50);
         expect(g2.corridorId).toBeNull();
         const out2 = subdivide([{ x0: 0, z0: 0, x1: 10, z1: 5 }], g2);
-        assertContract(out2, [{ x0: 0, z0: 0, x1: 10, z1: 5 }], g2.rooms.map(r => r.id));
+        assertContract(out2, [{ x0: 0, z0: 0, x1: 10, z1: 5 }], g2.rooms);
     });
 
     it('is deterministic — identical input gives byte-identical output', () => {
