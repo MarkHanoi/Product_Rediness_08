@@ -12,6 +12,16 @@
 // to fill that rect EXACTLY, so the footprints tile the shell (total area ≈ shell
 // area) with no gaps or overlaps. Pure: imports only sibling TGL types.
 //
+// §SINGLE-RECT-CARVE (2026-05-28, architect feedback) — when the shell is a
+// single rectangle AND the program has a corridor + ≥1 private room, the
+// shell is PRE-CARVED into [public-zone | corridor strip 1.2 m | private-zone]
+// before squarify runs. The corridor is forced to its real-architectural shape
+// (a 1.0–1.4 m wide strip running the long axis of the shell) and every
+// private room ends up sharing a wall with it. PLUS, when the program also
+// has a master + ensuite, the ensuite is CARVED FROM INSIDE the master's
+// squarified rect after subdivision, so the master/ensuite door (the only
+// permitted access to the ensuite) ALWAYS lands on a real shared wall.
+//
 // Coordinates: metres, plan frame { x, z }. Rounded to 1e-6 at the boundary (§6).
 
 import type { BubbleGraph, ProgramRoom } from './bubbleGraph.js';
@@ -45,6 +55,11 @@ function byAreaDesc(a: Rect, b: Rect): number {
  *  skip cleanly via `sharedWallByPair.get(...)` returning undefined). */
 
 const ABSOLUTE_MIN_SHORT_SIDE_M = 0.9;  // sanity floor: a room narrower than this is unusable.
+
+/** §SINGLE-RECT-CARVE: the corridor strip's width when carved as a dedicated
+ *  zone. 1.2 m sits in the centre of the architect-mandated 1.0–1.4 m range
+ *  (corridor.minShortSideM = 1.0 m; UK HQI recommends 1.2 m). */
+const CORRIDOR_STRIP_WIDTH_M = 1.2;
 
 function shortSideM(r: Rect): number {
     return Math.min(r.x1 - r.x0, r.z1 - r.z0);
@@ -108,17 +123,207 @@ function allocationOrder(rooms: readonly ProgramRoom[]): ProgramRoom[] {
     return [...hoisted, ...sorted];
 }
 
+// ── §SINGLE-RECT-CARVE: corridor strip + ensuite-from-master ─────────────────
+
+interface CorridorCarve {
+    readonly publicRect: Rect;
+    readonly corridorRect: Rect;
+    readonly privateRect: Rect;
+}
+
+/** Slice the shell into [public | 1.2 m corridor | private] along its LONGER
+ *  axis. The corridor runs the full length of that axis so every private room
+ *  can share a wall with it. Returns null when the short axis is too narrow
+ *  for the strip + two usable zones either side (≥ 2 m each). */
+function tryCarveCorridor(
+    shell: Rect,
+    publicAreaTarget: number,
+    privateAreaTarget: number,
+): CorridorCarve | null {
+    const W = shell.x1 - shell.x0;
+    const H = shell.z1 - shell.z0;
+    const orientation: 'horizontal' | 'vertical' = W >= H ? 'horizontal' : 'vertical';
+    const shortDim = orientation === 'horizontal' ? H : W;
+    const MIN_ZONE_DEPTH = 2.0;
+    if (shortDim < CORRIDOR_STRIP_WIDTH_M + 2 * MIN_ZONE_DEPTH - EPS) return null;
+
+    const usable = shortDim - CORRIDOR_STRIP_WIDTH_M;
+    const denom = Math.max(EPS, publicAreaTarget + privateAreaTarget);
+    let publicDepth = usable * (publicAreaTarget / denom);
+    // Clamp so both zones keep a usable depth.
+    publicDepth = Math.min(Math.max(publicDepth, MIN_ZONE_DEPTH), usable - MIN_ZONE_DEPTH);
+
+    if (orientation === 'horizontal') {
+        const zPubBottom = shell.z0 + publicDepth;
+        const zCorBottom = zPubBottom + CORRIDOR_STRIP_WIDTH_M;
+        return {
+            publicRect:   { x0: shell.x0, z0: shell.z0,    x1: shell.x1, z1: zPubBottom },
+            corridorRect: { x0: shell.x0, z0: zPubBottom,  x1: shell.x1, z1: zCorBottom },
+            privateRect:  { x0: shell.x0, z0: zCorBottom,  x1: shell.x1, z1: shell.z1 },
+        };
+    } else {
+        const xPubRight = shell.x0 + publicDepth;
+        const xCorRight = xPubRight + CORRIDOR_STRIP_WIDTH_M;
+        return {
+            publicRect:   { x0: shell.x0,   z0: shell.z0, x1: xPubRight, z1: shell.z1 },
+            corridorRect: { x0: xPubRight,  z0: shell.z0, x1: xCorRight, z1: shell.z1 },
+            privateRect:  { x0: xCorRight,  z0: shell.z0, x1: shell.x1,  z1: shell.z1 },
+        };
+    }
+}
+
+/** Carve the ensuite out of the master's squarified rect along its LONGER
+ *  axis so the master + ensuite share an interior wall (the only access to
+ *  the ensuite, per programRules.ensuite.accessFrom = ['master']). Returns
+ *  null when the master can't afford the carve and stay above its own
+ *  minShortSideM — the caller then leaves the ensuite unplaced rather than
+ *  emit a door-less room. */
+function tryCarveEnsuiteFromMaster(
+    masterRect: Rect,
+    ensuiteAreaM2: number,
+): { master: Rect; ensuite: Rect } | null {
+    const W = masterRect.x1 - masterRect.x0;
+    const H = masterRect.z1 - masterRect.z0;
+    const ensuiteMin = roomRule('ensuite').minShortSideM;
+    const masterMin  = roomRule('master').minShortSideM;
+
+    /** Try a perpendicular cut. `longDim` is the master's axis we cut across;
+     *  `shortDim` is the master's other axis (becomes both rooms' span on
+     *  that axis after the cut). */
+    const tryCut = (longDim: number, shortDim: number): number | null => {
+        // Ensuite span on shortDim must clear ensuiteMin.
+        if (shortDim < ensuiteMin - EPS) return null;
+        // Ensuite span on longDim = max(its minShortSide, target_area / shortDim).
+        const cut = Math.max(ensuiteMin, ensuiteAreaM2 / shortDim);
+        // Master must keep ≥ masterMin on the cut axis after the slice.
+        if (longDim - cut < masterMin - EPS) return null;
+        return cut;
+    };
+
+    // Try cutting across the LONGER axis first (gives a wider master cross-section).
+    if (W >= H) {
+        const cutW = tryCut(W, H);
+        if (cutW !== null) {
+            const split = masterRect.x1 - cutW;
+            return {
+                master:  { x0: masterRect.x0, z0: masterRect.z0, x1: split,         z1: masterRect.z1 },
+                ensuite: { x0: split,         z0: masterRect.z0, x1: masterRect.x1, z1: masterRect.z1 },
+            };
+        }
+        const cutH = tryCut(H, W);
+        if (cutH !== null) {
+            const split = masterRect.z1 - cutH;
+            return {
+                master:  { x0: masterRect.x0, z0: masterRect.z0, x1: masterRect.x1, z1: split          },
+                ensuite: { x0: masterRect.x0, z0: split,         x1: masterRect.x1, z1: masterRect.z1 },
+            };
+        }
+    } else {
+        const cutH = tryCut(H, W);
+        if (cutH !== null) {
+            const split = masterRect.z1 - cutH;
+            return {
+                master:  { x0: masterRect.x0, z0: masterRect.z0, x1: masterRect.x1, z1: split          },
+                ensuite: { x0: masterRect.x0, z0: split,         x1: masterRect.x1, z1: masterRect.z1 },
+            };
+        }
+        const cutW = tryCut(W, H);
+        if (cutW !== null) {
+            const split = masterRect.x1 - cutW;
+            return {
+                master:  { x0: masterRect.x0, z0: masterRect.z0, x1: split,         z1: masterRect.z1 },
+                ensuite: { x0: split,         z0: masterRect.z0, x1: masterRect.x1, z1: masterRect.z1 },
+            };
+        }
+    }
+    return null;
+}
+
+/** Single-rect carve flow: returns the placements (corridor + public + private,
+ *  with ensuite carved from master). Returns null when the carve can't fit. */
+function trySingleRectCarve(shell: Rect, graph: BubbleGraph): RoomPlacement[] | null {
+    const corridor = graph.rooms.find(r => r.type === 'corridor');
+    const master   = graph.rooms.find(r => r.type === 'master');
+    const ensuite  = graph.rooms.find(r => r.type === 'ensuite');
+
+    // Bucket rooms by privacy class (excluding the corridor + ensuite, which
+    // are handled specially below).
+    const publicRooms: ProgramRoom[] = [];
+    const privateRooms: ProgramRoom[] = [];
+    for (const r of graph.rooms) {
+        if (corridor && r.id === corridor.id) continue;
+        if (ensuite && r.id === ensuite.id) continue;
+        const p = roomRule(r.type).privacy;
+        if (p === 'public' || p === 'circulation') publicRooms.push(r);
+        else privateRooms.push(r);
+    }
+    // No corridor, or no private rooms ⇒ the carve is pointless; fall back to
+    // the existing whole-shell squarify.
+    if (!corridor || privateRooms.length === 0 || publicRooms.length === 0) return null;
+
+    // Hoist ensuite's target area onto master so squarify gives master the
+    // combined footprint — we'll slice the ensuite out of it after.
+    let ensuiteCarveArea = 0;
+    if (master && ensuite) {
+        ensuiteCarveArea = ensuite.targetAreaM2;
+        const masterIdx = privateRooms.findIndex(r => r.id === master.id);
+        if (masterIdx >= 0) {
+            privateRooms[masterIdx] = { ...master, targetAreaM2: master.targetAreaM2 + ensuite.targetAreaM2 };
+        }
+    }
+
+    const publicAreaTarget  = publicRooms.reduce((s, r) => s + r.targetAreaM2, 0);
+    const privateAreaTarget = privateRooms.reduce((s, r) => s + r.targetAreaM2, 0);
+    const carve = tryCarveCorridor(shell, publicAreaTarget, privateAreaTarget);
+    if (!carve) return null;
+
+    const out: RoomPlacement[] = [];
+    // Corridor IS the strip.
+    out.push({ roomId: corridor.id, rect: roundRect(carve.corridorRect) });
+    // Public + private rooms squarified into their own sub-rects.
+    out.push(...placeInRect(carve.publicRect,  allocationOrder(publicRooms)));
+    const privatePlacements = placeInRect(carve.privateRect, allocationOrder(privateRooms));
+
+    // Carve ensuite from master's squarified rect.
+    if (master && ensuite && ensuiteCarveArea > 0) {
+        const masterIdx = privatePlacements.findIndex(p => p.roomId === master.id);
+        if (masterIdx >= 0) {
+            const masterP = privatePlacements[masterIdx]!;
+            const ec = tryCarveEnsuiteFromMaster(masterP.rect, ensuiteCarveArea);
+            if (ec) {
+                privatePlacements[masterIdx] = { roomId: master.id, rect: roundRect(ec.master) };
+                privatePlacements.push({ roomId: ensuite.id, rect: roundRect(ec.ensuite) });
+            } else {
+                console.warn(
+                    `[D-TGL subdivide] §ENSUITE-FROM-MASTER: master rect too tight to carve ` +
+                    `ensuite (${ensuiteCarveArea.toFixed(2)} m²) — ensuite left unplaced.`,
+                );
+            }
+        }
+    }
+    out.push(...privatePlacements);
+    return out;
+}
+
 /**
  * Subdivide the shell `rects` among the program rooms. Returns exactly one
  * footprint per room; footprints lie inside the shell rects, do not overlap, and
  * together tile the shell. Degenerate input (no rects / no rooms) → [].
  */
 export function subdivide(rects: readonly Rect[], graph: BubbleGraph): RoomPlacement[] {
-    const rooms = allocationOrder(graph.rooms);
     const valid = rects.filter(r => rectArea(r) > EPS).sort(byAreaDesc);
-    if (valid.length === 0 || rooms.length === 0) return [];
+    if (valid.length === 0 || graph.rooms.length === 0) return [];
 
-    // Common case — a rectangular (single-rect) shell: one squarified treemap.
+    // §SINGLE-RECT-CARVE — single-rect shell with corridor + private rooms.
+    if (valid.length === 1) {
+        const carved = trySingleRectCarve(valid[0]!, graph);
+        if (carved !== null) return carved;
+    }
+
+    const rooms = allocationOrder(graph.rooms);
+
+    // Common case — a rectangular (single-rect) shell, no carve (no corridor,
+    // no private rooms, or the carve can't fit): one squarified treemap.
     // Degenerate case — more rects than rooms: pack everything into the largest
     // rect (can't fill N rects with <N one-footprint rooms without splitting a
     // room). Real programs always have rooms ≥ rects, so this is a safety net.
