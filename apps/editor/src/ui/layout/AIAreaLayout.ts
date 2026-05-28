@@ -5,6 +5,7 @@ import { createAICreatePanel } from '../ai/AICreatePanel';
 import { installApartmentLayoutConsoleTrigger } from '../apartment-layout/apartmentLayoutTrigger';
 import { installFurnishLayoutTrigger } from '../furnish-layout/furnishLayoutTrigger';
 import { installLightingLayoutTrigger } from '../lighting-layout/lightingLayoutTrigger';
+import { installCeilingLayoutTrigger } from '../ceiling-layout/ceilingLayoutTrigger';
 import { createFloorPlanImportPanel } from '../ai/FloorPlanImportPanel';
 import { createDxfImportPanel } from '../import/DxfImportPanel';
 import { createSpatialTree } from '../SpatialTree';
@@ -187,19 +188,26 @@ export function mountAIArea(props: UIProps, runtime: PryzmRuntime | null): AIRes
     // apartment-layout generator can be triggered regardless of which AI panel
     // is visible (the UI leaf lives in the AIPanel command tree → Create).
     installApartmentLayoutConsoleTrigger(runtime ?? null);
+    // #54 — register the D-CE ceiling-layout trigger:
+    //   • console command `pryzmCeilAllRooms()` (manual test)
+    //   • auto-fire on `apartment.layout-executed` (continuous flow:
+    //     apartment generate → walls/doors → redetect rooms → CEIL →
+    //     furnish → light). Install BEFORE the furnish trigger so the
+    //     `apartment.layout-executed` listeners run in registration order
+    //     (ceiling first, even though both ultimately defer one tick).
+    installCeilingLayoutTrigger(runtime ?? null);
     // #52 — register the D-FLE furniture-layout trigger:
     //   • console command `pryzmFurnishAllRooms()` (manual test)
-    //   • auto-fire on `apartment.layout-executed` (continuous flow:
-    //     generate apartment → build walls/doors → redetect rooms →
-    //     auto-furnish every room with an archetype). Idempotent.
+    //   • auto-fire on `ceiling.layout-executed` (continuous flow:
+    //     ceiling → auto-furnish every room with an archetype). Idempotent.
     installFurnishLayoutTrigger(runtime ?? null);
     // #53 — register the D-LE lighting-layout trigger:
     //   • console command `pryzmLightAllRooms()` (manual test)
     //   • auto-fire on `furnish.layout-executed` (continuous flow:
     //     furnish → auto-light every room with a ceiling fixture per
-    //     occupancy archetype). The pipeline now reads:
+    //     occupancy archetype). The full pipeline now reads:
     //       apartment generate → walls/doors → redetect rooms →
-    //       furnish → LIGHT.
+    //       CEIL → furnish → LIGHT.
     installLightingLayoutTrigger(runtime ?? null);
 
     // Phase B.31 (S73-WIRE) — thread the composed runtime so AIPanel can reach

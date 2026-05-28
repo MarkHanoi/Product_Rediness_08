@@ -2,8 +2,10 @@
 //
 // Used by:
 //   • The console command `window.pryzmFurnishAllRooms()`.
-//   • Auto-fire after `apartment.layout-executed` so the apartment-generator
-//     hand-off into furnishing is one continuous flow (architect-friendly).
+//   • Auto-fire after `ceiling.layout-executed` so the full apartment
+//     pipeline (apartment → CEIL → furnish → light) is one continuous flow
+//     (architect-friendly). Furniture now runs AFTER ceilings settle so
+//     the architect sees an enclosed shell before furniture appears.
 //   • Any future AI-panel UI button.
 //
 // Owns the per-session executor singleton so attaching is idempotent no matter
@@ -63,19 +65,20 @@ export function installFurnishLayoutTrigger(runtime: PryzmRuntime | null): void 
     }
     if (runtime) {
         _executor.attach(runtime);
-        // Auto-fire AFTER the apartment-layout build settles. The apartment-
-        // layout executor emits `apartment.layout-executed` AFTER the room
-        // redetect, so the room store is populated when we kick off.
+        // Auto-fire AFTER the ceiling pass settles. The ceiling layout
+        // executor emits `ceiling.layout-executed` AFTER its runBatch, so
+        // by the time furnishing starts the shell is enclosed (and the
+        // room redetect from apartment.layout-executed has long settled).
         const events = runtime.events as unknown as {
             on?: (k: string, fn: (p: unknown) => void) => (() => void) | void;
         };
-        events.on?.('apartment.layout-executed', () => {
-            // Defer one tick so REDETECT_ROOMS finishes settling.
+        events.on?.('ceiling.layout-executed', () => {
+            // Defer one tick so the ceiling pass settles in the store.
             setTimeout(() => {
-                console.log('[furnish-layout] apartment.layout-executed → auto-furnishing.');
+                console.log('[furnish-layout] ceiling.layout-executed → auto-furnishing.');
                 runtime.events.emit('furnish.layout-execute', {});
             }, 0);
         });
-        console.log('[furnish-layout] auto-fire on apartment.layout-executed: wired.');
+        console.log('[furnish-layout] auto-fire on ceiling.layout-executed: wired.');
     }
 }

@@ -283,6 +283,31 @@ export type {
   LightIdMinter,
 } from './workflows/lightingLayout/buildLightingCommands.js';
 
+// ── D-CE Ceiling Layout Engine — public surface ──────────────────────────────
+// Per-room ceiling-slab auto-placer (MVP: one ceiling per ceilable room at
+// level.elevation + 2.7 m, archetype-driven thickness + tint). Pure: zero
+// THREE, zero DOM. Consumed by the editor's ceiling trigger which assembles
+// `CeilingRoomInput` from the live room store and dispatches
+// `ceiling.batch.create` inside one `runBatch` — same pattern as D-FLE / D-LE.
+// Auto-fires AFTER the apartment generator finishes so every room ends up
+// enclosed before furniture + lighting passes execute.
+export { ceilingForRoom } from './workflows/ceilingLayout/ceilingForRoom.js';
+export { archetypeForCeiling, CEILING_ARCHETYPES } from './workflows/ceilingLayout/archetypes.js';
+export { buildCeilingCommands } from './workflows/ceilingLayout/buildCeilingCommands.js';
+export type {
+  CeilableOccupancy,
+  CeilingArchetype,
+  CeilingRoomInput,
+  PlacedCeiling,
+  Pt as CeilingPt,
+  Vec3m as CeilingVec3m,
+} from './workflows/ceilingLayout/types.js';
+export type {
+  CeilingCommand,
+  CeilingCommandSet,
+  CeilingIdMinter,
+} from './workflows/ceilingLayout/buildCeilingCommands.js';
+
 // ── Sprint H P9 (2026-05-10) — GenerativeTypes ────────────────────────────────
 export * from './generative/GenerativeTypes';
 export { layoutGenerator, roomColour } from './generative/LayoutGenerator.js';

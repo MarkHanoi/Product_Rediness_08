@@ -170,6 +170,20 @@ export interface RuntimeEvents {
     levelId: string;
   };
 
+  // ── #54 D-CE Ceiling Layout Engine — events ───────────────────────────────
+  /** Fired by the trigger (console command / apartment.layout-executed auto-
+   *  fire) to ask the CeilingLayoutExecutor to auto-place ONE ceiling slab
+   *  per ceilable room on the active level. */
+  'ceiling.layout-execute': Record<string, never>;
+  /** Fired by CeilingLayoutExecutor after the runBatch settles. The furnish
+   *  trigger listens for this so the full chain is
+   *  apartment → CEIL → furnish → light. */
+  'ceiling.layout-executed': {
+    placedCount: number;
+    roomCount: number;
+    levelId: string;
+  };
+
   // ── Wave 4 Track A — typed-slot events ────────────────────────────────────
 
   /** PR 4.A.1 (D.11-prep) — emitted by `buildViewRegistrySlot.activate()`

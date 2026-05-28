@@ -38,6 +38,7 @@ import { openAutoOrganiseModal } from '../property-inspector/RoomAutoOrganiser';
 import { triggerApartmentLayout } from '../apartment-layout/apartmentLayoutTrigger';
 import { triggerFurnishLayout } from '../furnish-layout/furnishLayoutTrigger';
 import { triggerLightingLayout } from '../lighting-layout/lightingLayoutTrigger';
+import { triggerCeilingLayout } from '../ceiling-layout/ceilingLayoutTrigger';
 
 // ─── Command-Aware Suggestion Tree ───────────────────────────────────────────
 //
@@ -131,9 +132,17 @@ const COMMAND_TREE: SuggestionNode[] = [
                 action: () => { triggerApartmentLayout(); },
             },
             {
-                // #52 D-FLE — auto-place furniture in every furnishable room on
+                // #54 D-CE — auto-place ONE ceiling slab per ceilable room on
                 // the active level. Auto-fires after "Generate apartment layout"
                 // too, so a manual trigger is only needed for hand-drawn walls.
+                label: 'Apply ceilings (AI)',
+                hint: 'auto-place one ceiling slab per room',
+                action: () => { triggerCeilingLayout(); },
+            },
+            {
+                // #52 D-FLE — auto-place furniture in every furnishable room on
+                // the active level. Auto-fires after "Apply ceilings" (which
+                // itself auto-fires after the apartment generator).
                 label: 'Furnish all rooms (AI)',
                 hint: 'auto-place furniture per occupancy archetype',
                 action: () => { triggerFurnishLayout(); },
@@ -146,14 +155,14 @@ const COMMAND_TREE: SuggestionNode[] = [
                 action: () => { triggerLightingLayout(); },
             },
             {
-                // Manual full-pipeline: furniture + lighting in one click for
-                // hand-drawn walls (no apartment-generator run needed).
-                label: 'Furnish + light all rooms (AI)',
-                hint: 'one click — furniture then auto-light',
+                // Manual full-pipeline: ceilings + furniture + lighting in one
+                // click for hand-drawn walls (no apartment-generator run needed).
+                label: 'Ceil + furnish + light all rooms (AI)',
+                hint: 'one click — ceilings, then furniture, then auto-light',
                 action: () => {
-                    triggerFurnishLayout();
-                    // Lighting auto-fires on `furnish.layout-executed`; no
-                    // explicit call needed.
+                    triggerCeilingLayout();
+                    // Furniture auto-fires on `ceiling.layout-executed`, and
+                    // lighting auto-fires on `furnish.layout-executed`.
                 },
             },
             {
