@@ -627,7 +627,7 @@ Ship in parallel with foundational tiers. These close visible single-apartment g
 | ID | Deliverable | Doc source | Est | Status |
 |---|---|---|---|---|
 | **L1-α-1** | `FacadeValueField` per-edge scoring | COGNITION §8 | 1 wk | 🟨 first slice ✅ — pure-geometry scores (orientation + sunlight + corner exposure + overallValue); BIM-context scores (noise / view / ventilation) pending |
-| **L1-α-2** | `DaylightDepthField(x,z)` | COGNITION §8 | 1 wk | ⬜ |
+| **L1-α-2** | `DaylightDepthField(x,z)` | COGNITION §8 | 1 wk | ✅ shipped — pure-geometry first slice: `environment/daylightDepthField.ts` (BRE / BS 8206-2 inspired 7 m linear-attenuation depth model, sun-weighted per-edge max, `at(p)` + `averageOverRect(rect)`); +8 pin tests. Wire-in to bubbleGraph allocator + L1-α-4 modal axis are follow-on slices |
 | **L1-α-3** | Plumb FacadeValueField into bubbleGraph allocator | COGNITION §8 | 0.5 wk | ✅ shipped — seam + allocator. `windowMandatory` rooms (living / kitchen / dining / master / bedroom / study) get up to +20 % areaWeight bonus scaled by peak facade value. §AREA-FRACTIONS clamps still apply |
 | **L1-α-4** | Modal exposes Façade quality axis | COGNITION §8 | 0.5 wk | 🟨 engine-side prep ✅ (LayoutScoreBreakdown extended with optional hierarchy / shapeQuality / topologyQuality; D-TGL plumbs them through); modal-side rendering still pending |
 
