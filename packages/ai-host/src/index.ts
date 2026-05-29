@@ -240,7 +240,7 @@ export { DEFAULT_LAYOUT_FIXTURE } from './AnthropicRelay.js';
 // (apps/editor/src/ui/furnish-layout/) which assembles FurnishRoomInput from
 // the live room/wall/door/window stores and dispatches buildFurnishCommands()
 // inside batchCoordinator.runBatch — same pattern as the apartment generator.
-export { furnishRoom } from './workflows/furnishLayout/furnishRoom.js';
+export { furnishRoom, furnishRoomCompound } from './workflows/furnishLayout/furnishRoom.js';
 export { buildFurnishCommands } from './workflows/furnishLayout/buildFurnishCommands.js';
 export { archetypeFor } from './workflows/furnishLayout/archetypes.js';
 export type {

@@ -187,6 +187,31 @@ describe('furnishRoom (D-FLE F5/F7)', () => {
         });
     });
 
+    describe('open-plan merged room (furnishRoomCompound)', () => {
+        // The apartment-layout's open-plan case: living + kitchen + dining
+        // merge into ONE detected room. furnishRoomCompound runs all three
+        // archetypes within the same polygon, sharing the obstacle set, so
+        // the kitchen run + dining table + sofa all land without collision.
+        it('places sofa + kitchen run + dining table in one merged 8 x 6 room', async () => {
+            const { furnishRoomCompound } = await import('../src/workflows/furnishLayout/furnishRoom.js');
+            const room = rectRoom('living-room', 8, 6);
+            const placed = furnishRoomCompound(room, ['living-room', 'kitchen', 'dining-room']);
+            expect(placed.some(p => p.kind === 'sofa')).toBe(true);
+            expect(placed.some(p => p.kind === 'kitchen_l_shape')).toBe(true);
+            expect(placed.some(p => p.kind === 'dining_table')).toBe(true);
+        });
+
+        // Unknown / corridor occupancies are silently skipped (the bubble
+        // graph's compound may include 'corridor' or 'entrance-lobby' which
+        // contribute no furniture).
+        it('silently skips occupancies without an archetype', async () => {
+            const { furnishRoomCompound } = await import('../src/workflows/furnishLayout/furnishRoom.js');
+            const room = rectRoom('living-room', 6, 5);
+            const placed = furnishRoomCompound(room, ['living-room', 'corridor', 'not-a-real-occupancy']);
+            expect(placed.some(p => p.kind === 'sofa')).toBe(true);
+        });
+    });
+
     describe('§FURNITURE-SPEC clearFront (working zone reserved)', () => {
         // The toilet has 60 cm knee clearance; later items must not occupy
         // the strip in front of it. The bathroom shower (corner-anchored) is

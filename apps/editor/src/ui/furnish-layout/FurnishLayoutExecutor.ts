@@ -28,10 +28,48 @@ interface Pt { x: number; z: number }
 interface RoomLike {
     id: string;
     levelId: string;
+    name?: string;
     occupancyType?: string;
     boundary?: { polygon?: ReadonlyArray<{ x: number; z: number }>; height?: number };
     computed?: { area?: number; centroid?: { x: number; z: number } };
     boundingWallIds?: string[];
+}
+
+/**
+ * Map the apartment-layout's deterministic display names (from bubbleGraph.ts)
+ * back to a D-FLE occupancy. The bubble graph mints names like "Living Room",
+ * "Kitchen", "Master Bedroom" / "Bedroom 1" / "Bathroom" / "En-suite" — so a
+ * compound name "Living Room / Kitchen / Dining" parses to three occupancies.
+ */
+function occupancyFromName(name: string): string | undefined {
+    const n = name.trim();
+    if (/^Entrance Hall/i.test(n)) return 'entrance-lobby';
+    if (/^Living Room/i.test(n)) return 'living-room';
+    if (/^Kitchen/i.test(n)) return 'kitchen';
+    if (/^Dining/i.test(n)) return 'dining-room';
+    if (/^Corridor/i.test(n)) return 'corridor';
+    if (/^Master Bedroom/i.test(n)) return 'bedroom';
+    if (/^Bedroom/i.test(n)) return 'bedroom';
+    if (/^En-?suite/i.test(n)) return 'bathroom';
+    if (/^Bathroom/i.test(n)) return 'bathroom';
+    if (/^Study|^Office|^Home Office/i.test(n)) return 'private-office';
+    if (/^Utility/i.test(n)) return 'utility-room';
+    return undefined;
+}
+
+/**
+ * Occupancies for a room — single-occupancy rooms return [occupancyType]; a
+ * compound-name room (open-plan merged "Living Room / Kitchen / Dining")
+ * returns each sub-program's occupancy, in the compound-name order (which is
+ * largest-area-first — see ApartmentLayoutExecutor._nameDetectedRooms).
+ */
+function occupanciesForRoom(r: RoomLike): string[] {
+    const name = r.name ?? '';
+    if (name.includes('/')) {
+        const parts = name.split('/').map(p => occupancyFromName(p)).filter((o): o is string => !!o);
+        if (parts.length > 0) return parts;
+    }
+    return r.occupancyType ? [r.occupancyType] : [];
 }
 interface WallLike {
     id: string;
@@ -152,7 +190,7 @@ export class FurnishLayoutExecutor {
             } catch { facades = undefined; }
 
             // Dynamic-import the pure engine on first invoke.
-            const { furnishRoom, buildFurnishCommands } = await import('@pryzm/ai-host');
+            const { furnishRoom, furnishRoomCompound, buildFurnishCommands } = await import('@pryzm/ai-host');
 
             const levelElevation = level.elevation ?? 0;
             const allPlaced: PlacedFurniture[] = [];
@@ -221,7 +259,15 @@ export class FurnishLayoutExecutor {
                     windows,
                     levelElevation,
                 };
-                const placed = furnishRoom(input);
+                // Open-plan merged rooms carry a compound name like
+                // "Living Room / Kitchen / Dining" — furnish EACH sub-program
+                // so the kitchen run + dining table + sofa all land in the
+                // same shared zone (D-FLE accumulates obstacles across
+                // archetypes so they don't collide).
+                const occupancies = occupanciesForRoom(r);
+                const placed = occupancies.length > 1
+                    ? furnishRoomCompound(input, occupancies)
+                    : furnishRoom(input);
                 if (placed.length > 0) { roomsProcessed++; allPlaced.push(...placed); }
                 else roomsSkipped++;
             }

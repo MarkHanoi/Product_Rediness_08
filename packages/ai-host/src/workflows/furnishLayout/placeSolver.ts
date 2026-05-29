@@ -203,28 +203,21 @@ function cornerPoints(input: FurnishRoomInput, inset: number): Pt[] {
 }
 
 /**
- * Place an archetype's items into a room. Returns the placed furniture (best-effort:
- * items that can't fit are skipped; a required item that can't be placed downgrades
- * the rest of its group). Deterministic.
- *
- * SINGLE-PASS ARCHETYPE ORDER: items are placed in archetype order, with 'beside'
- * items resolved against their group leader (which the archetype guarantees is
- * earlier in the list — see test pinning in furnishRules.test.ts). This is what
- * keeps bedside_tables from being shoved aside by a later corner-anchored lamp:
- * the bedsides are placed BEFORE the lamp, become obstacles, and the lamp yields
- * to another corner.
+ * Run ONE archetype within an existing obstacle/leader context. Used by both
+ * `placeRoom` (fresh context) and `placeRoomMulti` (shared across archetypes
+ * for the open-plan merged-room case). Returns the placements appended.
  */
-export function placeRoom(input: FurnishRoomInput, archetype: FurnitureArchetype): PlacedFurniture[] {
+function applyArchetype(
+    input: FurnishRoomInput, archetype: FurnitureArchetype,
+    obstacles: Rect[], leaders: Map<string, Placement>,
+): Placement[] {
     if (input.areaM2 < archetype.minAreaM2 || input.walls.length === 0) return [];
-    const obstacles: Rect[] = doorObstacles(input);
-    const placed: Placement[] = [];
-    const leaders = new Map<string, Placement>();
-
+    const added: Placement[] = [];
     for (const spec of archetype.items) {
         if (spec.anchor === 'beside') {
             const leader = spec.group ? leaders.get(spec.group) : undefined;
             if (!leader) continue;       // leader couldn't place → drop the dependents
-            for (const p of placeBeside(spec, leader, input, obstacles)) placed.push(p);
+            for (const p of placeBeside(spec, leader, input, obstacles)) added.push(p);
             continue;
         }
         let p: Placement | null = null;
@@ -242,7 +235,7 @@ export function placeRoom(input: FurnishRoomInput, archetype: FurnitureArchetype
             }
         }
         if (p) {
-            placed.push(p);
+            added.push(p);
             obstacles.push(p.rect);
             // §FURNITURE-SPEC clearFront: reserve the working/knee-clearance
             // zone in front of items that have NO group members (sofa→coffee
@@ -255,6 +248,44 @@ export function placeRoom(input: FurnishRoomInput, archetype: FurnitureArchetype
             if (spec.group) leaders.set(spec.group, p);
         }
     }
+    return added;
+}
 
+/**
+ * Place an archetype's items into a room. Returns the placed furniture (best-effort:
+ * items that can't fit are skipped; a required item that can't be placed downgrades
+ * the rest of its group). Deterministic.
+ *
+ * SINGLE-PASS ARCHETYPE ORDER: items are placed in archetype order, with 'beside'
+ * items resolved against their group leader (which the archetype guarantees is
+ * earlier in the list — see test pinning in furnishRules.test.ts). This is what
+ * keeps bedside_tables from being shoved aside by a later corner-anchored lamp:
+ * the bedsides are placed BEFORE the lamp, become obstacles, and the lamp yields
+ * to another corner.
+ */
+export function placeRoom(input: FurnishRoomInput, archetype: FurnitureArchetype): PlacedFurniture[] {
+    const obstacles: Rect[] = doorObstacles(input);
+    const leaders = new Map<string, Placement>();
+    return applyArchetype(input, archetype, obstacles, leaders).map(p => p.item);
+}
+
+/**
+ * Open-plan / multi-program furnishing: run several archetypes in sequence
+ * within ONE room polygon, sharing the obstacle set. Used when a detected room
+ * has merged D-TGL spaces (hall + living + kitchen + dining) — running each
+ * archetype with shared obstacles is what gets the kitchen run AND the sofa
+ * AND the dining table into the same zone without overlap. Archetypes are
+ * placed in the given order; later archetypes yield to earlier placements.
+ */
+export function placeRoomMulti(
+    input: FurnishRoomInput, archetypes: readonly FurnitureArchetype[],
+): PlacedFurniture[] {
+    if (input.walls.length === 0) return [];
+    const obstacles: Rect[] = doorObstacles(input);
+    const leaders = new Map<string, Placement>();
+    const placed: Placement[] = [];
+    for (const a of archetypes) {
+        for (const p of applyArchetype(input, a, obstacles, leaders)) placed.push(p);
+    }
     return placed.map(p => p.item);
 }
