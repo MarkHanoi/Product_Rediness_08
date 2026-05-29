@@ -107,9 +107,19 @@ export function buildBubbleGraph(rawProgram: ApartmentProgram, availableAreaM2: 
     for (let i = 0; i < baths; i++) push('bathroom', baths > 1 ? `Bathroom ${i + 1}` : 'Bathroom', true);
 
     // ── Area targets: weight-scaled to fill the shell, then clamped up to minima.
+    // §ROOM-AREAS (2026-05-29, user-request): a `program.roomAreas[type]`
+    // override REPLACES the weight-scaled raw value for every room of that
+    // type. Still clamped UP to the architectural minimum (`minAreaM2`) so an
+    // override below the legal floor cannot ship. Omitted/undefined →
+    // weight-scaled default.
+    const overrideForType = (type: RoomType): number | undefined => {
+        const o = program.roomAreas?.[type];
+        return typeof o === 'number' && Number.isFinite(o) && o > 0 ? o : undefined;
+    };
     const totalWeight = rooms.reduce((s, r) => s + roomRule(r.type).areaWeight, 0) || 1;
     const withAreas: ProgramRoom[] = rooms.map(r => {
-        const raw = availableAreaM2 * (roomRule(r.type).areaWeight / totalWeight);
+        const override = overrideForType(r.type);
+        const raw = override ?? availableAreaM2 * (roomRule(r.type).areaWeight / totalWeight);
         const targetAreaM2 = Math.max(raw, roomRule(r.type).minAreaM2 || 3);
         return { ...r, targetAreaM2 };
     });

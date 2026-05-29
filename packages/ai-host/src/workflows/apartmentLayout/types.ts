@@ -68,6 +68,21 @@ export interface ApartmentProgram {
     openPlanKitchenDining: boolean;
     livingRoom: boolean;
     entranceHall: boolean;
+    /** §ROOM-AREAS (2026-05-29, user-request from modal dynamic feedback):
+     *  per-`RoomType` ABSOLUTE area override in m². When supplied, the bubble
+     *  graph uses this value as the room's `targetAreaM2` directly, BYPASSING
+     *  the area-weight × shell-area distribution. Still clamped to the room
+     *  type's `minAreaM2` floor (the per-program-rules HQI / Building Reg
+     *  minimum) so an override smaller than the legal minimum can't sneak in.
+     *
+     *  All rooms of the SAME TYPE share one override — i.e. setting
+     *  `bedroom: 14` makes every bedroom target 14 m². This matches what the
+     *  modal-edit form can express; per-instance bedroom areas would need an
+     *  id-keyed map keyed to deterministic bubble-graph ids and was deferred.
+     *
+     *  Omitted / undefined → engine default (area-weight share). Empty
+     *  object = same as omitted. */
+    roomAreas?: Partial<Record<RoomType, number>>;
 }
 
 export interface ScoringWeights {

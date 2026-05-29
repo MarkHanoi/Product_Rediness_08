@@ -67,4 +67,72 @@ describe('buildBubbleGraph (TGL P2)', () => {
         const g = buildBubbleGraph(studio, 50);
         expect(g.corridorId).toBeNull();
     });
+
+    // §ROOM-AREAS (2026-05-29, user-request from modal dynamic feedback).
+    describe('roomAreas overrides', () => {
+        it('overrides the weighted target with the absolute value when supplied', () => {
+            const withOverride: ApartmentProgram = {
+                ...PROGRAM,
+                roomAreas: { kitchen: 12, bedroom: 14 },
+            };
+            const g = buildBubbleGraph(withOverride, 120);
+            const kitchen = g.rooms.find(r => r.type === 'kitchen')!;
+            const bedrooms = g.rooms.filter(r => r.type === 'bedroom');
+            expect(kitchen.targetAreaM2).toBeCloseTo(12, 5);
+            for (const bed of bedrooms) expect(bed.targetAreaM2).toBeCloseTo(14, 5);
+        });
+
+        it('still clamps overrides UP to the architectural minimum (DB-026 etc.)', () => {
+            // A 5 m² override on a bedroom is illegal — DB-026 floor is 11.5 m².
+            // The override is REPLACED by the floor, not silently honoured.
+            const tooSmall: ApartmentProgram = {
+                ...PROGRAM,
+                roomAreas: { bedroom: 5, bathroom: 1 },
+            };
+            const g = buildBubbleGraph(tooSmall, 120);
+            const bed = g.rooms.find(r => r.type === 'bedroom')!;
+            const bath = g.rooms.find(r => r.type === 'bathroom')!;
+            expect(bed.targetAreaM2).toBeGreaterThanOrEqual(11.5);
+            expect(bath.targetAreaM2).toBeGreaterThanOrEqual(5);   // DB-035 bathroom min
+        });
+
+        it('only overrides specified types — unspecified rooms keep weight-scaled defaults', () => {
+            // Default kitchen target on 120 m² is ~10–12 m² (weighted). With ONLY
+            // a bedroom override the kitchen stays roughly at the default.
+            const partial: ApartmentProgram = {
+                ...PROGRAM,
+                roomAreas: { bedroom: 14 },
+            };
+            const baseline = buildBubbleGraph(PROGRAM, 120);
+            const withOverride = buildBubbleGraph(partial, 120);
+            const baseKitchen = baseline.rooms.find(r => r.type === 'kitchen')!;
+            const overKitchen = withOverride.rooms.find(r => r.type === 'kitchen')!;
+            // Kitchen unchanged (same weight, same shell — same target).
+            expect(overKitchen.targetAreaM2).toBeCloseTo(baseKitchen.targetAreaM2, 5);
+        });
+
+        it('rejects non-positive / non-finite overrides (treated as omitted)', () => {
+            const bad: ApartmentProgram = {
+                ...PROGRAM,
+                roomAreas: { kitchen: 0, bedroom: NaN as number, master: -5 },
+            };
+            const baseline = buildBubbleGraph(PROGRAM, 120);
+            const g = buildBubbleGraph(bad, 120);
+            // All three should fall back to defaults.
+            for (const t of ['kitchen', 'bedroom', 'master'] as const) {
+                const a = baseline.rooms.find(r => r.type === t)!.targetAreaM2;
+                const b = g.rooms.find(r => r.type === t)!.targetAreaM2;
+                expect(b).toBeCloseTo(a, 5);
+            }
+        });
+
+        it('empty / omitted roomAreas matches the no-override behaviour exactly', () => {
+            const omitted = buildBubbleGraph(PROGRAM, 120);
+            const empty = buildBubbleGraph({ ...PROGRAM, roomAreas: {} }, 120);
+            for (const r of omitted.rooms) {
+                const m = empty.rooms.find(x => x.id === r.id)!;
+                expect(m.targetAreaM2).toBeCloseTo(r.targetAreaM2, 5);
+            }
+        });
+    });
 });
