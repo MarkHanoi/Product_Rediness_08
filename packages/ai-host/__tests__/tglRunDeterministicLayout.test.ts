@@ -106,6 +106,42 @@ describe('generateDeterministicLayouts (TGL wiring)', () => {
         expect(res.options).toEqual([]);
     });
 
+    // §ENVELOPE-DIAGNOSTIC (2026-05-29) — when D-TGL declines because the
+    // shell + program envelope is impossible, the engine surfaces a clear
+    // rejection reason instead of silently falling through to the strip
+    // slicer's stripe-pattern output.
+    it('over-large shell + small program → rejects with envelope reason (no silent strip-slicer)', async () => {
+        const giantShell: ShellAnalysis = {
+            netAreaM2: 765, widthM: 30, depthM: 25.5,
+            perimeter: [{ x: 0, z: 0 }, { x: 30, z: 0 }, { x: 30, z: 25.5 }, { x: 0, z: 25.5 }],
+            faces: [],
+        };
+        const res = await generateLayoutOptions(
+            { shell: giantShell, program: PROGRAM, constraints: CONSTRAINTS, weights: WEIGHTS, count: 3 },
+            offlineRelay,
+            { proceduralFallback: true },
+        );
+        expect(res.status).toBe('rejected');
+        expect(res.options).toEqual([]);
+        expect(res.reason).toMatch(/2-bedroom apartment gross 765\.0 m² > hard max 120 m²/);
+    });
+
+    it('under-small shell for the program → rejects with envelope reason', async () => {
+        const tinyShell: ShellAnalysis = {
+            netAreaM2: 30, widthM: 6, depthM: 5,
+            perimeter: [{ x: 0, z: 0 }, { x: 6, z: 0 }, { x: 6, z: 5 }, { x: 0, z: 5 }],
+            faces: [],
+        };
+        const res = await generateLayoutOptions(
+            { shell: tinyShell, program: PROGRAM, constraints: CONSTRAINTS, weights: WEIGHTS, count: 3 },
+            offlineRelay,
+            { proceduralFallback: true },
+        );
+        expect(res.status).toBe('rejected');
+        expect(res.options).toEqual([]);
+        expect(res.reason).toMatch(/2-bedroom apartment gross 30\.0 m² < hard min 60 m²/);
+    });
+
     it('windowSpansWorld param keeps interior partitions out of window openings (snap fires)', () => {
         // The 12×10 shell with a 3 m window centred at (x=5, z=0). A partition that
         // would otherwise land at x ≈ 5 should snap clear by ≥ 0.1 m clearance.

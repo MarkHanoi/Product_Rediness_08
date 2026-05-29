@@ -22,6 +22,7 @@ import type { ShellAnalysis } from './shellAnalysis.js';
 import { validateLayout } from './validate.js';
 import { scoreLayout } from './score.js';
 import { generateProceduralLayout } from './proceduralLayout.js';
+import { validateApartmentEnvelope } from './dimensions/validateApartmentEnvelope.js';
 import { generateDeterministicLayouts } from './tgl/runDeterministicLayout.js';
 
 export const LAYOUT_MODEL = 'claude-haiku-4-5-20251014';
@@ -216,11 +217,30 @@ export async function generateLayoutOptions(
         if (deterministic.length > 0) {
             return { options: deterministic, status: 'ok', attempts: attempt, reason: 'AI unavailable — deterministic D-TGL offline layout' };
         }
+        // §ENVELOPE-DIAGNOSTIC (2026-05-29) — D-TGL returned no candidates.
+        // The dominant cause is the §3.1 apartment-envelope HARD-reject
+        // (shell + program incompatible: too big OR too small for the
+        // requested bedroom count). Surface that reason diagnostically
+        // instead of silently falling through to the strip-slicer, whose
+        // parallel-strip output looks like a real layout and hides the
+        // actual failure from the user. The strip-slicer remains as the
+        // last-resort fallback ONLY for D-TGL failures that AREN'T
+        // envelope-driven (degenerate perimeter, etc).
+        const envelope = validateApartmentEnvelope({
+            bedrooms: input.program.bedrooms,
+            grossAreaM2: input.shell.netAreaM2,
+        });
+        if (!envelope.admissible) {
+            return {
+                options: [], status: 'rejected', attempts: attempt,
+                reason: envelope.hardFindings.map(f => f.reason).join('; '),
+            };
+        }
         const procedural = generateProceduralLayout(
             input.shell, input.program, input.constraints, input.weights, input.count,
         );
         if (procedural.length > 0) {
-            return { options: procedural, status: 'ok', attempts: attempt, reason: 'AI unavailable — procedural offline layout' };
+            return { options: procedural, status: 'ok', attempts: attempt, reason: 'AI unavailable — procedural offline layout (D-TGL declined)' };
         }
     }
 
