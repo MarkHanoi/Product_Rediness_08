@@ -70,13 +70,79 @@ function areaInputsHtml(program: ApartmentProgram): string {
             ? cur.toString() : '';
         return (
             `<label class="alm-program-area"><span>${f.label}</span>` +
-            `<input type="number" name="area_${f.type}" min="0" step="0.5" value="${value}" placeholder="auto">` +
+            `<input type="number" name="area_t_${f.type}" min="0" step="0.5" value="${value}" placeholder="auto">` +
             `<span class="alm-program-area-unit">m²</span></label>`
         );
     }).join('');
 }
 
-export function buildProgramEditFormHtml(program: ApartmentProgram): string {
+/**
+ * §ROOM-AREAS-BY-NAME (2026-05-29 follow-up): per-INSTANCE area inputs. When
+ * the modal has at least one option in hand the form renders one number input
+ * per actual bubble-graph room name ("Bedroom 1", "Master Bedroom", "Kitchen",
+ * …) — the user gets fine-grained control without an id-keyed map. Pre-filled
+ * from `program.roomAreasByName[name]`. Input `name="area_n_<roomName>"` so
+ * the reader can collect them into `roomAreasByName` deterministically.
+ */
+function perInstanceAreaInputsHtml(
+    program: ApartmentProgram,
+    roomNames: readonly string[],
+): string {
+    const overrides = program.roomAreasByName ?? {};
+    return roomNames.map(name => {
+        const cur = (overrides as Record<string, number>)[name];
+        const value = (typeof cur === 'number' && Number.isFinite(cur) && cur > 0)
+            ? cur.toString() : '';
+        return (
+            `<label class="alm-program-area"><span>${escHtml(name)}</span>` +
+            `<input type="number" name="area_n_${escHtml(name)}" min="0" step="0.5" value="${value}" placeholder="auto">` +
+            `<span class="alm-program-area-unit">m²</span></label>`
+        );
+    }).join('');
+}
+
+/** Stable deterministic ordering for the per-instance inputs. Public-first
+ *  (matches the bubble graph's mint order) so the first option's "Living Room"
+ *  comes first, then "Kitchen", then corridors, then private rooms in
+ *  insertion order. Falls back to insertion order for unknown occupancies. */
+const OCCUPANCY_ROOM_ORDER: readonly string[] = [
+    'entrance-lobby', 'living-room', 'kitchen', 'dining-room',
+    'corridor', 'bedroom', 'bathroom', 'private-office', 'utility-room',
+];
+
+/** Collect distinct room NAMES across every option, ordered first by their
+ *  occupancy in `OCCUPANCY_ROOM_ORDER` (public-first), then by insertion
+ *  order within each occupancy bucket. Returns [] when no room has a name. */
+export function collectRoomNames(options: readonly LayoutOption[]): string[] {
+    const byOccupancy = new Map<string, string[]>();
+    const seen = new Set<string>();
+    for (const opt of options) {
+        for (const r of opt.rooms ?? []) {
+            const name = r.name?.trim();
+            if (!name || seen.has(name)) continue;
+            seen.add(name);
+            const occ = r.occupancy ?? '';
+            const bucket = byOccupancy.get(occ) ?? [];
+            bucket.push(name);
+            byOccupancy.set(occ, bucket);
+        }
+    }
+    const ordered: string[] = [];
+    for (const occ of OCCUPANCY_ROOM_ORDER) {
+        const bucket = byOccupancy.get(occ);
+        if (bucket) ordered.push(...bucket);
+    }
+    for (const [occ, bucket] of byOccupancy) {
+        if (OCCUPANCY_ROOM_ORDER.includes(occ)) continue;
+        ordered.push(...bucket);
+    }
+    return ordered;
+}
+
+export function buildProgramEditFormHtml(
+    program: ApartmentProgram,
+    roomNames: readonly string[] = [],
+): string {
     const bedrooms = Math.max(0, Math.min(5, Math.round(program.bedrooms)));
     const bathrooms = Math.max(1, Math.min(3, Math.round(program.bathrooms)));
     const chk = (b: boolean): string => b ? ' checked' : '';
@@ -95,7 +161,9 @@ export function buildProgramEditFormHtml(program: ApartmentProgram): string {
         `<label class="alm-program-chk"><input type="checkbox" name="masterEnSuite"${chk(program.masterEnSuite)}> Master en-suite</label>` +
         '</div>' +
         '<div class="alm-program-row alm-program-areas">' +
-        areaInputsHtml(program) +
+        (roomNames.length > 0
+            ? perInstanceAreaInputsHtml(program, roomNames)
+            : areaInputsHtml(program)) +
         '</div>' +
         '<div class="alm-program-hint" data-role="program-hint">Edit any field — leave area blank for auto. Layouts regenerate automatically.</div>' +
         '</form>'
@@ -197,7 +265,12 @@ export function buildLayoutModalHtml(
     program?: ApartmentProgram,
     options: readonly LayoutOption[] = [],
 ): string {
-    const programForm = program ? buildProgramEditFormHtml(program) : '';
+    // §ROOM-AREAS-BY-NAME (2026-05-29) — when the modal has options in hand,
+    // the form renders per-INSTANCE area inputs (one per actual room name);
+    // empty options ⇒ fall back to the per-TYPE inputs (the first paint or a
+    // future AI path that doesn't provide LayoutOptions yet).
+    const roomNames = options.length > 0 ? collectRoomNames(options) : [];
+    const programForm = program ? buildProgramEditFormHtml(program, roomNames) : '';
     const grid = buildLayoutCardGridHtml(cards, thumbnails);
     const headerCount = cards.length === 0
         ? ''

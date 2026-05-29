@@ -188,22 +188,27 @@ export class ApartmentLayoutModal {
             const el = form.elements.namedItem(name) as HTMLInputElement | null;
             return !!el?.checked;
         };
-        // §ROOM-AREAS (2026-05-29) — collect every `area_<RoomType>` input
-        // with a positive value into a Partial<Record<RoomType, number>>.
-        // Empty / non-positive / non-finite inputs are OMITTED (engine then
-        // falls back to weight-scaled defaults for those types — see
-        // bubbleGraph.ts §ROOM-AREAS).
-        const AREA_PREFIX = 'area_';
+        // §ROOM-AREAS / §ROOM-AREAS-BY-NAME (2026-05-29) — collect area
+        // inputs. The form uses two prefixes:
+        //   `area_t_<RoomType>`  → per-TYPE override (every bedroom 14 m²)
+        //   `area_n_<roomName>`  → per-INSTANCE override (Bedroom 1 = 14, etc.)
+        // Blank / non-positive / non-finite values are OMITTED (engine falls
+        // back to the next priority — name → type → weight-scaled default).
+        const TYPE_PREFIX = 'area_t_';
+        const NAME_PREFIX = 'area_n_';
         const roomAreas: Record<string, number> = {};
+        const roomAreasByName: Record<string, number> = {};
         const inputs = form.querySelectorAll('input[type="number"]') as NodeListOf<HTMLInputElement>;
         for (const inp of Array.from(inputs)) {
-            if (!inp.name.startsWith(AREA_PREFIX)) continue;
             const trimmed = inp.value.trim();
-            if (trimmed === '') continue;     // blank ⇒ omitted ⇒ auto default
+            if (trimmed === '') continue;
             const v = Number(trimmed);
             if (!Number.isFinite(v) || v <= 0) continue;
-            const roomType = inp.name.slice(AREA_PREFIX.length);
-            roomAreas[roomType] = v;
+            if (inp.name.startsWith(TYPE_PREFIX)) {
+                roomAreas[inp.name.slice(TYPE_PREFIX.length)] = v;
+            } else if (inp.name.startsWith(NAME_PREFIX)) {
+                roomAreasByName[inp.name.slice(NAME_PREFIX.length)] = v;
+            }
         }
         const out: ApartmentProgram = {
             bedrooms: Math.max(0, Math.min(5, Math.round(numByName('bedrooms', 1)))),
@@ -215,6 +220,9 @@ export class ApartmentLayoutModal {
         };
         if (Object.keys(roomAreas).length > 0) {
             (out as ApartmentProgram & { roomAreas?: Record<string, number> }).roomAreas = roomAreas;
+        }
+        if (Object.keys(roomAreasByName).length > 0) {
+            (out as ApartmentProgram & { roomAreasByName?: Record<string, number> }).roomAreasByName = roomAreasByName;
         }
         return out;
     }

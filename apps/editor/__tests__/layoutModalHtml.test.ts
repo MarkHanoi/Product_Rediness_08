@@ -6,6 +6,7 @@ import {
     buildProgramEditFormHtml,
     buildLayoutCardGridHtml,
     buildOccupancyLegendHtml,
+    collectRoomNames,
 } from '../src/ui/apartment-layout/layoutModalHtml.js';
 import type { LayoutCardModel } from '../src/ui/apartment-layout/layoutCardModel.js';
 import type { ApartmentProgram, LayoutOption } from '@pryzm/ai-host';
@@ -149,34 +150,90 @@ describe('buildLayoutModalHtml (A5-modal)', () => {
         expect(buildOccupancyLegendHtml([opt([])])).toBe('');
     });
 
-    // §ROOM-AREAS (2026-05-29) — per-RoomType m² inputs in the program form.
-    it('emits a number input for every area field (living, kitchen, dining, bedroom, master, bathroom)', () => {
+    // §ROOM-AREAS (2026-05-29) — per-RoomType m² inputs in the program form
+    // (the fallback path when no options have rooms yet).
+    it('emits a per-TYPE number input for every area field when no rooms are supplied', () => {
         const program: ApartmentProgram = {
             bedrooms: 2, bathrooms: 1, masterEnSuite: true,
             openPlanKitchenDining: true, livingRoom: true, entranceHall: true,
         };
         const html = buildProgramEditFormHtml(program);
-        expect(html).toContain('name="area_living"');
-        expect(html).toContain('name="area_kitchen"');
-        expect(html).toContain('name="area_dining"');
-        expect(html).toContain('name="area_bedroom"');
-        expect(html).toContain('name="area_master"');
-        expect(html).toContain('name="area_bathroom"');
+        expect(html).toContain('name="area_t_living"');
+        expect(html).toContain('name="area_t_kitchen"');
+        expect(html).toContain('name="area_t_dining"');
+        expect(html).toContain('name="area_t_bedroom"');
+        expect(html).toContain('name="area_t_master"');
+        expect(html).toContain('name="area_t_bathroom"');
         // Blank by default (no override) — placeholder reads "auto".
         expect(html).toContain('placeholder="auto"');
     });
 
-    it('pre-fills area inputs from roomAreas overrides when supplied', () => {
+    it('pre-fills per-TYPE area inputs from roomAreas overrides when supplied', () => {
         const program: ApartmentProgram = {
             bedrooms: 2, bathrooms: 1, masterEnSuite: true,
             openPlanKitchenDining: true, livingRoom: true, entranceHall: true,
             roomAreas: { living: 22, kitchen: 12 },
         };
         const html = buildProgramEditFormHtml(program);
-        expect(html).toMatch(/name="area_living"[^>]*value="22"/);
-        expect(html).toMatch(/name="area_kitchen"[^>]*value="12"/);
+        expect(html).toMatch(/name="area_t_living"[^>]*value="22"/);
+        expect(html).toMatch(/name="area_t_kitchen"[^>]*value="12"/);
         // unspecified types still blank.
-        expect(html).toMatch(/name="area_bedroom"[^>]*value=""/);
+        expect(html).toMatch(/name="area_t_bedroom"[^>]*value=""/);
+    });
+
+    // §ROOM-AREAS-BY-NAME (2026-05-29 follow-up) — per-INSTANCE inputs when
+    // room names ARE supplied (the modal collects them from current options).
+    it('emits a per-INSTANCE input for every room name when names are supplied', () => {
+        const program: ApartmentProgram = {
+            bedrooms: 2, bathrooms: 1, masterEnSuite: true,
+            openPlanKitchenDining: true, livingRoom: true, entranceHall: true,
+        };
+        const html = buildProgramEditFormHtml(program, ['Living Room', 'Kitchen', 'Master Bedroom', 'Bedroom 1', 'Bathroom']);
+        expect(html).toContain('name="area_n_Living Room"');
+        expect(html).toContain('name="area_n_Master Bedroom"');
+        expect(html).toContain('name="area_n_Bedroom 1"');
+        // The per-TYPE fallback is NOT emitted when names are supplied (form
+        // shows ONE row, not both).
+        expect(html).not.toContain('name="area_t_living"');
+    });
+
+    it('pre-fills per-instance area inputs from roomAreasByName', () => {
+        const program: ApartmentProgram = {
+            bedrooms: 2, bathrooms: 1, masterEnSuite: true,
+            openPlanKitchenDining: true, livingRoom: true, entranceHall: true,
+            roomAreasByName: { 'Master Bedroom': 20, 'Bedroom 1': 12 },
+        };
+        const html = buildProgramEditFormHtml(program, ['Master Bedroom', 'Bedroom 1', 'Kitchen']);
+        expect(html).toMatch(/name="area_n_Master Bedroom"[^>]*value="20"/);
+        expect(html).toMatch(/name="area_n_Bedroom 1"[^>]*value="12"/);
+        expect(html).toMatch(/name="area_n_Kitchen"[^>]*value=""/);  // blank
+    });
+
+    it('collectRoomNames orders public-first across options, no duplicates', () => {
+        // Two options share a "Kitchen" + add different bedrooms — distinct
+        // names collected in public-first order.
+        const optA = {
+            summary: '', corridorWidthMin: 0, doors: [], walls: [],
+            rooms: [
+                { name: 'Kitchen', type: 'kitchen' as const, area: 0, windowCount: 0, hasDirectAccess: true, adjacentTo: [], occupancy: 'kitchen' },
+                { name: 'Bedroom 1', type: 'bedroom' as const, area: 0, windowCount: 0, hasDirectAccess: true, adjacentTo: [], occupancy: 'bedroom' },
+                { name: 'Living Room', type: 'living' as const, area: 0, windowCount: 0, hasDirectAccess: true, adjacentTo: [], occupancy: 'living-room' },
+            ],
+        };
+        const optB = {
+            summary: '', corridorWidthMin: 0, doors: [], walls: [],
+            rooms: [
+                { name: 'Kitchen', type: 'kitchen' as const, area: 0, windowCount: 0, hasDirectAccess: true, adjacentTo: [], occupancy: 'kitchen' },     // dup
+                { name: 'Bedroom 2', type: 'bedroom' as const, area: 0, windowCount: 0, hasDirectAccess: true, adjacentTo: [], occupancy: 'bedroom' },
+            ],
+        };
+        const names = collectRoomNames([optA, optB]);
+        // Public-first: living-room before kitchen before bedroom.
+        expect(names.indexOf('Living Room')).toBeLessThan(names.indexOf('Kitchen'));
+        expect(names.indexOf('Kitchen')).toBeLessThan(names.indexOf('Bedroom 1'));
+        expect(names.indexOf('Bedroom 1')).toBeLessThan(names.indexOf('Bedroom 2'));
+        // Kitchen appears once (deduped).
+        expect(names.filter(n => n === 'Kitchen').length).toBe(1);
     });
 
     it('modal panel embeds the legend wrapper only when options are non-empty', () => {
