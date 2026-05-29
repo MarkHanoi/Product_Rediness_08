@@ -95,4 +95,19 @@ export const APARTMENT_LAYOUT_MODAL_STYLES = `
 /* §MODAL-DYNAMIC busy state — dims the grid + shows a pulse. */
 .alm-busy .alm-grid { opacity: 0.55; pointer-events: none; transition: opacity .15s; }
 .alm-busy .alm-program-hint { color: #6600FF; font-style: normal; font-weight: 600; }
+
+/* §MODAL-DYNAMIC part-3 (2026-05-29) — occupancy legend. */
+.alm-legend {
+  padding: 8px 20px; border-bottom: 1px solid #e2e8f0; background: #ffffff;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.alm-legend-item {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11px; color: #475569;
+}
+.alm-legend-swatch {
+  display: inline-block; width: 12px; height: 12px; border-radius: 3px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+}
+.alm-legend-label { white-space: nowrap; }
 `;

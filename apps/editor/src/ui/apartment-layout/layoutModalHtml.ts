@@ -11,7 +11,24 @@
 // user input beyond numeric coords). Numbers interpolate raw (auto-safe).
 
 import type { LayoutCardModel } from './layoutCardModel.js';
-import type { ApartmentProgram } from '@pryzm/ai-host';
+import type { ApartmentProgram, LayoutOption } from '@pryzm/ai-host';
+import { OCCUPANCY_FILL, DEFAULT_OCCUPANCY_FILL } from './layoutThumbnail.js';
+
+/** Display labels for the residential occupancy subset the legend shows. The
+ *  bubble graph mints names like "Living Room" / "Bedroom 1" — those live on
+ *  per-room labels in the thumbnail. The legend collapses them to one swatch
+ *  per occupancy type using this short label. */
+const OCCUPANCY_LABEL: Readonly<Record<string, string>> = {
+    'bedroom':        'Bedroom',
+    'living-room':    'Living Room',
+    'kitchen':        'Kitchen',
+    'bathroom':       'Bathroom',
+    'dining-room':    'Dining',
+    'utility-room':   'Utility',
+    'corridor':       'Corridor',
+    'entrance-lobby': 'Entrance Hall',
+    'private-office': 'Study',
+};
 
 /** Local pure HTML escape (no DOM, no import) — keeps this module Node-testable
  *  and is recognised by the xss-guards gate as a safe guard. */
@@ -81,6 +98,49 @@ function cardHtml(card: LayoutCardModel, safeThumb: string): string {
     );
 }
 
+/**
+ * §MODAL-DYNAMIC part-3 (2026-05-29) — occupancy legend.
+ * Collects DISTINCT occupancy strings across every room in every option, and
+ * renders one swatch + label per occupancy. Stable order (sorts by the
+ * `OCCUPANCY_LABEL` key order, then alphabetically), so the legend doesn't
+ * jitter as the user edits the program. Unknown occupancies are skipped (the
+ * thumbnail also paints them the neutral slate fallback). Returns the inner
+ * HTML for the legend container; the modal wraps it in `<div
+ * class="alm-legend">`.
+ */
+export function buildOccupancyLegendHtml(options: readonly LayoutOption[]): string {
+    const seen = new Set<string>();
+    for (const opt of options) {
+        for (const r of opt.rooms ?? []) {
+            const occ = r.occupancy ?? '';
+            if (occ) seen.add(occ);
+        }
+    }
+    if (seen.size === 0) return '';
+    const knownOrder: readonly string[] = [
+        'living-room', 'kitchen', 'dining-room', 'entrance-lobby',
+        'corridor', 'bedroom', 'bathroom', 'private-office', 'utility-room',
+    ];
+    const indexOf = (s: string): number => {
+        const i = knownOrder.indexOf(s);
+        return i === -1 ? knownOrder.length : i;
+    };
+    const ordered = [...seen].sort((a, b) => {
+        const da = indexOf(a), db = indexOf(b);
+        return da === db ? a.localeCompare(b) : da - db;
+    });
+    return ordered.map(occ => {
+        const fill = OCCUPANCY_FILL[occ] ?? DEFAULT_OCCUPANCY_FILL;
+        const label = OCCUPANCY_LABEL[occ] ?? occ;
+        return (
+            '<span class="alm-legend-item">' +
+            `<span class="alm-legend-swatch" style="background:${fill}" aria-hidden="true"></span>` +
+            `<span class="alm-legend-label">${escHtml(label)}</span>` +
+            '</span>'
+        );
+    }).join('');
+}
+
 /** Card grid HTML — extracted so the modal can refresh JUST the cards in
  *  place (the program-edit form + outer panel chrome don't re-render on
  *  regeneration). */
@@ -105,16 +165,22 @@ export function buildLayoutModalHtml(
     cards: readonly LayoutCardModel[],
     thumbnails: readonly string[] = [],
     program?: ApartmentProgram,
+    options: readonly LayoutOption[] = [],
 ): string {
     const programForm = program ? buildProgramEditFormHtml(program) : '';
     const grid = buildLayoutCardGridHtml(cards, thumbnails);
     const headerCount = cards.length === 0
         ? ''
         : ` <small>${cards.length} option${cards.length === 1 ? '' : 's'}</small>`;
+    const legendInner = buildOccupancyLegendHtml(options);
+    const legend = legendInner
+        ? `<div class="alm-legend" data-role="legend">${legendInner}</div>`
+        : '';
     return (
         '<div class="alm-panel">' +
         `<div class="alm-header">Choose a layout${headerCount}</div>` +
         programForm +
+        legend +
         `<div class="alm-grid" data-role="grid">${grid}</div>` +
         '<div class="alm-footer"><button type="button" class="alm-cancel">Cancel</button></div>' +
         '</div>'

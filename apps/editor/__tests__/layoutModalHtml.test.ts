@@ -5,9 +5,10 @@ import {
     buildLayoutModalHtml,
     buildProgramEditFormHtml,
     buildLayoutCardGridHtml,
+    buildOccupancyLegendHtml,
 } from '../src/ui/apartment-layout/layoutModalHtml.js';
 import type { LayoutCardModel } from '../src/ui/apartment-layout/layoutCardModel.js';
-import type { ApartmentProgram } from '@pryzm/ai-host';
+import type { ApartmentProgram, LayoutOption } from '@pryzm/ai-host';
 
 function card(over: Partial<LayoutCardModel> = {}): LayoutCardModel {
     return {
@@ -107,5 +108,59 @@ describe('buildLayoutModalHtml (A5-modal)', () => {
         expect(html).toContain('class="alm-card"');
         expect(html).not.toContain('alm-panel');
         expect(html).not.toContain('alm-program');
+    });
+
+    // §MODAL-DYNAMIC part-3 (2026-05-29) — occupancy legend.
+    const opt = (occupancies: string[]): LayoutOption => ({
+        summary: '', corridorWidthMin: 0, doors: [], walls: [],
+        rooms: occupancies.map((occ, i) => ({
+            name: `r${i}`, type: 'living', area: 12, windowCount: 1,
+            hasDirectAccess: true, adjacentTo: [],
+            polygon: [
+                { x: 0, y: 0 }, { x: 4000, y: 0 },
+                { x: 4000, y: 3000 }, { x: 0, y: 3000 },
+            ],
+            occupancy: occ,
+        })),
+    });
+
+    it('legend collects DISTINCT occupancies across all options', () => {
+        const html = buildOccupancyLegendHtml([
+            opt(['living-room', 'kitchen', 'living-room']),
+            opt(['bedroom', 'bathroom']),
+        ]);
+        expect((html.match(/class="alm-legend-item"/g) ?? []).length).toBe(4);
+        // Stable order: known occupancies sorted by knownOrder priority.
+        const livingIdx = html.indexOf('>Living Room<');
+        const bedroomIdx = html.indexOf('>Bedroom<');
+        expect(livingIdx).toBeGreaterThan(-1);
+        expect(bedroomIdx).toBeGreaterThan(-1);
+        expect(livingIdx).toBeLessThan(bedroomIdx);
+    });
+
+    it('legend emits the SAME swatch colour as the thumbnail (no drift)', () => {
+        const html = buildOccupancyLegendHtml([opt(['kitchen'])]);
+        // kitchen → amber-100 #fef3c7
+        expect(html).toContain('background:#fef3c7');
+    });
+
+    it('legend returns empty string when no options have rooms', () => {
+        expect(buildOccupancyLegendHtml([])).toBe('');
+        expect(buildOccupancyLegendHtml([opt([])])).toBe('');
+    });
+
+    it('modal panel embeds the legend wrapper only when options are non-empty', () => {
+        const program: ApartmentProgram = {
+            bedrooms: 1, bathrooms: 1, masterEnSuite: false,
+            openPlanKitchenDining: true, livingRoom: true, entranceHall: true,
+        };
+        const withRooms = buildLayoutModalHtml(
+            [card()], [''], program, [opt(['living-room', 'kitchen'])],
+        );
+        expect(withRooms).toContain('class="alm-legend"');
+        expect(withRooms).toContain('data-role="legend"');
+
+        const noRooms = buildLayoutModalHtml([card()], [''], program, []);
+        expect(noRooms).not.toContain('class="alm-legend"');
     });
 });

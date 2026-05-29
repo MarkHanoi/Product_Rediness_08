@@ -17,7 +17,11 @@
 import type { ScoredLayoutOption, ApartmentProgram } from '@pryzm/ai-host';
 import { buildLayoutCardModel } from './layoutCardModel.js';
 import { buildLayoutThumbnailSvg } from './layoutThumbnail.js';
-import { buildLayoutModalHtml, buildLayoutCardGridHtml } from './layoutModalHtml.js';
+import {
+    buildLayoutModalHtml,
+    buildLayoutCardGridHtml,
+    buildOccupancyLegendHtml,
+} from './layoutModalHtml.js';
 
 export interface ApartmentLayoutModalCallbacks {
     /** User picked option `index` ("Use this layout"). */
@@ -54,7 +58,7 @@ export class ApartmentLayoutModal {
 
         const overlay = document.createElement('div');
         overlay.className = 'alm-overlay';
-        overlay.innerHTML = buildLayoutModalHtml(cards, thumbs, program);
+        overlay.innerHTML = buildLayoutModalHtml(cards, thumbs, program, options);
 
         this._onProgramChange = cb.onProgramChange ?? null;
 
@@ -105,6 +109,10 @@ export class ApartmentLayoutModal {
         const cards = options.map((o, i) => buildLayoutCardModel(o, i));
         const thumbs = options.map(o => buildLayoutThumbnailSvg(o, { background: '#ffffff' }));
         grid.innerHTML = buildLayoutCardGridHtml(cards, thumbs);
+        // §MODAL-DYNAMIC part-3: refresh the legend too — toggling the program
+        // (e.g. turning Living Room off) changes which occupancies are present.
+        const legend = this._el.querySelector('[data-role="legend"]');
+        if (legend) legend.innerHTML = buildOccupancyLegendHtml(options);
         this._setHint('');
         this.setBusy(false);
     }

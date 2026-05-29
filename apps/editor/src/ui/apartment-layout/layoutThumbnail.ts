@@ -25,19 +25,23 @@ export interface ThumbnailOptions {
     readonly background?: string;     // default transparent ('none')
     readonly showLabels?: boolean;    // default true
     readonly showDoors?: boolean;     // default true
+    /** §MODAL-DYNAMIC part-3 (2026-05-29): small "5 m" scale bar at the
+     *  bottom-right. Snaps to a nice round metre value (1, 2, 5, 10, 20 m). */
+    readonly showScaleBar?: boolean;  // default true
 }
 
 const DEFAULTS = {
     width: 320, height: 240, padding: 12,
     wallColor: '#0f172a', doorColor: '#6600FF', wallWidth: 2.5, background: 'none',
-    showLabels: true, showDoors: true,
+    showLabels: true, showDoors: true, showScaleBar: true,
 } as const;
 
 /** Occupancy → fill palette. Tiny residential-focused subset; falls back to
  *  a neutral slate fill for anything unmapped. Mirrors the editor's
  *  DataVisualizerService palette so the modal preview and the live editor
- *  use the same colour language. */
-const OCCUPANCY_FILL: Readonly<Record<string, string>> = {
+ *  use the same colour language. Exported so the modal-html legend uses the
+ *  SAME swatches as the thumbnails — no drift. */
+export const OCCUPANCY_FILL: Readonly<Record<string, string>> = {
     'bedroom':              '#dbeafe',  // blue-100 (lighter than the 3D viz so labels read)
     'living-room':          '#bfdbfe',  // blue-200
     'kitchen':              '#fef3c7',  // amber-100
@@ -48,7 +52,8 @@ const OCCUPANCY_FILL: Readonly<Record<string, string>> = {
     'entrance-lobby':       '#fed7aa',  // orange-200
     'private-office':       '#cffafe',  // cyan-100
 };
-const DEFAULT_FILL = '#f8fafc';        // slate-50
+export const DEFAULT_OCCUPANCY_FILL = '#f8fafc';   // slate-50, for unmapped occupancies
+const DEFAULT_FILL = DEFAULT_OCCUPANCY_FILL;
 
 const f1 = (n: number): string => (Math.round(n * 10) / 10).toString();
 const f0 = (n: number): string => Math.round(n).toString();
@@ -83,6 +88,20 @@ function polyBboxMm(poly: ReadonlyArray<{ x: number; y: number }>): { w: number;
     return { w: x1 - x0, h: y1 - y0 };
 }
 
+/** Snap a target width in metres to the nearest "nice" round value from a
+ *  fixed ladder. Bounded ≤ 50 m so the bar never dominates the thumbnail. */
+const NICE_METRES: readonly number[] = [1, 2, 5, 10, 20, 50];
+function niceScaleMetres(targetM: number): number {
+    if (!isFinite(targetM) || targetM <= 0) return 1;
+    let best = NICE_METRES[0]!;
+    let bestDiff = Math.abs(targetM - best);
+    for (const m of NICE_METRES) {
+        const d = Math.abs(targetM - m);
+        if (d < bestDiff) { best = m; bestDiff = d; }
+    }
+    return best;
+}
+
 /** Build the SVG plan thumbnail string for an option. Pure + deterministic. */
 export function buildLayoutThumbnailSvg(option: LayoutOption, opts: ThumbnailOptions = {}): string {
     const W = opts.width ?? DEFAULTS.width;
@@ -94,6 +113,7 @@ export function buildLayoutThumbnailSvg(option: LayoutOption, opts: ThumbnailOpt
     const bg = opts.background ?? DEFAULTS.background;
     const showLabels = opts.showLabels ?? DEFAULTS.showLabels;
     const showDoors = opts.showDoors ?? DEFAULTS.showDoors;
+    const showScaleBar = opts.showScaleBar ?? DEFAULTS.showScaleBar;
 
     const open = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="layout plan thumbnail">`;
     const bgRect = bg !== 'none' ? `<rect x="0" y="0" width="${W}" height="${H}" fill="${bg}"/>` : '';
@@ -205,5 +225,29 @@ export function buildLayoutThumbnailSvg(option: LayoutOption, opts: ThumbnailOpt
         return `${opening}${arc}${hinge}`;
     }).join('');
 
-    return `${open}${bgRect}${roomEls}${wallEls}${doorEls}${labelEls}${close}`;
+    // 5. Scale bar — bottom-right of the thumbnail. Target ~70 px wide; snap
+    //    to nearest nice metre value (1, 2, 5, 10, 20, 50). Skipped on tiny
+    //    thumbs (W < 120) or when scale is degenerate.
+    let scaleBarEls = '';
+    if (showScaleBar && W >= 120 && scale > 0 && isFinite(scale)) {
+        const targetMm = 70 / scale;
+        const niceM = niceScaleMetres(targetMm / 1000);
+        const barMm = niceM * 1000;
+        const barPx = barMm * scale;
+        if (barPx > 12 && barPx < W - 2 * pad) {
+            const bx1 = W - pad;
+            const bx0 = bx1 - barPx;
+            const by = H - pad - 4;
+            const label = `${niceM} m`;
+            scaleBarEls =
+                `<g class="alm-scalebar">` +
+                `<line x1="${f1(bx0)}" y1="${f1(by)}" x2="${f1(bx1)}" y2="${f1(by)}" stroke="#0f172a" stroke-width="1.5"/>` +
+                `<line x1="${f1(bx0)}" y1="${f1(by - 3)}" x2="${f1(bx0)}" y2="${f1(by + 3)}" stroke="#0f172a" stroke-width="1.5"/>` +
+                `<line x1="${f1(bx1)}" y1="${f1(by - 3)}" x2="${f1(bx1)}" y2="${f1(by + 3)}" stroke="#0f172a" stroke-width="1.5"/>` +
+                `<text x="${f1((bx0 + bx1) / 2)}" y="${f1(by - 5)}" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="9" fill="#334155">${label}</text>` +
+                `</g>`;
+        }
+    }
+
+    return `${open}${bgRect}${roomEls}${wallEls}${doorEls}${labelEls}${scaleBarEls}${close}`;
 }
