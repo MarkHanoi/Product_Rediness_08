@@ -17,10 +17,17 @@ import { FurnishLayoutExecutor } from './FurnishLayoutExecutor.js';
 
 const _executor = new FurnishLayoutExecutor();
 
+/** §VALIDATE-CACHE (2026-05-29): last `furnish.layout-executed` warnings,
+ *  cached in-memory so the user can review them after they scroll past in
+ *  the console. Exposed via `window.pryzmShowFurnishWarnings()`. */
+let _lastValidationWarnings: readonly string[] = [];
+let _lastValidationAt: Date | null = null;
+
 declare global {
     interface Window {
         // `runtime` is already declared as `any` elsewhere — don't re-declare it.
         pryzmFurnishAllRooms?: () => void;
+        pryzmShowFurnishWarnings?: () => void;
     }
 }
 
@@ -43,12 +50,33 @@ export function triggerFurnishLayout(runtimeArg?: PryzmRuntime | null): void {
     }
 }
 
+/** §VALIDATE-CACHE — review the last furnish run's circulation gate
+ *  warnings. Prints a table to console + a single summary line. Empty cache
+ *  ⇒ "no warnings" message. */
+function showFurnishWarnings(): void {
+    if (_lastValidationAt === null) {
+        console.log('[furnish-layout] §VALIDATE no furnish has run yet — try pryzmFurnishAllRooms() first.');
+        return;
+    }
+    if (_lastValidationWarnings.length === 0) {
+        console.log(`[furnish-layout] §VALIDATE last run at ${_lastValidationAt.toISOString()} — 0 warnings (clean).`);
+        return;
+    }
+    console.log(
+        `[furnish-layout] §VALIDATE last run at ${_lastValidationAt.toISOString()} ` +
+        `— ${_lastValidationWarnings.length} warning(s):`,
+    );
+    for (const w of _lastValidationWarnings) console.warn('[furnish-layout] §VALIDATE  -', w);
+}
+
 /** Install the DevTools console command `window.pryzmFurnishAllRooms()`,
  *  AND auto-fire furnishing after every apartment-layout build. Idempotent. */
 export function installFurnishLayoutTrigger(runtime: PryzmRuntime | null): void {
     if (typeof window !== 'undefined') {
         window.pryzmFurnishAllRooms = () => triggerFurnishLayout(runtime);
+        window.pryzmShowFurnishWarnings = showFurnishWarnings;
         console.log('[furnish-layout] console command ready — run pryzmFurnishAllRooms() to furnish all rooms.');
+        console.log('[furnish-layout] §VALIDATE console command ready — run pryzmShowFurnishWarnings() to review last furnish\'s circulation warnings.');
         // §FULL-PIPELINE shortcut: chain furniture + lighting on demand for the
         // manual-walls test case (architect drew walls themselves; the
         // apartment generator never fired, so the auto-chain didn't start).
@@ -65,6 +93,19 @@ export function installFurnishLayoutTrigger(runtime: PryzmRuntime | null): void 
     }
     if (runtime) {
         _executor.attach(runtime);
+        // §VALIDATE-CACHE — capture every furnish run's warnings so the user
+        // can `pryzmShowFurnishWarnings()` later without re-running. The
+        // event is emitted by FurnishLayoutExecutor at the end of every
+        // furnish — both success + empty-placement paths.
+        const evts = runtime.events as unknown as {
+            on?: (k: string, fn: (p: unknown) => void) => (() => void) | void;
+        };
+        evts.on?.('furnish.layout-executed', (payload: unknown) => {
+            const p = payload as { validationWarnings?: readonly string[] } | undefined;
+            _lastValidationWarnings = Array.isArray(p?.validationWarnings)
+                ? [...p!.validationWarnings] : [];
+            _lastValidationAt = new Date();
+        });
         // Auto-fire AFTER the ceiling pass settles. The ceiling layout
         // executor emits `ceiling.layout-executed` AFTER its runBatch, so
         // by the time furnishing starts the shell is enclosed (and the
