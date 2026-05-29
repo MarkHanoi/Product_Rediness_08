@@ -431,10 +431,98 @@ export class LocalVersionRepository implements IVersionRepository {
             }
         }
 
+        // §QUOTA-EVICT (2026-05-29) — every TRIM_TARGET (incl. 1 version) failed:
+        // localStorage is so full that even ONE compressed version of THIS project
+        // doesn't fit. Before giving up, evict the version stores of OTHER projects
+        // (oldest updatedAt first) — those are stale, the user is working on this
+        // project right now. Retry after each eviction. This turns a hard failure
+        // (the user loses their latest save's version history forever) into a soft
+        // degradation (some history of stale projects is gone, but THIS project
+        // saved successfully). Toast the user once so they know what happened.
+        if (this._evictAndRetry(projectId, trimmed)) return;
+
         console.error(
             `[VersionRepository] localStorage quota exhausted for project "${projectId}". ` +
             `Versions NOT saved. Consider clearing old projects.`
         );
+        this._emitQuotaToast(projectId);
+    }
+
+    /** §QUOTA-EVICT — drop OTHER projects' version stores oldest-first until the
+     *  current project's `slice.length=1` save succeeds, or no more stores to drop.
+     *  Returns true on a successful save. */
+    private _evictAndRetry(currentProjectId: string, trimmed: VersionRecord[]): boolean {
+        const otherKeys = this._listOtherVersionKeysOldestFirst(currentProjectId);
+        if (otherKeys.length === 0) return false;
+
+        // Try the smallest viable slice (1 version) for the current project. The
+        // user's latest save is what matters; older versions of the current
+        // project were already trimmed in the loop above.
+        const slice = trimmed.slice(-1);
+        let evicted = 0;
+        for (const k of otherKeys) {
+            try { localStorage.removeItem(k); evicted++; } catch { /* ignore */ }
+            try {
+                const payload = _compressJSON(JSON.stringify(slice));
+                localStorage.setItem(this.key(currentProjectId), payload);
+                console.warn(
+                    `[VersionRepository] §QUOTA-EVICT — freed space by dropping ${evicted} ` +
+                    `stale project version store(s); kept 1 latest version for "${currentProjectId}".`
+                );
+                this._emitQuotaToast(currentProjectId, evicted);
+                return true;
+            } catch {
+                // still doesn't fit — drop the next-oldest project and try again
+            }
+        }
+        return false;
+    }
+
+    /** Enumerate `bim-project-<id>-versions` keys EXCLUDING the current project,
+     *  sorted by the index's updatedAt (oldest first). Falls back to alphabetical
+     *  on the project id (which is created with a monotonic timestamp prefix). */
+    private _listOtherVersionKeysOldestFirst(currentProjectId: string): string[] {
+        const out: { key: string; updatedAt: number }[] = [];
+        let indexMap: Map<string, number> | null = null;
+        try {
+            const raw = localStorage.getItem(STORAGE_INDEX_KEY);
+            if (raw) {
+                const arr = JSON.parse(raw) as ProjectMeta[];
+                indexMap = new Map(arr.map(m => [m.id, m.updatedAt ?? 0]));
+            }
+        } catch { /* ignore — fall through to alpha sort */ }
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (!k) continue;
+            if (!k.startsWith(STORAGE_VERSIONS_PREFIX)) continue;
+            if (!k.endsWith(VERSIONS_SUFFIX)) continue;
+            const id = k.slice(STORAGE_VERSIONS_PREFIX.length, -VERSIONS_SUFFIX.length);
+            if (id === currentProjectId) continue;
+            const updatedAt = indexMap?.get(id) ?? 0;
+            out.push({ key: k, updatedAt });
+        }
+        out.sort((a, b) => a.updatedAt - b.updatedAt);
+        return out.map(e => e.key);
+    }
+
+    /** §QUOTA-EVICT user-visible signal. Best-effort toast through the runtime
+     *  event bus; silently no-ops if no runtime is wired. Distinct messages for
+     *  "evicted-but-saved" vs "couldn't-save-anything". */
+    private _emitQuotaToast(projectId: string, evictedCount: number = 0): void {
+        const events = (this.runtime as unknown as { events?: { emit?: (k: string, p: unknown) => void } } | null)?.events;
+        const emit = events?.emit;
+        if (typeof emit !== 'function') return;
+        if (evictedCount > 0) {
+            emit.call(events, 'pryzm:toast', {
+                message: `Storage is full — dropped version history of ${evictedCount} older project${evictedCount === 1 ? '' : 's'} to save this one.`,
+                severity: 'info',
+            });
+        } else {
+            emit.call(events, 'pryzm:toast', {
+                message: `Storage is full — version history for "${projectId}" was NOT saved. Delete old projects to free space.`,
+                severity: 'error',
+            });
+        }
     }
 }
 
