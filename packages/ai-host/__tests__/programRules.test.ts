@@ -52,11 +52,16 @@ describe('programRules — connectivity matrix (the user\'s rules)', () => {
         expect(doorAllowedBetween('bedroom', 'master')).toBe(false);
     });
 
-    it('a bathroom connects only to a corridor or a bedroom — NEVER the entrance hall, never kitchen/living/dining', () => {
+    it('§BATH-CORRIDOR-ONLY: a shared bathroom connects ONLY to a corridor — never to a bedroom/master (that\'s an en-suite), never to the entrance hall, kitchen/living/dining', () => {
         expect(doorAllowedBetween('bathroom', 'corridor')).toBe(true);
-        expect(doorAllowedBetween('bathroom', 'bedroom')).toBe(true);
-        // The user's explicit feedback: "the entrance door is connected with a
-        // bathroom — this is not possible." Hall ↔ bathroom is now forbidden.
+        // §BATH-CORRIDOR-ONLY (2026-05-29) — bathroom↔bedroom and
+        // bathroom↔master are now forbidden (program-rules-improvements
+        // queue #2). The bedroom-bathroom semantic is the en-suite, modelled
+        // as the separate `ensuite` room type.
+        expect(doorAllowedBetween('bathroom', 'bedroom')).toBe(false);
+        expect(doorAllowedBetween('bathroom', 'master')).toBe(false);
+        // The user's earlier feedback: "the entrance door is connected with a
+        // bathroom — this is not possible." Hall ↔ bathroom remains forbidden.
         expect(doorAllowedBetween('bathroom', 'hall')).toBe(false);
         expect(doorAllowedBetween('bathroom', 'kitchen')).toBe(false);
         expect(doorAllowedBetween('bathroom', 'living')).toBe(false);

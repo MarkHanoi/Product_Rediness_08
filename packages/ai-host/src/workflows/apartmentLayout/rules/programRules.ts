@@ -307,9 +307,15 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         // DB-035 full bathroom minAreaM2 5.0 (BS 8300 mandatory); DB-037 min clear
         // width 1.8 m. DB-039 shower-room only is 3.5 m² — we default to full.
         areaWeight: 0.45, minAreaM2: 5, minShortSideM: 1.8, needsWindow: false, windowMandatory: false,
-        // A bathroom connects to exactly ONE of: a corridor or a bedroom — NEVER the
-        // entrance hall (the user's explicit rule), never a kitchen / living / dining.
-        accessFrom: ['corridor', 'bedroom', 'master'], maxDoors: 1,
+        // §BATH-CORRIDOR-ONLY (2026-05-29) — shared bathroom door goes to the
+        // CORRIDOR only. The previous list permitted `bedroom` and `master`,
+        // which lets a layout open a SHARED bath directly into a bedroom — that
+        // semantic is an EN-SUITE, and we already model it as a separate room
+        // type (`ensuite`, accessFrom: ['master']). Bathroom-off-bedroom is
+        // ONLY architecturally acceptable as a Jack-and-Jill, which is a
+        // different first-class room type to add later — not a blanket bathroom
+        // permission. See program-rules-improvements-queue.md item #2.
+        accessFrom: ['corridor'], maxDoors: 1,
         requiredFurniture: ['toilet_radiator', 'shower_glass_panel'], optionalFurniture: [],
         requiredFixtures: ['toilet', 'washbasin', 'shower'],
         furnitureSpec: [
@@ -320,7 +326,7 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
             { kind: 'toilet_radiator',    sizeW: 400, sizeD: 700, clearFoot: 600, clearSide: 100, placementRule: 'wet_wall', excludeDoorSwing: true, excludeWindowWall: false, required: true },
             { kind: 'shower_glass_panel', sizeW: 900, sizeD: 900, clearFoot: 200, clearSide: 0,   placementRule: 'corner',   excludeDoorSwing: true, excludeWindowWall: false, required: true },
         ],
-        description: 'Shared bathroom. Exactly one door — to a corridor or a bedroom; never the entrance hall. Requires a toilet, a washbasin, and a shower or bath.',
+        description: 'Shared bathroom. Exactly one door — to a corridor; never the entrance hall, never directly off a bedroom (that semantic is an en-suite). Requires a toilet, a washbasin, and a shower or bath.',
     },
     ensuite: {
         type: 'ensuite', occupancy: 'bathroom', privacy: 'private',
