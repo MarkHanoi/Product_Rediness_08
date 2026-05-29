@@ -75,7 +75,17 @@ export function generateDeterministicLayouts(
             start: { x: mm(b.a.x), y: mm(b.a.z) },
             end:   { x: mm(b.b.x), y: mm(b.b.z) },
         }));
-        const labelled = { ...option, boundaries, summary: `${option.summary} (offline · D-TGL)` };
+        // §INTERIOR-HEIGHT-MATCH (2026-05-29): thread the partition height
+        // (constraints.floorToCeiling, mm) onto the LayoutOption so the
+        // executor can size generated partitions to match the shell without
+        // reaching into the wall store. Skipped when 0 / unset → executor
+        // falls back to level.height.
+        const labelled = {
+            ...option,
+            boundaries,
+            summary: `${option.summary} (offline · D-TGL)`,
+            ...(constraints.floorToCeiling > 0 ? { floorToCeilingMm: constraints.floorToCeiling } : {}),
+        };
         return { ...labelled, score: scoreLayout(labelled, weights) };
     });
 }

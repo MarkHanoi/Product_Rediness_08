@@ -19,6 +19,12 @@ import {
 interface WallRecord {
     id: string;
     levelId: string;
+    /** Wall height in METRES (per the wall store contract). Used at payload-
+     *  build time to derive `constraints.floorToCeiling` so the executor can
+     *  size generated partitions to match the existing perimeter (§INTERIOR-
+     *  HEIGHT-MATCH, 2026-05-29 — replaces the prior live-fix that reached
+     *  into the wall store from the executor itself). */
+    height?: number;
     baseLine?: ReadonlyArray<{ x: number; y?: number; z: number }>;
     openings?: ReadonlyArray<{
         type: 'window' | 'door';
@@ -61,10 +67,27 @@ export function gatherLayoutPayload(levelId: string): ApartmentGenerateLayoutPay
         };
     });
 
+    // §INTERIOR-HEIGHT-MATCH (2026-05-29 audit follow-up): derive the
+    // partition height from the SHELL — read the max height of every wall
+    // on this level (perimeter is the relevant set, but max-over-all is a
+    // safe superset for the "tall enough to match the shell" requirement)
+    // and inject it into constraints.floorToCeiling (mm). Falls back to
+    // the default 2700 mm when no wall on the level has a height.
+    let perimeterHeightMm = 0;
+    for (const w of onLevel) {
+        if (typeof w.height === 'number' && w.height > 0) {
+            const hMm = Math.round(w.height * 1000);
+            if (hMm > perimeterHeightMm) perimeterHeightMm = hMm;
+        }
+    }
+    const constraints = perimeterHeightMm > 0
+        ? { ...DEFAULT_CONSTRAINTS, floorToCeiling: perimeterHeightMm }
+        : DEFAULT_CONSTRAINTS;
+
     return buildLayoutRequestPayload({
         levelId,
         walls,
         program: DEFAULT_PROGRAM,
-        constraints: DEFAULT_CONSTRAINTS,
+        constraints,
     });
 }

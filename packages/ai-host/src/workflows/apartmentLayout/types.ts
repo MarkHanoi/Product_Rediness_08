@@ -52,6 +52,14 @@ export interface LayoutOption {
      *  predate this field. */
     boundaries?: LayoutBoundary[];
     corridorWidthMin: number;      // mm
+    /** §INTERIOR-HEIGHT-MATCH (2026-05-29, audit follow-up): partition wall
+     *  height in MM, derived from the SHELL's perimeter walls at payload time
+     *  (gatherLayoutPayload reads the max height of existing exterior walls)
+     *  and threaded through constraints.floorToCeiling. The executor reads
+     *  this to size generated partitions so they match the shell — replaces
+     *  the prior live-fix that reached into the wall store from the executor
+     *  itself. Omitted ⇒ executor falls back to level.height, then default. */
+    floorToCeilingMm?: number;
 }
 
 export interface ApartmentConstraints {

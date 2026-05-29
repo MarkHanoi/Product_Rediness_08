@@ -37,6 +37,23 @@ describe('generateDeterministicLayouts (TGL wiring)', () => {
         }
     });
 
+    // §INTERIOR-HEIGHT-MATCH (2026-05-29 audit follow-up): partition height
+    // is threaded onto the LayoutOption so the executor can read it without
+    // reaching into the wall store.
+    it('threads constraints.floorToCeiling onto option.floorToCeilingMm', () => {
+        const tallShell: ApartmentConstraints = { ...CONSTRAINTS, floorToCeiling: 3100 };
+        const out = generateDeterministicLayouts(SHELL, PROGRAM, tallShell, WEIGHTS, 1);
+        expect(out.length).toBe(1);
+        expect(out[0]!.floorToCeilingMm).toBe(3100);
+    });
+
+    it('omits floorToCeilingMm when constraints.floorToCeiling is 0 (executor falls back)', () => {
+        const noHeight: ApartmentConstraints = { ...CONSTRAINTS, floorToCeiling: 0 };
+        const out = generateDeterministicLayouts(SHELL, PROGRAM, noHeight, WEIGHTS, 1);
+        expect(out.length).toBe(1);
+        expect(out[0]!.floorToCeilingMm).toBeUndefined();
+    });
+
     it('is deterministic for the same shell + program', () => {
         const a = generateDeterministicLayouts(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, 2);
         const b = generateDeterministicLayouts(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, 2);

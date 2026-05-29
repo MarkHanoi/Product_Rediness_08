@@ -55,38 +55,20 @@ export class ApartmentLayoutExecutor {
             // Pure command-set (dynamic import keeps ai-host off first-paint).
             const { buildLayoutCommands } = await import('@pryzm/ai-host');
 
-            // §INTERIOR-HEIGHT-MATCH (2026-05-27, live-fix after architect screenshot):
-            // The previous wall-height policy used `level.height` (the level's
-            // floor-to-ceiling height) — which is set per LEVEL and doesn't
-            // necessarily match the EXISTING perimeter walls' physical height.
-            // Result: the apartment generator's partitions came in shorter than
-            // the shell, exposing a horizontal strip of the perimeter wall above
-            // each partition at every T/L junction (visible in screenshot 2).
-            //
-            // Architect's request: partitions should match the perimeter walls'
-            // height by default. Read all interior-shell walls on the active
-            // level and use their MAX height (max because heights can vary —
-            // e.g. parapet vs. full-height walls; the partition should reach the
-            // ceiling of the tallest existing perimeter wall). Fall back to
-            // level.height, then to the 2.7 m default in `executePlan.ts:28`.
-            const perimeterHeight = (() => {
-                try {
-                    const ws = storeRegistry.getStoreForType('wall') as unknown as
-                        | { getAll?(): Array<{ levelId?: string; height?: number }> }
-                        | undefined;
-                    const all = ws?.getAll?.() ?? [];
-                    let max = 0;
-                    for (const w of all) {
-                        if (w.levelId !== level.id) continue;
-                        if (typeof w.height === 'number' && w.height > max) max = w.height;
-                    }
-                    return max > 0 ? max : undefined;
-                } catch { return undefined; }
-            })();
-            const wallHeightM = perimeterHeight ?? level.height ?? undefined;
+            // §INTERIOR-HEIGHT-MATCH (2026-05-29 audit follow-up): the
+            // partition height is now plumbed through the LayoutOption.
+            // gatherLayoutPayload reads the max wall height on the active
+            // level + writes it to constraints.floorToCeiling (mm), and
+            // runDeterministicLayout threads it onto option.floorToCeilingMm.
+            // The executor just READS it here — no wall-store reach-around.
+            // Fallback chain: option.floorToCeilingMm → level.height →
+            // executePlan default (2.7 m).
+            const wallHeightM = typeof option.floorToCeilingMm === 'number' && option.floorToCeilingMm > 0
+                ? option.floorToCeilingMm / 1000
+                : (level.height ?? undefined);
             console.log(
                 '[apartment-layout] §INTERIOR-HEIGHT-MATCH ' +
-                `perimeter_max_h=${perimeterHeight?.toFixed(2) ?? 'n/a'} ` +
+                `option_h=${option.floorToCeilingMm ? (option.floorToCeilingMm / 1000).toFixed(2) : 'n/a'} ` +
                 `level_h=${level.height?.toFixed(2) ?? 'n/a'} ` +
                 `→ partition_h=${wallHeightM?.toFixed(2) ?? '(default)'}`,
             );
