@@ -23,6 +23,7 @@ import { validateAllRoomShapes, type RoomShape } from '../dimensions/validateRoo
 import { validateApartmentEnvelope } from '../dimensions/validateApartmentEnvelope.js';
 import { validateMandatoryAdjacencies, type DoorOpening } from '../topology/validateMandatoryAdjacencies.js';
 import { validateForbiddenAdjacencies } from '../topology/validateForbiddenAdjacencies.js';
+import { validateWetCluster } from '../topology/validateWetCluster.js';
 
 export interface EnumerateInput {
     readonly shellPolygon: readonly Pt[];      // metres, plan frame
@@ -179,19 +180,26 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         levelId: input.levelId, seed: `${input.seed}|${strategyKey(s)}`, shellAreaM2: shellArea,
         ...(input.wallHeightM !== undefined ? { wallHeightM: input.wallHeightM } : {}),
     });
-    // §T3.3 TOPOLOGY GATE — run Part B validators against the now-realised
-    // openings. Mandatory: every declared adjacency has a door. Forbidden:
-    // every door is a permitted pair. Both produce only HARD findings today,
-    // so topologyQuality is binary {0, 1}. Future T2.3 (acoustic) / T2.4
-    // (wet-cluster) / T2.6 (sequence) will produce soft findings and gradient
-    // the axis.
+    // §T3.3 TOPOLOGY GATE — run Part B validators against the realised
+    // openings + placements:
+    //   • validateMandatoryAdjacencies: every declared adjacency has a door.
+    //   • validateForbiddenAdjacencies: every door is a permitted pair.
+    //   • validateWetCluster: wet rooms share at most one plumbing stack
+    //     (SOFT — fragmentation lowers topologyQuality but doesn't drop).
+    // Future T2.3 (acoustic) + T2.6 (sequence) plug in here.
     const doorOpenings: DoorOpening[] = openings.map(o => ({
         type: o.type, betweenRoomIds: o.betweenRoomIds,
     }));
     const mand = validateMandatoryAdjacencies(input.program, bubble, doorOpenings);
     const forb = validateForbiddenAdjacencies(bubble, doorOpenings);
-    const topologyAdmissible = mand.admissible && forb.admissible;
-    const topologyQuality = topologyAdmissible ? 1 : 0;
+    const wet = validateWetCluster(bubble, placements);
+    const topologyAdmissible = mand.admissible && forb.admissible && wet.admissible;
+    // Quality: 1 minus soft-finding penalty sum / numRooms — same shape as
+    // shapeQuality (D3.1). HARD failures still drop topologyAdmissible.
+    const topoSoftSum = wet.softFindings.reduce((s, f) => s + f.delta, 0);
+    const topologyQuality = topologyAdmissible
+        ? Math.max(0, Math.min(1, 1 - topoSoftSum / Math.max(1, bubble.rooms.length)))
+        : 0;
 
     const entryGuid = graph.nodes.find(n => n.kind === 'Space' && n.sourceId === bubble.entryId)?.guid ?? null;
     const metrics = computeSpaceSyntax(graph, entryGuid);
