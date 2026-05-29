@@ -221,21 +221,28 @@ function extendToPolygon(from: Pt, dx: number, dz: number, poly: readonly Pt[]):
     return { x: from.x + dx * t, z: from.z + dz * t };
 }
 
-/** For each exterior-bounding wall whose endpoint is strictly INSIDE the
+/** For EVERY axis-aligned wall whose endpoint is strictly INSIDE the
  *  shell polygon, extend that endpoint along the wall's axis (outward) to
- *  the polygon perimeter. Returns a NEW segments array (immutable swap). */
-function extendExteriorWallsToShell(
+ *  the polygon perimeter. Capped at EXTEND_CAP_M (0.5 m) so the extension
+ *  cannot shoot through interior junctions (which are typically several
+ *  metres from the perimeter).
+ *
+ *  §EXTEND-INTERIOR (2026-05-29): originally restricted to walls bounding
+ *  ONE room (the exterior-facing partition), this also caught the architect-
+ *  reported gap on slanted shells. But interior partitions whose endpoint
+ *  lands a few cm inside the polygon (where the rectilinear bbox meets the
+ *  slanted perimeter) suffered the same gap. The EXTEND_CAP keeps the change
+ *  safe for shared walls — endpoints at deep interior junctions (≥ 0.5 m
+ *  from any perimeter edge) are left unchanged.
+ *
+ *  Returns a NEW segments array (immutable swap). */
+function extendWallsToShell(
     segments: readonly WallSeg[],
     poly: readonly Pt[],
 ): WallSeg[] {
     if (poly.length < 3) return [...segments];
     const out: WallSeg[] = [];
     for (const s of segments) {
-        // Only walls bounding ONE room (the "exterior-facing" side of the
-        // partition) need extension. Interior shared walls (2 rooms) stay
-        // as they are — both rooms agree on the wall endpoints.
-        if (s.boundsRoomIds.length !== 1) { out.push(s); continue; }
-
         const dx = s.b.x - s.a.x, dz = s.b.z - s.a.z;
         const L = Math.hypot(dx, dz) || 1;
         const ux = dx / L, uz = dz / L;
@@ -249,7 +256,8 @@ function extendExteriorWallsToShell(
 
         let newA = s.a, newB = s.b;
         // For each endpoint, extend OUTWARD along the wall axis if it's
-        // strictly inside the polygon.
+        // strictly inside the polygon. The EXTEND_CAP_M short-circuit inside
+        // extendToPolygon protects against pushing past interior junctions.
         if (pointInPolygon(s.a, poly)) {
             // Outward from a = AWAY from b = direction −u.
             newA = extendToPolygon(s.a, -ux, -uz, poly);
@@ -504,11 +512,13 @@ export function buildWallsAndDoors(
         if (addDoor(c.seg, c.a, c.b)) { cUnion(c.a, c.b); compromises++; }
     }
 
-    // §EXTEND-TO-PERIMETER — for non-rectilinear shells, walk every exterior-
-    // bounding wall and extend any endpoint that's strictly inside the shell
-    // polygon outward to the perimeter. Rectilinear shells: pass-through.
+    // §EXTEND-TO-PERIMETER + §EXTEND-INTERIOR (2026-05-29) — for non-rectilinear
+    // shells, walk every axis-aligned wall (exterior- AND interior-bounding)
+    // and extend any endpoint strictly inside the shell polygon outward to the
+    // perimeter. Capped at 0.5 m so interior junctions far from the perimeter
+    // are never pushed past. Rectilinear shells: pass-through.
     const segmentsOut = opts.shellPolygon && opts.shellPolygon.length >= 3
-        ? extendExteriorWallsToShell(segments, opts.shellPolygon)
+        ? extendWallsToShell(segments, opts.shellPolygon)
         : segments;
 
     return { segments: segmentsOut, openings, boundaries, compromises };

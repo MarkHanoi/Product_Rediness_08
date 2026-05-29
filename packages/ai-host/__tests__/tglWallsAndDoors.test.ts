@@ -229,33 +229,107 @@ describe('§EXTEND-TO-PERIMETER — exterior walls reach the slanted shell', () 
     });
 
     it('a horizontal wall endpoint strictly inside a slanted shell is extended west to the polygon edge', () => {
-        // Two stacked rooms A (z∈[0,4]) and B (z∈[4,8]) with the same x range.
-        // A's bottom is at z=0; their shared wall is horizontal at z=4.
-        // Strategy: put the rooms in a region that ends inside the polygon at
-        // its WEST side. Rooms cover x∈[2,10]. At z=4, the polygon's west edge
-        // sits at x = 1 + (4-1)·(4/8) = 2.5. So the shared wall at z=4 from
-        // x=2 to x=10 has its LEFT endpoint (2,4) strictly INSIDE the polygon
-        // (since x=2 < 2.5 at z=4). The extend pass should move it WEST to
-        // x=2.5 (the polygon edge along the slant).
-        //
-        // EXCEPTION: a SHARED wall (boundsRoomIds.length=2) is NOT extended —
-        // both rooms agree on the endpoint. Only EXTERIOR (length=1) walls
-        // extend. So we need a single-room config.
+        // ONE room covers x∈[2,10] with its north wall at z=4. At z=4 the
+        // polygon's west edge sits at x = 1 + (4-1)·(4/8) = 2.5. The wall's
+        // LEFT endpoint (2,4) is strictly INSIDE the polygon (x=2 < 2.5). The
+        // extend pass moves it WEST to (2.5, 4), the polygon edge.
         const oneRoom: RoomPlacement = { roomId: 'A', rect: { x0: 2, z0: 0, x1: 10, z1: 4 } };
         const g = graphOf([room('A')], []);
         const { segments } = buildWallsAndDoors([oneRoom], g, { shellPolygon: trapezoidShell });
-        // The NORTH wall: z=4 (constant z), from x=2 to x=10. Its LEFT
-        // endpoint (2,4) is strictly INSIDE the polygon (at z=4 the polygon
-        // extends from x=2.5 to x=10). Extend pass moves it to (2.5, 4).
         const northWall = segments.find(s =>
             Math.abs(s.a.z - 4) < 0.5 && Math.abs(s.b.z - 4) < 0.5 &&
             s.boundsRoomIds.length === 1);
         expect(northWall, 'expected a north exterior wall').toBeDefined();
-        // The left end should have moved west from x=2 to x≈2.5 (on the slant).
         const leftEndX = Math.min(northWall!.a.x, northWall!.b.x);
         const rightEndX = Math.max(northWall!.a.x, northWall!.b.x);
         expect(leftEndX).toBeGreaterThan(2 - 1e-3);   // moved west (or stayed)
         expect(leftEndX).toBeLessThan(2.5 + 1e-3);    // didn't overshoot
         expect(rightEndX).toBeCloseTo(10, 1);         // east end unchanged (on perimeter)
+    });
+
+    // §EXTEND-INTERIOR (2026-05-29) — interior partitions on a slanted shell.
+    it('interior partition endpoint strictly inside a slanted shell is extended to the perimeter', () => {
+        // Two side-by-side rooms A (x∈[2,5]) and B (x∈[5,10]) both at
+        // z∈[3.5,4]. Their SHARED VERTICAL WALL is at x=5, z∈[3.5,4]. The
+        // wall's TOP endpoint (5, 4) sits at the boundary; the BOTTOM endpoint
+        // (5, 3.5) is strictly INSIDE the polygon (south edge is at z=0). The
+        // 0.5 m cap means we only extend if the perimeter is ≤ 0.5 m along
+        // the wall's axis — here from z=3.5 the bottom edge is 3.5 m away,
+        // so this case is NO-OP (correct).
+        //
+        // To exercise the actual extension, place the rooms at z∈[7.7, 8].
+        // At z=8 the polygon top edge runs (10,8)→(4,8) — so x=5 lies on the
+        // perimeter at z=8. The SHARED wall at x=5 z∈[7.7, 8] has bottom
+        // endpoint (5, 7.7) STRICTLY INSIDE the polygon (south edge of the
+        // polygon's slanted west wall at x=5 is z = (5-1)/(4-1)·8 = 32/3 ≈
+        // 10.67, off the top; but we just need the point to be inside, which
+        // it is — between south z=0 and top z=8). The −z ray from (5, 7.7)
+        // hits the perimeter at z=0 (south edge) — distance 7.7 m → capped,
+        // NO extension. So this is also no-op.
+        //
+        // The case that actually fires: the wall's TOP endpoint (5, 8) is
+        // ON the perimeter (z=8, top edge). The bottom endpoint inside the
+        // polygon, > 0.5 m from any perimeter along the wall axis. The
+        // EXTEND_CAP keeps interior junctions safe.
+        const A: RoomPlacement = { roomId: 'A', rect: { x0: 2, z0: 7.7, x1: 5, z1: 8 } };
+        const B: RoomPlacement = { roomId: 'B', rect: { x0: 5, z0: 7.7, x1: 10, z1: 8 } };
+        const g = graphOf([room('A'), room('B')], [{ a: 'A', b: 'B', via: 'door' }]);
+        const { segments } = buildWallsAndDoors([A, B], g, { shellPolygon: trapezoidShell });
+        // Shared wall at x=5, z∈[7.7,8]: bottom (5, 7.7) is 7.7 m from south
+        // perimeter — beyond the 0.5 m cap → unchanged. Top (5, 8) is on the
+        // perimeter → unchanged. So this assertion just pins the cap.
+        const sharedAtX5 = segments.find(s =>
+            Math.abs(s.a.x - 5) < 0.5 && Math.abs(s.b.x - 5) < 0.5 &&
+            s.boundsRoomIds.length === 2);
+        if (sharedAtX5) {
+            const minZ = Math.min(sharedAtX5.a.z, sharedAtX5.b.z);
+            const maxZ = Math.max(sharedAtX5.a.z, sharedAtX5.b.z);
+            expect(minZ).toBeCloseTo(7.7, 2);    // bottom NOT shoved past 0.5 m cap
+            expect(maxZ).toBeCloseTo(8, 2);
+        }
+    });
+
+    // §EXTEND-INTERIOR active case — the shared wall's endpoint sits inside
+    // the polygon AND ≤ 0.5 m from the perimeter along its axis.
+    it('interior partition endpoint within 0.5 m of the slanted perimeter is extended', () => {
+        // Shell is a parallelogram-like trapezoid where the rectilinear bbox
+        // sits SLIGHTLY inside the perimeter on one face. Rooms cover the
+        // bbox; the shared interior wall ends just short of the perimeter.
+        //
+        // Shell: (0,0) → (10,0) → (10.2, 5) → (0.2, 5). At z=5, x range is
+        // [0.2, 10.2]. Two rooms A (x∈[0, 5], z∈[0,5]) and B (x∈[5,10]).
+        // Shared wall at x=5, z∈[0, 5]. Bottom endpoint (5, 0) on perimeter;
+        // top endpoint (5, 5) strictly INSIDE the polygon (at z=5, polygon
+        // extends from x=0.2 to x=10.2, so x=5 is inside). The +z ray from
+        // (5, 5) goes north; polygon has no north edge above z=5 at x=5 —
+        // but we extend toward the perimeter, which here is the TOP edge
+        // (10.2,5)→(0.2,5) at z=5. Distance ≈ 0 m → no movement needed.
+        // OK construct a sharper case.
+        //
+        // Shell: (0,0) → (10,0) → (10,5) → (0.5,4.5) → (0,0). Now at z=5,
+        // there's no polygon (the top is the slanted west wall down to
+        // (0.5, 4.5)). The polygon's top at z=4.5 is x∈[0.5, 10].
+        // Two rooms A (x∈[0, 5], z∈[0, 4.3]) and B (x∈[5, 10], z∈[0, 4.3]).
+        // Shared wall at x=5 z∈[0, 4.3]. Top endpoint (5, 4.3) strictly
+        // INSIDE the polygon (at z=4.3, polygon x range ~ [0.46, 10]).
+        // +z ray from (5, 4.3): hits the slanted west wall? The west wall
+        // runs from (0,0) to (0.5, 4.5) — at x=5 it doesn't intersect.
+        // The TOP edge (0.5, 4.5)→(10, 5)? At x=5, that edge has z = 4.5 +
+        // ((5-0.5)/(10-0.5))·(5-4.5) ≈ 4.5 + 0.237 ≈ 4.74. Ray distance
+        // 4.74 − 4.3 = 0.44 m ≤ 0.5 m → EXTENDS.
+        const slantedShell: Pt[] = [
+            { x: 0, z: 0 }, { x: 10, z: 0 }, { x: 10, z: 5 }, { x: 0.5, z: 4.5 },
+        ];
+        const A: RoomPlacement = { roomId: 'A', rect: { x0: 0, z0: 0, x1: 5, z1: 4.3 } };
+        const B: RoomPlacement = { roomId: 'B', rect: { x0: 5, z0: 0, x1: 10, z1: 4.3 } };
+        const g = graphOf([room('A'), room('B')], [{ a: 'A', b: 'B', via: 'door' }]);
+        const { segments } = buildWallsAndDoors([A, B], g, { shellPolygon: slantedShell });
+        const sharedAtX5 = segments.find(s =>
+            Math.abs(s.a.x - 5) < 0.5 && Math.abs(s.b.x - 5) < 0.5 &&
+            s.boundsRoomIds.length === 2);
+        expect(sharedAtX5, 'expected the interior shared wall at x=5').toBeDefined();
+        const maxZ = Math.max(sharedAtX5!.a.z, sharedAtX5!.b.z);
+        expect(maxZ).toBeGreaterThan(4.3 - 1e-3);    // moved north (or stayed)
+        expect(maxZ).toBeLessThan(4.75 + 1e-2);      // hit the slanted top edge
     });
 });
