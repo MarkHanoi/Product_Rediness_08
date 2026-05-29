@@ -25,9 +25,13 @@ describe('buildLayoutThumbnailSvg (A5-modal-core)', () => {
         expect(svg).toContain('width="200"');
     });
 
-    it('draws one <line> per wall and one <circle> per door', () => {
+    it('draws one <line> per wall and door symbols (opening line + arc + hinge) per door', () => {
         const svg = buildLayoutThumbnailSvg(opt());
-        expect((svg.match(/<line /g) ?? []).length).toBe(2);
+        // Walls: one <line> per wall + one <line> per door (opening gap).
+        // (2 walls + 1 door's opening line = 3 lines.)
+        expect((svg.match(/<line /g) ?? []).length).toBe(3);
+        // Each door = ONE swing-arc path + ONE hinge circle.
+        expect((svg.match(/<path /g) ?? []).length).toBe(1);
         expect((svg.match(/<circle /g) ?? []).length).toBe(1);
     });
 
@@ -55,6 +59,8 @@ describe('buildLayoutThumbnailSvg (A5-modal-core)', () => {
 
     it('drops a door whose wallRef is out of range (no throw)', () => {
         const svg = buildLayoutThumbnailSvg(opt({ doors: [{ wallRef: 9, offset: 100, width: 900 }] }));
+        // No door symbols rendered: only the 2 wall lines, no arc, no hinge.
+        expect((svg.match(/<path /g) ?? []).length).toBe(0);
         expect((svg.match(/<circle /g) ?? []).length).toBe(0);
         expect((svg.match(/<line /g) ?? []).length).toBe(2);
     });
@@ -69,5 +75,90 @@ describe('buildLayoutThumbnailSvg (A5-modal-core)', () => {
     it('renders a background rect only when a background colour is given', () => {
         expect(buildLayoutThumbnailSvg(opt(), { background: '#fff' })).toContain('<rect ');
         expect(buildLayoutThumbnailSvg(opt())).not.toContain('<rect ');
+    });
+
+    // §SUB-ZONE upgrade (2026-05-29): rooms with polygons render as filled
+    // <polygon> elements with occupancy-based fills + labels.
+    it('renders a <polygon> per room with a polygon + occupancy-based fill', () => {
+        const svg = buildLayoutThumbnailSvg({
+            summary: '', corridorWidthMin: 0, doors: [], walls: [],
+            rooms: [
+                {
+                    name: 'Living Room', type: 'living', area: 18, windowCount: 1,
+                    hasDirectAccess: true, adjacentTo: [],
+                    polygon: [
+                        { x: 0, y: 0 }, { x: 5000, y: 0 },
+                        { x: 5000, y: 4000 }, { x: 0, y: 4000 },
+                    ],
+                    occupancy: 'living-room',
+                },
+            ],
+        }, { width: 200, height: 150 });
+        expect((svg.match(/<polygon /g) ?? []).length).toBe(1);
+        // living-room fill in the palette is blue-200 (#bfdbfe).
+        expect(svg).toContain('fill="#bfdbfe"');
+    });
+
+    it('renders a label (name + area) when the room is large enough', () => {
+        const svg = buildLayoutThumbnailSvg({
+            summary: '', corridorWidthMin: 0, doors: [], walls: [],
+            rooms: [
+                {
+                    name: 'Kitchen', type: 'kitchen', area: 12, windowCount: 1,
+                    hasDirectAccess: true, adjacentTo: [],
+                    polygon: [
+                        { x: 0, y: 0 }, { x: 6000, y: 0 },
+                        { x: 6000, y: 4000 }, { x: 0, y: 4000 },
+                    ],
+                    occupancy: 'kitchen',
+                },
+            ],
+        }, { width: 320, height: 240 });
+        expect(svg).toContain('>Kitchen<');
+        expect(svg).toContain('>12 m²<');
+    });
+
+    it('skips room labels when showLabels:false', () => {
+        const svg = buildLayoutThumbnailSvg({
+            summary: '', corridorWidthMin: 0, doors: [], walls: [],
+            rooms: [
+                {
+                    name: 'Bedroom', type: 'bedroom', area: 10, windowCount: 1,
+                    hasDirectAccess: true, adjacentTo: [],
+                    polygon: [
+                        { x: 0, y: 0 }, { x: 4000, y: 0 },
+                        { x: 4000, y: 3000 }, { x: 0, y: 3000 },
+                    ],
+                    occupancy: 'bedroom',
+                },
+            ],
+        }, { width: 320, height: 240, showLabels: false });
+        expect(svg).not.toContain('>Bedroom<');
+        expect((svg.match(/<text /g) ?? []).length).toBe(0);
+    });
+
+    it('uses room polygons (not wall bbox) for layout when both are present', () => {
+        // Polygons at x ∈ [0, 10000] but walls at x ∈ [-500, 500]: the SVG
+        // should fit polygons (the EXACT shell) and clip the wall stubs.
+        const svg = buildLayoutThumbnailSvg({
+            summary: '', corridorWidthMin: 0, doors: [],
+            walls: [{ start: { x: -500, y: 0 }, end: { x: 500, y: 0 } }],
+            rooms: [
+                {
+                    name: 'A', type: 'living', area: 0, windowCount: 0,
+                    hasDirectAccess: true, adjacentTo: [],
+                    polygon: [
+                        { x: 0, y: 0 }, { x: 10000, y: 0 },
+                        { x: 10000, y: 6000 }, { x: 0, y: 6000 },
+                    ],
+                    occupancy: 'living-room',
+                },
+            ],
+        }, { width: 200, height: 150, padding: 0 });
+        // Wall start (mm x=-500) maps to negative svg-x when bbox is rooms[0]
+        // x ∈ [0, 10000]. Check the FIRST wall x1 attribute is negative.
+        const m = svg.match(/<line x1="(-?[\d.]+)"/);
+        expect(m).toBeTruthy();
+        expect(Number(m![1])).toBeLessThan(0);
     });
 });
