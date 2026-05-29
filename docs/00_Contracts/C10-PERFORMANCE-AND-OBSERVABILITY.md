@@ -71,6 +71,25 @@ const span = tracer.startSpan('pryzm.<package>.<operation>');
 
 `scripts/ci-check-spans.ts` runs on every PR. It diffs the changed files for new `export` declarations and checks that at least one `tracer.startSpan` call exists in the same function scope.
 
+### §2.4 — User-facing observability events (toasts + polls)
+
+OTel spans are the operator-facing channel. The **user-facing** observability channel is the in-app toast/event pipeline:
+
+- **§VALIDATE-CACHE.** Workflows that produce per-room warnings (the §F-Sprint-5 furnish circulation gate, see C09 §3.4.1) MUST emit them on a `*.layout-executed` event payload AND cache them in-memory so the user can review via a `pryzm…Warnings()` console command after the toast scrolls off.
+- **§VALIDATE-TOAST.** When a `*.layout-executed` event carries `validationWarnings.length > 0`, the trigger MUST emit a single `pryzm:toast` of severity `info` (not `error` — the gate flags risk, not failure) pointing the user at the review command. Severity is `info` because the layout still landed.
+- **§BUILD-TOAST.** Generative completion toasts MUST surface dropped-element counts when the §PREVIEW-VS-BUILD gate rejected items during the build runBatch — e.g. `Built layout — N walls, M doors (K dropped — see console)`. Severity stays `success`; the drops are advisory. The drops MUST also be logged through a `console.group(§BUILD-WARN — N item(s) dropped during build)`.
+
+### §2.5 — Polling / wait telemetry (§POLL-TELEMETRY)
+
+Silent post-runBatch polls (wait-until-store-mutation, wait-until-room-named, etc.) MUST emit a structured `<stage>.<poll>-completed` event on `runtime.events` (P4) with:
+
+- `levelId`
+- `durationMs` (Date.now()-start)
+- `attempts` (poll iteration count)
+- `pollDescription` (what was being waited on)
+
+This converts the otherwise-invisible silent latency into an observable metric so an operator can answer "why did the apartment build take 8 s instead of 2 s?" without console-archaeology. The two reference sites today are `apartment.wall-poll-completed` + `apartment.room-name-completed` (`e0a4b44`).
+
 ---
 
 ## §3 — Bundle Splitting Strategy

@@ -41,6 +41,8 @@ These expressions are evaluated at **build time** by `WallFragmentBuilder` and b
 
 ## §3 — Void Geometry Lifecycle
 
+> **§3.0 — Wall builder pipeline (ADR-0055 P3b default-ON).** Since `bb54a63` (2026-05-27) the non-layered wall path uses **V2** (`JunctionResolverV2` + `WallFootprint2D` + `WallPolygonExtruder`) as the production builder. The legacy `MiterPrismBuilder` + `WallJunctionInfill` chain is retained only for **layered walls** and **walls with openings** — phases **P4a** (layered) and **P4b** (openings) of ADR-0055 remain backlogged; P4c (retire infill) follows. C15's void-geometry lifecycle below describes the void shape, not the builder choice — both V1 and V2 honour the same `wall.openings[i].offset` authority. See ADR-0055 + ADR-0055A for the algorithm. *Side-effect of the V2 promotion: the apartment-layout generator's plain-partition production case is V2-built end-to-end.*
+
 ```
 User action
     │

@@ -21,6 +21,7 @@
 
 - `platformRouter.start({ runtime })` MUST be called exactly once after `composeRuntime()`.
 - It MUST remove the Stage 0 app-shell skeleton (class `lp-skel-*`) in both signed-in and signed-out code paths.
+- **§SKEL-MATCH (2026-05-29).** The Stage 0 skeleton tokens (heading colour, sub-copy colour + size, background gradient, heading text-shadow) in `index.html` MUST match the realised `LandingPage.ts` styles in `apps/editor/src/ui/styles/panels/marketingPages.ts` (the `.lp-hero-*` rules) exactly. Drift produces a visible flash between first paint and JS bundle load — the most common manifestation is a dark-purple sub-copy line on a washed-out background swapping to a white sub-copy on a vibrant gradient. Any edit to one set of rules MUST update the other in lock-step. See `landing-skeleton-vs-real-mismatch` memory note for the exact divergence pattern.
 - It MUST replay `window.__pryzmPendingActions` after the shell mounts.
 - Routes MUST be driven by `runtime.viewRegistry`. No component MAY call `window.location` directly for in-app navigation.
 - The router MUST NOT import any plugin package directly; plugins register into `viewRegistry` via `composeRuntime`.

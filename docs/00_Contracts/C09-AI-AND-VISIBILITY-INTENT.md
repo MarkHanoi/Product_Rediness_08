@@ -96,7 +96,48 @@ The capstone generative workflow (`apartment-layout-generate`; Semantic Design A
 - **Phase B — execute (on the user's pick):** `apartment.layout-execute {optionIndex}` → `buildLayoutCommands` pre-mints `wall_`/`door_`/`opening_` ids (`createId`) so doors reference host walls with **no read-back** → dispatches `wall.batch.create` + per-door `wall.createOpening` (`opening.elementId === door id`, the C15 hosted-element cascade) + `door.batch.create` through the command bus (P6) **inside one `batchCoordinator.runBatch`** → **one undo entry** → rooms auto-redetect (`skipRedetectRooms: false`).
 - **Cost:** estimate ≤ $0.18 (SPEC-28 §3 ceiling); recorded per-run by the plane CostMeter.
 - **Offline path (deterministic, no token):** when the AI is unavailable (no key / 401 / 500 / all-invalid), the same Phase-A orchestrator falls back to the **D-TGL engine** (`apartmentLayout/tgl/`, governed by SPEC-TGL-DETERMINISTIC-LAYOUT-ENGINE) — a pure, deterministic generative pipeline (rectilinear dissection → bubble graph → squarified subdivision → walls/doors → a persistent semantic `LayoutGraph` → Space-Syntax-weighted Pareto rank → geometry emission). It produces the **same `ScoredLayoutOption` shape**, so Phase B + the modal are identical. The engine is L2-pure (no THREE/DOM/RNG, P2/P4/§6) and emits the C15 cascade; spans stay at the plane boundary (P8). The `LayoutGraph` is the BIM3.0 payload (IFC5/RDF-ready, P10).
-- **Governed by:** SPEC-APARTMENT-LAYOUT-GENERATOR (normative), **SPEC-TGL-DETERMINISTIC-LAYOUT-ENGINE (offline engine)**, C15 (hosted doors), C16 (command authoring), C17 §#51 (catalogue), SPEC-28 (cost), SPEC-07 (approval surface). **User guide:** `docs/guides/USER-GUIDE-APARTMENT-LAYOUT.md`.
+- **Governed by:** SPEC-APARTMENT-LAYOUT-GENERATOR (normative), **SPEC-TGL-DETERMINISTIC-LAYOUT-ENGINE (offline engine)**, **SPEC-CEILING-LAYOUT-ENGINE / SPEC-LIGHTING-LAYOUT-ENGINE / SPEC-FURNITURE-LAYOUT-ENGINE (auto-pipeline engines, §3.4.1)**, C15 (hosted doors), C16 (command authoring), C17 §#51 (catalogue), SPEC-28 (cost), SPEC-07 (approval surface). **User guide:** `docs/guides/USER-GUIDE-APARTMENT-LAYOUT.md`.
+
+### §3.4.1 — Auto-pipeline chain (post-execute)
+
+Phase B's `runBatch` only places walls + hosted doors. The architecturally complete apartment (floor finishes, ceilings, furniture, lighting) is produced by a deterministic **auto-pipeline chain** that fires after `apartment.layout-executed`:
+
+```
+apartment.layout-executed
+    ├──► floor-finish    (CreateFloorsByRoomTypeCommand, C17 #34)
+    ├──► ceiling         (D-CE)            → ceiling.layout-executed
+                                                  └──► furnish (D-FLE) → furnish.layout-executed
+                                                                              └──► lighting (D-LE) → lighting.layout-executed
+```
+
+Floor-finish and ceiling fire **in parallel** after the apartment event (neither bounds rooms). Furniture waits for ceilings to settle so the architect sees an enclosed shell before furniture appears. Lighting waits for furniture so fixtures align with placed items.
+
+Each stage MUST:
+1. Be **L2-pure** — no THREE/DOM/RNG; the trigger lives in `apps/editor/src/ui/{ceiling,furnish,lighting,floor}-layout/` and dispatches into the pure engine in `packages/ai-host/src/workflows/{ceilingLayout,furnishLayout,lightingLayout}/`.
+2. Pre-mint ids (no read-back; same doctrine as Phase B).
+3. Be **idempotent under chain re-fire** — listening to a duplicate `apartment.layout-executed` MUST NOT double-emit. The triggers use a `state.fired` latch + clear on the chain link.
+4. Emit a typed `<stage>.layout-executed` event on completion so the next stage can chain or the human can observe.
+
+**§CHAIN-TIMEOUT (12 s per-stage fallback).** Each downstream trigger arms a `setTimeout(12_000)` on the predecessor event. If the predecessor never emits its `*.layout-executed` (a stage threw, hung, or skipped), the timeout fires the next stage anyway with a `console.warn`. This prevents a single bad stage from stranding the whole pipeline.
+
+**§RELIABILITY (15 s regenerate guard).** The §11 modal's regenerate path (`§MODAL-DYNAMIC` re-issues Phase A on every program edit) arms a 15 s `_regenerateTimer` so a hung relay never strands the busy spinner.
+
+**§POLL-TELEMETRY.** The two silent post-runBatch waits (`_finishLayout` wall-store poll + room-rename poll) emit structured `apartment.wall-poll-completed` + `apartment.room-name-completed` telemetry events so the operator can observe what would otherwise be invisible latency.
+
+**§F-Sprint-5 circulation gate.** Post-D-FLE the furnish workflow MUST run a pure circulation reachability validator (`packages/ai-host/src/workflows/furnishLayout/validate.ts`). Per-room warnings are collected on `furnish.layout-executed` (`validationWarnings: string[]`) + cached in-memory (`§VALIDATE-CACHE`); a single summary toast (`§VALIDATE-TOAST`) signals the user when warnings exist. The user reviews via `pryzmShowFurnishWarnings()`.
+
+**§HELP discoverability.** The console command `pryzmShowApartmentHelp()` MUST list every `pryzm…()` pipeline command (`pryzmGenerateApartmentLayout()`, `pryzmFloorAllRooms()`, `pryzmCeilAllRooms()`, `pryzmFurnishAllRooms()`, `pryzmLightAllRooms()`, `pryzmFurnishAndLightAllRooms()`, `pryzmShowFurnishWarnings()`).
+
+### §3.4.2 — Modal contract (§11)
+
+The §11 modal is the user-facing approval surface for apartment-layout. Beyond cards + thumbnails it MUST:
+
+- **§MODAL-DYNAMIC** — render an editable program form (bedrooms, bathrooms, master-en-suite, open-plan, per-room area overrides). Edits debounce 250 ms then re-fire Phase A IN-PLACE without dismissing the modal. The same modal updates its cards (`refresh(options)`) rather than re-opening.
+- **§ROOM-AREAS / §ROOM-AREAS-BY-NAME** — accept per-RoomType absolute area overrides AND per-instance ("Bedroom 1") area overrides. The engine honours both; per-instance wins over per-type. Overrides are clamped UP to the architectural minimum (`programRules.minAreaM2`).
+- **§WINDOW-SYMBOLS** — render perimeter windows + the user-placed front door as symbols on the thumbnail.
+- **Scale bar + occupancy legend** — every thumbnail carries a metre-scale bar and a colour legend keyed to the occupancy palette.
+- **Accessibility (§A11Y).** Every room polygon MUST be focusable (`role="button"`, `tabindex="0"`, `aria-label`) and activatable with Enter or Space; activation focuses the per-instance area input (`§CLICK-FOCUS`). The modal is operable with a keyboard alone.
+- **Build completion (§BUILD-TOAST).** The completion toast after `apartment.layout-executed` MUST surface dropped-wall count from `set.warnings` ("(K dropped — see console)") when the §PREVIEW-VS-BUILD gate rejected items.
 
 ---
 

@@ -51,6 +51,20 @@ The fallback hierarchy MUST be transparent to callers — the same API works aga
 - `packages/persistence-client/src/attachEventLog.ts` — PatchEmitter wiring
 - `src/ui/OfflineBanner.ts` — offline indicator UI
 
+#### §1.2.1a — localStorage version-history cache + §QUOTA-EVICT (2026-05-29)
+
+Client-side `LocalVersionRepository` (`apps/editor/src/ui/platform/ProjectRepository.ts`) stores per-project version history in `localStorage` under `bim-project-<projectId>-versions`. Compressed via `fflate` (level 1) at write; default cap `MAX_VERSIONS_STORED = 20`; trim targets `[20, 5, 1]` cascade on `QuotaExceededError`.
+
+**Invariants:**
+
+1. `saveVersionsWithQuota` MUST trim through the TRIM_TARGETS cascade on quota error before giving up. The fallback ladder is **trim within project → §QUOTA-EVICT across projects → user-visible error toast**.
+2. **§QUOTA-EVICT** — when even the smallest `TRIM_TARGETS` slice (1 version) fails, the repository MUST evict OTHER projects' version stores (oldest `updatedAt` first via the `bim-projects-index`, alphabetical fallback) one at a time and retry. The CURRENT project is what the user is working on; stale projects' history is expendable. The repository MUST stop as soon as the save succeeds.
+3. The user MUST see a **single** `pryzm:toast` summarising the eviction (`Storage is full — dropped version history of N older project(s) to save this one.`, severity `info`). Eviction is otherwise silent.
+4. If no other projects are available to evict and the smallest slice still fails, the repository logs a `console.error` AND emits an `error`-severity toast pointing the user at manual project deletion. Data is never silently dropped.
+
+**Implementation files:**
+- `apps/editor/src/ui/platform/ProjectRepository.ts` — `saveVersionsWithQuota` + `_evictAndRetry` + `_emitQuotaToast`
+
 #### §1.2.2 — Single in-memory project authority (tier 3) — §STORE-UNIFY (2026-05-23)
 
 The tier-3 in-memory fallback has **exactly one** project map: `_inMemoryProjects`
