@@ -86,6 +86,9 @@ export function createApartmentLayoutImpl(deps: ApartmentLayoutDeps): WorkflowIm
                 ...(payload.windowSpansWorld && payload.windowSpansWorld.length > 0
                     ? { windowSpansWorld: payload.windowSpansWorld }
                     : {}),
+                ...(payload.doorSpansWorld && payload.doorSpansWorld.length > 0
+                    ? { doorSpansWorld: payload.doorSpansWorld }
+                    : {}),
             },
             deps.relay,
             // Build opts conditionally — passing `model: undefined` violates

@@ -31,6 +31,9 @@ function makeSeed(poly: readonly Pt[], program: ApartmentProgram): string {
  * decomposed (degenerate perimeter). `windowSpansWorld` (optional) — axis-aligned
  * WORLD-XZ window spans on the shell perimeter; when supplied, the subdivide step
  * snaps interior partition coords clear of every window opening.
+ * `doorSpansWorld` (optional, §DOOR-AVOIDANCE 2026-05-29) — same shape for
+ * pre-existing exterior doors; the snap pass treats both opening kinds
+ * identically so an interior wall never lands inside the front-door opening.
  */
 export function generateDeterministicLayouts(
     shell: ShellAnalysis,
@@ -39,6 +42,7 @@ export function generateDeterministicLayouts(
     weights: ScoringWeights,
     count: number,
     windowSpansWorld?: ReadonlyArray<{ a: { x: number; z: number }; b: { x: number; z: number } }>,
+    doorSpansWorld?: ReadonlyArray<{ a: { x: number; z: number }; b: { x: number; z: number } }>,
 ): ScoredLayoutOption[] {
     const perimeter = shell.perimeter as Pt[];
     if (!perimeter || perimeter.length < 3) return [];
@@ -54,6 +58,7 @@ export function generateDeterministicLayouts(
         ...(constraints.wallThickness > 0 ? { wallThicknessM: constraints.wallThickness / 1000 } : {}),
         ...(constraints.floorToCeiling > 0 ? { wallHeightM: constraints.floorToCeiling / 1000 } : {}),
         ...(windowSpansWorld && windowSpansWorld.length > 0 ? { windowSpansWorld } : {}),
+        ...(doorSpansWorld && doorSpansWorld.length > 0 ? { doorSpansWorld } : {}),
     });
 
     return candidates.map(c => {

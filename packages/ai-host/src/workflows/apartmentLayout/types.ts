@@ -109,6 +109,12 @@ export interface ApartmentGenerateLayoutPayload {
      *  (metres). Fed to D-TGL's subdivide so interior partitions never
      *  terminate inside a window opening. Empty/omitted ⇒ no snap. */
     windowSpansWorld?: Array<{ a: { x: number; z: number }; b: { x: number; z: number } }>;
+    /** §DOOR-AVOIDANCE (2026-05-29): WORLD-XZ axis-aligned door spans on the
+     *  shell perimeter (metres) — the user-placed exterior doors (e.g. the
+     *  front door) BEFORE the apartment generator runs. Fed to the same
+     *  partition-snap pass so a generated interior wall never terminates
+     *  INSIDE a pre-existing door opening. Empty/omitted ⇒ no snap. */
+    doorSpansWorld?: Array<{ a: { x: number; z: number }; b: { x: number; z: number } }>;
     program: ApartmentProgram;
     constraints: ApartmentConstraints;
     options: { count: number; scoringWeights: ScoringWeights };

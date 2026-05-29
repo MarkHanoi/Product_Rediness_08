@@ -66,16 +66,19 @@ export function buildLayoutRequestPayload(input: BuildPayloadInput): ApartmentGe
     const windowIds: string[] = [];
     const doorIds: string[] = [];
     const windowSpansWorld: Array<{ a: { x: number; z: number }; b: { x: number; z: number } }> = [];
+    const doorSpansWorld: Array<{ a: { x: number; z: number }; b: { x: number; z: number } }> = [];
     for (const w of exterior) {
         for (const o of w.openings) {
             if (!o.elementId) continue;
             if (o.type === 'window') windowIds.push(o.elementId);
             else if (o.type === 'door') doorIds.push(o.elementId);
 
-            // Resolve window span to WORLD coords (for D-TGL partition snap).
-            // Needs baseLine + offset + width. Silently skip if any are missing —
-            // back-compat with older payload producers that pre-date this field.
-            if (o.type === 'window' && w.baseLine && typeof o.offset === 'number' && typeof o.width === 'number') {
+            // Resolve the opening's span to WORLD coords (for D-TGL partition
+            // snap). Needs baseLine + offset + width. Silently skip if any are
+            // missing — back-compat with payload producers that pre-date the
+            // span fields. Used for BOTH windows and pre-existing exterior
+            // doors so the generator never lands an interior wall inside either.
+            if (w.baseLine && typeof o.offset === 'number' && typeof o.width === 'number') {
                 const [s, e] = w.baseLine;
                 const dx = e.x - s.x;
                 const dz = e.z - s.z;
@@ -84,7 +87,8 @@ export function buildLayoutRequestPayload(input: BuildPayloadInput): ApartmentGe
                     const ux = dx / L, uz = dz / L;
                     const a = { x: s.x + ux * o.offset,             z: s.z + uz * o.offset };
                     const b = { x: s.x + ux * (o.offset + o.width), z: s.z + uz * (o.offset + o.width) };
-                    windowSpansWorld.push({ a, b });
+                    if (o.type === 'window') windowSpansWorld.push({ a, b });
+                    else if (o.type === 'door') doorSpansWorld.push({ a, b });
                 }
             }
         }
@@ -96,6 +100,7 @@ export function buildLayoutRequestPayload(input: BuildPayloadInput): ApartmentGe
         entranceDoorId: doorIds[0] ?? '',
         windowIds,
         ...(windowSpansWorld.length > 0 ? { windowSpansWorld } : {}),
+        ...(doorSpansWorld.length > 0 ? { doorSpansWorld } : {}),
         program: input.program,
         constraints: input.constraints,
         options: {

@@ -64,6 +64,38 @@ describe('enumerateLayouts (TGL P8)', () => {
         expect(out[0]!.graph.nodes.some(n => n.kind === 'Space')).toBe(true);
     });
 
+    // §DOOR-AVOIDANCE (2026-05-29) — interior partitions must NOT terminate
+    // inside a pre-existing exterior door opening. Reuses the windowSpansWorld
+    // snap mechanism; the test asserts that doorSpansWorld is plumbed through.
+    it('doorSpansWorld snaps interior partitions clear of pre-existing exterior door', () => {
+        // 12×10 shell, door span on the SOUTH wall (z=0) from x=5.5 to x=6.4.
+        // Without the snap, the centre vertical partition tends to land at x=6
+        // (the rect-decomposition midpoint), which would put its bottom
+        // endpoint INSIDE the door's [5.5, 6.4] opening. With the snap, the
+        // partition is shifted to x ≤ 5.4 or x ≥ 6.5 (clearance 0.1 m default).
+        const doorSpan = { a: { x: 5.5, z: 0 }, b: { x: 6.4, z: 0 } };
+        const out = enumerateLayouts(input({ doorSpansWorld: [doorSpan] }));
+        expect(out.length).toBeGreaterThan(0);
+        // Walk every wall in every candidate — no vertical wall (constant x)
+        // should have an endpoint at z≈0 with x strictly inside (5.5, 6.4).
+        for (const c of out) {
+            const walls = c.graph.nodes.filter(n => n.kind === 'Wall');
+            for (const w of walls) {
+                const bl = w.geometry?.baseLine;
+                if (!bl) continue;
+                const [a, b] = bl;
+                const vertical = Math.abs(a.x - b.x) < 1e-3;
+                if (!vertical) continue;
+                const x = a.x;
+                const touchesSouth = Math.min(a.z, b.z) < 0.05;
+                if (!touchesSouth) continue;
+                // strict inside the door's clearance band would be the defect
+                const insideBand = x > 5.5 - 0.05 && x < 6.4 + 0.05;
+                expect(insideBand, `wall at x=${x} terminates inside the door span`).toBe(false);
+            }
+        }
+    });
+
     it('completes a 12-room program in well under 2 s', () => {
         const big: ApartmentProgram = { bedrooms: 4, bathrooms: 2, masterEnSuite: true, openPlanKitchenDining: true, livingRoom: true, entranceHall: true };
         const start = performance.now();

@@ -50,6 +50,10 @@ export interface GenerateLayoutInput {
      *  inside a shell-wall window opening. AI path ignores this (the AI sees the
      *  shell's FACES summary instead). */
     windowSpansWorld?: ReadonlyArray<{ a: { x: number; z: number }; b: { x: number; z: number } }>;
+    /** §DOOR-AVOIDANCE (2026-05-29): axis-aligned WORLD-XZ door spans on the shell
+     *  perimeter (metres) for pre-existing exterior doors. Forwarded to D-TGL so
+     *  generated interior walls never cross a hand-placed front door. */
+    doorSpansWorld?: ReadonlyArray<{ a: { x: number; z: number }; b: { x: number; z: number } }>;
 }
 
 export interface GenerateLayoutResult {
@@ -207,7 +211,7 @@ export async function generateLayoutOptions(
     if (options.length === 0 && opts.proceduralFallback) {
         const deterministic = generateDeterministicLayouts(
             input.shell, input.program, input.constraints, input.weights, input.count,
-            input.windowSpansWorld,
+            input.windowSpansWorld, input.doorSpansWorld,
         );
         if (deterministic.length > 0) {
             return { options: deterministic, status: 'ok', attempts: attempt, reason: 'AI unavailable — deterministic D-TGL offline layout' };

@@ -35,6 +35,11 @@ export interface EnumerateInput {
      *  Passed to `snapRectsAwayFromWindows` so interior partitions never
      *  terminate inside a window opening. Omitted/empty ⇒ no snap. */
     readonly windowSpansWorld?: readonly WindowSpan[];
+    /** §DOOR-AVOIDANCE (2026-05-29): axis-aligned WORLD-XZ door spans on the
+     *  shell perimeter (metres) for pre-existing exterior doors (e.g. the
+     *  front door placed before generation). The snap treats them identically
+     *  to window spans — partition endpoints never land inside the opening. */
+    readonly doorSpansWorld?: readonly WindowSpan[];
     /** Minimum clearance (metres) between a partition coord line and any
      *  window-span boundary. Defaults to 0.1 m. */
     readonly windowClearanceM?: number;
@@ -97,9 +102,17 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     // ── Window-aware partition snap (post-subdivide, WORLD frame) ─────────
     // For every interior partition coordinate that lands inside a shell-wall
     // window span, nudge it to the nearest clearance edge so the partition
-    // never terminates inside a window opening (user-reported defect).
-    // No-op when `windowSpansWorld` is omitted/empty.
-    if (input.windowSpansWorld && input.windowSpansWorld.length > 0) {
+    // never terminates inside a window opening (user-reported defect 2026-05-26)
+    // OR a pre-existing exterior door opening (§DOOR-AVOIDANCE 2026-05-29 —
+    // the architect screenshot shows interior walls crossing the front door
+    // when it's placed before generation runs). The snap is the same algorithm
+    // — both opening kinds are axis-aligned perimeter spans — so we just merge
+    // both arrays and pass them through. No-op when both lists are empty.
+    const clearanceSpans = [
+        ...(input.windowSpansWorld ?? []),
+        ...(input.doorSpansWorld ?? []),
+    ];
+    if (clearanceSpans.length > 0) {
         const idMap = new Map<string, RoomPlacement>();
         const rectsWithIds = placements.map(p => {
             const r = { id: p.roomId, x0: p.rect.x0, z0: p.rect.z0, x1: p.rect.x1, z1: p.rect.z1 };
@@ -107,7 +120,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
             return r;
         });
         const { rects: snapped } = snapRectsAwayFromWindows(
-            rectsWithIds, input.windowSpansWorld, input.windowClearanceM ?? 0.1,
+            rectsWithIds, clearanceSpans, input.windowClearanceM ?? 0.1,
         );
         placements = snapped.map(r => ({ roomId: r.id, rect: { x0: r.x0, z0: r.z0, x1: r.x1, z1: r.z1 } }));
     }
