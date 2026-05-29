@@ -161,14 +161,18 @@ function placeBeside(spec: FurnitureItemSpec, leader: Placement, input: FurnishR
         const c = add({ x: L.position.x, z: L.position.z }, n, L.footprint.l / 2 + 0.35 + fp.l / 2);
         tryPush(c, L.rotationY);
     } else if (L.kind === 'dining_table') {
-        // chairs around the table (front/back/left/right), facing it
+        // chairs around the table (front/back/left/right), facing it. The
+        // chair's local +z is its forward direction; a chair at +d (right of
+        // the table) must FACE −d (toward the table) → its inward-normal is
+        // −d, yawFromNormal(−d) = L.rotationY − π/2. (Earlier the side yaws
+        // were swapped, leaving the side chairs facing AWAY from the table.)
         const tc: Pt = { x: L.position.x, z: L.position.z };
         const half = { fwd: L.footprint.l / 2 + fp.l / 2 + GAP, side: L.footprint.w / 2 + fp.l / 2 + GAP };
         const slots: Array<{ c: Pt; yaw: number }> = [
-            { c: add(tc, n, half.fwd), yaw: L.rotationY + Math.PI },
-            { c: add(tc, n, -half.fwd), yaw: L.rotationY },
-            { c: add(tc, d, half.side), yaw: L.rotationY + Math.PI / 2 },
-            { c: add(tc, d, -half.side), yaw: L.rotationY - Math.PI / 2 },
+            { c: add(tc, n, half.fwd),   yaw: L.rotationY + Math.PI },
+            { c: add(tc, n, -half.fwd),  yaw: L.rotationY },
+            { c: add(tc, d, half.side),  yaw: L.rotationY - Math.PI / 2 },
+            { c: add(tc, d, -half.side), yaw: L.rotationY + Math.PI / 2 },
         ];
         for (const s of slots.slice(0, count)) tryPush(s.c, s.yaw);
     } else {

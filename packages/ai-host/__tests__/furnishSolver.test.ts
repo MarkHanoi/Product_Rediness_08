@@ -212,6 +212,32 @@ describe('furnishRoom (D-FLE F5/F7)', () => {
         });
     });
 
+    describe('dining_chair orientation (chairs face the table)', () => {
+        // The chair's local +z is its forward direction; a chair at +x of the
+        // table must face −x (toward the table). Previously slots 3 and 4 had
+        // swapped yaws → side chairs faced AWAY from the table.
+        it('every chair faces the dining table centre', () => {
+            const room = rectRoom('dining-room', 5, 4);
+            const items = furnishRoom(room);
+            const table = items.find(i => i.kind === 'dining_table');
+            const chairs = items.filter(i => i.kind === 'dining_chair');
+            expect(table).toBeDefined();
+            expect(chairs.length).toBeGreaterThanOrEqual(1);
+            for (const c of chairs) {
+                const dx = table!.position.x - c.position.x;
+                const dz = table!.position.z - c.position.z;
+                const len = Math.hypot(dx, dz);
+                expect(len).toBeGreaterThan(0.1);
+                // chair's facing in world is (sin yaw, cos yaw)
+                const fx = Math.sin(c.rotationY);
+                const fz = Math.cos(c.rotationY);
+                // direction to table normalised; expect facing ≈ that direction
+                expect(fx).toBeCloseTo(dx / len, 2);
+                expect(fz).toBeCloseTo(dz / len, 2);
+            }
+        });
+    });
+
     describe('§FURNITURE-SPEC clearFront (working zone reserved)', () => {
         // The toilet has 60 cm knee clearance; later items must not occupy
         // the strip in front of it. The bathroom shower (corner-anchored) is
