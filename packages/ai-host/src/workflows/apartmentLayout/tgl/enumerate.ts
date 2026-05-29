@@ -20,6 +20,7 @@ import { buildSemanticGraph, type LayoutGraph } from './semanticGraph.js';
 import { computeSpaceSyntax } from './spaceSyntax.js';
 import { computeObjectives, OBJECTIVE_AXES, type ObjectiveVector } from './objectives.js';
 import { validateAllRoomShapes, type RoomShape } from '../dimensions/validateRoomShape.js';
+import { validateApartmentEnvelope } from '../dimensions/validateApartmentEnvelope.js';
 
 export interface EnumerateInput {
     readonly shellPolygon: readonly Pt[];      // metres, plan frame
@@ -237,6 +238,24 @@ export function enumerateLayouts(input: EnumerateInput): TglCandidate[] {
     const decomposedArea = decomposeToRects(input.shellPolygon).reduce((s, r) => s + rectArea(r), 0);
     const shellArea = input.shellAreaM2 && input.shellAreaM2 > 0 ? input.shellAreaM2 : decomposedArea;
     if (shellArea <= 0) return [];
+
+    // §D3.5 APARTMENT-ENVELOPE GATE — refuse to generate when the shell + program
+    // combination is architecturally absurd (e.g. 200 m² 1-bedroom or 35 m²
+    // 3-bedroom). The 5-tier shape gate later HARD-rejects unfit room rectangles,
+    // but it can't tell the user *why* nothing fits cleanly — the envelope check
+    // names the specific architectural mismatch BEFORE we waste cycles building
+    // 8 strategies. Returns empty + logs a structured warning that the trigger
+    // can surface as a clear toast.
+    const env = validateApartmentEnvelope({
+        bedrooms: input.program.bedrooms,
+        grossAreaM2: shellArea,
+    });
+    if (!env.admissible) {
+        for (const f of env.hardFindings) {
+            console.warn(`[apartment-layout] §D3.5 envelope reject: ${f.reason}`);
+        }
+        return [];
+    }
 
     const candidates: TglCandidate[] = [];
     for (const s of STRATEGIES) {

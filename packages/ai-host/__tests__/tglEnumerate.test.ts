@@ -26,6 +26,34 @@ const dominates = (a: ObjectiveVector, b: ObjectiveVector): boolean => {
 };
 
 describe('enumerateLayouts (TGL P8)', () => {
+    // §D3.5 (2026-05-29) — apartment-envelope gate.
+    describe('§D3.5 apartment-envelope gate', () => {
+        const TINY_SHELL: Pt[] = [{ x: 0, z: 0 }, { x: 4, z: 0 }, { x: 4, z: 6 }, { x: 0, z: 6 }];   // 24 m²
+        const HUGE_SHELL: Pt[] = [{ x: 0, z: 0 }, { x: 15, z: 0 }, { x: 15, z: 15 }, { x: 0, z: 15 }]; // 225 m²
+
+        it('returns empty when a 3-bedroom apartment is below 85 m² hard min', () => {
+            const tinyProgram: ApartmentProgram = { ...PROGRAM, bedrooms: 3 };
+            const result = enumerateLayouts(input({
+                shellPolygon: TINY_SHELL, program: tinyProgram,
+            }));
+            expect(result.length).toBe(0);
+        });
+
+        it('returns empty when a 1-bedroom apartment exceeds the 80 m² hard max', () => {
+            const bigProgram: ApartmentProgram = { ...PROGRAM, bedrooms: 1 };
+            const result = enumerateLayouts(input({
+                shellPolygon: HUGE_SHELL, program: bigProgram,
+            }));
+            expect(result.length).toBe(0);
+        });
+
+        it('admits a sensible 2-bedroom apartment within the §3.1 envelope', () => {
+            // 12 × 10 = 120 m² for a 2-bed is right at the soft max but admissible.
+            const result = enumerateLayouts(input({ count: 1 }));
+            expect(result.length).toBeGreaterThan(0);
+        });
+    });
+
     it('returns at most `count` candidates', () => {
         expect(enumerateLayouts(input({ count: 3 })).length).toBeLessThanOrEqual(3);
         expect(enumerateLayouts(input({ count: 1 })).length).toBeLessThanOrEqual(1);
