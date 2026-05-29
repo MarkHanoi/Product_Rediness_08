@@ -120,6 +120,27 @@ describe('computeObjectives (TGL P7)', () => {
         });
     });
 
+    // §TOPOLOGY-QUALITY (T3.3, 2026-05-29) — Part B validators feed this axis.
+    describe('topologyQuality (§TOPOLOGY-QUALITY)', () => {
+        it('defaults to 1 when no topology-quality argument is provided', () => {
+            const g = graphOf([
+                space('L', { spaceType: 'living', netAreaM2: 25, isPrivate: false, needsWindow: true }),
+            ]);
+            const v = computeObjectives(g, metricsOf({ L: 1 }), emptyBubble);
+            expect(v.topologyQuality).toBe(1);
+        });
+
+        it('honours an injected topologyQuality value clamped to [0, 1]', () => {
+            const g = graphOf([
+                space('L', { spaceType: 'living', netAreaM2: 25, isPrivate: false, needsWindow: true }),
+            ]);
+            expect(computeObjectives(g, metricsOf({ L: 1 }), emptyBubble, 1, 0).topologyQuality).toBe(0);
+            expect(computeObjectives(g, metricsOf({ L: 1 }), emptyBubble, 1, 0.6).topologyQuality).toBeCloseTo(0.6);
+            expect(computeObjectives(g, metricsOf({ L: 1 }), emptyBubble, 1, 2).topologyQuality).toBe(1); // clamped
+            expect(computeObjectives(g, metricsOf({ L: 1 }), emptyBubble, 1, -1).topologyQuality).toBe(0); // clamped
+        });
+    });
+
     it('efficiency: a small corridor beats a large corridor', () => {
         const lean = graphOf([
             space('K', { spaceType: 'kitchen', netAreaM2: 40, isPrivate: false, needsWindow: true }),

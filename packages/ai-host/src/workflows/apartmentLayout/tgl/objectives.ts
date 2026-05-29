@@ -51,10 +51,21 @@ export interface ObjectiveVector {
      * Pareto-ranks "all-rooms-comfortable" above "rooms-fit-but-pinch".
      */
     readonly shapeQuality: number;
+    /**
+     * §TOPOLOGY-QUALITY (T3.3 analogue, 2026-05-29) — fed by the Part B
+     * topology validators (`validateMandatoryAdjacencies`,
+     * `validateForbiddenAdjacencies`). Hard findings drop the candidate
+     * (gate); soft findings accumulate here. Today's Part B validators
+     * produce only HARD findings, so this axis is binary (1 = topology-clean,
+     * 0 = topology-violated). Acoustic + wet-cluster + sequence validators
+     * (T2.3 / T2.4 / T2.6, later commits) will start emitting soft findings
+     * that gradient this axis.
+     */
+    readonly topologyQuality: number;
 }
 
 export const OBJECTIVE_AXES: readonly (keyof ObjectiveVector)[] =
-    ['efficiency', 'adjacency', 'daylight', 'circulation', 'regularity', 'hierarchy', 'shapeQuality'] as const;
+    ['efficiency', 'adjacency', 'daylight', 'circulation', 'regularity', 'hierarchy', 'shapeQuality', 'topologyQuality'] as const;
 
 const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n);
 const num = (v: unknown, d = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -78,11 +89,12 @@ const polyWH = (n: GraphNode): { w: number; h: number } => {
 export function computeObjectives(
     graph: LayoutGraph, metrics: SyntaxMetrics, bubble: BubbleGraph,
     shapeQuality: number = 1,
+    topologyQuality: number = 1,
 ): ObjectiveVector {
     const spaces = graph.nodes.filter(n => n.kind === 'Space');
     const totalArea = spaces.reduce((s, n) => s + num(n.attrs.netAreaM2), 0);
     if (spaces.length === 0 || totalArea <= 0) {
-        return { efficiency: 0, adjacency: 0, daylight: 0, circulation: 0, regularity: 0, hierarchy: 0, shapeQuality: clamp01(shapeQuality) };
+        return { efficiency: 0, adjacency: 0, daylight: 0, circulation: 0, regularity: 0, hierarchy: 0, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality) };
     }
 
     // ── efficiency: how little of the floor is circulation. ──────────────────────
@@ -173,7 +185,7 @@ export function computeObjectives(
     }
     const hierarchy = hierArea > 0 ? clamp01(hierWeighted / hierArea) : 1;
 
-    return { efficiency, adjacency, daylight, circulation, regularity, hierarchy, shapeQuality: clamp01(shapeQuality) };
+    return { efficiency, adjacency, daylight, circulation, regularity, hierarchy, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality) };
 }
 
 const pairKey = (a: string, b: string): string => (a < b ? `${a}|${b}` : `${b}|${a}`);

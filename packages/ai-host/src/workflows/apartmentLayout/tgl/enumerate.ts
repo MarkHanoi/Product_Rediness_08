@@ -21,6 +21,8 @@ import { computeSpaceSyntax } from './spaceSyntax.js';
 import { computeObjectives, OBJECTIVE_AXES, type ObjectiveVector } from './objectives.js';
 import { validateAllRoomShapes, type RoomShape } from '../dimensions/validateRoomShape.js';
 import { validateApartmentEnvelope } from '../dimensions/validateApartmentEnvelope.js';
+import { validateMandatoryAdjacencies, type DoorOpening } from '../topology/validateMandatoryAdjacencies.js';
+import { validateForbiddenAdjacencies } from '../topology/validateForbiddenAdjacencies.js';
 
 export interface EnumerateInput {
     readonly shellPolygon: readonly Pt[];      // metres, plan frame
@@ -63,6 +65,11 @@ export interface TglCandidate {
      *  room. The enumerate gate prefers shape-admissible candidates over not.
      *  Soft findings still accumulate into `objectives.shapeQuality`. */
     readonly shapeAdmissible: boolean;
+    /** §T3.3 — every mandatory adjacency is realised + every door is a permitted
+     *  pair (T2.1 validateMandatoryAdjacencies + T2.2 validateForbiddenAdjacencies).
+     *  False ⇒ a missing master↔ensuite door, a forbidden bedroom↔bedroom door,
+     *  etc. Gate prefers topology-admissible candidates. */
+    readonly topologyAdmissible: boolean;
     /** Virtual room-bounding lines at open-plan thresholds (no wall, no door)
      *  in METRES; the LayoutOption converts to mm at emit time. */
     readonly boundaries: readonly BoundarySeg[];
@@ -172,17 +179,31 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         levelId: input.levelId, seed: `${input.seed}|${strategyKey(s)}`, shellAreaM2: shellArea,
         ...(input.wallHeightM !== undefined ? { wallHeightM: input.wallHeightM } : {}),
     });
+    // §T3.3 TOPOLOGY GATE — run Part B validators against the now-realised
+    // openings. Mandatory: every declared adjacency has a door. Forbidden:
+    // every door is a permitted pair. Both produce only HARD findings today,
+    // so topologyQuality is binary {0, 1}. Future T2.3 (acoustic) / T2.4
+    // (wet-cluster) / T2.6 (sequence) will produce soft findings and gradient
+    // the axis.
+    const doorOpenings: DoorOpening[] = openings.map(o => ({
+        type: o.type, betweenRoomIds: o.betweenRoomIds,
+    }));
+    const mand = validateMandatoryAdjacencies(input.program, bubble, doorOpenings);
+    const forb = validateForbiddenAdjacencies(bubble, doorOpenings);
+    const topologyAdmissible = mand.admissible && forb.admissible;
+    const topologyQuality = topologyAdmissible ? 1 : 0;
+
     const entryGuid = graph.nodes.find(n => n.kind === 'Space' && n.sourceId === bubble.entryId)?.guid ?? null;
     const metrics = computeSpaceSyntax(graph, entryGuid);
-    const objectives = computeObjectives(graph, metrics, bubble, shapeQuality);
+    const objectives = computeObjectives(graph, metrics, bubble, shapeQuality, topologyQuality);
     return {
         strategy: strategyKey(s), graph, objectives,
         weighted: weightedSum(objectives, input.weights), rank: 0,
-        compromises, connected: metrics.connected, shapeAdmissible, boundaries,
+        compromises, connected: metrics.connected, shapeAdmissible, topologyAdmissible, boundaries,
     };
 }
 
-/** Map the 4 user weights onto the 7 axes (regularity + hierarchy + shapeQuality get fixed weights), normalise, sum. */
+/** Map the 4 user weights onto the 8 axes (regularity + hierarchy + shapeQuality + topologyQuality get fixed weights), normalise, sum. */
 function weightedSum(o: ObjectiveVector, w: ScoringWeights): number {
     const raw: Record<keyof ObjectiveVector, number> = {
         efficiency: Math.max(0, w.corridorEfficiency),
@@ -198,6 +219,11 @@ function weightedSum(o: ObjectiveVector, w: ScoringWeights): number {
         // §SHAPE-QUALITY (D3.4) — fixed weight comparable to regularity. Layouts
         // where every room sits in its comfortable envelope score higher.
         shapeQuality: 0.6,
+        // §TOPOLOGY-QUALITY (T3.3) — fixed weight comparable to shapeQuality.
+        // Layouts where every mandatory adjacency is realised + every door is
+        // a permitted pair score higher. Today's validators emit only HARD
+        // findings → axis is binary {0, 1}; future T2.3/T2.4/T2.6 will gradient.
+        topologyQuality: 0.6,
     };
     const total = OBJECTIVE_AXES.reduce((s, a) => s + raw[a], 0) || 1;
     return OBJECTIVE_AXES.reduce((s, a) => s + (raw[a] / total) * o[a], 0);
@@ -264,29 +290,35 @@ export function enumerateLayouts(input: EnumerateInput): TglCandidate[] {
     }
     if (candidates.length === 0) return [];
 
-    // LEGALITY GATE (§rules): an architecturally-legal plan — every room reachable
-    // through rule-PERMITTED doors (connected, zero compromises) — beats any plan
-    // that needed a forbidden door (e.g. bedroom-through-bedroom). We PRE-FILTER the
-    // pool to the best achievable legality tier, THEN Pareto-rank within it (so the
-    // returned list stays Pareto-consistent).
+    // LEGALITY + SHAPE + TOPOLOGY GATE (§rules + D3.1 + T3.3, 5-tier fallback)
     //
-    // §D3.1 SHAPE GATE — extends the legality gate. A "shape-admissible" candidate
-    // (every room within its dimensional envelope: G1 area, G2 width, G3 length,
-    // G4 aspect, G6 wall) is architecturally cleaner than one with a tunnel /
-    // oversized / undersized room. Tiers (best → worst fallback):
-    //   shape-admissible AND legal      ← architecturally clean + rule-legal
-    //   shape-admissible AND connected  ← clean but with reconciliation doors
-    //   legal                            ← rule-legal but a room is awkward
-    //   connected                        ← reachable but rule + shape compromises
-    //   anything                         ← last resort
+    // An architecturally-COMPLETE plan satisfies four orthogonal axes:
+    //   • shapeAdmissible    — every room within its dimensional envelope
+    //   • topologyAdmissible — every mandatory adjacency realised + no
+    //                          forbidden doors emitted
+    //   • connected          — every space reachable from the entry
+    //   • compromises === 0  — no reconciliation doors broke a rule
+    //
+    // A `clean` candidate satisfies BOTH validator flags (shape + topology).
+    // The 5-tier fallback prefers architecturally-complete candidates, gracefully
+    // degrading when the shell + program forces compromises (e.g. very tight
+    // 3-bedroom layouts that can't satisfy every soft constraint).
+    //
+    // Tiers (best → worst fallback):
+    //   clean AND legal       ← architecturally complete + rule-legal
+    //   clean AND connected   ← complete shape+topology, with reconciliation doors
+    //   legal                  ← rule-legal but a room is awkward OR a soft
+    //                            topology issue (acoustic / wet) is present
+    //   connected              ← reachable; multiple compromises
+    //   anything               ← last resort
     const connected = candidates.filter(c => c.connected);
     const legal = connected.filter(c => c.compromises === 0);
-    const shapeAdmissible = candidates.filter(c => c.shapeAdmissible);
-    const shapeAdmAndLegal = shapeAdmissible.filter(c => c.connected && c.compromises === 0);
-    const shapeAdmAndConn = shapeAdmissible.filter(c => c.connected);
+    const clean = candidates.filter(c => c.shapeAdmissible && c.topologyAdmissible);
+    const cleanAndLegal = clean.filter(c => c.connected && c.compromises === 0);
+    const cleanAndConn = clean.filter(c => c.connected);
     const pool =
-        shapeAdmAndLegal.length > 0 ? shapeAdmAndLegal :
-        shapeAdmAndConn.length > 0 ? shapeAdmAndConn :
+        cleanAndLegal.length > 0 ? cleanAndLegal :
+        cleanAndConn.length > 0 ? cleanAndConn :
         legal.length > 0 ? legal :
         connected.length > 0 ? connected :
         candidates;
