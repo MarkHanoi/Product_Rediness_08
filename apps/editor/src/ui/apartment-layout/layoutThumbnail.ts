@@ -179,12 +179,17 @@ export function buildLayoutThumbnailSvg(option: LayoutOption, opts: ThumbnailOpt
     const mapX = (x: number): number => offX + (x - minX) * scale;
     const mapY = (y: number): number => offY + (maxY - y) * scale; // flip: north up
 
-    // 1. Room polygons (BENEATH walls) — filled by occupancy.
+    // 1. Room polygons (BENEATH walls) — filled by occupancy. Each polygon
+    //    carries `data-room-name` + class `alm-room-polygon` so the modal can
+    //    wire click → focus the matching `area_n_<name>` input (§CLICK-FOCUS).
     const roomEls = rooms.map(r => {
         if (!r.polygon || r.polygon.length < 3) return '';
         const fill = OCCUPANCY_FILL[r.occupancy ?? ''] ?? DEFAULT_FILL;
         const pts = r.polygon.map(p => `${f1(mapX(p.x))},${f1(mapY(p.y))}`).join(' ');
-        return `<polygon points="${pts}" fill="${fill}" stroke="${wallColor}" stroke-width="0.4" stroke-opacity="0.3"/>`;
+        const nameAttr = r.name
+            ? ` data-room-name="${esc(r.name)}" class="alm-room-polygon"`
+            : '';
+        return `<polygon points="${pts}" fill="${fill}" stroke="${wallColor}" stroke-width="0.4" stroke-opacity="0.3"${nameAttr}/>`;
     }).join('');
 
     // 2. Room labels — `Name\nA m²`, centred at the polygon centroid; only

@@ -261,6 +261,47 @@ describe('buildLayoutThumbnailSvg (A5-modal-core)', () => {
         expect(svg).not.toContain('alm-scalebar');
     });
 
+    // §CLICK-FOCUS (2026-05-29) — polygons carry `data-room-name` + a class
+    // hook so the modal can wire click → focus the matching area input. Named
+    // rooms get the stamp; unnamed rooms don't (no input to focus).
+    it('stamps data-room-name + alm-room-polygon class on named room polygons', () => {
+        const svg = buildLayoutThumbnailSvg({
+            summary: '', corridorWidthMin: 0, doors: [], walls: [],
+            rooms: [
+                {
+                    name: 'Bedroom 1', type: 'bedroom', area: 12, windowCount: 1,
+                    hasDirectAccess: true, adjacentTo: [],
+                    polygon: [
+                        { x: 0, y: 0 }, { x: 4000, y: 0 },
+                        { x: 4000, y: 3000 }, { x: 0, y: 3000 },
+                    ],
+                    occupancy: 'bedroom',
+                },
+            ],
+        });
+        expect(svg).toContain('data-room-name="Bedroom 1"');
+        expect(svg).toContain('class="alm-room-polygon"');
+    });
+
+    it('omits data-room-name on rooms without a name (nothing to focus)', () => {
+        const svg = buildLayoutThumbnailSvg({
+            summary: '', corridorWidthMin: 0, doors: [], walls: [],
+            rooms: [
+                {
+                    name: '', type: 'living', area: 0, windowCount: 0,
+                    hasDirectAccess: true, adjacentTo: [],
+                    polygon: [
+                        { x: 0, y: 0 }, { x: 5000, y: 0 },
+                        { x: 5000, y: 4000 }, { x: 0, y: 4000 },
+                    ],
+                    occupancy: 'living-room',
+                },
+            ],
+        });
+        expect(svg).not.toContain('data-room-name');
+        expect(svg).not.toContain('alm-room-polygon');
+    });
+
     it('uses room polygons (not wall bbox) for layout when both are present', () => {
         // Polygons at x ∈ [0, 10000] but walls at x ∈ [-500, 500]: the SVG
         // should fit polygons (the EXACT shell) and clip the wall stubs.

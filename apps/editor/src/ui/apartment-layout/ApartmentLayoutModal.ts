@@ -90,6 +90,16 @@ export class ApartmentLayoutModal {
             if (sel) {
                 const idx = Number(sel.getAttribute('data-index'));
                 if (Number.isInteger(idx)) { this.dismiss(); cb.onSelect(idx); }
+                return;
+            }
+            // §CLICK-FOCUS (2026-05-29) — clicking a room polygon in any
+            // thumbnail focuses the matching per-instance area input in the
+            // program-edit form, so the user can re-size that exact room.
+            // `closest` on SVG-namespaced elements works in all modern browsers.
+            const poly = (target as Element).closest?.('.alm-room-polygon') as Element | null;
+            if (poly) {
+                const name = poly.getAttribute('data-room-name');
+                if (name) this._focusAreaInputForRoom(name);
             }
         });
 
@@ -231,5 +241,23 @@ export class ApartmentLayoutModal {
         if (!this._el) return;
         const hint = this._el.querySelector('[data-role="program-hint"]');
         if (hint) hint.textContent = text || 'Edit any field — the layouts regenerate automatically.';
+    }
+
+    /** §CLICK-FOCUS — find the `area_n_<name>` input in the program-edit form
+     *  and focus + select it. Falls back to scrolling the form into view if
+     *  the name has no per-instance input yet. */
+    private _focusAreaInputForRoom(name: string): void {
+        if (!this._el) return;
+        const form = this._el.querySelector('form.alm-program') as HTMLFormElement | null;
+        if (!form) return;
+        const inp = form.elements.namedItem(`area_n_${name}`) as HTMLInputElement | null;
+        if (inp) {
+            inp.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            inp.focus();
+            inp.select?.();
+            return;
+        }
+        // No per-instance input for this name — just nudge the form into view.
+        form.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
 }

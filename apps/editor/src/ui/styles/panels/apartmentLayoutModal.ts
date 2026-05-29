@@ -111,6 +111,12 @@ export const APARTMENT_LAYOUT_MODAL_STYLES = `
 .alm-busy .alm-grid { opacity: 0.55; pointer-events: none; transition: opacity .15s; }
 .alm-busy .alm-program-hint { color: #6600FF; font-style: normal; font-weight: 600; }
 
+/* §CLICK-FOCUS (2026-05-29) — clickable room polygons in the thumbnail.
+ * Hover/focus brighten the polygon slightly + the cursor becomes a pointer so
+ * the user discovers the click-to-edit affordance. */
+.alm-room-polygon { cursor: pointer; transition: fill-opacity .12s, stroke-opacity .12s; }
+.alm-room-polygon:hover { stroke-opacity: 0.85; stroke-width: 0.8; }
+
 /* §MODAL-DYNAMIC part-3 (2026-05-29) — occupancy legend. */
 .alm-legend {
   padding: 8px 20px; border-bottom: 1px solid #e2e8f0; background: #ffffff;
