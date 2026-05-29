@@ -16,12 +16,22 @@
 
 import type { ScoredLayoutOption, ApartmentProgram } from '@pryzm/ai-host';
 import { buildLayoutCardModel } from './layoutCardModel.js';
-import { buildLayoutThumbnailSvg } from './layoutThumbnail.js';
+import { buildLayoutThumbnailSvg, type PerimeterSpan } from './layoutThumbnail.js';
 import {
     buildLayoutModalHtml,
     buildLayoutCardGridHtml,
     buildOccupancyLegendHtml,
 } from './layoutModalHtml.js';
+
+/** §WINDOW-SYMBOLS (2026-05-29): the user-placed perimeter openings the
+ *  thumbnail draws on top of the perimeter walls. Both are WORLD-XZ metres
+ *  (the same shape D-TGL's `windowSpansWorld` / `doorSpansWorld` already
+ *  use). Both fields are optional — when omitted the thumbnail still
+ *  renders, just without the perimeter opening symbols. */
+export interface PerimeterSpans {
+    readonly windowSpansWorld?: ReadonlyArray<PerimeterSpan>;
+    readonly doorSpansWorld?: ReadonlyArray<PerimeterSpan>;
+}
 
 export interface ApartmentLayoutModalCallbacks {
     /** User picked option `index` ("Use this layout"). */
@@ -42,6 +52,11 @@ export class ApartmentLayoutModal {
     private _escHandler: ((e: KeyboardEvent) => void) | null = null;
     private _debounceTimer: ReturnType<typeof setTimeout> | null = null;
     private _onProgramChange: ((program: ApartmentProgram) => void) | null = null;
+    /** §WINDOW-SYMBOLS: spans live on the modal between `show()` and
+     *  `refresh()` so the perimeter window/door symbols redraw consistently
+     *  after a regenerate (the spans are fixed across re-runs — the user's
+     *  shell + perimeter openings don't change when only the program does). */
+    private _spans: PerimeterSpans = {};
 
     get isOpen(): boolean { return this._el !== null; }
 
@@ -50,11 +65,14 @@ export class ApartmentLayoutModal {
         options: readonly ScoredLayoutOption[],
         cb: ApartmentLayoutModalCallbacks,
         program?: ApartmentProgram,
+        spans?: PerimeterSpans,
     ): void {
         this.dismiss();
+        this._spans = spans ?? {};
 
+        const thumbOpts = { background: '#ffffff', ...this._spans };
         const cards = options.map((o, i) => buildLayoutCardModel(o, i));
-        const thumbs = options.map(o => buildLayoutThumbnailSvg(o, { background: '#ffffff' }));
+        const thumbs = options.map(o => buildLayoutThumbnailSvg(o, thumbOpts));
 
         const overlay = document.createElement('div');
         overlay.className = 'alm-overlay';
@@ -106,8 +124,9 @@ export class ApartmentLayoutModal {
         if (!this._el) return;
         const grid = this._el.querySelector('[data-role="grid"]');
         if (!grid) return;
+        const thumbOpts = { background: '#ffffff', ...this._spans };
         const cards = options.map((o, i) => buildLayoutCardModel(o, i));
-        const thumbs = options.map(o => buildLayoutThumbnailSvg(o, { background: '#ffffff' }));
+        const thumbs = options.map(o => buildLayoutThumbnailSvg(o, thumbOpts));
         grid.innerHTML = buildLayoutCardGridHtml(cards, thumbs);
         // §MODAL-DYNAMIC part-3: refresh the legend too — toggling the program
         // (e.g. turning Living Room off) changes which occupancies are present.
@@ -141,6 +160,7 @@ export class ApartmentLayoutModal {
             this._debounceTimer = null;
         }
         this._onProgramChange = null;
+        this._spans = {};
         if (this._el) { this._el.remove(); this._el = null; }
     }
 

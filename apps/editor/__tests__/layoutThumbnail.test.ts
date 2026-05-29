@@ -144,6 +144,71 @@ describe('buildLayoutThumbnailSvg (A5-modal-core)', () => {
         expect((svg.match(/<text /g) ?? []).length).toBe(0);
     });
 
+    // §WINDOW-SYMBOLS (2026-05-29) — perimeter openings.
+    it('renders a window glazing symbol per windowSpansWorld entry', () => {
+        // 5 × 4 m shell (rooms polygon supplies the bbox). One window on the
+        // south wall, x ∈ [1.5, 2.5] m at z = 0 m.
+        const svg = buildLayoutThumbnailSvg({
+            summary: '', corridorWidthMin: 0, doors: [], walls: [],
+            rooms: [{
+                name: '', type: 'living', area: 0, windowCount: 0,
+                hasDirectAccess: true, adjacentTo: [],
+                polygon: [
+                    { x: 0, y: 0 }, { x: 5000, y: 0 },
+                    { x: 5000, y: 4000 }, { x: 0, y: 4000 },
+                ],
+                occupancy: 'living-room',
+            }],
+        }, {
+            windowSpansWorld: [{ a: { x: 1.5, z: 0 }, b: { x: 2.5, z: 0 } }],
+            showScaleBar: false,
+        });
+        // 1 window = 1 white gap line + 1 sky-blue glazing line.
+        expect(svg).toContain('stroke="#0ea5e9"');                       // glazing colour
+        // Two lines per window, both axis-aligned along y=240 - pad (south wall).
+        const skyLines = svg.match(/stroke="#0ea5e9"/g) ?? [];
+        expect(skyLines.length).toBe(1);
+    });
+
+    it('renders perimeter door symbols (purple bar) per doorSpansWorld entry', () => {
+        const svg = buildLayoutThumbnailSvg({
+            summary: '', corridorWidthMin: 0, doors: [], walls: [],
+            rooms: [{
+                name: '', type: 'living', area: 0, windowCount: 0,
+                hasDirectAccess: true, adjacentTo: [],
+                polygon: [
+                    { x: 0, y: 0 }, { x: 5000, y: 0 },
+                    { x: 5000, y: 4000 }, { x: 0, y: 4000 },
+                ],
+                occupancy: 'living-room',
+            }],
+        }, {
+            doorSpansWorld: [{ a: { x: 2.0, z: 4.0 }, b: { x: 2.9, z: 4.0 } }],
+            showScaleBar: false,
+        });
+        // PRYZM purple = #6600FF — the perimeter door's leaf stroke.
+        const purpleLines = svg.match(/stroke="#6600FF"/g) ?? [];
+        expect(purpleLines.length).toBe(1);
+    });
+
+    it('omits perimeter openings when no spans are supplied', () => {
+        const svg = buildLayoutThumbnailSvg({
+            summary: '', corridorWidthMin: 0, doors: [], walls: [],
+            rooms: [{
+                name: '', type: 'living', area: 0, windowCount: 0,
+                hasDirectAccess: true, adjacentTo: [],
+                polygon: [
+                    { x: 0, y: 0 }, { x: 5000, y: 0 },
+                    { x: 5000, y: 4000 }, { x: 0, y: 4000 },
+                ],
+                occupancy: 'living-room',
+            }],
+        }, { showScaleBar: false });
+        expect(svg).not.toContain('#0ea5e9');     // no window glazing
+        // No purple lines either (no doors in the option, no perimeter doors).
+        expect(svg).not.toContain('#6600FF');
+    });
+
     // §MODAL-DYNAMIC part-3: scale bar.
     it('renders a scale bar with a nice-round metre label at default size', () => {
         // A 12 × 10 m apartment-sized shell.

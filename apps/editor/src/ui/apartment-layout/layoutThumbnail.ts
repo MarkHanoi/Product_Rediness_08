@@ -15,12 +15,23 @@
 
 import type { LayoutOption } from '@pryzm/ai-host';
 
+/** Axis-aligned perimeter span in WORLD-XZ METRES — same shape D-TGL's
+ *  `windowSpansWorld` / `doorSpansWorld` already use. Lets the thumbnail
+ *  render pre-existing exterior openings (the user-drawn front door and
+ *  windows on the perimeter walls) without the LayoutOption schema needing
+ *  to carry them. */
+export interface PerimeterSpan {
+    readonly a: { readonly x: number; readonly z: number };
+    readonly b: { readonly x: number; readonly z: number };
+}
+
 export interface ThumbnailOptions {
     readonly width?: number;          // px, default 320
     readonly height?: number;         // px, default 240
     readonly padding?: number;        // px, default 12
     readonly wallColor?: string;      // default slate-900
     readonly doorColor?: string;      // default PRYZM purple
+    readonly windowColor?: string;    // default sky blue
     readonly wallWidth?: number;      // stroke px, default 2.5
     readonly background?: string;     // default transparent ('none')
     readonly showLabels?: boolean;    // default true
@@ -28,11 +39,20 @@ export interface ThumbnailOptions {
     /** §MODAL-DYNAMIC part-3 (2026-05-29): small "5 m" scale bar at the
      *  bottom-right. Snaps to a nice round metre value (1, 2, 5, 10, 20 m). */
     readonly showScaleBar?: boolean;  // default true
+    /** §WINDOW-SYMBOLS (2026-05-29): perimeter-wall WINDOW spans in WORLD-XZ
+     *  metres. Rendered as glazing marks (white gap + thin centre line) on
+     *  the host wall. Omitted/empty ⇒ no window symbols. */
+    readonly windowSpansWorld?: ReadonlyArray<PerimeterSpan>;
+    /** §WINDOW-SYMBOLS: pre-existing perimeter DOORS (e.g. the hand-placed
+     *  front door from §DOOR-AVOIDANCE). Rendered the same way as the
+     *  generated interior doors but in PURPLE on the perimeter walls. */
+    readonly doorSpansWorld?: ReadonlyArray<PerimeterSpan>;
 }
 
 const DEFAULTS = {
     width: 320, height: 240, padding: 12,
-    wallColor: '#0f172a', doorColor: '#6600FF', wallWidth: 2.5, background: 'none',
+    wallColor: '#0f172a', doorColor: '#6600FF', windowColor: '#0ea5e9',
+    wallWidth: 2.5, background: 'none',
     showLabels: true, showDoors: true, showScaleBar: true,
 } as const;
 
@@ -109,6 +129,7 @@ export function buildLayoutThumbnailSvg(option: LayoutOption, opts: ThumbnailOpt
     const pad = opts.padding ?? DEFAULTS.padding;
     const wallColor = opts.wallColor ?? DEFAULTS.wallColor;
     const doorColor = opts.doorColor ?? DEFAULTS.doorColor;
+    const windowColor = opts.windowColor ?? DEFAULTS.windowColor;
     const wallW = opts.wallWidth ?? DEFAULTS.wallWidth;
     const bg = opts.background ?? DEFAULTS.background;
     const showLabels = opts.showLabels ?? DEFAULTS.showLabels;
@@ -225,7 +246,39 @@ export function buildLayoutThumbnailSvg(option: LayoutOption, opts: ThumbnailOpt
         return `${opening}${arc}${hinge}`;
     }).join('');
 
-    // 5. Scale bar — bottom-right of the thumbnail. Target ~70 px wide; snap
+    // 5. §WINDOW-SYMBOLS (2026-05-29) — perimeter-wall openings (windows and
+    //    pre-existing exterior doors). Spans are in WORLD-XZ METRES; convert
+    //    to mm (×1000) then map to SVG coords the same way as walls. Windows
+    //    render as a white gap + a thin centre-line in sky-blue (the standard
+    //    architectural glazing convention). Perimeter doors render as a
+    //    white gap + a small bar in PURPLE (matches the interior door symbol's
+    //    palette so the user can read the front door at a glance).
+    const renderSpanSymbol = (span: PerimeterSpan, kind: 'window' | 'door'): string => {
+        // mm coords
+        const axMm = span.a.x * 1000, ayMm = span.a.z * 1000;
+        const bxMm = span.b.x * 1000, byMm = span.b.z * 1000;
+        const sx = mapX(axMm), sy = mapY(ayMm);
+        const ex = mapX(bxMm), ey = mapY(byMm);
+        const widthPx = Math.hypot(ex - sx, ey - sy);
+        if (widthPx < 1) return '';
+        const opening = `<line x1="${f1(sx)}" y1="${f1(sy)}" x2="${f1(ex)}" y2="${f1(ey)}" stroke="#ffffff" stroke-width="${wallW + 1}" stroke-linecap="butt"/>`;
+        if (kind === 'window') {
+            // Triple-line glazing: thin centre stroke on top of the white gap.
+            const glazing = `<line x1="${f1(sx)}" y1="${f1(sy)}" x2="${f1(ex)}" y2="${f1(ey)}" stroke="${windowColor}" stroke-width="1.1" stroke-linecap="butt"/>`;
+            return `${opening}${glazing}`;
+        }
+        // Perimeter door: a short bar in purple (the inward leaf isn't known
+        // from the span alone — show a leaf-coloured stripe to indicate the
+        // opening location).
+        const leaf = `<line x1="${f1(sx)}" y1="${f1(sy)}" x2="${f1(ex)}" y2="${f1(ey)}" stroke="${doorColor}" stroke-width="1.6" stroke-linecap="butt"/>`;
+        return `${opening}${leaf}`;
+    };
+    const windowSpans = opts.windowSpansWorld ?? [];
+    const perimDoorSpans = opts.doorSpansWorld ?? [];
+    const windowEls = windowSpans.map(s => renderSpanSymbol(s, 'window')).join('');
+    const perimDoorEls = perimDoorSpans.map(s => renderSpanSymbol(s, 'door')).join('');
+
+    // 6. Scale bar — bottom-right of the thumbnail. Target ~70 px wide; snap
     //    to nearest nice metre value (1, 2, 5, 10, 20, 50). Skipped on tiny
     //    thumbs (W < 120) or when scale is degenerate.
     let scaleBarEls = '';
@@ -249,5 +302,5 @@ export function buildLayoutThumbnailSvg(option: LayoutOption, opts: ThumbnailOpt
         }
     }
 
-    return `${open}${bgRect}${roomEls}${wallEls}${doorEls}${labelEls}${scaleBarEls}${close}`;
+    return `${open}${bgRect}${roomEls}${wallEls}${doorEls}${windowEls}${perimDoorEls}${labelEls}${scaleBarEls}${close}`;
 }

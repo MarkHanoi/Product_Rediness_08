@@ -141,7 +141,18 @@ export class ApartmentLayoutController {
                             // REGEN_TIMEOUT_MS.
                         });
                     },
-                }, this._lastPayload?.program);
+                }, this._lastPayload?.program, {
+                    // §WINDOW-SYMBOLS (2026-05-29): perimeter openings the
+                    // thumbnail overlays on the shell. Both fields are pass-
+                    // through from the cached payload — D-TGL already
+                    // collects them in layoutRequestPayload (§DOOR-AVOIDANCE).
+                    ...(this._lastPayload?.windowSpansWorld
+                        ? { windowSpansWorld: this._lastPayload.windowSpansWorld }
+                        : {}),
+                    ...(this._lastPayload?.doorSpansWorld
+                        ? { doorSpansWorld: this._lastPayload.doorSpansWorld }
+                        : {}),
+                });
             } catch (err) {
                 console.error('[apartment-layout] failed to open the options modal:', err);
                 runtime.events?.emit('pryzm:toast', { message: `Could not open the layouts modal: ${String(err)}`, severity: 'error' });
