@@ -610,7 +610,7 @@ Ship in parallel with foundational tiers. These close visible single-apartment g
 |---|---|---|---|---|
 | **D1.1–D1.5** | Dimensional data tables | DIMENSIONAL §9.1 | 4 d | ✅ shipped (D1.1 schema + D1.2 RoomDimensions + D1.4 ApartmentDimensions + D1.5 pin tests) |
 | **T1.1–T1.6** | Topology adjacency data tables | DIMENSIONAL §19.1 | 3 d | ⬜ |
-| **D2.1** | `validateRoomShape` | DIMENSIONAL §9.2 | 2 d | ⬜ |
+| **D2.1** | `validateRoomShape` | DIMENSIONAL §9.2 | 2 d | ✅ shipped — G1 area + G2 width + G3 length + G4 aspect + G6 wall, hard + soft tiers, +18 tests |
 | **D2.2** | `validateRoomFit` | DIMENSIONAL §9.2 | 3 d | ⬜ |
 | **D2.3** | `kitchenTriangleValidator` | DIMENSIONAL §9.2 | 1 d | ⬜ |
 | **D2.4** | Apartment-envelope validator | DIMENSIONAL §9.2 | 0.5 d | ⬜ |
