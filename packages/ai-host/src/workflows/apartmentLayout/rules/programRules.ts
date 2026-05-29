@@ -386,6 +386,31 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         description: 'Master en-suite. One door, only from the master bedroom. Requires a toilet, a washbasin, and a shower or bath.',
     },
 
+    // §WC (2026-05-29, queue #1) — separate toilet, extremely common in
+    // French/European F3+ layouts where the WC is split from the bathroom for
+    // privacy + parallel use. The CORRIDOR/HALL is the access point — never a
+    // bedroom (that's the en-suite semantic) and never the kitchen / living /
+    // dining (a WC off a social room is the architectural anti-pattern).
+    wc: {
+        type: 'wc', occupancy: 'wc', privacy: 'private',
+        // UK Building Regs typical: 1.2 m² + 0.9 m short side for a "cloakroom WC"
+        // (DB-039-related, smaller envelope than a full bathroom).
+        areaWeight: 0.25, minAreaM2: 1.2, minShortSideM: 0.9, needsWindow: false, windowMandatory: false,
+        accessFrom: ['corridor', 'hall'], maxDoors: 1,
+        // §ADJACENCY-PREFERENCE — corridor is the canonical access; hall is the
+        // "cloakroom WC by the front door" pattern, also fully sensible.
+        adjacencyPreference: { corridor: 1.0, hall: 0.9 },
+        requiredFurniture: ['toilet_radiator'], optionalFurniture: [],
+        requiredFixtures: ['toilet', 'washbasin'],
+        furnitureSpec: [
+            // Toilet on the plumbing wall (drainage stack), small washbasin —
+            // catalogued WC washbasin not yet a renderable kind so it's a
+            // fixture-only entry for now (queue: add wc_washbasin furniture kind).
+            { kind: 'toilet_radiator', sizeW: 400, sizeD: 700, clearFoot: 600, clearSide: 100, placementRule: 'wet_wall', excludeDoorSwing: true, excludeWindowWall: false, required: true },
+        ],
+        description: 'Separate WC / cloakroom. One door — to a corridor or the entrance hall; never off a bedroom / kitchen / living / dining. Requires a toilet and a washbasin.',
+    },
+
     // ── Service ──────────────────────────────────────────────────────────────────
     utility: {
         type: 'utility', occupancy: 'utility-room', privacy: 'service',
@@ -477,6 +502,6 @@ export const ALL_ROOM_RULES: readonly RoomRule[] = [
     ROOM_RULES.living, ROOM_RULES.kitchen, ROOM_RULES.dining,
     ROOM_RULES.hall, ROOM_RULES.corridor,
     ROOM_RULES.master, ROOM_RULES.bedroom, ROOM_RULES.study,
-    ROOM_RULES.bathroom, ROOM_RULES.ensuite,
+    ROOM_RULES.bathroom, ROOM_RULES.ensuite, ROOM_RULES.wc,
     ROOM_RULES.utility,
 ];

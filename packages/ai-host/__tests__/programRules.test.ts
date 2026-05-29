@@ -13,7 +13,7 @@ import type { RoomType } from '../src/workflows/apartmentLayout/types.js';
 
 const ALL_TYPES: RoomType[] = [
     'master', 'bedroom', 'living', 'kitchen', 'dining',
-    'bathroom', 'ensuite', 'hall', 'corridor', 'study', 'utility',
+    'bathroom', 'ensuite', 'wc', 'hall', 'corridor', 'study', 'utility',
 ];
 
 describe('programRules — database integrity', () => {
@@ -85,6 +85,21 @@ describe('programRules — connectivity matrix (the user\'s rules)', () => {
         expect(doorAllowedBetween('ensuite', 'corridor')).toBe(false);
         expect(doorAllowedBetween('ensuite', 'hall')).toBe(false);
         expect(doorAllowedBetween('ensuite', 'bedroom')).toBe(false);
+    });
+
+    // §WC (queue #1) — separate WC / cloakroom, European F3+ pattern.
+    it('a WC connects ONLY to a corridor or the entrance hall — never bedroom/kitchen/living/dining', () => {
+        expect(doorAllowedBetween('wc', 'corridor')).toBe(true);
+        expect(doorAllowedBetween('wc', 'hall')).toBe(true);
+        // Forbidden — same architectural reasons as bathroom: a WC off a bedroom
+        // or social room is wrong by convention.
+        expect(doorAllowedBetween('wc', 'bedroom')).toBe(false);
+        expect(doorAllowedBetween('wc', 'master')).toBe(false);
+        expect(doorAllowedBetween('wc', 'kitchen')).toBe(false);
+        expect(doorAllowedBetween('wc', 'living')).toBe(false);
+        expect(doorAllowedBetween('wc', 'dining')).toBe(false);
+        expect(doorAllowedBetween('wc', 'bathroom')).toBe(false);
+        expect(doorAllowedBetween('wc', 'wc')).toBe(false);
     });
 
     it('the matrix is symmetric', () => {

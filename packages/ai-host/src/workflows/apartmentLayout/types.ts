@@ -7,7 +7,7 @@
 
 export type RoomType =
     | 'master' | 'bedroom' | 'living' | 'kitchen' | 'dining'
-    | 'bathroom' | 'ensuite' | 'hall' | 'corridor' | 'study' | 'utility';
+    | 'bathroom' | 'ensuite' | 'wc' | 'hall' | 'corridor' | 'study' | 'utility';
 
 /** A room in an AI-proposed layout (areas in m², coordinates in mm). */
 export interface LayoutRoom {
