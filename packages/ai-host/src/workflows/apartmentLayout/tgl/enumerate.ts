@@ -24,6 +24,7 @@ import { validateApartmentEnvelope } from '../dimensions/validateApartmentEnvelo
 import { validateMandatoryAdjacencies, type DoorOpening } from '../topology/validateMandatoryAdjacencies.js';
 import { validateForbiddenAdjacencies } from '../topology/validateForbiddenAdjacencies.js';
 import { validateWetCluster } from '../topology/validateWetCluster.js';
+import { validateAcousticZoning } from '../topology/validateAcousticZoning.js';
 
 export interface EnumerateInput {
     readonly shellPolygon: readonly Pt[];      // metres, plan frame
@@ -193,10 +194,13 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     const mand = validateMandatoryAdjacencies(input.program, bubble, doorOpenings);
     const forb = validateForbiddenAdjacencies(bubble, doorOpenings);
     const wet = validateWetCluster(bubble, placements);
-    const topologyAdmissible = mand.admissible && forb.admissible && wet.admissible;
+    const acoustic = validateAcousticZoning(bubble, placements);
+    const topologyAdmissible = mand.admissible && forb.admissible && wet.admissible && acoustic.admissible;
     // Quality: 1 minus soft-finding penalty sum / numRooms — same shape as
     // shapeQuality (D3.1). HARD failures still drop topologyAdmissible.
-    const topoSoftSum = wet.softFindings.reduce((s, f) => s + f.delta, 0);
+    const topoSoftSum =
+        wet.softFindings.reduce((s, f) => s + f.delta, 0) +
+        acoustic.softFindings.reduce((s, f) => s + f.delta, 0);
     const topologyQuality = topologyAdmissible
         ? Math.max(0, Math.min(1, 1 - topoSoftSum / Math.max(1, bubble.rooms.length)))
         : 0;
