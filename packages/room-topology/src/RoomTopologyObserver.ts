@@ -37,9 +37,21 @@ const DEBOUNCE_MS = 150;
 const CW_DEBOUNCE_MS = 800;
 const MAX_DEADLINE_MS = 2_000;
 const MAX_DEBOUNCE_RESETS = 12;
+/** §WS-2.B (Plan §2.B, 2026-05-29) — interactive coalescing envelope. When the
+ *  user draws multiple walls in quick succession (each fires a separate
+ *  `bim-wall-mutation-committed` event) the OLD path called `_executeRedetect`
+ *  immediately on EVERY commit — N walls drawn → N redetects. Now: a single
+ *  300 ms idle timer per level coalesces the streak; the redetect fires ONCE
+ *  after the last commit settles. 300 ms is short enough to feel instant for
+ *  a one-off draw, long enough to absorb a typical multi-wall drawing burst. */
+const SOFT_COALESCE_MS = 300;
 
 export class RoomTopologyObserver {
   readonly debounceTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+  /** §WS-2.B — per-level soft-coalesce timer for the
+   *  `bim-wall-mutation-committed` stream. Reset on every commit; fires
+   *  `_executeRedetect` when SOFT_COALESCE_MS passes without a new commit. */
+  private _commitCoalesceTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
   private paused = false;
   private _disposed = false;
   private _pendingPlacementLevels = new Set<string>();
@@ -144,18 +156,34 @@ export class RoomTopologyObserver {
     window.addEventListener('pryzm-room-bounding-pref-changed', this._onBoundingPrefChanged);
   }
 
-  /** F.events.15 typed handler — receives `{ levelIds }` from runtime.events. */
+  /** F.events.15 typed handler — receives `{ levelIds }` from runtime.events.
+   *  §WS-2.B SOFT-COALESCE: queue the redetect via a 300 ms idle timer instead
+   *  of firing it immediately. Each subsequent commit resets the timer so a
+   *  draw streak of N walls produces ONE redetect when the user pauses. The
+   *  immediate-fire path stays on the `_executeRedetect` direct call sites
+   *  (cleanup loop, forced-fire branch) so post-load redetects are still
+   *  synchronous. */
   private _onWallMutationCommitted = (payload: { levelIds?: readonly string[]; levelId?: string }): void => {
     if (this.paused || this._disposed) return;
     const ids = payload?.levelIds ?? (payload?.levelId ? [payload.levelId] : []);
     for (const levelId of ids) {
       if (!levelId) continue;
+      // Cancel the WallStore-debounce timer + first-schedule bookkeeping — the
+      // commit supersedes them. Then start (or reset) the soft-coalesce timer.
       const existing = this.debounceTimers.get(levelId);
       if (existing) clearTimeout(existing);
       this.debounceTimers.delete(levelId);
       this._firstScheduleAt.delete(levelId);
       this._resetCount.delete(levelId);
-      this._executeRedetect(levelId);
+
+      const prevCoalesce = this._commitCoalesceTimers.get(levelId);
+      if (prevCoalesce) clearTimeout(prevCoalesce);
+      const timer = setTimeout(() => {
+        this._commitCoalesceTimers.delete(levelId);
+        if (this._disposed || this.paused) return;
+        this._executeRedetect(levelId);
+      }, SOFT_COALESCE_MS);
+      this._commitCoalesceTimers.set(levelId, timer);
     }
   };
 
@@ -194,6 +222,13 @@ export class RoomTopologyObserver {
         this._resetCount.delete(levelId);
         cancelled++;
       }
+      // §WS-2.B — also cancel any in-flight soft-coalesce timer for this level.
+      const coalesce = this._commitCoalesceTimers.get(levelId);
+      if (coalesce !== undefined) {
+        clearTimeout(coalesce);
+        this._commitCoalesceTimers.delete(levelId);
+        cancelled++;
+      }
     }
     console.log(
       `[RoomTopologyObserver] §G2 cancelled ${cancelled} pending redetect timer(s) for levels: [${[...levelIds].join(', ')}]`
@@ -213,6 +248,10 @@ export class RoomTopologyObserver {
     this._unsubscribers.length = 0;
     for (const [, t] of this.debounceTimers) clearTimeout(t);
     this.debounceTimers.clear();
+    // §WS-2.B — clear soft-coalesce timers too so a disposed observer doesn't
+    // fire stray redetects after teardown.
+    for (const [, t] of this._commitCoalesceTimers) clearTimeout(t);
+    this._commitCoalesceTimers.clear();
     window.removeEventListener('bim-wall-mutation-committed', this._onWallMutationCommittedLegacy as EventListener);
     window.removeEventListener('pryzm-room-bounding-pref-changed', this._onBoundingPrefChanged);
   }
