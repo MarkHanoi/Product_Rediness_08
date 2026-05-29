@@ -150,16 +150,22 @@
         font-size: 13px; font-weight: 700; letter-spacing: 5px; color: #1a2035;
         text-transform: uppercase; line-height: 1;
       }
+      /* §SKEL-MATCH (2026-05-29) — these values must match `.lp-hero-heading`
+         and `.lp-hero-sub` in apps/editor/src/ui/styles/panels/marketingPages.ts
+         exactly, so the swap from skeleton → real LandingPage is invisible.
+         Without this, the user sees a flash of dark-purple subtitle on a
+         washed-out background ("the silent wrong landing"). See memory note
+         landing-skeleton-vs-real-mismatch.md. */
       .lp-skel-heading {
         font-size: clamp(72px, 9.8vw, 146px); font-weight: 800; line-height: 1.0;
         font-family: var(--lp-skel-font);
-        color: rgba(255,255,255,0.92);
-        text-shadow: 0 2px 32px rgba(60,10,160,0.55), 0 4px 64px rgba(90,30,200,0.45), 0 1px 4px rgba(40,10,120,0.35);
+        color: #ffffff;
+        text-shadow: 0 2px 24px rgba(90,30,200,0.22), 0 1px 4px rgba(60,20,150,0.14);
         margin: 0 0 16px; letter-spacing: -0.03em; max-width: none; text-transform: uppercase;
       }
       .lp-skel-sub-copy {
-        font-size: clamp(17px, 1.9vw, 24px); color: #5a4282; line-height: 1.5;
-        margin: 0 0 40px; max-width: 480px; font-weight: 400;
+        font-size: clamp(13px, 1.3vw, 17px); color: rgba(255,255,255,0.88); line-height: 1.5;
+        margin: 0 0 40px; max-width: 480px; font-weight: 400; letter-spacing: 0.01em;
       }
       .lp-skel-hero-ctas {
         display: flex; gap: 12px; align-items: center; justify-content: center;
