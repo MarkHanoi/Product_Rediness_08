@@ -123,9 +123,23 @@ export function buildBubbleGraph(rawProgram: ApartmentProgram, availableAreaM2: 
         positiveOrUndefined(program.roomAreas?.[type]);
     const totalWeight = rooms.reduce((s, r) => s + roomRule(r.type).areaWeight, 0) || 1;
     const withAreas: ProgramRoom[] = rooms.map(r => {
+        const rule = roomRule(r.type);
         const override = overrideForName(r.name) ?? overrideForType(r.type);
-        const raw = override ?? availableAreaM2 * (roomRule(r.type).areaWeight / totalWeight);
-        const targetAreaM2 = Math.max(raw, roomRule(r.type).minAreaM2 || 3);
+        const raw = override ?? availableAreaM2 * (rule.areaWeight / totalWeight);
+        // §AREA-FRACTIONS (2026-05-29) — size-scaled clamps on top of the
+        // proportional split + absolute minAreaM2:
+        //   floor = max(absolute min, minAreaFrac * availableAreaM2)
+        //   ceil  = maxAreaFrac * availableAreaM2  (Infinity when no cap)
+        // Stops the corridor's 0.85 weight from eating 25 % of a 60 m² studio
+        // and stops the master from eating living/kitchen in small flats.
+        const floor = Math.max(
+            rule.minAreaM2 || 3,
+            (rule.minAreaFrac ?? 0) * availableAreaM2,
+        );
+        const ceil = rule.maxAreaFrac !== undefined
+            ? rule.maxAreaFrac * availableAreaM2
+            : Number.POSITIVE_INFINITY;
+        const targetAreaM2 = Math.min(Math.max(raw, floor), Math.max(ceil, floor));
         return { ...r, targetAreaM2 };
     });
 

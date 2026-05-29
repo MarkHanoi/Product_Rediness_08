@@ -111,6 +111,24 @@ export interface RoomRule {
     readonly minAreaM2: number;
     /** Minimum shortest plan dimension (m) — a room narrower than this is unusable. */
     readonly minShortSideM: number;
+
+    /**
+     * §AREA-FRACTIONS (2026-05-29, single-apartment-fix-pass-spec #3 +
+     * program-rules-improvements-queue #3) — soft floor/ceiling on a room's
+     * SHARE OF THE NET APARTMENT AREA. Both are clamps in the bubble graph
+     * allocator, applied AFTER the weight-proportional split and AFTER any
+     * roomAreas/roomAreasByName override:
+     *   targetAreaM2 = clamp(raw, [
+     *     max(minAreaM2, availableAreaM2 * minAreaFrac),
+     *     availableAreaM2 * maxAreaFrac  // ∞ when undefined
+     *   ])
+     * Unlike areaWeight (proportional) these scale automatically with the
+     * apartment size: corridor at 0.10 means 10% in a 60 m² studio AND in a
+     * 200 m² family flat — exactly the spec's "size-scaled cap" intent.
+     * Missing fields ⇒ no clamp (fully backward-compatible).
+     */
+    readonly maxAreaFrac?: number;
+    readonly minAreaFrac?: number;
     /** Habitable: benefits from daylight (sizing + the daylight objective). */
     readonly needsWindow: boolean;
     /** Legal hard-requirement: a layout where this room lacks a window is REJECTED. */
@@ -174,7 +192,9 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
     living: {
         type: 'living', occupancy: 'living-room', privacy: 'public',
         // DB-047 minAreaM2 14 (HQI mandatory); DB-049 minShortSide 3.2 m.
+        // §AREA-FRACTIONS — living must be ≥ 15 % of the apartment (spec floor).
         areaWeight: 1.7, minAreaM2: 14, minShortSideM: 3.2, needsWindow: true, windowMandatory: true,
+        minAreaFrac: 0.15,
         accessFrom: ['hall', 'corridor', 'kitchen', 'dining'], maxDoors: INF,
         adjacencyPreference: { kitchen: 1.0, dining: 1.0, hall: 0.8, corridor: 0.5 },
         requiredFurniture: ['sofa'], optionalFurniture: ['coffee_table', 'lamp'], requiredFixtures: [],
@@ -189,7 +209,9 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         type: 'kitchen', occupancy: 'kitchen', privacy: 'public',
         // DB-052 minAreaM2 6.0 (galley HQI mandatory); DB-054 min galley aisle 1.0 m,
         // counter depth 600 mm ⇒ min short side ≈ 1.8 m for a working galley.
+        // §AREA-FRACTIONS — kitchen ≥ 7 % of the apartment (spec floor).
         areaWeight: 0.95, minAreaM2: 6, minShortSideM: 1.8, needsWindow: true, windowMandatory: true,
+        minAreaFrac: 0.07,
         // No direct hall→kitchen: kitchen is reached via the living/dining zone.
         accessFrom: ['corridor', 'living', 'dining', 'utility'], maxDoors: INF,
         // §ADJACENCY-PREFERENCE — kitchen↔dining is the classic open-plan pair (1.0),
@@ -255,7 +277,11 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         // areaWeight bumped 0.45 → 0.85: the corridor must physically span all
         // private rooms so each bedroom shares a wall with it (the bedroom-to-bath-
         // -only defect comes from a small corridor that only touches 1–2 bedrooms).
+        // §AREA-FRACTIONS — cap corridor at 10 % of the apartment so the 0.85
+        // weight doesn't eat 25 %+ of a 60 m² studio (the fix-pass-spec
+        // "corridor/hall combined ≤ 12 %"; hall is small so 10 + 2 % gives slack).
         areaWeight: 0.85, minAreaM2: 0, minShortSideM: 1.0, needsWindow: false, windowMandatory: false,
+        maxAreaFrac: 0.10,
         accessFrom: ['hall', 'living', 'kitchen', 'dining', 'bedroom', 'master', 'bathroom', 'study', 'utility'], maxDoors: INF,
         // Corridor IS the private-zone spine — bedroom/master/bath off the corridor are
         // strongly preferred (1.0/0.9). Hall→corridor is the architectural entry point.
@@ -276,7 +302,10 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         // DB-020 master minAreaM2 12 (Building Regs mandatory); DB-022 min clear width
         // 2.75 m to fit a double bed with circulation both sides; DB-023 clear length
         // 3.2 m recommended HQI; DB-021 recommended 16-20 m².
+        // §AREA-FRACTIONS — master ≤ 20 % of the apartment (spec ceiling). Stops
+        // the master from eating living/kitchen area in small flats.
         areaWeight: 1.3, minAreaM2: 12, minShortSideM: 2.75, needsWindow: true, windowMandatory: true,
+        maxAreaFrac: 0.20,
         // Master is reached from CORRIDOR / living / dining AND connects to its
         // en-suite — never directly off the entrance hall (the user's rule).
         accessFrom: ['corridor', 'living', 'dining', 'ensuite'], maxDoors: 2,
@@ -303,7 +332,9 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         // DB-026 double bedroom minAreaM2 11.5 (Building Regs mandatory); DB-028 min
         // clear width 2.6 m. (Single bedroom 7.5 m² / 2.15 m is permitted by Building
         // Regs DB-030/031 but we default to double-capable to avoid box rooms.)
+        // §AREA-FRACTIONS — secondary bedroom ≤ 16 % each (spec ceiling).
         areaWeight: 1.0, minAreaM2: 11.5, minShortSideM: 2.6, needsWindow: true, windowMandatory: true,
+        maxAreaFrac: 0.16,
         // A bedroom's door MUST land on circulation or a social space — never another
         // bedroom and never directly off the entrance hall. The user's explicit rule:
         // "bedrooms should connect with the door to a corridor / living / dining."
@@ -343,7 +374,10 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         type: 'bathroom', occupancy: 'bathroom', privacy: 'private',
         // DB-035 full bathroom minAreaM2 5.0 (BS 8300 mandatory); DB-037 min clear
         // width 1.8 m. DB-039 shower-room only is 3.5 m² — we default to full.
+        // §AREA-FRACTIONS — bathroom ≥ 5 % of the apartment (spec floor) so it
+        // doesn't get squeezed below the legal full-bath minimum in small flats.
         areaWeight: 0.45, minAreaM2: 5, minShortSideM: 1.8, needsWindow: false, windowMandatory: false,
+        minAreaFrac: 0.05,
         // §BATH-CORRIDOR-ONLY (2026-05-29) — shared bathroom door goes to the
         // CORRIDOR only. The previous list permitted `bedroom` and `master`,
         // which lets a layout open a SHARED bath directly into a bedroom — that

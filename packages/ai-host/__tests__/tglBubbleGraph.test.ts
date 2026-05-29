@@ -62,6 +62,45 @@ describe('buildBubbleGraph (TGL P2)', () => {
         expect(e.via).toBe('open');
     });
 
+    // §AREA-FRACTIONS (2026-05-29, single-apartment-fix-pass-spec #3 +
+    // program-rules-improvements-queue #3) — size-scaled clamps.
+    describe('§AREA-FRACTIONS — size-scaled min/max clamps', () => {
+        it('caps the corridor at 10% of the apartment so it does not eat small flats', () => {
+            // On a 60 m² studio-ish flat with 2 beds/1 bath, the corridor's
+            // 0.85 weight would otherwise eat 20%+ of the area. The cap is 10%.
+            const g = buildBubbleGraph(PROGRAM, 60);
+            const corridor = g.rooms.find(r => r.type === 'corridor');
+            expect(corridor).toBeDefined();
+            expect(corridor!.targetAreaM2).toBeLessThanOrEqual(60 * 0.10 + 1e-6);
+        });
+
+        it('caps the master at 20% of the apartment', () => {
+            const g = buildBubbleGraph(PROGRAM, 100);
+            const master = g.rooms.find(r => r.type === 'master');
+            expect(master).toBeDefined();
+            expect(master!.targetAreaM2).toBeLessThanOrEqual(100 * 0.20 + 1e-6);
+            // But still above the absolute minAreaM2 floor (12 m²).
+            expect(master!.targetAreaM2).toBeGreaterThanOrEqual(12);
+        });
+
+        it('caps each secondary bedroom at 16% of the apartment', () => {
+            const g = buildBubbleGraph(PROGRAM, 100);
+            const bedrooms = g.rooms.filter(r => r.type === 'bedroom');
+            for (const b of bedrooms) {
+                expect(b.targetAreaM2).toBeLessThanOrEqual(100 * 0.16 + 1e-6);
+            }
+        });
+
+        it('lifts the living-room floor to 15% of the apartment on large shells', () => {
+            // On 200 m², living's weight-share would land at ~33 m². The
+            // 15%-floor is 30 m² — already below, no change. Test the
+            // BIG-shell guarantee.
+            const g = buildBubbleGraph(PROGRAM, 200);
+            const living = g.rooms.find(r => r.type === 'living')!;
+            expect(living.targetAreaM2).toBeGreaterThanOrEqual(200 * 0.15 - 1e-6);
+        });
+    });
+
     it('no corridor when there are no private rooms', () => {
         const studio: ApartmentProgram = { bedrooms: 0, bathrooms: 0, masterEnSuite: false, openPlanKitchenDining: true, livingRoom: true, entranceHall: true };
         const g = buildBubbleGraph(studio, 50);
