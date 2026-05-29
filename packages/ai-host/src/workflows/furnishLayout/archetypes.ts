@@ -35,9 +35,14 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
     'kitchen': {
         occupancy: 'kitchen', minAreaM2: 5,
         items: [
-            // §FURNITURE-SPEC: the L-run avoids the door wall — door swings into the
-            // working zone otherwise, and there is no working triangle.
-            { kind: 'kitchen_l_shape', anchor: 'wall-longest', facing: 'to-wall', required: true, excludeDoorSwing: true },
+            // §FURNITURE-SPEC: the L-shape kitchen wraps TWO adjacent walls — emitted
+            // as two perpendicular straight runs. Both anchor `wall-longest` with
+            // excludeDoorSwing; the cascading anchor-wall resolver puts the second
+            // on a perpendicular wall once the first claims the primary (longest)
+            // wall, naturally forming an L at the corner. The second run is optional
+            // — small kitchens that can't fit two runs gracefully degrade to one.
+            { kind: 'kitchen_straight', anchor: 'wall-longest', facing: 'to-wall', required: true,  excludeDoorSwing: true },
+            { kind: 'kitchen_straight', anchor: 'wall-longest', facing: 'to-wall', required: false, excludeDoorSwing: true },
         ],
     },
     'dining-room': {

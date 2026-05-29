@@ -142,17 +142,31 @@ describe('furnishRoom (D-FLE F5/F7)', () => {
             expect(toilet!.position.z).toBeGreaterThan(1.0);
         });
 
-        // Kitchen run on the door wall blocks the working triangle. The L-run
-        // should anchor on a wall without the door — picks the opposite wall.
-        it('kitchen run anchors on the wall opposite the door', () => {
-            // 3.5 × 3 room — door on the bottom wall; the L-run must clear it.
+        // Kitchen run on the door wall blocks the working triangle. The main
+        // run should anchor on a wall without the door — picks the opposite wall.
+        it('kitchen main run anchors on the wall opposite the door', () => {
+            // 3.5 × 3 room — door on the bottom wall; the kitchen run must clear it.
             const room = rectRoom('kitchen', 3.5, 3);
-            const run = furnishRoom(room).find(i => i.kind === 'kitchen_l_shape');
+            const run = furnishRoom(room).find(i => i.kind === 'kitchen_straight');
             expect(run).toBeDefined();
             // The kitchen run (3.0 × 0.6) anchored on the TOP wall has centre
             // z ≈ 3 − 0.6/2 − 0.02 ≈ 2.68; on the bottom (door) wall it would
             // sit at z ≈ 0.32.
             expect(run!.position.z).toBeGreaterThan(1.5);
+        });
+
+        // §FURNITURE-SPEC L-shape: TWO kitchen_straight runs on adjacent walls
+        // form the architectural L. The cascading anchor-wall resolver puts the
+        // second run on a wall perpendicular to the first.
+        it('kitchen places TWO perpendicular runs forming an L', () => {
+            const room = rectRoom('kitchen', 5, 4);
+            const runs = furnishRoom(room).filter(i => i.kind === 'kitchen_straight');
+            expect(runs.length).toBe(2);
+            // The two runs' yaws must differ by π/2 (perpendicular walls).
+            const yaw1 = runs[0]!.rotationY, yaw2 = runs[1]!.rotationY;
+            const diff = Math.abs(((yaw1 - yaw2) % Math.PI) + Math.PI) % Math.PI;
+            const fromHalfPi = Math.abs(diff - Math.PI / 2);
+            expect(fromHalfPi).toBeLessThan(0.01);
         });
 
         // Bedroom wardrobe MUST still be placed (it's required) even when
@@ -197,7 +211,7 @@ describe('furnishRoom (D-FLE F5/F7)', () => {
             const room = rectRoom('living-room', 8, 6);
             const placed = furnishRoomCompound(room, ['living-room', 'kitchen', 'dining-room']);
             expect(placed.some(p => p.kind === 'sofa')).toBe(true);
-            expect(placed.some(p => p.kind === 'kitchen_l_shape')).toBe(true);
+            expect(placed.some(p => p.kind === 'kitchen_straight')).toBe(true);
             expect(placed.some(p => p.kind === 'dining_table')).toBe(true);
         });
 

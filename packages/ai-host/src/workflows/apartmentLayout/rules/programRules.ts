@@ -178,12 +178,16 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         areaWeight: 0.95, minAreaM2: 6, minShortSideM: 1.8, needsWindow: true, windowMandatory: true,
         // No direct hall→kitchen: kitchen is reached via the living/dining zone.
         accessFrom: ['corridor', 'living', 'dining', 'utility'], maxDoors: INF,
-        requiredFurniture: ['kitchen_l_shape'], optionalFurniture: [], requiredFixtures: ['sink'],
+        requiredFurniture: ['kitchen_straight'], optionalFurniture: ['kitchen_straight'], requiredFixtures: ['sink'],
         furnitureSpec: [
-            // Kitchen runs sit against the LONGEST FREE WALL (or two adjacent walls
-            // for an L-shape). Door arc clears the working zone; the sink prefers
-            // the window wall so excludeWindowWall is FALSE.
-            { kind: 'kitchen_l_shape', sizeW: 3000, sizeD: 600, clearFoot: 1000, clearSide: 0, placementRule: 'longest_wall', excludeDoorSwing: true, excludeWindowWall: false, required: true },
+            // Kitchen runs sit on the LONGEST FREE WALL (architectural intent of
+            // "L-shape" is the TWO ADJACENT WALLS case). The pure engine emits
+            // two perpendicular `kitchen_straight` runs; the cascading anchor
+            // resolver puts the second on a wall adjacent to the first, naturally
+            // forming an L at a corner. Door arc clears the working zone; the
+            // sink prefers the window wall so excludeWindowWall is FALSE.
+            { kind: 'kitchen_straight', sizeW: 3000, sizeD: 600, clearFoot: 1000, clearSide: 0, placementRule: 'longest_wall', excludeDoorSwing: true, excludeWindowWall: false, required: true },
+            { kind: 'kitchen_straight', sizeW: 3000, sizeD: 600, clearFoot: 1000, clearSide: 0, placementRule: 'longest_wall', excludeDoorSwing: true, excludeWindowWall: false, required: false },
         ],
         description: 'Food preparation. Works open-plan with dining; reached via the living/dining zone, never directly off the entrance hall.',
     },
