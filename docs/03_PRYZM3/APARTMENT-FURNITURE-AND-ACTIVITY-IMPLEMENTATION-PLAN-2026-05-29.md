@@ -609,7 +609,7 @@ Ship in parallel with foundational tiers. These close visible single-apartment g
 | ID | Deliverable | Doc source | Est | Status |
 |---|---|---|---|---|
 | **D1.1–D1.5** | Dimensional data tables | DIMENSIONAL §9.1 | 4 d | ✅ shipped (D1.1 schema + D1.2 RoomDimensions + D1.4 ApartmentDimensions + D1.5 pin tests) |
-| **T1.1–T1.6** | Topology adjacency data tables | DIMENSIONAL §19.1 | 3 d | 🟨 T1.1 + T1.2 + T1.4 + T1.5 ✅ (types + mandatory-rule derivation + wet/acoustic classifications); T1.3 + T1.6 still pending |
+| **T1.1–T1.6** | Topology adjacency data tables | DIMENSIONAL §19.1 | 3 d | ✅ shipped — T1.1+T1.2 (types + mandatory-rule derivation), T1.3 (`acousticRole` on RoomRule, ACOUSTIC_SOURCE/RECEIVER derived), T1.4+T1.5 (wet-cluster classifications inline + tested), T1.6 (`frontage` on RoomRule, FRONTAGE_REQUIRED/PREFERRED derived); +10 pin tests asserting single-source-of-truth + windowMandatory⇔frontage≠none consistency |
 | **D2.1** | `validateRoomShape` | DIMENSIONAL §9.2 | 2 d | ✅ shipped — G1 area + G2 width + G3 length + G4 aspect + G6 wall, hard + soft tiers, +18 tests |
 | **D2.2** | `validateRoomFit` | DIMENSIONAL §9.2 | 3 d | ⬜ |
 | **D2.3** | `kitchenTriangleValidator` | DIMENSIONAL §9.2 | 1 d | ⬜ |

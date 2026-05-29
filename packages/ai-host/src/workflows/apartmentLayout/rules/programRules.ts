@@ -19,6 +19,31 @@ import type { RoomType } from '../types.js';
 /** Privacy gradient — drives the space-syntax depth + the door permission matrix. */
 export type PrivacyClass = 'public' | 'circulation' | 'private' | 'service';
 
+/**
+ * T1.3 — Acoustic role
+ * (APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK §19.1).
+ * Classifies a room as a noise SOURCE (TV/cooking/conversation/washer-dryer),
+ * a noise RECEIVER (sleeping/concentrating), or NEUTRAL (transient circulation).
+ * Read by `topology/validateAcousticZoning.ts` to penalise source↔receiver shared
+ * walls. Previously held inline in `topology/adjacencyRules.ts` as Sets; lifted
+ * here so the per-room database remains the single source of truth.
+ */
+export type AcousticRole = 'source' | 'receiver' | 'neutral';
+
+/**
+ * T1.6 — Frontage preference
+ * (APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK §19.1).
+ * How strongly this room type benefits from sitting on the external perimeter:
+ *   'required'  — habitable + window-mandatory (living, master, bedroom)
+ *   'preferred' — gains quality from a façade but can ship without
+ *                 (study, kitchen when not en-suite to dining, dining)
+ *   'none'      — interior-acceptable (bathroom, wc, corridor, hall, utility)
+ * Distinct from `windowMandatory` (which is about the glazing requirement when
+ * a room IS on the perimeter). Read by L4-δ-4 frontage allocators + T2.5 spatial-
+ * proportion validators.
+ */
+export type FrontagePreference = 'required' | 'preferred' | 'none';
+
 // ── §FURNITURE-SPEC (2026-05-28, architect's interactive plan database) ──────
 // Architect-mandated DOOR-VECTOR-AWARE placement metadata. The big algorithmic
 // insight: every piece of furniture is placed RELATIVE TO THE DOOR ARC, not at
@@ -103,6 +128,10 @@ export interface RoomRule {
     /** RoomOccupancyType string (editor) — how the detected room is coloured/tagged. */
     readonly occupancy: string;
     readonly privacy: PrivacyClass;
+    /** T1.3 — acoustic role (noise source / receiver / neutral). */
+    readonly acousticRole: AcousticRole;
+    /** T1.6 — façade frontage preference. */
+    readonly frontage: FrontagePreference;
 
     // ── Sizing (bubbleGraph P2) ────────────────────────────────────────────────
     /** Relative area weight — bigger rooms claim more of the shell. */
@@ -191,6 +220,7 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
 
     living: {
         type: 'living', occupancy: 'living-room', privacy: 'public',
+        acousticRole: 'source', frontage: 'required',
         // DB-047 minAreaM2 14 (HQI mandatory); DB-049 minShortSide 3.2 m.
         // §AREA-FRACTIONS — living must be ≥ 15 % of the apartment (spec floor).
         areaWeight: 1.7, minAreaM2: 14, minShortSideM: 3.2, needsWindow: true, windowMandatory: true,
@@ -207,6 +237,7 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
     },
     kitchen: {
         type: 'kitchen', occupancy: 'kitchen', privacy: 'public',
+        acousticRole: 'source', frontage: 'required',
         // DB-052 minAreaM2 6.0 (galley HQI mandatory); DB-054 min galley aisle 1.0 m,
         // counter depth 600 mm ⇒ min short side ≈ 1.8 m for a working galley.
         // §AREA-FRACTIONS — kitchen ≥ 7 % of the apartment (spec floor).
@@ -233,6 +264,7 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
     },
     dining: {
         type: 'dining', occupancy: 'dining-room', privacy: 'public',
+        acousticRole: 'source', frontage: 'preferred',
         // DB-060 minAreaM2 9.0 (HQI separate dining mandatory).
         areaWeight: 0.9, minAreaM2: 9, minShortSideM: 2.4, needsWindow: true, windowMandatory: false,
         // No direct hall→dining: same reason as kitchen.
@@ -250,6 +282,7 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
     // ── Circulation ──────────────────────────────────────────────────────────────
     hall: {
         type: 'hall', occupancy: 'entrance-lobby', privacy: 'circulation',
+        acousticRole: 'neutral', frontage: 'none',
         // DB-065 minAreaM2 2.5 (HQI mandatory); DB-062 main corridor clear 1.0 m.
         areaWeight: 0.5, minAreaM2: 2.5, minShortSideM: 1.2, needsWindow: false, windowMandatory: false,
         // The entrance hall is a CLEAN lobby: it distributes ONLY to the living space
@@ -272,6 +305,7 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
     },
     corridor: {
         type: 'corridor', occupancy: 'corridor', privacy: 'circulation',
+        acousticRole: 'neutral', frontage: 'none',
         // DB-062 main corridor clear 1.0 m mandatory (Part M); 1.2 m recommended HQI;
         // DB-064 secondary corridor 0.9 m mandatory. Pick 1.0 m as the default minimum.
         // areaWeight bumped 0.45 → 0.85: the corridor must physically span all
@@ -299,6 +333,7 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
     // ── Private (sleeping / work) ──────────────────────────────────────────────
     master: {
         type: 'master', occupancy: 'bedroom', privacy: 'private',
+        acousticRole: 'receiver', frontage: 'required',
         // DB-020 master minAreaM2 12 (Building Regs mandatory); DB-022 min clear width
         // 2.75 m to fit a double bed with circulation both sides; DB-023 clear length
         // 3.2 m recommended HQI; DB-021 recommended 16-20 m².
@@ -329,6 +364,7 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
     },
     bedroom: {
         type: 'bedroom', occupancy: 'bedroom', privacy: 'private',
+        acousticRole: 'receiver', frontage: 'required',
         // DB-026 double bedroom minAreaM2 11.5 (Building Regs mandatory); DB-028 min
         // clear width 2.6 m. (Single bedroom 7.5 m² / 2.15 m is permitted by Building
         // Regs DB-030/031 but we default to double-capable to avoid box rooms.)
@@ -355,6 +391,7 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
     },
     study: {
         type: 'study', occupancy: 'private-office', privacy: 'private',
+        acousticRole: 'receiver', frontage: 'preferred',
         areaWeight: 0.85, minAreaM2: 5, minShortSideM: 2.0, needsWindow: true, windowMandatory: false,
         accessFrom: ['corridor', 'living'], maxDoors: 1,
         requiredFurniture: ['dining_table'], optionalFurniture: ['dining_chair', 'lamp'], requiredFixtures: [],
@@ -372,6 +409,7 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
     // ── Wet rooms ────────────────────────────────────────────────────────────────
     bathroom: {
         type: 'bathroom', occupancy: 'bathroom', privacy: 'private',
+        acousticRole: 'neutral', frontage: 'none',
         // DB-035 full bathroom minAreaM2 5.0 (BS 8300 mandatory); DB-037 min clear
         // width 1.8 m. DB-039 shower-room only is 3.5 m² — we default to full.
         // §AREA-FRACTIONS — bathroom ≥ 5 % of the apartment (spec floor) so it
@@ -403,6 +441,7 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
     },
     ensuite: {
         type: 'ensuite', occupancy: 'bathroom', privacy: 'private',
+        acousticRole: 'neutral', frontage: 'none',
         // DB-039 shower-room minAreaM2 3.5 (BS 8300 mandatory); DB-040 min width 1.5 m.
         areaWeight: 0.4, minAreaM2: 3.5, minShortSideM: 1.5, needsWindow: false, windowMandatory: false,
         // An en-suite is reached ONLY through its master bedroom.
@@ -427,6 +466,7 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
     // dining (a WC off a social room is the architectural anti-pattern).
     wc: {
         type: 'wc', occupancy: 'wc', privacy: 'private',
+        acousticRole: 'neutral', frontage: 'none',
         // UK Building Regs typical: 1.2 m² + 0.9 m short side for a "cloakroom WC"
         // (DB-039-related, smaller envelope than a full bathroom).
         areaWeight: 0.25, minAreaM2: 1.2, minShortSideM: 0.9, needsWindow: false, windowMandatory: false,
@@ -448,6 +488,7 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
     // ── Service ──────────────────────────────────────────────────────────────────
     utility: {
         type: 'utility', occupancy: 'utility-room', privacy: 'service',
+        acousticRole: 'source', frontage: 'none',
         // DB-068 utility room minAreaM2 3.5 (HQI recommended, washer + dryer side-by-side).
         areaWeight: 0.4, minAreaM2: 3.5, minShortSideM: 1.5, needsWindow: false, windowMandatory: false,
         accessFrom: ['corridor', 'kitchen'], maxDoors: 1,

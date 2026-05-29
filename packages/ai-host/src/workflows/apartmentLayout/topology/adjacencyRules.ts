@@ -16,6 +16,7 @@
 // Pure data + program-conditional logic — ZERO side effects.
 
 import type { ApartmentProgram, RoomType } from '../types.js';
+import { ROOM_RULES } from '../rules/programRules.js';
 import type { MandatoryAdjacency } from './types.js';
 
 /**
@@ -61,19 +62,44 @@ export function mandatoryAdjacenciesFor(program: ApartmentProgram): readonly Man
 
 /**
  * Per-room types classified by their "wet" status. Used by T2.4 wet-cluster
- * validator (later commit). EXPOSED here so a future caller can introspect.
+ * validator. EXPOSED here so a future caller can introspect.
+ *
+ * Kept INLINE because "wet" is a plumbing-routing concept (does this room have
+ * drainage / supply), not a per-room program field. If a future requirement
+ * makes "wet" per-room-configurable, lift to a `wet: boolean` RoomRule field;
+ * for now the inline set + the implicit "fixtures include drainage" rule is
+ * the canonical source.
  */
 export const WET_ROOM_TYPES: ReadonlySet<RoomType> =
     new Set<RoomType>(['kitchen', 'bathroom', 'ensuite', 'wc', 'utility']);
 
 /**
- * Acoustic-source / acoustic-receiver classification. Sources GENERATE noise
- * (TV, conversation, cooking, washer/dryer). Receivers are SENSITIVE to noise
- * (sleeping, concentration). Used by T2.3 acoustic-zoning validator (later
- * commit).
+ * T1.3 — Acoustic-source / acoustic-receiver classification. Sources GENERATE
+ * noise (TV, conversation, cooking, washer/dryer). Receivers are SENSITIVE
+ * to noise (sleeping, concentration). Used by T2.3 `validateAcousticZoning`.
+ *
+ * **T1.3 (2026-05-29)**: derived from `RoomRule.acousticRole` so the per-room
+ * database in `programRules.ts` remains the single source of truth. Previously
+ * declared inline as static sets — those sets caused a quiet split-brain risk
+ * the moment a new RoomType landed without updating both places.
  */
-export const ACOUSTIC_SOURCE_TYPES: ReadonlySet<RoomType> =
-    new Set<RoomType>(['living', 'dining', 'kitchen', 'utility']);
+const TYPES_WITH_ROLE = (role: 'source' | 'receiver'): Set<RoomType> =>
+    new Set((Object.values(ROOM_RULES) as ReadonlyArray<{ type: RoomType; acousticRole: 'source' | 'receiver' | 'neutral' }>)
+        .filter(r => r.acousticRole === role)
+        .map(r => r.type));
 
-export const ACOUSTIC_RECEIVER_TYPES: ReadonlySet<RoomType> =
-    new Set<RoomType>(['master', 'bedroom', 'study']);
+export const ACOUSTIC_SOURCE_TYPES: ReadonlySet<RoomType> = TYPES_WITH_ROLE('source');
+export const ACOUSTIC_RECEIVER_TYPES: ReadonlySet<RoomType> = TYPES_WITH_ROLE('receiver');
+
+/**
+ * T1.6 — Façade frontage requirements per RoomType. Derived from
+ * `RoomRule.frontage`. EXPOSED so L4-δ-4 frontage allocators + T2.5 spatial-
+ * proportion validators can query without re-importing ROOM_RULES.
+ */
+const TYPES_WITH_FRONTAGE = (level: 'required' | 'preferred' | 'none'): Set<RoomType> =>
+    new Set((Object.values(ROOM_RULES) as ReadonlyArray<{ type: RoomType; frontage: 'required' | 'preferred' | 'none' }>)
+        .filter(r => r.frontage === level)
+        .map(r => r.type));
+
+export const FRONTAGE_REQUIRED_TYPES: ReadonlySet<RoomType> = TYPES_WITH_FRONTAGE('required');
+export const FRONTAGE_PREFERRED_TYPES: ReadonlySet<RoomType> = TYPES_WITH_FRONTAGE('preferred');
