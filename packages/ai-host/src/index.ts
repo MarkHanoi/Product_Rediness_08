@@ -243,6 +243,8 @@ export { DEFAULT_LAYOUT_FIXTURE } from './AnthropicRelay.js';
 export { furnishRoom, furnishRoomCompound } from './workflows/furnishLayout/furnishRoom.js';
 export { buildFurnishCommands } from './workflows/furnishLayout/buildFurnishCommands.js';
 export { archetypeFor } from './workflows/furnishLayout/archetypes.js';
+export { validateFurnishedRoom } from './workflows/furnishLayout/validate.js';
+export type { FurnishValidation } from './workflows/furnishLayout/validate.js';
 export type {
   FurnitureKind,
   FurnishableOccupancy,
