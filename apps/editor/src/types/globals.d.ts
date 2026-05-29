@@ -165,6 +165,9 @@ declare global {
         wallStore:              unknown;
         /** #51 — DevTools console command to generate AI apartment layouts. */
         pryzmGenerateApartmentLayout?: () => void;
+        /** §HELP — prints every pryzm…() console command for the apartment
+         *  generation pipeline (apartment → ceiling → furnish → lighting). */
+        pryzmShowApartmentHelp?: () => void;
 
         // ── Command dispatch globals ──────────────────────────────────────────
         commandManager:

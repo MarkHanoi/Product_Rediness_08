@@ -65,8 +65,31 @@ export function triggerApartmentLayout(runtimeArg?: PryzmRuntime | null): void {
     }
 }
 
-/** Register the DevTools console command `window.pryzmGenerateApartmentLayout()`. */
+/** §HELP (2026-05-29) — print every pryzm…() console command for the
+ *  apartment generation pipeline, with a one-line description so the
+ *  architect can discover the full toolkit without grepping the source. */
+function showApartmentHelp(): void {
+    const rows: readonly { cmd: string; desc: string }[] = [
+        { cmd: 'pryzmGenerateApartmentLayout()', desc: 'Generate AI apartment layouts for the active level (opens the §11 modal).' },
+        { cmd: 'pryzmCeilAllRooms()',            desc: 'Auto-build a ceiling slab in every ceilable room on the active level (D-CE).' },
+        { cmd: 'pryzmFurnishAllRooms()',         desc: 'Auto-furnish every furnishable room on the active level (D-FLE).' },
+        { cmd: 'pryzmLightAllRooms()',           desc: 'Auto-place ceiling lights in every lit room on the active level (D-LE).' },
+        { cmd: 'pryzmFurnishAndLightAllRooms()', desc: 'Furnish + auto-chain lighting in one go (for the manual-walls case).' },
+        { cmd: 'pryzmShowFurnishWarnings()',     desc: 'Print the last furnish run\'s circulation-gate warnings (§VALIDATE).' },
+        { cmd: 'pryzmShowApartmentHelp()',       desc: 'Print this help.' },
+    ];
+    console.group('[apartment-layout] §HELP — pryzm…() console commands');
+    console.log('Apartment-generation pipeline: apartment → ceiling → furnish → lighting.');
+    console.log('Each stage auto-fires on the prior stage\'s done-event; the commands below force a manual run.');
+    console.table(rows);
+    console.groupEnd();
+}
+
+/** Register the DevTools console commands `window.pryzmGenerateApartmentLayout()`
+ *  + `window.pryzmShowApartmentHelp()`. */
 export function installApartmentLayoutConsoleTrigger(runtime: PryzmRuntime | null): void {
     window.pryzmGenerateApartmentLayout = () => triggerApartmentLayout(runtime);
+    window.pryzmShowApartmentHelp = showApartmentHelp;
     console.log('[apartment-layout] console command ready — run pryzmGenerateApartmentLayout() to generate.');
+    console.log('[apartment-layout] §HELP console command ready — run pryzmShowApartmentHelp() to list every pryzm…() command.');
 }
