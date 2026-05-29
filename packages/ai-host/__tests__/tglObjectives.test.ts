@@ -182,4 +182,78 @@ describe('computeObjectives (TGL P7)', () => {
         const m = metricsOf({ B: 1 });
         expect(computeObjectives(lit, m, emptyBubble).daylight).toBeGreaterThan(computeObjectives(dark, m, emptyBubble).daylight);
     });
+
+    // §L1-α-2 ENHANCEMENT (2026-05-29) — when bubble.daylightField is present,
+    // the `daylight` axis weights each fronting room's contribution by the
+    // depth-field score, so a shallow lit room out-scores a deep-but-lit room.
+    it('daylight (with field): shallow lit room scores higher than deep lit room', () => {
+        // 12 × 10 shell with south façade at z = 0. South sunlight = 1.0.
+        // Two rooms BOTH formally fronting the façade (the BOUNDS edge says so),
+        // but one is at the south edge (depth = 0 → score ≈ 1) and one is at
+        // the north end (depth ≈ 7 → score ≈ 0).
+        const program: ApartmentProgram = {
+            bedrooms: 2, bathrooms: 1, masterEnSuite: true,
+            openPlanKitchenDining: true, livingRoom: true, entranceHall: true,
+        };
+        const poly: Pt[] = [{ x: 0, z: 0 }, { x: 12, z: 0 }, { x: 12, z: 10 }, { x: 0, z: 10 }];
+        const bubble = buildBubbleGraph(program, 120, poly);
+        expect(bubble.daylightField).toBeDefined();
+
+        const extWall: GraphNode = { guid: 'W', kind: 'Wall', sourceId: 'w', attrs: { isExternal: true }, psets: {} };
+        // Shallow room: rect (0..4, 0..3) — flush with south façade.
+        const shallow: GraphNode = {
+            guid: 'S', kind: 'Space', sourceId: 'S',
+            attrs: { spaceType: 'bedroom', netAreaM2: 12, isPrivate: true, needsWindow: true },
+            geometry: { polygon: [{ x: 0, z: 0 }, { x: 4, z: 0 }, { x: 4, z: 3 }, { x: 0, z: 3 }] },
+            psets: {},
+        };
+        // Deep room: rect (0..4, 7..10) — at the north end, 7 m deep.
+        const deep: GraphNode = {
+            guid: 'D', kind: 'Space', sourceId: 'D',
+            attrs: { spaceType: 'bedroom', netAreaM2: 12, isPrivate: true, needsWindow: true },
+            geometry: { polygon: [{ x: 0, z: 7 }, { x: 4, z: 7 }, { x: 4, z: 10 }, { x: 0, z: 10 }] },
+            psets: {},
+        };
+        const shallowGraph = graphOf([extWall, shallow], [{ kind: 'BOUNDS', from: 'W', to: 'S' }]);
+        const deepGraph = graphOf([extWall, deep], [{ kind: 'BOUNDS', from: 'W', to: 'D' }]);
+        const m = metricsOf({ S: 1 });
+        const m2 = metricsOf({ D: 1 });
+        const shallowScore = computeObjectives(shallowGraph, m, bubble).daylight;
+        const deepScore = computeObjectives(deepGraph, m2, bubble).daylight;
+        expect(shallowScore).toBeGreaterThan(deepScore);
+        // The deep room still gets SOME daylight from the WEST façade (room is
+        // 0–4 m off the west wall), but materially less than the south-flush
+        // shallow room. The ratio must be ≥ 1.7×.
+        expect(shallowScore / Math.max(deepScore, 1e-9)).toBeGreaterThan(1.7);
+        // And the shallow room near 1 (flush with south façade).
+        expect(shallowScore).toBeGreaterThan(0.7);
+    });
+
+    it('daylight (no field): behaviour unchanged (back-compat)', () => {
+        // emptyBubble has no daylightField → the prior binary fronts-facade
+        // computation must produce the same number for both rooms regardless
+        // of their position in world space.
+        const extWall: GraphNode = { guid: 'W', kind: 'Wall', sourceId: 'w', attrs: { isExternal: true }, psets: {} };
+        const shallow: GraphNode = {
+            guid: 'S', kind: 'Space', sourceId: 'S',
+            attrs: { spaceType: 'bedroom', netAreaM2: 12, isPrivate: true, needsWindow: true },
+            geometry: { polygon: [{ x: 0, z: 0 }, { x: 4, z: 0 }, { x: 4, z: 3 }, { x: 0, z: 3 }] },
+            psets: {},
+        };
+        const deep: GraphNode = {
+            guid: 'D', kind: 'Space', sourceId: 'D',
+            attrs: { spaceType: 'bedroom', netAreaM2: 12, isPrivate: true, needsWindow: true },
+            geometry: { polygon: [{ x: 0, z: 7 }, { x: 4, z: 7 }, { x: 4, z: 10 }, { x: 0, z: 10 }] },
+            psets: {},
+        };
+        const shallowGraph = graphOf([extWall, shallow], [{ kind: 'BOUNDS', from: 'W', to: 'S' }]);
+        const deepGraph = graphOf([extWall, deep], [{ kind: 'BOUNDS', from: 'W', to: 'D' }]);
+        const m = metricsOf({ S: 1 });
+        const m2 = metricsOf({ D: 1 });
+        const shallowScore = computeObjectives(shallowGraph, m, emptyBubble).daylight;
+        const deepScore = computeObjectives(deepGraph, m2, emptyBubble).daylight;
+        // Both score the same: each room fronts the façade ⇒ ratio = 1.
+        expect(shallowScore).toBe(deepScore);
+        expect(shallowScore).toBe(1);
+    });
 });

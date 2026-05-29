@@ -76,6 +76,14 @@ const polyWH = (n: GraphNode): { w: number; h: number } => {
     for (const pt of p) { if (pt.x < x0) x0 = pt.x; if (pt.x > x1) x1 = pt.x; if (pt.z < z0) z0 = pt.z; if (pt.z > z1) z1 = pt.z; }
     return { w: x1 - x0, h: z1 - z0 };
 };
+/** §L1-α-2 (2026-05-29) — bounding rect (world XZ) of a graph node's polygon. */
+const polyRect = (n: GraphNode): { minX: number; minZ: number; maxX: number; maxZ: number } | null => {
+    const p = n.geometry?.polygon ?? [];
+    if (p.length < 3) return null;
+    let minX = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity;
+    for (const pt of p) { if (pt.x < minX) minX = pt.x; if (pt.x > maxX) maxX = pt.x; if (pt.z < minZ) minZ = pt.z; if (pt.z > maxZ) maxZ = pt.z; }
+    return { minX, minZ, maxX, maxZ };
+};
 
 /**
  * Compute the raw 7-axis objective vector for a layout.
@@ -124,6 +132,10 @@ export function computeObjectives(
     const adjacency = requiredW > 0 ? satisfiedW / requiredW : 1;
 
     // ── daylight: habitable rooms that can actually front the façade. ────────────
+    // §L1-α-2 ENHANCEMENT (2026-05-29): when bubble.daylightField is present,
+    // weight each fronting room's contribution by the depth-field average over
+    // its rect — a shallow lit room out-scores a deep-but-lit room. Back-compat:
+    // when no field, behaviour identical to the prior binary fronts-facade ratio.
     const externalWalls = new Set(graph.nodes.filter(n => n.kind === 'Wall' && n.attrs.isExternal === true).map(n => n.guid));
     const frontsFacade = new Set<string>();
     for (const e of graph.edges) if (e.kind === 'BOUNDS' && externalWalls.has(e.from)) frontsFacade.add(e.to);
@@ -132,7 +144,14 @@ export function computeObjectives(
         if (n.attrs.needsWindow !== true) continue;
         const a = num(n.attrs.netAreaM2);
         habArea += a;
-        if (frontsFacade.has(n.guid)) litArea += a;
+        if (!frontsFacade.has(n.guid)) continue;
+        if (bubble.daylightField) {
+            const rect = polyRect(n);
+            const depthScore = rect ? bubble.daylightField.averageOverRect(rect) : 1;
+            litArea += a * depthScore;
+        } else {
+            litArea += a;
+        }
     }
     const daylight = habArea > 0 ? clamp01(litArea / habArea) : 1;
 
