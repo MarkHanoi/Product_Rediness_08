@@ -182,12 +182,15 @@ export function buildLayoutThumbnailSvg(option: LayoutOption, opts: ThumbnailOpt
     // 1. Room polygons (BENEATH walls) — filled by occupancy. Each polygon
     //    carries `data-room-name` + class `alm-room-polygon` so the modal can
     //    wire click → focus the matching `area_n_<name>` input (§CLICK-FOCUS).
+    //    §A11Y (2026-05-29) — named polygons also get `role="button"` +
+    //    `tabindex="0"` + an aria-label so a keyboard-only user can Tab to a
+    //    room and press Enter/Space to focus its area input.
     const roomEls = rooms.map(r => {
         if (!r.polygon || r.polygon.length < 3) return '';
         const fill = OCCUPANCY_FILL[r.occupancy ?? ''] ?? DEFAULT_FILL;
         const pts = r.polygon.map(p => `${f1(mapX(p.x))},${f1(mapY(p.y))}`).join(' ');
         const nameAttr = r.name
-            ? ` data-room-name="${esc(r.name)}" class="alm-room-polygon"`
+            ? ` data-room-name="${esc(r.name)}" class="alm-room-polygon" role="button" tabindex="0" aria-label="Edit area of ${esc(r.name)}"`
             : '';
         return `<polygon points="${pts}" fill="${fill}" stroke="${wallColor}" stroke-width="0.4" stroke-opacity="0.3"${nameAttr}/>`;
     }).join('');

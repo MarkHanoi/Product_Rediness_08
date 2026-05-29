@@ -120,6 +120,21 @@ export class ApartmentLayoutModal {
         };
         window.addEventListener('keydown', this._escHandler, { capture: true });
 
+        // §A11Y (2026-05-29) — keyboard activation for room polygons. The
+        // polygons are `role="button"` `tabindex="0"`; Enter or Space on a
+        // focused polygon triggers the same area-input focus that a click
+        // does. Listener is scoped to the overlay so it doesn't leak.
+        overlay.addEventListener('keydown', (e: KeyboardEvent) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            const target = e.target as Element | null;
+            const poly = target?.closest?.('.alm-room-polygon') as Element | null;
+            if (!poly) return;
+            const name = poly.getAttribute('data-room-name');
+            if (!name) return;
+            e.preventDefault();
+            this._focusAreaInputForRoom(name);
+        });
+
         document.body.appendChild(overlay);
         this._el = overlay;
         console.log('[apartment-layout] modal mounted to <body> —', cards.length, 'card(s), overlay z-index', getComputedStyle(overlay).zIndex || '(unstyled — alm- CSS missing?)');

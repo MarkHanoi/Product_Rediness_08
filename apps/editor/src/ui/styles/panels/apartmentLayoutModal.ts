@@ -116,6 +116,11 @@ export const APARTMENT_LAYOUT_MODAL_STYLES = `
  * the user discovers the click-to-edit affordance. */
 .alm-room-polygon { cursor: pointer; transition: fill-opacity .12s, stroke-opacity .12s; }
 .alm-room-polygon:hover { stroke-opacity: 0.85; stroke-width: 0.8; }
+/* §A11Y (2026-05-29) — focus ring for keyboard navigation. The PRYZM-purple
+ * 1-pixel stroke + outline makes the focused polygon obvious without
+ * disturbing the layout. */
+.alm-room-polygon:focus { outline: none; stroke: #6600FF; stroke-opacity: 1; stroke-width: 1.2; }
+.alm-room-polygon:focus-visible { stroke: #6600FF; stroke-opacity: 1; stroke-width: 1.2; }
 
 /* §MODAL-DYNAMIC part-3 (2026-05-29) — occupancy legend. */
 .alm-legend {

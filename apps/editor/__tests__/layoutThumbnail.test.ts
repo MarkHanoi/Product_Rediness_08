@@ -264,7 +264,7 @@ describe('buildLayoutThumbnailSvg (A5-modal-core)', () => {
     // §CLICK-FOCUS (2026-05-29) — polygons carry `data-room-name` + a class
     // hook so the modal can wire click → focus the matching area input. Named
     // rooms get the stamp; unnamed rooms don't (no input to focus).
-    it('stamps data-room-name + alm-room-polygon class on named room polygons', () => {
+    it('stamps data-room-name + alm-room-polygon class + a11y attrs on named room polygons', () => {
         const svg = buildLayoutThumbnailSvg({
             summary: '', corridorWidthMin: 0, doors: [], walls: [],
             rooms: [
@@ -281,6 +281,10 @@ describe('buildLayoutThumbnailSvg (A5-modal-core)', () => {
         });
         expect(svg).toContain('data-room-name="Bedroom 1"');
         expect(svg).toContain('class="alm-room-polygon"');
+        // §A11Y — keyboard activation requires role="button" + tabindex="0".
+        expect(svg).toContain('role="button"');
+        expect(svg).toContain('tabindex="0"');
+        expect(svg).toContain('aria-label="Edit area of Bedroom 1"');
     });
 
     it('omits data-room-name on rooms without a name (nothing to focus)', () => {
