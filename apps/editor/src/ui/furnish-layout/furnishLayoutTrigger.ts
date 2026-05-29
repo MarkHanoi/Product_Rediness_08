@@ -105,6 +105,19 @@ export function installFurnishLayoutTrigger(runtime: PryzmRuntime | null): void 
             _lastValidationWarnings = Array.isArray(p?.validationWarnings)
                 ? [...p!.validationWarnings] : [];
             _lastValidationAt = new Date();
+            // §VALIDATE-TOAST (2026-05-29) — give the user a visual signal when
+            // the circulation gate flagged something. Without this the warnings
+            // sit silently in the in-memory cache until the user happens to
+            // remember `pryzmShowFurnishWarnings()`. Severity is `info` (not
+            // `error`) — the gate flags risk, not failure; the furnish still
+            // succeeded. The 'warning' severity isn't part of the toast schema.
+            const n = _lastValidationWarnings.length;
+            if (n > 0) {
+                runtime.events.emit('pryzm:toast', {
+                    message: `Furnish complete with ${n} circulation warning${n === 1 ? '' : 's'} — run pryzmShowFurnishWarnings() to review.`,
+                    severity: 'info',
+                });
+            }
         });
         // Auto-fire AFTER the ceiling pass settles. The ceiling layout
         // executor emits `ceiling.layout-executed` AFTER its runBatch, so
