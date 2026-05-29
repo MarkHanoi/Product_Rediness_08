@@ -628,7 +628,7 @@ Ship in parallel with foundational tiers. These close visible single-apartment g
 |---|---|---|---|---|
 | **L1-α-1** | `FacadeValueField` per-edge scoring | COGNITION §8 | 1 wk | 🟨 first slice ✅ — pure-geometry scores (orientation + sunlight + corner exposure + overallValue); BIM-context scores (noise / view / ventilation) pending |
 | **L1-α-2** | `DaylightDepthField(x,z)` | COGNITION §8 | 1 wk | ⬜ |
-| **L1-α-3** | Plumb FacadeValueField into bubbleGraph allocator | COGNITION §8 | 0.5 wk | 🟨 plumb seam ✅ (`BubbleGraph.facadeField` populated when shellPolygon passed; `enumerate.ts` passes it through); allocator consumption (area boost for windowMandatory rooms in high-quality shells) pending follow-on |
+| **L1-α-3** | Plumb FacadeValueField into bubbleGraph allocator | COGNITION §8 | 0.5 wk | ✅ shipped — seam + allocator. `windowMandatory` rooms (living / kitchen / dining / master / bedroom / study) get up to +20 % areaWeight bonus scaled by peak facade value. §AREA-FRACTIONS clamps still apply |
 | **L1-α-4** | Modal exposes Façade quality axis | COGNITION §8 | 0.5 wk | ⬜ |
 
 ## Z.5 — Tier 4 — Cognition Layer 2: Spatial Hierarchy

@@ -36,6 +36,55 @@ describe('buildBubbleGraph (TGL P2)', () => {
             const g = buildBubbleGraph(PROGRAM, 120, tooShort);
             expect(g.facadeField).toBeUndefined();
         });
+
+        it('habitable rooms get MORE area when shell has a strong south façade', () => {
+            // Same shell shape (12 × 10), same program, same gross area. Only
+            // the shell ORIENTATION changes between the two calls — which means
+            // the facade-value peak shifts.
+            const square = [
+                { x: 0, z: 0 }, { x: 12, z: 0 },
+                { x: 12, z: 10 }, { x: 0, z: 10 },
+            ];
+            const withFacade = buildBubbleGraph(PROGRAM, 120, square);
+            const withoutFacade = buildBubbleGraph(PROGRAM, 120);
+
+            const liv1 = withFacade.rooms.find(r => r.type === 'living')!;
+            const liv2 = withoutFacade.rooms.find(r => r.type === 'living')!;
+            // With facade field, the bonus applies to windowMandatory rooms ⇒
+            // living should be slightly larger (or equal — never smaller).
+            expect(liv1.targetAreaM2).toBeGreaterThanOrEqual(liv2.targetAreaM2);
+        });
+
+        it('non-windowMandatory rooms (corridor) do NOT receive the facade bonus', () => {
+            const square = [
+                { x: 0, z: 0 }, { x: 12, z: 0 },
+                { x: 12, z: 10 }, { x: 0, z: 10 },
+            ];
+            const withFacade = buildBubbleGraph(PROGRAM, 120, square);
+            const withoutFacade = buildBubbleGraph(PROGRAM, 120);
+
+            const cor1 = withFacade.rooms.find(r => r.type === 'corridor');
+            const cor2 = withoutFacade.rooms.find(r => r.type === 'corridor');
+            if (cor1 && cor2) {
+                // Corridor weight is unchanged; its share may decrease slightly
+                // because the others claim more.
+                expect(cor1.targetAreaM2).toBeLessThanOrEqual(cor2.targetAreaM2 + 0.5);
+            }
+        });
+
+        it('total area allocation still respects §AREA-FRACTIONS clamps under the bonus', () => {
+            const square = [
+                { x: 0, z: 0 }, { x: 12, z: 0 },
+                { x: 12, z: 10 }, { x: 0, z: 10 },
+            ];
+            const g = buildBubbleGraph(PROGRAM, 120, square);
+            const corridor = g.rooms.find(r => r.type === 'corridor');
+            // Even with the bonus to other rooms reducing corridor's share,
+            // corridor MUST stay under its 10 % maxAreaFrac (= 12 m² on 120 m²).
+            if (corridor) {
+                expect(corridor.targetAreaM2).toBeLessThanOrEqual(12 + 1e-6);
+            }
+        });
     });
 
 

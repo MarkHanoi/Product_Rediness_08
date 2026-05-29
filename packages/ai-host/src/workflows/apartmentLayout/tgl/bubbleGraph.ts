@@ -144,11 +144,35 @@ export function buildBubbleGraph(
         positiveOrUndefined(program.roomAreasByName?.[name]);
     const overrideForType = (type: RoomType): number | undefined =>
         positiveOrUndefined(program.roomAreas?.[type]);
-    const totalWeight = rooms.reduce((s, r) => s + roomRule(r.type).areaWeight, 0) || 1;
+    // §L1-α-3 ALLOCATOR — peak facade quality drives a small areaWeight bonus
+    // for `windowMandatory` rooms (living / kitchen / master / bedroom / dining
+    // / study). Shells with a strong south-facing edge produce more generous
+    // habitable rooms; shells with only north-facing edges produce smaller ones
+    // (the area is reallocated to other rooms via the existing weighted share).
+    //
+    // The bonus is INTENTIONALLY small (max +20 % to areaWeight) so that on a
+    // perfect southerly shell living grows by ~5 m² in a 2-bed flat, not by
+    // 25 m². Tunes layout quality without destabilising the well-tested area
+    // arithmetic. When no shellPolygon was supplied (no facadeField), bonus = 0
+    // — backwards compatible.
+    const peakFacadeValue = facadeField && facadeField.edges.length > 0
+        ? facadeField.edges.reduce((m, e) => Math.max(m, e.overallValue), 0)
+        : 0;
+    const facadeWeightBonus = (type: RoomType): number => {
+        if (!facadeField) return 1;
+        const rule = roomRule(type);
+        if (!rule.windowMandatory) return 1;
+        // Up to +20 % at peakFacadeValue = 1.
+        return 1 + 0.2 * peakFacadeValue;
+    };
+    const totalWeight = rooms.reduce(
+        (s, r) => s + roomRule(r.type).areaWeight * facadeWeightBonus(r.type), 0,
+    ) || 1;
     const withAreas: ProgramRoom[] = rooms.map(r => {
         const rule = roomRule(r.type);
         const override = overrideForName(r.name) ?? overrideForType(r.type);
-        const raw = override ?? availableAreaM2 * (rule.areaWeight / totalWeight);
+        const effectiveWeight = rule.areaWeight * facadeWeightBonus(r.type);
+        const raw = override ?? availableAreaM2 * (effectiveWeight / totalWeight);
         // §AREA-FRACTIONS (2026-05-29) — size-scaled clamps on top of the
         // proportional split + absolute minAreaM2:
         //   floor = max(absolute min, minAreaFrac * availableAreaM2)
