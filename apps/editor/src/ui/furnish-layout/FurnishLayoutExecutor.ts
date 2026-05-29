@@ -225,12 +225,37 @@ export class FurnishLayoutExecutor {
             } catch { facades = undefined; }
 
             // Dynamic-import the pure engine on first invoke.
-            const { furnishRoom, furnishRoomCompound, buildFurnishCommands } = await import('@pryzm/ai-host');
+            const {
+                furnishRoom, furnishRoomCompound, buildFurnishCommands,
+                validateFurnishedRoom,
+            } = await import('@pryzm/ai-host');
 
             const levelElevation = level.elevation ?? 0;
             const allPlaced: PlacedFurniture[] = [];
             let roomsProcessed = 0;
             let roomsSkipped = 0;
+            // §F-Sprint-5 circulation gate (2026-05-29): collect soft warnings
+            // per furnished room — door-blocked path, footprint outside polygon,
+            // overlap — and surface them on `furnish.layout-executed` so the
+            // editor (or a future ranked-arrangement pass) can prefer warnings-
+            // free arrangements. Validator is pure (`validateFurnishedRoom`,
+            // 23695d3); this is the wiring half.
+            const validationWarnings: string[] = [];
+            const runValidation = (inp: FurnishRoomInput, placed: readonly PlacedFurniture[]): void => {
+                if (placed.length === 0) return;
+                try {
+                    const v = validateFurnishedRoom(inp, placed);
+                    if (!v.ok) {
+                        for (const w of v.warnings) {
+                            const tagged = `[${inp.roomId}] ${w}`;
+                            validationWarnings.push(tagged);
+                            console.warn('[furnish-layout] §VALIDATE', tagged);
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[furnish-layout] validate failed (skipped):', e);
+                }
+            };
 
             /** Build a FurnishRoomInput from any polygon (detected-room or
              *  D-TGL sub-zone). Each polygon edge becomes a wall seg; edges
@@ -344,6 +369,7 @@ export class FurnishLayoutExecutor {
                         if (!inp) continue;
                         const placed = furnishRoom(inp);
                         if (placed.length > 0) { placedAny = true; allPlaced.push(...placed); }
+                        runValidation(inp, placed);
                     }
                     if (placedAny) roomsProcessed++; else roomsSkipped++;
                     continue;
@@ -361,6 +387,7 @@ export class FurnishLayoutExecutor {
                     : furnishRoom(input);
                 if (placed.length > 0) { roomsProcessed++; allPlaced.push(...placed); }
                 else roomsSkipped++;
+                runValidation(input, placed);
             }
 
             // §SUB-ZONE single-use cache: discard once consumed. A subsequent
@@ -373,13 +400,15 @@ export class FurnishLayoutExecutor {
             console.log(
                 '[furnish-layout] §FURNISH-SUMMARY ' +
                 `rooms_total=${allRooms.length} rooms_furnished=${roomsProcessed} ` +
-                `rooms_skipped=${roomsSkipped} items_placed=${allPlaced.length}`,
+                `rooms_skipped=${roomsSkipped} items_placed=${allPlaced.length} ` +
+                `validation_warnings=${validationWarnings.length}`,
             );
 
             if (allPlaced.length === 0) {
                 toast('No furniture placed — no rooms match a furnishable archetype.', 'warn');
                 runtime.events.emit('furnish.layout-executed', {
                     placedCount: 0, roomCount: allRooms.length, levelId: level.id,
+                    validationWarnings: [],
                 });
                 return;
             }
@@ -409,10 +438,22 @@ export class FurnishLayoutExecutor {
                 return;
             }
 
+            // §F-Sprint-5: surface validation warnings on a brief toast — the
+            // user can ignore them or open the console for the full list. The
+            // warnings array is also emitted on the layout-executed event so
+            // downstream automation (a future quality-pass that re-rolls when
+            // warnings appear) can react.
+            if (validationWarnings.length > 0) {
+                toast(
+                    `Furnished with ${validationWarnings.length} circulation warning(s) — see console.`,
+                    'warn',
+                );
+            }
             runtime.events.emit('furnish.layout-executed', {
                 placedCount: set.commands.length,
                 roomCount: allRooms.length,
                 levelId: level.id,
+                validationWarnings: [...validationWarnings],
             });
             toast(
                 `Furnished ${roomsProcessed}/${allRooms.length} rooms — ${set.commands.length} items placed.`,
