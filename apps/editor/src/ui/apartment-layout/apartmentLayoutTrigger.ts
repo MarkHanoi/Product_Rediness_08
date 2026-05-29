@@ -71,6 +71,7 @@ export function triggerApartmentLayout(runtimeArg?: PryzmRuntime | null): void {
 function showApartmentHelp(): void {
     const rows: readonly { cmd: string; desc: string }[] = [
         { cmd: 'pryzmGenerateApartmentLayout()', desc: 'Generate AI apartment layouts for the active level (opens the §11 modal).' },
+        { cmd: 'pryzmFloorAllRooms()',           desc: 'Apply floor finish per room type — timber in living/bedroom, tile in kitchen/bathroom (#34).' },
         { cmd: 'pryzmCeilAllRooms()',            desc: 'Auto-build a ceiling slab in every ceilable room on the active level (D-CE).' },
         { cmd: 'pryzmFurnishAllRooms()',         desc: 'Auto-furnish every furnishable room on the active level (D-FLE).' },
         { cmd: 'pryzmLightAllRooms()',           desc: 'Auto-place ceiling lights in every lit room on the active level (D-LE).' },
@@ -79,7 +80,7 @@ function showApartmentHelp(): void {
         { cmd: 'pryzmShowApartmentHelp()',       desc: 'Print this help.' },
     ];
     console.group('[apartment-layout] §HELP — pryzm…() console commands');
-    console.log('Apartment-generation pipeline: apartment → ceiling → furnish → lighting.');
+    console.log('Apartment-generation pipeline: apartment → (floor + ceiling) → furnish → lighting.');
     console.log('Each stage auto-fires on the prior stage\'s done-event; the commands below force a manual run.');
     console.table(rows);
     console.groupEnd();

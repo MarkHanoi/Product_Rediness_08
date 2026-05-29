@@ -6,6 +6,7 @@ import { installApartmentLayoutConsoleTrigger } from '../apartment-layout/apartm
 import { installFurnishLayoutTrigger } from '../furnish-layout/furnishLayoutTrigger';
 import { installLightingLayoutTrigger } from '../lighting-layout/lightingLayoutTrigger';
 import { installCeilingLayoutTrigger } from '../ceiling-layout/ceilingLayoutTrigger';
+import { installFloorLayoutTrigger } from '../floor-layout/floorLayoutTrigger';
 import { createFloorPlanImportPanel } from '../ai/FloorPlanImportPanel';
 import { createDxfImportPanel } from '../import/DxfImportPanel';
 import { createSpatialTree } from '../SpatialTree';
@@ -196,6 +197,12 @@ export function mountAIArea(props: UIProps, runtime: PryzmRuntime | null): AIRes
     //     `apartment.layout-executed` listeners run in registration order
     //     (ceiling first, even though both ultimately defer one tick).
     installCeilingLayoutTrigger(runtime ?? null);
+    // Floor finishes — SPEC-SEMANTIC §10 prompt #34 (CreateFloorsByRoomType):
+    //   • console command `pryzmFloorAllRooms()` (manual test)
+    //   • auto-fire on `apartment.layout-executed` in parallel with CEIL
+    //     (neither depends on the other). Reads `room.occupancyType` →
+    //     timber in living/bedroom, tile in kitchen/bathroom. One undo unit.
+    installFloorLayoutTrigger(runtime ?? null);
     // #52 — register the D-FLE furniture-layout trigger:
     //   • console command `pryzmFurnishAllRooms()` (manual test)
     //   • auto-fire on `ceiling.layout-executed` (continuous flow:

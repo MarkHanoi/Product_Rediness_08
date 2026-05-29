@@ -168,6 +168,10 @@ declare global {
         /** §HELP — prints every pryzm…() console command for the apartment
          *  generation pipeline (apartment → ceiling → furnish → lighting). */
         pryzmShowApartmentHelp?: () => void;
+        /** §FLOOR-FINISH (#34) — auto-floor-finish every room on the active
+         *  level by occupancyType (timber in living/bedroom, tile in
+         *  kitchen/bathroom). Auto-fires after `apartment.layout-executed`. */
+        pryzmFloorAllRooms?: () => void;
 
         // ── Command dispatch globals ──────────────────────────────────────────
         commandManager:
