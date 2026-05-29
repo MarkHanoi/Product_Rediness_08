@@ -273,6 +273,25 @@ export function buildDefaultKitchenConfig(
         ...buildDefaultUnits(numLeft,  'left',  0, defaultFront),
         ...buildDefaultUnits(numRight, 'right', 0, defaultFront),
     ];
+    // §KITCHEN-DEFAULT-APPLIANCES (2026-05-29) — every fresh kitchen carousel
+    // pick (manual or auto-pipeline) now includes a SINK + HOB + FRIDGE on the
+    // main arm by default. Before: bare doors. Mapped to actual unit slots
+    // by index — works for any `numUnits` ≥ 3; smaller kitchens get whatever
+    // fits without throwing. The engine already cuts out the countertop over
+    // hob + sink slots and replaces the carcass at fridge slots (no extra
+    // wiring needed). Islands keep bare doors (counter + seating archetype).
+    if (!isIsland) {
+        const mainUnits = units.filter(u => u.arm === 'main');
+        const lastIdx = mainUnits.length - 1;
+        // Last main slot → tall fridge (combi, silver). The engine renders a
+        // 185 cm fridge unit + omits the upper cabinet above it (a tall fridge
+        // occupies the full unit height).
+        if (lastIdx >= 0) (mainUnits[lastIdx] as { appliance?: KitchenApplianceType }).appliance = 'fridge_combi_silver';
+        // Slot 1 → sink (inset in countertop, leaves the door front intact).
+        if (lastIdx >= 1) (mainUnits[1]      as { appliance?: KitchenApplianceType }).appliance = 'sink_inox';
+        // Slot 2 → hob (when there's room — needs to sit between sink + fridge).
+        if (lastIdx >= 3) (mainUnits[2]      as { appliance?: KitchenApplianceType }).appliance = 'hob';
+    }
     return {
         layoutType:           layout,
         depth:                isIsland ? KITCHEN_DEFAULTS.islandDepth  : KITCHEN_DEFAULTS.depth,
