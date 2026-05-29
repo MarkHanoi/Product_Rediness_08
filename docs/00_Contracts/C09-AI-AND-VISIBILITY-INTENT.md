@@ -139,6 +139,36 @@ The §11 modal is the user-facing approval surface for apartment-layout. Beyond 
 - **Accessibility (§A11Y).** Every room polygon MUST be focusable (`role="button"`, `tabindex="0"`, `aria-label`) and activatable with Enter or Space; activation focuses the per-instance area input (`§CLICK-FOCUS`). The modal is operable with a keyboard alone.
 - **Build completion (§BUILD-TOAST).** The completion toast after `apartment.layout-executed` MUST surface dropped-wall count from `set.warnings` ("(K dropped — see console)") when the §PREVIEW-VS-BUILD gate rejected items.
 
+### §3.4.3 — Pre-furnishing dimensional + topological validators (2026-05-29)
+
+Between D-TGL subdivision (Phase A's geometry emission) and D-FLE furnishing (auto-pipeline §3.4.1), every candidate apartment passes through TWO orthogonal validator layers. The validators run inside `enumerate.ts` per candidate; failures tier the candidate down via a 5-tier admissibility fallback **before** Pareto ranking.
+
+**Part A — dimensional validators (`packages/ai-host/src/workflows/apartmentLayout/dimensions/`).**
+
+- `validateApartmentEnvelope` — apartment-LEVEL gross-area sanity (§3.1 by-bedroom-count: studio 28–55 m², 1-bed 42–80 m², …). Hard rejections (200 m² 1-bed; 35 m² 3-bed) return EMPTY from `enumerateLayouts` BEFORE the 8-strategy loop. Trigger surfaces a structured `[apartment-layout] §D3.5 envelope reject:` console warning naming the architectural mismatch.
+- `validateRoomShape` — per-room G1 area + G2 width + G3 length + G4 aspect + G6 wall against `roomDimensions.ts`. Hard findings (e.g. 1.1 × 5 m tunnel bathroom, 20 m² bathroom rejected per §5.5) flag `shapeAdmissible: false`. Soft findings (area outside comfortable band, aspect above soft max) accumulate into `objectives.shapeQuality ∈ [0, 1]`.
+
+**Part B — topology validators (`packages/ai-host/src/workflows/apartmentLayout/topology/`).**
+
+- `validateMandatoryAdjacencies` (HARD) — every program-derived mandatory adjacency (master↔ensuite when `program.masterEnSuite`, hall↔corridor, hall↔living) has a realised door.
+- `validateForbiddenAdjacencies` (HARD) — every door is a permitted pair per `doorAllowedBetween` (single source of truth in `programRules.ts`).
+- `validateWetCluster` (SOFT) — wet rooms (kitchen + bathroom + ensuite + wc + utility) share a single plumbing-stack group via shared-wall union-find. Each extra stack group adds one finding with delta `1 / numWet`.
+- `validateAcousticZoning` (SOFT) — acoustic sources (living / dining / kitchen / utility) sharing a wall with receivers (master / bedroom / study) emit a finding with delta `1 / (sources × receivers)`.
+
+Soft findings accumulate into `objectives.topologyQuality ∈ [0, 1]`.
+
+**Gate semantics.** `enumerate.ts` extends the existing legality gate to a 5-tier fallback that AND's all admissibility flags:
+
+```
+clean (shape + topology) + legal      ← best (architecturally complete + rule-legal)
+clean (shape + topology) + connected  ← complete; reconciliation doors present
+legal                                  ← rule-legal but a soft finding
+connected                              ← reachable; multiple compromises
+anything                               ← last resort
+```
+
+Pareto ranks within the chosen tier over the 8-axis ObjectiveVector: `efficiency · adjacency · daylight · circulation · regularity · hierarchy · shapeQuality · topologyQuality`. The single-source-of-truth specification for the validators + envelopes is `SPEC-ARCHITECTURAL-PROGRAM-RULES.md §7.5`.
+
 ---
 
 ## §4 — Visibility Intent System (P7)

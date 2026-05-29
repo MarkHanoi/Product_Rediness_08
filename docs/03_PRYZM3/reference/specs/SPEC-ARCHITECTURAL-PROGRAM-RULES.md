@@ -177,6 +177,71 @@ database's required furniture for its occupancy, so the two can never drift.
 
 ---
 
+## 7.5 — Dimensional + topological pre-furnishing validators (2026-05-29)
+
+Beyond the per-room *permission* matrix above, two sister validator layers now run
+between subdivision (D-TGL P3) and furnishing (D-FLE):
+
+### 7.5.1 — Dimensional validators (Part A)
+
+Per-room envelope check (`packages/ai-host/src/workflows/apartmentLayout/dimensions/`):
+
+| File | Validates | Severity |
+|------|-----------|----------|
+| `roomDimensions.ts` | per-RoomType envelope: area min/max, width min/max, length max, aspect max, usable wall min | DATA |
+| `validateRoomShape.ts` | G1 area + G2 width + G3 length + G4 aspect + G6 wall, against `RoomDimensions` | HARD + SOFT |
+| `validateApartmentEnvelope.ts` | apartment gross area vs the §3.1 by-bedroom-count table | HARD + SOFT |
+
+Hard findings (e.g. `bathroom.areaHardMax = 14 m²` → "20 m² bathroom rejected") drop
+the candidate from the pool BEFORE Pareto. Soft findings feed
+`objectives.shapeQuality`, an axis Pareto ranks against.
+
+### 7.5.2 — Topology validators (Part B)
+
+Per-pair / per-cluster adjacency check (`packages/ai-host/src/workflows/apartmentLayout/topology/`):
+
+| File | Validates | Severity |
+|------|-----------|----------|
+| `adjacencyRules.ts` | mandatory-adjacency derivation from program; wet + acoustic classifications | DATA |
+| `validateMandatoryAdjacencies.ts` | every declared mandatory (master↔ensuite, hall↔corridor, hall↔living) has a realised door | HARD |
+| `validateForbiddenAdjacencies.ts` | every door is a permitted pair per `doorAllowedBetween` | HARD |
+| `validateWetCluster.ts` | wet rooms cluster into a single plumbing stack | SOFT |
+| `validateAcousticZoning.ts` | acoustic sources (living / dining / kitchen / utility) don't share a wall with receivers (master / bedroom / study) | SOFT |
+
+Hard findings drop the candidate; soft findings feed `objectives.topologyQuality`.
+
+### 7.5.3 — Gate semantics
+
+`enumerate.ts` extends the legality gate to a 5-tier fallback that AND's all
+admissibility flags:
+
+```
+clean (shape + topology) + legal      ← best
+clean (shape + topology) + connected
+legal                                  ← rule-legal but a soft finding
+connected                              ← reachable; multiple compromises
+anything                               ← last resort
+```
+
+Pareto ranks within the chosen tier over 8 axes:
+`efficiency · adjacency · daylight · circulation · regularity · hierarchy · shapeQuality · topologyQuality`.
+
+### 7.5.4 — How to extend
+
+Adding a new constraint (e.g. "kitchen needs 900 mm uninterrupted prep wall"):
+
+- If it's a per-room dimensional envelope → extend `RoomDimensions` (`roomDimensions.ts`) + an existing or new check in `validateRoomShape.ts`.
+- If it's an adjacency / clustering rule → add a new `validate*.ts` in `topology/` and accumulate findings via the same `TopologyFinding` shape.
+
+The validator MUST:
+1. Be pure (no THREE / DOM / RNG).
+2. Return `{ admissible, hardFindings, softFindings }`.
+3. Have unit tests that pin both happy paths AND failure cases.
+
+The enumerate gate consumes the result via `topologyAdmissible && shapeAdmissible`; no other file needs editing for new soft-only validators.
+
+---
+
 ## 8. Change control
 
 Edit `programRules.ts` **and** this table together (they are the same data in two

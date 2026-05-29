@@ -618,7 +618,7 @@ Ship in parallel with foundational tiers. These close visible single-apartment g
 | **T2.1–T2.6** | Topology validators (mandatory / forbidden / acoustic / wet cluster / sequence) | DIMENSIONAL §19.2 | 5 d | 🟨 T2.1 + T2.2 + T2.3 + T2.4 ✅ (mandatory + forbidden + acoustic + wet-cluster validators all wired into topologyQuality axis); T2.5/T2.6 still pending |
 | **D3 + T3** | Pipeline integration (enumerate gates + new axes) | DIMENSIONAL §9.3 + §19.3 | 6 d + 5 d | 🟨 D3.1 + D3.4 + D3.5 + T3.3 ✅ (shape gate + envelope gate + topology gate live in enumerate; 5-tier fallback prefers shape+topology-clean candidates); D3.2/D3.3 + T3.1/T3.2 pending |
 | **D4 + T4** | Modal score breakdown surfaces Shape / Fit / Topology axes + badges | DIMENSIONAL §9.4 + §19.4 | 5.5 d | ⬜ |
-| **D5 + T5** | Update SPEC-ARCHITECTURAL-PROGRAM-RULES + C09 §3.4 + user guide | DIMENSIONAL §9.5 + §19.5 | 3 d | ⬜ |
+| **D5 + T5** | Update SPEC-ARCHITECTURAL-PROGRAM-RULES + C09 §3.4 + user guide | DIMENSIONAL §9.5 + §19.5 | 3 d | 🟨 D5.1 ✅ (SPEC §7.5 documents both validator layers) + D5.2 ✅ (C09 §3.4.3 added); D5.3 user guide still pending |
 
 **Tier 2 total: ~47 dev-days (≈ 9–10 weeks single-contributor; 4–5 weeks at two parallel).**
 
