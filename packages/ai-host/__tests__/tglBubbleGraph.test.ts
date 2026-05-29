@@ -88,6 +88,39 @@ describe('buildBubbleGraph (TGL P2)', () => {
     });
 
 
+    // §L1-α-2 plumb seam (2026-05-29) — daylightField rides alongside facadeField.
+    describe('§L1-α-2 daylightField plumb-in', () => {
+        it('returns no daylightField without a shell polygon', () => {
+            const g = buildBubbleGraph(PROGRAM, 120);
+            expect(g.daylightField).toBeUndefined();
+        });
+
+        it('attaches a daylightField when a shell polygon is supplied', () => {
+            const square = [
+                { x: 0, z: 0 }, { x: 12, z: 0 },
+                { x: 12, z: 10 }, { x: 0, z: 10 },
+            ];
+            const g = buildBubbleGraph(PROGRAM, 120, square);
+            expect(g.daylightField).toBeDefined();
+            // The field has BOTH `at` and `averageOverRect`; smoke-check both.
+            const onSouthFacade = g.daylightField!.at({ x: 6, z: 0.001 });
+            expect(onSouthFacade).toBeGreaterThan(0.5);
+        });
+
+        it('daylight + facade fields appear together (same trigger)', () => {
+            const square = [
+                { x: 0, z: 0 }, { x: 12, z: 0 },
+                { x: 12, z: 10 }, { x: 0, z: 10 },
+            ];
+            const g = buildBubbleGraph(PROGRAM, 120, square);
+            expect(g.facadeField).toBeDefined();
+            expect(g.daylightField).toBeDefined();
+            const gNo = buildBubbleGraph(PROGRAM, 120);
+            expect(gNo.facadeField).toBeUndefined();
+            expect(gNo.daylightField).toBeUndefined();
+        });
+    });
+
     // §L3-γ-1 / §L3-γ-2 (2026-05-29) — every edge produced by the deterministic
     // builder carries a semantic `kind`. Pin the canonical edges so a future
     // classifier reshuffle is caught at the architectural-meaning level.

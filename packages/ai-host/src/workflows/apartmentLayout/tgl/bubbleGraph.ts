@@ -10,6 +10,7 @@
 import type { ApartmentProgram, RoomType } from '../types.js';
 import { roomRule } from '../rules/programRules.js';
 import { computeFacadeValueField, type FacadeValueField } from '../environment/facadeValueField.js';
+import { computeDaylightDepthField, type DaylightDepthField } from '../environment/daylightDepthField.js';
 import { classifyEdge, type EdgeType } from './edgeTypes.js';
 import type { Pt } from './rectDecomposition.js';
 
@@ -53,6 +54,16 @@ export interface BubbleGraph {
      * Source: `environment/facadeValueField.ts`.
      */
     readonly facadeField?: FacadeValueField;
+    /**
+     * §L1-α-2 plumb seam (2026-05-29) — pre-computed per-position daylight
+     * depth field over the shell polygon. Present when `buildBubbleGraph`
+     * was called with the shell polygon (facadeField is its input — both
+     * fields share the same trigger). Backward compatible: absent when no
+     * polygon supplied. NO downstream consumer YET — follow-on slice will
+     * use it to penalise placing windowMandatory rooms in the deep core.
+     * Source: `environment/daylightDepthField.ts`.
+     */
+    readonly daylightField?: DaylightDepthField;
 }
 
 // Area weights, minima + habitability are read from the single-source-of-truth
@@ -114,6 +125,14 @@ export function buildBubbleGraph(
     const facadeField: FacadeValueField | undefined =
         shellPolygon && shellPolygon.length >= 3
             ? computeFacadeValueField(shellPolygon)
+            : undefined;
+    // §L1-α-2 plumb seam — daylight depth field derives from the facade
+    // value field (it reads per-edge sunlight scores) + the shell polygon
+    // (it needs point-in-polygon for the at() query). Same trigger as
+    // facadeField; absent together when no polygon supplied.
+    const daylightField: DaylightDepthField | undefined =
+        shellPolygon && facadeField
+            ? computeDaylightDepthField(shellPolygon, facadeField)
             : undefined;
     const rooms: ProgramRoom[] = [];
     const push = (type: RoomType, name: string, isPrivate: boolean): string => {
@@ -244,6 +263,7 @@ export function buildBubbleGraph(
     return {
         rooms: withAreas, edges, corridorId, entryId,
         ...(facadeField ? { facadeField } : {}),
+        ...(daylightField ? { daylightField } : {}),
     };
 }
 
