@@ -10,7 +10,7 @@ export type FurnitureKind =
     | 'bed' | 'bedside_table' | 'wardrobe' | 'sofa' | 'coffee_table'
     | 'dining_table' | 'dining_chair' | 'entrance_table' | 'lamp'
     | 'toilet_radiator' | 'shower_glass_panel'
-    | 'kitchen_l_shape' | 'kitchen_straight' | 'kitchen_u_shape';
+    | 'kitchen_l_shape' | 'kitchen_straight' | 'kitchen_u_shape' | 'kitchen_island';
 
 /** Editor RoomOccupancyType values this engine furnishes (subset). */
 export type FurnishableOccupancy =

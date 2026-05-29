@@ -33,6 +33,12 @@ const FP: Readonly<Record<FurnitureKind, Footprint>> = {
     kitchen_straight:   { w: 3.00, l: 0.60, h: 0.90, baseOffset: 0, clearFront: 1.00, clearSides: 0.00 },
     kitchen_l_shape:    { w: 3.00, l: 0.60, h: 0.90, baseOffset: 0, clearFront: 1.00, clearSides: 0.00 },
     kitchen_u_shape:    { w: 3.00, l: 0.60, h: 0.90, baseOffset: 0, clearFront: 1.00, clearSides: 0.00 },
+    // §KITCHEN-ISLAND (2026-05-29) — standard centre island: 2.0 × 0.9 m
+    // counter, 0.9 m kitchen-side circulation each side. Required: false in
+    // the archetype, so small kitchens with the run's clearFront blocking
+    // the centroid drop the island automatically — only large open-plan
+    // kitchens get one.
+    kitchen_island:     { w: 2.00, l: 0.90, h: 0.90, baseOffset: 0, clearFront: 0.90, clearSides: 0.90 },
 };
 
 /** Footprint for a furniture kind (always defined for supported kinds). */

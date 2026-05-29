@@ -43,6 +43,12 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
             // — small kitchens that can't fit two runs gracefully degrade to one.
             { kind: 'kitchen_straight', anchor: 'wall-longest', facing: 'to-wall', required: true,  excludeDoorSwing: true },
             { kind: 'kitchen_straight', anchor: 'wall-longest', facing: 'to-wall', required: false, excludeDoorSwing: true },
+            // §KITCHEN-ISLAND (2026-05-29) — optional centre island for open-plan
+            // kitchens. Placed AFTER the wall runs so the island only lands when
+            // the room still has clear centroid space (smaller kitchens have the
+            // run's clearFront covering the centroid → island drops cleanly).
+            // facing 'into-room' rotates the cabinet doors to face the cook side.
+            { kind: 'kitchen_island', anchor: 'center', facing: 'into-room', required: false },
         ],
     },
     'dining-room': {

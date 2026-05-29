@@ -288,8 +288,27 @@ export function placeRoomMulti(
     const obstacles: Rect[] = doorObstacles(input);
     const leaders = new Map<string, Placement>();
     const placed: Placement[] = [];
-    for (const a of archetypes) {
+    // §COMPOUND-ORDER (2026-05-29) — process archetypes ordered by priority so
+    // an open-plan compound (living + kitchen + dining) places the dining
+    // table at the centroid BEFORE the kitchen island tries to. The compound
+    // semantics are: the dining table is the centerpiece; the island is a
+    // bonus when there's space. Without this, the kitchen archetype (passed
+    // before dining-room by some callers) grabs the centroid via its island,
+    // and the dining table drops.
+    for (const a of [...archetypes].sort(_compoundPriority)) {
         for (const p of applyArchetype(input, a, obstacles, leaders)) placed.push(p);
     }
     return placed.map(p => p.item);
+}
+
+/** §COMPOUND-ORDER — Lower priority runs LATER in the compound. Kitchen runs
+ *  last because its island competes for the centroid with the dining table. */
+const _COMPOUND_ORDER: Record<string, number> = {
+    'living-room': 1,
+    'dining-room': 2,
+    'entrance-lobby': 3,
+    'kitchen': 9,
+};
+function _compoundPriority(a: FurnitureArchetype, b: FurnitureArchetype): number {
+    return (_COMPOUND_ORDER[a.occupancy] ?? 5) - (_COMPOUND_ORDER[b.occupancy] ?? 5);
 }
