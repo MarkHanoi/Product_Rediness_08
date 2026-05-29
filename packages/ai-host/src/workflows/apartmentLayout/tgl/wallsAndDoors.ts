@@ -65,6 +65,16 @@ export interface WallsAndDoors {
      * the fewest compromises (so the user gets a logical plan whenever one exists).
      */
     readonly compromises: number;
+    /**
+     * §SEALED-ROOMS (2026-05-29, single-apartment-fix-pass-spec #4) — room
+     * ids that ended up with ZERO doors after every pass (bubble-requested,
+     * permitted-primary, permitted-secondary, over-cap fallback). Empty ⇒
+     * full coverage. The enumerate.ts legality gate already filters
+     * disconnected candidates so SHIPPED layouts have an empty list, but
+     * exposing the diagnostic lets the executor + scorer surface the
+     * specific room when a candidate flunks. Deterministic — sorted by id.
+     */
+    readonly sealedRoomIds: readonly string[];
 }
 
 export interface WallsAndDoorsOpts {
@@ -521,7 +531,15 @@ export function buildWallsAndDoors(
         ? extendWallsToShell(segments, opts.shellPolygon)
         : segments;
 
-    return { segments: segmentsOut, openings, boundaries, compromises };
+    // §SEALED-ROOMS (2026-05-29) — diagnostic: which rooms ended up with ZERO
+    // doors? `doorCount` tracks placements per room id; rooms missing from it
+    // OR with count 0 are sealed. Deterministic — sorted by id.
+    const sealedRoomIds = graph.rooms
+        .filter(r => (doorCount.get(r.id) ?? 0) === 0)
+        .map(r => r.id)
+        .sort();
+
+    return { segments: segmentsOut, openings, boundaries, compromises, sealedRoomIds };
 }
 
 /** True when a door between these two room types satisfies the program rules. */
