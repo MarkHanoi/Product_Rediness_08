@@ -168,7 +168,24 @@ export class ApartmentLayoutModal {
             const el = form.elements.namedItem(name) as HTMLInputElement | null;
             return !!el?.checked;
         };
-        return {
+        // §ROOM-AREAS (2026-05-29) — collect every `area_<RoomType>` input
+        // with a positive value into a Partial<Record<RoomType, number>>.
+        // Empty / non-positive / non-finite inputs are OMITTED (engine then
+        // falls back to weight-scaled defaults for those types — see
+        // bubbleGraph.ts §ROOM-AREAS).
+        const AREA_PREFIX = 'area_';
+        const roomAreas: Record<string, number> = {};
+        const inputs = form.querySelectorAll('input[type="number"]') as NodeListOf<HTMLInputElement>;
+        for (const inp of Array.from(inputs)) {
+            if (!inp.name.startsWith(AREA_PREFIX)) continue;
+            const trimmed = inp.value.trim();
+            if (trimmed === '') continue;     // blank ⇒ omitted ⇒ auto default
+            const v = Number(trimmed);
+            if (!Number.isFinite(v) || v <= 0) continue;
+            const roomType = inp.name.slice(AREA_PREFIX.length);
+            roomAreas[roomType] = v;
+        }
+        const out: ApartmentProgram = {
             bedrooms: Math.max(0, Math.min(5, Math.round(numByName('bedrooms', 1)))),
             bathrooms: Math.max(1, Math.min(3, Math.round(numByName('bathrooms', 1)))),
             masterEnSuite: boolByName('masterEnSuite'),
@@ -176,6 +193,10 @@ export class ApartmentLayoutModal {
             livingRoom: boolByName('livingRoom'),
             entranceHall: boolByName('entranceHall'),
         };
+        if (Object.keys(roomAreas).length > 0) {
+            (out as ApartmentProgram & { roomAreas?: Record<string, number> }).roomAreas = roomAreas;
+        }
+        return out;
     }
 
     private _setHint(text: string): void {

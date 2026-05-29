@@ -49,6 +49,33 @@ function escHtml(value: unknown): string {
  * re-trigger). Input names match the ApartmentProgram fields verbatim so the
  * controller can read them by `form.elements.namedItem(...)` without a map.
  */
+/** §ROOM-AREAS (2026-05-29): area-edit row exposes ABSOLUTE m² per RoomType.
+ *  These are the inputs whose values feed `program.roomAreas[<type>]`. Each
+ *  has `name="area_<RoomType>"` so the modal controller's form reader can
+ *  collect them by prefix without a side map. */
+const AREA_FIELDS: ReadonlyArray<{ type: string; label: string }> = [
+    { type: 'living',   label: 'Living' },
+    { type: 'kitchen',  label: 'Kitchen' },
+    { type: 'dining',   label: 'Dining' },
+    { type: 'bedroom',  label: 'Bedroom' },
+    { type: 'master',   label: 'Master' },
+    { type: 'bathroom', label: 'Bath' },
+];
+
+function areaInputsHtml(program: ApartmentProgram): string {
+    const overrides = program.roomAreas ?? {};
+    return AREA_FIELDS.map(f => {
+        const cur = (overrides as Record<string, number>)[f.type];
+        const value = (typeof cur === 'number' && Number.isFinite(cur) && cur > 0)
+            ? cur.toString() : '';
+        return (
+            `<label class="alm-program-area"><span>${f.label}</span>` +
+            `<input type="number" name="area_${f.type}" min="0" step="0.5" value="${value}" placeholder="auto">` +
+            `<span class="alm-program-area-unit">m²</span></label>`
+        );
+    }).join('');
+}
+
 export function buildProgramEditFormHtml(program: ApartmentProgram): string {
     const bedrooms = Math.max(0, Math.min(5, Math.round(program.bedrooms)));
     const bathrooms = Math.max(1, Math.min(3, Math.round(program.bathrooms)));
@@ -67,7 +94,10 @@ export function buildProgramEditFormHtml(program: ApartmentProgram): string {
         `<label class="alm-program-chk"><input type="checkbox" name="openPlanKitchenDining"${chk(program.openPlanKitchenDining)}> Open-plan kitchen + dining</label>` +
         `<label class="alm-program-chk"><input type="checkbox" name="masterEnSuite"${chk(program.masterEnSuite)}> Master en-suite</label>` +
         '</div>' +
-        '<div class="alm-program-hint" data-role="program-hint">Edit any field — the layouts regenerate automatically.</div>' +
+        '<div class="alm-program-row alm-program-areas">' +
+        areaInputsHtml(program) +
+        '</div>' +
+        '<div class="alm-program-hint" data-role="program-hint">Edit any field — leave area blank for auto. Layouts regenerate automatically.</div>' +
         '</form>'
     );
 }

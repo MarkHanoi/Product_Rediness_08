@@ -149,6 +149,36 @@ describe('buildLayoutModalHtml (A5-modal)', () => {
         expect(buildOccupancyLegendHtml([opt([])])).toBe('');
     });
 
+    // §ROOM-AREAS (2026-05-29) — per-RoomType m² inputs in the program form.
+    it('emits a number input for every area field (living, kitchen, dining, bedroom, master, bathroom)', () => {
+        const program: ApartmentProgram = {
+            bedrooms: 2, bathrooms: 1, masterEnSuite: true,
+            openPlanKitchenDining: true, livingRoom: true, entranceHall: true,
+        };
+        const html = buildProgramEditFormHtml(program);
+        expect(html).toContain('name="area_living"');
+        expect(html).toContain('name="area_kitchen"');
+        expect(html).toContain('name="area_dining"');
+        expect(html).toContain('name="area_bedroom"');
+        expect(html).toContain('name="area_master"');
+        expect(html).toContain('name="area_bathroom"');
+        // Blank by default (no override) — placeholder reads "auto".
+        expect(html).toContain('placeholder="auto"');
+    });
+
+    it('pre-fills area inputs from roomAreas overrides when supplied', () => {
+        const program: ApartmentProgram = {
+            bedrooms: 2, bathrooms: 1, masterEnSuite: true,
+            openPlanKitchenDining: true, livingRoom: true, entranceHall: true,
+            roomAreas: { living: 22, kitchen: 12 },
+        };
+        const html = buildProgramEditFormHtml(program);
+        expect(html).toMatch(/name="area_living"[^>]*value="22"/);
+        expect(html).toMatch(/name="area_kitchen"[^>]*value="12"/);
+        // unspecified types still blank.
+        expect(html).toMatch(/name="area_bedroom"[^>]*value=""/);
+    });
+
     it('modal panel embeds the legend wrapper only when options are non-empty', () => {
         const program: ApartmentProgram = {
             bedrooms: 1, bathrooms: 1, masterEnSuite: false,

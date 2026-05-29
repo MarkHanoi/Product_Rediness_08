@@ -89,6 +89,21 @@ export const APARTMENT_LAYOUT_MODAL_STYLES = `
   display: inline-flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;
 }
 .alm-program-chk input[type="checkbox"] { cursor: pointer; }
+/* §ROOM-AREAS (2026-05-29) — per-RoomType m² inputs (a third row). */
+.alm-program-areas { gap: 10px; }
+.alm-program-area {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; color: #475569;
+}
+.alm-program-area input[type="number"] {
+  width: 56px; padding: 3px 6px; font: inherit; color: inherit;
+  border: 1px solid #cbd5e1; border-radius: 6px; background: #ffffff;
+}
+.alm-program-area input[type="number"]::placeholder { color: #94a3b8; font-style: italic; }
+.alm-program-area input[type="number"]:focus {
+  outline: 2px solid #6600FF; outline-offset: -1px; border-color: #6600FF;
+}
+.alm-program-area-unit { color: #94a3b8; }
 .alm-program-hint {
   font-size: 11px; color: #64748b; font-style: italic;
 }
