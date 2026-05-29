@@ -613,7 +613,7 @@ Ship in parallel with foundational tiers. These close visible single-apartment g
 | **D2.1** | `validateRoomShape` | DIMENSIONAL §9.2 | 2 d | ✅ shipped — G1 area + G2 width + G3 length + G4 aspect + G6 wall, hard + soft tiers, +18 tests |
 | **D2.2** | `validateRoomFit` | DIMENSIONAL §9.2 | 3 d | ⬜ |
 | **D2.3** | `kitchenTriangleValidator` | DIMENSIONAL §9.2 | 1 d | ⬜ |
-| **D2.4** | Apartment-envelope validator | DIMENSIONAL §9.2 | 0.5 d | ⬜ |
+| **D2.4** | Apartment-envelope validator | DIMENSIONAL §9.2 | 0.5 d | ✅ shipped — hard min/max + ±25 % soft band per §3.1, +13 tests |
 | **D2.5 / T2.5** | Frontage-priority allocator (SHARED) | DIMENSIONAL §9.2 + COGNITION L1-α-1/3 | 3 d | ⬜ |
 | **T2.1–T2.6** | Topology validators (mandatory / forbidden / acoustic / wet cluster / sequence) | DIMENSIONAL §19.2 | 5 d | ⬜ |
 | **D3 + T3** | Pipeline integration (enumerate gates + new axes) | DIMENSIONAL §9.3 + §19.3 | 6 d + 5 d | ⬜ |
