@@ -104,6 +104,15 @@ export class TopologySpatialIndex {
         });
 
         // ── DOM invalidation (matches SceneBoundsCache INVALIDATING_EVENTS) ──
+        // §SCC-NODE-LOAD (2026-05-29): the module's singleton may instantiate
+        // at barrel import time. In a Node test env (no `window`), the
+        // window.addEventListener + window-mutation below threw at module
+        // load (well-known SCC-barrel issue, memory note
+        // `scc-no-barrel-access-at-module-load`). Skip the DOM bindings when
+        // there's no window — the spatial index then just works as an in-
+        // memory data structure, which is exactly what tests need.
+        if (typeof window === 'undefined') return;
+
         const invalidate = () => { this._dirty = true; };
         for (const name of TopologySpatialIndex.INVALIDATING_EVENTS) {
             window.addEventListener(name, invalidate);

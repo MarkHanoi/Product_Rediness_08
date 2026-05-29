@@ -88,6 +88,17 @@ class DataPanelRendererImpl {
     // ── Event binding ──────────────────────────────────────────────────────────
 
     private _bindEvents(): void {
+        // §SCC-NODE-LOAD (2026-05-29): the module's bottom-line singleton
+        // (`export const dataPanelRenderer = new DataPanelRendererImpl()`)
+        // runs at barrel import time. In a Node test env (no `window`) the
+        // raw `window.addEventListener` calls below threw ReferenceError at
+        // module load, blocking every test file that touched the
+        // core-app-model barrel (the well-known SCC-barrel issue in memory
+        // `scc-no-barrel-access-at-module-load`). Guard: skip binding when
+        // there's no window. In Node the renderer is never used; in the
+        // browser this code path runs as before.
+        if (typeof window === 'undefined') return;
+
         const rerender = () => {
             this._registry.forEach(({ panel, el, sf }) => {
                 const inner = el.querySelector('.sh-data-panel-inner');

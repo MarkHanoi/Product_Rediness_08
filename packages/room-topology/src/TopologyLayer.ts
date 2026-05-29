@@ -219,6 +219,11 @@ export class TopologyLayer {
         storeEventBus.subscribe((event) => this._handleStoreChange(event));
 
         // ── DOM bulk-invalidation ────────────────────────────────────────────
+        // §SCC-NODE-LOAD (2026-05-29): same guard as TopologySpatialIndex.
+        // Without it, the module's singleton would throw `window is not
+        // defined` at barrel import time in Node tests.
+        if (typeof window === 'undefined') return;
+
         for (const name of TopologyLayer.INVALIDATING_EVENTS) {
             window.addEventListener(name, () => { this._dirty = true; });
         }
