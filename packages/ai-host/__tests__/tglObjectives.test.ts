@@ -98,6 +98,28 @@ describe('computeObjectives (TGL P7)', () => {
         });
     });
 
+    // §SHAPE-QUALITY (D3.4 + D3.1, 2026-05-29) — the shape gate's soft penalties
+    // feed an objective axis the Pareto rank considers.
+    describe('shapeQuality (§SHAPE-QUALITY)', () => {
+        it('defaults to 1 when no shape-quality argument is provided', () => {
+            const g = graphOf([
+                space('L', { spaceType: 'living', netAreaM2: 25, isPrivate: false, needsWindow: true }),
+            ]);
+            const v = computeObjectives(g, metricsOf({ L: 1 }), emptyBubble);
+            expect(v.shapeQuality).toBe(1);
+        });
+
+        it('honours an injected shapeQuality value clamped to [0, 1]', () => {
+            const g = graphOf([
+                space('L', { spaceType: 'living', netAreaM2: 25, isPrivate: false, needsWindow: true }),
+            ]);
+            expect(computeObjectives(g, metricsOf({ L: 1 }), emptyBubble, 0.4).shapeQuality).toBeCloseTo(0.4);
+            expect(computeObjectives(g, metricsOf({ L: 1 }), emptyBubble, 0).shapeQuality).toBe(0);
+            expect(computeObjectives(g, metricsOf({ L: 1 }), emptyBubble, 1.5).shapeQuality).toBe(1); // clamped
+            expect(computeObjectives(g, metricsOf({ L: 1 }), emptyBubble, -0.1).shapeQuality).toBe(0); // clamped
+        });
+    });
+
     it('efficiency: a small corridor beats a large corridor', () => {
         const lean = graphOf([
             space('K', { spaceType: 'kitchen', netAreaM2: 40, isPrivate: false, needsWindow: true }),

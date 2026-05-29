@@ -40,10 +40,21 @@ export interface ObjectiveVector {
      * slice of the cognition stack Layer 2 (`APARTMENT-LAYOUT-STATUS §5.5`).
      */
     readonly hierarchy: number;
+    /**
+     * §SHAPE-QUALITY (D3.4, 2026-05-29) — fed by `validateRoomShape` soft
+     * findings. Hard findings drop the candidate from the pool BEFORE Pareto;
+     * soft findings (room area / width / aspect outside the comfortable bands)
+     * accumulate as a fractional penalty here. Computed as
+     *   1 − sum(softFindings.delta) / numRooms
+     * clamped to [0, 1]. A layout with every room exactly in the comfortable
+     * band scores 1; a layout with multiple borderline rooms scores lower.
+     * Pareto-ranks "all-rooms-comfortable" above "rooms-fit-but-pinch".
+     */
+    readonly shapeQuality: number;
 }
 
 export const OBJECTIVE_AXES: readonly (keyof ObjectiveVector)[] =
-    ['efficiency', 'adjacency', 'daylight', 'circulation', 'regularity', 'hierarchy'] as const;
+    ['efficiency', 'adjacency', 'daylight', 'circulation', 'regularity', 'hierarchy', 'shapeQuality'] as const;
 
 const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n);
 const num = (v: unknown, d = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -55,12 +66,23 @@ const polyWH = (n: GraphNode): { w: number; h: number } => {
     return { w: x1 - x0, h: z1 - z0 };
 };
 
-/** Compute the raw 5-axis objective vector for a layout. */
-export function computeObjectives(graph: LayoutGraph, metrics: SyntaxMetrics, bubble: BubbleGraph): ObjectiveVector {
+/**
+ * Compute the raw 7-axis objective vector for a layout.
+ *
+ * `shapeQuality` is OPTIONAL and INJECTED by the caller — enumerate.ts knows the
+ * per-room shapes + can run `validateRoomShape` against them. Default = 1
+ * (no penalty) preserves every existing caller's behaviour. The default also
+ * matches the "all rooms comfortable" outcome, so layouts without a shape
+ * check ship at the optimistic upper bound rather than the pessimistic lower.
+ */
+export function computeObjectives(
+    graph: LayoutGraph, metrics: SyntaxMetrics, bubble: BubbleGraph,
+    shapeQuality: number = 1,
+): ObjectiveVector {
     const spaces = graph.nodes.filter(n => n.kind === 'Space');
     const totalArea = spaces.reduce((s, n) => s + num(n.attrs.netAreaM2), 0);
     if (spaces.length === 0 || totalArea <= 0) {
-        return { efficiency: 0, adjacency: 0, daylight: 0, circulation: 0, regularity: 0, hierarchy: 0 };
+        return { efficiency: 0, adjacency: 0, daylight: 0, circulation: 0, regularity: 0, hierarchy: 0, shapeQuality: clamp01(shapeQuality) };
     }
 
     // ── efficiency: how little of the floor is circulation. ──────────────────────
@@ -151,7 +173,7 @@ export function computeObjectives(graph: LayoutGraph, metrics: SyntaxMetrics, bu
     }
     const hierarchy = hierArea > 0 ? clamp01(hierWeighted / hierArea) : 1;
 
-    return { efficiency, adjacency, daylight, circulation, regularity, hierarchy };
+    return { efficiency, adjacency, daylight, circulation, regularity, hierarchy, shapeQuality: clamp01(shapeQuality) };
 }
 
 const pairKey = (a: string, b: string): string => (a < b ? `${a}|${b}` : `${b}|${a}`);

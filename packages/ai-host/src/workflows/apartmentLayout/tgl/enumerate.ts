@@ -19,6 +19,7 @@ import { snapRectsAwayFromWindows, type WindowSpan } from './windowAvoidance.js'
 import { buildSemanticGraph, type LayoutGraph } from './semanticGraph.js';
 import { computeSpaceSyntax } from './spaceSyntax.js';
 import { computeObjectives, OBJECTIVE_AXES, type ObjectiveVector } from './objectives.js';
+import { validateAllRoomShapes, type RoomShape } from '../dimensions/validateRoomShape.js';
 
 export interface EnumerateInput {
     readonly shellPolygon: readonly Pt[];      // metres, plan frame
@@ -56,6 +57,11 @@ export interface TglCandidate {
     readonly compromises: number;
     /** Every space reachable from the entry through doors/open thresholds. */
     readonly connected: boolean;
+    /** §D3.1 — every room passes its dimensional shape envelope (D2.1
+     *  validateRoomShape). False ⇒ at least one tunnel / oversized / undersized
+     *  room. The enumerate gate prefers shape-admissible candidates over not.
+     *  Soft findings still accumulate into `objectives.shapeQuality`. */
+    readonly shapeAdmissible: boolean;
     /** Virtual room-bounding lines at open-plan thresholds (no wall, no door)
      *  in METRES; the LayoutOption converts to mm at emit time. */
     readonly boundaries: readonly BoundarySeg[];
@@ -125,6 +131,32 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         placements = snapped.map(r => ({ roomId: r.id, rect: { x0: r.x0, z0: r.z0, x1: r.x1, z1: r.z1 } }));
     }
 
+    // §D3.1 — pre-furnishing SHAPE GATE. Validate every room rectangle against
+    // its dimensional envelope (D2.1). Hard findings flag the candidate as
+    // `shapeAdmissible: false` — the enumerateLayouts gate prefers admissible
+    // candidates. Soft findings accumulate into `shapeQuality` which Pareto-
+    // ranks against. This runs BEFORE walls + doors (D-TGL's later passes don't
+    // change room rectangles, so checking here is sound + cheap).
+    const typeByRoomId = new Map(bubble.rooms.map(r => [r.id, r.type]));
+    const roomShapes: RoomShape[] = [];
+    for (const p of placements) {
+        const type = typeByRoomId.get(p.roomId);
+        if (!type) continue;                                  // unknown room — skip
+        roomShapes.push({
+            id: p.roomId, type,
+            ...(bubble.rooms.find(r => r.id === p.roomId)?.name !== undefined
+                ? { name: bubble.rooms.find(r => r.id === p.roomId)!.name }
+                : {}),
+            rect: p.rect,
+        });
+    }
+    const shapeVal = validateAllRoomShapes(roomShapes);
+    const shapeAdmissible = shapeVal.admissible;
+    // Penalty per soft finding accumulates → shapeQuality.
+    const softPenaltySum = shapeVal.softFindings.reduce((s, f) => s + f.delta, 0);
+    const numRooms = Math.max(1, roomShapes.length);
+    const shapeQuality = Math.max(0, Math.min(1, 1 - softPenaltySum / numRooms));
+
     const { segments, openings, boundaries, compromises } = buildWallsAndDoors(placements, bubble, {
         ...(input.wallThicknessM !== undefined ? { wallThicknessM: input.wallThicknessM } : {}),
         ...(input.doorWidthM !== undefined ? { doorWidthM: input.doorWidthM } : {}),
@@ -141,15 +173,15 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     });
     const entryGuid = graph.nodes.find(n => n.kind === 'Space' && n.sourceId === bubble.entryId)?.guid ?? null;
     const metrics = computeSpaceSyntax(graph, entryGuid);
-    const objectives = computeObjectives(graph, metrics, bubble);
+    const objectives = computeObjectives(graph, metrics, bubble, shapeQuality);
     return {
         strategy: strategyKey(s), graph, objectives,
         weighted: weightedSum(objectives, input.weights), rank: 0,
-        compromises, connected: metrics.connected, boundaries,
+        compromises, connected: metrics.connected, shapeAdmissible, boundaries,
     };
 }
 
-/** Map the 4 user weights onto the 6 axes (regularity + hierarchy get fixed weights), normalise, sum. */
+/** Map the 4 user weights onto the 7 axes (regularity + hierarchy + shapeQuality get fixed weights), normalise, sum. */
 function weightedSum(o: ObjectiveVector, w: ScoringWeights): number {
     const raw: Record<keyof ObjectiveVector, number> = {
         efficiency: Math.max(0, w.corridorEfficiency),
@@ -162,6 +194,9 @@ function weightedSum(o: ObjectiveVector, w: ScoringWeights): number {
         // gets weighted via `circulation` (smooth gradient) AND `hierarchy`
         // (discrete tier). Together they form a 2-pass privacy scorer.
         hierarchy: Math.max(0, w.privacy) * 0.5,
+        // §SHAPE-QUALITY (D3.4) — fixed weight comparable to regularity. Layouts
+        // where every room sits in its comfortable envelope score higher.
+        shapeQuality: 0.6,
     };
     const total = OBJECTIVE_AXES.reduce((s, a) => s + raw[a], 0) || 1;
     return OBJECTIVE_AXES.reduce((s, a) => s + (raw[a] / total) * o[a], 0);
@@ -214,10 +249,28 @@ export function enumerateLayouts(input: EnumerateInput): TglCandidate[] {
     // through rule-PERMITTED doors (connected, zero compromises) — beats any plan
     // that needed a forbidden door (e.g. bedroom-through-bedroom). We PRE-FILTER the
     // pool to the best achievable legality tier, THEN Pareto-rank within it (so the
-    // returned list stays Pareto-consistent). Tiers: legal → reachable → anything.
+    // returned list stays Pareto-consistent).
+    //
+    // §D3.1 SHAPE GATE — extends the legality gate. A "shape-admissible" candidate
+    // (every room within its dimensional envelope: G1 area, G2 width, G3 length,
+    // G4 aspect, G6 wall) is architecturally cleaner than one with a tunnel /
+    // oversized / undersized room. Tiers (best → worst fallback):
+    //   shape-admissible AND legal      ← architecturally clean + rule-legal
+    //   shape-admissible AND connected  ← clean but with reconciliation doors
+    //   legal                            ← rule-legal but a room is awkward
+    //   connected                        ← reachable but rule + shape compromises
+    //   anything                         ← last resort
     const connected = candidates.filter(c => c.connected);
     const legal = connected.filter(c => c.compromises === 0);
-    const pool = legal.length > 0 ? legal : connected.length > 0 ? connected : candidates;
+    const shapeAdmissible = candidates.filter(c => c.shapeAdmissible);
+    const shapeAdmAndLegal = shapeAdmissible.filter(c => c.connected && c.compromises === 0);
+    const shapeAdmAndConn = shapeAdmissible.filter(c => c.connected);
+    const pool =
+        shapeAdmAndLegal.length > 0 ? shapeAdmAndLegal :
+        shapeAdmAndConn.length > 0 ? shapeAdmAndConn :
+        legal.length > 0 ? legal :
+        connected.length > 0 ? connected :
+        candidates;
 
     const ranked = assignParetoRanks(pool).sort((a, b) =>
         a.rank - b.rank ||
