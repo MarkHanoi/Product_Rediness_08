@@ -608,7 +608,7 @@ Ship in parallel with foundational tiers. These close visible single-apartment g
 
 | ID | Deliverable | Doc source | Est | Status |
 |---|---|---|---|---|
-| **D1.1–D1.5** | Dimensional data tables | DIMENSIONAL §9.1 | 4 d | ⬜ |
+| **D1.1–D1.5** | Dimensional data tables | DIMENSIONAL §9.1 | 4 d | ✅ shipped (D1.1 schema + D1.2 RoomDimensions + D1.4 ApartmentDimensions + D1.5 pin tests) |
 | **T1.1–T1.6** | Topology adjacency data tables | DIMENSIONAL §19.1 | 3 d | ⬜ |
 | **D2.1** | `validateRoomShape` | DIMENSIONAL §9.2 | 2 d | ⬜ |
 | **D2.2** | `validateRoomFit` | DIMENSIONAL §9.2 | 3 d | ⬜ |
