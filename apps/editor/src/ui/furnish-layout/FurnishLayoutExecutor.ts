@@ -147,8 +147,32 @@ function shoelaceCentroid(poly: readonly Pt[]): { centroid: Pt; area: number } {
     return { centroid: { x: cx / (6 * A), z: cz / (6 * A) }, area: Math.abs(A) };
 }
 
+/** §SUB-ZONE: a single D-TGL space within an apartment layout — used to
+ *  furnish each sub-program (kitchen, dining, living) in its OWN polygon
+ *  even when the editor's room detection merged them into one open-plan room. */
+interface SubZone {
+    readonly name: string;
+    readonly occupancy: string;
+    readonly area: number;
+    readonly centroid: { x: number; z: number };
+    readonly polygon: ReadonlyArray<{ x: number; z: number }>;
+}
+
+/** Ray-cast point-in-polygon (world XZ). */
+function pointInPolygon(p: Pt, poly: ReadonlyArray<{ x: number; z: number }>): boolean {
+    let hit = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const xi = poly[i]!.x, zi = poly[i]!.z, xj = poly[j]!.x, zj = poly[j]!.z;
+        if (((zi > p.z) !== (zj > p.z)) && (p.x < ((xj - xi) * (p.z - zi)) / (zj - zi) + xi)) hit = !hit;
+    }
+    return hit;
+}
+
 export class FurnishLayoutExecutor {
     private _dispose: (() => void) | null = null;
+    /** Last apartment.layout-executed sub-zones (cached so the next furnish run
+     *  can constrain each sub-program to its own polygon — see §SUB-ZONE). */
+    private _subZones: { levelId: string; zones: SubZone[] } | null = null;
 
     /** Subscribe to 'furnish.layout-execute'. Idempotent. */
     attach(runtime: PryzmRuntime): void {
@@ -156,12 +180,23 @@ export class FurnishLayoutExecutor {
         const events = runtime.events as unknown as {
             on?: (k: string, fn: (p: unknown) => void) => (() => void) | void;
         };
-        const sub = events.on?.('furnish.layout-execute', () => {
+        const subFurnish = events.on?.('furnish.layout-execute', () => {
             void this._execute(runtime);
         });
-        this._dispose = typeof sub === 'function' ? sub : () => { /* */ };
+        // §SUB-ZONE: cache D-TGL sub-zones emitted by the apartment generator
+        // so the furnish run can split a merged open-plan detected room back
+        // into its underlying program rooms (kitchen, dining, living, hall).
+        const subApt = events.on?.('apartment.layout-executed', (payload) => {
+            const p = payload as { levelId?: string; subZones?: SubZone[] } | undefined;
+            if (p && typeof p.levelId === 'string' && Array.isArray(p.subZones)) {
+                this._subZones = { levelId: p.levelId, zones: p.subZones };
+            }
+        });
+        const disp1 = typeof subFurnish === 'function' ? subFurnish : () => { /* */ };
+        const disp2 = typeof subApt === 'function' ? subApt : () => { /* */ };
+        this._dispose = () => { disp1(); disp2(); };
     }
-    detach(): void { this._dispose?.(); this._dispose = null; }
+    detach(): void { this._dispose?.(); this._dispose = null; this._subZones = null; }
 
     private async _execute(runtime: PryzmRuntime): Promise<void> {
         const toast = (message: string, severity: 'info' | 'success' | 'error' | 'warn'): void => {
@@ -196,16 +231,20 @@ export class FurnishLayoutExecutor {
             const allPlaced: PlacedFurniture[] = [];
             let roomsProcessed = 0;
             let roomsSkipped = 0;
-            for (const r of allRooms) {
-                const poly = (r.boundary?.polygon ?? []) as readonly Pt[];
-                if (poly.length < 3) { roomsSkipped++; continue; }
-                const occupancy = r.occupancyType ?? '';
-                const { centroid, area } = shoelaceCentroid(poly);
-                const cx = r.computed?.centroid?.x ?? centroid.x;
-                const cz = r.computed?.centroid?.z ?? centroid.z;
-                const areaM2 = r.computed?.area ?? area;
 
-                // Build wall segments + openings per polygon edge.
+            /** Build a FurnishRoomInput from any polygon (detected-room or
+             *  D-TGL sub-zone). Each polygon edge becomes a wall seg; edges
+             *  that match a real editor wall carry that wall's openings, edges
+             *  that don't (boundary lines between sub-zones) carry none. */
+            const buildInput = (
+                poly: readonly Pt[], occupancy: string, roomId: string,
+                cxIn?: number, czIn?: number, areaIn?: number,
+            ): FurnishRoomInput | null => {
+                if (poly.length < 3) return null;
+                const { centroid, area } = shoelaceCentroid(poly);
+                const cx = cxIn ?? centroid.x;
+                const cz = czIn ?? centroid.z;
+                const areaM2 = areaIn ?? area;
                 const wallSegs: RoomWallSeg[] = [];
                 const doors: OpeningPose[] = [];
                 const windows: OpeningPose[] = [];
@@ -215,7 +254,6 @@ export class FurnishLayoutExecutor {
                     const len = dist(a, b);
                     if (len < EPS) continue;
                     const dirU = unit(sub(b, a));
-                    // Inward normal: choose the perpendicular that points toward the centroid.
                     const perp = leftPerp(dirU);
                     const mid = mul(add(a, b), 0.5);
                     const toCent = sub({ x: cx, z: cz }, mid);
@@ -226,7 +264,6 @@ export class FurnishLayoutExecutor {
                     const isExterior = w ? (facades?.get(w.id)?.isExterior ?? false) : false;
                     wallSegs.push({ a, b, inwardNormal, length: len, isExterior });
 
-                    // Openings: project from wall.openings to world coords, normal = inwardNormal.
                     if (w) {
                         for (const op of w.openings ?? []) {
                             if (typeof op.offset !== 'number' || typeof op.width !== 'number') continue;
@@ -246,24 +283,54 @@ export class FurnishLayoutExecutor {
                         }
                     }
                 }
-
-                const input: FurnishRoomInput = {
-                    roomId: r.id,
-                    levelId: level.id,
-                    occupancy,
-                    polygon: poly,
-                    centroid: { x: cx, z: cz },
-                    areaM2,
-                    walls: wallSegs,
-                    doors,
-                    windows,
-                    levelElevation,
+                return {
+                    roomId, levelId: level.id, occupancy,
+                    polygon: poly, centroid: { x: cx, z: cz }, areaM2,
+                    walls: wallSegs, doors, windows, levelElevation,
                 };
-                // Open-plan merged rooms carry a compound name like
-                // "Living Room / Kitchen / Dining" — furnish EACH sub-program
-                // so the kitchen run + dining table + sofa all land in the
-                // same shared zone (D-FLE accumulates obstacles across
-                // archetypes so they don't collide).
+            };
+
+            // §SUB-ZONE cache for THIS level — index sub-zones whose centroid
+            // falls inside each detected room polygon. Lets a merged open-plan
+            // detected room be furnished as several independent sub-rooms.
+            const subZones = (this._subZones?.levelId === level.id ? this._subZones.zones : [])
+                .filter(sz => sz.polygon.length >= 3);
+
+            for (const r of allRooms) {
+                const poly = (r.boundary?.polygon ?? []) as readonly Pt[];
+                if (poly.length < 3) { roomsSkipped++; continue; }
+                const occupancy = r.occupancyType ?? '';
+                const { centroid, area } = shoelaceCentroid(poly);
+                const cx = r.computed?.centroid?.x ?? centroid.x;
+                const cz = r.computed?.centroid?.z ?? centroid.z;
+                const areaM2 = r.computed?.area ?? area;
+
+                // Which D-TGL sub-zones (if any) sit inside this detected room?
+                const contained = subZones.filter(sz => pointInPolygon(sz.centroid, poly));
+
+                // Open-plan + sub-zones available: furnish each sub-zone with
+                // its OWN polygon (kitchen run anchors against the kitchen
+                // sub-zone's walls, dining table at the dining sub-zone's
+                // centroid). Boundary-line edges between sub-zones become
+                // wall segs with no openings — perfectly fine for D-FLE.
+                if (contained.length > 1) {
+                    let placedAny = false;
+                    for (const sz of contained) {
+                        const inp = buildInput(sz.polygon, sz.occupancy, `${r.id}::${sz.name}`, sz.centroid.x, sz.centroid.z, sz.area);
+                        if (!inp) continue;
+                        const placed = furnishRoom(inp);
+                        if (placed.length > 0) { placedAny = true; allPlaced.push(...placed); }
+                    }
+                    if (placedAny) roomsProcessed++; else roomsSkipped++;
+                    continue;
+                }
+
+                const input = buildInput(poly, occupancy, r.id, cx, cz, areaM2);
+                if (!input) { roomsSkipped++; continue; }
+
+                // Compound name fallback — sub-zones missing (e.g. manual edits)
+                // but the room is named "Living Room / Kitchen / Dining". Run
+                // each archetype in the merged polygon with shared obstacles.
                 const occupancies = occupanciesForRoom(r);
                 const placed = occupancies.length > 1
                     ? furnishRoomCompound(input, occupancies)

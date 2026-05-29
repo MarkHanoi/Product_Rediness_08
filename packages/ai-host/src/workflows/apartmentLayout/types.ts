@@ -22,6 +22,11 @@ export interface LayoutRoom {
     /** Footprint centroid (plan mm) — lets the build match this room to the
      *  detected room and apply its semantic name/type. */
     centroid?: Vec2mm;
+    /** Footprint polygon (plan mm). Used by D-FLE in the open-plan case to
+     *  constrain each sub-program's furnishing to its OWN sub-zone (kitchen
+     *  run anchors against the kitchen sub-zone's walls, not the merged
+     *  hall+living+kitchen+dining polygon). Optional for back-compat. */
+    polygon?: ReadonlyArray<Vec2mm>;
     /** RoomOccupancyType string (e.g. 'bedroom','living-room') applied to the
      *  detected room post-build so it is coloured/tagged by use. */
     occupancy?: string;

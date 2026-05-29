@@ -61,6 +61,25 @@ describe('emitGeometry (TGL P9)', () => {
         expect(option.walls.some(w => !w.isExternal)).toBe(true);
     });
 
+    it('every room carries its polygon (mm) so D-FLE can sub-zone open-plan layouts', () => {
+        const g = fixtureGraph();
+        const { option } = emitGeometry(g);
+        const spaceNodes = g.nodes.filter(n => n.kind === 'Space');
+        expect(option.rooms.length).toBe(spaceNodes.length);
+        for (let i = 0; i < option.rooms.length; i++) {
+            const r = option.rooms[i]!;
+            const n = spaceNodes[i]!;
+            const polyM = n.geometry?.polygon ?? [];
+            expect(r.polygon, `${r.name} polygon`).toBeDefined();
+            expect(r.polygon!.length).toBe(polyM.length);
+            // mm = round(m * 1000 * 1e6) / 1e6 — assert vertices match in mm.
+            for (let j = 0; j < polyM.length; j++) {
+                expect(r.polygon![j]!.x).toBeCloseTo(polyM[j]!.x * 1000, 6);
+                expect(r.polygon![j]!.y).toBeCloseTo(polyM[j]!.z * 1000, 6);
+            }
+        }
+    });
+
     it('converts metres → millimetres exactly (×1000)', () => {
         const g = fixtureGraph();
         const wallNodes = g.nodes.filter(n => n.kind === 'Wall');

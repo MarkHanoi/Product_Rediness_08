@@ -186,6 +186,20 @@ export class ApartmentLayoutExecutor {
      * undo unit. Then name the rooms.
      */
     private _finishLayout(runtime: PryzmRuntime, levelId: string, set: LayoutCommandSet, option: ScoredLayoutOption): void {
+        // Build the sub-zone payload once — emitted on apartment.layout-executed
+        // so FurnishLayoutExecutor can constrain each open-plan sub-program
+        // (kitchen, dining, living) to its own polygon instead of furnishing
+        // the whole merged detected room. mm → m for downstream consumers.
+        const subZones = option.rooms
+            .filter(r => r.polygon && r.polygon.length >= 3 && r.centroid && r.occupancy)
+            .map(r => ({
+                name: r.name,
+                occupancy: r.occupancy as string,
+                area: r.area,
+                centroid: { x: (r.centroid!.x ?? 0) / 1000, z: (r.centroid!.y ?? 0) / 1000 },
+                polygon: r.polygon!.map(p => ({ x: p.x / 1000, z: p.y / 1000 })),
+            }));
+
         const emitDone = (doorCount: number): void => {
             // §PREVIEW-VS-BUILD — surface the drops on the completion event too so
             // downstream automation (tests, telemetry, AI follow-ups) can observe
@@ -196,6 +210,8 @@ export class ApartmentLayoutExecutor {
                 previewWallCount: option.walls.length,
                 droppedWallCount: set.warnings.length,
                 warnings: [...set.warnings],
+                levelId,
+                subZones,
             });
             runtime.events?.emit('pryzm:toast', { message: `Built layout — ${set.wallIds.length} walls, ${doorCount} doors.`, severity: 'success' });
         };

@@ -83,6 +83,10 @@ export function emitGeometry(graph: LayoutGraph): EmittedLayout {
         const needsWindow = n.attrs.needsWindow === true;
         const { cx, cz } = polyCentroid(n);
         const spaceType = str(n.attrs.spaceType, 'utility');
+        const polyM = n.geometry?.polygon ?? [];
+        // mm-projected polygon (plan-y = world-z). Empty when the space has no
+        // geometry (shouldn't happen in production but keeps the type honest).
+        const polygonMm = polyM.map(p => ({ x: mm(p.x), y: mm(p.z) }));
         rooms.push({
             name: str(n.attrs.name, n.sourceId),
             type: (spaceType as RoomType),
@@ -91,6 +95,7 @@ export function emitGeometry(graph: LayoutGraph): EmittedLayout {
             hasDirectAccess: (permeable.get(n.guid)?.size ?? 0) > 0,
             adjacentTo: [...(neighbours.get(n.guid) ?? [])].map(g => nameByGuid.get(g) ?? g).sort(),
             centroid: { x: mm(cx), y: mm(cz) },
+            ...(polygonMm.length >= 3 ? { polygon: polygonMm } : {}),
             occupancy: occupancyOf(spaceType),
         });
     }
