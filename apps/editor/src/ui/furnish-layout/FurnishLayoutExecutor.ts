@@ -293,8 +293,32 @@ export class FurnishLayoutExecutor {
             // §SUB-ZONE cache for THIS level — index sub-zones whose centroid
             // falls inside each detected room polygon. Lets a merged open-plan
             // detected room be furnished as several independent sub-rooms.
-            const subZones = (this._subZones?.levelId === level.id ? this._subZones.zones : [])
+            //
+            // STALENESS GUARD: the cache is populated by `apartment.layout-
+            // executed`. If the user manually edits walls/rooms between the
+            // apartment build and this furnish run, the cached sub-zone
+            // polygons may no longer match the detected rooms. Soft check:
+            // verify each cached sub-zone's centroid still lies inside SOME
+            // detected room on this level; if NO sub-zone matches (whole
+            // cache obsolete), discard the cache and fall back to the
+            // compound-name path. Per-zone misses are tolerated — those just
+            // don't contribute. After consumption the cache is single-use:
+            // cleared so the next furnish run re-acquires fresh data on a
+            // fresh apartment build.
+            let subZones = (this._subZones?.levelId === level.id ? this._subZones.zones : [])
                 .filter(sz => sz.polygon.length >= 3);
+            if (subZones.length > 0) {
+                const liveAny = subZones.some(sz =>
+                    allRooms.some(r => {
+                        const rp = (r.boundary?.polygon ?? []) as readonly Pt[];
+                        return rp.length >= 3 && pointInPolygon(sz.centroid, rp);
+                    }),
+                );
+                if (!liveAny) {
+                    console.warn('[furnish-layout] §SUB-ZONE cache STALE (no sub-zone centroid lies inside any detected room) — falling back to compound-name path');
+                    subZones = [];
+                }
+            }
 
             for (const r of allRooms) {
                 const poly = (r.boundary?.polygon ?? []) as readonly Pt[];
@@ -338,6 +362,13 @@ export class FurnishLayoutExecutor {
                 if (placed.length > 0) { roomsProcessed++; allPlaced.push(...placed); }
                 else roomsSkipped++;
             }
+
+            // §SUB-ZONE single-use cache: discard once consumed. A subsequent
+            // furnish run after manual wall/room edits will then take the
+            // compound-name fallback path; the user can refresh via a new
+            // apartment.layout-execute. Prevents stale sub-zones being applied
+            // to a layout the user edited between the two phases.
+            if (this._subZones?.levelId === level.id) this._subZones = null;
 
             console.log(
                 '[furnish-layout] §FURNISH-SUMMARY ' +

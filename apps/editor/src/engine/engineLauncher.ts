@@ -263,6 +263,7 @@ export async function bootstrap(
     const {
         selectionManager, commandManager, toolManager,
         wallTool, slabTool, curtainWallTool, columnTool, roofTool,
+        roomTopologyObserver,
     } = await initTools({
         world, components, container, bimManager, projectContext,
         transformControls, levelPlaneConstraint, viewController, navManager,
@@ -569,9 +570,12 @@ export async function bootstrap(
     // WallStore events fired by the join-resolver storm. The committed event
     // (`bim-wall-mutation-committed`) still drives ONE redetect after the
     // resolver finishes, so a single user wall draw produces ONE redetect
-    // instead of TWO (commit + N debounced resolver updates).
-    (window.roomTopologyObserver as { setJoinsResolvingPredicate?: (fn: () => boolean) => void } | undefined)
-        ?.setJoinsResolvingPredicate?.(() => wallRebuildCoordinator.isJoinsResolving);
+    // instead of TWO (commit + N debounced resolver updates). Wired against
+    // the LOCAL roomTopologyObserver instance (returned by initTools) — no
+    // window-bridge needed; respects P4.
+    roomTopologyObserver.setJoinsResolvingPredicate(
+        () => wallRebuildCoordinator.isJoinsResolving,
+    );
 
     const addFurniture = createAddFurniture({
         world, projectContext, gltfLoader, bimManager, furnitureBuilder, furnitureStore,
