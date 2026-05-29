@@ -16,6 +16,12 @@ import { ApartmentLayoutModal } from './ApartmentLayoutModal.js';
 import { ensureApartmentLayoutRegistered } from '../../engine/ensureApartmentLayoutRegistered.js';
 import type { ApartmentGenerateLayoutPayload } from '@pryzm/ai-host';
 
+/** Max-wait for the regenerate flow's options-ready event after a successful
+ *  workflow submit. 15 s is long enough for the slowest realistic D-TGL run
+ *  on a complex shell + a relay round-trip, while still short enough that a
+ *  silently-hung workflow doesn't strand the modal in busy state. */
+const REGEN_TIMEOUT_MS = 15_000;
+
 /** Subscribes to layout-options-ready and drives the §11 modal. */
 export class ApartmentLayoutController {
     private readonly modal = new ApartmentLayoutModal();
@@ -32,6 +38,12 @@ export class ApartmentLayoutController {
      *  options-ready, so the next event refreshes IN PLACE instead of
      *  re-opening the modal. */
     private _regenerating = false;
+    /** §MODAL-DYNAMIC reliability guard (2026-05-29): a max-wait timer for
+     *  the in-flight regenerate. If `apartment.layout-options-ready` doesn't
+     *  fire within REGEN_TIMEOUT_MS of a successful submit, we treat the
+     *  workflow as silently hung — reset busy state + show a toast so the
+     *  modal doesn't get stuck. Cleared when the event lands normally. */
+    private _regenerateTimer: ReturnType<typeof setTimeout> | null = null;
 
     /** §MODAL-DYNAMIC: writers are the trigger (requestApartmentLayout) AND
      *  the modal-driven re-generate path. Exposed for the trigger only. */
@@ -56,6 +68,10 @@ export class ApartmentLayoutController {
                     console.log('[apartment-layout] options-ready (regenerate) —', options.length, 'option(s); refreshing modal');
                     this.modal.refresh(options);
                     this._regenerating = false;
+                    if (this._regenerateTimer !== null) {
+                        clearTimeout(this._regenerateTimer);
+                        this._regenerateTimer = null;
+                    }
                     return;
                 }
                 console.log('[apartment-layout] options-ready received —', options.length, 'option(s); opening modal');
@@ -87,18 +103,42 @@ export class ApartmentLayoutController {
                         const next: ApartmentGenerateLayoutPayload = { ...base, program };
                         this._lastPayload = next;
                         this._regenerating = true;
+                        // §RELIABILITY (2026-05-29): arm a max-wait timer
+                        // BEFORE submit. If the workflow succeeds-without-event
+                        // (relay accepts but the pipeline never emits options-
+                        // ready), the modal would otherwise spin forever. The
+                        // timer fires after REGEN_TIMEOUT_MS — cleared on the
+                        // normal event landing OR a submit failure path below.
+                        if (this._regenerateTimer !== null) clearTimeout(this._regenerateTimer);
+                        this._regenerateTimer = setTimeout(() => {
+                            this._regenerateTimer = null;
+                            if (!this._regenerating) return;
+                            console.warn('[apartment-layout] regenerate TIMED OUT — no options-ready within', REGEN_TIMEOUT_MS, 'ms');
+                            this._regenerating = false;
+                            this.modal.setBusy(false);
+                            runtime.events?.emit('pryzm:toast', {
+                                message: 'Layout regenerate timed out. Try a smaller program or simpler shell.',
+                                severity: 'error',
+                            });
+                        }, REGEN_TIMEOUT_MS);
                         void requestApartmentLayout(runtime, next, this._lastCtx).then(res => {
                             if (!res.ok) {
                                 console.warn('[apartment-layout] regenerate failed:', res.reason);
                                 this._regenerating = false;
                                 this.modal.setBusy(false);
+                                if (this._regenerateTimer !== null) {
+                                    clearTimeout(this._regenerateTimer);
+                                    this._regenerateTimer = null;
+                                }
                                 runtime.events?.emit('pryzm:toast', {
                                     message: `Layout regenerate failed: ${res.reason ?? 'unknown'}`,
                                     severity: 'error',
                                 });
                             }
                             // Success: the next 'apartment.layout-options-ready' event
-                            // will land in the refresh-in-place branch above.
+                            // will land in the refresh-in-place branch above; the
+                            // max-wait timer fires only if no event lands within
+                            // REGEN_TIMEOUT_MS.
                         });
                     },
                 }, this._lastPayload?.program);
@@ -117,6 +157,10 @@ export class ApartmentLayoutController {
         this._dispose = null;
         this._lastPayload = null;
         this._regenerating = false;
+        if (this._regenerateTimer !== null) {
+            clearTimeout(this._regenerateTimer);
+            this._regenerateTimer = null;
+        }
         this.modal.dismiss();
     }
 }
