@@ -82,6 +82,15 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
     'private-office': {
         occupancy: 'private-office', minAreaM2: 5,
         items: [
+            // §STUDY-FURNITURE workaround — `desk` + `desk_chair` reuse the
+            // dining_table / dining_chair RENDERABLE types while the proper
+            // geometry-furniture + Zod-schema + builder + plan-symbol + factory
+            // + IFC export entries are still pending. Tracked end-to-end in
+            // APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §F1.1; this
+            // single archetype edit alone would violate C03 (schema purity) +
+            // C11 (element creation pipeline) + C15 (no half-typed elements)
+            // — so we keep the workaround in place until the full F1.1 column
+            // ships green.
             { kind: 'dining_table', anchor: 'wall-window', facing: 'into-room', required: true, group: 'desk' },
             { kind: 'dining_chair', anchor: 'beside', facing: 'to-wall', required: false, group: 'desk', count: 1 },
         ],

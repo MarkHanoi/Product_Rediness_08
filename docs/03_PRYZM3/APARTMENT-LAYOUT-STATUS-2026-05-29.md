@@ -335,6 +335,19 @@ The three remaining-work queues (`apartment-furnish-quality-wishlist`, `program-
 
 Both can land in parallel because they touch different files. The strategic phases require fresh thinking; the tactical phases extend known patterns.
 
+## §5.8a — Pre-furnishing validators (Part A + Part B sister layer)
+
+A parallel layer to the cognition stack — pre-furnishing **dimensional + topological validators** that sit BETWEEN D-TGL subdivision and D-FLE furnishing. This layer enforces the geometric sanity that furniture-placement should not have to compensate for:
+
+- Part A (Dimensional) — max area per room (no 20 m² bathrooms), aspect-ratio limits, min uninterrupted wall, kitchen work triangle, corner integrity, frontage hierarchy.
+- Part B (Topology) — mandatory / preferred / forbidden adjacencies, privacy gradient, acoustic zoning, wet-cluster grouping, circulation sequencing.
+
+**~47 dev-days combined; ~4–5 weeks at two contributors.**
+
+Lives in:
+
+> `APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK-2026-05-29.md` — fifth companion doc.
+
 ## §5.9 — The deeper framing: cognition stack + staged optimisation
 
 §5 above identifies the 5 architectural-intelligence LAYERS and re-orders the phasing accordingly. The next abstraction up is the **7-Layer Cognition Stack** — engines (not just metrics) that together turn PRYZM from a layout generator into a **hierarchical spatial-cognition system**. That stack, the staged-optimisation principle (6 stages, no giant optimiser), the Spatial Intent Field, the AI-guides-engine rule, and a status-tracked implementation plan live in:
