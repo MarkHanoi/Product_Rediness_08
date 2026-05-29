@@ -521,6 +521,93 @@ User-flagged 2026-05-29: the NEW DOOR / NEW WINDOW pickers in the AI Create pane
 
 Queue file: `ai-creation-default-element-types-queue.md`.
 
+---
+
+# Part E — The 5-Layer Architectural Intelligence Model
+
+Everything in Parts A–D answers *"what's in each room and why"* — the **functional topology** layer. That layer is necessary but not sufficient. Architectural excellence emerges from five layers working together; PRYZM today has **≈ 2.5 of 5**. This Part frames where the matrix sits in the larger model and what's missing above it.
+
+> **One-sentence diagnosis (`APARTMENT-LAYOUT-STATUS-2026-05-29.md` §5.1):** PRYZM understands adjacency but not significance. Today's engine *distributes constraints*. Architecture *distributes importance*. Adding more local rules will not close that gap.
+
+## §E.1 — Where the matrix lives in the model
+
+| Layer | Name | Status | What this doc covers |
+|---|---|---|---|
+| **1** | Functional topology | ✅ Strong | **All of Parts A–D.** Adjacency + access legality + program + dimensions + per-room element matrix + per-room default door/window types. |
+| **2** | Geometric rationalisation | 🟡 Partial | Touched implicitly in Part A's placement rules ("sofa on longest wall", "kitchen run on longest wall"). Missing: compositional alignment, proportional elegance, structural rhythm, façade rhythm. |
+| **3** | Environmental intelligence | ❌ Absent | Touched only at the "windowMandatory true/false" flag (Part A). Missing: solar analysis, daylight depth, seasonal light, thermal, ventilation paths, acoustic exposure, façade quality scoring. |
+| **4** | Perceptual choreography | ❌ Absent | NOT in this doc. Sightlines, reveal sequencing, compression / release, threshold compression, light termination, emotional climax — what the eye sees, where the body pauses. |
+| **5** | Cultural / typological intelligence | ❌ Absent | NOT in this doc. The matrix today produces *generic modernist legality*. Parisian / Nordic / Japanese / NYC-loft priors are separate typology overlays. |
+
+**Reading guide.** The matrix in Part B + the driving principles in Part A constitute the LOCAL-RULE layer. Anything that requires **global reasoning across multiple rooms or the whole apartment** (Layers 2–5) does not belong here — it belongs in `APARTMENT-LAYOUT-STATUS-2026-05-29.md` §5 (the strategic framework).
+
+## §E.2 — Why "more rules" is the wrong next move
+
+> Do NOT continue solving this by adding local rules forever. Beyond a point, more local constraints, more furniture rules, more adjacency weights will produce **brittle mediocrity** because architecture quality is increasingly an emergent *global* property, not a local one.
+
+When the next round of work pushes into a constraint that can't be expressed per-room, **escalate to STATUS §5** instead of adding it to Parts A–D here. Concrete examples of constraints that should NOT come into this matrix:
+
+- "The best-rated façade edge should be allocated to a habitable room" — Layer 3 (needs façade scoring across all edges).
+- "The arrival sightline should terminate on daylight, not on a bathroom door" — Layer 4 (needs visibility ray-casting from the entry).
+- "Wet walls should stack" — Layer 2 (cross-room alignment scoring).
+- "Long-thin notched corridors are penalised even if legal" — Layer 2 (morphology scoring).
+- "The compression-then-release sequence at the entry produces a positive emotional reading" — Layer 4 (perceptual choreography).
+- "A Parisian-typology layout separates the WC from the bathroom and isolates the kitchen by default" — Layer 5 (typology priors).
+
+## §E.3 — Kuma vs Foster lens
+
+The matrix in Parts A–D is **Foster-shaped** — systems-rational, repeatable grammars, deterministic subdivision, optimisation-ready. PRYZM today is closer to Foster than to Kuma because the matrix encodes *what belongs* (functional categories), not *what an inhabitant experiences* (gradients, ambiguity, temporal occupation).
+
+For the matrix to absorb Kuma-shaped intelligence, three categories of upgrade are needed in adjacent docs (NOT in this matrix):
+
+- **Gradient conditions** — the matrix today is binary (must / recommended / permitted / forbidden). Real architecture is gradients (semi-private, visually open but acoustically closed, compressed-then-expanded). A future row "**filtered light from corridor**" or "**partial concealment of kitchen**" cannot be expressed in a must/permitted/forbidden cell.
+- **Temporal perception** — the matrix is static (this furniture goes in this room). Architecture is movement through time (waking at 3 am, sunlight at 7 am, sound drift at night). The matrix needs a *temporal occupancy* overlay that scores how the apartment performs at second 1, 5, 20, 300.
+- **Material as psychological instrument** — Part B treats materials as finish categories (`timber` / `tile` / `carpet`). Architects treat them as psychological instruments (grain direction, acoustic softness, thermal perception, reflected light warmth). A future "**material intent**" layer overlays the finish-category cells.
+
+## §E.4 — What architects actually optimise (beyond the matrix)
+
+The matrix optimises **fit + legality + program coverage**. Architects also optimise these (none of which are in Part B):
+
+- **Latent tension** — slightly compressed entry before large living reveal; partial concealment of kitchen; asymmetry balanced by light; offset circulation for privacy. Pure optimisation *erases* tension. The matrix has no concept of intentional asymmetry.
+- **Memory** — humans remember arrival, corner window, morning light, long sightline, threshold sequence. The matrix has no concept of *what an inhabitant will remember*.
+- **Hierarchy** — dominant space, servant spaces, supporting spaces, silent zones, active zones. The matrix gives every required cell equal weight; it has no concept of a *dominant* space.
+- **Ambiguity** — good architecture allows multiple readings, flexible use, interpretive openness. The matrix over-specifies (must / forbidden binaries).
+
+These belong in `STATUS §5.4`, NOT here. The matrix is the *necessary* layer; these are the *significance* layer.
+
+## §E.5 — The escalation triggers
+
+When the next round of work pushes into one of these constraint shapes, the work has crossed out of the matrix's scope:
+
+| Trigger | Belongs in |
+|---|---|
+| "Score every exterior wall by orientation / view / noise; assign rooms by score" | STATUS §5.5 Phase 2 (façade intelligence) |
+| "Ray-cast from the entry door; penalise direct bath-door visibility" | STATUS §5.5 Phase 1 (sightline scoring) |
+| "Living + master both get an exterior corner; second bedroom does not" | STATUS §5.5 Phase 2 (façade) + Phase 4 (hierarchy enforcement) |
+| "Wet walls stack vertically across rooms" | STATUS §5.5 Phase 4 (structural inevitability) |
+| "The kitchen→dining edge is a *social-flow* edge with a wide opening; bedroom→corridor is a *privacy-access* edge with a narrow door" | STATUS §5.5 Phase 3 (semantic edge typing) |
+| "Simulate the resident walking from bedroom to bathroom at 3 am" | STATUS §5.5 Phase 5 (human movement simulation) |
+| "A French-typology apartment isolates the kitchen by default" | STATUS §5.5 Phase 6 (typology priors) |
+| "The sofa faces the TV wall, not just 'into the room'" | STATUS §5.5 Phase 7 (activity-centred furnishing) |
+
+When a future commit hits any of these triggers, the matrix gets a *cross-reference back to the STATUS doc*, NOT a new row.
+
+## §E.6 — The transition
+
+> Today PRYZM mostly answers: **"Can this apartment work?"** Architects answer: **"What should this apartment FEEL like to inhabit?"**
+
+The matrix in Part B answers the first question completely. The strategic phases in STATUS §5.5 are what answer the second. This Part exists so future editors understand that *adding more rows to Part B will plateau the engine* — the next leap is in adjacent docs.
+
+## §E.7 — The 7-Layer Cognition Stack (target architecture)
+
+§E.1 maps the matrix to a **5-layer** intelligence model — that's the perceptual framing. The deeper *implementation* model is a **7-layer cognition stack** (Environmental Intelligence + Spatial Hierarchy + Semantic Topology + Compositional Geometry + Perceptual Simulation + Human Behavioural Simulation + Typology Priors), executed as **6 staged optimisation steps** rather than one giant solver. The stack, the staged-optimisation discipline, the Spatial Intent Field substrate, the AI-guides-engine rule, and a status-tracked implementation plan with per-deliverable IDs (L1-α-1, L2-β-1, …) live in the third companion doc:
+
+> **`APARTMENT-COGNITION-STACK-AND-IMPLEMENTATION-PLAN-2026-05-29.md`** — the plan of record.
+
+When a future edit to THIS matrix surfaces a constraint that can't be expressed per-room (an L4 or L5 trigger per §E.5), cross-reference the relevant cognition-stack deliverable (e.g. *"see L2-β-2 Entry sightline score"*) rather than encoding it locally.
+
+---
+
 ## §C.4 — Pointers
 
 - Element catalogue raw source: `packages/geometry-*/src/*Types.ts` (12 categories).

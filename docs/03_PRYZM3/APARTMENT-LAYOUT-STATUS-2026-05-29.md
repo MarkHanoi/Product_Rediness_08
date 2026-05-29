@@ -242,6 +242,109 @@ This reframes the whole `apartment-furnish-quality-wishlist`, `program-rules-imp
 
 ---
 
+# §5 — Architectural Excellence Framework (the deeper layer)
+
+§4.5 enumerates the 13 strategic gaps — *what's missing*. §5 frames *what kind of intelligence* must be added so those gaps don't get filled in a way that produces brittle mediocrity. The 13 tactical phases live INSIDE a 5-layer architectural-intelligence model. Adding more rules to Layer 1 will not close Layers 3–5.
+
+## §5.1 — One-sentence diagnosis
+
+> **Your engine understands adjacency but not significance.**
+
+Today's engine distributes constraints. Architecture distributes **importance**. That asymmetry is the real frontier — not another room rule, another archetype, another adjacency weight. After a point, more local constraints produce **brittle mediocrity** because architecture quality is increasingly an emergent *global* property, not a local one.
+
+## §5.2 — The 5-Layer Architectural Intelligence Model
+
+| Layer | Name | PRYZM today | What it does |
+|---|---|---|---|
+| **1** | **Functional topology** | ✅ Strong | Adjacency, access legality, room program, circulation validity, dimensions. Answers *"Can this apartment work?"* |
+| **2** | **Geometric rationalisation** | 🟡 Partial | Subdivision, squarification, wall generation, collision avoidance. Missing: compositional alignment, proportional elegance, structural rhythm, façade rhythm. |
+| **3** | **Environmental intelligence** | ❌ Absent | Solar analysis, daylight penetration depth, seasonal light, thermal comfort, ventilation paths, acoustic exposure, façade quality scoring. |
+| **4** | **Perceptual choreography** | ❌ Absent | Sightlines, reveal sequencing, compression / release, threshold compression, light termination, emotional climax, where the eye travels, where the body pauses. |
+| **5** | **Cultural / typological intelligence** | ❌ Absent | Parisian / Nordic / Japanese / NYC-loft / Mediterranean priors. Social assumptions, domestic rituals, façade traditions, privacy philosophy, enfilade vs open-plan logic. |
+
+Today PRYZM has **≈ 2.5 layers** out of 5. The §4.5 strategic gaps are mostly Layers 3 + 4. Adding more Layer 1 rules will plateau the engine.
+
+## §5.3 — Kuma vs Foster: two intelligences PRYZM still lacks
+
+These two practices are useful framing because they sit at opposite poles of architectural excellence. PRYZM today is *closer to Foster than Kuma* (it already does graph topology, Pareto ranking, deterministic subdivision — that's Foster-shaped thinking). But it's missing pieces of both.
+
+### §5.3.1 — Foster + Partners (systems / hierarchy / inevitability)
+
+Foster operates in: systems integration, performance, modularity, repeatable grammars. The Foster intelligence PRYZM still lacks:
+
+- **Hierarchical systems thinking.** Constraints are not equal-priority. Primary (structure, façade orientation, circulation spine, servicing) → secondary (apartment subdivision, room distribution) → tertiary (furniture, lighting, local refinements). The current pipeline is **too flat** — local rules and global rules compete at the same priority. The §4.5 phasing already identifies this.
+- **Structural inevitability.** Great architecture *feels inevitable*: walls align, spans make sense, openings rhythmically cohere, systems reinforce one another. PRYZM's layouts can be *solved* without being *inevitable* — because geometry is locally optimised but not globally ordered. This is one of the deepest gaps.
+
+### §5.3.2 — Kengo Kuma (atmosphere / gradients / temporal / material)
+
+Kuma does not begin with rooms. He begins with light softness, filtering, material tactility, ambiguity of boundary, transitions between inside/outside, human bodily perception. The Kuma intelligence PRYZM still lacks:
+
+- **Gradient conditions.** Today's engine is binary (public/private, room/corridor, inside/outside, window/no-window). Real architecture is **gradients** — semi-private, visually open but acoustically closed, compressed-then-expanded, filtered daylight, peripheral inhabitation, thickened edges, soft thresholds. Kuma's intelligence lives in *ambiguity, layered permeability, partial concealment.* Generated plans still feel "diagrammatic" because the engine produces hard semantic zoning.
+- **Temporal perception.** Architects think in *movement through time* — what happens at second 1, 5, 20, 300. Entering after work; waking at 3 am; sunlight at 7 am; sound drift at night; guests arriving; moving groceries; sitting silently in winter rain. PRYZM barely models temporal occupation.
+- **Material intelligence.** Today materials are *finish categories*. Architects treat them as *psychological instruments* — grain direction, acoustic softness, thermal perception, reflected light warmth, tactile edge conditions.
+
+## §5.4 — What architects actually optimise (that algorithms usually don't)
+
+These reframe the objective function. PRYZM today optimises legality + light + privacy + corridor-efficiency + adjacency. Architects also optimise:
+
+- **Latent tension.** Slightly compressed entry before large living reveal; partial concealment of kitchen; asymmetry balanced by light; offset circulation for privacy. Pure optimisation tends to *erase* tension; tension creates emotional richness.
+- **Memory.** Humans remember arrival, corner window, morning light, long sightline, threshold sequence — *not* adjacency-matrix correctness. PRYZM optimises what CAD can measure; architects optimise what humans remember.
+- **Hierarchy.** Everything cannot be equally important. Great plans have a dominant space, servant spaces, supporting spaces, silent zones, active zones. PRYZM still distributes value too evenly.
+- **Ambiguity.** Good architecture allows multiple readings, flexible use, interpretive openness. PRYZM currently over-specifies.
+
+## §5.5 — Re-ordered phasing (supersedes §4.5.2)
+
+The user's correction to the §4.5.2 phasing — recognising that **spatial hierarchy + visibility produce a larger perceived jump than windows do** — re-orders the strategic roadmap:
+
+| New phase | Goal | Why this order |
+|---|---|---|
+| **Phase 1 — Spatial hierarchy + visibility** | Entry sightline scoring, reveal sequencing, privacy depth, visual termination, daylight climax scoring. | Largest perceived jump per unit of work. Bigger than windows. Closes Layer 4 (perceptual choreography). |
+| **Phase 2 — Façade intelligence** | Per-edge orientation + noise + corner-bonus + daylight-depth + dual-aspect scoring. Living claims best façade; bathrooms avoid premium frontage. | Without this, room allocation remains naive. Closes Layer 3 (environmental intelligence). |
+| **Phase 3 — Semantic edge typing** | Adjacencies become *typed*: social-flow, intimate-access, service-path, acoustic-buffer, ceremonial-transition. Different edge types get different geometric treatment. | Underrated but cheap. Closes a Layer 2 gap and unlocks Layer 4. |
+| **Phase 4 — Structural inevitability** | Alignment fields, structural grids, wet-stack logic, opening rhythm coherence. | Creates "architectural authority" — what makes plans feel *inevitable*. Closes Layer 2 (geometric rationalisation). |
+| **Phase 5 — Human movement simulation** | Agent-based occupancy: cooking, dining, entering, waking at night, carrying laundry, hosting. Penalise path conflicts / bottlenecks / awkward crossings. | The apartment stops being geometry and becomes *inhabitation*. Closes Layer 4 (perceptual choreography). |
+| **Phase 6 — Typology priors** | Parisian / Nordic / Japanese / NYC-loft / Mediterranean. User-selectable; per-typology rule overrides. | Closes Layer 5 (cultural / typological intelligence). |
+| **Phase 7 — Activity-centred furnishing** | TV alignment, conversational sofa grouping, dining circulation ergonomics, sofa-to-view logic. | Furniture solver moves from "fits the room" to "rooms work for the activities they host." Depends on Phase 5. |
+| **Phase 8 — Multi-objective Pareto refactor** | Replace weighted-additive scoring with true Pareto frontier across daylight / privacy / circulation / efficiency / structure / furniture / façade / acoustic. | Weighted sums collapse trade-offs into mediocre compromises; Pareto preserves architecturally balanced candidates. |
+| **Phase 9 — Compositional alignment + proportional elegance** | Pre- and post-subdivide tidy passes. Wet walls stack; corridor walls align; opening rhythms repeat. | Pre-requisite for emotional convincingness; benefits from earlier phases landing first. |
+| **Phase 10 — Structural integration** | Column / load-bearing-line / wet-stack continuity / MEP routing. | Essential for multi-apartment; closes another Layer 1 → Layer 2 piece. |
+| **Phase 11 — Core-first multi-apartment** | Refactor the `multi-apartment-floor-plate-brief` to core-first generation (site → core → public circ → grid → façade → apartment subdivision → internal layouts) BEFORE implementation. | Apartment-first will fail at multi-flat floor plates. Must invert order first. |
+| **Phase 12 — Typed semantic graph edges** | Smaller refactor of `bubbleGraph.ts` to support Phase 3's typed edges throughout. | Cleanup; can interleave. |
+
+**Total commitment.** ~25–35 weeks of focused work to close the strategic layers, vs ~4–6 weeks for the tactical Tier 1–3 items in §3. The two tracks interleave: ship visible Tier 1 items per round while strategic phases land in dedicated sprints.
+
+## §5.6 — The most important transition
+
+> Today PRYZM mostly answers: **"Can this apartment work?"**
+> Architects answer: **"What should this apartment FEEL like to inhabit?"**
+
+The gap between those two questions is the work remaining. It is not closed by another room type, another archetype, another adjacency weight. It is closed by building a **world-model of inhabitation** — exactly what Phases 1–7 above add.
+
+## §5.7 — What NOT to do next (the biggest technical mistake)
+
+> Do NOT continue solving this by adding local rules forever.
+
+Beyond a point, more local constraints, more furniture rules, more adjacency weights will produce **brittle mediocrity**. Quality is increasingly an emergent *global* property. The §4.5 tactical phases must NOT crowd out the strategic phases above — they live alongside, not instead of.
+
+## §5.8 — How this reframes the wishlist queues
+
+The three remaining-work queues (`apartment-furnish-quality-wishlist`, `program-rules-improvements-queue`, `single-apartment-fix-pass-spec`) all live in **Layer 1**. They are necessary but not sufficient. The next leap is in Layers 3, 4, 5 — the §5.5 phasing. The next round of work should split commits across:
+
+- **Tactical Tier 1A** (windows) — closes a visible Layer 1 gap.
+- **Strategic Phase 1** (spatial hierarchy + visibility) — opens Layer 4.
+
+Both can land in parallel because they touch different files. The strategic phases require fresh thinking; the tactical phases extend known patterns.
+
+## §5.9 — The deeper framing: cognition stack + staged optimisation
+
+§5 above identifies the 5 architectural-intelligence LAYERS and re-orders the phasing accordingly. The next abstraction up is the **7-Layer Cognition Stack** — engines (not just metrics) that together turn PRYZM from a layout generator into a **hierarchical spatial-cognition system**. That stack, the staged-optimisation principle (6 stages, no giant optimiser), the Spatial Intent Field, the AI-guides-engine rule, and a status-tracked implementation plan live in:
+
+> **`APARTMENT-COGNITION-STACK-AND-IMPLEMENTATION-PLAN-2026-05-29.md`** — third companion doc, the architecturally-sound implementation roadmap with tracked status column. §5.5 phasing here is the *summary*; the cognition-stack doc is the *plan of record*.
+
+Reading the cognition-stack doc is REQUIRED before starting any Phase 2+ work — it specifies the layer order and the staged-optimisation discipline that prevents the "one giant optimiser" mistake.
+
+---
+
 ## §5 — Pointers
 
 - **Pipeline help.** `pryzmShowApartmentHelp()` in the browser console lists every `pryzm…()` pipeline command.
