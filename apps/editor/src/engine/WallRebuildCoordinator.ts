@@ -362,7 +362,27 @@ export class WallRebuildCoordinator {
                         ? [{ x: _preTrimWall.baseLine[0].x, y: _preTrimWall.baseLine[0].y, z: _preTrimWall.baseLine[0].z }, { x: _preTrimWall.baseLine[1].x, y: _preTrimWall.baseLine[1].y, z: _preTrimWall.baseLine[1].z }]
                         : undefined;
                     const _sourceBaseLineToStore = _preTrimWall?._sourceBaseLine ?? _sourceBL;
-                    store.update(wallId, { baseLine: _newBL, ...(_sourceBaseLineToStore ? { _sourceBaseLine: _sourceBaseLineToStore } : {}) } as any);
+                    // §WS-2.E (plan §2.E, 2026-05-29): skip the store.update +
+                    // version bump when the resolver's "new" baseline is
+                    // identical (sub-µm) to the wall's current baseLine — this
+                    // is the common case for non-affected neighbours in a join
+                    // resolution storm. The store-update fires `wall:update`
+                    // events to every subscriber; skipping when nothing moved
+                    // raises cache hit-rate downstream + cuts the resolver's
+                    // own cost in dense scenes. The `buildWall` call below
+                    // still runs (the join mesh may need a refresh even when
+                    // the baseline didn't move — e.g. a neighbour rejoining).
+                    const _EPS = 1e-6;
+                    const _bMoved = !_preTrimWall || !_sourceBL
+                        || Math.abs(_newBL[0].x - _sourceBL[0].x) > _EPS
+                        || Math.abs(_newBL[0].y - _sourceBL[0].y) > _EPS
+                        || Math.abs(_newBL[0].z - _sourceBL[0].z) > _EPS
+                        || Math.abs(_newBL[1].x - _sourceBL[1].x) > _EPS
+                        || Math.abs(_newBL[1].y - _sourceBL[1].y) > _EPS
+                        || Math.abs(_newBL[1].z - _sourceBL[1].z) > _EPS;
+                    if (_bMoved) {
+                        store.update(wallId, { baseLine: _newBL, ...(_sourceBaseLineToStore ? { _sourceBaseLine: _sourceBaseLineToStore } : {}) } as any);
+                    }
                     const updated = store.getById(wallId);
                     if (updated) {
                         const slabOff = resolveSlabBaseOffsetForWall(updated, this._slabStore);
