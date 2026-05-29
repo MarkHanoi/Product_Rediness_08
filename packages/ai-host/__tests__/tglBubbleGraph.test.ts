@@ -88,6 +88,80 @@ describe('buildBubbleGraph (TGL P2)', () => {
     });
 
 
+    // §L3-γ-1 / §L3-γ-2 (2026-05-29) — every edge produced by the deterministic
+    // builder carries a semantic `kind`. Pin the canonical edges so a future
+    // classifier reshuffle is caught at the architectural-meaning level.
+    describe('§L3-γ-2 semantic edge typing', () => {
+        it('every edge produced by the deterministic builder has a kind', () => {
+            const g = buildBubbleGraph(PROGRAM, 120);
+            for (const e of g.edges) {
+                expect(e.kind).toBeDefined();
+            }
+        });
+
+        it('hall ↔ corridor / hall ↔ living are CEREMONIAL_THRESHOLD', () => {
+            const g = buildBubbleGraph(PROGRAM, 120);
+            const idType = new Map(g.rooms.map(r => [r.id, r.type]));
+            const cer = g.edges.filter(e => e.kind === 'CEREMONIAL_THRESHOLD');
+            expect(cer.length).toBeGreaterThan(0);
+            for (const e of cer) {
+                expect([idType.get(e.a), idType.get(e.b)]).toContain('hall');
+            }
+        });
+
+        it('master ↔ ensuite is INTIMATE_ACCESS', () => {
+            const g = buildBubbleGraph(PROGRAM, 120);
+            const idType = new Map(g.rooms.map(r => [r.id, r.type]));
+            const master = g.rooms.find(r => r.type === 'master')!;
+            const ensuite = g.rooms.find(r => r.type === 'ensuite')!;
+            const edge = g.edges.find(e =>
+                (e.a === master.id && e.b === ensuite.id)
+                || (e.a === ensuite.id && e.b === master.id),
+            );
+            expect(edge).toBeDefined();
+            expect(edge!.kind).toBe('INTIMATE_ACCESS');
+            // Suppress "unused" — the lookup map keeps the test debuggable.
+            void idType;
+        });
+
+        it('corridor ↔ bathroom is SERVICE_ACCESS', () => {
+            const g = buildBubbleGraph(PROGRAM, 120);
+            const corridor = g.rooms.find(r => r.type === 'corridor')!;
+            const bathroom = g.rooms.find(r => r.type === 'bathroom')!;
+            const edge = g.edges.find(e =>
+                (e.a === corridor.id && e.b === bathroom.id)
+                || (e.a === bathroom.id && e.b === corridor.id),
+            );
+            expect(edge).toBeDefined();
+            expect(edge!.kind).toBe('SERVICE_ACCESS');
+        });
+
+        it('corridor ↔ bedroom is BUFFER (circulation ↔ private)', () => {
+            const g = buildBubbleGraph(PROGRAM, 120);
+            const corridor = g.rooms.find(r => r.type === 'corridor')!;
+            const bedroom = g.rooms.find(r => r.type === 'bedroom')!;
+            const edge = g.edges.find(e =>
+                (e.a === corridor.id && e.b === bedroom.id)
+                || (e.a === bedroom.id && e.b === corridor.id),
+            );
+            expect(edge).toBeDefined();
+            expect(edge!.kind).toBe('BUFFER');
+        });
+
+        it('public ↔ public edges (living ↔ kitchen, kitchen ↔ dining) are SOCIAL_FLOW', () => {
+            const g = buildBubbleGraph(PROGRAM, 120);
+            const idType = new Map(g.rooms.map(r => [r.id, r.type]));
+            const social = g.edges.filter(e => e.kind === 'SOCIAL_FLOW');
+            expect(social.length).toBeGreaterThan(0);
+            for (const e of social) {
+                const aT = idType.get(e.a)!;
+                const bT = idType.get(e.b)!;
+                expect(['living', 'kitchen', 'dining']).toContain(aT);
+                expect(['living', 'kitchen', 'dining']).toContain(bT);
+            }
+        });
+    });
+
     it('produces the expected room set for a 2-bed/1-bath/ensuite/open-plan program', () => {
         const g = buildBubbleGraph(PROGRAM, 120);
         const types = g.rooms.map(r => r.type).sort();

@@ -10,6 +10,7 @@
 import type { ApartmentProgram, RoomType } from '../types.js';
 import { roomRule } from '../rules/programRules.js';
 import { computeFacadeValueField, type FacadeValueField } from '../environment/facadeValueField.js';
+import { classifyEdge, type EdgeType } from './edgeTypes.js';
 import type { Pt } from './rectDecomposition.js';
 
 export interface ProgramRoom {
@@ -25,6 +26,15 @@ export interface AdjacencyEdge {
     readonly a: string;             // room id
     readonly b: string;             // room id
     readonly via: 'open' | 'door';  // open-plan threshold vs a doorway
+    /**
+     * §L3-γ-1 / §L3-γ-2 (2026-05-29) — semantic edge classification (see
+     * `edgeTypes.ts`). Optional for back-compat: AI-path graphs and tests that
+     * build edges directly via the `{a,b,via}` shape don't have to populate
+     * it. The deterministic builder ALWAYS sets it; downstream consumers
+     * (L3-γ-3 wallsAndDoors, L3-γ-4 edgeRealisation axis) read it when
+     * present and fall back to via-only logic when absent.
+     */
+    readonly kind?: EdgeType;
 }
 
 export interface BubbleGraph {
@@ -192,8 +202,15 @@ export function buildBubbleGraph(
 
     // ── Edges (the bubble diagram).
     const edges: AdjacencyEdge[] = [];
+    // Room-id → RoomType lookup so the §L3-γ-2 classifier can attach a
+    // semantic `kind` to each edge as it's pushed.
+    const typeById = new Map<string, RoomType>(rooms.map(r => [r.id, r.type]));
     const link = (a: string | null, b: string | null, via: AdjacencyEdge['via']): void => {
-        if (a && b && a !== b) edges.push({ a, b, via });
+        if (!a || !b || a === b) return;
+        const aType = typeById.get(a);
+        const bType = typeById.get(b);
+        const kind = aType && bType ? classifyEdge(aType, bType, via) : undefined;
+        edges.push(kind !== undefined ? { a, b, via, kind } : { a, b, via });
     };
     // Hall ↔ living is OPEN (no door, no full wall) — but P4 emits a RoomBoundingLine
     // along the shared boundary so the room-detection engine still separates the two

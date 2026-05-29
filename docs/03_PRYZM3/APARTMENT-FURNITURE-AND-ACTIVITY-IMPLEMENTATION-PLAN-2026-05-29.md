@@ -645,8 +645,8 @@ Ship in parallel with foundational tiers. These close visible single-apartment g
 
 | ID | Deliverable | Doc source | Est | Status |
 |---|---|---|---|---|
-| **L3-γ-1** | `EdgeType` enum (SOCIAL_FLOW / INTIMATE_ACCESS / BUFFER / SERVICE / CEREMONIAL / VISUAL / ACOUSTIC) | COGNITION §8 | 0.5 wk | ⬜ |
-| **L3-γ-2** | Populate EdgeType in bubbleGraph builder | COGNITION §8 | 0.5 wk | ⬜ |
+| **L3-γ-1** | `EdgeType` enum (SOCIAL_FLOW / INTIMATE_ACCESS / BUFFER / SERVICE / CEREMONIAL / VISUAL / ACOUSTIC) | COGNITION §8 | 0.5 wk | ✅ shipped — `tgl/edgeTypes.ts` (enum + classifier + 14 pin tests). ACOUSTIC_SEPARATION reserved (classifier never returns it; L3-γ-3 promotes edges into it later) |
+| **L3-γ-2** | Populate EdgeType in bubbleGraph builder | COGNITION §8 | 0.5 wk | ✅ shipped — bubbleGraph `link()` calls `classifyEdge`; AdjacencyEdge gains optional `kind` field (back-compat for AI-path graphs); 5 new bubble-graph integration tests |
 | **L3-γ-3** | `wallsAndDoors.ts` reads EdgeType for geometric treatment | COGNITION §8 | 1 wk | ⬜ |
 | **L3-γ-4** | New `edgeRealisation` axis | COGNITION §8 | 0.5 wk | ⬜ |
 
@@ -679,9 +679,9 @@ Each row pays the full 24-step contract obligation ladder (§0.1). Order: most s
 | ID | Deliverable | Doc source | Est | Status |
 |---|---|---|---|---|
 | **L4-δ-1** | `AlignmentField` pre-subdivide axis-line snap | COGNITION §8 | 1.5 wk | ⬜ |
-| **L4-δ-2** | `WetStackAlignment` (closes adjacency A6) | COGNITION §8 + DIMENSIONAL A6 | 0.5 wk | ⬜ |
+| **L4-δ-2** | `WetStackAlignment` (closes adjacency A6) | COGNITION §8 + DIMENSIONAL A6 | 0.5 wk | ⬜ (A6 already SOFT-checked at the validator level by T2.4 `validateWetCluster` commit `4d1b41f`; L4-δ-2 adds a stricter pre-subdivide alignment pass that nudges wet rooms onto a shared axis BEFORE the cluster check) |
 | **L4-δ-3** | `OpeningCadenceScore` | COGNITION §8 | 0.5 wk | ⬜ |
-| **L4-δ-4** | `ProportionalElegance` (closes dimensional G4) | COGNITION §8 + DIMENSIONAL G4 | 0.5 wk | ⬜ |
+| **L4-δ-4** | `ProportionalElegance` (closes dimensional G4) | COGNITION §8 + DIMENSIONAL G4 | 0.5 wk | ⬜ (G4 aspect-ratio already SOFT-checked at the validator level by D2.1 `validateRoomShape` — `G4 aspect` finding in `dimensions/validateRoomShape.ts` commit `bf61c5c`; L4-δ-4 adds a *constructive* proportion pass that biases the squarified subdivider toward elegant aspect ratios BEFORE validation rather than penalising after) |
 
 ## Z.9 — Tier 8 — Archetype Wiring (Cat B → C closures)
 
