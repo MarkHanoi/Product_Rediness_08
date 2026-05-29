@@ -609,13 +609,13 @@ Ship in parallel with foundational tiers. These close visible single-apartment g
 | ID | Deliverable | Doc source | Est | Status |
 |---|---|---|---|---|
 | **D1.1–D1.5** | Dimensional data tables | DIMENSIONAL §9.1 | 4 d | ✅ shipped (D1.1 schema + D1.2 RoomDimensions + D1.4 ApartmentDimensions + D1.5 pin tests) |
-| **T1.1–T1.6** | Topology adjacency data tables | DIMENSIONAL §19.1 | 3 d | ⬜ |
+| **T1.1–T1.6** | Topology adjacency data tables | DIMENSIONAL §19.1 | 3 d | 🟨 T1.1 + T1.2 + T1.4 + T1.5 ✅ (types + mandatory-rule derivation + wet/acoustic classifications); T1.3 + T1.6 still pending |
 | **D2.1** | `validateRoomShape` | DIMENSIONAL §9.2 | 2 d | ✅ shipped — G1 area + G2 width + G3 length + G4 aspect + G6 wall, hard + soft tiers, +18 tests |
 | **D2.2** | `validateRoomFit` | DIMENSIONAL §9.2 | 3 d | ⬜ |
 | **D2.3** | `kitchenTriangleValidator` | DIMENSIONAL §9.2 | 1 d | ⬜ |
 | **D2.4** | Apartment-envelope validator | DIMENSIONAL §9.2 | 0.5 d | ✅ shipped — hard min/max + ±25 % soft band per §3.1, +13 tests |
 | **D2.5 / T2.5** | Frontage-priority allocator (SHARED) | DIMENSIONAL §9.2 + COGNITION L1-α-1/3 | 3 d | ⬜ |
-| **T2.1–T2.6** | Topology validators (mandatory / forbidden / acoustic / wet cluster / sequence) | DIMENSIONAL §19.2 | 5 d | ⬜ |
+| **T2.1–T2.6** | Topology validators (mandatory / forbidden / acoustic / wet cluster / sequence) | DIMENSIONAL §19.2 | 5 d | 🟨 T2.1 + T2.2 ✅ (mandatory + forbidden validators with structured findings); T2.3/T2.4/T2.5/T2.6 still pending |
 | **D3 + T3** | Pipeline integration (enumerate gates + new axes) | DIMENSIONAL §9.3 + §19.3 | 6 d + 5 d | 🟨 D3.1 + D3.4 ✅ (shapeQuality axis + enumerate gate); D3.2/D3.3/D3.5 + T3 pending |
 | **D4 + T4** | Modal score breakdown surfaces Shape / Fit / Topology axes + badges | DIMENSIONAL §9.4 + §19.4 | 5.5 d | ⬜ |
 | **D5 + T5** | Update SPEC-ARCHITECTURAL-PROGRAM-RULES + C09 §3.4 + user guide | DIMENSIONAL §9.5 + §19.5 | 3 d | ⬜ |
