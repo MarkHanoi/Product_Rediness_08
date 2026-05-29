@@ -9,6 +9,8 @@
 
 import type { ApartmentProgram, RoomType } from '../types.js';
 import { roomRule } from '../rules/programRules.js';
+import { computeFacadeValueField, type FacadeValueField } from '../environment/facadeValueField.js';
+import type { Pt } from './rectDecomposition.js';
 
 export interface ProgramRoom {
     readonly id: string;            // unique in this layout, e.g. 'r0'
@@ -32,6 +34,15 @@ export interface BubbleGraph {
     readonly corridorId: string | null;
     /** Hall/entrance room id (where the front door is), or null. */
     readonly entryId: string | null;
+    /**
+     * §L1-α-3 (2026-05-29) — pre-computed per-shell-edge value field. Present
+     * when `buildBubbleGraph` was called with the shell polygon; absent
+     * otherwise (the field has zero downstream consumers TODAY — this seam
+     * exists so the next commit's façade-priority allocator can read it
+     * without reshaping the BubbleGraph interface).
+     * Source: `environment/facadeValueField.ts`.
+     */
+    readonly facadeField?: FacadeValueField;
 }
 
 // Area weights, minima + habitability are read from the single-source-of-truth
@@ -80,8 +91,20 @@ export function scaleProgramToShell(program: ApartmentProgram, shellAreaM2: numb
  * public-first (hall, living, kitchen, dining) → corridor → private (bedrooms,
  * ensuite, baths), which P3 uses to keep public space near the entrance.
  */
-export function buildBubbleGraph(rawProgram: ApartmentProgram, availableAreaM2: number): BubbleGraph {
+export function buildBubbleGraph(
+    rawProgram: ApartmentProgram,
+    availableAreaM2: number,
+    shellPolygon?: readonly Pt[],
+): BubbleGraph {
     const program = scaleProgramToShell(rawProgram, availableAreaM2);
+    // §L1-α-3 — when the shell polygon is supplied, compute the per-edge
+    // value field and attach to the returned BubbleGraph. Has NO downstream
+    // consumer today (the next commit's allocator picks it up); the only
+    // observable change is `.facadeField` being defined when polygon supplied.
+    const facadeField: FacadeValueField | undefined =
+        shellPolygon && shellPolygon.length >= 3
+            ? computeFacadeValueField(shellPolygon)
+            : undefined;
     const rooms: ProgramRoom[] = [];
     const push = (type: RoomType, name: string, isPrivate: boolean): string => {
         const id = `r${rooms.length}`;
@@ -177,7 +200,10 @@ export function buildBubbleGraph(rawProgram: ApartmentProgram, availableAreaM2: 
     link(bedIds[0] ?? null, ensuiteId, 'door');     // master ↔ ensuite
     for (const r of withAreas) if (r.type === 'bathroom') link(spine, r.id, 'door');
 
-    return { rooms: withAreas, edges, corridorId, entryId };
+    return {
+        rooms: withAreas, edges, corridorId, entryId,
+        ...(facadeField ? { facadeField } : {}),
+    };
 }
 
 export { cap as capitalize };

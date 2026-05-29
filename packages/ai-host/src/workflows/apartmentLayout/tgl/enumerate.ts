@@ -109,7 +109,10 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     const rectsT = decomposeToRects(polyT);
     if (rectsT.length === 0) return null;
 
-    const base = buildBubbleGraph(input.program, shellArea);
+    // §L1-α-3 — pass shell polygon so the bubble graph carries a per-edge
+    // FacadeValueField (env / facadeValueField.ts). No downstream consumer
+    // today; ready for the next commit's façade-priority allocator.
+    const base = buildBubbleGraph(input.program, shellArea, input.shellPolygon);
     const bubble: BubbleGraph = s.order === 'rev' ? { ...base, rooms: [...base.rooms].reverse() } : base;
 
     const placementsT = subdivide(rectsT, bubble);

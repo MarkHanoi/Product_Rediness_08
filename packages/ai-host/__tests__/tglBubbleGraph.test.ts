@@ -10,6 +10,35 @@ const PROGRAM: ApartmentProgram = {
 };
 
 describe('buildBubbleGraph (TGL P2)', () => {
+    // §L1-α-3 (2026-05-29) — FacadeValueField plumb-in tests.
+    describe('§L1-α-3 facadeField plumb-in', () => {
+        it('returns no facadeField when called without a shell polygon (backward compat)', () => {
+            const g = buildBubbleGraph(PROGRAM, 120);
+            expect(g.facadeField).toBeUndefined();
+        });
+
+        it('attaches a facadeField with edges when a shell polygon is supplied', () => {
+            const square = [
+                { x: 0, z: 0 }, { x: 12, z: 0 },
+                { x: 12, z: 10 }, { x: 0, z: 10 },
+            ];
+            const g = buildBubbleGraph(PROGRAM, 120, square);
+            expect(g.facadeField).toBeDefined();
+            expect(g.facadeField!.edges.length).toBe(4);
+            // Edges carry cardinal orientations summing to all four quadrants.
+            const cards = new Set(g.facadeField!.edges.map(e => e.orientation));
+            expect(cards.has('S')).toBe(true);
+            expect(cards.has('N')).toBe(true);
+        });
+
+        it('handles a degenerate polygon (< 3 vertices) by omitting the field', () => {
+            const tooShort = [{ x: 0, z: 0 }, { x: 1, z: 0 }];
+            const g = buildBubbleGraph(PROGRAM, 120, tooShort);
+            expect(g.facadeField).toBeUndefined();
+        });
+    });
+
+
     it('produces the expected room set for a 2-bed/1-bath/ensuite/open-plan program', () => {
         const g = buildBubbleGraph(PROGRAM, 120);
         const types = g.rooms.map(r => r.type).sort();
