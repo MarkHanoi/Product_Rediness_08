@@ -84,13 +84,27 @@ export interface ApartmentProgram {
      *  minimum) so an override smaller than the legal minimum can't sneak in.
      *
      *  All rooms of the SAME TYPE share one override — i.e. setting
-     *  `bedroom: 14` makes every bedroom target 14 m². This matches what the
-     *  modal-edit form can express; per-instance bedroom areas would need an
-     *  id-keyed map keyed to deterministic bubble-graph ids and was deferred.
+     *  `bedroom: 14` makes every bedroom target 14 m². For PER-INSTANCE
+     *  overrides (Bedroom 1 = 14, Bedroom 2 = 12) use `roomAreasByName`
+     *  below — name-keyed lookups win over type-keyed.
      *
      *  Omitted / undefined → engine default (area-weight share). Empty
      *  object = same as omitted. */
     roomAreas?: Partial<Record<RoomType, number>>;
+    /** §ROOM-AREAS-BY-NAME (2026-05-29 follow-up): per-INSTANCE absolute area
+     *  override in m², keyed by the deterministic bubble-graph display name
+     *  ("Bedroom 1", "Master Bedroom", "Bathroom 2", etc.). Lets a future
+     *  modal UI assign different areas to "Bedroom 1" vs "Bedroom 2" without
+     *  affecting other bedrooms.
+     *
+     *  Lookup order: bubble graph checks `roomAreasByName[r.name]` FIRST;
+     *  falls back to `roomAreas[r.type]` if the name has no override; falls
+     *  back to the weight-scaled default if neither is set. Names that don't
+     *  match any minted room are silently ignored (no warning) — handy when
+     *  the user toggles a program flag that renames a room (e.g. master
+     *  en-suite changes "Bedroom 1" → "Master Bedroom"). The same
+     *  architectural-minimum clamp applies. */
+    roomAreasByName?: Partial<Record<string, number>>;
 }
 
 export interface ScoringWeights {

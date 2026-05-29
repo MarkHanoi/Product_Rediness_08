@@ -134,5 +134,78 @@ describe('buildBubbleGraph (TGL P2)', () => {
                 expect(m.targetAreaM2).toBeCloseTo(r.targetAreaM2, 5);
             }
         });
+
+        // §ROOM-AREAS-BY-NAME (2026-05-29 follow-up) — per-instance overrides
+        // keyed by the deterministic bubble-graph display name. Lets a future
+        // modal UI assign different areas to "Bedroom 1" vs "Bedroom 2".
+        it('roomAreasByName overrides INDIVIDUAL bedrooms independently', () => {
+            // PROGRAM has bedrooms: 2 + masterEnSuite, so the names are
+            // "Master Bedroom" + "Bedroom 1".
+            const perInstance: ApartmentProgram = {
+                ...PROGRAM,
+                roomAreasByName: { 'Master Bedroom': 20, 'Bedroom 1': 12 },
+            };
+            const g = buildBubbleGraph(perInstance, 120);
+            const master = g.rooms.find(r => r.type === 'master')!;
+            const bedroom = g.rooms.find(r => r.type === 'bedroom')!;
+            expect(master.targetAreaM2).toBeCloseTo(20, 5);
+            expect(bedroom.targetAreaM2).toBeCloseTo(12, 5);
+        });
+
+        it('name override wins when both name and type are set', () => {
+            const both: ApartmentProgram = {
+                ...PROGRAM,
+                roomAreas: { bedroom: 16 },                    // every bedroom 16
+                roomAreasByName: { 'Bedroom 1': 14 },           // but Bedroom 1 = 14
+            };
+            const g = buildBubbleGraph(both, 120);
+            const bedroom = g.rooms.find(r => r.type === 'bedroom')!;
+            expect(bedroom.targetAreaM2).toBeCloseTo(14, 5);   // name wins
+        });
+
+        it('name override clamps UP to the architectural minimum (same as type)', () => {
+            const tooSmall: ApartmentProgram = {
+                ...PROGRAM,
+                roomAreasByName: { 'Bedroom 1': 5 },           // < DB-026 floor (11.5)
+            };
+            const g = buildBubbleGraph(tooSmall, 120);
+            const bedroom = g.rooms.find(r => r.type === 'bedroom')!;
+            expect(bedroom.targetAreaM2).toBeGreaterThanOrEqual(11.5);
+        });
+
+        it('unmatched names are silently ignored (no warning, no throw)', () => {
+            const stale: ApartmentProgram = {
+                ...PROGRAM,
+                roomAreasByName: {
+                    'Bedroom 99': 30,        // doesn't exist (only 2 bedrooms)
+                    'NotARoom':   25,
+                    'Master Bedroom': 18,    // this one DOES match
+                },
+            };
+            const g = buildBubbleGraph(stale, 120);
+            const master = g.rooms.find(r => r.type === 'master')!;
+            expect(master.targetAreaM2).toBeCloseTo(18, 5);
+        });
+
+        it('non-positive / non-finite name overrides fall through to type/default', () => {
+            const baseline = buildBubbleGraph(PROGRAM, 120);
+            const bad: ApartmentProgram = {
+                ...PROGRAM,
+                roomAreas: { bedroom: 14, master: 16 },
+                roomAreasByName: { 'Bedroom 1': 0, 'Master Bedroom': NaN as number },
+            };
+            const g = buildBubbleGraph(bad, 120);
+            // Invalid name-keyed values (0, NaN) fall through to the per-TYPE
+            // override. `bedroom: 14` applies to "Bedroom 1"; `master: 16`
+            // applies to "Master Bedroom". The baseline (no override) value
+            // would be different.
+            const bedroom = g.rooms.find(r => r.type === 'bedroom')!;
+            const master  = g.rooms.find(r => r.type === 'master')!;
+            expect(bedroom.targetAreaM2).toBeCloseTo(14, 5);
+            expect(master.targetAreaM2).toBeCloseTo(16, 5);
+            // Sanity: not equal to the baseline (which has no overrides).
+            const baseBedroom = baseline.rooms.find(r => r.type === 'bedroom')!;
+            expect(bedroom.targetAreaM2).not.toBeCloseTo(baseBedroom.targetAreaM2, 1);
+        });
     });
 });

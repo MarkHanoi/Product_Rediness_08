@@ -107,18 +107,23 @@ export function buildBubbleGraph(rawProgram: ApartmentProgram, availableAreaM2: 
     for (let i = 0; i < baths; i++) push('bathroom', baths > 1 ? `Bathroom ${i + 1}` : 'Bathroom', true);
 
     // ── Area targets: weight-scaled to fill the shell, then clamped up to minima.
-    // §ROOM-AREAS (2026-05-29, user-request): a `program.roomAreas[type]`
-    // override REPLACES the weight-scaled raw value for every room of that
-    // type. Still clamped UP to the architectural minimum (`minAreaM2`) so an
-    // override below the legal floor cannot ship. Omitted/undefined →
-    // weight-scaled default.
-    const overrideForType = (type: RoomType): number | undefined => {
-        const o = program.roomAreas?.[type];
-        return typeof o === 'number' && Number.isFinite(o) && o > 0 ? o : undefined;
-    };
+    // §ROOM-AREAS / §ROOM-AREAS-BY-NAME (2026-05-29):
+    //   1. `program.roomAreasByName[r.name]` — per-instance override
+    //      ("Bedroom 1" = 14, "Bedroom 2" = 12). Wins when set.
+    //   2. `program.roomAreas[r.type]` — per-type override (every bedroom 14).
+    //      Used when no name-keyed value is set for this specific room.
+    //   3. Weight-scaled share of `availableAreaM2` — engine default.
+    // All paths clamp UP to the architectural minimum (`roomRule[type].
+    // minAreaM2`) so an override below the legal floor cannot ship.
+    const positiveOrUndefined = (v: unknown): number | undefined =>
+        typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : undefined;
+    const overrideForName = (name: string): number | undefined =>
+        positiveOrUndefined(program.roomAreasByName?.[name]);
+    const overrideForType = (type: RoomType): number | undefined =>
+        positiveOrUndefined(program.roomAreas?.[type]);
     const totalWeight = rooms.reduce((s, r) => s + roomRule(r.type).areaWeight, 0) || 1;
     const withAreas: ProgramRoom[] = rooms.map(r => {
-        const override = overrideForType(r.type);
+        const override = overrideForName(r.name) ?? overrideForType(r.type);
         const raw = override ?? availableAreaM2 * (roomRule(r.type).areaWeight / totalWeight);
         const targetAreaM2 = Math.max(raw, roomRule(r.type).minAreaM2 || 3);
         return { ...r, targetAreaM2 };
