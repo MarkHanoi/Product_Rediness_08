@@ -210,6 +210,14 @@ export class ApartmentLayoutExecutor {
 
         let done = false;
         let poll: ReturnType<typeof setTimeout> | undefined;
+        // §POLL-TELEMETRY (2026-05-29 audit follow-up): observe the wall
+        // readiness wait. The earlier code logged only a single "doors built"
+        // line at the end; the polling duration + iteration count + whether
+        // the deadline was hit were invisible. Now: capture start + iterations,
+        // emit `apartment.wall-poll-completed` with metrics + a single
+        // structured log so a CI scrape (or human eye) can spot regressions.
+        const pollStartMs = performance.now();
+        let pollIterations = 0;
 
         const go = (force: boolean): void => {
             if (done) return;
@@ -217,6 +225,24 @@ export class ApartmentLayoutExecutor {
             done = true; if (poll) clearTimeout(poll);
 
             const landed = wallStore?.getById ? neededWallIds.filter(id => wallStore.getById!(id) != null).length : 0;
+            const pollElapsedMs = Math.round(performance.now() - pollStartMs);
+            const wallReadyAtEnd = landed === neededWallIds.length;
+            console.log(
+                '[apartment-layout] §POLL-TELEMETRY wall-poll-completed ' +
+                `elapsed_ms=${pollElapsedMs} iters=${pollIterations} ` +
+                `walls_ready=${landed}/${neededWallIds.length} ` +
+                `forced=${force && !wallReadyAtEnd}`,
+            );
+            try {
+                runtime.events.emit('apartment.wall-poll-completed', {
+                    levelId,
+                    elapsedMs: pollElapsedMs,
+                    iterations: pollIterations,
+                    wallsReady: landed,
+                    wallsNeeded: neededWallIds.length,
+                    forced: force && !wallReadyAtEnd,
+                });
+            } catch { /* event bus failures must never break the executor */ }
             // Doors + boundaries via the legacy synchronous commands (read the
             // committed legacy stores). Boundaries are the virtual splitters between
             // open-plan rooms (hall↔living, kitchen↔living, …) — without them the
@@ -268,6 +294,7 @@ export class ApartmentLayoutExecutor {
         // after the budget (~6 s) force a best-effort attempt so we never silently hang.
         const tick = (n: number): void => {
             if (done) return;
+            pollIterations++;
             if (wallsReady() || n <= 0) { go(true); return; }
             poll = setTimeout(() => tick(n - 1), 150);
         };
@@ -313,12 +340,19 @@ export class ApartmentLayoutExecutor {
             // REDETECT_ROOMS fires in a scheduled onComplete). So the rooms DON'T exist
             // synchronously here — apply names when the room store settles after the
             // redetect (debounced so all rooms land first), with a hard-timeout fallback.
+            //
+            // §POLL-TELEMETRY (2026-05-29): tag the rename pass with its TRIGGER
+            // SOURCE — 'subscription' when the room-store events arrived in time;
+            // 'hard-timeout' when the 2.5 s fallback fired first. Without this, a
+            // silent subscription regression looks identical to the happy path. The
+            // source is logged + emitted on `apartment.room-name-completed`.
             let done = false;
             let unsub: () => void = () => { /* no-op until set */ };
             let settle: ReturnType<typeof setTimeout> | undefined;
             let hard: ReturnType<typeof setTimeout> | undefined;
+            const renameStartMs = performance.now();
 
-            const apply = (): void => {
+            const apply = (source: 'subscription' | 'hard-timeout'): void => {
                 if (done) return;
                 const detected = roomStore.getByLevel!(levelId);
                 if (detected.length === 0) return;                 // redetect not run yet — keep waiting
@@ -326,6 +360,16 @@ export class ApartmentLayoutExecutor {
                 unsub();
                 if (settle) clearTimeout(settle);
                 if (hard) clearTimeout(hard);
+                const renameElapsedMs = Math.round(performance.now() - renameStartMs);
+                console.log(
+                    '[apartment-layout] §POLL-TELEMETRY room-name-completed ' +
+                    `source=${source} elapsed_ms=${renameElapsedMs} detected_rooms=${detected.length}`,
+                );
+                try {
+                    runtime.events.emit('apartment.room-name-completed', {
+                        levelId, source, elapsedMs: renameElapsedMs, detectedRooms: detected.length,
+                    });
+                } catch { /* event bus failures must never break the executor */ }
 
                 const renames: Array<{ roomId: string; name: string; occupancy?: string }> = [];
                 for (const room of detected) {
@@ -354,9 +398,12 @@ export class ApartmentLayoutExecutor {
             };
 
             if (roomStore.subscribe) {
-                unsub = roomStore.subscribe(() => { if (settle) clearTimeout(settle); settle = setTimeout(apply, 80); });
+                unsub = roomStore.subscribe(() => {
+                    if (settle) clearTimeout(settle);
+                    settle = setTimeout(() => apply('subscription'), 80);
+                });
             }
-            hard = setTimeout(apply, 2500);   // fallback if no room events fire
+            hard = setTimeout(() => apply('hard-timeout'), 2500);   // fallback if no room events fire
         } catch (e) {
             console.warn('[apartment-layout] room naming failed (non-fatal):', e);
         }
