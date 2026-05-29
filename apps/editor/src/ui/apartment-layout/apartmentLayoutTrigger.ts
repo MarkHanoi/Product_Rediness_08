@@ -50,6 +50,10 @@ export function triggerApartmentLayout(runtimeArg?: PryzmRuntime | null): void {
 
         _controller.attach(rt); // idempotent — modal shows on options-ready
         _executor.attach(rt);   // idempotent — commits on the user's pick
+        // §MODAL-DYNAMIC: seed the controller with the payload BEFORE submit so
+        // the modal's program-edit form can re-trigger generation with the
+        // SAME shell + opening spans but an EDITED program.
+        _controller.setLastPayload(payload, {});
         toast('Generating apartment layouts…', 'info');
         void requestApartmentLayout(rt, payload).then(r => {
             console.log('[apartment-layout] requestApartmentLayout result', r);

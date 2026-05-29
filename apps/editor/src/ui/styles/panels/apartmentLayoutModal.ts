@@ -65,4 +65,34 @@ export const APARTMENT_LAYOUT_MODAL_STYLES = `
 }
 .alm-cancel:hover { background: #f1f5f9; }
 .alm-empty { padding: 32px 20px; text-align: center; color: #64748b; }
+
+/* §MODAL-DYNAMIC (2026-05-29) — inline program-edit form + busy overlay. */
+.alm-program {
+  padding: 12px 20px; border-bottom: 1px solid #e2e8f0; background: #f8fafc;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.alm-program-row {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+}
+.alm-program-checks { color: #334155; }
+.alm-program-num {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #334155;
+}
+.alm-program-num input[type="number"] {
+  width: 56px; padding: 4px 6px; font: inherit; color: inherit;
+  border: 1px solid #cbd5e1; border-radius: 6px; background: #ffffff;
+}
+.alm-program-num input[type="number"]:focus {
+  outline: 2px solid #6600FF; outline-offset: -1px; border-color: #6600FF;
+}
+.alm-program-chk {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;
+}
+.alm-program-chk input[type="checkbox"] { cursor: pointer; }
+.alm-program-hint {
+  font-size: 11px; color: #64748b; font-style: italic;
+}
+/* §MODAL-DYNAMIC busy state — dims the grid + shows a pulse. */
+.alm-busy .alm-grid { opacity: 0.55; pointer-events: none; transition: opacity .15s; }
+.alm-busy .alm-program-hint { color: #6600FF; font-style: normal; font-weight: 600; }
 `;

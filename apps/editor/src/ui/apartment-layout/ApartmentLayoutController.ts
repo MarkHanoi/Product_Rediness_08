@@ -11,7 +11,7 @@
 // call getHost(), so it adds zero AI bytes to first-paint (lazy K3-A preserved).
 
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
-import type { ScoredLayoutOption } from '@pryzm/ai-host';
+import type { ScoredLayoutOption, ApartmentProgram } from '@pryzm/ai-host';
 import { ApartmentLayoutModal } from './ApartmentLayoutModal.js';
 import { ensureApartmentLayoutRegistered } from '../../engine/ensureApartmentLayoutRegistered.js';
 import type { ApartmentGenerateLayoutPayload } from '@pryzm/ai-host';
@@ -20,6 +20,25 @@ import type { ApartmentGenerateLayoutPayload } from '@pryzm/ai-host';
 export class ApartmentLayoutController {
     private readonly modal = new ApartmentLayoutModal();
     private _dispose: (() => void) | null = null;
+    /** §MODAL-DYNAMIC (2026-05-29): cache the last generate payload so the
+     *  modal's program-edit form can re-trigger generation with the same
+     *  shell + window/door spans but a NEW program. Owned by the generate
+     *  trigger (requestApartmentLayout writes it before submitting). */
+    private _lastPayload: ApartmentGenerateLayoutPayload | null = null;
+    /** §MODAL-DYNAMIC ctx — same idea (the projectId/actorId follow the
+     *  workflow submission so a regenerate uses the same identity). */
+    private _lastCtx: { projectId?: string; actorId?: string } = {};
+    /** True between an `onProgramChange` re-submit and the next
+     *  options-ready, so the next event refreshes IN PLACE instead of
+     *  re-opening the modal. */
+    private _regenerating = false;
+
+    /** §MODAL-DYNAMIC: writers are the trigger (requestApartmentLayout) AND
+     *  the modal-driven re-generate path. Exposed for the trigger only. */
+    setLastPayload(payload: ApartmentGenerateLayoutPayload, ctx: { projectId?: string; actorId?: string }): void {
+        this._lastPayload = payload;
+        this._lastCtx = ctx;
+    }
 
     /** Subscribe + drive the modal. Idempotent (a second attach is a no-op). */
     attach(runtime: PryzmRuntime): void {
@@ -30,6 +49,15 @@ export class ApartmentLayoutController {
             // without this a throw in the modal would vanish silently.
             try {
                 const options = runtime.ai.layoutOptions.options() as readonly ScoredLayoutOption[];
+                // §MODAL-DYNAMIC re-trigger landing: refresh IN PLACE instead of
+                // opening a new modal. Keeps the program-edit form alive +
+                // preserves scroll position.
+                if (this._regenerating && this.modal.isOpen) {
+                    console.log('[apartment-layout] options-ready (regenerate) —', options.length, 'option(s); refreshing modal');
+                    this.modal.refresh(options);
+                    this._regenerating = false;
+                    return;
+                }
                 console.log('[apartment-layout] options-ready received —', options.length, 'option(s); opening modal');
                 this.modal.show(options, {
                     onSelect: (index: number) => {
@@ -40,7 +68,40 @@ export class ApartmentLayoutController {
                         runtime.ai.layoutOptions.clear();
                         runtime.events.emit('apartment.layout-cancel', {});
                     },
-                });
+                    onProgramChange: (program: ApartmentProgram) => {
+                        // §MODAL-DYNAMIC re-trigger: rebuild the payload with
+                        // the same shell/openings but the edited program, then
+                        // resubmit. Cap with a guard so a debounced edit-burst
+                        // doesn't fire while another in-flight regenerate is
+                        // still pending.
+                        if (this._regenerating) {
+                            console.log('[apartment-layout] program-change ignored — regenerate already in flight');
+                            return;
+                        }
+                        const base = this._lastPayload;
+                        if (!base) {
+                            console.warn('[apartment-layout] program-change: no cached payload — cannot regenerate');
+                            this.modal.setBusy(false);
+                            return;
+                        }
+                        const next: ApartmentGenerateLayoutPayload = { ...base, program };
+                        this._lastPayload = next;
+                        this._regenerating = true;
+                        void requestApartmentLayout(runtime, next, this._lastCtx).then(res => {
+                            if (!res.ok) {
+                                console.warn('[apartment-layout] regenerate failed:', res.reason);
+                                this._regenerating = false;
+                                this.modal.setBusy(false);
+                                runtime.events?.emit('pryzm:toast', {
+                                    message: `Layout regenerate failed: ${res.reason ?? 'unknown'}`,
+                                    severity: 'error',
+                                });
+                            }
+                            // Success: the next 'apartment.layout-options-ready' event
+                            // will land in the refresh-in-place branch above.
+                        });
+                    },
+                }, this._lastPayload?.program);
             } catch (err) {
                 console.error('[apartment-layout] failed to open the options modal:', err);
                 runtime.events?.emit('pryzm:toast', { message: `Could not open the layouts modal: ${String(err)}`, severity: 'error' });
@@ -54,6 +115,8 @@ export class ApartmentLayoutController {
     detach(): void {
         this._dispose?.();
         this._dispose = null;
+        this._lastPayload = null;
+        this._regenerating = false;
         this.modal.dismiss();
     }
 }

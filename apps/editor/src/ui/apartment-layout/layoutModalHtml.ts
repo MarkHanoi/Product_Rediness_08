@@ -11,6 +11,7 @@
 // user input beyond numeric coords). Numbers interpolate raw (auto-safe).
 
 import type { LayoutCardModel } from './layoutCardModel.js';
+import type { ApartmentProgram } from '@pryzm/ai-host';
 
 /** Local pure HTML escape (no DOM, no import) — keeps this module Node-testable
  *  and is recognised by the xss-guards gate as a safe guard. */
@@ -21,6 +22,37 @@ function escHtml(value: unknown): string {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+}
+
+/**
+ * §MODAL-DYNAMIC (2026-05-29) — program-edit form. Renders an inline form at
+ * the top of the §11 modal so the user can change the program (bedroom +
+ * bathroom counts, master en-suite, open-plan, etc.) and the cards re-render
+ * with the new generation on-the-fly (modal controller handles the debounce +
+ * re-trigger). Input names match the ApartmentProgram fields verbatim so the
+ * controller can read them by `form.elements.namedItem(...)` without a map.
+ */
+export function buildProgramEditFormHtml(program: ApartmentProgram): string {
+    const bedrooms = Math.max(0, Math.min(5, Math.round(program.bedrooms)));
+    const bathrooms = Math.max(1, Math.min(3, Math.round(program.bathrooms)));
+    const chk = (b: boolean): string => b ? ' checked' : '';
+    return (
+        '<form class="alm-program" autocomplete="off" data-role="program">' +
+        '<div class="alm-program-row">' +
+        `<label class="alm-program-num"><span>Bedrooms</span>` +
+        `<input type="number" name="bedrooms" min="0" max="5" step="1" value="${bedrooms}"></label>` +
+        `<label class="alm-program-num"><span>Bathrooms</span>` +
+        `<input type="number" name="bathrooms" min="1" max="3" step="1" value="${bathrooms}"></label>` +
+        '</div>' +
+        '<div class="alm-program-row alm-program-checks">' +
+        `<label class="alm-program-chk"><input type="checkbox" name="livingRoom"${chk(program.livingRoom)}> Living room</label>` +
+        `<label class="alm-program-chk"><input type="checkbox" name="entranceHall"${chk(program.entranceHall)}> Entrance hall</label>` +
+        `<label class="alm-program-chk"><input type="checkbox" name="openPlanKitchenDining"${chk(program.openPlanKitchenDining)}> Open-plan kitchen + dining</label>` +
+        `<label class="alm-program-chk"><input type="checkbox" name="masterEnSuite"${chk(program.masterEnSuite)}> Master en-suite</label>` +
+        '</div>' +
+        '<div class="alm-program-hint" data-role="program-hint">Edit any field — the layouts regenerate automatically.</div>' +
+        '</form>'
+    );
 }
 
 function cardHtml(card: LayoutCardModel, safeThumb: string): string {
@@ -49,29 +81,41 @@ function cardHtml(card: LayoutCardModel, safeThumb: string): string {
     );
 }
 
+/** Card grid HTML — extracted so the modal can refresh JUST the cards in
+ *  place (the program-edit form + outer panel chrome don't re-render on
+ *  regeneration). */
+export function buildLayoutCardGridHtml(
+    cards: readonly LayoutCardModel[],
+    thumbnails: readonly string[],
+): string {
+    if (cards.length === 0) {
+        return '<div class="alm-empty">No valid layouts were generated. Try adjusting the program or constraints.</div>';
+    }
+    return cards.map((c, i) => cardHtml(c, thumbnails[i] ?? '')).join('');
+}
+
 /**
  * Build the modal's inner HTML. `thumbnails[i]` is the SVG string for
- * `cards[i]` (empty string when none). Returns header + card grid + footer with
- * a Cancel button. Pure + deterministic.
+ * `cards[i]` (empty string when none). When `program` is supplied, the form
+ * at the top renders with those values and the modal controller wires its
+ * change events to a re-generation flow. Returns header + program-edit form
+ * + card grid + footer with a Cancel button. Pure + deterministic.
  */
 export function buildLayoutModalHtml(
     cards: readonly LayoutCardModel[],
     thumbnails: readonly string[] = [],
+    program?: ApartmentProgram,
 ): string {
-    if (cards.length === 0) {
-        return (
-            '<div class="alm-panel"><div class="alm-header">Apartment layout</div>' +
-            '<div class="alm-empty">No valid layouts were generated. Try adjusting the program or constraints.</div>' +
-            '<div class="alm-footer"><button type="button" class="alm-cancel">Close</button></div></div>'
-        );
-    }
-    const grid = cards
-        .map((c, i) => cardHtml(c, thumbnails[i] ?? ''))
-        .join('');
+    const programForm = program ? buildProgramEditFormHtml(program) : '';
+    const grid = buildLayoutCardGridHtml(cards, thumbnails);
+    const headerCount = cards.length === 0
+        ? ''
+        : ` <small>${cards.length} option${cards.length === 1 ? '' : 's'}</small>`;
     return (
         '<div class="alm-panel">' +
-        `<div class="alm-header">Choose a layout <small>${cards.length} option${cards.length === 1 ? '' : 's'}</small></div>` +
-        `<div class="alm-grid">${grid}</div>` +
+        `<div class="alm-header">Choose a layout${headerCount}</div>` +
+        programForm +
+        `<div class="alm-grid" data-role="grid">${grid}</div>` +
         '<div class="alm-footer"><button type="button" class="alm-cancel">Cancel</button></div>' +
         '</div>'
     );
