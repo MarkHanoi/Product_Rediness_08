@@ -54,12 +54,44 @@ describe('buildBubbleGraph (TGL P2)', () => {
         expect(bedEdge.via).toBe('door');
     });
 
-    it('open-plan kitchen+dining are linked OPEN (no door)', () => {
+    // §KITCHEN-DISTINCT (2026-05-29, single-apartment-fix-pass-spec #1) — the
+    // kitchen is ALWAYS an enclosed room (walls + door), even with open-plan
+    // toggle on. The toggle now controls whether DINING merges with LIVING.
+    it('§KITCHEN-DISTINCT: kitchen ↔ dining is ALWAYS a door (kitchen is enclosed)', () => {
         const g = buildBubbleGraph(PROGRAM, 120);
         const k = g.rooms.find(r => r.type === 'kitchen')!;
         const d = g.rooms.find(r => r.type === 'dining')!;
         const e = g.edges.find(x => (x.a === k.id && x.b === d.id) || (x.a === d.id && x.b === k.id))!;
-        expect(e.via).toBe('open');
+        expect(e.via).toBe('door');
+    });
+
+    it('§KITCHEN-DISTINCT: kitchen ↔ living is ALWAYS a door — kitchen NEVER merges into the living blob', () => {
+        const g = buildBubbleGraph(PROGRAM, 120);
+        const k = g.rooms.find(r => r.type === 'kitchen')!;
+        const l = g.rooms.find(r => r.type === 'living')!;
+        const e = g.edges.find(x => (x.a === k.id && x.b === l.id) || (x.a === l.id && x.b === k.id));
+        expect(e).toBeDefined();
+        expect(e!.via).toBe('door');
+    });
+
+    it('openPlanKitchenDining toggles the living ↔ dining edge (lounge-diner pattern)', () => {
+        // True → living + dining merge (the "lounge-diner") via an open threshold.
+        const open = buildBubbleGraph(PROGRAM, 120);
+        const ol = open.rooms.find(r => r.type === 'living')!;
+        const od = open.rooms.find(r => r.type === 'dining')!;
+        const openEdge = open.edges.find(x => (x.a === ol.id && x.b === od.id) || (x.a === od.id && x.b === ol.id))!;
+        expect(openEdge.via).toBe('open');
+
+        // False → living + dining are separately enclosed rooms with a door.
+        const sep = buildBubbleGraph({ ...PROGRAM, openPlanKitchenDining: false }, 120);
+        const sl = sep.rooms.find(r => r.type === 'living')!;
+        const sd = sep.rooms.find(r => r.type === 'dining');
+        // Note: dining is only created when openPlanKitchenDining is true.
+        // When false, dining is folded into the kitchen-program; no separate node.
+        if (sd) {
+            const sepEdge = sep.edges.find(x => (x.a === sl.id && x.b === sd.id) || (x.a === sd.id && x.b === sl.id));
+            if (sepEdge) expect(sepEdge.via).toBe('door');
+        }
     });
 
     // §AREA-FRACTIONS (2026-05-29, single-apartment-fix-pass-spec #3 +

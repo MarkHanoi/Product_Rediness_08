@@ -157,11 +157,20 @@ export function buildBubbleGraph(rawProgram: ApartmentProgram, availableAreaM2: 
     // Corridor is a DISTINCT circulation room (door from the hall), not merged into
     // the open public zone — so the layout reads as rooms-off-a-corridor.
     link(entryId, corridorId, 'door');
-    // Kitchen reaches via the living (or corridor as a fallback) — never directly
-    // off the entrance hall (rules: kitchen.accessFrom excludes hall).
-    link(livingId ?? corridorId, kitchenId, program.openPlanKitchenDining ? 'open' : 'door');
-    link(kitchenId, diningId, 'open');
-    link(livingId, diningId, 'open');
+    // §KITCHEN-DISTINCT (2026-05-29, single-apartment-fix-pass-spec #1) — the
+    // kitchen is ALWAYS an enclosed room (walls + door), even with the
+    // open-plan-kitchen-dining toggle on. The previous behaviour ('open' edges
+    // when the toggle was true) collapsed kitchen + dining + living + hall
+    // into one detected megaroom of 30 – 80 m². The fix-pass spec's #1:
+    // "A kitchen must be a distinct enclosed room (min 8 m², min short side
+    // 2.4 m) adjacent to dining and with access to corridor." Re-interpreting
+    // the openPlanKitchenDining toggle: it now controls whether DINING merges
+    // with LIVING (the "lounge-diner" pattern), NOT whether the kitchen has
+    // walls. The kitchen always gets walls + a door; the §ADJACENCY-PREFERENCE
+    // 1.0 weight on kitchen↔dining keeps them clustered architecturally.
+    link(livingId ?? corridorId, kitchenId, 'door');
+    link(kitchenId, diningId, 'door');
+    link(livingId, diningId, program.openPlanKitchenDining ? 'open' : 'door');
     // Private zone hangs off the corridor (or the hall when there's no corridor).
     const spine = corridorId ?? entryId ?? livingId;
     for (const bid of bedIds) link(spine, bid, 'door');
