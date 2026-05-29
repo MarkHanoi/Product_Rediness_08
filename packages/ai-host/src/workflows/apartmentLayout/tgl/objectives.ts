@@ -24,10 +24,26 @@ export interface ObjectiveVector {
     readonly daylight: number;
     readonly circulation: number;
     readonly regularity: number;
+    /**
+     * §PRIVACY-DEPTH (L2-β-1, 2026-05-29) — discrete-tier privacy-depth gradient,
+     * COMPLEMENTING the existing `circulation` axis (which is area-weighted +
+     * smooth). `hierarchy` rewards layouts where:
+     *   • PRIVATE rooms (bedroom / master / bathroom / ensuite / wc) sit at
+     *     graph depth ≥ 3 from the entry (deep, intimate).
+     *   • PUBLIC rooms (living / dining / kitchen / hall) sit at depth ≤ 2
+     *     (shallow, social).
+     *   • Circulation rooms (corridor) are exempt — they bridge tiers.
+     * Computed as `(area in correct tier) / (total scored area)`. Returns 1 when
+     * every room is in its correct tier, 0 when every room is inverted. Pareto-
+     * rank now distinguishes "private rooms genuinely deep" from "private rooms
+     * one door from the entry" — the first emotionally-convincing-architecture
+     * slice of the cognition stack Layer 2 (`APARTMENT-LAYOUT-STATUS §5.5`).
+     */
+    readonly hierarchy: number;
 }
 
 export const OBJECTIVE_AXES: readonly (keyof ObjectiveVector)[] =
-    ['efficiency', 'adjacency', 'daylight', 'circulation', 'regularity'] as const;
+    ['efficiency', 'adjacency', 'daylight', 'circulation', 'regularity', 'hierarchy'] as const;
 
 const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n);
 const num = (v: unknown, d = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -44,7 +60,7 @@ export function computeObjectives(graph: LayoutGraph, metrics: SyntaxMetrics, bu
     const spaces = graph.nodes.filter(n => n.kind === 'Space');
     const totalArea = spaces.reduce((s, n) => s + num(n.attrs.netAreaM2), 0);
     if (spaces.length === 0 || totalArea <= 0) {
-        return { efficiency: 0, adjacency: 0, daylight: 0, circulation: 0, regularity: 0 };
+        return { efficiency: 0, adjacency: 0, daylight: 0, circulation: 0, regularity: 0, hierarchy: 0 };
     }
 
     // ── efficiency: how little of the floor is circulation. ──────────────────────
@@ -110,7 +126,32 @@ export function computeObjectives(graph: LayoutGraph, metrics: SyntaxMetrics, bu
     const aspectMean = aspectN > 0 ? aspectSum / aspectN : 0;
     const regularity = clamp01(0.5 * aspectMean + 0.5 * 1);          // walls are axis-aligned ⇒ alignment = 1
 
-    return { efficiency, adjacency, daylight, circulation, regularity };
+    // ── §PRIVACY-DEPTH (L2-β-1): discrete-tier hierarchy gradient. ───────────────
+    //   Public rooms should sit shallow (depth ≤ PUBLIC_MAX_DEPTH from entry);
+    //   private rooms should sit deep (depth ≥ PRIVATE_MIN_DEPTH).
+    //   Corridor / hall exempt — they BRIDGE tiers, not occupy them.
+    //   Score = area in correct tier / total scored area.
+    const PUBLIC_MAX_DEPTH = 2;
+    const PRIVATE_MIN_DEPTH = 3;
+    let hierWeighted = 0, hierArea = 0;
+    for (const n of spaces) {
+        const t = n.attrs.spaceType;
+        // Skip exempt circulation tiers.
+        if (t === 'corridor' || t === 'hall') continue;
+        const a = num(n.attrs.netAreaM2);
+        if (a <= 0) continue;
+        const d = metrics.perSpaceDepth[n.guid];
+        if (!Number.isFinite(d)) continue;
+        hierArea += a;
+        const isPriv = n.attrs.isPrivate === true;
+        const inCorrectTier = isPriv
+            ? d! >= PRIVATE_MIN_DEPTH
+            : d! <= PUBLIC_MAX_DEPTH;
+        if (inCorrectTier) hierWeighted += a;
+    }
+    const hierarchy = hierArea > 0 ? clamp01(hierWeighted / hierArea) : 1;
+
+    return { efficiency, adjacency, daylight, circulation, regularity, hierarchy };
 }
 
 const pairKey = (a: string, b: string): string => (a < b ? `${a}|${b}` : `${b}|${a}`);

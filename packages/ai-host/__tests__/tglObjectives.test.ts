@@ -49,6 +49,55 @@ describe('computeObjectives (TGL P7)', () => {
         expect(good.circulation).toBeGreaterThan(bad.circulation);
     });
 
+    // §PRIVACY-DEPTH (L2-β-1, 2026-05-29) — discrete-tier hierarchy gradient
+    // complements the smooth `circulation` axis.
+    describe('hierarchy (§PRIVACY-DEPTH)', () => {
+        it('rewards layouts with private rooms at depth ≥ 3 + public rooms at depth ≤ 2', () => {
+            const g = graphOf([
+                space('L', { spaceType: 'living', netAreaM2: 25, isPrivate: false, needsWindow: true }),
+                space('B', { spaceType: 'bedroom', netAreaM2: 15, isPrivate: true, needsWindow: true }),
+            ]);
+            const ideal = computeObjectives(g, metricsOf({ L: 1, B: 3 }), emptyBubble);
+            expect(ideal.hierarchy).toBe(1); // both rooms in their correct tier
+        });
+
+        it('penalises private-shallow + public-deep inversion', () => {
+            const g = graphOf([
+                space('L', { spaceType: 'living', netAreaM2: 25, isPrivate: false, needsWindow: true }),
+                space('B', { spaceType: 'bedroom', netAreaM2: 15, isPrivate: true, needsWindow: true }),
+            ]);
+            const inverted = computeObjectives(g, metricsOf({ L: 3, B: 1 }), emptyBubble);
+            expect(inverted.hierarchy).toBe(0); // both rooms in WRONG tier
+        });
+
+        it('exempts circulation rooms (corridor / hall) from the gradient', () => {
+            // Corridor at any depth must not pull the score down.
+            const g = graphOf([
+                space('L', { spaceType: 'living', netAreaM2: 25, isPrivate: false, needsWindow: true }),
+                space('C', { spaceType: 'corridor', netAreaM2: 8, isPrivate: false, needsWindow: false }),
+                space('B', { spaceType: 'bedroom', netAreaM2: 15, isPrivate: true, needsWindow: true }),
+            ]);
+            const v = computeObjectives(g, metricsOf({ L: 1, C: 4, B: 3 }), emptyBubble);
+            expect(v.hierarchy).toBe(1); // corridor is exempt; living + bedroom both correct-tier
+        });
+
+        it('returns a value in [0, 1] like every other axis', () => {
+            const g = graphOf([
+                space('L', { spaceType: 'living', netAreaM2: 25, isPrivate: false, needsWindow: true }),
+                space('B', { spaceType: 'bedroom', netAreaM2: 15, isPrivate: true, needsWindow: true }),
+            ]);
+            for (const m of [
+                metricsOf({ L: 1, B: 3 }),
+                metricsOf({ L: 2, B: 2 }),
+                metricsOf({ L: 3, B: 1 }),
+            ]) {
+                const v = computeObjectives(g, m, emptyBubble).hierarchy;
+                expect(v).toBeGreaterThanOrEqual(0);
+                expect(v).toBeLessThanOrEqual(1);
+            }
+        });
+    });
+
     it('efficiency: a small corridor beats a large corridor', () => {
         const lean = graphOf([
             space('K', { spaceType: 'kitchen', netAreaM2: 40, isPrivate: false, needsWindow: true }),

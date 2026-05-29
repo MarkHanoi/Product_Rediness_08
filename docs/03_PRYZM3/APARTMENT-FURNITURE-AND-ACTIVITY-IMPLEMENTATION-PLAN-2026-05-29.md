@@ -635,7 +635,7 @@ Ship in parallel with foundational tiers. These close visible single-apartment g
 
 | ID | Deliverable | Doc source | Est | Status |
 |---|---|---|---|---|
-| **L2-β-1** | New `hierarchy` axis (`§PRIVACY-DEPTH`) | COGNITION §8 | 0.5 wk | 🟦 (drafted) |
+| **L2-β-1** | New `hierarchy` axis (`§PRIVACY-DEPTH`) | COGNITION §8 | 0.5 wk | ✅ shipped — first cognition-stack slice live |
 | **L2-β-2** | `EntrySightlineScore` — ray-cast from entry | COGNITION §8 | 1.5 wk | ⬜ |
 | **L2-β-3** | `ArrivalSequence` compressed-threshold detection | COGNITION §8 | 1 wk | ⬜ |
 | **L2-β-4** | `SpatialClimax` dominant-room identification | COGNITION §8 | 0.5 wk | ⬜ |

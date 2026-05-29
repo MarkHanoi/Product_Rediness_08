@@ -149,7 +149,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     };
 }
 
-/** Map the 4 user weights onto the 5 axes (regularity gets a fixed weight), normalise, sum. */
+/** Map the 4 user weights onto the 6 axes (regularity + hierarchy get fixed weights), normalise, sum. */
 function weightedSum(o: ObjectiveVector, w: ScoringWeights): number {
     const raw: Record<keyof ObjectiveVector, number> = {
         efficiency: Math.max(0, w.corridorEfficiency),
@@ -157,6 +157,11 @@ function weightedSum(o: ObjectiveVector, w: ScoringWeights): number {
         daylight: Math.max(0, w.naturalLight),
         circulation: Math.max(0, w.privacy),
         regularity: 0.5,
+        // §PRIVACY-DEPTH (L2-β-1) — hierarchy axis. Carried at the same weight
+        // as the user's "privacy" slider scaled down by 0.5, so privacy already
+        // gets weighted via `circulation` (smooth gradient) AND `hierarchy`
+        // (discrete tier). Together they form a 2-pass privacy scorer.
+        hierarchy: Math.max(0, w.privacy) * 0.5,
     };
     const total = OBJECTIVE_AXES.reduce((s, a) => s + raw[a], 0) || 1;
     return OBJECTIVE_AXES.reduce((s, a) => s + (raw[a] / total) * o[a], 0);
