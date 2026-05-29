@@ -125,6 +125,17 @@ export interface LayoutScoreBreakdown {
     privacy: number;               // 0-1
     kitchenWorkflow: number;       // 0-1
     corridorEfficiency: number;    // 0-1
+    // §L1-α-4 PREP (2026-05-29) — additional objective-axis scores plumbed
+    // from `TglCandidate.objectives` when the layout came from the D-TGL
+    // deterministic path. Absent when the layout came from the AI relay (no
+    // candidate). Modal-side rendering arrives in a follow-on commit.
+    /** §PRIVACY-DEPTH discrete-tier hierarchy (L2-β-1, shipped `deffad5`). */
+    hierarchy?: number;            // 0-1
+    /** §SHAPE-QUALITY soft-finding aggregate (D3.1, shipped `1bf7767`). */
+    shapeQuality?: number;         // 0-1
+    /** §TOPOLOGY-QUALITY soft-finding aggregate over A1/A3/A5/A6/A8 validators
+     *  (T3.3, shipped `3972a27`; gradient since `4d1b41f`). */
+    topologyQuality?: number;      // 0-1
 }
 
 export interface LayoutScore {

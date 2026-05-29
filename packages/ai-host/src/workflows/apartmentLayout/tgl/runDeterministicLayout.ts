@@ -86,7 +86,23 @@ export function generateDeterministicLayouts(
             summary: `${option.summary} (offline · D-TGL)`,
             ...(constraints.floorToCeiling > 0 ? { floorToCeilingMm: constraints.floorToCeiling } : {}),
         };
-        return { ...labelled, score: scoreLayout(labelled, weights) };
+        // §L1-α-4 PREP — pin the cognition-stack / validator axes onto the
+        // breakdown so the modal renderer (follow-on commit) can surface
+        // them without re-deriving from the layout. AI-path layouts that
+        // never go through enumerate.ts have no candidate.objectives →
+        // these fields stay undefined and the modal renders the legacy
+        // four bars.
+        const base = scoreLayout(labelled, weights);
+        const score = {
+            ...base,
+            breakdown: {
+                ...base.breakdown,
+                hierarchy: c.objectives.hierarchy,
+                shapeQuality: c.objectives.shapeQuality,
+                topologyQuality: c.objectives.topologyQuality,
+            },
+        };
+        return { ...labelled, score };
     });
 }
 
