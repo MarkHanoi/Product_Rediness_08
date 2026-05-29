@@ -16,6 +16,7 @@
 import type { BubbleGraph } from './bubbleGraph.js';
 import type { LayoutGraph, GraphNode } from './semanticGraph.js';
 import type { SyntaxMetrics } from './spaceSyntax.js';
+import { preferenceBetween } from '../rules/programRules.js';
 
 export interface ObjectiveVector {
     readonly efficiency: number;
@@ -51,19 +52,26 @@ export function computeObjectives(graph: LayoutGraph, metrics: SyntaxMetrics, bu
         .reduce((s, n) => s + num(n.attrs.netAreaM2), 0);
     const efficiency = clamp01(1 - corridorArea / totalArea);
 
-    // ── adjacency: how many required bubble edges the placement actually realised.
+    // ── adjacency: how many required bubble edges the placement actually realised,
+    //    weighted by §ADJACENCY-PREFERENCE (queue #6). A missed kitchen↔dining edge
+    //    (preference 1.0) costs more than a missed kitchen↔corridor edge (0.3).
+    //    Missing preference → 1.0 weight, so rules without the field keep the old
+    //    binary satisfied/required ratio.
     const guidOf = new Map(spaces.map(n => [n.sourceId, n.guid]));
+    const typeBySource = new Map(bubble.rooms.map(r => [r.id, r.type]));
     const connectsThrough = new Set(graph.edges.filter(e => e.kind === 'CONNECTS_THROUGH').map(e => pairKey(e.from, e.to)));
     const permeableOpen = new Set(graph.edges.filter(e => e.kind === 'ADJACENT_TO' && e.props?.permeable === true).map(e => pairKey(e.from, e.to)));
-    let required = 0, satisfied = 0;
+    let requiredW = 0, satisfiedW = 0;
     for (const e of bubble.edges) {
         const ga = guidOf.get(e.a), gb = guidOf.get(e.b);
         if (!ga || !gb) continue;
-        required++;
+        const tA = typeBySource.get(e.a), tB = typeBySource.get(e.b);
+        const w = (tA && tB) ? preferenceBetween(tA, tB) : 1.0;
+        requiredW += w;
         const key = pairKey(ga, gb);
-        if (e.via === 'door' ? connectsThrough.has(key) : permeableOpen.has(key)) satisfied++;
+        if (e.via === 'door' ? connectsThrough.has(key) : permeableOpen.has(key)) satisfiedW += w;
     }
-    const adjacency = required > 0 ? satisfied / required : 1;
+    const adjacency = requiredW > 0 ? satisfiedW / requiredW : 1;
 
     // ── daylight: habitable rooms that can actually front the façade. ────────────
     const externalWalls = new Set(graph.nodes.filter(n => n.kind === 'Wall' && n.attrs.isExternal === true).map(n => n.guid));

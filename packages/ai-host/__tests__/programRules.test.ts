@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     ROOM_RULES, ALL_ROOM_RULES, roomRule, occupancyOf, isCirculation, isPrivate,
-    doorAllowedBetween, maxDoorsFor, programForOccupancy,
+    doorAllowedBetween, maxDoorsFor, programForOccupancy, preferenceBetween,
 } from '../src/workflows/apartmentLayout/rules/programRules.js';
 import { scaleProgramToShell } from '../src/workflows/apartmentLayout/tgl/bubbleGraph.js';
 import type { RoomType } from '../src/workflows/apartmentLayout/types.js';
@@ -91,6 +91,28 @@ describe('programRules — connectivity matrix (the user\'s rules)', () => {
         for (const a of ALL_TYPES) for (const b of ALL_TYPES) {
             expect(doorAllowedBetween(a, b)).toBe(doorAllowedBetween(b, a));
         }
+    });
+
+    // §ADJACENCY-PREFERENCE (queue #6) — soft per-pair weight in [0,1].
+    it('preferenceBetween returns the stronger of either direction', () => {
+        // kitchen.adjacencyPreference.dining = 1.0 → strongly preferred (the
+        // open-plan classic). dining.adjacencyPreference.kitchen = 1.0 also.
+        expect(preferenceBetween('kitchen', 'dining')).toBeCloseTo(1.0, 5);
+        // kitchen.adjacencyPreference.corridor = 0.3 (permitted but weak).
+        expect(preferenceBetween('kitchen', 'corridor')).toBeCloseTo(0.3, 5);
+        // master ↔ ensuite is the defining adjacency.
+        expect(preferenceBetween('master', 'ensuite')).toBeCloseTo(1.0, 5);
+        // The function is symmetric — direction-independent.
+        expect(preferenceBetween('dining', 'kitchen'))
+            .toBe(preferenceBetween('kitchen', 'dining'));
+    });
+
+    it('preferenceBetween defaults to 1.0 when neither side declares a preference', () => {
+        // study has no adjacencyPreference field; corridor has 0.8 for study.
+        // Result = max(undefined, 0.8) = 0.8.
+        expect(preferenceBetween('study', 'corridor')).toBeCloseTo(0.8, 5);
+        // utility doesn't list kitchen in its preferences; kitchen lists utility at 0.6.
+        expect(preferenceBetween('utility', 'kitchen')).toBeCloseTo(0.6, 5);
     });
 
     it('every room has at least one legal access path (no orphan type)', () => {

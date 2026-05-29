@@ -126,6 +126,19 @@ export interface RoomRule {
     /** Privacy door cap — max doorways this room may have (Infinity ⇒ uncapped). */
     readonly maxDoors: number;
 
+    /**
+     * §ADJACENCY-PREFERENCE (2026-05-29, program-rules-improvements-queue #6) —
+     * soft per-pair preference weight for room-to-room adjacencies. 0 = neutral
+     * (no strong opinion), 1 = strongly preferred (e.g. kitchen↔dining). Used
+     * by the layout SCORING objective (`adjacency` axis in objectives.ts) to
+     * distinguish "good" layouts from merely-legal ones — a layout that
+     * realises a kitchen↔dining adjacency scores higher than one that only
+     * realises kitchen↔corridor. Optional; missing entries default to 1.0
+     * (treat as fully required) so adding the field to one rule doesn't shift
+     * the score of layouts that touch other rules.
+     */
+    readonly adjacencyPreference?: Readonly<Partial<Record<RoomType, number>>>;
+
     // ── Program: contents (furnishLayout) ──────────────────────────────────────
     /** Renderable furniture kinds that MUST be placed (geometry-furniture types). */
     readonly requiredFurniture: readonly string[];
@@ -163,6 +176,7 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         // DB-047 minAreaM2 14 (HQI mandatory); DB-049 minShortSide 3.2 m.
         areaWeight: 1.7, minAreaM2: 14, minShortSideM: 3.2, needsWindow: true, windowMandatory: true,
         accessFrom: ['hall', 'corridor', 'kitchen', 'dining'], maxDoors: INF,
+        adjacencyPreference: { kitchen: 1.0, dining: 1.0, hall: 0.8, corridor: 0.5 },
         requiredFurniture: ['sofa'], optionalFurniture: ['coffee_table', 'lamp'], requiredFixtures: [],
         furnitureSpec: [
             { kind: 'sofa',         sizeW: 2000, sizeD: 900, clearFoot: 450, clearSide: 100, placementRule: 'longest_wall', excludeDoorSwing: true,  excludeWindowWall: false, required: true, group: 'sofa' },
@@ -178,6 +192,10 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         areaWeight: 0.95, minAreaM2: 6, minShortSideM: 1.8, needsWindow: true, windowMandatory: true,
         // No direct hall→kitchen: kitchen is reached via the living/dining zone.
         accessFrom: ['corridor', 'living', 'dining', 'utility'], maxDoors: INF,
+        // §ADJACENCY-PREFERENCE — kitchen↔dining is the classic open-plan pair (1.0),
+        // kitchen↔living is the common open-plan extension (0.8), kitchen↔corridor is
+        // permitted but architecturally weak (0.3), utility off the kitchen is sensible.
+        adjacencyPreference: { dining: 1.0, living: 0.8, utility: 0.6, corridor: 0.3 },
         requiredFurniture: ['kitchen_straight'], optionalFurniture: ['kitchen_straight'], requiredFixtures: ['sink'],
         furnitureSpec: [
             // Kitchen runs sit on the LONGEST FREE WALL (architectural intent of
@@ -197,6 +215,7 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         areaWeight: 0.9, minAreaM2: 9, minShortSideM: 2.4, needsWindow: true, windowMandatory: false,
         // No direct hall→dining: same reason as kitchen.
         accessFrom: ['corridor', 'living', 'kitchen'], maxDoors: INF,
+        adjacencyPreference: { kitchen: 1.0, living: 0.9, corridor: 0.4 },
         requiredFurniture: ['dining_table', 'dining_chair'], optionalFurniture: ['lamp'], requiredFixtures: [],
         furnitureSpec: [
             { kind: 'dining_table', sizeW: 1400, sizeD: 900, clearFoot: 900, clearSide: 900, placementRule: 'centre',       excludeDoorSwing: true,  excludeWindowWall: false, required: true,  group: 'dining' },
@@ -218,6 +237,9 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         // explicit rule and the only sane interpretation of "the entrance is connected
         // to a bathroom" being not acceptable.
         accessFrom: ['living', 'corridor'], maxDoors: INF,
+        // Hall→living is the architectural intent (clean lobby opens onto the social
+        // space); hall→corridor is the route to the private zone, also strongly desired.
+        adjacencyPreference: { living: 1.0, corridor: 0.9 },
         requiredFurniture: [], optionalFurniture: ['entrance_table'], requiredFixtures: [],
         furnitureSpec: [
             // Entrance table is the only catalogued item — anchored on the longest
@@ -235,6 +257,14 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         // -only defect comes from a small corridor that only touches 1–2 bedrooms).
         areaWeight: 0.85, minAreaM2: 0, minShortSideM: 1.0, needsWindow: false, windowMandatory: false,
         accessFrom: ['hall', 'living', 'kitchen', 'dining', 'bedroom', 'master', 'bathroom', 'study', 'utility'], maxDoors: INF,
+        // Corridor IS the private-zone spine — bedroom/master/bath off the corridor are
+        // strongly preferred (1.0/0.9). Hall→corridor is the architectural entry point.
+        // Kitchen / living / dining off the corridor are permitted (open-plan fallback)
+        // but the social rooms prefer to cluster off the hall directly (preference 0.3).
+        adjacencyPreference: {
+            hall: 1.0, bedroom: 0.9, master: 0.9, bathroom: 0.9, study: 0.8, utility: 0.6,
+            kitchen: 0.3, living: 0.3, dining: 0.3,
+        },
         requiredFurniture: [], optionalFurniture: [], requiredFixtures: [],
         furnitureSpec: [],   // circulation — kept clear by design.
         description: 'Private-zone circulation spine. Serves bedrooms, bathrooms, study, utility; never an en-suite.',
@@ -250,6 +280,10 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         // Master is reached from CORRIDOR / living / dining AND connects to its
         // en-suite — never directly off the entrance hall (the user's rule).
         accessFrom: ['corridor', 'living', 'dining', 'ensuite'], maxDoors: 2,
+        // Master → ensuite is the defining adjacency (1.0); master → corridor is the
+        // architectural entry (0.9). Master → living/dining is permitted but unusual
+        // (studio-like layouts where the master opens onto a shared social space).
+        adjacencyPreference: { ensuite: 1.0, corridor: 0.9, living: 0.4, dining: 0.3 },
         requiredFurniture: ['bed', 'bedside_table', 'wardrobe', 'lamp'], optionalFurniture: [], requiredFixtures: [],
         furnitureSpec: [
             // Architect's interactive plan database — door-vector-aware placement.
@@ -274,6 +308,9 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         // bedroom and never directly off the entrance hall. The user's explicit rule:
         // "bedrooms should connect with the door to a corridor / living / dining."
         accessFrom: ['corridor', 'living', 'dining'], maxDoors: 1,
+        // Bedroom off the corridor is the canonical layout (1.0); off living/dining
+        // is permitted (loft / small flat) but less preferred.
+        adjacencyPreference: { corridor: 1.0, living: 0.4, dining: 0.3 },
         requiredFurniture: ['bed', 'bedside_table', 'wardrobe', 'lamp'], optionalFurniture: [], requiredFixtures: [],
         furnitureSpec: [
             // Same program as master — door-vector-aware. Identical specs so the
@@ -316,6 +353,8 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         // different first-class room type to add later — not a blanket bathroom
         // permission. See program-rules-improvements-queue.md item #2.
         accessFrom: ['corridor'], maxDoors: 1,
+        // Bathroom only goes off the corridor (post §BATH-CORRIDOR-ONLY).
+        adjacencyPreference: { corridor: 1.0 },
         requiredFurniture: ['toilet_radiator', 'shower_glass_panel'], optionalFurniture: [],
         requiredFixtures: ['toilet', 'washbasin', 'shower'],
         furnitureSpec: [
@@ -334,6 +373,8 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         areaWeight: 0.4, minAreaM2: 3.5, minShortSideM: 1.5, needsWindow: false, windowMandatory: false,
         // An en-suite is reached ONLY through its master bedroom.
         accessFrom: ['master'], maxDoors: 1,
+        // Ensuite ONLY goes off master.
+        adjacencyPreference: { master: 1.0 },
         requiredFurniture: ['toilet_radiator', 'shower_glass_panel'], optionalFurniture: [],
         requiredFixtures: ['toilet', 'washbasin', 'shower'],
         furnitureSpec: [
@@ -390,6 +431,22 @@ export function doorAllowedBetween(a: RoomType | string, b: RoomType | string): 
 /** Privacy door cap for a room type (Infinity ⇒ uncapped). */
 export function maxDoorsFor(type: RoomType | string): number {
     return roomRule(type).maxDoors;
+}
+
+/**
+ * §ADJACENCY-PREFERENCE (2026-05-29, queue #6) — soft preference weight in
+ * [0,1] for an adjacency between two room types. Returns the MAX of either
+ * direction's preference (i.e. a high preference on either side wins —
+ * "kitchen prefers dining" is symmetric with "dining prefers kitchen"). When
+ * NEITHER side declares a preference, returns 1.0 (treat as fully required —
+ * backward-compatible default; missing fields don't change layout scoring).
+ */
+export function preferenceBetween(a: RoomType | string, b: RoomType | string): number {
+    const ra = roomRule(a), rb = roomRule(b);
+    const aToB = ra.adjacencyPreference?.[b as RoomType];
+    const bToA = rb.adjacencyPreference?.[a as RoomType];
+    if (aToB === undefined && bToA === undefined) return 1.0;
+    return Math.max(aToB ?? 0, bToA ?? 0);
 }
 
 /** Required + optional renderable furniture kinds for an occupancy string. */
