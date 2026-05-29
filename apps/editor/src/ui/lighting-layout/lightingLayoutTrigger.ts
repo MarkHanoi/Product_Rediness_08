@@ -44,16 +44,35 @@ export function installLightingLayoutTrigger(runtime: PryzmRuntime | null): void
     }
     if (runtime) {
         _executor.attach(runtime);
+        // §CHAIN-TIMEOUT (2026-05-29) — auto-fire-chain reliability.
+        // Mirrors the same shape as furnishLayoutTrigger: arm a fallback
+        // timer on the predecessor-of-predecessor event (ceiling, here),
+        // fire lighting on whichever happens first (normal furnish event
+        // OR the fallback). Idempotency via `state.fired`.
+        interface ChainState { fired: boolean; timer: ReturnType<typeof setTimeout> | null }
+        const state: ChainState = { fired: false, timer: null };
+        const FALLBACK_MS = 12_000;
+        const fireLighting = (source: 'furnish-event' | 'fallback-timeout'): void => {
+            if (state.fired) return;
+            state.fired = true;
+            if (state.timer !== null) { clearTimeout(state.timer); state.timer = null; }
+            if (source === 'fallback-timeout') {
+                console.warn(`[lighting-layout] §CHAIN-TIMEOUT — no furnish.layout-executed within ${FALLBACK_MS} ms — firing lighting anyway.`);
+            } else {
+                console.log('[lighting-layout] furnish.layout-executed → auto-lighting.');
+            }
+            setTimeout(() => runtime.events.emit('lighting.layout-execute', {}), 0);
+        };
         const events = runtime.events as unknown as {
             on?: (k: string, fn: (p: unknown) => void) => (() => void) | void;
         };
-        events.on?.('furnish.layout-executed', () => {
-            // Defer one tick so furniture has finished settling in the store.
-            setTimeout(() => {
-                console.log('[lighting-layout] furnish.layout-executed → auto-lighting.');
-                runtime.events.emit('lighting.layout-execute', {});
-            }, 0);
+        events.on?.('ceiling.layout-executed', () => {
+            // New chain link — clear any leftover state, arm a fresh fallback.
+            if (state.timer !== null) clearTimeout(state.timer);
+            state.fired = false;
+            state.timer = setTimeout(() => { state.timer = null; fireLighting('fallback-timeout'); }, FALLBACK_MS);
         });
-        console.log('[lighting-layout] auto-fire on furnish.layout-executed: wired.');
+        events.on?.('furnish.layout-executed', () => { fireLighting('furnish-event'); });
+        console.log('[lighting-layout] auto-fire on furnish.layout-executed: wired (§CHAIN-TIMEOUT fallback: ' + FALLBACK_MS + ' ms).');
     }
 }

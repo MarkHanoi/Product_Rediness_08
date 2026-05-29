@@ -69,16 +69,38 @@ export function installFurnishLayoutTrigger(runtime: PryzmRuntime | null): void 
         // executor emits `ceiling.layout-executed` AFTER its runBatch, so
         // by the time furnishing starts the shell is enclosed (and the
         // room redetect from apartment.layout-executed has long settled).
+        //
+        // §CHAIN-TIMEOUT (2026-05-29) — auto-fire-chain reliability. If the
+        // ceiling stage throws / never emits its done event, the OLD trigger
+        // would silently never fire furnish. The fallback timer below fires
+        // furnish 12 s after apartment.layout-executed REGARDLESS, with a
+        // warning, so a single bad stage doesn't strand the whole pipeline.
+        // Idempotency: `state.fired` flips on whichever path lands first; the
+        // other one becomes a no-op.
+        interface ChainState { fired: boolean; timer: ReturnType<typeof setTimeout> | null }
+        const state: ChainState = { fired: false, timer: null };
+        const FALLBACK_MS = 12_000;
+        const fireFurnish = (source: 'ceiling-event' | 'fallback-timeout'): void => {
+            if (state.fired) return;
+            state.fired = true;
+            if (state.timer !== null) { clearTimeout(state.timer); state.timer = null; }
+            if (source === 'fallback-timeout') {
+                console.warn(`[furnish-layout] §CHAIN-TIMEOUT — no ceiling.layout-executed within ${FALLBACK_MS} ms — firing furnish anyway.`);
+            } else {
+                console.log('[furnish-layout] ceiling.layout-executed → auto-furnishing.');
+            }
+            setTimeout(() => runtime.events.emit('furnish.layout-execute', {}), 0);
+        };
         const events = runtime.events as unknown as {
             on?: (k: string, fn: (p: unknown) => void) => (() => void) | void;
         };
-        events.on?.('ceiling.layout-executed', () => {
-            // Defer one tick so the ceiling pass settles in the store.
-            setTimeout(() => {
-                console.log('[furnish-layout] ceiling.layout-executed → auto-furnishing.');
-                runtime.events.emit('furnish.layout-execute', {});
-            }, 0);
+        events.on?.('apartment.layout-executed', () => {
+            // New chain — clear any leftover state from a previous run.
+            if (state.timer !== null) clearTimeout(state.timer);
+            state.fired = false;
+            state.timer = setTimeout(() => { state.timer = null; fireFurnish('fallback-timeout'); }, FALLBACK_MS);
         });
-        console.log('[furnish-layout] auto-fire on ceiling.layout-executed: wired.');
+        events.on?.('ceiling.layout-executed', () => { fireFurnish('ceiling-event'); });
+        console.log('[furnish-layout] auto-fire on ceiling.layout-executed: wired (§CHAIN-TIMEOUT fallback: ' + FALLBACK_MS + ' ms).');
     }
 }
