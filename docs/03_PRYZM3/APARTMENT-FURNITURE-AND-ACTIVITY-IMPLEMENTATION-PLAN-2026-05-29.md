@@ -626,7 +626,7 @@ Ship in parallel with foundational tiers. These close visible single-apartment g
 
 | ID | Deliverable | Doc source | Est | Status |
 |---|---|---|---|---|
-| **L1-α-1** | `FacadeValueField` per-edge scoring | COGNITION §8 | 1 wk | ⬜ |
+| **L1-α-1** | `FacadeValueField` per-edge scoring | COGNITION §8 | 1 wk | 🟨 first slice ✅ — pure-geometry scores (orientation + sunlight + corner exposure + overallValue); BIM-context scores (noise / view / ventilation) pending |
 | **L1-α-2** | `DaylightDepthField(x,z)` | COGNITION §8 | 1 wk | ⬜ |
 | **L1-α-3** | Plumb FacadeValueField into bubbleGraph allocator | COGNITION §8 | 0.5 wk | ⬜ |
 | **L1-α-4** | Modal exposes Façade quality axis | COGNITION §8 | 0.5 wk | ⬜ |
