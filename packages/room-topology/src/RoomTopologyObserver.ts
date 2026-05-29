@@ -46,6 +46,14 @@ export class RoomTopologyObserver {
   private _firstScheduleAt = new Map<string, number>();
   private _resetCount = new Map<string, number>();
   private _postBatchCooldownUntil = 0;
+  /** §WS-2.A (Plan §2.A) — when the WallJoinResolver is mid-flight, its per-
+   *  neighbour `store.update()` storm fires `wall:update` events; each used to
+   *  re-arm the 150 ms debounce and (after 12 resets) force-fire a redetect
+   *  AGAINST half-trimmed walls. Setting this predicate (editor wires it to
+   *  `WallRebuildCoordinator.isJoinsResolving`) makes the WallStore subscription
+   *  ignore those events — the committed event (`bim-wall-mutation-committed`)
+   *  fires ONE redetect after the resolver settles. */
+  private _joinsResolving: (() => boolean) | null = null;
 
   private readonly _unsubscribers: Array<() => void> = [];
 
@@ -71,9 +79,22 @@ export class RoomTopologyObserver {
     this._columnStore = columnStore;
   }
 
+  /** §WS-2.A — editor wires `() => wallRebuildCoordinator.isJoinsResolving`.
+   *  When set, WallStore `add|update|remove` events fired during join
+   *  resolution are dropped (the committed event still drives ONE redetect
+   *  after the resolver settles). */
+  setJoinsResolvingPredicate(fn: () => boolean): void {
+    this._joinsResolving = fn;
+  }
+
   /** Attach all store subscriptions. Called from initTools after construction. */
   attach(): void {
     const wallUnsub = this.wallStore.subscribe((event: string, wall: { levelId: string }) => {
+      if (this._joinsResolving?.()) {
+        // §WS-2.A: WallJoinResolver storm — ignore. The committed event will fire
+        // ONE redetect after the resolver finishes (see `_onWallMutationCommitted`).
+        return;
+      }
       if (event === 'add' || event === 'update' || event === 'remove') {
         this._scheduleRedetect(wall.levelId, DEBOUNCE_MS);
       }

@@ -565,6 +565,14 @@ export async function bootstrap(
     const wallRebuildCoordinator = new WallRebuildCoordinator();
     wallRebuildCoordinator.init({ wallTool, slabStore, bimManager, doorBuilder, windowBuilder, world });
 
+    // §WS-2.A — dedupe wall redetect: tell the RoomTopologyObserver to ignore
+    // WallStore events fired by the join-resolver storm. The committed event
+    // (`bim-wall-mutation-committed`) still drives ONE redetect after the
+    // resolver finishes, so a single user wall draw produces ONE redetect
+    // instead of TWO (commit + N debounced resolver updates).
+    (window.roomTopologyObserver as { setJoinsResolvingPredicate?: (fn: () => boolean) => void } | undefined)
+        ?.setJoinsResolvingPredicate?.(() => wallRebuildCoordinator.isJoinsResolving);
+
     const addFurniture = createAddFurniture({
         world, projectContext, gltfLoader, bimManager, furnitureBuilder, furnitureStore,
         getSelectionManager: () => selectionManager,
