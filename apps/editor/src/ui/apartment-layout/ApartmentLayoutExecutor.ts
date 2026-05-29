@@ -195,7 +195,22 @@ export class ApartmentLayoutExecutor {
                 levelId,
                 subZones,
             });
-            runtime.events?.emit('pryzm:toast', { message: `Built layout — ${set.wallIds.length} walls, ${doorCount} doors.`, severity: 'success' });
+            // §BUILD-TOAST (2026-05-29) — surface the warning/drop count alongside
+            // the success summary so the architect knows when the preview ≠ the
+            // built result (e.g. an interior wall got rejected for failing the
+            // §PREVIEW-VS-BUILD pre-check). Severity stays `success` because the
+            // build did land — the count is advisory.
+            const dropMsg = set.warnings.length > 0
+                ? ` (${set.warnings.length} dropped — see console)` : '';
+            runtime.events?.emit('pryzm:toast', {
+                message: `Built layout — ${set.wallIds.length} walls, ${doorCount} doors${dropMsg}.`,
+                severity: 'success',
+            });
+            if (set.warnings.length > 0) {
+                console.group(`[apartment-layout] §BUILD-WARN — ${set.warnings.length} item(s) dropped during build:`);
+                for (const w of set.warnings) console.warn('[apartment-layout]  -', w);
+                console.groupEnd();
+            }
         };
 
         // Unique host-wall ids the doors need — the build is done when these exist.
