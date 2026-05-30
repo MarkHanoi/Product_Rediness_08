@@ -682,7 +682,7 @@ Ship in parallel with foundational tiers. These close visible single-apartment g
 | ID | Deliverable | Doc source | Est | Status |
 |---|---|---|---|---|
 | **T1.W** | Window emission engine (NEW pure sub-engine) | single-apartment-fix-pass-spec #5 + STATUS §3 Tier 1A | 2 weeks | ⬜ |
-| **T1.C** | Corridor connectivity validator (every habitable touches corridor) | single-apartment-fix-pass-spec #2 + STATUS §3 Tier 1B | 1 week | ⬜ |
+| **T1.C** | Corridor connectivity validator (every habitable touches corridor) | single-apartment-fix-pass-spec #2 + STATUS §3 Tier 1B | 1 week | 🟨 **2026-05-30** — pure validator shipped: `topology/validateCorridorConnectivity.ts` (rule: every private room — bedroom/master/bathroom/ensuite/wc — must have a DIRECT DOOR to a circulation room; ensuites get a master-only-door exception). Returns SOFT findings (severity preserves admissibility — §BATH-CORRIDOR-ONLY already enforces the worst case at generation time). +9 pin tests in `topologyValidators.test.ts`. Pipeline integration into `enumerate.ts` + modal D4-surfacing pending. |
 | **T1.D** | Per-room default door + window system types | MATRIX §D + queue `ai-creation-default-element-types` | 1 week | ⬜ |
 
 ## Z.3 — Tier 2 — Pre-furnishing validators (THE FOUNDATION — must come before everything below it)

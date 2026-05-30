@@ -15,6 +15,8 @@ import {
 } from '../src/workflows/apartmentLayout/topology/validateMandatoryAdjacencies.js';
 import { validateForbiddenAdjacencies } from
     '../src/workflows/apartmentLayout/topology/validateForbiddenAdjacencies.js';
+import { validateCorridorConnectivity } from
+    '../src/workflows/apartmentLayout/topology/validateCorridorConnectivity.js';
 import type { ApartmentProgram, RoomType } from '../src/workflows/apartmentLayout/types.js';
 import type { BubbleGraph } from '../src/workflows/apartmentLayout/tgl/bubbleGraph.js';
 
@@ -195,5 +197,123 @@ describe('validateForbiddenAdjacencies (T2.2)', () => {
         const f = v.hardFindings[0]!;
         expect(f.reason).toMatch(/bedroom.*bedroom/);
         expect(f.reason).toMatch(/private/);
+    });
+});
+
+// ── T1.C validateCorridorConnectivity ──────────────────────────────────────
+describe('validateCorridorConnectivity (T1.C)', () => {
+    it('clean pass when every bedroom has a corridor door', () => {
+        const bubble = bubbleOf([
+            { id: 'H',  type: 'hall' },
+            { id: 'C',  type: 'corridor' },
+            { id: 'L',  type: 'living' },
+            { id: 'B1', type: 'bedroom' },
+            { id: 'B2', type: 'bedroom' },
+        ]);
+        const openings = [door('H', 'L'), door('H', 'C'), door('C', 'B1'), door('C', 'B2')];
+        const v = validateCorridorConnectivity(bubble, openings);
+        expect(v.admissible).toBe(true);
+        expect(v.softFindings).toHaveLength(0);
+    });
+
+    it('flags a bedroom whose only door is into the living room', () => {
+        const bubble = bubbleOf([
+            { id: 'H',  type: 'hall' },
+            { id: 'L',  type: 'living' },
+            { id: 'B1', type: 'bedroom' },
+        ]);
+        const openings = [door('H', 'L'), door('L', 'B1')];
+        const v = validateCorridorConnectivity(bubble, openings);
+        expect(v.softFindings).toHaveLength(1);
+        expect(v.softFindings[0]!.metric).toBe('corridorConnectivity');
+        expect(v.softFindings[0]!.roomIdA).toBe('B1');
+    });
+
+    it('passes an ensuite reached ONLY through its master bedroom', () => {
+        const bubble = bubbleOf([
+            { id: 'H',  type: 'hall' },
+            { id: 'C',  type: 'corridor' },
+            { id: 'M',  type: 'master' },
+            { id: 'E',  type: 'ensuite' },
+        ]);
+        const openings = [door('H', 'C'), door('C', 'M'), door('M', 'E')];
+        const v = validateCorridorConnectivity(bubble, openings);
+        // M passes via the corridor door; E passes via the master-exception.
+        expect(v.softFindings).toHaveLength(0);
+    });
+
+    it('flags a non-ensuite bathroom reached only through a bedroom', () => {
+        const bubble = bubbleOf([
+            { id: 'H',  type: 'hall' },
+            { id: 'C',  type: 'corridor' },
+            { id: 'B',  type: 'bedroom' },
+            { id: 'WC', type: 'bathroom' },     // bathroom, not ensuite
+        ]);
+        const openings = [door('H', 'C'), door('C', 'B'), door('B', 'WC')];
+        const v = validateCorridorConnectivity(bubble, openings);
+        // Bedroom passes (door to C); bathroom does NOT pass.
+        const finding = v.softFindings.find(f => f.roomIdA === 'WC');
+        expect(finding).toBeDefined();
+        expect(finding!.metric).toBe('corridorConnectivity');
+    });
+
+    it('flags a fully isolated private room (no doors at all)', () => {
+        const bubble = bubbleOf([
+            { id: 'H',  type: 'hall' },
+            { id: 'L',  type: 'living' },
+            { id: 'B',  type: 'bedroom' },
+        ]);
+        const openings = [door('H', 'L')];  // B has zero doors
+        const v = validateCorridorConnectivity(bubble, openings);
+        expect(v.softFindings.length).toBeGreaterThanOrEqual(1);
+        const bFinding = v.softFindings.find(f => f.roomIdA === 'B');
+        expect(bFinding).toBeDefined();
+        expect(bFinding!.reason).toMatch(/isolated|no.*door/);
+    });
+
+    it('emits at most ONE finding per private room (no duplicate scoring)', () => {
+        const bubble = bubbleOf([
+            { id: 'L',  type: 'living' },
+            { id: 'B',  type: 'bedroom' },
+        ]);
+        // Two doors B↔L is impossible in practice but pin against double-counting.
+        const openings = [door('L', 'B')];
+        const v = validateCorridorConnectivity(bubble, openings);
+        const bFindings = v.softFindings.filter(f => f.roomIdA === 'B');
+        expect(bFindings).toHaveLength(1);
+    });
+
+    it('does NOT flag public rooms (living / kitchen / dining)', () => {
+        const bubble = bubbleOf([
+            { id: 'H',  type: 'hall' },
+            { id: 'L',  type: 'living' },
+            { id: 'K',  type: 'kitchen' },
+            { id: 'D',  type: 'dining' },
+        ]);
+        const openings = [door('H', 'L'), door('L', 'K'), door('L', 'D')];
+        const v = validateCorridorConnectivity(bubble, openings);
+        expect(v.softFindings).toHaveLength(0);
+    });
+
+    it('windows do NOT count as connectivity (only doors)', () => {
+        const bubble = bubbleOf([
+            { id: 'H',  type: 'hall' },
+            { id: 'C',  type: 'corridor' },
+            { id: 'B',  type: 'bedroom' },
+        ]);
+        const openings = [door('H', 'C'), window_('C', 'B')];  // window not door
+        const v = validateCorridorConnectivity(bubble, openings);
+        // B has only a window into C — not a door — should flag.
+        expect(v.softFindings.find(f => f.roomIdA === 'B')).toBeDefined();
+    });
+
+    it('always returns admissible: true (SOFT-only validator)', () => {
+        const bubble = bubbleOf([
+            { id: 'L', type: 'living' },
+            { id: 'B', type: 'bedroom' },
+        ]);
+        const v = validateCorridorConnectivity(bubble, [door('L', 'B')]);
+        expect(v.admissible).toBe(true);
+        expect(v.hardFindings).toHaveLength(0);
     });
 });
