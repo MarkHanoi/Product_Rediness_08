@@ -10,6 +10,10 @@ export type FurnitureKind =
     | 'bed' | 'bedside_table' | 'wardrobe' | 'sofa' | 'coffee_table'
     | 'dining_table' | 'dining_chair' | 'entrance_table' | 'lamp'
     | 'toilet_radiator' | 'shower_glass_panel'
+    // F1.6' (2026-05-30) — drop-in residential bath (UK 1700×700×500 mm).
+    // Optional in the bathroom archetype, gated on area + free-wall length.
+    // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §4.2.6)
+    | 'bath'
     | 'kitchen_l_shape' | 'kitchen_straight' | 'kitchen_u_shape' | 'kitchen_island'
     // F1.1 (2026-05-30) — study workstation primitives. Admitted after the
     // contract-exhaustive subphase ladder closed: FurnitureType union +

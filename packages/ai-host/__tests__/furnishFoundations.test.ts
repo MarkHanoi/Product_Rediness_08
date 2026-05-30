@@ -74,6 +74,29 @@ describe('archetypes (F2)', () => {
         expect(chair!.required).toBe(false);
         expect(chair!.anchor).toBe('corner');
     });
+
+    // F1.6' (2026-05-30) — drop-in bath wired into the bathroom archetype.
+    it('bathroom archetype carries an OPTIONAL bath with the standard exclusions', () => {
+        const items = archetypeFor('bathroom')!.items;
+        const bath = items.find(i => i.kind === 'bath');
+        expect(bath).toBeDefined();
+        expect(bath!.required).toBe(false);
+        expect(bath!.anchor).toBe('wall-longest');
+        expect(bath!.facing).toBe('into-room');
+        expect(bath!.excludeDoorSwing).toBe(true);
+        expect(bath!.excludeWindowWall).toBe(true);
+    });
+
+    it('bath footprint matches the UK standard 1700 × 700 × 500 mm', () => {
+        const f = footprintOf('bath');
+        expect(f.w).toBeCloseTo(1.70, 6);
+        expect(f.l).toBeCloseTo(0.70, 6);
+        expect(f.h).toBeCloseTo(0.50, 6);
+        // clearFront leaves stepping-over room; clearSides tight against
+        // adjacent walls / fixtures.
+        expect(f.clearFront).toBeGreaterThan(0.3);
+        expect(f.clearSides).toBeLessThan(0.1);
+    });
 });
 
 describe('collision (F6)', () => {

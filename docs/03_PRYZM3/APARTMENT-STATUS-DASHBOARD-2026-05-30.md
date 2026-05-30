@@ -96,7 +96,7 @@ Each row pays the §0.1 24-step contract obligation ladder. Order by semantic pr
 | **F1.3** tv + tv_unit (S1 media wall) | First wall-mounted renderable | ✅ |
 | **F1.4** shoe_cabinet + coat_rack + console_table + entry_bench (S2 entry storage) | 4-element batch | ✅ |
 | **F1.5** vanity_unit + bathroom_mirror + mirror_light + towel_rail (S4 bathroom) | All 4: furniture trio + mirror_light in geometry-lighting | ✅ |
-| **F1.6'** bath (geometry-plumbing) | Geometry exists in createBathMesh; D-FLE plumbing-fixture placement pending | 🟨 |
+| **F1.6'** bath | D-FLE drop-in bath shipped 2026-05-30 (BathBuilder + furniture-shaped projection + bathroom archetype, optional + area-gated via solver fit) | ✅ |
 | **F1.7** wc_washbasin + wc_mirror (geometry-plumbing + geometry-furniture) | Cross-package | ⬜ |
 | **F1.8** Utility/laundry primitives (washing_machine + dryer + utility_cabinet + utility_sink) | 4 elements; cross-package | ⬜ |
 | **F1.9** buffet + sideboard | Dining-room storage | ✅ |
@@ -107,7 +107,7 @@ Each row pays the §0.1 24-step contract obligation ladder. Order by semantic pr
 | **F1.14** pantry_cabinet | Kitchen storage | ✅ |
 | **F1.15** pendant_cluster (geometry-lighting) | Cross-package | ✅ + kitchen/dining D-LE archetypes wired |
 
-**Tier 6 progress:** 12/15 ✅ · 1/15 🟨 · 2/15 ⬜ (both ⬜ are cross-package plumbing items — F1.7 / F1.8).
+**Tier 6 progress:** 13/15 ✅ · 0/15 🟨 · 2/15 ⬜ (both ⬜ are cross-package plumbing items — F1.7 / F1.8).
 
 ---
 
@@ -131,7 +131,7 @@ Incremental wirings landed via each F1.x ship.
 | **F3.1** Study | desk + desk_chair + bookshelf | ✅ |
 | **F3.2** Living | bookshelf_glass + tv + wall_art + lounge_chair (corner) shipped; rug / lamp variants pending | 🟨 |
 | **F3.3** Master / bedroom | dresser + vanity_table + wall_mirror + curtains + lounge_chair (corner reading nook) shipped; rug / bedside_lamp anchor pending | 🟨 |
-| **F3.4** Bathroom / ensuite | vanity trio + mirror_light shipped + D-LE archetype wired (downlight + wall-mounted mirror_light); bath (F1.6') pending | 🟨 |
+| **F3.4** Bathroom / ensuite | vanity trio + mirror_light + D-LE archetype + bath (F1.6') all shipped 2026-05-30 | ✅ |
 | **F3.5** WC | Blocks on F1.7 | ⬜ |
 | **F3.6** Utility | Blocks on F1.8 | ⬜ |
 | **F3.7** Dining | buffet + sideboard shipped; rug pending | 🟨 |
@@ -173,7 +173,7 @@ Every axis is in ObjectiveVector + computeObjectives + weightedSum + LayoutScore
 
 | Package | Pass | Notes |
 |---|---|---|
-| @pryzm/ai-host | **859/859** | 2 SCC AiHost.* pre-existing failures unchanged (memory: scc-no-barrel-access-at-module-load) |
+| @pryzm/ai-host | **861/861** | 2 SCC AiHost.* pre-existing failures unchanged (memory: scc-no-barrel-access-at-module-load) |
 | @pryzm/core-app-model | (typecheck) | Pre-existing plugin-side TS errors; lighting-side clean |
 | @pryzm/geometry-lighting | (depends on core-app-model rebuild for full validation) | F1.5' mirror_light builder added |
 | @pryzm/geometry-furniture | (untouched this slice) | 11 of 15 F1.x types shipped contract-complete |

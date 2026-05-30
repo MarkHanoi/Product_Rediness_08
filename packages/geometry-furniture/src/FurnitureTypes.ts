@@ -89,6 +89,7 @@ export type FurnitureType =
     | 'lamp'
     | 'entrance_table'
     | 'toilet_radiator'
+    | 'bath'                              // F1.6' (2026-05-30) — drop-in residential bath, D-FLE furniture-shaped projection of the plumbing fixture
     | 'chimney'
     // ── F1.1 (2026-05-30) — Study workstation primitives (closes the
     // dining-table-as-desk workaround in `furnishLayout/archetypes.ts`)

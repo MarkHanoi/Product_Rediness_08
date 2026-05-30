@@ -29,6 +29,12 @@ const FP: Readonly<Record<FurnitureKind, Footprint>> = {
     // Bathroom fixtures
     toilet_radiator:    { w: 0.40, l: 0.70, h: 0.80, baseOffset: 0, clearFront: 0.60, clearSides: 0.10 },
     shower_glass_panel: { w: 0.90, l: 0.90, h: 2.00, baseOffset: 0, clearFront: 0.20, clearSides: 0.00 },
+    // F1.6' (2026-05-30) — drop-in residential bath (UK standard
+    // 1700×700×500 mm). clearFront 0.45 leaves stepping-over room at
+    // the long edge; clearSides 0.05 since baths typically butt tight
+    // against adjacent walls + the toilet/vanity. Required: false in
+    // the bathroom archetype so tight rooms ship clean.
+    bath:               { w: 1.70, l: 0.70, h: 0.50, baseOffset: 0, clearFront: 0.45, clearSides: 0.05 },
     // Kitchen runs — parametric placeholders (resolved from config arm lengths).
     kitchen_straight:   { w: 3.00, l: 0.60, h: 0.90, baseOffset: 0, clearFront: 1.00, clearSides: 0.00 },
     kitchen_l_shape:    { w: 3.00, l: 0.60, h: 0.90, baseOffset: 0, clearFront: 1.00, clearSides: 0.00 },

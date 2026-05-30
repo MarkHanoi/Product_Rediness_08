@@ -122,6 +122,13 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
             { kind: 'vanity_unit',     anchor: 'wall-opposite-door', facing: 'into-room', required: false, group: 'vanity', excludeDoorSwing: true },
             { kind: 'bathroom_mirror', anchor: 'beside',             facing: 'into-room', required: false, group: 'vanity' },
             { kind: 'towel_rail',      anchor: 'wall-longest',       facing: 'to-wall',   required: false, excludeDoorSwing: true },
+            // F1.6' (2026-05-30) — drop-in bath on the longest free wall.
+            // Optional (required: false) so tight bathrooms — where the
+            // 1.7 m × 0.7 m footprint won't fit after the toilet, shower,
+            // and vanity have claimed walls — ship clean with shower-only.
+            // excludeDoorSwing + excludeWindowWall so the bath doesn't
+            // foul the door or block the window's daylight axis.
+            { kind: 'bath', anchor: 'wall-longest', facing: 'into-room', required: false, excludeDoorSwing: true, excludeWindowWall: true },
         ],
     },
     'entrance-lobby': {
