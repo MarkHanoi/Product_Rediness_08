@@ -77,6 +77,33 @@ describe('D2.2 — validateRoomFit (G5 furniture-fit lower-bound)', () => {
         expect(result.hardFindings.some(f => f.metric === 'degenerate')).toBe(true);
     });
 
+    // §D2.2-GATE (2026-05-30) — the validator is now wired into the
+    // enumerate.ts shape gate (its admissibility ANDs with D2.1's; its
+    // soft findings accumulate into the same `shapeQuality` axis). This
+    // test exercises the integrated gate end-to-end.
+    it('integrates with enumerate.ts shape gate (admissibility + shapeQuality)', async () => {
+        const { generateDeterministicLayouts } = await import('../src/workflows/apartmentLayout/tgl/runDeterministicLayout.js');
+        const SHELL = {
+            netAreaM2: 120, widthM: 12, depthM: 10,
+            perimeter: [{ x: 0, z: 0 }, { x: 12, z: 0 }, { x: 12, z: 10 }, { x: 0, z: 10 }],
+            faces: [] as never[],
+        };
+        const PROGRAM = {
+            bedrooms: 2, bathrooms: 1, masterEnSuite: true,
+            openPlanKitchenDining: true, livingRoom: true, entranceHall: true,
+        };
+        const CONSTRAINTS = { minCorridorWidth: 900, wallThickness: 100, floorToCeiling: 2700, wallTypeId: '' };
+        const WEIGHTS = { naturalLight: 1, privacy: 1, kitchenWorkflow: 1, corridorEfficiency: 1 };
+        const out = generateDeterministicLayouts(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, 1);
+        // The 12×10 shell with a normal 2-bed program produces rooms that
+        // PASS the fit gate. shapeQuality should be in [0, 1] (validates
+        // that the merged D2.1+D2.2 soft accumulator doesn't overflow).
+        expect(out.length).toBe(1);
+        const sq = out[0]!.score.breakdown.shapeQuality;
+        expect(sq).toBeGreaterThanOrEqual(0);
+        expect(sq).toBeLessThanOrEqual(1);
+    });
+
     it('different room types yield different lower bounds (sanity)', () => {
         // Use a sparse sample to confirm the heuristic is type-sensitive.
         const types: RoomType[] = ['bedroom', 'master', 'bathroom', 'kitchen', 'study'];

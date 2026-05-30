@@ -20,6 +20,7 @@ import { buildSemanticGraph, type LayoutGraph } from './semanticGraph.js';
 import { computeSpaceSyntax } from './spaceSyntax.js';
 import { computeObjectives, OBJECTIVE_AXES, type ObjectiveVector } from './objectives.js';
 import { validateAllRoomShapes, type RoomShape } from '../dimensions/validateRoomShape.js';
+import { validateRoomFit } from '../dimensions/validateRoomFit.js';
 import { validateApartmentEnvelope } from '../dimensions/validateApartmentEnvelope.js';
 import { validateMandatoryAdjacencies, type DoorOpening } from '../topology/validateMandatoryAdjacencies.js';
 import { validateForbiddenAdjacencies } from '../topology/validateForbiddenAdjacencies.js';
@@ -165,9 +166,27 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         });
     }
     const shapeVal = validateAllRoomShapes(roomShapes);
-    const shapeAdmissible = shapeVal.admissible;
-    // Penalty per soft finding accumulates → shapeQuality.
-    const softPenaltySum = shapeVal.softFindings.reduce((s, f) => s + f.delta, 0);
+    // §D2.2 (2026-05-30) — fold the furniture-fit lower-bound check into the
+    // same shape gate. A room that's geometrically valid (D2.1) but too
+    // small for its required furniture program (D2.2) is dropped at the
+    // same gate. Soft findings (rooms tight against the fit lower bound)
+    // accumulate into `shapeQuality` alongside the existing D2.1 soft
+    // findings.
+    let fitAdmissible = true;
+    const fitSoftSum: { delta: number } = { delta: 0 };
+    for (const rs of roomShapes) {
+        const fit = validateRoomFit({
+            roomId: rs.id, type: rs.type,
+            ...(rs.name !== undefined ? { name: rs.name } : {}),
+            rect: rs.rect,
+        });
+        if (!fit.admissible) fitAdmissible = false;
+        for (const sf of fit.softFindings) fitSoftSum.delta += sf.delta;
+    }
+    const shapeAdmissible = shapeVal.admissible && fitAdmissible;
+    // Penalty per soft finding accumulates → shapeQuality (D2.1 + D2.2 combined).
+    const softPenaltySum = shapeVal.softFindings.reduce((s, f) => s + f.delta, 0)
+        + fitSoftSum.delta;
     const numRooms = Math.max(1, roomShapes.length);
     const shapeQuality = Math.max(0, Math.min(1, 1 - softPenaltySum / numRooms));
 
