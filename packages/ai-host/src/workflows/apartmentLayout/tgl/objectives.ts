@@ -62,10 +62,25 @@ export interface ObjectiveVector {
      * that gradient this axis.
      */
     readonly topologyQuality: number;
+    /**
+     * §L3-γ-4 (2026-05-30) — edge-realisation axis. SOFT-scores how well
+     * each bubble-graph edge's `via` geometric realisation matches its
+     * semantic `kind` (the L3-γ-1/2 EdgeType classification). Examples:
+     *   • INTIMATE_ACCESS edge wired with `via: 'open'` scores 0.0 (privacy
+     *     defeated); with `via: 'door'` scores 1.0.
+     *   • VISUAL_CONNECTION edge wired with `via: 'door'` scores 0.5 (the
+     *     visual is blocked); with `via: 'open'` scores 1.0.
+     * Axis value = mean realisation score across all edges that carry a
+     * `kind`. Edges without `kind` (AI-path graphs, back-compat) score 1.0
+     * neutrally so they don't penalise the axis. Backward compat: when no
+     * edges declare a kind (legacy graphs), the axis is 1.0 (no opinion).
+     * Makes the L3-γ-1/2 EdgeType data load-bearing in Pareto ranking.
+     */
+    readonly edgeRealisation: number;
 }
 
 export const OBJECTIVE_AXES: readonly (keyof ObjectiveVector)[] =
-    ['efficiency', 'adjacency', 'daylight', 'circulation', 'regularity', 'hierarchy', 'shapeQuality', 'topologyQuality'] as const;
+    ['efficiency', 'adjacency', 'daylight', 'circulation', 'regularity', 'hierarchy', 'shapeQuality', 'topologyQuality', 'edgeRealisation'] as const;
 
 const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n);
 const num = (v: unknown, d = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -102,7 +117,7 @@ export function computeObjectives(
     const spaces = graph.nodes.filter(n => n.kind === 'Space');
     const totalArea = spaces.reduce((s, n) => s + num(n.attrs.netAreaM2), 0);
     if (spaces.length === 0 || totalArea <= 0) {
-        return { efficiency: 0, adjacency: 0, daylight: 0, circulation: 0, regularity: 0, hierarchy: 0, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality) };
+        return { efficiency: 0, adjacency: 0, daylight: 0, circulation: 0, regularity: 0, hierarchy: 0, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation: 1 };
     }
 
     // ── efficiency: how little of the floor is circulation. ──────────────────────
@@ -204,7 +219,35 @@ export function computeObjectives(
     }
     const hierarchy = hierArea > 0 ? clamp01(hierWeighted / hierArea) : 1;
 
-    return { efficiency, adjacency, daylight, circulation, regularity, hierarchy, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality) };
+    // ── §L3-γ-4 edgeRealisation: how well each bubble edge's `via` matches
+    //    what its semantic `kind` recommends. Per-kind scoring:
+    //      CEREMONIAL_THRESHOLD: door = 1.0, open = 0.5
+    //      INTIMATE_ACCESS:      door = 1.0, open = 0.0  (privacy lost)
+    //      BUFFER:               door = 1.0, open = 0.3
+    //      SERVICE_ACCESS:       door = 1.0, open = 0.2
+    //      SOCIAL_FLOW:          door = 1.0, open = 1.0  (both fine)
+    //      VISUAL_CONNECTION:    door = 0.5, open = 1.0  (door blocks the visual)
+    //    Edges without `kind` (AI-path back-compat) score 1.0 neutrally so
+    //    legacy graphs don't penalise the axis.
+    let realisationSum = 0, realisationN = 0;
+    for (const e of bubble.edges) {
+        const kind = e.kind;
+        if (kind === undefined) {
+            realisationSum += 1; realisationN += 1; continue;
+        }
+        let s: number;
+        if (kind === 'CEREMONIAL_THRESHOLD') s = e.via === 'door' ? 1.0 : 0.5;
+        else if (kind === 'INTIMATE_ACCESS') s = e.via === 'door' ? 1.0 : 0.0;
+        else if (kind === 'BUFFER')          s = e.via === 'door' ? 1.0 : 0.3;
+        else if (kind === 'SERVICE_ACCESS')  s = e.via === 'door' ? 1.0 : 0.2;
+        else if (kind === 'SOCIAL_FLOW')     s = 1.0;
+        else if (kind === 'VISUAL_CONNECTION') s = e.via === 'open' ? 1.0 : 0.5;
+        else s = 1.0;                       // ACOUSTIC_SEPARATION (reserved) — neutral
+        realisationSum += s; realisationN += 1;
+    }
+    const edgeRealisation = realisationN > 0 ? clamp01(realisationSum / realisationN) : 1;
+
+    return { efficiency, adjacency, daylight, circulation, regularity, hierarchy, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation };
 }
 
 const pairKey = (a: string, b: string): string => (a < b ? `${a}|${b}` : `${b}|${a}`);

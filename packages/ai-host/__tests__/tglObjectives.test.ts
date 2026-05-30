@@ -229,6 +229,84 @@ describe('computeObjectives (TGL P7)', () => {
         expect(shallowScore).toBeGreaterThan(0.7);
     });
 
+    // §L3-γ-4 (2026-05-30) — edgeRealisation axis: SOFT-scores how each
+    // bubble edge's via matches its semantic kind. Makes the L3-γ-1/2
+    // EdgeType data load-bearing in scoring.
+    describe('§L3-γ-4 edgeRealisation', () => {
+        it('legacy bubble (no edges) → axis 1.0 (no opinion, back-compat)', () => {
+            const g = graphOf([
+                space('L', { spaceType: 'living', netAreaM2: 25, isPrivate: false, needsWindow: true }),
+            ]);
+            const v = computeObjectives(g, metricsOf({ L: 1 }), emptyBubble);
+            expect(v.edgeRealisation).toBe(1);
+        });
+
+        it('all-door edges with semantic kinds → axis 1.0', () => {
+            const g = graphOf([
+                space('L', { spaceType: 'living', netAreaM2: 25, isPrivate: false, needsWindow: true }),
+            ]);
+            const bubble: BubbleGraph = {
+                rooms: [], edges: [
+                    { a: 'r0', b: 'r1', via: 'door', kind: 'CEREMONIAL_THRESHOLD' },
+                    { a: 'r1', b: 'r2', via: 'door', kind: 'INTIMATE_ACCESS' },
+                    { a: 'r2', b: 'r3', via: 'door', kind: 'BUFFER' },
+                    { a: 'r3', b: 'r4', via: 'door', kind: 'SERVICE_ACCESS' },
+                    { a: 'r4', b: 'r5', via: 'door', kind: 'SOCIAL_FLOW' },
+                ],
+                corridorId: null, entryId: null,
+            };
+            const v = computeObjectives(g, metricsOf({ L: 1 }), bubble);
+            expect(v.edgeRealisation).toBe(1);
+        });
+
+        it('INTIMATE_ACCESS realised as open → axis 0.0 (privacy defeated, heavy penalty)', () => {
+            const g = graphOf([
+                space('L', { spaceType: 'living', netAreaM2: 25, isPrivate: false, needsWindow: true }),
+            ]);
+            const bubble: BubbleGraph = {
+                rooms: [], edges: [
+                    { a: 'r0', b: 'r1', via: 'open', kind: 'INTIMATE_ACCESS' },
+                ],
+                corridorId: null, entryId: null,
+            };
+            const v = computeObjectives(g, metricsOf({ L: 1 }), bubble);
+            expect(v.edgeRealisation).toBe(0);
+        });
+
+        it('VISUAL_CONNECTION realised as open → 1.0; as door → 0.5', () => {
+            const g = graphOf([
+                space('L', { spaceType: 'living', netAreaM2: 25, isPrivate: false, needsWindow: true }),
+            ]);
+            const openBubble: BubbleGraph = {
+                rooms: [], edges: [{ a: 'r0', b: 'r1', via: 'open', kind: 'VISUAL_CONNECTION' }],
+                corridorId: null, entryId: null,
+            };
+            const doorBubble: BubbleGraph = {
+                rooms: [], edges: [{ a: 'r0', b: 'r1', via: 'door', kind: 'VISUAL_CONNECTION' }],
+                corridorId: null, entryId: null,
+            };
+            expect(computeObjectives(g, metricsOf({ L: 1 }), openBubble).edgeRealisation).toBe(1);
+            expect(computeObjectives(g, metricsOf({ L: 1 }), doorBubble).edgeRealisation).toBe(0.5);
+        });
+
+        it('mixed kinds + back-compat (some edges have no kind) → averages correctly', () => {
+            const g = graphOf([
+                space('L', { spaceType: 'living', netAreaM2: 25, isPrivate: false, needsWindow: true }),
+            ]);
+            const bubble: BubbleGraph = {
+                rooms: [], edges: [
+                    { a: 'r0', b: 'r1', via: 'door', kind: 'INTIMATE_ACCESS' },  // 1.0
+                    { a: 'r1', b: 'r2', via: 'open', kind: 'BUFFER' },           // 0.3
+                    { a: 'r2', b: 'r3', via: 'door' },                            // 1.0 (no kind, neutral)
+                ],
+                corridorId: null, entryId: null,
+            };
+            const v = computeObjectives(g, metricsOf({ L: 1 }), bubble);
+            // (1.0 + 0.3 + 1.0) / 3 = 0.7666…
+            expect(v.edgeRealisation).toBeCloseTo(2.3 / 3, 6);
+        });
+    });
+
     it('daylight (no field): behaviour unchanged (back-compat)', () => {
         // emptyBubble has no daylightField → the prior binary fronts-facade
         // computation must produce the same number for both rooms regardless

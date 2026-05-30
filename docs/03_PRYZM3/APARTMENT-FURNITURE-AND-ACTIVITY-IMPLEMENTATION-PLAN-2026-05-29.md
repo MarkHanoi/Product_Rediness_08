@@ -689,7 +689,7 @@ Ship in parallel with foundational tiers. These close visible single-apartment g
 | **L3-γ-1** | `EdgeType` enum (SOCIAL_FLOW / INTIMATE_ACCESS / BUFFER / SERVICE / CEREMONIAL / VISUAL / ACOUSTIC) | COGNITION §8 | 0.5 wk | ✅ shipped — `tgl/edgeTypes.ts` (enum + classifier + 14 pin tests). ACOUSTIC_SEPARATION reserved (classifier never returns it; L3-γ-3 promotes edges into it later) |
 | **L3-γ-2** | Populate EdgeType in bubbleGraph builder | COGNITION §8 | 0.5 wk | ✅ shipped — bubbleGraph `link()` calls `classifyEdge`; AdjacencyEdge gains optional `kind` field (back-compat for AI-path graphs); 5 new bubble-graph integration tests |
 | **L3-γ-3** | `wallsAndDoors.ts` reads EdgeType for geometric treatment | COGNITION §8 | 1 wk | ⬜ |
-| **L3-γ-4** | New `edgeRealisation` axis | COGNITION §8 | 0.5 wk | ⬜ |
+| **L3-γ-4** | New `edgeRealisation` axis | COGNITION §8 | 0.5 wk | ✅ shipped 2026-05-30 — `ObjectiveVector.edgeRealisation` + extended `OBJECTIVE_AXES`; SOFT-scores each bubble edge's `via` against its semantic `kind` (per-kind scoring: INTIMATE_ACCESS+open=0.0 privacy defeated; VISUAL_CONNECTION+door=0.5 visual blocked; CEREMONIAL_THRESHOLD+open=0.5; BUFFER+open=0.3; SERVICE_ACCESS+open=0.2; SOCIAL_FLOW=1.0 both fine). Edges without `kind` (AI-path back-compat) neutral. Makes the L3-γ-1/2 EdgeType load-bearing in Pareto ranking. +5 pin tests. |
 
 ## Z.7 — Tier 6 — Furniture Catalogue Extension (Cat A closures)
 
