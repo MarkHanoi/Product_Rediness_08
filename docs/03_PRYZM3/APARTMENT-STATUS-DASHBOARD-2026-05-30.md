@@ -46,7 +46,7 @@ Single-page reference for **every phase and subphase** across the apartment plat
 | **T2.6** validateCirculationSequence | Compression-release anti-pattern | ✅ |
 | **D3 + T3** Pipeline integration | D3.1 shape gate + D3.4 envelope + D3.5 + T3.3 topology gate live; D3.2/D3.3 + T3.1/T3.2 pending | 🟨 |
 | **D4 + T4** Modal axis surfacing | Engine prep ✅ (16 axes plumbed onto breakdown); modal-side rendering ⬜ | 🟨 |
-| **D5 + T5** Spec docs sync | D5.1 SPEC §7.5 + D5.2 C09 §3.4.3 ✅; D5.3 user guide ⬜ | 🟨 |
+| **D5 + T5** Spec docs sync | D5.1 SPEC §7.5 + D5.2 C09 §3.4.3 + D5.3 user guide all ✅ | ✅ |
 | **§ENVELOPE-DIAGNOSTIC** | D-TGL [] returns clean rejection (not silent strip-slicer) | ✅ |
 
 ---

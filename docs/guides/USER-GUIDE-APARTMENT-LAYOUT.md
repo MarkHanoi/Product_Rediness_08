@@ -150,6 +150,35 @@ sensible*, never nonsense:
 | Adjacency | en-suite is next to its master; kitchen is next to dining (when open-plan) |
 | Program | the room counts match what was requested (bedrooms, bathrooms, en-suite, living room) |
 
+### Pre-furnishing validators (the geometry sanity check)
+
+After the AI (or the offline engine) proposes a layout, PRYZM runs **two parallel layers of validators** before any candidate is scored. These catch the "looks plausible but is geometrically or topologically broken" failure modes — so by the time you see a card, every room already passes:
+
+**Dimensional layer — is each room a sensible SHAPE?**
+
+| Validator | What it catches | Severity |
+|---|---|---|
+| Room-area maximums (G1) | A bedroom ballooning to 30 m² because the engine over-allocated. | HARD |
+| Room-width maximums (G2) | A 1.8 m × 6 m "bedroom-as-corridor" — too narrow to be a real bedroom. | HARD |
+| Aspect-ratio (G3) | A 1:5 corridor-shaped living room. | HARD |
+| Furniture-fit (G5) | A 2.1 × 2.1 m "kitchen" the actual kitchen run won't fit into. | HARD |
+| Apartment envelope (D2.4) | A 765 m² shell forced into a 1-bed program (or the inverse — a 30 m² shell with 4 beds). HARD-rejects up-front so the engine doesn't try and fall back to a worse layout. | HARD |
+| Kitchen-triangle (G10 / NKBA) | Cooker→sink→fridge legs sum > 8.0 m or < 3.6 m — unworkable. | HARD/SOFT bands |
+| Frontage (T2.5) | A living / kitchen / master / bedroom buried fully interior with no window wall. | HARD (required), SOFT (preferred) |
+
+**Topology layer — do the rooms RELATE sensibly?**
+
+| Validator | What it catches | Severity |
+|---|---|---|
+| Mandatory adjacencies (T2.1) | A master with no en-suite door (when en-suite is in the program); a hall without a corridor door. | HARD |
+| Forbidden adjacencies (T2.2) | A bedroom door directly into another bedroom (privacy violation). | HARD |
+| Wet-cluster (T2.4) | Kitchens / bathrooms / utility scattered across the plate instead of stacked over one plumbing run. Soft — lowers Pareto rank but doesn't drop. | SOFT |
+| Acoustic zoning (T2.3) | A bedroom wall shared with a living-room speaker side. | SOFT |
+| Circulation sequence (T2.6) | An entrance hall LARGER than the living room it releases into (the "anti-climax" reading). | SOFT |
+| Corridor connectivity (T1.C) | A bedroom whose only door is into the living room — no direct circulation access. Soft so it never drops, but lowers the topology score. | SOFT |
+
+If a candidate fails ANY HARD validator it never enters the Pareto pool. SOFT validators lower the layout's topology / shape quality, which feeds the overall score so cleaner layouts rank higher.
+
 ### The default "program"
 
 Today the generator uses a sensible default brief:
