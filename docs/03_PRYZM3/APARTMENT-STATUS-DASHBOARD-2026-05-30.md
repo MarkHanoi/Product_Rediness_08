@@ -21,7 +21,7 @@ Single-page reference for **every phase and subphase** across the apartment plat
 
 | ID | Deliverable | Status |
 |---|---|---|
-| **T1.W** Window-emission engine | NEW pure sub-engine | 🟨 T1.W-A (P1) pure placement engine shipped 2026-05-30 (windowEmission/, 18 pin tests); T1.W-B wiring + T1.W-C modal preview queued |
+| **T1.W** Window-emission engine | NEW pure sub-engine | 🟨 T1.W-A engine + T1.W-B wiring (emitGeometry → executePlan → window.batch.create with per-room finish) BOTH shipped 2026-05-30 (26 pin tests). T1.W-C shell-wall-host resolution (the dominant external-window case) + modal preview queued. |
 | **T1.C** Corridor-connectivity validator | Every habitable touches corridor | ✅ pure validator + enumerate.ts wiring both shipped 2026-05-30 (soft findings fold into topologyQuality alongside wet/acoustic/sequence/frontage). Modal D4-surfacing only outstanding. |
 | **T1.D** Per-room default door + window system types | MATRIX §D + queue | ✅ door side fully wired 2026-05-30 (resolver + LayoutDoor/DoorPlanItem extension + emitGeometry + executePlan, 24 pin tests). Window-resolver awaits T1.W landing. |
 
@@ -173,7 +173,7 @@ Every axis is in ObjectiveVector + computeObjectives + weightedSum + LayoutScore
 
 | Package | Pass | Notes |
 |---|---|---|
-| @pryzm/ai-host | **798/798** | 2 SCC AiHost.* pre-existing failures unchanged (memory: scc-no-barrel-access-at-module-load) |
+| @pryzm/ai-host | **806/806** | 2 SCC AiHost.* pre-existing failures unchanged (memory: scc-no-barrel-access-at-module-load) |
 | @pryzm/core-app-model | (typecheck) | Pre-existing plugin-side TS errors; lighting-side clean |
 | @pryzm/geometry-lighting | (depends on core-app-model rebuild for full validation) | F1.5' mirror_light builder added |
 | @pryzm/geometry-furniture | (untouched this slice) | 11 of 15 F1.x types shipped contract-complete |

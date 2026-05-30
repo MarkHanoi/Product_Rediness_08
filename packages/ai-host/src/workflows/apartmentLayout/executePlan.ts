@@ -20,7 +20,7 @@
 
 import type { CommandPayloadRef } from '../../types.js';
 import type { LayoutOption, Vec2mm } from './types.js';
-import { defaultDoorSystemTypeId } from './resolvers/defaultElementTypes.js';
+import { defaultDoorSystemTypeId, defaultWindowSystemTypeId } from './resolvers/defaultElementTypes.js';
 
 const MM_PER_M = 1000;
 
@@ -98,6 +98,19 @@ export interface DoorPlanItem {
     readonly roomTypeB?: import('./types.js').RoomType;
 }
 
+/** T1.W-B (2026-05-30) — a window to create on a partition wall. Mirrors
+ *  DoorPlanItem but only carries ONE roomType because a window belongs to
+ *  one interior room + the exterior. */
+export interface WindowPlanItem {
+    readonly wallRef:    number;
+    readonly offset:     number;    // m, from host wall start
+    readonly width:      number;    // m
+    readonly height:     number;    // m
+    readonly sillHeight: number;    // m
+    readonly name?:      string;
+    readonly roomType?:  import('./types.js').RoomType;
+}
+
 export interface LayoutPlan {
     /** Ready-to-dispatch `wall.batch.create` ref (handler assigns wall ids). */
     readonly wallCommand: CommandPayloadRef;
@@ -106,7 +119,10 @@ export interface LayoutPlan {
     readonly walls: readonly WallCreateSpec[];
     /** Door creation plan (wallRef → created id resolved at A6 wiring). */
     readonly doorPlan: readonly DoorPlanItem[];
-    /** walls + doors — feeds BatchCoordinator.runBatch totalElementCount. */
+    /** T1.W-B (2026-05-30) — window creation plan (same wallRef-remap path
+     *  as doors). Empty until the option carries `windows`. */
+    readonly windowPlan: readonly WindowPlanItem[];
+    /** walls + doors + windows — feeds BatchCoordinator.runBatch totalElementCount. */
     readonly totalElementCount: number;
     /** Dropped/degenerate inputs (loud-fail-soft; never throws). */
     readonly warnings: readonly string[];
@@ -365,6 +381,51 @@ export function buildLayoutPlan(option: LayoutOption, opts: LayoutExecuteOptions
         });
     });
 
+    // T1.W-B (2026-05-30) — window plan: same wallRef-remap path as doors.
+    // Engine-emitted windows host on EXTERNAL walls (shell perimeter), which
+    // are dropped from wall.batch.create when `skipExteriorWalls` is true
+    // (the shell already exists). Such windows are silently filtered (NOT a
+    // warning — the expected behaviour for shell windows; dispatch to the
+    // pre-existing shell-wall id is the T1.W-C follow-on slice). Windows
+    // hosted on a NEW partition wall (the rare interior-window case) flow
+    // through with their offsets remapped exactly like doors.
+    const windowPlan: WindowPlanItem[] = [];
+    (option.windows ?? []).forEach((w, i) => {
+        if (w.wallRef < 0 || w.wallRef >= option.walls.length) {
+            warnings.push(`window[${i}] dropped — wallRef ${w.wallRef} out of range`);
+            return;
+        }
+        const rawRef = dropRemap[w.wallRef]!;
+        if (rawRef === -1) return;     // external wall — handled by T1.W-C
+        const mergedRef = merge.remap.get(rawRef);
+        if (mergedRef === undefined) return;
+        const shiftM = merge.shift.get(rawRef) ?? 0;
+        const reversedW = merge.reversedVsMerged.get(rawRef) ?? false;
+
+        const offsetM_local = w.offset / MM_PER_M;
+        const widthM = w.width / MM_PER_M;
+        const raw = rawWalls[rawRef]!;
+        const rawLenM = lengthXZ(raw.baseLine[0], raw.baseLine[1]);
+        const localOnRaw = reversedW ? (rawLenM - offsetM_local - widthM) : offsetM_local;
+        const offsetM = shiftM + localOnRaw;
+
+        const host = walls[mergedRef]!;
+        const wallLenM = lengthXZ(host.baseLine[0], host.baseLine[1]);
+        if (offsetM < 0 || offsetM + widthM > wallLenM + 1e-3) {
+            warnings.push(`window[${i}] dropped — span does not fit merged host wall`);
+            return;
+        }
+        windowPlan.push({
+            wallRef:    mergedRef,
+            offset:     offsetM,
+            width:      widthM,
+            height:     w.height / MM_PER_M,
+            sillHeight: w.sillHeight / MM_PER_M,
+            ...(w.name ? { name: w.name } : {}),
+            ...(w.roomType ? { roomType: w.roomType } : {}),
+        });
+    });
+
     const wallCommand: CommandPayloadRef = {
         command: 'wall.batch.create',
         payload: { walls, levelId: opts.levelId },
@@ -374,7 +435,8 @@ export function buildLayoutPlan(option: LayoutOption, opts: LayoutExecuteOptions
         wallCommand,
         walls,
         doorPlan,
-        totalElementCount: walls.length + doorPlan.length,
+        windowPlan,
+        totalElementCount: walls.length + doorPlan.length + windowPlan.length,
         warnings,
     };
 }
@@ -387,7 +449,7 @@ export function buildLayoutPlan(option: LayoutOption, opts: LayoutExecuteOptions
 // `mintId` is injected (createId('wall'|'door'|'opening') from @pryzm/schemas in
 // production; a deterministic stub in tests) so this stays pure + Node-testable.
 
-export type IdPrefix = 'wall' | 'door' | 'opening';
+export type IdPrefix = 'wall' | 'door' | 'opening' | 'window';
 export type IdMinter = (prefix: IdPrefix) => string;
 
 /** A single dispatchable bus command (verb + payload). */
@@ -404,6 +466,13 @@ export interface LayoutCommandSet {
     readonly openingCommands: readonly LayoutCommand[];
     /** `door.batch.create` for all doors, or null when there are none. */
     readonly doorBatch: LayoutCommand | null;
+    /** T1.W-B (2026-05-30) — one `wall.createOpening` per emitted window
+     *  hosted on a NEW partition wall (windows on EXTERNAL shell walls flow
+     *  via a future T1.W-C path that hosts on pre-existing shell wall ids).
+     *  Reserves the opening id + window elementId — C15 cascade contract. */
+    readonly windowOpeningCommands: readonly LayoutCommand[];
+    /** T1.W-B — `window.batch.create` for all windows, or null when none. */
+    readonly windowBatch: LayoutCommand | null;
     /** One virtual room-bounding line per open-plan threshold (the editor uses the
      *  legacy `CreateRoomBoundingLineCommand` to materialise these — they have NO
      *  bus verb yet). Carries `{id, levelId, start:{x,z}, end:{x,z}}` in METRES. */
@@ -412,7 +481,9 @@ export interface LayoutCommandSet {
     readonly wallIds: readonly string[];
     /** Minted door ids, index-aligned with `doorPlan`. */
     readonly doorIds: readonly string[];
-    /** walls + doors — feeds BatchCoordinator.runBatch totalElementCount. */
+    /** T1.W-B — minted window ids, index-aligned with `windowPlan`. */
+    readonly windowIds: readonly string[];
+    /** walls + doors + windows — feeds BatchCoordinator.runBatch totalElementCount. */
     readonly totalElementCount: number;
     /** Dropped/degenerate inputs (loud-fail-soft; from buildLayoutPlan). */
     readonly warnings: readonly string[];
@@ -496,6 +567,56 @@ export function buildLayoutCommands(
     const doorBatch: LayoutCommand | null =
         doors.length > 0 ? { command: 'door.batch.create', payload: { doors } } : null;
 
+    // T1.W-B (2026-05-30) — windows. Mirrors the door cascade: one
+    // wall.createOpening (type: 'window') per window, hosted on the
+    // pre-minted partition wall id; ONE window.batch.create dispatch
+    // for the whole set. Per-room window finish from T1.D's resolver
+    // (defaultWindowSystemTypeId) when the engine carried the roomType
+    // through; legacy fall-through omits systemTypeId so the handler
+    // applies its own default (= 'wt-timber-casement').
+    const windowOpeningCommands: LayoutCommand[] = [];
+    const windowPayloads: unknown[] = [];
+    const windowIds: string[] = [];
+    for (const w of plan.windowPlan) {
+        const wallId = wallIds[w.wallRef]!;
+        const openingId = mintId('opening');
+        const windowId = mintId('window');
+        windowIds.push(windowId);
+        windowOpeningCommands.push({
+            command: 'wall.createOpening',
+            payload: {
+                wallId,
+                opening: {
+                    id: openingId,
+                    type: 'window',
+                    offset: w.offset,
+                    width: w.width,
+                    height: w.height,
+                    sillHeight: w.sillHeight,
+                    elementId: windowId,         // === window id (C15 cascade)
+                },
+            },
+        });
+        const perRoomWindowSysType: { systemTypeId: string } | Record<string, never> = w.roomType
+            ? { systemTypeId: defaultWindowSystemTypeId(w.roomType) }
+            : {};
+        windowPayloads.push({
+            id:         windowId,
+            wallId,
+            openingId,
+            width:      w.width,
+            height:     w.height,
+            sillHeight: w.sillHeight,
+            offset:     w.offset,
+            ...perRoomWindowSysType,
+            ...(w.name ? { name: w.name } : {}),
+        });
+    }
+    const windowBatch: LayoutCommand | null =
+        windowPayloads.length > 0
+            ? { command: 'window.batch.create', payload: { windows: windowPayloads } }
+            : null;
+
     // Virtual room-bounding lines (open-plan splitters). LayoutBoundary is in mm in
     // the LayoutOption; the editor's `CreateRoomBoundingLineCommand` takes METRES,
     // so we divide by MM_PER_M here exactly like buildLayoutPlan does for doors.
@@ -520,9 +641,12 @@ export function buildLayoutCommands(
         wallBatch,
         openingCommands,
         doorBatch,
+        windowOpeningCommands,
+        windowBatch,
         boundaryCommands,
         wallIds,
         doorIds,
+        windowIds,
         totalElementCount: plan.totalElementCount,
         warnings: plan.warnings,
     };

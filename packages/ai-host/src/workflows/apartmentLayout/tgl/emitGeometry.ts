@@ -15,6 +15,8 @@
 import type { LayoutOption, LayoutRoom, RoomType } from '../types.js';
 import type { GraphNode, LayoutGraph } from './semanticGraph.js';
 import { occupancyOf } from '../rules/programRules.js';
+import { emitWindowsForRoom } from '../windowEmission/emitWindows.js';
+import type { ExternalWallSegment } from '../windowEmission/types.js';
 
 export interface EmittedLayout {
     readonly option: LayoutOption;
@@ -138,6 +140,48 @@ export function emitGeometry(graph: LayoutGraph): EmittedLayout {
         doorGuids.push(d.guid);
     }
 
+    // ── Windows (T1.W-B 2026-05-30 — D-TGL → window emission engine) ────────────
+    // For every space that BOUNDS an external wall AND wants a window, run the
+    // pure placement engine. Per-space external walls come from the BOUNDS
+    // edges (wall.from → space.to) filtered by the externalWalls set the
+    // façade-fronting pass already computed.
+    const externalWallsBySpace = new Map<string, ExternalWallSegment[]>();
+    for (const e of graph.edges) {
+        if (e.kind !== 'BOUNDS' || !externalWalls.has(e.from)) continue;
+        const wallNode = allWallNodes.find(w => w.guid === e.from);
+        const wRef = wallIndex.get(e.from);
+        if (!wallNode || wRef === undefined) continue;
+        const bl = wallNode.geometry?.baseLine;
+        if (!bl || !bl[0] || !bl[1]) continue;
+        const seg: ExternalWallSegment = {
+            start:     { x: mm(bl[0].x), y: mm(bl[0].z) },
+            end:       { x: mm(bl[1].x), y: mm(bl[1].z) },
+            wallIndex: wRef,
+        };
+        (externalWallsBySpace.get(e.to) ?? externalWallsBySpace.set(e.to, []).get(e.to)!).push(seg);
+    }
+
+    const windows: LayoutOption['windows'] = [];
+    for (const n of spaceNodes) {
+        if (n.attrs.needsWindow !== true) continue;
+        const externals = externalWallsBySpace.get(n.guid) ?? [];
+        if (externals.length === 0) continue;
+        const rt = (str(n.attrs.spaceType, 'utility') as RoomType);
+        const roomName = str(n.attrs.name, n.sourceId);
+        const placements = emitWindowsForRoom(rt, externals, roomName);
+        for (const p of placements) {
+            windows.push({
+                wallRef:    p.wallIndex,
+                offset:     p.offsetMm,
+                width:      p.widthMm,
+                height:     p.heightMm,
+                sillHeight: p.sillMm,
+                ...(p.name ? { name: p.name } : {}),
+                roomType:   rt,
+            });
+        }
+    }
+
     // corridorWidthMin: narrowest corridor dimension (mm), else 0.
     let corridorWidthMin = 0;
     for (const n of spaceNodes) {
@@ -148,8 +192,9 @@ export function emitGeometry(graph: LayoutGraph): EmittedLayout {
     }
 
     const option: LayoutOption = {
-        summary: `D-TGL layout — ${rooms.length} rooms, ${walls.length} walls, ${doors.length} doors`,
+        summary: `D-TGL layout — ${rooms.length} rooms, ${walls.length} walls, ${doors.length} doors, ${windows.length} windows`,
         rooms, walls, doors, corridorWidthMin,
+        ...(windows.length > 0 ? { windows } : {}),
     };
     return { option, wallGuids, doorGuids, spaceGuids };
 }

@@ -48,6 +48,19 @@ export interface LayoutDoor {
     roomTypeA?: RoomType;
     roomTypeB?: RoomType;
 }
+/** T1.W-B (2026-05-30) — emitted internal-side window. Mirrors LayoutDoor
+ *  but only carries ONE roomType because a window has one room + the
+ *  exterior; executePlan applies the per-room window system-type via
+ *  `defaultWindowSystemTypeId(roomType)`. All dims mm. */
+export interface LayoutWindow {
+    wallRef:    number;
+    offset:     number;
+    width:      number;
+    height:     number;
+    sillHeight: number;
+    name?:      string;
+    roomType?:  RoomType;
+}
 /** A virtual room-bounding line (no wall, no door) that splits two adjacent
  *  open-plan spaces logically so room detection sees them as separate rooms.
  *  Built via the editor's `CreateRoomBoundingLineCommand` at execute time. */
@@ -58,6 +71,11 @@ export interface LayoutOption {
     rooms: LayoutRoom[];
     walls: LayoutWall[];
     doors: LayoutDoor[];
+    /** T1.W-B (2026-05-30) — emitted internal-side windows. Optional for
+     *  back-compat with AI-produced options that predate the field; when
+     *  present, executePlan emits one wall.createOpening + window.batch.create
+     *  per entry (mirrors the door cascade). */
+    windows?: LayoutWindow[];
     /** Virtual room-splitters for open-plan thresholds (hall↔living, kitchen↔living,
      *  kitchen↔dining, …). Optional for back-compat with AI-produced options that
      *  predate this field. */

@@ -92,6 +92,87 @@ describe('buildLayoutCommands (A6-wire)', () => {
         expect(set.doorBatch).toBeNull();
     });
 
+    // T1.W-B wiring (2026-05-30) — emitted windows flow through to commands.
+    describe('T1.W-B window dispatch (when LayoutOption carries windows[])', () => {
+        const winOption = (over: Partial<LayoutOption> = {}) => option({
+            // A 4-wall partition box; window hosts on wallRef 1.
+            walls: [
+                { start: { x: 0, y: 0 }, end: { x: 5000, y: 0 } },
+                { start: { x: 5000, y: 0 }, end: { x: 5000, y: 4000 } },
+            ],
+            doors: [],     // no doors — keep the test focused
+            windows: [{
+                wallRef: 1, offset: 500, width: 1500, height: 1300,
+                sillHeight: 900, roomType: 'bedroom', name: 'Bedroom Window',
+            }],
+            ...over,
+        });
+
+        it('emits one wall.createOpening (type: window) per window on its host wall', () => {
+            const set = buildLayoutCommands(winOption(), OPTS, counterMinter());
+            expect(set.windowOpeningCommands).toHaveLength(1);
+            const op = set.windowOpeningCommands[0]!;
+            expect(op.command).toBe('wall.createOpening');
+            const p = op.payload as { wallId: string; opening: { type: string; elementId: string; width: number; sillHeight: number } };
+            expect(p.opening.type).toBe('window');
+            expect(p.opening.width).toBeCloseTo(1.5, 6);
+            expect(p.opening.sillHeight).toBeCloseTo(0.9, 6);
+        });
+
+        it('emits one window.batch.create with C15 cascade ids (opening.elementId === window id)', () => {
+            const set = buildLayoutCommands(winOption(), OPTS, counterMinter());
+            expect(set.windowBatch!.command).toBe('window.batch.create');
+            const windows = (set.windowBatch!.payload as { windows: Array<{ id: string; wallId: string; openingId: string }> }).windows;
+            expect(windows).toHaveLength(1);
+            const opPayload = set.windowOpeningCommands[0]!.payload as { opening: { id: string; elementId: string } };
+            expect(opPayload.opening.elementId).toBe(windows[0]!.id);
+            expect(windows[0]!.openingId).toBe(opPayload.opening.id);
+        });
+
+        it('per-room window system-type — bedroom → wt-timber-casement', () => {
+            const set = buildLayoutCommands(winOption(), OPTS, counterMinter());
+            const windows = (set.windowBatch!.payload as { windows: Array<{ systemTypeId?: string }> }).windows;
+            expect(windows[0]!.systemTypeId).toBe('wt-timber-casement');
+        });
+
+        it('per-room window system-type — bathroom → wt-upvc-casement (privacy)', () => {
+            const set = buildLayoutCommands(winOption({
+                windows: [{ wallRef: 1, offset: 500, width: 600, height: 600, sillHeight: 1700, roomType: 'bathroom' }],
+            }), OPTS, counterMinter());
+            const windows = (set.windowBatch!.payload as { windows: Array<{ systemTypeId?: string }> }).windows;
+            expect(windows[0]!.systemTypeId).toBe('wt-upvc-casement');
+        });
+
+        it('per-room window system-type — kitchen → wt-upvc-tilt-turn', () => {
+            const set = buildLayoutCommands(winOption({
+                windows: [{ wallRef: 1, offset: 500, width: 1200, height: 1200, sillHeight: 1000, roomType: 'kitchen' }],
+            }), OPTS, counterMinter());
+            const windows = (set.windowBatch!.payload as { windows: Array<{ systemTypeId?: string }> }).windows;
+            expect(windows[0]!.systemTypeId).toBe('wt-upvc-tilt-turn');
+        });
+
+        it('no windows in the option → windowBatch is null + windowOpeningCommands is empty', () => {
+            const set = buildLayoutCommands(option(), OPTS, counterMinter());
+            expect(set.windowBatch).toBeNull();
+            expect(set.windowOpeningCommands).toHaveLength(0);
+            expect(set.windowIds).toHaveLength(0);
+        });
+
+        it('totalElementCount includes windows', () => {
+            const set = buildLayoutCommands(winOption(), OPTS, counterMinter());
+            // 2 walls + 0 doors + 1 window = 3
+            expect(set.totalElementCount).toBe(3);
+        });
+
+        it('window without roomType omits systemTypeId (handler default)', () => {
+            const set = buildLayoutCommands(winOption({
+                windows: [{ wallRef: 1, offset: 500, width: 1500, height: 1300, sillHeight: 900 }],
+            }), OPTS, counterMinter());
+            const windows = (set.windowBatch!.payload as { windows: Array<{ systemTypeId?: string }> }).windows;
+            expect(windows[0]!.systemTypeId).toBeUndefined();
+        });
+    });
+
     // T1.D wiring (2026-05-30) — per-pair door finish resolver consumed.
     describe('T1.D per-pair door finish (when LayoutDoor carries roomTypeA/B)', () => {
         const getDoorSysType = (set: ReturnType<typeof buildLayoutCommands>) =>
