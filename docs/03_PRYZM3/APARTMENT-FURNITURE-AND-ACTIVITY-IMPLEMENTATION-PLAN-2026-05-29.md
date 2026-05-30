@@ -778,7 +778,7 @@ Requires Tier 6 substantially done.
 | **F3.6** | Utility (washing_machine + tumble_dryer + utility_cabinet + utility_sink) | FURNITURE §4.4 | 0.5 d | ⬜ — blocks on F1.8 |
 | **F3.7** | Dining (buffet + rug) | FURNITURE §4.4 | 0.5 d | 🟨 partial — buffet + sideboard (F1.9) landed; rug queued |
 | **F3.8** | Hall (console_table + shoe_cabinet + coat_rack + wall_mirror) | FURNITURE §4.4 | 0.5 d | ✅ closed by F1.4 |
-| **F3.9** | Corridor (linear_led ceiling strip) | FURNITURE §4.4 | 0.5 d | ⬜ — blocks on D-LE archetype edit |
+| **F3.9** | Corridor (linear_led ceiling strip) | FURNITURE §4.4 | 0.5 d | ✅ closed 2026-05-30 — D-LE archetype now `linear_led` at ≥ 3 m² (directional strip) falling back to `downlight` for tight corridors. +2 pin tests. |
 | **F3.10** | Kitchen (pendant_cluster + under-cabinet linear_led) | FURNITURE §4.4 | 0.5 d | ✅ closed 2026-05-30 — pantry_cabinet (F1.14) + pendant_cluster (F1.15) both wired into archetype; under-cabinet linear_led already present as the < 12 m² fallback. |
 
 **Tier 8 total: ~5 dev-days.**

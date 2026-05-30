@@ -177,6 +177,20 @@ describe('lightRoom', () => {
             expect(placed[0]!.kind).toBe('pendant');
         });
     });
+
+    // F3.9 (2026-05-30) — corridor archetype gets a linear_led directional
+    // strip when ≥ 3 m², downlight otherwise.
+    describe('F3.9 corridor archetype', () => {
+        it('corridor ≥ 3 m² picks linear_led (directional strip)', () => {
+            const placed = lightRoom(baseInput({ occupancy: 'corridor', areaM2: 4 }));
+            expect(placed[0]!.kind).toBe('linear_led');
+        });
+
+        it('corridor < 3 m² falls back to downlight', () => {
+            const placed = lightRoom(baseInput({ occupancy: 'corridor', areaM2: 2 }));
+            expect(placed[0]!.kind).toBe('downlight');
+        });
+    });
 });
 
 describe('buildLightingCommands', () => {

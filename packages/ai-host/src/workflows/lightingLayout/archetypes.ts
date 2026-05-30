@@ -59,7 +59,15 @@ export const LIGHTING_ARCHETYPES: Readonly<Record<LightableOccupancy, LightingAr
         { kind: 'mirror_light', minAreaM2: 0, mount: 'wall' },
     ]),
     'utility-room':   A('utility-room',   [{ kind: 'downlight', minAreaM2: 0 }]),
-    'corridor':       A('corridor',       [{ kind: 'downlight', minAreaM2: 0 }]),
+    // F3.9 (2026-05-30) — corridors of any usable length read better with a
+    // continuous linear_led ceiling strip than a centroid downlight; the
+    // strip suggests circulation directionally. ≥ 3 m² is a soft threshold
+    // (a 0.8 m × 4 m corridor = 3.2 m²); below that the room is too tight
+    // for a strip and a downlight does the job.
+    'corridor':       A('corridor',       [
+        { kind: 'linear_led', minAreaM2: 3 },
+        { kind: 'downlight',  minAreaM2: 0 },
+    ]),
 
     // Reception + office.
     'entrance-lobby': A('entrance-lobby', [

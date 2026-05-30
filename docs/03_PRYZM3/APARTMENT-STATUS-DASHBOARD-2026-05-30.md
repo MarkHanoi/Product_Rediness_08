@@ -136,7 +136,7 @@ Incremental wirings landed via each F1.x ship.
 | **F3.6** Utility | Blocks on F1.8 | ⬜ |
 | **F3.7** Dining | buffet + sideboard shipped; rug pending | 🟨 |
 | **F3.8** Hall | Closed by F1.4 4-pack | ✅ |
-| **F3.9** Corridor | Blocks on D-LE linear_led archetype edit | ⬜ |
+| **F3.9** Corridor | D-LE archetype wired: linear_led ≥ 3 m² → downlight | ✅ |
 | **F3.10** Kitchen | pantry_cabinet (F1.14) + pendant_cluster (F1.15) shipped; D-LE archetype wired (cluster ≥12 m² → linear_led → downlight) | ✅ |
 
 ---
@@ -173,7 +173,7 @@ Every axis is in ObjectiveVector + computeObjectives + weightedSum + LayoutScore
 
 | Package | Pass | Notes |
 |---|---|---|
-| @pryzm/ai-host | **742/742** | 2 SCC AiHost.* pre-existing failures unchanged (memory: scc-no-barrel-access-at-module-load) |
+| @pryzm/ai-host | **744/744** | 2 SCC AiHost.* pre-existing failures unchanged (memory: scc-no-barrel-access-at-module-load) |
 | @pryzm/core-app-model | (typecheck) | Pre-existing plugin-side TS errors; lighting-side clean |
 | @pryzm/geometry-lighting | (depends on core-app-model rebuild for full validation) | F1.5' mirror_light builder added |
 | @pryzm/geometry-furniture | (untouched this slice) | 11 of 15 F1.x types shipped contract-complete |
