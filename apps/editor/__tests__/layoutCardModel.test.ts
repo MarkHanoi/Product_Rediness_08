@@ -57,4 +57,128 @@ describe('buildLayoutCardModel (A5-modal-core)', () => {
         expect(m.bars[0]!.pct).toBe(100);
         expect(m.bars[1]!.pct).toBe(0);
     });
+
+    // L1-α-4 + L2-β-5 (2026-05-30) — cognition axes surfaced from breakdown.
+    describe('cognition axes surfacing', () => {
+        it('AI-relay path (only 4 primary axes) emits exactly 4 bars', () => {
+            const m = buildLayoutCardModel(opt(), 0);
+            // The baseline breakdown above has only the 4 primary axes.
+            expect(m.bars).toHaveLength(4);
+            expect(m.bars.every(b => b.group === 'primary')).toBe(true);
+        });
+
+        it('D-TGL path (full breakdown) emits primary + quality + cognition L2/L3/L4 bars', () => {
+            const m = buildLayoutCardModel(opt({
+                score: {
+                    overall: 75,
+                    breakdown: {
+                        naturalLight: 0.9, privacy: 0.5, kitchenWorkflow: 0.7, corridorEfficiency: 0.6,
+                        shapeQuality: 0.8, topologyQuality: 0.75,
+                        hierarchy: 0.65, entrySightline: 1.0, arrivalSequence: 0.7, spatialClimax: 0.8,
+                        edgeRealisation: 0.85,
+                        openingCadence: 0.6, proportionalElegance: 0.9,
+                        wetStackAlignment: 0.7, alignmentField: 0.5,
+                    },
+                },
+            }), 0);
+            // All 15 axes present (4 + 2 + 4 + 1 + 4).
+            expect(m.bars).toHaveLength(15);
+            const keys = m.bars.map(b => b.key);
+            expect(keys).toContain('shapeQuality');
+            expect(keys).toContain('hierarchy');
+            expect(keys).toContain('edgeRealisation');
+            expect(keys).toContain('alignmentField');
+        });
+
+        it('partial breakdown — some cognition axes set, others absent — emits only the present ones', () => {
+            const m = buildLayoutCardModel(opt({
+                score: {
+                    overall: 70,
+                    breakdown: {
+                        naturalLight: 0.9, privacy: 0.5, kitchenWorkflow: 0.7, corridorEfficiency: 0.6,
+                        hierarchy: 0.65, entrySightline: 1.0,
+                    },
+                },
+            }), 0);
+            // 4 primary + 2 partial cognition = 6 bars.
+            expect(m.bars).toHaveLength(6);
+            expect(m.bars.map(b => b.key)).toEqual([
+                'naturalLight', 'privacy', 'kitchenWorkflow', 'corridorEfficiency',
+                'hierarchy', 'entrySightline',
+            ]);
+        });
+
+        it('every bar carries a group tag', () => {
+            const m = buildLayoutCardModel(opt({
+                score: {
+                    overall: 75,
+                    breakdown: {
+                        naturalLight: 0.9, privacy: 0.5, kitchenWorkflow: 0.7, corridorEfficiency: 0.6,
+                        shapeQuality: 0.8, topologyQuality: 0.75,
+                        hierarchy: 0.65, entrySightline: 1.0, arrivalSequence: 0.7, spatialClimax: 0.8,
+                        edgeRealisation: 0.85,
+                        openingCadence: 0.6, proportionalElegance: 0.9,
+                        wetStackAlignment: 0.7, alignmentField: 0.5,
+                    },
+                },
+            }), 0);
+            const groupsByKey = Object.fromEntries(m.bars.map(b => [b.key, b.group]));
+            expect(groupsByKey.naturalLight).toBe('primary');
+            expect(groupsByKey.shapeQuality).toBe('quality');
+            expect(groupsByKey.topologyQuality).toBe('quality');
+            expect(groupsByKey.hierarchy).toBe('cognition-L2');
+            expect(groupsByKey.entrySightline).toBe('cognition-L2');
+            expect(groupsByKey.edgeRealisation).toBe('cognition-L3');
+            expect(groupsByKey.alignmentField).toBe('cognition-L4');
+            expect(groupsByKey.proportionalElegance).toBe('cognition-L4');
+        });
+
+        it('cognition axes carry the correct labels', () => {
+            const m = buildLayoutCardModel(opt({
+                score: {
+                    overall: 75,
+                    breakdown: {
+                        naturalLight: 1, privacy: 1, kitchenWorkflow: 1, corridorEfficiency: 1,
+                        hierarchy: 0.5, arrivalSequence: 0.5, alignmentField: 0.5,
+                    },
+                },
+            }), 0);
+            const labels = Object.fromEntries(m.bars.map(b => [b.key, b.label]));
+            expect(labels.hierarchy).toBe('Hierarchy');
+            expect(labels.arrivalSequence).toBe('Arrival');
+            expect(labels.alignmentField).toBe('Alignment');
+        });
+
+        it('skips non-finite cognition values (defensive against breakdown bugs)', () => {
+            const m = buildLayoutCardModel(opt({
+                score: {
+                    overall: 50,
+                    breakdown: {
+                        naturalLight: 0.5, privacy: 0.5, kitchenWorkflow: 0.5, corridorEfficiency: 0.5,
+                        hierarchy: NaN,
+                        entrySightline: Number.POSITIVE_INFINITY,
+                        edgeRealisation: 0.7,        // finite — should appear
+                    },
+                },
+            }), 0);
+            const keys = m.bars.map(b => b.key);
+            expect(keys).not.toContain('hierarchy');
+            expect(keys).not.toContain('entrySightline');
+            expect(keys).toContain('edgeRealisation');
+        });
+
+        it('cognition pct values round to 0-100', () => {
+            const m = buildLayoutCardModel(opt({
+                score: {
+                    overall: 70,
+                    breakdown: {
+                        naturalLight: 0.5, privacy: 0.5, kitchenWorkflow: 0.5, corridorEfficiency: 0.5,
+                        hierarchy: 0.876,
+                    },
+                },
+            }), 0);
+            const hier = m.bars.find(b => b.key === 'hierarchy')!;
+            expect(hier.pct).toBe(88);
+        });
+    });
 });

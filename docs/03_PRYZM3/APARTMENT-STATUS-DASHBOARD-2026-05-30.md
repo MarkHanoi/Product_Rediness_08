@@ -58,7 +58,7 @@ Single-page reference for **every phase and subphase** across the apartment plat
 | **L1-α-1** FacadeValueField | per-edge orientation+sunlight+corner exposure | ✅ |
 | **L1-α-2** DaylightDepthField | BRE 7m attenuation + axis wire-in | ✅ |
 | **L1-α-3** Plumb facadeField into bubbleGraph allocator | windowMandatory bonus up to +20% | ✅ |
-| **L1-α-4** Modal exposes Façade quality axis | Engine prep ✅ (axis on breakdown); modal-side rendering ⬜ | 🟨 |
+| **L1-α-4** Modal exposes Façade quality axis | Engine prep ✅ (axis on breakdown); modal-side card-model rendering ✅ 2026-05-30 (layoutCardModel emits 4 primary + 11 cognition optional bars with group tags + 7 new pin tests) | ✅ |
 
 ---
 
@@ -70,7 +70,7 @@ Single-page reference for **every phase and subphase** across the apartment plat
 | **L2-β-2** EntrySightlineScore | Graph-distance form ✅ + ray-cast variant (L2-β-2b) ✅ both shipped 2026-05-30; objectives.ts now uses raycast when all spaces carry polygons (production D-TGL path), falls back to graph-distance otherwise. | ✅ |
 | **L2-β-3** ArrivalSequence | Compression-release ratio | ✅ |
 | **L2-β-4** SpatialClimax | Dominant non-circulation room arrival depth | ✅ |
-| **L2-β-5** Modal Hierarchy axis + arrival narrative text | UI work | ⬜ |
+| **L2-β-5** Modal Hierarchy axis + arrival narrative text | UI work | 🟨 card-model data layer shipped 2026-05-30 (hierarchy/entrySightline/arrivalSequence/spatialClimax bars emit when present + cognition-L2 group tag); SVG-side narrative text rendering still queued. |
 
 ---
 
