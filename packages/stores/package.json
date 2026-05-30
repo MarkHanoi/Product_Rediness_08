@@ -23,6 +23,7 @@
     "@pryzm/ai-host": "workspace:*",
     "@pryzm/command-bus": "workspace:*",
     "@pryzm/protocol": "workspace:*",
+    "@pryzm/schemas": "workspace:*",
     "immer": "^10.1.1"
   },
   "devDependencies": {

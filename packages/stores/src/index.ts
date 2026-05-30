@@ -3,6 +3,18 @@
 // L1 stores layer per `phases/PHASE-1A-Q1-M1-M3-SKELETON-RAILS.md` §S05.
 
 export { Store } from './Store.js';
+
+// D-α-1 (BIM 2/3 §6) — L0 parameter stores. Hold user INTENT post-execute
+// (the Data Management Panel edits these); the apartment-solver (D-α-3)
+// re-derives geometry from them.
+export {
+    ApartmentParametersStore,
+    apartmentParametersStore,
+} from './ApartmentParametersStore.js';
+export {
+    RoomParametersStore,
+    roomParametersStore,
+} from './RoomParametersStore.js';
 export { CubeStore, type CubeDto } from './CubeStore.js';
 export { SelectionStore, type SelectionDto, type SelectionKind, type SelectionMode, type SelectionTarget } from './SelectionStore.js';
 export {
