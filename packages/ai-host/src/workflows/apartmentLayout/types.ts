@@ -136,6 +136,12 @@ export interface LayoutScoreBreakdown {
     /** §TOPOLOGY-QUALITY soft-finding aggregate over A1/A3/A5/A6/A8 validators
      *  (T3.3, shipped `3972a27`; gradient since `4d1b41f`). */
     topologyQuality?: number;      // 0-1
+    /** §L3-γ-4 edgeRealisation — per-edge match between geometric `via`
+     *  (door / open) and semantic `kind` (CEREMONIAL_THRESHOLD / INTIMATE_ACCESS
+     *  / VISUAL_CONNECTION / …). Pareto-ranks "every edge realised right"
+     *  above "every edge realised wrong" (e.g. INTIMATE_ACCESS via open is
+     *  a privacy failure). Shipped `cf13b11`. */
+    edgeRealisation?: number;      // 0-1
 }
 
 export interface LayoutScore {

@@ -100,6 +100,7 @@ export function generateDeterministicLayouts(
                 hierarchy: c.objectives.hierarchy,
                 shapeQuality: c.objectives.shapeQuality,
                 topologyQuality: c.objectives.topologyQuality,
+                edgeRealisation: c.objectives.edgeRealisation,
             },
         };
         return { ...labelled, score };

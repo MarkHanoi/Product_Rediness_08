@@ -40,13 +40,15 @@ describe('generateDeterministicLayouts (TGL wiring)', () => {
     // §L1-α-4 PREP (2026-05-29) — the new objective axes are surfaced on the
     // breakdown so the modal renderer can read them without re-deriving from
     // the layout.
-    it('plumbs hierarchy + shapeQuality + topologyQuality onto score.breakdown', () => {
+    it('plumbs hierarchy + shapeQuality + topologyQuality + edgeRealisation onto score.breakdown', () => {
         const out = generateDeterministicLayouts(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, 1);
         expect(out.length).toBe(1);
         const b = out[0]!.score.breakdown;
         expect(typeof b.hierarchy).toBe('number');
         expect(typeof b.shapeQuality).toBe('number');
         expect(typeof b.topologyQuality).toBe('number');
+        // §L3-γ-4 (2026-05-30) — edgeRealisation joins the modal-bound axes.
+        expect(typeof b.edgeRealisation).toBe('number');
         // Each must land in [0, 1].
         expect(b.hierarchy!).toBeGreaterThanOrEqual(0);
         expect(b.hierarchy!).toBeLessThanOrEqual(1);
@@ -54,6 +56,8 @@ describe('generateDeterministicLayouts (TGL wiring)', () => {
         expect(b.shapeQuality!).toBeLessThanOrEqual(1);
         expect(b.topologyQuality!).toBeGreaterThanOrEqual(0);
         expect(b.topologyQuality!).toBeLessThanOrEqual(1);
+        expect(b.edgeRealisation!).toBeGreaterThanOrEqual(0);
+        expect(b.edgeRealisation!).toBeLessThanOrEqual(1);
     });
 
     // §INTERIOR-HEIGHT-MATCH (2026-05-29 audit follow-up): partition height
