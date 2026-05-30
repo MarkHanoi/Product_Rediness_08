@@ -443,17 +443,21 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         accessFrom: ['corridor'], maxDoors: 1,
         // Bathroom only goes off the corridor (post §BATH-CORRIDOR-ONLY).
         adjacencyPreference: { corridor: 1.0 },
-        requiredFurniture: ['toilet_radiator', 'shower_glass_panel'], optionalFurniture: [],
+        requiredFurniture: ['toilet_radiator', 'shower_glass_panel'], optionalFurniture: ['vanity_unit', 'bathroom_mirror', 'towel_rail'],
         requiredFixtures: ['toilet', 'washbasin', 'shower'],
         furnitureSpec: [
             // Toilet sits on the plumbing wall (drainage stack); shower in the
             // corner farthest from the door. Both clear the door swing — a
             // toilet behind the door is awkward, a shower behind the door is
             // dangerous when wet.
-            { kind: 'toilet_radiator',    sizeW: 400, sizeD: 700, clearFoot: 600, clearSide: 100, placementRule: 'wet_wall', excludeDoorSwing: true, excludeWindowWall: false, required: true },
-            { kind: 'shower_glass_panel', sizeW: 900, sizeD: 900, clearFoot: 200, clearSide: 0,   placementRule: 'corner',   excludeDoorSwing: true, excludeWindowWall: false, required: true },
+            { kind: 'toilet_radiator',    sizeW: 400,  sizeD: 700, clearFoot: 600, clearSide: 100, placementRule: 'wet_wall',      excludeDoorSwing: true, excludeWindowWall: false, required: true },
+            { kind: 'shower_glass_panel', sizeW: 900,  sizeD: 900, clearFoot: 200, clearSide: 0,   placementRule: 'corner',        excludeDoorSwing: true, excludeWindowWall: false, required: true },
+            // F1.5 (2026-05-30) — S4 vanity system (mirror pairs via 'vanity' group).
+            { kind: 'vanity_unit',        sizeW: 1000, sizeD: 500, clearFoot: 700, clearSide: 50,  placementRule: 'opposite_door', excludeDoorSwing: true, excludeWindowWall: false, required: false, group: 'vanity' },
+            { kind: 'bathroom_mirror',    sizeW: 800,  sizeD: 40,  clearFoot: 0,   clearSide: 0,   placementRule: 'beside_group',  excludeDoorSwing: false, excludeWindowWall: false, required: false, group: 'vanity' },
+            { kind: 'towel_rail',         sizeW: 500,  sizeD: 100, clearFoot: 0,   clearSide: 0,   placementRule: 'longest_wall',  excludeDoorSwing: true, excludeWindowWall: false, required: false },
         ],
-        description: 'Shared bathroom. Exactly one door — to a corridor; never the entrance hall, never directly off a bedroom (that semantic is an en-suite). Requires a toilet, a washbasin, and a shower or bath.',
+        description: 'Shared bathroom. Exactly one door — to a corridor; never the entrance hall, never directly off a bedroom (that semantic is an en-suite). Requires a toilet, a washbasin, and a shower or bath. Optional S4 vanity + mirror + towel rail.',
     },
     ensuite: {
         type: 'ensuite', occupancy: 'bathroom', privacy: 'private',

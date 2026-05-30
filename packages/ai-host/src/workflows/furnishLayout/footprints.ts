@@ -72,6 +72,14 @@ const FP: Readonly<Record<FurnitureKind, Footprint>> = {
     coat_rack:        { w: 0.45, l: 0.45, h: 1.80, baseOffset: 0, clearFront: 0.30, clearSides: 0.00 },
     console_table:    { w: 1.00, l: 0.30, h: 0.85, baseOffset: 0, clearFront: 0.40, clearSides: 0.00 },
     entry_bench:      { w: 1.20, l: 0.40, h: 0.45, baseOffset: 0, clearFront: 0.50, clearSides: 0.00 },
+    // F1.5 (2026-05-30) — Bathroom vanity system (S4).
+    //   vanity_unit floor-anchored cabinet 1.0 × 0.5 × 0.85 m.
+    //   bathroom_mirror wall-hung 0.8 × 0.04 × 0.7 m, baseOffset 1.10 m
+    //     (above the vanity countertop).
+    //   towel_rail wall-hung 0.5 × 0.10 × 0.8 m, baseOffset 0.40 m.
+    vanity_unit:      { w: 1.00, l: 0.50, h: 0.85, baseOffset: 0,    clearFront: 0.70, clearSides: 0.05 },
+    bathroom_mirror:  { w: 0.80, l: 0.04, h: 0.70, baseOffset: 1.10, clearFront: 0.00, clearSides: 0.00 },
+    towel_rail:       { w: 0.50, l: 0.10, h: 0.80, baseOffset: 0.40, clearFront: 0.00, clearSides: 0.00 },
 };
 
 /** Footprint for a furniture kind (always defined for supported kinds). */

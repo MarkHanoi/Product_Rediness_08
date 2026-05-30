@@ -136,6 +136,9 @@ export const FURNITURE_TYPE_TO_CATEGORY: Readonly<Record<FurnitureType, Furnitur
     // ── Bathroom ──────────────────────────────────────────────────────────────
     'shower_glass_panel':   'bathroom',
     'toilet_radiator':      'bathroom',
+    'vanity_unit':          'bathroom', // F1.5 — countertop + integrated basin + drawers
+    'bathroom_mirror':      'bathroom', // F1.5 — wall-mounted mirror over the vanity
+    'towel_rail':           'bathroom', // F1.5 — wall-mounted towel rail/heater
     // Bathroom Collection — REMOVED (Services consolidation): sourced from
     // Services/Plumbing via the `"plumbing:<family>:<variant>"` sentinel in
     // FurnitureCategoryRegistry.

@@ -34,7 +34,12 @@ export type FurnitureKind =
     // FurnitureCategoryMap + ShoeCabinet/CoatRack/ConsoleTable/EntryBench
     // builders + FurnitureFactory arms.
     // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §F1.4)
-    | 'shoe_cabinet' | 'coat_rack' | 'console_table' | 'entry_bench';
+    | 'shoe_cabinet' | 'coat_rack' | 'console_table' | 'entry_bench'
+    // F1.5 (2026-05-30) — bathroom vanity primitives (furniture-side).
+    // S4 activity system. mirror_light queued separately in geometry-
+    // lighting (LightingFixtureType). These three close their own ladder.
+    // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §F1.5)
+    | 'vanity_unit' | 'bathroom_mirror' | 'towel_rail';
 
 /** Editor RoomOccupancyType values this engine furnishes (subset). */
 export type FurnishableOccupancy =

@@ -115,6 +115,16 @@ export type FurnitureType =
     | 'coat_rack'
     | 'console_table'
     | 'entry_bench'
+    // ── F1.5 (2026-05-30) — Bathroom vanity primitives (furniture-side).
+    // The fourth member of the S4 vanity system, `mirror_light`, ships in
+    // geometry-lighting (it is a LightingFixtureType, not a FurnitureType
+    // — IFC classifies it as a fixture and the plan-symbol/emission goes
+    // through the lighting pipeline). Queued separately; the three pieces
+    // below ship contract-complete on their own ladder.
+    // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §4.2.5) ──────────
+    | 'vanity_unit'
+    | 'bathroom_mirror'
+    | 'towel_rail'
     | 'plant_01'
     | 'plant_02'
     | 'plant_03'

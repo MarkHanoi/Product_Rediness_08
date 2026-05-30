@@ -50,6 +50,9 @@ import { TvBuilder, TvUnitBuilder } from './MediaWallBuilder';
 import {
     ShoeCabinetBuilder, CoatRackBuilder, ConsoleTableBuilder, EntryBenchBuilder,
 } from './EntryStorageBuilder';
+import {
+    VanityUnitBuilder, BathroomMirrorBuilder, TowelRailBuilder,
+} from './BathroomVanityBuilder';
 
 export class FurnitureFactory {
     static getBuilder(
@@ -97,6 +100,12 @@ export class FurnitureFactory {
             case 'coat_rack':          return new CoatRackBuilder(materialService);
             case 'console_table':      return new ConsoleTableBuilder(materialService);
             case 'entry_bench':        return new EntryBenchBuilder(materialService);
+
+            // F1.5 (2026-05-30) — Bathroom vanity primitives (S4 activity system).
+            // mirror_light lives in geometry-lighting; not routed here.
+            case 'vanity_unit':        return new VanityUnitBuilder(materialService);
+            case 'bathroom_mirror':    return new BathroomMirrorBuilder(materialService);
+            case 'towel_rail':         return new TowelRailBuilder(materialService);
 
             case 'table':              return new TableBuilder(materialService);
             case 'table_marble_cone':  return new TableBuilder(materialService);

@@ -81,6 +81,13 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
         items: [
             { kind: 'toilet_radiator', anchor: 'wall-longest', facing: 'into-room', required: true, excludeDoorSwing: true },
             { kind: 'shower_glass_panel', anchor: 'corner', facing: 'into-room', required: true },
+            // F1.5 (2026-05-30) — S4 bathroom vanity system. Vanity anchors
+            // on the wall opposite the door (the user faces it on entry to
+            // wash hands). Mirror sits above the vanity (shares 'vanity'
+            // group). Towel rail mounts beside.
+            { kind: 'vanity_unit',     anchor: 'wall-opposite-door', facing: 'into-room', required: false, group: 'vanity', excludeDoorSwing: true },
+            { kind: 'bathroom_mirror', anchor: 'beside',             facing: 'into-room', required: false, group: 'vanity' },
+            { kind: 'towel_rail',      anchor: 'wall-longest',       facing: 'to-wall',   required: false, excludeDoorSwing: true },
         ],
     },
     'entrance-lobby': {
