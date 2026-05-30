@@ -40,6 +40,29 @@ describe('archetypeForLighting', () => {
         expect(downlight!.mount ?? 'ceiling').toBe('ceiling');
         expect(mirrorLight!.mount).toBe('wall');
     });
+
+    // F1.15 (2026-05-30) — kitchen + dining-room carry pendant_cluster
+    // as the largest-area ceiling option.
+    it('kitchen archetype prefers pendant_cluster at ≥ 12 m²', () => {
+        const arch = archetypeForLighting('kitchen')!;
+        const cluster = arch.items.find(it => it.kind === 'pendant_cluster');
+        expect(cluster).toBeDefined();
+        expect(cluster!.minAreaM2).toBe(12);
+        // Order: pendant_cluster must come BEFORE linear_led so first-fit picks it.
+        const clusterIdx = arch.items.findIndex(it => it.kind === 'pendant_cluster');
+        const linearIdx  = arch.items.findIndex(it => it.kind === 'linear_led');
+        expect(clusterIdx).toBeLessThan(linearIdx);
+    });
+
+    it('dining-room archetype prefers pendant_cluster at ≥ 10 m²', () => {
+        const arch = archetypeForLighting('dining-room')!;
+        const cluster = arch.items.find(it => it.kind === 'pendant_cluster');
+        expect(cluster).toBeDefined();
+        expect(cluster!.minAreaM2).toBe(10);
+        const clusterIdx = arch.items.findIndex(it => it.kind === 'pendant_cluster');
+        const pendantIdx = arch.items.findIndex(it => it.kind === 'pendant');
+        expect(clusterIdx).toBeLessThan(pendantIdx);
+    });
 });
 
 describe('lightRoom', () => {
@@ -123,6 +146,35 @@ describe('lightRoom', () => {
                 expect(placed.find(p => p.kind === 'mirror_light'),
                     `${occ} should not get mirror_light`).toBeUndefined();
             }
+        });
+    });
+
+    // F1.15 (2026-05-30) — pendant_cluster picked for large kitchen + dining.
+    describe('F1.15 pendant_cluster wiring', () => {
+        it('kitchen ≥ 12 m² picks pendant_cluster', () => {
+            const placed = lightRoom(baseInput({ occupancy: 'kitchen', areaM2: 18 }));
+            expect(placed[0]!.kind).toBe('pendant_cluster');
+            expect(placed[0]!.ceilingMounted).toBe(true);
+        });
+
+        it('kitchen 8–12 m² falls back to linear_led (pre-F1.15 behaviour preserved)', () => {
+            const placed = lightRoom(baseInput({ occupancy: 'kitchen', areaM2: 10 }));
+            expect(placed[0]!.kind).toBe('linear_led');
+        });
+
+        it('kitchen < 8 m² falls back to downlight', () => {
+            const placed = lightRoom(baseInput({ occupancy: 'kitchen', areaM2: 6 }));
+            expect(placed[0]!.kind).toBe('downlight');
+        });
+
+        it('dining-room ≥ 10 m² picks pendant_cluster', () => {
+            const placed = lightRoom(baseInput({ occupancy: 'dining-room', areaM2: 14 }));
+            expect(placed[0]!.kind).toBe('pendant_cluster');
+        });
+
+        it('dining-room 6–10 m² falls back to single pendant', () => {
+            const placed = lightRoom(baseInput({ occupancy: 'dining-room', areaM2: 8 }));
+            expect(placed[0]!.kind).toBe('pendant');
         });
     });
 });

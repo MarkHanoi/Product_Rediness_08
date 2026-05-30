@@ -41,7 +41,8 @@ export type LightingFixtureType =
     | 'floor_arc_brass'      // Floor lamp — brass arc + marble base
     | 'table_terracotta'     // Table lamp — terracotta column + cone shade
     | 'floor_tripod_black'   // Floor lamp — black tripod + drum shade
-    | 'mirror_light';        // F1.5' (2026-05-30) — wall-mounted vanity light strip above bathroom mirror
+    | 'mirror_light'         // F1.5' (2026-05-30) — wall-mounted vanity light strip above bathroom mirror
+    | 'pendant_cluster';     // F1.15 (2026-05-30) — multi-pendant ceiling cluster (kitchen island / dining table centerpiece)
 
 /**
  * Fixture types that are placed on the floor / a surface rather than the
@@ -142,6 +143,32 @@ export interface FloorTripodBlackParams {
 }
 
 /**
+ * F1.15 PendantClusterParams — multi-pendant ceiling fixture.
+ *
+ * A central canopy disc at the ceiling carries `count` slim cylindrical
+ * pendants on cables of staggered length. Pendants sit equally spaced on
+ * a horizontal circle of `clusterRadius` around the group origin. Cable
+ * lengths linearly interpolate from `minCableLen` (shallowest) to
+ * `maxCableLen` (deepest) so the cluster reads as 3D rather than flat.
+ *
+ * Architectural use: above kitchen islands / dining tables. The cluster
+ * origin sits at the ceiling; the build positions the canopy at Y=0 and
+ * the pendants hang downward into the room.
+ */
+export interface PendantClusterParams {
+    readonly canopyRadius:   number;  // central ceiling canopy disc radius (default 0.20)
+    readonly canopyHeight:   number;  // canopy thickness (default 0.03)
+    readonly canopyColor:    string;  // canopy disc color (default '#1a1a1a')
+    readonly pendantRadius:  number;  // each sub-pendant cylinder radius (default 0.055)
+    readonly pendantHeight:  number;  // each sub-pendant cylinder height (default 0.18)
+    readonly pendantColor:   string;  // sub-pendant body color (default '#c8a020' — brass)
+    readonly clusterRadius:  number;  // horizontal radius of the pendant arrangement (default 0.22)
+    readonly minCableLen:    number;  // shortest cable drop (default 0.40)
+    readonly maxCableLen:    number;  // longest cable drop (default 0.85)
+    readonly count:          number;  // number of pendants in the cluster (default 3, valid range 2–7)
+}
+
+/**
  * F1.5' MirrorLightParams — wall-mounted bathroom-mirror task light.
  * Horizontal slim bar (typ. 600 × 50 × 35 mm) with an emissive front
  * face. Mounted above the bathroom_mirror at vanity-mirror height
@@ -192,6 +219,9 @@ export interface LightingData {
 
     // ── F1.5' (2026-05-30) — wall-mounted bathroom vanity light ─────────────
     readonly mirrorLightParams?:        Partial<MirrorLightParams>;
+
+    // ── F1.15 (2026-05-30) — multi-pendant kitchen/dining cluster ──────────
+    readonly pendantClusterParams?:     Partial<PendantClusterParams>;
 
     /** Emission override — if absent uses defaults for the fixtureType */
     readonly emission?: Partial<LightEmissionConfig>;
@@ -297,6 +327,20 @@ export const MIRROR_LIGHT_DEFAULTS: MirrorLightParams = {
     depth:     0.035,
     bodyColor: '#c0c0c0',
     ledColor:  '#fff4e0',
+};
+
+/** F1.15 PendantCluster defaults — 3-pendant brass cluster, ~0.45 m spread. */
+export const PENDANT_CLUSTER_DEFAULTS: PendantClusterParams = {
+    canopyRadius:  0.20,
+    canopyHeight:  0.03,
+    canopyColor:   '#1a1a1a',
+    pendantRadius: 0.055,
+    pendantHeight: 0.18,
+    pendantColor:  '#c8a020',
+    clusterRadius: 0.22,
+    minCableLen:   0.40,
+    maxCableLen:   0.85,
+    count:         3,
 };
 
 export const DEFAULT_EMISSION: LightEmissionConfig = {

@@ -465,7 +465,7 @@ Shipped contract-complete: FurnitureType union + FurnitureCategoryMap (`tv_unit`
 
 | ID | New types | Architectural notes | Estimate | Status |
 |---|---|---|---|---|
-| **F1.15** | `pendant_cluster` in `geometry-lighting` (multi-pendant fixture) | Owner: `geometry-lighting`, not `geometry-furniture`. Full ladder applies but in the lighting package. | 5 dev-days | ⬜ |
+| **F1.15** | `pendant_cluster` in `geometry-lighting` (multi-pendant fixture) | Owner: `geometry-lighting`, not `geometry-furniture`. Full ladder applies but in the lighting package. | 5 dev-days | ✅ **2026-05-30** — `LightingFixtureType` + `PendantClusterParams` (10 fields) + `PENDANT_CLUSTER_DEFAULTS` (3-pendant brass cluster, 0.40-0.85 m staggered cables) added to dual-source `LightingTypes` (lighting/ + stores/) + geometry-lighting mirror; barrel re-export updated. `LightingFragmentBuilder._buildPendantCluster` emits canopy disc + N pendants on a circle of `clusterRadius` with linearly-interpolated cable lengths (min..max) + bottom emissive glow per pendant; night-mode `_attachLight` adds emission at the average pendant centroid. D-LE wired: `LightKind` extended; `kitchen` archetype prefers `pendant_cluster` at ≥ 12 m² (fallback chain: cluster → linear_led → downlight); `dining-room` archetype prefers cluster at ≥ 10 m² (fallback: cluster → pendant → downlight). 7 new pin tests in `lightingLayout.test.ts`. |
 
 **Total F1.** 15 deliverables × ~5 dev-days each (a few cheaper, a few in `geometry-plumbing` / `geometry-lighting`) = **~150 dev-days** (~7.5 months at 1 contributor, 3–4 months at 2 parallel contributors). Each subphase is full-ladder; nothing is "0.5 day."
 
@@ -751,7 +751,7 @@ Each row pays the full 24-step contract obligation ladder (§0.1). Order: most s
 | **F1.12** | Bedroom dressing (`dresser`, `vanity_table`) | geometry-furniture | 10 d | ✅ shipped 2026-05-30 — FurnitureType union + FurnitureCategoryMap (bedroom) + NEW BedroomDressingBuilder.ts (DresserBuilder 6-drawer 2×3 grid; VanityTableBuilder slim legs + drawer + integrated wall mirror with emissive glass) + FurnitureFactory arms; ai-host FurnitureKind + footprints; bedroom archetype wires dresser on longest wall + vanity_table on window wall (dressing prefers natural light); programRules.master mirrors. +5 pin tests. |
 | **F1.13** | `lounge_chair` semantic alias | geometry-furniture | 1 d | ⬜ |
 | **F1.14** | `pantry_cabinet` | geometry-furniture | 5 d | ✅ shipped 2026-05-30 — FurnitureType union + FurnitureCategoryMap (storage) + NEW PantryCabinetBuilder.ts (3-tier: upper double doors + centre full-width drawer + lower double doors) + FurnitureFactory arm; ai-host FurnitureKind + footprints (0.6×0.45×2.10 m); kitchen archetype wires on longest-wall with excludeWindowWall + excludeDoorSwing; programRules.kitchen mirrors. +4 pin tests. |
-| **F1.15** | `pendant_cluster` | geometry-lighting | 5 d | ⬜ |
+| **F1.15** | `pendant_cluster` | geometry-lighting | 5 d | ✅ shipped 2026-05-30 — see §4.2.15 above for full ladder. |
 
 **Tier 6 total: ~175 dev-days (≈ 8 months single-contributor; 4 months at two parallel).**
 
@@ -779,7 +779,7 @@ Requires Tier 6 substantially done.
 | **F3.7** | Dining (buffet + rug) | FURNITURE §4.4 | 0.5 d | 🟨 partial — buffet + sideboard (F1.9) landed; rug queued |
 | **F3.8** | Hall (console_table + shoe_cabinet + coat_rack + wall_mirror) | FURNITURE §4.4 | 0.5 d | ✅ closed by F1.4 |
 | **F3.9** | Corridor (linear_led ceiling strip) | FURNITURE §4.4 | 0.5 d | ⬜ — blocks on D-LE archetype edit |
-| **F3.10** | Kitchen (pendant_cluster + under-cabinet linear_led) | FURNITURE §4.4 | 0.5 d | 🟨 partial — pantry_cabinet (F1.14) landed; pendant_cluster blocks on F1.15 |
+| **F3.10** | Kitchen (pendant_cluster + under-cabinet linear_led) | FURNITURE §4.4 | 0.5 d | ✅ closed 2026-05-30 — pantry_cabinet (F1.14) + pendant_cluster (F1.15) both wired into archetype; under-cabinet linear_led already present as the < 12 m² fallback. |
 
 **Tier 8 total: ~5 dev-days.**
 

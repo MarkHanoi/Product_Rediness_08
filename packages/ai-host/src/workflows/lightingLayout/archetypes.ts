@@ -24,11 +24,20 @@ export const LIGHTING_ARCHETYPES: Readonly<Record<LightableOccupancy, LightingAr
         { kind: 'pendant',              minAreaM2: 12 },
         { kind: 'downlight',            minAreaM2: 0 },
     ]),
+    // F1.15 (2026-05-30) — dining rooms ≥ 10 m² get a pendant_cluster
+    // centerpiece (typically above the dining table); smaller rooms drop
+    // back to a single pendant; tiny ones get a downlight.
     'dining-room':    A('dining-room', [
-        { kind: 'pendant',              minAreaM2: 10 },
+        { kind: 'pendant_cluster',      minAreaM2: 10 },
+        { kind: 'pendant',              minAreaM2: 6 },
         { kind: 'downlight',            minAreaM2: 0 },
     ]),
+    // F1.15 (2026-05-30) — kitchens ≥ 12 m² get a pendant_cluster (above
+    // the island when present); smaller kitchens stay on linear_led which
+    // is the task-light staple over a single run; tiny ones get a
+    // downlight.
     'kitchen':        A('kitchen', [
+        { kind: 'pendant_cluster',      minAreaM2: 12 },
         { kind: 'linear_led',           minAreaM2: 8 },
         { kind: 'downlight',            minAreaM2: 0 },
     ]),

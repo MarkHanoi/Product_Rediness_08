@@ -105,9 +105,9 @@ Each row pays the §0.1 24-step contract obligation ladder. Order by semantic pr
 | **F1.12** dresser + vanity_table | Bedroom dressing | ✅ |
 | **F1.13** lounge_chair semantic alias | Routes to Barcelona-black | ✅ |
 | **F1.14** pantry_cabinet | Kitchen storage | ✅ |
-| **F1.15** pendant_cluster (geometry-lighting) | Cross-package | ⬜ |
+| **F1.15** pendant_cluster (geometry-lighting) | Cross-package | ✅ + kitchen/dining D-LE archetypes wired |
 
-**Tier 6 progress:** 11/15 ✅ · 1/15 🟨 · 3/15 ⬜ (all 3 ⬜ are cross-package plumbing/lighting items).
+**Tier 6 progress:** 12/15 ✅ · 1/15 🟨 · 2/15 ⬜ (both ⬜ are cross-package plumbing items — F1.7 / F1.8).
 
 ---
 
@@ -137,7 +137,7 @@ Incremental wirings landed via each F1.x ship.
 | **F3.7** Dining | buffet + sideboard shipped; rug pending | 🟨 |
 | **F3.8** Hall | Closed by F1.4 4-pack | ✅ |
 | **F3.9** Corridor | Blocks on D-LE linear_led archetype edit | ⬜ |
-| **F3.10** Kitchen | pantry_cabinet shipped; pendant_cluster blocks on F1.15 | 🟨 |
+| **F3.10** Kitchen | pantry_cabinet (F1.14) + pendant_cluster (F1.15) shipped; D-LE archetype wired (cluster ≥12 m² → linear_led → downlight) | ✅ |
 
 ---
 
@@ -173,7 +173,7 @@ Every axis is in ObjectiveVector + computeObjectives + weightedSum + LayoutScore
 
 | Package | Pass | Notes |
 |---|---|---|
-| @pryzm/ai-host | **729/729** | 2 SCC AiHost.* pre-existing failures unchanged (memory: scc-no-barrel-access-at-module-load) |
+| @pryzm/ai-host | **742/742** | 2 SCC AiHost.* pre-existing failures unchanged (memory: scc-no-barrel-access-at-module-load) |
 | @pryzm/core-app-model | (typecheck) | Pre-existing plugin-side TS errors; lighting-side clean |
 | @pryzm/geometry-lighting | (depends on core-app-model rebuild for full validation) | F1.5' mirror_light builder added |
 | @pryzm/geometry-furniture | (untouched this slice) | 11 of 15 F1.x types shipped contract-complete |
@@ -185,14 +185,14 @@ Every axis is in ObjectiveVector + computeObjectives + weightedSum + LayoutScore
 | Priority | Slice | Effort |
 |---|---|---|
 | ~~1~~ | ~~F1.5' bathroom-mirror archetype wiring~~ | ✅ done 2026-05-30 |
+| ~~2~~ | ~~F1.15 pendant_cluster in geometry-lighting~~ | ✅ done 2026-05-30 (kitchen + dining archetypes wired) |
 | 1 | **F1.6' bath D-FLE engine integration** — geometry exists, needs plumbing-fixture placement command | 1 wk |
-| 2 | **F1.15 pendant_cluster** in geometry-lighting | 0.5 wk |
-| 3 | **F1.7 / F1.8** cross-package plumbing + utility | 1-2 wk each |
-| 4 | **Constructive subdivider** (L4-δ-1b / 2b / 4b) — touches subdivide.ts | 1.5 wk |
-| 5 | **L1-α-4 + L2-β-5 modal UI** — 16-axis rendering + narrative text | 1 wk |
-| 6 | **L2-β-2b ray-cast EntrySightline** | 1 wk |
-| 7 | **P0.3 FamilyRegistry substrate** | 3 wk |
-| 8 | **PG0.1 Site/Building/Apartment schemas** | 3 wk |
+| 2 | **F1.7 / F1.8** cross-package plumbing + utility | 1-2 wk each |
+| 3 | **Constructive subdivider** (L4-δ-1b / 2b / 4b) — touches subdivide.ts | 1.5 wk |
+| 4 | **L1-α-4 + L2-β-5 modal UI** — 16-axis rendering + narrative text | 1 wk |
+| 5 | **L2-β-2b ray-cast EntrySightline** | 1 wk |
+| 6 | **P0.3 FamilyRegistry substrate** | 3 wk |
+| 7 | **PG0.1 Site/Building/Apartment schemas** | 3 wk |
 
 ---
 

@@ -45,6 +45,7 @@ import {
     TABLE_TERRACOTTA_DEFAULTS,
     FLOOR_TRIPOD_BLACK_DEFAULTS,
     MIRROR_LIGHT_DEFAULTS,
+    PENDANT_CLUSTER_DEFAULTS,
     DEFAULT_EMISSION,
 } from '@pryzm/core-app-model';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
@@ -179,8 +180,88 @@ export class LightingFragmentBuilder {
             case 'table_terracotta':     return this._buildTableTerracotta(data);
             case 'floor_tripod_black':   return this._buildFloorTripodBlack(data);
             case 'mirror_light':         return this._buildMirrorLight(data);
+            case 'pendant_cluster':      return this._buildPendantCluster(data);
             default:                     return this._buildDownlight(data);
         }
+    }
+
+    /**
+     * F1.15 (2026-05-30) — Pendant cluster: central canopy disc at the
+     * ceiling carrying N slim cylindrical pendants on staggered cables.
+     *
+     * Geometry layout (Y=0 is the ceiling underside, descending into the
+     * room with negative Y):
+     *   - canopy disc at Y ≈ -canopyHeight/2 (top face flush with ceiling)
+     *   - N pendants on a horizontal circle of radius clusterRadius,
+     *     each on a cable interpolated minCableLen…maxCableLen
+     *   - each pendant: short cylinder body + emissive bottom glow disc
+     *
+     * Cable lengths sweep linearly across the count so the cluster reads
+     * 3D from any angle; the staggering is deterministic in pendant order.
+     */
+    private _buildPendantCluster(data: LightingData): THREE.Group {
+        const p = { ...PENDANT_CLUSTER_DEFAULTS, ...data.pendantClusterParams };
+        const group = new THREE.Group();
+
+        const count = Math.max(2, Math.min(7, Math.round(p.count)));
+
+        // Central canopy disc at the ceiling.
+        const canopyMat = sharedMat(p.canopyColor, { roughness: 0.55, metalness: 0.4 });
+        const canopyGeo = new THREE.CylinderGeometry(p.canopyRadius, p.canopyRadius, p.canopyHeight, 32);
+        const canopy = new THREE.Mesh(canopyGeo, canopyMat);
+        canopy.position.y = -(p.canopyHeight / 2);
+        canopy.castShadow = true;
+        group.add(canopy);
+
+        const cableMat = sharedMat('#222222', { roughness: 0.9, metalness: 0.1 });
+        const bodyMat  = sharedMat(p.pendantColor, { roughness: 0.30, metalness: 0.75 });
+
+        // N pendants on a circle, with cable lengths interpolated linearly.
+        for (let i = 0; i < count; i++) {
+            const angle = (i / count) * Math.PI * 2;
+            const px = Math.cos(angle) * p.clusterRadius;
+            const pz = Math.sin(angle) * p.clusterRadius;
+
+            // Cable length: linear sweep min → max across the ring.
+            const t        = count === 1 ? 0 : i / (count - 1);
+            const cableLen = p.minCableLen + (p.maxCableLen - p.minCableLen) * t;
+
+            // Cable (thin black cylinder hanging straight down).
+            const cableGeo = new THREE.CylinderGeometry(0.004, 0.004, cableLen, 8);
+            const cable = new THREE.Mesh(cableGeo, cableMat);
+            cable.position.set(px, -p.canopyHeight - cableLen / 2, pz);
+            group.add(cable);
+
+            // Sub-pendant body — slim brass cylinder.
+            const bodyY = -p.canopyHeight - cableLen - p.pendantHeight / 2;
+            const bodyGeo = new THREE.CylinderGeometry(p.pendantRadius, p.pendantRadius, p.pendantHeight, 24, 1, true);
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.position.set(px, bodyY, pz);
+            body.castShadow = true;
+            group.add(body);
+
+            // Top cap so the cylinder reads as closed at the top.
+            const topGeo = new THREE.CircleGeometry(p.pendantRadius, 24);
+            const topMesh = new THREE.Mesh(topGeo, bodyMat);
+            topMesh.rotation.x = -Math.PI / 2;
+            topMesh.position.set(px, bodyY + p.pendantHeight / 2, pz);
+            group.add(topMesh);
+
+            // Emissive glow at the bottom of each sub-pendant.
+            const glowGeo = new THREE.CircleGeometry(p.pendantRadius * 0.85, 24);
+            const glowMat = new THREE.MeshStandardMaterial({
+                color: new THREE.Color('#fff8e0'),
+                emissive: new THREE.Color('#fff8e0'),
+                emissiveIntensity: 0.7,
+                roughness: 1, metalness: 0,
+            });
+            const glow = new THREE.Mesh(glowGeo, glowMat);
+            glow.rotation.x = Math.PI / 2;
+            glow.position.set(px, bodyY - p.pendantHeight / 2 + 0.002, pz);
+            group.add(glow);
+        }
+
+        return group;
     }
 
     /**
@@ -959,6 +1040,14 @@ export class LightingFragmentBuilder {
             case 'floor_tripod_black': {
                 const ftb = { ...FLOOR_TRIPOD_BLACK_DEFAULTS, ...data.floorTripodBlackParams };
                 light.position.set(0, ftb.legHeight + ftb.shadeHeight * 0.5, 0);
+                break;
+            }
+            case 'pendant_cluster': {
+                // Position the single emission point at the average pendant
+                // bottom height — read as the cluster's centroid glow.
+                const pcl = { ...PENDANT_CLUSTER_DEFAULTS, ...data.pendantClusterParams };
+                const avgCable = (pcl.minCableLen + pcl.maxCableLen) / 2;
+                light.position.set(0, -(pcl.canopyHeight + avgCable + pcl.pendantHeight), 0);
                 break;
             }
         }

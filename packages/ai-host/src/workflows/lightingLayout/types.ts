@@ -21,7 +21,8 @@ export type LightKind =
     | 'floor_arc_brass'
     | 'table_terracotta'
     | 'floor_tripod_black'
-    | 'mirror_light';
+    | 'mirror_light'
+    | 'pendant_cluster';
 
 /** Editor RoomOccupancyType values the engine has archetypes for. */
 export type LightableOccupancy =
