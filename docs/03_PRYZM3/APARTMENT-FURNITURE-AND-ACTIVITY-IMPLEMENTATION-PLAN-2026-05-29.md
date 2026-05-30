@@ -470,16 +470,16 @@ Once F1 + F2 land, the existing archetypes can REFERENCE the new types. This is 
 
 | ID | Subphase | Archetype edits | Status |
 |---|---|---|---|
-| **F3.1** | Study | Add `desk` (required) + `desk_chair` (required) + `bookshelf` (optional) + `lamp` (existing) + `lounge_chair` (optional). Remove dining-as-desk workaround. | ⬜ |
-| **F3.2** | Living | Add `armchair` × 1 (optional), `bookshelf` (optional), `rug` (optional, anchor: 'beneath-sofa-group'), `lamp` variants (corner + floor). | ⬜ |
-| **F3.3** | Master / bedroom | Add `dresser` (optional), `rug` (optional, anchor: 'beneath-bed'), `lounge_chair` (optional in master only — area-gated). Switch lamp anchor from 'corner' to 'on-bedside' (uses `table_terracotta`). | ⬜ |
-| **F3.4** | Bathroom + ensuite | Add `vanity_unit` (required if room ≥ 5 m², replaces toilet_radiator's integrated basin), `bathroom_mirror` (required, anchor: 'on-vanity'), `mirror_light` (required), `towel_rail` (required), `bath` (optional, area-gated). | ⬜ |
-| **F3.5** | WC | Add `wc_washbasin` (required) + `wc_mirror` (required) + accessory set (paper, brush). | ⬜ |
-| **F3.6** | Utility | Add `washing_machine_standalone` (required) + `utility_cabinet` (required) + `utility_sink` (optional) + `drying_rack` (optional). | ⬜ |
-| **F3.7** | Dining | Add `buffet` (optional, area-gated > 12 m²) + `rug` (optional, anchor: 'beneath-table-group'). | ⬜ |
-| **F3.8** | Hall | Add `console_table` (optional) + `shoe_cabinet` (required if area ≥ 4 m²) + `coat_rack` (required) + `wall_mirror` (optional). | ⬜ |
-| **F3.9** | Corridor | Add `linear_led` ceiling strip (auto-fired by D-LE, not by furnish engine — track in `lightingLayout/archetypes.ts`). | ⬜ |
-| **F3.10** | Kitchen | Add `pendant_cluster` (optional, anchor: 'above-island' — composes with `kitchen_island`); update D-LE to emit it when island present. | ⬜ |
+| **F3.1** | Study | Add `desk` (required) + `desk_chair` (required) + `bookshelf` (optional) + `lamp` (existing) + `lounge_chair` (optional). Remove dining-as-desk workaround. | ✅ closed incrementally by F1.1 (desk + desk_chair) + F1.2 (bookshelf optional) — `private-office` archetype + `programRules.study`. Workaround retired in F1.1. `lounge_chair` (F1.13) is available but not yet wired into the study archetype — area-gated wire-in queued. |
+| **F3.2** | Living | Add `armchair` × 1 (optional), `bookshelf` (optional), `rug` (optional, anchor: 'beneath-sofa-group'), `lamp` variants (corner + floor). | 🟨 partial — `bookshelf_glass` (F1.2), `tv_unit` + `tv` (F1.3), `wall_art` (F1.10) shipped into archetype. Missing: armchair, rug, lamp variants. |
+| **F3.3** | Master / bedroom | Add `dresser` (optional), `rug` (optional, anchor: 'beneath-bed'), `lounge_chair` (optional in master only — area-gated). Switch lamp anchor from 'corner' to 'on-bedside' (uses `table_terracotta`). | 🟨 partial — `dresser` + `vanity_table` (F1.12), `wall_mirror` (F1.10) shipped into archetype. Missing: rug, lounge_chair area-gated wire-in, bedside_table_lamp anchor switch. |
+| **F3.4** | Bathroom + ensuite | Add `vanity_unit` (required if room ≥ 5 m², replaces toilet_radiator's integrated basin), `bathroom_mirror` (required, anchor: 'on-vanity'), `mirror_light` (required), `towel_rail` (required), `bath` (optional, area-gated). | 🟨 partial — `vanity_unit` + `bathroom_mirror` + `towel_rail` (F1.5) shipped into bathroom archetype. Missing: mirror_light (F1.5' in geometry-lighting), bath (F1.6' in geometry-plumbing). |
+| **F3.5** | WC | Add `wc_washbasin` (required) + `wc_mirror` (required) + accessory set (paper, brush). | ⬜ — depends on F1.7 |
+| **F3.6** | Utility | Add `washing_machine_standalone` (required) + `utility_cabinet` (required) + `utility_sink` (optional) + `drying_rack` (optional). | ⬜ — depends on F1.8 |
+| **F3.7** | Dining | Add `buffet` (optional, area-gated > 12 m²) + `rug` (optional, anchor: 'beneath-table-group'). | 🟨 partial — `buffet` + `sideboard` (F1.9) shipped into archetype. Missing: rug. |
+| **F3.8** | Hall | Add `console_table` (optional) + `shoe_cabinet` (required if area ≥ 4 m²) + `coat_rack` (required) + `wall_mirror` (optional). | ✅ closed by F1.4 — `shoe_cabinet` + `console_table` + `coat_rack` + `entry_bench` all wired into `entrance-lobby` archetype + `programRules.hall`. (`wall_mirror` from F1.10 also available; not yet in hall archetype — minor queue.) |
+| **F3.9** | Corridor | Add `linear_led` ceiling strip (auto-fired by D-LE, not by furnish engine — track in `lightingLayout/archetypes.ts`). | ⬜ — depends on D-LE archetype edit + linear_led availability |
+| **F3.10** | Kitchen | Add `pendant_cluster` (optional, anchor: 'above-island' — composes with `kitchen_island`); update D-LE to emit it when island present. | 🟨 partial — `pantry_cabinet` (F1.14) shipped into archetype + `kitchen_island` (pre-existing). Missing: `pendant_cluster` (depends on F1.15 in geometry-lighting). |
 
 **Total F3.** ~5 days across the 10 subphases.
 
@@ -707,7 +707,7 @@ Each row pays the full 24-step contract obligation ladder (§0.1). Order: most s
 | **F1.8** | Utility/laundry primitives | geometry-furniture + geometry-plumbing | 25 d | ⬜ |
 | **F1.9** | `buffet` + `sideboard` | geometry-furniture | 10 d | ✅ shipped 2026-05-30 — FurnitureType union + FurnitureCategoryMap (storage) + NEW DiningStorageBuilder.ts (BuffetBuilder 4-bay drawers+cabinets; SideboardBuilder 3-bay cabinets + 3 top drawers + tapered legs) + FurnitureFactory arms; ai-host FurnitureKind + footprints; dining-room archetype wires both on longest free wall (excludeWindowWall, excludeDoorSwing); programRules.dining mirrors. +5 pin tests including silhouette-intent assertion (sideboard.h < buffet.h). |
 | **F1.10** | `wall_art` + `wall_mirror` | geometry-furniture | 10 d | ✅ shipped 2026-05-30 — FurnitureType union + FurnitureCategoryMap (decor) + NEW WallDecorBuilder.ts (WallArtBuilder dark frame + earthy canvas; WallMirrorBuilder gold frame + emissive glass) + FurnitureFactory arms; ai-host FurnitureKind + footprints (both wall-hung at baseOffset 1.20 m, clearFront 0); living-room archetype wires wall_art in 'sofa' group; bedroom archetype wires wall_mirror in 'bed' group; programRules.living + programRules.master mirror the additions. +5 pin tests. |
-| **F1.11** | Curtain primitives | geometry-furniture | 20 d | ⬜ |
+| **F1.11** | Curtain primitives | geometry-furniture | 20 d | ✅ shipped 2026-05-30 — FurnitureType union + FurnitureCategoryMap (soft_furnishings) + NEW CurtainBuilder.ts (CurtainRodBuilder slim rod + finial caps at baseOffset 2.40 m; CurtainPanelBuilder fabric slab + 3 vertical pleat strips) + FurnitureFactory arms; ai-host FurnitureKind + footprints; living-room + bedroom + master archetypes wire `curtains` group (rod on window wall + 2 panels via count: 2); programRules.living + bedroom + master mirror. +5 pin tests + updated furnishEmit baseOffset test to handle multiple wall-mounted kinds via a lookup table. S7 activity-system precursor. Note: multi-window-per-room handling lives at the engine level (one rod placement per archetype call today) — queued. |
 | **F1.12** | Bedroom dressing (`dresser`, `vanity_table`) | geometry-furniture | 10 d | ✅ shipped 2026-05-30 — FurnitureType union + FurnitureCategoryMap (bedroom) + NEW BedroomDressingBuilder.ts (DresserBuilder 6-drawer 2×3 grid; VanityTableBuilder slim legs + drawer + integrated wall mirror with emissive glass) + FurnitureFactory arms; ai-host FurnitureKind + footprints; bedroom archetype wires dresser on longest wall + vanity_table on window wall (dressing prefers natural light); programRules.master mirrors. +5 pin tests. |
 | **F1.13** | `lounge_chair` semantic alias | geometry-furniture | 1 d | ⬜ |
 | **F1.14** | `pantry_cabinet` | geometry-furniture | 5 d | ✅ shipped 2026-05-30 — FurnitureType union + FurnitureCategoryMap (storage) + NEW PantryCabinetBuilder.ts (3-tier: upper double doors + centre full-width drawer + lower double doors) + FurnitureFactory arm; ai-host FurnitureKind + footprints (0.6×0.45×2.10 m); kitchen archetype wires on longest-wall with excludeWindowWall + excludeDoorSwing; programRules.kitchen mirrors. +4 pin tests. |
@@ -730,16 +730,16 @@ Requires Tier 6 substantially done.
 
 | ID | Deliverable | Doc source | Est | Status |
 |---|---|---|---|---|
-| **F3.1** | Study archetype proper (desk + desk_chair + bookshelf) — closes the workaround | FURNITURE §4.4 | 0.5 d | ⬜ |
-| **F3.2** | Living archetype (armchair + bookshelf + rug + lamp variants) | FURNITURE §4.4 | 0.5 d | ⬜ |
-| **F3.3** | Master/bedroom (dresser + rug + lounge_chair + bedside_table_lamp anchor) | FURNITURE §4.4 | 0.5 d | ⬜ |
-| **F3.4** | Bathroom/ensuite (vanity_unit + bathroom_mirror + mirror_light + towel_rail + bath) | FURNITURE §4.4 | 0.5 d | ⬜ |
-| **F3.5** | WC (wc_washbasin + wc_mirror + accessories) | FURNITURE §4.4 | 0.5 d | ⬜ |
-| **F3.6** | Utility (washing_machine + tumble_dryer + utility_cabinet + utility_sink) | FURNITURE §4.4 | 0.5 d | ⬜ |
-| **F3.7** | Dining (buffet + rug) | FURNITURE §4.4 | 0.5 d | ⬜ |
-| **F3.8** | Hall (console_table + shoe_cabinet + coat_rack + wall_mirror) | FURNITURE §4.4 | 0.5 d | ⬜ |
-| **F3.9** | Corridor (linear_led ceiling strip) | FURNITURE §4.4 | 0.5 d | ⬜ |
-| **F3.10** | Kitchen (pendant_cluster + under-cabinet linear_led) | FURNITURE §4.4 | 0.5 d | ⬜ |
+| **F3.1** | Study archetype proper (desk + desk_chair + bookshelf) — closes the workaround | FURNITURE §4.4 | 0.5 d | ✅ — wired incrementally with F1.1 + F1.2 |
+| **F3.2** | Living archetype (armchair + bookshelf + rug + lamp variants) | FURNITURE §4.4 | 0.5 d | 🟨 partial — bookshelf_glass + tv_unit + tv + wall_art landed; armchair + rug + lamp variants queued |
+| **F3.3** | Master/bedroom (dresser + rug + lounge_chair + bedside_table_lamp anchor) | FURNITURE §4.4 | 0.5 d | 🟨 partial — dresser + vanity_table + wall_mirror landed via F1.10 + F1.12; rug / lounge_chair gating / bedside_table_lamp anchor queued |
+| **F3.4** | Bathroom/ensuite (vanity_unit + bathroom_mirror + mirror_light + towel_rail + bath) | FURNITURE §4.4 | 0.5 d | 🟨 partial — vanity_unit + bathroom_mirror + towel_rail (F1.5) landed; mirror_light + bath block on F1.5'/F1.6' |
+| **F3.5** | WC (wc_washbasin + wc_mirror + accessories) | FURNITURE §4.4 | 0.5 d | ⬜ — blocks on F1.7 |
+| **F3.6** | Utility (washing_machine + tumble_dryer + utility_cabinet + utility_sink) | FURNITURE §4.4 | 0.5 d | ⬜ — blocks on F1.8 |
+| **F3.7** | Dining (buffet + rug) | FURNITURE §4.4 | 0.5 d | 🟨 partial — buffet + sideboard (F1.9) landed; rug queued |
+| **F3.8** | Hall (console_table + shoe_cabinet + coat_rack + wall_mirror) | FURNITURE §4.4 | 0.5 d | ✅ closed by F1.4 |
+| **F3.9** | Corridor (linear_led ceiling strip) | FURNITURE §4.4 | 0.5 d | ⬜ — blocks on D-LE archetype edit |
+| **F3.10** | Kitchen (pendant_cluster + under-cabinet linear_led) | FURNITURE §4.4 | 0.5 d | 🟨 partial — pantry_cabinet (F1.14) landed; pendant_cluster blocks on F1.15 |
 
 **Tier 8 total: ~5 dev-days.**
 

@@ -27,6 +27,10 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
             // F1.10 (2026-05-30) — Wall mirror above the bed wall (paired
             // with the bed group — the mirror reads as a headboard accent).
             { kind: 'wall_mirror', anchor: 'beside', facing: 'into-room', required: false, group: 'bed' },
+            // F1.11 (2026-05-30) — Curtains (S7 precursor). Rod on the window
+            // wall + two panels flanking. Optional so small bedrooms ship clean.
+            { kind: 'curtain_rod',   anchor: 'wall-window', facing: 'to-wall', required: false, group: 'curtains' },
+            { kind: 'curtain_panel', anchor: 'beside',      facing: 'to-wall', required: false, group: 'curtains', count: 2 },
             { kind: 'lamp', anchor: 'corner', facing: 'into-room', required: true },   // lighting
         ],
     },
@@ -51,6 +55,9 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
             { kind: 'bookshelf_glass', anchor: 'wall-longest', facing: 'to-wall', required: false, excludeWindowWall: true, excludeDoorSwing: true },
             // F1.10 (2026-05-30) — Wall art above the sofa (paired group).
             { kind: 'wall_art', anchor: 'beside', facing: 'into-room', required: false, group: 'sofa', excludeWindowWall: true },
+            // F1.11 (2026-05-30) — Curtains on the living-room window wall.
+            { kind: 'curtain_rod',   anchor: 'wall-window', facing: 'to-wall', required: false, group: 'curtains' },
+            { kind: 'curtain_panel', anchor: 'beside',      facing: 'to-wall', required: false, group: 'curtains', count: 2 },
             { kind: 'lamp', anchor: 'corner', facing: 'into-room', required: false },   // lighting
         ],
     },

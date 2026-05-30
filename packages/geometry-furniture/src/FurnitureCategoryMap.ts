@@ -133,6 +133,8 @@ export const FURNITURE_TYPE_TO_CATEGORY: Readonly<Record<FurnitureType, Furnitur
     'parametric_chevron_carpet': 'decor',
     'parametric_patchwork_carpet': 'decor',
     'parametric_stripe_carpet': 'decor',
+    'curtain_rod':              'soft_furnishings', // F1.11 — slim ceiling-adjacent rod
+    'curtain_panel':            'soft_furnishings', // F1.11 — fabric panel (paired)
 
     // ── Beds (Japanese parametric collection) ────────────────────────────────
     'japanese_platform_bed': 'beds',

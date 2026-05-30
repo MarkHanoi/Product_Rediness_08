@@ -54,7 +54,11 @@ export type FurnitureKind =
     | 'pantry_cabinet'
     // F1.12 (2026-05-30) — bedroom dressing (dresser + vanity table).
     // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §F1.12)
-    | 'dresser' | 'vanity_table';
+    | 'dresser' | 'vanity_table'
+    // F1.11 (2026-05-30) — curtain primitives. Cross-room; placed on
+    // every exterior-window wall by the auto-pipeline.
+    // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §F1.11)
+    | 'curtain_rod' | 'curtain_panel';
 
 /** Editor RoomOccupancyType values this engine furnishes (subset). */
 export type FurnishableOccupancy =

@@ -57,6 +57,7 @@ import { BuffetBuilder, SideboardBuilder } from './DiningStorageBuilder';
 import { WallArtBuilder, WallMirrorBuilder } from './WallDecorBuilder';
 import { PantryCabinetBuilder } from './PantryCabinetBuilder';
 import { DresserBuilder, VanityTableBuilder } from './BedroomDressingBuilder';
+import { CurtainRodBuilder, CurtainPanelBuilder } from './CurtainBuilder';
 
 export class FurnitureFactory {
     static getBuilder(
@@ -125,6 +126,10 @@ export class FurnitureFactory {
             // F1.12 (2026-05-30) — Bedroom dressing (dresser + vanity table).
             case 'dresser':            return new DresserBuilder(materialService);
             case 'vanity_table':       return new VanityTableBuilder(materialService);
+
+            // F1.11 (2026-05-30) — Curtains (S7 activity-system precursor).
+            case 'curtain_rod':        return new CurtainRodBuilder(materialService);
+            case 'curtain_panel':      return new CurtainPanelBuilder(materialService);
 
             case 'table':              return new TableBuilder(materialService);
             case 'table_marble_cone':  return new TableBuilder(materialService);

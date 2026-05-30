@@ -154,6 +154,13 @@ export type FurnitureType =
     // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §4.2.12) ─────────
     | 'dresser'
     | 'vanity_table'
+    // ── F1.11 (2026-05-30) — Curtain primitives. Cross-room (every
+    // room with an exterior window): curtain_rod + paired curtain_panel.
+    // The S7 activity-system precursor (one rod per window, two panels
+    // per rod). Wall-mounted at ceiling-adjacent baseOffset.
+    // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §4.2.11) ─────────
+    | 'curtain_rod'
+    | 'curtain_panel'
     | 'plant_01'
     | 'plant_02'
     | 'plant_03'

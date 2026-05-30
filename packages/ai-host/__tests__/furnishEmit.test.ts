@@ -46,17 +46,27 @@ describe('buildFurnishCommands (D-FLE F8)', () => {
     it('baseOffset accounts for level elevation', () => {
         const items = furnishRoom(rectRoom('living-room', 5, 4, 3.0));
         const set = buildFurnishCommands(items, 'L1', 3.0, (() => { let n = 0; return () => `f-${n++}`; })());
-        // F1.3 (2026-05-30): living-room archetype now includes a
-        // wall-mounted TV (footprint baseOffset = 1.20 m). Emitted
-        // baseOffset is `position.y - levelElevation`; floor items resolve
-        // to 0, wall items to their footprint baseOffset. Pin both cases.
+        // F1.3 / F1.10 / F1.11 (2026-05-30): the living-room archetype
+        // now includes wall-mounted items (tv 1.20 m, wall_art 1.20 m,
+        // curtain_rod 2.40 m). Emitted baseOffset is
+        // `position.y - levelElevation`; floor items resolve to 0, wall
+        // items to their footprint baseOffset. Pin each case.
+        const WALL_ITEMS: Readonly<Record<string, number>> = {
+            tv: 1.20,
+            wall_art: 1.20,
+            wall_mirror: 1.20,
+            bathroom_mirror: 1.10,
+            towel_rail: 0.40,
+            curtain_rod: 2.40,
+        };
         for (const c of set.commands) {
             const p = c.payload as Record<string, unknown>;
             const baseOffset = p.baseOffset as number;
-            if (p.furnitureType === 'tv') {
-                expect(baseOffset).toBeCloseTo(1.20, 6);
+            const ft = p.furnitureType as string;
+            if (ft in WALL_ITEMS) {
+                expect(baseOffset, `wall item "${ft}"`).toBeCloseTo(WALL_ITEMS[ft]!, 6);
             } else {
-                expect(baseOffset).toBeCloseTo(0, 6);
+                expect(baseOffset, `floor item "${ft}"`).toBeCloseTo(0, 6);
             }
         }
     });

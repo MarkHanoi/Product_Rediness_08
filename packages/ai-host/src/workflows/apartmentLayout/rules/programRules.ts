@@ -227,7 +227,7 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         minAreaFrac: 0.15,
         accessFrom: ['hall', 'corridor', 'kitchen', 'dining'], maxDoors: INF,
         adjacencyPreference: { kitchen: 1.0, dining: 1.0, hall: 0.8, corridor: 0.5 },
-        requiredFurniture: ['sofa'], optionalFurniture: ['coffee_table', 'tv_unit', 'tv', 'bookshelf_glass', 'wall_art', 'lamp'], requiredFixtures: [],
+        requiredFurniture: ['sofa'], optionalFurniture: ['coffee_table', 'tv_unit', 'tv', 'bookshelf_glass', 'wall_art', 'curtain_rod', 'curtain_panel', 'lamp'], requiredFixtures: [],
         furnitureSpec: [
             { kind: 'sofa',             sizeW: 2000, sizeD: 900, clearFoot: 450, clearSide: 100, placementRule: 'longest_wall',   excludeDoorSwing: true,  excludeWindowWall: false, required: true, group: 'sofa' },
             { kind: 'coffee_table',     sizeW: 1100, sizeD: 600, clearFoot: 300, clearSide: 100, placementRule: 'beside_group',   excludeDoorSwing: true,  excludeWindowWall: false, required: false, group: 'sofa' },
@@ -239,6 +239,9 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
             { kind: 'bookshelf_glass',  sizeW: 800,  sizeD: 350, clearFoot: 600, clearSide: 0,   placementRule: 'longest_wall',   excludeDoorSwing: true,  excludeWindowWall: true,  required: false },
             // F1.10 — Wall art above the sofa (paired group).
             { kind: 'wall_art',         sizeW: 600,  sizeD: 40,  clearFoot: 0,   clearSide: 0,   placementRule: 'beside_group',   excludeDoorSwing: false, excludeWindowWall: true,  required: false, group: 'sofa' },
+            // F1.11 — Curtains on the living-room window wall.
+            { kind: 'curtain_rod',      sizeW: 2000, sizeD: 40,  clearFoot: 0,   clearSide: 0,   placementRule: 'window_wall',    excludeDoorSwing: false, excludeWindowWall: false, required: false, group: 'curtains' },
+            { kind: 'curtain_panel',    sizeW: 1000, sizeD: 50,  clearFoot: 0,   clearSide: 0,   placementRule: 'beside_group',   excludeDoorSwing: false, excludeWindowWall: false, required: false, group: 'curtains' },
             { kind: 'lamp',             sizeW: 350,  sizeD: 350, clearFoot: 100, clearSide: 0,   placementRule: 'corner',         excludeDoorSwing: false, excludeWindowWall: false, required: false },
         ],
         description: 'Primary social space. Front of the privacy gradient; open to kitchen/dining and the entrance hall.',
@@ -366,7 +369,7 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         // architectural entry (0.9). Master → living/dining is permitted but unusual
         // (studio-like layouts where the master opens onto a shared social space).
         adjacencyPreference: { ensuite: 1.0, corridor: 0.9, living: 0.4, dining: 0.3 },
-        requiredFurniture: ['bed', 'bedside_table', 'wardrobe', 'lamp'], optionalFurniture: ['dresser', 'vanity_table', 'wall_mirror'], requiredFixtures: [],
+        requiredFurniture: ['bed', 'bedside_table', 'wardrobe', 'lamp'], optionalFurniture: ['dresser', 'vanity_table', 'wall_mirror', 'curtain_rod', 'curtain_panel'], requiredFixtures: [],
         furnitureSpec: [
             // Architect's interactive plan database — door-vector-aware placement.
             // Bed: opposite the door, on a SOLID wall (never the window wall —
@@ -381,9 +384,12 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
             { kind: 'vanity_table',  sizeW: 900,  sizeD: 450,  clearFoot: 850, clearSide: 100, placementRule: 'window_wall',   excludeDoorSwing: true,  excludeWindowWall: false, required: false },
             // F1.10 — Wall mirror above the bed (paired with bed group).
             { kind: 'wall_mirror',   sizeW: 500,  sizeD: 40,   clearFoot: 0,   clearSide: 0,   placementRule: 'beside_group',  excludeDoorSwing: false, excludeWindowWall: false, required: false, group: 'bed' },
+            // F1.11 — Curtains on the master bedroom window wall.
+            { kind: 'curtain_rod',   sizeW: 2000, sizeD: 40,   clearFoot: 0,   clearSide: 0,   placementRule: 'window_wall',   excludeDoorSwing: false, excludeWindowWall: false, required: false, group: 'curtains' },
+            { kind: 'curtain_panel', sizeW: 1000, sizeD: 50,   clearFoot: 0,   clearSide: 0,   placementRule: 'beside_group',  excludeDoorSwing: false, excludeWindowWall: false, required: false, group: 'curtains' },
             { kind: 'lamp',          sizeW: 350,  sizeD: 350,  clearFoot: 100, clearSide: 0,   placementRule: 'corner',        excludeDoorSwing: false, excludeWindowWall: false, required: true },
         ],
-        description: 'Master bedroom. One door to circulation, one to its en-suite. Requires bed, 2 bedside tables, lighting, a wardrobe. Optional wall mirror as a bed-head accent.',
+        description: 'Master bedroom. One door to circulation, one to its en-suite. Requires bed, 2 bedside tables, lighting, a wardrobe. Optional wall mirror, curtains on the window wall.',
     },
     bedroom: {
         type: 'bedroom', occupancy: 'bedroom', privacy: 'private',
@@ -401,16 +407,19 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         // Bedroom off the corridor is the canonical layout (1.0); off living/dining
         // is permitted (loft / small flat) but less preferred.
         adjacencyPreference: { corridor: 1.0, living: 0.4, dining: 0.3 },
-        requiredFurniture: ['bed', 'bedside_table', 'wardrobe', 'lamp'], optionalFurniture: [], requiredFixtures: [],
+        requiredFurniture: ['bed', 'bedside_table', 'wardrobe', 'lamp'], optionalFurniture: ['curtain_rod', 'curtain_panel'], requiredFixtures: [],
         furnitureSpec: [
             // Same program as master — door-vector-aware. Identical specs so the
             // engine treats both bedroom types consistently.
             { kind: 'bed',           sizeW: 1350, sizeD: 1900, clearFoot: 800, clearSide: 600, placementRule: 'opposite_door', excludeDoorSwing: true,  excludeWindowWall: true,  required: true, group: 'bed' },
             { kind: 'bedside_table', sizeW: 450,  sizeD: 400,  clearFoot: 0,   clearSide: 0,   placementRule: 'flank_group',   excludeDoorSwing: false, excludeWindowWall: false, required: true, group: 'bed', count: 2 },
             { kind: 'wardrobe',      sizeW: 1200, sizeD: 600,  clearFoot: 900, clearSide: 0,   placementRule: 'longest_wall',  excludeDoorSwing: true,  excludeWindowWall: true,  required: true },
+            // F1.11 — Curtains on the bedroom window wall.
+            { kind: 'curtain_rod',   sizeW: 2000, sizeD: 40,   clearFoot: 0,   clearSide: 0,   placementRule: 'window_wall',   excludeDoorSwing: false, excludeWindowWall: false, required: false, group: 'curtains' },
+            { kind: 'curtain_panel', sizeW: 1000, sizeD: 50,   clearFoot: 0,   clearSide: 0,   placementRule: 'beside_group',  excludeDoorSwing: false, excludeWindowWall: false, required: false, group: 'curtains' },
             { kind: 'lamp',          sizeW: 350,  sizeD: 350,  clearFoot: 100, clearSide: 0,   placementRule: 'corner',        excludeDoorSwing: false, excludeWindowWall: false, required: true },
         ],
-        description: 'Bedroom. Exactly one door, onto a corridor / living / dining. Requires bed, 2 bedside tables, lighting, a wardrobe.',
+        description: 'Bedroom. Exactly one door, onto a corridor / living / dining. Requires bed, 2 bedside tables, lighting, a wardrobe. Optional curtains on the window wall.',
     },
     study: {
         type: 'study', occupancy: 'private-office', privacy: 'private',

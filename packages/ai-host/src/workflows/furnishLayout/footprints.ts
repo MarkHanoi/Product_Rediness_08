@@ -102,6 +102,13 @@ const FP: Readonly<Record<FurnitureKind, Footprint>> = {
     //   vanity_table 0.90 × 0.45 × 0.75 m, 0.85 m front clearance (chair pull-out).
     dresser:          { w: 1.20, l: 0.50, h: 0.85, baseOffset: 0, clearFront: 0.80, clearSides: 0.00 },
     vanity_table:     { w: 0.90, l: 0.45, h: 0.75, baseOffset: 0, clearFront: 0.85, clearSides: 0.10 },
+    // F1.11 (2026-05-30) — Curtains.
+    //   curtain_rod: 2.0 m wide (sized at runtime to bridge window), 0.04 m deep,
+    //     0.04 m tall envelope; mounted at baseOffset 2.40 m (ceiling-adjacent).
+    //   curtain_panel: 1.0 m wide × 0.05 m deep × 2.40 m tall fabric panel.
+    //     Cross-room; archetype places TWO per rod (left + right) via count: 2.
+    curtain_rod:      { w: 2.00, l: 0.04, h: 0.04, baseOffset: 2.40, clearFront: 0.00, clearSides: 0.00 },
+    curtain_panel:    { w: 1.00, l: 0.05, h: 2.40, baseOffset: 0,    clearFront: 0.00, clearSides: 0.00 },
 };
 
 /** Footprint for a furniture kind (always defined for supported kinds). */
