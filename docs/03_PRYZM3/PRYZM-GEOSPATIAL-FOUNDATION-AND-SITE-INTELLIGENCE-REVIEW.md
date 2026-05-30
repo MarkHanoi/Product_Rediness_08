@@ -1,4 +1,6 @@
-# PRYZM — Geospatial Foundation & Site Intelligence Review
+# PRYZM — Geospatial Foundation & Site Intelligence Review (APARTMENT-CONSUMER SCOPE)
+
+> **⚠️ Scope note (2026-05-30 follow-up):** This doc is scoped to the **apartment-generation consumer** of a future platform-level geospatial substrate. The platform-level review is the authoritative parent: [PRYZM03-GEOSPATIAL-FOUNDATION-REVIEW.md](PRYZM03-GEOSPATIAL-FOUNDATION-REVIEW.md). Read the platform doc first to understand the strategic option choice (A optional / B first-class subsystem / C foundational layer); this doc covers the apartment-specific implications under the recommended Option B.
 
 Status: **Strategy document, 2026-05-30.** Architecture review only — NOT an implementation plan, NOT a greenfield rewrite. The repository already has a non-trivial geospatial substrate (Cesium bridge, LTP-ENU coordinate handling, ProjectLocation schema, NOAA solar service); this doc maps what exists, identifies the architectural gap (site-as-metadata vs site-as-design-driver), and proposes a phased migration that builds ON the existing substrate.
 

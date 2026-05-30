@@ -286,9 +286,9 @@ Legend (Status column):
 
 - ⬜ Not started · 🟦 Planning / spec · 🟨 In progress · ✅ Complete · 🟥 Blocked
 
-### §4.−1 — Phase GS0 — Geospatial Foundation & Site Intelligence (RUNS PARALLEL to F-tier)
+### §4.−1 — Phase GS0 — Geospatial Foundation & Site Intelligence (apartment-consumer of PG0; RUNS PARALLEL to F-tier)
 
-**Authored 2026-05-30.** See [PRYZM-GEOSPATIAL-FOUNDATION-AND-SITE-INTELLIGENCE-REVIEW.md](PRYZM-GEOSPATIAL-FOUNDATION-AND-SITE-INTELLIGENCE-REVIEW.md) for the full architecture review.
+**Repositioned 2026-05-30 (follow-up).** The platform-level review is [PRYZM03-GEOSPATIAL-FOUNDATION-REVIEW.md](PRYZM03-GEOSPATIAL-FOUNDATION-REVIEW.md) — that's the authoritative architecture doc, and it proposes phase **PG0** (~26 dev-weeks) at the platform level. The GS0 row below describes the apartment-generation CONSUMER of PG0; see [PRYZM-GEOSPATIAL-FOUNDATION-AND-SITE-INTELLIGENCE-REVIEW.md](PRYZM-GEOSPATIAL-FOUNDATION-AND-SITE-INTELLIGENCE-REVIEW.md) for the apartment-specific details.
 
 **Why parallel, not before-F.** Today's apartment generator is correctly scoped to fictional contexts. F-tier ships continue. GS0 builds the WHERE-IT-LIVES substrate (site / climate / context / building) BENEATH the existing apartment substrate so future expansion converges toward a site-aware design pipeline rather than away from it. Each next F-tier ship can declare an optional `siteAware: bool` flag for when GS0.5 lands.
 
