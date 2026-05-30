@@ -22,7 +22,13 @@ export type FurnitureKind =
     // contract-complete: FurnitureType union + FurnitureCategoryMap +
     // BookshelfBuilder (handles both variants) + FurnitureFactory arms.
     // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §F1.2)
-    | 'bookshelf' | 'bookshelf_glass';
+    | 'bookshelf' | 'bookshelf_glass'
+    // F1.3 (2026-05-30) — media wall primitives. Wall-mounted TV + low TV
+    // unit cabinet for the S1 living-room media-wall activity system.
+    // Shipped contract-complete: FurnitureType union + FurnitureCategoryMap +
+    // TvBuilder + TvUnitBuilder + FurnitureFactory arms.
+    // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §F1.3)
+    | 'tv' | 'tv_unit';
 
 /** Editor RoomOccupancyType values this engine furnishes (subset). */
 export type FurnishableOccupancy =

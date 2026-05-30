@@ -101,6 +101,11 @@ export type FurnitureType =
     // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §4.2.2) ──────────
     | 'bookshelf'
     | 'bookshelf_glass'
+    // ── F1.3 (2026-05-30) — Media wall primitives. Living-room S1 activity
+    // system anchor: wall-mounted TV + low TV unit cabinet beneath.
+    // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §4.2.3) ──────────
+    | 'tv'
+    | 'tv_unit'
     | 'plant_01'
     | 'plant_02'
     | 'plant_03'

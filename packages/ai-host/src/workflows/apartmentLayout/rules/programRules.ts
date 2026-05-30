@@ -227,13 +227,17 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         minAreaFrac: 0.15,
         accessFrom: ['hall', 'corridor', 'kitchen', 'dining'], maxDoors: INF,
         adjacencyPreference: { kitchen: 1.0, dining: 1.0, hall: 0.8, corridor: 0.5 },
-        requiredFurniture: ['sofa'], optionalFurniture: ['coffee_table', 'bookshelf_glass', 'lamp'], requiredFixtures: [],
+        requiredFurniture: ['sofa'], optionalFurniture: ['coffee_table', 'tv_unit', 'tv', 'bookshelf_glass', 'lamp'], requiredFixtures: [],
         furnitureSpec: [
-            { kind: 'sofa',             sizeW: 2000, sizeD: 900, clearFoot: 450, clearSide: 100, placementRule: 'longest_wall', excludeDoorSwing: true,  excludeWindowWall: false, required: true, group: 'sofa' },
-            { kind: 'coffee_table',     sizeW: 1100, sizeD: 600, clearFoot: 300, clearSide: 100, placementRule: 'beside_group', excludeDoorSwing: true,  excludeWindowWall: false, required: false, group: 'sofa' },
+            { kind: 'sofa',             sizeW: 2000, sizeD: 900, clearFoot: 450, clearSide: 100, placementRule: 'longest_wall',   excludeDoorSwing: true,  excludeWindowWall: false, required: true, group: 'sofa' },
+            { kind: 'coffee_table',     sizeW: 1100, sizeD: 600, clearFoot: 300, clearSide: 100, placementRule: 'beside_group',   excludeDoorSwing: true,  excludeWindowWall: false, required: false, group: 'sofa' },
+            // F1.3 — Media wall: TV unit on the wall opposite the sofa;
+            // wall-mounted TV pairs with it via the 'media' group.
+            { kind: 'tv_unit',          sizeW: 1600, sizeD: 400, clearFoot: 600, clearSide: 0,   placementRule: 'opposite_door',  excludeDoorSwing: true,  excludeWindowWall: true,  required: false, group: 'media' },
+            { kind: 'tv',               sizeW: 1400, sizeD: 80,  clearFoot: 0,   clearSide: 0,   placementRule: 'beside_group',   excludeDoorSwing: false, excludeWindowWall: true,  required: false, group: 'media' },
             // F1.2 — Glass-front bookshelf for living-room storage.
-            { kind: 'bookshelf_glass',  sizeW: 800,  sizeD: 350, clearFoot: 600, clearSide: 0,   placementRule: 'longest_wall', excludeDoorSwing: true,  excludeWindowWall: true,  required: false },
-            { kind: 'lamp',             sizeW: 350,  sizeD: 350, clearFoot: 100, clearSide: 0,   placementRule: 'corner',       excludeDoorSwing: false, excludeWindowWall: false, required: false },
+            { kind: 'bookshelf_glass',  sizeW: 800,  sizeD: 350, clearFoot: 600, clearSide: 0,   placementRule: 'longest_wall',   excludeDoorSwing: true,  excludeWindowWall: true,  required: false },
+            { kind: 'lamp',             sizeW: 350,  sizeD: 350, clearFoot: 100, clearSide: 0,   placementRule: 'corner',         excludeDoorSwing: false, excludeWindowWall: false, required: false },
         ],
         description: 'Primary social space. Front of the privacy gradient; open to kitchen/dining and the entrance hall.',
     },

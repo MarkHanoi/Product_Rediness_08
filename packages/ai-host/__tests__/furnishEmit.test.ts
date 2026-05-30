@@ -46,9 +46,18 @@ describe('buildFurnishCommands (D-FLE F8)', () => {
     it('baseOffset accounts for level elevation', () => {
         const items = furnishRoom(rectRoom('living-room', 5, 4, 3.0));
         const set = buildFurnishCommands(items, 'L1', 3.0, (() => { let n = 0; return () => `f-${n++}`; })());
+        // F1.3 (2026-05-30): living-room archetype now includes a
+        // wall-mounted TV (footprint baseOffset = 1.20 m). Emitted
+        // baseOffset is `position.y - levelElevation`; floor items resolve
+        // to 0, wall items to their footprint baseOffset. Pin both cases.
         for (const c of set.commands) {
             const p = c.payload as Record<string, unknown>;
-            expect((p.baseOffset as number)).toBeCloseTo(0, 6);       // floor items: y == elevation
+            const baseOffset = p.baseOffset as number;
+            if (p.furnitureType === 'tv') {
+                expect(baseOffset).toBeCloseTo(1.20, 6);
+            } else {
+                expect(baseOffset).toBeCloseTo(0, 6);
+            }
         }
     });
 

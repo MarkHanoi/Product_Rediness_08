@@ -46,6 +46,7 @@ import { TreeBuilder } from './TreeBuilder';
 import { DeskBuilder } from './DeskBuilder';
 import { DeskChairBuilder } from './DeskChairBuilder';
 import { BookshelfBuilder } from './BookshelfBuilder';
+import { TvBuilder, TvUnitBuilder } from './MediaWallBuilder';
 
 export class FurnitureFactory {
     static getBuilder(
@@ -83,6 +84,10 @@ export class FurnitureFactory {
             // F1.2 (2026-05-30) — Bookshelf (open + glass-front variants).
             case 'bookshelf':          return new BookshelfBuilder(materialService);
             case 'bookshelf_glass':    return new BookshelfBuilder(materialService);
+
+            // F1.3 (2026-05-30) — Media wall (wall TV + low TV unit).
+            case 'tv':                 return new TvBuilder(materialService);
+            case 'tv_unit':            return new TvUnitBuilder(materialService);
 
             case 'table':              return new TableBuilder(materialService);
             case 'table_marble_cone':  return new TableBuilder(materialService);

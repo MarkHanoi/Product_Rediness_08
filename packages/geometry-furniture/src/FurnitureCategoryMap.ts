@@ -77,6 +77,10 @@ export const FURNITURE_TYPE_TO_CATEGORY: Readonly<Record<FurnitureType, Furnitur
     // ── Storage (incl. bookshelves) ───────────────────────────────────────────
     'bookshelf':            'storage', // F1.2 — open-shelf bookcase
     'bookshelf_glass':      'storage', // F1.2 — glass-front bookcase
+    'tv_unit':              'storage', // F1.3 — low TV / media console
+
+    // ── Technical (electronics) ───────────────────────────────────────────────
+    'tv':                   'technical', // F1.3 — wall-mounted TV panel
 
     // ── Bedroom Furniture ─────────────────────────────────────────────────────
     'bed':                  'bedroom',

@@ -343,7 +343,10 @@ Subphases: F1.1.a through F1.1.t per element × 2. The Zod schemas live alongsid
 |---|---|---|---|---|
 | **F1.2** | `bookshelf` (open shelves, parametric height + bays) + `bookshelf_glass` (glass-front variant) | Cross-room. Anchored on `wall-longest`, excludes window wall. IFC `IfcFurniture` predefinedType `SHELF`. | 2 × 5 days = **10 dev-days** | ⬜ |
 
-#### §4.2.3 — F1.3 TV + TV unit
+#### §4.2.3 — F1.3 TV + TV unit ✅ SHIPPED 2026-05-30
+
+Shipped contract-complete: FurnitureType union + FurnitureCategoryMap (`tv_unit` → storage, `tv` → technical) + TvBuilder (wall-mounted, baseOffset 1.20 m) + TvUnitBuilder (low cabinet with two reveals + knobs) + FurnitureFactory arms; ai-host FurnitureKind union + footprints (tv 1.40×0.08×0.80 m wall-hung, tv_unit 1.60×0.40×0.50 m floor); living-room archetype wires both via shared `'media'` group anchored on the wall opposite the door + excludes window wall; programRules.living mirrors. +5 pin tests + updated `furnishEmit` test to cover wall-mounted baseOffset semantics.
+
 
 | ID | New `FurnitureType` | Architectural notes | Estimate | Status |
 |---|---|---|---|---|

@@ -29,6 +29,14 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
             // is the entry path; the sofa anchors on the opposite/long wall.
             { kind: 'sofa', anchor: 'wall-longest', facing: 'into-room', required: true, group: 'sofa', excludeDoorSwing: true },
             { kind: 'coffee_table', anchor: 'beside', facing: 'into-room', required: false, group: 'sofa' },
+            // F1.3 (2026-05-30) — Media wall (S1 activity system anchor).
+            // The TV unit anchors on the wall opposite the sofa (the "media
+            // wall"), excluding the window wall (no daylight glare on the
+            // screen) and the door wall. The wall-mounted TV sits in the
+            // same group above the unit — the engine pairs them via the
+            // 'media' group and yields the TV to the unit's chosen wall.
+            { kind: 'tv_unit', anchor: 'wall-opposite-door', facing: 'into-room', required: false, group: 'media', excludeWindowWall: true, excludeDoorSwing: true },
+            { kind: 'tv',      anchor: 'beside',             facing: 'into-room', required: false, group: 'media' },
             // F1.2 (2026-05-30) — Glass-front bookshelf as optional living-room
             // storage. Anchors on the longest free wall, excludes window wall
             // (tall piece blocks daylight) and the door wall.

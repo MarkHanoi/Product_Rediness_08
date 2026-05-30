@@ -56,6 +56,15 @@ const FP: Readonly<Record<FurnitureKind, Footprint>> = {
     //   solver may pack two side-by-side along a long wall.
     bookshelf:        { w: 0.80, l: 0.35, h: 1.80, baseOffset: 0, clearFront: 0.60, clearSides: 0.00 },
     bookshelf_glass:  { w: 0.80, l: 0.35, h: 1.80, baseOffset: 0, clearFront: 0.60, clearSides: 0.00 },
+    // F1.3 (2026-05-30) — Media wall.
+    //   tv: 1.40 m wide × 0.08 m deep × 0.80 m tall. Wall-mounted —
+    //       baseOffset 1.2 m so the panel hangs at eye level. No floor
+    //       clearance (the unit below sits beneath the panel).
+    //   tv_unit: 1.60 m wide × 0.40 m deep × 0.50 m tall. Sits on the
+    //       floor under the TV. 0.60 m front clearance so the sofa
+    //       doesn't crowd the front of the unit.
+    tv:               { w: 1.40, l: 0.08, h: 0.80, baseOffset: 1.20, clearFront: 0.00, clearSides: 0.00 },
+    tv_unit:          { w: 1.60, l: 0.40, h: 0.50, baseOffset: 0,    clearFront: 0.60, clearSides: 0.00 },
 };
 
 /** Footprint for a furniture kind (always defined for supported kinds). */
