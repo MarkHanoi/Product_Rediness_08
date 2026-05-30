@@ -2711,6 +2711,9 @@ importers:
       '@pryzm/protocol':
         specifier: workspace:*
         version: link:../protocol
+      '@pryzm/schemas':
+        specifier: workspace:*
+        version: link:../schemas
       immer:
         specifier: ^10.1.1
         version: 10.2.0
