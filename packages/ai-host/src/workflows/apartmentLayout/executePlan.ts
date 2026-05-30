@@ -21,6 +21,7 @@
 import type { CommandPayloadRef } from '../../types.js';
 import type { LayoutOption, Vec2mm } from './types.js';
 import { defaultDoorSystemTypeId, defaultWindowSystemTypeId } from './resolvers/defaultElementTypes.js';
+import { resolveAllShellWindows } from './windowEmission/shellWallMatch.js';
 
 const MM_PER_M = 1000;
 
@@ -68,6 +69,14 @@ export interface LayoutExecuteOptions {
      *  corrupt room detection. The preview still shows them; only the BUILD omits
      *  them. Doors host on interior walls only, so the wallRef remap keeps doors. */
     readonly skipExteriorWalls?: boolean;
+    /** T1.W-C (2026-05-30) — existing shell walls in the editor's wall store.
+     *  WORLD METRES. When provided, buildLayoutCommands resolves every
+     *  engine-emitted window whose host is an EXTERNAL option wall to the
+     *  matching shell wall (by endpoint proximity) and emits a
+     *  wall.createOpening + window.batch.create hosted on that pre-existing
+     *  id. Without this, shell-hosted windows are dropped (they target a
+     *  wall the build doesn't recreate). */
+    readonly shellWalls?: readonly import('./windowEmission/shellWallMatch.js').ShellWall[];
 }
 
 /** A single wall spec, METRES — structurally a CreateWallPayload. */
@@ -468,11 +477,20 @@ export interface LayoutCommandSet {
     readonly doorBatch: LayoutCommand | null;
     /** T1.W-B (2026-05-30) — one `wall.createOpening` per emitted window
      *  hosted on a NEW partition wall (windows on EXTERNAL shell walls flow
-     *  via a future T1.W-C path that hosts on pre-existing shell wall ids).
-     *  Reserves the opening id + window elementId — C15 cascade contract. */
+     *  via the T1.W-C shellWindow* path below — hosts on pre-existing
+     *  shell wall ids). Reserves opening id + window elementId — C15. */
     readonly windowOpeningCommands: readonly LayoutCommand[];
-    /** T1.W-B — `window.batch.create` for all windows, or null when none. */
+    /** T1.W-B — `window.batch.create` for all NEW-partition windows, or null. */
     readonly windowBatch: LayoutCommand | null;
+    /** T1.W-C (2026-05-30) — one `wall.createOpening` per shell-hosted
+     *  window. The host `wallId` is the EXISTING shell wall id from
+     *  `opts.shellWalls` (NOT a freshly minted partition id). Empty when
+     *  `opts.shellWalls` is omitted or no engine windows target externals. */
+    readonly shellWindowOpeningCommands: readonly LayoutCommand[];
+    /** T1.W-C — `window.batch.create` for all shell-hosted windows, or null. */
+    readonly shellWindowBatch: LayoutCommand | null;
+    /** T1.W-C — minted shell-hosted window ids. */
+    readonly shellWindowIds: readonly string[];
     /** One virtual room-bounding line per open-plan threshold (the editor uses the
      *  legacy `CreateRoomBoundingLineCommand` to materialise these — they have NO
      *  bus verb yet). Carries `{id, levelId, start:{x,z}, end:{x,z}}` in METRES. */
@@ -617,6 +635,63 @@ export function buildLayoutCommands(
             ? { command: 'window.batch.create', payload: { windows: windowPayloads } }
             : null;
 
+    // T1.W-C (2026-05-30) — shell-wall-hosted windows. When the caller
+    // supplies `opts.shellWalls`, resolve every engine-emitted window whose
+    // host is an EXTERNAL option wall to the matching pre-existing shell
+    // wall id (by endpoint proximity, optionally direction-flipped) and
+    // emit a wall.createOpening + window.batch.create pair targeting that
+    // existing wall. This is where the DOMINANT case lands — apartment
+    // windows are almost always on shell walls.
+    const shellWindowOpeningCommands: LayoutCommand[] = [];
+    const shellWindowPayloads: unknown[] = [];
+    const shellWindowIds: string[] = [];
+    if (opts.shellWalls && opts.shellWalls.length > 0 && option.windows && option.windows.length > 0) {
+        const resolved = resolveAllShellWindows(
+            option.windows,
+            option.walls,
+            opts.shellWalls,
+            opts.planToWorldXZ,
+        );
+        for (const r of resolved) {
+            const openingId = mintId('opening');
+            const windowId = mintId('window');
+            shellWindowIds.push(windowId);
+            shellWindowOpeningCommands.push({
+                command: 'wall.createOpening',
+                payload: {
+                    wallId: r.shellWallId,
+                    opening: {
+                        id:         openingId,
+                        type:       'window',
+                        offset:     r.offsetM,
+                        width:      r.widthM,
+                        height:     r.heightM,
+                        sillHeight: r.sillM,
+                        elementId:  windowId,
+                    },
+                },
+            });
+            const perRoomWindowSysType: { systemTypeId: string } | Record<string, never> = r.roomType
+                ? { systemTypeId: defaultWindowSystemTypeId(r.roomType) }
+                : {};
+            shellWindowPayloads.push({
+                id:         windowId,
+                wallId:     r.shellWallId,
+                openingId,
+                width:      r.widthM,
+                height:     r.heightM,
+                sillHeight: r.sillM,
+                offset:     r.offsetM,
+                ...perRoomWindowSysType,
+                ...(r.name ? { name: r.name } : {}),
+            });
+        }
+    }
+    const shellWindowBatch: LayoutCommand | null =
+        shellWindowPayloads.length > 0
+            ? { command: 'window.batch.create', payload: { windows: shellWindowPayloads } }
+            : null;
+
     // Virtual room-bounding lines (open-plan splitters). LayoutBoundary is in mm in
     // the LayoutOption; the editor's `CreateRoomBoundingLineCommand` takes METRES,
     // so we divide by MM_PER_M here exactly like buildLayoutPlan does for doors.
@@ -643,11 +718,14 @@ export function buildLayoutCommands(
         doorBatch,
         windowOpeningCommands,
         windowBatch,
+        shellWindowOpeningCommands,
+        shellWindowBatch,
+        shellWindowIds,
         boundaryCommands,
         wallIds,
         doorIds,
         windowIds,
-        totalElementCount: plan.totalElementCount,
+        totalElementCount: plan.totalElementCount + shellWindowIds.length,
         warnings: plan.warnings,
     };
 }

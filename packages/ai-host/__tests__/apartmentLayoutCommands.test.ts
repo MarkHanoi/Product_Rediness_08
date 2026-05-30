@@ -173,6 +173,102 @@ describe('buildLayoutCommands (A6-wire)', () => {
         });
     });
 
+    // T1.W-C wiring (2026-05-30) — engine windows on EXTERNAL walls resolve
+    // to existing shell wall ids when opts.shellWalls is provided.
+    describe('T1.W-C shell-window dispatch (when opts.shellWalls is provided)', () => {
+        const baseOpts = {
+            ...OPTS,
+            shellWalls: [{ id: 'shell-south', start: { x: 0, z: 0 }, end: { x: 5, z: 0 } }],
+        };
+        // Plan-mm option carries an EXTERNAL wall along the south facade,
+        // and a window on it. The new partition walls in option.walls[1..]
+        // are unrelated.
+        const winOption = (over: Partial<LayoutOption> = {}): LayoutOption => option({
+            walls: [
+                { start: { x: 0, y: 0 }, end: { x: 5000, y: 0 }, isExternal: true },
+                { start: { x: 0, y: 2000 }, end: { x: 5000, y: 2000 } },
+            ],
+            doors: [],
+            windows: [{
+                wallRef: 0, offset: 1000, width: 1500, height: 1300,
+                sillHeight: 900, roomType: 'bedroom', name: 'Bedroom Window',
+            }],
+            ...over,
+        });
+
+        it('emits a wall.createOpening hosted on the EXISTING shell wall id', () => {
+            const set = buildLayoutCommands(winOption(), baseOpts, counterMinter());
+            expect(set.shellWindowOpeningCommands).toHaveLength(1);
+            const p = set.shellWindowOpeningCommands[0]!.payload as { wallId: string; opening: { type: string } };
+            expect(p.wallId).toBe('shell-south');             // EXISTING id, not 'wall_1'
+            expect(p.opening.type).toBe('window');
+        });
+
+        it('emits a window.batch.create dispatched to the shell wall id', () => {
+            const set = buildLayoutCommands(winOption(), baseOpts, counterMinter());
+            expect(set.shellWindowBatch!.command).toBe('window.batch.create');
+            const windows = (set.shellWindowBatch!.payload as { windows: Array<{ wallId: string; systemTypeId?: string }> }).windows;
+            expect(windows[0]!.wallId).toBe('shell-south');
+            expect(windows[0]!.systemTypeId).toBe('wt-timber-casement');   // bedroom
+        });
+
+        it('opts.shellWalls omitted → no shell-window commands emitted', () => {
+            const set = buildLayoutCommands(winOption(), OPTS, counterMinter());
+            expect(set.shellWindowOpeningCommands).toHaveLength(0);
+            expect(set.shellWindowBatch).toBeNull();
+            expect(set.shellWindowIds).toHaveLength(0);
+        });
+
+        it('no match (shell-wall list missing the south facade) → window dropped silently', () => {
+            const set = buildLayoutCommands(winOption(), {
+                ...OPTS,
+                shellWalls: [{ id: 'shell-east', start: { x: 5, z: 0 }, end: { x: 5, z: 4 } }],
+            }, counterMinter());
+            expect(set.shellWindowOpeningCommands).toHaveLength(0);
+            expect(set.shellWindowBatch).toBeNull();
+        });
+
+        it('window on an INTERIOR wall is NOT routed via shellWindow* (legacy path)', () => {
+            // The window targets walls[1] (interior). shellWindow* should be empty;
+            // the normal windowOpening/window batch path handles it.
+            const set = buildLayoutCommands(winOption({
+                windows: [{ wallRef: 1, offset: 500, width: 1500, height: 1300, sillHeight: 900, roomType: 'bedroom' }],
+            }), baseOpts, counterMinter());
+            expect(set.shellWindowOpeningCommands).toHaveLength(0);
+            expect(set.windowOpeningCommands.length).toBeGreaterThan(0);
+        });
+
+        it('reversed shell wall → offset flips along the wall length', () => {
+            const set = buildLayoutCommands(winOption({
+                windows: [{ wallRef: 0, offset: 1000, width: 1500, height: 1300, sillHeight: 900 }],
+            }), {
+                ...OPTS,
+                shellWalls: [{ id: 'shell-rev', start: { x: 5, z: 0 }, end: { x: 0, z: 0 } }],
+            }, counterMinter());
+            // wallLen 5 m; window at 1.0 + 1.5 = reversed offset = 2.5 m.
+            const op = set.shellWindowOpeningCommands[0]!.payload as { opening: { offset: number } };
+            expect(op.opening.offset).toBeCloseTo(2.5, 6);
+        });
+
+        it('totalElementCount includes shellWindowIds', () => {
+            const set = buildLayoutCommands(winOption(), baseOpts, counterMinter());
+            // Walls created = 1 (the interior wall — external dropped via skipExteriorWalls=false here),
+            // but with no skipExteriorWalls the external wall is kept; 2 walls + 0 doors + 0
+            // normal windows + 1 shell window = 3.
+            const expected = (set.wallBatch.payload as { walls: unknown[] }).walls.length
+                + set.doorIds.length + set.windowIds.length + set.shellWindowIds.length;
+            expect(set.totalElementCount).toBe(expected);
+        });
+
+        it('per-room finish — bathroom shell window → wt-upvc-casement (privacy)', () => {
+            const set = buildLayoutCommands(winOption({
+                windows: [{ wallRef: 0, offset: 1000, width: 600, height: 600, sillHeight: 1700, roomType: 'bathroom' }],
+            }), baseOpts, counterMinter());
+            const windows = (set.shellWindowBatch!.payload as { windows: Array<{ systemTypeId?: string }> }).windows;
+            expect(windows[0]!.systemTypeId).toBe('wt-upvc-casement');
+        });
+    });
+
     // T1.D wiring (2026-05-30) — per-pair door finish resolver consumed.
     describe('T1.D per-pair door finish (when LayoutDoor carries roomTypeA/B)', () => {
         const getDoorSysType = (set: ReturnType<typeof buildLayoutCommands>) =>
