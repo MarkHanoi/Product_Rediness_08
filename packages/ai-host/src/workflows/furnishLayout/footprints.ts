@@ -97,6 +97,11 @@ const FP: Readonly<Record<FurnitureKind, Footprint>> = {
     // F1.14 (2026-05-30) — Tall narrow kitchen pantry.
     //   0.60 m × 0.45 m × 2.10 m, 1.0 m front clearance (door swing + user reach).
     pantry_cabinet:   { w: 0.60, l: 0.45, h: 2.10, baseOffset: 0, clearFront: 1.00, clearSides: 0.00 },
+    // F1.12 (2026-05-30) — Bedroom dressing.
+    //   dresser 1.20 × 0.50 × 0.85 m, 0.80 m front clearance (drawer pull-out).
+    //   vanity_table 0.90 × 0.45 × 0.75 m, 0.85 m front clearance (chair pull-out).
+    dresser:          { w: 1.20, l: 0.50, h: 0.85, baseOffset: 0, clearFront: 0.80, clearSides: 0.00 },
+    vanity_table:     { w: 0.90, l: 0.45, h: 0.75, baseOffset: 0, clearFront: 0.85, clearSides: 0.10 },
 };
 
 /** Footprint for a furniture kind (always defined for supported kinds). */

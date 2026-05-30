@@ -95,6 +95,8 @@ export const FURNITURE_TYPE_TO_CATEGORY: Readonly<Record<FurnitureType, Furnitur
     'wardrobe':             'bedroom',
     'corner_wardrobe':      'bedroom',
     'wardrobe_glass_door':  'bedroom',
+    'dresser':              'bedroom', // F1.12 — low chest of drawers
+    'vanity_table':         'bedroom', // F1.12 — small dressing table with mirror
     'kitchen_straight':     'kitchen',
     'kitchen_l_shape':      'kitchen',
     'kitchen_u_shape':      'kitchen',

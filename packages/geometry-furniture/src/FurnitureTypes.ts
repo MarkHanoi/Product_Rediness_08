@@ -148,6 +148,12 @@ export type FurnitureType =
     // run so the run keeps its own working stretch.
     // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §4.2.14) ─────────
     | 'pantry_cabinet'
+    // ── F1.12 (2026-05-30) — Bedroom dressing primitives. Dresser (low
+    // chest of drawers) + vanity_table (small dressing table with mirror).
+    // Anchored on a master/bedroom wall opposite the wardrobe.
+    // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §4.2.12) ─────────
+    | 'dresser'
+    | 'vanity_table'
     | 'plant_01'
     | 'plant_02'
     | 'plant_03'

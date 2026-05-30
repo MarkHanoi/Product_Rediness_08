@@ -51,7 +51,10 @@ export type FurnitureKind =
     | 'lounge_chair'
     // F1.14 (2026-05-30) — pantry_cabinet (kitchen storage).
     // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §F1.14)
-    | 'pantry_cabinet';
+    | 'pantry_cabinet'
+    // F1.12 (2026-05-30) — bedroom dressing (dresser + vanity table).
+    // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §F1.12)
+    | 'dresser' | 'vanity_table';
 
 /** Editor RoomOccupancyType values this engine furnishes (subset). */
 export type FurnishableOccupancy =

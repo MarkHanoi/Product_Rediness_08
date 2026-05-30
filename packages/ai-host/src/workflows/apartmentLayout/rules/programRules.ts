@@ -366,7 +366,7 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         // architectural entry (0.9). Master → living/dining is permitted but unusual
         // (studio-like layouts where the master opens onto a shared social space).
         adjacencyPreference: { ensuite: 1.0, corridor: 0.9, living: 0.4, dining: 0.3 },
-        requiredFurniture: ['bed', 'bedside_table', 'wardrobe', 'lamp'], optionalFurniture: ['wall_mirror'], requiredFixtures: [],
+        requiredFurniture: ['bed', 'bedside_table', 'wardrobe', 'lamp'], optionalFurniture: ['dresser', 'vanity_table', 'wall_mirror'], requiredFixtures: [],
         furnitureSpec: [
             // Architect's interactive plan database — door-vector-aware placement.
             // Bed: opposite the door, on a SOLID wall (never the window wall —
@@ -376,6 +376,9 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
             { kind: 'bed',           sizeW: 1350, sizeD: 1900, clearFoot: 800, clearSide: 600, placementRule: 'opposite_door', excludeDoorSwing: true,  excludeWindowWall: true,  required: true, group: 'bed' },
             { kind: 'bedside_table', sizeW: 450,  sizeD: 400,  clearFoot: 0,   clearSide: 0,   placementRule: 'flank_group',   excludeDoorSwing: false, excludeWindowWall: false, required: true, group: 'bed', count: 2 },
             { kind: 'wardrobe',      sizeW: 1200, sizeD: 600,  clearFoot: 900, clearSide: 0,   placementRule: 'longest_wall',  excludeDoorSwing: true,  excludeWindowWall: true,  required: true },
+            // F1.12 — Bedroom dressing.
+            { kind: 'dresser',       sizeW: 1200, sizeD: 500,  clearFoot: 800, clearSide: 0,   placementRule: 'longest_wall',  excludeDoorSwing: true,  excludeWindowWall: true,  required: false },
+            { kind: 'vanity_table',  sizeW: 900,  sizeD: 450,  clearFoot: 850, clearSide: 100, placementRule: 'window_wall',   excludeDoorSwing: true,  excludeWindowWall: false, required: false },
             // F1.10 — Wall mirror above the bed (paired with bed group).
             { kind: 'wall_mirror',   sizeW: 500,  sizeD: 40,   clearFoot: 0,   clearSide: 0,   placementRule: 'beside_group',  excludeDoorSwing: false, excludeWindowWall: false, required: false, group: 'bed' },
             { kind: 'lamp',          sizeW: 350,  sizeD: 350,  clearFoot: 100, clearSide: 0,   placementRule: 'corner',        excludeDoorSwing: false, excludeWindowWall: false, required: true },

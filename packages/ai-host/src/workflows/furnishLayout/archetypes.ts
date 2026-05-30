@@ -19,6 +19,11 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
             { kind: 'bed', anchor: 'wall-opposite-door', facing: 'to-wall', required: true, group: 'bed', excludeWindowWall: true, excludeDoorSwing: true },
             { kind: 'bedside_table', anchor: 'beside', facing: 'to-wall', required: true, group: 'bed', count: 2 },
             { kind: 'wardrobe', anchor: 'wall-longest', facing: 'to-wall', required: true, excludeWindowWall: true, excludeDoorSwing: true },
+            // F1.12 (2026-05-30) — Bedroom dressing. Dresser on longest free
+            // wall (yields to the wardrobe); vanity_table beside the window
+            // for natural light when applying makeup.
+            { kind: 'dresser',      anchor: 'wall-longest', facing: 'to-wall',   required: false, excludeWindowWall: true, excludeDoorSwing: true },
+            { kind: 'vanity_table', anchor: 'wall-window',  facing: 'to-wall',   required: false, excludeDoorSwing: true },
             // F1.10 (2026-05-30) — Wall mirror above the bed wall (paired
             // with the bed group — the mirror reads as a headboard accent).
             { kind: 'wall_mirror', anchor: 'beside', facing: 'into-room', required: false, group: 'bed' },

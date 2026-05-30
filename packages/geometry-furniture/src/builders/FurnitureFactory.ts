@@ -56,6 +56,7 @@ import {
 import { BuffetBuilder, SideboardBuilder } from './DiningStorageBuilder';
 import { WallArtBuilder, WallMirrorBuilder } from './WallDecorBuilder';
 import { PantryCabinetBuilder } from './PantryCabinetBuilder';
+import { DresserBuilder, VanityTableBuilder } from './BedroomDressingBuilder';
 
 export class FurnitureFactory {
     static getBuilder(
@@ -120,6 +121,10 @@ export class FurnitureFactory {
 
             // F1.14 (2026-05-30) — Pantry cabinet (kitchen storage).
             case 'pantry_cabinet':     return new PantryCabinetBuilder(materialService);
+
+            // F1.12 (2026-05-30) — Bedroom dressing (dresser + vanity table).
+            case 'dresser':            return new DresserBuilder(materialService);
+            case 'vanity_table':       return new VanityTableBuilder(materialService);
 
             case 'table':              return new TableBuilder(materialService);
             case 'table_marble_cone':  return new TableBuilder(materialService);
