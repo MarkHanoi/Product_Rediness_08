@@ -330,4 +330,51 @@ describe('buildLayoutThumbnailSvg (A5-modal-core)', () => {
         expect(m).toBeTruthy();
         expect(Number(m![1])).toBeLessThan(0);
     });
+
+    // T1.W-D (2026-05-30) — option.windows render as a triple-line glazing
+    // symbol on the host wall (mirrors the perimeter window symbol).
+    describe('T1.W-D option.windows rendering', () => {
+        it('emits an opening line + a glazing line per option.windows entry', () => {
+            // Baseline: walls + 1 door + 0 windows = 3 lines (2 walls + 1 door
+            // opening). Adding 1 option-window adds 2 more lines (opening + glazing).
+            const base = buildLayoutThumbnailSvg(opt(), { showScaleBar: false });
+            const baseLines = (base.match(/<line /g) ?? []).length;
+
+            const withWindow = buildLayoutThumbnailSvg(opt({
+                windows: [{ wallRef: 0, offset: 1500, width: 1500, height: 1300, sillHeight: 900, roomType: 'bedroom' }],
+            }), { showScaleBar: false });
+            const linesNow = (withWindow.match(/<line /g) ?? []).length;
+            expect(linesNow - baseLines).toBe(2);
+        });
+
+        it('uses the window colour for the glazing stroke', () => {
+            const svg = buildLayoutThumbnailSvg(opt({
+                windows: [{ wallRef: 0, offset: 1500, width: 1500, height: 1300, sillHeight: 900, roomType: 'living' }],
+            }), { showScaleBar: false, windowColor: '#1e90ff' });
+            // The glazing stroke uses the configured windowColor.
+            expect(svg).toContain('stroke="#1e90ff"');
+        });
+
+        it('skips degenerate windows (host wall missing or zero-length)', () => {
+            // wallRef out of range → window dropped silently
+            const svg = buildLayoutThumbnailSvg(opt({
+                windows: [{ wallRef: 99, offset: 1500, width: 1500, height: 1300, sillHeight: 900 }],
+            }), { showScaleBar: false });
+            // Should not throw; line count matches the no-windows baseline.
+            const base = buildLayoutThumbnailSvg(opt(), { showScaleBar: false });
+            expect((svg.match(/<line /g) ?? []).length).toBe((base.match(/<line /g) ?? []).length);
+        });
+
+        it('renders multiple option.windows independently', () => {
+            const svg = buildLayoutThumbnailSvg(opt({
+                windows: [
+                    { wallRef: 0, offset: 500,  width: 1500, height: 1300, sillHeight: 900, roomType: 'bedroom' },
+                    { wallRef: 1, offset: 1000, width: 1200, height: 1200, sillHeight: 1000, roomType: 'kitchen' },
+                ],
+            }), { showScaleBar: false });
+            const base = buildLayoutThumbnailSvg(opt(), { showScaleBar: false });
+            const delta = (svg.match(/<line /g) ?? []).length - (base.match(/<line /g) ?? []).length;
+            expect(delta).toBe(4);   // 2 lines per window × 2 windows
+        });
+    });
 });

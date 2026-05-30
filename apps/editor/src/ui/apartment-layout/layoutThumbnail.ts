@@ -286,6 +286,31 @@ export function buildLayoutThumbnailSvg(option: LayoutOption, opts: ThumbnailOpt
     const windowEls = windowSpans.map(s => renderSpanSymbol(s, 'window')).join('');
     const perimDoorEls = perimDoorSpans.map(s => renderSpanSymbol(s, 'door')).join('');
 
+    // T1.W-D (2026-05-30) — render the engine-emitted internal-side windows
+    // from option.windows (T1.W-B output). Same triple-line glazing symbol
+    // as the perimeter windows above, but with the host-wall lookup pattern
+    // of doors (walls[w.wallRef]). Empty when the option carries no windows.
+    const optionWindows = option.windows ?? [];
+    const optionWindowEls = optionWindows.map(w => {
+        const host = walls[w.wallRef];
+        if (!host) return '';
+        const dx = host.end.x - host.start.x;
+        const dy = host.end.y - host.start.y;
+        const len = Math.hypot(dx, dy) || 1;
+        const ux = dx / len, uy = dy / len;
+        const ax = host.start.x + ux * w.offset;
+        const ay = host.start.y + uy * w.offset;
+        const bx = host.start.x + ux * (w.offset + w.width);
+        const by = host.start.y + uy * (w.offset + w.width);
+        const sx = mapX(ax), sy = mapY(ay);
+        const ex = mapX(bx), ey = mapY(by);
+        const widthPx = Math.hypot(ex - sx, ey - sy);
+        if (widthPx < 1) return '';
+        const opening = `<line x1="${f1(sx)}" y1="${f1(sy)}" x2="${f1(ex)}" y2="${f1(ey)}" stroke="#ffffff" stroke-width="${wallW + 1}" stroke-linecap="butt"/>`;
+        const glazing = `<line x1="${f1(sx)}" y1="${f1(sy)}" x2="${f1(ex)}" y2="${f1(ey)}" stroke="${windowColor}" stroke-width="1.1" stroke-linecap="butt"/>`;
+        return `${opening}${glazing}`;
+    }).join('');
+
     // 6. Scale bar — bottom-right of the thumbnail. Target ~70 px wide; snap
     //    to nearest nice metre value (1, 2, 5, 10, 20, 50). Skipped on tiny
     //    thumbs (W < 120) or when scale is degenerate.
@@ -310,5 +335,5 @@ export function buildLayoutThumbnailSvg(option: LayoutOption, opts: ThumbnailOpt
         }
     }
 
-    return `${open}${bgRect}${roomEls}${wallEls}${doorEls}${windowEls}${perimDoorEls}${labelEls}${scaleBarEls}${close}`;
+    return `${open}${bgRect}${roomEls}${wallEls}${doorEls}${windowEls}${perimDoorEls}${optionWindowEls}${labelEls}${scaleBarEls}${close}`;
 }
