@@ -668,7 +668,7 @@ Each row pays the full 24-step contract obligation ladder (§0.1). Order: most s
 | **F1.7** | `wc_washbasin` + `wc_mirror` | geometry-plumbing + geometry-furniture | 10 d | ⬜ |
 | **F1.8** | Utility/laundry primitives | geometry-furniture + geometry-plumbing | 25 d | ⬜ |
 | **F1.9** | `buffet` + `sideboard` | geometry-furniture | 10 d | ✅ shipped 2026-05-30 — FurnitureType union + FurnitureCategoryMap (storage) + NEW DiningStorageBuilder.ts (BuffetBuilder 4-bay drawers+cabinets; SideboardBuilder 3-bay cabinets + 3 top drawers + tapered legs) + FurnitureFactory arms; ai-host FurnitureKind + footprints; dining-room archetype wires both on longest free wall (excludeWindowWall, excludeDoorSwing); programRules.dining mirrors. +5 pin tests including silhouette-intent assertion (sideboard.h < buffet.h). |
-| **F1.10** | `wall_art` + `wall_mirror` | geometry-furniture | 10 d | ⬜ |
+| **F1.10** | `wall_art` + `wall_mirror` | geometry-furniture | 10 d | ✅ shipped 2026-05-30 — FurnitureType union + FurnitureCategoryMap (decor) + NEW WallDecorBuilder.ts (WallArtBuilder dark frame + earthy canvas; WallMirrorBuilder gold frame + emissive glass) + FurnitureFactory arms; ai-host FurnitureKind + footprints (both wall-hung at baseOffset 1.20 m, clearFront 0); living-room archetype wires wall_art in 'sofa' group; bedroom archetype wires wall_mirror in 'bed' group; programRules.living + programRules.master mirror the additions. +5 pin tests. |
 | **F1.11** | Curtain primitives | geometry-furniture | 20 d | ⬜ |
 | **F1.12** | Bedroom dressing (`dresser`, `vanity_table`) | geometry-furniture | 10 d | ⬜ |
 | **F1.13** | `lounge_chair` semantic alias | geometry-furniture | 1 d | ⬜ |

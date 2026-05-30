@@ -114,6 +114,8 @@ export const FURNITURE_TYPE_TO_CATEGORY: Readonly<Record<FurnitureType, Furnitur
 
     // ── Decor ─────────────────────────────────────────────────────────────────
     'chimney':              'decor',
+    'wall_art':             'decor', // F1.10 — wall-mounted framed art panel
+    'wall_mirror':          'decor', // F1.10 — wall-mounted decorative mirror
     'plant_01':             'decor',
     'plant_02':             'decor',
     'plant_03':             'decor',

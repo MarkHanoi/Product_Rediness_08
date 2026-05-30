@@ -19,6 +19,9 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
             { kind: 'bed', anchor: 'wall-opposite-door', facing: 'to-wall', required: true, group: 'bed', excludeWindowWall: true, excludeDoorSwing: true },
             { kind: 'bedside_table', anchor: 'beside', facing: 'to-wall', required: true, group: 'bed', count: 2 },
             { kind: 'wardrobe', anchor: 'wall-longest', facing: 'to-wall', required: true, excludeWindowWall: true, excludeDoorSwing: true },
+            // F1.10 (2026-05-30) — Wall mirror above the bed wall (paired
+            // with the bed group — the mirror reads as a headboard accent).
+            { kind: 'wall_mirror', anchor: 'beside', facing: 'into-room', required: false, group: 'bed' },
             { kind: 'lamp', anchor: 'corner', facing: 'into-room', required: true },   // lighting
         ],
     },
@@ -41,6 +44,8 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
             // storage. Anchors on the longest free wall, excludes window wall
             // (tall piece blocks daylight) and the door wall.
             { kind: 'bookshelf_glass', anchor: 'wall-longest', facing: 'to-wall', required: false, excludeWindowWall: true, excludeDoorSwing: true },
+            // F1.10 (2026-05-30) — Wall art above the sofa (paired group).
+            { kind: 'wall_art', anchor: 'beside', facing: 'into-room', required: false, group: 'sofa', excludeWindowWall: true },
             { kind: 'lamp', anchor: 'corner', facing: 'into-room', required: false },   // lighting
         ],
     },

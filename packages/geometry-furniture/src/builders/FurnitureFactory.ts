@@ -54,6 +54,7 @@ import {
     VanityUnitBuilder, BathroomMirrorBuilder, TowelRailBuilder,
 } from './BathroomVanityBuilder';
 import { BuffetBuilder, SideboardBuilder } from './DiningStorageBuilder';
+import { WallArtBuilder, WallMirrorBuilder } from './WallDecorBuilder';
 
 export class FurnitureFactory {
     static getBuilder(
@@ -111,6 +112,10 @@ export class FurnitureFactory {
             // F1.9 (2026-05-30) — Dining-room storage (buffet + sideboard).
             case 'buffet':             return new BuffetBuilder(materialService);
             case 'sideboard':          return new SideboardBuilder(materialService);
+
+            // F1.10 (2026-05-30) — Wall decor (art + mirror).
+            case 'wall_art':           return new WallArtBuilder(materialService);
+            case 'wall_mirror':        return new WallMirrorBuilder(materialService);
 
             case 'table':              return new TableBuilder(materialService);
             case 'table_marble_cone':  return new TableBuilder(materialService);

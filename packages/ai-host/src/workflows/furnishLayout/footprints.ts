@@ -85,6 +85,12 @@ const FP: Readonly<Record<FurnitureKind, Footprint>> = {
     //   sideboard (low): 1.80 m × 0.45 m × 0.75 m, 0.70 m front clearance
     buffet:           { w: 1.50, l: 0.45, h: 0.90, baseOffset: 0, clearFront: 0.70, clearSides: 0.00 },
     sideboard:        { w: 1.80, l: 0.45, h: 0.75, baseOffset: 0, clearFront: 0.70, clearSides: 0.00 },
+    // F1.10 (2026-05-30) — Wall decor (both wall-mounted, no floor footprint
+    // — clearFront 0 because they don't extrude meaningfully into the room).
+    //   wall_art: 0.6 × 0.04 × 0.9 m, baseOffset 1.20 m (centre at eye level).
+    //   wall_mirror: 0.5 × 0.04 × 0.8 m, baseOffset 1.20 m.
+    wall_art:         { w: 0.60, l: 0.04, h: 0.90, baseOffset: 1.20, clearFront: 0.00, clearSides: 0.00 },
+    wall_mirror:      { w: 0.50, l: 0.04, h: 0.80, baseOffset: 1.20, clearFront: 0.00, clearSides: 0.00 },
 };
 
 /** Footprint for a furniture kind (always defined for supported kinds). */

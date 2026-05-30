@@ -130,6 +130,12 @@ export type FurnitureType =
     // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §4.2.9) ──────────
     | 'buffet'
     | 'sideboard'
+    // ── F1.10 (2026-05-30) — Wall art + wall mirror. Cross-room
+    // personalisation pieces; wall-mounted, optional in living / master /
+    // bedroom / dining / hall.
+    // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §4.2.10) ─────────
+    | 'wall_art'
+    | 'wall_mirror'
     | 'plant_01'
     | 'plant_02'
     | 'plant_03'

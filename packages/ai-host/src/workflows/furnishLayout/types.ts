@@ -42,7 +42,10 @@ export type FurnitureKind =
     | 'vanity_unit' | 'bathroom_mirror' | 'towel_rail'
     // F1.9 (2026-05-30) — dining-room storage. Buffet + sideboard.
     // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §F1.9)
-    | 'buffet' | 'sideboard';
+    | 'buffet' | 'sideboard'
+    // F1.10 (2026-05-30) — wall decor (cross-room personalisation).
+    // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §F1.10)
+    | 'wall_art' | 'wall_mirror';
 
 /** Editor RoomOccupancyType values this engine furnishes (subset). */
 export type FurnishableOccupancy =
