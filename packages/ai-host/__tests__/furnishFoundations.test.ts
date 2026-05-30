@@ -48,6 +48,32 @@ describe('archetypes (F2)', () => {
         expect(archetypeFor('corridor')!.items).toHaveLength(0);
         expect(archetypeFor('nonsense-type')).toBeNull();
     });
+
+    // F3.x archetype follow-ons (2026-05-30) — hall mirror + lounge_chair
+    // wired into entrance-lobby / bedroom / living-room respectively.
+    it('entrance-lobby (hall) archetype carries wall_mirror as an optional entry-group item', () => {
+        const items = archetypeFor('entrance-lobby')!.items;
+        const mirror = items.find(i => i.kind === 'wall_mirror');
+        expect(mirror).toBeDefined();
+        expect(mirror!.required).toBe(false);
+        expect(mirror!.group).toBe('entry');
+    });
+
+    it('bedroom archetype carries lounge_chair as an optional corner reading chair', () => {
+        const items = archetypeFor('bedroom')!.items;
+        const chair = items.find(i => i.kind === 'lounge_chair');
+        expect(chair).toBeDefined();
+        expect(chair!.required).toBe(false);
+        expect(chair!.anchor).toBe('corner');
+    });
+
+    it('living-room archetype carries lounge_chair as an optional corner seat', () => {
+        const items = archetypeFor('living-room')!.items;
+        const chair = items.find(i => i.kind === 'lounge_chair');
+        expect(chair).toBeDefined();
+        expect(chair!.required).toBe(false);
+        expect(chair!.anchor).toBe('corner');
+    });
 });
 
 describe('collision (F6)', () => {

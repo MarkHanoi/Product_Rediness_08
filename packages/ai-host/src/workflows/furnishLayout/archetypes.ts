@@ -31,6 +31,9 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
             // wall + two panels flanking. Optional so small bedrooms ship clean.
             { kind: 'curtain_rod',   anchor: 'wall-window', facing: 'to-wall', required: false, group: 'curtains' },
             { kind: 'curtain_panel', anchor: 'beside',      facing: 'to-wall', required: false, group: 'curtains', count: 2 },
+            // F3.3 (2026-05-30) — Optional reading chair in a corner of
+            // larger bedrooms (the classic primary-bedroom reading nook).
+            { kind: 'lounge_chair', anchor: 'corner', facing: 'into-room', required: false },
             { kind: 'lamp', anchor: 'corner', facing: 'into-room', required: true },   // lighting
         ],
     },
@@ -58,6 +61,10 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
             // F1.11 (2026-05-30) — Curtains on the living-room window wall.
             { kind: 'curtain_rod',   anchor: 'wall-window', facing: 'to-wall', required: false, group: 'curtains' },
             { kind: 'curtain_panel', anchor: 'beside',      facing: 'to-wall', required: false, group: 'curtains', count: 2 },
+            // F3.2 (2026-05-30) — Optional second seat for larger living rooms.
+            // Anchored at a corner so it pairs with the sofa as the secondary
+            // conversation seat without disturbing the sofa-coffee axis.
+            { kind: 'lounge_chair', anchor: 'corner', facing: 'into-room', required: false },
             { kind: 'lamp', anchor: 'corner', facing: 'into-room', required: false },   // lighting
         ],
     },
@@ -136,6 +143,10 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
             { kind: 'console_table', anchor: 'wall-opposite-door', facing: 'into-room', required: false, group: 'entry', excludeDoorSwing: true },
             { kind: 'coat_rack',     anchor: 'corner',              facing: 'into-room', required: false },
             { kind: 'entry_bench',   anchor: 'beside',              facing: 'into-room', required: false, group: 'entry' },
+            // F3.8 (2026-05-30) — wall_mirror above the console_table (the
+            // classic "lobby mirror" — quick glance on the way out). Pairs
+            // with the 'entry' group and yields to the console's chosen wall.
+            { kind: 'wall_mirror',   anchor: 'beside',              facing: 'into-room', required: false, group: 'entry' },
         ],
     },
     'private-office': {
