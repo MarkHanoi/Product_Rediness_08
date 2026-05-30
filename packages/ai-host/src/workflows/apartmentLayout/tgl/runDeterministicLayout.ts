@@ -106,6 +106,7 @@ export function generateDeterministicLayouts(
                 spatialClimax: c.objectives.spatialClimax,
                 entrySightline: c.objectives.entrySightline,
                 arrivalSequence: c.objectives.arrivalSequence,
+                wetStackAlignment: c.objectives.wetStackAlignment,
             },
         };
         return { ...labelled, score };

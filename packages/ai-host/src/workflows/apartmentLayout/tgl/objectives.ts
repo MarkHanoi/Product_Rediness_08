@@ -110,6 +110,26 @@ export interface ObjectiveVector {
      */
     readonly proportionalElegance: number;
     /**
+     * §L4-δ-2 (2026-05-30) — wet-stack alignment axis (Cognition Layer 4,
+     * Compositional Geometry). SOFT-scores how aligned the WET rooms are
+     * on a single plumbing axis. Aligned wet rooms can share a single
+     * vertical stack (cheaper / cleaner architecture); scattered wet
+     * rooms require multiple stacks (waste + acoustic + fire).
+     *
+     * Algorithm: compute centroid X-variance and Z-variance across all
+     * wet rooms (kitchen / bathroom / ensuite / wc / utility). The
+     * SMALLER of the two is the "stack-axis" deviation; lower = better
+     * aligned. Score = 1 − clamp(σ_min / 2.0 m). Wet rooms perfectly
+     * collinear on either axis → 1.0; spread by 2 m+ in BOTH axes → 0.
+     *
+     * Returns 1.0 when fewer than 2 wet rooms (no stack to optimise).
+     * Complements the existing T2.4 wet-cluster validator (which
+     * scores wall-sharing) by adding a CENTROID-AXIS check that
+     * catches "rooms share a wall but their fixtures sit at opposite
+     * corners."
+     */
+    readonly wetStackAlignment: number;
+    /**
      * §L2-β-3 (2026-05-30) — arrival sequence axis (Cognition Layer 2,
      * Spatial Hierarchy). Detects the canonical "compression-release"
      * pattern: a small entry releasing into a larger revealed space.
@@ -164,7 +184,7 @@ export interface ObjectiveVector {
 }
 
 export const OBJECTIVE_AXES: readonly (keyof ObjectiveVector)[] =
-    ['efficiency', 'adjacency', 'daylight', 'circulation', 'regularity', 'hierarchy', 'shapeQuality', 'topologyQuality', 'edgeRealisation', 'openingCadence', 'proportionalElegance', 'spatialClimax', 'entrySightline', 'arrivalSequence'] as const;
+    ['efficiency', 'adjacency', 'daylight', 'circulation', 'regularity', 'hierarchy', 'shapeQuality', 'topologyQuality', 'edgeRealisation', 'openingCadence', 'proportionalElegance', 'spatialClimax', 'entrySightline', 'arrivalSequence', 'wetStackAlignment'] as const;
 
 const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n);
 const num = (v: unknown, d = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -201,7 +221,7 @@ export function computeObjectives(
     const spaces = graph.nodes.filter(n => n.kind === 'Space');
     const totalArea = spaces.reduce((s, n) => s + num(n.attrs.netAreaM2), 0);
     if (spaces.length === 0 || totalArea <= 0) {
-        return { efficiency: 0, adjacency: 0, daylight: 0, circulation: 0, regularity: 0, hierarchy: 0, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation: 1, openingCadence: 1, proportionalElegance: 1, spatialClimax: 1, entrySightline: 1, arrivalSequence: 1 };
+        return { efficiency: 0, adjacency: 0, daylight: 0, circulation: 0, regularity: 0, hierarchy: 0, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation: 1, openingCadence: 1, proportionalElegance: 1, spatialClimax: 1, entrySightline: 1, arrivalSequence: 1, wetStackAlignment: 1 };
     }
 
     // ── efficiency: how little of the floor is circulation. ──────────────────────
@@ -395,6 +415,31 @@ export function computeObjectives(
         }
     }
 
+    // ── §L4-δ-2 wetStackAlignment: how well-aligned the wet rooms are on
+    //    a single plumbing axis. Computes variance of wet-room centroids
+    //    on X + Z; the SMALLER variance is the "stack axis" deviation
+    //    (perfect alignment → 0 variance on the stack axis). Score
+    //    derived from σ_min / 2.0 m typical-room half-width.
+    const WET_TYPES = new Set(['kitchen', 'bathroom', 'ensuite', 'wc', 'utility']);
+    const wetCentroids: { x: number; z: number }[] = [];
+    for (const n of spaces) {
+        const t = typeof n.attrs.spaceType === 'string' ? n.attrs.spaceType : '';
+        if (!WET_TYPES.has(t)) continue;
+        const r = polyRect(n);
+        if (!r) continue;
+        wetCentroids.push({ x: (r.minX + r.maxX) / 2, z: (r.minZ + r.maxZ) / 2 });
+    }
+    let wetStackAlignment = 1;                              // default neutral (≤1 wet room)
+    if (wetCentroids.length >= 2) {
+        const meanX = wetCentroids.reduce((s, p) => s + p.x, 0) / wetCentroids.length;
+        const meanZ = wetCentroids.reduce((s, p) => s + p.z, 0) / wetCentroids.length;
+        const varX = wetCentroids.reduce((s, p) => s + (p.x - meanX) ** 2, 0) / wetCentroids.length;
+        const varZ = wetCentroids.reduce((s, p) => s + (p.z - meanZ) ** 2, 0) / wetCentroids.length;
+        const sigmaMin = Math.sqrt(Math.min(varX, varZ));
+        const TYPICAL_ROOM_HALF_M = 2.0;
+        wetStackAlignment = clamp01(1 - sigmaMin / TYPICAL_ROOM_HALF_M);
+    }
+
     // ── §L4-δ-4 proportionalElegance: per-room aspect-ratio comfort plateau.
     //    Area-weighted mean across spaces. Soft gradient on top of D2.1's
     //    HARD aspect bounds.
@@ -491,7 +536,7 @@ export function computeObjectives(
     }
     const edgeRealisation = realisationN > 0 ? clamp01(realisationSum / realisationN) : 1;
 
-    return { efficiency, adjacency, daylight, circulation, regularity, hierarchy, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation, openingCadence, proportionalElegance, spatialClimax, entrySightline, arrivalSequence };
+    return { efficiency, adjacency, daylight, circulation, regularity, hierarchy, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation, openingCadence, proportionalElegance, spatialClimax, entrySightline, arrivalSequence, wetStackAlignment };
 }
 
 const pairKey = (a: string, b: string): string => (a < b ? `${a}|${b}` : `${b}|${a}`);

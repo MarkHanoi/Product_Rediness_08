@@ -174,6 +174,11 @@ export interface LayoutScoreBreakdown {
      *  ratio < 1 → 0 (anti-pattern: entry is bigger than what it reveals).
      *  Cognition Layer 2. */
     arrivalSequence?: number;      // 0-1
+    /** §L4-δ-2 wetStackAlignment — wet-room centroids collinear on X or Z?
+     *  σ_min on the stack axis → score = 1 − σ/2m. Aligned wet rooms can
+     *  share a plumbing stack. Complements T2.4 wet-cluster (which scores
+     *  wall-sharing) by adding a centroid-axis check. Cognition Layer 4. */
+    wetStackAlignment?: number;    // 0-1
 }
 
 export interface LayoutScore {

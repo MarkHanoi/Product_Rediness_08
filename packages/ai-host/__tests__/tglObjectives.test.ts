@@ -665,6 +665,76 @@ describe('computeObjectives (TGL P7)', () => {
         });
     });
 
+    // §L4-δ-2 (2026-05-30) — wetStackAlignment: per-axis centroid variance
+    // among wet rooms. Lower σ on the stack axis = better aligned.
+    describe('§L4-δ-2 wetStackAlignment', () => {
+        // Helper: room with a centroid at (cx, cz) and 2x2 m footprint.
+        const wetRoom = (guid: string, type: string, cx: number, cz: number) => ({
+            guid, kind: 'Space' as const, sourceId: guid,
+            attrs: { spaceType: type, netAreaM2: 4 },
+            geometry: { polygon: [
+                { x: cx - 1, z: cz - 1 }, { x: cx + 1, z: cz - 1 },
+                { x: cx + 1, z: cz + 1 }, { x: cx - 1, z: cz + 1 },
+            ] },
+            psets: {},
+        });
+
+        it('0 wet rooms → 1.0 (no stack to optimise)', () => {
+            const g = graphOf([
+                space('L', { spaceType: 'living', netAreaM2: 25, isPrivate: false, needsWindow: true }),
+            ]);
+            const v = computeObjectives(g, metricsOf({ L: 0 }), emptyBubble);
+            expect(v.wetStackAlignment).toBe(1);
+        });
+
+        it('1 wet room → 1.0 (no pair to align)', () => {
+            const g = graphOf([wetRoom('K', 'kitchen', 0, 0)]);
+            const v = computeObjectives(g, metricsOf({ K: 0 }), emptyBubble);
+            expect(v.wetStackAlignment).toBe(1);
+        });
+
+        it('2 wet rooms stacked on X axis (same X, different Z) → 1.0', () => {
+            // Both centroids at x=0; z values differ → varX = 0 → σ_min = 0 → score 1.
+            const g = graphOf([
+                wetRoom('K', 'kitchen', 0, 0),
+                wetRoom('B', 'bathroom', 0, 5),
+            ]);
+            const v = computeObjectives(g, metricsOf({ K: 0, B: 1 }), emptyBubble);
+            expect(v.wetStackAlignment).toBe(1);
+        });
+
+        it('2 wet rooms scattered on both axes → score < 1', () => {
+            // Centroids at (0,0) + (3, 3) — neither axis is collinear.
+            const g = graphOf([
+                wetRoom('K', 'kitchen', 0, 0),
+                wetRoom('B', 'bathroom', 3, 3),
+            ]);
+            const v = computeObjectives(g, metricsOf({ K: 0, B: 1 }), emptyBubble);
+            // σ_min on each axis = 1.5 → score = 1 - 1.5/2 = 0.25
+            expect(v.wetStackAlignment).toBeCloseTo(0.25, 6);
+        });
+
+        it('3 wet rooms collinear on Z (same Z, different X) → 1.0', () => {
+            const g = graphOf([
+                wetRoom('K', 'kitchen', 0, 4),
+                wetRoom('B', 'bathroom', 3, 4),
+                wetRoom('W', 'wc', 6, 4),
+            ]);
+            const v = computeObjectives(g, metricsOf({ K: 0, B: 1, W: 2 }), emptyBubble);
+            expect(v.wetStackAlignment).toBe(1);
+        });
+
+        it('far-scattered wet rooms (σ_min ≥ 2m) → 0', () => {
+            const g = graphOf([
+                wetRoom('K', 'kitchen', 0, 0),
+                wetRoom('B', 'bathroom', 6, 6),
+            ]);
+            const v = computeObjectives(g, metricsOf({ K: 0, B: 1 }), emptyBubble);
+            // σ_min on each axis = 3 → score = 1 - 3/2 = -0.5 → clamp 0
+            expect(v.wetStackAlignment).toBe(0);
+        });
+    });
+
     it('daylight (no field): behaviour unchanged (back-compat)', () => {
         // emptyBubble has no daylightField → the prior binary fronts-facade
         // computation must produce the same number for both rooms regardless
