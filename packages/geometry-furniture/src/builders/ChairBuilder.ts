@@ -41,6 +41,9 @@ export class ChairBuilder implements IFurnitureBuilder {
         if (data.furnitureType === 'chair_3leg_obejita_black') return this.buildThreeLegObejitaBlackChair(data);
         if (data.furnitureType === 'chair_4leg_obejita_wood') return this.buildFourLegObejitaWoodChair(data);
         if (data.furnitureType === 'chair_barcelona_black') return this.buildBarcelonaBlackChair(data);
+        // F1.13 (2026-05-30) — `lounge_chair` is the semantic alias used by
+        // archetypes; renders as the Barcelona-black lounge silhouette.
+        if (data.furnitureType === 'lounge_chair') return this.buildBarcelonaBlackChair(data);
         if (data.furnitureType === 'chair_barcelona_ottoman_black') return this.buildBarcelonaOttoman(data);
         if (data.furnitureType === 'barcelona_sofa_1seat')  return this.buildBarcelonaSofa(data, 1);
         if (data.furnitureType === 'barcelona_sofa_2seat')  return this.buildBarcelonaSofa(data, 2);

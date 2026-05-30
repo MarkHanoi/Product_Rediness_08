@@ -136,6 +136,13 @@ export type FurnitureType =
     // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §4.2.10) ─────────
     | 'wall_art'
     | 'wall_mirror'
+    // ── F1.13 (2026-05-30) — Lounge chair semantic alias. Routes to the
+    // existing Barcelona-black builder under the hood (matches the same
+    // chunky leather + chrome lounge silhouette); admitted as its own
+    // FurnitureType so archetypes can request it semantically rather than
+    // by stylistic name.
+    // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §4.2.13) ─────────
+    | 'lounge_chair'
     | 'plant_01'
     | 'plant_02'
     | 'plant_03'

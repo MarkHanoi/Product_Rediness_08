@@ -59,6 +59,7 @@ export const FURNITURE_TYPE_TO_CATEGORY: Readonly<Record<FurnitureType, Furnitur
     'chair_cesca_tan':       'chairs',
     'chair_textile_wood_arm': 'chairs',
     'desk_chair':            'chairs', // F1.1 — swivel task chair
+    'lounge_chair':          'chairs', // F1.13 — semantic alias (Barcelona-style lounge)
 
     // ── Tables ────────────────────────────────────────────────────────────────
     'table':                'tables',

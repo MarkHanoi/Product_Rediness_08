@@ -134,6 +134,8 @@ export class FurnitureFactory {
             case 'chair_3leg_obejita_black': return new ChairBuilder(materialService);
             case 'chair_4leg_obejita_wood': return new ChairBuilder(materialService);
             case 'chair_barcelona_black': return new ChairBuilder(materialService);
+            // F1.13 (2026-05-30) — semantic alias routes to Barcelona-black builder.
+            case 'lounge_chair':       return new ChairBuilder(materialService);
             case 'chair_barcelona_ottoman_black': return new ChairBuilder(materialService);
             case 'barcelona_sofa_1seat':  return new ChairBuilder(materialService);
             case 'barcelona_sofa_2seat':  return new ChairBuilder(materialService);

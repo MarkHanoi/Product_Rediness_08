@@ -45,7 +45,10 @@ export type FurnitureKind =
     | 'buffet' | 'sideboard'
     // F1.10 (2026-05-30) — wall decor (cross-room personalisation).
     // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §F1.10)
-    | 'wall_art' | 'wall_mirror';
+    | 'wall_art' | 'wall_mirror'
+    // F1.13 (2026-05-30) — lounge_chair semantic alias.
+    // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §F1.13)
+    | 'lounge_chair';
 
 /** Editor RoomOccupancyType values this engine furnishes (subset). */
 export type FurnishableOccupancy =
