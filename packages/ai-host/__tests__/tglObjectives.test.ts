@@ -560,10 +560,14 @@ describe('computeObjectives (TGL P7)', () => {
             expect(v.entrySightline).toBeCloseTo(0.3, 6);
         });
 
-        it('hall with zero CONNECTS_THROUGH neighbours → 0.3 (blind entry)', () => {
+        it('hall with zero CONNECTS_THROUGH neighbours → 0.3 (blind entry, graph-distance fallback)', () => {
+            // §L2-β-2b (2026-05-30): without polygons the engine falls back
+            // to graph-distance counting; with NO edges the visible-count is
+            // 0 → 0.3. (The raycast path requires polygons for ALL spaces;
+            // the production D-TGL pipeline always populates them.)
             const g = graphOf([
-                space('H', { spaceType: 'hall', netAreaM2: 4, isPrivate: false, needsWindow: false }),
-                space('L', { spaceType: 'living', netAreaM2: 25, isPrivate: false, needsWindow: true }),
+                { ...space('H', { spaceType: 'hall', netAreaM2: 4, isPrivate: false, needsWindow: false }), geometry: {} },
+                { ...space('L', { spaceType: 'living', netAreaM2: 25, isPrivate: false, needsWindow: true }), geometry: {} },
             ], []);
             const v = computeObjectives(g, metricsOf({ H: 0, L: 1 }), emptyBubble);
             expect(v.entrySightline).toBeCloseTo(0.3, 6);

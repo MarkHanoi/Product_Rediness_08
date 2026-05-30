@@ -67,7 +67,7 @@ Single-page reference for **every phase and subphase** across the apartment plat
 | ID | Deliverable | Status |
 |---|---|---|
 | **L2-β-1** hierarchy axis (privacy depth) | Discrete-tier gradient | ✅ |
-| **L2-β-2** EntrySightlineScore | Graph-distance form ✅; ray-cast variant (L2-β-2b) ✅ shipped 2026-05-30 (entrySightlineRaycast.ts, 31 pin tests). Engine plumbing TBD. | 🟨 |
+| **L2-β-2** EntrySightlineScore | Graph-distance form ✅ + ray-cast variant (L2-β-2b) ✅ both shipped 2026-05-30; objectives.ts now uses raycast when all spaces carry polygons (production D-TGL path), falls back to graph-distance otherwise. | ✅ |
 | **L2-β-3** ArrivalSequence | Compression-release ratio | ✅ |
 | **L2-β-4** SpatialClimax | Dominant non-circulation room arrival depth | ✅ |
 | **L2-β-5** Modal Hierarchy axis + arrival narrative text | UI work | ⬜ |

@@ -17,6 +17,7 @@ import type { BubbleGraph } from './bubbleGraph.js';
 import type { LayoutGraph, GraphNode } from './semanticGraph.js';
 import type { SyntaxMetrics } from './spaceSyntax.js';
 import { preferenceBetween } from '../rules/programRules.js';
+import { countVisibleSpacesByRaycast, scoreVisibleSpaceCount } from './entrySightlineRaycast.js';
 
 export interface ObjectiveVector {
     readonly efficiency: number;
@@ -364,21 +365,31 @@ export function computeObjectives(
     }
     let entrySightline = 1;                                 // default neutral
     if (entryGuid !== null) {
-        const visible = new Set<string>();
-        for (const e of graph.edges) {
-            if (e.kind === 'CONNECTS_THROUGH') {
-                if (e.from === entryGuid) visible.add(e.to);
-                else if (e.to === entryGuid) visible.add(e.from);
-            } else if (e.kind === 'ADJACENT_TO' && e.props?.permeable === true) {
-                if (e.from === entryGuid) visible.add(e.to);
-                else if (e.to === entryGuid) visible.add(e.from);
+        // §L2-β-2b (2026-05-30) — RAY-CAST variant. When every space carries
+        // a polygon (the production D-TGL path), use the literal sight-line
+        // raycaster: trace a segment from the entry centroid to each other
+        // room's centroid, counting only those whose sight is NOT blocked by
+        // a solid wall section. Falls back to the graph-distance form below
+        // when polygons are missing (test fixtures without geometry, AI
+        // back-compat). Both forms share `scoreVisibleSpaceCount` so the
+        // architectural band semantics are identical.
+        const allHavePolygons = spaces.every(n => (n.geometry?.polygon?.length ?? 0) >= 3);
+        if (allHavePolygons) {
+            const n = countVisibleSpacesByRaycast(graph, entryGuid);
+            entrySightline = scoreVisibleSpaceCount(n);
+        } else {
+            const visible = new Set<string>();
+            for (const e of graph.edges) {
+                if (e.kind === 'CONNECTS_THROUGH') {
+                    if (e.from === entryGuid) visible.add(e.to);
+                    else if (e.to === entryGuid) visible.add(e.from);
+                } else if (e.kind === 'ADJACENT_TO' && e.props?.permeable === true) {
+                    if (e.from === entryGuid) visible.add(e.to);
+                    else if (e.to === entryGuid) visible.add(e.from);
+                }
             }
+            entrySightline = scoreVisibleSpaceCount(visible.size);
         }
-        const n = visible.size;
-        if (n === 1 || n === 2)      entrySightline = 1.0;
-        else if (n === 0)            entrySightline = 0.3;
-        else if (n === 3)            entrySightline = 0.7;
-        else /* n ≥ 4 */             entrySightline = 0.3;
     }
 
     // ── §L2-β-3 arrivalSequence: compression-release pattern. Reuses the
