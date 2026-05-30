@@ -315,7 +315,7 @@ Proposed slice ladder (each slice contract-complete per §0.1 of the master plan
 
 | ID | Deliverable | Est | Anchors |
 |---|---|---|---|
-| **D-α-0** | `ApartmentParameterSchema` + `RoomParameterSchema` Zod definitions in `packages/schemas/` (P5) | 0.5 wk | C03 §2.1 |
+| **D-α-0** | `ApartmentParameterSchema` + `RoomParameterSchema` Zod definitions in `packages/schemas/` (P5) | 0.5 wk | C03 §2.1 — **✅ shipped 2026-05-30** in `packages/schemas/src/apartment/ApartmentParameters.ts` (subpath export `@pryzm/schemas/apartment`). Carries `ApartmentTypology` enum (5 values: open-plan-mid-rise / closed-plan-mid-rise / compact-studio / duplex / penthouse); `RoomType` enum mirrored from ai-host; `ParameterEnvelope { value, min, max }` with refine() checking value ∈ [min, max] (max can be Infinity); `ApartmentParameters` (id + shellAreaM2 envelope + bedrooms/bathrooms + masterEnSuite + openPlanKitchenDining + livingRoom + entranceHall + typology); `RoomParameters` (id + apartmentId + type + name + area/width/depth envelopes + daylightRequired + privacyTier 1-4 + optional acousticIsolation). +27 pin tests across enum coverage, envelope bounds (under/over/Infinity/negative/NaN), required-field rejection, type-guard parity, JSON round-trip. Schemas total now **164/164** (was 137). |
 | **D-α-1** | `apartmentStore` + `roomStore` extensions to hold editable parameters post-execute | 0.5 wk | C03 §2.2 |
 | **D-α-2** | `apartment.updateParameter` + `room.updateParameter` commands + handlers | 1 wk | C16 |
 | **D-α-3** | `apartmentSolver.recomputeImpact` — local-region resolver | 2 wk | new file in workflows/apartmentLayout/solver/ |

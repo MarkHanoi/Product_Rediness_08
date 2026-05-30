@@ -21,7 +21,8 @@
     "./sheet/widget-payloads": "./src/sheet/widget-payloads.ts",
     "./schedule": "./src/schedule/index.ts",
     "./schedule/schedule": "./src/schedule/schedule.ts",
-    "./schedule/formula": "./src/schedule/formula.ts"
+    "./schedule/formula": "./src/schedule/formula.ts",
+    "./apartment": "./src/apartment/index.ts"
   },
   "files": ["src", "dist"],
   "scripts": {
