@@ -110,4 +110,73 @@ describe('RoomParametersStore (D-α-1)', () => {
         store.setRoom(validRoom());
         expect(goodCalls).toBe(1);
     });
+
+    // D-α-2 (BIM 2/3) — patch-merge update for room.updateParameter.
+    describe('updateRoom (D-α-2)', () => {
+        beforeEach(() => { store.setRoom(validRoom()); });
+
+        it('accepts a name rename + persists', () => {
+            const r = store.updateRoom('r-master', { name: 'Primary Bedroom' });
+            expect(r.ok).toBe(true);
+            if (r.ok) {
+                expect(r.prior.name).toBe('Master Bedroom');
+                expect(store.getRoom('r-master')!.name).toBe('Primary Bedroom');
+            }
+        });
+
+        it('accepts a type retype + persists', () => {
+            const r = store.updateRoom('r-master', { type: 'study' });
+            expect(r.ok).toBe(true);
+            expect(store.getRoom('r-master')!.type).toBe('study');
+        });
+
+        it('rejects empty name (schema)', () => {
+            const r = store.updateRoom('r-master', { name: '' });
+            expect(r.ok).toBe(false);
+            expect(store.getRoom('r-master')!.name).toBe('Master Bedroom');
+        });
+
+        it('rejects privacyTier out of range', () => {
+            const r = store.updateRoom('r-master', { privacyTier: 99 });
+            expect(r.ok).toBe(false);
+        });
+
+        it('rejects with not-found when the room is missing', () => {
+            const r = store.updateRoom('r-other', { name: 'X' });
+            expect(r.ok).toBe(false);
+            if (!r.ok) expect(r.reason).toBe('not-found');
+        });
+
+        it('preserves other fields when patching a single field', () => {
+            store.updateRoom('r-master', { name: 'Renamed' });
+            const r = store.getRoom('r-master')!;
+            expect(r.type).toBe('master');
+            expect(r.areaM2.value).toBe(16);
+            expect(r.privacyTier).toBe(3);
+        });
+
+        it('strips id from the patch defensively', () => {
+            const r = store.updateRoom('r-master', { id: 'r-other', name: 'Renamed' });
+            expect(r.ok).toBe(true);
+            expect(store.getRoom('r-master')!.name).toBe('Renamed');
+            expect(store.getRoom('r-other')).toBeUndefined();
+        });
+
+        it('notifies on accepted update + NOT on rejection', () => {
+            let count = 0;
+            store.subscribe(() => { count++; });
+            store.updateRoom('r-master', { name: 'X' });
+            store.updateRoom('r-master', { privacyTier: 99 });     // invalid
+            store.updateRoom('r-X', { name: 'X' });                 // not found
+            expect(count).toBe(1);
+        });
+
+        it('returns prior record so caller can implement undo', () => {
+            const r = store.updateRoom('r-master', { name: 'X' });
+            if (r.ok) {
+                store.setRoom(r.prior);
+                expect(store.getRoom('r-master')!.name).toBe('Master Bedroom');
+            }
+        });
+    });
 });

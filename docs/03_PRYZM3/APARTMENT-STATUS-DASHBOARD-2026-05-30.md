@@ -13,7 +13,7 @@ Single-page reference for **every phase and subphase** across the apartment plat
 | **PG0** Platform Geospatial Foundation (12 deliverables, ~26 wk) | [PRYZM03-GEOSPATIAL-FOUNDATION-REVIEW](PRYZM03-GEOSPATIAL-FOUNDATION-REVIEW.md) | 🟦 strategy doc shipped; 0/12 implementation |
 | **GS0** Apartment-consumer of PG0 (9 deliverables) | [PRYZM-GEOSPATIAL-FOUNDATION-AND-SITE-INTELLIGENCE-REVIEW](PRYZM-GEOSPATIAL-FOUNDATION-AND-SITE-INTELLIGENCE-REVIEW.md) | 🟦 strategy doc shipped; consumer-of-PG0 |
 | **P0** Family Platform & User-Defined Elements (9 deliverables, ~28 wk) | [APARTMENT-FAMILY-PLATFORM-AND-USER-DEFINED-ELEMENTS](APARTMENT-FAMILY-PLATFORM-AND-USER-DEFINED-ELEMENTS-2026-05-30.md) | 🟦 strategy doc shipped; 0/9 implementation |
-| **BIM 1/2/3** Live Parametric (14 deliverables, ~17 wk) | [APARTMENT-BIM2-BIM3-DATA-MANAGEMENT-AND-LIVE-PARAMETRIC-SYSTEM](APARTMENT-BIM2-BIM3-DATA-MANAGEMENT-AND-LIVE-PARAMETRIC-SYSTEM.md) | 🟨 2/14 — D-α-0 schemas + D-α-1 stores both ✅ 2026-05-30. Partial via modal-dynamic (pre-execute path). |
+| **BIM 1/2/3** Live Parametric (14 deliverables, ~17 wk) | [APARTMENT-BIM2-BIM3-DATA-MANAGEMENT-AND-LIVE-PARAMETRIC-SYSTEM](APARTMENT-BIM2-BIM3-DATA-MANAGEMENT-AND-LIVE-PARAMETRIC-SYSTEM.md) | 🟨 3/14 — D-α-0 schemas + D-α-1 stores + D-α-2 commands (types+patch-merge stores) all ✅ 2026-05-30. Partial via modal-dynamic. |
 
 ---
 

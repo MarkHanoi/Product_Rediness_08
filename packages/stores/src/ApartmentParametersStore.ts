@@ -52,6 +52,43 @@ export class ApartmentParametersStore extends Store<ApartmentParametersType> {
         return this.state.get(id);
     }
 
+    /**
+     * D-α-2 (2026-05-30) — patch-merge update. Reads the current record,
+     * merges the patch (omitting any `id` field — that's the lookup key,
+     * not editable), re-validates via the schema, and persists when valid.
+     *
+     * Returns:
+     *   - `{ ok: true, prior }` — update accepted; `prior` is the record
+     *     before the patch (caller can use it for undo).
+     *   - `{ ok: false, reason: 'not-found' }` — no apartment with that id.
+     *   - `{ ok: false, reason: 'invalid', detail }` — patch produces a
+     *     record that fails schema validation (envelope violation, range
+     *     violation, etc.). No mutation; the prior record stays in place.
+     *
+     * The command-bus handler for `apartment.updateParameter` is the
+     * authoritative dispatch path; this method is its single side effect.
+     */
+    updateApartment(
+        id: string,
+        patch: Record<string, unknown>,
+    ): { ok: true; prior: ApartmentParametersType }
+       | { ok: false; reason: 'not-found' }
+       | { ok: false; reason: 'invalid'; detail: string } {
+        const prior = this.state.get(id);
+        if (!prior) return { ok: false, reason: 'not-found' };
+        // Strip the id from the patch defensively — clients should never
+        // include it but we own the lookup-key contract.
+        const { id: _ignored, ...editable } = patch;
+        const merged = { ...prior, ...editable, id: prior.id };
+        const parsed = ApartmentParameters.safeParse(merged);
+        if (!parsed.success) {
+            return { ok: false, reason: 'invalid', detail: parsed.error.message };
+        }
+        this.state.set(parsed.data.id, Object.freeze(parsed.data));
+        this._notify();
+        return { ok: true, prior };
+    }
+
     /** Every apartment record in the store. */
     list(): readonly ApartmentParametersType[] {
         return [...this.state.values()];

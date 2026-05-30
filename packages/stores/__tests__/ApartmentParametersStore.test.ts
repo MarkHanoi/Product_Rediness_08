@@ -102,4 +102,79 @@ describe('ApartmentParametersStore (D-α-1)', () => {
         store.setApartment(validApt());
         expect(goodCalls).toBe(1);
     });
+
+    // D-α-2 (BIM 2/3) — patch-merge update for apartment.updateParameter.
+    describe('updateApartment (D-α-2)', () => {
+        beforeEach(() => { store.setApartment(validApt()); });
+
+        it('accepts a partial patch + persists the merged record', () => {
+            const r = store.updateApartment('apt-1', { bedrooms: 3 });
+            expect(r.ok).toBe(true);
+            if (r.ok) {
+                expect(r.prior.bedrooms).toBe(2);
+                expect(store.getApartment('apt-1')!.bedrooms).toBe(3);
+                // Other fields preserved
+                expect(store.getApartment('apt-1')!.bathrooms).toBe(1);
+            }
+        });
+
+        it('multi-field patch updates every named field', () => {
+            const r = store.updateApartment('apt-1', { bedrooms: 4, bathrooms: 2, typology: 'duplex' });
+            expect(r.ok).toBe(true);
+            const next = store.getApartment('apt-1')!;
+            expect(next.bedrooms).toBe(4);
+            expect(next.bathrooms).toBe(2);
+            expect(next.typology).toBe('duplex');
+        });
+
+        it('rejects with not-found when the apartment does not exist', () => {
+            const r = store.updateApartment('apt-X', { bedrooms: 3 });
+            expect(r.ok).toBe(false);
+            if (!r.ok) expect(r.reason).toBe('not-found');
+        });
+
+        it('rejects with invalid + detail when the patch violates schema', () => {
+            const r = store.updateApartment('apt-1', { bedrooms: -1 });
+            expect(r.ok).toBe(false);
+            if (!r.ok && r.reason === 'invalid') {
+                expect(r.detail).toMatch(/bedrooms/i);
+            }
+            // Store unchanged.
+            expect(store.getApartment('apt-1')!.bedrooms).toBe(2);
+        });
+
+        it('rejects envelope value outside [min, max]', () => {
+            const r = store.updateApartment('apt-1', {
+                shellAreaM2: { value: 30, min: 60, max: 120 },
+            });
+            expect(r.ok).toBe(false);
+        });
+
+        it('strips id from the patch defensively (cannot rename via update)', () => {
+            const r = store.updateApartment('apt-1', { id: 'apt-2', bedrooms: 3 });
+            expect(r.ok).toBe(true);
+            expect(store.getApartment('apt-1')!.bedrooms).toBe(3);
+            expect(store.getApartment('apt-2')).toBeUndefined();
+        });
+
+        it('notifies subscribers on accepted update + NOT on rejection', () => {
+            let count = 0;
+            store.subscribe(() => { count++; });
+            store.updateApartment('apt-1', { bedrooms: 3 });
+            expect(count).toBe(1);
+            store.updateApartment('apt-1', { bedrooms: -1 });   // invalid
+            expect(count).toBe(1);
+            store.updateApartment('apt-X', { bedrooms: 3 });    // not found
+            expect(count).toBe(1);
+        });
+
+        it('returns prior record so caller can implement undo', () => {
+            const r = store.updateApartment('apt-1', { bedrooms: 5 });
+            if (r.ok) {
+                // Undo: re-apply the prior
+                store.setApartment(r.prior);
+                expect(store.getApartment('apt-1')!.bedrooms).toBe(2);
+            }
+        });
+    });
 });

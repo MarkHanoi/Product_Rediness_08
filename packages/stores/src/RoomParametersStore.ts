@@ -50,6 +50,29 @@ export class RoomParametersStore extends Store<RoomParametersType> {
         return this.state.get(id);
     }
 
+    /**
+     * D-α-2 (2026-05-30) — patch-merge update for `room.updateParameter`.
+     * Same shape as ApartmentParametersStore.updateApartment.
+     */
+    updateRoom(
+        id: string,
+        patch: Record<string, unknown>,
+    ): { ok: true; prior: RoomParametersType }
+       | { ok: false; reason: 'not-found' }
+       | { ok: false; reason: 'invalid'; detail: string } {
+        const prior = this.state.get(id);
+        if (!prior) return { ok: false, reason: 'not-found' };
+        const { id: _ignored, ...editable } = patch;
+        const merged = { ...prior, ...editable, id: prior.id };
+        const parsed = RoomParameters.safeParse(merged);
+        if (!parsed.success) {
+            return { ok: false, reason: 'invalid', detail: parsed.error.message };
+        }
+        this.state.set(parsed.data.id, Object.freeze(parsed.data));
+        this._notify();
+        return { ok: true, prior };
+    }
+
     /** Every room owned by a given apartment. */
     forApartment(apartmentId: string): readonly RoomParametersType[] {
         const out: RoomParametersType[] = [];

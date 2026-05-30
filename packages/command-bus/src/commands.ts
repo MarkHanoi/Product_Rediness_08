@@ -685,6 +685,39 @@ export type RoomMutationCommands = {
     'room.updateFinishes':  { roomId: string; finishes: Record<string, unknown> };
 };
 
+/** D-α-2 (BIM 2/3 §6 Workstream D) — apartment-parameter mutation payloads.
+ *
+ * The L0 substrate edit verbs. Each carries a `patch` of the fields to
+ * change; absent fields keep their current values. The handler:
+ *   1. Reads the current record from the apartment / room parameter store
+ *   2. Merges patch ↔ current
+ *   3. Re-validates via the schema (envelope bounds, foreign-key shape)
+ *   4. Persists the new record + emits a store change notification
+ *
+ * Per BIM 2/3 §4: every parameter edit MUST go through the bus. The
+ * Data Management Panel dispatches these, never mutates the store
+ * directly. The propagation engine (D-α-3) subscribes to the store
+ * notification and re-derives the local region of geometry.
+ */
+export type ApartmentParameterMutationCommands = {
+    /** Patch any subset of an apartment's editable parameters. The patch
+     *  must NOT include `id` (that's the lookup key); patches that would
+     *  violate the schema (envelope bounds, room count limits) are
+     *  rejected with no mutation. */
+    'apartment.updateParameter': {
+        readonly apartmentId: string;
+        readonly patch: Record<string, unknown>;
+    };
+    /** Patch any subset of a room's editable parameters. Same shape as
+     *  apartment.updateParameter — patch fields override; absent fields
+     *  keep current. Type renames + retypes ARE allowed at this layer
+     *  (the propagation engine handles the cascade). */
+    'room.updateParameter': {
+        readonly roomId: string;
+        readonly patch: Record<string, unknown>;
+    };
+};
+
 /** Wall mutation payloads — P4 */
 export type WallMutationCommands = {
     'wall.updateSystemType':  { wallId: string; systemTypeId?: string; layers?: unknown[]; thickness?: number };
@@ -1079,6 +1112,8 @@ export type CommandRegistry =
     & FurnitureMutationCommands
     & RoomMutationCommands
     & WallMutationCommands
+    // D-α-2 (BIM 2/3) — L0 parameter mutation verbs.
+    & ApartmentParameterMutationCommands
     & PlanMutationCommands
     & AnnotationMutationCommands
     & MiscMutationCommands;
