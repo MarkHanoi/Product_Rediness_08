@@ -15,9 +15,37 @@
 import { batchCoordinator, storeRegistry } from '@pryzm/core-app-model';
 import { createId } from '@pryzm/schemas';
 import { CreateWallOpeningCommand, CreateRoomBoundingLineCommand } from '@pryzm/command-registry';
+import { facadeOrientationService } from '@pryzm/spatial-index';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import type { ScoredLayoutOption, IdPrefix, LayoutExecuteOptions, LayoutCommandSet } from '@pryzm/ai-host';
 import { resolveActiveLevel } from './activeLevel.js';
+
+/** T1.W-C (2026-05-30) — gather existing shell walls from the wall store
+ *  for a given level. Returns world-metres { id, start, end } records for
+ *  every EXTERNAL wall on the level (per facadeOrientationService) so the
+ *  apartment generator can host engine-emitted windows on them. Returns []
+ *  when no walls / no externals on the level. */
+function gatherShellWalls(levelId: string): readonly { id: string; start: { x: number; z: number }; end: { x: number; z: number } }[] {
+    type WallRecord = { id: string; levelId: string; baseLine?: ReadonlyArray<{ x: number; z: number }> };
+    const wallStore = storeRegistry.getStoreForType('wall') as unknown as
+        | { getAll?(): WallRecord[] }
+        | undefined;
+    const all = wallStore?.getAll?.() ?? [];
+    const facades = facadeOrientationService.getFacades(levelId);
+    const out: { id: string; start: { x: number; z: number }; end: { x: number; z: number } }[] = [];
+    for (const w of all) {
+        if (w.levelId !== levelId) continue;
+        if (!facades.get(w.id)?.isExterior) continue;
+        const bl = w.baseLine;
+        if (!bl || bl.length < 2 || !bl[0] || !bl[1]) continue;
+        out.push({
+            id: w.id,
+            start: { x: bl[0].x, z: bl[0].z },
+            end:   { x: bl[1].x, z: bl[1].z },
+        });
+    }
+    return out;
+}
 
 export class ApartmentLayoutExecutor {
     private _dispose: (() => void) | null = null;
@@ -73,6 +101,12 @@ export class ApartmentLayoutExecutor {
                 `→ partition_h=${wallHeightM?.toFixed(2) ?? '(default)'}`,
             );
 
+            // T1.W-C (2026-05-30) — gather shell walls so engine-emitted windows
+            // on the perimeter can resolve to existing wall ids instead of being
+            // dropped with the dropped externals.
+            const shellWalls = gatherShellWalls(level.id);
+            console.log(`[apartment-layout] §T1.W-C shellWalls=${shellWalls.length}`);
+
             const opts: LayoutExecuteOptions = {
                 levelId: level.id,
                 // No wallTypeId → walls use the editor's DEFAULT wall type. Passing an
@@ -84,6 +118,7 @@ export class ApartmentLayoutExecutor {
                 // perimeter walls (flagged isExternal, shown in the preview) are
                 // skipped so we never duplicate the shell (would corrupt detection).
                 skipExteriorWalls: true,
+                ...(shellWalls.length > 0 ? { shellWalls } : {}),
             };
             const set = buildLayoutCommands(option, opts, (p: IdPrefix) => createId(p));
 
@@ -264,14 +299,29 @@ export class ApartmentLayoutExecutor {
             // RoomDetectionEngine merges the whole open-plan zone into one big room.
             let doorsMade = 0; let firstErr = '';
             let boundariesMade = 0; let firstBoundaryErr = '';
+            // T1.W-C (2026-05-30) — shell-hosted windows dispatch alongside doors.
+            // CreateWallOpeningCommand handles BOTH door + window openings (it
+            // writes to doorStore for type:'door' and windowStore for
+            // type:'window', auto-resolves the system-type, and registers the
+            // element in the spatial graph). So one legacy command per shell
+            // window is enough — no separate window.batch.create needed.
+            let shellWindowsMade = 0; let firstShellWindowErr = '';
             const cm = (window as unknown as { commandManager?: { execute(c: unknown): void } }).commandManager;
-            if (cm && (set.openingCommands.length > 0 || set.boundaryCommands.length > 0)) {
+            const hasAnyCmd = set.openingCommands.length > 0
+                || set.boundaryCommands.length > 0
+                || set.shellWindowOpeningCommands.length > 0;
+            if (cm && hasAnyCmd) {
                 try {
                     batchCoordinator.runBatch(() => {
                         for (const op of set.openingCommands) {
                             const p = op.payload as { wallId: string; opening: unknown };
                             try { cm.execute(new CreateWallOpeningCommand({ wallId: p.wallId, openingData: p.opening })); doorsMade++; }
                             catch (e) { firstErr ||= String(e); console.warn('[apartment-layout] door (createOpening) failed (skipped):', e); }
+                        }
+                        for (const op of set.shellWindowOpeningCommands) {
+                            const p = op.payload as { wallId: string; opening: unknown };
+                            try { cm.execute(new CreateWallOpeningCommand({ wallId: p.wallId, openingData: p.opening })); shellWindowsMade++; }
+                            catch (e) { firstShellWindowErr ||= String(e); console.warn('[apartment-layout] shell window (createOpening) failed (skipped):', e); }
                         }
                         for (const bc of set.boundaryCommands) {
                             const p = bc.payload as { id: string; levelId: string; start: { x: number; z: number }; end: { x: number; z: number } };
@@ -280,14 +330,15 @@ export class ApartmentLayoutExecutor {
                         }
                     }, {
                         levelIds: [levelId],
-                        totalElementCount: set.openingCommands.length + set.boundaryCommands.length,
+                        totalElementCount: set.openingCommands.length + set.shellWindowOpeningCommands.length + set.boundaryCommands.length,
                         skipRedetectRooms: false,
                     });
-                } catch (e) { console.warn('[apartment-layout] doors+boundaries batch failed (non-fatal):', e); }
+                } catch (e) { console.warn('[apartment-layout] doors+boundaries+shellWindows batch failed (non-fatal):', e); }
             } else if (!cm) {
-                console.warn('[apartment-layout] commandManager unavailable — doors+boundaries skipped');
+                console.warn('[apartment-layout] commandManager unavailable — doors+boundaries+shellWindows skipped');
             }
             console.log(`[apartment-layout] doors built — ${doorsMade}/${set.openingCommands.length} (host walls present ${landed}/${neededWallIds.length})${force && landed < neededWallIds.length ? ' — FORCED before all walls landed' : ''}`, firstErr || '');
+            console.log(`[apartment-layout] shell windows built — ${shellWindowsMade}/${set.shellWindowOpeningCommands.length}`, firstShellWindowErr || '');
             console.log(`[apartment-layout] boundaries built — ${boundariesMade}/${set.boundaryCommands.length}`, firstBoundaryErr || '');
 
             // Post-build room-detection diagnostic. After the door+boundary batch

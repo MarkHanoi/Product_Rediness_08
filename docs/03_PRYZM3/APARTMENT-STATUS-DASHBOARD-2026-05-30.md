@@ -21,7 +21,7 @@ Single-page reference for **every phase and subphase** across the apartment plat
 
 | ID | Deliverable | Status |
 |---|---|---|
-| **T1.W** Window-emission engine | NEW pure sub-engine | 🟨 T1.W-A engine + T1.W-B wiring + T1.W-C (ai-host) shell-wall-host resolution + T1.W-D modal-preview ALL shipped 2026-05-30 (52 pin tests). Only the executor-side wiring (read shell walls from store → pass via opts → dispatch shellWindow commands) remains. |
+| **T1.W** Window-emission engine | NEW pure sub-engine | ✅ ALL FIVE T1.W parts shipped 2026-05-30 — engine (T1.W-A) + buildLayoutCommands wiring (T1.W-B) + shell-wall-host resolver (T1.W-C ai-host) + executor wiring (T1.W-C editor) + modal-preview render (T1.W-D). Generated apartments now have real windows on the shell with per-room finishes. |
 | **T1.C** Corridor-connectivity validator | Every habitable touches corridor | ✅ pure validator + enumerate.ts wiring both shipped 2026-05-30 (soft findings fold into topologyQuality alongside wet/acoustic/sequence/frontage). Modal D4-surfacing only outstanding. |
 | **T1.D** Per-room default door + window system types | MATRIX §D + queue | ✅ door side fully wired 2026-05-30 (resolver + LayoutDoor/DoorPlanItem extension + emitGeometry + executePlan, 24 pin tests). Window-resolver awaits T1.W landing. |
 
