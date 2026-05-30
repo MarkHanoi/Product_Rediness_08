@@ -295,6 +295,11 @@ function weightedSum(o: ObjectiveVector, w: ScoringWeights): number {
         // breaker, not a primary driver. Rhythm matters but secondary to
         // adjacency / privacy / shape.
         openingCadence: 0.3,
+        // §L4-δ-4 proportionalElegance (2026-05-30) — per-room aspect comfort.
+        // Mid-weight: more important than rhythm but less than core
+        // adjacency/privacy. Distinguishes "all rooms in comfort band" from
+        // "rooms-fit-but-feel-tunnel-like."
+        proportionalElegance: 0.4,
     };
     const total = OBJECTIVE_AXES.reduce((s, a) => s + raw[a], 0) || 1;
     return OBJECTIVE_AXES.reduce((s, a) => s + (raw[a] / total) * o[a], 0);

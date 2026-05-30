@@ -150,6 +150,12 @@ export interface LayoutScoreBreakdown {
      *  "designed door spacing" from "doors-happen-to-bunch-here."
      *  Cognition Layer 4 (Compositional Geometry). */
     openingCadence?: number;       // 0-1
+    /** §L4-δ-4 proportionalElegance — per-room aspect-ratio comfort
+     *  plateau on top of D2.1's HARD aspect bounds. Square→golden (1.0–φ)
+     *  scores 1.0; rooms beyond 2.5 decay; corridor-like (>4) collapses
+     *  to 0.1. Area-weighted mean. Distinguishes layouts that PASS D2.1
+     *  but produce uncomfortable long/thin rooms. Cognition Layer 4. */
+    proportionalElegance?: number; // 0-1
 }
 
 export interface LayoutScore {

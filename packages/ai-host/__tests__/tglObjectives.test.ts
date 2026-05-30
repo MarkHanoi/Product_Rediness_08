@@ -404,6 +404,60 @@ describe('computeObjectives (TGL P7)', () => {
         });
     });
 
+    // §L4-δ-4 (2026-05-30) — proportionalElegance axis: per-room aspect
+    // comfort plateau. Soft gradient on top of D2.1's HARD aspect bounds.
+    describe('§L4-δ-4 proportionalElegance', () => {
+        it('no spaces → axis 1.0 (early-return path)', () => {
+            const g = graphOf([]);
+            const v = computeObjectives(g, metricsOf({}), emptyBubble);
+            expect(v.proportionalElegance).toBe(1);
+        });
+
+        it('square room (1:1 aspect) scores 1.0 (within comfort plateau)', () => {
+            const g = graphOf([
+                space('S', { spaceType: 'living', netAreaM2: 16, isPrivate: false, needsWindow: true }, 4, 4),
+            ]);
+            const v = computeObjectives(g, metricsOf({ S: 1 }), emptyBubble);
+            expect(v.proportionalElegance).toBe(1);
+        });
+
+        it('golden-ratio room (1:φ ≈ 1.618) scores 1.0 (top of plateau)', () => {
+            const g = graphOf([
+                space('G', { spaceType: 'living', netAreaM2: 16, isPrivate: false, needsWindow: true }, 4, 4 * 1.618),
+            ]);
+            const v = computeObjectives(g, metricsOf({ G: 1 }), emptyBubble);
+            expect(v.proportionalElegance).toBeCloseTo(1, 6);
+        });
+
+        it('long-thin room (1:3 aspect) decays from the plateau', () => {
+            const g = graphOf([
+                space('L', { spaceType: 'living', netAreaM2: 12, isPrivate: false, needsWindow: true }, 2, 6),
+            ]);
+            const v = computeObjectives(g, metricsOf({ L: 1 }), emptyBubble);
+            // aspect 3.0 sits in the (2.5, 4.0] decay band → score 0.7 - 0.5*(3-2.5)/(4-2.5) ≈ 0.533
+            expect(v.proportionalElegance).toBeGreaterThan(0.4);
+            expect(v.proportionalElegance).toBeLessThan(0.7);
+        });
+
+        it('corridor-like room (1:5 aspect) collapses to 0.1', () => {
+            const g = graphOf([
+                space('C', { spaceType: 'living', netAreaM2: 10, isPrivate: false, needsWindow: true }, 1, 5),
+            ]);
+            const v = computeObjectives(g, metricsOf({ C: 1 }), emptyBubble);
+            expect(v.proportionalElegance).toBeCloseTo(0.1, 6);
+        });
+
+        it('aggregates area-weighted: one elegant + one corridor → between extremes', () => {
+            const g = graphOf([
+                space('A', { spaceType: 'living', netAreaM2: 16, isPrivate: false, needsWindow: true }, 4, 4),  // 1:1 → 1.0
+                space('B', { spaceType: 'corridor', netAreaM2: 4, isPrivate: false, needsWindow: false }, 0.8, 5), // 1:6.25 → 0.1
+            ]);
+            const v = computeObjectives(g, metricsOf({ A: 1, B: 2 }), emptyBubble);
+            // Area-weighted: (16*1.0 + 4*0.1) / 20 = 16.4 / 20 = 0.82
+            expect(v.proportionalElegance).toBeCloseTo(0.82, 2);
+        });
+    });
+
     it('daylight (no field): behaviour unchanged (back-compat)', () => {
         // emptyBubble has no daylightField → the prior binary fronts-facade
         // computation must produce the same number for both rooms regardless

@@ -94,10 +94,25 @@ export interface ObjectiveVector {
      * corridor from layouts that spread them.
      */
     readonly openingCadence: number;
+    /**
+     * §L4-δ-4 (2026-05-30) — proportional elegance axis (Cognition Layer 4,
+     * Compositional Geometry; closes G4 with a SOFT gradient on top of
+     * D2.1's HARD aspect-ratio bounds). Per-room: aspect = max/min side;
+     * score follows a comfort plateau:
+     *   • aspect ∈ [1.0, φ ≈ 1.618]: 1.0 (square→golden, all good)
+     *   • aspect ∈ (φ, 2.5]: linear decay 1.0 → 0.7
+     *   • aspect ∈ (2.5, 4.0]: linear decay 0.7 → 0.2
+     *   • aspect > 4.0: 0.1 (corridor-like, poor for habitable rooms)
+     * Aggregate axis = area-weighted mean across spaces. Distinguishes
+     * layouts that PASS D2.1's hard aspect check but produce
+     * uncomfortable long/thin rooms from layouts that produce well-
+     * proportioned rooms in the architectural comfort band.
+     */
+    readonly proportionalElegance: number;
 }
 
 export const OBJECTIVE_AXES: readonly (keyof ObjectiveVector)[] =
-    ['efficiency', 'adjacency', 'daylight', 'circulation', 'regularity', 'hierarchy', 'shapeQuality', 'topologyQuality', 'edgeRealisation', 'openingCadence'] as const;
+    ['efficiency', 'adjacency', 'daylight', 'circulation', 'regularity', 'hierarchy', 'shapeQuality', 'topologyQuality', 'edgeRealisation', 'openingCadence', 'proportionalElegance'] as const;
 
 const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n);
 const num = (v: unknown, d = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -134,7 +149,7 @@ export function computeObjectives(
     const spaces = graph.nodes.filter(n => n.kind === 'Space');
     const totalArea = spaces.reduce((s, n) => s + num(n.attrs.netAreaM2), 0);
     if (spaces.length === 0 || totalArea <= 0) {
-        return { efficiency: 0, adjacency: 0, daylight: 0, circulation: 0, regularity: 0, hierarchy: 0, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation: 1, openingCadence: 1 };
+        return { efficiency: 0, adjacency: 0, daylight: 0, circulation: 0, regularity: 0, hierarchy: 0, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation: 1, openingCadence: 1, proportionalElegance: 1 };
     }
 
     // ── efficiency: how little of the floor is circulation. ──────────────────────
@@ -236,6 +251,27 @@ export function computeObjectives(
     }
     const hierarchy = hierArea > 0 ? clamp01(hierWeighted / hierArea) : 1;
 
+    // ── §L4-δ-4 proportionalElegance: per-room aspect-ratio comfort plateau.
+    //    Area-weighted mean across spaces. Soft gradient on top of D2.1's
+    //    HARD aspect bounds.
+    let elegSum = 0, elegArea = 0;
+    for (const n of spaces) {
+        const { w, h } = polyWH(n);
+        if (w <= 0 || h <= 0) continue;
+        const aspect = Math.max(w, h) / Math.min(w, h);
+        const a = num(n.attrs.netAreaM2);
+        if (a <= 0) continue;
+        let s: number;
+        const PHI = 1.618;
+        if (aspect <= PHI) s = 1.0;
+        else if (aspect <= 2.5) s = 1.0 - 0.3 * (aspect - PHI) / (2.5 - PHI);
+        else if (aspect <= 4.0) s = 0.7 - 0.5 * (aspect - 2.5) / (4.0 - 2.5);
+        else s = 0.1;
+        elegSum += s * a;
+        elegArea += a;
+    }
+    const proportionalElegance = elegArea > 0 ? clamp01(elegSum / elegArea) : 1;
+
     // ── §L4-δ-3 openingCadence: how rhythmically openings are arranged on
     //    each wall. For each Wall node, find Openings HOSTED_BY it; compute
     //    coefficient of variation of the gaps between consecutive openings
@@ -311,7 +347,7 @@ export function computeObjectives(
     }
     const edgeRealisation = realisationN > 0 ? clamp01(realisationSum / realisationN) : 1;
 
-    return { efficiency, adjacency, daylight, circulation, regularity, hierarchy, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation, openingCadence };
+    return { efficiency, adjacency, daylight, circulation, regularity, hierarchy, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation, openingCadence, proportionalElegance };
 }
 
 const pairKey = (a: string, b: string): string => (a < b ? `${a}|${b}` : `${b}|${a}`);

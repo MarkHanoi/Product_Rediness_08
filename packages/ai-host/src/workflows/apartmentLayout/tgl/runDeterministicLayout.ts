@@ -102,6 +102,7 @@ export function generateDeterministicLayouts(
                 topologyQuality: c.objectives.topologyQuality,
                 edgeRealisation: c.objectives.edgeRealisation,
                 openingCadence: c.objectives.openingCadence,
+                proportionalElegance: c.objectives.proportionalElegance,
             },
         };
         return { ...labelled, score };
