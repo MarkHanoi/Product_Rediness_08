@@ -110,6 +110,30 @@ export interface ObjectiveVector {
      */
     readonly proportionalElegance: number;
     /**
+     * §L4-δ-1 (2026-05-30) — alignment field axis (Cognition Layer 4,
+     * Compositional Geometry; SCORING form). SOFT-scores how well the
+     * room rect edges share AXIS LINES across the plan — a "designed"
+     * plan has many walls aligning to a small number of structural
+     * lines; a sloppy plan has every wall at a unique offset.
+     *
+     * Algorithm: collect every room rect's X-edges (x0, x1) and
+     * Z-edges (z0, z1). Bucket by EPS-tolerant axis-line; count the
+     * shared-edges (buckets with ≥2 hits) divided by total edges.
+     * 1.0 = every edge aligns with at least one other; 0.0 = no
+     * edge aligns with any other (architecturally accidental).
+     *
+     * Pairs with L4-δ-2 wetStackAlignment: that axis scores wet-room
+     * centroids on a single axis; this axis scores ALL room edges
+     * across the plan. Together they describe the spatial discipline
+     * of the layout's axis system. Returns 1.0 for <2 rooms.
+     *
+     * The CONSTRUCTIVE pre-subdivide variant (L4-δ-1b: actively
+     * snapping rect edges to shared axis lines BEFORE Pareto) remains
+     * queued; this SCORING variant rewards layouts that arrived at
+     * alignment by accident or by future subdivider work.
+     */
+    readonly alignmentField: number;
+    /**
      * §L4-δ-2 (2026-05-30) — wet-stack alignment axis (Cognition Layer 4,
      * Compositional Geometry). SOFT-scores how aligned the WET rooms are
      * on a single plumbing axis. Aligned wet rooms can share a single
@@ -184,7 +208,7 @@ export interface ObjectiveVector {
 }
 
 export const OBJECTIVE_AXES: readonly (keyof ObjectiveVector)[] =
-    ['efficiency', 'adjacency', 'daylight', 'circulation', 'regularity', 'hierarchy', 'shapeQuality', 'topologyQuality', 'edgeRealisation', 'openingCadence', 'proportionalElegance', 'spatialClimax', 'entrySightline', 'arrivalSequence', 'wetStackAlignment'] as const;
+    ['efficiency', 'adjacency', 'daylight', 'circulation', 'regularity', 'hierarchy', 'shapeQuality', 'topologyQuality', 'edgeRealisation', 'openingCadence', 'proportionalElegance', 'spatialClimax', 'entrySightline', 'arrivalSequence', 'wetStackAlignment', 'alignmentField'] as const;
 
 const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n);
 const num = (v: unknown, d = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -221,7 +245,7 @@ export function computeObjectives(
     const spaces = graph.nodes.filter(n => n.kind === 'Space');
     const totalArea = spaces.reduce((s, n) => s + num(n.attrs.netAreaM2), 0);
     if (spaces.length === 0 || totalArea <= 0) {
-        return { efficiency: 0, adjacency: 0, daylight: 0, circulation: 0, regularity: 0, hierarchy: 0, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation: 1, openingCadence: 1, proportionalElegance: 1, spatialClimax: 1, entrySightline: 1, arrivalSequence: 1, wetStackAlignment: 1 };
+        return { efficiency: 0, adjacency: 0, daylight: 0, circulation: 0, regularity: 0, hierarchy: 0, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation: 1, openingCadence: 1, proportionalElegance: 1, spatialClimax: 1, entrySightline: 1, arrivalSequence: 1, wetStackAlignment: 1, alignmentField: 1 };
     }
 
     // ── efficiency: how little of the floor is circulation. ──────────────────────
@@ -415,6 +439,42 @@ export function computeObjectives(
         }
     }
 
+    // ── §L4-δ-1 alignmentField: shared axis-line detection. Collect every
+    //    room rect's X-edges + Z-edges; bucket by EPS-tolerant coordinate;
+    //    count edges that share a bucket with at least one other edge.
+    //    Score = shared / total. Pure: depends only on Space.geometry.polygon
+    //    rect extents.
+    let alignmentField = 1;
+    if (spaces.length >= 2) {
+        const xEdges: number[] = [];
+        const zEdges: number[] = [];
+        for (const n of spaces) {
+            const r = polyRect(n);
+            if (!r) continue;
+            xEdges.push(r.minX, r.maxX);
+            zEdges.push(r.minZ, r.maxZ);
+        }
+        const EPS_M = 0.05;     // 50 mm tolerance — generous for axis coincidence
+        const bucketCount = (edges: number[]): number => {
+            if (edges.length < 2) return 0;
+            // Sort + sweep: any edge within EPS of its neighbour is "shared."
+            const sorted = edges.slice().sort((a, b) => a - b);
+            let shared = 0;
+            for (let i = 0; i < sorted.length; i++) {
+                // Edge i is shared if it sits within EPS of i-1 OR i+1.
+                const prev = i > 0 ? sorted[i - 1]! : Number.NEGATIVE_INFINITY;
+                const next = i < sorted.length - 1 ? sorted[i + 1]! : Number.POSITIVE_INFINITY;
+                if (sorted[i]! - prev <= EPS_M || next - sorted[i]! <= EPS_M) shared++;
+            }
+            return shared;
+        };
+        const totalEdges = xEdges.length + zEdges.length;
+        if (totalEdges > 0) {
+            const sharedTotal = bucketCount(xEdges) + bucketCount(zEdges);
+            alignmentField = clamp01(sharedTotal / totalEdges);
+        }
+    }
+
     // ── §L4-δ-2 wetStackAlignment: how well-aligned the wet rooms are on
     //    a single plumbing axis. Computes variance of wet-room centroids
     //    on X + Z; the SMALLER variance is the "stack axis" deviation
@@ -536,7 +596,7 @@ export function computeObjectives(
     }
     const edgeRealisation = realisationN > 0 ? clamp01(realisationSum / realisationN) : 1;
 
-    return { efficiency, adjacency, daylight, circulation, regularity, hierarchy, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation, openingCadence, proportionalElegance, spatialClimax, entrySightline, arrivalSequence, wetStackAlignment };
+    return { efficiency, adjacency, daylight, circulation, regularity, hierarchy, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation, openingCadence, proportionalElegance, spatialClimax, entrySightline, arrivalSequence, wetStackAlignment, alignmentField };
 }
 
 const pairKey = (a: string, b: string): string => (a < b ? `${a}|${b}` : `${b}|${a}`);

@@ -735,6 +735,90 @@ describe('computeObjectives (TGL P7)', () => {
         });
     });
 
+    // §L4-δ-1 (2026-05-30) — alignmentField: plan-wide shared axis-line
+    // detection. Higher = more disciplined axis system.
+    describe('§L4-δ-1 alignmentField', () => {
+        // Helper: rectangular space with explicit polygon corners.
+        const rect = (guid: string, x0: number, z0: number, x1: number, z1: number) => ({
+            guid, kind: 'Space' as const, sourceId: guid,
+            attrs: { spaceType: 'living', netAreaM2: (x1 - x0) * (z1 - z0) },
+            geometry: { polygon: [
+                { x: x0, z: z0 }, { x: x1, z: z0 },
+                { x: x1, z: z1 }, { x: x0, z: z1 },
+            ] },
+            psets: {},
+        });
+
+        it('< 2 rooms → 1.0 (no axis system to evaluate)', () => {
+            const g = graphOf([rect('A', 0, 0, 4, 3)]);
+            const v = computeObjectives(g, metricsOf({ A: 0 }), emptyBubble);
+            expect(v.alignmentField).toBe(1);
+        });
+
+        it('two rooms side-by-side: inner X-edges + matching Z-edges align → 0.75', () => {
+            // Two rooms side-by-side (0..4) + (4..8) at z=0..3.
+            // X edges: 0, 4, 4, 8 — the two 4s share; 0 + 8 distinct (2 of 4 shared).
+            // Z edges: 0, 3, 0, 3 — all 4 share (z=0 twice + z=3 twice).
+            // shared = 2 + 4 = 6; total = 8 → 0.75.
+            const g = graphOf([
+                rect('A', 0, 0, 4, 3),
+                rect('B', 4, 0, 8, 3),
+            ]);
+            const v = computeObjectives(g, metricsOf({ A: 0, B: 1 }), emptyBubble);
+            expect(v.alignmentField).toBeCloseTo(0.75, 6);
+        });
+
+        it('four-quadrant grid (every edge shared) → 1.0 (full discipline)', () => {
+            // 2x2 grid of identical rooms — every X edge appears in two rooms,
+            // every Z edge appears in two rooms. Total alignment.
+            const g = graphOf([
+                rect('A', 0, 0, 4, 3),
+                rect('B', 4, 0, 8, 3),
+                rect('C', 0, 3, 4, 6),
+                rect('D', 4, 3, 8, 6),
+            ]);
+            const v = computeObjectives(g, metricsOf({ A: 0, B: 1, C: 1, D: 2 }), emptyBubble);
+            expect(v.alignmentField).toBe(1);
+        });
+
+        it('two rooms with NO edge alignment → 0', () => {
+            // Two rooms with all 8 edges at distinct offsets > 50 mm apart.
+            const g = graphOf([
+                rect('A', 0, 0, 1, 1),
+                rect('B', 5, 5, 7, 8),
+            ]);
+            const v = computeObjectives(g, metricsOf({ A: 0, B: 1 }), emptyBubble);
+            expect(v.alignmentField).toBe(0);
+        });
+
+        it('partial alignment scores between 0 and 1', () => {
+            // Rooms share z=0 (bottom edge) but X edges all distinct.
+            const g = graphOf([
+                rect('A', 0, 0, 3, 2),
+                rect('B', 5, 0, 7, 4),
+            ]);
+            const v = computeObjectives(g, metricsOf({ A: 0, B: 1 }), emptyBubble);
+            // z=0 appears twice in zEdges → 2 shared.
+            // Other z edges: A.z1=2, B.z1=4 distinct.
+            // X edges: 0, 3, 5, 7 all distinct.
+            // shared = 2; total = 8 → score = 0.25
+            expect(v.alignmentField).toBeCloseTo(0.25, 6);
+        });
+
+        it('tolerant within 50 mm — near-aligned edges count as shared', () => {
+            // Two rooms whose right edges sit at x=4.0 and x=4.04 (40 mm apart).
+            const g = graphOf([
+                rect('A', 0, 0, 4.00, 3),
+                rect('B', 0, 4, 4.04, 7),
+            ]);
+            const v = computeObjectives(g, metricsOf({ A: 0, B: 1 }), emptyBubble);
+            // Left edges both at 0 → 2 shared. Right edges 4.00, 4.04 within 50 mm → 2 shared.
+            // z=0, 3, 4, 7 distinct.
+            // shared = 4; total = 8 → score = 0.5
+            expect(v.alignmentField).toBeCloseTo(0.5, 6);
+        });
+    });
+
     it('daylight (no field): behaviour unchanged (back-compat)', () => {
         // emptyBubble has no daylightField → the prior binary fronts-facade
         // computation must produce the same number for both rooms regardless

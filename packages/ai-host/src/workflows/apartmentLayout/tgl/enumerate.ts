@@ -317,6 +317,9 @@ function weightedSum(o: ObjectiveVector, w: ScoringWeights): number {
         // alignment. Fixed mid weight comparable to proportionalElegance —
         // matters but secondary to core adjacency/privacy.
         wetStackAlignment: 0.4,
+        // §L4-δ-1 alignmentField (2026-05-30) — plan-wide axis discipline.
+        // Lower fixed weight: rewards designed-looking plans, tie-breaker.
+        alignmentField: 0.3,
     };
     const total = OBJECTIVE_AXES.reduce((s, a) => s + raw[a], 0) || 1;
     return OBJECTIVE_AXES.reduce((s, a) => s + (raw[a] / total) * o[a], 0);

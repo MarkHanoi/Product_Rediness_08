@@ -179,6 +179,11 @@ export interface LayoutScoreBreakdown {
      *  share a plumbing stack. Complements T2.4 wet-cluster (which scores
      *  wall-sharing) by adding a centroid-axis check. Cognition Layer 4. */
     wetStackAlignment?: number;    // 0-1
+    /** §L4-δ-1 alignmentField — shared axis-line detection across the plan.
+     *  Score = fraction of room-rect edges that share an axis line (within
+     *  50 mm) with at least one other edge. Rewards layouts whose walls
+     *  participate in a small, disciplined axis system. Cognition Layer 4. */
+    alignmentField?: number;       // 0-1
 }
 
 export interface LayoutScore {
