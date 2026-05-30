@@ -77,10 +77,27 @@ export interface ObjectiveVector {
      * Makes the L3-γ-1/2 EdgeType data load-bearing in Pareto ranking.
      */
     readonly edgeRealisation: number;
+    /**
+     * §L4-δ-3 (2026-05-30) — opening cadence axis (Cognition Layer 4,
+     * Compositional Geometry). For each wall hosting one or more openings
+     * (doors / windows), score how rhythmically those openings are arranged
+     * along the wall — including the gaps to the wall ends as virtual
+     * "openings." Score per wall = 1 − coefficient_of_variation(gaps);
+     * 1.0 = perfectly regular spacing, 0.0 = bunched at one end. Walls
+     * with no openings score 1.0 neutrally. Axis = mean across walls that
+     * carry openings.
+     *
+     * Architectural intent: rhythmic door placement reads as designed
+     * (one door per bedroom on a corridor, evenly spaced); bunched doors
+     * read as accidental. The axis distinguishes layouts that solve
+     * adjacency BUT happen to bunch every door at one end of the
+     * corridor from layouts that spread them.
+     */
+    readonly openingCadence: number;
 }
 
 export const OBJECTIVE_AXES: readonly (keyof ObjectiveVector)[] =
-    ['efficiency', 'adjacency', 'daylight', 'circulation', 'regularity', 'hierarchy', 'shapeQuality', 'topologyQuality', 'edgeRealisation'] as const;
+    ['efficiency', 'adjacency', 'daylight', 'circulation', 'regularity', 'hierarchy', 'shapeQuality', 'topologyQuality', 'edgeRealisation', 'openingCadence'] as const;
 
 const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n);
 const num = (v: unknown, d = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -117,7 +134,7 @@ export function computeObjectives(
     const spaces = graph.nodes.filter(n => n.kind === 'Space');
     const totalArea = spaces.reduce((s, n) => s + num(n.attrs.netAreaM2), 0);
     if (spaces.length === 0 || totalArea <= 0) {
-        return { efficiency: 0, adjacency: 0, daylight: 0, circulation: 0, regularity: 0, hierarchy: 0, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation: 1 };
+        return { efficiency: 0, adjacency: 0, daylight: 0, circulation: 0, regularity: 0, hierarchy: 0, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation: 1, openingCadence: 1 };
     }
 
     // ── efficiency: how little of the floor is circulation. ──────────────────────
@@ -219,6 +236,53 @@ export function computeObjectives(
     }
     const hierarchy = hierArea > 0 ? clamp01(hierWeighted / hierArea) : 1;
 
+    // ── §L4-δ-3 openingCadence: how rhythmically openings are arranged on
+    //    each wall. For each Wall node, find Openings HOSTED_BY it; compute
+    //    coefficient of variation of the gaps between consecutive openings
+    //    (including the gaps to the wall ends as virtual openings). Score
+    //    per wall = 1 − CV; walls with no openings score 1.0 neutrally.
+    //    Axis = mean across walls that carry one or more openings.
+    //    Pure: relies only on Wall.geometry.baseLine + Opening.attrs.offsetM.
+    const wallNodes = graph.nodes.filter(n => n.kind === 'Wall');
+    // Map wall GUID → its baseLine length (m).
+    const wallLenM = new Map<string, number>();
+    for (const w of wallNodes) {
+        const bl = w.geometry?.baseLine;
+        if (!bl || bl.length < 2) continue;
+        const [a, b] = bl as readonly [{ x: number; z: number }, { x: number; z: number }];
+        wallLenM.set(w.guid, Math.hypot(b.x - a.x, b.z - a.z));
+    }
+    // Map wall GUID → sorted opening offsets (m).
+    const wallOpenings = new Map<string, number[]>();
+    const openingNodes = new Map(graph.nodes.filter(n => n.kind === 'Opening').map(n => [n.guid, n]));
+    for (const e of graph.edges) {
+        if (e.kind !== 'HOSTED_BY') continue;
+        const opening = openingNodes.get(e.from);
+        if (!opening) continue;
+        const offsetM = num(opening.attrs.offsetM, NaN);
+        if (!Number.isFinite(offsetM)) continue;
+        const list = wallOpenings.get(e.to) ?? [];
+        list.push(offsetM);
+        wallOpenings.set(e.to, list);
+    }
+    let cadenceSum = 0, cadenceN = 0;
+    for (const [wallGuid, len] of wallLenM) {
+        if (len <= 0) continue;
+        const offsets = (wallOpenings.get(wallGuid) ?? []).slice().sort((a, b) => a - b);
+        if (offsets.length === 0) continue;   // no openings — neutral, don't count
+        // Build the gaps sequence: [first offset, …inter-opening gaps…, last to wall end].
+        const positions = [0, ...offsets, len];
+        const gaps: number[] = [];
+        for (let i = 0; i < positions.length - 1; i++) gaps.push(positions[i + 1]! - positions[i]!);
+        const mean = gaps.reduce((s, g) => s + g, 0) / gaps.length;
+        if (mean <= 1e-9) continue;
+        const variance = gaps.reduce((s, g) => s + (g - mean) * (g - mean), 0) / gaps.length;
+        const cv = Math.sqrt(variance) / mean;
+        cadenceSum += Math.max(0, 1 - cv);
+        cadenceN += 1;
+    }
+    const openingCadence = cadenceN > 0 ? clamp01(cadenceSum / cadenceN) : 1;
+
     // ── §L3-γ-4 edgeRealisation: how well each bubble edge's `via` matches
     //    what its semantic `kind` recommends. Per-kind scoring:
     //      CEREMONIAL_THRESHOLD: door = 1.0, open = 0.5
@@ -247,7 +311,7 @@ export function computeObjectives(
     }
     const edgeRealisation = realisationN > 0 ? clamp01(realisationSum / realisationN) : 1;
 
-    return { efficiency, adjacency, daylight, circulation, regularity, hierarchy, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation };
+    return { efficiency, adjacency, daylight, circulation, regularity, hierarchy, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation, openingCadence };
 }
 
 const pairKey = (a: string, b: string): string => (a < b ? `${a}|${b}` : `${b}|${a}`);

@@ -307,6 +307,103 @@ describe('computeObjectives (TGL P7)', () => {
         });
     });
 
+    // §L4-δ-3 (2026-05-30) — openingCadence axis: SOFT-scores per-wall opening
+    // rhythm. Score per wall = 1 − CV(gaps including wall-end virtual openings).
+    describe('§L4-δ-3 openingCadence', () => {
+        it('no walls / no openings → axis 1.0 (neutral)', () => {
+            const g = graphOf([
+                space('L', { spaceType: 'living', netAreaM2: 25, isPrivate: false, needsWindow: true }),
+            ]);
+            const v = computeObjectives(g, metricsOf({ L: 1 }), emptyBubble);
+            expect(v.openingCadence).toBe(1);
+        });
+
+        it('a wall with no openings does not contribute to the axis', () => {
+            const wall: GraphNode = {
+                guid: 'W1', kind: 'Wall', sourceId: 'w1',
+                attrs: { isExternal: false },
+                geometry: { baseLine: [{ x: 0, z: 0 }, { x: 6, z: 0 }] },
+                psets: {},
+            };
+            const g = graphOf([
+                space('L', { spaceType: 'living', netAreaM2: 25, isPrivate: false, needsWindow: true }),
+                wall,
+            ]);
+            const v = computeObjectives(g, metricsOf({ L: 1 }), emptyBubble);
+            // Wall has 0 openings ⇒ no contribution ⇒ axis falls back to 1.0.
+            expect(v.openingCadence).toBe(1);
+        });
+
+        it('symmetric single opening (centred on a 6 m wall) scores 1.0', () => {
+            const wall: GraphNode = {
+                guid: 'W1', kind: 'Wall', sourceId: 'w1',
+                attrs: { isExternal: false },
+                geometry: { baseLine: [{ x: 0, z: 0 }, { x: 6, z: 0 }] },
+                psets: {},
+            };
+            const opening: GraphNode = {
+                guid: 'O1', kind: 'Opening', sourceId: 'o1',
+                attrs: { offsetM: 3.0, widthM: 0.9 },
+                psets: {},
+            };
+            const g = graphOf(
+                [space('L', { spaceType: 'living', netAreaM2: 25, isPrivate: false, needsWindow: true }), wall, opening],
+                [{ kind: 'HOSTED_BY', from: 'O1', to: 'W1' }],
+            );
+            const v = computeObjectives(g, metricsOf({ L: 1 }), emptyBubble);
+            // Gaps: [3, 3] — perfectly symmetric, CV = 0, score = 1.
+            expect(v.openingCadence).toBeCloseTo(1, 6);
+        });
+
+        it('off-centre single opening scores BELOW 1.0', () => {
+            const wall: GraphNode = {
+                guid: 'W1', kind: 'Wall', sourceId: 'w1',
+                attrs: { isExternal: false },
+                geometry: { baseLine: [{ x: 0, z: 0 }, { x: 6, z: 0 }] },
+                psets: {},
+            };
+            const opening: GraphNode = {
+                guid: 'O1', kind: 'Opening', sourceId: 'o1',
+                attrs: { offsetM: 1.0, widthM: 0.9 },        // way off-centre
+                psets: {},
+            };
+            const g = graphOf(
+                [space('L', { spaceType: 'living', netAreaM2: 25, isPrivate: false, needsWindow: true }), wall, opening],
+                [{ kind: 'HOSTED_BY', from: 'O1', to: 'W1' }],
+            );
+            const v = computeObjectives(g, metricsOf({ L: 1 }), emptyBubble);
+            // Gaps: [1, 5], mean = 3, stddev = 2, CV = 2/3 ⇒ score ≈ 0.333.
+            expect(v.openingCadence).toBeLessThan(0.5);
+            expect(v.openingCadence).toBeGreaterThan(0.2);
+        });
+
+        it('two evenly-spaced openings (rhythmic) score HIGHER than two bunched', () => {
+            const evenWall: GraphNode = {
+                guid: 'W1', kind: 'Wall', sourceId: 'w1',
+                attrs: { isExternal: false },
+                geometry: { baseLine: [{ x: 0, z: 0 }, { x: 9, z: 0 }] },
+                psets: {},
+            };
+            const evenA: GraphNode = { guid: 'OA', kind: 'Opening', sourceId: 'oa', attrs: { offsetM: 3.0, widthM: 0.9 }, psets: {} };
+            const evenB: GraphNode = { guid: 'OB', kind: 'Opening', sourceId: 'ob', attrs: { offsetM: 6.0, widthM: 0.9 }, psets: {} };
+            const even = graphOf(
+                [space('L', { spaceType: 'living', netAreaM2: 25, isPrivate: false, needsWindow: true }), evenWall, evenA, evenB],
+                [{ kind: 'HOSTED_BY', from: 'OA', to: 'W1' }, { kind: 'HOSTED_BY', from: 'OB', to: 'W1' }],
+            );
+            const bunchA: GraphNode = { guid: 'PA', kind: 'Opening', sourceId: 'pa', attrs: { offsetM: 0.5, widthM: 0.9 }, psets: {} };
+            const bunchB: GraphNode = { guid: 'PB', kind: 'Opening', sourceId: 'pb', attrs: { offsetM: 1.5, widthM: 0.9 }, psets: {} };
+            const bunch = graphOf(
+                [space('L', { spaceType: 'living', netAreaM2: 25, isPrivate: false, needsWindow: true }), evenWall, bunchA, bunchB],
+                [{ kind: 'HOSTED_BY', from: 'PA', to: 'W1' }, { kind: 'HOSTED_BY', from: 'PB', to: 'W1' }],
+            );
+            const evenScore = computeObjectives(even, metricsOf({ L: 1 }), emptyBubble).openingCadence;
+            const bunchScore = computeObjectives(bunch, metricsOf({ L: 1 }), emptyBubble).openingCadence;
+            expect(evenScore).toBeGreaterThan(bunchScore);
+            // Even gaps [3,3,3] are uniform → score ≈ 1.0.
+            expect(evenScore).toBeCloseTo(1, 1);
+        });
+    });
+
     it('daylight (no field): behaviour unchanged (back-compat)', () => {
         // emptyBubble has no daylightField → the prior binary fronts-facade
         // computation must produce the same number for both rooms regardless

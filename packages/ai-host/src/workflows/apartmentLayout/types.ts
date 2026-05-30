@@ -142,6 +142,14 @@ export interface LayoutScoreBreakdown {
      *  above "every edge realised wrong" (e.g. INTIMATE_ACCESS via open is
      *  a privacy failure). Shipped `cf13b11`. */
     edgeRealisation?: number;      // 0-1
+    /** §L4-δ-3 openingCadence — per-wall rhythmic regularity of opening
+     *  spacing (including gaps to wall ends as virtual openings). Score
+     *  per wall = 1 − coefficient_of_variation(gaps); aggregate axis is
+     *  the mean across walls that host any opening. 1.0 = perfectly
+     *  regular cadence; 0.0 = bunched. Architectural intent: distinguish
+     *  "designed door spacing" from "doors-happen-to-bunch-here."
+     *  Cognition Layer 4 (Compositional Geometry). */
+    openingCadence?: number;       // 0-1
 }
 
 export interface LayoutScore {
