@@ -286,6 +286,26 @@ Legend (Status column):
 
 - ⬜ Not started · 🟦 Planning / spec · 🟨 In progress · ✅ Complete · 🟥 Blocked
 
+### §4.0 — Phase P0 — Family Platform strategic substrate (RUNS PARALLEL to F-tier)
+
+**Authored 2026-05-30.** See [APARTMENT-FAMILY-PLATFORM-AND-USER-DEFINED-ELEMENTS-2026-05-30.md](APARTMENT-FAMILY-PLATFORM-AND-USER-DEFINED-ELEMENTS-2026-05-30.md) for the full strategic architecture review.
+
+**Why parallel, not before-F.** F-tier ships continue to land each session — the BIM 1.5 developer flow is correct *today*. P0 work makes each next F-tier ship additively converge toward the BIM 3.0 user-defined-family flow rather than away from it. Concretely, every new F-tier ship now drops a one-line `core-family-seed/<kind>.json` sidecar so when P0.3 (the FamilyRegistry substrate) lands, every existing type auto-registers at composition root.
+
+| ID | Deliverable | Est | Status |
+|---|---|---|---|
+| **P0.1** | Element-lifecycle map (current vs target, audit of 10 surfaces) | 2 d | 🟨 first draft in `FAMILY-PLATFORM` §1–§2 |
+| **P0.2** | Universal element contract — generalises the F-tier §0.1 ladder per discipline (wall, opening, fixture, joinery, MEP, structural, custom) | 5 d | 🟨 generalised draft in `FAMILY-PLATFORM` §5 |
+| **P0.3** | `FamilyRegistry` substrate (L0 schemas + indexes + composition-root seeding from existing hardcoded types) | 3 wk | ⬜ |
+| **P0.4** | `FamilyRequest` schema + Stage 1 ingestion (JSON form, no UI yet) | 1 wk | ⬜ |
+| **P0.5** | Family Generation Pipeline Stages 2–4 (parametric decomposition + geometry synthesis + auto-Zod schema) | 6 wk | ⬜ |
+| **P0.6** | Family Generation Pipeline Stages 5–8 (Registry registration + AI vocab + UI descriptor + IFC mapping) | 4 wk | ⬜ |
+| **P0.7** | Plugin-marketplace runtime side (`.pryzm-family` loader → Registry; manifest schema already in `packages/plugin-sdk/` per ADR-0038) | 3 wk | ⬜ |
+| **P0.8** | Schema-discovery API + IFC-reader-discovery API + property-panel-schema-discovery API (replace the three static maps audited in `FAMILY-PLATFORM` §2) | 4 wk | ⬜ |
+| **P0.9** | Gap analysis + roadmap refactor (every F-tier / L-tier / D-tier / T-tier row reviewed against Family Platform target) | 1 wk | ⬜ |
+
+**P0 total: ~28 dev-weeks.** Bigger than any F-tier slice but smaller than the cumulative cost of NOT doing it. F-tier ships continue in parallel — no work blocks on P0.
+
 ### §4.1 — Phase F0 — RETIRED (was: workaround "first win")
 
 **Retired 2026-05-29 after a live revert.** The original F0 attempted to partially admit `desk` + `desk_chair` to `FurnitureKind` without closing rows 1–17 of the §0.1 obligation ladder (no `FurnitureType` extension, no builder, no plan symbol, no factory arm, no Zod schema, no IFC). It shipped a fictional element — present in the pure engine, dispatched as a command, rendered as a fallback, un-round-trippable through snapshot or IFC. **Code reverted; 424/424 ai-host tests restored.**
@@ -586,6 +606,24 @@ If the next 2 weeks are the target window, ship in this exact order (highest sem
 **Read this section last but think with it first.** Every deliverable ID from every apartment doc, in dependency-correct execution order. The earlier sections (F0–F8) are the FURNITURE programme alone; this section places that programme inside the FULL architecture.
 
 Legend: ⬜ Not started · 🟦 Planning · 🟨 In progress · ✅ Complete.
+
+## Z.0 — Tier −1 — Family Platform substrate (RUNS PARALLEL — see Phase P0)
+
+The strategic substrate that ALL F/L/D/T-tier work converges toward. Doesn't block F-tier; informs each next F-tier ship to drop a Family-seed sidecar so future auto-registration works on existing data. See [APARTMENT-FAMILY-PLATFORM-AND-USER-DEFINED-ELEMENTS-2026-05-30.md](APARTMENT-FAMILY-PLATFORM-AND-USER-DEFINED-ELEMENTS-2026-05-30.md) for the full strategic review + the §4.0 table above for the 9 P0 deliverables.
+
+| ID | Deliverable | Est | Status |
+|---|---|---|---|
+| **P0.1** | Element-lifecycle map | 2 d | 🟨 first draft |
+| **P0.2** | Universal element contract | 5 d | 🟨 first draft |
+| **P0.3** | `FamilyRegistry` substrate | 3 wk | ⬜ |
+| **P0.4** | `FamilyRequest` schema + ingestion | 1 wk | ⬜ |
+| **P0.5** | Family Generation Pipeline Stages 2–4 | 6 wk | ⬜ |
+| **P0.6** | Family Generation Pipeline Stages 5–8 | 4 wk | ⬜ |
+| **P0.7** | Plugin-marketplace runtime side | 3 wk | ⬜ |
+| **P0.8** | Discovery APIs (schema / IFC / property panel) | 4 wk | ⬜ |
+| **P0.9** | Roadmap refactor against Family Platform target | 1 wk | ⬜ |
+
+**Tier −1 total: ~28 dev-weeks (≈ 7 months single-contributor; 3 months at two parallel).**
 
 ## Z.1 — Tier 0 — Already shipped (foundation reference)
 
