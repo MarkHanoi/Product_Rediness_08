@@ -20,6 +20,7 @@
 
 import type { CommandPayloadRef } from '../../types.js';
 import type { LayoutOption, Vec2mm } from './types.js';
+import { defaultDoorSystemTypeId } from './resolvers/defaultElementTypes.js';
 
 const MM_PER_M = 1000;
 
@@ -89,6 +90,12 @@ export interface DoorPlanItem {
     readonly sillHeight: number;    // m (0 for doors)
     readonly doorType: 'single' | 'double';
     readonly name?: string;         // semantic name (e.g. "Bedroom – Corridor Door")
+    // T1.D (2026-05-30) — when present, the per-pair resolver picks a
+    // privacy/glazed/solid finish instead of the global default. Optional for
+    // back-compat: AI / legacy paths that don't populate the room types still
+    // get the global `stampDoorSysType`.
+    readonly roomTypeA?: import('./types.js').RoomType;
+    readonly roomTypeB?: import('./types.js').RoomType;
 }
 
 export interface LayoutPlan {
@@ -351,6 +358,10 @@ export function buildLayoutPlan(option: LayoutOption, opts: LayoutExecuteOptions
             sillHeight: 0,
             doorType: 'single',
             ...(d.name ? { name: d.name } : {}),
+            // T1.D — carry the room types so the per-pair finish resolver can
+            // pick a privacy door for wet rooms / glazed door for kitchens.
+            ...(d.roomTypeA ? { roomTypeA: d.roomTypeA } : {}),
+            ...(d.roomTypeB ? { roomTypeB: d.roomTypeB } : {}),
         });
     });
 
@@ -461,6 +472,14 @@ export function buildLayoutCommands(
                 },
             },
         });
+        // T1.D (2026-05-30) — per-pair finish resolver. When the door knows
+        // both room types (D-TGL path populates them via emitGeometry), pick
+        // the privacy / glazed / solid finish from the resolver. Otherwise
+        // fall through to the legacy global `stampDoorSysType` so AI and
+        // procedural-fallback paths still ship a working door.
+        const perPairSysType = (d.roomTypeA && d.roomTypeB)
+            ? { systemTypeId: defaultDoorSystemTypeId(d.roomTypeA, d.roomTypeB) }
+            : stampDoorSysType;
         doors.push({
             id: doorId,
             wallId,
@@ -470,7 +489,7 @@ export function buildLayoutCommands(
             height: d.height,
             sillHeight: d.sillHeight,
             doorType: d.doorType,
-            ...stampDoorSysType,
+            ...perPairSysType,
             ...(d.name ? { name: d.name } : {}),
         });
     }

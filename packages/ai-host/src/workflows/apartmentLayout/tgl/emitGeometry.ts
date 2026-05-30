@@ -52,6 +52,12 @@ export function emitGeometry(graph: LayoutGraph): EmittedLayout {
 
     const wallIndex = new Map(wallNodes.map((n, i) => [n.guid, i]));
     const nameByGuid = new Map(spaceNodes.map(n => [n.guid, str(n.attrs.name, n.sourceId)]));
+    // T1.D (2026-05-30) — spaceType (= RoomType) per space guid; used to populate
+    // LayoutDoor.roomTypeA/B so executePlan can call defaultDoorSystemTypeId
+    // for the per-pair finish (privacy / glazed / solid-timber).
+    const typeByGuid = new Map<string, RoomType>(
+        spaceNodes.map(n => [n.guid, (str(n.attrs.spaceType, 'utility') as RoomType)]),
+    );
 
     // Permeability + adjacency neighbours per space (for adjacentTo / hasDirectAccess).
     const neighbours = new Map<string, Set<string>>();
@@ -117,7 +123,18 @@ export function emitGeometry(graph: LayoutGraph): EmittedLayout {
         if (wallRef === undefined || !opening) continue;            // broken cascade → skip
         const conn = doorConnects.get(d.guid);
         const name = conn ? `${nameByGuidAll.get(conn[0]) ?? '?'} – ${nameByGuidAll.get(conn[1]) ?? '?'} Door` : 'Door';
-        doors.push({ wallRef, offset: mm(num(opening.attrs.offsetM)), width: mm(num(opening.attrs.widthM)), name });
+        // T1.D (2026-05-30) — when the door connects two known spaces, carry
+        // their RoomType through so executePlan can resolve a per-pair finish.
+        const roomTypeA = conn ? typeByGuid.get(conn[0]) : undefined;
+        const roomTypeB = conn ? typeByGuid.get(conn[1]) : undefined;
+        doors.push({
+            wallRef,
+            offset: mm(num(opening.attrs.offsetM)),
+            width:  mm(num(opening.attrs.widthM)),
+            name,
+            ...(roomTypeA ? { roomTypeA } : {}),
+            ...(roomTypeB ? { roomTypeB } : {}),
+        });
         doorGuids.push(d.guid);
     }
 

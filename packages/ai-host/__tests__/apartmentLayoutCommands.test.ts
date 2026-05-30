@@ -91,4 +91,48 @@ describe('buildLayoutCommands (A6-wire)', () => {
         expect(set.openingCommands).toHaveLength(0);
         expect(set.doorBatch).toBeNull();
     });
+
+    // T1.D wiring (2026-05-30) — per-pair door finish resolver consumed.
+    describe('T1.D per-pair door finish (when LayoutDoor carries roomTypeA/B)', () => {
+        const getDoorSysType = (set: ReturnType<typeof buildLayoutCommands>) =>
+            (set.doorBatch!.payload as { doors: Array<{ systemTypeId?: string }> }).doors[0]!.systemTypeId;
+
+        it('bathroom door → dt-white-primed (privacy)', () => {
+            const set = buildLayoutCommands(option({
+                doors: [{ wallRef: 0, offset: 2000, width: 900, roomTypeA: 'corridor', roomTypeB: 'bathroom' }],
+            }), OPTS, counterMinter());
+            expect(getDoorSysType(set)).toBe('dt-white-primed');
+        });
+
+        it('kitchen door → dt-glazed-timber (half-light sight line)', () => {
+            const set = buildLayoutCommands(option({
+                doors: [{ wallRef: 0, offset: 2000, width: 900, roomTypeA: 'living', roomTypeB: 'kitchen' }],
+            }), OPTS, counterMinter());
+            expect(getDoorSysType(set)).toBe('dt-glazed-timber');
+        });
+
+        it('bedroom ↔ corridor → dt-solid-timber (editor default residential)', () => {
+            const set = buildLayoutCommands(option({
+                doors: [{ wallRef: 0, offset: 2000, width: 900, roomTypeA: 'corridor', roomTypeB: 'bedroom' }],
+            }), OPTS, counterMinter());
+            expect(getDoorSysType(set)).toBe('dt-solid-timber');
+        });
+
+        it('wet-room rule beats kitchen rule (kitchen ↔ bathroom is privacy door)', () => {
+            const set = buildLayoutCommands(option({
+                doors: [{ wallRef: 0, offset: 2000, width: 900, roomTypeA: 'kitchen', roomTypeB: 'bathroom' }],
+            }), OPTS, counterMinter());
+            expect(getDoorSysType(set)).toBe('dt-white-primed');
+        });
+
+        it('door WITHOUT room types falls back to the global stampDoorSysType', () => {
+            // Legacy path: no roomTypeA/B → keeps the existing `solid-timber`
+            // global default (executePlan.DEFAULT_DOOR_SYSTEM_TYPE_ID). No
+            // regression vs pre-T1.D behaviour.
+            const set = buildLayoutCommands(option({
+                doors: [{ wallRef: 0, offset: 2000, width: 900 }],   // no room types
+            }), OPTS, counterMinter());
+            expect(getDoorSysType(set)).toBe('solid-timber');
+        });
+    });
 });

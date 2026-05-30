@@ -36,7 +36,18 @@ export interface Vec2mm { x: number; y: number }      // plan coords, mm
 /** A wall in a layout. `isExternal` marks a perimeter/shell wall — shown in the
  *  preview for context but skipped at build (the shell already exists). */
 export interface LayoutWall { start: Vec2mm; end: Vec2mm; isExternal?: boolean }
-export interface LayoutDoor { wallRef: number; offset: number; width: number; name?: string } // mm
+export interface LayoutDoor {
+    wallRef: number;
+    offset: number;
+    width: number;          // mm
+    name?: string;
+    // T1.D (2026-05-30) — room types on either side. Optional for back-compat
+    // with AI-produced layouts that predate the field; when present, executePlan
+    // calls `defaultDoorSystemTypeId(roomTypeA, roomTypeB)` to pick a per-pair
+    // system-type id (privacy / glazed / solid-timber).
+    roomTypeA?: RoomType;
+    roomTypeB?: RoomType;
+}
 /** A virtual room-bounding line (no wall, no door) that splits two adjacent
  *  open-plan spaces logically so room detection sees them as separate rooms.
  *  Built via the editor's `CreateRoomBoundingLineCommand` at execute time. */

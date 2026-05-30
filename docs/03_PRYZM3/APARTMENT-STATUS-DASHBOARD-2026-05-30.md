@@ -23,7 +23,7 @@ Single-page reference for **every phase and subphase** across the apartment plat
 |---|---|---|
 | **T1.W** Window-emission engine | NEW pure sub-engine | ⬜ |
 | **T1.C** Corridor-connectivity validator | Every habitable touches corridor | 🟨 pure validator shipped 2026-05-30 (validateCorridorConnectivity.ts + 9 pin tests, SOFT-only); enumerate.ts wiring + modal surfacing pending |
-| **T1.D** Per-room default door + window system types | MATRIX §D + queue | 🟨 pure resolvers shipped 2026-05-30 (defaultElementTypes.ts + 19 pin tests); executePlan wiring + window-engine consumer pending |
+| **T1.D** Per-room default door + window system types | MATRIX §D + queue | ✅ door side fully wired 2026-05-30 (resolver + LayoutDoor/DoorPlanItem extension + emitGeometry + executePlan, 24 pin tests). Window-resolver awaits T1.W landing. |
 
 ---
 
@@ -173,7 +173,7 @@ Every axis is in ObjectiveVector + computeObjectives + weightedSum + LayoutScore
 
 | Package | Pass | Notes |
 |---|---|---|
-| @pryzm/ai-host | **775/775** | 2 SCC AiHost.* pre-existing failures unchanged (memory: scc-no-barrel-access-at-module-load) |
+| @pryzm/ai-host | **780/780** | 2 SCC AiHost.* pre-existing failures unchanged (memory: scc-no-barrel-access-at-module-load) |
 | @pryzm/core-app-model | (typecheck) | Pre-existing plugin-side TS errors; lighting-side clean |
 | @pryzm/geometry-lighting | (depends on core-app-model rebuild for full validation) | F1.5' mirror_light builder added |
 | @pryzm/geometry-furniture | (untouched this slice) | 11 of 15 F1.x types shipped contract-complete |
