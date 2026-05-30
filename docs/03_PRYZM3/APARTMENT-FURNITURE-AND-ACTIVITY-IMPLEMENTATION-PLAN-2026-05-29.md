@@ -286,6 +286,28 @@ Legend (Status column):
 
 - ⬜ Not started · 🟦 Planning / spec · 🟨 In progress · ✅ Complete · 🟥 Blocked
 
+### §4.−1 — Phase GS0 — Geospatial Foundation & Site Intelligence (RUNS PARALLEL to F-tier)
+
+**Authored 2026-05-30.** See [PRYZM-GEOSPATIAL-FOUNDATION-AND-SITE-INTELLIGENCE-REVIEW.md](PRYZM-GEOSPATIAL-FOUNDATION-AND-SITE-INTELLIGENCE-REVIEW.md) for the full architecture review.
+
+**Why parallel, not before-F.** Today's apartment generator is correctly scoped to fictional contexts. F-tier ships continue. GS0 builds the WHERE-IT-LIVES substrate (site / climate / context / building) BENEATH the existing apartment substrate so future expansion converges toward a site-aware design pipeline rather than away from it. Each next F-tier ship can declare an optional `siteAware: bool` flag for when GS0.5 lands.
+
+**Existing infrastructure (audited 2026-05-30):** Cesium visualization layer ✅ (`plugins/geospatial`), LTP-ENU coordinate handling ✅ (`packages/geospatial`), ProjectLocation schema ✅, NOAA RealSunService ✅, FacadeValueField + DaylightDepthField ✅, IfcProjectedCRS round-trip ✅ (Wave A17), C12 Geospatial contract ✅. **The plumbing exists; the design workflow does not.**
+
+| ID | Deliverable | Est | Status |
+|---|---|---|---|
+| **GS0.1** | Site / Building / Apartment schemas (L0, P5 pure) + legacy-promotion loader | 2 wk | ⬜ |
+| **GS0.2** | `SiteModel` runtime store + `site.*` commands (P6 + C16) | 1 wk | ⬜ |
+| **GS0.3** | Cesium ingestion adapter — terrain + neighbours from tiles → PRYZM Site context | 3 wk | ⬜ |
+| **GS0.4** | Climate ingestion — EPW reader + NOAA climate normals + caching | 2 wk | ⬜ |
+| **GS0.5** | Site-aware FacadeValueField + DaylightDepthField (`(shellPolygon, site)` overloads with real sun path + overshadowing) | 2 wk | ⬜ |
+| **GS0.6** | Site authoring UI — Cesium-backed parcel drawing + location picker + neighbour curation | 4 wk | ⬜ |
+| **GS0.7** | Climate-aware lighting / window / facade decisions in apartment AI workflow | 3 wk | ⬜ |
+| **GS0.8** | Full IfcSite + IfcMapConversion round-trip with Site model populated | 1 wk | ⬜ |
+| **GS0.9** | C12 contract revision + new C18 (Site) + C19 (Climate) + C20 (Building/Apartment aggregate) contracts | 1 wk | ⬜ |
+
+**GS0 total: ~19 dev-weeks.** Smaller than P0 (~28 wk) because the geospatial plumbing already exists.
+
 ### §4.0 — Phase P0 — Family Platform strategic substrate (RUNS PARALLEL to F-tier)
 
 **Authored 2026-05-30.** See [APARTMENT-FAMILY-PLATFORM-AND-USER-DEFINED-ELEMENTS-2026-05-30.md](APARTMENT-FAMILY-PLATFORM-AND-USER-DEFINED-ELEMENTS-2026-05-30.md) for the full strategic architecture review.
@@ -606,6 +628,24 @@ If the next 2 weeks are the target window, ship in this exact order (highest sem
 **Read this section last but think with it first.** Every deliverable ID from every apartment doc, in dependency-correct execution order. The earlier sections (F0–F8) are the FURNITURE programme alone; this section places that programme inside the FULL architecture.
 
 Legend: ⬜ Not started · 🟦 Planning · 🟨 In progress · ✅ Complete.
+
+## Z.−2 — Tier −2 — Geospatial Foundation (RUNS PARALLEL — see Phase GS0)
+
+The WHERE-IT-LIVES strategic substrate. Doesn't block F-tier; sets up site / climate / context as a foundational layer beneath the existing apartment substrate so future expansion (lighting, windows, facade, codes, energy, digital twins) converges toward a site-aware design pipeline rather than away from it. See [PRYZM-GEOSPATIAL-FOUNDATION-AND-SITE-INTELLIGENCE-REVIEW.md](PRYZM-GEOSPATIAL-FOUNDATION-AND-SITE-INTELLIGENCE-REVIEW.md) for the full strategic review + the §4.−1 table above for the 9 GS0 deliverables.
+
+| ID | Deliverable | Est | Status |
+|---|---|---|---|
+| **GS0.1** | Site / Building / Apartment schemas + legacy-promotion loader | 2 wk | ⬜ |
+| **GS0.2** | `SiteModel` runtime store + `site.*` commands | 1 wk | ⬜ |
+| **GS0.3** | Cesium ingestion adapter (terrain + neighbours) | 3 wk | ⬜ |
+| **GS0.4** | Climate ingestion (EPW + NOAA) | 2 wk | ⬜ |
+| **GS0.5** | Site-aware facade + daylight fields | 2 wk | ⬜ |
+| **GS0.6** | Site authoring UI (Cesium-backed) | 4 wk | ⬜ |
+| **GS0.7** | Climate-aware lighting / window / facade in AI workflow | 3 wk | ⬜ |
+| **GS0.8** | Full IfcSite + IfcMapConversion round-trip | 1 wk | ⬜ |
+| **GS0.9** | C12 revision + C18 / C19 / C20 contracts | 1 wk | ⬜ |
+
+**Tier −2 total: ~19 dev-weeks (≈ 5 months single-contributor; 2.5 months at two parallel).**
 
 ## Z.0 — Tier −1 — Family Platform substrate (RUNS PARALLEL — see Phase P0)
 
