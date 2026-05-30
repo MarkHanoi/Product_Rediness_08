@@ -594,6 +594,77 @@ describe('computeObjectives (TGL P7)', () => {
         });
     });
 
+    // §L2-β-3 (2026-05-30) — arrivalSequence: compression-release ratio
+    // (largest visible-from-entry area / entry area). Reuses the
+    // entrySightline visible-set logic.
+    describe('§L2-β-3 arrivalSequence', () => {
+        it('small hall releasing into large living (4×) → 1.0 ideal', () => {
+            const g = graphOf([
+                space('H', { spaceType: 'hall', netAreaM2: 6, isPrivate: false, needsWindow: false }),
+                space('L', { spaceType: 'living', netAreaM2: 24, isPrivate: false, needsWindow: true }),
+            ], [
+                { kind: 'CONNECTS_THROUGH', from: 'H', to: 'L', via: 'a' },
+            ]);
+            const v = computeObjectives(g, metricsOf({ H: 0, L: 1 }), emptyBubble);
+            // ratio = 24 / 6 = 4 → score 1.0
+            expect(v.arrivalSequence).toBe(1);
+        });
+
+        it('mild release (2×) → 0.5', () => {
+            const g = graphOf([
+                space('H', { spaceType: 'hall', netAreaM2: 10, isPrivate: false, needsWindow: false }),
+                space('L', { spaceType: 'living', netAreaM2: 20, isPrivate: false, needsWindow: true }),
+            ], [
+                { kind: 'CONNECTS_THROUGH', from: 'H', to: 'L', via: 'a' },
+            ]);
+            const v = computeObjectives(g, metricsOf({ H: 0, L: 1 }), emptyBubble);
+            expect(v.arrivalSequence).toBe(0.5);
+        });
+
+        it('no release — entry same size as reveal (1×) → 0.25', () => {
+            const g = graphOf([
+                space('H', { spaceType: 'hall', netAreaM2: 12, isPrivate: false, needsWindow: false }),
+                space('L', { spaceType: 'living', netAreaM2: 12, isPrivate: false, needsWindow: true }),
+            ], [
+                { kind: 'CONNECTS_THROUGH', from: 'H', to: 'L', via: 'a' },
+            ]);
+            const v = computeObjectives(g, metricsOf({ H: 0, L: 1 }), emptyBubble);
+            expect(v.arrivalSequence).toBe(0.25);
+        });
+
+        it('ANTI-PATTERN — entry bigger than reveal → 0', () => {
+            const g = graphOf([
+                space('H', { spaceType: 'hall', netAreaM2: 24, isPrivate: false, needsWindow: false }),  // huge hall
+                space('L', { spaceType: 'living', netAreaM2: 6, isPrivate: false, needsWindow: true }),
+            ], [
+                { kind: 'CONNECTS_THROUGH', from: 'H', to: 'L', via: 'a' },
+            ]);
+            const v = computeObjectives(g, metricsOf({ H: 0, L: 1 }), emptyBubble);
+            // ratio = 6/24 = 0.25 → score 0.0625
+            expect(v.arrivalSequence).toBeLessThan(0.1);
+        });
+
+        it('picks the LARGEST visible space when multiple revealed', () => {
+            const g = graphOf([
+                space('H', { spaceType: 'hall', netAreaM2: 5, isPrivate: false, needsWindow: false }),
+                space('L', { spaceType: 'living', netAreaM2: 25, isPrivate: false, needsWindow: true }),
+                space('K', { spaceType: 'kitchen', netAreaM2: 10, isPrivate: false, needsWindow: true }),
+            ], [
+                { kind: 'CONNECTS_THROUGH', from: 'H', to: 'L', via: 'a' },
+                { kind: 'CONNECTS_THROUGH', from: 'H', to: 'K', via: 'b' },
+            ]);
+            const v = computeObjectives(g, metricsOf({ H: 0, L: 1, K: 1 }), emptyBubble);
+            // Largest visible = L (25 m²). Ratio = 25/5 = 5 → clamped to 1.
+            expect(v.arrivalSequence).toBe(1);
+        });
+
+        it('no entry → neutral 1.0', () => {
+            const g = graphOf([]);
+            const v = computeObjectives(g, metricsOf({}), emptyBubble);
+            expect(v.arrivalSequence).toBe(1);
+        });
+    });
+
     it('daylight (no field): behaviour unchanged (back-compat)', () => {
         // emptyBubble has no daylightField → the prior binary fronts-facade
         // computation must produce the same number for both rooms regardless

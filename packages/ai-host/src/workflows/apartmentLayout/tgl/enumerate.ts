@@ -310,6 +310,9 @@ function weightedSum(o: ObjectiveVector, w: ScoringWeights): number {
         // the two together describe the arrival sequence (entry reveal +
         // climax depth).
         entrySightline: Math.max(0, w.privacy) * 0.4,
+        // §L2-β-3 arrivalSequence (2026-05-30) — compression-release ratio.
+        // Same Layer-2 family weight as entrySightline.
+        arrivalSequence: Math.max(0, w.privacy) * 0.4,
     };
     const total = OBJECTIVE_AXES.reduce((s, a) => s + raw[a], 0) || 1;
     return OBJECTIVE_AXES.reduce((s, a) => s + (raw[a] / total) * o[a], 0);

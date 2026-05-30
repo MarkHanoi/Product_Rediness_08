@@ -110,6 +110,20 @@ export interface ObjectiveVector {
      */
     readonly proportionalElegance: number;
     /**
+     * §L2-β-3 (2026-05-30) — arrival sequence axis (Cognition Layer 2,
+     * Spatial Hierarchy). Detects the canonical "compression-release"
+     * pattern: a small entry releasing into a larger revealed space.
+     * Score = clamp(maxVisibleArea / entryArea / 4, 0, 1):
+     *   ratio ≥ 4×: 1.0 (strong release — small lobby → large living)
+     *   ratio 2×:   0.5 (mild release)
+     *   ratio 1×:   0.25 (no release — same size)
+     *   ratio < 1:  0 (anti-pattern — entry bigger than what it reveals)
+     *
+     * Returns 1.0 when entry is undefined or has no visible neighbours
+     * (those failure modes are caught by entrySightline already).
+     */
+    readonly arrivalSequence: number;
+    /**
      * §L2-β-2 (2026-05-30) — entry sightline axis (Cognition Layer 2,
      * Spatial Hierarchy). Graph-distance proxy for the ray-cast version:
      * counts the spaces directly reachable from the entry via a
@@ -150,7 +164,7 @@ export interface ObjectiveVector {
 }
 
 export const OBJECTIVE_AXES: readonly (keyof ObjectiveVector)[] =
-    ['efficiency', 'adjacency', 'daylight', 'circulation', 'regularity', 'hierarchy', 'shapeQuality', 'topologyQuality', 'edgeRealisation', 'openingCadence', 'proportionalElegance', 'spatialClimax', 'entrySightline'] as const;
+    ['efficiency', 'adjacency', 'daylight', 'circulation', 'regularity', 'hierarchy', 'shapeQuality', 'topologyQuality', 'edgeRealisation', 'openingCadence', 'proportionalElegance', 'spatialClimax', 'entrySightline', 'arrivalSequence'] as const;
 
 const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n);
 const num = (v: unknown, d = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -187,7 +201,7 @@ export function computeObjectives(
     const spaces = graph.nodes.filter(n => n.kind === 'Space');
     const totalArea = spaces.reduce((s, n) => s + num(n.attrs.netAreaM2), 0);
     if (spaces.length === 0 || totalArea <= 0) {
-        return { efficiency: 0, adjacency: 0, daylight: 0, circulation: 0, regularity: 0, hierarchy: 0, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation: 1, openingCadence: 1, proportionalElegance: 1, spatialClimax: 1, entrySightline: 1 };
+        return { efficiency: 0, adjacency: 0, daylight: 0, circulation: 0, regularity: 0, hierarchy: 0, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation: 1, openingCadence: 1, proportionalElegance: 1, spatialClimax: 1, entrySightline: 1, arrivalSequence: 1 };
     }
 
     // ── efficiency: how little of the floor is circulation. ──────────────────────
@@ -323,6 +337,37 @@ export function computeObjectives(
         else /* n ≥ 4 */             entrySightline = 0.3;
     }
 
+    // ── §L2-β-3 arrivalSequence: compression-release pattern. Reuses the
+    //    entry's visible-neighbours set; scores the area RATIO of the
+    //    largest visible space to the entry itself. Strong release
+    //    (4x+) = ideal; reverse (entry > visible) = anti-pattern.
+    let arrivalSequence = 1;                                // default neutral
+    if (entryGuid !== null) {
+        const entryNode = spaces.find(s => s.guid === entryGuid);
+        const entryArea = entryNode ? num(entryNode.attrs.netAreaM2) : 0;
+        const visible = new Set<string>();
+        for (const e of graph.edges) {
+            if (e.kind === 'CONNECTS_THROUGH') {
+                if (e.from === entryGuid) visible.add(e.to);
+                else if (e.to === entryGuid) visible.add(e.from);
+            } else if (e.kind === 'ADJACENT_TO' && e.props?.permeable === true) {
+                if (e.from === entryGuid) visible.add(e.to);
+                else if (e.to === entryGuid) visible.add(e.from);
+            }
+        }
+        if (entryArea > 0 && visible.size > 0) {
+            let maxVis = 0;
+            for (const g of visible) {
+                const sp = spaces.find(s => s.guid === g);
+                if (!sp) continue;
+                const a = num(sp.attrs.netAreaM2);
+                if (a > maxVis) maxVis = a;
+            }
+            const ratio = maxVis / entryArea;
+            arrivalSequence = clamp01(ratio / 4);
+        }
+    }
+
     // ── §L2-β-4 spatialClimax: identify the layout's DOMINANT non-
     //    circulation space and score its arrival depth. Compression-release
     //    architecture wants the climax at depth ∈ [2, 4]: too shallow = no
@@ -446,7 +491,7 @@ export function computeObjectives(
     }
     const edgeRealisation = realisationN > 0 ? clamp01(realisationSum / realisationN) : 1;
 
-    return { efficiency, adjacency, daylight, circulation, regularity, hierarchy, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation, openingCadence, proportionalElegance, spatialClimax, entrySightline };
+    return { efficiency, adjacency, daylight, circulation, regularity, hierarchy, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation, openingCadence, proportionalElegance, spatialClimax, entrySightline, arrivalSequence };
 }
 
 const pairKey = (a: string, b: string): string => (a < b ? `${a}|${b}` : `${b}|${a}`);

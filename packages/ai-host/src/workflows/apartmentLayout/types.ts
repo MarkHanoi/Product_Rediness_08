@@ -168,6 +168,12 @@ export interface LayoutScoreBreakdown {
      *  visible (architectural ideal); 0 = blind entry; ≥4 = over-exposed.
      *  Cognition Layer 2. The ray-cast variant is queued as L2-β-2b. */
     entrySightline?: number;       // 0-1
+    /** §L2-β-3 arrivalSequence — compression-release pattern: ratio of
+     *  largest-visible-from-entry space area to the entry's own area.
+     *  ratio ≥ 4× → 1.0 (small lobby releasing into large living, ideal);
+     *  ratio < 1 → 0 (anti-pattern: entry is bigger than what it reveals).
+     *  Cognition Layer 2. */
+    arrivalSequence?: number;      // 0-1
 }
 
 export interface LayoutScore {
