@@ -143,6 +143,11 @@ export type FurnitureType =
     // by stylistic name.
     // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §4.2.13) ─────────
     | 'lounge_chair'
+    // ── F1.14 (2026-05-30) — Pantry cabinet. Tall narrow kitchen storage
+    // for dry goods. Anchors on a kitchen wall PERPENDICULAR to the kitchen
+    // run so the run keeps its own working stretch.
+    // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §4.2.14) ─────────
+    | 'pantry_cabinet'
     | 'plant_01'
     | 'plant_02'
     | 'plant_03'

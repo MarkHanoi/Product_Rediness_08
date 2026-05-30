@@ -710,7 +710,7 @@ Each row pays the full 24-step contract obligation ladder (§0.1). Order: most s
 | **F1.11** | Curtain primitives | geometry-furniture | 20 d | ⬜ |
 | **F1.12** | Bedroom dressing (`dresser`, `vanity_table`) | geometry-furniture | 10 d | ⬜ |
 | **F1.13** | `lounge_chair` semantic alias | geometry-furniture | 1 d | ⬜ |
-| **F1.14** | `pantry_cabinet` | geometry-furniture | 5 d | ⬜ |
+| **F1.14** | `pantry_cabinet` | geometry-furniture | 5 d | ✅ shipped 2026-05-30 — FurnitureType union + FurnitureCategoryMap (storage) + NEW PantryCabinetBuilder.ts (3-tier: upper double doors + centre full-width drawer + lower double doors) + FurnitureFactory arm; ai-host FurnitureKind + footprints (0.6×0.45×2.10 m); kitchen archetype wires on longest-wall with excludeWindowWall + excludeDoorSwing; programRules.kitchen mirrors. +4 pin tests. |
 | **F1.15** | `pendant_cluster` | geometry-lighting | 5 d | ⬜ |
 
 **Tier 6 total: ~175 dev-days (≈ 8 months single-contributor; 4 months at two parallel).**

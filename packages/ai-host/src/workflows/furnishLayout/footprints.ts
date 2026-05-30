@@ -94,6 +94,9 @@ const FP: Readonly<Record<FurnitureKind, Footprint>> = {
     // F1.13 (2026-05-30) — Lounge chair semantic alias (Barcelona silhouette).
     //   0.85 m × 0.85 m × 0.95 m, generous footprint typical of a lounge chair.
     lounge_chair:     { w: 0.85, l: 0.85, h: 0.95, baseOffset: 0, clearFront: 0.20, clearSides: 0.10 },
+    // F1.14 (2026-05-30) — Tall narrow kitchen pantry.
+    //   0.60 m × 0.45 m × 2.10 m, 1.0 m front clearance (door swing + user reach).
+    pantry_cabinet:   { w: 0.60, l: 0.45, h: 2.10, baseOffset: 0, clearFront: 1.00, clearSides: 0.00 },
 };
 
 /** Footprint for a furniture kind (always defined for supported kinds). */

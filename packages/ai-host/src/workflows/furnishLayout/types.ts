@@ -48,7 +48,10 @@ export type FurnitureKind =
     | 'wall_art' | 'wall_mirror'
     // F1.13 (2026-05-30) — lounge_chair semantic alias.
     // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §F1.13)
-    | 'lounge_chair';
+    | 'lounge_chair'
+    // F1.14 (2026-05-30) — pantry_cabinet (kitchen storage).
+    // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §F1.14)
+    | 'pantry_cabinet';
 
 /** Editor RoomOccupancyType values this engine furnishes (subset). */
 export type FurnishableOccupancy =

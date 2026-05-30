@@ -85,6 +85,7 @@ export const FURNITURE_TYPE_TO_CATEGORY: Readonly<Record<FurnitureType, Furnitur
     'entry_bench':          'storage', // F1.4 — entry sitting bench (often with shoe shelves below)
     'buffet':               'storage', // F1.9 — dining-room buffet (drawers + cabinets)
     'sideboard':            'storage', // F1.9 — dining-room sideboard (low, longer)
+    'pantry_cabinet':       'storage', // F1.14 — tall narrow kitchen pantry
 
     // ── Technical (electronics) ───────────────────────────────────────────────
     'tv':                   'technical', // F1.3 — wall-mounted TV panel

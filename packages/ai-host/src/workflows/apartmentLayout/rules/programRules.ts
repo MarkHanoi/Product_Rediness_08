@@ -257,7 +257,7 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         // kitchen↔living is the common open-plan extension (0.8), kitchen↔corridor is
         // permitted but architecturally weak (0.3), utility off the kitchen is sensible.
         adjacencyPreference: { dining: 1.0, living: 0.8, utility: 0.6, corridor: 0.3 },
-        requiredFurniture: ['kitchen_straight'], optionalFurniture: ['kitchen_straight'], requiredFixtures: ['sink'],
+        requiredFurniture: ['kitchen_straight'], optionalFurniture: ['kitchen_straight', 'pantry_cabinet'], requiredFixtures: ['sink'],
         furnitureSpec: [
             // Kitchen runs sit on the LONGEST FREE WALL (architectural intent of
             // "L-shape" is the TWO ADJACENT WALLS case). The pure engine emits
@@ -267,6 +267,8 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
             // sink prefers the window wall so excludeWindowWall is FALSE.
             { kind: 'kitchen_straight', sizeW: 3000, sizeD: 600, clearFoot: 1000, clearSide: 0, placementRule: 'longest_wall', excludeDoorSwing: true, excludeWindowWall: false, required: true },
             { kind: 'kitchen_straight', sizeW: 3000, sizeD: 600, clearFoot: 1000, clearSide: 0, placementRule: 'longest_wall', excludeDoorSwing: true, excludeWindowWall: false, required: false },
+            // F1.14 (2026-05-30) — Pantry cabinet.
+            { kind: 'pantry_cabinet',   sizeW: 600,  sizeD: 450, clearFoot: 1000, clearSide: 0, placementRule: 'longest_wall', excludeDoorSwing: true, excludeWindowWall: true,  required: false },
         ],
         description: 'Food preparation. Works open-plan with dining; reached via the living/dining zone, never directly off the entrance hall.',
     },

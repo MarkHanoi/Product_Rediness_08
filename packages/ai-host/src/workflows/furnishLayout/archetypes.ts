@@ -60,6 +60,11 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
             // — small kitchens that can't fit two runs gracefully degrade to one.
             { kind: 'kitchen_straight', anchor: 'wall-longest', facing: 'to-wall', required: true,  excludeDoorSwing: true },
             { kind: 'kitchen_straight', anchor: 'wall-longest', facing: 'to-wall', required: false, excludeDoorSwing: true },
+            // F1.14 (2026-05-30) — Tall pantry on a wall PERPENDICULAR to the
+            // main kitchen run (so the run keeps its working stretch). Anchor
+            // 'wall-longest' yields to the kitchen runs that claimed it first,
+            // landing on the next-longest free wall.
+            { kind: 'pantry_cabinet', anchor: 'wall-longest', facing: 'to-wall', required: false, excludeWindowWall: true, excludeDoorSwing: true },
             // §KITCHEN-ISLAND (2026-05-29) — optional centre island for open-plan
             // kitchens. Placed AFTER the wall runs so the island only lands when
             // the room still has clear centroid space (smaller kitchens have the
