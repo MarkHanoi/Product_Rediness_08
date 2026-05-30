@@ -58,6 +58,7 @@ export const FURNITURE_TYPE_TO_CATEGORY: Readonly<Record<FurnitureType, Furnitur
     'barcelona_corner_sofa': 'sofas',
     'chair_cesca_tan':       'chairs',
     'chair_textile_wood_arm': 'chairs',
+    'desk_chair':            'chairs', // F1.1 — swivel task chair
 
     // ── Tables ────────────────────────────────────────────────────────────────
     'table':                'tables',
@@ -66,6 +67,7 @@ export const FURNITURE_TYPE_TO_CATEGORY: Readonly<Record<FurnitureType, Furnitur
     'coffee_table':         'tables',
     'entrance_table':       'tables',
     'bedside_table':        'tables',
+    'desk':                 'tables', // F1.1 — study workstation surface
     'table_marble_cone':    'tables',
     'table_glass_wood_cylinder': 'tables',
     'table_wood_double_conic': 'tables',

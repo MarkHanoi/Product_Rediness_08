@@ -394,16 +394,18 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         acousticRole: 'receiver', frontage: 'preferred',
         areaWeight: 0.85, minAreaM2: 5, minShortSideM: 2.0, needsWindow: true, windowMandatory: false,
         accessFrom: ['corridor', 'living'], maxDoors: 1,
-        requiredFurniture: ['dining_table'], optionalFurniture: ['dining_chair', 'lamp'], requiredFixtures: [],
+        // F1.1 (2026-05-30) — proper `desk` + `desk_chair` shipped, replacing
+        // the dining-table-as-desk workaround.
+        requiredFurniture: ['desk'], optionalFurniture: ['desk_chair', 'lamp'], requiredFixtures: [],
         furnitureSpec: [
             // Desk WANTS the window wall (natural light from the side, screen not
-            // facing the window). dining_table is the catalogue kind reused for
-            // a desk (geometry-furniture has no dedicated desk kind yet).
-            { kind: 'dining_table', sizeW: 1400, sizeD: 900, clearFoot: 900, clearSide: 900, placementRule: 'window_wall',  excludeDoorSwing: true,  excludeWindowWall: false, required: true,  group: 'desk' },
-            { kind: 'dining_chair', sizeW: 500,  sizeD: 500, clearFoot: 0,   clearSide: 0,   placementRule: 'beside_group', excludeDoorSwing: false, excludeWindowWall: false, required: false, group: 'desk', count: 1 },
-            { kind: 'lamp',         sizeW: 350,  sizeD: 350, clearFoot: 100, clearSide: 0,   placementRule: 'corner',       excludeDoorSwing: false, excludeWindowWall: false, required: false },
+            // facing the window). Worktop 1.4 × 0.7 m at 0.75 m height; 0.9 m
+            // front clearance for chair pull-out.
+            { kind: 'desk',       sizeW: 1400, sizeD: 700, clearFoot: 900, clearSide: 450, placementRule: 'window_wall',  excludeDoorSwing: true,  excludeWindowWall: false, required: true,  group: 'desk' },
+            { kind: 'desk_chair', sizeW: 550,  sizeD: 550, clearFoot: 0,   clearSide: 0,   placementRule: 'beside_group', excludeDoorSwing: false, excludeWindowWall: false, required: false, group: 'desk', count: 1 },
+            { kind: 'lamp',       sizeW: 350,  sizeD: 350, clearFoot: 100, clearSide: 0,   placementRule: 'corner',       excludeDoorSwing: false, excludeWindowWall: false, required: false },
         ],
-        description: 'Home office / study. One door to the corridor or the living space.',
+        description: 'Home office / study. One door to the corridor or the living space. Anchored by a desk on the window wall + matching task chair.',
     },
 
     // ── Wet rooms ────────────────────────────────────────────────────────────────

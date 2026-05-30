@@ -10,15 +10,14 @@ export type FurnitureKind =
     | 'bed' | 'bedside_table' | 'wardrobe' | 'sofa' | 'coffee_table'
     | 'dining_table' | 'dining_chair' | 'entrance_table' | 'lamp'
     | 'toilet_radiator' | 'shower_glass_panel'
-    | 'kitchen_l_shape' | 'kitchen_straight' | 'kitchen_u_shape' | 'kitchen_island';
-// §STUDY-FURNITURE — `desk` + `desk_chair` are deliberately NOT in this union
-// today; admitting them while the geometry-furniture `FurnitureType` union +
-// builder + plan symbol + factory + IFC export entries are pending would
-// produce a half-contract-compliant element (C03 / C11 / C15 violations).
-// See APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §F1.1 for the
-// contract-exhaustive subphase ladder that must complete before the union
-// extends. The study archetype uses dining_table / dining_chair as the
-// renderable + the pure-engine kind until then — explicit-workaround discipline.
+    | 'kitchen_l_shape' | 'kitchen_straight' | 'kitchen_u_shape' | 'kitchen_island'
+    // F1.1 (2026-05-30) — study workstation primitives. Admitted after the
+    // contract-exhaustive subphase ladder closed: FurnitureType union +
+    // FurnitureCategoryMap entries + DeskBuilder + DeskChairBuilder +
+    // FurnitureFactory switch arms shipped in the same delivery (see
+    // APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §F1.1). Closes the
+    // dining-table-as-desk workaround in the study archetype.
+    | 'desk' | 'desk_chair';
 
 /** Editor RoomOccupancyType values this engine furnishes (subset). */
 export type FurnishableOccupancy =

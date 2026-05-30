@@ -43,6 +43,8 @@ import { FurnitureData } from '../FurnitureTypes';
 import { KitchenBuilder } from './KitchenBuilder';
 import { WardrobeCabinetEngine } from '../engines/WardrobeCabinetEngine';
 import { TreeBuilder } from './TreeBuilder';
+import { DeskBuilder } from './DeskBuilder';
+import { DeskChairBuilder } from './DeskChairBuilder';
 
 export class FurnitureFactory {
     static getBuilder(
@@ -72,6 +74,11 @@ export class FurnitureFactory {
             case 'solid_wood_bed':        return new JapaneseBedBuilder('solid_wood', materialService);
 
             case 'bedside_table':      return new BedsideTableBuilder(materialService);
+
+            // F1.1 (2026-05-30) — Desk + desk chair (study workstation).
+            case 'desk':               return new DeskBuilder(materialService);
+            case 'desk_chair':         return new DeskChairBuilder(materialService);
+
             case 'table':              return new TableBuilder(materialService);
             case 'table_marble_cone':  return new TableBuilder(materialService);
             case 'table_glass_wood_cylinder': return new TableBuilder(materialService);

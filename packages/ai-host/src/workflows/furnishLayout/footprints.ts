@@ -39,6 +39,16 @@ const FP: Readonly<Record<FurnitureKind, Footprint>> = {
     // the centroid drop the island automatically — only large open-plan
     // kitchens get one.
     kitchen_island:     { w: 2.00, l: 0.90, h: 0.90, baseOffset: 0, clearFront: 0.90, clearSides: 0.90 },
+    // F1.1 (2026-05-30) — Study workstation.
+    //   desk: 1.40 m wide × 0.70 m deep × 0.75 m worktop height. 0.90 m
+    //         front clearance so the user can roll the chair back without
+    //         hitting an opposite wall; 0.45 m side clearance for the chair
+    //         tucked under one end.
+    //   desk_chair: 0.55 × 0.55 footprint, 0.90 m tall. No additional
+    //         clearance — its movement zone is covered by the desk's
+    //         clearFront.
+    desk:           { w: 1.40, l: 0.70, h: 0.75, baseOffset: 0, clearFront: 0.90, clearSides: 0.45 },
+    desk_chair:     { w: 0.55, l: 0.55, h: 0.90, baseOffset: 0, clearFront: 0.00, clearSides: 0.00 },
 };
 
 /** Footprint for a furniture kind (always defined for supported kinds). */

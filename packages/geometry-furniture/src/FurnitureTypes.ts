@@ -90,6 +90,11 @@ export type FurnitureType =
     | 'entrance_table'
     | 'toilet_radiator'
     | 'chimney'
+    // ── F1.1 (2026-05-30) — Study workstation primitives (closes the
+    // dining-table-as-desk workaround in `furnishLayout/archetypes.ts`)
+    // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §4.2.1) ──────────
+    | 'desk'
+    | 'desk_chair'
     | 'plant_01'
     | 'plant_02'
     | 'plant_03'
