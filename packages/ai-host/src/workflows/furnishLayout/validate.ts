@@ -22,6 +22,7 @@
 import { rectsOverlap, pointInPolygon, footprintRect } from './collision.js';
 import { footprintOf } from './footprints.js';
 import type { FurnishRoomInput, PlacedFurniture, Pt, Rect } from './types.js';
+import { validateKitchenFromFurniture } from '../apartmentLayout/dimensions/validateKitchenFromFurniture.js';
 
 export interface FurnishValidation {
     /** The room these results are about. */
@@ -113,6 +114,30 @@ export function validateFurnishedRoom(
             if (segIntersectsRect(entry, input.centroid, rects[ri]!)) {
                 warnings.push(`door[${di}] → centroid path BLOCKED by ${placed[ri]!.kind}[${ri}]`);
                 break;     // one warning per door is enough
+            }
+        }
+    }
+
+    // 4. §D2.3 (2026-05-30) — G10 NKBA kitchen work-triangle.
+    //    For kitchen rooms with placed kitchen_straight runs (and optional
+    //    island), run validateKitchenFromFurniture and surface any
+    //    triangle violations as warnings. The validator distinguishes:
+    //      • HARD failures (legMin / legMax / sumMin / sumMax) → warnings
+    //        flagged "kitchen-triangle (HARD)"
+    //      • SOFT failures (legTight / legLoose / sumLoose) → warnings
+    //        flagged "kitchen-triangle"
+    //    Soft-fail rather than hard-reject — the editor surfaces these as
+    //    diagnostics; future ranked-arrangement quality pass can prefer
+    //    triangle-clean layouts. Kitchens without enough runs (heuristic
+    //    can't form a triangle) silently skip.
+    if (input.occupancy === 'kitchen') {
+        const tri = validateKitchenFromFurniture(input.roomId, placed);
+        if (tri !== null) {
+            for (const f of tri.hardFindings) {
+                warnings.push(`kitchen-triangle (HARD): ${f.reason}`);
+            }
+            for (const f of tri.softFindings) {
+                warnings.push(`kitchen-triangle: ${f.reason}`);
             }
         }
     }
