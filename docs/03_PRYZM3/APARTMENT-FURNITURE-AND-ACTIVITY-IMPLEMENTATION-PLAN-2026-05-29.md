@@ -719,7 +719,7 @@ Ship in parallel with foundational tiers. These close visible single-apartment g
 | **L2-β-1** | New `hierarchy` axis (`§PRIVACY-DEPTH`) | COGNITION §8 | 0.5 wk | ✅ shipped — first cognition-stack slice live |
 | **L2-β-2** | `EntrySightlineScore` — ray-cast from entry | COGNITION §8 | 1.5 wk | ⬜ |
 | **L2-β-3** | `ArrivalSequence` compressed-threshold detection | COGNITION §8 | 1 wk | ⬜ |
-| **L2-β-4** | `SpatialClimax` dominant-room identification | COGNITION §8 | 0.5 wk | ⬜ |
+| **L2-β-4** | `SpatialClimax` dominant-room identification | COGNITION §8 | 0.5 wk | ✅ shipped 2026-05-30 — `ObjectiveVector.spatialClimax` + extended `OBJECTIVE_AXES`; identifies dominant non-circulation space (largest by `netAreaM2`, hall/corridor exempt) and scores its arrival depth from the entry. Comfort plateau: depth ∈ [2,4] = 1.0 (compression-release ideal); depth 1 = 0.6 (too direct); depth 0 = 0.2 (no sequence); depth > 4 decays 1.0 → 0.4. Couples with `hierarchy` axis (privacy-depth). Plumbed through breakdown + weightedSum (`privacy * 0.5` user-coupled weight). +6 pin tests. |
 | **L2-β-5** | Modal Hierarchy axis + arrival narrative text | COGNITION §8 | 0.5 wk | ⬜ |
 
 ## Z.6 — Tier 5 — Cognition Layer 3: Semantic Topology

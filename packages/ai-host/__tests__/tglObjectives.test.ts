@@ -458,6 +458,68 @@ describe('computeObjectives (TGL P7)', () => {
         });
     });
 
+    // §L2-β-4 (2026-05-30) — spatialClimax: dominant non-circulation space's
+    // arrival-depth scoring. Compression-release ideal at depth ∈ [2, 4].
+    describe('§L2-β-4 spatialClimax', () => {
+        it('dominant living at depth 1 (immediate access) → 0.6 (too direct)', () => {
+            const g = graphOf([
+                space('H', { spaceType: 'hall', netAreaM2: 4, isPrivate: false, needsWindow: false }),
+                space('L', { spaceType: 'living', netAreaM2: 25, isPrivate: false, needsWindow: true }),
+            ]);
+            const v = computeObjectives(g, metricsOf({ H: 0, L: 1 }), emptyBubble);
+            expect(v.spatialClimax).toBeCloseTo(0.6, 6);
+        });
+
+        it('dominant living at depth 0 (climax IS entry) → 0.2 (no sequence)', () => {
+            const g = graphOf([
+                space('L', { spaceType: 'living', netAreaM2: 25, isPrivate: false, needsWindow: true }),
+            ]);
+            const v = computeObjectives(g, metricsOf({ L: 0 }), emptyBubble);
+            expect(v.spatialClimax).toBeCloseTo(0.2, 6);
+        });
+
+        it('dominant living at depth 2 (entry → corridor → living) → 1.0 (ideal)', () => {
+            const g = graphOf([
+                space('H', { spaceType: 'hall', netAreaM2: 4, isPrivate: false, needsWindow: false }),
+                space('C', { spaceType: 'corridor', netAreaM2: 3, isPrivate: false, needsWindow: false }),
+                space('L', { spaceType: 'living', netAreaM2: 25, isPrivate: false, needsWindow: true }),
+            ]);
+            const v = computeObjectives(g, metricsOf({ H: 0, C: 1, L: 2 }), emptyBubble);
+            expect(v.spatialClimax).toBe(1.0);
+        });
+
+        it('dominant living at depth 6 (too deep) → decay below 1.0', () => {
+            const g = graphOf([
+                space('L', { spaceType: 'living', netAreaM2: 25, isPrivate: false, needsWindow: true }),
+            ]);
+            const v = computeObjectives(g, metricsOf({ L: 6 }), emptyBubble);
+            // 1.0 - 0.6 * (6-4)/4 = 0.7
+            expect(v.spatialClimax).toBeCloseTo(0.7, 6);
+        });
+
+        it('hall/corridor are EXEMPT from climax identification', () => {
+            // The hall is the largest by area but should NOT count as the
+            // climax — circulation rooms are bridges, not destinations.
+            // Living is the climax even though it's smaller.
+            const g = graphOf([
+                space('H', { spaceType: 'hall', netAreaM2: 50, isPrivate: false, needsWindow: false }),    // biggest BUT circulation
+                space('L', { spaceType: 'living', netAreaM2: 10, isPrivate: false, needsWindow: true }),
+            ]);
+            const v = computeObjectives(g, metricsOf({ H: 0, L: 2 }), emptyBubble);
+            // If climax were the hall, depth 0 → score 0.2. If living, depth 2 → 1.0.
+            expect(v.spatialClimax).toBe(1.0);
+        });
+
+        it('no non-circulation rooms → neutral 1.0', () => {
+            const g = graphOf([
+                space('H', { spaceType: 'hall', netAreaM2: 4, isPrivate: false, needsWindow: false }),
+                space('C', { spaceType: 'corridor', netAreaM2: 3, isPrivate: false, needsWindow: false }),
+            ]);
+            const v = computeObjectives(g, metricsOf({ H: 0, C: 1 }), emptyBubble);
+            expect(v.spatialClimax).toBe(1);
+        });
+    });
+
     it('daylight (no field): behaviour unchanged (back-compat)', () => {
         // emptyBubble has no daylightField → the prior binary fronts-facade
         // computation must produce the same number for both rooms regardless

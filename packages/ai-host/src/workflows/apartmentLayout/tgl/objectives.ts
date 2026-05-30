@@ -109,10 +109,29 @@ export interface ObjectiveVector {
      * proportioned rooms in the architectural comfort band.
      */
     readonly proportionalElegance: number;
+    /**
+     * §L2-β-4 (2026-05-30) — spatial climax axis (Cognition Layer 2,
+     * Spatial Hierarchy). Identifies the layout's DOMINANT space (largest
+     * non-circulation room — typically the living room in apartment
+     * programs, the main hall in commercial, the operating theatre in
+     * healthcare) and scores its arrival depth:
+     *   • depth ∈ [2, 4]: 1.0 (climax reached through proper sequence —
+     *     entry → corridor → climax, the compression-release ideal)
+     *   • depth 1: 0.6 (one-step access — too direct, no anticipation)
+     *   • depth 0: 0.2 (climax IS the entry — no sequence at all)
+     *   • depth > 4: 1.0 → 0.4 decay (too deep, navigation friction)
+     *
+     * Architectural intent: a well-composed plan creates a journey from
+     * the entry to the major space, NOT a sudden reveal nor a maze.
+     * Pareto-ranks layouts that produce a meaningful arrival sequence
+     * above layouts that dump you straight into the living room.
+     * Returns 1.0 when no entry or no dominant space (degenerate input).
+     */
+    readonly spatialClimax: number;
 }
 
 export const OBJECTIVE_AXES: readonly (keyof ObjectiveVector)[] =
-    ['efficiency', 'adjacency', 'daylight', 'circulation', 'regularity', 'hierarchy', 'shapeQuality', 'topologyQuality', 'edgeRealisation', 'openingCadence', 'proportionalElegance'] as const;
+    ['efficiency', 'adjacency', 'daylight', 'circulation', 'regularity', 'hierarchy', 'shapeQuality', 'topologyQuality', 'edgeRealisation', 'openingCadence', 'proportionalElegance', 'spatialClimax'] as const;
 
 const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n);
 const num = (v: unknown, d = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -149,7 +168,7 @@ export function computeObjectives(
     const spaces = graph.nodes.filter(n => n.kind === 'Space');
     const totalArea = spaces.reduce((s, n) => s + num(n.attrs.netAreaM2), 0);
     if (spaces.length === 0 || totalArea <= 0) {
-        return { efficiency: 0, adjacency: 0, daylight: 0, circulation: 0, regularity: 0, hierarchy: 0, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation: 1, openingCadence: 1, proportionalElegance: 1 };
+        return { efficiency: 0, adjacency: 0, daylight: 0, circulation: 0, regularity: 0, hierarchy: 0, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation: 1, openingCadence: 1, proportionalElegance: 1, spatialClimax: 1 };
     }
 
     // ── efficiency: how little of the floor is circulation. ──────────────────────
@@ -251,6 +270,33 @@ export function computeObjectives(
     }
     const hierarchy = hierArea > 0 ? clamp01(hierWeighted / hierArea) : 1;
 
+    // ── §L2-β-4 spatialClimax: identify the layout's DOMINANT non-
+    //    circulation space and score its arrival depth. Compression-release
+    //    architecture wants the climax at depth ∈ [2, 4]: too shallow = no
+    //    sequence, too deep = navigation friction.
+    let climaxArea = -1;
+    let climaxGuid: string | null = null;
+    for (const n of spaces) {
+        const t = n.attrs.spaceType;
+        if (t === 'corridor' || t === 'hall') continue;     // circulation exempt
+        const a = num(n.attrs.netAreaM2);
+        if (a > climaxArea) {
+            climaxArea = a;
+            climaxGuid = n.guid;
+        }
+    }
+    let spatialClimax = 1;                                  // default neutral
+    if (climaxGuid !== null) {
+        const depth = metrics.perSpaceDepth[climaxGuid];
+        if (Number.isFinite(depth)) {
+            const d = depth!;
+            if (d >= 2 && d <= 4)       spatialClimax = 1.0;
+            else if (d === 1)            spatialClimax = 0.6;
+            else if (d <= 0)             spatialClimax = 0.2;
+            else /* d > 4 */             spatialClimax = clamp01(1.0 - 0.6 * (d - 4) / 4);
+        }
+    }
+
     // ── §L4-δ-4 proportionalElegance: per-room aspect-ratio comfort plateau.
     //    Area-weighted mean across spaces. Soft gradient on top of D2.1's
     //    HARD aspect bounds.
@@ -347,7 +393,7 @@ export function computeObjectives(
     }
     const edgeRealisation = realisationN > 0 ? clamp01(realisationSum / realisationN) : 1;
 
-    return { efficiency, adjacency, daylight, circulation, regularity, hierarchy, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation, openingCadence, proportionalElegance };
+    return { efficiency, adjacency, daylight, circulation, regularity, hierarchy, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation, openingCadence, proportionalElegance, spatialClimax };
 }
 
 const pairKey = (a: string, b: string): string => (a < b ? `${a}|${b}` : `${b}|${a}`);

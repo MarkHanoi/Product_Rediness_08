@@ -156,6 +156,12 @@ export interface LayoutScoreBreakdown {
      *  to 0.1. Area-weighted mean. Distinguishes layouts that PASS D2.1
      *  but produce uncomfortable long/thin rooms. Cognition Layer 4. */
     proportionalElegance?: number; // 0-1
+    /** §L2-β-4 spatialClimax — identifies dominant non-circulation space
+     *  and scores its arrival depth. Compression-release ideal at depth
+     *  ∈ [2, 4]; too shallow / too deep penalised. Cognition Layer 2
+     *  (Spatial Hierarchy) — complements hierarchy axis (privacy depth)
+     *  with arrival-sequence depth. */
+    spatialClimax?: number;        // 0-1
 }
 
 export interface LayoutScore {

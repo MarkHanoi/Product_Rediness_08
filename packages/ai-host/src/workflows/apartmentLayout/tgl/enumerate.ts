@@ -300,6 +300,11 @@ function weightedSum(o: ObjectiveVector, w: ScoringWeights): number {
         // adjacency/privacy. Distinguishes "all rooms in comfort band" from
         // "rooms-fit-but-feel-tunnel-like."
         proportionalElegance: 0.4,
+        // §L2-β-4 spatialClimax (2026-05-30) — dominant-room arrival depth.
+        // Couples with `hierarchy` (also Layer 2): hierarchy scores
+        // PRIVATE-ROOM depth correctness; spatialClimax scores DOMINANT-
+        // SPACE arrival sequence. Same Layer-2 importance weight.
+        spatialClimax: Math.max(0, w.privacy) * 0.5,
     };
     const total = OBJECTIVE_AXES.reduce((s, a) => s + raw[a], 0) || 1;
     return OBJECTIVE_AXES.reduce((s, a) => s + (raw[a] / total) * o[a], 0);
