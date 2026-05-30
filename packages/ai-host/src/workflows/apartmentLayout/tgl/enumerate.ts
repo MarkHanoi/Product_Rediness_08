@@ -21,6 +21,7 @@ import { computeSpaceSyntax } from './spaceSyntax.js';
 import { computeObjectives, OBJECTIVE_AXES, type ObjectiveVector } from './objectives.js';
 import { validateAllRoomShapes, type RoomShape } from '../dimensions/validateRoomShape.js';
 import { validateRoomFit } from '../dimensions/validateRoomFit.js';
+import { validateFrontage } from '../dimensions/validateFrontage.js';
 import { validateApartmentEnvelope } from '../dimensions/validateApartmentEnvelope.js';
 import { validateMandatoryAdjacencies, type DoorOpening } from '../topology/validateMandatoryAdjacencies.js';
 import { validateForbiddenAdjacencies } from '../topology/validateForbiddenAdjacencies.js';
@@ -219,15 +220,36 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     const wet = validateWetCluster(bubble, placements);
     const acoustic = validateAcousticZoning(bubble, placements);
     const sequence = validateCirculationSequence(bubble, placements, doorOpenings);
+    // §T2.5 (2026-05-30) — frontage HARD-reject: every `frontage: 'required'`
+    // room (living / kitchen / master / bedroom — per T1.6) must touch the
+    // shell perimeter. Catches the "habitable room buried fully interior"
+    // failure that a smooth daylight axis misses (a fully-interior bedroom
+    // could still register some daylight via field falloff from neighbours;
+    // T2.5 makes it a hard rule). SOFT penalty for `frontage: 'preferred'`
+    // rooms (dining / study) that are fully interior.
+    const frontage = validateFrontage({
+        shellPolygon: input.shellPolygon,
+        rooms: placements.map(p => {
+            const r = bubble.rooms.find(br => br.id === p.roomId);
+            return {
+                roomId: p.roomId,
+                type: r?.type ?? 'corridor',
+                ...(r?.name !== undefined ? { name: r.name } : {}),
+                rect: p.rect,
+            };
+        }),
+    });
     const topologyAdmissible =
         mand.admissible && forb.admissible &&
-        wet.admissible && acoustic.admissible && sequence.admissible;
+        wet.admissible && acoustic.admissible && sequence.admissible &&
+        frontage.admissible;
     // Quality: 1 minus soft-finding penalty sum / numRooms — same shape as
     // shapeQuality (D3.1). HARD failures still drop topologyAdmissible.
     const topoSoftSum =
         wet.softFindings.reduce((s, f) => s + f.delta, 0) +
         acoustic.softFindings.reduce((s, f) => s + f.delta, 0) +
-        sequence.softFindings.reduce((s, f) => s + f.delta, 0);
+        sequence.softFindings.reduce((s, f) => s + f.delta, 0) +
+        frontage.softFindings.reduce((s, f) => s + f.delta, 0);
     const topologyQuality = topologyAdmissible
         ? Math.max(0, Math.min(1, 1 - topoSoftSum / Math.max(1, bubble.rooms.length)))
         : 0;
