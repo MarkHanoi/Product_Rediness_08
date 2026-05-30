@@ -89,6 +89,19 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
             // §FURNITURE-SPEC: the entrance table is on a wall perpendicular to the
             // front door (the door wall is the swing zone — it must stay clear).
             { kind: 'entrance_table', anchor: 'wall-longest', facing: 'into-room', required: false, excludeDoorSwing: true },
+            // F1.4 (2026-05-30) — S2 entry storage activity system.
+            //   • shoe_cabinet anchors on the longest free wall (often the
+            //     same wall as the console — solver yields).
+            //   • coat_rack stands in a corner; small footprint, no wall claim.
+            //   • console_table prefers the wall opposite the front door
+            //     (the "lobby" wall the user faces on entry — keys/mail
+            //     drop landing zone).
+            //   • entry_bench is the smallest item; placed last, beside the
+            //     shoe_cabinet if room remains.
+            { kind: 'shoe_cabinet',  anchor: 'wall-longest',       facing: 'to-wall',   required: false, group: 'entry', excludeDoorSwing: true },
+            { kind: 'console_table', anchor: 'wall-opposite-door', facing: 'into-room', required: false, group: 'entry', excludeDoorSwing: true },
+            { kind: 'coat_rack',     anchor: 'corner',              facing: 'into-room', required: false },
+            { kind: 'entry_bench',   anchor: 'beside',              facing: 'into-room', required: false, group: 'entry' },
         ],
     },
     'private-office': {

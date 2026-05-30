@@ -301,13 +301,18 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         // Hall→living is the architectural intent (clean lobby opens onto the social
         // space); hall→corridor is the route to the private zone, also strongly desired.
         adjacencyPreference: { living: 1.0, corridor: 0.9 },
-        requiredFurniture: [], optionalFurniture: ['entrance_table'], requiredFixtures: [],
+        requiredFurniture: [], optionalFurniture: ['entrance_table', 'shoe_cabinet', 'console_table', 'coat_rack', 'entry_bench'], requiredFixtures: [],
         furnitureSpec: [
-            // Entrance table is the only catalogued item — anchored on the longest
-            // free wall, never blocking the front door's inward swing.
-            { kind: 'entrance_table', sizeW: 1000, sizeD: 400, clearFoot: 300, clearSide: 0, placementRule: 'longest_wall', excludeDoorSwing: true, excludeWindowWall: false, required: false },
+            // Entrance table — legacy small entrance accent (kept for back-compat
+            // with smaller halls that can only fit one piece).
+            { kind: 'entrance_table', sizeW: 1000, sizeD: 400, clearFoot: 300, clearSide: 0, placementRule: 'longest_wall',  excludeDoorSwing: true, excludeWindowWall: false, required: false },
+            // F1.4 (2026-05-30) — S2 entry storage activity system.
+            { kind: 'shoe_cabinet',   sizeW: 900,  sizeD: 350, clearFoot: 500, clearSide: 0, placementRule: 'longest_wall',  excludeDoorSwing: true, excludeWindowWall: false, required: false, group: 'entry' },
+            { kind: 'console_table',  sizeW: 1000, sizeD: 300, clearFoot: 400, clearSide: 0, placementRule: 'opposite_door', excludeDoorSwing: true, excludeWindowWall: false, required: false, group: 'entry' },
+            { kind: 'coat_rack',      sizeW: 450,  sizeD: 450, clearFoot: 300, clearSide: 0, placementRule: 'corner',        excludeDoorSwing: false, excludeWindowWall: false, required: false },
+            { kind: 'entry_bench',    sizeW: 1200, sizeD: 400, clearFoot: 500, clearSide: 0, placementRule: 'beside_group',  excludeDoorSwing: false, excludeWindowWall: false, required: false, group: 'entry' },
         ],
-        description: 'Entrance lobby — the door on the perimeter lands here. Opens ONLY to the living space and the corridor.',
+        description: 'Entrance lobby — the door on the perimeter lands here. Opens ONLY to the living space and the corridor. Furnished with the S2 entry storage system (shoe cabinet + console + coat rack + bench) when room allows.',
     },
     corridor: {
         type: 'corridor', occupancy: 'corridor', privacy: 'circulation',

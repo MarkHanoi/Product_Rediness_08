@@ -28,7 +28,13 @@ export type FurnitureKind =
     // Shipped contract-complete: FurnitureType union + FurnitureCategoryMap +
     // TvBuilder + TvUnitBuilder + FurnitureFactory arms.
     // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §F1.3)
-    | 'tv' | 'tv_unit';
+    | 'tv' | 'tv_unit'
+    // F1.4 (2026-05-30) — entry storage primitives. Hall S2 activity
+    // system. Shipped contract-complete: FurnitureType union +
+    // FurnitureCategoryMap + ShoeCabinet/CoatRack/ConsoleTable/EntryBench
+    // builders + FurnitureFactory arms.
+    // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §F1.4)
+    | 'shoe_cabinet' | 'coat_rack' | 'console_table' | 'entry_bench';
 
 /** Editor RoomOccupancyType values this engine furnishes (subset). */
 export type FurnishableOccupancy =

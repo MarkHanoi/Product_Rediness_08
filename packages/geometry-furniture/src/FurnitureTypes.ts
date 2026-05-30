@@ -106,6 +106,15 @@ export type FurnitureType =
     // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §4.2.3) ──────────
     | 'tv'
     | 'tv_unit'
+    // ── F1.4 (2026-05-30) — Entry storage primitives. Hall S2 activity
+    // system: shoe cabinet + coat rack + console table (taller/narrower than
+    // entrance_table) + entry bench. Anchored on hall walls perpendicular to
+    // the front-door swing.
+    // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §4.2.4) ──────────
+    | 'shoe_cabinet'
+    | 'coat_rack'
+    | 'console_table'
+    | 'entry_bench'
     | 'plant_01'
     | 'plant_02'
     | 'plant_03'

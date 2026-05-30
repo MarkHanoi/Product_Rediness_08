@@ -68,6 +68,7 @@ export const FURNITURE_TYPE_TO_CATEGORY: Readonly<Record<FurnitureType, Furnitur
     'entrance_table':       'tables',
     'bedside_table':        'tables',
     'desk':                 'tables', // F1.1 — study workstation surface
+    'console_table':        'tables', // F1.4 — narrow tall entry console
     'table_marble_cone':    'tables',
     'table_glass_wood_cylinder': 'tables',
     'table_wood_double_conic': 'tables',
@@ -78,6 +79,9 @@ export const FURNITURE_TYPE_TO_CATEGORY: Readonly<Record<FurnitureType, Furnitur
     'bookshelf':            'storage', // F1.2 — open-shelf bookcase
     'bookshelf_glass':      'storage', // F1.2 — glass-front bookcase
     'tv_unit':              'storage', // F1.3 — low TV / media console
+    'shoe_cabinet':         'storage', // F1.4 — entry-zone shoe storage
+    'coat_rack':            'storage', // F1.4 — wall coat rack
+    'entry_bench':          'storage', // F1.4 — entry sitting bench (often with shoe shelves below)
 
     // ── Technical (electronics) ───────────────────────────────────────────────
     'tv':                   'technical', // F1.3 — wall-mounted TV panel

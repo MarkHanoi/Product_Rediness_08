@@ -65,6 +65,13 @@ const FP: Readonly<Record<FurnitureKind, Footprint>> = {
     //       doesn't crowd the front of the unit.
     tv:               { w: 1.40, l: 0.08, h: 0.80, baseOffset: 1.20, clearFront: 0.00, clearSides: 0.00 },
     tv_unit:          { w: 1.60, l: 0.40, h: 0.50, baseOffset: 0,    clearFront: 0.60, clearSides: 0.00 },
+    // F1.4 (2026-05-30) — Entry storage. All anchored on hall walls; the
+    // shoe cabinet + console need step-back clearance; the coat rack +
+    // entry bench take floor-only space.
+    shoe_cabinet:     { w: 0.90, l: 0.35, h: 0.90, baseOffset: 0, clearFront: 0.50, clearSides: 0.00 },
+    coat_rack:        { w: 0.45, l: 0.45, h: 1.80, baseOffset: 0, clearFront: 0.30, clearSides: 0.00 },
+    console_table:    { w: 1.00, l: 0.30, h: 0.85, baseOffset: 0, clearFront: 0.40, clearSides: 0.00 },
+    entry_bench:      { w: 1.20, l: 0.40, h: 0.45, baseOffset: 0, clearFront: 0.50, clearSides: 0.00 },
 };
 
 /** Footprint for a furniture kind (always defined for supported kinds). */

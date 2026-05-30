@@ -47,6 +47,9 @@ import { DeskBuilder } from './DeskBuilder';
 import { DeskChairBuilder } from './DeskChairBuilder';
 import { BookshelfBuilder } from './BookshelfBuilder';
 import { TvBuilder, TvUnitBuilder } from './MediaWallBuilder';
+import {
+    ShoeCabinetBuilder, CoatRackBuilder, ConsoleTableBuilder, EntryBenchBuilder,
+} from './EntryStorageBuilder';
 
 export class FurnitureFactory {
     static getBuilder(
@@ -88,6 +91,12 @@ export class FurnitureFactory {
             // F1.3 (2026-05-30) — Media wall (wall TV + low TV unit).
             case 'tv':                 return new TvBuilder(materialService);
             case 'tv_unit':            return new TvUnitBuilder(materialService);
+
+            // F1.4 (2026-05-30) — Entry storage primitives (S2 activity system).
+            case 'shoe_cabinet':       return new ShoeCabinetBuilder(materialService);
+            case 'coat_rack':          return new CoatRackBuilder(materialService);
+            case 'console_table':      return new ConsoleTableBuilder(materialService);
+            case 'entry_bench':        return new EntryBenchBuilder(materialService);
 
             case 'table':              return new TableBuilder(materialService);
             case 'table_marble_cone':  return new TableBuilder(materialService);
