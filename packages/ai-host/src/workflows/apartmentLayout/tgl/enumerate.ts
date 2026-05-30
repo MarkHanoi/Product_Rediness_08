@@ -264,7 +264,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     };
 }
 
-/** Map the 4 user weights onto the 8 axes (regularity + hierarchy + shapeQuality + topologyQuality get fixed weights), normalise, sum. */
+/** Map the 4 user weights onto the 10 axes (regularity + hierarchy + shapeQuality + topologyQuality + edgeRealisation + openingCadence get fixed weights), normalise, sum. */
 function weightedSum(o: ObjectiveVector, w: ScoringWeights): number {
     const raw: Record<keyof ObjectiveVector, number> = {
         efficiency: Math.max(0, w.corridorEfficiency),
@@ -285,6 +285,16 @@ function weightedSum(o: ObjectiveVector, w: ScoringWeights): number {
         // a permitted pair score higher. Today's validators emit only HARD
         // findings → axis is binary {0, 1}; future T2.3/T2.4/T2.6 will gradient.
         topologyQuality: 0.6,
+        // §L3-γ-4 edgeRealisation (2026-05-30) — semantic-edge geometric match.
+        // Carried at a fixed mid weight: significant enough to break ties
+        // between layouts that score identically on the other axes but differ
+        // on (e.g.) INTIMATE_ACCESS via door vs via open.
+        edgeRealisation: 0.5,
+        // §L4-δ-3 openingCadence (2026-05-30) — compositional opening rhythm.
+        // Lower fixed weight than the other quality axes — cadence is a tie-
+        // breaker, not a primary driver. Rhythm matters but secondary to
+        // adjacency / privacy / shape.
+        openingCadence: 0.3,
     };
     const total = OBJECTIVE_AXES.reduce((s, a) => s + raw[a], 0) || 1;
     return OBJECTIVE_AXES.reduce((s, a) => s + (raw[a] / total) * o[a], 0);
