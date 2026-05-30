@@ -67,7 +67,7 @@ Single-page reference for **every phase and subphase** across the apartment plat
 | ID | Deliverable | Status |
 |---|---|---|
 | **L2-β-1** hierarchy axis (privacy depth) | Discrete-tier gradient | ✅ |
-| **L2-β-2** EntrySightlineScore | Graph-distance form ✅; ray-cast variant (L2-β-2b) ⬜ | 🟨 |
+| **L2-β-2** EntrySightlineScore | Graph-distance form ✅; ray-cast variant (L2-β-2b) ✅ shipped 2026-05-30 (entrySightlineRaycast.ts, 31 pin tests). Engine plumbing TBD. | 🟨 |
 | **L2-β-3** ArrivalSequence | Compression-release ratio | ✅ |
 | **L2-β-4** SpatialClimax | Dominant non-circulation room arrival depth | ✅ |
 | **L2-β-5** Modal Hierarchy axis + arrival narrative text | UI work | ⬜ |
@@ -173,7 +173,7 @@ Every axis is in ObjectiveVector + computeObjectives + weightedSum + LayoutScore
 
 | Package | Pass | Notes |
 |---|---|---|
-| @pryzm/ai-host | **828/828** | 2 SCC AiHost.* pre-existing failures unchanged (memory: scc-no-barrel-access-at-module-load) |
+| @pryzm/ai-host | **859/859** | 2 SCC AiHost.* pre-existing failures unchanged (memory: scc-no-barrel-access-at-module-load) |
 | @pryzm/core-app-model | (typecheck) | Pre-existing plugin-side TS errors; lighting-side clean |
 | @pryzm/geometry-lighting | (depends on core-app-model rebuild for full validation) | F1.5' mirror_light builder added |
 | @pryzm/geometry-furniture | (untouched this slice) | 11 of 15 F1.x types shipped contract-complete |
