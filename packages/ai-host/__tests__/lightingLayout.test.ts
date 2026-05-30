@@ -28,6 +28,18 @@ describe('archetypeForLighting', () => {
         expect(archetypeForLighting('unknown')).toBeUndefined();
         expect(archetypeForLighting('')).toBeUndefined();
     });
+
+    // F1.5' (2026-05-30) — bathroom carries TWO items: ceiling downlight +
+    // wall-mounted mirror_light.
+    it('bathroom archetype carries both downlight (ceiling) and mirror_light (wall)', () => {
+        const arch = archetypeForLighting('bathroom')!;
+        const downlight    = arch.items.find(it => it.kind === 'downlight');
+        const mirrorLight  = arch.items.find(it => it.kind === 'mirror_light');
+        expect(downlight).toBeDefined();
+        expect(mirrorLight).toBeDefined();
+        expect(downlight!.mount ?? 'ceiling').toBe('ceiling');
+        expect(mirrorLight!.mount).toBe('wall');
+    });
 });
 
 describe('lightRoom', () => {
@@ -60,6 +72,58 @@ describe('lightRoom', () => {
     it('returns [] for unsupported occupancies', () => {
         const placed = lightRoom(baseInput({ occupancy: 'unknown' }));
         expect(placed).toHaveLength(0);
+    });
+
+    // F1.5' (2026-05-30) — bathroom archetype wiring: ceiling downlight +
+    // wall-mounted mirror_light task light, emitted IN ADDITION not as
+    // alternatives.
+    describe('bathroom — F1.5\' mirror_light wiring', () => {
+        it('emits BOTH a ceiling downlight AND a wall-mounted mirror_light', () => {
+            const placed = lightRoom(baseInput({
+                occupancy: 'bathroom', areaM2: 6, centroid: { x: 1.5, z: 1.5 },
+            }));
+            expect(placed).toHaveLength(2);
+            const ceiling = placed.find(p => p.ceilingMounted);
+            const wall    = placed.find(p => !p.ceilingMounted);
+            expect(ceiling?.kind).toBe('downlight');
+            expect(wall?.kind).toBe('mirror_light');
+        });
+
+        it('places the mirror_light at vanity height (levelElevation + 1.8)', () => {
+            const placed = lightRoom(baseInput({
+                occupancy: 'bathroom', areaM2: 6, levelElevation: 3,
+            }));
+            const wall = placed.find(p => p.kind === 'mirror_light');
+            expect(wall).toBeDefined();
+            expect(wall!.origin.y).toBeCloseTo(3 + 1.8, 6);
+        });
+
+        it('places the downlight at the ceiling Y, mirror_light is independent', () => {
+            const placed = lightRoom(baseInput({
+                occupancy: 'bathroom', areaM2: 6, ceilingY: 2.5, levelElevation: 0,
+            }));
+            const ceiling = placed.find(p => p.kind === 'downlight');
+            const wall    = placed.find(p => p.kind === 'mirror_light');
+            expect(ceiling!.origin.y).toBeCloseTo(2.5, 6);
+            expect(wall!.origin.y).toBeCloseTo(1.8, 6);
+        });
+
+        it('mirror_light XZ tracks the centroid (placeholder until F1.6\' vanity-wall detection)', () => {
+            const placed = lightRoom(baseInput({
+                occupancy: 'bathroom', areaM2: 6, centroid: { x: 2.2, z: 3.4 },
+            }));
+            const wall = placed.find(p => p.kind === 'mirror_light');
+            expect(wall!.origin.x).toBeCloseTo(2.2, 6);
+            expect(wall!.origin.z).toBeCloseTo(3.4, 6);
+        });
+
+        it('non-bathroom rooms get NO mirror_light', () => {
+            for (const occ of ['living-room', 'bedroom', 'kitchen', 'corridor', 'utility-room']) {
+                const placed = lightRoom(baseInput({ occupancy: occ, areaM2: 12 }));
+                expect(placed.find(p => p.kind === 'mirror_light'),
+                    `${occ} should not get mirror_light`).toBeUndefined();
+            }
+        });
     });
 });
 

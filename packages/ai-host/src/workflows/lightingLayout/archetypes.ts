@@ -41,7 +41,14 @@ export const LIGHTING_ARCHETYPES: Readonly<Record<LightableOccupancy, LightingAr
     ]),
 
     // Service rooms — utilitarian downlight only.
-    'bathroom':       A('bathroom',       [{ kind: 'downlight', minAreaM2: 0 }]),
+    // Bathroom: ambient ceiling downlight + vanity mirror task light (F1.5',
+    // 2026-05-30). The mirror_light is mount: 'wall' — emitted IN ADDITION
+    // to the first-fit ceiling pick rather than instead of it (see types.ts
+    // §LightingArchetype contract).
+    'bathroom':       A('bathroom',       [
+        { kind: 'downlight',    minAreaM2: 0 },
+        { kind: 'mirror_light', minAreaM2: 0, mount: 'wall' },
+    ]),
     'utility-room':   A('utility-room',   [{ kind: 'downlight', minAreaM2: 0 }]),
     'corridor':       A('corridor',       [{ kind: 'downlight', minAreaM2: 0 }]),
 

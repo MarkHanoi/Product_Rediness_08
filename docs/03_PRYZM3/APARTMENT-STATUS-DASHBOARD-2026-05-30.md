@@ -131,7 +131,7 @@ Incremental wirings landed via each F1.x ship.
 | **F3.1** Study | desk + desk_chair + bookshelf | ✅ |
 | **F3.2** Living | bookshelf_glass + tv + wall_art shipped; armchair / rug / lamp variants pending | 🟨 |
 | **F3.3** Master / bedroom | dresser + vanity_table + wall_mirror + curtains shipped; rug / lounge_chair gating / bedside_lamp anchor pending | 🟨 |
-| **F3.4** Bathroom / ensuite | vanity trio + mirror_light shipped; bath (F1.6') pending | 🟨 |
+| **F3.4** Bathroom / ensuite | vanity trio + mirror_light shipped + D-LE archetype wired (downlight + wall-mounted mirror_light); bath (F1.6') pending | 🟨 |
 | **F3.5** WC | Blocks on F1.7 | ⬜ |
 | **F3.6** Utility | Blocks on F1.8 | ⬜ |
 | **F3.7** Dining | buffet + sideboard shipped; rug pending | 🟨 |
@@ -184,15 +184,15 @@ Every axis is in ObjectiveVector + computeObjectives + weightedSum + LayoutScore
 
 | Priority | Slice | Effort |
 |---|---|---|
-| 1 | **F1.5' bathroom-mirror archetype wiring** — connect the now-shipped mirror_light geometry into bathroom lighting archetype | 0.5 d |
-| 2 | **F1.6' bath D-FLE engine integration** — geometry exists, needs plumbing-fixture placement command | 1 wk |
-| 3 | **F1.15 pendant_cluster** in geometry-lighting | 0.5 wk |
-| 4 | **F1.7 / F1.8** cross-package plumbing + utility | 1-2 wk each |
-| 5 | **Constructive subdivider** (L4-δ-1b / 2b / 4b) — touches subdivide.ts | 1.5 wk |
-| 6 | **L1-α-4 + L2-β-5 modal UI** — 16-axis rendering + narrative text | 1 wk |
-| 7 | **L2-β-2b ray-cast EntrySightline** | 1 wk |
-| 8 | **P0.3 FamilyRegistry substrate** | 3 wk |
-| 9 | **PG0.1 Site/Building/Apartment schemas** | 3 wk |
+| ~~1~~ | ~~F1.5' bathroom-mirror archetype wiring~~ | ✅ done 2026-05-30 |
+| 1 | **F1.6' bath D-FLE engine integration** — geometry exists, needs plumbing-fixture placement command | 1 wk |
+| 2 | **F1.15 pendant_cluster** in geometry-lighting | 0.5 wk |
+| 3 | **F1.7 / F1.8** cross-package plumbing + utility | 1-2 wk each |
+| 4 | **Constructive subdivider** (L4-δ-1b / 2b / 4b) — touches subdivide.ts | 1.5 wk |
+| 5 | **L1-α-4 + L2-β-5 modal UI** — 16-axis rendering + narrative text | 1 wk |
+| 6 | **L2-β-2b ray-cast EntrySightline** | 1 wk |
+| 7 | **P0.3 FamilyRegistry substrate** | 3 wk |
+| 8 | **PG0.1 Site/Building/Apartment schemas** | 3 wk |
 
 ---
 

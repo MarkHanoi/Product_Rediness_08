@@ -20,7 +20,8 @@ export type LightKind =
     | 'floor_wood_post'
     | 'floor_arc_brass'
     | 'table_terracotta'
-    | 'floor_tripod_black';
+    | 'floor_tripod_black'
+    | 'mirror_light';
 
 /** Editor RoomOccupancyType values the engine has archetypes for. */
 export type LightableOccupancy =
@@ -59,13 +60,19 @@ export interface PlacedLight {
 
 /** Per-occupancy lighting archetype — minimal MVP: one ceiling fixture per
  *  room sized loosely by area. The list is intentionally ordered: the engine
- *  picks the first item that fits, so finer-grained area buckets sit ahead
- *  of coarse defaults. */
+ *  picks the first ceiling item that fits, so finer-grained area buckets sit
+ *  ahead of coarse defaults. Wall-mount items (mount === 'wall') are
+ *  evaluated independently — they are emitted IN ADDITION to the ceiling
+ *  pick, not as alternatives to it (e.g. a bathroom gets BOTH a downlight
+ *  AND a mirror_light). */
 export interface LightingArchetype {
     readonly occupancy: LightableOccupancy;
     readonly items: ReadonlyArray<{
         readonly kind: LightKind;
         /** Minimum room area (m²) to use this fixture. 0 = always eligible. */
         readonly minAreaM2: number;
+        /** Mount strategy — 'ceiling' (default) participates in first-fit;
+         *  'wall' is always emitted when the area threshold is met. */
+        readonly mount?: 'ceiling' | 'wall';
     }>;
 }
