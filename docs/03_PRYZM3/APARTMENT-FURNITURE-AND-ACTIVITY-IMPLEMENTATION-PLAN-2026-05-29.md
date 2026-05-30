@@ -717,7 +717,7 @@ Ship in parallel with foundational tiers. These close visible single-apartment g
 | ID | Deliverable | Doc source | Est | Status |
 |---|---|---|---|---|
 | **L2-β-1** | New `hierarchy` axis (`§PRIVACY-DEPTH`) | COGNITION §8 | 0.5 wk | ✅ shipped — first cognition-stack slice live |
-| **L2-β-2** | `EntrySightlineScore` — ray-cast from entry | COGNITION §8 | 1.5 wk | ⬜ |
+| **L2-β-2** | `EntrySightlineScore` — ray-cast from entry | COGNITION §8 | 1.5 wk | 🟨 graph-distance version shipped 2026-05-30 — `ObjectiveVector.entrySightline` axis: counts spaces visible from entry via CONNECTS_THROUGH + permeable ADJACENT_TO edges. Bell scoring: 1-2 visible = 1.0 (architectural ideal); 0 = 0.3 (blind entry); 3 = 0.7; ≥4 = 0.3 (over-exposed). Falls back to depth-0 space when no hall present. Plumbed through breakdown + weightedSum (`privacy * 0.4` user-coupled). +6 pin tests. The ray-cast variant (true visual sightline through OPEN edges + sub-window apertures) is queued as L2-β-2b. |
 | **L2-β-3** | `ArrivalSequence` compressed-threshold detection | COGNITION §8 | 1 wk | ⬜ |
 | **L2-β-4** | `SpatialClimax` dominant-room identification | COGNITION §8 | 0.5 wk | ✅ shipped 2026-05-30 — `ObjectiveVector.spatialClimax` + extended `OBJECTIVE_AXES`; identifies dominant non-circulation space (largest by `netAreaM2`, hall/corridor exempt) and scores its arrival depth from the entry. Comfort plateau: depth ∈ [2,4] = 1.0 (compression-release ideal); depth 1 = 0.6 (too direct); depth 0 = 0.2 (no sequence); depth > 4 decays 1.0 → 0.4. Couples with `hierarchy` axis (privacy-depth). Plumbed through breakdown + weightedSum (`privacy * 0.5` user-coupled weight). +6 pin tests. |
 | **L2-β-5** | Modal Hierarchy axis + arrival narrative text | COGNITION §8 | 0.5 wk | ⬜ |

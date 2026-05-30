@@ -305,6 +305,11 @@ function weightedSum(o: ObjectiveVector, w: ScoringWeights): number {
         // PRIVATE-ROOM depth correctness; spatialClimax scores DOMINANT-
         // SPACE arrival sequence. Same Layer-2 importance weight.
         spatialClimax: Math.max(0, w.privacy) * 0.5,
+        // §L2-β-2 entrySightline (2026-05-30) — entry "sightline" via
+        // graph distance. Same Layer-2 family weight as spatialClimax —
+        // the two together describe the arrival sequence (entry reveal +
+        // climax depth).
+        entrySightline: Math.max(0, w.privacy) * 0.4,
     };
     const total = OBJECTIVE_AXES.reduce((s, a) => s + raw[a], 0) || 1;
     return OBJECTIVE_AXES.reduce((s, a) => s + (raw[a] / total) * o[a], 0);

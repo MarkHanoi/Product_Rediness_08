@@ -110,6 +110,25 @@ export interface ObjectiveVector {
      */
     readonly proportionalElegance: number;
     /**
+     * §L2-β-2 (2026-05-30) — entry sightline axis (Cognition Layer 2,
+     * Spatial Hierarchy). Graph-distance proxy for the ray-cast version:
+     * counts the spaces directly reachable from the entry via a
+     * CONNECTS_THROUGH (door) or ADJACENT_TO permeable edge — i.e.
+     * spaces "visible" through one threshold. Score follows a bell
+     * around the architectural ideal (1-2 spaces revealed by the entry):
+     *   • visibleCount = 1 or 2: 1.0 (lobby reveals living without
+     *     committing to private zones — classic compression-release setup)
+     *   • visibleCount = 0:      0.3 (blind entry, disorienting)
+     *   • visibleCount = 3:      0.7 (a little exposed but workable)
+     *   • visibleCount ≥ 4:      0.3 (too open, privacy compromised)
+     *
+     * Returns 1.0 when no entry is identified (degenerate input).
+     * The ray-cast version (true visual sightline through OPEN edges +
+     * sub-window apertures) is queued as L2-β-2b; this graph-distance
+     * version is the cheap first slice.
+     */
+    readonly entrySightline: number;
+    /**
      * §L2-β-4 (2026-05-30) — spatial climax axis (Cognition Layer 2,
      * Spatial Hierarchy). Identifies the layout's DOMINANT space (largest
      * non-circulation room — typically the living room in apartment
@@ -131,7 +150,7 @@ export interface ObjectiveVector {
 }
 
 export const OBJECTIVE_AXES: readonly (keyof ObjectiveVector)[] =
-    ['efficiency', 'adjacency', 'daylight', 'circulation', 'regularity', 'hierarchy', 'shapeQuality', 'topologyQuality', 'edgeRealisation', 'openingCadence', 'proportionalElegance', 'spatialClimax'] as const;
+    ['efficiency', 'adjacency', 'daylight', 'circulation', 'regularity', 'hierarchy', 'shapeQuality', 'topologyQuality', 'edgeRealisation', 'openingCadence', 'proportionalElegance', 'spatialClimax', 'entrySightline'] as const;
 
 const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n);
 const num = (v: unknown, d = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -168,7 +187,7 @@ export function computeObjectives(
     const spaces = graph.nodes.filter(n => n.kind === 'Space');
     const totalArea = spaces.reduce((s, n) => s + num(n.attrs.netAreaM2), 0);
     if (spaces.length === 0 || totalArea <= 0) {
-        return { efficiency: 0, adjacency: 0, daylight: 0, circulation: 0, regularity: 0, hierarchy: 0, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation: 1, openingCadence: 1, proportionalElegance: 1, spatialClimax: 1 };
+        return { efficiency: 0, adjacency: 0, daylight: 0, circulation: 0, regularity: 0, hierarchy: 0, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation: 1, openingCadence: 1, proportionalElegance: 1, spatialClimax: 1, entrySightline: 1 };
     }
 
     // ── efficiency: how little of the floor is circulation. ──────────────────────
@@ -269,6 +288,40 @@ export function computeObjectives(
         if (inCorrectTier) hierWeighted += a;
     }
     const hierarchy = hierArea > 0 ? clamp01(hierWeighted / hierArea) : 1;
+
+    // ── §L2-β-2 entrySightline: graph-distance proxy for "how many
+    //    spaces does the entry visually reveal at one threshold?"
+    //    Entry = the `hall`-type space; falls back to the depth-0 space.
+    //    Visible = spaces connected via CONNECTS_THROUGH (door) or
+    //    permeable ADJACENT_TO (open-plan threshold).
+    let entryGuid: string | null = null;
+    for (const n of spaces) {
+        if (n.attrs.spaceType === 'hall') { entryGuid = n.guid; break; }
+    }
+    if (entryGuid === null) {
+        for (const n of spaces) {
+            const d = metrics.perSpaceDepth[n.guid];
+            if (d === 0) { entryGuid = n.guid; break; }
+        }
+    }
+    let entrySightline = 1;                                 // default neutral
+    if (entryGuid !== null) {
+        const visible = new Set<string>();
+        for (const e of graph.edges) {
+            if (e.kind === 'CONNECTS_THROUGH') {
+                if (e.from === entryGuid) visible.add(e.to);
+                else if (e.to === entryGuid) visible.add(e.from);
+            } else if (e.kind === 'ADJACENT_TO' && e.props?.permeable === true) {
+                if (e.from === entryGuid) visible.add(e.to);
+                else if (e.to === entryGuid) visible.add(e.from);
+            }
+        }
+        const n = visible.size;
+        if (n === 1 || n === 2)      entrySightline = 1.0;
+        else if (n === 0)            entrySightline = 0.3;
+        else if (n === 3)            entrySightline = 0.7;
+        else /* n ≥ 4 */             entrySightline = 0.3;
+    }
 
     // ── §L2-β-4 spatialClimax: identify the layout's DOMINANT non-
     //    circulation space and score its arrival depth. Compression-release
@@ -393,7 +446,7 @@ export function computeObjectives(
     }
     const edgeRealisation = realisationN > 0 ? clamp01(realisationSum / realisationN) : 1;
 
-    return { efficiency, adjacency, daylight, circulation, regularity, hierarchy, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation, openingCadence, proportionalElegance, spatialClimax };
+    return { efficiency, adjacency, daylight, circulation, regularity, hierarchy, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation, openingCadence, proportionalElegance, spatialClimax, entrySightline };
 }
 
 const pairKey = (a: string, b: string): string => (a < b ? `${a}|${b}` : `${b}|${a}`);

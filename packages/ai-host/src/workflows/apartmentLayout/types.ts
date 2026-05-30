@@ -162,6 +162,12 @@ export interface LayoutScoreBreakdown {
      *  (Spatial Hierarchy) — complements hierarchy axis (privacy depth)
      *  with arrival-sequence depth. */
     spatialClimax?: number;        // 0-1
+    /** §L2-β-2 entrySightline — graph-distance proxy for how many spaces
+     *  the entry visually reveals at one threshold (counts CONNECTS_THROUGH
+     *  + permeable ADJACENT_TO edges from the hall/entry). Bell around 1-2
+     *  visible (architectural ideal); 0 = blind entry; ≥4 = over-exposed.
+     *  Cognition Layer 2. The ray-cast variant is queued as L2-β-2b. */
+    entrySightline?: number;       // 0-1
 }
 
 export interface LayoutScore {

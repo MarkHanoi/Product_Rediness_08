@@ -520,6 +520,80 @@ describe('computeObjectives (TGL P7)', () => {
         });
     });
 
+    // §L2-β-2 (2026-05-30) — entrySightline: graph-distance proxy for
+    // "how many spaces does the entry visually reveal at one threshold?"
+    // Counts CONNECTS_THROUGH (door) + permeable ADJACENT_TO edges.
+    describe('§L2-β-2 entrySightline', () => {
+        it('no entry / no graph → 1.0 (neutral)', () => {
+            const g = graphOf([]);
+            const v = computeObjectives(g, metricsOf({}), emptyBubble);
+            expect(v.entrySightline).toBe(1);
+        });
+
+        it('hall with one CONNECTS_THROUGH neighbour → 1.0 (architectural ideal)', () => {
+            const g = graphOf([
+                space('H', { spaceType: 'hall', netAreaM2: 4, isPrivate: false, needsWindow: false }),
+                space('L', { spaceType: 'living', netAreaM2: 25, isPrivate: false, needsWindow: true }),
+            ], [
+                { kind: 'CONNECTS_THROUGH', from: 'H', to: 'L', via: 'doorA' },
+            ]);
+            const v = computeObjectives(g, metricsOf({ H: 0, L: 1 }), emptyBubble);
+            expect(v.entrySightline).toBe(1);
+        });
+
+        it('hall with FIVE neighbours → 0.3 (over-exposed entry)', () => {
+            const g = graphOf([
+                space('H', { spaceType: 'hall', netAreaM2: 4, isPrivate: false, needsWindow: false }),
+                space('A', { spaceType: 'living', netAreaM2: 20, isPrivate: false, needsWindow: true }),
+                space('B', { spaceType: 'kitchen', netAreaM2: 10, isPrivate: false, needsWindow: true }),
+                space('C', { spaceType: 'dining', netAreaM2: 10, isPrivate: false, needsWindow: true }),
+                space('D', { spaceType: 'bedroom', netAreaM2: 12, isPrivate: true, needsWindow: true }),
+                space('E', { spaceType: 'bathroom', netAreaM2: 5, isPrivate: true, needsWindow: false }),
+            ], [
+                { kind: 'CONNECTS_THROUGH', from: 'H', to: 'A', via: 'a' },
+                { kind: 'CONNECTS_THROUGH', from: 'H', to: 'B', via: 'b' },
+                { kind: 'CONNECTS_THROUGH', from: 'H', to: 'C', via: 'c' },
+                { kind: 'CONNECTS_THROUGH', from: 'H', to: 'D', via: 'd' },
+                { kind: 'CONNECTS_THROUGH', from: 'H', to: 'E', via: 'e' },
+            ]);
+            const v = computeObjectives(g, metricsOf({ H: 0, A: 1, B: 1, C: 1, D: 1, E: 1 }), emptyBubble);
+            expect(v.entrySightline).toBeCloseTo(0.3, 6);
+        });
+
+        it('hall with zero CONNECTS_THROUGH neighbours → 0.3 (blind entry)', () => {
+            const g = graphOf([
+                space('H', { spaceType: 'hall', netAreaM2: 4, isPrivate: false, needsWindow: false }),
+                space('L', { spaceType: 'living', netAreaM2: 25, isPrivate: false, needsWindow: true }),
+            ], []);
+            const v = computeObjectives(g, metricsOf({ H: 0, L: 1 }), emptyBubble);
+            expect(v.entrySightline).toBeCloseTo(0.3, 6);
+        });
+
+        it('hall with permeable ADJACENT_TO (open-plan threshold) counts as visible', () => {
+            const g = graphOf([
+                space('H', { spaceType: 'hall', netAreaM2: 4, isPrivate: false, needsWindow: false }),
+                space('L', { spaceType: 'living', netAreaM2: 25, isPrivate: false, needsWindow: true }),
+            ], [
+                { kind: 'ADJACENT_TO', from: 'H', to: 'L', props: { boundary: 'open', permeable: true } },
+            ]);
+            const v = computeObjectives(g, metricsOf({ H: 0, L: 1 }), emptyBubble);
+            // 1 visible via open threshold → score 1.0
+            expect(v.entrySightline).toBe(1);
+        });
+
+        it('fallback: no hall → uses depth-0 space as entry', () => {
+            const g = graphOf([
+                space('E', { spaceType: 'living', netAreaM2: 25, isPrivate: false, needsWindow: true }),
+                space('B', { spaceType: 'bedroom', netAreaM2: 12, isPrivate: true, needsWindow: true }),
+            ], [
+                { kind: 'CONNECTS_THROUGH', from: 'E', to: 'B', via: 'a' },
+            ]);
+            const v = computeObjectives(g, metricsOf({ E: 0, B: 1 }), emptyBubble);
+            // No hall; E is depth 0 → entry; has 1 visible neighbour → 1.0
+            expect(v.entrySightline).toBe(1);
+        });
+    });
+
     it('daylight (no field): behaviour unchanged (back-compat)', () => {
         // emptyBubble has no daylightField → the prior binary fronts-facade
         // computation must produce the same number for both rooms regardless
