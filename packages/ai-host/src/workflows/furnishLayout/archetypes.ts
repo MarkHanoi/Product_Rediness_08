@@ -68,6 +68,11 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
         items: [
             { kind: 'dining_table', anchor: 'center', facing: 'into-room', required: true, group: 'dining' },
             { kind: 'dining_chair', anchor: 'beside', facing: 'into-room', required: false, group: 'dining', count: 4 },
+            // F1.9 (2026-05-30) — Dining-room storage. Sideboard preferred
+            // over buffet (lower profile reads better against the dining
+            // table's silhouette). Both anchor on the longest free wall.
+            { kind: 'sideboard', anchor: 'wall-longest', facing: 'to-wall', required: false, excludeWindowWall: true, excludeDoorSwing: true },
+            { kind: 'buffet',    anchor: 'wall-longest', facing: 'to-wall', required: false, excludeWindowWall: true, excludeDoorSwing: true },
         ],
     },
     'bathroom': {

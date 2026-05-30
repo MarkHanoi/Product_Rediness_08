@@ -276,13 +276,16 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         // No direct hall→dining: same reason as kitchen.
         accessFrom: ['corridor', 'living', 'kitchen'], maxDoors: INF,
         adjacencyPreference: { kitchen: 1.0, living: 0.9, corridor: 0.4 },
-        requiredFurniture: ['dining_table', 'dining_chair'], optionalFurniture: ['lamp'], requiredFixtures: [],
+        requiredFurniture: ['dining_table', 'dining_chair'], optionalFurniture: ['sideboard', 'buffet', 'lamp'], requiredFixtures: [],
         furnitureSpec: [
             { kind: 'dining_table', sizeW: 1400, sizeD: 900, clearFoot: 900, clearSide: 900, placementRule: 'centre',       excludeDoorSwing: true,  excludeWindowWall: false, required: true,  group: 'dining' },
             { kind: 'dining_chair', sizeW: 500,  sizeD: 500, clearFoot: 0,   clearSide: 0,   placementRule: 'around_group', excludeDoorSwing: false, excludeWindowWall: false, required: false, group: 'dining', count: 4 },
+            // F1.9 (2026-05-30) — Dining-room storage.
+            { kind: 'sideboard',    sizeW: 1800, sizeD: 450, clearFoot: 700, clearSide: 0,   placementRule: 'longest_wall', excludeDoorSwing: true,  excludeWindowWall: true,  required: false },
+            { kind: 'buffet',       sizeW: 1500, sizeD: 450, clearFoot: 700, clearSide: 0,   placementRule: 'longest_wall', excludeDoorSwing: true,  excludeWindowWall: true,  required: false },
             { kind: 'lamp',         sizeW: 350,  sizeD: 350, clearFoot: 100, clearSide: 0,   placementRule: 'corner',       excludeDoorSwing: false, excludeWindowWall: false, required: false },
         ],
-        description: 'Eating space. Typically open to kitchen + living; reached via the living/kitchen zone.',
+        description: 'Eating space. Typically open to kitchen + living; reached via the living/kitchen zone. Optional sideboard/buffet for tableware storage.',
     },
 
     // ── Circulation ──────────────────────────────────────────────────────────────

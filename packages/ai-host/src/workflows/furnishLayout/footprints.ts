@@ -80,6 +80,11 @@ const FP: Readonly<Record<FurnitureKind, Footprint>> = {
     vanity_unit:      { w: 1.00, l: 0.50, h: 0.85, baseOffset: 0,    clearFront: 0.70, clearSides: 0.05 },
     bathroom_mirror:  { w: 0.80, l: 0.04, h: 0.70, baseOffset: 1.10, clearFront: 0.00, clearSides: 0.00 },
     towel_rail:       { w: 0.50, l: 0.10, h: 0.80, baseOffset: 0.40, clearFront: 0.00, clearSides: 0.00 },
+    // F1.9 (2026-05-30) — Dining-room storage.
+    //   buffet (tall): 1.50 m × 0.45 m × 0.90 m, 0.70 m front clearance
+    //   sideboard (low): 1.80 m × 0.45 m × 0.75 m, 0.70 m front clearance
+    buffet:           { w: 1.50, l: 0.45, h: 0.90, baseOffset: 0, clearFront: 0.70, clearSides: 0.00 },
+    sideboard:        { w: 1.80, l: 0.45, h: 0.75, baseOffset: 0, clearFront: 0.70, clearSides: 0.00 },
 };
 
 /** Footprint for a furniture kind (always defined for supported kinds). */

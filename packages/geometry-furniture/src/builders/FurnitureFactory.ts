@@ -53,6 +53,7 @@ import {
 import {
     VanityUnitBuilder, BathroomMirrorBuilder, TowelRailBuilder,
 } from './BathroomVanityBuilder';
+import { BuffetBuilder, SideboardBuilder } from './DiningStorageBuilder';
 
 export class FurnitureFactory {
     static getBuilder(
@@ -106,6 +107,10 @@ export class FurnitureFactory {
             case 'vanity_unit':        return new VanityUnitBuilder(materialService);
             case 'bathroom_mirror':    return new BathroomMirrorBuilder(materialService);
             case 'towel_rail':         return new TowelRailBuilder(materialService);
+
+            // F1.9 (2026-05-30) — Dining-room storage (buffet + sideboard).
+            case 'buffet':             return new BuffetBuilder(materialService);
+            case 'sideboard':          return new SideboardBuilder(materialService);
 
             case 'table':              return new TableBuilder(materialService);
             case 'table_marble_cone':  return new TableBuilder(materialService);

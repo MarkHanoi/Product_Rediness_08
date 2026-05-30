@@ -39,7 +39,10 @@ export type FurnitureKind =
     // S4 activity system. mirror_light queued separately in geometry-
     // lighting (LightingFixtureType). These three close their own ladder.
     // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §F1.5)
-    | 'vanity_unit' | 'bathroom_mirror' | 'towel_rail';
+    | 'vanity_unit' | 'bathroom_mirror' | 'towel_rail'
+    // F1.9 (2026-05-30) — dining-room storage. Buffet + sideboard.
+    // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §F1.9)
+    | 'buffet' | 'sideboard';
 
 /** Editor RoomOccupancyType values this engine furnishes (subset). */
 export type FurnishableOccupancy =

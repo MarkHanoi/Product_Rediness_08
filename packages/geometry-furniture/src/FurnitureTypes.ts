@@ -125,6 +125,11 @@ export type FurnitureType =
     | 'vanity_unit'
     | 'bathroom_mirror'
     | 'towel_rail'
+    // ── F1.9 (2026-05-30) — Dining-room storage. Buffet (sideboard with
+    // drawers + cabinets) + sideboard (lower, longer counter style).
+    // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §4.2.9) ──────────
+    | 'buffet'
+    | 'sideboard'
     | 'plant_01'
     | 'plant_02'
     | 'plant_03'
