@@ -74,6 +74,10 @@ export const FURNITURE_TYPE_TO_CATEGORY: Readonly<Record<FurnitureType, Furnitur
     'table_wood_4leg':      'tables',
     'table_ceramic_curve':  'tables',
 
+    // ── Storage (incl. bookshelves) ───────────────────────────────────────────
+    'bookshelf':            'storage', // F1.2 — open-shelf bookcase
+    'bookshelf_glass':      'storage', // F1.2 — glass-front bookcase
+
     // ── Bedroom Furniture ─────────────────────────────────────────────────────
     'bed':                  'bedroom',
     'wardrobe':             'bedroom',

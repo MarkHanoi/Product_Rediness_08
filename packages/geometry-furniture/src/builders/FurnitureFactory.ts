@@ -45,6 +45,7 @@ import { WardrobeCabinetEngine } from '../engines/WardrobeCabinetEngine';
 import { TreeBuilder } from './TreeBuilder';
 import { DeskBuilder } from './DeskBuilder';
 import { DeskChairBuilder } from './DeskChairBuilder';
+import { BookshelfBuilder } from './BookshelfBuilder';
 
 export class FurnitureFactory {
     static getBuilder(
@@ -78,6 +79,10 @@ export class FurnitureFactory {
             // F1.1 (2026-05-30) — Desk + desk chair (study workstation).
             case 'desk':               return new DeskBuilder(materialService);
             case 'desk_chair':         return new DeskChairBuilder(materialService);
+
+            // F1.2 (2026-05-30) — Bookshelf (open + glass-front variants).
+            case 'bookshelf':          return new BookshelfBuilder(materialService);
+            case 'bookshelf_glass':    return new BookshelfBuilder(materialService);
 
             case 'table':              return new TableBuilder(materialService);
             case 'table_marble_cone':  return new TableBuilder(materialService);

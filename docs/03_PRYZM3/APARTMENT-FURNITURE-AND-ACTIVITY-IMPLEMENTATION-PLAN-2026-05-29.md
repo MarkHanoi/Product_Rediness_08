@@ -657,7 +657,7 @@ Each row pays the full 24-step contract obligation ladder (§0.1). Order: most s
 | ID | Deliverable | Owners | Est | Status |
 |---|---|---|---|---|
 | **F1.1** | `desk` + `desk_chair` | geometry-furniture | 10 d | ✅ shipped 2026-05-30 — FurnitureType union + FurnitureCategoryMap entries + DeskBuilder + DeskChairBuilder + FurnitureFactory arms (geometry-furniture); ai-host FurnitureKind union + footprints + private-office archetype + programRules.study furnitureSpec; +6 pin tests; dining-table-as-desk workaround retired. Plan-symbol uses default edge projection (a dedicated DeskPlanSymbolBuilder is queued as a polish slice) |
-| **F1.2** | `bookshelf` + `bookshelf_glass` | geometry-furniture | 10 d | ⬜ |
+| **F1.2** | `bookshelf` + `bookshelf_glass` | geometry-furniture | 10 d | ✅ shipped 2026-05-30 — FurnitureType union + FurnitureCategoryMap entries (`storage`) + BookshelfBuilder (handles both variants via `data.furnitureType` discrimination) + FurnitureFactory arms; ai-host FurnitureKind + footprints (0.80×0.35×1.80 m); wired into `private-office` archetype (open variant, study companion) + `living-room` archetype (glass variant, optional). +6 pin tests. |
 | **F1.3** | `tv` + `tv_unit` | geometry-furniture | 10 d | ⬜ |
 | **F1.4** | Entry storage primitives (`shoe_cabinet`, `coat_rack`, `console_table`, `entry_bench`) | geometry-furniture | 20 d | ⬜ |
 | **F1.5** | Bathroom vanity primitives (`vanity_unit`, `bathroom_mirror`, `mirror_light`, `towel_rail`) | geometry-furniture + geometry-lighting | 20 d | ⬜ |

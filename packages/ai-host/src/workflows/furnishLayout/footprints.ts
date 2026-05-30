@@ -49,6 +49,13 @@ const FP: Readonly<Record<FurnitureKind, Footprint>> = {
     //         clearFront.
     desk:           { w: 1.40, l: 0.70, h: 0.75, baseOffset: 0, clearFront: 0.90, clearSides: 0.45 },
     desk_chair:     { w: 0.55, l: 0.55, h: 0.90, baseOffset: 0, clearFront: 0.00, clearSides: 0.00 },
+    // F1.2 (2026-05-30) — Bookshelf (open + glass-front variants).
+    //   0.80 m wide × 0.35 m deep × 1.80 m tall. 0.60 m front clearance
+    //   so the user can stand back to read titles + retrieve books
+    //   without bumping the wall behind them. No side clearance — the
+    //   solver may pack two side-by-side along a long wall.
+    bookshelf:        { w: 0.80, l: 0.35, h: 1.80, baseOffset: 0, clearFront: 0.60, clearSides: 0.00 },
+    bookshelf_glass:  { w: 0.80, l: 0.35, h: 1.80, baseOffset: 0, clearFront: 0.60, clearSides: 0.00 },
 };
 
 /** Footprint for a furniture kind (always defined for supported kinds). */

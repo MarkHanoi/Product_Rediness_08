@@ -227,11 +227,13 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         minAreaFrac: 0.15,
         accessFrom: ['hall', 'corridor', 'kitchen', 'dining'], maxDoors: INF,
         adjacencyPreference: { kitchen: 1.0, dining: 1.0, hall: 0.8, corridor: 0.5 },
-        requiredFurniture: ['sofa'], optionalFurniture: ['coffee_table', 'lamp'], requiredFixtures: [],
+        requiredFurniture: ['sofa'], optionalFurniture: ['coffee_table', 'bookshelf_glass', 'lamp'], requiredFixtures: [],
         furnitureSpec: [
-            { kind: 'sofa',         sizeW: 2000, sizeD: 900, clearFoot: 450, clearSide: 100, placementRule: 'longest_wall', excludeDoorSwing: true,  excludeWindowWall: false, required: true, group: 'sofa' },
-            { kind: 'coffee_table', sizeW: 1100, sizeD: 600, clearFoot: 300, clearSide: 100, placementRule: 'beside_group', excludeDoorSwing: true,  excludeWindowWall: false, required: false, group: 'sofa' },
-            { kind: 'lamp',         sizeW: 350,  sizeD: 350, clearFoot: 100, clearSide: 0,   placementRule: 'corner',       excludeDoorSwing: false, excludeWindowWall: false, required: false },
+            { kind: 'sofa',             sizeW: 2000, sizeD: 900, clearFoot: 450, clearSide: 100, placementRule: 'longest_wall', excludeDoorSwing: true,  excludeWindowWall: false, required: true, group: 'sofa' },
+            { kind: 'coffee_table',     sizeW: 1100, sizeD: 600, clearFoot: 300, clearSide: 100, placementRule: 'beside_group', excludeDoorSwing: true,  excludeWindowWall: false, required: false, group: 'sofa' },
+            // F1.2 — Glass-front bookshelf for living-room storage.
+            { kind: 'bookshelf_glass',  sizeW: 800,  sizeD: 350, clearFoot: 600, clearSide: 0,   placementRule: 'longest_wall', excludeDoorSwing: true,  excludeWindowWall: true,  required: false },
+            { kind: 'lamp',             sizeW: 350,  sizeD: 350, clearFoot: 100, clearSide: 0,   placementRule: 'corner',       excludeDoorSwing: false, excludeWindowWall: false, required: false },
         ],
         description: 'Primary social space. Front of the privacy gradient; open to kitchen/dining and the entrance hall.',
     },
@@ -396,16 +398,19 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         accessFrom: ['corridor', 'living'], maxDoors: 1,
         // F1.1 (2026-05-30) — proper `desk` + `desk_chair` shipped, replacing
         // the dining-table-as-desk workaround.
-        requiredFurniture: ['desk'], optionalFurniture: ['desk_chair', 'lamp'], requiredFixtures: [],
+        requiredFurniture: ['desk'], optionalFurniture: ['desk_chair', 'bookshelf', 'lamp'], requiredFixtures: [],
         furnitureSpec: [
             // Desk WANTS the window wall (natural light from the side, screen not
             // facing the window). Worktop 1.4 × 0.7 m at 0.75 m height; 0.9 m
             // front clearance for chair pull-out.
             { kind: 'desk',       sizeW: 1400, sizeD: 700, clearFoot: 900, clearSide: 450, placementRule: 'window_wall',  excludeDoorSwing: true,  excludeWindowWall: false, required: true,  group: 'desk' },
             { kind: 'desk_chair', sizeW: 550,  sizeD: 550, clearFoot: 0,   clearSide: 0,   placementRule: 'beside_group', excludeDoorSwing: false, excludeWindowWall: false, required: false, group: 'desk', count: 1 },
+            // F1.2 — Open bookshelf as the canonical study companion. Long
+            // wall, not the window wall (tall piece blocks daylight).
+            { kind: 'bookshelf',  sizeW: 800,  sizeD: 350, clearFoot: 600, clearSide: 0,   placementRule: 'longest_wall', excludeDoorSwing: true,  excludeWindowWall: true,  required: false },
             { kind: 'lamp',       sizeW: 350,  sizeD: 350, clearFoot: 100, clearSide: 0,   placementRule: 'corner',       excludeDoorSwing: false, excludeWindowWall: false, required: false },
         ],
-        description: 'Home office / study. One door to the corridor or the living space. Anchored by a desk on the window wall + matching task chair.',
+        description: 'Home office / study. One door to the corridor or the living space. Anchored by a desk on the window wall + matching task chair + optional open bookshelf on the long wall.',
     },
 
     // ── Wet rooms ────────────────────────────────────────────────────────────────

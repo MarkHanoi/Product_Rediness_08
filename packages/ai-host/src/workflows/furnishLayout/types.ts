@@ -17,7 +17,12 @@ export type FurnitureKind =
     // FurnitureFactory switch arms shipped in the same delivery (see
     // APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §F1.1). Closes the
     // dining-table-as-desk workaround in the study archetype.
-    | 'desk' | 'desk_chair';
+    | 'desk' | 'desk_chair'
+    // F1.2 (2026-05-30) — bookshelf primitives. Cross-room storage shipped
+    // contract-complete: FurnitureType union + FurnitureCategoryMap +
+    // BookshelfBuilder (handles both variants) + FurnitureFactory arms.
+    // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §F1.2)
+    | 'bookshelf' | 'bookshelf_glass';
 
 /** Editor RoomOccupancyType values this engine furnishes (subset). */
 export type FurnishableOccupancy =

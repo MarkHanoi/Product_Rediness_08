@@ -29,6 +29,10 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
             // is the entry path; the sofa anchors on the opposite/long wall.
             { kind: 'sofa', anchor: 'wall-longest', facing: 'into-room', required: true, group: 'sofa', excludeDoorSwing: true },
             { kind: 'coffee_table', anchor: 'beside', facing: 'into-room', required: false, group: 'sofa' },
+            // F1.2 (2026-05-30) — Glass-front bookshelf as optional living-room
+            // storage. Anchors on the longest free wall, excludes window wall
+            // (tall piece blocks daylight) and the door wall.
+            { kind: 'bookshelf_glass', anchor: 'wall-longest', facing: 'to-wall', required: false, excludeWindowWall: true, excludeDoorSwing: true },
             { kind: 'lamp', anchor: 'corner', facing: 'into-room', required: false },   // lighting
         ],
     },
@@ -93,6 +97,11 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
             //     the wall (i.e. the user faces the wall to work).
             { kind: 'desk',       anchor: 'wall-window', facing: 'into-room', required: true,  group: 'desk' },
             { kind: 'desk_chair', anchor: 'beside',      facing: 'to-wall',   required: false, group: 'desk', count: 1 },
+            // F1.2 (2026-05-30) — Open bookshelf as the canonical study
+            // companion to the desk. Anchors on the longest free wall (not
+            // the window wall — tall piece blocks daylight) and yields to
+            // the desk's window-wall claim.
+            { kind: 'bookshelf', anchor: 'wall-longest', facing: 'to-wall', required: false, excludeWindowWall: true, excludeDoorSwing: true },
         ],
     },
     // Circulation / utility — intentionally unfurnished (keep clear).

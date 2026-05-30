@@ -95,6 +95,12 @@ export type FurnitureType =
     // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §4.2.1) ──────────
     | 'desk'
     | 'desk_chair'
+    // ── F1.2 (2026-05-30) — Bookshelf primitives. Cross-room storage
+    // — anchors on `wall-longest`, excludes window wall (tall piece blocks
+    // daylight). Two variants: open shelves + glass-front.
+    // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §4.2.2) ──────────
+    | 'bookshelf'
+    | 'bookshelf_glass'
     | 'plant_01'
     | 'plant_02'
     | 'plant_03'
