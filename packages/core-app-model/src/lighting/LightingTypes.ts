@@ -40,7 +40,8 @@ export type LightingFixtureType =
     | 'floor_wood_post'      // Floor lamp — wood post + drum shade
     | 'floor_arc_brass'      // Floor lamp — brass arc + marble base
     | 'table_terracotta'     // Table lamp — terracotta column + cone shade
-    | 'floor_tripod_black';  // Floor lamp — black tripod + drum shade
+    | 'floor_tripod_black'   // Floor lamp — black tripod + drum shade
+    | 'mirror_light';        // F1.5' (2026-05-30) — wall-mounted vanity light strip above bathroom mirror
 
 /**
  * Fixture types that are placed on the floor / a surface rather than the
@@ -140,6 +141,21 @@ export interface FloorTripodBlackParams {
     readonly shadeColor:   string; // shade color (default '#1a1a1a')
 }
 
+/**
+ * F1.5' MirrorLightParams — wall-mounted bathroom-mirror task light.
+ * Horizontal slim bar (typ. 600 × 50 × 35 mm) with an emissive front
+ * face. Mounted above the bathroom_mirror at vanity-mirror height
+ * (architectural default ~1.85 m AFL — 1.10 m mirror baseOffset +
+ * 0.70 m mirror height + 0.05 m gap).
+ */
+export interface MirrorLightParams {
+    readonly width:       number;  // bar length along the wall (default 0.60)
+    readonly height:      number;  // bar height (Y, default 0.05)
+    readonly depth:       number;  // bar projection out from the wall (default 0.035)
+    readonly bodyColor:   string;  // bar body color (default '#c0c0c0' — brushed steel)
+    readonly ledColor:    string;  // LED strip emissive color (default '#fff4e0' — warm white)
+}
+
 // ── Emission config (night-mode) ────────────────────────────────────────────
 
 export interface LightEmissionConfig {
@@ -173,6 +189,9 @@ export interface LightingData {
     readonly floorArcBrassParams?:      Partial<FloorArcBrassParams>;
     readonly tableTerracottaParams?:    Partial<TableTerracottaParams>;
     readonly floorTripodBlackParams?:   Partial<FloorTripodBlackParams>;
+
+    // ── F1.5' (2026-05-30) — wall-mounted bathroom vanity light ─────────────
+    readonly mirrorLightParams?:        Partial<MirrorLightParams>;
 
     /** Emission override — if absent uses defaults for the fixtureType */
     readonly emission?: Partial<LightEmissionConfig>;
@@ -269,6 +288,15 @@ export const FLOOR_TRIPOD_BLACK_DEFAULTS: FloorTripodBlackParams = {
     shadeRadius: 0.25,
     shadeHeight: 0.22,
     shadeColor:  '#1a1a1a',
+};
+
+/** F1.5' MirrorLight defaults — slim warm-LED bar above bathroom mirror. */
+export const MIRROR_LIGHT_DEFAULTS: MirrorLightParams = {
+    width:     0.60,
+    height:    0.05,
+    depth:     0.035,
+    bodyColor: '#c0c0c0',
+    ledColor:  '#fff4e0',
 };
 
 export const DEFAULT_EMISSION: LightEmissionConfig = {

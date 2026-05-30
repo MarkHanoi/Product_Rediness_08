@@ -526,9 +526,10 @@ export type {
     DownlightParams, PendantParams, LinearLedParams, PendantPebbleParams,
     PendantCeramicBellParams, PendantConicalParams, FloorWoodPostParams,
     FloorArcBrassParams, TableTerracottaParams, FloorTripodBlackParams,
+    MirrorLightParams,
     LightEmissionConfig, LightingData,
 } from './lighting/LightingTypes.js';
-export { FLOOR_MOUNTED_FIXTURES } from './lighting/LightingTypes.js';
+export { FLOOR_MOUNTED_FIXTURES, MIRROR_LIGHT_DEFAULTS } from './lighting/LightingTypes.js';
 
 export type { RenderLightingSymbolsOptions } from './views/symbols/LightingPlanSymbolRenderer.js';
 export { renderLightingSymbols } from './views/symbols/LightingPlanSymbolRenderer.js';

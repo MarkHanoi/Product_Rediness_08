@@ -44,6 +44,7 @@ import {
     FLOOR_ARC_BRASS_DEFAULTS,
     TABLE_TERRACOTTA_DEFAULTS,
     FLOOR_TRIPOD_BLACK_DEFAULTS,
+    MIRROR_LIGHT_DEFAULTS,
     DEFAULT_EMISSION,
 } from '@pryzm/core-app-model';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
@@ -177,8 +178,49 @@ export class LightingFragmentBuilder {
             case 'floor_arc_brass':      return this._buildFloorArcBrass(data);
             case 'table_terracotta':     return this._buildTableTerracotta(data);
             case 'floor_tripod_black':   return this._buildFloorTripodBlack(data);
+            case 'mirror_light':         return this._buildMirrorLight(data);
             default:                     return this._buildDownlight(data);
         }
+    }
+
+    /**
+     * F1.5' (2026-05-30) — Mirror light: wall-mounted slim bar above the
+     * bathroom mirror. Horizontal slab oriented along +X (the wall), with
+     * an emissive front face that lights the user at the vanity. The
+     * archetype places it above the bathroom_mirror; the rotation is
+     * applied at the group level so the front face points into the room.
+     *
+     * Body is matte brushed steel; the front face inset (LED strip)
+     * carries the emissive material for soft front lighting.
+     */
+    private _buildMirrorLight(data: LightingData): THREE.Group {
+        const p = { ...MIRROR_LIGHT_DEFAULTS, ...data.mirrorLightParams };
+        const group = new THREE.Group();
+
+        // Bar body — brushed steel.
+        const bodyGeo = new THREE.BoxGeometry(p.width, p.height, p.depth);
+        const bodyMat = sharedMat(p.bodyColor, { roughness: 0.45, metalness: 0.6 });
+        const body = new THREE.Mesh(bodyGeo, bodyMat);
+        body.position.set(0, 0, p.depth / 2);     // back face flush with the wall plane
+        body.castShadow = true;
+        group.add(body);
+
+        // Emissive LED strip on the front face.
+        const ledW = p.width * 0.92;
+        const ledH = p.height * 0.55;
+        const ledGeo = new THREE.BoxGeometry(ledW, ledH, p.depth * 0.4);
+        const ledMat = new THREE.MeshStandardMaterial({
+            color: p.ledColor,
+            emissive: p.ledColor,
+            emissiveIntensity: 1.0,
+            roughness: 0.4,
+            metalness: 0.0,
+        });
+        const led = new THREE.Mesh(ledGeo, ledMat);
+        led.position.set(0, 0, p.depth + p.depth * 0.2 - p.depth * 0.4 / 2);
+        group.add(led);
+
+        return group;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
