@@ -22,7 +22,7 @@ Single-page reference for **every phase and subphase** across the apartment plat
 | ID | Deliverable | Status |
 |---|---|---|
 | **T1.W** Window-emission engine | NEW pure sub-engine | ⬜ |
-| **T1.C** Corridor-connectivity validator | Every habitable touches corridor | 🟨 pure validator shipped 2026-05-30 (validateCorridorConnectivity.ts + 9 pin tests, SOFT-only); enumerate.ts wiring + modal surfacing pending |
+| **T1.C** Corridor-connectivity validator | Every habitable touches corridor | ✅ pure validator + enumerate.ts wiring both shipped 2026-05-30 (soft findings fold into topologyQuality alongside wet/acoustic/sequence/frontage). Modal D4-surfacing only outstanding. |
 | **T1.D** Per-room default door + window system types | MATRIX §D + queue | ✅ door side fully wired 2026-05-30 (resolver + LayoutDoor/DoorPlanItem extension + emitGeometry + executePlan, 24 pin tests). Window-resolver awaits T1.W landing. |
 
 ---

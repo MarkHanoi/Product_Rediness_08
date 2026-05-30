@@ -28,6 +28,7 @@ import { validateForbiddenAdjacencies } from '../topology/validateForbiddenAdjac
 import { validateWetCluster } from '../topology/validateWetCluster.js';
 import { validateAcousticZoning } from '../topology/validateAcousticZoning.js';
 import { validateCirculationSequence } from '../topology/validateCirculationSequence.js';
+import { validateCorridorConnectivity } from '../topology/validateCorridorConnectivity.js';
 
 export interface EnumerateInput {
     readonly shellPolygon: readonly Pt[];      // metres, plan frame
@@ -220,6 +221,11 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     const wet = validateWetCluster(bubble, placements);
     const acoustic = validateAcousticZoning(bubble, placements);
     const sequence = validateCirculationSequence(bubble, placements, doorOpenings);
+    // T1.C (2026-05-30) — every private room (bedroom/master/bathroom/ensuite/wc)
+    // must have a direct door to a corridor or hall (ensuite-via-master is the
+    // sole exception). SOFT-only — §BATH-CORRIDOR-ONLY already enforces the
+    // worst case at generation time; this is a regression net via soft penalty.
+    const corridorConn = validateCorridorConnectivity(bubble, doorOpenings);
     // §T2.5 (2026-05-30) — frontage HARD-reject: every `frontage: 'required'`
     // room (living / kitchen / master / bedroom — per T1.6) must touch the
     // shell perimeter. Catches the "habitable room buried fully interior"
@@ -242,14 +248,15 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     const topologyAdmissible =
         mand.admissible && forb.admissible &&
         wet.admissible && acoustic.admissible && sequence.admissible &&
-        frontage.admissible;
+        frontage.admissible && corridorConn.admissible;
     // Quality: 1 minus soft-finding penalty sum / numRooms — same shape as
     // shapeQuality (D3.1). HARD failures still drop topologyAdmissible.
     const topoSoftSum =
         wet.softFindings.reduce((s, f) => s + f.delta, 0) +
         acoustic.softFindings.reduce((s, f) => s + f.delta, 0) +
         sequence.softFindings.reduce((s, f) => s + f.delta, 0) +
-        frontage.softFindings.reduce((s, f) => s + f.delta, 0);
+        frontage.softFindings.reduce((s, f) => s + f.delta, 0) +
+        corridorConn.softFindings.reduce((s, f) => s + f.delta, 0);
     const topologyQuality = topologyAdmissible
         ? Math.max(0, Math.min(1, 1 - topoSoftSum / Math.max(1, bubble.rooms.length)))
         : 0;
