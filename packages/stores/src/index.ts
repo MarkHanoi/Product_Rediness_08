@@ -20,6 +20,12 @@ export {
     type PropagationEvent,
     type ImpactResolver,
 } from './ApartmentParameterPropagator.js';
+// P0.3 slice B (Family Platform) — L3 reactive registry store + core seed.
+// The store wraps the L0 `FamilyRegistryState` substrate from slice A
+// (`@pryzm/schemas/family-registry`); the seed function returns the initial
+// `origin: 'core'` entries that composeRuntime registers at boot.
+export { FamilyRegistryStore } from './familyRegistryStore.js';
+export { buildCoreFamilySeeds } from './seedCoreFamilies.js';
 export { CubeStore, type CubeDto } from './CubeStore.js';
 export { SelectionStore, type SelectionDto, type SelectionKind, type SelectionMode, type SelectionTarget } from './SelectionStore.js';
 export {

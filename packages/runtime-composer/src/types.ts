@@ -28,7 +28,7 @@
 
 import type { AnyStores, CommandHandler, RingBufferUndoStack } from '@pryzm/command-bus';
 import type { SyncClient, PryzmAwareness } from '@pryzm/sync-client';
-import type { LayoutOptionsStore, AiApprovalQueueStore, ApartmentParameterPropagator } from '@pryzm/stores';
+import type { LayoutOptionsStore, AiApprovalQueueStore, ApartmentParameterPropagator, FamilyRegistryStore } from '@pryzm/stores';
 import type { Renderer, MaterialPool, FrameScheduler, CommitterHost, CameraController, PlainPose } from '@pryzm/renderer';
 import type { WorkspaceSurface } from '@pryzm/renderer-three';
 import type { VisibilityElement, VisibilityView, VisibilityFeatureFlags, WaveVisibilityResult } from '@pryzm/visibility';
@@ -3394,6 +3394,16 @@ export interface PryzmRuntime {
    *  `PropagationEvent` for every parameter change that has downstream
    *  impact. See `packages/stores/src/ApartmentParameterPropagator.ts`. */
   readonly apartmentParameterPropagator: ApartmentParameterPropagator;
+
+  // ── P0.3 slice B (Family Platform) — Family registry runtime store ──────
+  /** L3 reactive wrapper around the L0 `FamilyRegistryState` substrate from
+   *  `@pryzm/schemas/family-registry`. Constructed empty by composeRuntime(),
+   *  then seeded with the 6 representative `origin: 'core'` entries from
+   *  `buildCoreFamilySeeds()`. Consumers (plugin picker, AI dispatch,
+   *  auto-furnish) query through `.findByCategory()` / `.findByOccupancy()` /
+   *  `.findByMountClass()` / `.findByTag()` and subscribe to mutations with
+   *  `.subscribe(listener)`. Disposed via `tearDown()`. */
+  readonly familyRegistryStore: FamilyRegistryStore;
 
   /** Idempotent.  Disposes every owned subsystem in reverse order
    *  (renderer → scheduler → bindings → stores → bus → emitter). */

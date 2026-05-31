@@ -48,6 +48,8 @@ import {
   ApartmentParameterPropagator,
   apartmentParametersStore,
   roomParametersStore,
+  FamilyRegistryStore,
+  buildCoreFamilySeeds,
 } from '@pryzm/stores';
 // D-α-3 P3 — pure parameter-impact resolver injected into the propagator.
 // Lives in @pryzm/ai-host (L2) so the L1 stores stay free of any AI-runtime
@@ -842,6 +844,20 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       ),
     );
 
+    // ── 3c. P0.3 slice B — FamilyRegistryStore seeded with core families ──
+    // The L3 reactive store wraps the L0 `FamilyRegistryState` substrate
+    // shipped in P0.3-A (`@pryzm/schemas/family-registry`). composeRuntime is
+    // the one place core-origin entries are minted; later slices add the
+    // plugin/AI loader paths but the seed surface stays here. Each seed is
+    // registered one at a time (per the audit's "tight scope" doctrine — no
+    // bulk-write API on the store). tearDown() disposes the store so
+    // subsequent listener subscriptions are inert (mirrors the
+    // apartmentParameterPropagator lifecycle above).
+    const familyRegistryStore = new FamilyRegistryStore();
+    for (const seed of buildCoreFamilySeeds()) {
+      familyRegistryStore.register(seed);
+    }
+
     // ── 4. Persistence + sync + undoStack ─────────────────────────────────
     // D.4.2 Day-8: `workspaceMount` no longer flows through here.  The
     // browser composition root attaches a bridge post-compose via
@@ -1233,6 +1249,10 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       // re-entry) is safe.
       try { apartmentParameterPropagator.dispose(); }
       catch (err) { console.error('[runtime-composer] apartmentParameterPropagator dispose threw:', err); }
+      // P0.3 slice B — dispose the family registry store so further listener
+      // subscriptions become inert and register/unregister no-op.
+      try { familyRegistryStore.dispose(); }
+      catch (err) { console.error('[runtime-composer] familyRegistryStore dispose threw:', err); }
       try { inner.tearDown(); }
       catch (err) { console.error('[runtime-composer] inner tearDown threw:', err); }
       events.clear();
@@ -1283,6 +1303,11 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       // `runtime.apartmentParameterPropagator.subscribe(e => ...)`; lifetime
       // tied to the runtime (tearDown disposes it).
       apartmentParameterPropagator,
+      // P0.3 slice B (Family Platform) — L3 family registry seeded with the
+      // 6 representative `origin: 'core'` entries from buildCoreFamilySeeds().
+      // Consumers query via .findByCategory / .findByOccupancy / ... and
+      // subscribe to mutations with .subscribe(listener). tearDown disposes.
+      familyRegistryStore,
       sceneReady,
       tearDown,
     };
