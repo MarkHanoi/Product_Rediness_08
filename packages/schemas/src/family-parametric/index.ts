@@ -22,3 +22,9 @@
 export * from './primitive.js';
 export * from './parameter.js';
 export * from './family.js';
+
+// P0.5 slice 1 (Family Platform) — pure FamilyDefinition → ParametricFamily
+// Stage-2 decomposer.  Adds: `decomposeFamily`, `resolveAxis`,
+// `computeParametricHash`, `FromDefinitionOptions`.  No name collisions with
+// the slice-0 substrate above.
+export * from './from-definition.js';
