@@ -4,11 +4,12 @@
 //
 // Verifies the final wiring slice in `composeRuntime.ts`:
 //   * `runtime.familyRegistryStore` is exposed.
-//   * After compose, the store contains the 6 representative `origin: 'core'`
-//     entries from `buildCoreFamilySeeds()`.
+//   * After compose, the store contains the 25 `origin: 'core'` entries from
+//     `buildCoreFamilySeeds()` (slice B extension, 2026-05-31 — was 6).
 //   * Every seed has `origin === 'core'`.
 //   * Secondary indexes are populated — `.findByCategory('beds')` returns the
-//     seeded bed; `.findByOccupancy('bedroom')` returns at least one entry.
+//     seeded beds; `.findByOccupancy('bedroom')` returns at least the
+//     bedroom-anchored entries.
 //   * `runtime.tearDown()` disposes the store — subsequent listener
 //     subscriptions are inert (further `register()` calls are no-ops too).
 //
@@ -168,45 +169,98 @@ describe('composeRuntime() — familyRegistryStore (P0.3 slice B)', () => {
   });
 
   // ── Test 2 ──────────────────────────────────────────────────────────────
-  it('after compose, the store contains exactly 6 seeded core families', () => {
+  it('after compose, the store contains exactly 25 seeded core families', () => {
     const ids = Object.keys(runtime.familyRegistryStore.get().byId);
-    expect(ids).toHaveLength(6);
+    expect(ids).toHaveLength(25);
   });
 
   // ── Test 3 ──────────────────────────────────────────────────────────────
   it('every seeded family has origin = "core"', () => {
     const families = Object.values(runtime.familyRegistryStore.get().byId);
-    expect(families).toHaveLength(6);
+    expect(families).toHaveLength(25);
     for (const f of families) {
       expect(f.origin).toBe('core');
     }
   });
 
   // ── Test 4 ──────────────────────────────────────────────────────────────
-  it('findByCategory("beds") returns at least one entry (the bed seed)', () => {
+  // Slice B extension: beds now contains BOTH bed (double) AND single_bed.
+  it('findByCategory("beds") returns at least 1 (currently 2: bed + single_bed)', () => {
     const beds = runtime.familyRegistryStore.findByCategory('beds');
     expect(beds.length).toBeGreaterThanOrEqual(1);
-    expect(beds[0]!.identity.id).toBe('family/core/bed');
+    const ids = beds.map(f => f.identity.id);
+    expect(ids).toContain('family/core/bed');
+    expect(ids).toContain('family/core/single_bed');
   });
 
   // ── Test 5 ──────────────────────────────────────────────────────────────
-  it('findByOccupancy("bedroom") returns at least one entry', () => {
+  // Slice B extension: bedroom now hosts bed, wardrobe, bedside_table,
+  // dresser, vanity_table, single_bed, bookshelf → expect ≥ 7.
+  it('findByOccupancy("bedroom") returns at least 7 entries', () => {
     const bedroom = runtime.familyRegistryStore.findByOccupancy('bedroom');
-    expect(bedroom.length).toBeGreaterThanOrEqual(1);
-    // Both the bed and the wardrobe seed live in bedroom.
+    expect(bedroom.length).toBeGreaterThanOrEqual(7);
     const ids = bedroom.map(f => f.identity.id);
     expect(ids).toContain('family/core/bed');
     expect(ids).toContain('family/core/wardrobe');
+    expect(ids).toContain('family/core/bedside_table');
+    expect(ids).toContain('family/core/dresser');
+    expect(ids).toContain('family/core/vanity_table');
+    expect(ids).toContain('family/core/single_bed');
+    expect(ids).toContain('family/core/bookshelf');
   });
 
   // ── Test 6 ──────────────────────────────────────────────────────────────
-  it('findByMountClass("wall") returns the bathroom mirror seed (non-floor mount)', () => {
+  // Slice B extension: bathroom_mirror + towel_rail are both wall-mounted.
+  it('findByMountClass("wall") returns both wall-mounted seeds (bathroom_mirror + towel_rail)', () => {
     const wallMounted = runtime.familyRegistryStore.findByMountClass('wall');
-    expect(wallMounted).toHaveLength(1);
-    expect(wallMounted[0]!.identity.id).toBe('family/core/bathroom_mirror');
+    expect(wallMounted.length).toBeGreaterThanOrEqual(2);
+    const ids = wallMounted.map(f => f.identity.id);
+    expect(ids).toContain('family/core/bathroom_mirror');
+    expect(ids).toContain('family/core/towel_rail');
   });
 
-  // ── Test 7 ──────────────────────────────────────────────────────────────
+  // ── Test 7 — Slice B extension: IfcSanitaryTerminal coverage ───────────
+  it('seeds include at least one IfcSanitaryTerminal entry (wet-fixtures)', () => {
+    const families = Object.values(runtime.familyRegistryStore.get().byId);
+    const sanitary = families.filter(f => f.ifcMapping.entityType === 'IfcSanitaryTerminal');
+    expect(sanitary.length).toBeGreaterThanOrEqual(1);
+    const ids = sanitary.map(f => f.identity.id);
+    expect(ids).toContain('family/core/bath');
+    expect(ids).toContain('family/core/shower_glass_panel');
+    expect(ids).toContain('family/core/wc_washbasin');
+  });
+
+  // ── Test 8 — Slice B extension: IfcElectricAppliance coverage ──────────
+  it('seeds include at least one IfcElectricAppliance entry (appliances)', () => {
+    const families = Object.values(runtime.familyRegistryStore.get().byId);
+    const appliances = families.filter(f => f.ifcMapping.entityType === 'IfcElectricAppliance');
+    expect(appliances.length).toBeGreaterThanOrEqual(1);
+    expect(appliances.map(f => f.identity.id)).toContain('family/core/washing_machine_standalone');
+  });
+
+  // ── Test 9 — Slice B extension: IfcLightFixture coverage ───────────────
+  it('seeds include at least one IfcLightFixture entry (lighting)', () => {
+    const families = Object.values(runtime.familyRegistryStore.get().byId);
+    const lighting = families.filter(f => f.ifcMapping.entityType === 'IfcLightFixture');
+    expect(lighting.length).toBeGreaterThanOrEqual(1);
+    expect(lighting.map(f => f.identity.id)).toContain('family/core/lamp');
+  });
+
+  // ── Test 10 — Slice B extension: multi-occupancy seed present ──────────
+  // The dining_table + dining_chair seeds list BOTH kitchen and living
+  // (they're the cross-occupancy "dining-set" peers).
+  it('seeds include multi-occupancy entries (dining_table + dining_chair span kitchen + living)', () => {
+    const kitchen = runtime.familyRegistryStore.findByOccupancy('kitchen');
+    const living  = runtime.familyRegistryStore.findByOccupancy('living');
+    const kitchenIds = kitchen.map(f => f.identity.id);
+    const livingIds  = living.map(f => f.identity.id);
+    expect(kitchenIds).toContain('family/core/dining_table');
+    expect(livingIds).toContain('family/core/dining_table');
+    expect(kitchenIds).toContain('family/core/dining_chair');
+    expect(livingIds).toContain('family/core/dining_chair');
+  });
+
+  // ── Test 11 ─────────────────────────────────────────────────────────────
   it('runtime.tearDown() disposes the store — listeners do not fire on subsequent register()', () => {
     const listener = vi.fn();
     runtime.familyRegistryStore.subscribe(listener);
