@@ -38,3 +38,10 @@ export type {
     DtglLayoutEdge,
     AdapterOptions,
 } from './layout-adapter.js';
+
+// ── Combined one-call surface (adapter + orchestrator + formatter) ──────────
+export { validateAndFormatLayout } from './validate-and-format.js';
+export type {
+    ValidateAndFormatOptions,
+    ValidateAndFormatResult,
+} from './validate-and-format.js';
