@@ -9,12 +9,16 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+    ACOUSTIC_INCOMPATIBLE,
     FORBIDDEN_ADJACENCIES,
     MANDATORY_ADJACENCIES,
     PREFERRED_ADJACENCIES,
+    PRIVACY_GRADIENT_VIOLATIONS,
+    validateAcousticSeparation,
     validateForbiddenAdjacency,
     validateMandatoryAdjacency,
     validatePreferredAdjacency,
+    validatePrivacyGradient,
     type AdjacencyEdge,
     type TopologyViolation,
 } from '../src/workflows/apartmentLayout/validators/topology/index.js';
@@ -505,6 +509,307 @@ describe('validateForbiddenAdjacency — A-3 stand-alone validator', () => {
             'bedroom/kitchen',
             'master_bedroom/kitchen',
             'ensuite/kitchen',
+        ]);
+    });
+});
+
+describe('validatePrivacyGradient — A-4 stand-alone validator', () => {
+    it('returns no violations for an empty rooms list', () => {
+        expect(validatePrivacyGradient([], [])).toEqual([]);
+    });
+
+    it('returns no violations when no bedroom / ensuite is present', () => {
+        const rooms = [
+            room('K', 'kitchen'),
+            room('L', 'living_room'),
+            room('C', 'corridor'),
+        ];
+        const edges = [edge('K', 'L'), edge('L', 'C')];
+        expect(validatePrivacyGradient(rooms, edges)).toEqual([]);
+    });
+
+    it('bedroom adjacent to corridor → NO violation (semi-public escape)', () => {
+        const rooms = [room('B', 'bedroom'), room('C', 'corridor')];
+        const edges = [edge('B', 'C')];
+        expect(validatePrivacyGradient(rooms, edges)).toEqual([]);
+    });
+
+    it('bedroom adjacent to another bedroom AND to corridor → NO violation', () => {
+        // The bedroom has a semi-public escape (corridor) so the
+        // gradient is preserved even though it's also edged to another
+        // bedroom.
+        const rooms = [
+            room('B1', 'bedroom'),
+            room('B2', 'bedroom'),
+            room('C',  'corridor'),
+        ];
+        const edges = [edge('B1', 'B2'), edge('B1', 'C'), edge('B2', 'C')];
+        expect(validatePrivacyGradient(rooms, edges)).toEqual([]);
+    });
+
+    it('bedroom whose ONLY non-self edge is to another bedroom → ONE error', () => {
+        const rooms = [room('B1', 'bedroom'), room('B2', 'bedroom')];
+        const edges = [edge('B1', 'B2')];
+        const out = validatePrivacyGradient(rooms, edges);
+        // Both bedrooms have the same defect — both are reachable only via
+        // the other bedroom — so two violations.
+        expect(out).toHaveLength(2);
+        for (const v of out) {
+            expect(v.classId).toBe('A-4');
+            expect(v.severity).toBe('error');
+            expect(v.roomATypeName).toBe('bedroom');
+            expect(v.roomBTypeName).toBe('bedroom');
+            assertMessageTraceability(v);
+        }
+    });
+
+    it('master_bedroom reachable only via another bedroom → ONE error (master flavour)', () => {
+        const rooms = [room('M', 'master_bedroom'), room('B', 'bedroom'), room('C', 'corridor')];
+        // B has a corridor escape; M is reached only through B.
+        const edges = [edge('M', 'B'), edge('B', 'C')];
+        const out = validatePrivacyGradient(rooms, edges);
+        const masterV = out.filter(v => v.roomATypeName === 'master_bedroom');
+        expect(masterV).toHaveLength(1);
+        expect(masterV[0]!.message).toContain('master');
+        expect(masterV[0]!.severity).toBe('error');
+    });
+
+    it('bedroom with NO neighbours at all → NO A-4 violation (A-1 catches it)', () => {
+        // The rule fires only when the bedroom IS connected to another
+        // bedroom but has no semi-public escape — a bedroom with zero
+        // neighbours is an A-1 mandatory-adjacency issue, not A-4.
+        const rooms = [room('B', 'bedroom')];
+        const out = validatePrivacyGradient(rooms, []);
+        expect(out).toEqual([]);
+    });
+
+    it('bedroom edged only to living_room → NO violation (living_room is semi-public)', () => {
+        const rooms = [room('B', 'bedroom'), room('L', 'living_room')];
+        const edges = [edge('B', 'L')];
+        expect(validatePrivacyGradient(rooms, edges)).toEqual([]);
+    });
+
+    it('ensuite correctly hosted by exactly one bedroom → NO violation', () => {
+        const rooms = [room('M', 'master_bedroom'), room('E', 'ensuite')];
+        const edges = [edge('M', 'E')];
+        expect(validatePrivacyGradient(rooms, edges)).toEqual([]);
+    });
+
+    it('ensuite with NO bedroom host → ONE error (orphan)', () => {
+        const rooms = [room('E', 'ensuite')];
+        const out = validatePrivacyGradient(rooms, []);
+        expect(out).toHaveLength(1);
+        expect(out[0]!.classId).toBe('A-4');
+        expect(out[0]!.roomATypeName).toBe('ensuite');
+        expect(out[0]!.message).toContain('no bedroom host');
+    });
+
+    it('ensuite shared by two bedrooms → ONE error (shared ensuite)', () => {
+        const rooms = [
+            room('M',  'master_bedroom'),
+            room('B',  'bedroom'),
+            room('E',  'ensuite'),
+            room('C',  'corridor'),
+        ];
+        // Both bedrooms also have a corridor escape so they don't fire rule (a).
+        const edges = [
+            edge('E', 'M'),
+            edge('E', 'B'),
+            edge('M', 'C'),
+            edge('B', 'C'),
+        ];
+        const out = validatePrivacyGradient(rooms, edges);
+        const ensuiteV = out.filter(v => v.roomATypeName === 'ensuite');
+        expect(ensuiteV).toHaveLength(1);
+        expect(ensuiteV[0]!.message).toContain('shared by 2 bedrooms');
+    });
+
+    it('ensuite edged to corridor → ONE error (gradient leak to non-bedroom)', () => {
+        const rooms = [
+            room('M', 'master_bedroom'),
+            room('E', 'ensuite'),
+            room('C', 'corridor'),
+        ];
+        const edges = [edge('M', 'E'), edge('E', 'C')];
+        const out = validatePrivacyGradient(rooms, edges);
+        const ensuiteV = out.filter(v => v.roomATypeName === 'ensuite');
+        expect(ensuiteV).toHaveLength(1);
+        expect(ensuiteV[0]!.message).toContain('non-bedroom');
+        expect(ensuiteV[0]!.message).toContain('corridor');
+    });
+
+    it('ensuite edged to kitchen → ONE error (gradient leak to non-bedroom)', () => {
+        const rooms = [
+            room('M', 'master_bedroom'),
+            room('E', 'ensuite'),
+            room('K', 'kitchen'),
+        ];
+        const edges = [edge('M', 'E'), edge('E', 'K')];
+        const out = validatePrivacyGradient(rooms, edges);
+        const ensuiteV = out.filter(v => v.roomATypeName === 'ensuite');
+        expect(ensuiteV).toHaveLength(1);
+        expect(ensuiteV[0]!.message).toContain('non-bedroom');
+    });
+
+    it('edge orientation is symmetric — (E, M) hosts ensuite correctly', () => {
+        const rooms = [room('M', 'master_bedroom'), room('E', 'ensuite')];
+        const edges = [edge('E', 'M')];  // reversed
+        expect(validatePrivacyGradient(rooms, edges)).toEqual([]);
+    });
+
+    it('PRIVACY_GRADIENT_VIOLATIONS table documents the canonical three patterns', () => {
+        expect(PRIVACY_GRADIENT_VIOLATIONS).toHaveLength(3);
+        const patterns = PRIVACY_GRADIENT_VIOLATIONS.map(p => `${p.fromType}/${p.viaType}/${p.toType}`);
+        expect(patterns).toEqual([
+            'bedroom/bedroom/bedroom',
+            'master_bedroom/bedroom/master_bedroom',
+            'ensuite/*/ensuite',
+        ]);
+    });
+});
+
+describe('validateAcousticSeparation — A-5 stand-alone validator', () => {
+    it('returns no violations for an empty rooms list', () => {
+        expect(validateAcousticSeparation([], [])).toEqual([]);
+    });
+
+    it('returns no violations when no incompatible edges are present', () => {
+        const rooms = [
+            room('K',  'kitchen'),
+            room('L',  'living_room'),
+            room('C',  'corridor'),
+            room('B',  'bedroom'),
+        ];
+        // Bedroom reached via corridor — no DIRECT edge to kitchen / living_room / utility_room.
+        const edges = [edge('K', 'L'), edge('L', 'C'), edge('C', 'B')];
+        expect(validateAcousticSeparation(rooms, edges)).toEqual([]);
+    });
+
+    it('utility_room ↔ bedroom direct edge → ONE warning', () => {
+        const rooms = [room('U', 'utility_room'), room('B', 'bedroom')];
+        const edges = [edge('U', 'B')];
+        const out = validateAcousticSeparation(rooms, edges);
+        expect(out).toHaveLength(1);
+        expect(out[0]!.classId).toBe('A-5');
+        expect(out[0]!.severity).toBe('warning');
+        expect(out[0]!.roomAId).toBe('U');
+        expect(out[0]!.roomATypeName).toBe('utility_room');
+        expect(out[0]!.roomBTypeName).toBe('bedroom');
+        assertMessageTraceability(out[0]!);
+    });
+
+    it('utility_room ↔ master_bedroom direct edge → ONE warning', () => {
+        const rooms = [room('U', 'utility_room'), room('M', 'master_bedroom')];
+        const edges = [edge('U', 'M')];
+        const out = validateAcousticSeparation(rooms, edges);
+        expect(out).toHaveLength(1);
+        expect(out[0]!.roomBTypeName).toBe('master_bedroom');
+    });
+
+    it('kitchen ↔ bedroom direct edge → ONE warning', () => {
+        const rooms = [room('K', 'kitchen'), room('B', 'bedroom')];
+        const edges = [edge('K', 'B')];
+        const out = validateAcousticSeparation(rooms, edges);
+        const v = out.filter(x => x.roomATypeName === 'kitchen' && x.roomBTypeName === 'bedroom');
+        expect(v).toHaveLength(1);
+        expect(v[0]!.severity).toBe('warning');
+    });
+
+    it('living_room ↔ bedroom direct edge → ONE warning', () => {
+        const rooms = [room('L', 'living_room'), room('B', 'bedroom')];
+        const edges = [edge('L', 'B')];
+        const out = validateAcousticSeparation(rooms, edges);
+        expect(out).toHaveLength(1);
+        expect(out[0]!.roomATypeName).toBe('living_room');
+        expect(out[0]!.roomBTypeName).toBe('bedroom');
+    });
+
+    it('living_room ↔ master_bedroom direct edge → ONE warning', () => {
+        const rooms = [room('L', 'living_room'), room('M', 'master_bedroom')];
+        const edges = [edge('L', 'M')];
+        const out = validateAcousticSeparation(rooms, edges);
+        expect(out).toHaveLength(1);
+        expect(out[0]!.roomATypeName).toBe('living_room');
+        expect(out[0]!.roomBTypeName).toBe('master_bedroom');
+    });
+
+    it('edge orientation is symmetric — (B, K) still violates kitchen↔bedroom', () => {
+        const rooms = [room('K', 'kitchen'), room('B', 'bedroom')];
+        const edges = [edge('B', 'K')];
+        const out = validateAcousticSeparation(rooms, edges);
+        expect(out).toHaveLength(1);
+        // roomAId is always the ATYPE-side endpoint (kitchen).
+        expect(out[0]!.roomAId).toBe('K');
+        expect(out[0]!.roomATypeName).toBe('kitchen');
+    });
+
+    it('multiple incompatible edges in one layout → ONE warning per offending edge', () => {
+        const rooms = [
+            room('U',  'utility_room'),
+            room('K',  'kitchen'),
+            room('L',  'living_room'),
+            room('B',  'bedroom'),
+            room('M',  'master_bedroom'),
+        ];
+        const edges = [
+            edge('U', 'B'),   // utility_room ↔ bedroom
+            edge('U', 'M'),   // utility_room ↔ master_bedroom
+            edge('K', 'B'),   // kitchen ↔ bedroom
+            edge('K', 'M'),   // kitchen ↔ master_bedroom
+            edge('L', 'B'),   // living_room ↔ bedroom
+            edge('L', 'M'),   // living_room ↔ master_bedroom
+        ];
+        const out = validateAcousticSeparation(rooms, edges);
+        expect(out).toHaveLength(6);
+        for (const v of out) {
+            expect(v.classId).toBe('A-5');
+            expect(v.severity).toBe('warning');
+            assertMessageTraceability(v);
+        }
+    });
+
+    it('edges referencing unknown room ids are silently ignored', () => {
+        const rooms = [room('U', 'utility_room')];  // no 'B' in rooms
+        const edges = [edge('U', 'B')];
+        expect(validateAcousticSeparation(rooms, edges)).toEqual([]);
+    });
+
+    it('A-3 and A-5 co-fire on the SAME kitchen↔bedroom edge with DIFFERENT severities', () => {
+        // INTENTIONAL OVERLAP — the same edge is BOTH a hard hygiene/smell
+        // reject (A-3 error) AND a soft acoustic concern (A-5 warning).
+        const rooms = [room('B', 'bedroom'), room('K', 'kitchen')];
+        const edges = [edge('B', 'K')];
+        const a3 = validateForbiddenAdjacency(rooms, edges);
+        const a5 = validateAcousticSeparation(rooms, edges);
+        const a3Hit = a3.filter(v => v.roomATypeName === 'bedroom' && v.roomBTypeName === 'kitchen');
+        const a5Hit = a5.filter(v => v.roomATypeName === 'kitchen' && v.roomBTypeName === 'bedroom');
+        expect(a3Hit).toHaveLength(1);
+        expect(a3Hit[0]!.classId).toBe('A-3');
+        expect(a3Hit[0]!.severity).toBe('error');
+        expect(a5Hit).toHaveLength(1);
+        expect(a5Hit[0]!.classId).toBe('A-5');
+        expect(a5Hit[0]!.severity).toBe('warning');
+    });
+
+    it('A-3 and A-5 co-fire on the SAME master_bedroom↔kitchen edge with DIFFERENT severities', () => {
+        const rooms = [room('M', 'master_bedroom'), room('K', 'kitchen')];
+        const edges = [edge('M', 'K')];
+        const a3 = validateForbiddenAdjacency(rooms, edges);
+        const a5 = validateAcousticSeparation(rooms, edges);
+        expect(a3.filter(v => v.classId === 'A-3' && v.severity === 'error')).toHaveLength(1);
+        expect(a5.filter(v => v.classId === 'A-5' && v.severity === 'warning')).toHaveLength(1);
+    });
+
+    it('ACOUSTIC_INCOMPATIBLE table exposes the canonical six rules', () => {
+        expect(ACOUSTIC_INCOMPATIBLE).toHaveLength(6);
+        const pairs = ACOUSTIC_INCOMPATIBLE.map(r => `${r.aType}/${r.bType}`);
+        expect(pairs).toEqual([
+            'utility_room/bedroom',
+            'utility_room/master_bedroom',
+            'kitchen/bedroom',
+            'kitchen/master_bedroom',
+            'living_room/bedroom',
+            'living_room/master_bedroom',
         ]);
     });
 });
