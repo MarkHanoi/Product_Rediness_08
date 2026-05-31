@@ -1,4 +1,4 @@
-// Barrel for the topology validators (A-1 / A-2 / A-3 / A-4 / A-5 / A-6 / A-7).
+// Barrel for the topology validators (A-1 / A-2 / A-3 / A-4 / A-5 / A-6 / A-7 / A-8).
 // Re-exports the public API so downstream callers
 // `import { validateMandatoryAdjacency } from '.../validators/topology'`
 // rather than reaching into individual files.
@@ -11,3 +11,4 @@ export { PRIVACY_GRADIENT_VIOLATIONS, validatePrivacyGradient } from './privacyG
 export { ACOUSTIC_INCOMPATIBLE, validateAcousticSeparation } from './acousticSeparation.js';
 export { WET_TYPES, validateWetCluster } from './wetCluster.js';
 export { NEEDS_FRONTAGE, validateFrontageTopology } from './frontageTopology.js';
+export { validateSequencing, type SequencingInput } from './sequencing.js';
