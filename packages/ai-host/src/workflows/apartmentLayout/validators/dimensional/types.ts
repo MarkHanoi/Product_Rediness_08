@@ -22,7 +22,7 @@
  * D4.x, score axis) decide how to render.
  */
 export interface DimensionalViolation {
-    readonly classId: 'G-1' | 'G-2' | string;
+    readonly classId: 'G-1' | 'G-2' | 'G-3' | 'G-5' | string;
     readonly roomId: string;
     readonly roomType: string;
     readonly severity: 'error' | 'warning';
