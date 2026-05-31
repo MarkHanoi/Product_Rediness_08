@@ -35,6 +35,14 @@ const FP: Readonly<Record<FurnitureKind, Footprint>> = {
     // against adjacent walls + the toilet/vanity. Required: false in
     // the bathroom archetype so tight rooms ship clean.
     bath:               { w: 1.70, l: 0.70, h: 0.50, baseOffset: 0, clearFront: 0.45, clearSides: 0.05 },
+    // F1.7 (2026-05-30) — WC primitives.
+    //   wc_washbasin: wall-hung, 450 × 300 mm projection at 0.85 m rim.
+    //     clearFront 0.55 leaves elbow room; clearSides 0.05 since the WC
+    //     archetype packs them tight against the toilet.
+    //   wc_mirror:    wall-mounted, 400 × 30 × 600 mm at 1.20 m baseOffset.
+    //     No clearance — flat panel on the wall.
+    wc_washbasin:       { w: 0.45, l: 0.30, h: 0.15, baseOffset: 0.85, clearFront: 0.55, clearSides: 0.05 },
+    wc_mirror:          { w: 0.40, l: 0.03, h: 0.60, baseOffset: 1.20, clearFront: 0.00, clearSides: 0.00 },
     // Kitchen runs — parametric placeholders (resolved from config arm lengths).
     kitchen_straight:   { w: 3.00, l: 0.60, h: 0.90, baseOffset: 0, clearFront: 1.00, clearSides: 0.00 },
     kitchen_l_shape:    { w: 3.00, l: 0.60, h: 0.90, baseOffset: 0, clearFront: 1.00, clearSides: 0.00 },

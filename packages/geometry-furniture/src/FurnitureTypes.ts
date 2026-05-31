@@ -90,6 +90,8 @@ export type FurnitureType =
     | 'entrance_table'
     | 'toilet_radiator'
     | 'bath'                              // F1.6' (2026-05-30) — drop-in residential bath, D-FLE furniture-shaped projection of the plumbing fixture
+    | 'wc_washbasin'                      // F1.7  (2026-05-30) — wall-hung washbasin for the WC archetype (compact cloakroom-scale, distinct from full vanity_unit)
+    | 'wc_mirror'                         // F1.7  (2026-05-30) — small wall-mounted mirror above the wc_washbasin
     | 'chimney'
     // ── F1.1 (2026-05-30) — Study workstation primitives (closes the
     // dining-table-as-desk workaround in `furnishLayout/archetypes.ts`)

@@ -97,6 +97,41 @@ describe('archetypes (F2)', () => {
         expect(f.clearFront).toBeGreaterThan(0.3);
         expect(f.clearSides).toBeLessThan(0.1);
     });
+
+    // F1.7 (2026-05-30) — WC primitives (wc_washbasin + wc_mirror) ready for
+    // the future F3.5 WC archetype wiring + reuse in tight bathrooms.
+    it('wc_washbasin footprint matches the cloakroom-scale wall-hung basin', () => {
+        const f = footprintOf('wc_washbasin');
+        expect(f.w).toBeCloseTo(0.45, 6);
+        expect(f.l).toBeCloseTo(0.30, 6);
+        expect(f.h).toBeCloseTo(0.15, 6);
+        // Rim height = 0.85 m AFL (UK standard cloakroom washbasin).
+        expect(f.baseOffset).toBeCloseTo(0.85, 6);
+        // clearFront leaves elbow room; clearSides tight against the toilet.
+        expect(f.clearFront).toBeGreaterThan(0.4);
+        expect(f.clearSides).toBeLessThan(0.1);
+    });
+
+    it('wc_mirror footprint matches a compact wall-mounted mirror at vanity eye level', () => {
+        const f = footprintOf('wc_mirror');
+        expect(f.w).toBeCloseTo(0.40, 6);
+        expect(f.l).toBeCloseTo(0.03, 6);
+        expect(f.h).toBeCloseTo(0.60, 6);
+        // baseOffset = 1.20 m (mirror centre at ~1.50 m AFL — washbasin eye level).
+        expect(f.baseOffset).toBeCloseTo(1.20, 6);
+        // Wall-mounted flat panel — no clearance bands.
+        expect(f.clearFront).toBe(0);
+        expect(f.clearSides).toBe(0);
+    });
+
+    it('wc_washbasin is distinct from vanity_unit (smaller, wall-hung, no cabinet)', () => {
+        const wc = footprintOf('wc_washbasin');
+        const vanity = footprintOf('vanity_unit');
+        // wc_washbasin is markedly smaller than the full vanity_unit on every axis.
+        expect(wc.w).toBeLessThan(vanity.w);
+        expect(wc.l).toBeLessThan(vanity.l);
+        expect(wc.h).toBeLessThan(vanity.h);
+    });
 });
 
 describe('collision (F6)', () => {

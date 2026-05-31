@@ -150,6 +150,8 @@ export const FURNITURE_TYPE_TO_CATEGORY: Readonly<Record<FurnitureType, Furnitur
     'bathroom_mirror':      'bathroom', // F1.5 — wall-mounted mirror over the vanity
     'towel_rail':           'bathroom', // F1.5 — wall-mounted towel rail/heater
     'bath':                 'bathroom', // F1.6' (2026-05-30) — drop-in residential bath
+    'wc_washbasin':         'bathroom', // F1.7  (2026-05-30) — small wall-hung washbasin for the WC archetype
+    'wc_mirror':            'bathroom', // F1.7  (2026-05-30) — compact mirror above the wc_washbasin
     // Bathroom Collection — REMOVED (Services consolidation): sourced from
     // Services/Plumbing via the `"plumbing:<family>:<variant>"` sentinel in
     // FurnitureCategoryRegistry.

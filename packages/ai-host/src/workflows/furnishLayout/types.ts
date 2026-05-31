@@ -14,6 +14,13 @@ export type FurnitureKind =
     // Optional in the bathroom archetype, gated on area + free-wall length.
     // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §4.2.6)
     | 'bath'
+    // F1.7 (2026-05-30) — WC primitives. wc_washbasin = small wall-hung
+    // basin (450 × 300 × 150 mm) on the cloakroom scale (distinct from the
+    // full vanity_unit). wc_mirror = compact wall mirror (400 × 600 mm)
+    // above the basin. Wired into the future F3.5 WC archetype + reusable
+    // by tight bathrooms that can't fit a vanity_unit.
+    // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §4.2.7)
+    | 'wc_washbasin' | 'wc_mirror'
     | 'kitchen_l_shape' | 'kitchen_straight' | 'kitchen_u_shape' | 'kitchen_island'
     // F1.1 (2026-05-30) — study workstation primitives. Admitted after the
     // contract-exhaustive subphase ladder closed: FurnitureType union +

@@ -24,6 +24,7 @@ import { CoffeeTableBuilder } from './CoffeeTableBuilder';
 import { TableBuilder } from './TableBuilder';
 import { ShowerGlassPanelBuilder } from './ShowerGlassPanelBuilder';
 import { BathBuilder } from './BathBuilder';
+import { WcWashbasinBuilder, WcMirrorBuilder } from './WcBuilders';
 import { LampBuilder } from './LampBuilder';
 import { EntranceTableBuilder } from './EntranceTableBuilder';
 import { ToiletRadiatorBuilder } from './ToiletRadiatorBuilder';
@@ -171,6 +172,8 @@ export class FurnitureFactory {
             case 'coffee_table':       return new CoffeeTableBuilder(materialService);
             case 'shower_glass_panel': return new ShowerGlassPanelBuilder(materialService);
             case 'bath':              return new BathBuilder(materialService);          // F1.6' (2026-05-30)
+            case 'wc_washbasin':      return new WcWashbasinBuilder(materialService);   // F1.7  (2026-05-30)
+            case 'wc_mirror':         return new WcMirrorBuilder(materialService);      // F1.7  (2026-05-30)
             case 'lamp':               return new LampBuilder(materialService);
             case 'entrance_table':     return new EntranceTableBuilder(materialService);
             case 'toilet_radiator':    return new ToiletRadiatorBuilder(materialService);
