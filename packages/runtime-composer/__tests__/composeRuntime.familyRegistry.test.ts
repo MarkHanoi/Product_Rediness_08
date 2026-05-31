@@ -4,8 +4,8 @@
 //
 // Verifies the final wiring slice in `composeRuntime.ts`:
 //   * `runtime.familyRegistryStore` is exposed.
-//   * After compose, the store contains the 25 `origin: 'core'` entries from
-//     `buildCoreFamilySeeds()` (slice B extension, 2026-05-31 — was 6).
+//   * After compose, the store contains the 40 `origin: 'core'` entries from
+//     `buildCoreFamilySeeds()` (slice B extension 2, 2026-05-31 — was 25).
 //   * Every seed has `origin === 'core'`.
 //   * Secondary indexes are populated — `.findByCategory('beds')` returns the
 //     seeded beds; `.findByOccupancy('bedroom')` returns at least the
@@ -169,36 +169,40 @@ describe('composeRuntime() — familyRegistryStore (P0.3 slice B)', () => {
   });
 
   // ── Test 2 ──────────────────────────────────────────────────────────────
-  it('after compose, the store contains exactly 25 seeded core families', () => {
+  // Slice B extension 2 (2026-05-31): grew 25 → 40.
+  it('after compose, the store contains exactly 40 seeded core families', () => {
     const ids = Object.keys(runtime.familyRegistryStore.get().byId);
-    expect(ids).toHaveLength(25);
+    expect(ids).toHaveLength(40);
   });
 
   // ── Test 3 ──────────────────────────────────────────────────────────────
   it('every seeded family has origin = "core"', () => {
     const families = Object.values(runtime.familyRegistryStore.get().byId);
-    expect(families).toHaveLength(25);
+    expect(families).toHaveLength(40);
     for (const f of families) {
       expect(f.origin).toBe('core');
     }
   });
 
   // ── Test 4 ──────────────────────────────────────────────────────────────
-  // Slice B extension: beds now contains BOTH bed (double) AND single_bed.
-  it('findByCategory("beds") returns at least 1 (currently 2: bed + single_bed)', () => {
+  // Slice B extension 2: beds now contains bed + single_bed + japanese_bed + nordic_bed.
+  it('findByCategory("beds") returns at least 4 (bed + single_bed + japanese_bed + nordic_bed)', () => {
     const beds = runtime.familyRegistryStore.findByCategory('beds');
-    expect(beds.length).toBeGreaterThanOrEqual(1);
+    expect(beds.length).toBeGreaterThanOrEqual(4);
     const ids = beds.map(f => f.identity.id);
     expect(ids).toContain('family/core/bed');
     expect(ids).toContain('family/core/single_bed');
+    expect(ids).toContain('family/core/japanese_bed');
+    expect(ids).toContain('family/core/nordic_bed');
   });
 
   // ── Test 5 ──────────────────────────────────────────────────────────────
-  // Slice B extension: bedroom now hosts bed, wardrobe, bedside_table,
-  // dresser, vanity_table, single_bed, bookshelf → expect ≥ 7.
-  it('findByOccupancy("bedroom") returns at least 7 entries', () => {
+  // Slice B extension 2: bedroom now hosts bed, wardrobe, bedside_table,
+  // dresser, vanity_table, single_bed, bookshelf, japanese_bed, nordic_bed,
+  // wardrobe_glass_door → expect ≥ 10.
+  it('findByOccupancy("bedroom") returns at least 10 entries', () => {
     const bedroom = runtime.familyRegistryStore.findByOccupancy('bedroom');
-    expect(bedroom.length).toBeGreaterThanOrEqual(7);
+    expect(bedroom.length).toBeGreaterThanOrEqual(10);
     const ids = bedroom.map(f => f.identity.id);
     expect(ids).toContain('family/core/bed');
     expect(ids).toContain('family/core/wardrobe');
@@ -207,16 +211,23 @@ describe('composeRuntime() — familyRegistryStore (P0.3 slice B)', () => {
     expect(ids).toContain('family/core/vanity_table');
     expect(ids).toContain('family/core/single_bed');
     expect(ids).toContain('family/core/bookshelf');
+    expect(ids).toContain('family/core/japanese_bed');
+    expect(ids).toContain('family/core/nordic_bed');
+    expect(ids).toContain('family/core/wardrobe_glass_door');
   });
 
   // ── Test 6 ──────────────────────────────────────────────────────────────
-  // Slice B extension: bathroom_mirror + towel_rail are both wall-mounted.
-  it('findByMountClass("wall") returns both wall-mounted seeds (bathroom_mirror + towel_rail)', () => {
+  // Slice B extension 2: wall-mounted = bathroom_mirror + towel_rail +
+  // coat_rack + toilet_radiator + wc_mirror → ≥ 5.
+  it('findByMountClass("wall") returns all five wall-mounted seeds', () => {
     const wallMounted = runtime.familyRegistryStore.findByMountClass('wall');
-    expect(wallMounted.length).toBeGreaterThanOrEqual(2);
+    expect(wallMounted.length).toBeGreaterThanOrEqual(5);
     const ids = wallMounted.map(f => f.identity.id);
     expect(ids).toContain('family/core/bathroom_mirror');
     expect(ids).toContain('family/core/towel_rail');
+    expect(ids).toContain('family/core/coat_rack');
+    expect(ids).toContain('family/core/toilet_radiator');
+    expect(ids).toContain('family/core/wc_mirror');
   });
 
   // ── Test 7 — Slice B extension: IfcSanitaryTerminal coverage ───────────
@@ -258,6 +269,74 @@ describe('composeRuntime() — familyRegistryStore (P0.3 slice B)', () => {
     expect(livingIds).toContain('family/core/dining_table');
     expect(kitchenIds).toContain('family/core/dining_chair');
     expect(livingIds).toContain('family/core/dining_chair');
+  });
+
+  // ── Test 12 — Slice B extension 2: private_office occupancy populated ──
+  // After slice 2, private_office hosts at least desk + office_chair +
+  // filing_cabinet + bookshelf + bookshelf_glass → ≥ 3 (sanity floor).
+  it('findByOccupancy("private_office") returns at least 3 entries (desk + office_chair + filing_cabinet)', () => {
+    const office = runtime.familyRegistryStore.findByOccupancy('private_office');
+    expect(office.length).toBeGreaterThanOrEqual(3);
+    const ids = office.map(f => f.identity.id);
+    expect(ids).toContain('family/core/desk');
+    expect(ids).toContain('family/core/office_chair');
+    expect(ids).toContain('family/core/filing_cabinet');
+  });
+
+  // ── Test 13 — Slice B extension 2: total count matches the seed source ──
+  // Guards against drift between buildCoreFamilySeeds() and the wired store.
+  it('the store byId count matches buildCoreFamilySeeds().length', async () => {
+    const { buildCoreFamilySeeds } = await import('@pryzm/stores');
+    const seeds = buildCoreFamilySeeds();
+    const ids = Object.keys(runtime.familyRegistryStore.get().byId);
+    expect(ids).toHaveLength(seeds.length);
+    expect(seeds).toHaveLength(40);
+  });
+
+  // ── Test 14 — Slice B extension 2: plumbing wet-fixtures → IfcSanitaryTerminal ──
+  // Wet-fixture category covers the plumbing fixtures (bath, shower_glass_panel,
+  // wc_washbasin, toilet_radiator, utility_sink) which MUST map to
+  // IfcSanitaryTerminal, plus accessories (towel_rail) that map to IfcFurniture.
+  // The contract: every PLUMBING wet-fixture (id matches a known plumbing id)
+  // maps to IfcSanitaryTerminal.
+  it('plumbing wet-fixtures all map to IfcSanitaryTerminal', () => {
+    const families = Object.values(runtime.familyRegistryStore.get().byId);
+    const sanitary = families.filter(f => f.ifcMapping.entityType === 'IfcSanitaryTerminal');
+    const sanitaryIds = sanitary.map(f => f.identity.id);
+    expect(sanitaryIds).toContain('family/core/bath');
+    expect(sanitaryIds).toContain('family/core/shower_glass_panel');
+    expect(sanitaryIds).toContain('family/core/wc_washbasin');
+    expect(sanitaryIds).toContain('family/core/toilet_radiator');
+    expect(sanitaryIds).toContain('family/core/utility_sink');
+    expect(sanitary.length).toBeGreaterThanOrEqual(5);
+    // Every sanitary terminal must carry the canonical pset.
+    for (const f of sanitary) {
+      expect(f.ifcMapping.psets).toContain('Pset_SanitaryTerminalTypeCommon');
+    }
+  });
+
+  // ── Test 15 — Slice B extension 2: parametric_tree is present + tagged ──
+  it('parametric_tree is registered + carries the "parametric-tree" tag', () => {
+    const tree = runtime.familyRegistryStore.findById('family/core/parametric_tree' as FamilyId);
+    expect(tree).toBeDefined();
+    expect(tree?.category).toBe('outdoor');
+    expect(tree?.mountClass).toBe('floor');
+    expect(tree?.tags).toContain('parametric-tree');
+    // Plant family — also findable by tag.
+    const byTag = runtime.familyRegistryStore.findByTag('parametric-tree');
+    expect(byTag.map(f => f.identity.id)).toContain('family/core/parametric_tree');
+  });
+
+  // ── Test 16 — Slice B extension 2: outdoor category has all plant variants ──
+  // outdoor = plant + plant_large + plant_small + parametric_tree → ≥ 4.
+  it('findByCategory("outdoor") returns all four plant + tree variants', () => {
+    const outdoor = runtime.familyRegistryStore.findByCategory('outdoor');
+    expect(outdoor.length).toBeGreaterThanOrEqual(4);
+    const ids = outdoor.map(f => f.identity.id);
+    expect(ids).toContain('family/core/plant');
+    expect(ids).toContain('family/core/plant_large');
+    expect(ids).toContain('family/core/plant_small');
+    expect(ids).toContain('family/core/parametric_tree');
   });
 
   // ── Test 11 ─────────────────────────────────────────────────────────────

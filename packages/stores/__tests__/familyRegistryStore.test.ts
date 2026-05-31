@@ -200,13 +200,14 @@ describe('FamilyRegistryStore (P0.3 slice B)', () => {
 
     // ── 15. Seed function round-trip — proves the seed shape is registrable ─
     // Slice B extension (2026-05-31): grew from 6 → 25 entries.
-    it('buildCoreFamilySeeds() returns 25 entries, all registrable + origin=core', () => {
+    // Slice B extension 2 (2026-05-31): grew from 25 → 40 entries.
+    it('buildCoreFamilySeeds() returns 40 entries, all registrable + origin=core', () => {
         const seeds = buildCoreFamilySeeds();
-        expect(seeds).toHaveLength(25);
+        expect(seeds).toHaveLength(40);
         for (const seed of seeds) {
             expect(seed.origin).toBe('core');
             store.register(seed);
         }
-        expect(Object.keys(store.get().byId)).toHaveLength(25);
+        expect(Object.keys(store.get().byId)).toHaveLength(40);
     });
 });

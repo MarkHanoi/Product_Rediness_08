@@ -18,6 +18,14 @@
 // "the full 50+ FurnitureType seed lands later" — this lands the bulk of it
 // without going to the long-tail variants).
 //
+// Slice B EXTENSION 2 (2026-05-31) — grow from 25 → 40 entries. Adds the
+// remaining specialist + variant families spanning private_office / study,
+// entrance_hall, wc, utility wet-fixtures, bed variants (Japanese / Nordic),
+// plant variants (small / large / parametric tree), and storage variants
+// (glass-front bookshelf / glass-door wardrobe). Per
+// APARTMENT-FAMILY-PLATFORM-AND-USER-DEFINED-ELEMENTS-2026-05-30.md §10 the
+// long-tail variants land in successive slices; this lands the second slab.
+//
 // Out of scope (deferred to a later slice):
 //   • The full 50+ FurnitureType seed (every Barcelona-chair variant, every
 //     plant species, every kitchen-cabinet sub-type, …). This slice already
@@ -74,9 +82,40 @@ import type { RegisteredFamily } from '@pryzm/schemas';
  *    24.  washing_machine_standalone — utility room     (NEW)
  *    25.  plant            — living / balcony           (NEW)
  *
- * Mount-class coverage: floor (23), wall (2: bathroom_mirror + towel_rail).
+ * Slice B EXTENSION 2 (2026-05-31) — entries 26..40 broaden coverage across:
+ *
+ *   Office / study (3):
+ *    26.  desk             — workstation, window-wall   (NEW)
+ *    27.  office_chair     — desk pair                  (NEW)
+ *    28.  filing_cabinet   — office storage             (NEW)
+ *
+ *   Entry + circulation (2):
+ *    29.  coat_rack        — WALL / entrance_hall       (NEW)
+ *    30.  entrance_table   — entrance_hall              (NEW)
+ *
+ *   More bathroom + wet (3):
+ *    31.  toilet_radiator  — WALL / bathroom + wc       (NEW)
+ *    32.  wc_mirror        — WALL / wc                  (NEW)
+ *    33.  utility_sink     — utility wet-fixture        (NEW)
+ *
+ *   Bed variants (2):
+ *    34.  japanese_bed     — low-profile bedroom        (NEW)
+ *    35.  nordic_bed       — light-timber bedroom       (NEW)
+ *
+ *   Plants + outdoor (3):
+ *    36.  plant_large      — living + balcony           (NEW)
+ *    37.  plant_small      — living + balcony           (NEW)
+ *    38.  parametric_tree  — balcony                    (NEW)
+ *
+ *   Storage variants (2):
+ *    39.  bookshelf_glass        — living + office      (NEW)
+ *    40.  wardrobe_glass_door    — bedroom + master     (NEW)
+ *
+ * Mount-class coverage after slice 2: floor (35), wall (5: bathroom_mirror +
+ * towel_rail + coat_rack + toilet_radiator + wc_mirror).
  * IFC-entity coverage: IfcFurniture (default), IfcSanitaryTerminal (wet
- * fixtures), IfcElectricAppliance (washing machine), IfcLightFixture (lamp).
+ * fixtures incl. utility_sink), IfcElectricAppliance (washing machine),
+ * IfcLightFixture (lamp).
  */
 export function buildCoreFamilySeeds(): RegisteredFamily[] {
     return [
@@ -684,6 +723,398 @@ export function buildCoreFamilySeeds(): RegisteredFamily[] {
             },
             schemaHash: 'core:plant:1.0.0',
             tags:       ['plant', 'outdoor', 'living', 'balcony', 'decor'],
+        },
+
+        // ═══════════════════════════════════════════════════════════════════
+        // SLICE B EXTENSION 2 (2026-05-31) — entries 26..40
+        // Specialist + variant families: office / entry / wet / bed variants
+        // / plant variants / glass storage. Brings total to 40.
+        // ═══════════════════════════════════════════════════════════════════
+
+        // ── 26. Desk — floor / private_office (study) ──────────────────────
+        // F1.1 study workstation. Multi-occupancy: private_office + study
+        // — the rules DB uses both names depending on programme intent.
+        {
+            identity: {
+                id:      'family/core/desk',
+                name:    'Desk',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'tables',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'private_office', anchor: 'wall-window', group: 'desk' },
+                { occupancy: 'study',          anchor: 'wall-window', group: 'desk' },
+            ],
+            ifcMapping: {
+                entityType:     'IfcFurniture',
+                predefinedType: 'DESK',
+                psets:          ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:desk:1.0.0',
+            tags:       ['desk', 'office', 'study', 'workstation'],
+        },
+
+        // ── 27. Office chair — floor / private_office (study) ──────────────
+        // F1.1 study workstation pair — sits beside the desk in the 'desk' group.
+        {
+            identity: {
+                id:      'family/core/office_chair',
+                name:    'Office chair',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'seating',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'private_office', anchor: 'beside', group: 'desk' },
+                { occupancy: 'study',          anchor: 'beside', group: 'desk' },
+            ],
+            ifcMapping: {
+                entityType:     'IfcFurniture',
+                predefinedType: 'CHAIR',
+                psets:          ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:office_chair:1.0.0',
+            tags:       ['chair', 'office', 'study', 'workstation', 'seating'],
+        },
+
+        // ── 28. Filing cabinet — floor / private_office (study) ────────────
+        // Office storage. Anchors on the longest free wall (yields to the
+        // desk's window-wall claim).
+        {
+            identity: {
+                id:      'family/core/filing_cabinet',
+                name:    'Filing cabinet',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'storage',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'private_office', anchor: 'wall-longest' },
+                { occupancy: 'study',          anchor: 'wall-longest' },
+            ],
+            ifcMapping: {
+                entityType: 'IfcFurniture',
+                psets:      ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:filing_cabinet:1.0.0',
+            tags:       ['filing-cabinet', 'storage', 'office', 'study'],
+        },
+
+        // ── 29. Coat rack — WALL / entrance_hall ───────────────────────────
+        // F1.4 entry storage primitive. Wall-mounted; third wall-mount entry
+        // (alongside bathroom_mirror + towel_rail).
+        {
+            identity: {
+                id:      'family/core/coat_rack',
+                name:    'Coat rack',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'storage',
+            mountClass: 'wall',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'entrance_hall', anchor: 'wall-longest', group: 'entry' },
+                { occupancy: 'hall',          anchor: 'wall-longest', group: 'entry' },
+            ],
+            ifcMapping: {
+                entityType: 'IfcFurniture',
+                psets:      ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:coat_rack:1.0.0',
+            tags:       ['coat-rack', 'storage', 'entrance', 'hall', 'entry'],
+        },
+
+        // ── 30. Entrance table — floor / entrance_hall ─────────────────────
+        // Hall S2 entry-system landing-zone table; on a wall perpendicular to
+        // the front door (caller resolves; archetype hint just declares fit).
+        {
+            identity: {
+                id:      'family/core/entrance_table',
+                name:    'Entrance table',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'tables',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'entrance_hall', anchor: 'beside', group: 'entry' },
+                { occupancy: 'hall',          anchor: 'beside', group: 'entry' },
+            ],
+            ifcMapping: {
+                entityType:     'IfcFurniture',
+                predefinedType: 'TABLE',
+                psets:          ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:entrance_table:1.0.0',
+            tags:       ['entrance-table', 'table', 'entrance', 'hall', 'entry'],
+        },
+
+        // ── 31. Toilet radiator — WALL / bathroom + wc ─────────────────────
+        // Heated towel rail / radiator combo treated as a wet-fixture in the
+        // engine (occupies the wet-cluster). Fourth wall-mount entry. Maps
+        // to IfcSanitaryTerminal since it lives in the wet-fixture cluster
+        // (the heated radiator + towel rail acts as a sanitary appliance).
+        {
+            identity: {
+                id:      'family/core/toilet_radiator',
+                name:    'Toilet radiator',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'wet-fixtures',
+            mountClass: 'wall',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'bathroom', anchor: 'wall-longest', group: 'wet-cluster' },
+                { occupancy: 'wc',       anchor: 'wall-longest', group: 'wet-cluster' },
+            ],
+            ifcMapping: {
+                entityType: 'IfcSanitaryTerminal',
+                psets:      ['Pset_SanitaryTerminalTypeCommon'],
+            },
+            schemaHash: 'core:toilet_radiator:1.0.0',
+            tags:       ['toilet-radiator', 'radiator', 'bathroom', 'wc', 'wet-fixtures'],
+        },
+
+        // ── 32. WC mirror — WALL / wc ──────────────────────────────────────
+        // F1.7 compact wall mirror over the wc_washbasin (pairs in 'wc-basin').
+        // Fifth wall-mount entry.
+        {
+            identity: {
+                id:      'family/core/wc_mirror',
+                name:    'WC mirror',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'mirrors',
+            mountClass: 'wall',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'wc', anchor: 'wall-longest', group: 'wc-basin' },
+            ],
+            ifcMapping: {
+                entityType: 'IfcFurniture',
+                psets:      ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:wc_mirror:1.0.0',
+            tags:       ['mirror', 'wc', 'cloakroom', 'wet-zone'],
+        },
+
+        // ── 33. Utility sink — floor / utility ─────────────────────────────
+        // F1.8 utility wet-fixture (laundry sink). Maps to IfcSanitaryTerminal
+        // with predefined SINK.
+        {
+            identity: {
+                id:      'family/core/utility_sink',
+                name:    'Utility sink',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'wet-fixtures',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'utility', anchor: 'wall-longest', group: 'laundry' },
+            ],
+            ifcMapping: {
+                entityType:     'IfcSanitaryTerminal',
+                predefinedType: 'SINK',
+                psets:          ['Pset_SanitaryTerminalTypeCommon'],
+            },
+            schemaHash: 'core:utility_sink:1.0.0',
+            tags:       ['sink', 'utility', 'laundry', 'wet-fixtures'],
+        },
+
+        // ── 34. Japanese bed — floor / bedroom (low-profile variant) ───────
+        // Parametric BedEngine variant — short rails, exposed timber frame.
+        {
+            identity: {
+                id:      'family/core/japanese_bed',
+                name:    'Japanese platform bed',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'beds',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'bedroom', anchor: 'wall-longest', group: 'bed' },
+            ],
+            ifcMapping: {
+                entityType:     'IfcFurniture',
+                predefinedType: 'BED',
+                psets:          ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:japanese_bed:1.0.0',
+            tags:       ['bed', 'japanese', 'low-profile', 'bedroom', 'sleep'],
+        },
+
+        // ── 35. Nordic bed — floor / bedroom (light-timber variant) ────────
+        // Parametric BedEngine variant — pale oak, slim frame, slatted headboard.
+        {
+            identity: {
+                id:      'family/core/nordic_bed',
+                name:    'Nordic bed',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'beds',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'bedroom', anchor: 'wall-longest', group: 'bed' },
+            ],
+            ifcMapping: {
+                entityType:     'IfcFurniture',
+                predefinedType: 'BED',
+                psets:          ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:nordic_bed:1.0.0',
+            tags:       ['bed', 'nordic', 'scandi', 'bedroom', 'sleep'],
+        },
+
+        // ── 36. Plant (large) — floor / living + balcony ───────────────────
+        // Large potted plant variant (statement piece — corner anchor).
+        {
+            identity: {
+                id:      'family/core/plant_large',
+                name:    'Plant (large)',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'outdoor',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'living',  anchor: 'corner' },
+                { occupancy: 'balcony', anchor: 'corner' },
+            ],
+            ifcMapping: {
+                entityType: 'IfcFurniture',
+                psets:      ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:plant_large:1.0.0',
+            tags:       ['plant', 'plant-large', 'outdoor', 'living', 'balcony', 'decor'],
+        },
+
+        // ── 37. Plant (small) — floor / living + balcony ───────────────────
+        // Small potted plant variant (table-side accent — beside anchor).
+        {
+            identity: {
+                id:      'family/core/plant_small',
+                name:    'Plant (small)',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'outdoor',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'living',  anchor: 'beside' },
+                { occupancy: 'balcony', anchor: 'beside' },
+            ],
+            ifcMapping: {
+                entityType: 'IfcFurniture',
+                psets:      ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:plant_small:1.0.0',
+            tags:       ['plant', 'plant-small', 'outdoor', 'living', 'balcony', 'decor'],
+        },
+
+        // ── 38. Parametric tree — floor / balcony ──────────────────────────
+        // F8 parametric tree (Arbol library — outdoor-only).
+        {
+            identity: {
+                id:      'family/core/parametric_tree',
+                name:    'Parametric tree',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'outdoor',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'balcony', anchor: 'corner' },
+            ],
+            ifcMapping: {
+                entityType: 'IfcFurniture',
+                psets:      ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:parametric_tree:1.0.0',
+            tags:       ['tree', 'parametric-tree', 'arbol', 'outdoor', 'balcony', 'decor'],
+        },
+
+        // ── 39. Bookshelf (glass-front) — floor / living + private_office ──
+        // F1.2 glass-front variant — living-room accent or office display.
+        {
+            identity: {
+                id:      'family/core/bookshelf_glass',
+                name:    'Bookshelf (glass-front)',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'storage',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'living',         anchor: 'wall-longest' },
+                { occupancy: 'private_office', anchor: 'wall-longest' },
+            ],
+            ifcMapping: {
+                entityType: 'IfcFurniture',
+                psets:      ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:bookshelf_glass:1.0.0',
+            tags:       ['bookshelf', 'bookshelf-glass', 'storage', 'living', 'office'],
+        },
+
+        // ── 40. Wardrobe (glass-door) — floor / bedroom + master_bedroom ───
+        // Glass-door wardrobe variant — master-bedroom dressing wall preferred.
+        {
+            identity: {
+                id:      'family/core/wardrobe_glass_door',
+                name:    'Wardrobe (glass-door)',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'storage',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'bedroom',        anchor: 'wall-longest', group: 'bedroom-storage' },
+                { occupancy: 'master_bedroom', anchor: 'wall-longest', group: 'bedroom-storage' },
+            ],
+            ifcMapping: {
+                entityType:     'IfcFurniture',
+                predefinedType: 'NOTDEFINED',
+                psets:          ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:wardrobe_glass_door:1.0.0',
+            tags:       ['wardrobe', 'wardrobe-glass-door', 'storage', 'bedroom', 'master'],
         },
     ];
 }
