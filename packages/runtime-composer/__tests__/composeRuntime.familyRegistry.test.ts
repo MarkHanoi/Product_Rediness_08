@@ -4,8 +4,8 @@
 //
 // Verifies the final wiring slice in `composeRuntime.ts`:
 //   * `runtime.familyRegistryStore` is exposed.
-//   * After compose, the store contains the 40 `origin: 'core'` entries from
-//     `buildCoreFamilySeeds()` (slice B extension 2, 2026-05-31 — was 25).
+//   * After compose, the store contains the 59 `origin: 'core'` entries from
+//     `buildCoreFamilySeeds()` (slice B extension 3, 2026-05-31 — was 40).
 //   * Every seed has `origin === 'core'`.
 //   * Secondary indexes are populated — `.findByCategory('beds')` returns the
 //     seeded beds; `.findByOccupancy('bedroom')` returns at least the
@@ -170,15 +170,16 @@ describe('composeRuntime() — familyRegistryStore (P0.3 slice B)', () => {
 
   // ── Test 2 ──────────────────────────────────────────────────────────────
   // Slice B extension 2 (2026-05-31): grew 25 → 40.
-  it('after compose, the store contains exactly 40 seeded core families', () => {
+  // Slice B extension 3 (2026-05-31): grew 40 → 59.
+  it('after compose, the store contains exactly 59 seeded core families', () => {
     const ids = Object.keys(runtime.familyRegistryStore.get().byId);
-    expect(ids).toHaveLength(40);
+    expect(ids).toHaveLength(59);
   });
 
   // ── Test 3 ──────────────────────────────────────────────────────────────
   it('every seeded family has origin = "core"', () => {
     const families = Object.values(runtime.familyRegistryStore.get().byId);
-    expect(families).toHaveLength(40);
+    expect(families).toHaveLength(59);
     for (const f of families) {
       expect(f.origin).toBe('core');
     }
@@ -219,15 +220,19 @@ describe('composeRuntime() — familyRegistryStore (P0.3 slice B)', () => {
   // ── Test 6 ──────────────────────────────────────────────────────────────
   // Slice B extension 2: wall-mounted = bathroom_mirror + towel_rail +
   // coat_rack + toilet_radiator + wc_mirror → ≥ 5.
-  it('findByMountClass("wall") returns all five wall-mounted seeds', () => {
+  // Slice B extension 3: + curtain_panel + tv + wall_mirror → ≥ 8.
+  it('findByMountClass("wall") returns all wall-mounted seeds', () => {
     const wallMounted = runtime.familyRegistryStore.findByMountClass('wall');
-    expect(wallMounted.length).toBeGreaterThanOrEqual(5);
+    expect(wallMounted.length).toBeGreaterThanOrEqual(8);
     const ids = wallMounted.map(f => f.identity.id);
     expect(ids).toContain('family/core/bathroom_mirror');
     expect(ids).toContain('family/core/towel_rail');
     expect(ids).toContain('family/core/coat_rack');
     expect(ids).toContain('family/core/toilet_radiator');
     expect(ids).toContain('family/core/wc_mirror');
+    expect(ids).toContain('family/core/curtain_panel');
+    expect(ids).toContain('family/core/tv');
+    expect(ids).toContain('family/core/wall_mirror');
   });
 
   // ── Test 7 — Slice B extension: IfcSanitaryTerminal coverage ───────────
@@ -284,13 +289,14 @@ describe('composeRuntime() — familyRegistryStore (P0.3 slice B)', () => {
   });
 
   // ── Test 13 — Slice B extension 2: total count matches the seed source ──
+  // Slice B extension 3 (2026-05-31): grew 40 → 59.
   // Guards against drift between buildCoreFamilySeeds() and the wired store.
   it('the store byId count matches buildCoreFamilySeeds().length', async () => {
     const { buildCoreFamilySeeds } = await import('@pryzm/stores');
     const seeds = buildCoreFamilySeeds();
     const ids = Object.keys(runtime.familyRegistryStore.get().byId);
     expect(ids).toHaveLength(seeds.length);
-    expect(seeds).toHaveLength(40);
+    expect(seeds).toHaveLength(59);
   });
 
   // ── Test 14 — Slice B extension 2: plumbing wet-fixtures → IfcSanitaryTerminal ──
@@ -329,14 +335,87 @@ describe('composeRuntime() — familyRegistryStore (P0.3 slice B)', () => {
 
   // ── Test 16 — Slice B extension 2: outdoor category has all plant variants ──
   // outdoor = plant + plant_large + plant_small + parametric_tree → ≥ 4.
-  it('findByCategory("outdoor") returns all four plant + tree variants', () => {
+  // Slice B extension 3 (2026-05-31): + plant_01 + plant_04 + plant_07 +
+  // arbol_t_01 → ≥ 8.
+  it('findByCategory("outdoor") returns all plant + tree variants', () => {
     const outdoor = runtime.familyRegistryStore.findByCategory('outdoor');
-    expect(outdoor.length).toBeGreaterThanOrEqual(4);
+    expect(outdoor.length).toBeGreaterThanOrEqual(8);
     const ids = outdoor.map(f => f.identity.id);
     expect(ids).toContain('family/core/plant');
     expect(ids).toContain('family/core/plant_large');
     expect(ids).toContain('family/core/plant_small');
     expect(ids).toContain('family/core/parametric_tree');
+    expect(ids).toContain('family/core/plant_01');
+    expect(ids).toContain('family/core/plant_04');
+    expect(ids).toContain('family/core/plant_07');
+    expect(ids).toContain('family/core/arbol_t_01');
+  });
+
+  // ── Test 17 — Slice B extension 3: new "carpets" category populated ─────
+  // Three parametric carpet variants (chevron + patchwork + stripe).
+  it('findByCategory("carpets") returns ≥ 3 entries (chevron + patchwork + stripe)', () => {
+    const carpets = runtime.familyRegistryStore.findByCategory('carpets');
+    expect(carpets.length).toBeGreaterThanOrEqual(3);
+    const ids = carpets.map(f => f.identity.id);
+    expect(ids).toContain('family/core/parametric_chevron_carpet');
+    expect(ids).toContain('family/core/parametric_patchwork_carpet');
+    expect(ids).toContain('family/core/parametric_stripe_carpet');
+  });
+
+  // ── Test 18 — Slice B extension 3: new "soft-furnishings" category ──────
+  // Curtain panel is the first soft-furnishings entry (carpets are their
+  // own category; curtain_panel is the textile wall hanging).
+  it('findByCategory("soft-furnishings") returns ≥ 1 entry (curtain_panel)', () => {
+    const soft = runtime.familyRegistryStore.findByCategory('soft-furnishings');
+    expect(soft.length).toBeGreaterThanOrEqual(1);
+    const ids = soft.map(f => f.identity.id);
+    expect(ids).toContain('family/core/curtain_panel');
+  });
+
+  // ── Test 19 — Slice B extension 3: curtain_panel multi-occupancy hint ───
+  // The curtain panel surfaces under every occupancy with an exterior
+  // window — bedroom + living + master_bedroom + kitchen + dining +
+  // private_office.
+  it('curtain_panel surfaces under multiple occupancies via archetypeHints', () => {
+    const id = 'family/core/curtain_panel';
+    const wantOccupancies: ReadonlyArray<string> = [
+      'bedroom', 'living', 'master_bedroom', 'kitchen', 'dining', 'private_office',
+    ];
+    for (const occ of wantOccupancies) {
+      const hits = runtime.familyRegistryStore.findByOccupancy(occ);
+      const ids = hits.map(f => f.identity.id);
+      expect(ids).toContain(id);
+    }
+  });
+
+  // ── Test 20 — Slice B extension 3: expanded tables coverage ─────────────
+  // tables now = dining_table + bedside_table + vanity_table + coffee_table +
+  // desk + entrance_table + table_wood_double_conic + table_wood_4leg +
+  // table_ceramic_curve + dining_table_marble_brass → ≥ 10. The ask was ≥ 6
+  // (sanity floor — the prior set was 6).
+  it('findByCategory("tables") returns the expanded table set (≥ 6 incl. new variants)', () => {
+    const tables = runtime.familyRegistryStore.findByCategory('tables');
+    expect(tables.length).toBeGreaterThanOrEqual(6);
+    const ids = tables.map(f => f.identity.id);
+    // Sanity: at least one of each new table variant is present.
+    expect(ids).toContain('family/core/table_wood_double_conic');
+    expect(ids).toContain('family/core/table_wood_4leg');
+    expect(ids).toContain('family/core/table_ceramic_curve');
+    expect(ids).toContain('family/core/dining_table_marble_brass');
+    // And the prior tables still surface — proves nothing was renumbered.
+    expect(ids).toContain('family/core/dining_table');
+    expect(ids).toContain('family/core/coffee_table');
+  });
+
+  // ── Test 21 — Slice B extension 3: total-count guard ────────────────────
+  // Equivalent to Test 13's assertion but written as an explicit equality so
+  // the next slice has to bump exactly one number here when the seed grows.
+  it('buildCoreFamilySeeds().length === byId size === 59 (slice B extension 3)', async () => {
+    const { buildCoreFamilySeeds } = await import('@pryzm/stores');
+    const seeds = buildCoreFamilySeeds();
+    expect(seeds).toHaveLength(59);
+    const ids = Object.keys(runtime.familyRegistryStore.get().byId);
+    expect(ids).toHaveLength(59);
   });
 
   // ── Test 11 ─────────────────────────────────────────────────────────────

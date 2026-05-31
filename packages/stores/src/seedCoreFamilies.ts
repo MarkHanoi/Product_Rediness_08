@@ -26,6 +26,19 @@
 // APARTMENT-FAMILY-PLATFORM-AND-USER-DEFINED-ELEMENTS-2026-05-30.md §10 the
 // long-tail variants land in successive slices; this lands the second slab.
 //
+// Slice B EXTENSION 3 (2026-05-31) — grow from 40 → 59 entries. Closes the
+// bulk of the "full 50+ FurnitureType seed lands later" promise from
+// APARTMENT-FAMILY-PLATFORM doc §6. Adds chair / sofa variants (Cesca,
+// textile-wood-arm, Barcelona corner, white sofa), table variants
+// (wood-double-conic, wood-4leg, ceramic-curve, dining-marble-brass),
+// soft furnishings (3 carpets + 1 curtain panel), more plant variants
+// (plant_01 / plant_04 / plant_07 / arbol_t_01), media (TV wall-mount),
+// utility (drying_rack), and a second wall mirror variant (wall_mirror).
+// After this slice the seed covers all canonical residential FurnitureType
+// names; long-tail stylistic variants (every Barcelona-chair colourway,
+// every Arbol tree species, every kitchen-cabinet sub-type, …) still land
+// mechanically in later slices.
+//
 // Out of scope (deferred to a later slice):
 //   • The full 50+ FurnitureType seed (every Barcelona-chair variant, every
 //     plant species, every kitchen-cabinet sub-type, …). This slice already
@@ -116,6 +129,44 @@ import type { RegisteredFamily } from '@pryzm/schemas';
  * IFC-entity coverage: IfcFurniture (default), IfcSanitaryTerminal (wet
  * fixtures incl. utility_sink), IfcElectricAppliance (washing machine),
  * IfcLightFixture (lamp).
+ *
+ * Slice B EXTENSION 3 (2026-05-31) — entries 41..59 broaden coverage to:
+ *
+ *   Seating variants (4):
+ *    41.  chair_cesca_tan             — kitchen + dining beside
+ *    42.  chair_textile_wood_arm      — living + dining beside
+ *    43.  barcelona_corner_sofa       — living corner-anchored sofa
+ *    44.  white_sofa                  — living wall-longest sofa variant
+ *
+ *   Table variants (4):
+ *    45.  table_wood_double_conic     — kitchen + dining centre
+ *    46.  table_wood_4leg             — kitchen + dining centre
+ *    47.  table_ceramic_curve         — living centre
+ *    48.  dining_table_marble_brass   — dining centre
+ *
+ *   Soft furnishings (3 carpets + 1 curtain):
+ *    49.  parametric_chevron_carpet   — living centre
+ *    50.  parametric_patchwork_carpet — bedroom + living centre
+ *    51.  parametric_stripe_carpet    — living + bedroom centre
+ *    52.  curtain_panel               — WALL / many occupancies (wall-window)
+ *
+ *   Outdoor + plant variants (4):
+ *    53.  plant_01                    — living + balcony corner
+ *    54.  plant_04                    — living + balcony corner
+ *    55.  plant_07                    — living + balcony corner
+ *    56.  arbol_t_01                  — balcony corner (parametric tree)
+ *
+ *   Media + utility + decor (3):
+ *    57.  tv                          — WALL / living + master_bedroom
+ *    58.  drying_rack                 — utility wall-longest
+ *    59.  wall_mirror                 — WALL / bedroom + master_bedroom
+ *
+ * Mount-class coverage after slice 3: floor (47), wall (12: bathroom_mirror +
+ * towel_rail + coat_rack + toilet_radiator + wc_mirror + curtain_panel + tv +
+ * wall_mirror — plus the existing 4). IFC-entity coverage gains
+ * IfcElectricAppliance / tv (display unit) and broader IfcFurniture/CHAIR +
+ * SOFA + TABLE coverage. New categories: `carpets` (3 entries) +
+ * `soft-furnishings` (1 entry — curtain_panel).
  */
 export function buildCoreFamilySeeds(): RegisteredFamily[] {
     return [
@@ -1115,6 +1166,508 @@ export function buildCoreFamilySeeds(): RegisteredFamily[] {
             },
             schemaHash: 'core:wardrobe_glass_door:1.0.0',
             tags:       ['wardrobe', 'wardrobe-glass-door', 'storage', 'bedroom', 'master'],
+        },
+
+        // ═══════════════════════════════════════════════════════════════════
+        // SLICE B EXTENSION 3 (2026-05-31) — entries 41..59
+        // Closes the "full 50+ FurnitureType seed" promise. Chair / sofa /
+        // table variants, soft furnishings (carpets + curtain), more plant
+        // variants, TV wall-mount, drying_rack, wall_mirror. Brings total
+        // to 59.
+        // ═══════════════════════════════════════════════════════════════════
+
+        // ── 41. Cesca chair (tan) — floor / kitchen + dining ───────────────
+        // Marcel Breuer cantilever-frame chair variant. Pairs with the
+        // dining-set group (anchor 'beside').
+        {
+            identity: {
+                id:      'family/core/chair_cesca_tan',
+                name:    'Cesca chair (tan)',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'seating',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'kitchen', anchor: 'beside', group: 'dining-set' },
+                { occupancy: 'dining',  anchor: 'beside', group: 'dining-set' },
+            ],
+            ifcMapping: {
+                entityType:     'IfcFurniture',
+                predefinedType: 'CHAIR',
+                psets:          ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:chair_cesca_tan:1.0.0',
+            tags:       ['chair', 'cesca', 'dining', 'kitchen', 'seating'],
+        },
+
+        // ── 42. Textile-wood-arm chair — floor / living + dining ───────────
+        // Upholstered armchair with wood arms — versatile dining or living
+        // companion seating.
+        {
+            identity: {
+                id:      'family/core/chair_textile_wood_arm',
+                name:    'Textile + wood-arm chair',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'seating',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'living', anchor: 'beside', group: 'lounge' },
+                { occupancy: 'dining', anchor: 'beside', group: 'dining-set' },
+            ],
+            ifcMapping: {
+                entityType:     'IfcFurniture',
+                predefinedType: 'CHAIR',
+                psets:          ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:chair_textile_wood_arm:1.0.0',
+            tags:       ['chair', 'armchair', 'textile', 'wood', 'living', 'dining', 'seating'],
+        },
+
+        // ── 43. Barcelona corner sofa — floor / living ─────────────────────
+        // Mies-van-der-Rohe Barcelona-style corner sofa configuration.
+        // Anchors at a corner so the L-shape fits the room geometry.
+        {
+            identity: {
+                id:      'family/core/barcelona_corner_sofa',
+                name:    'Barcelona corner sofa',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'seating',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'living', anchor: 'corner', group: 'lounge' },
+            ],
+            ifcMapping: {
+                entityType:     'IfcFurniture',
+                predefinedType: 'SOFA',
+                psets:          ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:barcelona_corner_sofa:1.0.0',
+            tags:       ['sofa', 'corner-sofa', 'barcelona', 'living', 'lounge', 'seating'],
+        },
+
+        // ── 44. White sofa — floor / living ────────────────────────────────
+        // Plain three-seat sofa, white upholstery variant — anchors on the
+        // longest wall like the canonical sofa entry.
+        {
+            identity: {
+                id:      'family/core/white_sofa',
+                name:    'White sofa (3-seat)',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'seating',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'living', anchor: 'wall-longest', group: 'lounge' },
+            ],
+            ifcMapping: {
+                entityType:     'IfcFurniture',
+                predefinedType: 'SOFA',
+                psets:          ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:white_sofa:1.0.0',
+            tags:       ['sofa', 'white', 'living', 'lounge', 'seating'],
+        },
+
+        // ── 45. Wood double-conic table — floor / kitchen + dining ─────────
+        // Pedestal-foot wood dining table variant (double-cone base).
+        {
+            identity: {
+                id:      'family/core/table_wood_double_conic',
+                name:    'Wood double-conic table',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'tables',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'kitchen', anchor: 'center', group: 'dining-set' },
+                { occupancy: 'dining',  anchor: 'center', group: 'dining-set' },
+            ],
+            ifcMapping: {
+                entityType:     'IfcFurniture',
+                predefinedType: 'TABLE',
+                psets:          ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:table_wood_double_conic:1.0.0',
+            tags:       ['table', 'wood', 'pedestal', 'dining', 'kitchen'],
+        },
+
+        // ── 46. Wood 4-leg table — floor / kitchen + dining ────────────────
+        // Classic four-leg wood dining table variant.
+        {
+            identity: {
+                id:      'family/core/table_wood_4leg',
+                name:    'Wood 4-leg table',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'tables',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'kitchen', anchor: 'center', group: 'dining-set' },
+                { occupancy: 'dining',  anchor: 'center', group: 'dining-set' },
+            ],
+            ifcMapping: {
+                entityType:     'IfcFurniture',
+                predefinedType: 'TABLE',
+                psets:          ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:table_wood_4leg:1.0.0',
+            tags:       ['table', 'wood', '4-leg', 'dining', 'kitchen'],
+        },
+
+        // ── 47. Ceramic curve table — floor / living ───────────────────────
+        // Sculptural coffee-table variant — ceramic shell, curved profile.
+        // Anchors at the living-room centre as a sofa companion.
+        {
+            identity: {
+                id:      'family/core/table_ceramic_curve',
+                name:    'Ceramic curve table',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'tables',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'living', anchor: 'center', group: 'lounge' },
+            ],
+            ifcMapping: {
+                entityType:     'IfcFurniture',
+                predefinedType: 'TABLE',
+                psets:          ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:table_ceramic_curve:1.0.0',
+            tags:       ['table', 'ceramic', 'curve', 'living', 'lounge'],
+        },
+
+        // ── 48. Dining table (marble + brass) — floor / dining ─────────────
+        // Statement dining table — marble top, brass base.
+        {
+            identity: {
+                id:      'family/core/dining_table_marble_brass',
+                name:    'Dining table (marble + brass)',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'tables',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'dining', anchor: 'center', group: 'dining-set' },
+            ],
+            ifcMapping: {
+                entityType:     'IfcFurniture',
+                predefinedType: 'TABLE',
+                psets:          ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:dining_table_marble_brass:1.0.0',
+            tags:       ['table', 'marble', 'brass', 'dining'],
+        },
+
+        // ── 49. Parametric chevron carpet — floor / living ─────────────────
+        // First entry under the new `carpets` category. Parametric procedural
+        // carpet — chevron weave.
+        {
+            identity: {
+                id:      'family/core/parametric_chevron_carpet',
+                name:    'Parametric chevron carpet',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'carpets',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'living', anchor: 'center', group: 'lounge' },
+            ],
+            ifcMapping: {
+                entityType: 'IfcFurniture',
+                psets:      ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:parametric_chevron_carpet:1.0.0',
+            tags:       ['carpet', 'rug', 'chevron', 'parametric', 'living', 'soft-furnishings'],
+        },
+
+        // ── 50. Parametric patchwork carpet — floor / bedroom + living ─────
+        // Patchwork-weave variant. Multi-occupancy: lives equally well as a
+        // bedroom rug or a living-room accent.
+        {
+            identity: {
+                id:      'family/core/parametric_patchwork_carpet',
+                name:    'Parametric patchwork carpet',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'carpets',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'bedroom', anchor: 'center', group: 'bed' },
+                { occupancy: 'living',  anchor: 'center', group: 'lounge' },
+            ],
+            ifcMapping: {
+                entityType: 'IfcFurniture',
+                psets:      ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:parametric_patchwork_carpet:1.0.0',
+            tags:       ['carpet', 'rug', 'patchwork', 'parametric', 'bedroom', 'living', 'soft-furnishings'],
+        },
+
+        // ── 51. Parametric stripe carpet — floor / living + bedroom ────────
+        // Stripe-weave variant. Multi-occupancy (mirrors patchwork).
+        {
+            identity: {
+                id:      'family/core/parametric_stripe_carpet',
+                name:    'Parametric stripe carpet',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'carpets',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'living',  anchor: 'center', group: 'lounge' },
+                { occupancy: 'bedroom', anchor: 'center', group: 'bed' },
+            ],
+            ifcMapping: {
+                entityType: 'IfcFurniture',
+                psets:      ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:parametric_stripe_carpet:1.0.0',
+            tags:       ['carpet', 'rug', 'stripe', 'parametric', 'living', 'bedroom', 'soft-furnishings'],
+        },
+
+        // ── 52. Curtain panel — WALL / many occupancies ────────────────────
+        // First `soft-furnishings` category entry. Wall-mounted (hangs from
+        // a rod just below the ceiling); spans every occupancy that has an
+        // exterior window — bedroom + living + master_bedroom + kitchen +
+        // dining + private_office. Sixth wall-mount entry.
+        {
+            identity: {
+                id:      'family/core/curtain_panel',
+                name:    'Curtain panel',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'soft-furnishings',
+            mountClass: 'wall',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'bedroom',        anchor: 'wall-window', group: 'curtains' },
+                { occupancy: 'living',         anchor: 'wall-window', group: 'curtains' },
+                { occupancy: 'master_bedroom', anchor: 'wall-window', group: 'curtains' },
+                { occupancy: 'kitchen',        anchor: 'wall-window', group: 'curtains' },
+                { occupancy: 'dining',         anchor: 'wall-window', group: 'curtains' },
+                { occupancy: 'private_office', anchor: 'wall-window', group: 'curtains' },
+            ],
+            ifcMapping: {
+                entityType: 'IfcFurniture',
+                psets:      ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:curtain_panel:1.0.0',
+            tags:       ['curtain', 'curtain-panel', 'soft-furnishings', 'window'],
+        },
+
+        // ── 53. Plant_01 — floor / living + balcony ────────────────────────
+        // Arbol plant-library specific variant 01 (corner anchor).
+        {
+            identity: {
+                id:      'family/core/plant_01',
+                name:    'Plant 01',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'outdoor',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'living',  anchor: 'corner' },
+                { occupancy: 'balcony', anchor: 'corner' },
+            ],
+            ifcMapping: {
+                entityType: 'IfcFurniture',
+                psets:      ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:plant_01:1.0.0',
+            tags:       ['plant', 'plant-01', 'outdoor', 'living', 'balcony', 'decor'],
+        },
+
+        // ── 54. Plant_04 — floor / living + balcony ────────────────────────
+        {
+            identity: {
+                id:      'family/core/plant_04',
+                name:    'Plant 04',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'outdoor',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'living',  anchor: 'corner' },
+                { occupancy: 'balcony', anchor: 'corner' },
+            ],
+            ifcMapping: {
+                entityType: 'IfcFurniture',
+                psets:      ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:plant_04:1.0.0',
+            tags:       ['plant', 'plant-04', 'outdoor', 'living', 'balcony', 'decor'],
+        },
+
+        // ── 55. Plant_07 — floor / living + balcony ────────────────────────
+        {
+            identity: {
+                id:      'family/core/plant_07',
+                name:    'Plant 07',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'outdoor',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'living',  anchor: 'corner' },
+                { occupancy: 'balcony', anchor: 'corner' },
+            ],
+            ifcMapping: {
+                entityType: 'IfcFurniture',
+                psets:      ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:plant_07:1.0.0',
+            tags:       ['plant', 'plant-07', 'outdoor', 'living', 'balcony', 'decor'],
+        },
+
+        // ── 56. Arbol T-01 — floor / balcony ───────────────────────────────
+        // First entry from the 25-species Arbol parametric outdoor tree
+        // library. Balcony-only (it's a full outdoor tree, not a houseplant).
+        {
+            identity: {
+                id:      'family/core/arbol_t_01',
+                name:    'Arbol T-01',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'outdoor',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'balcony', anchor: 'corner' },
+            ],
+            ifcMapping: {
+                entityType: 'IfcFurniture',
+                psets:      ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:arbol_t_01:1.0.0',
+            tags:       ['tree', 'arbol', 'arbol-t-01', 'parametric-tree', 'outdoor', 'balcony', 'decor'],
+        },
+
+        // ── 57. TV — WALL / living + master_bedroom ────────────────────────
+        // Wall-mounted display. Distinct from tv_unit (the floor-standing
+        // cabinet); this is the screen itself. Maps to IfcElectricAppliance.
+        // Seventh wall-mount entry.
+        {
+            identity: {
+                id:      'family/core/tv',
+                name:    'TV',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'media',
+            mountClass: 'wall',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'living',         anchor: 'wall-longest', group: 'media' },
+                { occupancy: 'master_bedroom', anchor: 'wall-longest', group: 'media' },
+            ],
+            ifcMapping: {
+                entityType: 'IfcElectricAppliance',
+                psets:      ['Pset_ElectricApplianceTypeCommon'],
+            },
+            schemaHash: 'core:tv:1.0.0',
+            tags:       ['tv', 'television', 'media', 'living', 'master-bedroom'],
+        },
+
+        // ── 58. Drying rack — floor / utility ──────────────────────────────
+        // F1.8 utility laundry primitive. Floor-standing rack — pairs with
+        // washing_machine_standalone in the 'laundry' group.
+        {
+            identity: {
+                id:      'family/core/drying_rack',
+                name:    'Drying rack',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'appliances',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'utility', anchor: 'wall-longest', group: 'laundry' },
+            ],
+            ifcMapping: {
+                entityType: 'IfcFurniture',
+                psets:      ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:drying_rack:1.0.0',
+            tags:       ['drying-rack', 'rack', 'utility', 'laundry', 'appliance'],
+        },
+
+        // ── 59. Wall mirror — WALL / bedroom + master_bedroom ──────────────
+        // F1.10 wall-mirror primitive — bedroom personalisation piece.
+        // Eighth wall-mount entry. Distinct from bathroom_mirror (over the
+        // vanity, in the wet-zone) and wc_mirror (compact, over the wc-basin).
+        {
+            identity: {
+                id:      'family/core/wall_mirror',
+                name:    'Wall mirror',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'mirrors',
+            mountClass: 'wall',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'bedroom',        anchor: 'wall-longest', group: 'bed' },
+                { occupancy: 'master_bedroom', anchor: 'wall-longest', group: 'bed' },
+            ],
+            ifcMapping: {
+                entityType: 'IfcFurniture',
+                psets:      ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:wall_mirror:1.0.0',
+            tags:       ['mirror', 'wall-mirror', 'bedroom', 'master-bedroom', 'decor'],
         },
     ];
 }
