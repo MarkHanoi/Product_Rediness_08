@@ -1,6 +1,6 @@
 // Apartment-layout VALIDATOR ORCHESTRATOR.
 //
-// Runs the 15 shipped validator slices in ONE pass on a single
+// Runs the 16 shipped validator slices in ONE pass on a single
 // `ApartmentLayoutForValidation`:
 //
 //   Dimensional (G-class):
@@ -12,7 +12,7 @@
 //     A-1 mandatory adjacency   · A-2 preferred adjacency
 //     A-3 forbidden adjacency   · A-4 privacy gradient
 //     A-5 acoustic separation   · A-6 wet-cluster
-//     A-7 frontage-topology
+//     A-7 frontage-topology     · A-8 sequencing
 //
 // Returns ONE aggregated, FROZEN report (`AggregatedViolationReport`) — two
 // parallel violation arrays + three aggregate counts + a per-class tally.
@@ -21,7 +21,7 @@
 //   • PURE — no I/O, no closures over mutable state, no DOM, no THREE.
 //   • POJO inputs/outputs — consistent with the validators themselves.
 //   • NO `@pryzm/schemas` dep, NO mutation of inputs.
-//   • Per-validator order is fixed (G-1 → G-2 → ... → G-10 → A-1 → ... → A-7)
+//   • Per-validator order is fixed (G-1 → G-2 → ... → G-10 → A-1 → ... → A-8)
 //     so the report surfaces violations in a stable, test-pinnable sequence.
 //   • The same edge can fire MULTIPLE classes (e.g. kitchen↔bedroom is BOTH
 //     A-3 error AND A-5 warning by design — see `acousticSeparation.ts`
@@ -47,6 +47,7 @@ import {
     validateMandatoryAdjacency,
     validatePreferredAdjacency,
     validatePrivacyGradient,
+    validateSequencing,
     validateWetCluster,
 } from './topology/index.js';
 import type {
@@ -55,7 +56,7 @@ import type {
 } from './orchestrator-types.js';
 
 /**
- * Run the 15 shipped validators on a single apartment layout.
+ * Run the 16 shipped validators on a single apartment layout.
  *
  * Returns a FROZEN `AggregatedViolationReport`. The two violation arrays
  * (`dimensional`, `topology`) are themselves frozen — calling `.push()` on
@@ -84,10 +85,13 @@ export function validateApartmentLayout(
         ...validateLighting(input.rooms),
     ];
 
-    // ── Topology (A-class) — 7 validators, fixed order ──────────────────────
+    // ── Topology (A-class) — 8 validators, fixed order ──────────────────────
     // Topology validators take rooms as `{ id, type }` (A-7 additionally
     // reads `hasExteriorEdge`). Our richer rooms satisfy those shapes
     // structurally, so we pass input.rooms through directly — no projection.
+    // A-8 (sequencing) requires the apartment's entrance vertex id; the
+    // orchestrator SKIPS the validator when `entranceRoomId` is undefined
+    // (sequencing without an entrance is meaningless).
     const topology: TopologyViolation[] = [
         ...validateMandatoryAdjacency(input.rooms, input.edges),
         ...validatePreferredAdjacency(input.rooms, input.edges),
@@ -96,6 +100,14 @@ export function validateApartmentLayout(
         ...validateAcousticSeparation(input.rooms, input.edges),
         ...validateWetCluster(input.rooms, input.edges),
         ...validateFrontageTopology(input.rooms),
+        // A-8 requires entranceRoomId — SKIP if not provided.
+        ...(input.entranceRoomId !== undefined
+            ? validateSequencing({
+                rooms: input.rooms,
+                edges: input.edges,
+                entranceRoomId: input.entranceRoomId,
+            })
+            : []),
     ];
 
     // ── Aggregate counts + per-class tally ──────────────────────────────────

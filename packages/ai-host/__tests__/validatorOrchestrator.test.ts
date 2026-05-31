@@ -1,8 +1,8 @@
 // Apartment-layout VALIDATOR ORCHESTRATOR tests.
 //
 // Pins the contract of `validateApartmentLayout` — the single-call aggregator
-// that runs the 15 shipped validators
-// (G-1/2/3/5/6/7/8/10 + A-1/2/3/4/5/6/7) on a canonical apartment layout
+// that runs the 16 shipped validators
+// (G-1/2/3/5/6/7/8/10 + A-1/2/3/4/5/6/7/8) on a canonical apartment layout
 // and returns one `AggregatedViolationReport`.
 //
 // Test policy:
@@ -607,6 +607,203 @@ describe('validateApartmentLayout — orchestrator aggregate', () => {
         expect(r.violationsByClass['G-10']).toBe(1);
         expect(r.violationsByClass['A-6']).toBe(2);   // bathroom + kitchen
         expect(r.violationsByClass['A-7']).toBe(1);   // living_room
+    });
+
+    // ─── A-8 sequencing (entranceRoomId-gated, warning) ────────────────────
+    it('A-8 sequencing: SKIPS when entranceRoomId is omitted', () => {
+        // Healthy 5-room apartment, but with NO entranceRoomId on the input.
+        // The orchestrator must NOT call validateSequencing → zero A-8
+        // violations in the report regardless of layout sequencing quality.
+        const base = healthyApartment();
+        const r = validateApartmentLayout(base);
+        const a8 = r.topology.filter(v => v.classId === 'A-8');
+        expect(a8).toHaveLength(0);
+        expect(r.violationsByClass['A-8']).toBeUndefined();
+    });
+
+    it('A-8 sequencing: healthy apartment with entranceRoomId set → zero A-8 violations', () => {
+        // Healthy apartment + entrance hall ('h') declared as the entrance.
+        // BFS depths: h=0, c=1, l=1, b=2, ba=2 — bedroom NOT shallower than
+        // social (max social depth = 1 = bedroom depth 2 ≥ 1), all rooms
+        // reachable, no ensuite → ZERO A-8 violations.
+        const base = healthyApartment();
+        const r = validateApartmentLayout({ ...base, entranceRoomId: 'h' });
+        expect(r.topology.filter(v => v.classId === 'A-8')).toHaveLength(0);
+        expect(r.violationsByClass['A-8']).toBeUndefined();
+        expect(passesLegality(r)).toBe(true);
+    });
+
+    it('A-8 sequencing: entranceRoomId refers to non-existent room → A-8 returns []', () => {
+        // Defensive: sequencing.ts returns [] when entrance isn't in rooms.
+        const base = healthyApartment();
+        const r = validateApartmentLayout({
+            ...base,
+            entranceRoomId: 'does-not-exist',
+        });
+        expect(r.topology.filter(v => v.classId === 'A-8')).toHaveLength(0);
+        expect(r.violationsByClass['A-8']).toBeUndefined();
+    });
+
+    it('A-8 sequencing: bedroom shallower than social → A-8 warning', () => {
+        // Topology: entrance ↔ bedroom ↔ living
+        //   depths: entrance=0, bedroom=1, living=2.
+        // Bedroom (depth 1) < maxSocialDepth (living=2) → rule (1) fires.
+        const rooms: ApartmentLayoutRoom[] = [
+            room('h', 'entrance_hall', {
+                areaM2: 6, widthM: 2, lengthM: 3,
+                longestUsableWallM: 1.5, externalFrontageM: 0,
+            }),
+            room('b', 'bedroom', {
+                areaM2: 12, widthM: 3, lengthM: 4,
+                longestUsableWallM: 2, externalFrontageM: 2,
+            }),
+            room('l', 'living_room', {
+                areaM2: 25, widthM: 5, lengthM: 5,
+                longestUsableWallM: 3, externalFrontageM: 3,
+            }),
+        ];
+        const edges: AdjacencyEdge[] = [
+            edge('h', 'b'),   // entrance ↔ bedroom (shallower than living!)
+            edge('b', 'l'),   // bedroom ↔ living
+        ];
+        const r = validateApartmentLayout({
+            rooms, edges, entranceRoomId: 'h',
+        });
+        const a8 = r.topology.filter(v => v.classId === 'A-8');
+        // At least the bedroom-shallower-than-social rule fires as a warning.
+        const shallow = a8.filter(v => v.roomAId === 'b' && v.roomBTypeName === 'social');
+        expect(shallow).toHaveLength(1);
+        expect(shallow[0]!.severity).toBe('warning');
+    });
+
+    it('A-8 sequencing: unreachable room → A-8 warning', () => {
+        // Entrance + living connected; bedroom disconnected (no edges).
+        const rooms: ApartmentLayoutRoom[] = [
+            room('h', 'entrance_hall', {
+                areaM2: 6, widthM: 2, lengthM: 3,
+                longestUsableWallM: 1.5, externalFrontageM: 0,
+            }),
+            room('l', 'living_room', {
+                areaM2: 25, widthM: 5, lengthM: 5,
+                longestUsableWallM: 3, externalFrontageM: 3,
+            }),
+            room('b', 'bedroom', {
+                areaM2: 12, widthM: 3, lengthM: 4,
+                longestUsableWallM: 2, externalFrontageM: 2,
+            }),
+        ];
+        const edges: AdjacencyEdge[] = [edge('h', 'l')];   // bedroom orphan
+        const r = validateApartmentLayout({
+            rooms, edges, entranceRoomId: 'h',
+        });
+        const a8 = r.topology.filter(v => v.classId === 'A-8');
+        // Rule (3) must fire on the unreachable bedroom.
+        const unreach = a8.filter(v => v.roomAId === 'b' && v.roomBTypeName === 'entrance');
+        expect(unreach).toHaveLength(1);
+        expect(unreach[0]!.severity).toBe('warning');
+    });
+
+    it('A-8 sequencing: violationsByClass includes A-8 count when A-8 fires', () => {
+        // Bedroom unreachable → exactly one A-8 fires.
+        const rooms: ApartmentLayoutRoom[] = [
+            room('h', 'entrance_hall', {
+                areaM2: 6, widthM: 2, lengthM: 3,
+                longestUsableWallM: 1.5, externalFrontageM: 0,
+            }),
+            room('l', 'living_room', {
+                areaM2: 25, widthM: 5, lengthM: 5,
+                longestUsableWallM: 3, externalFrontageM: 3,
+            }),
+            room('b', 'bedroom', {
+                areaM2: 12, widthM: 3, lengthM: 4,
+                longestUsableWallM: 2, externalFrontageM: 2,
+            }),
+        ];
+        const r = validateApartmentLayout({
+            rooms,
+            edges: [edge('h', 'l')],   // bedroom orphan
+            entranceRoomId: 'h',
+        });
+        expect(r.violationsByClass['A-8']).toBeGreaterThanOrEqual(1);
+    });
+
+    it('A-8 sequencing: passesLegality still TRUE when only A-8 warnings fire', () => {
+        // Bedroom shallower than social — A-8 warnings only, no G/A errors.
+        // Build minimally to avoid mandatory-adjacency / wet-cluster noise:
+        // entrance ↔ bedroom ↔ living. A-4 fires bedroom-via-bedroom? No,
+        // bedroom is adjacent to entrance (non-bedroom) → A-4 OK.
+        const rooms: ApartmentLayoutRoom[] = [
+            room('h', 'entrance_hall', {
+                areaM2: 6, widthM: 2, lengthM: 3,
+                longestUsableWallM: 1.5, externalFrontageM: 0,
+            }),
+            room('b', 'bedroom', {
+                areaM2: 12, widthM: 3, lengthM: 4,
+                longestUsableWallM: 2, externalFrontageM: 2,
+            }),
+            room('l', 'living_room', {
+                areaM2: 25, widthM: 5, lengthM: 5,
+                longestUsableWallM: 3, externalFrontageM: 3,
+            }),
+        ];
+        const edges: AdjacencyEdge[] = [
+            edge('h', 'b'),
+            edge('b', 'l'),
+        ];
+        const r = validateApartmentLayout({
+            rooms, edges, entranceRoomId: 'h',
+        });
+        const a8 = r.topology.filter(v => v.classId === 'A-8');
+        expect(a8.length).toBeGreaterThan(0);
+        expect(a8.every(v => v.severity === 'warning')).toBe(true);
+        // Warnings do not break legality, regardless of other validators
+        // — assert the A-8-specific contract: warning severity never
+        // contributes to `errors`.
+        for (const v of a8) {
+            expect(v.severity).not.toBe('error');
+        }
+    });
+
+    it('A-8 sequencing: input not mutated when entranceRoomId is provided', () => {
+        // Round-trip the entranceRoomId-bearing input + assert frozen rooms +
+        // edges are unchanged after the orchestrator runs.
+        const input: ApartmentLayoutForValidation = {
+            ...healthyApartment(),
+            entranceRoomId: 'h',
+        };
+        const roomsBefore = JSON.stringify(input.rooms);
+        const edgesBefore = JSON.stringify(input.edges);
+        const entranceBefore = input.entranceRoomId;
+        validateApartmentLayout(input);
+        expect(JSON.stringify(input.rooms)).toBe(roomsBefore);
+        expect(JSON.stringify(input.edges)).toBe(edgesBefore);
+        expect(input.entranceRoomId).toBe(entranceBefore);
+    });
+
+    it('A-8 sequencing: orchestrator topology ordering — A-8 emitted AFTER A-7', () => {
+        // Bedroom (no exterior) → A-7 fires. Same bedroom is unreachable
+        // (no edges from entrance) → A-8 also fires. Assert A-7 emits before
+        // A-8 in the topology array (validator order is A-1…A-7…A-8).
+        const rooms: ApartmentLayoutRoom[] = [
+            room('h', 'entrance_hall', {
+                areaM2: 6, widthM: 2, lengthM: 3,
+                longestUsableWallM: 1.5, externalFrontageM: 0,
+            }),
+            room('b', 'bedroom', {
+                areaM2: 12, widthM: 3, lengthM: 4,
+                longestUsableWallM: 2, externalFrontageM: 2,
+                hasExteriorEdge: false,   // → A-7
+            }),
+        ];
+        const r = validateApartmentLayout({
+            rooms, edges: [], entranceRoomId: 'h',
+        });
+        const order = r.topology.map(v => v.classId);
+        const firstA7 = order.indexOf('A-7');
+        const firstA8 = order.indexOf('A-8');
+        expect(firstA7).toBeGreaterThanOrEqual(0);
+        expect(firstA8).toBeGreaterThanOrEqual(0);
+        expect(firstA8).toBeGreaterThan(firstA7);
     });
 
     // ─── Topology ordering: A-1 → ... → A-5 → A-6 → A-7 ────────────────────

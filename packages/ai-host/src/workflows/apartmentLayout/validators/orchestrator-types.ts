@@ -1,9 +1,10 @@
 // Apartment-layout VALIDATOR ORCHESTRATOR — shared types.
 //
-// The orchestrator (`orchestrator.ts`) runs the 11 shipped validator slices
-// (G-1 / G-2 / G-3 / G-5 / G-6 / G-7 dimensional + A-1 / A-2 / A-3 / A-4 / A-5
-// topology) on ONE canonical apartment-layout input and returns ONE aggregated
-// report. This file declares those shared input/output shapes.
+// The orchestrator (`orchestrator.ts`) runs the 16 shipped validator slices
+// (G-1 / G-2 / G-3 / G-5 / G-6 / G-7 / G-8 / G-10 dimensional + A-1 / A-2 /
+// A-3 / A-4 / A-5 / A-6 / A-7 / A-8 topology) on ONE canonical apartment-
+// layout input and returns ONE aggregated report. This file declares those
+// shared input/output shapes.
 //
 // Design rules (consistent with the per-validator files):
 //   • POJO only — no Zod, no class, no I/O, no DOM, no THREE.
@@ -58,6 +59,10 @@ export interface ApartmentLayoutRoom {
 export interface ApartmentLayoutForValidation {
     readonly rooms: ReadonlyArray<ApartmentLayoutRoom>;
     readonly edges: ReadonlyArray<AdjacencyEdge>;
+    /** ID of the apartment's entrance room (entrance_hall, hall, or
+     *  whichever room contains the apartment-entry door). When present,
+     *  enables A-8 sequencing validation. When omitted, A-8 SKIPS. */
+    readonly entranceRoomId?: string;
 }
 
 /**
