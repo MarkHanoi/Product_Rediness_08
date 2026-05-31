@@ -104,6 +104,19 @@ export function createApartmentLayoutImpl(deps: ApartmentLayoutDeps): WorkflowIm
         if (result.status === 'ok') {
             deps.setPendingLayouts(ctx.runId, result.options);
             deps.emit?.('apartment.layout-options-ready', { runId: ctx.runId, options: result.options });
+        } else {
+            // §REJECT-SURFACE (2026-05-31): when the engine rejects (envelope
+            // too big/small, deterministic engine declined, AI relay failed
+            // with no procedural fallback), emit a distinct event so the
+            // controller can surface the reason as a toast instead of the
+            // user seeing silence. Previously the rejected branch dropped
+            // the result on the floor — modal never opened, user thought
+            // the button was broken.
+            deps.emit?.('apartment.layout-rejected', {
+                runId: ctx.runId,
+                reason: result.reason ?? 'Engine declined to generate layouts',
+                attempts: result.attempts,
+            });
         }
 
         return {

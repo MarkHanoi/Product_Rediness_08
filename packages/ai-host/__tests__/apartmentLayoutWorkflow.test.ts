@@ -74,7 +74,7 @@ describe('createApartmentLayoutImpl', () => {
         expect(emit).toHaveBeenCalledWith('apartment.layout-options-ready', expect.objectContaining({ runId: 'run-1' }));
     });
 
-    it('rejected: relay junk → no persist, no emit, no commands, no throw', async () => {
+    it('rejected: relay junk → no persist, no commands, no throw — emits layout-rejected (§REJECT-SURFACE 2026-05-31)', async () => {
         const setPendingLayouts = vi.fn();
         const emit = vi.fn();
         const impl = createApartmentLayoutImpl({
@@ -83,7 +83,21 @@ describe('createApartmentLayoutImpl', () => {
         const r = await impl(ctx(payload));
         expect(dataOf(r).status).toBe('rejected');
         expect(setPendingLayouts).not.toHaveBeenCalled();
-        expect(emit).not.toHaveBeenCalled();
+        // §REJECT-SURFACE — rejection now emits a typed event so the controller
+        // can surface a toast with the engine's reason. Previously this branch
+        // dropped the result silently (button looked broken to the user).
+        // The OPTIONS-READY event MUST NOT fire on rejection — only the
+        // rejected event with the runId + reason + attempts.
+        expect(emit).toHaveBeenCalledTimes(1);
+        expect(emit).toHaveBeenCalledWith(
+            'apartment.layout-rejected',
+            expect.objectContaining({
+                runId: 'run-1',
+                reason: expect.any(String),
+                attempts: expect.any(Number),
+            }),
+        );
+        expect(emit).not.toHaveBeenCalledWith('apartment.layout-options-ready', expect.anything());
         expect(r.proposedCommands).toEqual([]);
     });
 

@@ -158,8 +158,40 @@ export class ApartmentLayoutController {
                 runtime.events?.emit('pryzm:toast', { message: `Could not open the layouts modal: ${String(err)}`, severity: 'error' });
             }
         });
-        console.log('[apartment-layout] controller attached — listening for options-ready');
-        this._dispose = typeof sub === 'function' ? sub : () => { /* non-disposer */ };
+        // §REJECT-SURFACE (2026-05-31): subscribe to the engine's rejection
+        // event so the user sees WHY the algorithm declined to generate.
+        // Previously the rejected branch (envelope too big/small,
+        // deterministic engine declined, AI relay failed without procedural
+        // fallback) dropped the result on the floor — the modal never opened
+        // and the user thought the button was broken. Now every rejection
+        // surfaces a toast with the engine's reason.
+        const subReject = runtime.events.on('apartment.layout-rejected', (e: unknown) => {
+            try {
+                const evt = e as { runId?: string; reason?: string; attempts?: number } | null;
+                const reason = (evt?.reason ?? 'Engine declined to generate layouts').trim();
+                console.warn('[apartment-layout] REJECTED:', reason, `(attempts: ${evt?.attempts ?? '?'})`);
+                runtime.events?.emit('pryzm:toast', {
+                    message: `Apartment layout engine declined: ${reason}`,
+                    severity: 'error',
+                });
+                // If we were waiting on a regenerate, clear the in-flight state.
+                if (this._regenerating) {
+                    this._regenerating = false;
+                    if (this._regenerateTimer !== null) {
+                        clearTimeout(this._regenerateTimer);
+                        this._regenerateTimer = null;
+                    }
+                }
+            } catch (err) {
+                console.error('[apartment-layout] failed to surface rejection:', err);
+            }
+        });
+        console.log('[apartment-layout] controller attached — listening for options-ready + layout-rejected');
+        const subOpts = sub;
+        this._dispose = () => {
+            if (typeof subOpts === 'function') subOpts();
+            if (typeof subReject === 'function') subReject();
+        };
     }
 
     /** Unsubscribe + close any open modal. */

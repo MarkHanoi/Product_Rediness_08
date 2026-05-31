@@ -128,7 +128,15 @@ describe('registerApartmentLayoutWorkflow (A4-register)', () => {
 
         expect(dataOf(action).status).toBe('rejected');
         expect(setPendingLayouts).not.toHaveBeenCalled();
-        expect(emit).not.toHaveBeenCalled();
+        // §REJECT-SURFACE (2026-05-31): rejection now emits `apartment.layout-
+        // rejected` so the controller can surface the reason as a toast.
+        // It MUST NOT emit options-ready on rejection.
+        expect(emit).toHaveBeenCalledTimes(1);
+        expect(emit).toHaveBeenCalledWith(
+            'apartment.layout-rejected',
+            expect.objectContaining({ reason: expect.any(String) }),
+        );
+        expect(emit).not.toHaveBeenCalledWith('apartment.layout-options-ready', expect.anything());
         expect(action.proposedCommands).toEqual([]);
     });
 
