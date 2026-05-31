@@ -15,6 +15,11 @@ export {
     RoomParametersStore,
     roomParametersStore,
 } from './RoomParametersStore.js';
+export {
+    ApartmentParameterPropagator,
+    type PropagationEvent,
+    type ImpactResolver,
+} from './ApartmentParameterPropagator.js';
 export { CubeStore, type CubeDto } from './CubeStore.js';
 export { SelectionStore, type SelectionDto, type SelectionKind, type SelectionMode, type SelectionTarget } from './SelectionStore.js';
 export {
