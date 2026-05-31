@@ -25,6 +25,19 @@ export * from './family-registry/index.js';
 // RegisteredFamily,IfcMapping,RegistryState}`) or the element schemas.
 export * from './family-request/index.js';
 
+// P0.4 slice Stage-1 (Family Platform) — L0 FamilyDefinition substrate.
+// The canonical structured form that emerges from Stage-1 ingestion:
+// FamilyRequest → fromRequest() → FamilyDefinition (request + derived).
+// Adds: `FamilyDefinition*`, `FamilyDefinitionDerived*`, `fromRequest`,
+// `canonicaliseSemanticNames`, `computeCanonicalHash`, `FromRequestOptions`.
+// No name collisions with `family-registry/` or `family-request/`.
+//
+// NOTE: this barrel re-export has been stripped by a linter/auto-fixer
+// twice during P0.4 slice authoring. If it disappears again, re-add it
+// here — the file `family-definition/index.js` is real and required for
+// `familyDefinition.test.ts` to resolve `FamilyDefinitionSchema` etc.
+export * from './family-definition/index.js';
+
 // S31 / Phase 2B Supplement §A1 — auto-dimension schemas (DimensionString,
 // EvaluatedDimension, anchor/orientation enums) and §B1 — ViewTemplate
 // schemas (StrokeStyle, CategoryVG, ViewFilter, FilterCondition, ViewRange).
