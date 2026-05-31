@@ -1,6 +1,6 @@
 // G-1 (area-max) + G-2 (width-max) + G-3 (aspect-ratio) + G-5 (wall-usability)
-// + G-6 (circulation-width) + G-7 (frontage) dimensional validators —
-// first slices of the 10 G-classes from
+// + G-6 (circulation-width) + G-7 (frontage) + G-8 (hierarchy) + G-10
+// (lighting) dimensional validators — slices of the 10 G-classes from
 // `docs/03_PRYZM3/APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK-2026-05-29.md`
 // §G-class table. Pin every behavioural contract as an executable assertion.
 
@@ -12,6 +12,8 @@ import {
     validateAspect,
     validateCirculationWidth,
     validateFrontage,
+    validateHierarchy,
+    validateLighting,
     validateWallUsability,
     validateWidthMax,
 } from '../src/workflows/apartmentLayout/validators/dimensional/index.js';
@@ -247,7 +249,7 @@ describe('dimensional validators — G-1 areaMax + G-2 widthMax', () => {
             // OWNS G-6 = 1.0 m Part M; corridor SKIPS G-7 = undefined).
             expect(DIMENSIONAL_LIMITS.corridor).toEqual({
                 areaMaxM2: 8, widthMaxM: 2.5, aspectRatioMax: Infinity, minUsableWallM: 0,
-                minCirculationWidthM: 1.0, minFrontageM: undefined,
+                minCirculationWidthM: 1.0, minFrontageM: undefined, minLightRatio: undefined,
             });
         });
         it('pins spec: bathroom = 15 m² / 3.0 m (wet-room threshold)', () => {
@@ -255,7 +257,7 @@ describe('dimensional validators — G-1 areaMax + G-2 widthMax', () => {
             // daylight requirement — artificial light + extract acceptable).
             expect(DIMENSIONAL_LIMITS.bathroom).toEqual({
                 areaMaxM2: 15, widthMaxM: 3.0, aspectRatioMax: 2.5, minUsableWallM: 1.5,
-                minCirculationWidthM: undefined, minFrontageM: undefined,
+                minCirculationWidthM: undefined, minFrontageM: undefined, minLightRatio: undefined,
             });
         });
 
@@ -655,6 +657,288 @@ describe('dimensional validators — G-1 areaMax + G-2 widthMax', () => {
             expect(fV.length).toBe(1);
             expect(aV[0]!.classId).toBe('G-1');
             expect(fV[0]!.classId).toBe('G-7');
+        });
+    });
+
+    // ── G-8 hierarchy (apartment-level relational) ──────────────────────────
+    describe('G-8 validateHierarchy', () => {
+        it('empty rooms list returns no violations', () => {
+            expect(validateHierarchy([])).toEqual([]);
+        });
+
+        it('apartment with NO social room is SKIPPED (no hierarchy to judge)', () => {
+            const v = validateHierarchy([
+                { id: 'b1', type: 'bedroom',        areaM2: 12 },
+                { id: 'b2', type: 'master_bedroom', areaM2: 18 },
+                { id: 'k',  type: 'kitchen',        areaM2: 10 },
+            ]);
+            expect(v).toEqual([]);
+        });
+
+        it('apartment with NO private room is SKIPPED (no hierarchy to judge)', () => {
+            const v = validateHierarchy([
+                { id: 'l', type: 'living',  areaM2: 25 },
+                { id: 'k', type: 'kitchen', areaM2: 12 },
+            ]);
+            expect(v).toEqual([]);
+        });
+
+        it('hierarchy-OK plan returns no violations', () => {
+            // living 30 > master 18; kitchen 12 ≥ smallest bedroom 10
+            const v = validateHierarchy([
+                { id: 'l',  type: 'living',         areaM2: 30 },
+                { id: 'm',  type: 'master_bedroom', areaM2: 18 },
+                { id: 'b1', type: 'bedroom',        areaM2: 10 },
+                { id: 'k',  type: 'kitchen',        areaM2: 12 },
+            ]);
+            expect(v).toEqual([]);
+        });
+
+        it('flags social-too-small (master > living) with classId G-8', () => {
+            // master 25 > living 20 — hierarchy inverted.
+            const v = validateHierarchy([
+                { id: 'l', type: 'living',         areaM2: 20 },
+                { id: 'm', type: 'master_bedroom', areaM2: 25 },
+            ]);
+            expect(v.length).toBe(1);
+            expect(v[0]!.classId).toBe('G-8');
+            expect(v[0]!.roomId).toBe('l');
+            expect(v[0]!.roomType).toBe('living');
+            expect(v[0]!.observed).toBe(20);
+            expect(v[0]!.maximum).toBe(25);
+            expect(v[0]!.severity).toBe('error');
+            expect(v[0]!.message).toMatch(/G-8/);
+            expect(v[0]!.message).toMatch(/hierarchy/);
+        });
+
+        it('flags kitchen-too-small (kitchen < smallest bedroom)', () => {
+            // living 30 > master 18 (rule a OK); kitchen 8 < smallest bedroom 10 (rule b fails).
+            const v = validateHierarchy([
+                { id: 'l',  type: 'living',         areaM2: 30 },
+                { id: 'm',  type: 'master_bedroom', areaM2: 18 },
+                { id: 'b1', type: 'bedroom',        areaM2: 10 },
+                { id: 'k',  type: 'kitchen',        areaM2: 8 },
+            ]);
+            expect(v.length).toBe(1);
+            expect(v[0]!.classId).toBe('G-8');
+            expect(v[0]!.roomId).toBe('k');
+            expect(v[0]!.roomType).toBe('kitchen');
+            expect(v[0]!.observed).toBe(8);
+            expect(v[0]!.maximum).toBe(10);
+            expect(v[0]!.message).toMatch(/kitchen/);
+        });
+
+        it('boundary: living EQUAL to largest private is a violation (strict greater-than)', () => {
+            const v = validateHierarchy([
+                { id: 'l', type: 'living', areaM2: 20 },
+                { id: 'm', type: 'master_bedroom', areaM2: 20 },
+            ]);
+            expect(v.length).toBe(1);
+            expect(v[0]!.classId).toBe('G-8');
+            expect(v[0]!.roomId).toBe('l');
+        });
+
+        it('boundary: kitchen EXACTLY equal to smallest private is OK (inclusive)', () => {
+            const v = validateHierarchy([
+                { id: 'l', type: 'living',         areaM2: 30 },
+                { id: 'm', type: 'master_bedroom', areaM2: 18 },
+                { id: 'b', type: 'bedroom',        areaM2: 10 },
+                { id: 'k', type: 'kitchen',        areaM2: 10 },
+            ]);
+            expect(v).toEqual([]);
+        });
+
+        it('apartment with no kitchen SKIPS the kitchen rule (rule b)', () => {
+            // hierarchy rule a OK; no kitchen → rule b skipped → no violations.
+            const v = validateHierarchy([
+                { id: 'l', type: 'living',         areaM2: 25 },
+                { id: 'm', type: 'master_bedroom', areaM2: 18 },
+                { id: 'b', type: 'bedroom',        areaM2: 10 },
+            ]);
+            expect(v).toEqual([]);
+        });
+
+        it('emits BOTH violations when both rules fail', () => {
+            // master 30 > living 20 (rule a fail); kitchen 5 < smallest bedroom 10 (rule b fail).
+            const v = validateHierarchy([
+                { id: 'l',  type: 'living',         areaM2: 20 },
+                { id: 'm',  type: 'master_bedroom', areaM2: 30 },
+                { id: 'b1', type: 'bedroom',        areaM2: 10 },
+                { id: 'k',  type: 'kitchen',        areaM2: 5 },
+            ]);
+            expect(v.length).toBe(2);
+            // Rule (a) ordered before rule (b).
+            expect(v[0]!.roomId).toBe('l');
+            expect(v[1]!.roomId).toBe('k');
+            expect(v[0]!.classId).toBe('G-8');
+            expect(v[1]!.classId).toBe('G-8');
+        });
+
+        it('considers ALL social rooms (dining counts) when picking largest social', () => {
+            // dining 22 > master 20 — hierarchy OK (largest social is dining, not living).
+            const v = validateHierarchy([
+                { id: 'l', type: 'living',         areaM2: 15 },
+                { id: 'd', type: 'dining',         areaM2: 22 },
+                { id: 'm', type: 'master_bedroom', areaM2: 20 },
+            ]);
+            expect(v).toEqual([]);
+        });
+
+        it('attributes social-too-small violation to the LARGEST social room', () => {
+            // Largest social is dining (18); smallest private (bedroom 25). dining 18 < bedroom 25.
+            const v = validateHierarchy([
+                { id: 'l',  type: 'living',         areaM2: 10 },
+                { id: 'd',  type: 'dining',         areaM2: 18 },
+                { id: 'b1', type: 'bedroom',        areaM2: 25 },
+            ]);
+            expect(v.length).toBe(1);
+            expect(v[0]!.roomId).toBe('d');
+            expect(v[0]!.roomType).toBe('dining');
+        });
+
+        it('every violation severity is "error"', () => {
+            const v = validateHierarchy([
+                { id: 'l', type: 'living',         areaM2: 20 },
+                { id: 'm', type: 'master_bedroom', areaM2: 25 },
+                { id: 'b', type: 'bedroom',        areaM2: 10 },
+                { id: 'k', type: 'kitchen',        areaM2: 5 },
+            ]);
+            for (const x of v) expect(x.severity).toBe('error');
+        });
+    });
+
+    // ── G-10 lighting (window-to-floor-area ratio) ──────────────────────────
+    describe('G-10 validateLighting', () => {
+        it('empty rooms list returns no violations', () => {
+            expect(validateLighting([])).toEqual([]);
+        });
+
+        it('rooms within their light ratio return no violations', () => {
+            const v = validateLighting([
+                { id: 'l', type: 'living',         areaM2: 20, glazedAreaM2: 3.0 },   // 0.15 ≥ 0.10
+                { id: 'b', type: 'bedroom',        areaM2: 12, glazedAreaM2: 1.5 },   // 0.125
+                { id: 'k', type: 'kitchen',        areaM2: 10, glazedAreaM2: 1.2 },   // 0.12
+                { id: 'm', type: 'master_bedroom', areaM2: 18, glazedAreaM2: 2.0 },   // ~0.111
+            ]);
+            expect(v).toEqual([]);
+        });
+
+        it('flags a living room below the 10% ratio with classId G-10', () => {
+            // 20 m² floor, 1.0 m² glazing → 0.05 < 0.10.
+            const v = validateLighting([{ id: 'dark-living', type: 'living', areaM2: 20, glazedAreaM2: 1.0 }]);
+            expect(v.length).toBe(1);
+            expect(v[0]!.classId).toBe('G-10');
+            expect(v[0]!.roomId).toBe('dark-living');
+            expect(v[0]!.roomType).toBe('living');
+            expect(v[0]!.observed).toBeCloseTo(0.05, 5);
+            expect(v[0]!.maximum).toBe(0.10);
+            expect(v[0]!.severity).toBe('error');
+            expect(v[0]!.message).toMatch(/G-10/);
+            expect(v[0]!.message).toMatch(/living/);
+        });
+
+        it('flags a bedroom with no glazing', () => {
+            const v = validateLighting([{ id: 'b', type: 'bedroom', areaM2: 12, glazedAreaM2: 0 }]);
+            expect(v.length).toBe(1);
+            expect(v[0]!.observed).toBe(0);
+            expect(v[0]!.maximum).toBe(0.10);
+        });
+
+        it('boundary: a kitchen exactly at 0.10 ratio does NOT violate (inclusive)', () => {
+            // 10 m² floor, 1.0 m² glazing → 0.10 exactly.
+            const v = validateLighting([{ id: 'k', type: 'kitchen', areaM2: 10, glazedAreaM2: 1.0 }]);
+            expect(v).toEqual([]);
+        });
+
+        it('boundary - epsilon: 0.10 minus tiny IS a violation', () => {
+            // 10 m² floor, 0.999 m² glazing → 0.0999 < 0.10.
+            const v = validateLighting([{ id: 'k', type: 'kitchen', areaM2: 10, glazedAreaM2: 0.999 }]);
+            expect(v.length).toBe(1);
+            expect(v[0]!.classId).toBe('G-10');
+        });
+
+        it('unknown room type is SKIPPED with no violation', () => {
+            const v = validateLighting([{ id: 'x', type: 'mystery', areaM2: 10, glazedAreaM2: 0 }]);
+            expect(v).toEqual([]);
+        });
+
+        it('undefined-rule rooms (bathroom/wc/ensuite/utility/corridor/hall/storage/balcony) are SKIPPED even at 0 glazing', () => {
+            const v = validateLighting([
+                { id: 'b',   type: 'bathroom', areaM2: 6,  glazedAreaM2: 0 },
+                { id: 'w',   type: 'wc',       areaM2: 3,  glazedAreaM2: 0 },
+                { id: 'e',   type: 'ensuite',  areaM2: 5,  glazedAreaM2: 0 },
+                { id: 'u',   type: 'utility',  areaM2: 4,  glazedAreaM2: 0 },
+                { id: 'c',   type: 'corridor', areaM2: 5,  glazedAreaM2: 0 },
+                { id: 'h',   type: 'hall',     areaM2: 6,  glazedAreaM2: 0 },
+                { id: 's',   type: 'storage',  areaM2: 3,  glazedAreaM2: 0 },
+                { id: 'bal', type: 'balcony',  areaM2: 8,  glazedAreaM2: 0 },
+            ]);
+            expect(v).toEqual([]);
+        });
+
+        it('degenerate room (areaM2 = 0) is SKIPPED (no divide-by-zero)', () => {
+            const v = validateLighting([{ id: 'd', type: 'living', areaM2: 0, glazedAreaM2: 0 }]);
+            expect(v).toEqual([]);
+        });
+
+        it('reports multiple violations in input order (stable output)', () => {
+            const v = validateLighting([
+                { id: 'r1', type: 'living',  areaM2: 20, glazedAreaM2: 1.0 },   // 0.05 fail
+                { id: 'r2', type: 'bedroom', areaM2: 12, glazedAreaM2: 2.0 },   // 0.167 OK
+                { id: 'r3', type: 'kitchen', areaM2: 10, glazedAreaM2: 0.5 },   // 0.05 fail
+                { id: 'r4', type: 'bathroom', areaM2: 6, glazedAreaM2: 0 },     // skipped
+            ]);
+            expect(v.length).toBe(2);
+            expect(v[0]!.roomId).toBe('r1');
+            expect(v[1]!.roomId).toBe('r3');
+        });
+
+        it('mixes daylight + no-daylight rooms cleanly', () => {
+            const v = validateLighting([
+                { id: 'corr', type: 'corridor', areaM2: 5,  glazedAreaM2: 0 },     // skipped
+                { id: 'liv',  type: 'living',   areaM2: 20, glazedAreaM2: 3.0 },   // OK
+                { id: 'bed',  type: 'bedroom',  areaM2: 12, glazedAreaM2: 0.5 },   // fail (0.042)
+                { id: 'bath', type: 'bathroom', areaM2: 6,  glazedAreaM2: 0 },     // skipped
+            ]);
+            expect(v.length).toBe(1);
+            expect(v[0]!.roomId).toBe('bed');
+            expect(v[0]!.classId).toBe('G-10');
+        });
+    });
+
+    // ── DIMENSIONAL_LIMITS G-10 column integrity ────────────────────────────
+    describe('DIMENSIONAL_LIMITS G-10 column', () => {
+        it('every entry has a minLightRatio column (undefined or in (0,1])', () => {
+            for (const [type, l] of Object.entries(DIMENSIONAL_LIMITS)) {
+                if (l.minLightRatio !== undefined) {
+                    expect(typeof l.minLightRatio, `${type}.minLightRatio`).toBe('number');
+                    expect(l.minLightRatio, `${type}.minLightRatio`).toBeGreaterThan(0);
+                    expect(l.minLightRatio, `${type}.minLightRatio`).toBeLessThanOrEqual(1);
+                }
+            }
+        });
+
+        it('pins spec: living / bedroom / master / kitchen / dining / study minLightRatio = 0.10 (Part F1)', () => {
+            for (const t of ['living', 'living_room', 'bedroom', 'master', 'master_bedroom',
+                             'kitchen', 'dining', 'dining_room', 'study', 'private_office']) {
+                expect(DIMENSIONAL_LIMITS[t]!.minLightRatio, `${t}.minLightRatio`).toBe(0.10);
+            }
+        });
+
+        it('pins spec: no-daylight rooms SKIP G-10 (undefined)', () => {
+            for (const t of ['corridor', 'hall', 'entrance_hall', 'bathroom', 'wc', 'ensuite',
+                             'utility', 'utility_room', 'storage', 'balcony']) {
+                expect(DIMENSIONAL_LIMITS[t]!.minLightRatio, `${t}.minLightRatio`).toBeUndefined();
+            }
+        });
+
+        it('alias rows still mirror canonical numerics for G-10', () => {
+            expect(DIMENSIONAL_LIMITS.living!.minLightRatio).toBe(DIMENSIONAL_LIMITS.living_room!.minLightRatio);
+            expect(DIMENSIONAL_LIMITS.master!.minLightRatio).toBe(DIMENSIONAL_LIMITS.master_bedroom!.minLightRatio);
+            expect(DIMENSIONAL_LIMITS.dining!.minLightRatio).toBe(DIMENSIONAL_LIMITS.dining_room!.minLightRatio);
+            expect(DIMENSIONAL_LIMITS.study!.minLightRatio).toBe(DIMENSIONAL_LIMITS.private_office!.minLightRatio);
+            expect(DIMENSIONAL_LIMITS.utility!.minLightRatio).toBe(DIMENSIONAL_LIMITS.utility_room!.minLightRatio);
+            expect(DIMENSIONAL_LIMITS.hall!.minLightRatio).toBe(DIMENSIONAL_LIMITS.entrance_hall!.minLightRatio);
         });
     });
 });
