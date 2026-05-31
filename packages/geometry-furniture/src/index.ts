@@ -17,6 +17,9 @@ export { AIElementEngine } from './AIElementEngine';
 export { FurnitureFragmentBuilder } from './FurnitureFragmentBuilder';
 export { FurnitureTool } from './FurnitureTool';
 export * from './FurnitureCategoryMap';
+// F8.3 (2026-05-31) — material-intent labels (substrate for future
+// material-intelligence layers in cognition L4 §3.A/D).
+export * from './FurnitureMaterialIntent';
 export * from './TreeTypes';
 
 export * from './builders/BedBuilder';
