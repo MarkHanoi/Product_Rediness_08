@@ -68,6 +68,22 @@ export * from './family-parametric/index.js';
 // `familyGeometry.test.ts` to resolve `GeneratedGeometrySchema` etc.
 export * from './family-geometry/index.js';
 
+// P0.5 Stage-4 (Family Platform) — L0 GeneratedSchemas substrate (Stage-4
+// data-model synthesis OUTPUT type).  Sits between GeneratedGeometry
+// (Stage-3) and RegisteredFamily (Stage-5).  Exports:
+// `InstanceParameterKind*`, `InstanceParameterSpec*`, `InstanceSchemaSpec*`,
+// `CommandKind*`, `CommandPayloadSpec*`, `CommandPayloadSet*`,
+// `GeneratedSchemas*` — none of which collide with the existing
+// `family-registry/`, `family-request/`, `family-definition/`,
+// `family-parametric/`, or `family-geometry/` exports.
+//
+// NOTE: like the four sibling family-* barrels above, this re-export has
+// been observed to be stripped by a linter/auto-fixer during sibling slice
+// authoring.  If it disappears, re-add it here — `family-schemas/index.js`
+// is real and required for `familyGeneratedSchemas.test.ts` to resolve
+// `GeneratedSchemasSchema` etc.
+export * from './family-schemas/index.js';
+
 // S31 / Phase 2B Supplement §A1 — auto-dimension schemas (DimensionString,
 // EvaluatedDimension, anchor/orientation enums) and §B1 — ViewTemplate
 // schemas (StrokeStyle, CategoryVG, ViewFilter, FilterCondition, ViewRange).
