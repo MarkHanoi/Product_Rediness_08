@@ -1,19 +1,24 @@
 # PRYZM 3 — Contract Suite Index
 
-> **Stamp**: 2026-05-16 · **Status**: CANONICAL  
-> **Authority**: these contracts govern every implementation decision in PRYZM 3.  
+> **Stamp**: 2026-05-31 · **Status**: CANONICAL
+> **Authority**: these contracts govern every implementation decision in PRYZM 3.
 > When code disagrees with a contract, the code is wrong — fix the code **or** open an ADR that supersedes the contract section; never do both.
 
 ---
 
 ## Conflict resolution order (strongest → weakest)
 
-1. `docs/03_PRYZM3/01-VISION.md` — intent and principles (P1–P8)
-2. `docs/03_PRYZM3/02-ARCHITECTURE.md` — system shape, lint gates, convergence booleans
-3. **This contract suite** — per-subsystem binding contracts (C01–C14)
-4. `docs/03_PRYZM3/reference/adrs/` — per-decision rationale (45 ADRs)
-5. `docs/03_PRYZM3/reference/specs/` — per-system normative specs (40 SPECs)
-6. `docs/00_Contracts/archive/superseded-pryzm1-pryzm2/` — archived PRYZM1/2 contracts (informational only)
+1. `docs/03_PRYZM3/00-PRODUCT-VISION-AND-BUSINESS-STRATEGY-V1.md` — product + business vision (foundation)
+2. `docs/03_PRYZM3/01-VISION.md` — engineering intent and principles (P1–P8)
+3. `docs/03_PRYZM3/02-ARCHITECTURE.md` — system shape, lint gates, convergence booleans
+4. **This contract suite** — per-subsystem binding contracts (C01–C30)
+5. `docs/03_PRYZM3/reference/adrs/` — per-decision rationale (45+ ADRs)
+6. `docs/03_PRYZM3/reference/specs/` — per-system normative specs (40+ SPECs)
+7. `docs/00_Contracts/archive/superseded-pryzm1-pryzm2/` — archived PRYZM1/2 contracts (informational only)
+
+Cross-cutting docs that govern the contract suite as a whole:
+- `docs/03_PRYZM3/PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md` — end-to-end synthesis + delivery plan
+- `docs/03_PRYZM3/PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md` — code-state audit grounding the master plan
 
 If a contract and an ADR disagree, **the contract wins**; the ADR must be updated or a new ADR raised. If a contract and the Vision/Architecture docs disagree, **Vision/Architecture wins**; amend the contract.
 
@@ -23,7 +28,7 @@ If a contract and an ADR disagree, **the contract wins**; the ADR must be update
 
 | # | Contract | Governs | Key principle |
 |---|---|---|---|
-| **C00** | **Index** (this file) | Hierarchy, conflict resolution · Last updated 2026-05-25 (added C16, C17) | — |
+| **C00** | **Index** (this file) | Hierarchy, conflict resolution · Last updated 2026-05-31 (added C24–C30) | — |
 | **C01** | [Architecture & Governance](./C01-ARCHITECTURE-AND-GOVERNANCE.md) | 8-layer model, boundary matrix, CI gates, convergence booleans | P1–P8 |
 | **C02** | [Composition Root & Boot](./C02-COMPOSITION-ROOT-AND-BOOT.md) | `composeRuntime()`, `PryzmRuntime`, 3-stage boot, disposal. §3.1 F.events Bootstrap Invariant. §3.2 F-1.2 creation dual-write. §3.3 F-1.2 baseline-update dual-write (hosted-element void correctness). | P1, P3 |
 | **C03** | [Schemas, Commands & State](./C03-SCHEMAS-COMMANDS-AND-STATE.md) | L0 schemas, command bus, Zustand stores, CQRS + undo. Hosted element schema: see C15. | P5, P6 |
@@ -41,6 +46,13 @@ If a contract and an ADR disagree, **the contract wins**; the ADR must be update
 | **C15** | [Hosted Element / Host-Wall Contract](./C15-HOSTED-ELEMENT-CONTRACT.md) | Parametric offset model for doors and windows; opening void geometry lifecycle; wall baseline update dual-write invariant for void correctness; drag constraint (single-axis, HostedElementDragController); OpeningsChildrenMismatch guard; BaselineReversal guard; OTel requirements. **Added**: 2026-05-17, REGRESSION-DIAGNOSIS.md §R2. | P3, P5, P6 |
 | **C16** | [Command Authoring Protocol](./C16-COMMAND-AUTHORING-PROTOCOL.md) | The single **front door** for authoring a new command: command anatomy (the two transitional backends — bus handler vs legacy `Command`); the §3 command taxonomy → reference exemplar; the 16 authoring invariants (CA-1…CA-16) and the copy-paste checklist (§10); batch coalescing performance contract (§8); AI-initiated commands (§9). Codifies two **binding doctrines**: **CA-DOCTRINE-L (level-oriented)** — every element command resolves/stamps/registers a `levelId` across the spatial, view, and render-visibility authorities; **CA-DOCTRINE-S (semantic-first)** — the semantic record is canonical and registered before geometry. Substrate contract for the Semantic Design Assistant (§9). **AS-IS**: OI-057 (post-batch wall-join correct but timing-implicit + untested; plugin-store retains pre-miter baselines); G-CA-L/G-CA-S CI gates pending. **Added**: 2026-05-25. | P5, P6, P7, P8 |
 | **C17** | [Batch Creation Catalogue & Panel Binding](./C17-BATCH-CREATION-CATALOGUE-AND-PANEL-BINDING.md) | The single **registry** of batch-creation prompts: (a) the canonical catalogue (§4) of every batch command organised in the live `CREATE › Discipline › System › ⚡Batch › item` form (mirrors `CreatePanelLayout.ts CREATE_CONFIG`), (b) one shared NL **prompt string** per entry driving both the CREATE panel label and the AI prompt (§6), (c) the **panel-binding** rules CB-1…CB-8 (batch leaves are additive, dispatch a C16 batch command via `runBatch`, feasibility-gated with "Phase N" tooltips, scope-resolution in the command not the panel). Defines the batch **scope vocabulary** (§3: on-all-slabs, from-level-to-all-floors, per-room, per-facade, per-compartment, project…). Feasible-today (Phase 1, ✅) rows map to existing commands (`CREATE_WALLS_ON_ALL_SLABS`, `CREATE_SLABS_ON_ALL_FLOORS`, `CREATE_MULTIPLE_LEVELS`, `DUPLICATE_FLOOR_PLAN`, `CREATE_GRID_SYSTEM`, detect-rooms, roof-by-region); ⏳ rows unlock per `SPEC-SEMANTIC-DESIGN-ASSISTANT` phases. **§10–§11 = the AS-IS dispatch reference** (analysed 2026-05-25 before implementation): live path is `commandManager.execute` (Path A, the AIPanel path), per-command class + constructor args + bus-type + scope/selection resolution + preconditions + gaps (G-D1 DELETE_ALL_GRIDS has no command class; G-D2 DuplicateFloorPlan needs a target picker). Governed by C16. **Added**: 2026-05-25. | P6, P8 |
+| **C24** | [Sheet Composition Engine](./C24-SHEET-COMPOSITION-ENGINE.md) | Governs the existing `plugins/sheets/` (PRYZM 2 S37 / ADR-0031) plus gap-fill to migrate it under the PRYZM 3 layered model. Codifies invariants for SheetStore, viewports, title blocks, widgets, book/sheet-set, and the rendering pipeline that produces vector output. Audit verdict: **AUDIT + EXTEND** (SheetStore + 11+ handlers + viewport + title-block + view-renderer + 6 widget types + book-exporter IMPLEMENTED; gaps are vector PDF backend, DXF backend, sheet UI in editor, dimension+annotation integration into sheets, section/elevation viewports). **Added**: 2026-05-31. | P2, P3, P5, P6, P8 |
+| **C25** | [IFC Export (Production-Grade)](./C25-IFC-EXPORT-PRODUCTION.md) | Governs the existing `plugins/ifc-export/` (PRYZM 2 Phase 3-B Sprint S56) plus gap-fill to reach production-grade IFC4X3 coverage. Codifies invariants for `IFC4X3Exporter`, per-entity exporters, `IFCMetaStore` round-trip, Pset authoring, spatial structure completeness, classification, COBie. Audit verdict: **AUDIT + EXTEND** (IFC4X3Exporter + 6 element exporters + Pset round-trip IMPLEMENTED; gaps are IfcSite/IfcSpace/IfcZone/IfcFurniture coverage, IfcAnnotation, classification, COBie). **Added**: 2026-05-31. | P5, P8 |
+| **C26** | [Revit Round-Trip](./C26-REVIT-ROUND-TRIP.md) | Bi-directional `.rvt`/`.rfa` ↔ `.pryzm` via IFC4 as canonical interchange, plus an optional external Python adapter for Revit-API-specific extensions (phasing / worksets / design options). No `.rvt` parsing in monorepo. Family mapping table, parameter translation via `IfcPropertySet`, level/view/sheet translation, 10-project reference suite for round-trip diff testing. Audit verdict: **GENUINELY NEW** — no Revit code in monorepo. **Added**: 2026-05-31. | P5, P8 |
+| **C27** | [BIM 3.0 Inspect Model](./C27-BIM3-INSPECT-MODEL.md) | Spatial-intelligence inspection surface: master tree (Site → Building → Level → Apartment → Room → ElementType → ElementInstance), selection-driven isolation via `packages/visibility/` (P7), graphical dashboards per node type. `InspectSelectionStore` + `IsolationVisibilityIntent` + `SpatialRelationshipResolver` + `IsolationAnimator`. Coexists with `plugins/ifc-inspector/` (becomes element-instance sub-panel) and supersedes the flat `apps/editor/src/ui/PropertyInspector.ts` with documented migration plan. Audit verdict: **GENUINELY NEW** with migration of existing 80-file flat inspector. **Added**: 2026-05-31. | P3, P6, P7, P8 |
+| **C28** | [Data Panel & Automation](./C28-DATA-PANEL-AND-AUTOMATION.md) | Live data layer for `check / automate / update / review`. Wraps the existing `plugins/schedules/` (PRYZM 2 S41 / ADR-0032) and adds: (a) unified grid across all element types, (b) quality-rules engine sourcing 266+ rules from the 248+ constraint DB + dimensional G-classes + topology A-classes, (c) bulk-edit commands through commandBus (P6). Tier 1/2/3 rule execution (on-edit / on-save / on-demand). Export to Excel/CSV/JSON/IFC-Pset/SQL. Cron scheduling + email-on-violation. Audit verdict: **AUDIT + EXTEND** (Schedule store + 6 handlers + formula DSL + reactive table + CSV/XLSX IMPLEMENTED; quality-rules + bulk-edit + unified grid are the gaps). **Added**: 2026-05-31. | P5, P6, P8 |
+| **C29** | [PDF Vector Export](./C29-PDF-VECTOR-EXPORT.md) | Fills the typed-stub `packages/drawing-primitives/src/backends/pdf.ts` (PRYZM 2 ADR-0029) with a true vector PDF writer via `pdf-lib`. Font embedding, line-weight calibration, PDF/A-3 compliance, optional IFC-embed (single-deliverable PDF + IFC). Print-calibration test harness (1m × 1m validation). Audit verdict: **FILL TYPED STUB**. **Added**: 2026-05-31. | P5, P8 |
+| **C30** | [Drawing Set Management](./C30-DRAWING-SET-MANAGEMENT.md) | Aggregates Sheets ([C24](./C24-SHEET-COMPOSITION-ENGINE.md)) into SheetSets with revision tracking, issue register, transmittal package (single PDF/A-3 cover + drawing register + N sheets via [C29](./C29-PDF-VECTOR-EXPORT.md)), automatic sheet numbering. Revision status state machine (`draft → issued → superseded`, one-way). Revision-cloud annotations bound to revision ids. Audit verdict: **AUDIT + EXTEND** (`plugins/sheets/src/book/book-exporter.ts` PRYZM 2 S37 implements multi-sheet composition; revision tracking + issue register + transmittal generator are gaps). **Added**: 2026-05-31. | P6, P8 |
 
 ---
 

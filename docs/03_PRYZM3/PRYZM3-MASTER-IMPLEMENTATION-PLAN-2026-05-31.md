@@ -10,6 +10,7 @@
 
 ## Table of contents
 
+- [Part 0 — Prior-Art Audit Amendment (2026-05-31)](#part-0--prior-art-audit-amendment-2026-05-31)
 - [Part I — Vision Additions](#part-i--vision-additions)
 - [Part II — Architecture Audit (2026-05-31)](#part-ii--architecture-audit-2026-05-31)
 - [Part III — New Contracts (C24–C30)](#part-iii--new-contracts-c24c30)
@@ -24,6 +25,59 @@
 - [Part IX — Master Phase Timeline](#part-ix--master-phase-timeline)
 - [Part X — Risk Register & Open Questions](#part-x--risk-register--open-questions)
 - [Part XI — Source documents and provenance](#part-xi--source-documents-and-provenance)
+
+---
+
+# Part 0 — Prior-Art Audit Amendment (2026-05-31)
+
+> **AMENDMENT** added after the rest of this doc was authored. The original Parts I–XI were written without a code audit and classified several substantial PRYZM 2 implementations as "NEW". This amendment overrides those claims. **The canonical audit doc is [PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md](PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md)** — read it before consuming Parts IV/V/VI.
+
+## §0.1 — Headline
+
+**PRYZM is not greenfield.** The codebase is mid-migration `PRYZM 2 → PRYZM 3`. Substantial PRYZM 2 subsystems ship code and must be **audited + extended**, not built from scratch. Every phase plan below must be re-read under one of three banners:
+
+1. **AUDIT + EXTEND** — subsystem exists, audit current capability vs target, extend with gap-fills.
+2. **FILL TYPED STUB** — package or plugin shell exists, fill the stub per existing scaffolding/ADR.
+3. **GENUINELY NEW** — no prior art; build from scratch under the new C-contract.
+
+## §0.2 — Headline classification of every new C-contract
+
+| Contract | Master plan claim | Audit verdict | Action |
+|---|---|---|---|
+| **C24** Sheet Composition Engine | NEW | **AUDIT + EXTEND** — `plugins/sheets/` (PRYZM 2 S37) implements SheetStore + 11 handlers + viewport + title-block + view-renderer + 6 widget types + book-exporter | Govern the existing plugin; gap-fill the canvas renderer SVG path + sheet UI |
+| **C25** IFC Export (production-grade) | NEW | **AUDIT + EXTEND** — `plugins/ifc-export/` (PRYZM 2 S56) implements `IFC4X3Exporter` + 6 element exporters + Pset round-trip via `IFCMetaStore` | Govern the existing plugin; gap-fill IfcSite/IfcSpace/IfcZone/IfcFurniture coverage |
+| **C26** Revit Round-Trip | NEW | **GENUINELY NEW** — no Revit code in monorepo | As drafted |
+| **C27** BIM 3.0 Inspect Model | NEW | **GENUINELY NEW** — `apps/editor/src/ui/PropertyInspector.ts` is flat; `plugins/ifc-inspector/` is orthogonal Pset editor | As drafted (with migration plan for existing PropertyInspector) |
+| **C28** Data Panel & Automation | NEW | **AUDIT + EXTEND** — `plugins/schedules/` (PRYZM 2 S41) implements Schedule store + 6 handlers + formula DSL + reactive table + CSV/XLSX export | Govern the existing plugin; gap-fill quality-rules engine + bulk-edit + unified grid |
+| **C29** PDF Vector Export | NEW | **FILL TYPED STUB** — `packages/drawing-primitives/src/backends/pdf.ts` typed stub (PRYZM 2 ADR-0029) | Implement the PDF backend on the existing multi-backend scaffold |
+| **C30** Drawing Set Management | NEW | **AUDIT + EXTEND** — `plugins/sheets/src/book/book-exporter.ts` implements multi-sheet composition | Govern + formalize revision/issue workflow |
+
+## §0.3 — Revised effort totals
+
+| Track | Originally claimed | Audit-revised | Δ |
+|---|---|---|---|
+| IFC Export (Part IV §7) | ~16 wk | ~14 wk | −2 wk |
+| Sheet Composition (Part IV §8) | ~20 wk | **~10 wk** | **−10 wk** |
+| Revit Round-Trip (Part IV §9) | ~17 wk | ~17 wk | 0 |
+| Inspect Model (Part V) | ~17.5 wk | ~18 wk | +0.5 wk |
+| Data Tab (Part VI) | ~18.5 wk | **~12 wk** | **−6.5 wk** |
+| UI/UX (Part VII) | ~17 wk | ~17 wk | 0 |
+| **TOTAL** | **~106 wk** | **~88 wk** | **−18 wk (~17%)** |
+
+## §0.4 — Two new tracks the original master plan missed
+
+The audit surfaced two areas this plan did not address but must:
+
+1. **PRYZM 2 → PRYZM 3 strangler-fig closeout** — `packages/render-pipeline/` is mid-extraction (PRYZM 3 A16-T1 done; SSGI/TRAA/Outline still in engine awaiting A16-S124). Required for P1 (single composition root) + P2 (single THREE owner). Estimate: ~3 wk.
+2. **Existing-Conditions Import** — `packages/pdf-to-bim/` (PRYZM 2 S60 Track A) has extraction proposals + confidence + review-queue IMPLEMENTED but editor-host integration is missing. Plus `plugins/dxf/` DWG import (stub). Plus image-to-BIM (Phase 2). Estimate: ~8 wk for PDF-to-BIM editor integration; DWG + image deferred to Phase 2.
+
+These two tracks should be appended to the [§19 timeline](#19--quarter-by-quarter-overlay) below.
+
+## §0.5 — How to read this doc going forward
+
+The original Parts I–XI **stand** but every "NEW" / "MISSING" / "BUILD" claim in them must be read alongside the audit verdict in [§0.2](#02--headline-classification-of-every-new-c-contract). When in doubt, [PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md](PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md) wins. The detailed per-phase classification (which SCE-α-1, IFC-α-1, etc. is REDUNDANT vs PARTIALLY REDUNDANT vs NEW) is in the audit doc §3.
+
+The C-contract drafts (C24–C30) are authored **under the audit's grounding** — they govern the existing implementations and identify the gap-fill scope, not greenfield builds.
 
 ---
 
@@ -257,9 +311,11 @@ The existing `plugins/ifc-export/` produces syntactically valid IFC files but wi
 
 ## §8 — Sheet Composition Engine + Vector PDF
 
-### 8.1 — Current state audit
+> **CORRECTION (2026-05-31, see [Part 0](#part-0--prior-art-audit-amendment-2026-05-31))**: This section was originally written without auditing `plugins/sheets/`. The corrected position is in [PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md §3.1](PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md). `plugins/sheets/` (PRYZM 2 S37 / Phase 2C / ADR-0031) IS the Sheet Composition Engine — SheetStore + 11+ handlers + viewport + title-block + view-renderer + 6 widget types + book-exporter ARE IMPLEMENTED. The real gaps are: (a) vector PDF backend (`packages/drawing-primitives/src/backends/pdf.ts` is a typed stub), (b) DXF backend (`plugins/dxf/` is a stub), (c) sheet UI in `apps/editor/`, (d) integration of `plugins/dimensions/` + `plugins/annotations/` output into sheet rendering, (e) section/elevation viewports (`plugins/section-view/` is a SKELETON awaiting S37/S38). Effort revised from ~20 wk → **~10 wk**.
 
-> **CRITICAL GAP**: Today PRYZM has no architecturally sound sheet workflow. The existing `plugins/export-pdf/` plugin generates a *raster screenshot* of the canvas, not a vector drawing sheet. There is no: drawing frame, title block, view arrangement, scale bar, north arrow, revision block, border, or print-calibrated output. **This is not a polish issue — it is a fundamental capability gap that prevents construction document delivery.**
+### 8.1 — Current state audit (CORRECTED)
+
+> **CRITICAL CORRECTION**: The original draft of this section asserted PRYZM has "no architecturally sound sheet workflow". **That is wrong.** `plugins/sheets/` is a substantial PRYZM 2 implementation. The gap is at the **export side** (vector PDF + DXF backends are typed stubs) and at the **editor-UI side** (sheet management panel in `apps/editor/`), not at the schema/store/handler level. The original wording is preserved below only for diff visibility; the audit-corrected reality is in [Part 0 §0.2](#02--headline-classification-of-every-new-c-contract) and [audit §3.1](PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md). The original `plugins/export-pdf/` plugin shell IS empty / raster-only — but the real Sheet workflow lives in `plugins/sheets/`, not `plugins/export-pdf/`.
 
 ### 8.2 — Sheet Engine architecture
 
@@ -422,6 +478,8 @@ Isolation mode is driven by the existing `packages/visibility/` layer (P7). When
 ---
 
 # Part VI — DATA tab: Live Data Layer
+
+> **CORRECTION (2026-05-31, see [Part 0](#part-0--prior-art-audit-amendment-2026-05-31))**: This Part was originally written without auditing `plugins/schedules/`. The corrected position is in [PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md §3.6](PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md). `plugins/schedules/` (PRYZM 2 S41 / Phase 2C / ADR-0032) IMPLEMENTS Schedule store + 6 handlers + formula DSL + reactive table + CSV/XLSX export. The C28 Data Panel does NOT supersede schedules — it **wraps** schedules + adds three things: (a) **unified grid** across all elements (not per-schedule), (b) **quality-rules engine** (sourcing rules from the 248+ constraint DB + dimensional G-classes + topology A-classes), (c) **bulk-edit** commands through commandBus (P6). Effort revised from ~18.5 wk → **~12 wk**.
 
 ## §12 — Purpose
 
@@ -596,6 +654,24 @@ The phase IDs below are sequenced to respect the dependency chain identified in 
 | **Q1 2027** (Jan–Mar) | γ-1, γ-2, γ-3, γ-4 | β-2, β-3, β-4 | α-3, α-4, β-1 | β-2, β-3, β-4, β-5 | β-1, β-2, β-3 | UX-β-3, UX-β-4 | ~1500 + 550 |
 | **Q2 2027** (Apr–Jun) | δ-1, δ-2, δ-3 | γ-1, γ-2, γ-3 | β-2, β-3, γ-1 | γ-1, γ-2, γ-3, γ-4 | β-4, β-5, γ-1, γ-2 | UX-γ-1, UX-γ-2 | ~1700 + 650 |
 | **Q3 2027** (Jul–Sep) | — (closeout) | γ-4, δ-1, δ-2, δ-3 | γ-2, γ-3 | — | γ-3, γ-4, γ-5 | UX-γ-3, UX-γ-4 | ~1900 + 750 |
+
+## §19.5 — Audit-revised effort totals (2026-05-31)
+
+> Authoritative since the [Part 0 prior-art audit](#part-0--prior-art-audit-amendment-2026-05-31). The Q3 2026 → Q3 2027 quarter-by-quarter overlay above remains valid but the per-track totals compress as follows:
+
+| Track | Originally claimed | Audit-revised | Δ |
+|---|---|---|---|
+| IFC Export (§7) | ~16 wk | ~14 wk | −2 wk |
+| Sheet Composition (§8) | ~20 wk | **~10 wk** | **−10 wk** |
+| Revit Round-Trip (§9) | ~17 wk | ~17 wk | 0 |
+| Inspect Model (Part V) | ~17.5 wk | ~18 wk | +0.5 wk |
+| Data Tab (Part VI) | ~18.5 wk | **~12 wk** | **−6.5 wk** |
+| UI/UX (Part VII) | ~17 wk | ~17 wk | 0 |
+| **NEW** Render-pipeline strangler-fig closeout (per [Part 0 §0.4](#04--two-new-tracks-the-original-master-plan-missed)) | — | ~3 wk | +3 wk |
+| **NEW** PDF-to-BIM editor integration (per [Part 0 §0.4](#04--two-new-tracks-the-original-master-plan-missed)) | — | ~8 wk | +8 wk |
+| **TOTAL** | ~106 wk | **~99 wk** | **−7 wk (~7%)** |
+
+With the two new tracks included, the **net reduction is ~7%**. Without the new tracks, the reduction is ~17%. Both numbers preserve the Q3 2026 → Q3 2027 envelope; the slack is absorbed by reduced rework, not stretched calendar.
 
 ## §20 — Critical path summary
 
