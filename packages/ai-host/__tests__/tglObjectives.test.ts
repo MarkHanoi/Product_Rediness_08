@@ -3,12 +3,13 @@
 // known-bad one on the targeted axis.
 
 import { describe, expect, it } from 'vitest';
-import { computeObjectives, OBJECTIVE_AXES } from '../src/workflows/apartmentLayout/tgl/objectives.js';
+import { computeObjectives, OBJECTIVE_AXES, scoreFacadeAlignment } from '../src/workflows/apartmentLayout/tgl/objectives.js';
 import { buildSemanticGraph, type GraphEdge, type GraphNode, type LayoutGraph, type Primitive } from '../src/workflows/apartmentLayout/tgl/semanticGraph.js';
 import { computeSpaceSyntax, type SyntaxMetrics } from '../src/workflows/apartmentLayout/tgl/spaceSyntax.js';
 import { buildWallsAndDoors } from '../src/workflows/apartmentLayout/tgl/wallsAndDoors.js';
 import { subdivide } from '../src/workflows/apartmentLayout/tgl/subdivide.js';
 import { buildBubbleGraph, type BubbleGraph } from '../src/workflows/apartmentLayout/tgl/bubbleGraph.js';
+import { computeFacadeValueField } from '../src/workflows/apartmentLayout/environment/facadeValueField.js';
 import { decomposeToRects, type Pt } from '../src/workflows/apartmentLayout/tgl/rectDecomposition.js';
 import type { ApartmentProgram } from '../src/workflows/apartmentLayout/types.js';
 
@@ -820,6 +821,137 @@ describe('computeObjectives (TGL P7)', () => {
             // z=0, 3, 4, 7 distinct.
             // shared = 4; total = 8 → score = 0.5
             expect(v.alignmentField).toBeCloseTo(0.5, 6);
+        });
+    });
+
+    // §L1-α-4 (2026-05-31) — facadeAlignment: habitable rooms anchored on
+    // high-value shell edges. Uses bubble.facadeField (L1-α-1) when present;
+    // falls back to a degraded "fraction of habitable rooms touching the
+    // façade" proxy otherwise.
+    describe('§L1-α-4 facadeAlignment', () => {
+        // Helpers shared by the slice.
+        const extWall = (guid: string, a: Pt, b: Pt): GraphNode => ({
+            guid, kind: 'Wall', sourceId: guid,
+            attrs: { isExternal: true },
+            geometry: { baseLine: [a, b] },
+            psets: {},
+        });
+        const room = (guid: string, type: string, needsWindow: boolean, x0: number, z0: number, x1: number, z1: number): GraphNode => ({
+            guid, kind: 'Space', sourceId: guid,
+            attrs: { spaceType: type, netAreaM2: (x1 - x0) * (z1 - z0), isPrivate: false, needsWindow },
+            geometry: { polygon: [{ x: x0, z: z0 }, { x: x1, z: z0 }, { x: x1, z: z1 }, { x: x0, z: z1 }] },
+            psets: {},
+        });
+        // 12 × 10 shell, south façade at z = 0.
+        const SHELL: Pt[] = [{ x: 0, z: 0 }, { x: 12, z: 0 }, { x: 12, z: 10 }, { x: 0, z: 10 }];
+        const FIELD = computeFacadeValueField(SHELL);
+        const bubbleWithField: BubbleGraph = { rooms: [], edges: [], corridorId: null, entryId: null, facadeField: FIELD };
+
+        it('empty plan (no spaces) → 0', () => {
+            const g = graphOf([]);
+            expect(scoreFacadeAlignment(g, bubbleWithField)).toBe(0);
+        });
+
+        it('no habitable spaces (all corridors / bathrooms) → 0', () => {
+            const g = graphOf([
+                room('C', 'corridor', false, 0, 0, 4, 2),
+                room('B', 'bathroom', false, 4, 0, 7, 2),
+            ]);
+            expect(scoreFacadeAlignment(g, bubbleWithField)).toBe(0);
+        });
+
+        it('all-interior plan (no façade-touching habitable room) → 0', () => {
+            // Bedroom polygon NOT touching any external wall edge — but more
+            // importantly, no BOUNDS edge to an external wall in the graph.
+            const g = graphOf([
+                room('B', 'bedroom', true, 3, 3, 7, 6),
+            ]);
+            expect(scoreFacadeAlignment(g, bubbleWithField)).toBe(0);
+        });
+
+        it('single habitable room on the SOUTH (best) edge → near 1.0', () => {
+            // Living room rect (0..12, 0..4); south wall baseLine (0,0)→(12,0)
+            // sits ON the south shell edge (sunlight 1.0, corner-exposure
+            // pushes overallValue ≈ 1.0).
+            const g = graphOf([
+                extWall('W', { x: 0, z: 0 }, { x: 12, z: 0 }),
+                room('L', 'living', true, 0, 0, 12, 4),
+            ], [{ kind: 'BOUNDS', from: 'W', to: 'L' }]);
+            const s = scoreFacadeAlignment(g, bubbleWithField);
+            // South facade overallValue ≈ 0.6*1.0 + 0.4*0.5 ≈ 0.8 (right-angle
+            // corner score 0.5 per end). Score = 1 * 0.8 / 1 = 0.8.
+            expect(s).toBeGreaterThan(0.7);
+        });
+
+        it('single habitable room on the NORTH (poor) edge → low score', () => {
+            // Bedroom rect (0..12, 6..10); north wall baseLine (12,10)→(0,10)
+            // sits ON the north shell edge (sunlight 0.25 → overallValue ≈ 0.35).
+            const g = graphOf([
+                extWall('W', { x: 12, z: 10 }, { x: 0, z: 10 }),
+                room('B', 'bedroom', true, 0, 6, 12, 10),
+            ], [{ kind: 'BOUNDS', from: 'W', to: 'B' }]);
+            const s = scoreFacadeAlignment(g, bubbleWithField);
+            // North facade overallValue ≈ 0.6*0.25 + 0.4*0.5 ≈ 0.35.
+            expect(s).toBeLessThan(0.45);
+            expect(s).toBeGreaterThan(0.2);
+        });
+
+        it('south-anchored room outscores north-anchored room (orientation matters)', () => {
+            const south = graphOf([
+                extWall('W', { x: 0, z: 0 }, { x: 12, z: 0 }),
+                room('L', 'living', true, 0, 0, 12, 4),
+            ], [{ kind: 'BOUNDS', from: 'W', to: 'L' }]);
+            const north = graphOf([
+                extWall('W', { x: 12, z: 10 }, { x: 0, z: 10 }),
+                room('B', 'bedroom', true, 0, 6, 12, 10),
+            ], [{ kind: 'BOUNDS', from: 'W', to: 'B' }]);
+            expect(scoreFacadeAlignment(south, bubbleWithField))
+                .toBeGreaterThan(scoreFacadeAlignment(north, bubbleWithField));
+        });
+
+        it('non-habitable rooms (bathroom / corridor) are excluded from numerator', () => {
+            // Bathroom (needsWindow=false) on the prime south façade should
+            // NOT count — the axis only ranks HABITABLE-on-prime placements.
+            const g = graphOf([
+                extWall('W', { x: 0, z: 0 }, { x: 12, z: 0 }),
+                room('Bath', 'bathroom', false, 0, 0, 4, 3),
+                room('B', 'bedroom', true, 4, 6, 12, 10),    // no external wall touch
+            ], [{ kind: 'BOUNDS', from: 'W', to: 'Bath' }]);
+            // Bedroom is habitable but doesn't touch the facade → totalLen = 0 → 0.
+            expect(scoreFacadeAlignment(g, bubbleWithField)).toBe(0);
+        });
+
+        it('no external walls in graph → 0', () => {
+            const g = graphOf([
+                room('L', 'living', true, 0, 0, 4, 4),
+            ]);
+            expect(scoreFacadeAlignment(g, bubbleWithField)).toBe(0);
+        });
+
+        it('back-compat: bubble without facadeField → degraded fraction-touching score', () => {
+            const emptyB: BubbleGraph = { rooms: [], edges: [], corridorId: null, entryId: null };
+            const g = graphOf([
+                extWall('W', { x: 0, z: 0 }, { x: 12, z: 0 }),
+                room('L', 'living', true, 0, 0, 6, 4),    // touches facade
+                room('B', 'bedroom', true, 6, 6, 10, 10),  // does NOT touch
+            ], [{ kind: 'BOUNDS', from: 'W', to: 'L' }]);
+            // 1 of 2 habitable rooms touches → 0.5.
+            expect(scoreFacadeAlignment(g, emptyB)).toBeCloseTo(0.5, 6);
+        });
+
+        it('axis surfaces on the full computeObjectives vector in [0, 1]', () => {
+            const g = graphOf([
+                extWall('W', { x: 0, z: 0 }, { x: 12, z: 0 }),
+                room('L', 'living', true, 0, 0, 12, 4),
+            ], [{ kind: 'BOUNDS', from: 'W', to: 'L' }]);
+            const v = computeObjectives(g, metricsOf({ L: 0 }), bubbleWithField);
+            expect(v.facadeAlignment).toBeGreaterThanOrEqual(0);
+            expect(v.facadeAlignment).toBeLessThanOrEqual(1);
+            expect(v.facadeAlignment).toBeGreaterThan(0.5);   // south-anchored → strong
+        });
+
+        it('appears in OBJECTIVE_AXES so Pareto + weighted sums see it', () => {
+            expect(OBJECTIVE_AXES).toContain('facadeAlignment');
         });
     });
 

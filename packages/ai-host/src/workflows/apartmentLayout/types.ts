@@ -213,6 +213,13 @@ export interface LayoutScoreBreakdown {
      *  50 mm) with at least one other edge. Rewards layouts whose walls
      *  participate in a small, disciplined axis system. Cognition Layer 4. */
     alignmentField?: number;       // 0-1
+    /** §L1-α-4 facadeAlignment — habitable rooms anchored on HIGH-VALUE
+     *  shell edges (south-facing > north-facing, corner > straight, per
+     *  L1-α-1 `FacadeValueField`). Pareto-ranks "good rooms on best
+     *  façades" above "good rooms on poor façades." Cognition Layer 1
+     *  (Environmental Intelligence) — complements `naturalLight` (which
+     *  counts windowed rooms binary) by weighting by façade quality. */
+    facadeAlignment?: number;      // 0-1
 }
 
 export interface LayoutScore {

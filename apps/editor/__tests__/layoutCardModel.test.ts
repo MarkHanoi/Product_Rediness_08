@@ -67,7 +67,7 @@ describe('buildLayoutCardModel (A5-modal-core)', () => {
             expect(m.bars.every(b => b.group === 'primary')).toBe(true);
         });
 
-        it('D-TGL path (full breakdown) emits primary + quality + cognition L2/L3/L4 bars', () => {
+        it('D-TGL path (full breakdown) emits primary + quality + cognition L1/L2/L3/L4 bars', () => {
             const m = buildLayoutCardModel(opt({
                 score: {
                     overall: 75,
@@ -78,16 +78,18 @@ describe('buildLayoutCardModel (A5-modal-core)', () => {
                         edgeRealisation: 0.85,
                         openingCadence: 0.6, proportionalElegance: 0.9,
                         wetStackAlignment: 0.7, alignmentField: 0.5,
+                        facadeAlignment: 0.6,
                     },
                 },
             }), 0);
-            // All 15 axes present (4 + 2 + 4 + 1 + 4).
-            expect(m.bars).toHaveLength(15);
+            // All 16 axes present (4 + 2 + 4 + 1 + 4 + 1).
+            expect(m.bars).toHaveLength(16);
             const keys = m.bars.map(b => b.key);
             expect(keys).toContain('shapeQuality');
             expect(keys).toContain('hierarchy');
             expect(keys).toContain('edgeRealisation');
             expect(keys).toContain('alignmentField');
+            expect(keys).toContain('facadeAlignment');
         });
 
         it('partial breakdown — some cognition axes set, others absent — emits only the present ones', () => {
@@ -179,6 +181,62 @@ describe('buildLayoutCardModel (A5-modal-core)', () => {
             }), 0);
             const hier = m.bars.find(b => b.key === 'hierarchy')!;
             expect(hier.pct).toBe(88);
+        });
+
+        // §L1-α-4 (2026-05-31) — facadeAlignment surfaces as a "Façade" bar.
+        describe('facadeAlignment (L1 — Environmental Intelligence)', () => {
+            it('surfaces facadeAlignment as a bar labelled "Façade" in cognition-L1 group', () => {
+                const m = buildLayoutCardModel(opt({
+                    score: {
+                        overall: 70,
+                        breakdown: {
+                            naturalLight: 0.5, privacy: 0.5, kitchenWorkflow: 0.5, corridorEfficiency: 0.5,
+                            facadeAlignment: 0.62,
+                        },
+                    },
+                }), 0);
+                const bar = m.bars.find(b => b.key === 'facadeAlignment')!;
+                expect(bar).toBeDefined();
+                expect(bar.label).toBe('Façade');
+                expect(bar.group).toBe('cognition-L1');
+                expect(bar.pct).toBe(62);
+            });
+
+            it('formatter matches the existing cognition-axis formatter (rounds to nearest int)', () => {
+                // Mirror: hierarchy 0.876 → 88; facadeAlignment 0.876 should also → 88.
+                const m = buildLayoutCardModel(opt({
+                    score: {
+                        overall: 70,
+                        breakdown: {
+                            naturalLight: 0.5, privacy: 0.5, kitchenWorkflow: 0.5, corridorEfficiency: 0.5,
+                            facadeAlignment: 0.876,
+                        },
+                    },
+                }), 0);
+                const fac = m.bars.find(b => b.key === 'facadeAlignment')!;
+                expect(fac.pct).toBe(88);
+            });
+
+            it('omits the bar when facadeAlignment is missing from the breakdown', () => {
+                // AI-relay path — only the 4 primary axes present, no facadeAlignment.
+                const m = buildLayoutCardModel(opt(), 0);
+                expect(m.bars.map(b => b.key)).not.toContain('facadeAlignment');
+            });
+
+            it('shows zero correctly when facadeAlignment is explicitly 0', () => {
+                const m = buildLayoutCardModel(opt({
+                    score: {
+                        overall: 70,
+                        breakdown: {
+                            naturalLight: 0.5, privacy: 0.5, kitchenWorkflow: 0.5, corridorEfficiency: 0.5,
+                            facadeAlignment: 0,
+                        },
+                    },
+                }), 0);
+                const fac = m.bars.find(b => b.key === 'facadeAlignment')!;
+                expect(fac).toBeDefined();
+                expect(fac.pct).toBe(0);
+            });
         });
     });
 });

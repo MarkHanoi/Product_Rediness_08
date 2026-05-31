@@ -327,6 +327,12 @@ function weightedSum(o: ObjectiveVector, w: ScoringWeights): number {
         // §L4-δ-1 alignmentField (2026-05-30) — plan-wide axis discipline.
         // Lower fixed weight: rewards designed-looking plans, tie-breaker.
         alignmentField: 0.3,
+        // §L1-α-4 facadeAlignment (2026-05-31) — habitable rooms on high-
+        // value shell edges. Coupled to the user's `naturalLight` weight
+        // (scaled by 0.5) since both axes pull the same architectural
+        // intent (good rooms front the best façades); together with
+        // `daylight` they form a 2-pass façade scorer.
+        facadeAlignment: Math.max(0, w.naturalLight) * 0.5,
     };
     const total = OBJECTIVE_AXES.reduce((s, a) => s + raw[a], 0) || 1;
     return OBJECTIVE_AXES.reduce((s, a) => s + (raw[a] / total) * o[a], 0);

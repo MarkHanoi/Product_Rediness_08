@@ -16,6 +16,7 @@
 import type { BubbleGraph } from './bubbleGraph.js';
 import type { LayoutGraph, GraphNode } from './semanticGraph.js';
 import type { SyntaxMetrics } from './spaceSyntax.js';
+import type { Pt } from './rectDecomposition.js';
 import { preferenceBetween } from '../rules/programRules.js';
 import { countVisibleSpacesByRaycast, scoreVisibleSpaceCount } from './entrySightlineRaycast.js';
 
@@ -110,6 +111,29 @@ export interface ObjectiveVector {
      * proportioned rooms in the architectural comfort band.
      */
     readonly proportionalElegance: number;
+    /**
+     * §L1-α-4 (2026-05-31) — façade alignment axis (Cognition Layer 1,
+     * Environmental Intelligence). SOFT-scores how well the HABITABLE rooms
+     * (needsWindow = true: bedroom / master / living / dining / kitchen /
+     * study) anchor onto HIGH-VALUE shell-edges — south-facing > north-facing,
+     * corner edges > straight runs (per L1-α-1 `FacadeValueField`). Pareto-
+     * ranks "good rooms on best façades" above "good rooms on poor façades."
+     *
+     * Algorithm: for each habitable Space, walk its BOUNDS edges to external
+     * Walls. For each external wall, match the wall's baseLine midpoint to
+     * the nearest shell-edge in `bubble.facadeField.edges`, weight the
+     * wall's length by that edge's `overallValue`, and sum. Normalise
+     * against the upper bound (every habitable façade-touching edge at
+     * value = 1) so the axis lives in [0, 1].
+     *
+     * Back-compat: when `bubble.facadeField` is absent (legacy callers /
+     * shell polygon not supplied), falls back to the fraction of habitable
+     * rooms that touch any external wall (binary per room, area-neutral) —
+     * a degraded but monotonic proxy. When NO habitable room touches the
+     * façade at all → 0; when EVERY habitable room is anchored on the best
+     * edges → → 1.
+     */
+    readonly facadeAlignment: number;
     /**
      * §L4-δ-1 (2026-05-30) — alignment field axis (Cognition Layer 4,
      * Compositional Geometry; SCORING form). SOFT-scores how well the
@@ -209,7 +233,7 @@ export interface ObjectiveVector {
 }
 
 export const OBJECTIVE_AXES: readonly (keyof ObjectiveVector)[] =
-    ['efficiency', 'adjacency', 'daylight', 'circulation', 'regularity', 'hierarchy', 'shapeQuality', 'topologyQuality', 'edgeRealisation', 'openingCadence', 'proportionalElegance', 'spatialClimax', 'entrySightline', 'arrivalSequence', 'wetStackAlignment', 'alignmentField'] as const;
+    ['efficiency', 'adjacency', 'daylight', 'circulation', 'regularity', 'hierarchy', 'shapeQuality', 'topologyQuality', 'edgeRealisation', 'openingCadence', 'proportionalElegance', 'spatialClimax', 'entrySightline', 'arrivalSequence', 'wetStackAlignment', 'alignmentField', 'facadeAlignment'] as const;
 
 const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n);
 const num = (v: unknown, d = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -246,7 +270,7 @@ export function computeObjectives(
     const spaces = graph.nodes.filter(n => n.kind === 'Space');
     const totalArea = spaces.reduce((s, n) => s + num(n.attrs.netAreaM2), 0);
     if (spaces.length === 0 || totalArea <= 0) {
-        return { efficiency: 0, adjacency: 0, daylight: 0, circulation: 0, regularity: 0, hierarchy: 0, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation: 1, openingCadence: 1, proportionalElegance: 1, spatialClimax: 1, entrySightline: 1, arrivalSequence: 1, wetStackAlignment: 1, alignmentField: 1 };
+        return { efficiency: 0, adjacency: 0, daylight: 0, circulation: 0, regularity: 0, hierarchy: 0, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation: 1, openingCadence: 1, proportionalElegance: 1, spatialClimax: 1, entrySightline: 1, arrivalSequence: 1, wetStackAlignment: 1, alignmentField: 1, facadeAlignment: 0 };
     }
 
     // ── efficiency: how little of the floor is circulation. ──────────────────────
@@ -607,7 +631,142 @@ export function computeObjectives(
     }
     const edgeRealisation = realisationN > 0 ? clamp01(realisationSum / realisationN) : 1;
 
-    return { efficiency, adjacency, daylight, circulation, regularity, hierarchy, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation, openingCadence, proportionalElegance, spatialClimax, entrySightline, arrivalSequence, wetStackAlignment, alignmentField };
+    // ── §L1-α-4 facadeAlignment: how well habitable rooms anchor on
+    //    HIGH-VALUE shell-edges. Uses `bubble.facadeField` (per-edge
+    //    sunlight + corner-exposure aggregate from L1-α-1) when present;
+    //    falls back to a degraded "fraction of habitable rooms that touch
+    //    any external wall" when absent (legacy bubble graphs without the
+    //    shell polygon). Higher = better.
+    const facadeAlignment = scoreFacadeAlignment(graph, bubble);
+
+    return { efficiency, adjacency, daylight, circulation, regularity, hierarchy, shapeQuality: clamp01(shapeQuality), topologyQuality: clamp01(topologyQuality), edgeRealisation, openingCadence, proportionalElegance, spatialClimax, entrySightline, arrivalSequence, wetStackAlignment, alignmentField, facadeAlignment };
+}
+
+/**
+ * §L1-α-4 (2026-05-31) — façade alignment score in [0, 1].
+ *
+ * For each HABITABLE space (`needsWindow === true`), walks its BOUNDS edges
+ * to external walls, matches each wall's baseLine midpoint to the nearest
+ * shell-edge in `bubble.facadeField.edges`, and weights the wall length by
+ * that edge's `overallValue`. Normalises against the upper bound (every
+ * habitable façade-touching length at value = 1) so the axis lives in
+ * [0, 1]. When the field is absent, falls back to a degraded "fraction
+ * of habitable rooms touching any external wall" proxy.
+ *
+ * Pure: no I/O, no THREE, no DOM, no RNG. Exported for unit tests + future
+ * cognition-stack rebalancing.
+ */
+export function scoreFacadeAlignment(graph: LayoutGraph, bubble: BubbleGraph): number {
+    const spaces = graph.nodes.filter(n => n.kind === 'Space');
+    if (spaces.length === 0) return 0;
+    // Identify habitable spaces (the rooms that BENEFIT from a high-value
+    // façade frontage). Matches the `daylight` axis filter — keeps the two
+    // L1-α axes consistent.
+    const habitable = spaces.filter(n => n.attrs.needsWindow === true);
+    if (habitable.length === 0) return 0;
+
+    // Map: external-wall GUID → its baseLine (start, end).
+    const extWallBaseLine = new Map<string, readonly [Pt, Pt]>();
+    for (const n of graph.nodes) {
+        if (n.kind !== 'Wall') continue;
+        if (n.attrs.isExternal !== true) continue;
+        const bl = n.geometry?.baseLine;
+        if (!bl || bl.length < 2) continue;
+        extWallBaseLine.set(n.guid, bl as readonly [Pt, Pt]);
+    }
+    // No external walls in the graph → no façade-touching geometry possible.
+    if (extWallBaseLine.size === 0) return 0;
+
+    // Map: space GUID → list of external-wall baseLines that BOUND it.
+    const spaceExtWalls = new Map<string, Array<readonly [Pt, Pt]>>();
+    for (const e of graph.edges) {
+        if (e.kind !== 'BOUNDS') continue;
+        const bl = extWallBaseLine.get(e.from);
+        if (!bl) continue;
+        const list = spaceExtWalls.get(e.to) ?? [];
+        list.push(bl);
+        spaceExtWalls.set(e.to, list);
+    }
+
+    const field = bubble.facadeField;
+
+    // ── DEGRADED PATH (no per-edge field): binary fraction of habitable
+    //    rooms touching the façade. Monotonic + bounded but ignores
+    //    orientation / corner value. Matches the spec's "degraded scoring
+    //    formula" edge case.
+    if (!field || field.edges.length === 0) {
+        let touchN = 0;
+        for (const h of habitable) {
+            if ((spaceExtWalls.get(h.guid) ?? []).length > 0) touchN++;
+        }
+        return clamp01(touchN / habitable.length);
+    }
+
+    // ── FULL PATH: weight each habitable wall length by the matched
+    //    facade-edge `overallValue`. Match = the facade edge that contains
+    //    the wall's midpoint (axis-aligned partitions sit ON a perimeter
+    //    edge in the D-TGL pipeline, so the matching is straightforward).
+    let weightedLen = 0;
+    let totalLen = 0;
+    for (const h of habitable) {
+        const walls = spaceExtWalls.get(h.guid) ?? [];
+        for (const [a, b] of walls) {
+            const len = Math.hypot(b.x - a.x, b.z - a.z);
+            if (len <= 0) continue;
+            const value = matchFacadeValue(a, b, field.edges);
+            weightedLen += len * value;
+            totalLen += len;
+        }
+    }
+    if (totalLen <= 0) return 0;
+    return clamp01(weightedLen / totalLen);
+}
+
+/**
+ * §L1-α-4 internal — match a wall baseLine to its shell-edge facade value.
+ *
+ * The D-TGL pipeline emits external walls as segments LYING ON one of the
+ * shell-polygon edges (the perimeter is already decomposed). We pick the
+ * facade edge that best CONTAINS the wall midpoint: project the midpoint
+ * onto each edge's infinite line, score by perpendicular distance, then
+ * pick the smallest. Returns the matched edge's `overallValue` (∈ [0, 1])
+ * or 0 if no edge is meaningfully close (defensive — should not happen
+ * when the wall really lies on the perimeter).
+ */
+function matchFacadeValue(
+    a: Pt, b: Pt,
+    edges: readonly { a: Pt; b: Pt; overallValue: number }[],
+): number {
+    const mx = (a.x + b.x) / 2;
+    const mz = (a.z + b.z) / 2;
+    const MAX_PERP_M = 0.5;     // generous tolerance — wall lies on the edge in practice
+    let best = -1;
+    let bestDist = Infinity;
+    for (let i = 0; i < edges.length; i++) {
+        const e = edges[i]!;
+        const ex = e.b.x - e.a.x;
+        const ez = e.b.z - e.a.z;
+        const len2 = ex * ex + ez * ez;
+        if (len2 <= 1e-9) continue;
+        // Project midpoint onto the edge's infinite line.
+        const t = ((mx - e.a.x) * ex + (mz - e.a.z) * ez) / len2;
+        // Perpendicular distance from midpoint to that line.
+        const projX = e.a.x + t * ex;
+        const projZ = e.a.z + t * ez;
+        const perp = Math.hypot(mx - projX, mz - projZ);
+        // Penalise projections off the edge segment (t outside [0, 1])
+        // by adding their overshoot to the distance score.
+        const overshoot = t < 0 ? -t * Math.sqrt(len2)
+                        : t > 1 ?  (t - 1) * Math.sqrt(len2)
+                        : 0;
+        const score = perp + overshoot;
+        if (score < bestDist) {
+            bestDist = score;
+            best = i;
+        }
+    }
+    if (best < 0 || bestDist > MAX_PERP_M) return 0;
+    return clamp01(edges[best]!.overallValue);
 }
 
 const pairKey = (a: string, b: string): string => (a < b ? `${a}|${b}` : `${b}|${a}`);

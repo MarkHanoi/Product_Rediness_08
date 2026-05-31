@@ -26,7 +26,9 @@ export type ScoreBarKey =
     // Cognition L3 — Semantic Topology
     | 'edgeRealisation'
     // Cognition L4 — Compositional Geometry
-    | 'openingCadence' | 'proportionalElegance' | 'wetStackAlignment' | 'alignmentField';
+    | 'openingCadence' | 'proportionalElegance' | 'wetStackAlignment' | 'alignmentField'
+    // Cognition L1 — Environmental Intelligence
+    | 'facadeAlignment';
 
 /** One score axis as a 0-100 bar for the breakdown. */
 export interface ScoreBar {
@@ -36,7 +38,7 @@ export interface ScoreBar {
     /** §L2-β-5 (2026-05-30) — group tag so the modal can stack bars under
      *  visual section headings ("Primary" / "Quality" / "Cognition L2/3/4")
      *  when the renderer chooses to. Primary bars carry 'primary'. */
-    readonly group: 'primary' | 'quality' | 'cognition-L2' | 'cognition-L3' | 'cognition-L4';
+    readonly group: 'primary' | 'quality' | 'cognition-L1' | 'cognition-L2' | 'cognition-L3' | 'cognition-L4';
 }
 
 export interface RoomRow {
@@ -79,6 +81,8 @@ const BAR_LABELS: Record<ScoreBarKey, string> = {
     proportionalElegance:'Proportions',
     wetStackAlignment:   'Wet stack',
     alignmentField:      'Alignment',
+    // Cognition L1
+    facadeAlignment:     'Façade',
 };
 
 /** Per-key group classification — used by the renderer to stack bars under
@@ -99,6 +103,7 @@ const BAR_GROUPS: Record<ScoreBarKey, ScoreBar['group']> = {
     proportionalElegance:'cognition-L4',
     wetStackAlignment:   'cognition-L4',
     alignmentField:      'cognition-L4',
+    facadeAlignment:     'cognition-L1',
 };
 
 const round1 = (n: number): number => Math.round(n * 10) / 10;
@@ -140,6 +145,8 @@ export function buildLayoutCardModel(option: ScoredLayoutOption, index: number):
         cognitionBar('proportionalElegance', b.proportionalElegance),
         cognitionBar('wetStackAlignment', b.wetStackAlignment),
         cognitionBar('alignmentField',   b.alignmentField),
+        // Cognition L1 — environmental intelligence (façade-quality match).
+        cognitionBar('facadeAlignment',  b.facadeAlignment),
     ];
     const bars: ScoreBar[] = maybeBars.filter((bar): bar is ScoreBar => bar !== null);
     const rooms: RoomRow[] = option.rooms.map(r => ({
