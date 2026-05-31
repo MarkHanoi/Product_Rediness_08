@@ -173,7 +173,7 @@ Every axis is in ObjectiveVector + computeObjectives + weightedSum + LayoutScore
 
 | Package | Pass | Notes |
 |---|---|---|
-| @pryzm/ai-host | **883/883** | 2 SCC AiHost.* pre-existing failures unchanged (memory: scc-no-barrel-access-at-module-load) |
+| @pryzm/ai-host | **917/917** | 2 SCC AiHost.* pre-existing failures unchanged (memory: scc-no-barrel-access-at-module-load) |
 | @pryzm/core-app-model | (typecheck) | Pre-existing plugin-side TS errors; lighting-side clean |
 | @pryzm/geometry-lighting | (depends on core-app-model rebuild for full validation) | F1.5' mirror_light builder added |
 | @pryzm/geometry-furniture | (untouched this slice) | 11 of 15 F1.x types shipped contract-complete |
