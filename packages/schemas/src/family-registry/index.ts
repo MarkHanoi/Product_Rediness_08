@@ -14,3 +14,9 @@
 export * from './identity.js';
 export * from './registered-family.js';
 export * from './registry.js';
+
+// P0.5 Stage-5 (Family Platform) — pure assembler that composes a
+// RegisteredFamily from the upstream Stage-1/2/3/4 outputs.  Adds:
+// `assembleRegisteredFamily`, `AssembleRegisteredFamilyOptions`.  No name
+// collisions with the slice-A substrate above.
+export * from './from-pipeline.js';

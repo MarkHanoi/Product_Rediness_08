@@ -34,7 +34,18 @@ import {
     findByOccupancy,
     findByMountClass,
     findByTag,
+    // from-pipeline (Stage-5 assembler)
+    assembleRegisteredFamily,
 } from '../src/family-registry/index.js';
+// `import type` is REQUIRED here: the runtime barrels for family-parametric /
+// family-geometry / family-schemas are NOT loaded by this test file (they
+// transitively pull the in-flight Stage-3 synthesiser's primitive substrate
+// — a sister slice — which is outside this test's blast radius).  Stage-5
+// only consumes the four shapes structurally; types are erased at compile time.
+import type { FamilyDefinition } from '../src/family-definition/definition.js';
+import type { ParametricFamily } from '../src/family-parametric/family.js';
+import type { GeneratedGeometry } from '../src/family-geometry/generated.js';
+import type { GeneratedSchemas } from '../src/family-schemas/generated.js';
 
 // ── Fixture builders ───────────────────────────────────────────────────────
 
@@ -523,5 +534,406 @@ describe('round-trip', () => {
         const s = registerFamily(emptyFamilyRegistryState(), family());
         const parsed = FamilyRegistryStateSchema.parse(JSON.parse(JSON.stringify(s)));
         expect(parsed).toEqual(s);
+    });
+});
+
+// ── assembleRegisteredFamily (Stage-5 transformer) ─────────────────────────
+
+const PIPELINE_ID = 'family/com.pryzm.core/desk' as const;
+
+const makeDefinition = (
+    overrides: { id?: string; semanticNames?: string[]; mountClass?: 'floor' | 'wall' | 'ceiling' | 'embedded' } = {},
+): FamilyDefinition => ({
+    identity: {
+        id:      overrides.id ?? PIPELINE_ID,
+        name:    'Desk',
+        version: '1.0.0',
+        author:  'PRYZM',
+        license: 'MIT',
+    },
+    documentation: {
+        pdfs: [], specSheets: [], referenceImages: [],
+    },
+    geometry: {
+        dimensions:         { widthM: 1, depthM: 0.6, heightM: 0.75 },
+        parametricRanges:   [],
+        hostedRelationship: { hostKind: 'none' },
+    },
+    behaviour: {
+        movable:    true,
+        hosted:     false,
+        mountClass: overrides.mountClass ?? 'floor',
+    },
+    constraints: {
+        excludeWallTypes: [],
+    },
+    placement: {
+        defaultAnchor:  'wall-window',
+        allowedAnchors: [],
+        excludedWalls:  [],
+    },
+    bim: {
+        entityType:     'IfcFurniture',
+        predefinedType: 'TABLE',
+        psets:          ['Pset_FurnitureTypeCommon'],
+    },
+    ai: {
+        semanticNames:  overrides.semanticNames ?? ['desk', 'workstation'],
+        synonyms:       [],
+        cuesForPrompts: [],
+    },
+    derived: {
+        canonicalSemanticNames: ['desk', 'workstation'],
+        volumeM3:               0.45,
+        footprintAreaM2:        0.6,
+        canonicalHash:          'canonical:desk@v1',
+        ingestedAt:             '2026-01-01T00:00:00.000Z',
+    },
+});
+
+const makePipelineParametric = (id: string = PIPELINE_ID): ParametricFamily => ({
+    identity: {
+        id, name: 'Desk', version: '1.0.0', author: 'PRYZM', license: 'MIT',
+    },
+    parameters: {},
+    primitives: [
+        {
+            id:           'box-0',
+            kind:         'box',
+            dimensions:   { boxWidth: 1, boxDepth: 0.6, boxHeight: 0.75 },
+            transform:    {
+                translate: { x: 0, y: 0, z: 0 },
+                rotateDeg: { x: 0, y: 0, z: 0 },
+                scale:     { x: 1, y: 1, z: 1 },
+            },
+            materialSlot: 'default',
+        },
+    ],
+    parametricHash: 'parametric:desk@v1',
+    decomposedAt:   '2026-01-01T00:00:00.000Z',
+});
+
+const makePipelineGeometry = (id: string = PIPELINE_ID): GeneratedGeometry => ({
+    identity: {
+        id, name: 'Desk', version: '1.0.0', author: 'PRYZM', license: 'MIT',
+    },
+    builder: {
+        kind:        'parametric',
+        modulePath:  '@pryzm/family-builders/desk.js',
+        exportName:  'buildDesk',
+        builderHash: 'builder:desk@v1',
+    },
+    planSymbol: {
+        kind:       'parametric',
+        modulePath: '@pryzm/family-plan-symbols/desk.js',
+        exportName: 'deskSymbol',
+        bboxMinX:   -0.5,
+        bboxMinY:   -0.3,
+        bboxMaxX:    0.5,
+        bboxMaxY:    0.3,
+    },
+    footprint: {
+        lengthM:          1,
+        depthM:           0.6,
+        clearFrontM:      0,
+        clearSideM:       0,
+        clearBackM:       0,
+        clearAboveM:      0,
+        excludeDoorSwing: false,
+    },
+    geometryHash:  'geometry:desk@v1',
+    synthesisedAt: '2026-01-01T00:00:00.000Z',
+});
+
+const makePipelineSchemas = (id: string = PIPELINE_ID): GeneratedSchemas => ({
+    identity: {
+        id, name: 'Desk', version: '1.0.0', author: 'PRYZM', license: 'MIT',
+    },
+    instanceSchema: {
+        parameters: [],
+        specHash:   'spec:desk@v1',
+    },
+    commandPayloads: {
+        create: { command: 'create', parameters: [], payloadHash: 'create:desk@v1' },
+        update: { command: 'update', parameters: [], payloadHash: 'update:desk@v1' },
+        remove: { command: 'remove', parameters: [], payloadHash: 'remove:desk@v1' },
+    },
+    schemasHash:   'schemas:desk@v1',
+    synthesisedAt: '2026-01-01T00:00:00.000Z',
+});
+
+describe('assembleRegisteredFamily', () => {
+    it('produces a valid RegisteredFamily that round-trips through the schema', () => {
+        const out = assembleRegisteredFamily(
+            makeDefinition(),
+            makePipelineParametric(),
+            makePipelineGeometry(),
+            makePipelineSchemas(),
+        );
+        const parsed = RegisteredFamilySchema.safeParse(out);
+        expect(parsed.success).toBe(true);
+    });
+
+    it('throws when parametric identity id mismatches the definition', () => {
+        expect(() => assembleRegisteredFamily(
+            makeDefinition(),
+            makePipelineParametric('family/other/wrong'),
+            makePipelineGeometry(),
+            makePipelineSchemas(),
+        )).toThrow(/identity mismatch/);
+    });
+
+    it('throws when geometry identity id mismatches the definition', () => {
+        expect(() => assembleRegisteredFamily(
+            makeDefinition(),
+            makePipelineParametric(),
+            makePipelineGeometry('family/other/wrong'),
+            makePipelineSchemas(),
+        )).toThrow(/geometry.identity.id \(family\/other\/wrong\)/);
+    });
+
+    it('throws when schemas identity id mismatches the definition', () => {
+        expect(() => assembleRegisteredFamily(
+            makeDefinition(),
+            makePipelineParametric(),
+            makePipelineGeometry(),
+            makePipelineSchemas('family/other/wrong'),
+        )).toThrow(/schemas.identity.id \(family\/other\/wrong\)/);
+    });
+
+    it("defaults origin to 'user'", () => {
+        const out = assembleRegisteredFamily(
+            makeDefinition(),
+            makePipelineParametric(),
+            makePipelineGeometry(),
+            makePipelineSchemas(),
+        );
+        expect(out.origin).toBe('user');
+    });
+
+    it('propagates opts.origin', () => {
+        const out = assembleRegisteredFamily(
+            makeDefinition(),
+            makePipelineParametric(),
+            makePipelineGeometry(),
+            makePipelineSchemas(),
+            { origin: 'core' },
+        );
+        expect(out.origin).toBe('core');
+    });
+
+    it("defaults category to 'general' for v1", () => {
+        const out = assembleRegisteredFamily(
+            makeDefinition(),
+            makePipelineParametric(),
+            makePipelineGeometry(),
+            makePipelineSchemas(),
+        );
+        expect(out.category).toBe('general');
+    });
+
+    it('propagates opts.category', () => {
+        const out = assembleRegisteredFamily(
+            makeDefinition(),
+            makePipelineParametric(),
+            makePipelineGeometry(),
+            makePipelineSchemas(),
+            { category: 'desks' },
+        );
+        expect(out.category).toBe('desks');
+    });
+
+    it('mountClass matches definition.behaviour.mountClass', () => {
+        const out = assembleRegisteredFamily(
+            makeDefinition({ mountClass: 'wall' }),
+            makePipelineParametric(),
+            makePipelineGeometry(),
+            makePipelineSchemas(),
+        );
+        expect(out.mountClass).toBe('wall');
+    });
+
+    it('ifcMapping passes through the definition.bim by REFERENCE', () => {
+        const def = makeDefinition();
+        const out = assembleRegisteredFamily(
+            def,
+            makePipelineParametric(),
+            makePipelineGeometry(),
+            makePipelineSchemas(),
+        );
+        expect(out.ifcMapping).toBe(def.bim);
+    });
+
+    it('archetypeHints has length 1 in v1', () => {
+        const out = assembleRegisteredFamily(
+            makeDefinition(),
+            makePipelineParametric(),
+            makePipelineGeometry(),
+            makePipelineSchemas(),
+        );
+        expect(out.archetypeHints).toHaveLength(1);
+    });
+
+    it('archetypeHints[0].anchor === definition.placement.defaultAnchor', () => {
+        const out = assembleRegisteredFamily(
+            makeDefinition(),
+            makePipelineParametric(),
+            makePipelineGeometry(),
+            makePipelineSchemas(),
+        );
+        expect(out.archetypeHints[0]!.anchor).toBe('wall-window');
+    });
+
+    it('archetypeHints[0].occupancy is derived from semantic names when one matches', () => {
+        const out = assembleRegisteredFamily(
+            makeDefinition({ semanticNames: ['queen bed', 'bedroom'] }),
+            makePipelineParametric(),
+            makePipelineGeometry(),
+            makePipelineSchemas(),
+        );
+        expect(out.archetypeHints[0]!.occupancy).toBe('bedroom');
+    });
+
+    it("archetypeHints[0].occupancy normalises 'Living Room' → 'living_room'", () => {
+        const out = assembleRegisteredFamily(
+            makeDefinition({ semanticNames: ['Living Room', 'sofa'] }),
+            makePipelineParametric(),
+            makePipelineGeometry(),
+            makePipelineSchemas(),
+        );
+        expect(out.archetypeHints[0]!.occupancy).toBe('living_room');
+    });
+
+    it("archetypeHints[0].occupancy falls back to 'general' when no semantic match", () => {
+        const out = assembleRegisteredFamily(
+            makeDefinition({ semanticNames: ['desk', 'workstation', 'flat-pack'] }),
+            makePipelineParametric(),
+            makePipelineGeometry(),
+            makePipelineSchemas(),
+        );
+        expect(out.archetypeHints[0]!.occupancy).toBe('general');
+    });
+
+    it('schemaHash is deterministic — same input → same output', () => {
+        const def = makeDefinition();
+        const p = makePipelineParametric();
+        const g = makePipelineGeometry();
+        const s = makePipelineSchemas();
+        const a = assembleRegisteredFamily(def, p, g, s);
+        const b = assembleRegisteredFamily(def, p, g, s);
+        expect(a.schemaHash).toBe(b.schemaHash);
+    });
+
+    it('schemaHash CHANGES when the parametric hash changes', () => {
+        const def = makeDefinition();
+        const p1 = makePipelineParametric();
+        const p2 = { ...makePipelineParametric(), parametricHash: 'parametric:desk@v2' };
+        const a = assembleRegisteredFamily(def, p1, makePipelineGeometry(), makePipelineSchemas());
+        const b = assembleRegisteredFamily(def, p2, makePipelineGeometry(), makePipelineSchemas());
+        expect(a.schemaHash).not.toBe(b.schemaHash);
+    });
+
+    it('schemaHash CHANGES when the geometry hash changes', () => {
+        const def = makeDefinition();
+        const g2 = { ...makePipelineGeometry(), geometryHash: 'geometry:desk@v2' };
+        const a = assembleRegisteredFamily(def, makePipelineParametric(), makePipelineGeometry(), makePipelineSchemas());
+        const b = assembleRegisteredFamily(def, makePipelineParametric(), g2, makePipelineSchemas());
+        expect(a.schemaHash).not.toBe(b.schemaHash);
+    });
+
+    it('schemaHash CHANGES when the schemas hash changes', () => {
+        const def = makeDefinition();
+        const s2 = { ...makePipelineSchemas(), schemasHash: 'schemas:desk@v2' };
+        const a = assembleRegisteredFamily(def, makePipelineParametric(), makePipelineGeometry(), makePipelineSchemas());
+        const b = assembleRegisteredFamily(def, makePipelineParametric(), makePipelineGeometry(), s2);
+        expect(a.schemaHash).not.toBe(b.schemaHash);
+    });
+
+    it('tags include lower-cased semantic names + mountClass + derived occupancy', () => {
+        const out = assembleRegisteredFamily(
+            makeDefinition({ semanticNames: ['Bed', 'Bedroom'], mountClass: 'floor' }),
+            makePipelineParametric(),
+            makePipelineGeometry(),
+            makePipelineSchemas(),
+        );
+        expect(out.tags).toContain('bed');
+        expect(out.tags).toContain('bedroom');
+        expect(out.tags).toContain('floor');
+    });
+
+    it('tags drop empty / whitespace-only semantic names defensively', () => {
+        // Exercises the `trimmed.length > 0` branch in deriveTags — the
+        // Zod schema for `semanticNames` is `z.array(z.string()).min(1)`,
+        // which permits an empty entry in the array.  Stage-5 should be
+        // robust against such upstream slop.
+        const out = assembleRegisteredFamily(
+            makeDefinition({ semanticNames: ['desk', '', '   '] }),
+            makePipelineParametric(),
+            makePipelineGeometry(),
+            makePipelineSchemas(),
+        );
+        expect(out.tags).not.toContain('');
+        expect(out.tags).toContain('desk');
+    });
+
+    it('tags are sorted + deduped', () => {
+        const out = assembleRegisteredFamily(
+            // 'bedroom' appears in semantic names AND becomes the occupancy →
+            // forces the de-dup branch.  'B' / 'b' force the lower-case branch.
+            makeDefinition({ semanticNames: ['bedroom', 'B', 'b'], mountClass: 'floor' }),
+            makePipelineParametric(),
+            makePipelineGeometry(),
+            makePipelineSchemas(),
+        );
+        const sorted = [...out.tags].sort();
+        expect(out.tags).toEqual(sorted);
+        const set = new Set(out.tags);
+        expect(set.size).toBe(out.tags.length);
+    });
+
+    it('opts.tags overrides + are sorted / deduped / lower-cased', () => {
+        const out = assembleRegisteredFamily(
+            makeDefinition(),
+            makePipelineParametric(),
+            makePipelineGeometry(),
+            makePipelineSchemas(),
+            { tags: ['Office', 'office', 'Workstation', '', '  '] },
+        );
+        // Empty-string + all-whitespace entries are dropped; case-collisions
+        // collapse to a single canonical tag.
+        expect(out.tags).toEqual(['office', 'workstation']);
+    });
+
+    it('is pure — same input twice yields a deeply-equal output', () => {
+        const def = makeDefinition();
+        const p = makePipelineParametric();
+        const g = makePipelineGeometry();
+        const s = makePipelineSchemas();
+        const a = assembleRegisteredFamily(def, p, g, s);
+        const b = assembleRegisteredFamily(def, p, g, s);
+        expect(a).toEqual(b);
+    });
+
+    it('output.identity === definition.identity by reference', () => {
+        const def = makeDefinition();
+        const out = assembleRegisteredFamily(
+            def,
+            makePipelineParametric(),
+            makePipelineGeometry(),
+            makePipelineSchemas(),
+        );
+        expect(out.identity).toBe(def.identity);
+    });
+
+    it('round-trips through the RegisteredFamilySchema via JSON', () => {
+        const out = assembleRegisteredFamily(
+            makeDefinition(),
+            makePipelineParametric(),
+            makePipelineGeometry(),
+            makePipelineSchemas(),
+            { category: 'desks', tags: ['office'] },
+        );
+        const round = RegisteredFamilySchema.parse(JSON.parse(JSON.stringify(out)));
+        expect(round).toEqual(out);
     });
 });
