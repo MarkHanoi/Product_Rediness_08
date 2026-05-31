@@ -12,13 +12,17 @@ import {
     ACOUSTIC_INCOMPATIBLE,
     FORBIDDEN_ADJACENCIES,
     MANDATORY_ADJACENCIES,
+    NEEDS_FRONTAGE,
     PREFERRED_ADJACENCIES,
     PRIVACY_GRADIENT_VIOLATIONS,
+    WET_TYPES,
     validateAcousticSeparation,
     validateForbiddenAdjacency,
+    validateFrontageTopology,
     validateMandatoryAdjacency,
     validatePreferredAdjacency,
     validatePrivacyGradient,
+    validateWetCluster,
     type AdjacencyEdge,
     type TopologyViolation,
 } from '../src/workflows/apartmentLayout/validators/topology/index.js';
@@ -810,6 +814,272 @@ describe('validateAcousticSeparation — A-5 stand-alone validator', () => {
             'kitchen/master_bedroom',
             'living_room/bedroom',
             'living_room/master_bedroom',
+        ]);
+    });
+});
+
+describe('validateWetCluster — A-6 stand-alone validator', () => {
+    it('returns no violations for an empty rooms list', () => {
+        expect(validateWetCluster([], [])).toEqual([]);
+    });
+
+    it('returns no violations when no wet rooms are present', () => {
+        const rooms = [
+            room('L', 'living_room'),
+            room('B', 'bedroom'),
+            room('C', 'corridor'),
+        ];
+        const edges = [edge('L', 'C'), edge('B', 'C')];
+        expect(validateWetCluster(rooms, edges)).toEqual([]);
+    });
+
+    it('single wet-room in apartment → NO violation (trivial cluster)', () => {
+        // The framework rule explicitly skips a one-wet-room layout — there
+        // is nothing to cluster with.
+        const rooms = [
+            room('BA', 'bathroom'),
+            room('L',  'living_room'),
+            room('B',  'bedroom'),
+            room('C',  'corridor'),
+        ];
+        const edges = [edge('BA', 'C'), edge('L', 'C'), edge('B', 'C')];
+        expect(validateWetCluster(rooms, edges)).toEqual([]);
+    });
+
+    it('two wet-rooms adjacent → NO violation (well-clustered)', () => {
+        const rooms = [
+            room('BA', 'bathroom'),
+            room('U',  'utility_room'),
+            room('C',  'corridor'),
+        ];
+        const edges = [edge('BA', 'U'), edge('BA', 'C'), edge('U', 'C')];
+        expect(validateWetCluster(rooms, edges)).toEqual([]);
+    });
+
+    it('two wet-rooms NOT adjacent → TWO warnings', () => {
+        // bathroom and kitchen both exist as wet-rooms; neither has a
+        // wet-room neighbour, so both fire.
+        const rooms = [
+            room('BA', 'bathroom'),
+            room('K',  'kitchen'),
+            room('L',  'living_room'),
+            room('C',  'corridor'),
+        ];
+        const edges = [edge('BA', 'C'), edge('K', 'L'), edge('L', 'C')];
+        const out = validateWetCluster(rooms, edges);
+        expect(out).toHaveLength(2);
+        for (const v of out) {
+            expect(v.classId).toBe('A-6');
+            expect(v.severity).toBe('warning');
+            expect(v.roomBTypeName).toBe('wet-cluster');
+            expect(v.message).toContain('0 wet-room neighbours');
+            expect(v.message).toContain('2 wet-rooms in apartment');
+            assertMessageTraceability(v);
+        }
+        const ids = out.map(v => v.roomAId).sort();
+        expect(ids).toEqual(['BA', 'K']);
+    });
+
+    it('kitchen + utility_room clustered, bathroom isolated → ONE warning (for bathroom)', () => {
+        const rooms = [
+            room('K',  'kitchen'),
+            room('U',  'utility_room'),
+            room('BA', 'bathroom'),
+            room('C',  'corridor'),
+        ];
+        const edges = [edge('K', 'U'), edge('BA', 'C'), edge('K', 'C')];
+        const out = validateWetCluster(rooms, edges);
+        expect(out).toHaveLength(1);
+        expect(out[0]!.roomAId).toBe('BA');
+        expect(out[0]!.roomATypeName).toBe('bathroom');
+    });
+
+    it('wc + ensuite + kitchen + utility_room all chained → NO violations', () => {
+        // Every wet room has at least one wet-room neighbour along the chain.
+        const rooms = [
+            room('W',  'wc'),
+            room('E',  'ensuite'),
+            room('K',  'kitchen'),
+            room('U',  'utility_room'),
+            room('M',  'master_bedroom'),
+        ];
+        const edges = [
+            edge('W', 'E'),
+            edge('E', 'K'),    // (NB: A-3 would object — A-6 doesn't care here)
+            edge('K', 'U'),
+            edge('M', 'E'),
+        ];
+        expect(validateWetCluster(rooms, edges)).toEqual([]);
+    });
+
+    it('utility alias is recognised as a wet-fixture room', () => {
+        // The older programme name "utility" (without "_room") is in WET_TYPES.
+        const rooms = [
+            room('BA', 'bathroom'),
+            room('Ut', 'utility'),
+        ];
+        // Not adjacent ⇒ both fire.
+        const out = validateWetCluster(rooms, []);
+        expect(out).toHaveLength(2);
+        const types = out.map(v => v.roomATypeName).sort();
+        expect(types).toEqual(['bathroom', 'utility']);
+    });
+
+    it('edge orientation is symmetric — (U, BA) clusters bathroom too', () => {
+        const rooms = [
+            room('BA', 'bathroom'),
+            room('U',  'utility_room'),
+        ];
+        const edges = [edge('U', 'BA')];  // reversed
+        expect(validateWetCluster(rooms, edges)).toEqual([]);
+    });
+
+    it('edges referencing unknown room ids are silently ignored', () => {
+        const rooms = [
+            room('BA', 'bathroom'),
+            room('K',  'kitchen'),
+        ];
+        // Edge connects bathroom to a phantom id — does NOT count as a
+        // wet-room neighbour, so both rooms still fire.
+        const edges = [edge('BA', 'GHOST')];
+        const out = validateWetCluster(rooms, edges);
+        expect(out).toHaveLength(2);
+    });
+
+    it('WET_TYPES table exposes the canonical wet-fixture type list', () => {
+        expect(WET_TYPES).toEqual([
+            'bathroom', 'wc', 'ensuite', 'kitchen', 'utility_room', 'utility',
+        ]);
+    });
+});
+
+describe('validateFrontageTopology — A-7 stand-alone validator', () => {
+    const fRoom = (id: string, type: string, hasExteriorEdge: boolean) =>
+        ({ id, type, hasExteriorEdge });
+
+    it('returns no violations for an empty rooms list', () => {
+        expect(validateFrontageTopology([])).toEqual([]);
+    });
+
+    it('habitable rooms with exterior edges → NO violations', () => {
+        const rooms = [
+            fRoom('L', 'living_room', true),
+            fRoom('M', 'master_bedroom', true),
+            fRoom('B', 'bedroom', true),
+            fRoom('K', 'kitchen', true),
+        ];
+        expect(validateFrontageTopology(rooms)).toEqual([]);
+    });
+
+    it('interior bedroom (no exterior edge) → ONE error', () => {
+        const rooms = [
+            fRoom('B', 'bedroom', false),
+            fRoom('C', 'corridor', false),
+        ];
+        const out = validateFrontageTopology(rooms);
+        expect(out).toHaveLength(1);
+        expect(out[0]!.classId).toBe('A-7');
+        expect(out[0]!.severity).toBe('error');
+        expect(out[0]!.roomAId).toBe('B');
+        expect(out[0]!.roomATypeName).toBe('bedroom');
+        expect(out[0]!.roomBTypeName).toBe('exterior');
+        assertMessageTraceability(out[0]!);
+    });
+
+    it('corridor without exterior edge → NO violation (not in NEEDS_FRONTAGE)', () => {
+        const rooms = [fRoom('C', 'corridor', false)];
+        expect(validateFrontageTopology(rooms)).toEqual([]);
+    });
+
+    it('entrance_hall / bathroom / wc / ensuite / utility / storage without exterior edge → NO violations', () => {
+        const rooms = [
+            fRoom('H',  'entrance_hall', false),
+            fRoom('BA', 'bathroom',      false),
+            fRoom('W',  'wc',            false),
+            fRoom('E',  'ensuite',       false),
+            fRoom('U',  'utility_room',  false),
+            fRoom('S',  'storage',       false),
+            fRoom('Ba', 'balcony',       false),
+        ];
+        expect(validateFrontageTopology(rooms)).toEqual([]);
+    });
+
+    it('interior kitchen → ONE error (kitchen is habitable in this rule)', () => {
+        const rooms = [
+            fRoom('K', 'kitchen', false),
+            fRoom('L', 'living_room', true),
+        ];
+        const out = validateFrontageTopology(rooms);
+        expect(out).toHaveLength(1);
+        expect(out[0]!.roomATypeName).toBe('kitchen');
+        expect(out[0]!.severity).toBe('error');
+    });
+
+    it('multiple interior habitable rooms → ONE error each', () => {
+        const rooms = [
+            fRoom('L',  'living_room',   false),
+            fRoom('M',  'master_bedroom', false),
+            fRoom('B1', 'bedroom',        false),
+            fRoom('B2', 'bedroom',        false),
+            fRoom('K',  'kitchen',        false),
+            fRoom('D',  'dining_room',    false),
+            fRoom('O',  'private_office', false),
+            fRoom('S',  'study',          false),
+            // Non-habitable controls — must NOT fire.
+            fRoom('C',  'corridor',       false),
+            fRoom('BA', 'bathroom',       false),
+        ];
+        const out = validateFrontageTopology(rooms);
+        expect(out).toHaveLength(8);
+        for (const v of out) {
+            expect(v.classId).toBe('A-7');
+            expect(v.severity).toBe('error');
+            expect(v.roomBTypeName).toBe('exterior');
+            assertMessageTraceability(v);
+        }
+        const types = out.map(v => v.roomATypeName).sort();
+        expect(types).toEqual([
+            'bedroom', 'bedroom', 'dining_room', 'kitchen',
+            'living_room', 'master_bedroom', 'private_office', 'study',
+        ]);
+    });
+
+    it('aliases (living, master, dining) are recognised as habitable', () => {
+        const rooms = [
+            fRoom('L', 'living', false),
+            fRoom('M', 'master', false),
+            fRoom('D', 'dining', false),
+        ];
+        const out = validateFrontageTopology(rooms);
+        expect(out).toHaveLength(3);
+        const types = out.map(v => v.roomATypeName).sort();
+        expect(types).toEqual(['dining', 'living', 'master']);
+    });
+
+    it('mixed layout: some habitable rooms have frontage, some do not', () => {
+        // Only the interior bedroom fires; the rest are clean.
+        const rooms = [
+            fRoom('L',  'living_room',    true),
+            fRoom('M',  'master_bedroom', true),
+            fRoom('B',  'bedroom',        false),
+            fRoom('K',  'kitchen',        true),
+            fRoom('C',  'corridor',       false),
+            fRoom('BA', 'bathroom',       false),
+        ];
+        const out = validateFrontageTopology(rooms);
+        expect(out).toHaveLength(1);
+        expect(out[0]!.roomAId).toBe('B');
+        expect(out[0]!.roomATypeName).toBe('bedroom');
+    });
+
+    it('NEEDS_FRONTAGE table exposes the canonical habitable-needs-frontage list', () => {
+        expect(NEEDS_FRONTAGE).toEqual([
+            'living_room', 'living',
+            'master_bedroom', 'master',
+            'bedroom',
+            'kitchen',
+            'dining_room', 'dining',
+            'private_office', 'study',
         ]);
     });
 });
