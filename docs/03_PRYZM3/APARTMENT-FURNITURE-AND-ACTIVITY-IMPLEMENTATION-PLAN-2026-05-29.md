@@ -740,7 +740,7 @@ The WHAT-EDITABLE strategic substrate. Doesn't block F-tier; sets up the user-in
 | **D-α-0** | `ApartmentParameters` + `RoomParameters` Zod schemas (P5 pure) at `@pryzm/schemas/apartment` | 0.5 wk | ✅ shipped 2026-05-30 — `packages/schemas/src/apartment/ApartmentParameters.ts`. ApartmentTypology enum + RoomType + ParameterEnvelope + ApartmentParameters + RoomParameters + type-guards. +27 pin tests. |
 | **D-α-1** | `ApartmentParametersStore` + `RoomParametersStore` (L0 data substrate, distinct from geometry-projected stores) | 0.5 wk | ✅ shipped 2026-05-30 — `packages/stores/src/{ApartmentParametersStore,RoomParametersStore}.ts`. Singletons + setApartment/setRoom + getApartment/getRoom + list/forApartment + remove/removeForApartment + clear + subscribe. +22 pin tests. |
 | **D-α-2** | `apartment.updateParameter` + `room.updateParameter` commands + handlers (patch-merge through the bus) | 1 wk | 🟨 partial 2026-05-30 — command types declared in `@pryzm/command-bus` + store-side patch-merge methods (`updateApartment(id, patch)` / `updateRoom(id, patch)`) with prior-for-undo and validation. Plugin-sdk handler classes for the bus runtime queued. +17 pin tests. |
-| **D-α-3** | `apartmentSolver.recomputeImpact` — local-region resolver | 2 wk | 🟨 **P1 shipped 2026-05-31** (multi-agent track B) — `packages/ai-host/src/workflows/apartmentLayout/solver/recomputeImpact.ts` (~180 lines, pure). DTOs: `ParameterChange<T>` + `ImpactRegion { affectedRoomIds, affectedFields }`. P1 cascade rules: `room.areaM2.value` change → all flexible siblings affected · `room.type`/`name` rename → does NOT cascade · `apartment.bedrooms/.bathrooms/...` → all rooms in apartment affected · changed room itself NOT in affectedRoomIds (it's the source) · foreign-apartment id / invalid path / NaN → empty + soft warn. +15 pin tests. **Pending P2 (the actual rebalance step that consumes the ImpactRegion)** + plug-in to the command bus subscriber path that fires on `apartment.updateParameter`/`room.updateParameter`. |
+| **D-α-3** | `apartmentSolver.recomputeImpact` — local-region resolver | 2 wk | 🟨 **P1 + P2 shipped 2026-05-31** (multi-agent runs 1+2 tracks B). **P1** `packages/ai-host/src/workflows/apartmentLayout/solver/recomputeImpact.ts` (~180 lines, pure). DTOs: `ParameterChange<T>` + `ImpactRegion { affectedRoomIds, affectedFields }`. Cascade rules: `room.areaM2.value` → flexible siblings · rename → no cascade · `apartment.*` → all rooms in that apartment · foreign-id / invalid path / NaN → empty+warn. +15 pin tests. **P2** `packages/stores/src/ApartmentParameterPropagator.ts` (~165 lines) bridges store events to the resolver via dependency-injection (no ai-host runtime pull from stores). Subscribes to both parameter stores; maintains `lastSeen` snapshots; emits `PropagationEvent { apartmentId, change, impact }` on every accepted diff. Listener + resolver errors swallowed-with-warn. +13 pin tests across subscribe / dispose / multi-listener / debounce-by-diff / resolver-throws-warn. **Pending P3 (composeRuntime wiring to instantiate the propagator) + the actual rebalance step that consumes the ImpactRegion.** |
 | **D-α-4** | Panel A (Apartment Data) — primary UI surface, read-only first | 1 wk | ⬜ |
 | **D-α-5** | Panel A — live-edit + dispatch + impact preview | 1 wk | ⬜ |
 | **D-β-1** | Panel B (Room Data) — per-room scope | 1 wk | ⬜ |
@@ -878,13 +878,13 @@ Needs Tier 6 (renderable types) + Tier 8 (archetypes). The activity-archetype pa
 
 | ID | Deliverable | Doc source | Est | Status |
 |---|---|---|---|---|
-| **F4.1** | S7 Window dressing (curtains per exterior window) | FURNITURE §4.5 | 3 d | ⬜ |
-| **F4.2** | S2 Entry storage | FURNITURE §4.5 | 3 d | ⬜ |
-| **F4.3** | S3 Study workstation | FURNITURE §4.5 | 3 d | ⬜ |
-| **F4.4** | S4 Bathroom vanity | FURNITURE §4.5 | 4 d | ⬜ |
-| **F4.5** | S5 Utility / laundry workflow | FURNITURE §4.5 | 4 d | ⬜ |
-| **F4.6** | S6 Bedroom dressing area | FURNITURE §4.5 | 3 d | ⬜ |
-| **F4.7** | S1 Media / TV wall | FURNITURE §4.5 | 5 d | ⬜ |
+| **F4.1** | S7 Window dressing (curtains per exterior window) | FURNITURE §4.5 | 3 d | 🟨 IN PLACE for bedroom + living-room + master only (curtain_rod + curtain_panel count 2 in `curtains` group on the window wall). NOT YET wired in kitchen / dining / private-office / bathroom / wc / utility-room — those archetypes have no curtain entries today. Audit confirms via `activitySystemsAudit.test.ts`. |
+| **F4.2** | S2 Entry storage | FURNITURE §4.5 | 3 d | ✅ shipped 2026-05-30 (audited 2026-05-31) — console_table + shoe_cabinet + entry_bench + wall_mirror in 'entry' group on entrance-lobby archetype; coat_rack standalone corner. |
+| **F4.3** | S3 Study workstation | FURNITURE §4.5 | 3 d | ✅ shipped 2026-05-30 (audited 2026-05-31) — desk + desk_chair in 'desk' group on private-office, wall-window, required. |
+| **F4.4** | S4 Bathroom vanity | FURNITURE §4.5 | 4 d | 🟨 PARTIAL — vanity_unit + bathroom_mirror in 'vanity' group; towel_rail NOT in the group (anchors wall-longest independently); mirror_light lives in geometry-lighting per F1.5'. Adding towel_rail to the group is queued. |
+| **F4.5** | S5 Utility / laundry workflow | FURNITURE §4.5 | 4 d | ✅ shipped 2026-05-30 (audited 2026-05-31) — washing_machine_standalone + tumble_dryer + drying_rack in 'laundry' group on utility-room; cabinet + sink excludeDoorSwing. |
+| **F4.6** | S6 Bedroom dressing area | FURNITURE §4.5 | 3 d | 🟨 PARTIAL — dresser + vanity_table present and correctly anchored, but NEITHER carries a `group:` field. They're archetype-level pattern only (not a relative-placement group). Adding a 'dressing' group key is queued. |
+| **F4.7** | S1 Media / TV wall | FURNITURE §4.5 | 5 d | ✅ shipped 2026-05-30 (audited 2026-05-31) — tv_unit + tv in 'media' group on living-room archetype, wall-opposite-door, excludeWindow + excludeDoor. |
 
 ## Z.11 — Tier 10 — Lighting Programme
 
@@ -899,7 +899,7 @@ Needs Tier 6 (renderable types) + Tier 8 (archetypes). The activity-archetype pa
 
 | ID | Deliverable | Doc source | Est | Status |
 |---|---|---|---|---|
-| **L5-ε-1** | `SightlineGraph` (longest unobstructed line per room pair) | COGNITION §8 | 1.5 wk | ⬜ |
+| **L5-ε-1** | `SightlineGraph` (longest unobstructed line per room pair) | COGNITION §8 | 1.5 wk | ✅ **shipped 2026-05-31** (multi-agent run 2 track A) — `packages/ai-host/src/workflows/apartmentLayout/tgl/sightlineGraph.ts` (~165 lines, pure). `buildSightlineGraph(graph, { samplesPerEdge?: number = 4 })` returns `SightlineGraph { edges: SightlineEdge[] }` where each edge carries `lengthM` (0 when fully blocked). Reuses L2-β-2b raycaster helpers (`gatherSightcastWalls` + `isSightBlocked`) — no duplication. Pairs iterated in lex order (deterministic). Corners always sampled; samplesPerEdge > vertex count adds edge midpoints. +12 pin tests. Objective-axis wire-in queued separately. |
 | **L5-ε-2** | `PerceivedSpaciousness` (55 m² feels larger than 70 m²) | COGNITION §8 | 1 wk | ⬜ |
 | **L5-ε-3** | `DaylightReveal` (gaze meets daylit surface) | COGNITION §8 | 1 wk | ⬜ |
 | **L5-ε-4** | `VisualTermination` scoring | COGNITION §8 | 0.5 wk | ⬜ |
