@@ -131,6 +131,24 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
             { kind: 'bath', anchor: 'wall-longest', facing: 'into-room', required: false, excludeDoorSwing: true, excludeWindowWall: true },
         ],
     },
+    // F3.5 (2026-05-31) — WC archetype. The cloakroom-toilet variant of the
+    // bathroom (no shower, no full vanity). Uses the F1.7 compact primitives
+    // — wc_washbasin (wall-hung small basin) + wc_mirror (compact mirror).
+    // Programme rule (programRules.wc) caps doors to 1 and forbids access
+    // from bedroom / kitchen / living. Access only from corridor or hall.
+    //
+    // §FURNITURE-SPEC: tight footprint — typical UK cloakroom WC is 1.2 m²
+    // with a 0.9 m short side. Toilet on the plumbing wall (wet_wall);
+    // washbasin perpendicular OR opposite; mirror above the washbasin in
+    // the 'wc-basin' group for relative placement.
+    'wc': {
+        occupancy: 'wc', minAreaM2: 1.2,
+        items: [
+            { kind: 'toilet_radiator', anchor: 'wall-longest',       facing: 'into-room', required: true,  excludeDoorSwing: true },
+            { kind: 'wc_washbasin',    anchor: 'wall-opposite-door', facing: 'into-room', required: true,  group: 'wc-basin', excludeDoorSwing: true },
+            { kind: 'wc_mirror',       anchor: 'beside',             facing: 'into-room', required: false, group: 'wc-basin' },
+        ],
+    },
     'entrance-lobby': {
         occupancy: 'entrance-lobby', minAreaM2: 3,
         items: [

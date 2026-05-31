@@ -132,7 +132,7 @@ Incremental wirings landed via each F1.x ship.
 | **F3.2** Living | bookshelf_glass + tv + wall_art + lounge_chair (corner) shipped; rug / lamp variants pending | 🟨 |
 | **F3.3** Master / bedroom | dresser + vanity_table + wall_mirror + curtains + lounge_chair (corner reading nook) shipped; rug / bedside_lamp anchor pending | 🟨 |
 | **F3.4** Bathroom / ensuite | vanity trio + mirror_light + D-LE archetype + bath (F1.6') all shipped 2026-05-30 | ✅ |
-| **F3.5** WC | Blocks on F1.7 | ⬜ |
+| **F3.5** WC | Cloakroom-toilet archetype shipped 2026-05-31 (FurnishableOccupancy + wc archetype + programRules.wc furnitureSpec promotion + 5 pin tests) | ✅ |
 | **F3.6** Utility | S5 laundry workflow wired (F1.8 + utility-room archetype) | ✅ |
 | **F3.7** Dining | buffet + sideboard shipped; rug pending | 🟨 |
 | **F3.8** Hall | Closed by F1.4 4-pack + F3.8 follow-on (wall_mirror in entry group) | ✅ |
@@ -173,7 +173,7 @@ Every axis is in ObjectiveVector + computeObjectives + weightedSum + LayoutScore
 
 | Package | Pass | Notes |
 |---|---|---|
-| @pryzm/ai-host | **870/870** | 2 SCC AiHost.* pre-existing failures unchanged (memory: scc-no-barrel-access-at-module-load) |
+| @pryzm/ai-host | **875/875** | 2 SCC AiHost.* pre-existing failures unchanged (memory: scc-no-barrel-access-at-module-load) |
 | @pryzm/core-app-model | (typecheck) | Pre-existing plugin-side TS errors; lighting-side clean |
 | @pryzm/geometry-lighting | (depends on core-app-model rebuild for full validation) | F1.5' mirror_light builder added |
 | @pryzm/geometry-furniture | (untouched this slice) | 11 of 15 F1.x types shipped contract-complete |

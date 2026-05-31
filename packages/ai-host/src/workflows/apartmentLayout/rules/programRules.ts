@@ -515,13 +515,17 @@ export const ROOM_RULES: Readonly<Record<RoomType, RoomRule>> = {
         // §ADJACENCY-PREFERENCE — corridor is the canonical access; hall is the
         // "cloakroom WC by the front door" pattern, also fully sensible.
         adjacencyPreference: { corridor: 1.0, hall: 0.9 },
-        requiredFurniture: ['toilet_radiator'], optionalFurniture: [],
+        requiredFurniture: ['toilet_radiator', 'wc_washbasin'], optionalFurniture: ['wc_mirror'],
         requiredFixtures: ['toilet', 'washbasin'],
         furnitureSpec: [
-            // Toilet on the plumbing wall (drainage stack), small washbasin —
-            // catalogued WC washbasin not yet a renderable kind so it's a
-            // fixture-only entry for now (queue: add wc_washbasin furniture kind).
+            // F1.7 + F3.5 (2026-05-31) closure of the queue item — the
+            // wc_washbasin is now a real renderable kind, so the furnitureSpec
+            // can include it (was fixture-only before F1.7). Toilet on the
+            // plumbing wall (drainage stack), small wall-hung washbasin
+            // perpendicular / opposite, compact mirror above it.
             { kind: 'toilet_radiator', sizeW: 400, sizeD: 700, clearFoot: 600, clearSide: 100, placementRule: 'wet_wall', excludeDoorSwing: true, excludeWindowWall: false, required: true },
+            { kind: 'wc_washbasin',    sizeW: 450, sizeD: 300, clearFoot: 550, clearSide:  50, placementRule: 'opposite_door', excludeDoorSwing: true, excludeWindowWall: false, required: true },
+            { kind: 'wc_mirror',       sizeW: 400, sizeD:  30, clearFoot:   0, clearSide:   0, placementRule: 'beside_group',  excludeDoorSwing: false, excludeWindowWall: false, required: false },
         ],
         description: 'Separate WC / cloakroom. One door — to a corridor or the entrance hall; never off a bedroom / kitchen / living / dining. Requires a toilet and a washbasin.',
     },

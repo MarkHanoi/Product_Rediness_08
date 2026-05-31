@@ -77,9 +77,13 @@ export type FurnitureKind =
     // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §F1.11)
     | 'curtain_rod' | 'curtain_panel';
 
-/** Editor RoomOccupancyType values this engine furnishes (subset). */
+/** Editor RoomOccupancyType values this engine furnishes (subset).
+ *  F3.5 (2026-05-30): + 'wc' for the cloakroom-toilet archetype (uses the
+ *  F1.7 wc_washbasin + wc_mirror primitives — the compact alternative to
+ *  the bathroom vanity trio). */
 export type FurnishableOccupancy =
     | 'bedroom' | 'living-room' | 'kitchen' | 'dining-room' | 'bathroom'
+    | 'wc'
     | 'entrance-lobby' | 'corridor' | 'private-office' | 'utility-room';
 
 export interface Pt { readonly x: number; readonly z: number }

@@ -190,6 +190,42 @@ describe('archetypes (F2)', () => {
         expect(td!.group).toBe('laundry');
         expect(dr!.group).toBe('laundry');
     });
+
+    // F3.5 (2026-05-31) — WC archetype consumes F1.7 primitives.
+    it('wc archetype exists + carries the cloakroom-toilet trio', () => {
+        const a = archetypeFor('wc');
+        expect(a).not.toBeNull();
+        expect(a!.occupancy).toBe('wc');
+        const kinds = a!.items.map(i => i.kind);
+        expect(kinds).toContain('toilet_radiator');
+        expect(kinds).toContain('wc_washbasin');
+        expect(kinds).toContain('wc_mirror');
+    });
+
+    it('wc archetype: toilet + wc_washbasin REQUIRED, wc_mirror OPTIONAL', () => {
+        const items = archetypeFor('wc')!.items;
+        expect(items.find(i => i.kind === 'toilet_radiator')!.required).toBe(true);
+        expect(items.find(i => i.kind === 'wc_washbasin')!.required).toBe(true);
+        expect(items.find(i => i.kind === 'wc_mirror')!.required).toBe(false);
+    });
+
+    it('wc archetype: mirror in same relative-placement group as the basin', () => {
+        const items = archetypeFor('wc')!.items;
+        const basin = items.find(i => i.kind === 'wc_washbasin');
+        const mirror = items.find(i => i.kind === 'wc_mirror');
+        expect(basin!.group).toBe('wc-basin');
+        expect(mirror!.group).toBe('wc-basin');
+    });
+
+    it('wc archetype: toilet excludeDoorSwing (clearance for door open) ', () => {
+        const items = archetypeFor('wc')!.items;
+        const toilet = items.find(i => i.kind === 'toilet_radiator');
+        expect(toilet!.excludeDoorSwing).toBe(true);
+    });
+
+    it('wc minAreaM2 matches the UK cloakroom-WC envelope (1.2 m²)', () => {
+        expect(archetypeFor('wc')!.minAreaM2).toBeCloseTo(1.2, 6);
+    });
 });
 
 describe('collision (F6)', () => {
