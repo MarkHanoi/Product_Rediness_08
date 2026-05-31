@@ -226,21 +226,93 @@ export async function generateLayoutOptions(
         // actual failure from the user. The strip-slicer remains as the
         // last-resort fallback ONLY for D-TGL failures that AREN'T
         // envelope-driven (degenerate perimeter, etc).
-        const envelope = validateApartmentEnvelope({
-            bedrooms: input.program.bedrooms,
-            grossAreaM2: input.shell.netAreaM2,
-        });
+        //
+        // §BEDROOM-AUTO-ITERATE (2026-05-31, Bug C): when the envelope
+        // rejects with 'grossMax' (shell too big for the requested bedroom
+        // count) or 'grossMin' (shell too narrow), auto-iterate the bedroom
+        // count toward an admissible shape and retry D-TGL with the
+        // adjusted program before declaring a rejection. The user clicked
+        // "Generate apartment layout" — they want LAYOUTS, not a hard reject
+        // because the default bedroom count didn't fit the shell.
+        const programNet = input.shell.netAreaM2;
+        const originalBedrooms = input.program.bedrooms;
+        const MIN_BEDROOMS = 0;
+        const MAX_BEDROOMS = 6;
+        let bedrooms = originalBedrooms;
+        let envelope = validateApartmentEnvelope({ bedrooms, grossAreaM2: programNet });
+
         if (!envelope.admissible) {
+            // Determine the iteration direction from the FIRST envelope
+            // rejection — never flip mid-loop (avoids oscillation between
+            // grossMin↔grossMax which shouldn't be possible per the
+            // monotonic dimension table but defended against anyway).
+            const firstFinding = envelope.hardFindings[0];
+            const direction: 1 | -1 | 0 =
+                firstFinding?.metric === 'grossMax' ? 1 :
+                firstFinding?.metric === 'grossMin' ? -1 : 0;
+
+            if (direction !== 0) {
+                let next = bedrooms + direction;
+                while (next >= MIN_BEDROOMS && next <= MAX_BEDROOMS) {
+                    const test = validateApartmentEnvelope({ bedrooms: next, grossAreaM2: programNet });
+                    bedrooms = next;
+                    envelope = test;
+                    if (test.admissible) break;
+                    // Only continue if the rejection is the SAME direction
+                    // (still grossMax / still grossMin). If the dimension table
+                    // somehow flipped the failure, stop — we've gone past the
+                    // admissible band.
+                    const fnd = test.hardFindings[0];
+                    const stillSameDir =
+                        (direction === 1 && fnd?.metric === 'grossMax') ||
+                        (direction === -1 && fnd?.metric === 'grossMin');
+                    if (!stillSameDir) break;
+                    next = next + direction;
+                }
+            }
+        }
+
+        if (!envelope.admissible) {
+            const adjReason = bedrooms !== originalBedrooms
+                ? `; (tried ${originalBedrooms} → ${bedrooms} bedrooms within [${MIN_BEDROOMS},${MAX_BEDROOMS}] cap, none admit this shell)`
+                : '';
             return {
                 options: [], status: 'rejected', attempts: attempt,
-                reason: envelope.hardFindings.map(f => f.reason).join('; '),
+                reason: envelope.hardFindings.map(f => f.reason).join('; ') + adjReason,
             };
         }
+
+        // If we auto-adjusted bedrooms, retry D-TGL with the new program before
+        // falling through to the strip slicer — D-TGL produces architecturally
+        // better layouts.
+        const adjustedProgram = bedrooms === originalBedrooms
+            ? input.program
+            : { ...input.program, bedrooms };
+        const adjustedNote = bedrooms !== originalBedrooms
+            ? ` (auto-adjusted ${originalBedrooms} → ${bedrooms} bedrooms to fit the shell)`
+            : '';
+
+        if (bedrooms !== originalBedrooms) {
+            const dtgl2 = generateDeterministicLayouts(
+                input.shell, adjustedProgram, input.constraints, input.weights, input.count,
+                input.windowSpansWorld, input.doorSpansWorld,
+            );
+            if (dtgl2.length > 0) {
+                return {
+                    options: dtgl2, status: 'ok', attempts: attempt,
+                    reason: `AI unavailable — deterministic D-TGL offline layout${adjustedNote}`,
+                };
+            }
+        }
+
         const procedural = generateProceduralLayout(
-            input.shell, input.program, input.constraints, input.weights, input.count,
+            input.shell, adjustedProgram, input.constraints, input.weights, input.count,
         );
         if (procedural.length > 0) {
-            return { options: procedural, status: 'ok', attempts: attempt, reason: 'AI unavailable — procedural offline layout (D-TGL declined)' };
+            return {
+                options: procedural, status: 'ok', attempts: attempt,
+                reason: `AI unavailable — procedural offline layout (D-TGL declined)${adjustedNote}`,
+            };
         }
     }
 
