@@ -13,6 +13,72 @@
 
 **Architectural ordering principle.** Foundation FIRST (validators that gate everything), then SCORING AXES (so layouts can be ranked by quality), then CONTENTS (furniture catalogue extension), then COMPOSED FORMS (activity systems), then ATMOSPHERE (perceptual + behavioural sim), then TYPOLOGY (cultural priors), then SCOPE EXPANSION (multi-apartment). Every tier blocks the next where downstream deliverables depend on upstream substrate.
 
+---
+
+## §0.0 — MASTER SUMMARY TABLE (single-page tracker)
+
+**Read this table first.** Every phase/tier across every apartment doc, in dependency-correct execution order, with current status as of 2026-05-31. Each row's `Status` is a rollup over its subphases; the `Done / Total` column gives the discrete count so partial progress is visible.
+
+Status legend: **✅** all subphases done · **🟨** in progress / partial · **⬜** not started · **🟦** planning / strategic only · **🟥** blocked
+
+### Strategic substrates (RUN PARALLEL — do not block F-tier)
+
+| Tier ID | Phase | Description | Done / Total | Est | Status |
+|---|---|---|---|---|---|
+| Z.−2 | **GS0** | Geospatial Foundation — site / climate / context / building substrate (consumer of PG0 platform phase) | 0 / 9 | 19 wk | 🟦 |
+| Z.−1 | **P0** | Family Platform — user-defined element families, plugin runtime, FamilyRegistry, discovery APIs | 0 / 9 (2 drafts) | 28 wk | 🟦 |
+| Z.−0a | **BIM 2/3 D-α** | L0 data substrate — `ApartmentParameters` + `RoomParameters` schemas / stores / `apartment.updateParameter` + `room.updateParameter` commands / patch-merge | **3 / 6** | 4 wk | 🟨 |
+| Z.−0b | **BIM 2/3 D-β** | Data Management Panel (6 panels A–F: apartment data, room data, adjacency, constraint, furniture program, activity systems) | 0 / 6 | 6 wk | ⬜ |
+| Z.−0c | **BIM 2/3 D-γ** | Propagation engine + multi-edit batching + external-source reconcile | 0 / 3 | 4 wk | ⬜ |
+
+### Single-apartment surface (Tier 0 → Tier 18)
+
+| Tier ID | Phase | Description | Done / Total | Est | Status |
+|---|---|---|---|---|---|
+| Z.1 | **Tier 0** | Already shipped — D-TGL / D-FLE / D-CE / D-LE / §11 modal / §MODAL-DYNAMIC / §ROOM-AREAS / §A11Y / §41 / floor finishes / kitchen island + appliances / §CLICK-FOCUS / §WC / §AREA-FRACTIONS / §KITCHEN-DISTINCT / §SEALED-ROOMS / §F-Sprint-5 / §BATH-CORRIDOR-ONLY / §ADJACENCY-PREFERENCE / §SKEL-MATCH | many | foundation | ✅ |
+| Z.2 | **Tier 1** | Visible tactical Tier-1 items — T1.W window-emission engine (A-engine + B-wiring + C-shell-host + D-thumbnail) · T1.C corridor-connectivity validator + wiring · T1.D per-pair door + per-room window finish resolver + wiring | **3 / 3** | 4 wk | ✅ |
+| Z.3 | **Tier 2** | Pre-furnishing validators — D1 + T1 data tables / D2.1 shape / D2.2 fit / D2.3 kitchen triangle / D2.4 envelope / D2.5+T2.5 frontage / T2.1–T2.6 topology / D3+T3 integration / D4+T4 modal axes / D5+T5 docs | **8 / 10** | 10 wk | 🟨 |
+| Z.4 | **Tier 3** | Cognition L1 — Environmental Intelligence (FacadeValueField + DaylightDepthField + facade-into-allocator + modal facade axis) | **3 / 4** | 3 wk | 🟨 |
+| Z.5 | **Tier 4** | Cognition L2 — Spatial Hierarchy (hierarchy + entrySightline graph + entrySightline raycast + arrivalSequence + spatialClimax + modal narrative) | **5 / 5** scoring; modal narrative ⬜ | 3.5 wk | 🟨 |
+| Z.6 | **Tier 5** | Cognition L3 — Semantic Topology (EdgeType enum + bubbleGraph populate + wallsAndDoors reads EdgeType + edgeRealisation axis) | **3 / 4** | 2.5 wk | 🟨 |
+| Z.7 | **Tier 6** | Furniture Catalogue Extension — F1.1 desk · F1.2 bookshelf · F1.3 tv+unit · F1.4 entry storage 4-pack · F1.5 bathroom vanity · F1.6' bath · F1.7 wc · F1.8 utility · F1.9 buffet+sideboard · F1.10 wall art+mirror · F1.11 curtains · F1.12 bedroom dressing · F1.13 lounge_chair alias · F1.14 pantry cabinet · F1.15 pendant cluster | **15 / 15** | 35 wk | ✅ |
+| Z.8 | **Tier 7** | Cognition L4 — Compositional Geometry (alignmentField · wetStackAlignment · openingCadence · proportionalElegance — all SCORING form; constructive subdivider variants L4-δ-*b queued) | **4 / 4** scoring | 3 wk | 🟨 |
+| Z.9 | **Tier 8** | Archetype Wiring — F3.1 study · F3.2 living · F3.3 bedroom · F3.4 bathroom · F3.5 WC · F3.6 utility · F3.7 dining · F3.8 hall · F3.9 corridor · F3.10 kitchen | **7 / 10** (3.2/3.3/3.4/3.7 partial on minor follow-ons) | 5 d | 🟨 |
+| Z.10 | **Tier 9** | Activity Systems (F4 / S1–S7) — media wall · entry storage · study workstation · bathroom vanity · utility/laundry · bedroom dressing · window dressing | 0 / 7 formal (group: pattern de-facto in F1.x archetypes) | 5 wk | ⬜ |
+| Z.11 | **Tier 10** | Lighting Programme — task / accent / pendant cluster / scenes | 0 / 4 | 1 wk | ⬜ |
+| Z.12 | **Tier 11** | Cognition L5 — Perceptual Simulation (SightlineGraph · PerceivedSpaciousness · DaylightReveal · VisualTermination) | 0 / 4 | 4 wk | ⬜ |
+| Z.13 | **Tier 12** | Cognition L6 — Behavioural Simulation (OccupancyAgent · 6 canonical activities · FrictionScore) | 0 / 3 | 4 wk | ⬜ |
+| Z.14 | **Tier 13** | Built-in Joinery (F6.1 wardrobe · F6.2 shelving · F6.3 window seat · F6.4 headboard) | 0 / 4 | 3 wk | ⬜ |
+| Z.15 | **Tier 14** | Soft Furnishings (F7.1 rug · F7.2 throws · F7.3 plants) | 0 / 3 | 1 wk | ⬜ |
+| Z.16 | **Tier 15** | Cognition L7 — Typology Priors (selector · RoomRule overrides · archetype overrides · AI critique) | 0 / 4 | 5.5 wk | ⬜ |
+| Z.18 | **Tier 17** | Cross-cut — Intent Field substrate + Pareto refactor | 0 / 2 | 4 wk | ⬜ |
+| Z.19 | **Tier 18** | Housekeeping — orphan audit · door/window defaults resolver (overlaps F8.2 + T1.D) · materialIntent labels | 0 / 3 | 3 d | ⬜ |
+
+### Multi-apartment surface (Tier 16 — full sub-table at Z.17)
+
+| Tier ID | Phase | Description | Done / Total | Est | Status |
+|---|---|---|---|---|---|
+| Z.17 | **Tier 16** | Multi-apartment floor plate — core-first subdivider · lift + stairs + lobby + public corridor · 2-options generator (efficiency vs typology-led) · per-apartment subdriver · JSON output · validation | 0 / 18 | 20 wk | ⬜ |
+
+### UI / UX tracks (run partially in parallel with backend)
+
+| Tier ID | Phase | Description | Done / Total | Est | Status |
+|---|---|---|---|---|---|
+| Z.17b | **Tier 1b** | Single-apartment UI/UX extensions — validator surfacing, facade overlay, hierarchy narrative, typed-edge viz, activity overlay, typology selector, behavioural insights, console diagnostics, CREATE panel maintenance | **2 / ~15** (L1-α-4 card-model done; SVG narrative pending) | 12 wk | 🟨 |
+| Z.17a | **Tier 16b** | Multi-apartment UI/UX — CREATE panel branch · apartment-mix configurator · core placement overlay · two-options modal · floor-plate validation panel · per-flat door + fire-rating · A11Y + responsiveness | 0 / ~20 | 15 wk | ⬜ |
+
+### Totals (2026-05-31)
+
+- **Backend** Tiers 0–18: 7 ✅ · 8 🟨 · 9 ⬜ (of 24 distinct tier rows)
+- **Strategic substrates** GS0 / P0 / BIM 2/3: 3/3 documented; D-α partially shipped (3 / 6); the rest strategic-only
+- **UI/UX** Tier 1b / 16b: 2 / 35 done (≈ 6 % — primary surfaces shipped; deep cognition surfacing queued)
+- **Test pass count** (load-bearing snapshots): ai-host 875/875 · stores 204/204 · schemas 164/164 · editor (layoutCardModel 12/12 + layoutThumbnail 23/23) — pre-existing AiHost.* SCC failures unchanged
+- **Latest commit**: `2956469` (F3.5 wc archetype) · branch `feat/daily-use-and-production-readiness-2026-05-20` synced
+
+The detailed per-row sub-deliverable tracking lives in §4 (per-phase prose) + Part Z (the canonical ordered tier table). This §0.0 table is the at-a-glance rollup.
+
+---
+
 ## §0.5 — Scope: TWO product surfaces
 
 This plan covers **both** delivery surfaces in lock-step:
@@ -392,7 +458,7 @@ Shipped contract-complete: FurnitureType union + FurnitureCategoryMap (`tv_unit`
 
 | ID | New `FurnitureType` | Architectural notes | Estimate | Status |
 |---|---|---|---|---|
-| **F1.3** | `tv` (wall-mounted screen — child of wall like a hosted element OR free-standing) + `tv_unit` (low cabinet) | TV is the trickier of the two — if wall-mounted it semantically resembles a hosted element (cf. C15). Decision required at F1.3.a: full hosted-element treatment (more work) vs free-standing furniture (simpler, no wall anchoring). **Recommendation: free-standing furniture with an `anchor: 'wall-mounted'` placement hint, NOT a C15 hosted element.** That keeps the geometry-wall pipeline untouched. | 2 × 5 days = **10 dev-days** | ⬜ |
+| **F1.3** | `tv` (wall-mounted screen — child of wall like a hosted element OR free-standing) + `tv_unit` (low cabinet) | TV is the trickier of the two — if wall-mounted it semantically resembles a hosted element (cf. C15). Decision required at F1.3.a: full hosted-element treatment (more work) vs free-standing furniture (simpler, no wall anchoring). **Recommendation: free-standing furniture with an `anchor: 'wall-mounted'` placement hint, NOT a C15 hosted element.** That keeps the geometry-wall pipeline untouched. | 2 × 5 days = **10 dev-days** | ✅ **shipped 2026-05-30** — chose free-standing path per the recommendation. See §4.2.3 heading above. |
 
 #### §4.2.4 — F1.4 Entry storage primitives
 
@@ -453,7 +519,7 @@ Shipped contract-complete: FurnitureType union + FurnitureCategoryMap (`tv_unit`
 
 | ID | What | Notes | Estimate | Status |
 |---|---|---|---|---|
-| **F1.13** | Add a `lounge_chair` semantic alias to `FurnitureCategoryMap` that resolves to one of the existing `chair_barcelona_*` / `chair_oak_curved_uph` variants per a deterministic style preference. Pure mapping; no new builder. | One-day. Does NOT pay the full §4.2.0 ladder because no new builder is created. | **1 dev-day** | ⬜ |
+| **F1.13** | Add a `lounge_chair` semantic alias to `FurnitureCategoryMap` that resolves to one of the existing `chair_barcelona_*` / `chair_oak_curved_uph` variants per a deterministic style preference. Pure mapping; no new builder. | One-day. Does NOT pay the full §4.2.0 ladder because no new builder is created. | **1 dev-day** | ✅ shipped 2026-05-30 — semantic alias added; living-room + bedroom archetypes wire it as an OPTIONAL corner seat (F3.2 + F3.3 follow-on slices). |
 
 #### §4.2.14 — F1.14 Pantry cabinet
 
@@ -665,6 +731,29 @@ The strategic substrate that ALL F/L/D/T-tier work converges toward. Doesn't blo
 
 **Tier −1 total: ~28 dev-weeks (≈ 7 months single-contributor; 3 months at two parallel).**
 
+## Z.−0a — Tier −0a — BIM 2/3 Live Parametric substrate (RUNS PARALLEL — see APARTMENT-BIM2-BIM3-DATA-MANAGEMENT-AND-LIVE-PARAMETRIC-SYSTEM.md)
+
+The WHAT-EDITABLE strategic substrate. Doesn't block F-tier; sets up the user-intent L0 (`ApartmentParameters` + `RoomParameters` + their stores + their commands) BENEATH the geometry layer so post-execute parameter edits dispatch through the bus + the propagation engine re-derives geometry locally without re-running D-TGL. See [APARTMENT-BIM2-BIM3-DATA-MANAGEMENT-AND-LIVE-PARAMETRIC-SYSTEM.md](APARTMENT-BIM2-BIM3-DATA-MANAGEMENT-AND-LIVE-PARAMETRIC-SYSTEM.md) §6 for the full 14-deliverable D-α/β/γ ladder.
+
+| ID | Deliverable | Est | Status |
+|---|---|---|---|
+| **D-α-0** | `ApartmentParameters` + `RoomParameters` Zod schemas (P5 pure) at `@pryzm/schemas/apartment` | 0.5 wk | ✅ shipped 2026-05-30 — `packages/schemas/src/apartment/ApartmentParameters.ts`. ApartmentTypology enum + RoomType + ParameterEnvelope + ApartmentParameters + RoomParameters + type-guards. +27 pin tests. |
+| **D-α-1** | `ApartmentParametersStore` + `RoomParametersStore` (L0 data substrate, distinct from geometry-projected stores) | 0.5 wk | ✅ shipped 2026-05-30 — `packages/stores/src/{ApartmentParametersStore,RoomParametersStore}.ts`. Singletons + setApartment/setRoom + getApartment/getRoom + list/forApartment + remove/removeForApartment + clear + subscribe. +22 pin tests. |
+| **D-α-2** | `apartment.updateParameter` + `room.updateParameter` commands + handlers (patch-merge through the bus) | 1 wk | 🟨 partial 2026-05-30 — command types declared in `@pryzm/command-bus` + store-side patch-merge methods (`updateApartment(id, patch)` / `updateRoom(id, patch)`) with prior-for-undo and validation. Plugin-sdk handler classes for the bus runtime queued. +17 pin tests. |
+| **D-α-3** | `apartmentSolver.recomputeImpact` — local-region resolver | 2 wk | ⬜ |
+| **D-α-4** | Panel A (Apartment Data) — primary UI surface, read-only first | 1 wk | ⬜ |
+| **D-α-5** | Panel A — live-edit + dispatch + impact preview | 1 wk | ⬜ |
+| **D-β-1** | Panel B (Room Data) — per-room scope | 1 wk | ⬜ |
+| **D-β-2** | Panel C (Adjacency Data) | 1.5 wk | ⬜ |
+| **D-β-3** | Panel D (Constraint Data) — per-apartment threshold overrides | 1.5 wk | ⬜ |
+| **D-β-4** | Panel E (Furniture Program) — re-furnish single room | 1 wk | ⬜ |
+| **D-β-5** | Panel F (Activity Systems) — archetype swap | 1 wk | ⬜ |
+| **D-γ-1** | Propagation engine — full dependency graph + impact graph (the BIM 3.0 inflection) | 2 wk | ⬜ |
+| **D-γ-2** | Multi-edit batching + single-undo per logical user action | 0.5 wk | ⬜ |
+| **D-γ-3** | External-source edits (collaborator / AI / remote) flow through same path + reconcile | 1 wk | ⬜ |
+
+**Tier −0a total: ~17 dev-weeks (≈ 4 months single-contributor; 2 months at two parallel).** Bigger than any F-tier slice but the substrate ALL future parameter-edit features ride. F-tier ships in parallel — no work blocks on BIM 2/3.
+
 ## Z.1 — Tier 0 — Already shipped (foundation reference)
 
 These ARE the current ground-state. Tactical wins from sessions 2026-05-23 → 2026-05-29.
@@ -739,21 +828,21 @@ Each row pays the full 24-step contract obligation ladder (§0.1). Order: most s
 |---|---|---|---|---|
 | **F1.1** | `desk` + `desk_chair` | geometry-furniture | 10 d | ✅ shipped 2026-05-30 — FurnitureType union + FurnitureCategoryMap entries + DeskBuilder + DeskChairBuilder + FurnitureFactory arms (geometry-furniture); ai-host FurnitureKind union + footprints + private-office archetype + programRules.study furnitureSpec; +6 pin tests; dining-table-as-desk workaround retired. Plan-symbol uses default edge projection (a dedicated DeskPlanSymbolBuilder is queued as a polish slice) |
 | **F1.2** | `bookshelf` + `bookshelf_glass` | geometry-furniture | 10 d | ✅ shipped 2026-05-30 — FurnitureType union + FurnitureCategoryMap entries (`storage`) + BookshelfBuilder (handles both variants via `data.furnitureType` discrimination) + FurnitureFactory arms; ai-host FurnitureKind + footprints (0.80×0.35×1.80 m); wired into `private-office` archetype (open variant, study companion) + `living-room` archetype (glass variant, optional). +6 pin tests. |
-| **F1.3** | `tv` + `tv_unit` | geometry-furniture | 10 d | ⬜ |
+| **F1.3** | `tv` + `tv_unit` | geometry-furniture | 10 d | ✅ shipped 2026-05-30 — see §4.2.3 above. TvBuilder (wall-mounted, baseOffset 1.20 m) + TvUnitBuilder (low cabinet) + 'media' group anchored on wall-opposite-door in living-room archetype + 5 pin tests. |
 | **F1.4** | Entry storage primitives (`shoe_cabinet`, `coat_rack`, `console_table`, `entry_bench`) | geometry-furniture | 20 d | ✅ shipped 2026-05-30 — FurnitureType union + FurnitureCategoryMap (storage + tables) + EntryStorageBuilder.ts (4 small classes) + FurnitureFactory arms; ai-host FurnitureKind union + footprints; entrance-lobby archetype wires S2 (shoe_cabinet + console_table + entry_bench in 'entry' group, coat_rack as corner accent); programRules.hall mirrors. +5 pin tests. |
 | **F1.5** | Bathroom vanity primitives (`vanity_unit`, `bathroom_mirror`, `mirror_light`, `towel_rail`) | geometry-furniture + geometry-lighting | 20 d | ✅ shipped 2026-05-30 — Furniture trio (F1.5 furniture-side): FurnitureType union + FurnitureCategoryMap + NEW BathroomVanityBuilder.ts + FurnitureFactory arms; ai-host FurnitureKind + footprints; bathroom archetype wires S4 vanity group; programRules.bathroom. **F1.5' mirror_light shipped today in geometry-lighting**: LightingFixtureType union extended + MirrorLightParams + MIRROR_LIGHT_DEFAULTS in BOTH core-app-model/src/lighting/ and core-app-model/src/stores/ (dual-source preserved) + new `_buildMirrorLight` in LightingFragmentBuilder (slim brushed-steel bar 0.6×0.05×0.035 m with emissive warm-LED front face) + main barrel re-export. The lighting fixture is independent of the furniture trio's plumbing; together they complete the S4 activity system. +5 pin tests (furniture side). |
-| **F1.6'** | `bath` (drop-in + freestanding) | geometry-plumbing | 10 d | ⬜ |
-| **F1.7** | `wc_washbasin` + `wc_mirror` | geometry-plumbing + geometry-furniture | 10 d | ⬜ |
-| **F1.8** | Utility/laundry primitives | geometry-furniture + geometry-plumbing | 25 d | ⬜ |
+| **F1.6'** | `bath` (drop-in + freestanding) | geometry-furniture (furniture-shaped projection; full plumbing route stays in geometry-plumbing) | 10 d | ✅ shipped 2026-05-30 — see §4.2.6 above. BathBuilder + bathroom archetype wired (optional, area-gated). |
+| **F1.7** | `wc_washbasin` + `wc_mirror` | geometry-furniture | 10 d | ✅ shipped 2026-05-30 — see §4.2.7 above. WcBuilders.ts + types + footprints + 3 pin tests. F3.5 WC archetype shipped same week (2026-05-31). |
+| **F1.8** | Utility/laundry primitives | geometry-furniture (new 'utility' FurnitureCategory) | 25 d | ✅ shipped 2026-05-30 — see §4.2.8 above. 5 builders + 'utility' category + utility-room S5 archetype + 6 pin tests. |
 | **F1.9** | `buffet` + `sideboard` | geometry-furniture | 10 d | ✅ shipped 2026-05-30 — FurnitureType union + FurnitureCategoryMap (storage) + NEW DiningStorageBuilder.ts (BuffetBuilder 4-bay drawers+cabinets; SideboardBuilder 3-bay cabinets + 3 top drawers + tapered legs) + FurnitureFactory arms; ai-host FurnitureKind + footprints; dining-room archetype wires both on longest free wall (excludeWindowWall, excludeDoorSwing); programRules.dining mirrors. +5 pin tests including silhouette-intent assertion (sideboard.h < buffet.h). |
 | **F1.10** | `wall_art` + `wall_mirror` | geometry-furniture | 10 d | ✅ shipped 2026-05-30 — FurnitureType union + FurnitureCategoryMap (decor) + NEW WallDecorBuilder.ts (WallArtBuilder dark frame + earthy canvas; WallMirrorBuilder gold frame + emissive glass) + FurnitureFactory arms; ai-host FurnitureKind + footprints (both wall-hung at baseOffset 1.20 m, clearFront 0); living-room archetype wires wall_art in 'sofa' group; bedroom archetype wires wall_mirror in 'bed' group; programRules.living + programRules.master mirror the additions. +5 pin tests. |
 | **F1.11** | Curtain primitives | geometry-furniture | 20 d | ✅ shipped 2026-05-30 — FurnitureType union + FurnitureCategoryMap (soft_furnishings) + NEW CurtainBuilder.ts (CurtainRodBuilder slim rod + finial caps at baseOffset 2.40 m; CurtainPanelBuilder fabric slab + 3 vertical pleat strips) + FurnitureFactory arms; ai-host FurnitureKind + footprints; living-room + bedroom + master archetypes wire `curtains` group (rod on window wall + 2 panels via count: 2); programRules.living + bedroom + master mirror. +5 pin tests + updated furnishEmit baseOffset test to handle multiple wall-mounted kinds via a lookup table. S7 activity-system precursor. Note: multi-window-per-room handling lives at the engine level (one rod placement per archetype call today) — queued. |
 | **F1.12** | Bedroom dressing (`dresser`, `vanity_table`) | geometry-furniture | 10 d | ✅ shipped 2026-05-30 — FurnitureType union + FurnitureCategoryMap (bedroom) + NEW BedroomDressingBuilder.ts (DresserBuilder 6-drawer 2×3 grid; VanityTableBuilder slim legs + drawer + integrated wall mirror with emissive glass) + FurnitureFactory arms; ai-host FurnitureKind + footprints; bedroom archetype wires dresser on longest wall + vanity_table on window wall (dressing prefers natural light); programRules.master mirrors. +5 pin tests. |
-| **F1.13** | `lounge_chair` semantic alias | geometry-furniture | 1 d | ⬜ |
+| **F1.13** | `lounge_chair` semantic alias | geometry-furniture | 1 d | ✅ shipped 2026-05-30 — pure alias in FurnitureCategoryMap that routes to one of the existing chair_barcelona_* / chair_oak_curved_uph variants; F3.2 + F3.3 follow-on (2026-05-30) wires it as an OPTIONAL corner seat in the living-room + bedroom archetypes. +3 pin tests in furnishFoundations.test.ts. |
 | **F1.14** | `pantry_cabinet` | geometry-furniture | 5 d | ✅ shipped 2026-05-30 — FurnitureType union + FurnitureCategoryMap (storage) + NEW PantryCabinetBuilder.ts (3-tier: upper double doors + centre full-width drawer + lower double doors) + FurnitureFactory arm; ai-host FurnitureKind + footprints (0.6×0.45×2.10 m); kitchen archetype wires on longest-wall with excludeWindowWall + excludeDoorSwing; programRules.kitchen mirrors. +4 pin tests. |
 | **F1.15** | `pendant_cluster` | geometry-lighting | 5 d | ✅ shipped 2026-05-30 — see §4.2.15 above for full ladder. |
 
-**Tier 6 total: ~175 dev-days (≈ 8 months single-contributor; 4 months at two parallel).**
+**Tier 6 status: 15/15 ✅ as of 2026-05-31.** All F1 renderable types shipped via the §0.1 contract-obligation ladder. Original estimate was ~175 dev-days; actual delivery compressed because the furniture-shaped projection pattern (used for F1.6'/F1.7/F1.8 wet fixtures) avoided the cross-package plumbing-dispatch ladder.
 
 ## Z.8 — Tier 7 — Cognition Layer 4: Compositional Geometry
 
@@ -1089,20 +1178,31 @@ Tier 18 (Housekeeping — final sweep)
 
 # Part X — TOTAL COMMITMENT & SEQUENCING RECOMMENDATION
 
-**Total estimate (backend + UI/UX combined):** ~137 dev-weeks (~32 months single-contributor; 15–17 months at 2 parallel; 10–12 months at 3 parallel with the right work-splits).
+**Original total estimate (backend + UI/UX combined):** ~137 dev-weeks (~32 months single-contributor; 15–17 months at 2 parallel; 10–12 months at 3 parallel with the right work-splits).
 
-- Tier 1 — visible Tier-1 items: ~4 weeks
-- Tier 1b — Single-apartment UI/UX extensions: ~12 weeks
-- Tier 2 — Pre-furnishing validators: ~10 weeks
-- Tiers 3–5 — Cognition L1–L3: ~8 weeks
-- Tier 6 — Furniture catalogue: ~35 weeks (largest)
-- Tiers 7–10 — Composition + archetypes + activity + lighting: ~8 weeks
-- Tiers 11–12 — Perception + behaviour sim: ~9 weeks
-- Tiers 13–14 — Built-ins + soft furnishings: ~5 weeks
-- Tier 15 — Typology priors: ~6 weeks
-- Tier 16 + 16b — Multi-apartment backend + UI/UX: ~35 weeks
-- Tier 17 — Intent Field + Pareto refactor: ~4 weeks
-- Tier 18 — Housekeeping: ~1 week
+**REMAINING (as of 2026-05-31, after the ~25 commits this week shipped Tier 1 + Tier 6 + most of Tiers 2-5 + Tiers 7-8 + BIM 2/3 D-α-0/1/2):** ~85 dev-weeks. Single-apartment surface is ~75 % complete by axis count, ~50 % by week count (because the unshipped tiers — multi-apartment + perceptual sim + behavioural sim + typology priors — are individually large).
+
+| Tier | Original | Done | Remaining | Status |
+|---|---|---|---|---|
+| Tier 1 — visible Tier-1 items | ~4 wk | ~4 wk | 0 | ✅ |
+| Tier 1b — Single-apartment UI/UX | ~12 wk | ~1 wk | ~11 wk | 🟨 |
+| Tier 2 — Pre-furnishing validators | ~10 wk | ~9 wk | ~1 wk | 🟨 |
+| Tiers 3–5 — Cognition L1–L3 | ~8 wk | ~7 wk | ~1 wk | 🟨 |
+| Tier 6 — Furniture catalogue | ~35 wk | ~35 wk | 0 | ✅ |
+| Tier 7 — Compositional Geometry | ~3 wk | ~3 wk (scoring) | ~3 wk (constructive variants) | 🟨 |
+| Tier 8 — Archetype Wiring | ~5 d | ~3.5 d | ~1.5 d | 🟨 |
+| Tier 9 — Activity systems | ~5 wk | partial (de-facto via F1.x archetypes) | ~3 wk formal | ⬜ |
+| Tier 10 — Lighting programme | ~1 wk | 0 | ~1 wk | ⬜ |
+| Tiers 11–12 — Perception + behaviour sim | ~9 wk | 0 | ~9 wk | ⬜ |
+| Tiers 13–14 — Built-ins + soft furnishings | ~5 wk | 0 | ~5 wk | ⬜ |
+| Tier 15 — Typology priors | ~6 wk | 0 | ~6 wk | ⬜ |
+| Tier 16 + 16b — Multi-apartment backend + UI/UX | ~35 wk | 0 | ~35 wk | ⬜ |
+| Tier 17 — Intent Field + Pareto refactor | ~4 wk | 0 | ~4 wk | ⬜ |
+| Tier 18 — Housekeeping | ~1 wk | 0 | ~1 wk | ⬜ |
+| **Strategic substrates (parallel)** | | | | |
+| Z.−2 GS0 Geospatial | ~19 wk | 0 | ~19 wk | 🟦 |
+| Z.−1 P0 Family Platform | ~28 wk | ~1 wk (drafts) | ~27 wk | 🟦 |
+| Z.−0a BIM 2/3 D-α/β/γ | ~17 wk | ~2 wk (D-α-0/1/2) | ~15 wk | 🟨 |
 
 **Recommended near-term sequencing (next 4–6 weeks):**
 
