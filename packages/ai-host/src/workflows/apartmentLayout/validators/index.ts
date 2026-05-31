@@ -29,3 +29,12 @@ export type {
 // ── Convenience re-exports from the per-discipline barrels ──────────────────
 export * from './dimensional/index.js';
 export * from './topology/index.js';
+
+// ── Layout adapter (D-TGL DTO → ApartmentLayoutForValidation) ───────────────
+export { toValidationInput } from './layout-adapter.js';
+export type {
+    DtglLayoutDto,
+    DtglLayoutRoom,
+    DtglLayoutEdge,
+    AdapterOptions,
+} from './layout-adapter.js';
