@@ -363,3 +363,43 @@ export {
 } from './AmbientIntelligence.js';
 export type { AmbientObservation, AmbientUiPrefsProvider } from './AmbientIntelligence.js';
 export * from './intents.js';
+
+// Apartment-layout validator framework (runs 4-11): orchestrator + adapter
+// + formatter + combined call surface. Surfaced at the root so the editor's
+// dev-test functions + future apartment-modal wire-ins can import without
+// a deep path.
+export {
+    validateApartmentLayout,
+    passesLegality,
+    summarise,
+} from './workflows/apartmentLayout/validators/orchestrator.js';
+export type {
+    ApartmentLayoutRoom,
+    ApartmentLayoutForValidation,
+    AggregatedViolationReport,
+} from './workflows/apartmentLayout/validators/orchestrator-types.js';
+export {
+    toValidationInput,
+} from './workflows/apartmentLayout/validators/layout-adapter.js';
+export type {
+    DtglLayoutDto,
+    DtglLayoutRoom,
+    DtglLayoutEdge,
+    AdapterOptions,
+} from './workflows/apartmentLayout/validators/layout-adapter.js';
+export {
+    validateAndFormatLayout,
+} from './workflows/apartmentLayout/validators/validate-and-format.js';
+export type {
+    ValidateAndFormatOptions,
+    ValidateAndFormatResult,
+} from './workflows/apartmentLayout/validators/validate-and-format.js';
+export {
+    formatViolationReport,
+    formatViolationLine,
+    groupByClass,
+    groupByRoom,
+} from './workflows/apartmentLayout/reporting/report-formatter.js';
+export type {
+    FormatOptions,
+} from './workflows/apartmentLayout/reporting/report-formatter.js';
