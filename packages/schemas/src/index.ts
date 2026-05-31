@@ -53,6 +53,21 @@ export * from './family-definition/index.js';
 // `ParametricFamilySchema` etc.
 export * from './family-parametric/index.js';
 
+// P0.5 Stage-3 (Family Platform) — L0 GeneratedGeometry substrate (Stage-3
+// geometry synthesis OUTPUT type).  Sits between ParametricFamily (Stage-2)
+// and RegisteredFamily (Stages 4-5).  Exports:
+// `BuilderKind*`, `BuilderRef*`, `PlanSymbolKind*`, `PlanSymbolRef*`,
+// `Footprint*`, `GeneratedGeometry*` — none of which collide with the
+// existing `family-registry/`, `family-request/`, `family-definition/`, or
+// `family-parametric/` exports.
+//
+// NOTE: like the family-definition + family-parametric barrels above, this
+// re-export has been observed to be stripped by a linter/auto-fixer during
+// sibling slice authoring.  If it disappears, re-add it here —
+// `family-geometry/index.js` is real and required for
+// `familyGeometry.test.ts` to resolve `GeneratedGeometrySchema` etc.
+export * from './family-geometry/index.js';
+
 // S31 / Phase 2B Supplement §A1 — auto-dimension schemas (DimensionString,
 // EvaluatedDimension, anchor/orientation enums) and §B1 — ViewTemplate
 // schemas (StrokeStyle, CategoryVG, ViewFilter, FilterCondition, ViewRange).
