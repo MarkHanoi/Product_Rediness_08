@@ -84,6 +84,23 @@ export * from './family-geometry/index.js';
 // `GeneratedSchemasSchema` etc.
 export * from './family-schemas/index.js';
 
+// P0.5 Stage-pipeline (Family Platform) — L0 single-call orchestrator that
+// chains every Family-Generation Stage (1 → 2 → 3 → 4 → 5) into ONE
+// function call.  Takes raw JSON, returns a fully-typed `RegisteredFamily`
+// (plus every intermediate stage output for debug + cache-key extraction)
+// — or an `IngestionFailure` verbatim on Stage-1 ingestion failure.
+// Exports: `runFamilyPipeline`, `isPipelineSuccess`,
+// `RunFamilyPipelineOptions`, `RunFamilyPipelineStages`,
+// `RunFamilyPipelineSuccess`, `RunFamilyPipelineOutcome`.  No name
+// collisions with the prior six family-* barrels.
+//
+// NOTE: like the six sibling family-* barrels above, this re-export has
+// been observed to be stripped by a linter/auto-fixer during sibling slice
+// authoring.  If it disappears, re-add it here — `family-pipeline/index.js`
+// is real and required for `familyPipeline.test.ts` to resolve
+// `runFamilyPipeline` etc.
+export * from './family-pipeline/index.js';
+
 // S31 / Phase 2B Supplement §A1 — auto-dimension schemas (DimensionString,
 // EvaluatedDimension, anchor/orientation enums) and §B1 — ViewTemplate
 // schemas (StrokeStyle, CategoryVG, ViewFilter, FilterCondition, ViewRange).
