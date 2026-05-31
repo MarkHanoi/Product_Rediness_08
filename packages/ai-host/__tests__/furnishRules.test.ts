@@ -100,6 +100,110 @@ describe('§FURNITURE-SPEC ↔ D-FLE — pin specs against the footprint catalog
     });
 });
 
+// F4 follow-up (2026-05-31) — activity-group + curtain wiring follow-ons.
+// (1) towel_rail joins the bathroom 'vanity' group.
+// (2) bedroom dressing — dresser + vanity_table share a 'dressing' group.
+// (3) curtain_panel wired into every room WHERE PROGRAM-RULES SAYS A WINDOW
+//     EXISTS (kitchen, dining, private-office); SKIPPED for bathroom / wc /
+//     utility-room because programRules.{bathroom,wc,utility}.needsWindow is
+//     false (those rooms get no exterior glazing → no curtain to wire).
+describe('F4 activity-groups follow-ups', () => {
+    it("(1) bathroom 'vanity' group includes towel_rail (not floating on a random wall)", () => {
+        const items = archetypeFor('bathroom')!.items;
+        const towel = items.find(i => i.kind === 'towel_rail');
+        expect(towel).toBeDefined();
+        expect(towel!.group).toBe('vanity');
+        // vanity_unit + bathroom_mirror are the existing 'vanity'-group anchors;
+        // pinning all three together prevents the group label from drifting away
+        // from the basin cluster.
+        const groupKinds = items.filter(i => i.group === 'vanity').map(i => i.kind);
+        expect(groupKinds).toContain('vanity_unit');
+        expect(groupKinds).toContain('bathroom_mirror');
+        expect(groupKinds).toContain('towel_rail');
+    });
+
+    it("(2) 'dressing' group exists in the bedroom archetype and binds dresser + vanity_table", () => {
+        const items = archetypeFor('bedroom')!.items;
+        const dresser = items.find(i => i.kind === 'dresser');
+        const vanityTable = items.find(i => i.kind === 'vanity_table');
+        expect(dresser).toBeDefined();
+        expect(vanityTable).toBeDefined();
+        expect(dresser!.group).toBe('dressing');
+        expect(vanityTable!.group).toBe('dressing');
+        // The 'dressing' group is exclusively dresser + vanity_table — no other
+        // bedroom item should leak in (the bed has its own 'bed' group, the
+        // curtains 'curtains'). Pin the membership.
+        const dressingKinds = new Set(items.filter(i => i.group === 'dressing').map(i => i.kind));
+        expect(dressingKinds).toEqual(new Set(['dresser', 'vanity_table']));
+    });
+
+    it("(2) 'dressing' group also applies to the master bedroom (master uses the bedroom archetype)", () => {
+        // D-FLE's FurnishableOccupancy union has ONE 'bedroom' archetype that
+        // services both standard bedrooms and master bedrooms (no separate
+        // 'master-bedroom' occupancy in this engine). The 'dressing' group
+        // therefore applies to the master via the shared bedroom archetype.
+        // Pin by re-asserting the group on the same archetype the master
+        // resolves to.
+        const items = archetypeFor('bedroom')!.items;
+        const dressers = items.filter(i => i.group === 'dressing');
+        expect(dressers.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('(3) curtain_panel wired in kitchen, dining-room, private-office (rooms WITH windows)', () => {
+        // Map FurnishableOccupancy → canonical RoomType for programRules lookup.
+        const TYPE_OF: Record<string, string> = {
+            'kitchen': 'kitchen', 'dining-room': 'dining', 'private-office': 'study',
+        };
+        for (const occ of ['kitchen', 'dining-room', 'private-office'] as const) {
+            const items = archetypeFor(occ)!.items;
+            const rod = items.find(i => i.kind === 'curtain_rod');
+            const panel = items.find(i => i.kind === 'curtain_panel');
+            expect(rod, `${occ} archetype missing curtain_rod`).toBeDefined();
+            expect(panel, `${occ} archetype missing curtain_panel`).toBeDefined();
+            expect(rod!.group).toBe('curtains');
+            expect(panel!.group).toBe('curtains');
+            expect(panel!.count).toBe(2);
+            // Pinch the program-rules contract: these rooms must have a window
+            // for the curtain wiring to make sense. needsWindow gates wiring.
+            const rule = ROOM_RULES[TYPE_OF[occ] as keyof typeof ROOM_RULES];
+            expect(rule.needsWindow, `${occ} (program-type ${TYPE_OF[occ]}).needsWindow must be true for curtain wiring`).toBe(true);
+        }
+    });
+
+    it('(3) curtain_panel NOT wired in bathroom / wc / utility-room (rooms WITHOUT windows per programRules)', () => {
+        // Bathroom / wc / utility-room have needsWindow: false in the
+        // programRules DB — there's no glazing, so curtains would attach to a
+        // nonexistent window wall. The archetypes MUST stay curtain-free for
+        // these three.
+        const TYPE_OF: Record<string, string> = {
+            'bathroom': 'bathroom', 'wc': 'wc', 'utility-room': 'utility',
+        };
+        for (const occ of ['bathroom', 'wc', 'utility-room'] as const) {
+            const rule = ROOM_RULES[TYPE_OF[occ] as keyof typeof ROOM_RULES];
+            expect(rule.needsWindow, `${occ} (program-type ${TYPE_OF[occ]}).needsWindow expected false`).toBe(false);
+            const items = archetypeFor(occ)!.items;
+            const kinds = items.map(i => i.kind);
+            expect(kinds, `${occ} must NOT carry curtain_rod`).not.toContain('curtain_rod');
+            expect(kinds, `${occ} must NOT carry curtain_panel`).not.toContain('curtain_panel');
+        }
+    });
+
+    it('(3) curtain wiring follows the rod+panel(count:2) pattern in every wired room', () => {
+        // Pin the wiring shape: every curtain-bearing archetype must use the
+        // same canonical pair (rod on window wall + two panels flanking via
+        // 'beside') so the engine treats them uniformly.
+        const wired = ['bedroom', 'living-room', 'kitchen', 'dining-room', 'private-office'] as const;
+        for (const occ of wired) {
+            const items = archetypeFor(occ)!.items;
+            const rod = items.find(i => i.kind === 'curtain_rod')!;
+            const panel = items.find(i => i.kind === 'curtain_panel')!;
+            expect(rod.anchor, `${occ} curtain_rod anchor`).toBe('wall-window');
+            expect(panel.anchor, `${occ} curtain_panel anchor`).toBe('beside');
+            expect(panel.count, `${occ} curtain_panel count`).toBe(2);
+        }
+    });
+});
+
 describe('furnishRoom places the bedroom program', () => {
     const bedroom = (w: number, d: number): FurnishRoomInput => {
         const poly: Pt[] = [{ x: 0, z: 0 }, { x: w, z: 0 }, { x: w, z: d }, { x: 0, z: d }];

@@ -22,8 +22,13 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
             // F1.12 (2026-05-30) — Bedroom dressing. Dresser on longest free
             // wall (yields to the wardrobe); vanity_table beside the window
             // for natural light when applying makeup.
-            { kind: 'dresser',      anchor: 'wall-longest', facing: 'to-wall',   required: false, excludeWindowWall: true, excludeDoorSwing: true },
-            { kind: 'vanity_table', anchor: 'wall-window',  facing: 'to-wall',   required: false, excludeDoorSwing: true },
+            // F4 follow-up (2026-05-31) — both tagged with the 'dressing'
+            // activity group so they read as a coherent dressing zone
+            // (architect's semantic grouping; the solver's leader/beside
+            // pairing keeps each item at its own anchor since neither uses
+            // `anchor: 'beside'`).
+            { kind: 'dresser',      anchor: 'wall-longest', facing: 'to-wall',   required: false, group: 'dressing', excludeWindowWall: true, excludeDoorSwing: true },
+            { kind: 'vanity_table', anchor: 'wall-window',  facing: 'to-wall',   required: false, group: 'dressing', excludeDoorSwing: true },
             // F1.10 (2026-05-30) — Wall mirror above the bed wall (paired
             // with the bed group — the mirror reads as a headboard accent).
             { kind: 'wall_mirror', anchor: 'beside', facing: 'into-room', required: false, group: 'bed' },
@@ -90,6 +95,12 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
             // run's clearFront covering the centroid → island drops cleanly).
             // facing 'into-room' rotates the cabinet doors to face the cook side.
             { kind: 'kitchen_island', anchor: 'center', facing: 'into-room', required: false },
+            // F4 follow-up (2026-05-31) — kitchens have windows (programRules
+            // .kitchen.needsWindow = true; the sink wants natural light). Mirror
+            // the bedroom/living-room curtain pattern: rod on the window wall +
+            // two panels flanking.
+            { kind: 'curtain_rod',   anchor: 'wall-window', facing: 'to-wall', required: false, group: 'curtains' },
+            { kind: 'curtain_panel', anchor: 'beside',      facing: 'to-wall', required: false, group: 'curtains', count: 2 },
         ],
     },
     'dining-room': {
@@ -102,6 +113,11 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
             // table's silhouette). Both anchor on the longest free wall.
             { kind: 'sideboard', anchor: 'wall-longest', facing: 'to-wall', required: false, excludeWindowWall: true, excludeDoorSwing: true },
             { kind: 'buffet',    anchor: 'wall-longest', facing: 'to-wall', required: false, excludeWindowWall: true, excludeDoorSwing: true },
+            // F4 follow-up (2026-05-31) — dining rooms have windows
+            // (programRules.dining.needsWindow = true). Curtains on the
+            // window wall, mirroring the bedroom/living-room pattern.
+            { kind: 'curtain_rod',   anchor: 'wall-window', facing: 'to-wall', required: false, group: 'curtains' },
+            { kind: 'curtain_panel', anchor: 'beside',      facing: 'to-wall', required: false, group: 'curtains', count: 2 },
         ],
     },
     'bathroom': {
@@ -119,9 +135,12 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
             // on the wall opposite the door (the user faces it on entry to
             // wash hands). Mirror sits above the vanity (shares 'vanity'
             // group). Towel rail mounts beside.
+            // F4 follow-up (2026-05-31) — towel_rail joins the 'vanity' group
+            // so it lands next to the basin (the architect's expectation —
+            // towel reach is from the basin, not a random free wall).
             { kind: 'vanity_unit',     anchor: 'wall-opposite-door', facing: 'into-room', required: false, group: 'vanity', excludeDoorSwing: true },
             { kind: 'bathroom_mirror', anchor: 'beside',             facing: 'into-room', required: false, group: 'vanity' },
-            { kind: 'towel_rail',      anchor: 'wall-longest',       facing: 'to-wall',   required: false, excludeDoorSwing: true },
+            { kind: 'towel_rail',      anchor: 'beside',             facing: 'to-wall',   required: false, group: 'vanity', excludeDoorSwing: true },
             // F1.6' (2026-05-30) — drop-in bath on the longest free wall.
             // Optional (required: false) so tight bathrooms — where the
             // 1.7 m × 0.7 m footprint won't fit after the toilet, shower,
@@ -193,6 +212,11 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
             // the window wall — tall piece blocks daylight) and yields to
             // the desk's window-wall claim.
             { kind: 'bookshelf', anchor: 'wall-longest', facing: 'to-wall', required: false, excludeWindowWall: true, excludeDoorSwing: true },
+            // F4 follow-up (2026-05-31) — studies have windows
+            // (programRules.study.needsWindow = true; the desk anchors on the
+            // window wall). Curtains soften the daylight on the worktop.
+            { kind: 'curtain_rod',   anchor: 'wall-window', facing: 'to-wall', required: false, group: 'curtains' },
+            { kind: 'curtain_panel', anchor: 'beside',      facing: 'to-wall', required: false, group: 'curtains', count: 2 },
         ],
     },
     // Circulation / utility — intentionally unfurnished (keep clear).
