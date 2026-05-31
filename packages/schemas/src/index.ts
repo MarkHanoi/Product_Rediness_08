@@ -14,6 +14,17 @@ export { SCHEMA_REGISTRY, type SchemaRegistry, type ElementSchema } from './regi
 // annotation/view/apartment supplements.
 export * from './family-registry/index.js';
 
+// P0.4 slice A (Family Platform) — L0 FamilyRequest substrate.  The
+// INGESTION-side counterpart to `family-registry/` (the OUTPUT side).  All
+// exported names are `FamilyRequest*`, `FamilyDocumentation*`,
+// `FamilyGeometry*`, `FamilyBehaviour*`, `FamilyConstraints*`,
+// `FamilyPlacementHint*`, `FamilyAiHint*`, `AssetRef*`,
+// `ParametricRange*`, `FamilyDimensions*`, `HostedRelationship*` — none of
+// which collide with the existing `family-registry/` exports
+// (`Family{Id,Identity,Origin,MountClass,Category,Occupancy,ArchetypeHint,
+// RegisteredFamily,IfcMapping,RegistryState}`) or the element schemas.
+export * from './family-request/index.js';
+
 // S31 / Phase 2B Supplement §A1 — auto-dimension schemas (DimensionString,
 // EvaluatedDimension, anchor/orientation enums) and §B1 — ViewTemplate
 // schemas (StrokeStyle, CategoryVG, ViewFilter, FilterCondition, ViewRange).
