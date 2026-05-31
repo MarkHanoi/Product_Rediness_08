@@ -173,6 +173,24 @@ declare global {
          *  kitchen/bathroom). Auto-fires after `apartment.layout-executed`. */
         pryzmFloorAllRooms?: () => void;
 
+        // ── Dev-only test functions (installPryzmTestFunctions) ───────────────
+        // In-browser smoke-test helpers for the Family Platform pipeline +
+        // apartment validator framework. Registered by
+        // `apps/editor/src/dev/installPryzmTestFunctions.ts`; safe to call
+        // from the DevTools console without touching the live AI path.
+        /** Run the Family Generation Pipeline on raw JSON (Stage 1 → 5). */
+        __pryzmFamilyPipeline?:    (rawJson: unknown, opts?: unknown) => unknown;
+        /** Run the apartment-layout validators + format the Markdown report.
+         *  Async because the validator surface is loaded lazily via dynamic
+         *  import (the `@pryzm/ai-host` root barrel doesn't surface it yet). */
+        __pryzmValidateLayout?:    (dto: unknown, opts?: unknown) => Promise<unknown>;
+        /** Print the available `__pryzm*` dev-test functions. */
+        __pryzmListTestFunctions?: () => void;
+        /** Return a paste-ready sample FamilyRequest JSON (deep-cloned). */
+        __pryzmSampleFamilyRequest?: () => unknown;
+        /** Return a paste-ready sample apartment-layout DTO (deep-cloned). */
+        __pryzmSampleLayoutDto?:   () => unknown;
+
         // ── Command dispatch globals ──────────────────────────────────────────
         commandManager:
             | { executeCommand?: (cmd: string, payload?: unknown) => void }

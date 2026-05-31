@@ -7,6 +7,7 @@ import { installFurnishLayoutTrigger } from '../furnish-layout/furnishLayoutTrig
 import { installLightingLayoutTrigger } from '../lighting-layout/lightingLayoutTrigger';
 import { installCeilingLayoutTrigger } from '../ceiling-layout/ceilingLayoutTrigger';
 import { installFloorLayoutTrigger } from '../floor-layout/floorLayoutTrigger';
+import { installPryzmTestFunctions } from '../../dev/installPryzmTestFunctions';
 import { createFloorPlanImportPanel } from '../ai/FloorPlanImportPanel';
 import { createDxfImportPanel } from '../import/DxfImportPanel';
 import { createSpatialTree } from '../SpatialTree';
@@ -189,6 +190,11 @@ export function mountAIArea(props: UIProps, runtime: PryzmRuntime | null): AIRes
     // apartment-layout generator can be triggered regardless of which AI panel
     // is visible (the UI leaf lives in the AIPanel command tree → Create).
     installApartmentLayoutConsoleTrigger(runtime ?? null);
+    // Dev-only test functions (Family Platform pipeline + apartment validator
+    // framework). Exposes `window.__pryzm*` helpers so the architect can
+    // smoke-test the pure L0/L2 functions from DevTools without invoking the
+    // live AI generation path. See apps/editor/src/dev/installPryzmTestFunctions.ts.
+    installPryzmTestFunctions();
     // #54 — register the D-CE ceiling-layout trigger:
     //   • console command `pryzmCeilAllRooms()` (manual test)
     //   • auto-fire on `apartment.layout-executed` (continuous flow:
