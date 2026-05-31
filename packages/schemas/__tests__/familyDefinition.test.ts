@@ -10,6 +10,7 @@
 //                    computeCanonicalHash
 
 import { describe, expect, it } from 'vitest';
+import { ZodError } from 'zod';
 import {
     // definition
     FamilyDefinitionDerivedSchema,
@@ -21,6 +22,13 @@ import {
     canonicaliseSemanticNames,
     computeCanonicalHash,
     type FromRequestOptions,
+    // ingest-from-json entry point
+    ingestFromJson,
+    isIngestionSuccess,
+    type IngestionOutcome,
+    type IngestionSuccess,
+    type IngestionFailure,
+    type IngestFromJsonOptions,
     // input side (slice A) for fixtures
     type FamilyRequest,
 } from '../src/index.js';
@@ -348,5 +356,241 @@ describe('fromRequest', () => {
         const opts: FromRequestOptions = { ingestedAt: '2026-03-03T00:00:00Z' };
         const def = fromRequest(minimalRequest(), opts);
         expect(def.derived.ingestedAt).toBe(opts.ingestedAt);
+    });
+});
+
+// ── ingestFromJson ─────────────────────────────────────────────────────────
+
+describe('ingestFromJson', () => {
+    const FIXED_TS = '2026-04-04T00:00:00Z';
+
+    it('valid input → { ok: true, definition: <FamilyDefinition> }', () => {
+        const outcome = ingestFromJson(minimalRequest(), { fromRequestOpts: { ingestedAt: FIXED_TS } });
+        expect(outcome.ok).toBe(true);
+        if (outcome.ok) {
+            expect(outcome.definition).toBeDefined();
+            expect(outcome.definition.identity.id).toBe('family/com.pryzm.core/desk');
+        }
+    });
+
+    it('outcome.definition round-trips through FamilyDefinitionSchema.parse', () => {
+        const outcome = ingestFromJson(minimalRequest(), { fromRequestOpts: { ingestedAt: FIXED_TS } });
+        expect(outcome.ok).toBe(true);
+        if (outcome.ok) {
+            expect(() => FamilyDefinitionSchema.parse(outcome.definition)).not.toThrow();
+        }
+    });
+
+    it('outcome.definition.derived is correctly computed from the input', () => {
+        const r = minimalRequest();
+        const outcome = ingestFromJson(r, { fromRequestOpts: { ingestedAt: FIXED_TS } });
+        expect(outcome.ok).toBe(true);
+        if (outcome.ok) {
+            const { widthM, depthM, heightM } = r.geometry.dimensions;
+            expect(outcome.definition.derived.volumeM3).toBe(widthM * depthM * heightM);
+            expect(outcome.definition.derived.footprintAreaM2).toBe(widthM * depthM);
+            expect(outcome.definition.derived.canonicalSemanticNames).toEqual(['desk']);
+            expect(outcome.definition.derived.canonicalHash.startsWith('def:')).toBe(true);
+        }
+    });
+
+    it('invalid input (missing required field) → { ok: false, issues, message }', () => {
+        const bad = minimalRequest() as unknown as Record<string, unknown>;
+        delete bad.identity;
+        const outcome = ingestFromJson(bad);
+        expect(outcome.ok).toBe(false);
+        if (!outcome.ok) {
+            expect(Array.isArray(outcome.issues)).toBe(true);
+            expect(typeof outcome.message).toBe('string');
+        }
+    });
+
+    it('failure → .issues array is non-empty', () => {
+        const outcome = ingestFromJson({});
+        expect(outcome.ok).toBe(false);
+        if (!outcome.ok) {
+            expect(outcome.issues.length).toBeGreaterThan(0);
+        }
+    });
+
+    it('failure → .message includes the issue count', () => {
+        const outcome = ingestFromJson({});
+        expect(outcome.ok).toBe(false);
+        if (!outcome.ok) {
+            expect(outcome.message).toContain(`${outcome.issues.length} issue(s)`);
+            expect(outcome.message).toContain('FamilyRequest validation failed');
+        }
+    });
+
+    it('safe: false + valid input → returns success normally', () => {
+        const outcome = ingestFromJson(minimalRequest(), {
+            safe:            false,
+            fromRequestOpts: { ingestedAt: FIXED_TS },
+        });
+        expect(outcome.ok).toBe(true);
+        if (outcome.ok) {
+            expect(outcome.definition.derived.ingestedAt).toBe(FIXED_TS);
+        }
+    });
+
+    it('safe: false + invalid input → throws ZodError', () => {
+        expect(() => ingestFromJson({}, { safe: false })).toThrow(ZodError);
+    });
+
+    it('safe defaults to true when omitted (invalid input returns failure, not throw)', () => {
+        expect(() => {
+            const outcome = ingestFromJson({});
+            expect(outcome.ok).toBe(false);
+        }).not.toThrow();
+    });
+
+    it('safe: true explicit + invalid input → returns failure (does not throw)', () => {
+        expect(() => {
+            const outcome = ingestFromJson({}, { safe: true });
+            expect(outcome.ok).toBe(false);
+        }).not.toThrow();
+    });
+
+    it('fromRequestOpts.ingestedAt propagates through to definition.derived.ingestedAt', () => {
+        const outcome = ingestFromJson(minimalRequest(), {
+            fromRequestOpts: { ingestedAt: '2026-07-15T08:30:00Z' },
+        });
+        expect(outcome.ok).toBe(true);
+        if (outcome.ok) {
+            expect(outcome.definition.derived.ingestedAt).toBe('2026-07-15T08:30:00Z');
+        }
+    });
+
+    it('no opts at all → still ingests valid input + stamps a real timestamp', () => {
+        const before = Date.now();
+        const outcome = ingestFromJson(minimalRequest());
+        const after = Date.now();
+        expect(outcome.ok).toBe(true);
+        if (outcome.ok) {
+            const t = Date.parse(outcome.definition.derived.ingestedAt);
+            expect(Number.isFinite(t)).toBe(true);
+            expect(t).toBeGreaterThanOrEqual(before);
+            expect(t).toBeLessThanOrEqual(after);
+        }
+    });
+
+    it('isIngestionSuccess(success) === true', () => {
+        const outcome = ingestFromJson(minimalRequest(), { fromRequestOpts: { ingestedAt: FIXED_TS } });
+        expect(isIngestionSuccess(outcome)).toBe(true);
+    });
+
+    it('isIngestionSuccess(failure) === false', () => {
+        const outcome = ingestFromJson({});
+        expect(isIngestionSuccess(outcome)).toBe(false);
+    });
+
+    it('isIngestionSuccess narrows the discriminated union', () => {
+        const outcome: IngestionOutcome = ingestFromJson(minimalRequest(), {
+            fromRequestOpts: { ingestedAt: FIXED_TS },
+        });
+        if (isIngestionSuccess(outcome)) {
+            // TypeScript narrows to IngestionSuccess here; `.definition` is typed.
+            const success: IngestionSuccess = outcome;
+            expect(success.definition.identity.name).toBe('Desk');
+        } else {
+            // Should not reach here for valid input.
+            throw new Error('expected success');
+        }
+    });
+
+    it('empty object {} is rejected with multiple missing-field issues', () => {
+        const outcome = ingestFromJson({});
+        expect(outcome.ok).toBe(false);
+        if (!outcome.ok) {
+            // At least the top-level required keys (identity, documentation,
+            // geometry, behaviour, constraints, placement, bim, ai) must be
+            // missing → 1+ issues.  Real Zod surfaces 8 top-level keys.
+            expect(outcome.issues.length).toBeGreaterThanOrEqual(1);
+        }
+    });
+
+    it('wrong-type field (dimensions.widthM is a string) is rejected with a pathed issue', () => {
+        const bad = minimalRequest() as unknown as { geometry: { dimensions: { widthM: unknown } } };
+        bad.geometry.dimensions.widthM = '1m';
+        const outcome = ingestFromJson(bad);
+        expect(outcome.ok).toBe(false);
+        if (!outcome.ok) {
+            // The path should mention "widthM" somewhere in at least one issue.
+            const widthIssue = outcome.issues.find(i => i.path.includes('widthM'));
+            expect(widthIssue).toBeDefined();
+        }
+    });
+
+    it('null input is rejected', () => {
+        const outcome = ingestFromJson(null);
+        expect(outcome.ok).toBe(false);
+        if (!outcome.ok) {
+            expect(outcome.issues.length).toBeGreaterThan(0);
+        }
+    });
+
+    it('undefined input is rejected', () => {
+        const outcome = ingestFromJson(undefined);
+        expect(outcome.ok).toBe(false);
+    });
+
+    it('primitive input (string) is rejected', () => {
+        const outcome = ingestFromJson('not-an-object');
+        expect(outcome.ok).toBe(false);
+    });
+
+    it('multiple validation errors all surface in issues[]', () => {
+        // Two distinct things broken at once: missing identity AND wrong-type widthM.
+        const bad = minimalRequest() as unknown as Record<string, unknown> & {
+            geometry: { dimensions: { widthM: unknown } };
+        };
+        delete bad.identity;
+        bad.geometry.dimensions.widthM = 'oops';
+        const outcome = ingestFromJson(bad);
+        expect(outcome.ok).toBe(false);
+        if (!outcome.ok) {
+            expect(outcome.issues.length).toBeGreaterThanOrEqual(2);
+        }
+    });
+
+    it('pure: same input twice → same definition (modulo timestamp)', () => {
+        const r = minimalRequest();
+        const a = ingestFromJson(r, { fromRequestOpts: { ingestedAt: FIXED_TS } });
+        const b = ingestFromJson(r, { fromRequestOpts: { ingestedAt: FIXED_TS } });
+        expect(a.ok).toBe(true);
+        expect(b.ok).toBe(true);
+        if (a.ok && b.ok) {
+            // Hash + canonical names + derived numerics must be identical.
+            expect(a.definition.derived.canonicalHash).toBe(b.definition.derived.canonicalHash);
+            expect(a.definition.derived.canonicalSemanticNames)
+                .toEqual(b.definition.derived.canonicalSemanticNames);
+            expect(a.definition.derived.volumeM3).toBe(b.definition.derived.volumeM3);
+            expect(a.definition.derived.footprintAreaM2).toBe(b.definition.derived.footprintAreaM2);
+            expect(a.definition.derived.ingestedAt).toBe(b.definition.derived.ingestedAt);
+        }
+    });
+
+    it('IngestFromJsonOptions is a structural type usable for option assembly', () => {
+        const opts: IngestFromJsonOptions = {
+            safe:            true,
+            fromRequestOpts: { ingestedAt: FIXED_TS },
+        };
+        const outcome = ingestFromJson(minimalRequest(), opts);
+        expect(outcome.ok).toBe(true);
+        if (outcome.ok) {
+            expect(outcome.definition.derived.ingestedAt).toBe(FIXED_TS);
+        }
+    });
+
+    it('failure outcome is structurally an IngestionFailure (type check)', () => {
+        const outcome = ingestFromJson({});
+        if (!outcome.ok) {
+            const failure: IngestionFailure = outcome;
+            expect(failure.ok).toBe(false);
+            expect(failure.message.length).toBeGreaterThan(0);
+            expect(failure.issues.length).toBeGreaterThan(0);
+        } else {
+            throw new Error('expected failure');
+        }
     });
 });

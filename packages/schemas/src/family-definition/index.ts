@@ -12,11 +12,14 @@
 //                  ─[Stage 5]→                          RegisteredFamily
 //
 // Slice B contents:
-//   - definition:    FamilyDefinitionDerivedSchema, FamilyDefinitionSchema +
-//                    inferred types
-//   - from-request:  fromRequest(request, opts) — pure JSON-mode transformer
-//                    plus the exported canonicaliseSemanticNames +
-//                    computeCanonicalHash helpers (for unit testing)
+//   - definition:       FamilyDefinitionDerivedSchema, FamilyDefinitionSchema +
+//                       inferred types
+//   - from-request:     fromRequest(request, opts) — pure JSON-mode transformer
+//                       plus the exported canonicaliseSemanticNames +
+//                       computeCanonicalHash helpers (for unit testing)
+//   - ingest-from-json: ingestFromJson(raw, opts) — pure unknown-JSON ingress;
+//                       composes FamilyRequestSchema.safeParse + fromRequest
+//                       into a discriminated-union IngestionOutcome
 //
 // Deferred to later slices: the PDF / OCR / image ingestion paths (Stage-1
 // has multiple input modes; only the JSON-mode path ships here), and the
@@ -25,3 +28,16 @@
 
 export * from './definition.js';
 export * from './from-request.js';
+
+export {
+    ingestFromJson,
+    isIngestionSuccess,
+} from './ingest-from-json.js';
+export type {
+    IngestionIssue,
+    IngestionResult,
+    IngestionSuccess,
+    IngestionFailure,
+    IngestionOutcome,
+    IngestFromJsonOptions,
+} from './ingest-from-json.js';
