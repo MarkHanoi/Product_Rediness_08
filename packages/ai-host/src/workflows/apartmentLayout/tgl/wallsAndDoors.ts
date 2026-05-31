@@ -286,15 +286,69 @@ function extendWallsToShell(
  * have no realised shared wall (rooms not actually adjacent in this placement) are
  * skipped — best-effort, never throws (placement quality is a P3 concern).
  */
+/**
+ * L3-γ-3 (2026-05-31) — EdgeType-aware door widths.
+ *
+ * The bubble graph's adjacency edges carry an optional semantic `kind`
+ * (populated by L3-γ-2's `classifyEdge`) — SOCIAL_FLOW, INTIMATE_ACCESS,
+ * BUFFER, SERVICE_ACCESS, CEREMONIAL_THRESHOLD, etc. Until this slice the
+ * door pipeline emitted every door at the same width (0.9 m default);
+ * now the width tracks the architectural role:
+ *
+ *   • SOCIAL_FLOW (public↔public, living↔kitchen):
+ *       PASSAGE door, 1.10 m — encourages flow between social spaces.
+ *   • CEREMONIAL_THRESHOLD (hall↔anything):
+ *       ARRIVAL door, 1.00 m — the front-of-house first impression.
+ *   • BUFFER (corridor↔private):
+ *       STANDARD residential door, 0.90 m (default).
+ *   • SERVICE_ACCESS (wet/service):
+ *       STANDARD 0.90 m — same width; the privacy comes from T1.D's
+ *       per-pair finish (wt-upvc-casement) not the width.
+ *   • INTIMATE_ACCESS (master↔ensuite):
+ *       NARROWER 0.80 m — privacy reading; tighter than a corridor door.
+ *   • VISUAL_CONNECTION (open thresholds):
+ *       Not a door — handled by the open-zone path, not addDoor().
+ *
+ * Falls back to the global default when the edge has no `kind` (AI-path
+ * back-compat). Caller can override via `opts.doorWidthM` — when set,
+ * that width is used uniformly (back-compat for tests).
+ */
+const DOOR_WIDTH_BY_KIND = {
+    SOCIAL_FLOW:          1.10,
+    CEREMONIAL_THRESHOLD: 1.00,
+    BUFFER:               0.90,
+    SERVICE_ACCESS:       0.90,
+    INTIMATE_ACCESS:      0.80,
+    // VISUAL_CONNECTION / ACOUSTIC_SEPARATION never reach addDoor() —
+    // VISUAL is open-zone; ACOUSTIC is a validator promotion, not a door.
+} as const;
+
 export function buildWallsAndDoors(
     placements: readonly RoomPlacement[],
     graph: BubbleGraph,
     opts: WallsAndDoorsOpts = {},
 ): WallsAndDoors {
     const thickness = opts.wallThicknessM ?? 0.1;
-    const doorW = opts.doorWidthM ?? 0.9;
+    const defaultDoorW = opts.doorWidthM ?? 0.9;
+    const userOverroad = opts.doorWidthM !== undefined;     // explicit override blocks per-kind widths
     const doorH = opts.doorHeightM ?? 2.1;
     const clear = opts.minClearanceM ?? 0.1;
+
+    // L3-γ-3 — build a per-pair lookup of the edge's semantic kind so addDoor
+    // can size the door by EdgeType. Unordered pair key matches bubbleGraph's.
+    const edgeKindByPair = new Map<string, keyof typeof DOOR_WIDTH_BY_KIND | undefined>();
+    for (const e of graph.edges) {
+        const key = pairKey(e.a, e.b);
+        const k = e.kind;
+        if (k && (k in DOOR_WIDTH_BY_KIND)) {
+            edgeKindByPair.set(key, k as keyof typeof DOOR_WIDTH_BY_KIND);
+        }
+    }
+    const doorWForPair = (a: string, b: string): number => {
+        if (userOverroad) return defaultDoorW;
+        const k = edgeKindByPair.get(pairKey(a, b));
+        return k ? DOOR_WIDTH_BY_KIND[k] : defaultDoorW;
+    };
 
     // Faces: a vertical face at x with the room on the +x ('pos') / −x ('neg') side;
     // a horizontal face at z with the room above ('pos') / below ('neg').
@@ -430,7 +484,11 @@ export function buildWallsAndDoors(
     const addDoor = (wall: WallSeg, a: string, b: string): boolean => {
         if (wallHasDoor.has(wall.id)) return false;
         const len = Math.hypot(wall.b.x - wall.a.x, wall.b.z - wall.a.z);
-        const width = Math.min(doorW, len - 2 * clear);
+        // L3-γ-3 — per-pair EdgeType-aware width. Falls back to the global
+        // default when the edge has no `kind` OR the caller explicitly
+        // overrode via opts.doorWidthM.
+        const preferredW = doorWForPair(a, b);
+        const width = Math.min(preferredW, len - 2 * clear);
         if (width < 0.6 - EPS) return false;                    // wall too short for a usable door
         const offset = findClearOffset(wall, width);
         openings.push({

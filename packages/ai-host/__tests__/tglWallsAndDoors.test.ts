@@ -332,4 +332,74 @@ describe('§EXTEND-TO-PERIMETER — exterior walls reach the slanted shell', () 
         expect(maxZ).toBeGreaterThan(4.3 - 1e-3);    // moved north (or stayed)
         expect(maxZ).toBeLessThan(4.75 + 1e-2);      // hit the slanted top edge
     });
+
+    // L3-γ-3 (2026-05-31) — wallsAndDoors reads EdgeType for per-kind door width.
+    describe('L3-γ-3 EdgeType-aware door widths', () => {
+        // 5×4 m rooms — wall length 4 m, so every per-kind width fits.
+        const A2: RoomPlacement = { roomId: 'A', rect: { x0: 0, z0: 0, x1: 5, z1: 4 } };
+        const B2: RoomPlacement = { roomId: 'B', rect: { x0: 5, z0: 0, x1: 10, z1: 4 } };
+
+        const getDoorWidth = (kind: BubbleGraph['edges'][number]['kind']): number => {
+            const g = graphOf(
+                [room('A', 'living'), room('B', 'kitchen')],
+                [{ a: 'A', b: 'B', via: 'door', kind }],
+            );
+            const { openings } = buildWallsAndDoors([A2, B2], g);
+            const door = openings.find(o => o.type === 'door')!;
+            expect(door).toBeDefined();
+            return door.widthM;
+        };
+
+        it('SOCIAL_FLOW door width = 1.10 m (wider passage between social spaces)', () => {
+            expect(getDoorWidth('SOCIAL_FLOW')).toBeCloseTo(1.10, 6);
+        });
+
+        it('CEREMONIAL_THRESHOLD door width = 1.00 m (arrival ritual)', () => {
+            expect(getDoorWidth('CEREMONIAL_THRESHOLD')).toBeCloseTo(1.00, 6);
+        });
+
+        it('BUFFER door width = 0.90 m (standard residential)', () => {
+            expect(getDoorWidth('BUFFER')).toBeCloseTo(0.90, 6);
+        });
+
+        it('SERVICE_ACCESS door width = 0.90 m (standard; privacy via T1.D finish)', () => {
+            expect(getDoorWidth('SERVICE_ACCESS')).toBeCloseTo(0.90, 6);
+        });
+
+        it('INTIMATE_ACCESS door width = 0.80 m (narrower, master↔ensuite privacy)', () => {
+            expect(getDoorWidth('INTIMATE_ACCESS')).toBeCloseTo(0.80, 6);
+        });
+
+        it('edge with NO kind falls back to default 0.90 m (AI-path back-compat)', () => {
+            const g = graphOf(
+                [room('A', 'living'), room('B', 'kitchen')],
+                [{ a: 'A', b: 'B', via: 'door' }],            // no kind
+            );
+            const { openings } = buildWallsAndDoors([A2, B2], g);
+            expect(openings[0]!.widthM).toBeCloseTo(0.90, 6);
+        });
+
+        it('caller-supplied opts.doorWidthM OVERRIDES per-kind widths (back-compat for tests)', () => {
+            const g = graphOf(
+                [room('A', 'living'), room('B', 'kitchen')],
+                [{ a: 'A', b: 'B', via: 'door', kind: 'SOCIAL_FLOW' }],
+            );
+            const { openings } = buildWallsAndDoors([A2, B2], g, { doorWidthM: 0.75 });
+            // SOCIAL_FLOW would be 1.10 — but explicit override wins.
+            expect(openings[0]!.widthM).toBeCloseTo(0.75, 6);
+        });
+
+        it('short wall clamps width to fit (doesn\'t drop the door)', () => {
+            // 1 m wide wall — SOCIAL_FLOW preferred 1.10 wouldn't fit after 2 × 0.1 clearance.
+            const Asmall: RoomPlacement = { roomId: 'A', rect: { x0: 0, z0: 0, x1: 5, z1: 1 } };
+            const Bsmall: RoomPlacement = { roomId: 'B', rect: { x0: 5, z0: 0, x1: 10, z1: 1 } };
+            const g = graphOf(
+                [room('A', 'living'), room('B', 'kitchen')],
+                [{ a: 'A', b: 'B', via: 'door', kind: 'SOCIAL_FLOW' }],
+            );
+            const { openings } = buildWallsAndDoors([Asmall, Bsmall], g);
+            // Wall length = 1 m; preferred 1.10 → Math.min(1.10, 1 - 0.2) = 0.80.
+            expect(openings[0]!.widthM).toBeCloseTo(0.80, 6);
+        });
+    });
 });

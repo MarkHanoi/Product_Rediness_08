@@ -80,7 +80,7 @@ Single-page reference for **every phase and subphase** across the apartment plat
 |---|---|---|
 | **L3-γ-1** EdgeType enum (7 categories + classifier) | + pin tests | ✅ |
 | **L3-γ-2** Populate EdgeType in bubbleGraph builder | Every edge classified | ✅ |
-| **L3-γ-3** wallsAndDoors reads EdgeType for geometric treatment | Constructive — queued | ⬜ |
+| **L3-γ-3** wallsAndDoors reads EdgeType for geometric treatment | Constructive per-kind door widths shipped 2026-05-31 (SOCIAL_FLOW 1.10 / CEREMONIAL 1.00 / BUFFER+SERVICE 0.90 / INTIMATE 0.80) + 8 pin tests | ✅ |
 | **L3-γ-4** edgeRealisation axis | Via/kind match scoring | ✅ |
 
 ---
@@ -173,7 +173,7 @@ Every axis is in ObjectiveVector + computeObjectives + weightedSum + LayoutScore
 
 | Package | Pass | Notes |
 |---|---|---|
-| @pryzm/ai-host | **875/875** | 2 SCC AiHost.* pre-existing failures unchanged (memory: scc-no-barrel-access-at-module-load) |
+| @pryzm/ai-host | **883/883** | 2 SCC AiHost.* pre-existing failures unchanged (memory: scc-no-barrel-access-at-module-load) |
 | @pryzm/core-app-model | (typecheck) | Pre-existing plugin-side TS errors; lighting-side clean |
 | @pryzm/geometry-lighting | (depends on core-app-model rebuild for full validation) | F1.5' mirror_light builder added |
 | @pryzm/geometry-furniture | (untouched this slice) | 11 of 15 F1.x types shipped contract-complete |
