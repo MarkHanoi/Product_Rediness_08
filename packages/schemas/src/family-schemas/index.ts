@@ -25,3 +25,4 @@
 export * from './instance-schema-spec.js';
 export * from './command-payload-spec.js';
 export * from './generated.js';
+export * from './from-parametric-geometry.js';
