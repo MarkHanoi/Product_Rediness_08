@@ -23,3 +23,8 @@ export * from './builder-ref.js';
 export * from './plan-symbol-ref.js';
 export * from './footprint.js';
 export * from './generated.js';
+
+// P0.5 Stage-3 (Family Platform) — pure ParametricFamily → GeneratedGeometry
+// synthesiser.  Adds: `synthesiseGeometry`, `SynthesiseGeometryOptions`.
+// No name collisions with the substrate above.
+export * from './from-parametric.js';
