@@ -26,6 +26,16 @@ export {
 // `origin: 'core'` entries that composeRuntime registers at boot.
 export { FamilyRegistryStore } from './familyRegistryStore.js';
 export { buildCoreFamilySeeds } from './seedCoreFamilies.js';
+// P0.5 Stage-5 wiring (Family Platform) — L0-pure-pipeline → L3-reactive-store
+// bridge.  Takes raw JSON, runs the 5-stage pure pipeline, and inserts the
+// resulting RegisteredFamily into the store.
+export {
+    registerFamilyFromJson,
+    type RegisterFamilyFromJsonOptions,
+    type RegisterFamilyFromJsonResult,
+    type RegisterFamilyFromJsonSuccess,
+    type RegisterFamilyFromJsonFailure,
+} from './registerFamilyFromJson.js';
 export { CubeStore, type CubeDto } from './CubeStore.js';
 export { SelectionStore, type SelectionDto, type SelectionKind, type SelectionMode, type SelectionTarget } from './SelectionStore.js';
 export {
