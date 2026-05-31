@@ -146,6 +146,16 @@ export {
   createApartmentLayoutImpl,
   APARTMENT_LAYOUT_COST_USD_ESTIMATE,
 } from './workflows/apartmentLayout/workflow.js';
+// D-α-3 P1 — pure parameter-impact resolver consumed by the L3
+// `ApartmentParameterPropagator` (composeRuntime wires it as the
+// `ImpactResolver`). Pure data; no I/O.
+export { recomputeImpact } from './workflows/apartmentLayout/solver/recomputeImpact.js';
+export type {
+  ApartmentParameters as RecomputeImpactApartmentParameters,
+  RoomParameters as RecomputeImpactRoomParameters,
+  ParameterChange,
+  ImpactRegion,
+} from './workflows/apartmentLayout/solver/recomputeImpact.js';
 export type {
   ApartmentLayoutDeps,
   ApartmentLayoutWorkflowResult,

@@ -28,7 +28,7 @@
 
 import type { AnyStores, CommandHandler, RingBufferUndoStack } from '@pryzm/command-bus';
 import type { SyncClient, PryzmAwareness } from '@pryzm/sync-client';
-import type { LayoutOptionsStore, AiApprovalQueueStore } from '@pryzm/stores';
+import type { LayoutOptionsStore, AiApprovalQueueStore, ApartmentParameterPropagator } from '@pryzm/stores';
 import type { Renderer, MaterialPool, FrameScheduler, CommitterHost, CameraController, PlainPose } from '@pryzm/renderer';
 import type { WorkspaceSurface } from '@pryzm/renderer-three';
 import type { VisibilityElement, VisibilityView, VisibilityFeatureFlags, WaveVisibilityResult } from '@pryzm/visibility';
@@ -3385,6 +3385,15 @@ export interface PryzmRuntime {
   readonly structural: StructuralSlot;
   /** Full-text search slot — Phase F.6.5. */
   readonly search: SearchSlot;
+
+  // ── D-α-3 P3 — Apartment parameter propagation engine ─────────────────────
+  /** Bridges L0 ApartmentParametersStore + RoomParametersStore to the pure
+   *  `recomputeImpact` resolver (from `@pryzm/ai-host`). One instance per
+   *  runtime; constructed by composeRuntime() and disposed via tearDown().
+   *  Consumers subscribe with `.subscribe(listener)` to receive a
+   *  `PropagationEvent` for every parameter change that has downstream
+   *  impact. See `packages/stores/src/ApartmentParameterPropagator.ts`. */
+  readonly apartmentParameterPropagator: ApartmentParameterPropagator;
 
   /** Idempotent.  Disposes every owned subsystem in reverse order
    *  (renderer → scheduler → bindings → stores → bus → emitter). */

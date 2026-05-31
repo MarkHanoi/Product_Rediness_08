@@ -42,7 +42,17 @@ import {
   type RenderEverythingBootstrapFn,
 } from '@pryzm/renderer';
 import type { SyncClient } from '@pryzm/sync-client';
-import { LayoutOptionsStore, AiApprovalQueueStore } from '@pryzm/stores';
+import {
+  LayoutOptionsStore,
+  AiApprovalQueueStore,
+  ApartmentParameterPropagator,
+  apartmentParametersStore,
+  roomParametersStore,
+} from '@pryzm/stores';
+// D-α-3 P3 — pure parameter-impact resolver injected into the propagator.
+// Lives in @pryzm/ai-host (L2) so the L1 stores stay free of any AI-runtime
+// dep; runtime-composer (L3) is the legitimate seam that joins them.
+import { recomputeImpact } from '@pryzm/ai-host';
 
 import { EventBus } from './EventBus.js';
 import { wireCommandEventBridge } from './CommandEventBridge.js';
@@ -808,6 +818,30 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
     const inputHost: InputHostSlot = bootstrapInputIdle().inputHost;
     const ai = buildAiSlot(aiApprovalQueue, layoutOptions);
 
+    // ── 3b. D-α-3 P3 — apartment parameter propagator ─────────────────────
+    // Bridges L0 ApartmentParametersStore + RoomParametersStore to the pure
+    // `recomputeImpact` resolver from @pryzm/ai-host. ONE instance per runtime
+    // session; teardown disposes the underlying store subscriptions. The
+    // user-edit-to-rebalance loop (BIM 2/3 §6 D-α-3) goes live the moment a
+    // panel subscribes to .subscribe(listener). Pure in-memory wiring — no
+    // I/O, no THREE, no DOM. The resolver is INJECTED so the L1 stores stay
+    // free of an ai-host runtime dep.
+    //
+    // Adapter rationale: the propagator's `ImpactResolver` type uses `unknown`
+    // for state shape (so the L1 stores stay schema-package-free), while
+    // `recomputeImpact` is typed against the precise `ApartmentParameters` /
+    // `RoomParameters` mirrors. The composeRuntime seam is the legitimate
+    // place to widen — the propagator only feeds live store records into the
+    // resolver, which are structurally identical to recomputeImpact's mirrors.
+    const apartmentParameterPropagator = new ApartmentParameterPropagator(
+      apartmentParametersStore,
+      roomParametersStore,
+      (change, state) => recomputeImpact(
+        change as Parameters<typeof recomputeImpact>[0],
+        state as Parameters<typeof recomputeImpact>[1],
+      ),
+    );
+
     // ── 4. Persistence + sync + undoStack ─────────────────────────────────
     // D.4.2 Day-8: `workspaceMount` no longer flows through here.  The
     // browser composition root attaches a bridge post-compose via
@@ -1194,6 +1228,11 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       catch (err) { console.error('[runtime-composer] physicsHost dispose threw:', err); }
       try { inputHost.dispose(); }
       catch (err) { console.error('[runtime-composer] inputHost dispose threw:', err); }
+      // D-α-3 P3 — dispose the parameter propagator before the inner stores
+      // get torn down. .dispose() is idempotent so a double-call (e.g. host
+      // re-entry) is safe.
+      try { apartmentParameterPropagator.dispose(); }
+      catch (err) { console.error('[runtime-composer] apartmentParameterPropagator dispose threw:', err); }
       try { inner.tearDown(); }
       catch (err) { console.error('[runtime-composer] inner tearDown threw:', err); }
       events.clear();
@@ -1240,6 +1279,10 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       physics: physicsDevSlot,
       structural,
       search,
+      // D-α-3 P3 — apartment parameter propagation engine. Subscribed via
+      // `runtime.apartmentParameterPropagator.subscribe(e => ...)`; lifetime
+      // tied to the runtime (tearDown disposes it).
+      apartmentParameterPropagator,
       sceneReady,
       tearDown,
     };
