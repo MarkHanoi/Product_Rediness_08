@@ -1,7 +1,7 @@
-// G-1 / G-2 / G-3 / G-5 hard upper bounds, per room type.
+// G-1 / G-2 / G-3 / G-5 / G-6 / G-7 hard bounds, per room type.
 //
 // Source-of-truth: `docs/03_PRYZM3/APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK-2026-05-29.md`
-// §G-1 / §G-2 / §G-3 / §G-5 tables — RESIDENTIAL defaults.
+// §G-1 / §G-2 / §G-3 / §G-5 / §G-6 / §G-7 tables — RESIDENTIAL defaults.
 //
 // These are HARD ceilings: a corridor MUST NOT exceed 8 m² (above this it is a
 // hall, a different programmatic type); a bathroom MUST NOT exceed 15 m² (above
@@ -31,8 +31,18 @@
 // elongated by nature; the G-3 check is meaningless there).
 // G-5: `minUsableWallM === 0` means SKIP (corridor, balcony — no primary
 // furniture piece to fit).
+// G-6: `minCirculationWidthM === undefined` means SKIP (everything that is
+// NOT a circulation-type room — corridors / entrance halls are the only
+// rooms whose minimum clear width is governed by Part M / ADA ergonomic
+// circulation; for every other room G-2's width-max ceiling already applies
+// and G-6's floor is meaningless).
+// G-7: `minFrontageM === undefined` means SKIP (rooms with no daylight
+// requirement — corridor / hall / bathroom / wc / ensuite / utility /
+// storage). Balcony is also `undefined` because the balcony IS the
+// frontage; the check is meaningless. The framework spec §G-7 governs
+// minimum external-wall (perimeter) length per habitable room type.
 
-/** One G-1 / G-2 / G-3 / G-5 row — all ceilings together so adding a room type is one edit. */
+/** One G-1 / G-2 / G-3 / G-5 / G-6 / G-7 row — all bounds together so adding a room type is one edit. */
 export interface DimensionalLimits {
     /** G-1 — hard maximum net floor area (m²). */
     readonly areaMaxM2: number;
@@ -45,6 +55,20 @@ export interface DimensionalLimits {
      * by an opening (door/window). 0 ⇒ skip (room has no primary furniture piece).
      */
     readonly minUsableWallM: number;
+    /**
+     * G-6 — minimum clear circulation width (m). Applies to CIRCULATION-type
+     * rooms only (corridor, entrance hall). `undefined` ⇒ skip (every other
+     * room type — G-6 is the Part M / ADA ergonomic passageway floor, not a
+     * habitable-room rule).
+     */
+    readonly minCirculationWidthM?: number | undefined;
+    /**
+     * G-7 — minimum external-wall (perimeter) length (m) the room owns for
+     * daylight / ventilation. `undefined` ⇒ skip (room has no daylight
+     * requirement: corridor / hall / bathroom / wc / ensuite / utility /
+     * storage / balcony).
+     */
+    readonly minFrontageM?: number | undefined;
 }
 
 /**
@@ -56,44 +80,44 @@ export interface DimensionalLimits {
  */
 export const DIMENSIONAL_LIMITS: Readonly<Record<string, DimensionalLimits>> = {
     // ── Circulation ──────────────────────────────────────────────────────────
-    corridor:       { areaMaxM2:  8, widthMaxM: 2.5, aspectRatioMax: Infinity, minUsableWallM: 0 },
-    entrance_hall:  { areaMaxM2: 10, widthMaxM: 3.5, aspectRatioMax: 3.0,      minUsableWallM: 1.0 },
+    corridor:       { areaMaxM2:  8, widthMaxM: 2.5, aspectRatioMax: Infinity, minUsableWallM: 0,   minCirculationWidthM: 1.0, minFrontageM: undefined },
+    entrance_hall:  { areaMaxM2: 10, widthMaxM: 3.5, aspectRatioMax: 3.0,      minUsableWallM: 1.0, minCirculationWidthM: 1.2, minFrontageM: undefined },
     // Apartment-layout RoomType union calls the entrance lobby `hall`. Mirror
     // the spec's `entrance_hall` limits onto `hall` so the current vocabulary
     // is validated without renaming. (When the union later splits hall vs
     // entrance_hall the two rows can diverge.)
-    hall:           { areaMaxM2: 10, widthMaxM: 3.5, aspectRatioMax: 3.0,      minUsableWallM: 1.0 },
+    hall:           { areaMaxM2: 10, widthMaxM: 3.5, aspectRatioMax: 3.0,      minUsableWallM: 1.0, minCirculationWidthM: 1.2, minFrontageM: undefined },
 
     // ── Wet rooms ────────────────────────────────────────────────────────────
-    bathroom:       { areaMaxM2: 15, widthMaxM: 3.0, aspectRatioMax: 2.5,      minUsableWallM: 1.5 },
-    wc:             { areaMaxM2:  6, widthMaxM: 2.0, aspectRatioMax: 2.5,      minUsableWallM: 0.6 },
-    ensuite:        { areaMaxM2: 12, widthMaxM: 3.0, aspectRatioMax: 2.5,      minUsableWallM: 1.5 },
+    bathroom:       { areaMaxM2: 15, widthMaxM: 3.0, aspectRatioMax: 2.5,      minUsableWallM: 1.5, minCirculationWidthM: undefined, minFrontageM: undefined },
+    wc:             { areaMaxM2:  6, widthMaxM: 2.0, aspectRatioMax: 2.5,      minUsableWallM: 0.6, minCirculationWidthM: undefined, minFrontageM: undefined },
+    ensuite:        { areaMaxM2: 12, widthMaxM: 3.0, aspectRatioMax: 2.5,      minUsableWallM: 1.5, minCirculationWidthM: undefined, minFrontageM: undefined },
 
     // ── Service ──────────────────────────────────────────────────────────────
-    utility_room:   { areaMaxM2: 10, widthMaxM: 3.0, aspectRatioMax: 2.5,      minUsableWallM: 1.2 },
+    utility_room:   { areaMaxM2: 10, widthMaxM: 3.0, aspectRatioMax: 2.5,      minUsableWallM: 1.2, minCirculationWidthM: undefined, minFrontageM: undefined },
     // Apartment-layout RoomType union calls this `utility`.
-    utility:        { areaMaxM2: 10, widthMaxM: 3.0, aspectRatioMax: 2.5,      minUsableWallM: 1.2 },
+    utility:        { areaMaxM2: 10, widthMaxM: 3.0, aspectRatioMax: 2.5,      minUsableWallM: 1.2, minCirculationWidthM: undefined, minFrontageM: undefined },
 
     // ── Public / social ──────────────────────────────────────────────────────
-    kitchen:        { areaMaxM2: 40, widthMaxM: 6.0, aspectRatioMax: 3.5,      minUsableWallM: 2.4 },
+    kitchen:        { areaMaxM2: 40, widthMaxM: 6.0, aspectRatioMax: 3.5,      minUsableWallM: 2.4, minCirculationWidthM: undefined, minFrontageM: 1.5 },
     // Apartment-layout vocabulary uses `dining` (not `dining_room`).
-    dining_room:    { areaMaxM2: 30, widthMaxM: 6.0, aspectRatioMax: 2.5,      minUsableWallM: 1.6 },
-    dining:         { areaMaxM2: 30, widthMaxM: 6.0, aspectRatioMax: 2.5,      minUsableWallM: 1.6 },
-    living_room:    { areaMaxM2: 60, widthMaxM: 8.0, aspectRatioMax: 2.5,      minUsableWallM: 2.4 },
-    living:         { areaMaxM2: 60, widthMaxM: 8.0, aspectRatioMax: 2.5,      minUsableWallM: 2.4 },
+    dining_room:    { areaMaxM2: 30, widthMaxM: 6.0, aspectRatioMax: 2.5,      minUsableWallM: 1.6, minCirculationWidthM: undefined, minFrontageM: 2.0 },
+    dining:         { areaMaxM2: 30, widthMaxM: 6.0, aspectRatioMax: 2.5,      minUsableWallM: 1.6, minCirculationWidthM: undefined, minFrontageM: 2.0 },
+    living_room:    { areaMaxM2: 60, widthMaxM: 8.0, aspectRatioMax: 2.5,      minUsableWallM: 2.4, minCirculationWidthM: undefined, minFrontageM: 2.5 },
+    living:         { areaMaxM2: 60, widthMaxM: 8.0, aspectRatioMax: 2.5,      minUsableWallM: 2.4, minCirculationWidthM: undefined, minFrontageM: 2.5 },
 
     // ── Private (sleeping / work) ────────────────────────────────────────────
-    bedroom:        { areaMaxM2: 25, widthMaxM: 5.0, aspectRatioMax: 2.5,      minUsableWallM: 1.4 },
-    master_bedroom: { areaMaxM2: 35, widthMaxM: 6.0, aspectRatioMax: 2.5,      minUsableWallM: 1.8 },
+    bedroom:        { areaMaxM2: 25, widthMaxM: 5.0, aspectRatioMax: 2.5,      minUsableWallM: 1.4, minCirculationWidthM: undefined, minFrontageM: 1.5 },
+    master_bedroom: { areaMaxM2: 35, widthMaxM: 6.0, aspectRatioMax: 2.5,      minUsableWallM: 1.8, minCirculationWidthM: undefined, minFrontageM: 2.0 },
     // Apartment-layout RoomType union uses `master`.
-    master:         { areaMaxM2: 35, widthMaxM: 6.0, aspectRatioMax: 2.5,      minUsableWallM: 1.8 },
-    private_office: { areaMaxM2: 20, widthMaxM: 5.0, aspectRatioMax: 3.0,      minUsableWallM: 1.4 },
+    master:         { areaMaxM2: 35, widthMaxM: 6.0, aspectRatioMax: 2.5,      minUsableWallM: 1.8, minCirculationWidthM: undefined, minFrontageM: 2.0 },
+    private_office: { areaMaxM2: 20, widthMaxM: 5.0, aspectRatioMax: 3.0,      minUsableWallM: 1.4, minCirculationWidthM: undefined, minFrontageM: 1.5 },
     // Apartment-layout RoomType union uses `study`.
-    study:          { areaMaxM2: 20, widthMaxM: 5.0, aspectRatioMax: 3.0,      minUsableWallM: 1.4 },
+    study:          { areaMaxM2: 20, widthMaxM: 5.0, aspectRatioMax: 3.0,      minUsableWallM: 1.4, minCirculationWidthM: undefined, minFrontageM: 1.5 },
 
     // ── Spec-listed types not yet in the apartment-layout RoomType union ─────
-    storage:        { areaMaxM2:  8, widthMaxM: 3.0, aspectRatioMax: 4.0,      minUsableWallM: 0.6 },
-    balcony:        { areaMaxM2: 20, widthMaxM: 3.5, aspectRatioMax: 6.0,      minUsableWallM: 0 },
+    storage:        { areaMaxM2:  8, widthMaxM: 3.0, aspectRatioMax: 4.0,      minUsableWallM: 0.6, minCirculationWidthM: undefined, minFrontageM: undefined },
+    balcony:        { areaMaxM2: 20, widthMaxM: 3.5, aspectRatioMax: 6.0,      minUsableWallM: 0,   minCirculationWidthM: undefined, minFrontageM: undefined },
 };
 
 /** Lookup — returns `undefined` for an unknown type so callers degrade. */
