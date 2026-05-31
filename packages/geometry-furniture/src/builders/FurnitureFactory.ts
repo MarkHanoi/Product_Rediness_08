@@ -25,6 +25,13 @@ import { TableBuilder } from './TableBuilder';
 import { ShowerGlassPanelBuilder } from './ShowerGlassPanelBuilder';
 import { BathBuilder } from './BathBuilder';
 import { WcWashbasinBuilder, WcMirrorBuilder } from './WcBuilders';
+import {
+    WashingMachineStandaloneBuilder,
+    TumbleDryerBuilder,
+    UtilityCabinetBuilder,
+    UtilitySinkBuilder,
+    DryingRackBuilder,
+} from './UtilityBuilders';
 import { LampBuilder } from './LampBuilder';
 import { EntranceTableBuilder } from './EntranceTableBuilder';
 import { ToiletRadiatorBuilder } from './ToiletRadiatorBuilder';
@@ -174,6 +181,12 @@ export class FurnitureFactory {
             case 'bath':              return new BathBuilder(materialService);          // F1.6' (2026-05-30)
             case 'wc_washbasin':      return new WcWashbasinBuilder(materialService);   // F1.7  (2026-05-30)
             case 'wc_mirror':         return new WcMirrorBuilder(materialService);      // F1.7  (2026-05-30)
+            // F1.8 (2026-05-30) — Utility / laundry primitives.
+            case 'washing_machine_standalone': return new WashingMachineStandaloneBuilder(materialService);
+            case 'tumble_dryer':       return new TumbleDryerBuilder(materialService);
+            case 'utility_cabinet':    return new UtilityCabinetBuilder(materialService);
+            case 'utility_sink':       return new UtilitySinkBuilder(materialService);
+            case 'drying_rack':        return new DryingRackBuilder(materialService);
             case 'lamp':               return new LampBuilder(materialService);
             case 'entrance_table':     return new EntranceTableBuilder(materialService);
             case 'toilet_radiator':    return new ToiletRadiatorBuilder(materialService);

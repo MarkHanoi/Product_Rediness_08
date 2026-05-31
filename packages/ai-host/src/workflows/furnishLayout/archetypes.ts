@@ -179,7 +179,22 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
     },
     // Circulation / utility — intentionally unfurnished (keep clear).
     'corridor': { occupancy: 'corridor', minAreaM2: 0, items: [] },
-    'utility-room': { occupancy: 'utility-room', minAreaM2: 0, items: [] },
+    // F1.8 (2026-05-30) — Utility / laundry archetype. Closes F3.6.
+    // S5 activity system: plumbing wall carries the washer + dryer side-
+    // by-side (or stacked when the run is short), utility cabinet on
+    // longest free wall for storage, utility sink optional (medium-large
+    // rooms only), drying rack wall-mounted above the washer/dryer line.
+    // Door swing kept clear from every appliance.
+    'utility-room': {
+        occupancy: 'utility-room', minAreaM2: 2,
+        items: [
+            { kind: 'washing_machine_standalone', anchor: 'wall-longest', facing: 'into-room', required: true,  group: 'laundry', excludeDoorSwing: true },
+            { kind: 'tumble_dryer',                anchor: 'beside',        facing: 'into-room', required: false, group: 'laundry' },
+            { kind: 'utility_cabinet',             anchor: 'wall-longest',  facing: 'to-wall',   required: false, excludeDoorSwing: true },
+            { kind: 'utility_sink',                anchor: 'wall-longest',  facing: 'into-room', required: false, excludeDoorSwing: true },
+            { kind: 'drying_rack',                 anchor: 'beside',        facing: 'to-wall',   required: false, group: 'laundry' },
+        ],
+    },
 };
 
 /** Archetype for an occupancy, or null when that type isn't furnished. */

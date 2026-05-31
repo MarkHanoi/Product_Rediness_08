@@ -152,6 +152,14 @@ export const FURNITURE_TYPE_TO_CATEGORY: Readonly<Record<FurnitureType, Furnitur
     'bath':                 'bathroom', // F1.6' (2026-05-30) — drop-in residential bath
     'wc_washbasin':         'bathroom', // F1.7  (2026-05-30) — small wall-hung washbasin for the WC archetype
     'wc_mirror':            'bathroom', // F1.7  (2026-05-30) — compact mirror above the wc_washbasin
+    // F1.8 (2026-05-30) — Utility / laundry primitives. Distinct category
+    // ('utility') so the CREATE panel groups them under their own section
+    // rather than mixing them with the bathroom collection.
+    'washing_machine_standalone': 'utility',
+    'tumble_dryer':               'utility',
+    'utility_cabinet':            'utility',
+    'utility_sink':               'utility',
+    'drying_rack':                'utility',
     // Bathroom Collection — REMOVED (Services consolidation): sourced from
     // Services/Plumbing via the `"plumbing:<family>:<variant>"` sentinel in
     // FurnitureCategoryRegistry.

@@ -43,6 +43,23 @@ const FP: Readonly<Record<FurnitureKind, Footprint>> = {
     //     No clearance — flat panel on the wall.
     wc_washbasin:       { w: 0.45, l: 0.30, h: 0.15, baseOffset: 0.85, clearFront: 0.55, clearSides: 0.05 },
     wc_mirror:          { w: 0.40, l: 0.03, h: 0.60, baseOffset: 1.20, clearFront: 0.00, clearSides: 0.00 },
+    // F1.8 (2026-05-30) — Utility / laundry primitives.
+    //   washing_machine_standalone + tumble_dryer: 600×600×850 mm (UK
+    //     standard front-loader cabinet). clearFront 0.70 leaves loading
+    //     room; clearSides 0.00 since they typically butt up against each
+    //     other side-by-side OR stack vertically (the stacked variant
+    //     handled by the archetype, not the footprint).
+    //   utility_cabinet: tall 600×400×2000 mm storage tower. clearFront
+    //     0.60 leaves door-swing room.
+    //   utility_sink: deep stainless 500×350×850 mm sink. clearFront 0.60.
+    //   drying_rack: wall-mounted at 1.60 m baseOffset, projects 0.40 m
+    //     into the room. clearFront 0.00 (it's above head height) but
+    //     small clearSides for the brackets.
+    washing_machine_standalone: { w: 0.60, l: 0.60, h: 0.85, baseOffset: 0,    clearFront: 0.70, clearSides: 0.00 },
+    tumble_dryer:               { w: 0.60, l: 0.60, h: 0.85, baseOffset: 0,    clearFront: 0.70, clearSides: 0.00 },
+    utility_cabinet:            { w: 0.60, l: 0.40, h: 2.00, baseOffset: 0,    clearFront: 0.60, clearSides: 0.05 },
+    utility_sink:               { w: 0.50, l: 0.35, h: 0.85, baseOffset: 0,    clearFront: 0.60, clearSides: 0.05 },
+    drying_rack:                { w: 0.80, l: 0.40, h: 0.05, baseOffset: 1.60, clearFront: 0.00, clearSides: 0.10 },
     // Kitchen runs — parametric placeholders (resolved from config arm lengths).
     kitchen_straight:   { w: 3.00, l: 0.60, h: 0.90, baseOffset: 0, clearFront: 1.00, clearSides: 0.00 },
     kitchen_l_shape:    { w: 3.00, l: 0.60, h: 0.90, baseOffset: 0, clearFront: 1.00, clearSides: 0.00 },

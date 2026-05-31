@@ -39,6 +39,7 @@ export type FurnitureCategory =
     | 'lighting'
     | 'kitchen'
     | 'bathroom'
+    | 'utility'        // F1.8 (2026-05-30) — utility/laundry primitives: washing_machine_standalone, tumble_dryer, utility_cabinet, utility_sink, drying_rack.
     | 'storage'
     | 'kids'
     | 'teens'
@@ -92,6 +93,14 @@ export type FurnitureType =
     | 'bath'                              // F1.6' (2026-05-30) — drop-in residential bath, D-FLE furniture-shaped projection of the plumbing fixture
     | 'wc_washbasin'                      // F1.7  (2026-05-30) — wall-hung washbasin for the WC archetype (compact cloakroom-scale, distinct from full vanity_unit)
     | 'wc_mirror'                         // F1.7  (2026-05-30) — small wall-mounted mirror above the wc_washbasin
+    // F1.8 (2026-05-30) — Utility / laundry primitives. The S5 activity
+    // system. The KitchenApplianceType has kitchen-mounted washing_machine_*
+    // variants; these are the STANDALONE utility-room versions.
+    | 'washing_machine_standalone'
+    | 'tumble_dryer'
+    | 'utility_cabinet'
+    | 'utility_sink'
+    | 'drying_rack'
     | 'chimney'
     // ── F1.1 (2026-05-30) — Study workstation primitives (closes the
     // dining-table-as-desk workaround in `furnishLayout/archetypes.ts`)

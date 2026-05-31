@@ -21,6 +21,12 @@ export type FurnitureKind =
     // by tight bathrooms that can't fit a vanity_unit.
     // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §4.2.7)
     | 'wc_washbasin' | 'wc_mirror'
+    // F1.8 (2026-05-30) — Utility / laundry primitives. The S5 activity
+    // system. Standalone variants distinct from the kitchen-mounted
+    // washing_machine_* in KitchenApplianceType.
+    // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §4.2.8)
+    | 'washing_machine_standalone' | 'tumble_dryer'
+    | 'utility_cabinet' | 'utility_sink' | 'drying_rack'
     | 'kitchen_l_shape' | 'kitchen_straight' | 'kitchen_u_shape' | 'kitchen_island'
     // F1.1 (2026-05-30) — study workstation primitives. Admitted after the
     // contract-exhaustive subphase ladder closed: FurnitureType union +

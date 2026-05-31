@@ -132,6 +132,64 @@ describe('archetypes (F2)', () => {
         expect(wc.l).toBeLessThan(vanity.l);
         expect(wc.h).toBeLessThan(vanity.h);
     });
+
+    // F1.8 (2026-05-30) — Utility / laundry primitives + S5 archetype.
+    it('utility primitives have UK-standard appliance footprints', () => {
+        const wm = footprintOf('washing_machine_standalone');
+        const td = footprintOf('tumble_dryer');
+        expect(wm.w).toBeCloseTo(0.60, 6);
+        expect(wm.l).toBeCloseTo(0.60, 6);
+        expect(wm.h).toBeCloseTo(0.85, 6);
+        // Washing machine + tumble dryer share the same cabinet footprint
+        // so they can stack vertically or sit side-by-side.
+        expect(td.w).toBe(wm.w);
+        expect(td.l).toBe(wm.l);
+        expect(td.h).toBe(wm.h);
+    });
+
+    it('utility appliances leave loading clearance in front', () => {
+        const wm = footprintOf('washing_machine_standalone');
+        // Front-loader needs door-swing room (typical 0.7 m clear front).
+        expect(wm.clearFront).toBeGreaterThanOrEqual(0.6);
+    });
+
+    it('drying_rack is wall-mounted at typical height above the appliance run', () => {
+        const dr = footprintOf('drying_rack');
+        expect(dr.baseOffset).toBeCloseTo(1.60, 6);
+        // Projects out from the wall (the rack extends; folded model).
+        expect(dr.l).toBeGreaterThan(0.3);
+    });
+
+    it('utility_cabinet is a tall storage tower', () => {
+        const c = footprintOf('utility_cabinet');
+        expect(c.h).toBeGreaterThanOrEqual(1.9);   // tall — at least 1.9 m
+        expect(c.w).toBeLessThanOrEqual(0.7);      // narrow — fits between appliances
+    });
+
+    it('utility-room archetype wires the S5 laundry workflow', () => {
+        const items = archetypeFor('utility-room')!.items;
+        const kinds = items.map(i => i.kind);
+        expect(kinds).toContain('washing_machine_standalone');
+        expect(kinds).toContain('tumble_dryer');
+        expect(kinds).toContain('utility_cabinet');
+        expect(kinds).toContain('utility_sink');
+        expect(kinds).toContain('drying_rack');
+        // Washing machine is the only REQUIRED item (every utility room must
+        // place at least the washer; the rest gracefully drop in small rooms).
+        const wm = items.find(i => i.kind === 'washing_machine_standalone');
+        expect(wm!.required).toBe(true);
+        expect(wm!.excludeDoorSwing).toBe(true);
+    });
+
+    it('utility-room appliances form a laundry group for relative placement', () => {
+        const items = archetypeFor('utility-room')!.items;
+        const wm = items.find(i => i.kind === 'washing_machine_standalone');
+        const td = items.find(i => i.kind === 'tumble_dryer');
+        const dr = items.find(i => i.kind === 'drying_rack');
+        expect(wm!.group).toBe('laundry');
+        expect(td!.group).toBe('laundry');
+        expect(dr!.group).toBe('laundry');
+    });
 });
 
 describe('collision (F6)', () => {
