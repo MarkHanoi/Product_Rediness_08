@@ -14,6 +14,14 @@
 //     Stage 2 (Parametric Decomposition — outputs ParametricFamily)
 
 import { z } from 'zod';
+import { Vec3 as Vec3Base } from '../base/primitives.js';
+
+// Re-export Vec3 (the TYPE) directly from base/ so the root barrel
+// `export * from './family-parametric/index.js'` sees the SAME symbol
+// the root barrel also receives from `export * from './base/index.js'`
+// — resolving TS2308 (ambiguous re-export of `Vec3`).  See block comment
+// on Vec3Schema below for the full rationale.
+export type { Vec3 } from '../base/primitives.js';
 
 /**
  * The KIND of a primitive.  Stage-3 synthesis dispatches on this discriminant
@@ -41,13 +49,21 @@ export type PrimitiveKind = z.infer<typeof PrimitiveKindSchema>;
  *
  * Finite-only: NaN / +Inf / -Inf are rejected — Stage-3 synthesis would
  * produce degenerate geometry from any of those.
+ *
+ * Vec3 is canonically defined in `../base/primitives.js` (where it is
+ * exported as the single name `Vec3` covering both the Zod schema value
+ * AND the inferred type — a Zod idiom).  We re-export it here under both
+ * the historical `Vec3Schema` (value) and `Vec3` (type) names to preserve
+ * the family-parametric public surface and avoid breaking callers
+ * (including `__tests__/familyParametric.test.ts`), but the SOURCE is
+ * base/.  This resolves the TS2308 ambiguity that surfaced when both
+ * base/ and family-parametric/ exported their own `Vec3` declarations
+ * through the root barrel `src/index.ts`.
+ *
+ * Vec3 = { x: number; y: number; z: number } — Zod schema with finite-
+ * number constraints on each axis (NaN / ±Infinity rejected).
  */
-export const Vec3Schema = z.object({
-    x: z.number().finite(),
-    y: z.number().finite(),
-    z: z.number().finite(),
-});
-export type Vec3 = z.infer<typeof Vec3Schema>;
+export const Vec3Schema = Vec3Base;
 
 /**
  * Transform applied to the primitive in family-LOCAL coordinates.  The
