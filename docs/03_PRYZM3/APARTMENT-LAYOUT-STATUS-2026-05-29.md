@@ -1,3 +1,4 @@
+
 # Apartment Layout — Status & Remaining Work (2026-05-29)
 
 **Scope.** Everything PRYZM does to turn a user-drawn exterior shell into a built apartment with rooms, doors, windows, ceiling, floor finishes, furniture and lighting — across two sub-stories: **#51 single-apartment** (shipped) and **multi-apartment floor-plate** (queued).
