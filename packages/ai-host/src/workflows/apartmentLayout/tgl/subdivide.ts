@@ -35,6 +35,32 @@ export interface RoomPlacement {
     readonly rect: Rect;
 }
 
+/**
+ * §L4-δ-1b — CONSTRUCTIVE AlignmentField pre-subdivide axis-line snap.
+ *
+ * Opt-in (default ON) post-pass that runs after the squarified subdivision
+ * converges. Collects every room-rect edge on each axis, clusters edges that
+ * are within ALIGNMENT_SNAP_EPS_M of one another, and snaps every member of a
+ * cluster to the cluster's MEAN coord. The result: layouts ARRIVE pre-aligned
+ * (room edges share axis lines by construction) instead of being scored by the
+ * existing SCORING-form `alignmentField` axis after the fact.
+ *
+ * The 50 mm tolerance mirrors `objectives.ts`'s alignmentField bucket width
+ * so a layout that passes the snap is guaranteed to maximise the scoring axis.
+ *
+ * Pure — no I/O, no THREE, no DOM. Metres throughout.
+ */
+export interface SubdivideOptions {
+    /** Default true. Set false to preserve raw squarified output (scoring-form
+     *  alignmentField will then evaluate the un-snapped layout, as before). */
+    readonly alignmentSnap?: boolean;
+}
+
+/** Axis-line snap tolerance (m). Matches the EPS_M used by the SCORING
+ *  alignmentField axis in `objectives.ts` so the constructive form lands every
+ *  edge inside a scoring bucket. */
+const ALIGNMENT_SNAP_EPS_M = 0.05;
+
 const EPS = 1e-6;
 const round6 = (n: number): number => Math.round(n * 1e6) / 1e6;
 const roundRect = (r: Rect): Rect => ({ x0: round6(r.x0), z0: round6(r.z0), x1: round6(r.x1), z1: round6(r.z1) });
@@ -305,19 +331,128 @@ function trySingleRectCarve(shell: Rect, graph: BubbleGraph): RoomPlacement[] | 
     return out;
 }
 
+// ── §L4-δ-1b: constructive AlignmentField pre-Pareto snap ────────────────────
+
+/**
+ * Cluster a list of 1-D coordinates so that any two coords within
+ * `ALIGNMENT_SNAP_EPS_M` of each other land in the same cluster. Sort + sweep:
+ * O(n log n). Returns an array of arrays of ORIGINAL coords (NOT indices) per
+ * cluster, preserving the sort order — callers compute the mean to drive the
+ * snap.
+ */
+function clusterCoords(coords: readonly number[]): number[][] {
+    if (coords.length === 0) return [];
+    const sorted = coords.slice().sort((a, b) => a - b);
+    const clusters: number[][] = [];
+    let current: number[] = [sorted[0]!];
+    for (let i = 1; i < sorted.length; i++) {
+        const v = sorted[i]!;
+        // Compare against the LAST member of the current cluster — pairwise
+        // proximity is sufficient because the input is sorted (transitivity
+        // within the cluster's diameter is acceptable: the mean still lies
+        // within ε of every member for the cluster sizes the subdivider
+        // produces, and the SCORING axis uses the same neighbour-only test).
+        if (v - current[current.length - 1]! <= ALIGNMENT_SNAP_EPS_M) {
+            current.push(v);
+        } else {
+            clusters.push(current);
+            current = [v];
+        }
+    }
+    clusters.push(current);
+    return clusters;
+}
+
+/**
+ * Build a `coord → snapped coord` lookup for every coord in `coords`. Clusters
+ * of ≤ 1 element are passed through unchanged (defensive: nothing to snap to).
+ * Clusters of ≥ 2 elements are snapped to the cluster mean.
+ */
+function buildSnapMap(coords: readonly number[]): Map<number, number> {
+    const map = new Map<number, number>();
+    for (const cluster of clusterCoords(coords)) {
+        if (cluster.length <= 1) {
+            // Singleton: leave it alone.
+            for (const c of cluster) map.set(c, c);
+            continue;
+        }
+        const mean = cluster.reduce((s, c) => s + c, 0) / cluster.length;
+        for (const c of cluster) map.set(c, round6(mean));
+    }
+    return map;
+}
+
+/**
+ * Post-pass axis-line snap. Collects every placement rect's X-edges + Z-edges,
+ * clusters each axis independently inside `ALIGNMENT_SNAP_EPS_M`, and snaps
+ * each rect's edges to the cluster means.
+ *
+ * Defensive: any snap that would invert a rect (`left ≥ right` OR
+ * `bottom ≥ top` post-snap) is dropped for THAT rect — the rect keeps its
+ * original edges on the offending axis. This preserves the subdivider's
+ * non-overlap + ≥-floor guarantees even when an edge cluster's mean lies
+ * outside one of its members' opposite edge.
+ */
+export function snapAxisLines(placements: readonly RoomPlacement[]): RoomPlacement[] {
+    if (placements.length < 2) return placements.slice();
+    const xEdges: number[] = [];
+    const zEdges: number[] = [];
+    for (const p of placements) {
+        xEdges.push(p.rect.x0, p.rect.x1);
+        zEdges.push(p.rect.z0, p.rect.z1);
+    }
+    const xSnap = buildSnapMap(xEdges);
+    const zSnap = buildSnapMap(zEdges);
+    const out: RoomPlacement[] = [];
+    for (const p of placements) {
+        const x0n = xSnap.get(p.rect.x0) ?? p.rect.x0;
+        const x1n = xSnap.get(p.rect.x1) ?? p.rect.x1;
+        const z0n = zSnap.get(p.rect.z0) ?? p.rect.z0;
+        const z1n = zSnap.get(p.rect.z1) ?? p.rect.z1;
+        // Defensive: an inverted/degenerate snap on an axis means we keep that
+        // axis's original edges. Apply per-axis so a bad X snap doesn't undo
+        // a good Z snap (and vice versa).
+        const xOk = x1n - x0n > EPS;
+        const zOk = z1n - z0n > EPS;
+        out.push({
+            roomId: p.roomId,
+            rect: roundRect({
+                x0: xOk ? x0n : p.rect.x0,
+                x1: xOk ? x1n : p.rect.x1,
+                z0: zOk ? z0n : p.rect.z0,
+                z1: zOk ? z1n : p.rect.z1,
+            }),
+        });
+    }
+    return out;
+}
+
 /**
  * Subdivide the shell `rects` among the program rooms. Returns exactly one
  * footprint per room; footprints lie inside the shell rects, do not overlap, and
  * together tile the shell. Degenerate input (no rects / no rooms) → [].
+ *
+ * §L4-δ-1b — by default the output is run through `snapAxisLines` so room-rect
+ * edges within 50 mm of each other are snapped to the shared mean (the
+ * CONSTRUCTIVE form of the scoring `alignmentField` axis). Pass
+ * `{ alignmentSnap: false }` to opt out (legacy raw squarified output).
  */
-export function subdivide(rects: readonly Rect[], graph: BubbleGraph): RoomPlacement[] {
+export function subdivide(
+    rects: readonly Rect[],
+    graph: BubbleGraph,
+    options: SubdivideOptions = {},
+): RoomPlacement[] {
+    const alignmentSnap = options.alignmentSnap ?? true;
     const valid = rects.filter(r => rectArea(r) > EPS).sort(byAreaDesc);
     if (valid.length === 0 || graph.rooms.length === 0) return [];
+
+    const finalise = (placements: RoomPlacement[]): RoomPlacement[] =>
+        alignmentSnap ? snapAxisLines(placements) : placements;
 
     // §SINGLE-RECT-CARVE — single-rect shell with corridor + private rooms.
     if (valid.length === 1) {
         const carved = trySingleRectCarve(valid[0]!, graph);
-        if (carved !== null) return carved;
+        if (carved !== null) return finalise(carved);
     }
 
     const rooms = allocationOrder(graph.rooms);
@@ -328,7 +463,7 @@ export function subdivide(rects: readonly Rect[], graph: BubbleGraph): RoomPlace
     // rect (can't fill N rects with <N one-footprint rooms without splitting a
     // room). Real programs always have rooms ≥ rects, so this is a safety net.
     if (valid.length === 1 || rooms.length < valid.length) {
-        return placeInRect(valid[0]!, rooms);
+        return finalise(placeInRect(valid[0]!, rooms));
     }
 
     // Multi-rect shell (L / T / U): allocate rooms to rects ∝ area, public-first,
@@ -351,5 +486,5 @@ export function subdivide(rects: readonly Rect[], graph: BubbleGraph): RoomPlace
         out.push(...placeInRect(rect, rooms.slice(cursor, cursor + take)));
         cursor += take;
     }
-    return out;
+    return finalise(out);
 }
