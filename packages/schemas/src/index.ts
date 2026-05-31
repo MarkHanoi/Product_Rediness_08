@@ -38,6 +38,21 @@ export * from './family-request/index.js';
 // `familyDefinition.test.ts` to resolve `FamilyDefinitionSchema` etc.
 export * from './family-definition/index.js';
 
+// P0.5 slice 0 (Family Platform) — L0 ParametricFamily substrate (Stage-2
+// parametric decomposition OUTPUT type).  Sits between FamilyDefinition
+// (Stage-1) and Generated* / RegisteredFamily (Stages 3-5).  Exports:
+// `PrimitiveKind*`, `Vec3*`, `PrimitiveTransform*`, `ParameterRef*`,
+// `ParametricValue*`, `Primitive*`, `ParametricParameter*`,
+// `ParametricFamily*` — none of which collide with the existing
+// `family-registry/`, `family-request/`, or `family-definition/` exports.
+//
+// NOTE: like the family-definition barrel above, this re-export has been
+// stripped by a linter/auto-fixer during sibling slice authoring twice.
+// If it disappears, re-add it here — `family-parametric/index.js` is real
+// and required for `familyParametric.test.ts` to resolve
+// `ParametricFamilySchema` etc.
+export * from './family-parametric/index.js';
+
 // S31 / Phase 2B Supplement §A1 — auto-dimension schemas (DimensionString,
 // EvaluatedDimension, anchor/orientation enums) and §B1 — ViewTemplate
 // schemas (StrokeStyle, CategoryVG, ViewFilter, FilterCondition, ViewRange).
