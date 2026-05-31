@@ -1,6 +1,9 @@
 # PRYZM 3 — Vision
 
-> **Stamp**: 2026-05-02 · **Status**: CANONICAL · **Authority**: this doc owns intent and principles. When `04-PLAN-FORWARD.md` proposes work that contradicts this doc, this doc wins.
+> **Stamp**: 2026-05-31 · **Status**: CANONICAL · **Authority**: this doc owns engineering intent and principles. When `04-PLAN-FORWARD.md` proposes work that contradicts this doc, this doc wins.
+> **Foundation above this doc**: [00-PRODUCT-VISION-AND-BUSINESS-STRATEGY-V1.md](00-PRODUCT-VISION-AND-BUSINESS-STRATEGY-V1.md) (product + business vision; supersedes this doc on any conflict).
+> **Cross-cutting synthesis**: [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md](PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md) — end-to-end delivery plan across all C-contracts.
+> **Code-state grounding**: [PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md](PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md) — repository state at 2026-05-31.
 > **Source consolidated from**: `archive/superseded-2026-04-30/00_VISION/01-IDENTITY.md`, `02-VISION.md`, `03-AS-IS-VS-TO-BE.md` (the As-Is column moves to `03-CURRENT-STATE.md`; only the To-Be intent stays here).
 > **⚠ TRACKER RULE**: If you edit this file, update `00-PROCESS-TRACKER.md` in the same commit (§1 metrics if any number changed; §3/§4 if any wave or deliverable status changed).
 
@@ -58,7 +61,7 @@ The dependency rule (CI-enforced): **a higher layer may import from a lower laye
 
 ---
 
-## §4 — The 10 differentiators (D1–D10)
+## §4 — The 13 differentiators (D1–D13)
 
 What makes PRYZM 3 different from Revit / Archicad / Forma / Qonic / Motif / Bonsai. These are the bets.
 
@@ -74,6 +77,9 @@ What makes PRYZM 3 different from Revit / Archicad / Forma / Qonic / Motif / Bon
 | **D8** | **Federated clash detection** | BCF round-trip with Solibri, Navisworks, BIMcollab — works as the third party in a federated review. | SPEC-37, ADR-007 |
 | **D9** | **Pascal-editor-grade family creation** | First-class component/family editor, not an afterthought. Targets parity with Revit Family Editor. | SPEC-FAMILY-EDITOR, ADR-001 |
 | **D10** | **Honest performance contracts** | 17 NFTs (§5) measured every sprint in CI, not at GA-1. | SPEC-31, ADR-006 |
+| **D11** | **Architecturally sound Sheet & PDF export** | Publication-grade vector PDF + DWG with proper drawing frames, title blocks, multi-viewport layouts, scale bars, dimension annotation, revision tracking, sheet sets. The deliverable architects expect — not a raster screenshot. Governs the existing `plugins/sheets/` (PRYZM 2 S37) + fills the typed-stub `packages/drawing-primitives/src/backends/pdf.ts`. Added 2026-05-31. | [C24](../00_Contracts/C24-SHEET-COMPOSITION-ENGINE.md), [C29](../00_Contracts/C29-PDF-VECTOR-EXPORT.md), [C30](../00_Contracts/C30-DRAWING-SET-MANAGEMENT.md) |
+| **D12** | **Native Revit round-trip** | Bidirectional `.rvt`/`.rfa` ↔ `.pryzm` via IFC4 as canonical bridge, plus an optional external Python adapter for Revit-API-specific extensions (phasing / worksets / design options). Unblocks consultant ecosystem (which runs on Revit). Added 2026-05-31. | [C26](../00_Contracts/C26-REVIT-ROUND-TRIP.md), depends on production-grade [C25 IFC](../00_Contracts/C25-IFC-EXPORT-PRODUCTION.md) |
+| **D13** | **BIM 3.0 Inspect & Data Model** | Hierarchical model tree (Site → Building → Level → Apartment → Room → Element) with selection-driven viewport isolation, next-generation graphical data dashboards per node type, live data layer for `check / automate / update / review`. Governs the existing `plugins/schedules/` (PRYZM 2 S41) as foundation; supersedes the flat `apps/editor/src/ui/PropertyInspector.ts` (80 files) with documented migration. Added 2026-05-31. | [C27](../00_Contracts/C27-BIM3-INSPECT-MODEL.md), [C28](../00_Contracts/C28-DATA-PANEL-AND-AUTOMATION.md) |
 
 ---
 
