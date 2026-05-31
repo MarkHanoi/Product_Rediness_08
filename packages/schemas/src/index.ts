@@ -5,6 +5,15 @@ export * from './base/index.js';
 export * from './elements/index.js';
 export { SCHEMA_REGISTRY, type SchemaRegistry, type ElementSchema } from './registry.js';
 
+// P0.3 slice A (Family Platform) — L0 FamilyRegistry substrate.  Re-exported
+// at the root so consumers can `import { RegisteredFamilySchema } from
+// '@pryzm/schemas'`.  No name collisions with the existing element schemas
+// (this surface uses `Family*` prefixes; the existing element registry
+// exports `SCHEMA_REGISTRY` not `FamilyRegistryState`).  A later slice can
+// add a `./family-registry` subpath entry in `package.json` to mirror the
+// annotation/view/apartment supplements.
+export * from './family-registry/index.js';
+
 // S31 / Phase 2B Supplement §A1 — auto-dimension schemas (DimensionString,
 // EvaluatedDimension, anchor/orientation enums) and §B1 — ViewTemplate
 // schemas (StrokeStyle, CategoryVG, ViewFilter, FilterCondition, ViewRange).
