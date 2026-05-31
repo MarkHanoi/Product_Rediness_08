@@ -73,6 +73,27 @@ All room-geometry constraints fall into 10 classes. Each constraint declares its
 | **G9** | Spatial hierarchy | living must dominate hall | SOFT-PENALTY |
 | **G10** | Activity-fit constraints | kitchen work triangle | HARD-REJECT if triangle illegal |
 
+### §2.1 — As-shipped numbering vs framework numbering (2026-05-31)
+
+> **Amendment 2026-05-31**: The validator framework SHIPPED across runs 4–7 with a numbering that diverged from this doc's taxonomy. The shipped `classId` strings in `packages/ai-host/src/workflows/apartmentLayout/validators/` are the **canonical going forward**. The narrative below preserves the original conceptual numbering for historical reference; new code/test/contract references MUST use the shipped `classId` strings.
+
+| Framework (this doc) | Shipped `classId` | Shipped name | Status | Notes |
+|---|---|---|---|---|
+| G1 area | `G-1` | area-max | ✅ shipped (run 4 Track B) | Direct match. Code covers max only; min is enforced via `programRules.ts` `furnitureSpec` (separate slice). |
+| G2 width | `G-2` | width-max | ✅ shipped (run 4 Track B) | Same — code covers max; min via `programRules`. |
+| G3 length | — | — | ⬜ deferred | Currently subsumed by G-1 area-max + G-2 width-max + G-3 aspect (which catches length-to-width ratio extremes). |
+| G4 aspect-ratio | `G-3` | aspect | ✅ shipped (run 5 Track A) | Code reuses `G-3` slot; doc's G-3 length is deferred. |
+| G5 furniture-fit | — | — | ⬜ deferred | Needs furniture-footprint data; deferred until D-FLE catalogue can feed the validator. |
+| G6 wall usability | `G-5` | wall-usability | ✅ shipped (run 5 Track A) | Code uses `G-5` slot. |
+| G7 circulation | `G-6` | circulation-width | ✅ shipped (run 6 Track A) | Code uses `G-6` slot. The width gate is shipped; the path-fit gate (G-7 circulation paths in the original doc text) remains as `§F-Sprint-5` post-furnish work. |
+| G8 daylight / frontage | `G-7` + `G-10` + `A-7` | frontage + lighting + frontage-topology | ✅ shipped (split across runs) | The single doc concept "daylight / frontage" was decomposed into **three** shipped validators: `G-7` frontage LENGTH (run 6), `G-10` lighting RATIO (run 7), `A-7` frontage CONNECTIVITY (run 7). |
+| G9 spatial hierarchy | `G-8` | hierarchy | ✅ shipped (run 7 Track A) | Code uses `G-8` slot. |
+| G10 activity-fit (kitchen triangle) | — | — | ⬜ deferred | Needs furniture-placement data; deferred. The `G-10` slot was repurposed for lighting (see G8 row). |
+
+**Decision**: keep the as-shipped numbering canonical. Renumbering 8 validator files + 4 test files + the orchestrator + 200+ tests to match the doc's original numbering would be high-risk for zero functional gain. The mapping table above is the binding reconciliation.
+
+
+
 These constraints apply at:
 - Room generation (D-TGL subdivide pass)
 - Room mutation (during enumerate iteration)
