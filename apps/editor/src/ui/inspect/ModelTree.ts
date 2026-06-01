@@ -1,12 +1,18 @@
-// C27 INS-α-4 — Master Model Tree component skeleton.
+// C27 INS-α-4 / α-9 — Master Model Tree component.
 //
 // CONTRACT: C27-BIM3-INSPECT-MODEL.md §1.2 (single tree component) +
 //           §2 (6-level master tree project→building→level→apartment→room→
 //           elementType→elementInstance).
 //
-// Slice INS-α-4 (this commit): renders L0..L4 only — project, building,
-// level, apartment, room.  Element-type / element-instance rows + the
-// isolation engine wiring land in INS-α-5.
+// Slice INS-α-4 shipped L0..L4 (project / building / level / apartment /
+// room).  Slice INS-α-9 (this extension) adds L5 — Element Type group
+// nodes under each room (and under each level, for elements that don't
+// belong to a room).  L6 (Element Instance) is α-10.
+//
+// L5 nodes are grouped by `element.elementType` (e.g. 'wall', 'door',
+// 'window', 'furniture').  Each L5 node is selectable + carries a count
+// badge; expanding it currently shows a single placeholder leaf with the
+// count — the real per-instance list is α-10.
 //
 // The tree is LAZY — child subtrees are constructed only on first expand.
 // Selection click invokes the caller-supplied `onSelectNode` AND dispatches
@@ -42,6 +48,10 @@ export interface ModelTreeRuntime {
     readonly levelStore?: unknown;
     readonly roomStore?: unknown;
     readonly apartmentParametersStore?: unknown;
+    /** Element instance store probe (α-9).  Probed for L5 elementType
+     *  groupings under each room / level.  When absent L5 nodes do not
+     *  render — room nodes degrade to leaf rows as in α-4. */
+    readonly elementStore?: unknown;
 }
 
 /** Constructor options.  `onSelectNode` is fired on every successful
@@ -55,6 +65,11 @@ interface TreeNode {
     readonly selection: InspectSelection;
     readonly label: string;
     readonly children: ReadonlyArray<TreeNode>;
+    /** α-9 — when set, the node is "expandable" but its expanded body
+     *  is a single `<li class="pmt-leaf">` carrying this text rather
+     *  than a recursive child list.  Used by L5 elementType groups until
+     *  α-10 lands the per-instance list. */
+    readonly placeholder?: string;
 }
 
 const COMMAND_TYPE = 'inspect.selectNode';
@@ -198,7 +213,14 @@ export class ModelTreeComponent {
         // apartment ↔ room grouping is α-5.  When apartments are present
         // we render them between the level and its rooms.
         const apartmentNodes: TreeNode[] = apartments.map(a => this._buildApartment(a.id, a.label, levelCrumb));
-        const roomNodes: TreeNode[] = rooms.map(r => this._buildRoom(r.id, r.label, levelCrumb));
+        const roomNodes: TreeNode[] = rooms.map(r => this._buildRoom(r.id, r.label, levelCrumb, label));
+        // α-9: elements with no roomId but with levelId === id are grouped
+        // here under the level as L5 elementType nodes (e.g. structural
+        // walls outside any room).
+        const orphanGroups = this._groupOrphanElementsForLevel(id);
+        const orphanNodes: TreeNode[] = orphanGroups.map(g =>
+            this._buildElementType(g.elementType, g.count, id, /* parentKind */ 'level', label, levelCrumb),
+        );
         return {
             selection: {
                 kind: 'level',
@@ -207,7 +229,7 @@ export class ModelTreeComponent {
                 breadcrumb: buildingCrumb,
             },
             label,
-            children: [...apartmentNodes, ...roomNodes],
+            children: [...apartmentNodes, ...roomNodes, ...orphanNodes],
         };
     }
 
@@ -224,7 +246,22 @@ export class ModelTreeComponent {
         };
     }
 
-    private _buildRoom(id: string, label: string, parentCrumb: InspectSelection['breadcrumb']): TreeNode {
+    private _buildRoom(
+        id: string,
+        label: string,
+        parentCrumb: InspectSelection['breadcrumb'],
+        _parentLabel?: string,
+    ): TreeNode {
+        const roomCrumb: InspectSelection['breadcrumb'] = [
+            ...parentCrumb,
+            { kind: 'room', id },
+        ];
+        // α-9: gather elements whose roomId === id, group by elementType,
+        // emit one L5 node per non-empty group.
+        const groups = this._groupElementsForRoom(id);
+        const typeNodes: TreeNode[] = groups.map(g =>
+            this._buildElementType(g.elementType, g.count, id, /* parentKind */ 'room', label, roomCrumb),
+        );
         return {
             selection: {
                 kind: 'room',
@@ -233,7 +270,35 @@ export class ModelTreeComponent {
                 breadcrumb: parentCrumb,
             },
             label,
+            children: typeNodes,
+        };
+    }
+
+    /** α-9 — L5 Element Type group node.  Synthetic id encodes the parent
+     *  scope (room or level) + the elementType so two rooms with walls
+     *  produce distinct keys.  Selection emits `kind: 'elementType'`.
+     *  The expanded body is a single placeholder leaf carrying the
+     *  instance count — α-10 replaces it with a real per-instance list. */
+    private _buildElementType(
+        elementType: string,
+        count: number,
+        parentId: string,
+        _parentKind: 'room' | 'level',
+        _parentLabel: string,
+        parentCrumb: InspectSelection['breadcrumb'],
+    ): TreeNode {
+        const syntheticId = `${parentId}::type::${elementType}`;
+        const label = `${pluralCapitalize(elementType)} (${count})`;
+        return {
+            selection: {
+                kind: 'elementType',
+                id: syntheticId,
+                level: 5,
+                breadcrumb: parentCrumb,
+            },
+            label,
             children: [],
+            placeholder: `... ${count} ${count === 1 ? 'item' : 'items'} ...`,
         };
     }
 
@@ -284,6 +349,54 @@ export class ModelTreeComponent {
             id: this._coerceId(r, `room-${levelId}-${i + 1}`),
             label: this._coerceLabel(r, `Room ${i + 1}`),
         }));
+    }
+
+    /** α-9 — list every element-like record the runtime exposes via the
+     *  elementStore probe.  Each entry is treated as opaque; only
+     *  `id`, `elementType`, `roomId`, `levelId` are read by the caller. */
+    private _listElements(): ReadonlyArray<Record<string, unknown>> {
+        return this._listFromStore(this._runtime?.elementStore);
+    }
+
+    /** α-9 — group elements whose `roomId === roomId` by their string
+     *  `elementType` field.  Elements with non-string elementType are
+     *  skipped.  Returns an array sorted by elementType for stable
+     *  rendering. */
+    private _groupElementsForRoom(roomId: string): ReadonlyArray<{ elementType: string; count: number }> {
+        const all = this._listElements();
+        const counts = new Map<string, number>();
+        for (const e of all) {
+            const rid = this._read(e, 'roomId');
+            if (typeof rid !== 'string' || rid !== roomId) continue;
+            const et = this._read(e, 'elementType');
+            if (typeof et !== 'string' || et.length === 0) continue;
+            counts.set(et, (counts.get(et) ?? 0) + 1);
+        }
+        return [...counts.entries()]
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([elementType, count]) => ({ elementType, count }));
+    }
+
+    /** α-9 — group elements that have NO `roomId` (or empty) but whose
+     *  `levelId === levelId` by elementType.  These are the "orphan"
+     *  element instances that live on a level outside any room (e.g.
+     *  structural walls / shared columns). */
+    private _groupOrphanElementsForLevel(levelId: string): ReadonlyArray<{ elementType: string; count: number }> {
+        const all = this._listElements();
+        const counts = new Map<string, number>();
+        for (const e of all) {
+            const rid = this._read(e, 'roomId');
+            const hasRoom = typeof rid === 'string' && rid.length > 0;
+            if (hasRoom) continue;
+            const lid = this._read(e, 'levelId');
+            if (typeof lid !== 'string' || lid !== levelId) continue;
+            const et = this._read(e, 'elementType');
+            if (typeof et !== 'string' || et.length === 0) continue;
+            counts.set(et, (counts.get(et) ?? 0) + 1);
+        }
+        return [...counts.entries()]
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([elementType, count]) => ({ elementType, count }));
     }
 
     /** Read an arbitrary store-like value.  Probes (in order):
@@ -343,20 +456,36 @@ export class ModelTreeComponent {
         for (const node of nodes) {
             const key = this._key(node.selection);
             const isExpanded = this._expanded.has(key);
+            // α-9: an L5 elementType node is expandable when it has a
+            // placeholder body even if its children[] is empty (the real
+            // per-instance list is α-10).
+            const hasPlaceholder = typeof node.placeholder === 'string' && node.placeholder.length > 0;
+            const hasChildren = node.children.length > 0 || hasPlaceholder;
+            // The badge count for L5 groups already lives in the label
+            // (e.g. "Walls (5)") — keep childCount=0 so the renderer
+            // doesn't paint a duplicate badge.
+            const childCount = hasPlaceholder ? 0 : node.children.length;
             const li = renderModelTreeNode({
                 selection: node.selection,
                 label: node.label,
                 isExpanded,
-                hasChildren: node.children.length > 0,
-                childCount: node.children.length,
+                hasChildren,
+                childCount,
                 isSelected: this._selectedKey === key,
             });
             parent.appendChild(li);
-            if (isExpanded && node.children.length > 0) {
+            if (isExpanded && hasChildren) {
                 const childUl = document.createElement('ul');
                 childUl.className = 'pmt-children';
                 childUl.setAttribute('role', 'group');
-                this._renderInto(childUl, node.children);
+                if (hasPlaceholder && node.children.length === 0) {
+                    const leaf = document.createElement('li');
+                    leaf.className = 'pmt-leaf';
+                    leaf.textContent = node.placeholder!;
+                    childUl.appendChild(leaf);
+                } else {
+                    this._renderInto(childUl, node.children);
+                }
                 li.appendChild(childUl);
             }
         }
@@ -459,4 +588,51 @@ export class ModelTreeComponent {
     private _key(sel: InspectSelection): string {
         return `${sel.kind}:${sel.id}`;
     }
+}
+
+// ── Module helpers ────────────────────────────────────────────────────────────
+
+/**
+ * α-9 — produce a UI label from an elementType id.
+ *
+ *   'wall'      → 'Walls'
+ *   'door'      → 'Doors'
+ *   'window'    → 'Windows'
+ *   'furniture' → 'Furniture'        (irregular plural — no extra 's')
+ *   'curtain-wall' → 'Curtain Walls'
+ *   'class'     → 'Classes'
+ *
+ * Pure, ASCII-only.  Handles a small set of irregular plurals; everything
+ * else gets the regular `+s` (or `+es` after sibilant endings).
+ */
+function pluralCapitalize(elementType: string): string {
+    const cleaned = elementType.trim();
+    if (cleaned.length === 0) return 'Items';
+    // Split on `-` / `_` / space for multi-word types, then capitalize
+    // each word.  Only the LAST word is pluralised.
+    const words = cleaned.split(/[-_\s]+/).filter(w => w.length > 0);
+    if (words.length === 0) return 'Items';
+    const capWords = words.map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+    const last = capWords[capWords.length - 1]!;
+    capWords[capWords.length - 1] = pluralize(last);
+    return capWords.join(' ');
+}
+
+function pluralize(word: string): string {
+    const lower = word.toLowerCase();
+    // Hard-coded irregular plurals + uncountables that PRYZM ships with.
+    const irregular: Record<string, string> = {
+        furniture: 'Furniture',
+        equipment: 'Equipment',
+        glazing:   'Glazing',
+        ceiling:   'Ceilings',
+        lighting:  'Lighting',
+    };
+    if (Object.prototype.hasOwnProperty.call(irregular, lower)) {
+        return irregular[lower]!;
+    }
+    // Regular: sibilant endings → +es ; otherwise +s.
+    if (/(s|x|z|ch|sh)$/.test(lower)) return word + 'es';
+    if (/[^aeiou]y$/.test(lower)) return word.slice(0, -1) + 'ies';
+    return word + 's';
 }
