@@ -7,7 +7,7 @@
 // Same shape as `packages/persistence-client/src/otel.ts` and
 // `packages/command-bus/src/otel.ts` — a thin `withSpan()` wrapper over
 // the no-op `@opentelemetry/api` tracer.  Wires automatically when a
-// real OTel SDK provider is registered (see docs/architecture/ci.md).
+// real OTel SDK provider is registered (see docs/04-reference/architecture-detail/ci.md).
 
 import { trace, SpanStatusCode, type Attributes, type Span } from '@opentelemetry/api';
 

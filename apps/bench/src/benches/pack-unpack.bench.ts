@@ -4,7 +4,7 @@
 //   • Exit criterion (line ~520): "Pack medium fixture (4 levels × 3
 //     chunks, 500 events) in < 5 s; unpack in < 3 s.  Hard-fail in CI
 //     via the regression gate."
-//   • Spec doc: `docs/file-format/spec.md` §9 — performance budgets.
+//   • Spec doc: `docs/04-reference/file-formats/pryzm-binary.md` §9 — performance budgets.
 //
 // What we measure (one sample = one full call):
 //   1. `file-format.pack.medium`   — pack() over the same fixture

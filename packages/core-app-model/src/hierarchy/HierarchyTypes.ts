@@ -3,8 +3,8 @@
  *
  * Layer Affected:    Data Platform — IFC Hierarchy
  * File:             src/core/hierarchy/HierarchyTypes.ts
- * Contract:         docs/00_Contracts/01-BIM-ENGINE-CORE-CONTRACT.md
- *                   docs/00_Contracts/03-BIM-SEMANTIC-MODEL-CONTRACT.md
+ * Contract:         docs/02-decisions/contracts/01-BIM-ENGINE-CORE-CONTRACT.md
+ *                   docs/02-decisions/contracts/03-BIM-SEMANTIC-MODEL-CONTRACT.md
  *
  * Pure data types for the IFC-aligned 7-level spatial hierarchy.
  * No THREE.js, no DOM, no store imports — types only.

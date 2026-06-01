@@ -3,8 +3,8 @@
  *
  * Layer Affected:    Command Layer — Data Platform: Template System
  * File:             src/commands/templates/ClearPropertyDerivedCommand.ts
- * Contract:         docs/00_Contracts/01-BIM-ENGINE-CORE-CONTRACT.md §2
- *                   docs/00_Contracts/03-BIM-SEMANTIC-MODEL-CONTRACT.md §2
+ * Contract:         docs/02-decisions/contracts/01-BIM-ENGINE-CORE-CONTRACT.md §2
+ *                   docs/02-decisions/contracts/03-BIM-SEMANTIC-MODEL-CONTRACT.md §2
  *
  * Removes a "derived" flag from a specific requirement key on a node's assignment.
  * After clearing, SyncStateEngine recompute may revert the node from 'derived' → 'conflict'.

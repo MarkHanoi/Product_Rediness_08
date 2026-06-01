@@ -141,4 +141,4 @@ curl 'http://localhost:5100/v1/plugins?search=floorplan'
 curl http://localhost:5100/v1/plugins/pryzm/wall
 ```
 
-All endpoints are rate-limited per [ADR-018](https://github.com/pryzm/pryzm-2/blob/main/docs/architecture/adr/0018-rate-limit-policy.md) (60 reads/min + 20 writes/min on the free tier).
+All endpoints are rate-limited per [ADR-018](https://github.com/pryzm/pryzm-2/blob/main/docs/02-decisions/adrs/0018-rate-limit-policy.md) (60 reads/min + 20 writes/min on the free tier).

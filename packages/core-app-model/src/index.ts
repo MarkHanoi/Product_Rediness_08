@@ -19,8 +19,8 @@
  * Layer contract: L3 — may import L0–L2 packages; must not import L4+ packages
  * or any app-layer (apps/*) code.
  *
- * @see docs/03_PRYZM3/04-PLAN-FORWARD/17-WAVES-9-12-SRC-MIGRATION.md §2
- * @see docs/03_PRYZM3/00-PROCESS-TRACKER.md §5 W10-A
+ * @see docs/archive/pryzm3-internal/04-PLAN-FORWARD/17-WAVES-9-12-SRC-MIGRATION.md §2
+ * @see docs/archive/pryzm3-internal/00-PROCESS-TRACKER.md §5 W10-A
  */
 
 // ── drawing ──────────────────────────────────────────────────────────────────

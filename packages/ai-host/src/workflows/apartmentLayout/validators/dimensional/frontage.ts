@@ -2,7 +2,7 @@
 //
 // A habitable room MUST own a minimum length of EXTERNAL wall (perimeter)
 // for daylight and natural ventilation
-// (`docs/03_PRYZM3/APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK-2026-05-29.md`
+// (`docs/archive/pryzm3-internal/APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK-2026-05-29.md`
 // §G-7). A bedroom with 600 mm of external wall has no usable window position;
 // a living room with 1.0 m of frontage cannot satisfy daylight factor
 // requirements. Violations fail the legality gate.

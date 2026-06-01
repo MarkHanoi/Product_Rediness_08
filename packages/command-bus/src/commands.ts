@@ -21,7 +21,7 @@
  *                       Elevation, Family, Component, IFC, Sheets, Print, Plugin,
  *                       Settings toolbars — ~191 entries to land across d4–d10)
  *
- * Anchor: `docs/03_PRYZM3/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §3`
+ * Anchor: `docs/archive/pryzm3-internal/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §3`
  */
 
 /** Convenience alias — a command that takes no meaningful payload. */
@@ -529,7 +529,7 @@ export type SettingsToolbarCommands = {
 // These types extend the CommandRegistry with the runtime.bus.executeCommand
 // paths being migrated from the legacy commandManager.execute() API.
 //
-// Anchor: docs/03_PRYZM3/04-PLAN-FORWARD/23-PHASE-E-COMMAND-BUS-MIGRATION.md §E.5
+// Anchor: docs/archive/pryzm3-internal/04-PLAN-FORWARD/23-PHASE-E-COMMAND-BUS-MIGRATION.md §E.5
 
 /** Wall baseline — plan-space centre-line point pair. */
 export type WallBaseLine = {

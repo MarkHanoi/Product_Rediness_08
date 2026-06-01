@@ -148,7 +148,7 @@ export function createBimWorld(container: HTMLElement) {
     components.init();
 
     // ── Camera Anti-Clip: Constraints — minDistance, maxDistance, polar angles ──
-    // Contract: docs/00_Contracts/10-CAMERA-ZOOM-CONSTRAINTS-CONTRACT.md
+    // Contract: docs/02-decisions/contracts/10-CAMERA-ZOOM-CONSTRAINTS-CONTRACT.md
     //
     // Exact Pascal parity — matches custom-camera-controls.tsx props 1-to-1:
     //   minDistance={10}           → 10 m

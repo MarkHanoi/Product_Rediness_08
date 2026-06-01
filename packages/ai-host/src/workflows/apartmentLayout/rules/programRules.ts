@@ -8,7 +8,7 @@
 //   • validate.ts      — minimum areas, mandatory windows, connectivity legality
 //   • furnishLayout/   — the required/optional furniture + wet-room fixtures per room
 //
-// Governed by docs/03_PRYZM3/reference/specs/SPEC-ARCHITECTURAL-PROGRAM-RULES.md.
+// Governed by docs/archive/pryzm3-internal/reference/specs/SPEC-ARCHITECTURAL-PROGRAM-RULES.md.
 // PURE DATA + pure predicates: ZERO imports except the RoomType vocabulary. The
 // furniture/fixture vocabularies are plain strings on purpose so this database
 // carries NO dependency on the furniture engine (the furnishLayout archetypes are

@@ -131,7 +131,7 @@ export class CreateWallsFromSlabCommand implements Command {
         // geometry trigger; the bus handler writes the same data to the plugin WallsState as a
         // parallel record — one undo-stack entry for the entire batch (§2 P6 of 01-VISION.md).
         // Mirrors CreateWallsOnAllSlabsCommand P2e-walls exactly.
-        // Anchor: docs/03_PRYZM3/04-PLAN-FORWARD/23-L2-COMMAND-EVENT-BUS-IMPLEMENTATION-PLAN.md §P2e-wall-slab
+        // Anchor: docs/archive/pryzm3-internal/04-PLAN-FORWARD/23-L2-COMMAND-EVENT-BUS-IMPLEMENTATION-PLAN.md §P2e-wall-slab
         try {
             const runtimeBus = window.runtime?.bus;
             if (runtimeBus?.registry?.has?.('wall.batch.create') && wallIds.length > 0) {

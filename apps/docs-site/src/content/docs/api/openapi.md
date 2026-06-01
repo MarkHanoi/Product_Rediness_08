@@ -8,9 +8,9 @@ description: The full PRYZM Public API surface, sourced from packages/api-spec/o
 The PRYZM Public API is described by an OpenAPI 3.1 schema at
 [`packages/api-spec/openapi.yaml`](https://github.com/pryzm-com/pryzm/blob/main/packages/api-spec/openapi.yaml).
 The schema is hand-authored from SPEC-26 §8 per
-[ADR-0039](https://github.com/pryzm-com/pryzm/blob/main/docs/architecture/adr/0039-s63-public-api-openapi-schema-and-docs-site.md) §B.
+[ADR-0039](https://github.com/pryzm-com/pryzm/blob/main/docs/02-decisions/adrs/0039-s63-public-api-openapi-schema-and-docs-site.md) §B.
 
-> **Schema status:** `1.0.0-draft` (per [ADR-0039](https://github.com/pryzm-com/pryzm/blob/main/docs/architecture/adr/0039-s63-public-api-openapi-schema-and-docs-site.md) §D).
+> **Schema status:** `1.0.0-draft` (per [ADR-0039](https://github.com/pryzm-com/pryzm/blob/main/docs/02-decisions/adrs/0039-s63-public-api-openapi-schema-and-docs-site.md) §D).
 > Breaking changes are permitted until S65 Public API GA. The `1.0.0`
 > flip locks the schema for one year minimum (additive `1.x` changes
 > only).
@@ -126,7 +126,7 @@ To consume the YAML in your own toolchain:
 
 The CI test suite at `packages/api-spec/__tests__/` pins a SHA-256 of
 the YAML; any change requires updating the pin (and an ADR amending
-[ADR-0039](https://github.com/pryzm-com/pryzm/blob/main/docs/architecture/adr/0039-s63-public-api-openapi-schema-and-docs-site.md)).
+[ADR-0039](https://github.com/pryzm-com/pryzm/blob/main/docs/02-decisions/adrs/0039-s63-public-api-openapi-schema-and-docs-site.md)).
 
 ## Direct download
 

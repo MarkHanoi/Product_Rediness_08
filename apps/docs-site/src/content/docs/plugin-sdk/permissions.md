@@ -5,7 +5,7 @@ description: The 7 locked plugin permissions, what each grants, and how to choos
 
 # Permissions
 
-PRYZM plugins declare permissions in their manifest. The set is **locked at 7** for v1 per [ADR-0038](https://github.com/pryzm-com/pryzm/blob/main/docs/architecture/adr/0038-s62-plugin-sdk-descriptor-schema-lock.md) §Decision A. Adding a permission is an additive `1.x` change; removing or narrowing one requires `2.0`.
+PRYZM plugins declare permissions in their manifest. The set is **locked at 7** for v1 per [ADR-0038](https://github.com/pryzm-com/pryzm/blob/main/docs/02-decisions/adrs/0038-s62-plugin-sdk-descriptor-schema-lock.md) §Decision A. Adding a permission is an additive `1.x` change; removing or narrowing one requires `2.0`.
 
 ## The 7 permissions
 

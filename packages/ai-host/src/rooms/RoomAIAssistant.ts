@@ -9,8 +9,8 @@
  * Contract:
  *   docs/01_ELEMENTS/09_Rooms_Contract/07-ROOM-AI-WORLDMODEL-CONTRACT.md
  *   docs/01_ELEMENTS/09_Rooms_Contract/ROOM-IMPLEMENTATION-PLAN.md §9.1
- *   docs/00_Contracts/04-BIM-AI-MODIFICATION-PROTOCOL.md
- *   docs/00_Contracts/07-BIM-SECURITY-CONTRACT.md
+ *   docs/02-decisions/contracts/04-BIM-AI-MODIFICATION-PROTOCOL.md
+ *   docs/02-decisions/contracts/07-BIM-SECURITY-CONTRACT.md
  *
  * All LLM calls are proxied through the Express server — never call
  * Anthropic or CF Worker directly from the client (§07-BIM-SECURITY-CONTRACT §1.4).

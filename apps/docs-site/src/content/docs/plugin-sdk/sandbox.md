@@ -105,7 +105,7 @@ metrics. A misbehaving plugin cannot freeze the editor.
 
 ## Why iframe + CSP rather than a Worker?
 
-[ADR-0038](https://github.com/pryzm-com/pryzm/blob/main/docs/architecture/adr/0038-s62-plugin-sdk-descriptor-schema-lock.md) §Decision B records the trade-off:
+[ADR-0038](https://github.com/pryzm-com/pryzm/blob/main/docs/02-decisions/adrs/0038-s62-plugin-sdk-descriptor-schema-lock.md) §Decision B records the trade-off:
 
 - Workers can't render UI; plugins need DOM.
 - Workers' `postMessage` boundary is identical to iframes', but workers

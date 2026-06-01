@@ -1,7 +1,7 @@
 // G-1 (area-max) + G-2 (width-max) + G-3 (aspect-ratio) + G-5 (wall-usability)
 // + G-6 (circulation-width) + G-7 (frontage) + G-8 (hierarchy) + G-10
 // (lighting) dimensional validators — slices of the 10 G-classes from
-// `docs/03_PRYZM3/APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK-2026-05-29.md`
+// `docs/archive/pryzm3-internal/APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK-2026-05-29.md`
 // §G-class table. Pin every behavioural contract as an executable assertion.
 
 import { describe, expect, it } from 'vitest';

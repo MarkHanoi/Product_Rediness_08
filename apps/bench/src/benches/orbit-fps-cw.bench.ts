@@ -10,7 +10,7 @@
 //   2. MaterialPool dedupes 50 curtain walls of the same panel-kind
 //      mix to a tiny material set (one per panel kind + one per
 //      mullion colour).  The S13 perf fix per `code-level ADR
-//      docs/architecture/adr/0011-curtain-wall-triage-and-producer-split.md`
+//      docs/02-decisions/adrs/0011-curtain-wall-triage-and-producer-split.md`
 //      — without bucketing, 50 walls × 8 panels = 400 materials.
 
 import { mkdirSync, writeFileSync } from 'node:fs';

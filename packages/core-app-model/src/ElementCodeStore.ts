@@ -3,8 +3,8 @@
  *
  * Layer Affected:    Data Platform — Element Codes
  * File:             src/core/ElementCodeStore.ts
- * Contract:         docs/00_Contracts/01-BIM-ENGINE-CORE-CONTRACT.md §3.8
- *                   docs/00_Contracts/03-BIM-SEMANTIC-MODEL-CONTRACT.md
+ * Contract:         docs/02-decisions/contracts/01-BIM-ENGINE-CORE-CONTRACT.md §3.8
+ *                   docs/02-decisions/contracts/03-BIM-SEMANTIC-MODEL-CONTRACT.md
  *
  * Assigns permanent, human-readable codes to every BIM element on creation.
  * Codes are prefix + zero-padded number: "DO001", "WA042", "CO007", etc.

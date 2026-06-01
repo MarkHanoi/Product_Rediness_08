@@ -177,7 +177,7 @@ export function gateAiCostDashboard(): GatePredicate {
     specLines: [771, 771],
     status: 'deferred',
     boundTo: 'S48 D9 launch (Honeycomb provisioning) + S65 (3C) for AI Spend view per ADR-028 Part E',
-    note: '@pryzm/ai-cost CostMeter + meter ratified S44; dashboard JSON descriptor shipped at docs/observability/dashboards/honeycomb-beta.json.',
+    note: '@pryzm/ai-cost CostMeter + meter ratified S44; dashboard JSON descriptor shipped at docs/04-reference/observability/dashboards/honeycomb-beta.json.',
   };
 }
 

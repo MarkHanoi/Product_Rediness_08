@@ -7,7 +7,7 @@ description: The plugin.manifest.json schema — fields, contributions, permissi
 
 Every PRYZM plugin ships with a `plugin.manifest.json` at its root.
 The schema is locked at v1 per
-[ADR-0038](https://github.com/pryzm-com/pryzm/blob/main/docs/architecture/adr/0038-s62-plugin-sdk-descriptor-schema-lock.md);
+[ADR-0038](https://github.com/pryzm-com/pryzm/blob/main/docs/02-decisions/adrs/0038-s62-plugin-sdk-descriptor-schema-lock.md);
 breaking changes are a one-year deprecation cycle minimum.
 
 ## Top-level fields
@@ -124,7 +124,7 @@ Errors are sorted by dot-path so output is stable across runs.
 
 ### Cross-field rule: `network:fetch` ⇒ non-empty `allowedOrigins`
 
-Per [ADR-0038](https://github.com/pryzm-com/pryzm/blob/main/docs/architecture/adr/0038-s62-plugin-sdk-descriptor-schema-lock.md) §Decision E, a manifest that grants `network:fetch` MUST list at least one entry in `allowedOrigins`. The reasoning: silent fall-through to "fetch denied at runtime" is a worse failure mode than upfront validation reject.
+Per [ADR-0038](https://github.com/pryzm-com/pryzm/blob/main/docs/02-decisions/adrs/0038-s62-plugin-sdk-descriptor-schema-lock.md) §Decision E, a manifest that grants `network:fetch` MUST list at least one entry in `allowedOrigins`. The reasoning: silent fall-through to "fetch denied at runtime" is a worse failure mode than upfront validation reject.
 
 ```json
 // ❌ Rejected at validateManifest()
@@ -139,7 +139,7 @@ Per [ADR-0038](https://github.com/pryzm-com/pryzm/blob/main/docs/architecture/ad
 The schema version `pryzmPlugin: "1.0"` is locked for v1.x. Any
 breaking change to fields, contribution kinds, or permission set requires:
 
-1. A sprint-scoped ADR amending [ADR-0038](https://github.com/pryzm-com/pryzm/blob/main/docs/architecture/adr/0038-s62-plugin-sdk-descriptor-schema-lock.md).
+1. A sprint-scoped ADR amending [ADR-0038](https://github.com/pryzm-com/pryzm/blob/main/docs/02-decisions/adrs/0038-s62-plugin-sdk-descriptor-schema-lock.md).
 2. A 1-year deprecation cycle.
 3. A bump to `pryzmPlugin: "2.0"` (existing v1 plugins continue to work in parallel).
 

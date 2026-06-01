@@ -39,7 +39,7 @@ import { CreateRoofCommand } from '@pryzm/command-registry';
 // when the browser held a cached HTML referencing an older content hash.
 // Since AIService is itself inside the lazily-loaded engine bundle, making these
 // imports static just co-locates them in the same engine chunk — no initial-load
-// regression. Tracked: C11 §7.3, docs/03_PRYZM3/04-PLAN-FORWARD/40-CW-PIPELINE-TRACE.md
+// regression. Tracked: C11 §7.3, docs/archive/pryzm3-internal/04-PLAN-FORWARD/40-CW-PIPELINE-TRACE.md
 import { CreateCurtainWallsOnAllSlabsCommand } from '@pryzm/command-registry';
 import { CreateCurtainWallsFromSlabCommand, UpdateAllSlabsCommand, UpdateAllCurtainWallsCommand, UpdateFurnitureParametersCommand, CreateGridSystemCommand, CreateWallsFromSlabCommand, CreateSlabsOnAllFloorsCommand } from '@pryzm/command-registry';
 import { WallRegionExtractor } from './WallRegionExtractor.js';

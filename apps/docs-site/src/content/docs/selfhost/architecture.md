@@ -123,7 +123,7 @@ audit's "what didn't land" list.
 - `pryzm-selfhost/nginx/editor.conf` — front-door config.
 - `apps/api-gateway/Dockerfile` (and sync-server, bake-worker, editor) —
   per-service multi-stage builds.
-- `docs/architecture/adr/0048-s67-self-host-docker-compose.md` —
+- `docs/02-decisions/adrs/0048-s67-self-host-docker-compose.md` —
   architectural decisions.
-- `docs/architecture/adr/0049-s67-multi-region-cut-decision.md` — the
+- `docs/02-decisions/adrs/0049-s67-multi-region-cut-decision.md` — the
   Tier-2 multi-region cut.

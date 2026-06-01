@@ -3,8 +3,8 @@
  *
  * Layer Affected:    Command Layer — Data Platform: IFC Hierarchy
  * File:             src/commands/hierarchy/UpdateHierarchyNodeCommand.ts
- * Contract:         docs/00_Contracts/01-BIM-ENGINE-CORE-CONTRACT.md §2.2, §2.3
- *                   docs/00_Contracts/03-BIM-SEMANTIC-MODEL-CONTRACT.md §2
+ * Contract:         docs/02-decisions/contracts/01-BIM-ENGINE-CORE-CONTRACT.md §2.2, §2.3
+ *                   docs/02-decisions/contracts/03-BIM-SEMANTIC-MODEL-CONTRACT.md §2
  *
  * Updates any HierarchyStore node (Site | Building | Level | Unit) with a partial patch.
  * Uses structuredClone snapshot pattern for full-replacement undo (§2.2, §2.3).

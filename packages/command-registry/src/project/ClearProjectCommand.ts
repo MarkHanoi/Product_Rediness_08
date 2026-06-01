@@ -206,7 +206,7 @@ export class ClearProjectCommand implements Command {
             //      elementCodeStore, semanticGraphManager, temporalGraphManager,
             //      decisionRecordStore, lifecycleStateManager, maintenanceRecordStore,
             //      requirementStore, assetCatalogStore, doorStore, windowStore,
-            //      and the four *SystemTypeStores. See docs/00_Contracts/45-*.md.
+            //      and the four *SystemTypeStores. See docs/02-decisions/contracts/45-*.md.
             const report = projectScopeRegistry.clearAll();
             console.log(`[ClearProjectCommand] ProjectScopeRegistry cleared ${report.cleared.length} scopes:`, report.cleared);
             if (report.failures.length) {

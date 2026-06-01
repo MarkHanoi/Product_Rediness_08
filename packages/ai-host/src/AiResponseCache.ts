@@ -1,7 +1,7 @@
 // @pryzm/ai-host — AI Response Cache (ADR-050 · C09 §2.3).
 //
 // Spec source:
-//   • `docs/03_PRYZM3/04-PLAN-FORWARD/46-IMPLEMENTATION-PLAN-2026-05-08.md`
+//   • `docs/archive/pryzm3-internal/04-PLAN-FORWARD/46-IMPLEMENTATION-PLAN-2026-05-08.md`
 //     Task 4.5 — "AI response cache (ADR-050 · C09 §2.3)".
 //
 // Three exports:

@@ -146,7 +146,7 @@ isolated-CI-runner reversal trigger from ADR-0053 §A.
 | 2 | First 24-hour monitoring                                      | S72 D8            | Status page + alerting (operator-side provisioning).              |
 | 3 | 48-hour issue triage                                          | S72 D9            | On-call rota.                                                     |
 | 4 | Pen test (clean report)                                       | S68 R3D-02        | External vendor; phase doc §K3D-A kill-switch in force.           |
-| 5 | SAST re-run (first attempt errored at transport)              | S68 D8 / S69 D1   | `runSastScan`; baseline at `docs/security/scans-2026-Q4-baseline.md`. |
+| 5 | SAST re-run (first attempt errored at transport)              | S68 D8 / S69 D1   | `runSastScan`; baseline at `docs/04-reference/security/scans-2026-Q4-baseline.md`. |
 | 6 | Browser matrix — live multi-browser cuts                      | S70 D2/D9         | `.github/workflows/browser-matrix.yml`.                            |
 | 7 | DR drill #1 against staging Postgres                          | S70 D8 / S71 D8   | `docs/archive/pryzm3-internal/runbooks/DR-DRILL-RUNBOOK.md` §10.       |
 | 8 | Fresh-VM `docker-compose up` < 10 min on Ubuntu/Debian/RHEL × ARM64+x86_64 | S67 D5/D6         | `pryzm-selfhost/install.sh`; ARM64 needs ghcr.io publish.          |
@@ -156,8 +156,8 @@ isolated-CI-runner reversal trigger from ADR-0053 §A.
 | 12| Marketing site live (pryzm.com) + 5 case studies              | S71b D1–D6        | Per phase-doc S71 D1+D6.                                            |
 | 13| 5-min demo video posted                                       | S71b D5           | Per phase-doc S71 D5.                                               |
 | 14| ≥ 100 paying users                                            | post-LAUNCH       | Business KPI; tracked outside repo.                                |
-| 15| All 72 sprint retros archived in `docs/retros/`               | post-S72 D10      | Mechanical archive of per-sprint retro notes.                      |
-| 16| Quarterly secret-rotation drill #1                            | S68 D10           | `docs/security/secret-rotation-playbook.md` §5.                    |
+| 15| All 72 sprint retros archived in `docs/03-execution/status/retros/`               | post-S72 D10      | Mechanical archive of per-sprint retro notes.                      |
+| 16| Quarterly secret-rotation drill #1                            | S68 D10           | `docs/04-reference/security/secret-rotation-playbook.md` §5.                    |
 | 17| Cold-load NFT baseline promotion (3 rows)                     | post-GA           | `pnpm bench && pnpm bench:baseline` per S71 §6 mechanical step.    |
 | 18| `orbit-fps` real-browser p95 baseline                         | post-GA           | Playwright-side; depends on isolated CI runner per ADR-0053 §A.    |
 | 19| Precision-budget tightening from trailing-7-run baseline      | post-GA           | ADR-0051 §A formula; reversal trigger on isolated CI runner.       |

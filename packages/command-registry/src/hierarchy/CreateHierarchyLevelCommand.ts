@@ -3,8 +3,8 @@
  *
  * Layer Affected:    Command Layer — Data Platform: IFC Hierarchy
  * File:             src/commands/hierarchy/CreateHierarchyLevelCommand.ts
- * Contract:         docs/00_Contracts/01-BIM-ENGINE-CORE-CONTRACT.md §2
- *                   docs/00_Contracts/03-BIM-SEMANTIC-MODEL-CONTRACT.md §2
+ * Contract:         docs/02-decisions/contracts/01-BIM-ENGINE-CORE-CONTRACT.md §2
+ *                   docs/02-decisions/contracts/03-BIM-SEMANTIC-MODEL-CONTRACT.md §2
  *
  * Creates a Level node that bridges HierarchyStore to a real BimManager level.
  * canExecute validates:

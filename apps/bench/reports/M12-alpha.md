@@ -131,7 +131,7 @@ not at the assertion level. Local p95 sits inside the < 1 ms budget envelope.
 | `persistence` | `docs/04-reference/architecture-detail/persistence.md` (+ `persistence-design.md`) | **PASS** |
 | `chunks` | `docs/04-reference/architecture-detail/chunks.md` | **PASS** |
 | `bake-worker` | `docs/04-reference/architecture-detail/bake-worker.md` (+ `bake-worker-impl-log.md`) | **PASS** |
-| `file-format` | `docs/file-format/spec.md` | **PASS** |
+| `file-format` | `docs/04-reference/file-formats/pryzm-binary.md` | **PASS** |
 | `loader` | `docs/04-reference/architecture-detail/loader.md` | **PASS** |
 | `sync-server-protocol` | `docs/04-reference/architecture-detail/sync-server.md` | **PASS** |
 | `headless` | `docs/04-reference/architecture-detail/headless.md` | **PASS** |
@@ -142,7 +142,7 @@ not at the assertion level. Local p95 sits inside the < 1 ms budget envelope.
 | `element-coupling` | `docs/04-reference/architecture-detail/element-coupling.md` | **PASS** |
 | `element-recipe` | `docs/04-reference/architecture-detail/element-recipe.md` | **PASS** |
 | `apps/bench/reports/M12-alpha.md` | this file | **PASS** |
-| 10-min alpha demo screencast | `docs/demos/M12-alpha.mp4` | **DEFERRED** — recording not produced in this environment; script preserved in `docs/demos/M12-alpha.script.md` (ref §3 of the phase doc). |
+| 10-min alpha demo screencast | `docs/05-guides/developer/demos/M12-alpha.mp4` | **DEFERRED** — recording not produced in this environment; script preserved in `docs/05-guides/developer/demos/M12-alpha.script.md` (ref §3 of the phase doc). |
 
 ---
 
@@ -152,7 +152,7 @@ not at the assertion level. Local p95 sits inside the < 1 ms budget envelope.
 |---|---|---|
 | 19+ Phase-1 ADRs merged | **PASS** | 21 Accepted ADRs on disk (`docs/02-decisions/adrs/0001-0020` + ledger). |
 | Sprint retros S01–S24 archived | **PARTIAL** | per-sprint closeouts captured in PROCESS-TRACKER §1; standalone retro files are deferred to the founder rest week. |
-| Phase 1 retro published | **PASS** | `docs/retros/PHASE-1-CLOSE.md` (S24 deliverable). |
+| Phase 1 retro published | **PASS** | `docs/03-execution/status/retros/PHASE-1-CLOSE.md` (S24 deliverable). |
 | Phase 2 risk register updated | **DEFERRED** | rolls into S25 D1 (founder rest week ends; Phase-2 kickoff). |
 | S25 sprint plan drafted | **DEFERRED** | rolls into S25 D1. |
 | Founder rest week (7 d) before S25 | **N-A** in CI environment — non-negotiable for the human team. |
@@ -170,7 +170,7 @@ deploy-time / human-process activations rather than code defects:
    wired and ready.
 2. **Honeycomb dashboard live wiring** — `otel-config.ts` complete; needs the
    alpha-demo deploy + Honeycomb token.
-3. **`docs/demos/M12-alpha.mp4` recording** — the script is committed; the
+3. **`docs/05-guides/developer/demos/M12-alpha.mp4` recording** — the script is committed; the
    recording session is a manual step planned for the deploy day.
 4. **Phase-2 risk register + S25 sprint plan + founder rest week** — Phase-1-close
    deliverables that the human team owns post-bench.

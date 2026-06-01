@@ -2,7 +2,7 @@
 //
 // A room's longest-side / shortest-side ratio MUST NOT exceed its programmatic
 // aspect-ratio maximum
-// (`docs/03_PRYZM3/APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK-2026-05-29.md`
+// (`docs/archive/pryzm3-internal/APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK-2026-05-29.md`
 // §G-3). Hard ceiling: a bathroom MUST NOT have an aspect ratio above 2.5 (a
 // 1.1 m × 5.0 m bathroom is a technically valid polygon but architecturally
 // absurd — a "tunnel" room). Violations fail the legality gate.

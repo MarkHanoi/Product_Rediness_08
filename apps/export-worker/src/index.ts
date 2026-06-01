@@ -14,7 +14,7 @@
 //   • Redis BRPOP or equivalent queue for multi-server deploys.
 //   • WebSocket notification to requesting client on job completion.
 //
-// SPEC SOURCE: docs/03_PRYZM3/04-PLAN-FORWARD/19-WAVES-16-20-FULL-WIRE.md §4 Phase 2C.
+// SPEC SOURCE: docs/archive/pryzm3-internal/04-PLAN-FORWARD/19-WAVES-16-20-FULL-WIRE.md §4 Phase 2C.
 
 export interface ExportJob {
   readonly jobId: string;

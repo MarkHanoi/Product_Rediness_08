@@ -16,7 +16,7 @@
 //        • avg-bytes-per-event   (simulator for IDB row size)
 //        • encode-1k-batch p95   (CPU cost of writing a snapshot)
 //        • decode-1k-batch p95   (CPU cost of replay/cold-load)
-//   3. The numbers feed `docs/architecture/adr/0004-msgpack-codec.md`
+//   3. The numbers feed `docs/02-decisions/adrs/0004-msgpack-codec.md`
 //      (drafted in S03, ratified in S04).  S03 ships `@msgpack/msgpack`
 //      because the package is already a transitive dep of the L0 client;
 //      `msgpack-lite` and `notepack.io` are evaluated separately at S04

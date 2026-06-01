@@ -2,7 +2,7 @@
 //
 // Spec source:
 //   • `docs/00_NEW_ARCHITECTURE/phases/PHASE-2B-Q2-M16-M18-PLAN-VIEW.md` §S31 D1, D5, D7.
-//   • Code-level ADR `docs/architecture/adr/0023-plan-view-canvas2d-renderer.md` §6.
+//   • Code-level ADR `docs/02-decisions/adrs/0023-plan-view-canvas2d-renderer.md` §6.
 //
 // Sprint tolerance schedule (per PHASE-2B §1):
 //   S31: < 10 px (foundation — only walls/slabs/doors; annotation not yet rendered).

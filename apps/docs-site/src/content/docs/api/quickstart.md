@@ -9,7 +9,7 @@ The PRYZM Public API exposes the `.pryzm` import/export surface
 described in SPEC-26 §8. This page walks you from "no credentials" to
 "successful API call" using the OAuth2 PKCE flow.
 
-> **API status:** `1.0.0-draft` (per [ADR-0039](https://github.com/pryzm-com/pryzm/blob/main/docs/architecture/adr/0039-s63-public-api-openapi-schema-and-docs-site.md) §D). The schema is
+> **API status:** `1.0.0-draft` (per [ADR-0039](https://github.com/pryzm-com/pryzm/blob/main/docs/02-decisions/adrs/0039-s63-public-api-openapi-schema-and-docs-site.md) §D). The schema is
 > stable for integration work, but breaking changes are permitted until
 > S65 Public API GA. The `1.0.0` flip locks the schema for one year.
 

@@ -8,7 +8,7 @@
  *
  * Contract:
  *   docs/00_PRZYM/PRYZM_WORLD_MODEL_MASTER_PLAN_2026.md § G-3
- *   docs/00_Contracts/03-BIM-SEMANTIC-MODEL-CONTRACT.md
+ *   docs/02-decisions/contracts/03-BIM-SEMANTIC-MODEL-CONTRACT.md
  *
  * Impact Assessment:
  *   Store Reads:      NO — isolated append-only data structure

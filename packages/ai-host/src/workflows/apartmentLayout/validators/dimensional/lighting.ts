@@ -2,7 +2,7 @@
 //
 // A habitable room MUST have glazed window area no smaller than a per-type
 // fraction of its net floor area
-// (`docs/03_PRYZM3/APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK-2026-05-29.md`
+// (`docs/archive/pryzm3-internal/APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK-2026-05-29.md`
 // §G-10). Per Building Regs Part F1 the daylight floor for habitable rooms
 // is 10 % of net floor area (`minLightRatio = 0.10`). Violations fail the
 // legality gate.

@@ -1,6 +1,6 @@
 // G-1 / G-2 / G-3 / G-5 / G-6 / G-7 / G-10 hard bounds, per room type.
 //
-// Source-of-truth: `docs/03_PRYZM3/APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK-2026-05-29.md`
+// Source-of-truth: `docs/archive/pryzm3-internal/APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK-2026-05-29.md`
 // §G-1 / §G-2 / §G-3 / §G-5 / §G-6 / §G-7 / §G-10 tables — RESIDENTIAL defaults.
 //
 // G-8 (hierarchy) is an APARTMENT-LEVEL relational rule (largest social >

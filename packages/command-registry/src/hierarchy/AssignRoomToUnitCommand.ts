@@ -3,8 +3,8 @@
  *
  * Layer Affected:    Command Layer — Data Platform: IFC Hierarchy
  * File:             src/commands/hierarchy/AssignRoomToUnitCommand.ts
- * Contract:         docs/00_Contracts/01-BIM-ENGINE-CORE-CONTRACT.md §2
- *                   docs/00_Contracts/03-BIM-SEMANTIC-MODEL-CONTRACT.md §2
+ * Contract:         docs/02-decisions/contracts/01-BIM-ENGINE-CORE-CONTRACT.md §2
+ *                   docs/02-decisions/contracts/03-BIM-SEMANTIC-MODEL-CONTRACT.md §2
  *
  * Sets room.unitId to link a RoomData record in RoomStore to a Unit in HierarchyStore.
  * After assignment, schedules a SyncStateEngine recompute for the unit (lazy import

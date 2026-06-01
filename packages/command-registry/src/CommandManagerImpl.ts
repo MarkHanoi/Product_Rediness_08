@@ -47,7 +47,7 @@ type CommandExecutedCallback = (cmd: Command, result: CommandResult) => void;
  *   After all 18 families have bus handlers + zero residual
  *   `commandManager.execute` reaches in `src/`, this class is deletable
  *   (E-finish.3).  Do NOT add new call sites — use the bus instead.
- *   See `docs/03_PRYZM3/00_NEW_ARCHITECTURE/phases/audits/PHASES-A-F-RECONCILIATION-2026-04-29/05-phase-E-audit-and-plan.md`.
+ *   See `docs/archive/pryzm3-internal/00_NEW_ARCHITECTURE/phases/audits/PHASES-A-F-RECONCILIATION-2026-04-29/05-phase-E-audit-and-plan.md`.
  */
 export class CommandManager {
     private history: { command: Command, metadata: CommandMetadata }[] = [];

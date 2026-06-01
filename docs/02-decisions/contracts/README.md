@@ -55,6 +55,12 @@ If a contract and an ADR disagree, **the contract wins**; the ADR must be update
 | **C28** | [Data Panel & Automation](./C28-DATA-PANEL-AND-AUTOMATION.md) | Live data layer for `check / automate / update / review`. Wraps the existing `plugins/schedules/` (PRYZM 2 S41 / ADR-0032) and adds: (a) unified grid across all element types, (b) quality-rules engine sourcing 266+ rules from the 248+ constraint DB + dimensional G-classes + topology A-classes, (c) bulk-edit commands through commandBus (P6). Tier 1/2/3 rule execution (on-edit / on-save / on-demand). Export to Excel/CSV/JSON/IFC-Pset/SQL. Cron scheduling + email-on-violation. Audit verdict: **AUDIT + EXTEND** (Schedule store + 6 handlers + formula DSL + reactive table + CSV/XLSX IMPLEMENTED; quality-rules + bulk-edit + unified grid are the gaps). **Added**: 2026-05-31. | P5, P6, P8 |
 | **C29** | [PDF Vector Export](./C29-PDF-VECTOR-EXPORT.md) | Fills the typed-stub `packages/drawing-primitives/src/backends/pdf.ts` (PRYZM 2 ADR-0029) with a true vector PDF writer via `pdf-lib`. Font embedding, line-weight calibration, PDF/A-3 compliance, optional IFC-embed (single-deliverable PDF + IFC). Print-calibration test harness (1m × 1m validation). Audit verdict: **FILL TYPED STUB**. **Added**: 2026-05-31. | P5, P8 |
 | **C30** | [Drawing Set Management](./C30-DRAWING-SET-MANAGEMENT.md) | Aggregates Sheets ([C24](./C24-SHEET-COMPOSITION-ENGINE.md)) into SheetSets with revision tracking, issue register, transmittal package (single PDF/A-3 cover + drawing register + N sheets via [C29](./C29-PDF-VECTOR-EXPORT.md)), automatic sheet numbering. Revision status state machine (`draft → issued → superseded`, one-way). Revision-cloud annotations bound to revision ids. Audit verdict: **AUDIT + EXTEND** (`plugins/sheets/src/book/book-exporter.ts` PRYZM 2 S37 implements multi-sheet composition; revision tracking + issue register + transmittal generator are gaps). **Added**: 2026-05-31. | P6, P8 |
+| **C31** | [Documentation Authoring Protocol](./C31-DOCUMENTATION-AUTHORING-PROTOCOL.md) | The binding rules for how every document in `docs/` is written, named, structured, versioned, and superseded. Anatomies for contract / ADR / spec / plan / status / guide / reference. Filename patterns enforced by `check-doc-naming.ts`. Immutability of sealed docs enforced by `check-{adr,contract,snapshot}-immutability.ts`. **Added**: 2026-06-01. | (cross-cutting — all P) |
+| **C19** | (reserved) Site Model & Parcel | Site / parcel / building footprint / context-buildings schemas. **Status**: PROPOSED — see [MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.1](../MISSING-CONTRACTS-AUDIT-2026-06-01.md). | TBD |
+| **C20** | (reserved) Building & Apartment Aggregates | Building → level → apartment → room hierarchy formalisation. **Status**: PROPOSED. | TBD |
+| **C21** | (reserved) Climate Ingestion | EPW reader · NOAA climate normals · solar+wind+temp aggregates · per-site cache. **Status**: PROPOSED. | TBD |
+| **C22** | (reserved) Privacy & PII Tier | What gets stored where, with what retention. GDPR / CCPA / BYOK boundaries. **Status**: PROPOSED. | TBD |
+| **C23** | (reserved) Provenance & AI Audit | Every AI-generated artefact traces inputs · prompts · model · cost · timestamp. **Status**: PROPOSED. | TBD |
 
 ---
 
@@ -80,5 +86,14 @@ If a contract and an ADR disagree, **the contract wins**; the ADR must be update
 
 - Sprint plans → `docs/archive/pryzm3-internal/04-PLAN-FORWARD/`
 - Current status → `docs/archive/pryzm3-internal/03-CURRENT-STATE.md`
+- Per-decision rationale → [`../adrs/`](../adrs/)
+- Per-system normative spec → [`../../03-execution/specs/`](../../03-execution/specs/)
+- Implementation plans → [`../../03-execution/plans/`](../../03-execution/plans/)
+
+## Gaps + roadmap
+
+- **18 contracts proposed but not yet written**. See [MISSING-CONTRACTS-AUDIT-2026-06-01.md](../MISSING-CONTRACTS-AUDIT-2026-06-01.md) — gap analysis covering site model, climate, privacy, provenance, DXF/Rhino interchange, print standards, COBie FM, clash detection, 4D/5D, pricing tiers, marketplace economics, telemetry consent, accessibility, mobile, i18n, file-format versioning, backup/DR, multi-region.
+- **C31 is DRAFT** and ratifies on first PR after stakeholder sign-off.
+- C19-C23 reserved slots are top-priority. See the audit doc for proposed sequence.
 - Per-decision rationale → `docs/02-decisions/adrs/`
 - Per-system normative spec (wire format, schema tables) → `docs/03-execution/specs/`

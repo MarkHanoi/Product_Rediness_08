@@ -93,6 +93,10 @@ If code disagrees with a contract, **the code is wrong** — fix it or raise an 
 - **Master implementation plan**: [03-execution/plans/master-implementation-plan.md](./03-execution/plans/master-implementation-plan.md)
 - **Master architecture + capabilities (this session's audit)**: [03-execution/plans/master-architecture-and-capabilities.md](./03-execution/plans/master-architecture-and-capabilities.md)
 - **Autonomous-session runs log**: [03-execution/status/autonomous-session-runs-log.md](./03-execution/status/autonomous-session-runs-log.md)
+- **Naming conventions** (binding for every doc + code identifier): [NAMING-CONVENTIONS.md](./NAMING-CONVENTIONS.md)
+- **Documentation authoring contract** (anatomy + immutability + style): [02-decisions/contracts/C31-DOCUMENTATION-AUTHORING-PROTOCOL.md](./02-decisions/contracts/C31-DOCUMENTATION-AUTHORING-PROTOCOL.md)
+- **Documentation gaps + 26-session plan to "enterprise-grade"**: [DOCUMENTATION-GAPS-AND-NEXT-PHASES.md](./DOCUMENTATION-GAPS-AND-NEXT-PHASES.md)
+- **Missing contracts audit** (18 contract gaps · 4 priority phases): [02-decisions/MISSING-CONTRACTS-AUDIT-2026-06-01.md](./02-decisions/MISSING-CONTRACTS-AUDIT-2026-06-01.md)
 
 ## §6 — Migration note (2026-06-01)
 

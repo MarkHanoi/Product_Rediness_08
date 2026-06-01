@@ -30,7 +30,7 @@
 // REFERENCED BY:
 //   `packages/command-bus/src/types.ts` line 127 comment (historical).
 //   `packages/runtime-undo-stack/src/RingBufferUndoStack.ts` (Phase D bridge).
-//   `docs/03_PRYZM3/04-PLAN-FORWARD/34-HANDLER-PROTOCOL-GAP-ANALYSIS.md §2`.
+//   `docs/archive/pryzm3-internal/04-PLAN-FORWARD/34-HANDLER-PROTOCOL-GAP-ANALYSIS.md §2`.
 
 import type { Draft } from 'immer';
 import { produceCommand } from './produceCommand.js';

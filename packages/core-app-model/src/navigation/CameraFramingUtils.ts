@@ -11,7 +11,7 @@ const _size   = new THREE.Vector3();
  *
  * PRYZM is in real metres. The defaults below are tuned for **double-click
  * focus** so the element fills most of the viewport — see Contract §43
- * (`docs/00_Contracts/43-CAMERA-FRAMING-CONTRACT.md`).
+ * (`docs/02-decisions/contracts/43-CAMERA-FRAMING-CONTRACT.md`).
  *
  *   distance = max(maxDim * dimMult, minDist)
  *   camera   = center + (0.7, 0.5, 0.7) * distance     (≈ 1.108 * distance radial)

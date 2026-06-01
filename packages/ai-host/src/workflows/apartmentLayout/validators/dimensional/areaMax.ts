@@ -1,7 +1,7 @@
 // G-1 — Area MAX validator.
 //
 // A room MUST NOT exceed its programmatic area maximum
-// (`docs/03_PRYZM3/APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK-2026-05-29.md`
+// (`docs/archive/pryzm3-internal/APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK-2026-05-29.md`
 // §G-1). Hard ceiling: a corridor MUST NOT exceed 8 m² (above this it is a
 // hall, a different programmatic type). Violations fail the legality gate.
 //

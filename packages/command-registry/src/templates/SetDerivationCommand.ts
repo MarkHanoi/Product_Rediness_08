@@ -3,8 +3,8 @@
  *
  * Layer Affected:    Command Layer — Data Platform: Template System
  * File:             src/commands/templates/SetDerivationCommand.ts
- * Contract:         docs/00_Contracts/01-BIM-ENGINE-CORE-CONTRACT.md §2
- *                   docs/00_Contracts/03-BIM-SEMANTIC-MODEL-CONTRACT.md §2
+ * Contract:         docs/02-decisions/contracts/01-BIM-ENGINE-CORE-CONTRACT.md §2
+ *                   docs/02-decisions/contracts/03-BIM-SEMANTIC-MODEL-CONTRACT.md §2
  *
  * Marks a batch of requirement keys as "derived" on a node's TemplateAssignment
  * in a single undoable operation. This is the multi-key counterpart to

@@ -165,7 +165,7 @@ if (result.ok) {
 ```
 
 **Why no `ai:invoke` permission?** The plugin permission set is locked
-at 7 (per [ADR-0038](https://github.com/pryzm-com/pryzm/blob/main/docs/architecture/adr/0038-s62-plugin-sdk-descriptor-schema-lock.md) §A): no `ai:invoke`. AI workflows are gated by
+at 7 (per [ADR-0038](https://github.com/pryzm-com/pryzm/blob/main/docs/02-decisions/adrs/0038-s62-plugin-sdk-descriptor-schema-lock.md) §A): no `ai:invoke`. AI workflows are gated by
 `write:project` because every workflow either mutates project state or
 reads enough that it is equivalent to a write impact.
 

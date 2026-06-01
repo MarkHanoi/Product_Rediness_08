@@ -9,7 +9,7 @@
  * Contract:
  *   docs/01_ELEMENTS/09_Rooms_Contract/07-ROOM-AI-WORLDMODEL-CONTRACT.md
  *   docs/01_ELEMENTS/09_Rooms_Contract/ROOM-IMPLEMENTATION-PLAN.md §9.2
- *   docs/00_Contracts/03-BIM-SEMANTIC-MODEL-CONTRACT.md
+ *   docs/02-decisions/contracts/03-BIM-SEMANTIC-MODEL-CONTRACT.md
  *
  * Read-only projection of RoomStore for World Model queries.
  * Never writes to any store. No THREE.js imports.

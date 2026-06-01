@@ -1,7 +1,7 @@
 // G-2 — Width MAX validator.
 //
 // A room MUST NOT exceed its programmatic width maximum
-// (`docs/03_PRYZM3/APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK-2026-05-29.md`
+// (`docs/archive/pryzm3-internal/APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK-2026-05-29.md`
 // §G-2). Hard ceiling: a corridor MUST NOT be wider than 2.5 m (above this it
 // is a hall, a gallery, an open lobby — not a corridor). Width is the SHORTER
 // plan dimension (the navigable cross-section). Violations fail the legality

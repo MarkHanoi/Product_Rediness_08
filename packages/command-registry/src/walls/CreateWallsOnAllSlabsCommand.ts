@@ -206,7 +206,7 @@ export class CreateWallsOnAllSlabsCommand implements Command {
             // already holds the fully-resolved geometry (baseLine at world elevation,
             // resolved thickness from systemType catalogue, etc.) — no re-computation.
             //
-            // Anchor: docs/03_PRYZM3/04-PLAN-FORWARD/23-L2-COMMAND-EVENT-BUS-IMPLEMENTATION-PLAN.md §P2e-walls
+            // Anchor: docs/archive/pryzm3-internal/04-PLAN-FORWARD/23-L2-COMMAND-EVENT-BUS-IMPLEMENTATION-PLAN.md §P2e-walls
             try {
                 const runtimeBus = window.runtime?.bus;
                 if (runtimeBus?.registry?.has?.('wall.batch.create') && wallIds.length > 0) {

@@ -266,7 +266,7 @@ export interface ModelSummary {
 /**
  * Minimal interface for AIService consumed by QueryEngine.
  *
- * Anchored to: docs/03_PRYZM3/04-PLAN-FORWARD/09-WAVE-5-CAST-DELETION.md §3 §4.
+ * Anchored to: docs/archive/pryzm3-internal/04-PLAN-FORWARD/09-WAVE-5-CAST-DELETION.md §3 §4.
  * Wave 5 Day 1: replaces window-cast aiService reads in QueryEngine.ts.
  * QueryEngine imports this interface (not the concrete AIService class) to
  * avoid a circular dependency:  AIService → QueryEngine → AIService.

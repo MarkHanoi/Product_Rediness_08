@@ -3,7 +3,7 @@
 // A room MUST have at least one "usable wall" — a continuous wall segment NOT
 // broken by an opening (door/window) — long enough to host the typical primary
 // furniture piece for the room type
-// (`docs/03_PRYZM3/APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK-2026-05-29.md`
+// (`docs/archive/pryzm3-internal/APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK-2026-05-29.md`
 // §G-5). A bedroom whose only continuous wall is < 1.4 m has nowhere for a
 // single bed; a kitchen whose only continuous wall is < 2.4 m has nowhere for
 // even a two-base-unit run. Violations fail the legality gate.

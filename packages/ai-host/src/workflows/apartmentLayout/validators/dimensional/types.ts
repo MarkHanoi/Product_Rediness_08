@@ -1,7 +1,7 @@
 // G-class dimensional validators — shared types (G-1 area-max, G-2 width-max).
 //
 // First slice of the 10 G-classes described in
-// `docs/03_PRYZM3/APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK-2026-05-29.md`
+// `docs/archive/pryzm3-internal/APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK-2026-05-29.md`
 // §G-class table. These validators sit ALONGSIDE (not on top of) the existing
 // `dimensions/` envelope database — the G-class slice is a standalone,
 // composable validator framework producing one row per failed check.

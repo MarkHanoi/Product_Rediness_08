@@ -24,12 +24,12 @@ S72 charter at landing:
 1. ADR-0054 — sprint-scoped 7-decision posture (GA tag = 2.0.0; GA-gate test package; PDF-to-BIM stays `'preview'`; PRYZM 1 sunset 90-day window from S61; post-GA roadmap; cut-list final state; operator-side carry-forward register).
 2. New `tests/ga-gate/` workspace package (`@pryzm/test-ga-gate`) — 6 vitest files asserting the §3 GA gate's machine-checkable subset.
 3. New `apps/bench/reports/M36-GA.md` — milestone bench rollup per phase-doc §3 line 483.
-4. New `docs/post-mortems/PRYZM-2-build.md` — 36-month journey post-mortem per phase-doc §3 line 487.
-5. New `docs/roadmap/post-GA.md` — post-GA roadmap per phase-doc §8 item 11.
-6. New `docs/operations/pryzm-1-sunset.md` — 90-day sunset schedule.
-7. New `docs/operations/cut-list-log.md` — `[strategic ADR-018]` Tier-1 + Tier-2 final state.
-8. New `docs/operations/status-page-and-on-call.md` — phase-doc §S72 D3 runbook.
-9. New `docs/marketing/GA-LAUNCH-BLOG-POST.md` — phase-doc §S72 D6 draft.
+4. New `docs/03-execution/status/post-mortems/PRYZM-2-build.md` — 36-month journey post-mortem per phase-doc §3 line 487.
+5. New `docs/03-execution/plans/post-ga-roadmap.md` — post-GA roadmap per phase-doc §8 item 11.
+6. New `docs/03-execution/plans/pryzm-1-sunset.md` — 90-day sunset schedule.
+7. New `docs/03-execution/status/cut-list-log.md` — `[strategic ADR-018]` Tier-1 + Tier-2 final state.
+8. New `docs/05-guides/enterprise/operations/status-page-and-on-call.md` — phase-doc §S72 D3 runbook.
+9. New `docs/03-execution/plans/launch/GA-LAUNCH-BLOG-POST.md` — phase-doc §S72 D6 draft.
 10. New `RELEASE-NOTES-2.0.0.md` (root) — phase-doc §S72 D5.
 11. Sprint report (this file) + sprint audit.
 12. Root `package.json::version` bumped `0.0.1` → `2.0.0`.
@@ -46,8 +46,8 @@ S72 charter at landing:
 | B | GA gate codification as `tests/ga-gate/` workspace package, 6 vitest files asserting §3 invariants | yes |
 | C | PDF-to-BIM ships under `'preview'` label at GA per ADR-0052 §E (SPEC-45 corpus not measured here) | yes (preserved) |
 | D | PRYZM 1 sunset = 90-day window from S61; per-project migration via `@pryzm/cli`; batch tool deferred | yes (documented) |
-| E | Post-GA roadmap = `docs/roadmap/post-GA.md` enumerating all 9 §7 items + carry-forward register | yes |
-| F | Cut-list final state in `docs/operations/cut-list-log.md` (T1.1 + T2.1–T2.6 + S55–S72 deferrals) | yes |
+| E | Post-GA roadmap = `docs/03-execution/plans/post-ga-roadmap.md` enumerating all 9 §7 items + carry-forward register | yes |
+| F | Cut-list final state in `docs/03-execution/status/cut-list-log.md` (T1.1 + T2.1–T2.6 + S55–S72 deferrals) | yes |
 | G | Operator-side carry-forward register consolidated in §G of the ADR + §5 of M36-GA + §5 of post-mortem | yes (named with sprint+day) |
 
 ---
@@ -57,15 +57,15 @@ S72 charter at landing:
 | D | Charter (phase-doc §S72) | S72 close status | Notes |
 |---|---|---|---|
 | D1 | final integration sweep | landed | All workflow surfaces re-verified; 8 of 9 sprint workflows green; pre-existing `pryzm-vi-parity` stale failure unchanged. |
-| D2 | monitoring + alerting verification | partial (operator-side) | OTel dashboards code paths exist (`packages/otel-*`); live alert provisioning is operator-side per phase-doc §8 item 3. Runbook lives in `docs/operations/status-page-and-on-call.md`. |
-| D3 | support workflow + status page | landed (runbook) | `docs/operations/status-page-and-on-call.md` is the runbook; live status.pryzm provisioning is operator-side. |
+| D2 | monitoring + alerting verification | partial (operator-side) | OTel dashboards code paths exist (`packages/otel-*`); live alert provisioning is operator-side per phase-doc §8 item 3. Runbook lives in `docs/05-guides/enterprise/operations/status-page-and-on-call.md`. |
+| D3 | support workflow + status page | landed (runbook) | `docs/05-guides/enterprise/operations/status-page-and-on-call.md` is the runbook; live status.pryzm provisioning is operator-side. |
 | D4 | launch dry-run | partial (operator-side) | Stripe checkout + pricing config end-to-end is S71b D3 / S72 D4 per phase-doc; staging dependency is operator-side. |
 | D5 | release tag + notes; `apps/bench/reports/M36-GA.md` published | **landed** | Tag = `v2.0.0` (manifest bumped); `RELEASE-NOTES-2.0.0.md` (root) + `pryzm-selfhost/RELEASE-NOTES-2.0.0.md` + `apps/bench/reports/M36-GA.md` all in this commit. PDF-to-BIM preview→full re-evaluation stays `'preview'` per §C of M36-GA + Decision C of ADR-0054. |
-| D6 | launch blog post | landed (draft) | `docs/marketing/GA-LAUNCH-BLOG-POST.md` draft; live publish on the marketing site is operator-side per phase-doc §S71 D2 + §S72 D6. |
+| D6 | launch blog post | landed (draft) | `docs/03-execution/plans/launch/GA-LAUNCH-BLOG-POST.md` draft; live publish on the marketing site is operator-side per phase-doc §S71 D2 + §S72 D6. |
 | D7 | **LAUNCH (Tuesday)** | carry-forward (operator-side) | Calendar gate. Post-mortem §5 row 1 + ADR-0054 §G. |
-| D8 | first 24-hour monitoring + response | carry-forward (operator-side) | On-call + status-page rota per `docs/operations/status-page-and-on-call.md`. |
+| D8 | first 24-hour monitoring + response | carry-forward (operator-side) | On-call + status-page rota per `docs/05-guides/enterprise/operations/status-page-and-on-call.md`. |
 | D9 | 48-hour mark + initial issue triage | carry-forward (operator-side) | Same. |
-| D10 | retro + `docs/post-mortems/PRYZM-2-build.md` | landed | Post-mortem published in this commit. Per-sprint retro archive (post-S72 D10) is mechanical. |
+| D10 | retro + `docs/03-execution/status/post-mortems/PRYZM-2-build.md` | landed | Post-mortem published in this commit. Per-sprint retro archive (post-S72 D10) is mechanical. |
 
 **Honest summary**: 5 of 10 D-days are landed (D1, D3, D5, D6, D10);
 3 are operator-side calendar/monitoring gates (D7, D8, D9); 2 are
@@ -148,7 +148,7 @@ artefact path landed by this commit). All cases are expected to pass.
 
 ## §8 Carry-forward register
 
-26 items, named by sprint+day. See `docs/post-mortems/PRYZM-2-build.md`
+26 items, named by sprint+day. See `docs/03-execution/status/post-mortems/PRYZM-2-build.md`
 §5 for the canonical table. Highlights:
 
 | # | Item | Owning sprint+day |

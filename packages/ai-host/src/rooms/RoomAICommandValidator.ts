@@ -8,8 +8,8 @@
  *
  * Contract:
  *   docs/01_ELEMENTS/09_Rooms_Contract/07-ROOM-AI-WORLDMODEL-CONTRACT.md
- *   docs/00_Contracts/04-BIM-AI-MODIFICATION-PROTOCOL.md §2.4
- *   docs/00_Contracts/07-BIM-SECURITY-CONTRACT.md §3
+ *   docs/02-decisions/contracts/04-BIM-AI-MODIFICATION-PROTOCOL.md §2.4
+ *   docs/02-decisions/contracts/07-BIM-SECURITY-CONTRACT.md §3
  *
  * Pre-validation of AI-generated room payloads before they are fed to commands.
  * Ensures all AI mutations are safe and schema-compliant.

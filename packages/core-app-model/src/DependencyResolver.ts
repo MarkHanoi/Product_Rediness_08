@@ -8,7 +8,7 @@
  *
  * Contract:
  *   PRYZM_MASTER_ROADMAP_2026.md § D-2, § F
- *   docs/00_Contracts/01-BIM-ENGINE-CORE-CONTRACT.md §3.8
+ *   docs/02-decisions/contracts/01-BIM-ENGINE-CORE-CONTRACT.md §3.8
  *
  * Impact Assessment:
  *   Store Reads:      NO — reads SemanticGraph only (not stores directly)

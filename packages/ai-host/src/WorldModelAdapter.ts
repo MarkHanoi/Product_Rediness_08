@@ -8,7 +8,7 @@
  *
  * Contract:
  *   PRYZM_MASTER_ROADMAP_2026.md § D-3
- *   docs/00_Contracts/03-BIM-SEMANTIC-MODEL-CONTRACT.md
+ *   docs/02-decisions/contracts/03-BIM-SEMANTIC-MODEL-CONTRACT.md
  *
  * Impact Assessment:
  *   Store Reads:      YES — reads RoomStore, WallStore via lazy import (read-only)
@@ -35,7 +35,7 @@ import { decisionRecordStore } from '@pryzm/core-app-model';
 
 // ── Lazy store access ─────────────────────────────────────────────────────────
 // Stores are project-scoped singletons published on `window` by initBuilders /
-// initTools (see docs/00_Contracts/03-BIM-SEMANTIC-MODEL-CONTRACT.md). The
+// initTools (see docs/02-decisions/contracts/03-BIM-SEMANTIC-MODEL-CONTRACT.md). The
 // WorldModelAdapter is a read-only projection layer and must NEVER hold direct
 // module-level references to those instances — that would defeat project
 // isolation (Contract 45) and create circular imports.
