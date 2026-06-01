@@ -253,4 +253,773 @@ Per [cadence-and-planning-system §10 cardinal rules](./cadence-and-planning-sys
 
 ---
 
-*End — PRYZM Master Execution Tracker, 2026-06-01 — CANONICAL.*
+## §12 — Coverage audit (added 2026-06-01)
+
+After authoring the initial Phase A/B/C tables, I audited the tracker against EVERYTHING that exists in the strategy + decisions + apartment master docs + 49 contracts + 56 specs + the under-documented UI surfaces. Several substantial workstreams were under-enumerated. They are listed below as additions to the existing phase tables.
+
+### §12.1 — Coverage check by surface
+
+| Surface | Coverage in §3–§5 above | Verdict | Action |
+|---|---|---|---|
+| TypologyPipeline + 25 typologies | A.1–A.6 + B.1–B.7 + C.1–C.15 | ✅ full | none |
+| Site + climate substrate | A.7–A.11 | ✅ full | none |
+| Plugin SDK + marketplace | A.12–A.16 + B.31–B.33 | ✅ full | none |
+| Phase 1/2/3 contract gap closures | sprinkled | ⚠️ incomplete | §12.2 adds 49-contract rollup |
+| **Editor UI redesign** | A.5, A.6, A.24 (partial) | ❌ thin | §12.3 adds A.U.* sub-phases |
+| **Project hub / landing / project page** | A.17 brand-cutover only | ❌ missing | §12.3 |
+| **Sheet + view + elevation UX (great)** | B.8–B.11 high-level | ⚠️ thin | §12.4 |
+| **Inspect tree + Data Panel UI** | B.12–B.13 high-level | ⚠️ thin | §12.4 |
+| **Family creation pipeline UX** | A.28 + A.29 thin | ❌ thin | §12.5 |
+| **Component editor (apps/component-editor/)** | mentioned only | ❌ thin | §12.5 |
+| **Native Revit import** | A.26 + C.22 | ⚠️ partial | §12.6 |
+| **Native Revit export** | A.26 + C.22 | ⚠️ partial | §12.6 |
+| **AI commands (full surface)** | typology-pipeline only | ❌ thin | §12.7 |
+| **AI Chat / AI assistant in editor** | not enumerated | ❌ missing | §12.7 |
+| **Auth UI (signup / signin / MFA / SSO)** | B.19–B.20 high-level | ⚠️ thin | §12.8 |
+| **Billing UI (subscription · invoices · BYOK · region)** | none | ❌ missing | §12.8 |
+| **Admin tooling (curation · support agent · analyst)** | A.16 marketplace UX only | ❌ thin | §12.9 |
+| **Apartment master document (apartment/ folder)** | typology section only | ⚠️ partial | §12.10 |
+| **Onboarding tutorials + in-app help** | none | ❌ missing | §12.11 |
+| **Status page · trust page · VPAT · privacy · ToS** | A.17 brand-cutover groups | ⚠️ thin | §12.11 |
+| **Email transactional templates** | none | ❌ missing | §12.11 |
+| **Search / activity feed / notifications** | none | ❌ missing | §12.11 |
+| **Mobile + tablet UX (per C44)** | C.x not detailed | ⚠️ thin | §12.12 |
+
+### §12.2 — All-49-contract gap closure rollup (the master compliance view)
+
+Each contract MUST reach CANONICAL by end of Phase C. Sub-phases by contract:
+
+| Contract | Phase A | Phase B | Phase C | End-state |
+|---|---|---|---|---|
+| **C01** Architecture | A.X.1 refresh package counts | stable | stable | CANONICAL |
+| **C02** Composition root | A.3 (slot ext) | B.U.1 (slot ext) | stable | CANONICAL |
+| **C03** Schemas + commands | continuous | continuous | continuous | CANONICAL |
+| **C04** Rendering | continuous | B.U.2 GPU+RT polish | continuous | CANONICAL |
+| **C05** Persistence | A.47 file-format ver | B.U.3 chunked partial-load | continuous | CANONICAL |
+| **C06** UI shell + tools | A.U.1–A.U.10 redesign | B.U.4 panel system maturity | continuous | CANONICAL |
+| **C07** Plugin SDK | A.12, A.13 publish | B.31 ecosystem | C.33 maturity | CANONICAL |
+| **C08** Collab + security | A.30+31 partials | B.18–B.20 SOC2+SSO+MFA | C.30 ISO 19650 | CANONICAL |
+| **C09** AI + visibility | A.42–A.47 AI commands | B.U.5 AI Chat assistant | C.19 L6 + C.28 cog-API | CANONICAL |
+| **C10** Perf + observability | X.1 continuous | continuous | continuous | CANONICAL |
+| **C11** Element creation | continuous | continuous | continuous | CANONICAL |
+| **C12** Geospatial | A.7–A.11 | B.30 BYOK extends | continuous | CANONICAL |
+| **C13** Project lifecycle | A.PL.1–A.PL.6 hub + share + versions | B.U.6 enterprise multi-org | continuous | CANONICAL |
+| **C14** Legacy elimination | X.2 continuous | continuous | continuous | CANONICAL |
+| **C15** Hosted elements | stable | stable | stable | CANONICAL |
+| **C16** Command authoring | continuous | continuous | continuous | CANONICAL |
+| **C17** Batch creation catalogue | A.U.4 per-typology entries | continuous | continuous | CANONICAL |
+| **C18** Element preview visual | stable | stable | stable | CANONICAL |
+| **C19** Site Model | A.7 ratify | stable | stable | CANONICAL ✅ |
+| **C20** Aggregates | A.23 ratify | stable | stable | CANONICAL ✅ |
+| **C21** Climate ingestion | A.10 ratify | B.23 daylight full | continuous | CANONICAL ✅ |
+| **C22** Privacy + PII | A.30 partial | B.U.7 full DSAR + audit | continuous | CANONICAL |
+| **C23** Provenance + AI audit | A.31 partial | B.U.8 full | C.28 cog-API extends | CANONICAL |
+| **C24** Sheet composition | — | B.8 ratify + sheet-UX | C.U.1 plotter integration | CANONICAL |
+| **C25** IFC Export | A.25 PSet polish | B.U.9 IfcSpace+Zone+Furniture | C.U.2 IFC4X3 validation gate | CANONICAL |
+| **C26** Revit RT | A.26 IFC4X3-RV variant | B.U.10 partial RT + family mapping | C.22 full RT + Python adapter | CANONICAL |
+| **C27** Inspect tree | A.24 wiring | B.12 ratify + Inspect UX | C.U.3 inspect API public | CANONICAL |
+| **C28** Data Panel | — | B.13 ratify + Data UX | C.U.4 automation surface | CANONICAL |
+| **C29** PDF Vector | — | B.9 ratify | C.U.5 PDF/UA-2 stretch | CANONICAL |
+| **C30** Drawing Set | — | B.10 ratify + transmittal | C.U.6 enterprise revision UX | CANONICAL |
+| **C31** Documentation | continuous | ratify on stability | continuous | CANONICAL |
+| **C32** DXF/DWG | — | — | C.23 ratify | CANONICAL |
+| **C33** Rhino | — | — | C.24 ratify + Grasshopper | CANONICAL |
+| **C34** Print standards | — | B.11 4 standards | C.U.7 5 more standards | CANONICAL |
+| **C35** COBie | — | — | C.25 ratify | CANONICAL |
+| **C36** Clash detection | — | B.22 ratify + BCF | C.U.8 federated review API | CANONICAL |
+| **C37** Schedule 4D | — | — | C.26 ratify | CANONICAL |
+| **C38** Cost 5D | — | — | C.27 ratify | CANONICAL |
+| **C39** Pricing | A.17–A.18 partial | B.U.11 multi-currency | C.U.9 regional discounts | CANONICAL |
+| **C40** Marketplace | A.14–A.16 + A.29 | B.31–B.33 + B.U.12 dev events | C.33 maturity | CANONICAL |
+| **C41** Telemetry | A.U.12 consent banner | B.U.13 per-locale consent | C.U.10 published analytics | CANONICAL |
+| **C42** Support tier | A.U.13 4-channel + SEV1 PMI | B.U.14 SLA per region | C.U.11 customer summit | CANONICAL |
+| **C43** Accessibility | A.32–A.34 audit prep | B.29 ratify ext audit | C.36 annual audit | CANONICAL |
+| **C44** Mobile + tablet | A.U.14 surface matrix + share-link | B.U.15 form-factor breakpoint maturity | C.U.12 2D plan-view authoring | CANONICAL |
+| **C45** Browser matrix | A.U.15 Tier 1 support | B.34 ratify + Tier 2 | continuous | CANONICAL |
+| **C46** i18n | A.U.16 en-GB | B.26–B.28 Tier 1 + Tier 2 first | C.35 Tier 2 complete + RTL | CANONICAL |
+| **C47** File-format ver | A.U.17 partial | B.U.16 full ratify | C.38 first MAJOR bump | CANONICAL |
+| **C48** Backup + DR | A.35–A.36 | continuous + drill cadence | C.37 quarterly per region | CANONICAL |
+| **C49** Multi-region | DRAFT | B.14–B.16 EU launch | C.16–C.18 US + AP + UK | CANONICAL |
+| **C50** Typology pipeline | A.20 DRAFT | B.U.17 ratify | continuous | CANONICAL |
+
+### §12.3 — Phase A — Editor UI + Project Page additions (~14 wk)
+
+Material UI work NOT covered in §3.1. Adds to Phase A:
+
+| Phase | Goal | Description + refs | Status |
+|---|---|---|---|
+| **A.U.1** | **Editor shell redesign for typology routing** | Top bar shows typology badge + role badge; typology-switcher in user menu. Refs: [product-vision §5 Step 2](../../01-strategy/product-vision.md). | ⚪ PLANNED (Sprint 4) |
+| **A.U.2** | **Property panel migration to Inspect tree leaves** | Existing flat PropertyInspector (80 files) → typed-leaf component per element type. Refs: [C27 §8](../../02-decisions/contracts/C27-BIM3-INSPECT-MODEL.md) migration plan. | ⚪ PLANNED (Sprint 5–8) |
+| **A.U.3** | **CREATE panel: per-typology batch leaf catalogue** | Each typology contributes batch entries to the `CREATE › <Discipline>` panel per [C17](../../02-decisions/contracts/C17-BATCH-CREATION-CATALOGUE-AND-PANEL-BINDING.md). | ⚪ PLANNED (Sprint 3) |
+| **A.U.4** | **Settings panel restructure** (preferences · privacy · billing · accessibility · region) | Categorised settings; per-section deep-link. Refs: [C42 §5.2](../../02-decisions/contracts/C42-CUSTOMER-SUPPORT-TIER.md), [C43 §5.2](../../02-decisions/contracts/C43-ACCESSIBILITY.md), [C44 §5.x](../../02-decisions/contracts/C44-MOBILE-AND-TABLET.md). | ⚪ PLANNED (Sprint 6) |
+| **A.U.5** | **Tool registry UX refresh** | Per-tool icon + keyboard hint + tooltip. Refs: [C06 §4](../../02-decisions/contracts/C06-UI-SHELL-AND-TOOLS.md). | ⚪ PLANNED (Sprint 4) |
+| **A.U.6** | **Marketplace UX in editor (install panel)** | In-editor marketplace browse + install card; right-side install drawer. | ⚪ PLANNED (Sprint 4) |
+| **A.U.7** | **Notification + toast system maturity** | Unified `AppToast` per [C06 §4.6](../../02-decisions/contracts/C06-UI-SHELL-AND-TOOLS.md); aria-live announce per [C43 §1.4](../../02-decisions/contracts/C43-ACCESSIBILITY.md). | ⚪ PLANNED (Sprint 5) |
+| **A.U.8** | **Search across editor + project** | Cmd-K palette: jump-to-element + jump-to-tool + jump-to-room + jump-to-typology. | ⚪ PLANNED (Sprint 8) |
+| **A.U.9** | **Activity feed (per-project change history)** | Compact feed of last 50 commands; click to time-travel. Surfaces undo/redo + Ctrl-Z visually. Refs: [C13 §3.7](../../02-decisions/contracts/C13-PROJECT-LIFECYCLE-AND-ISOLATION.md). | ⚪ PLANNED (Sprint 9) |
+| **A.U.10** | **In-product help (the `?` icon + first-project tutorial)** | KB search + AI helper (per [C42 §5.1](../../02-decisions/contracts/C42-CUSTOMER-SUPPORT-TIER.md)) + report-bug + accessibility-issue links. | ⚪ PLANNED (Sprint 5–6) |
+| **A.U.11** | **Onboarding tutorials (5-step interactive)** | "Generate apartment" · "Edit a room" · "Add a door" · "Save" · "Export IFC". Refs: [roadmap-enterprise-delivery §3](./roadmap-enterprise-delivery.md). | ⚪ PLANNED (Sprint 5–6) |
+| **A.U.12** | **Telemetry consent banner + cookie management** | Three-tier consent (Essential / Product / Marketing) per [C41](../../02-decisions/contracts/C41-TELEMETRY-AND-ANALYTICS.md). | ⚪ PLANNED (Sprint 4) |
+| **A.U.13** | **Support intake surface (help@ + in-product chat)** | 4-channel surface per [C42 §1.1](../../02-decisions/contracts/C42-CUSTOMER-SUPPORT-TIER.md). | ⚪ PLANNED (Sprint 6) |
+| **A.U.14** | **Mobile + tablet surface-capability matrix UI** | Per-form-factor `blocked` / `read-only` / `form-only` / `full` enforcement. Refs: [C44 §1.4](../../02-decisions/contracts/C44-MOBILE-AND-TABLET.md). | ⚪ PLANNED (Sprint 7) |
+| **A.U.15** | **Browser Tier 1 support detection + unsupported-browser landing** | Per [C45 §1.8](../../02-decisions/contracts/C45-BROWSER-AND-DEVICE-MATRIX.md). | ⚪ PLANNED (Sprint 4) |
+| **A.U.16** | **i18n en-GB locale bundle (TIER 1 fork from en-US)** | First locale split; messages/ folder set up. Refs: [C46 §1.2](../../02-decisions/contracts/C46-I18N-AND-L10N.md). | ⚪ PLANNED (Sprint 6) |
+| **A.U.17** | **File format `formatVersion` + writer signature** | First C47 enforcement. Refs: [C47 §1.1](../../02-decisions/contracts/C47-FILE-FORMAT-VERSIONING.md). | ⚪ PLANNED (Sprint 7) |
+| **A.U.18** | **Notifications inbox (in-product + email)** | Email transactional templates (welcome · upgrade · DR comm) + in-product inbox. | ⚪ PLANNED (Sprint 8) |
+| **A.PL.1** | **Project Hub redesign (landing for signed-in users)** | Recent projects · starred · typology shortcuts · sharing inbox. Refs: [product-vision §5 Step 1](../../01-strategy/product-vision.md). | ⚪ PLANNED (Sprint 5) |
+| **A.PL.2** | **Project list page** | Grid · filter by typology · search · pagination · per-project context menu. | ⚪ PLANNED (Sprint 5) |
+| **A.PL.3** | **Project create flow** | "New project" routes through RAC chatbot (per A.5 + A.6). | ⚪ PLANNED (Sprint 4) |
+| **A.PL.4** | **Project sharing UI (per-project member roles)** | Invite by email · ISO 19650 role assignment (collaborator/approver/publisher) per [C08 §1.3](../../02-decisions/contracts/C08-COLLABORATION-AND-SECURITY.md). | ⚪ PLANNED (Sprint 7) |
+| **A.PL.5** | **Project version history UI** | Per-version snapshot grid + revert + diff (basic). Refs: [C13](../../02-decisions/contracts/C13-PROJECT-LIFECYCLE-AND-ISOLATION.md). | ⚪ PLANNED (Sprint 8) |
+| **A.PL.6** | **Project settings (per-project unit-system · drawing-standard · members)** | Refs: [C46 §1.1](../../02-decisions/contracts/C46-I18N-AND-L10N.md), [C34](../../02-decisions/contracts/C34-PRINT-AND-DRAWING-STANDARDS.md). | ⚪ PLANNED (Sprint 7) |
+
+### §12.4 — Phase B — Sheet + Inspect + Data UX additions (~10 wk)
+
+The user emphasized: "making sheets, views, elevations great" — add sub-phases:
+
+| Phase | Goal | Description + refs |
+|---|---|---|
+| **B.U.1** | **PryzmRuntime slot additions for sheet + inspect + data** | composeRuntime gains sheet/inspect/data slots typed. Refs: [C02 §1.2](../../02-decisions/contracts/C02-COMPOSITION-ROOT-AND-BOOT.md). |
+| **B.U.2** | **GPU + raytrace rendering polish** | WebGPU rollout; soft-shadow + PBR materials. Refs: [C04](../../02-decisions/contracts/C04-RENDERING-AND-SCHEDULING.md). |
+| **B.U.3** | **Chunked partial-load** | Large-project (10k+ elements) faster open via per-level chunks. Refs: [C05 §3.5](../../02-decisions/contracts/C05-PERSISTENCE-AND-FILE-FORMAT.md). |
+| **B.U.4** | **Panel system maturity (per [C06](../../02-decisions/contracts/C06-UI-SHELL-AND-TOOLS.md))** | Dockable + resizable + per-user persisted layouts. |
+| **B.S.1** | **Sheet editor UX great** | Drag-drop viewport placement · auto-arrangement · multi-page editor · title-block-template picker · revision-cloud tool · live-update viewports as model edits. Refs: [C24](../../02-decisions/contracts/C24-SHEET-COMPOSITION-ENGINE.md). |
+| **B.S.2** | **View + elevation + section UX great** | Section-cut tool with on-canvas grip · per-view visibility-intent · saved view-templates · plan/elevation/section/3D toggle in viewport ribbon. Refs: [C04 + C24 + C27]. |
+| **B.S.3** | **Dimension + annotation tool UX great** | Auto-dimension run · annotation styles · leader lines · multi-line text · keynote-tag · revision-cloud · view-extents-clip. Refs: [SPEC-29-VECTOR-PRIMITIVES](../specs/SPEC-29-VECTOR-PRIMITIVES.md). |
+| **B.S.4** | **Drawing-set UX great** | Drag-reorder sheets · auto-numbering · revision-state-machine UI · transmittal cover-page generator · PDF/A-3 export from drawing-set. Refs: [C30](../../02-decisions/contracts/C30-DRAWING-SET-MANAGEMENT.md). |
+| **B.S.5** | **Print-calibration UI** | 1m×1m calibration print → user adjusts paper scale → saves per-printer profile. Refs: [C29 §6](../../02-decisions/contracts/C29-PDF-VECTOR-EXPORT.md). |
+| **B.I.1** | **Inspect tree UX great** | Site → Building → Level → Apartment → Room → ElementType → ElementInstance navigation · isolation animator · per-node dashboard. Refs: [C27 §5](../../02-decisions/contracts/C27-BIM3-INSPECT-MODEL.md). |
+| **B.I.2** | **Per-element-type Inspect sub-panel** | Wall panel · door panel · window panel · slab panel · curtain-wall panel · stair panel · ... · with element-specific quick-actions. |
+| **B.I.3** | **Isolation animator polish** | Fade-out + opacity + section-cut on selection isolate; smooth restoration. Refs: [C27 §4](../../02-decisions/contracts/C27-BIM3-INSPECT-MODEL.md). |
+| **B.D.1** | **Data Panel UX great** | Unified grid: filter · sort · group · bulk-edit · formula DSL · export to Excel/CSV/JSON. Refs: [C28](../../02-decisions/contracts/C28-DATA-PANEL-AND-AUTOMATION.md). |
+| **B.D.2** | **Quality-rules engine UI** | Per-rule severity · in-grid violation highlighting · auto-fix suggestions. Refs: [C28 §1.2](../../02-decisions/contracts/C28-DATA-PANEL-AND-AUTOMATION.md). |
+| **B.D.3** | **Schedules + automation surfaces** | Predefined schedules per typology (door schedule · window schedule · room schedule · finish schedule); cron-run rules. Refs: [C28 §1.4](../../02-decisions/contracts/C28-DATA-PANEL-AND-AUTOMATION.md). |
+| **B.U.5** | **AI Chat assistant in-editor** | Persistent right-side chat panel; conversation history per project; AI commands dispatched from chat (per A.42–A.47 below). |
+
+### §12.5 — Family Creation Pipeline UX additions
+
+The user called out family creation explicitly. Adds to Phase A + B:
+
+| Phase | Goal | Description + refs |
+|---|---|---|
+| **A.F.1** | **Component editor (`apps/component-editor/`) UX polish** | Sketcher with planegcs solver UX feedback · 3D ops (extrude/sweep/loft/revolve) toolbar · parameter table editor. Refs: existing `apps/component-editor/`. |
+| **A.F.2** | **Family publish flow UX** | `pryzm dev publish` for code; `apps/component-editor/marketplace/publishFlow.ts` polish · Ed25519 sign · preview render. Refs: [C40 §5.1](../../02-decisions/contracts/C40-MARKETPLACE-ECONOMICS.md). |
+| **A.F.3** | **Family browse + install (in-editor)** | Marketplace pane → drop family onto canvas → parametric override. Refs: [C07 §3](../../02-decisions/contracts/C07-PLUGIN-SDK-AND-MARKETPLACE.md). |
+| **A.F.4** | **Family preview + 3D thumbnail** | Per-family 3D preview rotatable; parametric play. |
+| **A.F.5** | **`.pryzm-family` file format documentation** | SPEC-FAMILY-FORMAT.md publish per [C47](../../02-decisions/contracts/C47-FILE-FORMAT-VERSIONING.md). |
+| **B.F.1** | **Family update + version mechanism** | When pack v1.1 publishes, existing customer projects offered upgrade; per-family-instance opt-in. Refs: [C47 §1.4](../../02-decisions/contracts/C47-FILE-FORMAT-VERSIONING.md). |
+| **B.F.2** | **Family curation queue (back-office)** | `apps/admin-tools/src/curation/family/` curated category review + publish. Refs: [C40 §5.3](../../02-decisions/contracts/C40-MARKETPLACE-ECONOMICS.md). |
+| **B.F.3** | **Family marketplace SPA polish** | `apps/marketplace-web/` browse → detail → preview → install + Ed25519 verify badge. |
+| **B.F.4** | **Family-pack import for plugin developers** | Re-import + edit-and-republish flow for own packs. |
+| **C.F.1** | **AI-assisted family creation** | "Make me a kitchen-island family" → AI proposes parametric definition → user refines. (Stretch goal; depends on AI maturity.) |
+| **C.F.2** | **Family analytics for authors** | Install counts · review · earnings per pack. Refs: [platform-strategy §11](../../01-strategy/platform-strategy.md). |
+
+### §12.6 — Native Revit deliverables (full breakdown)
+
+The user specifically called out "native Revit import + export". Per [C26](../../02-decisions/contracts/C26-REVIT-ROUND-TRIP.md), PRYZM uses IFC4 as the canonical bridge — there is no direct .rvt parsing in the monorepo (a deliberate architectural decision per C26 §1). Sub-phases:
+
+| Phase | Goal | Description |
+|---|---|---|
+| **A.R.1** | **IFC4X3-RV variant exporter** (Revit-import-friendly variant) | Already A.26. Generates IFC files Revit imports cleanly. |
+| **A.R.2** | **First reference round-trip: 1 Revit RVT → IFC → PRYZM → IFC → Revit** | Per Q4 Sprint 10.5. |
+| **B.R.1** | **10-project reference round-trip nightly** | Suite of 10 representative Revit projects; CI nightly diff-check. |
+| **B.R.2** | **Revit Family mapping table** | RFA → `.pryzm-family` translation matrix for the canonical 100 Revit family categories. Refs: [C26 §3](../../02-decisions/contracts/C26-REVIT-ROUND-TRIP.md). |
+| **B.R.3** | **Parameter translation via IfcPropertySet** | Revit shared-parameters preserved as Psets through round-trip. |
+| **C.R.1** | **Optional external Python Revit add-in** | Phasing / worksets / design-options preservation (Revit-API-specific surface not expressible in IFC4). Refs: [C26 §6](../../02-decisions/contracts/C26-REVIT-ROUND-TRIP.md). |
+| **C.R.2** | **100-project reference suite (Enterprise validation)** | Expand nightly diff suite to 100 representative projects across building types. |
+| **C.R.3** | **Revit-import wizard (in-editor)** | Drag-drop .rvt → server-side conversion via IFC → in-editor preview → accept. |
+| **C.R.4** | **Revit-export wizard (in-editor)** | "Export to Revit" UI flow → IFC4X3-RV → save dialog → optional Python-adapter trigger. |
+
+### §12.7 — AI commands (full surface)
+
+The user emphasized "AI commands". Beyond the typology pipeline, the AI command surface needs explicit enumeration:
+
+| Phase | Goal | Description |
+|---|---|---|
+| **A.42** | **AI command surface: `ai.chat.send`** | User types into the AI chat → routed to AiPlane workflow. |
+| **A.43** | **AI command: `ai.generate.<typology>`** | Per-typology generate batch (apartment / house / office in Phase A). |
+| **A.44** | **AI command: `ai.critique.layout`** | Plan-critique workflow per [C09 §2.4](../../02-decisions/contracts/C09-AI-AND-VISIBILITY-INTENT.md). |
+| **A.45** | **AI command: `ai.voice.parse`** | VoiceCommand workflow + microphone-input UI. |
+| **A.46** | **AI command: `ai.query.read`** | Semantic queries ("show me all rooms above 20 m²") per AI-Query plugin. |
+| **A.47** | **AI command: `ai.rules.check`** | Compliance-rule check workflow. |
+| **B.U.5** | **AI Chat assistant in-editor (persistent panel)** | Right-side chat panel; routes through commands above. (Listed in §12.4.) |
+| **B.AI.1** | **AI command: `ai.edit.<scope>`** | Semantic edit ("make this room 20% larger"); the AI proposes a command sequence + user approves. |
+| **B.AI.2** | **AI approval queue UX great** | Per-proposal preview · accept all / reject all / per-item · undo. Refs: [C09 §5](../../02-decisions/contracts/C09-AI-AND-VISIBILITY-INTENT.md). |
+| **B.AI.3** | **AI cost meter UX (per-project budget)** | Visible per-project AI-cost ticker; per [C09 §6](../../02-decisions/contracts/C09-AI-AND-VISIBILITY-INTENT.md). |
+| **B.AI.4** | **BYOK for Anthropic key (Enterprise)** | Per [C39 §1.10](../../02-decisions/contracts/C39-PRICING-AND-PLAN-TIERS.md). |
+| **C.AI.1** | **Cognition substrate as published API** | Already C.28. AI consumers query via REST. |
+| **C.AI.2** | **AI personalisation per role** | Architect vs interior-designer vs developer get different defaults + prompts. Refs: [typology-expansion §11](./typology-expansion-roadmap.md). |
+
+### §12.8 — Auth + Billing UX (full surface)
+
+| Phase | Goal | Description |
+|---|---|---|
+| **A.A.1** | **Signup flow polish (Google · Microsoft · email)** | UX redesign; first-time RAC routing immediately on signup. |
+| **A.A.2** | **Signin flow polish + remember-me** | Tier-1 browser support per [C45](../../02-decisions/contracts/C45-BROWSER-AND-DEVICE-MATRIX.md). |
+| **A.A.3** | **Password reset flow** | Currently NOT shipped. Email-based reset link with token. |
+| **A.A.4** | **Multi-factor auth (TOTP)** | First MFA support; recovery codes. |
+| **B.A.1** | **SAML SSO** (Okta · Azure AD · Google Workspace) | For Enterprise per [C08 §1.3](../../02-decisions/contracts/C08-COLLABORATION-AND-SECURITY.md). |
+| **B.A.2** | **SSO provisioning + SCIM** | Auto-provision users from IdP per Enterprise customer config. |
+| **A.B.1** | **Billing settings page** | Subscription · payment method · invoice history. Refs: [C39 §5.3](../../02-decisions/contracts/C39-PRICING-AND-PLAN-TIERS.md). |
+| **A.B.2** | **Plan upgrade / downgrade flow** | Stripe Checkout integration; downgrade safety modal per [C39 §5.6](../../02-decisions/contracts/C39-PRICING-AND-PLAN-TIERS.md). |
+| **A.B.3** | **Paywall modal** | Per [C39 §5.1](../../02-decisions/contracts/C39-PRICING-AND-PLAN-TIERS.md). |
+| **A.B.4** | **Quota meter widget (in editor footer)** | AI tokens · projects · storage. Per [C39 §5.2](../../02-decisions/contracts/C39-PRICING-AND-PLAN-TIERS.md). |
+| **A.B.5** | **Trial banner** | Days-left countdown; convert CTA. |
+| **B.B.1** | **BYOK setup wizard (Enterprise)** | Customer connects AWS KMS key; per-org keys per [C49](../../02-decisions/contracts/C49-MULTI-REGION-AND-SOVEREIGNTY.md). |
+| **B.B.2** | **Region migration UI (Enterprise)** | Customer initiates EU → UK migration flow; 48h read-only freeze. Refs: [C49 §1.9](../../02-decisions/contracts/C49-MULTI-REGION-AND-SOVEREIGNTY.md). |
+| **B.B.3** | **Invoice history + download** | Per Stripe + per [C39 §5.3](../../02-decisions/contracts/C39-PRICING-AND-PLAN-TIERS.md). |
+| **B.B.4** | **Custom Enterprise contract / MSA flow** | Sales-led for Enterprise per [roadmap-enterprise-delivery §6](./roadmap-enterprise-delivery.md). |
+
+### §12.9 — Admin tooling
+
+| Phase | Goal | Description |
+|---|---|---|
+| **A.AD.1** | **Marketplace curation queue back-office** | `apps/admin-tools/src/curation/` for curated-category review. Refs: [C40 §5.3](../../02-decisions/contracts/C40-MARKETPLACE-ECONOMICS.md). |
+| **A.AD.2** | **Support agent tooling (`apps/admin-tools/src/support/`)** | Per [C42 §5.3](../../02-decisions/contracts/C42-CUSTOMER-SUPPORT-TIER.md) — queue · ticket detail · break-glass · refund. |
+| **B.AD.1** | **Admin telemetry dashboard** | Per [C41 §5.3](../../02-decisions/contracts/C41-TELEMETRY-AND-ANALYTICS.md). |
+| **B.AD.2** | **Admin override surface for entitlements** | Per [C39 §1.10 + §4.3](../../02-decisions/contracts/C39-PRICING-AND-PLAN-TIERS.md). |
+| **B.AD.3** | **Admin DR drill coordinator UI** | Per [C48 §1.11](../../02-decisions/contracts/C48-BACKUP-AND-DR.md). |
+| **C.AD.1** | **Enterprise customer success dashboard (per-customer CSM view)** | Account health · usage trends · QBR prep · churn risk indicator. Refs: [roadmap-enterprise-delivery §6.4](./roadmap-enterprise-delivery.md). |
+| **C.AD.2** | **Compliance evidence package generator** | One-stop bundle for procurement teams. Per [roadmap-enterprise-delivery §6.3](./roadmap-enterprise-delivery.md). |
+
+### §12.10 — Apartment master document scope (per docs/03-execution/plans/apartment/)
+
+The apartment workstream has 6 deep-detail docs that the tracker should explicitly cite:
+
+| Phase | Goal | Detail doc |
+|---|---|---|
+| **A.AM.1** | F-tier (furniture catalogue + activity systems) | [apartment/furniture-and-activity.md](./apartment/furniture-and-activity.md) — already partially shipped (D-FLE engine) |
+| **A.AM.2** | Cognition stack L1-L7 progression (apartment-specific) | [apartment/cognition-stack.md](./apartment/cognition-stack.md) |
+| **A.AM.3** | Family Platform — user-defined families | [apartment/family-platform.md](./apartment/family-platform.md) — runtime shipped; UX work in §12.5 |
+| **A.AM.4** | Dimensional + topology validators (D-class + T-class) | [apartment/dimensional-constraints.md](./apartment/dimensional-constraints.md) |
+| **A.AM.5** | Driving-principles room/element matrix | [apartment/driving-principles.md](./apartment/driving-principles.md) |
+| **A.AM.6** | BIM 2 → BIM 3 live parametric data substrate (D-α/β/γ) | [apartment/bim2-bim3-data-mgmt.md](./apartment/bim2-bim3-data-mgmt.md) — D-α-1 through D-α-4 shipped |
+
+### §12.11 — Marketing + trust + content surfaces
+
+The user said "all landing working - all project page work". Adds:
+
+| Phase | Goal | Description |
+|---|---|---|
+| **A.M.1** | Landing page (`pryzm.app`) rebuild | Aspirational hero (per [manifesto §5](../../01-strategy/manifesto.md)) + 90-sec live apartment demo + clear CTAs. (Already A.17 — adding here for completeness.) |
+| **A.M.2** | Pricing page (generated from entitlement registry) | Per [C39 §1.13](../../02-decisions/contracts/C39-PRICING-AND-PLAN-TIERS.md). (Already A.18.) |
+| **A.M.3** | About page + manifesto page (`pryzm.app/manifesto`) | Brand voice surface per [manifesto §8](../../01-strategy/manifesto.md). |
+| **A.M.4** | Trust page (`pryzm.app/trust`) | Monthly trust report + SLA + customer references. Per [C42 §5.5](../../02-decisions/contracts/C42-CUSTOMER-SUPPORT-TIER.md). |
+| **A.M.5** | Accessibility statement (`pryzm.app/accessibility`) | Per [C43 §5.3](../../02-decisions/contracts/C43-ACCESSIBILITY.md). |
+| **A.M.6** | VPAT 2.5-INT (`pryzm.app/vpat`) | Quarterly per [C43 §1.14](../../02-decisions/contracts/C43-ACCESSIBILITY.md). |
+| **A.M.7** | Status page (`status.pryzm.app`) | Per [C48 §5.3](../../02-decisions/contracts/C48-BACKUP-AND-DR.md) — third-party SaaS (statuspage.io). |
+| **A.M.8** | Supported browsers page (`pryzm.app/supported-browsers`) | Generated from [C45 BrowserSupportRegistry](../../02-decisions/contracts/C45-BROWSER-AND-DEVICE-MATRIX.md). |
+| **A.M.9** | Privacy policy + Terms of service | Legal-reviewed; per [C22 §5](../../02-decisions/contracts/C22-PRIVACY-AND-PII-TIER.md) + [C41](../../02-decisions/contracts/C41-TELEMETRY-AND-ANALYTICS.md). |
+| **A.M.10** | Customer case studies | First 5 customer references; per [go-to-market §3.1](../../01-strategy/go-to-market.md). |
+| **B.M.1** | Developer site (`developers.pryzm.app` or `pryzm.app/developers`) | Per [platform-strategy §10.1](../../01-strategy/platform-strategy.md). |
+| **B.M.2** | Blog (engineering + design + customer stories) | Per [go-to-market §3.1 content marketing](../../01-strategy/go-to-market.md). |
+| **B.M.3** | Customer summit (annual; first edition) | Per [operating-principles §6.5](../../01-strategy/operating-principles.md). |
+| **C.M.1** | Plugin author conference (annual; first edition) | Per [platform-strategy §10.3](../../01-strategy/platform-strategy.md). |
+
+### §12.12 — Mobile + tablet specific (per C44)
+
+| Phase | Goal | Description |
+|---|---|---|
+| **A.MO.1** | Form-factor breakpoint detection + capability matrix | Per [C44 §1.4](../../02-decisions/contracts/C44-MOBILE-AND-TABLET.md). |
+| **A.MO.2** | Share-link viewer (works on every form-factor) | Per [C44 §1.8](../../02-decisions/contracts/C44-MOBILE-AND-TABLET.md) — strict invariant. |
+| **A.MO.3** | PWA manifest + install banner | Per [C44 §1.10](../../02-decisions/contracts/C44-MOBILE-AND-TABLET.md). |
+| **B.MO.1** | Bottom-sheet pattern for mobile panels | Per [C44 §5.3](../../02-decisions/contracts/C44-MOBILE-AND-TABLET.md). |
+| **B.MO.2** | Touch-target sizing audit (44×44 px min on touch) | Per [C44 §1.5](../../02-decisions/contracts/C44-MOBILE-AND-TABLET.md). |
+| **B.MO.3** | Offline queue (~1 hour authoring queued + sync on reconnect) | Per [C44 §1.9](../../02-decisions/contracts/C44-MOBILE-AND-TABLET.md). |
+| **C.MO.1** | 2D plan-view touch authoring on phone | Per [C44 §5.4](../../02-decisions/contracts/C44-MOBILE-AND-TABLET.md). |
+| **C.MO.2** | Tablet (iPad Pro 12.9") full editor capability | Per [C44 §1.4](../../02-decisions/contracts/C44-MOBILE-AND-TABLET.md). |
+| **C.MO.3** | Field-tier pricing experiment (mobile-viewer-only for site supervisors) | Per [C44 §10 OQ-6](../../02-decisions/contracts/C44-MOBILE-AND-TABLET.md). |
+
+---
+
+## §13 — Revised sub-phase count
+
+| Phase | Original count (§3–§5) | Additions (§12) | Total |
+|---|---|---|---|
+| Phase A | 41 sub-phases (A.1–A.41) | +18 A.U.* + 6 A.PL.* + 1 A.20 (already there) + 5 A.AM.* + 5 A.B.* + 4 A.A.* + 3 A.M.* + 10 A.M (marketing) + 3 A.MO.* + 6 AI (A.42–A.47) + 5 A.F.* + 2 A.AD.* + 2 A.R.* = **~70 additions** | ~111 sub-phases |
+| Phase B | 35 | +17 B.U.*/S.*/I.*/D.*/F.*/R.*/AI.*/A.*/B.*/AD.*/M.*/MO.* additions = **~30 additions** | ~65 sub-phases |
+| Phase C | 39 | +12 C.U.*/F.*/R.*/AI.*/AD.*/M.*/MO.* additions = **~15 additions** | ~54 sub-phases |
+| Cross-cutting (X.*) | 10 | + X.11 onboarding tutorials maintenance + X.12 marketplace ecosystem dev + X.13 customer feedback loop | 13 sub-phases |
+| **Total** | 125 sub-phases | **+~115 additions** | **~240 sub-phases** |
+
+This is the **comprehensive view**. Roughly 240 named deliverables across 5 years.
+
+---
+
+## §14 — Coverage verification — am I covering EVERYTHING?
+
+After this addendum, the answer is **substantially yes** — within these honest caveats:
+
+| Surface | Covered? | Where |
+|---|---|---|
+| TypologyPipeline + 25+ typologies | ✅ | §3.1, §12.3 |
+| Site + climate substrate | ✅ | §3.1 A.7–A.11 |
+| All 49 contracts to CANONICAL | ✅ | §12.2 rollup |
+| Editor UI redesign (panels, settings, tools, search, notifications, help) | ✅ | §12.3 A.U.* |
+| Project hub / list / share / settings / versions | ✅ | §12.3 A.PL.* |
+| Sheet + view + elevation + section great | ✅ | §12.4 B.S.* |
+| Dimension + annotation great | ✅ | §12.4 B.S.3 |
+| Inspect tree + per-element-type sub-panels | ✅ | §12.4 B.I.* |
+| Data Panel + automation + schedules | ✅ | §12.4 B.D.* |
+| Family creation pipeline (component editor · publish · install · update · curation · analytics · AI-assisted) | ✅ | §12.5 |
+| Native Revit import + export (via IFC4 + Python adapter) | ✅ | §12.6 A.R.* + B.R.* + C.R.* |
+| AI commands (chat · generate · critique · voice · query · rules · edit · approval · cost · BYOK · personalisation) | ✅ | §12.7 |
+| Auth UX (signup · signin · password reset · MFA · SSO · SCIM) | ✅ | §12.8 A.A.* + B.A.* |
+| Billing UX (subscription · paywall · quota · trial banner · BYOK setup · region migration · invoices · custom MSA) | ✅ | §12.8 A.B.* + B.B.* |
+| Admin tooling (curation queue · support agent · telemetry dashboard · CSM view · compliance evidence) | ✅ | §12.9 |
+| Apartment master scope (F-tier · cognition · family · dimensional · driving · BIM 2/3 data) | ✅ | §12.10 |
+| Landing + about + trust + accessibility + VPAT + status + privacy + ToS + supported-browsers + case-studies + developer-site + blog + customer-summit + plugin-conference | ✅ | §12.11 |
+| Mobile + tablet (form-factor matrix · share-link · PWA · bottom-sheet · touch-target · offline · 2D plan-view authoring · iPad full · field-tier pricing) | ✅ | §12.12 |
+| Per-region (EU · US · AP · UK) | ✅ | §4 B.14–B.16 + §5 C.16–C.18 |
+| Sovereignty + BYOK + self-host | ✅ | §4 B.30 + §5 C.31 |
+| Performance + observability + bench maintenance | ✅ | §7 X.1 continuous |
+| Documentation cadence + brand-voice content | ✅ | §7 X.6 + X.10 |
+
+### Honest gaps that remain
+
+Things this tracker still doesn't fully name:
+
+1. **Per-region drawing-standard packs** (DIN-extension · NF-extension · JIS-extension after the 4 first-party in B.11) — TBD per regional demand.
+2. **Community-authored typology long tail** (Phase D 2030+) — explicitly deferred; not in §3–§5.
+3. **Per-jurisdiction regulatory packs** (UK Part M · ADA · DIN-Brandschutz · Japanese fire-code · etc.) — each is a constraint-DB extension; granular sub-phase TBD when customer demand surfaces.
+4. **Plugin SDK successor versions (v2 · v3)** — Phase D scope; format-versioning per [C47](../../02-decisions/contracts/C47-FILE-FORMAT-VERSIONING.md) governs.
+5. **Customer-managed integrations** (BIM360 · Procore · Bentley iTwin · Trimble Connect · Aconex · ArchiCAD's BIMcloud) — explicitly marketplace-plugin opportunities per [platform-strategy §2.5](../../01-strategy/platform-strategy.md), not PRYZM-first-party builds.
+
+These gaps are by design — pushing them to community + marketplace is the strategic moat per [platform-strategy](../../01-strategy/platform-strategy.md).
+
+---
+
+## §15 — Where to add the next sub-phase
+
+When new work surfaces (a customer request · a code discovery · a new contract DRAFT), the addition flows here:
+
+1. Determine the **phase** (A · B · C · D) based on commit window
+2. Determine the **category** (U=UI, PL=project page, AM=apartment master, F=family, R=Revit, AI=AI, A=auth, B=billing, AD=admin, M=marketing, MO=mobile, S=sheets, I=inspect, D=data)
+3. Pick the **next free number** in that phase × category
+4. Add a row to the relevant table in §3, §4, §5, or §12.* with the **goal · description+refs · status** columns
+5. Update §13 sub-phase count
+
+Every addition is PR'd + reviewed per [cadence §10 cardinal rules](./cadence-and-planning-system.md).
+
+---
+
+## §16 — Carry-over from `status/remaining-work-consolidated.md` (operational in-flight work)
+
+Per [status/remaining-work-consolidated.md](../status/remaining-work-consolidated.md) (stamped 2026-05-29; supersedes 4 prior audit + fix-log docs), substantial operational work was in-flight when documentation reorganisation started. This section integrates EVERY non-closed item from that consolidated doc into Phase A (most are urgent production-readiness fixes that must close before Phase 1 exit).
+
+### §16.1 — Production-readiness BLOCKERS (Phase A — single-week priority)
+
+| Sub-phase | ID | Title | Refs / Notes |
+|---|---|---|---|
+| **A.PR.B10** | B10 | Resilient-import quarantine + autosave-blocking modal | `ProjectLoader` continues loading on element failures — silent data loss. CRITICAL. |
+| **A.PR.B11** | B11 | Version-limit proactive prune UI + per-project version cap | `§QUOTA-EVICT` (`8463607`) closed the recovery path; remaining is UX + cap. |
+| **A.PR.B12** | B12 | CRDT conflict UI wired into adapter | `CRDTConflictResolver.mergeElement` → `YjsDocAdapter.applyCommand`; surface `ConflictResolutionDialog` + Banner from `engineLauncher.ts:560`. |
+| **A.PR.B13** | B13 | Cursor-paginated catch-up + durable-insert-before-broadcast | Yjs late-joiner replay correctness. |
+| **A.PR.B15** | B15 | Dual handler-registration retire | Round 52 Proxy is interim; canonical retire owed. |
+| **A.PR.B17** | B17 | PSO prewarm + EdgeProjector slicing | Closes the 11.5 s / 16.6 s freezes on first plan-view. |
+| **A.PR.B19** | B19 | Secret rotation (ops) | Operational, not code. |
+
+### §16.2 — Production-readiness HIGHS (Phase A — two-week tier)
+
+| Sub-phase | ID | Title | Refs / Notes |
+|---|---|---|---|
+| **A.PR.H3** | H3 | OAuth `state` CSRF nonce | Server-side state store. |
+| **A.PR.H5** | H5 | JWT lifetime + refresh tokens | Session-table migration; avoid logging everyone out on deploy. |
+| **A.PR.H6** | H6 | Marketplace plugin signature — server-side bundle SHA-256 | Per [C07 §3.2](../../02-decisions/contracts/C07-PLUGIN-SDK-AND-MARKETPLACE.md). |
+| **A.PR.H7** | H7 | IFC upload streaming (multer + S3/disk) | Currently in-memory. |
+| **A.PR.H9** | H9 | Remove in-memory anonymous fallback | Once B14 hard-fail covers it. |
+| **A.PR.H13** | H13 | Boot-time failed-registration banner | Tracking list + DOM surface. |
+| **A.PR.H17** | H17 | Redis adapter for Socket.io + rate-limit + plan cache | OR explicit single-instance pin. |
+| **A.PR.H19** | H19 | OTel SDK install + OTLP exporter + pino structured logs | P8 spans currently emit to void. Pairs with C10. |
+| **A.PR.H20** | H20 | PITR backup for PG JSONB | Per [C48 §1.1](../../02-decisions/contracts/C48-BACKUP-AND-DR.md). |
+| **A.PR.H21** | H21 | Per-room loop in `ImportProjectCommand` | Perf fix. |
+| **A.PR.H23** | H23 | Strict Zod typing for save payloads (walls/slabs/doors/windows) | Per [C05](../../02-decisions/contracts/C05-PERSISTENCE-AND-FILE-FORMAT.md). |
+| **A.PR.H24** | H24 | Chunked snapshot save (wire `SnapshotStreaming` into save path) | Perf at scale. |
+| **A.PR.H25** | H25 | Snapshot `schemaVersion > current` hard-refuse | Per [C47 §1.6](../../02-decisions/contracts/C47-FILE-FORMAT-VERSIONING.md). |
+| **A.PR.H27** | H27 | Hoist `dbMigrate` import in 16 hot handlers | Cold-boot perf. |
+| **A.PR.H28** | H28 | Delete ~250 MB duplicate binary assets | Bundle-size hygiene. |
+| **A.PR.H31** | H31 | `(window as any)` ratchet plan (P4 finalisation) | Per [C01 §1 P4](../../02-decisions/contracts/C01-ARCHITECTURE-AND-GOVERNANCE.md). |
+| **A.PR.H32** | H32 | Cesium lazy-load | Cold-boot perf. |
+| **A.PR.H37** | H37 | 670 unsanitized `innerHTML` sweep + DOMPurify mandate | Security hardening per [C08](../../02-decisions/contracts/C08-COLLABORATION-AND-SECURITY.md). |
+
+### §16.3 — Architecture migration (Phase A continuous + Phase B)
+
+| Sub-phase | ID | Title |
+|---|---|---|
+| **A.AM.H33-H36** | H33-H36 | Finish P6 migration (~12 of 500+ `commandBus` calls remain) + widen GA-gate scope + reset ratchets + split `server.js` (4944 LOC god-file) |
+| **A.P4F** | P4-final | ~15 residual production sites (OI-044 phase 2): `ViewportPreviewRenderer.ts` ×2 · `ProjectScopedStorage.ts` · `ProjectScopeRegistry.ts` · `ViewIntentInstanceStore.ts` |
+| **A.P8F** | P8-OTLP | OTLP exporter configuration (pairs with A.PR.H19) — spans currently emit to void |
+
+### §16.4 — Daily-use Sprint 1 (cliff-edges; 2–3 days)
+
+| Sub-phase | ID | Title |
+|---|---|---|
+| **A.DU.T-B1** | T-B1 | Polyline state evaporates on Split-View mouse-leave |
+| **A.DU.T-B2** | T-B2 | Backspace deletes selected element mid-draw |
+| **A.DU.T-B7** | T-B7 | Move tool exits after one move |
+| **A.DU.C-B1** | C-B1 | Zoom-fit / zoom-selected dead buttons |
+| **A.DU.C-B2** | C-B2 | Plan camera "fit all" after every commit |
+| **A.DU.C-B3** | C-B3 | 100 m maxDistance hard cap |
+| **A.DU.C-B4** | C-B4 | maxPolarAngle clamp |
+| **A.DU.M-B1** | M-B1 | Wall+slab system-type IDs regenerate on save/load |
+| **A.DU.T-H5** | T-H5 | Furniture rotation hard-coded at 0 |
+| **A.DU.T-H7** | T-H7 | Door 1.5 m radius |
+| **A.DU.L-B3** | L-B3 | Standalone slab/floor opening restore |
+
+### §16.5 — Daily-use Sprint 2 (undo/redo + collab silent-loss; 3–4 days)
+
+| Sub-phase | ID | Title |
+|---|---|---|
+| **A.DU.U-B1** | U-B1 | Ring-buffer not cleared on project switch |
+| **A.DU.U-B2** | U-B2 | `runtime.bus.dispatch` undefined → CRDT broken |
+| **A.DU.U-B5** | U-B5 | Empty PatchPair on `element.delete` |
+| **A.DU.L-B2** | L-B2 | `If-Match` 412 not sent |
+| **A.DU.L-B1** | L-B1 | Quarantine modal (overlaps A.PR.B10) |
+| **A.DU.S-B1** | S-B1 | Wire ConflictResolutionDialog (overlaps A.PR.B12) |
+| **A.DU.L-H2** | L-H2 | `sendBeacon` for beforeunload |
+
+### §16.6 — Daily-use Sprint 3 (material fidelity + view UX; 3–4 days)
+
+| Sub-phase | ID | Title |
+|---|---|---|
+| **A.DU.M-H1** | M-H1 | Wall/roof/CW materialId resolution (CW closed Round 51; wall + roof remain) |
+| **A.DU.M-H2** | M-H2 | Plan-edge hard-black colour (deferred with architectural rationale) |
+| **A.DU.M-H4** | M-H4 | Door/window custom types persist |
+| **A.DU.C-H1** | C-H1 | Triple-dispatch on canvas click |
+| **A.DU.C-H7** | C-H7 | Marquee in plan |
+| **A.DU.SV1** | — | Preserve selection across views |
+
+### §16.7 — Daily-use Sprint 4 (polish; 1+ week)
+
+| Sub-phase | ID | Title |
+|---|---|---|
+| **A.DU.T-H3** | T-H3 | Stair gizmo silent no-op |
+| **A.DU.T-H6** | T-H6 | Column type ignored in plan |
+| **A.DU.T-H2** | T-H2 | Backspace handler inconsistency |
+| **A.DU.U-H6** | U-H6 | Multi-select Delete |
+| **A.DU.U-H7** | U-H7 | Slab cascade delete |
+| **A.DU.VT1** | — | View template / view creation / section |
+| **A.DU.S-B2** | S-B2 | Export PDF/DXF (`window.print()` stub → real plugin) |
+| **A.DU.S-B3** | S-B3 | Multiplayer cursor |
+
+### §16.8 — Daily-use long-tail (Phase A or Phase B per priority)
+
+Not enumerated individually (~30 items). Tracked as **A.DU.LT** in the tracker; full list in [status/remaining-work-consolidated §4 long-tail](../status/remaining-work-consolidated.md):
+
+- T-H1 · T-H8 · T-H9 · T-H10
+- U-H8 · U-H9 · U-H10 · U-H11
+- L-H1 · L-H3 · L-H4 · L-H5 · L-H6 · L-H7 · L-H8 · L-H9
+- C-H2 · C-H3 · C-H4 · C-H5 · C-H6 · C-H8
+- M-H3 · M-H5 · M-H6 · M-H7
+- S-H1–S-H8 (snap + dimension dual systems + annotation cmdMgr)
+
+### §16.9 — Fix-log carry-overs (deferred)
+
+| Sub-phase | Title |
+|---|---|
+| **A.DU.CO.R17** | Round 17 follow-ups: `RoofPathToolHandler` + `StairPathPlanToolHandler` (same one-liner pattern) |
+| **A.DU.CO.R24** | Round 24 §FURN-3D-RESILIENCE — awaiting architect's logged error |
+| **A.DU.CO.STAIR** | STAIR-PLAN-DI TODO in `apps/editor/src/types/globals.d.ts` |
+| **A.DU.CO.R7** | Round 7 §FIX-VDT-DUAL-PATH Part 2 — per-undo redetect storm (~80 ms LONGTASK) |
+| **A.DU.CO.47** | #47 WebGPU `Destroyed ShadowDepthTexture` on project-load hang |
+| **A.DU.CO.48** | #48 RoomTopologyObserver forced-fire after unpause |
+
+### §16.10 — Plan-view incremental projection (2 element types remain)
+
+| Sub-phase | ID | Title |
+|---|---|---|
+| **A.PV.OPENING** | — | Opening element-level projection cache (16/18 done) |
+| **A.PV.STAIR-RAIL** | — | Stair-railing element-level projection cache |
+| **A.PV.CONTRACT** | — | C04 §3.4 + C11 §6.2.1/§6.2.2 + C10 NFT-PV-1 contract amendments sign-off |
+| **A.PV.HLR** | — | (Conditional) HiddenLineRemoval incremental pass if it becomes bottleneck |
+
+### §16.11 — Master-status OI register (OI-007 → OI-058)
+
+Items not yet absorbed into Phase A above:
+
+| Sub-phase | ID | Title | Phase target |
+|---|---|---|---|
+| **C.OI.007** | OI-007 | IFC streaming LONGTASK 253 ms (3–7 FPS drop) | Phase C (post-GA) |
+| **A.OI.008** | OI-008 | WebGPU prewarm 2909 ms vs <1500 ms target | Phase A |
+| **A.OI.009** | OI-009 | `engineLauncher.ts` bundle 4.3 MB | Phase A |
+| **A.OI.050** | OI-050 | CustomEvent migration — 598 remaining; F.events.19 last sub-completed | Phase A continuous |
+| **A.OI.053** | OI-053 | Project create + open slow (a-e) | Phase A |
+| **A.OI.054** | OI-054 | Hosted door/window two-part undo (followup-a); cross-stack redo / ADR-051 single-store (followup-b) | Phase A |
+| **A.OI.056** | OI-056 | Auto-zoom on first plan-view element creation | Phase A |
+| **A.OI.057** | OI-057 | Post-batch wall-join timing-implicit + plugin-store retains pre-miter baselines | Phase A/B |
+| **A.OI.058** | OI-058 | Scene Registry (pascalorg pattern) replace `scene.traverse` for visibility/selection | Phase A (highest-value arch key) |
+| **A.OI.011** | OI-011 | npm publish @pryzm/sdk (= A.12) | Phase A — credentials |
+| **A.OI.012** | OI-012 | npm publish @pryzm/headless (= A.13) | Phase A — credentials |
+| **A.OI.013** | OI-013 | DNS marketplace.pryzm.app (= A.14) | Phase A — registrar |
+| **A.OI.014** | OI-014 | Stripe keys live | Phase A — credentials |
+| **A.OI.015** | OI-015 | Yjs WebSocket server credentials | Phase A — credentials |
+| **A.OI.016** | OI-016 | OTLP endpoint (pairs with A.PR.H19) | Phase A — credentials |
+
+### §16.12 — Apartment-layout pipeline carry-overs (per status doc §7)
+
+| Sub-phase | ID | Title |
+|---|---|---|
+| **A.APT.MA-BRIEF** | — | Multi-apartment-floor-plate brief (new feature scope: shared core + N apartments per floor + structured JSON output) |
+| **A.APT.SA.2** | — | Single-apartment fix #2 — corridor connectivity (not all rooms reachable) |
+| **A.APT.SA.5** | — | Single-apartment fix #5 — NO-windows engine (apartment generator emits no windows) |
+| **A.APT.FW.LIGHT** | — | Furnish-wishlist: proper task lighting per room |
+| **A.APT.FW.WARD** | — | Furnish-wishlist: wardrobe variants (built-in vs freestanding · sliding vs hinged) |
+| **A.APT.FW.PROF** | — | Furnish-wishlist: professional layout (slicing-tree improvements) |
+| **A.APT.FW.CORR** | — | Furnish-wishlist: corridors quality (dead-end elimination · width consistency) |
+| **A.APT.FW.ILLOG** | — | Furnish-wishlist: illogical-connection post-pass (bedroom-only-accessible-via-bathroom etc.) |
+| **A.APT.PR.1B** | — | Program-rules #1b: missing room types (balcony · storage · open_plan) |
+| **A.APT.PR.4** | — | Program-rules #4: desk + desk_chair FurnitureKind stubs |
+| **A.APT.PR.5** | — | Program-rules #5: asymmetric door access (accessTo field) |
+
+### §16.13 — Wall-junction defects (geometry-wall package)
+
+| Sub-phase | ID | Title |
+|---|---|---|
+| **A.WJ.LCORNER** | — | Defect #3 — interior↔exterior L-corner produces black-triangle artefact |
+| **A.WJ.MULTICLUSTER** | — | WallJoinResolver multi-cluster degenerate-wall bug (project `zse`) — flag self-cluster INVALID + skip mesh build + clamp diff-thickness butt-join when sub-wall length ≤ 0 |
+| **A.WJ.IWO** | — | Interior-wall-on-opening conflict bug — `WallOccupancyStore.canPlace()` at commit + SnapManager exclusion + new Tier-1 ConstraintEngine rule |
+| **B.WJ.ADR55P4A** | — | ADR-0055 P4a — layered walls |
+| **B.WJ.ADR55P4B** | — | ADR-0055 P4b — openings |
+| **B.WJ.ADR55P4C** | — | ADR-0055 P4c — retire infill (P3b already covers apartment generator's plain-partition case) |
+
+### §16.14 — Operator / non-code (continuous)
+
+| Sub-phase | ID | Title |
+|---|---|---|
+| **X.OP.1** | — | `git rm --cached '*.tsbuildinfo'` |
+| **X.OP.2** | — | Retro `ALTER TABLE` for §H22 FK on existing prod DBs |
+| **X.OP.3** | — | `pnpm up jspdf` lockfile regeneration (B16 sub-task) |
+
+### §16.15 — Phase D post-GA / long-range (P3)
+
+Per [status/remaining-work-consolidated.md §9](../status/remaining-work-consolidated.md):
+
+| Sub-phase | ID | Title |
+|---|---|---|
+| **D.PGA.1** | — | WCAG 2.1 AA full audit (TASK-20) — already absorbed by [C43](../../02-decisions/contracts/C43-ACCESSIBILITY.md) and §3 A.32–A.34 + §5 C.36 |
+| **D.PGA.2** | — | Multi-model IFC federation |
+| **D.PGA.3** | — | GeoJSON / SHP geospatial import |
+| **D.PGA.4** | — | SharedArrayBuffer geometry transfer |
+| **D.PGA.5** | — | WebGPU mobile fallback (rendering gap) |
+| **D.PGA.6** | — | Family builders off main thread (threading gap) |
+| **D.PGA.7** | — | Multi-day offline merge (persistence gap) |
+| **D.PGA.8** | — | Dependabot + deploy pipeline (CI/CD gap) |
+
+---
+
+## §17 — Final scope rollup (after coverage audit + remaining-work integration)
+
+Substantially everything PRYZM does in code, ships in product, sells in market, or commits in contracts is now enumerated in this tracker (or in the doc cross-linked from a row):
+
+| Layer | Sub-phase ranges | Total |
+|---|---|---|
+| Phase A (Alpha 0–6 mo) | A.1–A.41 + A.U.* (18) + A.PL.* (6) + A.F.* (5) + A.AM.* (6) + A.A.* (4) + A.B.* (5) + A.M.* (10) + A.AD.* (2) + A.MO.* (3) + A.R.* (2) + A.42–A.47 (6 AI) + A.PR.B/H/etc. (~20) + A.AM.H33-H36 + A.P4F + A.P8F + A.DU.* (~30) + A.PV.* (4) + A.OI.* (~15) + A.APT.* (~11) + A.WJ.* (3) | **~190** |
+| Phase B (Beta 6–18 mo) | B.1–B.35 + B.U.* (17) + B.S.* (5) + B.I.* (3) + B.D.* (3) + B.AI.* (4) + B.F.* (4) + B.R.* (3) + B.A.* (2) + B.B.* (4) + B.AD.* (3) + B.M.* (3) + B.MO.* (3) + B.WJ.* (3) | **~90** |
+| Phase C (GA 18–36 mo) | C.1–C.39 + C.U.* (12) + C.F.* (2) + C.R.* (4) + C.AI.* (2) + C.AD.* (2) + C.M.* (1) + C.MO.* (3) + C.OI.007 | **~65** |
+| Phase D (post-GA, 36 mo+) | D.PGA.* (~8) + community-marketplace long tail | **~10** |
+| Cross-cutting (X.*) | 10 + X.OP.* (3) + X.11–X.13 | **~16** |
+| **GRAND TOTAL** | | **~370 named deliverables across 5 years** |
+
+The tracker is the operational dashboard. The detail per sub-phase lives in the linked contract / spec / phase-roadmap. Every sub-phase has a path to closure.
+
+---
+
+## §18 — Spec audit (all 56 specs in `docs/03-execution/specs/`) + status-folder integration
+
+The 56 normative specs each codify the wire format / algorithm / API for one subsystem. Every spec must trace to a sub-phase that delivers its scope. The audit below catalogues all 56 specs, the contract they ride on, the sub-phase that delivers their scope, and surfaces NEW sub-phases that weren't in §3–§17.
+
+### §18.1 — Spec-to-phase mapping (all 56)
+
+| Spec | Subsystem | Owning contract | Delivered by | Status |
+|---|---|---|---|---|
+| **SPEC-01-GEOMETRY-KERNEL** | Geometry kernel | C11 | continuous + per-typology | ✅ shipped (refinement continuous) |
+| **SPEC-02-PERSISTENCE** | Persistence client | C05 | A.U.17, A.P4F | 🟢 partial |
+| **SPEC-03-SYNC-CRDT** | Yjs CRDT sync | C08 | A.PR.B12, A.PR.B13, A.DU.U-B2 | 🟢 partial |
+| **SPEC-04-DRAWING-ENGINE** | Drawing primitives + multi-backend | C24 + C29 + C04 | B.S.* + B.9 PDF | ⚪ Phase B |
+| **SPEC-05-TYPE-CATALOG** | Built-in type catalogues | C18 | continuous | ✅ shipped |
+| **SPEC-06-ROOMS-LEVELS** | Rooms + levels topology | C11 + C20 | A.23, A.APT.* | 🟢 partial |
+| **SPEC-07-AI-LAYER** | AI host (L7.5) | C09 | A.42–A.47 + typology pipeline | 🟢 partial |
+| **SPEC-08-SECURITY-COLLAB** | Auth + collab + ISO 19650 | C08 | A.A.*, B.A.* | 🟢 partial |
+| **SPEC-09-PLUGIN-SDK** | Plugin SDK + sandbox + Ed25519 | C07 | A.12, A.13, A.F.* | ✅ v1.0.0 ready; A.OI.011 pending |
+| **SPEC-10-OBSERVABILITY** | OTel spans + 68 benches | C10 | X.1 continuous + A.PR.H19 | 🟢 partial (OTLP exporter pending) |
+| **SPEC-11-TESTING** | Test framework + coverage | continuous | X.1 + per-PR | ✅ ongoing |
+| **SPEC-12-BUNDLE-SPLITTING** | Vite manual chunks | C04 | A.PR.H28, A.PR.H32 (Cesium lazy), A.OI.009 | 🟢 partial |
+| **SPEC-13-CONTEXT-ENVELOPES** | Project context envelope protocol | C13 | A.PL.* + A.OI.053 | 🟢 partial |
+| **SPEC-15-DEPLOYMENT-TOPOLOGY** | Deploy + region + DR | C48 + C49 | A.35–A.36, B.14–B.16, C.16–C.18 | 🟢 partial |
+| **SPEC-21-ELEMENT-CREATION-PROTOCOL** | Element creation pipeline | C11 | continuous | ✅ shipped (refinement continuous) |
+| **SPEC-24-DATA-STORE-MAP** | Per-store responsibility map | C03 | continuous | ✅ shipped |
+| **SPEC-26-PRYZM-FILE-FORMAT** | `.pryzm` ZIP format | C05 + C47 | A.U.17 + B.U.16 | 🟢 partial |
+| **SPEC-27-MIGRATION-ROLLBACK** | File format migration runners | C47 | A.U.17 + B.U.16 + C.38 | ⚪ Phase A onward |
+| **SPEC-28-AI-COST-MODEL** | AI cost pricing | C09 § cost + C39 | A.PR.H19 + B.AI.3 + B.AI.4 | 🟢 partial |
+| **SPEC-29-VECTOR-PRIMITIVES** | 2D primitive set | C24 + C29 | B.S.* | ⚪ Phase B |
+| **SPEC-30-PLAN-VIEW-PERFORMANCE** | Plan-view incremental projection | C04 + C11 | A.PV.* | 🟢 16/18 element types cached |
+| **SPEC-31-LOAD-BENCH-AND-BACKPRESSURE** | Load perf + backpressure | C10 | A.PR.H21, A.PR.H24, A.PR.H27 | 🟢 partial |
+| **SPEC-32-CDE-MODULE** | Common Data Environment (ISO 19650) | C13 + C30 | A.PL.5 + B.7 + B.U.7 | 🟢 partial — A.SP.32 below |
+| **SPEC-33-STAKEHOLDER-REVIEW-WEDGE** | Stakeholder review + sign-off workflow | C30 | A.SP.33 below | ⚪ Phase B |
+| **SPEC-34-HYBRID-DATA-SOVEREIGNTY** | Sovereignty model | C49 | B.14–B.16, B.B.1, C.16–C.18 | 🟢 partial |
+| **SPEC-35-BROWSER-SECURITY-ENTERPRISE-HARDENING** | CSP + Helmet + COEP/COOP | C08 + C45 | A.PR.H37 + A.U.15 + B.34 | 🟢 partial |
+| **SPEC-36-COBIE-EXPORT** | COBie FM handover | C35 | C.25 | 🔵 Phase C |
+| **SPEC-37-FEDERATED-CLASH-DETECTION** | Clash + BCF round-trip | C36 | B.22 | 🔵 Phase B |
+| **SPEC-38-MEP-SYSTEMS** | MEP detailing (lighting · plumbing · structural already partial) | C11 + future C | A.SP.38 below | ⚪ partial (lighting/plumbing/structural plugins shipped) |
+| **SPEC-39-EIR-BEP-TIDP-MIDP** | ISO 19650 information delivery docs | C30 | A.SP.39 below | ⚪ Phase B |
+| **SPEC-40-BUILDINGSMART-IFC4-CERTIFICATION** | Official buildingSMART certification | C25 | A.SP.40 below | 🔵 Phase B/C |
+| **SPEC-41-SHEET-SCHEDULE-4D-5D-EXTENSIONS** | Sheet × 4D × 5D shared model | C24 + C37 + C38 | C.26, C.27, C.U.6 | 🔵 Phase C |
+| **SPEC-42-ANALYSIS-BRIDGE-PROTOCOL** | Round-trip to structural/MEP analyzers | C25 | A.SP.42 below | 🔵 Phase B/C |
+| **SPEC-43-SUSTAINABILITY-LCA-CARBON** | LCA + embodied carbon | future contract | A.SP.43 below | 🔵 Phase D |
+| **SPEC-44-CLOUD-BAKED-RENDERING** | Server-side bake worker | C04 | `apps/bake-worker/` (PRYZM 2 S21) shipped; refinement | 🟢 shipped |
+| **SPEC-45-PDF-TO-BIM-PIPELINE** | PDF-to-BIM extraction | future C | A.SP.45 below | ⚪ marketplace plugin (per engineering-vision §8 NOT in scope as primary) |
+| **SPEC-46-PLAN-CRITIQUE-WORKFLOW** | Plan critique AI workflow | C09 | A.44 (`ai.critique.layout`) | ✅ shipped |
+| **SPEC-47-GENERATE-3-OPTIONS-WORKFLOW** | Generate 3 options AI workflow | C09 | A.43 (`ai.generate.*`) | ✅ shipped |
+| **SPEC-48-CONSTRAINT-SOLVER** | Planegcs 2D constraint solver | C09 + Family Editor | A.F.1 component-editor | ✅ shipped (refinement continuous) |
+| **SPEC-APARTMENT-LAYOUT-GENERATOR** | Apartment layout AI workflow | C09 + C50 | A.4 (refactor as TypologyPack) + apartment master | ✅ shipped |
+| **SPEC-ARCHITECTURAL-PROGRAM-RULES** | 248-rule constraint DB | C09 + C50 | A.37, A.38, A.39 | 🟢 partial — 152→252 in Phase A |
+| **SPEC-CANVAS-FLOATING-PANELS** | Floating-panel UX | C06 | A.U.4, A.U.7 | ⚪ Phase A |
+| **SPEC-CEILING-LAYOUT-ENGINE** | D-CE deterministic ceiling engine | C09 | apartmentLayout → ceilingLayout already shipped | ✅ shipped |
+| **SPEC-FAMILY-EDITOR** | Family creator app | C07 + Family Platform | A.F.1, A.F.2, A.F.5, B.F.* | 🟢 functional (refinement Phase A/B) |
+| **SPEC-FURNITURE-LAYOUT-ENGINE** | D-FLE deterministic furniture engine | C09 | apartmentLayout → furnishLayout shipped | ✅ shipped |
+| **SPEC-KITCHEN-WARDROBE-WALL-DRIVEN** | Wall-driven kitchen + wardrobe placement | C09 + apartmentLayout | A.APT.FW.WARD + furnish-wishlist (already shipped: kitchen-default + kitchen-island) | 🟢 partial |
+| **SPEC-LAYOUT-CONSTRAINT-DATABASE** | The 248-rule spec (data) | data source for SPEC-ARCHITECTURAL-PROGRAM-RULES | A.37 (continuous) | 🟢 partial (~40% code-enforced) |
+| **SPEC-LIGHTING-LAYOUT-ENGINE** | D-LE deterministic lighting engine | C09 | apartmentLayout → lightingLayout shipped | ✅ shipped |
+| **SPEC-MATERIALS-REPOSITORY** | Materials library (project + global) | C03 + Family Platform | A.SP.MAT below | ⚪ Phase B |
+| **SPEC-PROJECT-OPEN-CREATE-PIPELINE** | Project lifecycle UX pipeline | C13 | A.PL.* | ⚪ Phase A |
+| **SPEC-SEMANTIC-DESIGN-ASSISTANT** | AI semantic assistant (5-layer · 5-phase) | C09 + C16 + C17 | A.42–A.47 + B.U.5 + B.AI.* | 🟢 phase-1 wired (per memory) |
+| **SPEC-STAIR-3D-CREATION** | Stair 3D creation UX | C11 + C15 | A.DU.T-H3, A.DU.CO.R17 (stair part) | 🟢 partial |
+| **SPEC-TGL-DETERMINISTIC-LAYOUT-ENGINE** | D-TGL apartment offline engine | C09 + C50 | apartmentLayout shipped | ✅ shipped |
+| **SPEC-WALL-MOVEMENT-STUDY** | Wall edit / move UX research | C11 + C15 | A.WJ.* + future UX work | 🟢 research; design pending |
+| **SPEC-WALL-SINGLE-VOLUME-CSG** | Wall CSG single-volume rendering | C11 | shipped per Pascal ADR-0055 P3b | ✅ shipped |
+| **PLAN-GENERATIVE-DESIGN-SPRINTS** | Generative design sprint plan | strategic | Phase A typology pipeline | superseded by [typology-expansion-roadmap.md](./typology-expansion-roadmap.md) |
+
+### §18.2 — NEW sub-phases surfaced by spec audit
+
+These specs identify scope not yet enumerated in §3–§17:
+
+| Sub-phase | ID | Title | Owning spec |
+|---|---|---|---|
+| **A.SP.32** | — | CDE module surface — ISO 19650 Common Data Environment integration (WIP → SHARED → PUBLISHED → ARCHIVED state machine UX). Per [SPEC-32-CDE-MODULE](../specs/SPEC-32-CDE-MODULE.md). Server-side state machine exists (`server/versionStateMachine.js`); UX + workflow surface pending. | SPEC-32 |
+| **A.SP.33** | — | Stakeholder review wedge — sign-off workflow for the stakeholder reviewers in the ISO 19650 CDE; per [SPEC-33-STAKEHOLDER-REVIEW-WEDGE](../specs/SPEC-33-STAKEHOLDER-REVIEW-WEDGE.md). | SPEC-33 |
+| **A.SP.38** | — | MEP systems framework — per [SPEC-38-MEP-SYSTEMS](../specs/SPEC-38-MEP-SYSTEMS.md). PRYZM ships lighting + plumbing + structural at the architectural level; MEP detailing primary tool is out of scope (per [engineering-vision §8](../../01-strategy/engineering-vision.md)). Phase A scope: MEP element typing + IFC4X3 export of MEP categories so consultants can take over downstream. | SPEC-38 |
+| **A.SP.39** | — | EIR / BEP / TIDP / MIDP ISO 19650 information-delivery documents — auto-generated from project metadata. Per [SPEC-39-EIR-BEP-TIDP-MIDP](../specs/SPEC-39-EIR-BEP-TIDP-MIDP.md). | SPEC-39 |
+| **B.SP.40** | — | buildingSMART IFC4 certification — official buildingSMART certification badge. Per [SPEC-40-BUILDINGSMART-IFC4-CERTIFICATION](../specs/SPEC-40-BUILDINGSMART-IFC4-CERTIFICATION.md). | SPEC-40 |
+| **B.SP.41** | — | Sheet × Schedule × 4D × 5D shared model — common live data substrate. Per [SPEC-41-SHEET-SCHEDULE-4D-5D-EXTENSIONS](../specs/SPEC-41-SHEET-SCHEDULE-4D-5D-EXTENSIONS.md). |
+| **B.SP.42** | — | Analysis bridge protocol — IFC round-trip with structural (Tekla · ETABS · SAP) + energy + acoustic analyzers. Per [SPEC-42-ANALYSIS-BRIDGE-PROTOCOL](../specs/SPEC-42-ANALYSIS-BRIDGE-PROTOCOL.md). |
+| **C.SP.43** | — | Sustainability + LCA + embodied carbon — per [SPEC-43-SUSTAINABILITY-LCA-CARBON](../specs/SPEC-43-SUSTAINABILITY-LCA-CARBON.md). Stretch goal; could land in Phase C as enterprise-customer requirement. |
+| **C.SP.45** | — | PDF-to-BIM pipeline (marketplace plugin) — `packages/pdf-to-bim/` already exists; full editor-host integration pending. Per [SPEC-45-PDF-TO-BIM-PIPELINE](../specs/SPEC-45-PDF-TO-BIM-PIPELINE.md). |
+| **B.SP.MAT** | — | Materials repository (project + global) — appearance + Pset properties; per [SPEC-MATERIALS-REPOSITORY](../specs/SPEC-MATERIALS-REPOSITORY.md). |
+| **A.SP.WMS** | — | Wall movement study UX — apply [SPEC-WALL-MOVEMENT-STUDY](../specs/SPEC-WALL-MOVEMENT-STUDY.md) research findings to drag + drop wall edit UX. |
+| **A.SP.S3D** | — | Stair 3D creation UX — apply [SPEC-STAIR-3D-CREATION](../specs/SPEC-STAIR-3D-CREATION.md); intersects A.DU.T-H3 (stair gizmo) + A.DU.CO.R17. |
+
+### §18.3 — Status-folder integration (gaps surfaced in `status/`)
+
+The status folder contains operational + analytical work items beyond `remaining-work-consolidated.md` (already absorbed in §16):
+
+#### §18.3.1 — Intent analysis (`status/intent-analysis/`)
+
+| Source doc | Surface | Sub-phase |
+|---|---|---|
+| [status/intent-analysis/master-implementation-plan.md](../status/intent-analysis/master-implementation-plan.md) | Master plan analysis | informational; superseded by H2 phase roadmaps |
+| [status/intent-analysis/orchestration-layer.md](../status/intent-analysis/orchestration-layer.md) | Orchestration-layer gaps | absorbed by A.U.* + A.42–A.47 |
+| [status/intent-analysis/panel-gaps.md](../status/intent-analysis/panel-gaps.md) | UI panel coverage gaps | absorbed by A.U.* |
+| [status/intent-analysis/ui-ux-design.md](../status/intent-analysis/ui-ux-design.md) | UI/UX design work | absorbed by A.U.* + B.S.*/B.I.*/B.D.* |
+| [status/intent-analysis/user-journeys.md](../status/intent-analysis/user-journeys.md) | User-journey gaps | absorbed by A.U.11 + A.PL.* + roadmap-enterprise-delivery |
+
+#### §18.3.2 — Performance analysis (`status/performance-analysis/`)
+
+| Source doc | Surface | Sub-phase |
+|---|---|---|
+| [status/performance-analysis/project-open-audit-2026-04.md](../status/performance-analysis/project-open-audit-2026-04.md) | Project-open audit findings | A.OI.053 (already enumerated) |
+| [status/performance-analysis/project-open-tracker-2026-04.md](../status/performance-analysis/project-open-tracker-2026-04.md) | Tracker for the above | A.OI.053 |
+
+#### §18.3.3 — Edges + lines (`status/edges-lines/`)
+
+| Source doc | Surface | Sub-phase |
+|---|---|---|
+| [status/edges-lines/flicker-fix-plan.md](../status/edges-lines/flicker-fix-plan.md) | Edge-line flicker fix | A.SP.EL.1 below |
+| [status/edges-lines/webgpu-overlay-depthbias.md](../status/edges-lines/webgpu-overlay-depthbias.md) | WebGPU overlay depth-bias | A.SP.EL.2 below |
+
+| Sub-phase | Title |
+|---|---|
+| **A.SP.EL.1** | Edge-line flicker fix — silver-bullet for first-paint visual quality |
+| **A.SP.EL.2** | WebGPU overlay depth-bias — depth-fighting workaround when WebGPU lands as default |
+
+#### §18.3.4 — Post-mortems + retros (continuous learning surface)
+
+| Source doc | Cadence |
+|---|---|
+| [status/post-mortems/pryzm-2-build.md](../status/post-mortems/pryzm-2-build.md) | Historical; informs operating-principles |
+| [status/retros/phase-1-close.md](../status/retros/phase-1-close.md) | Phase-1 close retro (active) |
+| [status/sprints/s18-retro.md](../status/sprints/s18-retro.md) | S18 retro |
+
+Per [cadence-and-planning-system §7](./cadence-and-planning-system.md), per-sprint retros are H5 cadence artefacts. The retro template + cadence is binding via [operating-principles §6.2](../../01-strategy/operating-principles.md).
+
+#### §18.3.5 — Apartment status
+
+| Source doc | Sub-phase |
+|---|---|
+| [status/apartment-layout-status.md](../status/apartment-layout-status.md) | A.APT.* (already enumerated) |
+| [status/apartment-status-dashboard.md](../status/apartment-status-dashboard.md) | A.APT.* dashboard view |
+
+#### §18.3.6 — Prior-art audit + senior-architect audit
+
+| Source doc | Phase |
+|---|---|
+| [status/prior-art-audit-2026-05-31.md](../status/prior-art-audit-2026-05-31.md) | Closed (informs all Phase A) |
+| [status/senior-architect-audit.md](../status/senior-architect-audit.md) | Open issues — already absorbed in §16 + A.OI.* |
+
+### §18.4 — REVISED grand-total rollup (after spec + status integration)
+
+| Layer | Sub-phases |
+|---|---|
+| Phase A | ~190 (§17) + A.SP.* (12 new) + A.OI.* (covered) + A.PR.* (covered) + A.DU.* (covered) + A.PV.* (covered) + A.APT.* (covered) + A.WJ.* (covered) + A.AM.* (covered) + A.SP.EL.* (2 new) = **~205** |
+| Phase B | ~90 (§17) + B.SP.* (3 new) = **~93** |
+| Phase C | ~65 (§17) + C.SP.* (2 new) = **~67** |
+| Phase D | ~10 (§17) = **~10** |
+| Cross-cutting (X.*) | ~16 (§17) = **~16** |
+| **GRAND TOTAL** | **~390 named deliverables across 5 years** |
+
+### §18.5 — Coverage verification — am I covering EVERYTHING now?
+
+After §18 the answer is **yes, materially** — within these documented residuals:
+
+| Surface | Covered? |
+|---|---|
+| All 49 contracts (C01-C49) → CANONICAL by end of Phase C | ✅ §12.2 |
+| All 56 specs → mapped to a delivering sub-phase | ✅ §18.1 + §18.2 |
+| All 25 PRYZM-first-party typologies | ✅ §3 + §4 + §5 |
+| All 247 status-doc work items (from remaining-work-consolidated) | ✅ §16 |
+| All UI/UX (editor · project · settings · onboarding · help · search · activity feed · notifications · marketplace · sheets · inspect · data · component editor · family marketplace · admin tools · marketing surfaces · mobile) | ✅ §12.3–12.12 |
+| Native Revit import + export (via IFC4 + Python adapter) | ✅ §12.6 |
+| AI commands (chat · generate · critique · voice · query · rules · edit · approval · cost · BYOK · personalisation · semantic assistant) | ✅ §12.7 + A.42-A.47 + B.AI.* |
+| Auth + Billing UX | ✅ §12.8 |
+| ISO 19650 (CDE · stakeholder review · EIR/BEP/TIDP/MIDP) | ✅ §18.2 A.SP.32 + .33 + .39 |
+| MEP architectural-level support | ✅ §18.2 A.SP.38 |
+| Materials repository | ✅ §18.2 B.SP.MAT |
+| Analysis bridge (structural · MEP · energy) | ✅ §18.2 B.SP.42 |
+| Sustainability + LCA + embodied carbon | ✅ §18.2 C.SP.43 |
+| PDF-to-BIM (marketplace plugin opportunity) | ✅ §18.2 C.SP.45 |
+| Edges + lines + flicker fixes | ✅ §18.3 A.SP.EL.* |
+| Wall movement UX | ✅ §18.2 A.SP.WMS |
+| Stair 3D creation UX | ✅ §18.2 A.SP.S3D + A.DU.T-H3 |
+| buildingSMART certification | ✅ §18.2 B.SP.40 |
+
+### §18.6 — Known scope still NOT in the tracker (by design)
+
+These are pushed to community + marketplace per [platform-strategy.md](../../01-strategy/platform-strategy.md):
+
+| Scope | Why not in tracker |
+|---|---|
+| Per-jurisdiction regulatory packs (UK Part M · ADA · DIN-Brandschutz · Japanese fire-code · 50+ regional codes) | Marketplace community opportunity |
+| Long-tail community-authored typologies (museum · prison · embassy · observatory · cleanroom · place-of-worship · ...) | Phase D + marketplace |
+| Customer-managed integrations (BIM360 · Procore · Bentley iTwin · Trimble Connect · Aconex · BIMcloud · ...) | Marketplace plugin opportunity per [platform-strategy §2.5](../../01-strategy/platform-strategy.md) |
+| Photoreal rendering primary tool | Out of scope per [engineering-vision §8](../../01-strategy/engineering-vision.md) |
+| Construction administration primary tool | Out of scope; Procore + PlanGrid own |
+| Facility management primary tool | Out of scope; Archibus + Maximo own |
+| 4D scheduling primary tool | Out of scope; Synchro + Asta own (PRYZM exports via C37) |
+| 5D cost primary tool | Out of scope; CostX owns (PRYZM exports via C38) |
+| Native desktop app | Out of scope per [C44](../../02-decisions/contracts/C44-MOBILE-AND-TABLET.md) |
+| Mobile native app | Out of scope per [C44 §1.10](../../02-decisions/contracts/C44-MOBILE-AND-TABLET.md) — PWA install fills this |
+
+The discipline of saying no is the same as Phase 1 (per [positioning §6](../../01-strategy/positioning.md)). These scope-cuts are not gaps in the tracker — they are deliberate.
+
+---
+
+*End — PRYZM Master Execution Tracker, 2026-06-01 — CANONICAL (with §12 coverage audit · §14 verification · §16 remaining-work integration · §17 grand-total rollup · §18 spec + status integration · §18.5 final coverage verification).*
