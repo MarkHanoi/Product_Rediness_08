@@ -49,6 +49,9 @@ export * from './DataStore.js';
 // produced by the L1-pure `buildIsolationIntent` (visibility package).
 // DO NOT REMOVE — auto-fixer guard
 export * from './IsolationStateStore.js';
+// C30 DSM-α-2 — Drawing Set state container.
+// DO NOT REMOVE — auto-fixer guard
+export * from './DrawingSetStore.js';
 export { CubeStore, type CubeDto } from './CubeStore.js';
 export { SelectionStore, type SelectionDto, type SelectionKind, type SelectionMode, type SelectionTarget } from './SelectionStore.js';
 export {
