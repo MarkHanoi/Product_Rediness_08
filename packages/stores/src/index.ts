@@ -38,6 +38,38 @@ export { SiteModelStore } from './SiteModelStore.js';
 // entry archive per §1.5. The `climate.*` command surface in A.10.e
 // calls `ingest()` after running Zod validation + license-compliance.
 export { ClimateStore } from './ClimateStore.js';
+// A.10.e (Phase A · Sprint 2) — climate.* command handlers per [C21 §4.1].
+// Pure functions `(payload, store) → ClimateCommandResult<Event>`.
+// 6 commands: ingestEPW · refreshNOAA · resolveSite · invalidateCache
+// · solarSample · windRose. The L5 adapter (apps/editor) wires these
+// to the command-bus + OTel spans + L5 file/HTTP fetch substrates.
+export {
+    climateIngestEpw,
+    climateRefreshNoaa,
+    climateResolveSite,
+    climateInvalidateCache,
+    climateSolarSample,
+    climateWindRose,
+    ClimateIngestEpwPayloadSchema,
+    ClimateRefreshNoaaPayloadSchema,
+    ClimateResolveSitePayloadSchema,
+    ClimateInvalidateCachePayloadSchema,
+    ClimateSolarSamplePayloadSchema,
+    ClimateWindRosePayloadSchema,
+    type ClimateIngestEpwPayload,
+    type ClimateRefreshNoaaPayload,
+    type ClimateResolveSitePayload,
+    type ClimateInvalidateCachePayload,
+    type ClimateSolarSamplePayload,
+    type ClimateWindRosePayload,
+    type ClimateCommandResult,
+    type ClimateCommandRejection,
+    type ClimateIngestedEvent,
+    type ClimateCacheInvalidatedEvent,
+    type ClimateResolvedEvent,
+    type ClimateSolarSampledEvent,
+    type ClimateWindRoseEvent,
+} from './climate-commands/index.js';
 // A.7.c (Phase A · Sprint 2) — site.* command handlers. Pure functions
 // `(payload, store) → SiteCommandResult<Event>`. The L5 adapter (command-
 // bus wiring + OTel span + LTP-ENU rebase + domain event emit) lives

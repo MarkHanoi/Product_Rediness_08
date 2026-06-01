@@ -2769,6 +2769,9 @@ importers:
       '@pryzm/ai-host':
         specifier: workspace:*
         version: link:../ai-host
+      '@pryzm/climate-host':
+        specifier: workspace:*
+        version: link:../climate-host
       '@pryzm/command-bus':
         specifier: workspace:*
         version: link:../command-bus
