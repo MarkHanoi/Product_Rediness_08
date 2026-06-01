@@ -250,4 +250,94 @@ describe('buildLayoutModalHtml (A5-modal)', () => {
         const noRooms = buildLayoutModalHtml([card()], [''], program, []);
         expect(noRooms).not.toContain('class="alm-legend"');
     });
+
+    // §VALIDATION-DETAILS (2026-06-01) — pill + expandable per-class details
+    // panel. The cardHtml renderer treats validation as OPTIONAL on the model
+    // (defensive guard for legacy fixtures), so we add a dedicated card
+    // builder that supplies a real ValidationBadge.
+    describe('validation pill + expandable details', () => {
+        const cardWithValidation = (badge: {
+            label: string; passesLegality: boolean; total: number;
+            errors: number; warnings: number; summaryLine: string;
+            markdownReport: string;
+        }) => ({ ...card(), validation: badge });
+
+        it('renders the validation pill + a closed details <pre> when validation is present', () => {
+            const html = buildLayoutCardGridHtml(
+                [cardWithValidation({
+                    label: '✓ Passes', passesLegality: true,
+                    total: 0, errors: 0, warnings: 0,
+                    summaryLine: '0 violations',
+                    markdownReport: '## Apartment Layout Validation Report\n\n**No violations.**',
+                }) as never],
+                ['<svg></svg>'],
+            );
+            expect(html).toContain('class="alm-validation-pill alm-validation-pill--ok"');
+            expect(html).toContain('data-action="toggle-validation"');
+            expect(html).toContain('aria-expanded="false"');
+            // Details panel rendered (CSS hides it; opens via .alm-card--expanded)
+            expect(html).toContain('class="alm-validation-details"');
+            expect(html).toContain('No violations');
+            // The pill label appears as button text.
+            expect(html).toContain('✓ Passes');
+        });
+
+        it('paints the pill amber for warnings-only and red for errors', () => {
+            const warnHtml = buildLayoutCardGridHtml(
+                [cardWithValidation({
+                    label: '2 warnings', passesLegality: true,
+                    total: 2, errors: 0, warnings: 2,
+                    summaryLine: '2 violations: 0 errors, 2 warnings (A-3×2)',
+                    markdownReport: 'fake report',
+                }) as never],
+                [''],
+            );
+            expect(warnHtml).toContain('alm-validation-pill--warn');
+
+            const errHtml = buildLayoutCardGridHtml(
+                [cardWithValidation({
+                    label: '1 error', passesLegality: false,
+                    total: 1, errors: 1, warnings: 0,
+                    summaryLine: '1 violation: 1 error, 0 warnings (G-1×1)',
+                    markdownReport: 'fake report',
+                }) as never],
+                [''],
+            );
+            expect(errHtml).toContain('alm-validation-pill--err');
+        });
+
+        it('details panel shows "Validation skipped" when markdownReport is empty', () => {
+            const html = buildLayoutCardGridHtml(
+                [cardWithValidation({
+                    label: '? Unknown', passesLegality: true,
+                    total: 0, errors: 0, warnings: 0,
+                    summaryLine: 'validation skipped (projector error)',
+                    markdownReport: '',
+                }) as never],
+                [''],
+            );
+            expect(html).toContain('alm-validation-pill--unknown');
+            expect(html).toContain('Validation skipped');
+        });
+
+        it('escapes the markdownReport in the details panel (XSS guard)', () => {
+            const html = buildLayoutCardGridHtml(
+                [cardWithValidation({
+                    label: '1 error', passesLegality: false,
+                    total: 1, errors: 1, warnings: 0,
+                    summaryLine: '1 error',
+                    markdownReport: '<img src=x onerror=alert(1)>',
+                }) as never],
+                [''],
+            );
+            expect(html).not.toContain('<img src=x');
+            expect(html).toContain('&lt;img src=x');
+        });
+
+        it('omits all validation HTML when the card model has no validation (back-compat)', () => {
+            const html = buildLayoutCardGridHtml([card()], ['']);
+            expect(html).not.toContain('alm-validation-pill');
+            expect(html).not.toContain('alm-validation-details');
+        });
+    });
 });

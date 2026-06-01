@@ -92,6 +92,22 @@ export class ApartmentLayoutModal {
                 if (Number.isInteger(idx)) { this.dismiss(); cb.onSelect(idx); }
                 return;
             }
+            // §VALIDATION-DETAILS (2026-06-01) — clicking the validation pill
+            // (or its caret child) toggles the per-card details panel showing
+            // the full markdown report. Scoped to the parent card so multiple
+            // cards can be expanded independently. STOP propagation to keep
+            // an expand-click from also being interpreted as a select-click.
+            const pill = target.closest('.alm-validation-pill') as HTMLElement | null;
+            if (pill) {
+                e.preventDefault();
+                e.stopPropagation();
+                const card = pill.closest('.alm-card') as HTMLElement | null;
+                if (card) {
+                    const expanded = card.classList.toggle('alm-card--expanded');
+                    pill.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+                }
+                return;
+            }
             // §CLICK-FOCUS (2026-05-29) — clicking a room polygon in any
             // thumbnail focuses the matching per-instance area input in the
             // program-edit form, so the user can re-size that exact room.

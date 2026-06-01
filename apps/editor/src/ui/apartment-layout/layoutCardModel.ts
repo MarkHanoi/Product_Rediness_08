@@ -79,7 +79,11 @@ export interface RoomRow {
 
 /** Per-card validation summary derived from `validateAndFormatLayout`.
  *  Surfaced as a small pill on the modal card so users can see at a glance
- *  whether the layout passes legality (zero errors) before they pick it. */
+ *  whether the layout passes legality (zero errors) before they pick it.
+ *  §VALIDATION-DETAILS (2026-06-01) — extended with `markdownReport`, the
+ *  full human-readable violation report the modal expands inline when the
+ *  user clicks the pill. Defensive empty string on the projector-error
+ *  path so the renderer can always read it without an existence check. */
 export interface ValidationBadge {
     /** True if zero errors. Layouts with only warnings still pass legality. */
     readonly passesLegality: boolean;
@@ -95,6 +99,11 @@ export interface ValidationBadge {
      *  "1 violation: 0 errors, 1 warning (A-2×1)". Defensive empty form
      *  on the projector-error path. */
     readonly summaryLine: string;
+    /** §VALIDATION-DETAILS (2026-06-01) — full markdown report
+     *  (`formatViolationReport(report)`) so the modal can expand the pill
+     *  into a per-class details panel. Always a string: empty on the
+     *  projector-error path (defensive — modal shows "Validation skipped"). */
+    readonly markdownReport: string;
 }
 
 export interface LayoutCardModel {
@@ -191,7 +200,10 @@ const cognitionBar = (key: ScoreBarKey, value: number | undefined): ScoreBar | n
 // data from the LayoutWall + LayoutWindow arrays.
 
 /** Defensive badge returned when the projector or validator throws — keeps
- *  the modal alive on a malformed option (NaN area, missing rooms, etc.). */
+ *  the modal alive on a malformed option (NaN area, missing rooms, etc.).
+ *  `markdownReport` is the empty string so the modal renderer can detect the
+ *  skipped-validation case and surface "Validation skipped" rather than an
+ *  empty details panel. */
 const UNKNOWN_BADGE: ValidationBadge = Object.freeze({
     passesLegality: true,
     total: 0,
@@ -199,6 +211,7 @@ const UNKNOWN_BADGE: ValidationBadge = Object.freeze({
     warnings: 0,
     label: '? Unknown',
     summaryLine: 'validation skipped (projector error)',
+    markdownReport: '',
 });
 
 /** True iff `n` is a finite, non-negative number. */
@@ -272,7 +285,8 @@ function optionToDto(option: LayoutOption): DtglLayoutDto {
 function buildValidationBadge(option: LayoutOption): ValidationBadge {
     try {
         const dto = optionToDto(option);
-        const { report, passesLegality, summaryLine } = validateAndFormatLayout(dto);
+        const { report, passesLegality, summaryLine, markdownReport } =
+            validateAndFormatLayout(dto);
         const total    = report.total;
         const errors   = report.errors;
         const warnings = report.warnings;
@@ -289,6 +303,11 @@ function buildValidationBadge(option: LayoutOption): ValidationBadge {
             warnings,
             label,
             summaryLine,
+            // §VALIDATION-DETAILS (2026-06-01) — plumb the full markdown
+            // report through so the modal can expand the pill into a
+            // per-class details panel. Defensive `?? ''` keeps the field
+            // typed as a string in case a future formatter returns undefined.
+            markdownReport: markdownReport ?? '',
         };
     } catch {
         return UNKNOWN_BADGE;

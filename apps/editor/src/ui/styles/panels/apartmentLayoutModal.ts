@@ -136,4 +136,54 @@ export const APARTMENT_LAYOUT_MODAL_STYLES = `
   border: 1px solid rgba(15, 23, 42, 0.12);
 }
 .alm-legend-label { white-space: nowrap; }
+
+/* §VALIDATION-BADGE / §VALIDATION-DETAILS (2026-06-01) — per-card pill +
+ * expandable per-class details panel. Pill colour reflects state
+ * (green = passes, amber = warnings only, red = errors, slate = unknown).
+ * Details panel is hidden by default; the modal controller toggles
+ * .alm-card--expanded on click. */
+.alm-validation-pill {
+  align-self: flex-start; cursor: pointer; user-select: none;
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px; border: 1px solid transparent; border-radius: 999px;
+  font: inherit; font-size: 11px; font-weight: 600;
+  background: #f1f5f9; color: #334155;
+  transition: background .12s, border-color .12s;
+}
+.alm-validation-pill:hover { background: #e2e8f0; }
+.alm-validation-pill:focus-visible {
+  outline: 2px solid #6600FF; outline-offset: 1px;
+}
+.alm-validation-pill--ok {
+  background: #ecfdf5; color: #047857; border-color: #a7f3d0;
+}
+.alm-validation-pill--ok:hover { background: #d1fae5; }
+.alm-validation-pill--warn {
+  background: #fffbeb; color: #b45309; border-color: #fde68a;
+}
+.alm-validation-pill--warn:hover { background: #fef3c7; }
+.alm-validation-pill--err {
+  background: #fef2f2; color: #b91c1c; border-color: #fecaca;
+}
+.alm-validation-pill--err:hover { background: #fee2e2; }
+.alm-validation-pill--unknown {
+  background: #f1f5f9; color: #64748b; border-color: #cbd5e1;
+}
+.alm-validation-caret {
+  font-size: 10px; line-height: 1; opacity: 0.65;
+  transition: transform .15s;
+}
+.alm-card--expanded .alm-validation-caret { transform: rotate(180deg); }
+
+.alm-validation-details {
+  display: none;
+  margin: 0; padding: 8px 10px;
+  background: #0f172a; color: #e2e8f0;
+  border: 1px solid #1e293b; border-radius: 6px;
+  font-family: ui-monospace, "Cascadia Code", "Menlo", "Consolas", monospace;
+  font-size: 10.5px; line-height: 1.5;
+  white-space: pre-wrap; word-wrap: break-word;
+  max-height: 320px; overflow-y: auto;
+}
+.alm-card--expanded .alm-validation-details { display: block; }
 `;

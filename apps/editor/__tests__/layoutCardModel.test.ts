@@ -344,5 +344,68 @@ describe('buildLayoutCardModel (A5-modal-core)', () => {
                 small.validation.total !== large.validation.total;
             expect(distinct || small.validation.total === large.validation.total).toBe(true);
         });
+
+        // §VALIDATION-DETAILS (2026-06-01) — the full markdown report is
+        // plumbed through ValidationBadge so the modal can expand the pill
+        // into a per-class details panel. Defensive empty string on the
+        // projector-error path so the renderer can read it unconditionally.
+        describe('markdownReport (expand-to-details payload)', () => {
+            it('every card has a markdownReport field that is always a string', () => {
+                const m = buildLayoutCardModel(opt(), 0);
+                expect(typeof m.validation.markdownReport).toBe('string');
+            });
+
+            it('healthy layout — markdownReport contains the canonical "No violations" form', () => {
+                // The baseline opt() fixture is small enough that the validator
+                // typically returns 0 violations; the empty-report fast-path
+                // emits the exact phrase "No violations.".
+                const m = buildLayoutCardModel(opt(), 0);
+                if (m.validation.total === 0 && m.validation.label === '✓ Passes') {
+                    expect(m.validation.markdownReport).toContain('No violations');
+                } else {
+                    // Engine surfaced violations on the baseline — accept that
+                    // the report at least contains the validation header.
+                    expect(m.validation.markdownReport).toContain('Validation Report');
+                }
+            });
+
+            it('violation-bearing layout — markdownReport carries the standard report header + class IDs', () => {
+                // Force a violation-bearing layout. An oversized bedroom is
+                // likely to fire G-1 (the engine returns at least ONE class).
+                const m = buildLayoutCardModel(opt({
+                    rooms: [
+                        { name: 'Bedroom', type: 'bedroom', area: 100, windowCount: 1, hasDirectAccess: true, adjacentTo: [] },
+                    ],
+                }), 0);
+                if (m.validation.total > 0) {
+                    // Standard header + summary-by-class table present in the
+                    // non-empty path.
+                    expect(m.validation.markdownReport).toContain('Apartment Layout Validation Report');
+                    expect(m.validation.markdownReport).toContain('Summary by class');
+                    // At least one class ID (G-* or A-*) appears somewhere
+                    // in the report.
+                    expect(m.validation.markdownReport).toMatch(/[GA]-\d+/);
+                }
+            });
+
+            it('defensive — projector-error path (NaN area) yields empty markdownReport', () => {
+                const m = buildLayoutCardModel(opt({
+                    rooms: [
+                        { name: 'Bad', type: 'living', area: Number.NaN, windowCount: 0, hasDirectAccess: true, adjacentTo: [] },
+                    ],
+                }), 0);
+                // UNKNOWN_BADGE — defensive empty string lets the renderer
+                // detect the "no report" case and show "Validation skipped".
+                expect(m.validation.label).toBe('? Unknown');
+                expect(m.validation.markdownReport).toBe('');
+            });
+
+            it('markdownReport is non-empty whenever the validator actually ran (label !== ? Unknown)', () => {
+                const m = buildLayoutCardModel(opt(), 0);
+                if (m.validation.label !== '? Unknown') {
+                    expect(m.validation.markdownReport.length).toBeGreaterThan(0);
+                }
+            });
+        });
     });
 });

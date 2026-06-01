@@ -170,6 +170,50 @@ export function buildProgramEditFormHtml(
     );
 }
 
+/**
+ * §VALIDATION-BADGE / §VALIDATION-DETAILS (2026-06-01) — pill + expandable
+ * details panel. The pill (`.alm-validation-pill`) is always rendered when
+ * the card carries a `validation` field; clicking it toggles the
+ * `.alm-card--expanded` class on the parent card (controller-side), which
+ * reveals the `<pre class="alm-validation-details">` block with the full
+ * markdown report from `validateAndFormatLayout`. Defensive `?? UNKNOWN`
+ * keeps this function safe against test fixtures that omit `validation`.
+ *
+ * Pill colour reflects state:
+ *   • `✓ Passes`      — green (`alm-validation-pill--ok`).
+ *   • `N warning(s)`  — amber (`alm-validation-pill--warn`).
+ *   • `N error(s)`    — red   (`alm-validation-pill--err`).
+ *   • `? Unknown`     — slate, "Validation skipped" details.
+ */
+function validationHtml(card: LayoutCardModel): string {
+    const v = card.validation;
+    if (!v) return '';
+    const stateClass = !v.passesLegality
+        ? 'alm-validation-pill--err'
+        : v.warnings > 0
+            ? 'alm-validation-pill--warn'
+            : v.label === '? Unknown'
+                ? 'alm-validation-pill--unknown'
+                : 'alm-validation-pill--ok';
+    const detailsBody = v.markdownReport && v.markdownReport.length > 0
+        ? escHtml(v.markdownReport)
+        : escHtml('Validation skipped — no report available.');
+    // `aria-expanded` flips when the controller toggles `.alm-card--expanded`;
+    // we render the static initial value here. `data-action="toggle-validation"`
+    // is the click hook the controller uses to scope its delegation.
+    return (
+        `<button type="button" class="alm-validation-pill ${stateClass}" ` +
+        `data-action="toggle-validation" data-index="${card.index}" ` +
+        `aria-expanded="false" ` +
+        `title="${escHtml(v.summaryLine)} — click for full report">` +
+        `${escHtml(v.label)}` +
+        `<span class="alm-validation-caret" aria-hidden="true">▾</span>` +
+        `</button>` +
+        `<pre class="alm-validation-details" data-role="validation-details">` +
+        `${detailsBody}</pre>`
+    );
+}
+
 function cardHtml(card: LayoutCardModel, safeThumb: string): string {
     const bars = card.bars.map(b =>
         `<div class="alm-bar"><span class="alm-bar-label">${escHtml(b.label)}</span>` +
@@ -191,6 +235,7 @@ function cardHtml(card: LayoutCardModel, safeThumb: string): string {
         `<div class="alm-bars">${bars}</div>` +
         `<div class="alm-meta">${card.roomCount} rooms · ${card.doorCount} doors · ${card.totalAreaM2} m²</div>` +
         `<ul class="alm-rooms">${rooms}</ul>` +
+        validationHtml(card) +
         `<button type="button" class="alm-select" data-index="${card.index}">Use this layout</button>` +
         `</div>`
     );
