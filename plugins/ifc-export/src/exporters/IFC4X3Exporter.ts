@@ -41,6 +41,10 @@ import {
   writeAllApartmentZones,
   type ApartmentToExport,
 } from './zone.js';
+import {
+  writePsetWallCommon,
+  type WallToExport as WallPsetInput,
+} from './pset-wall-common.js';
 import type { ExportedElement } from './wall.js';
 import type {
   ExportOptions,
@@ -186,6 +190,7 @@ export async function exportProjectToIFC4X3(
       const exported: ExportedElement[] = [];
       let psetCount = 0;
       let propertyCount = 0;
+      let wallPsetCount = 0;
 
       const runPsets = (el: ExportedElement) => {
         const meta = metaStore.get(el.pryzmId);
@@ -206,6 +211,23 @@ export async function exportProjectToIFC4X3(
         const el = exportWallIFC4X3({ api, modelId, hierarchy, ownerRefs, metaStore, wall, guid });
         exported.push(el);
         runPsets(el);
+
+        // IFC-α-4: every IfcWall additionally carries Pset_WallCommon. The
+        // PRYZM Wall schema does not (yet) track FireRating / U-value /
+        // LoadBearing / IsExternal — `pickWallCommonProps` filters absent
+        // fields out, so the worst-case pset contains only the default
+        // `Status = 'NEW'` (1 property). When the cognition-stack / family
+        // platform start populating these, they reach the file unchanged.
+        const wallInput: WallPsetInput = { id: wall.id };
+        const r = writePsetWallCommon(el.entity, wallInput, {
+          api,
+          modelId,
+          ownerRefs,
+          guid,
+        });
+        wallPsetCount += 1;
+        psetCount += 1;
+        propertyCount += r.propertyCount;
       }
       for (const slab of snapshot.slabs ?? []) {
         const el = exportSlab({ api, modelId, hierarchy, ownerRefs, metaStore, slab, guid });
@@ -332,12 +354,14 @@ export async function exportProjectToIFC4X3(
         beams: snapshot.beams?.length ?? 0,
         spaces: spaces.length,
         zones: zoneResult.zoneCount,
+        wallPsets: wallPsetCount,
         psets: psetCount,
         properties: propertyCount,
       };
       span.setAttribute('pryzm.ifc.export4x3.element_count', exported.length);
       span.setAttribute('pryzm.ifc.export4x3.space_count', spaces.length);
       span.setAttribute('pryzm.ifc.export4x3.zone_count', zoneResult.zoneCount);
+      span.setAttribute('pryzm.ifc.export4x3.wall_pset_count', wallPsetCount);
       span.setAttribute('pryzm.ifc.export4x3.pset_count', psetCount);
 
       const bytes = api.SaveModel(modelId);
