@@ -23,6 +23,7 @@ import {
     ContextBuildingSchema,
     type SiteModel,
 } from '@pryzm/schemas';
+import type { ContainmentReport, FARReport } from '@pryzm/site-validators';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Payload schemas (Zod-validated at the handler entry point per C16).
@@ -83,6 +84,66 @@ export type SiteSetParcelBoundaryPayload = z.infer<
     typeof SiteSetParcelBoundaryPayloadSchema
 >;
 
+/**
+ * `site.updateZoning` payload — per [C19 §4.1].
+ * Patches mutable parcel fields. The polygon is NOT touched (§1.4
+ * immutability). All four sub-fields are optional — caller supplies
+ * only what changes.
+ *
+ * NOTE: we declare the partial sub-objects explicitly (NOT
+ * `ParcelSetbacksSchema.partial()`) so Zod does not apply the L0
+ * schema's `.default(0)` when the caller omits a sub-axis — `partial()`
+ * on a defaulted schema still fills in defaults, which would erase the
+ * current setback values on patch.
+ */
+export const SiteUpdateZoningPayloadSchema = z.object({
+    siteId: SiteIdSchema,
+    zoning: z
+        .object({
+            category: z.string().min(1).nullable().optional(),
+            overlays: z.array(z.string().min(1)).optional(),
+            jurisdictionRef: z.string().min(3).max(64).nullable().optional(),
+        })
+        .optional(),
+    setbacks: z
+        .object({
+            front: z.number().min(0).optional(),
+            side: z.number().min(0).optional(),
+            rear: z.number().min(0).optional(),
+        })
+        .optional(),
+    maxFAR: z.number().min(0).nullable().optional(),
+    maxHeight: z.number().min(0).nullable().optional(),
+});
+export type SiteUpdateZoningPayload = z.infer<
+    typeof SiteUpdateZoningPayloadSchema
+>;
+
+/**
+ * `site.setFootprint` payload — per [C19 §4.1] + §1.6.
+ * Sets or replaces the BuildingFootprint. Containment + setback
+ * violations are surfaced as `warnings` per §1.6 ("non-fatal lint at
+ * edit time, hard at IFC export"); the command STILL succeeds.
+ */
+export const SiteSetFootprintPayloadSchema = z.object({
+    siteId: SiteIdSchema,
+    footprint: BuildingFootprintSchema,
+});
+export type SiteSetFootprintPayload = z.infer<
+    typeof SiteSetFootprintPayloadSchema
+>;
+
+/**
+ * `site.clearFootprint` payload — per [C19 §4.1].
+ * Sets `footprint` to `null`. Used when redrawing.
+ */
+export const SiteClearFootprintPayloadSchema = z.object({
+    siteId: SiteIdSchema,
+});
+export type SiteClearFootprintPayload = z.infer<
+    typeof SiteClearFootprintPayloadSchema
+>;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Result shapes — per the handler discriminated-union convention.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -99,12 +160,32 @@ export type SiteCommandRejection =
     | 'invalid-payload';                 // generic Zod failure shape
 
 /**
+ * Optional non-fatal warnings carried by an `ok: true` result. Per
+ * [C19 §1.6] containment + setback violations are surfaced as a
+ * non-fatal lint at edit time (Site Inspector §5.3) and a HARD fail
+ * at IFC export time (per C25 §1.4). Commands that COULD surface them
+ * (currently `site.setFootprint`) include them on success.
+ */
+export interface SiteCommandWarnings {
+    readonly containment?: ContainmentReport;
+    readonly far?: FARReport;
+}
+
+/**
  * Discriminated union — `ok: true` carries the domain event payload
  * ready for emission per [C19 §4.2]; `ok: false` carries the rejection
- * reason for the UI to surface.
+ * reason for the UI to surface. `warnings` is OPTIONAL on success:
+ * commands that do soft-lint checks (containment, FAR) include the
+ * report so the Site Inspector can render it without re-running the
+ * geometry.
  */
 export type SiteCommandResult<TEvent extends { type: string }> =
-    | { readonly ok: true; readonly event: TEvent; readonly site: SiteModel }
+    | {
+          readonly ok: true;
+          readonly event: TEvent;
+          readonly site: SiteModel;
+          readonly warnings?: SiteCommandWarnings;
+      }
     | { readonly ok: false; readonly reason: SiteCommandRejection; readonly message: string };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -128,4 +209,21 @@ export interface SiteParcelBoundarySetEvent {
     readonly siteId: string;
     readonly boundary: SiteModel['parcel']['boundary'];
     readonly area: number;
+}
+
+export interface SiteZoningUpdatedEvent {
+    readonly type: 'site.zoning-updated';
+    readonly siteId: string;
+    readonly parcel: SiteModel['parcel'];
+}
+
+export interface SiteFootprintSetEvent {
+    readonly type: 'site.footprint-set';
+    readonly siteId: string;
+    readonly footprint: NonNullable<SiteModel['footprint']>;
+}
+
+export interface SiteFootprintClearedEvent {
+    readonly type: 'site.footprint-cleared';
+    readonly siteId: string;
 }

@@ -32,27 +32,44 @@ export { buildCoreFamilySeeds } from './seedCoreFamilies.js';
 // per [C19 §1.13]. The `site.*` command surface in A.7.c will call
 // `set()` after running cross-schema validation.
 export { SiteModelStore } from './SiteModelStore.js';
-// A.7.c (Phase A · Sprint 2) — site.* command handlers (minimum viable
-// subset for the typology-pipeline Stage 2 site-context). Pure functions
+// A.7.c (Phase A · Sprint 2) — site.* command handlers. Pure functions
 // `(payload, store) → SiteCommandResult<Event>`. The L5 adapter (command-
 // bus wiring + OTel span + LTP-ENU rebase + domain event emit) lives
 // elsewhere and composes against these. Per [C19 §4].
+//
+//   A.7.c.1 MVS:        siteCreate / siteUpdateLocation / siteSetParcelBoundary
+//   A.7.c.2 (this):     siteUpdateZoning / siteSetFootprint / siteClearFootprint
+//   A.7.c.3+ planned:   context-building add/remove/replace · climate/building
+//                       link · whole-site replace · cascade-delete
 export {
     siteCreate,
     siteUpdateLocation,
     siteSetParcelBoundary,
+    siteUpdateZoning,
+    siteSetFootprint,
+    siteClearFootprint,
     deterministicSiteId,
     SiteCreatePayloadSchema,
     SiteUpdateLocationPayloadSchema,
     SiteSetParcelBoundaryPayloadSchema,
+    SiteUpdateZoningPayloadSchema,
+    SiteSetFootprintPayloadSchema,
+    SiteClearFootprintPayloadSchema,
     type SiteCreatePayload,
     type SiteUpdateLocationPayload,
     type SiteSetParcelBoundaryPayload,
+    type SiteUpdateZoningPayload,
+    type SiteSetFootprintPayload,
+    type SiteClearFootprintPayload,
     type SiteCommandResult,
     type SiteCommandRejection,
+    type SiteCommandWarnings,
     type SiteCreatedEvent,
     type SiteLocationChangedEvent,
     type SiteParcelBoundarySetEvent,
+    type SiteZoningUpdatedEvent,
+    type SiteFootprintSetEvent,
+    type SiteFootprintClearedEvent,
 } from './site-commands/index.js';
 // P0.5 Stage-5 wiring (Family Platform) — L0-pure-pipeline → L3-reactive-store
 // bridge.  Takes raw JSON, runs the 5-stage pure pipeline, and inserts the
