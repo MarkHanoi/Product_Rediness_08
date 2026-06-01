@@ -163,3 +163,11 @@ export {
 // (Door/Window Plan/Builder) now import from `@pryzm/visibility`.
 // @deprecated Contract 25b — new code MUST use the Visibility Intent system.
 export { vgGovernanceStore, type VGStyle } from './legacyGovernanceStore.js';
+
+// ─── C27 INS-α-3 (BIM 3.0 Inspect Model) — IsolationVisibilityIntent ───────
+//
+// L1 pure intent + apply function driving the BIM 3.0 Inspect tab's
+// selection-driven viewport isolation (per C27 §5 + master plan §11.2).
+// The scene-committer wires opacity in INS-α-4; this barrel only exposes
+// the pure intent surface.
+export * from './intents/index.js';
