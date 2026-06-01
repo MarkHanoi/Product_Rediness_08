@@ -5,10 +5,10 @@ status: BINDING — supersedes draft v1 (the @pryzm/legacy-bridge proposal) and 
 sourceOfTruthOrder: 08-VISION.md > 06-PRYZM-IDENTITY.md > this plan > S71 audit
 date: 2026-04-29
 relatedDocs:
-  - docs/03_PRYZM3/08-VISION.md
-  - docs/03_PRYZM3/reference/phases/audits/PRYZM2-FINAL-WIREUP-AUDIT-S71-2026-04-28.md
-  - docs/03_PRYZM3/reference/specs/SPEC-27-MIGRATION-ROLLBACK.md
-  - docs/architecture/adr/0031-s61-staged-legacy-deletion.md
+  - docs/archive/pryzm3-internal/08-VISION.md
+  - docs/03-execution/plans/legacy/phases/audits/PRYZM2-FINAL-WIREUP-AUDIT-S71-2026-04-28.md
+  - docs/03-execution/specs/SPEC-27-MIGRATION-ROLLBACK.md
+  - docs/02-decisions/adrs/0031-s61-staged-legacy-deletion.md
   - apps/editor/migrations/sunset-pryzm1.md
   - apps/editor/src/bootstrap.everything.ts
   - apps/editor/src/bootstrap.render.everything.ts

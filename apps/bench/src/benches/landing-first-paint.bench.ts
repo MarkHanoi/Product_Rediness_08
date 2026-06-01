@@ -1,6 +1,6 @@
 // Bench: `landing-first-paint` — Flow 1 NFT-1 verifier.
 //
-// Spec source: `docs/03_PRYZM3/04-PLAN-FORWARD/04-END-TO-END-FLOWS-AND-COVERAGE.md`
+// Spec source: `docs/archive/pryzm3-internal/04-PLAN-FORWARD/04-END-TO-END-FLOWS-AND-COVERAGE.md`
 // §1 Flow 1 ("Open landing page → first paint"):
 //
 //   | Stage | Surface | Runtime leg | Wave |

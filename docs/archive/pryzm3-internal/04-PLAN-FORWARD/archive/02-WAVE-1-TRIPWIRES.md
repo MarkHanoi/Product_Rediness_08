@@ -61,7 +61,7 @@ function main(): number {
   if (n > HARD_FAIL) {
     console.error(`[loc-tripwire] FAIL: ${FILE} = ${n} LOC > ${HARD_FAIL} (hard fail).`);
     console.error(`  This is a regression. The Wave 7 target is < 35 LOC (a re-export shim).`);
-    console.error(`  Read: docs/03_PRYZM3/04-PLAN-FORWARD/01-CRITICAL-PATH-D4.md`);
+    console.error(`  Read: docs/archive/pryzm3-internal/04-PLAN-FORWARD/01-CRITICAL-PATH-D4.md`);
     return 1;
   }
   if (n > SOFT_WARN) {
@@ -150,7 +150,7 @@ function main(): number {
   if (current > baseline) {
     console.error(`[cast-tripwire] FAIL: ${PATTERN} count = ${current} > baseline ${baseline}.`);
     console.error(`  A regression added ${current - baseline} new cast(s).`);
-    console.error(`  Read: docs/03_PRYZM3/04-PLAN-FORWARD/09-WAVE-5-CAST-DELETION.md`);
+    console.error(`  Read: docs/archive/pryzm3-internal/04-PLAN-FORWARD/09-WAVE-5-CAST-DELETION.md`);
     return 1;
   }
 
@@ -213,7 +213,7 @@ To fix:
   2. If the cast is genuinely necessary (e.g. browser global), add it to the allowlist
      in src/legacy/window-shim.ts (currently empty until Wave 5).
 
-See: docs/03_PRYZM3/04-PLAN-FORWARD/09-WAVE-5-CAST-DELETION.md §3 for the migration patterns.
+See: docs/archive/pryzm3-internal/04-PLAN-FORWARD/09-WAVE-5-CAST-DELETION.md §3 for the migration patterns.
 ```
 
 ---
@@ -355,7 +355,7 @@ grep -q "__tests__/quarantined/\*\*" packages/visibility/vitest.config.ts       
 [ -f .github/ISSUE_TEMPLATE/quarantine.md ] || exit 1
 
 # Doc reflects the new state
-grep -q 'quarantined' docs/03_PRYZM3/03-CURRENT-STATE.md
+grep -q 'quarantined' docs/archive/pryzm3-internal/03-CURRENT-STATE.md
 ```
 
 ### Honesty point (revised)
@@ -406,21 +406,21 @@ Replit personal calendar reminder, every Friday 16:00 UTC, with the link to `../
 >
 > **What stays in Wave 1 (this task)**: the narrower discipline that the **active 04-PLAN-FORWARD/[0-9][0-9]-*.md files** must not contain a stale OLD link target outside of explicit "prose-describing-the-rewrite" blocks (e.g. the OLD→NEW mapping table at `03-CURRENT-STATE.md §15.11.1`, the Wave-8 T1 deliverable text in file 11 §8 row 8, this very §7 STATUS block). Those prose blocks MUST literally contain the OLD strings to function — stripping them would break the documentation OF the rewrite. The Wave 1 verifier counts only **stale link targets outside such prose blocks**, in the active wave docs.
 >
-> **What moves to Wave 8 T1**: the bulk-rewrite of the remaining 344 reaches across the rest of `docs/03_PRYZM3/` (e.g. `reference/`, `archive/superseded-2026-04-30/cross-references/`), source-code historical comments (`apps/*`, `plugins/*`, `packages/*` README files), and any external-style references that survived the consolidation.
+> **What moves to Wave 8 T1**: the bulk-rewrite of the remaining 344 reaches across the rest of `docs/archive/pryzm3-internal/` (e.g. `reference/`, `archive/superseded-2026-04-30/cross-references/`), source-code historical comments (`apps/*`, `plugins/*`, `packages/*` README files), and any external-style references that survived the consolidation.
 
 ### Background (preserved as the original intent)
 
 After the 2026-04-30 consolidation, the active 4 docs reference `archive/superseded-2026-04-30/...` for historical sources. But other parts of the tree (the parent `docs/` tree, `apps/*` source comments, README files) still reference the old paths:
-- `docs/00_NEW_ARCHITECTURE/` (old name for what is now `docs/03_PRYZM3/`)
-- `wireup-S72/...` (old name for what is now `docs/03_PRYZM3/reference/wireup-2026/`)
+- `docs/00_NEW_ARCHITECTURE/` (old name for what is now `docs/archive/pryzm3-internal/`)
+- `wireup-S72/...` (old name for what is now `docs/archive/pryzm3-internal/reference/wireup-2026/`)
 
 ### Implementation (Wave 1 portion — discipline-rule-1 honest)
 
-The Wave 1 task ensures that within `docs/03_PRYZM3/04-PLAN-FORWARD/[0-9][0-9]-*.md` (the seven active wave plans + critical-path doc), no NEW **markdown link target** points at a stale OLD path. The verifier deliberately matches markdown link target syntax `](…OLD…)` rather than the bare string OLD-path, because the convention paragraphs in this very §7 (and the Wave 8 T1 deliverable spec in file 11 §8 row 8) MUST quote the OLD strings as plain prose to function — stripping prose mentions would break the documentation OF the rewrite. A real bad-merge regression would land as a markdown link of the form `[some text](docs/<OLD_DIR>/foo.md)` where `<OLD_DIR>` is one of the renamed directories listed in the Background block above, and that IS what the verifier catches.
+The Wave 1 task ensures that within `docs/archive/pryzm3-internal/04-PLAN-FORWARD/[0-9][0-9]-*.md` (the seven active wave plans + critical-path doc), no NEW **markdown link target** points at a stale OLD path. The verifier deliberately matches markdown link target syntax `](…OLD…)` rather than the bare string OLD-path, because the convention paragraphs in this very §7 (and the Wave 8 T1 deliverable spec in file 11 §8 row 8) MUST quote the OLD strings as plain prose to function — stripping prose mentions would break the documentation OF the rewrite. A real bad-merge regression would land as a markdown link of the form `[some text](docs/<OLD_DIR>/foo.md)` where `<OLD_DIR>` is one of the renamed directories listed in the Background block above, and that IS what the verifier catches.
 
 ```bash
 # 0 stale markdown link targets inside the active wave-plan files:
-rg --no-heading -n '\]\(.{0,200}?(00_NEW_ARCHITECTURE/|wireup-S72/)' docs/03_PRYZM3/04-PLAN-FORWARD/[0-9][0-9]-*.md
+rg --no-heading -n '\]\(.{0,200}?(00_NEW_ARCHITECTURE/|wireup-S72/)' docs/archive/pryzm3-internal/04-PLAN-FORWARD/[0-9][0-9]-*.md
 # Expect: 0 hits (verified 2026-04-30 night). Any hit is a Wave 1 incident.
 ```
 
@@ -442,7 +442,7 @@ node scripts/codemod-restructure-2026-04-30.mjs --apply
 # 0 stale MARKDOWN LINK TARGETS in the active wave-plan + critical-path docs.
 # (Plain prose mentions of the OLD strings are allowed and required by the
 # convention paragraphs in §7 + file 11 §8 row 8.)
-[ "$(rg --no-heading -n '\]\(.{0,200}?(00_NEW_ARCHITECTURE/|wireup-S72/)' docs/03_PRYZM3/04-PLAN-FORWARD/[0-9][0-9]-*.md | wc -l)" -eq 0 ]
+[ "$(rg --no-heading -n '\]\(.{0,200}?(00_NEW_ARCHITECTURE/|wireup-S72/)' docs/archive/pryzm3-internal/04-PLAN-FORWARD/[0-9][0-9]-*.md | wc -l)" -eq 0 ]
 ```
 
 ---
@@ -497,12 +497,12 @@ pnpm test:ci                                                                    
 test -f .github/ISSUE_TEMPLATE/quarantine.md                                                             # quarantine template present
 
 # Task 5: §10 cadence (≥ 4 dated entries; today: 8)
-[ "$(rg -c '^### 2026-' docs/03_PRYZM3/03-CURRENT-STATE.md | head -1)" -ge 4 ]
+[ "$(rg -c '^### 2026-' docs/archive/pryzm3-internal/03-CURRENT-STATE.md | head -1)" -ge 4 ]
 
 # Task 6: 0 stale MARKDOWN LINK TARGETS in the seven active wave-plan docs.
 # Plain prose mentions of OLD strings are allowed (the convention paragraphs
 # require them). Note: the repo-wide 344-reach rewrite is Wave 8 T1, NOT Wave 1.
-[ "$(rg --no-heading -n '\]\(.{0,200}?(00_NEW_ARCHITECTURE/|wireup-S72/)' docs/03_PRYZM3/04-PLAN-FORWARD/[0-9][0-9]-*.md | wc -l)" -eq 0 ]
+[ "$(rg --no-heading -n '\]\(.{0,200}?(00_NEW_ARCHITECTURE/|wireup-S72/)' docs/archive/pryzm3-internal/04-PLAN-FORWARD/[0-9][0-9]-*.md | wc -l)" -eq 0 ]
 
 # Task 7: importer-snapshot file format scaffolded
 [ -f .ga-gate/baselines/engine-bootstrap-importers.json ]

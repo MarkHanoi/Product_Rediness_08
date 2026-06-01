@@ -2,7 +2,7 @@
 
 > **Date**: 2026-05-14
 > **Auditor**: Comprehensive audit — every factual claim below was verified directly in source code via `grep`, `find`, and direct file reads. Where documentation and code diverge, code wins. Discrepancies are called out explicitly.
-> **Scope**: Full platform — source code (apps/, packages/, plugins/, server/, tools/), all `03_PRYZM3/` docs (01–07), all `04-PLAN-FORWARD/` sprint plans (Waves A1–AU), all contracts (C00–C13), `InterviewDAR.docx` architectural narrative
+> **Scope**: Full platform — source code (apps/, packages/, plugins/, server/, tools/), all `archive/pryzm3-internal/` docs (01–07), all `04-PLAN-FORWARD/` sprint plans (Waves A1–AU), all contracts (C00–C13), `InterviewDAR.docx` architectural narrative
 > **Build baseline**: Sprint AU · `pnpm tsc --noEmit` → 0 errors · `npm run dev` → port 5000 healthy · `pnpm run ga-gates` → 15/15 EXIT:0
 
 ---

@@ -2,16 +2,16 @@
 
 **Status**: Accepted (sprint-scoped — S72, 2026-04-29)
 **Sprint**: PRYZM 2 Phase 3D · S72 (M36 GA Launch Gate, weeks 143–144)
-**Spec source**: `docs/03_PRYZM3/reference/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S72 (lines 394–488) + §3 GA Gate criteria + §6 gap-closure + §8 handoff
+**Spec source**: `docs/03-execution/plans/legacy/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S72 (lines 394–488) + §3 GA Gate criteria + §6 gap-closure + §8 handoff
 **Companion docs**:
 - `apps/bench/reports/S72-m36-ga-launch-gate-2026-04-29.md` (sprint report)
 - `apps/bench/reports/M36-GA.md` (milestone bench rollup, §3 line 483)
-- `docs/03_PRYZM3/archive/superseded-audits/PHASE-3D-S72-M36-GA-LAUNCH-GATE-2026-04-29.md` (sprint audit)
-- `docs/post-mortems/PRYZM-2-build.md` (36-month post-mortem, §3 line 487)
-- `docs/roadmap/post-GA.md` (§8 handoff item 11)
+- `docs/archive/pryzm3-internal/superseded-audits/PHASE-3D-S72-M36-GA-LAUNCH-GATE-2026-04-29.md` (sprint audit)
+- `docs/03-execution/status/post-mortems/PRYZM-2-build.md` (36-month post-mortem, §3 line 487)
+- `docs/03-execution/plans/post-ga-roadmap.md` (§8 handoff item 11)
 - `RELEASE-NOTES-2.0.0.md` (root) + `pryzm-selfhost/RELEASE-NOTES-2.0.0.md` (self-host bundle)
-- `docs/operations/pryzm-1-sunset.md` + `docs/operations/cut-list-log.md` + `docs/operations/status-page-and-on-call.md`
-- `docs/marketing/GA-LAUNCH-BLOG-POST.md` (D6 deliverable)
+- `docs/03-execution/plans/pryzm-1-sunset.md` + `docs/03-execution/status/cut-list-log.md` + `docs/05-guides/enterprise/operations/status-page-and-on-call.md`
+- `docs/03-execution/plans/launch/GA-LAUNCH-BLOG-POST.md` (D6 deliverable)
 
 ---
 
@@ -23,7 +23,7 @@ D1 final integration sweep, D2 monitoring + alerting verification,
 D3 support workflow + status page, D4 launch dry-run, D5 release tag
 + notes + `apps/bench/reports/M36-GA.md`, D6 launch blog post, **D7
 LAUNCH (Tuesday)**, D8 first-24h monitoring, D9 48-hour triage, D10
-retro + `docs/post-mortems/PRYZM-2-build.md`.
+retro + `docs/03-execution/status/post-mortems/PRYZM-2-build.md`.
 
 A subset of the daily plan is necessarily operator-side: the actual
 `git tag v2.0.0`, the LAUNCH announcement, the first-24h on-call,
@@ -108,7 +108,7 @@ named in §G of this ADR.
 `(window as any)` sites repo-wide" but the GA bundle ships the
 PRYZM 2 trees only. The kill-switched PRYZM 1 `src/` tree retains
 the legacy footprint and is the documented honest carry-forward
-(`docs/operations/pryzm-1-sunset.md` §3 — delete `src/` after the
+(`docs/03-execution/plans/pryzm-1-sunset.md` §3 — delete `src/` after the
 90-day sunset window). The test asserts the invariant for the trees
 that GA actually ships (`apps/api-gateway`, `apps/sync-server`,
 `apps/bake-worker`).
@@ -151,7 +151,7 @@ One-line constant flip + release-notes delta. No API change.
 
 The phase-doc §S72 context says *"PRYZM 1 sunset announced (90-day
 migration window — already counting from S61)"*. The sunset doc
-(`docs/operations/pryzm-1-sunset.md`, NEW this commit) records:
+(`docs/03-execution/plans/pryzm-1-sunset.md`, NEW this commit) records:
 
 - The sunset announcement date = S61 close (≈ 2026-Q1).
 - The window length = 90 days (3 months).
@@ -169,10 +169,10 @@ migration window — already counting from S61)"*. The sunset doc
 issue during the window, the sunset is paused; tracked via the
 `pryzm-1-sunset` issue label.
 
-### E — Post-GA roadmap = `docs/roadmap/post-GA.md`
+### E — Post-GA roadmap = `docs/03-execution/plans/post-ga-roadmap.md`
 
 §8 handoff item 11 reads *"Post-GA roadmap document drafted at
-`docs/roadmap/post-GA.md` with the §7 items prioritised."* This
+`docs/03-execution/plans/post-ga-roadmap.md` with the §7 items prioritised."* This
 commit creates that file (NEW, 30+ lines) covering all 9 §7 items:
 
 1. Native mobile authoring app (NG4) — P3.
@@ -194,7 +194,7 @@ real-browser, undo-single bench, persistence-client constructor fix,
 real customer signal; the priority column is the only thing that
 moves; the items themselves stay.
 
-### F — Cut-list final state = `docs/operations/cut-list-log.md`
+### F — Cut-list final state = `docs/03-execution/status/cut-list-log.md`
 
 `[strategic ADR-018]` Tier-1 + Tier-2 cut-list final state at GA:
 
@@ -209,7 +209,7 @@ moves; the items themselves stay.
 | T2.6 | Defer multi-region | open | **CUT** (per ADR-0049) | S67 D9 |
 
 Plus the in-flight cuts from S55–S72 audit deferrals. Full table in
-`docs/operations/cut-list-log.md`.
+`docs/03-execution/status/cut-list-log.md`.
 
 **Reversal trigger**: any cut's reversal is documented in the same
 file with the post-GA sprint that owns the un-cut. Reversal cost
@@ -217,7 +217,7 @@ column carried forward from the original cut decision.
 
 ### G — Operator-side carry-forward register (consolidated)
 
-The 26-item carry-forward register from `docs/post-mortems/PRYZM-2-build.md`
+The 26-item carry-forward register from `docs/03-execution/status/post-mortems/PRYZM-2-build.md`
 §5 is the canonical M36 operator-side hand-off list. Highlights:
 
 - LAUNCH on D7 (Tuesday) — calendar gate.
@@ -265,7 +265,7 @@ owning audit; this ADR's consolidated table is for sign-off ergonomics.
 | Type   | Reference                                                                                       | Why it matters                                                                                  |
 |--------|--------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------|
 | ADR    | ADR-0048 (S67 self-host docker-compose §B code-stability invariant)                             | Boundary preserved — zero edits inside `apps/{api-gateway,sync-server,bake-worker,editor}/src` |
-| ADR    | ADR-0049 (S67 D9 multi-region cut)                                                               | Multi-region cuts kept; reversal cost = 2 sprints, post-GA per `docs/roadmap/post-GA.md`       |
+| ADR    | ADR-0049 (S67 D9 multi-region cut)                                                               | Multi-region cuts kept; reversal cost = 2 sprints, post-GA per `docs/03-execution/plans/post-ga-roadmap.md`       |
 | ADR    | ADR-0050 (S68 security hardening posture)                                                        | Quality §3 baseline; CSP/RLS/OAuth2/SAML+SCIM/scans/secret-rotation pointers                    |
 | ADR    | ADR-0051 (S69 perf hardening)                                                                    | warn-only landing of largest-model bench; reversal contract for warn→hardFail flip              |
 | ADR    | ADR-0052 (S70 browser-matrix + WCAG + self-host publish + PDF preview + lifecycle deletion)      | §E PDF preview gate stays; §B.7 src/lifecycle deletion stays                                   |
@@ -279,13 +279,13 @@ owning audit; this ADR's consolidated table is for sign-off ergonomics.
 | Strategic ADR | `[strategic ADR-029]` PDF-to-BIM accuracy thresholds                                     | Decision C + ADR-0052 §E                                                                        |
 | Bench  | `apps/bench/reports/M36-GA.md` (NEW this commit)                                                 | Phase-doc §3 line 483 ("`apps/bench/reports/M36-GA.md` published")                              |
 | Bench  | `apps/bench/reports/S72-m36-ga-launch-gate-2026-04-29.md` (NEW this commit)                      | Sprint report                                                                                   |
-| Audit  | `docs/03_PRYZM3/archive/superseded-audits/PHASE-3D-S72-M36-GA-LAUNCH-GATE-2026-04-29.md` (NEW)            | Sprint audit                                                                                    |
-| Doc    | `docs/post-mortems/PRYZM-2-build.md` (NEW this commit)                                           | Phase-doc §3 line 487 + §8 item 2                                                               |
-| Doc    | `docs/roadmap/post-GA.md` (NEW this commit)                                                      | Phase-doc §8 item 11                                                                            |
-| Doc    | `docs/operations/pryzm-1-sunset.md` (NEW this commit)                                            | Phase-doc §S72 context (90-day window)                                                          |
-| Doc    | `docs/operations/cut-list-log.md` (NEW this commit)                                              | Decision F                                                                                       |
-| Doc    | `docs/operations/status-page-and-on-call.md` (NEW this commit)                                   | Phase-doc §S72 D3 + §8 items 3+4+5                                                              |
-| Doc    | `docs/marketing/GA-LAUNCH-BLOG-POST.md` (NEW this commit)                                        | Phase-doc §S72 D6                                                                               |
+| Audit  | `docs/archive/pryzm3-internal/superseded-audits/PHASE-3D-S72-M36-GA-LAUNCH-GATE-2026-04-29.md` (NEW)            | Sprint audit                                                                                    |
+| Doc    | `docs/03-execution/status/post-mortems/PRYZM-2-build.md` (NEW this commit)                                           | Phase-doc §3 line 487 + §8 item 2                                                               |
+| Doc    | `docs/03-execution/plans/post-ga-roadmap.md` (NEW this commit)                                                      | Phase-doc §8 item 11                                                                            |
+| Doc    | `docs/03-execution/plans/pryzm-1-sunset.md` (NEW this commit)                                            | Phase-doc §S72 context (90-day window)                                                          |
+| Doc    | `docs/03-execution/status/cut-list-log.md` (NEW this commit)                                              | Decision F                                                                                       |
+| Doc    | `docs/05-guides/enterprise/operations/status-page-and-on-call.md` (NEW this commit)                                   | Phase-doc §S72 D3 + §8 items 3+4+5                                                              |
+| Doc    | `docs/03-execution/plans/launch/GA-LAUNCH-BLOG-POST.md` (NEW this commit)                                        | Phase-doc §S72 D6                                                                               |
 | Doc    | `RELEASE-NOTES-2.0.0.md` (root, NEW this commit)                                                 | Phase-doc §S72 D5 ("release tag + notes")                                                       |
 | Test   | `tests/ga-gate/__tests__/*.test.ts` (NEW this commit)                                            | Decision B; the runtime gate                                                                    |
 

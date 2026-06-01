@@ -158,7 +158,7 @@ The thresholds (20 / 50 / 100, hysteresis at 30) are **defaults**. They are pinn
 
 - `apps/bench/src/benches/ai-batch-emission.bench.ts` — synthetic AI emission at 1, 10, 100, 1,000 events/s into a real bake worker; measures end-to-end p95 vs queue depth.
 - `apps/bench/src/benches/ai-batch-coexistence.bench.ts` — AI emission concurrent with human edit; measures human-edit p95 (must remain < 80 ms p95 per SPEC-30 §2 medium tier).
-- Re-tune at S50 D5 once the AI floor-plan import lands. Threshold changes require a sprint-scoped ADR (`docs/architecture/adr/NNNN-ai-backpressure-tune.md`).
+- Re-tune at S50 D5 once the AI floor-plan import lands. Threshold changes require a sprint-scoped ADR (`docs/02-decisions/adrs/NNNN-ai-backpressure-tune.md`).
 
 ### §3.6 Anti-patterns this SPEC forbids
 

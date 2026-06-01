@@ -39,7 +39,7 @@ proposed as an addition with an ADR.
 ├─ tests/                      —    — cross-package suites (parity, integration, ci)
 ├─ scripts/                    —    — Node scripts (CI, isolation guards)
 ├─ docs/
-│   ├─ 03_PRYZM3/    —    — this proposal lives here
+│   ├─ archive/pryzm3-internal/    —    — this proposal lives here
 │   ├─ architecture/           —    — handover docs + ADRs
 │   ├─ demos/                  —    — milestone demo scripts
 │   ├─ sprints/                —    — sprint retros (S07-retro, S18-retro, ...)
@@ -300,7 +300,7 @@ their declared CLI surface.
 
 ```
 docs/
-├─ 03_PRYZM3/               — strategic & architectural truth
+├─ archive/pryzm3-internal/               — strategic & architectural truth
 │  ├─ 00-AUDIT.md                     — entry-point audit
 │  ├─ 01-TARGET-ARCHITECTURE.md       — target diagram + invariants
 │  ├─ 02-ORCHESTRATION.md             — agent / sprint orchestration
@@ -374,7 +374,7 @@ paths, and normalises stems via `toStem()`.
 
 ---
 
-## §10 `docs/architecture/adr/` — code-level ADRs
+## §10 `docs/02-decisions/adrs/` — code-level ADRs
 
 | #   | File                                                | Owner phase |
 |-----|-----------------------------------------------------|-------------|
@@ -441,9 +441,9 @@ the spec line that motivated it and (b) add a row to this document.
 | `tests/ci/` (parity-non-empty)             | 1               |      1   | ✅ |
 | `apps/bench/reports/` (7 milestone reports + 12 producer baselines) | 19 | 19  | ✅ |
 | `apps/bench/src/dashboard/` (6 modules)    | 6               |      6   | ✅ |
-| `docs/architecture/adr/` (21 code-level ADRs) | 21           |     21   | ✅ |
-| `docs/03_PRYZM3/reference/phases/` (8 phase docs + audits) | 9+5  |  9+5   | ✅ |
-| `docs/demos/` (script + README, no .mp4)   | script + README |  script  | ✅ (link-out) |
+| `docs/02-decisions/adrs/` (21 code-level ADRs) | 21           |     21   | ✅ |
+| `docs/03-execution/plans/legacy/phases/` (8 phase docs + audits) | 9+5  |  9+5   | ✅ |
+| `docs/05-guides/developer/demos/` (script + README, no .mp4)   | script + README |  script  | ✅ (link-out) |
 | Legacy PRYZM 1 roots (`client/`, `editor/`, `src/`, `server.js`, ...) | present | ring-fenced | ⚠ deferred to 2A §S26 |
 | `tests/*.spec.test.ts` double-suffix       | 5 files         | rename to `*.test.ts` | ⚠ housekeeping |
 

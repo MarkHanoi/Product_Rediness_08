@@ -934,7 +934,7 @@ STEP 10. Delete the source directory
   rm -rf src/engine/subsystems/<name>/
   # Re-run pnpm tsc --noEmit — must still exit 0.
   # Run all GA gates — all must exit 0.
-  # Update LOC metrics in docs/03_PRYZM3/03-CURRENT-STATE.md §1.
+  # Update LOC metrics in docs/archive/pryzm3-internal/03-CURRENT-STATE.md §1.
 ```
 
 #### §3.0 — Package.json template
@@ -1786,8 +1786,8 @@ ls src/engine/subsystems/
 # Must list only .ts shim files, no directories (or be entirely empty)
 ```
 
-Update `docs/03_PRYZM3/03-CURRENT-STATE.md` §1 with new LOC metrics.  
-Update `docs/03_PRYZM3/00-PROCESS-TRACKER.md` with completion entries.
+Update `docs/archive/pryzm3-internal/03-CURRENT-STATE.md` §1 with new LOC metrics.  
+Update `docs/archive/pryzm3-internal/00-PROCESS-TRACKER.md` with completion entries.
 
 ---
 
@@ -2002,8 +2002,8 @@ rg "from '.*engine/subsystems/<name>" --type ts -l | grep -v node_modules | wc -
 
 After each subphase completes:
 1. Mark the priority row in `46-IMPLEMENTATION-PLAN-2026-05-08.md` table as `✅ DONE <date>`.
-2. Update `docs/03_PRYZM3/03-CURRENT-STATE.md` §1 with new LOC metrics.
-3. Increment process tracker in `docs/03_PRYZM3/00-PROCESS-TRACKER.md` with one entry per completed subphase.
+2. Update `docs/archive/pryzm3-internal/03-CURRENT-STATE.md` §1 with new LOC metrics.
+3. Increment process tracker in `docs/archive/pryzm3-internal/00-PROCESS-TRACKER.md` with one entry per completed subphase.
 4. Update this document's §1 baseline table with the post-extraction measured values.
 
 ---
@@ -3329,15 +3329,15 @@ find packages -name '*.ts' | xargs wc -l | tail -1
 ### Sprint R doc-stamp sequence (after all gates green)
 
 ```bash
-# 1. Update docs/03_PRYZM3/00-PROCESS-TRACKER.md
+# 1. Update docs/archive/pryzm3-internal/00-PROCESS-TRACKER.md
 #    - Increment revision to 65
 #    - Add Sprint R row: date, subphases R-1 through R-5, LOC delta, status ✅ DONE
 
-# 2. Update docs/03_PRYZM3/03-CURRENT-STATE.md
+# 2. Update docs/archive/pryzm3-internal/03-CURRENT-STATE.md
 #    - §1 metrics: src/ LOC, packages/ LOC, ratio
 #    - Mark Sprint R as DONE in sprint table
 
-# 3. Update docs/03_PRYZM3/04-PLAN-FORWARD/47-EXTRACTION-SUBPHASES-5.1-5.2.md
+# 3. Update docs/archive/pryzm3-internal/04-PLAN-FORWARD/47-EXTRACTION-SUBPHASES-5.1-5.2.md
 #    - §1 ratio table: add Sprint R row
 #    - §5 sprint table: mark Sprint R ✅ DONE
 #    - Update "current sprint" pointer to Sprint S

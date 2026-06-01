@@ -1,7 +1,7 @@
 # Phase 3C — Plugin SDK 1.0, Marketplace, Public REST/WS, Headless npm
 ## Q3 of Phase 3 · Months 31–33 · Sprints S61–S66
 
-> **Authority note (added 2026-04-27).** This sub-phase doc is subordinate to the SPEC and ADR series. Conflict precedence: `docs/03_PRYZM3/reference/specs/SPEC-*` → `docs/03_PRYZM3/reference/adrs/ADR-*` (cited as `[strategic ADR-NNN]`) → `10-MASTER-IMPLEMENTATION-PLAN-36M.md` → `CRITICAL-REVIEW-2026-04-27.md` → `05-IMPLEMENTATION-PLAN.md` → this phase doc. Sprint-scoped ADRs in `docs/architecture/adr/NNNN-slug.md` are cited as `[ADR NNNN-slug]`.
+> **Authority note (added 2026-04-27).** This sub-phase doc is subordinate to the SPEC and ADR series. Conflict precedence: `docs/03-execution/specs/SPEC-*` → `docs/02-decisions/adrs/ADR-*` (cited as `[strategic ADR-NNN]`) → `10-MASTER-IMPLEMENTATION-PLAN-36M.md` → `CRITICAL-REVIEW-2026-04-27.md` → `05-IMPLEMENTATION-PLAN.md` → this phase doc. Sprint-scoped ADRs in `docs/02-decisions/adrs/NNNN-slug.md` are cited as `[ADR NNNN-slug]`.
 >
 > **Strategic anchor**: `08-VISION.md` → `10-MASTER-IMPLEMENTATION-PLAN-36M.md` §6 → `phases/PHASE-3-COMPLETION-GA-M25-M36.md` §4 → this file.
 >

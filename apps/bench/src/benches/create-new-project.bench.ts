@@ -1,7 +1,7 @@
 // Bench: `persistence.openProject.new-project-hint` — < 5 ms p95.
 //
 // Flow-9 named-verifier proxy.  Spec at
-// `docs/03_PRYZM3/04-PLAN-FORWARD/04-END-TO-END-FLOWS-AND-COVERAGE.md`
+// `docs/archive/pryzm3-internal/04-PLAN-FORWARD/04-END-TO-END-FLOWS-AND-COVERAGE.md`
 // §1 Flow 9 (Project Hub "+ New project" → workspace mount).
 //
 // What this bench protects

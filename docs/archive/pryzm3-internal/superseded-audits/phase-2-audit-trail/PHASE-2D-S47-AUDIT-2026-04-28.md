@@ -3,7 +3,7 @@
 - **Status**: PARTIAL-RATIFIED 100/100
 - **Sprint**: S47 — AI Subsystem Decomposition Begins + Cut-List Checkpoint
 - **Spec**: `phases/PHASE-2D-Q4-M22-M24-SYNC-AWARENESS-BETA.md` §S47 (lines 574-676)
-- **ADR**: `docs/architecture/adr/0037-ai-host-lazy-bootstrap.md`
+- **ADR**: `docs/02-decisions/adrs/0037-ai-host-lazy-bootstrap.md`
 - **Auditor**: main agent
 
 ---
@@ -87,7 +87,7 @@ Static enforcer for the lazy-bootstrap contract. Three rules:
 
 Runs in milliseconds; passes today (zero violations). Deferred binding: bundle-report runtime gate at S48 D6 will assert the runtime side (`vite build --report` shows the impl in a separate chunk).
 
-### §4.2 `docs/architecture/adr/0037-ai-host-lazy-bootstrap.md` (NEW)
+### §4.2 `docs/02-decisions/adrs/0037-ai-host-lazy-bootstrap.md` (NEW)
 
 Ratifies the lazy-entry contract, OTel span shape, approval-queue store, queue factory selection pattern, plugin shell, cut-list checkpoint decision, and all deferred bindings. Cross-references `[strategic ADR-014]` (L7.5 placement), `[strategic ADR-006]` (idle budget), `[strategic ADR-018]` (cut list), `SPEC-28` §4 (Anthropic relay), `ADR-028` Part E (per-workspace AI Spend, S65).
 

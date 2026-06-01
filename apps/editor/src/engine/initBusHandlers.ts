@@ -84,7 +84,7 @@ import { withHandlerSpan } from '@pryzm/plugin-sdk';
  *   • curtain-wall.create-on-all-slabs → plugins/curtain-wall/src/handlers/CreateCurtainWallsOnAllSlabs.ts
  *   • level.duplicate-floor-plan   → plugins/levels/src/handlers/DuplicateFloorPlan.ts
  *
- * Anchor: docs/03_PRYZM3/PRYZM3-FULL-AUDIT-2026-05-14.md §F-1.3
+ * Anchor: docs/archive/pryzm3-internal/PRYZM3-FULL-AUDIT-2026-05-14.md §F-1.3
  */
 export function initBusHandlers(
     runtime: PryzmRuntime | null,

@@ -588,10 +588,10 @@ Two GPU consumers competing for context. No spec says they cannot be on screen t
 
 **Fix**: prune the reading order to the binding documents only; relocate superseded ones to "Historical."
 
-### 16.2 🔴 `00_Contracts/` lives in parallel with `00_NEW_ARCHITECTURE/` and the `CONFLICT-ANALYSIS.md` says contracts win unless overridden
-Already in `CRITICAL-REVIEW §A1, §A3` and `CONFLICT-ANALYSIS §2`. The dual-corpus regime is the worst option. Either rewrite the contracts under NEW_ARCH or relocate `00_Contracts/` to `archive/`.
+### 16.2 🔴 `02-decisions/contracts/` lives in parallel with `00_NEW_ARCHITECTURE/` and the `CONFLICT-ANALYSIS.md` says contracts win unless overridden
+Already in `CRITICAL-REVIEW §A1, §A3` and `CONFLICT-ANALYSIS §2`. The dual-corpus regime is the worst option. Either rewrite the contracts under NEW_ARCH or relocate `02-decisions/contracts/` to `archive/`.
 
-**Fix**: `archive/00_Contracts/` move + `_README.md` redirect.
+**Fix**: `archive/02-decisions/contracts/` move + `_README.md` redirect.
 
 ### 16.3 🔴 Twelve ADRs are listed as pre-Sprint-1 prerequisites in `05-IMPLEMENTATION-PLAN §17`; PROCESS-TRACKER shows most unstarted; sprint S01 is in flight
 Already in `CRITICAL-REVIEW §D1`. The work is being done on undecided foundations.
@@ -673,7 +673,7 @@ Per `package.json` `test:pryzm1`. No `tests/pryzm2/` for the new architecture. T
 4. **Produce a single-page database/storage map** (`SPEC-24-DATA-STORE-MAP.md`). One row per entity, four columns (today / M12 / M24 / M36 / migration sprint).
 5. **Resolve the React-in-bundle question** with a one-line ADR amendment. Either React is forbidden in `apps/editor/` (lint enforced) or the bundle target is wrong.
 6. **Move `02-ORCHESTRATION.md` and `05-IMPLEMENTATION-PLAN.md` to `archive/`.** Prune the README's "Read in order."
-7. **Move `00_Contracts/` to `archive/00_Contracts/`** and write the ~12 short replacement contracts under NEW_ARCH that match the layer model.
+7. **Move `02-decisions/contracts/` to `archive/02-decisions/contracts/`** and write the ~12 short replacement contracts under NEW_ARCH that match the layer model.
 8. **Land a working `tools/load-bench/`** as the literal first deliverable of S01. Without it, every CI gate downstream is meaningless.
 9. **Write `SPEC-13-CONTEXT-ENVELOPES.md`** before the wall producer (S07). Defines `WallContext`, `DoorContext`, `SlabContext` so the kernel stays pure.
 10. **Write `SPEC-21-ELEMENT-CREATION-PROTOCOL.md`** so every element family in Phase 1B–2A follows the same recipe.
@@ -1150,14 +1150,14 @@ This is **far more progress** than Part I implied. Three observations follow.
 
 ---
 
-## 27. `00_Contracts/` legacy folder — fate decision needed
+## 27. `02-decisions/contracts/` legacy folder — fate decision needed
 
-The repo has `00_Contracts/01-EVENT-LOG-CONTRACT.md`, `02-COMMAND-PROTOCOL.md`, `03-BIM-SEMANTIC-MODEL-CONTRACT.md`, `04-AI-CONTRACT.md`, etc. Part I §13 already noted these are **largely superseded** by SPEC-01..12. But:
-- `PHASE-2A` references `00_Contracts/03-BIM-SEMANTIC-MODEL-CONTRACT.md` for room semantics.
+The repo has `02-decisions/contracts/01-EVENT-LOG-CONTRACT.md`, `02-COMMAND-PROTOCOL.md`, `03-BIM-SEMANTIC-MODEL-CONTRACT.md`, `04-AI-CONTRACT.md`, etc. Part I §13 already noted these are **largely superseded** by SPEC-01..12. But:
+- `PHASE-2A` references `02-decisions/contracts/03-BIM-SEMANTIC-MODEL-CONTRACT.md` for room semantics.
 - `04-AI-CONTRACT.md` is explicitly called "dead" in `SPEC-07:13`.
 
 **Action:**
-1. For each of the ~12 contracts, either *port the still-relevant content into a SPEC* and delete, or *move to `archive/00_Contracts/`* with a one-line "see SPEC-XX" pointer.
+1. For each of the ~12 contracts, either *port the still-relevant content into a SPEC* and delete, or *move to `archive/02-decisions/contracts/`* with a one-line "see SPEC-XX" pointer.
 2. Update every PHASE doc's references.
 
 Until this is done, the README's "read in order" instruction sends new readers to dead documents.
@@ -1211,7 +1211,7 @@ Ranked by *what kills the project if not fixed*. Severity tags as before.
 22. 🟡 **2% probabilistic cleanup of `project_command_log`** — replace with a real cron.
 23. 🟡 **ADR-018 capacity-cut-list table is empty.** "We will cut scope" is decorative until populated.
 24. 🟡 **Stripe + Supabase + Replit Postgres** triple-store with no migration story.
-25. 🟡 **`00_Contracts/` legacy folder** still referenced by `PHASE-2A`. Either port content into SPECs or archive with pointers.
+25. 🟡 **`02-decisions/contracts/` legacy folder** still referenced by `PHASE-2A`. Either port content into SPECs or archive with pointers.
 
 ---
 
@@ -1232,7 +1232,7 @@ Part I's verdict was sharp but partially miscalibrated by the audit-vs-reality g
 - The **8 missing SPECs** (especially SPEC-26 file format, SPEC-13 context envelopes, SPEC-15 deployment) compound risk across the entire Phase 2.
 - The **three permission models** (ADR-009 / ADR-011 / SPEC-07) need unification *before* SOC2.
 - The **PDF-to-BIM moat** has no SPEC.
-- The **legacy debt** (`replit.md` 422k, `attached_assets/` 84k, dead contracts in `00_Contracts/`, three parallel renderers) needs a deletion sprint, not a "later."
+- The **legacy debt** (`replit.md` 422k, `attached_assets/` 84k, dead contracts in `02-decisions/contracts/`, three parallel renderers) needs a deletion sprint, not a "later."
 
 ### 30.3 What is implausible
 - "9 element families in 12 weeks" *delivered as audited GREEN* either means feature gaps are masked by fixture coverage, or the recipe truly worked. **Most likely:** somewhere between the two — the recipe worked and there are real gaps. Random-fuzzing against PRYZM 1 sessions will tell.

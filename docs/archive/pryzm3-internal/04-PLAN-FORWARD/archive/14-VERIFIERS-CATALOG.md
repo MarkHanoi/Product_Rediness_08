@@ -170,14 +170,14 @@ pnpm test:ci   # today: 9/9 green, 0 quarantined
 test -f .github/ISSUE_TEMPLATE/quarantine.md
 
 # Task 5: §10 cadence (≥ 4 dated entries)
-[ "$(rg -c '^### 2026-' docs/03_PRYZM3/03-CURRENT-STATE.md | head -1)" -ge 4 ]
+[ "$(rg -c '^### 2026-' docs/archive/pryzm3-internal/03-CURRENT-STATE.md | head -1)" -ge 4 ]
 
 # Task 6: 0 stale MARKDOWN LINK TARGETS in the seven active wave-plan docs.
 # Matches `](…OLD…)` syntax only — plain prose mentions are allowed because
 # the convention paragraphs in 02-WAVE-1-TRIPWIRES.md §7 and file 11 §8 row 8
 # necessarily quote the OLD strings to document the rewrite.
 # The 344-reach repo-wide rewrite is Wave 8 T1 (file 11 §8 row 8), NOT Wave 1.
-[ "$(rg --no-heading -n '\]\(.{0,200}?(00_NEW_ARCHITECTURE/|wireup-S72/)' docs/03_PRYZM3/04-PLAN-FORWARD/[0-9][0-9]-*.md | wc -l)" -eq 0 ]
+[ "$(rg --no-heading -n '\]\(.{0,200}?(00_NEW_ARCHITECTURE/|wireup-S72/)' docs/archive/pryzm3-internal/04-PLAN-FORWARD/[0-9][0-9]-*.md | wc -l)" -eq 0 ]
 
 # Task 7: importer-snapshot file format scaffolded
 [ -f .ga-gate/baselines/engine-bootstrap-importers.json ]

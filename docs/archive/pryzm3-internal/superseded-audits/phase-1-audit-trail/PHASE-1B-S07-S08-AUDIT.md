@@ -8,8 +8,8 @@
 > * **S08** — fully implemented (matches the body of this audit). `[x]`
 > * **S09** — fully implemented (was already `[x]` at this audit's writing).
 > * **S10** — closed by the same-day work item:
->   - Code-level ADRs landed: `docs/architecture/adr/0012-cross-element-cascade-rule-registration.md`
->     and `docs/architecture/adr/0013-intent-resolver.md` (both `Status: Accepted`).
+>   - Code-level ADRs landed: `docs/02-decisions/adrs/0012-cross-element-cascade-rule-registration.md`
+>     and `docs/02-decisions/adrs/0013-intent-resolver.md` (both `Status: Accepted`).
 >   - Wall tool extended to dispatch `mode: 'straight' | 'arc' | 'polyline'` —
 >     arc 3-click state machine + N-click polyline with Backspace/Enter/double-click;
 >     `plugins/wall/__tests__/tool-arc.spec.ts` (6 tests) and
@@ -75,8 +75,8 @@ The S07/S08 audit below is grounded specifically in PHASE-1B §S07 (lines 200–
 | `packages/geometry-kernel/` package scaffold (types only at S07; producers land at S08) | `packages/geometry-kernel/` exists; `src/types/{BufferGeometryDescriptor,JoinData}.ts` only | ✓ Correct scope — producers correctly empty per §S07-vs-S08 split |
 | `pryzm-no-three-in-kernel` ESLint rule — REAL enforcement, not a stub | `tools/eslint-rules/pryzm-no-three-in-kernel.js` + fixture + test | ✓ Present, real enforcement (test asserts both fail and pass cases) |
 | `packages/stores/SelectionStore.ts` — selection model on the L1 axis | `packages/stores/src/SelectionStore.ts` | ✓ Present |
-| ADR-008 — wall handler triage policy (Accepted) | `docs/architecture/adr/0008-wall-handler-triage.md` | ✓ Present, status `Accepted` |
-| `docs/architecture/element-recipe.md` v1 — the per-element template all future plugins follow | `docs/architecture/element-recipe.md` | ✓ Present |
+| ADR-008 — wall handler triage policy (Accepted) | `docs/02-decisions/adrs/0008-wall-handler-triage.md` | ✓ Present, status `Accepted` |
+| `docs/04-reference/architecture-detail/element-recipe.md` v1 — the per-element template all future plugins follow | `docs/04-reference/architecture-detail/element-recipe.md` | ✓ Present |
 | 5 baseline parity fixtures from PRYZM 1 (`create`, `delete`, `move`, `dimensions`, `color`) | `tests/fixtures/pryzm-1/wall/{create,delete,move,dimensions,color}.json` | ✓ All 5 present |
 
 ### 2.2 Spec invariants verified

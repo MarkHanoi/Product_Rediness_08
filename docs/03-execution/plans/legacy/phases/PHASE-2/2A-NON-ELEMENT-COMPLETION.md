@@ -6,20 +6,20 @@
 
 > **Authority note (added 2026-04-27).** This document is *implementation guidance* and is subordinate to:
 >
-> 1. The 12 specs in `docs/03_PRYZM3/reference/specs/` (SPEC-01..SPEC-12).
-> 2. The 22 strategic ADRs in `docs/03_PRYZM3/reference/adrs/` (the `[strategic ADR-001]`..`[strategic ADR-024]` collective range — individual files live as `adrs/ADR-NNN-<slug>.md`).
-> 3. `docs/03_PRYZM3/archive/superseded-2026-04-30/03_STATUS/CRITICAL-REVIEW-2026-04-27.md`.
-> 4. `docs/03_PRYZM3/reference/plan-detail/01-MASTER-36M.md`.
+> 1. The 12 specs in `docs/03-execution/specs/` (SPEC-01..SPEC-12).
+> 2. The 22 strategic ADRs in `docs/02-decisions/adrs/` (the `[strategic ADR-001]`..`[strategic ADR-024]` collective range — individual files live as `adrs/ADR-NNN-<slug>.md`).
+> 3. `docs/archive/pryzm3-internal/superseded-2026-04-30/03_STATUS/CRITICAL-REVIEW-2026-04-27.md`.
+> 4. `docs/03-execution/plans/legacy/plan-detail/01-MASTER-36M.md`.
 >
-> Where this phase document conflicts with any of the above, the higher-precedence document wins. **ADR citations**: bare `ADR-NNN` is forbidden. Use `[strategic ADR-NNN]` for entries in `03_PRYZM3/reference/adrs/`, or fully-qualified `code-level ADR docs/architecture/adr/NNNN-<slug>.md` for sprint-scoped decisions.
+> Where this phase document conflicts with any of the above, the higher-precedence document wins. **ADR citations**: bare `ADR-NNN` is forbidden. Use `[strategic ADR-NNN]` for entries in `02-decisions/adrs/`, or fully-qualified `code-level ADR docs/02-decisions/adrs/NNNN-<slug>.md` for sprint-scoped decisions.
 >
 > **Sprint-scoped ADRs introduced in this document** (slug map):
 >
 > | §6 heading | Code-level slug | Sprint |
 > |---|---|---|
-> | ADR-022 — Room boundary detection strategy | `docs/architecture/adr/0022-room-boundary-detection.md` | S25 |
-> | ADR-024 — Furniture multi-representation model | `docs/architecture/adr/0024-furniture-multi-representation.md` | S27 |
-> | ADR-025 — Plan view canvas architecture | `docs/architecture/adr/0025-plan-view-canvas-architecture.md` | S29 |
+> | ADR-022 — Room boundary detection strategy | `docs/02-decisions/adrs/0022-room-boundary-detection.md` | S25 |
+> | ADR-024 — Furniture multi-representation model | `docs/02-decisions/adrs/0024-furniture-multi-representation.md` | S27 |
+> | ADR-025 — Plan view canvas architecture | `docs/02-decisions/adrs/0025-plan-view-canvas-architecture.md` | S29 |
 >
 > **Numbering note (updated 2026-04-27).** The planned numbers (ADR-020/021/022) were predicted before Phase 2A started; ADRs 0020 and 0021 were already reserved by Phase 1D deliverables, and the actual Phase 2A ADRs were assigned as 0022, 0024, and 0025. All references in this document use the actual file paths above.
 
@@ -34,7 +34,7 @@
 
 **Capacity envelope**
 
-> **Capacity envelope (`[strategic ADR-018]`).** Phase 2A accepts the 6-sprint scope. If sprint capacity is exhausted, the cut-list defined in `03_PRYZM3/reference/adrs/ADR-018-capacity-cut-list.md` is the ratified order; in 2A the most likely cuts are the dimensions polish work (S29) and the poche fill quality bar at S30 (raise from "pixel-perfect" to "within hatch alignment tolerance"). Defer items per the `[strategic ADR-018]` ranking — never improvise scope reductions.
+> **Capacity envelope (`[strategic ADR-018]`).** Phase 2A accepts the 6-sprint scope. If sprint capacity is exhausted, the cut-list defined in `02-decisions/adrs/ADR-018-capacity-cut-list.md` is the ratified order; in 2A the most likely cuts are the dimensions polish work (S29) and the poche fill quality bar at S30 (raise from "pixel-perfect" to "within hatch alignment tolerance"). Defer items per the `[strategic ADR-018]` ranking — never improvise scope reductions.
 
 ---
 
@@ -62,7 +62,7 @@
 
 **Sprint rhythm** (10 working days): D1 kickoff (30 min), D2–D4 deep implementation, D5 mid-sprint sync (1 h, mandatory performance measurement), D6–D8 completion + tests + docs, D9 demo + retro (1 h), D10 buffer.
 
-**The element recipe is fixed**: every Phase 2A element follows the canonical recipe established in Phase 1B and documented in `docs/architecture/element-recipe.md`. Deviations require F sign-off.
+**The element recipe is fixed**: every Phase 2A element follows the canonical recipe established in Phase 1B and documented in `docs/04-reference/architecture-detail/element-recipe.md`. Deviations require F sign-off.
 
 ---
 
@@ -138,7 +138,7 @@ Getting rooms right now, with correct boundary detection and area calculation, p
 
 ---
 
-#### Implementation Detail — Room Boundary Detection (`code-level ADR docs/architecture/adr/0022-room-boundary-detection.md`)
+#### Implementation Detail — Room Boundary Detection (`code-level ADR docs/02-decisions/adrs/0022-room-boundary-detection.md`)
 
 The boundary detection algorithm is the hardest part of S25. There are two candidate approaches, and F must decide at D1:
 
@@ -205,11 +205,11 @@ export function produceRoomGeometry(dto: RoomDto, ctx: ProducerContext): Geometr
 }
 ```
 
-**The `emptyGeometryIR` + `watchForReady` pattern**: room detection fails if walls change after the room is placed (a gap opens in the boundary). The committer must subscribe to `WallStore.subscribeDirty` and re-queue the room producer whenever any wall in the same level is modified. This is the same coupling pattern used for handrails (S14) — reference `docs/architecture/element-coupling.md`.
+**The `emptyGeometryIR` + `watchForReady` pattern**: room detection fails if walls change after the room is placed (a gap opens in the boundary). The committer must subscribe to `WallStore.subscribeDirty` and re-queue the room producer whenever any wall in the same level is modified. This is the same coupling pattern used for handrails (S14) — reference `docs/04-reference/architecture-detail/element-coupling.md`.
 
 **Option B — Ray-casting grid scan**: simpler to implement, fails on non-convex rooms, L-shaped rooms, and rooms with wall openings. Not recommended — do not use.
 
-**`code-level ADR docs/architecture/adr/0022-room-boundary-detection.md` decision**: Option A (topological) is the correct approach. Document: "Room boundary detection uses half-edge graph flood-fill from seed point. The algorithm is O(walls) per room. For projects with > 500 walls per level, detect > 100 ms boundary detection time and switch to spatial indexing (R-tree of wall AABBs)."
+**`code-level ADR docs/02-decisions/adrs/0022-room-boundary-detection.md` decision**: Option A (topological) is the correct approach. Document: "Room boundary detection uses half-edge graph flood-fill from seed point. The algorithm is O(walls) per room. For projects with > 500 walls per level, detect > 100 ms boundary detection time and switch to spatial indexing (R-tree of wall AABBs)."
 
 ---
 
@@ -323,7 +323,7 @@ export class RoomCommitter implements PrimitiveCommitter<RoomDto> {
 
 #### D1 — Kickoff (30 min)
 
-- A presents `code-level ADR docs/architecture/adr/0022-room-boundary-detection.md` draft — topological flood-fill approach. F decides.
+- A presents `code-level ADR docs/02-decisions/adrs/0022-room-boundary-detection.md` draft — topological flood-fill approach. F decides.
 - B confirms the room committer's `renderOrder = -1` approach for transparency (rooms render behind walls in 3D).
 - Agree: the 20 parity-case fixture is extracted from real PRYZM 1 projects, not synthetic. Types of rooms covered: rectangular, L-shaped, with openings, with curved walls, multi-level (same boundary, different heights), rooms with island obstacles.
 
@@ -337,7 +337,7 @@ export class RoomCommitter implements PrimitiveCommitter<RoomDto> {
 | D5 | **Mid-sprint sync (1 h)** — run 5 of the 20 parity cases. Confirm area < 0.1% error and boundary outline matches PRYZM 1. Verify `emptyGeometryIR` for an open room (wall has gap). | Same session — visual comparison of committer output vs PRYZM 1 plan view screenshot. Confirm transparency + outline look correct. |
 | D6 | Run all 20 parity cases. Fix failures (most common: curved wall boundary not closed cleanly, T-junction not resolved). | Room label in 3D — text overlay at room centroid showing room name + area. Uses the same text-overlay mechanism as dimension labels. |
 | D7 | `tests/parity/rooms/` — 20 snapshot tests green. OTel `pryzm.geometry.produce.room` span. | Room area label updates automatically when boundary recomputes (area change triggers label redraw). |
-| D8 | `docs/architecture/room-boundary.md` — algorithm description, edge case coverage, known limitations (rooms spanning multiple levels are not supported in Phase 2; deferred to Phase 3). | Playwright integration test: place 5 rooms → edit walls → confirm area recomputes on each edit. |
+| D8 | `docs/04-reference/architecture-detail/room-boundary.md` — algorithm description, edge case coverage, known limitations (rooms spanning multiple levels are not supported in Phase 2; deferred to Phase 3). | Playwright integration test: place 5 rooms → edit walls → confirm area recomputes on each edit. |
 
 #### D9 — Sprint Demo + Retro
 
@@ -356,7 +356,7 @@ export class RoomCommitter implements PrimitiveCommitter<RoomDto> {
 - [ ] 20-case parity fixture green: `tests/parity/rooms/`.
 - [ ] Wall edit → room boundary and area recompute automatically.
 - [ ] OTel `pryzm.command.room.create`, `pryzm.geometry.produce.room` spans visible.
-- [ ] `code-level ADR docs/architecture/adr/0022-room-boundary-detection.md` merged.
+- [ ] `code-level ADR docs/02-decisions/adrs/0022-room-boundary-detection.md` merged.
 - [ ] `plugins/rooms/README.md` committed.
 
 **Kill-switch K2A-S25**: if the topological flood-fill algorithm fails to produce correct boundaries for more than 3 of the 20 parity cases by D5, and the failures involve structural edge cases (not just implementation bugs), escalate: consider a simplified boundary detection (convex hull of wall inner faces) as a temporary Phase 2 approach, with the full topological algorithm deferred to Phase 3A. Document the limitation: "rooms with non-convex boundaries or island obstacles not supported in Phase 2."
@@ -484,7 +484,7 @@ Note: the lighting committer also adds a `THREE.PointLight` or `THREE.RectAreaLi
 - [ ] 3 element families functional: Structural (4 types), Lighting (5 types), Plumbing (3 types).
 - [ ] Parity tests: 14 Structural + 10 Lighting + 8 Plumbing = 32 cases green.
 - [ ] Orbit-fps with 300 mixed elements (all 18 families) > 55 fps p95.
-- [ ] All 3 families follow canonical recipe exactly (A confirms against `docs/architecture/element-recipe.md`).
+- [ ] All 3 families follow canonical recipe exactly (A confirms against `docs/04-reference/architecture-detail/element-recipe.md`).
 - [ ] K1-C check: no family overran 3-day budget.
 
 ---
@@ -643,7 +643,7 @@ export class FurnitureCarousel {
 - [ ] LOD auto-switches based on camera distance (no flickering).
 - [ ] Furniture carousel loads and filters catalogue correctly.
 - [ ] Orbit-fps with 100 furniture items (LOD auto-managed) > 55 fps p95.
-- [ ] `code-level ADR docs/architecture/adr/0024-furniture-multi-representation.md` (furniture multi-representation model) merged.
+- [ ] `code-level ADR docs/02-decisions/adrs/0024-furniture-multi-representation.md` (furniture multi-representation model) merged.
 - [ ] `plugins/furniture/README.md` committed.
 
 ---
@@ -767,7 +767,7 @@ S29 is the **gateway sprint** for Sub-phase 2B. It delivers two linked things:
 1. **Dimensions** — a core annotation element present in virtually every technical drawing.
 2. **Plan-view canvas host skeleton** — the minimal framework that S31 will build into the full plan view.
 
-The plan-view skeleton in S29 deliberately does very little. Its purpose is to prove the architecture decision made in `code-level ADR docs/architecture/adr/0025-plan-view-canvas-architecture.md`: a vanilla `CanvasHost` subclass owning a 2D HTML canvas, driven by `FrameScheduler`, reading from the same element stores as the 3D scene. This proof-of-architecture is worth one sprint before committing to full implementation in S31.
+The plan-view skeleton in S29 deliberately does very little. Its purpose is to prove the architecture decision made in `code-level ADR docs/02-decisions/adrs/0025-plan-view-canvas-architecture.md`: a vanilla `CanvasHost` subclass owning a 2D HTML canvas, driven by `FrameScheduler`, reading from the same element stores as the 3D scene. This proof-of-architecture is worth one sprint before committing to full implementation in S31.
 
 ---
 
@@ -822,7 +822,7 @@ export function produceDimensionGeometry(dto: DimensionDto, _ctx: ProducerContex
 
 ---
 
-#### Implementation Detail — Plan-View Canvas Host Skeleton (`code-level ADR docs/architecture/adr/0025-plan-view-canvas-architecture.md`)
+#### Implementation Detail — Plan-View Canvas Host Skeleton (`code-level ADR docs/02-decisions/adrs/0025-plan-view-canvas-architecture.md`)
 
 ```typescript
 // plugins/plan-view/canvas-host.ts (skeleton)
@@ -908,7 +908,7 @@ export class PlanViewCanvasHost extends CanvasHost {
 - [ ] Plan view skeleton renders walls/slabs/doors of active level (outline only, no poche fill yet).
 - [ ] Level switcher works: change active level → plan view updates.
 - [ ] Plan view at 60 fps interactive, 0 fps idle (FrameScheduler dirty-flag verified in DevTools).
-- [ ] `code-level ADR docs/architecture/adr/0025-plan-view-canvas-architecture.md` merged.
+- [ ] `code-level ADR docs/02-decisions/adrs/0025-plan-view-canvas-architecture.md` merged.
 
 ---
 
@@ -1035,7 +1035,7 @@ Scene 4 (2 min): CI bench dashboard updated — all 18 element families green. O
 - [ ] All 18 element families parity-tested and green.
 - [ ] Plan view skeleton renders walls + slabs + doors at 60 fps interactive, 0 fps idle.
 - [ ] Level switcher correctly scopes all 18 element families.
-- [ ] 2A demo recording committed to `docs/demos/M15-2A.mp4`.
+- [ ] 2A demo recording committed to `docs/05-guides/developer/demos/M15-2A.mp4`.
 - [ ] `apps/bench/reports/M15-2A-baseline.md` committed.
 
 ---
@@ -1046,9 +1046,9 @@ Scene 4 (2 min): CI bench dashboard updated — all 18 element families green. O
 
 | ID | Subject | Key Decision | Sprint |
 |---|---|---|---|
-| `code-level ADR docs/architecture/adr/0022-room-boundary-detection.md` | Room boundary detection | Topological half-edge flood-fill; `emptyGeometryIR` for unenclosed seeds; re-queue on wall dirty | S25 |
-| `code-level ADR docs/architecture/adr/0024-furniture-multi-representation.md` | Furniture multi-representation | 5 LOD levels (R0–R4); auto-LOD by camera distance; `ephemeral: true` for `SetActiveLod` events | S27 |
-| `code-level ADR docs/architecture/adr/0025-plan-view-canvas-architecture.md` | Plan view canvas architecture | Vanilla `CanvasHost` subclass; 2D HTML Canvas API; `FrameScheduler` dirty-flag driven; NO THREE in plan view | S29 |
+| `code-level ADR docs/02-decisions/adrs/0022-room-boundary-detection.md` | Room boundary detection | Topological half-edge flood-fill; `emptyGeometryIR` for unenclosed seeds; re-queue on wall dirty | S25 |
+| `code-level ADR docs/02-decisions/adrs/0024-furniture-multi-representation.md` | Furniture multi-representation | 5 LOD levels (R0–R4); auto-LOD by camera distance; `ephemeral: true` for `SetActiveLod` events | S27 |
+| `code-level ADR docs/02-decisions/adrs/0025-plan-view-canvas-architecture.md` | Plan view canvas architecture | Vanilla `CanvasHost` subclass; 2D HTML Canvas API; `FrameScheduler` dirty-flag driven; NO THREE in plan view | S29 |
 
 ### §3.2 CI Gates Added in 2A
 
@@ -1105,7 +1105,7 @@ Scene 4 (2 min): CI bench dashboard updated — all 18 element families green. O
 - [ ] Level switcher working and correctly scoped.
 - [ ] ADRs 020–022 all merged.
 - [ ] `apps/bench/reports/M15-2A-baseline.md` committed.
-- [ ] S31 sprint plan drafted in `docs/sprints/S31.md`.
+- [ ] S31 sprint plan drafted in `docs/03-execution/status/sprints/S31.md`.
 - [ ] No element family has open parity failures.
 - [ ] Room boundary limitation documented if K2A-1 fired.
 
@@ -1113,7 +1113,7 @@ Scene 4 (2 min): CI bench dashboard updated — all 18 element families green. O
 
 ## §Gap-Closure Note (2026-04-27)
 
-**Phase 2A holds no gap-closure work.** Phase 2A is in active development against the existing `§1`–`§5` plan; introducing new SPEC/ADR ratification or reverse-doc work mid-sprint here is forbidden. All gap-closure work surfaced by `GAP-REVIEW-2026-04-27.md` — SPEC-13/15/21/24/26/27/28/29/30 ratification, ADR-022/023/025/026/028/030 ratification, reverse-doc of Phase-1 + Phase-2A in-flight envelopes, service-role-key removal, BullMQ sweep, `00_Contracts/` archival, drawing-primitives MVP, ESLint rule promotion to error, and the 5-operation Canvas2D pre-port — is **deferred to Phase 2B (S31)** and lives in `phases/PHASE-2B-Q2-M16-M18-PLAN-VIEW.md` §Gap-Closure Subphase.
+**Phase 2A holds no gap-closure work.** Phase 2A is in active development against the existing `§1`–`§5` plan; introducing new SPEC/ADR ratification or reverse-doc work mid-sprint here is forbidden. All gap-closure work surfaced by `GAP-REVIEW-2026-04-27.md` — SPEC-13/15/21/24/26/27/28/29/30 ratification, ADR-022/023/025/026/028/030 ratification, reverse-doc of Phase-1 + Phase-2A in-flight envelopes, service-role-key removal, BullMQ sweep, `02-decisions/contracts/` archival, drawing-primitives MVP, ESLint rule promotion to error, and the 5-operation Canvas2D pre-port — is **deferred to Phase 2B (S31)** and lives in `phases/PHASE-2B-Q2-M16-M18-PLAN-VIEW.md` §Gap-Closure Subphase.
 
 The new families being built in this phase (Rooms, Structural, Lighting, Plumbing, Furniture, Dimensions) follow the existing element recipe documented in code; their context envelopes will be reverse-documented in Phase 2B per SPEC-13 §3 + SPEC-21 Step 2 (the same pattern that closed the Phase 1 envelopes).
 

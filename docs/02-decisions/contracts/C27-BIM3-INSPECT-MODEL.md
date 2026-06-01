@@ -5,8 +5,8 @@
 > **Depends on**: [C03](C03-SCHEMAS-COMMANDS-AND-STATE.md) (commands + state), [C09](C09-AI-AND-VISIBILITY-INTENT.md) (visibility intent — P7), [C16](C16-COMMAND-AUTHORING-PROTOCOL.md) (command authoring), [C04](C04-RENDERING-AND-SCHEDULING.md) (isolation animator subscribes FrameScheduler).
 > **Downstream**: [C28](C28-DATA-PANEL-AND-AUTOMATION.md) (Data grid selection sync), [C24](C24-SHEET-COMPOSITION-ENGINE.md) (Sheet viewport view picker reuses tree).
 > **Key principles**: **P3** (isolation animator subscribes FrameScheduler), **P6** (commands only), **P7** (isolation IS a visibility intent — not a parallel flag), **P8** (every Inspect operation has a span).
-> **Master plan**: [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md Part V](../03_PRYZM3/PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md).
-> **Prior-art**: [PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md §3.5](../03_PRYZM3/PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md). **Verdict: GENUINELY NEW** with a migration plan for existing `PropertyInspector.ts` (80 files).
+> **Master plan**: [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md Part V](../03-execution/plans/master-implementation-plan.md).
+> **Prior-art**: [PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md §3.5](../03-execution/status/prior-art-audit-2026-05-31.md). **Verdict: GENUINELY NEW** with a migration plan for existing `PropertyInspector.ts` (80 files).
 
 ---
 
@@ -184,7 +184,7 @@ The Sheets tab ([C24](C24-SHEET-COMPOSITION-ENGINE.md)) reuses the model tree as
 
 ## §12 — Phase delivery
 
-Master plan [§11.4](../03_PRYZM3/PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md) INS-α-1 through INS-γ-4. ~18 wk total.
+Master plan [§11.4](../03-execution/plans/master-implementation-plan.md) INS-α-1 through INS-γ-4. ~18 wk total.
 
 ---
 
@@ -194,7 +194,7 @@ Master plan [§11.4](../03_PRYZM3/PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.m
 - **Sheet authoring** — [C24](C24-SHEET-COMPOSITION-ENGINE.md). C27's tree is reused by Sheets as a view picker.
 - **AI dispatch** — [C09](C09-AI-AND-VISIBILITY-INTENT.md). The visibility intent itself is from C09; C27 dispatches one specific intent.
 - **Element creation / editing** — [C11](C11-ELEMENT-CREATION-PIPELINE.md). C27 inspects existing elements.
-- **The Author tab** — separate concern; covered by element creation contracts + the BIM 2.0 Data Management Panel ([APARTMENT-BIM2-BIM3-DATA-MANAGEMENT-AND-LIVE-PARAMETRIC-SYSTEM.md](../03_PRYZM3/APARTMENT-BIM2-BIM3-DATA-MANAGEMENT-AND-LIVE-PARAMETRIC-SYSTEM.md)).
+- **The Author tab** — separate concern; covered by element creation contracts + the BIM 2.0 Data Management Panel ([APARTMENT-BIM2-BIM3-DATA-MANAGEMENT-AND-LIVE-PARAMETRIC-SYSTEM.md](../03-execution/plans/apartment/bim2-bim3-data-mgmt.md)).
 
 ---
 

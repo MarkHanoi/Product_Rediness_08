@@ -1,7 +1,7 @@
 # 36 — Phase D Ctrl-Z + Engine Cleanup Wave
 
 > **Stamp**: 2026-05-04 (rev 3 — doc reconciliation: all 5 tasks confirmed DONE against live code) · **Status**: ✅ **DONE (2026-05-04)**
-> **Authority**: `docs/00_Contracts/C03-SCHEMAS-COMMANDS-AND-STATE.md` §4 (undo ring buffer contract); `docs/00_Contracts/C10-PERFORMANCE-AND-OBSERVABILITY.md` §2 (OTel span on every public operation); `docs/00_Contracts/C04-RENDERING-AND-SCHEDULING.md` §3 (GPU picking requirement); `docs/03_PRYZM3/02-ARCHITECTURE.md` §2 (layer model) and §8 (convergence booleans).
+> **Authority**: `docs/02-decisions/contracts/C03-SCHEMAS-COMMANDS-AND-STATE.md` §4 (undo ring buffer contract); `docs/02-decisions/contracts/C10-PERFORMANCE-AND-OBSERVABILITY.md` §2 (OTel span on every public operation); `docs/02-decisions/contracts/C04-RENDERING-AND-SCHEDULING.md` §3 (GPU picking requirement); `docs/archive/pryzm3-internal/02-ARCHITECTURE.md` §2 (layer model) and §8 (convergence booleans).
 > **Anchors**: `../00-PROCESS-TRACKER.md §SR.3` (G20 FULLY CLOSED — Wave 36 U-2 ✅ 2026-05-04); `34-HANDLER-PROTOCOL-GAP-ANALYSIS.md §5.1` (remaining `commandManager.execute()` sites); `23-L2-COMMAND-EVENT-BUS-IMPLEMENTATION-PLAN.md §0` (Phase E.5.x — P0–P11 DONE; U-3 closed 2 further sites via dual-write bridge); `35-PROJECT-ISOLATION-WAVE.md` (Wave 35 — DONE + deep audit complete; do NOT duplicate tasks I-1–I-8 here).
 > **⚠ TRACKER RULE**: Any task status change in this file → update `../00-PROCESS-TRACKER.md` §7 file-status row in the same commit.
 > **Effort estimate**: 1 sprint (≤ 2 engineering days). All tasks touch `src/engine/`, `packages/command-bus/`, and `packages/picking/` — no new packages, no layer-boundary changes.
@@ -337,7 +337,7 @@ process.exit(exitCode);
 
 **Update**: `tools/ga-gate/run-all.ts` — add `'check-ctrl-z-wired'` to the scripts array.
 
-**Update**: `docs/03_PRYZM3/04-PLAN-FORWARD/14-VERIFIERS-CATALOG.md` — add row for `check-ctrl-z-wired` with threshold description.
+**Update**: `docs/archive/pryzm3-internal/04-PLAN-FORWARD/14-VERIFIERS-CATALOG.md` — add row for `check-ctrl-z-wired` with threshold description.
 
 **Done-when**:
 1. `npx tsx tools/ga-gate/check-ctrl-z-wired.ts` exits 0.
@@ -412,8 +412,8 @@ pnpm run build
 | `src/engine/subsystems/tools/SelectionManager.ts` | Edit — add `PickStrategyResolver` import + probe before BVH call on click + hover paths | U-2 |
 | `tools/ga-gate/check-ctrl-z-wired.ts` | New — GA gate script | U-5 |
 | `tools/ga-gate/run-all.ts` | Edit — register `check-ctrl-z-wired` | U-5 |
-| `docs/03_PRYZM3/04-PLAN-FORWARD/14-VERIFIERS-CATALOG.md` | Edit — add `check-ctrl-z-wired` row | U-5 |
-| `docs/03_PRYZM3/00-PROCESS-TRACKER.md` | Edit — §7 file-status row rev to 5 tasks; §SR.3 G19 → ✅ CLOSED; G20 → ✅ FULLY CLOSED after U-2; OTel count 183 → 184 | U-2, U-4 |
+| `docs/archive/pryzm3-internal/04-PLAN-FORWARD/14-VERIFIERS-CATALOG.md` | Edit — add `check-ctrl-z-wired` row | U-5 |
+| `docs/archive/pryzm3-internal/00-PROCESS-TRACKER.md` | Edit — §7 file-status row rev to 5 tasks; §SR.3 G19 → ✅ CLOSED; G20 → ✅ FULLY CLOSED after U-2; OTel count 183 → 184 | U-2, U-4 |
 
 **New packages created**: none.
 **Layer-boundary changes**: none.

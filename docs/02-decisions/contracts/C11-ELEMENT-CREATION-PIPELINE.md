@@ -5,7 +5,7 @@
 > **Key principles**: P6 (commands are the only mutation path), P3 (single rAF / frame scheduler), P8 (every public function has ≥ 1 OTel span).
 > **Companion contracts**: C03 (command bus contract), C04 (rendering and scheduling), C06 (tool registration), C09 (AI and visibility intent), C14 (legacy elimination — bridge-pattern invariants).
 > **Authority**: When code disagrees with this contract, the code is wrong. When C03, C06 or C09 disagree with this contract on pipeline shape, this contract wins — it is the more specific authority.
-> **Gap notice**: §7 documents where today's code violates this contract. Every site listed there carries a `TODO(E.5.x)` annotation in source. The AS-IS gaps are known, measured, and tracked in `docs/03_PRYZM3/04-PLAN-FORWARD/33-PHASE-E5X-COMMANDMANAGER-FULL-MIGRATION.md`.
+> **Gap notice**: §7 documents where today's code violates this contract. Every site listed there carries a `TODO(E.5.x)` annotation in source. The AS-IS gaps are known, measured, and tracked in `docs/archive/pryzm3-internal/04-PLAN-FORWARD/33-PHASE-E5X-COMMANDMANAGER-FULL-MIGRATION.md`.
 > **2026-05-19 Comprehensive Audit Rev 2**: §3.2 extended with the MANDATORY ID pre-generation invariant (root cause of FIX-WALL-ID, FIX-CW-ID, FIX-BEAM-ID). §7.0 updated with FIX-BEAM-ID. §11.0 added: Plan Tool ID Pre-generation Compliance Matrix (all 17 element types). §12 added: Three-Pipeline Architecture Reference. All element types audited end-to-end for the first time. Three additional silent failure sites remained (discovered in subsequent session — see Rev 3).
 > **2026-05-19 Comprehensive Audit Rev 3**: §7.0 updated with three additional production-breaking defects (FIX-PLAN-VDT-BIMMANAGER, FIX-NAN-Y, FIX-DEACTIVATE-GUARD) that together caused walls to be invisible in both plan view and 3D view even after FIX-WALL-ID was applied. Root causes: (1) missing `viewDependencyTracker.registerElement` + `bimManager.registerElement` calls in §P2.1 bridge → plan view always rendered blank; (2) `wall.baseOffset ?? 0` missing in `WallFragmentBuilder` → NaN vertex Y coordinates in all wall meshes; (3) `PlanViewManager.deactivate()` throw propagating out of view switch → 3D view permanently blocked. All three are now fixed and permanently recorded in §7.0.
 > **2026-05-19 Comprehensive Audit Rev 4**: §7.0 updated with two additional defect groups. **FIX-PLAN-VDT-BIMMANAGER-ALL-BRIDGES**: the same missing `viewDependencyTracker.registerElement` + `bimManager.registerElement` pair that caused plan-view blank for walls (Rev 3) was absent from ALL six remaining geometry-element bridges in `initTools.ts` — curtain wall (§P3.1-CW), ceiling (§P3.2-CL), roof (§P3.2-RF), column (§P3.3-CO), slab (§FT1), and beam (§FT2). Each bridge created a 3D mesh via the legacy store but never populated `level.childrenIds` → `NativeElementMeshExporter.exportForView()` returned 0 elements of that type → plan-view always blank for those element types when created via the bus path. **FIX-P4-FLOOR-BIMMANAGER**: the floor bridge (§P3.2-FL) did have `bimManager.registerElement()` but invoked it as `(window as any).bimManager?.registerElement?.()` — a C14 §LP-01 P4 prohibited pattern (window-as-namespace). Replaced with the properly-imported `bimManager` instance that is already in scope; `viewDependencyTracker.registerElement` also added. §10.2 updated with Bridge Invariant 7 and 8. §11 matrix updated with VDT+bimManager compliance column. §11.2 checklist updated with mandatory registration steps.
@@ -463,7 +463,7 @@ The span MUST include: `elementType`, `source` (user/ai/remote), `levelId`, `wal
 
 ## §7 — AS-IS gaps (where today's code violates this contract)
 
-> **Last updated**: 2026-05-19. These are known, measured, and tracked. Every in-progress site carries a `TODO(E.5.x)` annotation in source. The full migration plan is in `docs/03_PRYZM3/04-PLAN-FORWARD/33-PHASE-E5X-COMMANDMANAGER-FULL-MIGRATION.md`. The comprehensive gap analysis including alignment with all contracts and all element families is in `docs/03_PRYZM3/04-PLAN-FORWARD/34-HANDLER-PROTOCOL-GAP-ANALYSIS.md`.
+> **Last updated**: 2026-05-19. These are known, measured, and tracked. Every in-progress site carries a `TODO(E.5.x)` annotation in source. The full migration plan is in `docs/archive/pryzm3-internal/04-PLAN-FORWARD/33-PHASE-E5X-COMMANDMANAGER-FULL-MIGRATION.md`. The comprehensive gap analysis including alignment with all contracts and all element families is in `docs/archive/pryzm3-internal/04-PLAN-FORWARD/34-HANDLER-PROTOCOL-GAP-ANALYSIS.md`.
 
 ### §7.0 — Critical bugs fixed (2026-05-19)
 
@@ -650,12 +650,12 @@ pnpm run ci:check-spans                                        # → 0 missing s
 | AI dispatch contract (`source: 'ai'`) | `C09-AI-AND-VISIBILITY-INTENT.md §1` |
 | Rendering and frame scheduler | `C04-RENDERING-AND-SCHEDULING.md` |
 | Performance NFTs (16ms budget, plan-view 100ms) | `C10-PERFORMANCE-AND-OBSERVABILITY.md` |
-| Full 214-site migration plan (P1–P11) | `docs/03_PRYZM3/04-PLAN-FORWARD/33-PHASE-E5X-COMMANDMANAGER-FULL-MIGRATION.md` |
-| Wall/curtain-wall/room hot path task (file 32) | `docs/03_PRYZM3/04-PLAN-FORWARD/32-TASK-WALL-CURTAINWALL-CMD-BUS-AUDIT.md` |
-| Layer boundary matrix (handler package placement) | `C01-ARCHITECTURE-AND-GOVERNANCE.md §2`, `docs/03_PRYZM3/02-ARCHITECTURE.md §2` |
+| Full 214-site migration plan (P1–P11) | `docs/archive/pryzm3-internal/04-PLAN-FORWARD/33-PHASE-E5X-COMMANDMANAGER-FULL-MIGRATION.md` |
+| Wall/curtain-wall/room hot path task (file 32) | `docs/archive/pryzm3-internal/04-PLAN-FORWARD/32-TASK-WALL-CURTAINWALL-CMD-BUS-AUDIT.md` |
+| Layer boundary matrix (handler package placement) | `C01-ARCHITECTURE-AND-GOVERNANCE.md §2`, `docs/01-strategy/architecture.md §2` |
 | `BatchCoordinator` source | `src/engine/subsystems/core/batch/BatchCoordinator.ts` |
 | `WallTool` E-bus.1 deprecation notice | `src/engine/subsystems/walls/WallTool.ts:34–55` |
-| Live LONGTASK evidence diary entry | `docs/03_PRYZM3/03-CURRENT-STATE.md §10 2026-05-03d` |
+| Live LONGTASK evidence diary entry | `docs/archive/pryzm3-internal/03-CURRENT-STATE.md §10 2026-05-03d` |
 | Bridge pattern invariants (C14) | `C14-LEGACY-ELIMINATION-AND-PRYZM3-ENFORCEMENT.md` |
 | Per-element pipeline compliance | §11 (this document) |
 

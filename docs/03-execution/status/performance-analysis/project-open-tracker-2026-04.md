@@ -28,8 +28,8 @@ Updated: 22 April 2026.
 
 | Item | Location | Status |
 |---|---|---|
-| Performance audit report | `docs/Analysis/PROJECT-OPEN-PERFORMANCE-AUDIT-2026-04.md` | [x] created |
-| Process tracker (this file) | `docs/Analysis/PROJECT-OPEN-PERFORMANCE-PROCESS-TRACKER-2026-04.md` | [x] created |
+| Performance audit report | `docs/03-execution/status/intent-analysis/PROJECT-OPEN-PERFORMANCE-AUDIT-2026-04.md` | [x] created |
+| Process tracker (this file) | `docs/03-execution/status/intent-analysis/PROJECT-OPEN-PERFORMANCE-PROCESS-TRACKER-2026-04.md` | [x] created |
 
 ## Round 2 (after first user retest)
 

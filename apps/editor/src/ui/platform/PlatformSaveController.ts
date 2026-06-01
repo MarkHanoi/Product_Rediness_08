@@ -119,7 +119,7 @@ export class PlatformSaveController {
         // directly (O(stores), no per-element work).  Eliminates one full
         // serialize per Save gesture; gesture-to-toast latency on a 600-element
         // project drops by exactly one serialize() worth of CPU + GC pressure.
-        // See: docs/03_PRYZM3/04-PLAN-FORWARD/04-END-TO-END-FLOWS-AND-COVERAGE.md Flow 7.
+        // See: docs/archive/pryzm3-internal/04-PLAN-FORWARD/04-END-TO-END-FLOWS-AND-COVERAGE.md Flow 7.
         const counts = this.ctx.saveAdapter.getElementCounts();
         const info = overlay.querySelector('#plat-save-info')!;
         info.textContent = `${counts.total} elements · ${counts.walls} walls · ${counts.slabs} slabs · ${counts.furniture} furniture`;

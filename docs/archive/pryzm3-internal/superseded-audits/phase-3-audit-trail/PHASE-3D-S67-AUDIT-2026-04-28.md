@@ -42,8 +42,8 @@ apps/api-gateway/Dockerfile                       — multi-stage Node 20 + pnpm
 apps/sync-server/Dockerfile                       — multi-stage Node 20 + pnpm
 apps/bake-worker/Dockerfile                       — multi-stage Node 20 + pnpm
 apps/editor/Dockerfile                            — multi-stage build → nginx runtime
-docs/architecture/adr/0048-s67-self-host-docker-compose.md
-docs/architecture/adr/0049-s67-multi-region-cut-decision.md
+docs/02-decisions/adrs/0048-s67-self-host-docker-compose.md
+docs/02-decisions/adrs/0049-s67-multi-region-cut-decision.md
 apps/docs-site/src/content/docs/selfhost/getting-started.md
 apps/docs-site/src/content/docs/selfhost/architecture.md
 docs/00_NEW_ARCHITECTURE/audits/PHASE-3D-S67-AUDIT-2026-04-28.md   ← this file
@@ -126,7 +126,7 @@ strengthen the S67 close:
      fails on drift.
 3. Run the existing security scan tools (`runDependencyAudit`,
    `runSastScan`, `runHoundDogScan`) and capture the baseline at
-   `docs/security/scans-2026-Q4-baseline.md` (S68 D7 prep).
+   `docs/04-reference/security/scans-2026-Q4-baseline.md` (S68 D7 prep).
 
 ---
 

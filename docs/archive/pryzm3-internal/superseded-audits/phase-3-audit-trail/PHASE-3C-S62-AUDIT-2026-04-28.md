@@ -22,7 +22,7 @@ infra dependent — see §3).  The version progression `1.0.0-alpha.1 →
 | D | Deliverable | Path | Status |
 |---|---|---|---|
 | D1 | Locked descriptor schema | `packages/plugin-sdk/src/descriptor.ts` | ✓ landed (S62 D1) |
-| D1 | Schema-lock ADR | `docs/architecture/adr/0038-s62-plugin-sdk-descriptor-schema-lock.md` | ✓ landed (S62 D1) |
+| D1 | Schema-lock ADR | `docs/02-decisions/adrs/0038-s62-plugin-sdk-descriptor-schema-lock.md` | ✓ landed (S62 D1) |
 | **D2** | **Lifecycle hooks** | **`packages/plugin-sdk/src/lifecycle.ts`** | **✓ landed (this audit)** |
 | **D3** | **Host proxy contracts (6 files)** | **`packages/plugin-sdk/src/hosts/{index,command-bus,stores,views,selection,ai,format}.ts`** | **✓ landed (this audit)** |
 | **D4** | **Sandbox + CSP policy** | **`packages/plugin-sdk/src/sandbox/{index,iframe-sandbox,policy}.ts`** | **✓ landed (this audit)** |
@@ -87,7 +87,7 @@ this audit and §3 deferred items.
 
 ## §6 Cross-references
 
-- `docs/architecture/adr/0038-s62-plugin-sdk-descriptor-schema-lock.md` — schema lock ADR (5 decisions A-E).
+- `docs/02-decisions/adrs/0038-s62-plugin-sdk-descriptor-schema-lock.md` — schema lock ADR (5 decisions A-E).
 - `docs/00_NEW_ARCHITECTURE/phases/PHASE-3C-Q3-M31-M33-PLUGIN-SDK-MARKETPLACE-APIS.md` §2 (8-page spec).
 - `docs/00_NEW_ARCHITECTURE/phases/PHASE-3C-Q3-M31-M33-SDK-MARKETPLACE-PUBLIC-API.md` §S62 (3-line phase-doc-2 entry).
 - `packages/plugin-sdk/docs/internal-plugin-inventory.md` — 38-plugin parity bench source list.

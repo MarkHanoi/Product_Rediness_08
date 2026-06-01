@@ -1,7 +1,7 @@
 # Postgres RLS Audit — 2026-Q4 (S68 D5)
 
 **Sprint**: PRYZM 2 Phase 3D · S68 D5
-**Spec ref**: `docs/03_PRYZM3/reference/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S68 D5 — "RLS audit on Postgres: every table has policy; verified test queries."
+**Spec ref**: `docs/03-execution/plans/legacy/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S68 D5 — "RLS audit on Postgres: every table has policy; verified test queries."
 **Exit-criteria target**: "RLS verified" (S68 exit §3); "RLS audit on Postgres: every table has policy" (S68 exit-criteria table row 4).
 **Carry-forward from S67**: ADR-0048 §F follow-up — per-service rw/ro role split for the self-host stack.
 
@@ -194,4 +194,4 @@ Per-table test scaffolding lands in `apps/sync-server/__tests__/rls/` at S69 D6.
 ---
 
 **Authored by**: sprint-S68 (2026-04-28)
-**Companion docs**: `docs/security/csp-audit-2026-Q4.md`, `docs/security/oauth2-review-2026-Q4.md`.
+**Companion docs**: `docs/04-reference/security/csp-audit-2026-Q4.md`, `docs/04-reference/security/oauth2-review-2026-Q4.md`.

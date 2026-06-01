@@ -2,10 +2,10 @@
 
 **Date**: 2026-04-29
 **Sprint**: PRYZM 2 Phase 3D · S72 (M36 GA Launch Gate, weeks 143–144)
-**Anchor ADR**: `docs/architecture/adr/0054-s72-m36-ga-launch-gate.md`
+**Anchor ADR**: `docs/02-decisions/adrs/0054-s72-m36-ga-launch-gate.md`
 **Sprint report**: `apps/bench/reports/S72-m36-ga-launch-gate-2026-04-29.md`
 **Milestone bench rollup**: `apps/bench/reports/M36-GA.md`
-**Post-mortem (§3 line 487)**: `docs/post-mortems/PRYZM-2-build.md`
+**Post-mortem (§3 line 487)**: `docs/03-execution/status/post-mortems/PRYZM-2-build.md`
 **Closure pattern**: D-day-actionable partial close (mirrors S67/S68/S70/S71)
 
 ---
@@ -47,8 +47,8 @@ about all 6 deferrals; each is named with a sprint+day pointer in
 | B | GA gate codification as `tests/ga-gate/` workspace package (6 vitest files asserting §3 invariants) | yes |
 | C | PDF-to-BIM ships under `'preview'` label at GA per ADR-0052 §E (SPEC-45 corpus not measured here) | yes (preserved) |
 | D | PRYZM 1 sunset = 90-day window from S61; per-project migration via `@pryzm/cli`; batch tool deferred per phase-doc §7 | yes (documented) |
-| E | Post-GA roadmap = `docs/roadmap/post-GA.md` enumerating all 9 §7 items + carry-forward register | yes |
-| F | Cut-list final state = `docs/operations/cut-list-log.md` (T1.1 + T2.1–T2.6 + S55–S72 deferrals) | yes |
+| E | Post-GA roadmap = `docs/03-execution/plans/post-ga-roadmap.md` enumerating all 9 §7 items + carry-forward register | yes |
+| F | Cut-list final state = `docs/03-execution/status/cut-list-log.md` (T1.1 + T2.1–T2.6 + S55–S72 deferrals) | yes |
 | G | Operator-side carry-forward register consolidated in §G of ADR + §5 of M36-GA + §5 of post-mortem | yes (named with sprint+day) |
 
 ---
@@ -58,15 +58,15 @@ about all 6 deferrals; each is named with a sprint+day pointer in
 | D | Spec deliverable                                | Status     | Evidence                                                                                  |
 |---|--------------------------------------------------|------------|--------------------------------------------------------------------------------------------|
 | D1 | final integration sweep                         | ✅ closed  | All non-pre-existing-failure workflows green; pre-existing `pryzm-vi-parity` stale failure unchanged. |
-| D2 | monitoring + alerting verification              | ⏸ deferred | OTel package code paths exist; live alert provisioning is operator-side per phase-doc §8 item 3. Runbook lives in `docs/operations/status-page-and-on-call.md`. |
-| D3 | support workflow + status page                  | ✅ closed (runbook) | `docs/operations/status-page-and-on-call.md`. Live status.pryzm provisioning is operator-side. |
+| D2 | monitoring + alerting verification              | ⏸ deferred | OTel package code paths exist; live alert provisioning is operator-side per phase-doc §8 item 3. Runbook lives in `docs/05-guides/enterprise/operations/status-page-and-on-call.md`. |
+| D3 | support workflow + status page                  | ✅ closed (runbook) | `docs/05-guides/enterprise/operations/status-page-and-on-call.md`. Live status.pryzm provisioning is operator-side. |
 | D4 | launch dry-run                                  | ⏸ deferred | Stripe checkout + pricing config end-to-end is S71b D3 / S72 D4 per phase-doc; staging dependency is operator-side. |
 | D5 | release tag + notes; `apps/bench/reports/M36-GA.md` published | ✅ closed | Tag = `v2.0.0` (manifest bumped); `RELEASE-NOTES-2.0.0.md` (root) + `pryzm-selfhost/RELEASE-NOTES-2.0.0.md` + `apps/bench/reports/M36-GA.md` all in this commit. PDF-to-BIM preview→full re-evaluation stays `'preview'` per §C of M36-GA + Decision C of ADR-0054. |
-| D6 | launch blog post                                | ✅ closed (draft) | `docs/marketing/GA-LAUNCH-BLOG-POST.md` draft; live publish on the marketing site is operator-side per phase-doc §S71 D2 + §S72 D6. |
+| D6 | launch blog post                                | ✅ closed (draft) | `docs/03-execution/plans/launch/GA-LAUNCH-BLOG-POST.md` draft; live publish on the marketing site is operator-side per phase-doc §S71 D2 + §S72 D6. |
 | D7 | **LAUNCH (Tuesday)**                            | ⏸ deferred | Calendar gate; carry-forward register row 1.                                                |
 | D8 | first 24-hour monitoring + response             | ⏸ deferred | On-call + status-page rota.                                                                  |
 | D9 | 48-hour mark + initial issue triage             | ⏸ deferred | Same.                                                                                        |
-| D10 | retro + `docs/post-mortems/PRYZM-2-build.md`  | ✅ closed  | Post-mortem published in this commit (36-month journey, 8 sections + carry-forward register + numbers + acknowledgements). |
+| D10 | retro + `docs/03-execution/status/post-mortems/PRYZM-2-build.md`  | ✅ closed  | Post-mortem published in this commit (36-month journey, 8 sections + carry-forward register + numbers + acknowledgements). |
 
 **6 of 10 D-days closed in this commit; 4 honestly deferred** (D2 + D4
 operator-side partial; D7 + D8 + D9 calendar gates). Same shape as
@@ -97,7 +97,7 @@ S67 (6/10 landed) and S70 (T001–T009 of T010 landed).
 
 | # | Exit criterion | Status | Evidence |
 |---|----------------|--------|----------|
-| 8 | All legacy deleted (`src/legacy/` empty) | ✅ (PRYZM 2 trees) | `src/legacy` + `src/lifecycle` absent. `src/visibility/VGGovernanceStore.ts` is honest carry-forward (kill-switched PRYZM 1; deletion post-sunset per `docs/operations/pryzm-1-sunset.md` §3). Asserted by `tests/ga-gate/__tests__/architectural-invariants.test.ts`. |
+| 8 | All legacy deleted (`src/legacy/` empty) | ✅ (PRYZM 2 trees) | `src/legacy` + `src/lifecycle` absent. `src/visibility/VGGovernanceStore.ts` is honest carry-forward (kill-switched PRYZM 1; deletion post-sunset per `docs/03-execution/plans/pryzm-1-sunset.md` §3). Asserted by `tests/ga-gate/__tests__/architectural-invariants.test.ts`. |
 | 9 | 0 `(window as any)` sites repo-wide | ✅ (PRYZM 2 trees) | Asserted for `apps/{api-gateway,sync-server,bake-worker}/src` by `architectural-invariants.test.ts`. PRYZM 1 `src/` count = 80+ occurrences (kill-switched; documented carry-forward; deletion post-sunset). |
 | 10 | 0 non-scheduler rAF | ✅ | Single-frame-owner audit (ADR-0023 Part F + ADR-022) + `pnpm bench single-frame-owner-audit` green per M33 §M33 close. |
 | 11 | 0 THREE imports outside committers | ✅ | Asserted for `plugins/*` by `architectural-invariants.test.ts`. |
@@ -132,7 +132,7 @@ S67 (6/10 landed) and S70 (T001–T009 of T010 landed).
 | 25 | Marketing site live; pricing + checkout functional | ⏸ deferred (S71b) |
 | 26 | 5 published case studies | ⏸ deferred (S71b D6) |
 | 27 | ≥ 100 paying users on PRYZM 2 | ⏸ deferred (post-LAUNCH) |
-| 28 | PRYZM 1 sunset announced; migration window active; migration tool published | ✅ | `docs/operations/pryzm-1-sunset.md` + `@pryzm/cli` install/upgrade/rollback (S70 D8) |
+| 28 | PRYZM 1 sunset announced; migration window active; migration tool published | ✅ | `docs/03-execution/plans/pryzm-1-sunset.md` + `@pryzm/cli` install/upgrade/rollback (S70 D8) |
 | 29 | Status page live; monitoring + alerting verified | ⚠ partial (runbook landed; live provisioning operator-side) |
 
 ### §3 Documentation
@@ -142,9 +142,9 @@ S67 (6/10 landed) and S70 (T001–T009 of T010 landed).
 | 30 | `docs.pryzm.com` complete (user guide + plugin SDK + headless + file format + REST/WS + self-host + accessibility) | ⚠ partial — selfhost section landed S67 D7; full docs-site build operator-side |
 | 31 | `apps/bench/reports/M36-GA.md` published | ✅ this commit |
 | 32 | 5-min demo video posted | ⏸ deferred (S71b D5) |
-| 33 | GA launch blog post live | ✅ draft published in `docs/marketing/GA-LAUNCH-BLOG-POST.md`; live publish operator-side |
-| 34 | All 72 sprint retros archived in `docs/retros/` | ⏸ deferred (mechanical, post-S72 D10) |
-| 35 | 36-month journey post-mortem at `docs/post-mortems/PRYZM-2-build.md` | ✅ this commit |
+| 33 | GA launch blog post live | ✅ draft published in `docs/03-execution/plans/launch/GA-LAUNCH-BLOG-POST.md`; live publish operator-side |
+| 34 | All 72 sprint retros archived in `docs/03-execution/status/retros/` | ⏸ deferred (mechanical, post-S72 D10) |
+| 35 | 36-month journey post-mortem at `docs/03-execution/status/post-mortems/PRYZM-2-build.md` | ✅ this commit |
 
 ---
 
@@ -161,14 +161,14 @@ This commit's files-touched list:
 | `pnpm-workspace.yaml` | EDITED (added `tests/ga-gate`) | no — root manifest |
 | `apps/bench/reports/M36-GA.md` | NEW | no — `apps/bench/reports/` is doc tree |
 | `apps/bench/reports/S72-m36-ga-launch-gate-2026-04-29.md` | NEW | no — same |
-| `docs/architecture/adr/0054-s72-m36-ga-launch-gate.md` | NEW | no |
+| `docs/02-decisions/adrs/0054-s72-m36-ga-launch-gate.md` | NEW | no |
 | `docs/00_NEW_ARCHITECTURE/audits/PHASE-3D-S72-M36-GA-LAUNCH-GATE-2026-04-29.md` | NEW (this file) | no |
-| `docs/post-mortems/PRYZM-2-build.md` | NEW | no |
-| `docs/roadmap/post-GA.md` | NEW | no |
-| `docs/operations/pryzm-1-sunset.md` | NEW | no |
-| `docs/operations/cut-list-log.md` | NEW | no |
-| `docs/operations/status-page-and-on-call.md` | NEW | no |
-| `docs/marketing/GA-LAUNCH-BLOG-POST.md` | NEW | no |
+| `docs/03-execution/status/post-mortems/PRYZM-2-build.md` | NEW | no |
+| `docs/03-execution/plans/post-ga-roadmap.md` | NEW | no |
+| `docs/03-execution/plans/pryzm-1-sunset.md` | NEW | no |
+| `docs/03-execution/status/cut-list-log.md` | NEW | no |
+| `docs/05-guides/enterprise/operations/status-page-and-on-call.md` | NEW | no |
+| `docs/03-execution/plans/launch/GA-LAUNCH-BLOG-POST.md` | NEW | no |
 | `RELEASE-NOTES-2.0.0.md` (root) | NEW | no |
 | `docs/00_NEW_ARCHITECTURE/PROCESS-TRACKER.md` | EDITED (S72 row marked `[~]`) | no |
 | `replit.md` | EDITED (prepended §PRYZM-2-PHASE-3D-S72) | no |
@@ -210,7 +210,7 @@ Pre-existing red tests confirmed unchanged by this commit:
 10. Does NOT claim Stripe checkout end-to-end test passed on staging.
 11. Does NOT claim 5-min demo video posted, 5 case studies published, or marketing site live — operator-side, S71b.
 12. Does NOT claim 72 sprint retros archived — mechanical, post-S72 D10.
-13. Does NOT claim PRYZM 1 `src/` tree deletion — held until 90-day sunset window closes per `docs/operations/pryzm-1-sunset.md` §3.
+13. Does NOT claim PRYZM 1 `src/` tree deletion — held until 90-day sunset window closes per `docs/03-execution/plans/pryzm-1-sunset.md` §3.
 14. Does NOT claim quarterly secret-rotation drill #1 executed (S68 D10 calendar item).
 15. Does NOT claim git tag `v2.0.0` actually pushed — operator-side per ADR-0054 §A; manifests bumped + agreed.
 
@@ -228,24 +228,24 @@ records 7 sprint-scoped decisions with named reversal triggers.
 
 | Type | Reference | Why it matters |
 |---|---|---|
-| ADR | `docs/architecture/adr/0048-s67-self-host-docker-compose.md` §B | Code-stability invariant preserved (§5 above) |
-| ADR | `docs/architecture/adr/0049-s67-multi-region-cut-decision.md` | Multi-region cut kept; reversal post-GA |
-| ADR | `docs/architecture/adr/0050-s68-security-hardening-posture.md` | Quality §3 baseline |
-| ADR | `docs/architecture/adr/0051-*.md` | warn-only landing of largest-model bench |
-| ADR | `docs/architecture/adr/0052-*.md` | §E PDF preview gate; §B.7 src/lifecycle deletion |
-| ADR | `docs/architecture/adr/0053-s71-perf-regression-hunt-and-hardfail-flip.md` | NFT shape lock + K3-F codification |
-| ADR | `docs/architecture/adr/0054-s72-m36-ga-launch-gate.md` | This sprint's anchor |
+| ADR | `docs/02-decisions/adrs/0048-s67-self-host-docker-compose.md` §B | Code-stability invariant preserved (§5 above) |
+| ADR | `docs/02-decisions/adrs/0049-s67-multi-region-cut-decision.md` | Multi-region cut kept; reversal post-GA |
+| ADR | `docs/02-decisions/adrs/0050-s68-security-hardening-posture.md` | Quality §3 baseline |
+| ADR | `docs/02-decisions/adrs/0051-*.md` | warn-only landing of largest-model bench |
+| ADR | `docs/02-decisions/adrs/0052-*.md` | §E PDF preview gate; §B.7 src/lifecycle deletion |
+| ADR | `docs/02-decisions/adrs/0053-s71-perf-regression-hunt-and-hardfail-flip.md` | NFT shape lock + K3-F codification |
+| ADR | `docs/02-decisions/adrs/0054-s72-m36-ga-launch-gate.md` | This sprint's anchor |
 | Spec | `phases/PHASE-3D-Q4-M34-M36-HARDENING-GA.md` §S72 + §3 + §6 + §8 | Daily plan + GA gate + gap-closure + handoff |
 | Spec | `phases/PHASE-3-COMPLETION-GA-M25-M36.md` §K3-A through §K3-G | Kill-switches |
 | Spec | `08-VISION.md §6` | NFT contract |
 | Bench | `apps/bench/reports/M36-GA.md` | Milestone rollup |
 | Bench | `apps/bench/reports/S72-m36-ga-launch-gate-2026-04-29.md` | Sprint report |
-| Doc | `docs/post-mortems/PRYZM-2-build.md` | 36-month post-mortem |
-| Doc | `docs/roadmap/post-GA.md` | §8 handoff item 11 |
-| Doc | `docs/operations/pryzm-1-sunset.md` | 90-day window |
-| Doc | `docs/operations/cut-list-log.md` | Cut-list final state |
-| Doc | `docs/operations/status-page-and-on-call.md` | §S72 D3 runbook |
-| Doc | `docs/marketing/GA-LAUNCH-BLOG-POST.md` | §S72 D6 draft |
+| Doc | `docs/03-execution/status/post-mortems/PRYZM-2-build.md` | 36-month post-mortem |
+| Doc | `docs/03-execution/plans/post-ga-roadmap.md` | §8 handoff item 11 |
+| Doc | `docs/03-execution/plans/pryzm-1-sunset.md` | 90-day window |
+| Doc | `docs/03-execution/status/cut-list-log.md` | Cut-list final state |
+| Doc | `docs/05-guides/enterprise/operations/status-page-and-on-call.md` | §S72 D3 runbook |
+| Doc | `docs/03-execution/plans/launch/GA-LAUNCH-BLOG-POST.md` | §S72 D6 draft |
 | Doc | `RELEASE-NOTES-2.0.0.md` (root) | §S72 D5 |
 | Test | `tests/ga-gate/__tests__/*.test.ts` | Decision B runtime gate |
 
@@ -285,5 +285,5 @@ sprint+day reversal triggers, not "shipped but red".
 
 *Authored 2026-04-29. Sprint S72 closes Phase 3D and the 36-month
 PRYZM 2 build at D-day-actionable partial close. The next document
-the user will read is the post-mortem (`docs/post-mortems/PRYZM-2-build.md`).
-The next sprint after S72 is post-GA roadmap kickoff (`docs/roadmap/post-GA.md`).*
+the user will read is the post-mortem (`docs/03-execution/status/post-mortems/PRYZM-2-build.md`).
+The next sprint after S72 is post-GA roadmap kickoff (`docs/03-execution/plans/post-ga-roadmap.md`).*

@@ -2,7 +2,7 @@
 
 **Date**: 2026-04-27
 **Scope**: M1–M12 / sprints S01–S24, as specified in `docs/00_NEW_ARCHITECTURE/phases/PHASE-1A`, `PHASE-1B`, `PHASE-1C`, `PHASE-1D`.
-**Method**: For every named deliverable in the four sub-phase docs (file paths, packages, plugins, apps, ADRs, CI gates, benches, parity fixtures), check whether it currently exists in the source tree (`apps/`, `packages/`, `plugins/`, `tools/`, `tests/`, `docs/architecture/adr/`, `.github/workflows/`).
+**Method**: For every named deliverable in the four sub-phase docs (file paths, packages, plugins, apps, ADRs, CI gates, benches, parity fixtures), check whether it currently exists in the source tree (`apps/`, `packages/`, `plugins/`, `tools/`, `tests/`, `docs/02-decisions/adrs/`, `.github/workflows/`).
 **Output of this doc**: a per-sprint and per-category gap matrix with a severity rank (BLOCKER / MAJOR / MINOR / DEVIATION / DONE) and a roll-up at the end.
 
 ---
@@ -74,7 +74,7 @@ tests/
   fixtures/pryzm-1-snapshots/  ✓ snapshot dirs for all 20 element types + wall-sample.json + README
   (parity/)                    ✗ MISSING — required by S08 (wall), S11 (door/window/roof), S12 (slab/cw), S13 (cw real-projects), S14 (stair/handrail/ceiling)
   (integration/)               ✗ MISSING — required by S12 (mixed-scene)
-docs/architecture/adr/
+docs/02-decisions/adrs/
   0001 typed-id-brand-strategy            ✓ S01
   0002 command-handler-signature          ✓ S02
   0003 frame-scheduler-priority-vs-deadline ✓ S03
@@ -122,9 +122,9 @@ For each sprint: **Required** (from sub-phase doc), **Found** (in source tree), 
 | `tests/fixtures/pryzm-1-snapshots/wall-sample.json` | ✓ exists; plus 21 sibling element dirs | DONE (over-delivered) |
 | **CI Gate**: Boundary Check (packages/* cannot import src/*) | ⚠ root `eslint .` runs with `eslint-plugin-boundaries`; need to verify the rule is actually configured to block packages→src. Lint runs in CI so any boundary violation fails the build. | MINOR (verification needed) |
 | **CI Gate**: Schema Parity (PRYZM 1 fixtures vs PRYZM 2 schemas) | ✓ `packages/schemas/__tests__/round-trip.test.ts` exercises this; CI runs `npm test --workspaces --if-present` | DONE |
-| `docs/architecture/adr/0001-monorepo-structure.md` | ⚠ ADR-0001 exists but is *typed-id-brand-strategy*, not *monorepo-structure*. The monorepo decision is documented elsewhere (top-level `replit.md` + the phase doc). | DEVIATION (different topic chosen for ADR-0001; arguably the typed-id decision is more orthogonal and worth its own ADR) |
-| `docs/architecture/adr/0002-command-handler-signature.md` | ✓ exists, exact name match | DONE |
-| `docs/architecture/schemas.md` | ⚠ Not under `docs/architecture/`; check if it's elsewhere | MINOR |
+| `docs/02-decisions/adrs/0001-monorepo-structure.md` | ⚠ ADR-0001 exists but is *typed-id-brand-strategy*, not *monorepo-structure*. The monorepo decision is documented elsewhere (top-level `replit.md` + the phase doc). | DEVIATION (different topic chosen for ADR-0001; arguably the typed-id decision is more orthogonal and worth its own ADR) |
+| `docs/02-decisions/adrs/0002-command-handler-signature.md` | ✓ exists, exact name match | DONE |
+| `docs/04-reference/architecture-detail/schemas.md` | ⚠ Not under `docs/04-reference/architecture-detail/`; check if it's elsewhere | MINOR |
 
 **Sprint S01 verdict: SUBSTANTIALLY DONE.** One real deviation (protocol layout), one ADR topic substitution.
 
@@ -135,9 +135,9 @@ For each sprint: **Required** (from sub-phase doc), **Found** (in source tree), 
 | `packages/command-bus/src/{index,Bus,PatchEmitter,types,History,tracing}.ts` | ✓ `index, CommandBus, PatchEmitter, types, UndoStack, otel, produceCommand` | DONE (with naming deviations: `Bus.ts`→`CommandBus.ts`, `History.ts`→`UndoStack.ts`, `tracing.ts`→`otel.ts`. Plus a bonus `produceCommand.ts` extracting the immer-produce wrapper.) |
 | `apps/bench/src/benches/cmd-execute-latency.bench.ts` | ✓ exists | DONE |
 | `__tests__/undo-redo.test.ts`, `patch-generation.test.ts` | ✓ `undo-stack.test.ts`, `patch-emitter.test.ts`, `move-cube.test.ts`, `registry.test.ts` (4 tests) | DONE (over-delivered) |
-| **CI Gate**: Performance baseline (cmd-execute-latency vs baseline) | ⚠ `apps/bench/scripts/check-regression.mjs` runs in CI, *warn-only* per the S01 line in `ci.yml` ("Bench — regression check (warn-only at S01 per docs/architecture/ci.md)"). Should harden to *hard-fail* once S02 baseline is signed off. | MINOR (gate exists but is warn-only) |
+| **CI Gate**: Performance baseline (cmd-execute-latency vs baseline) | ⚠ `apps/bench/scripts/check-regression.mjs` runs in CI, *warn-only* per the S01 line in `ci.yml` ("Bench — regression check (warn-only at S01 per docs/04-reference/architecture-detail/ci.md)"). Should harden to *hard-fail* once S02 baseline is signed off. | MINOR (gate exists but is warn-only) |
 | **CI Gate**: affected-stores lint required | ✓ rule active in lint-fixtures integration | DONE |
-| `docs/architecture/adr/0003-command-bus-batching.md` | ⚠ ADR-0003 exists but is *frame-scheduler-priority-vs-deadline* (a S03 decision). The command-bus batching ADR was apparently merged into ADR-0002 (`command-handler-signature`). | DEVIATION (no separate batching ADR; decision absorbed into 0002) |
+| `docs/02-decisions/adrs/0003-command-bus-batching.md` | ⚠ ADR-0003 exists but is *frame-scheduler-priority-vs-deadline* (a S03 decision). The command-bus batching ADR was apparently merged into ADR-0002 (`command-handler-signature`). | DEVIATION (no separate batching ADR; decision absorbed into 0002) |
 
 **Sprint S02 verdict: DONE.** Naming deviations are cosmetic; one ADR topic was consolidated upward.
 
@@ -152,8 +152,8 @@ For each sprint: **Required** (from sub-phase doc), **Found** (in source tree), 
 | `__tests__/dirty-flag.test.ts`, `priority-sort.test.ts` | ✓ `frame-scheduler.test.ts`, `idle-continuation.test.ts`, `raf-pump.test.ts` | DONE (different test breakdown but same coverage area) |
 | **CI Gate**: Idle CPU < 2.5% | ⚠ `idle-cpu.bench.ts` runs in CI under `npm run bench`. Whether the *gate* hard-fails on > 2.5% depends on `apps/bench/scripts/check-regression.mjs` policy — currently warn-only. | MINOR (gate is warn-only; needs hardening) |
 | OTel spans `pryzm.frame.tick`, `pryzm.frame.idle-continuation` | ⚠ Not verified in this audit; `packages/frame-scheduler/src/otel.ts` exists. | MINOR (verify span names match spec) |
-| `docs/architecture/adr/0004-scheduler-priority-vs-tickpriority.md` | ⚠ ADR-0004 is *messagepack-codec-choice* (a S04 decision). The scheduler priority decision is captured in ADR-0003 (*frame-scheduler-priority-vs-deadline*). | DEVIATION (numbering shifted by one) |
-| `docs/architecture/adr/0006-idle-continuation-budget.md` | ✓ exists, exact match | DONE |
+| `docs/02-decisions/adrs/0004-scheduler-priority-vs-tickpriority.md` | ⚠ ADR-0004 is *messagepack-codec-choice* (a S04 decision). The scheduler priority decision is captured in ADR-0003 (*frame-scheduler-priority-vs-deadline*). | DEVIATION (numbering shifted by one) |
+| `docs/02-decisions/adrs/0006-idle-continuation-budget.md` | ✓ exists, exact match | DONE |
 
 **Sprint S03 verdict: DONE.** ADR numbering reshuffled (ADR-0003/0004 swapped purposes vs spec), but content captured.
 
@@ -167,8 +167,8 @@ For each sprint: **Required** (from sub-phase doc), **Found** (in source tree), 
 | `__tests__/causal-order.test.ts`, `transaction-safety.test.ts` | ✓ `causal-order-and-volume.test.ts`, `attach-to-bus.test.ts`, `codecs.test.ts`, `in-memory-backend.test.ts`, `indexed-db-backend.test.ts`, `msgpack-aliased-codec.test.ts` (6 tests) | DONE (over-delivered) |
 | **CI Gate**: save-edit append < 12 ms | ⚠ bench runs in CI; gate is warn-only as above. | MINOR |
 | **CI Gate**: Event Size Report | ⚠ Not visible in `ci.yml` head. | MINOR (verify) |
-| `docs/architecture/adr/0005-primitive-committer-interface.md` | ✓ exists, exact match | DONE |
-| `docs/architecture/persistence.md` | ⚠ Not verified | MINOR |
+| `docs/02-decisions/adrs/0005-primitive-committer-interface.md` | ✓ exists, exact match | DONE |
+| `docs/04-reference/architecture-detail/persistence.md` | ⚠ Not verified | MINOR |
 
 **Sprint S04 verdict: DONE.**
 
@@ -198,7 +198,7 @@ For each sprint: **Required** (from sub-phase doc), **Found** (in source tree), 
 | `apps/editor/__tests__/dual-mode-parity.test.ts` | ✓ exists | DONE |
 | `apps/bench/src/benches/save-reload.bench.ts` | ✓ exists | DONE |
 | **CI Gate**: visual-diff hard-fail on mode divergence | ⚠ `apps/bench/scripts/visual-diff.mjs` exists; runs in `--no-fixtures` mode pending K1A-3 mitigation | MINOR (deferred per kill-switch policy) |
-| `docs/architecture/adr/0007-webgpu-webgl2-dual-mode.md` | ✓ exists, exact match | DONE |
+| `docs/02-decisions/adrs/0007-webgpu-webgl2-dual-mode.md` | ✓ exists, exact match | DONE |
 | `PHASE-1A-FINAL-REPORT.md` | ⚠ Not found | MINOR (M3 milestone report not yet written) |
 
 **Sprint S06 verdict: SUBSTANTIALLY DONE** with the documented K1A-3 carve-out for binary visual fixtures.
@@ -214,8 +214,8 @@ For each sprint: **Required** (from sub-phase doc), **Found** (in source tree), 
 - `packages/stores/SelectionStore.ts`
 - `apps/editor/src/bootstrap.data.ts` (modified to register WallStore + 5 handlers)
 - 7 wall-handler tests + Playwright `pryzm2-smoke.spec.ts`
-- `code-level ADR docs/architecture/adr/0008-wall-handler-triage.md` (22→14 handler reduction)
-- `docs/architecture/element-recipe.md` v1
+- `code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md` (22→14 handler reduction)
+- `docs/04-reference/architecture-detail/element-recipe.md` v1
 - CI gates: `pryzm-no-three-in-kernel` real enforcement; `pryzm-affected-stores-required` extended
 
 **Found in source**: NOTHING. `plugins/wall/`, `packages/geometry-kernel/`, `packages/stores/SelectionStore.ts`, ADR 0008 — all absent.
@@ -231,8 +231,8 @@ For each sprint: **Required** (from sub-phase doc), **Found** (in source tree), 
 - `packages/geometry-kernel/types/{Point3D, JoinData, assertValidDescriptor}.ts`
 - `apps/bench/produce-wall.ts`
 - 5 unit tests + headless-runner + browser-worker-runner + 30-case parity snapshot test
-- `code-level ADR docs/architecture/adr/0009-wall-producer-signature.md`
-- `docs/architecture/parity-fixtures.md`
+- `code-level ADR docs/02-decisions/adrs/0009-wall-producer-signature.md`
+- `docs/04-reference/architecture-detail/parity-fixtures.md`
 
 **Found**: NOTHING.
 
@@ -293,7 +293,7 @@ For each sprint: **Required** (from sub-phase doc), **Found** (in source tree), 
 - 5 producer benches + 43 parity fixtures (18 slab + 25 cw)
 - `tests/integration/mixed-scene.spec.ts`
 - ADRs `0010-slab-handler-triage`, `0011-curtain-wall-triage`
-- M6 baseline report + M6 demo recording (`docs/demos/M6-1B-9-elements.mp4`)
+- M6 baseline report + M6 demo recording (`docs/05-guides/developer/demos/M6-1B-9-elements.mp4`)
 - **Sub-phase goal**: < 800 ms cold-load on a mixed scene (the M6 alpha gate)
 
 **Found**: NOTHING.
@@ -380,7 +380,7 @@ For each sprint: **Required** (from sub-phase doc), **Found** (in source tree), 
 
 ## §3 Cross-cutting category roll-up
 
-### §3.1 Code-level ADRs (`docs/architecture/adr/`)
+### §3.1 Code-level ADRs (`docs/02-decisions/adrs/`)
 
 | Required | Status |
 |---|---|
@@ -404,7 +404,7 @@ For each sprint: **Required** (from sub-phase doc), **Found** (in source tree), 
 | 0018 (S23) tier-streamed-loader | ✗ MISSING |
 | 0019 (S22) sync-server-linearisation | ✗ MISSING |
 
-**Summary: 7 of 19 expected ADRs present (37%).** All present ADRs cover S01–S06 only. ADR numbering has shifted by one slot (0003/0004 swapped vs spec); record this in `docs/architecture/adr/README.md`.
+**Summary: 7 of 19 expected ADRs present (37%).** All present ADRs cover S01–S06 only. ADR numbering has shifted by one slot (0003/0004 swapped vs spec); record this in `docs/02-decisions/adrs/README.md`.
 
 ### §3.2 CI gates (`.github/workflows/ci.yml`)
 
@@ -534,18 +534,18 @@ All 4 rules implemented + integration-tested via `check-lint-fixtures.mjs`. **DO
 
 | Spec doc | Status |
 |---|---|
-| `docs/architecture/adr/0001..0007.md` | ✓ all 7 present |
-| `docs/architecture/adr/0008..0019.md` | ✗ all 12 missing |
-| `docs/architecture/{schemas,command-bus,frame-scheduler,persistence,stores,scene-committer,renderer,bench-harness,tracing-specs}.md` | ⚠ presence not exhaustively verified in this audit; recommended follow-up `ls docs/architecture/` |
+| `docs/02-decisions/adrs/0001..0007.md` | ✓ all 7 present |
+| `docs/02-decisions/adrs/0008..0019.md` | ✗ all 12 missing |
+| `docs/04-reference/architecture-detail/{schemas,command-bus,frame-scheduler,persistence,stores,scene-committer,renderer,bench-harness,tracing-specs}.md` | ⚠ presence not exhaustively verified in this audit; recommended follow-up `ls docs/04-reference/architecture-detail/` |
 | `PHASE-1A-FINAL-REPORT.md` | ✗ |
-| `docs/demos/M6-1B-9-elements.mp4` | ✗ |
+| `docs/05-guides/developer/demos/M6-1B-9-elements.mp4` | ✗ |
 | `apps/bench/reports/M6-1B-baseline.md` | ✗ |
 | `apps/bench/reports/M9-1C-baseline.md` | ✗ |
 | `apps/bench/reports/M12-alpha-gate.json` + `M12-alpha.md` | ✗ |
 | `docs/00_NEW_ARCHITECTURE/PHASE-1-COMPLETION-REPORT.md` | ✗ |
-| `docs/file-format/spec.md` (S20) | ✗ |
+| `docs/04-reference/file-formats/pryzm-binary.md` (S20) | ✗ |
 | `docs/api/sync-protocol.md` (S22) | ✗ |
-| `docs/architecture/headless.md` (S18) | ✗ |
+| `docs/04-reference/architecture-detail/headless.md` (S18) | ✗ |
 
 ---
 
@@ -602,7 +602,7 @@ All 4 rules implemented + integration-tested via `check-lint-fixtures.mjs`. **DO
 - `tools/scripts` raf-snapshot + lint-fixture integration + count-checks + raf-count baseline.
 - `.github/workflows/ci.yml` 88-line pipeline with all 7 stages.
 - `tests/fixtures/pryzm-1-snapshots/` raw fixtures for all 20 element types.
-- `docs/architecture/adr/0001..0007.md` for all S01-S06 decisions.
+- `docs/02-decisions/adrs/0001..0007.md` for all S01-S06 decisions.
 
 ---
 
@@ -610,14 +610,14 @@ All 4 rules implemented + integration-tested via `check-lint-fixtures.mjs`. **DO
 
 ### Immediate (no engineering, just bookkeeping)
 
-- [ ] Write **`docs/architecture/adr/README.md`** documenting the ADR numbering shift (0003/0004 swap, 0001 topic substitution) so future sprints don't get confused.
+- [ ] Write **`docs/02-decisions/adrs/README.md`** documenting the ADR numbering shift (0003/0004 swap, 0001 topic substitution) so future sprints don't get confused.
 - [ ] Write **`PHASE-1A-FINAL-REPORT.md`** capturing the actual S01–S06 metrics, the K1A-3 carve-out (visual fixtures deferred), and the S07 entry preconditions. This is the M3 milestone close artifact.
-- [ ] Harden **CI bench-regression** + **bundle-size** gates from warn-only to hard-fail (or document the policy in `docs/architecture/ci.md`).
+- [ ] Harden **CI bench-regression** + **bundle-size** gates from warn-only to hard-fail (or document the policy in `docs/04-reference/architecture-detail/ci.md`).
 
 ### Phase 1B kickoff prerequisites (before resuming S07)
 
 - [ ] Spike `packages/geometry-kernel/` skeleton with `producers/.gitkeep` + `types/{BufferGeometryDescriptor, Point3D, JoinData}.ts` so S07 wall plugin has a target.
-- [ ] Write `docs/architecture/element-recipe.md` v1 (S07 deliverable) — this is the canonical doc that every subsequent element plugin will follow.
+- [ ] Write `docs/04-reference/architecture-detail/element-recipe.md` v1 (S07 deliverable) — this is the canonical doc that every subsequent element plugin will follow.
 - [ ] Decide whether `packages/types-schema` / `packages/types-builtin` separation will be re-introduced or whether `packages/schemas` is canonical (the latter is simpler; document the decision).
 - [ ] Write **ADR-0008** (wall-handler-triage 22→14) before touching `plugins/wall/handlers/`.
 

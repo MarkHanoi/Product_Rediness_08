@@ -474,7 +474,7 @@ What this needs in the architecture
 A new package: packages/file-format/ with pack(projectId): Promise<Blob> and unpack(blob): Promise<ProjectId>.
 A schema-version field in the manifest, with explicit migration rules per version bump (packages/file-format/migrations/v1-to-v2.ts).
 A signature block so customers can verify files came from a trusted source (matters for self-host trust).
-A spec doc, docs/file-format/spec.md, that is treated as a contract — published alongside the plugin SDK.
+A spec doc, docs/04-reference/file-formats/pryzm-binary.md, that is treated as a contract — published alongside the plugin SDK.
 Backward / forward compatibility
 Backward (old client opens new file): refuse, with a clear "upgrade required" message naming the missing schema version. Don't pretend.
 Forward (new client opens old file): must always work, via in-place migration on import. Migration code lives forever; you don't get to delete it.

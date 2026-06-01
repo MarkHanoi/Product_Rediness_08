@@ -1,6 +1,6 @@
 # Picking & Selection Architecture
 
-> Phase: 1C · Sprint S16 · ADR: `docs/architecture/adr/0015-picking-strategy.md`
+> Phase: 1C · Sprint S16 · ADR: `docs/02-decisions/adrs/0015-picking-strategy.md`
 
 ## Overview
 

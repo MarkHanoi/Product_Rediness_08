@@ -5,7 +5,7 @@
 > **Key principles**: P1 (single composition root), P3 (single rAF), P6 (commands are the only mutation path).  
 > **Authority**: When code disagrees with this contract, the code is wrong. This contract supersedes any implicit lifecycle assumptions in `engineLauncher.ts`, `BatchCoordinator.ts`, or `composeRuntime.ts`.  
 > **Companion contracts**: C03 (CQRS / undo), C04 (rendering and scheduling), C11 (element creation pipeline).  
-> **Gap notice**: §6 documents where today's code violates this contract. The implementation plan is in `docs/03_PRYZM3/04-PLAN-FORWARD/35-PROJECT-ISOLATION-WAVE.md`.
+> **Gap notice**: §6 documents where today's code violates this contract. The implementation plan is in `docs/archive/pryzm3-internal/04-PLAN-FORWARD/35-PROJECT-ISOLATION-WAVE.md`.
 
 ---
 
@@ -55,7 +55,7 @@ TAB OPEN
 > **Companion spec**: the detailed stage-by-stage trace of the OPEN + CREATE pipelines
 > (composeRuntime → engineLauncher → ProjectLoader), their performance characteristics, and
 > the handler-registration single-registrar rule (C02 §1) live in
-> `docs/03_PRYZM3/reference/specs/SPEC-PROJECT-OPEN-CREATE-PIPELINE.md`. Performance work is
+> `docs/03-execution/specs/SPEC-PROJECT-OPEN-CREATE-PIPELINE.md`. Performance work is
 > tracked as `PRYZM3-MASTER-STATUS.md §11 → OI-053`.
 
 ---
@@ -193,7 +193,7 @@ No changes to the open sequence are required. The invariant is that teardown is 
 
 ## §6 — AS-IS gaps (where today's code violates this contract)
 
-> **Last updated**: 2026-05-09. Every site carries a `TODO(C13.x)` annotation once the implementation wave starts. The implementation plan is `docs/03_PRYZM3/04-PLAN-FORWARD/35-PROJECT-ISOLATION-WAVE.md`.
+> **Last updated**: 2026-05-09. Every site carries a `TODO(C13.x)` annotation once the implementation wave starts. The implementation plan is `docs/archive/pryzm3-internal/04-PLAN-FORWARD/35-PROJECT-ISOLATION-WAVE.md`.
 > Gap status: C13-G1 through C13-G7 are the original seven gaps. C13-G8 and C13-G9 were discovered and **fixed** during live testing on 2026-05-04. C13-G10 was discovered and **fixed** on 2026-05-09.
 
 ### §6.1 — No teardown on `pryzm-project-switch`

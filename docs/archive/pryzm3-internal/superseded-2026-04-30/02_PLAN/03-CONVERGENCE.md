@@ -10,7 +10,7 @@
 > - [`FINAL-ARCHITECTURE-AND-ORCHESTRATION.md`](../01_ARCHITECTURE/03-FINAL-MAP.md) — the architecture map of the endpoint.
 > - [`SUMMARY-IMPLEMENTATION-PLAN.md`](02-SUMMARY.md) — the 12 quarters + post-S72 wireup that lead into the convergence.
 > - [`PROCESS-TRACKER.md`](../03_STATUS/01-PROCESS-TRACKER.md) — daily live status (the convergence checklist of §6 below also lives there once we cross M37).
-> - [`PRYZM-4-NEXT-GEN-PLAN.md`](../../04_PRYZM4/PRYZM-4-NEXT-GEN-PLAN.md) (in [`docs/04_PRYZM4/`](../../04_PRYZM4/)) — **what comes after PRYZM 3**: the from-zero, designer-led, multi-shell, AI-as-substrate next-generation product. Builds on six months of PRYZM 3 production validation (Stage Σ) before any line of PRYZM 4 code is written. Calendar target PRYZM 4 GA: ~M77.
+> - [`PRYZM-4-NEXT-GEN-PLAN.md`](../../04_PRYZM4/PRYZM-4-NEXT-GEN-PLAN.md) (in [`docs/03-execution/plans/`](../../04_PRYZM4/)) — **what comes after PRYZM 3**: the from-zero, designer-led, multi-shell, AI-as-substrate next-generation product. Builds on six months of PRYZM 3 production validation (Stage Σ) before any line of PRYZM 4 code is written. Calendar target PRYZM 4 GA: ~M77.
 
 ---
 
@@ -122,7 +122,7 @@ The convergence is not just code — it is also a clean-up of every name that im
 
 | From | To | Rationale |
 |---|---|---|
-| `docs/00_NEW_ARCHITECTURE/` | `docs/architecture/` | there is no longer an "old" architecture |
+| `docs/00_NEW_ARCHITECTURE/` | `docs/04-reference/architecture-detail/` | there is no longer an "old" architecture |
 | `apps/editor/` | `apps/editor/` (kept — single product, no rename needed) | already neutral |
 | `packages/legacy-shim/` | **deleted** (folder + all references) | legacy is gone; no shim needed |
 | `src/ui/` | `src/ui/` (kept — the canonical UI) | preserved verbatim per `06-PRYZM-IDENTITY §1` |
@@ -222,12 +222,12 @@ This checklist runs as a single CI job (`pnpm pryzm-3-day-1`) in the S87-WIRE D-
 
 ### Doc corpus state
 
-- [ ] `docs/00_NEW_ARCHITECTURE/` no longer exists; `docs/architecture/` does
+- [ ] `docs/00_NEW_ARCHITECTURE/` no longer exists; `docs/04-reference/architecture-detail/` does
 - [ ] `docs/archive/pryzm-1-to-2-transition/` contains the archived `09-AS-IS-VS-TO-BE.md`, `10-MASTER`, `12-BIM-2-AND-3 §1.x` historical sections, `CONFLICT-ANALYSIS.md`, `SUMMARY-IMPLEMENTATION-PLAN.md`, `PRYZM-3-CONVERGENCE-PLAN.md` (this doc)
 - [ ] `docs/archive/wireup-2026/` contains the 25 chunks from the wireup-plan audit folder
-- [ ] `docs/architecture/` contains exactly: `00-ARCHITECTURE.md`, `01-IDENTITY.md`, `02-VISION.md`, `03-ROADMAP.md`, `04-GAP-CLOSURE.md`, `05-TRACKER.md`, plus `adrs/` and `specs/` subfolders
+- [ ] `docs/04-reference/architecture-detail/` contains exactly: `00-ARCHITECTURE.md`, `01-IDENTITY.md`, `02-VISION.md`, `03-ROADMAP.md`, `04-GAP-CLOSURE.md`, `05-TRACKER.md`, plus `adrs/` and `specs/` subfolders
 - [ ] All 44 ADRs (001..044) ratified and on disk
-- [ ] All cross-references inside `docs/architecture/` resolve (no broken links)
+- [ ] All cross-references inside `docs/04-reference/architecture-detail/` resolve (no broken links)
 
 ### Customer state
 
@@ -260,7 +260,7 @@ This script (lives in `apps/bench/pryzm-3-day-1.ts` after the rename: `apps/benc
   Convergence NOT reached. Re-run after fixes.
 ```
 
-The S87-WIRE D-last PR cannot merge unless this script returns the green line. Once merged, the green-line output is committed to `docs/architecture/PRYZM-3-DAY-1-CERTIFICATE.md` as the historical proof.
+The S87-WIRE D-last PR cannot merge unless this script returns the green line. Once merged, the green-line output is committed to `docs/04-reference/architecture-detail/PRYZM-3-DAY-1-CERTIFICATE.md` as the historical proof.
 
 ---
 
@@ -273,9 +273,9 @@ After PRYZM 3 day 1, the following workflows simplify because the dual-edition c
 | New feature lands in… | `packages/*` + plugin + new path · legacy left alone | the codebase (one place) |
 | Verification | `pnpm ga-gate` + parity check (new vs legacy) | `pnpm ga-gate` only |
 | Branching/feature flags | per-primitive `PRYZM_NEW_ARCH=…` | none for arch; only product feature flags |
-| Onboarding doc | this whole folder + chunks 14–25 + audit trail | `docs/architecture/00-ARCHITECTURE.md` (day 1 read) |
-| Founder daily | `PROCESS-TRACKER.md §1 + §11` | `docs/architecture/05-TRACKER.md` (renamed) |
-| Roadmap | `12-BIM-2-AND-3-POST-GA-ROADMAP.md` (Phases 4–8) | `docs/architecture/03-ROADMAP.md` (continues Phases 4–8 unchanged) |
+| Onboarding doc | this whole folder + chunks 14–25 + audit trail | `docs/04-reference/architecture-detail/00-ARCHITECTURE.md` (day 1 read) |
+| Founder daily | `PROCESS-TRACKER.md §1 + §11` | `docs/04-reference/architecture-detail/05-TRACKER.md` (renamed) |
+| Roadmap | `12-BIM-2-AND-3-POST-GA-ROADMAP.md` (Phases 4–8) | `docs/04-reference/architecture-detail/03-ROADMAP.md` (continues Phases 4–8 unchanged) |
 | Sprint cadence | dual-track `S<N>-WIRE` + `S<N>-PG4..PG8` | single `S<N>` from S88 onward |
 | Plugin SDK story | "extend PRYZM 2" | "extend PRYZM" — marketplace ships unchanged plugins |
 
@@ -343,6 +343,6 @@ The full plan, including:
 - The PRYZM 4 day 1 acceptance checklist
 - The single command (`pnpm pryzm-4-day-1`) that proves PRYZM 4 exists
 
-…lives in [`PRYZM-4-NEXT-GEN-PLAN.md`](../../04_PRYZM4/PRYZM-4-NEXT-GEN-PLAN.md) under [`docs/04_PRYZM4/`](../../04_PRYZM4/).
+…lives in [`PRYZM-4-NEXT-GEN-PLAN.md`](../../04_PRYZM4/PRYZM-4-NEXT-GEN-PLAN.md) under [`docs/03-execution/plans/`](../../04_PRYZM4/).
 
 PRYZM 3 is the foundation. PRYZM 4 is the product the founder set out to build.

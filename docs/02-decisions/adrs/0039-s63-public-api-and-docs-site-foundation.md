@@ -37,7 +37,7 @@ Both must land at S63 D1 for D2-D10 to layer on top.
 
 A third constraint: the existing `docs/` tree at the repo root contains
 thousands of internal architecture and process documents
-(`docs/03_PRYZM3/`, `docs/architecture/adr/` — this very ADR
+(`docs/archive/pryzm3-internal/`, `docs/02-decisions/adrs/` — this very ADR
 lives there). Astro Starlight performs a content-collection scan over
 its configured root; pointing it at `docs/` would scan thousands of
 unrelated markdown files and break the build. The docs site must live
@@ -77,7 +77,7 @@ code generation.
 ### C — Docs site lives at `apps/docs-site/`, not at `docs/`
 
 Reason: `docs/` already contains thousands of internal markdown files
-across `docs/03_PRYZM3/`, `docs/architecture/adr/`, and a
+across `docs/archive/pryzm3-internal/`, `docs/02-decisions/adrs/`, and a
 dozen other subtrees. Astro Starlight performs a content-collection
 scan over its configured `src/content/docs/` root; a scan over the
 existing `docs/` tree would (a) attempt to render thousands of internal
@@ -88,7 +88,7 @@ frontmatter.
 The docs site is therefore a sibling workspace member at
 `apps/docs-site/` with its own isolated `src/content/docs/` tree.
 The existing `docs/` tree stays unchanged; ADRs continue to live at
-`docs/architecture/adr/`.
+`docs/02-decisions/adrs/`.
 
 ### D — OpenAPI version pin = `'1.0.0-draft'` until S65 GA
 
@@ -149,7 +149,7 @@ onward (when hosting goes live) the build is wired into CI.
 - The OpenAPI version stays at `'1.0.0-draft'` through S64. Any version
   bump requires a new ADR superseding §D of this one.
 - The `docs/` tree at the repo root is untouched. ADRs continue to live
-  at `docs/architecture/adr/`.
+  at `docs/02-decisions/adrs/`.
 - `apps/docs-site/` adds Astro + Starlight to the workspace
   `pnpm-lock.yaml`. The transitive cost is one-time and isolated to
   the docs-site workspace member; the editor + headless + sync-server
@@ -161,11 +161,11 @@ onward (when hosting goes live) the build is wired into CI.
 
 ## Cross-references
 
-- `docs/03_PRYZM3/reference/phases/PHASE-3/3C-Q3-M31-M33-PLUGIN-SDK-MARKETPLACE-APIS.md`
+- `docs/03-execution/plans/legacy/phases/PHASE-3/3C-Q3-M31-M33-PLUGIN-SDK-MARKETPLACE-APIS.md`
   §3 (Plugin SDK Docs Site, D1-D10).
-- `docs/03_PRYZM3/reference/phases/PHASE-3/3C-Q3-M31-M33-SDK-MARKETPLACE-PUBLIC-API.md`
+- `docs/03-execution/plans/legacy/phases/PHASE-3/3C-Q3-M31-M33-SDK-MARKETPLACE-PUBLIC-API.md`
   §S63 (Public API Draft Published + OpenAPI Schema, D1-D10).
-- `docs/03_PRYZM3/reference/specs/SPEC-26-PRYZM-FILE-FORMAT.md` §8 (Public
+- `docs/03-execution/specs/SPEC-26-PRYZM-FILE-FORMAT.md` §8 (Public
   API surface — five canonical input/output points for `.pryzm`).
 - ADR-0038 — S62 Plugin SDK descriptor schema lock; this ADR mirrors
   ADR-0038 §Decision D (staged version pin pattern).

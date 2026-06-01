@@ -139,7 +139,7 @@ The `chunkSizeWarningLimit` is set to 1500 KB to suppress false-positive warning
 
 ## §6 — Disaster Recovery
 
-The DR runbook is in `docs/03_PRYZM3/reference/runbooks/DR-DRILL-RUNBOOK.md`. The runbook MUST be exercised (dry-run drill) at least once per quarter. Key RTO/RPO targets:
+The DR runbook is in `docs/04-reference/runbooks/DR-DRILL-RUNBOOK.md`. The runbook MUST be exercised (dry-run drill) at least once per quarter. Key RTO/RPO targets:
 
 | Target | Value |
 |---|---|

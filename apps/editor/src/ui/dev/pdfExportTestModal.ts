@@ -4,7 +4,7 @@
  * to `sheetToPdfBytes` (from @pryzm/pdf-export), and offers the resulting
  * vector PDF as a browser Blob download.
  *
- * CONTRACT: docs/00_Contracts/C29-PDF-VECTOR-EXPORT.md.
+ * CONTRACT: docs/02-decisions/contracts/C29-PDF-VECTOR-EXPORT.md.
  *
  * Strict scope:
  *   • Uses the canonical L4 entry `sheetToPdfBytes` and the L2 composer

@@ -4,7 +4,7 @@
 > **Foundation above this doc**: [00-PRODUCT-VISION-AND-BUSINESS-STRATEGY-V1.md](00-PRODUCT-VISION-AND-BUSINESS-STRATEGY-V1.md) (product + business vision) → [01-VISION.md](01-VISION.md) (engineering vision + 13 differentiators including D11/D12/D13 added 2026-05-31).
 > **Cross-cutting synthesis**: [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md](PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md) — end-to-end delivery plan across all C-contracts.
 > **Code-state grounding**: [PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md](PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md) — repository state at 2026-05-31.
-> **New C-contracts (2026-05-31)**: this architecture is now governed by 7 additional contracts — [C24 Sheet Composition](../00_Contracts/C24-SHEET-COMPOSITION-ENGINE.md), [C25 IFC Export Production](../00_Contracts/C25-IFC-EXPORT-PRODUCTION.md), [C26 Revit Round-Trip](../00_Contracts/C26-REVIT-ROUND-TRIP.md), [C27 BIM 3.0 Inspect Model](../00_Contracts/C27-BIM3-INSPECT-MODEL.md), [C28 Data Panel & Automation](../00_Contracts/C28-DATA-PANEL-AND-AUTOMATION.md), [C29 PDF Vector Export](../00_Contracts/C29-PDF-VECTOR-EXPORT.md), [C30 Drawing Set Management](../00_Contracts/C30-DRAWING-SET-MANAGEMENT.md). Per-layer cross-link table in §11.
+> **New C-contracts (2026-05-31)**: this architecture is now governed by 7 additional contracts — [C24 Sheet Composition](../02-decisions/contracts/C24-SHEET-COMPOSITION-ENGINE.md), [C25 IFC Export Production](../02-decisions/contracts/C25-IFC-EXPORT-PRODUCTION.md), [C26 Revit Round-Trip](../02-decisions/contracts/C26-REVIT-ROUND-TRIP.md), [C27 BIM 3.0 Inspect Model](../02-decisions/contracts/C27-BIM3-INSPECT-MODEL.md), [C28 Data Panel & Automation](../02-decisions/contracts/C28-DATA-PANEL-AND-AUTOMATION.md), [C29 PDF Vector Export](../02-decisions/contracts/C29-PDF-VECTOR-EXPORT.md), [C30 Drawing Set Management](../02-decisions/contracts/C30-DRAWING-SET-MANAGEMENT.md). Per-layer cross-link table in §11.
 > **Source consolidated from**: `archive/superseded-2026-04-30/01_ARCHITECTURE/00-ARCHITECTURE.md`, `01-LAYERS-AND-PRINCIPLES.md`, `archive/superseded-2026-04-30/02_PLAN/03-CONVERGENCE.md` (the §2 boolean definition).
 > **Per-file detail**: `reference/architecture-detail/02-FILE-STRUCTURE.md` (54 packages line-by-line — deep-audit updated 2026-05-01), `reference/architecture-detail/03-FINAL-MAP.md` (the visual map), `reference/architecture-detail/04-PASCAL-REFERENCE.md` (Pascal-editor prior-art lens).
 > **Package dependency map**: `04-PLAN-FORWARD/16-PACKAGE-DEPENDENCY-MAP.md` — the canonical inter-package import graph, tier assignments, and standalone package list (added 2026-05-01 deep-audit).
@@ -303,7 +303,7 @@ This document is **the shape of the system + the binding rules + the lint gates 
 
 ## §10 — Element creation orchestration (added 2026-05-03)
 
-> **Full contract**: `docs/00_Contracts/C11-ELEMENT-CREATION-PIPELINE.md`. This section is a structural summary only — C11 is the binding authority.
+> **Full contract**: `docs/02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md`. This section is a structural summary only — C11 is the binding authority.
 
 All element creation in PRYZM — whether triggered by a **user gesture** (click Wall tool, draw a segment) or an **AI workflow** (generate floor plan from prompt) or **remote sync** (collaborator's mutation) — MUST follow the same pipeline.
 
@@ -358,7 +358,7 @@ All element creation in PRYZM — whether triggered by a **user gesture** (click
 | User clicks "walls from slab" (`WallTool.ts:1535`) | `commandManager.execute(new CreateWallsFromSlabCommand(...))` | `runtime.commandBus.dispatch('wall.batch.create', ...)` |
 | AI batch completion (`BatchCoordinator.ts:460–471`) | `commandManager.execute(new ReDetectRoomsCommand(...))` ×9 synchronously | `runtime.events.emit('wall.batch.completed')` → async subscriber → `dispatch('rooms.redetect', { levelId })` per level with frame yields |
 
-**214 total** `commandManager.execute()` sites remain. Migration plan: `04-PLAN-FORWARD/33-PHASE-E5X-COMMANDMANAGER-FULL-MIGRATION.md`. Full contract for the pipeline target state: `docs/00_Contracts/C11-ELEMENT-CREATION-PIPELINE.md`.
+**214 total** `commandManager.execute()` sites remain. Migration plan: `04-PLAN-FORWARD/33-PHASE-E5X-COMMANDMANAGER-FULL-MIGRATION.md`. Full contract for the pipeline target state: `docs/02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md`.
 
 ---
 
@@ -368,13 +368,13 @@ All element creation in PRYZM — whether triggered by a **user gesture** (click
 
 | Contract | Subsystem | Layer | Primary owner(s) | Audit verdict |
 |---|---|---|---|---|
-| [C24](../00_Contracts/C24-SHEET-COMPOSITION-ENGINE.md) | Sheet Composition Engine | L7 plugin + L1½ primitives | `plugins/sheets/` (existing, S37 / ADR-0031) · `packages/drawing-primitives/` (existing, ADR-0029) · `packages/schemas/src/sheet/` (NEW migrate from plugin) | **AUDIT + EXTEND** |
-| [C25](../00_Contracts/C25-IFC-EXPORT-PRODUCTION.md) | IFC4X3 Export | L7 plugin + L2 file-format | `plugins/ifc-export/` (existing, S56) · `packages/file-format/src/ifc/` | **AUDIT + EXTEND** |
-| [C26](../00_Contracts/C26-REVIT-ROUND-TRIP.md) | Revit Round-Trip | L0 schemas only in monorepo (Python adapter external) | `packages/schemas/src/revit/` (NEW) + external Python add-in | **GENUINELY NEW** |
-| [C27](../00_Contracts/C27-BIM3-INSPECT-MODEL.md) | BIM 3.0 Inspect Model | L3 stores + L1 visibility intent + L5 app UI | `packages/stores/src/InspectSelectionStore.ts` (NEW) · `packages/visibility/src/intents/IsolationIntent.ts` (NEW, P7) · `packages/spatial-index/` (extension) · `packages/renderer-three/` IsolationAnimator (extension) · `apps/editor/src/ui/inspect/` (NEW) · `plugins/ifc-inspector/` (existing, integrates as element-instance sub-panel) | **GENUINELY NEW** (+ migration of existing `PropertyInspector.ts`) |
-| [C28](../00_Contracts/C28-DATA-PANEL-AND-AUTOMATION.md) | Data Panel & Automation | L7 plugin + L3 stores + L3 new package | `plugins/schedules/` (existing, S41 / ADR-0032) · `packages/data-engine/` (NEW) · `packages/stores/src/DataStore.ts` (NEW) · `apps/editor/src/ui/data/` (NEW) | **AUDIT + EXTEND** |
-| [C29](../00_Contracts/C29-PDF-VECTOR-EXPORT.md) | PDF Vector Export | L1½ primitives | `packages/drawing-primitives/src/backends/pdf.ts` (typed stub, ADR-0029) | **FILL TYPED STUB** |
-| [C30](../00_Contracts/C30-DRAWING-SET-MANAGEMENT.md) | Drawing Set Management | L3 stores + L7 plugin | `packages/stores/src/SheetSetStore.ts` (NEW) · `plugins/sheets/src/book/` (existing, S37) · `plugins/annotations/` (extension — revision-cloud type) | **AUDIT + EXTEND** |
+| [C24](../02-decisions/contracts/C24-SHEET-COMPOSITION-ENGINE.md) | Sheet Composition Engine | L7 plugin + L1½ primitives | `plugins/sheets/` (existing, S37 / ADR-0031) · `packages/drawing-primitives/` (existing, ADR-0029) · `packages/schemas/src/sheet/` (NEW migrate from plugin) | **AUDIT + EXTEND** |
+| [C25](../02-decisions/contracts/C25-IFC-EXPORT-PRODUCTION.md) | IFC4X3 Export | L7 plugin + L2 file-format | `plugins/ifc-export/` (existing, S56) · `packages/file-format/src/ifc/` | **AUDIT + EXTEND** |
+| [C26](../02-decisions/contracts/C26-REVIT-ROUND-TRIP.md) | Revit Round-Trip | L0 schemas only in monorepo (Python adapter external) | `packages/schemas/src/revit/` (NEW) + external Python add-in | **GENUINELY NEW** |
+| [C27](../02-decisions/contracts/C27-BIM3-INSPECT-MODEL.md) | BIM 3.0 Inspect Model | L3 stores + L1 visibility intent + L5 app UI | `packages/stores/src/InspectSelectionStore.ts` (NEW) · `packages/visibility/src/intents/IsolationIntent.ts` (NEW, P7) · `packages/spatial-index/` (extension) · `packages/renderer-three/` IsolationAnimator (extension) · `apps/editor/src/ui/inspect/` (NEW) · `plugins/ifc-inspector/` (existing, integrates as element-instance sub-panel) | **GENUINELY NEW** (+ migration of existing `PropertyInspector.ts`) |
+| [C28](../02-decisions/contracts/C28-DATA-PANEL-AND-AUTOMATION.md) | Data Panel & Automation | L7 plugin + L3 stores + L3 new package | `plugins/schedules/` (existing, S41 / ADR-0032) · `packages/data-engine/` (NEW) · `packages/stores/src/DataStore.ts` (NEW) · `apps/editor/src/ui/data/` (NEW) | **AUDIT + EXTEND** |
+| [C29](../02-decisions/contracts/C29-PDF-VECTOR-EXPORT.md) | PDF Vector Export | L1½ primitives | `packages/drawing-primitives/src/backends/pdf.ts` (typed stub, ADR-0029) | **FILL TYPED STUB** |
+| [C30](../02-decisions/contracts/C30-DRAWING-SET-MANAGEMENT.md) | Drawing Set Management | L3 stores + L7 plugin | `packages/stores/src/SheetSetStore.ts` (NEW) · `plugins/sheets/src/book/` (existing, S37) · `plugins/annotations/` (extension — revision-cloud type) | **AUDIT + EXTEND** |
 
 ### §11.1 — New CI gates introduced by C24–C30
 

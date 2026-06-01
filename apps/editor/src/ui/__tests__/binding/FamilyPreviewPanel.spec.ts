@@ -6,7 +6,7 @@
 // The optional familyId / typeId arguments are passed through into the
 // PanelViewSpec metadata.
 //
-// Docs: docs/03_PRYZM3/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §2
+// Docs: docs/archive/pryzm3-internal/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §2
 
 import { describe, expect, it, vi } from 'vitest';
 import {

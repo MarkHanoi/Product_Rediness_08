@@ -4,7 +4,7 @@
 // learns the panel is visible (activatePanel), and when hide() is called it
 // learns the panel is gone (deactivatePanel).  Both transitions are idempotent.
 //
-// Docs: docs/03_PRYZM3/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §2
+// Docs: docs/archive/pryzm3-internal/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §2
 
 import { describe, expect, it, vi } from 'vitest';
 import {

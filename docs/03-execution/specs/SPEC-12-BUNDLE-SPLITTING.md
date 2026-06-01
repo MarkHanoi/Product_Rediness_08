@@ -8,7 +8,7 @@
 | Owner | Architecture lead |
 | Closes | `CRITICAL-REVIEW-2026-04-27.md §B12` |
 | Phases | 1A (bundle gate baseline), 1D (M12 alpha measurement), 3B (OBC removal unblocks web-ifc lazy), 3D (M36 GA gate) |
-| Replaces / extends | `00_Contracts/18-BUNDLE-CHUNK-SPLITTING-CONTRACT.md` |
+| Replaces / extends | `02-decisions/contracts/18-BUNDLE-CHUNK-SPLITTING-CONTRACT.md` |
 
 > First paint < 800 ms (small project) requires aggressive code splitting, lazy-loading of heavy chunks, and elimination of pre-paid weight that the user might never use. This spec defines the categories, the unblock path for `web-ifc` (Step 3 of Contract 18), the Cesium first-paint regression measurement, and the bundle-size CI gate.
 

@@ -12,11 +12,11 @@ Sibling docs (read these first if you haven't):
 
 Governing C-contracts (binding):
 
-- [C03 Schemas, Commands & State](../00_Contracts/C03-SCHEMAS-COMMANDS-AND-STATE.md) — **P6: commands are the only mutation path**
-- [C09 AI & Visibility Intent](../00_Contracts/C09-AI-AND-VISIBILITY-INTENT.md) — §3.4 apartment workflow shape
-- [C11 Element Creation Pipeline](../00_Contracts/C11-ELEMENT-CREATION-PIPELINE.md) — generation chain
-- [C15 Hosted Element / Host-Wall Contract](../00_Contracts/C15-HOSTED-ELEMENT-CONTRACT.md) — **offset-parametric model already exists**
-- [C16 Command Authoring](../00_Contracts/C16-COMMAND-AUTHORING.md) — how to author the new commands this doc requires
+- [C03 Schemas, Commands & State](../02-decisions/contracts/C03-SCHEMAS-COMMANDS-AND-STATE.md) — **P6: commands are the only mutation path**
+- [C09 AI & Visibility Intent](../02-decisions/contracts/C09-AI-AND-VISIBILITY-INTENT.md) — §3.4 apartment workflow shape
+- [C11 Element Creation Pipeline](../02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md) — generation chain
+- [C15 Hosted Element / Host-Wall Contract](../02-decisions/contracts/C15-HOSTED-ELEMENT-CONTRACT.md) — **offset-parametric model already exists**
+- [C16 Command Authoring](../02-decisions/contracts/C16-COMMAND-AUTHORING.md) — how to author the new commands this doc requires
 
 ---
 
@@ -167,7 +167,7 @@ The Cognition-Stack L0 is a *conceptual* layer pointing at this same substrate. 
 
 ## §4 — Edit Flow Through Commands (P6 — Binding)
 
-**Critical**: every parameter edit in BIM 2.0 / BIM 3.0 dispatches through the command bus per [C03 §2.1-§2.2](../00_Contracts/C03-SCHEMAS-COMMANDS-AND-STATE.md). The UI never mutates the store directly. This is not an implementation detail — it is binding contract.
+**Critical**: every parameter edit in BIM 2.0 / BIM 3.0 dispatches through the command bus per [C03 §2.1-§2.2](../02-decisions/contracts/C03-SCHEMAS-COMMANDS-AND-STATE.md). The UI never mutates the store directly. This is not an implementation detail — it is binding contract.
 
 ### Required new commands (C16-compliant)
 
@@ -180,7 +180,7 @@ The Cognition-Stack L0 is a *conceptual* layer pointing at this same substrate. 
 | `constraint.updateBound` | `{ class: 'G1'\|...\|'T8', metric, value }` | Mutates per-apartment constraint override (apartment-level, not global); triggers re-validate |
 | `apartment.applyArchetypeSwap` | `{ roomId, archetype }` | Swaps the activity program for a single room; triggers re-furnish |
 
-All routed through `commandBus.dispatch` ([C11 §2](../00_Contracts/C11-ELEMENT-CREATION-PIPELINE.md)). Handler must be authored per [C16](../00_Contracts/C16-COMMAND-AUTHORING.md). Each emits the standard `pryzm-*-updated` event so any view (3D, 2D plan, the panel itself, Schedule) re-renders.
+All routed through `commandBus.dispatch` ([C11 §2](../02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md)). Handler must be authored per [C16](../02-decisions/contracts/C16-COMMAND-AUTHORING.md). Each emits the standard `pryzm-*-updated` event so any view (3D, 2D plan, the panel itself, Schedule) re-renders.
 
 ### The propagation engine
 
@@ -192,7 +192,7 @@ This is the BIM 3.0 piece. When a `*.updateParameter` command lands, the handler
    - Reads the dependency graph (which rooms / walls / fixtures are downstream of this parameter)
    - Re-solves the local region under all G/T constraints
    - Returns a *plan of changes* (room rect updates, wall moves, door offset updates, furniture re-placements)
-4. Dispatches a single batched `apartment.applyLayout` command per [C09 §3.4 Phase B pattern](../00_Contracts/C09-AI-AND-VISIBILITY-INTENT.md) — same shape as today's generation, but scoped to the impacted region.
+4. Dispatches a single batched `apartment.applyLayout` command per [C09 §3.4 Phase B pattern](../02-decisions/contracts/C09-AI-AND-VISIBILITY-INTENT.md) — same shape as today's generation, but scoped to the impacted region.
 
 Result: **one undo step per user edit**, even when 12 elements move.
 

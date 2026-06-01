@@ -153,8 +153,8 @@ the L4 cascade infra in S10 D6 — for S07 it is explicitly out of scope.
 ## References
 
 * `phases/PHASE-1B-Q2-M4-M6-WALL-END-TO-END.md` §S07-T1 — triage owner
-* `docs/architecture/element-recipe.md` — the recipe this ADR seeds
-* `docs/architecture/adr/0002-command-handler-signature.md` — the
+* `docs/04-reference/architecture-detail/element-recipe.md` — the recipe this ADR seeds
+* `docs/02-decisions/adrs/0002-command-handler-signature.md` — the
   parametric handler contract that makes the collapses possible
 * `src/commands/walls/` — the 22-class PRYZM 1 surface this ADR triages
 

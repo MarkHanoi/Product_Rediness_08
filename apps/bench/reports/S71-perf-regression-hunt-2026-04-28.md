@@ -2,9 +2,9 @@
 
 **Sprint**: PRYZM 2 Phase 3D · S71 (renumbered slot after S70 absorbed S69's browser-matrix charter)
 **Date**: 2026-04-28
-**Anchor ADR**: `docs/architecture/adr/0053-s71-perf-regression-hunt-and-hardfail-flip.md`
-**Charter source**: `docs/03_PRYZM3/reference/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S69 lines 272-304 (S69's never-executed perf-hardening daily plan; S71 inherits)
-**Halt-gate spec**: `docs/03_PRYZM3/reference/phases/PHASE-3/3-COMPLETION-GA-M25-M36.md` §K3-F line 575 — "If at S69 (M35) regression > 10% on any NFT target, halt forward 3D work; root-cause + fix; re-bench."
+**Anchor ADR**: `docs/02-decisions/adrs/0053-s71-perf-regression-hunt-and-hardfail-flip.md`
+**Charter source**: `docs/archive/pryzm3-internal/reference/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S69 lines 272-304 (S69's never-executed perf-hardening daily plan; S71 inherits)
+**Halt-gate spec**: `docs/archive/pryzm3-internal/reference/phases/PHASE-3/3-COMPLETION-GA-M25-M36.md` §K3-F line 575 — "If at S69 (M35) regression > 10% on any NFT target, halt forward 3D work; root-cause + fix; re-bench."
 
 ---
 
@@ -83,7 +83,7 @@ Run date: 2026-04-29T00:03:05Z
 | total growth | 0.22% |
 | elapsed | 4.5 s |
 
-**Closure level**: this is the Node-side synthetic harness — actionable closure of the S69 D5 leak-hunt charter per ADR-0053 §D. The literal 4-hour Playwright session-driven sim called for by the phase-doc S69 D5 line 291 is operator-side per `docs/03_PRYZM3/runbooks/DR-DRILL-RUNBOOK.md` §7 + ADR-0053 §D reversal trigger.
+**Closure level**: this is the Node-side synthetic harness — actionable closure of the S69 D5 leak-hunt charter per ADR-0053 §D. The literal 4-hour Playwright session-driven sim called for by the phase-doc S69 D5 line 291 is operator-side per `docs/archive/pryzm3-internal/runbooks/DR-DRILL-RUNBOOK.md` §7 + ADR-0053 §D reversal trigger.
 
 ---
 

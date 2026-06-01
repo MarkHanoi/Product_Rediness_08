@@ -5,7 +5,7 @@
 >
 > Owner package: `packages/scene-committer/`.
 >
-> Source spec: `docs/03_PRYZM3/reference/phases/PHASE-1/1A-Q1-M1-M3-SKELETON-RAILS.md` §S04 Track B (lines 442-469).
+> Source spec: `docs/03-execution/plans/legacy/phases/PHASE-1/1A-Q1-M1-M3-SKELETON-RAILS.md` §S04 Track B (lines 442-469).
 > Interface ratification: ADR-005.
 
 ## The wall around THREE

@@ -14,7 +14,7 @@ The cut-list discipline absorbed 6 cuts over the 36-month build
 without one schedule slip. Each cut had a pre-declared reversal
 cost; the pre-declaration removed the meeting overhead at cut-time.
 This is one of the load-bearing process commitments documented in
-`docs/post-mortems/PRYZM-2-build.md` §3.
+`docs/03-execution/status/post-mortems/PRYZM-2-build.md` §3.
 
 ---
 
@@ -35,7 +35,7 @@ This is one of the load-bearing process commitments documented in
 | T2.3 | Defer multi-language UI | open | **CUT** (deferred to Phase 4) | S59 D7 | 2 sprints | Beta cohort is en-only; i18n requires full string-extraction + RTL audit; not justified at current cohort size of 25 invitees. |
 | T2.4 | Defer collaboration cursor history (replayable timeline) | open | **STAYS OPEN — wait for first request** | S60 D2 (initial review) | 1 sprint | Yjs awareness throttle (S44, 60 Hz) handles live cursors; cursor *history* is a beta-feedback-driven feature. |
 | T2.5 | Defer offline-first | open | **CUT** (post-GA) | S60 | 2-3 sprints | Multiplayer is the M36 differentiator; offline-first conflict-resolution adds complexity; defer until post-GA. |
-| T2.6 | Defer multi-region (EU-West + US-East regional Supabase primaries) | open | **CUT** (per ADR-0049, S67 D9) | S67 D9 | 2 sprints | Per ADR-0049 (5 documented reasons): no measured demand at GA (beta cohort 90%+ NA); +2 sprint cost would slip GA to ~M38; self-host satisfies most data-residency asks via Hetzner/OVH/Scaleway Frankfurt; SOC2 sequencing — multi-region adds per-region attestation surface; operational maturity — DR drill at S69 D6 establishes single-region rollback runbook before expanding. P1 in `docs/roadmap/post-GA.md` §2. |
+| T2.6 | Defer multi-region (EU-West + US-East regional Supabase primaries) | open | **CUT** (per ADR-0049, S67 D9) | S67 D9 | 2 sprints | Per ADR-0049 (5 documented reasons): no measured demand at GA (beta cohort 90%+ NA); +2 sprint cost would slip GA to ~M38; self-host satisfies most data-residency asks via Hetzner/OVH/Scaleway Frankfurt; SOC2 sequencing — multi-region adds per-region attestation surface; operational maturity — DR drill at S69 D6 establishes single-region rollback runbook before expanding. P1 in `docs/03-execution/plans/post-ga-roadmap.md` §2. |
 
 ---
 
@@ -52,7 +52,7 @@ state is one canonical place.
 | Fresh-VM `docker-compose up` matrix verified across distros | deferred (operator-side) | S67 D6 | Post-GA when Docker host + VM matrix available |
 | `docker compose config` daemon validation lint | deferred (operator-side) | S67 D8 | Post-GA when Docker daemon available |
 | sync-server + bake-worker `/health` route wiring | deferred (S67 follow-up) | S67 D2 caveat | S67 close or S68 D7 |
-| Independent third-party plugin sandbox audit | deferred (external) | S68 D4 | External vendor; lands as §4.4 of `docs/security/plugin-sandbox-audit-2026-Q4.md` when received |
+| Independent third-party plugin sandbox audit | deferred (external) | S68 D4 | External vendor; lands as §4.4 of `docs/04-reference/security/plugin-sandbox-audit-2026-Q4.md` when received |
 | RLS per-table policy migrations + verified test queries | partial — gap accepted at S68 close; fix at S69 D6 | S68 D5 | Live Postgres dependency |
 | OAuth2 production resource server wiring | deferred | S68 D6 | S70 D8 carry-forward |
 | SAML / SCIM runtime adapter | deferred (mappings as contract) | S68 D6 | S70 D8 carry-forward |
@@ -75,22 +75,22 @@ state is one canonical place.
 | 5 case studies published | deferred (S71b D6) | S71b D6 | Operator-side |
 | Stripe checkout + pricing config end-to-end test | deferred (S71b D3 / S72 D4) | S71b D3 | Operator-side staging |
 | ≥ 100 paying users | business KPI | post-LAUNCH | Operator-side |
-| All 72 sprint retros archived in `docs/retros/` | deferred (mechanical) | post-S72 D10 | Mechanical archive |
-| `src/` PRYZM 1 tree deletion | deferred (sunset window) | post 2026-Q3 | After 90-day sunset window per `docs/operations/pryzm-1-sunset.md` §3 |
+| All 72 sprint retros archived in `docs/03-execution/status/retros/` | deferred (mechanical) | post-S72 D10 | Mechanical archive |
+| `src/` PRYZM 1 tree deletion | deferred (sunset window) | post 2026-Q3 | After 90-day sunset window per `docs/03-execution/plans/pryzm-1-sunset.md` §3 |
 | `packages/persistence-client/__tests__/file-system-backend.test.ts` constructor-export fix | deferred (existing-code, post-GA) | S70 D8 noted | Post-GA |
 | `pryzm-vi-parity` workflow stale-failure visibility | deferred (existing-code, post-GA) | S68 close noted | Post-GA |
 | `.replit` registry stale-stub cleanup (5 orphans) | deferred (platform issue) | S70 D8 noted | Operator-side |
 
 ---
 
-## §4 Cut-list discipline post-mortem (excerpted from `docs/post-mortems/PRYZM-2-build.md` §3)
+## §4 Cut-list discipline post-mortem (excerpted from `docs/03-execution/status/post-mortems/PRYZM-2-build.md` §3)
 
 > *"`[strategic ADR-018]` Tier-1 + Tier-2 absorbed 6 cuts (T1.1 + T2.1 +
 > T2.2 + T2.3 + T2.4 + multi-region) without one schedule slip. Each
 > cut had a pre-declared reversal cost; that pre-declaration removed
 > the meeting overhead at cut-time."*
 
-The post-GA roadmap (`docs/roadmap/post-GA.md`) re-prioritises every
+The post-GA roadmap (`docs/03-execution/plans/post-ga-roadmap.md`) re-prioritises every
 cut by post-LAUNCH customer signal:
 
 - **T2.6 (multi-region)**: P1 (next quarter)
@@ -110,8 +110,8 @@ cut by post-LAUNCH customer signal:
 - ADR-0054 §F (this log's anchor)
 - `apps/bench/reports/M30-3B.md` §1 (T2.1 DXF/SVG decision)
 - `apps/bench/reports/M30-3B.md` §2 (S59 D7 Tier-2 review)
-- `docs/post-mortems/PRYZM-2-build.md` §3 (cut-list discipline post-mortem)
-- `docs/roadmap/post-GA.md` §2 + §3 + §4 (post-GA cut re-prioritisation)
+- `docs/03-execution/status/post-mortems/PRYZM-2-build.md` §3 (cut-list discipline post-mortem)
+- `docs/03-execution/plans/post-ga-roadmap.md` §2 + §3 + §4 (post-GA cut re-prioritisation)
 
 ---
 

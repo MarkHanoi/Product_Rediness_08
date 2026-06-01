@@ -366,10 +366,10 @@ C11 §7.4 lists Slab, Column, Beam, Stair, Door, Window, Ceiling as gaps "Wave A
 | Topic | Document |
 |---|---|
 | L2 sprint plan with task rows | `04-PLAN-FORWARD/23-L2-COMMAND-EVENT-BUS-IMPLEMENTATION-PLAN.md` |
-| Element creation pipeline contract | `00_Contracts/C11-ELEMENT-CREATION-PIPELINE.md` |
-| CQRS and undo contract | `00_Contracts/C03-SCHEMAS-COMMANDS-AND-STATE.md` |
-| OTel and NFT contract | `00_Contracts/C10-PERFORMANCE-AND-OBSERVABILITY.md` |
-| Handler location and layer boundary | `00_Contracts/C01-ARCHITECTURE-AND-GOVERNANCE.md §2` |
+| Element creation pipeline contract | `02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md` |
+| CQRS and undo contract | `02-decisions/contracts/C03-SCHEMAS-COMMANDS-AND-STATE.md` |
+| OTel and NFT contract | `02-decisions/contracts/C10-PERFORMANCE-AND-OBSERVABILITY.md` |
+| Handler location and layer boundary | `02-decisions/contracts/C01-ARCHITECTURE-AND-GOVERNANCE.md §2` |
 | CRDT / event-log wire format | `reference/adrs/ADR-002-crdt-event-log-bridge.md` |
 | MessagePack codec decision | `reference/adrs/ADR-004-wire-format.md` |
 | 9-step element family recipe | `reference/specs/SPEC-21-ELEMENT-CREATION-PROTOCOL.md` |

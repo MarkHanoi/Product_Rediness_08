@@ -10,10 +10,10 @@ Sibling architecture docs (read these first if you haven't):
 
 Governing C-contracts (binding):
 
-- [C03 Schemas, Commands & State](../00_Contracts/C03-SCHEMAS-COMMANDS-AND-STATE.md) — P5 schema purity, P6 commands-as-mutation
-- [C11 Element Creation Pipeline](../00_Contracts/C11-ELEMENT-CREATION-PIPELINE.md) — the polymorphic create pipeline (already element-type-agnostic)
-- [C16 Command Authoring](../00_Contracts/C16-COMMAND-AUTHORING.md) — how new commands are authored
-- [C09 §3.4 AI workflows](../00_Contracts/C09-AI-AND-VISIBILITY-INTENT.md) — the apartment workflow pattern
+- [C03 Schemas, Commands & State](../02-decisions/contracts/C03-SCHEMAS-COMMANDS-AND-STATE.md) — P5 schema purity, P6 commands-as-mutation
+- [C11 Element Creation Pipeline](../02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md) — the polymorphic create pipeline (already element-type-agnostic)
+- [C16 Command Authoring](../02-decisions/contracts/C16-COMMAND-AUTHORING.md) — how new commands are authored
+- [C09 §3.4 AI workflows](../02-decisions/contracts/C09-AI-AND-VISIBILITY-INTENT.md) — the apartment workflow pattern
 
 ---
 

@@ -101,9 +101,9 @@ The new D11/D12/D13 differentiators **do not stand alone** — they connect to e
 
 | New differentiator | Depends on / connects to (existing docs) |
 |---|---|
-| **D11 Sheet + PDF** | [01-VISION.md](01-VISION.md) §differentiator D6 (one-file deliverable); [02-ARCHITECTURE.md](02-ARCHITECTURE.md) §4 (frame-bus); [C04](../00_Contracts/C04-RENDERING-AND-SCHEDULING.md) §3.5 LOD; [C05](../00_Contracts/C05-PERSISTENCE-AND-FILE-FORMAT.md) §5 (export pipeline). Drawing geometry kernel must respect P2 (single THREE owner) and P3 (single rAF) — the Sheet renderer cannot create a parallel viewport pipeline. |
-| **D12 Revit round-trip** | [01-VISION.md](01-VISION.md) §differentiator D5 (full IFC4 round-trip); [C05](../00_Contracts/C05-PERSISTENCE-AND-FILE-FORMAT.md); [C15](../00_Contracts/C15-HOSTED-ELEMENT-CONTRACT.md) (hosted elements semantic == Revit's hosted-elements semantic); [APARTMENT-FAMILY-PLATFORM-AND-USER-DEFINED-ELEMENTS-2026-05-30.md](APARTMENT-FAMILY-PLATFORM-AND-USER-DEFINED-ELEMENTS-2026-05-30.md) (FamilyRegistry maps directly to RFA semantic). |
-| **D13 Inspect/Data** | [APARTMENT-BIM2-BIM3-DATA-MANAGEMENT-AND-LIVE-PARAMETRIC-SYSTEM.md](APARTMENT-BIM2-BIM3-DATA-MANAGEMENT-AND-LIVE-PARAMETRIC-SYSTEM.md) (D-α deliverables — parameter stores + propagator); [APARTMENT-COGNITION-STACK-AND-IMPLEMENTATION-PLAN-2026-05-29.md](APARTMENT-COGNITION-STACK-AND-IMPLEMENTATION-PLAN-2026-05-29.md) (objective vectors → radar charts on Apartment node); [APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK-2026-05-29.md](APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK-2026-05-29.md) (G-class + A-class validators → Data tab quality gates); [C09](../00_Contracts/C09-AI-AND-VISIBILITY-INTENT.md) §visibility-intent (selection isolation routes through visibility intent, not a parallel hack). |
+| **D11 Sheet + PDF** | [01-VISION.md](01-VISION.md) §differentiator D6 (one-file deliverable); [02-ARCHITECTURE.md](02-ARCHITECTURE.md) §4 (frame-bus); [C04](../02-decisions/contracts/C04-RENDERING-AND-SCHEDULING.md) §3.5 LOD; [C05](../02-decisions/contracts/C05-PERSISTENCE-AND-FILE-FORMAT.md) §5 (export pipeline). Drawing geometry kernel must respect P2 (single THREE owner) and P3 (single rAF) — the Sheet renderer cannot create a parallel viewport pipeline. |
+| **D12 Revit round-trip** | [01-VISION.md](01-VISION.md) §differentiator D5 (full IFC4 round-trip); [C05](../02-decisions/contracts/C05-PERSISTENCE-AND-FILE-FORMAT.md); [C15](../02-decisions/contracts/C15-HOSTED-ELEMENT-CONTRACT.md) (hosted elements semantic == Revit's hosted-elements semantic); [APARTMENT-FAMILY-PLATFORM-AND-USER-DEFINED-ELEMENTS-2026-05-30.md](APARTMENT-FAMILY-PLATFORM-AND-USER-DEFINED-ELEMENTS-2026-05-30.md) (FamilyRegistry maps directly to RFA semantic). |
+| **D13 Inspect/Data** | [APARTMENT-BIM2-BIM3-DATA-MANAGEMENT-AND-LIVE-PARAMETRIC-SYSTEM.md](APARTMENT-BIM2-BIM3-DATA-MANAGEMENT-AND-LIVE-PARAMETRIC-SYSTEM.md) (D-α deliverables — parameter stores + propagator); [APARTMENT-COGNITION-STACK-AND-IMPLEMENTATION-PLAN-2026-05-29.md](APARTMENT-COGNITION-STACK-AND-IMPLEMENTATION-PLAN-2026-05-29.md) (objective vectors → radar charts on Apartment node); [APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK-2026-05-29.md](APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK-2026-05-29.md) (G-class + A-class validators → Data tab quality gates); [C09](../02-decisions/contracts/C09-AI-AND-VISIBILITY-INTENT.md) §visibility-intent (selection isolation routes through visibility intent, not a parallel hack). |
 
 ---
 
@@ -120,7 +120,7 @@ The PRYZM 3 architecture (`02-ARCHITECTURE.md`) is defined by 8 principles enfor
 | **P3** — Single rAF | Only `scheduler.ts` calls `rAF` | Hard-fail ratchet=1 | CLOSED | Sheet preview loop subscribes to `FrameScheduler.onFrame` at `render` priority, not its own rAF. Inspect isolation animator subscribes at `render` priority. |
 | **P4** — No `(window as any)` | Zero escape hatches outside allowlist | Soft → Hard Phase E | Non-shim = 0 achieved | All new export / inspect / sheet code must be zero-cast. |
 | **P5** — Schemas pure | `packages/schemas/` zero I/O | Hard-fail purity check | CLOSED | New schemas: `Sheet`, `ViewPort`, `DrawingFrame`, `TitleBlock`, `RevisionRow`, `IfcExportConfig`, `RevitMappingTable`, `InspectSelection` — all added to `packages/schemas/`. |
-| **P6** — Commands only mutation | UI must dispatch via `commandBus` | Hard-fail lint | CLOSED | New commands: `sheet.create`, `sheet.addViewport`, `sheet.updateTitleBlock`, `sheet.export.pdf`, `sheet.export.dwg`, `ifc.export`, `revit.export`, `inspect.selectNode`, `inspect.isolate`, `inspect.exitIsolation`, `data.bulkUpdate`, `data.runQualityCheck`, `data.export`. All authored per [C16](../00_Contracts/C16-COMMAND-AUTHORING-PROTOCOL.md). |
+| **P6** — Commands only mutation | UI must dispatch via `commandBus` | Hard-fail lint | CLOSED | New commands: `sheet.create`, `sheet.addViewport`, `sheet.updateTitleBlock`, `sheet.export.pdf`, `sheet.export.dwg`, `ifc.export`, `revit.export`, `inspect.selectNode`, `inspect.isolate`, `inspect.exitIsolation`, `data.bulkUpdate`, `data.runQualityCheck`, `data.export`. All authored per [C16](../02-decisions/contracts/C16-COMMAND-AUTHORING-PROTOCOL.md). |
 | **P7** — Visibility intent | `packages/visibility/` first-class | Contract test | CLOSED | Inspect isolation mode is a **new visibility intent**, not a parallel UI flag. The `IsolationVisibilityIntent` is dispatched into `packages/visibility/` and applied by `scene-committer`. |
 | **P8** — Sync conflicts explicit + spans | Every new exported function has ≥1 OTel span | Per-PR span check | CLOSED | Every new export/inspect/sheet exported function carries a span (`pryzm.sheet.composeViewport`, `pryzm.ifc.exportPset`, `pryzm.inspect.isolateNode`, `pryzm.data.runQualityRule`, etc.). |
 
@@ -192,7 +192,7 @@ The new subsystems map onto the 8-layer engineering model as follows:
 
 # Part III — New Contracts (C24–C30)
 
-Each new contract is drafted as a stub in `docs/00_Contracts/`. The stubs declare scope, key invariants, dependencies, and CI gates. Full text is filled in during the relevant α-phase of each delivery track.
+Each new contract is drafted as a stub in `docs/02-decisions/contracts/`. The stubs declare scope, key invariants, dependencies, and CI gates. Full text is filled in during the relevant α-phase of each delivery track.
 
 | Contract | File | Scope | Owns | Depends on | Status |
 |---|---|---|---|---|---|
@@ -769,7 +769,7 @@ This master plan is built on top of the following canonical documents. Conflicts
 | 1 | [00-PRODUCT-VISION-AND-BUSINESS-STRATEGY-V1.md](00-PRODUCT-VISION-AND-BUSINESS-STRATEGY-V1.md) | Product + business vision (this is the new foundation doc) |
 | 2 | [01-VISION.md](01-VISION.md) | Engineering vision (8 principles, 9 convergence booleans) |
 | 3 | [02-ARCHITECTURE.md](02-ARCHITECTURE.md) | 8-layer model + governance |
-| 4 | [docs/00_Contracts/C01..C30](../00_Contracts/) | C-contracts (C01–C23 existing; C24–C30 NEW — drafted with this plan) |
+| 4 | [docs/02-decisions/contracts/C01..C30](../02-decisions/contracts/) | C-contracts (C01–C23 existing; C24–C30 NEW — drafted with this plan) |
 | 5 | [APARTMENT-BIM2-BIM3-DATA-MANAGEMENT-AND-LIVE-PARAMETRIC-SYSTEM.md](APARTMENT-BIM2-BIM3-DATA-MANAGEMENT-AND-LIVE-PARAMETRIC-SYSTEM.md) | Parameter stores + propagator (D-α series) — load-bearing for Inspect + Data |
 | 6 | [APARTMENT-COGNITION-STACK-AND-IMPLEMENTATION-PLAN-2026-05-29.md](APARTMENT-COGNITION-STACK-AND-IMPLEMENTATION-PLAN-2026-05-29.md) | 7-layer cognition stack; objective vectors feed Inspect radar charts |
 | 7 | [APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK-2026-05-29.md](APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK-2026-05-29.md) | G-class + A-class validators — feed Data tab quality rules |

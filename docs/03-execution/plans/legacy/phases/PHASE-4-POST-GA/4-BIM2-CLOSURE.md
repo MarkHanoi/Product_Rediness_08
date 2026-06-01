@@ -28,7 +28,7 @@
 
 ## §0 Reading Conventions
 
-ADR citation: `[strategic ADR-NNN]` for ADRs 001–050; `[ADR NNNN-slug]` for sprint-scoped ADRs at `docs/architecture/adr/`. SPEC: `SPEC-NN §X.Y`. Bare references forbidden.
+ADR citation: `[strategic ADR-NNN]` for ADRs 001–050; `[ADR NNNN-slug]` for sprint-scoped ADRs at `docs/02-decisions/adrs/`. SPEC: `SPEC-NN §X.Y`. Bare references forbidden.
 
 ---
 

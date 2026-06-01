@@ -4,7 +4,7 @@
  * Layer Affected:    UI — Data Workbench: Template Editor Panel (Phase 8-B)
  * File:             src/ui/dataworkbench/TemplateEditorPanel.ts
  * Contract:         docs/00_PRZYM/PRYZM_DATA_PLATFORM_IMPLEMENTATION_ROADMAP.md § PHASE 8
- *                   docs/00_Contracts/05-BIM-UI-ARCHITECTURE-CONTRACT.md §3
+ *                   docs/02-decisions/contracts/05-BIM-UI-ARCHITECTURE-CONTRACT.md §3
  *
  * Template list + detail editor for all TemplateDefinitions.
  *

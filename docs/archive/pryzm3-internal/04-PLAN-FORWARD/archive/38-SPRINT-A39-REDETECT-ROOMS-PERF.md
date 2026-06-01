@@ -461,7 +461,7 @@ These become relevant when AI floor-plan generation produces large batches.
 | `src/engine/subsystems/curtainwalls/CurtainPanelStore.ts` | Gate `storeEventBus.emit()` with `batchCoordinator.isBatching` (`§P1-A39` comment) | P1 |
 | `packages/command-bus/src/commands.ts` | Add `'curtain-wall.create-on-all-slabs'` payload type to `CommandPayloadMap` | P2 |
 | `src/engine/engineLauncher.ts` | Register `curtain-wall.create-on-all-slabs` CommandHandler (`§P2-A39` block) | P2 |
-| `docs/03_PRYZM3/03-CURRENT-STATE.md` | Sprint A39 stamp (rev 3) | doc |
+| `docs/archive/pryzm3-internal/03-CURRENT-STATE.md` | Sprint A39 stamp (rev 3) | doc |
 
 ---
 

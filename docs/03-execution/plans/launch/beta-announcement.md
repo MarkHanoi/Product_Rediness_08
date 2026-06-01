@@ -47,7 +47,7 @@ The composition is from the spec's beta cohort plan, deliberately weighted towar
 
 A 3-minute walkthrough of the multi-user loop + the approval queue + the schedule export lives at:
 
-> **pryzm.com/beta/demo** *(URL bound to S48 D9 launch — see docs/marketing/beta-demo-script.md)*
+> **pryzm.com/beta/demo** *(URL bound to S48 D9 launch — see docs/03-execution/plans/launch/beta-demo-script.md)*
 
 If the recording slips, the page falls back to a screenshot strip with the same flow.
 

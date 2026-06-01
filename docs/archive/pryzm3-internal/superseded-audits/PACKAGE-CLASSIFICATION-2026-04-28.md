@@ -90,7 +90,7 @@ A row is **TRIM** *only* when both (a) no in-tree consumer remains and
 
 | Package | Why | Removal gate |
 |---|---|---|
-| `packages/legacy-shim` | Re-exports for `src/engine/` callers; deletion is gate-3 of S61. | S61 D5 (per `docs/architecture/adr/0031-s61-staged-legacy-deletion.md`) |
+| `packages/legacy-shim` | Re-exports for `src/engine/` callers; deletion is gate-3 of S61. | S61 D5 (per `docs/02-decisions/adrs/0031-s61-staged-legacy-deletion.md`) |
 
 ---
 

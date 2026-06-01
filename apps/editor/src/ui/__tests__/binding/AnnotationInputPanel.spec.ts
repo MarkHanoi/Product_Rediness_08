@@ -3,7 +3,7 @@
 // pryzmAnnotationInput creates a PRYZM-styled modal dialog.
 // This spec validates the DOM contract: overlay, card, input field, buttons.
 //
-// Docs: docs/03_PRYZM3/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §3
+// Docs: docs/archive/pryzm3-internal/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §3
 
 import { afterEach, describe, expect, it } from 'vitest';
 import type { AnnotationInputOptions, AnnotationInputResult } from '../../AnnotationInputPanel.js';

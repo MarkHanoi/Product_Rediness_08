@@ -126,5 +126,5 @@ runtime swallow every pick.
 - ADR-0001 — typed-ID brand strategy (`ElementId` brand).
 - ADR-0006 — idle-continuation budget (BVH cache invalidation runs in idle).
 - ADR-0007 — WebGPU/WebGL2 dual-mode (gpu-pick targets WebGL2 today).
-- R1C-02 — Linux WebGL2 driver quirks (`docs/03_PRYZM3/reference/status-detail/01-PROCESS-TRACKER.md` §6.2).
+- R1C-02 — Linux WebGL2 driver quirks (`docs/03-execution/status/legacy-status-detail/01-PROCESS-TRACKER.md` §6.2).
 - `three-mesh-bvh` README — https://github.com/gkjohnson/three-mesh-bvh

@@ -1,7 +1,7 @@
 # OAuth2 + PKCE Review — 2026-Q4 (S68 D6)
 
 **Sprint**: PRYZM 2 Phase 3D · S68 D6
-**Spec ref**: `docs/03_PRYZM3/reference/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S68 D6 — "OAuth2 review: PKCE flow correct; token expiry + refresh handled."
+**Spec ref**: `docs/03-execution/plans/legacy/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S68 D6 — "OAuth2 review: PKCE flow correct; token expiry + refresh handled."
 **Phase 3C anchor**: `[strategic ADR-0039]` §A; `phases/PHASE-3C-Q3-M31-M33-SDK-MARKETPLACE-PUBLIC-API.md` §S63 D2–D3.
 **Package**: `packages/oauth2-pkce` (260 lines src + 266 lines tests).
 
@@ -120,9 +120,9 @@ The marketplace-api uses a **publisher API key** model (long-lived key issued at
 - It does **not** claim refresh-token rotation is implemented — same boundary.
 - It does **not** cover the marketplace publisher API-key flow (separate; §3.4).
 - It does **not** replace the third-party pen test (S68 D1–D2), which will probe the live OAuth surface end-to-end once it's wired at S70 D8.
-- It does **not** cover SAML / SCIM enterprise SSO — that is a separate flow tracked under `docs/security/saml-scim-mappings.md` (S68 D7 SOC2 + SAML/SCIM day).
+- It does **not** cover SAML / SCIM enterprise SSO — that is a separate flow tracked under `docs/04-reference/security/saml-scim-mappings.md` (S68 D7 SOC2 + SAML/SCIM day).
 
 ---
 
 **Authored by**: sprint-S68 (2026-04-28)
-**Companion docs**: `docs/security/csp-audit-2026-Q4.md`, `docs/security/saml-scim-mappings.md`.
+**Companion docs**: `docs/04-reference/security/csp-audit-2026-Q4.md`, `docs/04-reference/security/saml-scim-mappings.md`.

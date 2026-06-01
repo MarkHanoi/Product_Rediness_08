@@ -340,7 +340,7 @@ integrity hole that opens the moment two beta users share a workspace.
 | `apps/sync-server/src/index.ts` | Wire `Authz` instance into `SyncServerOptions` (DI). Update header comment to remove the "Phase 3C" defer. WS `project.subscribe` route uses `authz.can('projectRead', …)`. |
 | `apps/sync-server/__tests__/authz.test.ts` | NEW — per-route negative tests (unauth user gets 403). |
 | `apps/sync-server/src/session/SessionManager.ts` | Surface authorisation state on the session object so the WS push fan-out doesn't leak to peers without `projectRead`. |
-| `docs/architecture/adr/0038-authz-middleware-sync-server.md` | NEW ADR documenting the policy taxonomy + JWT migration path to Phase 3C. (See also W-16.) |
+| `docs/02-decisions/adrs/0038-authz-middleware-sync-server.md` | NEW ADR documenting the policy taxonomy + JWT migration path to Phase 3C. (See also W-16.) |
 
 #### Step-by-step
 
@@ -391,7 +391,7 @@ integrity hole that opens the moment two beta users share a workspace.
 * `apps/sync-server/__tests__/authz.test.ts` reports 4+ tests, all green.
 * `apps/sync-server/src/index.ts` header comment no longer mentions "server trusts".
 * Existing sync-server tests still pass (no regressions).
-* ADR-0038 exists and is linked from `docs/architecture/adr/README.md`.
+* ADR-0038 exists and is linked from `docs/02-decisions/adrs/README.md`.
 
 #### Verification command
 
@@ -686,7 +686,7 @@ v0, flag observed for telemetry".
 | `apps/editor/src/projects/ProjectHub.ts` (or wherever a project is opened) | Read `manifest.featureFlags.plan_view_v2`. Pass to plan-view bootstrap. |
 | `plugins/plan-view/src/index.ts` | Accept a `featureFlags` option; if `plan_view_v2 === false`, log a warning + render a "PRYZM 1 plan view fallback is not available in this build (Phase 3C)." panel. |
 | `packages/persistence-client/src/manifest.ts` | Update the doc comment to acknowledge the flag is observable but no fallback target exists yet (point to ADR-0023 amendment). |
-| `docs/architecture/adr/0023-plan-view-architecture.md` | Add an amendment section "v0 fallback policy: no PRYZM 1 plan view in repo; flag is observed for telemetry only; reactivation requires Phase 3B legacy preservation work." |
+| `docs/02-decisions/adrs/0023-plan-view-architecture.md` | Add an amendment section "v0 fallback policy: no PRYZM 1 plan view in repo; flag is observed for telemetry only; reactivation requires Phase 3B legacy preservation work." |
 | `apps/editor/__tests__/featureFlags.plan-view.test.ts` | NEW — verifies the flag is read + branch is taken. |
 
 #### Step-by-step
@@ -768,7 +768,7 @@ export/pdf.ts`), returns the PDF bytes. BullMQ + Redis lands in S49+.
 | `apps/export-worker/src/handlers.ts` | NEW — HTTP handlers for `POST /jobs/sheet-pdf`, `POST /jobs/schedule-export`. |
 | `apps/export-worker/__tests__/SheetPdfJob.test.ts` | NEW — end-to-end test with the existing 500-row fixture. |
 | `apps/export-worker/__tests__/ScheduleExportJob.test.ts` | NEW. |
-| `docs/architecture/adr/0039-export-worker-skeleton.md` | NEW (covers W-16 too). |
+| `docs/02-decisions/adrs/0039-export-worker-skeleton.md` | NEW (covers W-16 too). |
 | `apps/bench/reports/M24-beta.md` | §3 update — export-worker present (in-process for v0). |
 
 #### Step-by-step
@@ -860,7 +860,7 @@ not true today.
 | `plugins/section-view/src/SectionViewCanvasHost.ts` | UPDATE — actually drive a canvas (ref-pattern from W-02-fixed PlanViewCanvasHost). |
 | `plugins/section-view/__tests__/handlers.*.test.ts` | NEW — one per handler, mirror plan-view-handler tests. |
 | `plugins/section-view/__tests__/canvas-host.test.ts` | NEW — assert the host actually draws (via `getImageData` of the canvas backend). |
-| `docs/architecture/adr/0030-phase-2b-post-audit-reconciliation.md` | Append amendment: "Section-view continuation landed in W-09 of the Phase 2 close plan." |
+| `docs/02-decisions/adrs/0030-phase-2b-post-audit-reconciliation.md` | Append amendment: "Section-view continuation landed in W-09 of the Phase 2 close plan." |
 
 #### Step-by-step
 
@@ -1020,7 +1020,7 @@ that should be done explicitly.
 |---|---|
 | `apps/bake-worker/src/queue.ts` (or wherever debounce is configured) | Verify constant is 250. If 500, change to 250 + add a comment citing ADR-010. |
 | `apps/bake-worker/__tests__/debounce.test.ts` | NEW (if absent) — fire 5 events 50 ms apart, assert exactly 1 bake invocation after 250 ms. |
-| `docs/architecture/adr/0010` (if exists) | Verify cited correctly. |
+| `docs/02-decisions/adrs/0010` (if exists) | Verify cited correctly. |
 
 #### Step-by-step
 
@@ -1244,9 +1244,9 @@ A simple CI check enforces ADR claims line up with directory contents.
 
 | File | Change |
 |---|---|
-| `docs/architecture/adr/0036-visibility-intent-waves-1-5.md` | Amend status: change "waves 6-11 deferred to S49" → "all 11 waves shipped 2026-04-28; ADR title retained for historical accuracy". |
+| `docs/02-decisions/adrs/0036-visibility-intent-waves-1-5.md` | Amend status: change "waves 6-11 deferred to S49" → "all 11 waves shipped 2026-04-28; ADR title retained for historical accuracy". |
 | `scripts/check-adr-code-drift.mjs` | NEW — for each ADR with a `<!-- code-anchor: PATTERN -->` comment, run `rg PATTERN` and assert claim ↔ presence match. |
-| `docs/architecture/adr/README.md` | Document the `<!-- code-anchor: ... -->` convention. |
+| `docs/02-decisions/adrs/README.md` | Document the `<!-- code-anchor: ... -->` convention. |
 | `.github/workflows/ci.yml` | Add `node scripts/check-adr-code-drift.mjs` step. |
 
 #### Step-by-step
@@ -1301,10 +1301,10 @@ ends at 0037. Three ADRs need to exist to back the work in W-03 + W-08
 
 | File | Change |
 |---|---|
-| `docs/architecture/adr/0038-authz-middleware-sync-server.md` | NEW (authored as part of W-03). |
-| `docs/architecture/adr/0039-export-worker-skeleton.md` | NEW (authored as part of W-08). |
-| `docs/architecture/adr/0040-schedule-export-formats.md` | NEW (covers the CSV/XLSX/PDF tri-output decision retroactively). |
-| `docs/architecture/adr/README.md` | Update index. |
+| `docs/02-decisions/adrs/0038-authz-middleware-sync-server.md` | NEW (authored as part of W-03). |
+| `docs/02-decisions/adrs/0039-export-worker-skeleton.md` | NEW (authored as part of W-08). |
+| `docs/02-decisions/adrs/0040-schedule-export-formats.md` | NEW (covers the CSV/XLSX/PDF tri-output decision retroactively). |
+| `docs/02-decisions/adrs/README.md` | Update index. |
 
 #### Step-by-step
 
@@ -1317,13 +1317,13 @@ For each ADR:
 
 #### Acceptance criteria
 
-* `ls docs/architecture/adr/0038*.md docs/architecture/adr/0039*.md docs/architecture/adr/0040*.md` returns 3 files.
+* `ls docs/02-decisions/adrs/0038*.md docs/02-decisions/adrs/0039*.md docs/02-decisions/adrs/0040*.md` returns 3 files.
 * The README index lists them.
 
 #### Verification command
 
 ```sh
-ls docs/architecture/adr/00{38,39,40}-*.md 2>/dev/null | wc -l | awk '{print $1==3?"PASS":"FAIL"}'
+ls docs/02-decisions/adrs/00{38,39,40}-*.md 2>/dev/null | wc -l | awk '{print $1==3?"PASS":"FAIL"}'
 ```
 
 #### Rollback
@@ -1439,10 +1439,10 @@ Four small audit findings, each ~15 min:
 
 | File | Change |
 |---|---|
-| `docs/architecture/adr/0022-room-boundary-detection.md` | Amend: 9th handler `RecomputeRoomBoundary` for half-edge re-flood. |
-| `docs/architecture/adr/0034-awareness-multiplayer-cursor.md` | Amend: file is `view-chip.ts` (rationale: drops the redundant `peer-` prefix; sibling files are `cursor.ts`, `peer-list.ts`, `lock-ui.ts`). |
+| `docs/02-decisions/adrs/0022-room-boundary-detection.md` | Amend: 9th handler `RecomputeRoomBoundary` for half-edge re-flood. |
+| `docs/02-decisions/adrs/0034-awareness-multiplayer-cursor.md` | Amend: file is `view-chip.ts` (rationale: drops the redundant `peer-` prefix; sibling files are `cursor.ts`, `peer-list.ts`, `lock-ui.ts`). |
 | `docs/00_NEW_ARCHITECTURE/phases/PHASE-2D-Q4-M22-M24-SYNC-AWARENESS-BETA.md` | Amend: visibility waves live in `packages/visibility/` not `plugins/visibility-intent/` — pure functions, not L7 plugins. |
-| `docs/architecture/adr/0031-sheets-architecture.md` (or wherever) | Amend: `ActiveSheetStore` + `ActiveScheduleStore` exist for runtime focus state. |
+| `docs/02-decisions/adrs/0031-sheets-architecture.md` (or wherever) | Amend: `ActiveSheetStore` + `ActiveScheduleStore` exist for runtime focus state. |
 
 #### Step-by-step
 
@@ -1456,7 +1456,7 @@ Each is a 1-paragraph amendment to the relevant ADR/spec.
 #### Verification command
 
 ```sh
-rg "Amendment 2026-04-28" docs/architecture/adr/ docs/00_NEW_ARCHITECTURE/phases/ | wc -l | awk '{print $1>=4?"PASS":"FAIL"}'
+rg "Amendment 2026-04-28" docs/02-decisions/adrs/ docs/00_NEW_ARCHITECTURE/phases/ | wc -l | awk '{print $1>=4?"PASS":"FAIL"}'
 ```
 
 #### Rollback
@@ -1531,10 +1531,10 @@ pattern as Phase-1 W-14. Useful for investor + alumni updates.
 
 | File | Change |
 |---|---|
-| `docs/demos/M15-2A.script.md` | NEW. |
-| `docs/demos/M18-2B.script.md` | NEW. |
-| `docs/demos/M21-2C.script.md` | NEW. |
-| `docs/demos/M24-2D.script.md` | NEW. |
+| `docs/05-guides/developer/demos/M15-2A.script.md` | NEW. |
+| `docs/05-guides/developer/demos/M18-2B.script.md` | NEW. |
+| `docs/05-guides/developer/demos/M21-2C.script.md` | NEW. |
+| `docs/05-guides/developer/demos/M24-2D.script.md` | NEW. |
 | Recorded `.mp4` files stored in `attached_assets/screencasts/` (not committed; uploaded to founder's archive). |
 
 #### Step-by-step
@@ -1581,7 +1581,7 @@ return PASS** when this plan is complete:
 | G-17 | `test -f apps/bench/reports/soft-locks-load-baseline.md && grep -q "p95" apps/bench/reports/soft-locks-load-baseline.md` | W-13 |
 | G-18 | `test -f apps/sync-server/threat_model.md && grep -q "STRIDE" apps/sync-server/threat_model.md` | W-14 |
 | G-19 | `node scripts/check-adr-code-drift.mjs` | W-15 |
-| G-20 | `[ "$(ls docs/architecture/adr/00{38,39,40}-*.md 2>/dev/null \| wc -l)" -eq 3 ]` | W-16 |
+| G-20 | `[ "$(ls docs/02-decisions/adrs/00{38,39,40}-*.md 2>/dev/null \| wc -l)" -eq 3 ]` | W-16 |
 | G-21 | `test -f docs/00_NEW_ARCHITECTURE/phases/audits/_TEMPLATE.md` | W-17 |
 | G-22 | `test -f docs/00_NEW_ARCHITECTURE/PACKAGE-CLASSIFICATION-2026-04-28.md` | W-20 |
 

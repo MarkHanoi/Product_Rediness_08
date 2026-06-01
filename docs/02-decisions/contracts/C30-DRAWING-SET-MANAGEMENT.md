@@ -5,8 +5,8 @@
 > **Depends on**: [C24](C24-SHEET-COMPOSITION-ENGINE.md) (single-sheet authoring), [C29](C29-PDF-VECTOR-EXPORT.md) (single-sheet PDF export).
 > **Downstream**: consultant deliverables, construction-document handover.
 > **Key principles**: **P6** (commands only), **P8** (revision-issuance spans).
-> **Master plan**: [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md §8.3 SCE-γ-3 + SCE-γ-4](../03_PRYZM3/PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md).
-> **Prior-art**: [PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md §3.1](../03_PRYZM3/PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md). PRYZM 2 ref: S37 (book/ folder under plugins/sheets).
+> **Master plan**: [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md §8.3 SCE-γ-3 + SCE-γ-4](../03-execution/plans/master-implementation-plan.md).
+> **Prior-art**: [PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md §3.1](../03-execution/status/prior-art-audit-2026-05-31.md). PRYZM 2 ref: S37 (book/ folder under plugins/sheets).
 
 ---
 

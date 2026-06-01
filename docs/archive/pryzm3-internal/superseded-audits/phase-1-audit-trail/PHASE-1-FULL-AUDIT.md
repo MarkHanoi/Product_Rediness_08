@@ -156,7 +156,7 @@
 7. ADRs 0014 (TRAA/SSGI idle budget), 0015 (picking strategy), 0016 (view-state command-driven), 0017 (headless package surface) merged.
 8. Bench dashboard live with one entry per element family + post-FX + picking + view + idle + orbit (≥18 entries); `M9-1C-baseline.md` published.
 9. `tests/integration/headless-vs-browser-parity.spec.ts` proves byte-equal output across paths.
-10. Demo recording `docs/demos/M9-1C-headless.mp4`.
+10. Demo recording `docs/05-guides/developer/demos/M9-1C-headless.mp4`.
 
 ### §3.2 What 1C actually has
 
@@ -236,7 +236,7 @@ View state is structurally complete and matches the spec's typed contracts.
 |---|---|---|
 | `@pryzm/cross` package | `plugins/cross/src/{index,slab-wall,stair-handrail}.ts` | ✅ |
 | Cross-coupling tests | `plugins/cross/__tests__/{slab-wall,stair-handrail}.test.ts` | ✅ |
-| Documentation `docs/architecture/element-coupling.md` | not located in this audit | ⚠ unverified |
+| Documentation `docs/04-reference/architecture-detail/element-coupling.md` | not located in this audit | ⚠ unverified |
 
 The two coupling rules called out by the spec (slab→walls, stair→handrail) are present as separate files; the runner is the same `CascadeRunner` from 1B, which is the right reuse.
 
@@ -290,9 +290,9 @@ This is the single largest gap in 1C and the reason the verdict for the sub-phas
 
 | Spec item | File | Verdict |
 |---|---|---|
-| `docs/demos/M9-1C-headless.mp4` | not present | ❌ (informational) |
-| `docs/sprints/S18-retro.md` | not located | ⚠ unverified |
-| `docs/architecture/{picking,selection,view-state,camera,headless,element-coupling}.md` | not located | ⚠ unverified |
+| `docs/05-guides/developer/demos/M9-1C-headless.mp4` | not present | ❌ (informational) |
+| `docs/03-execution/status/sprints/S18-retro.md` | not located | ⚠ unverified |
+| `docs/04-reference/architecture-detail/{picking,selection,view-state,camera,headless,element-coupling}.md` | not located | ⚠ unverified |
 
 ### §3.3 1C gaps and quality calls
 
@@ -314,7 +314,7 @@ In priority order:
 
 **G-1C-8 (LOW) — `M9-1C-baseline.md` not published.** Only `produce-wall-baseline.md` exists in `apps/bench/reports/`. Without the M9 baseline, regression detection across the 1C → 1D handoff has no anchor.
 
-**G-1C-9 (LOW) — Demo recording absent.** Spec asks for `docs/demos/M9-1C-headless.mp4`. Not blocking; informational.
+**G-1C-9 (LOW) — Demo recording absent.** Spec asks for `docs/05-guides/developer/demos/M9-1C-headless.mp4`. Not blocking; informational.
 
 ### §3.4 Quality observations on what IS there
 
@@ -335,7 +335,7 @@ Where 1C delivered, it delivered well:
 
 ### §4.1 Documentation discipline is high
 
-Every package's source file has a header docblock that quotes the spec line that justified the file. `bootstrap.render.ts` cites `phases/PHASE-1A-Q1-M1-M3-SKELETON-RAILS.md §S06-T7 (line 583)`. `cascade.ts` cites `code-level ADR docs/architecture/adr/0012-...`. This is rare in code that has been through six sprints with two agents. It will pay off in 1D and 2A when the next contributors arrive.
+Every package's source file has a header docblock that quotes the spec line that justified the file. `bootstrap.render.ts` cites `phases/PHASE-1A-Q1-M1-M3-SKELETON-RAILS.md §S06-T7 (line 583)`. `cascade.ts` cites `code-level ADR docs/02-decisions/adrs/0012-...`. This is rare in code that has been through six sprints with two agents. It will pay off in 1D and 2A when the next contributors arrive.
 
 ### §4.2 Test-vs-fixture asymmetry is the recurring failure mode
 
@@ -354,7 +354,7 @@ The agents wrote scaffolding faithfully and then under-delivered on the data tho
 
 ### §4.4 Two ADR numbering drifts to flag
 
-- 1B spec mentions `code-level ADR docs/architecture/adr/0014-persistence-snapshot-threshold.md` (S09 D4 contingency); 1C spec uses `0014-traa-ssgi-idle-budget.md`. Same number, different topic. Only the 1C version exists. Persistence-snapshot threshold logic is folded elsewhere; the dropped ADR is informational, not architectural.
+- 1B spec mentions `code-level ADR docs/02-decisions/adrs/0014-persistence-snapshot-threshold.md` (S09 D4 contingency); 1C spec uses `0014-traa-ssgi-idle-budget.md`. Same number, different topic. Only the 1C version exists. Persistence-snapshot threshold logic is folded elsewhere; the dropped ADR is informational, not architectural.
 - All ADR files use a single `0001..0017` sequence in `docs/00_NEW_ARCHITECTURE/code-level-adrs/`. The strategic ADRs in `adrs/` use `ADR-001..ADR-024` (different scheme; different scope). The cross-references inside source files (e.g., "see ADR-008 §3.D" in `bootstrap.data.ts`) are unambiguous because the contexts don't overlap.
 
 ### §4.5 The strategic ADR-018, ADR-019, ADR-020, ADR-021, ADR-024 are present without a 1A–1C touchpoint

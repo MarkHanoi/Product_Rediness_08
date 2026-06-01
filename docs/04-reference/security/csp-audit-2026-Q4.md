@@ -1,7 +1,7 @@
 # CSP Audit — 2026-Q4 (S68 D3)
 
 **Sprint**: PRYZM 2 Phase 3D · S68 D3
-**Spec ref**: `docs/03_PRYZM3/reference/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S68 D3 — "CSP audit + remediation (CSP report at `docs/security/csp-audit-2026-Q4.md`)"
+**Spec ref**: `docs/03-execution/plans/legacy/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S68 D3 — "CSP audit + remediation (CSP report at `docs/04-reference/security/csp-audit-2026-Q4.md`)"
 **Exit-criteria target**: "CSP gates production traffic" (S68 exit §3).
 
 ---
@@ -122,7 +122,7 @@ Three observations from this audit, all of them **already addressed in the exist
 
 ### 3.3 Independent confirmation (S68 D4)
 
-A genuine third-party sandbox audit by an external security firm is the SUFFICIENT condition for the K3-C gate (per `docs/03_PRYZM3/reference/phases/PHASE-3/3C-Q3-M31-M33-SDK-MARKETPLACE-PUBLIC-API.md` §S62 D7). That audit is **scheduled for S68 D4 calendar-relative and tracked outside this repo**. The findings will be appended to `docs/security/plugin-sandbox-audit-2026-Q4.md` §4 when received.
+A genuine third-party sandbox audit by an external security firm is the SUFFICIENT condition for the K3-C gate (per `docs/03-execution/plans/legacy/phases/PHASE-3/3C-Q3-M31-M33-SDK-MARKETPLACE-PUBLIC-API.md` §S62 D7). That audit is **scheduled for S68 D4 calendar-relative and tracked outside this repo**. The findings will be appended to `docs/04-reference/security/plugin-sandbox-audit-2026-Q4.md` §4 when received.
 
 ---
 
@@ -146,4 +146,4 @@ A genuine third-party sandbox audit by an external security firm is the SUFFICIE
 ---
 
 **Authored by**: sprint-S68 (2026-04-28)
-**Companion docs**: `docs/security/scans-2026-Q4-baseline.md`, `docs/security/plugin-sandbox-audit-2026-Q4.md`.
+**Companion docs**: `docs/04-reference/security/scans-2026-Q4-baseline.md`, `docs/04-reference/security/plugin-sandbox-audit-2026-Q4.md`.

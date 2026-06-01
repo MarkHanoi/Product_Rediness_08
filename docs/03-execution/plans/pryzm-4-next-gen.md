@@ -66,7 +66,7 @@ Not "CI is green" — that's the Stage Ω gate. **Stage Σ exit means**:
 | **Σ.9** Customer-driven roadmap exists | ≥ 30 customer-driven feature requests landed; ≥ 100 in backlog with priority signals | Linear + customer interviews |
 | **Σ.10** SOC2 Type 1 attested | Drata or Vanta attestation complete | Auditor letter |
 | **Σ.11** WCAG 2.2 AA verified by external auditor | All §11 click trails pass external accessibility audit | Auditor report |
-| **Σ.12** Lessons-learned doc authored | "What we'd do differently" doc covering UX, architecture, ops, customer fit | `docs/03_PRYZM3/PRYZM-3-LESSONS-LEARNED.md` |
+| **Σ.12** Lessons-learned doc authored | "What we'd do differently" doc covering UX, architecture, ops, customer fit | `docs/archive/pryzm3-internal/PRYZM-3-LESSONS-LEARNED.md` |
 
 ### §2.2  Stage Σ sub-phases
 

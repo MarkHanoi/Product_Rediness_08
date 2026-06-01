@@ -3,7 +3,7 @@
 > **Stamp**: 2026-05-03 · **Status**: ✅ CLOSED — ALL 18 tasks DONE (2026-05-03)
 > **Sprint(s)**: S126–S127 · **Weeks**: 92–95 · **Effort**: 1–2 sprints (~4 engineering weeks)
 > **Source authority**: `attached_assets/Pasted--PRYZM-3-Master-Implementation-Plan-to-100-100…txt` Part 3 §Wave 17 · `06-SENIOR-ARCHITECT-AUDIT.md §3` (IFC), `§4` (Geospatial), `§5` (Persistence)
-> **Anchored to**: `../01-VISION.md §4` (D2 — field-ready offline, D5 — geospatial precision), `../02-ARCHITECTURE.md §5` (persistence tier), `../../00_Contracts/C05-PERSISTENCE-AND-FILE-FORMAT.md §1.2`, `../../00_Contracts/C03-SCHEMAS-COMMANDS-AND-STATE.md §3` — and new contract **C11-GEOSPATIAL.md** (to be created)
+> **Anchored to**: `../01-VISION.md §4` (D2 — field-ready offline, D5 — geospatial precision), `../02-ARCHITECTURE.md §5` (persistence tier), `../../02-decisions/contracts/C05-PERSISTENCE-AND-FILE-FORMAT.md §1.2`, `../../02-decisions/contracts/C03-SCHEMAS-COMMANDS-AND-STATE.md §3` — and new contract **C11-GEOSPATIAL.md** (to be created)
 > **⚠ TRACKER RULE**: Any task status change → update `../00-PROCESS-TRACKER.md` §3 Wave A17 row + §4 next-actions same commit.
 > **Pre-condition (Gate)**: Wave A16 CLOSED — toolbar P6 violations = 0; `src/engine/` ≤ 100,000 LOC; C03 §4.2 + C10 §1 amendments committed; `pnpm turbo run test:ci` green.
 
@@ -40,7 +40,7 @@
 
 | ID | Task | Contract | P-Principle | Boolean Δ | Audit §ref | STATUS |
 |---|---|---|---|---|---|---|
-| A17-T1 | Create `C11-GEOSPATIAL.md` contract file in `docs/00_Contracts/` covering LTP-ENU rebasing, proj4js, IfcProjectedCRS, logarithmic depth buffer | C12 (new) | P1 | none | §4 WARN, Part 1 GAP 6 | `DONE ✅` — 2026-05-03: Created as `docs/00_Contracts/C12-GEOSPATIAL.md` (C12, not C11 — that slot was already taken by Element Creation Pipeline). Covers: §1 LTP-ENU rebasing mandate (1 km trigger, `LTPENURebase.ts` API), §1.2 IfcProjectedCRS read-on-import, §1.3 IfcProjectedCRS write-on-IFC4X3-export, §2 logarithmic depth buffer (>500 m scenes), §3 proj4 integration rules, §4 package boundary table, §5 wave delivery schedule. Added C12 row to `docs/00_Contracts/C00-INDEX.md`. |
+| A17-T1 | Create `C11-GEOSPATIAL.md` contract file in `docs/02-decisions/contracts/` covering LTP-ENU rebasing, proj4js, IfcProjectedCRS, logarithmic depth buffer | C12 (new) | P1 | none | §4 WARN, Part 1 GAP 6 | `DONE ✅` — 2026-05-03: Created as `docs/02-decisions/contracts/C12-GEOSPATIAL.md` (C12, not C11 — that slot was already taken by Element Creation Pipeline). Covers: §1 LTP-ENU rebasing mandate (1 km trigger, `LTPENURebase.ts` API), §1.2 IfcProjectedCRS read-on-import, §1.3 IfcProjectedCRS write-on-IFC4X3-export, §2 logarithmic depth buffer (>500 m scenes), §3 proj4 integration rules, §4 package boundary table, §5 wave delivery schedule. Added C12 row to `docs/02-decisions/contracts/C00-INDEX.md`. |
 | A17-T2 | Move `web-ifc` parse call from main thread into a dedicated Web Worker at `plugins/ifc-import/src/workers/IFCParseWorker.ts` | C05 §3 | P3 | none | §3 WARN | `DONE ✅` — 2026-05-03: `plugins/ifc-import/src/workers/IFCParseWorker.ts` created; receives `ArrayBuffer` via transferable ownership, calls `api.Init()` + `api.OpenModel()` + `api.GetAllLines()` off main thread; emits `progress` (10/50/90%) + `result` + `error` responses; `USE_FAST_BOOLS` absent from `LoaderSettings` type — removed (AS-FOUND). |
 | A17-T3 | Wire the IFC parse worker into `plugins/ifc-import/src/IFCImportHandler.ts` via `packages/frame-scheduler/src/WorkerPool.ts` | C05 §3 | P3 | none | §3 | `DONE ✅` — 2026-05-03: `IFCImportHandler` class created at `plugins/ifc-import/src/IFCImportHandler.ts`; lazy-creates one Worker (WASM reuse across imports); binds `onmessage`/`onerror` synchronously before `file.arrayBuffer()` read; transfers buffer with zero-copy; OTel span on `pryzm.ifc.importFile`; `dispose()` terminates worker. Exported from `index.ts`. |
 | A17-T4 | Implement IFC4X3 exporter in `plugins/ifc-export/src/exporters/IFC4X3Exporter.ts` | C05 §3, C12 §1.3 | P1 | none | §3 WARN | `DONE ✅` — 2026-05-03: `plugins/ifc-export/src/exporters/IFC4X3Exporter.ts` created; `exportProjectToIFC4X3()` function; key differences from IFC4 path: `WebIFC.Schemas.IFC4X3` schema → `FILE_SCHEMA(('IFC4X3'))` header; walls emitted as `IFCWALL` (not deprecated `IFCWALLSTANDARDCASE`); reuses all IFC4 helpers (hierarchy, owner-history, psets, geometry, slab/door/window/column/beam exporters — all IFC4X3-compatible entity types); OTel span `pryzm.ifc.export4x3`; exported from `index.ts`. |
@@ -70,7 +70,7 @@
 
 ### A17-T1 — C11-GEOSPATIAL.md (new contract)
 
-**File to create**: `docs/00_Contracts/C11-GEOSPATIAL.md`
+**File to create**: `docs/02-decisions/contracts/C11-GEOSPATIAL.md`
 
 This contract closes the gap identified in Part 1 GAP 6 of the Master Implementation Plan.
 
@@ -458,11 +458,11 @@ pnpm --filter '@pryzm/geospatial' run test
 # → ≥ 6 tests pass
 
 # C05 §1.2 amendment committed
-grep "IndexedDB" docs/00_Contracts/C05-PERSISTENCE-AND-FILE-FORMAT.md | wc -l
+grep "IndexedDB" docs/02-decisions/contracts/C05-PERSISTENCE-AND-FILE-FORMAT.md | wc -l
 # → ≥ 1
 
 # C11-GEOSPATIAL.md created
-ls docs/00_Contracts/C11-GEOSPATIAL.md
+ls docs/02-decisions/contracts/C11-GEOSPATIAL.md
 # → EXISTS
 
 # TypeScript zero errors
@@ -515,7 +515,7 @@ pnpm tsx scripts/pryzm-3-functional-day-1.ts
 
 Wave A28 (Quality Gates + LOD + Accessibility) may not start until:
 1. `ls plugins/ifc-import/src/workers/IFCParseWorker.ts` → exists.
-2. `ls docs/00_Contracts/C11-GEOSPATIAL.md` → exists.
-3. `grep "IndexedDB" docs/00_Contracts/C05-PERSISTENCE-AND-FILE-FORMAT.md | wc -l` → ≥ 1.
+2. `ls docs/02-decisions/contracts/C11-GEOSPATIAL.md` → exists.
+3. `grep "IndexedDB" docs/02-decisions/contracts/C05-PERSISTENCE-AND-FILE-FORMAT.md | wc -l` → ≥ 1.
 4. `pnpm turbo run test:ci` → all green.
 5. `pnpm tsx scripts/pryzm-3-functional-day-1.ts` → ALL CHECKS GREEN.

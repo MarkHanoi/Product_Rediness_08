@@ -8,7 +8,7 @@
 | Owner | Architecture lead |
 | Closes | `GAP-REVIEW-2026-04-27.md §10, §29 #4` (no documented recipe for new families); supersedes the implicit "Wall recipe" |
 | Phases | 1B (originating recipe — historical), 2A (6 new families), 2C (sheet/schedule families), 3A (loadable component editor) |
-| Replaces / extends | the informal `docs/architecture/element-recipe.md` referenced in PHASE-2A §0 |
+| Replaces / extends | the informal `docs/04-reference/architecture-detail/element-recipe.md` referenced in PHASE-2A §0 |
 
 > Every new element family in PRYZM 2 follows the same 9-step protocol from greenfield to GREEN bench gate. **No deviation without ADR sign-off.** This SPEC is the *standing recipe* for the next 12 families (Phase 2A onward) and is the artefact the Phase 1 GREEN audit promised but did not codify.
 
@@ -146,7 +146,7 @@ CI runs `pnpm test:family <family>` which validates each step's gate against thi
 
 | Sprint | Deliverable |
 |---|---|
-| S31 (Phase 2B start; Phase 2A holds no gap-closure work per 2026-04-27 directive) | SPEC-21 land; `docs/architecture/element-recipe.md` deprecated → points here. Step-2 envelopes for all 18 families (12 Phase-1 GREEN + 6 Phase-2A in-flight) codified in one reverse-doc sprint per SPEC-13 §3. |
+| S31 (Phase 2B start; Phase 2A holds no gap-closure work per 2026-04-27 directive) | SPEC-21 land; `docs/04-reference/architecture-detail/element-recipe.md` deprecated → points here. Step-2 envelopes for all 18 families (12 Phase-1 GREEN + 6 Phase-2A in-flight) codified in one reverse-doc sprint per SPEC-13 §3. |
 | S32–S33 | Step-7 (IFC) for the 6 Phase-2A in-flight families. |
 | S34 | Step-8 (plan symbols) for all 18 families. |
 | S37–S42 | Step-9 schedule columns hardened across all 18 families. |

@@ -5,8 +5,8 @@
 > **Depends on**: [C05](C05-PERSISTENCE-AND-FILE-FORMAT.md), [C12](C12-GEOSPATIAL.md), [C15](C15-HOSTED-ELEMENT-CONTRACT.md).
 > **Downstream**: [C26](C26-REVIT-ROUND-TRIP.md) (IFC4 is the Revit bridge), [C28 §7](C28-DATA-PANEL-AND-AUTOMATION.md) (IFC Pset export from data grid).
 > **Key principles**: **P5** (IFC config schema pure), **P8** (every Pset write opens a span).
-> **Master plan**: [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md §7](../03_PRYZM3/PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md).
-> **Prior-art**: [PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md §3.2](../03_PRYZM3/PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md). PRYZM 2 reference: S56 (export), S57 (Tier 2 import + Pset editor).
+> **Master plan**: [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md §7](../03-execution/plans/master-implementation-plan.md).
+> **Prior-art**: [PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md §3.2](../03-execution/status/prior-art-audit-2026-05-31.md). PRYZM 2 reference: S56 (export), S57 (Tier 2 import + Pset editor).
 
 ---
 
@@ -172,7 +172,7 @@ Optional Facility Management handover: COBie tabs (Type / Component / Space / Zo
 
 ### §10.2 — Gap-fill scope (the actual NEW work, ~14 wk total)
 
-Per master plan [§7.2](../03_PRYZM3/PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md#72--ifc-export-phase-plan), IFC-α-1 through IFC-δ-3 phases. Summary:
+Per master plan [§7.2](../03-execution/plans/master-implementation-plan.md#72--ifc-export-phase-plan), IFC-α-1 through IFC-δ-3 phases. Summary:
 
 - **IFC-α (5.5 wk)**: IfcSite + IfcSpace + IfcZone + IfcBuildingStorey areas + validator CI gate.
 - **IFC-β (5 wk)**: Furniture / Window-PartitioningType / Door-OperationType / Plumbing / Appliances exporters.

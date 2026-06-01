@@ -1,24 +1,26 @@
-# PRYZM 3 — Contract Suite Index
+# PRYZM — Contract Suite Index (C00)
 
-> **Stamp**: 2026-05-31 · **Status**: CANONICAL
-> **Authority**: these contracts govern every implementation decision in PRYZM 3.
+> **Stamp**: 2026-05-31 · **Refreshed**: 2026-06-01 (folder restructure) · **Status**: CANONICAL
+> **Authority**: these contracts govern every implementation decision in PRYZM.
 > When code disagrees with a contract, the code is wrong — fix the code **or** open an ADR that supersedes the contract section; never do both.
+>
+> **Brand note**: "PRYZM 3" appears in some legacy contract bodies to mean "the current architectural epoch". The product name is **PRYZM** (no version suffix) — see [../../NAMING-CONVENTIONS.md §1](../../NAMING-CONVENTIONS.md). The internal epoch label survives only where historical context is the point.
 
 ---
 
 ## Conflict resolution order (strongest → weakest)
 
-1. `docs/03_PRYZM3/00-PRODUCT-VISION-AND-BUSINESS-STRATEGY-V1.md` — product + business vision (foundation)
-2. `docs/03_PRYZM3/01-VISION.md` — engineering intent and principles (P1–P8)
-3. `docs/03_PRYZM3/02-ARCHITECTURE.md` — system shape, lint gates, convergence booleans
+1. `docs/01-strategy/product-vision.md` — product + business vision (foundation)
+2. `docs/01-strategy/engineering-vision.md` — engineering intent and principles (P1–P8)
+3. `docs/01-strategy/architecture.md` — system shape, lint gates, convergence booleans
 4. **This contract suite** — per-subsystem binding contracts (C01–C30)
-5. `docs/03_PRYZM3/reference/adrs/` — per-decision rationale (45+ ADRs)
-6. `docs/03_PRYZM3/reference/specs/` — per-system normative specs (40+ SPECs)
-7. `docs/00_Contracts/archive/superseded-pryzm1-pryzm2/` — archived PRYZM1/2 contracts (informational only)
+5. `docs/02-decisions/adrs/` — per-decision rationale (45+ ADRs)
+6. `docs/03-execution/specs/` — per-system normative specs (40+ SPECs)
+7. `docs/02-decisions/contracts/archive/superseded-pryzm1-pryzm2/` — archived PRYZM1/2 contracts (informational only)
 
 Cross-cutting docs that govern the contract suite as a whole:
-- `docs/03_PRYZM3/PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md` — end-to-end synthesis + delivery plan
-- `docs/03_PRYZM3/PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md` — code-state audit grounding the master plan
+- `docs/03-execution/plans/master-implementation-plan.md` — end-to-end synthesis + delivery plan
+- `docs/03-execution/status/prior-art-audit-2026-05-31.md` — code-state audit grounding the master plan
 
 If a contract and an ADR disagree, **the contract wins**; the ADR must be updated or a new ADR raised. If a contract and the Vision/Architecture docs disagree, **Vision/Architecture wins**; amend the contract.
 
@@ -59,8 +61,8 @@ If a contract and an ADR disagree, **the contract wins**; the ADR must be update
 ## Conventions used across all contracts
 
 - **MUST / MUST NOT / SHALL / MAY** — RFC 2119 normative terms.
-- **[ADR-NNN]** — links to `docs/03_PRYZM3/reference/adrs/ADR-NNN-*.md`.
-- **[SPEC-NN]** — links to `docs/03_PRYZM3/reference/specs/SPEC-NN-*.md`.
+- **[ADR-NNN]** — links to `docs/02-decisions/adrs/ADR-NNN-*.md`.
+- **[SPEC-NN]** — links to `docs/03-execution/specs/SPEC-NN-*.md`.
 - **CI gate: hard-fail** — a merge-blocking lint or test failure.
 - **CI gate: soft-fail** — a counter tripwire; becomes hard-fail at the stated phase exit.
 
@@ -69,14 +71,14 @@ If a contract and an ADR disagree, **the contract wins**; the ADR must be update
 ## How to amend a contract
 
 1. Edit the relevant `C0N-*.md` directly. Do NOT create a new `*-AUDIT.md` alongside it.
-2. If the change alters a CI gate or convergence boolean, update `docs/03_PRYZM3/02-ARCHITECTURE.md §8` and `03-CURRENT-STATE.md §1` in the same commit.
+2. If the change alters a CI gate or convergence boolean, update `docs/01-strategy/architecture.md §8` and `03-CURRENT-STATE.md §1` in the same commit.
 3. If the change reverses an ADR decision, raise a superseding ADR first; then amend the contract to cite the new ADR.
 
 ---
 
 ## What is NOT a contract
 
-- Sprint plans → `docs/03_PRYZM3/04-PLAN-FORWARD/`
-- Current status → `docs/03_PRYZM3/03-CURRENT-STATE.md`
-- Per-decision rationale → `docs/03_PRYZM3/reference/adrs/`
-- Per-system normative spec (wire format, schema tables) → `docs/03_PRYZM3/reference/specs/`
+- Sprint plans → `docs/archive/pryzm3-internal/04-PLAN-FORWARD/`
+- Current status → `docs/archive/pryzm3-internal/03-CURRENT-STATE.md`
+- Per-decision rationale → `docs/02-decisions/adrs/`
+- Per-system normative spec (wire format, schema tables) → `docs/03-execution/specs/`

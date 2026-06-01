@@ -4,7 +4,7 @@
  * `sheetToSvgWithContent`, and renders the result inline as an `<svg>` so
  * a user can preview a generated sheet without DevTools.
  *
- * CONTRACT: docs/00_Contracts/C24-SHEET-COMPOSITION-ENGINE.md.
+ * CONTRACT: docs/02-decisions/contracts/C24-SHEET-COMPOSITION-ENGINE.md.
  *
  * Strict scope:
  *   • Uses the canonical L2 helpers from `@pryzm/drawing-primitives` — does

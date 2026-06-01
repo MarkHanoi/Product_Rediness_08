@@ -2,8 +2,8 @@
 
 **Sprint**: PRYZM 2 Phase 3D · S72 (M36 GA Launch Gate, weeks 143–144)
 **Date**: 2026-04-29
-**Anchor ADR**: `docs/architecture/adr/0054-s72-m36-ga-launch-gate.md`
-**Charter source**: `docs/03_PRYZM3/reference/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S72 (lines 394–488) + §3 GA gate + §6 gap-closure + §8 handoff
+**Anchor ADR**: `docs/02-decisions/adrs/0054-s72-m36-ga-launch-gate.md`
+**Charter source**: `docs/archive/pryzm3-internal/reference/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S72 (lines 394–488) + §3 GA gate + §6 gap-closure + §8 handoff
 **Closure pattern**: D-day-actionable partial close (mirrors S67/S68/S70/S71)
 
 ---
@@ -205,7 +205,7 @@ static GA-gate test package under `tests/ga-gate/` is green when run
 in this dev env; the K3-F regression gate is NOT TRIPPED at the
 most recent re-bench; the version manifests agree on 2.0.0; ADR-0054
 records 7 sprint-scoped decisions with named reversal triggers; the
-sprint audit at `docs/03_PRYZM3/archive/superseded-audits/PHASE-3D-S72-M36-GA-LAUNCH-GATE-2026-04-29.md`
+sprint audit at `docs/archive/pryzm3-internal/archive/superseded-audits/PHASE-3D-S72-M36-GA-LAUNCH-GATE-2026-04-29.md`
 mirrors this report's structure and evidence.
 
 ---

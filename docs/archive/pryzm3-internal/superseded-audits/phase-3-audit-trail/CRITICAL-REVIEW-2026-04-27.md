@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Date | 2026-04-27 |
-| Scope | `docs/00_Contracts/` (00–18 + Wave-2 indices) and `docs/00_NEW_ARCHITECTURE/` (00–10 + Context + PROCESS-TRACKER + `phases/`) |
+| Scope | `docs/02-decisions/contracts/` (00–18 + Wave-2 indices) and `docs/00_NEW_ARCHITECTURE/` (00–10 + Context + PROCESS-TRACKER + `phases/`) |
 | Type | Critical review — gaps, contradictions, robustness/clarity issues, Forma/Qonic-grade shortfalls |
 | Audience | Tech lead, architecture review |
 
@@ -16,20 +16,20 @@
 These are the issues that, if not fixed first, will cause the rest of the rebuild to silently lose its grip.
 
 ### A1. The binding hierarchy is asserted but not enforced anywhere
-- `00_Contracts/_README.md` declares the order **`06-IDENTITY → 08-VISION → 10-MASTER → 00–07 NEW_ARCH → 00–18 contracts`**, with per-file supersession banners.
+- `02-decisions/contracts/_README.md` declares the order **`06-IDENTITY → 08-VISION → 10-MASTER → 00–07 NEW_ARCH → 00–18 contracts`**, with per-file supersession banners.
 - `08-VISION.md` §10: "08 wins over every other doc except `06-IDENTITY` and the `.pryzm` file-format spec."
 - There is **no machine-readable manifest** of who wins over what (no JSON, no front-matter version field, no `governance.yaml`), and no CI check that fails when a contract still asserts a rule that NEW_ARCH has overturned.
-- Result: contracts in `00_Contracts/` still contain rules (LWW conflict resolution in §07, JSONB snapshots in §09, Immer-only mutation in §01) that NEW_ARCH explicitly negates. Engineers reading those contracts will implement the wrong thing unless they also memorise the supersession banner. **This is a foot-gun, not "documentation."**
+- Result: contracts in `02-decisions/contracts/` still contain rules (LWW conflict resolution in §07, JSONB snapshots in §09, Immer-only mutation in §01) that NEW_ARCH explicitly negates. Engineers reading those contracts will implement the wrong thing unless they also memorise the supersession banner. **This is a foot-gun, not "documentation."**
 
 ### A2. `CONFLICT-ANALYSIS.md` is referenced from at least four places and does not exist
-- `00_Contracts/_README.md`, `_AUDIT_AND_CONSOLIDATION_PLAN.md`, `_WAVE2_SUMMARY.md`, and the per-file supersession banners all link to **`docs/00_NEW_ARCHITECTURE/CONFLICT-ANALYSIS.md`**.
+- `02-decisions/contracts/_README.md`, `_AUDIT_AND_CONSOLIDATION_PLAN.md`, `_WAVE2_SUMMARY.md`, and the per-file supersession banners all link to **`docs/00_NEW_ARCHITECTURE/CONFLICT-ANALYSIS.md`**.
 - The file does not exist.
 - That document is *the* artefact that makes the supersession real (per-rule conflict map, what wins, migration path). Without it, every reader has to construct the conflict map in their head from a 40,000-line corpus. **Fix this before Sprint 1.**
 
 ### A3. The contract corpus is internally lossy after Wave 2
 - `_WAVE2_SUMMARY.md` §3: "**No internal cross-reference rewrite.** A reference inside what is now §09 Part B that says 'see §13' still says that." Thousands of in-document `§NN` cross-references are stale; the reader is told to mentally apply `_README.md §5.1` as a forwarding table on every link.
 - Combined with the per-file supersession banner that voids whole sections, the cognitive cost of reading the contracts correctly is now **larger than the cost of just rewriting them**.
-- Either (a) execute a one-shot mechanical rewrite of cross-refs, or (b) demote the entire `00_Contracts/` folder to `archive/` and treat NEW_ARCH as the only normative source. Mixed regime is the worst option.
+- Either (a) execute a one-shot mechanical rewrite of cross-refs, or (b) demote the entire `02-decisions/contracts/` folder to `archive/` and treat NEW_ARCH as the only normative source. Mixed regime is the worst option.
 
 ### A4. "Solo founder + Replit Agent" is the load-bearing assumption — and it is incompatible with the rest of the document set
 - `10-MASTER-IMPLEMENTATION-PLAN-36M.md` is calibrated for **solo + agent**. `07-EXECUTION-PLAYBOOK.md` is calibrated for **4 → 11 FTE**. These are different operating models, not different formats of the same model. Every architectural commitment in 08-VISION (eight CI gates, OTel coverage, plugin SDK + marketplace, headless package, AI worker, sync server, bake worker, export worker, observability stack) was *sized* for the FTE model.
@@ -202,7 +202,7 @@ Deleting `EngineBootstrap.ts`, `ProjectSerializer.ts`, `ImportProjectCommand.ts`
 
 1. **Write `CONFLICT-ANALYSIS.md` this week.** Referenced from four places, voids whole sections of contracts, does not exist. Without it, the binding hierarchy is folklore.
 2. **Settle ADR-002 (CRDT/event-log unification) before S02.** The contradiction between "MessagePack event log is the wire format" (08 P4) and "Yjs is the conflict resolution" (08 §1, 09 §L3) must be resolved into a single design with code-level interfaces shown. Your sprint plan currently builds the event log first, then bolts CRDT on later — that is a 6-month rewrite waiting to happen.
-3. **Replace `00_Contracts/` wholesale.** Keep the old folder as `archive/` for forensic value. Rewrite ~12 short, sharp normative contracts under NEW_ARCH that match the new layer model exactly. Stop maintaining two parallel corpora.
+3. **Replace `02-decisions/contracts/` wholesale.** Keep the old folder as `archive/` for forensic value. Rewrite ~12 short, sharp normative contracts under NEW_ARCH that match the new layer model exactly. Stop maintaining two parallel corpora.
 4. **Write a serious capacity model.** "Solo + Agent for 36 months delivers eight CI gates, 17 benches, marketplace, IFC, headless, plugin SDK, AI layer, sync server, bake worker, export worker, OTel pipeline, self-host" is not true. Identify the 5 must-haves for M12, M24, M36 and explicitly cut the rest. Most likely casualties: marketplace at GA, IFC4 round-trip at GA, OTel coverage of all hot paths, headless AI, soft-lock CRDT semantics. Cut early.
 5. **Pick a real geometry kernel story.** Either commit to `three-bvh-csg` and write a robustness contract that *defines* what input it can survive, or plan a swap to a more capable kernel (manifold-3d, OpenCASCADE.js, JSCAD's geom kernel) with a migration sprint. Today the corpus assumes geometric robustness without naming the kernel.
 6. **Specify the type catalog properly.** Contract 17 needs to triple in size (parameters, families, system families, layer composition, IFC mapping, type catalog import, key plan symbol) before Phase 1C ships any element families against it. Otherwise Phase 1C bakes in a thin model that everything else has to work around.

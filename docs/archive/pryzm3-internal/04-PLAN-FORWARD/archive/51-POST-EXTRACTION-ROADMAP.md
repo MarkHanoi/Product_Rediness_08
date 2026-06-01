@@ -43,7 +43,7 @@ with no logic.
 | GA gates (5 gaps not yet covered) | **15/20** | Phase 0 (gate sprint) |
 
 Full sprint-by-sprint plan: **[`54-COMPLETE-LEGACY-ELIMINATION-PLAN.md`](./54-COMPLETE-LEGACY-ELIMINATION-PLAN.md)**  
-Legacy pattern catalogue + per-package classification: **[C14](../../00_Contracts/C14-LEGACY-ELIMINATION-AND-PRYZM3-ENFORCEMENT.md)**
+Legacy pattern catalogue + per-package classification: **[C14](../../02-decisions/contracts/C14-LEGACY-ELIMINATION-AND-PRYZM3-ENFORCEMENT.md)**
 
 ---
 

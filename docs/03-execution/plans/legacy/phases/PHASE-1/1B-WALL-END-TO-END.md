@@ -2,12 +2,12 @@
 
 > **Authority note (added 2026-04-27).** This document is *implementation guidance* and is subordinate to:
 >
-> 1. The 12 specs in `docs/03_PRYZM3/reference/specs/` (SPEC-01..SPEC-12).
-> 2. The 22 strategic ADRs in `docs/03_PRYZM3/reference/adrs/` (ADR-001..ADR-024 of the strategic series).
-> 3. `docs/03_PRYZM3/archive/superseded-2026-04-30/03_STATUS/CRITICAL-REVIEW-2026-04-27.md`.
-> 4. `docs/03_PRYZM3/reference/plan-detail/01-MASTER-36M.md`.
+> 1. The 12 specs in `docs/03-execution/specs/` (SPEC-01..SPEC-12).
+> 2. The 22 strategic ADRs in `docs/02-decisions/adrs/` (ADR-001..ADR-024 of the strategic series).
+> 3. `docs/archive/pryzm3-internal/superseded-2026-04-30/03_STATUS/CRITICAL-REVIEW-2026-04-27.md`.
+> 4. `docs/03-execution/plans/legacy/plan-detail/01-MASTER-36M.md`.
 >
-> Where this phase document conflicts with any of the above, the higher-precedence document wins. Bare `ADR-NNN` references inside this phase document refer to the **sprint-scoped / code-level** ADR series at `docs/architecture/adr/NNNN-*.md` after the renumbering applied 2026-04-27 (per `phases/PHASES-UPDATE-PLAN-2026-04-27.md` §1). References to the **strategic** ADR series are written explicitly as `[strategic ADR-NNN]`.
+> Where this phase document conflicts with any of the above, the higher-precedence document wins. Bare `ADR-NNN` references inside this phase document refer to the **sprint-scoped / code-level** ADR series at `docs/02-decisions/adrs/NNNN-*.md` after the renumbering applied 2026-04-27 (per `phases/PHASES-UPDATE-PLAN-2026-04-27.md` §1). References to the **strategic** ADR series are written explicitly as `[strategic ADR-NNN]`.
 
 > **§0 Alignment header**
 >
@@ -23,21 +23,21 @@
 
 Same conventions as `PHASE-1A`. **The team**: 2 engineering agents (Agent A, Agent B) + Founder/Architect (F). **Working unit**: 1 sprint = 10 working days (D1–D9 demo + retro, D10 buffer/docs). **Sync points**: D1 kickoff (30–45 min), D5 mid-sprint integration (1 h), D9 demo + retro (1 h). **Branch model**: `agentA/sNN-<element>` / `agentB/sNN-<element>` → F merges to `pryzm2/main`. **Citation convention**: every PRYZM-1 claim is given as `path/to/file.ts:LINE`; every new file is `pryzm2/path/to/file.ts (NEW)` or `plugins/<name>/file.ts (NEW)`.
 
-**ADR citations**: Bare `ADR-NNN` is forbidden. Use `[strategic ADR-NNN]` for entries in `03_PRYZM3/reference/adrs/`, or fully-qualified `code-level ADR docs/architecture/adr/NNNN-<slug>.md` for sprint-scoped decisions.
+**ADR citations**: Bare `ADR-NNN` is forbidden. Use `[strategic ADR-NNN]` for entries in `02-decisions/adrs/`, or fully-qualified `code-level ADR docs/02-decisions/adrs/NNNN-<slug>.md` for sprint-scoped decisions.
 
-**`code-level ADR docs/architecture/adr/0008-wall-handler-triage.md`..013 in this document.** Phase 1B introduces **six sprint-scoped ADRs** whose canonical text lives in §7 below. They map to the following code-level slugs for cross-doc citation:
+**`code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md`..013 in this document.** Phase 1B introduces **six sprint-scoped ADRs** whose canonical text lives in §7 below. They map to the following code-level slugs for cross-doc citation:
 
 | §7 heading | Code-level slug |
 |---|---|
-| `code-level ADR docs/architecture/adr/0008-wall-handler-triage.md` — Wall handler triage (22 → 14) | `docs/architecture/adr/0008-wall-handler-triage.md` |
-| `code-level ADR docs/architecture/adr/0009-wall-producer-signature.md` — Producer pure-function signature | `docs/architecture/adr/0009-wall-producer-signature.md` |
-| `code-level ADR docs/architecture/adr/0010-slab-handler-triage.md` — Slab handler triage | `docs/architecture/adr/0010-slab-handler-triage.md` |
-| `code-level ADR docs/architecture/adr/0011-curtain-wall-triage-and-producer-split.md` — Curtain Wall triage + producer split | `docs/architecture/adr/0011-curtain-wall-triage-and-producer-split.md` |
-| `code-level ADR docs/architecture/adr/0012-cross-element-cascade-rule-registration.md` — Cross-element cascade-rule registration | `docs/architecture/adr/0012-cross-element-cascade-rule-registration.md` |
-| `code-level ADR docs/architecture/adr/0013-intent-resolver.md` — Intent resolver shape | `docs/architecture/adr/0013-intent-resolver.md` |
-| `code-level ADR docs/architecture/adr/0014-persistence-snapshot-threshold.md` — Persistence snapshot threshold (drafted only if S09 needs it) | `docs/architecture/adr/0014-persistence-snapshot-threshold.md` |
+| `code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md` — Wall handler triage (22 → 14) | `docs/02-decisions/adrs/0008-wall-handler-triage.md` |
+| `code-level ADR docs/02-decisions/adrs/0009-wall-producer-signature.md` — Producer pure-function signature | `docs/02-decisions/adrs/0009-wall-producer-signature.md` |
+| `code-level ADR docs/02-decisions/adrs/0010-slab-handler-triage.md` — Slab handler triage | `docs/02-decisions/adrs/0010-slab-handler-triage.md` |
+| `code-level ADR docs/02-decisions/adrs/0011-curtain-wall-triage-and-producer-split.md` — Curtain Wall triage + producer split | `docs/02-decisions/adrs/0011-curtain-wall-triage-and-producer-split.md` |
+| `code-level ADR docs/02-decisions/adrs/0012-cross-element-cascade-rule-registration.md` — Cross-element cascade-rule registration | `docs/02-decisions/adrs/0012-cross-element-cascade-rule-registration.md` |
+| `code-level ADR docs/02-decisions/adrs/0013-intent-resolver.md` — Intent resolver shape | `docs/02-decisions/adrs/0013-intent-resolver.md` |
+| `code-level ADR docs/02-decisions/adrs/0014-persistence-snapshot-threshold.md` — Persistence snapshot threshold (drafted only if S09 needs it) | `docs/02-decisions/adrs/0014-persistence-snapshot-threshold.md` |
 
-> **Numbering collision note.** The renumbering map in `phases/PHASES-UPDATE-PLAN-2026-04-27.md §1.3` lists ``code-level ADR docs/architecture/adr/0008-wall-handler-triage.md` → 0008-wall-tool-submodes.md` — that entry refers to PHASE-1A's distinct decision about WallTool sub-modes. **Phase 1B's `code-level ADR docs/architecture/adr/0008-wall-handler-triage.md` (wall handler triage 22 → 14) is a different decision.** When the actual code-level ADR files are created in `docs/architecture/adr/`, both will need to coexist (e.g. by giving PHASE-1A's the slug `0008a-wall-tool-submodes.md` or shifting one of them up the sequence). This phase doc cites the slug `0008-wall-handler-triage.md` for its own `code-level ADR docs/architecture/adr/0008-wall-handler-triage.md` throughout. Similarly: Phase 1B's `code-level ADR docs/architecture/adr/0010-slab-handler-triage.md` (slab handler triage) is unrelated to `[strategic ADR-010]` (250 ms bake debounce) — they live in different namespaces.
+> **Numbering collision note.** The renumbering map in `phases/PHASES-UPDATE-PLAN-2026-04-27.md §1.3` lists ``code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md` → 0008-wall-tool-submodes.md` — that entry refers to PHASE-1A's distinct decision about WallTool sub-modes. **Phase 1B's `code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md` (wall handler triage 22 → 14) is a different decision.** When the actual code-level ADR files are created in `docs/02-decisions/adrs/`, both will need to coexist (e.g. by giving PHASE-1A's the slug `0008a-wall-tool-submodes.md` or shifting one of them up the sequence). This phase doc cites the slug `0008-wall-handler-triage.md` for its own `code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md` throughout. Similarly: Phase 1B's `code-level ADR docs/02-decisions/adrs/0010-slab-handler-triage.md` (slab handler triage) is unrelated to `[strategic ADR-010]` (250 ms bake debounce) — they live in different namespaces.
 
 ---
 
@@ -75,12 +75,12 @@ The wall family in PRYZM 1 is **the largest single element family** in the codeb
 | `src/elements/walls/WallSystemTypeStore.ts` | 263 | Catalogue of wall system types (CMU, drywall, etc). | **Mimic**: shape → `plugins/wall/system-type-store.ts` (S07 D6). |
 | `src/elements/walls/WallDimensionInput.ts` | 181 | Dimension-input UI handler (typed numeric input during draw). | **Defer to 1C**: panel/UI surface. Out of scope for 1B. |
 | `src/elements/walls/DimensionPreview.ts` | 201 | Inline dimension preview during wall draw. | **Defer to 1C**: panel/UI surface. Out of scope for 1B. |
-| `src/elements/walls/errors.ts` | 127 | Wall-specific error subclasses. | **Mimic**: shape → `plugins/wall/errors.ts` (S07 D2). Strict typed errors are mandatory in PRYZM 2 per `code-level ADR docs/architecture/adr/0002-command-handler-signature.md`. |
+| `src/elements/walls/errors.ts` | 127 | Wall-specific error subclasses. | **Mimic**: shape → `plugins/wall/errors.ts` (S07 D2). Strict typed errors are mandatory in PRYZM 2 per `code-level ADR docs/02-decisions/adrs/0002-command-handler-signature.md`. |
 | **Total `src/elements/walls/`** | **~7,290** | 25 files | |
 
 | File | LOC | Role today | 1B treatment |
 |---|---|---|---|
-| `src/commands/walls/CreateWallCommand.ts` | 349 | The canonical wall-create command — `affectedStores = ["wall", "level"] as const` at line 51, neighbour-snapshot at line 234, store ops at 109 / 252 / 275 / 297 / 309 / 311. | **Mimic verbatim**: shape → `plugins/wall/handlers/CreateWall.ts` (S07 D3). This file is the **canonical example** in `docs/architecture/element-recipe.md`. |
+| `src/commands/walls/CreateWallCommand.ts` | 349 | The canonical wall-create command — `affectedStores = ["wall", "level"] as const` at line 51, neighbour-snapshot at line 234, store ops at 109 / 252 / 275 / 297 / 309 / 311. | **Mimic verbatim**: shape → `plugins/wall/handlers/CreateWall.ts` (S07 D3). This file is the **canonical example** in `docs/04-reference/architecture-detail/element-recipe.md`. |
 | `src/commands/walls/UpdateWallDimensionsCommand.ts` | 79 | Updates width / height / layer thickness atomically. | **Merged** into `SetWallDimensions` handler (S07 D6). |
 | `src/commands/walls/UpdateWallBaselineCommand.ts` | 191 | Moves the wall (updates start/end points). | **Mimic** as `MoveWall` handler (S07 D4). |
 | `src/commands/walls/SetWallWidthCommand.ts` | 99 | Sets wall thickness. | **Folded** into `SetWallDimensions` handler. |
@@ -109,15 +109,15 @@ Same hazard pattern as the four 1A trap files (`UnifiedFrameLoop.ts`, `FrameCoor
 
 | File | LOC | Why it looks like the answer | Why it isn't (and what 1B must do differently) |
 |---|---|---|---|
-| `src/elements/walls/WallStore.ts` | 1,227 | Already a `Map<id, WallData>` (line 80), clone-on-read, `subscribe(listener) → unsubscribe` (line 1114), depth-counted batching, secondary indexes (`_levelIndex` line 93, `windows`/`doors` maps lines 85–86), `ILevelProvider` adapter, defensive try/catch around every listener invocation (line 1159), and a 60-line comment block (lines 1124–1190) documenting the **three-surface fan-out contract** (in-process listeners → EventBus → dirty-flag). **This is essentially the new `Store<T>` with extras.** | Three problems: (1) the store **owns the index for `windows` and `doors` of THIS wall** (lines 85–86) — a coupling that breaks the per-element-family plugin model; in PRYZM 2 the door/window stores own their own state, and the wall-store exposes a *query* surface for "doors hosted by wall X". (2) The `notifyListeners` fan-out emits 3 channels — PRYZM 2 emits ONE `DirtyDiff` channel and the committer subscribes once. (3) The `subscribe(listener)` API is wall-specific (`WallEventListener` shape from line 83) — PRYZM 2's `Store<T>.subscribeDirty(diff => ...)` is generic. **The right move**: write `plugins/wall/store.ts` as a thin extension of `Store<WallData>` from `packages/stores/` (1A S05). Copy the three-surface fan-out *contract notes* into `docs/architecture/stores.md`, but implement **only one channel** (the dirty-diff). |
+| `src/elements/walls/WallStore.ts` | 1,227 | Already a `Map<id, WallData>` (line 80), clone-on-read, `subscribe(listener) → unsubscribe` (line 1114), depth-counted batching, secondary indexes (`_levelIndex` line 93, `windows`/`doors` maps lines 85–86), `ILevelProvider` adapter, defensive try/catch around every listener invocation (line 1159), and a 60-line comment block (lines 1124–1190) documenting the **three-surface fan-out contract** (in-process listeners → EventBus → dirty-flag). **This is essentially the new `Store<T>` with extras.** | Three problems: (1) the store **owns the index for `windows` and `doors` of THIS wall** (lines 85–86) — a coupling that breaks the per-element-family plugin model; in PRYZM 2 the door/window stores own their own state, and the wall-store exposes a *query* surface for "doors hosted by wall X". (2) The `notifyListeners` fan-out emits 3 channels — PRYZM 2 emits ONE `DirtyDiff` channel and the committer subscribes once. (3) The `subscribe(listener)` API is wall-specific (`WallEventListener` shape from line 83) — PRYZM 2's `Store<T>.subscribeDirty(diff => ...)` is generic. **The right move**: write `plugins/wall/store.ts` as a thin extension of `Store<WallData>` from `packages/stores/` (1A S05). Copy the three-surface fan-out *contract notes* into `docs/04-reference/architecture-detail/stores.md`, but implement **only one channel** (the dirty-diff). |
 | `src/elements/walls/WallFragmentBuilder.ts` | 2,256 | Has a literal comment at line 142 — *"preserving builder purity as a pure projection function"* — and at line 425 — *"the builder is now a pure function of its inputs"*. The aspiration is right. Has `wallRoots: Map<string, THREE.Group>` (line 43) which is exactly what the committer needs to manage. Already uses geometry-hash caching (`composeWallGeometryHash.ts`). Already handles HDRI texture (line 115), MeshStandardMaterial (line 572), and the colorWrite-false depth-only proxy mesh (lines 586–598) for hidden-but-pickable walls. **This file documents every edge case the committer must reproduce.** | Problems: (1) the file imports `* as THREE from 'three'` and uses THREE everywhere from line 25 onward — **the producer must be 100% THREE-free** (`pryzm-no-three-in-kernel` lint, real-enforced in S07). (2) The "pure function" claim at line 142 is aspirational; the actual code reads `this.scene` (line 432), constructs `new THREE.Group()` (line 437), `new THREE.Vector3()` (lines 508–509), `new THREE.MeshStandardMaterial({ ... })` (line 572) — none of these can survive in the kernel. The pure math is the **inner** functions (`MiterPrismBuilder`, `composeWallGeometryHash`, `LayeredWallOpeningBuilder`, the planar-cap miter math at lines ~700–900); the **outer** scene-management is the committer. (3) The DTO migration comment at line 505 (*"Phase B DTO migration: baseLine is [Point3D, Point3D]; reconstruct THREE.Vector3"*) marks the natural seam — kernel takes `Point3D`, committer reconstructs `THREE.Vector3` on the scenic side. **The right move**: S08 D2 starts the producer by lifting `WallPathBuilder.ts` (78 LOC, already pure) and `MiterPrismBuilder.ts` (123 LOC, already pure). S08 D3–D6 progressively lifts the inner `compute*` functions of `WallFragmentBuilder.ts` into producer, leaving the outer scene-management for S09's committer. **No file in `src/elements/walls/` is edited.** |
-| `src/elements/walls/WallTool.ts` | 1,683 | At line 144 the constructor **already throws** if `commandManager` is not injected (the window-global fallback was deliberately removed — see line 145 *"Window-global fallback has been removed"*). Stores `commandManager` at construction (line 90 — explicitly tagged `§WALL-AUDIT-2026-W4`). Already uses bound-handler pattern (lines 558–559: `pointerDownHandler = (e) => this.onPointerDown(e)`). Already separates pointer-down (line 594) from pointer-move (line 838) cleanly. **This file proves PRYZM 1 already partially fixed the DI problem for tools.** | Problems: (1) `commandManager: any` (line 90) — typed as `any`. PRYZM 2 must type it as `CommandBus<WallCommands>`. (2) `previewLine: THREE.Line` (line 100) and `previewWall: THREE.Object3D` (line 102) are stored as instance fields — the THREE side belongs in `plugins/wall/tool.ts` scenic helpers, separated from pure-state. (3) The 8 sub-modes (Straight / Arc / Polyline / Trace / fromSlab / betweenMarks / dimension-input / underlay-aligned) are encoded as scattered conditionals; PRYZM 2 splits into discrete sub-tools (`DrawStraight`, `DrawArc`, `DrawPolyline`, …) per `code-level ADR docs/architecture/adr/0008-wall-tool-submodes.md` (PHASE-1A's wall-tool sub-mode triage; distinct from this phase's `code-level ADR docs/architecture/adr/0008-wall-handler-triage.md` wall HANDLER triage — see §0 numbering note). **The right move**: S09 D3 implements `plugins/wall/tool.ts` as a thin orchestrator over per-mode sub-tools; the constructor signature mirrors `WallTool.ts:144–147`'s strict-injection pattern verbatim. The 8 sub-modes are landed in S09 (Straight only — MVP), S10 (Arc, Polyline), and deferred to 1C (Trace, fromSlab UI mode, underlay-aligned). |
+| `src/elements/walls/WallTool.ts` | 1,683 | At line 144 the constructor **already throws** if `commandManager` is not injected (the window-global fallback was deliberately removed — see line 145 *"Window-global fallback has been removed"*). Stores `commandManager` at construction (line 90 — explicitly tagged `§WALL-AUDIT-2026-W4`). Already uses bound-handler pattern (lines 558–559: `pointerDownHandler = (e) => this.onPointerDown(e)`). Already separates pointer-down (line 594) from pointer-move (line 838) cleanly. **This file proves PRYZM 1 already partially fixed the DI problem for tools.** | Problems: (1) `commandManager: any` (line 90) — typed as `any`. PRYZM 2 must type it as `CommandBus<WallCommands>`. (2) `previewLine: THREE.Line` (line 100) and `previewWall: THREE.Object3D` (line 102) are stored as instance fields — the THREE side belongs in `plugins/wall/tool.ts` scenic helpers, separated from pure-state. (3) The 8 sub-modes (Straight / Arc / Polyline / Trace / fromSlab / betweenMarks / dimension-input / underlay-aligned) are encoded as scattered conditionals; PRYZM 2 splits into discrete sub-tools (`DrawStraight`, `DrawArc`, `DrawPolyline`, …) per `code-level ADR docs/02-decisions/adrs/0008-wall-tool-submodes.md` (PHASE-1A's wall-tool sub-mode triage; distinct from this phase's `code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md` wall HANDLER triage — see §0 numbering note). **The right move**: S09 D3 implements `plugins/wall/tool.ts` as a thin orchestrator over per-mode sub-tools; the constructor signature mirrors `WallTool.ts:144–147`'s strict-injection pattern verbatim. The 8 sub-modes are landed in S09 (Straight only — MVP), S10 (Arc, Polyline), and deferred to 1C (Trace, fromSlab UI mode, underlay-aligned). |
 
 > **Implication**: kill-switch **K1B-4 (NEW below)** — no edits to `src/elements/walls/**` or `src/commands/walls/**` in 1B. The PRYZM-1 wall family must remain bit-for-bit unchanged across 1B; the only writes in `src/` are tests under `tests/fixtures/pryzm-1/wall/` (parity reference captures, not source edits).
 
-### §1.3 The 22 wall-touching command surfaces — handler triage (`code-level ADR docs/architecture/adr/0008-wall-handler-triage.md` detail)
+### §1.3 The 22 wall-touching command surfaces — handler triage (`code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md` detail)
 
-`code-level ADR docs/architecture/adr/0008-wall-handler-triage.md` (S07 D1) ratifies the triage from **22 PRYZM-1 wall command surfaces → 14 PRYZM-2 wall handlers**. The "22" counts: 16 actual wall command classes in `src/commands/walls/` (excluding `DeleteElementCommand.ts`, `GenericCommands.ts`, `wallSnapshotUtils.ts`) + 6 sibling commands from neighbouring families that mutate the wall store (e.g. door/window commands that change `wall.openings[]`).
+`code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md` (S07 D1) ratifies the triage from **22 PRYZM-1 wall command surfaces → 14 PRYZM-2 wall handlers**. The "22" counts: 16 actual wall command classes in `src/commands/walls/` (excluding `DeleteElementCommand.ts`, `GenericCommands.ts`, `wallSnapshotUtils.ts`) + 6 sibling commands from neighbouring families that mutate the wall store (e.g. door/window commands that change `wall.openings[]`).
 
 > **Type catalog dependency.** Wall types (`Wall.standard`, `Wall.shear`, `Wall.elemented`, `Wall.partitioning`) are declared in `packages/types-builtin/wall/` per SPEC-05 §7.1. Walls in S07–S12 must reference a type id; instance-only walls are forbidden. Per `[strategic ADR-017]` Phase rollout S11, the type-completeness lint becomes PR-blocking from S11 — but Phase 1B walls already comply by writing types into `packages/types-builtin/`.
 
@@ -145,7 +145,7 @@ Same hazard pattern as the four 1A trap files (`UnifiedFrameLoop.ts`, `FrameCoor
 | `ReferenceEditWallCommand` (sibling, in `src/tools/operations/ReferenceEditTool.ts`) | varies | Port | `ReferenceEditWall` | S10 D4 |
 | Door/window opening-host mutations (sibling commands) | varies | Cross-handler — door/window handlers declare `affectedStores: ['wall']` for opening updates | (no new wall handler) | S11 |
 
-**Net wall handlers in PRYZM 2**: `CreateWall`, `DeleteWall`, `MoveWall`, `SetWallDimensions`, `SetWallColor`, `SetWallSystemType`, `SetWallLayers`, `BulkSetWallVisuals`, `CreateWallOpening`, `CreateWallBetweenMarks`, `CreateWallsFromSlab`, `ChangeWallLevel`, `MirrorWall`, `ScaleWall`, `OffsetWall`, `JoinWall`, `CutWall`, `ReferenceEditWall` = **18 handlers**. `code-level ADR docs/architecture/adr/0008-wall-handler-triage.md` collapses this to **14 by merging the 5 transform handlers (Mirror/Scale/Offset/Move/ReferenceEdit) into `TransformWall { kind: 'mirror' | 'scale' | 'offset' | 'move' | 'reference-edit', params }`** at S10 D6. The "14" headline is post-merge.
+**Net wall handlers in PRYZM 2**: `CreateWall`, `DeleteWall`, `MoveWall`, `SetWallDimensions`, `SetWallColor`, `SetWallSystemType`, `SetWallLayers`, `BulkSetWallVisuals`, `CreateWallOpening`, `CreateWallBetweenMarks`, `CreateWallsFromSlab`, `ChangeWallLevel`, `MirrorWall`, `ScaleWall`, `OffsetWall`, `JoinWall`, `CutWall`, `ReferenceEditWall` = **18 handlers**. `code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md` collapses this to **14 by merging the 5 transform handlers (Mirror/Scale/Offset/Move/ReferenceEdit) into `TransformWall { kind: 'mirror' | 'scale' | 'offset' | 'move' | 'reference-edit', params }`** at S10 D6. The "14" headline is post-merge.
 
 > **Implication for S07–S10 ordering**: S07 ships 5 of the 14 (`CreateWall`, `DeleteWall`, `MoveWall`, `SetWallDimensions`, `SetWallColor`). S10 ships the remaining 9. The producer (S08) and committer (S09) sit between them — by S09 D9 the 5 simplest handlers can drive a tool that draws walls; by S10 D9 the wall is *done* for Phase 1.
 
@@ -206,8 +206,8 @@ The **discarded outer layer** (~860 LOC of `WallFragmentBuilder.ts`) is the THRE
 
 `packages/schemas/Wall.ts` was landed in 1A S01 D6 using `src/elements/walls/WallDataSchema.ts` (314 LOC) as the structural reference. The 1A round-trip test (`tests/fixtures/pryzm-1-snapshots/wall-sample.json`) is green. **For 1B, the schema is frozen** — any field changes go through ADR. Two known follow-ups arrive in 1B:
 
-- **`affectedStores` declarations**: every wall handler in S07 / S10 declares `readonly affectedStores: readonly StoreId[]` per `code-level ADR docs/architecture/adr/0002-command-handler-signature.md`. Lint rule `pryzm-affected-stores-required` enforces (1A S02).
-- **Opening-host references**: Door and Window in 1B's S11 use `Wall.id` as opening-host pointer; the schema field `Wall.openings[]` is read-only from the wall's perspective (door/window handlers mutate it via `affectedStores: ['wall']`). This is documented in `code-level ADR docs/architecture/adr/0008-wall-handler-triage.md`.
+- **`affectedStores` declarations**: every wall handler in S07 / S10 declares `readonly affectedStores: readonly StoreId[]` per `code-level ADR docs/02-decisions/adrs/0002-command-handler-signature.md`. Lint rule `pryzm-affected-stores-required` enforces (1A S02).
+- **Opening-host references**: Door and Window in 1B's S11 use `Wall.id` as opening-host pointer; the schema field `Wall.openings[]` is read-only from the wall's perspective (door/window handlers mutate it via `affectedStores: ['wall']`). This is documented in `code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md`.
 
 ---
 
@@ -267,12 +267,12 @@ The wall — and every element family that follows — has two halves: the **hea
 
 | Item | Sprint | Sync mechanism | Owner of final merge |
 |---|---|---|---|
-| `code-level ADR docs/architecture/adr/0008-wall-handler-triage.md` (Wall handler triage: 22 → 14) | S07 D1 | Joint design session | F (drafted by A, B reviews) |
-| `code-level ADR docs/architecture/adr/0009-wall-producer-signature.md` (Producer pure-function signature) | S08 D1 | Joint design | F (drafted by A, B reviews) |
-| `code-level ADR docs/architecture/adr/0010-slab-handler-triage.md` (Slab handler triage) | S12 D1 | Joint design | F (drafted by A) |
-| `code-level ADR docs/architecture/adr/0011-curtain-wall-triage-and-producer-split.md` (Curtain Wall handler triage + producer split: panels vs mullions vs transoms) | S12 D5 | Joint design | F (drafted jointly A+B) |
-| `code-level ADR docs/architecture/adr/0012-cross-element-cascade-rule-registration.md` (Cross-element cascade-rule registration) | S10 D6 | Joint design | F (drafted by A) |
-| `code-level ADR docs/architecture/adr/0013-intent-resolver.md` (Intent resolver shape: snap-target priority + tie-breaking) | S10 D1 | Joint design | F (drafted by A) |
+| `code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md` (Wall handler triage: 22 → 14) | S07 D1 | Joint design session | F (drafted by A, B reviews) |
+| `code-level ADR docs/02-decisions/adrs/0009-wall-producer-signature.md` (Producer pure-function signature) | S08 D1 | Joint design | F (drafted by A, B reviews) |
+| `code-level ADR docs/02-decisions/adrs/0010-slab-handler-triage.md` (Slab handler triage) | S12 D1 | Joint design | F (drafted by A) |
+| `code-level ADR docs/02-decisions/adrs/0011-curtain-wall-triage-and-producer-split.md` (Curtain Wall handler triage + producer split: panels vs mullions vs transoms) | S12 D5 | Joint design | F (drafted jointly A+B) |
+| `code-level ADR docs/02-decisions/adrs/0012-cross-element-cascade-rule-registration.md` (Cross-element cascade-rule registration) | S10 D6 | Joint design | F (drafted by A) |
+| `code-level ADR docs/02-decisions/adrs/0013-intent-resolver.md` (Intent resolver shape: snap-target priority + tie-breaking) | S10 D1 | Joint design | F (drafted by A) |
 | `packages/geometry-kernel/types/{BufferGeometryDescriptor,JoinData}.ts` | S08 D2 | Paired | A pushes; B reviews |
 | `packages/geometry-kernel/__tests__/{headless-runner,browser-worker-runner}.ts` | S08 D2–D3 | Cross-track | B pushes; A consumes |
 | Wall integration end-to-end (S09 D5) | S09 | 4-h paired session | F observes |
@@ -298,7 +298,7 @@ The wall — and every element family that follows — has two halves: the **hea
 | `src/commands/walls/UpdateWallBaselineCommand.ts` (full 191 LOC), `UpdateWallDimensionsCommand.ts` (79), `SetWallWidthCommand.ts` (99), `UpdateWallHeightCommand.ts` (184), `UpdateWallColorCommand.ts` (71) | **A reads** to extract the 4 simplest handlers + the merge target for `SetWallDimensions`. |
 | `src/commands/walls/DeleteElementCommand.ts` (783 LOC) | **A reads** to extract the generic delete pattern; lifts to `packages/command-bus/handlers/DeleteElement.ts` (L4). The wall plugin registers a cascade rule (`affectedStores: ['wall', 'door', 'window']`). |
 | `src/elements/walls/WallSystemTypeStore.ts` (263 LOC) | **A mirrors** into `plugins/wall/system-type-store.ts`. Pure-state, no THREE — easy port. |
-| `src/elements/walls/errors.ts` (127 LOC) | **A mirrors** into `plugins/wall/errors.ts`. Strict typed errors per `code-level ADR docs/architecture/adr/0002-command-handler-signature.md`. |
+| `src/elements/walls/errors.ts` (127 LOC) | **A mirrors** into `plugins/wall/errors.ts`. Strict typed errors per `code-level ADR docs/02-decisions/adrs/0002-command-handler-signature.md`. |
 | `src/elements/walls/WallTool.ts:144–147` (strict-injection pattern: throws if no commandManager) | **B reads** — confirms PRYZM 1 already proved the no-window-fallback pattern. The S09 `plugins/wall/tool.ts` constructor mirrors this verbatim. |
 | `src/elements/walls/WallFragmentBuilder.ts:142` and `:425` (the "pure function" comments — aspirational) | **B reads** — confirms the producer-vs-committer seam diagnosed in §1.2 is what PRYZM 1 has been groping toward for years. |
 | `apps/editor/src/bootstrap.data.ts` (from 1A S05–S06) | **A reads** to register the new wall store with the bootstrap; confirms the API the 1A bootstrap exposes (`registerStore<T>(id, store)`). |
@@ -314,15 +314,15 @@ The wall — and every element family that follows — has two halves: the **hea
 - **S07-T5 — `plugins/wall/handlers/{DeleteWall,MoveWall}.ts` (D4, Agent A)**: `DeleteWall` is a thin wrapper on the generic `DeleteElement` handler (lifted from `DeleteElementCommand.ts`); declares cascade rules. `MoveWall` mirrors `UpdateWallBaselineCommand.ts:191` shape.
 - **S07-T6 — `packages/stores/SelectionStore.ts` (D4, Agent B)**: bring-forward from S16 — the selection store is needed earlier than originally planned because wall handlers will eventually emit selection diffs. ~80 LOC target. Pure DTO state.
 - **S07-T7 — Mid-sprint sync (D5, joint)**: A walks B through wall DTO shape + dirty-diff format (`{ added: WallData[], updated: { id, patches: Patch[] }[], removed: WallId[] }`); B confirms producer signature `(dto: WallData, joinData: JoinData, worldY: number) => BufferGeometryDescriptor` can consume DTO. **`BufferGeometryDescriptor` type sketched** — paired with A. Type lands `packages/geometry-kernel/types/BufferGeometryDescriptor.ts`.
-- **S07-T8 — `plugins/wall/handlers/{SetWallDimensions,SetWallColor}.ts` (D6, Agent A)**: `SetWallDimensions` merges `UpdateWallDimensionsCommand.ts` + `SetWallWidthCommand.ts` + `UpdateWallHeightCommand.ts` (3→1 collapse per `code-level ADR docs/architecture/adr/0008-wall-handler-triage.md`). Atomic patch with width + height + thickness in a single dirty-diff. `SetWallColor` mirrors `UpdateWallColorCommand.ts:71` (small handler).
+- **S07-T8 — `plugins/wall/handlers/{SetWallDimensions,SetWallColor}.ts` (D6, Agent A)**: `SetWallDimensions` merges `UpdateWallDimensionsCommand.ts` + `SetWallWidthCommand.ts` + `UpdateWallHeightCommand.ts` (3→1 collapse per `code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md`). Atomic patch with width + height + thickness in a single dirty-diff. `SetWallColor` mirrors `UpdateWallColorCommand.ts:71` (small handler).
 - **S07-T9 — Patch correctness tests + 5 baseline fixtures (D6, Agent B)**: capture 5 PRYZM 1 reference geometry snapshots (one per simplest handler) → store under `tests/fixtures/pryzm-1/wall/{create,delete,move,dimensions,color}.json`. Used by A's parity tests in S08. The capture script reads PRYZM 1's `WallFragmentBuilder.generate()` output and serialises buffer attributes to JSON.
 - **S07-T10 — Wire 5 handlers into bus + Playwright smoke (D7)**: A wires handlers into `apps/editor/src/bootstrap.data.ts` registry; undo round-trip tests for each (handler → patch → store → revert). OTel spans for each. B sets up Playwright harness `plugins/wall/__tests__/playwright/` (used in S09); smoke test: `?pryzm2=1` opens, browser console shows zero errors, the 5 wall handlers callable from `window.__pryzm2DevHandle.dispatch(...)` (dev-only escape hatch, gated to `import.meta.env.DEV`).
-- **S07-T11 — Bench + docs (D8)**: A reruns `apps/bench/cmd-execute-latency.ts` for wall handlers — target < 1 ms p95 each. B writes `docs/architecture/element-recipe.md` v1 — the canonical wall pattern as a how-to (will guide every subsequent element from S10 onward).
+- **S07-T11 — Bench + docs (D8)**: A reruns `apps/bench/cmd-execute-latency.ts` for wall handlers — target < 1 ms p95 each. B writes `docs/04-reference/architecture-detail/element-recipe.md` v1 — the canonical wall pattern as a how-to (will guide every subsequent element from S10 onward).
 
 #### D1 — Kickoff (45 min)
 
 - F walks through `phases/PHASE-1-FOUNDATION-M1-M12.md §3.S07` and **§1.3 of this doc** (the 22 → 14 triage table).
-- A presents wall handler triage: `code-level ADR docs/architecture/adr/0008-wall-handler-triage.md` drafted; F decides D2.
+- A presents wall handler triage: `code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md` drafted; F decides D2.
 - B presents `plugins/<element>/` directory convention + the `pryzm-no-three-outside-committer` lint allowlist update.
 
 #### D2–D8 parallel work
@@ -335,7 +335,7 @@ The wall — and every element family that follows — has two halves: the **hea
 | D5 | **S07-T7 paired session (1 h)** — DTO + dirty-diff format; sketch `BufferGeometryDescriptor`. | Same paired session — confirm producer signature. |
 | D6 | **S07-T8**. `SetWallDimensions`, `SetWallColor` handlers. Patch correctness tests. | **S07-T9**. Capture 5 baseline geometry snapshots from PRYZM 1. |
 | D7 | **S07-T10 (A side)**. Wire 5 handlers into bus registry; undo round-trip tests; OTel spans. | **S07-T10 (B side)**. Playwright smoke harness `plugins/wall/__tests__/playwright/`; `?pryzm2=1` opens with zero console errors. |
-| D8 | **S07-T11 (A side)**. Bench `cmd-execute-latency` < 1 ms p95 per wall handler. | **S07-T11 (B side)**. `docs/architecture/element-recipe.md` v1. |
+| D8 | **S07-T11 (A side)**. Bench `cmd-execute-latency` < 1 ms p95 per wall handler. | **S07-T11 (B side)**. `docs/04-reference/architecture-detail/element-recipe.md` v1. |
 
 #### D9 — Sprint demo + retro
 
@@ -349,7 +349,7 @@ The wall — and every element family that follows — has two halves: the **hea
 | Potential blocker | How it manifests | Pre-mitigation |
 |---|---|---|
 | `WallStore.ts`'s coupling between wall + door + window state (lines 85–86 hold `windows: Map<>` + `doors: Map<>`) tempts A to copy the coupling into the new wall store | Wall store ends up owning door/window state in PRYZM 2; door plugin (S11) cannot get a clean cut | §1.2 explicitly forbids carrying the coupling. Door/window state lives in their own plugins (S11). The wall store exposes only a *query* surface for "which openings host on me", computed at read time from the door + window stores' `hostedBy` field. |
-| `CreateWallCommand.ts`'s `_neighbourSnapshot` at line 234 (snapshots all walls in the level for join-cascade undo) is heavyweight — the new handler may inherit the cost | `cmd-execute-latency` bench fails (> 1 ms p95) on `CreateWall` because of the O(N) neighbour snapshot | The PRYZM 2 `CreateWall` handler does **not** snapshot neighbours; the cascade infra (S10 D6) handles join-cascade undo via the dependency-cascade lift from `CascadeWallBaselineCommand.ts`. The `code-level ADR docs/architecture/adr/0008-wall-handler-triage.md` entry for `CreateWall` explicitly drops the neighbour-snapshot. |
+| `CreateWallCommand.ts`'s `_neighbourSnapshot` at line 234 (snapshots all walls in the level for join-cascade undo) is heavyweight — the new handler may inherit the cost | `cmd-execute-latency` bench fails (> 1 ms p95) on `CreateWall` because of the O(N) neighbour snapshot | The PRYZM 2 `CreateWall` handler does **not** snapshot neighbours; the cascade infra (S10 D6) handles join-cascade undo via the dependency-cascade lift from `CascadeWallBaselineCommand.ts`. The `code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md` entry for `CreateWall` explicitly drops the neighbour-snapshot. |
 | The 60-line fan-out doc block (`WallStore.ts:1124–1190`) describes 3 surfaces; A is tempted to keep all 3 in PRYZM 2 | Two extra channels (EventBus + dirty-flag) re-introduced; the bootstrap has 3 places to subscribe | Mitigated by §1.2 — *one channel*, the dirty-diff. The EventBus and dirty-flag in PRYZM 1 exist because `FrameCoordinator` and `StoreEventBus` were never unified; PRYZM 2's `FrameScheduler` (1A S03) merges these. |
 | `pryzm-no-three-in-kernel` real-enforce (S07-T3) catches a *legitimate* THREE-typed import the producer needs (e.g. for `BufferAttribute`) | S07 D3 fails CI on first commit | The `BufferGeometryDescriptor` type (S07-T7 sketched, S08 D2 finalised) uses **plain typed arrays** (`Float32Array`, `Uint16Array`) and a `{ position, normal, uv, index }` shape. Zero THREE imports needed. The committer reconstructs `THREE.BufferGeometry` on the scenic side. |
 | `plugins/wall/` lands without a tool (S09) so the demo at S07 D9 cannot draw a wall — the team doubts progress | Demo feels weak; F questions the sequencing | Demo uses `window.__pryzm2DevHandle.dispatch({ type: 'wall.create', payload: { ... } })` from the dev console — the tool comes in S09. The 5 handlers are visible in OTel, undo works, persistence works. **The bet for S07 is the headless half, not pixels.** |
@@ -362,11 +362,11 @@ The wall — and every element family that follows — has two halves: the **hea
 - [ ] Patches correct on undo for all 5; OTel spans cover handler + store apply.
 - [ ] `cmd-execute-latency` < 1 ms p95 per wall handler.
 - [ ] `pryzm-no-three-in-kernel` lint hard-fails on fixture violation in `packages/geometry-kernel/**`.
-- [ ] `code-level ADR docs/architecture/adr/0008-wall-handler-triage.md` (wall handler triage 22 → 14) merged.
+- [ ] `code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md` (wall handler triage 22 → 14) merged.
 - [ ] `packages/stores/SelectionStore.ts` exists (DTO only, no THREE).
 - [ ] `plugins/wall/system-type-store.ts` exists (mirrors `WallSystemTypeStore.ts:263`).
 - [ ] `plugins/wall/errors.ts` exists with strict typed error classes.
-- [ ] `docs/architecture/element-recipe.md` v1 published with `CreateWall` as the worked example.
+- [ ] `docs/04-reference/architecture-detail/element-recipe.md` v1 published with `CreateWall` as the worked example.
 - [ ] 5 baseline geometry snapshots captured under `tests/fixtures/pryzm-1/wall/`.
 - [ ] PRYZM 1 still ships unchanged; `src/elements/walls/**` + `src/commands/walls/**` byte-for-byte unchanged (CI snapshot diff).
 - [ ] `wall-join.spec.ts` property test green; PR gate enabled in S08.
@@ -390,10 +390,10 @@ export interface DirtyDiff<T> {
   readonly removed: readonly string[];
 }
 
-// packages/command-bus/types.ts — Handler contract (1A S04 frozen, `code-level ADR docs/architecture/adr/0002-command-handler-signature.md`)
+// packages/command-bus/types.ts — Handler contract (1A S04 frozen, `code-level ADR docs/02-decisions/adrs/0002-command-handler-signature.md`)
 export interface Handler<TCmd extends Command, TResult extends HandlerResult = HandlerResult> {
   readonly type: TCmd['type'];
-  readonly affectedStores: readonly StoreId[]; // `code-level ADR docs/architecture/adr/0002-command-handler-signature.md` — declarative, lint-enforced
+  readonly affectedStores: readonly StoreId[]; // `code-level ADR docs/02-decisions/adrs/0002-command-handler-signature.md` — declarative, lint-enforced
   execute(cmd: TCmd, ctx: HandlerContext): Promise<TResult>;
 }
 
@@ -407,7 +407,7 @@ export class WallStore extends Store<WallData> {
   constructor(private readonly emit: (e: DomainEvent) => void) { super(); }
   add(wall: WallData): void { /* Zod-validates at boundary; throws WallSchemaError on fail */ }
   applyPatch(id: WallId, patches: readonly Patch[]): void { /* immer structural-share */ }
-  // exactly one channel per `code-level ADR docs/architecture/adr/0008-wall-handler-triage.md` — no EventBus, no dirty-flag fan-out
+  // exactly one channel per `code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md` — no EventBus, no dirty-flag fan-out
 }
 
 // plugins/wall/handlers/CreateWall.ts — S07-T4 (canonical example)
@@ -447,7 +447,7 @@ export const createWallHandler: Handler<CreateWallCommand> = {
 
 #### S07 key pseudocode — `SetWallDimensions` (3→1 handler collapse)
 
-`SetWallDimensions` is the canonical *merger* handler — it replaces three PRYZM-1 commands (`UpdateWallDimensionsCommand.ts:79`, `SetWallWidthCommand.ts:99`, `UpdateWallHeightCommand.ts:184`) with one atomic discriminated payload. Per `code-level ADR docs/architecture/adr/0008-wall-handler-triage.md` the merge is justified because all three mutate fields on the same `WallData` row and never need partial-apply semantics — they always succeed or fail atomically.
+`SetWallDimensions` is the canonical *merger* handler — it replaces three PRYZM-1 commands (`UpdateWallDimensionsCommand.ts:79`, `SetWallWidthCommand.ts:99`, `UpdateWallHeightCommand.ts:184`) with one atomic discriminated payload. Per `code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md` the merge is justified because all three mutate fields on the same `WallData` row and never need partial-apply semantics — they always succeed or fail atomically.
 
 ```ts
 // plugins/wall/handlers/SetWallDimensions.ts — S07-T8 (~70 LOC)
@@ -521,7 +521,7 @@ export const setWallDimensionsHandler: Handler<SetWallDimensionsCommand> = {
 | D5 | `packages/geometry-kernel/types/BufferGeometryDescriptor.ts` (sketch) | (joint paired session — no merge) | (no new tests) |
 | D6 | `plugins/wall/handlers/{SetWallDimensions,SetWallColor}.ts`, `tests/fixtures/pryzm-1/wall/{create,delete,move,dimensions,color}.json` | `WallSystemTypeStore.ts` mirrored to `plugins/wall/system-type-store.ts` | `+SetWallDimensions +SetWallColor` (5/5) |
 | D7 | `apps/editor/__tests__/playwright/pryzm2-smoke.spec.ts` | `bootstrap.data.ts` wires 5 handlers + dev-handle | smoke green |
-| D8 | `apps/bench/cmd-execute-latency.report.json`, `docs/architecture/element-recipe.md` | (none) | bench < 1 ms p95/handler |
+| D8 | `apps/bench/cmd-execute-latency.report.json`, `docs/04-reference/architecture-detail/element-recipe.md` | (none) | bench < 1 ms p95/handler |
 
 ---
 
@@ -557,14 +557,14 @@ export const setWallDimensionsHandler: Handler<SetWallDimensionsCommand> = {
 - **S08-T8 — Bench `apps/bench/produce-wall.ts` (D5, Agent B)**: run producer 1000 times, target p95 < 50 ms per simple wall. Vitest-driven. Baseline committed to `apps/bench/reports/produce-wall-baseline.md`.
 - **S08-T9 — Curved-wall producer (D6, Agent A)**: lift `CurvedWallLayerBuilder.ts` + `CurvedWallCapMiter.ts`. Arc + spline base lines.
 - **S08-T10 — 25 additional parity references (D6, Agent B)**: extend the 5 baseline captures from S07-T9 to all 30 cases (covers all wall variants from §1.4). Capture script reads PRYZM 1 fixtures from `tests/fixtures/pryzm-1/wall/configs/*.json` and runs `WallFragmentBuilder.generate()` against each.
-- **S08-T11 — `wall-snapshot.test.ts` (D7, Agent A)**: 30 wall configs vs `__snapshots__/wall.snap`. Byte-equality on `position` / `normal` / `uv` / `index` arrays. Tolerance: 0 (no floating-point fuzz in the snapshot path; numerical determinism is the contract per `code-level ADR docs/architecture/adr/0009-wall-producer-signature.md`).
+- **S08-T11 — `wall-snapshot.test.ts` (D7, Agent A)**: 30 wall configs vs `__snapshots__/wall.snap`. Byte-equality on `position` / `normal` / `uv` / `index` arrays. Tolerance: 0 (no floating-point fuzz in the snapshot path; numerical determinism is the contract per `code-level ADR docs/02-decisions/adrs/0009-wall-producer-signature.md`).
 - **S08-T12 — `wall-headless-node.test.ts` (D7, Agent B)**: runs A's producer in Node `worker_thread`; compares to browser worker output byte-by-byte. **CI gate**.
 - **S08-T13 — Tune for failing parity cases (D8, Agent A)**: typically miter math (T-junctions, X-junctions) fails first. Iterate on `MiterPrismBuilder.ts` lift. Wire Node + browser parity tests into CI; both must pass for PR merge.
-- **S08-T14 — Docs (D8, Agent B)**: `docs/architecture/parity-fixtures.md` — how to capture parity fixtures (used for next 11 elements). `docs/architecture/element-recipe.md` updated with producer porting notes.
+- **S08-T14 — Docs (D8, Agent B)**: `docs/04-reference/architecture-detail/parity-fixtures.md` — how to capture parity fixtures (used for next 11 elements). `docs/04-reference/architecture-detail/element-recipe.md` updated with producer porting notes.
 
 #### D1 — Kickoff (30 min)
 
-- A presents `code-level ADR docs/architecture/adr/0009-wall-producer-signature.md` (producer pure-function signature `(dto, joinData, worldY) => BufferGeometryDescriptor`) — F decides.
+- A presents `code-level ADR docs/02-decisions/adrs/0009-wall-producer-signature.md` (producer pure-function signature `(dto, joinData, worldY) => BufferGeometryDescriptor`) — F decides.
 - B confirms Node `worker_thread` harness ready (will run producer headless in CI from this sprint forward).
 
 #### D2–D8 parallel work
@@ -577,7 +577,7 @@ export const setWallDimensionsHandler: Handler<SetWallDimensionsCommand> = {
 | D5 | **S08-T7 paired session (1 h)** with B — review CSG approach + edge-case fixtures. **F decides** CSG path. | **S08-T8**. Bench `apps/bench/produce-wall.ts` — 1000 runs, target p95 < 50 ms simple wall. |
 | D6 | **S08-T9**. Curved-wall producer (arc/spline base line). | **S08-T10**. Capture 25 additional PRYZM 1 wall geometry references for parity. |
 | D7 | **S08-T11**. `wall-snapshot.test.ts` — 30 wall configs vs `__snapshots__/wall.snap`. | **S08-T12**. `wall-headless-node.test.ts` — runs producer in Node `worker_thread`; compares to browser worker output. |
-| D8 | **S08-T13**. Tune producer for failing parity cases (typically miter math). | **S08-T14**. Wire Node + browser parity tests into CI; both must pass for PR merge. `docs/architecture/parity-fixtures.md`. |
+| D8 | **S08-T13**. Tune producer for failing parity cases (typically miter math). | **S08-T14**. Wire Node + browser parity tests into CI; both must pass for PR merge. `docs/04-reference/architecture-detail/parity-fixtures.md`. |
 
 #### D9 — Sprint demo + retro
 
@@ -596,7 +596,7 @@ export const setWallDimensionsHandler: Handler<SetWallDimensionsCommand> = {
 | Browser-worker output ≠ Node output by 1 ULP somewhere | S08-T12 fails CI; cause hard to find | The producer is **pure** by construction (no `Date.now`, no `Math.random`, no `crypto`); the only legitimate non-determinism is FP-mode (`+0` vs `-0`, denormals). The validation utility `assertValidDescriptor` (S08-T5) flags non-finite + non-canonical-zero values before snapshot compare. CI runs both modes with `--harmony` flags identical. |
 | `WallFragmentBuilder.ts` math is **not actually pure** — it reads `this.scene` (line 432) inside what looked like a pure function | S08-T1 lift discovers hidden coupling; producer signature must change to take a scene-graph reference | The seam is at **inside** functions of `WallFragmentBuilder` — the file's *public* `generate()` reads `this.scene`, but the inner `compute*` helpers do not. The lift targets the inner helpers; the outer scene-management is committer's job (S09). The S07-T7 paired session validated this seam with a manual code-trace. |
 | Bench p95 > 50 ms on simple wall because the V8 JIT cold-starts inside Vitest | Bench fails the gate | Bench harness runs 100 warm-up iterations before measuring 1000. p95 measured on warm samples. Reported as `cold/warm/p50/p95/p99` for transparency. |
-| The `WallSystemTypeStore.ts` layer-resolution call from PRYZM 1 (synchronous Map lookup) becomes async in PRYZM 2 (network catalogue?) | Producer signature gains a Promise; pure-function contract violated | **No.** `code-level ADR docs/architecture/adr/0009-wall-producer-signature.md` mandates synchronous producer signatures. The system-type catalogue is materialised into the `WallData` DTO at handler time (the `SetWallSystemType` handler reads the catalogue and writes the resolved layer array into the store). The producer sees only resolved layers. |
+| The `WallSystemTypeStore.ts` layer-resolution call from PRYZM 1 (synchronous Map lookup) becomes async in PRYZM 2 (network catalogue?) | Producer signature gains a Promise; pure-function contract violated | **No.** `code-level ADR docs/02-decisions/adrs/0009-wall-producer-signature.md` mandates synchronous producer signatures. The system-type catalogue is materialised into the `WallData` DTO at handler time (the `SetWallSystemType` handler reads the catalogue and writes the resolved layer array into the store). The producer sees only resolved layers. |
 
 #### S08 exit criteria
 
@@ -605,10 +605,10 @@ export const setWallDimensionsHandler: Handler<SetWallDimensionsCommand> = {
 - [ ] `pryzm-no-three-in-kernel` lint passes for `packages/geometry-kernel/producers/wall.ts` (no THREE imports — verified).
 - [ ] `apps/bench/produce-wall.ts` p95 < 50 ms simple wall.
 - [ ] **Pivot test K1-B confirmed**: kernel is genuinely pure (Node test runs in CI).
-- [ ] `code-level ADR docs/architecture/adr/0009-wall-producer-signature.md` (producer pure-function signature) merged.
+- [ ] `code-level ADR docs/02-decisions/adrs/0009-wall-producer-signature.md` (producer pure-function signature) merged.
 - [ ] `packages/geometry-kernel/types/{BufferGeometryDescriptor,JoinData}.ts` published and used by wall producer.
 - [ ] `packages/geometry-kernel/csg/` (3D Boolean ops, THREE-free) lands and is used by openings producer.
-- [ ] `docs/architecture/parity-fixtures.md` published.
+- [ ] `docs/04-reference/architecture-detail/parity-fixtures.md` published.
 - [ ] PRYZM 1 still ships unchanged.
 - [ ] `manifold-3d` pinned to exact SHA in `package.json` per `[strategic ADR-020]`.
 - [ ] `kernel.error` OTel span emitted on every `Result.err` per `[strategic ADR-020]` §OpenTelemetry.
@@ -619,7 +619,7 @@ export const setWallDimensionsHandler: Handler<SetWallDimensionsCommand> = {
 // packages/geometry-kernel/types/Point3D.ts — pure DTO
 export interface Point3D { readonly x: number; readonly y: number; readonly z: number; }
 
-// packages/geometry-kernel/types/BufferGeometryDescriptor.ts — S08 D2 frozen (`code-level ADR docs/architecture/adr/0009-wall-producer-signature.md`)
+// packages/geometry-kernel/types/BufferGeometryDescriptor.ts — S08 D2 frozen (`code-level ADR docs/02-decisions/adrs/0009-wall-producer-signature.md`)
 // Plain typed arrays — zero THREE imports. The committer reconstructs THREE.BufferGeometry.
 export interface BufferGeometryDescriptor {
   readonly position: Float32Array;        // length = 3 * vertexCount
@@ -638,7 +638,7 @@ export interface JoinData {
   readonly end?:   { readonly miterAngleRad: number; readonly neighbourId: WallId };
 }
 
-// packages/geometry-kernel/producers/wall.ts — `code-level ADR docs/architecture/adr/0009-wall-producer-signature.md` signature
+// packages/geometry-kernel/producers/wall.ts — `code-level ADR docs/02-decisions/adrs/0009-wall-producer-signature.md` signature
 export type WallProducer = (
   dto: Readonly<WallData>,
   joinData: Readonly<JoinData>,
@@ -734,7 +734,7 @@ export function resolveMiters(path: WallPath, jd: JoinData): MiterPrisms {
 | D5 | (joint paired session — CSG decision; `apps/bench/produce-wall.bench.ts` skeleton) | (none) | bench skeleton runs |
 | D6 | curved-wall code path in `producers/wall.ts`, 25 more parity capture JSONs under `tests/fixtures/pryzm-1/wall/configs/` | (none) | `+produceWall.curved` (4/4) |
 | D7 | `tests/parity/wall/wall-snapshot.test.ts`, `__snapshots__/wall.snap`, `packages/geometry-kernel/__tests__/wall-headless-node.test.ts` | CI workflow updated to run Node-headless gate | parity 25/30 (5 miter cases failing — expected) |
-| D8 | (miter math fixes in `producers/_internal/resolveMiters.ts`), `docs/architecture/parity-fixtures.md` | CI gates wired | parity 30/30 ✓; bench p95=42ms ✓ |
+| D8 | (miter math fixes in `producers/_internal/resolveMiters.ts`), `docs/04-reference/architecture-detail/parity-fixtures.md` | CI gates wired | parity 30/30 ✓; bench p95=42ms ✓ |
 
 ---
 
@@ -756,7 +756,7 @@ export function resolveMiters(path: WallPath, jd: JoinData): MiterPrisms {
 #### Sub-phases
 
 - **S09-T1 — `tests/fixtures/small-project.pryzm-stub.json` (D2, Agent A)**: 1 wall, 1 slab placeholder, 1 door placeholder. Only the wall is functional in S09; slab/door schemas exist but their plugins land later (S11/S12). Used by `apps/bench/load-small.ts`.
-- **S09-T2 — `plugins/wall/committer.ts` (D2, Agent B)**: implements `PrimitiveCommitter<WallStore>` (interface frozen 1A S05 `code-level ADR docs/architecture/adr/0005-primitive-committer-interface.md`). Subscribes to `wallStore.subscribeDirty(diff => ...)`. For each `added` wall: calls producer, builds `THREE.BufferGeometry` from descriptor, builds `THREE.Mesh`, requests material from `MaterialPool` (1A S05). For each `updated` wall: re-runs producer, swaps geometry. For each `removed`: disposes mesh, releases material ref. Mirrors the wallRoots-Map pattern (`WallFragmentBuilder.ts:43`). ~600 LOC target.
+- **S09-T2 — `plugins/wall/committer.ts` (D2, Agent B)**: implements `PrimitiveCommitter<WallStore>` (interface frozen 1A S05 `code-level ADR docs/02-decisions/adrs/0005-primitive-committer-interface.md`). Subscribes to `wallStore.subscribeDirty(diff => ...)`. For each `added` wall: calls producer, builds `THREE.BufferGeometry` from descriptor, builds `THREE.Mesh`, requests material from `MaterialPool` (1A S05). For each `updated` wall: re-runs producer, swaps geometry. For each `removed`: disposes mesh, releases material ref. Mirrors the wallRoots-Map pattern (`WallFragmentBuilder.ts:43`). ~600 LOC target.
 - **S09-T3 — `plugins/wall/tool.ts` (D3, Agent B)**: vanilla TS `Tool` subclass (interface from 1A S06 bootstrap). Click/drag/escape state machine. Constructor mirrors `WallTool.ts:144–147` strict-injection. Emits `CreateWall` commands via `commandBus.dispatch(...)`. **Straight mode only in S09**; Arc + Polyline land S10. Snap-cycling via Tab key (mirrors `WallSnapCycler.ts:196`).
 - **S09-T4 — `apps/bench/load-small.ts` (D3, Agent A)**: cold-load the small fixture in `?pryzm2=1`; target < 800 ms first interactive (event-log replay → store hydration → first commit → first frame painted). Vitest + Playwright runner.
 - **S09-T5 — Wire `plugins/wall/tool.ts` into editor toolbar (D4, Agent B)**: first plugin tool registered with PRYZM 2 tool manager. Toolbar UI is a single icon (`apps/editor/src/toolbar/wall-icon.svg`); panel UI lives in 1C scope.
@@ -766,7 +766,7 @@ export function resolveMiters(path: WallPath, jd: JoinData): MiterPrisms {
 - **S09-T9 — `apps/bench/orbit-fps.ts` re-run with 100 walls (D6, Agent A)**: target > 55 fps p95. Uses 100-wall fixture generated by a script.
 - **S09-T10 — 100-wall tune (D7, Agent A)**: if 100-wall orbit-fps fails, profile + tune. Likely culprits: `MaterialPool` not reusing across walls (each wall gets its own material instance), or scene-committer batching not coalescing per-tick updates. Cross-team with B.
 - **S09-T11 — `plugins/wall/__tests__/integration.test.ts` Playwright (D7, Agent B)**: draws 10 walls in 30 s, verifies count + persistence after reload. Visual-diff frame against a PRYZM 1 reference of the same 10-wall config (visual-diff < 5 px — looser than 1A's 2 px because lighting differs slightly between PRYZM 1's OBC and PRYZM 2's single-pass).
-- **S09-T12 — Documentation (D8)**: A writes `docs/architecture/parity-fixtures.md` updates (how wall fixtures generalise to other elements). B writes `plugins/wall/README.md` — the canonical plugin recipe template (`docs/architecture/element-recipe.md` is the spec; `plugins/wall/README.md` is the worked example).
+- **S09-T12 — Documentation (D8)**: A writes `docs/04-reference/architecture-detail/parity-fixtures.md` updates (how wall fixtures generalise to other elements). B writes `plugins/wall/README.md` — the canonical plugin recipe template (`docs/04-reference/architecture-detail/element-recipe.md` is the spec; `plugins/wall/README.md` is the worked example).
 
 #### D1 — Kickoff (30 min)
 
@@ -783,7 +783,7 @@ export function resolveMiters(path: WallPath, jd: JoinData): MiterPrisms {
 | D5 | **S09-T8 paired session (4 h)** — end-to-end test (draw wall → reload → restored). | Same paired session — render-side wiring + canvas mounting + tear-down. |
 | D6 | **S09-T9**. Bench `orbit-fps` re-run with 100 walls — target > 55 fps p95. | Implement bridge from `BufferGeometryDescriptor` → `THREE.BufferGeometry` (pooled, reused across walls). |
 | D7 | **S09-T10**. If 100-wall fps fails, profile + tune (likely `MaterialPool` reuse or scene-committer batching). | **S09-T11**. Playwright `integration.test.ts` — 10 walls in 30 s + reload + visual-diff. |
-| D8 | **S09-T12 (A side)**. `docs/architecture/parity-fixtures.md` updates. | **S09-T12 (B side)**. `plugins/wall/README.md` — canonical plugin recipe. |
+| D8 | **S09-T12 (A side)**. `docs/04-reference/architecture-detail/parity-fixtures.md` updates. | **S09-T12 (B side)**. `plugins/wall/README.md` — canonical plugin recipe. |
 
 #### D9 — Sprint demo + retro
 
@@ -797,7 +797,7 @@ export function resolveMiters(path: WallPath, jd: JoinData): MiterPrisms {
 | Potential blocker | How it manifests | Pre-mitigation |
 |---|---|---|
 | `MaterialPool` doesn't dedupe across 100 walls (each gets its own `MeshStandardMaterial`) | 100-wall orbit-fps fails (< 55 p95) due to draw-call count | The `MaterialPool.acquire(materialHash)` API was finalised in 1A S05; `materialHash` for a wall is a function of `(systemTypeId, color)` (computed in committer). 100 walls of the same system-type should share 1 material. The S09-T10 tune confirms by reading `materialPool.getStats()` mid-test (exposes ref counts per hash). |
-| Cold-load > 800 ms because the persistence layer reads the entire event log even for 1 wall | `load-small` bench fails; D4 tune fails to find a shortcut | Persistence-client (1A S04) supports snapshot-from-events: cold-load reads the latest **snapshot** + only events newer than the snapshot. For 1-wall fixture there is exactly 1 snapshot + 0 events. If the snapshot path is missing, `code-level ADR docs/architecture/adr/0014-persistence-snapshot-threshold.md` (S09 D4 if needed) ratifies the snapshot threshold (every N events). |
+| Cold-load > 800 ms because the persistence layer reads the entire event log even for 1 wall | `load-small` bench fails; D4 tune fails to find a shortcut | Persistence-client (1A S04) supports snapshot-from-events: cold-load reads the latest **snapshot** + only events newer than the snapshot. For 1-wall fixture there is exactly 1 snapshot + 0 events. If the snapshot path is missing, `code-level ADR docs/02-decisions/adrs/0014-persistence-snapshot-threshold.md` (S09 D4 if needed) ratifies the snapshot threshold (every N events). |
 | `plugins/wall/committer.ts` recreates `THREE.BufferGeometry` from scratch on every wall update (even a colour change) | `cmd-execute-latency` p99 spikes on `SetWallColor` | Committer separates **geometry-affecting** dirty fields (`baseLine`, `height`, `thickness`, `layers`, `openings`) from **material-only** fields (`color`, `opacity`, `materialColor`). The dirty-diff tells the committer which path to take. `SetWallColor` updates the material via `MaterialPool` with no geometry rebuild. |
 | The `colorWrite: false / depthWrite: false` proxy mesh pattern (`WallFragmentBuilder.ts:586–598`) for hidden-but-pickable walls is forgotten in the new committer | Wall hiding (later sprint) breaks selection because the wall is invisible AND unpickable | S09-T2 explicitly includes the proxy-mesh path; the dirty-diff includes a `visible: boolean` field and the committer creates the proxy when `visible === false`. Documented in `plugins/wall/README.md`. |
 | Playwright `integration.test.ts` is flaky because the bench harness measures FPS in a headless browser | CI flakes on D7 | Playwright runs with `--use-gl=swiftshader` in CI for software-rendered determinism; the test asserts `frameCount >= 30` over 1 second wall-clock instead of `fps > 55` directly. The 55-fps gate is asserted only by `apps/bench/orbit-fps.ts` (Vitest, repeatable). |
@@ -900,7 +900,7 @@ The S09 cold-load gate (`load-small.ts < 800 ms`) and hot-path gate (`orbit-fps 
 | Cold-load stage | Budget (ms) | OTel span | Implementation |
 |---|---|---|---|
 | Parse `?pryzm2=1` URL + bootstrap module load | 80 | `pryzm.bootstrap.parse` | tree-shaken bundle (1A bundle gate) |
-| Persistence-loader IO (snapshot + 0 events for 1-wall fixture) | 120 | `pryzm.persistence.coldLoad` | snapshot-from-events (S09 D4 ratifies threshold via `code-level ADR docs/architecture/adr/0014-persistence-snapshot-threshold.md` if needed) |
+| Persistence-loader IO (snapshot + 0 events for 1-wall fixture) | 120 | `pryzm.persistence.coldLoad` | snapshot-from-events (S09 D4 ratifies threshold via `code-level ADR docs/02-decisions/adrs/0014-persistence-snapshot-threshold.md` if needed) |
 | Plugin registration (parallel) | 60 | `pryzm.plugin.register` (per plugin) | `Promise.all(plugins.map(p => p.register(...)))` (S12 D8 mitigation, brought forward) |
 | Store hydration (1 wall, level-first ordering) | 40 | `pryzm.store.hydrate` (per store) | level → wall topological order |
 | First commit (producer + mesh build + scene add) | 250 | `pryzm.committer.commit` + `pryzm.kernel.produce.wall` | producer < 50 ms; THREE.BufferGeometry + Mesh + MaterialPool acquire < 200 ms |
@@ -940,7 +940,7 @@ The S09 cold-load gate (`load-small.ts < 800 ms`) and hot-path gate (`orbit-fps 
 | D5 | (joint paired session — end-to-end test, no individual files) | (none) | full e2e green |
 | D6 | `apps/bench/orbit-fps.bench.ts` (re-run with 100 walls), `plugins/wall/scene/geometry-bridge.ts` (descriptor → BufferGeometry) | (none) | orbit-fps 52 fps p95 (under target) |
 | D7 | `plugins/wall/__tests__/playwright/integration.spec.ts` | committer batches per-tick, MaterialPool reuse fix | orbit-fps 58 p95 ✓; Playwright green |
-| D8 | `plugins/wall/README.md`, `docs/architecture/parity-fixtures.md` (updates) | (none) | all gates green |
+| D8 | `plugins/wall/README.md`, `docs/04-reference/architecture-detail/parity-fixtures.md` (updates) | (none) | all gates green |
 
 ---
 
@@ -952,11 +952,11 @@ The S09 cold-load gate (`load-small.ts < 800 ms`) and hot-path gate (`orbit-fps 
 
 | What we read in `src/` | Why |
 |---|---|
-| `src/elements/walls/WallIntentResolver.ts` (213 LOC), `PathResolver.ts` (94 LOC), `WallSnapCycler.ts` (196 LOC) | **A mirrors** into `plugins/wall/intent.ts` (~250 LOC target). Logic mostly portable; THREE inputs become DTO inputs. `code-level ADR docs/architecture/adr/0013-intent-resolver.md` ratifies the intent resolver shape (snap-target priority + tie-breaking). |
+| `src/elements/walls/WallIntentResolver.ts` (213 LOC), `PathResolver.ts` (94 LOC), `WallSnapCycler.ts` (196 LOC) | **A mirrors** into `plugins/wall/intent.ts` (~250 LOC target). Logic mostly portable; THREE inputs become DTO inputs. `code-level ADR docs/02-decisions/adrs/0013-intent-resolver.md` ratifies the intent resolver shape (snap-target priority + tie-breaking). |
 | `src/elements/walls/WallOccupancyStore.ts` (221 LOC) | **A mirrors** into `plugins/wall/occupancy.ts` (S10 D5). Pure state. |
-| `src/commands/walls/CascadeWallBaselineCommand.ts` (223 LOC) | **A lifts** the cascade pattern to `packages/command-bus/cascade.ts` (S10 D6). The wall handler declares `cascade: { affects: ['wall.baseline'] }` instead of implementing cascade itself. `code-level ADR docs/architecture/adr/0012-cross-element-cascade-rule-registration.md` ratifies the cross-element cascade-rule registration shape. |
-| `src/commands/walls/UpdateWallLayersCommand.ts` (169), `UpdateWallSystemTypeCommand.ts` (72), `SetAllWallsWidthCommand.ts` (118), `SetAllWallsVisualPropertiesCommand.ts` (88), `CreateWallOpeningCommand.ts` (267), `CreateWallBetweenMarksCommand.ts` (152), `CreateWallsFromSlabCommand.ts` (167), `ChangeWallLevelCommand.ts` (102) | **A ports** as 9 of the remaining 9 handlers. Most are direct copies with `crypto.randomUUID()` → `ulid()`, `(window as any)` removed, OTel spans + `affectedStores` declarations added per `code-level ADR docs/architecture/adr/0002-command-handler-signature.md`. |
-| Sibling commands `MirrorWallCommand`, `ScaleWallCommand`, `OffsetWallCommand`, `JoinWallsCommand`, `CutWallCommand`, `ReferenceEditWallCommand` (`src/commands/`, `src/tools/operations/ReferenceEditTool.ts`) | **A merges** the 5 transform commands into a single `TransformWall { kind, params }` handler per `code-level ADR docs/architecture/adr/0008-wall-handler-triage.md`. ~250 LOC consolidated handler. |
+| `src/commands/walls/CascadeWallBaselineCommand.ts` (223 LOC) | **A lifts** the cascade pattern to `packages/command-bus/cascade.ts` (S10 D6). The wall handler declares `cascade: { affects: ['wall.baseline'] }` instead of implementing cascade itself. `code-level ADR docs/02-decisions/adrs/0012-cross-element-cascade-rule-registration.md` ratifies the cross-element cascade-rule registration shape. |
+| `src/commands/walls/UpdateWallLayersCommand.ts` (169), `UpdateWallSystemTypeCommand.ts` (72), `SetAllWallsWidthCommand.ts` (118), `SetAllWallsVisualPropertiesCommand.ts` (88), `CreateWallOpeningCommand.ts` (267), `CreateWallBetweenMarksCommand.ts` (152), `CreateWallsFromSlabCommand.ts` (167), `ChangeWallLevelCommand.ts` (102) | **A ports** as 9 of the remaining 9 handlers. Most are direct copies with `crypto.randomUUID()` → `ulid()`, `(window as any)` removed, OTel spans + `affectedStores` declarations added per `code-level ADR docs/02-decisions/adrs/0002-command-handler-signature.md`. |
+| Sibling commands `MirrorWallCommand`, `ScaleWallCommand`, `OffsetWallCommand`, `JoinWallsCommand`, `CutWallCommand`, `ReferenceEditWallCommand` (`src/commands/`, `src/tools/operations/ReferenceEditTool.ts`) | **A merges** the 5 transform commands into a single `TransformWall { kind, params }` handler per `code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md`. ~250 LOC consolidated handler. |
 | `src/elements/roofs/RoofGeometryBuilder.generate()` and adjacent files | **B reads** to begin Roof producer port (S10 D2 onward, lands fully in S11). PRYZM 1's Roof generator is already 80% pure (close to functional). |
 | `src/elements/walls/WallTool.ts` Arc + Polyline branches | **B reads** to extend `plugins/wall/tool.ts` with Arc + Polyline sub-modes (S10 D6). |
 
@@ -967,18 +967,18 @@ The S09 cold-load gate (`load-small.ts < 800 ms`) and hot-path gate (`orbit-fps 
 - **S10-T3 — `SetWallSystemType`, `CreateWallsFromSlab`, `OffsetWall (kind)`, `JoinWall` (D3, Agent A)**: 4 handlers. `SetWallSystemType` re-resolves layers from `system-type-store.ts` and writes resolved layers into the store (per S08 producer-input contract).
 - **S10-T4 — `CreateWallOpening`, `ChangeWallLevel`, `CutWall`, `ReferenceEditWall (kind)` (D4, Agent A)**: 4 handlers. `CreateWallOpening` cross-handler — declares `affectedStores: ['wall']` for opening-host updates. `ChangeWallLevel` mirrors `ChangeWallLevelCommand.ts:102`.
 - **S10-T5 — Mid-sprint sync (D5, joint, 1 h)**: paired session — validate that handler patches against `WallStore` with neighbouring walls (for joining) work cleanly. Confirm Roof producer signature matches Wall (so committer pattern transfers cleanly). F arbitrates any ambiguity.
-- **S10-T6 — `plugins/wall/intent.ts` + cascade rule registration (D6, Agent A)**: handles user intent (which wall to join to, miter direction, snap candidates). ~250 LOC mirroring `WallIntentResolver.ts:213` + `PathResolver.ts:94` + `WallSnapCycler.ts:196`. Cascade rule registration via `commandBus.registerCascade('wall.baseline', (wallId) => [...affectedNeighbours])`. `code-level ADR docs/architecture/adr/0012-cross-element-cascade-rule-registration.md` + `code-level ADR docs/architecture/adr/0013-intent-resolver.md` finalised.
+- **S10-T6 — `plugins/wall/intent.ts` + cascade rule registration (D6, Agent A)**: handles user intent (which wall to join to, miter direction, snap candidates). ~250 LOC mirroring `WallIntentResolver.ts:213` + `PathResolver.ts:94` + `WallSnapCycler.ts:196`. Cascade rule registration via `commandBus.registerCascade('wall.baseline', (wallId) => [...affectedNeighbours])`. `code-level ADR docs/02-decisions/adrs/0012-cross-element-cascade-rule-registration.md` + `code-level ADR docs/02-decisions/adrs/0013-intent-resolver.md` finalised.
 - **S10-T7 — Roof producer port (D2–D7, Agent B)**: begins port `RoofGeometryBuilder.generate()` (PRYZM 1) → `packages/geometry-kernel/producers/roof.ts`. Captures 20 PRYZM 1 roof geometry references for `tests/parity/roof/`. Roof producer parity tests: 20 cases vs PRYZM 1 references. Roof producer perf bench — target < 50 ms p95 for simple roof. Sets up S11 D7–D8 Roof committer + tool work for B.
 - **S10-T8 — `plugins/wall/tool.ts` Arc + Polyline sub-modes (D6, Agent B)**: extends Straight mode (S09 D3) with Arc (3-point) + Polyline (multi-segment). Mirrors PRYZM 1 `WallTool.ts` arc + polyline branches.
 - **S10-T9 — Real-project parity fixture extraction (D7, Agent A)**: extract 30-case parity fixture `tests/parity/wall/` covering all wall variants from real PRYZM 1 user files. Combines the 30 synthetic configs from S08 with edge cases discovered in real projects (curved walls hosting doors, T-junctions on layered walls, etc). The script reads `.pryzm` files from a fixture set and replays each wall through both producers.
 - **S10-T10 — Final wall handler audit + CI green (D8, Agent A)**: all 14 wall handlers final: declare `affectedStores`, OTel spans, parity tests pass. Lint passes. CI green.
 - **S10-T11 — Roof producer parity + bench (D8, Agent B)**: Roof parity 20 cases pass; bench < 50 ms p95.
-- **S10-T12 — Docs (D8, joint)**: A updates `docs/architecture/element-recipe.md` with intent-resolver pattern + cascade-rule registration. B updates same doc with Roof porting notes.
+- **S10-T12 — Docs (D8, joint)**: A updates `docs/04-reference/architecture-detail/element-recipe.md` with intent-resolver pattern + cascade-rule registration. B updates same doc with Roof porting notes.
 
 #### D1 — Kickoff (30 min)
 
-- A walks through intent resolution model — F locks `plugins/wall/intent.ts` shape (`code-level ADR docs/architecture/adr/0013-intent-resolver.md`).
-- A presents `TransformWall` consolidation (5→1) — F confirms `code-level ADR docs/architecture/adr/0008-wall-handler-triage.md` amendment is acceptable.
+- A walks through intent resolution model — F locks `plugins/wall/intent.ts` shape (`code-level ADR docs/02-decisions/adrs/0013-intent-resolver.md`).
+- A presents `TransformWall` consolidation (5→1) — F confirms `code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md` amendment is acceptable.
 - B confirms Roof producer port can begin in parallel (B starts S11-prep work here).
 
 #### D2–D8 parallel work
@@ -989,7 +989,7 @@ The S09 cold-load gate (`load-small.ts < 800 ms`) and hot-path gate (`orbit-fps 
 | D3 | **S10-T3**. `SetWallSystemType`, `CreateWallsFromSlab`, `OffsetWall (kind)`, `JoinWall`. | **S10-T7 (cont)**. Port the intent-resolver-equivalent pieces from PRYZM 1's Roof code. |
 | D4 | **S10-T4**. `CreateWallOpening`, `ChangeWallLevel`, `CutWall`, `ReferenceEditWall (kind)`. | **S10-T7 (cont)**. Capture 20 PRYZM 1 roof geometry references for `tests/parity/roof/`. |
 | D5 | **S10-T5 paired session (1 h)**. Validate join-cascade patches; confirm Roof producer signature matches Wall. | Same paired session. |
-| D6 | **S10-T6**. `plugins/wall/intent.ts` + cascade-rule registration; `code-level ADR docs/architecture/adr/0012-cross-element-cascade-rule-registration.md` + `code-level ADR docs/architecture/adr/0013-intent-resolver.md` finalised. | **S10-T8 + S10-T7**. `plugins/wall/tool.ts` Arc + Polyline modes; Roof producer parity tests (20 cases). |
+| D6 | **S10-T6**. `plugins/wall/intent.ts` + cascade-rule registration; `code-level ADR docs/02-decisions/adrs/0012-cross-element-cascade-rule-registration.md` + `code-level ADR docs/02-decisions/adrs/0013-intent-resolver.md` finalised. | **S10-T8 + S10-T7**. `plugins/wall/tool.ts` Arc + Polyline modes; Roof producer parity tests (20 cases). |
 | D7 | **S10-T9**. Real-project parity fixture extraction (30 cases). | **S10-T11**. Roof producer perf bench — target < 50 ms p95. |
 | D8 | **S10-T10**. All 14 wall handlers final; CI green. | **S10-T11 (final) + S10-T12 (B side)**. Roof bench finalised; docs updated. |
 
@@ -1006,8 +1006,8 @@ The S09 cold-load gate (`load-small.ts < 800 ms`) and hot-path gate (`orbit-fps 
 | Potential blocker | How it manifests | Pre-mitigation |
 |---|---|---|
 | `TransformWall` consolidated handler has 5 code paths inside a single `switch (kind)`; testing matrix is 5× | S10-T1 over-budget on tests | Each `kind` is a thin call to a private helper (`transformMove`, `transformMirror`, …); the helpers are tested independently; the dispatch `switch` has 1 test per kind. Total test count is the same as 5 separate handlers; LOC + handler-registry weight is 1/5. |
-| Cascade rule fires recursively (Move wall A → cascade to wall B → cascade back to wall A → infinite loop) | S10-T6 cascade-rule registration causes runtime stack overflow on first 2-wall T-junction | Cascade infra (`packages/command-bus/cascade.ts`) tracks visited node-IDs in a `Set<Id>` per dispatch; second visit to the same id is dropped silently with an OTel attribute `cascade.cycle.dropped`. Documented in `code-level ADR docs/architecture/adr/0012-cross-element-cascade-rule-registration.md`. |
-| `WallIntentResolver.ts` reads `THREE.Raycaster` for snap detection (line ~50) — the new resolver can't | The new `intent.ts` cannot replicate snap detection without a raycaster | Snap detection in PRYZM 2 is **DTO-only** for the intent resolver (snap-to-grid, snap-to-endpoint, snap-to-midpoint — all 2D-coord arithmetic). Snap-to-mesh raycasting (3D-pick a face) is a **scenic-side** operation that lives in `plugins/wall/tool.ts` (THREE-side); the tool calls into the intent resolver with the candidate snap points already 3D-picked. `code-level ADR docs/architecture/adr/0013-intent-resolver.md` documents this split. |
+| Cascade rule fires recursively (Move wall A → cascade to wall B → cascade back to wall A → infinite loop) | S10-T6 cascade-rule registration causes runtime stack overflow on first 2-wall T-junction | Cascade infra (`packages/command-bus/cascade.ts`) tracks visited node-IDs in a `Set<Id>` per dispatch; second visit to the same id is dropped silently with an OTel attribute `cascade.cycle.dropped`. Documented in `code-level ADR docs/02-decisions/adrs/0012-cross-element-cascade-rule-registration.md`. |
+| `WallIntentResolver.ts` reads `THREE.Raycaster` for snap detection (line ~50) — the new resolver can't | The new `intent.ts` cannot replicate snap detection without a raycaster | Snap detection in PRYZM 2 is **DTO-only** for the intent resolver (snap-to-grid, snap-to-endpoint, snap-to-midpoint — all 2D-coord arithmetic). Snap-to-mesh raycasting (3D-pick a face) is a **scenic-side** operation that lives in `plugins/wall/tool.ts` (THREE-side); the tool calls into the intent resolver with the candidate snap points already 3D-picked. `code-level ADR docs/02-decisions/adrs/0013-intent-resolver.md` documents this split. |
 | Real-project fixture extraction (S10-T9) discovers wall configs the synthetic 30 cases didn't cover | 5 of 30 parity tests fail unexpectedly | Mitigation: real-project extraction is *additive* — 30 synthetic + N real = (30+N) cases. The exit criterion is "all parity tests green"; if N tests fail, A fixes producer math (typically more miter cases). Budget is the rest of D7 + D8. |
 | Roof producer port discovers PRYZM 1 Roof generator is **less pure** than expected — it reads `RoofStore` mid-generation | S10-T7 stalls at D3 | Mitigation: extract a `RoofData` DTO at the call boundary (the Roof producer takes DTO-in, returns descriptor-out, exactly like wall). The `Store` reads inside PRYZM 1's generator are **stateless lookups** — the resolved DTO is precomputed at handler time (mirrors the wall pattern from S08). |
 | `BulkSetWallVisuals` handler — applying width to 1000 walls in one transaction blows past the per-tick batching window | Bulk operation feels laggy; cmd-execute-latency p95 spikes to 30 ms | The dirty-diff is one event with 1000 entries in `updated[]`; the committer batches all 1000 into one tick (per S05 design). The handler runs in < 5 ms even for 1000 walls because patches are computed in immer's structural-share mode. Validated by a 1000-wall fixture in S10 D7 bench. |
@@ -1018,17 +1018,17 @@ The S09 cold-load gate (`load-small.ts < 800 ms`) and hot-path gate (`orbit-fps 
 - [ ] 30-case `tests/parity/wall/` test suite green.
 - [ ] `plugins/wall/intent.ts` correctly resolves all parity cases.
 - [ ] `plugins/wall/occupancy.ts` exists.
-- [ ] Cascade rule registration via `packages/command-bus/cascade.ts` works for join chains; cycle detection documented in `code-level ADR docs/architecture/adr/0012-cross-element-cascade-rule-registration.md`.
+- [ ] Cascade rule registration via `packages/command-bus/cascade.ts` works for join chains; cycle detection documented in `code-level ADR docs/02-decisions/adrs/0012-cross-element-cascade-rule-registration.md`.
 - [ ] `plugins/wall/tool.ts` supports Straight, Arc, Polyline modes.
 - [ ] Roof pure producer ready (committer + tool land in S11).
-- [ ] `code-level ADR docs/architecture/adr/0012-cross-element-cascade-rule-registration.md` (cascade) + `code-level ADR docs/architecture/adr/0013-intent-resolver.md` (intent) merged.
+- [ ] `code-level ADR docs/02-decisions/adrs/0012-cross-element-cascade-rule-registration.md` (cascade) + `code-level ADR docs/02-decisions/adrs/0013-intent-resolver.md` (intent) merged.
 - [ ] Wall is "done" for Phase 1 — no more work on it until Phase 2 (annotations, plan-view rendering).
 - [ ] PRYZM 1 still ships unchanged.
 
 #### S10 typed contracts introduced
 
 ```ts
-// plugins/wall/handlers/TransformWall.ts — S10-T1 (5→1 consolidation per `code-level ADR docs/architecture/adr/0008-wall-handler-triage.md` amendment)
+// plugins/wall/handlers/TransformWall.ts — S10-T1 (5→1 consolidation per `code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md` amendment)
 export interface TransformWallCommand extends Command {
   readonly type: 'wall.transform';
   readonly payload:
@@ -1056,7 +1056,7 @@ export const transformWallHandler: Handler<TransformWallCommand> = {
   },
 };
 
-// packages/command-bus/cascade.ts — S10-T6 (lifts CascadeWallBaselineCommand.ts:223; `code-level ADR docs/architecture/adr/0012-cross-element-cascade-rule-registration.md`)
+// packages/command-bus/cascade.ts — S10-T6 (lifts CascadeWallBaselineCommand.ts:223; `code-level ADR docs/02-decisions/adrs/0012-cross-element-cascade-rule-registration.md`)
 export interface CascadeRule<TKey extends string = string> {
   readonly key: TKey;                        // e.g. 'wall.baseline', 'slab.outline'
   resolveAffected(rootEntityId: EntityId, ctx: CascadeContext): readonly EntityId[];
@@ -1069,7 +1069,7 @@ export class CascadeRunner {
   async dispatch(rootCmd: Command, ctx: CascadeContext): Promise<readonly Command[]> { /* DAG walk */ }
 }
 
-// plugins/wall/intent.ts — S10-T6 (~250 LOC; `code-level ADR docs/architecture/adr/0013-intent-resolver.md`)
+// plugins/wall/intent.ts — S10-T6 (~250 LOC; `code-level ADR docs/02-decisions/adrs/0013-intent-resolver.md`)
 export interface WallIntentResolver {
   // DTO-only inputs — no THREE.Raycaster (those live in plugins/wall/tool.ts THREE-side)
   resolveJoinTarget(   draftWall: WallDraft, neighbours: readonly WallData[]): WallId | null;
@@ -1078,7 +1078,7 @@ export interface WallIntentResolver {
   cycleSnap(current: SnapCandidate, all: readonly SnapCandidate[]): SnapCandidate; // Tab-key cycling
 }
 
-// Tie-breaking priority (`code-level ADR docs/architecture/adr/0013-intent-resolver.md` fixed order):
+// Tie-breaking priority (`code-level ADR docs/02-decisions/adrs/0013-intent-resolver.md` fixed order):
 //   1) endpoint of selected wall (priority 100)
 //   2) endpoint of any wall (priority 90)
 //   3) midpoint of selected wall (80)
@@ -1091,7 +1091,7 @@ export interface WallIntentResolver {
 
 #### S10 key pseudocode — cascade-rule DAG walk + cycle drop
 
-The cascade infra (S10 D6, `code-level ADR docs/architecture/adr/0012-cross-element-cascade-rule-registration.md`) lifts the inline cascade logic from `CascadeWallBaselineCommand.ts:223` to a generic L4 service. Critically, the DAG walk must terminate even on pathological topologies (cycle of 100 walls all join-cascade-coupled). The implementation uses Kahn-style traversal with a visited-set, emitting OTel attribute `cascade.cycle.dropped` on second-visit.
+The cascade infra (S10 D6, `code-level ADR docs/02-decisions/adrs/0012-cross-element-cascade-rule-registration.md`) lifts the inline cascade logic from `CascadeWallBaselineCommand.ts:223` to a generic L4 service. Critically, the DAG walk must terminate even on pathological topologies (cycle of 100 walls all join-cascade-coupled). The implementation uses Kahn-style traversal with a visited-set, emitting OTel attribute `cascade.cycle.dropped` on second-visit.
 
 ```ts
 // packages/command-bus/cascade.ts — DAG walk pseudocode (~120 LOC)
@@ -1137,7 +1137,7 @@ async dispatch(rootCmd: Command, ctx: CascadeContext): Promise<readonly Command[
 |---|---|---|
 | `plugins/wall/__tests__/handlers/TransformWall.test.ts` | one per kind: `move`, `mirror`, `scale`, `offset`, `referenceEdit`; plus `unknown kind exhaustiveness check (TS-only)` | A |
 | `plugins/wall/__tests__/handlers/{SetWallSystemType,SetWallLayers,BulkSetWallVisuals,CreateWallOpening,CreateWallBetweenMarks,CreateWallsFromSlab,JoinWall,CutWall,ChangeWallLevel}.test.ts` | one canonical happy-path + one error case each (~18 tests total) | A |
-| `plugins/wall/__tests__/intent.test.ts` | `resolveJoinTarget picks endpoint over midpoint`, `tie-breaking priority order matches `code-level ADR docs/architecture/adr/0013-intent-resolver.md` table`, `cycleSnap cycles deterministically`, `resolveOpeningPosition handles curved wall correctly` | A |
+| `plugins/wall/__tests__/intent.test.ts` | `resolveJoinTarget picks endpoint over midpoint`, `tie-breaking priority order matches `code-level ADR docs/02-decisions/adrs/0013-intent-resolver.md` table`, `cycleSnap cycles deterministically`, `resolveOpeningPosition handles curved wall correctly` | A |
 | `packages/command-bus/__tests__/cascade.test.ts` | `single-step cascade fires`, `2-wall T-junction recomputes both miters`, `cycle of 3 walls drops second visit (OTel attribute set)`, `MAX_CASCADE_DEPTH (16) throws CascadeDepthExceededError`, `cascade for unrelated cmd is no-op` | A |
 | `tests/parity/wall/wall-snapshot.test.ts` (extended) | 30 fixtures + N real-project fixtures (S10-T9) — all green | A |
 | `packages/geometry-kernel/__tests__/produceRoof.test.ts` | 20 roof parity cases (S10-T7); `produceRoof.bench` p95 < 50 ms | B |
@@ -1163,7 +1163,7 @@ async dispatch(rootCmd: Command, ctx: CascadeContext): Promise<readonly Command[
 | D5 | (joint paired session) | (none) | (no merge) |
 | D6 | `plugins/wall/intent.ts`, `packages/command-bus/cascade.ts`, `plugins/wall/tool.ts` Arc + Polyline branches, `producers/roof.ts` (parity-capable) | bootstrap registers cascade rules | `+intent (4/4), +cascade (5/5)` |
 | D7 | `tests/parity/wall/configs/real-project-{1..N}.json`, `apps/bench/produce-roof.bench.ts` | (none) | parity (30+N)/(30+N) ✓; roof bench p95=46ms |
-| D8 | `docs/architecture/element-recipe.md` updates | CI gates | all green |
+| D8 | `docs/04-reference/architecture-detail/element-recipe.md` updates | CI gates | all green |
 
 ---
 
@@ -1178,7 +1178,7 @@ async dispatch(rootCmd: Command, ctx: CascadeContext): Promise<readonly Command[
 | `src/elements/doors/{DoorStore,DoorTool,DoorFragmentBuilder}.ts` and `src/commands/doors/*` | A + B port the door family. The door is **simpler than wall** (no miter, no curved base) — should fit in 3 days. |
 | `src/elements/windows/{WindowStore,WindowTool,WindowFragmentBuilder}.ts` and `src/commands/windows/*` | A + B port the window family. Mostly mirrors door pattern. |
 | `src/elements/roofs/RoofGeometryBuilder.ts` and adjacent files | B continues the S10 D2 port; plus implements roof committer + tool. |
-| `plugins/wall/store.ts`, `plugins/wall/handlers/CreateWall.ts`, `plugins/wall/committer.ts`, `plugins/wall/tool.ts`, `plugins/wall/intent.ts` (1B work-in-progress) | **The canonical reference.** Door/Window/Roof copy the wall recipe verbatim, swapping element-specific math + DTO. `docs/architecture/element-recipe.md` (S07 + S10) is the spec. |
+| `plugins/wall/store.ts`, `plugins/wall/handlers/CreateWall.ts`, `plugins/wall/committer.ts`, `plugins/wall/tool.ts`, `plugins/wall/intent.ts` (1B work-in-progress) | **The canonical reference.** Door/Window/Roof copy the wall recipe verbatim, swapping element-specific math + DTO. `docs/04-reference/architecture-detail/element-recipe.md` (S07 + S10) is the spec. |
 
 #### Sub-phases (element-paired ownership)
 
@@ -1220,8 +1220,8 @@ For each element, the headless half belongs to A and the scenic half belongs to 
 
 | Potential blocker | How it manifests | Pre-mitigation |
 |---|---|---|
-| Door requires 4 days, not 3 (K1-C trips) | Door D4 finishes too late; window/roof slip | Mitigation: door is the simplest element after wall. If door needs 4 days, the *wall recipe* is wrong; halt 1B at S11 D4 and refactor `docs/architecture/element-recipe.md`. The S12 buffer absorbs this. |
-| Door's `affectedStores: ['door', 'wall']` cross-store mutation breaks the wall handler's expectation that only wall handlers touch wall state | Wall integration test fails on door placement | The lint rule `pryzm-affected-stores-required` (1A S02) makes the cross-store dependency *explicit*. The wall plugin documents that `wall.openings[]` is read-only from the wall's perspective; door + window handlers mutate it via declared cross-store affinity. `code-level ADR docs/architecture/adr/0008-wall-handler-triage.md` documents this. |
+| Door requires 4 days, not 3 (K1-C trips) | Door D4 finishes too late; window/roof slip | Mitigation: door is the simplest element after wall. If door needs 4 days, the *wall recipe* is wrong; halt 1B at S11 D4 and refactor `docs/04-reference/architecture-detail/element-recipe.md`. The S12 buffer absorbs this. |
+| Door's `affectedStores: ['door', 'wall']` cross-store mutation breaks the wall handler's expectation that only wall handlers touch wall state | Wall integration test fails on door placement | The lint rule `pryzm-affected-stores-required` (1A S02) makes the cross-store dependency *explicit*. The wall plugin documents that `wall.openings[]` is read-only from the wall's perspective; door + window handlers mutate it via declared cross-store affinity. `code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md` documents this. |
 | Window producer parity diverges due to mullion math (windows in PRYZM 1 have an internal grid) | Window parity 12 cases — 4 fail on mullion configurations | Window producer in PRYZM 2 ports `WindowGeometryBuilder.computeMullions()` verbatim (the math is pure, just THREE-typed in PRYZM 1). Mitigation budget: D6. |
 | Roof producer (ported in S10 D2–D7) has bugs that surface only under integration | S11 D7 Roof committer reveals producer bugs from S10 | S10 D7 bench was producer-only; S11 D7 is the first time the producer runs through a real scene. Expected; budget for D8 to fix. |
 | Cross-element interaction (door-on-curved-wall) fails because intent resolver doesn't know about curved walls | Door placed on a curved wall sits at the wrong position | The wall intent resolver (S10) handles curved walls. Door intent resolver delegates to `plugins/wall/intent.ts.resolveOpeningPosition(wallId, screenPoint)` — single source of truth. |
@@ -1234,13 +1234,13 @@ For each element, the headless half belongs to A and the scenic half belongs to 
 - [ ] Orbit-fps with 100 of each > 55 fps p95.
 - [ ] Only `plugins/<elem>/committer.ts` files contain THREE in their plugin.
 - [ ] Cross-element interactions work: door on wall, window on wall, door on curved wall.
-- [ ] Documentation `docs/architecture/element-recipe.md` updated with door + window + roof case studies.
+- [ ] Documentation `docs/04-reference/architecture-detail/element-recipe.md` updated with door + window + roof case studies.
 - [ ] PRYZM 1 still ships unchanged.
 
 #### S11 typed contracts introduced
 
 ```ts
-// plugins/door/handlers/CreateDoor.ts — cross-store handler (`code-level ADR docs/architecture/adr/0008-wall-handler-triage.md` cross-affinity)
+// plugins/door/handlers/CreateDoor.ts — cross-store handler (`code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md` cross-affinity)
 export interface CreateDoorCommand extends Command {
   readonly type: 'door.create';
   readonly payload: {
@@ -1255,7 +1255,7 @@ export interface CreateDoorCommand extends Command {
 
 export const createDoorHandler: Handler<CreateDoorCommand> = {
   type: 'door.create',
-  affectedStores: ['door', 'wall'] as const,            // declares cross-store mutation per `code-level ADR docs/architecture/adr/0008-wall-handler-triage.md`
+  affectedStores: ['door', 'wall'] as const,            // declares cross-store mutation per `code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md`
   async execute(cmd, ctx) {
     const wall = ctx.wallStore.get(cmd.payload.hostWallId);
     if (!wall) throw new HostWallNotFoundError(cmd.payload.hostWallId);
@@ -1286,7 +1286,7 @@ export const produceWindow: (dto: WindowData, hostWall: WallData) => BufferGeome
 export const produceRoof: (dto: RoofData, levelGeometry: LevelGeometryHints) => BufferGeometryDescriptor;
 ```
 
-#### S11 key pseudocode — door-on-wall intent delegation (`code-level ADR docs/architecture/adr/0013-intent-resolver.md` single source of truth)
+#### S11 key pseudocode — door-on-wall intent delegation (`code-level ADR docs/02-decisions/adrs/0013-intent-resolver.md` single source of truth)
 
 ```ts
 // plugins/door/intent.ts — single source of truth: wall intent resolver does the heavy lift
@@ -1347,7 +1347,7 @@ export const doorIntent: DoorIntentResolver = {
 | What we read in `src/` | Why |
 |---|---|
 | `src/elements/slabs/SlabFragmentBuilder.ts` (~800 LOC), `SlabStore.ts`, `SlabTool.ts`, `src/commands/slabs/*` | Slab is the next-most-complex after Wall (openings, level membership, dependency on walls). 1 day producer, 1 day committer + tool + parity. |
-| `src/elements/curtainwalls/CurtainWallBuilder.ts` and adjacent (the most complex element family in PRYZM 1) | Curtain Wall has 3 sub-producers: panels + mullions + transoms. `code-level ADR docs/architecture/adr/0011-curtain-wall-triage-and-producer-split.md` (S12 D5) ratifies the split. 3 days paired. |
+| `src/elements/curtainwalls/CurtainWallBuilder.ts` and adjacent (the most complex element family in PRYZM 1) | Curtain Wall has 3 sub-producers: panels + mullions + transoms. `code-level ADR docs/02-decisions/adrs/0011-curtain-wall-triage-and-producer-split.md` (S12 D5) ratifies the split. 3 days paired. |
 | `src/elements/grids/*`, `src/elements/columns/*`, `src/elements/beams/*` | Simpler structural elements; each fits in 1 day per element. A does Grid + Beam, B does Column. |
 | `plugins/wall/`, `plugins/door/`, `plugins/window/`, `plugins/roof/` (1B work product) | Reference recipes. Slab/Grid/Column/Beam = wall recipe verbatim. CW = wall recipe + producer split. |
 
@@ -1357,7 +1357,7 @@ export const doorIntent: DoorIntentResolver = {
   - Day 2 (A): Slab store + 8 handlers (Create, Delete, Move, SetType, AddOpening, RemoveOpening, SetSlope, SetThickness). Slab's `affectedStores: ['slab', 'level']`; cross-handler with wall via `plugins/cross/slab-wall.ts` (lifted from `SlabWallCoupling.ts:133`).
   - Day 2 (B): Slab committer + tool skeleton.
   - Day 3 (A): Slab pure producer + 18 parity cases.
-  - Day 3 (B): Slab committer + tool functional + Playwright. **Slab done.** `code-level ADR docs/architecture/adr/0010-slab-handler-triage.md` (Slab handler triage) merged.
+  - Day 3 (B): Slab committer + tool functional + Playwright. **Slab done.** `code-level ADR docs/02-decisions/adrs/0010-slab-handler-triage.md` (Slab handler triage) merged.
 - **S12-T2 — Grid + Column + Beam (D3–D5, split)**:
   - Day 3 (A): Grid store + 4 handlers + producer (simple linear grid).
   - Day 3 (B): Column store + 5 handlers + committer.
@@ -1366,7 +1366,7 @@ export const doorIntent: DoorIntentResolver = {
   - Day 5 (A): Beam committer + tool.
   - Day 5 (B): Beam Playwright. **Beam done. Grid/Column/Beam complete.**
 - **S12-T3 — Curtain Wall (D5–D7, paired)**:
-  - Day 5 (A+B paired): Curtain Wall store + 9 handlers (port from PRYZM 1's complex CW commands). `code-level ADR docs/architecture/adr/0011-curtain-wall-triage-and-producer-split.md` ratified.
+  - Day 5 (A+B paired): Curtain Wall store + 9 handlers (port from PRYZM 1's complex CW commands). `code-level ADR docs/02-decisions/adrs/0011-curtain-wall-triage-and-producer-split.md` ratified.
   - Day 6 (A+B paired): Curtain Wall pure producer split — panels + mullions + transoms (3 sub-producers, one orchestrator).
   - Day 7 (A+B paired): Curtain Wall committer + tool + 25-case parity fixture. **Curtain Wall done.**
 - **S12-T4 — Cross-element integration + bench (D8)**:
@@ -1402,9 +1402,9 @@ export const doorIntent: DoorIntentResolver = {
 
 | Potential blocker | How it manifests | Pre-mitigation |
 |---|---|---|
-| Curtain Wall producer split (panels + mullions + transoms) discovers a 4th sub-component (gaskets, brackets, …) PRYZM 1 already models | S12 D6 stalls because the 3-way split is wrong | `code-level ADR docs/architecture/adr/0011-curtain-wall-triage-and-producer-split.md` (D5) explicitly enumerates all sub-components from PRYZM 1 (`CurtainWallBuilder.ts` audit on D1). If a 4th lands, `code-level ADR docs/architecture/adr/0011-curtain-wall-triage-and-producer-split.md` is amended D5. The split is data-driven. |
+| Curtain Wall producer split (panels + mullions + transoms) discovers a 4th sub-component (gaskets, brackets, …) PRYZM 1 already models | S12 D6 stalls because the 3-way split is wrong | `code-level ADR docs/02-decisions/adrs/0011-curtain-wall-triage-and-producer-split.md` (D5) explicitly enumerates all sub-components from PRYZM 1 (`CurtainWallBuilder.ts` audit on D1). If a 4th lands, `code-level ADR docs/02-decisions/adrs/0011-curtain-wall-triage-and-producer-split.md` is amended D5. The split is data-driven. |
 | Slab cross-element coupling with wall (`SlabWallCoupling.ts:133`) is more complex than 1 day allows | S12-T1 slips; cross-handler tests fail | The `plugins/cross/slab-wall.ts` cascade rule is *additive* — slab move triggers wall recompute via the cascade infra (S10 D6). The actual coupling math (which walls are dependent on which slabs) lives in `WallOccupancyStore.ts:221` (already mirrored to `plugins/wall/occupancy.ts` in S10). |
-| Grid producer is trivial but the snap-to-grid integration with `plugins/wall/tool.ts` is forgotten | Walls don't snap to grid in S12 D9 demo | S12-T2 D3 includes the snap-to-grid wiring: `plugins/wall/intent.ts` queries `gridStore.getActiveGrid()` for snap candidates. Documented in `code-level ADR docs/architecture/adr/0013-intent-resolver.md` (S10). |
+| Grid producer is trivial but the snap-to-grid integration with `plugins/wall/tool.ts` is forgotten | Walls don't snap to grid in S12 D9 demo | S12-T2 D3 includes the snap-to-grid wiring: `plugins/wall/intent.ts` queries `gridStore.getActiveGrid()` for snap candidates. Documented in `code-level ADR docs/02-decisions/adrs/0013-intent-resolver.md` (S10). |
 | Column + Beam are too similar; A and B duplicate effort | LOC waste; maintenance burden | Mitigation: factor `LinearStructuralProducer` in `producers/_shared/linear-structural.ts` — column and beam differ only in orientation (vertical vs horizontal) and section (rectangular vs I-beam). One shared producer with two thin wrappers. |
 | `MaterialPool.deduplicateAcrossElementTypes()` doesn't handle cross-family material hashes (e.g., a curtain wall mullion + a column both being the same metal) | Cross-element scene creates duplicate materials; orbit fps drops | The material hash is content-addressed (`hash({ kind: 'metallic', color, roughness, metalness })`), independent of which element kind generated the request. Validated in S12-T4 mixed-scene bench. |
 | Small fixture cold-load > 800 ms because the bootstrap registers 9 plugins serially | `load-small` bench fails at end of S12 | Plugin registration is parallelised in `apps/editor/src/bootstrap.data.ts` — `Promise.all(plugins.map(p => p.register(...)))`. The wall plugin loads first because the small fixture has a wall; other plugins are dynamic-imported. Bundle code-split by plugin (1A S06 bundle gate stays green). |
@@ -1420,7 +1420,7 @@ export const doorIntent: DoorIntentResolver = {
 - [ ] All producers — zero THREE imports (lint enforced).
 - [ ] Cross-element integration test (mixed scene of all 9 elements) green.
 - [ ] `MaterialPool` cross-element dedup validated.
-- [ ] `code-level ADR docs/architecture/adr/0010-slab-handler-triage.md` (Slab triage), `code-level ADR docs/architecture/adr/0011-curtain-wall-triage-and-producer-split.md` (Curtain Wall triage + producer split) merged.
+- [ ] `code-level ADR docs/02-decisions/adrs/0010-slab-handler-triage.md` (Slab triage), `code-level ADR docs/02-decisions/adrs/0011-curtain-wall-triage-and-producer-split.md` (Curtain Wall triage + producer split) merged.
 - [ ] All Playwright integration suites green for all 9 plugins.
 - [ ] All bench gates green: `load-small` < 800 ms; `orbit-fps` (100 walls) > 55 p95; `produce-{wall,slab,door,window,roof,curtain-wall}` < 50 ms p95.
 - [ ] Layer composition implemented for slab/floor types per SPEC-05 §3 (`layers[]`, `isCore`, `wraps`).
@@ -1455,10 +1455,10 @@ export interface CreateCurtainWallCommand extends Command {
 }
 // affectedStores: ['curtain-wall', 'wall'] when hostWallId !== null
 
-// packages/geometry-kernel/producers/curtain-wall.ts — `code-level ADR docs/architecture/adr/0011-curtain-wall-triage-and-producer-split.md` producer split
+// packages/geometry-kernel/producers/curtain-wall.ts — `code-level ADR docs/02-decisions/adrs/0011-curtain-wall-triage-and-producer-split.md` producer split
 export const produceCurtainWall: (dto: CurtainWallData, ctx: CWContext) => BufferGeometryDescriptor =
   (dto, ctx) => {
-    // SUB-PRODUCER ORCHESTRATOR per `code-level ADR docs/architecture/adr/0011-curtain-wall-triage-and-producer-split.md`
+    // SUB-PRODUCER ORCHESTRATOR per `code-level ADR docs/02-decisions/adrs/0011-curtain-wall-triage-and-producer-split.md`
     const panels    = produceCWPanels(dto, ctx);
     const mullions  = produceCWMullions(dto, ctx);
     const transoms  = produceCWTransoms(dto, ctx);
@@ -1485,7 +1485,7 @@ export const produceLinearStructural: (dto: LinearStructuralData) => BufferGeome
 // column.ts and beam.ts are 30-LOC wrappers that build LinearStructuralData from their DTO
 ```
 
-#### S12 key pseudocode — CW producer split (`code-level ADR docs/architecture/adr/0011-curtain-wall-triage-and-producer-split.md`)
+#### S12 key pseudocode — CW producer split (`code-level ADR docs/02-decisions/adrs/0011-curtain-wall-triage-and-producer-split.md`)
 
 The Curtain Wall producer is the most complex of the 9 elements. Splitting it into 3 sub-producers (panels, mullions, transoms) plus an optional 4th (gaskets, behind a feature flag) keeps each sub-producer testable in isolation. The orchestrator merges the descriptors via `mergeDescriptors()` which preserves group boundaries (each sub-producer becomes one or more `groups[]` entries with distinct `materialIndex`), allowing the committer to render panels with glass material, mullions with metal, transoms with metal, gaskets with rubber — all from a single `BufferGeometry` with multiple groups.
 
@@ -1516,7 +1516,7 @@ export function produceCWMullions(dto: CurtainWallData, ctx: CWContext): BufferG
 | `tests/parity/curtain-wall/cw-snapshot.test.ts` | 25 fixtures | A+B |
 | `tests/parity/{grid,column,beam}/*-snapshot.test.ts` | 8+6+6 = 20 fixtures | A/B |
 | `tests/integration/mixed-scene.spec.ts` | `9-element scene loads in ?pryzm2=1`, `MaterialPool dedupes across CW mullion + column (same metal)`, `cold-load < 800 ms` | A+B |
-| `apps/bench/produce-{slab,curtain-wall,grid,column,beam}.bench.ts` | each p95 < 50 ms (CW p95 < 80 ms acceptable per `code-level ADR docs/architecture/adr/0011-curtain-wall-triage-and-producer-split.md`) | A/B |
+| `apps/bench/produce-{slab,curtain-wall,grid,column,beam}.bench.ts` | each p95 < 50 ms (CW p95 < 80 ms acceptable per `code-level ADR docs/02-decisions/adrs/0011-curtain-wall-triage-and-producer-split.md`) | A/B |
 | `apps/bench/load-small.bench.ts` (extended) | 1-wall+1-slab+1-door fixture < 800 ms | A |
 
 #### S12 OTel spans introduced
@@ -1550,12 +1550,12 @@ These exist alongside the sprint flow and must be true at sub-phase end.
 
 | ID | Subject | Owner | Sprint | Cites PRYZM-1 evidence at |
 |---|---|---|---|---|
-| `code-level ADR docs/architecture/adr/0008-wall-handler-triage.md` | Wall handler triage (22 → 14) | A | S07 | `src/commands/walls/*` (16 files) + sibling wall-touching commands; `CreateWallCommand.ts:51` (`affectedStores`); `DeleteElementCommand.ts:783` (lift to L4) |
-| `code-level ADR docs/architecture/adr/0009-wall-producer-signature.md` | Producer pure-function signature `(dto, joinData, worldY) => BufferGeometryDescriptor` | A | S08 | `WallFragmentBuilder.ts:142` and `:425` (the aspirational "pure function" comments); `WallFragmentBuilder.ts:505` (DTO migration comment) |
-| `code-level ADR docs/architecture/adr/0010-slab-handler-triage.md` | Slab handler triage | A | S12 | `src/commands/slabs/*` |
-| `code-level ADR docs/architecture/adr/0011-curtain-wall-triage-and-producer-split.md` | Curtain Wall handler triage + producer split (panels / mullions / transoms / gaskets) | F (paired A+B) | S12 | `src/elements/curtainwalls/CurtainWallBuilder.ts` audit |
-| `code-level ADR docs/architecture/adr/0012-cross-element-cascade-rule-registration.md` | Cross-element cascade-rule registration (lifts `CascadeWallBaselineCommand.ts:223` to L4) | A | S10 | `CascadeWallBaselineCommand.ts:223`; `SlabWallCoupling.ts:133`; `SlabDependencyTracker.ts` |
-| `code-level ADR docs/architecture/adr/0013-intent-resolver.md` | Intent resolver shape: snap-target priority + tie-breaking; DTO-only resolver vs THREE-side raycaster split | A | S10 | `WallIntentResolver.ts:213`; `PathResolver.ts:94`; `WallSnapCycler.ts:196` |
+| `code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md` | Wall handler triage (22 → 14) | A | S07 | `src/commands/walls/*` (16 files) + sibling wall-touching commands; `CreateWallCommand.ts:51` (`affectedStores`); `DeleteElementCommand.ts:783` (lift to L4) |
+| `code-level ADR docs/02-decisions/adrs/0009-wall-producer-signature.md` | Producer pure-function signature `(dto, joinData, worldY) => BufferGeometryDescriptor` | A | S08 | `WallFragmentBuilder.ts:142` and `:425` (the aspirational "pure function" comments); `WallFragmentBuilder.ts:505` (DTO migration comment) |
+| `code-level ADR docs/02-decisions/adrs/0010-slab-handler-triage.md` | Slab handler triage | A | S12 | `src/commands/slabs/*` |
+| `code-level ADR docs/02-decisions/adrs/0011-curtain-wall-triage-and-producer-split.md` | Curtain Wall handler triage + producer split (panels / mullions / transoms / gaskets) | F (paired A+B) | S12 | `src/elements/curtainwalls/CurtainWallBuilder.ts` audit |
+| `code-level ADR docs/02-decisions/adrs/0012-cross-element-cascade-rule-registration.md` | Cross-element cascade-rule registration (lifts `CascadeWallBaselineCommand.ts:223` to L4) | A | S10 | `CascadeWallBaselineCommand.ts:223`; `SlabWallCoupling.ts:133`; `SlabDependencyTracker.ts` |
+| `code-level ADR docs/02-decisions/adrs/0013-intent-resolver.md` | Intent resolver shape: snap-target priority + tie-breaking; DTO-only resolver vs THREE-side raycaster split | A | S10 | `WallIntentResolver.ts:213`; `PathResolver.ts:94`; `WallSnapCycler.ts:196` |
 
 ### §4.2 CI gates added in 1B
 
@@ -1574,8 +1574,8 @@ These exist alongside the sprint flow and must be true at sub-phase end.
 
 ### §4.3 Documentation produced
 
-- `docs/architecture/element-recipe.md` (S07 v1; updated S09, S10, S11, S12) — the canonical plugin recipe; `plugins/wall/` is the worked example.
-- `docs/architecture/parity-fixtures.md` (S08; updated S09) — how to capture parity fixtures (used for next 11 elements).
+- `docs/04-reference/architecture-detail/element-recipe.md` (S07 v1; updated S09, S10, S11, S12) — the canonical plugin recipe; `plugins/wall/` is the worked example.
+- `docs/04-reference/architecture-detail/parity-fixtures.md` (S08; updated S09) — how to capture parity fixtures (used for next 11 elements).
 - `plugins/<element>/README.md` for all 9 elements.
 - `tests/parity/<element>/README.md` for all 9 fixture sets.
 - 6 new sprint-scoped code-level ADRs (per §0 mapping table): `0008-wall-handler-triage`, `0009-wall-producer-signature`, `0010-slab-handler-triage`, `0011-curtain-wall-triage-and-producer-split`, `0012-cross-element-cascade-rule-registration`, `0013-intent-resolver`.
@@ -1584,7 +1584,7 @@ These exist alongside the sprint flow and must be true at sub-phase end.
 
 ## §5 Risk & contingency (1B-specific, expanded)
 
-> **Capacity envelope (`[strategic ADR-018]`).** Phase 1B accepts the 9-element Q2 scope. If sprint capacity is exhausted, the cut-list defined in `03_PRYZM3/reference/adrs/ADR-018-capacity-cut-list.md` is the ratified order: (1) Curtain Wall S12 D5–D7 paired session may defer non-essential CW features (bracket geometry, custom gasket profiles) to Phase 2; (2) Trace, fromSlab UI mode, and underlay-aligned wall sub-modes are already deferred to 1C; (3) further cuts follow `[strategic ADR-018]` ranking — never improvise scope reductions.
+> **Capacity envelope (`[strategic ADR-018]`).** Phase 1B accepts the 9-element Q2 scope. If sprint capacity is exhausted, the cut-list defined in `02-decisions/adrs/ADR-018-capacity-cut-list.md` is the ratified order: (1) Curtain Wall S12 D5–D7 paired session may defer non-essential CW features (bracket geometry, custom gasket profiles) to Phase 2; (2) Trace, fromSlab UI mode, and underlay-aligned wall sub-modes are already deferred to 1C; (3) further cuts follow `[strategic ADR-018]` ranking — never improvise scope reductions.
 
 | ID | Risk | Likelihood | Impact | Mitigation | Trigger sprint |
 |---|---|---|---|---|---|
@@ -1597,13 +1597,13 @@ These exist alongside the sprint flow and must be true at sub-phase end.
 | R1B-07 | Intent resolver missing edge cases (wall-to-wall joins, door-on-curve-wall, slab-on-curve-wall) | High | Medium | Real PRYZM 1 fixture extraction in S10 D7 captures most edge cases. Cross-element-pair fixtures captured S11 D5 + S12 D8. | S10–S12 |
 | R1B-08 | Two agents collide on shared `geometry-kernel` types | Low | Low | Type ownership: A owns producer types (`BufferGeometryDescriptor`, `JoinData`), B owns committer types (`CommitterContext`, `MaterialPoolHandle`); joint session decides shared types at S07 D5. | S08 D5 |
 | R1B-09 (NEW) | The `WallStore.ts` 3-channel fan-out (lines 1124–1190 doc block) is mistakenly carried over into `plugins/wall/store.ts`, re-introducing PRYZM 1's coupling | Medium | High | §1.2 of this doc explicitly forbids; F enforces in code review of S07-T2. Lint rule `pryzm-store-single-channel` (S07 D2 add) errors on multiple subscribe-callsites in a `Store<T>` extension. | S07 |
-| R1B-10 (NEW) | `CreateWallCommand.ts:234`'s `_neighbourSnapshot` heavyweight pattern carries over | Medium | Medium | `code-level ADR docs/architecture/adr/0008-wall-handler-triage.md` explicitly drops the neighbour-snapshot. Cascade infra (S10 D6) handles join-cascade undo via dependency-cascade lift from `CascadeWallBaselineCommand.ts:223`. | S07 |
+| R1B-10 (NEW) | `CreateWallCommand.ts:234`'s `_neighbourSnapshot` heavyweight pattern carries over | Medium | Medium | `code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md` explicitly drops the neighbour-snapshot. Cascade infra (S10 D6) handles join-cascade undo via dependency-cascade lift from `CascadeWallBaselineCommand.ts:223`. | S07 |
 | R1B-11 (NEW) | `WallTool.ts`'s 8 sub-modes are all attempted in S09 (overscoping) | Medium | Medium | S09 ships **Straight only**. Arc + Polyline land S10. Trace, fromSlab UI mode, underlay-aligned deferred to 1C. Documented in S09 sub-phase task list. | S09 |
 | R1B-12 (NEW) | `three-bvh-csg` cannot be ported THREE-free in 1 day; openings producer slips | Medium | Medium | Fallback to `manifold-3d` (WASM, already THREE-free). Both pre-vetted S07 D8. F decides at S08 D5. | S08 |
 | R1B-13 (NEW) | The miter math at `WallFragmentBuilder.ts:700–900` has hidden side-effects (cache writes to `this.miterNormalsCache`) that block the lift | High | Medium | Comment at line 425 ("the builder is now a pure function of its inputs") suggests the cache is stale or unused. S08 D2 audit confirms cache is for memoisation only — lift discards the cache and uses producer-level memoisation instead. | S08 |
-| R1B-14 (NEW) | Roof producer port (S10 D2–D7) discovers PRYZM 1 Roof generator reads `RoofStore` mid-generation | Medium | Medium | DTO extraction at call boundary; mirrors the wall pattern. Documented in `docs/architecture/element-recipe.md` (S07 v1). | S10 |
+| R1B-14 (NEW) | Roof producer port (S10 D2–D7) discovers PRYZM 1 Roof generator reads `RoofStore` mid-generation | Medium | Medium | DTO extraction at call boundary; mirrors the wall pattern. Documented in `docs/04-reference/architecture-detail/element-recipe.md` (S07 v1). | S10 |
 | R1B-15 (NEW) | Slab cross-element coupling (`SlabWallCoupling.ts:133`) requires more than 1 day to port to `plugins/cross/slab-wall.ts` | Medium | Medium | Cascade infra (S10 D6) + `plugins/wall/occupancy.ts` (S10) make the cross-handler a thin declaration. Actual logic is in pre-existing pieces. | S12 |
-| R1B-16 (NEW) | Cross-element cascade rules cause infinite recursion (Move wall A → cascade to B → cascade back to A) | Medium | High | `packages/command-bus/cascade.ts` tracks visited node-IDs in `Set<Id>` per dispatch; cycle-drop logged via OTel attribute `cascade.cycle.dropped`. `code-level ADR docs/architecture/adr/0012-cross-element-cascade-rule-registration.md`. | S10 |
+| R1B-16 (NEW) | Cross-element cascade rules cause infinite recursion (Move wall A → cascade to B → cascade back to A) | Medium | High | `packages/command-bus/cascade.ts` tracks visited node-IDs in `Set<Id>` per dispatch; cycle-drop logged via OTel attribute `cascade.cycle.dropped`. `code-level ADR docs/02-decisions/adrs/0012-cross-element-cascade-rule-registration.md`. | S10 |
 | R1B-17 (NEW) | The `plugins/wall/tool.ts` strict-injection (mirrors `WallTool.ts:144`) breaks toolbar wiring (toolbar instantiates before `commandBus` ready) | Low | Medium | `apps/editor/src/toolbar/ToolRegistry.ts` (1A S06) supports lazy tool instantiation. Documented in toolbar README. | S09 |
 | R1B-18 (NEW) | The 73-file consumer concentration (§1.5) creates pressure to "just fix one import in `src/`" violating K1B-4 | High | Low (per cast) but cumulatively High | K1B-4 explicitly forbids any edit to `src/elements/walls/**` or `src/commands/walls/**` in 1B. F rejects any PR that touches these files. CI snapshot-diff hard-fails. | every sprint |
 | R1B-19 (NEW) | Bulk operations (`BulkSetWallVisuals` on 1000 walls) blow the per-tick batching window | Low | Medium | Validated in S10 D7 with a 1000-wall fixture; immer's structural-share keeps per-handler latency under 5 ms. | S10 |
@@ -1620,7 +1620,7 @@ These exist alongside the sprint flow and must be true at sub-phase end.
 
 ### §5.2 SPECs binding Phase 1B
 
-The following entries from `docs/03_PRYZM3/reference/specs/` are normative for every 1B sprint. Where this phase doc and a SPEC conflict, the SPEC wins; reconcile by amendment of this doc.
+The following entries from `docs/03-execution/specs/` are normative for every 1B sprint. Where this phase doc and a SPEC conflict, the SPEC wins; reconcile by amendment of this doc.
 
 | SPEC | Section | Sprints |
 |---|---|---|
@@ -1634,20 +1634,20 @@ The following entries from `docs/03_PRYZM3/reference/specs/` are normative for e
 ## §6 1B → 1C handoff checklist (must be true on M6 morning)
 
 - [ ] All S12 exit criteria green (= sub-phase 1B exit).
-- [ ] All 6 sprint-scoped 1B ADRs merged: `code-level ADR docs/architecture/adr/0008-wall-handler-triage.md`, `code-level ADR docs/architecture/adr/0009-wall-producer-signature.md`, `code-level ADR docs/architecture/adr/0010-slab-handler-triage.md`, `code-level ADR docs/architecture/adr/0011-curtain-wall-triage-and-producer-split.md`, `code-level ADR docs/architecture/adr/0012-cross-element-cascade-rule-registration.md`, `code-level ADR docs/architecture/adr/0013-intent-resolver.md` — plus `code-level ADR docs/architecture/adr/0014-persistence-snapshot-threshold.md` if S09 needed it.
+- [ ] All 6 sprint-scoped 1B ADRs merged: `code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md`, `code-level ADR docs/02-decisions/adrs/0009-wall-producer-signature.md`, `code-level ADR docs/02-decisions/adrs/0010-slab-handler-triage.md`, `code-level ADR docs/02-decisions/adrs/0011-curtain-wall-triage-and-producer-split.md`, `code-level ADR docs/02-decisions/adrs/0012-cross-element-cascade-rule-registration.md`, `code-level ADR docs/02-decisions/adrs/0013-intent-resolver.md` — plus `code-level ADR docs/02-decisions/adrs/0014-persistence-snapshot-threshold.md` if S09 needed it.
 - [ ] All 1B CI gates green and PR-blocking.
 - [ ] All 9 element plugins (`plugins/{wall,door,window,roof,slab,curtain-wall,grid,column,beam}/`) ship and are registered in `apps/editor/src/bootstrap.data.ts`.
 - [ ] `packages/geometry-kernel/producers/{wall,door,window,roof,slab,curtain-wall,grid,column,beam}.ts` all THREE-free (`pryzm-no-three-in-kernel` real-enforced).
 - [ ] `BufferGeometryDescriptor` + `JoinData` types frozen — no further changes without ADR.
 - [ ] `Store<T>.subscribeDirty()` / `PrimitiveCommitter<TStore>` interfaces unchanged from 1A (no scope creep).
-- [ ] Sub-phase 1B demo recording committed to `docs/demos/M6-1B-9-elements.mp4`.
+- [ ] Sub-phase 1B demo recording committed to `docs/05-guides/developer/demos/M6-1B-9-elements.mp4`.
 - [ ] `apps/bench/reports/M6-1B-baseline.md` published with all 9-element bench numbers.
-- [ ] Sprint S13 plan in `docs/sprints/S13.md` reviewed by both agents and F.
+- [ ] Sprint S13 plan in `docs/03-execution/status/sprints/S13.md` reviewed by both agents and F.
 - [ ] One day of buffer between S12 D10 and S13 D1 — non-negotiable rest day.
 - [ ] PRYZM 1 (`apps/editor` legacy code path through `src/main.ts`) unchanged and shipping; default URL still loads PRYZM 1; `src/elements/{walls,slabs,doors,windows,roofs,curtainwalls,grids,columns,beams}/**` + `src/commands/{walls,slabs,doors,windows,roofs,curtainwalls,grids,columns,beams}/**` byte-for-byte unchanged from 1A morning (CI snapshot-diff).
 - [ ] All existing `tests/*.test.ts` still pass (including `tests/curtainPanelStoreIndexInvariants.spec.test.ts`, `tests/curtainWallToolStaticImport.spec.test.ts`).
 - [ ] PRYZM 1 customer support queue reviewed; no P0 blocking 1C entry.
-- [ ] `docs/architecture/element-recipe.md` complete and is the reference doc for Phase 1C / 2A's annotation/dimension/room/MEP work.
+- [ ] `docs/04-reference/architecture-detail/element-recipe.md` complete and is the reference doc for Phase 1C / 2A's annotation/dimension/room/MEP work.
 - [ ] `tests/fixtures/pryzm-1/<element>/` has at least 30 cases for wall, 20 for roof, 18 for slab, 25 for curtain wall, 15 for door, 12 for window, plus baseline cases for grid/column/beam.
 - [ ] `MaterialPool.deduplicateAcrossElementTypes()` extension shipped and validated in mixed-scene Playwright test.
 - [ ] No new `requestAnimationFrame(` call site in `src/` since 1A start (CI snapshot-diff).
@@ -1664,7 +1664,7 @@ The six ADRs below are the load-bearing decisions of 1B. They are reproduced her
 - **Status**: Accepted (S07 D2; mid-sprint amendment S10 D1 expanding `TransformWall` from `MoveWall + Mirror + Scale + Offset + Reference-edit` consolidation).
 - **Context**: PRYZM 1's wall family has 16 files in `src/commands/walls/` plus 3 sibling commands (Mirror, Scale, Offset) in `src/commands/`, plus 2 sibling cross-cutting commands (`DeleteElementCommand.ts:783` covers all elements; `CascadeWallBaselineCommand.ts:223` is wall-specific cascade). 22 surfaces total. Naïve port = 22 handler files in `plugins/wall/handlers/`. This loses the opportunity to consolidate redundant patches.
 - **Decision**: Land 14 handlers in 1B:
-  - **Lifted to L4 (`packages/command-bus/handlers/`)**: `DeleteElement` (one generic), `CascadeWallBaseline` becomes `CascadeRunner` (`code-level ADR docs/architecture/adr/0012-cross-element-cascade-rule-registration.md`).
+  - **Lifted to L4 (`packages/command-bus/handlers/`)**: `DeleteElement` (one generic), `CascadeWallBaseline` becomes `CascadeRunner` (`code-level ADR docs/02-decisions/adrs/0012-cross-element-cascade-rule-registration.md`).
   - **Merged**: `UpdateWallDimensions + SetWallWidth + UpdateWallHeight → SetWallDimensions` (3→1, atomic patches, S07-T8); `Mirror + Scale + Offset + Move + ReferenceEdit → TransformWall` (5→1 discriminated kind, S10-T1); `SetAllWallsWidth + SetAllWallsVisualProperties → BulkSetWallVisuals` (2→1, S10-T2).
   - **Dropped**: `CreateWallsOnAllSlabs` (rare and replaceable by user-script + slab-iteration in PRYZM 2; defer to Phase 2).
   - **Cross-store affinity declared**: `CreateDoor`/`CreateWindow` in S11 declare `affectedStores: ['door'|'window', 'wall']`; the wall plugin's `openings[]` field is read-only from wall handlers and write-from cross-store handlers via the lint rule `pryzm-affected-stores-required` (1A S02).
@@ -1707,7 +1707,7 @@ The six ADRs below are the load-bearing decisions of 1B. They are reproduced her
 
 - **Status**: Accepted (S12 D1; trailing — 1B's last new ADR before sub-phase close).
 - **Context**: PRYZM 1's `src/commands/slabs/` has 12 commands. Slab is the second-most-complex element family after wall (openings, level membership, dependency on walls via `SlabWallCoupling.ts:133`).
-- **Decision**: Land 8 handlers in 1B's S12: `CreateSlab`, `DeleteSlab`, `MoveSlab`, `SetSlabType`, `AddSlabOpening`, `RemoveSlabOpening`, `SetSlabSlope`, `SetSlabThickness`. Drop `CreateSlabsFromBuildingFootprint` (deferred to Phase 2 import workflows). Merge `UpdateSlabDimensions + SetSlabHeight → SetSlabThickness`. Lift cross-element coupling to `plugins/cross/slab-wall.ts` cascade rule (`code-level ADR docs/architecture/adr/0012-cross-element-cascade-rule-registration.md`).
+- **Decision**: Land 8 handlers in 1B's S12: `CreateSlab`, `DeleteSlab`, `MoveSlab`, `SetSlabType`, `AddSlabOpening`, `RemoveSlabOpening`, `SetSlabSlope`, `SetSlabThickness`. Drop `CreateSlabsFromBuildingFootprint` (deferred to Phase 2 import workflows). Merge `UpdateSlabDimensions + SetSlabHeight → SetSlabThickness`. Lift cross-element coupling to `plugins/cross/slab-wall.ts` cascade rule (`code-level ADR docs/02-decisions/adrs/0012-cross-element-cascade-rule-registration.md`).
 - **Consequences**: Slab handler count is roughly equivalent to wall (8 vs 14). Cross-element interactions go through cascade infra, not inline.
 - **PRYZM-1 evidence**: `src/commands/slabs/*` (12 files); `SlabWallCoupling.ts:133`; `SlabDependencyTracker.ts`.
 
@@ -1755,7 +1755,7 @@ The six ADRs below are the load-bearing decisions of 1B. They are reproduced her
 
   When a command dispatches, the cascade runner walks the DAG of affected entities and synthesises follow-up `Recompute*` commands. **Cycle detection** uses a `Set<EntityId>` tracking visited nodes; second visit drops silently and emits OTel attribute `cascade.cycle.dropped`. Maximum cascade depth is 16 (raises `CascadeDepthExceededError` to expose pathological topology).
 - **Consequences**: Adding cross-element coupling (e.g. roof → wall in Phase 2) is a one-line `cascadeRunner.register({...})` call. No inline cascade code in handlers.
-- **Trade-offs accepted**: Cascade rules can interact in unexpected ways (e.g. wall.baseline → slab.outline → wall.baseline). The cycle detection prevents infinite loops but the *order* of cascade commands matters; `code-level ADR docs/architecture/adr/0012-cross-element-cascade-rule-registration.md` documents that cascade rules are pure-functional and order-independent within the same DAG level.
+- **Trade-offs accepted**: Cascade rules can interact in unexpected ways (e.g. wall.baseline → slab.outline → wall.baseline). The cycle detection prevents infinite loops but the *order* of cascade commands matters; `code-level ADR docs/02-decisions/adrs/0012-cross-element-cascade-rule-registration.md` documents that cascade rules are pure-functional and order-independent within the same DAG level.
 - **PRYZM-1 evidence**: `CascadeWallBaselineCommand.ts:223`; `SlabWallCoupling.ts:133`; `SlabDependencyTracker.ts`.
 
 ### ADR-013 — Intent resolver shape
@@ -1766,7 +1766,7 @@ The six ADRs below are the load-bearing decisions of 1B. They are reproduced her
   - **`plugins/wall/intent.ts`** (DTO-only, ~250 LOC): pure functions for snap-to-grid, snap-to-endpoint, snap-to-midpoint, join-target resolution, snap-cycling. No THREE imports.
   - **`plugins/wall/tool.ts`** (THREE-side): owns the `RaycasterFacade` for snap-to-mesh (3D-pick a face). The tool calls into `intent.ts` with snap candidates *already* 3D-projected to scene coordinates.
 
-  **Tie-breaking priority** (`code-level ADR docs/architecture/adr/0013-intent-resolver.md` fixed order — committed to spec, not a runtime parameter):
+  **Tie-breaking priority** (`code-level ADR docs/02-decisions/adrs/0013-intent-resolver.md` fixed order — committed to spec, not a runtime parameter):
 
   | Priority | Snap kind |
   |---|---|
@@ -1969,14 +1969,14 @@ export const walls: PluginManifest = {
 | §13 canonical claim | 1B implementation | Reason |
 |---|---|---|
 | §13 calls the descriptor `GeometryIR` | 1B uses `BufferGeometryDescriptor` | Naming locked in S07 D5 paired session for parallelism with `BufferGeometry` (the THREE class it reconstructs to). `GeometryIR` is the master-plan abstract name; `BufferGeometryDescriptor` is the concrete type. |
-| §13 producer signature: `produce(dto, ctx) => GeometryIR` | 1B signature: `produceWall(dto, joinData, worldY) => BufferGeometryDescriptor` | The `ctx` was unpacked into explicit parameters during `code-level ADR docs/architecture/adr/0009-wall-producer-signature.md` review — explicit parameters make purity audit-able (no `ctx` to hide closures). `joinData` is pre-resolved at handler time per S07-T8 contract. |
-| §13 implies single-handler-per-command | 1B uses 14 handlers covering 22 PRYZM-1 surfaces (`code-level ADR docs/architecture/adr/0008-wall-handler-triage.md`) | Consolidation drops redundant patches and reduces handler-registry weight. `TransformWall` discriminated kind is the canonical example. |
-| §13 implies cascade is inline in handler | 1B uses L4 `CascadeRunner` (`code-level ADR docs/architecture/adr/0012-cross-element-cascade-rule-registration.md`) | Cross-element cascade (slab→wall, CW→wall) emerges in S12; inline cascade would duplicate DAG-walk + cycle-detection logic. |
+| §13 producer signature: `produce(dto, ctx) => GeometryIR` | 1B signature: `produceWall(dto, joinData, worldY) => BufferGeometryDescriptor` | The `ctx` was unpacked into explicit parameters during `code-level ADR docs/02-decisions/adrs/0009-wall-producer-signature.md` review — explicit parameters make purity audit-able (no `ctx` to hide closures). `joinData` is pre-resolved at handler time per S07-T8 contract. |
+| §13 implies single-handler-per-command | 1B uses 14 handlers covering 22 PRYZM-1 surfaces (`code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md`) | Consolidation drops redundant patches and reduces handler-registry weight. `TransformWall` discriminated kind is the canonical example. |
+| §13 implies cascade is inline in handler | 1B uses L4 `CascadeRunner` (`code-level ADR docs/02-decisions/adrs/0012-cross-element-cascade-rule-registration.md`) | Cross-element cascade (slab→wall, CW→wall) emerges in S12; inline cascade would duplicate DAG-walk + cycle-detection logic. |
 | §13 mentions `MaterialPool` without specifying dedup scope | 1B `MaterialPool.deduplicateAcrossElementTypes()` (S12) extends 1A's per-family pool to cross-family content-addressing | Mixed scenes (CW mullion + column = same metal) must share material instance for orbit-fps target. |
-| §13 implies tool is part of the same plugin entry-point | 1B splits intent (DTO-only) from tool (THREE-side) per `code-level ADR docs/architecture/adr/0013-intent-resolver.md` | Allows intent to run identically in tests + browser + Node; isolates THREE coupling to one file (`tool.ts`) per plugin. |
-| §13 doesn't specify producer determinism guarantees | 1B requires byte-identical Float32Array across Node↔browser (CI gate `wall-headless-node.test.ts`) | Bake-worker (Phase 1D) reads producers in headless Node; cross-runtime divergence would corrupt baked artefacts. `code-level ADR docs/architecture/adr/0009-wall-producer-signature.md`. |
+| §13 implies tool is part of the same plugin entry-point | 1B splits intent (DTO-only) from tool (THREE-side) per `code-level ADR docs/02-decisions/adrs/0013-intent-resolver.md` | Allows intent to run identically in tests + browser + Node; isolates THREE coupling to one file (`tool.ts`) per plugin. |
+| §13 doesn't specify producer determinism guarantees | 1B requires byte-identical Float32Array across Node↔browser (CI gate `wall-headless-node.test.ts`) | Bake-worker (Phase 1D) reads producers in headless Node; cross-runtime divergence would corrupt baked artefacts. `code-level ADR docs/02-decisions/adrs/0009-wall-producer-signature.md`. |
 | §13 doesn't enumerate cascade depth limits | 1B sets MAX_CASCADE_DEPTH=16 with `CascadeDepthExceededError` | Empirical from S10 R2 — cycle of 100 walls would otherwise crash; 16 is well above any natural BIM topology. |
-| §13 leaves `affectedStores` informal | 1B requires `readonly affectedStores: readonly StoreId[]` per handler (`code-level ADR docs/architecture/adr/0002-command-handler-signature.md`) with lint rule `pryzm-affected-stores-required` | Cross-store dependencies become statically analyzable (door→wall opening updates). |
+| §13 leaves `affectedStores` informal | 1B requires `readonly affectedStores: readonly StoreId[]` per handler (`code-level ADR docs/02-decisions/adrs/0002-command-handler-signature.md`) with lint rule `pryzm-affected-stores-required` | Cross-store dependencies become statically analyzable (door→wall opening updates). |
 
 **Net**: 1B is fully consistent with §13's intent; all deltas are *narrowing* (tightening contracts) or *factoring* (lifting common code to L4) rather than divergent.
 
@@ -1993,9 +1993,9 @@ This list is the canonical "what every agent must have read before walking into 
 | S07 | This phase doc §1.1, §1.2, §1.3 (handler triage); `01-TARGET-ARCHITECTURE.md` §4 (L4 commands); `WallStore.ts:79–1190`; `CreateWallCommand.ts` (full); `DeleteElementCommand.ts:1–200` | Can recite the 22→14 triage decisions and explain why `_neighbourSnapshot` is dropped. |
 | S08 | This phase doc §1.4 (producer-extraction line refs); `WallFragmentBuilder.ts:430–900`; `MiterPrismBuilder.ts` (full); `LayeredWallOpeningBuilder.ts` (full); `08-VISION.md` §P3 (bake-worker test); `05-IMPLEMENTATION-PLAN.md` §13 hot path | Can explain why producer must be pure top-level function (Node↔browser parity) and where each PRYZM-1 line goes in `producers/wall.ts`. |
 | S09 | This phase doc §3 S09 (cold-load budget table); `01-TARGET-ARCHITECTURE.md` §5 (L5 stores) — for cross-tracking; `apps/bench/orbit-fps.bench.ts` (1A scaffold); `08-VISION.md` NFR table | Can reproduce the cold-load budget breakdown from memory. |
-| S10 | This phase doc §3 S10 (TransformWall consolidation); `WallIntentResolver.ts:213` (full); `PathResolver.ts` (full); `WallSnapCycler.ts:196` (full); `CascadeWallBaselineCommand.ts:223` (full); `code-level ADR docs/architecture/adr/0008-wall-handler-triage.md`/012/013 stubs | Can recite the snap-priority table from `code-level ADR docs/architecture/adr/0013-intent-resolver.md` and explain cascade cycle-drop. |
+| S10 | This phase doc §3 S10 (TransformWall consolidation); `WallIntentResolver.ts:213` (full); `PathResolver.ts` (full); `WallSnapCycler.ts:196` (full); `CascadeWallBaselineCommand.ts:223` (full); `code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md`/012/013 stubs | Can recite the snap-priority table from `code-level ADR docs/02-decisions/adrs/0013-intent-resolver.md` and explain cascade cycle-drop. |
 | S11 | Doors family read-through (`src/elements/doors/`); window family read-through; `08-VISION.md` D5 (multi-runtime kernel) | Can explain how `affectedStores: ['door', 'wall']` works without breaking the wall plugin's encapsulation. |
-| S12 | Slab family read-through; `SlabWallCoupling.ts:133`; CW family audit notes (S12 D1 deliverable); `code-level ADR docs/architecture/adr/0010-slab-handler-triage.md`/011 stubs | Can describe the CW producer split before D5 paired session. |
+| S12 | Slab family read-through; `SlabWallCoupling.ts:133`; CW family audit notes (S12 D1 deliverable); `code-level ADR docs/02-decisions/adrs/0010-slab-handler-triage.md`/011 stubs | Can describe the CW producer split before D5 paired session. |
 
 ### §12.2 Agent B (Track B — scenic half)
 
@@ -2004,20 +2004,20 @@ This list is the canonical "what every agent must have read before walking into 
 | S07 | This phase doc §1.6 (greenfield gaps); `01-TARGET-ARCHITECTURE.md` §6 (L6 committers); `PrimitiveCommitter` interface (1A S05); `WallTool.ts:144–147` (strict-injection); 1A `plugins/cube/` (the only existing plugin) | Can build a new plugin scaffold from memory matching 1A `plugins/cube/`. |
 | S08 | `08-VISION.md` §P3 (bake-worker test); Node `worker_thread` API doc; Comlink doc; `WallFragmentBuilder.ts:43` (wallRoots Map pattern) | Can wire a producer into both runtimes and prove byte-equality. |
 | S09 | `WallFragmentBuilder.ts:25–115` (committer skeleton); `:586–598` (proxy-mesh pattern); `WallEdgeOverlayBuilder.ts:154` (selection outline); `MaterialPool` (1A S05); Playwright headless harness doc; this phase doc §3 S09 budget table | Can implement geometry-vs-material-only patch separation correctly. |
-| S10 | `WallTool.ts` arc + polyline branches (full); `RoofGeometryBuilder.ts` audit; `code-level ADR docs/architecture/adr/0013-intent-resolver.md` stub | Can extend the tool to Arc + Polyline modes from the PRYZM-1 reference. |
+| S10 | `WallTool.ts` arc + polyline branches (full); `RoofGeometryBuilder.ts` audit; `code-level ADR docs/02-decisions/adrs/0013-intent-resolver.md` stub | Can extend the tool to Arc + Polyline modes from the PRYZM-1 reference. |
 | S11 | Door + window + roof family scenic files (`*FragmentBuilder.ts`, `*Tool.ts` in each); `plugins/wall/README.md` (S09 deliverable, the canonical recipe) | Can replicate the wall recipe verbatim for door+window. |
-| S12 | Slab + grid + column + beam scenic files; `CurtainWallBuilder.ts` full audit; `code-level ADR docs/architecture/adr/0011-curtain-wall-triage-and-producer-split.md` stub; bundle code-split docs (1A S06) | Can implement the CW multi-material grouped mesh and the cross-element MaterialPool dedup. |
+| S12 | Slab + grid + column + beam scenic files; `CurtainWallBuilder.ts` full audit; `code-level ADR docs/02-decisions/adrs/0011-curtain-wall-triage-and-producer-split.md` stub; bundle code-split docs (1A S06) | Can implement the CW multi-material grouped mesh and the cross-element MaterialPool dedup. |
 
 ### §12.3 F (Architect-Owner)
 
 F reads ALL of the above before each sprint kickoff plus the previous sprint's retro notes. F's specific additional reading per sprint:
 
-- **S07**: this phase doc §0–§7 (entire doc); `10-MASTER-IMPLEMENTATION-PLAN-36M.md` §S07–S12; `code-level ADR docs/architecture/adr/0008-wall-handler-triage.md` PR draft.
-- **S08**: `code-level ADR docs/architecture/adr/0009-wall-producer-signature.md` PR draft; `pryzm-no-three-in-kernel` lint config from 1A S03.
-- **S09**: `code-level ADR docs/architecture/adr/0014-persistence-snapshot-threshold.md` (snapshot threshold) draft if persistence path needs ratifying.
-- **S10**: `code-level ADR docs/architecture/adr/0012-cross-element-cascade-rule-registration.md` + `code-level ADR docs/architecture/adr/0013-intent-resolver.md` PR drafts; `WallIntentResolver.ts` full read for arbitration.
+- **S07**: this phase doc §0–§7 (entire doc); `10-MASTER-IMPLEMENTATION-PLAN-36M.md` §S07–S12; `code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md` PR draft.
+- **S08**: `code-level ADR docs/02-decisions/adrs/0009-wall-producer-signature.md` PR draft; `pryzm-no-three-in-kernel` lint config from 1A S03.
+- **S09**: `code-level ADR docs/02-decisions/adrs/0014-persistence-snapshot-threshold.md` (snapshot threshold) draft if persistence path needs ratifying.
+- **S10**: `code-level ADR docs/02-decisions/adrs/0012-cross-element-cascade-rule-registration.md` + `code-level ADR docs/02-decisions/adrs/0013-intent-resolver.md` PR drafts; `WallIntentResolver.ts` full read for arbitration.
 - **S11**: K1-C trigger conditions (this phase doc §5.1 K1B-2); daily standup observations from S10.
-- **S12**: `code-level ADR docs/architecture/adr/0010-slab-handler-triage.md` + `code-level ADR docs/architecture/adr/0011-curtain-wall-triage-and-producer-split.md` PR drafts; sub-phase 1B retro agenda.
+- **S12**: `code-level ADR docs/02-decisions/adrs/0010-slab-handler-triage.md` + `code-level ADR docs/02-decisions/adrs/0011-curtain-wall-triage-and-producer-split.md` PR drafts; sub-phase 1B retro agenda.
 
 ---
 
@@ -2025,4 +2025,4 @@ F reads ALL of the above before each sprint kickoff plus the previous sprint's r
 
 - **2026-04-26** — first version expanding `phases/PHASE-1-FOUNDATION-M1-M12.md §3` into a two-agent parallel plan (S07–S12 sprint flow, track allocation, basic ADR list, basic risk register R1B-01..08, kill-switches K1B-1..3).
 - **2026-04-26 (rev. 2)** — deep enhancement matching 1A's depth pattern: added **§0 alignment header** (strategic anchor, hard precondition, conflict order); added **§1 Existing-codebase inventory** (12,470 LOC wall family across 25 + 19 files; 7-section breakdown including absorb/replace/leave-alone matrix, "trap files" analysis (`WallStore.ts:79–1190`, `WallFragmentBuilder.ts:142/425/505/572–598`, `WallTool.ts:33–838`), **22→14 handler triage table** with file:line evidence per command, **producer-extraction line-ref map** of `WallFragmentBuilder.ts:430–900`, **73-file consumer concentration map**, greenfield-gaps table, and schema notes); per-sprint **existing-code touchpoints**, **per-task sub-phase breakdown** (`SnT-Tx`), **blocker analysis** grounded in real `src/` evidence (S07 6 risks, S08 7 risks, S09 6 risks, S10 6 risks, S11 6 risks, S12 7 risks); **non-regression validation steps** at every D9; risk register expanded R1B-01..20 (added R1B-09..20 grounded in §1.2 trap-file analysis); added kill-switch **K1B-4** (no edits to `src/elements/<element>/**` in 1B); 1B→1C handoff checklist expanded to 21 line items; added §4.1 ADR table with PRYZM-1 evidence column; added §4.2 CI gates table.
-- **2026-04-26 (rev. 3)** — book-quality expansion to 1975 lines (+1117 over rev. 2, +130% over rev. 1) bringing 1B parity with 1A/1D depth pattern. **Per-sprint deep additions** for all six sprints (S07–S12), each gaining four mandatory subsections: (1) **typed contracts introduced** — full TypeScript signatures for every interface/handler/producer/store landed in the sprint, with comments tying back to PRYZM-1 line refs and ADR cross-links; (2) **key pseudocode walkthrough** — the load-bearing implementation pattern of the sprint shown as ~30–60-line annotated TS (`composeWallGeometryHash` for S07; `applyOpenings`/`resolveMiters` for S08; cold-load-stage budget table for S09; cascade-DAG-walk + cycle-drop for S10; door-on-wall intent delegation for S11; CW sub-producer orchestrator + mullion-extrusion for S12); (3) **test catalog** — full inventory of Vitest + Playwright tests planned (file path, test names, owner) totalling 191 tests across the sub-phase (35 S08 + 18 S09 + 38 S10 + 30 S11 + 60 S12 + 10 S07); (4) **OTel spans introduced** with parent/attributes/sampling rate; (5) **daily artifact log** — D2/D3/D4/D6/D7/D8 file-by-file landings tracking what enters the codebase each day. **Six new appendix sections** added before the document log: **§7** Architecture Decision Records `code-level ADR docs/architecture/adr/0008-wall-handler-triage.md`..013 (full text — wall handler triage; producer pure-function signature; slab triage; CW triage + producer split; cross-element cascade-rule registration; intent resolver shape); **§8** Performance budgets and bench specifications (master table of every 1B bench gate with sub-budget breakdown); **§9** OTel telemetry catalog (18 spans, 5 events, backend conventions); **§10** TypeScript contracts inventory (master export list per package: geometry-kernel, command-bus, scene-committer, stores, plugins, parity-fixtures totalling 140+N fixtures); **§11** Delta from canonical wall walkthrough §13 of 05-IMPLEMENTATION-PLAN.md (9-row table documenting every divergence and rationale); **§12** Pre-sprint reading list per agent A/B/F (mandatory reading enforced by F's D1 5-minute Q&A). Original document log renumbered §7 → §13.
+- **2026-04-26 (rev. 3)** — book-quality expansion to 1975 lines (+1117 over rev. 2, +130% over rev. 1) bringing 1B parity with 1A/1D depth pattern. **Per-sprint deep additions** for all six sprints (S07–S12), each gaining four mandatory subsections: (1) **typed contracts introduced** — full TypeScript signatures for every interface/handler/producer/store landed in the sprint, with comments tying back to PRYZM-1 line refs and ADR cross-links; (2) **key pseudocode walkthrough** — the load-bearing implementation pattern of the sprint shown as ~30–60-line annotated TS (`composeWallGeometryHash` for S07; `applyOpenings`/`resolveMiters` for S08; cold-load-stage budget table for S09; cascade-DAG-walk + cycle-drop for S10; door-on-wall intent delegation for S11; CW sub-producer orchestrator + mullion-extrusion for S12); (3) **test catalog** — full inventory of Vitest + Playwright tests planned (file path, test names, owner) totalling 191 tests across the sub-phase (35 S08 + 18 S09 + 38 S10 + 30 S11 + 60 S12 + 10 S07); (4) **OTel spans introduced** with parent/attributes/sampling rate; (5) **daily artifact log** — D2/D3/D4/D6/D7/D8 file-by-file landings tracking what enters the codebase each day. **Six new appendix sections** added before the document log: **§7** Architecture Decision Records `code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md`..013 (full text — wall handler triage; producer pure-function signature; slab triage; CW triage + producer split; cross-element cascade-rule registration; intent resolver shape); **§8** Performance budgets and bench specifications (master table of every 1B bench gate with sub-budget breakdown); **§9** OTel telemetry catalog (18 spans, 5 events, backend conventions); **§10** TypeScript contracts inventory (master export list per package: geometry-kernel, command-bus, scene-committer, stores, plugins, parity-fixtures totalling 140+N fixtures); **§11** Delta from canonical wall walkthrough §13 of 05-IMPLEMENTATION-PLAN.md (9-row table documenting every divergence and rationale); **§12** Pre-sprint reading list per agent A/B/F (mandatory reading enforced by F's D1 5-minute Q&A). Original document log renumbered §7 → §13.

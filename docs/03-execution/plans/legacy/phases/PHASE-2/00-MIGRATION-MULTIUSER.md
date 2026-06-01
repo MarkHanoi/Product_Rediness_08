@@ -520,7 +520,7 @@ M24 ─┘                                                  ★ M24 BETA GATE
 - `apps/bench/reports/M24-beta.md` published with all numbers.
 - 3-min beta demo screencast public.
 - Beta announcement blog post live.
-- Sub-phase retros archived in `docs/retros/S25–S48/`.
+- Sub-phase retros archived in `docs/03-execution/status/retros/S25–S48/`.
 
 ---
 

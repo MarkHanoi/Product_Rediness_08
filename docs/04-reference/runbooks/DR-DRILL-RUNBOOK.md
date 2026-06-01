@@ -1,8 +1,8 @@
 # Disaster Recovery Drill Runbook
 
 **Sprint**: PRYZM 2 Phase 3D · S69 D6
-**Spec source**: `docs/03_PRYZM3/reference/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S69 D6 (line 292) — "DR drill execution (rollback runbook test)"; exit-criterion (line 304) — "DR drill green; rollback runbook validated."
-**Failure-mode source**: `docs/03_PRYZM3/reference/specs/SPEC-27-MIGRATION-ROLLBACK.md` §8 (the four migration failure modes) + §9 (DR drill cadence).
+**Spec source**: `docs/03-execution/plans/legacy/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S69 D6 (line 292) — "DR drill execution (rollback runbook test)"; exit-criterion (line 304) — "DR drill green; rollback runbook validated."
+**Failure-mode source**: `docs/03-execution/specs/SPEC-27-MIGRATION-ROLLBACK.md` §8 (the four migration failure modes) + §9 (DR drill cadence).
 **Cadence**: quarterly (next: 2026-Q3 — S70 D8 self-host publish day will tag the first GA-track drill).
 **Owner**: founder + on-call SRE (named per drill in §9 sign-off log).
 
@@ -297,10 +297,10 @@ Per real-incident (NOT cadence drill):
 - It does **not** claim a real production drill has been executed at S69 close — drill #0 is the runbook authoring itself; drill #1 is scheduled S70 D8 (the first time the self-host live-Postgres path is operator-touchable in this sprint cadence).
 - It does **not** cover region-failover (deferred per `0049-s67-multi-region-cut-decision.md`).
 - It does **not** cover full WAL-archive PITR — §3.5 documents the procedure but ADR-0049 §F admits WAL archiving is not yet wired (M37+ post-GA).
-- It does **not** replace the SOC2 §1.10 quarterly secret-rotation drill (`docs/security/secret-rotation-playbook.md` §5) — that drill runs on the same cadence but covers different artifacts.
+- It does **not** replace the SOC2 §1.10 quarterly secret-rotation drill (`docs/04-reference/security/secret-rotation-playbook.md` §5) — that drill runs on the same cadence but covers different artifacts.
 - It does **not** include a customer-comms script — that lives in the S71 marketing playbook.
 
 ---
 
 **Authored by**: sprint-S69 (2026-04-28)
-**Companion docs**: `docs/03_PRYZM3/reference/specs/SPEC-27-MIGRATION-ROLLBACK.md` (failure-mode source); `pryzm-selfhost/init-db/03-rls-policies.test.sql` (§6.5 invocation target); `apps/bench/scripts/heap-leak-hunt.mjs` (§7 invocation target); `docs/security/secret-rotation-playbook.md` §5 (companion quarterly drill).
+**Companion docs**: `docs/03-execution/specs/SPEC-27-MIGRATION-ROLLBACK.md` (failure-mode source); `pryzm-selfhost/init-db/03-rls-policies.test.sql` (§6.5 invocation target); `apps/bench/scripts/heap-leak-hunt.mjs` (§7 invocation target); `docs/04-reference/security/secret-rotation-playbook.md` §5 (companion quarterly drill).

@@ -380,7 +380,7 @@ export class PlatformRouter {
         }
 
         // Phase C.3.01 (S74-WIRE) per
-        // docs/03_PRYZM3/00_NEW_ARCHITECTURE/phases/audits/PRYZM2-WIREUP-PLAN-S72/14-subphases-A-D.md §16.3:
+        // docs/archive/pryzm3-internal/00_NEW_ARCHITECTURE/phases/audits/PRYZM2-WIREUP-PLAN-S72/14-subphases-A-D.md §16.3:
         //
         //   After: `await runtime.persistence.openProject(id) +
         //          PlatformShell.show('workspace')` (no reload)

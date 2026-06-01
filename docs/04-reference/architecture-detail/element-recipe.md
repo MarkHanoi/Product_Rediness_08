@@ -325,7 +325,7 @@ landing point — the recipe is intentionally headless-only at S07.
 
 ## 12. Process-tracker
 
-After landing, append a row to `docs/03_PRYZM3/reference/status-detail/01-PROCESS-TRACKER.md`
+After landing, append a row to `docs/03-execution/status/legacy-status-detail/01-PROCESS-TRACKER.md`
 under the appropriate sprint section. Mark `[x]` only when:
 
 1. `npm run build` is green from a clean checkout.
@@ -356,7 +356,7 @@ The full v1 worked example, file-by-file:
 * `plugins/wall/__tests__/{store,system-type-store,handlers,baseline-fixtures}.test.ts`
 * `tests/fixtures/pryzm-1/wall/{create,delete,move,dimensions,color}.json`
 * `apps/bench/src/benches/wall-handlers.bench.ts`
-* `docs/architecture/adr/0008-wall-handler-triage.md`
+* `docs/02-decisions/adrs/0008-wall-handler-triage.md`
 
 ---
 
@@ -431,7 +431,7 @@ non-determinism.  When porting a new producer, scrub the following:
   ~80 LOC).
 * Mirror the headless-node parity test under
   `tests/parity/<family>/<family>-headless-node.test.ts`.
-* See `docs/architecture/parity-fixtures.md` for the full fixture
+* See `docs/04-reference/architecture-detail/parity-fixtures.md` for the full fixture
   format and PRYZM 1 cross-engine capture procedure.
 
 ### B.5 Bench requirements

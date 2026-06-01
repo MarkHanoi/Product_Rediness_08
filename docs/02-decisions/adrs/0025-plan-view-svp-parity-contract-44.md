@@ -5,7 +5,7 @@
 - **Sprint**: S33 (Phase 2B / M16–M18)
 - **Subordinate to**: ADR-0023 (`plan-view-canvas2d-renderer`), ADR-0024 (`plan-view-annotation-pipeline`)
 - **Owners**: Plan-View squad
-- **Related**: `docs/03_PRYZM3/reference/phases/PHASE-2/2B-Q2-M16-M18-PLAN-VIEW.md` §S33 (lines 609–798)
+- **Related**: `docs/03-execution/plans/legacy/phases/PHASE-2/2B-Q2-M16-M18-PLAN-VIEW.md` §S33 (lines 609–798)
 
 ## 1. Context
 
@@ -217,7 +217,7 @@ new optional constructor options.
 
 ## 5. References
 
-* Spec: `docs/03_PRYZM3/reference/phases/PHASE-2/2B-Q2-M16-M18-PLAN-VIEW.md` §S33 (609–798)
-* Tracker: `docs/03_PRYZM3/reference/status-detail/01-PROCESS-TRACKER.md` line 717 (S33 [x])
+* Spec: `docs/03-execution/plans/legacy/phases/PHASE-2/2B-Q2-M16-M18-PLAN-VIEW.md` §S33 (609–798)
+* Tracker: `docs/03-execution/status/legacy-status-detail/01-PROCESS-TRACKER.md` line 717 (S33 [x])
 * Predecessor ADRs: 0023, 0024 (plan-view canvas + annotation)
 * Successor (planned): ADR-0026 (S34 — Move/Rotate command handlers)

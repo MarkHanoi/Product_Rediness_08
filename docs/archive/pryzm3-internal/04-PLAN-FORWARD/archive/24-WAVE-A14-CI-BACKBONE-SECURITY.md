@@ -3,7 +3,7 @@
 > **Stamp**: 2026-05-03 · **Status**: ✅ COMPLETE — all 10 tasks DONE (S118)
 > **Sprint(s)**: S118 · **Weeks**: 75–77 · **Effort**: ~3 engineering days
 > **Source authority**: `attached_assets/Pasted--PRYZM-3-Master-Implementation-Plan-to-100-100…txt` Part 3 §Wave 14 · `06-SENIOR-ARCHITECT-AUDIT.md §6` (CI), `§15` (Security), `§16` (Observability)
-> **Anchored to**: `../01-VISION.md §2` (P3, P8), `../02-ARCHITECTURE.md §8` (convergence booleans), `../03-CURRENT-STATE.md §1` (live metrics), `../../00_Contracts/C01-ARCHITECTURE-AND-GOVERNANCE.md §5`, `../../00_Contracts/C04-RENDERING-AND-SCHEDULING.md §2`, `../../00_Contracts/C08-COLLABORATION-AND-SECURITY.md §5`, `../../00_Contracts/C10-PERFORMANCE-AND-OBSERVABILITY.md §2 §4`
+> **Anchored to**: `../01-VISION.md §2` (P3, P8), `../02-ARCHITECTURE.md §8` (convergence booleans), `../03-CURRENT-STATE.md §1` (live metrics), `../../02-decisions/contracts/C01-ARCHITECTURE-AND-GOVERNANCE.md §5`, `../../02-decisions/contracts/C04-RENDERING-AND-SCHEDULING.md §2`, `../../02-decisions/contracts/C08-COLLABORATION-AND-SECURITY.md §5`, `../../02-decisions/contracts/C10-PERFORMANCE-AND-OBSERVABILITY.md §2 §4`
 > **⚠ TRACKER RULE**: Any task status change → update `../00-PROCESS-TRACKER.md` §3 Wave A14 row + §4 next-actions same commit.
 > **Pre-condition (Gate)**: Wave 23 L2 plan accepted; `pnpm tsx scripts/pryzm-3-functional-day-1.ts` returns ALL CHECKS GREEN (Wave 15 close confirmed); 5/9 convergence booleans true (#2,#3,#4,#5,#6).
 
@@ -394,7 +394,7 @@ rg "req\.body" server/api/ --type js -l
 
 ### A14-T10 — C01 §5 amendment
 
-**Edit** `docs/00_Contracts/C01-ARCHITECTURE-AND-GOVERNANCE.md` §5:
+**Edit** `docs/02-decisions/contracts/C01-ARCHITECTURE-AND-GOVERNANCE.md` §5:
 
 Add the following paragraph after the existing §5 content:
 
@@ -445,7 +445,7 @@ rg "req\.body" server/api/ --type js -l | wc -l
 # → 0 (all migrated, no raw req.body usage)
 
 # T10: C01 §5 amendment committed
-grep "CI as a hard-fail merge gate" docs/00_Contracts/C01-ARCHITECTURE-AND-GOVERNANCE.md | wc -l
+grep "CI as a hard-fail merge gate" docs/02-decisions/contracts/C01-ARCHITECTURE-AND-GOVERNANCE.md | wc -l
 # → 1
 
 # Full functional gate still green

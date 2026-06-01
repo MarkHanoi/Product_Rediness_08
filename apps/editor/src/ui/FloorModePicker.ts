@@ -1,9 +1,9 @@
 /**
  * FloorModePicker — In-viewport HUD for floor finish system type + drawing mode selection.
  *
- * Contract: docs/00_Contracts/49-FLOOR-CEILING-DRAWING-MODE-PARITY-CONTRACT.md
- *           docs/00_Contracts/05-BIM-UI-ARCHITECTURE-CONTRACT.md §2.1, §7.1, §7.8
- *           docs/00_Contracts/26-PLAN-VIEW-ELEMENT-CREATION-PARITY-CONTRACT.md
+ * Contract: docs/02-decisions/contracts/49-FLOOR-CEILING-DRAWING-MODE-PARITY-CONTRACT.md
+ *           docs/02-decisions/contracts/05-BIM-UI-ARCHITECTURE-CONTRACT.md §2.1, §7.1, §7.8
+ *           docs/02-decisions/contracts/26-PLAN-VIEW-ELEMENT-CREATION-PARITY-CONTRACT.md
  *
  * Shows a floating HUD at the top-centre of the viewport when Floor is selected.
  * Mirrors the WallModePicker pattern with five modes:

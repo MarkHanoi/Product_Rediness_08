@@ -150,7 +150,7 @@ The pre-GA hardening: AI/visibility, IFC component editor, plugin SDK foundation
 | Q3 | S61–S66 | Plugin SDK foundation | `packages/plugin-sdk/` skeleton, plugin sandbox (ADR-009), 5 reference plugins (BCF, IFC export/import, IFC inspector, Rhino import) — all 5 with green workflows today | ⚠ partial — SDK is skeleton-only; 0 LOC of stable public API |
 | Q4 | S67–S72 | Hardening + GA prep | DR drill (`reference/runbooks/DR-DRILL-RUNBOOK.md`), perf-regression hunt (S71), enterprise pilot test-readiness, **the S72 wireup plan written** | ⚠ partial — see §5 |
 
-**Phase 3 verdict (per `archive/superseded-audits/phase-3-audit-trail/00-CANONICAL-PHASE-3D-GA-GATE.md` + `PHASE-3-CODE-VS-SPEC-AUDIT-2026-04-28.md`)**: **Q1–Q2 done; Q3 partial (SDK skeleton only); Q4 partial (the S72 wireup discovered the structural debt this whole `03_PRYZM3/` document tree is about). GA was not gated open at end of Phase 3.** S72 produced a 28-chunk wireup plan that became the basis for the A→H sub-phase work in §5.
+**Phase 3 verdict (per `archive/superseded-audits/phase-3-audit-trail/00-CANONICAL-PHASE-3D-GA-GATE.md` + `PHASE-3-CODE-VS-SPEC-AUDIT-2026-04-28.md`)**: **Q1–Q2 done; Q3 partial (SDK skeleton only); Q4 partial (the S72 wireup discovered the structural debt this whole `archive/pryzm3-internal/` document tree is about). GA was not gated open at end of Phase 3.** S72 produced a 28-chunk wireup plan that became the basis for the A→H sub-phase work in §5.
 
 ---
 
@@ -398,7 +398,7 @@ Files changed: `apps/editor/src/bootstrap.everything.ts` (async + batch yields +
 
 **Phase E.5.x sprint board: CLOSED** — P0–P11 ALL DONE ✅. `23-L2-COMMAND-EVENT-BUS-IMPLEMENTATION-PLAN.md` status updated to 🟢.
 
-Files changed: `packages/command-bus/src/commands.ts` (payload rewritten), `src/engine/subsystems/walls/WallTool.ts` (bus dispatch block rewritten), `docs/03_PRYZM3/04-PLAN-FORWARD/23-L2-COMMAND-EVENT-BUS-IMPLEMENTATION-PLAN.md` (P2d → DONE ✅; stamp updated), `docs/03_PRYZM3/00-PROCESS-TRACKER.md §7 row 23 + §9 P2d row + §9 phase-gate` (all updated).
+Files changed: `packages/command-bus/src/commands.ts` (payload rewritten), `src/engine/subsystems/walls/WallTool.ts` (bus dispatch block rewritten), `docs/archive/pryzm3-internal/04-PLAN-FORWARD/23-L2-COMMAND-EVENT-BUS-IMPLEMENTATION-PLAN.md` (P2d → DONE ✅; stamp updated), `docs/archive/pryzm3-internal/00-PROCESS-TRACKER.md §7 row 23 + §9 P2d row + §9 phase-gate` (all updated).
 
 ---
 
@@ -430,9 +430,9 @@ Verification: `pnpm tsc --noEmit` → EXIT:0; `pnpm vitest run` → 1428/1428 �
 - `BatchCoordinator._executeFinalSweep()` calling `commandManager.execute(new ReDetectRoomsCommand(...))` ×9 synchronously (the 5,627ms LONGTASK) is also a pipeline contract violation — room redetection MUST be triggered via `runtime.events.emit('wall.batch.completed')` and handled asynchronously with frame yields.
 
 **Documents created/updated**:
-- `docs/00_Contracts/C11-ELEMENT-CREATION-PIPELINE.md` (NEW) — canonical contract for the full pipeline: both UI and AI paths, handler contract (MUST/MUST NOT), geometry build lifecycle, event-driven room redetection, batch coalescing, AS-IS gap table (214 sites), verification gates (static CI + browser runtime + OTel).
-- `docs/03_PRYZM3/02-ARCHITECTURE.md §10` (NEW section) — structural summary + 2-column ASCII orchestration diagram + the two active violation sites with target state.
-- `docs/00_Contracts/C00-INDEX.md` — C11 row added to contract suite table.
+- `docs/02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md` (NEW) — canonical contract for the full pipeline: both UI and AI paths, handler contract (MUST/MUST NOT), geometry build lifecycle, event-driven room redetection, batch coalescing, AS-IS gap table (214 sites), verification gates (static CI + browser runtime + OTel).
+- `docs/archive/pryzm3-internal/02-ARCHITECTURE.md §10` (NEW section) — structural summary + 2-column ASCII orchestration diagram + the two active violation sites with target state.
+- `docs/02-decisions/contracts/C00-INDEX.md` — C11 row added to contract suite table.
 
 **No code changes this session** — documentation only.
 
@@ -468,7 +468,7 @@ Verification: `pnpm tsc --noEmit` → EXIT:0; `pnpm vitest run` → 1428/1428 �
 
 **No code changes this session** — diagnosis and documentation only.
 
-Files changed: `docs/03_PRYZM3/04-PLAN-FORWARD/33-PHASE-E5X-COMMANDMANAGER-FULL-MIGRATION.md` (NEW), `docs/03_PRYZM3/03-CURRENT-STATE.md §10` (this entry), `docs/03_PRYZM3/00-PROCESS-TRACKER.md §7` (row 33 added), `docs/03_PRYZM3/04-PLAN-FORWARD/README.md` (row 33 added).
+Files changed: `docs/archive/pryzm3-internal/04-PLAN-FORWARD/33-PHASE-E5X-COMMANDMANAGER-FULL-MIGRATION.md` (NEW), `docs/archive/pryzm3-internal/03-CURRENT-STATE.md §10` (this entry), `docs/archive/pryzm3-internal/00-PROCESS-TRACKER.md §7` (row 33 added), `docs/archive/pryzm3-internal/04-PLAN-FORWARD/README.md` (row 33 added).
 
 ---
 
@@ -496,13 +496,13 @@ This is a specialised subset of the broader `commandManager.execute()` consumpti
 
 **No code changes this session** — documentation and diagnosis only.
 
-Files changed: `docs/03_PRYZM3/04-PLAN-FORWARD/32-TASK-WALL-CURTAINWALL-CMD-BUS-AUDIT.md` (NEW), `docs/03_PRYZM3/03-CURRENT-STATE.md §10` (this entry), `docs/03_PRYZM3/03-CURRENT-STATE.md` header stamp (updated), `docs/03_PRYZM3/00-PROCESS-TRACKER.md §7` (row 32 added; merge conflict resolved). Cross-references: §13.3 (full consumption gap), `23-L2-COMMAND-EVENT-BUS-IMPLEMENTATION-PLAN.md §3.4` (wall deferred geometry queue, DONE 2026-05-03), `C03-SCHEMAS-COMMANDS-AND-STATE.md §2` (command bus contract), `C10-PERFORMANCE-AND-OBSERVABILITY.md` (OTel span requirement).
+Files changed: `docs/archive/pryzm3-internal/04-PLAN-FORWARD/32-TASK-WALL-CURTAINWALL-CMD-BUS-AUDIT.md` (NEW), `docs/archive/pryzm3-internal/03-CURRENT-STATE.md §10` (this entry), `docs/archive/pryzm3-internal/03-CURRENT-STATE.md` header stamp (updated), `docs/archive/pryzm3-internal/00-PROCESS-TRACKER.md §7` (row 32 added; merge conflict resolved). Cross-references: §13.3 (full consumption gap), `23-L2-COMMAND-EVENT-BUS-IMPLEMENTATION-PLAN.md §3.4` (wall deferred geometry queue, DONE 2026-05-03), `C03-SCHEMAS-COMMANDS-AND-STATE.md §2` (command bus contract), `C10-PERFORMANCE-AND-OBSERVABILITY.md` (OTel span requirement).
 
 ---
 
 ### 2026-05-03 (ARCHITECTURE — ADR-045 mixed-auth; C08 §1.1 amended; wall batch geometry performance diagnosed)
 
-**ADR-045 filed** (`docs/03_PRYZM3/reference/adrs/ADR-045-mixed-auth-supabase-replit-pg.md`): Documents the split-backend architecture that was always present in code but missing from contracts. User identity (`pryzm_users`) is managed by Supabase service-role REST (`server/supabaseClient.js`); project CRUD lives in Replit PG (`server/pgClient.js`). PRYZM does NOT use Supabase Auth JWT issuance — it issues its own tokens via `SESSION_SECRET` regardless. The FK-violation incident (2026-05-03, `projects_owner_id_fkey` → `23503`) was a direct consequence of this undocumented split: Replit PG's `pryzm_users` is empty in the standard deployment.
+**ADR-045 filed** (`docs/archive/pryzm3-internal/reference/adrs/ADR-045-mixed-auth-supabase-replit-pg.md`): Documents the split-backend architecture that was always present in code but missing from contracts. User identity (`pryzm_users`) is managed by Supabase service-role REST (`server/supabaseClient.js`); project CRUD lives in Replit PG (`server/pgClient.js`). PRYZM does NOT use Supabase Auth JWT issuance — it issues its own tokens via `SESSION_SECRET` regardless. The FK-violation incident (2026-05-03, `projects_owner_id_fkey` → `23503`) was a direct consequence of this undocumented split: Replit PG's `pryzm_users` is empty in the standard deployment.
 
 **C08 §1.1 amended** to replace the inaccurate "no dependency on Supabase Auth" with precise language: PRYZM does not use Supabase Auth JWT issuance, but does use Supabase service-role REST for user-identity. Two normative invariants codified: (1) `DATABASE_URL` before `SUPABASE_DB_URL` (C05 §1.3); (2) `projects.owner_id` MUST NOT FK-reference `pryzm_users(id)` in Replit PG (C05 §1.3.1).
 
@@ -532,7 +532,7 @@ For 120 walls across 10 slabs, `buildWall()` (2257 LOC — miter prisms, layer g
 
 No code changes to AI panels this session — audit only.
 
-Files changed: `docs/03_PRYZM3/reference/adrs/ADR-045-mixed-auth-supabase-replit-pg.md` (NEW), `docs/00_Contracts/C08-COLLABORATION-AND-SECURITY.md §1.1` (amended), `docs/03_PRYZM3/03-CURRENT-STATE.md §10` (this entry), `docs/03_PRYZM3/00-PROCESS-TRACKER.md §5b` (ADR-045 row added).
+Files changed: `docs/archive/pryzm3-internal/reference/adrs/ADR-045-mixed-auth-supabase-replit-pg.md` (NEW), `docs/02-decisions/contracts/C08-COLLABORATION-AND-SECURITY.md §1.1` (amended), `docs/archive/pryzm3-internal/03-CURRENT-STATE.md §10` (this entry), `docs/archive/pryzm3-internal/00-PROCESS-TRACKER.md §5b` (ADR-045 row added).
 
 ---
 
@@ -596,7 +596,7 @@ Zero consumer-side import changes required — barrels preserve all named export
 
 **P-rule alignment**: P3 preserved (no new rAF calls). P4 preserved (0 new `(window as any)` casts; shim file at `src/engine/subsystems/legacy/window-shim.ts` untouched). P8 preserved (no new public functions added — pure migration). Layer rules: all files remain L7.5 (intra-src move; package-promotion to `packages/core-app-model/` is Wave 11 follow-up for non-shim files). Authority chain honored: `01-VISION.md §3` L9.5 row (4→3 ✅), `02-ARCHITECTURE.md §1` diagram (4→3 ✅) and §8 state (4→3 ✅), `00-PROCESS-TRACKER.md §1/§2/§5/§7/§8` (all updated ✅), `17-WAVES-9-12-SRC-MIGRATION.md §2` completion note (✅).
 
-**Files changed**: `src/engine/subsystems/core/` (259 new files), `src/core/` (deleted), `scripts/check-project-isolation.mjs` (SERIALIZER path), `scripts/wave10-migrate-core.mjs` (codemod — complete), `scripts/wave10-fix-placeholder-stores.mjs` (store fixer — complete), 405 TypeScript files in `src/engine/` and `src/ui/` with updated import paths, `docs/03_PRYZM3/01-VISION.md §3` (L9.5 row 4→3, merge conflict resolved), `docs/03_PRYZM3/02-ARCHITECTURE.md §1` (diagram 4→3) and `§8` (state paragraph 4→3), `docs/03_PRYZM3/03-CURRENT-STATE.md` (stamp, §1 row, §8 boolean #1, §8 summary, this §10 entry), `docs/03_PRYZM3/04-PLAN-FORWARD/17-WAVES-9-12-SRC-MIGRATION.md §2` (completion note), `docs/03_PRYZM3/00-PROCESS-TRACKER.md §1/§2/§5/§7/§8`.
+**Files changed**: `src/engine/subsystems/core/` (259 new files), `src/core/` (deleted), `scripts/check-project-isolation.mjs` (SERIALIZER path), `scripts/wave10-migrate-core.mjs` (codemod — complete), `scripts/wave10-fix-placeholder-stores.mjs` (store fixer — complete), 405 TypeScript files in `src/engine/` and `src/ui/` with updated import paths, `docs/archive/pryzm3-internal/01-VISION.md §3` (L9.5 row 4→3, merge conflict resolved), `docs/archive/pryzm3-internal/02-ARCHITECTURE.md §1` (diagram 4→3) and `§8` (state paragraph 4→3), `docs/archive/pryzm3-internal/03-CURRENT-STATE.md` (stamp, §1 row, §8 boolean #1, §8 summary, this §10 entry), `docs/archive/pryzm3-internal/04-PLAN-FORWARD/17-WAVES-9-12-SRC-MIGRATION.md §2` (completion note), `docs/archive/pryzm3-internal/00-PROCESS-TRACKER.md §1/§2/§5/§7/§8`.
 
 ---
 
@@ -637,7 +637,7 @@ Family 2D/3D preview panel with a 4-button mode bar (3D/2D/Plan/Elevation), canv
 
 **Build verifiers**: `pnpm vitest run` → 759/759 pass.
 
-Files changed: `src/ui/FamilyBrowserPanel.ts` (new), `src/ui/FamilyPropertiesPanel.ts` (new), `src/ui/FamilyConstraintPanel.ts` (new), `src/ui/FamilyPreviewPanel.ts` (new), `src/ui/toolbar/FamilyToolbar.ts` (new), `src/ui/__tests__/binding/{FamilyBrowserPanel,FamilyPropertiesPanel,FamilyConstraintPanel,FamilyPreviewPanel}.spec.ts` (new), `src/ui/toolbar/__tests__/FamilyToolbar.spec.ts` (new), `packages/command-bus/src/commands.ts` (d7 types + registry union 142→150), `docs/03_PRYZM3/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md` (status B7=✅, C7=✅), `docs/03_PRYZM3/03-CURRENT-STATE.md §10` (this entry).
+Files changed: `src/ui/FamilyBrowserPanel.ts` (new), `src/ui/FamilyPropertiesPanel.ts` (new), `src/ui/FamilyConstraintPanel.ts` (new), `src/ui/FamilyPreviewPanel.ts` (new), `src/ui/toolbar/FamilyToolbar.ts` (new), `src/ui/__tests__/binding/{FamilyBrowserPanel,FamilyPropertiesPanel,FamilyConstraintPanel,FamilyPreviewPanel}.spec.ts` (new), `src/ui/toolbar/__tests__/FamilyToolbar.spec.ts` (new), `packages/command-bus/src/commands.ts` (d7 types + registry union 142→150), `docs/archive/pryzm3-internal/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md` (status B7=✅, C7=✅), `docs/archive/pryzm3-internal/03-CURRENT-STATE.md §10` (this entry).
 
 ---
 
@@ -678,7 +678,7 @@ Workset visibility and ownership: `activeWorkset` input, `worksetName` input, `v
 
 **Build verifiers**: `node scripts/check-project-isolation.mjs` → ✓ isolation intact; `tsc --skipLibCheck` → 0 errors; `pnpm tsc --noEmit` → 0 errors; `pnpm vitest run` → 677/677 pass. Vite bundling OOM constraint pre-existing (free-tier dev server contention — not a code defect; prior sessions confirmed `✓ built in 1m` on a fresh process).
 
-Files changed: `src/ui/CameraPanel.ts` (new), `src/ui/ViewRangePanel.ts` (new), `src/ui/ViewTemplatePanel.ts` (new), `src/ui/WorksetPanel.ts` (new), `src/ui/toolbar/SectionToolbar.ts` (new), `src/ui/toolbar/PlanToolbar.ts` (new), `src/ui/toolbar/ElevationToolbar.ts` (new), `src/ui/__tests__/binding/{CameraPanel,ViewRangePanel,ViewTemplatePanel,WorksetPanel}.spec.ts` (new), `src/ui/toolbar/__tests__/{SectionToolbar,PlanToolbar,ElevationToolbar}.spec.ts` (new), `packages/command-bus/src/commands.ts` (d6 types + registry union 121→142), `packages/command-bus/src/index.ts` (3 new exports), `docs/03_PRYZM3/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §4` (status B6=✅, C6=✅), `docs/03_PRYZM3/03-CURRENT-STATE.md §10` (this entry).
+Files changed: `src/ui/CameraPanel.ts` (new), `src/ui/ViewRangePanel.ts` (new), `src/ui/ViewTemplatePanel.ts` (new), `src/ui/WorksetPanel.ts` (new), `src/ui/toolbar/SectionToolbar.ts` (new), `src/ui/toolbar/PlanToolbar.ts` (new), `src/ui/toolbar/ElevationToolbar.ts` (new), `src/ui/__tests__/binding/{CameraPanel,ViewRangePanel,ViewTemplatePanel,WorksetPanel}.spec.ts` (new), `src/ui/toolbar/__tests__/{SectionToolbar,PlanToolbar,ElevationToolbar}.spec.ts` (new), `packages/command-bus/src/commands.ts` (d6 types + registry union 121→142), `packages/command-bus/src/index.ts` (3 new exports), `docs/archive/pryzm3-internal/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §4` (status B6=✅, C6=✅), `docs/archive/pryzm3-internal/03-CURRENT-STATE.md §10` (this entry).
 
 ---
 
@@ -714,7 +714,7 @@ Schedule sort/group configuration: `sortField` input, `sortOrder` select (ascend
 
 **Build verifiers**: `pnpm tsc --noEmit` → 0 errors; `pnpm vitest run` → 545/545 pass. Vite bundling OOM constraint pre-existing (free-tier dev server contention — not a code defect).
 
-Files changed: `src/ui/SchedulePanel.ts` (new), `src/ui/ScheduleFieldPanel.ts` (new), `src/ui/ScheduleFilterPanel.ts` (new), `src/ui/ScheduleSortPanel.ts` (new), `src/ui/toolbar/ScheduleToolbar.ts` (new), `src/ui/toolbar/SheetToolbar.ts` (new), `src/ui/__tests__/binding/{SchedulePanel,ScheduleFieldPanel,ScheduleFilterPanel,ScheduleSortPanel}.spec.ts` (new), `src/ui/toolbar/__tests__/{ScheduleToolbar,SheetToolbar}.spec.ts` (new), `packages/command-bus/src/commands.ts` (d5 types + registry union), `packages/command-bus/src/index.ts` (2 new exports), `docs/03_PRYZM3/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §4` (status B5=✅, C5=✅), `docs/03_PRYZM3/03-CURRENT-STATE.md §10` (this entry).
+Files changed: `src/ui/SchedulePanel.ts` (new), `src/ui/ScheduleFieldPanel.ts` (new), `src/ui/ScheduleFilterPanel.ts` (new), `src/ui/ScheduleSortPanel.ts` (new), `src/ui/toolbar/ScheduleToolbar.ts` (new), `src/ui/toolbar/SheetToolbar.ts` (new), `src/ui/__tests__/binding/{SchedulePanel,ScheduleFieldPanel,ScheduleFilterPanel,ScheduleSortPanel}.spec.ts` (new), `src/ui/toolbar/__tests__/{ScheduleToolbar,SheetToolbar}.spec.ts` (new), `packages/command-bus/src/commands.ts` (d5 types + registry union), `packages/command-bus/src/index.ts` (2 new exports), `docs/archive/pryzm3-internal/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §4` (status B5=✅, C5=✅), `docs/archive/pryzm3-internal/03-CURRENT-STATE.md §10` (this entry).
 
 ---
 
@@ -744,7 +744,7 @@ All 4 panel source files exist and their binding spec files (wave-6-b-d4 marker)
 
 **Build verifiers**: `node scripts/check-project-isolation.mjs` → ✓ "All serialized singletons are registered. Project isolation is intact."; `tsc --skipLibCheck` → 0 errors; `pnpm tsc --noEmit` (full strict check) → 0 errors; `pnpm vitest run` → 434/434 pass. The Vite bundling step of `npm run build` is blocked in the Replit free-tier environment by the running dev server consuming available RAM (SIGTERM on competition — pre-existing infra constraint, not a code defect; prior sessions confirmed `✓ built in 1m` on a fresh process).
 
-Files changed: `src/ui/toolbar/RoomToolbar.ts` (new), `src/ui/toolbar/AreaToolbar.ts` (new), `src/ui/toolbar/ColorToolbar.ts` (new), `src/ui/toolbar/__tests__/{RoomToolbar,AreaToolbar,ColorToolbar}.spec.ts` (new), `packages/command-bus/src/commands.ts` (d4 types + registry union), `packages/command-bus/src/index.ts` (3 new exports), `docs/03_PRYZM3/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §3` (ColorToolbar row 11 added), `docs/03_PRYZM3/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §4` (status B4=✅, C4=✅), `docs/03_PRYZM3/03-CURRENT-STATE.md §10` (this entry).
+Files changed: `src/ui/toolbar/RoomToolbar.ts` (new), `src/ui/toolbar/AreaToolbar.ts` (new), `src/ui/toolbar/ColorToolbar.ts` (new), `src/ui/toolbar/__tests__/{RoomToolbar,AreaToolbar,ColorToolbar}.spec.ts` (new), `packages/command-bus/src/commands.ts` (d4 types + registry union), `packages/command-bus/src/index.ts` (3 new exports), `docs/archive/pryzm3-internal/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §3` (ColorToolbar row 11 added), `docs/archive/pryzm3-internal/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §4` (status B4=✅, C4=✅), `docs/archive/pryzm3-internal/03-CURRENT-STATE.md §10` (this entry).
 
 ---
 
@@ -772,7 +772,7 @@ Typed `CommandRegistry` for all 89 commands through wave-6-c-d3.  8 named sub-ty
 **(6) Bug fix — `src/ui/LegendPanel.ts` (wave-6-b-d4 fix).**
 `thead.insertRow()` replaced with `document.createElement('tr')` + manual `appendChild` — `thead.insertRow()` is not supported in happy-dom (returns `undefined` → `insertCell()` TypeError).  All 23 test files now pass cleanly in happy-dom environment.
 
-Files changed: `packages/command-bus/src/commands.ts` (new, 89 typed command entries), `packages/command-bus/src/index.ts` (`export type { CommandRegistry, PayloadOf, EmptyPayload, ... }`), `src/ui/LegendPanel.ts` (happy-dom compat fix), `docs/03_PRYZM3/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §4` (status C3=✅), `docs/03_PRYZM3/03-CURRENT-STATE.md §10` (this entry, merge conflict resolved).
+Files changed: `packages/command-bus/src/commands.ts` (new, 89 typed command entries), `packages/command-bus/src/index.ts` (`export type { CommandRegistry, PayloadOf, EmptyPayload, ... }`), `src/ui/LegendPanel.ts` (happy-dom compat fix), `docs/archive/pryzm3-internal/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §4` (status C3=✅), `docs/archive/pryzm3-internal/03-CURRENT-STATE.md §10` (this entry, merge conflict resolved).
 
 ---
 
@@ -836,7 +836,7 @@ Tag annotation style editor: leader type, tag shape, text size, shoulder length,
 
 **(6) Build**: `pnpm build` exits 0 (`✓ built in ~50 s`).  TypeScript compiler: 0 errors.
 
-Files changed: `packages/runtime-composer/src/types.ts` (PanelViewSpec + ViewRegistrySlot ext + RuntimeEvents), `packages/runtime-composer/src/buildViewRegistrySlot.ts` (panel tracking impl), `packages/runtime-composer/src/index.ts` (new exports), `packages/runtime-composer/__tests__/viewRegistry.slot.test.ts` (+21 tests), `src/ui/property-panel/PropertyPanel.ts` (_makeVisible + hide binding), `src/ui/PropertyInspector.ts` (update + hide binding), `src/ui/LayerPanel.ts` (new), `src/ui/__tests__/binding/LayerPanel.spec.ts` (new), `src/ui/__tests__/binding/PropertyPanel.spec.ts` (new), `src/ui/__tests__/binding/PropertyInspector.spec.ts` (new), `vitest.config.ts` (new), `tsconfig.json` (exclude), `package.json` (devDeps: vitest + happy-dom), `docs/03_PRYZM3/03-CURRENT-STATE.md §10` (this entry).
+Files changed: `packages/runtime-composer/src/types.ts` (PanelViewSpec + ViewRegistrySlot ext + RuntimeEvents), `packages/runtime-composer/src/buildViewRegistrySlot.ts` (panel tracking impl), `packages/runtime-composer/src/index.ts` (new exports), `packages/runtime-composer/__tests__/viewRegistry.slot.test.ts` (+21 tests), `src/ui/property-panel/PropertyPanel.ts` (_makeVisible + hide binding), `src/ui/PropertyInspector.ts` (update + hide binding), `src/ui/LayerPanel.ts` (new), `src/ui/__tests__/binding/LayerPanel.spec.ts` (new), `src/ui/__tests__/binding/PropertyPanel.spec.ts` (new), `src/ui/__tests__/binding/PropertyInspector.spec.ts` (new), `vitest.config.ts` (new), `tsconfig.json` (exclude), `package.json` (devDeps: vitest + happy-dom), `docs/archive/pryzm3-internal/03-CURRENT-STATE.md §10` (this entry).
 
 ---
 
@@ -870,7 +870,7 @@ Room tag annotation editor: format string (`{Name}/{Number}/{Area}` variables), 
 **(8) Tests.**
 7 new spec files: 4 panel specs (LeaderStylePanel, RevisionCloudPanel, DetailComponentPanel, RoomTagPanel — ~11 tests each) + 3 toolbar specs (EditToolbar 14-button per-command `it.each`, ViewToolbar 9-button, LayerToolbar 7-button).  241 root tests, 0 failures.  Per-button dispatch assertions use `it.each` over the exported `BUTTONS` constant arrays — making the button count the source of truth for both runtime and tests.
 
-Files changed: `src/ui/LeaderStylePanel.ts` (new), `src/ui/RevisionCloudPanel.ts` (new), `src/ui/DetailComponentPanel.ts` (new), `src/ui/RoomTagPanel.ts` (new), `src/ui/toolbar/EditToolbar.ts` (new), `src/ui/toolbar/ViewToolbar.ts` (new), `src/ui/toolbar/LayerToolbar.ts` (new), `src/ui/__tests__/binding/{LeaderStylePanel,RevisionCloudPanel,DetailComponentPanel,RoomTagPanel}.spec.ts` (new), `src/ui/toolbar/__tests__/{EditToolbar,ViewToolbar,LayerToolbar}.spec.ts` (new), `docs/03_PRYZM3/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §4` (status B3=✅, C2=✅), `docs/03_PRYZM3/03-CURRENT-STATE.md §10` (this entry).
+Files changed: `src/ui/LeaderStylePanel.ts` (new), `src/ui/RevisionCloudPanel.ts` (new), `src/ui/DetailComponentPanel.ts` (new), `src/ui/RoomTagPanel.ts` (new), `src/ui/toolbar/EditToolbar.ts` (new), `src/ui/toolbar/ViewToolbar.ts` (new), `src/ui/toolbar/LayerToolbar.ts` (new), `src/ui/__tests__/binding/{LeaderStylePanel,RevisionCloudPanel,DetailComponentPanel,RoomTagPanel}.spec.ts` (new), `src/ui/toolbar/__tests__/{EditToolbar,ViewToolbar,LayerToolbar}.spec.ts` (new), `docs/archive/pryzm3-internal/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §4` (status B3=✅, C2=✅), `docs/archive/pryzm3-internal/03-CURRENT-STATE.md §10` (this entry).
 ### 2026-05-01 (S96-WIRE — `legacy_src_folders` 8 → 5; `src/export/` + `src/import/` + `src/styles/` staged to `src/engine/subsystems/`; build clean)
 
 **Scope**: architectural consolidation. No functional scope change. Sprint counter: S96-WIRE.
@@ -887,7 +887,7 @@ Files changed: `src/ui/LeaderStylePanel.ts` (new), `src/ui/RevisionCloudPanel.ts
 
 **§8 boolean impact**: Row 1 `legacy_src_folders`: ❌ (8) → ❌ (5, −3). No new booleans flipped; 5 of 9 remain ✅. Next: S97-WIRE — remaining folders `src/ai/`, `src/core/`, `src/elements/` per Wave 9–11 road-map.
 
-**Files changed**: `src/export/` (deleted), `src/import/` (deleted), `src/styles/` (deleted), `src/engine/subsystems/export/` (new — 35 files), `src/engine/subsystems/import/` (new — 36 files), `src/engine/subsystems/styles/` (new — 44 files), `src/engine/subsystems/initUI.ts` (13 dynamic imports rewritten), `src/ui/Layout.ts` (static + dynamic import paths), `src/ui/tools-panel/panels/ExportRailPanel.ts`, `src/ui/dataworkbench/DesignHistoryPanel.ts`, `src/ui/SpatialTree.ts`, `src/ui/ai/FloorPlanImportPanel.ts`, `src/ui/import/DxfImportPanel.ts`, `src/ui/interop/InteropFidelityReport.ts`, `src/ui/property-panel/PropertyPanelElementRenderers.ts`, `src/ui/import-manager/ImportManagerPanel.ts`, `src/ui/platform/` (9 files — AppTheme import path), `src/ui/rendering/` (3 files), `src/elements/annotations/ConstraintViolationPanel.ts`, `src/elements/dimensions/LinearDimOptionsBar.ts`, `src/engine/subsystems/tools/DxfUnderlayTool.ts`, `src/core/BimService.ts`, `src/core/persistence/ProjectSerializer.ts`, `src/core/persistence/ProjectLoader.ts`, `src/ai/FloorPlanAIFactory.ts`, `docs/03_PRYZM3/03-CURRENT-STATE.md §1/§8/§10` (this entry), `docs/03_PRYZM3/04-PLAN-FORWARD/03-WAVE-2-3-D4-EXECUTION.md §8`, `docs/03_PRYZM3/04-PLAN-FORWARD/11-WAVE-7-CLEANUP-PHASE-F.md §5`.
+**Files changed**: `src/export/` (deleted), `src/import/` (deleted), `src/styles/` (deleted), `src/engine/subsystems/export/` (new — 35 files), `src/engine/subsystems/import/` (new — 36 files), `src/engine/subsystems/styles/` (new — 44 files), `src/engine/subsystems/initUI.ts` (13 dynamic imports rewritten), `src/ui/Layout.ts` (static + dynamic import paths), `src/ui/tools-panel/panels/ExportRailPanel.ts`, `src/ui/dataworkbench/DesignHistoryPanel.ts`, `src/ui/SpatialTree.ts`, `src/ui/ai/FloorPlanImportPanel.ts`, `src/ui/import/DxfImportPanel.ts`, `src/ui/interop/InteropFidelityReport.ts`, `src/ui/property-panel/PropertyPanelElementRenderers.ts`, `src/ui/import-manager/ImportManagerPanel.ts`, `src/ui/platform/` (9 files — AppTheme import path), `src/ui/rendering/` (3 files), `src/elements/annotations/ConstraintViolationPanel.ts`, `src/elements/dimensions/LinearDimOptionsBar.ts`, `src/engine/subsystems/tools/DxfUnderlayTool.ts`, `src/core/BimService.ts`, `src/core/persistence/ProjectSerializer.ts`, `src/core/persistence/ProjectLoader.ts`, `src/ai/FloorPlanAIFactory.ts`, `docs/archive/pryzm3-internal/03-CURRENT-STATE.md §1/§8/§10` (this entry), `docs/archive/pryzm3-internal/04-PLAN-FORWARD/03-WAVE-2-3-D4-EXECUTION.md §8`, `docs/archive/pryzm3-internal/04-PLAN-FORWARD/11-WAVE-7-CLEANUP-PHASE-F.md §5`.
 
 ---
 ### 2026-05-01 (S95-WIRE — `legacy_src_folders` 10 → 8; `src/tools/` + `src/legacy/` deleted; build clean)
@@ -904,7 +904,7 @@ Files changed: `src/ui/LeaderStylePanel.ts` (new), `src/ui/RevisionCloudPanel.ts
 
 **§8 boolean impact**: Row 1 `legacy_src_folders`: ❌ (10) → ❌ (8, −2). No new booleans flipped; 5 of 9 remain ✅. Remaining 7 folders are all large (85k–99k LOC range for elements/ui; 76k core; 31k styles; 15k ai; 11k export+import combined; 68k engine) — Wave 9–17 scope per `15-PACKAGE-POPULATION-GAP.md §0.0.5`.
 
-**Files changed**: `src/tools/` (deleted), `src/legacy/` (deleted), `src/ui/Layout.ts`, `src/ui/ContextualEditBar.ts`, `src/ui/BeamModePicker.ts`, `src/ui/ai/FloorPlanImportPanel.ts`, `src/ui/import/DxfImportPanel.ts`, `src/ui/overlays/OperationModeOverlay.ts`, `src/ui/tools-panel/panels/AnnotationRailPanel.ts`, `src/engine/EngineContext.ts`, `src/engine/engineLauncher.ts`, `src/engine/subsystems/initUI.ts`, `src/engine/subsystems/initTools.ts` (static + dynamic imports), `src/engine/subsystems/initPersistence.ts`, `src/engine/subsystems/UnderlayPersistence.ts`, `src/ai/FloorPlanCommandBatcher.ts`, `src/core/views/DrawingEditorService.ts`, `src/elements/stairs/StairTool.ts`, `src/import/dxf/DxfToBimTracer.ts`, `tools/ga-gate/check-cast-count.ts`, `src/ui/AreaPanel.ts`, `docs/03_PRYZM3/03-CURRENT-STATE.md §1/§8/§10` (this entry), `docs/03_PRYZM3/04-PLAN-FORWARD/03-WAVE-2-3-D4-EXECUTION.md §8`.
+**Files changed**: `src/tools/` (deleted), `src/legacy/` (deleted), `src/ui/Layout.ts`, `src/ui/ContextualEditBar.ts`, `src/ui/BeamModePicker.ts`, `src/ui/ai/FloorPlanImportPanel.ts`, `src/ui/import/DxfImportPanel.ts`, `src/ui/overlays/OperationModeOverlay.ts`, `src/ui/tools-panel/panels/AnnotationRailPanel.ts`, `src/engine/EngineContext.ts`, `src/engine/engineLauncher.ts`, `src/engine/subsystems/initUI.ts`, `src/engine/subsystems/initTools.ts` (static + dynamic imports), `src/engine/subsystems/initPersistence.ts`, `src/engine/subsystems/UnderlayPersistence.ts`, `src/ai/FloorPlanCommandBatcher.ts`, `src/core/views/DrawingEditorService.ts`, `src/elements/stairs/StairTool.ts`, `src/import/dxf/DxfToBimTracer.ts`, `tools/ga-gate/check-cast-count.ts`, `src/ui/AreaPanel.ts`, `docs/archive/pryzm3-internal/03-CURRENT-STATE.md §1/§8/§10` (this entry), `docs/archive/pryzm3-internal/04-PLAN-FORWARD/03-WAVE-2-3-D4-EXECUTION.md §8`.
 
 ---
 
@@ -924,7 +924,7 @@ Files changed: `src/ui/LeaderStylePanel.ts` (new), `src/ui/RevisionCloudPanel.ts
 
 **§8 boolean impact**: Row 1 `legacy_src_folders`: ❌ (12) → ❌ (10, −2). No new booleans flipped; 5 of 9 remain ✅.
 
-**Files changed**: `src/engine/subsystems/services/` (12 new files), `src/engine/subsystems/monetization/` (3 new files), `src/services/` (deleted), `src/monetization/` (deleted), all external importers across `src/ui/`, `src/export/`, `src/import/`, `src/elements/`, `src/ai/`, `src/core/`, `src/tools/`, `src/engine/` rewritten, `docs/03_PRYZM3/03-CURRENT-STATE.md §1/§8/§10` (this entry), `docs/03_PRYZM3/04-PLAN-FORWARD/03-WAVE-2-3-D4-EXECUTION.md §8`.
+**Files changed**: `src/engine/subsystems/services/` (12 new files), `src/engine/subsystems/monetization/` (3 new files), `src/services/` (deleted), `src/monetization/` (deleted), all external importers across `src/ui/`, `src/export/`, `src/import/`, `src/elements/`, `src/ai/`, `src/core/`, `src/tools/`, `src/engine/` rewritten, `docs/archive/pryzm3-internal/03-CURRENT-STATE.md §1/§8/§10` (this entry), `docs/archive/pryzm3-internal/04-PLAN-FORWARD/03-WAVE-2-3-D4-EXECUTION.md §8`.
 
 ---
 
@@ -949,7 +949,7 @@ Files changed: `src/ui/LeaderStylePanel.ts` (new), `src/ui/RevisionCloudPanel.ts
 
 **P-rule alignment**: P3 preserved. P8 preserved (no new OTel spans needed for folder moves). No layer violations introduced (commands remain L7.5, all importers are L7+ or co-layer). Authority chain honored: `03-CURRENT-STATE.md §1` verifier row + `§8` row 1 + narrative, `03-WAVE-2-3-D4-EXECUTION.md §8` Row 1 all updated.
 
-**Files changed**: `src/engine/subsystems/commands/` (265 files, new location), `src/commands/` (deleted), 388 TypeScript files with updated import paths, `docs/03_PRYZM3/03-CURRENT-STATE.md §1` (folder count 13→12), `docs/03_PRYZM3/03-CURRENT-STATE.md §8` (Row 1 + narrative), `docs/03_PRYZM3/04-PLAN-FORWARD/03-WAVE-2-3-D4-EXECUTION.md §8` (Row 1 Actual now + status paragraph).
+**Files changed**: `src/engine/subsystems/commands/` (265 files, new location), `src/commands/` (deleted), 388 TypeScript files with updated import paths, `docs/archive/pryzm3-internal/03-CURRENT-STATE.md §1` (folder count 13→12), `docs/archive/pryzm3-internal/03-CURRENT-STATE.md §8` (Row 1 + narrative), `docs/archive/pryzm3-internal/04-PLAN-FORWARD/03-WAVE-2-3-D4-EXECUTION.md §8` (Row 1 Actual now + status paragraph).
 
 ---
 
@@ -978,7 +978,7 @@ Files changed: `src/ui/LeaderStylePanel.ts` (new), `src/ui/RevisionCloudPanel.ts
 
 **P-rule alignment**: P3 preserved (single rAF, frame-scheduler untouched). P8 preserved (OTel spans in moved files retain their `otel.ts` references). Authority chain honored: `03-CURRENT-STATE.md §1` verifier row, `03-WAVE-2-3-D4-EXECUTION.md §8` Row 1 + status + closure paragraphs all updated.
 
-**Files changed**: `src/engine/subsystems/rendering/` (9 new files), `src/engine/subsystems/physics/` (2 new files + types/), `src/rendering/` (deleted), `src/physics/` (deleted), `src/engine/subsystems/initScene.ts` (4 import paths + migration header), `src/engine/subsystems/rendering/pipeline/RenderPipelineManager.ts` (2 depth-adjusted paths + migration header), `src/ui/overlays/RenderHealthIndicator.ts` (1 import path), `src/main.ts` (1 dynamic import), `src/engine/subsystems/initDataPlatform.ts` (2 import paths), `src/engine/subsystems/physicsOverlay/PhysicsOverlayRenderer.ts` (2 import paths), `src/ui/dataworkbench/PhysicsPanel.ts` (2 import paths), `docs/03_PRYZM3/04-PLAN-FORWARD/03-WAVE-2-3-D4-EXECUTION.md §8` (Row 1 Actual now + What's done cell + status paragraph + closure path), `docs/03_PRYZM3/03-CURRENT-STATE.md §1` (folder count row), `docs/03_PRYZM3/03-CURRENT-STATE.md §10` (this entry).
+**Files changed**: `src/engine/subsystems/rendering/` (9 new files), `src/engine/subsystems/physics/` (2 new files + types/), `src/rendering/` (deleted), `src/physics/` (deleted), `src/engine/subsystems/initScene.ts` (4 import paths + migration header), `src/engine/subsystems/rendering/pipeline/RenderPipelineManager.ts` (2 depth-adjusted paths + migration header), `src/ui/overlays/RenderHealthIndicator.ts` (1 import path), `src/main.ts` (1 dynamic import), `src/engine/subsystems/initDataPlatform.ts` (2 import paths), `src/engine/subsystems/physicsOverlay/PhysicsOverlayRenderer.ts` (2 import paths), `src/ui/dataworkbench/PhysicsPanel.ts` (2 import paths), `docs/archive/pryzm3-internal/04-PLAN-FORWARD/03-WAVE-2-3-D4-EXECUTION.md §8` (Row 1 Actual now + What's done cell + status paragraph + closure path), `docs/archive/pryzm3-internal/03-CURRENT-STATE.md §1` (folder count row), `docs/archive/pryzm3-internal/03-CURRENT-STATE.md §10` (this entry).
 
 ---
 
@@ -1001,7 +1001,7 @@ Files changed: `src/ui/LeaderStylePanel.ts` (new), `src/ui/RevisionCloudPanel.ts
 - P8 (OTel spans per public function) — the new tripwire verifies that camera-navigation gesture handlers pair the motion-gate signal with OTel spans (via `otel.ts` in `src/core/views/`).
 - `01-VISION > 02-ARCHITECTURE > 03-CURRENT-STATE > 04-PLAN-FORWARD` authority chain honored: §8 table in `03-WAVE-2-3-D4-EXECUTION.md` derived from `02-ARCHITECTURE.md §8` booleans, driven by `03-CURRENT-STATE.md §1` verifier values.
 
-**Files changed**: `tools/ga-gate/check-motion-gate-coverage.ts` (new, 95 LOC), `packages/release/src/ga-gate.mjs` (+21 LOC: tripwire, CHECKS entry, NAME_TO_FN entry, COMPOSITE), `docs/03_PRYZM3/04-PLAN-FORWARD/03-WAVE-2-3-D4-EXECUTION.md §8` (Row 1 status column + 2 footer paragraphs), `docs/03_PRYZM3/03-CURRENT-STATE.md §1` (2 rows), `docs/03_PRYZM3/03-CURRENT-STATE.md §10` (this entry).
+**Files changed**: `tools/ga-gate/check-motion-gate-coverage.ts` (new, 95 LOC), `packages/release/src/ga-gate.mjs` (+21 LOC: tripwire, CHECKS entry, NAME_TO_FN entry, COMPOSITE), `docs/archive/pryzm3-internal/04-PLAN-FORWARD/03-WAVE-2-3-D4-EXECUTION.md §8` (Row 1 status column + 2 footer paragraphs), `docs/archive/pryzm3-internal/03-CURRENT-STATE.md §1` (2 rows), `docs/archive/pryzm3-internal/03-CURRENT-STATE.md §10` (this entry).
 
 ---
 
@@ -1028,7 +1028,7 @@ Files changed: `src/ui/LeaderStylePanel.ts` (new), `src/ui/RevisionCloudPanel.ts
 
 **Verifiers**: `npm run build` → `✓ built in 50.01s`; 0 TypeScript errors; `@opentelemetry/api` available at workspace root (`^1.9.1`); all 6 spans compile cleanly. ga-gate scripts: cast count unchanged (no new `(window as any)` casts); rAF owners: 1 (unchanged, no new `requestAnimationFrame` calls); l7-boundary: 0 regressions.
 
-**Files changed**: `src/core/views/otel.ts` (new — 43 LOC); `src/core/views/PlanViewManager.ts` (import + 6 span call sites); `src/core/views/SplitViewManager.ts` (import + 6 span call sites); `docs/03_PRYZM3/04-PLAN-FORWARD/13-RISK-REGISTER.md` (R11 added); `docs/03_PRYZM3/03-CURRENT-STATE.md` (§1 merge conflict resolved, this §10 entry).
+**Files changed**: `src/core/views/otel.ts` (new — 43 LOC); `src/core/views/PlanViewManager.ts` (import + 6 span call sites); `src/core/views/SplitViewManager.ts` (import + 6 span call sites); `docs/archive/pryzm3-internal/04-PLAN-FORWARD/13-RISK-REGISTER.md` (R11 added); `docs/archive/pryzm3-internal/03-CURRENT-STATE.md` (§1 merge conflict resolved, this §10 entry).
 
 **P-rule alignment**:
 - P3 (single rAF): ✅ no new `requestAnimationFrame` calls; `beginMotion`/`endMotion` correctly signal the single FrameScheduler owner
@@ -1056,7 +1056,7 @@ Files changed: `src/ui/LeaderStylePanel.ts` (new), `src/ui/RevisionCloudPanel.ts
 
 **Verifiers re-run**: `npm run build` → `✓ built in 53.06s`; 0 TypeScript errors; all 4 ga-gate scripts exit 0.
 
-Files changed: `docs/03_PRYZM3/02-ARCHITECTURE.md` (§5 L7.5 bullet, §6 Today/Target Stage 2), `docs/03_PRYZM3/03-CURRENT-STATE.md` (stamp, §1 header + 5 rows + direction-of-drift, §8 rows 1 and 5, §8 summary, §9 EngineBootstrap row, this §10 entry), `.ga-gate/baselines/cast-count.json` (auto-ratcheted 1295 → 1268 by `check-cast-count.ts`).
+Files changed: `docs/archive/pryzm3-internal/02-ARCHITECTURE.md` (§5 L7.5 bullet, §6 Today/Target Stage 2), `docs/archive/pryzm3-internal/03-CURRENT-STATE.md` (stamp, §1 header + 5 rows + direction-of-drift, §8 rows 1 and 5, §8 summary, §9 EngineBootstrap row, this §10 entry), `.ga-gate/baselines/cast-count.json` (auto-ratcheted 1295 → 1268 by `check-cast-count.ts`).
 
 ---
 
@@ -1082,7 +1082,7 @@ Folders deferred (NOT done in this pass): `src/persistence/` (367 LOC, 6 importe
 
 **Verifier**: `ls -d src/*/ | wc -l` = **31**. `[ ! -f src/engine/EngineBootstrap.ts ]` ✅. `npm run build` clean.
 
-Files changed: `src/api/` (deleted), `src/furniture/` (deleted), `src/types/` (deleted), `src/history/` (deleted), `src/engine/EngineBootstrap.ts` (deleted), `src/services/apiFetch.ts` (new), `src/engine/UndoManager.ts` (new), `src/global-window.d.ts` (moved), `src/boot-shell.d.ts` (moved), `src/three-addons.d.ts` (moved), `src/ai/QueryEngine.ts` (1-line fix), `docs/03_PRYZM3/04-PLAN-FORWARD/03-WAVE-2-3-D4-EXECUTION.md §8` (rows 1, 2, 5 updated), `docs/03_PRYZM3/04-PLAN-FORWARD/11-WAVE-7-CLEANUP-PHASE-F.md §2` (STATUS block added), `replit.md` (§S87-WIRE-PARTIAL + §BUILD-FIX entries).
+Files changed: `src/api/` (deleted), `src/furniture/` (deleted), `src/types/` (deleted), `src/history/` (deleted), `src/engine/EngineBootstrap.ts` (deleted), `src/services/apiFetch.ts` (new), `src/engine/UndoManager.ts` (new), `src/global-window.d.ts` (moved), `src/boot-shell.d.ts` (moved), `src/three-addons.d.ts` (moved), `src/ai/QueryEngine.ts` (1-line fix), `docs/archive/pryzm3-internal/04-PLAN-FORWARD/03-WAVE-2-3-D4-EXECUTION.md §8` (rows 1, 2, 5 updated), `docs/archive/pryzm3-internal/04-PLAN-FORWARD/11-WAVE-7-CLEANUP-PHASE-F.md §2` (STATUS block added), `replit.md` (§S87-WIRE-PARTIAL + §BUILD-FIX entries).
 
 ---
 
@@ -1113,7 +1113,7 @@ Architectural slice: **Wave 5 Day 10** — Final day of Wave 5 Cast Deletion Swe
 - Boolean #2 (`window_any_in_src_ui == 0`): remains ✅ (0 in src/ui/); src/ total now 167 (advances Wave 7 start position significantly).
 - Boolean #6 (`all_workflows_green`): remains ✅ (9/9 green).
 
-Files changed: `src/engine/subsystems/initTools.ts`, `src/engine/subsystems/initScene.ts`, `src/engine/subsystems/initUI.ts`, `src/engine/subsystems/initBuilders.ts`, `src/engine/engineLauncher.ts` (engine cast sweeps), `src/legacy/window-shim.ts` (new — Pattern D/E allowlist shim), `eslint.config.js` (shim allowlist override + Wave 7 note), `docs/03_PRYZM3/04-PLAN-FORWARD/09-WAVE-5-CAST-DELETION.md` (Day 10 row ✅ + metric + exit-gate #3 corrected to flat-config).
+Files changed: `src/engine/subsystems/initTools.ts`, `src/engine/subsystems/initScene.ts`, `src/engine/subsystems/initUI.ts`, `src/engine/subsystems/initBuilders.ts`, `src/engine/engineLauncher.ts` (engine cast sweeps), `src/legacy/window-shim.ts` (new — Pattern D/E allowlist shim), `eslint.config.js` (shim allowlist override + Wave 7 note), `docs/archive/pryzm3-internal/04-PLAN-FORWARD/09-WAVE-5-CAST-DELETION.md` (Day 10 row ✅ + metric + exit-gate #3 corrected to flat-config).
 
 ---
 
@@ -1249,7 +1249,7 @@ bootstrap()               →  called inside ensure()   ← never reached
 
 **Verification**: `[DataCommandCenter] Initialized` + `[PlatformShell] Initialized (runtime: composed)` + `[bootPlatform] D.1 — early PlatformShell created (delegates: deferred, post-paint, surface mounted)` now appear in the browser console immediately after app load, confirming `_heavyWiringDone` resolves and Phase B wiring completes. `ensure()` can now proceed to `startEngine()` → `bootstrap()` on project-open click.
 
-Files changed: `src/main.ts` (two `scheduleOnce` calls → `setTimeout(0)`), `docs/03_PRYZM3/03-CURRENT-STATE.md §10` (this entry + merge conflict resolution).
+Files changed: `src/main.ts` (two `scheduleOnce` calls → `setTimeout(0)`), `docs/archive/pryzm3-internal/03-CURRENT-STATE.md §10` (this entry + merge conflict resolution).
 
 ---
 
@@ -1294,7 +1294,7 @@ Files changed: `src/engine/subsystems/initUI.ts` (Escape handler + `unselectAll(
 
 **No regression surface**: fallback path is byte-identical to prior behaviour. The pre-warm canvas is detached until `consumePrewarmedRenderer()` inserts it; no DOM side-effects at Phase B time. TypeScript: 0 errors (`npx tsc --noEmit -p tsconfig.json`).
 
-Files changed: `src/rendering/rendererPrewarm.ts` (new), `src/main.ts` (Phase B tail), `src/engine/subsystems/initScene.ts` (Phase 5 fast/slow split), `docs/03_PRYZM3/03-CURRENT-STATE.md §10` (this entry).
+Files changed: `src/rendering/rendererPrewarm.ts` (new), `src/main.ts` (Phase B tail), `src/engine/subsystems/initScene.ts` (Phase 5 fast/slow split), `docs/archive/pryzm3-internal/03-CURRENT-STATE.md §10` (this entry).
 
 ---
 
@@ -1340,7 +1340,7 @@ Architectural slice: **S86-WIRE (Wave 7)** — closes Boolean #5 (`EngineBootstr
 
 (8) **`03-CURRENT-STATE.md §8` row #5** — to be updated in the §8 table: `⚠ (2,095)` → `✅ (30)`.
 
-Files changed: `src/engine/engineLauncher.ts` (new — 2,112 LOC), `src/engine/EngineBootstrap.ts` (30 LOC), `src/main.ts`, `.ga-gate/baselines/engine-bootstrap-importers.json`, `packages/eslint-plugin-pryzm/src/rules/no-engine-bootstrap-shim.js`, `packages/eslint-plugin-pryzm/src/index.js` (conflict resolved), `packages/eslint-plugin-pryzm/__tests__/rules.test.ts`, `docs/03_PRYZM3/04-PLAN-FORWARD/03-WAVE-2-3-D4-EXECUTION.md §8`.
+Files changed: `src/engine/engineLauncher.ts` (new — 2,112 LOC), `src/engine/EngineBootstrap.ts` (30 LOC), `src/main.ts`, `.ga-gate/baselines/engine-bootstrap-importers.json`, `packages/eslint-plugin-pryzm/src/rules/no-engine-bootstrap-shim.js`, `packages/eslint-plugin-pryzm/src/index.js` (conflict resolved), `packages/eslint-plugin-pryzm/__tests__/rules.test.ts`, `docs/archive/pryzm3-internal/04-PLAN-FORWARD/03-WAVE-2-3-D4-EXECUTION.md §8`.
 
 ---
 ### 2026-04-30 late evening — third pass (Wave 4 Track B — PR 4.B.3 **LANDED**: `no-l7-direct-import` + `no-l7-allowlist-grow` rules; `pnpm ga-gate --check boundary-lint-l7` exits 0; 53/53 plugin tests passing)
@@ -1653,7 +1653,7 @@ Post-Wave 3 boolean audit. All 9 convergence booleans re-run against live codeba
 
 ### 2026-04-30 late-evening (Plan-Forward folder reorg — wireup-2026 chunk fold-in)
 
-A founder-authorized fold-in operation moved missing chunk content from `docs/03_PRYZM3/reference/wireup-2026/chunks/` into `04-PLAN-FORWARD/` as four NEW files inserted **after** `03-WAVE-2-3-D4-EXECUTION.md`, with existing files renumbered 04→08 through 11→15. **No code changes. Pure docs reorg.** No tripwire change. No boolean change.
+A founder-authorized fold-in operation moved missing chunk content from `docs/archive/pryzm3-internal/reference/wireup-2026/chunks/` into `04-PLAN-FORWARD/` as four NEW files inserted **after** `03-WAVE-2-3-D4-EXECUTION.md`, with existing files renumbered 04→08 through 11→15. **No code changes. Pure docs reorg.** No tripwire change. No boolean change.
 
 (1) Four new files authored in `04-PLAN-FORWARD/`:
   - `04-END-TO-END-FLOWS-AND-COVERAGE.md` — distilled from `chunks/22` (8 user-visible flows traced layer-by-layer) + `chunks/21` (architecture-leg → UI-surface reverse coverage matrix). Becomes the Wave 7 exit-gate's **smoke corpus** + **coverage matrix**.
@@ -1753,7 +1753,7 @@ Wave 2 first task per `04-PLAN-FORWARD/03-WAVE-2-3-D4-EXECUTION.md §1` Day-1 ro
 2. **Already-extracted to wrong destination**: Phase F-1 already moved ~480 LOC of scene/camera/material/viewport work into `src/engine/subsystems/initScene.ts` (**2,117 LOC**, far beyond the 480 LOC spec budget). The destination is `src/engine/subsystems/` (still inside `src/`) — not `packages/`. Real D.4.1 work = **relocate the existing module** to a `packages/` home, not extract from the god file.
 3. **Destination package missing**: `packages/renderer-three/` does not exist. Renderer team adopted `packages/renderer/` (`@pryzm/renderer` L5) instead. 8 D.4 doc references to `packages/renderer-three/` across 7 files need a name decision.
 4. **Importer cluster 11, not 28** — 39 % of estimate. Below the 1.2× threshold of `03-WAVE-2-3-D4-EXECUTION.md §5`, so no SPLIT is needed on the importer axis. Full-repo cluster (124) matches §1 baseline.
-5. **Cross-doc strategy conflict**: `docs/03_PRYZM3/reference/phases/PHASE-1/1A-SKELETON-RAILS.md` (parallel doc system, authored AFTER this file) builds a NEW `apps/editor/src/bootstrap.ts` boot path mutually exclusive with the legacy `EngineBootstrap.ts` path, gated on `?pryzm2=1`. PHASE-1A explicitly lists `EngineBootstrap.ts` as **NONE migrated in 1A**. D.4 (strangle in place) and PHASE-1A (build parallel, retire later) are **two incompatible strategies** for the same problem. `02-ARCHITECTURE.md §6` is silent on which wins.
+5. **Cross-doc strategy conflict**: `docs/archive/pryzm3-internal/reference/phases/PHASE-1/1A-SKELETON-RAILS.md` (parallel doc system, authored AFTER this file) builds a NEW `apps/editor/src/bootstrap.ts` boot path mutually exclusive with the legacy `EngineBootstrap.ts` path, gated on `?pryzm2=1`. PHASE-1A explicitly lists `EngineBootstrap.ts` as **NONE migrated in 1A**. D.4 (strangle in place) and PHASE-1A (build parallel, retire later) are **two incompatible strategies** for the same problem. `02-ARCHITECTURE.md §6` is silent on which wins.
 
 **Three reconciliation options for the founder** (full text in `01-CRITICAL-PATH-D4.md §3`):
 - **A**: D.4 wins; PHASE-1A retired. Rebase D.4.1 to match HEAD; relocate `initScene.ts` → `packages/renderer/src/SceneBootstrap.ts`; rewrite 11 importers; LOC budget = 2,117 LOC moved.
@@ -1824,8 +1824,8 @@ Continuation of the same evening session. Tasks 4 closed earlier (entry below). 
 
 | Scope | Owner | Status |
 |---|---|---|
-| Active 04-PLAN-FORWARD prose that describes the OLD layout (e.g. the OLD→NEW mapping in §15.11.1, Wave-1 §7 itself, Wave-8 T1 deliverable text in file 11) — these MUST literally contain the OLD strings to function | Wave 1 task 6 | `0` stale **link targets** in `docs/03_PRYZM3/04-PLAN-FORWARD/[0-9][0-9]-*.md` outside the scoped prose blocks; verified by a narrowed verifier (see below) |
-| 344-reach repo-wide rewrite (the rest of `docs/03_PRYZM3/`, source-code historical comments, plugin READMEs) | Wave 8 T1 | scheduled S88-WIRE D1-D3, deliverable `scripts/codemod-restructure-2026-04-30.mjs` |
+| Active 04-PLAN-FORWARD prose that describes the OLD layout (e.g. the OLD→NEW mapping in §15.11.1, Wave-1 §7 itself, Wave-8 T1 deliverable text in file 11) — these MUST literally contain the OLD strings to function | Wave 1 task 6 | `0` stale **link targets** in `docs/archive/pryzm3-internal/04-PLAN-FORWARD/[0-9][0-9]-*.md` outside the scoped prose blocks; verified by a narrowed verifier (see below) |
+| 344-reach repo-wide rewrite (the rest of `docs/archive/pryzm3-internal/`, source-code historical comments, plugin READMEs) | Wave 8 T1 | scheduled S88-WIRE D1-D3, deliverable `scripts/codemod-restructure-2026-04-30.mjs` |
 
 The Wave 1 task 6 verifier in `02-WAVE-1-TRIPWIRES.md §7` and the §9 exit-gate row are rewritten to reflect this honest scope partition. Exit-gate row for task 6 now reads: `there is no NEW link in 04-PLAN-FORWARD/[0-9][0-9]-*.md that points to a stale OLD path outside of explicit prose-describing-the-rewrite blocks` — verified today.
 
@@ -2307,17 +2307,17 @@ The morning measurement scoped to `src/ui/` (773 reaches, 96 files). The broader
 
 ### §15.3 — Round-4 finding R4-3: CITATION ROT — 51 fake-path citations across 12 phase doc files
 
-`rg -l "00_NEW_ARCHITECTURE" docs/03_PRYZM3/reference/phases/ | wc -l` = **12 phase doc files**.
-`rg -c "00_NEW_ARCHITECTURE" docs/03_PRYZM3/reference/phases/` summed = **51 occurrences**.
+`rg -l "00_NEW_ARCHITECTURE" docs/archive/pryzm3-internal/reference/phases/ | wc -l` = **12 phase doc files**.
+`rg -c "00_NEW_ARCHITECTURE" docs/archive/pryzm3-internal/reference/phases/` summed = **51 occurrences**.
 
 Every phase doc (1A, 1B, 1C, 1D, 2A, 2B, 2B-SUPPLEMENT, 2C, 2D, 3A, 3A-OVERVIEW, 3B, 3B-OVERVIEW, 3B-PRE-WORK, 3C, 3C-OVERVIEW, 3D + the four PHASE-X 00 docs) carries authority-note headers like:
 
 > "subordinate to: 1. The 12 specs in `docs/00_NEW_ARCHITECTURE/specs/` (SPEC-01..SPEC-12). 2. The 22 strategic ADRs in `docs/00_NEW_ARCHITECTURE/adrs/` (ADR-001..ADR-024)..."
 
 **`docs/00_NEW_ARCHITECTURE/` does not exist.** The actual locations are:
-- `docs/03_PRYZM3/reference/specs/` — 40 SPEC files (SPEC-01..SPEC-12 plus 28 supplements)
-- `docs/03_PRYZM3/reference/adrs/` — 44 strategic ADR files (ADR-001..ADR-024 plus 20 supplements)
-- `docs/architecture/adr/` — 56 code-level ADR files (NNNN-slug.md)
+- `docs/archive/pryzm3-internal/reference/specs/` — 40 SPEC files (SPEC-01..SPEC-12 plus 28 supplements)
+- `docs/archive/pryzm3-internal/reference/adrs/` — 44 strategic ADR files (ADR-001..ADR-024 plus 20 supplements)
+- `docs/02-decisions/adrs/` — 56 code-level ADR files (NNNN-slug.md)
 
 Total = **140 architectural decision documents at WRONG paths in every phase doc citation.** When a Wave 9-20 engineer greps for SPEC-04 or strategic ADR-018, they hit broken links. **Wave 8 D1 must run a citation-rot codemod BEFORE Wave 9 starts** to rewrite all 51 occurrences.
 
@@ -2412,23 +2412,23 @@ Per the founder's "do clean documentation" instruction, the consolidated CLEAN M
 
 | OLD path | NEW path | Status |
 |---|---|---|
-| `docs/00_NEW_ARCHITECTURE/specs/SPEC-NN-*.md` | `docs/03_PRYZM3/reference/specs/SPEC-NN-*.md` (40 files) | ✅ exists |
-| `docs/00_NEW_ARCHITECTURE/adrs/ADR-NNN-*.md` | `docs/03_PRYZM3/reference/adrs/ADR-NNN-*.md` (44 strategic + 1 M28 = 45 files) | ✅ exists |
-| `docs/00_NEW_ARCHITECTURE/phases/PHASE-X-...md` | `docs/03_PRYZM3/reference/phases/PHASE-X/X-...md` (21 phase docs) | ✅ exists |
-| `docs/00_NEW_ARCHITECTURE/PROCESS-TRACKER.md` | `docs/03_PRYZM3/reference/status-detail/` (or archived) | check archive |
-| `docs/00_NEW_ARCHITECTURE/audits/PHASE-X-...md` | `docs/03_PRYZM3/archive/superseded-audits/phase-{1,2,3}-audit-trail/` | ✅ archived |
-| `docs/00_NEW_ARCHITECTURE/CRITICAL-REVIEW-2026-04-27.md` | `docs/03_PRYZM3/archive/superseded-2026-04-30/03_STATUS/` | ✅ archived |
-| `docs/00_NEW_ARCHITECTURE/10-MASTER-IMPLEMENTATION-PLAN-36M.md` | `docs/03_PRYZM3/reference/plan-detail/01-MASTER-36M.md` | ✅ exists |
-| `docs/00_NEW_ARCHITECTURE/00_VISION/...` | `docs/03_PRYZM3/01-VISION.md` (consolidated top-level) | ✅ exists |
-| `docs/00_NEW_ARCHITECTURE/01_ARCHITECTURE/...` | `docs/03_PRYZM3/02-ARCHITECTURE.md` + `reference/architecture-detail/` | ✅ exists |
-| `docs/00_NEW_ARCHITECTURE/02_PLAN/...` | `docs/03_PRYZM3/04-PLAN-FORWARD/` (12 files) + `reference/plan-detail/` | ✅ exists |
-| `docs/00_NEW_ARCHITECTURE/03_STATUS/...` | `docs/03_PRYZM3/03-CURRENT-STATE.md` (this file) + `reference/status-detail/` | ✅ exists |
+| `docs/00_NEW_ARCHITECTURE/specs/SPEC-NN-*.md` | `docs/archive/pryzm3-internal/reference/specs/SPEC-NN-*.md` (40 files) | ✅ exists |
+| `docs/00_NEW_ARCHITECTURE/adrs/ADR-NNN-*.md` | `docs/archive/pryzm3-internal/reference/adrs/ADR-NNN-*.md` (44 strategic + 1 M28 = 45 files) | ✅ exists |
+| `docs/00_NEW_ARCHITECTURE/phases/PHASE-X-...md` | `docs/archive/pryzm3-internal/reference/phases/PHASE-X/X-...md` (21 phase docs) | ✅ exists |
+| `docs/00_NEW_ARCHITECTURE/PROCESS-TRACKER.md` | `docs/archive/pryzm3-internal/reference/status-detail/` (or archived) | check archive |
+| `docs/00_NEW_ARCHITECTURE/audits/PHASE-X-...md` | `docs/archive/pryzm3-internal/archive/superseded-audits/phase-{1,2,3}-audit-trail/` | ✅ archived |
+| `docs/00_NEW_ARCHITECTURE/CRITICAL-REVIEW-2026-04-27.md` | `docs/archive/pryzm3-internal/archive/superseded-2026-04-30/03_STATUS/` | ✅ archived |
+| `docs/00_NEW_ARCHITECTURE/10-MASTER-IMPLEMENTATION-PLAN-36M.md` | `docs/archive/pryzm3-internal/reference/plan-detail/01-MASTER-36M.md` | ✅ exists |
+| `docs/00_NEW_ARCHITECTURE/00_VISION/...` | `docs/archive/pryzm3-internal/01-VISION.md` (consolidated top-level) | ✅ exists |
+| `docs/00_NEW_ARCHITECTURE/01_ARCHITECTURE/...` | `docs/archive/pryzm3-internal/02-ARCHITECTURE.md` + `reference/architecture-detail/` | ✅ exists |
+| `docs/00_NEW_ARCHITECTURE/02_PLAN/...` | `docs/archive/pryzm3-internal/04-PLAN-FORWARD/` (12 files) + `reference/plan-detail/` | ✅ exists |
+| `docs/00_NEW_ARCHITECTURE/03_STATUS/...` | `docs/archive/pryzm3-internal/03-CURRENT-STATE.md` (this file) + `reference/status-detail/` | ✅ exists |
 
-**The 12 SPECs and 22+ strategic ADRs that the founder named explicitly DO EXIST** at `docs/03_PRYZM3/reference/specs/SPEC-01..SPEC-12*` and `docs/03_PRYZM3/reference/adrs/ADR-001..ADR-024*`. The founder's prior reminder is correct. My Round-4 framing of "DOES NOT EXIST" was a **path-grep mistake** — the path didn't resolve, but the CONTENT was moved, not deleted.
+**The 12 SPECs and 22+ strategic ADRs that the founder named explicitly DO EXIST** at `docs/archive/pryzm3-internal/reference/specs/SPEC-01..SPEC-12*` and `docs/archive/pryzm3-internal/reference/adrs/ADR-001..ADR-024*`. The founder's prior reminder is correct. My Round-4 framing of "DOES NOT EXIST" was a **path-grep mistake** — the path didn't resolve, but the CONTENT was moved, not deleted.
 
 #### §15.11.2 — Correction R5-2: Citation rot was UNDERSTATED 5× (Round-4 said 51 across 12 phase docs; truth is 344 across 77 PRYZM3 doc files)
 
-I scoped the rg to `docs/03_PRYZM3/reference/phases/` only. The TRUE count walking ALL of `docs/03_PRYZM3/`:
+I scoped the rg to `docs/archive/pryzm3-internal/reference/phases/` only. The TRUE count walking ALL of `docs/archive/pryzm3-internal/`:
 
 | Stale path | Reaches | Files affected |
 |---|---:|---:|
@@ -2455,7 +2455,7 @@ I cited "12 phase docs" — that count was the rg-affected file count under `pha
 
 #### §15.11.4 — Correction R5-4: PHASE-4 (BIM 2.0) is OUT-OF-SCOPE for Wave 8-20 but EXISTS as 12 more sprints (~24 weeks)
 
-`docs/03_PRYZM3/reference/phases/PHASE-4-POST-GA/4-BIM2-CLOSURE.md` defines **Phase 4: BIM 2.0 Contractual Closure**, Y4 Q1+Q2, months 37-42, sprints **S73-S84** (12 sprints), with **9 binding deliverables** each tied to its own SPEC:
+`docs/archive/pryzm3-internal/reference/phases/PHASE-4-POST-GA/4-BIM2-CLOSURE.md` defines **Phase 4: BIM 2.0 Contractual Closure**, Y4 Q1+Q2, months 37-42, sprints **S73-S84** (12 sprints), with **9 binding deliverables** each tied to its own SPEC:
 1. CDE module with ISO 19650 status codes (SPEC-32 + ADR-031)
 2. Stakeholder Review Wedge — free unlimited reviewer seats (SPEC-33 + ADR-036)
 3. Hybrid Data Sovereignty — local/cloud-region/hybrid/self-host (SPEC-34 + ADR-037)
@@ -2731,8 +2731,8 @@ Deliverables changed:
 3. `src/ui/__tests__/binding/AnnotationInputPanel.spec.ts` — new panel binding spec.
 4. `packages/command-bus/src/commands.ts` — 101 new entries, wave-6-c-d10 block.
 5. `packages/command-bus/src/index.ts` — d7–d10 type exports added.
-6. `docs/03_PRYZM3/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md` — Day 9 + Day 10 rows → ✅ Done.
-7. `docs/03_PRYZM3/03-CURRENT-STATE.md §10` — this entry.
+6. `docs/archive/pryzm3-internal/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md` — Day 9 + Day 10 rows → ✅ Done.
+7. `docs/archive/pryzm3-internal/03-CURRENT-STATE.md §10` — this entry.
 
 ### §15.14 — Wave 7 WS-A: S84-WIRE + S85-WIRE cast gates closed (2026-05-01)
 
@@ -2764,8 +2764,8 @@ S85-WIRE cast verifier (≤ 40): **✅ 15 ≤ 40**
 3. `src/engine/subsystems/initUI.ts` — dynamic-key cast changed to `(window as unknown as Record<string, unknown>)`.
 4. `src/legacy/window-shim.ts` — 3 JSDoc comment hits cleaned.
 5. `src/engine/subsystems/legacy/window-shim.ts` — 3 JSDoc comment hits cleaned.
-6. `docs/03_PRYZM3/04-PLAN-FORWARD/11-WAVE-7-CLEANUP-PHASE-F.md` — S84/S85 closure delta added after §2 S85 verifier block.
-7. `docs/03_PRYZM3/03-CURRENT-STATE.md §15.14` — this entry.
+6. `docs/archive/pryzm3-internal/04-PLAN-FORWARD/11-WAVE-7-CLEANUP-PHASE-F.md` — S84/S85 closure delta added after §2 S85 verifier block.
+7. `docs/archive/pryzm3-internal/03-CURRENT-STATE.md §15.14` — this entry.
 
 **Remaining WS-A open items**: rAF consolidation (18 src/ files → 1 Scheduler.ts owner) is S85-WIRE's second gate; S86-WIRE EngineBootstrap deletion follows.
 
@@ -2802,9 +2802,9 @@ ls -d src/*/        → core/ elements/ engine/ ui/ (4 folders) ✅
 2. `packages/spatial-index/package.json` + `packages/spatial-index/tsconfig.json` + `packages/spatial-index/src/index.ts` — Wave 8 stub created.
 3. `package.json` (root) — `@pryzm/snapping` + `@pryzm/spatial-index` added to `dependencies` (`workspace:*`); `pnpm install` run to link both into `node_modules/@pryzm/snapping` and `node_modules/@pryzm/spatial-index`. **Required because pnpm only links workspace packages that appear in at least one member's `dependencies` field.** Prior to this, `@pryzm/picking/snapping` in `packages/snapping/src/index.ts` would resolve correctly (because `@pryzm/picking` is already linked), but `@pryzm/snapping` itself was not importable by any consumer.
 4. Resolution chain fully verified: `packages/picking/package.json` exports field has `"./snapping": "./src/snapping/index.ts"` ✅; `packages/picking/src/snapping/index.ts` re-exports 16 files (types, SpatialGrid, GeometryUtils, SnapManager, SnapVisualizer, 11 providers); all 16 source files confirmed present on disk ✅; `node_modules/@pryzm/snapping` and `node_modules/@pryzm/spatial-index` now linked ✅.
-5. `docs/03_PRYZM3/04-PLAN-FORWARD/03-WAVE-2-3-D4-EXECUTION.md §8` — status paragraph + closure path summary corrected (count 5→4; S97-WIRE partial documented; Wave 8 exit gate CLOSED).
-6. `docs/03_PRYZM3/04-PLAN-FORWARD/15-PACKAGE-POPULATION-GAP.md §0.0.10` — Wave 8 verifier row marked ✅ VERIFIED 2026-05-01 (S98-WIRE).
-7. `docs/03_PRYZM3/03-CURRENT-STATE.md §15.15` — this entry.
+5. `docs/archive/pryzm3-internal/04-PLAN-FORWARD/03-WAVE-2-3-D4-EXECUTION.md §8` — status paragraph + closure path summary corrected (count 5→4; S97-WIRE partial documented; Wave 8 exit gate CLOSED).
+6. `docs/archive/pryzm3-internal/04-PLAN-FORWARD/15-PACKAGE-POPULATION-GAP.md §0.0.10` — Wave 8 verifier row marked ✅ VERIFIED 2026-05-01 (S98-WIRE).
+7. `docs/archive/pryzm3-internal/03-CURRENT-STATE.md §15.15` — this entry.
 
 **Next highest-value task (Wave 9 gate)**: `src/elements/` strangler-fig — 230 external importers must be progressively migrated to `@pryzm/elements` (`packages/elements/`). Wave 9 is a large-scale undertaking; the per-element-type migration plan is in `15-PACKAGE-POPULATION-GAP.md §0.0.9`.
 

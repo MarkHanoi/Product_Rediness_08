@@ -1,6 +1,6 @@
 # View State Architecture
 
-> Companion: `docs/architecture/adr/0016-view-state-command-driven.md`
+> Companion: `docs/02-decisions/adrs/0016-view-state-command-driven.md`
 > Phase: 1C · Sprint S17 · Owner: A
 
 ## Summary

@@ -180,12 +180,12 @@ package.json                                     ← root; do not edit
 .gitignore                                       ← do not edit
 playwright.config.ts                             ← W-1B-3, not in this list
 replit.md                                        ← do not edit
-docs/architecture/                               ← S21–S24 own bake-worker.md,
+docs/04-reference/architecture-detail/                               ← S21–S24 own bake-worker.md,
                                                    sync-server-protocol.md, loader.md;
                                                    W-1C-9 owns picking.md etc.
-docs/sprints/                                    ← S24 owns S25.md; W-1C-9 owns S18-retro.md
-docs/retros/                                     ← S24 owns PHASE-1-CLOSE.md
-docs/demos/                                      ← S24 + W-1C-9
+docs/03-execution/status/sprints/                                    ← S24 owns S25.md; W-1C-9 owns S18-retro.md
+docs/03-execution/status/retros/                                     ← S24 owns PHASE-1-CLOSE.md
+docs/05-guides/developer/demos/                                      ← S24 + W-1C-9
 docs/bench/                                      ← W-1C-6
 docs/file-format/                                ← S20
 docs/00_NEW_ARCHITECTURE/                        ← do not edit (only the audit

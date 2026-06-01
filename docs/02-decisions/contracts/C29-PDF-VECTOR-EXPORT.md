@@ -5,8 +5,8 @@
 > **Depends on**: [C24](C24-SHEET-COMPOSITION-ENGINE.md) (sheet canvas + drawing-primitives substrate), [C04](C04-RENDERING-AND-SCHEDULING.md), [C05](C05-PERSISTENCE-AND-FILE-FORMAT.md) (export pipeline).
 > **Downstream**: [C30](C30-DRAWING-SET-MANAGEMENT.md) (multi-sheet PDF package).
 > **Key principles**: **P5** (PDF config schema pure), **P8** (every export call carries a span).
-> **Master plan**: [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md §8.3 SCE-β-2](../03_PRYZM3/PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md).
-> **Prior-art**: [PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md §3.7](../03_PRYZM3/PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md). PRYZM 2 ref: ADR-0029 (drawing-primitives multi-backend).
+> **Master plan**: [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md §8.3 SCE-β-2](../03-execution/plans/master-implementation-plan.md).
+> **Prior-art**: [PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md §3.7](../03-execution/status/prior-art-audit-2026-05-31.md). PRYZM 2 ref: ADR-0029 (drawing-primitives multi-backend).
 
 ---
 

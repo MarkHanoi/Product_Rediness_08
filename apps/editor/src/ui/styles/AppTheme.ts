@@ -10,7 +10,7 @@
  * and style injection.
  *
  * BOOT-SHELL CARVE-OUT (Wave 1.5b — App-Shell first paint, see
- * `docs/03_PRYZM3/02-ARCHITECTURE.md §6` Stage 0):
+ * `docs/archive/pryzm3-internal/02-ARCHITECTURE.md §6` Stage 0):
  *   index.html contains an inline <style> block with the `lp-skel-*` class
  *   prefix that paints the landing-page navbar + hero + CTA card BEFORE
  *   any module script runs.  This is the only CSS allowed to live outside

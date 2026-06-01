@@ -7,7 +7,7 @@
  *   • Element creation layer (Alt+letter) — see
  *     docs/00_AI_COMMANDS_REFERENCE/PRYZM-CREATION-SHORTCUTS.md
  *   • Contextual edit layer (single letter when an element is selected) —
- *     see docs/00_Contracts/11-KEYBOARD-SHORTCUTS-CONTRACT.md
+ *     see docs/02-decisions/contracts/11-KEYBOARD-SHORTCUTS-CONTRACT.md
  *   • Global layer (Ctrl+Z, Escape, etc.)
  *   • Visibility layer (H / I / G with selection)
  *

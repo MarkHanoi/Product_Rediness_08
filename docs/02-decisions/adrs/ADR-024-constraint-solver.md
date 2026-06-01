@@ -17,7 +17,7 @@ D10 (in-editor parametric component / family authoring) is a v1 differentiator. 
 
 `SPEC-01 §4` proposes the solver shape, the phase gating, and the library choice. This ADR ratifies it before Phase 3A start.
 
-> **Naming note.** `phases/PHASE-2B` uses the number ADR-024 informally for "Section view cut algorithm." That phase-doc usage is sprint-scoped working notation; the **canonical** ADR-024 in the strategic series (`docs/03_PRYZM3/reference/adrs/`) is this constraint-solver ADR, per SPEC-01 §4 and SPEC-01 §10's authoritative cross-reference.
+> **Naming note.** `phases/PHASE-2B` uses the number ADR-024 informally for "Section view cut algorithm." That phase-doc usage is sprint-scoped working notation; the **canonical** ADR-024 in the strategic series (`docs/02-decisions/adrs/`) is this constraint-solver ADR, per SPEC-01 §4 and SPEC-01 §10's authoritative cross-reference.
 
 ---
 

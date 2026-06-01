@@ -183,7 +183,7 @@ When two files within this folder disagree (e.g. a slice budget in `01-CRITICAL-
 
 The 6 binding rules — merge blockers, not "best efforts":
 
-1. **Edit, don't fork.** When a discrepancy is discovered, edit the canonical document. Do not write `*-AUDIT-2026-MM-DD.md`. CI lint blocks new top-level docs in `docs/03_PRYZM3/`.
+1. **Edit, don't fork.** When a discrepancy is discovered, edit the canonical document. Do not write `*-AUDIT-2026-MM-DD.md`. CI lint blocks new top-level docs in `docs/archive/pryzm3-internal/`.
 2. **Runtime-only "done".** A sub-phase is done when the runtime behaviour matches the spec. Documentation-only changes do not advance the counter.
 3. **Weekly metric refresh.** The 13 verifiers in `../03-CURRENT-STATE.md §1` are re-run every sprint close. Wrong-direction drift on a tripwired metric is an incident.
 4. **Phase F gate.** Phase F cannot start until 6 of 9 convergence booleans are true (end of Wave 6).

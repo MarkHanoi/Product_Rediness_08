@@ -9,7 +9,7 @@
 ## Context
 
 `packages/geometry-kernel/` (L4) is the most-tested expression of P1 from
-`docs/03_PRYZM3/01-TARGET-ARCHITECTURE.md §0`:
+`docs/archive/pryzm3-internal/01-TARGET-ARCHITECTURE.md §0`:
 
 > *Domain is pure.  No `THREE`, no `OBC`, no DOM, no `window` reads.
 >  Runs in Node and the browser unchanged.*
@@ -179,7 +179,7 @@ reverted before merge.
 ## See also
 
 * `phases/PHASE-1B-Q2-M4-M6-WALL-END-TO-END.md §S08` — full sprint plan.
-* `docs/architecture/adr/0005-primitive-committer-interface.md` —
+* `docs/02-decisions/adrs/0005-primitive-committer-interface.md` —
   committer-side counterpart that consumes `BufferGeometryDescriptor`.
-* `docs/architecture/parity-fixtures.md` — fixture format + capture
+* `docs/04-reference/architecture-detail/parity-fixtures.md` — fixture format + capture
   procedure used to enforce K1-B.

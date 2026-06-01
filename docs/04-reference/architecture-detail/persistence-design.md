@@ -5,7 +5,7 @@
 >
 > Owner package: `packages/persistence-client/`.
 >
-> Source spec: `docs/03_PRYZM3/reference/phases/PHASE-1/1A-Q1-M1-M3-SKELETON-RAILS.md` §S03-T6..T9 (lines 374–377).
+> Source spec: `docs/03-execution/plans/legacy/phases/PHASE-1/1A-Q1-M1-M3-SKELETON-RAILS.md` §S03-T6..T9 (lines 374–377).
 
 ## Why this package exists
 
@@ -162,7 +162,7 @@ storing the structured-clone `PersistedEvent` directly).
 
 ## References
 
-- `docs/03_PRYZM3/reference/phases/PHASE-1/1A-Q1-M1-M3-SKELETON-RAILS.md` §S03-T6..T9 (lines 374–377)
-- `docs/architecture/adr/0004-msgpack-codec.md` (draft — ratified S04)
+- `docs/03-execution/plans/legacy/phases/PHASE-1/1A-Q1-M1-M3-SKELETON-RAILS.md` §S03-T6..T9 (lines 374–377)
+- `docs/02-decisions/adrs/0004-msgpack-codec.md` (draft — ratified S04)
 - `packages/command-bus/src/types.ts` — `EventRecord` shape
 - `packages/persistence-client/src/types.ts` — public type surface

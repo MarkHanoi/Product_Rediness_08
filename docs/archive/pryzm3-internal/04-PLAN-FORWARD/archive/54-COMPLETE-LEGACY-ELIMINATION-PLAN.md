@@ -828,7 +828,7 @@ npx tsx tools/ga-gate/run-all.ts   # → 0
 
 **Objective:** Replace `StoreEventBus` batch coordination in `@pryzm/core-app-model` with Yjs per-level `Y.Doc` boundaries.  
 **Blocked by:** Phase G3-T2 (Yjs per-level CRDT — ADR-049, already implemented at the doc level; needs the batch coordination layer removed).  
-**Covered in detail by:** `docs/03_PRYZM3/04-PLAN-FORWARD/29-WAVE-A19-YJS-COLLABORATION.md §G3-T2`.
+**Covered in detail by:** `docs/archive/pryzm3-internal/04-PLAN-FORWARD/29-WAVE-A19-YJS-COLLABORATION.md §G3-T2`.
 
 **Key files to change:**
 - `packages/core-app-model/src/StoreEventBus.ts` → delete when last subscriber removed

@@ -1,5 +1,5 @@
 // engineLauncher.ts — BIM engine orchestration entry point (Task 5.2 refactor).
-// Spec: docs/03_PRYZM3/04-PLAN-FORWARD/46-IMPLEMENTATION-PLAN-2026-05-08.md §5.2
+// Spec: docs/archive/pryzm3-internal/04-PLAN-FORWARD/46-IMPLEMENTATION-PLAN-2026-05-08.md §5.2
 import { enablePatches } from 'immer';
 import { flushRuntimeEventListeners } from './runtimeEventBridge';
 enablePatches();

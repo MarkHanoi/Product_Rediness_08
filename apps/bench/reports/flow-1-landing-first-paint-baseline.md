@@ -4,7 +4,7 @@
 > **Captured**: 2026-04-30
 > **Hardware**: Replit Linux container ; Node v20.20.0 ; shared CPU
 > **Bench harness**: `apps/bench/src/benches/landing-first-paint.bench.ts` (vitest run)
-> **Source spec**: `docs/03_PRYZM3/04-PLAN-FORWARD/04-END-TO-END-FLOWS-AND-COVERAGE.md` §1 Flow 1 (NFT-1 verifier).
+> **Source spec**: `docs/archive/pryzm3-internal/04-PLAN-FORWARD/04-END-TO-END-FLOWS-AND-COVERAGE.md` §1 Flow 1 (NFT-1 verifier).
 > **Companion**: in-browser wall-clock harness ships with `apps/editor-bench/` (Wave 13); the entry below is the headless proxy.
 
 ---

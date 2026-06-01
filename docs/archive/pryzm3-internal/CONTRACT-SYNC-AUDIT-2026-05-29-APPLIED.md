@@ -150,12 +150,12 @@ Estimated effort: **half a day for items 1–6**. Items 7 are cosmetic and can r
 
 ## §6 — Cross-references
 
-- `docs/00_Contracts/C00-INDEX.md` — contract suite index.
-- `docs/00_Contracts/C09-AI-AND-VISIBILITY-INTENT.md` — main amendment target.
-- `docs/00_Contracts/C15-HOSTED-ELEMENT-CONTRACT.md` — ADR-0055 cross-ref target.
-- `docs/00_Contracts/C17-BATCH-CREATION-CATALOGUE-AND-PANEL-BINDING.md` — row precision target.
-- `docs/03_PRYZM3/reference/specs/SPEC-APARTMENT-LAYOUT-GENERATOR.md` — referenced by C09 §3.4.
-- `docs/03_PRYZM3/reference/specs/SPEC-TGL-DETERMINISTIC-LAYOUT-ENGINE.md` — sibling of the two new SPECs to create.
-- `docs/03_PRYZM3/reference/specs/SPEC-FURNITURE-LAYOUT-ENGINE.md` — sibling.
-- `docs/03_PRYZM3/reference/specs/SPEC-ARCHITECTURAL-PROGRAM-RULES.md` — where program-rules tuning belongs.
-- `docs/03_PRYZM3/reference/adrs/ADR-0055-*.md` + `ADR-0055A-*.md` — V2 wall pipeline.
+- `docs/02-decisions/contracts/C00-INDEX.md` — contract suite index.
+- `docs/02-decisions/contracts/C09-AI-AND-VISIBILITY-INTENT.md` — main amendment target.
+- `docs/02-decisions/contracts/C15-HOSTED-ELEMENT-CONTRACT.md` — ADR-0055 cross-ref target.
+- `docs/02-decisions/contracts/C17-BATCH-CREATION-CATALOGUE-AND-PANEL-BINDING.md` — row precision target.
+- `docs/archive/pryzm3-internal/reference/specs/SPEC-APARTMENT-LAYOUT-GENERATOR.md` — referenced by C09 §3.4.
+- `docs/archive/pryzm3-internal/reference/specs/SPEC-TGL-DETERMINISTIC-LAYOUT-ENGINE.md` — sibling of the two new SPECs to create.
+- `docs/archive/pryzm3-internal/reference/specs/SPEC-FURNITURE-LAYOUT-ENGINE.md` — sibling.
+- `docs/archive/pryzm3-internal/reference/specs/SPEC-ARCHITECTURAL-PROGRAM-RULES.md` — where program-rules tuning belongs.
+- `docs/archive/pryzm3-internal/reference/adrs/ADR-0055-*.md` + `ADR-0055A-*.md` — V2 wall pipeline.

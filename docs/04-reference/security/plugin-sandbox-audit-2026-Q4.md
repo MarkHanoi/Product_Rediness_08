@@ -1,7 +1,7 @@
 # Plugin Sandbox Audit — 2026-Q4 (S68 D4)
 
 **Sprint**: PRYZM 2 Phase 3D · S68 D4
-**Spec ref**: `docs/03_PRYZM3/reference/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S68 D4 — "sandbox audit (independent confirmation no escapes)"
+**Spec ref**: `docs/03-execution/plans/legacy/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S68 D4 — "sandbox audit (independent confirmation no escapes)"
 **Exit-criteria target**: "Plugin sandbox audit (independent confirmation no escapes)" (S68 exit-criteria table row 3).
 **Phase 3C carry-forward**: `[strategic ADR-038]` §Decision B + `phases/PHASE-3C-Q3-M31-M33-SDK-MARKETPLACE-PUBLIC-API.md` §S62 D4/D7.
 
@@ -44,7 +44,7 @@ The combination of `allow-scripts` (without `allow-same-origin`) gives the plugi
 
 ## §3 CSP — confirmed correct
 
-The CSP generated per-plugin by `buildPluginCSP(manifest)` is reproduced and justified in `docs/security/csp-audit-2026-Q4.md` §3.1. Five points worth restating here:
+The CSP generated per-plugin by `buildPluginCSP(manifest)` is reproduced and justified in `docs/04-reference/security/csp-audit-2026-Q4.md` §3.1. Five points worth restating here:
 
 1. **`default-src 'none'`** — strict deny by default; every directive explicitly opts in.
 2. **`connect-src` is `'none'` when `network:fetch` permission is absent** — the network reach of a plugin is gated by an explicit manifest permission, not by host policy.
@@ -103,4 +103,4 @@ If the third-party audit (§4.3) finds a host-runtime escape, the fix lands in `
 ---
 
 **Authored by**: sprint-S68 (2026-04-28)
-**Companion docs**: `docs/security/csp-audit-2026-Q4.md`, `docs/security/scans-2026-Q4-baseline.md`.
+**Companion docs**: `docs/04-reference/security/csp-audit-2026-Q4.md`, `docs/04-reference/security/scans-2026-Q4-baseline.md`.

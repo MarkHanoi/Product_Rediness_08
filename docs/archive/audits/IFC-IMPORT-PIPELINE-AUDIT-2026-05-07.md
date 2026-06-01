@@ -208,7 +208,7 @@ _restoreIfcUploads(projectId)
 
 ### 3.1 Documented Architecture
 
-Per `docs/03_PRYZM3/02-ARCHITECTURE.md` and `docs/00_Contracts/C07-PLUGIN-SDK-AND-MARKETPLACE.md`, IFC import is meant to be a plugin that:
+Per `docs/archive/pryzm3-internal/02-ARCHITECTURE.md` and `docs/02-decisions/contracts/C07-PLUGIN-SDK-AND-MARKETPLACE.md`, IFC import is meant to be a plugin that:
 - Contributes the `ifc.import.file` command via `PluginManifest.contributions`
 - Handles imports through the `IfcImportPluginHandler` interface
 - Gets wired into `runtime.ifc.importFile()` slot by the SDK host

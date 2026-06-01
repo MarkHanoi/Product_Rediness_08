@@ -161,7 +161,7 @@ Each row carries the *one* shell command (or file inspection) that proves the st
 ## §0 — Wireup-plan doc consolidation roadmap (added 2026-04-29)
 
 > **Why this section exists.**  The wireup-plan effort currently spans
-> **36 markdown files** under `docs/03_PRYZM3/03_PRYZM3/reference/phases/audits/`:
+> **36 markdown files** under `docs/archive/pryzm3-internal/03_PRYZM3/reference/phases/audits/`:
 > 28 top-level chunks in `PRYZM2-WIREUP-PLAN-S72/` (00-INDEX through 28),
 > 8 nested files in `PRYZM2-WIREUP-PLAN-S72/PHASES-A-F-RECONCILIATION-2026-04-29/`
 > (00-INDEX, 01-phase-A, 02-phase-B, 03-phase-C, 04-phase-D, 05-phase-E
@@ -187,7 +187,7 @@ Each row carries the *one* shell command (or file inspection) that proves the st
 
 **Tier-1 retire (28 files)** — chunks whose content is now fully captured
 in this doc's Part II / §II.99 sections.  Move under
-`docs/03_PRYZM3/03_PRYZM3/reference/phases/audits/_archive/PRYZM2-WIREUP-PLAN-S72/`
+`docs/archive/pryzm3-internal/03_PRYZM3/reference/phases/audits/_archive/PRYZM2-WIREUP-PLAN-S72/`
 to preserve git-blame history without polluting the active set.
 
 | Chunk | Reason for retirement |
@@ -195,7 +195,7 @@ to preserve git-blame history without polluting the active set.
 | `01-overview.md` | Superseded by §0 + plain-language summary above |
 | `02-glossary.md` | Inline in this doc's §II.0 conventions |
 | `03-roles-of-each-doc.md` | Replaced by §0.1 above |
-| `04-decision-record.md` | ADR-041/042/043/044 ratification tracked in `docs/03_PRYZM3/03_PRYZM3/decisions/` directly |
+| `04-decision-record.md` | ADR-041/042/043/044 ratification tracked in `docs/archive/pryzm3-internal/03_PRYZM3/decisions/` directly |
 | `05-walking-skeleton.md` | Implemented; history preserved in git |
 | `06-runtime-composer-contract.md` | Living spec: `packages/runtime-composer/src/types.ts` is now the source of truth |
 | `07-platform-shell-contract.md` | Living spec: `src/ui/platform/PlatformShell.ts` |
@@ -226,9 +226,9 @@ authoritative:
 
 | PR | Action | Verifier |
 |----|--------|----------|
-| **PR-consolidate-1** | `git mv` the 22 Tier-1 chunks into `audits/_archive/PRYZM2-WIREUP-PLAN-S72/`; update `00-INDEX.md` to point to the canonical set in §0.1 above. | `find docs/03_PRYZM3/03_PRYZM3/reference/phases/audits/PRYZM2-WIREUP-PLAN-S72 -maxdepth 1 -name '*.md' \| wc -l` → `6` (00-INDEX + 14-18) |
-| **PR-consolidate-2** | Delete `PHASE-B-PARALLEL-PROGRESS-2026-04-29.md` (already merged into rows 16a–16h above per its §5 self-instruction). | `ls docs/03_PRYZM3/03_PRYZM3/reference/phases/audits/PHASES-A-F-RECONCILIATION-2026-04-29/PHASE-B-PARALLEL-PROGRESS-2026-04-29.md 2>&1 \| grep -c "No such"` → `1` |
-| **PR-consolidate-3** | Add `_archive/README.md` explaining the archive policy (chunks were folded into `PHASES-A-F-MISSING-ITEMS-2026-04-29.md`; consult git log for original bytes). | `test -f docs/03_PRYZM3/03_PRYZM3/reference/phases/audits/_archive/README.md && echo OK` |
+| **PR-consolidate-1** | `git mv` the 22 Tier-1 chunks into `audits/_archive/PRYZM2-WIREUP-PLAN-S72/`; update `00-INDEX.md` to point to the canonical set in §0.1 above. | `find docs/archive/pryzm3-internal/03_PRYZM3/reference/phases/audits/PRYZM2-WIREUP-PLAN-S72 -maxdepth 1 -name '*.md' \| wc -l` → `6` (00-INDEX + 14-18) |
+| **PR-consolidate-2** | Delete `PHASE-B-PARALLEL-PROGRESS-2026-04-29.md` (already merged into rows 16a–16h above per its §5 self-instruction). | `ls docs/archive/pryzm3-internal/03_PRYZM3/reference/phases/audits/PHASES-A-F-RECONCILIATION-2026-04-29/PHASE-B-PARALLEL-PROGRESS-2026-04-29.md 2>&1 \| grep -c "No such"` → `1` |
+| **PR-consolidate-3** | Add `_archive/README.md` explaining the archive policy (chunks were folded into `PHASES-A-F-MISSING-ITEMS-2026-04-29.md`; consult git log for original bytes). | `test -f docs/archive/pryzm3-internal/03_PRYZM3/reference/phases/audits/_archive/README.md && echo OK` |
 
 After these three PRs, the active wireup-plan doc surface drops from
 **36 files → 9 files** (this doc + companion + INDEX + 5 manifests + 1

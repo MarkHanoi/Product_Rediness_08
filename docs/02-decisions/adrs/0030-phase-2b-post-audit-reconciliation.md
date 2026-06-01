@@ -12,7 +12,7 @@
 The 2026-04-27 audit of Phase 2B found a series of governance and code gaps that, while individually small, together undermined the truthfulness of the tracker:
 
 - **Sprint-label conflation** in `PROCESS-TRACKER.md §2B`: S34/S35/S36 each carried two or three different specs in one row.
-- **Three duplicate ADR numbers** in `docs/architecture/adr/`: 0023, 0024, 0025 each claimed by two different ADRs.
+- **Three duplicate ADR numbers** in `docs/02-decisions/adrs/`: 0023, 0024, 0025 each claimed by two different ADRs.
 - **False "85/85 closed"** in `11-GAP-CLOSURE-PLAN.md §1` — four items were demonstrably open.
 - **Architectural lie** in `packages/geometry-kernel/src/edge-projection.ts` — referenced a non-existent `packages/drawing-primitives/` package.
 - **Plugin without tests** — `plugins/annotations/` was the only Phase 2B plugin shipping zero tests.

@@ -501,7 +501,7 @@ export class ContextualEditBar {
 
     /**
      * Contextual keyboard shortcuts — active whenever a BIM element is selected.
-     * Full shortcut table in docs/00_Contracts/11-KEYBOARD-SHORTCUTS-CONTRACT.md.
+     * Full shortcut table in docs/02-decisions/contracts/11-KEYBOARD-SHORTCUTS-CONTRACT.md.
      *
      * Global:   Ctrl+Z  Undo  |  Ctrl+Y  Redo  |  Escape  Cancel active op
      * Transform: MV Move (two-key chord)  |  R Rotate  |  Ctrl+C Copy  |  Ctrl+V Paste

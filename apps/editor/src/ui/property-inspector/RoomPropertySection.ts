@@ -8,7 +8,7 @@
  *
  * Contract:
  *   docs/01_ELEMENTS/09_Rooms_Contract/ROOM-IMPLEMENTATION-PLAN.md §8.1
- *   docs/00_Contracts/05-BIM-UI-ARCHITECTURE-CONTRACT.md
+ *   docs/02-decisions/contracts/05-BIM-UI-ARCHITECTURE-CONTRACT.md
  *
  * Pure DOM factory — no class state. No direct store writes.
  * All mutations go through the legacy command manager.

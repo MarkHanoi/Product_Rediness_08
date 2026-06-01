@@ -4,7 +4,7 @@
 - Sprint: **S41** (Phase 2C — M19–M21, Sheets + Schedules)
 - Authors: PRYZM 2 BIM rebuild
 - Related: ADR-0031 (sheets architecture, S37–S40),
-  `docs/03_PRYZM3/reference/phases/PHASE-2/2C-Q3-M19-M21-SHEETS-SCHEDULES.md` §S41,
+  `docs/03-execution/plans/legacy/phases/PHASE-2/2C-Q3-M19-M21-SHEETS-SCHEDULES.md` §S41,
   `packages/schemas/src/schedule/`,
   `plugins/schedules/`.
 

@@ -119,7 +119,7 @@ node apps/bench/scripts/list-gestures.mjs \
 # Step 3 — cross-reference §16.* sub-phase IDs from this folder
 node apps/bench/scripts/check-gesture-coverage.mjs \
   --gestures .local/audits/gesture-coverage.json \
-  --plan-dir docs/03_PRYZM3/reference/phases/audits/PRYZM2-WIREUP-PLAN-S72/
+  --plan-dir docs/03-execution/plans/legacy/phases/audits/PRYZM2-WIREUP-PLAN-S72/
 
 # Output (non-zero exit = unassigned gestures present):
 #   { assigned: 1832, unassigned: 0, by_subphase: {...} }
@@ -143,7 +143,7 @@ node apps/bench/scripts/check-gesture-coverage.mjs \
 
 # Step 2 — extract the matrix entries
 rg -nP '^\| `(packages/|plugins/|apps/)?[\w-]+`' \
-  docs/03_PRYZM3/reference/phases/audits/PRYZM2-WIREUP-PLAN-S72/21-architecture-to-ui-coverage-matrix.md \
+  docs/03-execution/plans/legacy/phases/audits/PRYZM2-WIREUP-PLAN-S72/21-architecture-to-ui-coverage-matrix.md \
   | sed -E 's/.*`([^`]+)`.*/\1/' \
   | sort -u > .local/audits/matrix-legs.txt
 
@@ -171,7 +171,7 @@ find src/ui -name '*.ts' | sort > .local/audits/ui-fs.txt
 
 # Files mentioned in §12
 rg -nP '`src/ui/[A-Za-z0-9_/-]+\.ts`' \
-  docs/03_PRYZM3/reference/phases/audits/PRYZM2-WIREUP-PLAN-S72/{09,10,11}-ui-inventory-*.md \
+  docs/03-execution/plans/legacy/phases/audits/PRYZM2-WIREUP-PLAN-S72/{09,10,11}-ui-inventory-*.md \
   | sed -E 's/.*`(src\/ui\/[^`]+)`.*/\1/' \
   | sort -u > .local/audits/ui-cited.txt
 
@@ -193,7 +193,7 @@ comm -13 .local/audits/ui-fs.txt .local/audits/ui-cited.txt
 ```bash
 # Step 1 — extract every promised sub-phase ID
 rg -nP '\*\*[A-H](\.\d+){1,3}\*\*' \
-  docs/03_PRYZM3/reference/phases/audits/PRYZM2-WIREUP-PLAN-S72/{14,15,16,17,18,19}-subphases-*.md \
+  docs/03-execution/plans/legacy/phases/audits/PRYZM2-WIREUP-PLAN-S72/{14,15,16,17,18,19}-subphases-*.md \
   | sed -E 's/.*\*\*([A-H](\.\d+){1,3})\*\*.*/\1/' \
   | sort -u > .local/audits/subphases-promised.txt
 
@@ -225,7 +225,7 @@ The second list must always be empty: every merged PR must have a sub-phase ID r
 ```bash
 # Step 1 — promised benches
 rg -nP '`bench/ui/[a-z0-9-]+\.bench\.ts`' \
-  docs/03_PRYZM3/reference/phases/audits/PRYZM2-WIREUP-PLAN-S72/12-ui-perf-benches.md \
+  docs/03-execution/plans/legacy/phases/audits/PRYZM2-WIREUP-PLAN-S72/12-ui-perf-benches.md \
   | sed -E 's/.*`bench\/ui\/([^`]+)`.*/\1/' \
   | sort -u > .local/audits/benches-promised.txt
 
@@ -327,8 +327,8 @@ These five numbers are the living scoreboard. Phase A → H drives them all to t
 If the monolith [`../PRYZM2-ENTERPRISE-WIREUP-PLAN-S72.md`](../00-PLAN.md) is edited, regenerate the chunk files in this folder so they stay byte-identical to the source:
 
 ```bash
-SRC=docs/03_PRYZM3/reference/phases/audits/PRYZM2-ENTERPRISE-WIREUP-PLAN-S72.md
-DST=docs/03_PRYZM3/reference/phases/audits/PRYZM2-WIREUP-PLAN-S72
+SRC=docs/03-execution/plans/legacy/phases/audits/PRYZM2-ENTERPRISE-WIREUP-PLAN-S72.md
+DST=docs/03-execution/plans/legacy/phases/audits/PRYZM2-WIREUP-PLAN-S72
 
 extract() {
   local out="$1" start="$2" end="$3" title="$4"

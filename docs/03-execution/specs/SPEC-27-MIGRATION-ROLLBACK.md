@@ -120,9 +120,9 @@ A zone is deleted only when **all** of:
 
 ---
 
-## §5 The `00_Contracts/` folder fate
+## §5 The `02-decisions/contracts/` folder fate
 
-Per gap review §27, the legacy `00_Contracts/` folder is referenced by PHASE-2A but contains documents largely superseded by SPEC-01..30.
+Per gap review §27, the legacy `02-decisions/contracts/` folder is referenced by PHASE-2A but contains documents largely superseded by SPEC-01..30.
 
 ### §5.1 Per-contract decision
 
@@ -139,10 +139,10 @@ Per gap review §27, the legacy `00_Contracts/` folder is referenced by PHASE-2A
 | `09-RENDERER-CONTRACT.md` | merge into ADR-022 + SPEC-12 | DELETE |
 | `10-DRAWING-CONTRACT.md` | merge into SPEC-04 + SPEC-29 | DELETE |
 | `18-BUNDLE-CHUNK-SPLITTING-CONTRACT.md` | already extended by SPEC-12 | DELETE |
-| (any others) | review case-by-case | move to `archive/00_Contracts/` |
+| (any others) | review case-by-case | move to `archive/02-decisions/contracts/` |
 
 ### §5.2 Sprint schedule
-- S31 — port still-relevant content into target SPECs; move whole folder to `archive/00_Contracts/`; PHASE-2A reference replaced with SPEC-05/SPEC-06 citations.
+- S31 — port still-relevant content into target SPECs; move whole folder to `archive/02-decisions/contracts/`; PHASE-2A reference replaced with SPEC-05/SPEC-06 citations.
 - S32 — README updated; "read in order" deletes the contract pointers.
 
 ---
@@ -203,7 +203,7 @@ Per gap review §27, the legacy `00_Contracts/` folder is referenced by PHASE-2A
 
 | Sprint | Deliverable |
 |---|---|
-| S31 (Phase 2B start; Phase 2A holds no gap-closure work per 2026-04-27 directive) | SPEC-27 land; `infra/db/migrations/` discipline lit; `00_Contracts/` deletion plan ratified; service-role-key removal; `00_Contracts/` archived. |
+| S31 (Phase 2B start; Phase 2A holds no gap-closure work per 2026-04-27 directive) | SPEC-27 land; `infra/db/migrations/` discipline lit; `02-decisions/contracts/` deletion plan ratified; service-role-key removal; `02-decisions/contracts/` archived. |
 | S32–S37 | strangler-fig gates active across `src/commands/`. |
 | S38–S42 | Supabase staging; backup verification. |
 | S43 | production cutover; 14-day rollback window. |

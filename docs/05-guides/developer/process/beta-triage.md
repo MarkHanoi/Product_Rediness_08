@@ -20,8 +20,8 @@ For every new `beta-bug` issue:
 1. **Acknowledge.** Comment with your name + ETA for first investigation.
 2. **Open the trace.** Click the OTel link from the issue body → opens
    the saved view `Trace by ID` in
-   [docs/observability/dashboards/honeycomb-beta.json](../observability/dashboards/honeycomb-beta.json)
-   or [docs/observability/dashboards/tempo-beta.yaml](../observability/dashboards/tempo-beta.yaml).
+   [docs/04-reference/observability/dashboards/honeycomb-beta.json](../observability/dashboards/honeycomb-beta.json)
+   or [docs/04-reference/observability/dashboards/tempo-beta.yaml](../observability/dashboards/tempo-beta.yaml).
 3. **Confirm severity.** Re-classify if the trace contradicts the
    reporter's pick. S0 (data loss / cannot save) escalates immediately
    to the on-call lead.
@@ -62,7 +62,7 @@ When you close a beta issue:
 1. Comment with the resolving commit / PR link.
 2. Add the `closed-in-beta` label.
 3. If the fix introduces a new behaviour the cohort needs to know
-   about, schedule a Friday digest entry (see `docs/marketing/beta-announcement.md` §6).
+   about, schedule a Friday digest entry (see `docs/03-execution/plans/launch/beta-announcement.md` §6).
 4. If the bug touched the M24 BETA GATE invariants (sync p95,
    crash-free rate, soft-lock churn), add a row to the next
    `apps/bench/reports/M24-beta.md` weekly snapshot.
@@ -82,7 +82,7 @@ When you close a beta issue:
 Issues labelled `triage:wontfix-beta` are reviewed at the Phase 3
 kick-off and either:
 
-* Promoted to a backlog entry in `docs/03_PRYZM3/reference/status-detail/01-PROCESS-TRACKER.md` §Phase 3, or
+* Promoted to a backlog entry in `docs/archive/pryzm3-internal/reference/status-detail/01-PROCESS-TRACKER.md` §Phase 3, or
 * Closed with rationale + a link to the related ADR.
 
 This is the bound channel that turns beta feedback into roadmap input.

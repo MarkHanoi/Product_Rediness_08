@@ -3,7 +3,7 @@
 **Date:** 2026-05-15  
 **Phase:** Analysis only — NO fixes applied in this session  
 **Scope:** All BIM element types: wall, window, door, slab, column, curtain wall, furniture, handrail, roof, floor, ceiling, beam, plumbing, stair  
-**Open items:** OI-034 through OI-041 in `docs/03_PRYZM3/07-OPEN-ITEMS.md`
+**Open items:** OI-034 through OI-041 in `docs/archive/pryzm3-internal/07-OPEN-ITEMS.md`
 
 ---
 

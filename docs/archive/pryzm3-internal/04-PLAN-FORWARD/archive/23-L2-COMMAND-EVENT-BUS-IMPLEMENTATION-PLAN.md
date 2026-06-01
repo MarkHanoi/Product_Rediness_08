@@ -1,7 +1,7 @@
 # 23 — Phase E.5.x: Command Bus Migration — Sprint Execution Sheet
 
 > **Stamp**: 2026-05-04 · **Status**: 🟢 **P0–P13 + P2e-walls + §BATCH-WALL-PAUSE + §COLLAB-FILTER + §BATCH-CW-PAUSE + §BATCH-BUS-DISCARD + §PERF-ADAPTIVE-DRAIN + §PERF-BATCH-BUS + §BATCH-LOADING-INDICATOR ALL DONE ✅** · **Authority**: this is the single canonical execution document for migrating all `commandManager.execute()` call sites to `runtime.commandBus.dispatch()`. It supersedes and consolidates files 31, 32, and 33 (which now redirect here).
-> **Anchors**: `../01-VISION.md §2 P6`; `../02-ARCHITECTURE.md §2, §4, §10`; `../03-CURRENT-STATE.md §10 (2026-05-03c/d entries), §13.3`; `../00-PROCESS-TRACKER.md §9 Sprint Task Board`; `../../00_Contracts/C03-SCHEMAS-COMMANDS-AND-STATE.md §2`; `../../00_Contracts/C11-ELEMENT-CREATION-PIPELINE.md`.
+> **Anchors**: `../01-VISION.md §2 P6`; `../02-ARCHITECTURE.md §2, §4, §10`; `../03-CURRENT-STATE.md §10 (2026-05-03c/d entries), §13.3`; `../00-PROCESS-TRACKER.md §9 Sprint Task Board`; `../../02-decisions/contracts/C03-SCHEMAS-COMMANDS-AND-STATE.md §2`; `../../02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md`.
 > **Phase gate**: Begin with P0 (CommandRegistry entries) + P1 (BatchCoordinator fix). These two tasks are independent and can run in parallel. Everything else is blocked on P2 (first handler proven working).
 > **Constraint**: Do NOT remove `CommandManager.ts` until all 214 sites = 0. Every new call site gets a backward-compat `console.warn` fallback.
 >
@@ -589,8 +589,8 @@ rg "commandManager\.execute" src --type ts -c \
 
 | Topic | Canonical source |
 |---|---|
-| Full element creation pipeline contract (UI + AI, target state) | `../../00_Contracts/C11-ELEMENT-CREATION-PIPELINE.md` |
-| Command bus CQRS contract | `../../00_Contracts/C03-SCHEMAS-COMMANDS-AND-STATE.md §2` |
+| Full element creation pipeline contract (UI + AI, target state) | `../../02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md` |
+| Command bus CQRS contract | `../../02-decisions/contracts/C03-SCHEMAS-COMMANDS-AND-STATE.md §2` |
 | Architecture orchestration diagram (§10) | `../02-ARCHITECTURE.md §10` |
 | P6 principle — commands only | `../01-VISION.md §2 P6` |
 | 5,627ms LONGTASK evidence (diary) | `../03-CURRENT-STATE.md §10 2026-05-03d` |
@@ -601,6 +601,6 @@ rg "commandManager\.execute" src --type ts -c \
 | Wall geometry queue | `src/engine/subsystems/walls/WallFragmentBuilder.ts:299,334` |
 | AI room assistant live call site | `src/engine/subsystems/ai/rooms/RoomAIAssistant.ts` |
 | `WallTool.ts` E-bus.1 deprecation notice | `src/engine/subsystems/walls/WallTool.ts:34–55` |
-| OTel span requirement | `../../00_Contracts/C10-PERFORMANCE-AND-OBSERVABILITY.md` |
+| OTel span requirement | `../../02-decisions/contracts/C10-PERFORMANCE-AND-OBSERVABILITY.md` |
 | Sprint task board | `../00-PROCESS-TRACKER.md §9` |
 | `CommandManager.ts` deprecation header | `src/engine/subsystems/commands/CommandManager.ts:32` |

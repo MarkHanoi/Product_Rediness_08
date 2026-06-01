@@ -2,8 +2,8 @@
 
 **Status**: Accepted (sprint-scoped — S69, 2026-04-28)
 **Sprint**: PRYZM 2 Phase 3D · S69 (Performance Hardening + DR Drill + Largest Fixture)
-**Spec source**: `docs/03_PRYZM3/reference/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S69 lines 272-304.
-**Companion docs**: `apps/bench/reports/M35-perf.md`, `docs/03_PRYZM3/runbooks/DR-DRILL-RUNBOOK.md`, `docs/03_PRYZM3/archive/superseded-audits/PHASE-3D-S69-REGRESSION-HUNT-2026-04-28.md`, `docs/03_PRYZM3/archive/superseded-audits/PHASE-3D-S69-MEMORY-PROFILE-2026-04-28.md`.
+**Spec source**: `docs/03-execution/plans/legacy/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S69 lines 272-304.
+**Companion docs**: `apps/bench/reports/M35-perf.md`, `docs/archive/pryzm3-internal/runbooks/DR-DRILL-RUNBOOK.md`, `docs/archive/pryzm3-internal/superseded-audits/PHASE-3D-S69-REGRESSION-HUNT-2026-04-28.md`, `docs/archive/pryzm3-internal/superseded-audits/PHASE-3D-S69-MEMORY-PROFILE-2026-04-28.md`.
 
 ---
 
@@ -89,9 +89,9 @@ Reversal trigger: none — the phase doc is the source of truth.
 
 ## References
 
-- `docs/03_PRYZM3/reference/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S69 lines 272-304 (sprint spec).
-- `docs/03_PRYZM3/reference/specs/SPEC-27-MIGRATION-ROLLBACK.md` §8, §9 (DR failure modes + cadence).
-- `docs/security/rls-audit-2026-Q4.md` §3.2 (RLS migration carry-forward from S68 D5).
-- `docs/architecture/adr/0048-s67-self-host-docker-compose.md` §B (code-stability invariant).
-- `docs/architecture/adr/0049-s67-multi-region-cut-decision.md` §F (WAL-archive PITR deferral).
+- `docs/03-execution/plans/legacy/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S69 lines 272-304 (sprint spec).
+- `docs/03-execution/specs/SPEC-27-MIGRATION-ROLLBACK.md` §8, §9 (DR failure modes + cadence).
+- `docs/04-reference/security/rls-audit-2026-Q4.md` §3.2 (RLS migration carry-forward from S68 D5).
+- `docs/02-decisions/adrs/0048-s67-self-host-docker-compose.md` §B (code-stability invariant).
+- `docs/02-decisions/adrs/0049-s67-multi-region-cut-decision.md` §F (WAL-archive PITR deferral).
 - `08-VISION.md` §6 (NFT contract: "Largest model: 10,000 walls / 50 levels").

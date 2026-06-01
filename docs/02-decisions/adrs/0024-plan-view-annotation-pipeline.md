@@ -2,7 +2,7 @@
 
 **Status**: Accepted (S32, 2026-04)
 **Authority**: Subordinate to **`[strategic ADR-016]`** (drawing engine architecture) and **code-level ADR-0023** (Plan-View Canvas2D Renderer).
-**Supersedes / refines**: §S32 of `docs/03_PRYZM3/reference/phases/PHASE-2/2B-Q2-M16-M18-PLAN-VIEW.md` (lines 396 – 599).
+**Supersedes / refines**: §S32 of `docs/03-execution/plans/legacy/phases/PHASE-2/2B-Q2-M16-M18-PLAN-VIEW.md` (lines 396 – 599).
 
 ---
 

@@ -5,8 +5,8 @@
 > **Depends on**: [C03](C03-SCHEMAS-COMMANDS-AND-STATE.md) (P6 — commands only), [C25](C25-IFC-EXPORT-PRODUCTION.md) (IFC Pset export from data grid), [C27](C27-BIM3-INSPECT-MODEL.md) (Inspect selection drives data filter), [C16](C16-COMMAND-AUTHORING-PROTOCOL.md).
 > **Downstream**: external BI tools (Tableau / PowerBI) via SQL / JSON export; FM handover via [C25](C25-IFC-EXPORT-PRODUCTION.md) IFC Pset injection.
 > **Key principles**: **P5** (rules-engine schemas pure), **P6** (bulk-edit through commandBus), **P8** (every rule-run and bulk-edit has a span).
-> **Master plan**: [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md Part VI](../03_PRYZM3/PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md).
-> **Prior-art**: [PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md §3.6](../03_PRYZM3/PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md). PRYZM 2 ref: S41 / ADR-0032.
+> **Master plan**: [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md Part VI](../03-execution/plans/master-implementation-plan.md).
+> **Prior-art**: [PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md §3.6](../03-execution/status/prior-art-audit-2026-05-31.md). PRYZM 2 ref: S41 / ADR-0032.
 
 ---
 
@@ -138,8 +138,8 @@ Rules come from three canonical sources:
 | Source | Path | Rules count (approx) |
 |---|---|---|
 | Constraint DB | `packages/ai-host/src/workflows/apartmentLayout/rules/programRules.ts` + others | 248+ |
-| G-classes (dimensional) | [APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK-2026-05-29.md §G-class table](../03_PRYZM3/APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK-2026-05-29.md) | 10 |
-| A-classes (topology) | [APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK-2026-05-29.md §A-class table](../03_PRYZM3/APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK-2026-05-29.md) | 8 |
+| G-classes (dimensional) | [APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK-2026-05-29.md §G-class table](../03-execution/plans/apartment/dimensional-constraints.md) | 10 |
+| A-classes (topology) | [APARTMENT-DIMENSIONAL-CONSTRAINTS-AND-SPATIAL-PROPORTION-FRAMEWORK-2026-05-29.md §A-class table](../03-execution/plans/apartment/dimensional-constraints.md) | 8 |
 | Custom (user-authored, per project) | project file | variable |
 
 Total: 266+ codified rules at baseline.
@@ -206,7 +206,7 @@ Cron-style scheduling UI in `apps/editor/src/ui/data/automation/`:
 
 ## §12 — Phase delivery
 
-Master plan [§14](../03_PRYZM3/PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md) DAT-α-1 through DAT-γ-5. ~12 wk total (audit-revised from ~18.5 wk).
+Master plan [§14](../03-execution/plans/master-implementation-plan.md) DAT-α-1 through DAT-γ-5. ~12 wk total (audit-revised from ~18.5 wk).
 
 ---
 
@@ -216,7 +216,7 @@ Master plan [§14](../03_PRYZM3/PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md)
 - **IFC export details** — [C25](C25-IFC-EXPORT-PRODUCTION.md). C28 emits Pset payloads that C25 writes.
 - **Sheet / PDF export** — [C24](C24-SHEET-COMPOSITION-ENGINE.md), [C29](C29-PDF-VECTOR-EXPORT.md).
 - **Element creation / editing** — [C11](C11-ELEMENT-CREATION-PIPELINE.md).
-- **Author panel** — covered by element creation contracts + BIM 2.0 Data Management Panel ([APARTMENT-BIM2-BIM3-DATA-MANAGEMENT-AND-LIVE-PARAMETRIC-SYSTEM.md](../03_PRYZM3/APARTMENT-BIM2-BIM3-DATA-MANAGEMENT-AND-LIVE-PARAMETRIC-SYSTEM.md)).
+- **Author panel** — covered by element creation contracts + BIM 2.0 Data Management Panel ([APARTMENT-BIM2-BIM3-DATA-MANAGEMENT-AND-LIVE-PARAMETRIC-SYSTEM.md](../03-execution/plans/apartment/bim2-bim3-data-mgmt.md)).
 - **Per-schedule formulas** — `plugins/schedules/` (existing, S41). C28 reuses the existing formula DSL.
 
 ---

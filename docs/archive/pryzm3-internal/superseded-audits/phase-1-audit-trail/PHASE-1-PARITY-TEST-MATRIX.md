@@ -61,7 +61,7 @@ pnpm --filter @pryzm/geometry-kernel run test -- <family>.parity.test.ts
 
 Snapshot regeneration is a code-review-gated operation — every diff
 must be reviewed by the family owner per
-`docs/architecture/parity-fixtures.md` §"Snapshot drift policy".
+`docs/04-reference/architecture-detail/parity-fixtures.md` §"Snapshot drift policy".
 
 ---
 

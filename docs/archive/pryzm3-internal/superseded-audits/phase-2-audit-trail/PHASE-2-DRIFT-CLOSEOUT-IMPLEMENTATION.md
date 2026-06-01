@@ -131,7 +131,7 @@ Add a `visual-diff` job that runs the two suites with the swiftshader sandbox. C
 ## Item 3 — Visibility-Intent waves 6–11 ratification (Phase 2B / ADR-0036)
 
 ### Observation
-- ADR `docs/architecture/adr/0036-visibility-intent-waves-1-5.md` formalises **only** waves 1–5.
+- ADR `docs/02-decisions/adrs/0036-visibility-intent-waves-1-5.md` formalises **only** waves 1–5.
 - Code under `packages/visibility/src/waves/` ships **all 11 waves** already:
   ```
   w01-level-scope, w02-category-visibility, w03-view-template-inheritance,
@@ -147,7 +147,7 @@ Add a `visual-diff` job that runs the two suites with the swiftshader sandbox. C
 ### Required changes
 
 #### 3.1 — Author ADR-0041
-**File:** `docs/architecture/adr/0041-visibility-intent-waves-6-11.md` (new)
+**File:** `docs/02-decisions/adrs/0041-visibility-intent-waves-6-11.md` (new)
 
 Sections:
 - **Status:** Accepted, 2026-04-28.
@@ -157,7 +157,7 @@ Sections:
 - **Cross-ref:** ADR-0015 (visibility intent placement), ADR-0036 (waves 1–5).
 
 #### 3.2 — Cross-link
-**File:** `docs/architecture/adr/0036-visibility-intent-waves-1-5.md`
+**File:** `docs/02-decisions/adrs/0036-visibility-intent-waves-1-5.md`
 
 Add a footer line:
 > Waves 6–11 ratified by `0041-visibility-intent-waves-6-11.md` (2026-04-28).
@@ -209,7 +209,7 @@ In `evalCall(name, args, ctx)`, add 12 new `case` blocks following the existing 
 | `FORMAT_DATE(epochMs, pattern)` | `number, string → string` | Supports `YYYY-MM-DD`, `YYYY-MM-DD HH:mm`, `dd/MM/YYYY` only — keeps the DSL deterministic. |
 
 #### 4.2 — Update ADR-0032
-**File:** `docs/architecture/adr/0032-schedule-formula-dsl.md`
+**File:** `docs/02-decisions/adrs/0032-schedule-formula-dsl.md`
 
 Add a "Function Catalogue" section listing all 24 functions with their signatures. Mark each as **v1**. Keep `MATCH`, `LOOKUP`, `UNIT_CONVERT`, `NOW` explicitly **out of v1** (vendor-coupled or non-deterministic; revisit in Phase 4).
 
@@ -291,7 +291,7 @@ Add a "CLI export" row to the gates table once the test runs in CI.
 
 ### Observation
 - Phase 2C spec references **ADR-026** for the export-worker architecture.
-- The actual ADR in code is **ADR-039** (`docs/architecture/adr/0039-export-worker-architecture.md`), which decided to defer the standalone server-side worker and instead consolidate into in-browser orchestration plus the bake worker for heavy jobs.
+- The actual ADR in code is **ADR-039** (`docs/02-decisions/adrs/0039-export-worker-architecture.md`), which decided to defer the standalone server-side worker and instead consolidate into in-browser orchestration plus the bake worker for heavy jobs.
 - ADR-026 in the strategic series (`docs/00_NEW_ARCHITECTURE/adrs/`) is a different ADR (ui-binding-vanilla-ts).
 
 ### Decision
@@ -303,10 +303,10 @@ Add a "CLI export" row to the gates table once the test runs in CI.
 **File:** `docs/00_NEW_ARCHITECTURE/phases/PHASE-2C-Q3-M19-M21-SHEETS-SCHEDULES.md`
 
 Find the two references to "ADR-026" in the export-worker context and replace with:
-> ADR-039 (`docs/architecture/adr/0039-export-worker-architecture.md`). The original strategic spike was ADR-026; the code-level decision was renumbered when the worker scope was reduced.
+> ADR-039 (`docs/02-decisions/adrs/0039-export-worker-architecture.md`). The original strategic spike was ADR-026; the code-level decision was renumbered when the worker scope was reduced.
 
 #### 6.2 — Patch ADR-039
-**File:** `docs/architecture/adr/0039-export-worker-architecture.md`
+**File:** `docs/02-decisions/adrs/0039-export-worker-architecture.md`
 
 Add a top-of-file note:
 > Supersedes the original "ADR-026 export-worker" spike; renumbered when the standalone worker scope was deferred.

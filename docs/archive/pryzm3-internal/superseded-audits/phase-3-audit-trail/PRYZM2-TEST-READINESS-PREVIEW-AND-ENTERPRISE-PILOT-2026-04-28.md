@@ -410,9 +410,9 @@ Everything below the above two rules is detail.
 
 - `PRYZM2-FINAL-WIREUP-AUDIT-S71-2026-04-28.md` — the 9 engineering wires.
 - `PRYZM2-ENTERPRISE-GRADE-REALITY-CHECK-2026-04-28.md` — what enterprise GA actually requires (which Gate E is *not*).
-- `docs/architecture/adr/0050-s68-security-hardening-posture.md` — the security posture the security pack draws from.
-- `docs/architecture/adr/0048-s67-self-host-docker-compose.md` — the self-host fallback for EU pilots that don't accept US region.
-- `docs/architecture/adr/0049-s67-multi-region-cut-decision.md` — why pilots run single-region.
+- `docs/02-decisions/adrs/0050-s68-security-hardening-posture.md` — the security posture the security pack draws from.
+- `docs/02-decisions/adrs/0048-s67-self-host-docker-compose.md` — the self-host fallback for EU pilots that don't accept US region.
+- `docs/02-decisions/adrs/0049-s67-multi-region-cut-decision.md` — why pilots run single-region.
 - `docs/X_B2B/B2B-IMPLEMENTATION-PLAN.md` — the existing pricing tiers + B2B streams the pilot pricing decision draws from.
 - `docs/PRODUCTION-READINESS-IMPLEMENTATION-PLAN.md` — the PRYZM 1 production-readiness plan whose Phase 7–12 hardening items partially overlap §3 above.
 

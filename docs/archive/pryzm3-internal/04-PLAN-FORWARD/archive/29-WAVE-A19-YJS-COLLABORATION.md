@@ -3,7 +3,7 @@
 > **Stamp**: 2026-05-03 · **Status**: ✅ DONE — Wave A19 CLOSED (score 8.9 → 9.2)
 > **Sprint(s)**: S130 · **Weeks**: 100–102 · **Effort**: 1 sprint (~2 engineering weeks)
 > **Source authority**: `attached_assets/Pasted--PRYZM-3-Master-Implementation-Plan-to-100-100…txt` Part 3 §Wave 19 · `06-SENIOR-ARCHITECT-AUDIT.md §8` (Collaboration), `../23-L2-COMMAND-EVENT-BUS-IMPLEMENTATION-PLAN.md §4` (Yjs convergence)
-> **Anchored to**: `../01-VISION.md §4` (D3 differentiator — real-time collaboration), `../02-ARCHITECTURE.md §6` (sync architecture), `../../00_Contracts/C08-COLLABORATION-AND-SECURITY.md §3.1, §3.2`
+> **Anchored to**: `../01-VISION.md §4` (D3 differentiator — real-time collaboration), `../02-ARCHITECTURE.md §6` (sync architecture), `../../02-decisions/contracts/C08-COLLABORATION-AND-SECURITY.md §3.1, §3.2`
 > **⚠ TRACKER RULE**: Any task status change → update `../00-PROCESS-TRACKER.md` §3 Wave A19 row + §4 next-actions same commit.
 > **Pre-condition (Gate)**: Wave A18 CLOSED — 10 E2E tests passing; LOD manager implemented; ARIA on 84+ panels; `pnpm turbo run test:ci` green; C08 §3.1 LWW disclosure amendment committed (from Wave A14 or earlier).
 
@@ -428,7 +428,7 @@ pnpm --filter '@pryzm/sync-client' run test
 # → ≥ 8 tests passing
 
 # C08 §3.1 amendment committed (LWW → Yjs complete)
-grep "Phase 2D.*COMPLETE\|Yjs CRDT.*implemented" docs/00_Contracts/C08-COLLABORATION-AND-SECURITY.md | wc -l
+grep "Phase 2D.*COMPLETE\|Yjs CRDT.*implemented" docs/02-decisions/contracts/C08-COLLABORATION-AND-SECURITY.md | wc -l
 # → ≥ 1
 
 # Full test suite green
@@ -475,7 +475,7 @@ pnpm exec playwright test tests/e2e/conflict-resolution.spec.ts
 Wave A30 (Phase F: SDK + Marketplace) may not start until:
 1. `pnpm --filter '@pryzm/sync-client' run test` → ≥ 8 tests passing.
 2. `grep "CONFLICTED" packages/runtime-composer/src/types.ts | wc -l` → ≥ 1.
-3. `grep "Phase 2D.*COMPLETE" docs/00_Contracts/C08-COLLABORATION-AND-SECURITY.md | wc -l` → ≥ 1.
+3. `grep "Phase 2D.*COMPLETE" docs/02-decisions/contracts/C08-COLLABORATION-AND-SECURITY.md | wc -l` → ≥ 1.
 4. `pnpm turbo run test:ci` → all green.
 5. Convergence booleans: 5/9 still true + D3 differentiator genuinely real.
 6. `pnpm tsx scripts/pryzm-3-functional-day-1.ts` → ALL CHECKS GREEN.

@@ -3,7 +3,7 @@
 // Contract: show() calls activatePanel('dimension-style-panel', …);
 // hide() calls deactivatePanel('dimension-style-panel').
 //
-// Docs: docs/03_PRYZM3/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §2
+// Docs: docs/archive/pryzm3-internal/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §2
 
 import { describe, expect, it, vi } from 'vitest';
 import { DimensionStylePanel, DIMENSION_STYLE_PANEL_ID } from '../../DimensionStylePanel.js';

@@ -106,7 +106,7 @@ Every committed event triggers a chain: kernel re-bake → committer re-mesh →
 - S02 — committer coalescing scaffold; first wall bake on commit.
 - S04 — ghost-mesh interactive path live for the wall tool.
 - S08 — per-frame upload budget enforced; debug overlay shows debounce state.
-- S21 (M11 alpha) — **server-side bake debounce shipped** in `apps/bake-worker/src/coalescing/CoalesceWindow.ts`.  See implementation log: `docs/architecture/bake-worker-impl-log.md`.
+- S21 (M11 alpha) — **server-side bake debounce shipped** in `apps/bake-worker/src/coalescing/CoalesceWindow.ts`.  See implementation log: `docs/04-reference/architecture-detail/bake-worker-impl-log.md`.
 - S22 (M12 alpha) — `bakePolicy` declared on every command in the registry; immediate-mode commands work end-to-end.
 - S43 — AI batch boundary integration with debounce.
 - S48 (M24 beta) — hard cap revisited against AI workload telemetry; tuned if needed.
@@ -118,4 +118,4 @@ Every committed event triggers a chain: kernel re-bake → committer re-mesh →
 
 | Sprint | Doc                                                                              |
 |--------|----------------------------------------------------------------------------------|
-| S21    | [`docs/architecture/bake-worker-impl-log.md`](../../architecture/bake-worker-impl-log.md) — first server-side coalescer; constants, decisions, test coverage. |
+| S21    | [`docs/04-reference/architecture-detail/bake-worker-impl-log.md`](../../architecture/bake-worker-impl-log.md) — first server-side coalescer; constants, decisions, test coverage. |

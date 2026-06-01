@@ -20,7 +20,7 @@ Per spec lines 642-651, the four Tier-1 cuts checkpointed at S47 D9:
 
 **Decision**: founder + agent jointly ratified the default cuts per spec line 651. No Tier-1 escalation required to land M24.
 
-**Cross-reference**: `docs/architecture/adr/0037-ai-host-lazy-bootstrap.md` §2.6.
+**Cross-reference**: `docs/02-decisions/adrs/0037-ai-host-lazy-bootstrap.md` §2.6.
 
 ---
 

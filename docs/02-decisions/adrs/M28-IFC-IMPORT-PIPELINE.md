@@ -16,7 +16,7 @@
 > - `[strategic ADR-022]` renderer + backend topology; `[strategic ADR-023]` library rAF quarantine.
 > - `docs/IFC-IMPORT-NATIVE-PARITY-IMPLEMENTATION.md` — current PRYZM 1 parity bar (the new path can't regress against this corpus).
 > - `docs/06_KNOWN_ISSUES/IFC_Import.md`, `IFC_ImportLevel.md`, `ifc.md` — current failure inventory.
-> - `docs/Analysis/PROJECT-OPEN-PERFORMANCE-AUDIT-2026-04.md` — current load-path audit.
+> - `docs/03-execution/status/intent-analysis/PROJECT-OPEN-PERFORMANCE-AUDIT-2026-04.md` — current load-path audit.
 
 ---
 

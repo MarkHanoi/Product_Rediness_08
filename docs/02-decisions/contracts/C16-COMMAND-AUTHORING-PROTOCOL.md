@@ -2,7 +2,7 @@
 
 > **Stamp**: 2026-05-25 · **Status**: CANONICAL
 > **Authority**: this contract governs **how a new command is created** in PRYZM 3 — the anatomy, the pipeline it must obey, and the two doctrines (level-oriented, semantic-first) every command MUST honour. It is the single **front door** for command authoring; it does not restate the depth held by the contracts it cites.
-> **Tier**: contract (C00-INDEX tier 3). Where the Vision (`03_PRYZM3/01-VISION.md`) or Architecture (`02-ARCHITECTURE.md`) disagree, they win — amend this contract.
+> **Tier**: contract (C00-INDEX tier 3). Where the Vision (`archive/pryzm3-internal/01-VISION.md`) or Architecture (`02-ARCHITECTURE.md`) disagree, they win — amend this contract.
 
 > **Anchors (read alongside, do not duplicate):**
 > - `01-VISION.md §2` — the 8 principles (P1–P8); this contract operationalises **P6** (commands are the only mutation path) and **P8** (every new exported fn ≥ 1 OTel span).
@@ -181,7 +181,7 @@ AI is an *entry point* (C11 §4), not a parallel pipeline. An AI command converg
 - **Intent → command mapping.** An AI prompt resolves to a typed `AIIntentType` (`packages/ai-host/src/intents.ts`) → a `CommandProposal` (`command-registry/types.ts`) → a real command. New AI-reachable capability requires (a) an intent enum entry, (b) a proposal builder, (c) the underlying command satisfying §5.
 - **`source:'ai'` MUST NOT push to the undo buffer** (C03 §4.2 / C11 §4.1); the user undoes the *gesture* that asked the AI, per product decision.
 - **Multi-element AI output MUST batch** (§8 / C11 §4.2): dispatch one `X.batch.create`, not a per-element loop.
-- **Semantic-first is what makes semantic prompts possible.** "Add windows to every south façade", "place a WC in every bathroom", "columns on grid intersections" are only answerable because rooms, façades, grids, and tags are semantic records (§7). The **Semantic Design Assistant** build (the 50-prompt catalogue) is specified in `docs/03_PRYZM3/reference/specs/SPEC-SEMANTIC-DESIGN-ASSISTANT.md` (forthcoming) and is **governed by this contract** — every capability it adds ships as a §5-compliant command.
+- **Semantic-first is what makes semantic prompts possible.** "Add windows to every south façade", "place a WC in every bathroom", "columns on grid intersections" are only answerable because rooms, façades, grids, and tags are semantic records (§7). The **Semantic Design Assistant** build (the 50-prompt catalogue) is specified in `docs/03-execution/specs/SPEC-SEMANTIC-DESIGN-ASSISTANT.md` (forthcoming) and is **governed by this contract** — every capability it adds ships as a §5-compliant command.
 
 ---
 

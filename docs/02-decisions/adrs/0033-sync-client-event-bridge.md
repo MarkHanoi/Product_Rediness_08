@@ -3,7 +3,7 @@
 - **Status**: Accepted (S43 implementation companion to strategic ADR-002)
 - **Date**: 2026-04-28
 - **Phase**: 2D — `Q4 — M22-M24 SYNC, AWARENESS, BETA`, sprint **S43**
-- **Spec source**: `docs/03_PRYZM3/reference/phases/PHASE-2/2D-Q4-M22-M24-SYNC-AWARENESS-BETA.md`
+- **Spec source**: `docs/03-execution/plans/legacy/phases/PHASE-2/2D-Q4-M22-M24-SYNC-AWARENESS-BETA.md`
   §S43 lines 91-269 (D1-D2 = SyncClient + EventBridge; D5-D6 = chaos harness)
 - **Implementation**: `packages/sync-client/`
 - **Bench gate**: `apps/bench/src/benches/sync-roundtrip.bench.ts` (extended in S43 D6 with the chaos-convergence assertion)

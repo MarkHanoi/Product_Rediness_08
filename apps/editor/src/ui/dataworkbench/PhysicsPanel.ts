@@ -8,7 +8,7 @@
  *
  * Contract:
  *   docs/00_PRZYM/PRYZM_WORLD_MODEL_MASTER_PLAN_2026.md § H-4
- *   docs/00_Contracts/05-BIM-UI-ARCHITECTURE-CONTRACT.md — dw- CSS prefix
+ *   docs/02-decisions/contracts/05-BIM-UI-ARCHITECTURE-CONTRACT.md — dw- CSS prefix
  *
  * Impact Assessment:
  *   Store Reads:  YES — roomStore, physicsEngine cache (both via window.*)

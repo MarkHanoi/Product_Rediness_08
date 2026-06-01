@@ -11,7 +11,7 @@
 
 ## Context
 
-Sprint S25 (`docs/03_PRYZM3/reference/phases/PHASE-2/2A-Q1-M13-M15-NON-ELEMENT-COMPLETION.md`)
+Sprint S25 (`docs/03-execution/plans/legacy/phases/PHASE-2/2A-Q1-M13-M15-NON-ELEMENT-COMPLETION.md`)
 brings the **room** element family to PRYZM 2.  Rooms are the first family
 that requires **reading other elements' geometry** during their own
 production: a wall-bounded room derives its boundary from the surrounding
@@ -33,7 +33,7 @@ walls.  Three competing approaches were on the table at S25 D1 kickoff:
 ## Numbering reconciliation
 
 The Phase 2A document (written 2026-04-27 morning) reserved the slug
-`docs/architecture/adr/0020-room-boundary-detection.md`.  By the time
+`docs/02-decisions/adrs/0020-room-boundary-detection.md`.  By the time
 S25 began, two Phase 1D-merged code-level ADRs had already taken the
 adjacent numbers:
 
@@ -50,7 +50,7 @@ The phase doc's three reservations therefore renumber as:
 | `0021-furniture-multi-representation.md` | `0023-furniture-multi-representation.md` | S27 |
 | `0022-plan-view-canvas-architecture.md` | `0024-plan-view-canvas-architecture.md` | S29 |
 
-The strategic-ADR series (`docs/03_PRYZM3/reference/adrs/`) is
+The strategic-ADR series (`docs/02-decisions/adrs/`) is
 unaffected — `[strategic ADR-020]`, `[strategic ADR-021]`, and
 `[strategic ADR-022]` continue to mean Property-test suite, Enterprise
 security, and Bake worker pricing respectively.
@@ -180,12 +180,12 @@ package is created for Phase 2A.
 
 ## References
 
-* SPEC-06 §4 (Rooms) — `docs/03_PRYZM3/reference/specs/SPEC-06-ROOMS-LEVELS.md`
-* SPEC-01 §3, §4.1 — `docs/03_PRYZM3/reference/specs/SPEC-01-GEOMETRY-KERNEL.md`
+* SPEC-06 §4 (Rooms) — `docs/03-execution/specs/SPEC-06-ROOMS-LEVELS.md`
+* SPEC-01 §3, §4.1 — `docs/03-execution/specs/SPEC-01-GEOMETRY-KERNEL.md`
 * SPEC-05 §5 — IFC mapping (Room → IfcSpace; export is Phase 3B)
-* Phase 2A doc §S25 — `docs/03_PRYZM3/reference/phases/PHASE-2/2A-Q1-M13-M15-NON-ELEMENT-COMPLETION.md`
+* Phase 2A doc §S25 — `docs/03-execution/plans/legacy/phases/PHASE-2/2A-Q1-M13-M15-NON-ELEMENT-COMPLETION.md`
 * `[strategic ADR-024]` — Constraint solver phase gating (no solver in 2A)
-* `code-level ADR docs/architecture/adr/0009-producer-pure-function-signature.md`
+* `code-level ADR docs/02-decisions/adrs/0009-producer-pure-function-signature.md`
 * PRYZM 1 reference: `src/elements/rooms/RoomDetectionService.ts` (520 LOC)
 
 ---

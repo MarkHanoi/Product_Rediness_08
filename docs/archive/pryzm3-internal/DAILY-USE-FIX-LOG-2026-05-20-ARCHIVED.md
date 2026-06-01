@@ -2165,7 +2165,7 @@ Continuation of live architect testing. All fixes type-clean. Server fixes need 
 **After:** added `PREVIEW_CSS` (CSS mirror) as the 2D source; swept all plan/elevation creation previews + dimension + snap markers → `#6600ff` (snap type read by shape + tooltip). Preserved §2.4 out-of-scope colours (edit-state, buttons, committed symbols, invalid-red).
 
 ### §CONTRACT-41-UPDATE (#145) — Element Preview Visual Contract revised
-**File:** `docs/00_Contracts/41-ELEMENT-PREVIEW-VISUAL-CONTRACT.md`.
+**File:** `docs/02-decisions/contracts/41-ELEMENT-PREVIEW-VISUAL-CONTRACT.md`.
 **After:** §1 documents `PREVIEW_CSS`; §2.2/§2.3 make 2D handlers + snap markers normative; §2.4 lists out-of-scope colours; §5 parity satisfied; §6 verification gate extended.
 
 ## Feature: stair sketch-in-3D
@@ -2174,7 +2174,7 @@ Continuation of live architect testing. All fixes type-clean. Server fixes need 
 **File:** `packages/geometry-stair/src/stairPath/StairSketchCoordinateProvider.ts` (new),
 `StairPathToolController.ts`, `apps/editor/src/engine/views/plantools/StairPath3DToolHandler.ts` (new),
 `apps/editor/src/engine/{initTools.ts,BimService.ts}`, `src/global-window.d.ts`.
-Governing spec: `docs/03_PRYZM3/reference/specs/SPEC-STAIR-3D-CREATION.md` (now IMPLEMENTED).
+Governing spec: `docs/archive/pryzm3-internal/reference/specs/SPEC-STAIR-3D-CREATION.md` (now IMPLEMENTED).
 **Before:** the modern path-sketch stair (StairPathToolController — I/L/U + curved,
 param panel) was **plan-only**: its sole view coupling was
 `PlanViewCanvas.worldToScreen`, so it could not run in the 3D view. (The legacy

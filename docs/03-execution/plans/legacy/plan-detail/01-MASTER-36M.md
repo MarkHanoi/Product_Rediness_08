@@ -96,7 +96,7 @@ The solo-mode plan is **structurally the same** as the team-mode plan. We do not
 
 Before a single line of PRYZM 2 production code is written, **12 ADRs are merged**, the **CI baseline is captured**, and the **monorepo scaffolds compile and pass an empty test**. If any of these is incomplete, **S01 does not start**.
 
-### §3.1 The 12 ADRs (must be merged in `docs/03_PRYZM3/reference/adrs/`)
+### §3.1 The 12 ADRs (must be merged in `docs/02-decisions/adrs/`)
 
 | ADR | Decision | Default (per Context.md) | Spike required? |
 |-----|---|---|:---:|
@@ -242,7 +242,7 @@ The single largest risk-reducer added by the gap review is the **S31 plan-view p
 | Sprint | Focus | Deliverables | Exit criteria |
 |---|---|---|---|
 | **S19** | Chunked binary persistence (glb + Draco + KTX2) | `packages/persistence-client/chunks.ts`; per-level chunk strategy; chunk index in manifest | Medium project saves to chunks + event log; reload in < 1.5 s |
-| **S20** | `.pryzm` ZIP format v1 + spec doc | `packages/file-format/` — `pack(projectId)`, `unpack(blob)`; `docs/file-format/spec.md`; `signatures/` block; `schemaVersion: 1`; migration framework | A `.pryzm` round-trips losslessly; `pryzm-cli pack/unpack` works; spec doc complete |
+| **S20** | `.pryzm` ZIP format v1 + spec doc | `packages/file-format/` — `pack(projectId)`, `unpack(blob)`; `docs/04-reference/file-formats/pryzm-binary.md`; `signatures/` block; `schemaVersion: 1`; migration framework | A `.pryzm` round-trips losslessly; `pryzm-cli pack/unpack` works; spec doc complete |
 | **S21** | Bake worker (server-side) v0 | `apps/bake-worker` — BullMQ + `worker_threads` + `gltf-transform`; per-element re-bake on event; R2 upload | Single wall edit triggers chunk re-bake in < 1.5 s; OTel spans cover the pipeline |
 | **S22** | `apps/sync-server` skeleton + event linearisation | Express + Yjs server; events durable to Postgres; bake enqueue on commit; CDE legacy commands folded in | Two browser tabs see each other's events with last-writer-wins (CRDT comes 2D); OTel sync spans |
 | **S23** | Tier-streamed loader | `packages/persistence-client/loader.ts` — manifest first, visible-level chunks second, background levels third, history events on demand | Large fixture loads with **first interactive < 3 s**, full < 12 s |

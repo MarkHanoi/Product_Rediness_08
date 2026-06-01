@@ -4,7 +4,7 @@
 >
 > The master process tracker now lives at:
 >
-> **[`docs/03_PRYZM3/00-PROCESS-TRACKER.md`](../../00-PROCESS-TRACKER.md)**
+> **[`docs/archive/pryzm3-internal/00-PROCESS-TRACKER.md`](../../00-PROCESS-TRACKER.md)**
 >
 > All sections (live dashboard, 9 booleans, wave ledger, plan-forward file status, execution order, blockers, update protocol) are in the new file.
 >

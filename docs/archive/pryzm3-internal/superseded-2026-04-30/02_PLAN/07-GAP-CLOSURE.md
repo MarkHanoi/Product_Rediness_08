@@ -49,7 +49,7 @@
 |---|---|---|---|
 | 7 | No formal data-store map (where does each entity live: PG, Supabase, Yjs, R2?) | SPEC-24 | S25 |
 | 8 | Service-role-key in `server.js` | SPEC-08 §6 + ADR-028 Part F + CI gate `pnpm spec:audit-secrets` | S26 |
-| 9 | `00_Contracts/` fate undecided | SPEC-27 §5 (archive at S26) | S26 |
+| 9 | `02-decisions/contracts/` fate undecided | SPEC-27 §5 (archive at S26) | S26 |
 | 10 | Element / context boundary blur in legacy code | SPEC-13 §3 + SPEC-21 Step 2 reverse-doc | S25.5 |
 | 11 | `project_command_log` cleanup is probabilistic | SPEC-24 §1.3 (BullMQ scheduled sweep) + S45 deletion | S26 lit; S45 deleted |
 | 12 | `.pryzm` v1 not specified | SPEC-26 | S25 |

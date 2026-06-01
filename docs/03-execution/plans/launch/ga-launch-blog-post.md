@@ -17,7 +17,7 @@ pipeline, and a SOC 2-evidence-pipeline-ready security posture.
 This post is the launch announcement; full release notes are at
 [`RELEASE-NOTES-2.0.0.md`](https://github.com/pryzm/pryzm/blob/main/RELEASE-NOTES-2.0.0.md).
 The 36-month build retrospective is at
-[`docs/post-mortems/PRYZM-2-build.md`](https://github.com/pryzm/pryzm/blob/main/docs/post-mortems/PRYZM-2-build.md).
+[`docs/03-execution/status/post-mortems/PRYZM-2-build.md`](https://github.com/pryzm/pryzm/blob/main/docs/03-execution/status/post-mortems/PRYZM-2-build.md).
 
 ## What changed since PRYZM 1
 
@@ -31,7 +31,7 @@ The 36-month build retrospective is at
 
 ## What ships under "preview" at GA
 
-PDF-to-BIM ships under the `'preview'` label per [ADR-029 Part E](https://github.com/pryzm/pryzm/blob/main/docs/architecture/adr/0029-pdf-to-bim-preview.md).
+PDF-to-BIM ships under the `'preview'` label per [ADR-029 Part E](https://github.com/pryzm/pryzm/blob/main/docs/02-decisions/adrs/0029-pdf-to-bim-preview.md).
 The accuracy thresholds are documented; we hold the gate at preview
 until the SPEC-45 reference corpus is measured. Customers can flip
 the label to `'full'` in their own deployments by running
@@ -51,7 +51,7 @@ absorbed six cuts over the build. The big ones at GA:
 - **Offline-first** — multiplayer is the M36 differentiator.
 
 The post-GA roadmap re-prioritises each cut by real customer signal:
-[`docs/roadmap/post-GA.md`](https://github.com/pryzm/pryzm/blob/main/docs/roadmap/post-GA.md).
+[`docs/03-execution/plans/post-ga-roadmap.md`](https://github.com/pryzm/pryzm/blob/main/docs/03-execution/plans/post-ga-roadmap.md).
 
 ## PRYZM 1 sunset
 
@@ -59,7 +59,7 @@ PRYZM 1 entered sunset at S61. The 90-day migration window is active.
 The per-project migration tool (`pryzm pack` / `pryzm unpack`) is in
 the CLI now; the batch migration tool ships during the sunset window.
 
-Existing customers: see [`docs/operations/pryzm-1-sunset.md`](https://github.com/pryzm/pryzm/blob/main/docs/operations/pryzm-1-sunset.md)
+Existing customers: see [`docs/03-execution/plans/pryzm-1-sunset.md`](https://github.com/pryzm/pryzm/blob/main/docs/03-execution/plans/pryzm-1-sunset.md)
 for the migration playbook.
 
 ## Self-host
@@ -84,7 +84,7 @@ for the full install + day-2 ops guide.
 - **Self-host**: [docs.pryzm.com/selfhost](https://docs.pryzm.com/selfhost).
 - **Plugin authors**: [docs.pryzm.com/plugin-sdk](https://docs.pryzm.com/plugin-sdk).
 - **Integrators**: [docs.pryzm.com/api](https://docs.pryzm.com/api).
-- **Existing PRYZM 1 customers**: [migration playbook](https://github.com/pryzm/pryzm/blob/main/docs/operations/pryzm-1-sunset.md).
+- **Existing PRYZM 1 customers**: [migration playbook](https://github.com/pryzm/pryzm/blob/main/docs/03-execution/plans/pryzm-1-sunset.md).
 
 ## Thanks
 

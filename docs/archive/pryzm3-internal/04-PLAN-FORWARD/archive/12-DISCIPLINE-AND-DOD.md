@@ -20,17 +20,17 @@ The 5 rules from `../01-VISION.md §8` plus rule 6 added by this plan (`pnpm ga-
 
 ```ts
 /**
- * Blocks any new top-level .md file in docs/03_PRYZM3/ outside the canonical 4 + README + the 04-PLAN-FORWARD/ folder.
+ * Blocks any new top-level .md file in docs/archive/pryzm3-internal/ outside the canonical 4 + README + the 04-PLAN-FORWARD/ folder.
  *
  * Allowed locations for new docs:
- *   - docs/03_PRYZM3/reference/{adrs,specs}/   (numbered ADRs and SPECs)
- *   - docs/03_PRYZM3/archive/                  (move-only, never create)
- *   - docs/03_PRYZM3/04-PLAN-FORWARD/          (this plan's expansion, but only by architecture lead)
+ *   - docs/archive/pryzm3-internal/reference/{adrs,specs}/   (numbered ADRs and SPECs)
+ *   - docs/archive/pryzm3-internal/archive/                  (move-only, never create)
+ *   - docs/archive/pryzm3-internal/04-PLAN-FORWARD/          (this plan's expansion, but only by architecture lead)
  *
  * Forbidden:
- *   - docs/03_PRYZM3/*.md outside the canonical 5 (README + 01..04)
- *   - docs/03_PRYZM3/<new-folder>/             (no new top-level folders)
- *   - docs/03_PRYZM3/04-PLAN-FORWARD/<new-file>.md  (new files require architecture-lead review)
+ *   - docs/archive/pryzm3-internal/*.md outside the canonical 5 (README + 01..04)
+ *   - docs/archive/pryzm3-internal/<new-folder>/             (no new top-level folders)
+ *   - docs/archive/pryzm3-internal/04-PLAN-FORWARD/<new-file>.md  (new files require architecture-lead review)
  */
 ```
 
@@ -99,7 +99,7 @@ Wired into `pnpm ga-gate` as `check-no-new-docs`. CI fails if a PR adds a top-le
 ```ts
 /**
  * If the current time is in the 'sprint-closed-weekend' window (Fri 17:00 UTC → Mon 09:00 UTC)
- * AND the most recent §10 entry in docs/03_PRYZM3/03-CURRENT-STATE.md is older than the most
+ * AND the most recent §10 entry in docs/archive/pryzm3-internal/03-CURRENT-STATE.md is older than the most
  * recent sprint close date, block the merge.
  *
  * Override: PR description containing "[skip-weekly-delta]" with architecture-lead approval.
@@ -373,7 +373,7 @@ Every morning, the architecture lead runs:
 ```bash
 pnpm ga-gate                   # baseline check
 pnpm pryzm-3-day-1-dry-run      # convergence boolean state
-git log --oneline --since=yesterday docs/03_PRYZM3/  # any doc edits
+git log --oneline --since=yesterday docs/archive/pryzm3-internal/  # any doc edits
 git log --oneline --since=yesterday packages/runtime-composer/  # composeRuntime drift
 ```
 

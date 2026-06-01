@@ -657,7 +657,7 @@ ui/       (the white UI — stays as L7.5; target state is src/ui/ only after Wa
 [ga-gate] PASS (all tripwire checks green: cast ≤ 168, rAF = 1, EngineBootstrap = absent)
 ```
 
-`docs/03_PRYZM3/03-CURRENT-STATE.md §1` (verified 2026-05-01 post-S97-WIRE):
+`docs/archive/pryzm3-internal/03-CURRENT-STATE.md §1` (verified 2026-05-01 post-S97-WIRE):
 ```
 | Metric | Value |
 | (window as any) non-shim reaches across src/   | 168 ✅ (target: 0 for src/ui/ — met; 168 in src/engine/ + src/core/) |

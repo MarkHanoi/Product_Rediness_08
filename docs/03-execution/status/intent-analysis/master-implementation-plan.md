@@ -1,8 +1,8 @@
 # Visibility-Intent Master Implementation Plan
 
-**File:** `docs/Analysis/MASTER-IMPLEMENTATION-PLAN.md`
+**File:** `docs/03-execution/status/intent-analysis/MASTER-IMPLEMENTATION-PLAN.md`
 **Date:** 2026-04-26
-**Status:** Authoritative planning document — supersedes the stage list in `docs/01_ELEMENTS/03_VIEWS/10_VIEW_INTENT_SYSTEM_IMPLEMENTATION_PLAN.md` §0 and the planning summary in `docs/Analysis/INTENT-USER-JOURNEYS.md` §14.
+**Status:** Authoritative planning document — supersedes the stage list in `docs/01_ELEMENTS/03_VIEWS/10_VIEW_INTENT_SYSTEM_IMPLEMENTATION_PLAN.md` §0 and the planning summary in `docs/03-execution/status/intent-analysis/INTENT-USER-JOURNEYS.md` §14.
 **Total estimated effort:** **~14 engineering days** (split across 11 waves; Waves 1–6 are the critical path for the new Properties panel; Waves 7–11 add depth and parity).
 
 ---
@@ -16,9 +16,9 @@ It consolidates four upstream sources:
 | Upstream source | What it contributed |
 |---|---|
 | `docs/01_ELEMENTS/03_VIEWS/10_VIEW_INTENT_SYSTEM_IMPLEMENTATION_PLAN.md` | Stages **S1–S8** (engine-level work). |
-| `docs/Analysis/INTENT-AS-VIEW-PROPERTIES-ORCHESTRATION-LAYER.md` | Stages **P0–P3** (panel-level work) + the new `viewSeed` schema. |
-| `docs/Analysis/INTENT-PANELS-UI-UX-DESIGN.md` | Black-and-white iconography, four quick paths to the Intent Editor, source-pill rules, modal layouts. |
-| `docs/Analysis/INTENT-USER-JOURNEYS.md` §13 | Audit gaps **A1–A10** (new work), **B1–B4** (schema/contract clarifications), **C1–C5** (sequencing constraints). |
+| `docs/03-execution/status/intent-analysis/INTENT-AS-VIEW-PROPERTIES-ORCHESTRATION-LAYER.md` | Stages **P0–P3** (panel-level work) + the new `viewSeed` schema. |
+| `docs/03-execution/status/intent-analysis/INTENT-PANELS-UI-UX-DESIGN.md` | Black-and-white iconography, four quick paths to the Intent Editor, source-pill rules, modal layouts. |
+| `docs/03-execution/status/intent-analysis/INTENT-USER-JOURNEYS.md` §13 | Audit gaps **A1–A10** (new work), **B1–B4** (schema/contract clarifications), **C1–C5** (sequencing constraints). |
 
 **Wave** is the unit of release. Each wave is independently mergeable and produces a usable improvement. Waves are sequenced so the critical-path UX (Waves 1–6) is reachable in ~7 engineering days; Waves 7–11 add 3D, RCP, IFC, and persistence depth.
 
@@ -109,7 +109,7 @@ Land the cheapest, highest-leverage prep work so that Waves 2+ have clean ground
 
 #### Stage S1 — SVP header parity + tool-handler registry parity (~1.5 h)
 
-- **Goal:** Bring the Standardised View Properties (SVP) header to parity with the tool-handler registry per `docs/00_Contracts/07-BIM-SECURITY-CONTRACT.md` Phase 5a.
+- **Goal:** Bring the Standardised View Properties (SVP) header to parity with the tool-handler registry per `docs/02-decisions/contracts/07-BIM-SECURITY-CONTRACT.md` Phase 5a.
 - **Files touched:**
   - `src/ui/views/StandardisedViewHeader.ts`
   - `src/core/tools/ToolHandlerRegistry.ts`
@@ -303,7 +303,7 @@ Per doc 10 §S3 (with C1, C5, B1, B3 folded in), restructure the panel so view-t
 
 - **Goal:** Per journeys §13 B1, explicitly define and test the segment-state (`cut` / `projection` / `beyond`) tagging in `EdgeProjectorService` for section and elevation views.
 - **Files touched:**
-  - `docs/00_Contracts/25-VISIBILITY-INTENT-SYSTEM-CONTRACT.md` — add §2.6.1 specifying the segment-state mapping for section and elevation per the cut-plane + far-clip model.
+  - `docs/02-decisions/contracts/25-VISIBILITY-INTENT-SYSTEM-CONTRACT.md` — add §2.6.1 specifying the segment-state mapping for section and elevation per the cut-plane + far-clip model.
   - `tests/projection/edge_projector_service.test.ts` (**new**) — fixture geometry → expected segment-state tags.
 - **Acceptance:** Contract doc updated; tests green for at least three distinct fixture cases (a beam crossing the cut plane → cut + projection segments; a wall behind the cut plane within far-clip → beyond segments; a wall beyond far-clip → no segments).
 - **Source:** journeys §13 B1; per C5 lands alongside Wave 4.
@@ -575,7 +575,7 @@ The program is **done** when **all** of the following hold:
 2. `rg "vgGovernanceStore\.set|viewTemplateStore\.set" src/` returns zero non-deprecated callers.
 3. The Properties panel renders entirely in monochrome (no coloured icons, no hex literals outside `--vi-*` tokens).
 4. The four quick paths to the Intent Editor (header shortcut, spine primary button, name link, keyboard `I`) all open the same modal and pass a manual smoke test.
-5. All twelve user journeys (J1–J12) in `docs/Analysis/INTENT-USER-JOURNEYS.md` are runnable end-to-end.
+5. All twelve user journeys (J1–J12) in `docs/03-execution/status/intent-analysis/INTENT-USER-JOURNEYS.md` are runnable end-to-end.
 6. `npm run check`, `npm run test`, and the migration test suite are green.
 7. `replit.md` is updated with the new architecture summary.
 8. The legacy implementation plan (`docs/01_ELEMENTS/03_VIEWS/10_VIEW_INTENT_SYSTEM_IMPLEMENTATION_PLAN.md`) is marked `@superseded` with a pointer to this master plan.
@@ -792,7 +792,7 @@ Files delivered this commit:
 | `src/migrations/` directory | Did not exist — schema migrations live at `src/core/presentation/migrations/IntentSchemaMigrations.ts`. |
 | `tests/projection/edge_projector_service.test.ts` | Did not exist; no `tests/projection/` directory at all. |
 | `EdgeProjectorService` class | ✅ Confirmed at `src/core/views/EdgeProjectorService.ts`. |
-| Doc 25 contract path | ✅ Confirmed at `docs/00_Contracts/25-VISIBILITY-INTENT-SYSTEM-CONTRACT.md`. |
+| Doc 25 contract path | ✅ Confirmed at `docs/02-decisions/contracts/25-VISIBILITY-INTENT-SYSTEM-CONTRACT.md`. |
 | VisibilityIntentPanel "four flat tabs" | ✅ Confirmed (Element Rules / View Modifiers / Purpose Modifiers / View Range, lines 102–105). |
 
 **Scope decision.** Wave 4 is the longest wave in the program (~3.5 days across S3, A4, B1). Following the established Wave 2 / Wave 3 pattern of shipping the high-value structural foundation now and deferring the heavy UI rewrites to follow-up waves, this commit lands:

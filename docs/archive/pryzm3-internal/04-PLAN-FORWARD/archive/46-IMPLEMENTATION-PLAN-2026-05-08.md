@@ -1068,7 +1068,7 @@ This is the longest-running structural migration. It cannot be rushed without ri
 
 **Status**: OPEN
 
-**Why**: C10 §6 requires a quarterly DR drill. The DR runbook is at `docs/03_PRYZM3/reference/runbooks/DR-DRILL-RUNBOOK.md`. No drill has been logged.
+**Why**: C10 §6 requires a quarterly DR drill. The DR runbook is at `docs/archive/pryzm3-internal/reference/runbooks/DR-DRILL-RUNBOOK.md`. No drill has been logged.
 
 **Implementation**:
 

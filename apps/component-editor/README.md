@@ -17,7 +17,7 @@ the architectural rails (vanilla TS, no THREE leakage, no rAF, no
 The 8-sprint rewrite plan lives at:
 
 ```
-docs/03_PRYZM3/reference/phases/PHASE-3/3B-FAMILY-CREATOR-REWRITE-PLAN.md
+docs/archive/pryzm3-internal/reference/phases/PHASE-3/3B-FAMILY-CREATOR-REWRITE-PLAN.md
 ```
 
 ## Sprint roadmap

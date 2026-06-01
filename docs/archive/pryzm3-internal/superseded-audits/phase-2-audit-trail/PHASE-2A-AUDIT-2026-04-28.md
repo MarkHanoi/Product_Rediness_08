@@ -35,7 +35,7 @@ The `code-level ADR-022/024/025` slugs in the spec resolved during execution to 
 | Pure `produceRoomGeometry` (Shoelace area, half-edge graph, flood-fill from seed) | `packages/geometry-kernel/src/producers/room.ts` | covered indirectly via handler tests + parity fixtures | DONE |
 | Room committer (floor fill + boundary outline, `subscribeDirty` to `WallStore`) | `plugins/rooms/src/committer.ts` | DONE |
 | Room tool (seed-point click) | `plugins/rooms/src/tool.ts` | DONE |
-| Code-level `ADR 0022 — Room boundary detection strategy` (Option A topological, half-edge flood-fill) | `docs/architecture/adr/0022-room-boundary-detection.md` | DONE |
+| Code-level `ADR 0022 — Room boundary detection strategy` (Option A topological, half-edge flood-fill) | `docs/02-decisions/adrs/0022-room-boundary-detection.md` | DONE |
 | Light expression evaluator (`length = a + b`, `angle = 90°`) per SPEC-01 §4.1 | `packages/expr-eval/src/{parser,evaluator}.ts` | `packages/expr-eval/__tests__/eval.test.ts` | DONE |
 | Family/type/instance schemas per SPEC-05 §1.2 | `packages/types-schema/space.ts` | DONE |
 | `IfcSpace` mapping per SPEC-05 §5 | covered by schema layer (full IFC export deferred to Phase 3B per `[strategic ADR-008]`) | DEFERRED-by-design |
@@ -70,7 +70,7 @@ The `code-level ADR-022/024/025` slugs in the spec resolved during execution to 
 | Multi-representation producer (LOD swap) | `packages/geometry-kernel/src/producers/furniture.ts` | DONE |
 | Furniture catalogue | `plugins/furniture/src/catalogue/` | `plugins/furniture/__tests__/catalogue.test.ts` (11 tests) | DONE |
 | Carousel UI + committer + mesh-swap | `plugins/furniture/src/carousel/` + `committer.ts` | DONE |
-| Code-level `ADR 0027 — Furniture multi-representation model` | `docs/architecture/adr/0027-furniture-multi-representation.md` | DONE |
+| Code-level `ADR 0027 — Furniture multi-representation model` | `docs/02-decisions/adrs/0027-furniture-multi-representation.md` | DONE |
 
 **28 tests** across `furniture/__tests__/` (handlers 17 + catalogue 11). LOD swap is covered by `SetActiveLod.test.ts` cases.
 
@@ -99,7 +99,7 @@ The `code-level ADR-022/024/025` slugs in the spec resolved during execution to 
 | `LevelStore` (plan-view specific) | `plugins/plan-view/src/LevelStore.ts` | `__tests__/level-store.test.ts` (8 tests) | DONE |
 | `PlanCamera` (orthographic, world XZ → canvas xy with Z-flip) | `plugins/plan-view/src/PlanCamera.ts` | `__tests__/plan-camera.test.ts` (11 tests) | DONE |
 | Projection skeleton | `plugins/plan-view/src/projection.ts` | `__tests__/projection.test.ts` (7 tests) | DONE |
-| Code-level `ADR 0028 — Plan view canvas architecture` | `docs/architecture/adr/0028-plan-view-canvas-architecture.md` | DONE |
+| Code-level `ADR 0028 — Plan view canvas architecture` | `docs/02-decisions/adrs/0028-plan-view-canvas-architecture.md` | DONE |
 
 **Plan-view test footprint as of audit**: 14 test files, 112 individual `it`/`test` cases across the plan-view plugin.
 
@@ -113,7 +113,7 @@ The `code-level ADR-022/024/025` slugs in the spec resolved during execution to 
 | `packages/geometry-kernel/src/poche.ts` (pure) | `packages/geometry-kernel/src/poche.ts` | DONE |
 | Headless byte-identity tests (Node + browser) | `packages/geometry-kernel/__tests__/` (snap fixtures) | DONE |
 | `packages/drawing-primitives/` MVP per SPEC-04 + `[strategic ADR-016]` | `packages/drawing-primitives/src/{types,classifier-to-primitives,index}.ts` + `backends/{canvas2d,svg,pdf,print-canvas}.ts` | DONE |
-| Code-level `ADR 0029 — Vector primitives & backends` | `docs/architecture/adr/0029-vector-primitives-and-backends.md` | DONE |
+| Code-level `ADR 0029 — Vector primitives & backends` | `docs/02-decisions/adrs/0029-vector-primitives-and-backends.md` | DONE |
 | Hidden-line classifier (kernel-pure) | `packages/geometry-kernel/src/hidden-line/` | DONE |
 | Sub-phase 2A demo recording (8-min screencast, S30 D9) | OUT OF SCOPE — recording asset, not code | DEFERRED (non-blocker) |
 | `apps/bench/reports/M15-2A-baseline.md` | NOT YET COMMITTED | DEFERRED to bench-reports sweep at S31-bis |
@@ -128,9 +128,9 @@ The bench infrastructure for the M15-2A baseline is in place (`apps/bench/src/be
 
 | Spec slug | Actual file | Verdict |
 |---|---|---|
-| `ADR 0022 — Room boundary detection strategy` (S25) | `docs/architecture/adr/0022-room-boundary-detection.md` | DONE |
-| `ADR 0024 — Furniture multi-representation model` (S27) | renumbered to `docs/architecture/adr/0027-furniture-multi-representation.md` per ADR-0030 §2.1 | DONE |
-| `ADR 0025 — Plan view canvas architecture` (S29) | renumbered to `docs/architecture/adr/0028-plan-view-canvas-architecture.md` per ADR-0030 §2.1 | DONE |
+| `ADR 0022 — Room boundary detection strategy` (S25) | `docs/02-decisions/adrs/0022-room-boundary-detection.md` | DONE |
+| `ADR 0024 — Furniture multi-representation model` (S27) | renumbered to `docs/02-decisions/adrs/0027-furniture-multi-representation.md` per ADR-0030 §2.1 | DONE |
+| `ADR 0025 — Plan view canvas architecture` (S29) | renumbered to `docs/02-decisions/adrs/0028-plan-view-canvas-architecture.md` per ADR-0030 §2.1 | DONE |
 
 Numbering reconciliation is documented in the spec's **Numbering note (updated 2026-04-27)** and again in `ADR-0030 §2.1`. There is no ADR-022/024/025 collision in the as-shipped tree.
 

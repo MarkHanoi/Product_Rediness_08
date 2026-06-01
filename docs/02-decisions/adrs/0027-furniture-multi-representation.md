@@ -3,7 +3,7 @@
 - Status: **Accepted** (2026-04-27)
 - Sprint: **S27** (Phase 2A — non-element-family completion, M14)
 - Authors: PRYZM 2 BIM rebuild
-- Related: ADR-0009 (frozen producer signature), ADR-0017 (headless package surface), ADR-0023 (S26 second-tier triage), `docs/03_PRYZM3/reference/phases/PHASE-2/2A-Q1-M13-M15-NON-ELEMENT-COMPLETION.md` §S27
+- Related: ADR-0009 (frozen producer signature), ADR-0017 (headless package surface), ADR-0023 (S26 second-tier triage), `docs/03-execution/plans/legacy/phases/PHASE-2/2A-Q1-M13-M15-NON-ELEMENT-COMPLETION.md` §S27
 
 ---
 

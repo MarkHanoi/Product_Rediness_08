@@ -62,7 +62,7 @@ Ceilings:
 
 The full per-step SPEC lands at S50 as **SPEC-45 PDF-to-BIM Pipeline** (this ADR's normative companion).
 
-> **Numbering note (2026-04-28, S50 D5):** the original S50 phase doc + early drafts of this ADR called the companion SPEC "SPEC-31". That number was claimed first by `SPEC-31-LOAD-BENCH-AND-BACKPRESSURE.md` (2026-04-27 founder robustness amendment). To avoid renumbering the load-bench SPEC mid-cycle, the PDF-to-BIM pipeline publishes as **SPEC-45**; see `docs/03_PRYZM3/reference/specs/SPEC-45-PDF-TO-BIM-PIPELINE.md` §0 for the full numbering rationale. All other phase doc references to "SPEC-31 PDF-to-BIM" should be read as SPEC-45.
+> **Numbering note (2026-04-28, S50 D5):** the original S50 phase doc + early drafts of this ADR called the companion SPEC "SPEC-31". That number was claimed first by `SPEC-31-LOAD-BENCH-AND-BACKPRESSURE.md` (2026-04-27 founder robustness amendment). To avoid renumbering the load-bench SPEC mid-cycle, the PDF-to-BIM pipeline publishes as **SPEC-45**; see `docs/03-execution/specs/SPEC-45-PDF-TO-BIM-PIPELINE.md` §0 for the full numbering rationale. All other phase doc references to "SPEC-31 PDF-to-BIM" should be read as SPEC-45.
 
 SPEC-45 will define:
 - The page-classification prompt (with Sonnet + Vision).

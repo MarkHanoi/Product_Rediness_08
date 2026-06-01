@@ -183,7 +183,7 @@ For the **cascade path** (moved wall carries corner-joined neighbour endpoints),
 - `plugins/wall/src/handlers/UpdateWallBaseline.ts` — `_skipBridge` guard
 - `plugins/wall/src/handlers/CascadeWallBaseline.ts` — `_skipBridge` guard
 
-**Authoritative contract for hosted elements**: See `docs/00_Contracts/C15-HOSTED-ELEMENT-CONTRACT.md`.
+**Authoritative contract for hosted elements**: See `docs/02-decisions/contracts/C15-HOSTED-ELEMENT-CONTRACT.md`.
 
 **Migration exit**: When the PRYZM3 plugin Immer store for walls is wired to `WallRebuildCoordinator` (i.e., when the plugin store drives mesh rebuilds directly), the `commandManager.execute(...)` call can be removed from mutation sites. The bus write alone becomes authoritative.
 

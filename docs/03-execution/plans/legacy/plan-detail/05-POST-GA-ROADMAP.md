@@ -20,7 +20,7 @@
 - **SPEC numbering continues**: SPECs 01–31 are pre-GA. SPECs introduced in this document run **SPEC-32 through SPEC-50**. Each SPEC referenced below is a normative deliverable; the SPEC file itself is created at the sprint cited in the §"SPEC creation" column.
 - **ADR numbering continues**: strategic ADRs 001–030 are pre-GA. Post-GA strategic ADRs run **ADR-031 through ADR-080**.
 - **Family count**: M36 GA ships 18 element families. This roadmap adds 14 more (taking the total to 32) plus 9 system families (HVAC, electrical, plumbing-system, sprinkler, gas, drainage, communications, security, vertical-transport).
-- **Citation format**: `[strategic ADR-NNN]` for strategic ADRs; `SPEC-NN §X.Y` for specs; sprint-scoped ADRs at `docs/architecture/adr/NNNN-*.md` cited as `[ADR NNNN-slug]`.
+- **Citation format**: `[strategic ADR-NNN]` for strategic ADRs; `SPEC-NN §X.Y` for specs; sprint-scoped ADRs at `docs/02-decisions/adrs/NNNN-*.md` cited as `[ADR NNNN-slug]`.
 
 ---
 

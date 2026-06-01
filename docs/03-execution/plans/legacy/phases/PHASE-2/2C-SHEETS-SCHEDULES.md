@@ -259,7 +259,7 @@ export class SheetEditorHost extends CanvasHost {
 | D4 | Wire `SheetStore` to sync server: sheet commands linearised as events (same as element commands). | `SheetEditorHost` renders paper boundary + "Loading view" placeholder for empty viewports. |
 | D5 | **Mid-sprint sync (1 h)** — end-to-end: create sheet → appears in list → click to open → sheet canvas renders paper boundary. | Same session — confirm camera pan/zoom, paper boundary renders at correct aspect ratio for A0–A4. |
 | D6 | Sheet persistence: create 3 sheets, hard-reload, confirm all 3 still exist (events in log, `SheetStore` hydrated on load). | Sheet navigation: click sheet in list → `SheetStore.activeSheetId` updates → editor re-renders new sheet. |
-| D7 | Sheet number formatting: ensure A-001, A-002, etc. auto-incremented on creation; user can override. | `docs/architecture/sheet-editor.md` — Canvas2D approach, coordinate system, thumbnail strategy. |
+| D7 | Sheet number formatting: ensure A-001, A-002, etc. auto-incremented on creation; user can override. | `docs/04-reference/architecture-detail/sheet-editor.md` — Canvas2D approach, coordinate system, thumbnail strategy. |
 | D8 | OTel: `pryzm.sheet.create`, `pryzm.sheet.activate`, `pryzm.sheet.render` spans. | E2E Playwright test: create sheet → rename → reorder → delete → confirm list updates. |
 
 #### S37 Exit Criteria
@@ -706,7 +706,7 @@ export async function processExportJob(job: PdfExportJob, r2: R2Storage): Promis
 | D5 | **Mid-sprint sync (1 h) — mandatory end-to-end test** — export 1-sheet drawing set. Open resulting PDF in Acrobat. Visually verify: scale bar correct, title block fields populated, viewport scale correct, annotations readable. | Same session — measure export time for 1 sheet. Target: < 8 s (well within the 30-s budget for 5 sheets). |
 | D6 | PDF bookmarks: add a bookmark per sheet (sheet number + name) for navigation in Acrobat. | Bench: `apps/bench/export-pdf.ts` — 5-sheet, 20-sheet, 50-sheet. Measure p50 and p95. |
 | D7 | Error handling: malformed sheet (no viewports, no title block) → export produces a valid PDF with a "No content" placeholder — never crashes the worker. | OTel: `pryzm.export.pdf.rasterise`, `pryzm.export.pdf.assemble`, `pryzm.export.pdf.upload` spans. |
-| D8 | E2E test: create 5 sheets → add viewports + title blocks + 3 widgets → export PDF → verify in Playwright (download, page count = 5, file size < 50 MB). | `docs/architecture/export-worker.md` — architecture, job lifecycle, quality settings, cost (R2 + compute). |
+| D8 | E2E test: create 5 sheets → add viewports + title blocks + 3 widgets → export PDF → verify in Playwright (download, page count = 5, file size < 50 MB). | `docs/04-reference/architecture-detail/export-worker.md` — architecture, job lifecycle, quality settings, cost (R2 + compute). |
 
 #### S40 Exit Criteria
 

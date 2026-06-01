@@ -124,7 +124,7 @@
 
 ```
 - SPEC-31 §4 M27.5 largest-fixture checkpoint: AI floor-plan import on a PDF that produces ~10K walls. End-to-end measurement (PDF upload → last chunk rendered) filed at `apps/bench/reports/M27-3A-largest.md`. Warn-only.
-- SPEC-31 §3 threshold re-tune: if M27.5 measurements show oscillation or starvation, file sprint-scoped ADR `docs/architecture/adr/NNNN-ai-backpressure-tune.md` with new thresholds.
+- SPEC-31 §3 threshold re-tune: if M27.5 measurements show oscillation or starvation, file sprint-scoped ADR `docs/02-decisions/adrs/NNNN-ai-backpressure-tune.md` with new thresholds.
 ```
 
 ### §2.7 PHASE-3D-Q4-M34-M36-HARDENING-GA.md

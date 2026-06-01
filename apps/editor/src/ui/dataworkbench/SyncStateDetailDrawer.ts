@@ -4,7 +4,7 @@
  * Layer Affected:    UI — Data Workbench: Sync State Detail Drawer (Gap 1 — Phase 2.1)
  * File:             src/ui/dataworkbench/SyncStateDetailDrawer.ts
  * Contract:         docs/00_PRZYM/AUDIT_BIM_DATABASE_VISION_2_0.md §Gap 1
- *                   docs/00_Contracts/05-BIM-UI-ARCHITECTURE-CONTRACT.md §3
+ *                   docs/02-decisions/contracts/05-BIM-UI-ARCHITECTURE-CONTRACT.md §3
  *
  * CSS prefix:       ssd-  (Sync State Detail)
  *

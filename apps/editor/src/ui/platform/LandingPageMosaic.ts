@@ -39,7 +39,7 @@ export class LandingPageMosaic {
         // mobile between LandingPage mount and fetch resolution.  The user
         // sees the drift animation on coloured tiles immediately, then they
         // are seamlessly swapped for real images when the fetch completes.
-        // See `docs/03_PRYZM3/02-ARCHITECTURE.md §6` Stage 1 (mosaic enhances
+        // See `docs/archive/pryzm3-internal/02-ARCHITECTURE.md §6` Stage 1 (mosaic enhances
         // post-paint, never blocks paint).
         this.render([]);
         this.enhance();

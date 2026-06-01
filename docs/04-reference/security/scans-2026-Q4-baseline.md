@@ -3,7 +3,7 @@
 **Sprint**: PRYZM 2 Phase 3D · S68 — Security Hardening + SOC2 Automation + SAML/SCIM
 **Scan date**: 2026-04-28
 **Scanners**: `runDependencyAudit` (Replit, OSV-backed) · `runSastScan` (Replit) · `runHoundDogScan` (Replit, dataflow/PII)
-**Spec ref**: `docs/03_PRYZM3/reference/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S68 D7
+**Spec ref**: `docs/archive/pryzm3-internal/reference/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S68 D7
 **Exit-criteria target**: "HoundDog clean; SAST clean; SCA clean."
 
 ---
@@ -79,7 +79,7 @@ This **does not** mean the codebase has zero PII handling — it means the patte
 
 - PII routed through structured fields the scanner does not classify (e.g. our own `subject` header → `audit_log.actor_id`).
 - PII in operator-supplied environment variables (e.g. SMTP credentials in `apps/email-transport`).
-- PII embedded in JSONB snapshot blobs in `project_versions.snapshot` (the redaction story for snapshots is in `docs/03_PRYZM3/PRIVACY-NOTES.md`).
+- PII embedded in JSONB snapshot blobs in `project_versions.snapshot` (the redaction story for snapshots is in `docs/archive/pryzm3-internal/PRIVACY-NOTES.md`).
 
 HoundDog is one signal of three — clean is necessary, not sufficient.
 
@@ -107,8 +107,8 @@ After items 1-4 + 7 land at S68 D8, expected SCA posture: **0 critical, 0 high, 
 - It does **not** claim SCA is currently clean — 2 critical + 8 high are open.
 - It does **not** claim a SAST result either way — that scan errored.
 - It does **not** replace the **third-party pen test** scheduled for S68 D1–D2 (external; founder coordinates). The pen test report is the K3-E gate, not these scans.
-- It does **not** replace the **plugin sandbox audit** at `docs/security/plugin-sandbox-audit-2026-Q4.md` (S68 D4) — sandbox escape vectors are tested by `packages/plugin-sdk/__tests__/escape-tests.test.ts`, not by these scanners.
-- It does **not** replace the **RLS audit** at `docs/security/rls-audit-2026-Q4.md` (S68 D5) — Postgres RLS coverage is not a scanner finding.
+- It does **not** replace the **plugin sandbox audit** at `docs/04-reference/security/plugin-sandbox-audit-2026-Q4.md` (S68 D4) — sandbox escape vectors are tested by `packages/plugin-sdk/__tests__/escape-tests.test.ts`, not by these scanners.
+- It does **not** replace the **RLS audit** at `docs/04-reference/security/rls-audit-2026-Q4.md` (S68 D5) — Postgres RLS coverage is not a scanner finding.
 - It is a point-in-time baseline. Re-run cadence: every sprint close + on every dependency bump PR.
 
 ---

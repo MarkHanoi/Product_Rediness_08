@@ -4,7 +4,7 @@
 // runtime.bus.executeCommand.  The bus receives the command type and an
 // object payload ({}). 12 buttons covered.
 //
-// Docs: docs/03_PRYZM3/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §3
+// Docs: docs/archive/pryzm3-internal/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §3
 
 import { describe, expect, it, vi } from 'vitest';
 import { MainToolbar, MAIN_TOOLBAR_ID, MAIN_TOOLBAR_BUTTONS } from '../MainToolbar.js';

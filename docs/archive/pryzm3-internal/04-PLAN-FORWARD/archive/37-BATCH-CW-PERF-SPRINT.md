@@ -176,7 +176,7 @@ Single-slab variant: accumulates all newly-created IDs in `registrationIds[]`, t
 | `src/engine/subsystems/commands/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts` | Per-level group accumulator; replace per-wall `trackRegistration()` | `§REG-MANY-P1` |
 | `src/engine/subsystems/core/batch/BatchCoordinator.ts` | `SYNC_DRAIN_THRESHOLD=50`; sync-drain path in `signalBuildQueueDrained()` | `§REG-MANY-P2` |
 | `src/engine/subsystems/commands/curtainwall/CreateCurtainWallsFromSlabCommand.ts` | `registrationIds[]` + post-loop `registerMany()` | `§REG-MANY-P3` |
-| `docs/03_PRYZM3/04-PLAN-FORWARD/34-HANDLER-PROTOCOL-GAP-ANALYSIS.md` | Add sprint audit rows | — |
+| `docs/archive/pryzm3-internal/04-PLAN-FORWARD/34-HANDLER-PROTOCOL-GAP-ANALYSIS.md` | Add sprint audit rows | — |
 
 ---
 

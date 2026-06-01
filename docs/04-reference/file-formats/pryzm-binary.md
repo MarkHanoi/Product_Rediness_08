@@ -7,7 +7,7 @@
 | **Reference impl.** | [`packages/file-format/`](../../packages/file-format) |
 | **CLI** | [`apps/cli/`](../../apps/cli) (`pryzm-cli pack/unpack/inspect`) |
 | **ADR** | [ADR-0018](../architecture/adr/0018-pryzm-zip-format-v1.md) |
-| **Phase doc** | [`PHASE-1D-Q4-M10-M12-BAKE-PRYZM-ALPHA.md`](../03_PRYZM3/reference/phases/PHASE-1/1D-Q4-M10-M12-BAKE-PRYZM-ALPHA.md) §S20 |
+| **Phase doc** | [`PHASE-1D-Q4-M10-M12-BAKE-PRYZM-ALPHA.md`](../archive/pryzm3-internal/reference/phases/PHASE-1/1D-Q4-M10-M12-BAKE-PRYZM-ALPHA.md) §S20 |
 
 This document is the **byte-level** spec of the `.pryzm` container.  It
 covers the on-disk envelope (ZIP layout), the manifest schema, the
@@ -165,7 +165,7 @@ the chunk reader downstream verifies hash → object identity at the
 glTF-extras level — see `ChunkReader`).
 
 The internal encoding of the GLB is out of scope for this document;
-see [SPEC-02](../../docs/03_PRYZM3/SPEC-02-CHUNKS.md) for
+see [SPEC-02](../../docs/archive/pryzm3-internal/SPEC-02-CHUNKS.md) for
 chunk binary layout.
 
 ## 5. `signatures/manifest.sig`

@@ -84,7 +84,7 @@ export interface ServerSyncQueueOptions {
  *   gates server-side version writes) MUST be ported into the new client's
  *   429/402 handling path before deletion can land.
  *
- *   See `docs/03_PRYZM3/00_NEW_ARCHITECTURE/phases/audits/PHASES-A-F-RECONCILIATION-2026-04-29/03-phase-C-audit-and-plan.md`
+ *   See `docs/archive/pryzm3-internal/00_NEW_ARCHITECTURE/phases/audits/PHASES-A-F-RECONCILIATION-2026-04-29/03-phase-C-audit-and-plan.md`
  *   §"C-cleanup.1".
  */
 export class ServerSyncQueue {

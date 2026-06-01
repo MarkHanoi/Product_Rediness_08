@@ -122,8 +122,8 @@ packages/frame-scheduler/
 
 ## References
 
-- `docs/architecture/adr/0003-frame-scheduler-priority-vs-deadline.md`
-- `docs/architecture/adr/0006-idle-continuation-budget.md`
+- `docs/02-decisions/adrs/0003-frame-scheduler-priority-vs-deadline.md`
+- `docs/02-decisions/adrs/0006-idle-continuation-budget.md`
 - `tools/eslint-plugin-pryzm/src/rules/no-raf.js`
 - `tools/scripts/check-raf-count.mjs` (rAF-count snapshot-diff for src/)
 - `phases/PHASE-1A-Q1-M1-M3-SKELETON-RAILS.md` §S02 / §S03

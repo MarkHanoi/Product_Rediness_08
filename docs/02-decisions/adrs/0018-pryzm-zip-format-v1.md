@@ -4,10 +4,10 @@
 - **Date**: 2026-04-27
 - **Supersedes**: PRYZM 1's `project.json` Postgres blob (incompatible)
 - **Phase**: 1D — `Q4 — M10-M12 BAKE & PRYZM ALPHA`, sprint **S20**
-- **Spec source**: `docs/03_PRYZM3/reference/phases/PHASE-1/1D-Q4-M10-M12-BAKE-PRYZM-ALPHA.md`
+- **Spec source**: `docs/03-execution/plans/legacy/phases/PHASE-1/1D-Q4-M10-M12-BAKE-PRYZM-ALPHA.md`
   §S20 (lines 418-611)
 - **Implementation**: `packages/file-format/`, `apps/cli/`
-- **Spec doc**: `docs/file-format/spec.md`
+- **Spec doc**: `docs/04-reference/file-formats/pryzm-binary.md`
 
 ## 1. Context
 

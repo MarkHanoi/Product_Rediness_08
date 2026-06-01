@@ -152,8 +152,8 @@ emit plugins_count           "$(ls plugins/ | wc -l)"
 emit apps_count              "$(ls apps/ | wc -l)"
 emit raf_outside_scheduler   "$(rg -n 'requestAnimationFrame\(' src/ packages/ plugins/ apps/ -g '*.ts' -g '*.tsx' 2>/dev/null | rg -v 'packages/frame-scheduler/' | wc -l)"
 emit canvas_outside_renderer "$(rg -n \"document\\.createElement\\(['\\\"]canvas['\\\"]\\\\)\" src/ packages/ plugins/ apps/ -g '*.ts' -g '*.tsx' 2>/dev/null | rg -v 'packages/renderer/' | wc -l)"
-emit adr_count               "$(ls docs/03_PRYZM3/reference/adrs/ADR-*.md | wc -l)"
-emit spec_count              "$(ls docs/03_PRYZM3/reference/specs/SPEC-*.md | wc -l)"
+emit adr_count               "$(ls docs/02-decisions/adrs/ADR-*.md | wc -l)"
+emit spec_count              "$(ls docs/03-execution/specs/SPEC-*.md | wc -l)"
 emit src_top_dirs            "$(find src -maxdepth 1 -type d | tail -n +2 | wc -l)"
 echo '  "_end": 0'
 echo "}"
@@ -357,7 +357,7 @@ Three rows in chunks 24 + 25 are now stale and contradict the disk. Doc-only fix
 
 | Stale claim | Where | Reality | Fix |
 |---|---|---|---|
-| ADR-041 "MISSING — proposed by Chunk 24 §24.4" | chunk 25 §25.2 line 111 | `docs/03_PRYZM3/reference/adrs/ADR-041-portfolio-aggregate-placement.md` exists | Update row to ✓ on disk; copy ratified decision into chunk 24 §24.4 |
+| ADR-041 "MISSING — proposed by Chunk 24 §24.4" | chunk 25 §25.2 line 111 | `docs/02-decisions/adrs/ADR-041-portfolio-aggregate-placement.md` exists | Update row to ✓ on disk; copy ratified decision into chunk 24 §24.4 |
 | ADR-042 "MISSING" | chunk 25 §25.2 line 112 | `ADR-042-physics-runtime-vs-dev-only.md` exists | Same |
 | ADR-043 "MISSING" | chunk 25 §25.2 line 113 | `ADR-043-utils-inline-vs-package.md` exists | Same |
 | ADR-044 "MISSING — proposed by THIS chunk §25.5" | chunk 25 §25.2 line 114 | `ADR-044-customer-migration-pryzm1-to-pryzm2.md` exists | Same |

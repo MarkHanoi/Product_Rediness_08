@@ -1,6 +1,6 @@
 # Selection Architecture
 
-> Phase: 1C · Sprint S16 · Related: `docs/architecture/picking.md`
+> Phase: 1C · Sprint S16 · Related: `docs/04-reference/architecture-detail/picking.md`
 
 ## Overview
 

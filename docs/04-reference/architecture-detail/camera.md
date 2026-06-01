@@ -1,6 +1,6 @@
 # Camera Architecture
 
-> Phase: 1C · Sprint S17 · Related: `docs/architecture/view-state.md`, ADR-016
+> Phase: 1C · Sprint S17 · Related: `docs/04-reference/architecture-detail/view-state.md`, ADR-016
 
 ## Overview
 

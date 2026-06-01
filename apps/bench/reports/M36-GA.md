@@ -148,7 +148,7 @@ isolated-CI-runner reversal trigger from ADR-0053 §A.
 | 4 | Pen test (clean report)                                       | S68 R3D-02        | External vendor; phase doc §K3D-A kill-switch in force.           |
 | 5 | SAST re-run (first attempt errored at transport)              | S68 D8 / S69 D1   | `runSastScan`; baseline at `docs/security/scans-2026-Q4-baseline.md`. |
 | 6 | Browser matrix — live multi-browser cuts                      | S70 D2/D9         | `.github/workflows/browser-matrix.yml`.                            |
-| 7 | DR drill #1 against staging Postgres                          | S70 D8 / S71 D8   | `docs/03_PRYZM3/runbooks/DR-DRILL-RUNBOOK.md` §10.       |
+| 7 | DR drill #1 against staging Postgres                          | S70 D8 / S71 D8   | `docs/archive/pryzm3-internal/runbooks/DR-DRILL-RUNBOOK.md` §10.       |
 | 8 | Fresh-VM `docker-compose up` < 10 min on Ubuntu/Debian/RHEL × ARM64+x86_64 | S67 D5/D6         | `pryzm-selfhost/install.sh`; ARM64 needs ghcr.io publish.          |
 | 9 | ghcr.io image push (no creds in dev env)                      | S70 D8            | `pryzm-selfhost/scripts/publish-prep.sh --push`.                   |
 | 10| 4-h Playwright session-driven memory-leak sim                 | S69 D5 → operator | `apps/bench/scripts/heap-leak-hunt.mjs` is Node-side complement.   |

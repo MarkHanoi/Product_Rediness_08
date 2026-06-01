@@ -375,7 +375,7 @@ Phase F is UNBLOCKED. S84-WIRE may start Phase F kickoff.
 $ git log --oneline --since="2 weeks ago" -- src/ui/ | wc -l
 20   # 10 Phase B PRs + 10 Phase C PRs
 
-$ cat docs/03_PRYZM3/03-CURRENT-STATE.md | grep -A3 '## §10' | tail -3
+$ cat docs/archive/pryzm3-internal/03-CURRENT-STATE.md | grep -A3 '## §10' | tail -3
 ### 2026-07-10 (S83-WIRE D-last close)
 Wave 6 closed. Phase B 24/40 paper → 40/40 real. Phase C 3/33 → 33/33.
 69 panel/toolbar binding tests landed; 287 typed commands in registry.

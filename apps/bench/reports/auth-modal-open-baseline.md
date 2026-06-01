@@ -5,11 +5,11 @@
 > **Hardware**: Replit Linux container ; Node v20.20.0 ; shared CPU
 > **Bench harness**: `apps/bench/src/benches/ui/auth-modal-open.bench.ts` (vitest run)
 > **Source spec (canonical, conflict-resolution wins-order)**:
->   1. `docs/03_PRYZM3/reference/wireup-2026/chunks/22-end-to-end-flows.md` Flow 1 step 1.2 (line 20):
+>   1. `docs/archive/pryzm3-internal/reference/wireup-2026/chunks/22-end-to-end-flows.md` Flow 1 step 1.2 (line 20):
 >      "Click 'Sign up' / 'Log in' → AuthModal opens" |
 >      "platform/AuthModal.ts → `runtime.persistence.client.auth.*` (oauth2-pkce)" |
 >      "`bench/ui/auth-modal-open.bench.ts` (< 50 ms)"
->   2. `docs/03_PRYZM3/reference/wireup-2026/chunks/12-ui-perf-benches.md` line 39:
+>   2. `docs/archive/pryzm3-internal/reference/wireup-2026/chunks/12-ui-perf-benches.md` line 39:
 >      "`bench/ui/auth-modal-open.bench.ts` | click 'Log in' → modal interactive | < 50 ms"
 > **Source spec (architectural anchor)**:
 >   - `chunks/02 §3.8` — "auth orthogonal" (legacy popup-OAuth + `bim-platform-token` localStorage mechanism unchanged; the typed `runtime.persistence.client.auth.*` surface is a wrapper, not a replacement).

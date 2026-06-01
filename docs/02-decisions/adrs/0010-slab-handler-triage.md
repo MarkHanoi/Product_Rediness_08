@@ -192,8 +192,8 @@ issue #3961.
 ## References
 
 * `phases/PHASE-1B-Q2-M4-M6-WALL-END-TO-END.md` §S12-T1 — triage owner
-* `code-level ADR docs/architecture/adr/0008-wall-handler-triage.md` — the wall-side companion triage
-* `code-level ADR docs/architecture/adr/0012-cross-element-cascade-rule-registration.md` — the cascade contract this rule conforms to
-* `code-level ADR docs/architecture/adr/0002-command-handler-signature.md` — the parametric handler contract that makes the collapses possible
+* `code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md` — the wall-side companion triage
+* `code-level ADR docs/02-decisions/adrs/0012-cross-element-cascade-rule-registration.md` — the cascade contract this rule conforms to
+* `code-level ADR docs/02-decisions/adrs/0002-command-handler-signature.md` — the parametric handler contract that makes the collapses possible
 * `src/commands/slabs/` — the 12-class PRYZM 1 surface this ADR triages
 * `src/elements/walls/SlabWallCoupling.ts:133` — the inline cascade this ADR retires

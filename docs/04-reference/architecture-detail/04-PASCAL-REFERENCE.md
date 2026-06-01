@@ -325,7 +325,7 @@ This is a **net positive** for the orchestration plan. It compresses Phase 0 (fo
 
 If the team agrees with Strategy B:
 
-1. Copy `editor/.cursor/rules/*.mdc` into `docs/03_PRYZM3/rules/` (read-only reference) and `.cursor/rules/` (PRYZM-customised live versions).
+1. Copy `editor/.cursor/rules/*.mdc` into `docs/archive/pryzm3-internal/rules/` (read-only reference) and `.cursor/rules/` (PRYZM-customised live versions).
 2. Create `packages/core/src/store/use-scene.ts` mirroring Pascal's pattern but reducing from an event log instead of accepting direct mutations.
 3. Create `packages/core/src/hooks/scene-registry/` as a direct port.
 4. Extract one primitive (recommend **walls** because it's PRYZM's biggest mess) using Pascal's `wall-curve.ts` / `wall-footprint.ts` / `wall-mitering.ts` as the pure-function reference; bind to a worker host in `packages/viewer`.

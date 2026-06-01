@@ -6,7 +6,7 @@
 | Closes | `CONFLICT-ANALYSIS.md §6.3`; `CRITICAL-REVIEW-2026-04-27.md §A4` and §E4 |
 | Required by | Sprint S22 (M12 alpha gate — first capacity-vs-velocity reconciliation) |
 | Owner | Architecture lead + delivery PM |
-| Implementation | Quarterly review at each phase gate (M12, M24, M36); cuts logged in `docs/operations/cut-list-log.md`. |
+| Implementation | Quarterly review at each phase gate (M12, M24, M36); cuts logged in `docs/03-execution/status/cut-list-log.md`. |
 | Spec dependency | `10-MASTER-IMPLEMENTATION-PLAN-36M.md` §risks; per-spec cut lines (e.g. SPEC-09 §7.1). |
 
 ---
@@ -78,7 +78,7 @@ Slip is measured per phase, not per sprint, against the milestones in `10-MASTER
 ### Decision protocol
 1. At each phase gate (M12, M24, M36), the delivery PM produces a "velocity report" comparing actual to plan.
 2. The steering committee reviews and selects cuts in order.
-3. Selected cuts are logged in `docs/operations/cut-list-log.md` with reasoning + customer-comms note.
+3. Selected cuts are logged in `docs/03-execution/status/cut-list-log.md` with reasoning + customer-comms note.
 4. Customer-visible cuts get a 14-day notice to design partners before they're announced publicly.
 5. A cut once applied is irreversible within the v1 cycle; it can be re-considered for v2.
 

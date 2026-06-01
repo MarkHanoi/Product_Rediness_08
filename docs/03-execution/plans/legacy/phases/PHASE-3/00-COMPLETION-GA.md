@@ -420,7 +420,7 @@ By Phase 3 nothing about the architecture should be in flux. Every sprint adds c
 
 **Deliverables**:
 - Third-party pen test contract + report.
-- CSP audit: report at `docs/security/csp-audit-2026-Q4.md`; restrictive CSP default for SaaS deployment.
+- CSP audit: report at `docs/04-reference/security/csp-audit-2026-Q4.md`; restrictive CSP default for SaaS deployment.
 - Plugin sandbox audit: independent confirmation no escapes.
 - RLS audit on Postgres: every table has policy; verified test queries.
 - OAuth2 review: PKCE flow correct; token expiry + refresh handled.
@@ -543,8 +543,8 @@ By Phase 3 nothing about the architecture should be in flux. Every sprint adds c
 - `apps/bench/reports/M36-GA.md` published.
 - 5-min demo video posted.
 - GA launch blog post live.
-- All 72 sprint retros archived in `docs/retros/`.
-- 36-month journey post-mortem at `docs/post-mortems/PRYZM-2-build.md`.
+- All 72 sprint retros archived in `docs/03-execution/status/retros/`.
+- 36-month journey post-mortem at `docs/03-execution/status/post-mortems/PRYZM-2-build.md`.
 
 ---
 
@@ -632,7 +632,7 @@ These seed the post-GA roadmap. They are NOT part of the 36-month plan.
 Items that must be true on M36 evening after launch:
 
 - [ ] All M36 GA gate criteria signed off.
-- [ ] `apps/bench/reports/M36-GA.md` and `docs/post-mortems/PRYZM-2-build.md` published.
+- [ ] `apps/bench/reports/M36-GA.md` and `docs/03-execution/status/post-mortems/PRYZM-2-build.md` published.
 - [ ] Production monitoring + alerting verified (test alert fired + acknowledged).
 - [ ] Status page live and updating.
 - [ ] On-call rota live (founder + agent escalation).
@@ -641,7 +641,7 @@ Items that must be true on M36 evening after launch:
 - [ ] First 48-hour monitoring rota staffed.
 - [ ] Press / launch announcement traffic monitored; CDN scale-up confirmed.
 - [ ] Founder on mandatory 2-week rest by M36 + 1 week.
-- [ ] Post-GA roadmap document drafted at `docs/roadmap/post-GA.md` with the §9 items prioritised.
+- [ ] Post-GA roadmap document drafted at `docs/03-execution/plans/post-ga-roadmap.md` with the §9 items prioritised.
 
 ---
 

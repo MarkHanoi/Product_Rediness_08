@@ -7,7 +7,7 @@
  * Classification:    A
  *
  * Contract:
- *   docs/00_Contracts/05-BIM-UI-ARCHITECTURE-CONTRACT.md §3
+ *   docs/02-decisions/contracts/05-BIM-UI-ARCHITECTURE-CONTRACT.md §3
  *   PRYZM_MASTER_ROADMAP_2026.md § D-4
  *
  * CSS class prefix:  `dw-` (registered §05 §3)

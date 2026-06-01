@@ -544,8 +544,8 @@ instead decides to triage some handlers out, that is a code-change task
 
 | File | Change |
 |---|---|
-| `docs/architecture/adr/0008-wall-handler-triage.md` | Append "## 2026-04-28 amendment" section listing the 14→15 split (Cut/Join into two handlers). |
-| `docs/architecture/adr/0011-curtain-wall-triage-and-producer-split.md` | Append "## 2026-04-28 amendment" section listing the 9→13 expansion (4 panel-level handlers). |
+| `docs/02-decisions/adrs/0008-wall-handler-triage.md` | Append "## 2026-04-28 amendment" section listing the 14→15 split (Cut/Join into two handlers). |
+| `docs/02-decisions/adrs/0011-curtain-wall-triage-and-producer-split.md` | Append "## 2026-04-28 amendment" section listing the 9→13 expansion (4 panel-level handlers). |
 | `docs/00_NEW_ARCHITECTURE/audits/PHASE-1-CODE-VS-SPEC-AUDIT-2026-04-28.md` | Update §3.5 to mark RESOLVED with link to amendments. |
 
 #### Step-by-step
@@ -586,8 +586,8 @@ instead decides to triage some handlers out, that is a code-change task
 #### Verification command
 
 ```sh
-grep -c "2026-04-28 amendment" docs/architecture/adr/0008-wall-handler-triage.md \
-  docs/architecture/adr/0011-curtain-wall-triage-and-producer-split.md
+grep -c "2026-04-28 amendment" docs/02-decisions/adrs/0008-wall-handler-triage.md \
+  docs/02-decisions/adrs/0011-curtain-wall-triage-and-producer-split.md
 # expect: 1\n1
 ```
 
@@ -1131,7 +1131,7 @@ list is the right place.
 > **Owner**: founder
 > **Effort**: human
 
-The script lives at `docs/demos/M12-alpha.script.md`. The recording is a
+The script lives at `docs/05-guides/developer/demos/M12-alpha.script.md`. The recording is a
 manual step planned for the deploy day. Out of scope for this plan.
 
 ---
@@ -1161,7 +1161,7 @@ integration tests catch it.
 |---|---|
 | `apps/editor/src/bootstrap.render.data.ts` | DELETE — verify no production code imports it. |
 | `apps/editor/__tests__/bootstrap-shape.test.ts` (NEW) | Single contract test: "every bootstrap entry returns a runtime with `bus`, `stores`, `host`, `tearDown`." Run against `bootstrap()`, `bootstrapWithWalls()`, `bootstrapWithEverything()`. |
-| `docs/architecture/bootstrap.md` (NEW) | Document the bootstrap pyramid: `bootstrap()` (data + render minimal) → `bootstrapWithWalls()` (one plugin) → `bootstrapWithEverything()` (all plugins). |
+| `docs/04-reference/architecture-detail/bootstrap.md` (NEW) | Document the bootstrap pyramid: `bootstrap()` (data + render minimal) → `bootstrapWithWalls()` (one plugin) → `bootstrapWithEverything()` (all plugins). |
 
 #### Step-by-step
 
@@ -1173,13 +1173,13 @@ integration tests catch it.
    `bootstrap.everything.ts`.
 2. **Delete** `bootstrap.render.data.ts`.
 3. **Write the contract test** that boots each entry and asserts shape.
-4. **Document** the pyramid in `docs/architecture/bootstrap.md`.
+4. **Document** the pyramid in `docs/04-reference/architecture-detail/bootstrap.md`.
 
 #### Acceptance criteria
 
 * `apps/editor/src/bootstrap.render.data.ts` is deleted.
 * `apps/editor/__tests__/bootstrap-shape.test.ts` exists and passes.
-* `docs/architecture/bootstrap.md` exists.
+* `docs/04-reference/architecture-detail/bootstrap.md` exists.
 * `pnpm --filter @pryzm/editor test` passes.
 
 #### Verification command

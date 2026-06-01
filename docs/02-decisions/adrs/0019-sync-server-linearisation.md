@@ -3,10 +3,10 @@
 - **Status**: Accepted
 - **Date**: 2026-04-27
 - **Phase**: 1D — `Q4 — M10-M12 BAKE & PRYZM ALPHA`, sprint **S22**
-- **Spec source**: `docs/03_PRYZM3/reference/phases/PHASE-1/1D-Q4-M10-M12-BAKE-PRYZM-ALPHA.md`
+- **Spec source**: `docs/03-execution/plans/legacy/phases/PHASE-1/1D-Q4-M10-M12-BAKE-PRYZM-ALPHA.md`
   §S22 (lines 888-1078)
 - **Implementation**: `apps/sync-server/`
-- **Architecture doc**: `docs/architecture/sync-server.md`
+- **Architecture doc**: `docs/04-reference/architecture-detail/sync-server.md`
 - **Bench gate**: `apps/bench/src/benches/sync-roundtrip.bench.ts`
   (`sync.roundtrip.append-to-push`, **hard-fail > 250 ms p95**)
 - **Related ADRs**: ADR-002 (CRDT ↔ event-log bridge), ADR-010 (bake
@@ -126,7 +126,7 @@ alternative — "ack the sender, push to others" — would force the
 sender to invent its own `sequenceNumber` for optimistic local apply,
 and would break the invariant that `event.push` is the single source
 of truth for "this event has a real sequence number now".  See
-`docs/architecture/sync-server.md` §3.3 for the client-side
+`docs/04-reference/architecture-detail/sync-server.md` §3.3 for the client-side
 implications.
 
 ### 2.4 Bake hand-off

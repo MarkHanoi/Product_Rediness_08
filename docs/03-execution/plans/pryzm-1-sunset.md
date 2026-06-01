@@ -70,7 +70,7 @@ by `packages/file-format/__tests__/round-trip.test.ts`.
 The batch migration tool that walks all projects in a PRYZM 1
 deployment and runs `pryzm pack` + `pryzm unpack` per project is
 **deferred to the 90-day window** per phase-doc §7. It is a 1-2
-sprint dedicated push post-GA per `docs/roadmap/post-GA.md` §1
+sprint dedicated push post-GA per `docs/03-execution/plans/post-ga-roadmap.md` §1
 P0 item 4.
 
 ---
@@ -86,7 +86,7 @@ When the 90-day window closes (2026-Q3 target):
 5. Any remaining PRYZM 1-only branches in CI / docs / runbooks are deleted.
 
 This is a single mechanical post-sunset PR. Tracked as carry-forward
-register row 25 in `docs/post-mortems/PRYZM-2-build.md` §5.
+register row 25 in `docs/03-execution/status/post-mortems/PRYZM-2-build.md` §5.
 
 ---
 
@@ -134,8 +134,8 @@ Pause is enacted by founder; re-entry is by ADR amendment to ADR-0054 §D.
 
 - ADR-0054 §D (sprint-scoped sunset decision)
 - phase-doc §S72 context line 401 + §7 (batch migration tool deferral)
-- `docs/post-mortems/PRYZM-2-build.md` §5 (carry-forward register row 4 + 25)
-- `docs/roadmap/post-GA.md` §1 P0 item 4 (batch migration tool)
+- `docs/03-execution/status/post-mortems/PRYZM-2-build.md` §5 (carry-forward register row 4 + 25)
+- `docs/03-execution/plans/post-ga-roadmap.md` §1 P0 item 4 (batch migration tool)
 - `apps/cli/src/commands/{install,upgrade,rollback}.ts` + `apps/cli/__tests__/migration-commands.test.ts` (CLI tooling)
 - `apps/editor/src/sunset/Pryzm1SunsetBanner.ts` (in-app sunset banner)
 

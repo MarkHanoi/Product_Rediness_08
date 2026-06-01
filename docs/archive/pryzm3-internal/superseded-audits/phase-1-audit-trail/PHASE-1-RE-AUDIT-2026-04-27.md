@@ -3,7 +3,7 @@
 > **Status**: **GREEN** — every gap identified by `PHASE-1-FULL-AUDIT.md`
 > (the same-day prior audit) has been closed in the live tree, with one
 > documented exception (the demo `.mp4` file is captured off-platform; the
-> spec explicitly permits an external link in `docs/demos/README.md` in
+> spec explicitly permits an external link in `docs/05-guides/developer/demos/README.md` in
 > lieu of an in-repo binary).
 >
 > **Date of re-audit**: 2026-04-27 (post-fix, supersedes
@@ -180,17 +180,17 @@ under disk-snapshot regression.
 - **Current state**:
   - The `.mp4` is **not** in the repo (Replit container has no
     video-capture device — recording is captured off-platform per
-    `docs/demos/README.md`).
+    `docs/05-guides/developer/demos/README.md`).
   - Spec explicitly permits this:
     `PHASE-1-COMPLETION-PLAN.md` line 1368 reads
-    *"`docs/demos/M9-1C-headless.mp4` (or external link in
-    `docs/demos/README.md`) exists."*
+    *"`docs/05-guides/developer/demos/M9-1C-headless.mp4` (or external link in
+    `docs/05-guides/developer/demos/README.md`) exists."*
   - The previous broken placeholder URLs (`https://demos.pryzm.app/...`,
     `https://github.com/pryzm-app/...`) have been replaced with an
     explicit "⏳ pending capture" note + a pointer to the
     machine-checkable equivalent (`tests/integration/headless-vs-browser-parity.test.ts`).
 - **Verdict**: ✅ closed (per-spec link-out compliance; the script in
-  `docs/demos/M9-1C-headless.script.md` is the authoritative
+  `docs/05-guides/developer/demos/M9-1C-headless.script.md` is the authoritative
   reproduction recipe; the CI gate is the binding equivalence proof).
 
 ### Bonus — folder-structure proposal
@@ -252,7 +252,7 @@ These are tracked for PHASE-1D / PHASE-2A as housekeeping; none are
 1C exit blockers:
 
 1. **Capture the M9-1C-headless demo recording** (off-platform) and
-   update `docs/demos/README.md` with the URL + SHA-256.
+   update `docs/05-guides/developer/demos/README.md` with the URL + SHA-256.
 2. **Rename `tests/*.spec.test.ts` → `tests/*.test.ts`** to drop the
    double-suffix (5 files: `curtainPanelStoreIndexInvariants`,
    `curtainPanelTypeDrift`, `curtainWallBuilderFastPath`,

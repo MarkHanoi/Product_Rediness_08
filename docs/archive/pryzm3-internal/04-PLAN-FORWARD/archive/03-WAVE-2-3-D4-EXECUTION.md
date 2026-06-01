@@ -307,7 +307,7 @@ $ ls packages/ | grep -E '(physics-host|input-host)'
 input-host
 physics-host
 
-$ cat docs/03_PRYZM3/03-CURRENT-STATE.md | grep -A1 '## §10' | tail -1
+$ cat docs/archive/pryzm3-internal/03-CURRENT-STATE.md | grep -A1 '## §10' | tail -1
 ### 2026-06-12 (S80-WIRE D-last close)
 Wave 3 closed. EngineBootstrap.ts 2,066 → 30 LOC (5 D.4 PRs landed in 4 weeks).
 WorkspaceMountBridge dead (0 files). composeRuntime() is now the production

@@ -5,8 +5,8 @@
 > **D1 (CRITICAL — fixed)**: `forceReset()` omitted `storeEventBus.endBatch()` when `_isBatching=true`. Bug: if a batch was mid-flight during `pryzm-project-switch`, `_batchDepth` stayed at 1; all Project B store events buffered forever → builders receive zero creates → empty scene. Fix: `StoreEventBus.discardBatch()` added (drops buffer + resets depth, no listener impact); called in `forceReset()` step 3 when `_isBatching=true`.  
 > **G1 (minor, pre-existing)**: legacy import path in `_executeFinalSweep()` has a narrow race where `_sweepCancelled` resets before the dynamic import resolves. Not Wave 35.  
 > **G2 (minor, pre-existing)**: `resumeAndFlush()` on CW/Slab in teardown steps 3-4 may produce ~1 frame of zombie Project A geometry. Acceptable; stores clear it imminently.  
-> **Authority**: `docs/00_Contracts/C13-PROJECT-LIFECYCLE-AND-ISOLATION.md` (the normative contract — read it first). This document is the sprint execution plan only.  
-> **Anchors**: `../02-ARCHITECTURE.md §2 (layer model)`; `../00-PROCESS-TRACKER.md §9`; `../../00_Contracts/C11-ELEMENT-CREATION-PIPELINE.md §4 (AI batch pipeline)`; `../../00_Contracts/C03-SCHEMAS-COMMANDS-AND-STATE.md §3.4 (store subscriber teardown)`.  
+> **Authority**: `docs/02-decisions/contracts/C13-PROJECT-LIFECYCLE-AND-ISOLATION.md` (the normative contract — read it first). This document is the sprint execution plan only.  
+> **Anchors**: `../02-ARCHITECTURE.md §2 (layer model)`; `../00-PROCESS-TRACKER.md §9`; `../../02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md §4 (AI batch pipeline)`; `../../02-decisions/contracts/C03-SCHEMAS-COMMANDS-AND-STATE.md §3.4 (store subscriber teardown)`.  
 > **⚠ TRACKER RULE**: Any task status change → update `../00-PROCESS-TRACKER.md` §6 file-status row + §8 Blockers same commit.  
 > **Effort estimate**: 1 sprint (≤ 2 engineering days). All tasks are in `src/` and `tests/` — no package boundary changes, no new packages.  
 > **Pre-condition**: None. This wave is unblocked as of 2026-05-04.
@@ -386,7 +386,7 @@ Register in `tools/ga-gate/run-all.ts` under the label `project-isolation-gate`.
 | `src/engine/engineLauncher.ts` | `_pendingWallEvents` declaration (~line 1416) | C13-G5 — resolved by I-2 |
 | `src/engine/engineLauncher.ts` | `pryzm-project-switch` listener (~line 2178) | C13-G1 — resolved by I-3 |
 
-**File**: `docs/00_Contracts/C00-INDEX.md`
+**File**: `docs/02-decisions/contracts/C00-INDEX.md`
 
 Add row:
 ```
@@ -455,4 +455,4 @@ pnpm exec playwright test tests/e2e/project-isolation.spec.ts                   
 | `tests/e2e/project-isolation.spec.ts` | New | E2E isolation test (Scenario A: stuck batch then switch) |
 | `tools/ga-gate/check-project-isolation.ts` | New | Static CI gate (4 structural checks) |
 | `tools/ga-gate/run-all.ts` | Edit | Register `check-project-isolation.ts` |
-| `docs/00_Contracts/C00-INDEX.md` | Edit | Add C13 row |
+| `docs/02-decisions/contracts/C00-INDEX.md` | Edit | Add C13 row |

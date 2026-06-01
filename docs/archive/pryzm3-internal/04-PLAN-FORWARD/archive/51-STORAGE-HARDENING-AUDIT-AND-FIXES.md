@@ -44,7 +44,7 @@ The full analysis is written to docs/audit/PROJECT_STORAGE_AUDIT.md with every g
 
 > **Stamp**: 2026-05-14 (updated 2026-05-14) · **Status**: ✅ COMPLETE — All P0, P1, P2 tasks DONE (GAP-06, GAP-11, GAP-12, GAP-13 closed in follow-up pass)
 > **Sprint**: S140 · **Auditor**: PRYZM Engineering
-> **Source authority**: `docs/audit/PROJECT_STORAGE_AUDIT.md` (17-gap Pascal reference comparison) · `docs/C05-PERSISTENCE-AND-FILE-FORMAT.md §1.3` (project isolation invariant) · `docs/C08-COLLABORATION-AND-SECURITY.md §2.2` (server-side ownership gate) · `docs/00_Contracts/C00-INDEX.md`
+> **Source authority**: `docs/audit/PROJECT_STORAGE_AUDIT.md` (17-gap Pascal reference comparison) · `docs/C05-PERSISTENCE-AND-FILE-FORMAT.md §1.3` (project isolation invariant) · `docs/C08-COLLABORATION-AND-SECURITY.md §2.2` (server-side ownership gate) · `docs/02-decisions/contracts/C00-INDEX.md`
 > **Anchored to**: `01-VISION.md §2` (P6 — Commands are the only state mutation path; P8 — Sync conflicts are explicit) · `02-ARCHITECTURE.md §5` (persistence tier) · `C05-PERSISTENCE-AND-FILE-FORMAT.md §1.2–§1.3` · `C08 §4` (server is the authoritative gate for all plan/size limits)
 > **⚠ TRACKER RULE**: Any task status change → update `../00-PROCESS-TRACKER.md` in the same commit.
 

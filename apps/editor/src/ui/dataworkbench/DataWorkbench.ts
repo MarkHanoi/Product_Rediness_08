@@ -6,7 +6,7 @@ import { triggerWindowResize } from '../../engine/triggerWindowResize'; // F.eve
  * Layer Affected:    UI — Data Workbench Layout Controller
  * File:             src/ui/dataworkbench/DataWorkbench.ts
  *
- * Contract:         docs/00_Contracts/05-BIM-UI-ARCHITECTURE-CONTRACT.md §3
+ * Contract:         docs/02-decisions/contracts/05-BIM-UI-ARCHITECTURE-CONTRACT.md §3
  * CSS class prefix: `dw-` (registered in §05 §3 contract table)
  * CSS source:       src/styles/panels/dataWorkbench.ts → injected via AppTheme.ts
  *

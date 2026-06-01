@@ -52,11 +52,11 @@ If `04` proposes something that contradicts `01`, **`01` wins and `04` must chan
 
 ---
 
-## Sibling docs (outside `03_PRYZM3/`)
+## Sibling docs (outside `archive/pryzm3-internal/`)
 
 - **[`docs/02_PRYZM2/`](../02_PRYZM2/)** — PRYZM 2 architecture material (the strangler-fig generation that PRYZM 3 collapses).
-- **[`docs/04_PRYZM4/PRYZM-4-NEXT-GEN-PLAN.md`](../04_PRYZM4/PRYZM-4-NEXT-GEN-PLAN.md)** — what comes after PRYZM 3. Builds on six months of PRYZM 3 production validation. Calendar target: ~M77.
-- **[`docs/00_Contracts/`](../00_Contracts/)** — cross-product contracts that span PRYZM 1→2→3→4.
+- **[`docs/03-execution/plans/PRYZM-4-NEXT-GEN-PLAN.md`](../04_PRYZM4/PRYZM-4-NEXT-GEN-PLAN.md)** — what comes after PRYZM 3. Builds on six months of PRYZM 3 production validation. Calendar target: ~M77.
+- **[`docs/02-decisions/contracts/`](../02-decisions/contracts/)** — cross-product contracts that span PRYZM 1→2→3→4.
 
 ---
 

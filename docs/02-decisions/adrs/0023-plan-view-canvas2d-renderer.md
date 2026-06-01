@@ -9,7 +9,7 @@
   (idle-continuation budget), ADR-0009 (frozen producer signature),
   **ADR-0025 (S29 plan-view canvas architecture — promoted from skeleton to full impl by this ADR)**
 - Related strategic SPECs: `SPEC-04-DRAWING-ENGINE.md`, `SPEC-30-PLAN-VIEW-PERFORMANCE.md`
-- Related phase doc: `docs/03_PRYZM3/reference/phases/PHASE-2/2B-Q2-M16-M18-PLAN-VIEW.md` §S31
+- Related phase doc: `docs/03-execution/plans/legacy/phases/PHASE-2/2B-Q2-M16-M18-PLAN-VIEW.md` §S31
 
 ---
 
@@ -199,11 +199,11 @@ the flag, not a production incident.
 ---
 
 ## References
-- `docs/03_PRYZM3/reference/specs/SPEC-04-DRAWING-ENGINE.md` §1, §3.1, §13
-- `docs/03_PRYZM3/reference/specs/SPEC-30-PLAN-VIEW-PERFORMANCE.md` §2, §3, §9
-- `docs/03_PRYZM3/reference/adrs/ADR-016-drawing-engine-architecture.md`
-- `docs/03_PRYZM3/reference/phases/PHASE-2/2B-Q2-M16-M18-PLAN-VIEW.md` §S31
-- `docs/architecture/adr/0028-plan-view-canvas-architecture.md` (S29 skeleton; superseded for
+- `docs/03-execution/specs/SPEC-04-DRAWING-ENGINE.md` §1, §3.1, §13
+- `docs/03-execution/specs/SPEC-30-PLAN-VIEW-PERFORMANCE.md` §2, §3, §9
+- `docs/02-decisions/adrs/ADR-016-drawing-engine-architecture.md`
+- `docs/03-execution/plans/legacy/phases/PHASE-2/2B-Q2-M16-M18-PLAN-VIEW.md` §S31
+- `docs/02-decisions/adrs/0028-plan-view-canvas-architecture.md` (S29 skeleton; superseded for
   the implementation surface by this ADR — kept for the original architectural rationale)
 - `packages/geometry-kernel/src/edge-projection.ts` (S30)
 - `packages/geometry-kernel/src/poche.ts` (S30)
@@ -212,7 +212,7 @@ the flag, not a production incident.
 
 ## Amendment 2026-04-28 (W-07 — `plan_view_v2` runtime gate)
 
-**Source**: W-07 of `docs/03_PRYZM3/reference/phases/audits/PHASE-2-CLOSE-IMPLEMENTATION-PLAN-2026-04-28.md`.
+**Source**: W-07 of `docs/03-execution/plans/legacy/phases/audits/PHASE-2-CLOSE-IMPLEMENTATION-PLAN-2026-04-28.md`.
 
 ### v0 fallback policy
 
@@ -227,7 +227,7 @@ flag off mounts an explicit fallback panel.
 
 **The PRYZM 1 plan-view fallback target does NOT exist in this repo.** Legacy
 `apps/editor` deletion lands at S61 / Phase 3C per
-`docs/architecture/adr/0031-s61-staged-legacy-deletion.md`.  Until then,
+`docs/02-decisions/adrs/0031-s61-staged-legacy-deletion.md`.  Until then,
 flipping `plan_view_v2 = false` renders an explicit "no fallback available
 in v0" panel rather than silently doing nothing.  This is intentional:
 

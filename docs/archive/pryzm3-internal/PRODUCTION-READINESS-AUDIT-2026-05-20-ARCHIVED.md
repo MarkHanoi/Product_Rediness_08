@@ -165,7 +165,7 @@ No `pg_dump`, no PITR config, no documented restore. DB loss = total customer da
 `server.js`. Microtask + Promise alloc per request. **Fix:** hoist to top-level import.
 
 ### H28 [PERF] ~250 MB of duplicate/dead binary assets tracked in git
-`public/items/WIP/` byte-identical to `public/items/<Category>/.../model.glb`; `client/public/items/` duplicates `public/items/`; `docs/03_PRYZM3/InterviewDAR.docx` 19MB; `attached_assets/` 26MB of chat-paste history. **Fix:** `git rm`; add `attached_assets/` to gitignore; LFS for big binaries.
+`public/items/WIP/` byte-identical to `public/items/<Category>/.../model.glb`; `client/public/items/` duplicates `public/items/`; `docs/archive/pryzm3-internal/InterviewDAR.docx` 19MB; `attached_assets/` 26MB of chat-paste history. **Fix:** `git rm`; add `attached_assets/` to gitignore; LFS for big binaries.
 
 ### H29 [PERF] `_disposeChildren` shallow → GPU geometry leak (observed in runtime logs)
 `packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:2157-2173`. Flat for-loop misses nested panel→mullion+glazing groups. Matches observed `[GPU Monitor] ⚠ Geometry count grew 185.7%`. **Fix:** `group.traverse(...)` like `WallFragmentBuilder._disposeWallGroupChildren`.

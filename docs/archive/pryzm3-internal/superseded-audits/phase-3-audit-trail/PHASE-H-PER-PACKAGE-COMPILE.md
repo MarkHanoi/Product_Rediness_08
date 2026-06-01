@@ -183,7 +183,7 @@ compiled output. Pros: dev = prod parity. Cons: contributors must run
 | **H.12** | Add `pryzm/no-src-import` ESLint rule (warns when `from '@pryzm/<x>/src/...'` is used outside `__tests__/`) | eng-2 | 1 h + 4 tests |
 | **H.13** | Update CONTRIBUTING.md with the new dev loop (`pnpm -r build --watch` + `npm run dev`) | eng-1 | 30 min |
 | **H.14** | Production smoke test: `npm run build && node ./dist/index.cjs`, hit `/healthz`, hit `/api/v1/projects/list`, confirm boot under 800 ms | eng-1 | 30 min |
-| **H.15** | Update `docs/03_PRYZM3/00_NEW_ARCHITECTURE/PROCESS-TRACKER.md`: tick Phase H, capture cold-boot delta, update floor (`packages_count` if any consolidation happened) | eng-1 | 15 min |
+| **H.15** | Update `docs/archive/pryzm3-internal/00_NEW_ARCHITECTURE/PROCESS-TRACKER.md`: tick Phase H, capture cold-boot delta, update floor (`packages_count` if any consolidation happened) | eng-1 | 15 min |
 
 **Total**: ~18 engineer-hours, comfortably 2 working days for one engineer
 or 1 working day with two engineers running H.5/H.6/H.7 in parallel after

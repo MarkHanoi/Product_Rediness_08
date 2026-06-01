@@ -3,8 +3,8 @@
 **Phase**: 1 (Foundation, M1–M12, S01–S24)
 **Closed**: 2026-04-27
 **Bench report**: [`apps/bench/reports/M12-alpha.md`](../../apps/bench/reports/M12-alpha.md)
-**Process tracker**: [`docs/03_PRYZM3/reference/status-detail/01-PROCESS-TRACKER.md`](../03_PRYZM3/reference/status-detail/01-PROCESS-TRACKER.md) §1
-**Phase doc index**: `docs/03_PRYZM3/reference/phases/PHASE-1{A,B,C,D}-*.md`
+**Process tracker**: [`docs/03-execution/status/legacy-status-detail/01-PROCESS-TRACKER.md`](../04-reference/status-detail/01-PROCESS-TRACKER.md) §1
+**Phase doc index**: `docs/03-execution/plans/legacy/phases/PHASE-1{A,B,C,D}-*.md`
 
 ---
 
@@ -32,8 +32,8 @@ applicable, and a CI bench gate.
 ### §1.1 Numbers (Phase 1 contract surface)
 
 - **24 sprints** (S01–S24) across 12 months, 4 sub-phases (1A–1D).
-- **21 ADRs** Accepted (`docs/architecture/adr/0001-0020` + ledger reconciliation).
-- **18 architecture docs** under `docs/architecture/`.
+- **21 ADRs** Accepted (`docs/02-decisions/adrs/0001-0020` + ledger reconciliation).
+- **18 architecture docs** under `docs/04-reference/architecture-detail/`.
 - **35 bench files / 98 individual benches** in `apps/bench/` — all green.
 - **12 element family plugins**: wall, slab, door, window, roof, curtain-wall, grid, column, beam, stair, handrail, ceiling.
 - **6 apps**: editor, headless, cli, bench, bake-worker, sync-server.
@@ -73,7 +73,7 @@ applicable, and a CI bench gate.
 
 ### §2.2 ADR-first design discipline
 
-- Every load-bearing decision sits in `docs/architecture/adr/0001-0020.md`.
+- Every load-bearing decision sits in `docs/02-decisions/adrs/0001-0020.md`.
 - The renumbering churn from the strategic ↔ code-level overlap was annoying
   but the monotonic numbering rule (no back-filling) saved us from refactor
   debt — see the reconciliation note in the ADR ledger.
@@ -114,7 +114,7 @@ applicable, and a CI bench gate.
 
 The strategic ADR numbering (10, 11, …) collided with code-level ADRs
 (0012, 0013) authored mid-sprint. We renumbered three times before the S23
-closeout reconciliation (see `docs/architecture/adr/README.md` numbering note
+closeout reconciliation (see `docs/02-decisions/adrs/README.md` numbering note
 + PROCESS-TRACKER §6 reconciliation note). Cost: ~half a day of confusion in
 S20–S22; permanent fix landed at S23 close.
 

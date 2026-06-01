@@ -2,7 +2,7 @@
 **Date:** 2026-05-17  
 **Auditor:** Automated deep-analysis (6 parallel explore agents + full source review)  
 **Scope:** ALL element types × ALL operations × ALL views  
-**Status:** FINAL — used as reference by `docs/00_Contracts/C15-HOSTED-ELEMENT-CONTRACT.md` §8 and §8.1
+**Status:** FINAL — used as reference by `docs/02-decisions/contracts/C15-HOSTED-ELEMENT-CONTRACT.md` §8 and §8.1
 
 ---
 

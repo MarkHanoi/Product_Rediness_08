@@ -9,7 +9,7 @@
 ## Item 1 — Wall handler count drift (Phase 1B / ADR-0008)
 
 ### Observation
-- ADR `docs/architecture/adr/0008-wall-handler-triage.md` specifies the 22→**14** consolidation of PRYZM 1 wall commands into PRYZM 2 handlers.
+- ADR `docs/02-decisions/adrs/0008-wall-handler-triage.md` specifies the 22→**14** consolidation of PRYZM 1 wall commands into PRYZM 2 handlers.
 - Code under `plugins/wall/src/handlers/` ships **15** handler classes (count excludes `index.ts`):
 
   ```
@@ -28,7 +28,7 @@ Rationale: the code header explicitly justifies the bulk handler with auditabili
 ### Required changes
 
 #### 1.1 — Update ADR-0008
-**File:** `docs/architecture/adr/0008-wall-handler-triage.md`
+**File:** `docs/02-decisions/adrs/0008-wall-handler-triage.md`
 
 - Change the title and any "22 → 14" references to "22 → 15".
 - Add a new row to the consolidation table:

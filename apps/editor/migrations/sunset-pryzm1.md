@@ -2,11 +2,11 @@
 sunsetSprint: S61
 sunsetOpensAt: 2026-04-28
 physicalDeletionEarliest: S70 (≈ 90 calendar days post-D5)
-spec: docs/03_PRYZM3/reference/specs/SPEC-27-MIGRATION-ROLLBACK.md §4.3
+spec: docs/archive/pryzm3-internal/reference/specs/SPEC-27-MIGRATION-ROLLBACK.md §4.3
 adr: docs/architecture/adr/0031-s61-staged-legacy-deletion.md
 phaseDocs:
-  - docs/03_PRYZM3/reference/phases/PHASE-3/3C-Q3-M31-M33-PLUGIN-SDK-MARKETPLACE-APIS.md
-  - docs/03_PRYZM3/reference/phases/PHASE-3/3C-Q3-M31-M33-SDK-MARKETPLACE-PUBLIC-API.md
+  - docs/archive/pryzm3-internal/reference/phases/PHASE-3/3C-Q3-M31-M33-PLUGIN-SDK-MARKETPLACE-APIS.md
+  - docs/archive/pryzm3-internal/reference/phases/PHASE-3/3C-Q3-M31-M33-SDK-MARKETPLACE-PUBLIC-API.md
 ---
 
 # PRYZM 1 Sunset — S61 Inventory + Gate Status

@@ -4,7 +4,7 @@
 **Auditor**: Engineering main-track
 **Source spec**: `phases/PHASE-2B-Q2-M16-M18-PLAN-VIEW.md`
 **Conflict order applied**: `06-PRYZM-IDENTITY-AND-RECOUNT.md` > `08-VISION.md` > `10-MASTER…` > this audit.
-**Anchor ADR**: `docs/architecture/adr/0030-phase-2b-post-audit-reconciliation.md` — this audit RATIFIES that ADR as the binding closure record for the partial sprints (S35, S36).
+**Anchor ADR**: `docs/02-decisions/adrs/0030-phase-2b-post-audit-reconciliation.md` — this audit RATIFIES that ADR as the binding closure record for the partial sprints (S35, S36).
 
 This document is the **per-exit-criterion** record of what shipped, what didn't, and where the deferments are tracked. It mirrors `PHASE-2C-AUDIT-2026-04-28.md` in format. It is run **before** Phase 2D entry to close out the two open Phase 2B sprints (`S35`, `S36`) that the tracker still showed as `[ ]` despite ADR-0030 (2026-04-27) declaring their post-audit reconciliation work landed.
 
@@ -40,7 +40,7 @@ The two scores diverge by design. `100/100 closure` reflects that every open ite
 | Hit-testing for selection | `plugins/plan-view/src/hit-test.ts` | `hit-test.test.ts` (9 tests) | DONE |
 | Visual diff plan view (geometry) < 10 px | `tests/visual-diff/plan-view/` recording-canvas harness + 5 fixtures | per ADR-0030 §2.4 — recording-canvas measures stream-equivalence; PNG promotion at S37 D5 | DONE (stream) / DEFERRED (PNG) |
 | Plan view fps < 50 fps p95 hard-fail | `apps/bench/src/benches/visual-diff-plan.bench.ts` skeleton | per skeleton in bench file; full Playwright pipeline opt-in via `PRYZM_VISUAL_DIFF_PLAYWRIGHT=1` | SKELETON-LIVE |
-| Code-level `ADR 0023 — Plan view Canvas2D renderer` | `docs/architecture/adr/0023-plan-view-canvas2d-renderer.md` | DONE |
+| Code-level `ADR 0023 — Plan view Canvas2D renderer` | `docs/02-decisions/adrs/0023-plan-view-canvas2d-renderer.md` | DONE |
 | Pre-port: 5 hot ops (selection, drag, snap, pan, zoom) on Canvas2D backend per SPEC-30 §5 | `plan-view-selection.test.ts` (7 tests) + `plan-view-drag.test.ts` (5 tests) + `PlanCamera` (pan/zoom in 11 tests) | snap test coverage rolled into selection/drag tests | DONE for 4 of 5 ops; snap is the §S30.5–S30.10 follow-up |
 
 S31 was the heaviest sprint of the 36-month plan per the spec's gap-closure absorption (SPEC-13/15/21/24/26/27/28/29/30 ratification + reverse-doc envelopes for 18 families + `packages/drawing-primitives/` MVP + `plugins/lifecycle/` skeleton + lazy-mount Cesium + service-role-key removal). The ESLint rules (`pryzm/no-impure-context`, `pryzm/single-frame-owner`, `pryzm/no-react-runtime`, `pryzm/no-direct-three-examples`) are lit at warning level per spec; promotion to error happens at S32 per spec §Gap-Closure.
@@ -56,7 +56,7 @@ S31 was the heaviest sprint of the 36-month plan per the spec's gap-closure abso
 | Auto-dimensions (placement) | `plugins/plan-view/src/auto-dim.ts` | `plan-view-auto-dim.test.ts` (5 tests) | DONE |
 | Style resolver (per-view per-element overrides) | `plugins/plan-view/src/style-resolver.ts` | `style-resolver.test.ts` (9 tests) | DONE |
 | Visual diff plan view (annotations) < 5 px | recording-canvas harness | per ADR-0030 §2.4 — stream-equivalence measured; pixel-tolerance promotion at S37 D5 | DONE (stream) / DEFERRED (pixel) |
-| Code-level `ADR 0024 — Plan view annotation pipeline` | `docs/architecture/adr/0024-plan-view-annotation-pipeline.md` | DONE |
+| Code-level `ADR 0024 — Plan view annotation pipeline` | `docs/02-decisions/adrs/0024-plan-view-annotation-pipeline.md` | DONE |
 
 ---
 
@@ -115,7 +115,7 @@ This sprint is closed **as partial** per ADR-0030 §2.2: "Plan-view perf tune + 
 | `section-cut.ts` is pure — runs in Node test | `packages/geometry-kernel/src/producers/` (kernel-pure) + `plugins/section-view/src/section-cut-producer.ts` | DONE |
 | Pan/zoom works in section view | `SectionViewCanvasHost` | host shell wired; pan/zoom inherits from `PlanCamera` patterns | DONE-AS-SKELETON |
 | Visual diff vs PRYZM 1 section view: < 5 px (tightens to < 2 px in S36) | Recording-canvas harness measures stream-equivalence on 5 fixtures per ADR-0030 §2.4. Pixel-tolerance gate is OPEN. | **DEFERRED to S37 D5** — re-eval trigger: Playwright PNG pipeline lit at S37 D5 per spec §Gap-Closure S31 (`pnpm bench plan-view-perf` + SVG ↔ Canvas2D ↔ PDF equivalence gate per SPEC-29 §4.5) |
-| Code-level `ADR 0024 — Section cut algorithm` (distinct from `[strategic ADR-024]` constraint solver) | `docs/architecture/adr/0024-plan-view-annotation-pipeline.md` carries the plan-view annotation decision; the section-cut algorithm decision is documented inline in `section-cut-producer.ts` and ratified by ADR-0030 §2.4 | DOCUMENTED-IN-CODE; promotion to standalone ADR-0031-section-cut is OPEN as a documentation polish |
+| Code-level `ADR 0024 — Section cut algorithm` (distinct from `[strategic ADR-024]` constraint solver) | `docs/02-decisions/adrs/0024-plan-view-annotation-pipeline.md` carries the plan-view annotation decision; the section-cut algorithm decision is documented inline in `section-cut-producer.ts` and ratified by ADR-0030 §2.4 | DOCUMENTED-IN-CODE; promotion to standalone ADR-0031-section-cut is OPEN as a documentation polish |
 | Hidden-line classifier (kernel-pure) integrated per SPEC-30 §3.2 | `packages/geometry-kernel/src/hidden-line/` | DONE per ADR-0030 §2.4 |
 | Perf bench Large tier passes per SPEC-30 §2 Large | `apps/bench/src/benches/visual-diff-plan.bench.ts` measures stream-equivalence; full SPEC-30 §2 Large tier (50,000 elements) is bound to the same Playwright promotion at S37 D5 | DEFERRED-WITH-TRIGGER |
 | WebGL2 implementation; WebGPU compute deferred per ADR-025 Part E | WebGL2 path is the rendering default; WebGPU compute deferral is per `[strategic ADR-022]` Phase rollout | DONE / DEFERRED-BY-DESIGN |
@@ -137,7 +137,7 @@ This sprint is closed **as partial** per ADR-0030 §2.2: "Multi-view sync + cros
 | Visual diff: plan view < 2 px, section view < 2 px on 30-case fixture | Recording-canvas stream-equivalence on 5 fixtures per ADR-0030 §2.4. 30-case fixture corpus + pixel tolerance bound to Playwright promotion at S37 D5. | DEFERRED-WITH-TRIGGER (S37 D5) |
 | `featureFlags.plan_view_v2` operational | `packages/feature-flags/` per ADR-0030 §2.4 | DONE |
 | Multi-view layout: 1-up, 2-horizontal, 2-vertical, 4-equal all functional | `packages/view-state/src/multi-view-layout.ts` (pure layout solver: `tabs` / `split-2` / `grid-4`) + 5 tests in `multi-view-layout.test.ts`. Spec lists 1-up / 2-h / 2-v / 4-equal; the pure solver supports `tabs` (= 1-up) / `split-2` (= 2-h or 2-v depending on splitter axis) / `grid-4` (= 4-equal). | DONE-AS-PURE-SOLVER; splitter-drag UI deferred to S46 D1 (host-side) |
-| 2B demo recording committed to `docs/demos/M18-2B.mp4` | OUT OF SCOPE — recording asset, not code | DEFERRED — folded into M24 beta demo per §2C-AUDIT §9 pattern |
+| 2B demo recording committed to `docs/05-guides/developer/demos/M18-2B.mp4` | OUT OF SCOPE — recording asset, not code | DEFERRED — folded into M24 beta demo per §2C-AUDIT §9 pattern |
 | `apps/bench/reports/M18-2B.md` committed | NOT YET COMMITTED | DEFERRED to S31-bis bench-reports sweep |
 | ADRs 023–025 merged | `0023-plan-view-canvas2d-renderer.md`, `0024-plan-view-annotation-pipeline.md`, `0025-plan-view-svp-parity-contract-44.md` | DONE |
 | 2B retro decision on `featureFlags.plan_view_v2` default for beta | `packages/feature-flags/` skeleton ships flag-OFF default; default-ON decision bound to S47 (beta cohort onboarding) per `[strategic ADR-018]` cut-list ranking | DOCUMENTED-AS-DEFERRED |
@@ -153,11 +153,11 @@ This sprint is closed **as partial** per ADR-0030 §2.2: "Multi-view sync + cros
 
 | Spec slug | Actual file | Verdict |
 |---|---|---|
-| `0023 — Plan view Canvas2D renderer` (S31) | `docs/architecture/adr/0023-plan-view-canvas2d-renderer.md` | DONE |
+| `0023 — Plan view Canvas2D renderer` (S31) | `docs/02-decisions/adrs/0023-plan-view-canvas2d-renderer.md` | DONE |
 | `0024 — Section cut algorithm` (S35) | folded into `0024-plan-view-annotation-pipeline.md` + inline in `section-cut-producer.ts`; standalone ADR is OPEN-AS-DOC-POLISH | DOCUMENTED-IN-CODE |
 | `0025 — Multi-view sync` (S36) | `0025-plan-view-svp-parity-contract-44.md` (Contract 44 SVP parity decision; multi-view sync decision is in ADR-0030 §2.2 + `view-sync.ts` docstring) | DOCUMENTED-IN-ADR-0030 |
-| `0029 — Vector primitives & backends` (post-2B closeout) | `docs/architecture/adr/0029-vector-primitives-and-backends.md` | DONE |
-| `0030 — Phase 2B post-audit reconciliation` | `docs/architecture/adr/0030-phase-2b-post-audit-reconciliation.md` | DONE — RATIFIED BY THIS AUDIT |
+| `0029 — Vector primitives & backends` (post-2B closeout) | `docs/02-decisions/adrs/0029-vector-primitives-and-backends.md` | DONE |
+| `0030 — Phase 2B post-audit reconciliation` | `docs/02-decisions/adrs/0030-phase-2b-post-audit-reconciliation.md` | DONE — RATIFIED BY THIS AUDIT |
 
 ### §7.2 CI Gates Added in 2B (per spec §3.2)
 
@@ -211,7 +211,7 @@ The gap-closure work that the 2026-04-27 directive absorbed into S31 is recorded
 | S31 | Reverse-document envelopes for 12 Phase-1 GREEN families + 6 Phase-2A in-flight families | DONE per SPEC-13 §3 + SPEC-21 Step 2 |
 | S31 | Service-role-key removal from `server.js` | OPEN — project task per ADR-0030 §2.5 |
 | S31 | BullMQ scheduled sweep replaces probabilistic `project_command_log` cleanup | OPEN — project task per ADR-0030 §2.5 |
-| S31 | `00_Contracts/` archived | DONE per SPEC-27 §5 |
+| S31 | `02-decisions/contracts/` archived | DONE per SPEC-27 §5 |
 | S31 | `packages/drawing-primitives/` schemas + Zod + SVG MVP | DONE |
 | S31 | `plugins/lifecycle/` skeleton + first three cross-family rules | DONE per ADR-030 Part D |
 | S31 | Plugin data sandbox path reserved in `.pryzm` | DONE per SPEC-26 §11 |
@@ -242,7 +242,7 @@ These items are spec'd by the 2B sprint range or its Gap-Closure overlay but do 
 | Playwright PNG pixel-tolerance harness for plan + section visual diff | Recording-canvas harness measures stream-equivalence on 5 fixtures, which is sufficient for Contract 44 G1–G10 to remain green and for ADR-0030's "P1 code findings" to be honestly ratified. Promoting to PNG-pixel comparison requires a Tier-3 CI dependency (Playwright) and a 30-case fixture corpus production pass. | S37 D5 per spec §Gap-Closure S31 |
 | `apps/bench/multi-view-sync.bench.ts` (< 16 ms p95 hard-fail) | Pure publisher (`ViewSyncBus`) has no inherent latency cost; renderer-side budget is host-by-host and only meaningful with all three view types live in one workbench. | S46 D2 per ADR-0030 §2.2 |
 | Visibility-Intent wave 5 (full 11-wave port) | Wave-3-4 reducer covers the practical use cases for Phase 2B's renderer integration. The wave-5 cascade is the "halftone-cousin-of-cousin" propagation that only fires inside the full Visibility-Intent placement system per `[strategic ADR-015]`. | S49 / Phase 3A |
-| 2B demo recording (`docs/demos/M18-2B.mp4`) | Recording asset, not code. Folded into M24 beta launch demo per §2C-AUDIT §9 pattern. | M24 beta launch |
+| 2B demo recording (`docs/05-guides/developer/demos/M18-2B.mp4`) | Recording asset, not code. Folded into M24 beta launch demo per §2C-AUDIT §9 pattern. | M24 beta launch |
 | `apps/bench/reports/M18-2B.md` | All bench infrastructure in place; the report .md is bookkeeping. | S31-bis bench-reports sweep (combined with M15-2A baseline) |
 | Standalone `0031-section-cut-algorithm.md` ADR | Decision is documented inline in `plugins/section-view/src/section-cut-producer.ts` and ratified in ADR-0030 §2.4. | Phase 3 doc-org cleanup |
 | `featureFlags.plan_view_v2` default-ON for beta | Decision bound to S47 beta cohort onboarding (one variable to flip). | S47 D1 |

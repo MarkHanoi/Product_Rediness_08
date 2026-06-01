@@ -74,7 +74,7 @@ column states when this audit row should flip from `⚠` to `✅` or `❌`.
 
 | Type | Reference | Why it matters |
 |---|---|---|
-| ADR | `docs/architecture/adr/00XX-*.md` | … |
+| ADR | `docs/02-decisions/adrs/00XX-*.md` | … |
 | Spec | `docs/00_NEW_ARCHITECTURE/specs/SPEC-NN-*.md` §… | … |
 | Bench | `apps/bench/reports/<name>-baseline.md` | … |
 | Sibling audit | `phases/audits/PHASE-XX-S##-AUDIT-…md` | … |

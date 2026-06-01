@@ -1,4 +1,4 @@
-Create and insert into `docs/03_PRYZM3/04-PLAN-FORWARD/11-WAVE-7-CLEANUP-PHASE-F.md` a **full exhaustive codebase-wide Wave 7 → Wave 8 THREE Architectural Ownership Decoupling Master Table**, not a summary table.
+Create and insert into `docs/archive/pryzm3-internal/04-PLAN-FORWARD/11-WAVE-7-CLEANUP-PHASE-F.md` a **full exhaustive codebase-wide Wave 7 → Wave 8 THREE Architectural Ownership Decoupling Master Table**, not a summary table.
 
 ## REQUIRED OBJECTIVE
 

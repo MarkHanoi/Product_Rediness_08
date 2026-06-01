@@ -6,8 +6,8 @@
  * so the user can switch modes mid-polygon.  Dismissed automatically when the
  * floor tool deactivates (ESC or external).
  *
- * Contract: docs/00_Contracts/49-FLOOR-CEILING-DRAWING-MODE-PARITY-CONTRACT.md
- *           docs/00_Contracts/05-BIM-UI-ARCHITECTURE-CONTRACT.md §2.1, §7.1, §7.8
+ * Contract: docs/02-decisions/contracts/49-FLOOR-CEILING-DRAWING-MODE-PARITY-CONTRACT.md
+ *           docs/02-decisions/contracts/05-BIM-UI-ARCHITECTURE-CONTRACT.md §2.1, §7.1, §7.8
  *
  * Reuses .wdh-* CSS classes (visual parity with WallDrawingHUD).
  */

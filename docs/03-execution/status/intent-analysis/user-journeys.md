@@ -5,10 +5,10 @@
 **Status:** Pre-implementation (design only — no code)
 **Owner:** Views + Presentation subsystems
 **Companion docs:**
-- `docs/Analysis/INTENT-AS-VIEW-PROPERTIES-ORCHESTRATION-LAYER.md` — architectural blueprint and 11-stage implementation plan (S1–S8 + P1–P3).
-- `docs/Analysis/INTENT-PANELS-UI-UX-DESIGN.md` — visual specification for the five surfaces.
+- `docs/03-execution/status/intent-analysis/INTENT-AS-VIEW-PROPERTIES-ORCHESTRATION-LAYER.md` — architectural blueprint and 11-stage implementation plan (S1–S8 + P1–P3).
+- `docs/03-execution/status/intent-analysis/INTENT-PANELS-UI-UX-DESIGN.md` — visual specification for the five surfaces.
 - `docs/USER-GUIDE-VISIBILITY-INTENT.md` — end-user mental model.
-- `docs/00_Contracts/25b-VG-INTENT-FULL-CONSOLIDATION-PLAN.md` — V/G retirement contract.
+- `docs/02-decisions/contracts/25b-VG-INTENT-FULL-CONSOLIDATION-PLAN.md` — V/G retirement contract.
 - `docs/01_ELEMENTS/03_VIEWS/10_VIEW_INTENT_SYSTEM_IMPLEMENTATION_PLAN.md` — Stages S1–S8.
 
 ---
@@ -443,7 +443,7 @@ The 12 journeys above surface the following gaps that the **existing implementat
 |---|---|
 | **D1** | Real-time multi-user sync of Intent edits + version pin transitions is **Stage S8**. Until S8 lands, J7 step 3 (a teammate's edit advancing the Intent version) only takes effect on the next view re-open, not in real-time. This is acceptable for the v1 of the orchestration model. |
 | **D2** | The "Tender Set 2026" name in J6 implies **Intent presets / curated catalog** UX which is a future addition (post-S8). For now, all user Intents are flat in the picker. |
-| **D3** | Print-time scale-aware line-weight rendering (a "5 mm at 1:100" produces a different screen-px output than at 1:50) is a separate **printing/output** concern handled in `PenStyle` rendering. Not a journey concern; documented in `docs/00_Contracts/19-PRINTING-OUTPUT-CONTRACT.md`. |
+| **D3** | Print-time scale-aware line-weight rendering (a "5 mm at 1:100" produces a different screen-px output than at 1:50) is a separate **printing/output** concern handled in `PenStyle` rendering. Not a journey concern; documented in `docs/02-decisions/contracts/19-PRINTING-OUTPUT-CONTRACT.md`. |
 
 ---
 
@@ -467,7 +467,7 @@ After applying the audit additions, the schedule from the orchestration doc §6 
 
 **Net total:** ~13.5 days (was ~12). The added 1.5 days deliver the AEC-critical element-type visibility toggle, multi-select editing, and the per-view override loop that the journeys revealed are absent from the current plan.
 
-The **`docs/Analysis/INTENT-AS-VIEW-PROPERTIES-ORCHESTRATION-LAYER.md` document is updated** in §6.5 (new sub-section) to incorporate audit items A1–A10, B1–B4, C1–C5. See the next document update below.
+The **`docs/03-execution/status/intent-analysis/INTENT-AS-VIEW-PROPERTIES-ORCHESTRATION-LAYER.md` document is updated** in §6.5 (new sub-section) to incorporate audit items A1–A10, B1–B4, C1–C5. See the next document update below.
 
 ---
 

@@ -13,10 +13,10 @@ Sibling strategy docs (read these first):
 
 Governing C-contracts (binding):
 
-- [C12 Geospatial](../00_Contracts/C12-GEOSPATIAL.md) — LTP-ENU rebasing, IfcProjectedCRS round-trip
-- [C03 Schemas, Commands & State](../00_Contracts/C03-SCHEMAS-COMMANDS-AND-STATE.md) — P5 schema purity, P6 commands-as-mutation
-- [C11 Element Creation Pipeline](../00_Contracts/C11-ELEMENT-CREATION-PIPELINE.md) — polymorphic create pipeline
-- [C09 AI & Visibility Intent](../00_Contracts/C09-AI-AND-VISIBILITY-INTENT.md) — workflow shape
+- [C12 Geospatial](../02-decisions/contracts/C12-GEOSPATIAL.md) — LTP-ENU rebasing, IfcProjectedCRS round-trip
+- [C03 Schemas, Commands & State](../02-decisions/contracts/C03-SCHEMAS-COMMANDS-AND-STATE.md) — P5 schema purity, P6 commands-as-mutation
+- [C11 Element Creation Pipeline](../02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md) — polymorphic create pipeline
+- [C09 AI & Visibility Intent](../02-decisions/contracts/C09-AI-AND-VISIBILITY-INTENT.md) — workflow shape
 
 ---
 
@@ -69,7 +69,7 @@ Comprehensive audit completed 2026-05-30 across 12 surfaces. Bottom line: **the 
 | **Facade value** | ✅ Shipped (L1-α-1/3) | [`environment/facadeValueField.ts`](../../packages/ai-host/src/workflows/apartmentLayout/environment/facadeValueField.ts) — sun-weighted per-edge value field |
 | **IFC georeferencing** | ✅ Partial round-trip | [`plugins/ifc-import/src/IfcProjectedCRSReader.ts`](../../plugins/ifc-import/src/IfcProjectedCRSReader.ts) reads `IfcProjectedCRS` + `IfcMapConversion`; [`plugins/ifc-export/src/hierarchy.ts`](../../plugins/ifc-export/src/hierarchy.ts) writes them (IFC4X3 Wave A17) |
 | **IFC IfcSite** | 🟨 Placeholder | [`packages/file-format/src/export/ifc/IfcSpatialStructure.ts`](../../packages/file-format/src/export/ifc/IfcSpatialStructure.ts) emits `IfcProject → IfcSite → IfcBuilding → IfcBuildingStorey` but IfcSite attributes (latLon, refElevation, siteAddress) **NOT populated** — PRYZM has no corresponding Site data model |
-| **C12 Geospatial contract** | ✅ Exists, narrow scope | [`docs/00_Contracts/C12-GEOSPATIAL.md`](../00_Contracts/C12-GEOSPATIAL.md) — LTP-ENU rebasing rules + IFC CRS round-trip. No site / climate / parcel concepts |
+| **C12 Geospatial contract** | ✅ Exists, narrow scope | [`docs/02-decisions/contracts/C12-GEOSPATIAL.md`](../02-decisions/contracts/C12-GEOSPATIAL.md) — LTP-ENU rebasing rules + IFC CRS round-trip. No site / climate / parcel concepts |
 
 ### What's missing
 

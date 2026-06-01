@@ -1,9 +1,9 @@
 # ADR-0053 — S71 Perf Regression Hunt + Largest-Fixture Hard-Fail Flip + K3-F Codification
 
 **Status**: Accepted (sprint-scoped — S71, 2026-04-28)
-**Sprint**: PRYZM 2 Phase 3D · S71 (Perf regression hunt — renumbered slot after S70 absorbed S69's browser-matrix charter; see `docs/03_PRYZM3/reference/status-detail/01-PROCESS-TRACKER.md` row 836 + ADR-0051 §E for the prior renumber bookkeeping)
-**Spec source**: `docs/03_PRYZM3/reference/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S69 lines 272-304 (S69's never-executed perf-hardening daily plan; S71 inherits the spirit), `08-VISION.md` §6 (NFT contract), `docs/03_PRYZM3/reference/phases/PHASE-3/3-COMPLETION-GA-M25-M36.md` §K3-F (>10% regression on any NFT target halts forward 3D work)
-**Companion docs**: `apps/bench/reports/S71-perf-regression-hunt-2026-04-28.md`, `docs/03_PRYZM3/archive/superseded-audits/PHASE-3D-S71-PERF-REGRESSION-HUNT-2026-04-28.md`
+**Sprint**: PRYZM 2 Phase 3D · S71 (Perf regression hunt — renumbered slot after S70 absorbed S69's browser-matrix charter; see `docs/03-execution/status/legacy-status-detail/01-PROCESS-TRACKER.md` row 836 + ADR-0051 §E for the prior renumber bookkeeping)
+**Spec source**: `docs/03-execution/plans/legacy/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S69 lines 272-304 (S69's never-executed perf-hardening daily plan; S71 inherits the spirit), `08-VISION.md` §6 (NFT contract), `docs/03-execution/plans/legacy/phases/PHASE-3/3-COMPLETION-GA-M25-M36.md` §K3-F (>10% regression on any NFT target halts forward 3D work)
+**Companion docs**: `apps/bench/reports/S71-perf-regression-hunt-2026-04-28.md`, `docs/archive/pryzm3-internal/superseded-audits/PHASE-3D-S71-PERF-REGRESSION-HUNT-2026-04-28.md`
 
 ---
 
@@ -107,7 +107,7 @@ This honest gap inventory is what the original S69 D5 charter was meant to surfa
 
 ### F — DR-drill execution carry-forward (operator-side)
 
-ADR-0051 §C honesty notes record that drill #0 was the runbook itself and drill #1 was scheduled S70 D8. S70 D8 was the publish-prep dry run — no DR drill executed. The DR drill #1 (per `docs/03_PRYZM3/runbooks/DR-DRILL-RUNBOOK.md` §9 schedule) carries forward to operator-side. S71 does not change the schedule; it records the carry-forward to keep the bookkeeping honest.
+ADR-0051 §C honesty notes record that drill #0 was the runbook itself and drill #1 was scheduled S70 D8. S70 D8 was the publish-prep dry run — no DR drill executed. The DR drill #1 (per `docs/archive/pryzm3-internal/runbooks/DR-DRILL-RUNBOOK.md` §9 schedule) carries forward to operator-side. S71 does not change the schedule; it records the carry-forward to keep the bookkeeping honest.
 
 **Reversal trigger**: when the operator runs DR drill #1 against staging Postgres, the runbook §10 contingency log gets a sign-off entry and this ADR's §F line flips to landed.
 
@@ -136,10 +136,10 @@ ADR-0051 §C honesty notes record that drill #0 was the runbook itself and drill
 
 ## References
 
-- `docs/03_PRYZM3/reference/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S69 lines 272-304 (the perf charter S71 inherits).
-- `docs/03_PRYZM3/reference/phases/PHASE-3/3-COMPLETION-GA-M25-M36.md` §K3-F line 575 (10% NFT-regression halt-gate).
+- `docs/03-execution/plans/legacy/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S69 lines 272-304 (the perf charter S71 inherits).
+- `docs/03-execution/plans/legacy/phases/PHASE-3/3-COMPLETION-GA-M25-M36.md` §K3-F line 575 (10% NFT-regression halt-gate).
 - `08-VISION.md` §6 lines 104-119 (NFT contract — single source of truth for the 9 targets).
-- `docs/architecture/adr/0051-s69-largest-fixture-bench-policy.md` §A + §C (warn-only landing + reversal contract S71 fulfils).
-- `docs/architecture/adr/0052-s70-browser-matrix-wcag-selfhost-publish-pdf-preview-lifecycle-deletion.md` §C (publish-prep dry-run rationale that left S70 D8 without an isolated CI runner).
-- `docs/architecture/adr/0048-s67-self-host-docker-compose.md` §B (code-stability invariant preserved at S71 close).
-- `docs/03_PRYZM3/runbooks/DR-DRILL-RUNBOOK.md` §7 + §9 + §10 (4-h leak sim + drill schedule + contingency log — operator-side).
+- `docs/02-decisions/adrs/0051-s69-largest-fixture-bench-policy.md` §A + §C (warn-only landing + reversal contract S71 fulfils).
+- `docs/02-decisions/adrs/0052-s70-browser-matrix-wcag-selfhost-publish-pdf-preview-lifecycle-deletion.md` §C (publish-prep dry-run rationale that left S70 D8 without an isolated CI runner).
+- `docs/02-decisions/adrs/0048-s67-self-host-docker-compose.md` §B (code-stability invariant preserved at S71 close).
+- `docs/archive/pryzm3-internal/runbooks/DR-DRILL-RUNBOOK.md` §7 + §9 + §10 (4-h leak sim + drill schedule + contingency log — operator-side).

@@ -16,7 +16,7 @@
 //      once PropertyPanel migrates to @pryzm/ui-base Panel<T> which isolates
 //      the heavy deps behind lazy dynamic imports.
 //
-// Docs: docs/03_PRYZM3/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §2
+// Docs: docs/archive/pryzm3-internal/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §2
 
 import { describe, expect, it, vi } from 'vitest';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';

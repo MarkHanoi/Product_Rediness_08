@@ -86,7 +86,7 @@ const MUTATION_EVENTS: ReadonlyArray<string> = [
  *   `runtime.events.on('persistence.status', ...)` (C.6.01).  Deletion
  *   blocked on `PlatformShell.ts` migrating its single instantiation
  *   (line 698) and `saveVersionInternal()` to `runtime.persistence.*`.
- *   See `docs/03_PRYZM3/00_NEW_ARCHITECTURE/phases/audits/PHASES-A-F-RECONCILIATION-2026-04-29/03-phase-C-audit-and-plan.md`
+ *   See `docs/archive/pryzm3-internal/00_NEW_ARCHITECTURE/phases/audits/PHASES-A-F-RECONCILIATION-2026-04-29/03-phase-C-audit-and-plan.md`
  *   §"C-cleanup.2".
  */
 export class SaveOrchestrator {

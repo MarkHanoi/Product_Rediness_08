@@ -204,7 +204,7 @@ The AI subsystem is the deepest domain-specific layer in `src/engine/`. It imple
 | `FloorPlanAIFactory.ts` | Main orchestrator for floor plan import from images/PDFs. Builds the Anthropic prompt, interprets the structured JSON response, dispatches wall/door/window placement commands. |
 | `FloorPlanBatchExecutor.ts` | Batches floor plan commands for efficient undo/redo grouping. |
 | `FloorPlanCommandBatcher.ts` | Collects individual element placement commands into atomic batches. |
-| `docs/03_PRYZM3/04-PLAN-FORWARD/31-WAVE-L2-BATCH-CREATION.md` | Canonical wave for the AI batch creation pipeline and deferred wall geometry scheduling. |
+| `docs/archive/pryzm3-internal/04-PLAN-FORWARD/31-WAVE-L2-BATCH-CREATION.md` | Canonical wave for the AI batch creation pipeline and deferred wall geometry scheduling. |
 | `FloorPlanDiagnostics.ts` | Logging and telemetry for floor plan import quality. |
 | `FloorPlanImageEnhancer.ts` | Pre-processes uploaded images (contrast enhancement, crop, resize) before sending to Claude. |
 | `ImagePreprocessor.ts` | Generic image pre-processing pipeline: downscale, greyscale, normalize. |
@@ -766,9 +766,9 @@ Root-level integration tests (distinct from per-package `__tests__/`).
 
 | Path | Purpose |
 |---|---|
-| `docs/03_PRYZM3/` | **Canonical architecture docs** (this document lives here). `01-VISION.md`, `02-ARCHITECTURE.md`, `03-CURRENT-STATE.md`, `00-PROCESS-TRACKER.md`, `04-PLAN-FORWARD/*.md` (23 plan docs). |
-| `docs/03_PRYZM3/archive/` | Superseded audits, conflict analyses, restructure proposals. |
-| `docs/03_PRYZM3/04-PLAN-FORWARD/reference/` | ADRs (45), SPECs (40), architecture detail, wireup chunks. |
+| `docs/archive/pryzm3-internal/` | **Canonical architecture docs** (this document lives here). `01-VISION.md`, `02-ARCHITECTURE.md`, `03-CURRENT-STATE.md`, `00-PROCESS-TRACKER.md`, `04-PLAN-FORWARD/*.md` (23 plan docs). |
+| `docs/archive/pryzm3-internal/` | Superseded audits, conflict analyses, restructure proposals. |
+| `docs/archive/pryzm3-internal/04-PLAN-FORWARD/reference/` | ADRs (45), SPECs (40), architecture detail, wireup chunks. |
 
 ### §7.5 — `public/`
 

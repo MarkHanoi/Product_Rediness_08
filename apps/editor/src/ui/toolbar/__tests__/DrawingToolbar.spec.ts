@@ -3,7 +3,7 @@
 // Contract: each of the 18 buttons dispatches the correct typed command on
 // runtime.bus.executeCommand when clicked.
 //
-// Docs: docs/03_PRYZM3/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §3
+// Docs: docs/archive/pryzm3-internal/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §3
 
 import { describe, expect, it, vi } from 'vitest';
 import { DrawingToolbar, DRAWING_TOOLBAR_ID, DRAWING_TOOLBAR_BUTTONS } from '../DrawingToolbar.js';

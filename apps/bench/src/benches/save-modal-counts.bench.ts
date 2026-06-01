@@ -1,6 +1,6 @@
 // Bench: `persistence.save-modal.element-counts` — Flow 7 named verifier.
 //
-// Spec source: docs/03_PRYZM3/04-PLAN-FORWARD/04-END-TO-END-FLOWS-AND-COVERAGE.md
+// Spec source: docs/archive/pryzm3-internal/04-PLAN-FORWARD/04-END-TO-END-FLOWS-AND-COVERAGE.md
 //   §1 Flow 7 — Save 600-element project.
 //
 // What this bench protects

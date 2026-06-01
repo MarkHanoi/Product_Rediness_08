@@ -2,9 +2,9 @@
 
 - **Status:** Accepted (sprint-scoped, S67, 2026-04-28)
 - **Sprint:** S67 (Phase 3D — Self-Host + Multi-Region Decision)
-- **Authority:** subordinate to `docs/03_PRYZM3/reference/specs/SPEC-15` §7,
+- **Authority:** subordinate to `docs/03-execution/specs/SPEC-15` §7,
   `[strategic ADR-018]` T2.6, and
-  `docs/03_PRYZM3/reference/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S67.
+  `docs/03-execution/plans/legacy/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S67.
 - **Supersedes:** none.
 - **Superseded by:** none.
 
@@ -170,7 +170,7 @@ via `HEALTHCHECK_TIMEOUT_SEC=600`.
 | D10 | Demo recording                                           | ⏸ deferred — N/A     |
 
 Deferrals are tracked in
-`docs/03_PRYZM3/archive/superseded-audits/PHASE-3D-S67-AUDIT-2026-04-28.md` §3.
+`docs/archive/pryzm3-internal/superseded-audits/PHASE-3D-S67-AUDIT-2026-04-28.md` §3.
 
 ---
 

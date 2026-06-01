@@ -5,8 +5,8 @@
 > **Depends on**: [C03](C03-SCHEMAS-COMMANDS-AND-STATE.md), [C04](C04-RENDERING-AND-SCHEDULING.md), [C05](C05-PERSISTENCE-AND-FILE-FORMAT.md), [C06](C06-UI-SHELL-AND-TOOLS.md), [C16](C16-COMMAND-AUTHORING-PROTOCOL.md).
 > **Downstream**: [C29](C29-PDF-VECTOR-EXPORT.md) (PDF vector backend), [C30](C30-DRAWING-SET-MANAGEMENT.md) (sheet set / revision), [C26 §5](C26-REVIT-ROUND-TRIP.md) (Revit sheet translation).
 > **Key principles**: **P2** (sheet renderer must NOT import THREE), **P3** (subscribes to FrameScheduler — no direct rAF), **P5** (sheet schemas pure), **P6** (commands are the only mutation path), **P8** (every sheet operation emits an OpenTelemetry span).
-> **Master plan**: [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md §8](../03_PRYZM3/PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md), as corrected by [Part 0](../03_PRYZM3/PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md#part-0--prior-art-audit-amendment-2026-05-31).
-> **Prior-art**: [PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md §3.1](../03_PRYZM3/PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md). The PRYZM 2 reference ADR is ADR-0031.
+> **Master plan**: [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md §8](../03-execution/plans/master-implementation-plan.md), as corrected by [Part 0](../03-execution/plans/master-implementation-plan.md#part-0--prior-art-audit-amendment-2026-05-31).
+> **Prior-art**: [PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md §3.1](../03-execution/status/prior-art-audit-2026-05-31.md). The PRYZM 2 reference ADR is ADR-0031.
 
 ---
 

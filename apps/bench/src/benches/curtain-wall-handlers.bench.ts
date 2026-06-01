@@ -1,7 +1,7 @@
 // Bench: `command-bus.execute.curtain-wall-handlers` — < 1 ms p95.
 //
 // Flow-5 named-verifier proxy.  Spec at
-// `docs/03_PRYZM3/04-PLAN-FORWARD/04-END-TO-END-FLOWS-AND-COVERAGE.md`
+// `docs/archive/pryzm3-internal/04-PLAN-FORWARD/04-END-TO-END-FLOWS-AND-COVERAGE.md`
 // §1 Flow 5 calls for `pnpm bench create-300-curtain-walls` ≤ 4.5 s.
 // At < 1 ms per dispatch (this bench's per-handler envelope), 300
 // dispatches comfortably clear the spec's 4.5 s budget by ~15× — same

@@ -258,7 +258,7 @@ if (_hasBus) {
 
 Both paths produce identical results because the `wall.opening.create` E.5.6 bridge in `initBusHandlers.ts` is itself a thin wrapper over the same `commandManager.execute(new CreateWallOpeningCommand(...))` call.
 
-**Audit reference**: `docs/03_PRYZM3/ELEMENT-OPERATIONS-AUDIT-2026-05-17.md` §2, §3.3, §12.
+**Audit reference**: `docs/archive/pryzm3-internal/ELEMENT-OPERATIONS-AUDIT-2026-05-17.md` §2, §3.3, §12.
 
 ---
 

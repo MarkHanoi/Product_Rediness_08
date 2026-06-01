@@ -7,17 +7,17 @@
 | Date | 2026-04-27 |
 | Owner | Architecture lead |
 | Supersedes | nothing (this is the missing doc that the contracts and NEW_ARCH supersession banners point at) |
-| Depends on | `08-VISION.md`, `09-AS-IS-VS-TO-BE.md`, `10-MASTER-IMPLEMENTATION-PLAN-36M.md`, `00_Contracts/_README.md`, `00_Contracts/_AUDIT_AND_CONSOLIDATION_PLAN.md`, `00_Contracts/_WAVE2_SUMMARY.md` |
+| Depends on | `08-VISION.md`, `09-AS-IS-VS-TO-BE.md`, `10-MASTER-IMPLEMENTATION-PLAN-36M.md`, `02-decisions/contracts/_README.md`, `02-decisions/contracts/_AUDIT_AND_CONSOLIDATION_PLAN.md`, `02-decisions/contracts/_WAVE2_SUMMARY.md` |
 | Section anchors honoured | §2, §3, §3.1, §3.2, §3.3, §3.6, §4, §5 (all four-letter back-refs from contract supersession banners resolve here) |
 
-> **Read this document as a forwarding table.** The 19 contracts in `docs/00_Contracts/` were written against assumptions that NEW_ARCH has overturned. Every contract carries a per-file supersession banner saying *what* is voided and *what* survives, and points at this document for the *why*, the *full conflict map*, and the *migration path*. This is that document.
+> **Read this document as a forwarding table.** The 19 contracts in `docs/02-decisions/contracts/` were written against assumptions that NEW_ARCH has overturned. Every contract carries a per-file supersession banner saying *what* is voided and *what* survives, and points at this document for the *why*, the *full conflict map*, and the *migration path*. This is that document.
 
 ---
 
 ## §1 — Purpose & how to use this document
 
 ### §1.1 What this document is
-A per-rule conflict map between the contracts (`docs/00_Contracts/00–18`) and NEW_ARCH (`docs/00_NEW_ARCHITECTURE/`). For each conflict it states:
+A per-rule conflict map between the contracts (`docs/02-decisions/contracts/00–18`) and NEW_ARCH (`docs/00_NEW_ARCHITECTURE/`). For each conflict it states:
 
 - **Which** contract clause is in conflict (file + section number).
 - **Which** NEW_ARCH clause overrides it (file + section number).
@@ -27,7 +27,7 @@ A per-rule conflict map between the contracts (`docs/00_Contracts/00–18`) and 
 
 ### §1.2 What this document is *not*
 - Not a re-statement of NEW_ARCH. NEW_ARCH stands on its own; this document only catalogues the conflicts.
-- Not a normative re-write of the contracts. The contracts in `00_Contracts/` keep their text. They are now read **through** this forwarding table.
+- Not a normative re-write of the contracts. The contracts in `02-decisions/contracts/` keep their text. They are now read **through** this forwarding table.
 - Not a complete code migration plan. The sprint-level migration sequence is owned by `10-MASTER-IMPLEMENTATION-PLAN-36M.md` and the per-phase docs in `phases/`. This document references those by sprint ID and milestone.
 
 ### §1.3 How to read it
@@ -47,8 +47,8 @@ The single ordering rule that decides every conflict.
 | 2 | `08-VISION.md` | The 8 principles (P1–P8), the 8 layers (L0–L7.5), the 10 differentiators (D1–D10), the non-functional targets in §6, the non-goals in §7. | Only rank 1. |
 | 3 | `10-MASTER-IMPLEMENTATION-PLAN-36M.md` and `phases/*` | Sprint sequencing, milestones (M12 Alpha / M24 Beta / M36 GA), kill-switches. | Ranks 1–2. |
 | 4 | `00–07` NEW_ARCH supporting docs (`00-AUDIT.md`, `01-TARGET-ARCHITECTURE.md`, `02-ORCHESTRATION.md`, `03-PASCAL-EDITOR-ANALYSIS.md`, `04-PRODUCTION-PARITY.md`, `05-IMPLEMENTATION-PLAN.md`, `06-PRYZM-IDENTITY…`, `07-EXECUTION-PLAYBOOK.md`) | Background, audits, ADR queue, parity targets. | Ranks 1–3. |
-| 5 | `00_Contracts/00–18` | Surviving contract clauses (per the per-file banner). | Ranks 1–4. |
-| 6 | `audits/`, `plans/`, `reference/` under `00_Contracts/` | Frozen / time-bounded / descriptive only. | Anything above. |
+| 5 | `02-decisions/contracts/00–18` | Surviving contract clauses (per the per-file banner). | Ranks 1–4. |
+| 6 | `audits/`, `plans/`, `reference/` under `02-decisions/contracts/` | Frozen / time-bounded / descriptive only. | Anything above. |
 
 **Where any contract and NEW_ARCH disagree, NEW_ARCH wins.** This document tells you exactly what disagrees.
 
@@ -575,15 +575,15 @@ When closed, mark the §4 row's "Retire by" column as **DONE (sprint <ID>)** and
 
 ### §7.4 Owner
 
-Architecture lead. PRs touching this document require architecture-lead approval. PRs touching contracts under `00_Contracts/` require either an updated row here or an explicit "no new conflict introduced" assertion.
+Architecture lead. PRs touching this document require architecture-lead approval. PRs touching contracts under `02-decisions/contracts/` require either an updated row here or an explicit "no new conflict introduced" assertion.
 
 ---
 
 ## §8 — Cross-references
 
-- Contracts index, binding hierarchy, supersession status table: `../00_Contracts/_README.md`
-- Wave-2 consolidation log (37 → 19 contracts): `../00_Contracts/_WAVE2_SUMMARY.md`
-- Pre-NEW_ARCH consolidation rationale (historical): `../00_Contracts/_AUDIT_AND_CONSOLIDATION_PLAN.md`
+- Contracts index, binding hierarchy, supersession status table: `../02-decisions/contracts/_README.md`
+- Wave-2 consolidation log (37 → 19 contracts): `../02-decisions/contracts/_WAVE2_SUMMARY.md`
+- Pre-NEW_ARCH consolidation rationale (historical): `../02-decisions/contracts/_AUDIT_AND_CONSOLIDATION_PLAN.md`
 - 8 principles, 8 layers, 10 differentiators, NFR targets: `08-VISION.md`
 - Layer-by-layer As-Is vs To-Be + competitive matrix: `09-AS-IS-VS-TO-BE.md`
 - 36-month sprint plan: `10-MASTER-IMPLEMENTATION-PLAN-36M.md` and `phases/`

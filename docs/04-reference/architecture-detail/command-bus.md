@@ -1,7 +1,7 @@
 # Command Bus — Architecture
 
 > **Spec**: `phases/PHASE-1A-Q1-M1-M3-SKELETON-RAILS.md` §S02 (`S02-T1` through `S02-T10`).
-> **ADR**: `docs/architecture/adr/0002-command-handler-signature.md`
+> **ADR**: `docs/02-decisions/adrs/0002-command-handler-signature.md`
 > **Package**: `packages/command-bus/`
 
 ## Overview

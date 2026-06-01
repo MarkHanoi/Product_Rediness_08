@@ -104,7 +104,7 @@ stores by hand.  All such logic belongs inside the registry.
 * `apps/editor/src/bootstrap.everything.ts` — the implementation.
 * `apps/editor/src/PluginRegistry.ts` — `ALL_PLUGINS` source of truth.
 * `apps/editor/__tests__/bootstrap-shape.test.ts` — W-15 contract test.
-* `docs/03_PRYZM3/reference/phases/audits/PHASE-1-CLOSE-IMPLEMENTATION-PLAN-2026-04-28.md`
+* `docs/03-execution/plans/legacy/phases/audits/PHASE-1-CLOSE-IMPLEMENTATION-PLAN-2026-04-28.md`
   §G-3 / W-15 — audit context.
-* `docs/architecture/boundaries.md` — overall layering rules
+* `docs/04-reference/architecture-detail/boundaries.md` — overall layering rules
   (W-16 deliverable; bootstrap rules cross-link from there).

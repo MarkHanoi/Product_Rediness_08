@@ -2,7 +2,7 @@
 
 > Sprint S61 — Composition Root Deletion + Sunset Migration Tool
 > Audit reference for the PROCESS-TRACKER.md row flip from `[~]` → `[✓]`.
-> Authority: SPEC-27 §3.2/§4.1-4.4 + `docs/architecture/adr/0031-s61-staged-legacy-deletion.md`.
+> Authority: SPEC-27 §3.2/§4.1-4.4 + `docs/02-decisions/adrs/0031-s61-staged-legacy-deletion.md`.
 
 ## §1 Sprint goal vs reality
 
@@ -117,7 +117,7 @@ production-infra ticket for D7-D9 — tracked outside the architecture corpus).
 
 ## §6 Cross-references
 
-- `docs/architecture/adr/0031-s61-staged-legacy-deletion.md` — ADR being honoured.
+- `docs/02-decisions/adrs/0031-s61-staged-legacy-deletion.md` — ADR being honoured.
 - `docs/00_NEW_ARCHITECTURE/specs/SPEC-27-MIGRATION-ROLLBACK.md` §3.2, §4.2-4.4.
 - `docs/00_NEW_ARCHITECTURE/phases/PHASE-3C-Q3-M31-M33-PLUGIN-SDK-MARKETPLACE-APIS.md` §S61.
 - `docs/00_NEW_ARCHITECTURE/phases/PHASE-3C-Q3-M31-M33-SDK-MARKETPLACE-PUBLIC-API.md` §S61.

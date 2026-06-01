@@ -53,7 +53,7 @@ The team has done substantial enterprise-readiness work. Naming it:
 
 ### §2.1 Security posture (S68 — ADR-0050)
 
-`docs/security/` contains seven contracts that match the shape of a
+`docs/04-reference/security/` contains seven contracts that match the shape of a
 real security programme:
 
 - `csp-audit-2026-Q4.md` — strict-by-default editor CSP with three documented relaxations + per-plugin iframe CSP (`default-src 'none'`, `<iframe sandbox="allow-scripts">` no `allow-same-origin`).

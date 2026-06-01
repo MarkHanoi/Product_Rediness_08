@@ -88,11 +88,11 @@ The OpenAPI YAML at `packages/api-spec/openapi.yaml` is extended with 13 new pat
 * `packages/api-spec/__tests__/openapi-spec.test.ts` — SHA-256 pin updated with authorization chain comment
 
 ### New documentation
-* `docs/architecture/adr/0041-s65-public-rest-ws-api.md`
-* `docs/architecture/adr/0042-s65-ai-public-api.md`
-* `docs/architecture/adr/0043-s65-ai-spend-view.md`
-* `docs/architecture/adr/0044-s65-formula-library-extraction.md`
-* `docs/architecture/adr/0045-s65-admin-overrides-and-lifecycle-deferral.md`
+* `docs/02-decisions/adrs/0041-s65-public-rest-ws-api.md`
+* `docs/02-decisions/adrs/0042-s65-ai-public-api.md`
+* `docs/02-decisions/adrs/0043-s65-ai-spend-view.md`
+* `docs/02-decisions/adrs/0044-s65-formula-library-extraction.md`
+* `docs/02-decisions/adrs/0045-s65-admin-overrides-and-lifecycle-deferral.md`
 * `docs/00_NEW_ARCHITECTURE/phases/audits/PHASE-3C-S65-AUDIT.md` (this file)
 
 ### Bench output

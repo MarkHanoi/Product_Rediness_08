@@ -2,7 +2,7 @@
 
 **Date**: 2026-04-28
 **Sprint**: PRYZM 2 Phase 3D · S71 (renumbered slot — see PROCESS-TRACKER §3D row 836)
-**Anchor ADR**: `docs/architecture/adr/0053-s71-perf-regression-hunt-and-hardfail-flip.md`
+**Anchor ADR**: `docs/02-decisions/adrs/0053-s71-perf-regression-hunt-and-hardfail-flip.md`
 **Sprint report**: `apps/bench/reports/S71-perf-regression-hunt-2026-04-28.md`
 **Closure pattern**: D-day-actionable partial close (mirrors S67/S68/S70)
 
@@ -59,7 +59,7 @@ S71 file inventory:
 
 | path touched | inside protected zone? |
 |---|---|
-| `docs/architecture/adr/0053-s71-perf-regression-hunt-and-hardfail-flip.md` (NEW) | no |
+| `docs/02-decisions/adrs/0053-s71-perf-regression-hunt-and-hardfail-flip.md` (NEW) | no |
 | `packages/perf-budgets/{package.json, tsconfig.json, vitest.config.ts, src/nft-targets.ts, src/index.ts, __tests__/nft-targets.test.ts}` (NEW) | no |
 | `apps/bench/baseline.json` (EDITED — hardFail flip on `largest-model.{parse,produce}`) | no — `apps/bench` is not a protected service |
 | `apps/bench/__tests__/k3f-regression-gate.test.ts` (NEW) | no — bench tests are not under protected `src/` |

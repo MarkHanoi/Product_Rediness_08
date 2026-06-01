@@ -49,5 +49,5 @@ apps/bench/
    criteria flip individual gates to hard-fail (idle-CPU at S03, save-edit at
    S04, orbit-fps + bundle-size at S06, etc.).
 
-See `docs/architecture/bench-harness.md` for the full design + per-sprint
+See `docs/04-reference/architecture-detail/bench-harness.md` for the full design + per-sprint
 gate-activation schedule.

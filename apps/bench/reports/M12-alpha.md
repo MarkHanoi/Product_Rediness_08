@@ -3,7 +3,7 @@
 **Sprint**: S24
 **Date**: 2026-04-27
 **Captured on**: Replit Linux container (shared CPU; Node v20)
-**Source spec**: `docs/03_PRYZM3/reference/phases/PHASE-1/1D-Q4-M10-M12-BAKE-PRYZM-ALPHA.md` §S24 Exit Criteria (lines 1485–1543)
+**Source spec**: `docs/archive/pryzm3-internal/reference/phases/PHASE-1/1D-Q4-M10-M12-BAKE-PRYZM-ALPHA.md` §S24 Exit Criteria (lines 1485–1543)
 **Bench harness**: `apps/bench/` — 35 bench files, 98 individual benches, all green.
 
 ---
@@ -123,24 +123,24 @@ not at the assertion level. Local p95 sits inside the < 1 ms budget envelope.
 
 | Doc | Path | Status |
 |---|---|---|
-| `schemas` | `docs/architecture/schemas.md` | **PASS** |
-| `command-bus` | `docs/architecture/command-bus.md` | **PASS** |
-| `frame-scheduler` | `docs/architecture/frame-scheduler.md` | **PASS** |
-| `scene-committer` | `docs/architecture/scene-committer.md` | **PASS** |
-| `renderer` | `docs/architecture/renderer.md` | **PASS** |
-| `persistence` | `docs/architecture/persistence.md` (+ `persistence-design.md`) | **PASS** |
-| `chunks` | `docs/architecture/chunks.md` | **PASS** |
-| `bake-worker` | `docs/architecture/bake-worker.md` (+ `bake-worker-impl-log.md`) | **PASS** |
+| `schemas` | `docs/04-reference/architecture-detail/schemas.md` | **PASS** |
+| `command-bus` | `docs/04-reference/architecture-detail/command-bus.md` | **PASS** |
+| `frame-scheduler` | `docs/04-reference/architecture-detail/frame-scheduler.md` | **PASS** |
+| `scene-committer` | `docs/04-reference/architecture-detail/scene-committer.md` | **PASS** |
+| `renderer` | `docs/04-reference/architecture-detail/renderer.md` | **PASS** |
+| `persistence` | `docs/04-reference/architecture-detail/persistence.md` (+ `persistence-design.md`) | **PASS** |
+| `chunks` | `docs/04-reference/architecture-detail/chunks.md` | **PASS** |
+| `bake-worker` | `docs/04-reference/architecture-detail/bake-worker.md` (+ `bake-worker-impl-log.md`) | **PASS** |
 | `file-format` | `docs/file-format/spec.md` | **PASS** |
-| `loader` | `docs/architecture/loader.md` | **PASS** |
-| `sync-server-protocol` | `docs/architecture/sync-server.md` | **PASS** |
-| `headless` | `docs/architecture/headless.md` | **PASS** |
-| `picking` | `docs/architecture/picking.md` | **PASS** |
-| `selection` | `docs/architecture/selection.md` | **PASS** |
-| `view-state` | `docs/architecture/view-state.md` | **PASS** |
-| `camera` | `docs/architecture/camera.md` | **PASS** |
-| `element-coupling` | `docs/architecture/element-coupling.md` | **PASS** |
-| `element-recipe` | `docs/architecture/element-recipe.md` | **PASS** |
+| `loader` | `docs/04-reference/architecture-detail/loader.md` | **PASS** |
+| `sync-server-protocol` | `docs/04-reference/architecture-detail/sync-server.md` | **PASS** |
+| `headless` | `docs/04-reference/architecture-detail/headless.md` | **PASS** |
+| `picking` | `docs/04-reference/architecture-detail/picking.md` | **PASS** |
+| `selection` | `docs/04-reference/architecture-detail/selection.md` | **PASS** |
+| `view-state` | `docs/04-reference/architecture-detail/view-state.md` | **PASS** |
+| `camera` | `docs/04-reference/architecture-detail/camera.md` | **PASS** |
+| `element-coupling` | `docs/04-reference/architecture-detail/element-coupling.md` | **PASS** |
+| `element-recipe` | `docs/04-reference/architecture-detail/element-recipe.md` | **PASS** |
 | `apps/bench/reports/M12-alpha.md` | this file | **PASS** |
 | 10-min alpha demo screencast | `docs/demos/M12-alpha.mp4` | **DEFERRED** — recording not produced in this environment; script preserved in `docs/demos/M12-alpha.script.md` (ref §3 of the phase doc). |
 
@@ -150,7 +150,7 @@ not at the assertion level. Local p95 sits inside the < 1 ms budget envelope.
 
 | Item | Status | Evidence |
 |---|---|---|
-| 19+ Phase-1 ADRs merged | **PASS** | 21 Accepted ADRs on disk (`docs/architecture/adr/0001-0020` + ledger). |
+| 19+ Phase-1 ADRs merged | **PASS** | 21 Accepted ADRs on disk (`docs/02-decisions/adrs/0001-0020` + ledger). |
 | Sprint retros S01–S24 archived | **PARTIAL** | per-sprint closeouts captured in PROCESS-TRACKER §1; standalone retro files are deferred to the founder rest week. |
 | Phase 1 retro published | **PASS** | `docs/retros/PHASE-1-CLOSE.md` (S24 deliverable). |
 | Phase 2 risk register updated | **DEFERRED** | rolls into S25 D1 (founder rest week ends; Phase-2 kickoff). |

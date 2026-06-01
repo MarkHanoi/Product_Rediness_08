@@ -2,14 +2,14 @@
 
 > **Authority note (added 2026-04-27).** This document is *implementation guidance* and is subordinate to:
 >
-> 1. The 12 specs in `docs/03_PRYZM3/reference/specs/` (SPEC-01..SPEC-12).
-> 2. The 22 strategic ADRs in `docs/03_PRYZM3/reference/adrs/` (ADR-001..ADR-024 of the strategic series).
-> 3. `docs/03_PRYZM3/archive/superseded-2026-04-30/03_STATUS/CRITICAL-REVIEW-2026-04-27.md`.
-> 4. `docs/03_PRYZM3/reference/plan-detail/01-MASTER-36M.md`.
+> 1. The 12 specs in `docs/03-execution/specs/` (SPEC-01..SPEC-12).
+> 2. The 22 strategic ADRs in `docs/02-decisions/adrs/` (ADR-001..ADR-024 of the strategic series).
+> 3. `docs/archive/pryzm3-internal/superseded-2026-04-30/03_STATUS/CRITICAL-REVIEW-2026-04-27.md`.
+> 4. `docs/03-execution/plans/legacy/plan-detail/01-MASTER-36M.md`.
 >
-> Where this phase document conflicts with any of the above, the higher-precedence document wins. Bare `ADR-NNN` references inside this phase document refer to the **sprint-scoped / code-level** ADR series at `docs/architecture/adr/NNNN-*.md` after the renumbering applied 2026-04-27 (per `phases/PHASES-UPDATE-PLAN-2026-04-27.md` §1). References to the **strategic** ADR series are written explicitly as `[strategic ADR-NNN]`.
+> Where this phase document conflicts with any of the above, the higher-precedence document wins. Bare `ADR-NNN` references inside this phase document refer to the **sprint-scoped / code-level** ADR series at `docs/02-decisions/adrs/NNNN-*.md` after the renumbering applied 2026-04-27 (per `phases/PHASES-UPDATE-PLAN-2026-04-27.md` §1). References to the **strategic** ADR series are written explicitly as `[strategic ADR-NNN]`.
 >
-> **ADR citation rule.** Bare `ADR-NNN` is forbidden going forward. Use `[strategic ADR-NNN]` for entries in `03_PRYZM3/reference/adrs/`, or fully-qualified `code-level ADR docs/architecture/adr/NNNN-<slug>.md` for sprint-scoped decisions.
+> **ADR citation rule.** Bare `ADR-NNN` is forbidden going forward. Use `[strategic ADR-NNN]` for entries in `02-decisions/adrs/`, or fully-qualified `code-level ADR docs/02-decisions/adrs/NNNN-<slug>.md` for sprint-scoped decisions.
 
 > **Phase goal**: produce an alpha PRYZM 2 build that opens a small/medium/large fixture project end-to-end through every layer (L0 → L7.5) under feature flag, alongside the unaltered PRYZM 1, with all CI gates active. By M12 we know the architecture works.
 >
@@ -117,7 +117,7 @@ M12 ─┘                                            ★ M12 ALPHA GATE
 - D6–D7 — Round-trip tests for all 20 schemas; refinement edge-cases (nested objects, optional vs default, discriminated unions).
 - D8 — Lint, typecheck, bundle-size measurement; first PR-level CI green.
 - D9 — Sprint demo recording (3-min schema walkthrough); retro notes.
-- D10 — Buffer / docs update (`docs/architecture/schemas.md` stub).
+- D10 — Buffer / docs update (`docs/04-reference/architecture-detail/schemas.md` stub).
 
 **Exit criteria**:
 - All 20 schemas validate sample fixtures extracted from `tests/fixtures/pryzm-1-snapshots/`.
@@ -194,7 +194,7 @@ M12 ─┘                                            ★ M12 ALPHA GATE
 - D5 — Demo "bouncing cube" scene driven only by scheduler; idle profile in DevTools.
 - D6 — Bench wiring (idle-cpu, orbit-fps); baseline numbers in `baseline.json`.
 - D7 — Replace any pre-flight rAF usages in scaffolding with scheduler calls.
-- D8 — Documentation in `docs/architecture/frame-scheduler.md`.
+- D8 — Documentation in `docs/04-reference/architecture-detail/frame-scheduler.md`.
 - D9 — Demo + retro.
 - D10 — Buffer.
 
@@ -271,7 +271,7 @@ M12 ─┘                                            ★ M12 ALPHA GATE
 - D5 — Custom ESLint rule (initially warn-only, will be error post-S07).
 - D6 — Material caching skeleton (`MaterialPool`); shared materials by hash.
 - D7 — OTel `pryzm.scene.commit` span.
-- D8 — Documentation `docs/architecture/scene-committer.md`.
+- D8 — Documentation `docs/04-reference/architecture-detail/scene-committer.md`.
 - D9 — Demo + retro.
 - D10 — Buffer.
 
@@ -331,7 +331,7 @@ M12 ─┘                                            ★ M12 ALPHA GATE
 - All 4 custom ESLint rules active and CI-enforced.
 - Bundle gate, idle-CPU bench, save-edit bench all green.
 - `apps/editor` (PRYZM 1) unchanged and shipping; `?pryzm2=1` swaps in new stack.
-- Documentation: per-package `README.md` + `docs/architecture/{schemas,command-bus,frame-scheduler,scene-committer,renderer}.md`.
+- Documentation: per-package `README.md` + `docs/04-reference/architecture-detail/{schemas,command-bus,frame-scheduler,scene-committer,renderer}.md`.
 
 **If 1A misses**: extend by 4 weeks; do not begin 1B until rails are green. Element-family migration on top of broken rails is the failure mode this plan exists to avoid.
 
@@ -475,7 +475,7 @@ M12 ─┘                                            ★ M12 ALPHA GATE
 
 **Exit**: post-FX visually correct (visual-diff vs PRYZM 1 reference); idle CPU green; orbit fps green; OTel spans tag each pass.
 
-**Risk**: TRAA jitter under idle-continuation — mitigated by 30-frame budget chosen in code-level ADR `docs/architecture/adr/0006-idle-continuation-budget.md`, re-validated here. (Distinct from `[strategic ADR-006]` which is render mode.)
+**Risk**: TRAA jitter under idle-continuation — mitigated by 30-frame budget chosen in code-level ADR `docs/02-decisions/adrs/0006-idle-continuation-budget.md`, re-validated here. (Distinct from `[strategic ADR-006]` which is render mode.)
 
 ---
 
@@ -553,7 +553,7 @@ M12 ─┘                                            ★ M12 ALPHA GATE
 - `packages/file-format/{pack,unpack}.ts` — ZIP layout: `manifest.json`, `events/*.evt.bin`, `chunks/*.glb`, `thumbnails/*.png`, `signatures/`.
 - `packages/file-format/migrations/` — migration framework (`v0-pryzm1-to-v1.ts` stub for later).
 - `packages/file-format/__tests__/round-trip.test.ts` — pack → unpack → byte-identical content.
-- `docs/file-format/spec.md` — full spec doc; published with the SDK docs site in S63.
+- `docs/04-reference/file-formats/pryzm-binary.md` — full spec doc; published with the SDK docs site in S63.
 - `apps/headless/cli/{pack,unpack}.ts`.
 
 **Exit**: round-trip lossless; spec doc complete; medium fixture packed in < 5 s; unpacked in < 3 s; CLI works.
@@ -646,7 +646,7 @@ M12 ─┘                                            ★ M12 ALPHA GATE
 | R1-02 | `@pryzm/headless` reveals kernel impurity (THREE / DOM / React leak) | Medium | Critical | `pryzm-no-three-in-kernel` lint rule active from S08; Node test runs in CI from S08 onward | S08, S18 |
 | R1-03 | Bake worker per-event cost makes self-host pricing unviable | Low | High | Coalescing window in `[strategic ADR-010]` + S21 cost bench; tiered bake fallback documented | S21 |
 | R1-04 | Tier-streamed load misses < 3 s on large fixture | Medium | High | S19 chunk format tunable; S23 has 1 sprint of buffer absorbed in 1D for re-tuning | S19, S23 |
-| R1-05 | Frame scheduler API insufficient for TRAA/SSGI accumulation | Medium | Medium | S15 is the hardening sprint; idle-continuation budget chosen in code-level ADR `docs/architecture/adr/0006-idle-continuation-budget.md` | S15 |
+| R1-05 | Frame scheduler API insufficient for TRAA/SSGI accumulation | Medium | Medium | S15 is the hardening sprint; idle-continuation budget chosen in code-level ADR `docs/02-decisions/adrs/0006-idle-continuation-budget.md` | S15 |
 | R1-06 | IndexedDB transactions stall under burst writes | Low | Medium | S04 single-writer queue; bench in `save-edit.ts` simulates burst | S04 |
 | R1-07 | Solo + Agent velocity insufficient (1A overruns) | Medium | High | 4-week extension authorised before entering 1B; do not start 1B with broken 1A | End-1A |
 | R1-08 | WebGPU instability blocks bench numbers | Medium | Medium | WebGL2 fallback always present; visual-diff parity gate in S06 | S06, S15 |
@@ -707,13 +707,13 @@ For convenience, all M12 acceptance items in one place:
 - Honeycomb / Tempo dashboard exists for the alpha build.
 
 ### Documentation
-- `docs/architecture/{schemas,command-bus,frame-scheduler,scene-committer,renderer,persistence,bake-worker,file-format}.md` complete.
+- `docs/04-reference/architecture-detail/{schemas,command-bus,frame-scheduler,scene-committer,renderer,persistence,bake-worker,file-format}.md` complete.
 - `apps/bench/reports/M12-alpha.md` published with all numbers.
-- 10-min alpha demo screencast in `docs/demos/M12-alpha.mp4`.
+- 10-min alpha demo screencast in `docs/05-guides/developer/demos/M12-alpha.mp4`.
 
 ### Process
 - All 12 ADRs status: 11 merged, 1 explicitly deferred.
-- Sprint retros archived in `docs/retros/S01–S24/`.
+- Sprint retros archived in `docs/03-execution/status/retros/S01–S24/`.
 - Next-phase risk register updated.
 
 ---

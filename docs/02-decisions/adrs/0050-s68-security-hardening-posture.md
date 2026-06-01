@@ -3,7 +3,7 @@
 **Status**: Accepted
 **Sprint**: PRYZM 2 Phase 3D · S68
 **Date**: 2026-04-28
-**Spec ref**: `docs/03_PRYZM3/reference/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S68 (Security Hardening + SOC2 Automation + SAML/SCIM)
+**Spec ref**: `docs/03-execution/plans/legacy/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S68 (Security Hardening + SOC2 Automation + SAML/SCIM)
 **Supersedes**: nothing
 **Superseded by**: nothing
 
@@ -32,7 +32,7 @@ PRYZM 2's authorisation is **layered**, not gated by a single control:
 
 ### B.2 CSP — strict-by-default, with three documented relaxations
 
-The editor host CSP (per `docs/security/csp-audit-2026-Q4.md` §2.3) is `default-src 'self'` with these documented relaxations:
+The editor host CSP (per `docs/04-reference/security/csp-audit-2026-Q4.md` §2.3) is `default-src 'self'` with these documented relaxations:
 
 - `script-src` includes `'wasm-unsafe-eval'` for `packages/geometry-kernel` WASM modules.
 - `style-src` includes `'unsafe-inline'` until the nonce migration at S70 D6.
@@ -42,7 +42,7 @@ Plugin iframes use a **stricter** per-plugin CSP (`default-src 'none'`) generate
 
 ### B.3 RLS — gap accepted at S68 close, fix scheduled for S69 D6
 
-Of 21 user-data-bearing tables, 2 currently have RLS policies (per `docs/security/rls-audit-2026-Q4.md` §1). The remaining 19 are **gated by server-side authz today** (the working model — see §B.1) but lack the defence-in-depth backstop. The fix is **specified** in §3.2 of the RLS audit (per-pattern policy templates for append-only audit tables, per-project tables, per-user tables, catalog tables, publisher self-management) and **scheduled for S69 D6**, which already provisions a live Postgres for the DR drill and can run the verified test queries the S68 spec calls for.
+Of 21 user-data-bearing tables, 2 currently have RLS policies (per `docs/04-reference/security/rls-audit-2026-Q4.md` §1). The remaining 19 are **gated by server-side authz today** (the working model — see §B.1) but lack the defence-in-depth backstop. The fix is **specified** in §3.2 of the RLS audit (per-pattern policy templates for append-only audit tables, per-project tables, per-user tables, catalog tables, publisher self-management) and **scheduled for S69 D6**, which already provisions a live Postgres for the DR drill and can run the verified test queries the S68 spec calls for.
 
 This ADR **accepts** the gap at S68 close because (a) the authz primary-gate model is sound, (b) the dev environment cannot run the verification queries, and (c) the migrations + tests are a single-day item that fits the next sprint's already-budgeted Postgres provisioning.
 
@@ -52,21 +52,21 @@ The plugin sandbox's K3-C gate from S62 D7 is **provisionally re-held by**:
 
 - `packages/plugin-sdk/src/sandbox/policy.ts` (`<iframe sandbox="allow-scripts">` with no `allow-same-origin`, strict per-plugin CSP).
 - `packages/plugin-sdk/__tests__/escape-tests.test.ts` (escape-vector regression suite).
-- `docs/security/plugin-sandbox-audit-2026-Q4.md` (this sprint's first-party reconfirmation).
+- `docs/04-reference/security/plugin-sandbox-audit-2026-Q4.md` (this sprint's first-party reconfirmation).
 
 The **independent third-party audit** required by the S68 D4 exit criterion is contracted separately (founder-coordinated, runs in parallel with S68 D1–D2 pen test). Findings will be appended to §4.4 of the sandbox audit doc when delivered. Until then, this ADR records that the K3-C gate is **provisionally** held by the regression suite + first-party audit.
 
 ### B.5 OAuth2 — PKCE primitive correct; resource-server wiring at S70 D8
 
-The PKCE generator at `packages/oauth2-pkce` is RFC 7636 + OAuth 2.1 conformant (per `docs/security/oauth2-review-2026-Q4.md` §2). The production resource-server adapter (which introspects bearer tokens, rejects `plain`, rotates refresh tokens) is **not yet wired** — the api-gateway's `auth-shim.ts` is explicit about the test-shim → production-adapter swap path, and the swap lands at S70 D8. This ADR records the wiring boundary so future sprints don't double-implement the resource server.
+The PKCE generator at `packages/oauth2-pkce` is RFC 7636 + OAuth 2.1 conformant (per `docs/04-reference/security/oauth2-review-2026-Q4.md` §2). The production resource-server adapter (which introspects bearer tokens, rejects `plain`, rotates refresh tokens) is **not yet wired** — the api-gateway's `auth-shim.ts` is explicit about the test-shim → production-adapter swap path, and the swap lands at S70 D8. This ADR records the wiring boundary so future sprints don't double-implement the resource server.
 
 ### B.6 SAML / SCIM — mappings table is the contract; runtime adapter at S70 D8
 
-Enterprise SSO via SAML + SCIM is contracted by `docs/security/saml-scim-mappings.md`. The **mappings** are the canonical PRYZM-side definition of how IdP assertions / SCIM resources translate to PRYZM users / groups / project-members. The **runtime adapter** lands at S70 D8 alongside the OAuth2 resource server (same wiring point — the production auth surface lights up as one piece). The S68 D7 deliverable is the mappings doc + SCIM schema; the S70 D8 deliverable is the adapter that executes against the mappings.
+Enterprise SSO via SAML + SCIM is contracted by `docs/04-reference/security/saml-scim-mappings.md`. The **mappings** are the canonical PRYZM-side definition of how IdP assertions / SCIM resources translate to PRYZM users / groups / project-members. The **runtime adapter** lands at S70 D8 alongside the OAuth2 resource server (same wiring point — the production auth surface lights up as one piece). The S68 D7 deliverable is the mappings doc + SCIM schema; the S70 D8 deliverable is the adapter that executes against the mappings.
 
 ### B.7 Scan baseline — SCA not yet clean; SAST errored; HoundDog clean
 
-The S68 D7 scan baseline (per `docs/security/scans-2026-Q4-baseline.md` §1):
+The S68 D7 scan baseline (per `docs/04-reference/security/scans-2026-Q4-baseline.md` §1):
 
 - **HoundDog**: 0 findings — clean.
 - **SCA (dependency)**: 26 findings (2 critical, 8 high, 14 moderate, 2 low) — not clean. Remediation plan in §5 of the baseline; expected post-S68 D8: 0 critical / 0 high / 4 moderate (esbuild, astro deferred).
@@ -76,7 +76,7 @@ This ADR records that the S68 exit criterion "HoundDog clean; SAST clean; SCA cl
 
 ### B.8 Secret rotation — playbook + quarterly drill
 
-Every PRYZM secret has a documented rotation procedure + cadence per `docs/security/secret-rotation-playbook.md`. The first quarterly drill is **scheduled for S68 D10** (buffer day) on the dev environment for items 1 + 11 (lowest-blast-radius secrets). Subsequent drills run in S71 D8 launch-dry-run + every quarter post-GA.
+Every PRYZM secret has a documented rotation procedure + cadence per `docs/04-reference/security/secret-rotation-playbook.md`. The first quarterly drill is **scheduled for S68 D10** (buffer day) on the dev environment for items 1 + 11 (lowest-blast-radius secrets). Subsequent drills run in S71 D8 launch-dry-run + every quarter post-GA.
 
 ---
 
@@ -86,14 +86,14 @@ This ADR is the sprint-level summary. The detailed contracts live in:
 
 | Doc                                                   | What it covers                                         |
 | ----------------------------------------------------- | ------------------------------------------------------ |
-| `docs/security/scans-2026-Q4-baseline.md`             | S68 D7 — dependency + SAST + HoundDog scan results.    |
-| `docs/security/csp-audit-2026-Q4.md`                  | S68 D3 — editor + plugin-iframe CSP audit + remediation. |
-| `docs/security/plugin-sandbox-audit-2026-Q4.md`       | S68 D4 — sandbox first-party reconfirmation.           |
-| `docs/security/rls-audit-2026-Q4.md`                  | S68 D5 — every-table RLS inventory + gap analysis.     |
-| `docs/security/oauth2-review-2026-Q4.md`              | S68 D6 — PKCE + token-lifecycle review.                |
-| `docs/security/saml-scim-mappings.md`                 | S68 D7 — enterprise SSO mappings + SCIM schema.        |
-| `docs/security/secret-rotation-playbook.md`           | S68 D9 — operator-facing rotation runbook.             |
-| `docs/03_PRYZM3/archive/superseded-audits/PHASE-3D-S68-AUDIT-2026-04-28.md` | S68 sprint audit (honest D-by-D status).  |
+| `docs/04-reference/security/scans-2026-Q4-baseline.md`             | S68 D7 — dependency + SAST + HoundDog scan results.    |
+| `docs/04-reference/security/csp-audit-2026-Q4.md`                  | S68 D3 — editor + plugin-iframe CSP audit + remediation. |
+| `docs/04-reference/security/plugin-sandbox-audit-2026-Q4.md`       | S68 D4 — sandbox first-party reconfirmation.           |
+| `docs/04-reference/security/rls-audit-2026-Q4.md`                  | S68 D5 — every-table RLS inventory + gap analysis.     |
+| `docs/04-reference/security/oauth2-review-2026-Q4.md`              | S68 D6 — PKCE + token-lifecycle review.                |
+| `docs/04-reference/security/saml-scim-mappings.md`                 | S68 D7 — enterprise SSO mappings + SCIM schema.        |
+| `docs/04-reference/security/secret-rotation-playbook.md`           | S68 D9 — operator-facing rotation runbook.             |
+| `docs/archive/pryzm3-internal/superseded-audits/PHASE-3D-S68-AUDIT-2026-04-28.md` | S68 sprint audit (honest D-by-D status).  |
 
 ---
 
@@ -122,7 +122,7 @@ This ADR is reversed (i.e. the GA gate is delayed and the security work is re-op
 
 1. The third-party pen test (S68 D1–D2) returns a **critical** finding without a 7-day fix path → per K3-E, GA delays 1 month and pen test re-runs.
 2. The independent third-party sandbox audit (§B.4) finds a host-runtime escape that requires architectural change to fix → re-open S62 D7 AND extend S68 by the audit's remediation budget.
-3. SAST cannot be made to run by S69 D1 → escalate per `docs/security/scans-2026-Q4-baseline.md` §3.
+3. SAST cannot be made to run by S69 D1 → escalate per `docs/04-reference/security/scans-2026-Q4-baseline.md` §3.
 
 ---
 

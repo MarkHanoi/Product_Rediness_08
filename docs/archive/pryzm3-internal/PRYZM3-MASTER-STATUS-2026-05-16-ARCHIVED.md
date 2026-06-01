@@ -5,8 +5,8 @@
 > **Date**: 2026-05-16
 > **Sprint**: AU+1 (first sprint after full PRYZM3 code-vs-documentation audit)
 > **Methodology**: All numbers in this document were verified by running shell commands against the live codebase. No number is taken from documentation alone.
-> **Canonical status board**: `docs/03_PRYZM3/04-PLAN-FORWARD/MASTER-IMPLEMENTATION-TRACKER.md`
-> **Implementation plans**: `docs/03_PRYZM3/04-PLAN-FORWARD/Open/`
+> **Canonical status board**: `docs/archive/pryzm3-internal/04-PLAN-FORWARD/MASTER-IMPLEMENTATION-TRACKER.md`
+> **Implementation plans**: `docs/archive/pryzm3-internal/04-PLAN-FORWARD/Open/`
 > **Conflict resolution**: When this document disagrees with a plan document, the shell verifier wins. When this document disagrees with MASTER-IMPLEMENTATION-TRACKER.md, this document is more recent — update the tracker.
 
 ---
@@ -515,7 +515,7 @@ Tool Handler
 
 ## §10 — Process Tracker Integration (from 00-PROCESS-TRACKER.md)
 
-This section synthesizes the sprint log maintained in `docs/03_PRYZM3/00-PROCESS-TRACKER.md`.
+This section synthesizes the sprint log maintained in `docs/archive/pryzm3-internal/00-PROCESS-TRACKER.md`.
 
 ### Sprint History Summary
 
@@ -570,7 +570,7 @@ If you are picking up PRYZM3 development after a break, read in this order:
 3. **Open/OPEN-002-PHASE-E5X-COMMANDMANAGER.md** — 10 min, most important open work
 4. **Open/OPEN-005-PHASE-FSEC-DOMPUR.md** — 5 min, immediate security fix
 5. **54-COMPLETE-LEGACY-ELIMINATION-PLAN.md** — 35 min, full 30-sprint legacy elimination
-6. **docs/00_Contracts/C14-LEGACY-ELIMINATION-AND-PRYZM3-ENFORCEMENT.md** — 15 min, what "done" means
+6. **docs/02-decisions/contracts/C14-LEGACY-ELIMINATION-AND-PRYZM3-ENFORCEMENT.md** — 15 min, what "done" means
 
 **Do not start any sprint without running:**
 ```bash
@@ -587,7 +587,7 @@ pnpm tsx tools/ga-gate/run-all.ts
 
 ## §13 — Open Implementation Plans Index
 
-All implementation plans for open items are in `docs/03_PRYZM3/04-PLAN-FORWARD/Open/`:
+All implementation plans for open items are in `docs/archive/pryzm3-internal/04-PLAN-FORWARD/Open/`:
 
 | File | Description | Effort | Priority |
 |---|---|---|---|

@@ -7,7 +7,7 @@
 > architecture, the orchestration, the structure" of this solution after the
 > 2026-05-23 visibility/selection fixes (#146, #148, #149, #150).
 > **Canonical contracts it references** (these win on conflict): the 8 principles in
-> `CLAUDE.md`, `docs/00_Contracts/C0N-*`, P6 (commands are the only mutation path),
+> `CLAUDE.md`, `docs/02-decisions/contracts/C0N-*`, P6 (commands are the only mutation path),
 > P7 (visibility intent ≠ UI state), C15 (hosted elements). When this explainer and
 > a contract disagree, the contract is right and this doc should be corrected.
 

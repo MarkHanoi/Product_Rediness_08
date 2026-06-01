@@ -121,7 +121,7 @@ Each row below cites the original phase doc + the closing audit.
 4. **`pryzm-vi-parity` workflow stale failure**. Existing-code surface; `npx vitest run` passes, the workflow runner shows "failed" — visibility regression in the workflow status pane. Tracked since S68 close notes; not fixed at GA.
 5. **`packages/persistence-client/__tests__/file-system-backend.test.ts`** failures (8 of 144 tests in that file) — `FileSystemBackend is not a constructor`. Existing-code constructor-export issue under `packages/persistence-client`; not regressed by the S70 lifecycle-tombstone edits but not fixed at GA either. Post-GA roadmap item.
 6. **No `undo-single.bench.ts`**. The §6 NFT row 9 is a documented gap; `cmd-execute-latency.bench.ts` is the proxy. Should have been a Phase-1 deliverable.
-7. **Multi-region cut at S67 D9**. The right call (`[strategic ADR-018]` T2.6, 5 documented reasons), but EU residency questions from sales took more cycles than anticipated to triage; the self-host playbook (`docs/operations/pryzm-1-sunset.md` companion + `docs.pryzm.com/selfhost/`) absorbed most of them. Lesson: when cutting a region story, draft the residency Q&A in the same ADR.
+7. **Multi-region cut at S67 D9**. The right call (`[strategic ADR-018]` T2.6, 5 documented reasons), but EU residency questions from sales took more cycles than anticipated to triage; the self-host playbook (`docs/03-execution/plans/pryzm-1-sunset.md` companion + `docs.pryzm.com/selfhost/`) absorbed most of them. Lesson: when cutting a region story, draft the residency Q&A in the same ADR.
 
 ---
 
@@ -132,13 +132,13 @@ For the per-sprint detail see each sprint's audit.
 
 | # | Carry-forward                                                              | Owning sprint+day | Doc/runbook                                                                                  |
 |---|----------------------------------------------------------------------------|-------------------|----------------------------------------------------------------------------------------------|
-| 1 | LAUNCH (Tuesday)                                                           | S72 D7            | `docs/operations/status-page-and-on-call.md` §1                                              |
+| 1 | LAUNCH (Tuesday)                                                           | S72 D7            | `docs/05-guides/enterprise/operations/status-page-and-on-call.md` §1                                              |
 | 2 | First 24-hour monitoring                                                   | S72 D8            | OTel dashboards (operator-side provisioning)                                                  |
 | 3 | 48-hour issue triage                                                       | S72 D9            | On-call rota                                                                                 |
 | 4 | Pen test (clean report)                                                    | S68 R3D-02        | External vendor — phase doc §K3D-A                                                            |
 | 5 | SAST re-run (first attempt errored)                                        | S68 D8 / S69 D1   | `runSastScan`                                                                                |
 | 6 | Browser matrix live runs (5 projects)                                      | S70 D2/D9         | `.github/workflows/browser-matrix.yml`                                                        |
-| 7 | DR drill #1 (live staging Postgres)                                        | S70 D8 / S71 D8   | `docs/03_PRYZM3/runbooks/DR-DRILL-RUNBOOK.md` §10                                  |
+| 7 | DR drill #1 (live staging Postgres)                                        | S70 D8 / S71 D8   | `docs/archive/pryzm3-internal/runbooks/DR-DRILL-RUNBOOK.md` §10                                  |
 | 8 | Fresh-VM `docker-compose up` < 10 min on Ubuntu/Debian/RHEL × ARM64+x86_64 | S67 D5/D6         | `pryzm-selfhost/install.sh`                                                                   |
 | 9 | ghcr.io image push                                                         | S70 D8            | `pryzm-selfhost/scripts/publish-prep.sh --push`                                               |
 | 10| 4-h Playwright session-driven memory-leak sim                              | S69 D5 → operator | `apps/bench/scripts/heap-leak-hunt.mjs` is Node-side complement                              |
@@ -146,8 +146,8 @@ For the per-sprint detail see each sprint's audit.
 | 12| Marketing site live (pryzm.com) + 5 case studies                           | S71b D1–D6        | per phase-doc S71 D1+D6                                                                       |
 | 13| 5-min demo video posted                                                    | S71b D5           | per phase-doc S71 D5                                                                          |
 | 14| ≥ 100 paying users                                                         | post-LAUNCH       | Business KPI                                                                                  |
-| 15| All 72 sprint retros archived in `docs/retros/`                            | post-S72 D10      | Mechanical archive                                                                            |
-| 16| Quarterly secret-rotation drill #1                                         | S68 D10           | `docs/security/secret-rotation-playbook.md` §5                                                |
+| 15| All 72 sprint retros archived in `docs/03-execution/status/retros/`                            | post-S72 D10      | Mechanical archive                                                                            |
+| 16| Quarterly secret-rotation drill #1                                         | S68 D10           | `docs/04-reference/security/secret-rotation-playbook.md` §5                                                |
 | 17| Cold-load NFT baseline promotion (3 rows)                                  | post-GA           | `pnpm bench && pnpm bench:baseline` per S71 §6                                                |
 | 18| `orbit-fps` real-browser p95 baseline                                      | post-GA           | Playwright-side; depends on isolated CI runner per ADR-0053 §A                                |
 | 19| Precision-budget tightening from trailing-7-run baseline                   | post-GA           | ADR-0051 §A formula                                                                           |
@@ -156,7 +156,7 @@ For the per-sprint detail see each sprint's audit.
 | 22| `pryzm-vi-parity` workflow stale-failure visibility                        | post-GA           | Existing-code surface; tests pass on direct `npx vitest run`                                  |
 | 23| `.replit` workflow registry stale-stub cleanup (5 orphans)                 | platform issue    | Operator-side `.replit` edit to drop orphans, then re-register `s70-d8-test-suites` workflow  |
 | 24| SPEC-45 PDF-fixture-corpus measurement (50 real PDF sets)                  | post-GA           | `evaluatePreviewGate(realMetrics)` flips `PDF_TO_BIM_RELEASE_LABEL` from `'preview'` → `'full'` |
-| 25| `src/` PRYZM 1 tree deletion                                               | sunset-window-end | After 90-day sunset window per `docs/operations/pryzm-1-sunset.md` §3                         |
+| 25| `src/` PRYZM 1 tree deletion                                               | sunset-window-end | After 90-day sunset window per `docs/03-execution/plans/pryzm-1-sunset.md` §3                         |
 | 26| Component editor real-time co-presence                                     | post-GA           | `[strategic ADR-018]` T2.2 deferred to v2 backlog                                             |
 
 ---
@@ -167,7 +167,7 @@ For the per-sprint detail see each sprint's audit.
 - **Phase docs**: 4 (Phase 1, Phase 2, Phase 3 completion, Phase 3D).
 - **SPECs**: 45 (SPEC-01 through SPEC-45 + amendments).
 - **Strategic ADRs**: 30 (per `[strategic ADR-NNN]` notation in the SPEC corpus).
-- **Sprint-scoped ADRs**: 54 (`docs/architecture/adr/0001` through `0054`).
+- **Sprint-scoped ADRs**: 54 (`docs/02-decisions/adrs/0001` through `0054`).
 - **Workspace packages at M36**: 100+ (`packages/*` + `apps/*` + `plugins/*` + `tools/*` + 6 `tests/*` workspace test packages).
 - **Bench `baseline.json` entries**: 50+ across 8 surfaces.
 - **Vitest test surfaces (workspace `test` scripts)**: 100+ (per `pnpm -r test` discovery).
@@ -203,6 +203,6 @@ For the per-sprint detail see each sprint's audit.
 ---
 
 *Authored 2026-04-29 at S72 D10. Companion docs: `apps/bench/reports/M36-GA.md`,
-`docs/architecture/adr/0054-s72-m36-ga-launch-gate.md`,
-`docs/03_PRYZM3/archive/superseded-audits/PHASE-3D-S72-M36-GA-LAUNCH-GATE-2026-04-29.md`,
-`docs/roadmap/post-GA.md`.*
+`docs/02-decisions/adrs/0054-s72-m36-ga-launch-gate.md`,
+`docs/archive/pryzm3-internal/superseded-audits/PHASE-3D-S72-M36-GA-LAUNCH-GATE-2026-04-29.md`,
+`docs/03-execution/plans/post-ga-roadmap.md`.*

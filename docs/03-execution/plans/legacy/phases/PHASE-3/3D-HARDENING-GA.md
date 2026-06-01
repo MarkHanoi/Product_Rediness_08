@@ -1,7 +1,7 @@
 # Phase 3D — Self-Host, Hardening, Browser Matrix, GA Launch
 ## Q4 of Phase 3 · Months 34–36 · Sprints S67–S72
 
-> **Authority note (added 2026-04-27).** This sub-phase doc is subordinate to the SPEC and ADR series. Conflict precedence: `docs/03_PRYZM3/reference/specs/SPEC-*` → `docs/03_PRYZM3/reference/adrs/ADR-*` (cited as `[strategic ADR-NNN]`) → `10-MASTER-IMPLEMENTATION-PLAN-36M.md` → `CRITICAL-REVIEW-2026-04-27.md` → `05-IMPLEMENTATION-PLAN.md` → this phase doc. Sprint-scoped ADRs in `docs/architecture/adr/NNNN-slug.md` are cited as `[ADR NNNN-slug]`.
+> **Authority note (added 2026-04-27).** This sub-phase doc is subordinate to the SPEC and ADR series. Conflict precedence: `docs/03-execution/specs/SPEC-*` → `docs/02-decisions/adrs/ADR-*` (cited as `[strategic ADR-NNN]`) → `10-MASTER-IMPLEMENTATION-PLAN-36M.md` → `CRITICAL-REVIEW-2026-04-27.md` → `05-IMPLEMENTATION-PLAN.md` → this phase doc. Sprint-scoped ADRs in `docs/02-decisions/adrs/NNNN-slug.md` are cited as `[ADR NNNN-slug]`.
 >
 > **Strategic anchor**: `08-VISION.md` → `10-MASTER-IMPLEMENTATION-PLAN-36M.md` §6 → `phases/PHASE-3-COMPLETION-GA-M25-M36.md` §5 → this file.
 >
@@ -43,7 +43,7 @@
 | `pryzm-selfhost/docker-compose.yml` deploys editor + sync-server + bake-worker + Postgres + MinIO in < 10 min | S67 |
 | Multi-region prep — Tier-2 cuttable per `[strategic ADR-018]` T2.6 | S67 |
 | Third-party pen test contract + report | S68 |
-| CSP audit: report at `docs/security/csp-audit-2026-Q4.md` | S68 |
+| CSP audit: report at `docs/04-reference/security/csp-audit-2026-Q4.md` | S68 |
 | Plugin sandbox audit (independent confirmation no escapes) | S68 |
 | RLS audit on Postgres: every table has policy | S68 |
 | OAuth2 review: PKCE flow correct; token expiry + refresh handled | S68 |
@@ -86,7 +86,7 @@
 | 3D demo recording (15-min screencast) | S72 D6 |
 | `apps/bench/reports/M35-perf.md` | S69 D7 |
 | `apps/bench/reports/M36-GA.md` | S72 D5 |
-| `docs/post-mortems/PRYZM-2-build.md` | S72 D10 |
+| `docs/03-execution/status/post-mortems/PRYZM-2-build.md` | S72 D10 |
 
 ---
 
@@ -248,7 +248,7 @@ SOC2 quarterly access-review automation per SPEC-24 §1.10 lights up; SAML / SCI
 #### Daily Plan
 
 - **D1–D2**: pen test (external; founder coordinates).
-- **D3**: CSP audit + remediation (CSP report at `docs/security/csp-audit-2026-Q4.md`).
+- **D3**: CSP audit + remediation (CSP report at `docs/04-reference/security/csp-audit-2026-Q4.md`).
 - **D4**: sandbox audit (independent confirmation no escapes).
 - **D5**: RLS audit on Postgres: every table has policy; verified test queries.
 - **D6**: OAuth2 review: PKCE flow correct; token expiry + refresh handled.
@@ -413,7 +413,7 @@ PRYZM 2.0.0 tagged. Public launch. Press. Monitoring. Support workflow live. GA 
 - **D7**: **LAUNCH** (Tuesday).
 - **D8**: first 24-hour monitoring + response.
 - **D9**: 48-hour mark + initial issue triage.
-- **D10**: retro + `docs/post-mortems/PRYZM-2-build.md`.
+- **D10**: retro + `docs/03-execution/status/post-mortems/PRYZM-2-build.md`.
 
 ---
 
@@ -483,8 +483,8 @@ GA ships only when **all** of:
 - `apps/bench/reports/M36-GA.md` published.
 - 5-min demo video posted.
 - GA launch blog post live.
-- All 72 sprint retros archived in `docs/retros/`.
-- 36-month journey post-mortem at `docs/post-mortems/PRYZM-2-build.md`.
+- All 72 sprint retros archived in `docs/03-execution/status/retros/`.
+- 36-month journey post-mortem at `docs/03-execution/status/post-mortems/PRYZM-2-build.md`.
 
 ---
 
@@ -548,7 +548,7 @@ These are deliberately deferred to post-GA so the M36 launch is achievable:
 Items that must be true on M36 evening after launch:
 
 - [ ] All M36 GA gate criteria signed off.
-- [ ] `apps/bench/reports/M36-GA.md` and `docs/post-mortems/PRYZM-2-build.md` published.
+- [ ] `apps/bench/reports/M36-GA.md` and `docs/03-execution/status/post-mortems/PRYZM-2-build.md` published.
 - [ ] Production monitoring + alerting verified (test alert fired + acknowledged).
 - [ ] Status page live and updating.
 - [ ] On-call rota live (founder + agent escalation).
@@ -557,7 +557,7 @@ Items that must be true on M36 evening after launch:
 - [ ] First 48-hour monitoring rota staffed.
 - [ ] Press / launch announcement traffic monitored; CDN scale-up confirmed.
 - [ ] Founder on mandatory 2-week rest by M36 + 1 week.
-- [ ] Post-GA roadmap document drafted at `docs/roadmap/post-GA.md` with the §7 items prioritised.
+- [ ] Post-GA roadmap document drafted at `docs/03-execution/plans/post-ga-roadmap.md` with the §7 items prioritised.
 
 ---
 

@@ -2,7 +2,7 @@
 
 > **Sprint**: S18 — final sprint of Phase 1C ("Element families breadth + headless")
 > **Window**: late-stage 1C; closed inside the W-1 completion worklist alongside S24.
-> **Companion docs**: `docs/03_PRYZM3/archive/superseded-audits/PHASE-1-COMPLETION-PLAN.md`, `docs/retros/PHASE-1-CLOSE.md`.
+> **Companion docs**: `docs/archive/pryzm3-internal/superseded-audits/PHASE-1-COMPLETION-PLAN.md`, `docs/03-execution/status/retros/PHASE-1-CLOSE.md`.
 > **Phase doc**: `phases/PHASE-1C-Q3-M7-M9-ELEMENT-FAMILIES.md` §S18.
 
 ---
@@ -14,7 +14,7 @@
 - ADR-0017 ("headless package surface") committed; dependency-cruiser config gates the no-DOM no-THREE invariant.
 - `tests/integration/all-12-elements.test.ts` (S14-T9) green — every kernel producer yields a valid descriptor.
 - `tests/integration/view-state-2a-readiness.test.ts` (W-1C-8) green — 7 contract assertions pin the view-state surface for 2A.
-- 6 architecture handover docs landed: `docs/architecture/{picking,selection,view-state,camera,headless,element-coupling}.md`.
+- 6 architecture handover docs landed: `docs/04-reference/architecture-detail/{picking,selection,view-state,camera,headless,element-coupling}.md`.
 
 ## What worked
 
@@ -49,4 +49,4 @@
 - ADRs: 0014 (perf budgets), 0015 (picking strategy), 0016 (cascade rules), 0017 (headless surface).
 - Completion plan units owned by S18: W-1C-1, W-1C-2, W-1C-3, W-1C-4, W-1C-6, W-1C-7, W-1C-8, W-1C-9.
 - M9 1C exit gate report: `apps/bench/reports/M9-1C-baseline.md` (W-1C-6).
-- Phase 1 close-out: `docs/retros/PHASE-1-CLOSE.md` (carries the broader S01–S24 picture; this doc is the S18-specific slice).
+- Phase 1 close-out: `docs/03-execution/status/retros/PHASE-1-CLOSE.md` (carries the broader S01–S24 picture; this doc is the S18-specific slice).

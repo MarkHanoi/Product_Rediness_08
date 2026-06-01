@@ -1,7 +1,7 @@
 # C14 — Legacy Elimination & PRYZM3 Architecture Enforcement
 
 > **Stamp**: 2026-05-16 · **Status**: CANONICAL  
-> **Authority**: Supersedes all pre-PRYZM3 architectural norms documented in `docs/00_Contracts/archive/superseded-pryzm1-pryzm2/`. Cross-references `docs/03_PRYZM3/02-ARCHITECTURE.md` as the normative source of truth.  
+> **Authority**: Supersedes all pre-PRYZM3 architectural norms documented in `docs/02-decisions/contracts/archive/superseded-pryzm1-pryzm2/`. Cross-references `docs/01-strategy/architecture.md` as the normative source of truth.  
 > **Scope**: `packages/`, `plugins/`, `scripts/`, and `tools/ga-gate/` — every file in those three directories. `apps/editor/src/` legacy patterns are governed by C03 §4.3 (undo dual-path) and C06 §4.3 (gizmo drag-end); those are not repeated here.  
 > **Audit baseline**: Deep scan executed 2026-05-16 covering all `.ts` / `.tsx` files in `packages/` (80 packages), `plugins/` (46 plugins), `scripts/` (27 scripts), `tools/ga-gate/` (15 gates).
 
@@ -23,7 +23,7 @@ The rule of thumb: **existing legacy code is technical debt with a migration mil
 
 ## §2 — The PRYZM3 Architecture Requirements
 
-The following requirements are derived from `docs/03_PRYZM3/01-VISION.md`, `02-ARCHITECTURE.md`, and the C01–C13 contract suite. They apply to all packages, plugins, and scripts.
+The following requirements are derived from `docs/01-strategy/engineering-vision.md`, `02-ARCHITECTURE.md`, and the C01–C13 contract suite. They apply to all packages, plugins, and scripts.
 
 ### §2.1 — Command dispatch (P6)
 

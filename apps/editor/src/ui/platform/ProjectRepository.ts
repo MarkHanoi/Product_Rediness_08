@@ -170,7 +170,7 @@ export interface IProjectRepository {
  *   and `runtime.persistence.projectListStore` (`@pryzm/stores`).  Deletion
  *   blocked on `ProjectHub.ts` + `PlatformShell.ts` + `ExistingProjectsPanel.ts`
  *   migrating their reaches to `runtime.persistence.*`.  See
- *   `docs/03_PRYZM3/00_NEW_ARCHITECTURE/phases/audits/PHASES-A-F-RECONCILIATION-2026-04-29/03-phase-C-audit-and-plan.md`
+ *   `docs/archive/pryzm3-internal/00_NEW_ARCHITECTURE/phases/audits/PHASES-A-F-RECONCILIATION-2026-04-29/03-phase-C-audit-and-plan.md`
  *   §"C-cleanup.3".
  */
 export class LocalProjectRepository implements IProjectRepository {

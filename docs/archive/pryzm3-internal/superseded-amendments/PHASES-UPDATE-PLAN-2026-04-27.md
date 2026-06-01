@@ -55,7 +55,7 @@ The phase docs were written with a **sprint-scoped ADR numbering series** that o
 Going forward there are **two ADR series** and they must never be conflated:
 
 1. **Strategic ADR series** — `docs/00_NEW_ARCHITECTURE/adrs/ADR-NNN-<slug>.md`. Cross-cutting, customer-visible, lifetime-of-product decisions. The 22 ADRs ratified at 2026-04-27. Cited as `[ADR-NNN]` (no prefix) **only** in `00_NEW_ARCHITECTURE/` documents; cited as `[strategic ADR-NNN]` if any ambiguity could arise elsewhere.
-2. **Sprint-scoped / code-level ADR series** — `docs/architecture/adr/NNNN-<slug>.md` (4-digit zero-padded number). Each is local to a sprint and a code change. These are the ADRs that the phase docs were originally calling `ADR-001..ADR-025` inline.
+2. **Sprint-scoped / code-level ADR series** — `docs/02-decisions/adrs/NNNN-<slug>.md` (4-digit zero-padded number). Each is local to a sprint and a code change. These are the ADRs that the phase docs were originally calling `ADR-001..ADR-025` inline.
 
 **Every existing phase-doc ADR reference must be renumbered to the sprint-scoped series and re-pathed.** The renumbering map is in §1.3 below.
 
@@ -67,23 +67,23 @@ The agent applies this map across every phase document by exact text replacement
 
 | Old (phase-doc) ref | New citation | Rationale |
 |---|---|---|
-| `ADR-001` (typed-ID brand strategy) | `code-level ADR docs/architecture/adr/0001-typed-id-brand.md` | Sprint-scoped; not a cross-cutting decision. |
-| `ADR-002` (command handler signature) | `code-level ADR docs/architecture/adr/0002-command-handler-signature.md` | Sprint-scoped. **Distinct from** strategic ADR-002 (CRDT bridge). |
+| `ADR-001` (typed-ID brand strategy) | `code-level ADR docs/02-decisions/adrs/0001-typed-id-brand.md` | Sprint-scoped; not a cross-cutting decision. |
+| `ADR-002` (command handler signature) | `code-level ADR docs/02-decisions/adrs/0002-command-handler-signature.md` | Sprint-scoped. **Distinct from** strategic ADR-002 (CRDT bridge). |
 | `ADR-002 spike` (the CRDT pre-S01 spike) | `[strategic ADR-002] CRDT spike per SPEC-03 §3` | This **is** strategic ADR-002 — the CRDT-event-log bridge — and stays as `[strategic ADR-002]`. |
-| `ADR-003` (scheduler API) | `code-level ADR docs/architecture/adr/0003-scheduler-priority-vs-tickpriority.md` | Sprint-scoped. |
+| `ADR-003` (scheduler API) | `code-level ADR docs/02-decisions/adrs/0003-scheduler-priority-vs-tickpriority.md` | Sprint-scoped. |
 | `ADR-004` (MessagePack codec) | `[strategic ADR-004]` | Same decision; the phase-doc spike output goes into the existing strategic ADR-004. **The sprint-scoped ADR-004 is deleted.** |
-| `ADR-005` (`PrimitiveCommitter` interface) | `code-level ADR docs/architecture/adr/0005-primitive-committer-interface.md` | Sprint-scoped. |
-| `ADR-006` (idle-continuation budget) | `code-level ADR docs/architecture/adr/0006-idle-continuation-budget.md` | Sprint-scoped. |
+| `ADR-005` (`PrimitiveCommitter` interface) | `code-level ADR docs/02-decisions/adrs/0005-primitive-committer-interface.md` | Sprint-scoped. |
+| `ADR-006` (idle-continuation budget) | `code-level ADR docs/02-decisions/adrs/0006-idle-continuation-budget.md` | Sprint-scoped. |
 | `ADR-007` (WebGPU/WebGL2 dual-mode) | `[strategic ADR-006]` | Same decision; **delete the sprint-scoped ADR-007**. The dual-mode strategy and parity gate are owned by strategic ADR-006. |
-| `ADR-008` (wall-tool sub-mode triage) | `code-level ADR docs/architecture/adr/0008-wall-tool-submodes.md` | Sprint-scoped. |
+| `ADR-008` (wall-tool sub-mode triage) | `code-level ADR docs/02-decisions/adrs/0008-wall-tool-submodes.md` | Sprint-scoped. |
 | `ADR-010` (bake worker coalescing window) | `[strategic ADR-010]` | Same decision (250 ms). **Delete the sprint-scoped ADR-010.** |
 | `ADR-016` (PHASE-1D mid-text "coalescing window") | `[strategic ADR-010]` | This was a misnumbering inside PHASE-1D; the coalescing decision is strategic ADR-010. |
-| `ADR-017` (`.pryzm` ZIP format v1) | `code-level ADR docs/architecture/adr/0017-pryzm-zip-format-v1.md` | Sprint-scoped. (Note: strategic ADR-017 = type catalog scope, unrelated.) |
-| `ADR-023` (plan view renderer architecture) | `code-level ADR docs/architecture/adr/0023-plan-view-canvas2d-renderer.md` | Sprint-scoped. **Cite strategic ADR-016 (drawing engine architecture) as parent.** Plan-view renderer is one back-end of the SPEC-04 vector primitive model. |
-| `ADR-024` (section view cut algorithm) | `code-level ADR docs/architecture/adr/0024-section-cut-algorithm.md` | Sprint-scoped. **Note** strategic ADR-024 = constraint solver; strategic ADR-024's "Naming note" already documents this collision. |
-| `ADR-025` (multi-view sync strategy) | `code-level ADR docs/architecture/adr/0025-multi-view-sync.md` | Sprint-scoped. |
+| `ADR-017` (`.pryzm` ZIP format v1) | `code-level ADR docs/02-decisions/adrs/0017-pryzm-zip-format-v1.md` | Sprint-scoped. (Note: strategic ADR-017 = type catalog scope, unrelated.) |
+| `ADR-023` (plan view renderer architecture) | `code-level ADR docs/02-decisions/adrs/0023-plan-view-canvas2d-renderer.md` | Sprint-scoped. **Cite strategic ADR-016 (drawing engine architecture) as parent.** Plan-view renderer is one back-end of the SPEC-04 vector primitive model. |
+| `ADR-024` (section view cut algorithm) | `code-level ADR docs/02-decisions/adrs/0024-section-cut-algorithm.md` | Sprint-scoped. **Note** strategic ADR-024 = constraint solver; strategic ADR-024's "Naming note" already documents this collision. |
+| `ADR-025` (multi-view sync strategy) | `code-level ADR docs/02-decisions/adrs/0025-multi-view-sync.md` | Sprint-scoped. |
 
-After application, every `ADR-NNN` reference inside `phases/` is **either** a `[strategic ADR-NNN]` reference (with the `strategic` prefix) **or** a fully-qualified `code-level ADR docs/architecture/adr/NNNN-<slug>.md` reference. **Bare `ADR-NNN` is forbidden inside phase docs.**
+After application, every `ADR-NNN` reference inside `phases/` is **either** a `[strategic ADR-NNN]` reference (with the `strategic` prefix) **or** a fully-qualified `code-level ADR docs/02-decisions/adrs/NNNN-<slug>.md` reference. **Bare `ADR-NNN` is forbidden inside phase docs.**
 
 ### §1.4 New strategic ADRs to cite (add inline to phase docs where relevant)
 
@@ -129,7 +129,7 @@ These edits are uniform across `PHASE-1-FOUNDATION`, `PHASE-1A`, `PHASE-1B`, `PH
 > 3. `docs/00_NEW_ARCHITECTURE/CRITICAL-REVIEW-2026-04-27.md`.
 > 4. `docs/00_NEW_ARCHITECTURE/10-MASTER-IMPLEMENTATION-PLAN-36M.md`.
 >
-> Where this phase document conflicts with any of the above, the higher-precedence document wins. Bare `ADR-NNN` references inside this phase document refer to the **sprint-scoped / code-level** ADR series at `docs/architecture/adr/NNNN-*.md` after the renumbering applied 2026-04-27 (per `phases/PHASES-UPDATE-PLAN-2026-04-27.md` §1). References to the **strategic** ADR series are written explicitly as `[strategic ADR-NNN]`.
+> Where this phase document conflicts with any of the above, the higher-precedence document wins. Bare `ADR-NNN` references inside this phase document refer to the **sprint-scoped / code-level** ADR series at `docs/02-decisions/adrs/NNNN-*.md` after the renumbering applied 2026-04-27 (per `phases/PHASES-UPDATE-PLAN-2026-04-27.md` §1). References to the **strategic** ADR series are written explicitly as `[strategic ADR-NNN]`.
 ```
 
 ### G2 — Apply the renumbering map (§1.3)
@@ -147,7 +147,7 @@ Specific multi-replace check:
 | `ADR-010 coalescing window` | `[strategic ADR-010] (250 ms bake debounce)` | Strategic ADR-010 is the coalescing decision; force 250 ms (not 500 ms). |
 | `coalescing window = 500 ms` | `coalescing window = 250 ms ([strategic ADR-010])` | Several phase docs still cite 500 ms. Hard fix. |
 | `ADR-016 draft (coalescing window)` | `[strategic ADR-010] (250 ms bake debounce)` | PHASE-1D mid-text misnumbering. |
-| `ADR-017 — `.pryzm` v1 format` | `code-level ADR docs/architecture/adr/0017-pryzm-zip-format-v1.md (`.pryzm` v1 format)` | Sprint-scoped. |
+| `ADR-017 — `.pryzm` v1 format` | `code-level ADR docs/02-decisions/adrs/0017-pryzm-zip-format-v1.md (`.pryzm` v1 format)` | Sprint-scoped. |
 | `ADR-009 (plugin sandbox)` | `[strategic ADR-009] (Web Worker plugin sandbox)` | Same decision. |
 
 ### G3 — Cut-list reference (insert into every phase doc's risk register)
@@ -182,7 +182,7 @@ This table is the canonical answer to "what spec covers this sprint?" If a sprin
 
 [NEW]
 ```markdown
-- **ADR citations**: Bare `ADR-NNN` is forbidden. Use `[strategic ADR-NNN]` for entries in `00_NEW_ARCHITECTURE/adrs/`, or fully-qualified `code-level ADR docs/architecture/adr/NNNN-<slug>.md` for sprint-scoped decisions.
+- **ADR citations**: Bare `ADR-NNN` is forbidden. Use `[strategic ADR-NNN]` for entries in `00_NEW_ARCHITECTURE/adrs/`, or fully-qualified `code-level ADR docs/02-decisions/adrs/NNNN-<slug>.md` for sprint-scoped decisions.
 ```
 
 ---
@@ -228,7 +228,7 @@ Each subsection lists every required edit for one phase document. Edits not list
 
 **Line 462 ("TRAA jitter under idle-continuation"):**
 
-- [ACTION] `REPLACE` `chosen in ADR-006 spike` with `chosen in code-level ADR docs/architecture/adr/0006-idle-continuation-budget.md`. (Distinct from strategic ADR-006 which is render mode.)
+- [ACTION] `REPLACE` `chosen in ADR-006 spike` with `chosen in code-level ADR docs/02-decisions/adrs/0006-idle-continuation-budget.md`. (Distinct from strategic ADR-006 which is render mode.)
 
 **Line 557 ("ADR-010 coalescing window (250 ms) implemented"):**
 
@@ -244,7 +244,7 @@ Each subsection lists every required edit for one phase document. Edits not list
 
 **Line 631 (R1-05 row):**
 
-- [ACTION] `REPLACE` `idle-continuation budget chosen in ADR-006` with `idle-continuation budget chosen in code-level ADR docs/architecture/adr/0006-idle-continuation-budget.md`.
+- [ACTION] `REPLACE` `idle-continuation budget chosen in ADR-006` with `idle-continuation budget chosen in code-level ADR docs/02-decisions/adrs/0006-idle-continuation-budget.md`.
 
 **§8 M12 alpha gate exit criteria (line 652+):**
 
@@ -338,7 +338,7 @@ Each subsection lists every required edit for one phase document. Edits not list
 
 **§ §1.3 "wall-touching command surfaces" (line 93+):**
 
-- [ACTION] `REPLACE` `(ADR-008 detail)` with `(code-level ADR docs/architecture/adr/0008-wall-tool-submodes.md)`.
+- [ACTION] `REPLACE` `(ADR-008 detail)` with `(code-level ADR docs/02-decisions/adrs/0008-wall-tool-submodes.md)`.
 - [ACTION] `INSERT_AFTER` the §1.3 introduction:
   ```markdown
   > **Type catalog dependency.** Wall types (`Wall.standard`, `Wall.shear`, `Wall.elemented`, `Wall.partitioning`) are declared in `packages/types-builtin/wall/` per SPEC-05 §7.1. Walls in S07–S12 must reference a type id; instance-only walls are forbidden. Per `[strategic ADR-017]` Phase rollout S11, the type-completeness lint becomes PR-blocking from S11 — but Phase 1B walls already comply by writing types into `packages/types-builtin/`.
@@ -346,11 +346,11 @@ Each subsection lists every required edit for one phase document. Edits not list
 
 **Line 53 (the `errors.ts` row):**
 
-- [ACTION] `REPLACE` `mandatory in PRYZM 2 per ADR-002` with `mandatory in PRYZM 2 per code-level ADR docs/architecture/adr/0002-command-handler-signature.md`.
+- [ACTION] `REPLACE` `mandatory in PRYZM 2 per ADR-002` with `mandatory in PRYZM 2 per code-level ADR docs/02-decisions/adrs/0002-command-handler-signature.md`.
 
 **Line 89 (the `WallTool.ts` row):**
 
-- [ACTION] `REPLACE` `per ADR-008's wall-tool sub-mode triage` with `per code-level ADR docs/architecture/adr/0008-wall-tool-submodes.md`.
+- [ACTION] `REPLACE` `per ADR-008's wall-tool sub-mode triage` with `per code-level ADR docs/02-decisions/adrs/0008-wall-tool-submodes.md`.
 
 **S07 (the wall producer sprint):**
 
@@ -429,7 +429,7 @@ Each subsection lists every required edit for one phase document. Edits not list
 
 **S15 (Renderer hardening — TRAA, SSGI):**
 
-- [ACTION] `REPLACE` any reference to `ADR-006 spike` with `code-level ADR docs/architecture/adr/0006-idle-continuation-budget.md`.
+- [ACTION] `REPLACE` any reference to `ADR-006 spike` with `code-level ADR docs/02-decisions/adrs/0006-idle-continuation-budget.md`.
 
 ---
 
@@ -454,7 +454,7 @@ Each subsection lists every required edit for one phase document. Edits not list
 
 **S20 (`.pryzm` ZIP format v1):**
 
-- [ACTION] `REPLACE` every `ADR-017` in this sprint with `code-level ADR docs/architecture/adr/0017-pryzm-zip-format-v1.md` (ZIP-format ADR; sprint-scoped). Cite SPEC-02 §6 (file-format addendum) as the strategic anchor.
+- [ACTION] `REPLACE` every `ADR-017` in this sprint with `code-level ADR docs/02-decisions/adrs/0017-pryzm-zip-format-v1.md` (ZIP-format ADR; sprint-scoped). Cite SPEC-02 §6 (file-format addendum) as the strategic anchor.
 
 - Specific text fixes inside S20:
   - Line ~381 ("**ADR-017** defines the `.pryzm` v1 format"): `REPLACE` `**ADR-017**` with `**Code-level ADR `0017-pryzm-zip-format-v1.md`**`.
@@ -625,7 +625,7 @@ Each subsection lists every required edit for one phase document. Edits not list
   | Decision | Drafted at | New series |
   |---|---|---|
   | Plan-view renderer architecture (Canvas2D, dirty flags, no THREE) | S31 D1 | code-level `0023-plan-view-canvas2d-renderer.md` — **subordinate to `[strategic ADR-016]`**. |
-  | Section-view cut algorithm | S35 D1 | code-level `0024-section-cut-algorithm.md`. **Note**: `[strategic ADR-024]` is the *constraint solver*; the section-cut decision is the sprint-scoped 0024 file in `docs/architecture/adr/`. |
+  | Section-view cut algorithm | S35 D1 | code-level `0024-section-cut-algorithm.md`. **Note**: `[strategic ADR-024]` is the *constraint solver*; the section-cut decision is the sprint-scoped 0024 file in `docs/02-decisions/adrs/`. |
   | Multi-view sync strategy | S36 D1 | code-level `0025-multi-view-sync.md`. |
   ```
 
@@ -643,7 +643,7 @@ Each subsection lists every required edit for one phase document. Edits not list
 - [ACTION] `REPLACE` `ADR-024 defines the section cut algorithm` with `Code-level ADR `0024-section-cut-algorithm.md` defines the section cut algorithm`.
 - [ACTION] `INSERT_AFTER` the section description:
   ```markdown
-  > **Naming clarification.** `[strategic ADR-024]` is the *constraint solver* (`docs/00_NEW_ARCHITECTURE/adrs/ADR-024-constraint-solver.md`). The section-cut decision documented in this sprint is the sprint-scoped `docs/architecture/adr/0024-section-cut-algorithm.md`. Both files exist; the strategic ADR-024's "Naming note" already documents the historical collision.
+  > **Naming clarification.** `[strategic ADR-024]` is the *constraint solver* (`docs/00_NEW_ARCHITECTURE/adrs/ADR-024-constraint-solver.md`). The section-cut decision documented in this sprint is the sprint-scoped `docs/02-decisions/adrs/0024-section-cut-algorithm.md`. Both files exist; the strategic ADR-024's "Naming note" already documents the historical collision.
   ```
 
 **S36 (line 1022) "ADR-025 multi-view sync":**
@@ -827,7 +827,7 @@ Each subsection lists every required edit for one phase document. Edits not list
 
 - [ACTION] `REPLACE` the GA gate exit criteria block with the union of:
   - Existing block.
-  - `[strategic ADR-018]` final cut accounting written to `docs/operations/cut-list-log.md`.
+  - `[strategic ADR-018]` final cut accounting written to `docs/03-execution/status/cut-list-log.md`.
   - `[strategic ADR-020]` property-test suite green across all element families on Node 20 + Chrome + Safari + Firefox.
   - `[strategic ADR-021]` SOC 2 Type 1 audit kicked off (M30) and on track for Type 1 by GA.
   - `[strategic ADR-007]` Tempo prod live in EU-W + US-E with on-call dashboard.
@@ -892,7 +892,7 @@ These are **new deliverables** not present in the original phase docs. They deri
 | Audit-log streaming live | PHASE-3 | S64 | A |
 | External pen test | PHASE-3 | S68 | F (coordinator) + A + B |
 | Multi-region pinning (EU-W + US-E) live | PHASE-3 | S70 | A |
-| `[strategic ADR-018]` final cut accounting written to `docs/operations/cut-list-log.md` | PHASE-3 | S72 | F |
+| `[strategic ADR-018]` final cut accounting written to `docs/03-execution/status/cut-list-log.md` | PHASE-3 | S72 | F |
 
 ---
 
@@ -933,28 +933,28 @@ Agent runs this sequence to confirm the update plan is fully applied. Each item 
 | `[strategic ADR-020]` cited at S07–S08 | `rg -n 'strategic ADR-020' docs/00_NEW_ARCHITECTURE/phases/PHASE-1B-*` | At least one match. |
 | `[strategic ADR-021]` cited in PHASE-3 sprints S55, S58, S64, S70 | `rg -n 'strategic ADR-021' docs/00_NEW_ARCHITECTURE/phases/PHASE-3-*` | ≥ 4 matches. |
 | `[strategic ADR-024]` cited in PHASE-2A (light expr) and PHASE-3 S49–S58 | `rg -n 'strategic ADR-024' docs/00_NEW_ARCHITECTURE/phases/` | ≥ 3 matches. |
-| Sprint-scoped ADRs all live under `docs/architecture/adr/` | `ls docs/architecture/adr/0001-*.md docs/architecture/adr/0002-*.md docs/architecture/adr/0003-*.md docs/architecture/adr/0005-*.md docs/architecture/adr/0006-*.md docs/architecture/adr/0008-*.md docs/architecture/adr/0017-*.md docs/architecture/adr/0023-*.md docs/architecture/adr/0024-*.md docs/architecture/adr/0025-*.md` | All 10 files exist (creating the missing files is part of applying this plan; see §7). |
+| Sprint-scoped ADRs all live under `docs/02-decisions/adrs/` | `ls docs/02-decisions/adrs/0001-*.md docs/02-decisions/adrs/0002-*.md docs/02-decisions/adrs/0003-*.md docs/02-decisions/adrs/0005-*.md docs/02-decisions/adrs/0006-*.md docs/02-decisions/adrs/0008-*.md docs/02-decisions/adrs/0017-*.md docs/02-decisions/adrs/0023-*.md docs/02-decisions/adrs/0024-*.md docs/02-decisions/adrs/0025-*.md` | All 10 files exist (creating the missing files is part of applying this plan; see §7). |
 
 ---
 
 ## §7 Files to create when applying this plan
 
-The renumbering produces a small set of sprint-scoped ADR files in `docs/architecture/adr/`. Each file is a stub redirect to the relevant sprint section in the phase doc, plus the technical decision body that previously lived inline. Agent creates each file once with the existing prose pulled from the phase doc.
+The renumbering produces a small set of sprint-scoped ADR files in `docs/02-decisions/adrs/`. Each file is a stub redirect to the relevant sprint section in the phase doc, plus the technical decision body that previously lived inline. Agent creates each file once with the existing prose pulled from the phase doc.
 
 | File | Source (phase-doc section to extract from) |
 |---|---|
-| `docs/architecture/adr/0001-typed-id-brand.md` | PHASE-1A S01 D3 + the ULID/UUID coexistence rules in S07 risk row R1A-10 + S02-T4 emitter spec. |
-| `docs/architecture/adr/0002-command-handler-signature.md` | PHASE-1A S02-T1 + the `CommandManager.ts` audit notes. |
-| `docs/architecture/adr/0003-scheduler-priority-vs-tickpriority.md` | PHASE-1A S02-T7 + S03 + UnifiedFrameLoop absorption notes. |
-| `docs/architecture/adr/0005-primitive-committer-interface.md` | PHASE-1A S04-T6. |
-| `docs/architecture/adr/0006-idle-continuation-budget.md` | PHASE-1A S03-T2 + 30-frame justification. |
-| `docs/architecture/adr/0008-wall-tool-submodes.md` | PHASE-1B §1.3 wall-touching command surfaces table. |
-| `docs/architecture/adr/0017-pryzm-zip-format-v1.md` | PHASE-1D S20 implementation detail blocks (ZIP layout, manifest schema, batch format, signature scheme, migration contract). |
-| `docs/architecture/adr/0023-plan-view-canvas2d-renderer.md` | PHASE-2B S31. Note this is a *back-end* of the SPEC-04 vector primitive model, not a free-standing renderer architecture. |
-| `docs/architecture/adr/0024-section-cut-algorithm.md` | PHASE-2B S35. Cut-vs-projection distinction; convex-hull fallback. |
-| `docs/architecture/adr/0025-multi-view-sync.md` | PHASE-2B S36. ViewSync pattern. |
+| `docs/02-decisions/adrs/0001-typed-id-brand.md` | PHASE-1A S01 D3 + the ULID/UUID coexistence rules in S07 risk row R1A-10 + S02-T4 emitter spec. |
+| `docs/02-decisions/adrs/0002-command-handler-signature.md` | PHASE-1A S02-T1 + the `CommandManager.ts` audit notes. |
+| `docs/02-decisions/adrs/0003-scheduler-priority-vs-tickpriority.md` | PHASE-1A S02-T7 + S03 + UnifiedFrameLoop absorption notes. |
+| `docs/02-decisions/adrs/0005-primitive-committer-interface.md` | PHASE-1A S04-T6. |
+| `docs/02-decisions/adrs/0006-idle-continuation-budget.md` | PHASE-1A S03-T2 + 30-frame justification. |
+| `docs/02-decisions/adrs/0008-wall-tool-submodes.md` | PHASE-1B §1.3 wall-touching command surfaces table. |
+| `docs/02-decisions/adrs/0017-pryzm-zip-format-v1.md` | PHASE-1D S20 implementation detail blocks (ZIP layout, manifest schema, batch format, signature scheme, migration contract). |
+| `docs/02-decisions/adrs/0023-plan-view-canvas2d-renderer.md` | PHASE-2B S31. Note this is a *back-end* of the SPEC-04 vector primitive model, not a free-standing renderer architecture. |
+| `docs/02-decisions/adrs/0024-section-cut-algorithm.md` | PHASE-2B S35. Cut-vs-projection distinction; convex-hull fallback. |
+| `docs/02-decisions/adrs/0025-multi-view-sync.md` | PHASE-2B S36. ViewSync pattern. |
 
-Each file uses the same template as existing files in `docs/architecture/adr/0001..0007`. The header table includes:
+Each file uses the same template as existing files in `docs/02-decisions/adrs/0001..0007`. The header table includes:
 - `Status`, `Date`, `Owner`.
 - `Sprint`: the originating sprint id.
 - `Strategic ADR parent` (where applicable): e.g. `0023` cites `[strategic ADR-016]`; `0017` is independent of any strategic ADR; `0008` cites `[strategic ADR-020]` (kernel robustness) as its *constraint context*.
@@ -965,7 +965,7 @@ Each file uses the same template as existing files in `docs/architecture/adr/000
 
 To minimise rework, agents apply edits in this order:
 
-1. **Create the 10 sprint-scoped ADR files** in `docs/architecture/adr/` per §7. These are pure copy/extract from existing phase-doc text.
+1. **Create the 10 sprint-scoped ADR files** in `docs/02-decisions/adrs/` per §7. These are pure copy/extract from existing phase-doc text.
 2. **Apply the §2 global edits** to every phase doc (preamble, renumbering map, cut-list reference, SPEC table, reading-conventions note).
 3. **Apply the §3 per-doc edits** in phase order (1A → 1B → 1C → 1D → 2 → 2A → 2B → 2C → 3).
 4. **Apply the §4 new-deliverables list** by inserting the named deliverables into the named sprints' goal/exit-criteria blocks.

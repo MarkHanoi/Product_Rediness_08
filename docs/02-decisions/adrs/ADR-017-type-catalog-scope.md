@@ -8,7 +8,7 @@
 | Owner | Architecture lead |
 | Implementation | `packages/types-schema/`, `packages/material-library/`, `packages/types-runtime/` |
 | Spec dependency | `SPEC-05-TYPE-CATALOG.md` |
-| Replaces | The thin 271-line `00_Contracts/17-ELEMENT-TYPES-AND-MATERIALS-CONTRACT.md` |
+| Replaces | The thin 271-line `02-decisions/contracts/17-ELEMENT-TYPES-AND-MATERIALS-CONTRACT.md` |
 
 ---
 
@@ -69,7 +69,7 @@ Family / Type / Instance is the canonical hierarchy. A type is a named configura
 - **Scripted families** (Python/JS in family definitions) — explicitly out (security + complexity).
 
 ### What's deleted from the legacy contract
-- The 271-line legacy contract is obsolete. It is preserved in `00_Contracts/` for archaeology only and marked `DEPRECATED` in its header.
+- The 271-line legacy contract is obsolete. It is preserved in `02-decisions/contracts/` for archaeology only and marked `DEPRECATED` in its header.
 - "Future Work" placeholders in the legacy contract are now decisions in SPEC-05.
 - "Layer→WebGPU resolver still planned" is now decided: layers reference materials whose `appearance` block is the source of truth for the renderer (SPEC-05 §4.3).
 

@@ -4,7 +4,7 @@
 * **Date:** 2026-04-27
 * **Sprint:** PHASE-1D §S23 (lines 1082-1260)
 * **Owner:** Persistence
-* **Spec source:** `docs/03_PRYZM3/reference/phases/PHASE-1/1D-Q4-M10-M12-BAKE-PRYZM-ALPHA.md`
+* **Spec source:** `docs/03-execution/plans/legacy/phases/PHASE-1/1D-Q4-M10-M12-BAKE-PRYZM-ALPHA.md`
 
 ## Context
 
@@ -201,4 +201,4 @@ stays under 250 lines.
 * ADR-0006 — idle continuation budget (Tier 3 scheduling).
 * ADR-0019 — sync-server linearisation (history pagination
   contract).
-* `docs/architecture/loader.md` — runtime design doc.
+* `docs/04-reference/architecture-detail/loader.md` — runtime design doc.

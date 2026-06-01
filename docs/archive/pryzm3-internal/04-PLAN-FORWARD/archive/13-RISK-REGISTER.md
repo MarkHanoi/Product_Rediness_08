@@ -109,7 +109,7 @@ Impact scale: Low (≤ 1 sprint slip), Medium (2-3 sprint slip or NFT regression
 |---|---|
 | **Probability** | Medium |
 | **Impact** | High (the cleanup that took 2 days in 2026-04-30 reverts; doc rot resumes; new hires get confused; `archive/` grows) |
-| **Trigger** | A PR adds a new top-level `.md` in `docs/03_PRYZM3/` outside the canonical 5 (README + 01..04). |
+| **Trigger** | A PR adds a new top-level `.md` in `docs/archive/pryzm3-internal/` outside the canonical 5 (README + 01..04). |
 | **Leading indicator** | The CI lint rule `no-new-doc-files` (`12-DISCIPLINE-AND-DOD.md §1` rule 1) blocks the PR. |
 | **Mitigation** | The lint rule is the merge gate. Override requires architecture-lead + founder approval. Quarterly review: if any overrides happened, re-evaluate the rule. |
 | **Owner** | Architecture lead |

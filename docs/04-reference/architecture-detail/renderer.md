@@ -2,7 +2,7 @@
 
 > S06 Track B deliverable.  Spec:
 > `phases/PHASE-1A-Q1-M1-M3-SKELETON-RAILS.md` §S06 (lines 555–701);
-> ADR-007 (`docs/architecture/adr/0007-webgpu-webgl2-dual-mode.md`).
+> ADR-007 (`docs/02-decisions/adrs/0007-webgpu-webgl2-dual-mode.md`).
 
 The renderer is **L5/L7** in the layered stack — the only package
 allowed to import `three` outside `@pryzm/scene-committer` and the

@@ -2,7 +2,7 @@ PRYZM 3 — Full Application Status Review
 
 > **Stamp**: 2026-05-04 (rev 2 — Sprint A24 gate-fix audit; all 3 previously-failing gates resolved; supersedes rev 1)
 > **Verified by**: `npx tsx tools/ga-gate/run-all.ts` → `All gates green. ✅` (EXIT:0, 2026-05-04)
-> **Authority**: `docs/03_PRYZM3/04-PLAN-FORWARD/30-WAVE-A20-PHASE-F-SDK-MARKETPLACE.md` · `docs/03_PRYZM3/00-PROCESS-TRACKER.md §2` · `tools/ga-gate/run-all.ts`
+> **Authority**: `docs/archive/pryzm3-internal/04-PLAN-FORWARD/30-WAVE-A20-PHASE-F-SDK-MARKETPLACE.md` · `docs/archive/pryzm3-internal/00-PROCESS-TRACKER.md §2` · `tools/ga-gate/run-all.ts`
 
 ---
 

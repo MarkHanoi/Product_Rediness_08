@@ -1,4 +1,4 @@
-# `docs/04_PRYZM4/` — the from-zero next-generation product
+# `docs/03-execution/plans/` — the from-zero next-generation product
 
 > **Status (2026-04-29)**: planning corpus only. Stage Ω (PRYZM 3 wireup, sprints S72→S87) is in mid-Phase C-D and must reach PRYZM 3 day 1 first. PRYZM 4 implementation does not start until Stage Σ (PRYZM 3 production validation, S88→S99) clears its 12-criterion gate. Earliest line of PRYZM 4 code: ~S100 (M48). PRYZM 4 GA target: ~S155 (M77).
 
@@ -41,15 +41,15 @@ The folder will fill in waves, one per stage:
 ## What does **not** live here
 
 - **PRYZM 1 / PRYZM 2 historical material** → `docs/01_PRYZM1/` (and the now-archived `02_PRYZM2` label).
-- **PRYZM 3 architecture, ADRs, SPECs, wireup chunks, runbooks, audits** → `docs/03_PRYZM3/03_PRYZM3/`.
-- **The `PRYZM-3-CONVERGENCE-PLAN.md`** that defines PRYZM 3 day 1 and which gates the start of Stage Σ → `docs/03_PRYZM3/03_PRYZM3/PRYZM-3-CONVERGENCE-PLAN.md`.
-- **The wireup plan (`PRYZM2-WIREUP-PLAN-S72`)** whose folder name preserves its historical "PRYZM 2" label per the chunk slice contract → `docs/03_PRYZM3/03_PRYZM3/reference/phases/audits/PRYZM2-WIREUP-PLAN-S72/`.
+- **PRYZM 3 architecture, ADRs, SPECs, wireup chunks, runbooks, audits** → `docs/archive/pryzm3-internal/03_PRYZM3/`.
+- **The `PRYZM-3-CONVERGENCE-PLAN.md`** that defines PRYZM 3 day 1 and which gates the start of Stage Σ → `docs/archive/pryzm3-internal/03_PRYZM3/PRYZM-3-CONVERGENCE-PLAN.md`.
+- **The wireup plan (`PRYZM2-WIREUP-PLAN-S72`)** whose folder name preserves its historical "PRYZM 2" label per the chunk slice contract → `docs/archive/pryzm3-internal/03_PRYZM3/reference/phases/audits/PRYZM2-WIREUP-PLAN-S72/`.
 
 ---
 
 ## Reading order on day 1
 
-1. The "what comes after PRYZM 3" section (§11) of [`../03_PRYZM3/03_PRYZM3/PRYZM-3-CONVERGENCE-PLAN.md`](../03_PRYZM3/03_PRYZM3/PRYZM-3-CONVERGENCE-PLAN.md) — **why** PRYZM 4 exists and how it is bridged from PRYZM 3.
+1. The "what comes after PRYZM 3" section (§11) of [`../archive/pryzm3-internal/archive/pryzm3-internal/PRYZM-3-CONVERGENCE-PLAN.md`](../archive/pryzm3-internal/archive/pryzm3-internal/PRYZM-3-CONVERGENCE-PLAN.md) — **why** PRYZM 4 exists and how it is bridged from PRYZM 3.
 2. [`PRYZM-4-NEXT-GEN-PLAN.md`](./PRYZM-4-NEXT-GEN-PLAN.md) — the full plan. Read §1 (three-stage arc), §4 (design pillars), §5 (architecture pillars) on first pass; treat §6–§9 (the per-stage sub-phase tables) as reference; come back to §11 (cost), §12 (risks), §14 (acceptance checklist) at each stage gate.
 
 ---

@@ -5,7 +5,7 @@
 **Authors:** PRYZM Architecture team  
 **Date:** 2026-04-27  
 **Cross-references:**
-- Spec: `docs/03_PRYZM3/reference/phases/PHASE-1/1C-Q3-M7-M9-ELEMENT-FAMILIES.md` §S18 (lines 937–1060).
+- Spec: `docs/03-execution/plans/legacy/phases/PHASE-1/1C-Q3-M7-M9-ELEMENT-FAMILIES.md` §S18 (lines 937–1060).
 - Strategic ADR-002 — events-first / patches-second.
 - Strategic ADR-020 — headless determinism.
 - Code-level ADR-0016 — view state command-driven (view.switch headless reachability).

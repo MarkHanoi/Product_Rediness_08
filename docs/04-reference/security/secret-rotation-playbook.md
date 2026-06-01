@@ -1,7 +1,7 @@
 # Secret-Rotation Playbook
 
 **Sprint introduced**: PRYZM 2 Phase 3D · S68 D9
-**Spec ref**: `docs/03_PRYZM3/reference/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S68 D9 — "demo + secret-rotation playbook."
+**Spec ref**: `docs/archive/pryzm3-internal/reference/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S68 D9 — "demo + secret-rotation playbook."
 **Strategic anchor**: SPEC-24 §1.10 (SOC2 access-review automation); `[strategic ADR-018]` (deployment topology).
 
 ---
@@ -100,7 +100,7 @@ This is the marketplace's plugin-signing key, NOT a per-tenant secret. Rotation 
 
 ### 3.7 Per-tenant SAML certificate (item 13)
 
-Per `docs/security/saml-scim-mappings.md` §3.3:
+Per `docs/04-reference/security/saml-scim-mappings.md` §3.3:
 
 1. Tenant admin uploads new IdP certificate via SCIM `PATCH /Schemas/Tenant` setting `idpCertificate` to the new PEM.
 2. PRYZM accepts BOTH old and new certs for `idpCertificateRotationGraceDays` (default 7).
@@ -115,8 +115,8 @@ If any secret in §2 is suspected leaked:
 
 1. **Within 1 hour**: rotate per §3 procedure for that secret. For JWT, accept the 24-hour rolling window — tokens older than the rotation are invalid.
 2. **Within 4 hours**: walk `audit_log` for the past 30 days filtered by `actor_id = '<unknown>'` or anomalous IP — the S57 audit middleware records every authenticated request.
-3. **Within 24 hours**: notify any potentially-affected customers per the privacy-incident protocol in `docs/security/incident-response.md` (lands at S69 D6 alongside DR drill).
-4. **Within 7 days**: post-mortem document in `docs/post-mortems/`.
+3. **Within 24 hours**: notify any potentially-affected customers per the privacy-incident protocol in `docs/04-reference/security/incident-response.md` (lands at S69 D6 alongside DR drill).
+4. **Within 7 days**: post-mortem document in `docs/03-execution/status/post-mortems/`.
 
 ---
 
@@ -127,7 +127,7 @@ This playbook is **drilled once per quarter** (SOC2 §1.10 requirement). The dri
 1. Pick one secret from §2 at random.
 2. Walk the §3 procedure end-to-end on a staging instance.
 3. Time the rotation (target: < 30 minutes for items 1, 2, 4, 5; < 2 hours for items 6, 13).
-4. Record outcome in `docs/security/rotation-drills/YYYY-Qn.md`.
+4. Record outcome in `docs/04-reference/security/rotation-drills/YYYY-Qn.md`.
 
 First drill: scheduled S68 D10 (buffer day) on the dev environment for items 1 + 11 (the two with the lowest blast radius).
 
@@ -143,4 +143,4 @@ First drill: scheduled S68 D10 (buffer day) on the dev environment for items 1 +
 ---
 
 **Authored by**: sprint-S68 (2026-04-28)
-**Companion docs**: `docs/security/oauth2-review-2026-Q4.md`, `docs/security/saml-scim-mappings.md`, `docs/security/scans-2026-Q4-baseline.md`.
+**Companion docs**: `docs/04-reference/security/oauth2-review-2026-Q4.md`, `docs/04-reference/security/saml-scim-mappings.md`, `docs/04-reference/security/scans-2026-Q4-baseline.md`.

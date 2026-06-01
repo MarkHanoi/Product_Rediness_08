@@ -7,7 +7,7 @@
 * Superseded by: —
 * Authors: PRYZM 2 architecture group
 * Cross-references:
-  * Spec: `docs/03_PRYZM3/reference/phases/PHASE-1/1C-Q3-M7-M9-ELEMENT-FAMILIES.md`
+  * Spec: `docs/03-execution/plans/legacy/phases/PHASE-1/1C-Q3-M7-M9-ELEMENT-FAMILIES.md`
     §S17 (lines 776-933).
   * Strategic ADR-002 — events-first / patches-second.
   * Strategic ADR-007 — OTel coverage lint.
@@ -215,7 +215,7 @@ land in 2A / 2B. The schema is closed under additive `kind` extensions
 | Risk | Mitigation |
 |---|---|
 | `view.switch` patches still hit the event log even though they're empty (S16 carry-forward of the same problem). | D7 follow-up: PatchEmitter should branch on `Store.ephemeral === true` and skip event-log persistence. Scheduled for S18. |
-| Camera fights between user input and `ViewController.switchTo` mid-animation. | `switchTo()` cancels any prior in-flight transition; user input registered via `markDirty('camera')` causes the controller to abort the animation early. Documented in `docs/architecture/camera.md` (S17 D8 deliverable). |
+| Camera fights between user input and `ViewController.switchTo` mid-animation. | `switchTo()` cancels any prior in-flight transition; user input registered via `markDirty('camera')` causes the controller to abort the animation early. Documented in `docs/04-reference/architecture-detail/camera.md` (S17 D8 deliverable). |
 | `ActiveViewStore` reload semantics ambiguous — should it persist or always reset to Default3DView? | This ADR sets the invariant: reload lands on `defaults()[0]`. If user research later demands "remember last view", revisit in a follow-up ADR. |
 | `LevelOverview` requires LevelStore (lands S18+). | `LevelOverview.levelFilter = null` (all levels) ships in defaults today; replaced with a real level-id list once LevelStore exists. |
 

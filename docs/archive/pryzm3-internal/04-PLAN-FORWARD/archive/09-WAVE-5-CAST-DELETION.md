@@ -322,7 +322,7 @@ export function bindLegacyBrowserGlobals(runtime: PryzmRuntime): void {
 ```ts
 export const rule: Rule.RuleModule = {
   meta: { type: 'problem', schema: [], messages: {
-    forbidden: '(window as any) is forbidden outside src/engine/subsystems/legacy/window-shim.ts. Use runtime.* (typed) instead. See: docs/03_PRYZM3/04-PLAN-FORWARD/09-WAVE-5-CAST-DELETION.md'
+    forbidden: '(window as any) is forbidden outside src/engine/subsystems/legacy/window-shim.ts. Use runtime.* (typed) instead. See: docs/archive/pryzm3-internal/04-PLAN-FORWARD/09-WAVE-5-CAST-DELETION.md'
   }},
   create(context) {
     return {

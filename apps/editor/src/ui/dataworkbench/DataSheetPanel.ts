@@ -4,7 +4,7 @@
  * Layer Affected:    UI — Data Workbench: Data Sheet Panel (Phase 8-A)
  * File:             src/ui/dataworkbench/DataSheetPanel.ts
  * Contract:         docs/00_PRZYM/PRYZM_DATA_PLATFORM_IMPLEMENTATION_ROADMAP.md § PHASE 8
- *                   docs/00_Contracts/05-BIM-UI-ARCHITECTURE-CONTRACT.md §3
+ *                   docs/02-decisions/contracts/05-BIM-UI-ARCHITECTURE-CONTRACT.md §3
  *
  * Renders per-node data when a hierarchy node is selected in the tree.
  *

@@ -7,7 +7,7 @@
 | Required by | Sprint S29 (Phase 2B start — plan-view rebuild) |
 | Owner | Architecture lead |
 | Spec dependency | `specs/SPEC-04-DRAWING-ENGINE.md` |
-| Source rules | `00_Contracts/12-VISIBILITY-INTENT-SYSTEM-CONTRACT.md` (the rule matrix preserved) |
+| Source rules | `02-decisions/contracts/12-VISIBILITY-INTENT-SYSTEM-CONTRACT.md` (the rule matrix preserved) |
 
 ---
 

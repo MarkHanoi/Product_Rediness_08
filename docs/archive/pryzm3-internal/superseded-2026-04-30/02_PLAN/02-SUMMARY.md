@@ -197,4 +197,4 @@ PRYZM 3 day 1 (~S87, M40) is the convergence endpoint of the wireup, not the end
 
 **PRYZM 4 day 1 target: ~S155 (M77, year 7 from project start)**.
 
-Full PRYZM 4 plan with 12 design pillars, 10 architecture pillars, sub-phase tables, headcount + runway, customer migration story, risk register, and acceptance checklist lives in [`PRYZM-4-NEXT-GEN-PLAN.md`](../../04_PRYZM4/PRYZM-4-NEXT-GEN-PLAN.md) under [`docs/04_PRYZM4/`](../../04_PRYZM4/).
+Full PRYZM 4 plan with 12 design pillars, 10 architecture pillars, sub-phase tables, headcount + runway, customer migration story, risk register, and acceptance checklist lives in [`PRYZM-4-NEXT-GEN-PLAN.md`](../../04_PRYZM4/PRYZM-4-NEXT-GEN-PLAN.md) under [`docs/03-execution/plans/`](../../04_PRYZM4/).

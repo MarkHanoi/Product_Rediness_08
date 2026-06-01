@@ -23,7 +23,7 @@
 - [ ] `SMTP_URL` + `EMAIL_DEFAULT_FROM` provisioned; `getEmailTransport({env: process.env})` resolves an SMTP transport (NOT the in-memory default).
 - [ ] `SENTRY_DSN` (or self-hosted equivalent) provisioned; `getCrashReporter({env: process.env})` returns the OTel-linked reporter (NOT the noop) and outbound test report appears in the backend within 5 minutes.
 - [ ] OTel collector endpoint reachable from production; smoke trace appears in Honeycomb / Tempo.
-- [ ] Dashboards from `docs/observability/dashboards/honeycomb-beta.json` + `docs/observability/dashboards/tempo-beta.yaml` provisioned in the workspace.
+- [ ] Dashboards from `docs/04-reference/observability/dashboards/honeycomb-beta.json` + `docs/04-reference/observability/dashboards/tempo-beta.yaml` provisioned in the workspace.
 
 ## §2 — Beta wait-list surface
 
@@ -67,12 +67,12 @@
 - [ ] First 25 invitations drafted (8×C1 + 10×C2 + 5×C3 + 2×academic per spec lines 703–706).
 - [ ] Invitation email template renders correctly in Gmail + Outlook.
 - [ ] In-app "Help → Copy trace link" affordance copies the right URL format.
-- [ ] `docs/process/beta-triage.md` URL points to the live published version.
+- [ ] `docs/05-guides/developer/process/beta-triage.md` URL points to the live published version.
 
 ## §8 — Marketing surfaces
 
-- [ ] Demo video uploaded (or fallback screenshot strip in place per `docs/marketing/beta-demo-script.md`).
-- [ ] `docs/marketing/beta-announcement.md` rendered to the blog CMS; preview link reviewed.
+- [ ] Demo video uploaded (or fallback screenshot strip in place per `docs/03-execution/plans/launch/beta-demo-script.md`).
+- [ ] `docs/03-execution/plans/launch/beta-announcement.md` rendered to the blog CMS; preview link reviewed.
 - [ ] LinkedIn post scheduled.
 - [ ] Wait-list email blast scheduled for T+1 hour after blog goes live.
 

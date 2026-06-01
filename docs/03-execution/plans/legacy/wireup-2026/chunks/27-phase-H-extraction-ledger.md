@@ -1,6 +1,6 @@
 # Phase H — Per-Package Extraction Ledger
 
-**Companion to**: `docs/03_PRYZM3/03_PRYZM3/reference/phases/audits/PHASE-H-PER-PACKAGE-COMPILE.md`
+**Companion to**: `docs/archive/pryzm3-internal/03_PRYZM3/reference/phases/audits/PHASE-H-PER-PACKAGE-COMPILE.md`
 **Started**: 2026-04-29 (S72)
 **Owner**: PRYZM 3 Architecture
 **Scope**: Track every workspace package as it converts from `main: ./src/index.ts` (Path A `--import tsx` shim) to dual-exports against pre-built `./dist/index.js`.

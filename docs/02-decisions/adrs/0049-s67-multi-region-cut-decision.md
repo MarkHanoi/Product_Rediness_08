@@ -3,8 +3,8 @@
 - **Status:** Accepted (sprint-scoped, S67 D9, 2026-04-28)
 - **Sprint:** S67 (Phase 3D — Self-Host + Multi-Region Decision)
 - **Authority:** subordinate to `[strategic ADR-018]` T2.6 (the "cuttable Tier-2
-  capacity items" list), `docs/03_PRYZM3/reference/specs/SPEC-15` §3.1
-  (regional Supabase primaries), `docs/03_PRYZM3/reference/specs/SPEC-24`
+  capacity items" list), `docs/03-execution/specs/SPEC-15` §3.1
+  (regional Supabase primaries), `docs/03-execution/specs/SPEC-24`
   §1.3 (regional data residency posture), and PHASE-3D §S67 exit criterion
   "multi-region decision recorded."
 - **Supersedes:** none.

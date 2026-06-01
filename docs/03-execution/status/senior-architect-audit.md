@@ -756,7 +756,7 @@ IFC Pset strings rendered via innerHTML are an XSS vector. `npm install dompurif
 ├── scripts/                      # Build automation (28 scripts)
 ├── revit-addin/                  # C# Revit bridge
 ├── pryzm-selfhost/               # Docker/Helm self-host
-└── docs/03_PRYZM3/               # Architecture documents
+└── docs/archive/pryzm3-internal/               # Architecture documents
 ```
 
 ### Top 10 Largest Files by Line Count

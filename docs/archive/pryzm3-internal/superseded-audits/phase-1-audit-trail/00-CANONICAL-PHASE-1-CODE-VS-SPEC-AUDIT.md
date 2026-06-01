@@ -120,7 +120,7 @@ Verified via `find plugins/<x>/src/handlers -name '*.ts'`:
 
 ### §1.8 ADRs
 
-29 ADRs land under `docs/architecture/adr/`, all numbered + Accepted: `0001-typed-id-brand-strategy`, `0002-command-handler-signature`, `0003-frame-scheduler-priority-vs-deadline`, `0004-messagepack-codec-choice`, `0005-primitive-committer-interface`, `0006-idle-continuation-budget`, `0007-webgpu-webgl2-dual-mode`, `0008-wall-handler-triage`, `0009-producer-pure-function-signature`, `0010-slab-handler-triage`, `0011-curtain-wall-triage-and-producer-split`, `0012-cross-element-cascade-rule-registration`, `0013-intent-resolver`, `0014-traa-ssgi-idle-budget` (+ S49 refresh), `0015-picking-strategy`, `0016-view-state-command-driven`, `0017-headless-package-surface`, `0018-pryzm-zip-format-v1`, `0019-sync-server-linearisation`, `0020-tier-streamed-loader`, `0021-plugin-descriptor-bootstrap-everything`, `0022-room-boundary-detection`, `0023-plan-view-canvas2d-renderer`, `0024-plan-view-annotation-pipeline`, `0025-plan-view-svp-parity-contract-44`, `0026-second-tier-elements-triage`, `0027-furniture-multi-representation`, `0028-plan-view-canvas-architecture`, `0029-vector-primitives-and-backends`. The required Phase-1 set (≥ 19, per spec line ~700) is exceeded.
+29 ADRs land under `docs/02-decisions/adrs/`, all numbered + Accepted: `0001-typed-id-brand-strategy`, `0002-command-handler-signature`, `0003-frame-scheduler-priority-vs-deadline`, `0004-messagepack-codec-choice`, `0005-primitive-committer-interface`, `0006-idle-continuation-budget`, `0007-webgpu-webgl2-dual-mode`, `0008-wall-handler-triage`, `0009-producer-pure-function-signature`, `0010-slab-handler-triage`, `0011-curtain-wall-triage-and-producer-split`, `0012-cross-element-cascade-rule-registration`, `0013-intent-resolver`, `0014-traa-ssgi-idle-budget` (+ S49 refresh), `0015-picking-strategy`, `0016-view-state-command-driven`, `0017-headless-package-surface`, `0018-pryzm-zip-format-v1`, `0019-sync-server-linearisation`, `0020-tier-streamed-loader`, `0021-plugin-descriptor-bootstrap-everything`, `0022-room-boundary-detection`, `0023-plan-view-canvas2d-renderer`, `0024-plan-view-annotation-pipeline`, `0025-plan-view-svp-parity-contract-44`, `0026-second-tier-elements-triage`, `0027-furniture-multi-representation`, `0028-plan-view-canvas-architecture`, `0029-vector-primitives-and-backends`. The required Phase-1 set (≥ 19, per spec line ~700) is exceeded.
 
 ---
 
@@ -286,7 +286,7 @@ Every report under `apps/bench/reports/` carries a Captured-on date of 2026-04-2
 |---|---|---|---|---|
 | D-1 | Bundle-size CI gate against `< 1.8 MB gzip` | Code wired, not measured | `apps/bench/scripts/check-bundle-size.mjs` | §3.3 |
 | D-2 | Honeycomb / Tempo dashboard | Wiring complete, no live backend | `apps/editor/src/otel-config.ts` | Deploy-time |
-| D-3 | M12 alpha demo screencast | Script committed, no recording | `docs/demos/M12-alpha.script.md` | Manual |
+| D-3 | M12 alpha demo screencast | Script committed, no recording | `docs/05-guides/developer/demos/M12-alpha.script.md` | Manual |
 | D-4 | Phase-2 risk register + S25 sprint plan + founder rest week | Process | n/a | Human team |
 | D-5 | R2 storage driver actually wired into bake-worker | §3.7 | `apps/bake-worker/src/index.ts` | §3.7 |
 | D-6 | JWT auth on sync-server | §3.8 | Phase 3C | §3.8 |
@@ -396,7 +396,7 @@ These are issues I derived from the code that the existing audit / completion-pl
 | `pryzm.boot` root OTel span | ⚠ §3.9 (PARTIAL) |
 | Honeycomb/Tempo dashboard live | ❌ deploy-time |
 | 10-min alpha demo recording | ❌ deploy-time |
-| Phase-1 retro published | ✅ `docs/retros/PHASE-1-CLOSE.md` per M12 |
+| Phase-1 retro published | ✅ `docs/03-execution/status/retros/PHASE-1-CLOSE.md` per M12 |
 
 **Sub-phase verdict: B+.** All deferreds documented; no surprises.
 

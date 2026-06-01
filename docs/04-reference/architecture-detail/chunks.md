@@ -5,9 +5,9 @@
 | Status | Active — S19 deliverable |
 | Date | 2026-04-27 |
 | Phase | 1D (Q4) |
-| Spec | `docs/03_PRYZM3/reference/phases/PHASE-1/1D-Q4-M10-M12-BAKE-PRYZM-ALPHA.md` §S19 |
+| Spec | `docs/03-execution/plans/legacy/phases/PHASE-1/1D-Q4-M10-M12-BAKE-PRYZM-ALPHA.md` §S19 |
 | Strategic ADRs | ADR-003 (object storage), ADR-013 (persistence operational) |
-| Spec | `docs/03_PRYZM3/reference/specs/SPEC-02-PERSISTENCE.md` |
+| Spec | `docs/03-execution/specs/SPEC-02-PERSISTENCE.md` |
 
 ---
 

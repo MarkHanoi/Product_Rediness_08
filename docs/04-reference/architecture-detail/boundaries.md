@@ -83,7 +83,7 @@ tree predates the layer system.
 When auditing a new package or plugin, verify:
 
 * [ ] It is listed in the layer matrix above (or in
-      `docs/03_PRYZM3/archive/superseded-audits/PHASE-1-PACKAGE-CLASSIFICATION.md`
+      `docs/archive/pryzm3-internal/superseded-audits/PHASE-1-PACKAGE-CLASSIFICATION.md`
       as a Phase-2 / Phase-3 stub).
 * [ ] Its imports satisfy the layer matrix.
 * [ ] If it imports `three`, it is on the
@@ -100,7 +100,7 @@ When auditing a new package or plugin, verify:
 
 The editor has exactly one public bootstrap entry point:
 `bootstrapWithEverything` (re-exported from `@pryzm/editor`).  See
-[`docs/architecture/bootstrap.md`](./bootstrap.md) for the contract,
+[`docs/04-reference/architecture-detail/bootstrap.md`](./bootstrap.md) for the contract,
 the deleted `bootstrap.render.data.ts` rationale (W-15), and the
 contract test that prevents a parallel bootstrap from re-emerging.
 

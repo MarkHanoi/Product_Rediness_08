@@ -6,22 +6,22 @@
 
 > **Authority note (added 2026-04-27).** This document is *implementation guidance* and is subordinate to:
 >
-> 1. The 12 specs in `docs/03_PRYZM3/reference/specs/` (SPEC-01..SPEC-12).
-> 2. The 22 strategic ADRs in `docs/03_PRYZM3/reference/adrs/` (the `[strategic ADR-001]`..`[strategic ADR-024]` collective range — individual files live as `adrs/ADR-NNN-<slug>.md`).
-> 3. `docs/03_PRYZM3/archive/superseded-2026-04-30/03_STATUS/CRITICAL-REVIEW-2026-04-27.md`.
-> 4. `docs/03_PRYZM3/reference/plan-detail/01-MASTER-36M.md`.
+> 1. The 12 specs in `docs/03-execution/specs/` (SPEC-01..SPEC-12).
+> 2. The 22 strategic ADRs in `docs/02-decisions/adrs/` (the `[strategic ADR-001]`..`[strategic ADR-024]` collective range — individual files live as `adrs/ADR-NNN-<slug>.md`).
+> 3. `docs/archive/pryzm3-internal/superseded-2026-04-30/03_STATUS/CRITICAL-REVIEW-2026-04-27.md`.
+> 4. `docs/03-execution/plans/legacy/plan-detail/01-MASTER-36M.md`.
 >
-> Where this phase document conflicts with any of the above, the higher-precedence document wins. **ADR citations**: bare `ADR-NNN` is forbidden. Use `[strategic ADR-NNN]` for entries in `03_PRYZM3/reference/adrs/`, or fully-qualified `code-level ADR docs/architecture/adr/NNNN-<slug>.md` for sprint-scoped decisions.
+> Where this phase document conflicts with any of the above, the higher-precedence document wins. **ADR citations**: bare `ADR-NNN` is forbidden. Use `[strategic ADR-NNN]` for entries in `02-decisions/adrs/`, or fully-qualified `code-level ADR docs/02-decisions/adrs/NNNN-<slug>.md` for sprint-scoped decisions.
 >
 > **Sprint-scoped ADRs introduced in this document** (slug map):
 >
 > | §3 heading | Code-level slug | Sprint | Subordinate to |
 > |---|---|---|---|
-> | ADR-023 — Plan view renderer architecture (Canvas2D, dirty flags, no THREE) | `docs/architecture/adr/0023-plan-view-canvas2d-renderer.md` | S31 | `[strategic ADR-016]` (drawing engine) |
-> | ADR-024 — Section view cut algorithm | `docs/architecture/adr/0024-section-cut-algorithm.md` | S35 | SPEC-04 §section-cut |
-> | ADR-025 — Multi-view sync strategy | `docs/architecture/adr/0025-multi-view-sync.md` | S36 | SPEC-04 §1 |
+> | ADR-023 — Plan view renderer architecture (Canvas2D, dirty flags, no THREE) | `docs/02-decisions/adrs/0023-plan-view-canvas2d-renderer.md` | S31 | `[strategic ADR-016]` (drawing engine) |
+> | ADR-024 — Section view cut algorithm | `docs/02-decisions/adrs/0024-section-cut-algorithm.md` | S35 | SPEC-04 §section-cut |
+> | ADR-025 — Multi-view sync strategy | `docs/02-decisions/adrs/0025-multi-view-sync.md` | S36 | SPEC-04 §1 |
 >
-> **Numbering collision notes.** The strategic series has `[strategic ADR-024]` (constraint solver). Phase 2B's sprint-scoped `0024-section-cut-algorithm.md` lives in the `docs/architecture/adr/` namespace and does not collide with the strategic numbering — they collide only when text refers to "ADR-024" without qualification, which is exactly why the `[strategic …]` vs `code-level …` convention exists. The strategic ADR-024's "Naming note" already documents this historical collision.
+> **Numbering collision notes.** The strategic series has `[strategic ADR-024]` (constraint solver). Phase 2B's sprint-scoped `0024-section-cut-algorithm.md` lives in the `docs/02-decisions/adrs/` namespace and does not collide with the strategic numbering — they collide only when text refers to "ADR-024" without qualification, which is exactly why the `[strategic …]` vs `code-level …` convention exists. The strategic ADR-024's "Naming note" already documents this historical collision.
 
 **SPECs binding Phase 2B**
 
@@ -33,7 +33,7 @@
 
 **Capacity envelope**
 
-> **Capacity envelope (`[strategic ADR-018]`).** Phase 2B accepts the 6-sprint scope. If sprint capacity is exhausted, the cut-list defined in `03_PRYZM3/reference/adrs/ADR-018-capacity-cut-list.md` is the ratified order; in 2B the most likely cuts are the multi-view sync polish (S36) and section-view far-projection depth complexity (S35). Defer items per the `[strategic ADR-018]` ranking — never improvise scope reductions.
+> **Capacity envelope (`[strategic ADR-018]`).** Phase 2B accepts the 6-sprint scope. If sprint capacity is exhausted, the cut-list defined in `02-decisions/adrs/ADR-018-capacity-cut-list.md` is the ratified order; in 2B the most likely cuts are the multi-view sync polish (S36) and section-view far-projection depth complexity (S35). Defer items per the `[strategic ADR-018]` ranking — never improvise scope reductions.
 
 ---
 
@@ -106,7 +106,7 @@ Track A and Track B must coordinate tightly in 2B — plan view does not cleanly
 | Item | Sprint |
 |---|---|
 | Code-level `0023-plan-view-canvas2d-renderer.md` — Plan view renderer architecture (Canvas2D, dirty flags, no THREE); **subordinate to `[strategic ADR-016]`** | S31 D1 |
-| Code-level `0024-section-cut-algorithm.md` — Section view cut algorithm. **Note**: `[strategic ADR-024]` is the *constraint solver*; the section-cut decision is the sprint-scoped 0024 file in `docs/architecture/adr/`. | S35 D1 |
+| Code-level `0024-section-cut-algorithm.md` — Section view cut algorithm. **Note**: `[strategic ADR-024]` is the *constraint solver*; the section-cut decision is the sprint-scoped 0024 file in `docs/02-decisions/adrs/`. | S35 D1 |
 | Code-level `0025-multi-view-sync.md` — Multi-view sync strategy | S36 D1 |
 | `featureFlags.plan_view_v2` flag — operational from D1 S31 | S31 D1 |
 | 2B demo recording (10-min screencast) | S36 D9 |
@@ -372,7 +372,7 @@ export class PlanCamera {
 | D5 | **Mid-sprint sync (1 h) — mandatory visual diff measurement** — run visual-diff harness on 5 cases. Report score. Target: < 10 px. If > 15 px: identify cause immediately (most likely: coordinate flip error, lineweight mapping error, or poche fill coverage). | Same session — profiling: plan view frame time should be < 4 ms at 60 fps on medium fixture (20 walls). |
 | D6 | Fix any visual diff failures from D5. Common issues: (1) miter joins not projected correctly (edge-projection `subtractOpenings` has an off-by-one), (2) curved wall projection missing arcs. | Performance: confirm 60 fps with 200 walls in plan view. If not: profile canvas fill rate, reduce unnecessary re-paints. |
 | D7 | Visual diff: run all 30 cases. Score. If any > 10 px: fix. Document which cases pass and which don't (acceptable for sprint 1 if annotation-related — those are added in S32). | `apps/bench/orbit-fps-plan.ts` — 2D pan/zoom equivalent. Gate: > 55 fps p95. |
-| D8 | `featureFlags.plan_view_v2` toggle: confirm switching from PRYZM 2 plan view to PRYZM 1 plan view (and back) works without data loss or crash. | `docs/architecture/plan-view.md` — architecture section (renderer, camera, coordinate convention, dirty-flag strategy). |
+| D8 | `featureFlags.plan_view_v2` toggle: confirm switching from PRYZM 2 plan view to PRYZM 1 plan view (and back) works without data loss or crash. | `docs/04-reference/architecture-detail/plan-view.md` — architecture section (renderer, camera, coordinate convention, dirty-flag strategy). |
 
 #### D9 — Sprint Demo + Retro
 
@@ -864,7 +864,7 @@ Section view is conceptually simpler than plan view — it is a vertical cut rat
 
 Code-level ADR `0024-section-cut-algorithm.md` defines the section cut algorithm. The key decision is the **cut-vs-projection distinction**: elements whose AABB intersects the section line's vertical plane within the cut depth `d` are "cut elements" (shown with poche fill at the cut face). Elements whose AABB is within the far-projection depth `D > d` are "projected elements" (shown as outline only, at reduced line weight). Elements outside `D` are not shown.
 
-> **Naming clarification.** `[strategic ADR-024]` is the *constraint solver* (`docs/03_PRYZM3/reference/adrs/ADR-024-constraint-solver.md`). The section-cut decision documented in this sprint is the sprint-scoped `docs/architecture/adr/0024-section-cut-algorithm.md`. Both files exist; the strategic ADR-024's "Naming note" already documents the historical collision.
+> **Naming clarification.** `[strategic ADR-024]` is the *constraint solver* (`docs/02-decisions/adrs/ADR-024-constraint-solver.md`). The section-cut decision documented in this sprint is the sprint-scoped `docs/02-decisions/adrs/0024-section-cut-algorithm.md`. Both files exist; the strategic ADR-024's "Naming note" already documents the historical collision.
 
 ---
 
@@ -1037,7 +1037,7 @@ Timestamped script:
 - [ ] Visual diff: plan view < 2 px, section view < 2 px on 30-case fixture.
 - [ ] `featureFlags.plan_view_v2` still operational (retained through M24 beta).
 - [ ] Multi-view layout: 1-up, 2-horizontal, 2-vertical, 4-equal all functional.
-- [ ] 2B demo recording committed to `docs/demos/M18-2B.mp4`.
+- [ ] 2B demo recording committed to `docs/05-guides/developer/demos/M18-2B.mp4`.
 - [ ] `apps/bench/reports/M18-2B.md` committed.
 - [ ] ADRs 023–025 merged.
 - [ ] 2B retro decision documented: enable `featureFlags.plan_view_v2` by default for beta users, or keep behind flag for selected users?
@@ -1115,7 +1115,7 @@ Phase 2B is the highest-slip-risk phase, and **per the 2026-04-27 directive Phas
 
 | Sprint | Gap-closure deliverable | Closes |
 |---|---|---|
-| **S31** (heavy ratification + pre-port + reverse-doc) | **All displaced Phase-2A items + pre-port:** (a) SPEC-13/15/21/24/26/27/28/29/30 published as standing references; (b) ADR-022/023/025/026/028/030 ratified; ESLint rules `pryzm/no-impure-context`, `pryzm/single-frame-owner`, `pryzm/no-react-runtime`, `pryzm/no-direct-three-examples`, `pryzm/no-circular` lit at **warning** level; (c) reverse-document envelopes for the 12 Phase-1 GREEN families + the 6 Phase-2A in-flight families (Rooms, Structural, Lighting, Plumbing, Furniture, Dimensions) per SPEC-13 §3 + SPEC-21 Step 2; (d) service-role-key removal from `server.js` per SPEC-08 §6 + ADR-028 Part F; CI gate `pnpm spec:audit-secrets` lit; service-token issuer in gateway; (e) BullMQ scheduled sweep replaces probabilistic `project_command_log` cleanup per SPEC-24 §1.3; (f) `00_Contracts/` archived per SPEC-27 §5; (g) drawing-primitives schemas + Zod + SVG MVP per SPEC-29 §9; (h) `plugins/lifecycle/` skeleton + first three cross-family rules per ADR-030 Part D; (i) plugin data sandbox path reserved in `.pryzm` per SPEC-26 §11; (j) **the pre-port: rewrite the 5 highest-traffic plan-view operations (selection, drag, snap, pan, zoom) on the new Canvas2D backend per SPEC-30 §5; each must pass the SPEC-30 §2 Medium tier perf budget**; (k) Cesium mount becomes lazy + disposable per ADR-023 Part C. | gap review §6, §10, §11, §13, §22.3, §27, §29 #10–22 |
+| **S31** (heavy ratification + pre-port + reverse-doc) | **All displaced Phase-2A items + pre-port:** (a) SPEC-13/15/21/24/26/27/28/29/30 published as standing references; (b) ADR-022/023/025/026/028/030 ratified; ESLint rules `pryzm/no-impure-context`, `pryzm/single-frame-owner`, `pryzm/no-react-runtime`, `pryzm/no-direct-three-examples`, `pryzm/no-circular` lit at **warning** level; (c) reverse-document envelopes for the 12 Phase-1 GREEN families + the 6 Phase-2A in-flight families (Rooms, Structural, Lighting, Plumbing, Furniture, Dimensions) per SPEC-13 §3 + SPEC-21 Step 2; (d) service-role-key removal from `server.js` per SPEC-08 §6 + ADR-028 Part F; CI gate `pnpm spec:audit-secrets` lit; service-token issuer in gateway; (e) BullMQ scheduled sweep replaces probabilistic `project_command_log` cleanup per SPEC-24 §1.3; (f) `02-decisions/contracts/` archived per SPEC-27 §5; (g) drawing-primitives schemas + Zod + SVG MVP per SPEC-29 §9; (h) `plugins/lifecycle/` skeleton + first three cross-family rules per ADR-030 Part D; (i) plugin data sandbox path reserved in `.pryzm` per SPEC-26 §11; (j) **the pre-port: rewrite the 5 highest-traffic plan-view operations (selection, drag, snap, pan, zoom) on the new Canvas2D backend per SPEC-30 §5; each must pass the SPEC-30 §2 Medium tier perf budget**; (k) Cesium mount becomes lazy + disposable per ADR-023 Part C. | gap review §6, §10, §11, §13, §22.3, §27, §29 #10–22 |
 | **S32** | Legacy 11-wave Visibility-Intent adapter lit (`packages/visibility/legacy-adapter.ts`); new resolver per SPEC-30 §3.1 begins. ESLint rules `pryzm/no-impure-context`, `pryzm/single-frame-owner`, `pryzm/no-react-runtime`, `pryzm/no-direct-three-examples` promoted from warning to **error** per ADRs 022/023/025/026 Phase rollout. RLS policies generator lit per ADR-028 Part E. | SPEC-30 §6, ADR-023, ADR-028 |
 | **S33** | New resolver parity-tested vs legacy on the SPEC-11 fixture corpus. Canvas2D backend (overlays) per SPEC-29 §4.2 lit; plan-view consumes `VectorPrimitiveSet`. AI proposal queue lit (`Supabase ai_proposals` per SPEC-24 §1.6, SPEC-28 §5). | SPEC-30, SPEC-29 §4.2, SPEC-28 §5 |
 | **S34** | Switch primary to new resolver; legacy retained as feature flag fallback. Symbol layer integration; SPEC-29 §1 backend equivalence gate green at SPEC-30 §2 Medium tier. Plan-symbol producers (`plugins/<family>/plan-symbol.ts`) for all 18 families landed per SPEC-21 Step 8. | SPEC-21 Step 8, SPEC-29 §4.5 |

@@ -3,7 +3,7 @@
 > **Stamp**: 2026-05-03 · **Status**: ✅ CLOSED — S119–S120–S121 all complete; T19 bundle gate passed (largest entry chunk 1.01 MB gzip, budget 1.72 MB)
 > **Sprint(s)**: S119–S121 · **Weeks**: 78–83 · **Effort**: 2–3 sprints (~6 engineering weeks)
 > **Source authority**: `attached_assets/Pasted--PRYZM-3-Master-Implementation-Plan-to-100-100…txt` Part 3 §Wave 15 · `06-SENIOR-ARCHITECT-AUDIT.md §1` (Rendering), `§13` (Build), `§14` (Testing)
-> **Anchored to**: `../01-VISION.md §2` (P2 — single THREE owner, P3 — single rAF), `../02-ARCHITECTURE.md §3` (layer model L0–L9), `../../00_Contracts/C04-RENDERING-AND-SCHEDULING.md §1, §1.1, §1.4, §3`
+> **Anchored to**: `../01-VISION.md §2` (P2 — single THREE owner, P3 — single rAF), `../02-ARCHITECTURE.md §3` (layer model L0–L9), `../../02-decisions/contracts/C04-RENDERING-AND-SCHEDULING.md §1, §1.1, §1.4, §3`
 > **⚠ TRACKER RULE**: Any task status change → update `../00-PROCESS-TRACKER.md` §3 Wave A15 row + §4 next-actions same commit.
 > **Pre-condition (Gate)**: Wave A14 CLOSED — CI pipeline green, `GET /health` → 200, `EnhancedBloomService` rAF removed, P2/P3 ESLint gates in CI.
 
@@ -472,9 +472,9 @@ pnpm tsx scripts/pryzm-3-functional-day-1.ts
 # → ALL CHECKS GREEN
 
 # C04 amendments committed
-grep "ID buffer" docs/00_Contracts/C04-RENDERING-AND-SCHEDULING.md | wc -l
+grep "ID buffer" docs/02-decisions/contracts/C04-RENDERING-AND-SCHEDULING.md | wc -l
 # → ≥ 1 (§3 amendment)
-grep "P2 migration pending" docs/00_Contracts/C04-RENDERING-AND-SCHEDULING.md | wc -l
+grep "P2 migration pending" docs/02-decisions/contracts/C04-RENDERING-AND-SCHEDULING.md | wc -l
 # → ≥ 1 (§1.4 amendment)
 ```
 

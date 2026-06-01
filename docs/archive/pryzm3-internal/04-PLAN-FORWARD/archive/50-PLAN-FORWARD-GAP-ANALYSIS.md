@@ -432,7 +432,7 @@ OI-011 (SDK publish) → OI-013 (DNS) → OI-012 (headless publish) → OI-014 (
 | Task | Status | Description |
 |---|:---:|---|
 | **G9-T1** | ✅ DONE (2026-05-14) | `07-OPEN-ITEMS.md` fully swept: OI-016 closed (boolean #1 trivially TRUE — 0 legacy `src/` folders); OI-023 corrected (≤213 hard ceiling; RemoteCommandDispatcher 1 intentional site); OI-024 path updated to `apps/editor/src/engine/window-shim.ts`; OI-025 (WMB removal) verified closed (R07 RESOLVED, 0 files). |
-| **G9-T2** | ✅ DONE (2026-05-14) | `47-OPEN-ISSUES.md` redirected: first line is `# Deprecated — see docs/03_PRYZM3/07-OPEN-ITEMS.md` with closure stamp. |
+| **G9-T2** | ✅ DONE (2026-05-14) | `47-OPEN-ISSUES.md` redirected: first line is `# Deprecated — see docs/archive/pryzm3-internal/07-OPEN-ITEMS.md` with closure stamp. |
 | **G9-T3** | ✅ DONE (2026-05-14) | OI-028 added to `07-OPEN-ITEMS.md` §7: `@pryzm/command-registry` static/dynamic import unification — verified 0 dynamic imports remain (Sprint AT work complete). |
 
 ---
@@ -509,9 +509,9 @@ P3 (backlog):
 
 Every gap closure must update:
 1. This document's status column (§0)
-2. `docs/03_PRYZM3/00-PROCESS-TRACKER.md` — new rev stamp
-3. `docs/03_PRYZM3/07-OPEN-ITEMS.md` — close/update relevant OI
-4. `docs/03_PRYZM3/02-ARCHITECTURE.md §8` — for G6 specifically
+2. `docs/archive/pryzm3-internal/00-PROCESS-TRACKER.md` — new rev stamp
+3. `docs/archive/pryzm3-internal/07-OPEN-ITEMS.md` — close/update relevant OI
+4. `docs/archive/pryzm3-internal/02-ARCHITECTURE.md §8` — for G6 specifically
 
 ---
 

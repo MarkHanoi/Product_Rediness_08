@@ -3,7 +3,7 @@
 **Status**: Accepted
 **Sprint**: PRYZM 2 Phase 3D · S70
 **Date**: 2026-04-28
-**Spec ref**: `docs/03_PRYZM3/reference/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S70 (lines 308-346) + SPEC-15 §7 (self-host) + SPEC-27 §4.3 (codebase deletion gates) + SPEC-27 §7 (self-host migration tooling) + SPEC-28 §11 (BYO-key safety cap) + ADR-029 Part E (PDF-to-BIM accuracy bar) + ADR-030 Part D (lifecycle deletion)
+**Spec ref**: `docs/03-execution/plans/legacy/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S70 (lines 308-346) + SPEC-15 §7 (self-host) + SPEC-27 §4.3 (codebase deletion gates) + SPEC-27 §7 (self-host migration tooling) + SPEC-28 §11 (BYO-key safety cap) + ADR-029 Part E (PDF-to-BIM accuracy bar) + ADR-030 Part D (lifecycle deletion)
 **Supersedes**: nothing
 **Superseded by**: nothing
 
@@ -90,7 +90,7 @@ Phase-doc exit criterion #8: "PDF-to-BIM public preview launched (gating decisio
 
 ADR-029 Part E §3: "If any miss, the feature ships behind a 'PDF-to-BIM (preview)' label and the marketing positioning reflects it."
 
-The S70 D8 gating decision (recorded in `docs/03_PRYZM3/archive/superseded-audits/PHASE-3D-S70-PDF-PREVIEW-GATE-DECISION-2026-04-28.md`): **ship under "preview" label**. Reasoning:
+The S70 D8 gating decision (recorded in `docs/archive/pryzm3-internal/superseded-audits/PHASE-3D-S70-PDF-PREVIEW-GATE-DECISION-2026-04-28.md`): **ship under "preview" label**. Reasoning:
 
 - The SPEC-45 fixture corpus (≥ 50 real PDF sets) has not yet been measured in this development environment; the Phase 3 audit (PHASE-3-CODE-VS-SPEC-AUDIT-2026-04-28.md) recorded the corpus collection as still in progress.
 - Honest deferral discipline: shipping under the full label requires fixture-corpus-measured numbers; shipping under preview requires only the *gating mechanism* be in place, which it now is.
@@ -155,7 +155,7 @@ The guard runs as the `s70-lifecycle-deletion-guard` workflow.
 
 | File | Day | Purpose |
 |---|---|---|
-| `docs/architecture/adr/0052-…` (this file) | (gate) | the seven posture decisions |
+| `docs/02-decisions/adrs/0052-…` (this file) | (gate) | the seven posture decisions |
 | `tests/browser-matrix/` workspace | D1+D5 | 5-project Playwright matrix + smoke + a11y + visual-diff |
 | `.github/workflows/browser-matrix.yml` | D1 | CI wiring |
 | `packages/wcag-audit/` | D6 | pure axe-core wrapper + critical-path declarations |
@@ -167,7 +167,7 @@ The guard runs as the `s70-lifecycle-deletion-guard` workflow.
 | `packages/ai-cost/src/CostMeter.ts` selfHostMode + tests | D8 | BYO-key cap |
 | `apps/editor/src/sunset/Pryzm1SunsetBanner.ts` (relocated) | D8 | sunset UX preserved |
 | `tests/s70-lifecycle-deletion/` | D8 | deletion guard |
-| `docs/03_PRYZM3/archive/superseded-audits/PHASE-3D-S70-PDF-PREVIEW-GATE-DECISION-…md` | D8 | gate decision of record |
+| `docs/archive/pryzm3-internal/superseded-audits/PHASE-3D-S70-PDF-PREVIEW-GATE-DECISION-…md` | D8 | gate decision of record |
 
 ---
 

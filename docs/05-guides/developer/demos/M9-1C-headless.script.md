@@ -4,9 +4,9 @@
 > **Recording target**: 3 min, 1080p, no audio (captions OK).
 > **Captured by**: contributor's local machine. The Replit container has no
 > video-capture device, so the recording is produced off-platform. When
-> uploaded, edit `docs/demos/README.md` to point at the real URL plus
+> uploaded, edit `docs/05-guides/developer/demos/README.md` to point at the real URL plus
 > SHA-256.
-> **Recording status**: ⏳ pending capture (see `docs/demos/README.md`).
+> **Recording status**: ⏳ pending capture (see `docs/05-guides/developer/demos/README.md`).
 > **Equivalent CI gate**: [`tests/integration/headless-vs-browser-parity.test.ts`](../../tests/integration/headless-vs-browser-parity.test.ts)
 > — 12 families × 3 fixtures = 36 cases, byte-equal descriptor parity
 > across headless and browser paths. This is the machine-checkable

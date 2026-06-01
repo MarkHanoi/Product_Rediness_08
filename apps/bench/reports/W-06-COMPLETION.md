@@ -1,6 +1,6 @@
 # W-06 — Supabase cutover (founder-only steps)
 
-> **Source**: W-06 of `docs/03_PRYZM3/reference/phases/audits/PHASE-2-CLOSE-IMPLEMENTATION-PLAN-2026-04-28.md`
+> **Source**: W-06 of `docs/archive/pryzm3-internal/reference/phases/audits/PHASE-2-CLOSE-IMPLEMENTATION-PLAN-2026-04-28.md`
 > **Status (engineering)**: SHIPPED — migration + checklist enforcer + dual-write seam.
 > **Status (provisioning)**: PENDING founder action.
 > **Authority**: ADR-0035 (soft-locks + cutover), ADR-0040 (authz).

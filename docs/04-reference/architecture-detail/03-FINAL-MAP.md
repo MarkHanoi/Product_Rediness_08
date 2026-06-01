@@ -224,7 +224,7 @@ Pryzm 2 is a browser-native BIM editor that **preserves the white PRYZM 1 UI ver
 │   ├── docs-site/                        public docs
 │   └── bench/                            load-bench harness · 17 NFT gates
 │
-├── docs/03_PRYZM3/             ← THE CORPUS (this doc lives here)
+├── docs/archive/pryzm3-internal/             ← THE CORPUS (this doc lives here)
 │   ├── 06-PRYZM-IDENTITY-AND-RECOUNT.md  Tier 1
 │   ├── 08-VISION.md                      Tier 3
 │   ├── 10-MASTER-IMPLEMENTATION-PLAN-36M.md

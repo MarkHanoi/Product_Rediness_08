@@ -1,7 +1,7 @@
 # SAML / SCIM Attribute Mappings — Enterprise SSO
 
 **Sprint introduced**: PRYZM 2 Phase 3D · S68 D7
-**Spec ref**: `docs/03_PRYZM3/reference/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S68 exit-criteria table row 8 — "SAML / SCIM mappings table per `[strategic ADR-021]` + SPEC-24 §1.1".
+**Spec ref**: `docs/archive/pryzm3-internal/reference/phases/PHASE-3/3D-Q4-M34-M36-HARDENING-GA.md` §S68 exit-criteria table row 8 — "SAML / SCIM mappings table per `[strategic ADR-021]` + SPEC-24 §1.1".
 **Strategic anchor**: `[strategic ADR-021]` — Enterprise SSO model.
 **Operational target**: "operational for at least 1 enterprise tenant" (S68 exit §3 row 5).
 
@@ -14,7 +14,7 @@ This document is the **canonical mapping table** between identity-provider (IdP)
 - SAML 2.0 SSO login (Okta, Azure AD, OneLogin, Google Workspace, generic SAML).
 - SCIM 2.0 user + group provisioning (RFC 7643 / RFC 7644).
 
-**Status**: this is the **specification + mappings table**. The runtime adapter (`apps/api-gateway/src/sso/saml-adapter.ts` + `apps/api-gateway/src/scim/`) lands at S70 D8 self-host publish gate alongside the production OAuth2 resource-server wiring (per `docs/security/oauth2-review-2026-Q4.md` §3.1). This doc is the contract those modules will be built against.
+**Status**: this is the **specification + mappings table**. The runtime adapter (`apps/api-gateway/src/sso/saml-adapter.ts` + `apps/api-gateway/src/scim/`) lands at S70 D8 self-host publish gate alongside the production OAuth2 resource-server wiring (per `docs/04-reference/security/oauth2-review-2026-Q4.md` §3.1). This doc is the contract those modules will be built against.
 
 ---
 
@@ -147,7 +147,7 @@ Every SSO login + every SCIM mutation writes a row to `audit_log` (the sync-serv
 - `metadata.idp_assertion_id` — for SAML, the assertion ID (for IdP-side correlation).
 - `metadata.scim_request_id` — for SCIM, the inbound request ID.
 
-The S57 D7 `querySoc2Evidence` adapter already supports these event types; the SOC2 quarterly access-review automation (S68 D7, see `docs/security/scans-2026-Q4-baseline.md` §6 for the broader S68 D7 scope) consumes these rows.
+The S57 D7 `querySoc2Evidence` adapter already supports these event types; the SOC2 quarterly access-review automation (S68 D7, see `docs/04-reference/security/scans-2026-Q4-baseline.md` §6 for the broader S68 D7 scope) consumes these rows.
 
 ---
 

@@ -8,9 +8,9 @@
 
 **Source documents (read first if you have not):**
 - `docs/USER-GUIDE-VISIBILITY-INTENT.md` — end-user mental model and workflows for the Intent system.
-- `docs/00_Contracts/25-VISIBILITY-INTENT-SYSTEM-CONTRACT.md` — canonical contract; the four-layer architecture and the rendering equation.
-- `docs/00_Contracts/25b-VG-INTENT-FULL-CONSOLIDATION-PLAN.md` — the six-Wave plan that retires V/G as a parallel system and makes Intent the sole authority.
-- `docs/Analysis/INTENT-PANEL-GAPS-AND-VIEW-TYPE-SPECIFICITY.md` — Phase-9 gaps (fill colour, view-type modifier UI, view purpose).
+- `docs/02-decisions/contracts/25-VISIBILITY-INTENT-SYSTEM-CONTRACT.md` — canonical contract; the four-layer architecture and the rendering equation.
+- `docs/02-decisions/contracts/25b-VG-INTENT-FULL-CONSOLIDATION-PLAN.md` — the six-Wave plan that retires V/G as a parallel system and makes Intent the sole authority.
+- `docs/03-execution/status/intent-analysis/INTENT-PANEL-GAPS-AND-VIEW-TYPE-SPECIFICITY.md` — Phase-9 gaps (fill colour, view-type modifier UI, view purpose).
 - `docs/01_ELEMENTS/03_VIEWS/09_VIEW_INTENT_SYSTEM_DEEP_ANALYSIS.md` — per-view-type semantic palette and header-surface mapping.
 - `docs/01_ELEMENTS/03_VIEWS/10_VIEW_INTENT_SYSTEM_IMPLEMENTATION_PLAN.md` — eight-stage engineering schedule (S1–S8).
 
@@ -860,7 +860,7 @@ These three stages remain as scheduled in doc 10 and are not re-described here. 
 
 ### 6.5 Updates from the user-journey audit (2026-04-26)
 
-The user-journey audit in `docs/Analysis/INTENT-USER-JOURNEYS.md` §13 surfaced ten implementation gaps (A1–A10), four schema clarifications (B1–B4), and five sequencing updates (C1–C5) that this plan must absorb. The final, audited stage list:
+The user-journey audit in `docs/03-execution/status/intent-analysis/INTENT-USER-JOURNEYS.md` §13 surfaced ten implementation gaps (A1–A10), four schema clarifications (B1–B4), and five sequencing updates (C1–C5) that this plan must absorb. The final, audited stage list:
 
 | Order | Stage | Goal | Effort |
 |---|---|---|---|
@@ -880,7 +880,7 @@ The user-journey audit in `docs/Analysis/INTENT-USER-JOURNEYS.md` §13 surfaced 
 
 **The single most consequential addition** is **A4 (element-type visibility toggle inside the rule matrix)**: without it, the canonical "exclude X from view-type Y" workflow requires the user to set `visible: false` per state per element type — four clicks per row instead of one. Promoting it inside Stage S3 (audit C1) is required.
 
-For the full audit details (each item's source journey, schema changes, command surface, and effort), see `docs/Analysis/INTENT-USER-JOURNEYS.md` §13.
+For the full audit details (each item's source journey, schema changes, command surface, and effort), see `docs/03-execution/status/intent-analysis/INTENT-USER-JOURNEYS.md` §13.
 
 ---
 
@@ -921,14 +921,14 @@ After P1, P2, P3 land (in addition to the doc-10 stages they sequence with):
 | Concern | Document |
 |---|---|
 | End-user mental model and workflows | `docs/USER-GUIDE-VISIBILITY-INTENT.md` |
-| The four-layer architecture and rendering equation | `docs/00_Contracts/25-VISIBILITY-INTENT-SYSTEM-CONTRACT.md` §1, §8 |
-| Six-Wave V/G retirement plan | `docs/00_Contracts/25b-VG-INTENT-FULL-CONSOLIDATION-PLAN.md` |
-| Phase-9 gaps (fill colour, view-type modifier UI, view purpose) | `docs/Analysis/INTENT-PANEL-GAPS-AND-VIEW-TYPE-SPECIFICITY.md` |
+| The four-layer architecture and rendering equation | `docs/02-decisions/contracts/25-VISIBILITY-INTENT-SYSTEM-CONTRACT.md` §1, §8 |
+| Six-Wave V/G retirement plan | `docs/02-decisions/contracts/25b-VG-INTENT-FULL-CONSOLIDATION-PLAN.md` |
+| Phase-9 gaps (fill colour, view-type modifier UI, view purpose) | `docs/03-execution/status/intent-analysis/INTENT-PANEL-GAPS-AND-VIEW-TYPE-SPECIFICITY.md` |
 | Per-view-type semantic palette and matrix | `docs/01_ELEMENTS/03_VIEWS/09_VIEW_INTENT_SYSTEM_DEEP_ANALYSIS.md` §2 |
 | Eight-stage engineering schedule (S1–S8) | `docs/01_ELEMENTS/03_VIEWS/10_VIEW_INTENT_SYSTEM_IMPLEMENTATION_PLAN.md` |
-| Multi-view collaboration sync | `docs/00_Contracts/30-REAL-TIME-COLLABORATION-CONTRACT.md` |
-| Section / Elevation view geometry | `docs/00_Contracts/22-SECTION-AND-ELEVATION-VIEW-CONTRACT.md` |
-| SVP header parity | `docs/00_Contracts/17-ENHANCED-SPLIT-VIEW-CONTRACT.md`, doc 07 Phase 5 |
+| Multi-view collaboration sync | `docs/02-decisions/contracts/30-REAL-TIME-COLLABORATION-CONTRACT.md` |
+| Section / Elevation view geometry | `docs/02-decisions/contracts/22-SECTION-AND-ELEVATION-VIEW-CONTRACT.md` |
+| SVP header parity | `docs/02-decisions/contracts/17-ENHANCED-SPLIT-VIEW-CONTRACT.md`, doc 07 Phase 5 |
 
 ---
 

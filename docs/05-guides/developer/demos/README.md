@@ -14,8 +14,8 @@ embedded — from this README.
   previously pointed at `demos.pryzm.app` and a `pryzm-app/pryzm-2-demos`
   GitHub release have been removed because neither bucket exists yet. The
   spec (`PHASE-1-COMPLETION-PLAN.md` §1C row D9 / line 1368) explicitly
-  permits **"`docs/demos/M9-1C-headless.mp4` *or* external link in
-  `docs/demos/README.md`"** — i.e. the script + a future link satisfies
+  permits **"`docs/05-guides/developer/demos/M9-1C-headless.mp4` *or* external link in
+  `docs/05-guides/developer/demos/README.md`"** — i.e. the script + a future link satisfies
   the exit criterion. When the recording is captured this README should be
   updated with the real URL and SHA-256.
 - **Length target**: ~3 min, 1080p, no audio (captions OK).

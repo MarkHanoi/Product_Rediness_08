@@ -1,6 +1,6 @@
 # Headless Architecture
 
-> Phase: 1C · Sprint S18 · ADR: `docs/architecture/adr/0017-headless-package-surface.md`
+> Phase: 1C · Sprint S18 · ADR: `docs/02-decisions/adrs/0017-headless-package-surface.md`
 
 ## Purpose
 

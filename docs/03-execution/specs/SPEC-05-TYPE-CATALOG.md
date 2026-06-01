@@ -9,7 +9,7 @@
 | Closes | `CRITICAL-REVIEW-2026-04-27.md §B5` |
 | Phases | 1B (wall types ship with kernel), 1C (per-family types), 2A (level-bound types), 3A (Component Editor for new types), 3B (IFC type mapping) |
 | Required ADRs | ADR-017 (type catalog scope) |
-| Replaces | The thin 271-line `00_Contracts/17-ELEMENT-TYPES-AND-MATERIALS-CONTRACT.md` |
+| Replaces | The thin 271-line `02-decisions/contracts/17-ELEMENT-TYPES-AND-MATERIALS-CONTRACT.md` |
 
 > A "wall type" is what carries layer composition, fire rating, U-value, schedule grouping, and IFC mapping. Without a real type catalog, schedules are wrong, IFC export is wrong, and D10 (Family Editor) is impossible. This spec defines the model — system families vs loadable families, type vs instance parameters, parameter inheritance, IFC mapping, and the ship-with-product catalog.
 

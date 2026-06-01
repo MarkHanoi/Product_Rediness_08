@@ -3,7 +3,7 @@
 > **Stamp**: 2026-05-03 · **Status**: ✅ CLOSED — Wave A18 complete (2026-05-03) — all 28 tasks DONE — score 8.3 → **8.9**
 > **Sprint(s)**: S128–S129 · **Weeks**: 96–99 · **Effort**: 1–2 sprints (~4 engineering weeks)
 > **Source authority**: `attached_assets/Pasted--PRYZM-3-Master-Implementation-Plan-to-100-100…txt` Part 3 §Wave 18 · `06-SENIOR-ARCHITECT-AUDIT.md §1` (Rendering LOD), `§12` (Accessibility), `§14` (Testing)
-> **Anchored to**: `../01-VISION.md §5` (NFTs 1–17; NFT 19 added here), `../02-ARCHITECTURE.md §8` (boolean #6), `../../00_Contracts/C04-RENDERING-AND-SCHEDULING.md §4` (LOD), `../../00_Contracts/C06-UI-SHELL-AND-TOOLS.md §3` (a11y), `../../00_Contracts/C10-PERFORMANCE-AND-OBSERVABILITY.md §1` (NFTs)
+> **Anchored to**: `../01-VISION.md §5` (NFTs 1–17; NFT 19 added here), `../02-ARCHITECTURE.md §8` (boolean #6), `../../02-decisions/contracts/C04-RENDERING-AND-SCHEDULING.md §4` (LOD), `../../02-decisions/contracts/C06-UI-SHELL-AND-TOOLS.md §3` (a11y), `../../02-decisions/contracts/C10-PERFORMANCE-AND-OBSERVABILITY.md §1` (NFTs)
 > **⚠ TRACKER RULE**: Any task status change → update `../00-PROCESS-TRACKER.md` §3 Wave A18 row + §4 next-actions same commit.
 > **Pre-condition (Gate)**: Wave A17 CLOSED — C11-GEOSPATIAL.md exists; IndexedDB store implemented; IFC parse worker running; `pnpm turbo run test:ci` green.
 
@@ -497,11 +497,11 @@ grep "coverage" vitest.config.ts | wc -l
 # → ≥ 1
 
 # C04 §4 LOD amendment committed
-grep "Tier 0\|Tier 1\|Tier 2\|LOD" docs/00_Contracts/C04-RENDERING-AND-SCHEDULING.md | wc -l
+grep "Tier 0\|Tier 1\|Tier 2\|LOD" docs/02-decisions/contracts/C04-RENDERING-AND-SCHEDULING.md | wc -l
 # → ≥ 3
 
 # C10 §1 NFT 19 amendment committed
-grep "NFT 19\|E2E suite" docs/00_Contracts/C10-PERFORMANCE-AND-OBSERVABILITY.md | wc -l
+grep "NFT 19\|E2E suite" docs/02-decisions/contracts/C10-PERFORMANCE-AND-OBSERVABILITY.md | wc -l
 # → ≥ 1
 
 # Full test suite green

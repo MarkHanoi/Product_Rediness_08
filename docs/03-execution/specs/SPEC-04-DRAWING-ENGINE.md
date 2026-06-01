@@ -315,4 +315,4 @@ Filters compose: order matters (top filter wins). UX: drag-to-reorder; per-view 
 - Conflict mapping: `CONFLICT-ANALYSIS.md §3.10`, §3.11.
 - Phase deliverables: `phases/PHASE-2B-Q2-M16-M18-PLAN-VIEW.md`, `phases/PHASE-2C-Q3-M19-M21-SHEETS-SCHEDULES.md`.
 - ADR: `adrs/ADR-016-drawing-engine-architecture.md`.
-- Visibility-Intent rule matrix: legacy `00_Contracts/12-VISIBILITY-INTENT-SYSTEM-CONTRACT.md` is the *what*; placement of those rules into the new layer model is owned by ADR-015.
+- Visibility-Intent rule matrix: legacy `02-decisions/contracts/12-VISIBILITY-INTENT-SYSTEM-CONTRACT.md` is the *what*; placement of those rules into the new layer model is owned by ADR-015.

@@ -1,9 +1,9 @@
 /**
  * CeilingModePicker — In-viewport HUD for ceiling system type + drawing mode selection.
  *
- * Contract: docs/00_Contracts/49-FLOOR-CEILING-DRAWING-MODE-PARITY-CONTRACT.md
- *           docs/00_Contracts/05-BIM-UI-ARCHITECTURE-CONTRACT.md §2.1, §7.1, §7.8
- *           docs/00_Contracts/26-PLAN-VIEW-ELEMENT-CREATION-PARITY-CONTRACT.md
+ * Contract: docs/02-decisions/contracts/49-FLOOR-CEILING-DRAWING-MODE-PARITY-CONTRACT.md
+ *           docs/02-decisions/contracts/05-BIM-UI-ARCHITECTURE-CONTRACT.md §2.1, §7.1, §7.8
+ *           docs/02-decisions/contracts/26-PLAN-VIEW-ELEMENT-CREATION-PARITY-CONTRACT.md
  *
  * Mirrors the WallModePicker pattern with five modes:
  *   • Linear     — freeform straight segments, no axis snap

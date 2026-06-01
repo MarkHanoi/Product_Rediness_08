@@ -4,7 +4,7 @@
 // AI response) MUST be announced to screen readers via aria-live regions.
 //
 // P3 (rAF gate): announcement deferral routes through getFrameScheduler().scheduleOnce()
-// — not raw requestAnimationFrame — per docs/03_PRYZM3/01-VISION.md §2 P3.
+// — not raw requestAnimationFrame — per docs/archive/pryzm3-internal/01-VISION.md §2 P3.
 
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
 //

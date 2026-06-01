@@ -9,7 +9,7 @@
 
 ## §0 — What this doc is and isn't
 
-This is a proposal to **re-shape `docs/03_PRYZM3/`**. It does **not** rewrite the strategic content. `08-VISION.md`, `06-IDENTITY-AND-RECOUNT.md` and `09-AS-IS-VS-TO-BE.md` are excellent and stay verbatim — they're just renumbered and moved.
+This is a proposal to **re-shape `docs/archive/pryzm3-internal/`**. It does **not** rewrite the strategic content. `08-VISION.md`, `06-IDENTITY-AND-RECOUNT.md` and `09-AS-IS-VS-TO-BE.md` are excellent and stay verbatim — they're just renumbered and moved.
 
 This doc lists the moves, deletions, dedups, and the 5 new canonical documents I'll write after the restructure. **No file moves until you say yes.**
 
@@ -50,7 +50,7 @@ The CONVERGENCE plan already proposes a future restructure (§4.1, §4.3, §6) �
 ## §3 — Target structure
 
 ```
-docs/03_PRYZM3/
+docs/archive/pryzm3-internal/
 │
 ├── README.md                              # NEW: 1 page, the index. "Read these 5 docs in this order."
 │
@@ -144,7 +144,7 @@ docs/03_PRYZM3/
         └── _TEMPLATE.md
 ```
 
-**Net effect**: 226 files → ~70 actively-used files in `docs/03_PRYZM3/` (excluding ADRs/SPECs which stay at 85), plus ~50 in `archive/`. **Reader cognitive load drops from "228 files in one folder" to "5 docs in 90 minutes."**
+**Net effect**: 226 files → ~70 actively-used files in `docs/archive/pryzm3-internal/` (excluding ADRs/SPECs which stay at 85), plus ~50 in `archive/`. **Reader cognitive load drops from "228 files in one folder" to "5 docs in 90 minutes."**
 
 ---
 

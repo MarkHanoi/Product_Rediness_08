@@ -480,13 +480,13 @@ Reproducible at HEAD `main`:
 ```bash
 # Spec sub-phase counts (per chunk and total)
 for f in 16-subphases-F1-toolbars.md 17-subphases-F2-F5.md 18-subphases-F6-F12.md; do
-  c=$(rg -c "^\| \*\*F\.\d+\." docs/03_PRYZM3/03_PRYZM3/reference/phases/audits/PRYZM2-WIREUP-PLAN-S72/$f)
+  c=$(rg -c "^\| \*\*F\.\d+\." docs/archive/pryzm3-internal/03_PRYZM3/reference/phases/audits/PRYZM2-WIREUP-PLAN-S72/$f)
   echo "$f: $c rows"
 done                                                             # → 65 + 61 + 118 = 244 rows
 
 # Unique sub-phase IDs per chunk (collapsed rows expanded by ID counting)
 for f in 16-subphases-F1-toolbars.md 17-subphases-F2-F5.md 18-subphases-F6-F12.md; do
-  c=$(rg -o "\bF\.\d+\.\d+" docs/03_PRYZM3/03_PRYZM3/reference/phases/audits/PRYZM2-WIREUP-PLAN-S72/$f | sort -u | wc -l)
+  c=$(rg -o "\bF\.\d+\.\d+" docs/archive/pryzm3-internal/03_PRYZM3/reference/phases/audits/PRYZM2-WIREUP-PLAN-S72/$f | sort -u | wc -l)
   echo "$f: $c IDs"
 done                                                             # → 65 + 64 + 120 = 249 unique IDs
 
@@ -521,9 +521,9 @@ done                                                             # → 8/8 missi
   || ([ -d "plugins/grid" ] && echo "DRIFT: spec says plugins/grids, code has plugins/grid")
 
 # PROCESS-TRACKER §3 lookups
-sed -n '130,247p' docs/03_PRYZM3/00-PROCESS-TRACKER.md \
+sed -n '130,247p' docs/archive/pryzm3-internal/00-PROCESS-TRACKER.md \
   | rg -c "Phase F"                                              # → 0 (no §3 row for F)
-rg -n "Phase F.*0/195" docs/03_PRYZM3/00-PROCESS-TRACKER.md
+rg -n "Phase F.*0/195" docs/archive/pryzm3-internal/00-PROCESS-TRACKER.md
                                                                   # → 1 hit at §1 line 17
                                                                   # (must be amended to 0/257 next tracker update)
 ```

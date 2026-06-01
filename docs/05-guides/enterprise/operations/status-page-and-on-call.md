@@ -104,7 +104,7 @@ Before LAUNCH (S72 D4 launch dry-run):
 2. Confirm primary on-call receives the page via the configured channel (PagerDuty / SMS).
 3. Confirm secondary on-call receives the page at the configured timeout.
 4. Confirm the alert auto-resolves when `/health` returns 200 again.
-5. Sign off in `docs/operations/status-page-and-on-call.md` §3.3 with the test date.
+5. Sign off in `docs/05-guides/enterprise/operations/status-page-and-on-call.md` §3.3 with the test date.
 
 ---
 
@@ -121,13 +121,13 @@ Before LAUNCH (S72 D4 launch dry-run):
 1. **Acknowledge**: Primary on-call acknowledges page within target time per §2.2.
 2. **Assess**: Identify scope (per-service, per-region, per-customer) within 5 min.
 3. **Communicate**: Open status-page incident with sev + initial ETA. Update at minimum every 30 min until resolved.
-4. **Mitigate**: Apply runbook (per `docs/03_PRYZM3/runbooks/`). If runbook absent, escalate to secondary on-call + Architecture lead.
+4. **Mitigate**: Apply runbook (per `docs/archive/pryzm3-internal/runbooks/`). If runbook absent, escalate to secondary on-call + Architecture lead.
 5. **Resolve**: Status page updated to "Resolved"; incident retro scheduled within 7 days.
-6. **Retro**: Lands in `docs/post-mortems/<incident-id>.md` per the post-mortem template.
+6. **Retro**: Lands in `docs/03-execution/status/post-mortems/<incident-id>.md` per the post-mortem template.
 
 ### §4.3 DR-runbook pointer
 
-For data-loss scenarios specifically, see `docs/03_PRYZM3/runbooks/DR-DRILL-RUNBOOK.md` §10 (rollback runbook). DR drill #1 is operator-side carry-forward (S70 D8 / S71 D8 per `docs/post-mortems/PRYZM-2-build.md` §5 row 7).
+For data-loss scenarios specifically, see `docs/archive/pryzm3-internal/runbooks/DR-DRILL-RUNBOOK.md` §10 (rollback runbook). DR drill #1 is operator-side carry-forward (S70 D8 / S71 D8 per `docs/03-execution/status/post-mortems/PRYZM-2-build.md` §5 row 7).
 
 ---
 
@@ -142,9 +142,9 @@ The support workflow at GA:
    - **P0**: data loss, system down, security regression — escalate to on-call within 15 min.
    - **P1**: blocking customer workflow — fix within 7 days.
    - **P2**: non-blocking workflow issue — fix within 30 days.
-   - **P3**: feature request — added to `docs/roadmap/post-GA.md` re-prioritisation.
+   - **P3**: feature request — added to `docs/03-execution/plans/post-ga-roadmap.md` re-prioritisation.
 4. Communication: customer receives status update at triage + at fix-deploy + at resolution.
-5. Disclosure: security-related issues route through `security@pryzm.com` separately; public disclosure follows `docs/security/secret-rotation-playbook.md` §4 emergency timeline (1h / 4h / 24h / 7d).
+5. Disclosure: security-related issues route through `security@pryzm.com` separately; public disclosure follows `docs/04-reference/security/secret-rotation-playbook.md` §4 emergency timeline (1h / 4h / 24h / 7d).
 
 ---
 
@@ -168,9 +168,9 @@ not design decisions.
 
 - phase-doc §S72 D3 + §8 handoff items 3+4+5+8
 - ADR-0054 §G (operator-side carry-forward register)
-- `docs/post-mortems/PRYZM-2-build.md` §5 (carry-forward register rows 1+2+3+8)
-- `docs/security/secret-rotation-playbook.md` §4 (emergency disclosure timeline)
-- `docs/03_PRYZM3/runbooks/DR-DRILL-RUNBOOK.md` §10 (DR runbook)
+- `docs/03-execution/status/post-mortems/PRYZM-2-build.md` §5 (carry-forward register rows 1+2+3+8)
+- `docs/04-reference/security/secret-rotation-playbook.md` §4 (emergency disclosure timeline)
+- `docs/archive/pryzm3-internal/runbooks/DR-DRILL-RUNBOOK.md` §10 (DR runbook)
 - `pryzm-selfhost/docker-compose.yml` §F (healthcheck table) + `pryzm-selfhost/nginx/editor.conf` (front-door config)
 
 ---

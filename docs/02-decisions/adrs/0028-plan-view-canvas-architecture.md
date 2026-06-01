@@ -5,7 +5,7 @@
 - Authors: PRYZM 2 BIM rebuild
 - Related: ADR-0003 (FrameScheduler priority vs deadline), ADR-0006 (idle-continuation budget),
   ADR-0009 (frozen producer signature), ADR-0021 (plugin-descriptor bootstrap),
-  `docs/03_PRYZM3/reference/phases/PHASE-2/2A-Q1-M13-M15-NON-ELEMENT-COMPLETION.md` §S29
+  `docs/03-execution/plans/legacy/phases/PHASE-2/2A-Q1-M13-M15-NON-ELEMENT-COMPLETION.md` §S29
 
 ---
 

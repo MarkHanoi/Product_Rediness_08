@@ -2,7 +2,7 @@
 **Date**: 2026-04-28
 **Sprint**: S44 — Awareness Extended (View, Tool, Selection) + Backup Verification
 **Spec**: `phases/PHASE-2D-Q4-M22-M24-SYNC-AWARENESS-BETA.md` lines 272-376
-**Companion ADR**: `docs/architecture/adr/0034-awareness-multiplayer-cursor.md`
+**Companion ADR**: `docs/02-decisions/adrs/0034-awareness-multiplayer-cursor.md`
 **Verdict**: **CLOSURE 100/100** (raw exit-criteria 70/100 with 2 items explicitly bound to S43 D9 + S45 D1)
 
 ---
@@ -104,7 +104,7 @@ Per the established Phase 2B precedent — verified by the user during the 2A/2B
 
 ## §5 ADR + spec impact
 
-- **NEW** `docs/architecture/adr/0034-awareness-multiplayer-cursor.md` — the code-level ADR for S44.
+- **NEW** `docs/02-decisions/adrs/0034-awareness-multiplayer-cursor.md` — the code-level ADR for S44.
 - **NO CHANGE** to wire shape — `PryzmAwarenessState` matches S43's frozen shape per ADR-0033 §2.6; verified by `awareness.test.ts` "wire-shape contract (frozen for S45)".
 - **NO CHANGE** to the protocol version. S45 (soft-locks) plugs in via the reserved `heldLocks` field.
 

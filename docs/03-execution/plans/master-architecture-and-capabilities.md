@@ -1,7 +1,7 @@
 # PRYZM — Master Architecture, Capabilities & Track File
 
 > **Stamp**: 2026-06-01 · **Status**: SYNTHESIS — orchestrator's audit
-> **Derived from**: full read of `docs/03_PRYZM3/00-PRODUCT-VISION-AND-BUSINESS-STRATEGY-V1.md` · `01-VISION.md` · `02-ARCHITECTURE.md` · `docs/00_Contracts/C00-INDEX.md` + all C01–C30 · all top-level PRYZM3 plans · 4 parallel reconnaissance sweeps over `packages/` (78) · `plugins/` (47) · `apps/` (13) + `server/` + `src/`.
+> **Derived from**: full read of `docs/01-strategy/product-vision.md` · `01-VISION.md` · `02-ARCHITECTURE.md` · `docs/02-decisions/contracts/README.md` + all C01–C30 · all top-level PRYZM3 plans · 4 parallel reconnaissance sweeps over `packages/` (78) · `plugins/` (47) · `apps/` (13) + `server/` + `src/`.
 > **Authority below**: `00-PRODUCT-VISION` > `01-VISION` > `02-ARCHITECTURE` > C-contracts > ADRs > SPECs. This doc is a NAVIGATION + SYNTHESIS layer, not a contract.
 > **Why this exists**: a single map of what PRYZM is today, where every piece of code lives, and what's still on the road. Built so future sessions don't reinvent existing systems.
 
@@ -366,8 +366,8 @@ Grouped by layer + concern. Source: full audit pass 2026-06-01.
 | `tools/ga-gate/` | 15+ GA gates (run via `release` package's `run-all.ts`) |
 | `pryzm-selfhost/` | One-day-deploy Helm + Terraform (D7) |
 | `revit-addin/` | External Python adapter scaffold for D12 Revit round-trip |
-| `docs/00_Contracts/` | C00-INDEX + 26 binding C-contracts (C01-C18 + C24-C30) |
-| `docs/03_PRYZM3/` | Vision + Architecture + Master Plans + Status logs + 90+ archived references |
+| `docs/02-decisions/contracts/` | C00-INDEX + 26 binding C-contracts (C01-C18 + C24-C30) |
+| `docs/archive/pryzm3-internal/` | Vision + Architecture + Master Plans + Status logs + 90+ archived references |
 | `apps/marketplace-web/` `docs-site/` `marketplace/` | Public-facing surfaces |
 
 ---
@@ -749,15 +749,15 @@ Two prior near-misses in this session were caught:
 
 Read these in this exact order:
 
-1. `docs/03_PRYZM3/00-PRODUCT-VISION-AND-BUSINESS-STRATEGY-V1.md` — north star, business intent
-2. `docs/03_PRYZM3/01-VISION.md` — P1-P8 + D1-D13 + 17 NFTs + 5 customer archetypes
-3. `docs/03_PRYZM3/02-ARCHITECTURE.md` — 9-layer model, lint matrix, composition root, convergence booleans
-4. `docs/00_Contracts/C00-INDEX.md` — contract suite map + conflict resolution order
+1. `docs/01-strategy/product-vision.md` — north star, business intent
+2. `docs/01-strategy/engineering-vision.md` — P1-P8 + D1-D13 + 17 NFTs + 5 customer archetypes
+3. `docs/01-strategy/architecture.md` — 9-layer model, lint matrix, composition root, convergence booleans
+4. `docs/02-decisions/contracts/README.md` — contract suite map + conflict resolution order
 5. Specific C-contract relevant to the work
 6. **This file** (`MASTER-ARCHITECTURE-AND-CAPABILITIES-2026-06-01.md`) — folder map + capabilities + goals
-7. `docs/03_PRYZM3/AUTONOMOUS-SESSION-RUNS-LOG-2026-06-01.md` — recent multi-agent work record
-8. `docs/03_PRYZM3/PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md` — synthesis of all C-contracts + apartment plans into one delivery sequence
-9. `docs/03_PRYZM3/PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md` — what code already exists vs new work
+7. `docs/03-execution/status/autonomous-session-runs-log.md` — recent multi-agent work record
+8. `docs/03-execution/plans/master-implementation-plan.md` — synthesis of all C-contracts + apartment plans into one delivery sequence
+9. `docs/03-execution/status/prior-art-audit-2026-05-31.md` — what code already exists vs new work
 
 ---
 

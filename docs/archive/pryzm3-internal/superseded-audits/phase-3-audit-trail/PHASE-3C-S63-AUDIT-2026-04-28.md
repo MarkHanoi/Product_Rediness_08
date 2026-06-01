@@ -27,7 +27,7 @@ work is owned by S64. The S63 row is corrected in this commit.
 | D | Deliverable | Path | Status |
 |---|---|---|---|
 | D1 | OpenAPI 3.1 schema + `@pryzm/api-spec` loader | `packages/api-spec/openapi.yaml` + `packages/api-spec/src/{index,loader}.ts` | ✓ landed (S63 D1, ADR-0039 §A+B) |
-| D1 | Reconciliation ADR | `docs/architecture/adr/0039-s63-public-api-openapi-schema-and-docs-site.md` | ✓ landed (S63 D1) |
+| D1 | Reconciliation ADR | `docs/02-decisions/adrs/0039-s63-public-api-openapi-schema-and-docs-site.md` | ✓ landed (S63 D1) |
 | D1 | Astro Starlight scaffold + 12-entry sidebar | `apps/docs-site/{astro.config.mjs,package.json,src/content/docs/**}` | ✓ landed (S63 D1) |
 | **D2** | **Plugin SDK docs content (7 pages)** | **`apps/docs-site/src/content/docs/plugin-sdk/{getting-started,manifest,permissions,sandbox,host-api,examples,distribution}.md`** | **✓ landed (this audit)** |
 | **D2-D3** | **`@pryzm/oauth2-pkce` package — RFC 7636 helpers + token-exchange** | **`packages/oauth2-pkce/{src,_tests_,package.json}`** | **✓ landed (this audit)** |
@@ -105,8 +105,8 @@ Public API Draft + OAuth2 PKCE + RBAC + Rate-Limit (ADR-018)".
 
 ## §6 Cross-references
 
-- `docs/architecture/adr/0039-s63-public-api-openapi-schema-and-docs-site.md` — reconciliation ADR (5 decisions A-E).
-- `docs/architecture/adr/0018-rate-limit-policy.md` — rate-limit policy (60 r/m + 20 w/m free tier, source for `ADR_018_POLICY` constants).
+- `docs/02-decisions/adrs/0039-s63-public-api-openapi-schema-and-docs-site.md` — reconciliation ADR (5 decisions A-E).
+- `docs/02-decisions/adrs/0018-rate-limit-policy.md` — rate-limit policy (60 r/m + 20 w/m free tier, source for `ADR_018_POLICY` constants).
 - `docs/00_NEW_ARCHITECTURE/phases/PHASE-3C-Q3-M31-M33-PLUGIN-SDK-MARKETPLACE-APIS.md` §3 (docs-site spec).
 - `docs/00_NEW_ARCHITECTURE/phases/PHASE-3C-Q3-M31-M33-SDK-MARKETPLACE-PUBLIC-API.md` §S63 (public-API spec).
 - `packages/api-spec/openapi.yaml` — canonical OpenAPI 3.1 contract.

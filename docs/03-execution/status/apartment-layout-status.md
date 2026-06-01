@@ -364,5 +364,5 @@ Reading the cognition-stack doc is REQUIRED before starting any Phase 2+ work �
 - **Pipeline help.** `pryzmShowApartmentHelp()` in the browser console lists every `pryzm…()` pipeline command.
 - **Pure tests.** `pnpm --filter @pryzm/ai-host test` — 424/424 pass at HEAD.
 - **Memory queues.** `apartment-furnish-quality-wishlist.md`, `program-rules-improvements-queue.md`, `single-apartment-fix-pass-spec.md`, `multi-apartment-floor-plate-brief.md`.
-- **Canonical SPEC.** `docs/03_PRYZM3/reference/specs/SPEC-TGL-DETERMINISTIC-LAYOUT-ENGINE.md` (v1.0).
-- **User guide.** `docs/guides/USER-GUIDE-APARTMENT-LAYOUT.md`.
+- **Canonical SPEC.** `docs/03-execution/specs/SPEC-TGL-DETERMINISTIC-LAYOUT-ENGINE.md` (v1.0).
+- **User guide.** `docs/05-guides/user/apartment-layout.md`.

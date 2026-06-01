@@ -512,7 +512,7 @@ same PR as W4 (polarity flip):
    to "this is when D5 *will* land", or the polarity flip needs to
    land today. (W4 makes the date true.)
 
-2. **`docs/architecture/adr/0031-s61-staged-legacy-deletion.md`**
+2. **`docs/02-decisions/adrs/0031-s61-staged-legacy-deletion.md`**
    is implicitly the policy that was supposed to gate this. After
    W4 + W7, ADR-0031 needs a closure note recording the actual D5
    commit + the actual S70 deletion commit.

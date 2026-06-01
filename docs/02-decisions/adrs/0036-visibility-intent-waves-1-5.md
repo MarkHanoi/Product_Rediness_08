@@ -5,7 +5,7 @@
   itself remains deferred to S43 D9 cutover landing)
 - **Date**: 2026-04-28
 - **Sprint**: Phase 2D / S46
-- **Spec source**: `docs/03_PRYZM3/reference/phases/PHASE-2/2D-Q4-M22-M24-SYNC-AWARENESS-BETA.md`
+- **Spec source**: `docs/03-execution/plans/legacy/phases/PHASE-2/2D-Q4-M22-M24-SYNC-AWARENESS-BETA.md`
   §S46 (lines 509-571)
 - **Related**:
   - SPEC-30 §6 — 11-wave PRYZM 1 visibility system (the literal-preservation

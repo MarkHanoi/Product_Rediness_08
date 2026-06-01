@@ -1,8 +1,8 @@
 # Implementation log — `[strategic ADR-010]` 250 ms bake debounce
 
-> Sprint: **S21** (Q4 M10–M12).  Spec: `docs/03_PRYZM3/reference/phases/PHASE-1/1D-Q4-M10-M12-BAKE-PRYZM-ALPHA.md` §S21.
+> Sprint: **S21** (Q4 M10–M12).  Spec: `docs/03-execution/plans/legacy/phases/PHASE-1/1D-Q4-M10-M12-BAKE-PRYZM-ALPHA.md` §S21.
 > Code: `apps/bake-worker/src/coalescing/CoalesceWindow.ts`.
-> Strategic ADR: `docs/03_PRYZM3/reference/adrs/ADR-010-bake-debounce.md`.
+> Strategic ADR: `docs/02-decisions/adrs/ADR-010-bake-debounce.md`.
 
 This document logs the **implementation choices** taken for the 250 ms
 trailing-edge bake debounce ratified in strategic ADR-010.  It is a
@@ -142,8 +142,8 @@ the queue handler before `drain()` resolves.
 
 ## 6.  Cross-references
 
-* Strategic: `docs/03_PRYZM3/reference/adrs/ADR-010-bake-debounce.md`
-* Ops runbook: `docs/architecture/bake-worker.md` §5
+* Strategic: `docs/02-decisions/adrs/ADR-010-bake-debounce.md`
+* Ops runbook: `docs/04-reference/architecture-detail/bake-worker.md` §5
 * Bench gate: `apps/bench/src/benches/bake-incremental.bench.ts`
 * Tests: `apps/bake-worker/__tests__/CoalesceWindow.test.ts`,
          `apps/bake-worker/__tests__/SigtermFlush.test.ts`

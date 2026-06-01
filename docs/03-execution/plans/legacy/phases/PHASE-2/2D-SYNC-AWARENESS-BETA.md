@@ -1,7 +1,7 @@
 # Phase 2D — Sync, Awareness, Beta Launch
 ## Q4 of Phase 2 · Months 22–24 · Sprints S43–S48
 
-> **Authority note (added 2026-04-27).** This sub-phase doc is subordinate to the SPEC and ADR series. Conflict precedence: `docs/03_PRYZM3/reference/specs/SPEC-*` → `docs/03_PRYZM3/reference/adrs/ADR-*` (cited as `[strategic ADR-NNN]`) → `10-MASTER-IMPLEMENTATION-PLAN-36M.md` → `CRITICAL-REVIEW-2026-04-27.md` → `05-IMPLEMENTATION-PLAN.md` → this phase doc. Sprint-scoped ADRs in `docs/architecture/adr/NNNN-slug.md` are cited as `[ADR NNNN-slug]` and govern *implementation choices inside* a sprint, not strategy.
+> **Authority note (added 2026-04-27).** This sub-phase doc is subordinate to the SPEC and ADR series. Conflict precedence: `docs/03-execution/specs/SPEC-*` → `docs/02-decisions/adrs/ADR-*` (cited as `[strategic ADR-NNN]`) → `10-MASTER-IMPLEMENTATION-PLAN-36M.md` → `CRITICAL-REVIEW-2026-04-27.md` → `05-IMPLEMENTATION-PLAN.md` → this phase doc. Sprint-scoped ADRs in `docs/02-decisions/adrs/NNNN-slug.md` are cited as `[ADR NNNN-slug]` and govern *implementation choices inside* a sprint, not strategy.
 >
 > **Strategic anchor**: `08-VISION.md` → `10-MASTER-IMPLEMENTATION-PLAN-36M.md` §5 → `phases/PHASE-2-MIGRATION-MULTIUSER-M13-M24.md` §5 → this file.
 >
@@ -28,7 +28,7 @@
 
 ## §0 Reading Conventions
 
-**ADR citation format**: `[strategic ADR-NNN]` for the strategic series at `docs/03_PRYZM3/reference/adrs/ADR-NNN-*.md`; `[ADR NNNN-slug]` for sprint-scoped ADRs at `docs/architecture/adr/NNNN-slug.md`. **Bare `ADR-NNN` references are forbidden** in this doc.
+**ADR citation format**: `[strategic ADR-NNN]` for the strategic series at `docs/02-decisions/adrs/ADR-NNN-*.md`; `[ADR NNNN-slug]` for sprint-scoped ADRs at `docs/02-decisions/adrs/NNNN-slug.md`. **Bare `ADR-NNN` references are forbidden** in this doc.
 
 **SPEC citation format**: `SPEC-NN §X.Y` is the canonical form. Every binding line in §3 (Sprint detail) must trace to a SPEC, an ADR, or a phase-level decision.
 
@@ -776,7 +776,7 @@ This mix exercises the stack along every dimension the M36 GA matrix cares about
 - `apps/bench/reports/M24-beta.md` published with all numbers.
 - 3-min beta demo screencast public.
 - Beta announcement blog post live.
-- Sub-phase retros archived in `docs/retros/S43–S48/`.
+- Sub-phase retros archived in `docs/03-execution/status/retros/S43–S48/`.
 
 ---
 
@@ -873,7 +873,7 @@ Both readings are defensible:
 * The spec wording predated the L4 vs L7 boundary tightening of S40.
 * Visibility waves are pure functions over element graphs — they have no
   THREE imports, no DOM, no command-bus hooks.  By the L4-package criterion
-  in `docs/03_PRYZM3/reference/specs/SPEC-00-LAYERING.md`, they belong
+  in `docs/03-execution/specs/SPEC-00-LAYERING.md`, they belong
   under `packages/`, not `plugins/`.
 
 This amendment ratifies the as-built location.  `packages/visibility/`

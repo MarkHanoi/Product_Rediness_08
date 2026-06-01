@@ -5,7 +5,7 @@
 >
 > Owner package: `packages/persistence-client/`.
 >
-> Source spec: `docs/03_PRYZM3/reference/phases/PHASE-1/1A-Q1-M1-M3-SKELETON-RAILS.md` §S04 Track A (lines 419-441).
+> Source spec: `docs/03-execution/plans/legacy/phases/PHASE-1/1A-Q1-M1-M3-SKELETON-RAILS.md` §S04 Track A (lines 419-441).
 
 ## What S04 added
 

@@ -10,7 +10,7 @@
   - `[strategic ADR-018]` — Tier-1 cut list (T1.7 + T1.8 stay cut per S47 D9 retro)
   - `SPEC-28` §4 — Cloudflare Worker relay for Anthropic
   - `ADR-028` Part E — per-workspace AI Spend view + workspace-admin override (S65, 3C)
-- **Spec source**: `docs/03_PRYZM3/reference/phases/PHASE-2/2D-Q4-M22-M24-SYNC-AWARENESS-BETA.md` §S47 (lines 574-676).
+- **Spec source**: `docs/03-execution/plans/legacy/phases/PHASE-2/2D-Q4-M22-M24-SYNC-AWARENESS-BETA.md` §S47 (lines 574-676).
 
 ---
 

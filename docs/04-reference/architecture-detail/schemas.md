@@ -1,6 +1,6 @@
 # PRYZM 2 — Schemas (S01 deliverable)
 
-> Sprint **S01** of `docs/03_PRYZM3/reference/phases/PHASE-1/1-FOUNDATION-M1-M12.md`.
+> Sprint **S01** of `docs/03-execution/plans/legacy/phases/PHASE-1/1-FOUNDATION-M1-M12.md`.
 
 The `@pryzm/schemas` package is the runtime schema layer for PRYZM 2. The
 `@pryzm/protocol` package is the public DTO surface that re-exports it.

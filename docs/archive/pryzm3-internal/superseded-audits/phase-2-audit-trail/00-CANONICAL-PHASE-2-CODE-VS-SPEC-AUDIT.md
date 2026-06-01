@@ -781,7 +781,7 @@ Process risk: tracker can drift again.
 
 #### L-2. Demo recordings not done — 2A, 2B, 2C, 2D each name a screencast
 
-None of the four sub-phase recordings is in the repo (no `docs/demos/
+None of the four sub-phase recordings is in the repo (no `docs/05-guides/developer/demos/
 M15-2A.script.md` etc.). PHASE-2C-AUDIT § Deferred mentions *"the
 recorded 8-min screencast"*. Same pattern as W-14 in the Phase-1 close
 plan (founder rest week task).
@@ -789,7 +789,7 @@ plan (founder rest week task).
 #### L-3. ADR-039 referenced but not present
 
 PHASE-2C-AUDIT references *"ADR-039 (raster path TBD pending true server
-worker)"*. `ls docs/architecture/adr/` ends at 0037. ADR-039 is
+worker)"*. `ls docs/02-decisions/adrs/` ends at 0037. ADR-039 is
 referenced as the rationale for deferring `apps/export-worker` and does
 not exist on disk.
 

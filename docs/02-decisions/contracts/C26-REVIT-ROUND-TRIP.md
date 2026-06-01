@@ -5,8 +5,8 @@
 > **Depends on**: [C25](C25-IFC-EXPORT-PRODUCTION.md) (IFC must be production-grade — Revit round-trip is unblocked only at IFC-α end), [C24](C24-SHEET-COMPOSITION-ENGINE.md) (sheet translation), [C15](C15-HOSTED-ELEMENT-CONTRACT.md) (hosted-elements semantic == Revit's hosted-elements).
 > **Downstream**: market positioning vs Revit; consultant hand-off workflows.
 > **Key principles**: **P5** (Revit mapping schemas pure), **P8** (every round-trip operation carries a span).
-> **Master plan**: [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md §9](../03_PRYZM3/PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md).
-> **Prior-art**: [PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md §3.3](../03_PRYZM3/PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md). **Verdict: GENUINELY NEW.** No Revit code in the monorepo. IFC4 IS the bridge.
+> **Master plan**: [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md §9](../03-execution/plans/master-implementation-plan.md).
+> **Prior-art**: [PRYZM3-PRIOR-ART-AUDIT-2026-05-31.md §3.3](../03-execution/status/prior-art-audit-2026-05-31.md). **Verdict: GENUINELY NEW.** No Revit code in the monorepo. IFC4 IS the bridge.
 
 ---
 
@@ -173,7 +173,7 @@ Submit to buildingSMART for **IFC4 Reference View MVD** certification. This is a
 
 ## §11 — Phase delivery
 
-Implementation phases live in master plan [§9.2](../03_PRYZM3/PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md). RVT-α-1 through RVT-γ-3. ~17 wk total.
+Implementation phases live in master plan [§9.2](../03-execution/plans/master-implementation-plan.md). RVT-α-1 through RVT-γ-3. ~17 wk total.
 
 ---
 

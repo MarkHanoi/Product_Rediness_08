@@ -411,7 +411,7 @@ PHASE 7: Shadow reactivation — 50 walls/slice, FrameScheduler rescheduled
 > **Legend**: ✅ DONE · 🔄 IN PROGRESS · 🔴 PENDING · ⚠️ EXTEND NEEDED · ⛔ BLOCKED · 🗓️ QUARTERLY
 > **Authority**: this document (§§ below). **Status date**: 2026-05-07.
 > **Total tasks**: 37 · **Done**: 16 · **Remaining**: 21
-> **Mirrored in**: `docs/03_PRYZM3/00-PROCESS-TRACKER.md §10`
+> **Mirrored in**: `docs/archive/pryzm3-internal/00-PROCESS-TRACKER.md §10`
 
 | Phase | Name | Priority | Sprint | Status | Done / Total | Key Blocker | Constraint |
 |:-----:|------|:--------:|:------:|:------:|:------------:|-------------|------------|
@@ -2263,11 +2263,11 @@ reviewer guidance.
 
 | File | Action |
 |------|--------|
-| `docs/03_PRYZM3/03-ADRs/ADR-0039-instanced-mesh-coalescing.md` | New ADR: InstancedMesh grouping strategy |
-| `docs/03_PRYZM3/03-ADRs/ADR-0040-worker-geometry-build.md` | New ADR: Web Worker geometry build pipeline |
-| `docs/03_PRYZM3/03-ADRs/ADR-0041-virtualized-element-store.md` | New ADR: Virtualized ElementStore with spatial streaming |
-| `docs/03_PRYZM3/03-ADRs/ADR-0042-ydoc-per-level.md` | New ADR: Y.Doc-per-Level collaboration architecture |
-| `docs/03_PRYZM3/03-ADRs/ADR-0043-ai-response-cache.md` | New ADR: AI response caching by content hash |
+| `docs/archive/pryzm3-internal/03-ADRs/ADR-0039-instanced-mesh-coalescing.md` | New ADR: InstancedMesh grouping strategy |
+| `docs/archive/pryzm3-internal/03-ADRs/ADR-0040-worker-geometry-build.md` | New ADR: Web Worker geometry build pipeline |
+| `docs/archive/pryzm3-internal/03-ADRs/ADR-0041-virtualized-element-store.md` | New ADR: Virtualized ElementStore with spatial streaming |
+| `docs/archive/pryzm3-internal/03-ADRs/ADR-0042-ydoc-per-level.md` | New ADR: Y.Doc-per-Level collaboration architecture |
+| `docs/archive/pryzm3-internal/03-ADRs/ADR-0043-ai-response-cache.md` | New ADR: AI response caching by content hash |
 
 ---
 

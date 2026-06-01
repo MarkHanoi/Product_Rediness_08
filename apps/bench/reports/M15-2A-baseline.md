@@ -4,7 +4,7 @@
 **Sprints**: S25–S30  
 **Date**: 2026-04-27  
 **Captured on**: Replit Linux container (shared CPU; Node v20)  
-**Source spec**: `docs/03_PRYZM3/reference/phases/PHASE-2/2A-Q1-M13-M15-NON-ELEMENT-COMPLETION.md`
+**Source spec**: `docs/archive/pryzm3-internal/reference/phases/PHASE-2/2A-Q1-M13-M15-NON-ELEMENT-COMPLETION.md`
 
 ---
 
@@ -104,9 +104,9 @@ S36 per `[strategic ADR-006]` Phase rollout schedule.
 
 | ADR | Subject | Actual path | Status |
 |---|---|---|---|
-| ADR-022 | Room boundary detection | `docs/architecture/adr/0022-room-boundary-detection.md` | MERGED S25 |
-| ADR-024 | Furniture multi-representation | `docs/architecture/adr/0027-furniture-multi-representation.md` | MERGED S27 |
-| ADR-025 | Plan view canvas architecture | `docs/architecture/adr/0028-plan-view-canvas-architecture.md` | MERGED S29 |
+| ADR-022 | Room boundary detection | `docs/02-decisions/adrs/0022-room-boundary-detection.md` | MERGED S25 |
+| ADR-024 | Furniture multi-representation | `docs/02-decisions/adrs/0027-furniture-multi-representation.md` | MERGED S27 |
+| ADR-025 | Plan view canvas architecture | `docs/02-decisions/adrs/0028-plan-view-canvas-architecture.md` | MERGED S29 |
 
 > **Note**: planned numbers (ADR-020/021/022) shifted to 022/024/025 because ADRs 0020–0021
 > were consumed by Phase 1D deliverables.  All cross-references in this phase document

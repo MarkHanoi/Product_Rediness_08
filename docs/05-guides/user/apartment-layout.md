@@ -8,7 +8,7 @@
 - **Audience:** architects, designers, and anyone laying out residential floor plans in PRYZM.
 - **Feature status:** GA (shipped). Capstone of the Semantic Design Assistant (prompt "#51").
 - **Where to find it:** the **AI panel** → command tree → **Create** → **"Generate apartment layout (AI)"**.
-- **Contract / spec:** governed by `docs/00_Contracts/C09-AI-AND-VISIBILITY-INTENT.md` §3.4 and `docs/03_PRYZM3/reference/specs/SPEC-APARTMENT-LAYOUT-GENERATOR.md`.
+- **Contract / spec:** governed by `docs/02-decisions/contracts/C09-AI-AND-VISIBILITY-INTENT.md` §3.4 and `docs/archive/pryzm3-internal/reference/specs/SPEC-APARTMENT-LAYOUT-GENERATOR.md`.
 
 ---
 

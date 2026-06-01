@@ -5,7 +5,7 @@
  * File:             src/ui/dataworkbench/HierarchyTreePanel.ts
  * Contract:         docs/00_PRZYM/PRYZM_DATA_PLATFORM_IMPLEMENTATION_ROADMAP.md § PHASE 7
  *                   docs/00_PRZYM/HIERARCHY_TREE_ELEMENT_ROWS_IMPLEMENTATION_PLAN.md
- *                   docs/00_Contracts/05-BIM-UI-ARCHITECTURE-CONTRACT.md §3
+ *                   docs/02-decisions/contracts/05-BIM-UI-ARCHITECTURE-CONTRACT.md §3
  *
  * Renders the full Site → Building → Level → Unit → Room → [Elements] hierarchy tree.
  * Data is read from window.hierarchyStore and window.roomStore. // TODO(E.18-R.S): legacy roomStore — replace with runtime.stores.rooms slot

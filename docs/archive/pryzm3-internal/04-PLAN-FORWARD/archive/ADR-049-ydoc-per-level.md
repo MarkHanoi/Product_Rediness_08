@@ -2,7 +2,7 @@
 
 **Status**: Accepted (2026-05-09)
 **Supersedes**: C08 §3.1 (single Y.Doc per project — Phase 2D original contract)
-**Amendment to**: `docs/03_PRYZM3/02-ARCHITECTURE.md §6 — Collaboration tier`
+**Amendment to**: `docs/archive/pryzm3-internal/02-ARCHITECTURE.md §6 — Collaboration tier`
 **Implementation task**: Phase 4 Task 4.4 in `46-IMPLEMENTATION-PLAN-2026-05-08.md`
 
 ---

@@ -71,7 +71,7 @@ the C# Revit add-in. But:
    M27 equivalent for 3A at all.
 
 6. **The 3A demo recording is absent.** Spec §S54 D5 requires *"10-min
-   3A demo screencast"*. There is no `docs/demos/`, no `*M27-3A*`, no
+   3A demo screencast"*. There is no `docs/05-guides/developer/demos/`, no `*M27-3A*`, no
    `*3a-demo*` artefact anywhere in the repo.
 
 7. **Element creator marketplace (S59) is absent.** Spec §5.2 of
@@ -131,7 +131,7 @@ What this audit catches that no other document does:
   `docs/00_NEW_ARCHITECTURE/adrs/` (the *strategic* ADR series) — meaning
   the Phase-2 audit's HIGH-3 finding ("ADR-039 referenced but not
   authored") was incorrect: the ADR exists, in the strategic series, not
-  the sprint-scoped series at `docs/architecture/adr/`. The Phase-3 audit
+  the sprint-scoped series at `docs/02-decisions/adrs/`. The Phase-3 audit
   flags the **dual-ADR-series numbering hazard** itself as a separate
   finding (MED-9 below).
 
@@ -761,7 +761,7 @@ middleware item).
 
 **Where**: spec §S54 D5: *"10-min 3A demo screencast."*
 
-Actual: no `docs/demos/`, no `*M27-3A*`, no `*demo*3a*` artefact in the
+Actual: no `docs/05-guides/developer/demos/`, no `*M27-3A*`, no `*demo*3a*` artefact in the
 repo. There is no recording.
 
 **Fix**: capture the screencast against the current editor build with the
@@ -888,7 +888,7 @@ Two parallel ADR series both contain entries numbered `0029`:
 * `docs/00_NEW_ARCHITECTURE/adrs/ADR-029-pdf-to-bim-scope.md` — the
   *strategic* ADR series (referenced in phase docs as `[strategic
   ADR-029]`).
-* `docs/architecture/adr/0029-vector-primitives-and-backends.md` — the
+* `docs/02-decisions/adrs/0029-vector-primitives-and-backends.md` — the
   *sprint-scoped* ADR series (referenced in phase docs as `[ADR
   0029-vector-primitives-and-backends]`).
 

@@ -4,7 +4,7 @@
 |---|---|
 | Status | **Accepted (sprint-scoped refresh)** — 2026-04-28 |
 | Sprint | S49 (Phase 3A) |
-| Refreshes | `docs/architecture/adr/0014-traa-ssgi-idle-budget.md` (original 2025-12) |
+| Refreshes | `docs/02-decisions/adrs/0014-traa-ssgi-idle-budget.md` (original 2025-12) |
 | Cross-refs | `[strategic ADR-014]` (AI L7.5 operational); `[strategic ADR-018]` (capacity-cut Tier-1 checkpoint) |
 | Owner | Architecture lead |
 
@@ -60,8 +60,8 @@ uses the dedicated OTel prefix `pryzm.ai.*` so the renderer's
 
 ## References
 
-- `docs/03_PRYZM3/reference/phases/PHASE-3/3A-Q1-M25-M27-AI-VISIBILITY-COMPLETE.md` §S49
-- `docs/03_PRYZM3/reference/specs/SPEC-07-AI-LAYER.md` §3
-- `docs/03_PRYZM3/reference/specs/SPEC-28-AI-COST-MODEL.md` §5
-- `docs/03_PRYZM3/reference/adrs/ADR-014-ai-l75-operational.md`
-- `docs/03_PRYZM3/reference/adrs/ADR-018-capacity-cut-list.md` Tier-1 checkpoint
+- `docs/03-execution/plans/legacy/phases/PHASE-3/3A-Q1-M25-M27-AI-VISIBILITY-COMPLETE.md` §S49
+- `docs/03-execution/specs/SPEC-07-AI-LAYER.md` §3
+- `docs/03-execution/specs/SPEC-28-AI-COST-MODEL.md` §5
+- `docs/02-decisions/adrs/ADR-014-ai-l75-operational.md`
+- `docs/02-decisions/adrs/ADR-018-capacity-cut-list.md` Tier-1 checkpoint

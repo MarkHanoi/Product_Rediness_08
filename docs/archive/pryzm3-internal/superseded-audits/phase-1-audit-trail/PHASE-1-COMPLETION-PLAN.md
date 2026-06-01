@@ -52,7 +52,7 @@ The phase docs end with explicit exit checklists. The plan below maps **one work
 | W-1C-6 | Build out bench dashboard beyond `types.ts` + publish `M9-1C-baseline.md` | MEDIUM | 4-5d | W-1C-7 |
 | W-1C-7 | Add `tests/integration/headless-vs-browser-parity.spec.ts` | MEDIUM | 2-3d | W-1B-3 (Playwright), W-1C-1 |
 | W-1C-8 | Add `tests/integration/view-state-2a-readiness.test.ts` | LOW | 1-2d | W-1C-1 |
-| W-1C-9 | Backfill handover docs (`docs/architecture/{picking,selection,view-state,camera,headless,element-coupling}.md`) + `M9-1C-headless.mp4` recording + `S18-retro.md` | LOW | 2d | — |
+| W-1C-9 | Backfill handover docs (`docs/04-reference/architecture-detail/{picking,selection,view-state,camera,headless,element-coupling}.md`) + `M9-1C-headless.mp4` recording + `S18-retro.md` | LOW | 2d | — |
 
 **Total estimated effort**: ~32–42 person-days for a single contributor. With three contributors splitting along plugin / parity / dashboard tracks the wall-clock collapses to roughly 12–16 days.
 
@@ -1236,18 +1236,18 @@ describe('2A readiness — view-state surface contract', () => {
 
 **Severity**: LOW.
 **Effort**: 2 person-days.
-**Why**: 1C spec's deliverable list includes documentation under `docs/architecture/` and an `S18-retro.md`. Today these are not located in the tree.
+**Why**: 1C spec's deliverable list includes documentation under `docs/04-reference/architecture-detail/` and an `S18-retro.md`. Today these are not located in the tree.
 
 ### Files to add
 
-- `docs/architecture/picking.md` — covers `gpu-pick` vs `bvh-pick`, the boot-time resolver, ADR-0015 cross-reference, latency budget.
-- `docs/architecture/selection.md` — `SelectionStore`, the selection-highlight committer, multi-select semantics, hit testing.
-- `docs/architecture/view-state.md` — `ViewRegistry`, `ActiveViewStore`, `ViewController`, motion suppression.
-- `docs/architecture/camera.md` — `CameraController` orbit/pan/zoom, motion vs idle, ADR-0014 budget.
-- `docs/architecture/headless.md` — `apps/headless` package surface, dependency-cruiser config, K1-B test, ADR-0017.
-- `docs/architecture/element-coupling.md` — the cross-element cascade rules: slab→walls, stair→handrail, roof↔roof (after W-1C-5), ADR-0012.
-- `docs/sprints/S18-retro.md` — what worked, what slipped, decisions deferred to 1D, links to ADRs and gap-closure work units (this plan).
-- `docs/demos/M9-1C-headless.mp4` — a 60-90s screen recording showing `apps/headless new-project → add-wall → export-pryzm` and then loading the export in `apps/editor` under `?pryzm2=1`.
+- `docs/04-reference/architecture-detail/picking.md` — covers `gpu-pick` vs `bvh-pick`, the boot-time resolver, ADR-0015 cross-reference, latency budget.
+- `docs/04-reference/architecture-detail/selection.md` — `SelectionStore`, the selection-highlight committer, multi-select semantics, hit testing.
+- `docs/04-reference/architecture-detail/view-state.md` — `ViewRegistry`, `ActiveViewStore`, `ViewController`, motion suppression.
+- `docs/04-reference/architecture-detail/camera.md` — `CameraController` orbit/pan/zoom, motion vs idle, ADR-0014 budget.
+- `docs/04-reference/architecture-detail/headless.md` — `apps/headless` package surface, dependency-cruiser config, K1-B test, ADR-0017.
+- `docs/04-reference/architecture-detail/element-coupling.md` — the cross-element cascade rules: slab→walls, stair→handrail, roof↔roof (after W-1C-5), ADR-0012.
+- `docs/03-execution/status/sprints/S18-retro.md` — what worked, what slipped, decisions deferred to 1D, links to ADRs and gap-closure work units (this plan).
+- `docs/05-guides/developer/demos/M9-1C-headless.mp4` — a 60-90s screen recording showing `apps/headless new-project → add-wall → export-pryzm` and then loading the export in `apps/editor` under `?pryzm2=1`.
 
 ### Files to modify
 
@@ -1273,7 +1273,7 @@ describe('2A readiness — view-state surface contract', () => {
 
 ### Risks
 
-- **R-1C-9.1** — Recording artefacts (mp4 in git) is bad practice. *Mitigation*: store the mp4 in an external asset bucket and embed the link in `docs/demos/README.md`; commit only the link, not the binary.
+- **R-1C-9.1** — Recording artefacts (mp4 in git) is bad practice. *Mitigation*: store the mp4 in an external asset bucket and embed the link in `docs/05-guides/developer/demos/README.md`; commit only the link, not the binary.
 
 ---
 
@@ -1363,9 +1363,9 @@ A signed-off Phase 1 means **all** of the following are true on `main`:
 - [ ] `apps/bench/reports/M9-1C-baseline.md` has ≥ 18 entries against the table in W-1C-6.
 - [ ] `tests/integration/headless-vs-browser-parity.spec.ts` runs in CI against ≥ 3 fixtures per family.
 - [ ] `tests/integration/view-state-2a-readiness.test.ts` passes its 7 contract assertions.
-- [ ] `docs/architecture/{picking,selection,view-state,camera,headless,element-coupling}.md` exist.
-- [ ] `docs/sprints/S18-retro.md` exists.
-- [ ] `docs/demos/M9-1C-headless.mp4` (or external link in `docs/demos/README.md`) exists.
+- [ ] `docs/04-reference/architecture-detail/{picking,selection,view-state,camera,headless,element-coupling}.md` exist.
+- [ ] `docs/03-execution/status/sprints/S18-retro.md` exists.
+- [ ] `docs/05-guides/developer/demos/M9-1C-headless.mp4` (or external link in `docs/05-guides/developer/demos/README.md`) exists.
 
 **Cross-cutting**
 - [ ] CI fails when a parity directory is empty.

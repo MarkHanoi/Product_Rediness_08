@@ -2,7 +2,7 @@
 
 > Status: Accepted — sprint-scoped (S62, 2026-04-28)
 > Context: Phase 3C, Sprint S62 D1. Per
-> `docs/03_PRYZM3/reference/phases/PHASE-3/3C-Q3-M31-M33-SDK-MARKETPLACE-PUBLIC-API.md`
+> `docs/03-execution/plans/legacy/phases/PHASE-3/3C-Q3-M31-M33-SDK-MARKETPLACE-PUBLIC-API.md`
 > §S62 Daily Plan line 250, D1 deliverable is "descriptor schema lock; semver
 > 1.0.0 commitment". Per `phases/PHASE-3C-Q3-M31-M33-PLUGIN-SDK-MARKETPLACE-APIS.md`
 > §2.1, the descriptor is a zod-validated `PluginManifest` with seven

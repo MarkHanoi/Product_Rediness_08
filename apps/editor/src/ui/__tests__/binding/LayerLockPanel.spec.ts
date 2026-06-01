@@ -3,7 +3,7 @@
 // Contract: show() calls activatePanel with 'layer-lock-panel'; hide() calls
 // deactivatePanel.  Both transitions are idempotent (the slot is idempotent).
 //
-// Docs: docs/03_PRYZM3/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §2
+// Docs: docs/archive/pryzm3-internal/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §2
 
 import { describe, expect, it, vi } from 'vitest';
 import { LayerLockPanel, LAYER_LOCK_PANEL_ID } from '../../LayerLockPanel.js';

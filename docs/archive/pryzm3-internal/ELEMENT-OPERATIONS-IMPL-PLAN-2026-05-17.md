@@ -205,9 +205,9 @@ The end state, derived directly from C11 §2, C14 §2.1, and `02-ARCHITECTURE.md
 | 0.1 Fix `SetWindowOffsetCommand` dual-store (DW-14) | `packages/command-registry/src/windows/SetWindowOffsetCommand.ts` | ✅ Done |
 | 0.2 Add `DoorPlanToolHandler` bus-fallback (DPT-HARDEN-2026) | `apps/editor/src/engine/views/plantools/DoorPlanToolHandler.ts` | ✅ Done |
 | 0.3 Add `WindowPlanToolHandler` bus-fallback (WPT-HARDEN-2026) | `apps/editor/src/engine/views/plantools/WindowPlanToolHandler.ts` | ✅ Done |
-| 0.4 Update C15 §8 table + add §8.1 Dual-Store Rule | `docs/00_Contracts/C15-HOSTED-ELEMENT-CONTRACT.md` | ✅ Done |
-| 0.5 Correct C15 §12 elementType casing (PascalCase + toLowerCase rule) | `docs/00_Contracts/C15-HOSTED-ELEMENT-CONTRACT.md` | ✅ Done |
-| 0.6 Add C15 §13 dispatch resilience rule | `docs/00_Contracts/C15-HOSTED-ELEMENT-CONTRACT.md` | ✅ Done |
+| 0.4 Update C15 §8 table + add §8.1 Dual-Store Rule | `docs/02-decisions/contracts/C15-HOSTED-ELEMENT-CONTRACT.md` | ✅ Done |
+| 0.5 Correct C15 §12 elementType casing (PascalCase + toLowerCase rule) | `docs/02-decisions/contracts/C15-HOSTED-ELEMENT-CONTRACT.md` | ✅ Done |
+| 0.6 Add C15 §13 dispatch resilience rule | `docs/02-decisions/contracts/C15-HOSTED-ELEMENT-CONTRACT.md` | ✅ Done |
 
 **Phase 0 exit gate:** All Phase 0 items green at HEAD. ✅ Confirmed.
 
@@ -787,4 +787,4 @@ Per the 8-layer model, element-family handlers belong in `plugins/<family>/src/h
 
 ---
 
-*End of implementation plan. Cross-reference: `ELEMENT-OPERATIONS-AUDIT-2026-05-17.md` for all findings; `docs/00_Contracts/C15-HOSTED-ELEMENT-CONTRACT.md` §8, §8.1, §12, §13 for contract updates applied to date.*
+*End of implementation plan. Cross-reference: `ELEMENT-OPERATIONS-AUDIT-2026-05-17.md` for all findings; `docs/02-decisions/contracts/C15-HOSTED-ELEMENT-CONTRACT.md` §8, §8.1, §12, §13 for contract updates applied to date.*

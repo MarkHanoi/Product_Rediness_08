@@ -200,10 +200,10 @@ belongs to the L7 presentation layer per ADR-002 §3.
 ## References
 
 * `phases/PHASE-1B-Q2-M4-M6-WALL-END-TO-END.md` §S12-T3 — triage owner
-* `code-level ADR docs/architecture/adr/0008-wall-handler-triage.md` — the wall-side triage that established the handler-collapse pattern
-* `code-level ADR docs/architecture/adr/0009-producer-pure-function-signature.md` — the producer contract this ADR's split conforms to
-* `code-level ADR docs/architecture/adr/0010-slab-handler-triage.md` — slab triage + cross-element coupling lift (sister ADR for S12)
-* `code-level ADR docs/architecture/adr/0002-command-handler-signature.md` — the parametric handler contract that makes the collapses possible
+* `code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md` — the wall-side triage that established the handler-collapse pattern
+* `code-level ADR docs/02-decisions/adrs/0009-producer-pure-function-signature.md` — the producer contract this ADR's split conforms to
+* `code-level ADR docs/02-decisions/adrs/0010-slab-handler-triage.md` — slab triage + cross-element coupling lift (sister ADR for S12)
+* `code-level ADR docs/02-decisions/adrs/0002-command-handler-signature.md` — the parametric handler contract that makes the collapses possible
 * `src/commands/curtainwalls/` — the 15-class PRYZM 1 surface this ADR triages
 * `src/elements/curtainwalls/CurtainWallBuilder.ts` — the 1,247-LOC monolith this ADR's producer split retires
 

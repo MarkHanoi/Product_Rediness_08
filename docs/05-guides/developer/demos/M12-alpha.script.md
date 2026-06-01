@@ -1,7 +1,7 @@
 # M12 Alpha Demo — Recording Script (10 min)
 
-**Source**: `docs/03_PRYZM3/reference/phases/PHASE-1/1D-Q4-M10-M12-BAKE-PRYZM-ALPHA.md` §3 (lines 1546–1568)
-**Output**: `docs/demos/M12-alpha.mp4` (committed at deploy day; recording session is a manual step).
+**Source**: `docs/archive/pryzm3-internal/reference/phases/PHASE-1/1D-Q4-M10-M12-BAKE-PRYZM-ALPHA.md` §3 (lines 1546–1568)
+**Output**: `docs/05-guides/developer/demos/M12-alpha.mp4` (committed at deploy day; recording session is a manual step).
 **Setup**: OBS or browser screen-record + stopwatch overlay; DevTools Network + Performance + Honeycomb tabs ready.
 
 ---
@@ -36,5 +36,5 @@
 
 ## Post-recording
 
-- Commit MP4 to `docs/demos/M12-alpha.mp4`.
-- Update `docs/03_PRYZM3/reference/status-detail/01-PROCESS-TRACKER.md` §1D — flip the M12 ALPHA GATE row + S24 demo deferred item to [x].
+- Commit MP4 to `docs/05-guides/developer/demos/M12-alpha.mp4`.
+- Update `docs/archive/pryzm3-internal/reference/status-detail/01-PROCESS-TRACKER.md` §1D — flip the M12 ALPHA GATE row + S24 demo deferred item to [x].

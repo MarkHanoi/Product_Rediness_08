@@ -7,7 +7,7 @@
  *
  * Phase B adoption #1 (S73-WIRE row B.1 — first `@pryzm/ui-base/Panel`
  * subclass in `src/ui/`).  Spec:
- *   `docs/03_PRYZM3/00_NEW_ARCHITECTURE/phases/audits/PHASES-A-F-CODE-VERIFIED-AUDIT-2026-04-29.md`
+ *   `docs/archive/pryzm3-internal/00_NEW_ARCHITECTURE/phases/audits/PHASES-A-F-CODE-VERIFIED-AUDIT-2026-04-29.md`
  *   §9 step (1) — wedge that simultaneously unblocks Phase C.11 (drops
  *   one of the three external importers of `ProjectRepository.ts`) and
  *   ratchets B's Panel-adoption counter from 0 to 1.

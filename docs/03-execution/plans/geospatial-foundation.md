@@ -12,11 +12,11 @@ Sibling strategy docs (read these as orthogonal axes):
 
 Governing contracts (binding):
 
-- [C00 Contract Index](../00_Contracts/C00-INDEX.md)
-- [C12 Geospatial](../00_Contracts/C12-GEOSPATIAL.md) — current CRS/LTP-ENU contract
-- [C03 Schemas, Commands & State](../00_Contracts/C03-SCHEMAS-COMMANDS-AND-STATE.md)
-- [C09 AI & Visibility Intent](../00_Contracts/C09-AI-AND-VISIBILITY-INTENT.md)
-- [C11 Element Creation Pipeline](../00_Contracts/C11-ELEMENT-CREATION-PIPELINE.md)
+- [C00 Contract Index](../02-decisions/contracts/README.md)
+- [C12 Geospatial](../02-decisions/contracts/C12-GEOSPATIAL.md) — current CRS/LTP-ENU contract
+- [C03 Schemas, Commands & State](../02-decisions/contracts/C03-SCHEMAS-COMMANDS-AND-STATE.md)
+- [C09 AI & Visibility Intent](../02-decisions/contracts/C09-AI-AND-VISIBILITY-INTENT.md)
+- [C11 Element Creation Pipeline](../02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md)
 
 ---
 
@@ -190,7 +190,7 @@ Five new contracts. Each is **smaller in scope** than C03 / C09 / C11, but their
 
 ## §4 — Data-model implications
 
-The current data model (per [C03](../00_Contracts/C03-SCHEMAS-COMMANDS-AND-STATE.md)):
+The current data model (per [C03](../02-decisions/contracts/C03-SCHEMAS-COMMANDS-AND-STATE.md)):
 
 ```
 Project (lat/lon/trueNorth as flat fields)
@@ -233,7 +233,7 @@ Two key shifts:
 
 ## §5 — AI implications
 
-Today's AI workflows ([C09 §3.4](../00_Contracts/C09-AI-AND-VISIBILITY-INTENT.md)) are geospatial-neutral. The implications of geospatial maturity are uneven across workflows:
+Today's AI workflows ([C09 §3.4](../02-decisions/contracts/C09-AI-AND-VISIBILITY-INTENT.md)) are geospatial-neutral. The implications of geospatial maturity are uneven across workflows:
 
 | AI surface | Geospatial impact |
 |---|---|
@@ -480,7 +480,7 @@ Compared to the apartment-scoped GS0 (19 wk): platform-level adds PG0.3 (Service
 
 The apartment-scoped doc remains useful — it documents the apartment-specific implications (climate-aware window types, sun-path-aware lighting scenes, facade allocator). Those are CONSUMER details of the platform substrate this doc describes.
 
-**Apartment plan integration:** the GS0 row in the apartment plan stays, but its scope is narrowed to "apartment-consumer of PG0." PG0 itself moves to a platform-level roadmap (TBD location — likely a new `docs/03_PRYZM3/PLATFORM-ROADMAP.md` or a section of the existing PRYZM3-MASTER-STATUS.md).
+**Apartment plan integration:** the GS0 row in the apartment plan stays, but its scope is narrowed to "apartment-consumer of PG0." PG0 itself moves to a platform-level roadmap (TBD location — likely a new `docs/archive/pryzm3-internal/PLATFORM-ROADMAP.md` or a section of the existing PRYZM3-MASTER-STATUS.md).
 
 ---
 

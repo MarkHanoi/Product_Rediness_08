@@ -1,7 +1,7 @@
 # Bake Worker — ops runbook
 
 > Status: **v0 — shipped in S21 (Q4 M10–M12)**.
-> Spec: `docs/03_PRYZM3/reference/phases/PHASE-1/1D-Q4-M10-M12-BAKE-PRYZM-ALPHA.md` lines 615–885.
+> Spec: `docs/03-execution/plans/legacy/phases/PHASE-1/1D-Q4-M10-M12-BAKE-PRYZM-ALPHA.md` lines 615–885.
 > Strategic ADRs implemented: `[ADR-003] storage driver isolation`, `[ADR-005] worker-pool sizing`, `[ADR-010] 250 ms bake debounce`.
 
 The **bake worker** receives event batches from the sync server, replays them

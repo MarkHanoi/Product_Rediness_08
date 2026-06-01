@@ -4,10 +4,10 @@
 
 > **Status updates since this chunk was authored** (per [Chunk 26 §26.11](./26-plan-self-corrections.md#§2611--amendment-k--chunks-24--25-status-updates-from-on-disk-reality)):
 > 1. **ADR-041, 042, 043, 044** — §25.2 marks all four as "MISSING — proposed by Chunk 24 / by THIS chunk". **All four are now ratified on disk**:
->    - `docs/03_PRYZM3/reference/adrs/ADR-041-portfolio-aggregate-placement.md`
->    - `docs/03_PRYZM3/reference/adrs/ADR-042-physics-runtime-vs-dev-only.md`
->    - `docs/03_PRYZM3/reference/adrs/ADR-043-utils-inline-vs-package.md`
->    - `docs/03_PRYZM3/reference/adrs/ADR-044-customer-migration-pryzm1-to-pryzm2.md`
+>    - `docs/02-decisions/adrs/ADR-041-portfolio-aggregate-placement.md`
+>    - `docs/02-decisions/adrs/ADR-042-physics-runtime-vs-dev-only.md`
+>    - `docs/02-decisions/adrs/ADR-043-utils-inline-vs-package.md`
+>    - `docs/02-decisions/adrs/ADR-044-customer-migration-pryzm1-to-pryzm2.md`
 > 2. **ADR count** — §25.2 says "40 ratified + 4 proposed = 44 queued". Live count: **44 ratified on disk**. Update the result line to drop "queued" wording.
 > 3. **SPEC count** — §25.3 says "39 SPECs". Live count: **40** (39 numbered + `SPEC-FAMILY-EDITOR.md`).
 > 4. **Package/plugin/app count** — §25.4 says "44 packages / 38 plugins / 12 apps". Live count: **46 / 38 / 12**. Per [Chunk 26 §26.3](./26-plan-self-corrections.md#§263--amendment-c--hard-coded-numbers-go-parametric), this is now read parametrically with `≥` semantics.
@@ -16,7 +16,7 @@
 > 7. **G.32 enumeration** — §25.8.1 declares G.32 as a single sub-phase. Per [Chunk 26 §26.8](./26-plan-self-corrections.md#§268--amendment-h--missing-deletion-ids-and-unspecified-checklists), enumerated into 9 sub-items G.32.1–G.32.9 spanning S84-WIRE D1–D9.
 > 8. **Sprint-ID rename via doc-edits only** — §25.7 proposes `S73-WIRE…S87-WIRE` via 7 doc PRs but provides no enforcement. Per [Chunk 26 §26.9](./26-plan-self-corrections.md#§269--amendment-i--sprint-id-lint-enforcement-missing), **H.5.1** commit-msg hook lands the lint rule.
 >
-> **Scope of this audit**: walk every document under `docs/03_PRYZM3/` (14 root docs + 24 phase docs + 41 ADRs + 39 SPECs + 36 standalone audits + the 24 chunks under `phases/audits/PRYZM2-WIREUP-PLAN-S72/`) and prove three things:
+> **Scope of this audit**: walk every document under `docs/archive/pryzm3-internal/` (14 root docs + 24 phase docs + 41 ADRs + 39 SPECs + 36 standalone audits + the 24 chunks under `phases/audits/PRYZM2-WIREUP-PLAN-S72/`) and prove three things:
 >
 > 1. **Internal consistency** — no two NEW_ARCH docs disagree on a normative claim that hasn't been resolved by a ratified ADR.
 > 2. **Reality alignment** — what each doc says exists on disk actually exists on disk at S72 D0.
@@ -81,7 +81,7 @@ The wireup-plan **monolith** at `../PRYZM2-ENTERPRISE-WIREUP-PLAN-S72.md` is the
 ## §25.2  ADR coverage — 41 files on disk vs the 50+ called out across the corpus
 
 ```
-docs/03_PRYZM3/reference/adrs/
+docs/02-decisions/adrs/
   ADR-001  Pascal adoption (Strategy B)             ✓ on disk
   ADR-002  CRDT ↔ event-log bridge                  ✓ on disk    closes CONFLICT §6.1
   ADR-003  Object storage backend (R2)              ✓ on disk
@@ -136,7 +136,7 @@ docs/03_PRYZM3/reference/adrs/
 ## §25.3  SPEC coverage — 39 SPECs on disk vs the 50 promised by 12-BIM-2-AND-3 + the 48-numbered set
 
 ```
-docs/03_PRYZM3/reference/specs/
+docs/03-execution/specs/
   SPEC-01  Geometry kernel                          ✓
   SPEC-02  Persistence                              ✓
   SPEC-03  Sync CRDT                                ✓
@@ -239,7 +239,7 @@ All 6 are first-class deliverables in `08-VISION §5 D7` (`@pryzm/headless`), `0
 
 ### §25.4.4  Two duplicate copies of the breakdown
 
-`docs/03_PRYZM3/ARCHITECTURE-FILE-STRUCTURE-BREAKDOWN.md` and `docs/03_PRYZM3/11-ARCHITECTURE-FILE-STRUCTURE-BREAKDOWN.md` are byte-identical (`diff -q` returns no output). One must be deleted; the other rewritten to reflect the 44/38/12 reality.
+`docs/archive/pryzm3-internal/ARCHITECTURE-FILE-STRUCTURE-BREAKDOWN.md` and `docs/archive/pryzm3-internal/11-ARCHITECTURE-FILE-STRUCTURE-BREAKDOWN.md` are byte-identical (`diff -q` returns no output). One must be deleted; the other rewritten to reflect the 44/38/12 reality.
 
 ### §25.4.5  Missing file: `13-AEC-WISHLIST.md`
 
@@ -354,31 +354,31 @@ Append to `pnpm ga-gate` (`23-verification-scripts.md`) a new check group `§23.
 
 ```bash
 # §23.x  ADR coverage: every CONFLICT §6 entry has an ADR
-ADR_COUNT=$(ls docs/03_PRYZM3/reference/adrs/ADR-*.md | wc -l)
+ADR_COUNT=$(ls docs/02-decisions/adrs/ADR-*.md | wc -l)
 EXPECTED_ADR_MIN=44     # 40 ratified + ADR-041..044 from chunks 24+25
 [ "$ADR_COUNT" -ge "$EXPECTED_ADR_MIN" ] || { echo "FAIL: only $ADR_COUNT ADRs, expected ≥ $EXPECTED_ADR_MIN"; exit 1; }
 
 # §23.x  No SUPERSEDED doc is referenced as authoritative outside the supersession map
 for f in 05-IMPLEMENTATION-PLAN.md 07-EXECUTION-PLAYBOOK.md; do
-  cnt=$(rg -l --ignore-case "see ${f%.md}" docs/03_PRYZM3/ 2>/dev/null | wc -l)
+  cnt=$(rg -l --ignore-case "see ${f%.md}" docs/archive/pryzm3-internal/ 2>/dev/null | wc -l)
   [ "$cnt" -le 2 ] || { echo "FAIL: $f referenced $cnt times after supersession"; exit 1; }
 done
 
 # §23.x  No duplicate file-structure breakdown
-[ ! -f docs/03_PRYZM3/ARCHITECTURE-FILE-STRUCTURE-BREAKDOWN.md ] \
+[ ! -f docs/archive/pryzm3-internal/ARCHITECTURE-FILE-STRUCTURE-BREAKDOWN.md ] \
   || { echo "FAIL: duplicate breakdown file still present"; exit 1; }
 
 # §23.x  File-structure breakdown matches reality
 PKG_COUNT=$(ls packages/ | wc -l)
 PLG_COUNT=$(ls plugins/ | wc -l)
 APP_COUNT=$(ls apps/ | wc -l)
-DOC_PKG=$(rg -oE '\b[0-9]+ packages\b' docs/03_PRYZM3/11-ARCHITECTURE-FILE-STRUCTURE-BREAKDOWN.md | head -1 | awk '{print $1}')
+DOC_PKG=$(rg -oE '\b[0-9]+ packages\b' docs/archive/pryzm3-internal/11-ARCHITECTURE-FILE-STRUCTURE-BREAKDOWN.md | head -1 | awk '{print $1}')
 [ "$PKG_COUNT" = "$DOC_PKG" ] || { echo "FAIL: doc says $DOC_PKG packages, disk has $PKG_COUNT"; exit 1; }
 
 echo "OK: cross-doc invariants hold"
 ```
 
-This is the GA-gate check that `03_PRYZM3/` documentation has not silently drifted from reality between sprints.
+This is the GA-gate check that `archive/pryzm3-internal/` documentation has not silently drifted from reality between sprints.
 
 ---
 
@@ -425,7 +425,7 @@ The schedule envelope is unchanged — all chunk-25 deliverables land in **S73 D
 
 Chunk 24 proved every Pryzm 1 `src/` *folder* is tackled (31 new sub-phases). **This chunk proves every Pryzm 1 / NEW_ARCHITECTURE *document* is tackled** by:
 
-1. Walking all 17 root entries under `docs/03_PRYZM3/` — finding **6 doc gaps** (2 SUPERSEDED-without-banner, 1 STALE, 1 DRIFTED, 1 DUPLICATE, 1 MISSING) and proposing 7 doc-PRs that close them on S73 D1.
+1. Walking all 17 root entries under `docs/archive/pryzm3-internal/` — finding **6 doc gaps** (2 SUPERSEDED-without-banner, 1 STALE, 1 DRIFTED, 1 DUPLICATE, 1 MISSING) and proposing 7 doc-PRs that close them on S73 D1.
 2. Auditing all 41 ADRs against the 11 open §6 contradictions in CONFLICT-ANALYSIS — finding **1 missing ADR (customer migration)** and proposing **ADR-044**.
 3. Auditing all 39 SPECs vs the 50 named in `12-BIM-2-AND-3` — finding **7 numbering holes** (intentional reservation, no action).
 4. Walking the 15 identity claims in `06-PRYZM-IDENTITY-AND-RECOUNT.md` line by line — confirming **14/15 wired**, **1 customer-migration gap** (closed by ADR-044).
@@ -451,4 +451,4 @@ Chunk 25 cross-doc consistency
 Chunk 23 verification script (pnpm ga-gate)
 ```
 
-Each link is now strict. No surface is orphaned. The 36-month rebuild can wire behind the white UI without leaving anything in `03_PRYZM3/` un-actioned.
+Each link is now strict. No surface is orphaned. The 36-month rebuild can wire behind the white UI without leaving anything in `archive/pryzm3-internal/` un-actioned.

@@ -5,10 +5,10 @@
 **Status:** Pre-implementation (design only — no code)
 **Owner:** Views + Presentation subsystems
 **Companion docs:**
-- `docs/Analysis/INTENT-AS-VIEW-PROPERTIES-ORCHESTRATION-LAYER.md` — architectural blueprint (the *what* and *why*).
-- `docs/Analysis/INTENT-USER-JOURNEYS.md` — task-driven user flows that this UI/UX must support.
+- `docs/03-execution/status/intent-analysis/INTENT-AS-VIEW-PROPERTIES-ORCHESTRATION-LAYER.md` — architectural blueprint (the *what* and *why*).
+- `docs/03-execution/status/intent-analysis/INTENT-USER-JOURNEYS.md` — task-driven user flows that this UI/UX must support.
 - `docs/USER-GUIDE-VISIBILITY-INTENT.md` — end-user mental model.
-- `docs/00_Contracts/25b-VG-INTENT-FULL-CONSOLIDATION-PLAN.md` — system invariants (V/G is retired).
+- `docs/02-decisions/contracts/25b-VG-INTENT-FULL-CONSOLIDATION-PLAN.md` — system invariants (V/G is retired).
 
 This document is the **visual specification** for every panel involved in editing the appearance of a view. Every layout below is annotated; every control is named; every interaction has a defined target. It is the source of truth for the front-end work in stages **P1–P3** (see the implementation plan) and the per-view-type accordion in **S3**.
 
