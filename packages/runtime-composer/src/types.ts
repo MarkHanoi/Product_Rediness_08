@@ -29,6 +29,10 @@
 import type { AnyStores, CommandHandler, RingBufferUndoStack } from '@pryzm/command-bus';
 import type { SyncClient, PryzmAwareness } from '@pryzm/sync-client';
 import type { LayoutOptionsStore, AiApprovalQueueStore, ApartmentParameterPropagator, FamilyRegistryStore } from '@pryzm/stores';
+import type {
+  TypologyRegistry,
+  PipelineRouter,
+} from '@pryzm/typology-pipeline';
 import type { Renderer, MaterialPool, FrameScheduler, CommitterHost, CameraController, PlainPose } from '@pryzm/renderer';
 import type { WorkspaceSurface } from '@pryzm/renderer-three';
 import type { VisibilityElement, VisibilityView, VisibilityFeatureFlags, WaveVisibilityResult } from '@pryzm/visibility';
@@ -3404,6 +3408,30 @@ export interface PryzmRuntime {
    *  `.findByMountClass()` / `.findByTag()` and subscribe to mutations with
    *  `.subscribe(listener)`. Disposed via `tearDown()`. */
   readonly familyRegistryStore: FamilyRegistryStore;
+
+  // ── A.3 (Phase A · Sprint 2) — Typology pipeline slot ───────────────────
+  /** L3 multi-typology generative-AI pipeline. One per runtime per
+   *  [C50 §1.1](../../../docs/02-decisions/contracts/C50-TYPOLOGY-PIPELINE.md).
+   *
+   *  - `registry`: in-memory map of every registered typology pack indexed
+   *    by `TypologyId`. PRYZM-first-party packs (apartment / house /
+   *    small-office in Phase A) self-register at boot via a later A.4
+   *    wiring slice. Community packs (Phase D) register lazily through
+   *    the marketplace install flow.
+   *
+   *  - `router`: dispatch surface — `router.dispatch(input)` runs the
+   *    7-stage pipeline (brief → site → constraints → generative →
+   *    validators → cognition → bim-emit) and returns the result the
+   *    L5 dispatch caller feeds to `commandBus.runBatch()`.
+   *
+   *  Contents are GLOBAL (not project-scoped per C50 §1.13) — they
+   *  persist across project switches. Per-project pack-adapter caches
+   *  (the loaded AI workflow function bytes etc.) live elsewhere and
+   *  attach their own C13 reset handlers. */
+  readonly typology: {
+    readonly registry: TypologyRegistry;
+    readonly router: PipelineRouter;
+  };
 
   /** Idempotent.  Disposes every owned subsystem in reverse order
    *  (renderer → scheduler → bindings → stores → bus → emitter). */

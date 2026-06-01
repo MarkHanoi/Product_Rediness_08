@@ -55,6 +55,17 @@ import {
 // Lives in @pryzm/ai-host (L2) so the L1 stores stay free of any AI-runtime
 // dep; runtime-composer (L3) is the legitimate seam that joins them.
 import { recomputeImpact } from '@pryzm/ai-host';
+// A.3 (Phase A · Sprint 2) — typology pipeline factories. Per C50 §1.1
+// the registry is constructed exactly once per runtime; the router is
+// constructed against that registry. Pack registration happens in A.4 +
+// later slices (each pack self-registers via a `composeRuntime` extension
+// point). For Phase A boot the registry starts empty — the apartment
+// pack registers lazily on first dispatch from the editor's onboarding
+// surface (per typology-expansion §6.5).
+import {
+  createTypologyRegistry,
+  createPipelineRouter,
+} from '@pryzm/typology-pipeline';
 
 import { EventBus } from './EventBus.js';
 import { wireCommandEventBridge } from './CommandEventBridge.js';
@@ -858,6 +869,18 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       familyRegistryStore.register(seed);
     }
 
+    // ── 3d. A.3 (Phase A · Sprint 2) — TypologyPipeline slot ───────────────
+    // Per [C50 §1.1](docs/02-decisions/contracts/C50-TYPOLOGY-PIPELINE.md)
+    // exactly one TypologyRegistry per runtime, allocated here. The router
+    // is constructed against that registry and exposed on
+    // `runtime.typology.router` for dispatch. Registry starts empty; packs
+    // self-register through later slices (apartment lazily at A.4 dispatch
+    // time; house + small-office at A.21 / A.22). The slot is pure (no
+    // I/O); pack-loader adapters live in apps/editor where they have
+    // access to the auth + storage substrates (per C50 §1.9).
+    const typologyRegistry = createTypologyRegistry();
+    const typologyRouter = createPipelineRouter(typologyRegistry);
+
     // ── 4. Persistence + sync + undoStack ─────────────────────────────────
     // D.4.2 Day-8: `workspaceMount` no longer flows through here.  The
     // browser composition root attaches a bridge post-compose via
@@ -1253,6 +1276,11 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       // subscriptions become inert and register/unregister no-op.
       try { familyRegistryStore.dispose(); }
       catch (err) { console.error('[runtime-composer] familyRegistryStore dispose threw:', err); }
+      // A.3 — clear the typology registry. Registry contents are global
+      // per C50 §1.13 but listeners attached via `subscribe()` MUST not
+      // outlive the runtime; `.clear()` drops them all.
+      try { typologyRegistry.clear(); }
+      catch (err) { console.error('[runtime-composer] typologyRegistry.clear threw:', err); }
       try { inner.tearDown(); }
       catch (err) { console.error('[runtime-composer] inner tearDown threw:', err); }
       events.clear();
@@ -1308,6 +1336,11 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       // Consumers query via .findByCategory / .findByOccupancy / ... and
       // subscribe to mutations with .subscribe(listener). tearDown disposes.
       familyRegistryStore,
+      // A.3 — Typology pipeline slot (per C50). The registry starts empty;
+      // packs self-register in later A.4 slices. The router is wired against
+      // the registry above and is the canonical dispatch entry-point —
+      // `runtime.typology.router.dispatch(input)`.
+      typology: { registry: typologyRegistry, router: typologyRouter },
       sceneReady,
       tearDown,
     };

@@ -2569,6 +2569,9 @@ importers:
       '@pryzm/sync-client':
         specifier: workspace:*
         version: link:../sync-client
+      '@pryzm/typology-pipeline':
+        specifier: workspace:*
+        version: link:../typology-pipeline
       '@pryzm/view-state':
         specifier: workspace:*
         version: link:../view-state
