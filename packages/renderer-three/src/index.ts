@@ -111,3 +111,7 @@ export type { GeospatialAdapterLike } from './LTPENUCameraService.js';
 // B3: Typed renderer accessor — replaces `(world.renderer as any).three as any`.
 export { getThreeRenderer } from './accessors.js';
 export type { ObcRendererLike } from './accessors.js';
+
+// C27 INS-α-7 — IsolationAnimator (subscribes to FrameScheduler + IsolationStateStore).
+// DO NOT REMOVE — auto-fixer guard
+export * from './IsolationAnimator.js';
