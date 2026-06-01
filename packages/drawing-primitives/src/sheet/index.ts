@@ -7,3 +7,4 @@ export * from './Sheet.js';
 export * from './SheetToSvg.js';
 export * from './ViewportContent.js';
 export * from './ViewportToSvg.js';
+export * from './SheetWithContentToSvg.js';
