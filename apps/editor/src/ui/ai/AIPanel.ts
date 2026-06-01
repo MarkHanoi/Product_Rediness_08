@@ -49,6 +49,10 @@ import { openValidateLayoutTestModal } from '../dev/validateLayoutTestModal';
 // per C27 §1.2).  Opens a modal that mounts the live ModelTreeComponent +
 // shows the InspectSelection payload on each click.
 import { openModelTreeTestModal } from '../dev/modelTreeTestModal';
+// C24 SHT-α-5 — dev surface for the Sheet Composition Engine. Opens a
+// modal that runs `buildSheetFromRooms` over the project's rooms and
+// renders the result inline via `sheetToSvgWithContent`.
+import { openSheetGeneratorTestModal } from '../dev/sheetGeneratorTestModal';
 
 // ─── Command-Aware Suggestion Tree ───────────────────────────────────────────
 //
@@ -528,6 +532,11 @@ const COMMAND_TREE: SuggestionNode[] = [
                 label: 'Test Master Tree',
                 hint: 'mount live ModelTreeComponent → click node → see selection',
                 action: () => { openModelTreeTestModal(); },
+            },
+            {
+                label: 'Test Sheet Generator',
+                hint: 'build a sheet from the project\'s rooms → render inline SVG',
+                action: () => { openSheetGeneratorTestModal(); },
             },
         ],
     },
