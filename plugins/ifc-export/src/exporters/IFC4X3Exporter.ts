@@ -31,6 +31,12 @@ import { exportDoor } from './door.js';
 import { exportWindow } from './window.js';
 import { exportColumn } from './column.js';
 import { exportBeam } from './beam.js';
+import {
+  exportRoomToSpace,
+  writeStoreyAggregatesSpaces,
+  type RoomToExport,
+  type ExportedSpace,
+} from './space.js';
 import type { ExportedElement } from './wall.js';
 import type {
   ExportOptions,
@@ -117,13 +123,28 @@ function exportWallIFC4X3(args: WallIFC4X3ExportArgs): ExportedElement {
 // ---------------------------------------------------------------------------
 
 /**
+ * IFC-α-2 extension: the IFC4X3 path optionally accepts a `rooms` array on
+ * the snapshot. Each entry becomes an `IfcSpace` under its parent storey
+ * with `Pset_SpaceCommon` attached. The base `ProjectSnapshot` (in
+ * `types.ts`) does not yet carry this field — kept structural here so the
+ * IFC4 path (orchestrator.ts) is untouched until the contract widens.
+ */
+type ProjectSnapshotWithRooms = ProjectSnapshot & {
+  rooms?: ReadonlyArray<RoomToExport>;
+};
+
+/**
  * Export a PRYZM project snapshot to an IFC4X3 STEP file.
  *
  * Mirrors `exportProjectToIFC` from `orchestrator.ts` but serialises with
  * `WebIFC.Schemas.IFC4X3` so the output carries `FILE_SCHEMA(('IFC4X3'))`.
+ *
+ * IFC-α-2 (2026-06-01): if `snapshot.rooms` is present, each room is emitted
+ * as an `IfcSpace` aggregated under the appropriate IfcBuildingStorey, with
+ * `Pset_SpaceCommon` attached.
  */
 export async function exportProjectToIFC4X3(
-  snapshot: ProjectSnapshot,
+  snapshot: ProjectSnapshotWithRooms,
   metaStore: IFCMetaStoreLike,
   projectMeta: ProjectMeta,
   options: ExportOptions = {},
@@ -198,6 +219,58 @@ export async function exportProjectToIFC4X3(
         runPsets(el);
       }
 
+      // IFC-α-2: Rooms → IfcSpace. Spaces are spatial-structure elements
+      // (not products), so they aggregate under storeys via
+      // IfcRelAggregates rather than IfcRelContainedInSpatialStructure.
+      // The Pset_SpaceCommon is emitted INSIDE exportRoomToSpace; we
+      // additionally honour any extra Psets the meta-store carries for the
+      // room (mirrors how walls/slabs etc. round-trip imported Psets).
+      const spaces: ExportedSpace[] = [];
+      let spacePsetCount = 0;
+      let spacePropertyCount = 0;
+      for (const room of snapshot.rooms ?? []) {
+        const sp = exportRoomToSpace({ api, modelId, hierarchy, ownerRefs, room, guid });
+        spaces.push(sp);
+        // Pset_SpaceCommon: 7 properties (Reference, NetFloorArea,
+        // GrossFloorArea, GrossVolume, FinishCeilingHeight, OccupancyType,
+        // IsExternal). Counted explicitly because the exporter writes them
+        // inline rather than going through `writeAllPsets`.
+        spacePsetCount += 1;
+        spacePropertyCount += 7;
+
+        // Honour any side-car Psets the IFCMetaStore carries for the room
+        // (e.g. round-tripped on import). These are ADDITIONAL to
+        // Pset_SpaceCommon and reach the file via the same path
+        // walls/slabs use.
+        const meta = metaStore.get(room.id);
+        if (meta && Object.keys(meta.psets).length > 0) {
+          const r = writeAllPsets({
+            api,
+            modelId,
+            ownerRefs,
+            element: sp.entity,
+            meta,
+            guid,
+          });
+          psetCount += r.psetCount;
+          propertyCount += r.propertyCount;
+        }
+      }
+
+      // Aggregate spaces under their storey (one IfcRelAggregates per storey).
+      const spacesByStorey = new Map<number, { storey: ExportedSpace['storey']; entities: ExportedSpace['entity'][] }>();
+      for (const sp of spaces) {
+        const key = sp.storey.expressID;
+        const bucket = spacesByStorey.get(key);
+        if (bucket) bucket.entities.push(sp.entity);
+        else spacesByStorey.set(key, { storey: sp.storey, entities: [sp.entity] });
+      }
+      for (const { storey, entities } of spacesByStorey.values()) {
+        writeStoreyAggregatesSpaces(api, modelId, ownerRefs, guid, storey, entities);
+      }
+      psetCount += spacePsetCount;
+      propertyCount += spacePropertyCount;
+
       // Group by storey → one IfcRelContainedInSpatialStructure per storey.
       const byStorey = new Map<number, { storey: ExportedElement['storey']; elements: ExportedElement['entity'][] }>();
       for (const el of exported) {
@@ -220,6 +293,9 @@ export async function exportProjectToIFC4X3(
         );
       }
 
+      // IFC-α-2: `spaces` is an additional count (not in the base
+      // `ExportResult.counts` schema) — the field is structural, present
+      // only when the IFC4X3 path runs.
       const counts = {
         walls: snapshot.walls?.length ?? 0,
         slabs: snapshot.slabs?.length ?? 0,
@@ -227,10 +303,12 @@ export async function exportProjectToIFC4X3(
         windows: snapshot.windows?.length ?? 0,
         columns: snapshot.columns?.length ?? 0,
         beams: snapshot.beams?.length ?? 0,
+        spaces: spaces.length,
         psets: psetCount,
         properties: propertyCount,
       };
       span.setAttribute('pryzm.ifc.export4x3.element_count', exported.length);
+      span.setAttribute('pryzm.ifc.export4x3.space_count', spaces.length);
       span.setAttribute('pryzm.ifc.export4x3.pset_count', psetCount);
 
       const bytes = api.SaveModel(modelId);
