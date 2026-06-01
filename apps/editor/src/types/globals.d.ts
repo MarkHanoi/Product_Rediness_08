@@ -209,6 +209,13 @@ declare global {
                     emit(event: string, payload: unknown): void;
                     on(event: string, handler: (payload: unknown) => void): () => void;
                 };
+                /** P0.3 Family Platform — the live FamilyRegistryStore owned by
+                 *  composeRuntime (runtime-composer §types.ts). Surfaced here so
+                 *  dev-tooling (familyPlatformTestModal) can register families
+                 *  end-to-end without `(window as any)`. Optional because the
+                 *  narrow window slot is also written by transitional code paths
+                 *  that may not include the full runtime (defensive null check). */
+                readonly familyRegistryStore?: import('@pryzm/stores').FamilyRegistryStore;
               }
             | undefined;
         unselectAll: (() => void) | undefined;

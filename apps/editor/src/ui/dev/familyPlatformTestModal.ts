@@ -16,6 +16,7 @@
  */
 
 import { runFamilyPipeline, isPipelineSuccess } from '@pryzm/schemas';
+import { registerFamilyFromJson, type FamilyRegistryStore } from '@pryzm/stores';
 
 // ── Sample fixture (mirrors __pryzmSampleFamilyRequest in installPryzmTestFunctions.ts) ─
 
@@ -139,8 +140,76 @@ function ensureStyle(): void {
         .fpmtm-issue-table th { background: #2a2a2a; color: #ccc; font-weight: 600; }
         .fpmtm-issue-table td { color: #ddd; }
         .fpmtm-issue-table td:first-child { color: #b388ff; }
+        .fpmtm-register-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 6px 0; }
+        .fpmtm-btn:disabled { background: #444; color: #888; cursor: not-allowed; }
+        .fpmtm-btn:disabled:hover { background: #444; }
+        .fpmtm-status {
+            font-size: 11px; padding: 6px 8px; border-radius: 4px;
+            margin: 4px 0; border: 1px solid #2a2a2a; background: #0f0f0f;
+        }
+        .fpmtm-status--ok { color: #6fdc8c; background: #102a18; border-color: #1a4029; }
+        .fpmtm-status--warn { color: #ffd180; background: #2a2010; border-color: #4a3a18; }
+        .fpmtm-status--err { color: #ff8a8a; background: #2a1010; border-color: #4a1a1a; }
+        .fpmtm-status--info { color: #b388ff; background: #1a1430; border-color: #2a1f50; }
+        .fpmtm-status code {
+            font-family: ui-monospace, Menlo, Consolas, monospace; color: #d0c0ff;
+        }
+        .fpmtm-registry-box {
+            background: #0a0a0a; border: 1px solid #2a2a2a; border-radius: 4px;
+            padding: 8px; max-height: 220px; overflow: auto; font-size: 11px;
+        }
+        .fpmtm-registry-box table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        .fpmtm-registry-box th, .fpmtm-registry-box td {
+            border: 1px solid #333; padding: 4px 6px; text-align: left;
+            font-family: ui-monospace, Menlo, Consolas, monospace;
+        }
+        .fpmtm-registry-box th { background: #2a2a2a; color: #ccc; font-weight: 600; }
+        .fpmtm-registry-box td { color: #ddd; }
+        .fpmtm-registry-box td:first-child { color: #b388ff; }
+        .fpmtm-registry-box em { color: #888; font-style: italic; }
     `;
     document.head.appendChild(style);
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Defensive HTML-escape for any user-supplied string interpolated into
+ *  template-literal HTML. Family ids / categories / mountClasses / origins
+ *  are Zod-validated upstream, but we escape anyway as a belt-and-braces
+ *  guard against future fixture drift. */
+function escHtml(v: unknown): string {
+    const div = document.createElement('div');
+    div.textContent = String(v ?? '');
+    return div.innerHTML;
+}
+
+/** Read the current FamilyRegistryStore state + render every entry's
+ *  identity.id / category / mountClass / origin as a compact table. */
+function renderRegistryContents(container: HTMLElement, store: FamilyRegistryStore): void {
+    const state = store.get();
+    const entries = Object.values(state.byId);
+    if (entries.length === 0) {
+        container.innerHTML = '<em>(no families registered)</em>';
+        return;
+    }
+    const html =
+        '<table>' +
+        '<thead><tr><th>id</th><th>category</th><th>mount</th><th>origin</th></tr></thead>' +
+        '<tbody>' +
+        entries
+            .map(
+                (f) =>
+                    '<tr>' +
+                    `<td>${escHtml(f.identity.id)}</td>` +
+                    `<td>${escHtml(f.category)}</td>` +
+                    `<td>${escHtml(f.mountClass)}</td>` +
+                    `<td>${escHtml(f.origin)}</td>` +
+                    '</tr>',
+            )
+            .join('') +
+        '</tbody>' +
+        '</table>';
+    container.innerHTML = html;
 }
 
 // ── Public entry ─────────────────────────────────────────────────────────────
@@ -261,6 +330,142 @@ export function openFamilyPlatformTestModal(): void {
                 `<div><strong>category:</strong> <code>${escape((reg as { category?: unknown }).category)}</code></div>` +
                 `<div><strong>tags:</strong> <code>${escape(JSON.stringify((reg as { tags?: unknown }).tags))}</code></div>`;
             resultArea.appendChild(summary);
+
+            // ── Register-into-runtime row ────────────────────────────────────
+            // Closes the pipeline → store loop so the user can verify the
+            // family is actually discoverable via runtime.familyRegistryStore.
+            const registerRow = document.createElement('div');
+            registerRow.className = 'fpmtm-register-row';
+            const registerBtn = document.createElement('button');
+            registerBtn.type = 'button';
+            registerBtn.className = 'fpmtm-btn';
+            registerBtn.textContent = 'Register into runtime';
+
+            const showRegistryBtn = document.createElement('button');
+            showRegistryBtn.type = 'button';
+            showRegistryBtn.className = 'fpmtm-btn fpmtm-btn--secondary';
+            showRegistryBtn.textContent = 'Show registry contents';
+
+            const store = window.runtime?.familyRegistryStore;
+            if (!store) {
+                registerBtn.disabled = true;
+                registerBtn.title = 'runtime.familyRegistryStore is not available (runtime not booted)';
+                showRegistryBtn.disabled = true;
+                showRegistryBtn.title = 'runtime.familyRegistryStore is not available (runtime not booted)';
+            }
+
+            registerRow.appendChild(registerBtn);
+            registerRow.appendChild(showRegistryBtn);
+            resultArea.appendChild(registerRow);
+
+            // Slot for register status messages (filled by handler).
+            const registerStatus = document.createElement('div');
+            resultArea.appendChild(registerStatus);
+
+            // Toggleable inline registry-contents panel.
+            const registryBox = document.createElement('div');
+            registryBox.className = 'fpmtm-registry-box';
+            registryBox.style.display = 'none';
+            resultArea.appendChild(registryBox);
+
+            let registryShown = false;
+            showRegistryBtn.addEventListener('click', () => {
+                if (!store) return;
+                registryShown = !registryShown;
+                if (registryShown) {
+                    renderRegistryContents(registryBox, store);
+                    registryBox.style.display = '';
+                    showRegistryBtn.textContent = 'Hide registry contents';
+                } else {
+                    registryBox.style.display = 'none';
+                    showRegistryBtn.textContent = 'Show registry contents';
+                }
+            });
+
+            /** Single-place register flow used by the primary button AND the
+             *  on-demand "Replace" button surfaced on a duplicate failure. */
+            const performRegister = (overwriteExisting: boolean): void => {
+                if (!store) return;
+                registerBtn.disabled = true;
+                registerStatus.className = 'fpmtm-status fpmtm-status--info';
+                registerStatus.textContent = 'Registering…';
+
+                // Re-parse from the textarea: the user may have edited the
+                // JSON after running the pipeline. registerFamilyFromJson
+                // re-runs the pipeline internally, so an edited (potentially
+                // invalid) payload surfaces an ingestion-failed result here
+                // rather than registering stale `result.registered`.
+                let raw: unknown;
+                try {
+                    raw = JSON.parse(textarea.value);
+                } catch (err) {
+                    registerStatus.className = 'fpmtm-status fpmtm-status--err';
+                    registerStatus.textContent =
+                        `JSON parse error: ${String((err as Error).message ?? err)}`;
+                    registerBtn.disabled = false;
+                    return;
+                }
+
+                const outcome = registerFamilyFromJson(raw, store, { overwriteExisting });
+
+                if (outcome.ok) {
+                    const id = outcome.registered.identity.id;
+                    const sizeAfter = Object.keys(store.get().byId).length;
+                    registerStatus.className = 'fpmtm-status fpmtm-status--ok';
+                    if (outcome.replacedExisting) {
+                        registerStatus.innerHTML =
+                            `✓ Replaced existing family <code>${escHtml(id)}</code>. ` +
+                            `Store size: ${sizeAfter} families.`;
+                    } else {
+                        registerStatus.innerHTML =
+                            `✓ Registered into runtime — family <code>${escHtml(id)}</code> ` +
+                            `now discoverable. Store size: ${sizeAfter} families.`;
+                    }
+                    // Refresh the registry box if currently shown.
+                    if (registryShown) renderRegistryContents(registryBox, store);
+                    registerBtn.disabled = false;
+                    return;
+                }
+
+                // Failure branch — three discriminated kinds.
+                if (outcome.kind === 'duplicate') {
+                    const id = (result.registered as { identity: { id: string } }).identity.id;
+                    registerStatus.className = 'fpmtm-status fpmtm-status--warn';
+                    registerStatus.innerHTML =
+                        `⚠ A family with id <code>${escHtml(id)}</code> is already ` +
+                        `registered. Click <strong>Replace</strong> to overwrite.`;
+                    // Surface a one-shot Replace button.
+                    const replaceBtn = document.createElement('button');
+                    replaceBtn.type = 'button';
+                    replaceBtn.className = 'fpmtm-btn';
+                    replaceBtn.textContent = 'Replace';
+                    replaceBtn.style.marginLeft = '8px';
+                    replaceBtn.addEventListener('click', () => {
+                        replaceBtn.remove();
+                        performRegister(true);
+                    });
+                    registerStatus.appendChild(replaceBtn);
+                    registerBtn.disabled = false;
+                    return;
+                }
+
+                if (outcome.kind === 'ingestion-failed') {
+                    registerStatus.className = 'fpmtm-status fpmtm-status--err';
+                    const count = outcome.issues?.length ?? 0;
+                    registerStatus.textContent =
+                        `✗ Validation failed after running the pipeline ` +
+                        `(unexpected — pipeline already ran). Issues: ${count}.`;
+                    registerBtn.disabled = false;
+                    return;
+                }
+
+                // outcome.kind === 'pipeline-threw'
+                registerStatus.className = 'fpmtm-status fpmtm-status--err';
+                registerStatus.textContent = `✗ Pipeline threw: ${outcome.message}`;
+                registerBtn.disabled = false;
+            };
+
+            registerBtn.addEventListener('click', () => performRegister(false));
 
             const pre = document.createElement('pre');
             pre.className = 'fpmtm-pre';
