@@ -1,4 +1,9 @@
+// @vitest-environment happy-dom
+//
 // @pryzm/ai-host — lazy-bootstrap contract test (S47 D1).
+//
+// happy-dom required because the transitive import chain pulls in
+// `@thatopen/ui`, which reads `HTMLElement` at module load.
 //
 // This is the K3-A verification at the unit-test level: prove that
 // `import { getAiHost } from '@pryzm/ai-host'` does NOT pull

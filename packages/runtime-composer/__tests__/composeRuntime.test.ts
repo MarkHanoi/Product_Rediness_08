@@ -1,4 +1,10 @@
+// @vitest-environment happy-dom
+//
 // W8-D6 — Composition root unit tests.
+//
+// happy-dom required because the transitive import chain pulls in
+// `@thatopen/ui` (via geometry-slab/SlabTool.ts), which reads
+// `HTMLElement` at module load.
 //
 // Spec: `docs/archive/pryzm3-internal/00-PROCESS-TRACKER.md §8` task W8-D6.
 // Wave 13 target: ≥ 5 tests.  This file delivers the first 5 covering
@@ -111,6 +117,36 @@ const AUDIT: RuntimeAudit = {
 
 // ── §3 Tests ──────────────────────────────────────────────────────────────
 
+// `composeRuntime()` now requires an explicit `bootstrapFn` injection;
+// supply a stub that mirrors the bootstrapWithEverything mock above so
+// the heavy import graph stays out of the test. Matches the pattern in
+// the sibling `composeRuntime.familyRegistry.test.ts` / `apartmentPropagator.test.ts`.
+async function stubBootstrapFn(_opts: { audit: RuntimeAudit }): Promise<{
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  bus: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  host: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  viewRegistry: any;
+  tearDown(): void;
+}> {
+  const { ViewRegistry } = await import('@pryzm/view-state');
+  return {
+    bus: {
+      executeCommand: vi.fn(() => undefined),
+      register: vi.fn(() => undefined),
+      registry: new Map<string, unknown>(),
+      patches: { subscribe: vi.fn(() => () => undefined) },
+      setRingBuffer: vi.fn(),
+      get ringBuffer() { return null; },
+      fetchStores: vi.fn(() => ({})),
+    },
+    host: { register: vi.fn(), commit: vi.fn() },
+    viewRegistry: new ViewRegistry(),
+    tearDown: vi.fn(),
+  };
+}
+
 describe('composeRuntime() — composition root (W8-D6)', () => {
   // Re-create a fresh runtime for each test so tearDown() calls in one
   // test do not affect subsequent tests.
@@ -118,7 +154,10 @@ describe('composeRuntime() — composition root (W8-D6)', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    runtime = await composeRuntime({ audit: AUDIT });
+    runtime = await composeRuntime({
+      audit: AUDIT,
+      bootstrapFn: stubBootstrapFn,
+    });
   });
 
   // ── Test 1 ──────────────────────────────────────────────────────────────

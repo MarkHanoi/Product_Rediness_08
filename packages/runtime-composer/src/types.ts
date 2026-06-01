@@ -143,10 +143,47 @@ export interface RuntimeEvents {
     previewWallCount?: number;
     droppedWallCount?: number;
     warnings?: readonly string[];
+    /** The level id the executor was active on — needed by the
+     *  furnish/ceiling/lighting follow-up triggers to scope their work. */
+    levelId?: string;
+    /** Optional sub-zone metadata for downstream consumers (the inspect
+     *  panel uses this to badge rooms by zone). */
+    subZones?: unknown;
   };
 
   /** Fired by the §11 modal on cancel — the AIStore pending run is cleared. */
   'apartment.layout-cancel': Record<string, never>;
+
+  /** §REJECT-SURFACE (2026-05-31) — fired by the engine when it declines
+   *  to generate a layout (envelope too big/small, deterministic engine
+   *  declined, AI relay failed without procedural fallback). The
+   *  ApartmentLayoutController subscribes and toasts the reason. */
+  'apartment.layout-rejected': {
+    runId?: string;
+    reason: string;
+    attempts?: number;
+  };
+
+  /** §POLL-TELEMETRY — fired by the executor after the post-batch
+   *  wall-poll loop finishes. Lets tests + telemetry observe how long
+   *  the wall settle took. */
+  'apartment.wall-poll-completed': {
+    levelId: string;
+    elapsedMs: number;
+    iterations: number;
+    wallsReady: number;
+    wallsNeeded: number;
+    forced: boolean;
+  };
+
+  /** §POLL-TELEMETRY — fired after the room-name pass finishes (rooms
+   *  detected + renamed + occupancies set). */
+  'apartment.room-name-completed': {
+    levelId: string;
+    source: string;
+    elapsedMs: number;
+    detectedRooms: number;
+  };
 
   // ── #52 D-FLE Furniture Layout Engine — events ────────────────────────────
   /** Fired by the trigger (console command / apartment.layout-executed auto-
@@ -155,11 +192,14 @@ export interface RuntimeEvents {
    *  from `window.projectContext.activeLevelId`. */
   'furnish.layout-execute': Record<string, never>;
   /** Fired by FurnishLayoutExecutor after the runBatch settles. `placedCount`
-   *  is the total number of furniture.create commands dispatched. */
+   *  is the total number of furniture.create commands dispatched.
+   *  `validationWarnings` carries circulation / overlap warnings collected
+   *  pre-dispatch (per WS-1.A); empty array when the layout is clean. */
   'furnish.layout-executed': {
     placedCount: number;
     roomCount: number;
     levelId: string;
+    validationWarnings?: readonly string[];
   };
 
   // ── #53 D-LE Lighting Layout Engine — events ──────────────────────────────

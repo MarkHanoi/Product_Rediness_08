@@ -61,7 +61,12 @@ export class CurtainRodBuilder implements IFurnitureBuilder {
 }
 
 export class CurtainPanelBuilder implements IFurnitureBuilder {
-    constructor(private materialService: MaterialService) {}
+    // Accept the MaterialService for constructor parity with the other
+    // builders (FurnitureFactory passes one in) — currently unused
+    // because fabric uses a plain MeshStandardMaterial below. Underscore
+    // prefix suppresses TS6138 unused-var; the parameter slot still
+    // exists for call-site parity.
+    constructor(_materialService: MaterialService) {}
     build(data: FurnitureData): THREE.Group {
         const group = new THREE.Group();
         const W = data.width;

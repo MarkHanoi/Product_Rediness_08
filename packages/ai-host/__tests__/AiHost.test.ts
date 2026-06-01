@@ -1,4 +1,9 @@
+// @vitest-environment happy-dom
+//
 // @pryzm/ai-host — host behaviour tests (S47).
+//
+// happy-dom required because the transitive import chain pulls in
+// `@thatopen/ui`, which reads `HTMLElement` at module load.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getAiHost } from '../src/index.js';
