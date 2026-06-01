@@ -101,6 +101,23 @@ export * from './family-schemas/index.js';
 // `runFamilyPipeline` etc.
 export * from './family-pipeline/index.js';
 
+// C27 INS-α-2 (BIM 3.0 Inspect Model) — L0 InspectSelection + Isolation
+// substrate.  The L3 `InspectSelectionStore` (in `@pryzm/stores`) wraps the
+// selection schema; the isolation enums + per-element override schema feed
+// the future visibility-engine wiring slice.  Exports:
+// `InspectNodeKindSchema`, `InspectNodeKind`, `InspectSelectionSchema`,
+// `InspectSelection`, `IsolationTierSchema`, `IsolationTier`,
+// `IsolationOverrideSchema`, `IsolationOverride`,
+// `SpatialRelationshipSchema`, `SpatialRelationship` — none of which
+// collide with the existing element / family-* / annotation / view /
+// apartment exports.
+//
+// NOTE: like the seven sibling family-* barrels above, this re-export has
+// been observed to be stripped by a linter/auto-fixer during sibling slice
+// authoring.  If it disappears, re-add it here — `inspect/index.js` is real
+// and required for `inspect.test.ts` to resolve `InspectSelectionSchema` etc.
+export * from './inspect/index.js';
+
 // S31 / Phase 2B Supplement §A1 — auto-dimension schemas (DimensionString,
 // EvaluatedDimension, anchor/orientation enums) and §B1 — ViewTemplate
 // schemas (StrokeStyle, CategoryVG, ViewFilter, FilterCondition, ViewRange).

@@ -36,6 +36,11 @@ export {
     type RegisterFamilyFromJsonSuccess,
     type RegisterFamilyFromJsonFailure,
 } from './registerFamilyFromJson.js';
+// C27 INS-α-2 (BIM 3.0 Inspect Model) — L3 reactive store wrapping the
+// L0 `InspectSelection` substrate from `@pryzm/schemas`.  Drives the
+// future Inspect tab master-tree selection; this slice ships the store
+// only (no UI, no visibility-isolation wiring yet).
+export { InspectSelectionStore } from './InspectSelectionStore.js';
 export { CubeStore, type CubeDto } from './CubeStore.js';
 export { SelectionStore, type SelectionDto, type SelectionKind, type SelectionMode, type SelectionTarget } from './SelectionStore.js';
 export {
