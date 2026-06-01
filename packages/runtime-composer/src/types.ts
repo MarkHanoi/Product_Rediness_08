@@ -28,7 +28,7 @@
 
 import type { AnyStores, CommandHandler, RingBufferUndoStack } from '@pryzm/command-bus';
 import type { SyncClient, PryzmAwareness } from '@pryzm/sync-client';
-import type { LayoutOptionsStore, AiApprovalQueueStore, ApartmentParameterPropagator, FamilyRegistryStore } from '@pryzm/stores';
+import type { LayoutOptionsStore, AiApprovalQueueStore, ApartmentParameterPropagator, FamilyRegistryStore, SiteModelStore } from '@pryzm/stores';
 import type {
   TypologyRegistry,
   PipelineRouter,
@@ -3408,6 +3408,16 @@ export interface PryzmRuntime {
    *  `.findByMountClass()` / `.findByTag()` and subscribe to mutations with
    *  `.subscribe(listener)`. Disposed via `tearDown()`. */
   readonly familyRegistryStore: FamilyRegistryStore;
+
+  // ── A.7.b (Phase A · Sprint 2) — SiteModelStore (C19 substrate) ─────────
+  /** L3 reactive wrapper around the L0 `SiteModel` substrate from
+   *  `@pryzm/schemas/site`. One per runtime per [C19 §1.1] ("one Site
+   *  per Project"). Starts holding `null`; the `site.*` command surface
+   *  (A.7.c) calls `siteModelStore.set()` after running cross-schema
+   *  validation. Per [C19 §1.13] joins the C13 project-switch reset
+   *  list — `siteModelStore.reset()` is the canonical hook.
+   *  Disposed via `tearDown()`. */
+  readonly siteModelStore: SiteModelStore;
 
   // ── A.3 (Phase A · Sprint 2) — Typology pipeline slot ───────────────────
   /** L3 multi-typology generative-AI pipeline. One per runtime per

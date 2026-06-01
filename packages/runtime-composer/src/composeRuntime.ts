@@ -50,6 +50,7 @@ import {
   roomParametersStore,
   FamilyRegistryStore,
   buildCoreFamilySeeds,
+  SiteModelStore,
 } from '@pryzm/stores';
 // D-α-3 P3 — pure parameter-impact resolver injected into the propagator.
 // Lives in @pryzm/ai-host (L2) so the L1 stores stay free of any AI-runtime
@@ -885,6 +886,13 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
     // time; house + small-office at A.21 / A.22). The slot is pure (no
     // I/O); pack-loader adapters live in apps/editor where they have
     // access to the auth + storage substrates (per C50 §1.9).
+    // ── 3e. A.7.b (Phase A · Sprint 2) — SiteModelStore ───────────────────
+    // L3 reactive wrapper around the L0 SiteModel substrate shipped in A.7.a.
+    // Per [C19 §1.1] one Site per Project — the store holds `null` until
+    // the `site.*` command surface (A.7.c) creates a SiteModel; per
+    // [C19 §1.13] the store joins the C13 project-switch reset list.
+    const siteModelStore = new SiteModelStore();
+
     const typologyRegistry = createTypologyRegistry();
     const typologyRouter = createPipelineRouter(typologyRegistry);
     // A.4.a — register the apartment pack (BRIDGE handlers; full code
@@ -1301,6 +1309,11 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       // outlive the runtime; `.clear()` drops them all.
       try { typologyRegistry.clear(); }
       catch (err) { console.error('[runtime-composer] typologyRegistry.clear threw:', err); }
+      // A.7.b — dispose SiteModelStore (clears listeners + drops the
+      // current SiteModel reference). Per [C19 §1.13] the L3 store joins
+      // the C13 reset list; `.dispose()` is the final-shutdown surface.
+      try { siteModelStore.dispose(); }
+      catch (err) { console.error('[runtime-composer] siteModelStore.dispose threw:', err); }
       try { inner.tearDown(); }
       catch (err) { console.error('[runtime-composer] inner tearDown threw:', err); }
       events.clear();
@@ -1361,6 +1374,10 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       // the registry above and is the canonical dispatch entry-point —
       // `runtime.typology.router.dispatch(input)`.
       typology: { registry: typologyRegistry, router: typologyRouter },
+      // A.7.b — SiteModelStore (per C19). One per runtime; reset on
+      // project switch (C13). The site.* command surface (A.7.c) calls
+      // `siteModelStore.set()` after running cross-schema validation.
+      siteModelStore,
       sceneReady,
       tearDown,
     };

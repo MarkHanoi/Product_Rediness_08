@@ -26,6 +26,12 @@ export {
 // `origin: 'core'` entries that composeRuntime registers at boot.
 export { FamilyRegistryStore } from './familyRegistryStore.js';
 export { buildCoreFamilySeeds } from './seedCoreFamilies.js';
+// A.7.b (Phase A · Sprint 2) — L3 SiteModelStore.
+// Wraps the L0 `SiteModel` substrate shipped in A.7.a
+// (`@pryzm/schemas/site`). One per runtime; reset on project switch
+// per [C19 §1.13]. The `site.*` command surface in A.7.c will call
+// `set()` after running cross-schema validation.
+export { SiteModelStore } from './SiteModelStore.js';
 // P0.5 Stage-5 wiring (Family Platform) — L0-pure-pipeline → L3-reactive-store
 // bridge.  Takes raw JSON, runs the 5-stage pure pipeline, and inserts the
 // resulting RegisteredFamily into the store.
