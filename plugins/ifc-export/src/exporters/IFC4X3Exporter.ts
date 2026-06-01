@@ -37,6 +37,10 @@ import {
   type RoomToExport,
   type ExportedSpace,
 } from './space.js';
+import {
+  writeAllApartmentZones,
+  type ApartmentToExport,
+} from './zone.js';
 import type { ExportedElement } from './wall.js';
 import type {
   ExportOptions,
@@ -134,6 +138,16 @@ type ProjectSnapshotWithRooms = ProjectSnapshot & {
 };
 
 /**
+ * IFC-α-3 extension: the IFC4X3 path additionally accepts an `apartments`
+ * array. Each entry becomes an `IfcZone` (ObjectType="Apartment") whose
+ * member `IfcSpace`s are linked via `IfcRelAssignsToGroup`. Structural so
+ * the IFC4 path and base `ProjectSnapshot` stay untouched.
+ */
+type ProjectSnapshotWithApartments = ProjectSnapshotWithRooms & {
+  apartments?: ReadonlyArray<ApartmentToExport>;
+};
+
+/**
  * Export a PRYZM project snapshot to an IFC4X3 STEP file.
  *
  * Mirrors `exportProjectToIFC` from `orchestrator.ts` but serialises with
@@ -144,7 +158,7 @@ type ProjectSnapshotWithRooms = ProjectSnapshot & {
  * `Pset_SpaceCommon` attached.
  */
 export async function exportProjectToIFC4X3(
-  snapshot: ProjectSnapshotWithRooms,
+  snapshot: ProjectSnapshotWithApartments,
   metaStore: IFCMetaStoreLike,
   projectMeta: ProjectMeta,
   options: ExportOptions = {},
@@ -271,6 +285,19 @@ export async function exportProjectToIFC4X3(
       psetCount += spacePsetCount;
       propertyCount += spacePropertyCount;
 
+      // IFC-α-3: Apartments → IfcZone (+ IfcRelAssignsToGroup). Zones are a
+      // cross-cutting non-spatial grouping (NOT part of the project ⊃ site ⊃
+      // building ⊃ storey aggregation), so they assign their member spaces
+      // via IfcRelAssignsToGroup. Defensive: when `apartments` is absent or
+      // empty, this is a no-op and writes zero entities.
+      const spaceRefMap = new Map<string, ExportedSpace['entity']>();
+      for (const sp of spaces) spaceRefMap.set(sp.pryzmId, sp.entity);
+      const zoneResult = writeAllApartmentZones(
+        snapshot.apartments ?? [],
+        spaceRefMap,
+        { api, modelId, ownerRefs, guid },
+      );
+
       // Group by storey → one IfcRelContainedInSpatialStructure per storey.
       const byStorey = new Map<number, { storey: ExportedElement['storey']; elements: ExportedElement['entity'][] }>();
       for (const el of exported) {
@@ -293,9 +320,9 @@ export async function exportProjectToIFC4X3(
         );
       }
 
-      // IFC-α-2: `spaces` is an additional count (not in the base
-      // `ExportResult.counts` schema) — the field is structural, present
-      // only when the IFC4X3 path runs.
+      // IFC-α-2/α-3: `spaces` + `zones` are additional counts (not in the
+      // base `ExportResult.counts` schema) — the fields are structural,
+      // present only when the IFC4X3 path runs.
       const counts = {
         walls: snapshot.walls?.length ?? 0,
         slabs: snapshot.slabs?.length ?? 0,
@@ -304,11 +331,13 @@ export async function exportProjectToIFC4X3(
         columns: snapshot.columns?.length ?? 0,
         beams: snapshot.beams?.length ?? 0,
         spaces: spaces.length,
+        zones: zoneResult.zoneCount,
         psets: psetCount,
         properties: propertyCount,
       };
       span.setAttribute('pryzm.ifc.export4x3.element_count', exported.length);
       span.setAttribute('pryzm.ifc.export4x3.space_count', spaces.length);
+      span.setAttribute('pryzm.ifc.export4x3.zone_count', zoneResult.zoneCount);
       span.setAttribute('pryzm.ifc.export4x3.pset_count', psetCount);
 
       const bytes = api.SaveModel(modelId);
