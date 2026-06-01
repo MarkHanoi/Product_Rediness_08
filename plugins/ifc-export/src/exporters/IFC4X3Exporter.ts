@@ -42,6 +42,13 @@ import {
   type ApartmentToExport,
 } from './zone.js';
 import {
+  applyCoordinateMode,
+  assertRevitVariant,
+  writePsetRevitInstance,
+  writeRevitWorksetGroups,
+  type RevitVariantInput,
+} from './revit-variant.js';
+import {
   writePsetWallCommon,
   type WallToExport as WallPsetInput,
 } from './pset-wall-common.js';
@@ -172,12 +179,19 @@ type ProjectSnapshotWithApartments = ProjectSnapshotWithRooms & {
  * IFC-α-2 (2026-06-01): if `snapshot.rooms` is present, each room is emitted
  * as an `IfcSpace` aggregated under the appropriate IfcBuildingStorey, with
  * `Pset_SpaceCommon` attached.
+ *
+ * RVT-α-2 (2026-06-01): if `revitVariant` is provided, the exporter ADDS
+ * Revit-specific Psets + `IfcGroup`s on top of the standard IFC4X3 output
+ * so Revit's IFC importer can round-trip the file as `IFC4X3-RV`. The base
+ * IFC4X3 emission is unchanged — the exporter behaves IDENTICALLY to today
+ * when `revitVariant` is omitted. See `revit-variant.ts` for the shim.
  */
 export async function exportProjectToIFC4X3(
   snapshot: ProjectSnapshotWithApartments,
   metaStore: IFCMetaStoreLike,
   projectMeta: ProjectMeta,
   options: ExportOptions = {},
+  revitVariant?: RevitVariantInput,
 ): Promise<ExportResult> {
   return withSpan('pryzm.ifc.export4x3', async (span) => {
     const api = new WebIFC.IfcAPI();
@@ -412,6 +426,62 @@ export async function exportProjectToIFC4X3(
         { api, modelId, ownerRefs, guid },
       );
 
+      // RVT-α-2: Revit IFC4X3-RV variant emission. Opt-in only — when
+      // `revitVariant` is absent the exporter behaves IDENTICALLY to the
+      // base IFC4X3 path. When present, we add:
+      //
+      //   • One `Pset_RevitInstance` per element id supplied by the caller
+      //     (the caller knows which elements should round-trip into Revit
+      //     Instance parameters — typically every IfcWall / IfcDoor /
+      //     IfcWindow / IfcSlab / IfcColumn / IfcBeam).
+      //   • One `Pset_SiteRevitVariant` on the IfcSite recording the
+      //     coordinate-mode label (project-base-point / survey-point /
+      //     internal-origin). Real coordinate-mode transforms are α-3.
+      //   • One `IfcGroup` per workset (ObjectType = 'Revit Workset').
+      //     Member resolution (Workset id → element IFC line refs) is α-3;
+      //     today we pass an empty map so groups carry metadata only.
+      //
+      // The `assertRevitVariant` gate guarantees the exporter never silently
+      // downgrades a misconfigured call into a vanilla IFC4X3 file.
+      let revitInstancePsetCount = 0;
+      let revitWorksetCount = 0;
+      let revitWorksetRelCount = 0;
+      let revitCoordModePsetCount = 0;
+      if (revitVariant) {
+        assertRevitVariant(revitVariant.options);
+        const revitCtx = { api, modelId, ownerRefs, guid };
+
+        for (const { entityRef } of revitVariant.elementIds) {
+          writePsetRevitInstance(
+            entityRef,
+            { instanceMarker: 'PRYZM-EXPORT' },
+            revitCtx,
+          );
+          revitInstancePsetCount += 1;
+        }
+
+        const coordMode =
+          revitVariant.options.coordinateMode ?? 'project-base-point';
+        applyCoordinateMode(hierarchy.site.expressID, coordMode, revitCtx);
+        revitCoordModePsetCount = 1;
+
+        if (revitVariant.options.worksets) {
+          const memberMap = new Map<string, ReadonlyArray<number>>();
+          const wsResult = writeRevitWorksetGroups(
+            revitVariant.options.worksets,
+            memberMap,
+            revitCtx,
+          );
+          revitWorksetCount = wsResult.groupCount;
+          revitWorksetRelCount = wsResult.relCount;
+        }
+
+        psetCount +=
+          revitInstancePsetCount + revitCoordModePsetCount;
+        propertyCount +=
+          revitInstancePsetCount + revitCoordModePsetCount;
+      }
+
       // Group by storey → one IfcRelContainedInSpatialStructure per storey.
       const byStorey = new Map<number, { storey: ExportedElement['storey']; elements: ExportedElement['entity'][] }>();
       for (const el of exported) {
@@ -452,6 +522,16 @@ export async function exportProjectToIFC4X3(
         windowPsets: windowPsetCount,
         psets: psetCount,
         properties: propertyCount,
+        // RVT-α-2 — present only when `revitVariant` was supplied.
+        // `revitTypePsets` is reserved for α-3 (per-IfcType Pset_RevitType
+        // emission, gated on the family-mapping registry). Today it is
+        // always 0 — the shim does not yet emit a Pset_RevitType because
+        // the IFC4X3 exporter does not yet produce IfcType lines.
+        revitTypePsets: 0,
+        revitInstancePsets: revitInstancePsetCount,
+        revitWorksets: revitWorksetCount,
+        revitWorksetRels: revitWorksetRelCount,
+        revitCoordModePset: revitCoordModePsetCount,
       };
       span.setAttribute('pryzm.ifc.export4x3.element_count', exported.length);
       span.setAttribute('pryzm.ifc.export4x3.space_count', spaces.length);
@@ -461,6 +541,13 @@ export async function exportProjectToIFC4X3(
       span.setAttribute('pryzm.ifc.export4x3.door_pset_count', doorPsetCount);
       span.setAttribute('pryzm.ifc.export4x3.window_pset_count', windowPsetCount);
       span.setAttribute('pryzm.ifc.export4x3.pset_count', psetCount);
+      // RVT-α-2 — a single boolean attribute flips when the file is a
+      // Revit-variant export. Per-count attributes are deferred to α-3
+      // when worksets + types are fully wired.
+      span.setAttribute(
+        'pryzm.ifc.export4x3.revit_variant',
+        revitVariant !== undefined,
+      );
 
       const bytes = api.SaveModel(modelId);
       return { bytes, counts };

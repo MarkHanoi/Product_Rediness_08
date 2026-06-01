@@ -22,7 +22,8 @@
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",
     "web-ifc": "^0.0.77",
-    "@pryzm/plugin-sdk": "workspace:*"
+    "@pryzm/plugin-sdk": "workspace:*",
+    "@pryzm/schemas": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.3",
