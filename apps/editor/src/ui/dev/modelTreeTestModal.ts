@@ -28,6 +28,13 @@
  */
 
 import { ModelTreeComponent, type ModelTreeRuntime } from '../inspect';
+import { ElementMeshRegistryAdapter, type SceneLike } from '../inspect/ElementMeshRegistryAdapter';
+import { buildModelElementLocations } from '../inspect/buildModelElementLocations';
+import { createIsolationStateStore, type IsolationStateStore } from '@pryzm/stores';
+import {
+    IsolationAnimator,
+    type FrameSchedulerLike,
+} from '@pryzm/renderer-three';
 import type { InspectSelection } from '@pryzm/schemas';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -52,6 +59,145 @@ function formatSelection(selection: InspectSelection): string {
     } catch (err) {
         return `// failed to stringify selection: ${String((err as Error).message ?? err)}`;
     }
+}
+
+// ── Isolation wiring helpers (C27 INS-α-8) ────────────────────────────────────
+
+/**
+ * Probe a runtime for the THREE-like scene root.  Tries several common
+ * paths; returns `null` when none is found so the caller can fall back
+ * to an empty scene-like (which makes the IsolationAnimator a silent
+ * no-op).  Pure read, no mutation, all probes try/catch'd.
+ */
+function probeSceneFromRuntime(runtime: ModelTreeRuntime | null | undefined): SceneLike | null {
+    if (runtime === null || runtime === undefined) return null;
+    const rec = runtime as unknown as Record<string, unknown>;
+    const candidates: Array<unknown> = [
+        rec['scene'],
+        readPath(rec, ['renderer', 'scene']),
+        readPath(rec, ['threeRoot']),
+        readPath(rec, ['world', 'scene', 'three']),
+    ];
+    // Also probe `window.runtime.scene` style — for the dev console path.
+    try {
+        const w = (typeof window !== 'undefined' ? window : null) as unknown;
+        if (w !== null) {
+            const wrec = w as Record<string, unknown>;
+            const wruntime = wrec['runtime'] as Record<string, unknown> | undefined;
+            if (wruntime !== undefined) {
+                candidates.push(wruntime['scene']);
+                candidates.push(readPath(wruntime, ['renderer', 'scene']));
+            }
+            candidates.push(wrec['pryzmRenderer'] as unknown);
+        }
+    } catch {
+        // Defensive — any window access error degrades silently.
+    }
+    for (const c of candidates) {
+        if (looksLikeScene(c)) return c as SceneLike;
+    }
+    return null;
+}
+
+/** Read a dotted path off a runtime-like object, defensively (any throw → undefined). */
+function readPath(host: Record<string, unknown>, path: ReadonlyArray<string>): unknown {
+    try {
+        let cur: unknown = host;
+        for (const key of path) {
+            if (cur === null || cur === undefined || typeof cur !== 'object') return undefined;
+            cur = (cur as Record<string, unknown>)[key];
+        }
+        return cur;
+    } catch {
+        return undefined;
+    }
+}
+
+/** Duck-type: a scene-like has either a `traverse(fn)` method or a `children[]` array. */
+function looksLikeScene(obj: unknown): boolean {
+    if (obj === null || obj === undefined || typeof obj !== 'object') return false;
+    const rec = obj as Record<string, unknown>;
+    if (typeof rec['traverse'] === 'function') return true;
+    if (Array.isArray(rec['children'])) return true;
+    return false;
+}
+
+/**
+ * Probe a runtime for a FrameScheduler-shaped value at `runtime.frameScheduler`
+ * (the canonical slot).  Returns `null` when the runtime does not expose
+ * one; the caller falls back to a setTimeout-based interval scheduler.
+ */
+function probeFrameScheduler(runtime: ModelTreeRuntime | null | undefined): FrameSchedulerLike | null {
+    if (runtime === null || runtime === undefined) return null;
+    const rec = runtime as unknown as Record<string, unknown>;
+    const fs = rec['frameScheduler'];
+    if (fs !== null && fs !== undefined && typeof (fs as { onFrame?: unknown }).onFrame === 'function') {
+        return fs as FrameSchedulerLike;
+    }
+    return null;
+}
+
+/**
+ * setTimeout-based fallback scheduler — fires `cb(16.67)` every ~16.67 ms.
+ * Acceptable for the dev modal test surface; production wiring lands in α-9
+ * when this adapter is promoted into composeRuntime.
+ *
+ * NOT a real frame scheduler — does NOT honour the C04 §2.3 priority
+ * ordering.  The 'render' priority assert in IsolationAnimator.start() is
+ * satisfied because we accept any priority string and ignore it.
+ */
+function makeFallbackScheduler(): FrameSchedulerLike {
+    return {
+        onFrame(_priority, cb): () => void {
+            const interval = setInterval(() => {
+                try { cb(16.67); }
+                catch (err) { console.error('[modelTreeTestModal] fallback tick threw:', err); }
+            }, 16) as unknown as number;
+            return () => { clearInterval(interval as unknown as ReturnType<typeof setInterval>); };
+        },
+    };
+}
+
+/** Result of `setupIsolationPipeline` — captured by the modal for teardown. */
+interface IsolationPipeline {
+    readonly store: IsolationStateStore;
+    readonly animator: IsolationAnimator | null;
+    /** Dispose hook for the fallback scheduler interval (when one was created). */
+    readonly disposeScheduler: (() => void) | null;
+}
+
+/**
+ * Try to assemble the isolation pipeline (store + animator + scene
+ * registry + frame scheduler) for the modal session.  Wrapped in
+ * try/catch — any failure surfaces as a console warning and the modal
+ * continues as a pure tree-display surface (the store is always
+ * created so onSelectNode can still call applyIsolation harmlessly; the
+ * animator simply isn't there to drive any meshes).
+ */
+function setupIsolationPipeline(runtime: ModelTreeRuntime): IsolationPipeline {
+    const store = createIsolationStateStore();
+    let animator: IsolationAnimator | null = null;
+    let disposeScheduler: (() => void) | null = null;
+    try {
+        const scene: SceneLike = probeSceneFromRuntime(runtime) ?? { children: [] };
+        const registry = new ElementMeshRegistryAdapter(scene);
+        const probed = probeFrameScheduler(runtime);
+        const scheduler: FrameSchedulerLike = probed ?? makeFallbackScheduler();
+        if (probed === null) {
+            // We made a fallback; capture a dispose hook so teardown can
+            // clear the interval the animator subscribes to.  The
+            // `IsolationAnimator.stop()` call will unsubscribe correctly
+            // because our fallback returns a proper unsub disposer — this
+            // hook is belt-and-braces for hot-reload safety.
+            disposeScheduler = () => { /* unsub happens via animator.stop() */ };
+        }
+        animator = new IsolationAnimator(store, scheduler, registry);
+        animator.start();
+    } catch (err) {
+        console.warn('[modelTreeTestModal] isolation pipeline setup failed:', err);
+        animator = null;
+    }
+    return { store, animator, disposeScheduler };
 }
 
 // ── Public entry ─────────────────────────────────────────────────────────────
@@ -130,10 +276,28 @@ export function openModelTreeTestModal(runtime?: ModelTreeRuntime): void {
     colSel.className = 'mttm-col mttm-col--sel';
     columns.appendChild(colSel);
 
+    // Header row: label + Clear Isolation button (C27 INS-α-8).  Wrapping
+    // the header in a flex container avoids a new style-table entry — the
+    // existing `mttm-label` class is reused for the text.
+    const selHeader = document.createElement('div');
+    selHeader.style.display = 'flex';
+    selHeader.style.alignItems = 'center';
+    selHeader.style.justifyContent = 'space-between';
+    selHeader.style.gap = '8px';
+
     const selLabel = document.createElement('div');
     selLabel.className = 'mttm-label';
     selLabel.textContent = 'Last selection';
-    colSel.appendChild(selLabel);
+    selHeader.appendChild(selLabel);
+
+    const clearBtn = document.createElement('button');
+    clearBtn.type = 'button';
+    clearBtn.className = 'mttm-btn mttm-btn--secondary';
+    clearBtn.textContent = 'Clear Isolation';
+    clearBtn.title = 'Restore every element to full opacity';
+    selHeader.appendChild(clearBtn);
+
+    colSel.appendChild(selHeader);
 
     // Empty-state placeholder lives in the same slot as the JSON <pre>;
     // updateSelectionPanel swaps them.
@@ -174,9 +338,34 @@ export function openModelTreeTestModal(runtime?: ModelTreeRuntime): void {
     footer.appendChild(closeFooterBtn);
     content.appendChild(footer);
 
+    // ── Isolation pipeline (C27 INS-α-8) ─────────────────────────────────────
+    // Set up BEFORE mounting the tree so the very first selection click
+    // can already apply isolation.  Failure here is non-fatal — the modal
+    // still functions as a tree-display surface (see setupIsolationPipeline).
+    const pipeline = setupIsolationPipeline(resolvedRuntime);
+
+    /** Apply isolation for a tree selection.  Catches every error so a
+     *  store / animator failure cannot poison the JSON-display path. */
+    const applyIsolationForSelection = (selection: InspectSelection): void => {
+        try {
+            const elements = buildModelElementLocations(resolvedRuntime);
+            pipeline.store.applyIsolation(selection, elements, { hideUnrelated: false });
+        } catch (err) {
+            console.warn('[modelTreeTestModal] applyIsolation failed:', err);
+        }
+    };
+
+    clearBtn.addEventListener('click', () => {
+        try { pipeline.store.clearIsolation(); }
+        catch (err) { console.warn('[modelTreeTestModal] clearIsolation failed:', err); }
+    });
+
     // ── Mount the live Master Tree ───────────────────────────────────────────
     const tree = new ModelTreeComponent(resolvedRuntime, treeHost, {
-        onSelectNode: (sel) => updateSelectionPanel(sel),
+        onSelectNode: (sel) => {
+            updateSelectionPanel(sel);
+            applyIsolationForSelection(sel);
+        },
     });
     try {
         tree.mount();
@@ -191,6 +380,15 @@ export function openModelTreeTestModal(runtime?: ModelTreeRuntime): void {
 
     // ── Cleanup ─────────────────────────────────────────────────────────────
     dialog.addEventListener('close', () => {
+        // Tear down the isolation pipeline FIRST so the animator restores
+        // every element to default opacity before the tree DOM disappears.
+        try { pipeline.animator?.stop(); }
+        catch (err) { console.warn('[modelTreeTestModal] animator.stop() threw:', err); }
+        try { pipeline.store.dispose(); }
+        catch (err) { console.warn('[modelTreeTestModal] store.dispose() threw:', err); }
+        try { pipeline.disposeScheduler?.(); }
+        catch { /* defensive — fallback scheduler cleanup */ }
+
         try { tree.unmount(); }
         catch { /* defensive — never block dialog removal on unmount errors */ }
         dialog.remove();
