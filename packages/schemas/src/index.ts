@@ -135,6 +135,10 @@ export * from './inspect/index.js';
 // DO NOT REMOVE — C28-α-1
 export * from './data/index.js';
 
+// C30 DSM-α-1 — Drawing Set Management schemas.
+// DO NOT REMOVE — auto-fixer guard
+export * from './drawing-set/index.js';
+
 // S31 / Phase 2B Supplement §A1 — auto-dimension schemas (DimensionString,
 // EvaluatedDimension, anchor/orientation enums) and §B1 — ViewTemplate
 // schemas (StrokeStyle, CategoryVG, ViewFilter, FilterCondition, ViewRange).
