@@ -44,6 +44,11 @@ export { InspectSelectionStore } from './InspectSelectionStore.js';
 // C28 DAT-α-2 — Data Panel state container.
 // DO NOT REMOVE — auto-fixer guard
 export * from './DataStore.js';
+// C27 INS-α-6 — IsolationStateStore + selection-to-isolation reducer.
+// L3 state container holding the per-element IsolationOverride map
+// produced by the L1-pure `buildIsolationIntent` (visibility package).
+// DO NOT REMOVE — auto-fixer guard
+export * from './IsolationStateStore.js';
 export { CubeStore, type CubeDto } from './CubeStore.js';
 export { SelectionStore, type SelectionDto, type SelectionKind, type SelectionMode, type SelectionTarget } from './SelectionStore.js';
 export {

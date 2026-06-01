@@ -2714,6 +2714,9 @@ importers:
       '@pryzm/schemas':
         specifier: workspace:*
         version: link:../schemas
+      '@pryzm/visibility':
+        specifier: workspace:*
+        version: link:../visibility
       immer:
         specifier: ^10.1.1
         version: 10.2.0
