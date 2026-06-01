@@ -240,7 +240,12 @@ Every Phase A sub-phase in §3.1–§3.X traces to one or more IPs. This table i
 | A.5 RAC chatbot UI | IP-A3 |
 | A.6 TypologyPicker UI | IP-A3 |
 | A.7 C19 Site schemas + SiteStore | IP-A2 (schema) · IP-A5 (ratify) |
-| A.8 Site authoring UI (Cesium-light) | IP-A2 (basic) · IP-A4 (polish) |
+| A.8.a Address geocoding + lat/lon picker | IP-A2 (search box renders + returns lat/lon) |
+| A.8.b Cesium-light tile layer | IP-A2 (cream basemap loads; zooms to bbox) |
+| A.8.c Polygon-draw tool (Hektar-style) | IP-A2 (vertex-click + close-loop) · IP-A4 (drag-edit + OSM snap) |
+| A.8.d Auto-fire site analyses on boundary commit | IP-A4 (climate fetch + ContextBuilding pull live) |
+| A.8.e BuildingFootprint authoring | IP-A4 (footprint draw + containment-lint live) |
+| A.8.f Site Inspector right-panel | IP-A4 |
 | A.9 IfcSite round-trip | IP-A5 |
 | A.10 Climate ingestion EPW + NOAA | IP-A3 (parser) · IP-A4 (UI) |
 | A.11 Climate substrate UI | IP-A4 |
@@ -294,14 +299,20 @@ The user-facing acceptance test at each IP runs through the cumulative test surf
 
 | Phase | Goal | Description + references | Status |
 |---|---|---|---|
-| **A.1** | **TypologyPipeline package scaffold** | NEW `packages/typology-pipeline/` + `composeRuntime()` slot integration. Refs: [phase-1-alpha §3.1](./roadmap-phase-1-alpha.md), [typology-expansion §4](./typology-expansion-roadmap.md). Owner: Engineer 1. | 🟢 IN PROGRESS (Sprint 1) |
-| **A.2** | **TypologyManifest schema** | `packages/schemas/src/typology/manifest.ts` — zod-validated TypologyManifest. Refs: [typology-expansion §4.1](./typology-expansion-roadmap.md). | 🟢 IN PROGRESS (Sprint 1) |
+| **A.1** | **TypologyPipeline package scaffold** | NEW `packages/typology-pipeline/` (TypologyRegistry + 7-stage PipelineRouter + 7 stage helpers, 54/54 tests). `composeRuntime()` slot integration deferred to A.3. Refs: [phase-1-alpha §3.1](./roadmap-phase-1-alpha.md), [typology-expansion §4](./typology-expansion-roadmap.md). Owner: Engineer 1. | ✅ DONE (Sprint 1) |
+| **A.2** | **TypologyManifest schema** | `packages/schemas/src/typology/manifest.ts` — zod-validated TypologyManifest, 39/39 tests. Refs: [typology-expansion §4.1](./typology-expansion-roadmap.md). | ✅ DONE (Sprint 1) |
 | **A.3** | **TypologyRegistry slot + dispatch router** | TypologyRegistryStore reactive + TypologyPipelineRouter.dispatch(typologyId, role, site, brief). Refs: [typology-expansion §4.2–4.3](./typology-expansion-roadmap.md). | 🟡 NEXT UP (Sprint 2) |
 | **A.4** | **Apartment refactored as TypologyPack** | Existing `apartmentLayout` → `packages/typology-pipeline/src/typologies/apartment/`. Refs: [phase-1-alpha §3.2](./roadmap-phase-1-alpha.md). | 🟡 NEXT UP (Sprint 2) |
 | **A.5** | **RAC chatbot UI v1** | `apps/editor/src/ui/onboarding/RACChatbot.tsx` — role + typology + brief flow. Refs: [product-vision §5 Step 2](../../01-strategy/product-vision.md), [typology-expansion §2](./typology-expansion-roadmap.md). | ⚪ PLANNED (Sprint 3) |
 | **A.6** | **TypologyPicker UI** | 10-category card grid. Refs: [typology-expansion §3](./typology-expansion-roadmap.md). | ⚪ PLANNED (Sprint 3) |
 | **A.7** | **C19 Site element schemas + SiteStore** | NEW `packages/schemas/src/site/` + `SiteStore`. Refs: [C19](../../02-decisions/contracts/C19-SITE-MODEL-AND-PARCEL.md), [phase-1-alpha §4.1](./roadmap-phase-1-alpha.md). | 🟢 IN PROGRESS (Sprint 1–2) |
-| **A.8** | **Site authoring UI (Cesium-light)** | Cream/warm-white map aesthetic per [product-vision §5 Step 3](../../01-strategy/product-vision.md). Refs: [phase-1-alpha §4.1.4](./roadmap-phase-1-alpha.md). | ⚪ PLANNED (Sprint 3–4) |
+| **A.8** | **Site authoring UI (Cesium-light)** | Cream/warm-white map aesthetic per [product-vision §5 Step 3](../../01-strategy/product-vision.md). Hektar-style UX: address-search → satellite zoom → polygon-draw → auto-analyses. Broken into A.8.a-A.8.f below. Refs: [C19 §5](../../02-decisions/contracts/C19-SITE-MODEL-AND-PARCEL.md), [phase-1-alpha §4.1.4](./roadmap-phase-1-alpha.md). | ⚪ PLANNED (Sprint 3–4) |
+| **A.8.a** | **Address geocoding + lat/lon picker** | OSM Nominatim primary, Mapbox secondary (per [C19 §5.1](../../02-decisions/contracts/C19-SITE-MODEL-AND-PARCEL.md)). Free-form address input → returns lat/lon + bbox. Dispatches `site.updateLocation`. PII per [C22](../../02-decisions/contracts/C22-PRIVACY-AND-PII-TIER.md). | ⚪ PLANNED (Sprint 3) |
+| **A.8.b** | **Cesium-light tile layer** | Cream/warm-white satellite-imagery basemap (the "not the dark globe" aesthetic per [product-vision §5 Step 3](../../01-strategy/product-vision.md)). Cesium ion + custom style. Default zoom-to-bbox on address commit. | ⚪ PLANNED (Sprint 3) |
+| **A.8.c** | **Polygon-draw tool (Hektar-style)** | Click vertices → double-click to close → drag-to-edit vertices → undo per vertex. Optional snap to OSM building footprints. Warns > 30 vertices, refuses > 200 (per [C19 §1.4](../../02-decisions/contracts/C19-SITE-MODEL-AND-PARCEL.md)). On commit: `LTPENURebase.projectToScene` (per [C12](../../02-decisions/contracts/C12-GEOSPATIAL.md)) → dispatches `site.setParcelBoundary`. | ⚪ PLANNED (Sprint 3–4) |
+| **A.8.d** | **Auto-fire site analyses on boundary commit** | Boundary-commit event triggers: climate ingest ([C21](../../02-decisions/contracts/C21-CLIMATE-INGESTION.md) EPW/NOAA fetch for boundary centroid) + terrain DEM pull + ContextBuilding snapshot (OSM + Microsoft Footprints per [C19 §2.3](../../02-decisions/contracts/C19-SITE-MODEL-AND-PARCEL.md)). Async, non-blocking, status surfaced in [A.11 climate panel](#). | ⚪ PLANNED (Sprint 4) |
+| **A.8.e** | **BuildingFootprint authoring (inside parcel)** | Second polygon tool — draws the project's own building outline on the parcel. Enforces containment + setback compliance per [C19 §1.6](../../02-decisions/contracts/C19-SITE-MODEL-AND-PARCEL.md). Lint warnings surfaced in Site Inspector ([C19 §5.3](../../02-decisions/contracts/C19-SITE-MODEL-AND-PARCEL.md)). | ⚪ PLANNED (Sprint 4) |
+| **A.8.f** | **Site Inspector right-panel** | Read-only summary: lat/lon, true-north, CRS, parcel area, FAR ratio, setback compliance, climate-summary, ContextBuilding count. Per [C19 §5.3](../../02-decisions/contracts/C19-SITE-MODEL-AND-PARCEL.md). | ⚪ PLANNED (Sprint 4) |
 | **A.9** | **IFC4X3 `IfcSite` round-trip** | Through `plugins/ifc-export/` + `plugins/ifc-import/`. Refs: [C25 §3](../../02-decisions/contracts/C25-IFC-EXPORT-PRODUCTION.md). | ⚪ PLANNED (Sprint 3) |
 | **A.10** | **C21 Climate ingestion (EPW + NOAA)** | NEW `packages/climate/`. Refs: [C21](../../02-decisions/contracts/C21-CLIMATE-INGESTION.md), [phase-1-alpha §4.3](./roadmap-phase-1-alpha.md). | ⚪ PLANNED (Sprint 3–6) |
 | **A.11** | **Climate substrate UI panel** | Sun-path + wind-rose + temperature/humidity profiles. Refs: [phase-1-alpha §4.3](./roadmap-phase-1-alpha.md). | ⚪ PLANNED (Sprint 4) |

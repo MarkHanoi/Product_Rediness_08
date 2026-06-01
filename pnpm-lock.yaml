@@ -2793,6 +2793,22 @@ importers:
 
   packages/types-builtin: {}
 
+  packages/typology-pipeline:
+    dependencies:
+      '@opentelemetry/api':
+        specifier: ^1.9.0
+        version: 1.9.1
+      '@pryzm/schemas':
+        specifier: workspace:*
+        version: link:../schemas
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@24.12.2)(happy-dom@15.11.7)(jsdom@25.0.1)
+
   packages/ui:
     dependencies:
       '@opentelemetry/api':
@@ -3320,6 +3336,9 @@ importers:
       '@pryzm/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
+      '@pryzm/schemas':
+        specifier: workspace:*
+        version: link:../../packages/schemas
       web-ifc:
         specifier: ^0.0.77
         version: 0.0.77
