@@ -53,6 +53,27 @@ export { LevelStore } from './LevelStore.js';
 // by apartment.*/room.* commands in A.23.c. Both join C13 reset list.
 export { ApartmentStore } from './ApartmentStore.js';
 export { RoomStore } from './RoomStore.js';
+// A.23.c.1 (Phase A · Sprint 2) — building.* command handlers per [C20 §4.1].
+// Pure functions `(payload, store) → AggregateCommandResult<Event>`.
+// 3 commands: create (single-Building rule per §1.1) · update (projectId
+// immutable) · delete (forbidden today, reserved for C20.1 amendment).
+export {
+    buildingCreate,
+    buildingUpdate,
+    buildingDelete,
+    deterministicBuildingId,
+    BuildingCreatePayloadSchema,
+    BuildingUpdatePayloadSchema,
+    BuildingDeletePayloadSchema,
+    type BuildingCreatePayload,
+    type BuildingUpdatePayload,
+    type BuildingDeletePayload,
+    type BuildingCreatedEvent,
+    type BuildingUpdatedEvent,
+    type BuildingDeleteForbiddenEvent,
+    type AggregateCommandResult,
+    type AggregateCommandRejection,
+} from './aggregate-commands/index.js';
 // A.10.e (Phase A · Sprint 2) — climate.* command handlers per [C21 §4.1].
 // Pure functions `(payload, store) → ClimateCommandResult<Event>`.
 // 6 commands: ingestEPW · refreshNOAA · resolveSite · invalidateCache
