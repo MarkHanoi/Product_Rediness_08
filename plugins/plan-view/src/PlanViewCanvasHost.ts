@@ -2,14 +2,14 @@
 //
 // History:
 //   • S29  — first cut (skeleton: walls + slabs + doors via projection.ts).
-//            `code-level ADR docs/architecture/adr/0028-plan-view-canvas-architecture.md`.
+//            `code-level ADR docs/02-decisions/adrs/0028-plan-view-canvas-architecture.md`.
 //   • S31  — promoted to first full plan-view implementation:
 //              ‣ uses S30 `edge-projection` + `poche` from the geometry kernel
 //              ‣ delegates draw to the new `PlanViewRenderer` (host/renderer split)
 //              ‣ wires `PlanCamera.onDirty` to its own `requestRender()`
 //              ‣ subscribes to optional Window/Room/Annotation/Dimension/Structural stores
 //              ‣ ResizeObserver + DPR scaling for HiDPI parity
-//            `code-level ADR docs/architecture/adr/0023-plan-view-canvas2d-renderer.md` §3 + §4.
+//            `code-level ADR docs/02-decisions/adrs/0023-plan-view-canvas2d-renderer.md` §3 + §4.
 //
 // CONTRACT
 // ─────────────────────────────────────────────────────────────────────────────

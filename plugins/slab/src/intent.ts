@@ -1,6 +1,6 @@
 // Slab intent helpers — S12-T2.
 //
-// `code-level ADR docs/architecture/adr/0013-intent-resolver.md`
+// `code-level ADR docs/02-decisions/adrs/0013-intent-resolver.md`
 //
 // Slab placement does not require host-element resolution (unlike a
 // door which lives on a wall).  The intent file therefore exposes

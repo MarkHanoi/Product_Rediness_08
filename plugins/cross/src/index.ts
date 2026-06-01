@@ -6,7 +6,7 @@
 //
 // First inhabitant (S12): the slab→wall edge-pinned cascade lifted
 // from `src/elements/walls/SlabWallCoupling.ts:133` per
-// `code-level ADR docs/architecture/adr/0010-slab-handler-triage.md`.
+// `code-level ADR docs/02-decisions/adrs/0010-slab-handler-triage.md`.
 
 export {
   buildSlabWallCascadeRule,

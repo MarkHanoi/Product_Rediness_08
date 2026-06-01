@@ -1,10 +1,10 @@
 // PlanCamera — 2D pan/zoom camera for plan view.
 //
 // History:
-//   • S29  — first cut (`code-level ADR docs/architecture/adr/0028-plan-view-canvas-architecture.md`).
+//   • S29  — first cut (`code-level ADR docs/02-decisions/adrs/0028-plan-view-canvas-architecture.md`).
 //   • S31  — added optional `onDirty` hook so the host can subscribe to
 //            camera state changes without polling
-//            (`code-level ADR docs/architecture/adr/0023-plan-view-canvas2d-renderer.md` §3 + §4).
+//            (`code-level ADR docs/02-decisions/adrs/0023-plan-view-canvas2d-renderer.md` §3 + §4).
 //
 // World units are metres; screen units are CSS pixels.  The Z-flip
 // (world-Z → canvas-Y) is **NOT** done here — it is the renderer's

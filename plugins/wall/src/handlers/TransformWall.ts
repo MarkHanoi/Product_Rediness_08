@@ -1,6 +1,6 @@
 // TransformWallHandler — consolidated geometric transform handler (S10-T1).
 //
-// `code-level ADR docs/architecture/adr/0008-wall-handler-triage.md`
+// `code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md`
 // MERGES 5 PRYZM 1 commands → 1 PRYZM 2 handler with discriminated `kind`:
 //
 //   • Move          — translate baseLine by a 2D delta on the XZ plane.

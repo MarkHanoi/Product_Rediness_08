@@ -1,7 +1,7 @@
 // SwitchView handler (S17-T6d).
 //
 // Spec: PHASE-1C §S17 lines 793-795 (D6), typed contract lines 856-862.
-// ADR: docs/architecture/adr/0016-view-state-command-driven.md.
+// ADR: docs/02-decisions/adrs/0016-view-state-command-driven.md.
 //
 // Updates ActiveViewStore to point to the given viewId.
 // The view MUST exist in ViewRegistry.

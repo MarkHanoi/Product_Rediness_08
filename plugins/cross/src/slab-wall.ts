@@ -3,9 +3,9 @@
 // Lifts the slab/wall coupling from PRYZM 1's
 // `src/elements/walls/SlabWallCoupling.ts:133`
 // into the L4 cascade-rule registry per
-// `code-level ADR docs/architecture/adr/0010-slab-handler-triage.md` §"Cross-element coupling"
+// `code-level ADR docs/02-decisions/adrs/0010-slab-handler-triage.md` §"Cross-element coupling"
 // and the wider cascade contract from
-// `code-level ADR docs/architecture/adr/0012-cross-element-cascade-rule-registration.md`.
+// `code-level ADR docs/02-decisions/adrs/0012-cross-element-cascade-rule-registration.md`.
 //
 // PRYZM 1 expressed the coupling as an **inline branch** inside
 // `SlabWallCoupling.applyCascade`:

@@ -1,6 +1,6 @@
 // DimensionCommitter — `PrimitiveCommitter<DimensionData, THREE.Group>` (S29).
 //
-// `code-level ADR docs/architecture/adr/0028-plan-view-canvas-architecture.md`
+// `code-level ADR docs/02-decisions/adrs/0028-plan-view-canvas-architecture.md`
 //
 // THREE-BOUND — do not import this in any headless context.
 //

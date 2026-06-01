@@ -1,6 +1,6 @@
 // Wall intent resolver — S10-T6.
 //
-// `code-level ADR docs/architecture/adr/0013-intent-resolver.md`
+// `code-level ADR docs/02-decisions/adrs/0013-intent-resolver.md`
 //
 // THREE-free port of three PRYZM 1 modules
 // (`src/elements/walls/{WallIntentResolver.ts:213, PathResolver.ts:94,

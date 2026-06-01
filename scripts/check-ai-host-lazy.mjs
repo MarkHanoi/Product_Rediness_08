@@ -145,7 +145,7 @@ if (violations.length > 0) {
     console.error(`    ${v.text}`);
   }
   console.error('\nSpec: phases/PHASE-2D-Q4-M22-M24-SYNC-AWARENESS-BETA.md §S47 lines 587-611');
-  console.error('ADR : docs/architecture/adr/0037-ai-host-lazy-bootstrap.md');
+  console.error('ADR : docs/02-decisions/adrs/0037-ai-host-lazy-bootstrap.md');
   console.error('Fix : route all AI host access through `getAiHost()` from `@pryzm/ai-host`.');
   process.exit(1);
 }

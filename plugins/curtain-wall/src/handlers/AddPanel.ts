@@ -1,5 +1,5 @@
 // AddPanelHandler — add a single panel to an existing curtain-wall
-// grid cell (S13-T1 per `code-level ADR docs/architecture/adr/0011-curtain-wall-triage-and-producer-split.md`).
+// grid cell (S13-T1 per `code-level ADR docs/02-decisions/adrs/0011-curtain-wall-triage-and-producer-split.md`).
 //
 // The cell is addressed by (row, col) and validated against the
 // computed grid via CurtainWallIntentResolver.validateGridCoordinate.

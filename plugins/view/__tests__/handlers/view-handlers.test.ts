@@ -1,7 +1,7 @@
 // View handler tests (S17-T6a–T6e).
 //
 // Spec: PHASE-1C §S17 lines 793-795 (D6), typed contract lines 822-845.
-// ADR: docs/architecture/adr/0016-view-state-command-driven.md.
+// ADR: docs/02-decisions/adrs/0016-view-state-command-driven.md.
 //
 // Tests: 2 per handler × 5 handlers = 10 tests total (spec: S17 test catalog).
 

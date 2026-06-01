@@ -6,7 +6,7 @@
 // ("baseLine endpoints must share the same y") stays satisfied.
 //
 // At S10 there is no `LevelStore` in PRYZM 2 yet (lands in 1C — see
-// `code-level ADR docs/architecture/adr/0008-wall-handler-triage.md`
+// `code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md`
 // §3.D).  Until then the caller supplies the new level id AND the
 // new elevation directly — the LevelStore-driven variant arrives in
 // 1C as an internal handler refactor (the public payload shape is

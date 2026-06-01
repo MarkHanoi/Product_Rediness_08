@@ -3,7 +3,7 @@
 // Lifts the PRYZM 1 stair-to-rail coupling
 // (`src/elements/handrails/StairHandrailCoupling.ts`) into the L4
 // cascade-rule registry per
-// `code-level ADR docs/architecture/adr/0012-cross-element-cascade-rule-registration.md`.
+// `code-level ADR docs/02-decisions/adrs/0012-cross-element-cascade-rule-registration.md`.
 //
 // Rule contract — same shape as `cross.slab-wall`:
 //   • PURE — deterministic for a given lookup snapshot,

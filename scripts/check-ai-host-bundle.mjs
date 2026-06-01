@@ -96,8 +96,8 @@ if (violations.length > 0) {
   console.error('[check-ai-host-bundle] FAIL — K3-A bundle contract broken:\n');
   for (const v of violations) console.error(`  • ${v}`);
   console.error('\nSpec: phases/PHASE-2D-Q4-M22-M24-SYNC-AWARENESS-BETA.md §S47 line 611');
-  console.error('ADR : docs/architecture/adr/0037-ai-host-lazy-bootstrap.md (lazy contract)');
-  console.error('ADR : docs/architecture/adr/0038-m24-beta-gate-closure.md §3 (runtime gate)');
+  console.error('ADR : docs/02-decisions/adrs/0037-ai-host-lazy-bootstrap.md (lazy contract)');
+  console.error('ADR : docs/02-decisions/adrs/0038-m24-beta-gate-closure.md §3 (runtime gate)');
   console.error('Fix : route all AI host access through `getAiHost()` (lazy).');
   process.exit(1);
 }

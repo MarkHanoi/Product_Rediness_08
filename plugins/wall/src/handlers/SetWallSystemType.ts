@@ -5,7 +5,7 @@
 //
 // CONTRACT (per S08 producer-input contract):  the producer sees only
 // resolved layers — handler-time materialisation keeps the producer
-// purely synchronous (`code-level ADR docs/architecture/adr/0009-wall-producer-signature.md`).
+// purely synchronous (`code-level ADR docs/02-decisions/adrs/0009-wall-producer-signature.md`).
 // On rebind we therefore (a) write the new `systemTypeId`, AND (b)
 // overwrite the wall's `layers[]` array with a deep clone of the
 // catalogue layers, AND (c) recompute `thickness` from layer-sum.
@@ -97,7 +97,7 @@ export class SetWallSystemTypeHandler
       if (type === undefined) return;
       w.systemTypeId = type.id;
       w.layers = type.layers.map((l) => ({ ...l }));
-      // Per `code-level ADR docs/architecture/adr/0009-wall-producer-signature.md`:
+      // Per `code-level ADR docs/02-decisions/adrs/0009-wall-producer-signature.md`:
       // total wall thickness ALWAYS equals the sum of layer thicknesses
       // when a system-type is bound — keeps the inspector + producer in
       // agreement and avoids a stale-thickness assertion in the producer.

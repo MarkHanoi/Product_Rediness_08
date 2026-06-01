@@ -1,7 +1,7 @@
 // @pryzm/plugin-rooms — public surface (S25 deliverable).
 //
 // Spec: `phases/PHASE-2A-Q1-M13-M15-NON-ELEMENT-COMPLETION.md` §S25.
-// Decision: `code-level ADR docs/architecture/adr/0022-room-boundary-detection.md`.
+// Decision: `code-level ADR docs/02-decisions/adrs/0022-room-boundary-detection.md`.
 
 export { RoomStore, type RoomData, type RoomId, type RoomsState } from './store.js';
 

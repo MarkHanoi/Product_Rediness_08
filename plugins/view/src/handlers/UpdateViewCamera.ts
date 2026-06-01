@@ -1,7 +1,7 @@
 // UpdateViewCamera handler (S17-T6e).
 //
 // Spec: PHASE-1C §S17 lines 793-795 (D6).
-// ADR: docs/architecture/adr/0016-view-state-command-driven.md.
+// ADR: docs/02-decisions/adrs/0016-view-state-command-driven.md.
 //
 // Persists the camera pose back into the ViewDefinition.  Called when
 // the user stops orbiting so "save this camera position to the view"

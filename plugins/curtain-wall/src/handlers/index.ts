@@ -3,7 +3,7 @@
 // S12 shipped 9 whole-CW handlers (Create / Delete / Move / SetGrid /
 // SetMullionType / SetTransomType / SetPanelType / SetOutline / Resize).
 // S13 adds 4 per-panel manipulation handlers per `code-level ADR
-// docs/architecture/adr/0011-curtain-wall-triage-and-producer-split.md`:
+// docs/02-decisions/adrs/0011-curtain-wall-triage-and-producer-split.md`:
 // AddPanel / RemovePanel / SwapPanel / RotatePanel.
 
 import type { CommandBus, CommandHandler } from '@pryzm/plugin-sdk';

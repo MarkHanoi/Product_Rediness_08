@@ -1,7 +1,7 @@
 // RenameView handler (S17-T6c).
 //
 // Spec: PHASE-1C §S17 lines 793-795 (D6).
-// ADR: docs/architecture/adr/0016-view-state-command-driven.md.
+// ADR: docs/02-decisions/adrs/0016-view-state-command-driven.md.
 //
 // Renames an existing view (updates the `name` field only).
 // affectedStores: ['view']

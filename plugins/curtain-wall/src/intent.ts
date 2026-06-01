@@ -1,5 +1,5 @@
 // Curtain-wall intent helpers — S12-T5 baseline; S13-T2 adds the
-// CurtainWallIntentResolver per `code-level ADR docs/architecture/adr/0013-intent-resolver.md`.
+// CurtainWallIntentResolver per `code-level ADR docs/02-decisions/adrs/0013-intent-resolver.md`.
 //
 // The resolver answers three questions from the tool / interaction
 // layer without ever touching THREE.js:
