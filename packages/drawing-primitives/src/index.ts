@@ -30,3 +30,6 @@ export { Canvas2DBackend, type Canvas2DLike } from './backends/canvas2d.js';
 export { SvgBackend } from './backends/svg.js';
 export { PdfBackend } from './backends/pdf.js';
 export { PrintCanvasBackend, type PrintCanvasOutput } from './backends/print-canvas.js';
+
+// C29 / C24 — Sheet composition primitives (sheet-α-1).
+export * from './sheet/index.js';
