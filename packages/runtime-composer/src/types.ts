@@ -28,7 +28,7 @@
 
 import type { AnyStores, CommandHandler, RingBufferUndoStack } from '@pryzm/command-bus';
 import type { SyncClient, PryzmAwareness } from '@pryzm/sync-client';
-import type { LayoutOptionsStore, AiApprovalQueueStore, ApartmentParameterPropagator, FamilyRegistryStore, SiteModelStore, ClimateStore, BuildingStore, LevelStore } from '@pryzm/stores';
+import type { LayoutOptionsStore, AiApprovalQueueStore, ApartmentParameterPropagator, FamilyRegistryStore, SiteModelStore, ClimateStore, BuildingStore, LevelStore, ApartmentStore, RoomStore } from '@pryzm/stores';
 import type {
   TypologyRegistry,
   PipelineRouter,
@@ -3483,6 +3483,21 @@ export interface PryzmRuntime {
    *  isActive. Cross-row invariants enforced by `level.*` commands
    *  (A.23.c); the store does per-row schema only. Joins C13 reset. */
   readonly levelStore: LevelStore;
+
+  // ── A.23.b.2 (Phase A · Sprint 2) — ApartmentStore (C20 substrate) ──────
+  /** L3 reactive wrapper around the L0 `Apartment` aggregate. Per
+   *  [C20 §1.3] Apartment lives on a single Level today. `unitNumber`
+   *  unique within Building. Cross-store checks enforced by
+   *  `apartment.*` commands (A.23.c). Joins C13 reset. */
+  readonly apartmentStore: ApartmentStore;
+
+  // ── A.23.b.2 (Phase A · Sprint 2) — RoomStore (C20 substrate) ───────────
+  /** L3 reactive wrapper around the L0 `Room` aggregate. Per
+   *  [C20 §1.4] Room.apartmentId ↔ Apartment.levelId consistency
+   *  enforced by `room.*` commands (A.23.c). Exposes
+   *  `removeForApartment` cascade helper used by apartment.delete.
+   *  Joins C13 reset. */
+  readonly roomStore: RoomStore;
 
   // ── A.3 (Phase A · Sprint 2) — Typology pipeline slot ───────────────────
   /** L3 multi-typology generative-AI pipeline. One per runtime per

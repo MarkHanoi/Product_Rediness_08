@@ -47,6 +47,12 @@ export { ClimateStore } from './ClimateStore.js';
 // command handlers in A.23.c — the store does per-row schema only.
 export { BuildingStore } from './BuildingStore.js';
 export { LevelStore } from './LevelStore.js';
+// A.23.b.2 (Phase A · Sprint 2) — L3 ApartmentStore + RoomStore.
+// Wrap the L0 Apartment + Room aggregates. Cross-store invariants
+// (unitNumber uniqueness · apartmentId↔levelId consistency) enforced
+// by apartment.*/room.* commands in A.23.c. Both join C13 reset list.
+export { ApartmentStore } from './ApartmentStore.js';
+export { RoomStore } from './RoomStore.js';
 // A.10.e (Phase A · Sprint 2) — climate.* command handlers per [C21 §4.1].
 // Pure functions `(payload, store) → ClimateCommandResult<Event>`.
 // 6 commands: ingestEPW · refreshNOAA · resolveSite · invalidateCache

@@ -54,6 +54,8 @@ import {
   ClimateStore,
   BuildingStore,
   LevelStore,
+  ApartmentStore,
+  RoomStore,
 } from '@pryzm/stores';
 // D-α-3 P3 — pure parameter-impact resolver injected into the propagator.
 // Lives in @pryzm/ai-host (L2) so the L1 stores stay free of any AI-runtime
@@ -919,6 +921,15 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
     const buildingStore = new BuildingStore();
     const levelStore = new LevelStore();
 
+    // ── 3h. A.23.b.2 (Phase A · Sprint 2) — ApartmentStore + RoomStore ────
+    // The C20 leaf stores. Per [C20 §1.3] Apartment lives on a single
+    // Level today (multi-Level → C20.2). Per [C20 §1.4] Room.apartmentId
+    // ↔ Apartment.levelId consistency is enforced by apartment.* /
+    // room.* commands (A.23.c). Both join the C13 project-switch reset
+    // list. The L3 stores do per-row schema only.
+    const apartmentStore = new ApartmentStore();
+    const roomStore = new RoomStore();
+
     const typologyRegistry = createTypologyRegistry();
     const typologyRouter = createPipelineRouter(typologyRegistry);
     // A.4.a — register the apartment pack (BRIDGE handlers; full code
@@ -1354,6 +1365,12 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       catch (err) { console.error('[runtime-composer] buildingStore.dispose threw:', err); }
       try { levelStore.dispose(); }
       catch (err) { console.error('[runtime-composer] levelStore.dispose threw:', err); }
+      // A.23.b.2 — dispose ApartmentStore + RoomStore. The C13 project-
+      // switch path uses `.reset()`; this is process-level shutdown only.
+      try { apartmentStore.dispose(); }
+      catch (err) { console.error('[runtime-composer] apartmentStore.dispose threw:', err); }
+      try { roomStore.dispose(); }
+      catch (err) { console.error('[runtime-composer] roomStore.dispose threw:', err); }
       try { inner.tearDown(); }
       catch (err) { console.error('[runtime-composer] inner tearDown threw:', err); }
       events.clear();
@@ -1429,6 +1446,12 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       // Level uniqueness, building-exists for Level.buildingId).
       buildingStore,
       levelStore,
+      // A.23.b.2 — ApartmentStore + RoomStore (per C20). The
+      // apartment.* / room.* command surface (A.23.c) calls these
+      // after running cross-store invariants (unitNumber uniqueness,
+      // Room.apartmentId ↔ Apartment.levelId consistency).
+      apartmentStore,
+      roomStore,
       sceneReady,
       tearDown,
     };
