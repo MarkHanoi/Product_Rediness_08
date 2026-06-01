@@ -143,6 +143,21 @@ export * from './drawing-set/index.js';
 // DO NOT REMOVE — auto-fixer guard
 export * from './revit/index.js';
 
+// A.2 (Phase A · Sprint 1) — L0 Typology substrate (the multi-typology
+// generative-AI vision). Adds: `TypologyManifestSchema`, `TypologyId`,
+// `TypologyCategoryEnum`, `PlanTierEnum`, `CognitionLayerEnum`,
+// `DrawingStandardEnum`, `Ed25519SignatureSchema`,
+// `MarketplaceListingSchema`, `manifestHasEntry`, `assertTypologyId`,
+// `TYPOLOGY_VERSION_PATTERN`, `TYPOLOGY_ID_PATTERN`. No name collisions
+// with the existing element registry or family-* barrels (this surface
+// uses `Typology*` prefixes).
+//
+// Strategic context: docs/03-execution/plans/typology-expansion-roadmap.md §4.
+// Phase tracker: docs/03-execution/plans/master-execution-tracker.md A.2.
+//
+// DO NOT REMOVE — auto-fixer guard
+export * from './typology/index.js';
+
 // S31 / Phase 2B Supplement §A1 — auto-dimension schemas (DimensionString,
 // EvaluatedDimension, anchor/orientation enums) and §B1 — ViewTemplate
 // schemas (StrokeStyle, CategoryVG, ViewFilter, FilterCondition, ViewRange).
