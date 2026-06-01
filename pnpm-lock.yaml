@@ -2666,6 +2666,19 @@ importers:
         specifier: ^2.1.9
         version: 2.1.9(@types/node@24.12.2)(happy-dom@15.11.7)(jsdom@25.0.1)
 
+  packages/site-validators:
+    dependencies:
+      '@pryzm/schemas':
+        specifier: workspace:*
+        version: link:../schemas
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@24.12.2)(happy-dom@15.11.7)(jsdom@25.0.1)
+
   packages/snapping:
     dependencies:
       '@opentelemetry/api':
@@ -2752,6 +2765,9 @@ importers:
       '@pryzm/schemas':
         specifier: workspace:*
         version: link:../schemas
+      '@pryzm/site-validators':
+        specifier: workspace:*
+        version: link:../site-validators
       '@pryzm/visibility':
         specifier: workspace:*
         version: link:../visibility

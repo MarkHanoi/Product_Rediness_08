@@ -11,6 +11,14 @@ import {
     SiteModelSchema,
     type SiteModel,
 } from '@pryzm/schemas';
+// A.7.d — use the canonical pure-geometry validators rather than
+// duplicating the shoelace / length-check logic inline. Per C19 §2.7
+// (cross-schema validations) these helpers are the single source of
+// truth for parcel-polygon math.
+import {
+    polygonArea,
+    checkEdgeClassifications,
+} from '@pryzm/site-validators';
 import type { SiteModelStore } from '../SiteModelStore.js';
 import {
     SiteCreatePayloadSchema,
@@ -26,21 +34,6 @@ import {
  */
 export function deterministicSiteId(projectId: string): string {
     return `site_${projectId}`;
-}
-
-/**
- * Compute the parcel polygon's signed area in square metres (shoelace).
- * Returns 0 for degenerate (< 3 vertices) polygons.
- */
-function computeArea(polygon: ReadonlyArray<{ x: number; z: number }>): number {
-    if (polygon.length < 3) return 0;
-    let signed = 0;
-    for (let i = 0; i < polygon.length; i++) {
-        const a = polygon[i]!;
-        const b = polygon[(i + 1) % polygon.length]!;
-        signed += a.x * b.z - b.x * a.z;
-    }
-    return Math.abs(signed) / 2;
 }
 
 /**
@@ -77,19 +70,19 @@ export function siteCreate(
         polygon: [],
         edgeClassifications: [],
     };
-    // Cross-schema check (§2.7 invariant 3): edgeClassifications length
-    // MUST equal polygon length when both are non-empty.
-    if (
-        boundary.polygon.length > 0 &&
-        boundary.edgeClassifications.length !== boundary.polygon.length
-    ) {
-        return {
-            ok: false,
-            reason: 'edge-classifications-mismatch',
-            message:
-                `edgeClassifications.length (${boundary.edgeClassifications.length}) ` +
-                `MUST equal polygon.length (${boundary.polygon.length}) per C19 §2.7`,
-        };
+    // Cross-schema check (§2.7 invariant 3) via the canonical validator.
+    if (boundary.polygon.length > 0) {
+        const edgeCheck = checkEdgeClassifications(
+            boundary.polygon,
+            boundary.edgeClassifications,
+        );
+        if (!edgeCheck.ok) {
+            return {
+                ok: false,
+                reason: 'edge-classifications-mismatch',
+                message: edgeCheck.message,
+            };
+        }
     }
 
     const site: SiteModel = SiteModelSchema.parse({
@@ -107,7 +100,7 @@ export function siteCreate(
             maxFAR: payload.parcel?.maxFAR ?? null,
             maxHeight: payload.parcel?.maxHeight ?? null,
             zoning: { category: null, overlays: [], jurisdictionRef: null },
-            area: computeArea(boundary.polygon),
+            area: polygonArea(boundary.polygon),
         },
         footprint: payload.footprint ?? null,
         contextBuildings: payload.contextBuildings ?? [],

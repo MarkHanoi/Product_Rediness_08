@@ -7,23 +7,18 @@
 //
 // Validates §2.7 invariant 3: `edgeClassifications.length === polygon.length`.
 
+// A.7.d — canonical pure-geometry validators are the single source of
+// truth for parcel-polygon math (per C19 §2.7).
+import {
+    polygonArea,
+    checkEdgeClassifications,
+} from '@pryzm/site-validators';
 import type { SiteModelStore } from '../SiteModelStore.js';
 import {
     SiteSetParcelBoundaryPayloadSchema,
     type SiteCommandResult,
     type SiteParcelBoundarySetEvent,
 } from './types.js';
-
-function computeArea(polygon: ReadonlyArray<{ x: number; z: number }>): number {
-    if (polygon.length < 3) return 0;
-    let signed = 0;
-    for (let i = 0; i < polygon.length; i++) {
-        const a = polygon[i]!;
-        const b = polygon[(i + 1) % polygon.length]!;
-        signed += a.x * b.z - b.x * a.z;
-    }
-    return Math.abs(signed) / 2;
-}
 
 /**
  * Execute `site.setParcelBoundary`. One-shot per §1.4.
@@ -72,22 +67,20 @@ export function siteSetParcelBoundary(
         };
     }
 
-    // §2.7 cross-schema validation: edgeClassifications length MUST equal polygon length.
-    if (
-        payload.boundary.edgeClassifications.length !==
-        payload.boundary.polygon.length
-    ) {
+    // §2.7 invariant 3 via the canonical validator.
+    const edgeCheck = checkEdgeClassifications(
+        payload.boundary.polygon,
+        payload.boundary.edgeClassifications,
+    );
+    if (!edgeCheck.ok) {
         return {
             ok: false,
             reason: 'edge-classifications-mismatch',
-            message:
-                `site.setParcelBoundary: edgeClassifications.length ` +
-                `(${payload.boundary.edgeClassifications.length}) MUST equal ` +
-                `polygon.length (${payload.boundary.polygon.length}) per C19 §2.7`,
+            message: edgeCheck.message,
         };
     }
 
-    const area = computeArea(payload.boundary.polygon);
+    const area = polygonArea(payload.boundary.polygon);
     const next = {
         ...current,
         parcel: {
