@@ -82,6 +82,210 @@ For day-to-day operations:
 
 ---
 
+## §2.6 — UI Testing Inflection Points (IPs) — the user-testable moments
+
+A development plan without testable inflection points is theoretical. **Every sprint of Phase A ships a concrete UI surface the user (founder · architect-on-team · pilot customer) can click through to verify the work is real**. Each IP = one demo + one acceptance test + one customer feedback loop.
+
+The IP framework injects testing cadence into the otherwise-infrastructure-heavy Phase A. Sub-phases group around IPs — at every IP, the user opens the app and validates the cumulative surface.
+
+### §2.6.1 — IP design principles
+
+| Principle | What it means |
+|---|---|
+| **Every 2 weeks** | Sprint close = IP close. No 4-week gaps without UI surface. |
+| **Cumulative, not destructive** | Each IP builds ON the previous (regression-tested). A new IP never breaks the previous IP's testable workflow. |
+| **One sentence acceptance** | The IP can be summarised in one sentence: "User can do X." If you need 3 sentences, split into 2 IPs. |
+| **Demo-able in < 10 min** | The full IP demo (signup → action → result) runs in under 10 minutes; longer demos hide UX friction. |
+| **Pilot-customer-runnable** | A pilot customer can run the IP demo with a 1-page script + zero engineering help. |
+| **Inflection ≠ feature complete** | An IP is the user-visible moment; the work behind it may still have polish or edge-cases that close in later IPs. |
+
+### §2.6.2 — IP status legend
+
+| Status | Meaning |
+|---|---|
+| 🎯 **OPEN** | Currently being built toward |
+| ✅ **REACHED** | Demonstrated; user-tested; acceptance criteria met |
+| ⚠️ **PARTIAL** | Demonstrated but with acceptance gaps |
+| 🔁 **REGRESSING** | Was REACHED; broke in a later sprint; recovering |
+
+---
+
+## §3.0 — Phase A — Inflection Point Roadmap (13 IPs across 6 months)
+
+Every 2-week sprint of Phase A delivers a testable UI moment. The columns answer: **WHEN** (sprint close), **WHAT'S TESTABLE** (one-sentence user-can statement), **CONTRIBUTING SUB-PHASES** (the work powering this IP), **DEMO SCRIPT REFERENCE** (where the test runbook lives), **SUCCESS CRITERIA** (specific pass conditions).
+
+| IP # | Sprint close | Theme | What the user can test (one sentence) | Contributing sub-phases | Success criteria | Status |
+|---|---|---|---|---|---|---|
+| **IP-A1** | Sprint 1 · 2026-07-14 | **Regression baseline + first marketplace install** | "I can still create an apartment via the existing flow, AND I can install BCF plugin from the new marketplace UI in < 30 seconds." | A.1, A.2 (scaffold + schema), A.12 (`@pryzm/sdk` npm publish OI-011), A.14 (`marketplace.pryzm.app` DNS OI-013), A.15 first BCF + IFC-Export plugins, A.PR.B19 secrets rotated | (1) Existing apartment generation works unchanged; (2) `npm view @pryzm/sdk version` returns 1.0.x; (3) `marketplace.pryzm.app` resolves; (4) Customer installs BCF plugin from marketplace → appears in editor menu in next session | 🎯 OPEN |
+| **IP-A2** | Sprint 2 · 2026-07-28 | **Apartment-as-TypologyPack + Site UI scaffold** | "I can still generate an apartment AND I now see a Site panel in the editor with my plot boundary loaded from address." | A.3 (TypologyRegistry), A.4 (apartment refactored as pack), A.7 (C19 Site schemas), A.8 part 1 (basic Site authoring UI), A.20 (C50 contract DRAFT), A.A.1 (signup polish) | (1) Apartment regression suite green; (2) New Site panel renders plot from address; (3) IFC export from refactored pipeline still passes 10-project reference suite | 🎯 OPEN |
+| **IP-A3** | Sprint 3 · 2026-08-11 | **RAC chatbot end-to-end + Climate substrate parses** | "I sign up, the chatbot asks who I am and what project type, I type 'apartment', it routes me to apartment generation in < 60 seconds." | A.5 (RAC chatbot UI), A.6 (TypologyPicker 10-category grid), A.10 part 1 (climate EPW parser), A.15 part 2 (3 more plugins), A.M.1/2 partial (landing-page rebuild start), A.U.5 (tool-registry refresh) | (1) RAC chatbot live in editor; (2) TypologyPicker shows 10 categories; (3) End-to-end: signup → role pick → typology pick → brief → generate apartment in < 5 minutes; (4) EPW parses 10 reference files | 🎯 OPEN |
+| **IP-A4** | Sprint 4 · 2026-08-25 | **Full pipeline router + Climate UI + privacy** | "I can see my project's sun-path + wind-rose, AND the editor has a privacy consent banner I can configure." | A.9 (IfcSite round-trip), A.11 (climate UI panel), A.U.12 (consent banner), A.30 part 1 (DSAR export endpoint), A.B.5 (trial banner), A.B.4 (quota meter widget) | (1) Climate sun-path correct vs published almanacs at 4 reference cities; (2) Consent banner appears within 60s of new EU signup; (3) DSAR export endpoint returns user data | 🎯 OPEN |
+| **IP-A5** | Sprint 5 · 2026-09-08 | **Brand cutover + C19/C21 canonical** | "I navigate to pryzm.app, see the new landing + pricing pages, and AI-generated apartment layouts show provenance details in the inspect panel." | A.17 (pryzm.app DNS cutover), A.M.3 (manifesto page), A.M.4 (trust page), A.18 (pricing-page generator), A.31 (provenance graph UI), C19 + C21 ratifications | (1) pryzm.app + pryzm.so redirect work; (2) Pricing page reads from entitlement registry; (3) Right-click element in inspect tree → "Show AI provenance" works | 🎯 OPEN |
+| **IP-A6** | Sprint 6 · 2026-09-22 | **Phase A Q3 acceptance — full apartment workflow** | "First 10 paying customers complete the entire signup → apartment → IFC export workflow without help." | A.40 part 1 (first 10 customers), marketplace dashboard for developers, A.31 provenance complete, IFC4X3 IfcSite round-trip nightly green | (1) 10 paying customers MRR > $250; (2) Marketplace catalogue has ≥ 50 artefacts; (3) Apartment regression × 5 reference projects nightly green | 🎯 OPEN |
+| **IP-A7** | Sprint 7 · 2026-10-14 | **House typology MVP + Inspect tree axis + L5 daylight** | "I pick 'house' in the picker, fill in the brief (storeys + bedroom count), AND get a valid layout — AND I see daylight violations highlighted in the inspect tree." | A.21 part 1 (house schema + workflow scaffold), A.38 (L5 daylight checker), A.23 part 1 (C20 schemas), A.U.2 (property panel migration start) | (1) House layout generates < 60s for 3 reference briefs; (2) Inspect tree highlights rooms without mandatory windows in red; (3) IFC PSet coverage 80%+ | 🎯 OPEN |
+| **IP-A8** | Sprint 8 · 2026-10-28 | **House polish + Inspect tree complete + first community family pack** | "I generate a house, navigate the Site→Building→Level→Apt→Room→Element tree, install a UK door catalogue from the marketplace, and drop a door from it." | A.21 part 2 (house validators), A.24 (Inspect tree fully wired with aggregates), B.I.2 (per-element-type sub-panels start), A.29 + A.28 part 1 (first community pack) | (1) House passes 5 reference projects; (2) Inspect tree navigates the 6-tier hierarchy; (3) UK door catalogue family pack installs + drops a door in < 30s; (4) IFC4X3-RV variant exports work | 🎯 OPEN |
+| **IP-A9** | Sprint 9 · 2026-11-11 | **House SHIPPED + C20 canonical + axe-core green** | "House typology in production; 25 paying customers; axe-core CI gate passes all critical/serious." | A.21 SHIP, C20 CANONICAL, A.32 axe-core critical+serious green, A.34 colour-contrast sweep, A.40 part 2 (25 customers) | (1) House typology in production with 5 reference projects nightly green; (2) C20 contract ratified; (3) CI all-21-gates green for 2+ weeks; (4) Stripe MRR > $750 | 🎯 OPEN |
+| **IP-A10** | Sprint 10 · 2026-11-25 | **Office MVP + first Revit round-trip** | "I pick 'small office', generate a layout, export to IFC, import into Revit, see the model carries through with > 95% data integrity." | A.22 part 1 (office schema + workflow), A.26 (Revit IFC4X3-RV variant), Revit reference round-trip (1 project), A.35 part 1 (backup runbooks), A.U.4 (settings panel restructure) | (1) Office layout generates for 3 reference briefs; (2) 1 Revit RVT survives the full RVT → IFC → PRYZM → IFC → RVT loop with audit log; (3) PG snapshot scheduler running every 5 min | 🎯 OPEN |
+| **IP-A11** | Sprint 11 · 2026-12-09 | **Office SHIPPED + DR drill complete + 35 customers** | "Office typology in production; first DR drill completes without data loss; provenance UI works for office layouts too." | A.22 SHIP, A.36 first DR drill, A.31 provenance graph complete for all 3 typologies, A.40 part 3 (35 customers) | (1) Office typology in production; (2) DR drill: PG primary failover succeeds < 30 min RTO; (3) Stripe MRR > $1050; (4) NPS first measurement > 40 | 🎯 OPEN |
+| **IP-A12** | Sprint 12 · 2026-12-23 | **Phase A acceptance — 3 typologies + 50 customers + 100 cognition rules** | "All three typologies (apartment + house + office) tested end-to-end; 50+ paying customers; 252 of 248 spec rules enforced (exceeds spec)." | All Phase A buckets close to acceptance criteria; cognition substrate hardening complete (A.37 100 new rules) | (1) E1-E10 Phase 1 exit criteria all verified true; (2) Marketplace 50+ artefacts; (3) Stripe MRR > $1500 (50 customers); (4) All 21 CI gates stable 4 consecutive weeks | 🎯 OPEN |
+| **IP-A13** | Sprint 13 · 2026-12-30 | **Phase A EXIT — ADR-NNN-phase-1-exit-alpha ratified** | "Phase A officially closes; the team moves to Phase B (Beta); first 2 Enterprise pilots already in flight." | A.41 (Phase 1 exit ADR ratified) | (1) ADR-NNN-phase-1-exit-alpha.md merged + status ACCEPTED; (2) 2027 Q1 quarterly plan + Phase B plan ratified | 🎯 OPEN |
+
+### §3.0.1 — Phase A IP demo runbooks
+
+Each IP has a demo script — a 1-page test runbook describing exactly what to click, what to type, and what to verify. The runbooks live in `docs/05-guides/demos/IP-A<N>-runbook.md` (authored at IP-1 start; updated each IP close).
+
+| IP | Demo runbook |
+|---|---|
+| IP-A1 | `docs/05-guides/demos/IP-A1-regression-baseline-and-marketplace-install.md` |
+| IP-A2 | `docs/05-guides/demos/IP-A2-typology-pack-and-site-ui.md` |
+| IP-A3 | `docs/05-guides/demos/IP-A3-rac-chatbot-end-to-end.md` |
+| IP-A4 | `docs/05-guides/demos/IP-A4-climate-and-privacy.md` |
+| IP-A5 | `docs/05-guides/demos/IP-A5-brand-cutover-and-provenance.md` |
+| IP-A6 | `docs/05-guides/demos/IP-A6-Q3-full-apartment-workflow.md` |
+| IP-A7 | `docs/05-guides/demos/IP-A7-house-mvp-and-daylight.md` |
+| IP-A8 | `docs/05-guides/demos/IP-A8-house-polish-and-inspect-tree.md` |
+| IP-A9 | `docs/05-guides/demos/IP-A9-house-shipped-and-c20.md` |
+| IP-A10 | `docs/05-guides/demos/IP-A10-office-mvp-and-revit-roundtrip.md` |
+| IP-A11 | `docs/05-guides/demos/IP-A11-office-shipped-and-dr-drill.md` |
+| IP-A12 | `docs/05-guides/demos/IP-A12-phase-A-acceptance.md` |
+| IP-A13 | `docs/05-guides/demos/IP-A13-phase-A-exit.md` |
+
+### §3.0.2 — Phase A IP customer feedback loop
+
+Each IP includes a **structured 30-min customer feedback session** with 2-3 pilot customers (when available):
+
+| Feedback dimension | Per-IP questions |
+|---|---|
+| **Was the demo executable in < 10 min without help?** | Yes / No / Needed help (specify where) |
+| **Was the UI obvious or confusing?** | Per-step rating |
+| **Did the result look like the right output?** | Yes / No / Concerns (specify) |
+| **Would you use this in your daily work today?** | Yes / Not yet / Why-not |
+| **What's the one thing you'd add for the next sprint?** | Free-form |
+
+Feedback is recorded in `docs/03-execution/status/ip-feedback/IP-A<N>-feedback-<date>.md`; surfaced in next sprint planning.
+
+---
+
+## §4.0 — Phase B — Inflection Point Roadmap (~18 IPs across 18 months)
+
+Phase B IPs are coarser-grained (~monthly) since multi-typology + enterprise + EU region work spans multiple sprints per inflection. The roadmap:
+
+| IP # | Target month | Theme | What the user can test (one sentence) |
+|---|---|---|---|
+| **IP-B1** | 2027-01 | Townhouse + co-living typologies | "I pick 'townhouse' or 'co-living', get a valid layout with party-wall constraints honoured." |
+| **IP-B2** | 2027-02 | Co-working + Gym typologies | "I generate a co-working space + a gym, with their typology-specific validators (sound separation · changing-room privacy)." |
+| **IP-B3** | 2027-03 | Sheet engine MVP | "I drag a viewport onto a sheet, add a title block, and export a vector PDF that prints to scale." |
+| **IP-B4** | 2027-04 | Pharmacy + clinic typologies + first Enterprise pilot | "Pharmacy typology generates with controlled-substance storage; first Enterprise customer signs MSA." |
+| **IP-B5** | 2027-05 | Sheet engine complete + drawing set | "I author a sheet set with revisions; export PDF/A-3 transmittal package." |
+| **IP-B6** | 2027-06 | Inspect Tree CANONICAL + per-element-type sub-panels | "Inspect tree shows the full Site→Building→Level→Apt→Room→ElementType→ElementInstance hierarchy; per-element panels work." |
+| **IP-B7** | 2027-07 | Restaurant + shop typologies | "Restaurant typology with kitchen-to-dining flow validators; first 100 paying customers." |
+| **IP-B8** | 2027-08 | Data Panel CANONICAL + bulk-edit + automation | "I open the Data panel, filter doors by fire rating, bulk-edit to change a property; cron rule emails me on violation." |
+| **IP-B9** | 2027-09 | EU region LIVE + first 3 Enterprise customers | "EU customer routes through eu.pryzm.app; data stays in Frankfurt; first 3 Enterprise contracts signed." |
+| **IP-B10** | 2027-10 | Federated clash detection + BCF round-trip | "I run a federated clash check with my Solibri/Navisworks colleague; BCF issues round-trip cleanly." |
+| **IP-B11** | 2027-11 | Car-park typology + L5 perceptual sim | "Car-park typology generates with bay-packing + ramp slope; perceptual sim flags acoustic issues." |
+| **IP-B12** | 2027-12 | SOC 2 Type II audit pass + WCAG external audit pass + i18n de-DE LIVE | "Compliance evidence package ready for procurement; German locale tested by native-speaker; VPAT publishes." |
+| **IP-B13** | 2028-01 | School + library typologies + SAML SSO live | "School + library typologies generate; SSO via Okta works for Enterprise customer." |
+| **IP-B14** | 2028-02 | i18n fr-FR + ja-JP LIVE + family-marketplace flywheel | "French + Japanese locales tested; ~50 active marketplace developers; ~250 published artefacts." |
+| **IP-B15** | 2028-03 | C24/C27/C28/C29/C30 all CANONICAL + Mid-firm sprint | "Sheet · Inspect · Data · PDF · Drawing-set all canonical; Mid-firm tier has 50+ customers." |
+| **IP-B16** | 2028-04 | Marketplace 500 artefacts + 100 developers | "Marketplace catalogue + developer dashboard show the ecosystem flywheel kicking in." |
+| **IP-B17** | 2028-05 | Phase B acceptance — 10 typologies + 500 customers + first 5 Enterprise customers | "All Phase B exit criteria green; 5 Enterprise customers running their first project in production." |
+| **IP-B18** | 2028-06 | Phase B EXIT — ADR-NNN-phase-2-exit-beta ratified | "Phase B officially closes; Phase C plan ratified." |
+
+---
+
+## §5.0 — Phase C — Inflection Point Roadmap (~18 IPs across 18 months; selected)
+
+Phase C IPs span 25 typologies + 4 regions + Revit full + cognition API. Selected major IPs:
+
+| IP # | Target month | Theme |
+|---|---|---|
+| **IP-C1** | 2028-08 | US region LIVE + first US Enterprise customer |
+| **IP-C2** | 2028-10 | AP region LIVE (Tokyo + Singapore) |
+| **IP-C3** | 2028-12 | UK region LIVE (post-Brexit separate) |
+| **IP-C4** | 2029-02 | Revit round-trip 10-project nightly green |
+| **IP-C5** | 2029-04 | C32 DXF/DWG CANONICAL |
+| **IP-C6** | 2029-06 | C33 Rhino + Grasshopper bridge LIVE |
+| **IP-C7** | 2029-08 | L6 behavioural simulation (pedestrian flow) LIVE |
+| **IP-C8** | 2029-10 | C35 COBie + C37 Schedule 4D + C38 Cost 5D all CANONICAL |
+| **IP-C9** | 2029-12 | Phase C EXIT — 25 typologies + 30 Enterprise + ISO 19650 Phase 2/3 audit |
+
+---
+
+## §6.0 — Phase D — Inflection Point Roadmap (post-GA; selected)
+
+Phase D shifts from sprint-driven to opportunity-driven. Selected strategic IPs:
+
+| IP # | Target window | Theme |
+|---|---|---|
+| **IP-D1** | 2030-Q1 | Cognition substrate published API — first 3 external consumers |
+| **IP-D2** | 2030-Q2 | First DfMA / digital-fabrication output (CNC + robotic) |
+| **IP-D3** | 2030-Q3 | AI-Automated 2D Drawing Output (D.AEC.53 — "the killer feature") MVP |
+| **IP-D4** | 2030-Q4 | First marketplace community-authored typology pack live (community drives long-tail) |
+| **IP-D5** | 2031+ | Outcome-based pricing model launched (D.AEC.58) |
+| **IP-D6** | 2031+ | First IDS / ICDD / bSDD-driven workflows live |
+| **IP-D7** | 2031+ | Decentralised data ownership (Solid Pods + WebID) experimental |
+
+---
+
+## §3.0.3 — Mapping Phase A IPs back to sub-phases (cross-reference)
+
+Every Phase A sub-phase in §3.1–§3.X traces to one or more IPs. This table is the operational pivot:
+
+| Sub-phase | Contributes to IP(s) |
+|---|---|
+| A.1 TypologyPipeline scaffold | IP-A1 |
+| A.2 TypologyManifest schema | IP-A1 |
+| A.3 TypologyRegistry + dispatch router | IP-A2 |
+| A.4 Apartment refactored as Pack | IP-A2 |
+| A.5 RAC chatbot UI | IP-A3 |
+| A.6 TypologyPicker UI | IP-A3 |
+| A.7 C19 Site schemas + SiteStore | IP-A2 (schema) · IP-A5 (ratify) |
+| A.8 Site authoring UI (Cesium-light) | IP-A2 (basic) · IP-A4 (polish) |
+| A.9 IfcSite round-trip | IP-A5 |
+| A.10 Climate ingestion EPW + NOAA | IP-A3 (parser) · IP-A4 (UI) |
+| A.11 Climate substrate UI | IP-A4 |
+| A.12 @pryzm/sdk npm publish | IP-A1 |
+| A.13 @pryzm/headless npm publish | IP-A1 |
+| A.14 DNS marketplace.pryzm.app | IP-A1 |
+| A.15 First 5 marketplace plugins | IP-A1 (first 2) · IP-A3 (next 3) |
+| A.16 Marketplace UX polish | IP-A6 |
+| A.17 pryzm.app domain cutover | IP-A5 |
+| A.18 Pricing page from entitlement registry | IP-A5 |
+| A.19 Brand-voice content sweep | IP-A5 |
+| A.20 C50 Typology Pipeline contract DRAFT | IP-A2 |
+| A.21 House typology end-to-end | IP-A7 (MVP) · IP-A8 (polish) · IP-A9 (ship) |
+| A.22 Small-Office typology end-to-end | IP-A10 (MVP) · IP-A11 (ship) |
+| A.23 C20 Building + Apt Aggregates | IP-A7 (schemas) · IP-A8 (wiring) · IP-A9 (ratify) |
+| A.24 Inspect tree wired with aggregates | IP-A7 (axis) · IP-A8 (complete) |
+| A.25 IFC4X3 Pset coverage | IP-A7 (80%) · IP-A9 (100%) |
+| A.26 Revit IFC4X3-RV variant exporter | IP-A10 |
+| A.27 10-project IFC round-trip nightly | IP-A9 |
+| A.28 First 3 community family packs | IP-A8 |
+| A.29 Family marketplace UX polish | IP-A8 |
+| A.30 C22 PII partial ratification | IP-A4 (DSAR) · IP-A5 (UI) |
+| A.31 C23 Provenance graph partial ratification | IP-A5 (graph) · IP-A11 (UI complete) |
+| A.32-A.34 WCAG accessibility prep | IP-A9 (axe-core green) |
+| A.35 Backup + DR runbooks | IP-A10 (PG snapshot) · IP-A11 (drill) |
+| A.36 First DR drill | IP-A11 |
+| A.37 Cognition L1-L4 hardening (100 rules) | IP-A12 |
+| A.38 L5 daylight rule-checker | IP-A7 |
+| A.39 L5 perceptual evaluator | IP-A8 |
+| A.40 First 50 paying customers | IP-A6 (10) · IP-A9 (25) · IP-A11 (35) · IP-A12 (50) |
+| A.41 Phase 1 exit ADR | IP-A12 (draft) · IP-A13 (ratified) |
+| A.U.* Editor UI redesign | distributed: A.U.5 → IP-A3 · A.U.12 consent → IP-A4 · A.U.4 settings → IP-A10 · A.U.2 property panel → IP-A7 |
+| A.PL.* Project page | A.PL.1 hub → IP-A3 · A.PL.4 sharing → IP-A8 |
+| A.M.* Marketing surfaces | A.M.1/2/3/4 → IP-A5 |
+| A.B.* Billing UX | A.B.5 trial banner → IP-A4 · A.B.4 quota meter → IP-A4 |
+| A.A.* Auth UX | A.A.1 signup polish → IP-A2 |
+| A.PR.B/H Production-readiness | distributed across IP-A1 through IP-A11; B10 (quarantine modal) → IP-A6; H19 (OTel exporter) → IP-A4 |
+| A.DU.* Daily-use fixes | distributed; primarily IP-A1 → IP-A6 (sprint 1-3 fixes) |
+| A.OI.* | OI-011/012/013 → IP-A1; OI-053 (project-open perf) → IP-A4; OI-058 (Scene Registry) → IP-A6 |
+| A.APT.* Apartment carry-overs | A.APT.SA.2 corridor → IP-A2 · A.APT.SA.5 windows engine → IP-A5 |
+
+The user-facing acceptance test at each IP runs through the cumulative test surface: IP-A6 tests IP-A1 through IP-A6's combined surfaces.
+
+---
+
 ## §3 — Phase A — Alpha (Current; 2026-Q3 to 2026-Q4; ~6 months)
 
 **Phase A exit criteria**: see [roadmap-phase-1-alpha.md §1](./roadmap-phase-1-alpha.md). 10 criteria (E1–E10). Closure ADR raised at end of 2026-Q4.
