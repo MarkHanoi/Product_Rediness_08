@@ -29,6 +29,59 @@
 
 ---
 
+## §2.5 — CONSOLIDATED PHASE-BY-PHASE INDEX (the single canonical view)
+
+The audits in §12, §16, §18, §19, §20 surfaced ~584 sub-phases across Phases A/B/C/D + cross-cutting X.*. This §2.5 indexes the canonical tables — §3 (Phase A), §4 (Phase B), §5 (Phase C), §6 (Phase D), §7 (X cross-cutting) — and points to the sub-section for each category.
+
+Every sub-phase **anywhere in this doc** has the `| Phase | Goal | Description + references | Status |` row format. The aggregated counts per category:
+
+| Category | Phase A (~290) | Phase B (~136) | Phase C (~96) | Phase D (~46) | Cross-cut (~16) | Doc section |
+|---|---:|---:|---:|---:|---:|---|
+| **Core typology + site + climate + SDK + marketplace + brand** | A.1–A.41 (41) | B.1–B.35 (35) | C.1–C.39 (39) | — | — | §3.1 / §4.x / §5.x |
+| **Editor UI redesign** | A.U.1–A.U.18 (18) | B.U.1–B.U.17 (~17) | C.U.1–C.U.12 (12) | — | — | §12.3 + §12.4 |
+| **Project hub / page / lifecycle** | A.PL.1–A.PL.6 (6) | B.U.6 (1) | — | — | — | §12.3 |
+| **Sheet + view + elevation UX** | — | B.S.1–B.S.5 (5) | C.U.1 (1) | — | — | §12.4 |
+| **Inspect tree + Data Panel UX** | A.24 (1) | B.12–B.13 + B.I.1–B.I.3 + B.D.1–B.D.3 (8) | C.U.3 + C.U.4 (2) | — | — | §12.4 |
+| **Family creation pipeline** | A.F.1–A.F.5 (5) | B.F.1–B.F.4 (4) | C.F.1–C.F.2 (2) | — | — | §12.5 |
+| **Native Revit (IFC4 + Python adapter)** | A.R.1–A.R.2 (2) | B.R.1–B.R.3 (3) | C.R.1–C.R.4 (4) | — | — | §12.6 |
+| **AI commands + assistant** | A.42–A.47 (6) | B.AI.1–B.AI.4 + B.U.5 (5) | C.AI.1–C.AI.2 (2) | — | — | §12.7 |
+| **Auth + Billing UX** | A.A.1–A.A.4 + A.B.1–A.B.5 (9) | B.A.1–B.A.2 + B.B.1–B.B.4 (6) | — | — | — | §12.8 |
+| **Admin tooling** | A.AD.1–A.AD.2 (2) | B.AD.1–B.AD.3 (3) | C.AD.1–C.AD.2 (2) | — | — | §12.9 |
+| **Apartment master (D-α/β/γ · L1-L7 · D+T classes · P0 · F-tier)** | A.AM.* + A.CS.* + A.DC.* + A.F1.* + A.AM.FP.* (~80) | B.AM.* + B.CS.* + B.DC.* + B.F2.* + B.F3.* + B.AM.FP.* (~40) | C.AM.* + C.CS.* + C.DC.* + C.F4.* + C.F5.* + C.F8.* + C.AM.FP.9 (~25) | D.AM.* + D.CS.* + D.DC.* + D.F6.* + D.F7.* (~15) | — | §19 |
+| **Marketing + trust surfaces** | A.M.1–A.M.10 + A.M.LAUNCH.* (13) | B.M.1–B.M.3 (3) | C.M.1 (1) | — | — | §12.11 + §19.6 |
+| **Mobile + tablet** | A.MO.1–A.MO.3 (3) | B.MO.1–B.MO.3 (3) | C.MO.1–C.MO.3 (3) | — | — | §12.12 |
+| **Production-readiness blockers + highs (from remaining-work)** | A.PR.B10–B19 + A.PR.H3–H37 (~25) | — | — | — | — | §16.1 + §16.2 |
+| **Architecture migration (P4/P6/P8 finalisation)** | A.AM.H33–H36 + A.P4F + A.P8F (3) | — | — | — | — | §16.3 |
+| **Daily-use sprints (T-* · U-* · C-* · M-* · L-* · S-* IDs)** | A.DU.* (~30) | — | — | — | — | §16.4–§16.9 |
+| **Plan-view incremental projection** | A.PV.OPENING + A.PV.STAIR-RAIL + A.PV.CONTRACT + A.PV.HLR (4) | — | — | — | — | §16.10 |
+| **Master-status OI register (OI-007 → OI-058)** | A.OI.* (~10) + C.OI.007 (1) | — | — | — | — | §16.11 |
+| **Apartment-layout carry-overs (multi-apt brief · NO-windows · corridor · etc.)** | A.APT.* (~11) | — | — | — | — | §16.12 |
+| **Wall-junction defects** | A.WJ.LCORNER + A.WJ.MULTICLUSTER + A.WJ.IWO (3) | B.WJ.ADR55P4A/B/C (3) | — | — | — | §16.13 |
+| **Operator / non-code** | — | — | — | — | X.OP.1–X.OP.3 (3) | §16.14 |
+| **Phase D post-GA (WCAG · multi-IFC · GeoJSON · SAB · WebGPU-mobile · family-threading · multi-day-offline · CI/CD)** | — | — | — | D.PGA.1–D.PGA.8 (8) | — | §16.15 |
+| **Spec audit additions (CDE · stakeholder · MEP · EIR · buildingSMART · sheet×4D×5D · analysis-bridge · sustainability · PDF-to-BIM · materials · wall-mvt · stair3D · edge-flicker · WebGPU-overlay)** | A.SP.32 + A.SP.33 + A.SP.38 + A.SP.39 + A.SP.MAT + A.SP.WMS + A.SP.S3D + A.SP.EL.1 + A.SP.EL.2 (~9) | B.SP.40 + B.SP.41 + B.SP.42 + B.SP.MAT (~4) | C.SP.43 + C.SP.45 (~2) | — | — | §18.2 + §18.3 |
+| **AEC-Magazine wishlist (DfMA · ConTech · AI-2D-drawing · outcome-pricing)** | — | — | — | D.AEC.46 + D.AEC.47 + D.AEC.53 + D.AEC.58 (4) | — | §20.1 |
+| **Extended SPEC numbering (Linked-Data · IDS · ICDD · bSDD · AI-design-partner · Code-compliance · DTDL/IoT · Spec-writer · decentralised-data)** | — | — | — | D.SP.48–58 (9) | — | §20.2 |
+| **Strategic ADRs pending (ADR-036 → ADR-050)** | — | B.ADR.36–38 (3) | C.ADR.39–42 (4) | D.ADR.43–50 (8) | — | §20.3 |
+| **Launch publication (beta · GA · demo)** | A.M.LAUNCH.BETA + A.M.LAUNCH.GA + A.M.LAUNCH.BETA-DEMO (3) | — | — | — | — | §19.6 |
+| **Wireup-2026 residuals (mostly shipped)** | A.WU.768 + A.WU.E8 (2) | — | — | — | — | §19.7 |
+| **Cross-cutting continuous** | — | — | — | — | X.1–X.10 + X.OP.1-3 (~13) | §7 + §16.14 |
+| **TOTAL** | **~290** | **~136** | **~96** | **~46** | **~16** | **~584** |
+
+### §2.5.1 — How to use this index
+
+For day-to-day operations:
+
+- **Standup**: open §3 (Phase A) — scan for 🟢 IN PROGRESS + 🟡 NEXT UP rows
+- **Sprint planning**: cross-reference §3 against the quarterly plan (Q3 / Q4)
+- **Phase exit**: re-read §3 + verify all rows → ✅ DONE or 🔵 DEFERRED with ADR
+- **Cross-team handoff**: cite the sub-phase ID + the doc reference in the row
+- **New work surfaces**: pick a phase + category from §2.5 + add a row in the right §3.x / §4.x / §5.x / §6.x sub-section per the convention in §15
+
+**The canonical detailed tables follow in §3 (Phase A), §4 (Phase B), §5 (Phase C), §6 (Phase D), §7 (X cross-cutting).** All sub-phase rows from §12–§20 audit sections are referenced through §2.5 to their source rows — the audit sections preserve the authoring trail without duplicating the table content.
+
+---
+
 ## §3 — Phase A — Alpha (Current; 2026-Q3 to 2026-Q4; ~6 months)
 
 **Phase A exit criteria**: see [roadmap-phase-1-alpha.md §1](./roadmap-phase-1-alpha.md). 10 criteria (E1–E10). Closure ADR raised at end of 2026-Q4.
