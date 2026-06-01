@@ -4,3 +4,4 @@ export * from './PaperSize.js';
 export * from './TitleBlock.js';
 export * from './Viewport.js';
 export * from './Sheet.js';
+export * from './SheetToSvg.js';
