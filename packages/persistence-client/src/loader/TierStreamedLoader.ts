@@ -36,7 +36,7 @@
 //   by `LruEviction.test.ts`, is bounded by `maxBytes`.
 // • #5 (history-on-demand): `loadHistorySegment(0, 499)` returns
 //   events; tested by `HistoryStreamer.test.ts`.
-// • #6 (ADR-0020 merged): `docs/architecture/adr/0020-tier-streamed-loader.md`.
+// • #6 (ADR-0020 merged): `docs/02-decisions/adrs/0020-tier-streamed-loader.md`.
 // • #7 (K1-E preview, small fixture < 800 ms): bench
 //   `apps/bench/src/benches/load-small-preview.bench.ts`.
 

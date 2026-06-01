@@ -142,7 +142,7 @@ export const ManifestSchema = z.object({
    *
    * Adding a new flag here is a NON-breaking change at `schemaVersion: 1`
    * because every flag has a default — it only requires a doc update in
-   * `docs/architecture/adr/0023-plan-view-canvas2d-renderer.md` §5.
+   * `docs/02-decisions/adrs/0023-plan-view-canvas2d-renderer.md` §5.
    */
   featureFlags: z
     .object({

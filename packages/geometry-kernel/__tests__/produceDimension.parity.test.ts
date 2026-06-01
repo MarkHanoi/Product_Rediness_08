@@ -1,6 +1,6 @@
 // produceDimension — analytic parity (S29).
 //
-// `code-level ADR docs/architecture/adr/0028-plan-view-canvas-architecture.md`.
+// `code-level ADR docs/02-decisions/adrs/0028-plan-view-canvas-architecture.md`.
 
 import { describe, expect, it } from 'vitest';
 import { Dimension, createId } from '@pryzm/schemas';

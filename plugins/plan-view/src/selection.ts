@@ -4,7 +4,7 @@
 //   "Selection in plan view doesn't update 3D selection.  Fix:
 //    plan-view/selection.ts — selection dispatches to SelectionStore."
 //
-// Subordinate ADR: `docs/architecture/adr/0025-plan-view-svp-parity-contract-44.md`.
+// Subordinate ADR: `docs/02-decisions/adrs/0025-plan-view-svp-parity-contract-44.md`.
 //
 // CONTRACT
 // ─────────────────────────────────────────────────────────────────────────────

@@ -2,7 +2,7 @@
 //
 // Lifts the inline cascade logic from `src/commands/walls/CascadeWallBaselineCommand.ts:223`
 // (PRYZM 1) into a generic L4 service per
-// `code-level ADR docs/architecture/adr/0012-cross-element-cascade-rule-registration.md`.
+// `code-level ADR docs/02-decisions/adrs/0012-cross-element-cascade-rule-registration.md`.
 //
 // CONTRACT (spec PHASE-1B-Q2-M4-M6 §S10 typed contracts, line 1059):
 //

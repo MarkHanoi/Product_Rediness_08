@@ -1,6 +1,6 @@
 // @pryzm/picking — public barrel.
 //
-// L5 module.  See `docs/architecture/adr/0015-picking-strategy.md` for
+// L5 module.  See `docs/02-decisions/adrs/0015-picking-strategy.md` for
 // the design brief and `phases/PHASE-1C-Q3-M7-M9-ELEMENT-FAMILIES.md`
 // §S16 for the sprint contract.
 

@@ -2,7 +2,7 @@
 // the FrameScheduler.
 //
 // Spec: `phases/PHASE-1C-Q3-M7-M9-ELEMENT-FAMILIES.md` §S17 lines 849-900.
-// ADR: `docs/architecture/adr/0016-view-state-command-driven.md` §"Decision".
+// ADR: `docs/02-decisions/adrs/0016-view-state-command-driven.md` §"Decision".
 //
 // Contract (S17 typed contract, lines 849-863):
 //   * `switchTo(viewId)` resolves when the camera animation completes.

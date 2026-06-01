@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * verify-bundle-size.mjs — S61 D6 deliverable per
- * `docs/architecture/adr/0031-s61-staged-legacy-deletion.md` §Decision D6:
+ * `docs/02-decisions/adrs/0031-s61-staged-legacy-deletion.md` §Decision D6:
  *
  *   "visual + e2e regression suite confirms `bundle.size.initial-app
  *    < 1.8 MB gzip` (per `apps/bench/`) and `visual-diff < 2 px` on the

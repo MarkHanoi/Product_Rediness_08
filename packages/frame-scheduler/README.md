@@ -97,7 +97,7 @@ fake.flush(performance.now());   // runs one tick synchronously
 | Idle-continuation budget | ADR-006 (S03-T2) | 30 frames after motion stops |
 | Worker pool cap | ADR-005 (S03-T2a) | 4 browser Web Workers maximum |
 
-See `docs/architecture/frame-scheduler.md` for the full design brief.
+See `docs/04-reference/architecture-detail/frame-scheduler.md` for the full design brief.
 
 ## Sprint citations
 

@@ -5,7 +5,7 @@
 //    followed by point-in-polygon refinement (for accuracy).  The wall
 //    AABB is `wall.start`/`wall.end` ± `wall.thickness/2`."
 //
-// Subordinate ADR: `docs/architecture/adr/0025-plan-view-svp-parity-contract-44.md`.
+// Subordinate ADR: `docs/02-decisions/adrs/0025-plan-view-svp-parity-contract-44.md`.
 //
 // CONTRACT
 // ─────────────────────────────────────────────────────────────────────────────

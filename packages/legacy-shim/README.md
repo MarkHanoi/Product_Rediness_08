@@ -76,6 +76,6 @@ case table.
 * `tools/eslint-plugin-pryzm/src/rules/no-raf.js` — the rule source.
 * `tools/eslint-plugin-pryzm/src/rules/store-single-channel.js` — the rule source.
 * `tools/scripts/check-lint-fixtures.mjs` — the integration script.
-* `docs/architecture/boundaries.md` §"Process-only packages" — the
+* `docs/04-reference/architecture-detail/boundaries.md` §"Process-only packages" — the
   policy entry that lists every fixture/process package and their
   exemptions.

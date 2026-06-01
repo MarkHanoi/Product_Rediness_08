@@ -3,7 +3,7 @@
 // Spec: `phases/PHASE-2B-Q2-M16-M18-PLAN-VIEW.md` §S33 G5 (line 626):
 //   "ViewStore gets `elementVisibility: Map<viewId, Map<elementId, boolean>>`"
 //
-// Subordinate ADR: `docs/architecture/adr/0025-plan-view-svp-parity-contract-44.md`.
+// Subordinate ADR: `docs/02-decisions/adrs/0025-plan-view-svp-parity-contract-44.md`.
 //
 // CONTRACT
 // ─────────────────────────────────────────────────────────────────────────────

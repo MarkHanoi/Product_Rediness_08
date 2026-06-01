@@ -1,7 +1,7 @@
 // composeDimensionGeometryHash — deterministic cache key for dimension
 // annotations.
 //
-// S29 / `code-level ADR docs/architecture/adr/0028-plan-view-canvas-architecture.md`.
+// S29 / `code-level ADR docs/02-decisions/adrs/0028-plan-view-canvas-architecture.md`.
 //
 // Every input that the producer reads (kind, every reference point,
 // offset, unit, precision, style, override text) is folded into the

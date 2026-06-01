@@ -4,7 +4,7 @@ L5/L7 — the only package allowed to import `three` outside
 `@pryzm/scene-committer` (and the explicitly allowlisted boot file
 `apps/editor/src/bootstrap.render.ts`).
 
-See `docs/architecture/renderer.md` for the full design.
+See `docs/04-reference/architecture-detail/renderer.md` for the full design.
 
 ## Quick start
 

@@ -2,7 +2,7 @@
 // active view-id and the currently-active tool-id.
 //
 // Spec: `phases/PHASE-1C-Q3-M7-M9-ELEMENT-FAMILIES.md` §S17 lines 842-847.
-// ADR: `docs/architecture/adr/0016-view-state-command-driven.md` §"Decision".
+// ADR: `docs/02-decisions/adrs/0016-view-state-command-driven.md` §"Decision".
 //
 // The shape is "singleton-on-Store" — the inner Map only ever holds
 // one entry under the fixed key `'active'`.  This lets us reuse the

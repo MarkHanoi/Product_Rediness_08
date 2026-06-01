@@ -3,7 +3,7 @@
 // Spec source:
 //   • `docs/00_NEW_ARCHITECTURE/phases/PHASE-2B-Q2-M16-M18-PLAN-VIEW.md`
 //     §S32 (lines 396 – 599).
-//   • Code-level ADR `docs/architecture/adr/0024-plan-view-annotation-pipeline.md`
+//   • Code-level ADR `docs/02-decisions/adrs/0024-plan-view-annotation-pipeline.md`
 //     §2 (layout/committer split) + §4 (font + line-weight policy).
 //
 // CONTRACT

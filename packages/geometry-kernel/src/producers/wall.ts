@@ -1,6 +1,6 @@
 // produceWall — pure function `(dto, joinData, worldY) => BufferGeometryDescriptor`.
 //
-// FROZEN at S08 D2 by ADR-009 (`docs/architecture/adr/0009-producer-
+// FROZEN at S08 D2 by ADR-009 (`docs/02-decisions/adrs/0009-producer-
 // pure-function-signature.md`).  Identical inputs MUST produce
 // byte-identical output across Node `worker_thread` and the browser
 // worker (K1-B pivot test).

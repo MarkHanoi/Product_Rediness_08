@@ -6,7 +6,7 @@
 // no slope arrows).
 //
 // FROZEN at the same producer signature as `produceWall` (ADR-009 —
-// `docs/architecture/adr/0009-producer-pure-function-signature.md`):
+// `docs/02-decisions/adrs/0009-producer-pure-function-signature.md`):
 //   `(dto, joinData, worldY) → BufferGeometryDescriptor`.  Roofs do
 // not currently consume `joinData`, but the slot is preserved so the
 // L4 producer registry can dispatch uniformly across element families.

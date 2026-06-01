@@ -23,7 +23,7 @@
 //   reference-file emitter, not part of CI.
 //
 // **Operator workflow** (documented in
-// `docs/architecture/parity-fixtures.md`):
+// `docs/04-reference/architecture-detail/parity-fixtures.md`):
 //
 //   1. `npm run dev`                         — start PRYZM 1.
 //   2. Open the editor, ensure the default project loads.

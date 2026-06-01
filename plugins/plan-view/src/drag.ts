@@ -4,7 +4,7 @@
 //   "Drag in plan view does not create commands (data lost on reload).
 //    Fix: plan-view/drag.ts — drag dispatches `MoveElement` commands."
 //
-// Subordinate ADR: `docs/architecture/adr/0025-plan-view-svp-parity-contract-44.md`.
+// Subordinate ADR: `docs/02-decisions/adrs/0025-plan-view-svp-parity-contract-44.md`.
 //
 // CONTRACT
 // ─────────────────────────────────────────────────────────────────────────────

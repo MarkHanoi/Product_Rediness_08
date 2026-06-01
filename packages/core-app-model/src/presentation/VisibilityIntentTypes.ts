@@ -461,8 +461,8 @@ export interface VisibilityIntent {
      * Undefined = the Intent is appearance-only (the historical default) and
      * does not surface in the "Create View from Intent" picker.
      *
-     * See: docs/Analysis/MASTER-IMPLEMENTATION-PLAN.md §4 (Wave 1 / P0),
-     *      docs/Analysis/INTENT-AS-VIEW-PROPERTIES-ORCHESTRATION-LAYER.md §2.6.1, §4.4.
+     * See: docs/03-execution/status/intent-analysis/MASTER-IMPLEMENTATION-PLAN.md §4 (Wave 1 / P0),
+     *      docs/03-execution/status/intent-analysis/INTENT-AS-VIEW-PROPERTIES-ORCHESTRATION-LAYER.md §2.6.1, §4.4.
      */
     viewSeed?: ViewSeed;
 }

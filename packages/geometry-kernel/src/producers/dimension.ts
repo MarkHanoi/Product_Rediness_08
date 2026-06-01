@@ -1,6 +1,6 @@
 // produceDimension — measurement-annotation geometry (S29).
 //
-// `code-level ADR docs/architecture/adr/0028-plan-view-canvas-architecture.md`.
+// `code-level ADR docs/02-decisions/adrs/0028-plan-view-canvas-architecture.md`.
 //
 // A dimension is fundamentally a 2D annotation.  The kernel emits TWO
 // pieces of information:

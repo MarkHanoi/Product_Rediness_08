@@ -3,7 +3,7 @@
 // Spec: `phases/PHASE-2A-Q1-M13-M15-NON-ELEMENT-COMPLETION.md` §S25.
 // Algorithm: topological half-edge graph flood-fill from a user-supplied
 // seed point.  Decision recorded in
-// `code-level ADR docs/architecture/adr/0022-room-boundary-detection.md`.
+// `code-level ADR docs/02-decisions/adrs/0022-room-boundary-detection.md`.
 //
 // Producer signature: `(room, ctx, worldY)` — deviates from ADR-009's
 // frozen `(dto, joinData, worldY)` because room is the first family

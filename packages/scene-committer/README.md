@@ -90,7 +90,7 @@ Collapses PRYZM 1's 23 `*FragmentBuilder.ts` files (~12 K LOC) into one
 The depth-counted batch primitive from `src/core/StoreEventBus.ts` is
 reproduced inside `CommitterHost.batch()` — same "no event drops" contract.
 
-See `docs/architecture/scene-committer.md` for the full design brief.
+See `docs/04-reference/architecture-detail/scene-committer.md` for the full design brief.
 
 ## Sprint citations
 

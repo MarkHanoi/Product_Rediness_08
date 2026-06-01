@@ -1,7 +1,7 @@
 // edge-projection — pure plan-view edge classifier (S30).
 //
 // Spec: `phases/PHASE-2A-Q1-M13-M15-NON-ELEMENT-COMPLETION.md` §S30.
-// ADR:  `code-level ADR docs/architecture/adr/0028-plan-view-canvas-architecture.md`
+// ADR:  `code-level ADR docs/02-decisions/adrs/0028-plan-view-canvas-architecture.md`
 //       `[strategic ADR-016]` (drawing engine foundation — classifier role).
 //
 // CONTRACT

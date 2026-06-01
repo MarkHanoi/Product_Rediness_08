@@ -78,7 +78,7 @@ understanding element schemas.
 Event versioning: each event carries `version: number`.  Forward-compat
 replay (replay v1 events on a v2 reader) tested at S04 D7.
 
-See `docs/architecture/persistence.md` for the full design brief.
+See `docs/04-reference/architecture-detail/persistence.md` for the full design brief.
 
 ## Sprint citations
 

@@ -26,7 +26,7 @@ const DimensionStyle = z.enum(['architectural', 'engineering', 'custom']);
 /**
  * Dimension — measurement annotation on a view.
  *
- * S29 / `code-level ADR docs/architecture/adr/0028-plan-view-canvas-architecture.md`.
+ * S29 / `code-level ADR docs/02-decisions/adrs/0028-plan-view-canvas-architecture.md`.
  *
  * `levelId` is the **primary** anchor — every dimension belongs to one level
  * (the plan-view skeleton filters by `levelId === activeLevel`).  `viewId`

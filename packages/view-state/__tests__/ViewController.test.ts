@@ -1,7 +1,7 @@
 // ViewController tests (S17-T5).
 //
 // Spec: PHASE-1C §S17 lines 849-900 (switchTo animation contract).
-// ADR: docs/architecture/adr/0016-view-state-command-driven.md.
+// ADR: docs/02-decisions/adrs/0016-view-state-command-driven.md.
 //
 // Tests covered:
 //  1. switchTo resolves + sets activeViewId when tick fires after duration

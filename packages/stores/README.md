@@ -75,7 +75,7 @@ Mirrors PRYZM 1's 65 `*Store.ts` files (25 K LOC) but unified under one
 `Store<T>` base with a discriminated-union `DirtyDiff` contract instead of
 per-store ad-hoc listener APIs.
 
-See `docs/architecture/stores.md` for the full design brief.
+See `docs/04-reference/architecture-detail/stores.md` for the full design brief.
 
 ## Sprint citations
 

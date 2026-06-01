@@ -48,7 +48,7 @@ export {
 } from './PlanViewRenderer.js';
 
 // S32 — Plan-view annotation pipeline (layout / committer split).
-// See `docs/architecture/adr/0024-plan-view-annotation-pipeline.md`.
+// See `docs/02-decisions/adrs/0024-plan-view-annotation-pipeline.md`.
 export {
   layoutAnnotations,
   type AnnotationDto,
@@ -70,7 +70,7 @@ export {
 } from './tracing.js';
 
 // S33 — Contract 44 closure (G1–G10).
-// See `docs/architecture/adr/0025-plan-view-svp-parity-contract-44.md`.
+// See `docs/02-decisions/adrs/0025-plan-view-svp-parity-contract-44.md`.
 export {
   StyleResolver,
   type ElementStyle,

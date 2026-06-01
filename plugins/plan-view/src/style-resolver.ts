@@ -1,7 +1,7 @@
 // style-resolver — per-view style + visibility overrides for the plan view.
 //
 // Spec: `phases/PHASE-2B-Q2-M16-M18-PLAN-VIEW.md` §S33 lines 635–676 (G4, G6, G7).
-// Subordinate ADR: `docs/architecture/adr/0025-plan-view-svp-parity-contract-44.md`.
+// Subordinate ADR: `docs/02-decisions/adrs/0025-plan-view-svp-parity-contract-44.md`.
 //
 // CONTRACT
 // ─────────────────────────────────────────────────────────────────────────────

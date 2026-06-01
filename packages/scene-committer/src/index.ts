@@ -1,6 +1,6 @@
 // @pryzm/scene-committer — public barrel.
 //
-// L5 module.  See `docs/architecture/scene-committer.md` for the design
+// L5 module.  See `docs/04-reference/architecture-detail/scene-committer.md` for the design
 // brief and ADR-005 for the interface ratification.
 
 export type { ElementId, MaterialHandle, PrimitiveCommitter } from './types.js';

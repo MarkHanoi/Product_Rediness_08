@@ -21,7 +21,7 @@ What does NOT ship in S43 D1-D2:
 
 ## Architecture
 
-See **`docs/architecture/adr/0033-sync-client-event-bridge.md`** for the design decision and **`docs/archive/pryzm3-internal/reference/adrs/ADR-002-crdt-event-log-bridge.md`** for the strategic context.
+See **`docs/02-decisions/adrs/0033-sync-client-event-bridge.md`** for the design decision and **`docs/archive/pryzm3-internal/reference/adrs/ADR-002-crdt-event-log-bridge.md`** for the strategic context.
 
 The two byte streams:
 

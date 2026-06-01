@@ -8,7 +8,7 @@ import { Vec3 } from '../base/primitives.js';
  *
  *   • `boundaryMode` — `'wallBound'` (boundary derived from enclosing
  *     walls via the half-edge flood-fill in `produceRoom`, see
- *     `code-level ADR docs/architecture/adr/0022-room-boundary-detection.md`)
+ *     `code-level ADR docs/02-decisions/adrs/0022-room-boundary-detection.md`)
  *     vs `'sketched'` (PRYZM 1's manually-sketched polygon path,
  *     unchanged from M1A and used as the back-compat default for the
  *     existing 2A test fixtures).

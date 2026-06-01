@@ -1,7 +1,7 @@
 // ViewDefinition — Zod schema for a single view.
 //
 // Spec: `phases/PHASE-1C-Q3-M7-M9-ELEMENT-FAMILIES.md` §S17 lines 818-834.
-// ADR: `docs/architecture/adr/0016-view-state-command-driven.md` §"Decision".
+// ADR: `docs/02-decisions/adrs/0016-view-state-command-driven.md` §"Decision".
 //
 // 'plan' / 'section' kinds land in 2A / 2B — see ADR-0016 §"Forward
 // compatibility" for the discriminated-union extension path.  In S17 we

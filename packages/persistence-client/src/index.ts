@@ -119,7 +119,7 @@ export {
 // --------------------------------------------------------------------
 // S19 — Chunked binary persistence.  Manifest schema (D5 interface
 // lock), codec lazy singletons (Draco / Meshopt / KTX2 stub), and
-// ChunkWriter / ChunkReader.  See `docs/architecture/chunks.md`.
+// ChunkWriter / ChunkReader.  See `docs/04-reference/architecture-detail/chunks.md`.
 // --------------------------------------------------------------------
 
 export {
@@ -182,7 +182,7 @@ export {
 
 // --------------------------------------------------------------------
 // S23 — Tier-streamed cold-load orchestrator.  See
-// `docs/architecture/loader.md` and ADR-0020 for the full design.
+// `docs/04-reference/architecture-detail/loader.md` and ADR-0020 for the full design.
 // --------------------------------------------------------------------
 
 export {

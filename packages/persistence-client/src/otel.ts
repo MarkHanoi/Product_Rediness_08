@@ -7,7 +7,7 @@
 // mechanism the L2 command-bus uses in its own `otel.ts`) so the L0
 // client stays free of any L2 dependency at runtime — the two layers
 // each own their own tracer and produce sibling spans, not parent /
-// child.  When a real TracerProvider is wired (see `docs/architecture/ci.md`)
+// child.  When a real TracerProvider is wired (see `docs/04-reference/architecture-detail/ci.md`)
 // both layers light up at once.
 
 import { trace, SpanStatusCode, type Attributes, type Span } from '@opentelemetry/api';

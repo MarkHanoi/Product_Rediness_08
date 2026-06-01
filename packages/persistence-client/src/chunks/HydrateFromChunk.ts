@@ -21,7 +21,7 @@
 // the chunk hash + optional extras snapshot.  The bake worker uses it
 // for diagnostics and cost accounting; the K1D-2 5K-wall production-
 // scale check is documented as deferred to S23 D1 (see
-// `docs/architecture/bake-worker.md` §"Known limitations").
+// `docs/04-reference/architecture-detail/bake-worker.md` §"Known limitations").
 //
 // The signature below is FROZEN — when S23 lands the full hydration,
 // callers gain new fields on `HydratedChunk` without breaking shape.

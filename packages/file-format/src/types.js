@@ -1,7 +1,7 @@
 // .pryzm v1 — public types.
 //
 // Spec source: phases/PHASE-1D-Q4-M10-M12-BAKE-PRYZM-ALPHA.md §S20
-// (lines 418-611) and ADR-0018 (docs/architecture/adr/0018-pryzm-zip-format-v1.md).
+// (lines 418-611) and ADR-0018 (docs/02-decisions/adrs/0018-pryzm-zip-format-v1.md).
 //
 // The .pryzm container is a ZIP whose layout is:
 //

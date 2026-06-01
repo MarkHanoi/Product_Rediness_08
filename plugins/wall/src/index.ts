@@ -5,7 +5,7 @@
 // pure-state half lives here, the THREE half lands in `committer.ts`
 // (S09) and the producer math lands in `packages/geometry-kernel/` (S08).
 //
-// The companion `docs/architecture/element-recipe.md` (this sprint) walks
+// The companion `docs/04-reference/architecture-detail/element-recipe.md` (this sprint) walks
 // any subsequent element family (door, window, slab, …) through the same
 // scaffold this plugin establishes.
 

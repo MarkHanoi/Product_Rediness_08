@@ -4,7 +4,7 @@
 // section-cut.ts` per W-09 of `PHASE-2-CLOSE-IMPLEMENTATION-PLAN-2026-04-28.md`.
 //
 // This shim keeps in-tree callers compiling.  Deletion is gated to the S61
-// legacy-shim cleanup pass (per `docs/architecture/adr/0031-s61-staged-
+// legacy-shim cleanup pass (per `docs/02-decisions/adrs/0031-s61-staged-
 // legacy-deletion.md`).
 
 export {

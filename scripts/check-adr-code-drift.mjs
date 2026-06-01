@@ -12,7 +12,7 @@
 //   <!-- code-anchor: pattern="<glob>" expect="present|absent" min="<n>" max="<n>" -->
 //
 // The checker:
-//   1. Walks `docs/architecture/adr/*.md`.
+//   1. Walks `docs/02-decisions/adrs/*.md`.
 //   2. For each anchor, runs `git ls-files | grep <glob>` (case-sensitive)
 //      to count files matching the glob.
 //   3. Asserts the result against `expect` / `min` / `max`.

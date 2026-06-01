@@ -2,7 +2,7 @@
 //
 // Spec source:
 //   • `docs/00_NEW_ARCHITECTURE/phases/PHASE-2B-Q2-M16-M18-PLAN-VIEW.md` §S31 D2/D3.
-//   • Code-level ADR `docs/architecture/adr/0023-plan-view-canvas2d-renderer.md` §2 + §4.
+//   • Code-level ADR `docs/02-decisions/adrs/0023-plan-view-canvas2d-renderer.md` §2 + §4.
 //   • Subordinate to `[strategic ADR-016]` (drawing engine architecture; Canvas2D
 //     is the screen back-end of the SPEC-04 vector primitive model).
 //

@@ -1,7 +1,7 @@
 // `@pryzm/view-state` — public surface.
 //
 // Spec: `phases/PHASE-1C-Q3-M7-M9-ELEMENT-FAMILIES.md` §S17 (lines 776-933).
-// ADR: `docs/architecture/adr/0016-view-state-command-driven.md`.
+// ADR: `docs/02-decisions/adrs/0016-view-state-command-driven.md`.
 
 export {
   ViewDefinitionSchema,

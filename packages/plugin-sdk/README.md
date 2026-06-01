@@ -13,7 +13,7 @@ npm install @pryzm/plugin-sdk@next   # tracks 1.0.0-rc.x while K3-C audit is in 
 ```
 
 The package is published under the `next` dist-tag until the K3-C
-sandbox-audit gate closes (per [ADR-0038](../../docs/architecture/adr/0038-s62-plugin-sdk-descriptor-schema-lock.md)
+sandbox-audit gate closes (per [ADR-0038](../../docs/02-decisions/adrs/0038-s62-plugin-sdk-descriptor-schema-lock.md)
 §Decision D).  After that gate clears, the version flips to `1.0.0` on
 the `latest` tag and the schema is locked under
 [semver](https://semver.org/) for one year minimum.
@@ -70,7 +70,7 @@ npx pryzm dev              # watch mode (re-validates on every save)
 
 ## The 7 locked permissions
 
-Per [ADR-0038](../../docs/architecture/adr/0038-s62-plugin-sdk-descriptor-schema-lock.md) §Decision A, the v1 permission set is locked:
+Per [ADR-0038](../../docs/02-decisions/adrs/0038-s62-plugin-sdk-descriptor-schema-lock.md) §Decision A, the v1 permission set is locked:
 
 | Permission | Grants |
 |---|---|
@@ -157,7 +157,7 @@ degraded-mode notice for that plugin.
 
 - Spec: [`phases/PHASE-3C-Q3-M31-M33-PLUGIN-SDK-MARKETPLACE-APIS.md`](../../docs/archive/pryzm3-internal/reference/phases/PHASE-3/3C-Q3-M31-M33-PLUGIN-SDK-MARKETPLACE-APIS.md) §2
 - Spec (rev): [`phases/PHASE-3C-Q3-M31-M33-SDK-MARKETPLACE-PUBLIC-API.md`](../../docs/archive/pryzm3-internal/reference/phases/PHASE-3/3C-Q3-M31-M33-SDK-MARKETPLACE-PUBLIC-API.md) §S62
-- Schema lock: [ADR-0038](../../docs/architecture/adr/0038-s62-plugin-sdk-descriptor-schema-lock.md)
+- Schema lock: [ADR-0038](../../docs/02-decisions/adrs/0038-s62-plugin-sdk-descriptor-schema-lock.md)
 - Examples: `examples/hello-plugin/`, `examples/format-plugin/`, `examples/ai-workflow-plugin/`
 
 ## License

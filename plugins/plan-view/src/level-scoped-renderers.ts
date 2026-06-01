@@ -2,7 +2,7 @@
 // single level (active level OR a linked level).
 //
 // Spec: `phases/PHASE-2B-Q2-M16-M18-PLAN-VIEW.md` §S33 G1–G3 (lines 622-624).
-// Subordinate ADR: `docs/architecture/adr/0025-plan-view-svp-parity-contract-44.md`.
+// Subordinate ADR: `docs/02-decisions/adrs/0025-plan-view-svp-parity-contract-44.md`.
 //
 // CONTRACT
 // ─────────────────────────────────────────────────────────────────────────────

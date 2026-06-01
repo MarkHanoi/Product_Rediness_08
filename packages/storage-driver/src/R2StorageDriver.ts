@@ -19,7 +19,7 @@
 //   • Setting all four R2_* env vars in production opts in.
 //   • The bake worker's import graph stays pure (no aws-sdk in dev/test).
 //
-// This is the canonical pattern documented in `docs/architecture/bake-worker.md`.
+// This is the canonical pattern documented in `docs/04-reference/architecture-detail/bake-worker.md`.
 
 import {
   type StorageDriver,
@@ -90,7 +90,7 @@ export class R2StorageDriver implements StorageDriver {
     return new StorageDriverError(
       'R2StorageDriver requires @aws-sdk/client-s3.  Install with ' +
         '`npm install -w @pryzm/storage-driver @aws-sdk/client-s3 @aws-sdk/s3-request-presigner` ' +
-        'and re-deploy.  See docs/architecture/bake-worker.md §"Production deployment".',
+        'and re-deploy.  See docs/04-reference/architecture-detail/bake-worker.md §"Production deployment".',
     );
   }
 }

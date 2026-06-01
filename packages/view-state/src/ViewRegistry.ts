@@ -1,7 +1,7 @@
 // ViewRegistry — Store<ViewDefinition> keyed by view-id.
 //
 // Spec: `phases/PHASE-1C-Q3-M7-M9-ELEMENT-FAMILIES.md` §S17 lines 836-840.
-// ADR: `docs/architecture/adr/0016-view-state-command-driven.md` §"Decision".
+// ADR: `docs/02-decisions/adrs/0016-view-state-command-driven.md` §"Decision".
 //
 // Standard `Store<T>` subclass — adds nothing beyond a `defaults()`
 // helper and the `ephemeral = false` annotation (views ARE persisted —

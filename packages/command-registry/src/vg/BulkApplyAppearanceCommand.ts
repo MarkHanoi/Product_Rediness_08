@@ -16,7 +16,7 @@
  * snapshot the previous `ElementGraphicsRules` per-(intent,elementType), apply
  * via `visibilityIntentStore.update`, restore the snapshot on undo.
  *
- * Master plan ref: docs/Analysis/MASTER-IMPLEMENTATION-PLAN.md §19.14
+ * Master plan ref: docs/03-execution/status/intent-analysis/MASTER-IMPLEMENTATION-PLAN.md §19.14
  *   ("Wave 7 — Mass-Edit Menu") and §19.13 ("Wave 7 — Multi-Select").
  */
 
