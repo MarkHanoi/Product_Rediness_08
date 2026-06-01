@@ -39,6 +39,12 @@ import { triggerApartmentLayout } from '../apartment-layout/apartmentLayoutTrigg
 import { triggerFurnishLayout } from '../furnish-layout/furnishLayoutTrigger';
 import { triggerLightingLayout } from '../lighting-layout/lightingLayoutTrigger';
 import { triggerCeilingLayout } from '../ceiling-layout/ceilingLayoutTrigger';
+// Dev-only test modals — surface the Family Platform pipeline + apartment
+// validator framework as AI Panel pills (no DevTools required). The
+// underlying functions are the SAME ones exposed as __pryzmFamilyPipeline /
+// __pryzmValidateLayout in apps/editor/src/dev/installPryzmTestFunctions.ts.
+import { openFamilyPlatformTestModal } from '../dev/familyPlatformTestModal';
+import { openValidateLayoutTestModal } from '../dev/validateLayoutTestModal';
 
 // ─── Command-Aware Suggestion Tree ───────────────────────────────────────────
 //
@@ -491,6 +497,28 @@ const COMMAND_TREE: SuggestionNode[] = [
                     { label: 'Wardrobe wizard',          query: 'start wardrobe configuration',      autoSend: true },
                     { label: 'What can I create?',       query: 'What elements can you create for me?', autoSend: true },
                 ],
+            },
+        ],
+    },
+    {
+        // Dev test surface — opens local modals that wrap the same
+        // `runFamilyPipeline` + `validateAndFormatLayout` already exposed as
+        // __pryzm* DevTools helpers. Surfaces them as pills so a user can
+        // exercise the Family Platform pipeline + apartment validator
+        // framework directly from the AI Design Assistant.
+        label: 'Test (dev)',
+        hint: 'dev tools — Family Platform pipeline + apartment validator',
+        category: 'test',
+        children: [
+            {
+                label: 'Test Family Pipeline',
+                hint: 'paste JSON → run pipeline → see RegisteredFamily',
+                action: () => { openFamilyPlatformTestModal(); },
+            },
+            {
+                label: 'Test Layout Validator',
+                hint: 'paste apartment DTO → run validator → markdown report',
+                action: () => { openValidateLayoutTestModal(); },
             },
         ],
     },
