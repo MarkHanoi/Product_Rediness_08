@@ -157,6 +157,9 @@ importers:
       '@pryzm/oauth2-pkce':
         specifier: workspace:*
         version: link:packages/oauth2-pkce
+      '@pryzm/pdf-export':
+        specifier: workspace:*
+        version: link:packages/pdf-export
       '@pryzm/pdf-to-bim':
         specifier: workspace:*
         version: link:packages/pdf-to-bim

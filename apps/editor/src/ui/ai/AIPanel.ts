@@ -53,6 +53,10 @@ import { openModelTreeTestModal } from '../dev/modelTreeTestModal';
 // modal that runs `buildSheetFromRooms` over the project's rooms and
 // renders the result inline via `sheetToSvgWithContent`.
 import { openSheetGeneratorTestModal } from '../dev/sheetGeneratorTestModal';
+// C29 PDF-α-2 — dev surface for the PDF Vector Export engine. Opens a
+// modal that composes a sheet from the project's rooms and emits a
+// download-able vector PDF via `sheetToPdfBytes`.
+import { openPdfExportTestModal } from '../dev/pdfExportTestModal';
 
 // ─── Command-Aware Suggestion Tree ───────────────────────────────────────────
 //
@@ -537,6 +541,11 @@ const COMMAND_TREE: SuggestionNode[] = [
                 label: 'Test Sheet Generator',
                 hint: 'build a sheet from the project\'s rooms → render inline SVG',
                 action: () => { openSheetGeneratorTestModal(); },
+            },
+            {
+                label: 'Generate PDF',
+                hint: 'sheetToPdfBytes → Blob download',
+                action: () => { openPdfExportTestModal(); },
             },
         ],
     },

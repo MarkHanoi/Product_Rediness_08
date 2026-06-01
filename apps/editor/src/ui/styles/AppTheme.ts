@@ -75,6 +75,7 @@ import { COLLABORATIVE_PRESENCE_STYLES } from './panels/collaborativePresence';
 import { MODEL_TREE_STYLES } from './panels/modelTree';
 import { MODEL_TREE_TEST_MODAL_STYLES } from './panels/modelTreeTestModal';
 import { SHEET_GENERATOR_TEST_MODAL_STYLES } from './panels/sheetGeneratorTestModal';
+import { PDF_EXPORT_TEST_MODAL_STYLES } from './panels/pdfExportTestModal';
 
 const APP_THEME_ID = 'app-master-theme-v3';
 
@@ -202,7 +203,8 @@ export function injectAppTheme(): void {
         + APARTMENT_LAYOUT_MODAL_STYLES
         + MODEL_TREE_STYLES
         + MODEL_TREE_TEST_MODAL_STYLES
-        + SHEET_GENERATOR_TEST_MODAL_STYLES;
+        + SHEET_GENERATOR_TEST_MODAL_STYLES
+        + PDF_EXPORT_TEST_MODAL_STYLES;
     if (!existing) document.head.appendChild(style);
 }
 

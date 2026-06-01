@@ -124,6 +124,7 @@
     "@pryzm/input-host": "workspace:*",
     "@pryzm/legacy-shim": "workspace:*",
     "@pryzm/oauth2-pkce": "workspace:*",
+    "@pryzm/pdf-export": "workspace:*",
     "@pryzm/pdf-to-bim": "workspace:*",
     "@pryzm/perf-budgets": "workspace:*",
     "@pryzm/persistence-client": "workspace:*",
