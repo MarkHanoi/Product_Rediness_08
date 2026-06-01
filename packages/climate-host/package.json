@@ -1,0 +1,25 @@
+{
+  "name": "@pryzm/climate-host",
+  "version": "0.1.0",
+  "description": "A.10.b/c (Phase A · Sprint 2) — L2 pure climate-data adapters.  EPW TMY3 parser (string → validated EPWRecord[]), monthly-normals / wind-rose / design-temperatures / degree-days aggregators (EPWRecord[] → C21 aggregates), and the deterministic NOAA solar-position reader (lat, lon, dateTime → SolarSample).  Zero I/O at this layer — caller supplies the EPW file as a string.  Reusable by L3 ClimateStore (A.10.d), L5 climate UI panels (A.11), and L7 plugin authors (eg energy-sim plugins).",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@pryzm/schemas": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}
