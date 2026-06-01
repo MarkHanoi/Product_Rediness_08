@@ -118,6 +118,23 @@ export * from './family-pipeline/index.js';
 // and required for `inspect.test.ts` to resolve `InspectSelectionSchema` etc.
 export * from './inspect/index.js';
 
+// C28 DAT-α-1 (Data Panel & Automation) — L0 data-panel substrate.
+// Exports: DataFilterSchema, ParameterFilterSchema, DataSortSchema,
+// DataGroupBySchema, QualityRuleSchema (+ QualityRuleScopeSchema /
+// QualityRuleSeveritySchema / QualityRuleSourceSchema),
+// QualityViolationSchema, BulkUpdatePayloadSchema (+ BulkUpdateValueSchema),
+// ScheduledCheckSchema (+ ScheduledCheckResultSchema) and their inferred
+// types.  No name collisions with the existing element / family-* /
+// annotation / view / apartment / inspect exports — every `Data*`,
+// `Quality*`, `Bulk*`, `Scheduled*`, `ParameterFilter*` name is new.
+//
+// NOTE: like the eight sibling barrels above, this re-export has been
+// observed to be stripped by a linter/auto-fixer during sibling slice
+// authoring.  If it disappears, re-add it here — `data/index.js` is real
+// and required for `data.test.ts` to resolve `DataFilterSchema` etc.
+// DO NOT REMOVE — C28-α-1
+export * from './data/index.js';
+
 // S31 / Phase 2B Supplement §A1 — auto-dimension schemas (DimensionString,
 // EvaluatedDimension, anchor/orientation enums) and §B1 — ViewTemplate
 // schemas (StrokeStyle, CategoryVG, ViewFilter, FilterCondition, ViewRange).
