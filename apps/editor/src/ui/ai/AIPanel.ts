@@ -57,6 +57,10 @@ import { openSheetGeneratorTestModal } from '../dev/sheetGeneratorTestModal';
 // modal that composes a sheet from the project's rooms and emits a
 // download-able vector PDF via `sheetToPdfBytes`.
 import { openPdfExportTestModal } from '../dev/pdfExportTestModal';
+// BIM 2/3 D-α-4 — dev surface for the Apartment Data Panel (read-only
+// first slice). Opens a modal that browses live ApartmentParameters +
+// RoomParameters from the runtime stores; live editing is D-α-5.
+import { openApartmentDataTestModal } from '../dev/apartmentDataTestModal';
 
 // ─── Command-Aware Suggestion Tree ───────────────────────────────────────────
 //
@@ -546,6 +550,11 @@ const COMMAND_TREE: SuggestionNode[] = [
                 label: 'Generate PDF',
                 hint: 'sheetToPdfBytes → Blob download',
                 action: () => { openPdfExportTestModal(); },
+            },
+            {
+                label: 'Apartment Data Panel',
+                hint: 'read-only BIM 2/3 D-α-4 — apartments + rooms data',
+                action: () => { openApartmentDataTestModal(); },
             },
         ],
     },
