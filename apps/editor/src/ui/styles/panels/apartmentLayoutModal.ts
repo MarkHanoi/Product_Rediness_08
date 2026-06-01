@@ -186,4 +186,18 @@ export const APARTMENT_LAYOUT_MODAL_STYLES = `
   max-height: 320px; overflow-y: auto;
 }
 .alm-card--expanded .alm-validation-details { display: block; }
+
+/* §L2-β-5 NARRATIVE (2026-06-01) — short architect-language line surfaced
+ * under the score bars when the layout exhibits a recognisable cognition
+ * pattern (compression-release arrival, dominant spatial climax, …). Plain
+ * italic muted text — does NOT compete with the bars or the validation
+ * pill for attention. Hidden naturally on cards whose card-model omits the
+ * field (the renderer emits no element at all). */
+.alc-narrative {
+  font-size: 11px; line-height: 1.45; color: #6600FF;
+  font-style: italic; font-weight: 500;
+  padding: 4px 8px; margin: 2px 0 0;
+  background: rgba(102, 0, 255, 0.06);
+  border-left: 2px solid #6600FF; border-radius: 0 6px 6px 0;
+}
 `;

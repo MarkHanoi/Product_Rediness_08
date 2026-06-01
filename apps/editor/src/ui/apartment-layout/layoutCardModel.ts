@@ -120,6 +120,14 @@ export interface LayoutCardModel {
      *  `validateAndFormatLayout(option)`. Always present; defensive
      *  '? Unknown' badge on projector/validator throw. */
     readonly validation: ValidationBadge;
+    /** §L2-β-5 NARRATIVE (2026-06-01) — short architect-language line
+     *  surfaced under the score bars when the layout exhibits a recognisable
+     *  cognition-layer pattern (compression-release arrival, dominant
+     *  spatial climax, well-formed privacy gradient, etc.). Derived from
+     *  `entrySightline + arrivalSequence + spatialClimax + hierarchy`.
+     *  Undefined when no axis crosses the 0.7 threshold so the renderer
+     *  emits nothing (no empty line / no placeholder). */
+    readonly narrative?: string;
 }
 
 const BAR_LABELS: Record<ScoreBarKey, string> = {
@@ -182,6 +190,61 @@ const cognitionBar = (key: ScoreBarKey, value: number | undefined): ScoreBar | n
     typeof value === 'number' && Number.isFinite(value)
         ? { key, label: BAR_LABELS[key], pct: pct(value), group: BAR_GROUPS[key] }
         : null;
+
+/** §L1-α-4 / §L2-β-5 (2026-06-01) — engine-field-name normalization. The
+ *  spec uses the conceptual names `facadeQuality` / `facadeScore`; the
+ *  current ai-host engine emits `facadeAlignment`. This helper picks the
+ *  first finite value across the alias set so a future engine rename does
+ *  NOT break the modal. Returns `undefined` when no alias is set, which
+ *  preserves the cognition-bar's "absent → skip" semantics. */
+function pickFirstFinite(
+    obj: Record<string, unknown>,
+    keys: readonly string[],
+): number | undefined {
+    for (const k of keys) {
+        const v = obj[k];
+        if (typeof v === 'number' && Number.isFinite(v)) return v;
+    }
+    return undefined;
+}
+
+/** §L2-β-5 NARRATIVE (2026-06-01) — derive a short architect-language line
+ *  from the L2 cognition axes + the hierarchy axis. Threshold = 0.7. Order
+ *  matters (most-specific first):
+ *    1) entrySightline ≥ 0.7 AND arrivalSequence ≥ 0.7 → "Arrival ritual…".
+ *    2) arrivalSequence ≥ 0.7 only → "Compression-release…".
+ *    3) spatialClimax ≥ 0.7 only → "Dominant living space…".
+ *    4) hierarchy ≥ 0.7 only → "Privacy gradient…".
+ *    else → undefined (no narrative — renderer emits nothing).
+ *  The `only` qualifier on cases 2/3/4 means "the previous, more-specific
+ *  case did not match" — NOT "no other axis is ≥ 0.7". */
+const NARRATIVE_THRESHOLD = 0.7;
+function deriveNarrative(b: {
+    entrySightline?: number;
+    arrivalSequence?: number;
+    spatialClimax?: number;
+    hierarchy?: number;
+}): string | undefined {
+    const isHi = (v: number | undefined): boolean =>
+        typeof v === 'number' && Number.isFinite(v) && v >= NARRATIVE_THRESHOLD;
+    const hiEntry = isHi(b.entrySightline);
+    const hiArr   = isHi(b.arrivalSequence);
+    const hiClim  = isHi(b.spatialClimax);
+    const hiHier  = isHi(b.hierarchy);
+    if (hiEntry && hiArr) {
+        return 'Arrival ritual: compressed entry opens to a generous living climax.';
+    }
+    if (hiArr) {
+        return 'Compression-release: entry reveals a generous main space.';
+    }
+    if (hiClim) {
+        return 'Dominant living space sits at proper depth from entry.';
+    }
+    if (hiHier) {
+        return 'Privacy gradient well-formed.';
+    }
+    return undefined;
+}
 
 // ── §VALIDATION-BADGE projector + derivation ───────────────────────────────
 //
@@ -317,6 +380,13 @@ function buildValidationBadge(option: LayoutOption): ValidationBadge {
 /** Build the card view-model for option at `index` (0-based). Pure. */
 export function buildLayoutCardModel(option: ScoredLayoutOption, index: number): LayoutCardModel {
     const b = option.score.breakdown;
+    // §L1-α-4 / §L2-β-5 (2026-06-01) — resolve façade + hierarchy via the
+    // ENGINE-FIELD-NAME ALIAS set so a future rename (facadeQuality /
+    // facadeScore) keeps the modal rendering correctly. Current engine
+    // emits `facadeAlignment`; we treat all three names as synonyms.
+    const bAny = b as unknown as Record<string, unknown>;
+    const facadeValue = pickFirstFinite(bAny, ['facadeAlignment', 'facadeQuality', 'facadeScore']);
+    const hierarchyValue = pickFirstFinite(bAny, ['hierarchy', 'hierarchyQuality']);
     const maybeBars: Array<ScoreBar | null> = [
         // Primary — always emitted.
         primaryBar('naturalLight',       b.naturalLight),
@@ -327,7 +397,7 @@ export function buildLayoutCardModel(option: ScoredLayoutOption, index: number):
         cognitionBar('shapeQuality',     b.shapeQuality),
         cognitionBar('topologyQuality',  b.topologyQuality),
         // Cognition L2 — spatial hierarchy + arrival narrative.
-        cognitionBar('hierarchy',        b.hierarchy),
+        cognitionBar('hierarchy',        hierarchyValue),
         cognitionBar('entrySightline',   b.entrySightline),
         cognitionBar('arrivalSequence',  b.arrivalSequence),
         cognitionBar('spatialClimax',    b.spatialClimax),
@@ -339,7 +409,7 @@ export function buildLayoutCardModel(option: ScoredLayoutOption, index: number):
         cognitionBar('wetStackAlignment', b.wetStackAlignment),
         cognitionBar('alignmentField',   b.alignmentField),
         // Cognition L1 — environmental intelligence (façade-quality match).
-        cognitionBar('facadeAlignment',  b.facadeAlignment),
+        cognitionBar('facadeAlignment',  facadeValue),
     ];
     const bars: ScoreBar[] = maybeBars.filter((bar): bar is ScoreBar => bar !== null);
     const rooms: RoomRow[] = option.rooms.map(r => ({
@@ -353,6 +423,18 @@ export function buildLayoutCardModel(option: ScoredLayoutOption, index: number):
         ? option.summary
         : `Option ${index + 1}`;
 
+    // §L2-β-5 NARRATIVE (2026-06-01) — feed the derived hierarchy value (not
+    // the raw breakdown field) so an engine alias still produces the
+    // "Privacy gradient well-formed." line. Other axes (entrySightline /
+    // arrivalSequence / spatialClimax) read directly from the breakdown
+    // since they have no current aliases.
+    const narrative = deriveNarrative({
+        entrySightline:  b.entrySightline,
+        arrivalSequence: b.arrivalSequence,
+        spatialClimax:   b.spatialClimax,
+        hierarchy:       hierarchyValue,
+    });
+
     return {
         index,
         title,
@@ -364,5 +446,6 @@ export function buildLayoutCardModel(option: ScoredLayoutOption, index: number):
         doorCount: option.doors.length,
         totalAreaM2,
         validation: buildValidationBadge(option),
+        ...(narrative ? { narrative } : {}),
     };
 }

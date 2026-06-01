@@ -227,12 +227,21 @@ function cardHtml(card: LayoutCardModel, safeThumb: string): string {
         `<span class="alm-room-area">${r.area} m²</span></li>`,
     ).join('');
 
+    // §L2-β-5 NARRATIVE (2026-06-01) — small architect-language line under
+    // the score bars when the card model carries a `narrative`. Renderer
+    // emits nothing when the field is undefined so no empty line / no
+    // placeholder appears on AI-relay layouts.
+    const narrative = card.narrative
+        ? `<div class="alc-narrative">${escHtml(card.narrative)}</div>`
+        : '';
+
     return (
         `<div class="alm-card" data-index="${card.index}">` +
         `<div class="alm-thumb">${safeThumb}</div>` +
         `<div class="alm-card-head"><span class="alm-title">${escHtml(card.title)}</span>` +
         `<span class="alm-overall" title="overall score">${card.overall}<small>/100</small></span></div>` +
         `<div class="alm-bars">${bars}</div>` +
+        narrative +
         `<div class="alm-meta">${card.roomCount} rooms · ${card.doorCount} doors · ${card.totalAreaM2} m²</div>` +
         `<ul class="alm-rooms">${rooms}</ul>` +
         validationHtml(card) +
