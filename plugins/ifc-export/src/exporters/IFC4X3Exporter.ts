@@ -45,6 +45,10 @@ import {
   writePsetWallCommon,
   type WallToExport as WallPsetInput,
 } from './pset-wall-common.js';
+import {
+  writeQtoWallBase,
+  type WallQuantityInputs,
+} from './qto-wall-base.js';
 import type { ExportedElement } from './wall.js';
 import type {
   ExportOptions,
@@ -191,6 +195,7 @@ export async function exportProjectToIFC4X3(
       let psetCount = 0;
       let propertyCount = 0;
       let wallPsetCount = 0;
+      let wallQtoCount = 0;
 
       const runPsets = (el: ExportedElement) => {
         const meta = metaStore.get(el.pryzmId);
@@ -228,6 +233,35 @@ export async function exportProjectToIFC4X3(
         wallPsetCount += 1;
         psetCount += 1;
         propertyCount += r.propertyCount;
+
+        // IFC-α-5: every IfcWall additionally carries Qto_WallBaseQuantities.
+        // Derive Length / Width / Height defensively from the wall payload —
+        // base-line distance, thickness, and height respectively. Openings
+        // areas / volumes and material density are not yet plumbed; the
+        // defensive picker drops them and the qto still ships with the 9
+        // geometric quantities (Length, Width, Height, GrossFootprintArea,
+        // NetFootprintArea, GrossSideArea, NetSideArea, GrossVolume,
+        // NetVolume). Counted as a Pset for the rollup (IfcElementQuantity
+        // ⊆ IfcPropertySetDefinition).
+        const [wa, wb] = wall.baseLine;
+        const wdx = wb.x - wa.x;
+        const wdz = wb.z - wa.z;
+        const wallLengthM = Math.hypot(wdx, wdz);
+        const wallQtyInput: WallQuantityInputs = {
+          id: wall.id,
+          lengthM: Number.isFinite(wallLengthM) ? wallLengthM : undefined,
+          widthM: Number.isFinite(wall.thickness) ? wall.thickness : undefined,
+          heightM: Number.isFinite(wall.height) ? wall.height : undefined,
+        };
+        const qr = writeQtoWallBase(el.entity, wallQtyInput, {
+          api,
+          modelId,
+          ownerRefs,
+          guid,
+        });
+        wallQtoCount += 1;
+        psetCount += 1;
+        propertyCount += qr.quantityCount;
       }
       for (const slab of snapshot.slabs ?? []) {
         const el = exportSlab({ api, modelId, hierarchy, ownerRefs, metaStore, slab, guid });
@@ -355,6 +389,7 @@ export async function exportProjectToIFC4X3(
         spaces: spaces.length,
         zones: zoneResult.zoneCount,
         wallPsets: wallPsetCount,
+        wallQtos: wallQtoCount,
         psets: psetCount,
         properties: propertyCount,
       };
@@ -362,6 +397,7 @@ export async function exportProjectToIFC4X3(
       span.setAttribute('pryzm.ifc.export4x3.space_count', spaces.length);
       span.setAttribute('pryzm.ifc.export4x3.zone_count', zoneResult.zoneCount);
       span.setAttribute('pryzm.ifc.export4x3.wall_pset_count', wallPsetCount);
+      span.setAttribute('pryzm.ifc.export4x3.wall_qto_count', wallQtoCount);
       span.setAttribute('pryzm.ifc.export4x3.pset_count', psetCount);
 
       const bytes = api.SaveModel(modelId);
