@@ -175,6 +175,24 @@ export * from './typology/index.js';
 // DO NOT REMOVE — auto-fixer guard
 export * from './site/index.js';
 
+// A.10.a (Phase A · Sprint 2) — L0 Climate substrate (C21 Climate Ingestion).
+// Adds: ClimateDatasetId / ClimateSource / MonthIndex + EPWRecord +
+// NOAANormal + WindSample / WindRoseSector / WindRoseAggregate +
+// DesignTemperatures / DegreeDayAggregates + SolarSample (computed
+// shape) + ClimateCacheKey + ClimateProvenance + ClimateDataset
+// (the root) + ClimateIngestionError. Plus pure helpers
+// `serialiseClimateCacheKey` + `quantiseToCacheKey`.
+//
+// Field-name convention is the C21 §1.8 SI-unit suffix: …C / …Pa / …Wm2
+// / …Mps / …Deg / …Mm / …Km / …Pct / …Tenths / …UtcIso. Every numeric
+// field carries its unit in the name. Discipline-neutral per §1.10.
+//
+// Strategic context: docs/02-decisions/contracts/C21-CLIMATE-INGESTION.md.
+// Phase tracker: docs/03-execution/plans/master-execution-tracker.md A.10.
+//
+// DO NOT REMOVE — auto-fixer guard
+export * from './climate/index.js';
+
 // S31 / Phase 2B Supplement §A1 — auto-dimension schemas (DimensionString,
 // EvaluatedDimension, anchor/orientation enums) and §B1 — ViewTemplate
 // schemas (StrokeStyle, CategoryVG, ViewFilter, FilterCondition, ViewRange).
