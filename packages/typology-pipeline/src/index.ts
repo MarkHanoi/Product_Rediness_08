@@ -50,6 +50,17 @@ export {
     type RegistryChangeListener,
 } from './TypologyRegistry.js';
 
+// ── picker model (A.6) ──────────────────────────────────────────────────
+export {
+    buildPickerCards,
+    filterByCategory,
+    filterAvailableOnly,
+    filterByCognitionLayer,
+    filterByRoomType,
+    groupByCategory,
+    type PickerCard,
+} from './TypologyPickerModel.js';
+
 // ── router ──────────────────────────────────────────────────────────────
 export {
     createPipelineRouter,
