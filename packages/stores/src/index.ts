@@ -41,6 +41,9 @@ export {
 // future Inspect tab master-tree selection; this slice ships the store
 // only (no UI, no visibility-isolation wiring yet).
 export { InspectSelectionStore } from './InspectSelectionStore.js';
+// C28 DAT-α-2 — Data Panel state container.
+// DO NOT REMOVE — auto-fixer guard
+export * from './DataStore.js';
 export { CubeStore, type CubeDto } from './CubeStore.js';
 export { SelectionStore, type SelectionDto, type SelectionKind, type SelectionMode, type SelectionTarget } from './SelectionStore.js';
 export {
