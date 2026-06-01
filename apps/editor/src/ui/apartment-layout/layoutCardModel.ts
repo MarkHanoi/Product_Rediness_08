@@ -2,8 +2,10 @@
 //
 // Turns a ScoredLayoutOption into the flat data the §11 modal card renders:
 // title, overall /100, the score bars, the room list with areas, and
-// element counts. ZERO runtime imports (the ai-host import is type-only →
-// erased), so it unit-tests in plain Node without the core-app-model barrel.
+// element counts. ZERO runtime imports for the SHAPE; the validation badge
+// (see below) imports `validateAndFormatLayout` from `@pryzm/ai-host` — a
+// PURE function (no I/O, no THREE, no DOM), so the card model still
+// unit-tests in plain Node without the core-app-model barrel.
 //
 // §L1-α-4 + §L2-β-5 (2026-05-30) — extended from the 4 user-facing axes
 // (Light / Privacy / Kitchen / Circulation) to surface the 11 additional
@@ -11,8 +13,35 @@
 // the D-TGL path. Each cognition axis is OPTIONAL — emitted only when the
 // breakdown carries the value, so AI-relay layouts (which carry only the
 // 4 primary axes) render unchanged.
+//
+// §VALIDATION-BADGE (2026-05-31, first live-path wire-in of the validator
+// framework) — every card now carries a `validation: ValidationBadge`
+// derived from `validateAndFormatLayout(option)`. The card model owns a
+// PRIVATE projector (`optionToDto`) that maps the `LayoutOption`
+// (rooms + adjacency-by-NAME + walls) onto the validator's `DtglLayoutDto`
+// (rooms-by-id + edges-by-id). The projector is best-effort:
+//   • widthM / lengthM default to `sqrt(area)` (square approximation —
+//     LayoutRoom carries no rect today).
+//   • longestUsableWallM defaults to `max(widthM, lengthM)` — over-reports.
+//   • externalFrontageM / glazedAreaM2 default to 0 — conservative.
+//   • hasExteriorEdge defaults to `false` — A-7 may surface false flags.
+// The whole call is wrapped in try/catch so a projector or validator throw
+// NEVER blocks the modal from rendering — defensive '? Unknown' badge is
+// returned instead. The live AI generation path is UNCHANGED.
 
-import type { ScoredLayoutOption } from '@pryzm/ai-host';
+// IMPORTANT: the `@pryzm/ai-host` root barrel pulls in heavy runtime modules
+// (geometry-slab → @thatopen/ui → `HTMLElement`) that break this card model
+// under Node test envs. We therefore reach for `validateAndFormatLayout` via
+// the deep validator-tree path (which is PURE — no THREE, no DOM, no
+// @thatopen). Types stay type-only on the root barrel: type imports are
+// erased at compile time and don't trip the runtime barrel.
+import { validateAndFormatLayout } from '@pryzm/ai-host/validators/validate-and-format';
+import type {
+    DtglLayoutDto,
+    DtglLayoutEdge,
+    DtglLayoutRoom,
+} from '@pryzm/ai-host/validators/layout-adapter';
+import type { LayoutOption, LayoutRoom, ScoredLayoutOption } from '@pryzm/ai-host';
 
 /** Axis key — closed union. The 4 primary axes are always present; the
  *  11 cognition axes are emitted only when the breakdown carries them. */
@@ -48,6 +77,26 @@ export interface RoomRow {
     readonly windows: number;
 }
 
+/** Per-card validation summary derived from `validateAndFormatLayout`.
+ *  Surfaced as a small pill on the modal card so users can see at a glance
+ *  whether the layout passes legality (zero errors) before they pick it. */
+export interface ValidationBadge {
+    /** True if zero errors. Layouts with only warnings still pass legality. */
+    readonly passesLegality: boolean;
+    /** Total violation count. */
+    readonly total: number;
+    /** Error count. */
+    readonly errors: number;
+    /** Warning count. */
+    readonly warnings: number;
+    /** Short pill label, e.g. "✓ Passes" / "1 warning" / "3 errors". */
+    readonly label: string;
+    /** Longer one-line summary, e.g. the formatter's
+     *  "1 violation: 0 errors, 1 warning (A-2×1)". Defensive empty form
+     *  on the projector-error path. */
+    readonly summaryLine: string;
+}
+
 export interface LayoutCardModel {
     readonly index: number;
     readonly title: string;          // summary, or `Option N` when blank
@@ -58,6 +107,10 @@ export interface LayoutCardModel {
     readonly wallCount: number;
     readonly doorCount: number;
     readonly totalAreaM2: number;    // rounded to 0.1
+    /** §VALIDATION-BADGE (2026-05-31) — derived from
+     *  `validateAndFormatLayout(option)`. Always present; defensive
+     *  '? Unknown' badge on projector/validator throw. */
+    readonly validation: ValidationBadge;
 }
 
 const BAR_LABELS: Record<ScoreBarKey, string> = {
@@ -121,6 +174,127 @@ const cognitionBar = (key: ScoreBarKey, value: number | undefined): ScoreBar | n
         ? { key, label: BAR_LABELS[key], pct: pct(value), group: BAR_GROUPS[key] }
         : null;
 
+// ── §VALIDATION-BADGE projector + derivation ───────────────────────────────
+//
+// The validator framework wants a `DtglLayoutDto` (rooms keyed by id,
+// edges keyed by id). The `LayoutOption` shape carries rooms with a
+// `name` (no `id`) and adjacency-by-NAME. The projector below maps
+// names → ids 1:1 (the name IS the id, because layout-option names are
+// unique within an option) and dedupes the symmetric `adjacentTo` edges.
+//
+// Geometry-derived fields the modal layer doesn't know:
+//   • widthM / lengthM — `sqrt(area)` (square approximation).
+//   • longestUsableWallM / externalFrontageM / hasExteriorEdge /
+//     glazedAreaM2 — fall back to the adapter's CONSERVATIVE defaults
+//     (see layout-adapter.ts header).
+// A future slice can enrich the projector with real opening/frontage
+// data from the LayoutWall + LayoutWindow arrays.
+
+/** Defensive badge returned when the projector or validator throws — keeps
+ *  the modal alive on a malformed option (NaN area, missing rooms, etc.). */
+const UNKNOWN_BADGE: ValidationBadge = Object.freeze({
+    passesLegality: true,
+    total: 0,
+    errors: 0,
+    warnings: 0,
+    label: '? Unknown',
+    summaryLine: 'validation skipped (projector error)',
+});
+
+/** True iff `n` is a finite, non-negative number. */
+function isFiniteNonNeg(n: unknown): n is number {
+    return typeof n === 'number' && Number.isFinite(n) && n >= 0;
+}
+
+/** Project one `LayoutRoom` into a validator `DtglLayoutRoom`. Throws on
+ *  a fundamentally malformed room (so the outer try/catch surfaces the
+ *  defensive badge) — every defensive default is applied INSIDE
+ *  `validateAndFormatLayout`'s adapter, not here. */
+function projectRoom(r: LayoutRoom): DtglLayoutRoom {
+    if (!r || typeof r.name !== 'string' || r.name.length === 0) {
+        throw new Error('projectRoom: missing name');
+    }
+    if (typeof r.type !== 'string' || r.type.length === 0) {
+        throw new Error('projectRoom: missing type');
+    }
+    if (!isFiniteNonNeg(r.area)) {
+        throw new Error(`projectRoom: room '${r.name}' has non-finite area`);
+    }
+    // Square approximation: the modal-layer LayoutRoom carries no rect.
+    const side = Math.sqrt(r.area);
+    return {
+        id: r.name,
+        type: r.type,
+        areaM2: r.area,
+        widthM: side,
+        lengthM: side,
+        // Leave the rest UNSET — the adapter applies its CONSERVATIVE
+        // defaults (longestUsableWallM = max(widthM,lengthM);
+        // externalFrontageM = 0; hasExteriorEdge = false; glazedAreaM2 = 0).
+    };
+}
+
+/** Dedupe + project the per-room `adjacentTo` lists into a symmetric edge
+ *  set. Uses a sorted-pair key so {A,B} and {B,A} collapse to one edge. */
+function projectEdges(rooms: ReadonlyArray<LayoutRoom>): DtglLayoutEdge[] {
+    const known = new Set<string>();
+    for (const r of rooms) known.add(r.name);
+    const seen = new Set<string>();
+    const out: DtglLayoutEdge[] = [];
+    for (const r of rooms) {
+        const adj = Array.isArray(r.adjacentTo) ? r.adjacentTo : [];
+        for (const other of adj) {
+            if (typeof other !== 'string' || other.length === 0) continue;
+            if (!known.has(other)) continue;   // dangling reference — skip
+            if (other === r.name) continue;    // self-loop — skip
+            const key = r.name < other ? `${r.name}|${other}` : `${other}|${r.name}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            out.push({ aId: r.name, bId: other });
+        }
+    }
+    return out;
+}
+
+/** Project a `LayoutOption` into the validator's `DtglLayoutDto`. PRIVATE
+ *  helper — exposed only via `buildLayoutCardModel`. */
+function optionToDto(option: LayoutOption): DtglLayoutDto {
+    if (!option || !Array.isArray(option.rooms)) {
+        throw new Error('optionToDto: malformed option (no rooms array)');
+    }
+    const rooms = option.rooms.map(projectRoom);
+    const edges = projectEdges(option.rooms);
+    return { rooms, edges };
+}
+
+/** Build the per-card ValidationBadge. Wraps the validator call in
+ *  try/catch — a projector or validator throw NEVER blocks the modal. */
+function buildValidationBadge(option: LayoutOption): ValidationBadge {
+    try {
+        const dto = optionToDto(option);
+        const { report, passesLegality, summaryLine } = validateAndFormatLayout(dto);
+        const total    = report.total;
+        const errors   = report.errors;
+        const warnings = report.warnings;
+        const label =
+            passesLegality && total === 0
+                ? '✓ Passes'
+                : passesLegality
+                    ? `${warnings} warning${warnings === 1 ? '' : 's'}`
+                    : `${errors} error${errors === 1 ? '' : 's'}`;
+        return {
+            passesLegality,
+            total,
+            errors,
+            warnings,
+            label,
+            summaryLine,
+        };
+    } catch {
+        return UNKNOWN_BADGE;
+    }
+}
+
 /** Build the card view-model for option at `index` (0-based). Pure. */
 export function buildLayoutCardModel(option: ScoredLayoutOption, index: number): LayoutCardModel {
     const b = option.score.breakdown;
@@ -170,5 +344,6 @@ export function buildLayoutCardModel(option: ScoredLayoutOption, index: number):
         wallCount: option.walls.length,
         doorCount: option.doors.length,
         totalAreaM2,
+        validation: buildValidationBadge(option),
     };
 }
