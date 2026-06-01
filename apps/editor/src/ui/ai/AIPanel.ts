@@ -45,6 +45,10 @@ import { triggerCeilingLayout } from '../ceiling-layout/ceilingLayoutTrigger';
 // __pryzmValidateLayout in apps/editor/src/dev/installPryzmTestFunctions.ts.
 import { openFamilyPlatformTestModal } from '../dev/familyPlatformTestModal';
 import { openValidateLayoutTestModal } from '../dev/validateLayoutTestModal';
+// C27 INS-α-5 — dev surface for the Master Tree (single tree component
+// per C27 §1.2).  Opens a modal that mounts the live ModelTreeComponent +
+// shows the InspectSelection payload on each click.
+import { openModelTreeTestModal } from '../dev/modelTreeTestModal';
 
 // ─── Command-Aware Suggestion Tree ───────────────────────────────────────────
 //
@@ -519,6 +523,11 @@ const COMMAND_TREE: SuggestionNode[] = [
                 label: 'Test Layout Validator',
                 hint: 'paste apartment DTO → run validator → markdown report',
                 action: () => { openValidateLayoutTestModal(); },
+            },
+            {
+                label: 'Test Master Tree',
+                hint: 'mount live ModelTreeComponent → click node → see selection',
+                action: () => { openModelTreeTestModal(); },
             },
         ],
     },

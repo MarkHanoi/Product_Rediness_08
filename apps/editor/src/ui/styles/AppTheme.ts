@@ -73,6 +73,7 @@ import { IMPORT_MANAGER_STYLES } from './panels/importManager';
 import { CONFIRM_DIALOG_STYLES } from './panels/confirmDialog';
 import { COLLABORATIVE_PRESENCE_STYLES } from './panels/collaborativePresence';
 import { MODEL_TREE_STYLES } from './panels/modelTree';
+import { MODEL_TREE_TEST_MODAL_STYLES } from './panels/modelTreeTestModal';
 
 const APP_THEME_ID = 'app-master-theme-v3';
 
@@ -198,7 +199,8 @@ export function injectAppTheme(): void {
         + CONFIRM_DIALOG_STYLES
         + COLLABORATIVE_PRESENCE_STYLES
         + APARTMENT_LAYOUT_MODAL_STYLES
-        + MODEL_TREE_STYLES;
+        + MODEL_TREE_STYLES
+        + MODEL_TREE_TEST_MODAL_STYLES;
     if (!existing) document.head.appendChild(style);
 }
 
