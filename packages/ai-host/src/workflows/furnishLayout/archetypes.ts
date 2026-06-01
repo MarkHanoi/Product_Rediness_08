@@ -176,6 +176,13 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
     },
     'entrance-lobby': {
         occupancy: 'entrance-lobby', minAreaM2: 3,
+        // F4.2 / S2 (2026-06-01) — the entrance-lobby hosts the Entry Storage
+        // activity system. The existing shoe_cabinet + console_table +
+        // coat_rack + entry_bench + wall_mirror items (F1.4 / F3.8, group:
+        // 'entry') already produce the build; this annotation names the
+        // composition for downstream tooling (Family Platform P0, AI hints,
+        // schedules, IFC-α exports). See ./activityArchetypes.ts.
+        activitySystems: ['entry-storage'],
         items: [
             // §FURNITURE-SPEC: the entrance table is on a wall perpendicular to the
             // front door (the door wall is the swing zone — it must stay clear).

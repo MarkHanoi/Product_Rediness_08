@@ -118,13 +118,56 @@ export const MEDIA_WALL: ActivityArchetype = {
     maxAreaM2: 60,
 };
 
+// ── S2 Entry Storage (the second realised system) ──────────────────────────
+
+/** S2 — Entry Storage.
+ *
+ *  Composition (architect's intent, plan §2 / §Z.10 Tier 9):
+ *    • shoe_cabinet  — the anchor. Low cabinet against the longest free wall;
+ *                      catches shoes on entry, the architectural cornerstone
+ *                      of any functional hall.
+ *    • console_table — the primary visual focal point. Lands keys, post, a
+ *                      lamp; reads as the "lobby" surface the user faces.
+ *    • coat_rack     — architecturally NON-OPTIONAL in a hall. Without it the
+ *                      hall fails its job; coats end up on chair backs in the
+ *                      living room. `required: true` despite its small size.
+ *    • entry_bench   — optional. Only fits when the hall is wide enough; the
+ *                      "sit-to-tie-shoes" companion. Skippable in tight halls.
+ *    • wall_mirror   — optional. Classic "last-glance-on-the-way-out" mirror
+ *                      above the console. Architecturally common but not load-
+ *                      bearing on the system's function.
+ *
+ *  Anchor strategy: entry hallways are typically NARROW (one usable long
+ *  wall, the other punctured by doors). `longest-free-wall` is the only
+ *  viable surface for the shoe_cabinet anchor; the F4.x solver collapses
+ *  the other members onto the same wall via the 'entry' group in
+ *  archetypes.ts. */
+export const ENTRY_STORAGE: ActivityArchetype = {
+    id: 'entry-storage',
+    label: 'Entry Storage',
+    description:
+        'Composed hall storage — shoe cabinet, console, coat rack, optional bench.',
+    members: [
+        { kind: 'shoe_cabinet',  role: 'anchor',    required: true },
+        { kind: 'console_table', role: 'primary',   required: true,  relPositionHint: 'beside' },
+        { kind: 'coat_rack',     role: 'companion', required: true,  relPositionHint: 'beside' },
+        { kind: 'entry_bench',   role: 'companion', required: false, relPositionHint: 'beside' },
+        { kind: 'wall_mirror',   role: 'optional',  required: false, relPositionHint: 'above' },
+    ],
+    anchor: { strategy: 'longest-free-wall' },
+    minAreaM2: 3,
+    maxAreaM2: 20,
+};
+
 // ── Registry + helpers ─────────────────────────────────────────────────────
 
 /** All activity archetypes keyed by their kind. Future F4.x slices populate
- *  the missing entries — for now only MEDIA_WALL is realised. The Partial<>
- *  is intentional: `getActivityArchetype` returns `undefined` for stubs. */
+ *  the missing entries — MEDIA_WALL (S1) and ENTRY_STORAGE (S2) are realised.
+ *  The Partial<> is intentional: `getActivityArchetype` returns `undefined`
+ *  for stubs. */
 export const ACTIVITY_ARCHETYPES: Readonly<Partial<Record<ActivitySystemKind, ActivityArchetype>>> = {
-    'media-wall': MEDIA_WALL,
+    'media-wall':    MEDIA_WALL,
+    'entry-storage': ENTRY_STORAGE,
 };
 
 /** Lookup helper. Returns `undefined` for kinds that haven't shipped yet. */

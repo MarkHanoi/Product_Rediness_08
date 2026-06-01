@@ -7,12 +7,14 @@
 import { describe, expect, it } from 'vitest';
 import {
     ACTIVITY_ARCHETYPES,
+    ENTRY_STORAGE,
     MEDIA_WALL,
     activityMembersAsFurnitureRequests,
     getActivityArchetype,
     type ActivityArchetype,
     type ActivitySystemKind,
 } from '../src/workflows/furnishLayout/activityArchetypes.js';
+import { archetypeFor } from '../src/workflows/furnishLayout/archetypes.js';
 
 describe('F4.1 — MEDIA_WALL archetype (S1)', () => {
     it('has id "media-wall"', () => {
@@ -92,7 +94,6 @@ describe('F4.1 — getActivityArchetype lookup', () => {
 
     it('returns undefined for unrealized stubs', () => {
         const stubs: ActivitySystemKind[] = [
-            'entry-storage',
             'study-workstation',
             'bathroom-vanity',
             'utility-laundry',
@@ -111,8 +112,8 @@ describe('F4.1 — ACTIVITY_ARCHETYPES registry', () => {
     });
 
     it('has no entries for unrealized stubs (yet)', () => {
-        expect(ACTIVITY_ARCHETYPES['entry-storage']).toBeUndefined();
         expect(ACTIVITY_ARCHETYPES['study-workstation']).toBeUndefined();
+        expect(ACTIVITY_ARCHETYPES['bathroom-vanity']).toBeUndefined();
     });
 });
 
@@ -161,5 +162,118 @@ describe('F4.1 — activityMembersAsFurnitureRequests', () => {
         expect(kinds.has('tv_unit')).toBe(true);
         expect(kinds.has('bookshelf')).toBe(false);
         expect(kinds.has('wall_art')).toBe(false);
+    });
+});
+
+describe('F4.2 — ENTRY_STORAGE archetype (S2)', () => {
+    it('has id "entry-storage"', () => {
+        expect(ENTRY_STORAGE.id).toBe('entry-storage');
+    });
+
+    it('has shoe_cabinet as anchor, required member', () => {
+        const shoe = ENTRY_STORAGE.members.find((m) => m.kind === 'shoe_cabinet');
+        expect(shoe).toBeDefined();
+        expect(shoe?.role).toBe('anchor');
+        expect(shoe?.required).toBe(true);
+    });
+
+    it('has console_table as primary, required member', () => {
+        const console_ = ENTRY_STORAGE.members.find((m) => m.kind === 'console_table');
+        expect(console_).toBeDefined();
+        expect(console_?.role).toBe('primary');
+        expect(console_?.required).toBe(true);
+        expect(console_?.relPositionHint).toBe('beside');
+    });
+
+    it('has coat_rack as companion, REQUIRED (architecturally non-optional in halls)', () => {
+        const coat = ENTRY_STORAGE.members.find((m) => m.kind === 'coat_rack');
+        expect(coat).toBeDefined();
+        expect(coat?.role).toBe('companion');
+        expect(coat?.required).toBe(true);
+        expect(coat?.relPositionHint).toBe('beside');
+    });
+
+    it('has entry_bench as companion, NOT required (optional — width-permitting)', () => {
+        const bench = ENTRY_STORAGE.members.find((m) => m.kind === 'entry_bench');
+        expect(bench).toBeDefined();
+        expect(bench?.role).toBe('companion');
+        expect(bench?.required).toBe(false);
+        expect(bench?.relPositionHint).toBe('beside');
+    });
+
+    it('has wall_mirror as optional, NOT required', () => {
+        const mirror = ENTRY_STORAGE.members.find((m) => m.kind === 'wall_mirror');
+        expect(mirror).toBeDefined();
+        expect(mirror?.role).toBe('optional');
+        expect(mirror?.required).toBe(false);
+        expect(mirror?.relPositionHint).toBe('above');
+    });
+
+    it('anchor strategy is longest-free-wall', () => {
+        expect(ENTRY_STORAGE.anchor).toEqual({ strategy: 'longest-free-wall' });
+    });
+
+    it('minAreaM2 = 3 m² and maxAreaM2 = 20 m²', () => {
+        expect(ENTRY_STORAGE.minAreaM2).toBe(3);
+        expect(ENTRY_STORAGE.maxAreaM2).toBe(20);
+    });
+
+    it('exposes a human-readable label and description', () => {
+        expect(ENTRY_STORAGE.label).toBe('Entry Storage');
+        expect(ENTRY_STORAGE.description.length).toBeGreaterThan(20);
+        expect(ENTRY_STORAGE.description).toMatch(/shoe|console|coat|hall/i);
+    });
+
+    it('every member has a role drawn from the allowed set', () => {
+        for (const m of ENTRY_STORAGE.members) {
+            expect(['primary', 'anchor', 'companion', 'optional']).toContain(m.role);
+        }
+    });
+
+    it('member kinds are non-empty strings (FurnitureKind shape sanity)', () => {
+        for (const m of ENTRY_STORAGE.members) {
+            expect(typeof m.kind).toBe('string');
+            expect(m.kind.length).toBeGreaterThan(0);
+        }
+    });
+
+    it('getActivityArchetype("entry-storage") returns ENTRY_STORAGE', () => {
+        expect(getActivityArchetype('entry-storage')).toBe(ENTRY_STORAGE);
+    });
+
+    it('ACTIVITY_ARCHETYPES["entry-storage"] === ENTRY_STORAGE', () => {
+        expect(ACTIVITY_ARCHETYPES['entry-storage']).toBe(ENTRY_STORAGE);
+    });
+
+    it('activityMembersAsFurnitureRequests returns 3 required members (shoe_cabinet, console_table, coat_rack)', () => {
+        const reqs = activityMembersAsFurnitureRequests(ENTRY_STORAGE);
+        expect(reqs).toHaveLength(3);
+        expect(reqs.map((r) => r.kind).sort()).toEqual(
+            ['coat_rack', 'console_table', 'shoe_cabinet'],
+        );
+        for (const r of reqs) expect(r.required).toBe(true);
+    });
+
+    it('activityMembersAsFurnitureRequests includeOptional:true returns all 5', () => {
+        const reqs = activityMembersAsFurnitureRequests(ENTRY_STORAGE, { includeOptional: true });
+        expect(reqs).toHaveLength(5);
+        expect(reqs.map((r) => r.kind).sort()).toEqual(
+            ['coat_rack', 'console_table', 'entry_bench', 'shoe_cabinet', 'wall_mirror'],
+        );
+    });
+
+    it('ENTRY_STORAGE is a distinct registry entry from MEDIA_WALL', () => {
+        // Identity check — confirms the registry holds two distinct archetypes,
+        // not a single shared reference accidentally aliased under two keys.
+        expect(ENTRY_STORAGE).not.toBe(MEDIA_WALL);
+        expect(ACTIVITY_ARCHETYPES['entry-storage']).not.toBe(ACTIVITY_ARCHETYPES['media-wall']);
+        expect(ENTRY_STORAGE.id).not.toBe(MEDIA_WALL.id);
+    });
+
+    it('the entrance-lobby room archetype self-declares activitySystems: ["entry-storage"]', () => {
+        const lobby = archetypeFor('entrance-lobby');
+        expect(lobby).not.toBeNull();
+        expect(lobby?.activitySystems).toBeDefined();
+        expect(lobby?.activitySystems).toEqual(['entry-storage']);
     });
 });
