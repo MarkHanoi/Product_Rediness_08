@@ -2197,6 +2197,22 @@ importers:
         specifier: ^2.1.9
         version: 2.1.9(@types/node@24.12.2)(happy-dom@15.11.7)(jsdom@25.0.1)
 
+  packages/pdf-export:
+    dependencies:
+      '@pryzm/drawing-primitives':
+        specifier: workspace:*
+        version: link:../drawing-primitives
+      pdf-lib:
+        specifier: ^1.17.1
+        version: 1.17.1
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@24.12.2)(happy-dom@15.11.7)(jsdom@25.0.1)
+
   packages/pdf-to-bim:
     devDependencies:
       vitest:
