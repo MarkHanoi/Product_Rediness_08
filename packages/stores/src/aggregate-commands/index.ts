@@ -13,16 +13,32 @@ export { buildingCreate, deterministicBuildingId } from './buildingCreate.js';
 export { buildingUpdate } from './buildingUpdate.js';
 export { buildingDelete } from './buildingDelete.js';
 export type { BuildingDeleteForbiddenEvent } from './buildingDelete.js';
+export { levelCreate } from './levelCreate.js';
+export { levelUpdate } from './levelUpdate.js';
+export { levelSetActive } from './levelSetActive.js';
+export { levelDelete } from './levelDelete.js';
 
 export {
     BuildingCreatePayloadSchema,
     BuildingUpdatePayloadSchema,
     BuildingDeletePayloadSchema,
+    LevelCreatePayloadSchema,
+    LevelUpdatePayloadSchema,
+    LevelSetActivePayloadSchema,
+    LevelDeletePayloadSchema,
     type BuildingCreatePayload,
     type BuildingUpdatePayload,
     type BuildingDeletePayload,
+    type LevelCreatePayload,
+    type LevelUpdatePayload,
+    type LevelSetActivePayload,
+    type LevelDeletePayload,
     type AggregateCommandResult,
     type AggregateCommandRejection,
     type BuildingCreatedEvent,
     type BuildingUpdatedEvent,
+    type LevelCreatedEvent,
+    type LevelUpdatedEvent,
+    type LevelActiveSetEvent,
+    type LevelDeletedEvent,
 } from './types.js';

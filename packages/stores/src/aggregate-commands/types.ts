@@ -39,6 +39,8 @@ export type AggregateCommandRejection =
     | 'unit-number-conflict'              // §1.3 — non-unique unitNumber
     | 'apartment-level-mismatch'          // §1.4 — Room.levelId mismatch
     | 'cannot-change-projectId'           // §1.1 — projectId immutable
+    | 'cannot-change-buildingId'          // §1.2 — Level.buildingId immutable
+    | 'level-has-apartments'              // §1.9 — must cascade-delete first
     | 'forbidden-delete'                  // §1.1 — building.delete is reserved
     | 'invalid-payload';                   // generic Zod failure
 
@@ -107,6 +109,80 @@ export type BuildingDeletePayload = z.infer<
 >;
 
 // ─────────────────────────────────────────────────────────────────────────────
+// level.* payloads (§4.2)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * `level.create` payload — per [C20 §4.2].
+ * Handler MUST validate per [C20 §1.2]:
+ *   - Building (buildingId) exists in BuildingStore
+ *   - levelNumber is UNIQUE within the Building
+ *   - elevation is UNIQUE within the Building
+ *   - monotonic-elevation invariant — adding a new (number, elevation)
+ *     does not break the existing ordering
+ */
+export const LevelCreatePayloadSchema = z.object({
+    buildingId: BuildingIdSchema,
+    name: z.string().min(1).max(80),
+    levelNumber: z.number().int(),
+    elevation: z.number().finite(),
+    height: z.number().positive().max(20),
+    isActive: z.boolean().optional(),
+    isReference: z.boolean().optional(),
+});
+export type LevelCreatePayload = z.infer<typeof LevelCreatePayloadSchema>;
+
+/**
+ * `level.update` payload — per [C20 §4.2].
+ * Mutates Level fields. If `levelNumber` or `elevation` changes, the
+ * handler MUST re-validate §1.2 uniqueness + monotonicity across the
+ * Building.
+ */
+export const LevelUpdatePayloadSchema = z.object({
+    id: LevelIdSchema,
+    patch: z
+        .object({
+            name: z.string().min(1).max(80).optional(),
+            levelNumber: z.number().int().optional(),
+            elevation: z.number().finite().optional(),
+            height: z.number().positive().max(20).optional(),
+            isActive: z.boolean().optional(),
+            isReference: z.boolean().optional(),
+        })
+        .refine(
+            (p) => Object.keys(p).length > 0,
+            'level.update: patch is empty',
+        ),
+});
+export type LevelUpdatePayload = z.infer<typeof LevelUpdatePayloadSchema>;
+
+/**
+ * `level.setActive` payload — per [C20 §4.2].
+ * Sets the named Level's isActive=true and clears every other Level
+ * (in the same Building) per [C20 §1.2] (zero-or-one active).
+ */
+export const LevelSetActivePayloadSchema = z.object({
+    id: LevelIdSchema,
+});
+export type LevelSetActivePayload = z.infer<
+    typeof LevelSetActivePayloadSchema
+>;
+
+/**
+ * `level.delete` payload — per [C20 §4.2].
+ * Cascades to every Apartment + Room on the Level per [§1.9]. This
+ * handler only removes the LEVEL — the dispatch caller is responsible
+ * for first invoking apartment.delete + room.delete on the children
+ * (per the §1.9 "deepest first" deletion order). The handler refuses
+ * if any Apartments / Rooms still reference the Level — explicit
+ * cascade by the L5 caller, not silent.
+ */
+export const LevelDeletePayloadSchema = z.object({
+    id: LevelIdSchema,
+});
+export type LevelDeletePayload = z.infer<typeof LevelDeletePayloadSchema>;
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Domain events
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -119,6 +195,29 @@ export interface BuildingUpdatedEvent {
     readonly type: 'building.updated';
     readonly building: Building;
     readonly prior: Building;
+}
+
+export interface LevelCreatedEvent {
+    readonly type: 'level.created';
+    readonly level: Level;
+}
+
+export interface LevelUpdatedEvent {
+    readonly type: 'level.updated';
+    readonly level: Level;
+    readonly prior: Level;
+}
+
+export interface LevelActiveSetEvent {
+    readonly type: 'level.active-set';
+    readonly levelId: string;
+    /** Prior active Level id in the same Building (null when none). */
+    readonly priorActiveId: string | null;
+}
+
+export interface LevelDeletedEvent {
+    readonly type: 'level.deleted';
+    readonly level: Level;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
