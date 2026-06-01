@@ -1,9 +1,9 @@
 # PRYZM — Product Vision, Business Strategy, Workflow Architecture & Operating Model
 
-> **Version 1.0** — Foundation Document
-> **Domain**: `pryzm.so`
-> **Status**: CANONICAL — Internal · Confidential
-> **Authority**: This document is the **foundational vision** for PRYZM. It sits above `01-VISION.md` (the engineering-vision sibling) and below no other doc. Any conflict between this doc and a downstream contract/spec is resolved in favour of this doc, then `01-VISION.md`, then `02-ARCHITECTURE.md`, then C-contracts. See [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md](PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md) for how this vision maps to delivery.
+> **Version 1.0** — Foundation Document · Refreshed 2026-06-01
+> **Domain**: `pryzm.app` (product) · `pryzm.so` (legacy reference)
+> **Status**: CANONICAL — Internal · Confidential · **scheduled for code-grounded rewrite** (see §11)
+> **Authority**: This document is the **foundational product vision** for PRYZM. It sits above [engineering-vision.md](./engineering-vision.md) and below no other doc except [manifesto.md](./manifesto.md) (founding intent + brand voice). Any conflict between this doc and a downstream contract/spec is resolved in favour of this doc, then [engineering-vision.md](./engineering-vision.md), then [architecture.md](./architecture.md), then C-contracts. See [../03-execution/plans/master-implementation-plan.md](../03-execution/plans/master-implementation-plan.md) for how this vision maps to delivery.
 
 ---
 
@@ -333,12 +333,25 @@ Every decision about what to build next should be tested against these principle
 
 ---
 
+## §11 — Pending code-grounded rewrite (2026-06-01)
+
+This document was authored against an earlier docs structure + carries assumptions about working systems that need verification against current code. Scheduled for substantive rewrite where every capability claim is checked against the actual repository state (`packages/*`, `plugins/*`, `apps/*`, `server.js`, `ai-host/`). The rewrite will:
+
+- Verify the §4.1 "current working systems" list against actual code
+- Update the §4.2 nine-layer model to match current implementation status
+- Refresh §8 gap analysis with current as-is reality
+- Refresh §9 phased roadmap against [../03-execution/plans/master-implementation-plan.md](../03-execution/plans/master-implementation-plan.md)
+- Replace `pryzm.so` references with `pryzm.app`
+
+Until the rewrite ships, defer to actual code state for any capability question + cite this caveat.
+
 ## Document control
 
 | | |
 |---|---|
-| **Version** | 1.0 |
-| **Status** | Foundation draft — CANONICAL for internal review |
-| **Domain** | `pryzm.so` |
-| **Next review** | After Phase 1 RAC integration complete |
-| **Downstream** | [01-VISION.md](01-VISION.md) (engineering vision) · [02-ARCHITECTURE.md](02-ARCHITECTURE.md) (8-layer model) · [PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md](PRYZM3-MASTER-IMPLEMENTATION-PLAN-2026-05-31.md) (delivery plan) |
+| **Version** | 1.0 (refresh planned) |
+| **Status** | Foundation — CANONICAL with pending rewrite |
+| **Domain** | `pryzm.app` |
+| **Next review** | 2026-06-01 code-grounded rewrite |
+| **Downstream** | [engineering-vision.md](./engineering-vision.md) · [architecture.md](./architecture.md) · [../03-execution/plans/master-implementation-plan.md](../03-execution/plans/master-implementation-plan.md) |
+| **Cross-links** | [manifesto.md](./manifesto.md) · [positioning.md](./positioning.md) · [personas.md](./personas.md) · [go-to-market.md](./go-to-market.md) · [platform-strategy.md](./platform-strategy.md) · [site-and-cognition-strategy.md](./site-and-cognition-strategy.md) · [operating-principles.md](./operating-principles.md) · [risks-and-assumptions.md](./risks-and-assumptions.md) |
