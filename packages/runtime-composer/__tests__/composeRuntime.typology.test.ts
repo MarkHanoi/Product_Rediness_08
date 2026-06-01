@@ -213,51 +213,55 @@ describe('composeRuntime() — typology slot (A.3)', () => {
     expect(typeof runtime.typology.router.dispatch).toBe('function');
   });
 
-  it('the registry starts empty', () => {
-    expect(runtime.typology.registry.listIds()).toEqual([]);
-    expect(runtime.typology.registry.list()).toEqual([]);
+  it('the registry is pre-seeded with the apartment pack (A.4.a bridge)', () => {
+    // A.4.a registers `apartment` at boot per [C50 §1.4] (Stage 4 mandatory)
+    // + the bridge factory `buildApartmentTypologyPack`.
+    expect(runtime.typology.registry.has('apartment')).toBe(true);
+    expect(runtime.typology.registry.listIds()).toContain('apartment');
   });
 
   it('packs can be registered and looked up through the runtime slot', () => {
-    runtime.typology.registry.register(makeTestPack('apartment'));
-    expect(runtime.typology.registry.has('apartment')).toBe(true);
-    expect(runtime.typology.registry.listIds()).toEqual(['apartment']);
+    // The apartment pack is already registered; we add a second one.
+    runtime.typology.registry.register(makeTestPack('test-pack'));
+    expect(runtime.typology.registry.has('test-pack')).toBe(true);
+    expect(runtime.typology.registry.listIds()).toContain('test-pack');
   });
 
   it('the router dispatches against the registry attached to this runtime', async () => {
-    runtime.typology.registry.register(makeTestPack('apartment'));
+    runtime.typology.registry.register(makeTestPack('test-pack'));
     const result = await runtime.typology.router.dispatch(
-      makeTestInput('apartment'),
+      makeTestInput('test-pack'),
     );
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error('unreachable');
-    expect(result.typologyId).toBe('apartment');
+    expect(result.typologyId).toBe('test-pack');
     expect(result.metadata.engine).toBe('deterministic');
     expect(result.metadata.stagesRun).toHaveLength(7);
   });
 
   it('dispatching an unregistered typology throws (programmer error)', async () => {
     await expect(
-      runtime.typology.router.dispatch(makeTestInput('apartment')),
+      runtime.typology.router.dispatch(makeTestInput('does-not-exist')),
     ).rejects.toThrow(/not registered/i);
   });
 
   it('tearDown() clears the registry', () => {
-    runtime.typology.registry.register(makeTestPack('apartment'));
-    runtime.typology.registry.register(makeTestPack('house'));
-    expect(runtime.typology.registry.listIds()).toHaveLength(2);
+    expect(runtime.typology.registry.listIds().length).toBeGreaterThan(0);
     runtime.tearDown();
     expect(runtime.typology.registry.listIds()).toEqual([]);
   });
 
-  it('different runtimes get different registries (no cross-runtime leak)', async () => {
-    runtime.typology.registry.register(makeTestPack('apartment'));
+  it('different runtimes get independent registries (no cross-runtime leak)', async () => {
+    runtime.typology.registry.register(makeTestPack('test-pack'));
     const runtime2 = await composeRuntime({
       audit: { ...AUDIT, projectId: 'test-project-2' },
       bootstrapFn: stubBootstrapFn,
     });
-    expect(runtime2.typology.registry.listIds()).toEqual([]);
-    expect(runtime.typology.registry.listIds()).toEqual(['apartment']);
+    // Both have 'apartment' (each composeRuntime registers it independently);
+    // but only the FIRST has the test-pack.
+    expect(runtime2.typology.registry.has('apartment')).toBe(true);
+    expect(runtime2.typology.registry.has('test-pack')).toBe(false);
+    expect(runtime.typology.registry.has('test-pack')).toBe(true);
     runtime2.tearDown();
   });
 });

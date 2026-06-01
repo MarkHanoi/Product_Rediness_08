@@ -2569,6 +2569,9 @@ importers:
       '@pryzm/sync-client':
         specifier: workspace:*
         version: link:../sync-client
+      '@pryzm/typology-pack-apartment':
+        specifier: workspace:*
+        version: link:../typology-pack-apartment
       '@pryzm/typology-pipeline':
         specifier: workspace:*
         version: link:../typology-pipeline
@@ -2795,6 +2798,22 @@ importers:
         version: 2.1.9(@types/node@22.19.17)(happy-dom@15.11.7)(jsdom@25.0.1)
 
   packages/types-builtin: {}
+
+  packages/typology-pack-apartment:
+    dependencies:
+      '@pryzm/schemas':
+        specifier: workspace:*
+        version: link:../schemas
+      '@pryzm/typology-pipeline':
+        specifier: workspace:*
+        version: link:../typology-pipeline
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@24.12.2)(happy-dom@15.11.7)(jsdom@25.0.1)
 
   packages/typology-pipeline:
     dependencies:

@@ -66,6 +66,13 @@ import {
   createTypologyRegistry,
   createPipelineRouter,
 } from '@pryzm/typology-pipeline';
+// A.4.a (Phase A · Sprint 2) — the apartment typology pack BRIDGE.
+// Registered at boot so `runtime.typology.router.dispatch({ typologyId:
+// 'apartment', ... })` is callable immediately. The bridge handlers
+// return a placeholder command (`typology.apartment.bridge`) the editor's
+// legacy-bridge handler intercepts and forwards to the existing
+// `apartment.layout-execute` path. Full code migration ships in A.4.b+.
+import { buildApartmentTypologyPack } from '@pryzm/typology-pack-apartment';
 
 import { EventBus } from './EventBus.js';
 import { wireCommandEventBridge } from './CommandEventBridge.js';
@@ -880,6 +887,19 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
     // access to the auth + storage substrates (per C50 §1.9).
     const typologyRegistry = createTypologyRegistry();
     const typologyRouter = createPipelineRouter(typologyRegistry);
+    // A.4.a — register the apartment pack (BRIDGE handlers; full code
+    // migration A.4.b+). Per C50 §1.5 registration is idempotent-by-
+    // rejection; we wrap in a try/catch so a second composeRuntime() call
+    // in a hot-reload context does not abort (the picker UI subscribes
+    // once at mount and survives re-compose).
+    try {
+      typologyRegistry.register(buildApartmentTypologyPack());
+    } catch (err) {
+      console.warn(
+        '[runtime-composer] apartment typology pack registration skipped:',
+        err,
+      );
+    }
 
     // ── 4. Persistence + sync + undoStack ─────────────────────────────────
     // D.4.2 Day-8: `workspaceMount` no longer flows through here.  The
