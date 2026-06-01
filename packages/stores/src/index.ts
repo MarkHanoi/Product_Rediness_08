@@ -38,9 +38,11 @@ export { SiteModelStore } from './SiteModelStore.js';
 // elsewhere and composes against these. Per [C19 §4].
 //
 //   A.7.c.1 MVS:        siteCreate / siteUpdateLocation / siteSetParcelBoundary
-//   A.7.c.2 (this):     siteUpdateZoning / siteSetFootprint / siteClearFootprint
-//   A.7.c.3+ planned:   context-building add/remove/replace · climate/building
-//                       link · whole-site replace · cascade-delete
+//   A.7.c.2:            siteUpdateZoning / siteSetFootprint / siteClearFootprint
+//   A.7.c.3 (this):     siteAddContextBuilding / siteRemoveContextBuilding /
+//                       siteReplaceContextBuilding
+//   A.7.c.4+ planned:   resync · climate/building link · whole-site replace ·
+//                       cascade-delete
 export {
     siteCreate,
     siteUpdateLocation,
@@ -48,6 +50,9 @@ export {
     siteUpdateZoning,
     siteSetFootprint,
     siteClearFootprint,
+    siteAddContextBuilding,
+    siteRemoveContextBuilding,
+    siteReplaceContextBuilding,
     deterministicSiteId,
     SiteCreatePayloadSchema,
     SiteUpdateLocationPayloadSchema,
@@ -55,12 +60,18 @@ export {
     SiteUpdateZoningPayloadSchema,
     SiteSetFootprintPayloadSchema,
     SiteClearFootprintPayloadSchema,
+    SiteAddContextBuildingPayloadSchema,
+    SiteRemoveContextBuildingPayloadSchema,
+    SiteReplaceContextBuildingPayloadSchema,
     type SiteCreatePayload,
     type SiteUpdateLocationPayload,
     type SiteSetParcelBoundaryPayload,
     type SiteUpdateZoningPayload,
     type SiteSetFootprintPayload,
     type SiteClearFootprintPayload,
+    type SiteAddContextBuildingPayload,
+    type SiteRemoveContextBuildingPayload,
+    type SiteReplaceContextBuildingPayload,
     type SiteCommandResult,
     type SiteCommandRejection,
     type SiteCommandWarnings,
@@ -70,6 +81,9 @@ export {
     type SiteZoningUpdatedEvent,
     type SiteFootprintSetEvent,
     type SiteFootprintClearedEvent,
+    type SiteContextBuildingAddedEvent,
+    type SiteContextBuildingRemovedEvent,
+    type SiteContextBuildingReplacedEvent,
 } from './site-commands/index.js';
 // P0.5 Stage-5 wiring (Family Platform) — L0-pure-pipeline → L3-reactive-store
 // bridge.  Takes raw JSON, runs the 5-stage pure pipeline, and inserts the

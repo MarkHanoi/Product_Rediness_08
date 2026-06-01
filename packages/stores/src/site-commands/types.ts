@@ -144,6 +144,46 @@ export type SiteClearFootprintPayload = z.infer<
     typeof SiteClearFootprintPayloadSchema
 >;
 
+/**
+ * `site.addContextBuilding` payload — per [C19 §4.1].
+ * Appends a single ContextBuilding to `SiteModel.contextBuildings[]`.
+ * Per §1.5 the appended entry MUST carry `editable: false` (the schema
+ * enforces this via the L0 literal `z.literal(false)`).
+ */
+export const SiteAddContextBuildingPayloadSchema = z.object({
+    siteId: SiteIdSchema,
+    contextBuilding: ContextBuildingSchema,
+});
+export type SiteAddContextBuildingPayload = z.infer<
+    typeof SiteAddContextBuildingPayloadSchema
+>;
+
+/**
+ * `site.removeContextBuilding` payload — per [C19 §4.1].
+ * Removes one entry by id. No-op-with-warning when the id is unknown.
+ */
+export const SiteRemoveContextBuildingPayloadSchema = z.object({
+    siteId: SiteIdSchema,
+    contextBuildingId: z.string().min(3),
+});
+export type SiteRemoveContextBuildingPayload = z.infer<
+    typeof SiteRemoveContextBuildingPayloadSchema
+>;
+
+/**
+ * `site.replaceContextBuilding` payload — per [C19 §4.1] + §1.5.
+ * Atomic remove + add preserving order. `replacement.id` MAY equal
+ * `contextBuildingId` or differ (the contract is silent — we allow both).
+ */
+export const SiteReplaceContextBuildingPayloadSchema = z.object({
+    siteId: SiteIdSchema,
+    contextBuildingId: z.string().min(3),
+    replacement: ContextBuildingSchema,
+});
+export type SiteReplaceContextBuildingPayload = z.infer<
+    typeof SiteReplaceContextBuildingPayloadSchema
+>;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Result shapes — per the handler discriminated-union convention.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -157,6 +197,8 @@ export type SiteCommandRejection =
     | 'no-site'                          // siteId does not match the current store
     | 'parcel-already-set'              // §1.4 parcel polygon immutability
     | 'edge-classifications-mismatch'    // §2.7 cross-schema validation
+    | 'context-building-not-found'       // §1.5 — remove/replace by id missed
+    | 'context-building-duplicate-id'    // §1.5 — add would shadow an existing id
     | 'invalid-payload';                 // generic Zod failure shape
 
 /**
@@ -226,4 +268,23 @@ export interface SiteFootprintSetEvent {
 export interface SiteFootprintClearedEvent {
     readonly type: 'site.footprint-cleared';
     readonly siteId: string;
+}
+
+export interface SiteContextBuildingAddedEvent {
+    readonly type: 'site.context-building-added';
+    readonly siteId: string;
+    readonly contextBuildingId: string;
+}
+
+export interface SiteContextBuildingRemovedEvent {
+    readonly type: 'site.context-building-removed';
+    readonly siteId: string;
+    readonly contextBuildingId: string;
+}
+
+export interface SiteContextBuildingReplacedEvent {
+    readonly type: 'site.context-building-replaced';
+    readonly siteId: string;
+    readonly contextBuildingId: string;
+    readonly replacementId: string;
 }
