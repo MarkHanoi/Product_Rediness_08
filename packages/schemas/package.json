@@ -22,7 +22,8 @@
     "./schedule": "./src/schedule/index.ts",
     "./schedule/schedule": "./src/schedule/schedule.ts",
     "./schedule/formula": "./src/schedule/formula.ts",
-    "./apartment": "./src/apartment/index.ts"
+    "./apartment": "./src/apartment/index.ts",
+    "./aggregates": "./src/aggregates/index.ts"
   },
   "files": ["src", "dist"],
   "scripts": {

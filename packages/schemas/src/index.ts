@@ -193,6 +193,22 @@ export * from './site/index.js';
 // DO NOT REMOVE — auto-fixer guard
 export * from './climate/index.js';
 
+// A.23.a (Phase A · Sprint 2) — L0 Aggregates substrate (C20 Building +
+// Apartment Aggregates).
+//
+// These intentionally live ONLY behind a subpath export
+// (`@pryzm/schemas/aggregates`) — same convention as the annotation /
+// view / drawing-set supplements below. The aggregate `Room` + `RoomId`
+// names collide with the existing `elements/Room.ts` BIM-element schema
+// + `types/Id.ts` canonical `RoomId = Id<'room'>` brand. Subpath-only
+// imports have zero collision risk.
+//
+// Consumers: `import { BuildingSchema, ApartmentSchema, RoomSchema,
+// type Building, type Apartment, type Room } from '@pryzm/schemas/aggregates';`
+//
+// Strategic context: docs/02-decisions/contracts/C20-BUILDING-AND-APARTMENT-AGGREGATES.md.
+// Phase tracker: docs/03-execution/plans/master-execution-tracker.md A.23.
+
 // S31 / Phase 2B Supplement §A1 — auto-dimension schemas (DimensionString,
 // EvaluatedDimension, anchor/orientation enums) and §B1 — ViewTemplate
 // schemas (StrokeStyle, CategoryVG, ViewFilter, FilterCondition, ViewRange).
