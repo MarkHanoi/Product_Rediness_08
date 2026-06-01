@@ -28,7 +28,7 @@
 
 import type { AnyStores, CommandHandler, RingBufferUndoStack } from '@pryzm/command-bus';
 import type { SyncClient, PryzmAwareness } from '@pryzm/sync-client';
-import type { LayoutOptionsStore, AiApprovalQueueStore, ApartmentParameterPropagator, FamilyRegistryStore, SiteModelStore, ClimateStore } from '@pryzm/stores';
+import type { LayoutOptionsStore, AiApprovalQueueStore, ApartmentParameterPropagator, FamilyRegistryStore, SiteModelStore, ClimateStore, BuildingStore, LevelStore } from '@pryzm/stores';
 import type {
   TypologyRegistry,
   PipelineRouter,
@@ -3467,6 +3467,22 @@ export interface PryzmRuntime {
    *  invalidated entries in an audit archive (never deletes). Joins the
    *  C13 project-switch reset list. Disposed via `tearDown()`. */
   readonly climateStore: ClimateStore;
+
+  // ── A.23.b.1 (Phase A · Sprint 2) — BuildingStore (C20 substrate) ───────
+  /** L3 reactive wrapper around the L0 `Building` aggregate from
+   *  `@pryzm/schemas/aggregates`. Per [C20 §1.1] single Building per
+   *  Project today (multi-Building deferred to C20.1). The `building.*`
+   *  command surface (A.23.c) calls store.add/update/remove after
+   *  validation. Joins the C13 project-switch reset list. */
+  readonly buildingStore: BuildingStore;
+
+  // ── A.23.b.1 (Phase A · Sprint 2) — LevelStore (C20 substrate) ──────────
+  /** L3 reactive wrapper around the L0 `Level` aggregate from
+   *  `@pryzm/schemas/aggregates`. Per [C20 §1.2] within a Building:
+   *  levelNumber + elevation are unique + monotonic; zero-or-one
+   *  isActive. Cross-row invariants enforced by `level.*` commands
+   *  (A.23.c); the store does per-row schema only. Joins C13 reset. */
+  readonly levelStore: LevelStore;
 
   // ── A.3 (Phase A · Sprint 2) — Typology pipeline slot ───────────────────
   /** L3 multi-typology generative-AI pipeline. One per runtime per

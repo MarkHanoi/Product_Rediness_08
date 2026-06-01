@@ -52,6 +52,8 @@ import {
   buildCoreFamilySeeds,
   SiteModelStore,
   ClimateStore,
+  BuildingStore,
+  LevelStore,
 } from '@pryzm/stores';
 // D-α-3 P3 — pure parameter-impact resolver injected into the propagator.
 // Lives in @pryzm/ai-host (L2) so the L1 stores stay free of any AI-runtime
@@ -905,6 +907,18 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
     // `reset()` on project switch).
     const climateStore = new ClimateStore();
 
+    // ── 3g. A.23.b.1 (Phase A · Sprint 2) — BuildingStore + LevelStore ────
+    // L3 reactive stores for the C20 aggregate hierarchy. Per [C20 §1.1]
+    // single Building per Project today (multi-Building deferred to
+    // C20.1; the schema reserves the `ordinal` slot). Per [C20 §1.2]
+    // within a Building Level.levelNumber/elevation are unique +
+    // monotonic + zero-or-one isActive. These cross-row invariants are
+    // enforced by the building.* / level.* command handlers (A.23.c) —
+    // the stores do per-row schema validity only. Both join the C13
+    // project-switch reset list.
+    const buildingStore = new BuildingStore();
+    const levelStore = new LevelStore();
+
     const typologyRegistry = createTypologyRegistry();
     const typologyRouter = createPipelineRouter(typologyRegistry);
     // A.4.a — register the apartment pack (BRIDGE handlers; full code
@@ -1333,6 +1347,13 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       // `reset()`, not dispose.
       try { climateStore.dispose(); }
       catch (err) { console.error('[runtime-composer] climateStore.dispose threw:', err); }
+      // A.23.b.1 — dispose BuildingStore + LevelStore. Per [C20 §1.1]
+      // the C13 project-switch path uses `.reset()`; this final dispose
+      // is process-level shutdown only.
+      try { buildingStore.dispose(); }
+      catch (err) { console.error('[runtime-composer] buildingStore.dispose threw:', err); }
+      try { levelStore.dispose(); }
+      catch (err) { console.error('[runtime-composer] levelStore.dispose threw:', err); }
       try { inner.tearDown(); }
       catch (err) { console.error('[runtime-composer] inner tearDown threw:', err); }
       events.clear();
@@ -1401,6 +1422,13 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       // command surface (A.10.e) calls `climateStore.ingest()` after
       // running Zod validation + license-compliance.
       climateStore,
+      // A.23.b.1 — BuildingStore + LevelStore (per C20). The
+      // building.* / level.* command surface (A.23.c) calls the
+      // store add/update/remove methods after running cross-row
+      // invariant checks (levelNumber/elevation uniqueness, active-
+      // Level uniqueness, building-exists for Level.buildingId).
+      buildingStore,
+      levelStore,
       sceneReady,
       tearDown,
     };

@@ -38,6 +38,15 @@ export { SiteModelStore } from './SiteModelStore.js';
 // entry archive per §1.5. The `climate.*` command surface in A.10.e
 // calls `ingest()` after running Zod validation + license-compliance.
 export { ClimateStore } from './ClimateStore.js';
+// A.23.b.1 (Phase A · Sprint 2) — L3 BuildingStore + LevelStore.
+// Wrap the L0 C20 aggregate substrate from `@pryzm/schemas/aggregates`.
+// One instance each per runtime; reset on project switch per C13.
+// Cross-store invariants (Level.buildingId references an existing
+// Building; levelNumber/elevation uniqueness per Building; zero-or-one
+// isActive Level per Building) are enforced by the building.*/level.*
+// command handlers in A.23.c — the store does per-row schema only.
+export { BuildingStore } from './BuildingStore.js';
+export { LevelStore } from './LevelStore.js';
 // A.10.e (Phase A · Sprint 2) — climate.* command handlers per [C21 §4.1].
 // Pure functions `(payload, store) → ClimateCommandResult<Event>`.
 // 6 commands: ingestEPW · refreshNOAA · resolveSite · invalidateCache
