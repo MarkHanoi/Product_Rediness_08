@@ -5,3 +5,5 @@ export * from './TitleBlock.js';
 export * from './Viewport.js';
 export * from './Sheet.js';
 export * from './SheetToSvg.js';
+export * from './ViewportContent.js';
+export * from './ViewportToSvg.js';
