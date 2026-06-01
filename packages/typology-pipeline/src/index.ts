@@ -61,6 +61,24 @@ export {
     type PickerCard,
 } from './TypologyPickerModel.js';
 
+// ── RAC chatbot model (A.5.a) ───────────────────────────────────────────
+// L3 pure state-machine for the role / typology / brief interview.
+// The L5 React component (apps/editor/src/ui/onboarding/RACChatbot.tsx)
+// wraps this with the Claude streaming UI per the MIAW reference.
+export {
+    createInitialState,
+    racReducer,
+    toBrief,
+    parseRoleFromText,
+    parseTypologyIdFromText,
+    defaultPromptForPhase,
+    type RacConversationState,
+    type RacPhase,
+    type RacCaptured,
+    type RacTurn,
+    type RacEvent,
+} from './RacChatbotModel.js';
+
 // ── router ──────────────────────────────────────────────────────────────
 export {
     createPipelineRouter,
