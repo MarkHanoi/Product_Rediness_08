@@ -24,28 +24,65 @@ export interface ComposeRuntimeInput {
 
 ### §1.2 — Output type (the `PryzmRuntime` handle)
 
+**Verified 2026-06-01 against `packages/runtime-composer/src/types.ts:3213`.** The interface has grown across phases (Wave 4 = original 14 slots; Phase F = slots 15–29; Phase D-α / P0.3 = apartment + family additions). Current shape, grouped by addition phase:
+
 ```ts
 export interface PryzmRuntime {
-  readonly events:           EventBus;
-  readonly commandBus:       CommandBus;
-  readonly commandRegistry:  CommandRegistry;
-  readonly viewRegistry:     ViewRegistry;
-  readonly workspace:        WorkspaceController;
-  readonly cameraController: CameraController;
-  readonly scheduler:        FrameScheduler;
-  readonly persistence:      PersistenceClient;
-  readonly sync?:            SyncClient;
-  readonly renderer?:        RendererHandle;
-  readonly materialPool?:    MaterialPool;
-  readonly visibility:       VisibilityRuntime;
-  readonly physics:          PhysicsHost;
-  readonly input:            InputHost;
-  readonly disposables:      DisposableSet;
-  dispose(): void;
+  readonly audit: RuntimeAudit;            // metadata stamped on every command
+
+  // ── Wave 4 core slots (1–14) ─────────────────────────────────────────────
+  readonly scene:           SceneSlot;     // 1  — renderer + scheduler + host + materialPool
+  readonly stores:          StoresSlot;    // 2
+  readonly bus:             { dispatch, executeCommand, register, registry,
+                              ringBuffer, setRingBuffer, clearUndoStacks }; // 3
+  readonly selection:       SelectionSlot;        // 4a
+  readonly hover:           HoverSlot;            // 4b
+  readonly projectContext:  ProjectContextSlot;   // 4c
+  readonly tools:           ToolsSlot;            // 5
+  readonly picking:         PickingSlot;          // 6
+  readonly physicsHost:     PhysicsHostSlot;      // 6b
+  readonly inputHost:       InputHostSlot;        // 6c
+  readonly viewRegistry:    ViewRegistrySlot;     // 7
+  readonly persistence:     PersistenceSlot;      // 8
+  readonly sync:            SyncSlot;             // 9
+  readonly visibility:      VisibilitySlot;
+  readonly ai:              AiSlot;               // 10
+  readonly plugins:         PluginsSlot;          // 11
+  readonly events:          TypedEventEmitter<RuntimeEvents>; // 12
+  readonly toasts:          ToastsSlot;           // 13
+  readonly userPreferences: UserPreferencesSlot;  // 14
+
+  // ── Phase C + D additions ───────────────────────────────────────────────
+  readonly undoStack:        UndoStackSlot;
+  readonly workspace:        WorkspaceSlot;
+  readonly workspaceMode:    WorkspaceModeController;
+  readonly cameraController: CameraControllerSlot;
+
+  // ── Phase F slots 15–29 (S81 F.12 + Wave 14) ────────────────────────────
+  readonly ifc: IfcSlot;            readonly rhino:         RhinoSlot;
+  readonly bcf: BcfSlot;            readonly pdf:           PdfSlot;
+  readonly auth: AuthSlot;          readonly shortcuts:     ShortcutsSlot;
+  readonly toast: ToastSlot;        readonly debug:         DebugSlot;
+  readonly export: ExportSlot;      readonly entitlements:  EntitlementsSlot;
+  readonly cde:    CdeSlot;         readonly geospatial:    GeospatialSlot;
+  readonly physics: PhysicsDevSlot; readonly structural:    StructuralSlot;
+  readonly search:  SearchSlot;
+
+  // ── Domain-specific extensions ──────────────────────────────────────────
+  readonly apartmentParameterPropagator: ApartmentParameterPropagator;
+  readonly familyRegistryStore:          FamilyRegistryStore;
+
+  tearDown(): void;
 }
+
+export interface ComposedRuntime extends PryzmRuntime {
+  readonly sceneReady: Promise<void>;     // resolves once renderer + canvas + scene-reconciler wired
+}
+
+export function composeRuntime(input: ComposeRuntimeInput): Promise<ComposedRuntime>;
 ```
 
-**14 typed slots. No `unknown`. No `any`. No `(window as ...)` reads.** Any slot that is `unknown` is a bug tracked in `03-CURRENT-STATE.md §1`.
+**All slots typed. No `unknown`. No `any`. No `(window as ...)` reads.** The composer returns `Promise<ComposedRuntime>` (async because renderer init is async). Slot count has grown across phases — see header comment block in `types.ts` for the per-wave history.
 
 ### §1.3 — Invariants
 

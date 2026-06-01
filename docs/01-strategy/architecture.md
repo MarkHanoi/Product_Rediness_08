@@ -89,41 +89,98 @@ The L8 "subset" means `packages/plugin-sdk/` re-exports a curated subset of lowe
 
 ## §3 — The composition root contract
 
-**One** entry point produces a runtime handle. Production code uses only this entry point. Implementation: `packages/runtime-composer/src/composeRuntime.ts`.
+**One** entry point produces a runtime handle. Production code uses only this entry point. Implementation: `packages/runtime-composer/src/composeRuntime.ts` returns `Promise<ComposedRuntime>` (where `ComposedRuntime extends PryzmRuntime` adds `sceneReady: Promise<void>`).
+
+The canonical interface (verified 2026-06-01 against `packages/runtime-composer/src/types.ts:3213`) is **~29 named slots + `audit` metadata + 2 phase-specific extensions** organised by addition phase:
+
+### §3.1 — Wave-4 core slots (Slots 1–14 — the original typed surface)
+
+```ts
+interface PryzmRuntime {
+  readonly audit:           RuntimeAudit;          // stamped on every command
+
+  readonly scene:           SceneSlot;             // 1  — renderer + scheduler + host + materialPool
+  readonly stores:          StoresSlot;            // 2  — typed stores umbrella
+  readonly bus:             { dispatch, execute,   // 3  — CommandBus + registry + ringBuffer
+                              register, registry,
+                              ringBuffer,
+                              setRingBuffer,
+                              clearUndoStacks };
+  readonly selection:       SelectionSlot;         // 4a
+  readonly hover:           HoverSlot;             // 4b
+  readonly projectContext:  ProjectContextSlot;    // 4c
+  readonly tools:           ToolsSlot;             // 5  — tool state machine
+  readonly picking:         PickingSlot;           // 6
+  readonly physicsHost:     PhysicsHostSlot;       // 6b — broad-phase spatial query
+  readonly inputHost:       InputHostSlot;         // 6c — pointer + wheel + keyboard
+  readonly viewRegistry:    ViewRegistrySlot;      // 7
+  readonly persistence:     PersistenceSlot;       // 8
+  readonly sync:            SyncSlot;              // 9
+  readonly visibility:      VisibilitySlot;        //    — wave-chain evaluator
+  readonly ai:              AiSlot;                // 10
+  readonly plugins:         PluginsSlot;           // 11 — contribution host
+  readonly events:          TypedEventEmitter<RuntimeEvents>; // 12
+  readonly toasts:          ToastsSlot;            // 13
+  readonly userPreferences: UserPreferencesSlot;   // 14
+```
+
+### §3.2 — Phase C–D additions
+
+```ts
+  readonly undoStack:        UndoStackSlot;        // drives SaveUndoRedoHUD
+  readonly workspace:        WorkspaceSlot;        // landing | hub | workspace surface
+  readonly workspaceMode:    WorkspaceModeController; // 3d | plan | section
+  readonly cameraController: CameraControllerSlot;
+```
+
+### §3.3 — Phase F slots 15–29 (S81 F.12 + Wave 14)
+
+```ts
+  readonly ifc:           IfcSlot;            // 15 — import/export/inspector
+  readonly rhino:         RhinoSlot;          // 16 — .3dm reader
+  readonly bcf:           BcfSlot;            // 17 — BCF 3.0 reader/writer
+  readonly pdf:           PdfSlot;            // 18 — importer/exporter
+  readonly auth:          AuthSlot;           // 19
+  readonly shortcuts:     ShortcutsSlot;      // 20 — global keyboard
+  readonly toast:         ToastSlot;          // 21 (canonical Wave-14)
+  readonly debug:         DebugSlot;          // 22 — renderer dev overlay
+  readonly export:        ExportSlot;         // 23 — ifc | glb | pdf | csv | panorama
+  readonly entitlements:  EntitlementsSlot;   // 24 — gate
+  readonly cde:           CdeSlot;            // 25 — CDE naming adapter
+  readonly geospatial:    GeospatialSlot;     // 26 — projection
+  readonly physics:       PhysicsDevSlot;     // 27 — dev-overlay metrics
+  readonly structural:    StructuralSlot;     // 28 — analysis
+  readonly search:        SearchSlot;         // 29 — full-text
+```
+
+### §3.4 — Domain-specific extensions
+
+```ts
+  readonly apartmentParameterPropagator: ApartmentParameterPropagator; // D-α-3 P3
+  readonly familyRegistryStore:          FamilyRegistryStore;          // P0.3 slice B
+
+  tearDown(): void;       // idempotent disposer in reverse order
+}
+```
+
+**All slots typed.** No `unknown`. No `(window as ...)` reads. The contract is codified in [C02 — Composition Root & Boot](../02-decisions/contracts/C02-COMPOSITION-ROOT-AND-BOOT.md). The slot count has grown from the original 14 (Wave 4) through Phase F (15–29) and now Phase D-α / P0.3 (apartment propagator + family registry) — the interface is the single source of truth.
+
+The composer entry point:
 
 ```ts
 export interface ComposeRuntimeInput {
-  readonly persistence: PersistenceClient;
+  readonly audit: RuntimeAudit;
+  // optional dependencies injected by the host environment
+  readonly persistence?: PersistenceClient;
   readonly sync?: SyncClient;
   readonly renderer?: RendererHandle;
   readonly registries?: PluginRegistries;
-  readonly audit?: AuditLogger;
 }
 
-export interface PryzmRuntime {
-  readonly events: EventBus;
-  readonly commandBus: CommandBus;
-  readonly commandRegistry: CommandRegistry;
-  readonly viewRegistry: ViewRegistry;
-  readonly workspace: WorkspaceController;
-  readonly cameraController: CameraController;
-  readonly scheduler: FrameScheduler;
-  readonly persistence: PersistenceClient;
-  readonly sync?: SyncClient;
-  readonly renderer?: RendererHandle;
-  readonly materialPool?: MaterialPool;
-  readonly visibility: VisibilityRuntime;
-  readonly physics: PhysicsHost;
-  readonly input: InputHost;
-  readonly ai: AiPlane;
-  readonly disposables: DisposableSet;
-  dispose(): void;
-}
-
-export function composeRuntime(input: ComposeRuntimeInput): Promise<PryzmRuntime>;
+export function composeRuntime(
+  input: ComposeRuntimeInput
+): Promise<ComposedRuntime>;
 ```
-
-**All slots typed.** No `unknown`. No `(window as ...)` reads. The contract is codified in [C02 — Composition Root & Boot](../02-decisions/contracts/C02-COMPOSITION-ROOT-AND-BOOT.md).
 
 ### §3.1 — Headless mode
 

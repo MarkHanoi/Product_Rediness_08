@@ -45,7 +45,7 @@ interface RendererHandle {
 
 ### §2.1 — The invariant
 
-`requestAnimationFrame()` is called **only** in `packages/runtime-composer/src/scheduler.ts`. All animation, render loops, and per-frame callbacks MUST subscribe to the `FrameScheduler` interface exposed on `PryzmRuntime.scheduler`.
+`requestAnimationFrame()` is called **only** in `packages/frame-scheduler/src/RafAdapter.ts` (invoked by `packages/frame-scheduler/src/FrameScheduler.ts`). All animation, render loops, and per-frame callbacks MUST subscribe to the `FrameScheduler` interface exposed on `PryzmRuntime.scene.scheduler`.
 
 **CI gate**: `tools/ga-gate/check-raf-count.ts` — ratchet at 1 owner, hard-fail.
 

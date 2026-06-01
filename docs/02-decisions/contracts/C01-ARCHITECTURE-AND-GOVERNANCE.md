@@ -14,8 +14,8 @@ Each principle is a **merge-blocking contract**. Soft-fail counters become hard-
 |---|---|---|---|---|
 | **P1** | Single composition root | ONE `composeRuntime()` in production. No second runtime wiring, no parallel composition. | `tools/ga-gate/check-single-compose.ts` | soft-fail → hard at Phase D exit |
 | **P2** | Single THREE owner | `import * as THREE` allowed **only** in `packages/renderer-three/`. All other THREE uses are a CI failure. | `eslint-plugin-boundaries` (hard-fail) | hard-fail |
-| **P3** | Single rAF | `requestAnimationFrame()` called **only** in `packages/runtime-composer/src/scheduler.ts`. Every other animation MUST subscribe to the frame bus. | `tools/ga-gate/check-raf-count.ts` (ratchet = 1) | hard-fail |
-| **P4** | No `(window as any)` | Forbidden everywhere except the allowlisted shim `src/engine/subsystems/legacy/window-shim.ts`. The allowlist is one file; adding to it requires an ADR. | `tools/ga-gate/check-cast-count.ts` (ratchet = 0 non-shim) | hard-fail (non-shim = 0 achieved; Wave 5) |
+| **P3** | Single rAF | `requestAnimationFrame()` called **only** in `packages/frame-scheduler/src/RafAdapter.ts` (called by `FrameScheduler.ts`). Every other animation MUST subscribe to the frame bus. | `tools/ga-gate/check-raf-count.ts` (ratchet = 1) | hard-fail |
+| **P4** | No `(window as any)` | Forbidden everywhere except the allowlisted shim `apps/editor/src/engine/window-shim.ts`. The allowlist is one file; adding to it requires an ADR. | `tools/ga-gate/check-cast-count.ts` (ratchet = 0 non-shim) | hard-fail (non-shim = 0 achieved; Wave 5) |
 | **P5** | Schemas are pure | `packages/schemas/` MUST have zero I/O imports, zero THREE, zero DOM. | `scripts/ci-check-domain-purity.ts` | hard-fail |
 | **P6** | Commands are the only mutation path | UI MUST dispatch commands through `commandBus`. No direct store writes from UI code. | `scripts/ci-check-no-direct-store-writes.ts` | hard-fail |
 | **P7** | Visibility intent ≠ UI state | `packages/visibility/` is a first-class domain concept. Plugins and AI express intent without owning UI. | `packages/visibility/__tests__/intent-not-ui.test.ts` | hard-fail |
@@ -28,10 +28,10 @@ Each principle is a **merge-blocking contract**. Soft-fail counters become hard-
 The dependency rule is absolute: **a layer MAY import from any lower layer; it MUST NOT import from a higher layer.** L7.5 is the only permitted exception and MUST monotonically shrink toward zero.
 
 ```
-L7.5  src/ (elements/, engine/, ui/)   — TRANSITIONAL; shrinks to src/ui/ only
-L7    plugins/*         (46 plugins)   — imports L6 only
-L6    packages/plugin-sdk/             — curated SDK facade
-L5    apps/*             (12 apps)     — per-app surfaces
+L7.5  src/ (7 transitional files, 0 subdirs) — TRANSITIONAL; shrinks toward zero
+L9    plugins/*         (47 plugins)   — imports L8 only
+L8    packages/plugin-sdk/             — curated SDK facade (@pryzm/sdk v1.0.0)
+L7    apps/*             (13 apps)     — per-app surfaces
 L4    packages/renderer/  packages/render-runtime/  packages/persistence-client/
       packages/scene-committer/        — scene dispatch + persistence
 L3    packages/runtime-composer/  packages/ui-base/

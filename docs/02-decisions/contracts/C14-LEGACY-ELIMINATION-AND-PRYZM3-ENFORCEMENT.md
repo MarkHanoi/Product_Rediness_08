@@ -3,7 +3,7 @@
 > **Stamp**: 2026-05-16 · **Status**: CANONICAL  
 > **Authority**: Supersedes all pre-PRYZM3 architectural norms documented in `docs/02-decisions/contracts/archive/superseded-pryzm1-pryzm2/`. Cross-references `docs/01-strategy/architecture.md` as the normative source of truth.  
 > **Scope**: `packages/`, `plugins/`, `scripts/`, and `tools/ga-gate/` — every file in those three directories. `apps/editor/src/` legacy patterns are governed by C03 §4.3 (undo dual-path) and C06 §4.3 (gizmo drag-end); those are not repeated here.  
-> **Audit baseline**: Deep scan executed 2026-05-16 covering all `.ts` / `.tsx` files in `packages/` (80 packages), `plugins/` (46 plugins), `scripts/` (27 scripts), `tools/ga-gate/` (15 gates).
+> **Audit baseline**: Deep scan executed 2026-05-16; counts refreshed 2026-06-01 covering all `.ts` / `.tsx` files in `packages/` (**79 packages**), `plugins/` (**47 plugins**), `scripts/` (~50 scripts), `tools/ga-gate/` (**21 gates**).
 
 ---
 
@@ -407,7 +407,7 @@ These packages carry the highest concentration of pre-PRYZM3 patterns. They requ
 
 ## §5 — Per-Plugin Classification
 
-The 46 plugins occupy L7 of the 8-layer model. The L7 boundary gate (`check-l7-boundary.ts`) enforces that plugins MUST NOT import `@pryzm/command-bus`, `@pryzm/runtime-composer`, or any L1+ internal package directly — they access the platform via `@pryzm/plugin-sdk` only.
+The 47 plugins occupy L9 of the layered model. The L7/L9 boundary gate (`check-l7-boundary.ts`) enforces that plugins MUST NOT import `@pryzm/command-bus`, `@pryzm/runtime-composer`, or any lower-level internal package directly — they access the platform via `@pryzm/plugin-sdk` only.
 
 ### 5A — COMPLIANT plugins
 
@@ -571,3 +571,5 @@ NEW SCRIPTS MUST NOT:
 ---
 
 *Last full sweep: 2026-05-16 — Initial audit of 80 packages, 46 plugins, 27 scripts, 15 GA gates. 10 legacy pattern categories (LP-01 through LP-10) catalogued. 5 new gate gaps (G-NEW-01 through G-NEW-05) identified. Package and plugin classifications set.*
+
+*Refresh: 2026-06-01 — Counts re-verified against repo: 79 packages, 47 plugins, ~50 scripts, 21 GA gates. The LP-01 through LP-10 pattern catalogue remains binding; specific package counts in §1 / §10 reflect the 2026-06-01 reality.*

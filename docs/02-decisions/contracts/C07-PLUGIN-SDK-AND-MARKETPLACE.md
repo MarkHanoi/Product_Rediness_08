@@ -1,22 +1,22 @@
 # C07 — Plugin SDK & Marketplace
 
-> **Stamp**: 2026-05-02 · **Status**: CANONICAL  
-> **Scope**: `packages/plugin-sdk/` (L6, the public facade), `plugins/*` (L7, 46 plugins), the plugin sandbox, Ed25519 signing, and `marketplace.pryzm.app`.  
+> **Stamp**: 2026-05-02 · **Refreshed**: 2026-06-01 (counts) · **Status**: CANONICAL  
+> **Scope**: `packages/plugin-sdk/` (L8, the public facade), `plugins/*` (L9, **47 plugins**), the plugin sandbox, Ed25519 signing, and `marketplace.pryzm.app`.  
 > **References**: [ADR-009] plugin sandbox, [SPEC-09] marketplace, [ADR-001] Pascal architecture.  
 > **Phase gate**: Phase F cannot start until ≥ 6/9 convergence booleans are true (C01 §4).
 
 ---
 
-## §1 — Layer 6: The SDK Facade
+## §1 — Layer 8: The SDK Facade
 
 ### §1.1 — Purpose
 
-`packages/plugin-sdk/` is a **curated re-export of L0–L5** that defines the stable public contract for plugin authors. It MUST:
+`packages/plugin-sdk/` is a **curated re-export of L0–L7** that defines the stable public contract for plugin authors. It MUST:
 - Re-export only the types and functions that are safe to expose externally.
 - NOT expose internal implementation details that are subject to change.
-- Version independently using semantic versioning (`v1.0.0-rc.1` today; `v1.0.0` at Phase F).
+- Version independently using semantic versioning.
 
-**Current state**: 2,067 LOC, 18 source files, workspace package only — NOT yet published to npm (Phase F deliverable, boolean #7).
+**Current state (verified 2026-06-01)**: `@pryzm/plugin-sdk` version **`1.0.0`** in `packages/plugin-sdk/package.json` with `publishConfig.name = "@pryzm/sdk"`. 2,067+ LOC, workspace package locally complete; iframe sandbox + Ed25519 signing + 6 host proxies + `pryzm dev` CLI + bSDD lookup client all shipped. **Manual step pending**: `pnpm --filter @pryzm/plugin-sdk publish --access public` (OI-011 — boolean #7 closure).
 
 ### §1.2 — What the SDK exposes (the 6 host proxies)
 
@@ -128,7 +128,7 @@ Permissions MUST be minimally scoped. A plugin requesting `elements.write` but o
 
 ## §5 — First-party plugins
 
-The 46 plugins in `plugins/` are first-party (developed by the PRYZM team). They MAY import from `@pryzm/plugin-sdk` or, during the transitional period, from lower layers directly — tracked in `03-CURRENT-STATE.md §1` as "Plugin L7-violation reaches" (target: 0 ✅ achieved Wave 12). Once the SDK is stable (`v1.0.0`), even first-party plugins MUST use only the SDK surface.
+The 47 plugins in `plugins/` are first-party (developed by the PRYZM team). They MAY import from `@pryzm/plugin-sdk` or, during the transitional period, from lower layers directly — tracked by `eslint-plugin-pryzm` boundary rule (target: 0 ✅ achieved Wave 12). With the SDK now at v1.0.0, even first-party plugins MUST use only the SDK surface.
 
 ---
 

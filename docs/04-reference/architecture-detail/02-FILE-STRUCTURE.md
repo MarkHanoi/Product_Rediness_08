@@ -1,456 +1,342 @@
-# PRYZM 2 — Architectural File-Structure Breakdown (proposal)
+# PRYZM — Architectural File-Structure Breakdown
 
-> **Status**: PROPOSAL (live tree audited 2026-04-27).
-> **Scope**: every directory the agent touches in PHASE 1A–1D, with a
-> short description, owning layer (L0–L7), spec citation, and a
-> conformance verdict.
-> **Companion document**: `audits/PHASE-1-RE-AUDIT-2026-04-27.md`
-> ratifies the live tree against this proposal.
-> **Authority order** (per `CONFLICT-ANALYSIS.md`):
-> `06-PRYZM-IDENTITY-AND-RECOUNT.md` > `08-VISION.md` >
-> `10-MASTER-IMPLEMENTATION-PLAN-36M.md` > phase docs > this proposal.
+> **Stamp**: 2026-06-01 · **Status**: CANONICAL · **Rewrite basis**: full code audit, 2026-06-01.
+> **Authority**: this doc is the **per-folder + per-file reference** for the live repository tree. It is intentionally short — the per-package detail lives in [docs/01-strategy/architecture-breakdown.md](../../01-strategy/architecture-breakdown.md). The shape + lint matrix + composition root lives in [docs/01-strategy/architecture.md](../../01-strategy/architecture.md).
+> **Source of truth**: each row is verified against `ls -d` or `git ls-tree` at 2026-06-01.
 
 ---
 
-## §0 Why this document exists
+## §0 — Why this document exists
 
-Multiple sub-phase docs (`PHASE-1A`, `PHASE-1B`, `PHASE-1C`,
-`PHASE-1D`) each prescribe their own subset of the file tree. Read in
-isolation, each is consistent. Read together, the *union* of every
-prescribed path is large and there has never been a single-page map
-that says **"here is the canonical PRYZM 2 layout, here is what each
-folder is for, here is the spec line that motivated it."**
+The repo has 79 packages, 13 apps, 47 plugins, ~50 scripts, 38 server files, plus root config + tests + docs + tools. A newcomer needs ONE map that says **"here is the canonical layout, here is what each folder is for."** This doc is that map. It is *descriptive* of the shipped tree at 2026-06-01 and *prescriptive* for anything that lands in the tree from now on — new top-level dirs need an ADR; new packages/plugins/apps need an entry in [architecture-breakdown.md](../../01-strategy/architecture-breakdown.md).
 
-This document is that map. It is *descriptive* of the shipped 1C exit
-state and *prescriptive* for 1D and 2A — anything that lands in the
-tree from M10 onward should fit into one of the slots below or be
-proposed as an addition with an ADR.
+For per-package one-liners (79+47+13 = 139 entries), see [architecture-breakdown.md §6, §7, §5](../../01-strategy/architecture-breakdown.md).
+
+For layer rules + boundary lint + composition root, see [architecture.md](../../01-strategy/architecture.md).
 
 ---
 
-## §1 Top-level layout
+## §1 — Top-level layout
 
 ```
-/
-├─ apps/                       L7  — runnable surfaces (editor, CLI, server, bench)
-├─ packages/                   L0–L6 — pure, kernel-shaped libraries (no DOM)
-├─ plugins/                    L7  — element-family plugins (one per family)
-├─ tools/                      —    — build-time tooling (ESLint plugin, codegen)
-├─ tests/                      —    — cross-package suites (parity, integration, ci)
-├─ scripts/                    —    — Node scripts (CI, isolation guards)
-├─ docs/
-│   ├─ archive/pryzm3-internal/    —    — this proposal lives here
-│   ├─ architecture/           —    — handover docs + ADRs
-│   ├─ demos/                  —    — milestone demo scripts
-│   ├─ sprints/                —    — sprint retros (S07-retro, S18-retro, ...)
-│   └─ file-format/            —    — `.pryzm` v1 spec
-├─ public/                     —    — static assets served by the dev/prod server
-├─ .changeset/                 —    — semver changelogs (one per feature merge)
-├─ .github/                    —    — GitHub Actions workflows
-├─ .agents/                    —    — agent prompts (Replit Agent infra)
-├─ replit.md                   —    — running operator log (latest at top)
-├─ package.json                —    — npm workspaces root (apps/* packages/* plugins/* tools/*)
-├─ vite.config.ts              —    — single Vite config; serves apps/editor on :5000
-├─ server.js                   —    — Express host (auth, db, vite middleware)
-└─ tsconfig.base.json          —    — shared compiler options
+/  (repository root)
+│
+├─ apps/        (13)   L7   — runnable surfaces
+│                              editor, api-gateway, sync-server, ai-worker,
+│                              bake-worker, export-worker, marketplace,
+│                              marketplace-api, marketplace-web,
+│                              component-editor, docs-site, cli, bench
+│
+├─ packages/    (79)   L0–L8 — pure / kernel / runtime / SDK libraries
+│                              (see §2 below for the layered map)
+│
+├─ plugins/     (47)   L9   — element-family + AI + view + interchange plugins
+│                              (see §3 below for the categorised map)
+│
+├─ tools/       (3)    —    — build-time tooling
+│                              ga-gate (21 CI gates), pryzm1-sunset, scripts
+│
+├─ tests/       (15)   —    — cross-package suites
+│                              e2e, integration, parity, visual-diff,
+│                              browser-matrix, family-load-*, contract-44,
+│                              audit-log-s57, s70-lifecycle-deletion,
+│                              ci, ga-gate, playwright, fixtures, commands,
+│                              family-marketplace-publish
+│
+├─ scripts/     (~50)  —    — Node scripts (CI, isolation guards, codegens)
+│
+├─ server/      (38)   —    — Express BFF + per-feature service modules
+│                              (see §4 below for the categorised map)
+│
+├─ src/         (7)    L7.5 — transitional legacy zone (NO subdirs)
+│                              boot-shell.d.ts, browser-entry.tsx,
+│                              browser.css, familyCreatorPlaceholder.ts,
+│                              global-window.d.ts, main.ts, three-addons.d.ts
+│
+├─ docs/                —    — engineering documentation
+│                              01-strategy/ · 02-decisions/ · 03-execution/
+│                              04-reference/ · 05-guides/ · archive/
+│
+├─ public/             —    — static assets (Cesium tiles, fonts, icons)
+├─ .changeset/         —    — semver changelogs
+├─ .github/            —    — GitHub Actions workflows
+├─ .ga-gate/           —    — CI baselines
+│
+└─ Root config:
+   ├─ index.html, browser.html         — browser entries
+   ├─ server.js (5648 LOC, 278 KB)     — Express BFF entry
+   ├─ package.json, pnpm-workspace.yaml, pnpm-lock.yaml
+   ├─ tsconfig.json, tsconfig.base.json
+   ├─ vite.config.ts, vitest.config.ts, turbo.json
+   ├─ postcss.config.js, tailwind.config.js
+   ├─ eslint.config.js, eslint-baseline-window-as-any.json
+   ├─ replit.md, CLAUDE.md             — agent memory + Claude Code instructions
+   ├─ RELEASE-NOTES-2.0.0.md, REGRESSION-DIAGNOSIS.md
+   └─ .gitattributes, .gitignore, .dockerignore, replit.nix
 ```
-
-**Legacy roots still present** (PRYZM 1 surface, kept under the
-`?pryzm2=0` URL switch — not part of this proposal):
-
-```
-client/    editor/    src/    public/    server/    screenshots/
-```
-
-These are **out of scope** for the new architecture and should remain
-exactly where they are until 2A §S26 sunsets them per
-`PHASE-2A-Q1-M13-M15-NON-ELEMENT-COMPLETION.md`. New code may
-**not** import from them; the `eslint-plugin-pryzm` `no-three-in-kernel`
-rule + the `@pryzm/legacy-shim` strangler boundary enforce this.
 
 ---
 
-## §2 `apps/` — runnable surfaces (L7)
+## §2 — `packages/` layered map (79 packages)
 
-Each entry is a self-contained executable with its own `package.json`,
-`tsconfig.json`, and `vitest.config.ts`. **No app may import from
-another app**; cross-app sharing happens via `packages/`.
+Layer assignments per [architecture.md §1](../../01-strategy/architecture.md). One-line purposes per [architecture-breakdown.md §6](../../01-strategy/architecture-breakdown.md).
 
 ```
-apps/
-├─ editor/                     Browser editor (entry: index.html → src/index.ts)
-│  ├─ src/
-│  │  ├─ bootstrap.ts                  L7 — minimal hello-cube boot (PHASE-1A §S06)
-│  │  ├─ bootstrap.data.ts             L7 — bootstrapWithWalls() (PHASE-1B §S08)
-│  │  ├─ bootstrap.render.ts           L7 — renderer wiring half (PHASE-1A §S06)
-│  │  ├─ bootstrap.render.data.ts      L7 — wall + renderer (PHASE-1B §S09)
-│  │  ├─ bootstrap.everything.ts       L7 — all-12-plugins boot (PHASE-1C §S13)
-│  │  ├─ PluginRegistry.ts             L7 — plugin descriptor registry (ADR-0021)
-│  │  └─ index.ts                      L7 — public re-exports
-│  └─ __tests__/dual-mode-parity.test.ts  — hello-cube / pryzm2=1 round-trip
-├─ headless/                   Node CLI (entry: bin/headless.js → src/cli.ts)
-│  ├─ src/
-│  │  ├─ cli.ts                        L7 — argv → command dispatch
-│  │  ├─ commands/{newProject,addWall,addSlab,exportPryzm}.ts
-│  │  └─ index.ts                      L7 — re-exports
-│  ├─ .dependency-cruiser.cjs          — forbids THREE / DOM imports (K1-B static)
-│  └─ __tests__/headless-node.test.ts  — K1-B dynamic guard (require.cache audit)
-├─ bench/                      Node benchmark runner
-│  ├─ src/
-│  │  ├─ benches/{produce-wall,produce-slab,...,picking-latency,
-│  │  │           idle-cpu,orbit-fps-walls,view-switch,
-│  │  │           render-pass-cost,pack-unpack,...}.bench.ts
-│  │  ├─ dashboard/{loader,coverage,render,build,index,types}.ts  PHASE-1C §S17
-│  │  └─ demos/                        — runnable demo entry points
-│  ├─ reports/                         — per-milestone baselines (S08, S09, S10,
-│  │                                     M6-1B, M9-1C, M12-alpha, produce-*)
-│  └─ __tests__/dashboard/             — coverage-audit unit tests
-├─ cli/                        Stand-alone CLI helpers (separate from headless)
-├─ sync-server/                Linearisation server (PHASE-2A §S22, ADR-0019)
-│  └─ src/                             — read-only stub today
-├─ bake-worker/                Tile bake worker (PHASE-1D §S20)
-└─ (future) ml-svc/            ML inference service (PHASE-3, ADR-024)
-```
+L0 — Schemas (1)
+└─ schemas/                          — Zod schemas + typed IDs (pure; no I/O, no THREE, no DOM)
 
-**Why this shape**: `apps/editor` is the only browser surface; `apps/headless`
-is the only Node surface that exercises the kernel; both *consume* the
-same `packages/` and `plugins/` — no parallel implementations.
+L1 — Infrastructure (13 + 2 L1½)
+├─ command-bus/                      — L2 command bus + Immer-patch
+├─ frame-scheduler/                  — sole rAF owner (P3)
+├─ renderer-three/                   — sole THREE owner (P2)
+├─ picking/                          — GPU + BVH hybrid
+├─ visibility/                       — visibility-intent waves (P7)
+├─ snapping/                         — 11-provider snap engine
+├─ spatial-index/                    — SpatialGrid + BVH queries
+├─ sync-client/                      — Yjs CRDT
+├─ ai-cost/                          — per-call cost meter
+├─ input-host/                       — pointer + wheel + keyboard
+├─ physics-host/                     — broad-phase spatial query
+├─ runtime-undo-stack/               — ring buffer
+├─ drawing-primitives/        (L1½)  — vector primitives (Canvas2D/SVG/PDF/Print)
+└─ protocol/                  (L1½)  — DTO re-exports from schemas
+
+L2 — Domain logic (17)
+├─ geometry-kernel/                  — pure producers → BufferGeometryDescriptor (8k LOC, 90 files)
+├─ ai-host/                          — lazy AI host (7 workflows under src/workflows/)
+├─ constraint-solver/                — planegcs WASM
+├─ types-builtin/                    — built-in type catalogues
+├─ geometry-wall/                    — wall geometry subsystem
+├─ geometry-door/                    — door geometry subsystem
+├─ geometry-window/                  — window geometry subsystem
+├─ geometry-slab/                    — slab geometry subsystem
+├─ geometry-roof/                    — roof geometry subsystem
+├─ geometry-stair/                   — stair geometry subsystem
+├─ geometry-column/                  — column geometry subsystem
+├─ geometry-beam/                    — beam geometry subsystem
+├─ geometry-curtain-wall/            — curtain-wall geometry subsystem
+├─ geometry-lighting/                — lighting geometry subsystem
+├─ geometry-plumbing/                — plumbing geometry subsystem
+├─ geometry-furniture/               — furniture geometry subsystem
+└─ geospatial/                       — LTP-ENU + Proj4 + IfcProjectedCRS
+
+L3 — State (1)
+└─ stores/                           — Immer-patch + DirtyDiff fan-out
+
+L4 — Scene + persistence (5 + 1 fixture)
+├─ scene-committer/                  — PrimitiveCommitter + SceneRegistry + MaterialPool
+├─ persistence-client/               — EventLog + Backend (InMemory/IndexedDb/FileSystem)
+├─ renderer/                         — WebGPU/WebGL2 dual-mode pipeline
+├─ render-runtime/                   — selection-highlight + edge-outline
+├─ render-pipeline/                  — TSL WebGPU passes
+└─ legacy-shim/                      — fixture-only (lint integration test)
+
+L5 — File + view (2)
+├─ file-format/                      — .pryzm v1 ZIP + .pryzm-family format
+└─ view-state/                       — ViewDefinition/ViewRegistry/ActiveView
+
+L6 — Composition root + UI base (2)
+├─ runtime-composer/                 — composeRuntime() — ~29 typed slots
+└─ ui-base/                          — Panel lifecycle + runtime field + OTel
+
+L8 — Plugin SDK + Family Platform (4)
+├─ plugin-sdk/                       — @pryzm/sdk v1.0.0 (sandbox + signing + CLI + bSDD)
+├─ family-instance/                  — pure-Node family-instance bake pipeline
+├─ family-loader/                    — opens .pryzm-family ZIP
+└─ family-runtime/                   — expression DSL + resolver + unit coercion
+
+Headless + Editor public API (5)
+├─ headless/                         — @pryzm/headless v1.0.0-rc.1 (Node.js PryzmRuntime)
+├─ editor-ui/                        — Editor-UI public API contracts
+├─ engine/                           — Engine public API contracts (type-only)
+├─ views/                            — View-layer public API contracts
+└─ ui/                               — UI host primitives
+
+Standalone / utility (~27)
+├─ command-registry/                 — all BIM commands
+├─ core-app-model/                   — Wave 10 LIFT model
+├─ event-bus/                        — typed event bus (595 event names)
+├─ data-engine/                      — Data Panel + automation
+├─ pdf-export/                       — PDF export (fills C29 typed stub)
+├─ pdf-to-bim/                       — PDF-to-BIM extraction proposals
+├─ ai-spend/                         — AI spend aggregator
+├─ admin-overrides/                  — enterprise admin overrides
+├─ api-rbac/                         — OAuth2 scope catalogue
+├─ api-spec/                         — Public API OpenAPI 3.1 schema
+├─ rate-limit/                       — token-bucket rate limiter
+├─ wcag-audit/                       — WCAG 2.2 AA audit runner
+├─ webhooks/                         — webhooks + HMAC-SHA256 signing
+├─ oauth2-pkce/                      — PKCE OAuth2 helper
+├─ beta-signup/                      — beta cohort sign-up
+├─ crash-reporter/                   — crash + uncaught-error reporter
+├─ email-transport/                  — transactional email transport
+├─ storage-driver/                   — InMemory + R2 (S3-compat)
+├─ perf-budgets/                     — canonical NFT-target list
+├─ formula-library/                  — read-only formula library
+├─ feature-flags/                    — feature flag + kill-switch registry
+├─ expr-eval/                        — light parametric expression evaluator
+├─ room-topology/                    — room spatial index + adjacency graph
+├─ speculative-engine/               — read-only consequence preview
+├─ release/                          — GA gate orchestrator
+├─ bench-visual-diff/                — visual-diff harness wrapper
+└─ eslint-plugin-pryzm/              — custom ESLint rules
+```
 
 ---
 
-## §3 `packages/` — kernel libraries (L0 → L6)
-
-Layered strictly — a lower-numbered layer may not import a
-higher-numbered one. Enforced by `eslint-plugin-boundaries` config in
-`eslint.config.js`.
+## §3 — `plugins/` categorised map (47 plugins)
 
 ```
-packages/
-├─ protocol/             L0 — re-exports schemas + branded ids (1 src file)
-├─ schemas/              L1 — Zod schemas: 20 element types (Wall, Slab, ...,
-│                            Project, Sheet, Schedule, Furniture, ...) +
-│                            SCHEMA_REGISTRY (PHASE-1A §S03)
-├─ types-builtin/        L1 — built-in type catalogues (window types, door types,
-│                            wall layer functions, etc.)
-├─ stores/               L2 — Store, SelectionStore, ActiveViewStore, CubeStore;
-│                            single-channel mutation contract (ADR-0001/0002)
-├─ command-bus/          L3 — CommandBus, UndoStack, PatchEmitter, CascadeRunner,
-│                            produceCommand, otel surface (ADR-0012)
-├─ frame-scheduler/      L4 — priority+dirty-bit scheduler + IdleContinuation
-│                            + WorkerPool (ADR-0003, ADR-0006)
-├─ scene-committer/      L5 — primitive committer interface + MaterialPool
-│                            + GeometryPool (ADR-0005)
-├─ geometry-kernel/      L5 — 12 element producers (wall, slab, door, window,
-│                            roof, curtainwall, grid, column, beam, stair,
-│                            handrail, ceiling) + _internal/ + _shared/
-│                            + runners/ (ADR-0009)
-├─ picking/              L6 — GpuPickStrategy + BvhPickStrategy +
-│                            PickStrategyResolver (ADR-0015)
-├─ view-state/           L6 — ViewDefinition + ViewRegistry + ViewController
-│                            + defaults (ADR-0016)
-├─ renderer/             L6 — Renderer + CameraController + IdleAccumulator
-│                            + passes/{Bloom,TRAA,SSGI,ClearPass,MeshPass,Pipeline}
-│                            (ADR-0014)
-├─ render-runtime/       L6 — runtime glue between renderer and editor host
-├─ file-format/          L6 — `.pryzm` v1 zip pack/unpack (ADR-0018)
-├─ persistence-client/   L6 — event-log persistence + chunk loader
-│                            (ADR-0020 tier-streamed loader)
-├─ storage-driver/       L6 — pluggable storage backends (FS, IndexedDB, S3)
-└─ legacy-shim/          —    — strangler boundary; one fixture file
-                              `raf.bad.ts` for the no-raf lint rule
+Geometry / element (15):
+├─ wall, door, window, slab, floor, ceiling, roof
+├─ column, beam, stair, handrail, curtain-wall
+└─ lighting, plumbing, structural
+
+View / display (5):
+└─ plan-view, section-view, view, navigate, render
+
+AI (5):
+└─ ai-floorplan, ai-generative, ai-query, ai-rules, ai-voice
+
+Interchange (7):
+└─ ifc-import, ifc-export, ifc-inspector, bcf, rhino-import, dxf, export-pdf
+
+Sheets + annotations (4):
+└─ sheets, annotations, dimensions, schedules
+
+Rooms + topology + grid (3):
+└─ rooms, grid, levels
+
+Cross + selection + visibility (3):
+└─ cross, selection, visibility-intent
+
+Family (1):
+└─ family-editor
+
+Collaboration (2):
+└─ multiplayer, geospatial
+
+Furniture + smoke (2):
+└─ furniture, toy-cube
 ```
 
-**Layer-crossing convention**: every source file's docblock cites the
-spec line that justified it (e.g. `bootstrap.render.ts` cites
-`phases/PHASE-1A-Q1-M1-M3-SKELETON-RAILS.md §S06-T7 (line 583)`). New
-files should preserve this.
-
-**No external 3D libs in L0–L5.** THREE.js may only be imported by L6
-(`renderer`, `render-runtime`) and by L7 (`editor`); the
-`no-three-in-kernel` ESLint rule blocks L0–L5 imports of `three` or
-`three/*`.
+47 total. Per-plugin one-liners in [architecture-breakdown.md §7](../../01-strategy/architecture-breakdown.md).
 
 ---
 
-## §4 `plugins/` — element-family plugins (L7)
-
-Every element family follows the **same seven-file skeleton** the wall
-plugin established in PHASE-1B, with a `PluginDescriptor` (ADR-0021)
-exported as the canonical entry point:
+## §4 — `server/` BFF map (38 files)
 
 ```
-plugins/<family>/
-├─ src/
-│  ├─ index.ts                    — PluginDescriptor + barrel exports
-│  ├─ store.ts                    — <Family>Store (extends Store<Element>)
-│  ├─ intent.ts                   — <Family>IntentResolver (priority table)
-│  ├─ tool.ts                     — <Family>Tool (sketch/place gestures)
-│  ├─ errors.ts                   — typed error subclasses
-│  ├─ handlers/
-│  │  ├─ Create<Family>.ts
-│  │  ├─ Delete<Family>.ts
-│  │  ├─ Move<Family>.ts          (or family-specific transforms)
-│  │  ├─ Set<Family><Property>.ts (one per mutable property)
-│  │  └─ index.ts                 — buildHandlerSet({stores, ...})
-│  └─ committer/
-│     ├─ <family>-committer.ts    — descriptor → THREE Mesh
-│     ├─ geometry-bridge.ts       — producer-output → BufferGeometry
-│     ├─ material-bridge.ts       — material descriptor → Material via MaterialPool
-│     └─ index.ts                 — barrel
-└─ __tests__/                     — Vitest unit + integration suites
+Core infrastructure:
+├─ pgClient.js                       — PostgreSQL pool
+├─ dbMigrate.js                      — 19-table schema migration on startup
+├─ schema.sql                        — canonical SQL schema
+├─ supabaseClient.js                 — Supabase REST client (preferred)
+├─ supabaseMigrate.js                — Supabase-side schema
+└─ supabase-rls.sql                  — Row Level Security policies
+
+Authentication + plans:
+├─ authStore.js                      — bcrypt + JWT (SESSION_SECRET, 30 d)
+├─ oauthService.js                   — Google + Microsoft OAuth2
+├─ permissions.js                    — RBAC
+└─ planStore.js                      — AI quota + plan enforcement
+
+Project + data:
+├─ projectStore.js (33.5 KB)         — project CRUD + version storage
+├─ projectAccess.js                  — ownership + membership checks
+├─ projectMembers.js                 — ISO 19650 member roles
+└─ versionStateMachine.js            — WIP → SHARED → PUBLISHED → ARCHIVED
+
+Storage + files:
+├─ ifcStorageService.js              — IFC blob storage
+├─ dwgConversionService.js           — DWG → DXF adapter
+├─ renderService.js (19.9 KB)        — render + panorama gallery
+└─ familyMarketplaceRoutes.js        — /api/v1/families publish + browse (Ed25519)
+
+AI + billing:
+├─ aiPublicApiRoutes.js (17.4 KB)    — Public AI API (/v1/ai/*)
+├─ aiUsageStore.js                   — recordAiUsage + spend summary
+├─ stripeRoutes.js                   — checkout + portal + webhook
+├─ stripeService.js                  — Stripe API wrapper
+├─ stripeMiddleware.js               — raw-body capture for webhook signature
+└─ webhookService.js                 — outbound webhook delivery
+
+Middleware + security:
+├─ corsPolicy.js                     — centralised CORS
+├─ securityHeaders.js (16.7 KB)      — Helmet + CSP + COEP + COOP + HSTS
+├─ rateLimiter.js                    — globalLimiter / apiLimiter / aiLimiter
+├─ auditLogMiddleware.js             — audit log rows on mutations
+├─ exportGuard.js                    — JWT-based export-download tokens
+├─ logSafe.js                        — sensitive-field redaction
+├─ namingValidator.js                — ISO 19650 naming validation
+└─ telemetry.js                      — OpenTelemetry SDK boot (opt-in)
+
+API routes + portfolio:
+├─ api/v1/routes.js (66 KB)          — REST API router (Phases E-1/E-2/E-3/E-4)
+└─ portfolio/portfolioGraphService.js — aggregate analytics (E-4)
 ```
 
-| Plugin           | Handlers | Parity fixtures | Notes                                    |
-|------------------|---------:|----------------:|------------------------------------------|
-| `wall`           |       15 |              30 | Reference impl; 28 src files             |
-| `door`           |        5 |              16 | Includes accessible-wide F16             |
-| `window`         |        4 |              12 | Single + grid + bay variants             |
-| `slab`           |        7 |              18 | Slab→wall coupling consumer              |
-| `roof`           |       11 |              20 | AddSkylight / RemoveSkylight / JoinRoofs |
-| `curtain-wall`   |       12 |              25 | Heaviest operator surface (panels+grid)  |
-| `stair`          |        8 |              10 | Stair→handrail coupling consumer         |
-| `handrail`       |        5 |               6 | Coupled cascade producer                 |
-| `ceiling`        |        3 |               6 | Cascades from slab                       |
-| `column`         |        4 |               6 | Structural elements                      |
-| `beam`           |        4 |               6 | Structural elements                      |
-| `grid`           |        3 |               8 | Layout / annotation grid                 |
-| `view`           |        5 |             n/a | View state plugin (ADR-0016)             |
-| `selection`      |        — |             n/a | Selection committers + dev handle        |
-| `cross`          |        — |             n/a | Cross-element coupling rules             |
-| `toy-cube`       |        2 |             n/a | Hello-cube demo (PHASE-1A §S05)          |
-|                  |          |   **= 163**     | Total parity fixtures (1C exit budget)   |
-
-**Adding a new family**: copy `plugins/wall/` → `plugins/<new>/`,
-rename, register the descriptor in `PluginRegistry.ts`, and add a row
-to `bootstrap.everything.ts`. ADR-0021 codifies this contract.
+19 PostgreSQL tables: `pryzm_users` · `projects` · `project_versions` · `project_members` · `version_audit_log` · `user_plans` · `render_gallery` · `panorama_gallery` · `project_webhooks` · `template_registry` · `visibility_intents` · `project_command_log` · `ifc_uploads` · `ai_usage` · `ai_response_cache` · `event_log` · `marketplace_plugins` · `plugin_publisher_keys` · `plugin_revocations` · `plugin_purchases` · `plugin_reviews`.
 
 ---
 
-## §5 `tests/` — cross-package suites
+## §5 — Authoritative counts (verified 2026-06-01)
 
-```
-tests/
-├─ ci/                        — environment-level invariants (no-empty fixtures, etc.)
-│  └─ parity-non-empty.test.ts        — blocks regression where a family empties
-├─ fixtures/                  — shared fixtures across families (currently sparse)
-├─ integration/               — full-stack scenarios crossing 2+ packages
-│  ├─ all-12-elements.test.ts          — every plugin loads + commits
-│  ├─ headless-vs-browser-parity.test.ts  — 12 fams × 3 fixtures = 36 cases
-│  ├─ view-state-2a-readiness.test.ts  — view-switch + motion suppression
-│  └─ vitest.config.ts                 — `*.test.ts` only (rename `.spec.ts` → `.test.ts`)
-├─ parity/                    — disk-snapshotted producer parity (12 families)
-│  ├─ <family>/
-│  │  ├─ configs/                      — DTO inputs (one JSON per fixture)
-│  │  ├─ snapshots/                    — expected descriptor hashes/buffers
-│  │  └─ <family>-snapshot.test.ts     — driver (refresh via *_SNAPSHOT_REFRESH=1)
-│  └─ wall/
-│     ├─ wall-headless-node.test.ts    — K1-B kernel-purity for wall path
-│     └─ wall-snapshot.test.ts         — driver + exporter
-└─ <root>.spec.test.ts        — five regression-drift tests with double-suffix
-                                naming (intentional — they predate the
-                                vitest.config in tests/integration/ and
-                                run via `npm test` at root). Candidate
-                                for a follow-up rename round to drop the
-                                `.spec.test.ts` double-suffix.
-```
-
-**Naming rule going forward** (proposed): use `*.test.ts` everywhere.
-Reserve `*.spec.ts` for any future Playwright suites (none today).
+| Surface | Count | Verification command |
+|---|---:|---|
+| Packages | 79 | `ls -d packages/*/` |
+| Apps | 13 | `ls -d apps/*/` |
+| Plugins | 47 | `ls -d plugins/*/` |
+| Tools | 3 | `ls -d tools/*/` |
+| Tests | 15 | `ls -d tests/*/` |
+| `src/` files | 7 (0 subdirs) | `ls src/` |
+| Server files | 38 | `find server -type f \| wc -l` |
+| CI gates | 21 | `ls tools/ga-gate/check-*.ts` |
+| Benchmarks | 68 | `ls apps/bench/src/benches/*.bench.ts` |
+| Contracts | 49 | `ls docs/02-decisions/contracts/C*.md` |
+| ADRs | 108 | `ls docs/02-decisions/adrs/*.md \| grep -v README` |
+| Specs | 56 | `ls docs/03-execution/specs/*.md \| grep -v README` |
 
 ---
 
-## §6 `tools/` — build-time helpers
+## §6 — Conformance verdict
 
-```
-tools/
-└─ eslint-plugin-pryzm/
-   └─ src/
-      ├─ index.js                 — plugin export (5 rules)
-      └─ rules/
-         ├─ no-raf.js                                  — fixture: raf.bad.ts
-         ├─ no-three-in-kernel.js                      — L0–L5 guard
-         ├─ no-three-outside-committer.js              — committer-only THREE
-         ├─ affected-stores-required.js                — handler contract
-         └─ pryzm-store-single-channel.js              — single-channel writes
-```
+The repository structure **conforms to the layered model defined in [architecture.md §1](../../01-strategy/architecture.md)**. Specifically:
 
-All five rules from PHASE-1A §S04 are present. Future tooling
-(codegen, lint plugins, schema-diff) lands here.
+- **L0 schemas are pure** (CI-enforced)
+- **L1 single-rAF + single-THREE** (CI-enforced)
+- **L7.5 monotonically shrinking** (7 files at 2026-06-01; target zero per boolean #1)
+- **L8 plugin SDK is the only L9 → lower-layer bridge** (CI-enforced)
+
+The `src/` folder no longer has engine/ or ui/ subdirs (they migrated to `apps/editor/src/{engine,ui}/`). The convergence booleans hold at code level; remaining work is operational (npm publish + DNS).
 
 ---
 
-## §7 `scripts/` — Node scripts
+## §7 — How to update this doc
 
-```
-scripts/
-├─ check-project-isolation.mjs     — pre-build guard (no cross-project leak)
-├─ check-storage-isolation.mjs     — pre-build guard (storage drivers)
-├─ check-regression.mjs            — bench regression gate consumer
-├─ scan-logs.js                    — log scanner
-└─ <future runners>                — anything that needs a `node bin` entrypoint
-```
+This doc updates when **the repository structure changes**. Specifically:
 
-Scripts are invoked from `package.json` `scripts:` and from
-`.github/workflows/`. They do not import application code beyond
-their declared CLI surface.
+- A new top-level directory → update §1 + §5 + raise an ADR
+- A new package / plugin / app → add a row in [architecture-breakdown.md](../../01-strategy/architecture-breakdown.md) + update §5 counts here
+- A renamed package / plugin / app → update both files in the same PR
+- The boundary lint matrix or composition root changes → that updates [architecture.md](../../01-strategy/architecture.md), not this doc
+
+Per [operating-principles O5](../../01-strategy/operating-principles.md), drift is fixed by **editing this doc**, not by writing `*-AUDIT-YYYY-MM-DD.md` alongside it.
 
 ---
 
-## §8 `docs/` — documentation
+## §8 — Cross-references
 
-```
-docs/
-├─ archive/pryzm3-internal/               — strategic & architectural truth
-│  ├─ 00-AUDIT.md                     — entry-point audit
-│  ├─ 01-TARGET-ARCHITECTURE.md       — target diagram + invariants
-│  ├─ 02-ORCHESTRATION.md             — agent / sprint orchestration
-│  ├─ 03-PASCAL-EDITOR-ANALYSIS.md    — editor design rationale
-│  ├─ 04-PRODUCTION-PARITY.md         — PRYZM 1 ↔ PRYZM 2 parity table
-│  ├─ 05-IMPLEMENTATION-PLAN.md       — superseded by 10-MASTER + phases/
-│  ├─ 06-PRYZM-IDENTITY-AND-RECOUNT.md — authority-order rules
-│  ├─ 07-EXECUTION-PLAYBOOK.md        — sprint-cycle playbook
-│  ├─ 08-VISION.md                    — north-star vision
-│  ├─ 09-AS-IS-VS-TO-BE.md            — gap analysis
-│  ├─ 10-MASTER-IMPLEMENTATION-PLAN-36M.md  — 36-month plan (M1–M36)
-│  ├─ ARCHITECTURE-FILE-STRUCTURE-BREAKDOWN.md   ← this file
-│  ├─ CONFLICT-ANALYSIS.md            — authority order when sources disagree
-│  ├─ Context.md                      — running context for new contributors
-│  ├─ CRITICAL-REVIEW-2026-04-27.md   — peer review snapshot
-│  ├─ PROCESS-TRACKER.md              — per-sprint tracker
-│  ├─ README.md                       — entry-point
-│  ├─ adrs/                           — strategic ADRs (ADR-001..ADR-024)
-│  ├─ phases/                         — phase docs (1A, 1B, 1C, 1D, 2A, 2B, 2C, 3)
-│  ├─ audits/                         — phase audits (1B, 1-FULL, 1-COMPLETION-PLAN, 1-RE-AUDIT)
-│  └─ specs/                          — file-format / wire-format specs
-├─ architecture/                      — handover docs (one per concern)
-│  ├─ adr/                            — code-level ADRs (0001..0021)
-│  ├─ camera.md                       — camera model + controls
-│  ├─ command-bus.md                  — bus contract
-│  ├─ element-coupling.md             — cross-element coupling rules
-│  ├─ element-recipe.md               — copy-paste recipe for a new family
-│  ├─ frame-scheduler.md              — priority + idle continuation
-│  ├─ headless.md                     — K1-B contract + CLI surface
-│  ├─ parity-fixtures.md              — fixture authoring guide
-│  ├─ persistence.md / persistence-design.md  — event log design
-│  ├─ picking.md                      — pick strategy resolver
-│  ├─ renderer.md                     — pass pipeline + idle budget
-│  ├─ scene-committer.md              — committer contract
-│  ├─ schemas.md                      — schema registry
-│  ├─ selection.md                    — SelectionStore contract
-│  ├─ bench-harness.md                — bench harness usage
-│  └─ <other handover docs>
-├─ demos/                             — milestone demo scripts
-│  ├─ README.md                       — index + recording status
-│  ├─ M9-1C-headless.script.md        — Phase 1C exit demo
-│  └─ M12-alpha.script.md             — Phase 1D alpha gate demo
-├─ sprints/                           — sprint retros (S07-retro, S18-retro, ...)
-└─ file-format/                       — `.pryzm` v1 spec + samples
-```
-
-**Authority order** when two docs disagree (codified in
-`CONFLICT-ANALYSIS.md`):
-
-`06-PRYZM-IDENTITY-AND-RECOUNT.md` > `08-VISION.md` >
-`10-MASTER-IMPLEMENTATION-PLAN-36M.md` > phase docs > everything else.
+| Doc | Relationship |
+|---|---|
+| [docs/01-strategy/architecture.md](../../01-strategy/architecture.md) | Shape + boundary matrix + composition root + lint gates |
+| [docs/01-strategy/architecture-breakdown.md](../../01-strategy/architecture-breakdown.md) | Per-package + per-plugin + per-app one-liner inventory |
+| [docs/01-strategy/engineering-vision.md](../../01-strategy/engineering-vision.md) | P1–P8 principles + D1–D13 differentiators |
+| [docs/01-strategy/product-vision.md](../../01-strategy/product-vision.md) | Product north star + user journey |
+| [docs/02-decisions/contracts/README.md](../../02-decisions/contracts/README.md) | 49 binding contracts (C01–C49) |
+| [docs/02-decisions/adrs/](../../02-decisions/adrs/) | 108 per-decision rationales |
+| [docs/03-execution/specs/](../../03-execution/specs/) | 56 per-system normative specs |
 
 ---
 
-## §9 `apps/bench/reports/` — bench baselines
-
-| Report                          | Owner                | Purpose                                |
-|---------------------------------|----------------------|----------------------------------------|
-| `S08-baseline.md`               | PHASE-1B §S08        | Wall handler baselines                 |
-| `S09-baseline.md`               | PHASE-1B §S09        | Wall renderer baselines                |
-| `S10-baseline.md`               | PHASE-1B §S10        | Wall S10 handler set baselines         |
-| `M6-1B-baseline.md`             | PHASE-1B §M6 exit    | 1B exit baseline                       |
-| `M9-1C-baseline.md`             | PHASE-1C §M9 exit    | 1C exit dashboard (18 prim + 5 orch)   |
-| `M12-alpha.md`                  | PHASE-1D §M12 exit   | Alpha-gate dashboard (table-row mode)  |
-| `produce-<family>-baseline.md`  | per family           | Per-family producer baseline           |
-
-The dashboard at `apps/bench/src/dashboard/` parses both the table-row
-mode (`M12-alpha.md`) and the section-block mode (`## bench: <name>`,
-all others), tolerates the "Bench file" column with backtick-wrapped
-paths, and normalises stems via `toStem()`.
-
----
-
-## §10 `docs/02-decisions/adrs/` — code-level ADRs
-
-| #   | File                                                | Owner phase |
-|-----|-----------------------------------------------------|-------------|
-| 0001 | typed-id-brand-strategy.md                         | 1A          |
-| 0002 | command-handler-signature.md                       | 1A          |
-| 0003 | frame-scheduler-priority-vs-deadline.md            | 1A          |
-| 0004 | messagepack-codec-choice.md                        | 1A          |
-| 0005 | primitive-committer-interface.md                   | 1A          |
-| 0006 | idle-continuation-budget.md                        | 1A          |
-| 0007 | webgpu-webgl2-dual-mode.md                         | 1A          |
-| 0008 | wall-handler-triage.md                             | 1B          |
-| 0009 | producer-pure-function-signature.md                | 1B          |
-| 0010 | slab-handler-triage.md                             | 1B          |
-| 0011 | curtain-wall-triage-and-producer-split.md          | 1B          |
-| 0012 | cross-element-cascade-rule-registration.md         | 1B          |
-| 0013 | intent-resolver.md                                 | 1B          |
-| 0014 | traa-ssgi-idle-budget.md                           | 1C          |
-| 0015 | picking-strategy.md                                | 1C          |
-| 0016 | view-state-command-driven.md                       | 1C          |
-| 0017 | headless-package-surface.md                        | 1C          |
-| 0018 | pryzm-zip-format-v1.md                             | 1D          |
-| 0019 | sync-server-linearisation.md                       | 1D / 2A     |
-| 0020 | tier-streamed-loader.md                            | 1D          |
-| 0021 | plugin-descriptor-bootstrap-everything.md          | 1C-closure  |
-
-**Numbering rule**: monotonic, never reused. The 1B spec referenced an
-ADR-0014 ("persistence-snapshot threshold") that was folded elsewhere
-before the file was written; 1C re-used the slot for
-`traa-ssgi-idle-budget.md`. Both decisions stand; the dropped ADR is
-informational only.
-
----
-
-## §11 What is **not** in this proposal
-
-The following live tree entries are PRYZM 1 surface (legacy) or
-infrastructure (Replit / db) and are out of scope for the architecture
-breakdown:
-
-- `client/`, `editor/`, `src/`, `public/`, `screenshots/`,
-  `server.js`, `server/`, `Canvas2D` — PRYZM 1; ring-fenced behind
-  `?pryzm2=0`.
-- `node_modules/`, `dist/`, `.cache/`, `.git/`, `tsconfig.tsbuildinfo`,
-  `package-lock.json` — build / VCS artefacts.
-- `replit.md`, `.replit`, `.upm/`, `.config/`, `.local/`, `.canvas/`,
-  `.agents/` — Replit infra.
-- `attached_assets/` — user uploads; never imported by app code.
-
-If a future PR needs to add a new top-level directory, it must (a) cite
-the spec line that motivated it and (b) add a row to this document.
-
----
-
-## §12 Conformance verdict (live tree, 2026-04-27)
-
-| Layer / area                               | Live tree       | Proposal | Verdict    |
-|--------------------------------------------|-----------------|---------:|------------|
-| `apps/` (editor + headless + bench + cli + sync-server + bake-worker) | 6 apps | 6      | ✅ |
-| `packages/` (16 kernel libraries L0–L6)    | 16              |     16   | ✅ |
-| `plugins/` (12 element families + cross + selection + view + toy-cube) | 16 | 16      | ✅ |
-| `tools/eslint-plugin-pryzm` (5 rules)      | 5               |      5   | ✅ |
-| `tests/parity/` (12 families, 163 fixtures total) | 163       |    163   | ✅ |
-| `tests/integration/` (3 suites)            | 3               |      3   | ✅ |
-| `tests/ci/` (parity-non-empty)             | 1               |      1   | ✅ |
-| `apps/bench/reports/` (7 milestone reports + 12 producer baselines) | 19 | 19  | ✅ |
-| `apps/bench/src/dashboard/` (6 modules)    | 6               |      6   | ✅ |
-| `docs/02-decisions/adrs/` (21 code-level ADRs) | 21           |     21   | ✅ |
-| `docs/03-execution/plans/legacy/phases/` (8 phase docs + audits) | 9+5  |  9+5   | ✅ |
-| `docs/05-guides/developer/demos/` (script + README, no .mp4)   | script + README |  script  | ✅ (link-out) |
-| Legacy PRYZM 1 roots (`client/`, `editor/`, `src/`, `server.js`, ...) | present | ring-fenced | ⚠ deferred to 2A §S26 |
-| `tests/*.spec.test.ts` double-suffix       | 5 files         | rename to `*.test.ts` | ⚠ housekeeping |
-
-**Verdict overall**: GREEN for everything in §1–§11. Two housekeeping
-items (legacy ring-fence sunset, double-suffix rename) are tracked but
-non-blocking for the 1C → 1D handoff.
-
----
-
-*End of file-structure breakdown.*
+*End — PRYZM Architectural File-Structure Breakdown, 2026-06-01 — CANONICAL.*
