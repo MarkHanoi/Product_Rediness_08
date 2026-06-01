@@ -1,18 +1,26 @@
-// C27 INS-α-4 / α-9 — Master Model Tree component.
+// C27 INS-α-4 / α-9 / α-10 — Master Model Tree component.
 //
 // CONTRACT: C27-BIM3-INSPECT-MODEL.md §1.2 (single tree component) +
 //           §2 (6-level master tree project→building→level→apartment→room→
 //           elementType→elementInstance).
 //
 // Slice INS-α-4 shipped L0..L4 (project / building / level / apartment /
-// room).  Slice INS-α-9 (this extension) adds L5 — Element Type group
-// nodes under each room (and under each level, for elements that don't
-// belong to a room).  L6 (Element Instance) is α-10.
+// room).  Slice INS-α-9 added L5 — Element Type group nodes under each
+// room (and under each level, for elements that don't belong to a room).
+// Slice INS-α-10 (this extension) adds L6 — Element Instance leaves
+// under each L5 type group, replacing the α-9 placeholder.
 //
 // L5 nodes are grouped by `element.elementType` (e.g. 'wall', 'door',
 // 'window', 'furniture').  Each L5 node is selectable + carries a count
-// badge; expanding it currently shows a single placeholder leaf with the
-// count — the real per-instance list is α-10.
+// badge; expanding it now renders one L6 leaf per element instance in
+// the group (capped at MAX_L6_PER_GROUP to avoid browser meltdown on
+// projects with hundreds of walls; an informational "… (N more)" tail
+// leaf is appended when the cap is hit).
+//
+// L6 leaves are NOT expandable (no toggle).  Their labels prefer
+// `element.name` → `element.label` → `<elementType>-<short-id>`.  Click
+// fires `onSelectNode({ kind: 'elementInstance', ... })` — dashboards
+// (per-element property panels) are α-11.
 //
 // The tree is LAZY — child subtrees are constructed only on first expand.
 // Selection click invokes the caller-supplied `onSelectNode` AND dispatches
@@ -25,6 +33,14 @@
 // BuildingStore / LevelStore-on-runtime / RoomStore-on-runtime exist as
 // first-class slots).  No `import * as THREE`, no `requestAnimationFrame`,
 // no `(window as any)`.
+
+/** α-10 — cap on the number of L6 element-instance leaves rendered under
+ *  a single L5 group.  Above this we render the first N + a single
+ *  informational "… (M more)" leaf so the tree stays responsive on
+ *  projects with 500+ walls.  Tuned for happy-dom + production browsers
+ *  alike; bumping it is safe but the bigger gain is virtualization
+ *  (out-of-scope for α-10). */
+const MAX_L6_PER_GROUP = 50;
 
 import type { InspectSelection, InspectNodeKind } from '@pryzm/schemas';
 import { renderModelTreeNode } from './ModelTreeNode';
@@ -65,11 +81,16 @@ interface TreeNode {
     readonly selection: InspectSelection;
     readonly label: string;
     readonly children: ReadonlyArray<TreeNode>;
-    /** α-9 — when set, the node is "expandable" but its expanded body
-     *  is a single `<li class="pmt-leaf">` carrying this text rather
-     *  than a recursive child list.  Used by L5 elementType groups until
-     *  α-10 lands the per-instance list. */
+    /** α-9 — legacy "single-leaf placeholder" body.  After α-10 this is
+     *  no longer used by L5 groups (they now carry real L6 children) but
+     *  the field is kept for forward-compat with other group-style nodes
+     *  that may want a placeholder before their own per-instance slice
+     *  lands. */
     readonly placeholder?: string;
+    /** α-10 — informational "… (N more)" leaf rendered AFTER the children
+     *  when the L5 group exceeds MAX_L6_PER_GROUP.  Not selectable, not
+     *  interactive — purely a visual marker. */
+    readonly overflowText?: string;
 }
 
 const COMMAND_TYPE = 'inspect.selectNode';
@@ -219,7 +240,7 @@ export class ModelTreeComponent {
         // walls outside any room).
         const orphanGroups = this._groupOrphanElementsForLevel(id);
         const orphanNodes: TreeNode[] = orphanGroups.map(g =>
-            this._buildElementType(g.elementType, g.count, id, /* parentKind */ 'level', label, levelCrumb),
+            this._buildElementType(g.elementType, g.count, id, /* parentKind */ 'level', label, levelCrumb, g.instances),
         );
         return {
             selection: {
@@ -257,10 +278,11 @@ export class ModelTreeComponent {
             { kind: 'room', id },
         ];
         // α-9: gather elements whose roomId === id, group by elementType,
-        // emit one L5 node per non-empty group.
+        // emit one L5 node per non-empty group.  α-10: each group also
+        // carries the per-instance list for L6 leaf materialisation.
         const groups = this._groupElementsForRoom(id);
         const typeNodes: TreeNode[] = groups.map(g =>
-            this._buildElementType(g.elementType, g.count, id, /* parentKind */ 'room', label, roomCrumb),
+            this._buildElementType(g.elementType, g.count, id, /* parentKind */ 'room', label, roomCrumb, g.instances),
         );
         return {
             selection: {
@@ -277,8 +299,11 @@ export class ModelTreeComponent {
     /** α-9 — L5 Element Type group node.  Synthetic id encodes the parent
      *  scope (room or level) + the elementType so two rooms with walls
      *  produce distinct keys.  Selection emits `kind: 'elementType'`.
-     *  The expanded body is a single placeholder leaf carrying the
-     *  instance count — α-10 replaces it with a real per-instance list. */
+     *
+     *  α-10 — populates L6 element-instance children from `instances`,
+     *  capped at MAX_L6_PER_GROUP.  When the cap is hit an `overflowText`
+     *  marker is set; the renderer emits it as a non-interactive gray
+     *  leaf AFTER the rendered children. */
     private _buildElementType(
         elementType: string,
         count: number,
@@ -286,9 +311,25 @@ export class ModelTreeComponent {
         _parentKind: 'room' | 'level',
         _parentLabel: string,
         parentCrumb: InspectSelection['breadcrumb'],
+        instances: ReadonlyArray<Record<string, unknown>>,
     ): TreeNode {
         const syntheticId = `${parentId}::type::${elementType}`;
         const label = `${pluralCapitalize(elementType)} (${count})`;
+        const typeCrumb: InspectSelection['breadcrumb'] = [
+            ...parentCrumb,
+            { kind: 'elementType', id: syntheticId },
+        ];
+
+        const capped = instances.slice(0, MAX_L6_PER_GROUP);
+        const overflow = instances.length - capped.length;
+        const childNodes: TreeNode[] = [];
+        for (const inst of capped) {
+            const node = this._buildElementInstance(inst, elementType, typeCrumb);
+            if (node !== null) childNodes.push(node);
+        }
+
+        const overflowText = overflow > 0 ? `... (${overflow} more) ...` : undefined;
+
         return {
             selection: {
                 kind: 'elementType',
@@ -297,8 +338,52 @@ export class ModelTreeComponent {
                 breadcrumb: parentCrumb,
             },
             label,
+            children: childNodes,
+            overflowText,
+        };
+    }
+
+    /** α-10 — L6 Element Instance leaf.  Label resolution:
+     *    1. `element.name`            (if present and non-empty)
+     *    2. `element.label`           (if present and non-empty)
+     *    3. `<elementType>-<short-id>` — first 6 chars of the id
+     *  An element with NO usable id is skipped (returns null) — the
+     *  caller filters nulls from the children list. */
+    private _buildElementInstance(
+        element: Record<string, unknown>,
+        elementType: string,
+        parentCrumb: InspectSelection['breadcrumb'],
+    ): TreeNode | null {
+        const rawId = this._read(element, 'id');
+        const id = typeof rawId === 'string' && rawId.length > 0 ? rawId : null;
+        const name = this._read(element, 'name');
+        const label = this._read(element, 'label');
+        const hasName = typeof name === 'string' && name.trim().length > 0;
+        const hasLabel = typeof label === 'string' && label.trim().length > 0;
+        if (id === null && !hasName && !hasLabel) {
+            // No usable identity — skip.
+            return null;
+        }
+        if (id === null) {
+            // Has a name/label but no id — we still need a key to wire
+            // selection.  Defensive: skip rather than mint a synthetic id
+            // (would clash if two elements share the same name).
+            return null;
+        }
+        const resolvedLabel: string = hasName
+            ? (name as string)
+            : hasLabel
+                ? (label as string)
+                : `${elementType}-${id.slice(0, 6)}`;
+        return {
+            selection: {
+                kind: 'elementInstance',
+                id,
+                level: 6,
+                breadcrumb: parentCrumb,
+            },
+            label: resolvedLabel,
             children: [],
-            placeholder: `... ${count} ${count === 1 ? 'item' : 'items'} ...`,
         };
     }
 
@@ -358,32 +443,48 @@ export class ModelTreeComponent {
         return this._listFromStore(this._runtime?.elementStore);
     }
 
-    /** α-9 — group elements whose `roomId === roomId` by their string
-     *  `elementType` field.  Elements with non-string elementType are
-     *  skipped.  Returns an array sorted by elementType for stable
-     *  rendering. */
-    private _groupElementsForRoom(roomId: string): ReadonlyArray<{ elementType: string; count: number }> {
+    /** α-9 / α-10 — group elements whose `roomId === roomId` by their
+     *  string `elementType` field.  Elements with non-string elementType
+     *  are skipped.  Returns an array sorted by elementType for stable
+     *  rendering; each group carries the count + the element instance
+     *  list (α-10 — for L6 leaf materialisation). */
+    private _groupElementsForRoom(roomId: string): ReadonlyArray<{
+        elementType: string;
+        count: number;
+        instances: ReadonlyArray<Record<string, unknown>>;
+    }> {
         const all = this._listElements();
-        const counts = new Map<string, number>();
+        const groups = new Map<string, Array<Record<string, unknown>>>();
         for (const e of all) {
             const rid = this._read(e, 'roomId');
             if (typeof rid !== 'string' || rid !== roomId) continue;
             const et = this._read(e, 'elementType');
             if (typeof et !== 'string' || et.length === 0) continue;
-            counts.set(et, (counts.get(et) ?? 0) + 1);
+            let bucket = groups.get(et);
+            if (!bucket) { bucket = []; groups.set(et, bucket); }
+            bucket.push(e);
         }
-        return [...counts.entries()]
+        return [...groups.entries()]
             .sort(([a], [b]) => a.localeCompare(b))
-            .map(([elementType, count]) => ({ elementType, count }));
+            .map(([elementType, instances]) => ({
+                elementType,
+                count: instances.length,
+                instances,
+            }));
     }
 
-    /** α-9 — group elements that have NO `roomId` (or empty) but whose
-     *  `levelId === levelId` by elementType.  These are the "orphan"
-     *  element instances that live on a level outside any room (e.g.
-     *  structural walls / shared columns). */
-    private _groupOrphanElementsForLevel(levelId: string): ReadonlyArray<{ elementType: string; count: number }> {
+    /** α-9 / α-10 — group elements that have NO `roomId` (or empty) but
+     *  whose `levelId === levelId` by elementType.  These are the
+     *  "orphan" element instances that live on a level outside any room
+     *  (e.g. structural walls / shared columns).  Returns counts + the
+     *  per-group instance list, matching `_groupElementsForRoom`. */
+    private _groupOrphanElementsForLevel(levelId: string): ReadonlyArray<{
+        elementType: string;
+        count: number;
+        instances: ReadonlyArray<Record<string, unknown>>;
+    }> {
         const all = this._listElements();
-        const counts = new Map<string, number>();
+        const groups = new Map<string, Array<Record<string, unknown>>>();
         for (const e of all) {
             const rid = this._read(e, 'roomId');
             const hasRoom = typeof rid === 'string' && rid.length > 0;
@@ -392,11 +493,17 @@ export class ModelTreeComponent {
             if (typeof lid !== 'string' || lid !== levelId) continue;
             const et = this._read(e, 'elementType');
             if (typeof et !== 'string' || et.length === 0) continue;
-            counts.set(et, (counts.get(et) ?? 0) + 1);
+            let bucket = groups.get(et);
+            if (!bucket) { bucket = []; groups.set(et, bucket); }
+            bucket.push(e);
         }
-        return [...counts.entries()]
+        return [...groups.entries()]
             .sort(([a], [b]) => a.localeCompare(b))
-            .map(([elementType, count]) => ({ elementType, count }));
+            .map(([elementType, instances]) => ({
+                elementType,
+                count: instances.length,
+                instances,
+            }));
     }
 
     /** Read an arbitrary store-like value.  Probes (in order):
@@ -457,14 +564,17 @@ export class ModelTreeComponent {
             const key = this._key(node.selection);
             const isExpanded = this._expanded.has(key);
             // α-9: an L5 elementType node is expandable when it has a
-            // placeholder body even if its children[] is empty (the real
-            // per-instance list is α-10).
+            // placeholder body even if its children[] is empty.
+            // α-10: L5 groups now carry real L6 children (no placeholder)
+            // BUT may carry an `overflowText` marker for the trailing
+            // "... (N more) ..." informational leaf — the marker alone
+            // does NOT make a node expandable.
             const hasPlaceholder = typeof node.placeholder === 'string' && node.placeholder.length > 0;
             const hasChildren = node.children.length > 0 || hasPlaceholder;
             // The badge count for L5 groups already lives in the label
-            // (e.g. "Walls (5)") — keep childCount=0 so the renderer
-            // doesn't paint a duplicate badge.
-            const childCount = hasPlaceholder ? 0 : node.children.length;
+            // (e.g. "Walls (5)") — suppress duplicate badge for L5 too.
+            const suppressBadge = hasPlaceholder || node.selection.kind === 'elementType';
+            const childCount = suppressBadge ? 0 : node.children.length;
             const li = renderModelTreeNode({
                 selection: node.selection,
                 label: node.label,
@@ -485,6 +595,15 @@ export class ModelTreeComponent {
                     childUl.appendChild(leaf);
                 } else {
                     this._renderInto(childUl, node.children);
+                }
+                // α-10 — informational overflow tail leaf (gray, no
+                // click handler, NOT a treeitem so screen-readers skip it).
+                if (typeof node.overflowText === 'string' && node.overflowText.length > 0) {
+                    const overflowLi = document.createElement('li');
+                    overflowLi.className = 'pmt-leaf pmt-leaf--overflow';
+                    overflowLi.textContent = node.overflowText;
+                    overflowLi.setAttribute('aria-hidden', 'true');
+                    childUl.appendChild(overflowLi);
                 }
                 li.appendChild(childUl);
             }

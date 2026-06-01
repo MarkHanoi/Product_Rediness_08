@@ -332,7 +332,7 @@ describe('ModelTreeComponent L5 element-type groupings (C27 INS-α-9)', () => {
         expect(container.querySelectorAll('li.pmt-node[data-kind="elementType"]').length).toBe(0);
     });
 
-    it('expanding an L5 node renders ONE pmt-leaf placeholder carrying the count text', () => {
+    it('expanding an L5 node renders L6 element-instance leaves (α-10 replaces the α-9 placeholder)', () => {
         const container = makeContainer();
         new ModelTreeComponent(makeRuntime({
             levels: [{ id: 'lvl-1', name: 'L1' }],
@@ -348,18 +348,17 @@ describe('ModelTreeComponent L5 element-type groupings (C27 INS-α-9)', () => {
         const walls = container.querySelector<HTMLLIElement>(
             'li.pmt-node[data-kind="elementType"][data-id="room-a::type::wall"]',
         )!;
-        // Initially collapsed — no placeholder yet.
-        expect(walls.querySelector('.pmt-leaf')).toBeNull();
-        // Expand → placeholder appears.
+        // Initially collapsed — no children rendered yet.
+        expect(walls.querySelector('li.pmt-node[data-kind="elementInstance"]')).toBeNull();
+        // Expand → α-10 element-instance leaves appear.
         (walls.querySelector('[data-role="toggle"]') as HTMLElement).click();
         const live = container.querySelector<HTMLLIElement>(
             'li.pmt-node[data-kind="elementType"][data-id="room-a::type::wall"]',
         )!;
-        const leaves = live.querySelectorAll('.pmt-leaf');
-        expect(leaves.length).toBe(1);
-        // Count text references the 3 items.
-        expect(leaves[0]!.textContent).toContain('3');
-        expect(leaves[0]!.textContent).toContain('items');
+        const instances = live.querySelectorAll('li.pmt-node[data-kind="elementInstance"]');
+        expect(instances.length).toBe(3);
+        // No legacy placeholder leaf survives.
+        expect(live.querySelector('.pmt-leaf:not(.pmt-leaf--overflow)')).toBeNull();
     });
 
     it('L5 nodes are sorted by elementType for stable rendering (doors before walls)', () => {
