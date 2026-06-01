@@ -51,7 +51,7 @@ The conclusion: the long tail of customisation IS the product. The platform is h
 |---|---|
 | **What it is** | A TypeScript SDK (`@pryzm/sdk`) that lets developers extend PRYZM with new commands, new panels, new AI workflows, new integrations, new exporters. |
 | **Codification** | [C07 Plugin SDK & Marketplace](../02-decisions/contracts/C07-PLUGIN-SDK-AND-MARKETPLACE.md) |
-| **Status today** | `@pryzm/sdk v1.0.0` published (Wave A20 ✅); 47 first-party plugins use it; the iframe sandbox + Ed25519 signing + 6 host proxies all live. **Manual step pending**: `pnpm publish` to npm (OI-011). |
+| **Status today** | `packages/plugin-sdk/` v1.0.0 — locally complete with `publishConfig.name=@pryzm/sdk`; 47 first-party plugins use it; iframe sandbox + Ed25519 signing + 6 host proxies + `pryzm dev` CLI + bSDD lookup client all shipped. **Manual step pending**: `pnpm --filter @pryzm/plugin-sdk publish --access public` to npm (OI-011). |
 | **Customer-side experience** | Browse `pryzm.app/marketplace`, click install, plugin appears in their editor next session. |
 | **Developer-side experience** | `pryzm dev init <name>`, develop in TypeScript, `pryzm dev publish`. |
 | **Why architects care** | A solo-architect's office's domain knowledge becomes a plugin. Other architects pay for it. The first architect monetises their know-how without building a separate SaaS. |
@@ -70,7 +70,7 @@ The conclusion: the long tail of customisation IS the product. The platform is h
 |---|---|
 | **What it is** | A second extension surface — **content** rather than **code** — where component-style definitions ship as `.pryzm-family` files. Parametric, regulated, geometry-rich. |
 | **Codification** | [C07 §3](../02-decisions/contracts/C07-PLUGIN-SDK-AND-MARKETPLACE.md), [C40](../02-decisions/contracts/C40-MARKETPLACE-ECONOMICS.md) (economics) + SPEC-26 family-file-format |
-| **Status today** | Full P0 infrastructure in `packages/family-{instance,loader,runtime}` + `packages/schemas/src/family-*` + `apps/marketplace-web/` + `apps/component-editor/`. Server-side: `/api/v1/families/{publish,browse,download}` routes live. |
+| **Status today** | Full P0 infrastructure shipped: `packages/family-{instance,loader,runtime}` (3 runtime packages) + `packages/schemas/src/family-{definition,request,parametric,geometry,schemas,registry,pipeline}` (7 schema packages) + `apps/marketplace-web/` (browse + Ed25519 verify) + `apps/component-editor/` (functional Family Creator with planegcs sketcher + 3D ops + parameter table). Server-side: `/api/v1/families/*` routes live in `server.js`. |
 | **Customer-side experience** | Browse families ("Italian high-end kitchens 2026," "British-spec sliding doors," "JIS-compliant tatami modules"), drop into project, parametrically adjust. |
 | **Developer-side experience** | Use `apps/component-editor/` (the dedicated Family Creator app): sketcher → constraint solver → 3D ops → parameter table → publish. |
 | **Why architects care** | Real CAD-block-library replacement. Their existing CAD-blocks port to families; they earn revenue when other firms use them. |
@@ -88,7 +88,7 @@ The conclusion: the long tail of customisation IS the product. The platform is h
 |---|---|
 | **What it is** | The user-facing storefront where plugins + families + pricing catalogues + drawing-standard packs + locale packs + rule packs + template packs are browsed, reviewed, installed, and paid for. |
 | **Codification** | [C07](../02-decisions/contracts/C07-PLUGIN-SDK-AND-MARKETPLACE.md) (technical) + [C40 Marketplace Economics](../02-decisions/contracts/C40-MARKETPLACE-ECONOMICS.md) (economic) |
-| **Status today** | `apps/marketplace/` (React SPA) + `apps/marketplace-web/` (family marketplace) + server backend routes live. **Manual step pending**: DNS `marketplace.pryzm.app` + TLS cert (OI-013). |
+| **Status today** | Two SPAs shipped: `apps/marketplace/` (React, plugin browse + developer submission, port 5001) + `apps/marketplace-web/` (Vite, family browse + Ed25519 client-side verify). Server-side: `/marketplace/api/plugins/*` (browse, versions, reviews, submit, install, checkout, revocations) + `/api/v1/families/*` routes in `server.js`. DB: 5 marketplace tables (`marketplace_plugins`, `plugin_publisher_keys`, `plugin_revocations`, `plugin_purchases`, `plugin_reviews`). Stripe Connect billing wired with 70/30 split. **Manual step pending**: DNS `marketplace.pryzm.app` + TLS cert (OI-013). |
 | **Customer-side experience** | Browse by category (element / workflow / export / AI / integration / regional), read reviews, install in one click. |
 | **Developer-side experience** | Publish via `pryzm dev publish` (or family-pack equivalent), see analytics dashboard, monthly payout in own currency. |
 | **Why architects care** | One trusted source. One signed-binary format. One payment surface. No emailing CAD-blocks back-and-forth. |

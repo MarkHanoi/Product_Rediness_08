@@ -33,19 +33,19 @@ Every PRYZM project begins with a **Site**:
 
 The Site is a domain element with its own schema, store, and persistence — codified by [C19](../02-decisions/contracts/C19-SITE-MODEL-AND-PARCEL.md). It is not a backdrop. Mutations to the Site propagate to building geometry that depends on it (e.g. moving the plot boundary triggers re-evaluation of setback compliance).
 
-### §2.2 — What exists in code today
+### §2.2 — What exists in code today (verified 2026-06-01)
 
 | Capability | Status | Location |
 |---|---|---|
 | LTP-ENU rebasing (1 km recenter trigger) | ✅ Shipped | `packages/geospatial/src/LTPENURebase.ts` |
 | Proj4js integration (WGS84 ↔ project CRS) | ✅ Shipped | `packages/geospatial/src/GeospatialAdapter.ts` |
-| IfcProjectedCRS record + IFC export | ✅ Shipped | `packages/geospatial/src/IfcProjectedCRSRecord.ts` |
+| `IfcProjectedCRS` record + IFC4X3 export | ✅ Shipped | `packages/geospatial/src/IfcProjectedCRSRecord.ts` |
 | Cesium viewer for site visualisation | ✅ Shipped | `plugins/geospatial/src/CesiumThreeBridge.ts` |
-| Real-time NOAA sun position | ✅ Shipped | (in `ai-host/`) |
-| Logarithmic depth buffer for large-scale infrastructure | ✅ Shipped | `packages/renderer-three/` |
-| Site element (first-class C19 schema) | ⬜ DRAFT contract; implementation pending | `packages/schemas/src/site/` (to be added per C19 §2) |
-| Climate ingestion (EPW + NOAA per C21) | ⬜ DRAFT contract; implementation pending | `packages/climate/` (to be added per C21 §3) |
-| Building / Apartment aggregates (per C20) | ⬜ DRAFT contract; implementation pending | `packages/schemas/src/aggregates/` (to be added per C20 §2) |
+| LTPENUCameraService (camera + perspective tied to site) | ✅ Shipped | `packages/renderer-three/src/LTPENUCameraService.ts` |
+| Logarithmic depth buffer for large-scale rendering | ✅ Shipped | `packages/renderer-three/` |
+| Site element (first-class [C19](../02-decisions/contracts/C19-SITE-MODEL-AND-PARCEL.md) schema) | ⬜ DRAFT contract; implementation in flight | `packages/schemas/src/site/` (per C19 §2) |
+| Climate ingestion (EPW + NOAA per [C21](../02-decisions/contracts/C21-CLIMATE-INGESTION.md)) | ⬜ DRAFT contract; implementation in flight | `packages/climate/` (per C21 §3) |
+| Building / Apartment aggregates (per [C20](../02-decisions/contracts/C20-BUILDING-AND-APARTMENT-AGGREGATES.md)) | ⬜ DRAFT contract; implementation in flight | `packages/schemas/src/aggregates/` (per C20 §2) |
 
 The **infrastructure substrate exists** (the plumbing — CRS, coordinate transforms, Cesium); the **design substrate is being authored** (Site as first-class element, climate ingestion, aggregates). The contracts ([C19](../02-decisions/contracts/C19-SITE-MODEL-AND-PARCEL.md), [C20](../02-decisions/contracts/C20-BUILDING-AND-APARTMENT-AGGREGATES.md), [C21](../02-decisions/contracts/C21-CLIMATE-INGESTION.md)) precede the code.
 
@@ -218,16 +218,18 @@ Both substrates compound: as we add more rules + more typologies + more climate 
 
 ## §6 — The constraint database (the substrate's data core)
 
-The 248+ architectural-rules constraint database deserves its own treatment because it is the **most asymmetric asset PRYZM owns**:
+The architectural-rules constraint database is the **most asymmetric asset PRYZM owns**. State at 2026-06-01:
 
-- **Hand-curated by architects** over multiple years
-- **Covers 11+ room types** + adjacency permission matrix + privacy gradient + per-room furniture program
-- **Drives** the apartment-layout engine (D-TGL), the room validation, the door / wall / connectivity rules
-- **Is** versioned + tracked in `rules/programRules.ts` per [SPEC-ARCHITECTURAL-PROGRAM-RULES.md](../03-execution/specs/SPEC-ARCHITECTURAL-PROGRAM-RULES.md)
+- **Spec total**: 248 constraints across 14 categories (Area Ratios, Room Sizes, Door Topology, Furniture, Daylighting, Acoustic, Structural, Services, Fire, Thermal, Space Syntax, Accessibility, IFC, Outdoor) — documented in `docs/03-execution/specs/SPEC-LAYOUT-CONSTRAINT-DATABASE.md`
+- **Code-enforced subset**: ~40 % (area / dimensions / adjacency / programmatic furniture / IFC) live in `packages/ai-host/src/workflows/apartmentLayout/rules/programRules.ts` (627 LOC) — the remaining categories (daylight simulation, acoustic scoring, fire, thermal) are documented but not yet evaluated at runtime
+- **Room types**: 14 (`living`, `kitchen`, `dining`, `bathroom`, `ensuite`, `wc`, `hall`, `corridor`, `master`, `bedroom`, `study`, `utility`, + 2 more)
+- **Furniture specs**: 53+ FurnitureSpec objects across room types
+- **Drives**: the apartment-layout engine (D-TGL when AI unavailable; AI-routed when LLM accessible), the room validation, door / wall / connectivity rules
+- **Hand-curated by architects** over multiple years; cross-checked against published architectural literature
 
-The platform's value is partly the editor + the AI + the marketplace; but the **constraint database is the cognitive heart**. Marketplace authors can extend it (region-specific rules; typology-specific rules). PRYZM curates the open-source core.
+The platform's value is partly the editor + the AI + the marketplace; but the **constraint database is the cognitive heart**. Marketplace authors can extend it (region-specific rules; typology-specific rules per [platform-strategy §3.3](./platform-strategy.md)). PRYZM curates the open-source core.
 
-The constraint database is published; competitors can read it. But to use it operationally requires the platform's substrate + the workflows + the editor. The published rules are themselves a marketing surface — "this is what we know about architecture." Architects reading the rules database see a level of care that gives them credibility in the platform.
+The constraint database is published — competitors can read it. But to use it operationally requires the platform's substrate + the workflows + the editor. The published rules are themselves a marketing surface ("this is what we know about architecture"). Architects reading the rules database see a level of care that gives them credibility in the platform.
 
 ---
 

@@ -109,7 +109,7 @@ A moat is a structural feature that makes it cost more for a competitor to catch
 
 | Moat | Strength | How it compounds |
 |---|---|---|
-| **The constraint database (248+ architectural rules)** | Strong | Every new rule + every new typology adds to the asset. A competitor cloning the API has to clone the rules too — and the rules took years of architect-curation to assemble. |
+| **The constraint database (248-rule spec; ~40 % code-enforced, growing)** | Strong | Every new rule + every new typology adds to the asset. The spec database is curated; the code enforcement layer compounds with every release. A competitor cloning the API has to clone the rules too — and the rules took years of architect-curation to assemble. Code at `packages/ai-host/src/workflows/apartmentLayout/rules/programRules.ts` (627 LOC); full spec in `docs/03-execution/specs/SPEC-LAYOUT-CONSTRAINT-DATABASE.md`. |
 | **The 49-contract suite** | Strong | The CI gates that enforce the contracts make adding the *next* feature cheaper than competitors can do without the gates. A 5-year-old codebase without our gate culture cannot match our PR cycle speed. |
 | **The layered architecture (L0–L9 with hard import boundaries)** | Strong | Refactoring is safe at PRYZM speed. The 8 principles (P1–P8) compound: every PR makes the next PR faster. Competitors with `(window as any)` baggage cannot refactor safely. |
 | **The open file format** | Asymmetric | Customers leaving is free; switching from competitor formats to `.pryzm` is the high-friction direction. Our openness makes us the natural exit destination, not the entry trap. |
@@ -135,7 +135,7 @@ A moat is a structural feature that makes it cost more for a competitor to catch
 
 It is equally honest to name the things we are not defending:
 
-- **Geometry kernel sophistication** — `geometry-kernel` is 12k LOC and growing, but a competitor with sufficient resources can match it in 6–12 months. We do not bet our durability here.
+- **Geometry kernel sophistication** — `packages/geometry-kernel/src/` is 8k LOC across 90 files and growing, but a competitor with sufficient resources can match it in 6–12 months. We do not bet our durability here.
 - **3D viewport polish** — every browser-native BIM tool will reach the same 60 fps Chrome rendering. We are not the rendering moat company.
 - **Single-feature differentiation** — if our entire pitch were "PRYZM has the apartment-layout engine," we would lose to whoever ships theirs second with better marketing. The moat is the *combination* — the platform, not any one capability.
 - **Pricing as a moat** — we are not the cheapest. Trying to be defends nothing.
