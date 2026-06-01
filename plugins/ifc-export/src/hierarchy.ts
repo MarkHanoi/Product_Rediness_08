@@ -34,6 +34,145 @@ export interface HierarchyRefs {
   defaultPlacement: EntityRef;
 }
 
+/**
+ * Postal-address subset used to populate `IfcSite.SiteAddress`. Field names
+ * track `IfcPostalAddress` (`IFC4`/`IFC4X3`) so the mapping is unambiguous.
+ *
+ * The fields are optional individually — the exporter emits an
+ * `IfcPostalAddress` only when at least one field is present.
+ */
+export interface SiteAddressInput {
+  /** `IfcPostalAddress.AddressLines` — street lines, e.g. ["10 Downing St"]. */
+  addressLines?: ReadonlyArray<string>;
+  /** `IfcPostalAddress.Town`. */
+  town?: string;
+  /** `IfcPostalAddress.Region` (state / province). */
+  region?: string;
+  /** `IfcPostalAddress.PostalCode`. */
+  postalCode?: string;
+  /** `IfcPostalAddress.Country`. */
+  country?: string;
+}
+
+/**
+ * Geospatial site description — populates `IfcSite` per
+ * [C25 §1.4](../../../docs/00_Contracts/C25-IFC-EXPORT-PRODUCTION.md) and
+ * cross-links to the LTP-ENU contract in
+ * [C12 §3](../../../docs/00_Contracts/C12-GEOSPATIAL.md).
+ *
+ * When this is provided to `buildHierarchy`, the exporter sets:
+ *   - `RefLatitude`  ← `decimalToDegMinSecArray(latitudeDeg)`
+ *   - `RefLongitude` ← `decimalToDegMinSecArray(longitudeDeg)`
+ *   - `RefElevation` ← `elevationM`
+ *   - `LandTitleNumber` ← `landTitleNumber` (if present)
+ *   - `SiteAddress` ← `IfcPostalAddress(...address)` (if any address field present)
+ *
+ * When absent, the exporter leaves all five attributes as `null`
+ * (project-origin defaults). This is the PRYZM 2 baseline behaviour.
+ */
+export interface SiteModel {
+  /** Decimal degrees, [-90, 90]. */
+  latitudeDeg: number;
+  /** Decimal degrees, [-180, 180]. */
+  longitudeDeg: number;
+  /** Elevation above sea level, in metres. */
+  elevationM: number;
+  /** Optional land title / cadastral reference (`IfcSite.LandTitleNumber`). */
+  landTitleNumber?: string;
+  /** Optional postal address (`IfcSite.SiteAddress`). */
+  address?: SiteAddressInput;
+}
+
+/**
+ * Convert a decimal-degree value to the IFC4X3
+ * `IfcCompoundPlaneAngleMeasure` array form:
+ * `[degrees, minutes, seconds, millionths-of-second]`.
+ *
+ * Each element is an integer (the IFC schema mandates integer components).
+ * Sign handling: negative values (south / west) carry the sign on the
+ * `degrees` component only; `minutes` / `seconds` / `millionths` are always
+ * non-negative.
+ *
+ * Examples:
+ *   `decimalToDegMinSecArray(0)        → [0, 0, 0, 0]`
+ *   `decimalToDegMinSecArray(51.5074)  → [51, 30, 26, 640000]`
+ *   `decimalToDegMinSecArray(-33.8688) → [-33, 52, 7, 680000]`
+ */
+export function decimalToDegMinSecArray(
+  decimal: number,
+): [number, number, number, number] {
+  const sign = decimal < 0 ? -1 : 1;
+  const abs = Math.abs(decimal);
+  let deg = Math.floor(abs);
+  const minFloat = (abs - deg) * 60;
+  let min = Math.floor(minFloat);
+  const secFloat = (minFloat - min) * 60;
+  let sec = Math.floor(secFloat);
+  let millionths = Math.round((secFloat - sec) * 1_000_000);
+
+  // Carry-on rounding: Math.round on millionths can roll 999999.5 → 1_000_000.
+  if (millionths === 1_000_000) {
+    millionths = 0;
+    sec += 1;
+  }
+  if (sec === 60) {
+    sec = 0;
+    min += 1;
+  }
+  if (min === 60) {
+    min = 0;
+    deg += 1;
+  }
+
+  return [sign * deg, min, sec, millionths];
+}
+
+function compoundPlaneAngle(
+  api: IfcAPI,
+  modelId: number,
+  decimal: number,
+): ReturnType<IfcAPI['CreateIfcType']> {
+  return api.CreateIfcType(
+    modelId,
+    WebIFC.IFCCOMPOUNDPLANEANGLEMEASURE,
+    decimalToDegMinSecArray(decimal),
+  );
+}
+
+function buildSiteAddress(
+  api: IfcAPI,
+  modelId: number,
+  address: SiteAddressInput,
+): EntityRef | null {
+  const lines = address.addressLines?.filter((s) => s.length > 0) ?? [];
+  const hasAnyField =
+    lines.length > 0 ||
+    !!address.town ||
+    !!address.region ||
+    !!address.postalCode ||
+    !!address.country;
+  if (!hasAnyField) return null;
+
+  // IFCPOSTALADDRESS(Purpose, Description, UserDefinedPurpose,
+  //                  InternalLocation, AddressLines, PostalBox,
+  //                  Town, Region, PostalCode, Country)
+  return writeEntity(
+    api,
+    modelId,
+    WebIFC.IFCPOSTALADDRESS,
+    null, // Purpose
+    null, // Description
+    null, // UserDefinedPurpose
+    null, // InternalLocation
+    lines.length > 0 ? lines.map((s) => label(api, modelId, s)) : null,
+    null, // PostalBox
+    address.town ? label(api, modelId, address.town) : null,
+    address.region ? label(api, modelId, address.region) : null,
+    address.postalCode ? label(api, modelId, address.postalCode) : null,
+    address.country ? label(api, modelId, address.country) : null,
+  );
+}
+
 const DEFAULT_LEVEL: LevelInfo = {
   id: 'level_default',
   name: 'Ground Floor',
@@ -112,6 +251,14 @@ export function buildHierarchy(
   levels: ReadonlyArray<LevelInfo>,
   ownerRefs: OwnerHistoryRefs,
   guid: GuidProvider,
+  /**
+   * Optional geospatial site description. When present, populates
+   * `IfcSite.RefLatitude/RefLongitude/RefElevation/LandTitleNumber/SiteAddress`
+   * per [C25 §1.4](../../../docs/00_Contracts/C25-IFC-EXPORT-PRODUCTION.md).
+   * When absent, the IfcSite uses project-origin defaults (all attrs null)
+   * and a debug log is emitted.
+   */
+  siteModel?: SiteModel,
 ): HierarchyRefs {
   const units = buildUnits(api, modelId);
   const { origin, placement } = buildOrigin(api, modelId);
@@ -136,6 +283,35 @@ export function buildHierarchy(
   // IFCSITE(GlobalId, OwnerHistory, Name, Description, ObjectType, ObjectPlacement,
   //         Representation, LongName, CompositionType, RefLatitude, RefLongitude,
   //         RefElevation, LandTitleNumber, SiteAddress)
+  //
+  // Geospatial attributes (RefLatitude/RefLongitude/RefElevation/LandTitleNumber/
+  // SiteAddress) come from `siteModel` per C25 §1.4; absent → project-origin
+  // defaults (all null) — IFC-α-1 master plan.
+  let refLatitude: ReturnType<IfcAPI['CreateIfcType']> | null = null;
+  let refLongitude: ReturnType<IfcAPI['CreateIfcType']> | null = null;
+  let refElevation: ReturnType<IfcAPI['CreateIfcType']> | null = null;
+  let landTitleNumber: ReturnType<typeof label> | null = null;
+  let siteAddress: EntityRef | null = null;
+
+  if (siteModel) {
+    refLatitude = compoundPlaneAngle(api, modelId, siteModel.latitudeDeg);
+    refLongitude = compoundPlaneAngle(api, modelId, siteModel.longitudeDeg);
+    refElevation = real(api, modelId, siteModel.elevationM);
+    if (siteModel.landTitleNumber) {
+      landTitleNumber = label(api, modelId, siteModel.landTitleNumber);
+    }
+    if (siteModel.address) {
+      siteAddress = buildSiteAddress(api, modelId, siteModel.address);
+    }
+  } else {
+    // Use console.debug rather than throwing — exports without a SiteModel
+    // are valid (project-origin defaults).
+    // eslint-disable-next-line no-console
+    console.debug(
+      '[ifc-export/hierarchy] no SiteModel — IfcSite using project-origin defaults; lat/lon/elevation undefined',
+    );
+  }
+
   const site = writeEntity(
     api,
     modelId,
@@ -148,7 +324,11 @@ export function buildHierarchy(
     null,
     null,
     'ELEMENT',
-    null, null, null, null, null,
+    refLatitude,
+    refLongitude,
+    refElevation,
+    landTitleNumber,
+    siteAddress,
   );
 
   // IFCBUILDING(GlobalId, OwnerHistory, Name, Description, ObjectType, ObjectPlacement,
