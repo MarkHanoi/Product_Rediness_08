@@ -28,7 +28,7 @@
 
 import type { AnyStores, CommandHandler, RingBufferUndoStack } from '@pryzm/command-bus';
 import type { SyncClient, PryzmAwareness } from '@pryzm/sync-client';
-import type { LayoutOptionsStore, AiApprovalQueueStore, ApartmentParameterPropagator, FamilyRegistryStore, SiteModelStore } from '@pryzm/stores';
+import type { LayoutOptionsStore, AiApprovalQueueStore, ApartmentParameterPropagator, FamilyRegistryStore, SiteModelStore, ClimateStore } from '@pryzm/stores';
 import type {
   TypologyRegistry,
   PipelineRouter,
@@ -3458,6 +3458,15 @@ export interface PryzmRuntime {
    *  list — `siteModelStore.reset()` is the canonical hook.
    *  Disposed via `tearDown()`. */
   readonly siteModelStore: SiteModelStore;
+
+  // ── A.10.d (Phase A · Sprint 2) — ClimateStore (C21 substrate) ──────────
+  /** L3 reactive wrapper around the L0 `ClimateDataset` substrate from
+   *  `@pryzm/schemas/climate`. One per runtime. The `climate.*` command
+   *  surface (A.10.e) calls `climateStore.ingest()` after running Zod
+   *  validation + license-compliance. Per [C21 §1.5] the store retains
+   *  invalidated entries in an audit archive (never deletes). Joins the
+   *  C13 project-switch reset list. Disposed via `tearDown()`. */
+  readonly climateStore: ClimateStore;
 
   // ── A.3 (Phase A · Sprint 2) — Typology pipeline slot ───────────────────
   /** L3 multi-typology generative-AI pipeline. One per runtime per

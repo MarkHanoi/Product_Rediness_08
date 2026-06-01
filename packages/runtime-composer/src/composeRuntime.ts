@@ -51,6 +51,7 @@ import {
   FamilyRegistryStore,
   buildCoreFamilySeeds,
   SiteModelStore,
+  ClimateStore,
 } from '@pryzm/stores';
 // D-α-3 P3 — pure parameter-impact resolver injected into the propagator.
 // Lives in @pryzm/ai-host (L2) so the L1 stores stay free of any AI-runtime
@@ -893,6 +894,17 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
     // [C19 §1.13] the store joins the C13 project-switch reset list.
     const siteModelStore = new SiteModelStore();
 
+    // ── 3f. A.10.d (Phase A · Sprint 2) — ClimateStore ────────────────────
+    // L3 reactive wrapper around the L0 ClimateDataset substrate (A.10.a).
+    // siteRef → dataset resolver + cache keyed by ClimateCacheKey
+    // (lat·100, lon·100, datasetVersion) per [C21 §1.4] so multiple sites
+    // within ~1 km share a single entry. EPW > NOAA > fallback-defaults
+    // priority per §1.2 (applied at ingest — re-ingest supersedes).
+    // Stale entries are RETAINED in the archive per §1.5 (audit /
+    // reproducibility). Joins the C13 reset list (composeRuntime calls
+    // `reset()` on project switch).
+    const climateStore = new ClimateStore();
+
     const typologyRegistry = createTypologyRegistry();
     const typologyRouter = createPipelineRouter(typologyRegistry);
     // A.4.a — register the apartment pack (BRIDGE handlers; full code
@@ -1314,6 +1326,13 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       // the C13 reset list; `.dispose()` is the final-shutdown surface.
       try { siteModelStore.dispose(); }
       catch (err) { console.error('[runtime-composer] siteModelStore.dispose threw:', err); }
+      // A.10.d — dispose ClimateStore (clears listeners + drops all
+      // ingested datasets + the archive). Per [C21 §1.5] the archive is
+      // normally retained for the duration of the runtime; final dispose
+      // wipes it (process-level shutdown). C13 project-switch uses
+      // `reset()`, not dispose.
+      try { climateStore.dispose(); }
+      catch (err) { console.error('[runtime-composer] climateStore.dispose threw:', err); }
       try { inner.tearDown(); }
       catch (err) { console.error('[runtime-composer] inner tearDown threw:', err); }
       events.clear();
@@ -1378,6 +1397,10 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       // project switch (C13). The site.* command surface (A.7.c) calls
       // `siteModelStore.set()` after running cross-schema validation.
       siteModelStore,
+      // A.10.d — ClimateStore (per C21). One per runtime. The climate.*
+      // command surface (A.10.e) calls `climateStore.ingest()` after
+      // running Zod validation + license-compliance.
+      climateStore,
       sceneReady,
       tearDown,
     };

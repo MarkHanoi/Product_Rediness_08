@@ -32,6 +32,12 @@ export { buildCoreFamilySeeds } from './seedCoreFamilies.js';
 // per [C19 §1.13]. The `site.*` command surface in A.7.c will call
 // `set()` after running cross-schema validation.
 export { SiteModelStore } from './SiteModelStore.js';
+// A.10.d (Phase A · Sprint 2) — L3 ClimateStore.
+// Wraps the L0 ClimateDataset substrate (A.10.a). siteRef → dataset
+// resolver + cache (keyed by ClimateCacheKey per C21 §1.4) + stale-
+// entry archive per §1.5. The `climate.*` command surface in A.10.e
+// calls `ingest()` after running Zod validation + license-compliance.
+export { ClimateStore } from './ClimateStore.js';
 // A.7.c (Phase A · Sprint 2) — site.* command handlers. Pure functions
 // `(payload, store) → SiteCommandResult<Event>`. The L5 adapter (command-
 // bus wiring + OTel span + LTP-ENU rebase + domain event emit) lives
