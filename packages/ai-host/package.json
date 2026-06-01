@@ -9,7 +9,12 @@
   "exports": {
     ".": "./src/index.ts",
     "./types": "./src/types.ts",
-    "./tracing": "./src/tracing.ts"
+    "./tracing": "./src/tracing.ts",
+    "./validators": "./src/workflows/apartmentLayout/validators/index.ts",
+    "./validators/validate-and-format": "./src/workflows/apartmentLayout/validators/validate-and-format.ts",
+    "./validators/layout-adapter": "./src/workflows/apartmentLayout/validators/layout-adapter.ts",
+    "./validators/orchestrator-types": "./src/workflows/apartmentLayout/validators/orchestrator-types.ts",
+    "./reporting": "./src/workflows/apartmentLayout/reporting/index.ts"
   },
   "files": ["src"],
   "scripts": {
