@@ -3,7 +3,7 @@
  *
  * Sprint F-2.1 surface audit: extracted from BimService.ts public API.
  * Implementation: apps/editor/src/engine/BimService.ts (until Sprint F-2.2).
- * Reference: docs/03_PRYZM3/04-PLAN-FORWARD/51-POST-EXTRACTION-ROADMAP.md §Phase F-2.
+ * Reference: docs/archive/pryzm3-internal/04-PLAN-FORWARD/51-POST-EXTRACTION-ROADMAP.md §Phase F-2.
  *
  * ## Design rules
  * - Methods that interact with the user via browser dialogs are `async` even when

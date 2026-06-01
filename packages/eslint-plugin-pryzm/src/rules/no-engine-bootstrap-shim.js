@@ -15,8 +15,8 @@
 // Allowlist: dynamically loaded from `.ga-gate/baselines/engine-bootstrap-importers.json`
 // (updated at S86-WIRE to empty; dynamicImporterCount = 0).
 //
-// Anchored to: `docs/03_PRYZM3/04-PLAN-FORWARD/01-CRITICAL-PATH-D4.md §7`
-//              `docs/03_PRYZM3/04-PLAN-FORWARD/11-WAVE-7-CLEANUP-PHASE-F.md §2` S86-WIRE
+// Anchored to: `docs/archive/pryzm3-internal/04-PLAN-FORWARD/01-CRITICAL-PATH-D4.md §7`
+//              `docs/archive/pryzm3-internal/04-PLAN-FORWARD/11-WAVE-7-CLEANUP-PHASE-F.md §2` S86-WIRE
 
 import path from 'node:path';
 import { readFileSync } from 'node:fs';
@@ -62,7 +62,7 @@ const rule = {
       description:
         'Block new imports of `src/engine/EngineBootstrap` after D.4.5 (S81-WIRE). ' +
         'Use `import type { PryzmRuntime } from "@pryzm/runtime-composer"` instead. ' +
-        'See `docs/03_PRYZM3/04-PLAN-FORWARD/01-CRITICAL-PATH-D4.md §7`.',
+        'See `docs/archive/pryzm3-internal/04-PLAN-FORWARD/01-CRITICAL-PATH-D4.md §7`.',
       category: 'Architecture',
     },
     schema: [],

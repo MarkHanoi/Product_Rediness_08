@@ -6,7 +6,7 @@
  * and NFT spot-check that must be green for the Wave-15 "functional
  * day-1" gate to pass.
  *
- * Spec:        docs/03_PRYZM3/04-PLAN-FORWARD/18-WAVES-13-15-ZERO-WASTE.md §3
+ * Spec:        docs/archive/pryzm3-internal/04-PLAN-FORWARD/18-WAVES-13-15-ZERO-WASTE.md §3
  * Anchored to: 01-VISION.md §5 (17 NFTs)
  *              02-ARCHITECTURE.md §8 (convergence booleans)
  *              00-PROCESS-TRACKER.md §3 (day-1 ladder rung 2)

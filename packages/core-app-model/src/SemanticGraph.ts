@@ -7,7 +7,7 @@
  * Classification:    A
  *
  * Contract:
- *   docs/00_Contracts/03-BIM-SEMANTIC-MODEL-CONTRACT.md
+ *   docs/02-decisions/contracts/03-BIM-SEMANTIC-MODEL-CONTRACT.md
  *   PRYZM_MASTER_ROADMAP_2026.md § D-1
  *
  * Impact Assessment:

@@ -53,7 +53,7 @@ export interface SlabToolCallbacks {
  *     3. E-finish.2 (E.2 lane): delete `src/elements/slabs/` +
  *        `src/commands/slabs/` once `rg "elements/slabs|commands/slabs" src/`
  *        returns 0 hits.
- *   See `docs/03_PRYZM3/00_NEW_ARCHITECTURE/phases/audits/PHASES-A-F-RECONCILIATION-2026-04-29/05-phase-E-audit-and-plan.md`.
+ *   See `docs/archive/pryzm3-internal/00_NEW_ARCHITECTURE/phases/audits/PHASES-A-F-RECONCILIATION-2026-04-29/05-phase-E-audit-and-plan.md`.
  */
 
 /**

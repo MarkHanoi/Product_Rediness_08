@@ -11,7 +11,7 @@
  * `node` crashes with `ERR_UNKNOWN_FILE_EXTENSION ".ts"`.
  *
  * Until Phase H lands per-package `tsc -b` outputs (tracked in
- * `docs/03_PRYZM3/00_NEW_ARCHITECTURE/phases/audits/PHASE-H-PER-PACKAGE-COMPILE.md`),
+ * `docs/archive/pryzm3-internal/00_NEW_ARCHITECTURE/phases/audits/PHASE-H-PER-PACKAGE-COMPILE.md`),
  * we boot production through the same `tsx` ESM loader the dev script uses.
  * `tsx` is a runtime dep (see root package.json), so it is present in the
  * deployed image.

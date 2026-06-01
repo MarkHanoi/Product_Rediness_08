@@ -2,7 +2,7 @@
  * FloorTool — Drawing tool for the Floor Finish subsystem.
  *
  * Contract: docs/01_ELEMENTS/08_Floors_Contract/03-FLOOR-COMMAND-PIPELINE-CONTRACT.md §2–§3
- *           docs/00_Contracts/49-FLOOR-CEILING-DRAWING-MODE-PARITY-CONTRACT.md
+ *           docs/02-decisions/contracts/49-FLOOR-CEILING-DRAWING-MODE-PARITY-CONTRACT.md
  *
  * State machine: IDLE → DRAWING → (createFloor) → IDLE  [continuous]
  *                ESC → deactivate
@@ -713,7 +713,7 @@ export class FloorTool {
   }
 
   // ── Guide HUD ──────────────────────────────────────────────────────────────
-  // See Contract §42, docs/00_Contracts/42-ELEMENT-CREATION-HUD-CONTRACT.md.
+  // See Contract §42, docs/02-decisions/contracts/42-ELEMENT-CREATION-HUD-CONTRACT.md.
 
   private _showHUD(): void {
     this._hideHUD();

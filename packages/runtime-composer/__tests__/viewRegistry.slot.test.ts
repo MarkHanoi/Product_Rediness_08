@@ -151,7 +151,7 @@ describe('PR 4.A.1 — buildViewRegistrySlot', () => {
   });
 
     // ── Wave 6 panel-binding API ──────────────────────────────────────────────
-  // Docs: docs/03_PRYZM3/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §2
+  // Docs: docs/archive/pryzm3-internal/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §2
   // wave-6-b-d1 exit gate: activatePanel / deactivatePanel / getActivePanelIds
   //                         / subscribePanelChange — full happy-path + idempotency
   //                         + loud-fail-soft for subscriber errors.

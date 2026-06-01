@@ -9,7 +9,7 @@
  * and IsExternal — without it, doors appear as "uncategorised" geometry
  * with no thermal / acoustic / fire / accessibility classification.
  *
- * Per [C25-IFC-EXPORT-PRODUCTION §3](../../../docs/00_Contracts/C25-IFC-EXPORT-PRODUCTION.md)
+ * Per [C25-IFC-EXPORT-PRODUCTION §3](../../../docs/02-decisions/contracts/C25-IFC-EXPORT-PRODUCTION.md)
  * + master plan IFC-α-6.
  *
  * Architectural notes:

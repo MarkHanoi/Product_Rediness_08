@@ -1326,7 +1326,7 @@ export const SOLUTIONS_STYLES = `
 
     /* ─────────────────────────────────────────────────────────────────── */
     /* MOB-001-LP  Mobile Responsiveness                                   */
-    /* Contract: docs/mobile/MOBILE_CONTRACT.md §2.3                       */
+    /* Contract: docs/05-guides/mobile/MOBILE_CONTRACT.md §2.3                       */
     /* ─────────────────────────────────────────────────────────────────── */
 
     /* ── Hamburger button (visible on mobile only) ─────────────────────── */

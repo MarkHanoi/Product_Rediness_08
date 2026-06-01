@@ -7,7 +7,7 @@
  * editor UI layer.  The concrete implementations currently live in
  * `apps/editor/src/{engine,ui}/` and will be migrated here in Sprint F-2.5.
  *
- * Roadmap: docs/03_PRYZM3/04-PLAN-FORWARD/51-POST-EXTRACTION-ROADMAP.md §Phase F-2
+ * Roadmap: docs/archive/pryzm3-internal/04-PLAN-FORWARD/51-POST-EXTRACTION-ROADMAP.md §Phase F-2
  *
  * ---
  * ## Surface (F-2.4)

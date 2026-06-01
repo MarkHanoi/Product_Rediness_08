@@ -17,7 +17,7 @@
  *      (1 wherever any geometry is drawn, 0 elsewhere). Do NOT set opacity
  *      to a vanishingly small value here — translucent ghosts must still
  *      light up `scenePassColor.a` above the 0.0001 step threshold.
- *      See Contract §41 (`docs/00_Contracts/41-ELEMENT-PREVIEW-VISUAL-CONTRACT.md`).
+ *      See Contract §41 (`docs/02-decisions/contracts/41-ELEMENT-PREVIEW-VISUAL-CONTRACT.md`).
  *
  *   2. Footprint line material — bright line drawn on the floor (or storey
  *      elevation) so the user sees the path even when the body is occluded.
@@ -32,7 +32,7 @@
  *      thumbnail capture, etc.). Use `tagPreview()`.
  *
  * Standard colour palette — keep in sync with Contract §41
- * (`docs/00_Contracts/41-ELEMENT-PREVIEW-VISUAL-CONTRACT.md`):
+ * (`docs/02-decisions/contracts/41-ELEMENT-PREVIEW-VISUAL-CONTRACT.md`):
  *
  *   ⚠ 2026-05-22 UNIFICATION (architect directive): every user-facing
  *   creation / placement preview now uses the SINGLE PRYZM brand purple

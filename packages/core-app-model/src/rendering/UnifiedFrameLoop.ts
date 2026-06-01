@@ -592,6 +592,6 @@ export class UnifiedFrameLoop {
  *   Note: the spec D.7 sub-phase IS landed (the file is gone from `src/engine/`
  *   and `packages/frame-scheduler/` exists).  This singleton is a separate
  *   migration tracked as D-finish.2.
- *   See `docs/03_PRYZM3/00_NEW_ARCHITECTURE/phases/audits/PHASES-A-F-RECONCILIATION-2026-04-29/04-phase-D-audit-and-plan.md` §D-finish.2.
+ *   See `docs/archive/pryzm3-internal/00_NEW_ARCHITECTURE/phases/audits/PHASES-A-F-RECONCILIATION-2026-04-29/04-phase-D-audit-and-plan.md` §D-finish.2.
  */
 export const unifiedFrameLoop = new UnifiedFrameLoop();

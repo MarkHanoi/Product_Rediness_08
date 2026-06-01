@@ -3,7 +3,7 @@
 PRYZM 2 curtain-wall plugin — headless half (store + handlers + intent
 resolver + committer).  Owns the runtime command surface for the
 `CurtainWall` element family per
-[`docs/03_PRYZM3/reference/phases/PHASE-1/1C-Q3-M7-M9-ELEMENT-FAMILIES.md`](../../docs/03_PRYZM3/reference/phases/PHASE-1/1C-Q3-M7-M9-ELEMENT-FAMILIES.md)
+[`docs/archive/pryzm3-internal/reference/phases/PHASE-1/1C-Q3-M7-M9-ELEMENT-FAMILIES.md`](../../docs/archive/pryzm3-internal/reference/phases/PHASE-1/1C-Q3-M7-M9-ELEMENT-FAMILIES.md)
 §S12–S13.
 
 ## Surface

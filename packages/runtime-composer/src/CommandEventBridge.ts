@@ -1,6 +1,6 @@
 // CommandEventBridge — wires CommandBus.patches → runtime.events.
 //
-// Spec:  docs/03_PRYZM3/04-PLAN-FORWARD/34-HANDLER-PROTOCOL-GAP-ANALYSIS.md §3
+// Spec:  docs/archive/pryzm3-internal/04-PLAN-FORWARD/34-HANDLER-PROTOCOL-GAP-ANALYSIS.md §3
 //        ADR-002 §5 (handlers are pure; cross-cutting event relay lives here).
 //        C11 §5.2 (typed domain events MUST flow through runtime.events).
 //

@@ -3,7 +3,7 @@ sunsetSprint: S61
 sunsetOpensAt: 2026-04-28
 physicalDeletionEarliest: S70 (≈ 90 calendar days post-D5)
 spec: docs/archive/pryzm3-internal/reference/specs/SPEC-27-MIGRATION-ROLLBACK.md §4.3
-adr: docs/architecture/adr/0031-s61-staged-legacy-deletion.md
+adr: docs/02-decisions/adrs/0031-s61-staged-legacy-deletion.md
 phaseDocs:
   - docs/archive/pryzm3-internal/reference/phases/PHASE-3/3C-Q3-M31-M33-PLUGIN-SDK-MARKETPLACE-APIS.md
   - docs/archive/pryzm3-internal/reference/phases/PHASE-3/3C-Q3-M31-M33-SDK-MARKETPLACE-PUBLIC-API.md

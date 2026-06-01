@@ -1,9 +1,9 @@
 /**
  * ProjectScopeRegistry — Single source of truth for "what is per-project state".
  *
- * Contract: docs/00_Contracts/45-PROJECT-ISOLATION-LEAK-IMPLEMENTATION-PLAN.md
+ * Contract: docs/02-decisions/contracts/45-PROJECT-ISOLATION-LEAK-IMPLEMENTATION-PLAN.md
  *
- * Background — see docs/00_Contracts/44-PROJECT-ISOLATION-LEAK-ANALYSIS.md.
+ * Background — see docs/02-decisions/contracts/44-PROJECT-ISOLATION-LEAK-ANALYSIS.md.
  * Historically, ClearProjectCommand and ProjectSerializer maintained two
  * hand-written lists of stores. They drifted apart, leaving ~18 serialized
  * stores that ClearProjectCommand never wiped — including ifcModelStore,

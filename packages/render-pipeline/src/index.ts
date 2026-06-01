@@ -19,7 +19,7 @@
  *
  * Layer: L4 (Rendering)
  * Contract: C04 §1, C01 §2, C10 §2
- * Spec: docs/03_PRYZM3/04-PLAN-FORWARD/26-WAVE-A16-ENGINE-MIGRATION.md
+ * Spec: docs/archive/pryzm3-internal/04-PLAN-FORWARD/26-WAVE-A16-ENGINE-MIGRATION.md
  */
 
 export * from './BackgroundUniform.js';

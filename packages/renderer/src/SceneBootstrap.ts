@@ -1,15 +1,15 @@
 // SceneBootstrap — D.4.1 single composition root for scene-half wiring.
 //
 // Anchored to:
-//   * `docs/03_PRYZM3/02-ARCHITECTURE.md §3` (composition-root contract:
+//   * `docs/archive/pryzm3-internal/02-ARCHITECTURE.md §3` (composition-root contract:
 //     every bootstrap surface emits one OTel span, accepts an audit, returns
 //     a typed slot + tearDown).
-//   * `docs/03_PRYZM3/01-VISION.md §2` P2 (single THREE owner — the lazy
+//   * `docs/archive/pryzm3-internal/01-VISION.md §2` P2 (single THREE owner — the lazy
 //     loader injected here is the only path through which @pryzm/renderer's
 //     internal THREE dependency reaches a canvas) and P8 (every architectural
 //     boundary surfaces an OTel span — `pryzm.bootstrap.scene` is the one
 //     for this boundary).
-//   * `docs/03_PRYZM3/04-PLAN-FORWARD/01-CRITICAL-PATH-D4.md §3`
+//   * `docs/archive/pryzm3-internal/04-PLAN-FORWARD/01-CRITICAL-PATH-D4.md §3`
 //     STATUS-UPDATE Option A — "rebase §3 to match HEAD … D.4.1 work =
 //     relocate the existing `src/engine/subsystems/initScene.ts` to
 //     `packages/renderer/src/SceneBootstrap.ts` + add `pryzm.bootstrap.scene`

@@ -10,7 +10,7 @@
  * Contract:
  *   docs/01_ELEMENTS/09_Rooms_Contract/17-ROOM-GRAPH-QUERY-ENGINE-CONTRACT.md
  *   docs/01_ELEMENTS/09_Rooms_Contract/11-ROOM-RELATIONSHIP-WORLD-MODEL.md
- *   docs/00_Contracts/01-BIM-ENGINE-CORE-CONTRACT.md
+ *   docs/02-decisions/contracts/01-BIM-ENGINE-CORE-CONTRACT.md
  *
  * ROOMS AS NODES. DOORS AS EDGES. THE BUILDING IS A GRAPH.
  *

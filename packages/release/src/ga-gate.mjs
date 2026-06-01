@@ -145,7 +145,7 @@ function checkTypecheck() {
 }
 
 // PRYZM 3 Wave 1 tripwires (S78-WIRE) — the three "Stop the Bleed" gates.
-// Spec: docs/03_PRYZM3/04-PLAN-FORWARD/02-WAVE-1-TRIPWIRES.md §§2-4.
+// Spec: docs/archive/pryzm3-internal/04-PLAN-FORWARD/02-WAVE-1-TRIPWIRES.md §§2-4.
 function makeTripwire(name, script) {
   return function () {
     const scriptPath = resolve(REPO_ROOT, script);
@@ -173,7 +173,7 @@ const checkRafTripwire  = makeTripwire('raf-tripwire',  'tools/ga-gate/check-raf
 // against .ga-gate/baselines/l7-boundary-violations.json; 39 plugins, 279 files baseline).
 const checkL7Boundary   = makeTripwire('boundary-lint-l7', 'tools/ga-gate/check-l7-boundary.ts');
 // R11 tripwire — motion-gate coverage in L7.5 Canvas2D view managers.
-// Spec: docs/03_PRYZM3/04-PLAN-FORWARD/13-RISK-REGISTER.md §1 R11
+// Spec: docs/archive/pryzm3-internal/04-PLAN-FORWARD/13-RISK-REGISTER.md §1 R11
 // Any src/core/views/ file with DOM gesture handlers MUST call beginMotion() + endMotion().
 // Structural resolution: Wave 8-11 (packages/input-host/ real).
 const checkMotionGateCoverage = makeTripwire('motion-gate-coverage', 'tools/ga-gate/check-motion-gate-coverage.ts');
@@ -210,10 +210,10 @@ const COMPOSITES = {
   // typecheck is intentionally excluded: pre-existing WorkspaceSurfaceKind / WorkspaceModeController
   // TS errors in packages/runtime-composer/ are tracked separately (Wave 7 S84-WIRE scope);
   // including them in wave-4-exit would permanently break the gate before Wave 7 lands.
-  // Full spec: docs/03_PRYZM3/04-PLAN-FORWARD/08-WAVE-4-SLOT-TYPING-ROUTING.md §3 + §4
+  // Full spec: docs/archive/pryzm3-internal/04-PLAN-FORWARD/08-WAVE-4-SLOT-TYPING-ROUTING.md §3 + §4
   'wave-4-exit': ['raf-tripwire', 'boundary-lint-l7'],
   // Wave 5 + ongoing — R11 motion-gate coverage guard (Canvas2D view managers).
-  // Spec: docs/03_PRYZM3/04-PLAN-FORWARD/13-RISK-REGISTER.md §1 R11
+  // Spec: docs/archive/pryzm3-internal/04-PLAN-FORWARD/13-RISK-REGISTER.md §1 R11
   // Composite for use during Wave 5+ reviews; retired when packages/input-host/ is real (Wave 8-11).
   'motion-gate-exit': ['raf-tripwire', 'motion-gate-coverage'],
 };

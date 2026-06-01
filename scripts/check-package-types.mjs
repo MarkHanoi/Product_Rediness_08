@@ -19,7 +19,7 @@
  *   surface immediately at CI time instead of being silently masked.
  *
  * Sprint: F-2.6 (2026-05-15)
- * Roadmap: docs/03_PRYZM3/04-PLAN-FORWARD/51-POST-EXTRACTION-ROADMAP.md §Phase F-2
+ * Roadmap: docs/archive/pryzm3-internal/04-PLAN-FORWARD/51-POST-EXTRACTION-ROADMAP.md §Phase F-2
  */
 
 import { execFileSync } from 'child_process';

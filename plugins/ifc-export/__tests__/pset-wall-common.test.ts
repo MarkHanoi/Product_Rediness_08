@@ -2,7 +2,7 @@
  * `Pset_WallCommon` writer tests — IFC-α-4 (2026-06-01).
  *
  * Covers `plugins/ifc-export/src/exporters/pset-wall-common.ts` per
- * [C25-IFC-EXPORT-PRODUCTION §3](../../../docs/00_Contracts/C25-IFC-EXPORT-PRODUCTION.md)
+ * [C25-IFC-EXPORT-PRODUCTION §3](../../../docs/02-decisions/contracts/C25-IFC-EXPORT-PRODUCTION.md)
  * + master plan IFC-α-4.
  *
  * Strategy: mock the webifc-helpers + guid-provider + OpenTelemetry layers

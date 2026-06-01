@@ -15,7 +15,7 @@
 // for each copied element (those individual commands produce Ring Buffer
 // patches — paste is undone by undoing each creation).
 //
-// Anchor: docs/03_PRYZM3/MASTER-IMPL-PLAN-FUNCTIONAL-2026-05-18.md TASK-08
+// Anchor: docs/archive/pryzm3-internal/MASTER-IMPL-PLAN-FUNCTIONAL-2026-05-18.md TASK-08
 
 import type {
   CommandHandler,

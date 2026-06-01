@@ -19,7 +19,7 @@ export interface PlumbingFixtureData {
     /**
      * LOD400 sub-family. Only meaningful when fixtureType === 'toilet'.
      * Persisted in the DTO and rebuilt deterministically by
-     * PlumbingFragmentBuilder. See docs/00_Contracts/03-BIM-SEMANTIC-MODEL-CONTRACT.md.
+     * PlumbingFragmentBuilder. See docs/02-decisions/contracts/03-BIM-SEMANTIC-MODEL-CONTRACT.md.
      */
     toiletVariant?: ToiletVariant;
     /**

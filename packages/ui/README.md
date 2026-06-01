@@ -4,7 +4,7 @@ UI host primitives for PRYZM 2.
 
 > Phase 3-B Sprint **S60** — `PanelHost` + `InspectorHost` for the
 > PropertyPanel decomposition.
-> Spec: `docs/03_PRYZM3/reference/phases/PHASE-3/3B-Q2-M28-M30-IFC-REVIT-COMPONENT-EDITOR.md` §6.
+> Spec: `docs/archive/pryzm3-internal/reference/phases/PHASE-3/3B-Q2-M28-M30-IFC-REVIT-COMPONENT-EDITOR.md` §6.
 
 ## Why
 

@@ -10,7 +10,7 @@
  * Contract:
  *   docs/01_ELEMENTS/09_Rooms_Contract/18-BIM30-ROOM-INTELLIGENCE-ANALYSIS.md §2.7
  *   docs/01_ELEMENTS/09_Rooms_Contract/00-ROOM-CONTRACT-INDEX.md R-1
- *   docs/00_Contracts/01-BIM-ENGINE-CORE-CONTRACT.md §1.3
+ *   docs/02-decisions/contracts/01-BIM-ENGINE-CORE-CONTRACT.md §1.3
  *
  * Pure read-only validation service — never writes to any store.
  * Computes ephemeral validation issues from live data at call time.

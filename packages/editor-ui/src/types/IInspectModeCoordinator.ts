@@ -5,7 +5,7 @@
  *
  * Sprint F-2.4 (2026-05-15).
  * Concrete implementation: `apps/editor/src/engine/inspect/InspectModeCoordinator.ts`
- * Reference: docs/03_PRYZM3/04-PLAN-FORWARD/51-POST-EXTRACTION-ROADMAP.md §Phase F-2
+ * Reference: docs/archive/pryzm3-internal/04-PLAN-FORWARD/51-POST-EXTRACTION-ROADMAP.md §Phase F-2
  *
  * ## Design rules
  * - `scene` is typed `unknown` here to keep this contracts package free of a

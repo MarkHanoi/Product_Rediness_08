@@ -2,7 +2,7 @@
 //
 // PR 4.B.3 — Wave 4 Track B boundary lint for L7.
 //
-// CONTRACT (from docs/03_PRYZM3/02-ARCHITECTURE.md §3 + §7 layer matrix):
+// CONTRACT (from docs/archive/pryzm3-internal/02-ARCHITECTURE.md §3 + §7 layer matrix):
 //   L7 plugin packages (`plugins/<name>/`) may ONLY import from the public
 //   plugin SDK surface (`@pryzm/plugin-sdk`). Importing L0–L5 packages
 //   directly bypasses the abstraction layer and prevents Phase F from
@@ -23,7 +23,7 @@
 //   `@pryzm/plugin-sdk` host proxy (see `packages/plugin-sdk/src/hosts/`).
 //   For command dispatch use the `CommandHost` proxy; for view registration
 //   use `ViewRegistryHost`; for frame scheduling use `FrameHost`.
-//   See docs/03_PRYZM3/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §2.
+//   See docs/archive/pryzm3-internal/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §2.
 
 import path from 'node:path';
 
@@ -89,7 +89,7 @@ const rule = {
       description:
         'Block L7 plugin packages from importing L0–L5 runtime internals directly. ' +
         'Plugins must consume the runtime via `@pryzm/plugin-sdk` host proxies. ' +
-        'See docs/03_PRYZM3/04-PLAN-FORWARD/08-WAVE-4-SLOT-TYPING-ROUTING.md §3 PR 4.B.3.',
+        'See docs/archive/pryzm3-internal/04-PLAN-FORWARD/08-WAVE-4-SLOT-TYPING-ROUTING.md §3 PR 4.B.3.',
       category: 'Architecture',
     },
     schema: [],

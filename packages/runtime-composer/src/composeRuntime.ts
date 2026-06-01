@@ -750,7 +750,7 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
     // cold on a cold Replit container). Each batch targets < 16 ms per
     // NFT-4. `performance.mark` fences (pryzm:bootstrap:*) are emitted for
     // DevTools Performance panel visibility. See NFT-4, C10 §2, and
-    // `docs/03_PRYZM3/03-CURRENT-STATE.md §10 2026-05-03g`.
+    // `docs/archive/pryzm3-internal/03-CURRENT-STATE.md §10 2026-05-03g`.
     performance.mark('pryzm:composeRuntime:bootstrap:start');
     const inner = await opts.bootstrapFn({ audit: opts.audit });
     performance.mark('pryzm:composeRuntime:bootstrap:end');
@@ -764,7 +764,7 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
     // Every successful CommandBus dispatch emits 'command.executed' on the
     // typed event bus.  Replaces ad-hoc window.dispatchEvent(CustomEvent)
     // calls in the migration bridge layer (Phase E.5.x).
-    // Spec: docs/03_PRYZM3/04-PLAN-FORWARD/34-HANDLER-PROTOCOL-GAP-ANALYSIS.md §3
+    // Spec: docs/archive/pryzm3-internal/04-PLAN-FORWARD/34-HANDLER-PROTOCOL-GAP-ANALYSIS.md §3
     const disposeCommandBridge = wireCommandEventBridge(inner.bus.patches, events);
 
     // ── A31: RingBufferUndoStack — Phase D real undo backend ───────────────
@@ -775,7 +775,7 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
     // after the EventRecord is built — no indirection via PatchEmitter.
     // CONTRACT: C03 §4.1 / C03 §4.2 — ring buffer cap configurable (default 200);
     //   every `source: 'user'` dispatch pushes a PatchPair (forward+inverse).
-    // Spec: docs/03_PRYZM3/04-PLAN-FORWARD/34-HANDLER-PROTOCOL-GAP-ANALYSIS.md §0 A31
+    // Spec: docs/archive/pryzm3-internal/04-PLAN-FORWARD/34-HANDLER-PROTOCOL-GAP-ANALYSIS.md §0 A31
     const ringBuffer = new RingBufferUndoStack({ maxSize: 200 });
     inner.bus.setRingBuffer(ringBuffer);
     // disposeRingBuffer is a no-op — ring buffer lifetime is tied to inner.bus.

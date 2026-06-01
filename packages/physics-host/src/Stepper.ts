@@ -1,10 +1,10 @@
 // PhysicsStepper — D.4.3 frame-subscription adapter for the physics-host.
 //
 // Anchored to:
-//   * `docs/03_PRYZM3/01-VISION.md §2` P3 (single rAF owner — this module
+//   * `docs/archive/pryzm3-internal/01-VISION.md §2` P3 (single rAF owner — this module
 //     MUST NOT call the browser RAF API; the scheduler drives ticks by
 //     calling back through `runtime.frame.subscribe`).
-//   * `docs/03_PRYZM3/04-PLAN-FORWARD/01-CRITICAL-PATH-D4.md §4` verifiers:
+//   * `docs/archive/pryzm3-internal/04-PLAN-FORWARD/01-CRITICAL-PATH-D4.md §4` verifiers:
 //       `grep -q 'runtime\.frame\.subscribe' packages/physics-host/src/Stepper.ts`
 //       `! rg 'rAF-literal' packages/physics-host/src/`  (no RAF calls in pkg)
 //

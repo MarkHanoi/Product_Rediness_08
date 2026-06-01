@@ -7,8 +7,8 @@
 // constraint at ERROR level (the WARN-mode `no-l7-boundary-violation`
 // ratchet is superseded by this rule post-Wave-12).
 //
-// Spec: docs/03_PRYZM3/04-PLAN-FORWARD/17-WAVES-9-12-SRC-MIGRATION.md §4
-// Architecture: docs/03_PRYZM3/02-ARCHITECTURE.md §3 (L7 boundary rule)
+// Spec: docs/archive/pryzm3-internal/04-PLAN-FORWARD/17-WAVES-9-12-SRC-MIGRATION.md §4
+// Architecture: docs/archive/pryzm3-internal/02-ARCHITECTURE.md §3 (L7 boundary rule)
 //
 // BLOCKED: any `from '@pryzm/<pkg>'` where <pkg> is NOT plugin-sdk,
 //   inside any file matching plugins/**/*.ts (src or __tests__).
@@ -51,7 +51,7 @@ const rule = {
       description:
         'Block L7 plugin packages from importing any @pryzm/* package except @pryzm/plugin-sdk. ' +
         'Wave-12 L8-compliance rule — all plugins must import ONLY from @pryzm/plugin-sdk. ' +
-        'Spec: docs/03_PRYZM3/04-PLAN-FORWARD/17-WAVES-9-12-SRC-MIGRATION.md §4.',
+        'Spec: docs/archive/pryzm3-internal/04-PLAN-FORWARD/17-WAVES-9-12-SRC-MIGRATION.md §4.',
       category: 'Architecture',
     },
     schema: [],

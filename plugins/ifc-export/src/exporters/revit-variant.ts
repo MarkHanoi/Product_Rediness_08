@@ -18,7 +18,7 @@
  *                            requested coordinate-mode label. The real
  *                            coordinate transform lives in α-3.
  *
- * Per [C26-REVIT-ROUND-TRIP §1.1](../../../docs/00_Contracts/C26-REVIT-ROUND-TRIP.md)
+ * Per [C26-REVIT-ROUND-TRIP §1.1](../../../docs/02-decisions/contracts/C26-REVIT-ROUND-TRIP.md)
  * (IFC4 / IFC4X3-RV as canonical) + master plan RVT-α-2.
  *
  * Architectural notes:

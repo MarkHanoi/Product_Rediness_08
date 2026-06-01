@@ -1,6 +1,6 @@
 /**
  * HeaderIntentPicker — Wave 3 / Stage S4 of the Visibility-Intent master plan
- * (docs/Analysis/MASTER-IMPLEMENTATION-PLAN.md §6).
+ * (docs/03-execution/status/intent-analysis/MASTER-IMPLEMENTATION-PLAN.md §6).
  *
  * A small dropdown that lives on the right side of the per-view header toolbar
  * (ViewHeaderButtons.ts). Lets the user bind / rebind a view to a Visibility

@@ -48,7 +48,7 @@ and `pryzm/no-raf` (the integration test invokes the rule directly).
 ## Lifecycle
 
 This package will be **deleted at S66** alongside `apps/editor` per
-`docs/03_PRYZM3/reference/phases/PHASE-3/3-COMPLETION-GA-M25-M36.md`.
+`docs/archive/pryzm3-internal/reference/phases/PHASE-3/3-COMPLETION-GA-M25-M36.md`.
 At that point custom-rule integration moves to inline string fixtures
 inside `tools/scripts/check-lint-fixtures.mjs`, and the layered
 `packages/` tree no longer carries an intentional-bad surface.

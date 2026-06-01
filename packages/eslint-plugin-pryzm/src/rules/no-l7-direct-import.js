@@ -125,7 +125,7 @@ const rule = {
       description:
         'L7 plugin packages (`packages/plugin-*`) must not import L0–L5 `@pryzm/*` packages directly. ' +
         'Route through `@pryzm/sdk` (Phase F). ' +
-        'See `docs/03_PRYZM3/04-PLAN-FORWARD/08-WAVE-4-SLOT-TYPING-ROUTING.md §3` PR 4.B.3.',
+        'See `docs/archive/pryzm3-internal/04-PLAN-FORWARD/08-WAVE-4-SLOT-TYPING-ROUTING.md §3` PR 4.B.3.',
       category: 'Architecture',
     },
     schema: [],

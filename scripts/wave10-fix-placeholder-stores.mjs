@@ -23,7 +23,7 @@ const SHIM_HEADER = (file) => `\
  * This shim preserves existing relative import paths across the codebase.
  *
  * @see packages/core-app-model/src/stores/${file}
- * @see docs/03_PRYZM3/04-PLAN-FORWARD/17-WAVES-9-12-SRC-MIGRATION.md §2
+ * @see docs/archive/pryzm3-internal/04-PLAN-FORWARD/17-WAVES-9-12-SRC-MIGRATION.md §2
  */
 `;
 

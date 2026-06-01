@@ -1,6 +1,6 @@
 // W8-D6 — Composition root unit tests.
 //
-// Spec: `docs/03_PRYZM3/00-PROCESS-TRACKER.md §8` task W8-D6.
+// Spec: `docs/archive/pryzm3-internal/00-PROCESS-TRACKER.md §8` task W8-D6.
 // Wave 13 target: ≥ 5 tests.  This file delivers the first 5 covering
 // `composeRuntime()` as the single composition root.
 //

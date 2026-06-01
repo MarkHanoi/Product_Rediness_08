@@ -91,7 +91,7 @@ Mirrors PRYZM 1's `CommandManager.ts` + `PatchSnapshot.ts` but without:
 - The three `(window as any)` window-fallback constructor lines
 - `structuredClone` snapshotting (replaced by Immer patches)
 
-See `docs/architecture/command-bus.md` for the full design brief.
+See `docs/04-reference/architecture-detail/command-bus.md` for the full design brief.
 
 ## Sprint citations
 

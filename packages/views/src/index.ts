@@ -10,7 +10,7 @@
  * Concrete implementations currently live in `apps/editor/src/engine/views/`
  * and will be migrated here in a future sprint.
  *
- * Roadmap: docs/03_PRYZM3/04-PLAN-FORWARD/51-POST-EXTRACTION-ROADMAP.md §Phase F-2
+ * Roadmap: docs/archive/pryzm3-internal/04-PLAN-FORWARD/51-POST-EXTRACTION-ROADMAP.md §Phase F-2
  *
  * ---
  * ## Surface (F-2.3 + F-2.5)

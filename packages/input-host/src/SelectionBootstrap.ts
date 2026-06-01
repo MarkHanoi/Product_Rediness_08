@@ -1,15 +1,15 @@
 // SelectionBootstrap — D.4.4 typed contract for selection-half wiring.
 //
 // Anchored to:
-//   * `docs/03_PRYZM3/02-ARCHITECTURE.md §3` (every bootstrap surface owns
+//   * `docs/archive/pryzm3-internal/02-ARCHITECTURE.md §3` (every bootstrap surface owns
 //     a typed input/output contract, soft-fail semantics, and a tearDown).
-//   * `docs/03_PRYZM3/04-PLAN-FORWARD/03-WAVE-2-3-D4-EXECUTION.md §2`
+//   * `docs/archive/pryzm3-internal/04-PLAN-FORWARD/03-WAVE-2-3-D4-EXECUTION.md §2`
 //     Day-6 — "Move lines 1141-1260 (selection bootstrap) into
 //     SelectionBootstrap.ts." Per the Option A precedent: the body lives at
 //     `src/engine/subsystems/initTools.ts` (the SelectionManager init that
 //     Phase F-1 extracted); this file owns the TYPED CONTRACT that will
 //     wrap it once L7 dep factoring enables full relocation (Wave 4).
-//   * `docs/03_PRYZM3/01-VISION.md §2` P3 — this file produces no DOM
+//   * `docs/archive/pryzm3-internal/01-VISION.md §2` P3 — this file produces no DOM
 //     listeners; the selection-changed event wiring belongs to the engine
 //     layer's SelectionManager, not to this L3 contract.
 //

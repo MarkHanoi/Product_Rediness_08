@@ -23,7 +23,7 @@
 // affectedStores: [] — no Immer patches produced here; all RoomStore mutations
 //   happen through the PRYZM 1 ReDetectRoomsCommand path triggered by the event.
 //
-// Anchor: docs/03_PRYZM3/04-PLAN-FORWARD/23-PHASE-E-COMMAND-BUS-MIGRATION.md §P2f
+// Anchor: docs/archive/pryzm3-internal/04-PLAN-FORWARD/23-PHASE-E-COMMAND-BUS-MIGRATION.md §P2f
 
 import type {
   CommandHandler,

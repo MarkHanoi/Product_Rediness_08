@@ -4,7 +4,7 @@
 //   • PHASE-2D-Q4-M22-M24-SYNC-AWARENESS-BETA.md §S43 D7 — `authz.can`
 //     gate on every gateway route.
 //   • PHASE-2-CLOSE-IMPLEMENTATION-PLAN-2026-04-28.md §W-03.
-//   • docs/architecture/adr/0040-authz-middleware-sync-server.md.
+//   • docs/02-decisions/adrs/0040-authz-middleware-sync-server.md.
 //
 // PURPOSE
 // ─────────────────────────────────────────────────────────────────────────────

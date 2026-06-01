@@ -18,7 +18,7 @@
  *  - No @thatopen/* imports.
  *  - No semantic state mutations.
  *
- * Colour palette (docs/00_Contracts/05-BIM-UI-ARCHITECTURE-CONTRACT.md):
+ * Colour palette (docs/02-decisions/contracts/05-BIM-UI-ARCHITECTURE-CONTRACT.md):
  *  - --app-violet-1 (#8B5CF6): soft violet  — lighter brand stop.
  *  - --app-violet-3 (#6600FF): electric violet — deeper brand stop.
  */

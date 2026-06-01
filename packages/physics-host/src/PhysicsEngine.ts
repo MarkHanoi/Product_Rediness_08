@@ -19,7 +19,7 @@
 // dep factoring: `ConstraintEngine`, `SemanticGraph`, `DecisionRecordStore`,
 // `PhysicsPanel`, and `PhysicsOverlayRenderer` cannot move into
 // `@pryzm/physics-host` without inverting the layer rule.  Relocation is
-// Wave 4 work.  See `docs/03_PRYZM3/04-PLAN-FORWARD/03-WAVE-2-3-D4-EXECUTION.md §2`.
+// Wave 4 work.  See `docs/archive/pryzm3-internal/04-PLAN-FORWARD/03-WAVE-2-3-D4-EXECUTION.md §2`.
 //
 // ─────────────────────────────────────────────────────────────────────────────
 

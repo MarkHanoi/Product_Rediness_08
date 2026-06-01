@@ -8,16 +8,16 @@ const ROOT = resolve(process.cwd());
 
 const SKIP_FILES = new Set([
   'replit.md',
-  'docs/03_PRYZM3/03-CURRENT-STATE.md',
-  'docs/03_PRYZM3/04-PLAN-FORWARD/02-WAVE-1-TRIPWIRES.md',
-  'docs/03_PRYZM3/04-PLAN-FORWARD/10-VERIFIERS-CATALOG.md',
-  'docs/03_PRYZM3/04-PLAN-FORWARD/11-PACKAGE-POPULATION-GAP.md',
+  'docs/archive/pryzm3-internal/03-CURRENT-STATE.md',
+  'docs/archive/pryzm3-internal/04-PLAN-FORWARD/02-WAVE-1-TRIPWIRES.md',
+  'docs/archive/pryzm3-internal/04-PLAN-FORWARD/10-VERIFIERS-CATALOG.md',
+  'docs/archive/pryzm3-internal/04-PLAN-FORWARD/11-PACKAGE-POPULATION-GAP.md',
   'scripts/codemod-restructure-2026-04-30.mjs',
   'scripts/check-no-stale-paths.sh',
 ]);
 
 const SKIP_DIRS = [
-  'docs/03_PRYZM3/archive/',
+  'docs/archive/pryzm3-internal/archive/',
   'node_modules/',
   '.git/',
   'dist/',

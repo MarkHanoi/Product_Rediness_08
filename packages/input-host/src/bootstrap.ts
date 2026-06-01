@@ -1,7 +1,7 @@
 // bootstrap — D.4.4 input-host bootstrap surface.
 //
 // Anchored to:
-//   * `docs/03_PRYZM3/04-PLAN-FORWARD/03-WAVE-2-3-D4-EXECUTION.md §2`
+//   * `docs/archive/pryzm3-internal/04-PLAN-FORWARD/03-WAVE-2-3-D4-EXECUTION.md §2`
 //     Days 5-7 — "Move lines 1011-1260 (keyboard + pointer + selection
 //     wiring) into bootstrapInput()."  Per the Option A precedent
 //     established by D.4.1-D.4.3: the engine-layer body lives in

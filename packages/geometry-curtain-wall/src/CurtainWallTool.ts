@@ -674,7 +674,7 @@ export class CurtainWallTool {
         // sensible thickness for the ghost so it reads as a panel rather
         // than a full wall (still > 0 so the body lights up the
         // presence-alpha threshold — see Contract §41,
-        // docs/00_Contracts/41-ELEMENT-PREVIEW-VISUAL-CONTRACT.md).
+        // docs/02-decisions/contracts/41-ELEMENT-PREVIEW-VISUAL-CONTRACT.md).
         const thickness = Math.max(this._predrawConfig.mullionSize, 0.02);
 
         // Footprint line on the floor — visible even when the body is occluded.

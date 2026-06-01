@@ -11,7 +11,7 @@
 // TODO(F-2): replace with pure Immer batch once CreateSlabsOnAllFloorsCommand
 // is decomposed into atomic slab.create dispatches per floor level.
 //
-// Anchor: docs/03_PRYZM3/PRYZM3-FULL-AUDIT-2026-05-14.md §F-1.3
+// Anchor: docs/archive/pryzm3-internal/PRYZM3-FULL-AUDIT-2026-05-14.md §F-1.3
 
 import {
   withHandlerSpan,

@@ -125,7 +125,7 @@ export {
 export { buildPickingSlot, type PickerDelegate } from './buildPickingSlot.js';
 
 // S03: CommandEventBridge — wires CommandBus.patches → runtime.events.
-// Spec: docs/03_PRYZM3/04-PLAN-FORWARD/34-HANDLER-PROTOCOL-GAP-ANALYSIS.md §3
+// Spec: docs/archive/pryzm3-internal/04-PLAN-FORWARD/34-HANDLER-PROTOCOL-GAP-ANALYSIS.md §3
 export { wireCommandEventBridge } from './CommandEventBridge.js';
 
 // Task 5.2 — ProjectLifecycleController (C13 project-isolation teardown).

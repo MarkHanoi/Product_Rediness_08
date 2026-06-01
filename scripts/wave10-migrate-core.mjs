@@ -11,7 +11,7 @@
  *   node scripts/wave10-migrate-core.mjs          # live run
  *   node scripts/wave10-migrate-core.mjs --dry    # dry run (no writes/deletes)
  *
- * @see docs/03_PRYZM3/04-PLAN-FORWARD/17-WAVES-9-12-SRC-MIGRATION.md §2
+ * @see docs/archive/pryzm3-internal/04-PLAN-FORWARD/17-WAVES-9-12-SRC-MIGRATION.md §2
  */
 
 import { readFileSync, writeFileSync, mkdirSync, cpSync, rmSync, existsSync } from 'node:fs';

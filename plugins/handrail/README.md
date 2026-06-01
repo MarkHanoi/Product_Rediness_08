@@ -1,7 +1,7 @@
 # `@pryzm/plugin-handrail`
 
 PRYZM 2 handrail element — headless half (S14).  Spec:
-`docs/03_PRYZM3/reference/phases/PHASE-1/1C-Q3-M7-M9-ELEMENT-FAMILIES.md`
+`docs/archive/pryzm3-internal/reference/phases/PHASE-1/1C-Q3-M7-M9-ELEMENT-FAMILIES.md`
 §S14.
 
 ## Layout

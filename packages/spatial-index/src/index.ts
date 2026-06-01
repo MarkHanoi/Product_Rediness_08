@@ -11,7 +11,7 @@
  * graph and query APIs consumed by initTools, AI world model adapters, and
  * property-inspector panels.
  *
- * Spec: `docs/03_PRYZM3/04-PLAN-FORWARD/15-PACKAGE-POPULATION-GAP.md §0.0.5`
+ * Spec: `docs/archive/pryzm3-internal/04-PLAN-FORWARD/15-PACKAGE-POPULATION-GAP.md §0.0.5`
  *   row `src/spatial | 1,738 LOC | NEW packages/spatial-index/ | 8 + 11`
  * Layer: L2/L3 — spatial geometry and store-query services; no DOM, no React.
  *

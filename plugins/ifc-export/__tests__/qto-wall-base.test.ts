@@ -2,7 +2,7 @@
  * `Qto_WallBaseQuantities` writer tests — IFC-α-5 (2026-06-01).
  *
  * Covers `plugins/ifc-export/src/exporters/qto-wall-base.ts` per
- * [C25-IFC-EXPORT-PRODUCTION §3](../../../docs/00_Contracts/C25-IFC-EXPORT-PRODUCTION.md)
+ * [C25-IFC-EXPORT-PRODUCTION §3](../../../docs/02-decisions/contracts/C25-IFC-EXPORT-PRODUCTION.md)
  * + master plan IFC-α-5.
  *
  * Strategy: same as `pset-wall-common.test.ts` — mock the webifc-helpers,

@@ -1,15 +1,15 @@
 // PersistenceBootstrap — D.4.2 single composition root for persistence-half wiring.
 //
 // Anchored to:
-//   * `docs/03_PRYZM3/02-ARCHITECTURE.md §3` (composition-root contract:
+//   * `docs/archive/pryzm3-internal/02-ARCHITECTURE.md §3` (composition-root contract:
 //     every bootstrap surface emits one OTel span, accepts an audit, returns
 //     a typed slot + tearDown).
-//   * `docs/03_PRYZM3/01-VISION.md §2` P5 (single persistence wire — the
+//   * `docs/archive/pryzm3-internal/01-VISION.md §2` P5 (single persistence wire — the
 //     lazy loader injected here is the only path through which engine-layer
 //     persistence wiring reaches the runtime) and P8 (every architectural
 //     boundary surfaces an OTel span — `pryzm.bootstrap.persistence` is the
 //     one for this boundary).
-//   * `docs/03_PRYZM3/04-PLAN-FORWARD/03-WAVE-2-3-D4-EXECUTION.md §1`
+//   * `docs/archive/pryzm3-internal/04-PLAN-FORWARD/03-WAVE-2-3-D4-EXECUTION.md §1`
 //     Day-7 STATUS row 2026-04-30 night — Option A precedent applies (same
 //     pattern as D.4.1 Day-2 SceneBootstrap.ts):
 //       "Skeleton-only L0 surface + typed contract + OTel span; the 261 LOC

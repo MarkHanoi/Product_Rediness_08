@@ -6,7 +6,7 @@
  *   `PryzmRuntime | null` now that `@pryzm/runtime-composer` is a declared
  *   dependency of this package.
  * Concrete implementation: `apps/editor/src/ui/dataworkbench/DataWorkbench.ts`
- * Reference: docs/03_PRYZM3/04-PLAN-FORWARD/51-POST-EXTRACTION-ROADMAP.md §Phase F-2
+ * Reference: docs/archive/pryzm3-internal/04-PLAN-FORWARD/51-POST-EXTRACTION-ROADMAP.md §Phase F-2
  *
  * ## Purpose
  * This interface narrows the `dataWorkbench: unknown` field in `IEngineContext`

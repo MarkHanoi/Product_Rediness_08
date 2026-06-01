@@ -5,7 +5,7 @@
  * Pset_SpaceCommon attached. The space is a spatial-element, not a building
  * product — per IFC4X3, IfcSpace inherits from IfcSpatialStructureElement.
  *
- * Per [C25-IFC-EXPORT-PRODUCTION §1.3](../../../docs/00_Contracts/C25-IFC-EXPORT-PRODUCTION.md)
+ * Per [C25-IFC-EXPORT-PRODUCTION §1.3](../../../docs/02-decisions/contracts/C25-IFC-EXPORT-PRODUCTION.md)
  * + master plan IFC-α-2 §7.2.
  *
  * Architectural notes:

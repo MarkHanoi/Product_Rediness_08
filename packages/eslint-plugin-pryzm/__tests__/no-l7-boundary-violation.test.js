@@ -1,7 +1,7 @@
 /**
  * Tests for pryzm/no-l7-boundary-violation.
  *
- * Anchor: docs/03_PRYZM3/04-PLAN-FORWARD/08-WAVE-4-SLOT-TYPING-ROUTING.md §3 PR 4.B.3
+ * Anchor: docs/archive/pryzm3-internal/04-PLAN-FORWARD/08-WAVE-4-SLOT-TYPING-ROUTING.md §3 PR 4.B.3
  *
  * Uses ESLint's Linter class directly (same pattern as rules.test.ts) to avoid
  * RuleTester flat-config incompatibility in a bare Node.js runner.

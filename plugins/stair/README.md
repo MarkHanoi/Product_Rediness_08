@@ -1,7 +1,7 @@
 # `@pryzm/plugin-stair`
 
 PRYZM 2 stair element — headless half (S14).  Source-of-truth spec:
-`docs/03_PRYZM3/reference/phases/PHASE-1/1C-Q3-M7-M9-ELEMENT-FAMILIES.md`
+`docs/archive/pryzm3-internal/reference/phases/PHASE-1/1C-Q3-M7-M9-ELEMENT-FAMILIES.md`
 §S14.
 
 ## Layout

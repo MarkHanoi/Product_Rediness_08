@@ -1,6 +1,6 @@
 // @pryzm/plugin-sdk — tracing helpers for CommandBus handlers.
 //
-// Spec: docs/03_PRYZM3/04-PLAN-FORWARD/34-HANDLER-PROTOCOL-GAP-ANALYSIS.md §5
+// Spec: docs/archive/pryzm3-internal/04-PLAN-FORWARD/34-HANDLER-PROTOCOL-GAP-ANALYSIS.md §5
 //       C10 §2 ("Every new exported function MUST add ≥ 1 OTel span").
 //       ADR-002 §2 (L7 plugins import ONLY from @pryzm/plugin-sdk — no direct
 //       @opentelemetry/api imports allowed in plugin handler files).

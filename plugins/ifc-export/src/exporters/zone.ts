@@ -6,7 +6,7 @@
  * each apartment becomes one `IfcZone` whose members are the rooms
  * (IfcSpaces) belonging to that apartment, linked via `IfcRelAssignsToGroup`.
  *
- * Per [C25-IFC-EXPORT-PRODUCTION §1.3](../../../docs/00_Contracts/C25-IFC-EXPORT-PRODUCTION.md)
+ * Per [C25-IFC-EXPORT-PRODUCTION §1.3](../../../docs/02-decisions/contracts/C25-IFC-EXPORT-PRODUCTION.md)
  * + master plan IFC-α-3 §7.3.
  *
  * Architectural notes:

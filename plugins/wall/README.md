@@ -117,6 +117,6 @@ window.addEventListener('keydown', (e) => tool.onKeyDown(e));
 
 PRYZM 2's wall plugin is built side-by-side with PRYZM 1's
 `src/elements/walls/**` and `src/commands/walls/**`.  Per
-`docs/03_PRYZM3/reference/phases/PHASE-1/1B-Q2-M4-M6-WALL-END-TO-END.md`
+`docs/archive/pryzm3-internal/reference/phases/PHASE-1/1B-Q2-M4-M6-WALL-END-TO-END.md`
 §K1B-4, those legacy directories are READ-ONLY for the duration of
 1B — every behaviour change lands here.

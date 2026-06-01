@@ -155,8 +155,8 @@ degraded-mode notice for that plugin.
 
 ## Reference
 
-- Spec: [`phases/PHASE-3C-Q3-M31-M33-PLUGIN-SDK-MARKETPLACE-APIS.md`](../../docs/03_PRYZM3/reference/phases/PHASE-3/3C-Q3-M31-M33-PLUGIN-SDK-MARKETPLACE-APIS.md) §2
-- Spec (rev): [`phases/PHASE-3C-Q3-M31-M33-SDK-MARKETPLACE-PUBLIC-API.md`](../../docs/03_PRYZM3/reference/phases/PHASE-3/3C-Q3-M31-M33-SDK-MARKETPLACE-PUBLIC-API.md) §S62
+- Spec: [`phases/PHASE-3C-Q3-M31-M33-PLUGIN-SDK-MARKETPLACE-APIS.md`](../../docs/archive/pryzm3-internal/reference/phases/PHASE-3/3C-Q3-M31-M33-PLUGIN-SDK-MARKETPLACE-APIS.md) §2
+- Spec (rev): [`phases/PHASE-3C-Q3-M31-M33-SDK-MARKETPLACE-PUBLIC-API.md`](../../docs/archive/pryzm3-internal/reference/phases/PHASE-3/3C-Q3-M31-M33-SDK-MARKETPLACE-PUBLIC-API.md) §S62
 - Schema lock: [ADR-0038](../../docs/architecture/adr/0038-s62-plugin-sdk-descriptor-schema-lock.md)
 - Examples: `examples/hello-plugin/`, `examples/format-plugin/`, `examples/ai-workflow-plugin/`
 

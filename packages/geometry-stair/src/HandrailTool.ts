@@ -209,7 +209,7 @@ export class HandrailTool {
         if (this.previewLine) this.world.scene.three.add(this.previewLine);
 
         // Translucent 3D ghost body — same convention as Wall / CurtainWall
-        // (see Contract §41, docs/00_Contracts/41-ELEMENT-PREVIEW-VISUAL-CONTRACT.md).
+        // (see Contract §41, docs/02-decisions/contracts/41-ELEMENT-PREVIEW-VISUAL-CONTRACT.md).
         this.previewBody = createGhostBoxBetween(start, end, elevation, {
             color:     PREVIEW_COLOR.PRIMARY,
             length,

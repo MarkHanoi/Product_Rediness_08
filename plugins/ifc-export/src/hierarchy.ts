@@ -56,9 +56,9 @@ export interface SiteAddressInput {
 
 /**
  * Geospatial site description — populates `IfcSite` per
- * [C25 §1.4](../../../docs/00_Contracts/C25-IFC-EXPORT-PRODUCTION.md) and
+ * [C25 §1.4](../../../docs/02-decisions/contracts/C25-IFC-EXPORT-PRODUCTION.md) and
  * cross-links to the LTP-ENU contract in
- * [C12 §3](../../../docs/00_Contracts/C12-GEOSPATIAL.md).
+ * [C12 §3](../../../docs/02-decisions/contracts/C12-GEOSPATIAL.md).
  *
  * When this is provided to `buildHierarchy`, the exporter sets:
  *   - `RefLatitude`  ← `decimalToDegMinSecArray(latitudeDeg)`
@@ -254,7 +254,7 @@ export function buildHierarchy(
   /**
    * Optional geospatial site description. When present, populates
    * `IfcSite.RefLatitude/RefLongitude/RefElevation/LandTitleNumber/SiteAddress`
-   * per [C25 §1.4](../../../docs/00_Contracts/C25-IFC-EXPORT-PRODUCTION.md).
+   * per [C25 §1.4](../../../docs/02-decisions/contracts/C25-IFC-EXPORT-PRODUCTION.md).
    * When absent, the IfcSite uses project-origin defaults (all attrs null)
    * and a debug log is emitted.
    */

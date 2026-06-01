@@ -8,7 +8,7 @@
 //
 // `@opentelemetry/api` is a no-op until a TracerProvider is installed;
 // the production wiring (Honeycomb / Tempo) lands when CI moves to a
-// native GitHub org per `docs/architecture/ci.md`.
+// native GitHub org per `docs/04-reference/architecture-detail/ci.md`.
 
 import { trace, SpanStatusCode, type Span, type Attributes } from '@opentelemetry/api';
 

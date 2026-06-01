@@ -203,7 +203,7 @@ export interface RuntimeEvents {
   'workspace.modeChanged': { mode: WorkspaceMode; previous: WorkspaceMode };
 
   // ── Wave 6 panel-binding events ───────────────────────────────────────────
-  // Docs: docs/03_PRYZM3/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §2
+  // Docs: docs/archive/pryzm3-internal/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §2
   // OTel: pryzm.ui.panel.activate / pryzm.ui.panel.deactivate  (P8)
 
   /** Emitted by `ViewRegistrySlot.activatePanel()` on every successful
@@ -222,7 +222,7 @@ export interface RuntimeEvents {
   'workspace.surfaceChanged': { mode: WorkspaceSurfaceKind };
 
   // ── S03: CommandEventBridge — typed domain-event relay ───────────────────
-  // Spec: docs/03_PRYZM3/04-PLAN-FORWARD/34-HANDLER-PROTOCOL-GAP-ANALYSIS.md §3
+  // Spec: docs/archive/pryzm3-internal/04-PLAN-FORWARD/34-HANDLER-PROTOCOL-GAP-ANALYSIS.md §3
   // Emitted by CommandEventBridge after EVERY successful CommandBus dispatch.
   // Replaces ad-hoc window.dispatchEvent(new CustomEvent(...)) calls in the
   // migration bridge layer (Phase E.5.x+).
@@ -253,7 +253,7 @@ export interface RuntimeEvents {
   // boundary clean — plugins subscribe via runtime.events (passed as a
   // typed interface) without importing @pryzm/runtime-composer directly.
   //
-  // Spec: docs/03_PRYZM3/04-PLAN-FORWARD/34-HANDLER-PROTOCOL-GAP-ANALYSIS.md §5.1
+  // Spec: docs/archive/pryzm3-internal/04-PLAN-FORWARD/34-HANDLER-PROTOCOL-GAP-ANALYSIS.md §5.1
   //       C11 §5.2 ("handler MUST emit a typed domain event after mutation")
 
   /** Fired after `wall.create` or `wall.batch.create` succeeds.
@@ -284,7 +284,7 @@ export interface RuntimeEvents {
   // `levelId` is '' when the handler does not carry a levelId in its payload
   // (S07 allowance).  `elementCount` is present on batch-capable families.
   //
-  // Spec: docs/03_PRYZM3/04-PLAN-FORWARD/34-HANDLER-PROTOCOL-GAP-ANALYSIS.md §3
+  // Spec: docs/archive/pryzm3-internal/04-PLAN-FORWARD/34-HANDLER-PROTOCOL-GAP-ANALYSIS.md §3
   //       C11 §5.2 ("handler MUST emit a typed domain event after mutation")
 
   /** Fired after `wall.opening.create` or `wall.createOpening` succeeds (§P2.3).
@@ -637,7 +637,7 @@ export interface RuntimeEvents {
   // TASK-12 tagged CustomEvent dispatches in apps/editor/src/engine/*.
   // These entries are the foundation for F.events.2a migration waves that
   // replace DOM-level CustomEvent dispatches with runtime.events.emit().
-  // Spec: docs/03_PRYZM3/04-PLAN-FORWARD/54-COMPLETE-LEGACY-ELIMINATION-PLAN.md §5
+  // Spec: docs/archive/pryzm3-internal/04-PLAN-FORWARD/54-COMPLETE-LEGACY-ELIMINATION-PLAN.md §5
   // Trajectory: 297 apps-tier sites → 0 via F.events.2a–2c migration waves.
 
   // ── Collaboration presence (TASK-15 / initCollaboration.ts) ──────────────
@@ -2883,7 +2883,7 @@ export interface ViewRegistrySlot {
   subscribe(listener: (viewId: string | null) => void): Disposable;
 
   // ── Wave 6 panel-binding API ─────────────────────────────────────────────
-  // Docs: docs/03_PRYZM3/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §2
+  // Docs: docs/archive/pryzm3-internal/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §2
   //
   // "Real binding" means every panel calls activatePanel() on mount and
   // deactivatePanel() on unmount, so the runtime always has an accurate
@@ -2921,7 +2921,7 @@ export interface ViewRegistrySlot {
 //                Phase 1A — physics-host slot (Wave-8-D2)
 // ---------------------------------------------------------------------------
 //
-// Spec: `docs/03_PRYZM3/reference/phases/PHASE-1/1A-SKELETON-RAILS.md`
+// Spec: `docs/archive/pryzm3-internal/reference/phases/PHASE-1/1A-SKELETON-RAILS.md`
 // renderer-track row "physics-host package + composeRuntime slot".
 //
 // The host owns the broad-phase spatial query backend (raycast / AABB /
@@ -2981,7 +2981,7 @@ export interface PhysicsHostSlot {
 //                Phase 1A — input-host slot (Wave-8-D3)
 // ---------------------------------------------------------------------------
 //
-// Spec: `docs/03_PRYZM3/reference/phases/PHASE-1/1A-SKELETON-RAILS.md`
+// Spec: `docs/archive/pryzm3-internal/reference/phases/PHASE-1/1A-SKELETON-RAILS.md`
 // renderer-track row "input-host package + composeRuntime slot".
 //
 // The host owns the canonical pointer / wheel / keyboard event source.

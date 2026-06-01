@@ -3,8 +3,8 @@
 BCF (BIM Collaboration Format) **3.0** read + write for PRYZM 2.
 
 > Phase 3-B Sprint **S59** — Solibri / BIM Track parity surface.
-> Spec: `docs/03_PRYZM3/reference/phases/PHASE-3/3B-Q2-M28-M30-IFC-REVIT-COMPONENT-EDITOR.md` §5
-> and `docs/03_PRYZM3/reference/phases/PHASE-3/3B-Q2-M28-M30-PLUGINS-IFC-DXF-RHINO.md` §S57 (initial) + §S59 (high-fidelity).
+> Spec: `docs/archive/pryzm3-internal/reference/phases/PHASE-3/3B-Q2-M28-M30-IFC-REVIT-COMPONENT-EDITOR.md` §5
+> and `docs/archive/pryzm3-internal/reference/phases/PHASE-3/3B-Q2-M28-M30-PLUGINS-IFC-DXF-RHINO.md` §S57 (initial) + §S59 (high-fidelity).
 
 The plugin is intentionally framework-free — no DOM, no THREE, no React — so
 it loads in the bake-worker, the server-side BCF importer, and the editor

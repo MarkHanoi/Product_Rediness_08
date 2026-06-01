@@ -1,7 +1,7 @@
 // ToolBindings — D.4.4 typed contract for tool registration wiring.
 //
 // Anchored to:
-//   * `docs/03_PRYZM3/04-PLAN-FORWARD/03-WAVE-2-3-D4-EXECUTION.md §2`
+//   * `docs/archive/pryzm3-internal/04-PLAN-FORWARD/03-WAVE-2-3-D4-EXECUTION.md §2`
 //     Day-6 — "Move the 20 `runtime.tools.register(...)` calls from
 //     `src/ui/Layout.ts` into `packages/input-host/src/ToolBindings.ts`."
 //     Per Option A: the implementation body lives in

@@ -11,7 +11,7 @@
 // L1 stores subscribe to PatchEmitter; L7 plugins call CommandBus.
 //
 // Per ADR-002 (this sprint) and ADR-006 (idle budget) — see
-// `docs/architecture/adr/`.
+// `docs/02-decisions/adrs/`.
 
 import { enablePatches } from 'immer';
 

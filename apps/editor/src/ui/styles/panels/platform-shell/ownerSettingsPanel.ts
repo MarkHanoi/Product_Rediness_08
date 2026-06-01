@@ -256,7 +256,7 @@ export const OSP_STYLES = `
 
     /* ─────────────────────────────────────────────────────────────────── */
     /* MOB-001-SC  Main 3D Scene Mobile Responsiveness                     */
-    /* Contract: docs/mobile/MOBILE_CONTRACT.md §2.3, §6                  */
+    /* Contract: docs/05-guides/mobile/MOBILE_CONTRACT.md §2.3, §6                  */
     /* ─────────────────────────────────────────────────────────────────── */
 
     /* ─────────────────────────── @media ≤768px ─────────────────────────── */

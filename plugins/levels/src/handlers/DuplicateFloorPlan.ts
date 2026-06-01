@@ -9,7 +9,7 @@
 // TODO(F-2): replace with a pure Immer handler once DuplicateFloorPlanCommand is
 // decomposed into atomic wall/slab/column/furniture copy dispatches.
 //
-// Anchor: docs/03_PRYZM3/PRYZM3-FULL-AUDIT-2026-05-14.md §F-1.3
+// Anchor: docs/archive/pryzm3-internal/PRYZM3-FULL-AUDIT-2026-05-14.md §F-1.3
 
 import {
   withHandlerSpan,

@@ -3,8 +3,8 @@
  *
  * Layer Affected:    Data Platform — Template System
  * File:             src/core/templates/TemplateStore.ts
- * Contract:         docs/00_Contracts/01-BIM-ENGINE-CORE-CONTRACT.md §3.8
- *                   docs/00_Contracts/03-BIM-SEMANTIC-MODEL-CONTRACT.md
+ * Contract:         docs/02-decisions/contracts/01-BIM-ENGINE-CORE-CONTRACT.md §3.8
+ *                   docs/02-decisions/contracts/03-BIM-SEMANTIC-MODEL-CONTRACT.md
  *
  * Immutable-record store for TemplateDefinition objects.
  * Pattern mirrors HierarchyStore.ts — frozen records, structuredClone on all

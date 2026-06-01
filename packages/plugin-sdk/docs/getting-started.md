@@ -142,7 +142,7 @@ npx pryzm dev \
 `pryzm dev` watches your source tree, runs the build command on each
 change, validates the manifest, and prints the iframe srcdoc that the
 PRYZM editor would mount.  The hot-reload loop targets < 500 ms per
-[phase-doc-1 line 1248](../../docs/03_PRYZM3/reference/phases/PHASE-3/3C-Q3-M31-M33-PLUGIN-SDK-MARKETPLACE-APIS.md).
+[phase-doc-1 line 1248](../../docs/archive/pryzm3-internal/reference/phases/PHASE-3/3C-Q3-M31-M33-PLUGIN-SDK-MARKETPLACE-APIS.md).
 
 ## Step 6 — sign + publish (preview)
 

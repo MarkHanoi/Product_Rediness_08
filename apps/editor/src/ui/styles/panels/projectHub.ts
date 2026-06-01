@@ -882,7 +882,7 @@ export const PROJECT_HUB_STYLES = `
 
     /* ─────────────────────────────────────────────────────────────────── */
     /* MOB-001-PH  Mobile Responsiveness                                   */
-    /* Contract: docs/mobile/MOBILE_CONTRACT.md §2.3                       */
+    /* Contract: docs/05-guides/mobile/MOBILE_CONTRACT.md §2.3                       */
     /* ─────────────────────────────────────────────────────────────────── */
 
     /* ── Mobile top bar (hidden on desktop) ────────────────────────────── */

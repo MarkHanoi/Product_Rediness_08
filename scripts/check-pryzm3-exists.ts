@@ -69,7 +69,7 @@ const results: CheckResult[] = [
     // the full migration landed earlier than planned via Waves 10–11 + the
     // apps/editor/src/ extraction.  The deferred user decision about keeping
     // src/ui/ + src/engine/ was superseded by the actual migration completing.
-    // Anchor: docs/03_PRYZM3/03-CURRENT-STATE.md §8 boolean #1 — Phase E.5.x.
+    // Anchor: docs/archive/pryzm3-internal/03-CURRENT-STATE.md §8 boolean #1 — Phase E.5.x.
     label: 'legacy_src_folders == 0  (root src/ is a thin entry-point — all code in apps/editor/src/)',
     ok: srcFolderCount() === 0,
     note: (() => {

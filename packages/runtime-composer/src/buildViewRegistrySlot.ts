@@ -73,7 +73,7 @@ export function buildViewRegistrySlot(
   // ── Wave 6 panel-binding state ─────────────────────────────────────────────
   // Tracks the set of currently-active panel IDs.  Re-created (not mutated)
   // on every change so subscribers always receive a stable snapshot.
-  // Docs: docs/03_PRYZM3/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §2
+  // Docs: docs/archive/pryzm3-internal/04-PLAN-FORWARD/10-WAVE-6-CONVERGENCE.md §2
   let activePanelIds: ReadonlySet<string> = new Set();
   const panelSubs = new Set<(ids: ReadonlySet<string>) => void>();
 

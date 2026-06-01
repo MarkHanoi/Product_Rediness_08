@@ -1,6 +1,6 @@
 // @pryzm/physics-host — PHASE-1A skeleton + D.4.3 bootstrap surface.
 //
-// Spec: `docs/03_PRYZM3/reference/phases/PHASE-1/1A-SKELETON-RAILS.md` —
+// Spec: `docs/archive/pryzm3-internal/reference/phases/PHASE-1/1A-SKELETON-RAILS.md` —
 // the renderer-track row "physics-host package + composeRuntime slot".
 //
 // D.4.3 adds:

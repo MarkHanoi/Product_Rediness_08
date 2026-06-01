@@ -36,8 +36,8 @@
  *       line in `src/main.ts` per phase.
  *
  *   Spec: SPEC-27 §3.2 customer-comms cadence.
- *   ADR : docs/architecture/adr/0031-s61-staged-legacy-deletion.md;
- *         relocation: docs/architecture/adr/0052-s70-…-lifecycle-deletion.md §B.7.
+ *   ADR : docs/02-decisions/adrs/0031-s61-staged-legacy-deletion.md;
+ *         relocation: docs/02-decisions/adrs/0052-s70-…-lifecycle-deletion.md §B.7.
  *
  *   Pure DOM — no React, no MUI — so it survives a degraded boot.  The
  *   banner injects no scripts, no styles into <head> (only inline style

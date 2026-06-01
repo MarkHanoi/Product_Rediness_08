@@ -1,6 +1,6 @@
 // @pryzm/input-host — PHASE-1A skeleton, Wave-8-D3 deliverable.
 //
-// Spec: `docs/03_PRYZM3/reference/phases/PHASE-1/1A-SKELETON-RAILS.md` —
+// Spec: `docs/archive/pryzm3-internal/reference/phases/PHASE-1/1A-SKELETON-RAILS.md` —
 // the renderer-track row "input-host package + composeRuntime slot".
 //
 // PURPOSE

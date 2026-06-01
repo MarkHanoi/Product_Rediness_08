@@ -56,7 +56,7 @@
  *   Contract 25a §8.1          — Migration spec (extended for view seed)
  *   §01 §2.1                   — Store mutations are migration-API-only at load
  *
- * Implementation source: docs/Analysis/MASTER-IMPLEMENTATION-PLAN.md §4 (Wave 1 / P0).
+ * Implementation source: docs/03-execution/status/intent-analysis/MASTER-IMPLEMENTATION-PLAN.md §4 (Wave 1 / P0).
  */
 
 import { visibilityIntentStore } from '@pryzm/core-app-model/presentation';

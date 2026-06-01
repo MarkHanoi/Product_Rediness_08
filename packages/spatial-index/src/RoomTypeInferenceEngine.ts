@@ -10,9 +10,9 @@
  *
  * Contract:
  *   docs/01_ELEMENTS/09_Rooms_Contract/18-BIM30-ROOM-INTELLIGENCE-ANALYSIS.md §2.6
- *   docs/00_Contracts/01-BIM-ENGINE-CORE-CONTRACT.md §1
- *   docs/00_Contracts/03-BIM-SEMANTIC-MODEL-CONTRACT.md §1 (no `any` in public API)
- *   docs/00_Contracts/05-BIM-UI-ARCHITECTURE-CONTRACT.md §1 (read-only, no store writes)
+ *   docs/02-decisions/contracts/01-BIM-ENGINE-CORE-CONTRACT.md §1
+ *   docs/02-decisions/contracts/03-BIM-SEMANTIC-MODEL-CONTRACT.md §1 (no `any` in public API)
+ *   docs/02-decisions/contracts/05-BIM-UI-ARCHITECTURE-CONTRACT.md §1 (read-only, no store writes)
  *
  * PURPOSE:
  *   Rule-based room type inference from contained elements, area, and geometry.

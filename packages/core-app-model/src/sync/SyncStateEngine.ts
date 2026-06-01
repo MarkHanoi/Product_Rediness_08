@@ -3,7 +3,7 @@
  *
  * Layer Affected:    Data Platform — SyncStateEngine (Phase 5 — FULL IMPLEMENTATION)
  * File:             src/core/sync/SyncStateEngine.ts
- * Contract:         docs/00_Contracts/01-BIM-ENGINE-CORE-CONTRACT.md §3.8
+ * Contract:         docs/02-decisions/contracts/01-BIM-ENGINE-CORE-CONTRACT.md §3.8
  *                   docs/00_PRZYM/PRYZM_DATA_PLATFORM_IMPLEMENTATION_ROADMAP.md § PHASE 5
  *
  * Anti-infinite-loop design:

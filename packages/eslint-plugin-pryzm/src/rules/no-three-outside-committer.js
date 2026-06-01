@@ -87,7 +87,7 @@ const rule = {
         'packages/renderer-three/.  All consumers must import from ' +
         '"@pryzm/renderer-three" (barrel) or "@pryzm/renderer-three/three" ' +
         '(THREE namespace sub-path).  See ADR-005 and ' +
-        'docs/03_PRYZM3/04-PLAN-FORWARD/11-WAVE-7-CLEANUP-PHASE-F.md §11.',
+        'docs/archive/pryzm3-internal/04-PLAN-FORWARD/11-WAVE-7-CLEANUP-PHASE-F.md §11.',
       category: 'Architecture',
     },
     schema: [],

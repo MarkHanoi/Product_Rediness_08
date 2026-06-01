@@ -8,7 +8,7 @@
  *
  * Contract:
  *   docs/00_PRZYM/PRYZM_WORLD_MODEL_MASTER_PLAN_2026.md § G-4
- *   docs/00_Contracts/05-BIM-UI-ARCHITECTURE-CONTRACT.md — no BIM engine imports
+ *   docs/02-decisions/contracts/05-BIM-UI-ARCHITECTURE-CONTRACT.md — no BIM engine imports
  *
  * Impact Assessment:
  *   Store Reads:      YES — reads DecisionRecordStore, TemporalGraph, ConstraintEngine

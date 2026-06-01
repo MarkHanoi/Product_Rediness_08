@@ -7,7 +7,7 @@
  *   which is now the canonical home for IViewController after the F-2.5
  *   migration broke the circular dep that previously blocked this narrowing).
  * Concrete implementation: `apps/editor/src/engine/initUI.ts`
- * Reference: docs/03_PRYZM3/04-PLAN-FORWARD/51-POST-EXTRACTION-ROADMAP.md §Phase F-2
+ * Reference: docs/archive/pryzm3-internal/04-PLAN-FORWARD/51-POST-EXTRACTION-ROADMAP.md §Phase F-2
  *
  * ## Purpose
  * `initUI` is a 2,900-LOC god-file that mounts the main DOM layout, wires IFC
