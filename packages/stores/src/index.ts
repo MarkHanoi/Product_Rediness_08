@@ -77,10 +77,11 @@ export {
 //
 //   A.7.c.1 MVS:        siteCreate / siteUpdateLocation / siteSetParcelBoundary
 //   A.7.c.2:            siteUpdateZoning / siteSetFootprint / siteClearFootprint
-//   A.7.c.3 (this):     siteAddContextBuilding / siteRemoveContextBuilding /
+//   A.7.c.3:            siteAddContextBuilding / siteRemoveContextBuilding /
 //                       siteReplaceContextBuilding
-//   A.7.c.4+ planned:   resync · climate/building link · whole-site replace ·
-//                       cascade-delete
+//   A.7.c.5 (this):     siteLinkClimate / siteLinkBuilding / siteReplace /
+//                       siteDelete (whole-Site lifecycle + cross-element links)
+//   A.7.c.4 deferred:   siteResyncContextBuildings (async ingest, needs L5)
 export {
     siteCreate,
     siteUpdateLocation,
@@ -91,6 +92,10 @@ export {
     siteAddContextBuilding,
     siteRemoveContextBuilding,
     siteReplaceContextBuilding,
+    siteLinkClimate,
+    siteLinkBuilding,
+    siteReplace,
+    siteDelete,
     deterministicSiteId,
     SiteCreatePayloadSchema,
     SiteUpdateLocationPayloadSchema,
@@ -101,6 +106,10 @@ export {
     SiteAddContextBuildingPayloadSchema,
     SiteRemoveContextBuildingPayloadSchema,
     SiteReplaceContextBuildingPayloadSchema,
+    SiteLinkClimatePayloadSchema,
+    SiteLinkBuildingPayloadSchema,
+    SiteReplacePayloadSchema,
+    SiteDeletePayloadSchema,
     type SiteCreatePayload,
     type SiteUpdateLocationPayload,
     type SiteSetParcelBoundaryPayload,
@@ -110,6 +119,10 @@ export {
     type SiteAddContextBuildingPayload,
     type SiteRemoveContextBuildingPayload,
     type SiteReplaceContextBuildingPayload,
+    type SiteLinkClimatePayload,
+    type SiteLinkBuildingPayload,
+    type SiteReplacePayload,
+    type SiteDeletePayload,
     type SiteCommandResult,
     type SiteCommandRejection,
     type SiteCommandWarnings,
@@ -122,6 +135,10 @@ export {
     type SiteContextBuildingAddedEvent,
     type SiteContextBuildingRemovedEvent,
     type SiteContextBuildingReplacedEvent,
+    type SiteClimateLinkedEvent,
+    type SiteBuildingLinkedEvent,
+    type SiteReplacedEvent,
+    type SiteDeletedEvent,
 } from './site-commands/index.js';
 // P0.5 Stage-5 wiring (Family Platform) — L0-pure-pipeline → L3-reactive-store
 // bridge.  Takes raw JSON, runs the 5-stage pure pipeline, and inserts the

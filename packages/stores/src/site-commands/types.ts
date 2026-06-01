@@ -21,6 +21,9 @@ import {
     ParcelBoundarySchema,
     BuildingFootprintSchema,
     ContextBuildingSchema,
+    ClimateRefIdSchema,
+    BuildingIdSchema,
+    ProvenanceRecordSchema,
     type SiteModel,
 } from '@pryzm/schemas';
 import type { ContainmentReport, FARReport } from '@pryzm/site-validators';
@@ -184,6 +187,90 @@ export type SiteReplaceContextBuildingPayload = z.infer<
     typeof SiteReplaceContextBuildingPayloadSchema
 >;
 
+/**
+ * `site.linkClimate` payload — per [C19 §4.1].
+ * Sets `SiteModel.climateRef` so workflows can resolve climate data
+ * via the ClimateStore (per [C21 §1.1] climate is anchored to a Site
+ * via siteRef; this is the inverse pointer on the Site element).
+ * `null` clears the link.
+ */
+export const SiteLinkClimatePayloadSchema = z.object({
+    siteId: SiteIdSchema,
+    climateRef: ClimateRefIdSchema.nullable(),
+});
+export type SiteLinkClimatePayload = z.infer<
+    typeof SiteLinkClimatePayloadSchema
+>;
+
+/**
+ * `site.linkBuilding` payload — per [C19 §4.1].
+ * Sets `SiteModel.buildingRef`. Called once at C20 Building.create time
+ * by the C20 command surface (out of scope C19; a later slice wires it).
+ */
+export const SiteLinkBuildingPayloadSchema = z.object({
+    siteId: SiteIdSchema,
+    buildingRef: BuildingIdSchema.nullable(),
+});
+export type SiteLinkBuildingPayload = z.infer<
+    typeof SiteLinkBuildingPayloadSchema
+>;
+
+/**
+ * `site.replace` payload — per [C19 §4.1] + §1.4.
+ *
+ * Complete replacement — the ONLY legitimate path to change the
+ * parcel polygon after `site.create` (the polygon is immutable
+ * per §1.4). The replacement SiteModel MUST have the same `id` and
+ * `projectId` as the current Site. Caller is responsible for
+ * preserving any state the user expects to survive (eg manual edits
+ * to setbacks / zoning).
+ *
+ * Per C19 §4.4: site.replace produces a SINGLE undo entry that
+ * snapshots the entire prior SiteModel. The undo entry actor is
+ * preserved for the C23 audit trail.
+ *
+ * Provenance: the replacement's `provenance.source` MUST be the
+ * legitimate origin of the new model (eg `'user-authored'` when the
+ * user redraws the parcel; `'ifc-import'` when a new IFC is imported).
+ */
+export const SiteReplacePayloadSchema = z.object({
+    siteId: SiteIdSchema,
+    replacement: z.object({
+        id: SiteIdSchema,
+        projectId: ProjectIdSchema,
+        name: z.string().min(1).default('Site'),
+        location: SiteLocationSchema,
+        // We do NOT re-validate the full SiteModel nested shape here —
+        // the L0 SiteModelSchema (used by siteCreate) does that on commit.
+        // Instead, the replacement is permissive at the payload level;
+        // the handler runs SiteModelSchema.parse to validate before set.
+        parcel: z.unknown(),
+        footprint: z.unknown().optional(),
+        contextBuildings: z.unknown().optional(),
+        climateRef: ClimateRefIdSchema.nullable().optional(),
+        buildingRef: BuildingIdSchema.nullable().optional(),
+        provenance: ProvenanceRecordSchema,
+    }),
+});
+export type SiteReplacePayload = z.infer<typeof SiteReplacePayloadSchema>;
+
+/**
+ * `site.delete` payload — per [C19 §4.1] + §1.1.
+ *
+ * FORBIDDEN in normal flow (§1.1 — one Site per Project). Only
+ * legitimately called from the project-delete cascade. The handler
+ * accepts a `cascadeFromProjectDelete: true` flag — without it, the
+ * command is rejected. This is the "explicit-tag" pattern that lets
+ * the command-bus enforce the cascade-only path without inspecting
+ * the call stack.
+ */
+export const SiteDeletePayloadSchema = z.object({
+    siteId: SiteIdSchema,
+    /** MUST be `true` — without it the handler refuses. */
+    cascadeFromProjectDelete: z.literal(true),
+});
+export type SiteDeletePayload = z.infer<typeof SiteDeletePayloadSchema>;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Result shapes — per the handler discriminated-union convention.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -199,6 +286,9 @@ export type SiteCommandRejection =
     | 'edge-classifications-mismatch'    // §2.7 cross-schema validation
     | 'context-building-not-found'       // §1.5 — remove/replace by id missed
     | 'context-building-duplicate-id'    // §1.5 — add would shadow an existing id
+    | 'id-mismatch'                      // §1.4 site.replace — id MUST match
+    | 'project-mismatch'                 // §1.1 site.replace — projectId MUST match
+    | 'delete-not-cascaded'              // §1.1 site.delete WITHOUT cascade flag
     | 'invalid-payload';                 // generic Zod failure shape
 
 /**
@@ -287,4 +377,31 @@ export interface SiteContextBuildingReplacedEvent {
     readonly siteId: string;
     readonly contextBuildingId: string;
     readonly replacementId: string;
+}
+
+export interface SiteClimateLinkedEvent {
+    readonly type: 'site.climate-linked';
+    readonly siteId: string;
+    readonly climateRef: string | null;
+}
+
+export interface SiteBuildingLinkedEvent {
+    readonly type: 'site.building-linked';
+    readonly siteId: string;
+    readonly buildingRef: string | null;
+}
+
+export interface SiteReplacedEvent {
+    readonly type: 'site.replaced';
+    readonly siteId: string;
+    /** Full snapshot of the prior SiteModel — supports the single
+     *  undo entry per [C19 §4.4]. */
+    readonly priorSnapshot: SiteModel;
+}
+
+export interface SiteDeletedEvent {
+    readonly type: 'site.deleted';
+    readonly siteId: string;
+    /** Full snapshot of the deleted SiteModel — supports undo. */
+    readonly priorSnapshot: SiteModel;
 }

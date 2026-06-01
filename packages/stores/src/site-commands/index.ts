@@ -19,14 +19,18 @@
 //     - siteAddContextBuilding     — §4.1 + §1.5 append; rejects duplicates
 //     - siteRemoveContextBuilding  — §4.1 by id; rejects when absent
 //     - siteReplaceContextBuilding — §4.1 atomic remove + add; preserves order
+//   A.7.c.5 (Sprint 1) — cross-element links + whole-site lifecycle:
+//     - siteLinkClimate           — §4.1 sets SiteModel.climateRef
+//     - siteLinkBuilding          — §4.1 sets SiteModel.buildingRef
+//     - siteReplace               — §4.1 + §1.4 whole-Site replacement
+//                                    (only path to change parcel polygon)
+//     - siteDelete                — §4.1 + §1.1 cascade-from-project-delete
+//                                    only (rejects without explicit flag)
 //   - types (payload schemas + event types + result + warnings shape)
 //
-// Deferred to A.7.c.4+ slices (resync · climate/building link · replace · delete):
-//   - siteResyncContextBuildings — §4.1 (async ingest from cesium/osm/msft)
-//   - siteLinkClimate            — §4.1
-//   - siteLinkBuilding           — §4.1
-//   - siteReplace                — §4.1 + §1.4 (whole-site replacement)
-//   - siteDelete                 — §4.1 + §1.1 (cascade from project.delete)
+// Deferred to A.7.c.4 slice (async ingest from external sources):
+//   - siteResyncContextBuildings — §4.1 (cesium/osm/msft footprints fetch)
+//                                  — needs the L5 networking substrate
 
 export { siteCreate, deterministicSiteId } from './siteCreate.js';
 export { siteUpdateLocation } from './siteUpdateLocation.js';
@@ -37,6 +41,10 @@ export { siteClearFootprint } from './siteClearFootprint.js';
 export { siteAddContextBuilding } from './siteAddContextBuilding.js';
 export { siteRemoveContextBuilding } from './siteRemoveContextBuilding.js';
 export { siteReplaceContextBuilding } from './siteReplaceContextBuilding.js';
+export { siteLinkClimate } from './siteLinkClimate.js';
+export { siteLinkBuilding } from './siteLinkBuilding.js';
+export { siteReplace } from './siteReplace.js';
+export { siteDelete } from './siteDelete.js';
 
 export {
     SiteCreatePayloadSchema,
@@ -48,6 +56,10 @@ export {
     SiteAddContextBuildingPayloadSchema,
     SiteRemoveContextBuildingPayloadSchema,
     SiteReplaceContextBuildingPayloadSchema,
+    SiteLinkClimatePayloadSchema,
+    SiteLinkBuildingPayloadSchema,
+    SiteReplacePayloadSchema,
+    SiteDeletePayloadSchema,
     type SiteCreatePayload,
     type SiteUpdateLocationPayload,
     type SiteSetParcelBoundaryPayload,
@@ -57,6 +69,10 @@ export {
     type SiteAddContextBuildingPayload,
     type SiteRemoveContextBuildingPayload,
     type SiteReplaceContextBuildingPayload,
+    type SiteLinkClimatePayload,
+    type SiteLinkBuildingPayload,
+    type SiteReplacePayload,
+    type SiteDeletePayload,
     type SiteCommandResult,
     type SiteCommandRejection,
     type SiteCommandWarnings,
@@ -69,4 +85,8 @@ export {
     type SiteContextBuildingAddedEvent,
     type SiteContextBuildingRemovedEvent,
     type SiteContextBuildingReplacedEvent,
+    type SiteClimateLinkedEvent,
+    type SiteBuildingLinkedEvent,
+    type SiteReplacedEvent,
+    type SiteDeletedEvent,
 } from './types.js';
