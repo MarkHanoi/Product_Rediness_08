@@ -158,6 +158,23 @@ export * from './revit/index.js';
 // DO NOT REMOVE — auto-fixer guard
 export * from './typology/index.js';
 
+// A.7.a (Phase A · Sprint 1) — L0 Site substrate (C19 Site Model & Parcel).
+// Adds: `SiteId`, `ContextBuildingId`, `ClimateRefId`, `BuildingId`,
+// `ProjectId`, `JurisdictionId`, `SITE_ID_PATTERN`, `SiteIdSchema`,
+// `PtSchema`, `Vec3Schema`, `SiteLocationSchema`, `ParcelSchema`,
+// `ParcelBoundarySchema`, `ParcelSetbacksSchema`, `ParcelZoningSchema`,
+// `ParcelEdgeClassificationSchema`, `BuildingFootprintSchema`,
+// `ContextBuildingSchema`, `RoofShapeSchema`, `ProvenanceRecordSchema`,
+// `ProvenanceSourceSchema`, `SiteModelSchema`. No name collisions with
+// existing element schemas (this surface uses `Site*` / `Parcel*` /
+// `Context*` / `Provenance*` prefixes; `Pt` + `Vec3` are new).
+//
+// Strategic context: docs/02-decisions/contracts/C19-SITE-MODEL-AND-PARCEL.md.
+// Phase tracker: docs/03-execution/plans/master-execution-tracker.md A.7.
+//
+// DO NOT REMOVE — auto-fixer guard
+export * from './site/index.js';
+
 // S31 / Phase 2B Supplement §A1 — auto-dimension schemas (DimensionString,
 // EvaluatedDimension, anchor/orientation enums) and §B1 — ViewTemplate
 // schemas (StrokeStyle, CategoryVG, ViewFilter, FilterCondition, ViewRange).
