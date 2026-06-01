@@ -53,6 +53,10 @@ import {
   writePsetDoorCommon,
   type DoorToExport as DoorPsetInput,
 } from './pset-door-common.js';
+import {
+  writePsetWindowCommon,
+  type WindowToExport as WindowPsetInput,
+} from './pset-window-common.js';
 import type { ExportedElement } from './wall.js';
 import type {
   ExportOptions,
@@ -201,6 +205,7 @@ export async function exportProjectToIFC4X3(
       let wallPsetCount = 0;
       let wallQtoCount = 0;
       let doorPsetCount = 0;
+      let windowPsetCount = 0;
 
       const runPsets = (el: ExportedElement) => {
         const meta = metaStore.get(el.pryzmId);
@@ -306,6 +311,30 @@ export async function exportProjectToIFC4X3(
         const el = exportWindow({ api, modelId, hierarchy, ownerRefs, metaStore, window, guid });
         exported.push(el);
         runPsets(el);
+
+        // IFC-α-7: every IfcWindow additionally carries Pset_WindowCommon.
+        // The PRYZM Window schema currently tracks `fireRating` natively —
+        // the rest of the IFC4X3 Pset_WindowCommon properties
+        // (AcousticRating, SecurityRating, IsExternal, Infiltration,
+        // ThermalTransmittance, GlazingAreaFraction, HasSillExternal,
+        // HasSillInternal, HasDrive, SmokeStop, Reference) are not yet
+        // plumbed; the defensive picker drops them and the worst-case pset
+        // contains only the default `Status = 'NEW'` (1 property). When the
+        // cognition-stack / family platform start populating these, they
+        // reach the file unchanged.
+        const windowInput: WindowPsetInput = {
+          id: window.id,
+          ...(window.fireRating !== undefined ? { fireRating: window.fireRating } : {}),
+        };
+        const wpr = writePsetWindowCommon(el.entity, windowInput, {
+          api,
+          modelId,
+          ownerRefs,
+          guid,
+        });
+        windowPsetCount += 1;
+        psetCount += 1;
+        propertyCount += wpr.propertyCount;
       }
       for (const column of snapshot.columns ?? []) {
         const el = exportColumn({ api, modelId, hierarchy, ownerRefs, metaStore, column, guid });
@@ -420,6 +449,7 @@ export async function exportProjectToIFC4X3(
         wallPsets: wallPsetCount,
         wallQtos: wallQtoCount,
         doorPsets: doorPsetCount,
+        windowPsets: windowPsetCount,
         psets: psetCount,
         properties: propertyCount,
       };
@@ -429,6 +459,7 @@ export async function exportProjectToIFC4X3(
       span.setAttribute('pryzm.ifc.export4x3.wall_pset_count', wallPsetCount);
       span.setAttribute('pryzm.ifc.export4x3.wall_qto_count', wallQtoCount);
       span.setAttribute('pryzm.ifc.export4x3.door_pset_count', doorPsetCount);
+      span.setAttribute('pryzm.ifc.export4x3.window_pset_count', windowPsetCount);
       span.setAttribute('pryzm.ifc.export4x3.pset_count', psetCount);
 
       const bytes = api.SaveModel(modelId);

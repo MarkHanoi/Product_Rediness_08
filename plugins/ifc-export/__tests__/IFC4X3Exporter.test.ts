@@ -74,13 +74,15 @@ describe('IFC4X3 exporter', () => {
     expect(counts.windows).toBe(1);
     expect(counts.columns).toBe(1);
     expect(counts.beams).toBe(1);
-    // IFC-α-4 + IFC-α-5 + IFC-α-6: every IfcWall additionally carries
-    // Pset_WallCommon (α-4) AND Qto_WallBaseQuantities (α-5), and every
-    // IfcDoor additionally carries Pset_DoorCommon (α-6). The baseline of
-    // 6 side-car Psets (one per Tier-1 fixture element) grows by
-    // 2 × `walls` count + 1 × `doors` count → 6 + 2 + 1 = 9.
-    expect(counts.psets).toBe(9);
-    expect(counts.properties).toBeGreaterThanOrEqual(11);
+    // IFC-α-4 + IFC-α-5 + IFC-α-6 + IFC-α-7: every IfcWall additionally
+    // carries Pset_WallCommon (α-4) AND Qto_WallBaseQuantities (α-5), every
+    // IfcDoor additionally carries Pset_DoorCommon (α-6), and every
+    // IfcWindow additionally carries Pset_WindowCommon (α-7). The baseline
+    // of 6 side-car Psets (one per Tier-1 fixture element) grows by
+    // 2 × `walls` count + 1 × `doors` count + 1 × `windows` count →
+    // 6 + 2 + 1 + 1 = 10.
+    expect(counts.psets).toBe(10);
+    expect(counts.properties).toBeGreaterThanOrEqual(12);
 
     const { api, modelId } = await parseIFC4X3(bytes);
     try {
