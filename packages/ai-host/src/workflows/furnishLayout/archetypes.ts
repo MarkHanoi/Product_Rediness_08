@@ -44,6 +44,12 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
     },
     'living-room': {
         occupancy: 'living-room', minAreaM2: 9,
+        // F4.1 / S1 (2026-06-01) — the living-room hosts the Media Wall
+        // activity system. The existing tv + tv_unit items (F1.3, group:
+        // 'media') already produce the build; the annotation surfaces the
+        // composition by name for downstream tooling (Family Platform P0,
+        // AI hints, schedules, IFC-α exports). See ./activityArchetypes.ts.
+        activitySystems: ['media-wall'],
         items: [
             // §FURNITURE-SPEC: sofa prefers a wall WITHOUT the door — the door wall
             // is the entry path; the sofa anchors on the opposite/long wall.

@@ -135,6 +135,13 @@ export interface FurnitureArchetype {
     readonly occupancy: FurnishableOccupancy;
     readonly minAreaM2: number;
     readonly items: readonly FurnitureItemSpec[];
+    /** F4.1 (2026-06-01) — Activity systems hosted by this room archetype.
+     *  Forward-compatible annotation; the existing FurnitureItemSpec items
+     *  still drive placement in this slice. Downstream tooling (AI hints,
+     *  schedules, IFC-α exports) reads this to find named composed systems
+     *  inside the room. See ./activityArchetypes.ts.
+     *  (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §F4.1) */
+    readonly activitySystems?: ReadonlyArray<import('./activityArchetypes.js').ActivitySystemKind>;
 }
 
 // ── F1/F4 — room input (assembled by the editor; consumed by the pure solver) ──
