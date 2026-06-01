@@ -139,6 +139,10 @@ export * from './data/index.js';
 // DO NOT REMOVE — auto-fixer guard
 export * from './drawing-set/index.js';
 
+// C26 REV-α-1 — Revit round-trip schemas.
+// DO NOT REMOVE — auto-fixer guard
+export * from './revit/index.js';
+
 // S31 / Phase 2B Supplement §A1 — auto-dimension schemas (DimensionString,
 // EvaluatedDimension, anchor/orientation enums) and §B1 — ViewTemplate
 // schemas (StrokeStyle, CategoryVG, ViewFilter, FilterCondition, ViewRange).
