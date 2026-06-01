@@ -25,3 +25,8 @@ export { buildMonthlyNormals } from './monthlyNormalsBuilder.js';
 export { buildWindRose } from './windRoseBuilder.js';
 export { buildDesignTemperatures } from './designTempsBuilder.js';
 export { buildDegreeDays } from './degreeDaysBuilder.js';
+
+// ── Solar-position calculator (A.10.c) ──────────────────────────────────
+// Pure NOAA algorithm — `solarSample(lat, lon, utcIso) → SolarSample`.
+// Per [C21 §1.3] solar samples are computed at query time, never stored.
+export { solarSample, toJulianDay } from './solarPath.js';
