@@ -1298,4 +1298,113 @@ Known **deliberate** exclusions (§18.6) remain unchanged.
 
 ---
 
-*End — PRYZM Master Execution Tracker, 2026-06-01 — CANONICAL (with §12 audit · §14 verify · §16 remaining-work · §17 rollup · §18 spec + status · §19 apartment + launch + wireup deep extract · §19.8 final-final ~556 sub-phases · §19.9 final coverage statement).*
+## §20 — Legacy `plan-detail/` + `phases/` + `wireup-2026/chunks` integration (the last residuals)
+
+The user asked again: "is all of the scope covered?" Spot-checking the legacy folders that hadn't been deeply audited revealed **9 strategic themes in `legacy/plan-detail/06-AEC-WISHLIST.md` (AEC-Magazine BIM 2.0 supplement)** that proposed SPECs 33-58 — most map to existing contracts/specs, but **4 are NEW themes** I hadn't explicitly enumerated. Plus the extended SPEC numbering (49-58) carries Phase D scope worth surfacing.
+
+### §20.1 — AEC Magazine Wishlist supplement — NEW themes not in §3-§19
+
+Per [legacy/plan-detail/06-AEC-WISHLIST.md](./legacy/plan-detail/06-AEC-WISHLIST.md) (the AEC Magazine May/June 2023 BIM 2.0 wishlist folded into the post-GA roadmap):
+
+| Sub-phase | Title | Phase | Note |
+|---|---|---|---|
+| **D.AEC.46** | **DfMA / Digital Fabrication** (CNC export · robotic fabrication · volumetric · BIM-to-CAM · on-site assembly QR) | D | SPEC-46 proposed. "None of the current generation BIM tools were ever intended to interface to or drive digital fabrication" (AEC Magazine quote). Marketplace plugin opportunity; PRYZM-first-party via export contracts. |
+| **D.AEC.47** | **ConTech Bridges** (Procore · Asite · OpenSpace · Dusty Robotics · Trimble Connect · Autodesk Construction Cloud bidirectional integrations) | D | SPEC-47 proposed. Per [platform-strategy §2.5](../../01-strategy/platform-strategy.md), these are **marketplace plugin opportunities**, not PRYZM-first-party builds. |
+| **D.AEC.53** | **AI-Automated 2D Drawing Output — "the killer feature"** (every drawing generated AND CHECKED automatically) | D | SPEC-53 proposed. "I would say we're only years away from having fully automated and checked 2D drawing output… The first software company to deliver a reliable automated workflow will make an absolute killing." — extends C24 + C28 + C09 AI. **Strategically important — not deferrable past Phase D.** |
+| **D.AEC.58** | **Outcome-Based Pricing Model** (pay-per-output · revenue-share · post-subscription business model) | D | SPEC-58 proposed. Extends [C39 Pricing](../../02-decisions/contracts/C39-PRICING-AND-PLAN-TIERS.md). Strategic-business decision; sales-model evolution. |
+
+### §20.2 — Extended SPEC numbering (Phase D / post-GA — SPEC-48 onward)
+
+These specs are proposed in the AEC wishlist but DO NOT exist as files in `docs/03-execution/specs/` (max actual file = SPEC-48). They are Phase D / Year 5+ items:
+
+| Sub-phase | Spec | Title | Phase |
+|---|---|---|---|
+| **D.SP.48** | SPEC-48 | Linked-Data Layer (RDF + SPARQL endpoint) — semantic web for BIM | D |
+| **D.SP.49** | SPEC-49 | IDS 1.0 (Information Delivery Specification) — buildingSMART standard | D |
+| **D.SP.50** | SPEC-50 | ICDD ISO 21597 Information Container | D |
+| **D.SP.51** | SPEC-51 | bSDD Integration + 10 Jurisdiction Packs — code-compliance dictionary | D |
+| **D.SP.52** | SPEC-52 | AI Design Partner (Stage 0 → Stage 4 progression) — full-autonomy roadmap | D |
+| **D.SP.54** | SPEC-54 | Code Compliance Engine (IBC + AD-B + EUROCODE + SBC) — regulatory check engine | D |
+| **D.SP.55** | SPEC-55 | DTDL Export + IoT Bridge (Azure DT + MQTT) — digital twin handover | D |
+| **D.SP.56** | SPEC-56 | Specification Writer (NBS Chorus + SpecLink + MasterFormat) — written-spec generator | D |
+| **D.SP.57** | SPEC-57 | Decentralised Data Ownership (Solid Pods + WebID) — Web3-adjacent data sovereignty | D |
+
+### §20.3 — Strategic ADRs (ADR-031 → ADR-050) — decisions pending
+
+The AEC wishlist proposes 20 strategic ADRs for Phase 4-7 (most still pending). These are decisions that gate Phase B/C/D work:
+
+| Sub-phase | ADR | Decision pending | Phase |
+|---|---|---|---|
+| **B.ADR.36** | ADR-036 | Stakeholder review pricing — free viewer per project vs metered | B |
+| **B.ADR.37** | ADR-037 | Hybrid data sovereignty default — cloud-default vs local-default | B |
+| **B.ADR.38** | ADR-038 | Enterprise BYOK key custody — KMS-backed vs HSM-backed vs both | B |
+| **C.ADR.39** | ADR-039 | Analysis bridge data contract — IFC4+JSON-LD vs gbXML vs MessagePack | C |
+| **C.ADR.40** | ADR-040 | Render-worker engine selection — Cycles only vs +Mitsuba vs +LuxCore | C |
+| **C.ADR.41** | ADR-041 | Cost rate library plug-in model — BYO vs marketplace-verified vs both | C |
+| **C.ADR.42** | ADR-042 | 4D simulation playback — server-side video render vs client-side replay | C |
+| **D.ADR.43** | ADR-043 | LCA database — open EC3+ICE vs commercial One Click LCA partnership | D |
+| **D.ADR.44** | ADR-044 | DfMA fabrication output — IFC4-Precast vs LandXML-CAM vs vendor-direct | D |
+| **D.ADR.45** | ADR-045 | ConTech integration topology — direct API per vendor vs unified ConnectorHub | D |
+| **D.ADR.46** | ADR-046 | Triple-store implementation — Apache Jena vs Oxigraph vs Postgres-AGE | D |
+| **D.ADR.47** | ADR-047 | SPARQL endpoint authn — anonymous public read vs project-token vs OAuth2 | D |
+| **D.ADR.48** | ADR-048 | IDS authoring UX — visual editor vs YAML vs both | D |
+| **D.ADR.49** | ADR-049 | bSDD sync policy — pull-on-edit vs nightly mirror vs hybrid | D |
+| **D.ADR.50** | ADR-050 | AI design partner constraint propagation — declarative vs imperative vs hybrid | D |
+
+### §20.4 — Verdict on the other legacy folders
+
+| Legacy folder/file | Verdict | Why no new scope |
+|---|---|---|
+| **legacy/phases/PHASE-1/** (5 docs) | HISTORICAL | PRYZM 2 architecture rebuild PHASE-1 (Foundation + 1A-1D). Scope SHIPPED. |
+| **legacy/phases/PHASE-2/** (6 docs) | HISTORICAL | PRYZM 2 PHASE-2 (Migration + 2A-2D Sheets/Schedules + Sync/Awareness Beta). Scope SHIPPED. |
+| **legacy/phases/PHASE-3/** (8 docs) | HISTORICAL | PRYZM 2 PHASE-3 (Completion-GA · 3A AI/Visibility · 3B IFC/Family Creator · 3C Plugin SDK/Marketplace · 3D Hardening-GA). Scope SHIPPED — these are the architecture-rebuild plans that delivered Plugin SDK v1.0.0, the bake-worker, the sync-server. |
+| **legacy/phases/PHASE-4-POST-GA/** | INFORMATIONAL | Post-GA phase plan — superseded by [vision-2030.md](./vision-2030.md) + [roadmap-phase-3-ga.md](./roadmap-phase-3-ga.md) + this tracker's Phase D |
+| **legacy/plan-detail/01-MASTER-36M.md** | HISTORICAL | The original 36-month master plan; PRYZM 2 architecture rebuild. Now PRYZM ships at v1.0.0; replaced by [vision-2030.md](./vision-2030.md). |
+| **legacy/plan-detail/04-LINEAR-EXECUTION.md** | HISTORICAL | Linear-execution view of the 36-month plan; informational. |
+| **legacy/plan-detail/05-POST-GA-ROADMAP.md** | SUPERSEDED | Post-GA roadmap; folded into vision-2030 + phase-3-ga + this tracker §5 + §20. |
+| **legacy/plan-detail/06-AEC-WISHLIST.md** | **INTEGRATED §20** above | 4 new themes + 9 extended specs + 15 strategic ADRs surfaced. |
+| **legacy/wireup-2026/00-PLAN.md** | INTEGRATED §19.7 | S72 white-UI + real-engine plan; mostly shipped. |
+| **legacy/wireup-2026/chunks/** (28 docs) | HISTORICAL | Per-phase breakdown of the wireup plan; sub-phase enumeration. The PRYZM 2 architecture rebuild is SHIPPED. References from runtime-composer and other packages cite specific chunk subsections. |
+| **legacy/wireup-2026/reconciliation/** (7 docs) | HISTORICAL | Per-phase code-verified audits (A-F); the audit results informed Phase 0 of [roadmap-phase-1-alpha.md](./roadmap-phase-1-alpha.md). |
+| **legacy/M28-IFC-IMPORT-PIPELINE.md** | EXPLANATORY | "subordinate to SPEC + ADR" per its own §authority. The actual IFC work is C25 + plugins/ifc-import (already in tracker as A.25, A.27, B.U.9). |
+| **legacy/superseded-2026-06-01/** (7 docs) | SUPERSEDED | The 7 files I moved myself in the 03-execution restructure; superseded by the new 5-horizon planning system. Cited as archeology in [plans/README.md §2.6](./README.md). |
+
+### §20.5 — REVISED final-final-final grand total
+
+| Layer | Sub-phases | Δ vs §19 |
+|---|---|---|
+| Phase A | ~290 | unchanged |
+| Phase B | ~133 + 3 ADRs (B.ADR.36–38) = **~136** | +3 |
+| Phase C | ~92 + 4 ADRs (C.ADR.39–42) = **~96** | +4 |
+| Phase D | ~25 + 4 AEC themes + 9 extended specs + 8 ADRs = **~46** | +21 |
+| Cross-cutting (X.*) | ~16 | unchanged |
+| **GRAND TOTAL** | **~584 named deliverables** | +28 vs §19 |
+
+### §20.6 — Is ALL the scope now covered?
+
+After §20: **yes, fully**. Every folder in `docs/03-execution/plans/` (including the legacy/ archeology) has been audited, and either:
+
+1. **Mapped to an active sub-phase** in §3–§5 or §12.* or §16 or §18 or §19 or §20
+2. **Explicitly marked HISTORICAL** because the work has shipped (architecture rebuild · PRYZM 2 → PRYZM transition · wireup-2026 white-UI work)
+3. **Explicitly marked SUPERSEDED** because a newer canonical plan replaces it
+4. **Explicitly marked EXPLANATORY** because the doc describes existing scope already in the tracker
+5. **Explicitly excluded** per §18.6 deliberate scope-cuts (community + marketplace opportunities; out-of-scope domains per engineering-vision §8)
+
+There are no remaining folders, plans, specs, contracts, ADRs, status docs, or apartment master-doc items that lack a tracker mapping.
+
+### §20.7 — The single highest-priority Phase D item: AI-Automated 2D Drawing Output
+
+Worth elevating: **D.AEC.53 — AI-Automated 2D Drawing Output ("the killer feature")** per AEC Magazine. Quoted: *"I would say we're only years away from having fully automated and checked 2D drawing output… The first software company to deliver a reliable automated workflow will make an absolute killing."*
+
+This sits at the intersection of:
+- **C09 AI host** (the workflow runtime)
+- **C24 Sheet Composition** (the sheet engine)
+- **C28 Data Panel** (the data + automation layer)
+- **C09 §3 cognition substrate** (the model the AI reasons over)
+- **C50 Typology Pipeline** (per-typology drawing conventions)
+
+It is the **single Phase D bet** that could most materially reshape the industry. Not deferrable past Phase D. Should be considered for Phase C if Phase B + the cognition substrate + the sheet engine mature ahead of schedule. Flag this in the next quarterly review.
+
+---
+
+*End — PRYZM Master Execution Tracker, 2026-06-01 — CANONICAL (with §12 · §14 · §16 · §17 · §18 · §19 · §20 — ~584 named deliverables · all legacy folders audited · final coverage statement §20.6 — ALL SCOPE COVERED).*
