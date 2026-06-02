@@ -1,0 +1,509 @@
+---
+// IP-A3 iteration A.5.d — /start route: the public-facing RAC chatbot.
+//
+// This is the "Build something" CTA destination. It mounts a draggable
+// + resizable canvas over the same purple-mesh background as the
+// landing, then runs the static mirror of the L3 RAC interview:
+//
+//   1. profile      — Architect · Engineer · Developer · Contractor · Owner · Student
+//   2. company size — Solo · 2-10 · 11-50 · 51-200 · 200+
+//   3. typology     — Apartment · House · Office (alpha gates surfaced)
+//   4. brief        — free-text 1-3 sentences; user can skip
+//   5. handoff      — summary card + "Continue in the editor →" CTA
+//
+// Why a static mirror rather than the editor's RACChatbotPanel:
+//   pryzm.so is served by Cloudflare Pages — it's a static surface.
+//   The editor's L5 RACChatbotPanel imports @pryzm/typology-pipeline
+//   (zod@4), which the docs-site dep closure deliberately excludes
+//   per ADR-052 §1.4. So this file is the static-friendly twin:
+//   same questions, same capture order, same handoff shape. The
+//   captured payload is shipped to app.pryzm.so on submit (future —
+//   today logs to the console + shows the summary).
+//
+// The full editor flow (L3 racReducer + L5 RACChatbotPanel) lives at
+// apps/editor/src/ui/onboarding/RACChatbotPanel.ts and is the
+// authoritative implementation once the user enters the app.
+//
+// MasterMiawW reference: the canvas pattern (draggable header +
+// resize-from-corner + frosted-glass surface) mirrors the
+// `ConversationCanvas.tsx` shape in artifacts/miaw/. Translate the
+// PATTERN, not the code (per repo memory).
+//
+// Astro renders this at build time — the only client-JS is the inline
+// IIFE at the bottom for drag/resize/state.
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PRYZM — Start something</title>
+    <meta name="description" content="Tell PRYZM about your project. We'll route you to the right workflow." />
+    <style>
+      @property --b1x { syntax: '<percentage>'; initial-value: 5%;  inherits: false; }
+      @property --b1y { syntax: '<percentage>'; initial-value: 55%; inherits: false; }
+      @property --b2x { syntax: '<percentage>'; initial-value: 92%; inherits: false; }
+      @property --b2y { syntax: '<percentage>'; initial-value: 18%; inherits: false; }
+      @property --b3x { syntax: '<percentage>'; initial-value: 72%; inherits: false; }
+      @property --b3y { syntax: '<percentage>'; initial-value: 90%; inherits: false; }
+      @property --b4x { syntax: '<percentage>'; initial-value: 40%; inherits: false; }
+      @property --b4y { syntax: '<percentage>'; initial-value: 5%;  inherits: false; }
+      @property --b5x { syntax: '<percentage>'; initial-value: 25%; inherits: false; }
+      @property --b5y { syntax: '<percentage>'; initial-value: 30%; inherits: false; }
+      @property --b6x { syntax: '<percentage>'; initial-value: 78%; inherits: false; }
+      @property --b6y { syntax: '<percentage>'; initial-value: 65%; inherits: false; }
+
+      @keyframes mesh-flow {
+        0%   { --b1x:  5%; --b1y: 55%; --b2x: 92%; --b2y: 18%; --b3x: 72%; --b3y: 90%; --b4x: 40%; --b4y:  5%; --b5x: 25%; --b5y: 30%; --b6x: 78%; --b6y: 65%; }
+        50%  { --b1x:  8%; --b1y: 18%; --b2x: 90%; --b2y: 82%; --b3x: 48%; --b3y: 55%; --b4x: 20%; --b4y: 35%; --b5x: 80%; --b5y: 40%; --b6x: 35%; --b6y: 75%; }
+        100% { --b1x:  5%; --b1y: 55%; --b2x: 92%; --b2y: 18%; --b3x: 72%; --b3y: 90%; --b4x: 40%; --b4y:  5%; --b5x: 25%; --b5y: 30%; --b6x: 78%; --b6y: 65%; }
+      }
+
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; min-height: 100vh; overflow-x: hidden; }
+      body {
+        background:
+          radial-gradient(ellipse 90% 70% at var(--b1x) var(--b1y), #c8b6ff 0%, transparent 65%),
+          radial-gradient(ellipse 70% 60% at var(--b2x) var(--b2y), #b8a2ff 0%, transparent 58%),
+          radial-gradient(ellipse 65% 55% at var(--b3x) var(--b3y), #daceff 0%, transparent 55%),
+          radial-gradient(ellipse 55% 45% at var(--b4x) var(--b4y), #ece7ff 0%, transparent 50%),
+          radial-gradient(ellipse 35% 29% at var(--b5x) var(--b5y), #b89dfa 0%, transparent 48%),
+          radial-gradient(ellipse 32% 27% at var(--b6x) var(--b6y), #c49bfb 0%, transparent 45%),
+          #f3f0ff;
+        animation: mesh-flow 65s ease-in-out infinite;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: #0b0b12;
+        min-height: 100vh;
+      }
+      @media (prefers-reduced-motion: reduce) { body { animation: none; } }
+
+      header.site-nav {
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1.25rem 2rem;
+        z-index: 5;
+      }
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.6rem;
+        color: #0b0b12;
+        text-decoration: none;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        font-size: 1rem;
+      }
+      .brand-icon { width: 22px; height: 22px; }
+      nav.site-links { display: flex; gap: 1.4rem; align-items: center; }
+      nav.site-links a {
+        color: rgba(11, 11, 18, 0.7);
+        text-decoration: none;
+        font-weight: 500;
+        font-size: 0.92rem;
+      }
+      nav.site-links a:hover { color: #6600ff; }
+
+      /* ── The chat canvas — draggable + resizable, frosted glass ── */
+      .canvas {
+        position: fixed;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        width: min(560px, calc(100vw - 32px));
+        height: min(620px, calc(100vh - 32px));
+        min-width: 380px;
+        min-height: 480px;
+        max-width: calc(100vw - 16px);
+        max-height: calc(100vh - 16px);
+        background: rgba(255, 255, 255, 0.55);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        border: 1px solid rgba(196, 181, 253, 0.45);
+        border-radius: 14px;
+        box-shadow: 0 24px 80px rgba(60, 10, 160, 0.18), 0 2px 8px rgba(60, 10, 160, 0.08);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        animation: canvas-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+        z-index: 10;
+      }
+      @keyframes canvas-in {
+        from { opacity: 0; transform: translate(-50%, -45%) scale(0.96); }
+        to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+      }
+      .canvas-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px;
+        background: rgba(102, 0, 255, 0.06);
+        border-bottom: 1px solid rgba(196, 181, 253, 0.3);
+        cursor: grab;
+        user-select: none;
+      }
+      .canvas-header.dragging { cursor: grabbing; }
+      .canvas-title {
+        font-size: 0.82rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: rgba(11, 11, 18, 0.74);
+      }
+      .canvas-phase-chip {
+        display: inline-block;
+        padding: 3px 10px;
+        margin-left: 10px;
+        background: rgba(102, 0, 255, 0.12);
+        color: #6600ff;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+      }
+      .canvas-close {
+        background: none;
+        border: none;
+        color: rgba(11, 11, 18, 0.55);
+        font-size: 1.4rem;
+        line-height: 1;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 6px;
+        transition: background 0.12s, color 0.12s;
+      }
+      .canvas-close:hover { background: rgba(102, 0, 255, 0.1); color: #6600ff; }
+
+      .canvas-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 24px 22px 16px;
+      }
+      .step-prompt {
+        font-size: 1rem;
+        color: #0b0b12;
+        margin: 0 0 14px;
+        line-height: 1.45;
+      }
+      .step-prompt .accent { color: #6600ff; font-weight: 600; }
+      .options {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+      .option-btn {
+        padding: 10px 14px;
+        background: rgba(255, 255, 255, 0.7);
+        border: 1px solid rgba(196, 181, 253, 0.55);
+        border-radius: 8px;
+        color: #0b0b12;
+        font-weight: 500;
+        font-size: 0.92rem;
+        cursor: pointer;
+        text-align: left;
+        font-family: inherit;
+        transition: background 0.12s, border-color 0.12s, transform 0.06s;
+      }
+      .option-btn:hover { background: rgba(255, 255, 255, 0.92); border-color: #6600ff; color: #6600ff; }
+      .option-btn:active { transform: translateY(1px); }
+      .option-btn.selected { background: #6600ff; color: #fff; border-color: #6600ff; }
+
+      .text-input {
+        width: 100%;
+        padding: 10px 12px;
+        background: rgba(255, 255, 255, 0.85);
+        border: 1px solid rgba(196, 181, 253, 0.6);
+        border-radius: 8px;
+        font-size: 0.95rem;
+        font-family: inherit;
+        color: #0b0b12;
+        resize: none;
+        min-height: 88px;
+        outline: none;
+      }
+      .text-input:focus { border-color: #6600ff; box-shadow: 0 0 0 3px rgba(102, 0, 255, 0.12); }
+
+      .transcript {
+        margin-bottom: 16px;
+      }
+      .turn {
+        font-size: 0.86rem;
+        margin: 6px 0;
+        line-height: 1.4;
+        color: rgba(11, 11, 18, 0.78);
+      }
+      .turn-pryzm { color: #6600ff; font-weight: 500; }
+      .turn-user { color: rgba(11, 11, 18, 0.88); padding-left: 14px; }
+
+      .canvas-footer {
+        padding: 12px 22px 14px;
+        border-top: 1px solid rgba(196, 181, 253, 0.3);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: rgba(255, 255, 255, 0.3);
+      }
+      .back-btn {
+        background: none;
+        border: none;
+        color: rgba(11, 11, 18, 0.55);
+        font-size: 0.85rem;
+        cursor: pointer;
+        padding: 6px 0;
+        font-family: inherit;
+      }
+      .back-btn:hover { color: #6600ff; }
+      .back-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+      .next-btn {
+        background: #6600ff;
+        color: #fff;
+        border: none;
+        padding: 8px 18px;
+        border-radius: 999px;
+        font-weight: 600;
+        font-size: 0.88rem;
+        cursor: pointer;
+        font-family: inherit;
+        transition: background 0.12s, filter 0.12s;
+      }
+      .next-btn:hover { background: #7d2bff; filter: brightness(1.05); }
+      .next-btn:disabled { background: rgba(11, 11, 18, 0.2); cursor: not-allowed; }
+
+      .summary-card {
+        background: rgba(255, 255, 255, 0.7);
+        border: 1px solid rgba(196, 181, 253, 0.5);
+        border-radius: 10px;
+        padding: 16px 18px;
+        margin-bottom: 14px;
+      }
+      .summary-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 0.9rem; }
+      .summary-key { color: rgba(11, 11, 18, 0.6); }
+      .summary-val { color: #0b0b12; font-weight: 600; }
+
+      /* Resize handle in the bottom-right corner */
+      .resize-handle {
+        position: absolute;
+        right: 0; bottom: 0;
+        width: 18px; height: 18px;
+        cursor: nwse-resize;
+        background:
+          linear-gradient(135deg, transparent 50%, rgba(102, 0, 255, 0.35) 50%, rgba(102, 0, 255, 0.35) 62%, transparent 62%, transparent 72%, rgba(102, 0, 255, 0.35) 72%, rgba(102, 0, 255, 0.35) 82%, transparent 82%);
+      }
+    </style>
+  </head>
+  <body>
+    <header class="site-nav">
+      <a class="brand" href="/">
+        <svg class="brand-icon" viewBox="0 0 36 36" fill="none" aria-hidden="true">
+          <path d="M18.2 2.6 3.6 27.9 26.8 33.2 32.4 23.6 18.2 2.6Z" stroke="#0b0b12" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/>
+          <path d="M18.2 2.6 3.6 27.9" stroke="#6600FF" stroke-width="1.6" stroke-linecap="round"/>
+          <path d="M18.2 2.6 26.8 33.2" stroke="#0b0b12" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        PRYZM
+      </a>
+      <nav class="site-links" aria-label="Primary">
+        <a href="/manifesto">Manifesto</a>
+        <a href="/pricing">Pricing</a>
+        <a href="/trust">Trust</a>
+      </nav>
+    </header>
+
+    <section class="canvas" id="rac-canvas" role="dialog" aria-label="PRYZM onboarding interview">
+      <header class="canvas-header" id="rac-header">
+        <div>
+          <span class="canvas-title">Tell us about your project</span>
+          <span class="canvas-phase-chip" id="rac-phase-chip">Step 1 / 4</span>
+        </div>
+        <button class="canvas-close" id="rac-close" aria-label="Close">×</button>
+      </header>
+      <div class="canvas-body" id="rac-body">
+        <!-- step content injected here -->
+      </div>
+      <footer class="canvas-footer">
+        <button class="back-btn" id="rac-back" disabled>← Back</button>
+        <button class="next-btn" id="rac-next" disabled>Next →</button>
+      </footer>
+      <div class="resize-handle" id="rac-resize" aria-hidden="true"></div>
+    </section>
+
+    <script>
+      // ── State ────────────────────────────────────────────────────
+      const STEPS = ['role', 'companySize', 'typology', 'brief', 'done'];
+      const ROLE_OPTIONS = ['Architect', 'Engineer', 'Developer', 'Contractor', 'Owner', 'Student'];
+      const COMPANY_SIZE_OPTIONS = ['Solo', '2–10', '11–50', '51–200', '200+'];
+      const TYPOLOGY_OPTIONS = [
+        { id: 'apartment', label: 'Apartment', gate: 'alpha-ready' },
+        { id: 'house', label: 'House', gate: 'next sprint' },
+        { id: 'small-office', label: 'Small office', gate: 'next sprint' },
+      ];
+
+      const state = {
+        stepIdx: 0,
+        role: null,
+        companySize: null,
+        typology: null,
+        brief: '',
+      };
+
+      const $body = document.getElementById('rac-body');
+      const $chip = document.getElementById('rac-phase-chip');
+      const $back = document.getElementById('rac-back');
+      const $next = document.getElementById('rac-next');
+      const $close = document.getElementById('rac-close');
+
+      function step() { return STEPS[state.stepIdx]; }
+
+      function canAdvance() {
+        switch (step()) {
+          case 'role':        return !!state.role;
+          case 'companySize': return !!state.companySize;
+          case 'typology':    return !!state.typology;
+          case 'brief':       return true; // brief is optional
+          case 'done':        return false;
+        }
+      }
+
+      function render() {
+        $chip.textContent = step() === 'done' ? 'Done' : `Step ${state.stepIdx + 1} / 4`;
+        $back.disabled = state.stepIdx === 0 || step() === 'done';
+        $next.disabled = !canAdvance();
+        $next.textContent = step() === 'brief' ? 'Finish →' : step() === 'done' ? 'Continue in editor →' : 'Next →';
+
+        if (step() === 'role') {
+          $body.innerHTML = `
+            <p class="step-prompt">First — who's <span class="accent">building</span>? Pick the role that fits best.</p>
+            <div class="options" id="role-opts"></div>
+          `;
+          const $opts = document.getElementById('role-opts');
+          ROLE_OPTIONS.forEach(r => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'option-btn' + (state.role === r ? ' selected' : '');
+            b.textContent = r;
+            b.addEventListener('click', () => { state.role = r; render(); });
+            $opts.appendChild(b);
+          });
+        } else if (step() === 'companySize') {
+          $body.innerHTML = `
+            <p class="step-prompt">How big is the <span class="accent">team</span>?</p>
+            <div class="options" id="size-opts"></div>
+          `;
+          const $opts = document.getElementById('size-opts');
+          COMPANY_SIZE_OPTIONS.forEach(s => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'option-btn' + (state.companySize === s ? ' selected' : '');
+            b.textContent = s;
+            b.addEventListener('click', () => { state.companySize = s; render(); });
+            $opts.appendChild(b);
+          });
+        } else if (step() === 'typology') {
+          $body.innerHTML = `
+            <p class="step-prompt">What are you <span class="accent">designing</span>?</p>
+            <div class="options" id="typ-opts"></div>
+            <p style="font-size:0.8rem;color:rgba(11,11,18,0.5);margin:8px 0 0">More typologies (house, office, retail, school…) ship through Phase B + C — track on /manifesto.</p>
+          `;
+          const $opts = document.getElementById('typ-opts');
+          TYPOLOGY_OPTIONS.forEach(t => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'option-btn' + (state.typology === t.id ? ' selected' : '');
+            b.innerHTML = `<div style="font-weight:600">${t.label}</div><div style="font-size:0.78rem;color:rgba(11,11,18,0.55);margin-top:3px">${t.gate}</div>`;
+            b.addEventListener('click', () => { state.typology = t.id; render(); });
+            $opts.appendChild(b);
+          });
+        } else if (step() === 'brief') {
+          const captured = `Captured so far → ${state.role} · ${state.companySize} · ${state.typology}`;
+          $body.innerHTML = `
+            <p class="step-prompt">Anything we should know about the <span class="accent">project</span>? Size, bedrooms, style — whatever's top of mind. <span style="opacity:0.55;font-size:0.85em">(optional)</span></p>
+            <textarea class="text-input" id="brief-input" placeholder="e.g. 2-bed apartment, 70m², modern style, south-facing balcony…"></textarea>
+            <p style="font-size:0.78rem;color:rgba(11,11,18,0.5);margin-top:10px">${captured}</p>
+          `;
+          const $ta = document.getElementById('brief-input');
+          if ($ta) {
+            $ta.value = state.brief;
+            $ta.addEventListener('input', e => { state.brief = e.target.value; });
+            $ta.focus();
+          }
+        } else if (step() === 'done') {
+          $body.innerHTML = `
+            <p class="step-prompt"><span class="accent">Got it.</span> When the editor opens we'll pre-load your apartment workflow with this brief.</p>
+            <div class="summary-card">
+              <div class="summary-row"><span class="summary-key">Role</span><span class="summary-val">${state.role}</span></div>
+              <div class="summary-row"><span class="summary-key">Team size</span><span class="summary-val">${state.companySize}</span></div>
+              <div class="summary-row"><span class="summary-key">Project type</span><span class="summary-val">${state.typology}</span></div>
+              ${state.brief ? `<div class="summary-row" style="flex-direction:column;align-items:flex-start;gap:4px"><span class="summary-key">Brief</span><span class="summary-val" style="font-weight:400;font-size:0.85rem;color:rgba(11,11,18,0.78);text-align:left">${state.brief.replace(/</g,'&lt;')}</span></div>` : ''}
+            </div>
+            <p style="font-size:0.82rem;color:rgba(11,11,18,0.55);line-height:1.45">The editor lives at <strong>app.pryzm.so</strong> (alpha — invitation only). Hit <em>Continue in editor</em> to join the waitlist with your brief attached, or browse <a href="/pricing" style="color:#6600ff">pricing</a> first.</p>
+          `;
+        }
+      }
+
+      $next.addEventListener('click', () => {
+        if (!canAdvance() && step() !== 'done') return;
+        if (step() === 'done') {
+          // Future — POST to /api/leads with the captured payload.
+          // Today: log + bounce to a waitlist page (placeholder = manifesto).
+          console.log('[rac-canvas] captured', state);
+          window.location.href = '/manifesto';
+          return;
+        }
+        state.stepIdx = Math.min(state.stepIdx + 1, STEPS.length - 1);
+        render();
+      });
+      $back.addEventListener('click', () => {
+        if (state.stepIdx === 0) return;
+        state.stepIdx -= 1;
+        render();
+      });
+      $close.addEventListener('click', () => { window.location.href = '/'; });
+
+      render();
+
+      // ── Drag + resize ────────────────────────────────────────────
+      const $canvas = document.getElementById('rac-canvas');
+      const $header = document.getElementById('rac-header');
+      const $resize = document.getElementById('rac-resize');
+
+      let drag = null;
+      $header.addEventListener('mousedown', (e) => {
+        if (e.target.closest('button')) return;
+        const r = $canvas.getBoundingClientRect();
+        drag = { dx: e.clientX - r.left, dy: e.clientY - r.top };
+        $header.classList.add('dragging');
+        $canvas.style.transform = 'none';
+        $canvas.style.left = r.left + 'px';
+        $canvas.style.top = r.top + 'px';
+        e.preventDefault();
+      });
+      window.addEventListener('mousemove', (e) => {
+        if (!drag) return;
+        const x = Math.max(0, Math.min(window.innerWidth - 100, e.clientX - drag.dx));
+        const y = Math.max(0, Math.min(window.innerHeight - 60, e.clientY - drag.dy));
+        $canvas.style.left = x + 'px';
+        $canvas.style.top = y + 'px';
+      });
+      window.addEventListener('mouseup', () => {
+        if (drag) { drag = null; $header.classList.remove('dragging'); }
+      });
+
+      let resize = null;
+      $resize.addEventListener('mousedown', (e) => {
+        const r = $canvas.getBoundingClientRect();
+        resize = { startX: e.clientX, startY: e.clientY, w: r.width, h: r.height };
+        e.preventDefault();
+      });
+      window.addEventListener('mousemove', (e) => {
+        if (!resize) return;
+        const w = Math.max(380, Math.min(window.innerWidth - 20, resize.w + (e.clientX - resize.startX)));
+        const h = Math.max(420, Math.min(window.innerHeight - 20, resize.h + (e.clientY - resize.startY)));
+        $canvas.style.width = w + 'px';
+        $canvas.style.height = h + 'px';
+      });
+      window.addEventListener('mouseup', () => { if (resize) resize = null; });
+    </script>
+  </body>
+</html>
