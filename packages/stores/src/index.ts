@@ -53,6 +53,15 @@ export { LevelStore } from './LevelStore.js';
 // by apartment.*/room.* commands in A.23.c. Both join C13 reset list.
 export { ApartmentStore } from './ApartmentStore.js';
 export { RoomStore } from './RoomStore.js';
+// A.30.c (Phase A · Sprint 2) — L3 ConsentStore.
+// Wraps the L0 C22 Consent substrate (`@pryzm/schemas/privacy`). The
+// store is USER-scoped (not project-scoped) — survives project switches
+// and is the authoritative source for "is this user consented to
+// purpose X right now?". `grant()` auto-supersedes prior active
+// versions of the same purpose (returns the rows superseded so the
+// retention scheduler can fire the §1.6 'consent-revoke' purge);
+// `purgeUser()` is the GDPR Art. 17 erasure path.
+export { ConsentStore } from './ConsentStore.js';
 // A.31.c (Phase A · Sprint 2) — L3 ProvenanceStore.
 // Wraps the L0 C23 Provenance substrate (`@pryzm/schemas/provenance`).
 // APPEND-ONLY per C23 §1.9 — the only post-write mutations are
