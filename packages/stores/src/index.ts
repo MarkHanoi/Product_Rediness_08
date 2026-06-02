@@ -94,6 +94,20 @@ export { ProvenanceStore } from './ProvenanceStore.js';
 // `.pryzm` so a Revit round-trip survives reload. Wraps `@pryzm/schemas/ifc`.
 // Joins the C13 project-switch reset list.
 export { IfcMetaStore } from './IfcMetaStore.js';
+// A.R.3 — ifc.meta.* command handlers (the P6-clean mutation path for the
+// IfcMetaStore). Pure `(payload, store) → IfcCommandResult<Event>`.
+export {
+    registerIfcMeta,
+    deregisterIfcMeta,
+    RegisterIfcMetaPayloadSchema,
+    DeregisterIfcMetaPayloadSchema,
+    type RegisterIfcMetaPayload,
+    type DeregisterIfcMetaPayload,
+    type IfcCommandResult,
+    type IfcCommandRejection,
+    type IfcMetaRegisteredEvent,
+    type IfcMetaDeregisteredEvent,
+} from './ifc-commands/index.js';
 // A.31.d (Phase A · Sprint 2) — provenance.* command handlers per [C23 §4].
 // 4 pure handlers `(payload, store) → ProvenanceCommandResult<Event>`:
 // ai.recordArtefact (idempotent on idempotencyKey) · provenance.linkElement
