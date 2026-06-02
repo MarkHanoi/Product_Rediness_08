@@ -27,6 +27,7 @@
     "build:apex": "node scripts/build/prerender-apex.mjs",
     "check:apex": "node scripts/build/prerender-apex.mjs && node scripts/check/check-apex-self-contained.mjs && node scripts/check/check-apex-size.mjs && node scripts/check/check-apex-no-auth-cookies.mjs",
     "check:docs-site": "node scripts/check/check-no-product-routes-in-docs-site.mjs",
+    "check:route-surface": "node scripts/check/check-route-surface-assignment.mjs",
     "preview": "node server.js",
     "schemas:test": "npm test --workspace=@pryzm/schemas",
     "schemas:typecheck": "tsc -p packages/schemas/tsconfig.tests.json --noEmit",

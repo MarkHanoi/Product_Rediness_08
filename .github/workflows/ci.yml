@@ -133,7 +133,7 @@ jobs:
       - run: pnpm run build
 
   apex-gates:
-    name: Apex contract gates (C51 §7 — self-contained · size · no-auth-cookies)
+    name: Apex/app contract gates (C51 §7 — apex-output · docs-site · route-surface)
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
@@ -153,3 +153,6 @@ jobs:
       # Hard-fail: re-introducing a marketing route in the docs-site reopens the
       # ADR-052 drift trap (C51 §2.1.5 / §8). Marketing lives only in the editor.
       - run: pnpm run check:docs-site
+      # Hard-fail: the app must 301 apex marketing paths to apex, not serve them
+      # in-place; in-app marketing uses ?page= (C51 §3.2.1 / §5).
+      - run: pnpm run check:route-surface
