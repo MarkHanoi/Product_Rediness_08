@@ -150,3 +150,6 @@ jobs:
       # Hard-fail: a cross-origin script, a >200 KB bundle, or a cookie op in
       # the apex surface blocks the merge (C51 §2.2.4 / §6.1.3 / §2.2.1).
       - run: pnpm run check:apex
+      # Hard-fail: re-introducing a marketing route in the docs-site reopens the
+      # ADR-052 drift trap (C51 §2.1.5 / §8). Marketing lives only in the editor.
+      - run: pnpm run check:docs-site
