@@ -22,3 +22,4 @@ export * from './AIArtefact.js';
 export * from './ProvenanceEdge.js';
 export * from './ContextSnapshot.js';
 export * from './RedactionRecord.js';
+export * from './ProvenanceExport.js';
