@@ -53,6 +53,13 @@ export { LevelStore } from './LevelStore.js';
 // by apartment.*/room.* commands in A.23.c. Both join C13 reset list.
 export { ApartmentStore } from './ApartmentStore.js';
 export { RoomStore } from './RoomStore.js';
+// A.31.c (Phase A · Sprint 2) — L3 ProvenanceStore.
+// Wraps the L0 C23 Provenance substrate (`@pryzm/schemas/provenance`).
+// APPEND-ONLY per C23 §1.9 — the only post-write mutations are
+// `updateApprovalStatus()` (§1.7) and `linkElement()` (§4.4). Cycle
+// detection rejects edges that would close a loop (§1.3 DAG invariant).
+// Snapshots dedup by contextHash. Joins the C13 reset list.
+export { ProvenanceStore } from './ProvenanceStore.js';
 // A.23.c.1 (Phase A · Sprint 2) — building.* command handlers per [C20 §4.1].
 // Pure functions `(payload, store) → AggregateCommandResult<Event>`.
 // 3 commands: create (single-Building rule per §1.1) · update (projectId

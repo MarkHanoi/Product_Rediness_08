@@ -28,7 +28,7 @@
 
 import type { AnyStores, CommandHandler, RingBufferUndoStack } from '@pryzm/command-bus';
 import type { SyncClient, PryzmAwareness } from '@pryzm/sync-client';
-import type { LayoutOptionsStore, AiApprovalQueueStore, ApartmentParameterPropagator, FamilyRegistryStore, SiteModelStore, ClimateStore, BuildingStore, LevelStore, ApartmentStore, RoomStore } from '@pryzm/stores';
+import type { LayoutOptionsStore, AiApprovalQueueStore, ApartmentParameterPropagator, FamilyRegistryStore, SiteModelStore, ClimateStore, BuildingStore, LevelStore, ApartmentStore, RoomStore, ProvenanceStore } from '@pryzm/stores';
 import type {
   TypologyRegistry,
   PipelineRouter,
@@ -3498,6 +3498,18 @@ export interface PryzmRuntime {
    *  `removeForApartment` cascade helper used by apartment.delete.
    *  Joins C13 reset. */
   readonly roomStore: RoomStore;
+
+  // ── A.31.c (Phase A · Sprint 2) — ProvenanceStore (C23 substrate) ───────
+  /** L3 append-only audit graph wrapping the L0 C23 substrate
+   *  (`@pryzm/schemas/provenance`). Stores AIArtefact + ProvenanceEdge +
+   *  ContextSnapshot + RedactionRecord rows. Per [C23 §1.9] all rows are
+   *  immutable EXCEPT `AIArtefact.approvalStatus` (§1.7 carve-out) and
+   *  `AIArtefact.producedElementIds` (§4.4 linkElement append). The store
+   *  rejects edges that would close a DAG cycle (§1.3) and dedupes
+   *  snapshots by `contextHash` (§2.3). Joins C13 reset (per-project
+   *  audit isolation per §1.10 RLS). The `provenance.*` command surface
+   *  in A.31.d (PLANNED) calls into this. */
+  readonly provenanceStore: ProvenanceStore;
 
   // ── A.3 (Phase A · Sprint 2) — Typology pipeline slot ───────────────────
   /** L3 multi-typology generative-AI pipeline. One per runtime per

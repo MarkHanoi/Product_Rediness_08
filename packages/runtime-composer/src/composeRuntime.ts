@@ -56,6 +56,7 @@ import {
   LevelStore,
   ApartmentStore,
   RoomStore,
+  ProvenanceStore,
 } from '@pryzm/stores';
 // D-α-3 P3 — pure parameter-impact resolver injected into the propagator.
 // Lives in @pryzm/ai-host (L2) so the L1 stores stay free of any AI-runtime
@@ -930,6 +931,13 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
     const apartmentStore = new ApartmentStore();
     const roomStore = new RoomStore();
 
+    // A.31.c — L3 ProvenanceStore (C23 per-AI-call audit graph). Per
+    // [C23 §1.9] append-only EXCEPT approvalStatus (§1.7) + producedElementIds
+    // (§4.4). The store rejects edges that would close a DAG cycle (§1.3).
+    // Joins the C13 reset list — every project switch starts with an
+    // empty graph (per-project audit isolation per §1.10 RLS pre-image).
+    const provenanceStore = new ProvenanceStore();
+
     const typologyRegistry = createTypologyRegistry();
     const typologyRouter = createPipelineRouter(typologyRegistry);
     // A.4.a — register the apartment pack (BRIDGE handlers; full code
@@ -1371,6 +1379,10 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       catch (err) { console.error('[runtime-composer] apartmentStore.dispose threw:', err); }
       try { roomStore.dispose(); }
       catch (err) { console.error('[runtime-composer] roomStore.dispose threw:', err); }
+      // A.31.c — dispose ProvenanceStore (process shutdown only — the
+      // C13 project-switch path uses `.reset()`).
+      try { provenanceStore.dispose(); }
+      catch (err) { console.error('[runtime-composer] provenanceStore.dispose threw:', err); }
       try { inner.tearDown(); }
       catch (err) { console.error('[runtime-composer] inner tearDown threw:', err); }
       events.clear();
@@ -1452,6 +1464,10 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       // Room.apartmentId ↔ Apartment.levelId consistency).
       apartmentStore,
       roomStore,
+      // A.31.c — C23 Provenance audit graph. Read by the L5 inspect-tree
+      // panel (A.31.e PLANNED) + written by the AI relay paths (the
+      // provenance.* command surface A.31.d PLANNED).
+      provenanceStore,
       sceneReady,
       tearDown,
     };
