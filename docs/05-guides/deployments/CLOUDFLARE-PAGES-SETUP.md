@@ -223,6 +223,25 @@ Then retry the Cloudflare deploy.
 
 **Fix**: in the project view, **Deployments** → click the latest → **Retry deployment**. Or purge the cache: Cloudflare zone → Caching → Purge Everything.
 
+### §9.6 — "Retry deployment" re-uses the SAME commit (does NOT pick up a fix you just pushed)
+
+**Symptom**: you pushed a fix to `main`; the next Cloudflare build STILL clones the previous commit and fails the same way.
+
+**Cause**: clicking **"Retry deployment"** on a failed deploy re-runs the SAME commit hash. It doesn't fetch the latest of the production branch.
+
+**Fix**: use the **"Create deployment"** button (top-right of the project view) instead. That button fetches the current HEAD of the configured production branch.
+
+The distinction:
+
+| Button | What it does | Use when |
+|---|---|---|
+| **Retry deployment** (on a failed build row) | Re-runs the **same commit** that failed | The failure was transient (network blip mid-install, sporadic timeout). |
+| **Create deployment** (top-right of project view) | Fetches the **latest HEAD** of the production branch | You pushed a fix that should be deployed. **This is what you want 90% of the time.** |
+
+Look at the build log's first line — `HEAD is now at <hash>` — to confirm which commit was actually built. If it's not your latest push, you used Retry instead of Create.
+
+This trap costs ~ 5 minutes per occurrence (one wasted Cloudflare build cycle). The IP-A5 closure deploy hit it twice on 2026-06-02; this troubleshooting entry is the result.
+
 ---
 
 ## §10 — Redeploy after a code change
