@@ -89,6 +89,11 @@ export {
 // detection rejects edges that would close a loop (§1.3 DAG invariant).
 // Snapshots dedup by contextHash. Joins the C13 reset list.
 export { ProvenanceStore } from './ProvenanceStore.js';
+// A.R.3 (Revit round-trip · S55) — L3 IfcMetaStore. Durable home for IFC/Revit
+// element metadata (globalId + psets/quantities/tier), serialisable into
+// `.pryzm` so a Revit round-trip survives reload. Wraps `@pryzm/schemas/ifc`.
+// Joins the C13 project-switch reset list.
+export { IfcMetaStore } from './IfcMetaStore.js';
 // A.31.d (Phase A · Sprint 2) — provenance.* command handlers per [C23 §4].
 // 4 pure handlers `(payload, store) → ProvenanceCommandResult<Event>`:
 // ai.recordArtefact (idempotent on idempotencyKey) · provenance.linkElement
