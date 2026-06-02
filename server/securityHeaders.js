@@ -36,6 +36,8 @@ import helmet from 'helmet';
 import { existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+// C51 §3.1.2.2 — the CSP `report-uri` points at this single shared path.
+import { CSP_REPORT_PATH } from './cspReport.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = dirname(__filename);
@@ -141,6 +143,15 @@ const MAIN_CSP_DIRECTIVES = {
     frameAncestors: ["'none'"],
     // frame-src is intentionally omitted: PRYZM does not embed external iframes
     // in the main application shell.
+
+    // C51 §3.1.2.2 — report-uri sends violation reports to the in-app sink
+    // (server/cspReport.js). Works in BOTH enforce (prod) and report-only (dev)
+    // modes, so we collect the evidence needed to safely narrow script-src /
+    // style-src / the blanket wss: from real production telemetry rather than
+    // guesswork. (report-uri is deprecated in favour of report-to, but remains
+    // the broadest-supported mechanism; a report-to/Reporting-Endpoints upgrade
+    // is the documented follow-up.)
+    reportUri:      [CSP_REPORT_PATH],
 
     // §CSP-UPGRADE-INSECURE (DAILY-USE 2026-05-21) — helmet adds the
     // `upgrade-insecure-requests` directive to its default CSP. Browsers

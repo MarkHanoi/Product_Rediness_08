@@ -36,6 +36,8 @@ import {
 import { expressCorsOptions, socketCorsOptions } from './server/corsPolicy.js';
 // M-HEADERS: helmet-powered security headers (C08 §4 — Phase 0 Task 0.1 DONE)
 import { helmetMiddleware, applyEmbedHeaders } from './server/securityHeaders.js';
+// C51 §3.1.2.2: CSP violation-report sink (evidence base for strict-CSP tightening)
+import { CSP_REPORT_PATH, cspReportBodyParser, cspReportHandler } from './server/cspReport.js';
 // M-SUPABASE-KEY: prefers SUPABASE_SERVICE_ROLE_KEY over SUPABASE_ANON_KEY
 import { getSupabaseClient } from './server/supabaseClient.js';
 import { verifyPluginSignatureNode, lookupPublisherKey, fetchRevocationList } from './server/pluginSigningService.js';
@@ -322,6 +324,12 @@ app.options('*', cors(expressCorsOptions())); // pre-flight for all routes
 
 // ── H1: Global rate limiter — applied to all /api/* routes ───────────────────
 app.use('/api', globalLimiter);
+
+// C51 §3.1.2.2 — CSP violation report sink (public, unauthenticated). Mounted
+// ahead of any auth gating; its own parser handles the application/csp-report +
+// reports+json content-types the global JSON parser skips. Answers 204; logs
+// (rate-capped) the violation telemetry used to narrow the CSP from evidence.
+app.post(CSP_REPORT_PATH, cspReportBodyParser, cspReportHandler);
 
 // ── Phase E-1: Public Read-Only REST API ──────────────────────────────────────
 // Endpoints: GET /api/v1/projects/:id/{model,rooms,graph,compliance,programme,hierarchy,schedules/:type}
