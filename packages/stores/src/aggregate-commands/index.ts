@@ -6,8 +6,10 @@
 // Programmer errors throw via Zod; pack/invariant errors fail-soft.
 //
 // Slice contents:
-//   A.23.c.1 (this) — building.* (create + update + delete-forbidden)
-//   A.23.c.2+ planned — level.* / apartment.* / room.* surfaces
+//   A.23.c.1 — building.* (create + update + delete-forbidden)
+//   A.23.c.2 — level.* (create + update + setActive + delete)
+//   A.23.c.3 — apartment.* (create + update + delete with Room cascade)
+//   A.23.c.4 — room.* (create + update + delete + assignToApartment)
 
 export { buildingCreate, deterministicBuildingId } from './buildingCreate.js';
 export { buildingUpdate } from './buildingUpdate.js';
@@ -20,6 +22,10 @@ export { levelDelete } from './levelDelete.js';
 export { apartmentCreate } from './apartmentCreate.js';
 export { apartmentUpdate } from './apartmentUpdate.js';
 export { apartmentDelete } from './apartmentDelete.js';
+export { roomCreate } from './roomCreate.js';
+export { roomUpdate } from './roomUpdate.js';
+export { roomDelete } from './roomDelete.js';
+export { roomAssignToApartment } from './roomAssignToApartment.js';
 
 export {
     BuildingCreatePayloadSchema,
@@ -32,6 +38,10 @@ export {
     ApartmentCreatePayloadSchema,
     ApartmentUpdatePayloadSchema,
     ApartmentDeletePayloadSchema,
+    RoomCreatePayloadSchema,
+    RoomUpdatePayloadSchema,
+    RoomDeletePayloadSchema,
+    RoomAssignToApartmentPayloadSchema,
     type BuildingCreatePayload,
     type BuildingUpdatePayload,
     type BuildingDeletePayload,
@@ -42,6 +52,10 @@ export {
     type ApartmentCreatePayload,
     type ApartmentUpdatePayload,
     type ApartmentDeletePayload,
+    type RoomCreatePayload,
+    type RoomUpdatePayload,
+    type RoomDeletePayload,
+    type RoomAssignToApartmentPayload,
     type AggregateCommandResult,
     type AggregateCommandRejection,
     type BuildingCreatedEvent,
@@ -53,4 +67,8 @@ export {
     type ApartmentCreatedEvent,
     type ApartmentUpdatedEvent,
     type ApartmentDeletedEvent,
+    type RoomCreatedEvent,
+    type RoomUpdatedEvent,
+    type RoomDeletedEvent,
+    type RoomAssignedToApartmentEvent,
 } from './types.js';

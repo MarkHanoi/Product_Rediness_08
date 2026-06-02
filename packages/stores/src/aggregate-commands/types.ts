@@ -237,6 +237,58 @@ export type ApartmentDeletePayload = z.infer<
 >;
 
 // ─────────────────────────────────────────────────────────────────────────────
+// room.* payloads (§4.4)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * `room.create` — per [C20 §4.4 + §1.4].
+ * Validates: Level exists; if apartmentId provided, Apartment exists
+ * AND Apartment.levelId === Room.levelId.
+ * NOTE: current L0 RoomParameters requires apartmentId (non-nullable).
+ * A.23.b.3 widens; for now this payload requires it.
+ */
+export const RoomCreatePayloadSchema = z.object({
+    levelId: LevelIdSchema,
+    apartmentId: ApartmentIdSchema,
+    name: z.string().min(1).max(120),
+    parameters: z.unknown(),
+});
+export type RoomCreatePayload = z.infer<typeof RoomCreatePayloadSchema>;
+
+/**
+ * `room.update` — per [C20 §4.4]. Patches Room fields + optionally
+ * parameters. Re-validates §1.4 if levelId/apartmentId changes. Keeps
+ * parameters.id === Room.id per §1.5.
+ */
+export const RoomUpdatePayloadSchema = z.object({
+    id: RoomIdSchema,
+    patch: z.object({
+        name: z.string().min(1).max(120).optional(),
+        levelId: LevelIdSchema.optional(),
+        apartmentId: ApartmentIdSchema.optional(),
+    }),
+    parameterPatch: z.unknown().optional(),
+});
+export type RoomUpdatePayload = z.infer<typeof RoomUpdatePayloadSchema>;
+
+/** `room.delete` — per [C20 §4.4 + §1.9]. */
+export const RoomDeletePayloadSchema = z.object({ id: RoomIdSchema });
+export type RoomDeletePayload = z.infer<typeof RoomDeletePayloadSchema>;
+
+/**
+ * `room.assignToApartment` — per [C20 §4.4].
+ * Validates §1.4 same-Level constraint. Until A.23.b.3 widens
+ * apartmentId, null is REJECTED.
+ */
+export const RoomAssignToApartmentPayloadSchema = z.object({
+    roomId: RoomIdSchema,
+    apartmentId: ApartmentIdSchema,
+});
+export type RoomAssignToApartmentPayload = z.infer<
+    typeof RoomAssignToApartmentPayloadSchema
+>;
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Domain events
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -289,6 +341,29 @@ export interface ApartmentDeletedEvent {
     readonly type: 'apartment.deleted';
     readonly apartment: Apartment;
     readonly cascadedRoomCount: number;
+}
+
+export interface RoomCreatedEvent {
+    readonly type: 'room.created';
+    readonly room: Room;
+}
+
+export interface RoomUpdatedEvent {
+    readonly type: 'room.updated';
+    readonly room: Room;
+    readonly prior: Room;
+}
+
+export interface RoomDeletedEvent {
+    readonly type: 'room.deleted';
+    readonly room: Room;
+}
+
+export interface RoomAssignedToApartmentEvent {
+    readonly type: 'room.assigned-to-apartment';
+    readonly roomId: string;
+    readonly apartmentId: string;
+    readonly priorApartmentId: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
