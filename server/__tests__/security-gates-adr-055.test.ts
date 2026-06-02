@@ -355,3 +355,64 @@ describe('§4 oauth-callback-html-leak (the 2 OAuth popup HTML sites)', () => {
         expect(body).toMatch(/id [0-9a-f]{8}/);
     });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §5 — apex-route-surface (C51 §3.2.1): the app MUST NOT render apex marketing
+// routes in-place. When reached as the app surface (app.pryzm.so), a request for
+// /pricing, /manifesto, or /trust must 301 to the apex equivalent rather than
+// fall through to the SPA catch-all. Local dev + the apex itself are unaffected
+// (hostname guard). Mirrors the block in server.js immediately above the static
+// / Vite middleware.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('§5 apex-route-surface redirect (C51 §3.2.1)', () => {
+    let server: Server, url: string;
+
+    // Exact copy of server.js's C51 §3.2.1 block.
+    const APEX_ORIGIN = 'https://pryzm.so';
+    const APP_HOSTS = new Set(['app.pryzm.so', 'api.pryzm.so']);
+
+    beforeAll(async () => {
+        const app = express();
+        // trust the X-Forwarded-Host the test sets, the way Fly's two-hop chain does.
+        app.set('trust proxy', 2);
+        app.get(['/pricing', '/manifesto', '/trust'], (req: express.Request, res: express.Response, next: express.NextFunction) => {
+            if (APP_HOSTS.has((req.hostname || '').toLowerCase())) {
+                return res.redirect(301, `${APEX_ORIGIN}${req.path}`);
+            }
+            return next();
+        });
+        // SPA catch-all stand-in: anything not redirected renders the "editor shell".
+        app.get('*', (_req: express.Request, res: express.Response) => res.status(200).send('<html>editor-shell</html>'));
+        const a = await listen(app);
+        server = a.server; url = a.url;
+    });
+
+    afterAll(async () => { await close(server); });
+
+    for (const path of ['/pricing', '/manifesto', '/trust']) {
+        it(`T5.1 — app.pryzm.so${path} → 301 → pryzm.so${path}`, async () => {
+            const r = await fetch(`${url}${path}`, {
+                headers: { 'X-Forwarded-Host': 'app.pryzm.so', 'X-Forwarded-Proto': 'https' },
+                redirect: 'manual',
+            });
+            expect(r.status).toBe(301);
+            expect(r.headers.get('location')).toBe(`https://pryzm.so${path}`);
+        });
+    }
+
+    it('T5.2 — localhost (dev) does NOT redirect — renders the editor shell', async () => {
+        // No X-Forwarded-Host → req.hostname is 127.0.0.1, not an app host.
+        const r = await fetch(`${url}/pricing`, { redirect: 'manual' });
+        expect(r.status).toBe(200);
+        expect(await r.text()).toContain('editor-shell');
+    });
+
+    it('T5.3 — a non-marketing path on the app host is untouched (falls through)', async () => {
+        const r = await fetch(`${url}/projects`, {
+            headers: { 'X-Forwarded-Host': 'app.pryzm.so', 'X-Forwarded-Proto': 'https' },
+            redirect: 'manual',
+        });
+        expect(r.status).toBe(200);
+        expect(await r.text()).toContain('editor-shell');
+    });
+});

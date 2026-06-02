@@ -5402,6 +5402,24 @@ app.get('/marketplace/api/revocations.json', async (_req, res) => {
     }
 });
 
+// ── C51 §3.2.1 — apex marketing routes belong to pryzm.so, not the app ────────
+// When this server is reached as the app surface (app.pryzm.so / api.pryzm.so),
+// a request for an apex-owned marketing PATH must 301 to the apex equivalent
+// rather than render the editor shell via the SPA catch-all below. Only the
+// three routes the apex build actually emits are redirected (/pricing,
+// /manifesto, /trust) — /solutions and /resources are not built on apex yet, so
+// redirecting them would 301 to a 404. Guarded on hostname so local dev
+// (localhost) and the apex itself are unaffected; inert until app.pryzm.so is
+// live on Fly (A.17.x.11). Source of truth for the path list: C51 §5 routing table.
+const APEX_ORIGIN = process.env.APEX_ORIGIN || 'https://pryzm.so';
+const APP_HOSTS = new Set(['app.pryzm.so', 'api.pryzm.so']);
+app.get(['/pricing', '/manifesto', '/trust'], (req, res, next) => {
+    if (APP_HOSTS.has((req.hostname || '').toLowerCase())) {
+        return res.redirect(301, `${APEX_ORIGIN}${req.path}`);
+    }
+    return next();
+});
+
 // ── Static / Vite middleware ──────────────────────────────────────────────────
 if (isProd) {
     console.log('[server] Production mode — serving dist/');
