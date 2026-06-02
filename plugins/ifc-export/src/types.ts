@@ -7,38 +7,15 @@
 
 import type { Beam, Column, Door, Slab, Wall, Window } from '@pryzm/plugin-sdk';
 
-/** Scalar value allowed inside an IFC Pset (`IfcPropertySingleValue.NominalValue`). */
-export type PsetValue = string | number | boolean | null;
-
-/** A single IFC property set (key = property name, value = scalar). */
-export type Pset = Record<string, PsetValue>;
-
-/** A single IFC quantity set (key = quantity name, value = numeric measure). */
-export type Qset = Record<string, number>;
-
-/**
- * Side-car metadata describing the IFC origin of a PRYZM element.
- *
- * S55 will land an `IFCMetaStore` in `@pryzm/stores` whose entries match this
- * shape verbatim; this exporter binds against the structural type so the
- * dependency direction stays clean (export → schemas only).
- */
-export interface IFCElementMeta {
-  /** PRYZM element id (`wall_<ulid>`, `slab_<ulid>`, …) — the join key. */
-  pryzmElementId: string;
-  /** Original IFC `GloballyUniqueId` (22-char base64). Preserved across round-trips. */
-  globalId: string;
-  /** Original IFC entity type, e.g. `IFCWALLSTANDARDCASE`. */
-  typeName: string;
-  name?: string;
-  description?: string;
-  objectType?: string;
-  /** All IFC `IfcPropertySet`s that referenced this element on import. */
-  psets: Record<string, Pset>;
-  /** All IFC `IfcElementQuantity` sets that referenced this element on import. */
-  quantities?: Record<string, Qset>;
-  tier: 1 | 2 | 3;
-}
+// A.R.3 (Revit round-trip) — bind to the canonical L0 shape via the plugin-sdk
+// (L6) facade so this exporter, `ifc-import`, and the L3 `IfcMetaStore`
+// (`@pryzm/stores`) all share ONE definition (no more drift between three
+// near-identical copies). `IFCElementMeta` is the historical name kept as an
+// alias of the canonical `IfcElementMeta` so call-sites need no change.
+// Imported with the historical `IFCElementMeta` alias so this file can both USE
+// it (e.g. in `IFCMetaStoreLike` below) and re-export it for downstream modules.
+import type { IfcElementMeta as IFCElementMeta, Pset, PsetValue, Qset } from '@pryzm/plugin-sdk';
+export type { IFCElementMeta, Pset, PsetValue, Qset };
 
 /**
  * Minimum surface the exporter needs from an `IFCMetaStore`.
