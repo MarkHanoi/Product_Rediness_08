@@ -1,0 +1,298 @@
+---
+// IP-A5 iteration 5.6 — pryzm.so root landing page.
+//
+// Until this file existed, the root route resolved to Starlight's
+// content-collection landing (the "PRYZM Developer Docs" page) — that
+// is the right page for `/docs` but NOT for the customer-facing apex.
+// Adding `src/pages/index.astro` makes Astro pick the file-system route
+// in preference to the integration-injected one.
+//
+// Source-of-truth alignment:
+//   - Manifesto headline beats: docs/01-strategy/manifesto.md §1 + §2
+//   - Brand voice: manifesto §5 (aspirational result, plain-spoken work,
+//     curated about what we ship)
+//   - Colours: PRYZM_TOKENS — inlined per ADR-052 §1.3
+//
+// Astro renders this at build time; zero client-side JS.
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PRYZM — BIM, reborn for the browser</title>
+    <meta
+      name="description"
+      content="The browser-native BIM platform: real-time collaboration, AI-assisted design, contract-grade interoperability. Built for architects, engineers, and the teams that have to ship a building."
+    />
+    <meta property="og:title" content="PRYZM — BIM, reborn for the browser" />
+    <meta
+      property="og:description"
+      content="Real-time collaboration. AI-assisted design. Contract-grade interoperability. Built for the teams that ship buildings."
+    />
+    <meta property="og:type" content="website" />
+    <style>
+      :root {
+        --pryzm-purple: #6600ff;
+        --pryzm-purple-lighter: #8c4dff;
+        --pryzm-ink: #0a0a0f;
+        --pryzm-paper: #14141c;
+        --pryzm-paper-elevated: #1c1c28;
+        --pryzm-border: #2a2a36;
+        --pryzm-text-primary: #f5f5fa;
+        --pryzm-text-secondary: #a8a8b5;
+        --pryzm-muted: #8a8a96;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; padding: 0;
+        background: var(--pryzm-ink);
+        color: var(--pryzm-text-primary);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        line-height: 1.6;
+        min-height: 100vh;
+      }
+      header.site-nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1.25rem 2rem;
+        border-bottom: 1px solid var(--pryzm-border);
+      }
+      .brand {
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        font-size: 1.05rem;
+        color: var(--pryzm-text-primary);
+        text-decoration: none;
+      }
+      .brand-purple { color: var(--pryzm-purple-lighter); }
+      nav.site-links {
+        display: flex; gap: 1.5rem; align-items: center;
+      }
+      nav.site-links a {
+        color: var(--pryzm-text-secondary);
+        text-decoration: none;
+        font-weight: 500;
+        font-size: 0.95rem;
+        transition: color 0.15s;
+      }
+      nav.site-links a:hover,
+      nav.site-links a:focus-visible {
+        color: var(--pryzm-purple-lighter);
+      }
+      main {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 5rem 1.5rem 6rem;
+      }
+      section.hero {
+        text-align: center;
+        max-width: 760px;
+        margin: 0 auto 5rem;
+      }
+      h1 {
+        font-size: clamp(2.5rem, 6vw, 4rem);
+        font-weight: 800;
+        line-height: 1.05;
+        letter-spacing: -0.03em;
+        margin: 0 0 1.25rem;
+      }
+      h1 .accent { color: var(--pryzm-purple-lighter); }
+      .lede {
+        font-size: 1.25rem;
+        color: var(--pryzm-text-secondary);
+        margin: 0 0 2.5rem;
+      }
+      .cta-row {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      a.button {
+        display: inline-block;
+        padding: 0.85rem 1.75rem;
+        border-radius: 0.5rem;
+        text-decoration: none;
+        font-weight: 600;
+        transition: background 0.15s, color 0.15s, border-color 0.15s;
+        font-size: 1rem;
+      }
+      a.button.primary {
+        background: var(--pryzm-purple);
+        color: #fff;
+      }
+      a.button.primary:hover,
+      a.button.primary:focus-visible {
+        background: var(--pryzm-purple-lighter);
+      }
+      a.button.secondary {
+        background: var(--pryzm-paper);
+        color: var(--pryzm-text-primary);
+        border: 1px solid var(--pryzm-border);
+      }
+      a.button.secondary:hover,
+      a.button.secondary:focus-visible {
+        border-color: var(--pryzm-purple-lighter);
+        color: var(--pryzm-purple-lighter);
+      }
+      section.beats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.5rem;
+        margin-bottom: 5rem;
+      }
+      .beat {
+        background: var(--pryzm-paper);
+        border: 1px solid var(--pryzm-border);
+        border-radius: 0.75rem;
+        padding: 1.75rem;
+      }
+      .beat h3 {
+        margin: 0 0 0.75rem;
+        font-size: 1.15rem;
+        color: var(--pryzm-purple-lighter);
+        letter-spacing: -0.01em;
+      }
+      .beat p {
+        margin: 0;
+        color: var(--pryzm-text-secondary);
+        font-size: 0.97rem;
+        line-height: 1.55;
+      }
+      section.callout {
+        background: var(--pryzm-paper-elevated);
+        border: 1px solid var(--pryzm-border);
+        border-radius: 0.85rem;
+        padding: 2.5rem;
+        text-align: center;
+      }
+      section.callout h2 {
+        margin: 0 0 0.75rem;
+        font-size: 1.5rem;
+        letter-spacing: -0.01em;
+      }
+      section.callout p {
+        margin: 0 0 1.5rem;
+        color: var(--pryzm-text-secondary);
+        max-width: 580px;
+        margin-left: auto;
+        margin-right: auto;
+      }
+      footer.site-footer {
+        border-top: 1px solid var(--pryzm-border);
+        padding: 2.25rem 2rem;
+        text-align: center;
+        color: var(--pryzm-muted);
+        font-size: 0.9rem;
+      }
+      footer.site-footer a {
+        color: var(--pryzm-muted);
+        text-decoration: none;
+        margin: 0 0.65rem;
+      }
+      footer.site-footer a:hover,
+      footer.site-footer a:focus-visible {
+        color: var(--pryzm-purple-lighter);
+      }
+      @media (max-width: 760px) {
+        section.beats {
+          grid-template-columns: 1fr;
+        }
+        header.site-nav {
+          padding: 1rem;
+        }
+        nav.site-links {
+          gap: 1rem;
+        }
+        nav.site-links a {
+          font-size: 0.9rem;
+        }
+        main {
+          padding: 3rem 1.25rem 4rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="site-nav">
+      <a class="brand" href="/">
+        <span class="brand-purple">▲</span> PRYZM
+      </a>
+      <nav class="site-links" aria-label="Primary">
+        <a href="/manifesto">Manifesto</a>
+        <a href="/pricing">Pricing</a>
+        <a href="/trust">Trust</a>
+        <a href="/getting-started">Docs</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <h1>BIM, reborn for <span class="accent">the browser</span>.</h1>
+        <p class="lede">
+          Real-time collaboration. AI-assisted design. Contract-grade
+          interoperability. Built for the teams that have to ship a building.
+        </p>
+        <div class="cta-row">
+          <a class="button primary" href="/pricing">See pricing</a>
+          <a class="button secondary" href="/manifesto">Why we exist</a>
+        </div>
+      </section>
+
+      <section class="beats" aria-label="Why PRYZM">
+        <article class="beat">
+          <h3>Designed in your browser</h3>
+          <p>
+            No install. No "open the file lock". Open the project — see what
+            your team sees, on whatever device is in front of you.
+          </p>
+        </article>
+        <article class="beat">
+          <h3>AI that helps, doesn't replace</h3>
+          <p>
+            Apartment layouts in seconds. Furniture, lighting, ceilings on the
+            same workflow. Every AI step audit-trailed — you stay in control.
+          </p>
+        </article>
+        <article class="beat">
+          <h3>Built on the standards</h3>
+          <p>
+            IFC, BCF, Revit round-trip, DXF, Rhino. Your model belongs to
+            you. Your team's choices belong to the team.
+          </p>
+        </article>
+      </section>
+
+      <section class="callout">
+        <h2>Where we are right now</h2>
+        <p>
+          PRYZM is in alpha. Apartment typology ships first; house and small
+          office land in the next two quarters. Read the
+          <a href="/manifesto" style="color: var(--pryzm-purple-lighter)">manifesto</a>
+          to see what we're building toward, or open the
+          <a href="/pricing" style="color: var(--pryzm-purple-lighter)">pricing</a>
+          to see how the tiers scale with your team.
+        </p>
+        <div class="cta-row">
+          <a class="button primary" href="/manifesto">Read the manifesto</a>
+          <a class="button secondary" href="/trust">How we handle your data</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div>
+        <a href="/manifesto">Manifesto</a> ·
+        <a href="/pricing">Pricing</a> ·
+        <a href="/trust">Trust</a> ·
+        <a href="/getting-started">Developer docs</a>
+      </div>
+      <div style="margin-top: 0.85rem;">
+        © PRYZM. Alpha — built in public.
+      </div>
+    </footer>
+  </body>
+</html>
