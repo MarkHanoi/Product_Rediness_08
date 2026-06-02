@@ -226,71 +226,80 @@ If `pryzm.fly.dev` resolves but returns 5xx, `flyctl logs` is the first stop. If
 
 ## §3 — Step-by-step: build the apex pre-render
 
-ADR-055 §0 promises `pnpm build:apex` produces `apps/editor/dist-apex/` containing pre-rendered `/`, `/pricing`, `/manifesto`, `/trust`. **At the time of this runbook (Sprint 3), that script does not exist yet.** This section authors the contract for it AND documents the Sprint-3 deferral.
+ADR-055 §0 promises `pnpm build:apex` produces `apps/editor/dist-apex/` containing pre-rendered `/`, `/pricing`, `/manifesto`, `/trust`. **As of 2026-06-02 that script is WIRED** — implemented in `scripts/build/prerender-apex.mjs` and exposed as the `build:apex` npm script in the root `package.json`. The Sprint-3 deferral that previously lived in this section is closed; the Astro fallback path is preserved below as a documented contingency only.
 
-### §3.1 — The target state (Sprint 4+)
+### §3.1 — The wired implementation (current state)
 
 ```jsonc
-// package.json (root) — to be added in Sprint 4
+// package.json (root) — present today
 {
   "scripts": {
-    "build:apex": "vite-ssg build --config apps/editor/vite.config.ts --out apps/editor/dist-apex"
+    "build:apex": "node scripts/build/prerender-apex.mjs",
+    "build:app":  "npm run build"
   }
 }
 ```
 
+Mechanism: a custom Node-ESM prerender script (not `vite-ssg`, not `vite-plugin-prerender`, not Puppeteer). Justification recorded in the script's prologue — the L7 marketing surfaces are vanilla DOM, `happy-dom` + `tsx` are already in the workspace (CLAUDE.md root vitest config + write-prod-shim respectively), so the heavier SSG plugins were the wrong shape. The script imports only the three pure-CSS-string modules (`tokens.ts`, `marketingPages.ts`, `pricingPage.ts`) from the editor source — it deliberately does NOT dynamic-import the LandingPage / PricingPage classes because they pull `@pryzm/core-app-model` (the domain-engine SCC) at module load (see MEMORY.md "SCC: no barrel access at module load").
+
 Output: `apps/editor/dist-apex/` containing:
-- `index.html` (the landing page, pre-rendered)
-- `pricing/index.html`
-- `manifesto/index.html`
-- `trust/index.html`
-- `404.html`
-- Hashed CSS + minimal JS bundles for hydration (if any).
+- `index.html` — landing (~32 KB)
+- `pricing/index.html` — pricing (~23 KB)
+- `manifesto/index.html` — manifesto (~12 KB)
+- `trust/index.html` — trust (~11 KB)
+- `_headers` — strict marketing CSP, HSTS, COOP, COEP, frame-ancestors none
+- `_redirects` — www→apex, trailing-slash normalisation, /* → /index.html 200 fallback
 
 Build characteristics:
-- Pure static HTML — no `<script>` tags that hit `/api/*`.
-- CSP can be permissive (no `unsafe-eval` needed since no Three.js, no editor SPA).
-- Bundle size < 200 KB total (the editor SPA bundle is excluded).
+- Pure static HTML — zero `<script>` tags, no `/api/*` calls from the apex.
+- CSP is the strictest sensible set: `default-src 'none'; style-src 'unsafe-inline'` (the only relaxation is inline `<style>` for first-paint speed).
+- Total bundle: ~79 KB across all six files. Comfortably under the 200 KB soft budget the script enforces with a warn.
+- Idempotent: re-running emits byte-identical output (verified via `shasum` diff on two consecutive runs — no timestamps, no random IDs).
+- Runtime: ~1.5 s cold. No network. No subprocess. No `composeRuntime()`, no DB, no Yjs — pure DOM build.
 
-### §3.2 — The Sprint-3 deferral (THIS phase)
+### §3.2 — Wiring history (closed)
 
-**`vite-ssg` is NOT wired yet.** ADR-055 §3 Phase A row's deliverable (1) describes the target shape; it does not promise the SSG mechanism lands in Sprint 3.
+The earlier draft of this runbook (commit before 2026-06-02) deferred `build:apex` to Sprint 4 and proposed shipping Phase A on the existing Astro pre-built pages. That deferral is **closed** as of the commit wiring `scripts/build/prerender-apex.mjs`. CI runs `pnpm build:apex` on every push to `main`; Cloudflare Pages reads from `apps/editor/dist-apex/`.
 
-**Sprint-3 decision (this runbook executes)**: ship Phase A with the apex serving the **existing Astro pre-built pages** until `vite-ssg` lands in Sprint 4.
+The Astro pages at `apps/docs-site/src/pages/{index,pricing,manifesto,trust,start}.astro` remain on disk as a documented contingency (ASTRO-RETIREMENT-PLAN §7 step 6 is the trigger to delete them, and is no longer blocked by `build:apex` — it now waits only on the soak window in §9.1 of this runbook).
 
-Concretely:
-1. Build the Astro project once: `pnpm --filter @pryzm/docs-site exec astro build`.
-2. The output is `apps/docs-site/dist/` containing `/index.html`, `/pricing/index.html`, `/manifesto/index.html`, `/trust/index.html`, plus the Starlight developer-docs tree.
-3. The Cloudflare Pages project (§4 below) serves `apps/docs-site/dist/` directly.
-4. After Sprint 4 lands `vite-ssg`, the same Pages project flips its build output dir from `apps/docs-site/dist/` to `apps/editor/dist-apex/` — no DNS change, no downtime.
-
-This deferral is **explicitly authorised by ADR-055 §3 Phase A** ("Build pre-render step: `pnpm build:apex` emits static HTML for /, /pricing, /manifesto, /trust → push to Cloudflare Pages"). The current Astro build is the same artefact shape; we are honouring the contract while deferring the mechanism switch by one sprint.
-
-### §3.3 — One-sprint-deferral exit criteria
-
-Sprint 4 closes the deferral when:
-- [ ] `pnpm build:apex` script exists in root `package.json`.
-- [ ] It produces `apps/editor/dist-apex/` with the four canonical routes.
-- [ ] The 4 routes render identically (visual diff) to today's Astro pages.
-- [ ] Cloudflare Pages project's build command updates from the Astro recipe to `pnpm install --no-frozen-lockfile && pnpm build:apex` and output dir to `apps/editor/dist-apex`.
-- [ ] `apps/docs-site/src/pages/{index,pricing,manifesto,trust,start}.astro` deleted per [ASTRO-RETIREMENT-PLAN-2026-Q3.md](./ASTRO-RETIREMENT-PLAN-2026-Q3.md) §7 step 6.
-
-Until Sprint 4 closes that, ASTRO-RETIREMENT-PLAN steps 5–8 are blocked — leave the Astro pages on disk.
-
-### §3.4 — What to build for THIS deploy
+### §3.3 — Verify locally before relying on CI
 
 ```bash
 # From the repo root
 pnpm install
-pnpm --filter @pryzm/docs-site exec astro build
+pnpm build:apex
 
-# Confirm
-ls apps/docs-site/dist/
-# Expect: index.html  pricing/  manifesto/  trust/  start/  404.html
-#         plus the Starlight /plugin-sdk/, /api/, /headless/, /selfhost/ trees
+# Confirm structure
+ls apps/editor/dist-apex/
+# Expect: index.html  pricing/  manifesto/  trust/  _headers  _redirects
+
+# Confirm total size
+du -sh apps/editor/dist-apex/
+# Expect: < 200 KB total (currently ~80 KB)
+
+# Idempotency
+pnpm build:apex && shasum apps/editor/dist-apex/index.html > /tmp/a
+pnpm build:apex && shasum apps/editor/dist-apex/index.html > /tmp/b
+diff /tmp/a /tmp/b && echo OK
+# Expect: OK (no diff between two consecutive runs)
 ```
 
-The Cloudflare Pages project (§4 next) deploys this `dist/` directory. After Sprint 4 closes the deferral, the same project's settings flip to the editor's SSG output.
+If a route renders incorrectly (visual drift from the in-app version) the most likely cause is that the editor's CSS source diverged from what the script imports — the script reads the SAME `tokens.ts` + `marketingPages.ts` + `pricingPage.ts` the editor injects, so any drift in those files immediately reflects in the next `build:apex` run. No second source-of-truth to keep in sync.
+
+### §3.4 — Cloudflare Pages project settings (the flip)
+
+Update the `pryzmapp` Pages project (or the new one provisioned in §4.2):
+
+- **Build command**: `pnpm install --no-frozen-lockfile && pnpm build:apex`
+- **Build output directory**: `apps/editor/dist-apex`
+- **Environment variables**: `NODE_VERSION=20`
+
+Replace any previously-configured Astro recipe with these values. The `_headers` and `_redirects` files inside `apps/editor/dist-apex/` are picked up automatically by Cloudflare Pages — no separate dashboard configuration needed.
+
+### §3.5 — Contingency: fall back to the Astro pages
+
+If `pnpm build:apex` ever produces broken output and a rollback is needed in under 5 minutes, the Astro pages can be rebuilt with `pnpm --filter @pryzm/docs-site exec astro build` (output: `apps/docs-site/dist/`) and the Pages project's build settings can be flipped back. This is the documented unwind path; it exists to keep the apex serveable even during a `build:apex` regression. Treat it as the rollback target, not as the default path.
 
 ---
 
@@ -579,7 +588,7 @@ This section is the entry point to [ASTRO-RETIREMENT-PLAN-2026-Q3.md](./ASTRO-RE
 Follow ASTRO-RETIREMENT-PLAN-2026-Q3.md **§7 step sequence** start to finish. Specifically:
 
 - **Step 1** — Pre-flight (re-verify the app surfaces are live; you've already done §8 here so this is a fast revisit).
-- **Step 2** — Editor adds the four surfaces (whether this is a no-op for Sprint 3 depends on the deferral in §3.2 above — if the editor hasn't shipped `/pricing`, `/manifesto`, `/trust` routes yet, **STOP here and leave Astro in place** until Sprint 4 closes the deferral; you can flip the apex and run §10–§12 below without executing §9 yet).
+- **Step 2** — Editor adds the four surfaces. As of 2026-06-02 the apex pre-render (§3 above) emits all four routes (`/`, `/pricing`, `/manifesto`, `/trust`) directly from the editor's CSS source plus inline content. No deferral; this step is now a verify-only check that `pnpm build:apex` is green in CI.
 - **Step 3** — Provision `docs.pryzm.so` BEFORE editing anything else.
 - **Step 4** — Flip the apex DNS (this runbook's §4 already did this if you went the "new Pages project" path; if Astro stays as the apex source until Sprint 4 it's a no-op).
 - **Steps 5–8** — Remove Cloudflare custom-domain mapping for `pryzm.so` from the docs-site project, delete the customer-facing Astro pages, remove the build glue, sweep documentation references.
