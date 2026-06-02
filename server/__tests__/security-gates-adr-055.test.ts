@@ -22,7 +22,8 @@ import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import express from 'express';
 import { createServer, type Server } from 'http';
 import type { AddressInfo } from 'net';
-import { buildConnectSrc } from '../securityHeaders.js';
+import { buildConnectSrc, helmetMiddleware } from '../securityHeaders.js';
+import { CSP_REPORT_PATH, cspReportBodyParser, cspReportHandler, __resetCspRateCap } from '../cspReport.js';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Helpers — bring up a real HTTP server on a random port, return base URL.
@@ -458,5 +459,65 @@ describe('§6 connect-src config-derivation (C51 §3.1.2.2)', () => {
             expect(s).toContain('wss:');
             expect(s).toContain('https://api.cesium.com');
         }
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §7 — CSP violation reporting (C51 §3.1.2.2). The helmet config must accept the
+// report-uri directive (a config error there throws at module load and breaks
+// EVERY response), the emitted CSP must point at CSP_REPORT_PATH, and the sink
+// must accept both report shapes + survive garbage, always answering 204.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('§7 CSP violation reporting (C51 §3.1.2.2)', () => {
+    let server: Server, url: string;
+
+    beforeAll(async () => {
+        const app = express();
+        app.use(helmetMiddleware);                       // throws here if report-uri is rejected
+        app.get('/probe', (_req, res) => res.status(200).send('ok'));
+        app.post(CSP_REPORT_PATH, cspReportBodyParser, cspReportHandler);
+        const a = await listen(app);
+        server = a.server; url = a.url;
+    });
+
+    afterAll(async () => { await close(server); });
+    // Keep the rate-cap from leaking state between assertions.
+    afterAll(() => __resetCspRateCap());
+
+    it('T7.1 — helmet emits a CSP header (enforce or report-only) pointing report-uri at the sink', async () => {
+        const r = await fetch(`${url}/probe`);
+        const csp = r.headers.get('content-security-policy') ?? r.headers.get('content-security-policy-report-only') ?? '';
+        expect(csp).not.toBe('');                        // the middleware applied without throwing
+        expect(csp).toContain(`report-uri ${CSP_REPORT_PATH}`);
+    });
+
+    it('T7.2 — legacy application/csp-report body → 204', async () => {
+        __resetCspRateCap();
+        const r = await fetch(`${url}${CSP_REPORT_PATH}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/csp-report' },
+            body: JSON.stringify({ 'csp-report': { 'effective-directive': 'script-src', 'blocked-uri': 'https://evil.example/x.js', 'document-uri': 'https://app.pryzm.so/' } }),
+        });
+        expect(r.status).toBe(204);
+    });
+
+    it('T7.3 — Reporting-API application/reports+json array → 204', async () => {
+        __resetCspRateCap();
+        const r = await fetch(`${url}${CSP_REPORT_PATH}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/reports+json' },
+            body: JSON.stringify([{ type: 'csp-violation', body: { effectiveDirective: 'style-src', blockedURL: 'inline', documentURL: 'https://app.pryzm.so/' } }]),
+        });
+        expect(r.status).toBe(204);
+    });
+
+    it('T7.4 — empty / garbage body is tolerated (still 204, never throws)', async () => {
+        __resetCspRateCap();
+        const r = await fetch(`${url}${CSP_REPORT_PATH}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/csp-report' },
+            body: '',
+        });
+        expect(r.status).toBe(204);
     });
 });
