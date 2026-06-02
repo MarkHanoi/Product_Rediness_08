@@ -1,0 +1,125 @@
+---
+// 404 page — standalone Astro page (NOT a content-collection entry).
+//
+// Was: apps/docs-site/src/content/docs/404.md routed through Starlight's
+// content-collection schema. As of Astro 5 + Starlight 0.30 + Zod 4 the
+// content schema invocation hits `inst._zod.parse is undefined` because
+// Starlight 0.30 expects Zod 3 but the workspace pins Zod 4 via
+// @pryzm/schemas. The static-route generation for /404 then fails the
+// whole build.
+//
+// Fix: move the 404 to src/pages/404.astro so it bypasses content
+// collections entirely. Astro picks this up as the catch-all 404 for
+// Cloudflare Pages + every static host. No content-schema validation;
+// the page renders as a plain Astro template.
+//
+// Track to retire this fix when Starlight 0.30 ships Zod 4 support
+// or the workspace de-pins zod 4.
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Page Not Found — PRYZM</title>
+    <meta name="description" content="The page you were looking for could not be found." />
+    <style>
+      :root {
+        --pryzm-purple: #6600ff;
+        --pryzm-purple-lighter: #8c4dff;
+        --pryzm-ink: #0a0a0f;
+        --pryzm-paper: #14141c;
+        --pryzm-border: #2a2a36;
+        --pryzm-text-primary: #f5f5fa;
+        --pryzm-text-secondary: #a8a8b5;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; padding: 0;
+        background: var(--pryzm-ink);
+        color: var(--pryzm-text-primary);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        line-height: 1.6;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+      main {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 6rem 1.5rem;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+      }
+      .code {
+        font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+        font-size: 5rem;
+        font-weight: 700;
+        color: var(--pryzm-purple-lighter);
+        line-height: 1;
+        margin: 0 0 0.5rem;
+        letter-spacing: -0.04em;
+      }
+      h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        margin: 0 0 1rem;
+        letter-spacing: -0.02em;
+      }
+      p {
+        color: var(--pryzm-text-secondary);
+        margin: 0 0 2.5rem;
+        font-size: 1.1rem;
+      }
+      .links {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      a.button {
+        display: inline-block;
+        padding: 0.65rem 1.5rem;
+        border-radius: 0.5rem;
+        text-decoration: none;
+        font-weight: 600;
+        transition: background 0.12s, color 0.12s;
+      }
+      a.button.primary {
+        background: var(--pryzm-purple);
+        color: #fff;
+      }
+      a.button.primary:hover,
+      a.button.primary:focus-visible {
+        background: var(--pryzm-purple-lighter);
+      }
+      a.button.secondary {
+        background: var(--pryzm-paper);
+        color: var(--pryzm-text-primary);
+        border: 1px solid var(--pryzm-border);
+      }
+      a.button.secondary:hover,
+      a.button.secondary:focus-visible {
+        border-color: var(--pryzm-purple-lighter);
+        color: var(--pryzm-purple-lighter);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="code">404</div>
+      <h1>Page not found</h1>
+      <p>The page you were looking for doesn't exist on pryzm.so. Try the home page, or one of the canonical surfaces below.</p>
+      <div class="links">
+        <a class="button primary" href="/">Home</a>
+        <a class="button secondary" href="/manifesto">Manifesto</a>
+        <a class="button secondary" href="/pricing">Pricing</a>
+        <a class="button secondary" href="/trust">Trust</a>
+      </div>
+    </main>
+  </body>
+</html>
