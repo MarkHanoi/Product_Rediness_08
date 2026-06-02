@@ -99,7 +99,7 @@ for (const gate of GATES) {
 // actions are complete. The suite always continues regardless of exit code.
 // Recommendation: PRYZM3-FULL-AUDIT-2026-05-14 §25 R4 — informational post-deploy check.
 console.log('\n[ga-gate/run-all] ── Informational: convergence booleans (R4) ──');
-const convScriptPath = join(__dir, '../../scripts/check-pryzm3-exists.ts');
+const convScriptPath = join(__dir, '../../scripts/check/check-pryzm3-exists.ts');
 const convResult = spawnSync('npx', ['tsx', convScriptPath], { stdio: 'inherit', encoding: 'utf8' });
 if ((convResult.status ?? 1) !== 0) {
   console.log('[ga-gate/run-all] ℹ️  Some convergence booleans FALSE (infra-pending items #7–#9 expected).');
