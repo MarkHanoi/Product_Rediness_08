@@ -110,6 +110,28 @@ Content-Security-Policy:
 
 Apex MAY ship a more permissive CSP (its threat surface is smaller — no auth, no DB, no PII). The strict CSP is an APP-side invariant.
 
+##### §3.1.2.1 — Implementation status (2026-06-02 audit)
+
+The app's CSP is emitted by [`server/securityHeaders.js`](../../../server/securityHeaders.js) via helmet 8 (`useDefaults` on, so `base-uri 'self'` · `form-action 'self'` · `object-src 'none'` are already present; CSP is enforce-mode in prod, report-only in dev). Today's **production** policy vs the §3.1.2 target:
+
+| Directive | §3.1.2 target | Current prod | Status |
+|---|---|---|---|
+| `default-src` | `'self'` | `'self'` | ✅ met |
+| `frame-ancestors` | `'none'` | `'none'` | ✅ met |
+| `base-uri` / `form-action` | `'self'` | `'self'` (helmet default) | ✅ met |
+| `object-src` | — | `'none'` (helmet default) | ✅ stronger |
+| `script-src` | `'self' 'wasm-unsafe-eval'` | `'self' 'unsafe-eval' blob:` | ❌ **blocked** |
+| `style-src` | `'self'` | `'self' 'unsafe-inline' https://fonts.googleapis.com` | ❌ **blocked** |
+| `connect-src` | `'self' https://api.pryzm.so wss://app.pryzm.so` | `'self' data: blob: cesium-ion(×3) *.supabase.co wss: ws: [CF_WORKER_URL]` | ⚠️ **contract too narrow** |
+
+Three things block flipping to the literal §3.1.2 policy — none is a quick edit:
+
+1. **`script-src 'unsafe-eval'` → `'wasm-unsafe-eval'`.** `'unsafe-eval'` is currently required by Three.js shader compilation + Cesium's internal `eval()` (documented in `securityHeaders.js:83-90`). Tracked for removal in **Phase J** (ADR-047 WebGPU worker migration). Flipping it now breaks 3D rendering + geospatial. Needs a full-app run to verify after the eval paths are gone.
+2. **`style-src 'unsafe-inline'` → `'self'`.** The editor injects its theme as a runtime `<style>` block (`injectAppTheme()` in `apps/editor/src/ui/styles/AppTheme.ts`). Removing `'unsafe-inline'` requires migrating CSS-in-JS to a hashed/nonce'd stylesheet or an external `.css` link. Non-trivial; needs its own slice.
+3. **`connect-src` — the contract list is unrealistic.** §3.1.2's `connect-src` omits origins the real app legitimately needs: Cesium ion (`api/assets/ionfetch.cesium.com`, C12 geospatial), Supabase (`*.supabase.co`), the CF AI-worker relay, and `ws:`/`wss:` for Socket.io collaboration (C08 §3). **DECISION NEEDED**: either (a) amend §3.1.2's `connect-src` to enumerate these, or (b) proxy all of them through `api.pryzm.so` so `'self' https://api.pryzm.so` suffices. Until decided, the current broad `connect-src` is correct-for-the-app and the literal contract value would break geospatial + persistence + AI + collaboration.
+
+Therefore `check-app-strict-csp` (§7) stays **deferred** — it cannot pass until (1)+(2) ship and (3) is resolved. This note is the closure roadmap; flipping any row above is its own tested PR.
+
 #### §3.1.3 — Honour [C08](./C08-COLLABORATION-AND-SECURITY.md) §1.1 auth invariants
 
 App MUST issue PRYZM's custom JWT via `server/authStore.js` using `SESSION_SECRET` (HMAC-SHA256, 7-day lifetime per C08 §1.1). App MUST NOT use Supabase Auth's JWT issuance until [ADR-056](../adrs/ADR-056-supabase-auth-migration.md) ratifies the migration (sequenced AFTER Phase A close — see ADR-055 §3 row "A.5"). Until ADR-056 lands, any code path that calls `supabase.auth.signIn()` / `supabase.auth.signUp()` is a contract violation.
@@ -264,7 +286,7 @@ Each gate is hard-fail on the production branch. The three **apex-output** gates
 | `check-apex-size` | `scripts/check/check-apex-size.mjs` | ✅ **LIVE** (`npm run check:apex`) | Sums gzipped byte size of `dist-apex/` (excludes `_headers`/`_redirects`/dotfiles); fails if > 200 KB. Enforces §6.1.3. Current: 21.2 KB (89% headroom). | Phase A |
 | `check-apex-no-auth-cookies` | `scripts/check/check-apex-no-auth-cookies.mjs` | ✅ **LIVE** (`npm run check:apex`) | Scans the apex build output (`dist-apex/`) + the pre-render source for any `Set-Cookie` / `document.cookie` / `req.cookies` / `res.cookie(` usage (comment lines skipped). Enforces §2.2.1. | Phase A (with the first apex deploy) |
 | `check-no-product-routes-in-docs-site` | `scripts/check/check-no-product-routes-in-docs-site.mjs` | ⚪ planned | Fails any PR adding `apps/docs-site/src/pages/{index,pricing,manifesto,trust,solutions,resources}.astro` (or successors). Enforces §2.1.5 + the ADR-055 retirement. **Deferred: would false-fail today (Astro pages still present + Cloudflare currently building them); authored alongside the A.17.x.14 deletion.** | Phase A close |
-| `check-app-strict-csp` | `scripts/check/check-app-strict-csp.mjs` | ⚪ planned | Lints `server.js` middleware + the SPA build for inline `<script>` without nonce, `unsafe-inline` / `unsafe-eval` in the CSP header, missing `default-src 'self'`. Enforces §3.1.2. **Deferred: gates the Fly app deploy; authored when the strict CSP lands server-side.** | Phase A (gates the Fly deploy) |
+| `check-app-strict-csp` | `scripts/check/check-app-strict-csp.mjs` | ⚪ planned | Lints `server.js` middleware + the SPA build for inline `<script>` without nonce, `unsafe-inline` / `unsafe-eval` in the CSP header, missing `default-src 'self'`. Enforces §3.1.2. **Deferred — see the §3.1.2.1 audit: 3 blockers (Three.js/Cesium `unsafe-eval` → Phase J · CSS-in-JS `unsafe-inline` → nonce migration · `connect-src` contract-too-narrow decision). Cannot pass until those land.** | Phase A (gates the Fly deploy) |
 | `check-route-surface-assignment` | `scripts/check/check-route-surface-assignment.mjs` | ⚪ planned (behaviour LIVE) | Cross-references `apps/editor/src/ui/platform/PlatformRouter.ts` route table against §5; flags any app-side route handler for an apex-marked path (or vice versa). Enforces §3.2.1 + §5. **The §3.2.1 app-side behaviour now SHIPS**: `server.js` 301-redirects `/pricing` · `/manifesto` · `/trust` to `APEX_ORIGIN` when reached as `app.pryzm.so`/`api.pryzm.so` (hostname-guarded, inert in dev) — tested in `security-gates-adr-055.test.ts` §5 (T5.1–T5.3). The static gate that *enforces* no future drift is the remaining wrapper. | Phase A |
 | `check-dns-map-honoured` | runtime probe + alert | ⚪ planned | Periodic DNS resolution check against §4; alerts on a `pryzm.so` resolution drift (e.g. CNAME flipped to Fly). | Phase A close |
 
