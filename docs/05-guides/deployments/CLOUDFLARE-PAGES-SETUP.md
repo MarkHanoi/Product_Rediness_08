@@ -1,3 +1,20 @@
+Production branch
+Already correct: main ✅
+
+Build settings
+Field	Paste this
+Framework preset	Astro (dropdown — change from "None")
+Build command	pnpm install --no-frozen-lockfile && pnpm --filter @pryzm/docs-site exec astro build
+Build output directory	apps/docs-site/dist
+Root directory (advanced)	leave blank (expand the section but don't fill the Path field)
+Environment variables (expand the section, click "Add variable" 3 times)
+Variable name	Value
+SKIP_DEPENDENCY_INSTALL	true
+NODE_VERSION	20
+NPM_FLAGS	--version
+Then
+Click the Save button at the bottom of the page. After it persists, go to Deployments in the left sidebar and either:
+
 # Cloudflare Pages setup — `pryzm.so` docs-site
 
 > **Stamp**: 2026-06-02 · **Status**: CANONICAL · **Owner**: @MarkHanoi
@@ -116,36 +133,16 @@ Expected total build time: **3-5 minutes for the first deploy**, ~ 60-90 seconds
 
 ## §7 — Custom domain wiring (`pryzm.so`)
 
-Once the first deploy is green AND a deploy URL like `893b1206.pryzmapp.pages.dev` is reachable:
+Once the first deploy is green:
 
-1. In the project view (`pryzmapp` or whatever name the project was created under), click **Custom domains** in the left sidebar.
+1. In the project view, click **Custom domains** in the left sidebar.
 2. Click **Set up a custom domain**.
 3. Enter `pryzm.so`. Cloudflare detects the zone is already on your account.
 4. Cloudflare auto-creates the necessary DNS records. Check the **DNS** tab in the parent zone view:
-   - For the apex (`pryzm.so`): a CNAME-flattened record (or apex A/AAAA records) pointing at `<project-name>.pages.dev` — visible in **DNS → Records**. Cloudflare proxies the apex via "CNAME flattening" so the user-facing answer is an A record but the configured value is the Pages hostname.
-   - The `www.pryzm.so` subdomain is auto-configured to redirect to the apex.
-5. TLS certificate is provisioned automatically via Let's Encrypt (~ 30-60 seconds). The Custom Domains row will show **Active** with a green padlock once issued.
-6. Verify with two curls (the first should be a redirect chain, the second a 200):
-   ```
-   curl -I https://www.pryzm.so          → 301 → https://pryzm.so/
-   curl -I https://pryzm.so/             → 200 OK; cf-cache-status: HIT / DYNAMIC
-   curl -I https://pryzm.so/pricing      → 200 OK
-   curl -I https://pryzm.so/manifesto    → 200 OK
-   curl -I https://pryzm.so/trust        → 200 OK
-   ```
-
-### §7.0 — Mapping multiple `pages.dev` URLs to the same project
-
-Each deploy gets its own randomised hash subdomain (`893b1206.pryzmapp.pages.dev`). These are STABLE artefacts — useful for sharing a preview that won't change. Two stable URLs that DO change with each deploy:
-
-| URL | Resolves to |
-|---|---|
-| `<hash>.<project>.pages.dev` | this specific deploy (preview URL) |
-| `<branch>.<project>.pages.dev` | most-recent deploy of that branch |
-| `<project>.pages.dev` | most-recent deploy of the production branch (`main`) |
-| `pryzm.so` (custom domain) | same as `<project>.pages.dev` once attached |
-
-If you saw the `<hash>` URL render Starlight's "Developer Docs" landing instead of the marketing surface, that means the build succeeded BUT `src/pages/index.astro` didn't exist yet — Starlight's content-collection landing wins by default. Adding `src/pages/index.astro` makes the marketing landing claim `/`. Fixed in commit `7e2e604`.
+   - For the apex (`pryzm.so`): a CNAME or apex A/AAAA records pointing at `<project-name>.pages.dev`.
+   - The `www.pryzm.so` subdomain is auto-configured to redirect.
+5. TLS certificate is provisioned automatically via Let's Encrypt (~ 30-60 seconds).
+6. Verify: `curl -I https://pryzm.so/pricing` should return `200 OK` and a Cloudflare cache header.
 
 ### §7.1 — Subdomains to reserve
 
@@ -242,25 +239,6 @@ Then retry the Cloudflare deploy.
 **Cause**: Cloudflare edge cache holds the prior version.
 
 **Fix**: in the project view, **Deployments** → click the latest → **Retry deployment**. Or purge the cache: Cloudflare zone → Caching → Purge Everything.
-
-### §9.6 — "Retry deployment" re-uses the SAME commit (does NOT pick up a fix you just pushed)
-
-**Symptom**: you pushed a fix to `main`; the next Cloudflare build STILL clones the previous commit and fails the same way.
-
-**Cause**: clicking **"Retry deployment"** on a failed deploy re-runs the SAME commit hash. It doesn't fetch the latest of the production branch.
-
-**Fix**: use the **"Create deployment"** button (top-right of the project view) instead. That button fetches the current HEAD of the configured production branch.
-
-The distinction:
-
-| Button | What it does | Use when |
-|---|---|---|
-| **Retry deployment** (on a failed build row) | Re-runs the **same commit** that failed | The failure was transient (network blip mid-install, sporadic timeout). |
-| **Create deployment** (top-right of project view) | Fetches the **latest HEAD** of the production branch | You pushed a fix that should be deployed. **This is what you want 90% of the time.** |
-
-Look at the build log's first line — `HEAD is now at <hash>` — to confirm which commit was actually built. If it's not your latest push, you used Retry instead of Create.
-
-This trap costs ~ 5 minutes per occurrence (one wasted Cloudflare build cycle). The IP-A5 closure deploy hit it twice on 2026-06-02; this troubleshooting entry is the result.
 
 ---
 

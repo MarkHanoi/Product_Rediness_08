@@ -1014,9 +1014,15 @@ importers:
       '@pryzm/scene-committer':
         specifier: workspace:*
         version: link:../../packages/scene-committer
+      '@pryzm/schemas':
+        specifier: workspace:*
+        version: link:../../packages/schemas
       '@pryzm/stores':
         specifier: workspace:*
         version: link:../../packages/stores
+      '@pryzm/typology-pipeline':
+        specifier: workspace:*
+        version: link:../../packages/typology-pipeline
       '@pryzm/view-state':
         specifier: workspace:*
         version: link:../../packages/view-state

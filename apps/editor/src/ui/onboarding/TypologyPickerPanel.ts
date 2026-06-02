@@ -166,7 +166,7 @@ export class TypologyPickerPanel {
         const groups = groupByPhaseGate(cards);
 
         const summary = summarizePickerCards(cards);
-        this.summaryEl.textContent = `${summary.total} pack${summary.total === 1 ? '' : 's'} · ${summary.unlocked} unlocked`;
+        this.summaryEl.textContent = `${summary.total} pack${summary.total === 1 ? '' : 's'} · ${summary.available} unlocked`;
 
         this.groupsEl.innerHTML = '';
         if (groups.length === 0) {
