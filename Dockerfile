@@ -49,6 +49,11 @@ COPY packages packages
 COPY apps     apps
 COPY plugins  plugins
 COPY tools    tools
+# tests/* are pnpm workspace members too (pnpm-workspace.yaml). Only their
+# package.json manifests survive .dockerignore (`!tests/*/package.json`); copying
+# them here lets `pnpm install --frozen-lockfile` resolve the full workspace.
+# Without this the install fails with ERR_PNPM_OUTDATED_LOCKFILE.
+COPY tests    tests
 # Note: we copied full source above (not just manifests) because the manifests
 # are scattered across hundreds of subfolders and a fine-grained `**/package.json`
 # copy isn't expressible portably in Docker. The trade-off: source edits invalidate

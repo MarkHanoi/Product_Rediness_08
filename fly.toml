@@ -97,7 +97,11 @@ kill_timeout = "10s"
   [[http_service.checks]]
     interval        = "30s"
     timeout         = "5s"
-    grace_period    = "5s"
+    # 30s grace aligns with the Dockerfile HEALTHCHECK --start-period: the tsx
+    # loader (~100 workspace pkgs) + Express init + background migrations take
+    # ~30s to reach /api/health/ready. A 5s grace counted boot-time failures and
+    # could flap the first deploy; a longer grace only adds boot tolerance.
+    grace_period    = "30s"
     method          = "GET"
     path            = "/api/health/ready"
     protocol        = "http"

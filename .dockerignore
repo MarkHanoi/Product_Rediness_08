@@ -50,7 +50,13 @@ build
 
 # ─── Tests (NOT needed at runtime) ──────────────────────────────────────────
 # Test fixtures + snapshots are >50MB combined and never executed in prod.
+# BUT: 8 tests/* dirs are pnpm WORKSPACE members (pnpm-workspace.yaml), so their
+# package.json manifests MUST reach the builder or `pnpm install --frozen-lockfile`
+# fails with an outdated-lockfile error (the lockfile has importers for them).
+# Strip the test SOURCE but keep the workspace manifests. The Dockerfile copies
+# `tests` before install to satisfy workspace resolution; the source stays out.
 tests
+!tests/*/package.json
 **/__tests__
 **/__snapshots__
 **/*.test.ts
