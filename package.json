@@ -20,6 +20,7 @@
     "migrate": "node --env-file-if-exists=.env scripts/migrate.mjs",
     "check:isolation": "node scripts/check-project-isolation.mjs && node scripts/check-storage-isolation.mjs",
     "check:commandmanager": "node scripts/ci-check-no-commandmanager.mjs",
+    "check:a11y-contrast": "node scripts/check-a11y-token-contrast.mjs",
     "scan": "node scripts/scan-logs.js",
     "build": "node scripts/check-project-isolation.mjs && tsc --skipLibCheck && node --max-old-space-size=6144 node_modules/vite/bin/vite.js build && node scripts/write-prod-shim.mjs",
     "preview": "node server.js",

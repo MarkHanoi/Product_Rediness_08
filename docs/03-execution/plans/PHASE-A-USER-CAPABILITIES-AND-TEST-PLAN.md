@@ -80,7 +80,7 @@ When Phase A is GA-complete a user will:
 | 7.1 | View all keyboard shortcuts (`?` cheat-sheet) | `?` overlay | A.33.a (L2) + A.33.b (L5 PLANNED) | 🟢 IN PROGRESS | Shift-/ opens overlay — registry shipped (35 shortcuts in 7 categories); L5 UI PLANNED |
 | 7.2 | Shortcuts render platform-aware | Cheat-sheet | A.33.a | ✅ DONE | macOS: ⌘ S · Windows/Linux: Ctrl+S |
 | 7.3 | Every tool has a keyboard shortcut | Every tool | A.33 (CI guard PLANNED) | 🟢 IN PROGRESS | Registry + CI guard `check-keyboard-coverage.ts` |
-| 7.4 | WCAG 2.2 AA contrast on every surface | All UI | A.32 (axe-core CI PLANNED) + A.34.a (token-pair audit DONE) + A.34.b (focus-ring + form border tokens DONE) | 🟢 IN PROGRESS | `pnpm --filter @pryzm/a11y-tokens test` → 17 pairs audited, 0 failing; `pnpm test:axe` (E2E gate) still pending |
+| 7.4 | WCAG 2.2 AA contrast on every surface | All UI | A.32.α (static gate DONE) + A.32.β (Playwright dynamic gate PLANNED) + A.34.a + A.34.b (token registry DONE) | 🟢 IN PROGRESS | `pnpm run check:a11y-contrast` runs the static audit (17 pairs, 0 failing); E2E axe-core gate still pending |
 | 7.5 | Screen-reader semantics on Inspect tree + property panel | All UI | (C43 ratification) | ⚪ PLANNED | VoiceOver narrates selected element + property change |
 | **8. Output exports** |
 | 8.1 | IFC4X3 export | File → Export → IFC | (existing — gap-fill A.25) | 🟢 IN PROGRESS (gap-fill PLANNED) | Click Export IFC → `.ifc` with Psets + classification + ownerHistory |
