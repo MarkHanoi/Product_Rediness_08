@@ -52,6 +52,12 @@ Colour MUST NEVER be the sole conveyor of meaning (WCAG 1.4.1). A red error stat
 
 Colour-blindness friendliness: the canonical PRYZM purple `#6600FF` (per the preview-style contract [C18](C18-ELEMENT-PREVIEW-VISUAL-CONTRACT.md)) is paired with a hatch pattern or outline in any case where users might confuse it with a similar hue (e.g. red-purple deuteranopes). The preview style + selection style MUST pass through a colour-blindness lint.
 
+The canonical token registry lives at `packages/a11y-tokens/src/tokens.ts` (the L2 `PRYZM_TOKENS` constant). CI gate `scripts/check/check-a11y-token-contrast.mjs` runs `auditTokenPairs()` on every PR; zero failing pairs to merge.
+
+**Marketing-surface exception** (Astro static-pre-render): the Astro pages at `apps/docs-site/src/pages/*.astro` (pricing · manifesto · trust · 404) embed PRYZM colour hex values inline in their `<style>` blocks rather than importing the `@pryzm/a11y-tokens` package at runtime. This is necessary because the marketing pages are pre-rendered at build time and ship zero client JS — an `import` of the runtime token package would either bundle the package into client JS (defeating the static-pre-render speed gain) or require a build-time CSS generator. The inline values trace back to `PRYZM_TOKENS` per the token table in [ADR-052 §3](../adrs/ADR-052-docs-site-marketing-surface.md); a CI gate (`scripts/check/check-docs-site-tokens.mjs`, PLANNED) will diff the inline hexes against the registry on every PR. Until that gate ships, the human contract is: any new token added to `PRYZM_TOKENS` that's used on a marketing page must be inlined into the page's `<style>` in the same PR.
+
+The same inline-token pattern applies to runtime CSS-in-TS modules at `apps/editor/src/ui/styles/panels/*.ts` (template-literal CSS injected at editor mount). Those files have always inlined hex values; they're now formally covered by this paragraph.
+
 ### §1.6 — Motion + animation respect `prefers-reduced-motion`
 
 Every animation MUST honour the CSS media query `prefers-reduced-motion: reduce`. When set:
