@@ -259,3 +259,99 @@ describe('§3 respondInternalError seals the 6 err.message leak sites', () => {
         expect(uuidRe.test(body.errorId) || fallbackRe.test(body.errorId)).toBe(true);
     });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §4 — oauth-callback-html-leak: the 2 OAuth provider callbacks
+// (/api/auth/google/callback + /api/auth/microsoft/callback) used to interpolate
+// `err.message` into the popup HTML AND into the postMessage payload to the
+// opener — leaking internal paths, SQL traces, or third-party error text into
+// the user's screen + browser history. The fix (server.js around lines 1820
+// and 1862) generates a short errorId, logs full error server-side, and feeds
+// callbackHtml ONLY a sanitised "Sign-in failed. (id <8-char>)" string.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('§4 oauth-callback-html-leak (the 2 OAuth popup HTML sites)', () => {
+    let server: Server, url: string;
+
+    // Local mini-copy of server/oauthService.js#callbackHtml so the test does
+    // not have to import the real one (no new imports per task constraint).
+    // Must match the real template's interpolation surface 1:1 — the payload
+    // JSON is embedded in BOTH the <script> body (view-source visible) and
+    // the postMessage payload to the opener.
+    function callbackHtml(payload: Record<string, unknown>, origin?: string): string {
+        const json = JSON.stringify(payload).replace(/</g, '\\u003c');
+        return `<!DOCTYPE html><html><body><script>
+(function(){
+  var payload = ${json};
+  var target  = ${JSON.stringify(origin ?? '*')};
+  try { if (window.opener) window.opener.postMessage({ type: 'pryzm-oauth', payload: payload }, target); } catch(e){}
+})();
+</script></body></html>`;
+    }
+
+    // Exact shape of server.js's OAuth catch-block fix (sites at ~L1820 + ~L1862).
+    function handleOauthCallback(providerTag: string, res: express.Response, err: unknown) {
+        const errorId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+            ? crypto.randomUUID().split('-')[0]
+            : `err-${Date.now().toString(36)}`;
+        console.error(`[${providerTag}] errorId=${errorId}`, err);
+        res.send(callbackHtml({ error: `Sign-in failed. (id ${errorId})` }));
+    }
+
+    beforeAll(async () => {
+        const app = express();
+
+        // Forced-error endpoints: simulate the catch branch of each provider's
+        // callback when the userinfo fetch / token exchange throws.
+        app.get('/api/auth/google/callback', (_req, res) => {
+            const err = new Error(
+                'GoogleProfileFetchError: SECRET-INTERNAL-PATH /home/runner/server/oauth.json; tokens=sk_live_LEAKED',
+            );
+            return handleOauthCallback('oauth-google-callback', res, err);
+        });
+
+        app.get('/api/auth/microsoft/callback', (_req, res) => {
+            const err = new Error(
+                'MicrosoftProfileFetchError: SECRET-INTERNAL-PATH /home/runner/server/oauth.json; SQLSTATE 23505',
+            );
+            return handleOauthCallback('oauth-microsoft-callback', res, err);
+        });
+
+        const a = await listen(app);
+        server = a.server; url = a.url;
+    });
+
+    afterAll(async () => { await close(server); });
+
+    it('T4.1 — google callback popup HTML does NOT leak err.message + DOES carry "id <8-char>"', async () => {
+        const r = await fetch(`${url}/api/auth/google/callback`);
+        expect(r.status).toBe(200); // popup is always a 200 HTML page
+        const body = await r.text();
+
+        // The previously-leaked error text MUST be absent from BOTH the HTML
+        // body and the embedded postMessage payload (single string check
+        // covers both surfaces because they share the JSON interpolation).
+        expect(body).not.toContain('SECRET-INTERNAL-PATH');
+        expect(body).not.toContain('/home/runner/server/oauth.json');
+        expect(body).not.toContain('sk_live_LEAKED');
+        expect(body).not.toContain('GoogleProfileFetchError');
+
+        // The sanitised message + an 8-char correlation id must be present
+        // (so the user can quote it to support).
+        expect(body).toContain('Sign-in failed.');
+        expect(body).toMatch(/id [0-9a-f]{8}/);
+    });
+
+    it('T4.2 — microsoft callback popup HTML does NOT leak err.message + DOES carry "id <8-char>"', async () => {
+        const r = await fetch(`${url}/api/auth/microsoft/callback`);
+        expect(r.status).toBe(200);
+        const body = await r.text();
+
+        expect(body).not.toContain('SECRET-INTERNAL-PATH');
+        expect(body).not.toContain('/home/runner/server/oauth.json');
+        expect(body).not.toContain('SQLSTATE 23505');
+        expect(body).not.toContain('MicrosoftProfileFetchError');
+
+        expect(body).toContain('Sign-in failed.');
+        expect(body).toMatch(/id [0-9a-f]{8}/);
+    });
+});

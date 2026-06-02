@@ -1818,8 +1818,15 @@ app.get('/api/auth/google/callback', async (req, res) => {
 
         res.send(callbackHtml({ user, token }, origin));
     } catch (err) {
-        console.error('[oauth/google] callback error:', err.message);
-        res.send(callbackHtml({ error: err.message ?? 'Google sign-in failed.' }, origin));
+        // §ADR-055-PHASE-A — was leaking err.message into the OAuth popup HTML
+        // (visible in view-source + browser history) and into the postMessage
+        // payload to the opener. Generate a short errorId, log the full error
+        // server-side, return ONLY a sanitised message to the popup.
+        const errorId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+            ? crypto.randomUUID().split('-')[0]
+            : `err-${Date.now().toString(36)}`;
+        console.error(`[oauth-google-callback] errorId=${errorId}`, err);
+        res.send(callbackHtml({ error: `Sign-in failed. (id ${errorId})` }, origin));
     }
 });
 
@@ -1857,8 +1864,15 @@ app.get('/api/auth/microsoft/callback', async (req, res) => {
 
         res.send(callbackHtml({ user, token }, origin));
     } catch (err) {
-        console.error('[oauth/microsoft] callback error:', err.message);
-        res.send(callbackHtml({ error: err.message ?? 'Microsoft sign-in failed.' }, origin));
+        // §ADR-055-PHASE-A — was leaking err.message into the OAuth popup HTML
+        // (visible in view-source + browser history) and into the postMessage
+        // payload to the opener. Generate a short errorId, log the full error
+        // server-side, return ONLY a sanitised message to the popup.
+        const errorId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+            ? crypto.randomUUID().split('-')[0]
+            : `err-${Date.now().toString(36)}`;
+        console.error(`[oauth-microsoft-callback] errorId=${errorId}`, err);
+        res.send(callbackHtml({ error: `Sign-in failed. (id ${errorId})` }, origin));
     }
 });
 
