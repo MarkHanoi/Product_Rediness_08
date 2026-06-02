@@ -57,6 +57,7 @@ import {
   ApartmentStore,
   RoomStore,
   ProvenanceStore,
+  IfcMetaStore,
 } from '@pryzm/stores';
 // D-α-3 P3 — pure parameter-impact resolver injected into the propagator.
 // Lives in @pryzm/ai-host (L2) so the L1 stores stay free of any AI-runtime
@@ -938,6 +939,13 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
     // empty graph (per-project audit isolation per §1.10 RLS pre-image).
     const provenanceStore = new ProvenanceStore();
 
+    // A.R.3 (Revit round-trip · S55) — L3 IfcMetaStore. Durable home for IFC/
+    // Revit element metadata (globalId + psets/quantities/tier). Populated by
+    // ifc-import, read by ifc-export to rebind original GlobalIds on round-trip,
+    // and serialisable into `.pryzm` so the round-trip survives reload. Wraps
+    // `@pryzm/schemas/ifc`. Joins the C13 reset list (per-project isolation).
+    const ifcMetaStore = new IfcMetaStore();
+
     const typologyRegistry = createTypologyRegistry();
     const typologyRouter = createPipelineRouter(typologyRegistry);
     // A.4.a — register the apartment pack (BRIDGE handlers; full code
@@ -1383,6 +1391,9 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       // C13 project-switch path uses `.reset()`).
       try { provenanceStore.dispose(); }
       catch (err) { console.error('[runtime-composer] provenanceStore.dispose threw:', err); }
+      // A.R.3 — dispose IfcMetaStore (process shutdown; C13 project-switch uses `.reset()`).
+      try { ifcMetaStore.dispose(); }
+      catch (err) { console.error('[runtime-composer] ifcMetaStore.dispose threw:', err); }
       try { inner.tearDown(); }
       catch (err) { console.error('[runtime-composer] inner tearDown threw:', err); }
       events.clear();
@@ -1468,6 +1479,9 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       // panel (A.31.e PLANNED) + written by the AI relay paths (the
       // provenance.* command surface A.31.d PLANNED).
       provenanceStore,
+      // A.R.3 — IFC/Revit element metadata store. Populated by ifc-import,
+      // read by ifc-export for GlobalId-stable round-trip; persisted in `.pryzm`.
+      ifcMetaStore,
       sceneReady,
       tearDown,
     };
