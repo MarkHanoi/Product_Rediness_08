@@ -22,3 +22,4 @@ export * from './DataTier.js';
 export * from './DsarRequest.js';
 export * from './Consent.js';
 export * from './RetentionPolicy.js';
+export * from './BreachIncident.js';
