@@ -27,3 +27,4 @@ export * from './BuildingFootprint.js';
 export * from './ContextBuilding.js';
 export * from './ProvenanceRecord.js';
 export * from './SiteModel.js';
+export * from './legacyProjectLocation.js';
