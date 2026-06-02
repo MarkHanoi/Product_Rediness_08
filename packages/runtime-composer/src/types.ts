@@ -28,7 +28,7 @@
 
 import type { AnyStores, CommandHandler, RingBufferUndoStack } from '@pryzm/command-bus';
 import type { SyncClient, PryzmAwareness } from '@pryzm/sync-client';
-import type { LayoutOptionsStore, AiApprovalQueueStore, ApartmentParameterPropagator, FamilyRegistryStore, SiteModelStore, ClimateStore, BuildingStore, LevelStore, ApartmentStore, RoomStore, ProvenanceStore } from '@pryzm/stores';
+import type { LayoutOptionsStore, AiApprovalQueueStore, ApartmentParameterPropagator, FamilyRegistryStore, SiteModelStore, ClimateStore, BuildingStore, LevelStore, ApartmentStore, RoomStore, ProvenanceStore, IfcMetaStore } from '@pryzm/stores';
 import type {
   TypologyRegistry,
   PipelineRouter,
@@ -3510,6 +3510,16 @@ export interface PryzmRuntime {
    *  audit isolation per §1.10 RLS). The `provenance.*` command surface
    *  in A.31.d (PLANNED) calls into this. */
   readonly provenanceStore: ProvenanceStore;
+
+  // ── A.R.3 (Revit round-trip · S55) — IfcMetaStore ───────────────────────
+  /** L3 durable store of IFC/Revit element metadata (globalId + psets +
+   *  quantities + tier), wrapping the L0 substrate `@pryzm/schemas/ifc`.
+   *  Populated by `ifc-import` per element; read by `ifc-export` via `get()`
+   *  to rebind the original IFC GlobalId + psets on round-trip (instead of
+   *  minting fresh ones); `serialize()`/`hydrate()` persist it into `.pryzm`
+   *  so the round-trip survives reload. Joins the C13 project-switch reset
+   *  list. See master-execution-tracker §12.6 A.R.3. */
+  readonly ifcMetaStore: IfcMetaStore;
 
   // ── A.3 (Phase A · Sprint 2) — Typology pipeline slot ───────────────────
   /** L3 multi-typology generative-AI pipeline. One per runtime per
