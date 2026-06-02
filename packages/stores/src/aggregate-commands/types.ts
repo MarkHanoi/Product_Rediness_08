@@ -183,6 +183,60 @@ export const LevelDeletePayloadSchema = z.object({
 export type LevelDeletePayload = z.infer<typeof LevelDeletePayloadSchema>;
 
 // ─────────────────────────────────────────────────────────────────────────────
+// apartment.* payloads (§4.3)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * `apartment.create` — per [C20 §4.3].
+ * Handler validates: Level exists; Level.buildingId === payload.buildingId;
+ * unitNumber unique within Building.
+ * Per [§1.5] `parameters.id` MUST equal `Apartment.id` — the handler
+ * mints id then sets parameters.id to match.
+ */
+export const ApartmentCreatePayloadSchema = z.object({
+    buildingId: BuildingIdSchema,
+    levelId: LevelIdSchema,
+    name: z.string().min(1).max(120),
+    unitNumber: z.string().min(1).max(20),
+    /** ApartmentParameters payload (id will be set by handler). */
+    parameters: z.unknown(),
+});
+export type ApartmentCreatePayload = z.infer<
+    typeof ApartmentCreatePayloadSchema
+>;
+
+/**
+ * `apartment.update` — per [C20 §4.3]. Patches Apartment fields +
+ * optionally the parameters record. Re-validates unitNumber uniqueness
+ * if it changes.
+ */
+export const ApartmentUpdatePayloadSchema = z.object({
+    id: ApartmentIdSchema,
+    patch: z.object({
+        name: z.string().min(1).max(120).optional(),
+        unitNumber: z.string().min(1).max(20).optional(),
+        levelId: LevelIdSchema.optional(),
+    }),
+    parameterPatch: z.unknown().optional(),
+});
+export type ApartmentUpdatePayload = z.infer<
+    typeof ApartmentUpdatePayloadSchema
+>;
+
+/**
+ * `apartment.delete` — per [C20 §4.3] + §1.9.
+ * Cascade-deletes the Rooms via RoomStore.removeForApartment. (Once
+ * A.23.b.3 ships nullable apartmentId, this switches to UNASSIGN
+ * semantics per the contract.)
+ */
+export const ApartmentDeletePayloadSchema = z.object({
+    id: ApartmentIdSchema,
+});
+export type ApartmentDeletePayload = z.infer<
+    typeof ApartmentDeletePayloadSchema
+>;
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Domain events
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -218,6 +272,23 @@ export interface LevelActiveSetEvent {
 export interface LevelDeletedEvent {
     readonly type: 'level.deleted';
     readonly level: Level;
+}
+
+export interface ApartmentCreatedEvent {
+    readonly type: 'apartment.created';
+    readonly apartment: Apartment;
+}
+
+export interface ApartmentUpdatedEvent {
+    readonly type: 'apartment.updated';
+    readonly apartment: Apartment;
+    readonly prior: Apartment;
+}
+
+export interface ApartmentDeletedEvent {
+    readonly type: 'apartment.deleted';
+    readonly apartment: Apartment;
+    readonly cascadedRoomCount: number;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

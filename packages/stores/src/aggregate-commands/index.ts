@@ -17,6 +17,9 @@ export { levelCreate } from './levelCreate.js';
 export { levelUpdate } from './levelUpdate.js';
 export { levelSetActive } from './levelSetActive.js';
 export { levelDelete } from './levelDelete.js';
+export { apartmentCreate } from './apartmentCreate.js';
+export { apartmentUpdate } from './apartmentUpdate.js';
+export { apartmentDelete } from './apartmentDelete.js';
 
 export {
     BuildingCreatePayloadSchema,
@@ -26,6 +29,9 @@ export {
     LevelUpdatePayloadSchema,
     LevelSetActivePayloadSchema,
     LevelDeletePayloadSchema,
+    ApartmentCreatePayloadSchema,
+    ApartmentUpdatePayloadSchema,
+    ApartmentDeletePayloadSchema,
     type BuildingCreatePayload,
     type BuildingUpdatePayload,
     type BuildingDeletePayload,
@@ -33,6 +39,9 @@ export {
     type LevelUpdatePayload,
     type LevelSetActivePayload,
     type LevelDeletePayload,
+    type ApartmentCreatePayload,
+    type ApartmentUpdatePayload,
+    type ApartmentDeletePayload,
     type AggregateCommandResult,
     type AggregateCommandRejection,
     type BuildingCreatedEvent,
@@ -41,4 +50,7 @@ export {
     type LevelUpdatedEvent,
     type LevelActiveSetEvent,
     type LevelDeletedEvent,
+    type ApartmentCreatedEvent,
+    type ApartmentUpdatedEvent,
+    type ApartmentDeletedEvent,
 } from './types.js';
