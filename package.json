@@ -25,7 +25,7 @@
     "build": "node scripts/check/check-project-isolation.mjs && tsc --skipLibCheck && node --max-old-space-size=6144 node_modules/vite/bin/vite.js build && node scripts/build/write-prod-shim.mjs",
     "build:app": "npm run build",
     "build:apex": "node scripts/build/prerender-apex.mjs",
-    "check:apex": "npm run build:apex && node scripts/check/check-apex-self-contained.mjs && node scripts/check/check-apex-size.mjs && node scripts/check/check-apex-no-auth-cookies.mjs",
+    "check:apex": "node scripts/build/prerender-apex.mjs && node scripts/check/check-apex-self-contained.mjs && node scripts/check/check-apex-size.mjs && node scripts/check/check-apex-no-auth-cookies.mjs",
     "preview": "node server.js",
     "schemas:test": "npm test --workspace=@pryzm/schemas",
     "schemas:typecheck": "tsc -p packages/schemas/tsconfig.tests.json --noEmit",

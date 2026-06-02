@@ -11,6 +11,7 @@
 #   - command-manager
 #   - test-server
 #   - build
+#   - apex-gates
 # ─────────────────────────────────────────────────────────────────────────────
 
 name: CI
@@ -130,3 +131,22 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
+
+  apex-gates:
+    name: Apex contract gates (C51 §7 — self-contained · size · no-auth-cookies)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Builds apps/editor/dist-apex then runs the three apex-output gates.
+      # Hard-fail: a cross-origin script, a >200 KB bundle, or a cookie op in
+      # the apex surface blocks the merge (C51 §2.2.4 / §6.1.3 / §2.2.1).
+      - run: pnpm run check:apex
