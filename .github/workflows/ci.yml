@@ -18,10 +18,14 @@
 name: CI
 
 on:
+  # Skip the whole suite (incl. the ~20-min docker-image build) for doc-only
+  # changes — tracker/runbook/contract edits don't affect lint/test/build/image.
   push:
     branches: [main]
+    paths-ignore: ['docs/**', '**/*.md', '.claude/**']
   pull_request:
     branches: [main]
+    paths-ignore: ['docs/**', '**/*.md', '.claude/**']
 
 # Single concurrency group per ref — newer pushes cancel in-flight runs.
 concurrency:

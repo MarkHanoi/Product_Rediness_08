@@ -17,6 +17,8 @@ on:
   push:
     branches:
       - main
+    # Doc-only changes can't affect the deployed image — skip the deploy.
+    paths-ignore: ['docs/**', '**/*.md', '.claude/**']
   # Manual trigger is intentional — lets a maintainer redeploy without a
   # no-op commit (useful when only secrets changed, or to roll back via
   # `flyctl deploy --image registry.fly.io/pryzm:deployment-XYZ`).
