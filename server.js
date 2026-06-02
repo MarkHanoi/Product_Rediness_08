@@ -214,6 +214,24 @@ process.on('uncaughtException', (err, origin) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// §ADR-055-PHASE-A-PREFLIP — uniform internal-error responder
+// (production-hardening checklist §11 risk 3). Per-route 500 handlers used
+// to return `{ error: String(err.message) }`, leaking internal paths / SQL
+// state / stack info to clients. This helper matches the terminal handler
+// pattern (server.js §SERVER-500-TERMINAL-OBSERVABILITY): log the full
+// error server-side keyed on an errorId, return ONLY {error, errorId} so
+// support can correlate by id without leaking message contents.
+// ─────────────────────────────────────────────────────────────────────────────
+function respondInternalError(res, err, context) {
+    const errorId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : `err-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    console.error(`[${context}] errorId=${errorId}`, err);
+    if (res.headersSent) return;
+    return res.status(500).json({ error: 'internal_error', errorId });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // §H16 / §B14 (audit) — fail fast on missing critical config in production.
 // In dev (`npm run dev`), missing vars degrade gracefully with warnings; in
 // production any of these unset means the server is in a broken state that
@@ -244,6 +262,17 @@ function assertRequiredEnv() {
         console.warn('[server] ⚠  Production env vars missing (functionality limited):');
         for (const v of soft) console.warn('  •', v);
     }
+    // §ADR-055-PHASE-A-PREFLIP — Stripe webhook secret CRITICAL warning
+    // (production-hardening checklist §10 risk 2). Without this secret the
+    // /api/stripe/webhook handler rejects events with 503 (see route), so
+    // Stripe will retry (up to 3 days). Page on the next deploy gate; do
+    // NOT crash boot — other routes must keep serving.
+    if (!process.env.STRIPE_WEBHOOK_SECRET) {
+        console.error(
+            '[boot] CRITICAL: STRIPE_WEBHOOK_SECRET unset in production — ' +
+            'subscription webhooks will be rejected (503) until configured.',
+        );
+    }
 }
 assertRequiredEnv();
 
@@ -251,9 +280,19 @@ const app = express();
 app.disable('x-powered-by');
 const httpServer = createServer(app);
 
-// Trust the first proxy (Replit's reverse proxy) so that express-rate-limit
-// reads the correct client IP from X-Forwarded-For rather than the proxy IP.
-app.set('trust proxy', 1);
+// §ADR-055-PHASE-A-PREFLIP — trust proxy hop count (production-hardening
+// checklist §6 risk 1). The Phase A topology is Cloudflare → Fly LB → app
+// (TWO hops), not Replit's single-hop. express-rate-limit keys buckets on
+// req.ip, which MUST resolve to the originating client — not the Fly LB IP,
+// otherwise every user collapses onto one shared bucket (bricks the app for
+// everyone OR protects no one). Setting trust proxy = 2 tells Express to
+// skip 2 levels of X-Forwarded-For and honor the originating client IP.
+// Tunable via TRUST_PROXY_HOPS so we can dial without redeploys; dev defaults
+// to 0 (loopback only) so local testing isn't fooled by spoofed XFF headers.
+const TRUST_PROXY_HOPS = process.env.TRUST_PROXY_HOPS
+    ? parseInt(process.env.TRUST_PROXY_HOPS, 10)
+    : (isProd ? 2 : 0);
+app.set('trust proxy', TRUST_PROXY_HOPS);
 
 // M-SECURITY: Apply security headers to every response (helmet-powered — C08 §4).
 // Mounted first — before cors(), compression(), and all route handlers — so that
@@ -336,8 +375,8 @@ app.get('/api/ai/spend/summary', authMiddleware, async (req, res) => {
         const summary = await getSpendSummary({ projectId, monthsBack });
         res.json(summary);
     } catch (err) {
-        console.error('[ai/spend/summary] error:', err);
-        res.status(500).json({ error: 'Failed to load spend summary', detail: err.message });
+        // §ADR-055-PHASE-A-PREFLIP — was leaking err.message in `detail`.
+        return respondInternalError(res, err, 'ai/spend/summary');
     }
 });
 
@@ -1832,10 +1871,19 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
     const STRIPE_SECRET_KEY    = process.env.STRIPE_SECRET_KEY;
     const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
 
+    // §ADR-055-PHASE-A-PREFLIP — fail loud on missing webhook secret
+    // (production-hardening checklist §10 risk 2). The previous behaviour
+    // (silent 200 + received:true) caused silent revenue loss: Stripe
+    // acknowledges the 200 and does NOT retry, so paid subscriptions stay
+    // un-provisioned. Returning 5xx tells Stripe to retry — Stripe's default
+    // exponential backoff covers up to 3 days, ample time to set the secret.
     if (!STRIPE_SECRET_KEY || !STRIPE_WEBHOOK_SECRET) {
-        // Keys not yet configured — return 200 so Stripe stops retrying
-        console.warn('[stripe] Webhook received but Stripe keys are not configured — ignoring.');
-        return res.json({ received: true });
+        console.error(
+            '[stripe] CRITICAL: webhook received but ' +
+            (!STRIPE_SECRET_KEY ? 'STRIPE_SECRET_KEY' : 'STRIPE_WEBHOOK_SECRET') +
+            ' is unset — rejecting with 503 so Stripe will retry.',
+        );
+        return res.status(503).json({ error: 'webhook_secret_unconfigured' });
     }
 
     const sig = req.headers['stripe-signature'];
@@ -2246,11 +2294,13 @@ app.post('/api/import/dwg', authMiddleware, dwgUpload.single('file'), async (req
         const dxfText = await convertDwgToDxf(req.file.buffer, req.file.originalname);
         res.json({ dxfText, fileName: req.file.originalname.replace(/\.dwg$/i, '.dxf') });
     } catch (err) {
-        console.error('[DWG Import] Conversion error:', err);
         if (err.message?.includes('timed out')) {
-            return res.status(504).json({ error: err.message });
+            // 504 path keeps the user-actionable timeout message (no path/secret leak).
+            console.error('[DWG Import] Conversion timeout:', err.message);
+            return res.status(504).json({ error: 'Conversion timed out.' });
         }
-        res.status(500).json({ error: String(err.message ?? err) });
+        // §ADR-055-PHASE-A-PREFLIP — was leaking String(err.message ?? err).
+        return respondInternalError(res, err, 'DWG Import');
     }
 });
 
@@ -2308,8 +2358,8 @@ app.post('/api/projects/:projectId/ifc-uploads', authMiddleware, ifcUploadMw.sin
         console.log(`[IFC Storage] Uploaded: ${req.file.originalname} (${req.file.size} bytes) for project ${projectId} — status: ${row.upload_status}`);
         res.status(201).json({ ok: true, upload: _sanitiseUploadRow(row) });
     } catch (err) {
-        console.error('[IFC Storage] Upload failed:', err);
-        res.status(500).json({ error: String(err.message ?? err) });
+        // §ADR-055-PHASE-A-PREFLIP — was leaking String(err.message ?? err).
+        return respondInternalError(res, err, 'IFC Storage upload');
     }
 });
 
@@ -2328,8 +2378,8 @@ app.get('/api/projects/:projectId/ifc-uploads', authMiddleware, async (req, res)
         const uploads = await listIfcUploads(projectId);
         res.json({ ok: true, uploads: uploads.map(_sanitiseUploadRow) });
     } catch (err) {
-        console.error('[IFC Storage] List failed:', err);
-        res.status(500).json({ error: String(err.message ?? err) });
+        // §ADR-055-PHASE-A-PREFLIP — was leaking String(err.message ?? err).
+        return respondInternalError(res, err, 'IFC Storage list');
     }
 });
 
@@ -2351,8 +2401,8 @@ app.get('/api/projects/:projectId/ifc-uploads/:uploadId/data', authMiddleware, a
         }
         res.json({ ok: true, ...data });
     } catch (err) {
-        console.error('[IFC Storage] Data fetch failed:', err);
-        res.status(500).json({ error: String(err.message ?? err) });
+        // §ADR-055-PHASE-A-PREFLIP — was leaking String(err.message ?? err).
+        return respondInternalError(res, err, 'IFC Storage data');
     }
 });
 
@@ -2375,8 +2425,8 @@ app.delete('/api/projects/:projectId/ifc-uploads/:uploadId', authMiddleware, asy
         console.log(`[IFC Storage] Deleted upload ${uploadId} for project ${projectId}`);
         res.json({ ok: true });
     } catch (err) {
-        console.error('[IFC Storage] Delete failed:', err);
-        res.status(500).json({ error: String(err.message ?? err) });
+        // §ADR-055-PHASE-A-PREFLIP — was leaking String(err.message ?? err).
+        return respondInternalError(res, err, 'IFC Storage delete');
     }
 });
 
