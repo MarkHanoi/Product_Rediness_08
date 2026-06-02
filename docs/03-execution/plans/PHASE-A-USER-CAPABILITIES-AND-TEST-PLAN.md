@@ -98,7 +98,7 @@ When Phase A is GA-complete a user will:
 | 10.1 | Real-time co-edit (CRDT) | Editor multi-cursor | (existing — multiplayer plugin) | ✅ DONE | Two browser windows → both see live cursor + edits |
 | 10.2 | Share link with optional expiry + password | Project menu | (existing) | ✅ DONE | Generate link → grant view access |
 | **11. Provenance + audit (C23)** |
-| 11.1 | View per-artefact provenance | Inspect tree → Provenance tab | A.31.a + A.31.c (DONE foundations) + A.31.b/d/e (PLANNED) | 🟢 IN PROGRESS | Click an AI-generated element → see model · prompt-hash · cost · approval status |
+| 11.1 | View per-artefact provenance | Inspect tree → Provenance tab | A.31.a + A.31.b + A.31.c + A.31.d (DONE) + A.31.e (L5 UI PLANNED) | 🟢 IN PROGRESS | Click an AI-generated element → see model · prompt-hash · cost · approval status — backend is wired, UI surface pending |
 | 11.2 | Export project audit log | Project → Audit | A.31.b (PLANNED) | ⚪ PLANNED | Download `.json` or `.pdf` per [C23 §1.8] |
 | 11.3 | PII redaction at prompt boundary | Behind every AI call | (C23 §1.6 implementation PLANNED) | ⚪ PLANNED | Confidential fields stripped before upstream; redaction count audited |
 | 11.4 | Reproduce a deterministic AI call | Audit → reproduce button | A.31.d (PLANNED) | ⚪ PLANNED | D-TGL artefact → re-run with `(contextHash, seed, workflowVersion)` → byte-identical output |

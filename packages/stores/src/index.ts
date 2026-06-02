@@ -60,6 +60,31 @@ export { RoomStore } from './RoomStore.js';
 // detection rejects edges that would close a loop (§1.3 DAG invariant).
 // Snapshots dedup by contextHash. Joins the C13 reset list.
 export { ProvenanceStore } from './ProvenanceStore.js';
+// A.31.d (Phase A · Sprint 2) — provenance.* command handlers per [C23 §4].
+// 4 pure handlers `(payload, store) → ProvenanceCommandResult<Event>`:
+// ai.recordArtefact (idempotent on idempotencyKey) · provenance.linkElement
+// (idempotent per element id) · provenance.updateApprovalStatus (illegal-
+// transition guard per §1.7) · provenance.queryByProject (read-only).
+export {
+    recordArtefact,
+    linkElement,
+    updateApprovalStatus,
+    queryByProject,
+    RecordArtefactPayloadSchema,
+    LinkElementPayloadSchema,
+    UpdateApprovalStatusPayloadSchema,
+    QueryByProjectPayloadSchema,
+    type RecordArtefactPayload,
+    type LinkElementPayload,
+    type UpdateApprovalStatusPayload,
+    type QueryByProjectPayload,
+    type ProvenanceCommandResult,
+    type ProvenanceCommandRejection,
+    type ArtefactRecordedEvent,
+    type ElementLinkedEvent,
+    type ApprovalStatusUpdatedEvent,
+    type QueryByProjectResultEvent,
+} from './provenance-commands/index.js';
 // A.23.c.1 (Phase A · Sprint 2) — building.* command handlers per [C20 §4.1].
 // Pure functions `(payload, store) → AggregateCommandResult<Event>`.
 // 3 commands: create (single-Building rule per §1.1) · update (projectId
