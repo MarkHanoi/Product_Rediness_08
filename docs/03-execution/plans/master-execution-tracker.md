@@ -755,17 +755,35 @@ The user called out family creation explicitly. Adds to Phase A + B:
 
 The user specifically called out "native Revit import + export". Per [C26](../../02-decisions/contracts/C26-REVIT-ROUND-TRIP.md), PRYZM uses IFC4 as the canonical bridge — there is no direct .rvt parsing in the monorepo (a deliberate architectural decision per C26 §1). Sub-phases:
 
-| Phase | Goal | Description |
+> **2026-06-02 — code audit + competitive re-rank.** A full read-only audit (see callout below) found PRYZM is **materially further along than this table implied**: the IFC4X3-RV Revit-variant exporter, GlobalId preservation, and the `packages/schemas/src/revit/` schema surface are SHIPPED, and IFC import already maps 6 Tier-1 families to **native, command-bus-editable** elements (not static meshes). Statuses below are now audit-grounded. The remaining gap to the user's vision ("Revit project → PRYZM native elements → modify → back to Revit, *live*") is the **D.R live-round-trip tier** added below, prompted by ThatOpen Company's **That Open Platform** announcement (Revit live-collaboration; Founding-Member launch **2026-06-22**) — the same category PRYZM's C26 targets, so this is now a competitively time-sensitive lane.
+
+| Phase | Goal | Status (2026-06-02 audit) |
 |---|---|---|
-| **A.R.1** | **IFC4X3-RV variant exporter** (Revit-import-friendly variant) | Already A.26. Generates IFC files Revit imports cleanly. |
-| **A.R.2** | **First reference round-trip: 1 Revit RVT → IFC → PRYZM → IFC → Revit** | Per Q4 Sprint 10.5. |
-| **B.R.1** | **10-project reference round-trip nightly** | Suite of 10 representative Revit projects; CI nightly diff-check. |
-| **B.R.2** | **Revit Family mapping table** | RFA → `.pryzm-family` translation matrix for the canonical 100 Revit family categories. Refs: [C26 §3](../../02-decisions/contracts/C26-REVIT-ROUND-TRIP.md). |
-| **B.R.3** | **Parameter translation via IfcPropertySet** | Revit shared-parameters preserved as Psets through round-trip. |
-| **C.R.1** | **Optional external Python Revit add-in** | Phasing / worksets / design-options preservation (Revit-API-specific surface not expressible in IFC4). Refs: [C26 §6](../../02-decisions/contracts/C26-REVIT-ROUND-TRIP.md). |
-| **C.R.2** | **100-project reference suite (Enterprise validation)** | Expand nightly diff suite to 100 representative projects across building types. |
-| **C.R.3** | **Revit-import wizard (in-editor)** | Drag-drop .rvt → server-side conversion via IFC → in-editor preview → accept. |
-| **C.R.4** | **Revit-export wizard (in-editor)** | "Export to Revit" UI flow → IFC4X3-RV → save dialog → optional Python-adapter trigger. |
+| **A.R.1** | **IFC4X3-RV variant exporter** (Revit-import-friendly variant) | ✅ **SHIPPED** — `plugins/ifc-export/src/exporters/revit-variant.ts` (Pset_RevitType + Pset_RevitInstance + Workset `IfcGroup` + `IfcRelAssignsToGroup`; coordinate-mode pset is a stub). |
+| **A.R.2** | **First reference round-trip: 1 Revit RVT → IFC → PRYZM → IFC → Revit** | 🟡 **PARTIAL** — import (Tier-1 native + Tier-2 transform-proxy, `web-ifc@0.0.77`) + export both exist; GlobalId + psets round-trip **IFF the meta-store is populated**, but the meta-store is `InMemoryIFCMetaStore` only. Blocker = **persistent meta-store (S55)**. |
+| **A.R.3** *(new)* | **Persistent IFC/Revit meta-store** | ⚪ Durable `IfcData{guid,ifcClass}` + psets/workset/phase on every imported element in `@pryzm/stores`, so "which elements came from Revit" survives reload + re-export rebinds GlobalIds. **This is the single highest-leverage unlock** — it converts the existing half-round-trip into a real one. ~2 sprints. |
+| **B.R.1** | **10-project reference round-trip nightly** | ⚪ Suite of 10 representative Revit projects; CI nightly diff-check. |
+| **B.R.2** | **Revit Family mapping table** | 🟡 Schema EXISTS (`packages/schemas/src/revit/RevitFamilyMapping.ts`); the populated RFA→element matrix for the canonical 100 categories is pending. Refs: [C26 §3](../../02-decisions/contracts/C26-REVIT-ROUND-TRIP.md). |
+| **B.R.3** | **Parameter translation via IfcPropertySet** | 🟡 Export writes psets/qsets; import preserves them in `IFCElementMeta.psets` + `_ifcCustom` bag. Solid on the IFC path; Revit shared-parameter fidelity needs B.R.2 + the adapter. |
+| **C.R.1** | **Optional external Python/C# Revit add-in** | ⚪ Out-of-monorepo per C26 §6.3 (Windows COM + Revit API). The only path to phasing / worksets / design-options + *live* push-back. Refs: [C26 §6](../../02-decisions/contracts/C26-REVIT-ROUND-TRIP.md). |
+| **C.R.2** | **100-project reference suite (Enterprise validation)** | ⚪ Expand nightly diff suite to 100 representative projects across building types. |
+| **C.R.3** | **Revit-import wizard (in-editor)** | ⚪ Drag-drop .rvt → server-side conversion via IFC → in-editor preview → accept. |
+| **C.R.4** | **Revit-export wizard (in-editor)** | ⚪ "Export to Revit" UI flow → IFC4X3-RV → save dialog → optional adapter trigger. |
+
+#### §12.6.1 — D.R — Live Revit ↔ PRYZM round-trip (the "That Open Platform" lane)
+
+The user's framing — *"Revit project into PRYZM as native elements through a plugin — modify elements — back to Revit!"* — is the **live, collaborative** evolution of the file-based round-trip above (ThatOpen's pitch: no long export/import · full change history · go back in time · keep data control). The audit's gap analysis sizes it at **~12–15 sprints on top of A.R.3**. Architecture note: the *in-editor* half is a PRYZM L7 plugin (registers a format/connector via the plugin SDK), but the *Revit-side* half MUST be a separate Windows add-in (Revit runs desktop COM, not in the browser) — so "a plugin" is really **two** cooperating pieces bridged over a websocket/event channel.
+
+| Phase | Goal | Builds on / Gap |
+|---|---|---|
+| **D.R.1** | **Streaming delta import** (Revit change → PRYZM command) | Builds on command-bus + sync-server event log; NEW = WS bridge from the desktop adapter + Revit-delta→command translator. ~3–4 sprints. |
+| **D.R.2** | **Bidirectional property/parameter push-back** (PRYZM edit → Revit) | Builds on the pset round-trip; NEW = PRYZM event → adapter → Revit API write. ~2–3 sprints. |
+| **D.R.3** | **Change history / time-travel** ("go back in time") | Builds on the durable sync-server event log; NEW = version snapshots + revert-to-version surface (undo ring-buffer is bounded, not sufficient). ~2 sprints. |
+| **D.R.4** | **Revit-aware conflict resolver** (Revit-user A vs PRYZM-user B edit same element) | Builds on the ADR-049 CRDT resolver; NEW = per-parameter binding / deterministic merge strategy (C08 §3.2 explicit-conflict posture). ~1–2 sprints. |
+| **D.R.5** | **Workset / phasing / design-option sync** | Builds on the IFC4X3-RV worksets + `RevitWorkset` schema; NEW = live bidirectional membership + phase (New/Existing/Demolished) sync. ~1–2 sprints. |
+| **D.R.6** | **The desktop Revit adapter** (separate repo, Windows COM + Revit API 2024–2026) | NEW, out-of-monorepo (C26 §6.3). Reads `.rvt`→rich IFC+sidecar; applies PRYZM deltas back to the Revit model. ~4–6 sprints + C#/COM expertise. |
+
+> **Audit artefact (2026-06-02):** read-only sweep of the interop subsystem — `plugins/{ifc-import,ifc-export,ifc-inspector,rhino-import,dxf}`, `packages/pdf-to-bim`, `packages/schemas/src/revit/`, `packages/schemas/src/base/primitives.ts` (`IfcData`), command-bus/event-log/CRDT, and plugin-sdk. Verdict: **strong IFC-bridge foundation + Revit-variant exporter SHIPPED**; gap to *live* round-trip = persistent meta-store (A.R.3) → streaming bridge → external desktop adapter. No `.rvt` parser and no Revit add-in exist yet (both deliberate per C26). Full findings preserved in the session memory + this section.
 
 ### §12.7 — AI commands (full surface)
 
