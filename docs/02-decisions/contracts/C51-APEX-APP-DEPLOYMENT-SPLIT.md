@@ -100,7 +100,10 @@ Content-Security-Policy:
   script-src 'self' 'wasm-unsafe-eval';
   style-src 'self';
   img-src 'self' data: https:;
-  connect-src 'self' https://api.pryzm.so wss://app.pryzm.so;
+  connect-src 'self' https://api.pryzm.so wss://app.pryzm.so
+    https://api.cesium.com https://assets.cesium.com https://ionfetch.cesium.com
+    https://<supabase-ref>.supabase.co wss://<supabase-ref>.supabase.co
+    data: blob: wss:;   /* config-derived — see §3.1.2.2 (RATIFIED 2026-06-02) */
   frame-ancestors 'none';
   base-uri 'self';
   form-action 'self';
@@ -122,19 +125,19 @@ The app's CSP is emitted by [`server/securityHeaders.js`](../../../server/securi
 | `object-src` | — | `'none'` (helmet default) | ✅ stronger |
 | `script-src` | `'self' 'wasm-unsafe-eval'` | `'self' 'unsafe-eval' blob:` | ❌ **blocked** |
 | `style-src` | `'self'` | `'self' 'unsafe-inline' https://fonts.googleapis.com` | ❌ **blocked** |
-| `connect-src` | `'self' https://api.pryzm.so wss://app.pryzm.so` | `'self' data: blob: cesium-ion(×3) *.supabase.co wss: ws: [CF_WORKER_URL]` | ⚠️ **contract too narrow** |
+| `connect-src` | config-derived (§3.1.2.2) | `'self' data: blob: cesium-ion(×3) + derived `<ref>.supabase.co` + wss:` (ws: dev-only; AI entry dropped) | ✅ **ratified + implemented** (config-derived; residual: scope blanket `wss:`) |
 
-Three things block flipping to the literal §3.1.2 policy — none is a quick edit:
+Two blockers remain before `check-app-strict-csp` can pass (blocker 3 — `connect-src` — was **RESOLVED + shipped 2026-06-02**, see §3.1.2.2):
 
 1. **`script-src 'unsafe-eval'` → `'wasm-unsafe-eval'`.** `'unsafe-eval'` is currently required by Three.js shader compilation + Cesium's internal `eval()` (documented in `securityHeaders.js:83-90`). Tracked for removal in **Phase J** (ADR-047 WebGPU worker migration). Flipping it now breaks 3D rendering + geospatial. Needs a full-app run to verify after the eval paths are gone.
 2. **`style-src 'unsafe-inline'` → `'self'`.** The editor injects its theme as a runtime `<style>` block (`injectAppTheme()` in `apps/editor/src/ui/styles/AppTheme.ts`). Removing `'unsafe-inline'` requires migrating CSS-in-JS to a hashed/nonce'd stylesheet or an external `.css` link. Non-trivial; needs its own slice.
-3. **`connect-src` — the contract list is unrealistic.** §3.1.2's `connect-src` omits origins the real app legitimately needs: Cesium ion (`api/assets/ionfetch.cesium.com`, C12 geospatial), Supabase (`*.supabase.co`), the CF AI-worker relay, and `ws:`/`wss:` for Socket.io collaboration (C08 §3). **DECISION NEEDED**: either (a) amend §3.1.2's `connect-src` to enumerate these, or (b) proxy all of them through `api.pryzm.so` so `'self' https://api.pryzm.so` suffices. Until decided, the current broad `connect-src` is correct-for-the-app and the literal contract value would break geospatial + persistence + AI + collaboration.
+3. ~~**`connect-src`**~~ — **RESOLVED 2026-06-02** (§3.1.2.2): config-derived `buildConnectSrc` ships the exact `SUPABASE_URL`-derived origin (wildcard fallback), drops the dead AI entry, and makes insecure `ws:` dev-only. Residual (scope blanket `wss:`) deferred to a CSP-reporting-driven slice — see §3.1.2.2.
 
-Therefore `check-app-strict-csp` (§7) stays **deferred** — it cannot pass until (1)+(2) ship and (3) is resolved. This note is the closure roadmap; flipping any row above is its own tested PR.
+Therefore `check-app-strict-csp` (§7) stays **deferred** — it cannot pass until (1)+(2) ship (blocker 3 is done). This note is the closure roadmap; flipping `script-src`/`style-src` is its own tested PR (each needs a full-app run).
 
-##### §3.1.2.2 — `connect-src` resolution (RECOMMENDED — pending owner ratification)
+##### §3.1.2.2 — `connect-src` resolution (RATIFIED + IMPLEMENTED 2026-06-02)
 
-Blocker (3) above is a genuine A-vs-B decision. Resolved per-origin rather than globally, because "proxy everything through `api.pryzm.so`" (Option B) is correct for some origins and an anti-pattern for others:
+Blocker (3) above was a genuine A-vs-B decision. **Ratified** per-origin (not globally — "proxy everything through `api.pryzm.so`" is correct for some origins and an anti-pattern for others) and **implemented** in [`server/securityHeaders.js`](../../../server/securityHeaders.js) as the exported, unit-tested `buildConnectSrc(env, isProd)` (tests: `security-gates-adr-055.test.ts` §6, T6.1–T6.5). The policy is now **configuration-derived**, not a hand-maintained wildcard list:
 
 | Origin (current) | Resolution | Why |
 |---|---|---|
@@ -144,17 +147,18 @@ Blocker (3) above is a genuine A-vs-B decision. Resolved per-origin rather than 
 | `ws:` / `wss:` (Socket.io) | **A — scope to the app origin** | Collaboration transport (C08 §3). The blanket `ws:`/`wss:` should narrow to `wss://app.pryzm.so` (prod) — already the §3.1.2 literal value's intent. |
 | `data:` / `blob:` | **keep** | Used by `fetch()` of inline/worker-generated payloads; low exfil risk, no first-party alternative. |
 
-**Recommended amended §3.1.2 `connect-src`** (replaces line 103's literal value):
+**Implemented `connect-src` derivation** (`buildConnectSrc`, replaces the old hand-maintained array):
 
 ```
-connect-src 'self'
-  https://api.pryzm.so wss://app.pryzm.so
+connect-src 'self' data: blob:
   https://api.cesium.com https://assets.cesium.com https://ionfetch.cesium.com
-  https://<supabase-ref>.supabase.co wss://<supabase-ref>.supabase.co
-  data: blob:;
+  https://<derived-from-SUPABASE_URL>  wss://<derived-from-SUPABASE_URL>
+  wss:        /* + ws: in development only */
 ```
 
-**Net:** the "strict" posture is preserved where it matters — the real XSS-exfil tightening is the `script-src` (no `unsafe-eval`) and `style-src` (no `unsafe-inline`) work, blockers (1)+(2). `connect-src` to a short list of scoped, reputable, contractually-required CDNs is the correct end state; the only true tightening available is dropping the dead AI entry (done above) and de-wildcarding Supabase. This is **the smaller of the two changes** and does NOT require a full-app run — it can ship the moment the owner ratifies it (then `securityHeaders.js`'s `CONNECT_SRC` drops `CF_WORKER_URL`, narrows `*.supabase.co` + `ws:`/`wss:`, and §3.1.2's normative block is updated to match). `check-app-strict-csp` still waits on (1)+(2).
+**Net:** the "strict" posture is preserved where it matters — the real XSS-exfil tightening is the `script-src` (no `unsafe-eval`) and `style-src` (no `unsafe-inline`) work, blockers (1)+(2), which still need the Phase-J eval removal + a nonce migration. The `connect-src` change shipped here is the **safe, verifiable** slice: it (a) drops the dead AI entry, (b) de-wildcards Supabase to the exact `SUPABASE_URL`-derived origin **with a wildcard fallback so a misconfig never CSP-blocks persistence**, and (c) restricts insecure `ws:` to development. It needed no full-app run because the logic is pure + unit-tested and degrades safely.
+
+**Residual tightening (deliberately deferred — needs a staging run):** the blanket `wss:` is still broader than ideal. Scoping it to the single realtime origin (`wss://app.pryzm.so`) under the live Cloudflare→Fly chain could break Socket.io collaboration if the derived origin is wrong, so it is NOT shipped blind. The enterprise-correct way to finish it is **CSP violation reporting** (a `report-to` group + a logging endpoint): enforce the broad policy, collect real violation telemetry from production, then narrow `wss:` from evidence rather than guesswork. That report-endpoint slice is the recommended next step toward closing `check-app-strict-csp` alongside blockers (1)+(2).
 
 #### §3.1.3 — Honour [C08](./C08-COLLABORATION-AND-SECURITY.md) §1.1 auth invariants
 
@@ -310,7 +314,7 @@ Each gate is hard-fail on the production branch. **Five** gates are **LIVE** as 
 | `check-apex-size` | `scripts/check/check-apex-size.mjs` | ✅ **LIVE** (`npm run check:apex`) | Sums gzipped byte size of `dist-apex/` (excludes `_headers`/`_redirects`/dotfiles); fails if > 200 KB. Enforces §6.1.3. Current: 21.2 KB (89% headroom). | Phase A |
 | `check-apex-no-auth-cookies` | `scripts/check/check-apex-no-auth-cookies.mjs` | ✅ **LIVE** (`npm run check:apex`) | Scans the apex build output (`dist-apex/`) + the pre-render source for any `Set-Cookie` / `document.cookie` / `req.cookies` / `res.cookie(` usage (comment lines skipped). Enforces §2.2.1. | Phase A (with the first apex deploy) |
 | `check-no-product-routes-in-docs-site` | `scripts/check/check-no-product-routes-in-docs-site.mjs` | ✅ **LIVE** (`npm run check:docs-site`, in the `apex-gates` CI job) | Fails any PR adding `apps/docs-site/src/pages/{index,pricing,manifesto,trust,start,solutions,resources}.astro` (or successors). Enforces §2.1.5 + §8 + the ADR-055 retirement. The 5 marketing pages + `gen-docs-site-pricing.mjs` + `pricing.json` were deleted (A.17.x.14); only `404.astro` remains in the docs-site. | Phase A close |
-| `check-app-strict-csp` | `scripts/check/check-app-strict-csp.mjs` | ⚪ planned | Lints `server.js` middleware + the SPA build for inline `<script>` without nonce, `unsafe-inline` / `unsafe-eval` in the CSP header, missing `default-src 'self'`. Enforces §3.1.2. **Deferred — see the §3.1.2.1 audit: 3 blockers (Three.js/Cesium `unsafe-eval` → Phase J · CSS-in-JS `unsafe-inline` → nonce migration · `connect-src` contract-too-narrow decision). Cannot pass until those land.** | Phase A (gates the Fly deploy) |
+| `check-app-strict-csp` | `scripts/check/check-app-strict-csp.mjs` | ⚪ planned | Lints `server.js` middleware + the SPA build for inline `<script>` without nonce, `unsafe-inline` / `unsafe-eval` in the CSP header, missing `default-src 'self'`. Enforces §3.1.2. **Deferred — §3.1.2.1: blocker 3 (`connect-src`) RESOLVED 2026-06-02; 2 remain (Three.js/Cesium `unsafe-eval` → Phase J · CSS-in-JS `unsafe-inline` → nonce migration), each needs a full-app run.** | Phase A (gates the Fly deploy) |
 | `check-route-surface-assignment` | `scripts/check/check-route-surface-assignment.mjs` | ✅ **LIVE** (`npm run check:route-surface`, in the `apex-gates` CI job) | Statically asserts `server.js` 301-redirects every apex marketing path (`/pricing` · `/manifesto` · `/trust`) to `APEX_ORIGIN` under an `app.pryzm.so` host guard, and that `apps/editor/src/router.ts` reaches in-app marketing via the `?page=` slot rather than owning an apex path. Enforces §3.2.1 + §5. Behaviour also tested in `security-gates-adr-055.test.ts` §5 (T5.1–T5.3). | Phase A |
 | `check-dns-map-honoured` | runtime probe + alert | ⚪ planned | Periodic DNS resolution check against §4; alerts on a `pryzm.so` resolution drift (e.g. CNAME flipped to Fly). | Phase A close |
 

@@ -22,6 +22,7 @@ import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import express from 'express';
 import { createServer, type Server } from 'http';
 import type { AddressInfo } from 'net';
+import { buildConnectSrc } from '../securityHeaders.js';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Helpers — bring up a real HTTP server on a random port, return base URL.
@@ -414,5 +415,48 @@ describe('§5 apex-route-surface redirect (C51 §3.2.1)', () => {
         });
         expect(r.status).toBe(200);
         expect(await r.text()).toContain('editor-shell');
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §6 — CSP connect-src is configuration-derived (C51 §3.1.2.2). buildConnectSrc
+// derives the EXACT Supabase project origin from SUPABASE_URL (no wildcard when
+// configured), never emits a third-party AI origin (the browser uses the
+// same-origin BFF), and permits insecure ws: only in development.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('§6 connect-src config-derivation (C51 §3.1.2.2)', () => {
+    it('T6.1 — SUPABASE_URL set → exact project origin (https+wss), NO *.supabase.co wildcard', () => {
+        const src = buildConnectSrc({ SUPABASE_URL: 'https://abcdef123.supabase.co' }, true);
+        expect(src).toContain('https://abcdef123.supabase.co');
+        expect(src).toContain('wss://abcdef123.supabase.co');
+        expect(src).not.toContain('https://*.supabase.co');
+    });
+
+    it('T6.2 — SUPABASE_URL unset → SAFE fallback to the *.supabase.co wildcard (never breaks persistence)', () => {
+        const src = buildConnectSrc({}, true);
+        expect(src).toContain('https://*.supabase.co');
+        expect(src).toContain('wss://*.supabase.co');
+    });
+
+    it('T6.3 — malformed SUPABASE_URL → falls back to the wildcard rather than throwing', () => {
+        const src = buildConnectSrc({ SUPABASE_URL: 'not a url' }, true);
+        expect(src).toContain('https://*.supabase.co');
+    });
+
+    it('T6.4 — NO third-party AI origin (CF_WORKER_URL is never reflected into connect-src)', () => {
+        const src = buildConnectSrc({ CF_WORKER_URL: 'https://worker.example.workers.dev' }, true);
+        expect(src.some((s) => s.includes('workers.dev'))).toBe(false);
+    });
+
+    it('T6.5 — insecure ws: is dev-only; production is wss-only; Cesium + self always present', () => {
+        const prod = buildConnectSrc({}, true);
+        const dev = buildConnectSrc({}, false);
+        expect(prod).not.toContain('ws:');
+        expect(dev).toContain('ws:');
+        for (const s of [prod, dev]) {
+            expect(s).toContain("'self'");
+            expect(s).toContain('wss:');
+            expect(s).toContain('https://api.cesium.com');
+        }
     });
 });

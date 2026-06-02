@@ -59,26 +59,63 @@ const IS_PROD = (process.env.NODE_ENV === 'production' || process.env.npm_lifecy
     && existsSync(join(__dirname, '../dist'));
 
 // ── CSP: connect-src origins ──────────────────────────────────────────────────
-// Computed once at module initialisation; env vars do not change at runtime.
-// The CF_WORKER_URL is a server-side relay — browsers call the same-origin
-// BFF (/api/anthropic/v1/messages), not the CF URL directly.  Included here
-// for forward-compatibility if direct browser → CF calls are ever added.
-const CONNECT_SRC = [
-    "'self'",
-    'data:',
-    'blob:',
-    // Cesium ion terrain / asset CDN — C12 geospatial features
-    'https://api.cesium.com',
-    'https://assets.cesium.com',
-    'https://ionfetch.cesium.com',
-    // Supabase project REST API
-    'https://*.supabase.co',
-    // Socket.io WebSocket — real-time collaboration (C08 §3)
-    'wss:',
-    'ws:',
-];
-const _cfWorkerUrl = process.env.CF_WORKER_URL ?? null;
-if (_cfWorkerUrl) CONNECT_SRC.push(_cfWorkerUrl);
+// C51 §3.1.2.2 — configuration-derived, no wildcards when configured. Built once
+// at module init from environment config so the policy reflects the ACTUAL
+// deployment rather than a hand-maintained allowlist that drifts.
+//
+// The AI worker is deliberately ABSENT: the browser calls the same-origin BFF
+// (/api/anthropic/v1/messages), never CF_WORKER_URL directly, so no third-party
+// AI origin belongs here. (Previously CF_WORKER_URL was pushed "for forward-
+// compatibility" — dead weight that only widened the policy. Removed.)
+/**
+ * Build the CSP `connect-src` allowlist from environment configuration.
+ * Pure + exported so the policy logic is unit-testable without standing up the
+ * whole server (enterprise practice: tested config, not inline magic).
+ *
+ * @param {Record<string,string|undefined>} env   process.env (or a test double)
+ * @param {boolean} isProd                          production posture
+ * @returns {string[]} the connect-src token list
+ */
+export function buildConnectSrc(env = process.env, isProd = IS_PROD) {
+    const src = [
+        "'self'",
+        'data:',
+        'blob:',
+        // Cesium ion terrain / asset CDN — C12 geospatial. Direct browser→CDN is
+        // the designed path; proxying signed tile URLs through our origin is an
+        // anti-pattern (latency + bandwidth + breaks ion CDN caching).
+        'https://api.cesium.com',
+        'https://assets.cesium.com',
+        'https://ionfetch.cesium.com',
+    ];
+
+    // Supabase REST + realtime — derive the EXACT project origin from
+    // SUPABASE_URL (RLS-protected direct browser access is by design). Falls
+    // back to the *.supabase.co wildcard ONLY when SUPABASE_URL is unset /
+    // unparseable, so a misconfiguration degrades to the previous safe-but-broad
+    // behaviour rather than CSP-blocking persistence for every user. No silent
+    // break — that is the enterprise-safe failure mode.
+    try {
+        const sbHost = env.SUPABASE_URL ? new URL(env.SUPABASE_URL).host : null;
+        if (sbHost) src.push(`https://${sbHost}`, `wss://${sbHost}`);
+        else src.push('https://*.supabase.co', 'wss://*.supabase.co');
+    } catch {
+        src.push('https://*.supabase.co', 'wss://*.supabase.co');
+    }
+
+    // Socket.io collaboration transport (C08 §3). 'wss:' (any secure WebSocket)
+    // is retained: the editor connects to its own origin, but scoping this to a
+    // single host safely requires a staging run to confirm the realtime origin
+    // under the Cloudflare→Fly chain — tracked as the residual tightening in
+    // C51 §3.1.2.2. Insecure 'ws:' is permitted ONLY in development (Vite HMR /
+    // localhost sockets); production is wss-only.
+    src.push('wss:');
+    if (!isProd) src.push('ws:');
+
+    return src;
+}
+
+const CONNECT_SRC = buildConnectSrc();
 
 // ── CSP: script-src ───────────────────────────────────────────────────────────
 // 'unsafe-eval' is required by Three.js shader compilation and Cesium's internal
