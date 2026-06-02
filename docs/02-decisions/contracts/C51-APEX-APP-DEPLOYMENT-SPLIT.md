@@ -132,6 +132,30 @@ Three things block flipping to the literal §3.1.2 policy — none is a quick ed
 
 Therefore `check-app-strict-csp` (§7) stays **deferred** — it cannot pass until (1)+(2) ship and (3) is resolved. This note is the closure roadmap; flipping any row above is its own tested PR.
 
+##### §3.1.2.2 — `connect-src` resolution (RECOMMENDED — pending owner ratification)
+
+Blocker (3) above is a genuine A-vs-B decision. Resolved per-origin rather than globally, because "proxy everything through `api.pryzm.so`" (Option B) is correct for some origins and an anti-pattern for others:
+
+| Origin (current) | Resolution | Why |
+|---|---|---|
+| AI worker (`CF_WORKER_URL`) | **B — already same-origin; DROP from `connect-src`** | The browser already calls the BFF `/api/anthropic/v1/messages` (same-origin), never the CF URL directly (`securityHeaders.js:63-65`). The entry is dead forward-compat weight — removing it tightens the policy at zero cost. |
+| Cesium ion (`api`/`assets`/`ionfetch.cesium.com`) | **A — enumerate** | Terrain/imagery tile streaming (C12). Proxying map tiles through your own origin is a known anti-pattern: it adds latency, bandwidth cost, and breaks ion's signed-URL CDN caching. Direct browser→CDN is the designed path. |
+| Supabase (`*.supabase.co`) | **A — enumerate, but TIGHTEN the wildcard** | Supabase REST + realtime are RLS-protected and designed for direct browser access; proxying realtime re-implements a websocket relay for no gain (and Phase D moves CRDT to Cloudflare DO anyway). Replace `*.supabase.co` with the specific project ref `https://<ref>.supabase.co` + `wss://<ref>.supabase.co`. |
+| `ws:` / `wss:` (Socket.io) | **A — scope to the app origin** | Collaboration transport (C08 §3). The blanket `ws:`/`wss:` should narrow to `wss://app.pryzm.so` (prod) — already the §3.1.2 literal value's intent. |
+| `data:` / `blob:` | **keep** | Used by `fetch()` of inline/worker-generated payloads; low exfil risk, no first-party alternative. |
+
+**Recommended amended §3.1.2 `connect-src`** (replaces line 103's literal value):
+
+```
+connect-src 'self'
+  https://api.pryzm.so wss://app.pryzm.so
+  https://api.cesium.com https://assets.cesium.com https://ionfetch.cesium.com
+  https://<supabase-ref>.supabase.co wss://<supabase-ref>.supabase.co
+  data: blob:;
+```
+
+**Net:** the "strict" posture is preserved where it matters — the real XSS-exfil tightening is the `script-src` (no `unsafe-eval`) and `style-src` (no `unsafe-inline`) work, blockers (1)+(2). `connect-src` to a short list of scoped, reputable, contractually-required CDNs is the correct end state; the only true tightening available is dropping the dead AI entry (done above) and de-wildcarding Supabase. This is **the smaller of the two changes** and does NOT require a full-app run — it can ship the moment the owner ratifies it (then `securityHeaders.js`'s `CONNECT_SRC` drops `CF_WORKER_URL`, narrows `*.supabase.co` + `ws:`/`wss:`, and §3.1.2's normative block is updated to match). `check-app-strict-csp` still waits on (1)+(2).
+
 #### §3.1.3 — Honour [C08](./C08-COLLABORATION-AND-SECURITY.md) §1.1 auth invariants
 
 App MUST issue PRYZM's custom JWT via `server/authStore.js` using `SESSION_SECRET` (HMAC-SHA256, 7-day lifetime per C08 §1.1). App MUST NOT use Supabase Auth's JWT issuance until [ADR-056](../adrs/ADR-056-supabase-auth-migration.md) ratifies the migration (sequenced AFTER Phase A close — see ADR-055 §3 row "A.5"). Until ADR-056 lands, any code path that calls `supabase.auth.signIn()` / `supabase.auth.signUp()` is a contract violation.
