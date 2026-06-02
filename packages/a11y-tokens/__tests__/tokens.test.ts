@@ -59,6 +59,28 @@ describe('TOKEN_PAIRS registry', () => {
             expect(p.minLevel, p.id).toBe('AAA');
         }
     });
+
+    it('A.34.b — focus ring is registered against every surface a focus can appear on', () => {
+        const focusPairs = TOKEN_PAIRS.filter((p) => p.foreground === 'focus-ring');
+        const surfaces = focusPairs.map((p) => p.background as string).sort();
+        expect(surfaces).toEqual(['ink', 'paper', 'paper-elevated']);
+        for (const p of focusPairs) {
+            expect(p.size).toBe('non-text');
+        }
+    });
+
+    it('A.34.b — form border has a token for resting + focused + error', () => {
+        const formIds = TOKEN_PAIRS.filter((p) => p.id.startsWith('form-border-')).map(
+            (p) => p.id,
+        );
+        expect(formIds).toEqual(
+            expect.arrayContaining([
+                'form-border-on-paper',
+                'form-border-focused-on-paper',
+                'form-border-error-on-paper',
+            ]),
+        );
+    });
 });
 
 describe('auditTokenPairs', () => {

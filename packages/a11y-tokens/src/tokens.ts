@@ -24,7 +24,7 @@ export const PRYZM_TOKENS: Readonly<Record<string, string>> = {
     'ink': '#0A0A0F',                   // app background
     'paper': '#14141C',                 // panel background
     'paper-elevated': '#1C1C28',        // modal / popover background
-    'border': '#2A2A36',                // panel border
+    'border': '#2A2A36',                // panel border (decorative)
     // ── Text on dark ──────────────────────────────────────────────────
     'text-primary': '#F5F5FA',          // body copy
     'text-secondary': '#A8A8B5',        // de-emphasised
@@ -34,6 +34,11 @@ export const PRYZM_TOKENS: Readonly<Record<string, string>> = {
     'warning': '#FFAA00',
     'error': '#FF5252',
     'info': '#4DA6FF',
+    // ── A.34.b focus + form controls (ESSENTIAL non-text per WCAG 1.4.11) ─
+    'focus-ring': '#C2A4FF',            // visible focus indicator on every dark surface
+    'form-border': '#7E7E94',           // resting state of form-input borders
+    'form-border-focused': '#C2A4FF',   // focused state — aligns with focus-ring
+    'form-border-error': '#FF5252',     // invalid state — aligns with semantic.error
 };
 
 /**
@@ -154,12 +159,64 @@ export const TOKEN_PAIRS: readonly TokenPair[] = [
     // ── Non-text UI controls ──────────────────────────────────────────
     //
     // NOTE: panel-border tokens (`border` on `ink` / `paper`) are NOT
-    // registered here. Per WCAG 1.4.11 the 3:1 non-text contrast rule
-    // applies only to "essential" non-text content (focus rings, form
-    // borders, status icons). PRYZM's decorative panel-edge dividers
-    // fall under the exemption. The focus-ring + form-control borders
-    // are separate tokens registered when those surfaces ship (A.34.b
-    // PLANNED).
+    // registered. Per WCAG 1.4.11 the 3:1 non-text contrast rule applies
+    // only to "essential" non-text content (focus rings, form borders,
+    // status icons). PRYZM's decorative panel-edge dividers fall under
+    // the exemption.
+    //
+    // A.34.b — ESSENTIAL non-text tokens (focus + form controls). These
+    // MUST meet 3:1 vs every surface they appear on (1.4.11 + 2.4.11);
+    // PRYZM aspires AAA elevation here per [C43 §1.3] so we register
+    // each pair against multiple background surfaces — the audit
+    // catches a regression on ANY background, not just the primary.
+    {
+        id: 'focus-ring-on-ink',
+        foreground: 'focus-ring',
+        background: 'ink',
+        size: 'non-text',
+        minLevel: 'AA',
+        usage: 'keyboard focus indicator on app background',
+    },
+    {
+        id: 'focus-ring-on-paper',
+        foreground: 'focus-ring',
+        background: 'paper',
+        size: 'non-text',
+        minLevel: 'AA',
+        usage: 'keyboard focus indicator on panel background',
+    },
+    {
+        id: 'focus-ring-on-paper-elevated',
+        foreground: 'focus-ring',
+        background: 'paper-elevated',
+        size: 'non-text',
+        minLevel: 'AA',
+        usage: 'keyboard focus indicator on modal / popover',
+    },
+    {
+        id: 'form-border-on-paper',
+        foreground: 'form-border',
+        background: 'paper',
+        size: 'non-text',
+        minLevel: 'AA',
+        usage: 'resting border on form inputs inside panels',
+    },
+    {
+        id: 'form-border-focused-on-paper',
+        foreground: 'form-border-focused',
+        background: 'paper',
+        size: 'non-text',
+        minLevel: 'AA',
+        usage: 'focused border on form inputs',
+    },
+    {
+        id: 'form-border-error-on-paper',
+        foreground: 'form-border-error',
+        background: 'paper',
+        size: 'non-text',
+        minLevel: 'AA',
+        usage: 'invalid-state border on form inputs',
+    },
 ];
 
 export interface AuditFinding {
