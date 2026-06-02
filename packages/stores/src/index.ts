@@ -62,6 +62,26 @@ export { RoomStore } from './RoomStore.js';
 // retention scheduler can fire the §1.6 'consent-revoke' purge);
 // `purgeUser()` is the GDPR Art. 17 erasure path.
 export { ConsentStore } from './ConsentStore.js';
+// A.30.d.1 (Phase A · Sprint 2) — consent.* command handlers per [C22 §4].
+// 3 pure handlers `(payload, store) → ConsentCommandResult<Event>`:
+// consent.grant (auto-supersedes prior versions) · consent.revoke
+// (rejects on no-active-consent) · consent.purgeUser (GDPR Art. 17).
+export {
+    grantConsent,
+    revokeConsent,
+    purgeUserConsent,
+    GrantConsentPayloadSchema,
+    RevokeConsentPayloadSchema,
+    PurgeUserConsentPayloadSchema,
+    type GrantConsentPayload,
+    type RevokeConsentPayload,
+    type PurgeUserConsentPayload,
+    type ConsentCommandResult,
+    type ConsentCommandRejection,
+    type ConsentGrantedEvent,
+    type ConsentRevokedEvent,
+    type ConsentUserPurgedEvent,
+} from './consent-commands/index.js';
 // A.31.c (Phase A · Sprint 2) — L3 ProvenanceStore.
 // Wraps the L0 C23 Provenance substrate (`@pryzm/schemas/provenance`).
 // APPEND-ONLY per C23 §1.9 — the only post-write mutations are
