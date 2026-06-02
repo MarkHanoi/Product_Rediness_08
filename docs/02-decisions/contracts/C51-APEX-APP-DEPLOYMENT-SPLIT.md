@@ -256,19 +256,19 @@ A given commit SHA MUST produce byte-identical `dist-apex/` outputs on every CI 
 
 ## §7 — CI gates that enforce this contract
 
-The following gates are DECLARED here. Authoring is a follow-up PR (this contract does NOT ship the gate code — see "Don't" in the authoring brief). Each gate is hard-fail on the production branch.
+Each gate is hard-fail on the production branch. The three **apex-output** gates are **LIVE** (authored 2026-06-02; run together via `npm run check:apex`, which builds then checks). The remaining four are **planned** — each gated on the migration step it protects (the docs-site + strict-CSP gates would false-fail until the Astro deletion + Fly CSP land, so they are deliberately deferred to their phase).
 
-| Gate | Path (planned) | What it checks | Phase |
-|---|---|---|---|
-| `check-no-product-routes-in-docs-site` | `scripts/check/check-no-product-routes-in-docs-site.mjs` | Fails any PR adding `apps/docs-site/src/pages/{index,pricing,manifesto,trust,solutions,resources}.astro` (or successors). Enforces §2.1.5 + the ADR-055 retirement. | Phase A close (blocks the Astro deletion PR's regression) |
-| `check-apex-no-auth-cookies` | `scripts/check/check-apex-no-auth-cookies.mjs` | Greps the apex build output (`dist-apex/`) + the apex pre-render source for any `Set-Cookie` / `document.cookie` / `req.cookies` usage. Enforces §2.2.1. | Phase A (with the first apex deploy) |
-| `check-app-strict-csp` | `scripts/check/check-app-strict-csp.mjs` | Lints `server.js` middleware + the SPA build for inline `<script>` without nonce, `unsafe-inline` / `unsafe-eval` in the CSP header, missing `default-src 'self'`. Enforces §3.1.2. | Phase A (gates the Fly deploy) |
-| `check-apex-self-contained` | `scripts/check/check-apex-self-contained.mjs` | Parses the rendered apex HTML for `<script src="...">` / `<link href="...">` whose URL host is `app.pryzm.so` (or any non-`pryzm.so` + non-allowlist host). Enforces §2.2.4. | Phase A |
-| `check-route-surface-assignment` | `scripts/check/check-route-surface-assignment.mjs` | Cross-references `apps/editor/src/ui/platform/PlatformRouter.ts` route table against §5; flags any app-side route handler for an apex-marked path (or vice versa). Enforces §3.2.1 + §5. | Phase A |
-| `check-apex-size` | `scripts/check/check-apex-size.mjs` | Sums gzipped byte size of `dist-apex/`; fails if > 200 KB. Enforces §6.1.3. | Phase A |
-| `check-dns-map-honoured` | runtime probe + alert | Periodic DNS resolution check against §4; alerts on a `pryzm.so` resolution drift (e.g. CNAME flipped to Fly). | Phase A close |
+| Gate | Path | Status | What it checks | Phase |
+|---|---|---|---|---|
+| `check-apex-self-contained` | `scripts/check/check-apex-self-contained.mjs` | ✅ **LIVE** (`npm run check:apex`) | Parses the rendered apex HTML for `<script src>` / `<link href>` / `<img src>` / `@import` whose URL host is `app.pryzm.so` (or any non-`pryzm.so` + non-allowlist host). Enforces §2.2.4. Current: 0 script tags, all assets same-origin. | Phase A |
+| `check-apex-size` | `scripts/check/check-apex-size.mjs` | ✅ **LIVE** (`npm run check:apex`) | Sums gzipped byte size of `dist-apex/` (excludes `_headers`/`_redirects`/dotfiles); fails if > 200 KB. Enforces §6.1.3. Current: 21.2 KB (89% headroom). | Phase A |
+| `check-apex-no-auth-cookies` | `scripts/check/check-apex-no-auth-cookies.mjs` | ✅ **LIVE** (`npm run check:apex`) | Scans the apex build output (`dist-apex/`) + the pre-render source for any `Set-Cookie` / `document.cookie` / `req.cookies` / `res.cookie(` usage (comment lines skipped). Enforces §2.2.1. | Phase A (with the first apex deploy) |
+| `check-no-product-routes-in-docs-site` | `scripts/check/check-no-product-routes-in-docs-site.mjs` | ⚪ planned | Fails any PR adding `apps/docs-site/src/pages/{index,pricing,manifesto,trust,solutions,resources}.astro` (or successors). Enforces §2.1.5 + the ADR-055 retirement. **Deferred: would false-fail today (Astro pages still present + Cloudflare currently building them); authored alongside the A.17.x.14 deletion.** | Phase A close |
+| `check-app-strict-csp` | `scripts/check/check-app-strict-csp.mjs` | ⚪ planned | Lints `server.js` middleware + the SPA build for inline `<script>` without nonce, `unsafe-inline` / `unsafe-eval` in the CSP header, missing `default-src 'self'`. Enforces §3.1.2. **Deferred: gates the Fly app deploy; authored when the strict CSP lands server-side.** | Phase A (gates the Fly deploy) |
+| `check-route-surface-assignment` | `scripts/check/check-route-surface-assignment.mjs` | ⚪ planned | Cross-references `apps/editor/src/ui/platform/PlatformRouter.ts` route table against §5; flags any app-side route handler for an apex-marked path (or vice versa). Enforces §3.2.1 + §5. | Phase A |
+| `check-dns-map-honoured` | runtime probe + alert | ⚪ planned | Periodic DNS resolution check against §4; alerts on a `pryzm.so` resolution drift (e.g. CNAME flipped to Fly). | Phase A close |
 
-Once each gate ships, its row in this table MUST be amended (path canonicalised, status flipped from "planned" to "live", commit SHA referenced). Adding a new CI gate that touches the apex/app boundary requires a §7 amendment in the same PR.
+Once each remaining gate ships, its row MUST be amended (status flipped to LIVE, commit SHA referenced). Adding a new CI gate that touches the apex/app boundary requires a §7 amendment in the same PR.
 
 ---
 
