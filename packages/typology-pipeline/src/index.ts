@@ -72,6 +72,7 @@ export {
     parseRoleFromText,
     parseTypologyIdFromText,
     defaultPromptForPhase,
+    summarizeCapturedState,
     type RacConversationState,
     type RacPhase,
     type RacCaptured,

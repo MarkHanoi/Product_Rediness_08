@@ -424,3 +424,113 @@ export function defaultPromptForPhase(state: RacConversationState): string {
             return 'Conversation ended.';
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A.5.a.next — summarizeCapturedState
+//
+// Pure helper that turns the captured state into a single-line human-
+// readable summary the L5 React component can echo back to the user
+// ("OK: architect · apartment · 2-bed · 70m² target"). Lets the chatbot
+// confirm capture before dispatching the brief downstream + lets the
+// audit log record what the user committed to without re-traversing
+// the captured object.
+//
+// Pairs with formatLayoutSummary (ai-host) — same separator, same
+// determinism, same architect-readable spirit.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ROLE_LABEL: Readonly<Record<UserRole, string>> = {
+    architect: 'architect',
+    engineer: 'engineer',
+    developer: 'developer',
+    contractor: 'contractor',
+    owner: 'owner',
+    student: 'student',
+    unknown: 'unknown role',
+};
+
+const BRIEF_KEYS_ORDER: readonly string[] = [
+    'bedrooms',
+    'bathrooms',
+    'targetArea',
+    'style',
+    'budget',
+    'timeline',
+];
+
+function formatBriefValue(value: unknown): string {
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'number') {
+        // Integer counts render bare; floats round to 1 decimal.
+        return Number.isInteger(value) ? String(value) : value.toFixed(1);
+    }
+    if (typeof value === 'boolean') return value ? 'yes' : 'no';
+    if (typeof value === 'string') return value.trim();
+    // Objects + arrays render as JSON.
+    try {
+        return JSON.stringify(value);
+    } catch {
+        return String(value);
+    }
+}
+
+function formatBriefField(key: string, value: unknown): string | null {
+    const formatted = formatBriefValue(value);
+    if (formatted === '') return null;
+    switch (key) {
+        case 'bedrooms':
+            return `${formatted}-bed`;
+        case 'bathrooms':
+            return `${formatted}-bath`;
+        case 'targetArea': {
+            // Strip "m²" if the user already wrote it.
+            const cleaned = formatted.replace(/m²?$/i, '').trim();
+            return `${cleaned}m² target`;
+        }
+        default:
+            return `${key} ${formatted}`;
+    }
+}
+
+/**
+ * Build a single-line summary of what's been captured so far.
+ *
+ *   `'OK: architect · apartment · 2-bed · 70m² target · style modern'`
+ *
+ * When nothing is captured yet returns `'nothing captured yet'`. The
+ * L5 caller can re-format for the active locale; this is the canonical
+ * machine-readable shape for logs + audit + chatbot echo.
+ *
+ * Field rendering rules:
+ *   - role          → bare lowercase label (`architect`)
+ *   - typology      → bare typologyId (`apartment`)
+ *   - bedrooms: N   → `N-bed`
+ *   - bathrooms: N  → `N-bath`
+ *   - targetArea: N → `Nm² target` (strips trailing "m²" if user wrote it)
+ *   - any other key → `{key} {value}` (string / number / json fallback)
+ *
+ * Brief fields render in the order `BRIEF_KEYS_ORDER` (bedrooms first,
+ * then bathrooms, area, style, budget, timeline). Unknown keys append
+ * alphabetically after.
+ */
+export function summarizeCapturedState(
+    captured: RacCaptured,
+): string {
+    const parts: string[] = [];
+
+    if (captured.role) parts.push(ROLE_LABEL[captured.role]);
+    if (captured.typologyId) parts.push(captured.typologyId);
+
+    const briefKeys = Object.keys(captured.brief);
+    const knownKeysFirst = BRIEF_KEYS_ORDER.filter((k) => briefKeys.includes(k));
+    const restAlpha = briefKeys
+        .filter((k) => !BRIEF_KEYS_ORDER.includes(k))
+        .sort();
+    for (const k of [...knownKeysFirst, ...restAlpha]) {
+        const formatted = formatBriefField(k, captured.brief[k]);
+        if (formatted) parts.push(formatted);
+    }
+
+    if (parts.length === 0) return 'nothing captured yet';
+    return `OK: ${parts.join(' · ')}`;
+}

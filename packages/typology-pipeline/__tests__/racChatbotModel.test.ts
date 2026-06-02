@@ -446,3 +446,171 @@ describe('defaultPromptForPhase', () => {
         expect(defaultPromptForPhase(s)).toMatch(/house/);
     });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// summarizeCapturedState (A.5.a.next)
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { summarizeCapturedState } from '../src/RacChatbotModel.js';
+
+describe('summarizeCapturedState', () => {
+    it('returns "nothing captured yet" for an empty captured state', () => {
+        expect(
+            summarizeCapturedState({ role: null, typologyId: null, brief: {} }),
+        ).toBe('nothing captured yet');
+    });
+
+    it('renders just the role when only role is captured', () => {
+        expect(
+            summarizeCapturedState({
+                role: 'architect',
+                typologyId: null,
+                brief: {},
+            }),
+        ).toBe('OK: architect');
+    });
+
+    it('renders role · typology when both are captured', () => {
+        expect(
+            summarizeCapturedState({
+                role: 'engineer',
+                typologyId: 'apartment',
+                brief: {},
+            }),
+        ).toBe('OK: engineer · apartment');
+    });
+
+    it('renders bedrooms with -bed suffix', () => {
+        expect(
+            summarizeCapturedState({
+                role: 'architect',
+                typologyId: 'apartment',
+                brief: { bedrooms: 2 },
+            }),
+        ).toBe('OK: architect · apartment · 2-bed');
+    });
+
+    it('renders bathrooms with -bath suffix', () => {
+        expect(
+            summarizeCapturedState({
+                role: 'architect',
+                typologyId: 'apartment',
+                brief: { bedrooms: 2, bathrooms: 1 },
+            }),
+        ).toBe('OK: architect · apartment · 2-bed · 1-bath');
+    });
+
+    it('renders targetArea with m² target suffix', () => {
+        expect(
+            summarizeCapturedState({
+                role: 'architect',
+                typologyId: 'apartment',
+                brief: { targetArea: 70 },
+            }),
+        ).toBe('OK: architect · apartment · 70m² target');
+    });
+
+    it('strips trailing "m²" if the user already wrote it', () => {
+        expect(
+            summarizeCapturedState({
+                role: 'architect',
+                typologyId: 'apartment',
+                brief: { targetArea: '70m²' },
+            }),
+        ).toBe('OK: architect · apartment · 70m² target');
+    });
+
+    it('respects the canonical key order (bedrooms before bathrooms before area)', () => {
+        // Insert in REVERSE order — output should still be canonical.
+        const out = summarizeCapturedState({
+            role: 'architect',
+            typologyId: 'apartment',
+            brief: { targetArea: 70, bathrooms: 1, bedrooms: 2 },
+        });
+        const bedIdx = out.indexOf('2-bed');
+        const bathIdx = out.indexOf('1-bath');
+        const areaIdx = out.indexOf('70m²');
+        expect(bedIdx).toBeLessThan(bathIdx);
+        expect(bathIdx).toBeLessThan(areaIdx);
+    });
+
+    it('appends unknown keys alphabetically after canonical ones', () => {
+        const out = summarizeCapturedState({
+            role: 'architect',
+            typologyId: 'apartment',
+            brief: { zStyle: 'modern', aTimeline: '2027', bedrooms: 2 },
+        });
+        const bedIdx = out.indexOf('2-bed');
+        const aIdx = out.indexOf('aTimeline');
+        const zIdx = out.indexOf('zStyle');
+        expect(bedIdx).toBeLessThan(aIdx);
+        expect(aIdx).toBeLessThan(zIdx);
+    });
+
+    it('renders numbers as integers when whole, 1dp otherwise', () => {
+        const intOut = summarizeCapturedState({
+            role: null,
+            typologyId: null,
+            brief: { targetArea: 70 },
+        });
+        expect(intOut).toContain('70m²');
+        const floatOut = summarizeCapturedState({
+            role: null,
+            typologyId: null,
+            brief: { targetArea: 70.42 },
+        });
+        expect(floatOut).toContain('70.4m²');
+    });
+
+    it('renders booleans as yes/no', () => {
+        const out = summarizeCapturedState({
+            role: null,
+            typologyId: null,
+            brief: { masterEnSuite: true },
+        });
+        expect(out).toBe('OK: masterEnSuite yes');
+    });
+
+    it('renders trimmed strings', () => {
+        const out = summarizeCapturedState({
+            role: null,
+            typologyId: null,
+            brief: { style: '  modern  ' },
+        });
+        expect(out).toBe('OK: style modern');
+    });
+
+    it('skips fields with empty / null / undefined values', () => {
+        const out = summarizeCapturedState({
+            role: 'architect',
+            typologyId: 'apartment',
+            brief: { style: '', timeline: null, bedrooms: 2 },
+        });
+        expect(out).toBe('OK: architect · apartment · 2-bed');
+    });
+
+    it('JSON-stringifies objects + arrays as a fallback', () => {
+        const out = summarizeCapturedState({
+            role: null,
+            typologyId: null,
+            brief: { tags: ['modern', 'small'] },
+        });
+        expect(out).toContain('tags ["modern","small"]');
+    });
+
+    it('full example: architect + apartment + 2-bed + area + style', () => {
+        const out = summarizeCapturedState({
+            role: 'architect',
+            typologyId: 'apartment',
+            brief: {
+                bedrooms: 2,
+                bathrooms: 1,
+                targetArea: 70,
+                style: 'modern',
+            },
+        });
+        expect(out).toBe(
+            'OK: architect · apartment · 2-bed · 1-bath · 70m² target · style modern',
+        );
+    });
+});
