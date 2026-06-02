@@ -192,6 +192,7 @@
     "@pryzm/runtime-undo-stack": "workspace:*",
     "@pryzm/scene-committer": "workspace:*",
     "@pryzm/schemas": "workspace:*",
+    "@pryzm/site-validators": "workspace:*",
     "@pryzm/snapping": "workspace:*",
     "@pryzm/spatial-index": "workspace:*",
     "@pryzm/speculative-engine": "workspace:*",

@@ -197,8 +197,127 @@
       footer.site-footer a:focus-visible {
         color: var(--pryzm-purple-lighter);
       }
+      section.stats {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1rem;
+        margin-bottom: 4.5rem;
+        text-align: center;
+      }
+      .stat {
+        padding: 1.25rem 0.5rem;
+        border: 1px solid var(--pryzm-border);
+        border-radius: 0.6rem;
+        background: var(--pryzm-paper);
+      }
+      .stat-num {
+        display: block;
+        font-size: 2.25rem;
+        font-weight: 800;
+        color: var(--pryzm-purple-lighter);
+        letter-spacing: -0.03em;
+        line-height: 1;
+      }
+      .stat-label {
+        display: block;
+        margin-top: 0.55rem;
+        color: var(--pryzm-text-secondary);
+        font-size: 0.88rem;
+      }
+      section.section-block {
+        margin-bottom: 5rem;
+      }
+      section.section-block h2 {
+        font-size: 1.65rem;
+        margin: 0 0 1rem;
+        letter-spacing: -0.015em;
+      }
+      section.section-block > p.section-lede {
+        color: var(--pryzm-text-secondary);
+        max-width: 720px;
+        margin: 0 0 2rem;
+        font-size: 1.02rem;
+      }
+      ul.capability-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+      }
+      ul.capability-list li {
+        background: var(--pryzm-paper);
+        border: 1px solid var(--pryzm-border);
+        border-radius: 0.6rem;
+        padding: 1.1rem 1.25rem;
+        color: var(--pryzm-text-primary);
+      }
+      ul.capability-list .cap-icon {
+        display: inline-block;
+        margin-right: 0.6rem;
+        color: var(--pryzm-purple-lighter);
+        font-weight: 700;
+      }
+      ul.capability-list .cap-detail {
+        display: block;
+        margin-top: 0.35rem;
+        color: var(--pryzm-text-secondary);
+        font-size: 0.92rem;
+      }
+      table.interop {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.95rem;
+        background: var(--pryzm-paper);
+        border: 1px solid var(--pryzm-border);
+        border-radius: 0.6rem;
+        overflow: hidden;
+      }
+      table.interop th, table.interop td {
+        padding: 0.85rem 1rem;
+        text-align: left;
+        border-bottom: 1px solid var(--pryzm-border);
+      }
+      table.interop thead th {
+        background: var(--pryzm-paper-elevated);
+        color: var(--pryzm-text-secondary);
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 600;
+      }
+      table.interop tbody tr:last-child td {
+        border-bottom: none;
+      }
+      table.interop td.status-yes {
+        color: var(--pryzm-purple-lighter);
+        font-weight: 600;
+      }
+      table.interop td.status-roadmap {
+        color: var(--pryzm-muted);
+      }
+      .principles {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem 1.5rem;
+        background: var(--pryzm-paper);
+        border: 1px solid var(--pryzm-border);
+        border-radius: 0.6rem;
+        padding: 1.5rem 1.75rem;
+        color: var(--pryzm-text-secondary);
+        font-size: 0.95rem;
+      }
+      .principles strong {
+        color: var(--pryzm-purple-lighter);
+        font-weight: 700;
+        margin-right: 0.4rem;
+      }
       @media (max-width: 760px) {
-        section.beats {
+        section.beats,
+        section.stats,
+        ul.capability-list,
+        .principles {
           grid-template-columns: 1fr;
         }
         header.site-nav {
@@ -212,6 +331,12 @@
         }
         main {
           padding: 3rem 1.25rem 4rem;
+        }
+        .stat-num {
+          font-size: 1.85rem;
+        }
+        section.section-block h2 {
+          font-size: 1.4rem;
         }
       }
     </style>
@@ -264,6 +389,111 @@
             you. Your team's choices belong to the team.
           </p>
         </article>
+      </section>
+
+      <section class="stats" aria-label="PRYZM by the numbers">
+        <div class="stat"><span class="stat-num">79</span><span class="stat-label">core modules</span></div>
+        <div class="stat"><span class="stat-num">47</span><span class="stat-label">element plugins</span></div>
+        <div class="stat"><span class="stat-num">18</span><span class="stat-label">element types</span></div>
+        <div class="stat"><span class="stat-num">21</span><span class="stat-label">CI quality gates</span></div>
+      </section>
+
+      <section class="section-block" aria-label="What you can build today">
+        <h2>What you can build today</h2>
+        <p class="section-lede">
+          Walls, doors, windows, slabs, stairs, roofs, curtain walls, beams,
+          columns, ceilings, lighting, plumbing, furniture, rooms — and an
+          AI workflow that orchestrates them into a real apartment in seconds.
+        </p>
+        <ul class="capability-list">
+          <li>
+            <span class="cap-icon">▲</span><strong>AI apartment generator</strong>
+            <span class="cap-detail">
+              Describe the brief; the deterministic layout engine + program-rules
+              pipeline plan rooms, doors, windows, walls, ceilings, lighting,
+              and furniture — together — in one undoable step.
+            </span>
+          </li>
+          <li>
+            <span class="cap-icon">▲</span><strong>Real-time multi-user CRDT</strong>
+            <span class="cap-detail">
+              Yjs-backed Y.Doc per project. Two architects edit the same wall
+              concurrently — both edits keep, conflicts surface explicitly.
+            </span>
+          </li>
+          <li>
+            <span class="cap-icon">▲</span><strong>Plan, section, elevation views</strong>
+            <span class="cap-detail">
+              Generated from a single 3D model. Edit anywhere, see the changes
+              everywhere — including the sheet layout you publish to PDF.
+            </span>
+          </li>
+          <li>
+            <span class="cap-icon">▲</span><strong>Family Creator (apha)</strong>
+            <span class="cap-detail">
+              2D sketcher → constraint solver → 3D extrude/sweep/loft/revolve.
+              Author parametric families locally; publish to the marketplace
+              with an Ed25519 signature.
+            </span>
+          </li>
+          <li>
+            <span class="cap-icon">▲</span><strong>Audit-trailed AI provenance</strong>
+            <span class="cap-detail">
+              Every AI workflow writes an artefact: model, cost, tokens,
+              timestamp, prompt hash. Right-click an element → see exactly
+              which AI step produced it.
+            </span>
+          </li>
+          <li>
+            <span class="cap-icon">▲</span><strong>Apartment cognition rules</strong>
+            <span class="cap-detail">
+              Daylight, sightline, circulation, kitchen-triangle, privacy —
+              validators that catch geometry that a renderer can't see
+              before furniture is ever placed.
+            </span>
+          </li>
+        </ul>
+      </section>
+
+      <section class="section-block" aria-label="Interoperability">
+        <h2>The interop matrix</h2>
+        <p class="section-lede">
+          Your model belongs in your toolchain. PRYZM speaks the file formats
+          you already use, on the standards bodies you already trust.
+        </p>
+        <table class="interop">
+          <thead>
+            <tr><th>Format</th><th>What it carries</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>IFC 4 / 4X3</strong></td><td>Full BIM model — geometry, properties, hierarchy</td><td class="status-yes">Read · Write · PSet 80%+</td></tr>
+            <tr><td><strong>BCF 2.1 / 3.0</strong></td><td>Issues + viewpoints — federated clash workflow</td><td class="status-yes">Round-trip</td></tr>
+            <tr><td><strong>Revit</strong></td><td>Round-trip via IFC4X3 + Python adapter</td><td class="status-yes">MVP</td></tr>
+            <tr><td><strong>DXF / DWG</strong></td><td>2D plans, sections, schedules</td><td class="status-yes">Import · Export</td></tr>
+            <tr><td><strong>Rhino / Grasshopper</strong></td><td>3DM geometry import + bridge</td><td class="status-yes">Read · Bridge alpha</td></tr>
+            <tr><td><strong>PDF / PDF/A-3</strong></td><td>Vector sheet output for transmittals</td><td class="status-yes">MVP · A-3 next</td></tr>
+            <tr><td><strong>COBie</strong></td><td>Asset register for handover</td><td class="status-roadmap">Phase C</td></tr>
+            <tr><td><strong>IDS / ICDD / bSDD</strong></td><td>Standards-driven workflows</td><td class="status-roadmap">Phase D</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="section-block" aria-label="How it's built">
+        <h2>How it's built</h2>
+        <p class="section-lede">
+          PRYZM is a layered TypeScript application enforced by eight
+          architectural invariants the CI pipeline checks on every PR.
+        </p>
+        <div class="principles">
+          <div><strong>P1</strong> Single composition root</div>
+          <div><strong>P2</strong> One THREE owner</div>
+          <div><strong>P3</strong> One requestAnimationFrame</div>
+          <div><strong>P4</strong> No window-as-any escape hatch</div>
+          <div><strong>P5</strong> Pure Zod schemas, zero I/O</div>
+          <div><strong>P6</strong> Commands are the only mutation path</div>
+          <div><strong>P7</strong> Visibility intent ≠ UI state</div>
+          <div><strong>P8</strong> Every exported function emits an OTel span</div>
+        </div>
       </section>
 
       <section class="callout">

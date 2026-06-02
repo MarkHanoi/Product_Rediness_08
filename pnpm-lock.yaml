@@ -355,6 +355,9 @@ importers:
       '@pryzm/schemas':
         specifier: workspace:*
         version: link:packages/schemas
+      '@pryzm/site-validators':
+        specifier: workspace:*
+        version: link:packages/site-validators
       '@pryzm/snapping':
         specifier: workspace:*
         version: link:packages/snapping
