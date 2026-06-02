@@ -81,7 +81,9 @@ The browser never holds an authoritative `BillingState`. The server emits a sign
 
 ### §1.13 — Pricing-page copy is generated from the registry
 
-The marketing pricing page (`apps/docs-site/src/pricing.tsx`) reads `entitlementRegistry.ts` at build time and renders the canonical comparison matrix. Hand-edited HTML feature lists on the pricing page are forbidden (`check-pricing-page-derived`); when sales adds a feature row, they add an entitlement entry and the page rebuilds.
+The marketing pricing page (`apps/docs-site/src/pages/pricing.astro` — Astro Starlight page; the original spec named it `.tsx` but it was realised as `.astro` per [ADR-052 §1](../adrs/ADR-052-docs-site-marketing-surface.md)) reads `@pryzm/entitlements` at build time and renders the canonical comparison matrix. Hand-edited HTML feature lists on the pricing page are forbidden (`check-pricing-page-derived`); when sales adds a feature row, they add an entitlement entry and the page rebuilds.
+
+The page deploys to `pryzm.so/pricing` via Cloudflare Pages (the canonical host for the marketing surface per [ADR-052](../adrs/ADR-052-docs-site-marketing-surface.md)). The build command imports `@pryzm/entitlements` at build time so the matrix is regenerated on every deploy. There is no client-side JS; the page is pure HTML at the edge. Full deploy runbook: [docs/05-guides/deployments/CLOUDFLARE-PAGES-SETUP.md](../../05-guides/deployments/CLOUDFLARE-PAGES-SETUP.md).
 
 ### §1.14 — Discipline-neutrality
 
