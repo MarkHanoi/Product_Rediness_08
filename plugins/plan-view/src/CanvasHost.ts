@@ -1,6 +1,6 @@
 // CanvasHost — abstract base for any 2D-canvas overlay subsystem.
 //
-// `code-level ADR docs/architecture/adr/0028-plan-view-canvas-architecture.md`.
+// `code-level ADR docs/02-decisions/adrs/0028-plan-view-canvas-architecture.md`.
 //
 // Lives here in `plugins/plan-view/` for now; the spec mentions a future
 // `@pryzm/ui/CanvasHost` package but no such package exists today.

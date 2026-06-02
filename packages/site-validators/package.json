@@ -1,0 +1,25 @@
+{
+  "name": "@pryzm/site-validators",
+  "version": "0.1.0",
+  "description": "A.7.d (Phase A · Sprint 2) — L2 pure-geometry validators for the C19 Site substrate.  Point-in-polygon, polygon area (shoelace), polygon offset (setback shrinkage), footprint containment, FAR compliance, polygon-immutability canonical fingerprint.  Zero I/O, no THREE, no DOM, no @pryzm/* runtime deps; only depends on `Pt` from @pryzm/schemas.  Re-usable by L3 site-commands (containment check before site.setFootprint commit), L4 renderer (setback-violation visualisation), L5 Site Inspector UI, L7 plugin authors.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@pryzm/schemas": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

@@ -16,6 +16,11 @@ import type { RoomPlacement } from './subdivide.js';
 import type { OpeningSpec, WallSeg } from './wallsAndDoors.js';
 import { ifcGuid } from './ifcGuid.js';
 
+// Re-export `Pt` so downstream modules (eg `entrySightlineRaycast.ts`)
+// can import it from this aggregate semantic-graph barrel rather than
+// reaching into `rectDecomposition.js` directly.
+export type { Pt };
+
 export type Primitive = string | number | boolean;
 export type NodeKind = 'Space' | 'Wall' | 'Opening' | 'Door' | 'Window' | 'Level';
 export type EdgeKind = 'BOUNDS' | 'ADJACENT_TO' | 'CONNECTS_THROUGH' | 'HOSTED_BY' | 'FILLS' | 'CONTAINS';

@@ -1,6 +1,6 @@
 // Room intent helpers — S25.
 //
-// `code-level ADR docs/architecture/adr/0013-intent-resolver.md`
+// `code-level ADR docs/02-decisions/adrs/0013-intent-resolver.md`
 //
 // Like the slab intent module, room intent is a thin wrapper around
 // the producer's pure helpers.  `recomputeRoomAnalytic` is the

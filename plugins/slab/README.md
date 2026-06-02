@@ -24,7 +24,7 @@ plugins/slab/
 `CreateSlab` declares `affectedStores: ['slab', 'level']`.  Cross-element
 coupling with wall is handled through the cascade rule defined in
 `plugins/cross/slab-wall.ts` per
-`code-level ADR docs/architecture/adr/0012-cross-element-cascade-rule-registration.md`.
+`code-level ADR docs/02-decisions/adrs/0012-cross-element-cascade-rule-registration.md`.
 
 ## Producer
 

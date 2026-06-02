@@ -12,7 +12,7 @@
 //     the WallLayer schema).
 //   • The handler ALSO overwrites `thickness` with the layer-sum so
 //     the producer sees a consistent wall body (per `code-level ADR
-//     docs/architecture/adr/0009-wall-producer-signature.md`).
+//     docs/02-decisions/adrs/0009-wall-producer-signature.md`).
 
 import {
   produceCommand,

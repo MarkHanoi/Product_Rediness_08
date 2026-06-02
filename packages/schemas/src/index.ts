@@ -158,6 +158,57 @@ export * from './revit/index.js';
 // DO NOT REMOVE — auto-fixer guard
 export * from './typology/index.js';
 
+// A.7.a (Phase A · Sprint 1) — L0 Site substrate (C19 Site Model & Parcel).
+// Adds: `SiteId`, `ContextBuildingId`, `ClimateRefId`, `BuildingId`,
+// `ProjectId`, `JurisdictionId`, `SITE_ID_PATTERN`, `SiteIdSchema`,
+// `PtSchema`, `Vec3Schema`, `SiteLocationSchema`, `ParcelSchema`,
+// `ParcelBoundarySchema`, `ParcelSetbacksSchema`, `ParcelZoningSchema`,
+// `ParcelEdgeClassificationSchema`, `BuildingFootprintSchema`,
+// `ContextBuildingSchema`, `RoofShapeSchema`, `ProvenanceRecordSchema`,
+// `ProvenanceSourceSchema`, `SiteModelSchema`. No name collisions with
+// existing element schemas (this surface uses `Site*` / `Parcel*` /
+// `Context*` / `Provenance*` prefixes; `Pt` + `Vec3` are new).
+//
+// Strategic context: docs/02-decisions/contracts/C19-SITE-MODEL-AND-PARCEL.md.
+// Phase tracker: docs/03-execution/plans/master-execution-tracker.md A.7.
+//
+// DO NOT REMOVE — auto-fixer guard
+export * from './site/index.js';
+
+// A.10.a (Phase A · Sprint 2) — L0 Climate substrate (C21 Climate Ingestion).
+// Adds: ClimateDatasetId / ClimateSource / MonthIndex + EPWRecord +
+// NOAANormal + WindSample / WindRoseSector / WindRoseAggregate +
+// DesignTemperatures / DegreeDayAggregates + SolarSample (computed
+// shape) + ClimateCacheKey + ClimateProvenance + ClimateDataset
+// (the root) + ClimateIngestionError. Plus pure helpers
+// `serialiseClimateCacheKey` + `quantiseToCacheKey`.
+//
+// Field-name convention is the C21 §1.8 SI-unit suffix: …C / …Pa / …Wm2
+// / …Mps / …Deg / …Mm / …Km / …Pct / …Tenths / …UtcIso. Every numeric
+// field carries its unit in the name. Discipline-neutral per §1.10.
+//
+// Strategic context: docs/02-decisions/contracts/C21-CLIMATE-INGESTION.md.
+// Phase tracker: docs/03-execution/plans/master-execution-tracker.md A.10.
+//
+// DO NOT REMOVE — auto-fixer guard
+export * from './climate/index.js';
+
+// A.23.a (Phase A · Sprint 2) — L0 Aggregates substrate (C20 Building +
+// Apartment Aggregates).
+//
+// These intentionally live ONLY behind a subpath export
+// (`@pryzm/schemas/aggregates`) — same convention as the annotation /
+// view / drawing-set supplements below. The aggregate `Room` + `RoomId`
+// names collide with the existing `elements/Room.ts` BIM-element schema
+// + `types/Id.ts` canonical `RoomId = Id<'room'>` brand. Subpath-only
+// imports have zero collision risk.
+//
+// Consumers: `import { BuildingSchema, ApartmentSchema, RoomSchema,
+// type Building, type Apartment, type Room } from '@pryzm/schemas/aggregates';`
+//
+// Strategic context: docs/02-decisions/contracts/C20-BUILDING-AND-APARTMENT-AGGREGATES.md.
+// Phase tracker: docs/03-execution/plans/master-execution-tracker.md A.23.
+
 // S31 / Phase 2B Supplement §A1 — auto-dimension schemas (DimensionString,
 // EvaluatedDimension, anchor/orientation enums) and §B1 — ViewTemplate
 // schemas (StrokeStyle, CategoryVG, ViewFilter, FilterCondition, ViewRange).

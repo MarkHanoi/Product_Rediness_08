@@ -4,7 +4,7 @@
 // and de-coupled from the wall family — door state is *self-contained*.
 // Cross-store mutation of `Wall.openings[]` lives in the door HANDLERS,
 // which declare `affectedStores: ['door', 'wall']` per
-// `code-level ADR docs/architecture/adr/0008-wall-handler-triage.md` §3.D.
+// `code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md` §3.D.
 //
 // Validation is at the handler boundary — handlers call `Door.parse(input)`
 // from `@pryzm/schemas` before producing patches.  The store applies

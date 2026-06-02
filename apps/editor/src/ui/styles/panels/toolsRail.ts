@@ -253,12 +253,22 @@ export const TOOLS_RAIL_PANEL_STYLES = `
     }
 
     /* ── Create panel root wrapper ────────────────────────────── */
+    /* A.U.19 — scroll long catalogues. The accordion can exceed the
+     * panel height (5 disciplines x N tools each, especially with the
+     * apartment / house / office typology contributions per A.U.3 +
+     * A.6). The min-height:0 below lets the flex child shrink, and
+     * overflow-y:auto puts the overflow on a scrollbar instead of
+     * clipping items below the fold. scrollbar-gutter:stable keeps
+     * the layout width steady whether or not the bar appears. */
     .tpr-create-root {
         display: flex;
         flex-direction: column;
         flex: 1 1 auto;
         min-height: 0;
         padding: 0 0 6px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        scrollbar-gutter: stable;
     }
 
     /* ── Visual panel ────────────────────────────────────────── */

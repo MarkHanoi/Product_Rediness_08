@@ -71,9 +71,21 @@ export interface ModelTreeRuntime {
 }
 
 /** Constructor options.  `onSelectNode` is fired on every successful
- *  selection (click OR keyboard activate) AFTER the bus dispatch attempt. */
+ *  selection (click OR keyboard activate) AFTER the bus dispatch attempt.
+ *  `onContextMenu` is fired on right-click (or Shift+F10 keyboard) over
+ *  any L0..L6 node; the orchestrator decides which actions are applicable
+ *  to the selection kind (e.g. "Show AI provenance" is only meaningful
+ *  for `kind: 'elementInstance'`). The pixel coords are the menu anchor
+ *  the orchestrator should position the popover from. Default browser
+ *  context menu is suppressed when this is provided. */
+export interface ModelTreeContextMenuPayload {
+    readonly selection: InspectSelection;
+    readonly clientX: number;
+    readonly clientY: number;
+}
 export interface ModelTreeOptions {
     readonly onSelectNode?: (selection: InspectSelection) => void;
+    readonly onContextMenu?: (payload: ModelTreeContextMenuPayload) => void;
 }
 
 /** Internal node descriptor — the materialised tree the renderer walks. */
@@ -107,6 +119,7 @@ export class ModelTreeComponent {
     private _root: HTMLUListElement | null = null;
     private _onClick: ((ev: Event) => void) | null = null;
     private _onKey: ((ev: KeyboardEvent) => void) | null = null;
+    private _onContextMenu: ((ev: MouseEvent) => void) | null = null;
 
     constructor(runtime: ModelTreeRuntime, container: HTMLElement, opts: ModelTreeOptions = {}) {
         this._runtime = runtime;
@@ -138,6 +151,14 @@ export class ModelTreeComponent {
         this._onKey = (ev) => this._handleKey(ev);
         ul.addEventListener('click', this._onClick);
         ul.addEventListener('keydown', this._onKey);
+        // Right-click handler — only attached when the caller supplied an
+        // onContextMenu option. We suppress the native browser context
+        // menu so the orchestrator's popover can take its place. Without
+        // a handler we leave the native menu intact.
+        if (this._opts.onContextMenu) {
+            this._onContextMenu = (ev) => this._handleContextMenu(ev);
+            ul.addEventListener('contextmenu', this._onContextMenu);
+        }
     }
 
     /** Re-render the tree from the latest store state.  Cheap — preserves
@@ -154,11 +175,13 @@ export class ModelTreeComponent {
         if (this._root !== null) {
             if (this._onClick) this._root.removeEventListener('click', this._onClick);
             if (this._onKey) this._root.removeEventListener('keydown', this._onKey);
+            if (this._onContextMenu) this._root.removeEventListener('contextmenu', this._onContextMenu);
             this._root.remove();
         }
         this._root = null;
         this._onClick = null;
         this._onKey = null;
+        this._onContextMenu = null;
         // We intentionally keep `_expanded` + `_selectedKey` across
         // unmount → mount cycles so a parent panel can hide/show the tree
         // without losing user state.
@@ -638,6 +661,38 @@ export class ModelTreeComponent {
         if (li === null) return;
         ev.preventDefault();
         this._selectFromLi(li);
+    }
+
+    /** Right-click handler. Only attached when `onContextMenu` is in
+     *  options. Suppresses the native browser context menu so the
+     *  orchestrator can render its own popover. Updates the selection
+     *  to the right-clicked node (matches OS file-explorer behaviour
+     *  where right-click selects + opens menu). */
+    private _handleContextMenu(ev: MouseEvent): void {
+        const target = ev.target;
+        if (!(target instanceof Element)) return;
+        const li = target.closest('li.pmt-node') as HTMLLIElement | null;
+        if (li === null) return;
+        const selection = this._readSelectionFromLi(li);
+        if (selection === null) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        this._setSelected(selection);
+        this._dispatchSelection(selection);
+        try {
+            this._opts.onSelectNode?.(selection);
+        } catch (err) {
+            console.error('[ModelTree] onSelectNode threw (contextmenu path):', err);
+        }
+        try {
+            this._opts.onContextMenu?.({
+                selection,
+                clientX: ev.clientX,
+                clientY: ev.clientY,
+            });
+        } catch (err) {
+            console.error('[ModelTree] onContextMenu threw:', err);
+        }
     }
 
     private _selectFromLi(li: HTMLLIElement): void {

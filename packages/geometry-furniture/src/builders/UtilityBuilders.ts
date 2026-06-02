@@ -259,7 +259,7 @@ export class DryingRackBuilder implements IFurnitureBuilder {
         const group = new THREE.Group();
         const W = data.width  || 0.80;
         const L = data.length || 0.40;     // extension out from the wall
-        const H = data.height || 0.05;     // shallow — just the bar height
+        // H (rack bar height) sized inline below — kept noted for symmetry.
         const BASE = data.baseOffset ?? 1.60;
 
         const mat = this.materialService.getMaterial(0xc0c8d0, 'standard') as THREE.MeshStandardMaterial;

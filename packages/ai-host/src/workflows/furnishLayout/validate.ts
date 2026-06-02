@@ -20,7 +20,6 @@
 // `footprintRect`); no new imports beyond sibling types.
 
 import { rectsOverlap, pointInPolygon, footprintRect } from './collision.js';
-import { footprintOf } from './footprints.js';
 import type { FurnishRoomInput, PlacedFurniture, Pt, Rect } from './types.js';
 import { validateKitchenFromFurniture } from '../apartmentLayout/dimensions/validateKitchenFromFurniture.js';
 

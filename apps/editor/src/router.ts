@@ -22,10 +22,24 @@
 // changing any caller; today this keeps the kill-switch contract
 // intact and the routing implementation 30 lines.
 
-/** The three routes the PRYZM 2 client knows about. */
+/** Marketing route names known to the editor — public surfaces moved
+ *  from apps/docs-site/ per ADR-055 §7 (apex/app split: one PRYZM
+ *  codebase serves both pryzm.so marketing and app.pryzm.so editor).
+ *
+ *  Selected via `?pryzm2=1&page=<name>` on the editor entry. The legacy
+ *  hash-route surface (`#/`, `#/projects`) in `PlatformRouter` still
+ *  drives the signed-in flow; this `page=` parameter is an extra slot
+ *  the apex pre-render step can hit directly to land users on a
+ *  marketing route on first paint. */
+export type MarketingPage = 'pricing' | 'manifesto' | 'trust';
+
+const MARKETING_PAGES: readonly MarketingPage[] = ['pricing', 'manifesto', 'trust'];
+
+/** The four routes the PRYZM 2 client knows about. */
 export type Pryzm2Route =
   | { readonly kind: 'hub' }
   | { readonly kind: 'project'; readonly projectId: string }
+  | { readonly kind: 'marketing'; readonly page: MarketingPage }
   /** "Not a PRYZM 2 URL" — `src/main.ts` falls through to the
    *  PlatformRouter for these; included in the union so callers can
    *  exhaustively switch on the route. */
@@ -38,16 +52,40 @@ export const PRYZM2_FLAG = 'pryzm2';
 /** The query-string key that selects the project to open. */
 export const PRYZM2_PROJECT_PARAM = 'project';
 
+/** The query-string key that selects a marketing route. */
+export const PRYZM2_PAGE_PARAM = 'page';
+
+function isMarketingPage(s: string | null): s is MarketingPage {
+  return s !== null && (MARKETING_PAGES as readonly string[]).includes(s);
+}
+
 /** Parse a URL into a route.  Accepts a `URL`, a string URL, or just
  *  a search string (`?pryzm2=1&project=abc`).  Pure — no DOM access. */
 export function parseRoute(input: string | URL | URLSearchParams): Pryzm2Route {
   const params = toParams(input);
   if (params.get(PRYZM2_FLAG) !== '1') return { kind: 'legacy' };
+  const page = params.get(PRYZM2_PAGE_PARAM);
+  if (isMarketingPage(page)) {
+    return { kind: 'marketing', page };
+  }
   const projectId = params.get(PRYZM2_PROJECT_PARAM);
   if (projectId !== null && projectId.length > 0) {
     return { kind: 'project', projectId };
   }
   return { kind: 'hub' };
+}
+
+/** Build the URL that opens a marketing page (pricing / manifesto / trust). */
+export function buildMarketingUrl(
+  page: MarketingPage,
+  currentSearch?: string | URL | URLSearchParams,
+): string {
+  const params = new URLSearchParams();
+  params.set(PRYZM2_FLAG, '1');
+  params.set(PRYZM2_PAGE_PARAM, page);
+  const mode = currentSearch !== undefined ? toParams(currentSearch).get('mode') : null;
+  if (mode === 'webgpu' || mode === 'webgl2') params.set('mode', mode);
+  return `?${params.toString()}`;
 }
 
 /** Build the URL that opens the hub.  Preserves the `mode` param if

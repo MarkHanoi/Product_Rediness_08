@@ -3,7 +3,7 @@
 // Lifts the implicit PRYZM 1 coupling between walls and the rooms they
 // bound (`src/elements/rooms/RoomBoundaryRecomputer.ts`) into the L4
 // cascade-rule registry per
-// `code-level ADR docs/architecture/adr/0012-cross-element-cascade-rule-registration.md`,
+// `code-level ADR docs/02-decisions/adrs/0012-cross-element-cascade-rule-registration.md`,
 // completing the S25 deferred work item logged at the bottom of
 // `phases/PHASE-2A-Q1-M13-M14.md`.
 //

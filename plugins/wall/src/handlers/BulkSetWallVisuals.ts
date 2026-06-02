@@ -1,7 +1,7 @@
 // BulkSetWallVisualsHandler — apply visual properties to MANY walls in
 // one atomic command (S10-T2).
 //
-// `code-level ADR docs/architecture/adr/0008-wall-handler-triage.md`
+// `code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md`
 // MERGES 2 PRYZM 1 commands → 1 PRYZM 2 handler:
 //   • `SetAllWallsWidthCommand.ts:118`            (bulk thickness)
 //   • `SetAllWallsVisualPropertiesCommand.ts:88`  (bulk colour / material)

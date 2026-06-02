@@ -218,9 +218,13 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     }));
     const mand = validateMandatoryAdjacencies(input.program, bubble, doorOpenings);
     const forb = validateForbiddenAdjacencies(bubble, doorOpenings);
-    const wet = validateWetCluster(bubble, placements);
-    const acoustic = validateAcousticZoning(bubble, placements);
-    const sequence = validateCirculationSequence(bubble, placements, doorOpenings);
+    // Validators consume `{ id, rect }` placements; RoomPlacement uses
+    // `roomId`. Adapt at the boundary so the validators can stay
+    // independent of the tgl/subdivide.ts internal naming.
+    const idPlacements = placements.map((p) => ({ id: p.roomId, rect: p.rect }));
+    const wet = validateWetCluster(bubble, idPlacements);
+    const acoustic = validateAcousticZoning(bubble, idPlacements);
+    const sequence = validateCirculationSequence(bubble, idPlacements, doorOpenings);
     // T1.C (2026-05-30) — every private room (bedroom/master/bathroom/ensuite/wc)
     // must have a direct door to a corridor or hall (ensuite-via-master is the
     // sole exception). SOFT-only — §BATH-CORRIDOR-ONLY already enforces the

@@ -1,9 +1,10 @@
 # PRYZM — Product Vision
 
-> **Stamp**: 2026-06-01 · **Status**: CANONICAL · **Rewrite basis**: full code audit, 2026-06-01.
+> **Stamp**: 2026-06-01 · **Amended 2026-06-02** (domain canonical changed per [ADR-055](../02-decisions/adrs/ADR-055-one-pryzm-cloudflare-supabase.md))
+> **Status**: CANONICAL
 > **Authority**: this doc owns **the product north star + the user journey + the phased roadmap**. Sits above [engineering-vision.md](./engineering-vision.md) and below only [manifesto.md](./manifesto.md). When this doc disagrees with code, this doc updates.
 > **Foundation above**: [manifesto.md](./manifesto.md) (founding intent + brand voice)
-> **Domain**: `pryzm.app` (product) · marketplace at `marketplace.pryzm.app` (DNS pending)
+> **Domain**: **`pryzm.so`** (canonical, owned today) · marketing apex at `pryzm.so` · editor at `app.pryzm.so` · developer docs at `docs.pryzm.so` · marketplace at `marketplace.pryzm.so` (Phase B+). The earlier `pryzm.so` aspiration is retired (user is keeping `pryzm.so` per 2026-06-02 decision).
 
 ---
 
@@ -149,7 +150,7 @@ LLM model: `claude-haiku-4-5-20251014` via Anthropic API (direct or via Cloudfla
 | Family Marketplace SPA | ✅ `apps/marketplace-web/` |
 | Marketplace API | ✅ `apps/marketplace-api/` + `/marketplace/api/*` routes in `server.js` |
 | Marketplace DB (9 tables) | ✅ `marketplace_plugins`, `plugin_publisher_keys`, `plugin_revocations`, `plugin_purchases`, `plugin_reviews`, … |
-| Marketplace DNS (`marketplace.pryzm.app`) | ⬜ Manual pending (OI-013) |
+| Marketplace DNS (`marketplace.pryzm.so`) | ⬜ Manual pending (OI-013) |
 
 ### §4.8 — Server + persistence + collaboration
 
@@ -199,9 +200,9 @@ LLM model: `claude-haiku-4-5-20251014` via Anthropic API (direct or via Cloudfla
 
 This describes the workflow a first-time PRYZM user experiences when creating a residential project. This is the workflow PRYZM must deliver as the Phase 1 commitment.
 
-### Step 1 — Enter PRYZM (`pryzm.app`)
+### Step 1 — Enter PRYZM (`pryzm.so`)
 
-The user navigates to `pryzm.app`. They are greeted by a minimal interface: a single conversational input and a 3D site view. No toolbar. No palette. No empty canvas.
+The user navigates to `pryzm.so`. They are greeted by a minimal interface: a single conversational input and a 3D site view. No toolbar. No palette. No empty canvas.
 
 The first interaction is the brief — not the login. Account creation happens *after* the first project is initiated, reducing friction to near zero. Stripe payment is required only at trial expiry (per [C39 §1.7](../02-decisions/contracts/C39-PRICING-AND-PLAN-TIERS.md)).
 
@@ -326,8 +327,8 @@ The deltas between code reality (§4) and the user journey (§5):
 | **Climate ingestion ([C21](../02-decisions/contracts/C21-CLIMATE-INGESTION.md))** | DRAFT contract; impl in flight | PG0 work track. |
 | **End-to-end IFC handoff test** | Partial | IFC4X3 export shipped; nightly round-trip vs 10 reference projects per [C25](../02-decisions/contracts/C25-IFC-EXPORT-PRODUCTION.md). |
 | **PDF/image-to-BIM** | Not production | Marked beta; out of core scope (marketplace plugin opportunity). |
-| **`pryzm.app` domain + DNS** | Pending | Currently `pryzm.so` legacy; cutover planned. |
-| **`marketplace.pryzm.app` DNS** | Pending OI-013 | DNS + TLS cert. |
+| **`pryzm.so` domain + DNS** | Pending | Currently `pryzm.so` legacy; cutover planned. |
+| **`marketplace.pryzm.so` DNS** | Pending OI-013 | DNS + TLS cert. |
 | **`pnpm publish @pryzm/sdk`** | Pending OI-011 | Manual npm publish; SDK ready. |
 | **`pnpm publish @pryzm/headless`** | Pending OI-012 | Manual npm publish; package ready. |
 
@@ -390,7 +391,7 @@ Every decision about what to build next is tested against these:
 |---|---|
 | **Version** | 2.0 (code-grounded rewrite) |
 | **Status** | CANONICAL — full code audit basis |
-| **Domain** | `pryzm.app` (product) · `marketplace.pryzm.app` (pending) |
+| **Domain** | `pryzm.so` (product) · `marketplace.pryzm.so` (pending) |
 | **Next review** | 2026-09-01 (quarterly cadence) OR on substantive code shift |
 
 ---

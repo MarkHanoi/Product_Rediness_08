@@ -1,7 +1,7 @@
 // CreateView handler (S17-T6a).
 //
 // Spec: PHASE-1C §S17 lines 793-795 (D6).
-// ADR: docs/architecture/adr/0016-view-state-command-driven.md.
+// ADR: docs/02-decisions/adrs/0016-view-state-command-driven.md.
 //
 // Validates + adds a new ViewDefinition to the ViewRegistry.
 // affectedStores: ['view']

@@ -22,7 +22,7 @@ plugins/grid/
 
 `plugins/wall/intent.ts` queries `gridStore.getActiveGrid()` for grid
 snap candidates.  This is wired via the intent resolver per
-`code-level ADR docs/architecture/adr/0013-intent-resolver.md`.
+`code-level ADR docs/02-decisions/adrs/0013-intent-resolver.md`.
 
 ## Producer
 

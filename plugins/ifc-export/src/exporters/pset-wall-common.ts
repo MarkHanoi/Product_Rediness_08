@@ -37,7 +37,6 @@ import {
     boolean,
     identifier,
     label,
-    real,
     writeEntity,
     type EntityRef,
     type ValueRef,

@@ -21,9 +21,11 @@
   },
   "dependencies": {
     "@pryzm/ai-host": "workspace:*",
+    "@pryzm/climate-host": "workspace:*",
     "@pryzm/command-bus": "workspace:*",
     "@pryzm/protocol": "workspace:*",
     "@pryzm/schemas": "workspace:*",
+    "@pryzm/site-validators": "workspace:*",
     "@pryzm/visibility": "workspace:*",
     "immer": "^10.1.1"
   },

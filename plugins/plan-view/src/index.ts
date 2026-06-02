@@ -1,9 +1,9 @@
 // @pryzm/plugin-plan-view — public surface.
 //
 // History:
-//   • S29  — first cut (`code-level ADR docs/architecture/adr/0028-plan-view-canvas-architecture.md`).
+//   • S29  — first cut (`code-level ADR docs/02-decisions/adrs/0028-plan-view-canvas-architecture.md`).
 //   • S31  — promotes the skeleton to first full plan-view implementation
-//            (`code-level ADR docs/architecture/adr/0023-plan-view-canvas2d-renderer.md`).
+//            (`code-level ADR docs/02-decisions/adrs/0023-plan-view-canvas2d-renderer.md`).
 
 export { LevelStore, type LevelData } from './LevelStore.js';
 export {

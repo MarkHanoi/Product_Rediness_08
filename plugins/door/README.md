@@ -26,7 +26,7 @@ plugins/door/
 ## Cross-store affinity
 
 `CreateDoor` and `DeleteDoor` declare `affectedStores: ['door', 'wall']`
-per `code-level ADR docs/architecture/adr/0008-wall-handler-triage.md`.
+per `code-level ADR docs/02-decisions/adrs/0008-wall-handler-triage.md`.
 Door handlers write into `wall.openings[]` via the declared cross-store
 affinity; wall handlers never mutate door state.
 

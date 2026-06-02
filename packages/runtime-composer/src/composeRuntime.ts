@@ -50,11 +50,36 @@ import {
   roomParametersStore,
   FamilyRegistryStore,
   buildCoreFamilySeeds,
+  SiteModelStore,
+  ClimateStore,
+  BuildingStore,
+  LevelStore,
+  ApartmentStore,
+  RoomStore,
+  ProvenanceStore,
 } from '@pryzm/stores';
 // D-α-3 P3 — pure parameter-impact resolver injected into the propagator.
 // Lives in @pryzm/ai-host (L2) so the L1 stores stay free of any AI-runtime
 // dep; runtime-composer (L3) is the legitimate seam that joins them.
 import { recomputeImpact } from '@pryzm/ai-host';
+// A.3 (Phase A · Sprint 2) — typology pipeline factories. Per C50 §1.1
+// the registry is constructed exactly once per runtime; the router is
+// constructed against that registry. Pack registration happens in A.4 +
+// later slices (each pack self-registers via a `composeRuntime` extension
+// point). For Phase A boot the registry starts empty — the apartment
+// pack registers lazily on first dispatch from the editor's onboarding
+// surface (per typology-expansion §6.5).
+import {
+  createTypologyRegistry,
+  createPipelineRouter,
+} from '@pryzm/typology-pipeline';
+// A.4.a (Phase A · Sprint 2) — the apartment typology pack BRIDGE.
+// Registered at boot so `runtime.typology.router.dispatch({ typologyId:
+// 'apartment', ... })` is callable immediately. The bridge handlers
+// return a placeholder command (`typology.apartment.bridge`) the editor's
+// legacy-bridge handler intercepts and forwards to the existing
+// `apartment.layout-execute` path. Full code migration ships in A.4.b+.
+import { buildApartmentTypologyPack } from '@pryzm/typology-pack-apartment';
 
 import { EventBus } from './EventBus.js';
 import { wireCommandEventBridge } from './CommandEventBridge.js';
@@ -858,6 +883,77 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       familyRegistryStore.register(seed);
     }
 
+    // ── 3d. A.3 (Phase A · Sprint 2) — TypologyPipeline slot ───────────────
+    // Per [C50 §1.1](docs/02-decisions/contracts/C50-TYPOLOGY-PIPELINE.md)
+    // exactly one TypologyRegistry per runtime, allocated here. The router
+    // is constructed against that registry and exposed on
+    // `runtime.typology.router` for dispatch. Registry starts empty; packs
+    // self-register through later slices (apartment lazily at A.4 dispatch
+    // time; house + small-office at A.21 / A.22). The slot is pure (no
+    // I/O); pack-loader adapters live in apps/editor where they have
+    // access to the auth + storage substrates (per C50 §1.9).
+    // ── 3e. A.7.b (Phase A · Sprint 2) — SiteModelStore ───────────────────
+    // L3 reactive wrapper around the L0 SiteModel substrate shipped in A.7.a.
+    // Per [C19 §1.1] one Site per Project — the store holds `null` until
+    // the `site.*` command surface (A.7.c) creates a SiteModel; per
+    // [C19 §1.13] the store joins the C13 project-switch reset list.
+    const siteModelStore = new SiteModelStore();
+
+    // ── 3f. A.10.d (Phase A · Sprint 2) — ClimateStore ────────────────────
+    // L3 reactive wrapper around the L0 ClimateDataset substrate (A.10.a).
+    // siteRef → dataset resolver + cache keyed by ClimateCacheKey
+    // (lat·100, lon·100, datasetVersion) per [C21 §1.4] so multiple sites
+    // within ~1 km share a single entry. EPW > NOAA > fallback-defaults
+    // priority per §1.2 (applied at ingest — re-ingest supersedes).
+    // Stale entries are RETAINED in the archive per §1.5 (audit /
+    // reproducibility). Joins the C13 reset list (composeRuntime calls
+    // `reset()` on project switch).
+    const climateStore = new ClimateStore();
+
+    // ── 3g. A.23.b.1 (Phase A · Sprint 2) — BuildingStore + LevelStore ────
+    // L3 reactive stores for the C20 aggregate hierarchy. Per [C20 §1.1]
+    // single Building per Project today (multi-Building deferred to
+    // C20.1; the schema reserves the `ordinal` slot). Per [C20 §1.2]
+    // within a Building Level.levelNumber/elevation are unique +
+    // monotonic + zero-or-one isActive. These cross-row invariants are
+    // enforced by the building.* / level.* command handlers (A.23.c) —
+    // the stores do per-row schema validity only. Both join the C13
+    // project-switch reset list.
+    const buildingStore = new BuildingStore();
+    const levelStore = new LevelStore();
+
+    // ── 3h. A.23.b.2 (Phase A · Sprint 2) — ApartmentStore + RoomStore ────
+    // The C20 leaf stores. Per [C20 §1.3] Apartment lives on a single
+    // Level today (multi-Level → C20.2). Per [C20 §1.4] Room.apartmentId
+    // ↔ Apartment.levelId consistency is enforced by apartment.* /
+    // room.* commands (A.23.c). Both join the C13 project-switch reset
+    // list. The L3 stores do per-row schema only.
+    const apartmentStore = new ApartmentStore();
+    const roomStore = new RoomStore();
+
+    // A.31.c — L3 ProvenanceStore (C23 per-AI-call audit graph). Per
+    // [C23 §1.9] append-only EXCEPT approvalStatus (§1.7) + producedElementIds
+    // (§4.4). The store rejects edges that would close a DAG cycle (§1.3).
+    // Joins the C13 reset list — every project switch starts with an
+    // empty graph (per-project audit isolation per §1.10 RLS pre-image).
+    const provenanceStore = new ProvenanceStore();
+
+    const typologyRegistry = createTypologyRegistry();
+    const typologyRouter = createPipelineRouter(typologyRegistry);
+    // A.4.a — register the apartment pack (BRIDGE handlers; full code
+    // migration A.4.b+). Per C50 §1.5 registration is idempotent-by-
+    // rejection; we wrap in a try/catch so a second composeRuntime() call
+    // in a hot-reload context does not abort (the picker UI subscribes
+    // once at mount and survives re-compose).
+    try {
+      typologyRegistry.register(buildApartmentTypologyPack());
+    } catch (err) {
+      console.warn(
+        '[runtime-composer] apartment typology pack registration skipped:',
+        err,
+      );
+    }
+
     // ── 4. Persistence + sync + undoStack ─────────────────────────────────
     // D.4.2 Day-8: `workspaceMount` no longer flows through here.  The
     // browser composition root attaches a bridge post-compose via
@@ -1253,6 +1349,40 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       // subscriptions become inert and register/unregister no-op.
       try { familyRegistryStore.dispose(); }
       catch (err) { console.error('[runtime-composer] familyRegistryStore dispose threw:', err); }
+      // A.3 — clear the typology registry. Registry contents are global
+      // per C50 §1.13 but listeners attached via `subscribe()` MUST not
+      // outlive the runtime; `.clear()` drops them all.
+      try { typologyRegistry.clear(); }
+      catch (err) { console.error('[runtime-composer] typologyRegistry.clear threw:', err); }
+      // A.7.b — dispose SiteModelStore (clears listeners + drops the
+      // current SiteModel reference). Per [C19 §1.13] the L3 store joins
+      // the C13 reset list; `.dispose()` is the final-shutdown surface.
+      try { siteModelStore.dispose(); }
+      catch (err) { console.error('[runtime-composer] siteModelStore.dispose threw:', err); }
+      // A.10.d — dispose ClimateStore (clears listeners + drops all
+      // ingested datasets + the archive). Per [C21 §1.5] the archive is
+      // normally retained for the duration of the runtime; final dispose
+      // wipes it (process-level shutdown). C13 project-switch uses
+      // `reset()`, not dispose.
+      try { climateStore.dispose(); }
+      catch (err) { console.error('[runtime-composer] climateStore.dispose threw:', err); }
+      // A.23.b.1 — dispose BuildingStore + LevelStore. Per [C20 §1.1]
+      // the C13 project-switch path uses `.reset()`; this final dispose
+      // is process-level shutdown only.
+      try { buildingStore.dispose(); }
+      catch (err) { console.error('[runtime-composer] buildingStore.dispose threw:', err); }
+      try { levelStore.dispose(); }
+      catch (err) { console.error('[runtime-composer] levelStore.dispose threw:', err); }
+      // A.23.b.2 — dispose ApartmentStore + RoomStore. The C13 project-
+      // switch path uses `.reset()`; this is process-level shutdown only.
+      try { apartmentStore.dispose(); }
+      catch (err) { console.error('[runtime-composer] apartmentStore.dispose threw:', err); }
+      try { roomStore.dispose(); }
+      catch (err) { console.error('[runtime-composer] roomStore.dispose threw:', err); }
+      // A.31.c — dispose ProvenanceStore (process shutdown only — the
+      // C13 project-switch path uses `.reset()`).
+      try { provenanceStore.dispose(); }
+      catch (err) { console.error('[runtime-composer] provenanceStore.dispose threw:', err); }
       try { inner.tearDown(); }
       catch (err) { console.error('[runtime-composer] inner tearDown threw:', err); }
       events.clear();
@@ -1308,6 +1438,36 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       // Consumers query via .findByCategory / .findByOccupancy / ... and
       // subscribe to mutations with .subscribe(listener). tearDown disposes.
       familyRegistryStore,
+      // A.3 — Typology pipeline slot (per C50). The registry starts empty;
+      // packs self-register in later A.4 slices. The router is wired against
+      // the registry above and is the canonical dispatch entry-point —
+      // `runtime.typology.router.dispatch(input)`.
+      typology: { registry: typologyRegistry, router: typologyRouter },
+      // A.7.b — SiteModelStore (per C19). One per runtime; reset on
+      // project switch (C13). The site.* command surface (A.7.c) calls
+      // `siteModelStore.set()` after running cross-schema validation.
+      siteModelStore,
+      // A.10.d — ClimateStore (per C21). One per runtime. The climate.*
+      // command surface (A.10.e) calls `climateStore.ingest()` after
+      // running Zod validation + license-compliance.
+      climateStore,
+      // A.23.b.1 — BuildingStore + LevelStore (per C20). The
+      // building.* / level.* command surface (A.23.c) calls the
+      // store add/update/remove methods after running cross-row
+      // invariant checks (levelNumber/elevation uniqueness, active-
+      // Level uniqueness, building-exists for Level.buildingId).
+      buildingStore,
+      levelStore,
+      // A.23.b.2 — ApartmentStore + RoomStore (per C20). The
+      // apartment.* / room.* command surface (A.23.c) calls these
+      // after running cross-store invariants (unitNumber uniqueness,
+      // Room.apartmentId ↔ Apartment.levelId consistency).
+      apartmentStore,
+      roomStore,
+      // A.31.c — C23 Provenance audit graph. Read by the L5 inspect-tree
+      // panel (A.31.e PLANNED) + written by the AI relay paths (the
+      // provenance.* command surface A.31.d PLANNED).
+      provenanceStore,
       sceneReady,
       tearDown,
     };

@@ -6,7 +6,7 @@
 //   - `cycleSnap cycles deterministically`
 //   - `resolveOpeningPosition handles curved wall correctly`
 //
-// `code-level ADR docs/architecture/adr/0013-intent-resolver.md`
+// `code-level ADR docs/02-decisions/adrs/0013-intent-resolver.md`
 //
 // The intent resolver is THREE-free (kill-switch K1B-4).  All tests
 // run in Node; no DOM required.

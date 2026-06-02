@@ -10,8 +10,23 @@ export {
     ModelTreeComponent,
     type ModelTreeRuntime,
     type ModelTreeOptions,
+    type ModelTreeContextMenuPayload,
 } from './ModelTree';
 export {
     renderModelTreeNode,
     type ModelTreeNodeInputs,
 } from './ModelTreeNode';
+export {
+    ProvenanceTab,
+    selectArtefactsForElement,
+    formatApprovalStatus,
+    approvalStatusClass,
+    formatCostUsd,
+    formatTimestamp,
+    renderArtefactCard,
+    type ProvenanceTabOptions,
+} from './ProvenanceTab';
+export {
+    ProvenanceMenuOrchestrator,
+    type ProvenanceMenuOrchestratorOptions,
+} from './ProvenanceMenuOrchestrator';

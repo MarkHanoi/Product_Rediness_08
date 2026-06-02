@@ -28,8 +28,11 @@
   },
   "dependencies": {
     "@pryzm/command-bus": "workspace:*",
+    "@pryzm/entitlements": "workspace:*",
     "@pryzm/frame-scheduler": "workspace:*",
     "@pryzm/geometry-kernel": "workspace:*",
+    "@pryzm/schemas": "workspace:*",
+    "@pryzm/typology-pipeline": "workspace:*",
     "@pryzm/persistence-client": "workspace:*",
     "@pryzm/plugin-annotations": "workspace:*",
     "@pryzm/plugin-beam": "workspace:*",

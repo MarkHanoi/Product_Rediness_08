@@ -1,6 +1,6 @@
 // Door intent resolver — S11-T1.
 //
-// `code-level ADR docs/architecture/adr/0013-intent-resolver.md`
+// `code-level ADR docs/02-decisions/adrs/0013-intent-resolver.md`
 //
 // Door placement on a wall delegates to `plugins/wall/intent.ts`'s
 // `WallIntent.resolveHitToAnchor` so the entire wall family (straight +

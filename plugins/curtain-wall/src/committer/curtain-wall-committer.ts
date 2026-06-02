@@ -26,7 +26,7 @@ export interface CurtainWallCommitterStats {
   materialSwaps: number;
   hashSkips: number;
   /** Material-pool dedup counters (S13 perf fix per `code-level ADR
-   *  docs/architecture/adr/0011-curtain-wall-triage-and-producer-split.md`).
+   *  docs/02-decisions/adrs/0011-curtain-wall-triage-and-producer-split.md`).
    *  `poolHits` is the number of `materialPool.acquire()` calls that
    *  resolved to an already-cached material; `poolMisses` is the number
    *  that allocated a fresh THREE.Material via the factory. */

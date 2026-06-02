@@ -1,0 +1,134 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# fly.toml — Fly.io app config for the PRYZM editor.
+#
+# Canonical contract: ADR-055 (docs/02-decisions/adrs/ADR-055-one-pryzm-cloudflare-supabase.md).
+# This is the bridge deployment target: Express + Vite + Socket.io in a single
+# machine, with Supabase as the managed Postgres tier. No Fly Postgres.
+#
+# Secrets are NOT in this file. Set them with:
+#   flyctl secrets set SESSION_SECRET=... SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... \
+#                      DATABASE_URL=... CF_WORKER_URL=... PRYZM_OWNER_EMAIL=... \
+#                      PRYZM_OWNER_PASSWORD=...
+# Optional (set if/when used): STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET,
+# GOOGLE_CLIENT_ID, MICROSOFT_CLIENT_ID, PUBLIC_BASE_URL, ALLOWED_ORIGIN,
+# OTEL_EXPORTER_OTLP_ENDPOINT, ANTHROPIC_API_KEY (fallback if CF_WORKER_URL unset).
+# ─────────────────────────────────────────────────────────────────────────────
+
+# App name is the public Fly handle (https://pryzm.fly.dev unless a custom
+# domain is attached). Production-only; staging would live in a sibling
+# fly.staging.toml with its own app name (e.g. `pryzm-staging`).
+app = "pryzm"
+
+# FRA = Frankfurt, Germany. Mandated by **C22 §1.3** (PII data-residency hard
+# reject on bucket-region mismatch) + **C49 §1.2** (EU primary = eu-central-1)
+# + **C49 §1.13** (GDPR for EU/UK customers). Paired with a Supabase project
+# provisioned in `eu-central-1` (Frankfurt) so DB round-trip stays < 5ms.
+#
+# The strategic-docs audit (2026-06-02) flagged `iad` as a sovereignty
+# violation; the user confirmed EU as canonical. See ADR-055 §5 and the
+# audit report this commit lands with.
+#
+# Peer regions for future scale (NOT free tier — deliberate billing event):
+#   lhr (London) — UK customers post-Brexit per C49 §1.13 separate isolation
+#   cdg (Paris)  — FR customers if latency demands it
+#   syd (Sydney) — AP customers in Phase C
+# Do NOT add a US peer region without a contract amendment to C22/C49.
+primary_region = "fra"
+
+# kill_signal / kill_timeout tune graceful shutdown. SIGINT is what the prod
+# shim's tini → node chain handles cleanly (Express closes Socket.io rooms,
+# then drains the HTTP server). 10s is enough for in-flight save + commit.
+kill_signal  = "SIGINT"
+kill_timeout = "10s"
+
+# ─── Build ──────────────────────────────────────────────────────────────────
+# Use the repo-root Dockerfile (multi-stage). `flyctl deploy --remote-only`
+# ships the build context to Fly's remote builder so we don't need local Docker.
+[build]
+  dockerfile = "Dockerfile"
+
+# ─── Non-secret env (visible in `flyctl config show`) ──────────────────────
+# Secrets MUST go through `flyctl secrets set` (encrypted at rest, not in this file).
+[env]
+  NODE_ENV = "production"
+  # server.js reads `process.env.PORT || 5000`; we pin it explicitly so the
+  # Dockerfile EXPOSE, the HEALTHCHECK curl, and Fly's internal_port all agree.
+  PORT = "5000"
+  # Tells OpenTelemetry SDK + crash-reporter which environment they're in.
+  # OTEL_EXPORTER_OTLP_ENDPOINT itself is a runtime secret (set separately).
+  OTEL_SERVICE_NAME = "pryzm-editor"
+  OTEL_RESOURCE_ATTRIBUTES = "service.name=pryzm-editor,deployment.environment=production"
+
+# ─── HTTP edge ──────────────────────────────────────────────────────────────
+[http_service]
+  # Must match Dockerfile EXPOSE + PORT env.
+  internal_port = 5000
+  # Redirect HTTP → HTTPS at the edge. Fly issues + renews the LE cert for
+  # *.fly.dev and any custom domain attached via `flyctl certs add`.
+  force_https = true
+  # PRODUCTION posture: never let the machine cold-start on a user request.
+  # `auto_stop_machines = 'stop'` + `min_machines_running = 1` means Fly will
+  # stop SURPLUS machines (e.g. during a deploy bounce) but always keep ≥1 hot.
+  # On the free tier this still costs $0 because we stay under 3 shared-CPU
+  # machines * 256 MB-hours; we're using 1 * 512 MB which is the documented
+  # free-tier allowance for a single always-on app.
+  auto_stop_machines   = "stop"
+  auto_start_machines  = true
+  min_machines_running = 1
+  # Single process group — the editor is monolithic Express + Socket.io.
+  # Multi-process (e.g. separate websocket worker) would need [processes] above.
+  processes = ["app"]
+
+  # ── Concurrency limits ────────────────────────────────────────────────────
+  # Fly uses these to decide when to autoscale (when min_machines_running > 1
+  # and a scaling policy is set). For a single-machine deployment they cap
+  # the queue depth at the proxy. Tuned for ~50 concurrent live editors on
+  # a 512MB / 1 shared-CPU box; revisit when Socket.io rooms grow past that.
+  [http_service.concurrency]
+    type       = "requests"
+    soft_limit = 200
+    hard_limit = 250
+
+  # ── Health check (READINESS at the LB) ────────────────────────────────────
+  # Different probe than the Docker HEALTHCHECK: this one talks to /api/health/ready
+  # (server.js:1989) which does a SELECT 1 on the PG pool. If Supabase is down,
+  # Fly will mark the instance unhealthy and stop sending traffic — which is
+  # what we want, because the editor can't function without persistence.
+  [[http_service.checks]]
+    interval        = "30s"
+    timeout         = "5s"
+    grace_period    = "5s"
+    method          = "GET"
+    path            = "/api/health/ready"
+    protocol        = "http"
+    tls_skip_verify = false
+
+# ─── VM sizing ──────────────────────────────────────────────────────────────
+# Free-tier sweet spot:
+#   * cpu_kind = "shared"  → cheapest class; bursty Vite SSR + Socket.io is fine.
+#   * cpus = 1             → free tier covers up to 3 shared CPUs total.
+#   * memory_mb = 512      → 256 MB is too tight: tsx loader (~80MB) + Express
+#                            + Socket.io + workspace ESM graph (~250MB resident)
+#                            OOMs at 256. 512 leaves ~150MB headroom for
+#                            concurrent uploads + IFC parsing spikes.
+# When prod traffic grows past ~50 concurrent rooms, bump memory_mb to 1024
+# and add a second machine in a peer region (lhr or syd) — that crosses the
+# free-tier line, so it's a deliberate billing event.
+[[vm]]
+  size      = "shared-cpu-1x"
+  cpu_kind  = "shared"
+  cpus      = 1
+  memory_mb = 512
+
+# ─── Mounts ─────────────────────────────────────────────────────────────────
+# Intentionally empty. The editor is stateless at the filesystem layer:
+#   * DB         → Supabase Postgres (managed)
+#   * Object storage → Supabase Storage / signed S3 URLs
+#   * Sessions   → JWT (signed by SESSION_SECRET); no server-side session store
+#   * CRDT       → Yjs documents persisted to Postgres via persistence-client
+# Adding a Fly volume would defeat the "ephemeral machines" model and crosses
+# the free-tier line. Don't add one without an ADR superseding ADR-055 §X.
+
+# ─── Restart policy ─────────────────────────────────────────────────────────
+# Default is "always" — keep it. The shim re-spawns server.js if it crashes,
+# but a hard process death (OOM, uncaught) still needs Fly to restart the machine.

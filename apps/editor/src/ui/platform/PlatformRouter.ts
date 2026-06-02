@@ -42,9 +42,17 @@ import { ProjectHub } from './ProjectHub';
 import { getCurrentUser, signOut, PlatformUser } from './AuthModal';
 import { UpgradeModal } from './UpgradeModal';
 import { PricingPage } from './PricingPage';
+import { PricingPage as MarketingPricingPage } from '../marketing/PricingPage';
+import { ManifestoPage } from '../marketing/ManifestoPage';
+import { TrustPage } from '../marketing/TrustPage';
 import { OwnerFeatureFlags } from '../OwnerFeatureFlags';
 import { EngineLoadingOverlay } from './EngineLoadingOverlay';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
+
+/** ADR-055 §7 — marketing routes moved from apps/docs-site/ into the
+ *  editor.  Names match the apex pre-render bucket (/, /pricing,
+ *  /manifesto, /trust). */
+type MarketingRoute = 'pricing' | 'manifesto' | 'trust';
 
 const ROOT_ID = 'platform-root';
 const HASH_LANDING = '#/';
@@ -56,6 +64,10 @@ export class PlatformRouter {
     private auth: AuthModal | null = null;
     private hub: ProjectHub | null = null;
     private pricing: PricingPage | null = null;
+    /** ADR-055 §7 marketing surface — one slot reused across the three
+     *  routes (pricing / manifesto / trust); switching routes disposes
+     *  the previous page so only one is mounted at a time. */
+    private marketing: { dispose(): void } | null = null;
     /**
      * Phase A.4 — the composed `PryzmRuntime` handle passed to
      * `start(runtime)`.  Exposed `public readonly` so Phase B+ panels
@@ -227,6 +239,20 @@ export class PlatformRouter {
         };
         window.addEventListener('popstate', router.popStateHandler);
 
+        // ADR-055 §7 — honor `?page=pricing|manifesto|trust` on initial
+        // load so the apex pre-render step can deep-link customers to a
+        // marketing route on first paint without bouncing through the
+        // landing page first.  Mounted on top of either the landing or
+        // the hub so "Back" routes correctly.
+        const initialPage = new URLSearchParams(window.location.search).get('page');
+        if (initialPage === 'pricing' || initialPage === 'manifesto' || initialPage === 'trust') {
+            const user = getCurrentUser();
+            document.querySelector('[data-pryzm-skeleton="landing"]')?.remove();
+            if (user) router.showHub(user); else router.showLanding();
+            router.showMarketing(initialPage);
+            return;
+        }
+
         // §06 §10 — Read hash on initial load to restore correct view.
         // Both #/ and #/projects land on the hub when a session exists —
         // the hash encodes browser-history state, not access control.
@@ -261,7 +287,12 @@ export class PlatformRouter {
                 // Keep landing page alive — it shows as blurred background behind auth modal
                 this.showAuth();
             },
-            onPricing: () => this.showPricing(),
+            // ADR-055 §7 — landing's "Pricing" link goes to the marketing
+            // comparison surface (the entitlement-registry table from
+            // pricing.astro).  The Stripe upgrade flow (showPricing()) is
+            // still reachable from the hub's "Upgrade" button and from
+            // marketplace events; it is NOT the landing-page destination.
+            onPricing: () => this.showMarketing('pricing'),
             onContactSales: () => window.open('mailto:hello@pryzm.io?subject=PRYZM+Sales+Enquiry', '_blank'),
         });
     }
@@ -323,6 +354,53 @@ export class PlatformRouter {
             },
             onUpgrade: () => this.showPricing(),
         }, this.runtime);
+    }
+
+    /**
+     * Mount one of the three customer-facing marketing routes
+     * (pricing / manifesto / trust) per ADR-055 §7.  Replaces the
+     * previous Astro pages 1:1 inside the editor's L7 surface so the
+     * apex pre-render step can hit the same components.
+     *
+     * Reuses a single `this.marketing` slot — switching routes disposes
+     * the previous page so the DOM never holds two marketing surfaces
+     * at once.  "Sign in" routes back to AuthModal; "Back" returns to
+     * the landing page; the three inter-route links cycle inside this
+     * helper.
+     */
+    showMarketing(page: MarketingRoute): void {
+        this.marketing?.dispose();
+        this.marketing = null;
+
+        const callbacks = {
+            onSignIn: () => {
+                this.marketing?.dispose();
+                this.marketing = null;
+                this.showAuth();
+            },
+            onBack: () => {
+                this.marketing?.dispose();
+                this.marketing = null;
+                const u = getCurrentUser();
+                if (u) this.showHub(u);
+                else this.showLanding();
+            },
+            onPricing: () => this.showMarketing('pricing'),
+            onManifesto: () => this.showMarketing('manifesto'),
+            onTrust: () => this.showMarketing('trust'),
+        };
+
+        switch (page) {
+            case 'pricing':
+                this.marketing = new MarketingPricingPage(document.body, callbacks);
+                break;
+            case 'manifesto':
+                this.marketing = new ManifestoPage(document.body, callbacks);
+                break;
+            case 'trust':
+                this.marketing = new TrustPage(document.body, callbacks);
+                break;
+        }
     }
 
     showPricing(): void {
@@ -530,5 +608,7 @@ export class PlatformRouter {
         this.auth = null;
         this.pricing?.destroy();
         this.pricing = null;
+        this.marketing?.dispose();
+        this.marketing = null;
     }
 }

@@ -1,7 +1,7 @@
 // DeleteView handler (S17-T6b).
 //
 // Spec: PHASE-1C §S17 lines 793-795 (D6).
-// ADR: docs/architecture/adr/0016-view-state-command-driven.md.
+// ADR: docs/02-decisions/adrs/0016-view-state-command-driven.md.
 //
 // Removes a ViewDefinition from the registry.
 // affectedStores: ['view']

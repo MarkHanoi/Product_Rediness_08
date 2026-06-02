@@ -28,7 +28,11 @@
 
 import type { AnyStores, CommandHandler, RingBufferUndoStack } from '@pryzm/command-bus';
 import type { SyncClient, PryzmAwareness } from '@pryzm/sync-client';
-import type { LayoutOptionsStore, AiApprovalQueueStore, ApartmentParameterPropagator, FamilyRegistryStore } from '@pryzm/stores';
+import type { LayoutOptionsStore, AiApprovalQueueStore, ApartmentParameterPropagator, FamilyRegistryStore, SiteModelStore, ClimateStore, BuildingStore, LevelStore, ApartmentStore, RoomStore, ProvenanceStore } from '@pryzm/stores';
+import type {
+  TypologyRegistry,
+  PipelineRouter,
+} from '@pryzm/typology-pipeline';
 import type { Renderer, MaterialPool, FrameScheduler, CommitterHost, CameraController, PlainPose } from '@pryzm/renderer';
 import type { WorkspaceSurface } from '@pryzm/renderer-three';
 import type { VisibilityElement, VisibilityView, VisibilityFeatureFlags, WaveVisibilityResult } from '@pryzm/visibility';
@@ -139,10 +143,47 @@ export interface RuntimeEvents {
     previewWallCount?: number;
     droppedWallCount?: number;
     warnings?: readonly string[];
+    /** The level id the executor was active on — needed by the
+     *  furnish/ceiling/lighting follow-up triggers to scope their work. */
+    levelId?: string;
+    /** Optional sub-zone metadata for downstream consumers (the inspect
+     *  panel uses this to badge rooms by zone). */
+    subZones?: unknown;
   };
 
   /** Fired by the §11 modal on cancel — the AIStore pending run is cleared. */
   'apartment.layout-cancel': Record<string, never>;
+
+  /** §REJECT-SURFACE (2026-05-31) — fired by the engine when it declines
+   *  to generate a layout (envelope too big/small, deterministic engine
+   *  declined, AI relay failed without procedural fallback). The
+   *  ApartmentLayoutController subscribes and toasts the reason. */
+  'apartment.layout-rejected': {
+    runId?: string;
+    reason: string;
+    attempts?: number;
+  };
+
+  /** §POLL-TELEMETRY — fired by the executor after the post-batch
+   *  wall-poll loop finishes. Lets tests + telemetry observe how long
+   *  the wall settle took. */
+  'apartment.wall-poll-completed': {
+    levelId: string;
+    elapsedMs: number;
+    iterations: number;
+    wallsReady: number;
+    wallsNeeded: number;
+    forced: boolean;
+  };
+
+  /** §POLL-TELEMETRY — fired after the room-name pass finishes (rooms
+   *  detected + renamed + occupancies set). */
+  'apartment.room-name-completed': {
+    levelId: string;
+    source: string;
+    elapsedMs: number;
+    detectedRooms: number;
+  };
 
   // ── #52 D-FLE Furniture Layout Engine — events ────────────────────────────
   /** Fired by the trigger (console command / apartment.layout-executed auto-
@@ -151,11 +192,14 @@ export interface RuntimeEvents {
    *  from `window.projectContext.activeLevelId`. */
   'furnish.layout-execute': Record<string, never>;
   /** Fired by FurnishLayoutExecutor after the runBatch settles. `placedCount`
-   *  is the total number of furniture.create commands dispatched. */
+   *  is the total number of furniture.create commands dispatched.
+   *  `validationWarnings` carries circulation / overlap warnings collected
+   *  pre-dispatch (per WS-1.A); empty array when the layout is clean. */
   'furnish.layout-executed': {
     placedCount: number;
     roomCount: number;
     levelId: string;
+    validationWarnings?: readonly string[];
   };
 
   // ── #53 D-LE Lighting Layout Engine — events ──────────────────────────────
@@ -3404,6 +3448,92 @@ export interface PryzmRuntime {
    *  `.findByMountClass()` / `.findByTag()` and subscribe to mutations with
    *  `.subscribe(listener)`. Disposed via `tearDown()`. */
   readonly familyRegistryStore: FamilyRegistryStore;
+
+  // ── A.7.b (Phase A · Sprint 2) — SiteModelStore (C19 substrate) ─────────
+  /** L3 reactive wrapper around the L0 `SiteModel` substrate from
+   *  `@pryzm/schemas/site`. One per runtime per [C19 §1.1] ("one Site
+   *  per Project"). Starts holding `null`; the `site.*` command surface
+   *  (A.7.c) calls `siteModelStore.set()` after running cross-schema
+   *  validation. Per [C19 §1.13] joins the C13 project-switch reset
+   *  list — `siteModelStore.reset()` is the canonical hook.
+   *  Disposed via `tearDown()`. */
+  readonly siteModelStore: SiteModelStore;
+
+  // ── A.10.d (Phase A · Sprint 2) — ClimateStore (C21 substrate) ──────────
+  /** L3 reactive wrapper around the L0 `ClimateDataset` substrate from
+   *  `@pryzm/schemas/climate`. One per runtime. The `climate.*` command
+   *  surface (A.10.e) calls `climateStore.ingest()` after running Zod
+   *  validation + license-compliance. Per [C21 §1.5] the store retains
+   *  invalidated entries in an audit archive (never deletes). Joins the
+   *  C13 project-switch reset list. Disposed via `tearDown()`. */
+  readonly climateStore: ClimateStore;
+
+  // ── A.23.b.1 (Phase A · Sprint 2) — BuildingStore (C20 substrate) ───────
+  /** L3 reactive wrapper around the L0 `Building` aggregate from
+   *  `@pryzm/schemas/aggregates`. Per [C20 §1.1] single Building per
+   *  Project today (multi-Building deferred to C20.1). The `building.*`
+   *  command surface (A.23.c) calls store.add/update/remove after
+   *  validation. Joins the C13 project-switch reset list. */
+  readonly buildingStore: BuildingStore;
+
+  // ── A.23.b.1 (Phase A · Sprint 2) — LevelStore (C20 substrate) ──────────
+  /** L3 reactive wrapper around the L0 `Level` aggregate from
+   *  `@pryzm/schemas/aggregates`. Per [C20 §1.2] within a Building:
+   *  levelNumber + elevation are unique + monotonic; zero-or-one
+   *  isActive. Cross-row invariants enforced by `level.*` commands
+   *  (A.23.c); the store does per-row schema only. Joins C13 reset. */
+  readonly levelStore: LevelStore;
+
+  // ── A.23.b.2 (Phase A · Sprint 2) — ApartmentStore (C20 substrate) ──────
+  /** L3 reactive wrapper around the L0 `Apartment` aggregate. Per
+   *  [C20 §1.3] Apartment lives on a single Level today. `unitNumber`
+   *  unique within Building. Cross-store checks enforced by
+   *  `apartment.*` commands (A.23.c). Joins C13 reset. */
+  readonly apartmentStore: ApartmentStore;
+
+  // ── A.23.b.2 (Phase A · Sprint 2) — RoomStore (C20 substrate) ───────────
+  /** L3 reactive wrapper around the L0 `Room` aggregate. Per
+   *  [C20 §1.4] Room.apartmentId ↔ Apartment.levelId consistency
+   *  enforced by `room.*` commands (A.23.c). Exposes
+   *  `removeForApartment` cascade helper used by apartment.delete.
+   *  Joins C13 reset. */
+  readonly roomStore: RoomStore;
+
+  // ── A.31.c (Phase A · Sprint 2) — ProvenanceStore (C23 substrate) ───────
+  /** L3 append-only audit graph wrapping the L0 C23 substrate
+   *  (`@pryzm/schemas/provenance`). Stores AIArtefact + ProvenanceEdge +
+   *  ContextSnapshot + RedactionRecord rows. Per [C23 §1.9] all rows are
+   *  immutable EXCEPT `AIArtefact.approvalStatus` (§1.7 carve-out) and
+   *  `AIArtefact.producedElementIds` (§4.4 linkElement append). The store
+   *  rejects edges that would close a DAG cycle (§1.3) and dedupes
+   *  snapshots by `contextHash` (§2.3). Joins C13 reset (per-project
+   *  audit isolation per §1.10 RLS). The `provenance.*` command surface
+   *  in A.31.d (PLANNED) calls into this. */
+  readonly provenanceStore: ProvenanceStore;
+
+  // ── A.3 (Phase A · Sprint 2) — Typology pipeline slot ───────────────────
+  /** L3 multi-typology generative-AI pipeline. One per runtime per
+   *  [C50 §1.1](../../../docs/02-decisions/contracts/C50-TYPOLOGY-PIPELINE.md).
+   *
+   *  - `registry`: in-memory map of every registered typology pack indexed
+   *    by `TypologyId`. PRYZM-first-party packs (apartment / house /
+   *    small-office in Phase A) self-register at boot via a later A.4
+   *    wiring slice. Community packs (Phase D) register lazily through
+   *    the marketplace install flow.
+   *
+   *  - `router`: dispatch surface — `router.dispatch(input)` runs the
+   *    7-stage pipeline (brief → site → constraints → generative →
+   *    validators → cognition → bim-emit) and returns the result the
+   *    L5 dispatch caller feeds to `commandBus.runBatch()`.
+   *
+   *  Contents are GLOBAL (not project-scoped per C50 §1.13) — they
+   *  persist across project switches. Per-project pack-adapter caches
+   *  (the loaded AI workflow function bytes etc.) live elsewhere and
+   *  attach their own C13 reset handlers. */
+  readonly typology: {
+    readonly registry: TypologyRegistry;
+    readonly router: PipelineRouter;
+  };
 
   /** Idempotent.  Disposes every owned subsystem in reverse order
    *  (renderer → scheduler → bindings → stores → bus → emitter). */

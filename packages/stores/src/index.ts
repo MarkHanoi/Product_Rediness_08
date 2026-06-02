@@ -26,6 +26,261 @@ export {
 // `origin: 'core'` entries that composeRuntime registers at boot.
 export { FamilyRegistryStore } from './familyRegistryStore.js';
 export { buildCoreFamilySeeds } from './seedCoreFamilies.js';
+// A.7.b (Phase A · Sprint 2) — L3 SiteModelStore.
+// Wraps the L0 `SiteModel` substrate shipped in A.7.a
+// (`@pryzm/schemas/site`). One per runtime; reset on project switch
+// per [C19 §1.13]. The `site.*` command surface in A.7.c will call
+// `set()` after running cross-schema validation.
+export { SiteModelStore } from './SiteModelStore.js';
+// A.10.d (Phase A · Sprint 2) — L3 ClimateStore.
+// Wraps the L0 ClimateDataset substrate (A.10.a). siteRef → dataset
+// resolver + cache (keyed by ClimateCacheKey per C21 §1.4) + stale-
+// entry archive per §1.5. The `climate.*` command surface in A.10.e
+// calls `ingest()` after running Zod validation + license-compliance.
+export { ClimateStore } from './ClimateStore.js';
+// A.23.b.1 (Phase A · Sprint 2) — L3 BuildingStore + LevelStore.
+// Wrap the L0 C20 aggregate substrate from `@pryzm/schemas/aggregates`.
+// One instance each per runtime; reset on project switch per C13.
+// Cross-store invariants (Level.buildingId references an existing
+// Building; levelNumber/elevation uniqueness per Building; zero-or-one
+// isActive Level per Building) are enforced by the building.*/level.*
+// command handlers in A.23.c — the store does per-row schema only.
+export { BuildingStore } from './BuildingStore.js';
+export { LevelStore } from './LevelStore.js';
+// A.23.b.2 (Phase A · Sprint 2) — L3 ApartmentStore + RoomStore.
+// Wrap the L0 Apartment + Room aggregates. Cross-store invariants
+// (unitNumber uniqueness · apartmentId↔levelId consistency) enforced
+// by apartment.*/room.* commands in A.23.c. Both join C13 reset list.
+export { ApartmentStore } from './ApartmentStore.js';
+export { RoomStore } from './RoomStore.js';
+// A.30.c (Phase A · Sprint 2) — L3 ConsentStore.
+// Wraps the L0 C22 Consent substrate (`@pryzm/schemas/privacy`). The
+// store is USER-scoped (not project-scoped) — survives project switches
+// and is the authoritative source for "is this user consented to
+// purpose X right now?". `grant()` auto-supersedes prior active
+// versions of the same purpose (returns the rows superseded so the
+// retention scheduler can fire the §1.6 'consent-revoke' purge);
+// `purgeUser()` is the GDPR Art. 17 erasure path.
+export { ConsentStore } from './ConsentStore.js';
+// A.30.d.1 (Phase A · Sprint 2) — consent.* command handlers per [C22 §4].
+// 3 pure handlers `(payload, store) → ConsentCommandResult<Event>`:
+// consent.grant (auto-supersedes prior versions) · consent.revoke
+// (rejects on no-active-consent) · consent.purgeUser (GDPR Art. 17).
+export {
+    grantConsent,
+    revokeConsent,
+    purgeUserConsent,
+    GrantConsentPayloadSchema,
+    RevokeConsentPayloadSchema,
+    PurgeUserConsentPayloadSchema,
+    type GrantConsentPayload,
+    type RevokeConsentPayload,
+    type PurgeUserConsentPayload,
+    type ConsentCommandResult,
+    type ConsentCommandRejection,
+    type ConsentGrantedEvent,
+    type ConsentRevokedEvent,
+    type ConsentUserPurgedEvent,
+} from './consent-commands/index.js';
+// A.31.c (Phase A · Sprint 2) — L3 ProvenanceStore.
+// Wraps the L0 C23 Provenance substrate (`@pryzm/schemas/provenance`).
+// APPEND-ONLY per C23 §1.9 — the only post-write mutations are
+// `updateApprovalStatus()` (§1.7) and `linkElement()` (§4.4). Cycle
+// detection rejects edges that would close a loop (§1.3 DAG invariant).
+// Snapshots dedup by contextHash. Joins the C13 reset list.
+export { ProvenanceStore } from './ProvenanceStore.js';
+// A.31.d (Phase A · Sprint 2) — provenance.* command handlers per [C23 §4].
+// 4 pure handlers `(payload, store) → ProvenanceCommandResult<Event>`:
+// ai.recordArtefact (idempotent on idempotencyKey) · provenance.linkElement
+// (idempotent per element id) · provenance.updateApprovalStatus (illegal-
+// transition guard per §1.7) · provenance.queryByProject (read-only).
+export {
+    recordArtefact,
+    linkElement,
+    updateApprovalStatus,
+    queryByProject,
+    RecordArtefactPayloadSchema,
+    LinkElementPayloadSchema,
+    UpdateApprovalStatusPayloadSchema,
+    QueryByProjectPayloadSchema,
+    type RecordArtefactPayload,
+    type LinkElementPayload,
+    type UpdateApprovalStatusPayload,
+    type QueryByProjectPayload,
+    type ProvenanceCommandResult,
+    type ProvenanceCommandRejection,
+    type ArtefactRecordedEvent,
+    type ElementLinkedEvent,
+    type ApprovalStatusUpdatedEvent,
+    type QueryByProjectResultEvent,
+} from './provenance-commands/index.js';
+// A.23.c.1 (Phase A · Sprint 2) — building.* command handlers per [C20 §4.1].
+// Pure functions `(payload, store) → AggregateCommandResult<Event>`.
+// 3 commands: create (single-Building rule per §1.1) · update (projectId
+// immutable) · delete (forbidden today, reserved for C20.1 amendment).
+export {
+    buildingCreate,
+    buildingUpdate,
+    buildingDelete,
+    levelCreate,
+    levelUpdate,
+    levelSetActive,
+    levelDelete,
+    apartmentCreate,
+    apartmentUpdate,
+    apartmentDelete,
+    roomCreate,
+    roomUpdate,
+    roomDelete,
+    roomAssignToApartment,
+    deterministicBuildingId,
+    BuildingCreatePayloadSchema,
+    BuildingUpdatePayloadSchema,
+    BuildingDeletePayloadSchema,
+    LevelCreatePayloadSchema,
+    LevelUpdatePayloadSchema,
+    LevelSetActivePayloadSchema,
+    LevelDeletePayloadSchema,
+    ApartmentCreatePayloadSchema,
+    ApartmentUpdatePayloadSchema,
+    ApartmentDeletePayloadSchema,
+    RoomCreatePayloadSchema,
+    RoomUpdatePayloadSchema,
+    RoomDeletePayloadSchema,
+    RoomAssignToApartmentPayloadSchema,
+    type BuildingCreatePayload,
+    type BuildingUpdatePayload,
+    type BuildingDeletePayload,
+    type LevelCreatePayload,
+    type LevelUpdatePayload,
+    type LevelSetActivePayload,
+    type LevelDeletePayload,
+    type ApartmentCreatePayload,
+    type ApartmentUpdatePayload,
+    type ApartmentDeletePayload,
+    type RoomCreatePayload,
+    type RoomUpdatePayload,
+    type RoomDeletePayload,
+    type RoomAssignToApartmentPayload,
+    type BuildingCreatedEvent,
+    type BuildingUpdatedEvent,
+    type BuildingDeleteForbiddenEvent,
+    type LevelCreatedEvent,
+    type LevelUpdatedEvent,
+    type LevelActiveSetEvent,
+    type LevelDeletedEvent,
+    type ApartmentCreatedEvent,
+    type ApartmentUpdatedEvent,
+    type ApartmentDeletedEvent,
+    type RoomCreatedEvent,
+    type RoomUpdatedEvent,
+    type RoomDeletedEvent,
+    type RoomAssignedToApartmentEvent,
+    type AggregateCommandResult,
+    type AggregateCommandRejection,
+} from './aggregate-commands/index.js';
+// A.10.e (Phase A · Sprint 2) — climate.* command handlers per [C21 §4.1].
+// Pure functions `(payload, store) → ClimateCommandResult<Event>`.
+// 6 commands: ingestEPW · refreshNOAA · resolveSite · invalidateCache
+// · solarSample · windRose. The L5 adapter (apps/editor) wires these
+// to the command-bus + OTel spans + L5 file/HTTP fetch substrates.
+export {
+    climateIngestEpw,
+    climateRefreshNoaa,
+    climateResolveSite,
+    climateInvalidateCache,
+    climateSolarSample,
+    climateWindRose,
+    ClimateIngestEpwPayloadSchema,
+    ClimateRefreshNoaaPayloadSchema,
+    ClimateResolveSitePayloadSchema,
+    ClimateInvalidateCachePayloadSchema,
+    ClimateSolarSamplePayloadSchema,
+    ClimateWindRosePayloadSchema,
+    type ClimateIngestEpwPayload,
+    type ClimateRefreshNoaaPayload,
+    type ClimateResolveSitePayload,
+    type ClimateInvalidateCachePayload,
+    type ClimateSolarSamplePayload,
+    type ClimateWindRosePayload,
+    type ClimateCommandResult,
+    type ClimateCommandRejection,
+    type ClimateIngestedEvent,
+    type ClimateCacheInvalidatedEvent,
+    type ClimateResolvedEvent,
+    type ClimateSolarSampledEvent,
+    type ClimateWindRoseEvent,
+} from './climate-commands/index.js';
+// A.7.c (Phase A · Sprint 2) — site.* command handlers. Pure functions
+// `(payload, store) → SiteCommandResult<Event>`. The L5 adapter (command-
+// bus wiring + OTel span + LTP-ENU rebase + domain event emit) lives
+// elsewhere and composes against these. Per [C19 §4].
+//
+//   A.7.c.1 MVS:        siteCreate / siteUpdateLocation / siteSetParcelBoundary
+//   A.7.c.2:            siteUpdateZoning / siteSetFootprint / siteClearFootprint
+//   A.7.c.3:            siteAddContextBuilding / siteRemoveContextBuilding /
+//                       siteReplaceContextBuilding
+//   A.7.c.5 (this):     siteLinkClimate / siteLinkBuilding / siteReplace /
+//                       siteDelete (whole-Site lifecycle + cross-element links)
+//   A.7.c.4 deferred:   siteResyncContextBuildings (async ingest, needs L5)
+export {
+    siteCreate,
+    siteUpdateLocation,
+    siteSetParcelBoundary,
+    siteUpdateZoning,
+    siteSetFootprint,
+    siteClearFootprint,
+    siteAddContextBuilding,
+    siteRemoveContextBuilding,
+    siteReplaceContextBuilding,
+    siteLinkClimate,
+    siteLinkBuilding,
+    siteReplace,
+    siteDelete,
+    deterministicSiteId,
+    SiteCreatePayloadSchema,
+    SiteUpdateLocationPayloadSchema,
+    SiteSetParcelBoundaryPayloadSchema,
+    SiteUpdateZoningPayloadSchema,
+    SiteSetFootprintPayloadSchema,
+    SiteClearFootprintPayloadSchema,
+    SiteAddContextBuildingPayloadSchema,
+    SiteRemoveContextBuildingPayloadSchema,
+    SiteReplaceContextBuildingPayloadSchema,
+    SiteLinkClimatePayloadSchema,
+    SiteLinkBuildingPayloadSchema,
+    SiteReplacePayloadSchema,
+    SiteDeletePayloadSchema,
+    type SiteCreatePayload,
+    type SiteUpdateLocationPayload,
+    type SiteSetParcelBoundaryPayload,
+    type SiteUpdateZoningPayload,
+    type SiteSetFootprintPayload,
+    type SiteClearFootprintPayload,
+    type SiteAddContextBuildingPayload,
+    type SiteRemoveContextBuildingPayload,
+    type SiteReplaceContextBuildingPayload,
+    type SiteLinkClimatePayload,
+    type SiteLinkBuildingPayload,
+    type SiteReplacePayload,
+    type SiteDeletePayload,
+    type SiteCommandResult,
+    type SiteCommandRejection,
+    type SiteCommandWarnings,
+    type SiteCreatedEvent,
+    type SiteLocationChangedEvent,
+    type SiteParcelBoundarySetEvent,
+    type SiteZoningUpdatedEvent,
+    type SiteFootprintSetEvent,
+    type SiteFootprintClearedEvent,
+    type SiteContextBuildingAddedEvent,
+    type SiteContextBuildingRemovedEvent,
+    type SiteContextBuildingReplacedEvent,
+    type SiteClimateLinkedEvent,
+    type SiteBuildingLinkedEvent,
+    type SiteReplacedEvent,
+    type SiteDeletedEvent,
+} from './site-commands/index.js';
 // P0.5 Stage-5 wiring (Family Platform) — L0-pure-pipeline → L3-reactive-store
 // bridge.  Takes raw JSON, runs the 5-stage pure pipeline, and inserts the
 // resulting RegisteredFamily into the store.

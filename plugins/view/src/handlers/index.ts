@@ -1,7 +1,7 @@
 // View handler registration helper (S17-T6 + E.5.x P3).
 //
 // Spec: PHASE-1C §S17 line 793 (D6).
-// ADR: docs/architecture/adr/0016-view-state-command-driven.md.
+// ADR: docs/02-decisions/adrs/0016-view-state-command-driven.md.
 // E.5.x P3: SetViewOutput/Range/Crop/Underlay + UpdateViewDefinition handlers added.
 
 import type { CommandBus } from '@pryzm/plugin-sdk';
