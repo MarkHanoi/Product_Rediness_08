@@ -106,7 +106,7 @@ When Phase A is GA-complete a user will:
 | 12.1 | Catch architecturally-wrong layouts (master smaller than bedroom, kitchen > living, etc.) | Behind generate | A.37.α (H1-H6) | ✅ DONE (G9 hierarchy) | Layout flagged with soft penalty + reason text on each violation |
 | 12.2 | 100 new rules added to L1-L4 cognition layers | Across cognition | A.37 (continuous Sprint 2-12) | 🟢 IN PROGRESS | 152 → 252 rule count target |
 | 12.3 | Daylight rule-checker | Validation panel | A.37.β (L2 rule DONE) + A.38 (L5 UI PLANNED) | 🟢 IN PROGRESS | L2 rule: windowless master / bedroom / living / kitchen → HARD reject; aperture < 10 % floor area → SOFT. L5 panel pending. |
-| 12.4 | Perceptual evaluator (corridor width · sightline · aspect) | Validation panel | A.39 | ⚪ PLANNED | First-pass perceptual scoring on every layout |
+| 12.4 | Perceptual evaluator (corridor width · sightline · aspect) | Validation panel | A.39.a (corridor width L2 DONE) + A.39.b (sightline PLANNED) + A.39.c (L5 UI PLANNED) | 🟢 IN PROGRESS | Corridor width: < 0.80 m HARD reject, 0.80-1.00 m / 1.40-2.50 m SOFT, 1.00-1.40 m comfort band |
 | **13. Reliability + DR** |
 | 13.1 | Restore a deleted project (within 30 days) | Settings → Trash | A.35.a (RUNBOOK-ACCIDENTAL-DELETE) + persistence | ✅ DONE (runbook); UI partial | Self-service "Restore" button per project |
 | 13.2 | Pay-tier-keyed cold backup retention (30 / 90 / 365 d) | Behind the scenes | A.35.a + (C48 implementation) | 🟢 IN PROGRESS | Backups encrypted-at-rest with KMS per [C48 §1.3] |
