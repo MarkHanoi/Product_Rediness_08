@@ -936,6 +936,9 @@ importers:
       '@pryzm/command-bus':
         specifier: workspace:*
         version: link:../../packages/command-bus
+      '@pryzm/entitlements':
+        specifier: workspace:*
+        version: link:../../packages/entitlements
       '@pryzm/frame-scheduler':
         specifier: workspace:*
         version: link:../../packages/frame-scheduler
