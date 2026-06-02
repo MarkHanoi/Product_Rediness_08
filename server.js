@@ -5,7 +5,10 @@ import './server/telemetry.js';
 import express from 'express';
 import { createRequire } from 'module';
 import { createServer } from 'http';
-import { createServer as createViteServer } from 'vite';
+// NOTE: `vite` is a devDependency and is NOT present in the production image
+// (the Dockerfile prunes devDeps via `pnpm install --prod`). It MUST therefore
+// be imported dynamically inside the dev-only branch below — a top-level
+// `import … from 'vite'` here would crash production boot with ERR_MODULE_NOT_FOUND.
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { existsSync, readdirSync } from 'fs';
@@ -5448,6 +5451,9 @@ if (isProd) {
     });
 } else {
     console.log('[server] Development mode — using Vite middleware');
+    // Dynamic import: `vite` is a devDependency, absent from the production
+    // image. Reached only in dev (isProd === false), so prod never loads it.
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
         server: {
             middlewareMode: true,
