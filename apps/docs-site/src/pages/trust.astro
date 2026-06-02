@@ -11,9 +11,11 @@
 // All four contracts are public; this page references them but does
 // not embed their full text. The product surfaces these guarantees;
 // the contracts pin the implementation.
+//
+// Tier names read from the JSON snapshot at src/data/pricing.json per
+// ADR-052 §1.4 (marketing-surface JSON-snapshot pattern).
 
-import { buildPricingPageData } from '@pryzm/entitlements';
-const data = buildPricingPageData();
+import data from '../data/pricing.json';
 const tierDisplayNames = data.tierDisplayNames;
 ---
 

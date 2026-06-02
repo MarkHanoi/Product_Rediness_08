@@ -6,14 +6,26 @@
 //  no hand-written tier feature lists."
 //
 // Authority: docs/02-decisions/contracts/C39-PRICING-AND-PLAN-TIERS.md
-// Implementation: @pryzm/entitlements (L2-pure) ← this page (L5)
+// Implementation:
+//   @pryzm/entitlements (L2-pure) → scripts/build/gen-docs-site-pricing.mjs
+//                                  → apps/docs-site/src/data/pricing.json
+//                                  → this page (L5; imports the JSON)
+//
+// Why JSON-snapshot instead of runtime import:
+//   Importing @pryzm/entitlements here transitively pulls @pryzm/schemas +
+//   zod@4, which collides with Starlight 0.30 + Astro 5's internal zod@3
+//   schema invocation during static-route generation. Per ADR-052 §1.4
+//   (the marketing-surface JSON-snapshot pattern), marketing pages consume
+//   runtime values as build-time JSON artefacts, NOT as workspace imports.
+//
+// Regenerate with: `pnpm run gen:docs-site-pricing` (this is the contract
+// per C39 §1.13; a queued CI gate `check-docs-site-pricing-fresh.mjs`
+// fails any PR where the snapshot drifts from the live registry).
 //
 // Astro renders this at build time — there is no client-side JS shipped
 // for the table itself.
 
-import { buildPricingPageData } from '@pryzm/entitlements';
-
-const data = buildPricingPageData();
+import data from '../data/pricing.json';
 ---
 
 <html lang="en">

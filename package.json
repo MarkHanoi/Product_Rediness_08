@@ -29,6 +29,7 @@
     "protocol:typecheck": "tsc -p packages/protocol/tsconfig.json --noEmit",
     "test:pryzm1": "tsx --test tests/*.test.ts",
     "gen:openapi": "node scripts/build/gen-openapi.mjs",
+    "gen:docs-site-pricing": "node scripts/build/gen-docs-site-pricing.mjs",
     "lint": "eslint . --max-warnings=999999",
     "wireup:baseline": "scripts/one-offs/wireup-baseline.sh > .local/wireup-floor.json",
     "ga-gate": "node packages/release/src/ga-gate.mjs",

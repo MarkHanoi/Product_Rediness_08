@@ -13,10 +13,12 @@
 // about the work · Curated about what we ship.
 //
 // Astro renders this at build time; zero client-side JS.
+// Pricing-count chip data is read from the JSON snapshot at
+// src/data/pricing.json per ADR-052 §1.4 (marketing-surface
+// JSON-snapshot pattern — avoids the zod-4-vs-Starlight-zod-3 collision
+// that a runtime @pryzm/entitlements import would trigger).
 
-import { buildPricingPageData } from '@pryzm/entitlements';
-
-const data = buildPricingPageData();
+import data from '../data/pricing.json';
 const totalFeatures = data.totalEntitlements;
 const totalCategories = data.sections.length;
 ---
