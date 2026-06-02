@@ -212,3 +212,92 @@ export function groupByCategory(
         .map(([category, cs]) => ({ category, cards: cs }))
         .sort((a, b) => (a.category < b.category ? -1 : 1));
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A.6.a.next — phase-gate grouping + summary helpers.
+//
+// The L5 picker shows a phase-gate badge (alpha / beta / ga / community-
+// marketplace) on each card; the header chip displays a one-line counts
+// summary. Both helpers are pure + deterministic.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Phase-gate ordering used in `groupByPhaseGate` (most-stable first). */
+const PHASE_GATE_ORDER: ReadonlyArray<PickerCard['phaseGate']> = [
+    'ga',
+    'beta',
+    'alpha',
+    'community-marketplace',
+];
+
+/**
+ * Group picker cards by phase gate for the L5 "GA / Beta / Alpha / Community"
+ * tabs. Returns an array in PHASE_GATE_ORDER (most-stable first); empty
+ * groups are omitted.
+ */
+export function groupByPhaseGate(
+    cards: readonly PickerCard[],
+): ReadonlyArray<{
+    readonly phaseGate: PickerCard['phaseGate'];
+    readonly cards: readonly PickerCard[];
+}> {
+    const buckets = new Map<PickerCard['phaseGate'], PickerCard[]>();
+    for (const c of cards) {
+        const arr = buckets.get(c.phaseGate);
+        if (arr) arr.push(c);
+        else buckets.set(c.phaseGate, [c]);
+    }
+    return PHASE_GATE_ORDER.filter((g) => buckets.has(g)).map((g) => ({
+        phaseGate: g,
+        cards: buckets.get(g)!,
+    }));
+}
+
+/** Header chip summary shape — counts the L5 picker shows at the top. */
+export interface PickerCardsSummary {
+    readonly total: number;
+    readonly available: number;
+    readonly locked: number;
+    readonly categoryCount: number;
+    readonly marketplaceCount: number;
+    readonly byPhaseGate: Readonly<
+        Record<PickerCard['phaseGate'], number>
+    >;
+}
+
+/**
+ * Compute the counts overview the L5 picker renders in its header
+ * chip. Pure — no side effects.
+ *
+ *   { total: 12, available: 8, locked: 4, categoryCount: 5,
+ *     marketplaceCount: 3, byPhaseGate: { ga: 4, beta: 5, alpha: 2,
+ *                                          community-marketplace: 1 } }
+ */
+export function summarizePickerCards(
+    cards: readonly PickerCard[],
+): PickerCardsSummary {
+    const byPhaseGate: Record<PickerCard['phaseGate'], number> = {
+        ga: 0,
+        beta: 0,
+        alpha: 0,
+        'community-marketplace': 0,
+    };
+    const categories = new Set<TypologyCategory>();
+    let available = 0;
+    let locked = 0;
+    let marketplaceCount = 0;
+    for (const c of cards) {
+        if (c.locked) locked++;
+        else available++;
+        categories.add(c.category);
+        if (c.isMarketplace) marketplaceCount++;
+        byPhaseGate[c.phaseGate]++;
+    }
+    return {
+        total: cards.length,
+        available,
+        locked,
+        categoryCount: categories.size,
+        marketplaceCount,
+        byPhaseGate,
+    };
+}

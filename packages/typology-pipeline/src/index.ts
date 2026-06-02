@@ -58,7 +58,10 @@ export {
     filterByCognitionLayer,
     filterByRoomType,
     groupByCategory,
+    groupByPhaseGate,
+    summarizePickerCards,
     type PickerCard,
+    type PickerCardsSummary,
 } from './TypologyPickerModel.js';
 
 // ── RAC chatbot model (A.5.a) ───────────────────────────────────────────

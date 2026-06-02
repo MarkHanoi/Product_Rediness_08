@@ -332,3 +332,147 @@ describe('groupByCategory', () => {
         expect(groupByCategory([])).toEqual([]);
     });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A.6.a.next — groupByPhaseGate + summarizePickerCards
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { groupByPhaseGate, summarizePickerCards } from '../src/TypologyPickerModel.js';
+
+function makePackWithPhase(
+    id: string,
+    phaseGate: 'alpha' | 'beta' | 'ga' | 'community-marketplace',
+    opts: MakePackOpts = {},
+): RegisteredTypologyPack {
+    const merged: MakePackOpts = { id, ...opts };
+    const base = makePack(merged);
+    // The default schema sets phaseGate='alpha'; override by re-parsing.
+    const manifest = TypologyManifestSchema.parse({
+        ...base.manifest,
+        phaseGate,
+    });
+    return { manifest, stages: base.stages };
+}
+
+describe('groupByPhaseGate', () => {
+    it('groups cards in PHASE_GATE_ORDER (ga → beta → alpha → community)', () => {
+        const registry = setupRegistry([
+            makePackWithPhase('a-alpha', 'alpha'),
+            makePackWithPhase('b-beta', 'beta'),
+            makePackWithPhase('c-ga', 'ga'),
+            makePackWithPhase('d-community', 'community-marketplace'),
+        ]);
+        const cards = buildPickerCards(registry, 'solo');
+        const groups = groupByPhaseGate(cards);
+        expect(groups.map((g) => g.phaseGate)).toEqual([
+            'ga',
+            'beta',
+            'alpha',
+            'community-marketplace',
+        ]);
+    });
+
+    it('omits empty phase gates from the result', () => {
+        const registry = setupRegistry([
+            makePackWithPhase('a-ga', 'ga'),
+            makePackWithPhase('b-ga', 'ga'),
+        ]);
+        const cards = buildPickerCards(registry, 'solo');
+        const groups = groupByPhaseGate(cards);
+        expect(groups.length).toBe(1);
+        expect(groups[0]?.phaseGate).toBe('ga');
+    });
+
+    it('returns empty array for empty input', () => {
+        expect(groupByPhaseGate([])).toEqual([]);
+    });
+
+    it('each group preserves card order from the input', () => {
+        const registry = setupRegistry([
+            makePackWithPhase('z-ga', 'ga'),
+            makePackWithPhase('a-ga', 'ga'),
+        ]);
+        const cards = buildPickerCards(registry, 'solo');
+        // buildPickerCards sorts by displayName asc → a then z.
+        const ga = groupByPhaseGate(cards).find((g) => g.phaseGate === 'ga')!;
+        expect(ga.cards.map((c) => c.id)).toEqual(['a-ga', 'z-ga']);
+    });
+});
+
+describe('summarizePickerCards', () => {
+    it('counts total / available / locked correctly', () => {
+        const registry = setupRegistry([
+            makePack({ id: 'pack-a', requiredPlanTier: 'solo' }),
+            makePack({ id: 'pack-b', requiredPlanTier: 'studio' }),
+            makePack({ id: 'pack-c', requiredPlanTier: 'enterprise' }),
+        ]);
+        const cards = buildPickerCards(registry, 'studio'); // unlocks 2/3
+        const summary = summarizePickerCards(cards);
+        expect(summary.total).toBe(3);
+        expect(summary.available).toBe(2);
+        expect(summary.locked).toBe(1);
+    });
+
+    it('categoryCount counts unique categories', () => {
+        const registry = setupRegistry([
+            makePack({ id: 'pack-a', category: 'residential' }),
+            makePack({ id: 'pack-b', category: 'residential' }),
+            makePack({ id: 'pack-c', category: 'workplace' }),
+        ]);
+        const cards = buildPickerCards(registry, 'solo');
+        expect(summarizePickerCards(cards).categoryCount).toBe(2);
+    });
+
+    it('marketplaceCount counts cards with marketplaceListing', () => {
+        const registry = setupRegistry([
+            makePack({ id: 'pack-a' }),
+            makePack({
+                id: 'pack-b',
+                marketplaceListing: {
+                    publisherId: 'pub',
+                    publishedAt: '2026-01-01T00:00:00.000Z',
+                    listingPath: 'l',
+                    pricing: { model: 'free' },
+                },
+            }),
+        ]);
+        const cards = buildPickerCards(registry, 'solo');
+        expect(summarizePickerCards(cards).marketplaceCount).toBe(1);
+    });
+
+    it('byPhaseGate breakdown matches input distribution', () => {
+        const registry = setupRegistry([
+            makePackWithPhase('a-ga', 'ga'),
+            makePackWithPhase('b-ga', 'ga'),
+            makePackWithPhase('c-beta', 'beta'),
+            makePackWithPhase('d-alpha', 'alpha'),
+        ]);
+        const cards = buildPickerCards(registry, 'solo');
+        const summary = summarizePickerCards(cards);
+        expect(summary.byPhaseGate.ga).toBe(2);
+        expect(summary.byPhaseGate.beta).toBe(1);
+        expect(summary.byPhaseGate.alpha).toBe(1);
+        expect(summary.byPhaseGate['community-marketplace']).toBe(0);
+    });
+
+    it('empty registry → all-zeros summary', () => {
+        const summary = summarizePickerCards([]);
+        expect(summary.total).toBe(0);
+        expect(summary.available).toBe(0);
+        expect(summary.locked).toBe(0);
+        expect(summary.categoryCount).toBe(0);
+        expect(summary.marketplaceCount).toBe(0);
+        expect(summary.byPhaseGate.ga).toBe(0);
+    });
+
+    it('available + locked sums to total', () => {
+        const registry = setupRegistry([
+            makePack({ id: 'pack-a', requiredPlanTier: 'solo' }),
+            makePack({ id: 'pack-b', requiredPlanTier: 'enterprise' }),
+            makePack({ id: 'pack-c', requiredPlanTier: 'mid-firm' }),
+        ]);
+        const cards = buildPickerCards(registry, 'studio');
+        const s = summarizePickerCards(cards);
+        expect(s.available + s.locked).toBe(s.total);
+    });
+});
