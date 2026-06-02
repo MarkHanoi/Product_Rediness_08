@@ -914,6 +914,9 @@ importers:
       '@astrojs/starlight':
         specifier: ^0.30.0
         version: 0.30.6(astro@5.18.1(@types/node@24.12.2)(jiti@1.21.7)(rollup@4.60.2)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.3))
+      '@pryzm/entitlements':
+        specifier: workspace:*
+        version: link:../../packages/entitlements
       astro:
         specifier: ^5.0.0
         version: 5.18.1(@types/node@24.12.2)(jiti@1.21.7)(rollup@4.60.2)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.3)
@@ -1589,6 +1592,19 @@ importers:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
+
+  packages/entitlements:
+    dependencies:
+      '@pryzm/schemas':
+        specifier: workspace:*
+        version: link:../schemas
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@24.12.2)(happy-dom@15.11.7)(jsdom@25.0.1)
 
   packages/eslint-plugin-pryzm:
     dependencies:
