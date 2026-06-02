@@ -24,7 +24,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const ROOT = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
+// A.U.20 — script lives at scripts/legacy-pryzm3/; ROOT is two levels up.
+const ROOT = new URL('../..', import.meta.url).pathname.replace(/\/$/, '');
 
 const BANNER = '─'.repeat(60);
 

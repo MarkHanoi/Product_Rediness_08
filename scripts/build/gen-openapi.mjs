@@ -42,7 +42,8 @@ import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = resolve(__dirname, '..');
+// A.U.20 — script lives at scripts/build/; REPO_ROOT is two levels up.
+const REPO_ROOT = resolve(__dirname, '..', '..');
 const YAML_PATH = resolve(REPO_ROOT, 'packages/api-spec/openapi.yaml');
 const JSON_OUT_PATH = resolve(REPO_ROOT, 'packages/api-spec/openapi.generated.json');
 const RBAC_INDEX_PATH = resolve(REPO_ROOT, 'packages/api-rbac/src/index.ts');

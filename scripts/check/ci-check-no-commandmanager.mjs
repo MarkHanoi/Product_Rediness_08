@@ -63,7 +63,8 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
-const ROOT = resolve(__dirname, '..');
+// A.U.20 — script lives at scripts/check/; ROOT is two levels up.
+const ROOT = resolve(__dirname, '..', '..');
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 

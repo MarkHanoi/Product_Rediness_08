@@ -48,7 +48,8 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const ROOT = resolve(__dirname, '..');
+// A.U.20 — script lives at scripts/legacy-pryzm3/; ROOT is two levels up.
+const ROOT = resolve(__dirname, '..', '..');
 const CFG_DIR = resolve(ROOT, 'tests/parity/wall/configs');
 const REF_DIR = resolve(ROOT, 'tests/parity/wall/references');
 const ENDPOINT = process.env.PRYZM1_CAPTURE_URL ?? 'http://localhost:5000/__parity/wall/capture';

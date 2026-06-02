@@ -36,7 +36,8 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = resolve(__dirname, '..');
+// A.U.20 — script lives at scripts/cutover/; REPO_ROOT is two levels up.
+const REPO_ROOT = resolve(__dirname, '..', '..');
 const MIGRATION_FILE = join(REPO_ROOT, 'apps', 'sync-server', 'migrations', '001_phase2_supabase.sql');
 const STREAK_FILE = join(REPO_ROOT, '.local', 'restore-verify-streak.json');
 const REQUIRED_BURN_IN_DAYS = Number(process.env.PRYZM_BURN_IN_DAYS_REQUIRED ?? 14);

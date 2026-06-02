@@ -42,7 +42,8 @@ import { fileURLToPath } from 'node:url';
 // ---------------------------------------------------------------------------
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = resolve(__dirname, '..');
+// A.U.20 — script lives at scripts/legacy-pryzm3/; REPO_ROOT is two levels up.
+const REPO_ROOT = resolve(__dirname, '..', '..');
 const WITH_TESTS = process.argv.includes('--with-tests');
 
 /**

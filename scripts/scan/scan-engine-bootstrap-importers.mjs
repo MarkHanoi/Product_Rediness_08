@@ -22,7 +22,8 @@ import { readdir, readFile, stat, writeFile, mkdir } from 'node:fs/promises';
 import { join, relative, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+// A.U.20 — script lives at scripts/scan/; REPO_ROOT is two levels up.
+const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const OUTPUT_JSON = join(REPO_ROOT, 'apps/editor/migrations/sunset-pryzm1.json');
 
 const SKIP_DIRS = new Set([

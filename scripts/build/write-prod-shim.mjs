@@ -24,7 +24,8 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const repoRoot = resolve(here, '..');
+// A.U.20 — script lives at scripts/build/; repoRoot is two levels up.
+const repoRoot = resolve(here, '..', '..');
 const outDir = resolve(repoRoot, 'dist');
 const outFile = resolve(outDir, 'index.cjs');
 

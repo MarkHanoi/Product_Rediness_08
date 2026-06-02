@@ -15,7 +15,8 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-const ROOT = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
+// A.U.20 — script lives at scripts/check/; ROOT is two levels up.
+const ROOT = new URL('../..', import.meta.url).pathname.replace(/\/$/, '');
 
 function srcFolderCount(): number {
   try {

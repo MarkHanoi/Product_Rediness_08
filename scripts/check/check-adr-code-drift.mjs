@@ -36,7 +36,8 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = resolve(__dirname, '..');
+// A.U.20 — script lives at scripts/check/; REPO_ROOT is two levels up.
+const REPO_ROOT = resolve(__dirname, '..', '..');
 const ADR_DIR = join(REPO_ROOT, 'docs', 'architecture', 'adr');
 
 const ANCHOR_RE =

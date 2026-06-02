@@ -36,7 +36,8 @@ import path from 'node:path';
 import url from 'node:url';
 
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
-const ROOT = path.resolve(__dirname, '..');
+// A.U.20 — script lives at scripts/check/; ROOT is two levels up.
+const ROOT = path.resolve(__dirname, '..', '..');
 const SRC  = path.join(ROOT, 'src');
 
 /* ────────────────────────────────────────────────────────────────────────── *

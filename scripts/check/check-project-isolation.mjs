@@ -15,7 +15,10 @@ import path from 'node:path';
 import url from 'node:url';
 
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
-const ROOT      = path.resolve(__dirname, '..');
+// A.U.20 — script moved from scripts/ to scripts/check/. Root now sits
+// two levels up from this file (..  was correct under the flat layout;
+// .. / ..  is correct under the new taxonomy).
+const ROOT      = path.resolve(__dirname, '..', '..');
 const SRC       = path.join(ROOT, 'src');
 const APPS_EDITOR_SRC = path.join(ROOT, 'apps/editor/src');
 
