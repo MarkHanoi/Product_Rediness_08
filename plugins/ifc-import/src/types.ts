@@ -5,11 +5,12 @@
  * (`docs/00_NEW_ARCHITECTURE/phases/PHASE-3B-Q2-M28-M30-IFC-REVIT-COMPONENT-EDITOR.md` §3.1).
  */
 
-/** Scalar value allowed inside an IFC Pset (`IfcPropertySingleValue.NominalValue`). */
-export type PsetValue = string | number | boolean | null;
-
-/** A single IFC property set (key = property name, value = scalar). */
-export type Pset = Record<string, PsetValue>;
+// A.R.3 (Revit round-trip) — bind to the canonical L0 shape via the plugin-sdk
+// (L6) facade so ifc-import, ifc-export, and the L3 IfcMetaStore (@pryzm/stores)
+// share ONE definition. Imported WITH the historical IFC* aliases so this file
+// can use them, and re-exported for downstream modules.
+import type { IfcElementMeta as IFCElementMeta, IfcElementTier as IFCElementTier, Pset, PsetValue } from '@pryzm/plugin-sdk';
+export type { IFCElementMeta, IFCElementTier, Pset, PsetValue };
 
 /**
  * Tier 2 transform-only proxy DTO emitted by `convertTier2Element`.
@@ -39,13 +40,12 @@ export interface IFCProxyDTO {
   tier: 2;
 }
 
-/**
- * Tier classification per [ADR 0023-second-tier-elements-triage].
- * Tier 1 = native conversion (wall, slab, door, window, column, beam).
- * Tier 2 = transform-only proxy (furniture, structural proxy, MEP equipment).
- * Tier 3 = library-mount only (no edit, no proxy).
- */
-export type IFCElementTier = 1 | 2 | 3;
+// `IFCElementTier` (1|2|3) is now the canonical `IfcElementTier` from
+// @pryzm/schemas/ifc — imported + re-exported at the top of this file.
+// Tier classification per [ADR 0023-second-tier-elements-triage]:
+//   Tier 1 = native conversion (wall, slab, door, window, column, beam).
+//   Tier 2 = transform-only proxy (furniture, structural proxy, MEP equipment).
+//   Tier 3 = library-mount only (no edit, no proxy).
 
 /**
  * IFC entity types that are imported as Tier 2 transform-only proxies.
@@ -79,17 +79,10 @@ export const TIER_2_IFC_TYPES = new Set<string>([
  * to keep the import side independent).  Round-trip works because the two
  * shapes are identity-compatible.
  */
-export interface IFCElementMeta {
-  pryzmElementId: string;
-  globalId: string;
-  typeName: string;
-  name?: string | undefined;
-  description?: string | undefined;
-  objectType?: string | undefined;
-  psets: Record<string, Pset>;
-  quantities?: Record<string, Record<string, number>> | undefined;
-  tier: IFCElementTier;
-}
+// `IFCElementMeta` is now the canonical `IfcElementMeta` from @pryzm/schemas/ifc
+// — imported + re-exported at the top of this file (the shape is identical:
+// pryzmElementId · globalId · typeName · name? · description? · objectType? ·
+// psets · quantities? · tier). One source of truth across import/export/store.
 
 /**
  * Population result of `populateMetaStoreFromBytes()`. The exporter side

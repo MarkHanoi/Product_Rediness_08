@@ -460,6 +460,11 @@ export type {
 // barrel) to avoid TS2308 duplicate-export ambiguity.
 export * from '@pryzm/schemas/annotation/dimension';
 export * from '@pryzm/schemas/view/view-template';
+// A.R.3 (Revit round-trip) — canonical IFC/Revit element-metadata shape so the
+// ifc-import / ifc-export plugins bind to ONE definition (also used by the L3
+// IfcMetaStore). Exposes IfcElementMeta · Pset · Qset · PsetValue ·
+// IfcElementTier · IfcMetaStoreSnapshot.
+export * from '@pryzm/schemas/ifc';
 
 // @pryzm/schemas/schedule — explicit list, excluding ScheduleId (already in main barrel)
 export {
