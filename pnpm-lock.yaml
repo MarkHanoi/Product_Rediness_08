@@ -3320,6 +3320,9 @@ importers:
       '@pryzm/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
+      '@pryzm/schemas':
+        specifier: workspace:*
+        version: link:../../packages/schemas
       web-ifc:
         specifier: ^0.0.77
         version: 0.0.77
