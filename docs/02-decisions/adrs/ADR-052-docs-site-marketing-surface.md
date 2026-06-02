@@ -2,8 +2,9 @@
 
 | Field | Value |
 |---|---|
-| Status | **ACCEPTED 2026-06-02** |
-| Closes | IP-A5 acceptance criteria (1) "pryzm.so redirect + landing pages work" |
+| Status | **SUPERSEDED 2026-06-02 by [ADR-055](./ADR-055-one-pryzm-cloudflare-supabase.md)** |
+| Closes | IP-A5 acceptance criteria (1) "pryzm.so redirect + landing pages work" (achieved; superseded by the one-PRYZM consolidation) |
+| Superseded by | **[ADR-055 — One PRYZM: hosted on Cloudflare + Supabase](./ADR-055-one-pryzm-cloudflare-supabase.md)**. Authored same day after the user flagged the drift trap ("there is only one app — one solution — PRYZM"). The decisions below remain historically accurate but the architecture they describe is being retired. See ADR-055 §7 for what gets deleted + when. |
 | Owner | Marketing surface · build & deployment infrastructure |
 | Constraint reference | C39 §1.13 (pricing page generated from registry); C43 §1.5 (a11y tokens canonical); C00 (docs taxonomy); C48 §2.x (recovery for public surfaces) |
 | Touches | `apps/docs-site/` · `docs/05-guides/deployments/` · root `package.json` (Cloudflare invocation) |

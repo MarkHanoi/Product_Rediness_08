@@ -1,43 +1,35 @@
 ---
-// IP-A3 iteration A.5.d — /start route: the public-facing RAC chatbot.
+// IP-A3 iteration A.5.d (redesigned 2026-06-02) — /start RAC chatbot.
 //
-// This is the "Build something" CTA destination. It mounts a draggable
-// + resizable canvas over the same purple-mesh background as the
-// landing, then runs the static mirror of the L3 RAC interview:
+// Next-gen visual redesign per user feedback ("looks from the 90s —
+// make it next-gen"). Same 4-step capture flow, completely new shell:
 //
-//   1. profile      — Architect · Engineer · Developer · Contractor · Owner · Student
-//   2. company size — Solo · 2-10 · 11-50 · 51-200 · 200+
-//   3. typology     — Apartment · House · Office (alpha gates surfaced)
-//   4. brief        — free-text 1-3 sentences; user can skip
-//   5. handoff      — summary card + "Continue in the editor →" CTA
+//   - dark inverted glass surface (was light frosted glass)
+//   - large display typography with variable weight contrast
+//   - pill chips with elevation + hover lift (not bordered boxes)
+//   - top step-progress dots (not text "Step 1 / 4")
+//   - smooth slide-in transitions between steps
+//   - asymmetric layout (heading + answer column instead of stacked)
+//   - subtle ambient glow around the canvas
 //
-// Why a static mirror rather than the editor's RACChatbotPanel:
-//   pryzm.so is served by Cloudflare Pages — it's a static surface.
-//   The editor's L5 RACChatbotPanel imports @pryzm/typology-pipeline
-//   (zod@4), which the docs-site dep closure deliberately excludes
-//   per ADR-052 §1.4. So this file is the static-friendly twin:
-//   same questions, same capture order, same handoff shape. The
-//   captured payload is shipped to app.pryzm.so on submit (future —
-//   today logs to the console + shows the summary).
+// Same flow:  role → team size → typology → brief → handoff
 //
-// The full editor flow (L3 racReducer + L5 RACChatbotPanel) lives at
-// apps/editor/src/ui/onboarding/RACChatbotPanel.ts and is the
-// authoritative implementation once the user enters the app.
+// Architectural note (the two-surface split):
+//   pryzm.so is the MARKETING apex (Cloudflare Pages static). The
+//   editor (Sign-in → Project Hub → Main Canvas) lives at
+//   app.pryzm.so via the Replit deployment. This /start surface is
+//   the BRIDGE — it captures the user's brief on the marketing site
+//   then hands off to the editor (today: redirect to /pricing; future:
+//   POST to /api/leads + open app.pryzm.so with a session token).
 //
-// MasterMiawW reference: the canvas pattern (draggable header +
-// resize-from-corner + frosted-glass surface) mirrors the
-// `ConversationCanvas.tsx` shape in artifacts/miaw/. Translate the
-// PATTERN, not the code (per repo memory).
-//
-// Astro renders this at build time — the only client-JS is the inline
-// IIFE at the bottom for drag/resize/state.
+// Documented in docs/01-strategy/UI-UX-ARCHITECTURE.md (A.M.0).
 ---
 
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>PRYZM — Start something</title>
+    <title>PRYZM — Build your world</title>
     <meta name="description" content="Tell PRYZM about your project. We'll route you to the right workflow." />
     <style>
       @property --b1x { syntax: '<percentage>'; initial-value: 5%;  inherits: false; }
@@ -59,6 +51,20 @@
         100% { --b1x:  5%; --b1y: 55%; --b2x: 92%; --b2y: 18%; --b3x: 72%; --b3y: 90%; --b4x: 40%; --b4y:  5%; --b5x: 25%; --b5y: 30%; --b6x: 78%; --b6y: 65%; }
       }
 
+      :root {
+        --ink: #0a0a14;
+        --ink-2: #14141f;
+        --ink-3: #1c1c2b;
+        --line: rgba(255, 255, 255, 0.08);
+        --line-2: rgba(255, 255, 255, 0.14);
+        --text-1: #ffffff;
+        --text-2: rgba(255, 255, 255, 0.72);
+        --text-3: rgba(255, 255, 255, 0.46);
+        --accent: #8c4dff;
+        --accent-2: #b89dfa;
+        --accent-glow: rgba(140, 77, 255, 0.45);
+      }
+
       * { box-sizing: border-box; }
       html, body { margin: 0; padding: 0; min-height: 100vh; overflow-x: hidden; }
       body {
@@ -72,6 +78,8 @@
           #f3f0ff;
         animation: mesh-flow 65s ease-in-out infinite;
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        font-feature-settings: "cv11", "ss01";
+        -webkit-font-smoothing: antialiased;
         color: #0b0b12;
         min-height: 100vh;
       }
@@ -87,210 +95,427 @@
         z-index: 5;
       }
       .brand {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.6rem;
-        color: #0b0b12;
-        text-decoration: none;
-        font-weight: 800;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        font-size: 1rem;
+        display: inline-flex; align-items: center; gap: 0.6rem;
+        color: #0b0b12; text-decoration: none;
+        font-weight: 800; letter-spacing: 0.12em;
+        text-transform: uppercase; font-size: 1rem;
       }
       .brand-icon { width: 22px; height: 22px; }
       nav.site-links { display: flex; gap: 1.4rem; align-items: center; }
       nav.site-links a {
         color: rgba(11, 11, 18, 0.7);
-        text-decoration: none;
-        font-weight: 500;
-        font-size: 0.92rem;
+        text-decoration: none; font-weight: 500; font-size: 0.92rem;
       }
       nav.site-links a:hover { color: #6600ff; }
 
-      /* ── The chat canvas — draggable + resizable, frosted glass ── */
+      /* ── The canvas — dark inverted glass with ambient glow ── */
       .canvas {
         position: fixed;
         top: 50%; left: 50%;
         transform: translate(-50%, -50%);
-        width: min(560px, calc(100vw - 32px));
-        height: min(620px, calc(100vh - 32px));
+        width: min(640px, calc(100vw - 32px));
+        height: min(680px, calc(100vh - 32px));
         min-width: 380px;
-        min-height: 480px;
+        min-height: 520px;
         max-width: calc(100vw - 16px);
         max-height: calc(100vh - 16px);
-        background: rgba(255, 255, 255, 0.55);
-        backdrop-filter: blur(24px);
-        -webkit-backdrop-filter: blur(24px);
-        border: 1px solid rgba(196, 181, 253, 0.45);
-        border-radius: 14px;
-        box-shadow: 0 24px 80px rgba(60, 10, 160, 0.18), 0 2px 8px rgba(60, 10, 160, 0.08);
+        background:
+          linear-gradient(180deg, rgba(28, 28, 43, 0.92) 0%, rgba(20, 20, 31, 0.94) 100%);
+        backdrop-filter: blur(40px) saturate(140%);
+        -webkit-backdrop-filter: blur(40px) saturate(140%);
+        border: 1px solid var(--line-2);
+        border-radius: 22px;
+        box-shadow:
+          0 40px 100px rgba(60, 10, 160, 0.28),
+          0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+          0 -20px 80px rgba(140, 77, 255, 0.15) inset;
         display: flex;
         flex-direction: column;
         overflow: hidden;
-        animation: canvas-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+        animation: canvas-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
         z-index: 10;
+        color: var(--text-1);
       }
       @keyframes canvas-in {
-        from { opacity: 0; transform: translate(-50%, -45%) scale(0.96); }
+        from { opacity: 0; transform: translate(-50%, -46%) scale(0.94); }
         to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
       }
+
+      /* Ambient glow behind the canvas */
+      .canvas::before {
+        content: '';
+        position: absolute;
+        inset: -40px;
+        background:
+          radial-gradient(ellipse 80% 50% at 50% 0%, var(--accent-glow), transparent 70%),
+          radial-gradient(ellipse 60% 40% at 50% 100%, rgba(184, 157, 250, 0.3), transparent 70%);
+        z-index: -1;
+        pointer-events: none;
+        filter: blur(20px);
+      }
+
       .canvas-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 12px 16px;
-        background: rgba(102, 0, 255, 0.06);
-        border-bottom: 1px solid rgba(196, 181, 253, 0.3);
+        padding: 18px 24px 14px;
         cursor: grab;
         user-select: none;
+        border-bottom: 1px solid var(--line);
       }
       .canvas-header.dragging { cursor: grabbing; }
-      .canvas-title {
-        font-size: 0.82rem;
+      .canvas-eyebrow {
+        font-size: 0.7rem;
         font-weight: 600;
-        letter-spacing: 0.04em;
+        letter-spacing: 0.16em;
         text-transform: uppercase;
-        color: rgba(11, 11, 18, 0.74);
-      }
-      .canvas-phase-chip {
-        display: inline-block;
-        padding: 3px 10px;
-        margin-left: 10px;
-        background: rgba(102, 0, 255, 0.12);
-        color: #6600ff;
-        border-radius: 999px;
-        font-size: 0.72rem;
-        font-weight: 600;
-        letter-spacing: 0.03em;
+        color: var(--accent-2);
       }
       .canvas-close {
-        background: none;
-        border: none;
-        color: rgba(11, 11, 18, 0.55);
-        font-size: 1.4rem;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid var(--line);
+        color: var(--text-2);
+        width: 32px; height: 32px;
+        border-radius: 8px;
+        font-size: 1.25rem;
         line-height: 1;
         cursor: pointer;
-        padding: 4px 8px;
-        border-radius: 6px;
-        transition: background 0.12s, color 0.12s;
+        display: flex; align-items: center; justify-content: center;
+        transition: background 0.15s, color 0.15s, border-color 0.15s;
       }
-      .canvas-close:hover { background: rgba(102, 0, 255, 0.1); color: #6600ff; }
+      .canvas-close:hover { background: rgba(255, 255, 255, 0.12); color: var(--text-1); border-color: var(--line-2); }
+
+      /* Step-progress dots */
+      .progress-dots {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0 24px 0;
+        margin-top: 16px;
+      }
+      .dot {
+        height: 3px;
+        flex: 1;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 999px;
+        position: relative;
+        overflow: hidden;
+        transition: background 0.3s;
+      }
+      .dot.active::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(90deg, var(--accent), var(--accent-2));
+        border-radius: 999px;
+        animation: dot-fill 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+      .dot.done { background: var(--accent); }
+      @keyframes dot-fill {
+        from { transform: translateX(-100%); }
+        to   { transform: translateX(0); }
+      }
 
       .canvas-body {
         flex: 1;
         overflow-y: auto;
-        padding: 24px 22px 16px;
+        padding: 32px 32px 16px;
+        scroll-behavior: smooth;
       }
-      .step-prompt {
-        font-size: 1rem;
-        color: #0b0b12;
-        margin: 0 0 14px;
-        line-height: 1.45;
-      }
-      .step-prompt .accent { color: #6600ff; font-weight: 600; }
-      .options {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-        gap: 8px;
-        margin-bottom: 16px;
-      }
-      .option-btn {
-        padding: 10px 14px;
-        background: rgba(255, 255, 255, 0.7);
-        border: 1px solid rgba(196, 181, 253, 0.55);
-        border-radius: 8px;
-        color: #0b0b12;
-        font-weight: 500;
-        font-size: 0.92rem;
-        cursor: pointer;
-        text-align: left;
-        font-family: inherit;
-        transition: background 0.12s, border-color 0.12s, transform 0.06s;
-      }
-      .option-btn:hover { background: rgba(255, 255, 255, 0.92); border-color: #6600ff; color: #6600ff; }
-      .option-btn:active { transform: translateY(1px); }
-      .option-btn.selected { background: #6600ff; color: #fff; border-color: #6600ff; }
+      .canvas-body::-webkit-scrollbar { width: 6px; }
+      .canvas-body::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 3px; }
 
+      .step {
+        animation: step-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+      @keyframes step-in {
+        from { opacity: 0; transform: translateY(8px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+
+      .eyebrow {
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--text-3);
+        margin: 0 0 12px;
+      }
+      .display {
+        font-size: clamp(1.65rem, 3.2vw, 2.15rem);
+        font-weight: 700;
+        line-height: 1.15;
+        letter-spacing: -0.02em;
+        color: var(--text-1);
+        margin: 0 0 6px;
+      }
+      .display em {
+        font-style: normal;
+        background: linear-gradient(90deg, var(--accent), var(--accent-2));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+      .sub {
+        font-size: 0.95rem;
+        color: var(--text-2);
+        line-height: 1.5;
+        margin: 0 0 26px;
+        max-width: 38ch;
+      }
+
+      /* Pill chips — modern, elevated, hover-lift */
+      .pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+      .pill {
+        --pill-bg: rgba(255, 255, 255, 0.05);
+        --pill-border: rgba(255, 255, 255, 0.10);
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 11px 18px;
+        background: var(--pill-bg);
+        border: 1px solid var(--pill-border);
+        border-radius: 999px;
+        color: var(--text-1);
+        font-weight: 500;
+        font-size: 0.93rem;
+        cursor: pointer;
+        font-family: inherit;
+        transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+                    background 0.18s, border-color 0.18s,
+                    box-shadow 0.18s;
+        position: relative;
+      }
+      .pill:hover {
+        background: rgba(255, 255, 255, 0.10);
+        border-color: rgba(255, 255, 255, 0.22);
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+      }
+      .pill.selected {
+        background: linear-gradient(135deg, var(--accent), #6f2bdd);
+        border-color: transparent;
+        box-shadow:
+          0 8px 24px rgba(140, 77, 255, 0.4),
+          0 0 0 1px rgba(255, 255, 255, 0.18) inset;
+      }
+      .pill.selected::before {
+        content: '';
+        width: 6px; height: 6px;
+        background: #fff;
+        border-radius: 999px;
+        box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+      }
+
+      /* Card-style typology pills (larger, with subtext) */
+      .typ-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 10px;
+      }
+      .typ-card {
+        --card-bg: rgba(255, 255, 255, 0.04);
+        --card-border: rgba(255, 255, 255, 0.08);
+        text-align: left;
+        padding: 16px 18px;
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 14px;
+        color: var(--text-1);
+        cursor: pointer;
+        font-family: inherit;
+        transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+                    background 0.18s, border-color 0.18s,
+                    box-shadow 0.18s;
+      }
+      .typ-card:hover {
+        background: rgba(255, 255, 255, 0.07);
+        border-color: rgba(255, 255, 255, 0.18);
+        transform: translateY(-2px);
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+      }
+      .typ-card.selected {
+        background: linear-gradient(135deg, rgba(140, 77, 255, 0.22), rgba(184, 157, 250, 0.12));
+        border-color: var(--accent);
+        box-shadow: 0 0 0 1px var(--accent) inset, 0 12px 30px rgba(140, 77, 255, 0.32);
+      }
+      .typ-card-name { font-weight: 600; font-size: 1rem; margin-bottom: 4px; display: block; }
+      .typ-card-gate {
+        font-size: 0.74rem;
+        color: var(--text-3);
+        letter-spacing: 0.02em;
+      }
+      .typ-card.selected .typ-card-gate { color: var(--accent-2); }
+
+      /* Text input */
       .text-input {
         width: 100%;
-        padding: 10px 12px;
-        background: rgba(255, 255, 255, 0.85);
-        border: 1px solid rgba(196, 181, 253, 0.6);
-        border-radius: 8px;
-        font-size: 0.95rem;
+        padding: 14px 16px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        font-size: 0.98rem;
         font-family: inherit;
-        color: #0b0b12;
-        resize: none;
-        min-height: 88px;
+        color: var(--text-1);
+        resize: vertical;
+        min-height: 100px;
         outline: none;
+        transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
       }
-      .text-input:focus { border-color: #6600ff; box-shadow: 0 0 0 3px rgba(102, 0, 255, 0.12); }
+      .text-input::placeholder { color: var(--text-3); }
+      .text-input:focus {
+        border-color: var(--accent);
+        background: rgba(255, 255, 255, 0.06);
+        box-shadow: 0 0 0 4px rgba(140, 77, 255, 0.18);
+      }
 
-      .transcript {
-        margin-bottom: 16px;
+      .captured-strip {
+        margin-top: 14px;
+        font-size: 0.82rem;
+        color: var(--text-3);
+        font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
       }
-      .turn {
-        font-size: 0.86rem;
-        margin: 6px 0;
-        line-height: 1.4;
-        color: rgba(11, 11, 18, 0.78);
+      .captured-strip strong {
+        color: var(--accent-2);
+        font-weight: 500;
       }
-      .turn-pryzm { color: #6600ff; font-weight: 500; }
-      .turn-user { color: rgba(11, 11, 18, 0.88); padding-left: 14px; }
 
+      /* Summary card (done state) */
+      .summary {
+        display: grid;
+        gap: 14px;
+        padding: 22px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        margin-bottom: 18px;
+      }
+      .summary-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 12px;
+      }
+      .summary-row .k {
+        font-size: 0.74rem;
+        color: var(--text-3);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        font-weight: 500;
+      }
+      .summary-row .v {
+        font-size: 1rem;
+        color: var(--text-1);
+        font-weight: 600;
+        text-align: right;
+      }
+      .summary-brief {
+        grid-column: 1 / -1;
+        padding-top: 14px;
+        border-top: 1px solid var(--line);
+      }
+      .summary-brief .k {
+        display: block; margin-bottom: 6px;
+        font-size: 0.74rem;
+        color: var(--text-3);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        font-weight: 500;
+      }
+      .summary-brief .v {
+        font-size: 0.95rem;
+        font-weight: 400;
+        color: var(--text-2);
+        line-height: 1.5;
+      }
+      .next-step-hint {
+        padding: 16px 18px;
+        background: linear-gradient(135deg, rgba(140, 77, 255, 0.10), rgba(184, 157, 250, 0.04));
+        border: 1px solid rgba(140, 77, 255, 0.22);
+        border-radius: 12px;
+        color: var(--text-2);
+        font-size: 0.9rem;
+        line-height: 1.55;
+      }
+      .next-step-hint strong { color: var(--accent-2); font-weight: 600; }
+
+      /* Footer */
       .canvas-footer {
-        padding: 12px 22px 14px;
-        border-top: 1px solid rgba(196, 181, 253, 0.3);
+        padding: 18px 24px 22px;
+        border-top: 1px solid var(--line);
         display: flex;
         align-items: center;
         justify-content: space-between;
-        background: rgba(255, 255, 255, 0.3);
+        gap: 12px;
       }
       .back-btn {
-        background: none;
+        background: transparent;
         border: none;
-        color: rgba(11, 11, 18, 0.55);
-        font-size: 0.85rem;
-        cursor: pointer;
-        padding: 6px 0;
-        font-family: inherit;
-      }
-      .back-btn:hover { color: #6600ff; }
-      .back-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-      .next-btn {
-        background: #6600ff;
-        color: #fff;
-        border: none;
-        padding: 8px 18px;
-        border-radius: 999px;
-        font-weight: 600;
+        color: var(--text-3);
         font-size: 0.88rem;
         cursor: pointer;
+        padding: 8px 4px;
         font-family: inherit;
-        transition: background 0.12s, filter 0.12s;
+        transition: color 0.15s;
       }
-      .next-btn:hover { background: #7d2bff; filter: brightness(1.05); }
-      .next-btn:disabled { background: rgba(11, 11, 18, 0.2); cursor: not-allowed; }
-
-      .summary-card {
-        background: rgba(255, 255, 255, 0.7);
-        border: 1px solid rgba(196, 181, 253, 0.5);
-        border-radius: 10px;
-        padding: 16px 18px;
-        margin-bottom: 14px;
+      .back-btn:hover { color: var(--text-1); }
+      .back-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+      .next-btn {
+        background: linear-gradient(135deg, var(--accent), #6f2bdd);
+        color: #fff;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 999px;
+        font-weight: 600;
+        font-size: 0.92rem;
+        cursor: pointer;
+        font-family: inherit;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: transform 0.12s, filter 0.12s, box-shadow 0.18s;
+        box-shadow: 0 8px 20px rgba(140, 77, 255, 0.32);
       }
-      .summary-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 0.9rem; }
-      .summary-key { color: rgba(11, 11, 18, 0.6); }
-      .summary-val { color: #0b0b12; font-weight: 600; }
+      .next-btn:hover {
+        filter: brightness(1.1);
+        transform: translateY(-1px);
+        box-shadow: 0 12px 28px rgba(140, 77, 255, 0.42);
+      }
+      .next-btn:disabled {
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--text-3);
+        cursor: not-allowed;
+        box-shadow: none;
+        transform: none;
+        filter: none;
+      }
+      .next-btn .arrow {
+        transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      .next-btn:hover:not(:disabled) .arrow { transform: translateX(3px); }
 
-      /* Resize handle in the bottom-right corner */
+      /* Resize handle */
       .resize-handle {
         position: absolute;
-        right: 0; bottom: 0;
-        width: 18px; height: 18px;
+        right: 4px; bottom: 4px;
+        width: 14px; height: 14px;
         cursor: nwse-resize;
         background:
-          linear-gradient(135deg, transparent 50%, rgba(102, 0, 255, 0.35) 50%, rgba(102, 0, 255, 0.35) 62%, transparent 62%, transparent 72%, rgba(102, 0, 255, 0.35) 72%, rgba(102, 0, 255, 0.35) 82%, transparent 82%);
+          linear-gradient(135deg, transparent 50%, rgba(255, 255, 255, 0.18) 50%, rgba(255, 255, 255, 0.18) 60%, transparent 60%, transparent 72%, rgba(255, 255, 255, 0.18) 72%, rgba(255, 255, 255, 0.18) 82%, transparent 82%);
+        border-radius: 0 0 16px 0;
+      }
+
+      @media (max-width: 640px) {
+        .canvas { width: calc(100vw - 16px); height: calc(100vh - 16px); border-radius: 18px; }
+        .canvas-body { padding: 24px 20px 12px; }
+        .display { font-size: 1.4rem; }
+        .canvas-header { padding: 14px 18px 12px; }
+        .canvas-footer { padding: 14px 18px 18px; }
       }
     </style>
   </head>
@@ -313,144 +538,178 @@
 
     <section class="canvas" id="rac-canvas" role="dialog" aria-label="PRYZM onboarding interview">
       <header class="canvas-header" id="rac-header">
-        <div>
-          <span class="canvas-title">Tell us about your project</span>
-          <span class="canvas-phase-chip" id="rac-phase-chip">Step 1 / 4</span>
-        </div>
+        <span class="canvas-eyebrow">Build your world · Interview</span>
         <button class="canvas-close" id="rac-close" aria-label="Close">×</button>
       </header>
-      <div class="canvas-body" id="rac-body">
-        <!-- step content injected here -->
+      <div class="progress-dots" id="rac-dots">
+        <div class="dot" data-step="0"></div>
+        <div class="dot" data-step="1"></div>
+        <div class="dot" data-step="2"></div>
+        <div class="dot" data-step="3"></div>
       </div>
+      <div class="canvas-body" id="rac-body"></div>
       <footer class="canvas-footer">
         <button class="back-btn" id="rac-back" disabled>← Back</button>
-        <button class="next-btn" id="rac-next" disabled>Next →</button>
+        <button class="next-btn" id="rac-next" disabled>
+          <span class="next-label">Continue</span>
+          <span class="arrow">→</span>
+        </button>
       </footer>
       <div class="resize-handle" id="rac-resize" aria-hidden="true"></div>
     </section>
 
     <script>
-      // ── State ────────────────────────────────────────────────────
       const STEPS = ['role', 'companySize', 'typology', 'brief', 'done'];
       const ROLE_OPTIONS = ['Architect', 'Engineer', 'Developer', 'Contractor', 'Owner', 'Student'];
       const COMPANY_SIZE_OPTIONS = ['Solo', '2–10', '11–50', '51–200', '200+'];
       const TYPOLOGY_OPTIONS = [
-        { id: 'apartment', label: 'Apartment', gate: 'alpha-ready' },
-        { id: 'house', label: 'House', gate: 'next sprint' },
-        { id: 'small-office', label: 'Small office', gate: 'next sprint' },
+        { id: 'apartment',    label: 'Apartment',    gate: 'Alpha · ready' },
+        { id: 'house',        label: 'House',        gate: 'Next sprint' },
+        { id: 'small-office', label: 'Small office', gate: 'Next sprint' },
       ];
 
-      const state = {
-        stepIdx: 0,
-        role: null,
-        companySize: null,
-        typology: null,
-        brief: '',
-      };
+      const state = { stepIdx: 0, role: null, companySize: null, typology: null, brief: '' };
 
-      const $body = document.getElementById('rac-body');
-      const $chip = document.getElementById('rac-phase-chip');
-      const $back = document.getElementById('rac-back');
-      const $next = document.getElementById('rac-next');
+      const $body  = document.getElementById('rac-body');
+      const $back  = document.getElementById('rac-back');
+      const $next  = document.getElementById('rac-next');
       const $close = document.getElementById('rac-close');
+      const $nextLabel = $next.querySelector('.next-label');
 
       function step() { return STEPS[state.stepIdx]; }
-
       function canAdvance() {
         switch (step()) {
           case 'role':        return !!state.role;
           case 'companySize': return !!state.companySize;
           case 'typology':    return !!state.typology;
-          case 'brief':       return true; // brief is optional
+          case 'brief':       return true;
           case 'done':        return false;
         }
       }
 
-      function render() {
-        $chip.textContent = step() === 'done' ? 'Done' : `Step ${state.stepIdx + 1} / 4`;
-        $back.disabled = state.stepIdx === 0 || step() === 'done';
-        $next.disabled = !canAdvance();
-        $next.textContent = step() === 'brief' ? 'Finish →' : step() === 'done' ? 'Continue in editor →' : 'Next →';
+      function renderDots() {
+        document.querySelectorAll('.dot').forEach((el, i) => {
+          el.classList.toggle('active', i === state.stepIdx && state.stepIdx < 4);
+          el.classList.toggle('done',   i <  state.stepIdx);
+        });
+      }
 
-        if (step() === 'role') {
-          $body.innerHTML = `
-            <p class="step-prompt">First — who's <span class="accent">building</span>? Pick the role that fits best.</p>
-            <div class="options" id="role-opts"></div>
-          `;
-          const $opts = document.getElementById('role-opts');
-          ROLE_OPTIONS.forEach(r => {
-            const b = document.createElement('button');
-            b.type = 'button';
-            b.className = 'option-btn' + (state.role === r ? ' selected' : '');
-            b.textContent = r;
-            b.addEventListener('click', () => { state.role = r; render(); });
-            $opts.appendChild(b);
-          });
-        } else if (step() === 'companySize') {
-          $body.innerHTML = `
-            <p class="step-prompt">How big is the <span class="accent">team</span>?</p>
-            <div class="options" id="size-opts"></div>
-          `;
-          const $opts = document.getElementById('size-opts');
-          COMPANY_SIZE_OPTIONS.forEach(s => {
-            const b = document.createElement('button');
-            b.type = 'button';
-            b.className = 'option-btn' + (state.companySize === s ? ' selected' : '');
-            b.textContent = s;
-            b.addEventListener('click', () => { state.companySize = s; render(); });
-            $opts.appendChild(b);
-          });
-        } else if (step() === 'typology') {
-          $body.innerHTML = `
-            <p class="step-prompt">What are you <span class="accent">designing</span>?</p>
-            <div class="options" id="typ-opts"></div>
-            <p style="font-size:0.8rem;color:rgba(11,11,18,0.5);margin:8px 0 0">More typologies (house, office, retail, school…) ship through Phase B + C — track on /manifesto.</p>
-          `;
-          const $opts = document.getElementById('typ-opts');
-          TYPOLOGY_OPTIONS.forEach(t => {
-            const b = document.createElement('button');
-            b.type = 'button';
-            b.className = 'option-btn' + (state.typology === t.id ? ' selected' : '');
-            b.innerHTML = `<div style="font-weight:600">${t.label}</div><div style="font-size:0.78rem;color:rgba(11,11,18,0.55);margin-top:3px">${t.gate}</div>`;
-            b.addEventListener('click', () => { state.typology = t.id; render(); });
-            $opts.appendChild(b);
-          });
-        } else if (step() === 'brief') {
-          const captured = `Captured so far → ${state.role} · ${state.companySize} · ${state.typology}`;
-          $body.innerHTML = `
-            <p class="step-prompt">Anything we should know about the <span class="accent">project</span>? Size, bedrooms, style — whatever's top of mind. <span style="opacity:0.55;font-size:0.85em">(optional)</span></p>
-            <textarea class="text-input" id="brief-input" placeholder="e.g. 2-bed apartment, 70m², modern style, south-facing balcony…"></textarea>
-            <p style="font-size:0.78rem;color:rgba(11,11,18,0.5);margin-top:10px">${captured}</p>
-          `;
+      function renderRole() {
+        return `
+          <div class="step">
+            <p class="eyebrow">01 · Profile</p>
+            <h2 class="display">Who's <em>building</em>?</h2>
+            <p class="sub">Pick the role that fits best. We'll tailor the workflow.</p>
+            <div class="pills" id="role-pills"></div>
+          </div>`;
+      }
+      function renderCompanySize() {
+        return `
+          <div class="step">
+            <p class="eyebrow">02 · Team</p>
+            <h2 class="display">How <em>big</em> is the team?</h2>
+            <p class="sub">Solo · small studio · growing firm. The tier we suggest depends on this.</p>
+            <div class="pills" id="size-pills"></div>
+          </div>`;
+      }
+      function renderTypology() {
+        return `
+          <div class="step">
+            <p class="eyebrow">03 · Project</p>
+            <h2 class="display">What are you <em>designing</em>?</h2>
+            <p class="sub">More typologies (retail · school · gym · clinic) ship through Phase B + C.</p>
+            <div class="typ-grid" id="typ-grid"></div>
+          </div>`;
+      }
+      function renderBrief() {
+        const cap = `<strong>${state.role}</strong> · <strong>${state.companySize}</strong> · <strong>${state.typology}</strong>`;
+        return `
+          <div class="step">
+            <p class="eyebrow">04 · Brief <span style="color:var(--text-3);font-weight:400;text-transform:none;letter-spacing:0">— optional</span></p>
+            <h2 class="display">Anything we should <em>know</em>?</h2>
+            <p class="sub">Size, bedrooms, style, vibe — anything top of mind. Skip it and we'll ask in the editor.</p>
+            <textarea class="text-input" id="brief-input" placeholder="e.g. 2-bed apartment · 70 m² · modern · south-facing balcony"></textarea>
+            <div class="captured-strip">Captured · ${cap}</div>
+          </div>`;
+      }
+      function renderDone() {
+        return `
+          <div class="step">
+            <p class="eyebrow">Captured</p>
+            <h2 class="display">Good. Next stop — your <em>site</em>.</h2>
+            <p class="sub">We'll pin the project location and trace the parcel boundary, then open the canvas with the site already loaded.</p>
+            <div class="summary">
+              <div class="summary-row"><span class="k">Role</span><span class="v">${state.role}</span></div>
+              <div class="summary-row"><span class="k">Team</span><span class="v">${state.companySize}</span></div>
+              <div class="summary-row"><span class="k">Project</span><span class="v">${state.typology}</span></div>
+              ${state.brief ? `<div class="summary-brief"><span class="k">Brief</span><span class="v">${state.brief.replace(/</g, '&lt;')}</span></div>` : ''}
+            </div>
+            <div class="next-step-hint">
+              <strong>Next →</strong> the editor lives at <strong>app.pryzm.so</strong> (alpha · invitation only). Hit <em>Continue</em> to join the waitlist with your brief attached.
+            </div>
+          </div>`;
+      }
+
+      function attachPills($host, options, selectedKey, onPick) {
+        options.forEach(opt => {
+          const isObj = typeof opt === 'object';
+          const label = isObj ? opt.label : opt;
+          const value = isObj ? opt.id    : opt;
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'pill' + (state[selectedKey] === value ? ' selected' : '');
+          b.textContent = label;
+          b.addEventListener('click', () => { onPick(value); render(); });
+          $host.appendChild(b);
+        });
+      }
+      function attachTypCards($host) {
+        TYPOLOGY_OPTIONS.forEach(t => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'typ-card' + (state.typology === t.id ? ' selected' : '');
+          b.innerHTML = `<span class="typ-card-name">${t.label}</span><span class="typ-card-gate">${t.gate}</span>`;
+          b.addEventListener('click', () => { state.typology = t.id; render(); });
+          $host.appendChild(b);
+        });
+      }
+
+      function render() {
+        const s = step();
+        if (s === 'role')             $body.innerHTML = renderRole();
+        else if (s === 'companySize') $body.innerHTML = renderCompanySize();
+        else if (s === 'typology')    $body.innerHTML = renderTypology();
+        else if (s === 'brief')       $body.innerHTML = renderBrief();
+        else if (s === 'done')        $body.innerHTML = renderDone();
+
+        if (s === 'role')        attachPills(document.getElementById('role-pills'), ROLE_OPTIONS, 'role',        v => state.role = v);
+        if (s === 'companySize') attachPills(document.getElementById('size-pills'), COMPANY_SIZE_OPTIONS, 'companySize', v => state.companySize = v);
+        if (s === 'typology')    attachTypCards(document.getElementById('typ-grid'));
+        if (s === 'brief') {
           const $ta = document.getElementById('brief-input');
           if ($ta) {
             $ta.value = state.brief;
             $ta.addEventListener('input', e => { state.brief = e.target.value; });
-            $ta.focus();
+            setTimeout(() => $ta.focus(), 50);
           }
-        } else if (step() === 'done') {
-          $body.innerHTML = `
-            <p class="step-prompt"><span class="accent">Got it.</span> When the editor opens we'll pre-load your apartment workflow with this brief.</p>
-            <div class="summary-card">
-              <div class="summary-row"><span class="summary-key">Role</span><span class="summary-val">${state.role}</span></div>
-              <div class="summary-row"><span class="summary-key">Team size</span><span class="summary-val">${state.companySize}</span></div>
-              <div class="summary-row"><span class="summary-key">Project type</span><span class="summary-val">${state.typology}</span></div>
-              ${state.brief ? `<div class="summary-row" style="flex-direction:column;align-items:flex-start;gap:4px"><span class="summary-key">Brief</span><span class="summary-val" style="font-weight:400;font-size:0.85rem;color:rgba(11,11,18,0.78);text-align:left">${state.brief.replace(/</g,'&lt;')}</span></div>` : ''}
-            </div>
-            <p style="font-size:0.82rem;color:rgba(11,11,18,0.55);line-height:1.45">The editor lives at <strong>app.pryzm.so</strong> (alpha — invitation only). Hit <em>Continue in editor</em> to join the waitlist with your brief attached, or browse <a href="/pricing" style="color:#6600ff">pricing</a> first.</p>
-          `;
         }
+
+        renderDots();
+        $back.disabled = state.stepIdx === 0 || s === 'done';
+        $next.disabled = !canAdvance();
+        $nextLabel.textContent =
+          s === 'brief' ? 'Finish' :
+          s === 'done'  ? 'Continue in editor' :
+                          'Continue';
       }
 
       $next.addEventListener('click', () => {
-        if (!canAdvance() && step() !== 'done') return;
         if (step() === 'done') {
-          // Future — POST to /api/leads with the captured payload.
-          // Today: log + bounce to a waitlist page (placeholder = manifesto).
           console.log('[rac-canvas] captured', state);
           window.location.href = '/manifesto';
           return;
         }
+        if (!canAdvance()) return;
         state.stepIdx = Math.min(state.stepIdx + 1, STEPS.length - 1);
         render();
       });
@@ -476,15 +735,15 @@
         $header.classList.add('dragging');
         $canvas.style.transform = 'none';
         $canvas.style.left = r.left + 'px';
-        $canvas.style.top = r.top + 'px';
+        $canvas.style.top  = r.top  + 'px';
         e.preventDefault();
       });
       window.addEventListener('mousemove', (e) => {
         if (!drag) return;
-        const x = Math.max(0, Math.min(window.innerWidth - 100, e.clientX - drag.dx));
-        const y = Math.max(0, Math.min(window.innerHeight - 60, e.clientY - drag.dy));
+        const x = Math.max(0, Math.min(window.innerWidth  - 100, e.clientX - drag.dx));
+        const y = Math.max(0, Math.min(window.innerHeight -  60, e.clientY - drag.dy));
         $canvas.style.left = x + 'px';
-        $canvas.style.top = y + 'px';
+        $canvas.style.top  = y + 'px';
       });
       window.addEventListener('mouseup', () => {
         if (drag) { drag = null; $header.classList.remove('dragging'); }
@@ -498,9 +757,9 @@
       });
       window.addEventListener('mousemove', (e) => {
         if (!resize) return;
-        const w = Math.max(380, Math.min(window.innerWidth - 20, resize.w + (e.clientX - resize.startX)));
-        const h = Math.max(420, Math.min(window.innerHeight - 20, resize.h + (e.clientY - resize.startY)));
-        $canvas.style.width = w + 'px';
+        const w = Math.max(380, Math.min(window.innerWidth  - 20, resize.w + (e.clientX - resize.startX)));
+        const h = Math.max(520, Math.min(window.innerHeight - 20, resize.h + (e.clientY - resize.startY)));
+        $canvas.style.width  = w + 'px';
         $canvas.style.height = h + 'px';
       });
       window.addEventListener('mouseup', () => { if (resize) resize = null; });

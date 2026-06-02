@@ -1,0 +1,75 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# deploy-fly.yml — Continuous deployment to Fly.io.
+#
+# Canonical contract: ADR-055 (docs/02-decisions/adrs/ADR-055-one-pryzm-cloudflare-supabase.md).
+# Trigger: every push to `main`. Build + image creation happen on Fly's
+# remote builder (`--remote-only`), so this runner is just a thin orchestrator.
+#
+# Prerequisites (one-time setup):
+#   1. `flyctl auth token` → store output as the `FLY_API_TOKEN` repo secret.
+#   2. `flyctl secrets set` for every runtime env var listed in fly.toml's header.
+#   3. The `pryzm` app exists in the Fly org (`flyctl apps create pryzm`).
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: Deploy to Fly.io
+
+on:
+  push:
+    branches:
+      - main
+  # Manual trigger is intentional — lets a maintainer redeploy without a
+  # no-op commit (useful when only secrets changed, or to roll back via
+  # `flyctl deploy --image registry.fly.io/pryzm:deployment-XYZ`).
+  workflow_dispatch:
+
+# Serialize deploys on the `main` ref. Without this, two close-together
+# pushes both kick off a `flyctl deploy`, and the second one races the first
+# at the Fly registry (the loser uploads a stale image and clobbers a good one).
+# `cancel-in-progress: true` means: if a newer commit lands while an older
+# deploy is mid-flight, cancel the older one — main always wins.
+concurrency:
+  group: deploy-fly-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: flyctl deploy --remote-only
+    runs-on: ubuntu-latest
+    # Hard ceiling — remote-build + machine bounce typically completes in
+    # 4-7 min. A 20-min cap catches a hung remote builder without burning
+    # an hour of free Actions minutes.
+    timeout-minutes: 20
+
+    # Surface a deploy URL in the Actions UI ("View deployment" button).
+    environment:
+      name: production
+      url: https://pryzm.fly.dev
+
+    permissions:
+      # We only need to read the repo + write deployment statuses; nothing else.
+      contents: read
+      deployments: write
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          # Shallow clone is fine — flyctl uploads the working tree as a tarball
+          # to the remote builder, history isn't used.
+          fetch-depth: 1
+
+      - name: Install flyctl
+        # Pinned to the action's `master` per Fly's published install pattern.
+        # If we ever need reproducibility on the CLI version itself, pin to a
+        # tagged release of the action AND pass `version:` here.
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to Fly
+        # --remote-only: do NOT try to build locally on the runner (would need
+        #                Docker + 6GB RAM and would defeat Fly's build cache).
+        # --strategy=rolling: default for a single-machine app; explicit for clarity.
+        # The exit code is the deploy result — non-zero fails the job and the
+        # `environment` deployment status is auto-set to "failure".
+        run: flyctl deploy --remote-only --strategy=rolling
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
