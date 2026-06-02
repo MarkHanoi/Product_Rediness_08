@@ -24,7 +24,8 @@
     "./schedule/formula": "./src/schedule/formula.ts",
     "./apartment": "./src/apartment/index.ts",
     "./aggregates": "./src/aggregates/index.ts",
-    "./provenance": "./src/provenance/index.ts"
+    "./provenance": "./src/provenance/index.ts",
+    "./privacy": "./src/privacy/index.ts"
   },
   "files": ["src", "dist"],
   "scripts": {
