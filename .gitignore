@@ -19,3 +19,9 @@ attached_assets/
 .local/
 .local-*.txt
 .local-*.json
+
+# §A.31.e fix — MasterMiawW is a REFERENCE chatbot repo (see memory note
+# mastermiaww-rac-chatbot-reference). Lives as its own git repo at
+# ./MasterMiawW/ but is NOT a submodule of this repo (no .gitmodules).
+# Excluded so it doesn't re-appear in git's index + break Cloudflare clones.
+MasterMiawW/
