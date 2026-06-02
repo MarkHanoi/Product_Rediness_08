@@ -27,7 +27,11 @@
  * Class prefix: `mttm-` (Model Tree Test Modal).
  */
 
-import { ModelTreeComponent, type ModelTreeRuntime } from '../inspect';
+import {
+    ModelTreeComponent,
+    ProvenanceMenuOrchestrator,
+    type ModelTreeRuntime,
+} from '../inspect';
 import { ElementMeshRegistryAdapter, type SceneLike } from '../inspect/ElementMeshRegistryAdapter';
 import { buildModelElementLocations } from '../inspect/buildModelElementLocations';
 import { createIsolationStateStore, type IsolationStateStore } from '@pryzm/stores';
@@ -360,12 +364,39 @@ export function openModelTreeTestModal(runtime?: ModelTreeRuntime): void {
         catch (err) { console.warn('[modelTreeTestModal] clearIsolation failed:', err); }
     });
 
+    // ── A.31.e iter 5.2.c — right-click → "Show AI provenance" wiring ──
+    // The orchestrator owns the popover + ProvenanceTab lifecycle. It
+    // only renders the menu when the right-clicked selection is an
+    // elementInstance (per its MENU_ITEMS table); non-element rows do
+    // nothing (native browser menu is also suppressed by the ModelTree
+    // contextmenu handler). Probed runtime fields are optional — when
+    // `provenanceStore` is absent (early-init / standalone test) we
+    // silently skip the wiring instead of crashing.
+    const provenanceStore = (resolvedRuntime as unknown as {
+        provenanceStore?: import('@pryzm/stores').ProvenanceStore;
+    }).provenanceStore;
+    const projectId =
+        (resolvedRuntime as unknown as { projectContext?: { projectId?: string | null } | null })
+            .projectContext?.projectId ?? 'unknown';
+    const orchestrator =
+        provenanceStore !== undefined
+            ? new ProvenanceMenuOrchestrator({
+                  store: provenanceStore,
+                  projectId,
+              })
+            : null;
+
     // ── Mount the live Master Tree ───────────────────────────────────────────
     const tree = new ModelTreeComponent(resolvedRuntime, treeHost, {
         onSelectNode: (sel) => {
             updateSelectionPanel(sel);
             applyIsolationForSelection(sel);
         },
+        ...(orchestrator !== null
+            ? {
+                  onContextMenu: (payload): void => orchestrator.openMenu(payload),
+              }
+            : {}),
     });
     try {
         tree.mount();
