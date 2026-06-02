@@ -229,6 +229,13 @@ const PHASE_GATE_ORDER: ReadonlyArray<PickerCard['phaseGate']> = [
     'community-marketplace',
 ];
 
+/** One bucket returned by `groupByPhaseGate`. Exported so the L5
+ *  React component can type its render prop. */
+export interface PhaseGateGroup {
+    readonly phaseGate: PickerCard['phaseGate'];
+    readonly cards: readonly PickerCard[];
+}
+
 /**
  * Group picker cards by phase gate for the L5 "GA / Beta / Alpha / Community"
  * tabs. Returns an array in PHASE_GATE_ORDER (most-stable first); empty
@@ -236,10 +243,7 @@ const PHASE_GATE_ORDER: ReadonlyArray<PickerCard['phaseGate']> = [
  */
 export function groupByPhaseGate(
     cards: readonly PickerCard[],
-): ReadonlyArray<{
-    readonly phaseGate: PickerCard['phaseGate'];
-    readonly cards: readonly PickerCard[];
-}> {
+): readonly PhaseGateGroup[] {
     const buckets = new Map<PickerCard['phaseGate'], PickerCard[]>();
     for (const c of cards) {
         const arr = buckets.get(c.phaseGate);

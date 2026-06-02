@@ -61,6 +61,7 @@ export {
     groupByPhaseGate,
     summarizePickerCards,
     type PickerCard,
+    type PhaseGateGroup,
     type PickerCardsSummary,
 } from './TypologyPickerModel.js';
 
