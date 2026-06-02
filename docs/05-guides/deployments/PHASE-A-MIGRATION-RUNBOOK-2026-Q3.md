@@ -261,7 +261,7 @@ Build characteristics:
 
 The earlier draft of this runbook (commit before 2026-06-02) deferred `build:apex` to Sprint 4 and proposed shipping Phase A on the existing Astro pre-built pages. That deferral is **closed** as of the commit wiring `scripts/build/prerender-apex.mjs`. CI runs `pnpm build:apex` on every push to `main`; Cloudflare Pages reads from `apps/editor/dist-apex/`.
 
-The Astro pages at `apps/docs-site/src/pages/{index,pricing,manifesto,trust,start}.astro` remain on disk as a documented contingency (ASTRO-RETIREMENT-PLAN §7 step 6 is the trigger to delete them, and is no longer blocked by `build:apex` — it now waits only on the soak window in §9.1 of this runbook).
+**Update 2026-06-02 (A.17.x.14):** the Astro marketing pages `apps/docs-site/src/pages/{index,pricing,manifesto,trust,start}.astro` + `scripts/build/gen-docs-site-pricing.mjs` + `apps/docs-site/src/data/pricing.json` are now **DELETED** (commit on `main`); only `404.astro` + the Starlight developer-docs survive in `apps/docs-site`. The `check-no-product-routes-in-docs-site` CI gate prevents their re-introduction. Consequence: the `apps/docs-site` build now produces ONLY developer docs — it MUST be served at `docs.pryzm.so`, NOT at the apex (see §3.4).
 
 ### §3.3 — Verify locally before relying on CI
 
@@ -286,6 +286,27 @@ diff /tmp/a /tmp/b && echo OK
 ```
 
 If a route renders incorrectly (visual drift from the in-app version) the most likely cause is that the editor's CSS source diverged from what the script imports — the script reads the SAME `tokens.ts` + `marketingPages.ts` + `pricingPage.ts` the editor injects, so any drift in those files immediately reflects in the next `build:apex` run. No second source-of-truth to keep in sync.
+
+### §3.4 — Cloudflare Pages project configuration (TWO projects — apex vs docs)
+
+> **This is the #1 source of confusion** (hit live 2026-06-02): one Cloudflare Pages project was building the Astro **docs-site** and serving it at the apex URL, so `pryzm.so` showed "PRYZM Developer Docs" instead of the marketing landing. Per [C51 §4](../../02-decisions/contracts/C51-APEX-APP-DEPLOYMENT-SPLIT.md) the apex and docs are **two separate Pages projects** — never one.
+
+| Project | Builds | Output dir | Custom domain | Framework preset |
+|---|---|---|---|---|
+| **apex** (marketing) | `pnpm install --no-frozen-lockfile && pnpm build:apex` | `apps/editor/dist-apex` | `pryzm.so` (+ `www` → 301) | **None** |
+| **docs** (developer) | `pnpm install --no-frozen-lockfile && pnpm --filter @pryzm/docs-site exec astro build` | `apps/docs-site/dist` | `docs.pryzm.so` | Astro |
+
+**Both projects — required settings:**
+- **Root directory:** `/` (repo root; leave the Path field empty).
+- **Environment variable:** `NODE_VERSION = 20` (the monorepo requires Node ≥20; without it the build fails on an older default). pnpm auto-resolves to `10.26.1` from `package.json#packageManager` — no action.
+- **Branch control → Production branch = `main`; disable preview deployments** (or restrict to named branches). Otherwise EVERY feature-branch push burns a build and stacks the queue — the apex/docs build is heavy.
+
+**Gotchas that fail the build silently:**
+- The build command MUST end in **`build:apex`** (with the `x`) — a truncated `build:ape` errors with "no script build:ape".
+- The apex project MUST point at `apps/editor/dist-apex` — pointing it at `apps/docs-site` (or selecting the Astro preset) re-creates the §3.4 confusion above (apex serves docs).
+- After changing build settings, **trigger a fresh deploy** — Cloudflare does not retroactively rebuild queued deployments with the new config; cancel stale queued builds and let the post-change deploy win.
+
+**Verify after deploy:** `pryzm.so` shows the purple-mesh **"PRYZM / Build the future, intelligently. / Start here"** landing (NOT "PRYZM Developer Docs"); `docs.pryzm.so` shows the Starlight developer docs.
 
 ### §3.4 — Cloudflare Pages project settings (the flip)
 
