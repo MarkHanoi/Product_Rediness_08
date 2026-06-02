@@ -13,8 +13,8 @@
   },
   "dependencies": {
     "@astrojs/starlight": "^0.30.0",
-    "@pryzm/entitlements": "workspace:*",
-    "astro": "^5.0.0"
+    "astro": "^5.0.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.9",
