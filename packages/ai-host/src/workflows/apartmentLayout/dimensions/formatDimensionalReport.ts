@@ -28,7 +28,12 @@ export interface FormattedRoomRow {
 
 /** One per-section roll-up (e.g. "G1-G6 room shape" or "G8 daylight"). */
 export interface FormattedSection {
-    readonly id: 'roomShape' | 'roomHierarchy' | 'roomDaylight' | 'corridorWidth';
+    readonly id:
+        | 'roomShape'
+        | 'roomHierarchy'
+        | 'roomDaylight'
+        | 'corridorWidth'
+        | 'entrySightline';
     readonly displayName: string;
     readonly status: FormattedSeverity;
     readonly hardCount: number;
@@ -60,6 +65,7 @@ const SECTION_DISPLAY: Readonly<Record<FormattedSection['id'], string>> = {
     roomHierarchy: 'Room hierarchy (G9)',
     roomDaylight: 'Daylight (G8)',
     corridorWidth: 'Corridor comfort (L5)',
+    entrySightline: 'Entry sightline (L5)',
 };
 
 function toFormattedFinding(f: ValidationFinding): FormattedFinding {

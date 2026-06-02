@@ -161,13 +161,75 @@ describe('validateAllDimensional — combined findings shape', () => {
             report.perValidator.roomShape.hardFindings.length +
             report.perValidator.roomHierarchy.hardFindings.length +
             report.perValidator.roomDaylight.hardFindings.length +
-            report.perValidator.corridorWidth.hardFindings.length;
+            report.perValidator.corridorWidth.hardFindings.length +
+            report.perValidator.entrySightline.hardFindings.length;
         const subSoft =
             report.perValidator.roomShape.softFindings.length +
             report.perValidator.roomHierarchy.softFindings.length +
             report.perValidator.roomDaylight.softFindings.length +
-            report.perValidator.corridorWidth.softFindings.length;
+            report.perValidator.corridorWidth.softFindings.length +
+            report.perValidator.entrySightline.softFindings.length;
         expect(report.hardFindings.length).toBe(subHard);
         expect(report.softFindings.length).toBe(subSoft);
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A.39.b.next — sightline wiring tests.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('validateAllDimensional — sightline gate wiring', () => {
+    it('skips the sightline gate when doors + entryRoomId are absent', () => {
+        const { rooms, windows } = soundApartment();
+        const report = validateAllDimensional({ rooms, windows });
+        // No doors → no graph → sightline returns vacuous-pass.
+        expect(report.perValidator.entrySightline.admissible).toBe(true);
+        expect(report.perValidator.entrySightline.hardFindings.length).toBe(0);
+        expect(report.perValidator.entrySightline.softFindings.length).toBe(0);
+    });
+
+    it('runs the sightline gate when doors + entryRoomId are supplied', () => {
+        // Tiny sound apartment for sightline (rooms IDs match the sightline shape).
+        const rooms: RoomShape[] = [
+            room('hall', { x0: 0, z0: 0, x1: 2, z1: 2 }, 'hall'),
+            room('master', { x0: 2, z0: 0, x1: 6, z1: 4 }, 'm'),
+        ];
+        const report = validateAllDimensional({
+            rooms,
+            doors: [
+                { roomA: '__exterior__', roomB: 'hall' },
+                { roomA: 'hall', roomB: 'm' },
+            ],
+            entryRoomId: 'hall',
+            // master 4x4 16m² — passes G1, but is at depth 1 → PRIVACY BREAK.
+            skipDaylight: true,
+        });
+        // The privacy-break finding should appear in the combined report.
+        expect(report.perValidator.entrySightline.admissible).toBe(false);
+        expect(
+            report.hardFindings.some(
+                (f) => f.metric === 'privateRoomTooShallow',
+            ),
+        ).toBe(true);
+        // Combined admissible reflects the AND of sub-validators.
+        expect(report.admissible).toBe(false);
+    });
+
+    it('skipSightline=true overrides even when doors are supplied', () => {
+        const rooms: RoomShape[] = [
+            room('hall', { x0: 0, z0: 0, x1: 2, z1: 2 }, 'hall'),
+            room('master', { x0: 2, z0: 0, x1: 6, z1: 4 }, 'm'),
+        ];
+        const report = validateAllDimensional({
+            rooms,
+            doors: [{ roomA: 'hall', roomB: 'm' }],
+            entryRoomId: 'hall',
+            skipSightline: true,
+            skipDaylight: true,
+        });
+        // Sightline forced off → vacuous-pass even though the master
+        // would otherwise trigger a privacy break.
+        expect(report.perValidator.entrySightline.admissible).toBe(true);
+        expect(report.perValidator.entrySightline.hardFindings.length).toBe(0);
     });
 });

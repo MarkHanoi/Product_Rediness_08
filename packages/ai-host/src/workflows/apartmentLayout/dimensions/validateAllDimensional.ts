@@ -3,7 +3,8 @@
 // Orchestrates the per-room G1-G6 validator (validateRoomShape) +
 // the apartment-level G8 daylight (validateRoomDaylight) +
 // G9 hierarchy (validateRoomHierarchy) +
-// L5 perceptual corridor-width (validateCorridorWidth)
+// L5 perceptual corridor-width (validateCorridorWidth) +
+// L5 perceptual entry-sightline (validateEntrySightline)
 // into ONE DimensionalValidation report the modal + Pareto rank
 // consume.
 //
@@ -28,6 +29,10 @@ import {
 import {
     validateCorridorWidth,
 } from './validateCorridorWidth.js';
+import {
+    validateEntrySightline,
+    type SightlineDoorInput,
+} from './validateEntrySightline.js';
 import type {
     DimensionalValidation,
     ValidationFinding,
@@ -41,10 +46,21 @@ export interface DimensionalReportInput {
      *  the correct behaviour for the pre-window phase of the pipeline
      *  (D-TGL produces walls + rooms; windows arrive later in D-FLE). */
     readonly windows?: readonly DaylightWindowInput[];
+    /** Adjacency edges for the sightline graph — one per interior door
+     *  + one to `__exterior__` for the front door. Optional: omitted
+     *  means the sightline gate is skipped (no graph to walk).
+     *  Together with `entryRoomId` enables A.39.b. */
+    readonly doors?: readonly SightlineDoorInput[];
+    /** Id of the room the front door opens onto (BFS root for the
+     *  sightline gate). Omitted ⇒ sightline gate skipped. */
+    readonly entryRoomId?: string;
     /** When true, the daylight gate is skipped (use pre-window). When
      *  false (default), runs normally — set to true for the early-
      *  pipeline phases where windows haven't been emitted yet. */
     readonly skipDaylight?: boolean;
+    /** When true, the sightline gate is explicitly skipped even if
+     *  doors + entryRoomId are present. Use for diagnostic runs. */
+    readonly skipSightline?: boolean;
 }
 
 /**
@@ -59,6 +75,7 @@ export interface DimensionalReport extends DimensionalValidation {
         roomHierarchy: DimensionalValidation;
         roomDaylight: DimensionalValidation;
         corridorWidth: DimensionalValidation;
+        entrySightline: DimensionalValidation;
     }>;
 }
 
@@ -86,7 +103,7 @@ function concatFindings(
 export function validateAllDimensional(
     input: DimensionalReportInput,
 ): DimensionalReport {
-    const { rooms, windows, skipDaylight } = input;
+    const { rooms, windows, doors, entryRoomId, skipDaylight, skipSightline } = input;
 
     // G1-G6: per-room shape envelope.
     const shapeResults = rooms.map(validateRoomShape);
@@ -99,15 +116,51 @@ export function validateAllDimensional(
     // G9: hierarchy.
     const roomHierarchy = validateRoomHierarchy(rooms);
 
-    // G8: daylight (skipped pre-window).
+    // G8: daylight (skipped pre-window). RoomShape uses `id`, the
+    // daylight validator expects `roomId`; map across.
+    const daylightRooms = rooms.map((r) => {
+        const out: { roomId: string; type: typeof r.type; rect: typeof r.rect; name?: string } = {
+            roomId: r.id,
+            type: r.type,
+            rect: r.rect,
+        };
+        if (r.name !== undefined) out.name = r.name;
+        return out;
+    });
     const roomDaylight: DimensionalValidation = skipDaylight
         ? { admissible: true, hardFindings: [], softFindings: [] }
-        : validateRoomDaylight(rooms, windows ?? []);
+        : validateRoomDaylight(daylightRooms, windows ?? []);
 
     // L5 perceptual: corridor width.
     const corridorWidth = validateCorridorWidth(rooms);
 
-    const all = [roomShape, roomHierarchy, roomDaylight, corridorWidth];
+    // L5 perceptual: entry sightline (A.39.b). Skipped when doors +
+    // entry id aren't supplied — the validator can't BFS without a graph.
+    // RoomShape uses `id`; SightlineRoomInput uses `roomId` — map across.
+    const canRunSightline =
+        !skipSightline && doors !== undefined && entryRoomId !== undefined;
+    const entrySightline: DimensionalValidation = canRunSightline
+        ? validateEntrySightline({
+              rooms: rooms.map((r) => {
+                  const out: { roomId: string; type: typeof r.type; name?: string } = {
+                      roomId: r.id,
+                      type: r.type,
+                  };
+                  if (r.name !== undefined) out.name = r.name;
+                  return out;
+              }),
+              doors: doors!,
+              entryRoomId: entryRoomId!,
+          })
+        : { admissible: true, hardFindings: [], softFindings: [] };
+
+    const all = [
+        roomShape,
+        roomHierarchy,
+        roomDaylight,
+        corridorWidth,
+        entrySightline,
+    ];
     const { hard, soft } = concatFindings(all);
 
     return {
@@ -119,6 +172,7 @@ export function validateAllDimensional(
             roomHierarchy,
             roomDaylight,
             corridorWidth,
+            entrySightline,
         },
     };
 }

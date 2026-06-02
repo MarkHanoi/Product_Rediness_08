@@ -28,18 +28,21 @@ function makeReport(parts: Partial<DimensionalReport['perValidator']> = {}): Dim
         roomHierarchy: parts.roomHierarchy ?? emptyVal(),
         roomDaylight: parts.roomDaylight ?? emptyVal(),
         corridorWidth: parts.corridorWidth ?? emptyVal(),
+        entrySightline: parts.entrySightline ?? emptyVal(),
     };
     const hardFindings = [
         ...perValidator.roomShape.hardFindings,
         ...perValidator.roomHierarchy.hardFindings,
         ...perValidator.roomDaylight.hardFindings,
         ...perValidator.corridorWidth.hardFindings,
+        ...perValidator.entrySightline.hardFindings,
     ];
     const softFindings = [
         ...perValidator.roomShape.softFindings,
         ...perValidator.roomHierarchy.softFindings,
         ...perValidator.roomDaylight.softFindings,
         ...perValidator.corridorWidth.softFindings,
+        ...perValidator.entrySightline.softFindings,
     ];
     return {
         admissible: hardFindings.length === 0,
@@ -90,13 +93,14 @@ describe('formatDimensionalReport — pass / warning / error', () => {
 });
 
 describe('formatDimensionalReport — sections', () => {
-    it('always returns 4 sections in fixed order', () => {
+    it('always returns 5 sections in fixed order', () => {
         const f = formatDimensionalReport(makeReport());
         expect(f.sections.map((s) => s.id)).toEqual([
             'roomShape',
             'roomHierarchy',
             'roomDaylight',
             'corridorWidth',
+            'entrySightline',
         ]);
     });
 
