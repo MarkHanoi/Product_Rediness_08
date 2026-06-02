@@ -38,6 +38,9 @@ node_modules
 # bypass the deterministic CI build and risk shipping uncommitted changes.
 dist
 **/dist
+# apex pre-render output (ADR-055 §0 + scripts/build/prerender-apex.mjs).
+# Cloudflare Pages serves this; the Fly image must never contain it.
+**/dist-apex
 build
 **/build
 **/.next
