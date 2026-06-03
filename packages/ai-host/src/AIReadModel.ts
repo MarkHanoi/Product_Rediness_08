@@ -1,3 +1,4 @@
+/// <reference path="./global-window.d.ts" />
 /**
  * @file AIReadModel.ts
  * @description The EXCLUSIVE read-only gateway for the AI system.
