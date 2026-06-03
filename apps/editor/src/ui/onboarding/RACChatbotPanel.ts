@@ -82,6 +82,21 @@ export interface RACChatbotPanelOptions {
     readonly onBriefReady?: (brief: PipelineBrief) => void;
     /** Optional clock injection for deterministic tests. */
     readonly now?: () => string;
+    /**
+     * O.5 — pre-capture the typology before the user types anything (e.g. the
+     * "New Project" modal's Project Type select → `apartment`). When set AND
+     * present in the registry, the panel dispatches `capture-typology` once on
+     * build so the conversation skips the "what type?" question. Ignored if the
+     * id is unknown (the conversation just asks normally).
+     */
+    readonly seedTypologyId?: string;
+    /**
+     * O.5 — extra metadata merged into every emitted brief's `metadata`
+     * (captured-brief fields take precedence). Used to carry the modal's project
+     * name (`projectName`) through to `briefBootstrap` so the created project is
+     * named what the user typed, not a default.
+     */
+    readonly seedMetadata?: Record<string, unknown>;
 }
 
 /**
@@ -96,6 +111,12 @@ export class RACChatbotPanel {
     private readonly registry: TypologyRegistry;
     private readonly onBriefReady?: (brief: PipelineBrief) => void;
     private readonly clock: () => string;
+    /** O.5 — typology to pre-capture on build (modal-seeded), or undefined. */
+    private readonly seedTypologyId?: string;
+    /** O.5 — metadata merged into every emitted brief (modal name, etc.). */
+    private readonly seedMetadata?: Record<string, unknown>;
+    /** O.5 — guards the one-shot auto-capture of the seeded typology. */
+    private _seedTypologyApplied = false;
 
     private state: RacConversationState;
     private root: HTMLElement | null = null;
@@ -110,6 +131,8 @@ export class RACChatbotPanel {
         this.registry = opts.registry;
         this.onBriefReady = opts.onBriefReady;
         this.clock = opts.now ?? isoNow;
+        this.seedTypologyId = opts.seedTypologyId;
+        this.seedMetadata = opts.seedMetadata;
         this.state = createInitialState(this.registry);
     }
 
@@ -127,9 +150,37 @@ export class RACChatbotPanel {
         const prevPhase = this.state.phase;
         this.state = racReducer(this.state, event);
         this.render();
+
+        // O.5 — when a modal seeded the typology (e.g. Project Type =
+        // Residential → `apartment`), auto-capture it the moment the
+        // conversation reaches `awaiting-typology` (i.e. AFTER the user states
+        // their role, so role is never skipped). This re-enters `dispatch` once
+        // with a `capture-typology` event, advancing to `awaiting-brief` and
+        // sparing the user the "what type?" question. Guarded to fire at most
+        // once, and only for a typology that is actually in the registry.
+        if (
+            !this._seedTypologyApplied &&
+            this.seedTypologyId &&
+            this.state.phase === 'awaiting-typology' &&
+            prevPhase !== 'awaiting-typology' &&
+            this.state.availableTypologies.includes(this.seedTypologyId)
+        ) {
+            this._seedTypologyApplied = true;
+            return this.dispatch({ type: 'capture-typology', typologyId: this.seedTypologyId });
+        }
+
         if (this.state.phase === 'ready' && prevPhase !== 'ready') {
             const brief = toBrief(this.state);
-            if (brief && this.onBriefReady) this.onBriefReady(brief);
+            if (brief && this.onBriefReady) {
+                // O.5 — fold the modal-seeded metadata (project name, project
+                // type) UNDER the captured brief so the conversation's own
+                // fields win on conflict, but the modal's `projectName` reaches
+                // briefBootstrap. No-op when no seed was provided.
+                const seeded = this.seedMetadata
+                    ? { ...brief, metadata: { ...this.seedMetadata, ...brief.metadata } }
+                    : brief;
+                this.onBriefReady(seeded);
+            }
         }
         return this.state;
     }

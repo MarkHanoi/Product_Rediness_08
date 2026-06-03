@@ -137,7 +137,10 @@ export function renderShell(ctx: PhRenderCtx): string {
                 </div>
                 <div class="ph-modal-footer">
                     <button class="ph-modal-cancel" id="ph-modal-cancel">Cancel</button>
-                    <button class="ph-modal-create" id="ph-modal-create">Create Project</button>
+                    <!-- O.5 — "Skip — blank canvas" keeps the legacy blank-create
+                         escape; the primary button launches the guided RAC flow. -->
+                    <button class="ph-modal-cancel" id="ph-modal-create-blank" title="Create an empty project and skip the guided setup">Skip — blank canvas</button>
+                    <button class="ph-modal-create" id="ph-modal-create">Create &amp; guide me</button>
                 </div>
             </div>
         </div>

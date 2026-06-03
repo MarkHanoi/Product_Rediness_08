@@ -450,6 +450,17 @@ export class PlatformRouter {
                 this.showLanding();
             },
             onUpgrade: () => this.showPricing(),
+            // O.5 (ONBOARDING-WORKFLOW-DESIGN §6 O.5) — the hub's "New Project"
+            // primary action now launches the guided RAC onboarding instead of a
+            // blank create, seeded by the modal (name + project type). The RAC
+            // conversation + briefBootstrap then create+open the project and run
+            // site → generate. The hub keeps a "Skip — blank canvas" escape that
+            // still does the legacy blank `_createViaRuntime`. We destroy the hub
+            // first so the onboarding overlay owns the surface (the bootstrap
+            // re-mounts the hub-equivalent flow on completion via launchWorkspace).
+            onStartOnboarding: (seedFromModal?: { name?: string; projectType?: string }) => {
+                this.showOnboarding(seedFromModal);
+            },
         }, this.runtime);
     }
 
@@ -512,7 +523,27 @@ export class PlatformRouter {
      * If the runtime has no typology registry (degraded boot), falls back to
      * the auth modal directly so "Build something" never dead-ends.
      */
-    showOnboarding(): void {
+    /**
+     * O.5 — map the New-Project modal's `projectType` select value to a
+     * registered typology id, or `undefined` when there is no confident mapping
+     * (the conversation then asks normally). Only returns an id the registry
+     * actually has, so a degraded boot (no apartment pack) never seeds a
+     * phantom typology. Today only Residential → `apartment` is wired (the one
+     * shipped generator); other types intentionally fall through.
+     */
+    private static _typologyForProjectType(
+        projectType: string | undefined,
+        registryHas: (id: string) => boolean,
+    ): string | undefined {
+        if (!projectType) return undefined;
+        // The modal's <select> uses lowercase slugs (residential / commercial /
+        // mixed / infrastructure / other).
+        const candidate = projectType.trim().toLowerCase() === 'residential' ? 'apartment' : undefined;
+        if (candidate && registryHas(candidate)) return candidate;
+        return undefined;
+    }
+
+    showOnboarding(seed?: { name?: string; projectType?: string }): void {
         this.onboarding?.dispose();
         this.onboarding = null;
 
@@ -523,8 +554,33 @@ export class PlatformRouter {
             return;
         }
 
+        // O.5 — map the modal's Project Type select to a registered typology id
+        // so the RAC conversation pre-captures it (skipping the "what type?"
+        // question). Only `apartment` has a shipped generator today, so
+        // Residential → apartment; other types fall through to a normal ask (the
+        // panel ignores an unknown / absent seed). The chosen NAME is carried in
+        // the brief metadata so the created project keeps it (briefBootstrap
+        // reads `metadata.projectName`).
+        const seededTypologyId = PlatformRouter._typologyForProjectType(
+            seed?.projectType,
+            (id: string) => registry.has(id),
+        );
+        const seededName = seed?.name?.trim();
+        const seedMetadata: Record<string, unknown> = {};
+        if (seededName) seedMetadata.projectName = seededName;
+        if (seed?.projectType) seedMetadata.projectType = seed.projectType;
+        if (seed) {
+            console.log('[onboarding] showOnboarding seeded from New-Project modal:', {
+                name: seededName ?? '(none)',
+                projectType: seed.projectType ?? '(none)',
+                seededTypologyId: seededTypologyId ?? '(none — conversation will ask)',
+            });
+        }
+
         const panel = new RACChatbotPanel({
             registry,
+            ...(seededTypologyId ? { seedTypologyId: seededTypologyId } : {}),
+            ...(Object.keys(seedMetadata).length ? { seedMetadata } : {}),
             onBriefReady: (brief) => {
                 // A.5.f — the conversation captured role · team size · typology ·
                 // brief. Stash for the post-auth project pre-load (A.5.g) and

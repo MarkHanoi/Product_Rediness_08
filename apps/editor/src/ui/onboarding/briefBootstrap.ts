@@ -183,6 +183,13 @@ async function handleBriefReady(
 
     const md = brief.metadata ?? {};
     const address = typeof md.address === 'string' ? md.address : undefined;
+    // O.5 — the "New Project" modal seeds `metadata.projectName` (via the RAC
+    // panel's seedMetadata) so the created project is named what the user typed,
+    // not the generic default. Falls back to DEFAULT_PROJECT_NAME for the legacy
+    // RAC-first path (no modal seed) so existing behaviour is unchanged.
+    const projectName = typeof md.projectName === 'string' && md.projectName.trim()
+        ? md.projectName.trim()
+        : DEFAULT_PROJECT_NAME;
 
     let fired = false;
     const onLoaded = runtime.events.on('pryzm-project-loaded', (p) => {
@@ -224,6 +231,6 @@ async function handleBriefReady(
         }
     }, 30_000);
 
-    console.log(`[onboarding-bootstrap] creating + opening project "${DEFAULT_PROJECT_NAME}".`);
-    deps.createAndOpenProject(DEFAULT_PROJECT_NAME);
+    console.log(`[onboarding-bootstrap] creating + opening project "${projectName}".`);
+    deps.createAndOpenProject(projectName);
 }
