@@ -159,6 +159,7 @@ export * from './requirements/UpdateRequirementCommand';
 
 // ─── Room bounding lines ───────────────────────────────────────────────────
 export * from './roomBoundingLines/CreateRoomBoundingLineCommand';
+export * from './roomBoundingLines/CreateRoomBoundingLinesBatchCommand';
 export * from './roomBoundingLines/DeleteRoomBoundingLineCommand';
 export * from './roomBoundingLines/UpdateRoomBoundingLineCommand';
 
@@ -303,6 +304,7 @@ export * from './walls/ChangeWallLevelCommand';
 export * from './walls/CreateWallBetweenMarksCommand';
 export * from './walls/CreateWallCommand';
 export * from './walls/CreateWallOpeningCommand';
+export * from './walls/CreateWallOpeningsBatchCommand';
 export * from './walls/CreateWindowsOnWallsCommand';
 export * from './walls/CreateDoorsBetweenAdjacentRoomsCommand';
 export * from './walls/CreateWallsFromSlabCommand';

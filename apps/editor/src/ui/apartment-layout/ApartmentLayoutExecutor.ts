@@ -14,7 +14,7 @@
 
 import { batchCoordinator, storeRegistry, storeEventBus } from '@pryzm/core-app-model';
 import { createId } from '@pryzm/schemas';
-import { CreateWallOpeningCommand, CreateRoomBoundingLineCommand } from '@pryzm/command-registry';
+import { CreateWallOpeningsBatchCommand, CreateRoomBoundingLinesBatchCommand } from '@pryzm/command-registry';
 import { facadeOrientationService } from '@pryzm/spatial-index';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import type { ScoredLayoutOption, IdPrefix, LayoutExecuteOptions, LayoutCommandSet } from '@pryzm/ai-host';
@@ -306,35 +306,56 @@ export class ApartmentLayoutExecutor {
             // open-plan rooms (hall↔living, kitchen↔living, …) — without them the
             // RoomDetectionEngine merges the whole open-plan zone into one big room.
             let doorsMade = 0; let firstErr = '';
-            let boundariesMade = 0; let firstBoundaryErr = '';
-            // T1.W-C (2026-05-30) — shell-hosted windows dispatch alongside doors.
-            // CreateWallOpeningCommand handles BOTH door + window openings (it
-            // writes to doorStore for type:'door' and windowStore for
-            // type:'window', auto-resolves the system-type, and registers the
-            // element in the spatial graph). So one legacy command per shell
-            // window is enough — no separate window.batch.create needed.
-            let shellWindowsMade = 0; let firstShellWindowErr = '';
+            let boundariesMade = 0;
+            // O.11 (perf): the openings (doors) + shell-hosted windows now go through
+            // ONE CreateWallOpeningsBatchCommand, and the boundaries through ONE
+            // CreateRoomBoundingLinesBatchCommand. Previously each opening/boundary was
+            // a SEPARATE commandManager.execute(...) call, and CommandManagerImpl.execute
+            // snapshots the affected store (structuredClone) PER command — so N openings
+            // meant N deep clones of the entire WALL store (the measured hot loop that
+            // made "3 walls + 2 doors" take seconds). Batching collapses that to ONE
+            // wall-store snapshot + ONE roomBoundingLine snapshot for the whole set. Each
+            // inner opening still fires one wallStore.addOpening → emit('update'); those
+            // events coalesce in the (batch-paused) WallRebuildCoordinator into the SAME
+            // single whole-level rebuild as before, so the built result is identical.
+            //
+            // T1.W-C (2026-05-30) — shell-hosted windows ride the SAME opening batch:
+            // CreateWallOpeningCommand (wrapped by the batch) handles BOTH door + window
+            // openings (writes doorStore for type:'door' / windowStore for type:'window',
+            // auto-resolves the system-type, registers the element in the spatial graph).
+            let shellWindowsMade = 0;
             const cm = (window as unknown as { commandManager?: { execute(c: unknown): void } }).commandManager;
-            const hasAnyCmd = set.openingCommands.length > 0
-                || set.boundaryCommands.length > 0
-                || set.shellWindowOpeningCommands.length > 0;
+            const openingItems = [
+                ...set.openingCommands.map(op => ({ kind: 'door' as const, p: op.payload as { wallId: string; opening: unknown } })),
+                ...set.shellWindowOpeningCommands.map(op => ({ kind: 'window' as const, p: op.payload as { wallId: string; opening: unknown } })),
+            ];
+            const hasAnyCmd = openingItems.length > 0 || set.boundaryCommands.length > 0;
             if (cm && hasAnyCmd) {
                 try {
                     batchCoordinator.runBatch(() => {
-                        for (const op of set.openingCommands) {
-                            const p = op.payload as { wallId: string; opening: unknown };
-                            try { cm.execute(new CreateWallOpeningCommand({ wallId: p.wallId, openingData: p.opening })); doorsMade++; }
-                            catch (e) { firstErr ||= String(e); console.warn('[apartment-layout] door (createOpening) failed (skipped):', e); }
+                        // ONE opening batch (doors + shell windows) → ONE wall-store snapshot.
+                        if (openingItems.length > 0) {
+                            try {
+                                cm.execute(new CreateWallOpeningsBatchCommand(
+                                    openingItems.map(it => ({ wallId: it.p.wallId, openingData: it.p.opening })),
+                                ));
+                                doorsMade = set.openingCommands.length;
+                                shellWindowsMade = set.shellWindowOpeningCommands.length;
+                            } catch (e) {
+                                firstErr ||= String(e);
+                                console.warn('[apartment-layout] openings batch failed (skipped):', e);
+                            }
                         }
-                        for (const op of set.shellWindowOpeningCommands) {
-                            const p = op.payload as { wallId: string; opening: unknown };
-                            try { cm.execute(new CreateWallOpeningCommand({ wallId: p.wallId, openingData: p.opening })); shellWindowsMade++; }
-                            catch (e) { firstShellWindowErr ||= String(e); console.warn('[apartment-layout] shell window (createOpening) failed (skipped):', e); }
-                        }
-                        for (const bc of set.boundaryCommands) {
-                            const p = bc.payload as { id: string; levelId: string; start: { x: number; z: number }; end: { x: number; z: number } };
-                            try { cm.execute(new CreateRoomBoundingLineCommand({ id: p.id, levelId: p.levelId, start: p.start, end: p.end })); boundariesMade++; }
-                            catch (e) { firstBoundaryErr ||= String(e); console.warn('[apartment-layout] boundary failed (skipped):', e); }
+                        // ONE boundary batch → ONE roomBoundingLine-store snapshot.
+                        if (set.boundaryCommands.length > 0) {
+                            try {
+                                cm.execute(new CreateRoomBoundingLinesBatchCommand(
+                                    set.boundaryCommands.map(bc => bc.payload as { id: string; levelId: string; start: { x: number; z: number }; end: { x: number; z: number } }),
+                                ));
+                                boundariesMade = set.boundaryCommands.length;
+                            } catch (e) {
+                                console.warn('[apartment-layout] boundaries batch failed (skipped):', e);
+                            }
                         }
                     }, {
                         levelIds: [levelId],
@@ -346,8 +367,8 @@ export class ApartmentLayoutExecutor {
                 console.warn('[apartment-layout] commandManager unavailable — doors+boundaries+shellWindows skipped');
             }
             console.log(`[apartment-layout] doors built — ${doorsMade}/${set.openingCommands.length} (host walls present ${landed}/${neededWallIds.length})${force && landed < neededWallIds.length ? ' — FORCED before all walls landed' : ''}`, firstErr || '');
-            console.log(`[apartment-layout] shell windows built — ${shellWindowsMade}/${set.shellWindowOpeningCommands.length}`, firstShellWindowErr || '');
-            console.log(`[apartment-layout] boundaries built — ${boundariesMade}/${set.boundaryCommands.length}`, firstBoundaryErr || '');
+            console.log(`[apartment-layout] shell windows built — ${shellWindowsMade}/${set.shellWindowOpeningCommands.length}`);
+            console.log(`[apartment-layout] boundaries built — ${boundariesMade}/${set.boundaryCommands.length}`);
 
             // Post-build room-detection diagnostic. After the door+boundary batch
             // settles, the RoomDetectionEngine should produce ~one detected room per
