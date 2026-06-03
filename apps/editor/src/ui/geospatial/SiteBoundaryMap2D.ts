@@ -104,7 +104,9 @@ export function mountSiteBoundaryMap2D(
     Object.assign(overlay.style, {
         position: 'absolute',
         inset: '0',
-        zIndex: '20',
+        // §DRAW-MAP-ABOVE-CESIUM (2026-06-03): 20 → 40 so the cream draw surface is
+        // unambiguously above the Cesium globe canvas during the draw step.
+        zIndex: '40',
         background: HEKTAR_PALETTE.cream,
     } satisfies Partial<CSSStyleDeclaration>);
 
@@ -200,6 +202,15 @@ export function mountSiteBoundaryMap2D(
     toggle.appendChild(satBtn);
     overlay.appendChild(toggle);
 
+    // A.8.c.f.4 — active basemap. Default = the Hektar cream vector look; the corner
+    // toggle swaps to keyless ESRI satellite raster to fill OSM coverage gaps.
+    // §TDZ-FIX (2026-06-03): MUST be declared BEFORE paintToggle() is called below —
+    // it was declared further down, so paintToggle()'s read of `basemap` threw
+    // `ReferenceError: Cannot access 'basemap' before initialization` synchronously
+    // inside mountSiteBoundaryMap2D → the cream 2D map never attached and the Cesium
+    // globe showed underneath during the draw step (founder-flagged regression).
+    let basemap: 'map' | 'satellite' = 'map';
+
     /** Paint the active segment in violet, the inactive one white. */
     function paintToggle(): void {
         for (const b of [mapBtn, satBtn]) {
@@ -217,10 +228,6 @@ export function mountSiteBoundaryMap2D(
     const vertices: LatLon[] = [];
     let draggingIdx: number | null = null;
     let disposed = false;
-    // A.8.c.f.4 — active basemap. Default = the Hektar cream vector look; the
-    // corner toggle swaps to keyless ESRI satellite raster to fill OSM building-
-    // footprint coverage gaps.
-    let basemap: 'map' | 'satellite' = 'map';
 
     function toast(message: string, severity: 'info' | 'success' | 'error'): void {
         runtime?.events?.emit('pryzm:toast', { message, severity });
