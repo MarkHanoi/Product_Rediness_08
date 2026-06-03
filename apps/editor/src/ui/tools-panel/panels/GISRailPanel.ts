@@ -81,6 +81,21 @@ export class GISRailPanel {
             }
         ));
 
+        // A.11 — Climate substrate UI. Site-anchored sun-path + wind-rose +
+        // temperature profile over the A.10 ClimateStore. Opens a floating
+        // panel reading runtime.climateStore + runtime.siteModelStore.
+        root.appendChild(this._buildDivider());
+        root.appendChild(this._buildActionBtn(
+            '🌦', 'Climate Analysis',
+            'Open the Climate panel — sun-path, wind rose, and temperature profile for the site location',
+            () => {
+                console.log('[GISRailPanel] Open Climate Analysis');
+                void import('../../climate/ClimatePanel')
+                    .then(m => m.openClimatePanel(this.runtime))
+                    .catch(err => console.error('[GISRailPanel] open climate panel failed:', err));
+            }
+        ));
+
         root.appendChild(this._buildGizmoSection());
         root.appendChild(this._buildResetBtn());
 
