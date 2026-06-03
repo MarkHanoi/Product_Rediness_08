@@ -22,7 +22,7 @@
 import type { BubbleGraph } from './bubbleGraph.js';
 import type { Pt, Rect } from './rectDecomposition.js';
 import type { RoomPlacement } from './subdivide.js';
-import { doorAllowedBetween, isCirculation, maxDoorsFor, roomRule } from '../rules/programRules.js';
+import { doorAllowedBetween, isCirculation, isPrivate, maxDoorsFor, roomRule } from '../rules/programRules.js';
 
 export interface WallSeg {
     readonly id: string;
@@ -75,6 +75,24 @@ export interface WallsAndDoors {
      * specific room when a candidate flunks. Deterministic — sorted by id.
      */
     readonly sealedRoomIds: readonly string[];
+    /**
+     * §CIRCULATION-REROUTE (2026-06-03, A.APT.SA.2 — corridor connectivity) —
+     * private/service room ids that, after every pass (including the dedicated
+     * circulation re-route pass 2c), still have NO direct door onto a
+     * circulation room (hall/corridor) AND have no LEGAL circulation-adjacent
+     * wall to route one onto. These rooms are reachable only by passing through
+     * another (non-circulation) room — the "bedroom you can only enter through
+     * the living room / another bedroom" anti-pattern.
+     *
+     * An ensuite reached only through its master is EXCLUDED (that is the
+     * architectural rule, not a defect). When this list is non-empty the layout
+     * has a genuinely land-locked room: the engine emits a LAYOUT-QUALITY
+     * WARNING rather than forcing an illegal (forbidden-pair) door, and the
+     * enumerate.ts legality gate prefers a candidate where the list is empty.
+     * Empty ⇒ every habitable room opens onto the circulation spine.
+     * Deterministic — sorted by id.
+     */
+    readonly unroutedToCirculationRoomIds: readonly string[];
 }
 
 export interface WallsAndDoorsOpts {
@@ -580,6 +598,102 @@ export function buildWallsAndDoors(
         if (addDoor(c.seg, c.a, c.b)) { cUnion(c.a, c.b); compromises++; }
     }
 
+    // (2c) §CIRCULATION-REROUTE (2026-06-03, A.APT.SA.2 — corridor connectivity).
+    //
+    // Passes (1)–(2b) guarantee every room is CONNECTED (reachable from the
+    // entry through legal doors) — but "connected" is not "opens onto the
+    // circulation spine". A bedroom whose only door is into the LIVING room is
+    // connected + a permitted pair (compromises === 0), yet it is the
+    // architectural defect this task targets: a private room reachable only by
+    // crossing a public/private room (the "bedroom you can only enter through
+    // another room" anti-pattern).
+    //
+    // The architectural rule (programRules + validateCorridorConnectivity):
+    // EVERY private/service room should have a DIRECT door onto a circulation
+    // room (hall/corridor) — the sole exception being an ensuite, which is
+    // reached through its master by design.
+    //
+    // This pass is CORRECTIVE + ADDITIVE — it never removes a door and never
+    // crosses a forbidden pair. For each private/service room that lacks a
+    // circulation door, it ADDS one on a permitted circulation-adjacent shared
+    // wall (relaxing the privacy cap only as a last resort, exactly like 2b, so
+    // a tight room is never left stranded behind a public room). Where no legal
+    // circulation-adjacent wall exists the room is genuinely land-locked: we do
+    // NOT force an illegal door (it stays as it was) and instead report it via
+    // `unroutedToCirculationRoomIds` so the enumerate gate can prefer a strategy
+    // that avoids the land-lock and the executor can surface a quality warning.
+    //
+    // `roomHasCirculationDoor` is recomputed from `openings` so it reflects
+    // every door placed by passes (1)–(2b).
+    const isCircType = (id: string): boolean => isCirculation(typeOf.get(id) ?? '');
+    const roomHasCirculationDoor = (id: string): boolean =>
+        openings.some(o => {
+            if (o.type !== 'door') return false;
+            const [a, b] = o.betweenRoomIds as readonly [string, string?];
+            if (!b) return false;
+            if (a === id) return isCircType(b);
+            if (b === id) return isCircType(a);
+            return false;
+        });
+    // A room that NEEDS a circulation door: private OR service, and NOT an
+    // ensuite (the master-only exception). `isPrivate` covers bedroom / master /
+    // bathroom / ensuite / wc / study; we add the 'service' privacy class too.
+    const needsCirculationAccess = (id: string): boolean => {
+        const t = typeOf.get(id) ?? '';
+        if (t === 'ensuite') return false;                    // master-only by design
+        if (isCircType(id)) return false;                     // a circulation room IS the spine
+        const p = roomRule(t).privacy;
+        return p === 'private' || p === 'service';
+    };
+    // Candidate circulation-adjacent walls for a target room, ranked: longer
+    // walls first (a wider wall is more likely to host a clear door), then
+    // stable id — deterministic.
+    const circWallsFor = (id: string): typeof shared =>
+        shared
+            .filter(c => {
+                const other = c.a === id ? c.b : c.b === id ? c.a : null;
+                if (other === null) return false;             // wall doesn't bound this room
+                return isCircType(other) && permitted(c.a, c.b);
+            })
+            .sort((p, q) => q.len - p.len || (p.seg.id < q.seg.id ? -1 : 1));
+
+    // Re-route every private/service room that has no circulation door but a
+    // legal circulation-adjacent wall. Process rooms in stable id order.
+    const targets = graph.rooms
+        .map(r => r.id)
+        .filter(id => needsCirculationAccess(id) && !roomHasCirculationDoor(id))
+        .sort();
+    for (const id of targets) {
+        const candidates = circWallsFor(id);
+        if (candidates.length === 0) continue;                // land-locked — handled below
+        // First try a wall whose host (this room) AND the circulation room are
+        // both under their door cap — a clean, no-compromise re-route.
+        let placed = false;
+        for (const c of candidates) {
+            if (wallHasDoor.has(c.seg.id)) continue;
+            if (!underCap(c.a) || !underCap(c.b)) continue;
+            if (addDoor(c.seg, c.a, c.b)) { cUnion(c.a, c.b); placed = true; break; }
+        }
+        if (placed) continue;
+        // Last resort — relax the privacy cap (the room's circulation access is
+        // more important than the cap). This NEVER crosses a forbidden pair
+        // (circWallsFor already filtered on `permitted`). Counts as a compromise
+        // so P8 still prefers a candidate that didn't need it.
+        for (const c of candidates) {
+            if (wallHasDoor.has(c.seg.id)) continue;
+            if (addDoor(c.seg, c.a, c.b)) { cUnion(c.a, c.b); compromises++; placed = true; break; }
+        }
+    }
+
+    // §CIRCULATION-REROUTE diagnostic — private/service rooms STILL without a
+    // circulation door after the re-route pass: genuinely land-locked (no legal
+    // circulation-adjacent wall in this placement). Reported as a warning, not
+    // forced into an illegal door. Deterministic — sorted by id.
+    const unroutedToCirculationRoomIds = graph.rooms
+        .filter(r => needsCirculationAccess(r.id) && !roomHasCirculationDoor(r.id))
+        .map(r => r.id)
+        .sort();
+
     // §EXTEND-TO-PERIMETER + §EXTEND-INTERIOR (2026-05-29) — for non-rectilinear
     // shells, walk every axis-aligned wall (exterior- AND interior-bounding)
     // and extend any endpoint strictly inside the shell polygon outward to the
@@ -597,7 +711,7 @@ export function buildWallsAndDoors(
         .map(r => r.id)
         .sort();
 
-    return { segments: segmentsOut, openings, boundaries, compromises, sealedRoomIds };
+    return { segments: segmentsOut, openings, boundaries, compromises, sealedRoomIds, unroutedToCirculationRoomIds };
 }
 
 /** True when a door between these two room types satisfies the program rules. */

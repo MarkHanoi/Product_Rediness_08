@@ -76,6 +76,16 @@ export interface TglCandidate {
      *  False ⇒ a missing master↔ensuite door, a forbidden bedroom↔bedroom door,
      *  etc. Gate prefers topology-admissible candidates. */
     readonly topologyAdmissible: boolean;
+    /** §CIRCULATION-REROUTE (A.APT.SA.2, 2026-06-03) — every private/service room
+     *  opens DIRECTLY onto a circulation room (hall/corridor), with the ensuite-
+     *  via-master exception. True ⇒ no room is reachable only by crossing
+     *  another room. False ⇒ at least one room is land-locked behind a non-
+     *  circulation room (the "bedroom you can only enter through the living
+     *  room / another bedroom" defect). The gate prefers circulation-routed
+     *  candidates so a fully-routed plan is offered whenever any strategy yields
+     *  one. The specific land-locked room ids are in `wallsAndDoors`'
+     *  `unroutedToCirculationRoomIds` diagnostic. */
+    readonly circulationRouted: boolean;
     /** Virtual room-bounding lines at open-plan thresholds (no wall, no door)
      *  in METRES; the LayoutOption converts to mm at emit time. */
     readonly boundaries: readonly BoundarySeg[];
@@ -192,7 +202,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     const numRooms = Math.max(1, roomShapes.length);
     const shapeQuality = Math.max(0, Math.min(1, 1 - softPenaltySum / numRooms));
 
-    const { segments, openings, boundaries, compromises } = buildWallsAndDoors(placements, bubble, {
+    const { segments, openings, boundaries, compromises, unroutedToCirculationRoomIds } = buildWallsAndDoors(placements, bubble, {
         ...(input.wallThicknessM !== undefined ? { wallThicknessM: input.wallThicknessM } : {}),
         ...(input.doorWidthM !== undefined ? { doorWidthM: input.doorWidthM } : {}),
         // §EXTEND-TO-PERIMETER — pass the WORLD-frame shell polygon so interior
@@ -268,10 +278,16 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     const entryGuid = graph.nodes.find(n => n.kind === 'Space' && n.sourceId === bubble.entryId)?.guid ?? null;
     const metrics = computeSpaceSyntax(graph, entryGuid);
     const objectives = computeObjectives(graph, metrics, bubble, shapeQuality, topologyQuality);
+    // §CIRCULATION-REROUTE — a candidate is "circulation-routed" when every
+    // private/service room opens onto the spine (the wallsAndDoors re-route pass
+    // could place a circulation door for every such room). A non-empty
+    // `unroutedToCirculationRoomIds` means at least one room is land-locked.
+    const circulationRouted = unroutedToCirculationRoomIds.length === 0;
     return {
         strategy: strategyKey(s), graph, objectives,
         weighted: weightedSum(objectives, input.weights), rank: 0,
-        compromises, connected: metrics.connected, shapeAdmissible, topologyAdmissible, boundaries,
+        compromises, connected: metrics.connected, shapeAdmissible, topologyAdmissible,
+        circulationRouted, boundaries,
     };
 }
 
@@ -417,19 +433,31 @@ export function enumerateLayouts(input: EnumerateInput): TglCandidate[] {
     // degrading when the shell + program forces compromises (e.g. very tight
     // 3-bedroom layouts that can't satisfy every soft constraint).
     //
+    // §CIRCULATION-REROUTE (A.APT.SA.2) adds an orthogonal axis:
+    //   • circulationRouted — every private/service room opens directly onto a
+    //                         circulation room (no room reachable only through
+    //                         another room). The wallsAndDoors re-route pass
+    //                         places these doors wherever a legal circulation-
+    //                         adjacent wall exists; a candidate is unrouted only
+    //                         when a room is GENUINELY land-locked.
+    //
     // Tiers (best → worst fallback):
-    //   clean AND legal       ← architecturally complete + rule-legal
-    //   clean AND connected   ← complete shape+topology, with reconciliation doors
-    //   legal                  ← rule-legal but a room is awkward OR a soft
-    //                            topology issue (acoustic / wet) is present
-    //   connected              ← reachable; multiple compromises
-    //   anything               ← last resort
+    //   clean AND legal AND routed ← architecturally complete, rule-legal, every
+    //                                room opens onto the spine
+    //   clean AND legal            ← complete + rule-legal (a room may be land-locked)
+    //   clean AND connected        ← complete shape+topology, with reconciliation doors
+    //   legal                       ← rule-legal but a room is awkward OR a soft
+    //                                 topology issue (acoustic / wet) is present
+    //   connected                   ← reachable; multiple compromises
+    //   anything                    ← last resort
     const connected = candidates.filter(c => c.connected);
     const legal = connected.filter(c => c.compromises === 0);
     const clean = candidates.filter(c => c.shapeAdmissible && c.topologyAdmissible);
     const cleanAndLegal = clean.filter(c => c.connected && c.compromises === 0);
+    const cleanLegalRouted = cleanAndLegal.filter(c => c.circulationRouted);
     const cleanAndConn = clean.filter(c => c.connected);
     const pool =
+        cleanLegalRouted.length > 0 ? cleanLegalRouted :
         cleanAndLegal.length > 0 ? cleanAndLegal :
         cleanAndConn.length > 0 ? cleanAndConn :
         legal.length > 0 ? legal :
@@ -440,5 +468,22 @@ export function enumerateLayouts(input: EnumerateInput): TglCandidate[] {
         a.rank - b.rank ||
         b.weighted - a.weighted ||
         (a.strategy < b.strategy ? -1 : a.strategy > b.strategy ? 1 : 0));   // stable tie-break
+
+    // §CIRCULATION-REROUTE (A.APT.SA.2) — layout-quality WARNING. When even the
+    // best-ranked candidate is not circulation-routed, EVERY strategy left a room
+    // land-locked behind a non-circulation room (no legal circulation-adjacent
+    // wall exists in any tiling). We never force an illegal door — instead we
+    // surface a structured warning the trigger can relay so the user knows the
+    // shell + program forced a less-than-ideal circulation graph.
+    const best = ranked[0];
+    if (best && !best.circulationRouted) {
+        console.warn(
+            '[apartment-layout] §CIRCULATION-REROUTE: a habitable room is reachable ' +
+            'only through a non-circulation room (no legal corridor/hall-adjacent ' +
+            `wall to re-route it onto) in the best layout (strategy ${best.strategy}). ` +
+            'The plan ships connected but with an architectural circulation compromise.',
+        );
+    }
+
     return ranked.slice(0, Math.max(1, input.count));
 }
