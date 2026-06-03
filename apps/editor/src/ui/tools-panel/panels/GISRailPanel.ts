@@ -81,6 +81,21 @@ export class GISRailPanel {
             }
         ));
 
+        // A.8.f — Site Inspector. Surfaces the authored C19 SiteModel (address,
+        // lat/lon, parcel area + boundary thumbnail) read from runtime.siteModelStore,
+        // so the user can SEE the plot they loaded from an address / drew on the map.
+        root.appendChild(this._buildDivider());
+        root.appendChild(this._buildActionBtn(
+            '📐', 'Site Inspector',
+            'Open the Site panel — address, lat/lon, parcel area, and boundary loaded from the authored site',
+            () => {
+                console.log('[GISRailPanel] Open Site Inspector');
+                void import('../../site/SiteInspectorPanel')
+                    .then(m => m.openSiteInspectorPanel(this.runtime))
+                    .catch(err => console.error('[GISRailPanel] open site inspector failed:', err));
+            }
+        ));
+
         // A.11 — Climate substrate UI. Site-anchored sun-path + wind-rose +
         // temperature profile over the A.10 ClimateStore. Opens a floating
         // panel reading runtime.climateStore + runtime.siteModelStore.
