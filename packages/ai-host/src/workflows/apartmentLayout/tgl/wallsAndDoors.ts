@@ -22,7 +22,7 @@
 import type { BubbleGraph } from './bubbleGraph.js';
 import type { Pt, Rect } from './rectDecomposition.js';
 import type { RoomPlacement } from './subdivide.js';
-import { doorAllowedBetween, isCirculation, isPrivate, maxDoorsFor, roomRule } from '../rules/programRules.js';
+import { doorAllowedBetween, isCirculation, maxDoorsFor, roomRule } from '../rules/programRules.js';
 
 export interface WallSeg {
     readonly id: string;
