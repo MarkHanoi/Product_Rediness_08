@@ -101,6 +101,7 @@ export function mountNavigationArea(
             // just-placed georeference), with the same coverage/shadow-drop/fallback semantics.
             void import('@app/engine/undo/performUndoRedo').then(m => m.performUndo());
         },
+        gisStartBoundaryDraw: () => gis.startBoundaryDraw(),
         toggleShadows,
         applyVisualStyle: props.applyVisualStyle,
         service,

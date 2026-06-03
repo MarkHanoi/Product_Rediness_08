@@ -57,6 +57,30 @@ export class GISRailPanel {
             }
         ));
 
+        // A.8.a/A.8.c — Site authoring: draw the plot boundary + generate from it.
+        // The geocode address-search box mounts as a floating overlay over the
+        // Cesium canvas when GIS activates (GISAreaLayout); these two buttons are
+        // the rest of the UI flow so it's clickable end-to-end (no console).
+        root.appendChild(this._buildDivider());
+        root.appendChild(this._buildActionBtn(
+            '✏️', 'Draw Site Boundary',
+            'Draw your plot boundary on the map — click each corner, double-click or Enter to close the loop',
+            () => {
+                console.log('[GISRailPanel] Draw Site Boundary');
+                this._props.gisStartBoundaryDraw();
+            }
+        ));
+        root.appendChild(this._buildActionBtn(
+            '🏢', 'Generate Apartment',
+            'Generate an apartment layout inside the drawn site boundary',
+            () => {
+                console.log('[GISRailPanel] Generate Apartment from site boundary');
+                void import('../../apartment-layout/apartmentFromBoundary')
+                    .then(m => m.generateApartmentFromBoundary(this.runtime))
+                    .catch(err => console.error('[GISRailPanel] generate-from-boundary failed:', err));
+            }
+        ));
+
         root.appendChild(this._buildGizmoSection());
         root.appendChild(this._buildResetBtn());
 
