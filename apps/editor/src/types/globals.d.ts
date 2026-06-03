@@ -165,6 +165,14 @@ declare global {
         wallStore:              unknown;
         /** #51 — DevTools console command to generate AI apartment layouts. */
         pryzmGenerateApartmentLayout?: () => void;
+        /** A.5.g.2 — draw a footprint shell (default 10×8 m) THEN generate, so an
+         *  empty project can produce a layout. The `footprint` polygon is the seam
+         *  the GIS site-boundary feeds ("apartment from the 3D boundary lines"). */
+        pryzmGenerateApartmentFromScratch?: (opts?: {
+            footprint?: ReadonlyArray<{ x: number; z: number }>;
+            width?: number;
+            depth?: number;
+        }) => void;
         /** §HELP — prints every pryzm…() console command for the apartment
          *  generation pipeline (apartment → ceiling → furnish → lighting). */
         pryzmShowApartmentHelp?: () => void;
