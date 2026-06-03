@@ -1,6 +1,7 @@
 # ADR-057 — Realtime geometry editing & view interactivity
 
-- **Status:** PROPOSED (2026-06-03) — not accepted; decision record for review.
+- **Status:** ACCEPTED (2026-06-03) — **P1 IMPLEMENTED** (single-wall openings-only
+  rebuild branch; OI-053h). P2–P5 remain proposed/backlogged. See "Phased rollout" below.
 - **Owner:** wall geometry (`@pryzm/geometry-wall`) + editor engine (`apps/editor/src/engine`).
 - **Affects:** `WallRebuildCoordinator`, `WallFragmentBuilder`, `SetDoorOffsetCommand` /
   `SetWindowOffsetCommand`, `DoorBuilder` / `WindowBuilder`, `HostedElementDragController`.
@@ -116,10 +117,17 @@ never cold.
 
 ## Phased rollout
 
-- **P1 — Delta classification + single-wall openings path.** Add the openings-only branch to
-  `WallRebuildCoordinator._flush`; skip `resolveLevel` / `refreshV2Cache` / infill for it.
-  Tests: offset-move leaves neighbour join meshes byte-identical; door re-anchors correctly.
-  *(Biggest win, lowest risk — ship first.)*
+- **P1 — Delta classification + single-wall openings path. ✅ SHIPPED (2026-06-03, OI-053h).**
+  `classifyWallDelta` (`packages/geometry-wall/src/WallDeltaClassifier.ts`) classifies the
+  rebuild batch; `WallRebuildCoordinator._flush` takes a `_flushOpeningsOnly` branch when the
+  whole batch is a provably openings-only change on baseline-stable walls of one level, skipping
+  `resolveLevel` / `refreshV2Cache` / `computeJunctionInfills`. The wall body rebuilds with its
+  **cached `JoinData`** (read back from `_prevJoinMap` — invariant under an offset edit) so the
+  mitered end caps render byte-identically to a full rebuild; only the hole moves. ANY other
+  delta (baseline move, wall add/remove, thickness/layers/curve change, opening-set change,
+  multi-level batch, missing `prevState`) falls back to the unchanged whole-level rebuild.
+  Tests: `packages/geometry-wall/__tests__/WallDeltaClassifier.test.ts` (14 cases — fast-path
+  selection, every fallback reason, exact-wall-set). *(Biggest win, lowest risk — shipped first.)*
 - **P2 — Live hole preview during drag.** Reuse `FastPathProjectorService` / preview infra to
   show the hole at the dragged offset before commit, for OBC-grade perceived latency.
 - **P3 — Jamb-local segment rebuild** in `WallFragmentBuilder` so even the commit touches only
