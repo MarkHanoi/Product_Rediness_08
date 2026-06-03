@@ -63,6 +63,42 @@ import { ambientIntelligence }         from '@pryzm/ai-host';
 // window-global bindings these enabled were a `?pryzm1=1`-only legacy path.
 import type { EngineContext } from './EngineContext';
 
+// ── O.8 (PERF 2026-06-03): deferred-subsystem idempotency guard ──────────────
+// The monitoring / advisory subsystems below (physics compute, temporal-graph
+// auto-recording, dependency-cascade monitoring, constraint auto-run, ambient
+// intelligence + canvas advisory overlays, the DataWorkbench toolbar button)
+// are NOT needed for the onboarding location→draw→generate path. They only
+// matter for interactive editing AFTER the project is open and the user starts
+// mutating the model. Running them inside the synchronous boot path adds
+// several hundred ms of LONGTASK before "Set up your project" can paint.
+//
+// We move them into `runDeferredDataPlatform()`, scheduled on `requestIdleCallback`
+// after first paint (and guaranteed to run via the post-load idle hook below,
+// well before the user reaches the GENERATE step). All of them are subscribe-
+// only or fire-and-forget AND idempotent (init() guards re-entry), so:
+//   • A mutation that slips through before idle fires is harmless — these layers
+//     only RECORD / ADVISE; none feed geometry or the generate command path.
+//   • `ensureDeferredDataPlatform()` can be called by any code that hard-depends
+//     on a deferred subsystem to force-init it early (defensive — the generate
+//     path does not).
+let _deferredRan = false;
+let _deferredCtx:
+    | { ctx: Pick<EngineContext, 'world' | 'selectionManager' | 'updateInspector'>;
+        runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null }
+    | null = null;
+
+/**
+ * Force the deferred (non-essential) Data Platform subsystems to initialise NOW
+ * if they have not already. Idempotent — safe to call any number of times.
+ * Exposed on `window.__pryzmEnsureDataPlatform` so the GENERATE path (or any
+ * future caller) can guarantee physics/temporal/etc. are live before relying on
+ * them, without waiting for the idle callback.
+ */
+export function ensureDeferredDataPlatform(): void {
+    if (_deferredRan || !_deferredCtx) return;
+    runDeferredDataPlatform(_deferredCtx.ctx, _deferredCtx.runtime);
+}
+
 /**
  * Wire all Data Platform services and expose stores on window.
  * Must be called after all element stores have been instantiated and
@@ -109,18 +145,12 @@ export function initDataPlatform(ctx: Pick<EngineContext,
     RoomColourSystem.setSyncStateEngine(syncStateEngine as any);
     console.log('[initDataPlatform] RoomColourSystem.setSyncStateEngine wired');
 
-    // ── D-2 DependencyResolver monitoring layer ───────────────────────────────
-    // Subscribes to StoreEventBus and uses SemanticGraph to compute which elements
-    // are transitively affected by each change. Phase D: logs only (monitoring mode).
-    dependencyResolver.init();
-    console.log('[initDataPlatform] DependencyResolver initialised — semantic graph monitoring active');
-
-    // ── G-1 TemporalGraph — append-only mutation log ──────────────────────────
-    // Subscribes to StoreEventBus to auto-record NodeMutationRecords for every
-    // create/update/delete event. sessionId is generated once at init time and
-    // stable for the entire browser session.
-    temporalGraphManager.init();
-    console.log(`[initDataPlatform] TemporalGraph initialised — sessionId=${temporalGraphManager.sessionId}`);
+    // ── D-2 DependencyResolver + G-1 TemporalGraph — DEFERRED (O.8) ───────────
+    // Both are subscribe-only MONITORING layers (cascade-rebuild logging /
+    // append-only mutation history). They only matter for mutations that happen
+    // AFTER subscription, and onboarding's location→draw step produces none that
+    // these layers need. Moved to runDeferredDataPlatform() (idle, post-paint).
+    // Their init() is idempotent, so an early ensure-call is also safe.
 
     // ── §6.7 Expose DP stores on window ──────────────────────────────────────
     window.hierarchyStore          = hierarchyStore; // TODO(TASK-08)
@@ -142,63 +172,6 @@ export function initDataPlatform(ctx: Pick<EngineContext,
     window.selectionBus = selectionBus;
     console.log('[initDataPlatform] Data Platform stores + SemanticGraph + TemporalGraph + ConstraintEngine + DecisionRecordStore + PhysicsEngine exposed on window');
     console.log('[initDataPlatform] G-0.3: SelectionBus exposed on window');
-
-    // ── C-2: Auto-run ConstraintEngine after any store mutation ──────────────
-    // Subscribe to StoreEventBus. Debounce with 800ms so rapid sequences of
-    // commands (e.g. auto-setup hierarchy creation) only trigger one run.
-    // This is the architectural hook that makes the Compliance Panel live.
-    //
-    // PERF-FIX (Apr 2026): Suppress auto-run during the project-load window.
-    // Loading a project replays dozens of commands (one per element) and each
-    // would otherwise schedule a ~600ms full validation pass, blocking the
-    // main thread for 1–2 s right when the user is waiting for first paint.
-    // We mute auto-runs until 2 s after `pryzm-project-loaded`, then trigger
-    // a single coalesced run for the whole loaded model.
-    let _constraintDebounce: ReturnType<typeof setTimeout> | null = null;
-    let _constraintQuietUntil = Number.POSITIVE_INFINITY;
-    window.runtime?.events?.on('pryzm-project-loaded', () => { // F.events.9
-        _constraintQuietUntil = Date.now() + 2000;
-        // Schedule the post-load coalesced run on idle.
-        const _run = () => constraintEngine.run();
-        const ric = window.requestIdleCallback as
-            | ((cb: () => void, opts?: { timeout: number }) => number) | undefined;
-        if (typeof ric === 'function') ric(_run, { timeout: 3500 });
-        else setTimeout(_run, 2200);
-    });
-    storeEventBus.subscribe(() => {
-        if (Date.now() < _constraintQuietUntil) return; // suppressed during load
-        if (_constraintDebounce) clearTimeout(_constraintDebounce);
-        _constraintDebounce = setTimeout(() => {
-            _constraintDebounce = null;
-            constraintEngine.run();
-        }, 800);
-    });
-    console.log('[initDataPlatform] ConstraintEngine auto-run wired to StoreEventBus (800ms debounce, load-quiet window)');
-
-    // ── G-3: IntentPrompt — wire to ConstraintEngine results ─────────────────
-    // When ConstraintEngine fires pryzm-constraints-updated, check for NEW
-    // violations that weren't present in the previous run. For each new violation
-    // on a capturable rule, show the intent prompt to capture architect rationale.
-    window.addEventListener('pryzm-constraints-updated', (e: Event) => {
-        const { results } = (e as CustomEvent).detail ?? {};
-        if (Array.isArray(results)) {
-            handleConstraintResults(results);
-        }
-    });
-    console.log('[initDataPlatform] G-3: IntentPrompt wired to pryzm-constraints-updated');
-
-    // ── H-1: PhysicsEngine — start RAF-batched queue ──────────────────────────
-    physicsEngine.init();
-    console.log('[initDataPlatform] H-1: PhysicsEngine RAF-queue started');
-
-    // ── H-2: PhysicsOverlayRenderer — wire to Three.js scene ─────────────────
-    // Must run after the world scene is available on ctx.world.scene.three.
-    try {
-        initPhysicsOverlayRenderer(ctx.world.scene.three as THREE.Scene);
-        console.log('[initDataPlatform] H-2: PhysicsOverlayRenderer initialised');
-    } catch (e) {
-        console.warn('[initDataPlatform] PhysicsOverlayRenderer init deferred:', e);
-    }
 
     // ── G-0.1: BuiltinTemplates — seed on startup and after every project load ─
     // seedBuiltins() is idempotent (skips ids already present), so calling it
@@ -222,31 +195,163 @@ export function initDataPlatform(ctx: Pick<EngineContext,
     });
     console.log('[initDataPlatform] G-0.3: SelectionBus subscribed to pryzm-element-selected via runtime.events');
 
+    // ── H-1 physics room-enqueue + DataWorkbench toolbar button — DEFERRED (O.8)
+    // Both moved to runDeferredDataPlatform(). The physics queue cannot drain
+    // until physicsEngine.init() runs (also deferred), so wiring enqueue here
+    // gained nothing on the critical path; the toolbar button + physics-overlay
+    // dropdown are interactive-editing affordances irrelevant to onboarding.
+
+    // ── B-2: DataWorkbench tree → 3D selection bridge ────────────────────────
+    // When the user clicks a node in HierarchyTreePanel, find the matching mesh
+    // in the Three.js scene and highlight it via SelectionManager.
+    // F.events.7 — pryzm-workbench-select migrated to runtime.events typed bus.
+    window.runtime?.events?.on('pryzm-workbench-select', (payload: unknown) => {
+        const p = payload as { nodeId?: string; id?: string; elementId?: string; nodeType?: string; type?: string; elementType?: string } | undefined;
+        const nodeId   = p?.nodeId ?? p?.id ?? p?.elementId;
+        const nodeType = p?.nodeType ?? p?.type ?? p?.elementType;
+        if (!nodeId) return;
+
+        // Only 3D-visible element types: rooms, walls, slabs, doors, windows, etc.
+        // Hierarchy nodes (site/building/level/unit) have no 3D mesh to select.
+        const selectable3D = ['room', 'wall', 'slab', 'door', 'window', 'column', 'beam',
+            'stair', 'furniture', 'ceiling', 'roof', 'curtainwall', 'handrail', 'plumbing'];
+        if (!nodeType || !selectable3D.includes(nodeType)) return;
+
+        let targetMesh: THREE.Object3D | null = null;
+        ctx.world.scene.three.traverse((obj: THREE.Object3D) => {
+            if (!targetMesh && obj.userData?.id === nodeId) {
+                targetMesh = obj;
+            }
+        });
+
+        if (targetMesh) {
+            ctx.selectionManager.applyHighlight(targetMesh);
+            ctx.updateInspector(targetMesh);
+            console.log('[initDataPlatform] DataWorkbench→3D: highlighted', nodeType, nodeId);
+        }
+    });
+
+    // ── L-1/L-2: Lifecycle state — DELETED at S70 D8 ──────────────────────────
+    // The window.lifecycleStateManager + maintenanceRecordStore
+    // bindings were removed alongside the deletion of src/lifecycle/.
+    // Per ADR-030 §A row 2 + Part D, per-family handlers in plugins/* are the
+    // new owners; the global-on-window pattern is dead per ADR-030 anti-patterns.
+
+    // ── K-1/K-2/K-3 advisory overlays + constraint auto-run + physics/temporal/
+    //    dependency monitoring — DEFERRED (O.8). See runDeferredDataPlatform().
+    // None of these are needed for onboarding location→draw→generate.
+
+    console.log('[initDataPlatform] Data Platform ESSENTIAL subsystem initialised (deferring monitoring/advisory to idle).');
+
+    // ── O.8: schedule the non-essential subsystems on idle, after first paint ──
+    // Stash the context so ensureDeferredDataPlatform() can force-init early if
+    // anything ends up hard-depending on a deferred subsystem.
+    _deferredCtx = { ctx, runtime };
+    // Expose the force-init guard so the GENERATE path (or dev console) can
+    // ensure the deferred monitoring layers are live before relying on them.
+    (window as unknown as { __pryzmEnsureDataPlatform?: () => void })
+        .__pryzmEnsureDataPlatform = ensureDeferredDataPlatform;
+    const _scheduleDeferred = () => ensureDeferredDataPlatform();
+    const ric = window.requestIdleCallback as
+        | ((cb: () => void, opts?: { timeout: number }) => number) | undefined;
+    if (typeof ric === 'function') ric(_scheduleDeferred, { timeout: 4000 });
+    else setTimeout(_scheduleDeferred, 1500);
+    // Belt-and-braces: also (re-)schedule after the first project load, so even
+    // if the browser never fires an idle callback (rare), the monitoring layers
+    // are live well before the user reaches GENERATE. Idempotent — no double-init.
+    window.runtime?.events?.on('pryzm-project-loaded', () => { // F.events.9
+        if (typeof ric === 'function') ric(_scheduleDeferred, { timeout: 3000 });
+        else setTimeout(_scheduleDeferred, 800);
+    });
+}
+
+/**
+ * O.8 — the NON-ESSENTIAL Data Platform subsystems, run on idle after first
+ * paint (NOT on the project-open critical path). Each is subscribe-only or
+ * fire-and-forget, idempotent, and irrelevant to onboarding location→draw→
+ * generate. Guarded by `_deferredRan` so it runs exactly once.
+ */
+function runDeferredDataPlatform(
+    ctx: Pick<EngineContext, 'world' | 'selectionManager' | 'updateInspector'>,
+    _runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null,
+): void {
+    if (_deferredRan) return;
+    _deferredRan = true;
+    const _t0 = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+
+    // ── D-2 DependencyResolver — cascade monitoring (subscribe-only) ──────────
+    dependencyResolver.init();
+    console.log('[initDataPlatform/deferred] DependencyResolver initialised — semantic graph monitoring active');
+
+    // ── G-1 TemporalGraph — append-only mutation log (subscribe-only) ─────────
+    temporalGraphManager.init();
+    console.log(`[initDataPlatform/deferred] TemporalGraph initialised — sessionId=${temporalGraphManager.sessionId}`);
+
+    // ── C-2: Auto-run ConstraintEngine after any store mutation ──────────────
+    // Debounced (800ms) with a load-quiet window so the loaded model only
+    // triggers a single coalesced validation pass.
+    let _constraintDebounce: ReturnType<typeof setTimeout> | null = null;
+    let _constraintQuietUntil = Number.POSITIVE_INFINITY;
+    window.runtime?.events?.on('pryzm-project-loaded', () => { // F.events.9
+        _constraintQuietUntil = Date.now() + 2000;
+        const _run = () => constraintEngine.run();
+        const ric = window.requestIdleCallback as
+            | ((cb: () => void, opts?: { timeout: number }) => number) | undefined;
+        if (typeof ric === 'function') ric(_run, { timeout: 3500 });
+        else setTimeout(_run, 2200);
+    });
+    storeEventBus.subscribe(() => {
+        if (Date.now() < _constraintQuietUntil) return; // suppressed during load
+        if (_constraintDebounce) clearTimeout(_constraintDebounce);
+        _constraintDebounce = setTimeout(() => {
+            _constraintDebounce = null;
+            constraintEngine.run();
+        }, 800);
+    });
+    console.log('[initDataPlatform/deferred] ConstraintEngine auto-run wired to StoreEventBus (800ms debounce, load-quiet window)');
+
+    // ── G-3: IntentPrompt — wire to ConstraintEngine results ─────────────────
+    window.addEventListener('pryzm-constraints-updated', (e: Event) => {
+        const { results } = (e as CustomEvent).detail ?? {};
+        if (Array.isArray(results)) {
+            handleConstraintResults(results);
+        }
+    });
+    console.log('[initDataPlatform/deferred] G-3: IntentPrompt wired to pryzm-constraints-updated');
+
+    // ── H-1: PhysicsEngine — start RAF-batched queue ──────────────────────────
+    physicsEngine.init();
+    console.log('[initDataPlatform/deferred] H-1: PhysicsEngine RAF-queue started');
+
+    // ── H-2: PhysicsOverlayRenderer — wire to Three.js scene ─────────────────
+    try {
+        initPhysicsOverlayRenderer(ctx.world.scene.three as THREE.Scene);
+        console.log('[initDataPlatform/deferred] H-2: PhysicsOverlayRenderer initialised');
+    } catch (e) {
+        console.warn('[initDataPlatform/deferred] PhysicsOverlayRenderer init deferred:', e);
+    }
+
     // ── H-1: Enqueue rooms for physics when rooms are created or updated ───────
     storeEventBus.subscribe((event) => {
         if (event.elementType === 'room' && (event.operation === 'create' || event.operation === 'update')) {
             physicsEngine.enqueueRoom(event.elementId);
         }
     });
-    // Also enqueue all rooms on project load.
-    // PERF-FIX (Apr 2026): Push to requestIdleCallback so the heavy physics
-    // batch (acoustics + daylight + thermal) runs after the user can interact
-    // with the model, not during the first paint window.
     window.runtime?.events?.on('pryzm-project-loaded', () => { // F.events.9
         const _enqueue = () => {
             physicsEngine.enqueueAll();
-            console.log('[initDataPlatform] H-1: Physics compute enqueued for all rooms after project load (idle)');
+            console.log('[initDataPlatform/deferred] H-1: Physics compute enqueued for all rooms after project load (idle)');
         };
         const ric = window.requestIdleCallback as
             | ((cb: () => void, opts?: { timeout: number }) => number) | undefined;
         if (typeof ric === 'function') ric(_enqueue, { timeout: 3000 });
         else setTimeout(_enqueue, 1500);
     });
-    console.log('[initDataPlatform] H-1: PhysicsEngine room-create/update wiring active');
+    // If a project was already loaded before this deferred init ran, enqueue now.
+    physicsEngine.enqueueAll();
+    console.log('[initDataPlatform/deferred] H-1: PhysicsEngine room-create/update wiring active');
 
     // ── DataWorkbench toolbar button injection ────────────────────────────────
-    // Inject a "Data" button into the platform toolbar (.plat-toolbar).
-    // The DataWorkbench instance already listens to pryzm-toggle-workbench.
     setTimeout(() => {
         const platToolbar = document.querySelector('.plat-toolbar') as HTMLElement | null;
         if (platToolbar && !document.getElementById('dw-toolbar-btn')) {
@@ -309,85 +414,40 @@ export function initDataPlatform(ctx: Pick<EngineContext,
                 setPhysicsOverlayMode(physSelect.value as PhysicsOverlayMode);
                 physicsEngine.enqueueAll();
             });
-            // Keep in sync when PhysicsPanel changes the mode
             window.runtime?.events?.on('pryzm-physics-mode-changed', (p: { mode: string }) => { // F.events.15
                 if (p.mode) physSelect.value = p.mode;
             });
             platToolbar.appendChild(physSelect);
-            console.log('[initDataPlatform] DataWorkbench toolbar button + physics overlay dropdown injected');
+            console.log('[initDataPlatform/deferred] DataWorkbench toolbar button + physics overlay dropdown injected');
         }
-    }, 1000);
-
-    // ── B-2: DataWorkbench tree → 3D selection bridge ────────────────────────
-    // When the user clicks a node in HierarchyTreePanel, find the matching mesh
-    // in the Three.js scene and highlight it via SelectionManager.
-    // F.events.7 — pryzm-workbench-select migrated to runtime.events typed bus.
-    window.runtime?.events?.on('pryzm-workbench-select', (payload: unknown) => {
-        const p = payload as { nodeId?: string; id?: string; elementId?: string; nodeType?: string; type?: string; elementType?: string } | undefined;
-        const nodeId   = p?.nodeId ?? p?.id ?? p?.elementId;
-        const nodeType = p?.nodeType ?? p?.type ?? p?.elementType;
-        if (!nodeId) return;
-
-        // Only 3D-visible element types: rooms, walls, slabs, doors, windows, etc.
-        // Hierarchy nodes (site/building/level/unit) have no 3D mesh to select.
-        const selectable3D = ['room', 'wall', 'slab', 'door', 'window', 'column', 'beam',
-            'stair', 'furniture', 'ceiling', 'roof', 'curtainwall', 'handrail', 'plumbing'];
-        if (!nodeType || !selectable3D.includes(nodeType)) return;
-
-        let targetMesh: THREE.Object3D | null = null;
-        ctx.world.scene.three.traverse((obj: THREE.Object3D) => {
-            if (!targetMesh && obj.userData?.id === nodeId) {
-                targetMesh = obj;
-            }
-        });
-
-        if (targetMesh) {
-            ctx.selectionManager.applyHighlight(targetMesh);
-            ctx.updateInspector(targetMesh);
-            console.log('[initDataPlatform] DataWorkbench→3D: highlighted', nodeType, nodeId);
-        }
-    });
-
-    // ── L-1/L-2: Lifecycle state — DELETED at S70 D8 ──────────────────────────
-    // The window.lifecycleStateManager + maintenanceRecordStore
-    // bindings were removed alongside the deletion of src/lifecycle/.
-    // Per ADR-030 §A row 2 + Part D, per-family handlers in plugins/* are the
-    // new owners; the global-on-window pattern is dead per ADR-030 anti-patterns.
+    }, 0);
 
     // ── K-1: VoiceCommandIndicator — mic button in toolbar ────────────────────
-    // Injects the mic (or text fallback) button into the platform toolbar.
-    // Web Speech API availability detected at runtime.
     new VoiceCommandIndicator();
-    console.log('[initDataPlatform] K-1: VoiceCommandIndicator mounted');
+    console.log('[initDataPlatform/deferred] K-1: VoiceCommandIndicator mounted');
 
     // ── K-2: ConsequencePreviewOverlay — pre-action consequence warnings ───────
-    // Global overlay that listens for pryzm-consequence-preview events fired
-    // by destructive tool handlers. 300ms hover debounce before display.
     new ConsequencePreviewOverlay();
-    console.log('[initDataPlatform] K-2: ConsequencePreviewOverlay initialised');
+    console.log('[initDataPlatform/deferred] K-2: ConsequencePreviewOverlay initialised');
 
     // ── K-3: AmbientIndicator + AmbientIntelligence ───────────────────────────
-    // AmbientIndicator subscribes to ambientIntelligence and renders the
-    // single-line advisory at the bottom of the canvas.
     new AmbientIndicator();
-    console.log('[initDataPlatform] K-3: AmbientIndicator mounted');
+    console.log('[initDataPlatform/deferred] K-3: AmbientIndicator mounted');
 
-    // Wire AmbientIntelligence to ConstraintEngine results (deterministic checks)
     window.addEventListener('pryzm-constraints-updated', (e: Event) => {
         const { results } = (e as CustomEvent).detail ?? {};
         if (Array.isArray(results)) {
             ambientIntelligence.onConstraintsUpdated(results);
         }
     });
-
-    // Wire AmbientIntelligence to StoreEventBus to detect semantic commands
     storeEventBus.subscribe((event) => {
         const commandType = (event as any).commandType ?? (event as any).source ?? '';
         if (commandType) {
             ambientIntelligence.onSemanticCommand(commandType);
         }
     });
-    console.log('[initDataPlatform] K-3: AmbientIntelligence wired to constraints + StoreEventBus');
+    console.log('[initDataPlatform/deferred] K-3: AmbientIntelligence wired to constraints + StoreEventBus');
 
-    console.log('[initDataPlatform] Data Platform subsystem fully initialised.');
+    const _t1 = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    console.log(`[initDataPlatform/deferred] Non-essential Data Platform subsystems initialised in ${Math.round(_t1 - _t0)}ms (off the project-open critical path).`);
 }
