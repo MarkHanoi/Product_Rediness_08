@@ -79,8 +79,12 @@ export interface BriefBootstrapDeps {
 const DEFAULT_PROJECT_NAME = 'My first apartment';
 // Default parcel rectangle (metres) — the no-GIS fallback. Matches the demoable
 // "stub GIS" rectangle from the pipeline plan §5.
-const DEFAULT_PARCEL_WIDTH_M = 20;
-const DEFAULT_PARCEL_DEPTH_M = 16;
+// Single-apartment scale (80 m²) — a 20×16 (320 m²) default overflows the
+// single-apartment generator (would route to the future multi-apartment/public-
+// core engine, not yet built). Matches createSiteFromRect's default + the proven
+// apartmentFromScratch shell size. The Cesium-drawn boundary replaces this later.
+const DEFAULT_PARCEL_WIDTH_M = 10;
+const DEFAULT_PARCEL_DEPTH_M = 8;
 // How long to wait for the site boundary event before falling back to the store
 // poll / bailing. The boundary is set synchronously inside `createSiteFromRect`,
 // so this is a generous safety net, not the happy path.

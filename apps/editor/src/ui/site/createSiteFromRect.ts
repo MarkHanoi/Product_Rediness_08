@@ -46,9 +46,9 @@ interface XZPoint {
 export interface CreateSiteFromRectOptions {
     /** Free-form postal address (PII per C22) — stored on the Site location. */
     readonly address?: string;
-    /** Rectangle width in metres (X axis). Default 20 m. */
+    /** Rectangle width in metres (X axis). Default 10 m. */
     readonly width?: number;
-    /** Rectangle depth in metres (Z axis). Default 16 m. */
+    /** Rectangle depth in metres (Z axis). Default 8 m. */
     readonly depth?: number;
     /** WGS84 latitude (decimal degrees). Default 0. */
     readonly lat?: number;
@@ -56,8 +56,13 @@ export interface CreateSiteFromRectOptions {
     readonly lon?: number;
 }
 
-const DEFAULT_WIDTH_M = 20;
-const DEFAULT_DEPTH_M = 16;
+// Single-apartment scale (80 m²) — matches the proven `apartmentFromScratch`
+// default + stays well inside the generator's single-apartment envelope. A 20×16
+// (320 m²) plot overflows it and would need the future multi-apartment/public-core
+// engine (NOT yet built). The user draws a real (possibly larger) boundary in
+// Cesium when that lands; this rectangle is only the no-GIS fallback.
+const DEFAULT_WIDTH_M = 10;
+const DEFAULT_DEPTH_M = 8;
 
 /**
  * Build a centred axis-aligned rectangle parcel boundary on the (x,z) ground
