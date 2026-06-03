@@ -1,3 +1,4 @@
+/// <reference path="./global-window.d.ts" />
 /**
  * @file AIElementFactory.ts
  * @description Tool-layer service that calls the Claude Vision API and returns
