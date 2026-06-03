@@ -36,6 +36,7 @@ import { openAutoOrganiseModal } from '../property-inspector/RoomAutoOrganiser';
 // Single shared trigger (also exposed as the console command
 // pryzmGenerateApartmentLayout()), so the leaf + console behave identically.
 import { triggerApartmentLayout } from '../apartment-layout/apartmentLayoutTrigger';
+import { generateApartmentFromScratch } from '../apartment-layout/apartmentFromScratch';
 import { triggerFurnishLayout } from '../furnish-layout/furnishLayoutTrigger';
 import { triggerLightingLayout } from '../lighting-layout/lightingLayoutTrigger';
 import { triggerCeilingLayout } from '../ceiling-layout/ceilingLayoutTrigger';
@@ -152,6 +153,15 @@ const COMMAND_TREE: SuggestionNode[] = [
                 label: 'Generate apartment layout (AI)',
                 hint: 'AI interior layouts from the level shell — pick one to build',
                 action: () => { triggerApartmentLayout(); },
+            },
+            {
+                // A.5.g.2 — generate from an EMPTY project: draws a default
+                // exterior shell (10×8 m) THEN runs the generator inside it, so
+                // no pre-drawn walls are needed. The footprint is the seam the
+                // GIS site-boundary will feed ("apartment from the 3D boundary").
+                label: 'Generate apartment (from scratch)',
+                hint: 'no walls needed — draws a default 10×8 m shell, then generates',
+                action: () => { void generateApartmentFromScratch(); },
             },
             {
                 // #54 D-CE — auto-place ONE ceiling slab per ceilable room on
