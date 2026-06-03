@@ -762,11 +762,27 @@ export class RenderPipelineManager implements IViewSwitchListener {
      */
     onProjectSwitch(): void {
         console.log('[RenderPipelineManager] onProjectSwitch — clearing outline refs, resetting retry counter');
+        this._retryCount = 0;
+        // §OI-053d — pipeline built once/tab; switch re-points outline arrays only.
+        // If the outline GPU instances already exist (2nd+ open in this tab), we do
+        // NOT dispose them or rebuild the SSGI/outline node graph — that teardown was
+        // content-INDEPENDENT and 100% redundant across switches (the 768ms LONGTASK
+        // + the repeated §I2 dispose fingerprint). Isolation is preserved by dropping
+        // the previous project's stale Object3D refs via the O(1) array re-point; the
+        // OutlinePass holds these arrays BY REFERENCE, so re-pointing needs no GPU
+        // dispose and no shader recompile. Outlines stay ACTIVE, so the historical
+        // "outlines left permanently disabled after switch" bug cannot recur.
+        if (this._outlineNodes) {
+            this.setSelectedObjects([]);
+            this.setHoveredObjects([]);
+            return;
+        }
+        // First switch before outlines were ever built: clear refs and let
+        // onProjectLoaded() perform the one-time build.
         this._selectedObjects.length = 0;
         this._hoveredObjects.length  = 0;
         this._disposeOutlineInstances();
         this._outlinesActive = false;
-        this._retryCount = 0;
         // NOTE: Pipeline rebuild is intentionally deferred to onProjectLoaded().
         // Rebuilding here (on pryzm-project-switch) runs longtasks while BIM
         // elements are mid-load, producing blank render frames that make geometry
@@ -802,11 +818,20 @@ export class RenderPipelineManager implements IViewSwitchListener {
         }
         this._projectLoadedDebounceTimer = setTimeout(() => {
             this._projectLoadedDebounceTimer = null;
-            console.log('[RenderPipelineManager] onProjectLoaded (debounced) — re-activating outlines.');
-            // Re-activate outlines: creates fresh GPU targets, rebuilds pipeline with
-            // outlines composited. Falls back to a plain rebuild if activation fails.
+            // §OI-053d — build the SSGI/outline pipeline ONCE per tab. If the outline
+            // GPU instances already exist, the project switch already re-pointed the
+            // selected/hover arrays (O(1), no GPU dispose, no shader recompile), so
+            // there is nothing to rebuild here. Only the FIRST loaded-event in this
+            // tab authors the node graph + allocates the outline targets.
+            if (this._outlineNodes) {
+                console.log('[RenderPipelineManager] onProjectLoaded (debounced) — outlines already built; re-point only, no rebuild.');
+                return;
+            }
+            console.log('[RenderPipelineManager] onProjectLoaded (debounced) — activating outlines (one-time build).');
+            // Activate outlines: creates GPU targets, rebuilds pipeline with outlines
+            // composited. Falls back to a plain rebuild if activation fails.
             this.activateOutlines().catch((err: unknown) => {
-                console.error('[RenderPipelineManager] onProjectLoaded: outline re-activation failed:', err);
+                console.error('[RenderPipelineManager] onProjectLoaded: outline activation failed:', err);
                 this._rebuildPipeline();
             });
         }, 300);
