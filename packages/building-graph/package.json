@@ -1,0 +1,33 @@
+{
+  "name": "@pryzm/building-graph",
+  "version": "0.1.0",
+  "description": "PRYZM — Unified Building Graph (UBG) core: the canonical relational node/edge model that PROJECTS the specialised graphs (SemanticGraph/TopologyLayer/RoomGraphService/DependencyResolver/ConstraintEngine) into one queryable surface. GRAPH.1 — pure P5-safe core only (L0 Zod schema + in-memory store + adapter interface); adapters (GRAPH.2) and the visual overlay (GRAPH.3) live elsewhere. See docs/01-strategy/PRYZM-BUILDING-GRAPH-AND-RELATIONAL-AI-FOUNDATION.md §3 + ADR-0058.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  },
+  "pryzm": {
+    "layer": "L2",
+    "forbiddenDependencies": ["three", "@types/three", "react", "@thatopen/components"],
+    "graphPhase": "GRAPH.1",
+    "note": "Pure relational substrate. No THREE/DOM/I/O (P5). P8 spans at every mutation boundary (addNode/addEdge/clear/fromJSON)."
+  }
+}
