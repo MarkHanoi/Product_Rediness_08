@@ -31,7 +31,7 @@
  */
 
 import { injectAppTheme } from '../styles/AppTheme';
-import type { ClimateDataset } from '@pryzm/schemas';
+import type { ClimateDataset, SiteId } from '@pryzm/schemas';
 import {
     solarArcsForYear,
     projectSunToDisc,
@@ -181,7 +181,7 @@ function _render(): void {
     }
 
     const dataset: ClimateDataset | null =
-        rt?.climateStore.resolveSite(site.id) ?? null;
+        rt?.climateStore.resolveSite(site.id as SiteId) ?? null;
 
     // Site summary header is always shown once a site exists.
     body.appendChild(_siteSummary(loc.latitude, loc.longitude, dataset));

@@ -933,6 +933,9 @@ importers:
 
   apps/editor:
     dependencies:
+      '@pryzm/climate-host':
+        specifier: workspace:*
+        version: link:../../packages/climate-host
       '@pryzm/command-bus':
         specifier: workspace:*
         version: link:../../packages/command-bus
