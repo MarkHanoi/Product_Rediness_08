@@ -376,8 +376,8 @@ export const ONBOARDING_STYLES = `
    The confirm card REUSES the non-blocking drawing presentation (no full-screen
    backdrop → the drawn boundary stays visible behind it; pointer-events fall
    through to the map). But unlike the slim one-line draw banner it needs a
-   vertical title + subtext + two-button layout, so `--confirm` restores the
-   column flow on the body and renders the two actions as a button row. On-brand
+   vertical title + subtext + two-button layout, so the --confirm modifier
+   restores the column flow on the body and renders the actions as a button row. On-brand
    white card + #6600FF primary, matching the compact onboarding card. */
 .os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--confirm .os-body {
   flex-direction: column;
