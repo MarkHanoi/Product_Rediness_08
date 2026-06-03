@@ -53,6 +53,12 @@ import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
 // INSIDE app.pryzm.so as the pre-auth onboarding).
 import { RACChatbotPanel } from '../onboarding/RACChatbotPanel';
 import type { PipelineBrief } from '@pryzm/typology-pipeline';
+// A.5.g.4 — RAC→site bootstrap (the G1 seam). Subscribes to the
+// `pryzm:onboarding-brief-ready` event this router emits and auto-drives
+// create-project → create-Site → generate, so the onboarding journey runs with
+// ZERO console commands. The router injects its create+open path so the
+// bootstrap reuses the hub's proven flow rather than re-minting project ids.
+import { installBriefBootstrap } from '../onboarding/briefBootstrap';
 
 /** ADR-055 §7 — marketing routes moved from apps/docs-site/ into the
  *  editor.  Names match the apex pre-render bucket (/, /pricing,
@@ -161,6 +167,17 @@ export class PlatformRouter {
             const _searchFacade = runtime.search;
             console.debug('[PlatformRouter] Wave 14 runtime.search wired', typeof _searchFacade.run);
         }
+
+        // A.5.g.4 — wire the RAC→site bootstrap ONCE (the G1 seam). On
+        // `pryzm:onboarding-brief-ready` (emitted by showAuth's onSuccess below)
+        // it auto-drives create-project → create-Site → generate, so the
+        // onboarding journey completes with zero console commands. We inject the
+        // router's create+open path (`createAndOpenProject`) so the bootstrap
+        // reuses the hub's proven flow; `installBriefBootstrap` is idempotent
+        // (keyed off the runtime) so a re-entrant `start()` cannot double-fire.
+        installBriefBootstrap(runtime, {
+            createAndOpenProject: (name: string) => router.createAndOpenProject(name),
+        });
 
         // pryzm-open-project — fired by ExistingProjectsPanel when user clicks a project
         // from inside the workspace. Re-launches the workspace with the chosen project.
@@ -345,26 +362,20 @@ export class PlatformRouter {
                 this.landing?.destroy();
                 this.landing = null;
                 this.showHub(user);
-                // A.5.g (hook) — if RAC onboarding captured a brief before this
-                // sign-up, it survived auth on `getCapturedBrief()`. The full
-                // wire-up (create a project + run apartment generation from the
-                // brief, "site → plan in one afternoon") lands here next; for now
-                // we surface it so the journey is observable end-to-end.
+                // A.5.g — if RAC onboarding captured a brief before this sign-up,
+                // it survived auth on `getCapturedBrief()`. A.5.g.4 closed the
+                // wire-up: `installBriefBootstrap` (wired once in `start()`)
+                // subscribes to the event emitted below and AUTO-DRIVES
+                // create-project → create-Site → generate, so the journey
+                // completes with zero console commands. We still emit on the typed
+                // runtime bus (not a `window` global, per P4) so the bootstrap —
+                // and any other in-editor consumer — can seed off the conversation.
                 if (this.capturedBrief) {
                     const brief = this.capturedBrief;
                     console.log(
-                        '[onboarding] post-auth — captured brief ready for project pre-load:',
+                        '[onboarding] post-auth — captured brief ready; emitting pryzm:onboarding-brief-ready (A.5.g.4 bootstrap auto-drives from here):',
                         { role: brief.role, typology: brief.typologyId },
                     );
-                    // A.5.g (seam) — publish the captured brief on the runtime event
-                    // bus so the in-editor pipeline can seed the first project from
-                    // the conversation. The full auto-generation (create project →
-                    // draw a default exterior shell → run apartment generation) is
-                    // staged as A.5.g.2: triggerApartmentLayout requires a ≥3-wall
-                    // shell to ALREADY exist on the active level (it lays out INSIDE
-                    // a shell, it does not create one — apartmentLayoutTrigger.ts:44),
-                    // so that step must draw a default footprint first and be verified
-                    // in-browser. This event is the seam it will subscribe to.
                     this.runtime?.events?.emit('pryzm:onboarding-brief-ready', {
                         role: brief.role,
                         typologyId: brief.typologyId,
@@ -590,6 +601,47 @@ export class PlatformRouter {
         banner.querySelector('.eab-dismiss')?.addEventListener('click', () => banner.remove());
         document.body.prepend(banner);
         console.log('[PlatformRouter] Early Access banner mounted.');
+    }
+
+    /**
+     * A.5.g.4 — create a brand-new project and open it via the canonical
+     * runtime path, then hand off to `launchWorkspace`. This is the SAME
+     * create+open contract the hub's "New project" button uses
+     * (`runtime.persistence.client.create(name)` → open with
+     * `{ isNewProject: true }`), exposed here so the brief-bootstrap
+     * (`installBriefBootstrap`) can reuse it rather than duplicating the
+     * server-id-reconciliation logic. Fire-and-forget; every failure is logged
+     * and swallowed so it never throws into the onboarding/auth flow.
+     *
+     * NOTE: we deliberately do NOT mirror the project into the legacy
+     * localStorage repo here (ProjectHub does that for its sidebar readers) —
+     * the bootstrap path drops the user straight into the workspace, and the
+     * store is populated atomically by `client.create` (see
+     * `buildPersistence.ts`), so the subsequent open resolves the summary
+     * without a round-trip.
+     */
+    createAndOpenProject(name: string): void {
+        void (async () => {
+            try {
+                if (!this.runtime?.persistence?.client?.create) {
+                    console.error('[PlatformRouter] createAndOpenProject — persistence client unavailable; cannot create project.');
+                    return;
+                }
+                console.log(`[PlatformRouter] createAndOpenProject — creating "${name}".`);
+                const summary = (await this.runtime.persistence.client.create(name)) as {
+                    readonly id: string;
+                    readonly name: string;
+                };
+                if (!summary?.id) {
+                    console.error('[PlatformRouter] createAndOpenProject — create returned no id; cannot open.');
+                    return;
+                }
+                console.log(`[PlatformRouter] createAndOpenProject — created "${summary.name}" (${summary.id}); opening.`);
+                this.launchWorkspace(summary.id, summary.name, { isNewProject: true });
+            } catch (err) {
+                console.error('[PlatformRouter] createAndOpenProject failed (swallowed — onboarding flow unaffected):', err);
+            }
+        })();
     }
 
     private launchWorkspace(projectId: string, projectName: string, opts?: { isNewProject?: boolean }): void {
