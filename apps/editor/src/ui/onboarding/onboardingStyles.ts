@@ -23,7 +23,14 @@
 export const ONBOARDING_STYLES = `
 .rac-onboarding-overlay {
   position: fixed;
-  inset: 0;
+  /* §PANEL-SIZE-FIX (2026-06-03): centre with transform, NOT inset:0 + margin:auto.
+     With top:0+bottom:0 (inset:0) + height:auto the box STRETCHES to the max-height
+     (620px) up-front, then snaps to content only on the first drag (when makeDraggable
+     sets bottom:auto) — the founder's "starts big, shrinks on select" regression.
+     Transform-centring keeps height:auto = content-height from first paint. */
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   z-index: 1200;
   display: flex;
   flex-direction: column;
@@ -32,7 +39,6 @@ export const ONBOARDING_STYLES = `
      tall empty box up-front. The card is only as tall as its content until the cap. */
   height: auto;
   max-height: min(72vh, 620px);
-  margin: auto;
   /* Frosted glass (MasterMiawW): translucent white + blur so the canvas shows through. */
   background: rgba(255, 255, 255, 0.72);
   backdrop-filter: blur(24px) saturate(1.2);
@@ -192,14 +198,17 @@ export const ONBOARDING_STYLES = `
    #6600FF accents, content-sized (no min-heights), draggable + resizable. */
 .os-onboarding-overlay {
   position: fixed;
-  inset: 0;
+  /* §PANEL-SIZE-FIX (2026-06-03): transform-centre, not inset:0 + margin:auto —
+     see the .rac-onboarding-overlay note. Keeps height:auto = content from first paint. */
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   z-index: 1250;
   display: flex;
   flex-direction: column;
   width: min(400px, 92vw);
   height: auto;
   max-height: min(72vh, 600px);
-  margin: auto;
   background: rgba(255, 255, 255, 0.72);
   backdrop-filter: blur(24px) saturate(1.2);
   -webkit-backdrop-filter: blur(24px) saturate(1.2);
