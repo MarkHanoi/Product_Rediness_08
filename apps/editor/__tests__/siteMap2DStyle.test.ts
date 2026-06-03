@@ -15,12 +15,16 @@
 import { describe, it, expect } from 'vitest';
 import {
     buildSiteMap2DStyle,
+    buildSatelliteStyle,
     HEKTAR_PALETTE,
     SHADOW_OFFSET,
     OMT_SOURCE,
     BUILDING_SOURCE_LAYER,
     OPENFREEMAP_TILEJSON,
     OPENFREEMAP_GLYPHS,
+    SATELLITE_SOURCE,
+    ESRI_WORLD_IMAGERY_URL,
+    ESRI_WORLD_IMAGERY_ATTRIBUTION,
 } from '../src/ui/geospatial/siteMap2DStyle';
 
 describe('buildSiteMap2DStyle (Hektar OpenFreeMap cream/shadow)', () => {
@@ -90,5 +94,43 @@ describe('buildSiteMap2DStyle (Hektar OpenFreeMap cream/shadow)', () => {
 
     it('exposes PRYZM violet as the boundary-ring colour', () => {
         expect(HEKTAR_PALETTE.violet).toBe('#6600FF');
+    });
+});
+
+describe('buildSatelliteStyle (A.8.c.f.4 — keyless ESRI World Imagery raster)', () => {
+    it('produces a valid v8 raster style with a single keyless ESRI source', () => {
+        const style = buildSatelliteStyle();
+        expect(style.version).toBe(8);
+
+        const src = (style.sources as any)[SATELLITE_SOURCE];
+        expect(src.type).toBe('raster');
+        expect(src.tiles).toEqual([ESRI_WORLD_IMAGERY_URL]);
+        expect(src.tileSize).toBe(256);
+        expect(src.maxzoom).toBe(19);
+        expect(String(src.attribution)).toBe(ESRI_WORLD_IMAGERY_ATTRIBUTION);
+    });
+
+    it('uses the keyless ArcGIS {z}/{y}/{x} endpoint (no API key)', () => {
+        expect(ESRI_WORLD_IMAGERY_URL).toContain('server.arcgisonline.com');
+        expect(ESRI_WORLD_IMAGERY_URL).toContain('World_Imagery');
+        // ArcGIS tile path order is {z}/{y}/{x} (NOT {z}/{x}/{y}).
+        expect(ESRI_WORLD_IMAGERY_URL).toContain('{z}/{y}/{x}');
+        // Keyless — no token / api-key query string.
+        expect(ESRI_WORLD_IMAGERY_URL).not.toMatch(/token|api[_-]?key/i);
+    });
+
+    it('renders a single raster layer bound to the ESRI source', () => {
+        const style = buildSatelliteStyle();
+        expect(style.layers).toHaveLength(1);
+        const layer = style.layers[0] as Record<string, any>;
+        expect(layer['id']).toBe('satellite');
+        expect(layer['type']).toBe('raster');
+        expect(layer['source']).toBe(SATELLITE_SOURCE);
+    });
+
+    it('credits ESRI / Maxar / Earthstar Geographics in the attribution', () => {
+        expect(ESRI_WORLD_IMAGERY_ATTRIBUTION).toContain('Esri');
+        expect(ESRI_WORLD_IMAGERY_ATTRIBUTION).toContain('Maxar');
+        expect(ESRI_WORLD_IMAGERY_ATTRIBUTION).toContain('Earthstar');
     });
 });
