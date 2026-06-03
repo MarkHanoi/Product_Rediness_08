@@ -208,6 +208,14 @@ Any deviation from the runbook must update the runbook in the same PR.
 | **ADR-052** | Marked SUPERSEDED-BY-ADR-055; kept for historical record | Phase A close |
 | Cloudflare Pages project `pryzmapp` | RECONFIGURE to serve only `docs.pryzm.so` (developer docs) OR delete | Phase A close |
 
+### §8 — Entry routing (apex clean paths → SPA query parser)
+
+**Context.** The apex (static, no JS) must hand visitors off to the app surface, and the app's first-paint router must place them on the right surface (RAC onboarding, auth modal, or a marketing route). The editor already routes via a **query parser**, not a pathname router: `apps/editor/src/router.ts` deliberately reads `?page=<name>` instead of `/path/:id` so it does not have to reach past the `?pryzm2=1` **kill-switch** in `src/main.ts` or reconfigure the dev/prod server to serve `index.html` for arbitrary pathnames. `PlatformRouter` owns the legacy hash surface (`#/`, `#/projects`); `?page=` is an extra slot layered on top.
+
+**Decision.** The apex emits **clean, shareable** paths on the app origin (`/signup`, `/start`, `/sign-in`, `/contact`, `/solutions`, `/resources`); the app **server** bridges each to the SPA's `?page=` form with a 302 (e.g. `/signup → /?page=signup`), rather than rebuilding the SPA on a pathname router. Marketing paths (`/pricing`, `/manifesto`, `/trust`) keep their separate §5 / C51 §3.2.1 host-guarded 301 to the apex. The clean-path bridge runs on all hosts (incl. `localhost`) so the apex→app journey is testable before the Fly DNS lands.
+
+**Consequence.** Public links stay clean and shareable; the SPA keeps its single query-parser entry point; the `?pryzm2=1` kill-switch and the hash-router contract that `router.ts` documents stay intact (no pathname router, no server `index.html`-for-`/path/*` deployment change). The normative form of this rule — the clean-path → `?page=` map and the full entry-path table — lives in **C51 §3.1.8 / §3.1.8.1 / §5.3** (the contract is the source of truth; this note records the decision and its rationale).
+
 ---
 
 ## Consequences
