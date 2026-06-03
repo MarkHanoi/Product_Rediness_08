@@ -213,12 +213,33 @@ export async function buildPersistenceSlot(opts: BuildPersistenceOptions): Promi
         }
         let summary = projectListStore.list().find((p: ProjectSummary) => p.id === projectId);
         if (!summary) {
-          // Deep-link scenario: refresh and retry once before throwing.
+          // Deep-link scenario: refresh and retry once.
           await controller.refresh();
           summary = projectListStore.list().find((p: ProjectSummary) => p.id === projectId);
-          if (!summary) {
-            throw new Error(`[persistence.openProject] project not found: ${projectId}`);
-          }
+        }
+        if (!summary) {
+          // OI-059 — the project is ABSENT from the server-backed list (the server
+          // serves the VOLATILE in-memory store when PG is unreachable, so a project
+          // created in a prior server session is gone server-side) yet may still live
+          // in THIS browser's local version store — which is exactly why the hub
+          // still lists it (ProjectHub keeps server-forgotten projects that have
+          // local versions). Hard-throwing here aborted BEFORE the local-restore
+          // path (PlatformShell.setProjectContext → server version-404 → local
+          // auto-restore) that already recovers locally-snapshotted projects. So we
+          // SOFT-fall-through with a minimal summary (mirroring the version-404
+          // tolerance "njk,n" already gets) instead of throwing: tier.streamLoad()
+          // below returns null on the 404 and PlatformShell restores from local.
+          // Analysis: docs/03-execution/analysis/PERSISTENCE-CANNOT-OPEN-PROJECT-2026-06-03.md
+          console.warn(`[persistence.openProject] no server record for ${projectId} — falling through to local restore (OI-059)`);
+          summary = {
+            id: projectId,
+            name: hint?.name ?? projectId,
+            lastModifiedAt: '1970-01-01T00:00:00.000Z',
+            thumbnailUrl: null,
+            ownerName: '',
+            collaboratorCount: 0,
+            schemaVersion: 1,
+          };
         }
         opts.projectContext.set({ projectId: summary.id, projectName: summary.name });
 

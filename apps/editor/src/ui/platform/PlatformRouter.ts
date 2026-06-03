@@ -720,7 +720,13 @@ export class PlatformRouter {
             // `void opts` was dead plumbing — every brand-new project
             // paid the network round-trip even though the four type
             // signatures in the chain all already declared the slot).
-            const hint = opts?.isNewProject ? { isNewProject: true } : undefined;
+            // OI-059 — always thread the hub's project NAME so that if the server
+            // has no record (volatile in-memory store after a restart) the
+            // openProject local-restore fallback shows the real name, not the id.
+            const hint = {
+                name: projectName,
+                ...(opts?.isNewProject ? { isNewProject: true } : {}),
+            };
             await this.runtime.persistence.openProject(projectId, hint);
 
             // Hide the platform root so the editor canvas owns the viewport.
