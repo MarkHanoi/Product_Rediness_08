@@ -573,6 +573,7 @@ Per [quarterly-2026-Q3 §1](./quarterly-2026-Q3.md) + [quarterly-2026-Q4 §1](./
 | [annual-2026.md](./annual-2026.md) | H3 — current year |
 | [quarterly-2026-Q3.md](./quarterly-2026-Q3.md) | H4 — current quarter |
 | [quarterly-2026-Q4.md](./quarterly-2026-Q4.md) | H4 — next quarter |
+| [PERF-REALTIME-EDIT…2026-06-03.md](../analysis/PERF-REALTIME-EDIT-AND-VIEW-SWITCH-2026-06-03.md) + [ADR-057](../../02-decisions/adrs/ADR-057-realtime-geometry-and-view-interactivity.md) | **🟡 QUEUED perf (2026-06-03).** User: door-move/view-switch not "instant" like ThatOpen. Finding: the door mesh DOES move instantly (TransformControls, commit-on-release); the lag is `door.setOffset` → a **whole-level** synchronous wall rebuild (`WallRebuildCoordinator._flush`: `resolveLevel` + per-wall `buildWall` dispose/recreate + infill), O(walls-per-level) not O(1). **No per-frame CSG** (single-volume producer flag-off → segmented-box fallback). 3D↔plan switch verified ALREADY fast (camera toggle + cached plan projection, `FastPathProjectorService` sub-50ms) — not the gap. Fix: incremental single-wall openings-only rebuild branch. **ADR-057 PROPOSED.** |
 
 ---
 
