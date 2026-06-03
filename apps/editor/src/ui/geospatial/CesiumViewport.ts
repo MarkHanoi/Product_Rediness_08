@@ -78,28 +78,65 @@ export class CesiumViewport {
       this.viewer.scene.globe.depthTestAgainstTerrain = false;
 
       // ----------------------------
-      // 🗺️ Base map imagery — keyless OpenStreetMap (A.8.b)
+      // 🗺️ Base map imagery — keyless, rich & crisp (A.8.b / founder feedback)
       // ----------------------------
       // The default Cesium World Imagery needs a valid ion token, and the Google
       // Photorealistic 3D Tiles below need BOTH an ion token AND a linked Google
       // Maps key — when either is missing the globe renders as a faint, near-white
       // ellipsoid ("you can see things but really light"), which is useless for
-      // site-boundary drawing. OSM tiles need NO key, so the map is ALWAYS visible
-      // for authoring. The Google 3D tiles remain an enhancement layered on top
-      // when a key is configured. (Prod CSP: tile.openstreetmap.org added to
-      // img-src in server/securityHeaders.js; dev CSP is report-only.)
+      // site-boundary drawing.
+      //
+      // We use ESRI World Imagery (satellite) as the keyless default: it reads as
+      // a real aerial photo of the plot — far richer and less washed-out than flat
+      // OSM street tiles for a site-context view — and needs NO API key. OSM is
+      // kept as an automatic fallback if the ESRI provider fails to construct.
+      // Both are plain https tile hosts already covered by `img-src 'self' data:
+      // blob: https:` in server/securityHeaders.js (no CSP change required; dev
+      // CSP is report-only).
+      //
+      // The raw tiles are colour-graded on the returned ImageryLayer so they have
+      // depth and punch instead of looking pale: brightness slightly <1 (kills the
+      // wash), contrast & saturation >1 (richer colour + separation), gamma ~1.1
+      // (gentle midtone lift). Tasteful — not blown out.
       try {
         this.viewer.imageryLayers.removeAll();
-        this.viewer.imageryLayers.addImageryProvider(
-          new Cesium.UrlTemplateImageryProvider({
-            url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+
+        const ESRI_WORLD_IMAGERY =
+          'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+        const OSM_STREETS = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+        let baseProvider: Cesium.UrlTemplateImageryProvider;
+        let baseLabel: string;
+        try {
+          baseProvider = new Cesium.UrlTemplateImageryProvider({
+            url: ESRI_WORLD_IMAGERY, // note {z}/{y}/{x} order for ArcGIS
+            maximumLevel: 19,
+            credit:
+              'Imagery © Esri, Maxar, Earthstar Geographics, and the GIS User Community',
+          });
+          baseLabel = 'ESRI World Imagery (satellite)';
+        } catch {
+          baseProvider = new Cesium.UrlTemplateImageryProvider({
+            url: OSM_STREETS,
             maximumLevel: 19,
             credit: '© OpenStreetMap contributors',
-          })
+          });
+          baseLabel = 'OpenStreetMap (streets fallback)';
+        }
+
+        const baseLayer = this.viewer.imageryLayers.addImageryProvider(baseProvider);
+        // Colour-grade so the basemap reads rich & crisp instead of washed out.
+        baseLayer.brightness = 0.9;  // <1 — pull back the wash
+        baseLayer.contrast = 1.15;   // >1 — more tonal depth
+        baseLayer.saturation = 1.25; // >1 — richer, more vivid colour
+        baseLayer.gamma = 1.1;       // gentle midtone lift, not blown out
+
+        console.log(
+          `[CesiumViewport] Keyless base imagery installed: ${baseLabel} ` +
+            '(graded brightness 0.9 / contrast 1.15 / saturation 1.25 / gamma 1.1).'
         );
-        console.log('[CesiumViewport] OSM base imagery installed (keyless basemap).');
       } catch (e) {
-        console.warn('[CesiumViewport] OSM base imagery failed to install:', e);
+        console.warn('[CesiumViewport] Base imagery failed to install:', e);
       }
 
       // ----------------------------
@@ -136,6 +173,32 @@ export class CesiumViewport {
 
       if (!photogrammetryLoaded) {
         console.warn("⚠️ Falling back to default Cesium globe");
+      }
+
+      // ----------------------------
+      // ✨ Scene quality — subtle realism (founder feedback: not washed out)
+      // ----------------------------
+      // Sun-based shading + a visible sky atmosphere give the keyless basemap a
+      // sense of depth and light direction instead of a flat, evenly-lit (and
+      // therefore pale-looking) globe. Kept tasteful: enableLighting shades the
+      // terrain by the sun; skyAtmosphere + the ground atmosphere stay on so the
+      // horizon reads as a real sky. Not cranked — no HDR/bloom blow-out.
+      try {
+        const scene = this.viewer.scene;
+        const globe = scene.globe;
+        // Sun-based shading on the basemap (off by default in Cesium).
+        globe.enableLighting = true;
+        // Soften the day/night terminator so shaded ground isn't crushed to black.
+        globe.dynamicAtmosphereLighting = true;
+        globe.atmosphereBrightnessShift = 0.05; // tiny lift on the lit side
+        // Ground + sky atmosphere visible for a real horizon/sky.
+        globe.showGroundAtmosphere = true;
+        if (scene.skyAtmosphere) {
+          scene.skyAtmosphere.show = true;
+        }
+        console.log('[CesiumViewport] Scene quality: sun lighting + atmosphere enabled.');
+      } catch (e) {
+        console.warn('[CesiumViewport] Scene quality config failed:', e);
       }
 
       // Camera controls
