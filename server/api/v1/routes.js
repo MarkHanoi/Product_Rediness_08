@@ -438,6 +438,24 @@ function classifyV1Error(err, endpoint, userId) {
     // These fields are populated by node-postgres on every PG error response;
     // capturing them all means "uncategorised" 500s can be diagnosed from a
     // single log line without server-restart-with-extra-logging.
+    // §SERVER-V1-CONN-DROP (OI-060, 2026-06-03) — transient connection failures on
+    // the Supabase TRANSACTION pooler (:6543) carry no standard PG error code, so they
+    // previously fell through to an OPAQUE 500 (the founder's "old projects can't open"
+    // / list-and-open HTTP 500). Surface them as a clear, RETRYABLE 503 — pooler
+    // connections are cheap to re-establish, so the client (or the user) can just retry.
+    if (code === '57P01' || code === '08006' || code === '08000' || code === '08003' ||
+        code === 'ECONNRESET' || code === 'ETIMEDOUT' || code === 'EPIPE' ||
+        /connection terminated|connection timeout|terminated unexpectedly|server closed the connection|ECONNRESET|socket hang up|Client has encountered a connection error/i.test(m)) {
+        console.error(`[${endpoint}] errorId=${errorId} userId=${userId} db connection dropped (transient, tx-pooler): ${m}`);
+        return {
+            status: 503,
+            body: {
+                error: 'Database connection was interrupted (transient). Please retry.',
+                code:    'db_connection_lost',
+                errorId,
+            },
+        };
+    }
     console.error(
         `[${endpoint}] errorId=${errorId} userId=${userId} uncategorised:`,
         {
