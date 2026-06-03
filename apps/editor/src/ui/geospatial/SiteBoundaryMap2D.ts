@@ -56,6 +56,29 @@ const FILL_LAYER = 'pryzm-boundary-fill';
 const LINE_LAYER = 'pryzm-boundary-line';
 const VERTEX_LAYER = 'pryzm-boundary-vertices';
 
+// ── A.8.c.g — snap-to-footprint ────────────────────────────────────────────────
+// On mousemove during draw we query the rendered building footprints in a small
+// box around the cursor and snap the next vertex to the nearest building CORNER
+// (vertex) or, failing that, the nearest point on a building EDGE, then fall back
+// to closing-the-loop on the in-progress ring's own first vertex. The snap target
+// is shown as a tasteful violet ring so the user sees exactly where the click will
+// land. Threshold is in screen pixels so it feels constant at every zoom.
+const SNAP_SOURCE = 'pryzm-boundary-snap';
+const SNAP_LAYER = 'pryzm-boundary-snap-indicator';
+/** Snap activation radius in screen pixels (founder: "snap in corners"). */
+const SNAP_PX = 12;
+/** Half-size (px) of the queryRenderedFeatures box around the cursor — cheap. */
+const SNAP_QUERY_HALF_PX = 14;
+/** The building fill layer ids we probe for footprint geometry (flat + 3D). */
+const BUILDING_QUERY_LAYERS = ['buildings-fill', 'buildings-3d'];
+
+/** A resolved snap target: the lng/lat to commit + what kind of feature it is. */
+interface SnapTarget {
+    readonly lon: number;
+    readonly lat: number;
+    readonly kind: 'corner' | 'edge' | 'loop';
+}
+
 export interface SiteBoundaryMap2DOptions {
     /** Where to mount the overlay (the editor #container, same as the geocode box). */
     readonly parent: HTMLElement;
@@ -228,6 +251,9 @@ export function mountSiteBoundaryMap2D(
     const vertices: LatLon[] = [];
     let draggingIdx: number | null = null;
     let disposed = false;
+    // A.8.c.g — the live snap target under the cursor (null = no snap; click uses
+    // the raw lngLat). Updated on every mousemove while drawing.
+    let snapTarget: SnapTarget | null = null;
 
     function toast(message: string, severity: 'info' | 'success' | 'error'): void {
         runtime?.events?.emit('pryzm:toast', { message, severity });
@@ -329,6 +355,132 @@ export function mountSiteBoundaryMap2D(
                 'circle-stroke-width': 2,
             },
         });
+        // A.8.c.g — snap indicator: a hollow violet ring drawn at the live snap
+        // target. Empty until a snap is active (refreshSnapIndicator sets the data).
+        map.addSource(SNAP_SOURCE, { type: 'geojson', data: emptyFC() });
+        map.addLayer({
+            id: SNAP_LAYER,
+            type: 'circle',
+            source: SNAP_SOURCE,
+            paint: {
+                'circle-radius': 9,
+                'circle-color': 'rgba(102,0,255,0.18)',
+                'circle-stroke-color': VIOLET,
+                'circle-stroke-width': 2.5,
+            },
+        });
+    }
+
+    /** An empty FeatureCollection (the snap indicator's resting state). */
+    function emptyFC(): GeoJSON.FeatureCollection {
+        return { type: 'FeatureCollection', features: [] };
+    }
+
+    /** Push the current snap target (or nothing) into the indicator source. */
+    function refreshSnapIndicator(): void {
+        const src = map.getSource(SNAP_SOURCE) as GeoJSONSource | undefined;
+        if (!src) return;
+        if (!snapTarget) { src.setData(emptyFC()); return; }
+        src.setData({
+            type: 'FeatureCollection',
+            features: [{
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [snapTarget.lon, snapTarget.lat] },
+                properties: { kind: snapTarget.kind },
+            }],
+        });
+    }
+
+    // ── A.8.c.g — snap resolution ─────────────────────────────────────────────
+    // Squared pixel distance between two screen points.
+    function pxDist2(ax: number, ay: number, bx: number, by: number): number {
+        const dx = ax - bx, dy = ay - by;
+        return dx * dx + dy * dy;
+    }
+
+    /**
+     * Flatten any (Multi)Polygon / (Multi)LineString feature geometry into a list
+     * of rings, each an array of [lon,lat] positions. Points are ignored.
+     */
+    function ringsOf(geom: GeoJSON.Geometry): number[][][] {
+        switch (geom.type) {
+            case 'Polygon': return geom.coordinates as number[][][];
+            case 'MultiPolygon': return (geom.coordinates as number[][][][]).flat();
+            case 'LineString': return [geom.coordinates as number[][]];
+            case 'MultiLineString': return geom.coordinates as number[][][];
+            default: return [];
+        }
+    }
+
+    /**
+     * Resolve the best snap target for a cursor at screen point `pt`. Priority:
+     *   1. building CORNER (a footprint vertex within SNAP_PX)
+     *   2. building EDGE (nearest point on a footprint segment within SNAP_PX)
+     *   3. closing-the-loop on our OWN first vertex within SNAP_PX (always works,
+     *      and the documented fallback when the footprint geometry isn't queryable)
+     * Returns null when nothing is within range (the click then uses raw lngLat).
+     */
+    function resolveSnap(pt: { x: number; y: number }): SnapTarget | null {
+        const thr2 = SNAP_PX * SNAP_PX;
+        let bestCorner: { lon: number; lat: number; d2: number } | null = null;
+        let bestEdge: { lon: number; lat: number; d2: number } | null = null;
+
+        let feats: GeoJSON.Feature[] = [];
+        try {
+            // Only probe the layers that actually exist in the active style (the
+            // satellite raster style has neither building layer → empty result).
+            const layers = BUILDING_QUERY_LAYERS.filter((l) => map.getLayer(l));
+            if (layers.length > 0) {
+                const box: [[number, number], [number, number]] = [
+                    [pt.x - SNAP_QUERY_HALF_PX, pt.y - SNAP_QUERY_HALF_PX],
+                    [pt.x + SNAP_QUERY_HALF_PX, pt.y + SNAP_QUERY_HALF_PX],
+                ];
+                feats = map.queryRenderedFeatures(box, { layers });
+            }
+        } catch { feats = []; /* defensive: never let snapping break draw */ }
+
+        for (const f of feats) {
+            for (const ring of ringsOf(f.geometry)) {
+                for (let i = 0; i < ring.length; i++) {
+                    const a = ring[i]!;
+                    const ap = map.project([a[0]!, a[1]!]);
+                    // Corner candidate.
+                    const cd2 = pxDist2(pt.x, pt.y, ap.x, ap.y);
+                    if (cd2 <= thr2 && (!bestCorner || cd2 < bestCorner.d2)) {
+                        bestCorner = { lon: a[0]!, lat: a[1]!, d2: cd2 };
+                    }
+                    // Edge candidate (segment a→b, in screen space).
+                    const b = ring[(i + 1) % ring.length]!;
+                    const bp = map.project([b[0]!, b[1]!]);
+                    const vx = bp.x - ap.x, vy = bp.y - ap.y;
+                    const len2 = vx * vx + vy * vy;
+                    if (len2 > 0) {
+                        let t = ((pt.x - ap.x) * vx + (pt.y - ap.y) * vy) / len2;
+                        t = Math.max(0, Math.min(1, t));
+                        const ex = ap.x + t * vx, ey = ap.y + t * vy;
+                        const ed2 = pxDist2(pt.x, pt.y, ex, ey);
+                        if (ed2 <= thr2 && (!bestEdge || ed2 < bestEdge.d2)) {
+                            // Unproject the nearest screen point back to lng/lat.
+                            const ll = map.unproject([ex, ey]);
+                            bestEdge = { lon: ll.lng, lat: ll.lat, d2: ed2 };
+                        }
+                    }
+                }
+            }
+        }
+
+        if (bestCorner) return { lon: bestCorner.lon, lat: bestCorner.lat, kind: 'corner' };
+        if (bestEdge) return { lon: bestEdge.lon, lat: bestEdge.lat, kind: 'edge' };
+
+        // Fallback — close-the-loop snap to our own first vertex.
+        if (vertices.length >= 3) {
+            const first = vertices[0]!;
+            const fp = map.project([first.lon, first.lat]);
+            if (pxDist2(pt.x, pt.y, fp.x, fp.y) <= thr2) {
+                return { lon: first.lon, lat: first.lat, kind: 'loop' };
+            }
+        }
+        return null;
     }
 
     // ── Draw interactions ─────────────────────────────────────────────────────
@@ -336,9 +488,19 @@ export function mountSiteBoundaryMap2D(
         if (disposed) return;
         // Ignore the click that ends a vertex-drag.
         if (draggingIdx !== null) return;
-        vertices.push({ lat: e.lngLat.lat, lon: e.lngLat.lng });
+        // A.8.c.g — commit the snapped position when a snap is active, else raw.
+        const snap = snapTarget;
+        const lat = snap ? snap.lat : e.lngLat.lat;
+        const lon = snap ? snap.lon : e.lngLat.lng;
+        vertices.push({ lat, lon });
+        // Clear the snap so it doesn't linger over the just-placed vertex.
+        snapTarget = null;
+        refreshSnapIndicator();
         refreshRing();
-        console.log(`[gis] map2d vertex ${vertices.length} @ ${e.lngLat.lat.toFixed(6)}, ${e.lngLat.lng.toFixed(6)}`);
+        console.log(
+            `[gis] map2d vertex ${vertices.length} @ ${lat.toFixed(6)}, ${lon.toFixed(6)}` +
+            (snap ? ` (snapped: ${snap.kind})` : ''),
+        );
     }
 
     function onDblClick(e: MapMouseEvent): void {
@@ -361,9 +523,29 @@ export function mountSiteBoundaryMap2D(
         map.getCanvas().style.cursor = 'grabbing';
     }
     function onMouseMove(e: MapMouseEvent): void {
-        if (draggingIdx === null) return;
-        vertices[draggingIdx] = { lat: e.lngLat.lat, lon: e.lngLat.lng };
-        refreshRing();
+        if (disposed) return;
+        if (draggingIdx !== null) {
+            vertices[draggingIdx] = { lat: e.lngLat.lat, lon: e.lngLat.lng };
+            refreshRing();
+            return;
+        }
+        // A.8.c.g — not dragging: resolve a snap target under the cursor and show
+        // (or hide) the violet snap indicator. Lightweight — one small box query.
+        const next = resolveSnap(e.point);
+        const changed =
+            (next === null) !== (snapTarget === null) ||
+            (next !== null && snapTarget !== null &&
+                (next.lon !== snapTarget.lon || next.lat !== snapTarget.lat));
+        if (changed) {
+            snapTarget = next;
+            refreshSnapIndicator();
+            // Only assert the snap cursor; leave the default/grab cursor (managed by
+            // the vertex hover handlers) untouched when there is no snap.
+            if (next) map.getCanvas().style.cursor = 'crosshair';
+            else if (map.getCanvas().style.cursor === 'crosshair') {
+                map.getCanvas().style.cursor = '';
+            }
+        }
     }
     function onMouseUp(): void {
         if (draggingIdx === null) return;
