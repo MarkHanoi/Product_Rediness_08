@@ -18,12 +18,31 @@ Cesium.Ion.defaultAccessToken =
     _cesiumToken ??
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1ZTgyY2VlNC0yZTMyLTRmNzktYmE2MC03MWFlMjlmODI1YWEiLCJpZCI6Mzk1NjM5LCJpYXQiOjE3NzIyNDA0OTB9.ofCy5m_GGYtnYgz5d7qzr3B0ZjshQ7j4sjXz7o8-jsc';
 
+/**
+ * Camera framing for a site location. ~600 m looking almost straight down so the
+ * user sees their parcel + immediate surroundings, NOT the globe limb/horizon.
+ * The keyless ESRI World Imagery has tiles up to z19, so this altitude reads as a
+ * crisp aerial photo of the plot. Pitch is near-nadir (-80°) with a slight tilt
+ * so the scene still has some depth/3D feel rather than a flat orthophoto.
+ */
+const SITE_FRAME_HEIGHT_M = 600;
+const SITE_FRAME_PITCH_DEG = -80;
+const SITE_FLY_DURATION_S = 1.5;
+
 export class CesiumViewport {
   private container: HTMLDivElement;
   private viewer: Cesium.Viewer | null = null;
   private handler: Cesium.ScreenSpaceEventHandler | null = null;
   private currentModel: Cesium.Model | null = null;
   private gizmo: TransformGizmo | null = null;
+  /** Disposer for the `site.location-changed` runtime subscription (cleaned up
+   *  in dispose() so it does not leak across project switches). */
+  private locationSub: (() => void) | null = null;
+  /** When true, the NEXT `site.location-changed` does not re-fly the camera — set
+   *  by a caller (GISAreaLayout's geocode `onFlyTo`) that has ALREADY framed the
+   *  exact plot bbox, so the event-driven point-flyTo doesn't override the better
+   *  extent framing with a redundant second flight. One-shot. */
+  private suppressNextLocationFly = false;
 
   /** Phase B (S73-WIRE) — runtime threaded by parent. */
   public readonly runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null;
@@ -220,21 +239,45 @@ export class CesiumViewport {
         if (e.key === 'r') this.gizmo.setMode(GizmoMode.ROTATE);
       });
 
-      // 🔥 Set initial camera to a reasonable position (Sydney Opera House)
-      const initialPosition = Cesium.Cartesian3.fromDegrees(
-        151.2153, // Sydney lon
-        -33.8568, // Sydney lat
-        1000 // 200m altitude
-      );
+      // ----------------------------
+      // 📍 Camera framing — follow the SITE location, not a hard-coded default
+      // ----------------------------
+      // Founder feedback ("the still-light cesium view pops up"): the viewer used
+      // to setView to a hard-coded Sydney Opera House default (LAT -33.8568 LON
+      // 151.2153 HEIGHT 1000, pitch -45°) and STAY there even after the user
+      // geocoded a real address — so the camera looked at the wrong place on the
+      // globe and the user saw the pale atmosphere/limb instead of their plot.
+      //
+      // Now: if the open project already has a Site location (the user geocoded an
+      // address in a prior step), frame THAT plot instantly at mount. Otherwise
+      // fall back to the Sydney default purely so the globe isn't pointed at empty
+      // space. Either way we subscribe to `site.location-changed` so an
+      // interactive geocode smoothly flies the 3D camera to the searched address,
+      // matching the 2D Hektar map's behaviour.
+      const initialLoc = this.readSiteLocation();
+      if (initialLoc) {
+        this.frameSiteLocation(initialLoc.lat, initialLoc.lon, { instant: true });
+        console.log(
+          `[CesiumViewport] Framed existing site location at mount: LAT ${initialLoc.lat} LON ${initialLoc.lon} ` +
+            `(height ${SITE_FRAME_HEIGHT_M}m, pitch ${SITE_FRAME_PITCH_DEG}°).`
+        );
+      } else {
+        // Fallback only — no real site yet. (Sydney default; replaced as soon as a
+        // real location arrives via mount-read above or site.location-changed below.)
+        this.viewer.camera.setView({
+          destination: Cesium.Cartesian3.fromDegrees(151.2153, -33.8568, 1000),
+          orientation: {
+            heading: 0,
+            pitch: Cesium.Math.toRadians(-45),
+            roll: 0
+          }
+        });
+        console.log('[CesiumViewport] No site location yet — using fallback default view until a location is geocoded.');
+      }
 
-      this.viewer.camera.setView({
-        destination: initialPosition,
-        orientation: {
-          heading: 0,
-          pitch: Cesium.Math.toRadians(-45),
-          roll: 0
-        }
-      });
+      // Subscribe to interactive location changes (geocode search / onboarding /
+      // console site-create). Smooth flyTo so the 3D view follows the plot.
+      this.subscribeToSiteLocation();
 
       // Force resize after layout stabilizes
       setTimeout(() => {
@@ -316,6 +359,73 @@ export class CesiumViewport {
     );
   }
 
+  /**
+   * Read the current Site's geographic origin (lat/lon) from the runtime's
+   * `siteModelStore`, or null if there's no site / no real location yet. A 0/0
+   * location is the `ensureSite` placeholder (siteDispatch §94) and is treated as
+   * "unset" so we don't frame the camera on Null Island.
+   */
+  private readSiteLocation(): { lat: number; lon: number } | null {
+    const store = this.runtime?.siteModelStore as
+      | { getLocation?: () => { latitude: number; longitude: number } | null }
+      | undefined;
+    const loc = store?.getLocation?.();
+    if (loc && (loc.latitude !== 0 || loc.longitude !== 0)) {
+      return { lat: loc.latitude, lon: loc.longitude };
+    }
+    return null;
+  }
+
+  /**
+   * Point the camera at a site location so the user sees their plot (top-down at
+   * ~600 m, near-nadir pitch) instead of the washed-out globe limb.
+   *
+   * @param instant when true (framing at mount), jump there with `setView`;
+   *   otherwise (an interactive location change) glide with a ~1.5 s `flyTo`.
+   */
+  private frameSiteLocation(lat: number, lon: number, opts: { instant?: boolean } = {}): void {
+    if (!this.viewer) return;
+    const destination = Cesium.Cartesian3.fromDegrees(lon, lat, SITE_FRAME_HEIGHT_M);
+    const orientation = {
+      heading: 0,
+      pitch: Cesium.Math.toRadians(SITE_FRAME_PITCH_DEG),
+      roll: 0,
+    };
+    if (opts.instant) {
+      this.viewer.camera.setView({ destination, orientation });
+    } else {
+      this.viewer.camera.flyTo({ destination, orientation, duration: SITE_FLY_DURATION_S });
+    }
+    this.viewer.scene.requestRender();
+  }
+
+  /**
+   * Subscribe to `site.location-changed` so a geocode search (GIS rail box A.8.a,
+   * onboarding location step, or console site-create) smoothly flies the 3D
+   * camera to the searched address — the SAME signal the 2D Hektar map centres
+   * on. Idempotent; the disposer is cleaned up in dispose().
+   */
+  private subscribeToSiteLocation(): void {
+    const events = this.runtime?.events;
+    if (!events || this.locationSub) return;
+    const sub = events.on('site.location-changed', (e) => {
+      const loc = e?.location;
+      if (!loc || (loc.latitude === 0 && loc.longitude === 0)) return;
+      if (this.suppressNextLocationFly) {
+        // GISAreaLayout's geocode onFlyTo already framed the exact plot bbox.
+        this.suppressNextLocationFly = false;
+        console.log('[CesiumViewport] site.location-changed: bbox framing already done by caller — skipping point flyTo.');
+        return;
+      }
+      console.log(
+        `[CesiumViewport] site.location-changed → flying camera to LAT ${loc.latitude} LON ${loc.longitude}.`
+      );
+      this.frameSiteLocation(loc.latitude, loc.longitude, { instant: false });
+    });
+    // EventSubscription is both callable and Disposable — store the callable form.
+    this.locationSub = () => sub();
+  }
+
   public setVisible(visible: boolean): void {
     if (this.container) {
       this.container.style.display = visible ? "block" : "none";
@@ -328,6 +438,17 @@ export class CesiumViewport {
 
   public dispose(): void {
     console.log("Disposing Cesium...");
+
+    // Drop the site.location-changed subscription so it doesn't leak across
+    // project switches (a new CesiumViewport re-subscribes on its own mount).
+    if (this.locationSub) {
+      try {
+        this.locationSub();
+      } catch (e) {
+        console.warn('[CesiumViewport] location subscription dispose failed:', e);
+      }
+      this.locationSub = null;
+    }
 
     if (this.handler) {
       this.handler.destroy();
@@ -346,6 +467,16 @@ export class CesiumViewport {
 
   public getViewer(): Cesium.Viewer | null {
     return this.viewer;
+  }
+
+  /**
+   * Tell the viewport that the caller is about to fly the camera to the exact
+   * plot bbox itself (GISAreaLayout's geocode `onFlyTo`), so the immediately
+   * following `site.location-changed` event does NOT trigger a redundant second
+   * (point-altitude) flight. One-shot — cleared by the next location event.
+   */
+  public suppressNextSiteLocationFly(): void {
+    this.suppressNextLocationFly = true;
   }
 
   public transformModel(translation: Cesium.Cartesian3, rotationAngle: number) {
