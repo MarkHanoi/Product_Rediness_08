@@ -102,9 +102,24 @@ const tokensMod = await import(pathToFileURL(tokensPath).href);
 const marketingMod = await import(pathToFileURL(join(stylesPanels, 'marketingPages.ts')).href);
 const pricingMod = await import(pathToFileURL(join(stylesPanels, 'pricingPage.ts')).href);
 
+// The landing markup itself is single-sourced (C51 §2.1.5 / tracker A.17.x.21):
+// the editor's LandingPage.ts and this prerender both call landingMarkup(). The
+// module is import-PURE (no LandingPageMosaic / core-app-model / THREE / DOM),
+// which is exactly why it is safe to dynamic-import here via tsx — same as the
+// pure-CSS marketingPages.ts above. See landingMarkup.ts header + MEMORY.md
+// "SCC: no barrel access at module load".
+const platformDir = resolve(editorRoot, 'src', 'ui', 'platform');
+const landingMarkupMod = await import(pathToFileURL(join(platformDir, 'landingMarkup.ts')).href);
+const landingMarkup = landingMarkupMod.landingMarkup;
+
 const DESIGN_TOKENS = tokensMod.DESIGN_TOKENS ?? '';
 const LANDING_PAGE_STYLES = marketingMod.LANDING_PAGE_STYLES ?? '';
 const PRICING_PAGE_STYLES = pricingMod.PRICING_PAGE_STYLES ?? '';
+
+if (typeof landingMarkup !== 'function') {
+  console.error('[prerender-apex] FATAL — landingMarkup export missing from landingMarkup.ts');
+  process.exit(1);
+}
 
 if (!DESIGN_TOKENS || !LANDING_PAGE_STYLES || !PRICING_PAGE_STYLES) {
   console.error('[prerender-apex] FATAL — at least one CSS source string is empty.');
@@ -178,68 +193,15 @@ function renderLanding() {
     <style>${DESIGN_TOKENS}${LANDING_PAGE_STYLES}</style>
   `;
 
-  // Body mirrors LandingPage.build() output. Every CTA on the apex points
-  // at app.pryzm.so/<action> (signup/login) rather than the in-app router,
-  // because there IS no in-app router on the apex.
-  const body = `
-    <div class="lp-shell">
-      <nav class="lp-nav">
-        <div class="lp-nav-brand" aria-label="PRYZM">
-          ${PRYZM_PYRAMID_SVG}
-          <div class="lp-logo-wordmark">
-            <span class="lp-logo-name">PRYZM</span>
-            <span class="lp-logo-sub">BIM PLATFORM</span>
-          </div>
-        </div>
-        <div class="lp-nav-links">
-          <a class="lp-nav-link" href="/manifesto">Manifesto</a>
-          <a class="lp-nav-link" href="/pricing">Pricing</a>
-          <a class="lp-nav-link" href="/trust">Trust</a>
-        </div>
-        <div class="lp-nav-actions">
-          <a class="lp-nav-login" href="${APP_ORIGIN}/sign-in">Log in</a>
-          <a class="lp-nav-contact" href="${APP_ORIGIN}/contact">Contact sales</a>
-          <a class="lp-nav-cta" href="${APP_ORIGIN}/signup">Get started for free</a>
-        </div>
-      </nav>
-
-      <section class="lp-hero">
-        <div class="lp-hero-logo-block" aria-hidden="true"></div>
-        <h1 class="lp-hero-heading">PRYZM</h1>
-        <p class="lp-hero-sub">Build the future, intelligently.</p>
-        <div class="lp-hero-ctas">
-          <a class="lp-hero-btn lp-hero-btn--enter" href="${APP_ORIGIN}/signup">
-            <svg width="14" height="18" viewBox="0 0 18 22" fill="none" aria-hidden="true" style="flex-shrink:0">
-              <path d="M0 0L0 17.5L4.5 13L7.5 20L9.5 19.2L6.5 12H12L0 0Z" fill="currentColor"/>
-            </svg>
-            Start here
-          </a>
-        </div>
-      </section>
-
-      <section class="lp-bespoke lp-reveal" id="lp-bespoke">
-        <div class="lp-bespoke-inner">
-          <div class="lp-bespoke-col lp-bespoke-col--left">
-            <h2 class="lp-bespoke-heading">Building your own platform?</h2>
-            <p class="lp-bespoke-desc">AI is making software cheap to build. We partner with enterprises to deploy a bespoke BIM platform under their brand — custom element libraries, your workflows, your infrastructure.</p>
-            <div class="lp-bespoke-actions">
-              <a href="${APP_ORIGIN}/contact">Talk to us</a>
-              <a href="/pricing">See enterprise options</a>
-            </div>
-          </div>
-          <div class="lp-bespoke-col lp-bespoke-col--right">
-            <ul class="lp-bespoke-list">
-              <li>Custom element &amp; material libraries</li>
-              <li>Integration with Revit, ArchiCAD, and ERP systems</li>
-              <li>White-label under your brand</li>
-              <li>On-premise or private cloud deployment</li>
-              <li>Dedicated build team and ongoing support</li>
-            </ul>
-          </div>
-        </div>
-      </section>
-    </div>
-  `;
+  // Body is single-sourced from the editor's landingMarkup() (C51 §2.1.5 /
+  // tracker A.17.x.21) — NO hand-mirror. 'apex' mode turns the editor's
+  // interactive <button> CTAs into <a href> anchors: app surfaces
+  // (signup/sign-in/contact, plus the app-owned Solutions/Resources) point at
+  // ${APP_ORIGIN}/<route>; apex-owned content routes (/pricing, etc.) stay
+  // root-relative. This is the full editor landing — nav, hero, the bottom-bar
+  // (Pricing/Solutions/Resources), AND the bespoke section — not the old
+  // simplified teaser.
+  const body = `<div class="lp-shell">${landingMarkup({ mode: 'apex', appOrigin: APP_ORIGIN })}</div>`;
 
   return { head, body };
 }
