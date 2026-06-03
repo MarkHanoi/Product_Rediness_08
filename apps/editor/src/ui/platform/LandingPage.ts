@@ -16,6 +16,7 @@
  */
 
 import { injectAppTheme } from '../styles/AppTheme';
+import { landingMarkup } from './landingMarkup';
 import { LandingPageMosaic } from './LandingPageMosaic';
 import { initLandingScrollReveal } from './LandingPageScrollReveal';
 import { ResourcesDropdown } from './ResourcesDropdown';
@@ -115,123 +116,12 @@ export class LandingPage {
         const el = document.createElement('div');
         el.className = 'lp-shell';
 
-        el.innerHTML = `
-            <!-- ── Nav bar ──────────────────────────────────── -->
-            <nav class="lp-nav">
-                <div class="lp-nav-brand" aria-label="PRYZM">
-                    <svg class="lp-logo-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
-                        <path d="M18.2 2.6 3.6 27.9 26.8 33.2 32.4 23.6 18.2 2.6Z" stroke="#0b0b12" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/>
-                        <path d="M18.2 2.6 3.6 27.9" stroke="#6600FF" stroke-width="1.6" stroke-linecap="round"/>
-                        <path d="M18.2 2.6 26.8 33.2" stroke="#0b0b12" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                    <div class="lp-logo-wordmark">
-                        <span class="lp-logo-name">PRYZM</span>
-                        <span class="lp-logo-sub">BIM PLATFORM</span>
-                    </div>
-                </div>
-                <div class="lp-nav-links">
-                    <div class="lp-sol-nav-wrapper" id="lp-sol-nav-wrapper"></div>
-                    <div class="lp-res-nav-wrapper" id="lp-res-nav-wrapper"></div>
-                    <a class="lp-nav-link" href="#" id="lp-nav-pricing">Pricing</a>
-                </div>
-                <div class="lp-nav-actions">
-                    <button class="lp-nav-login" id="lp-nav-login">Log in</button>
-                    <button class="lp-nav-contact" id="lp-nav-contact">Contact sales</button>
-                    <button class="lp-nav-cta" id="lp-nav-cta">Get started for free</button>
-                </div>
-                <!-- ── Mobile hamburger (visible at ≤768px) ── -->
-                <button class="lp-hamburger" id="lp-hamburger" aria-label="Open menu" aria-expanded="false">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                        <line x1="3" y1="6" x2="21" y2="6"/>
-                        <line x1="3" y1="12" x2="21" y2="12"/>
-                        <line x1="3" y1="18" x2="21" y2="18"/>
-                    </svg>
-                </button>
-                <!-- ── Mobile nav drawer ── -->
-                <div class="lp-mobile-drawer" id="lp-mobile-drawer" aria-hidden="true">
-                    <div class="lp-mobile-drawer-links">
-                        <button class="lp-mobile-drawer-link" id="lp-mob-solutions">Solutions</button>
-                        <button class="lp-mobile-drawer-link" id="lp-mob-resources">Resources</button>
-                        <button class="lp-mobile-drawer-link" id="lp-mob-pricing">Pricing</button>
-                    </div>
-                    <div class="lp-mobile-drawer-actions">
-                        <button class="lp-mobile-drawer-cta" id="lp-mob-cta">Get started for free</button>
-                        <button class="lp-mobile-drawer-login" id="lp-mob-login">Log in</button>
-                        <button class="lp-mobile-drawer-contact" id="lp-mob-contact">Contact sales</button>
-                    </div>
-                </div>
-            </nav>
-
-            <!-- ── Hero section — PRYZM4 centred gradient layout ─── -->
-            <section class="lp-hero">
-                <!-- Pyramid spinner mount — filled by createPryzmLogoSpinner after build -->
-                <div class="lp-hero-logo-block" aria-hidden="true"></div>
-
-                <!-- PRYZM as the hero wordmark heading -->
-                <h1 class="lp-hero-heading">PRYZM</h1>
-
-                <!-- Tagline as subtitle -->
-                <p class="lp-hero-sub">Build the future, intelligently.</p>
-
-                <!-- CTA button — MIAW "ask me anything" glass-pill style, delayed entrance -->
-                <div class="lp-hero-ctas">
-                    <button class="lp-hero-btn lp-hero-btn--enter" id="lp-hero-btn">
-                        <svg width="14" height="18" viewBox="0 0 18 22" fill="none" aria-hidden="true" style="flex-shrink:0"><path d="M0 0L0 17.5L4.5 13L7.5 20L9.5 19.2L6.5 12H12L0 0Z" fill="currentColor"/></svg>
-                        Start here
-                    </button>
-                </div>
-
-            </section>
-
-            <!-- ── Temporary bottom bar — nav moved here for simple-layout test ── -->
-            <div class="lp-bottom-bar">
-                <div class="lp-nav-brand" aria-label="PRYZM">
-                    <svg class="lp-logo-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
-                        <path d="M18.2 2.6 3.6 27.9 26.8 33.2 32.4 23.6 18.2 2.6Z" stroke="#0b0b12" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/>
-                        <path d="M18.2 2.6 3.6 27.9" stroke="#6600FF" stroke-width="1.6" stroke-linecap="round"/>
-                        <path d="M18.2 2.6 26.8 33.2" stroke="#0b0b12" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                    <div class="lp-logo-wordmark">
-                        <span class="lp-logo-name">PRYZM</span>
-                        <span class="lp-logo-sub">BIM PLATFORM</span>
-                    </div>
-                </div>
-                <div class="lp-bottom-bar-links">
-                    <a class="lp-nav-link" href="#" id="lp-bot-pricing">Pricing</a>
-                    <a class="lp-nav-link" href="#" id="lp-bot-solutions">Solutions</a>
-                    <a class="lp-nav-link" href="#" id="lp-bot-resources">Resources</a>
-                </div>
-                <div class="lp-bottom-bar-actions">
-                    <button class="lp-nav-login" id="lp-bot-login">Log in</button>
-                    <button class="lp-nav-contact" id="lp-bot-contact">Contact sales</button>
-                    <button class="lp-nav-cta" id="lp-bot-cta">Get started for free</button>
-                </div>
-            </div>
-
-            <!-- ── Stream 2 — Bespoke / Enterprise section ─── -->
-            <section class="lp-bespoke lp-reveal" id="lp-bespoke">
-                <div class="lp-bespoke-inner">
-                    <div class="lp-bespoke-col lp-bespoke-col--left">
-                        <h2 class="lp-bespoke-heading">Building your own platform?</h2>
-                        <p class="lp-bespoke-desc">AI is making software cheap to build. We partner with enterprises to deploy a bespoke BIM platform under their brand — custom element libraries, your workflows, your infrastructure.</p>
-                        <div class="lp-bespoke-actions">
-                            <button id="lp-bespoke-contact">Talk to us</button>
-                            <button id="lp-bespoke-learn">See enterprise options</button>
-                        </div>
-                    </div>
-                    <div class="lp-bespoke-col lp-bespoke-col--right">
-                        <ul class="lp-bespoke-list">
-                            <li>Custom element &amp; material libraries</li>
-                            <li>Integration with Revit, ArchiCAD, and ERP systems</li>
-                            <li>White-label under your brand</li>
-                            <li>On-premise or private cloud deployment</li>
-                            <li>Dedicated build team and ongoing support</li>
-                        </ul>
-                    </div>
-                </div>
-            </section>
-
-        `;
+        // Single-source the static markup (C51 §2.1.5 / tracker A.17.x.21).
+        // The same `landingMarkup` powers the apex prerender — both surfaces
+        // emit byte-identical structure, killing the hand-mirror drift. In
+        // 'app' mode every CTA is an interactive <button> with the original
+        // id/class, so the addEventListener wiring below still resolves.
+        el.innerHTML = landingMarkup({ mode: 'app' });
 
         el.querySelector('#lp-nav-login')!.addEventListener('click', () => this.callbacks.onLogin());
         el.querySelector('#lp-nav-contact')!.addEventListener('click', () => this.callbacks.onContactSales());
