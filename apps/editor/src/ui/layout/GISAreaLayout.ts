@@ -332,6 +332,152 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         if (cesiumViewport?.gizmo) cesiumViewport.gizmo.setMode(mode);
     };
 
+    // O.7.2 — re-frame the Cesium camera to the authored Site plot. Used by the
+    // post-generate 3D toggle: when the user opts into the 3D globe AFTER generate,
+    // the Cesium viewer may be sitting at a stale/default view (it was mounted for
+    // the DRAW step and never re-framed once the boundary committed). Re-flying to
+    // the Site lat/lon lands the user looking straight at their plot instead of the
+    // washed-out globe limb. Best-effort + public API only (no CesiumViewport edit).
+    const reframeSiteIn3D = async (): Promise<void> => {
+        if (!cesiumViewport) return;
+        const viewer = cesiumViewport.getViewer?.();
+        if (!viewer) return;
+        const o = getSiteOrigin();
+        if (!o) {
+            console.log('[gis] reframeSiteIn3D: no Site location yet — leaving camera as-is.');
+            return;
+        }
+        try {
+            const Cesium = await getCesium();
+            viewer.camera.flyTo({
+                destination: Cesium.Cartesian3.fromDegrees(o.lon, o.lat, 600),
+                orientation: { heading: 0, pitch: Cesium.Math.toRadians(-55), roll: 0 },
+                duration: 1.5,
+            });
+            viewer.scene.requestRender();
+            console.log('[gis] reframeSiteIn3D: framed plot at', o);
+        } catch (err) {
+            console.warn('[gis] reframeSiteIn3D failed (non-fatal):', err);
+        }
+    };
+
+    // O.7.2 — the post-generate DUAL-VIEW toggle. Founder-tested twice: after
+    // "Generate apartment" the LEFT pane went BLANK because the cream 2D Hektar map
+    // disposes itself on boundary-commit (SiteBoundaryMap2D.commit → dispose) and the
+    // onboarding flow then force-activated the BIM 3D view WITHOUT turning GIS off —
+    // leaving the orphaned, poorly-framed Cesium overlay (display:block, zIndex 20)
+    // covering the BIM canvas. Nothing usable was visible.
+    //
+    // The fix: after generate, DEFAULT to the BIM plan view (GIS off → the user sees
+    // their generated apartment over the site, not white) and give an explicit,
+    // on-brand control to flip to Cesium-3D (the building on the globe, re-framed to
+    // the plot) and back. Reuses the existing toggleGIS + view-switch plumbing.
+    let resultToggle: HTMLElement | null = null;
+    let resultViewMode: '2D' | '3D' = '2D';
+    let btn2dRef: HTMLButtonElement | null = null;
+    let btn3dRef: HTMLButtonElement | null = null;
+
+    const removeResultToggle = (): void => {
+        if (resultToggle?.parentElement) resultToggle.parentElement.removeChild(resultToggle);
+        resultToggle = null;
+        btn2dRef = null;
+        btn3dRef = null;
+    };
+
+    // Active-state styling for the toggle buttons (no <style> injection — inline,
+    // on-brand white / #6600FF).
+    const styleResultBtn = (el: HTMLButtonElement | null, active: boolean): void => {
+        if (!el) return;
+        el.style.background = active ? '#6600FF' : 'transparent';
+        el.style.color = active ? '#ffffff' : '#6600FF';
+    };
+    const refreshResultButtons = (): void => {
+        styleResultBtn(btn2dRef, resultViewMode === '2D');
+        styleResultBtn(btn3dRef, resultViewMode === '3D');
+    };
+
+    const applyResultView = async (mode: '2D' | '3D'): Promise<void> => {
+        resultViewMode = mode;
+        if (mode === '3D') {
+            // Show the Cesium globe with the site context and frame the plot.
+            toggleGIS(true);
+            // toggleGIS mounts Cesium async on first use; give it a beat, then frame.
+            setTimeout(() => { void reframeSiteIn3D(); }, 350);
+        } else {
+            // Hand the pane back to the BIM plan view: GIS off reveals the generated
+            // apartment in the editor canvas. Use the top-down plan so the result
+            // reads like a site plan (matching the cream 2D map the user drew on).
+            if (_gisActive) toggleGIS(false);
+            try {
+                if (props._viewController) await props._viewController.activate('Top');
+                else if (props.navManager) { props.grid.fade = false; await props.navManager.setViewMode('Top' as any); }
+            } catch (err) {
+                console.warn('[gis] applyResultView(2D): plan activation failed (non-fatal):', err);
+            }
+        }
+        refreshResultButtons();
+    };
+
+    /**
+     * O.7.2 — mount the post-generate dual-view toggle + land on the chosen view.
+     * Called by the onboarding generate-finish handoff (window.pryzmShowSiteResultView).
+     * `initial` is the view to land on first ('2D' plan by default — the no-blank fix).
+     */
+    const showSiteResultView = (initial: '2D' | '3D' = '2D'): void => {
+        const viewport = document.getElementById('container');
+        if (!viewport) {
+            console.error('[gis] showSiteResultView: #container not found');
+            return;
+        }
+        if (viewport.style.position !== 'absolute' && viewport.style.position !== 'relative') {
+            viewport.style.position = 'relative';
+        }
+        // (Re)build the floating control so it sits ABOVE the Cesium overlay (z 20).
+        removeResultToggle();
+        const bar = document.createElement('div');
+        bar.className = 'pryzm-result-toggle';
+        bar.setAttribute('data-testid', 'gis-result-view-toggle');
+        Object.assign(bar.style, {
+            position: 'absolute', top: '14px', left: '50%', transform: 'translateX(-50%)',
+            zIndex: '30', display: 'flex', gap: '4px', padding: '4px',
+            background: '#ffffff', borderRadius: '10px',
+            boxShadow: '0 4px 18px rgba(20,10,60,0.18)', border: '1px solid #ece7fb',
+            font: '600 12px/1 system-ui, sans-serif',
+        } satisfies Partial<CSSStyleDeclaration>);
+
+        const mkBtn = (mode: '2D' | '3D', label: string): HTMLButtonElement => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'pryzm-result-toggle-btn';
+            b.setAttribute('data-result-mode', mode);
+            b.textContent = label;
+            Object.assign(b.style, {
+                appearance: 'none', border: 'none', cursor: 'pointer',
+                padding: '7px 14px', borderRadius: '7px', color: '#6600FF',
+                background: 'transparent', font: 'inherit',
+            } satisfies Partial<CSSStyleDeclaration>);
+            b.addEventListener('mouseenter', () => { if (resultViewMode !== mode) b.style.background = '#f4f0ff'; });
+            b.addEventListener('mouseleave', () => { if (resultViewMode !== mode) b.style.background = 'transparent'; });
+            b.addEventListener('click', () => { void applyResultView(mode); });
+            return b;
+        };
+        btn2dRef = mkBtn('2D', '◳ 2D plan');
+        btn3dRef = mkBtn('3D', '◉ 3D globe');
+        bar.appendChild(btn2dRef);
+        bar.appendChild(btn3dRef);
+        viewport.appendChild(bar);
+        resultToggle = bar;
+
+        console.log(`[gis] showSiteResultView: dual-view toggle mounted, landing on "${initial}".`);
+        void applyResultView(initial);
+    };
+
+    // O.7.2 — window-hook handoff for the onboarding generate-finish step (same idiom
+    // as pryzmToggleGIS / pryzmStartBoundaryDraw). OnboardingStepController calls this
+    // INSTEAD of force-activating the BIM 3D view over an orphaned Cesium overlay.
+    window.pryzmShowSiteResultView = (initial?: '2D' | '3D') => showSiteResultView(initial ?? '2D');
+    window.pryzmHideSiteResultToggle = () => removeResultToggle();
+
     // O.2 — onboarding step-controller GIS-activation handoff. The guided
     // first-run flow (OnboardingStepController) has no clean runtime hook to
     // toggle GIS, so expose the SAME window-hook idiom A.8.c established for
