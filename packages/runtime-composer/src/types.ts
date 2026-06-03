@@ -28,7 +28,7 @@
 
 import type { AnyStores, CommandHandler, RingBufferUndoStack } from '@pryzm/command-bus';
 import type { SyncClient, PryzmAwareness } from '@pryzm/sync-client';
-import type { LayoutOptionsStore, AiApprovalQueueStore, ApartmentParameterPropagator, FamilyRegistryStore, SiteModelStore, ClimateStore, BuildingStore, LevelStore, ApartmentStore, RoomStore, ProvenanceStore, IfcMetaStore } from '@pryzm/stores';
+import type { LayoutOptionsStore, AiApprovalQueueStore, ApartmentParameterPropagator, FamilyRegistryStore, SiteModelStore, ClimateStore, BuildingStore, LevelStore, ApartmentStore, RoomStore, ProvenanceStore, IfcMetaStore, SiteCreatedEvent, SiteLocationChangedEvent, SiteParcelBoundarySetEvent } from '@pryzm/stores';
 import type {
   TypologyRegistry,
   PipelineRouter,
@@ -1832,6 +1832,15 @@ export interface RuntimeEvents {
     readonly typologyId: string;
     readonly metadata: Record<string, unknown>;
   };
+
+  // ── A.7.c (Phase A) — Site (C19) domain events ────────────────────────────
+  /** Emitted by the Site L5 dispatch helper (`createSiteFromRect`, and the
+   *  future GIS boundary-draw tool A.8.c) after the corresponding pure command
+   *  handler succeeds. The apartment-from-boundary path (A.5.g.3) + a future
+   *  LTP-ENU rebase (C12/C19 §1.3) subscribe. Typology-agnostic site substrate. */
+  'site.created': SiteCreatedEvent;
+  'site.location-changed': SiteLocationChangedEvent;
+  'site.parcel-boundary-set': SiteParcelBoundarySetEvent;
 
   /** Requests placement of a detail component in the active view.
    *  DetailComponentPanel dispatches.
