@@ -173,6 +173,17 @@ declare global {
             width?: number;
             depth?: number;
         }) => void;
+        /** A.7.c.x — create a Site + set a rectangular parcel boundary (default
+         *  20×16 m) on the active project via the pure `site.*` handlers. The
+         *  stub-GIS step: stands in for the real geocode + polygon-draw UI until
+         *  A.8.a/c land. Typology-agnostic (site-layer only). Returns false on
+         *  any reject. */
+        pryzmCreateSiteFromRect?: (address?: string, width?: number, depth?: number) => boolean;
+        /** A.5.g.3 — generate an apartment from the authored Site parcel boundary
+         *  (`runtime.siteModelStore.getParcelBoundary()`). Run
+         *  pryzmCreateSiteFromRect() first. The site read is typology-agnostic;
+         *  only the generator call is apartment-specific. */
+        pryzmGenerateApartmentFromBoundary?: () => void;
         /** §HELP — prints every pryzm…() console command for the apartment
          *  generation pipeline (apartment → ceiling → furnish → lighting). */
         pryzmShowApartmentHelp?: () => void;

@@ -12,6 +12,8 @@ import { ApartmentLayoutExecutor } from './ApartmentLayoutExecutor.js';
 import { gatherLayoutPayload } from './gatherLayoutPayload.js';
 import { resolveActiveLevelId } from './activeLevel.js';
 import { generateApartmentFromScratch, type ApartmentFromScratchOptions } from './apartmentFromScratch.js';
+import { generateApartmentFromBoundary } from './apartmentFromBoundary.js';
+import { createSiteFromRect } from '../site/createSiteFromRect.js';
 
 const _controller = new ApartmentLayoutController();
 const _executor = new ApartmentLayoutExecutor();
@@ -73,6 +75,8 @@ function showApartmentHelp(): void {
     const rows: readonly { cmd: string; desc: string }[] = [
         { cmd: 'pryzmGenerateApartmentLayout()', desc: 'Generate AI apartment layouts for the active level (opens the §11 modal). Needs a ≥3-wall shell.' },
         { cmd: 'pryzmGenerateApartmentFromScratch()', desc: 'Draw a default 10×8 m shell (or pass {width,depth} / {footprint:[{x,z}…]}) THEN generate — no pre-drawn walls needed (A.5.g.2).' },
+        { cmd: 'pryzmCreateSiteFromRect(addr?, w?, d?)', desc: 'Create a Site + set a rectangular parcel boundary (default 20×16 m) on the active project — the stub-GIS step (A.7.c.x).' },
+        { cmd: 'pryzmGenerateApartmentFromBoundary()', desc: 'Generate an apartment from the authored Site parcel boundary — run pryzmCreateSiteFromRect() first (A.5.g.3).' },
         { cmd: 'pryzmFloorAllRooms()',           desc: 'Apply floor finish per room type — timber in living/bedroom, tile in kitchen/bathroom (#34).' },
         { cmd: 'pryzmCeilAllRooms()',            desc: 'Auto-build a ceiling slab in every ceilable room on the active level (D-CE).' },
         { cmd: 'pryzmFurnishAllRooms()',         desc: 'Auto-furnish every furnishable room on the active level (D-FLE).' },
@@ -94,8 +98,16 @@ export function installApartmentLayoutConsoleTrigger(runtime: PryzmRuntime | nul
     window.pryzmGenerateApartmentLayout = () => triggerApartmentLayout(runtime);
     window.pryzmGenerateApartmentFromScratch = (opts?: ApartmentFromScratchOptions) =>
         void generateApartmentFromScratch(runtime, opts);
+    // A.7.c.x — site console helper (stub GIS). Typology-agnostic.
+    window.pryzmCreateSiteFromRect = (address?: string, width?: number, depth?: number) =>
+        createSiteFromRect(runtime, { address, width, depth });
+    // A.5.g.3 — apartment from the authored Site parcel boundary.
+    window.pryzmGenerateApartmentFromBoundary = () =>
+        void generateApartmentFromBoundary(runtime);
     window.pryzmShowApartmentHelp = showApartmentHelp;
     console.log('[apartment-layout] console command ready — run pryzmGenerateApartmentLayout() to generate.');
     console.log('[apartment-from-scratch] console command ready — run pryzmGenerateApartmentFromScratch() to draw a default 10×8 m shell + generate (or pass {width,depth} / {footprint:[{x,z}…]}).');
+    console.log('[site] console command ready — run pryzmCreateSiteFromRect(address?, width?, depth?) to create a Site + rectangular parcel boundary (the stub-GIS step).');
+    console.log('[apartment-from-boundary] console command ready — run pryzmGenerateApartmentFromBoundary() to generate from the authored Site boundary.');
     console.log('[apartment-layout] §HELP console command ready — run pryzmShowApartmentHelp() to list every pryzm…() command.');
 }
