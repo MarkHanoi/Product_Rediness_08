@@ -79,10 +79,11 @@ export interface SiteBoundaryMap2DOptions {
      */
     readonly getOrigin: () => { lat: number; lon: number } | null;
     /**
-     * Optional keyless MVT buildings endpoint for the near-white drop-shadow
-     * footprints (see siteMap2DStyle). Omit for the cream raster basemap alone.
+     * Render building footprints as a gentle `fill-extrusion` (the founder's "see
+     * the building in 3D") instead of the flat near-white plan fill. Off by
+     * default — the plan-view look is the tasteful default.
      */
-    readonly buildingsSourceUrl?: string;
+    readonly extrude?: boolean;
     /** Called after a successful commit OR cancel, so the host can dispose. */
     readonly onClose?: () => void;
 }
@@ -169,21 +170,29 @@ export function mountSiteBoundaryMap2D(
 
     // ── Map ───────────────────────────────────────────────────────────────────
     const style = buildSiteMap2DStyle({
-        buildingsSourceUrl: opts.buildingsSourceUrl,
+        extrude: opts.extrude ?? false,
     }) as unknown as StyleSpecification;
 
+    // Centre + initial zoom. When a geocoded location is supplied we open AT the
+    // plot (zoom ~16-17), never the world view — the fitBounds on 'load' below
+    // then frames the exact bbox when one is available.
     const center: [number, number] = opts.initial
         ? [opts.initial.lon, opts.initial.lat]
         : [0, 0];
+    const initialZoom = opts.initial
+        ? (opts.initial.zoom ?? 16)
+        : 1;
     const map = new MapLibreMap({
         container: mapEl,
         style,
         center,
-        zoom: opts.initial?.zoom ?? (opts.initial ? 17 : 1),
+        zoom: initialZoom,
         attributionControl: { compact: true },
-        // Plan view: keep it flat + north-up (no pitch/rotate) for the draw.
-        pitchWithRotate: false,
-        dragRotate: false,
+        // Plan view: keep it flat + north-up (no pitch/rotate) for the draw,
+        // unless 3D extrusion was requested (then allow a gentle pitch/rotate).
+        pitchWithRotate: opts.extrude ?? false,
+        dragRotate: opts.extrude ?? false,
+        pitch: opts.extrude ? 45 : 0,
     });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
 
@@ -367,9 +376,21 @@ export function mountSiteBoundaryMap2D(
 
     map.on('load', () => {
         installRingLayers();
-        if (opts.initial?.bbox) {
-            const [w, s, e, n] = opts.initial.bbox;
-            map.fitBounds([[w, s], [e, n]], { padding: 80, maxZoom: 19, duration: 0 });
+        // Defect 1 — land on THEIR plot, not the world. Prefer the geocode bbox
+        // (frames the whole feature); fall back to a centred zoom on the point.
+        const bbox = opts.initial?.bbox;
+        const valid =
+            bbox && bbox[2] > bbox[0] && bbox[3] > bbox[1] &&
+            Number.isFinite(bbox[0]) && Number.isFinite(bbox[1]) &&
+            Number.isFinite(bbox[2]) && Number.isFinite(bbox[3]);
+        if (valid && bbox) {
+            const [w, s, e, n] = bbox;
+            // maxZoom 18 so a tiny single-building bbox still shows context.
+            map.fitBounds([[w, s], [e, n]], { padding: 80, maxZoom: 18, duration: 0 });
+            console.log('[gis] map2d: fit to geocode bbox', bbox);
+        } else if (opts.initial) {
+            map.jumpTo({ center: [opts.initial.lon, opts.initial.lat], zoom: opts.initial.zoom ?? 16 });
+            console.log('[gis] map2d: centred on point', opts.initial.lat, opts.initial.lon);
         }
         map.on('click', onClick);
         map.on('dblclick', onDblClick);
