@@ -19,6 +19,12 @@ dist-apex/
 attached_assets/
 .agents/attached_assets/
 
+# Claude Code background-agent worktrees — runtime checkouts, NOT source.
+# Each is a full repo copy; on Windows the deep node_modules paths exceed
+# MAX_PATH so `git worktree remove` can fail to delete them, leaving tens of
+# thousands of untracked files showing as bogus "changes". Never track these.
+.claude/worktrees/
+
 # §L6 — local developer scratch files (TypeScript error dumps, etc.)
 .local/
 .local-*.txt

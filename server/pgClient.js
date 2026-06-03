@@ -56,6 +56,18 @@ export function getPgPool() {
 
     if (!_pool) {
         const { connStr } = resolved;
+        // §D7 (DAILY-USE 2026-06-03) — detect a TRANSACTION-mode pooler
+        // (Supabase Supavisor :6543 / pgbouncer). Session-level state does not
+        // persist there — each statement may land on a different backend — so
+        // the `SET` session-timeout block below is both useless AND harmful on a
+        // pooler: it can HANG, and because node-postgres queues it on the same
+        // freshly-connected client, the very first pooled query (the pgPreflight
+        // `SELECT 1`) sits behind the hung SET and never resolves. The preflight
+        // then times out and the server wrongly drops to the in-memory fallback
+        // even when the DB is perfectly healthy (the `client.query() when already
+        // executing` warning is exactly this SET↔SELECT-1 collision). So we skip
+        // the SET on a pooler; direct connections (:5432) still honour it.
+        const isTxPooler = /pooler\.supabase\.com|[:.]6543(\/|$|\?)|pgbouncer=true/i.test(connStr);
         _pool = new Pool({
             connectionString: connStr,
             ssl: connStr.includes('localhost') ? false : { rejectUnauthorized: false },
@@ -72,19 +84,17 @@ export function getPgPool() {
         // that starves the pool. idle_in_transaction_session_timeout reaps a
         // transaction that BEGINs and never COMMITs (a leaked withTransaction()).
         // 60s is generous — far above any legitimate snapshot/IFC write — so it
-        // only kills truly stuck statements.
-        //
-        // Applied via `SET` on connect (NOT Pool config keys) so a transaction-
-        // mode pooler (pgbouncer / Supabase :6543) that rejects these as startup
-        // parameters degrades gracefully (best-effort, non-fatal) instead of
-        // failing the whole connection. Direct connections (the supported config)
-        // honour them fully.
-        _pool.on('connect', (client) => {
-            client.query(
-                `SET statement_timeout = '60s'; SET idle_in_transaction_session_timeout = '30s'`,
-            ).catch((e) => console.warn('[pgClient] could not set session timeouts (transaction pooler?):', e.message));
-        });
-        console.log('[pgClient] Pool initialised');
+        // only kills truly stuck statements. DIRECT connections only — see §D7.
+        if (!isTxPooler) {
+            _pool.on('connect', (client) => {
+                client.query(
+                    `SET statement_timeout = '60s'; SET idle_in_transaction_session_timeout = '30s'`,
+                ).catch((e) => console.warn('[pgClient] could not set session timeouts:', e.message));
+            });
+        }
+        console.log(
+            `[pgClient] Pool initialised${isTxPooler ? ' (transaction pooler — session SET skipped, §D7)' : ''}`,
+        );
     }
     return _pool;
 }
@@ -119,9 +129,20 @@ export async function query(text, params) {
  * Throws on failure (message names the masked host); resolves on success.
  * No-op when no pool is configured (caller already handles in-memory mode).
  *
- * @param {number} [timeoutMs=6000]
+ * §D8 (DAILY-USE 2026-06-03): raised 6000 → 18000ms. The preflight fires
+ * DURING boot, when heavy synchronous module-loading (tsx transform, Vite
+ * middleware setup, the ~240 KB server bundle) can block the event loop for
+ * several seconds. A blocked loop stalls BOTH the socket I/O and the timer, so
+ * the 6s budget would expire the instant the loop freed — beating an otherwise
+ * sub-second query (measured: 759 ms connect + 70 ms SELECT 1 to the Supabase
+ * eu-central pooler). A HEALTHY DB was being misclassified as dead, dropping
+ * the whole session to the volatile in-memory store. 18s comfortably clears a
+ * boot stall while still bounding a genuinely black-holed host (the self-heal
+ * + in-memory fallback still cover a truly-dead DB).
+ *
+ * @param {number} [timeoutMs=18000]
  */
-export async function pgPreflight(timeoutMs = 6000) {
+export async function pgPreflight(timeoutMs = 18000) {
     const pool = getPgPool();
     if (!pool) return;
     let timer;
