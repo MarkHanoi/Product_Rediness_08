@@ -121,6 +121,92 @@ describe('emitGeometry (TGL P9)', () => {
         expect(set.warnings.filter(w => w.includes('dropped'))).toEqual([]);
     });
 
+    // T1.W-B (quality wishlist #1) — engine-emitted windows on habitable-room
+    // exterior walls. The fixture is a 12×10 m two-bedroom shell, so several
+    // habitable rooms front the perimeter and must receive a window.
+    describe('window emission (T1.W-B)', () => {
+        const HABITABLE = new Set(['living', 'kitchen', 'dining', 'master', 'bedroom', 'study']);
+        const INTERIOR_ONLY = new Set(['corridor', 'hall', 'utility']);
+
+        it('a habitable room with an exterior wall gets ≥1 window', () => {
+            const g = fixtureGraph();
+            const { option } = emitGeometry(g);
+            expect(option.windows).toBeDefined();
+            expect(option.windows!.length).toBeGreaterThan(0);
+            // every emitted window belongs to a windowable (habitable or wet) room
+            for (const w of option.windows!) {
+                expect(w.roomType).toBeDefined();
+                expect(INTERIOR_ONLY.has(w.roomType as string)).toBe(false);
+            }
+            // at least one HABITABLE (non-wet) room got a window
+            expect(option.windows!.some(w => HABITABLE.has(w.roomType as string))).toBe(true);
+        });
+
+        it('windows host on EXTERNAL walls only — never an interior/party wall', () => {
+            const g = fixtureGraph();
+            const { option } = emitGeometry(g);
+            for (const w of option.windows ?? []) {
+                const host = option.walls[w.wallRef];
+                expect(host, `window host wall ${w.wallRef} exists`).toBeDefined();
+                expect(host!.isExternal, `window on wall ${w.wallRef} is external`).toBe(true);
+            }
+        });
+
+        it('no emitted window overlaps a door on the SAME wall', () => {
+            const g = fixtureGraph();
+            const { option } = emitGeometry(g);
+            for (const w of option.windows ?? []) {
+                const wLo = w.offset, wHi = w.offset + w.width;
+                for (const d of option.doors) {
+                    if (d.wallRef !== w.wallRef) continue;
+                    const dLo = d.offset, dHi = d.offset + d.width;
+                    const overlap = wLo < dHi && wHi > dLo;
+                    expect(overlap, `window [${wLo},${wHi}] vs door [${dLo},${dHi}] on wall ${w.wallRef}`).toBe(false);
+                }
+            }
+        });
+
+        it('every emitted window fits inside its host wall', () => {
+            const g = fixtureGraph();
+            const { option } = emitGeometry(g);
+            for (const w of option.windows ?? []) {
+                const host = option.walls[w.wallRef]!;
+                const lenMm = Math.hypot(host.end.x - host.start.x, host.end.y - host.start.y);
+                expect(w.offset).toBeGreaterThanOrEqual(0);
+                expect(w.offset + w.width).toBeLessThanOrEqual(lenMm + 1e-3);
+            }
+        });
+
+        it('windows dispatch to wall.createOpening (type window) + window.batch.create', () => {
+            const g = fixtureGraph();
+            const { option } = emitGeometry(g);
+            let n = 0;
+            const mint = (p: string) => `${p}-${n++}`;
+            // Provide shell walls so the engine's EXTERNAL-hosted windows resolve
+            // to existing shell ids (the production path). Build shellWalls from
+            // the option's external walls (plan-mm → world-m via the default map).
+            const shellWalls = option.walls
+                .map((w, i) => ({ w, i }))
+                .filter(x => x.w.isExternal === true)
+                .map(x => ({
+                    id: `shell-${x.i}`,
+                    start: { x: x.w.start.x / 1000, z: x.w.start.y / 1000 },
+                    end:   { x: x.w.end.x / 1000,   z: x.w.end.y / 1000 },
+                }));
+            const set = buildLayoutCommands(option, { levelId: 'L1', shellWalls }, mint);
+            const shellOps = set.shellWindowOpeningCommands;
+            const normalOps = set.windowOpeningCommands;
+            expect(shellOps.length + normalOps.length).toBeGreaterThan(0);
+            const total = (set.shellWindowBatch?.payload as { windows: unknown[] } | undefined)?.windows.length ?? 0;
+            const totalNormal = (set.windowBatch?.payload as { windows: unknown[] } | undefined)?.windows.length ?? 0;
+            expect(total + totalNormal).toBeGreaterThan(0);
+            for (const op of [...shellOps, ...normalOps]) {
+                const p = op.payload as { opening: { type: string } };
+                expect(p.opening.type).toBe('window');
+            }
+        });
+    });
+
     it('round-trips from the P8 enumerator and is deterministic', () => {
         const out = enumerateLayouts({ shellPolygon: RECT, program: PROGRAM, levelId: 'L1', seed: 'seed', weights: WEIGHTS, count: 1 });
         const a = emitGeometry(out[0]!.graph);
