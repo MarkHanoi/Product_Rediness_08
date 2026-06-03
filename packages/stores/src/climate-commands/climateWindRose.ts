@@ -4,6 +4,7 @@
 // windRose aggregate, or null when no dataset is ingested for the site.
 
 import type { ClimateStore } from '../ClimateStore.js';
+import type { SiteId } from '@pryzm/schemas';
 import {
     ClimateWindRosePayloadSchema,
     type ClimateCommandResult,
@@ -24,7 +25,7 @@ export function climateWindRose(
             message: `climate.windRose payload invalid: ${(err as Error).message}`,
         };
     }
-    const dataset = store.resolveSite(payload.siteId);
+    const dataset = store.resolveSite(payload.siteId as SiteId);
     return {
         ok: true,
         event: {
