@@ -147,6 +147,13 @@ const APEX_CSP = [
   "frame-ancestors 'none'",
 ].join('; ');
 
+// The origin the apex links to for APP surfaces (signup / login / contact).
+// Defaults to app.pryzm.so (the C51 §4 canonical app host). Override via the
+// APP_ORIGIN env var to point the landing at the Fly app directly — e.g.
+// `APP_ORIGIN=https://pryzm.fly.dev pnpm build:apex` — so the full
+// landing → signup journey works BEFORE the app.pryzm.so DNS + TLS cert land.
+const APP_ORIGIN = (process.env.APP_ORIGIN || 'https://app.pryzm.so').replace(/\/+$/, '');
+
 // ----- per-route renderers ------------------------------------------------
 //
 // Each renderer returns an object with the route's HTML structure
@@ -190,9 +197,9 @@ function renderLanding() {
           <a class="lp-nav-link" href="/trust">Trust</a>
         </div>
         <div class="lp-nav-actions">
-          <a class="lp-nav-login" href="https://app.pryzm.so/sign-in">Log in</a>
-          <a class="lp-nav-contact" href="https://app.pryzm.so/contact">Contact sales</a>
-          <a class="lp-nav-cta" href="https://app.pryzm.so/signup">Get started for free</a>
+          <a class="lp-nav-login" href="${APP_ORIGIN}/sign-in">Log in</a>
+          <a class="lp-nav-contact" href="${APP_ORIGIN}/contact">Contact sales</a>
+          <a class="lp-nav-cta" href="${APP_ORIGIN}/signup">Get started for free</a>
         </div>
       </nav>
 
@@ -201,7 +208,7 @@ function renderLanding() {
         <h1 class="lp-hero-heading">PRYZM</h1>
         <p class="lp-hero-sub">Build the future, intelligently.</p>
         <div class="lp-hero-ctas">
-          <a class="lp-hero-btn lp-hero-btn--enter" href="https://app.pryzm.so/signup">
+          <a class="lp-hero-btn lp-hero-btn--enter" href="${APP_ORIGIN}/signup">
             <svg width="14" height="18" viewBox="0 0 18 22" fill="none" aria-hidden="true" style="flex-shrink:0">
               <path d="M0 0L0 17.5L4.5 13L7.5 20L9.5 19.2L6.5 12H12L0 0Z" fill="currentColor"/>
             </svg>
@@ -216,7 +223,7 @@ function renderLanding() {
             <h2 class="lp-bespoke-heading">Building your own platform?</h2>
             <p class="lp-bespoke-desc">AI is making software cheap to build. We partner with enterprises to deploy a bespoke BIM platform under their brand — custom element libraries, your workflows, your infrastructure.</p>
             <div class="lp-bespoke-actions">
-              <a href="https://app.pryzm.so/contact">Talk to us</a>
+              <a href="${APP_ORIGIN}/contact">Talk to us</a>
               <a href="/pricing">See enterprise options</a>
             </div>
           </div>
@@ -347,7 +354,7 @@ function renderPricing() {
       <ul class="pr-plan-features">
         ${p.features.map((f) => `<li>${f}</li>`).join('')}
       </ul>
-      <a class="pr-plan-cta" href="https://app.pryzm.so/signup?plan=${p.id}">
+      <a class="pr-plan-cta" href="${APP_ORIGIN}/signup?plan=${p.id}">
         ${p.id === 'enterprise' ? 'Talk to us' : 'Choose ' + p.name}
       </a>
     </article>
@@ -392,7 +399,7 @@ function renderPricing() {
             </ul>
           </div>
           <div class="pr-bespoke-cta-wrap">
-            <a id="pr-bespoke-cta" href="https://app.pryzm.so/contact">Talk to us about a bespoke build</a>
+            <a id="pr-bespoke-cta" href="${APP_ORIGIN}/contact">Talk to us about a bespoke build</a>
           </div>
         </div>
       </div>
