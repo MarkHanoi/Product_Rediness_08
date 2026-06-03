@@ -4,6 +4,7 @@
 // for a Site, or null when no dataset has been ingested.
 
 import type { ClimateStore } from '../ClimateStore.js';
+import type { SiteId } from '@pryzm/schemas';
 import {
     ClimateResolveSitePayloadSchema,
     type ClimateCommandResult,
@@ -24,7 +25,7 @@ export function climateResolveSite(
             message: `climate.resolveSite payload invalid: ${(err as Error).message}`,
         };
     }
-    const dataset = store.resolveSite(payload.siteId);
+    const dataset = store.resolveSite(payload.siteId as SiteId);
     return {
         ok: true,
         event: {

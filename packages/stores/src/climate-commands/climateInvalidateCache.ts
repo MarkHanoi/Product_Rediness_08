@@ -4,6 +4,7 @@
 // retains it for audit + reproducibility. NEVER deletes.
 
 import type { ClimateStore } from '../ClimateStore.js';
+import type { SiteId } from '@pryzm/schemas';
 import {
     ClimateInvalidateCachePayloadSchema,
     type ClimateCommandResult,
@@ -25,7 +26,7 @@ export function climateInvalidateCache(
         };
     }
 
-    const before = store.resolveSite(payload.siteId);
+    const before = store.resolveSite(payload.siteId as SiteId);
     if (!before) {
         return {
             ok: false,
@@ -34,7 +35,7 @@ export function climateInvalidateCache(
         };
     }
 
-    store.invalidateCache(payload.siteId);
+    store.invalidateCache(payload.siteId as SiteId);
 
     return {
         ok: true,
