@@ -89,6 +89,13 @@ export function buildConnectSrc(env = process.env, isProd = IS_PROD) {
         'https://api.cesium.com',
         'https://assets.cesium.com',
         'https://ionfetch.cesium.com',
+        // ThatOpen / OBC engine asset CDN — the fragment engine lazily fetches
+        // a default HDR env-map (RGBELoader, engineLauncher.ts) for HDRI-based
+        // visual styles. Surfaced as a prod CSP violation by the §3.1.2.2 report
+        // sink. The loader degrades gracefully (resolve null) if unreachable, so
+        // this is a low-risk allow. ENTERPRISE FOLLOW-ON: self-host the .hdr
+        // under /public to drop this external dependency entirely.
+        'https://thatopen.github.io',
     ];
 
     // Supabase REST + realtime — derive the EXACT project origin from

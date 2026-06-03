@@ -152,9 +152,12 @@ Blocker (3) above was a genuine A-vs-B decision. **Ratified** per-origin (not gl
 ```
 connect-src 'self' data: blob:
   https://api.cesium.com https://assets.cesium.com https://ionfetch.cesium.com
+  https://thatopen.github.io   /* OBC engine HDR env-map CDN (RGBELoader) */
   https://<derived-from-SUPABASE_URL>  wss://<derived-from-SUPABASE_URL>
   wss:        /* + ws: in development only */
 ```
+
+> **2026-06-03 — `thatopen.github.io` added** after the §3.1.2.2 report sink + a live console caught the OBC fragment engine fetching a default HDR env-map (`engineLauncher.ts` RGBELoader) — a report-only violation in dev that would *block* HDRI visual styles in prod. Low-risk allow (the loader degrades to `null` gracefully). Enterprise follow-on: self-host the `.hdr` under `/public` to drop the external dependency. This is exactly the evidence-based-narrowing/widening loop §3.1.2.2 designed for.
 
 **Net:** the "strict" posture is preserved where it matters — the real XSS-exfil tightening is the `script-src` (no `unsafe-eval`) and `style-src` (no `unsafe-inline`) work, blockers (1)+(2), which still need the Phase-J eval removal + a nonce migration. The `connect-src` change shipped here is the **safe, verifiable** slice: it (a) drops the dead AI entry, (b) de-wildcards Supabase to the exact `SUPABASE_URL`-derived origin **with a wildcard fallback so a misconfig never CSP-blocks persistence**, and (c) restricts insecure `ws:` to development. It needed no full-app run because the logic is pure + unit-tested and degrades safely.
 
