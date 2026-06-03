@@ -244,9 +244,14 @@ Every Phase A sub-phase in §3.1–§3.X traces to one or more IPs. This table i
 | A.3 TypologyRegistry + dispatch router | IP-A2 |
 | A.4 Apartment refactored as Pack | IP-A2 |
 | A.5 RAC chatbot UI | IP-A3 |
+| A.5.g.2 Apartment-from-footprint-polygon (✅ console cmd) | IP-A3 |
+| A.5.g.3 Apartment-from-boundary (siteModelStore.getParcelBoundary → A.5.g.2) | IP-A3 · plan: PIPELINE-RAC-TO-SITE-TO-DESIGN-2026-06-03 |
+| A.5.g.4 RAC→site-bootstrap router (on pryzm:onboarding-brief-ready → create project + site + route to GIS) | IP-A3 |
 | A.6 TypologyPicker UI | IP-A3 |
 | A.7 C19 Site schemas + SiteStore | IP-A2 (schema) · IP-A5 (ratify) |
+| A.7.c.x site.* L5 dispatch adapter (commandBus → siteModelStore; pryzmCreateSiteFromRect) — PREREQ for A.8.c + A.5.g.4 | IP-A2 |
 | A.8.a Address geocoding + lat/lon picker | IP-A2 (search box renders + returns lat/lon) |
+| A.8.x Parcel-boundary scene render (committed polygon as in-scene element) | IP-A2 |
 | A.8.b Cesium-light tile layer | IP-A2 (cream basemap loads; zooms to bbox) |
 | A.8.c Polygon-draw tool (Hektar-style) | IP-A2 (vertex-click + close-loop) · IP-A4 (drag-edit + OSM snap) |
 | A.8.d Auto-fire site analyses on boundary commit | IP-A4 (climate fetch + ContextBuilding pull live) |
