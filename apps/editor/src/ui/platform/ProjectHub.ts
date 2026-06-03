@@ -44,6 +44,15 @@ export interface ProjectHubCallbacks {
     onSignOut: () => void;
     /** Called when user clicks "Upgrade" — opens the pricing page */
     onUpgrade?: () => void;
+    /**
+     * O.5 (ONBOARDING-WORKFLOW-DESIGN §6 O.5) — launch the guided RAC onboarding
+     * flow seeded by the New-Project modal (name + project type), INSTEAD of a
+     * blank create. The host (PlatformRouter) routes this to `showOnboarding(seed)`;
+     * the RAC conversation + briefBootstrap then create+open the project and run
+     * site → generate. When absent (defensive / null-runtime), the hub falls back
+     * to the legacy blank create so "New Project" never dead-ends.
+     */
+    onStartOnboarding?: (seed?: { name?: string; projectType?: string }) => void;
 }
 
 // ── ProjectHub class ──────────────────────────────────────────────────────────
@@ -400,9 +409,13 @@ export class ProjectHub {
         el.querySelector('#ph-new-modal')!.addEventListener('click', (e) => {
             if (e.target === el.querySelector('#ph-new-modal')) this.closeNewModal();
         });
-        el.querySelector('#ph-modal-create')!.addEventListener('click', () => this.handleCreate());
+        // O.5 — primary "Create & guide me" → guided onboarding; the new
+        // "Skip — blank canvas" secondary → legacy blank create. Enter in the
+        // name field keeps the primary (guided) behaviour.
+        el.querySelector('#ph-modal-create')!.addEventListener('click', () => this.handleCreate('guided'));
+        el.querySelector('#ph-modal-create-blank')?.addEventListener('click', () => this.handleCreate('blank'));
         el.querySelector('#ph-new-name')!.addEventListener('keydown', (e) => {
-            if ((e as KeyboardEvent).key === 'Enter') this.handleCreate();
+            if ((e as KeyboardEvent).key === 'Enter') this.handleCreate('guided');
         });
 
         // Generic modal close buttons (rename, delete)
@@ -1256,7 +1269,17 @@ export class ProjectHub {
         (this.el.querySelector('#ph-new-description') as HTMLTextAreaElement).value = '';
     }
 
-    private handleCreate(): void {
+    /**
+     * O.5 — the modal's PRIMARY "Create Project" action. Instead of a blank
+     * create, it launches the guided RAC onboarding flow (`onStartOnboarding`),
+     * seeded by the modal's name + project type — the RAC conversation +
+     * briefBootstrap then create+open the project and run site → generate. The
+     * secondary "Skip — blank canvas" button calls `handleCreate('blank')`,
+     * which keeps the legacy blank-create path verbatim. If `onStartOnboarding`
+     * is missing (defensive / degraded host), the guided path also falls back to
+     * blank create so "New Project" never dead-ends.
+     */
+    private handleCreate(mode: 'guided' | 'blank' = 'guided'): void {
         // Monetization gate — check project count against plan limit
         const activeProjects = projectRepository.listProjects().filter(p => !p.isArchived);
         if (!EntitlementStore.canCreateProject(activeProjects.length)) {
@@ -1272,8 +1295,30 @@ export class ProjectHub {
 
         const nameInput = this.el.querySelector('#ph-new-name') as HTMLInputElement;
         const descInput = this.el.querySelector('#ph-new-description') as HTMLTextAreaElement;
+        const typeInput = this.el.querySelector('#ph-new-type') as HTMLSelectElement | null;
         const name = nameInput.value.trim() || 'Untitled Project';
         const description = descInput.value.trim() || undefined;
+        const projectType = typeInput?.value || undefined;
+
+        // O.5 — PRIMARY path: launch the guided RAC onboarding seeded by the
+        // modal. The onboarding flow owns project creation (via briefBootstrap →
+        // createAndOpenProject), so we just close the modal and hand off. Guarded:
+        // if the host didn't wire `onStartOnboarding`, fall through to blank create.
+        if (mode === 'guided' && this.callbacks.onStartOnboarding) {
+            console.log('[ProjectHub] New Project → guided onboarding (O.5):', { name, projectType });
+            this.closeNewModal();
+            try {
+                this.callbacks.onStartOnboarding({ name, projectType });
+            } catch (err) {
+                // Never throw into the hub — fall back to a blank create.
+                console.error('[ProjectHub] onStartOnboarding threw — falling back to blank create:', err);
+                void this._createViaRuntime(name, description, null);
+            }
+            return;
+        }
+        if (mode === 'guided') {
+            console.warn('[ProjectHub] guided onboarding requested but no onStartOnboarding callback — creating a blank project instead.');
+        }
 
         // Disable the create button so a double-click cannot fire two POSTs
         // and so the user gets visual feedback that the request is in flight
