@@ -291,3 +291,69 @@ export function buildSiteMap2DStyle(
         layers,
     };
 }
+
+// ── A.8.c.f.4 — Satellite / aerial RASTER basemap (keyless ESRI World Imagery) ──
+//
+// WHY THIS EXISTS
+// ---------------
+// The Hektar cream basemap is OpenFreeMap → OSM-derived, and OSM has BUILDING
+// FOOTPRINT coverage gaps (even in central Lisbon). Every OSM-based vector source
+// shares those gaps — only real AERIAL IMAGERY fills them. So the 2D map offers a
+// toggle to swap the cream vector style for this satellite raster style, which
+// shows every building (and the actual plot) regardless of OSM coverage.
+//
+// SOURCE — ESRI World Imagery (same keyless tile endpoint Cesium already uses in
+// CesiumViewport.ts). Note the ArcGIS tile path order is `{z}/{y}/{x}` (NOT the
+// usual `{z}/{x}/{y}`). 256-px tiles, max native zoom ~19.
+//
+// CSP — these are RASTER tiles fetched as images, so they load under `img-src`,
+// which the main app CSP already allows via `https:` (server/securityHeaders.js
+// MAIN_CSP_DIRECTIVES.imgSrc includes 'https:', commented "Cesium tiles"). No
+// connect-src change is needed for a raster source.
+
+/**
+ * Keyless ESRI World Imagery tile URL. ArcGIS uses `{z}/{y}/{x}` order — copied
+ * verbatim from CesiumViewport.ts so both viewers share the exact same endpoint.
+ */
+export const ESRI_WORLD_IMAGERY_URL =
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+
+/** The ESRI tile origin (informational — raster tiles load under img-src https:). */
+export const ESRI_WORLD_IMAGERY_ORIGIN = 'https://server.arcgisonline.com';
+
+/** Attribution required by the ESRI World Imagery terms. */
+export const ESRI_WORLD_IMAGERY_ATTRIBUTION =
+    'Esri, Maxar, Earthstar Geographics';
+
+/** The raster source name used by the satellite style. */
+export const SATELLITE_SOURCE = 'esri-world-imagery';
+
+/**
+ * Build the satellite / aerial RASTER MapLibre style backed by keyless ESRI World
+ * Imagery. PURE — returns a plain JSON style object (no maplibre import), mirroring
+ * `buildSiteMap2DStyle`. A single `raster` source + one `raster` layer. Used by the
+ * 2D map's Map ↔ Satellite toggle to fill OSM building-footprint coverage gaps.
+ */
+export function buildSatelliteStyle(): Map2DStyleSpec {
+    return {
+        version: 8,
+        name: 'PRYZM Satellite (ESRI World Imagery)',
+        sources: {
+            [SATELLITE_SOURCE]: {
+                type: 'raster',
+                tiles: [ESRI_WORLD_IMAGERY_URL],
+                tileSize: 256,
+                maxzoom: 19,
+                attribution: ESRI_WORLD_IMAGERY_ATTRIBUTION,
+            },
+        },
+        layers: [
+            {
+                id: 'satellite',
+                type: 'raster',
+                source: SATELLITE_SOURCE,
+                paint: { 'raster-opacity': 1 },
+            },
+        ],
+    };
+}
