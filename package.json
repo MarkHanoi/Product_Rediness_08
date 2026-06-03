@@ -23,6 +23,7 @@
     "check:a11y-contrast": "node scripts/check/check-a11y-token-contrast.mjs",
     "scan": "node scripts/scan/scan-logs.js",
     "build": "node scripts/check/check-project-isolation.mjs && tsc --skipLibCheck && node --max-old-space-size=6144 node_modules/vite/bin/vite.js build && node scripts/build/write-prod-shim.mjs",
+    "build:docker": "node scripts/check/check-project-isolation.mjs && node --max-old-space-size=6144 node_modules/vite/bin/vite.js build && node scripts/build/write-prod-shim.mjs",
     "build:app": "npm run build",
     "build:apex": "node scripts/build/prerender-apex.mjs",
     "check:apex": "node scripts/build/prerender-apex.mjs && node scripts/check/check-apex-self-contained.mjs && node scripts/check/check-apex-size.mjs && node scripts/check/check-apex-no-auth-cookies.mjs",
