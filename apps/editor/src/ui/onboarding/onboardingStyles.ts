@@ -46,7 +46,10 @@ export const ONBOARDING_STYLES = `
   color: #1a1a2e;
   border: 1px solid rgba(102, 0, 255, 0.12);
   border-radius: 16px;
-  box-shadow: 0 20px 50px rgba(60, 20, 120, 0.20), 0 2px 10px rgba(0, 0, 0, 0.06);
+  /* O.13.b — subtle modal backdrop (the big 100vmax spread dims the canvas behind
+     the panel like other PRYZM modals, but light — "not too much"). Removed for the
+     non-blocking draw banner via the --drawing modifier so the map stays interactive. */
+  box-shadow: 0 20px 50px rgba(60, 20, 120, 0.20), 0 2px 10px rgba(0, 0, 0, 0.06), 0 0 0 100vmax rgba(22, 16, 44, 0.20);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   overflow: hidden;
 }
