@@ -632,6 +632,18 @@ class OnboardingStepController {
         try {
             await generateApartmentFromBoundary(this.runtime);
             console.log('[onboarding-step] generate complete — onboarding flow finished.');
+            // §ONB-3D-VIEW (2026-06-03): the founder tested the flow and asked to
+            // SEE the generated apartment as a building in 3D, not the flat plan
+            // it lands on by default. After a successful generate, switch the main
+            // viewport to the default 3D view so the onboarding result is a 3D
+            // building. Best-effort — never let a view-switch failure surface as a
+            // generation failure (the geometry is already committed at this point).
+            try {
+                await window.viewController?.activate('3D');
+                console.log('[onboarding-step] post-generate — activated 3D view.');
+            } catch (viewErr) {
+                console.warn('[onboarding-step] post-generate 3D-view activation failed (non-fatal):', viewErr);
+            }
         } catch (err) {
             console.error('[onboarding-step] generate threw (swallowed):', err);
             this.toast(`Generation failed: ${String(err)}`, 'error');
