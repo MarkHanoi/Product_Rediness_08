@@ -831,17 +831,33 @@ class OnboardingStepController {
         try {
             await generateApartmentFromBoundary(this.runtime);
             console.log('[onboarding-step] generate complete — onboarding flow finished.');
-            // §ONB-3D-VIEW (2026-06-03): the founder tested the flow and asked to
-            // SEE the generated apartment as a building in 3D, not the flat plan
-            // it lands on by default. After a successful generate, switch the main
-            // viewport to the default 3D view so the onboarding result is a 3D
-            // building. Best-effort — never let a view-switch failure surface as a
-            // generation failure (the geometry is already committed at this point).
+            // §ONB-RESULT-VIEW (O.7.2, supersedes §ONB-3D-VIEW): the founder tested
+            // twice and the LEFT pane went BLANK after generate. Root cause: the cream
+            // 2D Hektar map disposes ITSELF on boundary-commit (SiteBoundaryMap2D.commit
+            // → dispose removes the overlay from #container), and the old code here then
+            // force-activated the BIM 3D view via `window.viewController.activate('3D')`
+            // WITHOUT turning GIS off — so the orphaned Cesium overlay (display:block,
+            // zIndex 20) stayed on top of the BIM canvas, half-rendered → nothing usable.
+            //
+            // Now: hand the pane to GISAreaLayout's post-generate DUAL-VIEW controller.
+            // It lands on the BIM PLAN ('2D' — GIS off, the user SEES their generated
+            // apartment over the site, no blank) and mounts an on-brand toggle so the
+            // user can flip to the Cesium 3D globe (re-framed to the plot) on demand.
+            // Best-effort: if the hook isn't wired (GIS area not mounted), fall back to
+            // the old BIM 3D activation so we still never leave the user on nothing.
             try {
-                await window.viewController?.activate('3D');
-                console.log('[onboarding-step] post-generate — activated 3D view.');
+                const showResult = (window as unknown as {
+                    pryzmShowSiteResultView?: (initial?: '2D' | '3D') => void;
+                }).pryzmShowSiteResultView;
+                if (typeof showResult === 'function') {
+                    showResult('2D');
+                    console.log('[onboarding-step] §ONB-RESULT-VIEW: handed pane to dual-view (landed on 2D plan; 3D toggle available).');
+                } else {
+                    console.warn('[onboarding-step] §ONB-RESULT-VIEW: pryzmShowSiteResultView missing — falling back to BIM 3D activation.');
+                    await window.viewController?.activate('3D');
+                }
             } catch (viewErr) {
-                console.warn('[onboarding-step] post-generate 3D-view activation failed (non-fatal):', viewErr);
+                console.warn('[onboarding-step] post-generate result-view handoff failed (non-fatal):', viewErr);
             }
         } catch (err) {
             console.error('[onboarding-step] generate threw (swallowed):', err);
