@@ -208,6 +208,14 @@ declare global {
          *  map `fitBounds` to the exact plot on open instead of opening at world zoom.
          *  Registered by GISAreaLayout; mirrors the rail's `onFlyTo` capture. */
         pryzmSetGeocodeFrame?: (frame: { lat: number; lon: number; bbox?: [number, number, number, number] }) => void;
+        /** O.7.2 — mount the post-generate DUAL-VIEW toggle and land the left pane on
+         *  the chosen view ('2D' BIM plan by default — the no-blank fix — or '3D'
+         *  Cesium globe re-framed to the plot). The onboarding generate-finish step
+         *  calls this INSTEAD of force-activating the BIM 3D view over an orphaned
+         *  Cesium overlay (which left the pane blank). Registered by GISAreaLayout. */
+        pryzmShowSiteResultView?: (initial?: '2D' | '3D') => void;
+        /** O.7.2 — remove the post-generate dual-view toggle (e.g. on dispose). */
+        pryzmHideSiteResultToggle?: () => void;
         /** §HELP — prints every pryzm…() console command for the apartment
          *  generation pipeline (apartment → ceiling → furnish → lighting). */
         pryzmShowApartmentHelp?: () => void;
