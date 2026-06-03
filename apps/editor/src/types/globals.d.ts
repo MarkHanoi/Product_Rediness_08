@@ -184,12 +184,16 @@ declare global {
          *  pryzmCreateSiteFromRect() first. The site read is typology-agnostic;
          *  only the generator call is apartment-specific. */
         pryzmGenerateApartmentFromBoundary?: () => void;
-        /** A.8.c — start the Cesium site-boundary polygon-draw tool. Click to add
-         *  corners, double-click / Enter to close, Esc to cancel. On close it
-         *  projects the lat/lon ring → site-XZ + dispatches site.setParcelBoundary.
-         *  Requires the GIS view to be active. */
+        /** A.8.c.f — open the Hektar-style 2D cream/shadow boundary-draw map
+         *  (MapLibre). Click each corner, double-click / Enter to close, Esc to
+         *  cancel. On close it projects the lat/lon ring → site-XZ + dispatches
+         *  site.setParcelBoundary (same path as the Cesium tool). This is the
+         *  DEFAULT draw surface; the 3D globe stays for the rendered result. */
         pryzmStartBoundaryDraw?: () => void;
-        /** A.8.c — cancel an in-progress site-boundary draw. */
+        /** A.8.c — start the legacy Cesium-globe site-boundary polygon-draw tool
+         *  (fallback). Requires the GIS view to be active. */
+        pryzmStartBoundaryDraw3D?: () => void;
+        /** A.8.c — cancel an in-progress site-boundary draw (2D map or Cesium). */
         pryzmCancelBoundaryDraw?: () => void;
         /** O.2 — activate/deactivate the GIS (Cesium) view programmatically. The
          *  onboarding step controller's "Draw it on the map" path calls this to

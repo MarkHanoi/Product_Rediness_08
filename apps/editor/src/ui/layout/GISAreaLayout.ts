@@ -25,6 +25,11 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // A.8.a/A.8.c — GIS site-authoring surfaces, created when Cesium mounts.
     let geocodeBox: import('../site/siteGeocodeSearchBox').SiteGeocodeSearchBox | null = null;
     let boundaryTool: import('../geospatial/SiteBoundaryDrawTool').SiteBoundaryDrawTool | null = null;
+    // A.8.c.f — the Hektar-style 2D cream/shadow boundary-draw map. This REPLACES
+    // the Cesium-3D draw surface for the DRAW step (Cesium stays for 3D render):
+    // startBoundaryDraw() opens THIS 2D map; the legacy Cesium `boundaryTool` is
+    // retained for the console fallback (pryzmStartBoundaryDraw3D) only.
+    let map2dHandle: { dispose: () => void } | null = null;
 
     // Read the Site's location (set by the geocode search box) as the
     // projection origin for the boundary-draw tool. Falls back to null so the
@@ -37,15 +42,46 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         return null;
     };
 
+    // A.8.c.f — read the geocoded Site location to centre the 2D map. The geocode
+    // search box (A.8.a) sets this via site.updateLocation. Returns null if unset
+    // (the 2D map then opens at a world view; drawing still works).
+    const getMapInitial = (): { lat: number; lon: number; zoom?: number } | undefined => {
+        const o = getSiteOrigin();
+        return o ? { lat: o.lat, lon: o.lon, zoom: 17 } : undefined;
+    };
+
+    // A.8.c.f — open the Hektar-style 2D cream/shadow boundary-draw map overlay
+    // (NOT the Cesium 3D draw). Mounts on #container; on commit/cancel it disposes
+    // + closes. Lazy-imports the MapLibre chunk so it is not in the main bundle.
     const startBoundaryDraw = (): void => {
-        if (!boundaryTool) {
-            console.warn('[gis] boundary-draw: GIS view not mounted yet — activate GIS first.');
-            runtime?.events?.emit('pryzm:toast', { message: 'Activate the GIS view first.', severity: 'error' });
+        if (map2dHandle) {
+            console.log('[gis] map2d already open');
             return;
         }
-        boundaryTool.start();
+        const viewport = document.getElementById('container');
+        if (!viewport) {
+            console.error('[gis] map2d: #container not found');
+            return;
+        }
+        void import('../geospatial/SiteBoundaryMap2D').then(({ mountSiteBoundaryMap2D }) => {
+            map2dHandle = mountSiteBoundaryMap2D({
+                parent: viewport,
+                runtime: runtime ?? null,
+                initial: getMapInitial(),
+                getOrigin: getSiteOrigin,
+                onClose: () => { map2dHandle = null; },
+            });
+            console.log('[gis] map2d: Hektar 2D boundary-draw map opened');
+        }).catch((err: unknown) => {
+            console.error('[gis] map2d: failed to open', err);
+            runtime?.events?.emit('pryzm:toast', { message: 'Could not open the 2D boundary map — see console.', severity: 'error' });
+        });
     };
     const cancelBoundaryDraw = (): void => {
+        if (map2dHandle) {
+            map2dHandle.dispose();
+            map2dHandle = null;
+        }
         boundaryTool?.cancel();
     };
 
@@ -152,11 +188,14 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                                 runtime: runtime ?? null,
                                 getOrigin: getSiteOrigin,
                             });
-                            // A.8.c — DevTools console entry point (mirrors the
-                            // pryzmCreateSiteFromRect / …FromBoundary console flow).
+                            // A.8.c.f — DevTools console entry points. The default
+                            // pryzmStartBoundaryDraw() now opens the Hektar 2D map
+                            // (the draw surface); pryzmStartBoundaryDraw3D() keeps the
+                            // legacy Cesium-globe draw as a fallback.
                             window.pryzmStartBoundaryDraw = () => startBoundaryDraw();
+                            window.pryzmStartBoundaryDraw3D = () => boundaryTool?.start();
                             window.pryzmCancelBoundaryDraw = () => cancelBoundaryDraw();
-                            console.log('[gis] site-authoring surfaces ready (geocode search + boundary draw). Run pryzmStartBoundaryDraw() to draw a parcel.');
+                            console.log('[gis] site-authoring surfaces ready (geocode search + 2D Hektar boundary map). Run pryzmStartBoundaryDraw() for the 2D draw, pryzmStartBoundaryDraw3D() for the Cesium draw.');
                         }
                     }
                 }).catch((err: any) => {
@@ -276,6 +315,13 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // pryzmStartBoundaryDraw. Registered here (not inside the async Cesium mount)
     // so it works BEFORE Cesium has mounted — calling it kicks off the mount.
     window.pryzmToggleGIS = (active: boolean) => toggleGIS(active);
+
+    // A.8.c.f — register the 2D Hektar boundary-draw console hook HERE (not inside
+    // the Cesium mount) so the 2D draw surface is independent of the Cesium viewer:
+    // the user can draw a parcel on the clean cream plan-view map without first
+    // mounting the 3D globe. (Re-registered inside the mount too, harmlessly.)
+    window.pryzmStartBoundaryDraw = () => startBoundaryDraw();
+    window.pryzmCancelBoundaryDraw = () => cancelBoundaryDraw();
 
     return { toggleGIS, flyToCremornePoint, placeBimOnEarth, activateView, gizmoMode, startBoundaryDraw, cancelBoundaryDraw };
 }
