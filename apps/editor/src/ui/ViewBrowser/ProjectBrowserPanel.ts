@@ -116,6 +116,7 @@ export class ProjectBrowserPanel {
             gisPlaceBim:          async () => {},
             gisGizmoMode:         (_m: any) => {},
             gisResetGeoreference: () => {},
+            gisStartBoundaryDraw: () => {},
         } as any;
 
         // Phase B.17 (S73-WIRE) — thread the composed runtime to every rail

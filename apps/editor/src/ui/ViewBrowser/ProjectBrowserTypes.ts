@@ -47,6 +47,8 @@ export interface ProjectBrowserPanelProps {
     gisPlaceBim?:          () => Promise<void>;
     gisGizmoMode?:         (mode: number) => void;
     gisResetGeoreference?: () => void;
+    /** A.8.c — start the Cesium site-boundary polygon-draw tool. */
+    gisStartBoundaryDraw?: () => void;
 
     // ── Render / Visual controls (moved from right rail) ─────────────────────
     toggleShadows?:    () => Promise<void>;
