@@ -1,6 +1,7 @@
 # PRYZM — Roadmap Phase 2: Beta (6–18 months)
 
-> **Stamp**: 2026-06-01 · **Status**: CANONICAL · **Horizon**: H2 — phase roadmap
+> **Stamp**: 2026-06-03 · **Status**: CANONICAL · **Horizon**: H2 — phase roadmap
+> **Reconciled 2026-06-03** to ADR-055/C51 (`pryzm.so` canonical; `pryzm.app` retired).
 > **Window**: 2027-01-01 → 2028-06-30 (~18 months, ~36 sprints of 2 weeks)
 > **Authority**: this doc owns **the Phase 2 delivery list** — platform breadth + 10+ typologies + first Enterprise pilots + marketplace flywheel. Sits between [Phase 1 Alpha](./roadmap-phase-1-alpha.md) and [Phase 3 GA](./roadmap-phase-3-ga.md).
 > **Foundation above**: [vision-2030.md](./vision-2030.md) themes T1–T5 → Phase 2 is months 7–24 of the arc.
@@ -203,7 +204,7 @@ The "publication-grade output" deliverable for D11 (per [engineering-vision §4]
 |---|---|---|
 | 8.1 | EU region primary (eu-central-1 / Frankfurt) production deployment | [C49 §1.2](../../02-decisions/contracts/C49-MULTI-REGION-AND-SOVEREIGNTY.md) |
 | 8.2 | EU region secondary (eu-west-1 / Dublin) standby + failover testing | [C49 §1.3](../../02-decisions/contracts/C49-MULTI-REGION-AND-SOVEREIGNTY.md) |
-| 8.3 | Cloudflare DNS region routing (`eu.pryzm.app` subdomain) | [C49 §1.7](../../02-decisions/contracts/C49-MULTI-REGION-AND-SOVEREIGNTY.md) |
+| 8.3 | Cloudflare DNS region routing (`eu.pryzm.so` subdomain) | [C49 §1.7](../../02-decisions/contracts/C49-MULTI-REGION-AND-SOVEREIGNTY.md) |
 | 8.4 | Region-scoped JWT tokens with `iss` claim | [C49 §1.6](../../02-decisions/contracts/C49-MULTI-REGION-AND-SOVEREIGNTY.md) |
 | 8.5 | Wrong-region redirect UX | [C49 §5.4](../../02-decisions/contracts/C49-MULTI-REGION-AND-SOVEREIGNTY.md) |
 | 8.6 | Cross-region access gate + audit ledger | [C49 §1.4](../../02-decisions/contracts/C49-MULTI-REGION-AND-SOVEREIGNTY.md) |
@@ -263,7 +264,7 @@ The "publication-grade output" deliverable for D11 (per [engineering-vision §4]
 | 12.2 | Screen-reader QA pass (NVDA · JAWS · VoiceOver) | [C43 §1.5](../../02-decisions/contracts/C43-ACCESSIBILITY.md) |
 | 12.3 | External accreditation audit (Deque or TPG) | [C43 §1.13](../../02-decisions/contracts/C43-ACCESSIBILITY.md) |
 | 12.4 | VPAT 2.5-INT first publication | [C43 §1.14](../../02-decisions/contracts/C43-ACCESSIBILITY.md) |
-| 12.5 | Accessibility statement page live at `pryzm.app/accessibility` | [C43 §5.3](../../02-decisions/contracts/C43-ACCESSIBILITY.md) |
+| 12.5 | Accessibility statement page live at `pryzm.so/accessibility` | [C43 §5.3](../../02-decisions/contracts/C43-ACCESSIBILITY.md) |
 | 12.6 | Report-an-accessibility-issue flow | [C43 §5.6](../../02-decisions/contracts/C43-ACCESSIBILITY.md) |
 
 ---
@@ -351,4 +352,4 @@ Building on Phase 1 deliverables:
 
 ---
 
-*End — PRYZM Roadmap Phase 2: Beta, 2026-06-01 — CANONICAL.*
+*End — PRYZM Roadmap Phase 2: Beta, 2026-06-03 (reconciled to ADR-055/C51) — CANONICAL.*

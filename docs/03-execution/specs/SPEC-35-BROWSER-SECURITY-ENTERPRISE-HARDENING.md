@@ -4,7 +4,7 @@
 |---|---|
 | Status | Active — normative |
 | Version | 1.0 |
-| Date | 2026-04-27 |
+| Date | 2026-04-27 (CSP/plugin origins reconciled to `pryzm.so` 2026-06-03 per ADR-055/C51) |
 | Owner | Security lead + Architecture lead |
 | Phase | Phase 4 (M37–M42) |
 | Sprint | S76 D5 + S82 |
@@ -42,7 +42,7 @@ Every PRYZM origin enforces:
 
 | Header / primitive | Value | Effect |
 |---|---|---|
-| `Content-Security-Policy` | `default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' wss://*.pryzm.app https://*.pryzm.app; frame-src 'self' https://plugins.pryzm.app; ...` | Strict CSP; no inline scripts; nonce-based for any necessary inline |
+| `Content-Security-Policy` | `default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' wss://*.pryzm.so https://*.pryzm.so; frame-src 'self' https://plugins.pryzm.so; ...` | Strict CSP; no inline scripts; nonce-based for any necessary inline |
 | `Cross-Origin-Opener-Policy` | `same-origin` | Cross-origin window isolation |
 | `Cross-Origin-Embedder-Policy` | `require-corp` | Required for SharedArrayBuffer (used by worker pool) |
 | `Cross-Origin-Resource-Policy` | `same-origin` | Default deny |
@@ -56,7 +56,7 @@ Every PRYZM origin enforces:
 ### §2.3 Plugin sandbox enforcement (extends S62)
 
 S62 ships plugin sandbox via Web Worker. SPEC-35 adds:
-- Plugins served from `https://plugins.pryzm.app` (separate origin) — frame-src CSP isolates them.
+- Plugins served from `https://plugins.pryzm.so` (separate origin) — frame-src CSP isolates them.
 - Per-plugin capability manifest signed by marketplace (sigstore).
 - Per-plugin egress allow-list (no arbitrary network).
 - Per-plugin CPU + memory + storage quota.
@@ -92,7 +92,7 @@ plugins-marketplace/sigstore/ ← per-plugin signature verification at install
 | S76 D6 | strict CSP / COOP / COEP rolled to staging; report-only mode for 7 days; then enforce |
 | S76 D7 | Azure Key Vault + GCP KMS adapters |
 | S76 D8 | PKCS#11 HSM adapter (CloudHSM bridge) |
-| S76 D9 | plugin sandbox cross-origin migration (`plugins.pryzm.app`); sigstore manifest verification |
+| S76 D9 | plugin sandbox cross-origin migration (`plugins.pryzm.so`); sigstore manifest verification |
 | S82 D1 | SOC 2 Type 2 evidence pipeline live; Drata integration |
 | S82 D5 | annual pen-test (independent firm); fix all critical/high before S82 D9 |
 | S82 D9 | FedRAMP Moderate gap analysis; ATO sponsorship outreach starts |

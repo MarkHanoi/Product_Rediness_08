@@ -1,6 +1,7 @@
 # Phase A — User capabilities + test plan
 
-> **Stamp**: 2026-06-02 · **Status**: LIVE (tracks the master execution tracker)
+> **Stamp**: 2026-06-03 · **Status**: LIVE (tracks the master execution tracker)
+> **Reconciled 2026-06-03** to ADR-055/C51 (apex/app split; `pryzm.so` apex marketing + `app.pryzm.so` editor; `pryzm.app` retired; pricing renders from `@pryzm/entitlements` in `apps/editor`, NOT Astro).
 > **Authority**: [master-execution-tracker.md §3 Phase A](./master-execution-tracker.md)
 > **Audience**: PM, founder, design partners, beta customers, sales.
 >
@@ -14,7 +15,7 @@
 
 When Phase A is GA-complete a user will:
 
-1. **Sign up at pryzm.app**, pick a plan tier (Free-Trial → Solo → Studio → Mid-Firm → Enterprise) on a pricing page that is generated from the canonical entitlement registry (no marketing hand-edit). Their tier governs which typologies + outputs are available.
+1. **Sign up at app.pryzm.so**, pick a plan tier (Free-Trial → Solo → Studio → Mid-Firm → Enterprise) on a pricing page that is generated from the canonical entitlement registry (no marketing hand-edit). Their tier governs which typologies + outputs are available.
 2. **Onboard via a conversational RAC chatbot** that asks role + project intent in plain language, then drops them into the editor with a pre-staged project (with a typology + brief inferred from the conversation).
 3. **Define their SITE first** (this is the big PRYZM differentiator): type an address → see a cream/warm Cesium satellite basemap → draw a parcel polygon → on commit, automatic climate fetch (EPW or NOAA fallback), terrain DEM, and OSM context-building ingest. A Site Inspector right-panel shows lat/lon, true-north, CRS, area, FAR, setback compliance, climate summary.
 4. **Generate an APARTMENT layout** from a brief (1-bed, 2-bed, master en-suite, open-plan kitchen, etc.). The system runs a deterministic offline engine first (D-TGL → D-CE → D-FLE → D-LE — walls, ceilings, furniture, lighting) and only escalates to a paid AI model when the user opts in. The output passes through a dimensional + topology validator gate (G1-G10 dimensional, A1-A8 topology) before showing the user.
@@ -32,7 +33,7 @@ When Phase A is GA-complete a user will:
 | # | What the user does | Where in the product | Tracker row(s) | Status today | Test path |
 |---|---|---|---|---|---|
 | **1. Plan + pricing** |
-| 1.1 | Read tier-by-tier feature comparison | `pryzm.app/pricing` | A.18.a · A.18.b | ✅ DONE | Visit `/pricing` → see 5 tiers × 30 feature gates rendered by Astro at build-time from `@pryzm/entitlements` |
+| 1.1 | Read tier-by-tier feature comparison | `pryzm.so/pricing` (apex) + in-app `?page=pricing` | A.18.a · A.18.b | ✅ DONE | Visit `/pricing` → see 5 tiers × 30 feature gates rendered live from `@pryzm/entitlements` via `apps/editor/src/ui/platform/PricingPage.ts` (apex pre-renders the same component source per C51 §6) |
 | 1.2 | Pay + activate tier | Stripe checkout | (existing — pre-Phase A) | — | Sign up → pay → tier reflected in `userTier` resolver |
 | 1.3 | Hit a gated feature on wrong tier | every gated tool | A.18.a (resolver) | ✅ DONE | `check('feature.sso-saml', 'studio')` returns `{ allowed: false, reason: 'tier-too-low', requiredTier: 'enterprise' }` |
 | **2. Onboarding** |
@@ -116,9 +117,9 @@ When Phase A is GA-complete a user will:
 | 14.2 | Add / remove / reorder levels | Building tools | A.23.c (level.* commands DONE) + L5 UI PLANNED | 🟢 IN PROGRESS | `level.create` · `level.delete` · `level.setActive` available; L5 UI PLANNED |
 | 14.3 | Define apartments within a Building | Apartment tools | A.23.c (apartment.* commands DONE) + L5 UI PLANNED | 🟢 IN PROGRESS | Multi-apartment floor plate scope (see [multi-apartment brief](../../03_PRYZM3/...) ) starts here |
 | **15. Brand + marketing** |
-| 15.1 | Landing page at pryzm.app says "PRYZM" (not PRYZM 3) | Public site | A.17 + A.19 | 🟡 NEXT UP | Crawl marketing pages: only "PRYZM" appears |
+| 15.1 | Landing page at pryzm.so says "PRYZM" (not PRYZM 3) | Public apex site | A.17 + A.19 | 🟡 NEXT UP | Crawl marketing pages: only "PRYZM" appears |
 | 15.2 | npm scope `@pryzm/sdk` + `@pryzm/headless` published | npm registry | A.12 + A.13 | 🔴 BLOCKED (npm token + 2FA) | `npm install @pryzm/sdk` works |
-| 15.3 | DNS marketplace.pryzm.app | Browser | A.14 | 🟡 NEXT UP | Cloudflare DNS + TLS cert |
+| 15.3 | DNS marketplace.pryzm.so | Browser | A.14 | 🟡 NEXT UP | Cloudflare DNS + TLS cert |
 | 15.4 | First 50 paying customers | Sales | A.40 | ⚪ PLANNED (marketing-led) | $1500 MRR by Phase A close |
 
 ---
@@ -143,7 +144,7 @@ Phase A's exit criteria are in [roadmap-phase-1-alpha.md §1](./roadmap-phase-1-
 
 | Believer | Test |
 |---|---|
-| Pricing copy is generated, never hand-edited | grep `apps/docs-site/src/pages/pricing.astro` — only `buildPricingPageData()` consumed; no string literals |
+| Pricing copy is generated, never hand-edited | grep `apps/editor/src/ui/platform/PricingPage.ts` — only `@pryzm/entitlements` consumed; no string literals (Astro `docs-site` pricing is deleted per ADR-055 §7 / C51 §6.3) |
 | Every AI call writes a provenance row | `check-ai-records-artefact.ts` CI gate (C23 §6.1) green |
 | DR runbooks executable | Q3 2026 DR drill passes |
 | WCAG 2.2 AA across all UI | axe-core CI 0 critical / 0 serious |

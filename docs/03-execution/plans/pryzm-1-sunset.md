@@ -1,5 +1,8 @@
 # PRYZM 1 Sunset — 90-Day Migration Window
 
+> **Stamp**: 2026-06-03 · **Status**: HISTORICAL — superseded framing, kept for the migration-tooling runbook.
+> **Reconciled 2026-06-03 to ADR-055/C51**: this doc was written assuming a **GA SaaS launch had already shipped** ("GA boot path", "GA LAUNCH date S72 D7", "2026-Q3 sunset window"). That GA launch has **NOT shipped**. The current production deploy is the **ADR-055 Phase-A bridge** (apex/app split: `pryzm.so` apex marketing on Cloudflare Pages + `app.pryzm.so` editor on Fly.io EU `fra`; auth migration is ADR-056, Phase A.5). The PRYZM 1 → PRYZM 2 architecture migration (the `src/` legacy-tree retirement) described below is a **separate internal track** from the customer-facing GA launch; the `@pryzm/cli` migration tooling (§2) remains the canonical runbook for that internal track. Treat every "GA"/"2026-Q3 sunset" date here as an aspiration of the prior plan, not a shipped fact.
+
 **Date opened**: 2026-04-29 (S72 D5)
 **Sunset announcement date**: S61 close (≈ 2026-Q1)
 **Sunset window length**: 90 days (3 months)

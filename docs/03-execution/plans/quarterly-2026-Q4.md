@@ -1,6 +1,7 @@
 # PRYZM — Quarterly Plan 2026 Q4 (Oct–Dec 2026)
 
-> **Stamp**: 2026-06-01 · **Status**: CANONICAL · **Horizon**: H4 — quarterly
+> **Stamp**: 2026-06-03 · **Status**: CANONICAL · **Horizon**: H4 — quarterly
+> **Reconciled 2026-06-03** to ADR-055/C51 (apex/app split; `pryzm.so` canonical; `pryzm.app` retired).
 > **Window**: 2026-10-01 → 2026-12-31 (~13 weeks; 6 × 2-week sprints, S7–S12)
 > **Authority**: this doc owns **Q4 2026 sprint-by-sprint deliverables** — the back half of Phase 1. Q4 close = Phase 1 exit = ADR-NNN-phase-1-exit-alpha.md raised.
 > **Foundation above**: [annual-2026.md §2.2](./annual-2026.md) → [roadmap-phase-1-alpha.md](./roadmap-phase-1-alpha.md) closes at end of Q4.
@@ -201,8 +202,8 @@ The decision artefact at end of Q4:
 | E2 — RAC chatbot routing flow live | End-to-end test from signup | Track in S12 |
 | E3 — `@pryzm/sdk` v1.0.x published | `npm view @pryzm/sdk` | ✅ S1 closed |
 | E4 — `@pryzm/headless` v1.0.0 published | `npm view @pryzm/headless` | ✅ S1 closed |
-| E5 — Marketplace live + 50+ artefacts | `marketplace.pryzm.app` + DB count | Track in S12 |
-| E6 — `pryzm.app` domain cutover | DNS resolves | ✅ S1+S5 closed |
+| E5 — Marketplace live + 50+ artefacts | `marketplace.pryzm.so` + DB count | Track in S12 |
+| E6 — Apex/app split (ADR-055/C51): `pryzm.so` apex + `app.pryzm.so` editor | apex 200 pre-rendered + app 200 from `fra` | Code-complete on `main`; deploy pending (Cloudflare repoint + Fly deploy) |
 | E7 — Cold-boot NFT < 2.5 s for 4 weeks | CI baseline | Track in S12 |
 | E8 — 50+ paying customers | Stripe MRR > $1500 | Track in S11–12 |
 | E9 — All 21 CI gates stable 4 weeks | CI dashboard | Track in S12 |
@@ -273,4 +274,4 @@ Per [roadmap-phase-2-beta.md](./roadmap-phase-2-beta.md), Phase 2 starts 2027 Q1
 
 ---
 
-*End — PRYZM Quarterly Plan 2026 Q4, 2026-06-01 — CANONICAL.*
+*End — PRYZM Quarterly Plan 2026 Q4, 2026-06-03 (reconciled to ADR-055/C51) — CANONICAL.*

@@ -1,6 +1,7 @@
 # PRYZM — Annual Plan 2026
 
-> **Stamp**: 2026-06-01 · **Status**: CANONICAL · **Horizon**: H3 — annual
+> **Stamp**: 2026-06-03 · **Status**: CANONICAL · **Horizon**: H3 — annual
+> **Reconciled 2026-06-03** to ADR-055/C51 (apex/app split; `pryzm.so` canonical; `pryzm.app` retired; C19 Site substrate shipped).
 > **Window**: 2026 calendar year. **Year status**: H1 2026 (Jan–Jun) is closed; H2 2026 (Jul–Dec) is the active commitment.
 > **Authority**: this doc owns **2026 calendar-year commitments** broken into quarters. Update at the end of each quarter (Q3 close → Q4 refresh; Q4 close → 2027 annual draft).
 > **Foundation above**: [vision-2030.md](./vision-2030.md) → [roadmap-phase-1-alpha.md](./roadmap-phase-1-alpha.md) (Phase 1 = H2 2026 + first half of H1 2027).
@@ -30,8 +31,8 @@ The active half-year. Maps to **the second half of [roadmap-phase-1-alpha.md](./
 |---|---|
 | Typology pipeline | TypologyPipelineRouter + apartment refactored as pack + house typology shipped |
 | Site substrate | C19 + C21 contracts ratified CANONICAL; site authoring UI live; climate ingestion live |
-| Marketplace go-live | `marketplace.pryzm.app` DNS + TLS; `@pryzm/sdk` npm publish; first 5 PRYZM-first-party plugins listed |
-| Brand + domain | `pryzm.app` cutover from `pryzm.so` legacy |
+| Marketplace go-live | `marketplace.pryzm.so` DNS + TLS; `@pryzm/sdk` npm publish; first 5 PRYZM-first-party plugins listed |
+| Brand + domain | Apex/app split per ADR-055/C51 — `pryzm.so` apex (static marketing, Cloudflare Pages) + `app.pryzm.so` editor (Fly.io, EU `fra`); `pryzm.app` aspiration retired |
 | Enterprise readiness foundation | C22 PII + C23 provenance + first DR drill |
 | First paying customers | First 50 paying via Solo + Studio PLG (target $1500 MRR) |
 
@@ -41,7 +42,7 @@ The active half-year. Maps to **the second half of [roadmap-phase-1-alpha.md](./
 
 ### §2.1 — Q3 2026 (Jul–Sep)
 
-**Theme**: TypologyPipeline foundations + marketplace go-live + brand cutover. Detailed in [quarterly-2026-Q3.md](./quarterly-2026-Q3.md).
+**Theme**: TypologyPipeline foundations + marketplace go-live + apex/app split (ADR-055/C51). Detailed in [quarterly-2026-Q3.md](./quarterly-2026-Q3.md).
 
 | Epic | Owner | Sprints | Cites |
 |---|---|---|---|
@@ -50,9 +51,9 @@ The active half-year. Maps to **the second half of [roadmap-phase-1-alpha.md](./
 | RAC chatbot UI v1 + TypologyPicker | Designer 1 + Engineer 1 | S3–S5 | [Phase 1 §3.1.5–6](./roadmap-phase-1-alpha.md) |
 | C19 Site element schemas + SiteStore + UI | Engineer 2 + Architect 2 | S1–S4 | [Phase 1 §4.1](./roadmap-phase-1-alpha.md) |
 | C21 Climate ingestion (EPW + NOAA) | Engineer 2 | S3–S6 | [Phase 1 §4.3](./roadmap-phase-1-alpha.md) |
-| `pnpm publish @pryzm/sdk` (OI-011) + DNS marketplace.pryzm.app (OI-013) | Founder + ops | S1 | [Phase 1 §5](./roadmap-phase-1-alpha.md) |
+| `pnpm publish @pryzm/sdk` (OI-011) + DNS marketplace.pryzm.so (OI-013) | Founder + ops | S1 | [Phase 1 §5](./roadmap-phase-1-alpha.md) |
 | First 5 marketplace plugins published | Dev-rel + Engineer 3 | S2–S6 | [Phase 1 §5](./roadmap-phase-1-alpha.md) |
-| `pryzm.app` domain cutover + landing-page rebuild | Designer 2 + Marketing | S1–S5 | [Phase 1 §8](./roadmap-phase-1-alpha.md) |
+| Apex/app split (ADR-055/C51) + landing from editor `LandingPage.ts` | Designer 2 + Marketing | S1–S5 | [Phase 1 §8](./roadmap-phase-1-alpha.md) |
 | C50 typology pipeline contract DRAFT | Architect 1 | S2 | [Phase 1 §3.1.7](./roadmap-phase-1-alpha.md) |
 | C22 PII + C23 provenance partial ratification | Engineer 4 | S4–S6 | [Phase 1 §7.1, §7.2](./roadmap-phase-1-alpha.md) |
 
@@ -62,8 +63,8 @@ The active half-year. Maps to **the second half of [roadmap-phase-1-alpha.md](./
 - TypologyRegistry slot on PryzmRuntime
 - Site substrate C19 ratified
 - npm @pryzm/sdk published
-- marketplace.pryzm.app live with 5 plugins
-- pryzm.app cutover complete
+- marketplace.pryzm.so live with 5 plugins
+- apex/app split live (ADR-055/C51): `pryzm.so` apex + `app.pryzm.so` editor
 
 ### §2.2 — Q4 2026 (Oct–Dec)
 
@@ -134,7 +135,7 @@ Funding source: existing seed capital + first customer revenue (target $1500 MRR
 | Contract | Pre-H2 state | Q3 commitment | Q4 commitment | End-of-year state |
 |---|---|---|---|---|
 | C01–C18 | CANONICAL | Refresh package counts | Stable | CANONICAL |
-| C19 Site | DRAFT | **CANONICAL** | Stable | CANONICAL |
+| C19 Site | Substrate **SHIPPED** (SiteModelStore + ParcelBoundarySchema + site.create/setParcelBoundary in composeRuntime, A.7.a/b/c.1) | Ratify **CANONICAL** | Stable | CANONICAL |
 | C20 Aggregates | DRAFT | DRAFT → Partial | **CANONICAL** | CANONICAL |
 | C21 Climate | DRAFT | DRAFT → Partial | **CANONICAL** | CANONICAL |
 | C22 PII | DRAFT | Partial | Partial | Partial (full in Phase 2) |
@@ -145,7 +146,7 @@ Funding source: existing seed capital + first customer revenue (target $1500 MRR
 | C39 Pricing | DRAFT | Partial — entitlement registry + Solo/Studio | Stable + Mid-firm tier | Partial |
 | C40 Marketplace | DRAFT | Partial — 70/30 + payout test | Partial — first marketplace authors | Partial |
 | C41 Telemetry | DRAFT | Partial — consent banner + cookie | Stable | Partial |
-| C42 Support | DRAFT | Partial — support@pryzm.app + 4-channel | Stable + first SEV-1 PMI | Partial |
+| C42 Support | DRAFT | Partial — support@pryzm.so + 4-channel | Stable + first SEV-1 PMI | Partial |
 | C43 Accessibility | DRAFT | Partial — axe-core CI green | Partial — WCAG audit prep | Partial (full in Phase 2) |
 | C44 Mobile | DRAFT | Partial — surface capability + share-link | Stable | Partial |
 | C45 Browser | DRAFT | Partial — Tier 1 support live | Stable | Partial |
@@ -252,4 +253,4 @@ Annual-2027 plan will be authored at end of 2026 Q4. Phase 1 closes in 2026 Q4 �
 
 ---
 
-*End — PRYZM Annual Plan 2026, 2026-06-01 — CANONICAL.*
+*End — PRYZM Annual Plan 2026, 2026-06-03 (reconciled to ADR-055/C51) — CANONICAL.*

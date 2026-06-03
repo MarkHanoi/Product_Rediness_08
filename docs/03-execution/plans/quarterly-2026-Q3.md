@@ -1,6 +1,7 @@
 # PRYZM — Quarterly Plan 2026 Q3 (Jul–Sep 2026)
 
-> **Stamp**: 2026-06-01 · **Status**: CANONICAL · **Horizon**: H4 — quarterly
+> **Stamp**: 2026-06-03 · **Status**: CANONICAL · **Horizon**: H4 — quarterly
+> **Reconciled 2026-06-03** to ADR-055/C51 (apex/app split; `pryzm.so` canonical; `pryzm.app` retired; C19 Site substrate shipped).
 > **Window**: 2026-07-01 → 2026-09-30 (~13 weeks; 6 × 2-week sprints)
 > **Authority**: this doc owns **Q3 2026 sprint-by-sprint deliverables**. Updated at each sprint close. Q3 close → Q4 refresh.
 > **Foundation above**: [annual-2026.md §2.1](./annual-2026.md) → quarterly is H4 derivative of H3.
@@ -9,7 +10,7 @@
 
 ## §1 — Q3 2026 theme + capacity
 
-**Theme**: **Typology pipeline foundations** + **marketplace go-live** + **brand cutover**. Q3 sets up the infrastructure for Q4's deliverables.
+**Theme**: **Typology pipeline foundations** + **marketplace go-live** + **apex/app split** (ADR-055/C51). Q3 sets up the infrastructure for Q4's deliverables.
 
 **Sprint cadence**: 6 sprints × 2 weeks, with 1 week buffer mid-quarter.
 
@@ -37,7 +38,7 @@ Net Q3 dev-week capacity: ~33 weeks. Q3 work allocation: ~28 dev-weeks committed
 | **E4 — C21 Climate ingestion (EPW + NOAA)** | Engineer 2 (extend) | Architect 2 | — | S3–S6 |
 | **E5 — Apartment refactored as TypologyPack** | Engineer 1 (extend) | Architect 1 (rules) | — | S2–S3 |
 | **E6 — Marketplace go-live (npm publish + DNS)** | Engineer 3 (lead) + Founder + ops | — | Designer 2 (marketplace UX) | S1–S6 |
-| **E7 — `pryzm.app` cutover + landing rebuild** | Engineer 3 (extend) | — | Designer 2 + Marketing | S1–S5 |
+| **E7 — Apex/app split (ADR-055/C51), tracked under IP-A5.X** | Engineer 3 (extend) | — | Designer 2 + Marketing | S1–S5 |
 | **E8 — C22 PII + C23 provenance partials** | Engineer 4 (lead) | — | — | S4–S6 |
 | **E9 — Cognition substrate L1–L4 hardening (50 new rules code-enforced)** | Engineer 6 (lead) | Architect 1 + Architect 2 | — | S2–S6 |
 | **E10 — Per-sprint NFT bench maintenance** | All engineers | — | — | continuous |
@@ -58,8 +59,8 @@ Net Q3 dev-week capacity: ~33 weeks. Q3 work allocation: ~28 dev-weeks committed
 | 1.4 | `SiteStore` in `packages/stores/` skeleton | Engineer 2 | E3 | [Phase 1 §4.1.2](./roadmap-phase-1-alpha.md) |
 | 1.5 | `pnpm --filter @pryzm/plugin-sdk publish --access public` (OI-011) | Founder + ops | E6 | [Phase 1 §5.1](./roadmap-phase-1-alpha.md) |
 | 1.6 | `pnpm --filter @pryzm/headless publish --access public` (OI-012) | Founder + ops | E6 | [Phase 1 §5.2](./roadmap-phase-1-alpha.md) |
-| 1.7 | DNS `marketplace.pryzm.app` provisioned (OI-013) | ops | E6 | [Phase 1 §5.3](./roadmap-phase-1-alpha.md) |
-| 1.8 | `pryzm.app` DNS + TLS provisioned | ops + Marketing | E7 | [Phase 1 §8.1](./roadmap-phase-1-alpha.md) |
+| 1.7 | DNS `marketplace.pryzm.so` provisioned (OI-013) | ops | E6 | [Phase 1 §5.3](./roadmap-phase-1-alpha.md) |
+| 1.8 | `pryzm.so` apex (Cloudflare Pages) + `app.pryzm.so` (Fly `fra`) DNS + TLS provisioned per ADR-055/C51 §4 | ops + Marketing | E7 | [Phase 1 §8.1](./roadmap-phase-1-alpha.md) |
 | 1.9 | Cognition substrate: identify 50 unblocked rules from spec → code | Engineer 6 + Architect 1 | E9 | [Phase 1 §10.1](./roadmap-phase-1-alpha.md) |
 
 **S1 acceptance**: TypologyPipeline package builds; Site schemas validate; npm publishes successful; DNS resolves; cognition rules identified.
@@ -91,8 +92,8 @@ Net Q3 dev-week capacity: ~33 weeks. Q3 work allocation: ~28 dev-weeks committed
 | 3.4 | `packages/climate/` NEW package scaffold + EPW parser | Engineer 2 | E4 |
 | 3.5 | 3 more marketplace plugins published: DXF · Multiplayer · Cesium-bridge | Engineer 3 + Dev-rel | E6 |
 | 3.6 | Marketplace UX polish — browse + filter + detail + install flow | Engineer 3 + Designer 2 | E6 |
-| 3.7 | `pryzm.app/manifesto` + `/about` + `/trust` + `/pricing` pages live | Designer 2 + Marketing | E7 |
-| 3.8 | Pricing page generator reads from entitlement registry | Designer 2 + Engineer 4 | E7 |
+| 3.7 | `pryzm.so/manifesto` + `/about` + `/trust` + `/pricing` apex pages live | Designer 2 + Marketing | E7 |
+| 3.8 | Pricing page reads live from the entitlement registry (`@pryzm/entitlements` via `apps/editor/src/ui/platform/PricingPage.ts`) | Designer 2 + Engineer 4 | E7 |
 | 3.9 | 12 more cognition rules implemented (total Q3 progress: 24/50) | Engineer 6 | E9 |
 
 **S3 acceptance**: RAC chatbot live in editor; TypologyPicker shows 10 categories; climate EPW parses 10 reference files; 5 marketplace plugins live; pricing page generator working.
@@ -118,18 +119,18 @@ Net Q3 dev-week capacity: ~33 weeks. Q3 work allocation: ~28 dev-weeks committed
 
 | # | Deliverable | Owner | Epic |
 |---|---|---|---|
-| 5.1 | C19 Site Model & Parcel — **CANONICAL ratification** (move from DRAFT) | Architect 2 + Architect 1 | E3 |
+| 5.1 | C19 Site Model & Parcel — **CANONICAL ratification** (the substrate already SHIPPED — `SiteModelStore` + `ParcelBoundarySchema` + `site.create`/`site.setParcelBoundary` wired into `composeRuntime`, A.7.a/b/c.1; ratification is the remaining step) | Architect 2 + Architect 1 | E3 |
 | 5.2 | C21 Climate Ingestion — **CANONICAL ratification** (move from DRAFT) | Architect 2 | E4 |
 | 5.3 | Apartment-as-Typology-Pack regression suite (50+ tests) | Engineer 1 | E5 |
 | 5.4 | AI workflow integration: apartment workflow queries climate for solar orientation | Engineer 1 + Engineer 2 | E4 |
 | 5.5 | Marketplace API for partners — initial REST surface | Engineer 3 | E6 |
 | 5.6 | Brand-voice content sweep — every customer-facing string audited against manifesto §5 | Designer 2 + Marketing | E7 |
-| 5.7 | `pryzm.so` → `pryzm.app` redirect live (301 + 12-month transition) | ops + Marketing | E7 |
+| 5.7 | `app.pryzm.so` → `pryzm.so` apex 301-redirect live for marketing routes (`/pricing`, `/manifesto`, `/trust`) per C51 §3.2.1 | ops + Marketing | E7 |
 | 5.8 | DSAR erasure endpoint with 90-day SLA tracking | Engineer 4 | E8 |
 | 5.9 | `ai_usage` table extend with provenance fields (model + prompt_hash + context_hash + cost) | Engineer 4 | E8 |
 | 5.10 | 8 more cognition rules (total: 44/50) | Engineer 6 | E9 |
 
-**S5 acceptance**: C19 + C21 ratified CANONICAL; pryzm.app cutover complete; brand voice consistent; DSAR endpoints live.
+**S5 acceptance**: C19 + C21 ratified CANONICAL; apex/app split live (ADR-055/C51); brand voice consistent; DSAR endpoints live.
 
 ### §3.6 — Sprint 6 (Sep 9–22): Q3 close
 
@@ -179,7 +180,7 @@ Any sustained regression on these benchmarks blocks merge.
 | # | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|---|
 | R1 | npm publish (OI-011) blocked on account/token | Low | High (S1 stalls) | Founder + ops resolve in S1 week 1; backup plan: publish from CI |
-| R2 | DNS marketplace.pryzm.app delays | Low | High | Cloudflare DNS provisioned in advance; cert via LetsEncrypt or commercial |
+| R2 | DNS marketplace.pryzm.so delays | Low | High | Cloudflare DNS provisioned in advance; cert via LetsEncrypt or commercial |
 | R3 | TypologyPipelineRouter design changes require apartment-regression rerun | Medium | Medium | Refactor apartment FIRST (S2-S3); router refactor SECOND (S4) |
 | R4 | Site UI Cesium-light theme takes longer than planned | Medium | Medium | Fallback: ship S4 with default theme; light-theme polish in Q4 |
 | R5 | C19/C21 contracts uncover schema gaps during ratification | Medium | Medium | Pre-ratification review by architect-consultant + engineer pair in S2 |
@@ -214,4 +215,4 @@ Per [annual-2026 §2.2](./annual-2026.md), Q4 picks up:
 
 ---
 
-*End — PRYZM Quarterly Plan 2026 Q3, 2026-06-01 — CANONICAL.*
+*End — PRYZM Quarterly Plan 2026 Q3, 2026-06-03 (reconciled to ADR-055/C51) — CANONICAL.*

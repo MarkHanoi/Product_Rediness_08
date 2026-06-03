@@ -1,6 +1,7 @@
 # PRYZM — Implementation Vision 2030
 
-> **Stamp**: 2026-06-01 · **Status**: CANONICAL · **Horizon**: H1 — 5-year
+> **Stamp**: 2026-06-03 · **Status**: CANONICAL · **Horizon**: H1 — 5-year
+> **Reconciled 2026-06-03** to ADR-055/C51 (contract count refreshed to 51).
 > **Authority**: this doc owns **the 5-year capability vision** — what PRYZM looks like in 2030. It is the longest-arc planning doc in the system. Update yearly (or on a major strategic pivot per [risks-and-assumptions.md](../../01-strategy/risks-and-assumptions.md)).
 > **Foundation above**: [manifesto.md](../../01-strategy/manifesto.md) · [product-vision.md](../../01-strategy/product-vision.md) · [positioning.md](../../01-strategy/positioning.md)
 > **Downstream**: [roadmap-phase-1-alpha.md](./roadmap-phase-1-alpha.md) (Phase 1) · [roadmap-phase-2-beta.md](./roadmap-phase-2-beta.md) (Phase 2) · [roadmap-phase-3-ga.md](./roadmap-phase-3-ga.md) (Phase 3)
@@ -220,8 +221,8 @@ The doc is **PR'd + reviewed** by the founder + the senior engineering team + th
 | [roadmap-phase-1-alpha.md](./roadmap-phase-1-alpha.md) | Phase 1 derivative |
 | [roadmap-phase-2-beta.md](./roadmap-phase-2-beta.md) | Phase 2 derivative |
 | [roadmap-phase-3-ga.md](./roadmap-phase-3-ga.md) | Phase 3 derivative |
-| [../../02-decisions/contracts/README.md](../../02-decisions/contracts/README.md) | 49 binding contracts the vision conforms to |
+| [../../02-decisions/contracts/README.md](../../02-decisions/contracts/README.md) | 51 binding contracts the vision conforms to (C01–C51; C51 = apex/app split per ADR-055) |
 
 ---
 
-*End — PRYZM Implementation Vision 2030, 2026-06-01 — CANONICAL.*
+*End — PRYZM Implementation Vision 2030, 2026-06-03 (reconciled to ADR-055/C51) — CANONICAL.*
