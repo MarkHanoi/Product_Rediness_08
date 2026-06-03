@@ -63,6 +63,8 @@ import { createSiteFromRect } from '../site/createSiteFromRect.js';
 import { resolveSiteContext, ensureSite, dispatchSiteLocation } from '../site/siteDispatch.js';
 import { geocodeAddress } from '../site/geocodeAddress.js';
 import { generateApartmentFromBoundary } from '../apartment-layout/apartmentFromBoundary.js';
+import { makeDraggable } from '../makeDraggable.js';
+import { makeResizable } from '../makeResizable.js';
 
 /** Default parcel rectangle (metres) — the no-GIS fallback (founder §7.2). Matches
  *  `createSiteFromRect` + `briefBootstrap`'s single-apartment-scale default. */
@@ -208,6 +210,19 @@ class OnboardingStepController {
         this.bodyEl = body;
         overlay.appendChild(body);
 
+        // ── Drag + resize chrome (founder feedback 2026-06-03) ────────────────
+        // Draggable by the header (cursor:move in CSS); interactive header children
+        // are excluded so a click doesn't start a drag. Re-evaluated per mousedown
+        // by makeDraggable, so it survives the body re-renders between steps. The
+        // grip is hidden by CSS in the docked --drawing presentation.
+        const grip = document.createElement('div');
+        grip.className = 'os-resize-grip';
+        grip.setAttribute('data-testid', 'onboarding-resize-grip');
+        grip.setAttribute('aria-hidden', 'true');
+        overlay.appendChild(grip);
+        this.addCleanup(makeDraggable(overlay, '.os-header', ['button', 'input', 'a']));
+        this.addCleanup(makeResizable(overlay, grip, { minWidth: 300, minHeight: 220 }));
+
         document.body.appendChild(overlay);
         this.overlay = overlay;
     }
@@ -233,6 +248,17 @@ class OnboardingStepController {
      */
     private setDrawingPresentation(drawing: boolean): void {
         if (!this.overlay) return;
+        // If the user dragged/resized a modal step (which pins explicit px
+        // left/top/width/height/margin), those inline styles would override the
+        // docked-banner CSS for the --drawing presentation. Clear them on entry so
+        // the banner docks correctly; the modal steps re-center via CSS `inset:0`
+        // + `margin:auto` once the inline values are gone.
+        if (drawing) {
+            const s = this.overlay.style;
+            s.left = ''; s.top = ''; s.right = ''; s.bottom = '';
+            s.width = ''; s.height = ''; s.margin = '';
+            s.maxWidth = ''; s.maxHeight = ''; s.transform = '';
+        }
         this.overlay.classList.toggle('os-onboarding-overlay--drawing', drawing);
         // A modal dialog must trap focus/announce; the docked banner must NOT —
         // it sits beside an interactive map, so drop the dialog role while drawing.
