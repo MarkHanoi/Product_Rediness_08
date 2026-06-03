@@ -273,4 +273,73 @@ export const ONBOARDING_STYLES = `
   justify-content: flex-start;
   margin-top: 0.75rem;
 }
+
+/* ── DRAW phase — NON-BLOCKING presentation (tested defect fix) ─────────────────
+   During "STEP 2 OF 3 · DRAW YOUR PLOT" the user must SEE and CLICK the map to
+   trace their plot. So the overlay stops being a centered modal-with-backdrop and
+   becomes a slim instruction banner docked to the BOTTOM-CENTER edge:
+     • NO full-screen backdrop (drop the 100vmax box-shadow) — the map stays visible;
+     • the overlay shrinks to fit its content and is anchored bottom-center, so it
+       does NOT cover the center of the map;
+     • pointer events fall through to the map everywhere EXCEPT the banner itself —
+       the container is pointer-events:none, the banner card re-enables them. This
+       means clicks/drags to draw corners reach SiteBoundaryMap2D underneath. */
+.os-onboarding-overlay.os-onboarding-overlay--drawing {
+  /* Container spans the viewport but is click-through; only the banner inside is
+     interactive (see below). Anchor the banner to the bottom edge. */
+  inset: auto 0 0 0;
+  top: auto;
+  width: 100vw;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0 0 1.25rem;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
+  align-items: center;          /* center the banner horizontally */
+  pointer-events: none;         /* let clicks pass through to the map */
+}
+/* The visible banner card — re-enables pointer events for its own controls only. */
+.os-onboarding-overlay.os-onboarding-overlay--drawing .os-header,
+.os-onboarding-overlay.os-onboarding-overlay--drawing .os-body {
+  pointer-events: auto;
+  width: min(680px, 94vw);
+  background: #14141c;
+  border: 1px solid #2a2a36;
+}
+.os-onboarding-overlay.os-onboarding-overlay--drawing .os-header {
+  border-radius: 14px 14px 0 0;
+  border-bottom: none;
+  padding: 0.55rem 1rem;
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.45);
+}
+.os-onboarding-overlay.os-onboarding-overlay--drawing .os-title {
+  font-size: 0.92rem;
+}
+.os-onboarding-overlay.os-onboarding-overlay--drawing .os-body {
+  flex: 0 0 auto;
+  overflow: visible;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 1rem;
+  border-top: none;
+  border-radius: 0 0 14px 14px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+}
+.os-onboarding-overlay.os-onboarding-overlay--drawing .os-draw-instruction {
+  flex: 1 1 auto;
+  margin: 0;
+  color: #d8c8ff;
+  font-size: 0.86rem;
+  white-space: normal;
+}
+.os-onboarding-overlay.os-onboarding-overlay--drawing .os-footer {
+  flex: 0 0 auto;
+  margin: 0;
+}
 `;

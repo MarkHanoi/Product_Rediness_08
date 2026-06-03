@@ -102,6 +102,14 @@ export function buildConnectSrc(env = process.env, isProd = IS_PROD) {
         // search; ENTERPRISE FOLLOW-ON: a self-hosted Nominatim / commercial geocoder
         // (set VITE_GEOCODE_ENDPOINT) replaces this origin when volume warrants.
         'https://nominatim.openstreetmap.org',
+        // A.8.c.f.2 — OpenFreeMap keyless vector basemap for the 2D Hektar
+        // boundary-draw map (apps/editor/src/ui/geospatial/siteMap2DStyle.ts).
+        // The browser fetches the planet TileJSON, the .pbf vector tiles, and the
+        // font/glyph PBFs from this origin. The sprite is an https image already
+        // covered by img-src https:. Direct browser→OpenFreeMap is the designed
+        // path (free, no key); ENTERPRISE FOLLOW-ON: self-host the tiles to drop
+        // this external dependency when volume warrants.
+        'https://tiles.openfreemap.org',
     ];
 
     // Supabase REST + realtime — derive the EXACT project origin from

@@ -30,6 +30,11 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // startBoundaryDraw() opens THIS 2D map; the legacy Cesium `boundaryTool` is
     // retained for the console fallback (pryzmStartBoundaryDraw3D) only.
     let map2dHandle: { dispose: () => void } | null = null;
+    // A.8.c.f.2 (defect 1) — remember the LAST geocoded result so the 2D map can
+    // fit its exact bbox (the Site location store keeps only lat/lon — the bbox is
+    // otherwise lost, leaving the 2D map at a coarse point zoom). Set in the
+    // geocode `onFlyTo` callback below; consumed by getMapInitial().
+    let lastGeocodeFrame: { lat: number; lon: number; bbox?: [number, number, number, number] } | null = null;
 
     // Read the Site's location (set by the geocode search box) as the
     // projection origin for the boundary-draw tool. Falls back to null so the
@@ -45,7 +50,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // A.8.c.f — read the geocoded Site location to centre the 2D map. The geocode
     // search box (A.8.a) sets this via site.updateLocation. Returns null if unset
     // (the 2D map then opens at a world view; drawing still works).
-    const getMapInitial = (): { lat: number; lon: number; zoom?: number } | undefined => {
+    const getMapInitial = (): { lat: number; lon: number; bbox?: [number, number, number, number]; zoom?: number } | undefined => {
+        // Prefer the last geocoded frame (carries the bbox → the 2D map fits the
+        // exact plot, not a coarse point). Fall back to the Site location point.
+        if (lastGeocodeFrame) {
+            return { lat: lastGeocodeFrame.lat, lon: lastGeocodeFrame.lon, bbox: lastGeocodeFrame.bbox, zoom: 17 };
+        }
         const o = getSiteOrigin();
         return o ? { lat: o.lat, lon: o.lon, zoom: 17 } : undefined;
     };
@@ -164,6 +174,9 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                                 parent: viewport,
                                 runtime: runtime ?? null,
                                 onFlyTo: (result) => {
+                                    // A.8.c.f.2 — capture the bbox so the 2D Hektar
+                                    // map can fit the exact plot when opened.
+                                    lastGeocodeFrame = { lat: result.lat, lon: result.lon, bbox: result.bbox };
                                     if (result.bbox) {
                                         const [w, s, e, n] = result.bbox;
                                         viewer.camera.flyTo({
