@@ -191,6 +191,12 @@ declare global {
         pryzmStartBoundaryDraw?: () => void;
         /** A.8.c — cancel an in-progress site-boundary draw. */
         pryzmCancelBoundaryDraw?: () => void;
+        /** O.2 — activate/deactivate the GIS (Cesium) view programmatically. The
+         *  onboarding step controller's "Draw it on the map" path calls this to
+         *  mount + activate GIS before `pryzmStartBoundaryDraw`. Mirrors the GIS
+         *  rail's "Activate Geospatial" checkbox (`props.gisToggle`). Registered by
+         *  GISAreaLayout once the editor's GIS area mounts. */
+        pryzmToggleGIS?: (active: boolean) => void;
         /** §HELP — prints every pryzm…() console command for the apartment
          *  generation pipeline (apartment → ceiling → furnish → lighting). */
         pryzmShowApartmentHelp?: () => void;
