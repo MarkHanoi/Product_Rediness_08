@@ -201,6 +201,13 @@ declare global {
          *  rail's "Activate Geospatial" checkbox (`props.gisToggle`). Registered by
          *  GISAreaLayout once the editor's GIS area mounts. */
         pryzmToggleGIS?: (active: boolean) => void;
+        /** O.2 (zoom-to-address defect) — seed the 2D boundary map's `getMapInitial`
+         *  frame from a geocode result captured OUTSIDE the GIS-rail search box (the
+         *  onboarding location step has its own geocode path). Supplies lat/lon and,
+         *  when the provider returned one, the `[west,south,east,north]` bbox so the
+         *  map `fitBounds` to the exact plot on open instead of opening at world zoom.
+         *  Registered by GISAreaLayout; mirrors the rail's `onFlyTo` capture. */
+        pryzmSetGeocodeFrame?: (frame: { lat: number; lon: number; bbox?: [number, number, number, number] }) => void;
         /** §HELP — prints every pryzm…() console command for the apartment
          *  generation pipeline (apartment → ceiling → furnish → lighting). */
         pryzmShowApartmentHelp?: () => void;
