@@ -10,6 +10,9 @@
 // ── Core types ────────────────────────────────────────────────────────────────
 export * from './WallTypes';
 export * from './WallDataSchema';
+
+// ── ADR-057 P1 (OI-053h) — rebuild delta classifier (openings-only fast path) ─
+export * from './WallDeltaClassifier';
 export * from './errors';
 
 // ── Stores ────────────────────────────────────────────────────────────────────
