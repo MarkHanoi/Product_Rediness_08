@@ -450,7 +450,18 @@ export const AI_PANEL_POPUP_STYLES = `
         border-top: 1px solid var(--app-border-light);
         background: var(--app-bg);
         flex-shrink: 0;
+        /* §AI-MENU-SCROLL (2026-06-03) — cap the command menu so a long
+           CREATE/EDIT list scrolls WITHIN the panel instead of overflowing past
+           .lt-float-panel's max-height:60vh + overflow:hidden (which clipped the
+           lower commands with no scrollbar — user-reported). */
+        max-height: 52vh;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: var(--app-border) transparent;
     }
+    .ai-suggestions::-webkit-scrollbar { width: 6px; }
+    .ai-suggestions::-webkit-scrollbar-track { background: transparent; }
+    .ai-suggestions::-webkit-scrollbar-thumb { background: var(--app-border); border-radius: 4px; }
 
     .ai-suggestion-pills {
         display: flex;
