@@ -78,7 +78,32 @@ export class CesiumViewport {
       this.viewer.scene.globe.depthTestAgainstTerrain = false;
 
       // ----------------------------
-      // 🌎 Google Photorealistic 3D Tiles with fallback
+      // 🗺️ Base map imagery — keyless OpenStreetMap (A.8.b)
+      // ----------------------------
+      // The default Cesium World Imagery needs a valid ion token, and the Google
+      // Photorealistic 3D Tiles below need BOTH an ion token AND a linked Google
+      // Maps key — when either is missing the globe renders as a faint, near-white
+      // ellipsoid ("you can see things but really light"), which is useless for
+      // site-boundary drawing. OSM tiles need NO key, so the map is ALWAYS visible
+      // for authoring. The Google 3D tiles remain an enhancement layered on top
+      // when a key is configured. (Prod CSP: tile.openstreetmap.org added to
+      // img-src in server/securityHeaders.js; dev CSP is report-only.)
+      try {
+        this.viewer.imageryLayers.removeAll();
+        this.viewer.imageryLayers.addImageryProvider(
+          new Cesium.UrlTemplateImageryProvider({
+            url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+            maximumLevel: 19,
+            credit: '© OpenStreetMap contributors',
+          })
+        );
+        console.log('[CesiumViewport] OSM base imagery installed (keyless basemap).');
+      } catch (e) {
+        console.warn('[CesiumViewport] OSM base imagery failed to install:', e);
+      }
+
+      // ----------------------------
+      // 🌎 Google Photorealistic 3D Tiles with fallback (enhancement; needs a key)
       // ----------------------------
       let photogrammetryLoaded = false;
 
