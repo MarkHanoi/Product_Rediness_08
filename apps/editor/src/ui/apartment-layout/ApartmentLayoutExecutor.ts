@@ -12,7 +12,7 @@
 // the generate step); only batchCoordinator (core-app-model) + createId (schemas,
 // L0) are static — both already in the editor graph.
 
-import { batchCoordinator, storeRegistry } from '@pryzm/core-app-model';
+import { batchCoordinator, storeRegistry, storeEventBus } from '@pryzm/core-app-model';
 import { createId } from '@pryzm/schemas';
 import { CreateWallOpeningCommand, CreateRoomBoundingLineCommand } from '@pryzm/command-registry';
 import { facadeOrientationService } from '@pryzm/spatial-index';
@@ -168,7 +168,13 @@ export class ApartmentLayoutExecutor {
                             });
                         });
                     }
-                }, { levelIds: [level.id], totalElementCount: set.wallIds.length, skipRedetectRooms: false });
+                    // OI-053f (perf): the WALL batch's room redetect is REDUNDANT — the
+                    // doors+boundaries batch (Phase 2) redetects again, and the splitting
+                    // boundary lines that actually carve the open-plan zone land in Phase 2,
+                    // so the post-wall sweep can never produce the final room set. Skip it;
+                    // the Phase-2 redetect (skipRedetectRooms:false below) is the meaningful
+                    // one and yields the identical room set.
+                }, { levelIds: [level.id], totalElementCount: set.wallIds.length, skipRedetectRooms: true });
             } catch (e) {
                 wallFail++;
                 console.warn('[apartment-layout] wall.batch.create threw (skipped):', e);
@@ -260,6 +266,8 @@ export class ApartmentLayoutExecutor {
 
         let done = false;
         let poll: ReturnType<typeof setTimeout> | undefined;
+        // OI-053g (perf): unsubscribe handle for the store-event-driven signal.
+        let unsubWalls: (() => void) | undefined;
         // §POLL-TELEMETRY (2026-05-29 audit follow-up): observe the wall
         // readiness wait. The earlier code logged only a single "doors built"
         // line at the end; the polling duration + iteration count + whether
@@ -272,7 +280,7 @@ export class ApartmentLayoutExecutor {
         const go = (force: boolean): void => {
             if (done) return;
             if (!force && !wallsReady()) return;                  // interior walls not committed yet — wait
-            done = true; if (poll) clearTimeout(poll);
+            done = true; if (poll) clearTimeout(poll); unsubWalls?.();
 
             const landed = wallStore?.getById ? neededWallIds.filter(id => wallStore.getById!(id) != null).length : 0;
             const pollElapsedMs = Math.round(performance.now() - pollStartMs);
@@ -356,8 +364,30 @@ export class ApartmentLayoutExecutor {
             this._nameDetectedRooms(runtime, levelId, option);
         };
 
-        // Poll the wall store (~150 ms cadence). Fire as soon as the walls are present;
-        // after the budget (~6 s) force a best-effort attempt so we never silently hang.
+        // OI-053g (perf): EVENT-DRIVEN readiness. The Phase-1 wall batch buffers its
+        // `wall`/`create` StoreEventBus events and flushes them exactly when the batch
+        // DRAINS — i.e. the moment the walls actually land in the store and `getById`
+        // starts returning them. Subscribe to that signal and fire `go(false)` the
+        // instant the last needed host wall is present, instead of burning fixed 150 ms
+        // quanta. `go` is idempotent (`done` guard) and re-checks `wallsReady()`, so a
+        // spurious event before all walls land is a cheap no-op. The 150 ms poll below
+        // stays as a FALLBACK so the build still terminates if the signal never fires
+        // (e.g. an unbatched/synchronous landing or a bus regression).
+        try {
+            unsubWalls = storeEventBus.subscribe((ev) => {
+                if (done) return;
+                if (ev.elementType !== 'wall') return;
+                if (ev.operation === 'delete') return;
+                if (wallsReady()) go(false);
+            });
+        } catch { /* subscription failures must never break the executor — poll covers it */ }
+        // In case the walls were already committed synchronously before we subscribed.
+        if (!done && wallsReady()) go(false);
+
+        // Poll the wall store (~150 ms cadence) as a FALLBACK. Fire as soon as the walls
+        // are present; after the budget (~6 s) force a best-effort attempt so we never
+        // silently hang. On the happy path the subscription above fires first and the
+        // poll never re-arms.
         const tick = (n: number): void => {
             if (done) return;
             pollIterations++;
