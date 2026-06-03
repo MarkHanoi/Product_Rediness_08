@@ -56,5 +56,77 @@ export const APARTMENT_MANIFEST: TypologyManifest = TypologyManifestSchema.parse
         'utility',
     ],
     defaultDrawingStandard: 'RIBA',
+    // O.12.a — the typology-declared project brief. The onboarding RAC renders
+    // these fields as compact controls (sliders / toggles / select / text) and
+    // captures a structured `Brief` keyed by field id.
+    //
+    // CRITICAL: each field `id` MUST match the live generator/picker keys in
+    // apps/editor/src/ui/apartment-layout/layoutRequestPayload.ts DEFAULT_PROGRAM
+    // — these values feed `buildLayoutCommands` directly. In particular the
+    // master-en-suite key is `masterEnSuite` (capital S), which is the live
+    // ApartmentProgram key; this deviates from SPEC §3's `masterEnsuite` (see
+    // ADR-0056). The live key wins.
+    briefSchema: {
+        fields: [
+            {
+                kind: 'range',
+                id: 'bedrooms',
+                label: 'Bedrooms',
+                min: 1,
+                max: 5,
+                step: 1,
+                default: 2,
+            },
+            {
+                kind: 'range',
+                id: 'bathrooms',
+                label: 'Bathrooms',
+                min: 1,
+                max: 3,
+                step: 1,
+                default: 1,
+            },
+            {
+                kind: 'select',
+                id: 'style',
+                label: 'Style',
+                options: [
+                    { value: 'modern', label: 'Modern' },
+                    { value: 'classic', label: 'Classic' },
+                    { value: 'minimal', label: 'Minimal' },
+                    { value: 'warm', label: 'Warm' },
+                ],
+                default: 'modern',
+            },
+            {
+                kind: 'toggle',
+                id: 'openPlanKitchenDining',
+                label: 'Open-plan kitchen + dining',
+                default: true,
+            },
+            {
+                kind: 'toggle',
+                id: 'masterEnSuite',
+                label: 'Master en-suite',
+                default: false,
+            },
+            {
+                kind: 'range',
+                id: 'targetAreaM2',
+                label: 'Target area',
+                min: 40,
+                max: 200,
+                step: 5,
+                default: 75,
+                unit: 'm²',
+            },
+            {
+                kind: 'text',
+                id: 'notes',
+                label: 'Anything else',
+                placeholder: 'e.g. home office, accessible bathroom…',
+            },
+        ],
+    },
     phaseGate: 'alpha',
 });

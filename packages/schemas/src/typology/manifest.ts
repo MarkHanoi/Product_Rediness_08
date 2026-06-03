@@ -18,6 +18,8 @@
 
 import { z } from 'zod';
 
+import { BriefSchemaSchema } from './briefSchema.js';
+
 /**
  * Branded canonical typology id. Slug-style (`apartment`, `house`,
  * `small-office`, `gym`, `pharmacy`, `car-park`, …). The schema enforces
@@ -207,6 +209,11 @@ export const TypologyManifestSchema = z.object({
     }),
     defaultDrawingStandard: DrawingStandardEnum.optional(),
     marketplaceListing: MarketplaceListingSchema.optional(),
+    // O.12.a — the typology-declared project brief (see briefSchema.ts +
+    // C50 §2.6 + ADR-0056). Optional for backward compatibility: packs that
+    // pre-date the brief schema (or have no structured brief) omit it and the
+    // onboarding RAC falls back to the free-text brief box.
+    briefSchema: BriefSchemaSchema.optional(),
     phaseGate: z
         .enum(['alpha', 'beta', 'ga', 'community-marketplace'])
         .default('alpha'),
