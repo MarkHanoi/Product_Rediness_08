@@ -96,6 +96,12 @@ export function buildConnectSrc(env = process.env, isProd = IS_PROD) {
         // this is a low-risk allow. ENTERPRISE FOLLOW-ON: self-host the .hdr
         // under /public to drop this external dependency entirely.
         'https://thatopen.github.io',
+        // A.8.a — OpenStreetMap Nominatim forward-geocoder (address search box in
+        // the GIS site-authoring surface, apps/editor/src/ui/site/geocodeAddress.ts).
+        // Direct browser→Nominatim is the designed path for low-volume interactive
+        // search; ENTERPRISE FOLLOW-ON: a self-hosted Nominatim / commercial geocoder
+        // (set VITE_GEOCODE_ENDPOINT) replaces this origin when volume warrants.
+        'https://nominatim.openstreetmap.org',
     ];
 
     // Supabase REST + realtime — derive the EXACT project origin from

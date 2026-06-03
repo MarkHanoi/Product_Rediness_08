@@ -184,6 +184,13 @@ declare global {
          *  pryzmCreateSiteFromRect() first. The site read is typology-agnostic;
          *  only the generator call is apartment-specific. */
         pryzmGenerateApartmentFromBoundary?: () => void;
+        /** A.8.c — start the Cesium site-boundary polygon-draw tool. Click to add
+         *  corners, double-click / Enter to close, Esc to cancel. On close it
+         *  projects the lat/lon ring → site-XZ + dispatches site.setParcelBoundary.
+         *  Requires the GIS view to be active. */
+        pryzmStartBoundaryDraw?: () => void;
+        /** A.8.c — cancel an in-progress site-boundary draw. */
+        pryzmCancelBoundaryDraw?: () => void;
         /** §HELP — prints every pryzm…() console command for the apartment
          *  generation pipeline (apartment → ceiling → furnish → lighting). */
         pryzmShowApartmentHelp?: () => void;

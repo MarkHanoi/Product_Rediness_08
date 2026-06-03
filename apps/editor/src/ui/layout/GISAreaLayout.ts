@@ -10,6 +10,10 @@ export interface GISCallbacks {
     activateView: (mode: '3D' | 'Top' | 'Front' | 'Back' | 'Left' | 'Right') => Promise<void>;
     /** Delegate to cesiumViewport.gizmo.setMode(mode) when GIS is active. */
     gizmoMode: (mode: string) => void;
+    /** A.8.c — start the site-boundary polygon-draw tool (no-op until GIS mounted). */
+    startBoundaryDraw: () => void;
+    /** A.8.c — cancel an in-progress boundary draw. */
+    cancelBoundaryDraw: () => void;
 }
 
 export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISCallbacks {
@@ -18,6 +22,32 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     let isGisInitialized = false;
     let isBimPlacedOnEarth = false;
     let _gisActive = false;
+    // A.8.a/A.8.c — GIS site-authoring surfaces, created when Cesium mounts.
+    let geocodeBox: import('../site/siteGeocodeSearchBox').SiteGeocodeSearchBox | null = null;
+    let boundaryTool: import('../geospatial/SiteBoundaryDrawTool').SiteBoundaryDrawTool | null = null;
+
+    // Read the Site's location (set by the geocode search box) as the
+    // projection origin for the boundary-draw tool. Falls back to null so the
+    // draw tool uses its first clicked vertex.
+    const getSiteOrigin = (): { lat: number; lon: number } | null => {
+        const loc = (runtime?.siteModelStore as { getSite?: () => { location?: { latitude: number; longitude: number } } | null } | undefined)?.getSite?.()?.location;
+        if (loc && (loc.latitude !== 0 || loc.longitude !== 0)) {
+            return { lat: loc.latitude, lon: loc.longitude };
+        }
+        return null;
+    };
+
+    const startBoundaryDraw = (): void => {
+        if (!boundaryTool) {
+            console.warn('[gis] boundary-draw: GIS view not mounted yet — activate GIS first.');
+            runtime?.events?.emit('pryzm:toast', { message: 'Activate the GIS view first.', severity: 'error' });
+            return;
+        }
+        boundaryTool.start();
+    };
+    const cancelBoundaryDraw = (): void => {
+        boundaryTool?.cancel();
+    };
 
     // F.11.4 Wave 14 — runtime.geospatial.isConfigured wiring.
     // Phase F stub always returns false; Phase F.11.4 wires the real adapter
@@ -68,7 +98,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                     import('../geospatial/CesiumViewport'),
                     getCesium(),
                     import('@pryzm/plugin-geospatial'),
-                ]).then(async ([{ CesiumViewport }, Cesium, { CesiumThreeBridge }]) => {
+                    // A.8.a/A.8.c — GIS site-authoring surfaces (lazy-loaded with Cesium).
+                    import('../site/siteGeocodeSearchBox'),
+                    import('../geospatial/SiteBoundaryDrawTool'),
+                ]).then(async ([{ CesiumViewport }, Cesium, { CesiumThreeBridge }, { mountSiteGeocodeSearchBox }, { SiteBoundaryDrawTool }]) => {
                     if (!cesiumViewport) {
                         cesiumViewport = new CesiumViewport(viewport, runtime ?? null /* B-runtime-thread CesiumViewport */);
                         await cesiumViewport.mount();
@@ -86,6 +119,44 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                             bridge.setAnchor(cartesian);
 
                             isGisInitialized = true;
+
+                            // A.8.a — mount the address-search box. onFlyTo flies the
+                            // Cesium camera to the picked result (bbox if available,
+                            // else a framed point); the box itself dispatches
+                            // site.updateLocation (no Cesium import in that module).
+                            geocodeBox = mountSiteGeocodeSearchBox({
+                                parent: viewport,
+                                runtime: runtime ?? null,
+                                onFlyTo: (result) => {
+                                    if (result.bbox) {
+                                        const [w, s, e, n] = result.bbox;
+                                        viewer.camera.flyTo({
+                                            destination: Cesium.Rectangle.fromDegrees(w, s, e, n),
+                                            duration: 2.5,
+                                        });
+                                    } else {
+                                        viewer.camera.flyTo({
+                                            destination: Cesium.Cartesian3.fromDegrees(result.lon, result.lat, 600),
+                                            duration: 2.5,
+                                        });
+                                    }
+                                    console.log('[gis] camera flying to', result.displayName);
+                                },
+                            });
+
+                            // A.8.c — construct the polygon-draw tool (started on demand
+                            // via startBoundaryDraw()).
+                            boundaryTool = new SiteBoundaryDrawTool({
+                                viewer,
+                                Cesium,
+                                runtime: runtime ?? null,
+                                getOrigin: getSiteOrigin,
+                            });
+                            // A.8.c — DevTools console entry point (mirrors the
+                            // pryzmCreateSiteFromRect / …FromBoundary console flow).
+                            window.pryzmStartBoundaryDraw = () => startBoundaryDraw();
+                            window.pryzmCancelBoundaryDraw = () => cancelBoundaryDraw();
+                            console.log('[gis] site-authoring surfaces ready (geocode search + boundary draw). Run pryzmStartBoundaryDraw() to draw a parcel.');
                         }
                     }
                 }).catch((err: any) => {
@@ -93,6 +164,8 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 });
             } else {
                 console.log("GIS: Re-activating existing Cesium viewer");
+                // A.8.a — re-show the geocode search box overlay with the GIS view.
+                if (geocodeBox) geocodeBox.element.style.display = '';
                 if (cesiumViewport) {
                     cesiumViewport.setVisible(true);
 
@@ -112,6 +185,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             }
         } else {
             console.log("GIS: Deactivating geospatial view (preserving state)");
+
+            // A.8.c — abort any in-progress boundary draw when leaving GIS.
+            boundaryTool?.cancel();
+            // A.8.a — hide the geocode search box overlay so it doesn't float over
+            // the BIM view (it shares the #container parent, not the Cesium canvas).
+            if (geocodeBox) geocodeBox.element.style.display = 'none';
 
             if (bridge) {
                 bridge.deactivate();
@@ -191,5 +270,5 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         if (cesiumViewport?.gizmo) cesiumViewport.gizmo.setMode(mode);
     };
 
-    return { toggleGIS, flyToCremornePoint, placeBimOnEarth, activateView, gizmoMode };
+    return { toggleGIS, flyToCremornePoint, placeBimOnEarth, activateView, gizmoMode, startBoundaryDraw, cancelBoundaryDraw };
 }
