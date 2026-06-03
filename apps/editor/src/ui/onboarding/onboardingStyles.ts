@@ -40,24 +40,28 @@ export const ONBOARDING_STYLES = `
   height: auto;
   max-height: min(72vh, 620px);
   /* Frosted glass (MasterMiawW): translucent white + blur so the canvas shows through. */
-  background: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(24px) saturate(1.2);
   -webkit-backdrop-filter: blur(24px) saturate(1.2);
   color: #1a1a2e;
   border: 1px solid rgba(102, 0, 255, 0.12);
   border-radius: 16px;
-  box-shadow: 0 20px 50px rgba(60, 20, 120, 0.20), 0 2px 10px rgba(0, 0, 0, 0.06);
+  /* O.13.b — subtle modal backdrop (the big 100vmax spread dims the canvas behind
+     the panel like other PRYZM modals, but light — "not too much"). Removed for the
+     non-blocking draw banner via the --drawing modifier so the map stays interactive. */
+  box-shadow: 0 20px 50px rgba(60, 20, 120, 0.20), 0 2px 10px rgba(0, 0, 0, 0.06), 0 0 0 100vmax rgba(22, 16, 44, 0.20);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   overflow: hidden;
 }
+/* O.13 — New-Project-modal design: solid purple gradient header bar + white body. */
 .rac-onboarding-overlay .rac-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.6rem;
-  padding: 0.55rem 0.85rem;
-  border-bottom: 1px solid rgba(102, 0, 255, 0.08);
-  background: linear-gradient(180deg, rgba(102, 0, 255, 0.06), transparent);
+  padding: 0.6rem 0.9rem;
+  border-bottom: none;
+  background: linear-gradient(135deg, #6600ff 0%, #8b2fe0 100%);
   cursor: move; /* draggable by the header (makeDraggable) */
   user-select: none;
 }
@@ -66,7 +70,7 @@ export const ONBOARDING_STYLES = `
   font-size: 0.95rem;
   font-weight: 800;
   letter-spacing: -0.01em;
-  color: #111;
+  color: #ffffff;
 }
 .rac-onboarding-overlay .rac-phase-chip {
   font-size: 0.66rem;
@@ -75,9 +79,9 @@ export const ONBOARDING_STYLES = `
   letter-spacing: 0.05em;
   padding: 0.2rem 0.5rem;
   border-radius: 999px;
-  background: rgba(102, 0, 255, 0.10);
-  color: #6600ff;
-  border: 1px solid rgba(102, 0, 255, 0.22);
+  background: rgba(255, 255, 255, 0.20);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.35);
 }
 .rac-onboarding-overlay .rac-transcript {
   /* GROW with messages, don't reserve an empty box: no flex-grow, no min-height.
@@ -209,7 +213,7 @@ export const ONBOARDING_STYLES = `
   width: min(400px, 92vw);
   height: auto;
   max-height: min(72vh, 600px);
-  background: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(24px) saturate(1.2);
   -webkit-backdrop-filter: blur(24px) saturate(1.2);
   color: #1a1a2e;
@@ -224,9 +228,10 @@ export const ONBOARDING_STYLES = `
   align-items: center;
   justify-content: space-between;
   gap: 0.6rem;
-  padding: 0.6rem 0.85rem;
-  border-bottom: 1px solid rgba(102, 0, 255, 0.08);
-  background: linear-gradient(180deg, rgba(102, 0, 255, 0.06), transparent);
+  padding: 0.6rem 0.9rem;
+  border-bottom: none;
+  /* O.13 — New-Project-modal design: solid purple gradient header bar. */
+  background: linear-gradient(135deg, #6600ff 0%, #8b2fe0 100%);
   cursor: move; /* draggable by the header (makeDraggable) */
   user-select: none;
 }
@@ -235,7 +240,7 @@ export const ONBOARDING_STYLES = `
   font-size: 0.95rem;
   font-weight: 800;
   letter-spacing: -0.01em;
-  color: #111;
+  color: #ffffff;
 }
 .os-onboarding-overlay .os-step-chip {
   font-size: 0.66rem;
@@ -244,9 +249,9 @@ export const ONBOARDING_STYLES = `
   letter-spacing: 0.04em;
   padding: 0.2rem 0.5rem;
   border-radius: 999px;
-  background: rgba(102, 0, 255, 0.10);
-  color: #6600ff;
-  border: 1px solid rgba(102, 0, 255, 0.22);
+  background: rgba(255, 255, 255, 0.20);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.35);
   white-space: nowrap;
 }
 .os-onboarding-overlay .os-body {
