@@ -270,5 +270,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         if (cesiumViewport?.gizmo) cesiumViewport.gizmo.setMode(mode);
     };
 
+    // O.2 — onboarding step-controller GIS-activation handoff. The guided
+    // first-run flow (OnboardingStepController) has no clean runtime hook to
+    // toggle GIS, so expose the SAME window-hook idiom A.8.c established for
+    // pryzmStartBoundaryDraw. Registered here (not inside the async Cesium mount)
+    // so it works BEFORE Cesium has mounted — calling it kicks off the mount.
+    window.pryzmToggleGIS = (active: boolean) => toggleGIS(active);
+
     return { toggleGIS, flyToCremornePoint, placeBimOnEarth, activateView, gizmoMode, startBoundaryDraw, cancelBoundaryDraw };
 }

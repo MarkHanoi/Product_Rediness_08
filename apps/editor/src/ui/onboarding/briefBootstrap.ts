@@ -1,4 +1,4 @@
-// A.5.g.4 — RAC → site bootstrap router (the G1 seam, zero-console journey).
+// A.5.g.4 + O.2 — RAC → site bootstrap router (the G1 seam, zero-console journey).
 //
 // WHY THIS EXISTS
 // ---------------
@@ -10,9 +10,21 @@
 // to see the journey complete. This module CLOSES that gap (G1 in the
 // RAC→SITE→DESIGN pipeline plan §3/§5): on brief-ready it auto-drives
 //
-//     create project → create a default Site (rectangle parcel) → generate
+//     create project → [O.2 guided LOCATION + DRAW-OR-SKIP step flow] → generate
 //
 // so the user lands in a finished apartment result with ZERO console commands.
+//
+// O.2 RE-SEQUENCE (ONBOARDING-WORKFLOW-DESIGN-2026-06-03.md §3.3 + §6 O.2)
+// -----------------------------------------------------------------------
+// Originally this module jumped STRAIGHT from project-open to a DEFAULT 10×8 m
+// rectangle (`createSiteFromRect`) → generate. O.2 inserts a guided step flow
+// (`OnboardingStepController`) BETWEEN project-open and generate:
+//     1. Location  — address → geocode → site location
+//     2. Site      — ⚡ default footprint (skip)  |  ✏️ draw on the map (GIS)
+//     3. Generate  — generateApartmentFromBoundary → land in the canvas.
+// The default-rectangle path is KEPT verbatim as the skip/no-GIS fallback (the
+// founder's "GIS is skippable" ratification). This module now only creates +
+// opens the project and HANDS OFF to the step controller.
 //
 // WHAT THIS REUSES (vs writes)
 // ----------------------------
@@ -56,8 +68,7 @@
 // with the user's drawn parcel boundary. See the §FUTURE-GIS marker below.
 
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
-import { createSiteFromRect } from '../site/createSiteFromRect.js';
-import { generateApartmentFromBoundary } from '../apartment-layout/apartmentFromBoundary.js';
+import { startOnboardingStepFlow } from './OnboardingStepController.js';
 
 /** The narrowed brief payload carried by `pryzm:onboarding-brief-ready`. */
 interface OnboardingBrief {
@@ -77,18 +88,10 @@ export interface BriefBootstrapDeps {
 }
 
 const DEFAULT_PROJECT_NAME = 'My first apartment';
-// Default parcel rectangle (metres) — the no-GIS fallback. Matches the demoable
-// "stub GIS" rectangle from the pipeline plan §5.
-// Single-apartment scale (80 m²) — a 20×16 (320 m²) default overflows the
-// single-apartment generator (would route to the future multi-apartment/public-
-// core engine, not yet built). Matches createSiteFromRect's default + the proven
-// apartmentFromScratch shell size. The Cesium-drawn boundary replaces this later.
-const DEFAULT_PARCEL_WIDTH_M = 10;
-const DEFAULT_PARCEL_DEPTH_M = 8;
-// How long to wait for the site boundary event before falling back to the store
-// poll / bailing. The boundary is set synchronously inside `createSiteFromRect`,
-// so this is a generous safety net, not the happy path.
-const BOUNDARY_WAIT_MS = 4000;
+// NOTE (O.2): the default parcel rectangle (10×8 m) + the boundary-settle wait
+// now live in `OnboardingStepController` — the step controller owns the
+// site-create + draw-or-skip + generate sequence. This module only creates +
+// opens the project and hands off to it.
 
 /** Idempotency guard — `installBriefBootstrap` must wire the subscription exactly
  *  once per page, even if called from multiple boot paths. Keyed off the runtime
@@ -190,7 +193,21 @@ async function handleBriefReady(
             projectId: p.projectId,
             empty: p.empty,
         });
-        void runSiteAndGenerate(runtime, { address });
+        // O.2 — hand off to the guided step controller (location → draw-or-skip →
+        // generate). It owns site-create + the GIS draw wait + the generate call;
+        // this module's job ends at "project is open". Guarded — never throws here.
+        try {
+            if (!runtime.audit?.projectId) {
+                console.warn('[onboarding-bootstrap] project loaded but runtime.audit.projectId is empty — cannot start step flow; bailing.');
+                return;
+            }
+            startOnboardingStepFlow({
+                runtime,
+                ...(address ? { seedAddress: address } : {}),
+            });
+        } catch (err) {
+            console.error('[onboarding-bootstrap] failed to start onboarding step flow (swallowed):', err);
+        }
     });
 
     // Safety net: if the project never reports loaded, dispose the listener so we
@@ -209,102 +226,4 @@ async function handleBriefReady(
 
     console.log(`[onboarding-bootstrap] creating + opening project "${DEFAULT_PROJECT_NAME}".`);
     deps.createAndOpenProject(DEFAULT_PROJECT_NAME);
-}
-
-/**
- * Once a project is open, run the site → generate chain:
- *   createSiteFromRect → await site.parcel-boundary-set → generateApartmentFromBoundary
- */
-async function runSiteAndGenerate(
-    runtime: PryzmRuntime,
-    opts: { address?: string },
-): Promise<void> {
-    const toast = (message: string, severity: 'info' | 'success' | 'error'): void => {
-        runtime.events?.emit('pryzm:toast', { message, severity });
-    };
-
-    try {
-        // Guard: the seam helpers themselves guard (no runtime / no project / no
-        // store), but check up front so a missing project logs ONE clear reason
-        // rather than three downstream warnings.
-        if (!runtime.audit?.projectId) {
-            console.warn('[onboarding-bootstrap] project loaded but runtime.audit.projectId is empty — bailing before site create.');
-            return;
-        }
-
-        // §FUTURE-GIS ──────────────────────────────────────────────────────────
-        // When the GIS authoring UI (A.8.a geocode + A.8.c polygon-draw) lands, a
-        // "draw your site boundary" step inserts HERE — between project-open and
-        // generate. It replaces the default-rectangle `createSiteFromRect` call
-        // below with the user's drawn parcel boundary (which lands the SAME
-        // `ParcelBoundary` in the SAME `siteModelStore`, so the generate step
-        // downstream is unchanged). The default rectangle is the no-GIS fallback.
-        console.log('[onboarding-bootstrap] creating default Site (no-GIS rectangle fallback).');
-        const siteOk = createSiteFromRect(runtime, {
-            ...(opts.address ? { address: opts.address } : {}),
-            width: DEFAULT_PARCEL_WIDTH_M,
-            depth: DEFAULT_PARCEL_DEPTH_M,
-        });
-        if (!siteOk) {
-            console.warn('[onboarding-bootstrap] createSiteFromRect returned false — bailing before generate.');
-            // createSiteFromRect already toasted the specific reason.
-            return;
-        }
-
-        // Wait for the parcel boundary to be authored before generating.
-        // `createSiteFromRect` sets it synchronously and emits
-        // `site.parcel-boundary-set`, so this resolves immediately on the happy
-        // path; the event wait + store poll is a belt-and-braces safety net.
-        const haveBoundary = await waitForParcelBoundary(runtime);
-        if (!haveBoundary) {
-            console.warn('[onboarding-bootstrap] parcel boundary did not settle — bailing before generate.');
-            toast('Site created but boundary did not settle — try generating from the menu.', 'error');
-            return;
-        }
-
-        console.log('[onboarding-bootstrap] boundary ready — generating apartment from site boundary.');
-        await generateApartmentFromBoundary(runtime);
-        console.log('[onboarding-bootstrap] generate complete — onboarding journey finished (zero console commands).');
-    } catch (err) {
-        console.error('[onboarding-bootstrap] site/generate chain threw (swallowed):', err);
-        toast(`Onboarding generation failed: ${String(err)}`, 'error');
-    }
-}
-
-/**
- * Resolve when the active Site's parcel boundary is authored. Races the
- * `site.parcel-boundary-set` event against a `siteModelStore.getParcelBoundary()`
- * poll (the boundary is normally set synchronously inside `createSiteFromRect`,
- * so the poll usually wins on the first tick). Times out at `BOUNDARY_WAIT_MS`.
- */
-function waitForParcelBoundary(runtime: PryzmRuntime): Promise<boolean> {
-    const store = runtime.siteModelStore;
-    // Fast path: already authored synchronously by createSiteFromRect.
-    const existing = store?.getParcelBoundary?.();
-    if (existing && (existing.polygon?.length ?? 0) >= 3) {
-        return Promise.resolve(true);
-    }
-
-    return new Promise<boolean>((resolve) => {
-        let settled = false;
-        const finish = (ok: boolean): void => {
-            if (settled) return;
-            settled = true;
-            sub?.dispose();
-            clearInterval(poll);
-            clearTimeout(timer);
-            resolve(ok);
-        };
-
-        const sub = runtime.events?.on('site.parcel-boundary-set', () => finish(true));
-
-        // Poll the store too — covers the case where the event fired before this
-        // subscription was attached (the boundary is set synchronously).
-        const poll = setInterval(() => {
-            const b = store?.getParcelBoundary?.();
-            if (b && (b.polygon?.length ?? 0) >= 3) finish(true);
-        }, 100);
-
-        const timer = setTimeout(() => finish(false), BOUNDARY_WAIT_MS);
-    });
 }
