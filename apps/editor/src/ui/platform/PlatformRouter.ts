@@ -454,10 +454,11 @@ export class PlatformRouter {
             registry,
             onBriefReady: (brief) => {
                 // A.5.f — the conversation captured role · team size · typology ·
-                // brief. Hand off to signup (lead-capture A.5.e + project
-                // pre-load A.5.g are follow-ons that read `capturedBrief`).
+                // brief. Stash for the post-auth project pre-load (A.5.g) and
+                // fire-and-forget the lead to /api/leads (A.5.e) so it survives
+                // even if the visitor abandons sign-up. Then open the auth modal.
                 this.capturedBrief = brief;
-                console.log('[onboarding] RAC brief ready — continuing to sign-up', brief);
+                void this.captureLead(brief);
                 this.onboarding?.dispose();
                 this.onboarding = null;
                 this.showAuth();
@@ -480,6 +481,33 @@ export class PlatformRouter {
      */
     getCapturedBrief(): PipelineBrief | null {
         return this.capturedBrief;
+    }
+
+    /**
+     * A.5.e — fire-and-forget the captured brief to `/api/leads` so the lead
+     * survives even if the visitor abandons sign-up. Best-effort: any failure
+     * is swallowed (lead capture must never block onboarding). `keepalive`
+     * lets the request complete across the navigation to the auth modal.
+     */
+    private async captureLead(brief: PipelineBrief): Promise<void> {
+        const md = brief.metadata ?? {};
+        try {
+            await fetch('/api/leads', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                keepalive: true,
+                body: JSON.stringify({
+                    source: 'rac-onboarding',
+                    role: brief.role,
+                    typology: brief.typologyId,
+                    teamSize: md.teamSize,
+                    briefText: md.brief ?? md.briefText,
+                    email: md.email,
+                }),
+            });
+        } catch (err) {
+            console.warn('[onboarding] lead capture failed (non-blocking):', err);
+        }
     }
 
     showPricing(): void {
