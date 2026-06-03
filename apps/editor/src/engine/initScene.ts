@@ -50,6 +50,7 @@ import { ViewController } from './ViewController';
 import { GroundFloorPlanController } from '@pryzm/core-app-model';
 import { GridToggleService } from '@app/ui/GridToggleService';
 import { WallEdgeVisibilityService } from '@app/ui/WallEdgeVisibilityService';
+import { initParcelBoundarySceneRenderer } from '@app/ui/site/ParcelBoundarySceneRenderer';
 import { ProjectContext, projectContext } from '@pryzm/core-app-model';
 // ViewportPathTracer is dynamically imported on first activation — see
 // `_ensureViewportPathTracer()` below. Statically importing it would pull
@@ -2426,6 +2427,24 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             import.meta.hot.dispose(() => clearInterval(_gpuMonitorInterval));
         }
     }
+
+    // ── A.8.x (IP-A2): committed parcel boundary → in-scene ground outline ────
+    // Render the C19 SiteModelStore parcel boundary as a subtle violet ground
+    // outline (non-pickable, EDITOR_LAYER) so an authored plot stays visible as
+    // site context, distinct from generated walls. Project-scoped + disposed via
+    // projectScopeRegistry. No-ops when no boundary / scene / runtime is present.
+    try {
+        const _parcelBoundaryRenderer = initParcelBoundarySceneRenderer(
+            world.scene.three as THREE.Scene,
+            runtime ?? (window.runtime as unknown as import('@pryzm/runtime-composer').PryzmRuntime | null),
+        );
+        if (import.meta.hot) {
+            import.meta.hot.dispose(() => _parcelBoundaryRenderer?.dispose());
+        }
+    } catch (pbErr: any) {
+        console.warn('[initScene] ParcelBoundarySceneRenderer init error:', pbErr?.message ?? pbErr);
+    }
+    // ── End A.8.x parcel-boundary outline ─────────────────────────────────────
 
     // ── Return typed scene result ─────────────────────────────────────────────
     // groundFloorController is not returned — it is already on window.groundFloorController
