@@ -182,6 +182,30 @@ class OnboardingStepController {
         if (this.stepLabelEl) this.stepLabelEl.textContent = `Step ${n} of 3 · ${label}`;
     }
 
+    /**
+     * Switch the overlay between its two presentations:
+     *  - MODAL (default): centered card + full-screen backdrop (steps 1, 3 and the
+     *    site-choice phase). Captures pointer events — it's a dialog.
+     *  - DRAWING (non-blocking): a slim banner docked to the bottom edge with NO
+     *    backdrop, so the map underneath is fully visible and interactive. The
+     *    overlay container lets pointer events fall through to the map; only the
+     *    banner card itself is interactive (handled in CSS via pointer-events).
+     *
+     * This is the fix for the tested defect: the centered modal covered the map
+     * during STEP 2 / DRAW YOUR PLOT, so the user couldn't click to draw.
+     */
+    private setDrawingPresentation(drawing: boolean): void {
+        if (!this.overlay) return;
+        this.overlay.classList.toggle('os-onboarding-overlay--drawing', drawing);
+        // A modal dialog must trap focus/announce; the docked banner must NOT —
+        // it sits beside an interactive map, so drop the dialog role while drawing.
+        if (drawing) {
+            this.overlay.setAttribute('role', 'region');
+        } else {
+            this.overlay.setAttribute('role', 'dialog');
+        }
+    }
+
     private clearBody(): HTMLElement {
         const body = this.bodyEl;
         if (!body) throw new Error('overlay body not mounted');
@@ -197,6 +221,7 @@ class OnboardingStepController {
 
     private renderLocationStep(): void {
         this.step = 'location';
+        this.setDrawingPresentation(false);
         this.setStepIndicator(1, 'Location');
         const body = this.clearBody();
 
@@ -301,6 +326,7 @@ class OnboardingStepController {
 
     private renderSiteStep(): void {
         this.step = 'site';
+        this.setDrawingPresentation(false);
         this.setStepIndicator(2, 'Your plot');
         const body = this.clearBody();
 
@@ -504,16 +530,22 @@ class OnboardingStepController {
         tick();
     }
 
+    /**
+     * The DRAW phase is the ONLY non-modal step: the user must SEE and CLICK the
+     * map underneath to trace their plot. So instead of the centered card we render
+     * a slim instruction banner docked to the bottom edge (`--drawing` presentation,
+     * no backdrop, pointer-events fall through to the map — see CSS). We keep just
+     * the one-line instruction + the "Skip drawing" escape hatch, inline in the
+     * banner. The step chip ("STEP 2 OF 3 · DRAW YOUR PLOT") stays in the header.
+     */
     private renderDrawingStep(): void {
+        this.setDrawingPresentation(true);
         this.setStepIndicator(2, 'Draw your plot');
         const body = this.clearBody();
-        const p = document.createElement('p');
-        p.className = 'os-prompt';
-        p.textContent = 'Draw your plot on the map';
-        body.appendChild(p);
+
         const hint = document.createElement('p');
-        hint.className = 'os-hint';
-        hint.textContent = 'Click each corner of your plot, then double-click (or press Enter) to close the loop. We\'ll generate as soon as it\'s committed.';
+        hint.className = 'os-hint os-draw-instruction';
+        hint.textContent = 'Click each corner · double-click or Enter to close · Esc to cancel';
         body.appendChild(hint);
 
         const footer = document.createElement('div');
@@ -534,6 +566,7 @@ class OnboardingStepController {
 
     private renderGeneratingStep(): void {
         this.step = 'generating';
+        this.setDrawingPresentation(false);
         this.setStepIndicator(3, 'Generating');
         const body = this.clearBody();
         const p = document.createElement('p');
