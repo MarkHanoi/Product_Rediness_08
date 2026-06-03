@@ -248,6 +248,7 @@ Every Phase A sub-phase in §3.1–§3.X traces to one or more IPs. This table i
 | A.5.g.2 Apartment-from-footprint-polygon (✅ console cmd) | IP-A3 |
 | A.5.g.3 Apartment-from-boundary ✅ SHIPPED 2026-06-03 (`apartmentFromBoundary.ts` · `pryzmGenerateApartmentFromBoundary()` — reads `siteModelStore.getParcelBoundary()` → footprint → `generateApartmentFromScratch`; typology-agnostic site read, §FUTURE-TYPOLOGY flagged; needs in-browser smoke) | IP-A3 · plan: PIPELINE-RAC-TO-SITE-TO-DESIGN-2026-06-03 |
 | A.5.g.4 RAC→site-bootstrap router (on pryzm:onboarding-brief-ready → create project + site + route to GIS) | IP-A3 |
+| O.1–O.6 Onboarding workflow re-sequence (auth-first · returning-user branch · step controller · GIS-pause · profile RAC) — DESIGN: [ONBOARDING-WORKFLOW-DESIGN-2026-06-03](./ONBOARDING-WORKFLOW-DESIGN-2026-06-03.md) | IP-A3 |
 | A.6 TypologyPicker UI | IP-A3 |
 | A.7 C19 Site schemas + SiteStore | IP-A2 (schema) · IP-A5 (ratify) |
 | A.7.c.x site.* L5 dispatch helper ✅ SHIPPED 2026-06-03 (`createSiteFromRect.ts` · `pryzmCreateSiteFromRect(addr?,w?,d?)` — runs `siteCreate`→`siteUpdateLocation`→`siteSetParcelBoundary` pure handlers directly + emits typed `site.created`/`site.location-changed`/`site.parcel-boundary-set` on `runtime.events` per the handlers' documented L5-adapter contract; bus registration + `LTPENURebase.setOrigin` deferred to A.8.a). PREREQ for A.8.c + A.5.g.4 | IP-A2 |
