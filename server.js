@@ -41,6 +41,8 @@ import { expressCorsOptions, socketCorsOptions } from './server/corsPolicy.js';
 import { helmetMiddleware, applyEmbedHeaders } from './server/securityHeaders.js';
 // C51 §3.1.2.2: CSP violation-report sink (evidence base for strict-CSP tightening)
 import { CSP_REPORT_PATH, cspReportBodyParser, cspReportHandler } from './server/cspReport.js';
+// IP-A3 A.5.e: lead-capture sink for the RAC onboarding handoff
+import { LEADS_PATH, leadsBodyParser, leadsHandler } from './server/leads.js';
 // M-SUPABASE-KEY: prefers SUPABASE_SERVICE_ROLE_KEY over SUPABASE_ANON_KEY
 import { getSupabaseClient } from './server/supabaseClient.js';
 import { verifyPluginSignatureNode, lookupPublisherKey, fetchRevocationList } from './server/pluginSigningService.js';
@@ -333,6 +335,12 @@ app.use('/api', globalLimiter);
 // reports+json content-types the global JSON parser skips. Answers 204; logs
 // (rate-capped) the violation telemetry used to narrow the CSP from evidence.
 app.post(CSP_REPORT_PATH, cspReportBodyParser, cspReportHandler);
+
+// IP-A3 A.5.e — RAC onboarding lead-capture sink (public, unauthenticated).
+// The in-app RAC conversation (A.5.f) POSTs the captured role/team/typology/
+// brief here so the lead survives even if the visitor abandons sign-up.
+// Rate-capped + size-capped; always 200 so capture never blocks onboarding.
+app.post(LEADS_PATH, leadsBodyParser, leadsHandler);
 
 // ── Phase E-1: Public Read-Only REST API ──────────────────────────────────────
 // Endpoints: GET /api/v1/projects/:id/{model,rooms,graph,compliance,programme,hierarchy,schedules/:type}

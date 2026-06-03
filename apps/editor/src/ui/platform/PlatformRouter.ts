@@ -48,6 +48,11 @@ import { TrustPage } from '../marketing/TrustPage';
 import { OwnerFeatureFlags } from '../OwnerFeatureFlags';
 import { EngineLoadingOverlay } from './EngineLoadingOverlay';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
+// A.5.f — RAC onboarding canvas re-mounted in the editor (the public /start
+// surface was retired with the Astro docs-site; per ADR-055 §5.2 RAC runs
+// INSIDE app.pryzm.so as the pre-auth onboarding).
+import { RACChatbotPanel } from '../onboarding/RACChatbotPanel';
+import type { PipelineBrief } from '@pryzm/typology-pipeline';
 
 /** ADR-055 §7 — marketing routes moved from apps/docs-site/ into the
  *  editor.  Names match the apex pre-render bucket (/, /pricing,
@@ -68,6 +73,11 @@ export class PlatformRouter {
      *  routes (pricing / manifesto / trust); switching routes disposes
      *  the previous page so only one is mounted at a time. */
     private marketing: { dispose(): void } | null = null;
+    /** A.5.f — RAC onboarding canvas slot (one at a time, like `marketing`). */
+    private onboarding: { dispose(): void } | null = null;
+    /** A.5.f — the brief the RAC conversation captured, handed to the editor
+     *  after auth (A.5.g project pre-load reads this; no `window` per P4). */
+    private capturedBrief: PipelineBrief | null = null;
     /**
      * Phase A.4 — the composed `PryzmRuntime` handle passed to
      * `start(runtime)`.  Exposed `public readonly` so Phase B+ panels
@@ -252,6 +262,18 @@ export class PlatformRouter {
             router.showMarketing(initialPage);
             return;
         }
+        // A.5.f — `?page=signup` (or `?page=start`) deep-links straight into the
+        // RAC onboarding canvas, so the apex landing's "Build something" link
+        // (→ app.pryzm.so/signup) lands the visitor in the conversation on first
+        // paint. Only for signed-OUT visitors; a signed-in user goes to the hub.
+        if (initialPage === 'signup' || initialPage === 'start') {
+            document.querySelector('[data-pryzm-skeleton="landing"]')?.remove();
+            const user = getCurrentUser();
+            if (user) { router.showHub(user); return; }
+            router.showLanding();
+            router.showOnboarding();
+            return;
+        }
 
         // §06 §10 — Read hash on initial load to restore correct view.
         // Both #/ and #/projects land on the hub when a session exists —
@@ -280,8 +302,10 @@ export class PlatformRouter {
 
         this.landing = new LandingPage(this.root, {
             onGetStarted: () => {
-                // Keep landing page alive — it shows as blurred background behind auth modal
-                this.showAuth();
+                // A.5.f — "Build something / Get started" enters the RAC
+                // onboarding canvas first (ADR-055 §5.2), which hands off to
+                // the auth modal once the 4-question brief is captured.
+                this.showOnboarding();
             },
             onLogin: () => {
                 // Keep landing page alive — it shows as blurred background behind auth modal
@@ -400,6 +424,89 @@ export class PlatformRouter {
             case 'trust':
                 this.marketing = new TrustPage(document.body, callbacks);
                 break;
+        }
+    }
+
+    /**
+     * A.5.f — mount the RAC onboarding canvas (the "Build something" entry).
+     * Replaces the public Astro `/start` surface retired with the docs-site;
+     * per ADR-055 §5.2 / C51 §5.2 the RAC conversation runs INSIDE the app as
+     * the pre-auth onboarding. Sources the `TypologyRegistry` from the composed
+     * runtime. When the 4-question conversation reaches `ready`, the captured
+     * brief is stashed on `this.capturedBrief` (read post-auth by the project
+     * pre-load, A.5.g) and the user continues to the auth/signup modal.
+     *
+     * If the runtime has no typology registry (degraded boot), falls back to
+     * the auth modal directly so "Build something" never dead-ends.
+     */
+    showOnboarding(): void {
+        this.onboarding?.dispose();
+        this.onboarding = null;
+
+        const registry = this.runtime?.typology?.registry;
+        if (!registry) {
+            console.warn('[PlatformRouter] showOnboarding — no typology registry on runtime; opening auth directly.');
+            this.showAuth();
+            return;
+        }
+
+        const panel = new RACChatbotPanel({
+            registry,
+            onBriefReady: (brief) => {
+                // A.5.f — the conversation captured role · team size · typology ·
+                // brief. Stash for the post-auth project pre-load (A.5.g) and
+                // fire-and-forget the lead to /api/leads (A.5.e) so it survives
+                // even if the visitor abandons sign-up. Then open the auth modal.
+                this.capturedBrief = brief;
+                void this.captureLead(brief);
+                this.onboarding?.dispose();
+                this.onboarding = null;
+                this.showAuth();
+            },
+        });
+
+        const el = panel.build();
+        el.classList.add('rac-onboarding-overlay');
+        this.root.appendChild(el);
+        // §06 §10 — reflect the onboarding view in the URL for back-nav.
+        history.replaceState({ view: 'onboarding' }, '', '#/start');
+        this.onboarding = { dispose: () => panel.dispose() };
+    }
+
+    /**
+     * A.5.g (handoff) — the brief the RAC onboarding conversation captured
+     * (role · team size · typology · brief), or `null` if onboarding hasn't
+     * completed this session. The post-auth project pre-load reads this to seed
+     * the first project from the conversation instead of starting blank.
+     */
+    getCapturedBrief(): PipelineBrief | null {
+        return this.capturedBrief;
+    }
+
+    /**
+     * A.5.e — fire-and-forget the captured brief to `/api/leads` so the lead
+     * survives even if the visitor abandons sign-up. Best-effort: any failure
+     * is swallowed (lead capture must never block onboarding). `keepalive`
+     * lets the request complete across the navigation to the auth modal.
+     */
+    private async captureLead(brief: PipelineBrief): Promise<void> {
+        const md = brief.metadata ?? {};
+        try {
+            await fetch('/api/leads', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                keepalive: true,
+                body: JSON.stringify({
+                    source: 'rac-onboarding',
+                    role: brief.role,
+                    typology: brief.typologyId,
+                    teamSize: md.teamSize,
+                    briefText: md.brief ?? md.briefText,
+                    email: md.email,
+                }),
+            });
+        } catch (err) {
+            console.warn('[onboarding] lead capture failed (non-blocking):', err);
         }
     }
 
@@ -610,5 +717,7 @@ export class PlatformRouter {
         this.pricing = null;
         this.marketing?.dispose();
         this.marketing = null;
+        this.onboarding?.dispose();
+        this.onboarding = null;
     }
 }

@@ -33,6 +33,7 @@ import { PROJECT_BROWSER_STYLES, PHYS_RAIL_PANEL_STYLES } from './panels/project
 import { CURTAIN_WALL_STYLES, FLOOR_PLAN_IMPORT_STYLES } from './panels/constructionPanels';
 import { LANDING_PAGE_STYLES, RESOURCES_STYLES, SOLUTIONS_STYLES } from './panels/marketingPages';
 import { MARKETING_PAGE_STYLES } from '../marketing/marketingPageStyles';
+import { ONBOARDING_STYLES } from '../onboarding/onboardingStyles';
 import { AUTH_MODAL_STYLES, UPGRADE_MODAL_STYLES, WELCOME_MODAL_STYLES, CONTACT_SALES_MODAL_STYLES } from './panels/authModals';
 import { PROJECT_HUB_STYLES } from './panels/projectHub';
 import { PLATFORM_SHELL_STYLES, RIBBON_STYLES, APP_MENU_STYLES, PROPERTIES_PALETTE_STYLES, CEB_STYLES, WMB_STYLES, OSP_STYLES, EAB_STYLES } from './panels/platformShell';
@@ -102,6 +103,7 @@ export function injectAppTheme(): void {
         + RESOURCES_STYLES
         + SOLUTIONS_STYLES
         + MARKETING_PAGE_STYLES
+        + ONBOARDING_STYLES
         + CONTACT_SALES_MODAL_STYLES
         + AUTH_MODAL_STYLES
         + PROJECT_HUB_STYLES
