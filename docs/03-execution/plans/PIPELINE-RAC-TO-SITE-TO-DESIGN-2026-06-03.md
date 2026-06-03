@@ -9,6 +9,30 @@
 
 ---
 
+## §0 — This is ONE instance of the general platform spine
+
+**Critical framing (founder, 2026-06-03):** the RAC→GIS→apartment journey below is **a single use case of a typology-agnostic, site-first, multi-input, multi-output platform**. Do NOT special-case the architecture to apartments. The general spine is:
+
+```
+  TYPOLOGY (any)          SITE (always)         GEOMETRY (any input)        AUTHOR        OUTPUT (any)
+  ─────────────           ─────────────         ────────────────────       ────────      ───────────
+  apartment ┐                                   UI tools          ┐                       view → sheet ┐
+  house     │   choose    address + plot        AI command        │   continue            IFC export   │
+  school    ├─► typology ► boundary on GIS  ───► (this use case)   ├─► editing  ──────────► Revit round  ├─►
+  resi-bldg │   (registry) (Cesium/other)        IFC import        │   authoring           -trip         │
+  office  … ┘                                    Revit-native data ┘                       (and back) …  ┘
+```
+
+1. **Typology is a choice, not a hardcode.** ANY construction typology — apartment (instance #1), house, school, residential building, office… — selected via the **`@pryzm/typology-pipeline` `TypologyRegistry`** (C50). Each is a Pack; the spine is shared. The apartment generator is one Pack's stage, not the platform.
+2. **Site is ALWAYS first.** Every project begins with site data + a specific plot definition drawn on a **GIS display** (Cesium today; pluggable). The C19 `SiteModelStore` + `ParcelBoundarySchema` are the typology-neutral substrate ALL typologies consume.
+3. **Geometry arrives by ANY input — these are peers, not alternatives to pick once:** (a) **UI** authoring tools; (b) **AI command** (the apartment-from-boundary path this plan details); (c) **IFC import** (`@pryzm/ifc-import` / S55); (d) **Revit-native data** (IFC4X3-RV bridge → native editable elements, A.R.*). The site→generation seam (§3) is the AI-input edge; the others land in the same scene + stores.
+4. **Author** in the main scene canvas (the existing editor — typology-neutral).
+5. **Output by ANY path:** document (**view → sheet**), **IFC export**, **Revit round-trip** (and back), schedules, etc. — all already-existing editor surfaces, typology-neutral.
+
+**Consequence for this plan:** the seams it builds — `pryzm:onboarding-brief-ready` (§3), site-boundary→generation-envelope (§3/§4), `siteModelStore.getParcelBoundary()` consumption — MUST stay typology-agnostic at the site + scene layers. Only the *generator Pack* is apartment-specific. When house/school/office Packs land (A.21/A.22/typology-expansion), they reuse the identical site→scene→author→output spine; only their generative stage differs. **Keep the spine general; specialize only inside the Pack.**
+
+---
+
 ## §1 — The target journey
 
 The founder's words:
