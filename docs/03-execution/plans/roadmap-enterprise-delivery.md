@@ -1,6 +1,7 @@
 # PRYZM — Roadmap Enterprise Delivery
 
-> **Stamp**: 2026-06-01 · **Status**: CANONICAL · **Horizon**: H2 sibling
+> **Stamp**: 2026-06-03 · **Status**: CANONICAL · **Horizon**: H2 sibling
+> **Reconciled 2026-06-03** to ADR-055/C51 (`pryzm.so` canonical; `pryzm.app` retired).
 > **Authority**: this doc owns **how PRYZM delivers to paying customers at scale** — the customer-side sequence (typically 2–4 quarters behind the engineering build sequence). Customer onboarding, pilot motions, training, change-management, success measurement, all per-tier.
 > **Companion to**: [roadmap-phase-{1,2,3}.md](./roadmap-phase-1-alpha.md) — those are the BUILD sequence; this is the DELIVERY sequence.
 > **Foundation above**: [go-to-market.md](../../01-strategy/go-to-market.md) (the strategic GTM frame) → this doc operationalises.
@@ -43,7 +44,7 @@ The most volume; the simplest motion.
 
 | Step | Customer experience | Time | Owner |
 |---|---|---|---|
-| 1 | Hits `pryzm.app` landing page | — | Marketing |
+| 1 | Hits `pryzm.so` landing page | — | Marketing |
 | 2 | Watches 90-sec interactive demo (apartment generates live) | 1.5 min | Marketing |
 | 3 | Signs up with Google/Microsoft/email (no credit card) | 30 sec | Auth surface |
 | 4 | RAC chatbot onboarding: who are you? → architect; project? → apartment | 1 min | RAC |
@@ -166,7 +167,7 @@ Procurement gate items the sales team prepares per [C49](../../02-decisions/cont
 |---|---|---|
 | SOC 2 Type II report | External auditor | PDF (under NDA) |
 | ISO 19650 Phase 1+2+3 compliance evidence | Internal + external auditor | PDF |
-| WCAG 2.2 AA VPAT | [C43 §1.14](../../02-decisions/contracts/C43-ACCESSIBILITY.md) | Public at `pryzm.app/vpat` |
+| WCAG 2.2 AA VPAT | [C43 §1.14](../../02-decisions/contracts/C43-ACCESSIBILITY.md) | Public at `pryzm.so/vpat` |
 | GDPR DPA template | Legal | Bespoke per customer |
 | Data residency annex | [C49](../../02-decisions/contracts/C49-MULTI-REGION-AND-SOVEREIGNTY.md) | Per-region (EU / US / AP / UK) |
 | BYOK setup guide | [C49 §1.3](../../02-decisions/contracts/C49-MULTI-REGION-AND-SOVEREIGNTY.md) | Internal PDF + customer engineering session |
@@ -281,4 +282,4 @@ Each customer is a separate sales motion led by the founder + account exec. Cust
 
 ---
 
-*End — PRYZM Roadmap Enterprise Delivery, 2026-06-01 — CANONICAL.*
+*End — PRYZM Roadmap Enterprise Delivery, 2026-06-03 (reconciled to ADR-055/C51) — CANONICAL.*

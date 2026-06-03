@@ -109,7 +109,7 @@ Open question (§9 of source doc): if HiddenLineRemoval becomes the new bottlene
 - **OI-056** Auto-zoom on first plan-view element creation — queued 2026-05-24.
 - **OI-057** Post-batch wall-join: sound but timing-implicit + no test; plugin-store keeps pre-miter baselines — backlogged.
 - **OI-058** Scene Registry (pascalorg pattern) to replace `scene.traverse` for visibility/selection — highest-value architectural key, open.
-- **OI-011–016** Infrastructure-only (npm publish SDK + headless, DNS marketplace.pryzm.app, Stripe keys, Yjs WebSocket server, OTLP endpoint) — awaiting credentials/registrar.
+- **OI-011–016** Infrastructure-only (npm publish SDK + headless, DNS marketplace.pryzm.so, Stripe keys, Yjs WebSocket server, OTLP endpoint) — awaiting credentials/registrar.
 
 ## §7 — Apartment-layout pipeline (queues — see companion doc)
 

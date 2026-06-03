@@ -274,7 +274,7 @@
 
 **Plugin isolation**: Iframe sandbox — separate browsing context per plugin, `postMessage` bridge. Plugins **cannot** access the main thread's JavaScript heap directly. `sandbox/escape-tests.ts` verifies the sandbox cannot be escaped.
 
-**Marketplace**: **Wave A20 ✅ 2026-05-04** — Plugin marketplace server-layer is live: `/marketplace/api/plugins` (GET list + GET `/:id` + POST `/submit`) routes in `server.js`; `marketplace_plugins` PostgreSQL table created in `server/dbMigrate.js`; `MarketplaceFacet.ts` in `packages/runtime-composer/src/facets/` provides `runtime.marketplace.install(pluginId)` — downloads, verifies Ed25519 signature, stores in IndexedDB, activates sandbox; 5 reference plugins seeded (BCF, Wall, IFC Inspector, Family Editor, Schedules); `apps/marketplace/` scaffold + README. External infra remaining: DNS `marketplace.pryzm.app` + TLS (Wave A20 DEFERRED — external infra). `server/familyMarketplaceRoutes.js` still live for `.pryzm-family` artefacts.
+**Marketplace**: **Wave A20 ✅ 2026-05-04** — Plugin marketplace server-layer is live: `/marketplace/api/plugins` (GET list + GET `/:id` + POST `/submit`) routes in `server.js`; `marketplace_plugins` PostgreSQL table created in `server/dbMigrate.js`; `MarketplaceFacet.ts` in `packages/runtime-composer/src/facets/` provides `runtime.marketplace.install(pluginId)` — downloads, verifies Ed25519 signature, stores in IndexedDB, activates sandbox; 5 reference plugins seeded (BCF, Wall, IFC Inspector, Family Editor, Schedules); `apps/marketplace/` scaffold + README. External infra remaining: DNS `marketplace.pryzm.so` + TLS (Wave A20 DEFERRED — external infra). `server/familyMarketplaceRoutes.js` still live for `.pryzm-family` artefacts.
 
 **Hot-reload**: `packages/plugin-sdk/src/dev/cli.ts` — `pryzm dev` CLI with hot reload and manifest validation for plugin development.
 
@@ -284,7 +284,7 @@
 
 **Security model**: Plugins can access: model data via stores host (read-only projections), camera via views host, command dispatch via command-bus host, AI via ai host, file format via format host. Plugins **cannot** directly access: THREE scene graph, localStorage/sessionStorage, arbitrary network (CSP restricts fetch origins), DOM outside their iframe.
 
-**SCORE: 9/10** — The plugin architecture is genuinely next-gen: iframe sandbox + Ed25519 signing + stable SDK boundary + ESLint-enforced layer isolation + v1.0.0 SDK ready + marketplace server API live is the correct production model. Remaining for 10/10: npm publication of `@pryzm/sdk` (manual), live DNS for `marketplace.pryzm.app` (external infra), remaining 11 stub promotions.
+**SCORE: 9/10** — The plugin architecture is genuinely next-gen: iframe sandbox + Ed25519 signing + stable SDK boundary + ESLint-enforced layer isolation + v1.0.0 SDK ready + marketplace server API live is the correct production model. Remaining for 10/10: npm publication of `@pryzm/sdk` (manual), live DNS for `marketplace.pryzm.so` (external infra), remaining 11 stub promotions.
 
 ---
 
@@ -654,7 +654,7 @@ PRYZM is a technically ambitious BIM browser with a well-engineered architectura
 
 **Wave A20 update (2026-05-04)**: Several previously blocking dimensions have been substantially addressed — 11 Playwright E2E tests (was 0), PWA manifest + service worker (was FAIL → now WARN), tablet layout (was none → implemented), bSDD property lookup (now in SDK), Yjs real CRDT (was LWW-only), LOD 3-tier (was none), iframe embed mode (was absent). The FAIL count has dropped from 2 → 1 (only Accessibility remains at FAIL, partially addressed by Wave A18). Plugin SDK v1.0.0 is publish-ready with K3-C gate closed.
 
-Remaining to reach "Production Ready" bar for enterprise procurement: (1) full WCAG 2.1 AA external audit, (2) IFC buildingSMART certification, (3) npm publication of `@pryzm/sdk` + `@pryzm/headless`, (4) DNS/TLS for `marketplace.pryzm.app`, (5) context loss handler, (6) DOMPurify on innerHTML renders (XSS risk), (7) OTel OTLP export target configured. Estimated 2–4 months of hardening for enterprise procurement readiness.
+Remaining to reach "Production Ready" bar for enterprise procurement: (1) full WCAG 2.1 AA external audit, (2) IFC buildingSMART certification, (3) npm publication of `@pryzm/sdk` + `@pryzm/headless`, (4) DNS/TLS for `marketplace.pryzm.so`, (5) context loss handler, (6) DOMPurify on innerHTML renders (XSS risk), (7) OTel OTLP export target configured. Estimated 2–4 months of hardening for enterprise procurement readiness.
 
 ---
 

@@ -1,6 +1,7 @@
 # PRYZM — Roadmap Phase 1: Alpha (0–6 months)
 
-> **Stamp**: 2026-06-01 · **Status**: CANONICAL · **Horizon**: H2 — phase roadmap
+> **Stamp**: 2026-06-03 · **Status**: CANONICAL · **Horizon**: H2 — phase roadmap
+> **Reconciled 2026-06-03** to ADR-055/C51 (apex/app split; `pryzm.so` canonical; `pryzm.app` retired; Astro `docs-site` deleted; C19 Site substrate shipped).
 > **Window**: 2026-06-01 → 2026-12-31 (~6 months, ~13 sprints of 2 weeks)
 > **Authority**: this doc owns **the exhaustive Phase 1 delivery list** — every capability that ships, every contract gap that closes, every typology that lands, every infrastructure piece. Below this doc is [annual-2026.md](./annual-2026.md) (this year's split across quarters) and [quarterly-2026-Q3.md](./quarterly-2026-Q3.md) / Q4.
 > **Foundation above**: [vision-2030.md](./vision-2030.md) (5-year vision) → this doc is the first 6 months of that arc.
@@ -17,8 +18,8 @@ Phase 1 closes when **all** of these are simultaneously true:
 | **E2** | **RAC chatbot routing flow** live: user role + typology picker + brief capture | Customer can sign up → complete onboarding → open typology pipeline in < 5 min |
 | **E3** | **Plugin SDK published** to npm (`@pryzm/sdk` v1.0.x) | `npm view @pryzm/sdk version` returns 1.0.x; CHANGELOG.md current |
 | **E4** | **Headless package published** (`@pryzm/headless` v1.0.0) | `npm view @pryzm/headless version` returns 1.0.0 |
-| **E5** | **Marketplace live** at `marketplace.pryzm.app` (DNS + TLS + first 5 PRYZM-first-party plugins listed) | https check; first plugin install end-to-end |
-| **E6** | **`pryzm.app` domain cutover** from `pryzm.so` legacy | DNS check; landing-page A/B test passing |
+| **E5** | **Marketplace live** at `marketplace.pryzm.so` (DNS + TLS + first 5 PRYZM-first-party plugins listed) | https check; first plugin install end-to-end |
+| **E6** | **Apex/app split live** per [ADR-055](../../02-decisions/adrs/ADR-055-one-pryzm-cloudflare-supabase.md) / [C51](../../02-decisions/contracts/C51-APEX-APP-DEPLOYMENT-SPLIT.md): `pryzm.so` apex (static marketing on Cloudflare Pages) + `app.pryzm.so` editor (Fly.io, EU `fra`) | `curl -I https://pryzm.so/` 200 pre-rendered; `curl -I https://app.pryzm.so/` 200 from `fra`; apex→app deep-link resolves |
 | **E7** | **Cold-boot NFT** holds at < 2.5 s on M1 + Chrome (`apps/bench/src/benches/cold-boot.bench.ts`) | CI baseline green for 4 consecutive weeks |
 | **E8** | **First 50 paying customers** via Solo + Studio PLG (per [go-to-market §2.1](../../01-strategy/go-to-market.md)) | Stripe MRR > $1500 |
 | **E9** | **All 21 CI gates** stable for 4 consecutive weeks; no soft-fail tripwires ratchet up | CI dashboard |
@@ -39,7 +40,7 @@ Every deliverable in Phase 1 traces to one of these 8 buckets:
 | **B3** | **Plugin SDK + Marketplace go-live** | npm publish · DNS + TLS · curation queue · first plugins | ~6 wk |
 | **B4** | **Family Platform polish + first community packs** | family-marketplace UX · Ed25519 verification UX · first 3 community-authored family packs | ~5 wk |
 | **B5** | **Enterprise readiness (compliance + SOC 2 prep)** | C22 PII tier · C23 provenance · C43 accessibility audit prep · C48 backup + DR runbooks | ~9 wk |
-| **B6** | **PRYZM brand + domain cutover** | `pryzm.app` migration · landing page rebuild · brand-voice content sweep · pricing page generator | ~4 wk |
+| **B6** | **PRYZM brand + apex/app split** | apex/app split per ADR-055/C51 (`pryzm.so` apex + `app.pryzm.so` editor) · landing page from editor `LandingPage.ts` · brand-voice content sweep · pricing page from `@pryzm/entitlements` | ~4 wk |
 | **B7** | **IFC + Revit interchange polish** | IFC4X3 Pset coverage gap-fill · Revit IFC variant exporter · 10-project reference suite | ~6 wk |
 | **B8** | **Cognition substrate L1–L4 hardening** | Constraint DB expand 248→350 enforced rules · daylight rule-checker · perceptual L5 first slice | ~7 wk |
 
@@ -151,7 +152,7 @@ Closes E3, E5, OI-011, OI-013.
 |---|---|---|
 | 3.1 | `pnpm --filter @pryzm/plugin-sdk publish --access public` (OI-011) | 1-day operation; requires npm token + 2FA |
 | 3.2 | `pnpm --filter @pryzm/headless publish --access public` (OI-012) | Same |
-| 3.3 | DNS `marketplace.pryzm.app` + TLS cert (OI-013) | Cloudflare DNS + LetsEncrypt or commercial cert |
+| 3.3 | DNS `marketplace.pryzm.so` + TLS cert (OI-013) | Cloudflare DNS + LetsEncrypt or commercial cert |
 | 3.4 | Marketplace `apps/marketplace/` UX polish — browse + search + filter + detail + install flow | ~2 wk |
 | 3.5 | Family Marketplace `apps/marketplace-web/` UX polish | ~1 wk |
 | 3.6 | Curation queue back-office (`apps/admin-tools/src/curation/`) — first version | Per [C40 §5.3](../../02-decisions/contracts/C40-MARKETPLACE-ECONOMICS.md); ~1 wk |
@@ -190,7 +191,7 @@ Phase 1 doesn't ship full Enterprise — but lays the foundation for first Enter
 | 5.1 | `packages/schemas/src/privacy/` — DataTier enum + PIIBridge schema | [C22 §2](../../02-decisions/contracts/C22-PRIVACY-AND-PII-TIER.md) |
 | 5.2 | DSAR export endpoint `/api/v1/dsar/export` — generates user-data archive | [C22 §1.4](../../02-decisions/contracts/C22-PRIVACY-AND-PII-TIER.md) |
 | 5.3 | DSAR erasure endpoint with 90-day SLA tracking | [C22 §1.5](../../02-decisions/contracts/C22-PRIVACY-AND-PII-TIER.md) |
-| 5.4 | `pryzm.app/privacy` page + customer privacy settings UI | [C22 §5](../../02-decisions/contracts/C22-PRIVACY-AND-PII-TIER.md) |
+| 5.4 | `pryzm.so/privacy` page + customer privacy settings UI | [C22 §5](../../02-decisions/contracts/C22-PRIVACY-AND-PII-TIER.md) |
 
 ### §7.2 — Provenance (C23) (~2 wk)
 
@@ -220,16 +221,18 @@ Phase 1 doesn't ship full Enterprise — but lays the foundation for first Enter
 
 ---
 
-## §8 — Bucket B6: Brand + domain cutover (~4 wk)
+## §8 — Bucket B6: Brand + apex/app split (~4 wk)
+
+Per [ADR-055](../../02-decisions/adrs/ADR-055-one-pryzm-cloudflare-supabase.md) / [C51](../../02-decisions/contracts/C51-APEX-APP-DEPLOYMENT-SPLIT.md): `pryzm.so` is the canonical apex (static pre-rendered marketing on Cloudflare Pages); `app.pryzm.so` is the editor app (Fly.io, EU `fra`). The old `pryzm.app` cutover is **retired**.
 
 | # | Deliverable | Detail |
 |---|---|---|
-| 6.1 | `pryzm.app` DNS + TLS cert (replacing `pryzm.so` legacy) | Cloudflare + cert |
-| 6.2 | Landing page rebuild per [manifesto §5 brand voice](../../01-strategy/manifesto.md) | Curated + plain-spoken + aspirational |
-| 6.3 | Pricing page generator from entitlement registry (per [C39 §1.13](../../02-decisions/contracts/C39-PRICING-AND-PLAN-TIERS.md)) | NEW: `apps/docs-site/src/pricing.tsx` reads registry at build |
+| 6.1 | `pryzm.so` apex DNS + TLS (Cloudflare Pages) + `app.pryzm.so` → Fly `fra` | Cloudflare + Fly cert (C51 §4) |
+| 6.2 | Landing page from the editor's `apps/editor/src/ui/platform/LandingPage.ts` (apex pre-renders the same component source) per [manifesto §5 brand voice](../../01-strategy/manifesto.md) | Curated + plain-spoken + aspirational |
+| 6.3 | Pricing page reads live from the entitlement registry (per [C39 §1.13](../../02-decisions/contracts/C39-PRICING-AND-PLAN-TIERS.md)) | `apps/editor/src/ui/platform/PricingPage.ts` reads `@pryzm/entitlements`; consumed by both the apex prerender and the in-app router |
 | 6.4 | Customer-facing copy sweep — every visible string passes the [manifesto §5 voice filter](../../01-strategy/manifesto.md) | Audit |
-| 6.5 | `pryzm.app/manifesto`, `/about`, `/trust`, `/accessibility`, `/supported-browsers`, `/vpat`, `/dr-status`, `/pricing` all live | Marketing |
-| 6.6 | `pryzm.so` redirects to `pryzm.app` (301 + 12-month transition window) | DNS + nginx |
+| 6.5 | `pryzm.so/manifesto`, `/about`, `/trust`, `/accessibility`, `/supported-browsers`, `/vpat`, `/dr-status`, `/pricing` all live | Marketing |
+| 6.6 | `app.pryzm.so` 301-redirects marketing routes (`/pricing`, `/manifesto`, `/trust`) to the `pryzm.so` apex (per C51 §3.2.1) | Edge redirect |
 
 ---
 
@@ -282,7 +285,7 @@ Phase 1 closes the following contract gaps (per the C01–C49 suite). Listed by 
 | C16 Command Authoring | Canonical | site.* + typology.* commands authored per C16 | §3, §4 |
 | C17 Batch Creation Catalogue | Canonical | Per-typology batch entries (e.g. "house.batch.create-from-brief") | §3.3–4 |
 | C18 Element Preview Visual | Canonical | No change | — |
-| **C19 Site Model & Parcel** | DRAFT | **CANONICAL** (ratify on §4.1 ship) | §4.1 |
+| **C19 Site Model & Parcel** | Substrate **SHIPPED** — `SiteModelStore` + `ParcelBoundarySchema` + `site.create`/`site.setParcelBoundary` wired into `composeRuntime` (A.7.a/b/c.1) | Ratify CANONICAL; remaining gap is the L5 dispatch adapter + GIS UI (see [PIPELINE-RAC-TO-SITE-TO-DESIGN](./PIPELINE-RAC-TO-SITE-TO-DESIGN-2026-06-03.md)) | §4.1 |
 | **C20 Building + Apartment Aggregates** | DRAFT | **CANONICAL** (ratify on §4.2 ship) | §4.2 |
 | **C21 Climate Ingestion** | DRAFT | **CANONICAL** (ratify on §4.3 ship) | §4.3 |
 | **C22 Privacy + PII Tier** | DRAFT | Partial ratification — DSAR endpoints + tier surface live | §7.1 |
@@ -305,7 +308,7 @@ Phase 1 closes the following contract gaps (per the C01–C49 suite). Listed by 
 | C39 Pricing + Plan Tiers | DRAFT | Partial — entitlement registry + Solo/Studio/Mid-firm tiers + pricing page | §8 (parallel) |
 | C40 Marketplace Economics | DRAFT | Partial — 70/30 split + payout cycle test | §5.8 |
 | C41 Telemetry + Analytics | DRAFT | Partial — consent banner + cookie + first events | §7 (parallel) |
-| C42 Customer Support Tier | DRAFT | Partial — support@pryzm.app + 4-channel surface | §8 (parallel) |
+| C42 Customer Support Tier | DRAFT | Partial — support@pryzm.so + 4-channel surface | §8 (parallel) |
 | C43 Accessibility | DRAFT | Partial — WCAG 2.2 AA audit prep + axe-core CI green | §7.3 |
 | C44 Mobile + Tablet | DRAFT | Partial — surface capability matrix + share-link viewer | §8 (parallel) |
 | C45 Browser + Device Matrix | DRAFT | Partial — Tier 1 browser support live | §8 (parallel) |
@@ -314,8 +317,9 @@ Phase 1 closes the following contract gaps (per the C01–C49 suite). Listed by 
 | C48 Backup + DR | DRAFT | Partial — runbooks + first DR drill | §7.4 |
 | C49 Multi-Region | DRAFT | No Phase 1 work (Phase 3 — region launches) | — |
 | **C50 Typology Pipeline** | NEW (this phase) | DRAFT authored + first 3 typology packs live | §3.1.7 |
+| **C51 Apex/App Deployment Split** | CANONICAL (normative form of [ADR-055](../../02-decisions/adrs/ADR-055-one-pryzm-cloudflare-supabase.md)) — `pryzm.so` apex + `app.pryzm.so` editor; DNS map §4 + route table §5 + build contract §6 + CI gates §7 | apex/app split deployed; 5 of 7 §7 gates live | §8 |
 
-**Summary**: 24 contracts touched in Phase 1 (3 to CANONICAL: C19/C20/C21; 11 partial ratifications; 1 NEW DRAFT: C50). 25 contracts unchanged.
+**Summary**: 25 contracts touched in Phase 1 (3 to CANONICAL: C19/C20/C21; 11 partial ratifications; 1 NEW DRAFT: C50; 1 NEW CANONICAL: C51). The apex/app split (B6) is governed by [ADR-055](../../02-decisions/adrs/ADR-055-one-pryzm-cloudflare-supabase.md) + [C51](../../02-decisions/contracts/C51-APEX-APP-DEPLOYMENT-SPLIT.md); auth migration by [ADR-056](../../02-decisions/adrs/ADR-056-supabase-auth-migration.md) (Supabase, Phase A.5).
 
 ---
 
@@ -359,10 +363,10 @@ Key Phase 1 risks (mitigation traces to [risks-and-assumptions §3–§5](../../
 |---|---|
 | B1 Typology | 3 typologies (apartment + house + office) live; reference projects pass; layout generation < 60 s; NFTs hold |
 | B2 Site + Climate | Site authoring end-to-end; EPW + NOAA both ingested; round-trips through IFC; 8 city validation passes |
-| B3 SDK + Marketplace | `npm view @pryzm/sdk` returns 1.0.x; `marketplace.pryzm.app` resolves; first plugin install succeeds; first developer payout test runs |
+| B3 SDK + Marketplace | `npm view @pryzm/sdk` returns 1.0.x; `marketplace.pryzm.so` resolves; first plugin install succeeds; first developer payout test runs |
 | B4 Family Platform | First 3 community-authored family packs live; component-editor publishes packs end-to-end |
 | B5 Enterprise readiness | DSAR export + erasure paths live; provenance graph queryable; axe-core CI green; first DR drill complete |
-| B6 Brand + domain | `pryzm.app` redirect live; landing page + pricing page + all marketing surfaces refreshed |
+| B6 Brand + apex/app split | apex/app split live per ADR-055/C51 (`pryzm.so` apex + `app.pryzm.so` editor); landing page + pricing page + all marketing surfaces refreshed |
 | B7 IFC + Revit polish | 10-project reference suite passes nightly; IFC4X3-RV variant exports work; PSet coverage 100 % for shipped element types |
 | B8 Cognition | 200 of 248 spec rules code-enforced; L5 daylight + perceptual validators live; constraint-violation UI in inspect tree |
 
@@ -395,4 +399,4 @@ Phase 1 outputs that Phase 2 builds on:
 
 ---
 
-*End — PRYZM Roadmap Phase 1: Alpha, 2026-06-01 — CANONICAL.*
+*End — PRYZM Roadmap Phase 1: Alpha, 2026-06-03 (reconciled to ADR-055/C51) — CANONICAL.*

@@ -1,6 +1,7 @@
 # Specs — per-system normative specifications
 
-> 56 specifications. One per major capability. Numbered `SPEC-NN-<TOPIC>.md`.
+> 56 spec files (39 numbered SPEC-NN + 17 special-named). One per major capability. Numbered `SPEC-NN-<TOPIC>.md`.
+> **Reconciled 2026-06-03**: numbering range corrected (highest is **SPEC-48**; 14, 16–20, 22, 23, 25 are unassigned/absent).
 
 ## §1 — What a spec is
 
@@ -17,7 +18,7 @@ A spec is NORMATIVE — code MUST conform to it. But specs sit BELOW contracts i
 
 ## §2 — Numbering
 
-Monotonic `SPEC-NN` (2-digit). Once assigned, never moves. Currently 01–47 + a few special-purpose SPEC-* without numbers (e.g. SPEC-APARTMENT-LAYOUT-GENERATOR).
+Monotonic `SPEC-NN` (2-digit). Once assigned, never moves. Currently assigned through **SPEC-48** (with 14, 16–20, 22, 23, 25 unassigned) + a number of special-purpose SPEC-* without numbers (e.g. SPEC-APARTMENT-LAYOUT-GENERATOR).
 
 The legacy plan `PLAN-GENERATIVE-DESIGN-SPRINTS.md` lives here too as a historical artefact.
 
@@ -70,7 +71,7 @@ How to evolve when this spec changes.
 | SPEC-09 | Plugin SDK |
 | SPEC-10 | (see directory) |
 | ... | (full list: `ls SPEC-*.md`) |
-| SPEC-47 | (latest) |
+| SPEC-48 | Constraint Solver (latest) |
 
 Special-named specs (no number):
 - `SPEC-APARTMENT-LAYOUT-GENERATOR.md`
