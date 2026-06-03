@@ -1144,7 +1144,7 @@ Items not yet absorbed into Phase A above:
 | Sub-phase | ID | Title |
 |---|---|---|
 | **A.WJ.LCORNER** | — | Defect #3 — interior↔exterior L-corner produces black-triangle artefact |
-| **A.WJ.MULTICLUSTER** | — | WallJoinResolver multi-cluster degenerate-wall bug (project `zse`) — flag self-cluster INVALID + skip mesh build + clamp diff-thickness butt-join when sub-wall length ≤ 0 |
+| **A.WJ.MULTICLUSTER** | — | WallJoinResolver degenerate-wall bug — **🔴 DAILY-USE BLOCKER (re-open hang)**. Two vectors: (1) multi-cluster self-cluster degenerate (project `zse`); (2) **diff-thickness "option-B butt" NaN** — `tDom≠tSub` walls meeting at one shared endpoint pass the `MIN_LEN` length guard but the lateral `subNewPt` offset (`WallJoinResolver.ts:991`) can leave a near-zero/reversed baseline whose `normalize()` → NaN geometry → downstream extruder/CSG/BVH stall (project loads then FREEZES during load-time rebuild; last log `[WJR-DIFF-THICKNESS]`). **Fix: finite+direction guard in the option-B branch (`:1010`) + clamp lateral offset + degenerate-baseline guard at `buildWall` (skip mesh build, hide sliver) — "wrong-but-fast join beats frozen tab" + the structural flag-INVALID-and-skip-mesh path.** Analysis: [WALLJOINRESOLVER-DIFF-THICKNESS-HANG-2026-06-03.md](../analysis/WALLJOINRESOLVER-DIFF-THICKNESS-HANG-2026-06-03.md). | 🟡 Phase A — BLOCKER |
 | **A.WJ.IWO** | — | Interior-wall-on-opening conflict bug — `WallOccupancyStore.canPlace()` at commit + SnapManager exclusion + new Tier-1 ConstraintEngine rule |
 | **B.WJ.ADR55P4A** | — | ADR-0055 P4a — layered walls |
 | **B.WJ.ADR55P4B** | — | ADR-0055 P4b — openings |
