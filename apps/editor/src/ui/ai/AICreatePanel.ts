@@ -395,6 +395,15 @@ export function createAICreatePanel(runtime: import('@pryzm/runtime-composer/typ
             console.log('[AICreatePanel] Initializing panel, going to step 1');
             gotoStep(1);
             
+            // CSP (script-src-attr 'none'): the dropzone's click-to-upload was
+            // an inline onclick; wire it via addEventListener instead.
+            const dropzone = document.getElementById('ai-create-dropzone');
+            if (dropzone) {
+                dropzone.addEventListener('click', () => {
+                    document.getElementById('ai-create-file-input')?.click();
+                });
+            }
+
             // Manually attach file input change listener after DOM is ready
             const fileInput = document.getElementById('ai-create-file-input') as HTMLInputElement | null;
             if (fileInput) {
@@ -451,9 +460,9 @@ export function createAICreatePanel(runtime: import('@pryzm/runtime-composer/typ
                 <div id="ai-create-step-1" style="display: flex; flex-direction: column; gap: 10px;">
                     <div style="font-size: 0.75rem; font-weight: 600; color: #333;">Step 1 — Upload a Reference Photo</div>
                     <div
+                        id="ai-create-dropzone"
                         style="border: 2px dashed #ccc; border-radius: 8px; padding: 24px; text-align: center;
                                cursor: pointer; font-size: 0.7rem; color: #888; transition: border-color 0.2s;"
-                        onclick="document.getElementById('ai-create-file-input').click()"
                     >
                         <div style="font-size: 1.5rem; margin-bottom: 8px;">📷</div>
                         <div>Click to upload a photo of the element</div>

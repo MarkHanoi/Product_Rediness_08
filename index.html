@@ -284,6 +284,21 @@
           window.__pryzmPendingActions.push(action);
         };
 
+        // ── CSP: strict `script-src-attr 'none'` forbids inline DOM event
+        //    handler attributes (onclick="…").  The skeleton CTAs are wired
+        //    here via addEventListener instead.  Each button carries a
+        //    `data-skel-action` attribute naming the intent to queue.  Runs
+        //    on DOMContentLoaded because this <head> script executes before
+        //    the <body> skeleton markup is parsed.
+        document.addEventListener('DOMContentLoaded', function () {
+          var btns = document.querySelectorAll('[data-skel-action]');
+          btns.forEach(function (btn) {
+            btn.addEventListener('click', function () {
+              window.__pryzmSkeletonClick(btn.getAttribute('data-skel-action'));
+            });
+          });
+        });
+
         // ── Wave 1.5c — opportunistic skeleton-mosaic image swap ─────────
         // The skeleton renders 3 drifting rows of soft-tinted placeholder
         // tiles using pure CSS (paints on first byte).  Here we kick off a
@@ -346,16 +361,16 @@
           </div>
           <div class="lp-skel-nav-spacer"></div>
           <div class="lp-skel-nav-actions">
-            <button class="lp-skel-login" type="button" onclick="window.__pryzmSkeletonClick('login')">Log in</button>
-            <button class="lp-skel-contact" type="button" onclick="window.__pryzmSkeletonClick('contactSales')">Contact sales</button>
-            <button class="lp-skel-cta" type="button" onclick="window.__pryzmSkeletonClick('getStarted')">Get started for free</button>
+            <button class="lp-skel-login" type="button" data-skel-action="login">Log in</button>
+            <button class="lp-skel-contact" type="button" data-skel-action="contactSales">Contact sales</button>
+            <button class="lp-skel-cta" type="button" data-skel-action="getStarted">Get started for free</button>
           </div>
           <!-- Wave 1.5c — mobile hamburger placeholder (matches `.lp-hamburger`
                in marketingPages.ts so the layout doesn't shift when the real
                LandingPage takes over).  Tapping it queues a 'login' action
                (the most common reason users tap the menu); the real LandingPage
                opens its drawer on its own when it mounts. -->
-          <button class="lp-skel-hamburger" type="button" aria-label="Menu" onclick="window.__pryzmSkeletonClick('login')">
+          <button class="lp-skel-hamburger" type="button" aria-label="Menu" data-skel-action="login">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
               <line x1="3" y1="6" x2="21" y2="6"/>
               <line x1="3" y1="12" x2="21" y2="12"/>
@@ -383,7 +398,7 @@
           <p class="lp-skel-sub-copy">Build the future, intelligently.</p>
 
           <div class="lp-skel-hero-ctas">
-            <button class="lp-skel-hero-btn" type="button" onclick="window.__pryzmSkeletonClick('getStarted')">
+            <button class="lp-skel-hero-btn" type="button" data-skel-action="getStarted">
               <svg width="14" height="18" viewBox="0 0 18 22" fill="none" aria-hidden="true" style="flex-shrink:0"><path d="M0 0L0 17.5L4.5 13L7.5 20L9.5 19.2L6.5 12H12L0 0Z" fill="white"/></svg>
               Start here
             </button>
