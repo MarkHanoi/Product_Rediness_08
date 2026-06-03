@@ -211,6 +211,12 @@ async function handleBriefReady(
             startOnboardingStepFlow({
                 runtime,
                 ...(address ? { seedAddress: address } : {}),
+                // O.7.1 — thread the captured typology so the generate-confirm step
+                // copy/label is typology-aware (apartment now; future Packs add
+                // their noun). Always 'apartment' here today (the typology gate
+                // above bails on anything else), but read from the brief so the
+                // switch point is real, not hardcoded.
+                typologyId: brief.typologyId,
             });
         } catch (err) {
             console.error('[onboarding-bootstrap] failed to start onboarding step flow (swallowed):', err);

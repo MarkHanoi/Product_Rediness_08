@@ -371,4 +371,27 @@ export const ONBOARDING_STYLES = `
   flex: 0 0 auto;
   margin: 0;
 }
+
+/* ── O.7.1 — GENERATE-CONFIRM step (non-blocking, keeps boundary visible) ───────
+   The confirm card REUSES the non-blocking drawing presentation (no full-screen
+   backdrop → the drawn boundary stays visible behind it; pointer-events fall
+   through to the map). But unlike the slim one-line draw banner it needs a
+   vertical title + subtext + two-button layout, so the --confirm modifier
+   restores the column flow on the body and renders the actions as a button row. On-brand
+   white card + #6600FF primary, matching the compact onboarding card. */
+.os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--confirm .os-body {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  padding: 0.85rem 1rem 0.95rem;
+}
+.os-onboarding-overlay--confirm .os-confirm-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+.os-onboarding-overlay--confirm .os-confirm-actions .os-btn {
+  flex: 1 1 auto;
+}
 `;

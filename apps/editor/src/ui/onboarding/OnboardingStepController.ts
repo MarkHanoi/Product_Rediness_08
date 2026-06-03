@@ -1,4 +1,5 @@
-// O.2 — Onboarding STEP CONTROLLER (RAC → location → draw-or-skip → generate).
+// O.2 / O.7.1 — Onboarding STEP CONTROLLER (RAC → location → draw-or-skip →
+// CONFIRM → generate).
 //
 // WHY THIS EXISTS
 // ---------------
@@ -12,11 +13,18 @@
 //   2. Site      — "How do you want to set your plot?"  →  TWO choices:
 //                    ⚡ Use a default footprint   (skip — today's safe default)
 //                    ✏️ Draw it on the map        (activate GIS + boundary draw)
-//   3. Generate  — generateApartmentFromBoundary → land in the canvas.
+//   3. Confirm   — (O.7.1) "Generate your {typology} with AI?" — KEEP the boundary
+//                  visible + ASK before generating (NOT a silent auto-generate).
+//                    • Generate {typology} → generateAndFinish (generate → 3D → done)
+//                    • Not now             → dispose, leave boundary/site intact
+//   4. Generate  — generateApartmentFromBoundary → land in the canvas (3D view).
 //
-// The founder ratified: **GIS/boundary is SKIPPABLE — the user's choice** (§7.2),
-// and auto-generate on land = YES (§7.5). So the default-rectangle path is kept
-// verbatim as the no-GIS fallback; "Draw it on the map" is the inviting default.
+// The founder ratified: **GIS/boundary is SKIPPABLE — the user's choice** (§7.2).
+// O.7.1 SUPERSEDES the old "auto-generate on land" (§7.5): every path that used to
+// silently generate (drawn-boundary commit, default-plot skip, draw watchdog,
+// "skip drawing") now routes through the CONFIRM step so the user chooses. The
+// default-rectangle path is kept as the no-GIS fallback; "Draw it on the map" is
+// the inviting default. Only a HARD ERROR (start threw) still auto-generates.
 //
 // WHAT THIS REUSES (vs writes)
 // ----------------------------
@@ -81,9 +89,14 @@ export interface OnboardingStepControllerOptions {
     /** Seed address parsed from the RAC brief (`metadata.address`), if any —
      *  pre-fills the location input. */
     readonly seedAddress?: string;
+    /** Typology captured by the RAC brief (`brief.typologyId`), e.g. `'apartment'`.
+     *  Threaded so the O.7.1 generate-confirm step copy/label is TYPOLOGY-AWARE
+     *  (see `typologyLabel()` + the §FUTURE-TYPOLOGY switch point). Defaults to
+     *  `'apartment'` — the one shipped generator today. */
+    readonly typologyId?: string;
 }
 
-type StepId = 'location' | 'site' | 'generating';
+type StepId = 'location' | 'site' | 'confirm' | 'generating';
 
 /**
  * Launch the guided onboarding step flow. Mounts a small overlay, drives
@@ -104,6 +117,8 @@ export function startOnboardingStepFlow(
 class OnboardingStepController {
     private readonly runtime: PryzmRuntime;
     private readonly seedAddress: string;
+    /** Typology from the brief — drives the O.7.1 confirm-step copy/label. */
+    private readonly typologyId: string;
 
     private overlay: HTMLElement | null = null;
     private bodyEl: HTMLElement | null = null;
@@ -120,6 +135,22 @@ class OnboardingStepController {
     constructor(opts: OnboardingStepControllerOptions) {
         this.runtime = opts.runtime;
         this.seedAddress = (opts.seedAddress ?? '').trim();
+        this.typologyId = (opts.typologyId ?? 'apartment').trim() || 'apartment';
+    }
+
+    /**
+     * Typology-aware noun for the confirm-step copy/label. §FUTURE-TYPOLOGY: today
+     * only `'apartment'` has a shipped generator (see `generateAndFinish`), so
+     * everything else is a graceful fallthrough; when house/office Packs land they
+     * add their noun here and swap the generate call in `generateAndFinish`.
+     */
+    private typologyLabel(): string {
+        switch (this.typologyId) {
+            case 'apartment': return 'apartment';
+            case 'house': return 'house';
+            case 'office': return 'office';
+            default: return this.typologyId || 'design';
+        }
     }
 
     start(): void {
@@ -181,9 +212,11 @@ class OnboardingStepController {
         this.overlay = overlay;
     }
 
-    /** Update the persistent "Step N of 3" indicator. */
+    /** Update the persistent "Step N of 4" indicator. (O.7.1 inserted the
+     *  generate-confirm step between the plot and the generate, so the flow is now
+     *  Location → Plot → Confirm → Generate.) */
     private setStepIndicator(n: number, label: string): void {
-        if (this.stepLabelEl) this.stepLabelEl.textContent = `Step ${n} of 3 · ${label}`;
+        if (this.stepLabelEl) this.stepLabelEl.textContent = `Step ${n} of 4 · ${label}`;
     }
 
     /**
@@ -380,7 +413,7 @@ class OnboardingStepController {
 
         defaultBtn.addEventListener('click', () => {
             console.log('[onboarding-step] site choice: default footprint (skip draw).');
-            void this.useDefaultRectThenGenerate();
+            void this.useDefaultRectThenConfirm();
         });
         drawBtn.addEventListener('click', () => {
             console.log('[onboarding-step] site choice: draw on map.');
@@ -405,12 +438,17 @@ class OnboardingStepController {
         return btn;
     }
 
-    // ── Step 3: Generate ───────────────────────────────────────────────────────
+    // ── Step 3: Generate-confirm (O.7.1) ───────────────────────────────────────
 
-    /** The SKIP path — exactly today's behaviour: default rectangle → generate. */
-    private async useDefaultRectThenGenerate(): Promise<void> {
-        this.renderGeneratingStep();
+    /**
+     * The SKIP path — author a default-rectangle parcel, then ROUTE TO CONFIRM
+     * (O.7.1). Previously this generated immediately; now the user is asked first,
+     * so the Skip path lands them in the editor with a default plot + the
+     * "Generate with AI?" question (rather than a silent auto-generate).
+     */
+    private useDefaultRectThenConfirm(): void {
         const siteOk = this.createSite({
+            ...(this.picked ? { lat: this.picked.lat, lon: this.picked.lon, address: this.picked.address } : {}),
             width: DEFAULT_PARCEL_WIDTH_M,
             depth: DEFAULT_PARCEL_DEPTH_M,
         });
@@ -420,8 +458,8 @@ class OnboardingStepController {
             return;
         }
         // createSiteFromRect sets the boundary synchronously + emits the event, so
-        // the boundary is already in the store. Generate straight away.
-        await this.generateAndFinish();
+        // the default parcel is already in the store and visible. Ask before generating.
+        this.renderGenerateConfirmStep('default-plot');
     }
 
     /**
@@ -475,12 +513,17 @@ class OnboardingStepController {
             settled = true;
             cleanup();
             if (source === 'watchdog') {
-                console.warn('[onboarding-step] draw watchdog fired (60 s) — falling back to default rectangle + generate.');
+                // O.7.1: a timed-out draw must NOT silently generate. Author a
+                // default plot so there's something to generate from + visible, then
+                // surface the confirm step so the user still CHOOSES.
+                console.warn('[onboarding-step] draw watchdog fired (60 s) — falling back to a default plot, then asking before generate.');
                 this.toast('No boundary drawn — using a default plot.', 'info');
-                void this.fallbackDefaultRectAndGenerate('watchdog');
+                void this.fallbackDefaultRectToConfirm('watchdog');
             } else {
-                console.log('[onboarding-step] boundary committed — generating from the drawn parcel.');
-                void this.generateAndFinish();
+                // O.7.1: keep the drawn boundary visible on the map + ASK before
+                // generating (typology→AI dispatch). Do NOT auto-generate.
+                console.log('[onboarding-step] boundary committed — keeping it visible + asking before generate.');
+                this.renderGenerateConfirmStep('drawn');
             }
         };
 
@@ -585,19 +628,101 @@ class OnboardingStepController {
         body.appendChild(footer);
 
         useDefault.addEventListener('click', () => {
-            console.log('[onboarding-step] user opted out of drawing — default rectangle + generate.');
-            void this.fallbackDefaultRectAndGenerate('user-skip-draw');
+            console.log('[onboarding-step] user opted out of drawing — default plot, then ask before generate.');
+            // O.7.1: cancel the in-flight draw-wait listener/watchdog (we're leaving
+            // the draw phase) so it can't fire the confirm a second time.
+            for (const c of this.cleanups.splice(0)) { try { c(); } catch { /* ignore */ } }
+            void this.fallbackDefaultRectToConfirm('user-skip-draw');
+        });
+    }
+
+    /**
+     * O.7.1 — the GENERATE-CONFIRM step. Inserted between boundary-commit (or the
+     * Skip/default-plot path) and the generate, so the flow ASKS instead of
+     * silently auto-generating. Two outcomes:
+     *   • "Generate {typology}"        → runs `generateAndFinish()` (generate →
+     *                                     activate 3D view → dispose).
+     *   • "Not now — I'll design it…"  → disposes the overlay WITHOUT generating,
+     *                                     leaving the user in the editor with their
+     *                                     boundary/site intact (they can generate
+     *                                     later via the AI panel /
+     *                                     `pryzmGenerateApartmentFromBoundary()`).
+     *
+     * KEEP-BOUNDARY-VISIBLE: this card uses the NON-BLOCKING drawing presentation
+     * (no full-screen backdrop, pointer-events fall through to the map) so the
+     * drawn boundary stays on screen behind the question. A `--confirm` modifier
+     * restores the vertical title/subtext/buttons layout (the draw banner is a
+     * horizontal row). `source` only affects the breadcrumb + subtext wording.
+     *
+     * §FUTURE-TYPOLOGY: the LABEL is typology-aware (`typologyLabel()`); the actual
+     * dispatch (apartment generator) lives in `generateAndFinish` — a future Pack
+     * swaps that one call and adds its noun to `typologyLabel()`.
+     */
+    private renderGenerateConfirmStep(source: 'drawn' | 'default-plot'): void {
+        if (this.disposed) return;
+        this.step = 'confirm';
+        this.setStepIndicator(3, 'Confirm');
+        // Non-blocking + keep the boundary visible, then opt into the confirm layout.
+        this.setDrawingPresentation(true);
+        this.overlay?.classList.add('os-onboarding-overlay--confirm');
+        const body = this.clearBody();
+
+        const typology = this.typologyLabel();
+        console.log(`[onboarding-step] confirm step (source="${source}", typology="${this.typologyId}").`);
+
+        const title = document.createElement('p');
+        title.className = 'os-prompt';
+        title.textContent = `Generate your ${typology} with AI?`;
+        title.setAttribute('data-testid', 'onboarding-confirm-title');
+        body.appendChild(title);
+
+        const sub = document.createElement('p');
+        sub.className = 'os-hint';
+        sub.textContent = source === 'drawn'
+            ? `We'll lay out rooms, walls, doors and windows inside the plot you drew.`
+            : `We'll lay out rooms, walls, doors and windows inside your plot.`;
+        body.appendChild(sub);
+
+        const actions = document.createElement('div');
+        actions.className = 'os-confirm-actions';
+
+        const generate = document.createElement('button');
+        generate.type = 'button';
+        generate.className = 'os-btn os-btn--primary';
+        generate.setAttribute('data-testid', 'onboarding-confirm-generate');
+        generate.textContent = `Generate ${typology}`;
+
+        const notNow = document.createElement('button');
+        notNow.type = 'button';
+        notNow.className = 'os-btn os-btn--ghost';
+        notNow.setAttribute('data-testid', 'onboarding-confirm-notnow');
+        notNow.textContent = `Not now — I'll design it myself`;
+
+        actions.appendChild(generate);
+        actions.appendChild(notNow);
+        body.appendChild(actions);
+
+        generate.addEventListener('click', () => {
+            console.log('[onboarding-step] confirm → GENERATE (AI dispatch).');
+            this.overlay?.classList.remove('os-onboarding-overlay--confirm');
+            void this.generateAndFinish();
+        });
+        notNow.addEventListener('click', () => {
+            console.log('[onboarding-step] confirm → NOT NOW — disposing overlay, leaving boundary/site intact (no generate).');
+            this.toast('Saved your plot — generate any time from the AI panel.', 'info');
+            this.dispose();
         });
     }
 
     private renderGeneratingStep(): void {
         this.step = 'generating';
         this.setDrawingPresentation(false);
-        this.setStepIndicator(3, 'Generating');
+        this.overlay?.classList.remove('os-onboarding-overlay--confirm');
+        this.setStepIndicator(4, 'Generating');
         const body = this.clearBody();
         const p = document.createElement('p');
         p.className = 'os-prompt';
-        p.textContent = 'Laying out your apartment…';
+        p.textContent = `Laying out your ${this.typologyLabel()}…`;
         body.appendChild(p);
         const hint = document.createElement('p');
         hint.className = 'os-hint';
@@ -624,8 +749,30 @@ class OnboardingStepController {
         }
     }
 
-    /** Default-rectangle fallback used by the watchdog + error paths. Creates the
-     *  Site (with location if we have one) then generates. Idempotent-ish: guarded
+    /**
+     * O.7.1 — default-rectangle fallback that ROUTES TO CONFIRM (not generate).
+     * Used by the draw watchdog + the "Skip drawing" escape hatch: authors a
+     * default plot (so there's a visible boundary to generate from) then surfaces
+     * the generate-confirm step so the user still chooses. Guarded by `disposed`.
+     */
+    private fallbackDefaultRectToConfirm(reason: string): void {
+        if (this.disposed) return;
+        console.log(`[onboarding-step] default plot → confirm (${reason}).`);
+        const siteOk = this.createSite({
+            ...(this.picked ? { lat: this.picked.lat, lon: this.picked.lon, address: this.picked.address } : {}),
+            width: DEFAULT_PARCEL_WIDTH_M,
+            depth: DEFAULT_PARCEL_DEPTH_M,
+        });
+        if (!siteOk) {
+            this.dispose();
+            return;
+        }
+        this.renderGenerateConfirmStep('default-plot');
+    }
+
+    /** Default-rectangle fallback used by HARD-ERROR paths (e.g. start threw).
+     *  Creates the Site (with location if we have one) then generates — no confirm,
+     *  because in these paths the overlay may be unusable. Idempotent-ish: guarded
      *  by `disposed`. */
     private async fallbackDefaultRectAndGenerate(reason: string): Promise<void> {
         if (this.disposed) return;
