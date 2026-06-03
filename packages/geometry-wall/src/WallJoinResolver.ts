@@ -205,6 +205,71 @@ export class WallJoinResolver {
         return result;
     }
 
+    // ── §WJR-INVALID — durable degenerate-wall flag (A.WJ.MULTICLUSTER) ───────
+
+    /**
+     * §WJR-INVALID — flag a wall the resolver cannot validly join as `invalid`
+     * in the result map, carrying a human-readable reason, and preserve its
+     * current baseline so the record is well-formed. The mesh builder
+     * (WallFragmentBuilder.buildWall) reads `JoinData.invalid` FIRST and skips
+     * the wall's geometry build by intent — logging once which wall was skipped —
+     * instead of relying on the consumer's defensive non-finite/near-zero
+     * baseline sniff (which remains as a backstop).
+     *
+     * Covers every degeneracy vector reachable at resolve time: a self-cluster
+     * wall (both endpoints in one junction), a diff-thickness offset that even
+     * the clean-butt fallback cannot rescue, and a zero/near-zero-length or
+     * non-finite baseline. Idempotent — re-flagging keeps the first reason.
+     */
+    private static _flagInvalid(
+        wallId: string,
+        bl:     Map<string, [THREE.Vector3, THREE.Vector3]>,
+        result: Map<string, JoinData>,
+        reason: string,
+    ): void {
+        const existing = result.get(wallId);
+        const curBL = bl.get(wallId);
+        // Preserve the wall's current baseline (un-trimmed for self-cluster, or
+        // whatever the partial trim produced) so the flagged record is shaped
+        // exactly like a normal JoinData — only `invalid` differs.
+        const baseLine: [THREE.Vector3, THREE.Vector3] =
+            existing?.baseLine ??
+            (curBL ? [curBL[0].clone(), curBL[1].clone()] : [new THREE.Vector3(), new THREE.Vector3()]);
+        const adj: JoinData = existing ?? { baseLine, startMN: null, endMN: null };
+        adj.baseLine = baseLine;
+        if (!adj.invalid) {
+            adj.invalid = true;
+            adj.invalidReason = reason;
+        }
+        result.set(wallId, adj);
+    }
+
+    /**
+     * §WJR-INVALID — flag a wall invalid ONLY when its CURRENT (un-trimmed)
+     * baseline is itself degenerate: non-finite coordinate OR length below
+     * `minLen`. Used at the diff-thickness refusal points, where the trim is
+     * abandoned and the wall is left at its source baseline — we must not flag a
+     * perfectly good long wall just because one trim was refused, but a wall
+     * whose own input is already zero-length / NaN must be skipped by intent.
+     */
+    private static _flagInvalidIfDegenerate(
+        wallId: string,
+        bl:     Map<string, [THREE.Vector3, THREE.Vector3]>,
+        result: Map<string, JoinData>,
+        minLen: number,
+        reason: string,
+    ): void {
+        const curBL = bl.get(wallId);
+        if (!curBL) return;
+        const [s, e] = curBL;
+        const finite =
+            Number.isFinite(s.x) && Number.isFinite(s.y) && Number.isFinite(s.z) &&
+            Number.isFinite(e.x) && Number.isFinite(e.y) && Number.isFinite(e.z);
+        if (!finite || s.distanceTo(e) < minLen) {
+            this._flagInvalid(wallId, bl, result, reason);
+        }
+    }
+
     // ── §MULTI-CLUSTER — Multi-wall junction pre-pass ─────────────────────────
 
     /**
@@ -430,8 +495,18 @@ export class WallJoinResolver {
             for (const ep of endpoints) {
                 // §SELF-CLUSTER-GUARD: skip walls whose BOTH endpoints are in
                 // this cluster. Trimming either end would collapse the wall.
+                //
+                // §WJR-INVALID (Jun 2026 — durable layer): rather than silently
+                // leaving the wall untrimmed (relying on the consumer's NaN sniff
+                // to notice the resulting degenerate geometry), explicitly FLAG it
+                // invalid in the result map. The mesh builder then skips its build
+                // BY INTENT — and we KNOW (via the flag/log) which walls were
+                // skipped. The original baseline is preserved in the flagged record
+                // so a later valid rebuild (e.g. after the user fixes the topology)
+                // can restore it.
                 if (_selfClusterWallIds.has(ep.wallId)) {
                     _cntSkippedSelfCluster++;
+                    this._flagInvalid(ep.wallId, bl, result, 'self-cluster');
                     continue;
                 }
 
@@ -1016,6 +1091,14 @@ export class WallJoinResolver {
                     `sub=${subordinateEp.wallId}(${subordinateEp.side}) newLen=${newSubLen.toFixed(4)} ` +
                     `(MIN=${MIN_LEN})`
                 );
+                // §WJR-INVALID (durable layer): the trim would collapse a wall
+                // below MIN_LEN and we are leaving it un-trimmed. If a wall is
+                // ALREADY degenerate at its current baseline (the zero-length /
+                // self-overlapping input vector), flag it so the builder skips it
+                // by intent rather than relying on the NaN sniff. A wall whose
+                // un-trimmed baseline is still long stays renderable as-is.
+                this._flagInvalidIfDegenerate(dominantEp.wallId, bl, result, MIN_LEN, 'diff-thickness-collapse');
+                this._flagInvalidIfDegenerate(subordinateEp.wallId, bl, result, MIN_LEN, 'diff-thickness-collapse');
                 return;
             }
 
@@ -1062,6 +1145,10 @@ export class WallJoinResolver {
                         `[WJR-DIFF-THICKNESS] (option-B butt) §WJR-NAN-GUARD — clean-butt ` +
                         `fallback still degenerate, REFUSING trim for sub=${subordinateEp.wallId}`
                     );
+                    // §WJR-INVALID (durable layer): even the clean butt cannot
+                    // rescue the subordinate (its source baseline is itself near-
+                    // zero / non-finite). Flag it so the builder skips it by intent.
+                    this._flagInvalidIfDegenerate(subordinateEp.wallId, bl, result, MIN_LEN, 'diff-thickness-nan');
                     return;
                 }
             }
