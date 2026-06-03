@@ -181,6 +181,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                                     // A.8.c.f.2 — capture the bbox so the 2D Hektar
                                     // map can fit the exact plot when opened.
                                     lastGeocodeFrame = { lat: result.lat, lon: result.lon, bbox: result.bbox };
+                                    // We fly to the exact plot bbox below; the geocode
+                                    // box ALSO dispatches site.updateLocation, which the
+                                    // CesiumViewport subscribes to. Tell it to skip the
+                                    // resulting (coarser, point-altitude) re-fly so we
+                                    // don't double-fly — this bbox framing is better.
+                                    cesiumViewport?.suppressNextSiteLocationFly?.();
                                     if (result.bbox) {
                                         const [w, s, e, n] = result.bbox;
                                         viewer.camera.flyTo({
