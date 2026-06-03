@@ -172,7 +172,7 @@ export class ParcelBoundarySceneRenderer {
             obj.layers.set(EDITOR_LAYER);
             // Belt-and-braces: even if a raycaster enables EDITOR_LAYER, these
             // objects never report an intersection.
-            (obj as { raycast?: () => void }).raycast = () => {};
+            (obj as unknown as { raycast: () => void }).raycast = () => {};
             obj.renderOrder = 0;
         });
 
