@@ -1,6 +1,7 @@
 # PRYZM — Planning System & Cadence
 
-> **Stamp**: 2026-06-01 · **Status**: CANONICAL (META)
+> **Stamp**: 2026-06-03 · **Status**: CANONICAL (META)
+> **Reconciled 2026-06-03**: legacy-path repoints (master-implementation-plan / master-architecture-and-capabilities / geospatial-foundation live only under `legacy/superseded-2026-06-01/`); future-doc markers added; contract count refreshed (51, C51 exists).
 > **Authority**: this doc defines **how PRYZM plans work** — the five horizons, the document types per horizon, the update cadence per horizon, the authority order between horizons, and the relationship to contracts + ADRs + specs.
 > **Read this first** before consuming any other plan in `03-execution/plans/`.
 
@@ -61,16 +62,16 @@ docs/03-execution/plans/
 ├─ typology-expansion-roadmap.md            ← H2 sibling — the multi-typology vision
 │
 ├─ annual-2026.md                           ← H3 — this year
-├─ annual-2027.md                           ← H3 — next year (lower detail)
+├─ annual-2027.md                           ← H3 — next year (future, not yet authored)
 │
 ├─ quarterly-2026-Q3.md                     ← H4 — current quarter
 ├─ quarterly-2026-Q4.md                     ← H4 — next quarter
-├─ quarterly-2027-Q1.md                     ← H4 — quarter after
+├─ quarterly-2027-Q1.md                     ← H4 — quarter after (future, not yet authored)
 │
-├─ master-implementation-plan.md            ← legacy synthesis; kept for context
-├─ master-architecture-and-capabilities.md  ← capability map (companion)
+├─ legacy/superseded-2026-06-01/master-implementation-plan-2026-05-31.md       ← legacy synthesis; kept for archeology
+├─ legacy/superseded-2026-06-01/master-architecture-and-capabilities-2026-06-01.md ← capability map (legacy companion)
 │
-└─ <legacy + topic-specific plans>          ← apartment/, geospatial-foundation.md, etc.
+└─ <legacy + topic-specific plans>          ← apartment/, legacy/superseded-2026-06-01/geospatial-foundation.md, etc.
 
 docs/03-execution/status/sprints/
 └─ YYYY-MM-sprint-NN.md                     ← H5 — per-sprint plans + retros
@@ -185,11 +186,11 @@ The lifecycle of any plan in this system:
 | [roadmap-enterprise-delivery.md](./roadmap-enterprise-delivery.md) | H2 sibling — customer onboarding for 1000s |
 | [annual-2026.md](./annual-2026.md) | H3 — current-year commitments |
 | [quarterly-2026-Q3.md](./quarterly-2026-Q3.md) | H4 — current quarter |
-| [master-implementation-plan.md](./master-implementation-plan.md) | Legacy synthesis (pre-2026-06-01) — kept for context |
+| [legacy/superseded-2026-06-01/master-implementation-plan-2026-05-31.md](./legacy/superseded-2026-06-01/master-implementation-plan-2026-05-31.md) | Legacy synthesis (pre-2026-06-01) — kept for archeology; not current |
 | [../../01-strategy/product-vision.md](../../01-strategy/product-vision.md) | Strategy upstream (what + why) |
 | [../../01-strategy/architecture.md](../../01-strategy/architecture.md) | System shape |
-| [../../02-decisions/contracts/](../../02-decisions/contracts/) | 49 binding contracts |
+| [../../02-decisions/contracts/](../../02-decisions/contracts/) | 51 binding contracts (C01–C51; C51 = apex/app split per ADR-055) |
 
 ---
 
-*End — PRYZM Planning System & Cadence, 2026-06-01 — CANONICAL.*
+*End — PRYZM Planning System & Cadence, 2026-06-03 (reconciled to ADR-055/C51) — CANONICAL.*
