@@ -52,6 +52,7 @@
 
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { createSiteFromRect } from '../site/createSiteFromRect.js';
+import { resolveSiteContext, ensureSite, dispatchSiteLocation } from '../site/siteDispatch.js';
 import { geocodeAddress } from '../site/geocodeAddress.js';
 import { generateApartmentFromBoundary } from '../apartment-layout/apartmentFromBoundary.js';
 
@@ -404,33 +405,29 @@ class OnboardingStepController {
      * with width/depth 0-area-safe defaults that we immediately overwrite on draw).
      */
     private async startDrawThenGenerate(): Promise<void> {
-        // 1) Anchor the Site location up front so the draw tool's getSiteOrigin()
-        //    can project the drawn lat/lon ring. We create the Site WITH the
-        //    location now; the default rectangle it also authors is harmless — the
-        //    user's committed draw fires `site.setParcelBoundary` again, and the
-        //    boundary-set listener below picks up THAT (post-create) event.
-        //
-        //    NOTE: site.setParcelBoundary is one-shot/immutable post-set (§1.4), so
-        //    if the create-time rectangle "wins", the drawn boundary may be
-        //    rejected by the store. We therefore create the Site with location but
-        //    WITHOUT pre-authoring the rectangle is not possible via
-        //    createSiteFromRect (it always authors one). To keep this slice safe +
-        //    within the existing dispatch path, we accept that today the draw path
-        //    still anchors location via createSiteFromRect; if the store rejects the
-        //    re-set, the watchdog/default still yields a valid result. This is the
-        //    flagged browser-verification seam.
-        const haveLocation = !!this.picked;
-        if (haveLocation) {
-            console.log('[onboarding-step] anchoring Site location before draw.');
-            // Author location only — re-use createSiteFromRect for its location
-            // dispatch; the rectangle it also sets is the fallback boundary.
-            this.createSite({
-                lat: this.picked!.lat,
-                lon: this.picked!.lon,
-                address: this.picked!.address,
-                width: DEFAULT_PARCEL_WIDTH_M,
-                depth: DEFAULT_PARCEL_DEPTH_M,
-            });
+        // 1) Anchor the Site (location only, NO boundary) up front, so:
+        //    (a) the draw tool's getSiteOrigin() can project the drawn lat/lon ring;
+        //    (b) the user's committed draw is the FIRST `site.setParcelBoundary`, so
+        //        the one-shot/immutable rule (C19 §1.4) does NOT reject it.
+        //    We deliberately do NOT call createSiteFromRect here (it always authors
+        //    a rectangle boundary, which would "win" and block the drawn one — the
+        //    bug flagged in the O.2 build). dispatchSiteLocation creates the Site +
+        //    sets location with no boundary; ensureSite creates a 0/0 Site when the
+        //    user skipped the location step. The draw tool then owns the boundary.
+        const ctx = resolveSiteContext(this.runtime);
+        if (ctx) {
+            if (this.picked) {
+                console.log('[onboarding-step] anchoring Site location (no boundary) before draw.');
+                dispatchSiteLocation(ctx, {
+                    latitude: this.picked.lat,
+                    longitude: this.picked.lon,
+                    siteAddress: this.picked.address ?? null,
+                });
+            } else {
+                // No location picked — still create the Site so the draw can set the
+                // first boundary + getSiteOrigin falls back to the first vertex.
+                ensureSite(ctx);
+            }
         }
 
         // 2) Arm the boundary-set listener + watchdog BEFORE starting the draw so
