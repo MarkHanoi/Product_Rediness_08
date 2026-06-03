@@ -11,6 +11,7 @@ import { ApartmentLayoutController, requestApartmentLayout } from './ApartmentLa
 import { ApartmentLayoutExecutor } from './ApartmentLayoutExecutor.js';
 import { gatherLayoutPayload } from './gatherLayoutPayload.js';
 import { resolveActiveLevelId } from './activeLevel.js';
+import { generateApartmentFromScratch, type ApartmentFromScratchOptions } from './apartmentFromScratch.js';
 
 const _controller = new ApartmentLayoutController();
 const _executor = new ApartmentLayoutExecutor();
@@ -70,7 +71,8 @@ export function triggerApartmentLayout(runtimeArg?: PryzmRuntime | null): void {
  *  architect can discover the full toolkit without grepping the source. */
 function showApartmentHelp(): void {
     const rows: readonly { cmd: string; desc: string }[] = [
-        { cmd: 'pryzmGenerateApartmentLayout()', desc: 'Generate AI apartment layouts for the active level (opens the §11 modal).' },
+        { cmd: 'pryzmGenerateApartmentLayout()', desc: 'Generate AI apartment layouts for the active level (opens the §11 modal). Needs a ≥3-wall shell.' },
+        { cmd: 'pryzmGenerateApartmentFromScratch()', desc: 'Draw a default 10×8 m shell (or pass {width,depth} / {footprint:[{x,z}…]}) THEN generate — no pre-drawn walls needed (A.5.g.2).' },
         { cmd: 'pryzmFloorAllRooms()',           desc: 'Apply floor finish per room type — timber in living/bedroom, tile in kitchen/bathroom (#34).' },
         { cmd: 'pryzmCeilAllRooms()',            desc: 'Auto-build a ceiling slab in every ceilable room on the active level (D-CE).' },
         { cmd: 'pryzmFurnishAllRooms()',         desc: 'Auto-furnish every furnishable room on the active level (D-FLE).' },
@@ -90,7 +92,10 @@ function showApartmentHelp(): void {
  *  + `window.pryzmShowApartmentHelp()`. */
 export function installApartmentLayoutConsoleTrigger(runtime: PryzmRuntime | null): void {
     window.pryzmGenerateApartmentLayout = () => triggerApartmentLayout(runtime);
+    window.pryzmGenerateApartmentFromScratch = (opts?: ApartmentFromScratchOptions) =>
+        void generateApartmentFromScratch(runtime, opts);
     window.pryzmShowApartmentHelp = showApartmentHelp;
     console.log('[apartment-layout] console command ready — run pryzmGenerateApartmentLayout() to generate.');
+    console.log('[apartment-from-scratch] console command ready — run pryzmGenerateApartmentFromScratch() to draw a default 10×8 m shell + generate (or pass {width,depth} / {footprint:[{x,z}…]}).');
     console.log('[apartment-layout] §HELP console command ready — run pryzmShowApartmentHelp() to list every pryzm…() command.');
 }
