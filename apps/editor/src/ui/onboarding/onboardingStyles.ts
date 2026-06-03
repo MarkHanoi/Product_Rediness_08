@@ -1,16 +1,24 @@
 // A.5.f — styling for the re-mounted RAC onboarding canvas (RACChatbotPanel)
 // and the O.2 onboarding STEP controller (location → draw → generate).
 //
-// BRAND (tested defects — founder review 2026-06-03)
-// --------------------------------------------------
-// PRYZM is WHITE + PURPLE (#6600FF) — "we don't use black". The earlier dark
-// cards (`#14141c` / `rgba(8,8,14,…)`) were a brand violation and the panels were
-// too big. This stylesheet now matches the on-brand AuthModal / ProjectHub
-// visual language: a near-white frosted card, #6600FF purple accents, dark text
-// on light, and restrained (compact) sizing. Reference: AUTH_MODAL_STYLES
-// (`src/ui/styles/panels/authModals.ts`) — white card, 420px max-width, dark
-// charcoal text (#111), violet-soft accents. Brand purple is the unified #6600FF
-// (Contract §41 / PreviewStyle).
+// BRAND + GLASS (tested defects — founder review 2026-06-03)
+// ----------------------------------------------------------
+// PRYZM is WHITE + PURPLE (#6600FF) — "we don't use black". The cards are a
+// translucent FROSTED GLASS panel (MasterMiawW ConversationCanvas reference):
+// a semi-transparent white background + `backdrop-filter: blur(24px)` so the
+// canvas/map shows through, a hairline #6600FF border, and a soft purple shadow.
+// Dark charcoal text (#111) keeps contrast readable on the frosted card.
+//
+// The earlier opaque-white cards (`rgba(255,255,255,0.94)`) were too solid AND
+// too TALL — they reserved a big empty vertical box (fixed/min message area +
+// `flex:1` body). Per founder feedback the panels now SIZE TO THEIR CONTENT:
+// no min-heights, the transcript/body grow with content (capped by max-height +
+// scroll), and paddings are tighter. Net: smaller, denser, glassy cards.
+//
+// CHROME (this session): the panels are DRAGGABLE by their header (makeDraggable,
+// cursor:move) and RESIZABLE via a bottom-right grip (makeResizable). The shared
+// `.vg-panel--dragging` / `.vg-panel--resizing` classes are toggled by those
+// helpers; the grip visuals + drag cursor live here (§05 §7 — no separate <style>).
 
 export const ONBOARDING_STYLES = `
 .rac-onboarding-overlay {
@@ -19,16 +27,20 @@ export const ONBOARDING_STYLES = `
   z-index: 1200;
   display: flex;
   flex-direction: column;
-  width: min(440px, 92vw);
-  max-height: 82vh;
+  width: min(420px, 92vw);
+  /* Content-sized: cap height so a long transcript scrolls, but DON'T reserve a
+     tall empty box up-front. The card is only as tall as its content until the cap. */
+  height: auto;
+  max-height: min(72vh, 620px);
   margin: auto;
-  background: rgba(255, 255, 255, 0.94);
-  backdrop-filter: blur(28px) saturate(1.6);
-  -webkit-backdrop-filter: blur(28px) saturate(1.6);
+  /* Frosted glass (MasterMiawW): translucent white + blur so the canvas shows through. */
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
   color: #1a1a2e;
-  border: 1px solid rgba(102, 0, 255, 0.14);
+  border: 1px solid rgba(102, 0, 255, 0.12);
   border-radius: 16px;
-  box-shadow: 0 24px 60px rgba(60, 20, 120, 0.18), 0 4px 16px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 20px 50px rgba(60, 20, 120, 0.20), 0 2px 10px rgba(0, 0, 0, 0.06);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   overflow: hidden;
 }
@@ -36,48 +48,58 @@ export const ONBOARDING_STYLES = `
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+  gap: 0.6rem;
+  padding: 0.55rem 0.85rem;
+  border-bottom: 1px solid rgba(102, 0, 255, 0.08);
   background: linear-gradient(180deg, rgba(102, 0, 255, 0.06), transparent);
+  cursor: move; /* draggable by the header (makeDraggable) */
+  user-select: none;
 }
 .rac-onboarding-overlay .rac-title {
   margin: 0;
-  font-size: 0.98rem;
+  font-size: 0.95rem;
   font-weight: 800;
   letter-spacing: -0.01em;
   color: #111;
 }
 .rac-onboarding-overlay .rac-phase-chip {
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  padding: 0.22rem 0.55rem;
+  padding: 0.2rem 0.5rem;
   border-radius: 999px;
-  background: rgba(102, 0, 255, 0.08);
+  background: rgba(102, 0, 255, 0.10);
   color: #6600ff;
   border: 1px solid rgba(102, 0, 255, 0.22);
 }
 .rac-onboarding-overlay .rac-transcript {
-  flex: 1 1 auto;
+  /* GROW with messages, don't reserve an empty box: no flex-grow, no min-height.
+     The card shrinks to fit 0-1 turns and only scrolls past the max-height cap. */
+  flex: 0 1 auto;
   overflow-y: auto;
-  padding: 1rem;
+  padding: 0.7rem 0.85rem;
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.45rem;
+}
+.rac-onboarding-overlay .rac-transcript-empty {
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: #2a2440;
+  font-weight: 600;
 }
 .rac-onboarding-overlay .rac-turn {
   max-width: 85%;
-  padding: 0.55rem 0.8rem;
+  padding: 0.5rem 0.75rem;
   border-radius: 12px;
-  line-height: 1.45;
-  font-size: 0.9rem;
+  line-height: 1.4;
+  font-size: 0.88rem;
 }
 .rac-onboarding-overlay .rac-turn--assistant {
   align-self: flex-start;
-  background: #f5f4fb;
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(245, 244, 251, 0.85);
+  border: 1px solid rgba(102, 0, 255, 0.08);
   color: #1a1a2e;
 }
 .rac-onboarding-overlay .rac-turn--user {
@@ -85,55 +107,68 @@ export const ONBOARDING_STYLES = `
   background: #6600ff;
   color: #fff;
 }
+.rac-onboarding-overlay .rac-turn-speaker {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.6;
+  margin-bottom: 0.1rem;
+}
 .rac-onboarding-overlay .rac-suggestions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem;
-  padding: 0 1rem 0.5rem;
+  gap: 0.4rem;
+  padding: 0 0.85rem 0.45rem;
 }
-.rac-onboarding-overlay .rac-suggestion {
-  padding: 0.35rem 0.75rem;
+.rac-onboarding-overlay .rac-suggestion,
+.rac-onboarding-overlay .rac-chip {
+  padding: 0.32rem 0.7rem;
   border-radius: 999px;
-  background: rgba(102, 0, 255, 0.06);
+  background: rgba(102, 0, 255, 0.08);
   border: 1px solid rgba(102, 0, 255, 0.22);
   color: #6600ff;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
 }
-.rac-onboarding-overlay .rac-suggestion:hover {
+.rac-onboarding-overlay .rac-suggestion:hover,
+.rac-onboarding-overlay .rac-chip:hover {
   border-color: #6600ff;
-  background: rgba(102, 0, 255, 0.12);
+  background: rgba(102, 0, 255, 0.14);
 }
 .rac-onboarding-overlay .rac-summary {
-  padding: 0 1rem;
-  font-size: 0.82rem;
-  color: rgba(0, 0, 0, 0.45);
+  padding: 0 0.85rem;
+  font-size: 0.78rem;
+  color: rgba(20, 10, 40, 0.55);
 }
+.rac-onboarding-overlay .rac-summary:empty { display: none; }
 .rac-onboarding-overlay .rac-error {
-  margin: 0 1rem 0.5rem;
-  padding: 0.5rem 0.7rem;
+  margin: 0 0.85rem 0.45rem;
+  padding: 0.45rem 0.65rem;
   border-radius: 8px;
-  background: rgba(185, 28, 28, 0.06);
-  border: 1px solid rgba(185, 28, 28, 0.18);
+  background: rgba(185, 28, 28, 0.08);
+  border: 1px solid rgba(185, 28, 28, 0.20);
   color: #b91c1c;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
 }
 .rac-onboarding-overlay .rac-input-row {
   display: flex;
-  gap: 0.5rem;
-  padding: 0.85rem 1rem;
-  border-top: 1px solid rgba(0, 0, 0, 0.07);
-  background: rgba(250, 250, 252, 0.8);
+  gap: 0.45rem;
+  padding: 0.6rem 0.85rem;
+  border-top: 1px solid rgba(102, 0, 255, 0.08);
+  background: rgba(250, 250, 252, 0.55);
 }
 .rac-onboarding-overlay .rac-input {
   flex: 1 1 auto;
-  padding: 0.6rem 0.85rem;
+  min-width: 0;
+  padding: 0.55rem 0.8rem;
   border-radius: 10px;
   border: 1px solid rgba(0, 0, 0, 0.12);
-  background: #fafafa;
+  background: rgba(255, 255, 255, 0.85);
   color: #111;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
 }
 .rac-onboarding-overlay .rac-input:focus-visible {
   outline: none;
@@ -142,7 +177,7 @@ export const ONBOARDING_STYLES = `
   box-shadow: 0 0 0 3px rgba(102, 0, 255, 0.18);
 }
 .rac-onboarding-overlay .rac-send {
-  padding: 0.6rem 1rem;
+  padding: 0.55rem 0.95rem;
   border-radius: 10px;
   border: none;
   background: #6600ff;
@@ -153,25 +188,25 @@ export const ONBOARDING_STYLES = `
 .rac-onboarding-overlay .rac-send:hover { background: #5500dd; }
 
 /* ── O.2 — Onboarding STEP CONTROLLER overlay (os-*) ───────────────────────────
-   The guided location → draw-or-skip → generate flow. On-brand WHITE card with
-   #6600FF purple accents and dark text — matches AuthModal / ProjectHub. Compact
-   sizing (max-width 420px) per the founder's "too big" feedback. */
+   The guided location → draw-or-skip → generate flow. Same frosted-glass card +
+   #6600FF accents, content-sized (no min-heights), draggable + resizable. */
 .os-onboarding-overlay {
   position: fixed;
   inset: 0;
   z-index: 1250;
   display: flex;
   flex-direction: column;
-  width: min(420px, 92vw);
-  max-height: 82vh;
+  width: min(400px, 92vw);
+  height: auto;
+  max-height: min(72vh, 600px);
   margin: auto;
-  background: rgba(255, 255, 255, 0.94);
-  backdrop-filter: blur(28px) saturate(1.6);
-  -webkit-backdrop-filter: blur(28px) saturate(1.6);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
   color: #1a1a2e;
-  border: 1px solid rgba(102, 0, 255, 0.14);
+  border: 1px solid rgba(102, 0, 255, 0.12);
   border-radius: 16px;
-  box-shadow: 0 24px 60px rgba(60, 20, 120, 0.18), 0 4px 16px rgba(0, 0, 0, 0.08), 0 0 0 100vmax rgba(30, 10, 70, 0.32);
+  box-shadow: 0 20px 50px rgba(60, 20, 120, 0.20), 0 2px 10px rgba(0, 0, 0, 0.06), 0 0 0 100vmax rgba(30, 10, 70, 0.28);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   overflow: hidden;
 }
@@ -179,70 +214,74 @@ export const ONBOARDING_STYLES = `
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.8rem 1rem;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+  gap: 0.6rem;
+  padding: 0.6rem 0.85rem;
+  border-bottom: 1px solid rgba(102, 0, 255, 0.08);
   background: linear-gradient(180deg, rgba(102, 0, 255, 0.06), transparent);
+  cursor: move; /* draggable by the header (makeDraggable) */
+  user-select: none;
 }
 .os-onboarding-overlay .os-title {
   margin: 0;
-  font-size: 0.98rem;
+  font-size: 0.95rem;
   font-weight: 800;
   letter-spacing: -0.01em;
   color: #111;
 }
 .os-onboarding-overlay .os-step-chip {
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  padding: 0.22rem 0.55rem;
+  padding: 0.2rem 0.5rem;
   border-radius: 999px;
-  background: rgba(102, 0, 255, 0.08);
+  background: rgba(102, 0, 255, 0.10);
   color: #6600ff;
   border: 1px solid rgba(102, 0, 255, 0.22);
   white-space: nowrap;
 }
 .os-onboarding-overlay .os-body {
-  flex: 1 1 auto;
+  /* Content-sized: no flex-grow, no min-height; scroll only past the cap. */
+  flex: 0 1 auto;
   overflow-y: auto;
-  padding: 1rem;
+  padding: 0.8rem 0.85rem 0.9rem;
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.45rem;
 }
 .os-onboarding-overlay .os-prompt {
   margin: 0;
-  font-size: 1.02rem;
+  font-size: 0.98rem;
   font-weight: 700;
   letter-spacing: -0.01em;
   color: #111;
 }
 .os-onboarding-overlay .os-hint {
   margin: 0;
-  font-size: 0.84rem;
-  color: rgba(0, 0, 0, 0.48);
-  line-height: 1.45;
+  font-size: 0.82rem;
+  color: rgba(20, 10, 40, 0.58);
+  line-height: 1.4;
 }
 .os-onboarding-overlay .os-status {
-  margin: 0.2rem 0 0;
-  font-size: 0.82rem;
+  margin: 0.15rem 0 0;
+  font-size: 0.8rem;
   font-weight: 600;
   color: #6600ff;
 }
 .os-onboarding-overlay .os-input-row {
   display: flex;
-  gap: 0.5rem;
-  margin-top: 0.4rem;
+  gap: 0.45rem;
+  margin-top: 0.3rem;
 }
 .os-onboarding-overlay .os-input {
   flex: 1 1 auto;
-  padding: 0.6rem 0.85rem;
+  min-width: 0;
+  padding: 0.55rem 0.8rem;
   border-radius: 10px;
   border: 1px solid rgba(0, 0, 0, 0.12);
-  background: #fafafa;
+  background: rgba(255, 255, 255, 0.85);
   color: #111;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
 }
 .os-onboarding-overlay .os-input:focus-visible {
   outline: none;
@@ -251,11 +290,11 @@ export const ONBOARDING_STYLES = `
   box-shadow: 0 0 0 3px rgba(102, 0, 255, 0.18);
 }
 .os-onboarding-overlay .os-btn {
-  padding: 0.6rem 1rem;
+  padding: 0.55rem 0.95rem;
   border-radius: 10px;
   border: none;
   font-weight: 700;
-  font-size: 0.86rem;
+  font-size: 0.85rem;
   cursor: pointer;
 }
 .os-onboarding-overlay .os-btn--primary { background: #6600ff; color: #fff; }
@@ -270,51 +309,46 @@ export const ONBOARDING_STYLES = `
 .os-onboarding-overlay .os-choices {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  margin-top: 0.4rem;
+  gap: 0.4rem;
+  margin-top: 0.3rem;
 }
 .os-onboarding-overlay .os-choice {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.15rem;
   text-align: left;
-  padding: 0.75rem 0.9rem;
+  padding: 0.6rem 0.8rem;
   border-radius: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.10);
-  background: #fafafa;
+  border: 1px solid rgba(102, 0, 255, 0.10);
+  background: rgba(255, 255, 255, 0.55);
   color: #1a1a2e;
   cursor: pointer;
 }
 .os-onboarding-overlay .os-choice:hover {
   border-color: #6600ff;
-  background: rgba(102, 0, 255, 0.05);
+  background: rgba(102, 0, 255, 0.06);
   box-shadow: 0 0 0 3px rgba(102, 0, 255, 0.12);
 }
-.os-onboarding-overlay .os-choice-title { font-size: 0.94rem; font-weight: 700; color: #111; }
-.os-onboarding-overlay .os-choice-desc { font-size: 0.82rem; color: rgba(0, 0, 0, 0.46); line-height: 1.4; }
+.os-onboarding-overlay .os-choice-title { font-size: 0.92rem; font-weight: 700; color: #111; }
+.os-onboarding-overlay .os-choice-desc { font-size: 0.8rem; color: rgba(20, 10, 40, 0.52); line-height: 1.35; }
 .os-onboarding-overlay .os-footer {
   display: flex;
   justify-content: flex-start;
-  margin-top: 0.6rem;
+  margin-top: 0.45rem;
 }
 
 /* ── DRAW phase — NON-BLOCKING presentation (tested defect fix) ─────────────────
-   During "STEP 2 OF 3 · DRAW YOUR PLOT" the user must SEE and CLICK the map to
-   trace their plot. So the overlay stops being a centered modal-with-backdrop and
-   becomes a slim instruction banner docked to the BOTTOM-CENTER edge:
-     • NO full-screen backdrop (drop the 100vmax box-shadow) — the map stays visible;
-     • the overlay shrinks to fit its content and is anchored bottom-center, so it
-       does NOT cover the center of the map;
-     • pointer events fall through to the map everywhere EXCEPT the banner itself —
-       the container is pointer-events:none, the banner card re-enables them. This
-       means clicks/drags to draw corners reach SiteBoundaryMap2D underneath.
-   The banner is on-brand white + purple (no dark card) and compact. */
+   During "DRAW YOUR PLOT" the user must SEE and CLICK the map. The overlay stops
+   being a centered modal-with-backdrop and becomes a slim instruction banner
+   docked bottom-center; pointer events fall through to the map everywhere except
+   the banner card. The banner is glass too. While drawing the panel is NOT
+   draggable/resizable (it's docked) — those affordances only apply to the modal
+   presentations. */
 .os-onboarding-overlay.os-onboarding-overlay--drawing {
-  /* Container spans the viewport but is click-through; only the banner inside is
-     interactive (see below). Anchor the banner to the bottom edge. */
   inset: auto 0 0 0;
   top: auto;
   width: 100vw;
+  height: auto;
   max-width: none;
   max-height: none;
   margin: 0;
@@ -326,27 +360,28 @@ export const ONBOARDING_STYLES = `
   border-radius: 0;
   box-shadow: none;
   overflow: visible;
-  align-items: center;          /* center the banner horizontally */
-  pointer-events: none;         /* let clicks pass through to the map */
+  align-items: center;
+  pointer-events: none;
 }
 /* The visible banner card — re-enables pointer events for its own controls only. */
 .os-onboarding-overlay.os-onboarding-overlay--drawing .os-header,
 .os-onboarding-overlay.os-onboarding-overlay--drawing .os-body {
   pointer-events: auto;
   width: min(560px, 94vw);
-  background: rgba(255, 255, 255, 0.96);
-  backdrop-filter: blur(20px) saturate(1.5);
-  -webkit-backdrop-filter: blur(20px) saturate(1.5);
-  border: 1px solid rgba(102, 0, 255, 0.16);
+  background: rgba(255, 255, 255, 0.74);
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  border: 1px solid rgba(102, 0, 255, 0.14);
 }
 .os-onboarding-overlay.os-onboarding-overlay--drawing .os-header {
   border-radius: 14px 14px 0 0;
   border-bottom: none;
-  padding: 0.5rem 0.9rem;
-  box-shadow: 0 -8px 28px rgba(60, 20, 120, 0.16);
+  padding: 0.45rem 0.85rem;
+  box-shadow: 0 -8px 26px rgba(60, 20, 120, 0.16);
+  cursor: default; /* docked banner is not draggable */
 }
 .os-onboarding-overlay.os-onboarding-overlay--drawing .os-title {
-  font-size: 0.88rem;
+  font-size: 0.86rem;
 }
 .os-onboarding-overlay.os-onboarding-overlay--drawing .os-body {
   flex: 0 0 auto;
@@ -354,44 +389,65 @@ export const ONBOARDING_STYLES = `
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  gap: 0.7rem;
-  padding: 0.6rem 0.9rem;
+  gap: 0.6rem;
+  padding: 0.55rem 0.85rem;
   border-top: none;
   border-radius: 0 0 14px 14px;
-  box-shadow: 0 8px 28px rgba(60, 20, 120, 0.16);
+  box-shadow: 0 8px 26px rgba(60, 20, 120, 0.16);
 }
 .os-onboarding-overlay.os-onboarding-overlay--drawing .os-draw-instruction {
   flex: 1 1 auto;
   margin: 0;
   color: #4a2a8a;
-  font-size: 0.84rem;
+  font-size: 0.82rem;
   white-space: normal;
 }
 .os-onboarding-overlay.os-onboarding-overlay--drawing .os-footer {
   flex: 0 0 auto;
   margin: 0;
 }
+/* The resize grip is meaningless on the docked banner — hide it while drawing. */
+.os-onboarding-overlay.os-onboarding-overlay--drawing .os-resize-grip { display: none; }
 
 /* ── O.7.1 — GENERATE-CONFIRM step (non-blocking, keeps boundary visible) ───────
-   The confirm card REUSES the non-blocking drawing presentation (no full-screen
-   backdrop → the drawn boundary stays visible behind it; pointer-events fall
-   through to the map). But unlike the slim one-line draw banner it needs a
-   vertical title + subtext + two-button layout, so the --confirm modifier
-   restores the column flow on the body and renders the actions as a button row. On-brand
-   white card + #6600FF primary, matching the compact onboarding card. */
+   Reuses the non-blocking drawing presentation but restores a vertical
+   title + subtext + two-button layout via --confirm. Glass card + #6600FF. */
 .os-onboarding-overlay.os-onboarding-overlay--drawing.os-onboarding-overlay--confirm .os-body {
   flex-direction: column;
   align-items: stretch;
   justify-content: flex-start;
-  gap: 0.5rem;
-  padding: 0.85rem 1rem 0.95rem;
+  gap: 0.45rem;
+  padding: 0.75rem 0.9rem 0.85rem;
 }
 .os-onboarding-overlay--confirm .os-confirm-actions {
   display: flex;
-  gap: 0.5rem;
-  margin-top: 0.35rem;
+  gap: 0.45rem;
+  margin-top: 0.3rem;
 }
 .os-onboarding-overlay--confirm .os-confirm-actions .os-btn {
   flex: 1 1 auto;
 }
+
+/* ── DRAG + RESIZE chrome (shared with makeDraggable / makeResizable) ───────────
+   The helpers toggle .vg-panel--dragging / .vg-panel--resizing. Suppress text
+   selection while interacting; show the grip in the bottom-right corner. */
+.vg-panel--dragging,
+.vg-panel--resizing { user-select: none; }
+.rac-onboarding-overlay .rac-resize-grip,
+.os-onboarding-overlay .os-resize-grip {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  z-index: 2;
+  /* Two short diagonal strokes — a subtle purple grip mark. */
+  background:
+    linear-gradient(135deg, transparent 0 50%, rgba(102, 0, 255, 0.5) 50% 60%, transparent 60% 100%),
+    linear-gradient(135deg, transparent 0 70%, rgba(102, 0, 255, 0.5) 70% 80%, transparent 80% 100%);
+  opacity: 0.55;
+}
+.rac-onboarding-overlay .rac-resize-grip:hover,
+.os-onboarding-overlay .os-resize-grip:hover { opacity: 0.9; }
 `;

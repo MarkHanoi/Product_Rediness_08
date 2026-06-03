@@ -36,6 +36,8 @@ import {
 } from '@pryzm/typology-pipeline';
 import type { TypologyRegistry } from '@pryzm/typology-pipeline';
 import type { PipelineBrief, UserRole } from '@pryzm/typology-pipeline';
+import { makeDraggable } from '../makeDraggable.js';
+import { makeResizable } from '../makeResizable.js';
 
 // ─── pure helpers (exported for unit tests) ──────────────────────────────────
 
@@ -126,6 +128,8 @@ export class RACChatbotPanel {
     private summaryEl: HTMLElement | null = null;
     private inputEl: HTMLInputElement | null = null;
     private errorEl: HTMLElement | null = null;
+    /** Drag + resize chrome disposers (makeDraggable / makeResizable). */
+    private chromeDisposers: Array<() => void> = [];
 
     constructor(opts: RACChatbotPanelOptions) {
         this.registry = opts.registry;
@@ -258,12 +262,33 @@ export class RACChatbotPanel {
         });
         root.appendChild(inputRow);
 
+        // ── Drag + resize chrome (founder feedback 2026-06-03) ────────────────
+        // Draggable by the header (cursor:move in CSS); inputs/buttons in the
+        // header are excluded so a click on them doesn't start a drag. The header
+        // here has no interactive children, but we pass the same exclusions for
+        // consistency + future-proofing.
+        this.chromeDisposers.push(
+            makeDraggable(root, '.rac-header', ['button', 'input', 'a']),
+        );
+        // Resizable via a bottom-right grip.
+        const grip = document.createElement('div');
+        grip.className = 'rac-resize-grip';
+        grip.setAttribute('data-testid', 'rac-resize-grip');
+        grip.setAttribute('aria-hidden', 'true');
+        root.appendChild(grip);
+        this.chromeDisposers.push(
+            makeResizable(root, grip, { minWidth: 300, minHeight: 220 }),
+        );
+
         this.render();
         return root;
     }
 
     /** Detach DOM + drop references. Idempotent. */
     dispose(): void {
+        for (const d of this.chromeDisposers.splice(0)) {
+            try { d(); } catch { /* ignore */ }
+        }
         if (this.root && this.root.parentNode) {
             this.root.parentNode.removeChild(this.root);
         }

@@ -43,6 +43,14 @@ export function makeDraggable(
         const rect         = panel.getBoundingClientRect();
         panel.style.left      = rect.left + 'px';
         panel.style.top       = rect.top  + 'px';
+        // §DRAG-SHIFT-FIX (2026-06-03): neutralise centring shorthands so the
+        // pinned left/top take FULL effect. Panels centred via `inset:0; margin:auto`
+        // (the onboarding overlays) otherwise JUMP to a side on grab because the
+        // leftover right/bottom/margin keep fighting the new left/top. Harmless for
+        // panels already positioned by left/top (right/bottom were already auto).
+        panel.style.right     = 'auto';
+        panel.style.bottom    = 'auto';
+        panel.style.margin    = '0';
         panel.style.transform = 'none';
     }
 
