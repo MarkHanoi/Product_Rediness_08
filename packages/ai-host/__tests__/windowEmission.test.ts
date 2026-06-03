@@ -9,6 +9,7 @@ import {
     isWindowable,
     WINDOW_SPECS,
     type ExternalWallSegment,
+    type OccupiedSpan,
 } from '../src/workflows/apartmentLayout/windowEmission/types.js';
 
 // A 5-metre-long horizontal wall starting at the origin.
@@ -132,6 +133,55 @@ describe('emitWindowsForRoom (T1.W-A)', () => {
             expect(ws, `${t} should emit one window`).toHaveLength(1);
             expect(ws[0]!.widthMm, `${t} preferred width`).toBe(WINDOW_SPECS[t].widthMm);
         }
+    });
+});
+
+describe('emitWindowsForRoom — door avoidance (T1.W-B-2)', () => {
+    // A 6 m wall — long enough that a living window (2 m) can slide clear of a
+    // centred door. living preferred width = 2000, centred offset would be 2000.
+    const wide = (lenMm: number, wallIndex = 0): ExternalWallSegment =>
+        ({ start: { x: 0, y: 0 }, end: { x: lenMm, y: 0 }, wallIndex });
+    const door = (wallIndex: number, startMm: number, widthMm: number): OccupiedSpan =>
+        ({ wallIndex, startMm, endMm: startMm + widthMm });
+
+    it('with no occupied spans, behaves exactly like before (centred)', () => {
+        const ws = emitWindowsForRoom('living', [wide(5000)], undefined, []);
+        expect(ws[0]!.offsetMm).toBe(1500);          // (5000 - 2000) / 2
+    });
+
+    it('slides the window clear of a centred door on the same wall (no overlap)', () => {
+        // 6 m wall; a 0.9 m door centred at 2550..3450. A 2 m living window
+        // centred at 2000..4000 would overlap → must slide clear.
+        const doors = [door(0, 2550, 900)];
+        const ws = emitWindowsForRoom('living', [wide(6000)], undefined, doors);
+        expect(ws).toHaveLength(1);
+        const w = ws[0]!;
+        const wLo = w.offsetMm, wHi = w.offsetMm + w.widthMm;
+        const dLo = 2550, dHi = 3450;
+        expect(wLo < dHi && wHi > dLo).toBe(false);   // no overlap with the door
+        expect(w.wallIndex).toBe(0);
+    });
+
+    it('falls through to the next wall when the longest is fully blocked', () => {
+        // Wall 0 (5 m) is blocked end-to-end by a door footprint spanning it;
+        // wall 1 (4 m) is clear → window lands on wall 1.
+        const walls = [wide(5000, 0), wide(4000, 1)];
+        const doors = [door(0, 100, 4800)];           // occupies almost all of wall 0
+        const ws = emitWindowsForRoom('living', walls, undefined, doors);
+        expect(ws).toHaveLength(1);
+        expect(ws[0]!.wallIndex).toBe(1);
+    });
+
+    it('returns [] when every qualifying wall is fully blocked by doors', () => {
+        const doors = [door(0, 0, 5000)];
+        const ws = emitWindowsForRoom('living', [wide(5000, 0)], undefined, doors);
+        expect(ws).toHaveLength(0);
+    });
+
+    it('ignores doors on OTHER walls', () => {
+        const doors = [door(7, 2000, 900)];           // door on an unrelated wall
+        const ws = emitWindowsForRoom('living', [wide(5000, 0)], undefined, doors);
+        expect(ws[0]!.offsetMm).toBe(1500);           // unaffected → centred
     });
 });
 

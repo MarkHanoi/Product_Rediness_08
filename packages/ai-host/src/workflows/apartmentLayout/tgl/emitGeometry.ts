@@ -16,7 +16,7 @@ import type { LayoutOption, LayoutRoom, RoomType } from '../types.js';
 import type { GraphNode, LayoutGraph } from './semanticGraph.js';
 import { occupancyOf } from '../rules/programRules.js';
 import { emitWindowsForRoom } from '../windowEmission/emitWindows.js';
-import type { ExternalWallSegment } from '../windowEmission/types.js';
+import type { ExternalWallSegment, OccupiedSpan } from '../windowEmission/types.js';
 
 export interface EmittedLayout {
     readonly option: LayoutOption;
@@ -161,6 +161,22 @@ export function emitGeometry(graph: LayoutGraph): EmittedLayout {
         (externalWallsBySpace.get(e.to) ?? externalWallsBySpace.set(e.to, []).get(e.to)!).push(seg);
     }
 
+    // T1.W-B-2 (door avoidance) — door footprints per wall index, so an emitted
+    // window is never carved over a door on the SAME wall. Each door is a
+    // Door --FILLS--> Opening --HOSTED_BY--> Wall cascade; the Opening carries
+    // offsetM + widthM. Project to mm-along-wall spans keyed by wall index.
+    const doorSpansByWall: OccupiedSpan[] = [];
+    for (const d of doorNodes) {
+        const openGuid = fillsOpening.get(d.guid);
+        const wallGuid = openGuid ? hostWall.get(openGuid) : undefined;
+        const wRef = wallGuid !== undefined ? wallIndex.get(wallGuid) : undefined;
+        const opening = openGuid ? openingByGuid.get(openGuid) : undefined;
+        if (wRef === undefined || !opening) continue;
+        const offMm = mm(num(opening.attrs.offsetM));
+        const wMm = mm(num(opening.attrs.widthM));
+        doorSpansByWall.push({ wallIndex: wRef, startMm: offMm, endMm: offMm + wMm });
+    }
+
     const windows: LayoutOption['windows'] = [];
     for (const n of spaceNodes) {
         if (n.attrs.needsWindow !== true) continue;
@@ -168,7 +184,7 @@ export function emitGeometry(graph: LayoutGraph): EmittedLayout {
         if (externals.length === 0) continue;
         const rt = (str(n.attrs.spaceType, 'utility') as RoomType);
         const roomName = str(n.attrs.name, n.sourceId);
-        const placements = emitWindowsForRoom(rt, externals, roomName);
+        const placements = emitWindowsForRoom(rt, externals, roomName, doorSpansByWall);
         for (const p of placements) {
             windows.push({
                 wallRef:    p.wallIndex,

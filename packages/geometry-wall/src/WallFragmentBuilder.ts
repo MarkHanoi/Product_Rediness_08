@@ -733,6 +733,40 @@ export class WallFragmentBuilder {
         const start = new THREE.Vector3(startPt.x, startPt.y, startPt.z);
         const end   = new THREE.Vector3(endPt.x,   endPt.y,   endPt.z);
 
+        // §WJR-INVALID (Jun 2026 — durable degenerate-wall layer, A.WJ.MULTICLUSTER):
+        // The PRIMARY mechanism. When the resolver determines a wall cannot be
+        // validly joined into a finite, non-degenerate baseline (self-cluster wall,
+        // diff-thickness offset the clean-butt fallback cannot rescue, zero-length
+        // or NaN baseline), it flags that wall's JoinData `invalid: true` with a
+        // reason. We consult that flag HERE — before any geometry op — and skip the
+        // build BY INTENT, so we KNOW which walls were skipped (logged once) instead
+        // of silently relying on the non-finite/near-zero sniff below. The §WJR-NAN-
+        // GUARD that follows remains as a belt-and-suspenders backstop for any
+        // degeneracy not flagged at resolve time (e.g. a baseline written by a path
+        // that bypasses the resolver).
+        if (joinData?.invalid) {
+            if (!wallGroup.userData.__wjrInvalidLogged) {
+                wallGroup.userData.__wjrInvalidLogged = true;
+                console.warn(
+                    `[WallJoinResolver] §WJR-INVALID skipped ${wall.id}: ` +
+                    `${joinData.invalidReason ?? 'unspecified'}`
+                );
+            }
+            // Identity + OBB-highlight userData are already synced above; leave the
+            // group with no body fragment and hide it so no degenerate geometry ever
+            // reaches the renderer / picking / CSG. Mark with the same hidden flag the
+            // NaN guard uses so a later VALID rebuild (joinData.invalid cleared) can
+            // restore visibility without clobbering level isolate/hide intent.
+            wallGroup.userData.__wjrNaNHidden = true;
+            wallGroup.visible = false;
+            return [];
+        }
+        // A previously-invalid wall that is now valid: clear the one-shot log latch
+        // so a future re-degeneration logs again.
+        if (wallGroup.userData.__wjrInvalidLogged) {
+            wallGroup.userData.__wjrInvalidLogged = false;
+        }
+
         // §WJR-NAN-GUARD (Jun 2026 — consumer safety net, diff-thickness HANG fix):
         // The synchronous load-time rebuild MUST NOT hand a non-finite or
         // near-zero-length baseline to the geometry ops below (extrude / footprint

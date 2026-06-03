@@ -158,3 +158,79 @@ describe('§WJR-NAN-GUARD — guard conditions (direct, consumer-side logic)', (
         expect(isDegenerate(start, end)).toBe(false);
     });
 });
+
+describe('§WJR-INVALID — durable flag-INVALID-and-skip (A.WJ.MULTICLUSTER)', () => {
+    // The durable layer turns the interim "silently leave untrimmed + rely on the
+    // consumer NaN sniff" behaviour into an explicit, intentful contract: the
+    // resolver FLAGS a wall it cannot validly join as `invalid` (+ reason) on its
+    // JoinData record, and the mesh builder skips it BY INTENT (consulting the
+    // flag), so we KNOW which walls were skipped. These cases assert the producer
+    // (resolver) side of that contract.
+
+    it('(d) self-cluster wall (BOTH endpoints in one junction) → flagged invalid', () => {
+        // Two long walls forming an L-corner at the origin, PLUS a short wall whose
+        // BOTH endpoints sit within snapRadius (0.5 m) of that corner. Union-Find
+        // pulls all four endpoints (A.start, B.start, short.start, short.end) into
+        // ONE cluster → the short wall contributes 2 endpoints → §SELF-CLUSTER. The
+        // durable layer must FLAG the short wall invalid rather than silently skip.
+        const wallA = makeWall([0, 0], [4, 0], 0.1);     // start at corner
+        const wallB = makeWall([0, 0], [0, 4], 0.1);     // start at corner
+        const shortSelfCluster = makeWall([0.05, 0.05], [0.12, 0.12], 0.1); // both ends near corner
+
+        const result = WallJoinResolver.resolveLevel([wallA, wallB, shortSelfCluster]) as any;
+
+        const shortAdj = result.get(shortSelfCluster.id);
+        expect(shortAdj).toBeDefined();
+        expect(shortAdj.invalid).toBe(true);
+        expect(typeof shortAdj.invalidReason).toBe('string');
+        expect(shortAdj.invalidReason).toBe('self-cluster');
+
+        // The flagged record is still well-formed (finite baseline preserved) so
+        // store write-back of { baseLine } is a no-op rather than a NaN write.
+        for (const p of shortAdj.baseLine) {
+            expect(Number.isFinite(p.x)).toBe(true);
+            expect(Number.isFinite(p.y)).toBe(true);
+            expect(Number.isFinite(p.z)).toBe(true);
+        }
+
+        // No NaN anywhere in the result (the long walls join normally).
+        expect(anyNaN(result)).toBe(false);
+    });
+
+    it('(e) a normal L-corner wall is NOT flagged invalid (no over-flagging)', () => {
+        // Two perpendicular same-thickness walls forming a clean corner. Neither
+        // is a self-cluster, neither collapses → neither may be flagged invalid.
+        const wallA = makeWall([0, 0], [4, 0], 0.1);
+        const wallB = makeWall([4, 0], [4, 4], 0.1);
+
+        const result = WallJoinResolver.resolveLevel([wallA, wallB]) as any;
+
+        for (const [, jd] of result) {
+            expect(jd.invalid).toBeFalsy();
+        }
+        // Both walls still produce a finite, non-degenerate adjusted baseline.
+        for (const [, jd] of result) {
+            const [s, e] = jd.baseLine;
+            expect(s.distanceTo(e)).toBeGreaterThan(2.5);
+        }
+    });
+});
+
+describe('§WJR-INVALID — consumer skip predicate (mirrors WallFragmentBuilder.buildWall)', () => {
+    // The builder consults JoinData.invalid FIRST (before the NaN sniff) and skips
+    // the geometry build by intent, logging once. This mirrors that predicate.
+    function shouldSkipBuild(joinData?: { invalid?: boolean } | null): boolean {
+        return !!joinData?.invalid;
+    }
+
+    it('invalid:true JoinData → build skipped', () => {
+        expect(shouldSkipBuild({ invalid: true })).toBe(true);
+    });
+
+    it('valid JoinData (no invalid flag) → build proceeds', () => {
+        expect(shouldSkipBuild({})).toBe(false);
+        expect(shouldSkipBuild(undefined)).toBe(false);
+        expect(shouldSkipBuild(null)).toBe(false);
+        expect(shouldSkipBuild({ invalid: false })).toBe(false);
+    });
+});

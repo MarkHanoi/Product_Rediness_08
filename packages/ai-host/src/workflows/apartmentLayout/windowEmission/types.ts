@@ -90,6 +90,21 @@ export interface ExternalWallSegment {
 }
 
 /**
+ * A span on a host wall already OCCUPIED by another opening — in practice a
+ * door footprint (T1.W-B-2 door avoidance). Coordinates are mm ALONG the wall
+ * from its `start` endpoint, matching `ExternalWallSegment` / WindowPlacement
+ * offsets. The window engine slides each window clear of every occupied span on
+ * the SAME `wallIndex` so a window is never carved over a door.
+ */
+export interface OccupiedSpan {
+    readonly wallIndex: number;
+    /** Opening start, mm from wall start. */
+    readonly startMm:   number;
+    /** Opening end, mm from wall start. */
+    readonly endMm:     number;
+}
+
+/**
  * A placed window emitted by the engine. Mirrors the LayoutDoor shape so
  * the wiring layer can re-use the same wall.createOpening / batch-create
  * cascade (LayoutWindow → window.createOpening hosted on wallId).
