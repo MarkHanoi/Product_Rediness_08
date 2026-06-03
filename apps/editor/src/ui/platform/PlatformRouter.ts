@@ -39,6 +39,7 @@ import { injectAppTheme } from '../styles/AppTheme';
 import { LandingPage } from './LandingPage';
 import { AuthModal } from './AuthModal';
 import { ProjectHub } from './ProjectHub';
+import { projectRepository } from './ProjectRepository';
 import { getCurrentUser, signOut, PlatformUser } from './AuthModal';
 import { UpgradeModal } from './UpgradeModal';
 import { PricingPage } from './PricingPage';
@@ -287,8 +288,11 @@ export class PlatformRouter {
             document.querySelector('[data-pryzm-skeleton="landing"]')?.remove();
             const user = getCurrentUser();
             if (user) { router.showHub(user); return; }
+            // O.1 (auth-first) — the apex "Start here" deep-link now opens AUTH
+            // first; the RAC onboarding runs post-auth for new users (the
+            // showAuth.onSuccess branch decides hub-vs-onboarding by project count).
             router.showLanding();
-            router.showOnboarding();
+            router.showAuth();
             return;
         }
         // A.5.f — `?page=signin` opens the auth modal directly (apex "Log in" →
@@ -330,10 +334,13 @@ export class PlatformRouter {
 
         this.landing = new LandingPage(this.root, {
             onGetStarted: () => {
-                // A.5.f — "Build something / Get started" enters the RAC
-                // onboarding canvas first (ADR-055 §5.2), which hands off to
-                // the auth modal once the 4-question brief is captured.
-                this.showOnboarding();
+                // O.1 (auth-first, 2026-06-03 — ONBOARDING-WORKFLOW-DESIGN) —
+                // "Get started" now opens AUTH first. Post-auth we branch
+                // (showAuth.onSuccess): returning users (have projects) → hub;
+                // first-time users → RAC onboarding. The brief is captured
+                // POST-auth so the project is owned from creation (cleaner than
+                // the prior RAC-first → brief-survives-auth path).
+                this.showAuth();
             },
             onLogin: () => {
                 // Keep landing page alive — it shows as blurred background behind auth modal
@@ -371,7 +378,10 @@ export class PlatformRouter {
                 // runtime bus (not a `window` global, per P4) so the bootstrap —
                 // and any other in-editor consumer — can seed off the conversation.
                 if (this.capturedBrief) {
+                    // Legacy RAC-first path (brief captured BEFORE auth) — still
+                    // reachable if onboarding ran while anonymous. Honor it.
                     const brief = this.capturedBrief;
+                    this.showHub(user);
                     console.log(
                         '[onboarding] post-auth — captured brief ready; emitting pryzm:onboarding-brief-ready (A.5.g.4 bootstrap auto-drives from here):',
                         { role: brief.role, typology: brief.typologyId },
@@ -381,6 +391,21 @@ export class PlatformRouter {
                         typologyId: brief.typologyId,
                         metadata: brief.metadata ?? {},
                     });
+                    return;
+                }
+
+                // O.1 (auth-first) — the post-auth branch (ONBOARDING-WORKFLOW-DESIGN
+                // §3.1): RETURNING users (have projects) land on the hub; FIRST-TIME
+                // users (no projects) go straight into RAC onboarding (no empty hub
+                // to stare at). Project count comes from the durable LOCAL list
+                // (`projectRepository`, sync) — more reliable than the volatile
+                // server list today (OI-059) and per-browser, which is the right
+                // grain for "have I used this before on this machine".
+                const hasProjects = projectRepository.listProjects().length > 0;
+                this.showHub(user);
+                if (!hasProjects) {
+                    console.log('[onboarding] first-time user (no local projects) — opening RAC onboarding post-auth (O.1).');
+                    this.showOnboarding();
                 }
             },
             onClose: () => {
@@ -509,7 +534,21 @@ export class PlatformRouter {
                 void this.captureLead(brief);
                 this.onboarding?.dispose();
                 this.onboarding = null;
-                this.showAuth();
+                // O.1 (auth-first) — onboarding now runs POST-auth, so a signed-in
+                // user is NOT shown the auth modal again: emit the brief and let
+                // A.5.g.4's bootstrap auto-drive create-project → site → generate.
+                // Only an anonymous visitor (legacy RAC-first reachability) still
+                // hands off to the auth modal.
+                if (getCurrentUser()) {
+                    console.log('[onboarding] brief captured (authed) — emitting pryzm:onboarding-brief-ready (A.5.g.4 bootstrap):', { role: brief.role, typology: brief.typologyId });
+                    this.runtime?.events?.emit('pryzm:onboarding-brief-ready', {
+                        role: brief.role,
+                        typologyId: brief.typologyId,
+                        metadata: brief.metadata ?? {},
+                    });
+                } else {
+                    this.showAuth();
+                }
             },
         });
 
