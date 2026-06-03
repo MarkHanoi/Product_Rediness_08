@@ -65,7 +65,12 @@ export class RoomBoundingLineBuilder {
     };
     root.visible = this._visible;
 
-    const color = data.properties.isActive ? ACTIVE_COLOR : INACTIVE_COLOR;
+    // §RBL-PROPS-GUARD (2026-06-03): never throw if `properties` is absent — a
+    // missing/partial boundary-line record must NOT crash the builder (it threw
+    // `Cannot read properties of undefined (reading 'isActive')` during apartment
+    // generate, breaking the batch drain → 30 s watchdog → ~80 s hang). Default to
+    // active styling when unknown.
+    const color = (data.properties?.isActive ?? true) ? ACTIVE_COLOR : INACTIVE_COLOR;
 
     // ── Dashed line ──────────────────────────────────────────────────────
     const start = new THREE.Vector3(data.placement.start.x, y, data.placement.start.z);

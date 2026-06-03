@@ -142,14 +142,23 @@ export class ParcelBoundarySceneRenderer {
         const group = new THREE.Group();
         group.name = 'pryzm-parcel-boundary-outline';
 
-        // ── Closed violet line loop ──────────────────────────────────────────
-        const positions = new Float32Array(polygon.length * 3);
+        // ── Closed violet line ───────────────────────────────────────────────
+        // §LINELOOP-WEBGPU-FIX (2026-06-03): THREE.LineLoop is NOT supported by the
+        // WebGPU renderer — it spammed "Objects of type THREE.LineLoop are not
+        // supported" errors EVERY frame (A.8.x regression). Use THREE.Line and close
+        // the ring explicitly by repeating the first vertex at the end.
+        const ringLen = polygon.length + 1;
+        const positions = new Float32Array(ringLen * 3);
         for (let i = 0; i < polygon.length; i++) {
             const p = polygon[i]!;
             positions[i * 3 + 0] = p.x;
             positions[i * 3 + 1] = GROUND_Y_OFFSET;
             positions[i * 3 + 2] = p.z;
         }
+        const first = polygon[0]!;
+        positions[polygon.length * 3 + 0] = first.x;
+        positions[polygon.length * 3 + 1] = GROUND_Y_OFFSET;
+        positions[polygon.length * 3 + 2] = first.z;
         const lineGeo = new THREE.BufferGeometry();
         lineGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
         const lineMat = new THREE.LineBasicMaterial({
@@ -158,7 +167,7 @@ export class ParcelBoundarySceneRenderer {
             opacity: 0.9,
             depthWrite: false,
         });
-        const loop = new THREE.LineLoop(lineGeo, lineMat);
+        const loop = new THREE.Line(lineGeo, lineMat);
         loop.name = 'pryzm-parcel-boundary-loop';
         group.add(loop);
 
