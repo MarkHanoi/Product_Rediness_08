@@ -697,7 +697,7 @@ export class PlatformRouter {
             <p style="margin:0; font-size:14px; color:var(--app-text-2,#5a6a85); max-width:380px; text-align:center; line-height:1.6;">
                 PRYZM is currently undergoing scheduled maintenance. Please check back shortly.
             </p>
-            <button onclick="document.getElementById('pryzm-maintenance-overlay')?.remove()" style="
+            <button id="pryzm-maintenance-dismiss" style="
                 margin-top:8px; padding:10px 24px;
                 background: var(--app-gradient, linear-gradient(135deg, #8B5CF6 0%, #6600FF 100%));
                 color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600;
@@ -705,6 +705,11 @@ export class PlatformRouter {
             ">Back to Hub</button>
         `;
         document.body.appendChild(overlay);
+        // CSP (script-src-attr 'none'): wire the dismiss button via
+        // addEventListener instead of an inline onclick attribute.
+        overlay.querySelector('#pryzm-maintenance-dismiss')?.addEventListener('click', () => {
+            overlay.remove();
+        });
         console.log('[PlatformRouter] Maintenance mode active — workspace blocked.');
     }
 
