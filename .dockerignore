@@ -125,3 +125,19 @@ screenshots
 # Avoid re-copying the Dockerfile into the image (harmless, just noise).
 Dockerfile
 .dockerignore
+
+# ─── First-deploy slim context (2026-06-03) ─────────────────────────────────
+# These bloated the build-context upload to ~290MB (the transfer that aborted the
+# first Fly deploy on a slow uplink). Excluded to ship a ~22MB context:
+#  • public/items/ = ~185MB of GLB 3D-model catalog served at runtime. Baking
+#    185MB of models into the image is an anti-pattern (ref §H28) — they belong
+#    on object storage (Supabase Storage / CDN). TEMP TRADE-OFF: the in-app
+#    furniture/items catalog GLBs 404 in prod until re-hosted; the core
+#    onboarding→generate→edit pipeline is unaffected. Tracker: OBJECT-STORAGE-GLB.
+#  • docs/ — markdown, not a build/runtime input.
+#  • client/ — legacy (13 files; not referenced by the build/runtime).
+#  • .agents/ — local agent scratch.
+public/items
+docs
+client
+.agents
