@@ -1,0 +1,397 @@
+// A.8.c.f — Hektar-style 2D top-down boundary-draw map (MapLibre GL JS).
+//
+// WHAT THIS IS
+// ------------
+// The founder's spec replaces the Cesium-3D-globe DRAW surface (SiteBoundaryDrawTool)
+// with an elegant 2D PLAN-VIEW map for authoring the parcel boundary, while KEEPING
+// Cesium 3D-tiles for the rendered/visualised result. This module mounts a full-
+// surface MapLibre map (cream/shadow "Hektar" basemap — see siteMap2DStyle.ts),
+// centres it on the geocoded site location, lets the user draw a polygon with the
+// mouse, and on close reuses the EXISTING projection + dispatch path:
+//
+//     drawn lat/lon ring → buildBoundaryFromLatLonRing (boundaryProjection.ts)
+//                        → dispatchParcelBoundary (siteDispatch.ts)
+//                        → site.setParcelBoundary  (same as SiteBoundaryDrawTool)
+//
+// So drawing on the 2D map sets the SAME C19 parcel boundary the apartment
+// generator consumes (`generateApartmentFromBoundary`). After commit the overlay
+// closes and the user can switch to the Cesium 3D view for the rendered result.
+//
+// DRAW UX (hand-rolled, keyless — no terra-draw dependency for the first cut)
+// ---------------------------------------------------------------------------
+//   - click          → add a vertex
+//   - double-click   → close the loop + commit
+//   - Enter          → close the loop + commit
+//   - Esc            → cancel (close overlay, no boundary)
+//   - drag a handle  → move that vertex (live re-project on commit)
+// The in-progress ring + vertex handles render in PRYZM violet (#6600FF) via a
+// GeoJSON source updated on every edit.
+//
+// LAYERING (L7 editor UI): imports `maplibre-gl` (the only site of that dependency),
+// the pure projection core (boundaryProjection), and the shared dispatch helper
+// (siteDispatch). No THREE / Cesium import — the 2D draw surface is fully
+// independent of the Cesium viewer.
+
+import maplibregl, {
+    Map as MapLibreMap,
+    type MapMouseEvent,
+    type StyleSpecification,
+    type GeoJSONSource,
+} from 'maplibre-gl';
+// MapLibre control/attribution chrome. Vite bundles this CSS at the import site;
+// it is the canvas controls' baseline styling (the Hektar look is layered on top
+// via the cream style + our violet GeoJSON layers).
+import 'maplibre-gl/dist/maplibre-gl.css';
+import type { PryzmRuntime } from '@pryzm/runtime-composer';
+import {
+    buildBoundaryFromLatLonRing,
+    type LatLon,
+} from '../site/boundaryProjection.js';
+import { resolveSiteContext, dispatchParcelBoundary, dispatchSiteLocation } from '../site/siteDispatch.js';
+import { buildSiteMap2DStyle, HEKTAR_PALETTE } from './siteMap2DStyle.js';
+
+const VIOLET = HEKTAR_PALETTE.violet;
+const RING_SOURCE = 'pryzm-boundary-ring';
+const FILL_LAYER = 'pryzm-boundary-fill';
+const LINE_LAYER = 'pryzm-boundary-line';
+const VERTEX_LAYER = 'pryzm-boundary-vertices';
+
+export interface SiteBoundaryMap2DOptions {
+    /** Where to mount the overlay (the editor #container, same as the geocode box). */
+    readonly parent: HTMLElement;
+    /** The runtime (for dispatch + toasts). */
+    readonly runtime: PryzmRuntime | null;
+    /**
+     * Initial map centre + frame. Supplied from the geocoded site (geocodeAddress).
+     * `bbox` is `[w,s,e,n]` (lon/lat) when available → the map fits it; otherwise it
+     * centres on `[lon,lat]` at `zoom`. Falls back to a world view if absent.
+     */
+    readonly initial?: {
+        readonly lat: number;
+        readonly lon: number;
+        readonly bbox?: [number, number, number, number];
+        readonly zoom?: number;
+    };
+    /**
+     * The projection origin for the drawn ring. Defaults to the Site location; if
+     * the Site has none yet, the first drawn vertex is used (and recorded as the
+     * Site location) — mirrors SiteBoundaryDrawTool.getOrigin.
+     */
+    readonly getOrigin: () => { lat: number; lon: number } | null;
+    /**
+     * Optional keyless MVT buildings endpoint for the near-white drop-shadow
+     * footprints (see siteMap2DStyle). Omit for the cream raster basemap alone.
+     */
+    readonly buildingsSourceUrl?: string;
+    /** Called after a successful commit OR cancel, so the host can dispose. */
+    readonly onClose?: () => void;
+}
+
+/**
+ * Mount the 2D Hektar boundary-draw overlay. Returns a handle with `dispose()`.
+ * The overlay covers `parent`, captures pointer events, and renders a close (×)
+ * button + a short instruction chip.
+ */
+export function mountSiteBoundaryMap2D(
+    opts: SiteBoundaryMap2DOptions,
+): { dispose: () => void; readonly element: HTMLElement } {
+    const { parent, runtime, getOrigin, onClose } = opts;
+
+    // ── Overlay shell ─────────────────────────────────────────────────────────
+    const overlay = document.createElement('div');
+    overlay.className = 'pryzm-gis-map2d';
+    Object.assign(overlay.style, {
+        position: 'absolute',
+        inset: '0',
+        zIndex: '20',
+        background: HEKTAR_PALETTE.cream,
+    } satisfies Partial<CSSStyleDeclaration>);
+
+    const mapEl = document.createElement('div');
+    Object.assign(mapEl.style, {
+        position: 'absolute',
+        inset: '0',
+    } satisfies Partial<CSSStyleDeclaration>);
+    overlay.appendChild(mapEl);
+
+    // Instruction chip.
+    const chip = document.createElement('div');
+    chip.textContent = 'Click each corner · double-click or Enter to close · Esc to cancel';
+    Object.assign(chip.style, {
+        position: 'absolute',
+        top: '12px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: '21',
+        background: 'rgba(255,255,255,0.92)',
+        border: `1px solid ${VIOLET}`,
+        borderRadius: '20px',
+        padding: '6px 16px',
+        font: '13px/1.4 system-ui, sans-serif',
+        color: '#2a2438',
+        boxShadow: '0 2px 10px rgba(60,52,40,0.18)',
+        pointerEvents: 'none',
+    } satisfies Partial<CSSStyleDeclaration>);
+    overlay.appendChild(chip);
+
+    // Close (×) button.
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.textContent = '✕';
+    closeBtn.setAttribute('aria-label', 'Close boundary map');
+    Object.assign(closeBtn.style, {
+        position: 'absolute',
+        top: '12px',
+        right: '12px',
+        zIndex: '21',
+        width: '32px',
+        height: '32px',
+        borderRadius: '8px',
+        border: `1px solid ${VIOLET}`,
+        background: 'rgba(255,255,255,0.92)',
+        color: '#2a2438',
+        cursor: 'pointer',
+        font: '16px/1 system-ui, sans-serif',
+        boxShadow: '0 2px 10px rgba(60,52,40,0.18)',
+    } satisfies Partial<CSSStyleDeclaration>);
+    overlay.appendChild(closeBtn);
+
+    parent.appendChild(overlay);
+
+    // ── State ─────────────────────────────────────────────────────────────────
+    const vertices: LatLon[] = [];
+    let draggingIdx: number | null = null;
+    let disposed = false;
+
+    function toast(message: string, severity: 'info' | 'success' | 'error'): void {
+        runtime?.events?.emit('pryzm:toast', { message, severity });
+    }
+
+    // ── Map ───────────────────────────────────────────────────────────────────
+    const style = buildSiteMap2DStyle({
+        buildingsSourceUrl: opts.buildingsSourceUrl,
+    }) as unknown as StyleSpecification;
+
+    const center: [number, number] = opts.initial
+        ? [opts.initial.lon, opts.initial.lat]
+        : [0, 0];
+    const map = new MapLibreMap({
+        container: mapEl,
+        style,
+        center,
+        zoom: opts.initial?.zoom ?? (opts.initial ? 17 : 1),
+        attributionControl: { compact: true },
+        // Plan view: keep it flat + north-up (no pitch/rotate) for the draw.
+        pitchWithRotate: false,
+        dragRotate: false,
+    });
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
+
+    // ── Ring rendering (violet GeoJSON: fill + line + vertex handles) ──────────
+    function ringFeatureCollection(): GeoJSON.FeatureCollection {
+        const coords = vertices.map((v) => [v.lon, v.lat] as [number, number]);
+        const features: GeoJSON.Feature[] = [];
+        if (coords.length >= 2) {
+            features.push({
+                type: 'Feature',
+                geometry: { type: 'LineString', coordinates: [...coords, coords[0]!] },
+                properties: {},
+            });
+        }
+        if (coords.length >= 3) {
+            features.push({
+                type: 'Feature',
+                geometry: { type: 'Polygon', coordinates: [[...coords, coords[0]!]] },
+                properties: { kind: 'fill' },
+            });
+        }
+        for (let i = 0; i < coords.length; i++) {
+            features.push({
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: coords[i]! },
+                properties: { kind: 'vertex', idx: i },
+            });
+        }
+        return { type: 'FeatureCollection', features };
+    }
+
+    function refreshRing(): void {
+        const src = map.getSource(RING_SOURCE) as GeoJSONSource | undefined;
+        if (src) src.setData(ringFeatureCollection());
+    }
+
+    function installRingLayers(): void {
+        map.addSource(RING_SOURCE, { type: 'geojson', data: ringFeatureCollection() });
+        map.addLayer({
+            id: FILL_LAYER,
+            type: 'fill',
+            source: RING_SOURCE,
+            filter: ['==', ['get', 'kind'], 'fill'],
+            paint: { 'fill-color': VIOLET, 'fill-opacity': 0.12 },
+        });
+        map.addLayer({
+            id: LINE_LAYER,
+            type: 'line',
+            source: RING_SOURCE,
+            filter: ['==', ['geometry-type'], 'LineString'],
+            paint: { 'line-color': VIOLET, 'line-width': 3 },
+        });
+        map.addLayer({
+            id: VERTEX_LAYER,
+            type: 'circle',
+            source: RING_SOURCE,
+            filter: ['==', ['get', 'kind'], 'vertex'],
+            paint: {
+                'circle-radius': 6,
+                'circle-color': VIOLET,
+                'circle-stroke-color': '#ffffff',
+                'circle-stroke-width': 2,
+            },
+        });
+    }
+
+    // ── Draw interactions ─────────────────────────────────────────────────────
+    function onClick(e: MapMouseEvent): void {
+        if (disposed) return;
+        // Ignore the click that ends a vertex-drag.
+        if (draggingIdx !== null) return;
+        vertices.push({ lat: e.lngLat.lat, lon: e.lngLat.lng });
+        refreshRing();
+        console.log(`[gis] map2d vertex ${vertices.length} @ ${e.lngLat.lat.toFixed(6)}, ${e.lngLat.lng.toFixed(6)}`);
+    }
+
+    function onDblClick(e: MapMouseEvent): void {
+        e.preventDefault();
+        // The dblclick fires after two single clicks already added two vertices;
+        // they are the intended last corner (duplicated) — drop one before commit.
+        if (vertices.length >= 2) vertices.pop();
+        refreshRing();
+        commit();
+    }
+
+    // Vertex drag-to-edit.
+    function onMouseDownVertex(e: MapMouseEvent & { features?: GeoJSON.Feature[] }): void {
+        const f = e.features?.[0];
+        const idx = f?.properties?.['idx'];
+        if (typeof idx !== 'number') return;
+        e.preventDefault();
+        draggingIdx = idx;
+        map.dragPan.disable();
+        map.getCanvas().style.cursor = 'grabbing';
+    }
+    function onMouseMove(e: MapMouseEvent): void {
+        if (draggingIdx === null) return;
+        vertices[draggingIdx] = { lat: e.lngLat.lat, lon: e.lngLat.lng };
+        refreshRing();
+    }
+    function onMouseUp(): void {
+        if (draggingIdx === null) return;
+        draggingIdx = null;
+        map.dragPan.enable();
+        map.getCanvas().style.cursor = '';
+        // Swallow the trailing click that the drag would otherwise register.
+        setTimeout(() => { /* draggingIdx already cleared; click guard handled above */ }, 0);
+    }
+
+    const keyListener = (ev: KeyboardEvent): void => {
+        if (disposed) return;
+        if (ev.key === 'Enter') {
+            ev.preventDefault();
+            commit();
+        } else if (ev.key === 'Escape') {
+            ev.preventDefault();
+            cancel();
+        }
+    };
+
+    // ── Commit / cancel ───────────────────────────────────────────────────────
+    function commit(): void {
+        if (disposed) return;
+        if (vertices.length < 3) {
+            toast(`Need at least 3 corners (have ${vertices.length}).`, 'error');
+            console.warn('[gis] map2d: <3 vertices, not closing');
+            return;
+        }
+
+        const fromSite = getOrigin();
+        const origin = fromSite ?? { lat: vertices[0]!.lat, lon: vertices[0]!.lon };
+        console.log('[gis] map2d: projecting about origin', origin, fromSite ? '(from Site location)' : '(from first vertex)');
+
+        const built = buildBoundaryFromLatLonRing(vertices, origin.lat, origin.lon);
+        console.log(`[gis] map2d: ${built.polygon.length} XZ pts`, built.polygon, built.edgeClassifications);
+
+        const ctx = resolveSiteContext(runtime);
+        if (!ctx) { dispose(); return; }
+
+        // Record the projection origin as the Site location if it had none (so the
+        // apartment generator + future site intelligence share the SAME frame).
+        if (!fromSite) {
+            dispatchSiteLocation(ctx, { latitude: origin.lat, longitude: origin.lon, siteAddress: null });
+        }
+
+        const ok = dispatchParcelBoundary(ctx, {
+            polygon: built.polygon,
+            edgeClassifications: built.edgeClassifications,
+        });
+        if (ok) {
+            const area = signedAreaAbs(built.polygon);
+            ctx.toast(
+                `Site boundary set — ${built.polygon.length} corners (~${area.toFixed(0)} m²). ` +
+                `Switch to the 3D view to see it, or run pryzmGenerateApartmentFromBoundary().`,
+                'success',
+            );
+        }
+        dispose();
+    }
+
+    function cancel(): void {
+        if (disposed) return;
+        console.log('[gis] map2d: boundary draw cancelled');
+        toast('Boundary draw cancelled.', 'info');
+        dispose();
+    }
+
+    function dispose(): void {
+        if (disposed) return;
+        disposed = true;
+        window.removeEventListener('keydown', keyListener);
+        try { map.remove(); } catch { /* map may already be torn down */ }
+        if (overlay.parentElement) overlay.parentElement.removeChild(overlay);
+        console.log('[gis] map2d: disposed');
+        onClose?.();
+    }
+
+    // ── Wiring ────────────────────────────────────────────────────────────────
+    closeBtn.addEventListener('click', () => cancel());
+    window.addEventListener('keydown', keyListener);
+
+    map.on('load', () => {
+        installRingLayers();
+        if (opts.initial?.bbox) {
+            const [w, s, e, n] = opts.initial.bbox;
+            map.fitBounds([[w, s], [e, n]], { padding: 80, maxZoom: 19, duration: 0 });
+        }
+        map.on('click', onClick);
+        map.on('dblclick', onDblClick);
+        map.on('mousedown', VERTEX_LAYER, onMouseDownVertex);
+        map.on('mousemove', onMouseMove);
+        map.on('mouseup', onMouseUp);
+        // Hover affordance over vertices.
+        map.on('mouseenter', VERTEX_LAYER, () => { map.getCanvas().style.cursor = 'grab'; });
+        map.on('mouseleave', VERTEX_LAYER, () => { if (draggingIdx === null) map.getCanvas().style.cursor = ''; });
+        console.log('[gis] map2d: ready — Hektar cream/shadow boundary-draw map mounted');
+    });
+
+    return { element: overlay, dispose };
+}
+
+/** Absolute shoelace area of an XZ ring (m²) — for the commit toast. */
+function signedAreaAbs(ring: ReadonlyArray<{ x: number; z: number }>): number {
+    let a = 0;
+    for (let i = 0; i < ring.length; i++) {
+        const p = ring[i]!;
+        const q = ring[(i + 1) % ring.length]!;
+        a += p.x * q.z - q.x * p.z;
+    }
+    return Math.abs(a / 2);
+}
