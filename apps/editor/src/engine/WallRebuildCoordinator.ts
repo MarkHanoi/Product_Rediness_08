@@ -1,6 +1,6 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import { getFrameScheduler, type TickListenerDisposer } from '@pryzm/frame-scheduler';
-import { WallStore, WallData, WallBaseline, OpeningRenderMap, OpeningRenderData, WallJoinResolver, JoinData, WallJunctionInfillManager, computeJunctionInfills, resolveSlabBaseOffsetForWall, isWallPipelineV2Enabled } from '@pryzm/geometry-wall';
+import { WallStore, WallData, WallBaseline, OpeningRenderMap, OpeningRenderData, WallJoinResolver, JoinData, WallJunctionInfillManager, computeJunctionInfills, resolveSlabBaseOffsetForWall, isWallPipelineV2Enabled, classifyWallDelta } from '@pryzm/geometry-wall';
 import {
     DEFAULT_SNAP_PIXEL_RADIUS,
     getWorldToleranceForActiveCamera,
@@ -255,6 +255,83 @@ export class WallRebuildCoordinator {
         return adj;
     }
 
+    /**
+     * ADR-057 P1 (OI-053h) — single-wall openings-only rebuild branch.
+     *
+     * Precondition (proven by `classifyWallDelta`): every wall in `wallIds` had
+     * ONLY its opening VALUES (offset/width/height/sill) change — baseline,
+     * thickness, layers, curve, the opening SET, and the wall set are all
+     * unchanged, and all walls are on `levelId`. Under that precondition the
+     * level joins, the V2 miter cache, and the junction infills are invariant,
+     * so this branch rebuilds ONLY each affected wall's body geometry (its hole)
+     * via `builder.updateWall(fresh, cachedJoinData, renderMap, slabOff)`, then
+     * re-anchors only that wall's hosted children. It does NOT touch
+     * `WallJoinResolver.resolveLevel`, `refreshV2Cache`, `computeJunctionInfills`,
+     * `_prevJoinMap`, or any neighbour wall — producing identical visual output
+     * to a full rebuild for this delta at O(edited walls) instead of
+     * O(walls-per-level).
+     *
+     * MITER PRESERVATION: `cachedJoinData` is read back from `_prevJoinMap`, which
+     * holds the exact `JoinData` (trimmed baseLine + start/end miter normals) the
+     * LAST whole-level resolve produced for this wall. Because the baseline,
+     * thickness and adjacency are invariant under an openings-only change, that
+     * cached JoinData is still the correct one — passing it (rather than `null`)
+     * preserves the wall's mitered end caps exactly as a full rebuild would. The
+     * `_renderVersion` bump from the opening edit still busts the builder's cache
+     * key, so the wall body is genuinely rebuilt with the new hole + old miters.
+     * A wall with no `_prevJoinMap` entry (a free, never-joined wall) passes
+     * `null`, which is the correct "no miter" input.
+     *
+     * The §WJR-NAN-GUARD consumer guard inside `builder.updateWall` →
+     * `buildWall` is still traversed (we call the same builder entry point), so
+     * a degenerate baseline is still skipped on this path.
+     */
+    private _flushOpeningsOnly(
+        wallIds: string[],
+        levelId: string,
+        builder: ReturnType<WallRebuildDeps['wallTool']['getFragmentBuilder']>,
+        store: WallStore,
+    ): void {
+        this._joinsResolving = true;
+        const _rebuiltWallIds: string[] = [];
+        try {
+            for (const wallId of wallIds) {
+                const fresh = store.getById(wallId);
+                if (!fresh) continue;
+                const slabOff = resolveSlabBaseOffsetForWall(fresh, this._slabStore);
+                // Re-use the wall's last-resolved join (miter normals + trimmed
+                // baseline) — invariant under an openings-only edit. null when free.
+                const cachedJoinData = this._prevJoinMap.get(wallId) ?? null;
+                try {
+                    builder.updateWall(fresh, cachedJoinData, resolveOpeningRenderMap(fresh, store), slabOff);
+                    _rebuiltWallIds.push(wallId);
+                } catch (err) {
+                    console.error(`[WallRebuildCoordinator] §ADR-057-P1: openings-only updateWall failed for wall "${wallId}" — continuing.`, err);
+                }
+            }
+
+            // DW-14 FIX: re-anchor door/window meshes AFTER the hole geometry rebuilt.
+            for (const wallId of _rebuiltWallIds) {
+                this._doorBuilder.rebuildForWall(wallId);
+                this._windowBuilder.rebuildForWall(wallId);
+            }
+        } finally {
+            this._joinsResolving = false;
+        }
+
+        // §WALL-AUDIT-2026-W6 §COMMIT-BARRIER — emit the quiescent signal exactly
+        // as the whole-level path does, so downstream consumers (plan-cache warm,
+        // room redetect listeners, OTel commit barrier) behave identically.
+        try {
+            window.runtime?.events?.emit('bim-wall-mutation-committed', {
+                levelIds: [levelId],
+                sourceCommandId: undefined,
+            });
+        } catch (err) {
+            console.warn('[WallRebuildCoordinator] §ADR-057-P1: failed to dispatch bim-wall-mutation-committed', err);
+        }
+    }
+
     private _flush(): void {
         this._wallRafHandle = null;
         if (this._pendingWallEvents.size === 0) return;
@@ -264,6 +341,25 @@ export class WallRebuildCoordinator {
 
         const builder = this._wallTool.getFragmentBuilder();
         const store   = this._wallTool.getWallStore();
+
+        // ─── ADR-057 P1 (OI-053h) — single-wall openings-only fast path ────────
+        // Classify the batch BEFORE the §STEP7 neighbour expansion (which only
+        // ever adds walls on a *baseline* change — an openings-only batch adds
+        // none). If the entire batch is a provably openings-only change on
+        // baseline-stable walls of one level (door/window OFFSET edit, or a
+        // batch of such edits), rebuild ONLY those wall bodies + re-anchor their
+        // hosted children, and SKIP the whole-level resolveLevel / V2 cache
+        // refresh / junction-infill pass — all three are invariant under an
+        // opening-value change (their inputs are wall endpoints/thickness/
+        // adjacency, none of which moved). See WallDeltaClassifier for the proof.
+        // ANY uncertainty → classifier returns 'whole-level' → fall through to
+        // the unchanged authoritative rebuild below.
+        const _delta = classifyWallDelta(Array.from(batch.values()));
+        if (_delta.kind === 'openings-only') {
+            this._flushOpeningsOnly(_delta.wallIds, _delta.levelId, builder, store);
+            return;
+        }
+        // ──────────────────────────────────────────────────────────────────────
 
         // §STEP7: Diff-based dirty marking — find former neighbours of moved/removed walls.
         for (const [, entry] of batch) {
