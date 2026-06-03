@@ -48,7 +48,7 @@ import {
     type LatLon,
 } from '../site/boundaryProjection.js';
 import { resolveSiteContext, dispatchParcelBoundary, dispatchSiteLocation } from '../site/siteDispatch.js';
-import { buildSiteMap2DStyle, HEKTAR_PALETTE } from './siteMap2DStyle.js';
+import { buildSiteMap2DStyle, buildSatelliteStyle, HEKTAR_PALETTE } from './siteMap2DStyle.js';
 
 const VIOLET = HEKTAR_PALETTE.violet;
 const RING_SOURCE = 'pryzm-boundary-ring';
@@ -157,12 +157,70 @@ export function mountSiteBoundaryMap2D(
     } satisfies Partial<CSSStyleDeclaration>);
     overlay.appendChild(closeBtn);
 
+    // ── A.8.c.f.4 — Map ↔ Satellite basemap toggle (top-right, under the × ) ────
+    // On-brand white + #6600FF segmented control. Clicking a segment swaps the
+    // MapLibre style (cream vector ↔ ESRI satellite raster) via map.setStyle below.
+    const toggle = document.createElement('div');
+    toggle.className = 'pryzm-gis-basemap-toggle';
+    Object.assign(toggle.style, {
+        position: 'absolute',
+        top: '52px',
+        right: '12px',
+        zIndex: '21',
+        display: 'flex',
+        gap: '0',
+        borderRadius: '8px',
+        overflow: 'hidden',
+        border: `1px solid ${VIOLET}`,
+        background: 'rgba(255,255,255,0.92)',
+        boxShadow: '0 2px 10px rgba(60,52,40,0.18)',
+        font: '12px/1 system-ui, sans-serif',
+    } satisfies Partial<CSSStyleDeclaration>);
+
+    function makeSegBtn(label: string, mode: 'map' | 'satellite'): HTMLButtonElement {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = label;
+        b.dataset['mode'] = mode;
+        b.setAttribute('aria-label', `${label} basemap`);
+        Object.assign(b.style, {
+            border: 'none',
+            padding: '7px 12px',
+            cursor: 'pointer',
+            background: 'transparent',
+            color: '#2a2438',
+            font: 'inherit',
+            fontWeight: '600',
+        } satisfies Partial<CSSStyleDeclaration>);
+        return b;
+    }
+    const mapBtn = makeSegBtn('Map', 'map');
+    const satBtn = makeSegBtn('Satellite', 'satellite');
+    toggle.appendChild(mapBtn);
+    toggle.appendChild(satBtn);
+    overlay.appendChild(toggle);
+
+    /** Paint the active segment in violet, the inactive one white. */
+    function paintToggle(): void {
+        for (const b of [mapBtn, satBtn]) {
+            const active = b.dataset['mode'] === basemap;
+            b.style.background = active ? VIOLET : 'transparent';
+            b.style.color = active ? '#ffffff' : '#2a2438';
+            b.setAttribute('aria-pressed', String(active));
+        }
+    }
+    paintToggle();
+
     parent.appendChild(overlay);
 
     // ── State ─────────────────────────────────────────────────────────────────
     const vertices: LatLon[] = [];
     let draggingIdx: number | null = null;
     let disposed = false;
+    // A.8.c.f.4 — active basemap. Default = the Hektar cream vector look; the
+    // corner toggle swaps to keyless ESRI satellite raster to fill OSM building-
+    // footprint coverage gaps.
+    let basemap: 'map' | 'satellite' = 'map';
 
     function toast(message: string, severity: 'info' | 'success' | 'error'): void {
         runtime?.events?.emit('pryzm:toast', { message, severity });
@@ -230,6 +288,13 @@ export function mountSiteBoundaryMap2D(
     }
 
     function installRingLayers(): void {
+        // Idempotent: setStyle() wipes all added sources/layers, so after a
+        // basemap swap this re-adds them. Guard against the (load-time) case where
+        // they are already present.
+        if (map.getSource(RING_SOURCE)) {
+            refreshRing();
+            return;
+        }
         map.addSource(RING_SOURCE, { type: 'geojson', data: ringFeatureCollection() });
         map.addLayer({
             id: FILL_LAYER,
@@ -312,6 +377,40 @@ export function mountSiteBoundaryMap2D(
             cancel();
         }
     };
+
+    // ── A.8.c.f.4 — basemap swap (preserves the draw across setStyle) ──────────
+    // setStyle() tears down EVERY source + layer + re-fires 'style.load' /
+    // 'styledata'. We re-add the violet boundary source + draw layers in that
+    // event (installRingLayers, idempotent — it reads the live `vertices` array,
+    // so in-progress + committed vertices survive) and re-apply the camera. The
+    // draw→commit path is untouched: it operates on `vertices` + map-overlay
+    // layers only; the commit (boundaryProjection → dispatchParcelBoundary) never
+    // reads the basemap. So toggling mid-draw loses nothing.
+    function swapBasemap(next: 'map' | 'satellite'): void {
+        if (disposed || next === basemap) return;
+        basemap = next;
+        paintToggle();
+        // Capture the current camera so the swap doesn't snap the view.
+        const center = map.getCenter();
+        const zoom = map.getZoom();
+        const bearing = map.getBearing();
+        const pitch = map.getPitch();
+        const style =
+            next === 'satellite'
+                ? (buildSatelliteStyle() as unknown as StyleSpecification)
+                : (buildSiteMap2DStyle({ extrude: opts.extrude ?? false }) as unknown as StyleSpecification);
+        // diff:false forces a full reload so the new source set replaces cleanly.
+        map.setStyle(style, { diff: false });
+        // Re-add the boundary draw + restore the camera once the new style loads.
+        map.once('style.load', () => {
+            if (disposed) return;
+            installRingLayers();
+            map.jumpTo({ center, zoom, bearing, pitch });
+            console.log(`[gis] map2d: basemap → ${next}; boundary draw re-added (${vertices.length} vertices)`);
+        });
+    }
+    mapBtn.addEventListener('click', () => swapBasemap('map'));
+    satBtn.addEventListener('click', () => swapBasemap('satellite'));
 
     // ── Commit / cancel ───────────────────────────────────────────────────────
     function commit(): void {
