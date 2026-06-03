@@ -6,6 +6,7 @@
 //
 // Slice contents:
 //   - manifest:   TypologyManifestSchema + TypologyId + enums + helpers
+//   - briefSchema: BriefField/BriefSchema — the typology-declared project brief
 //
 // Deferred to later slices:
 //   - program-rules: per-typology rule database schema
@@ -15,3 +16,4 @@
 //   - pipeline-registry: L3 store wrapper
 
 export * from './manifest.js';
+export * from './briefSchema.js';
