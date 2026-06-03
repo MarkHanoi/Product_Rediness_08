@@ -296,10 +296,14 @@ If a route renders incorrectly (visual drift from the in-app version) the most l
 | **apex** (marketing) | `pnpm install --no-frozen-lockfile && pnpm build:apex` | `apps/editor/dist-apex` | `pryzm.so` (+ `www` → 301) | **None** |
 | **docs** (developer) | `pnpm install --no-frozen-lockfile && pnpm --filter @pryzm/docs-site exec astro build` | `apps/docs-site/dist` | `docs.pryzm.so` | Astro |
 
+**Reuse vs new project:** an EXISTING Pages project can be repurposed as the apex — just change Settings → Build (command + output + framework None) and **Save → trigger a fresh deploy** (a settings change does NOT auto-rebuild past deployments). The **docs** site is the one that needs its own *separate* project (`docs.pryzm.so`). You never need a third project for the apex.
+
 **Both projects — required settings:**
 - **Root directory:** `/` (repo root; leave the Path field empty).
 - **Environment variable:** `NODE_VERSION = 20` (the monorepo requires Node ≥20; without it the build fails on an older default). pnpm auto-resolves to `10.26.1` from `package.json#packageManager` — no action.
 - **Branch control → Production branch = `main`; disable preview deployments** (or restrict to named branches). Otherwise EVERY feature-branch push burns a build and stacks the queue — the apex/docs build is heavy.
+
+**Apex-only optional env var — `APP_ORIGIN`:** the apex landing's "Build something / Get started / Log in" links point at the app host. It defaults to `https://app.pryzm.so`, but `scripts/build/prerender-apex.mjs` reads `APP_ORIGIN` so you can point the landing at the Fly app directly — set `APP_ORIGIN = https://pryzm.fly.dev` in the apex project's Variables — to make the full landing → signup journey work BEFORE the `app.pryzm.so` DNS + TLS cert land. Drop it back to the default once `app.pryzm.so` resolves.
 
 **Gotchas that fail the build silently:**
 - The build command MUST end in **`build:apex`** (with the `x`) — a truncated `build:ape` errors with "no script build:ape".
