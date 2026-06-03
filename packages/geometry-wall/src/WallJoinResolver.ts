@@ -1019,6 +1019,53 @@ export class WallJoinResolver {
                 return;
             }
 
+            // §WJR-NAN-GUARD (Jun 2026 — diff-thickness project-open HANG fix):
+            // The MIN_LEN check above guards LENGTH collapse only. It does NOT
+            // catch (a) a non-finite (NaN/Infinity) lateral offset — e.g. when
+            // dominantDir degenerated and domOutward is NaN — nor (b) a DIRECTION
+            // REVERSAL, where the moved subordinate endpoint slides PAST its own
+            // free end (near-collinear walls / a near-parallel offset), inverting
+            // the subordinate's axis. Either case produces a near-zero or reversed
+            // baseline whose downstream normalize()/unit() yields a NaN
+            // BufferGeometry, stalling the synchronous load-time rebuild in the
+            // extruder bounding-volume / opening CSG / BVH maths (see
+            // docs/03-execution/analysis/WALLJOINRESOLVER-DIFF-THICKNESS-HANG-2026-06-03.md).
+            // On reject we FALL BACK to a clean butt: keep the subordinate's
+            // ORIGINAL (un-offset) joining endpoint at sharedPt. A wrong-but-fast
+            // join beats a frozen tab.
+            const allFinite = (v: THREE.Vector3) =>
+                Number.isFinite(v.x) && Number.isFinite(v.y) && Number.isFinite(v.z);
+            // Original (pre-offset) subordinate baseline direction, free-end → join.
+            const subOrigDir = new THREE.Vector3().subVectors(sharedPt, subFreeEnd);
+            // New subordinate baseline direction, free-end → moved join point.
+            const subNewDir  = new THREE.Vector3().subVectors(subNewPt, subFreeEnd);
+            const dirReversed = subOrigDir.lengthSq() > 1e-12
+                && subNewDir.lengthSq() > 1e-12
+                && subOrigDir.dot(subNewDir) < 0;
+            const nonFinite =
+                !allFinite(subNewPt) || !allFinite(newSubBL[0]) || !allFinite(newSubBL[1])
+                || !allFinite(newDomBL[0]) || !allFinite(newDomBL[1]);
+            if (nonFinite || dirReversed) {
+                console.warn(
+                    `[WJR-DIFF-THICKNESS] (option-B butt) §WJR-NAN-GUARD — degenerate offset, ` +
+                    `falling back to clean butt at sharedPt: ` +
+                    `sub=${subordinateEp.wallId}(${subordinateEp.side}) ` +
+                    `nonFinite=${nonFinite} dirReversed=${dirReversed}`
+                );
+                // Clean-butt fallback: subordinate joins at sharedPt (un-offset).
+                if (subordinateEp.side === 'start') newSubBL[0].copy(sharedPt);
+                else                                newSubBL[1].copy(sharedPt);
+                // Re-validate the fallback length; if even that collapses, refuse.
+                if (newSubBL[0].distanceTo(newSubBL[1]) < MIN_LEN
+                    || !allFinite(newSubBL[0]) || !allFinite(newSubBL[1])) {
+                    console.warn(
+                        `[WJR-DIFF-THICKNESS] (option-B butt) §WJR-NAN-GUARD — clean-butt ` +
+                        `fallback still degenerate, REFUSING trim for sub=${subordinateEp.wallId}`
+                    );
+                    return;
+                }
+            }
+
             bl.set(dominantEp.wallId, newDomBL);
             const adjDom = result.get(dominantEp.wallId)
                 ?? { baseLine: newDomBL, startMN: null, endMN: null };
