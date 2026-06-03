@@ -1,7 +1,16 @@
-// A.5.f — styling for the re-mounted RAC onboarding canvas (RACChatbotPanel).
-// The Astro `/start` surface carried its own CSS; when RAC moved in-app the
-// panel had only semantic classes. This is the in-app stylesheet, injected by
-// AppTheme. Brand purple is the unified #6600FF (Contract §41 / PreviewStyle).
+// A.5.f — styling for the re-mounted RAC onboarding canvas (RACChatbotPanel)
+// and the O.2 onboarding STEP controller (location → draw → generate).
+//
+// BRAND (tested defects — founder review 2026-06-03)
+// --------------------------------------------------
+// PRYZM is WHITE + PURPLE (#6600FF) — "we don't use black". The earlier dark
+// cards (`#14141c` / `rgba(8,8,14,…)`) were a brand violation and the panels were
+// too big. This stylesheet now matches the on-brand AuthModal / ProjectHub
+// visual language: a near-white frosted card, #6600FF purple accents, dark text
+// on light, and restrained (compact) sizing. Reference: AUTH_MODAL_STYLES
+// (`src/ui/styles/panels/authModals.ts`) — white card, 420px max-width, dark
+// charcoal text (#111), violet-soft accents. Brand purple is the unified #6600FF
+// (Contract §41 / PreviewStyle).
 
 export const ONBOARDING_STYLES = `
 .rac-onboarding-overlay {
@@ -10,14 +19,16 @@ export const ONBOARDING_STYLES = `
   z-index: 1200;
   display: flex;
   flex-direction: column;
-  width: min(640px, 92vw);
-  max-height: 86vh;
+  width: min(440px, 92vw);
+  max-height: 82vh;
   margin: auto;
-  background: #14141c;
-  color: #f5f5fa;
-  border: 1px solid #2a2a36;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(28px) saturate(1.6);
+  -webkit-backdrop-filter: blur(28px) saturate(1.6);
+  color: #1a1a2e;
+  border: 1px solid rgba(102, 0, 255, 0.14);
   border-radius: 16px;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55), 0 0 0 100vmax rgba(8, 8, 14, 0.6);
+  box-shadow: 0 24px 60px rgba(60, 20, 120, 0.18), 0 4px 16px rgba(0, 0, 0, 0.08);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   overflow: hidden;
 }
@@ -25,47 +36,49 @@ export const ONBOARDING_STYLES = `
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid #2a2a36;
-  background: linear-gradient(180deg, rgba(102, 0, 255, 0.14), transparent);
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+  background: linear-gradient(180deg, rgba(102, 0, 255, 0.06), transparent);
 }
 .rac-onboarding-overlay .rac-title {
   margin: 0;
-  font-size: 1.05rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
+  font-size: 0.98rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #111;
 }
 .rac-onboarding-overlay .rac-phase-chip {
-  font-size: 0.72rem;
-  font-weight: 600;
+  font-size: 0.68rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: 0.25rem 0.6rem;
+  letter-spacing: 0.05em;
+  padding: 0.22rem 0.55rem;
   border-radius: 999px;
-  background: rgba(102, 0, 255, 0.18);
-  color: #b794ff;
-  border: 1px solid rgba(102, 0, 255, 0.4);
+  background: rgba(102, 0, 255, 0.08);
+  color: #6600ff;
+  border: 1px solid rgba(102, 0, 255, 0.22);
 }
 .rac-onboarding-overlay .rac-transcript {
   flex: 1 1 auto;
   overflow-y: auto;
-  padding: 1.25rem;
+  padding: 1rem;
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0.55rem;
 }
 .rac-onboarding-overlay .rac-turn {
   max-width: 85%;
-  padding: 0.6rem 0.85rem;
+  padding: 0.55rem 0.8rem;
   border-radius: 12px;
   line-height: 1.45;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
 }
 .rac-onboarding-overlay .rac-turn--assistant {
   align-self: flex-start;
-  background: #1c1c28;
-  border: 1px solid #2a2a36;
+  background: #f5f4fb;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  color: #1a1a2e;
 }
 .rac-onboarding-overlay .rac-turn--user {
   align-self: flex-end;
@@ -75,85 +88,90 @@ export const ONBOARDING_STYLES = `
 .rac-onboarding-overlay .rac-suggestions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  padding: 0 1.25rem 0.5rem;
+  gap: 0.45rem;
+  padding: 0 1rem 0.5rem;
 }
 .rac-onboarding-overlay .rac-suggestion {
-  padding: 0.4rem 0.8rem;
+  padding: 0.35rem 0.75rem;
   border-radius: 999px;
-  background: #1c1c28;
-  border: 1px solid #3a2a5a;
-  color: #d8c8ff;
-  font-size: 0.85rem;
+  background: rgba(102, 0, 255, 0.06);
+  border: 1px solid rgba(102, 0, 255, 0.22);
+  color: #6600ff;
+  font-size: 0.82rem;
+  font-weight: 600;
   cursor: pointer;
 }
 .rac-onboarding-overlay .rac-suggestion:hover {
   border-color: #6600ff;
-  color: #fff;
+  background: rgba(102, 0, 255, 0.12);
 }
 .rac-onboarding-overlay .rac-summary {
-  padding: 0 1.25rem;
-  font-size: 0.85rem;
-  color: #a8a8b5;
+  padding: 0 1rem;
+  font-size: 0.82rem;
+  color: rgba(0, 0, 0, 0.45);
 }
 .rac-onboarding-overlay .rac-error {
-  margin: 0 1.25rem 0.5rem;
-  padding: 0.5rem 0.75rem;
+  margin: 0 1rem 0.5rem;
+  padding: 0.5rem 0.7rem;
   border-radius: 8px;
-  background: rgba(255, 80, 80, 0.12);
-  border: 1px solid rgba(255, 80, 80, 0.4);
-  color: #ff9a9a;
-  font-size: 0.85rem;
+  background: rgba(185, 28, 28, 0.06);
+  border: 1px solid rgba(185, 28, 28, 0.18);
+  color: #b91c1c;
+  font-size: 0.82rem;
 }
 .rac-onboarding-overlay .rac-input-row {
   display: flex;
   gap: 0.5rem;
-  padding: 1rem 1.25rem;
-  border-top: 1px solid #2a2a36;
-  background: #101019;
+  padding: 0.85rem 1rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.07);
+  background: rgba(250, 250, 252, 0.8);
 }
 .rac-onboarding-overlay .rac-input {
   flex: 1 1 auto;
-  padding: 0.65rem 0.9rem;
+  padding: 0.6rem 0.85rem;
   border-radius: 10px;
-  border: 1px solid #2a2a36;
-  background: #1c1c28;
-  color: #f5f5fa;
-  font-size: 0.95rem;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #fafafa;
+  color: #111;
+  font-size: 0.9rem;
 }
 .rac-onboarding-overlay .rac-input:focus-visible {
   outline: none;
   border-color: #6600ff;
-  box-shadow: 0 0 0 3px rgba(102, 0, 255, 0.3);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(102, 0, 255, 0.18);
 }
 .rac-onboarding-overlay .rac-send {
-  padding: 0.65rem 1.1rem;
+  padding: 0.6rem 1rem;
   border-radius: 10px;
   border: none;
   background: #6600ff;
   color: #fff;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
 }
 .rac-onboarding-overlay .rac-send:hover { background: #5500dd; }
 
 /* ── O.2 — Onboarding STEP CONTROLLER overlay (os-*) ───────────────────────────
-   The guided location → draw-or-skip → generate flow. Shares the RAC overlay
-   visual family (#14141c card, #6600FF brand) but is a thinner step shell. */
+   The guided location → draw-or-skip → generate flow. On-brand WHITE card with
+   #6600FF purple accents and dark text — matches AuthModal / ProjectHub. Compact
+   sizing (max-width 420px) per the founder's "too big" feedback. */
 .os-onboarding-overlay {
   position: fixed;
   inset: 0;
   z-index: 1250;
   display: flex;
   flex-direction: column;
-  width: min(560px, 92vw);
-  max-height: 86vh;
+  width: min(420px, 92vw);
+  max-height: 82vh;
   margin: auto;
-  background: #14141c;
-  color: #f5f5fa;
-  border: 1px solid #2a2a36;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(28px) saturate(1.6);
+  -webkit-backdrop-filter: blur(28px) saturate(1.6);
+  color: #1a1a2e;
+  border: 1px solid rgba(102, 0, 255, 0.14);
   border-radius: 16px;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55), 0 0 0 100vmax rgba(8, 8, 14, 0.6);
+  box-shadow: 0 24px 60px rgba(60, 20, 120, 0.18), 0 4px 16px rgba(0, 0, 0, 0.08), 0 0 0 100vmax rgba(30, 10, 70, 0.32);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   overflow: hidden;
 }
@@ -161,117 +179,123 @@ export const ONBOARDING_STYLES = `
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid #2a2a36;
-  background: linear-gradient(180deg, rgba(102, 0, 255, 0.14), transparent);
+  gap: 0.75rem;
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+  background: linear-gradient(180deg, rgba(102, 0, 255, 0.06), transparent);
 }
 .os-onboarding-overlay .os-title {
   margin: 0;
-  font-size: 1.05rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
+  font-size: 0.98rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #111;
 }
 .os-onboarding-overlay .os-step-chip {
-  font-size: 0.72rem;
-  font-weight: 600;
+  font-size: 0.68rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 0.25rem 0.6rem;
+  letter-spacing: 0.04em;
+  padding: 0.22rem 0.55rem;
   border-radius: 999px;
-  background: rgba(102, 0, 255, 0.18);
-  color: #b794ff;
-  border: 1px solid rgba(102, 0, 255, 0.4);
+  background: rgba(102, 0, 255, 0.08);
+  color: #6600ff;
+  border: 1px solid rgba(102, 0, 255, 0.22);
   white-space: nowrap;
 }
 .os-onboarding-overlay .os-body {
   flex: 1 1 auto;
   overflow-y: auto;
-  padding: 1.25rem;
+  padding: 1rem;
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0.55rem;
 }
 .os-onboarding-overlay .os-prompt {
   margin: 0;
-  font-size: 1.1rem;
-  font-weight: 600;
+  font-size: 1.02rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #111;
 }
 .os-onboarding-overlay .os-hint {
   margin: 0;
-  font-size: 0.88rem;
-  color: #a8a8b5;
+  font-size: 0.84rem;
+  color: rgba(0, 0, 0, 0.48);
   line-height: 1.45;
 }
 .os-onboarding-overlay .os-status {
-  margin: 0.25rem 0 0;
-  font-size: 0.85rem;
-  color: #c9b8ff;
+  margin: 0.2rem 0 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #6600ff;
 }
 .os-onboarding-overlay .os-input-row {
   display: flex;
   gap: 0.5rem;
-  margin-top: 0.5rem;
+  margin-top: 0.4rem;
 }
 .os-onboarding-overlay .os-input {
   flex: 1 1 auto;
-  padding: 0.65rem 0.9rem;
+  padding: 0.6rem 0.85rem;
   border-radius: 10px;
-  border: 1px solid #2a2a36;
-  background: #1c1c28;
-  color: #f5f5fa;
-  font-size: 0.95rem;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #fafafa;
+  color: #111;
+  font-size: 0.9rem;
 }
 .os-onboarding-overlay .os-input:focus-visible {
   outline: none;
   border-color: #6600ff;
-  box-shadow: 0 0 0 3px rgba(102, 0, 255, 0.3);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(102, 0, 255, 0.18);
 }
 .os-onboarding-overlay .os-btn {
-  padding: 0.65rem 1.1rem;
+  padding: 0.6rem 1rem;
   border-radius: 10px;
   border: none;
-  font-weight: 600;
-  font-size: 0.9rem;
+  font-weight: 700;
+  font-size: 0.86rem;
   cursor: pointer;
 }
 .os-onboarding-overlay .os-btn--primary { background: #6600ff; color: #fff; }
 .os-onboarding-overlay .os-btn--primary:hover { background: #5500dd; }
-.os-onboarding-overlay .os-btn--primary:disabled { opacity: 0.5; cursor: default; }
+.os-onboarding-overlay .os-btn--primary:disabled { opacity: 0.45; cursor: default; }
 .os-onboarding-overlay .os-btn--ghost {
   background: transparent;
-  color: #c9b8ff;
-  border: 1px solid #3a2a5a;
+  color: #6600ff;
+  border: 1px solid rgba(102, 0, 255, 0.28);
 }
-.os-onboarding-overlay .os-btn--ghost:hover { border-color: #6600ff; color: #fff; }
+.os-onboarding-overlay .os-btn--ghost:hover { border-color: #6600ff; background: rgba(102, 0, 255, 0.06); }
 .os-onboarding-overlay .os-choices {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
-  margin-top: 0.5rem;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
 }
 .os-onboarding-overlay .os-choice {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.2rem;
   text-align: left;
-  padding: 0.9rem 1rem;
+  padding: 0.75rem 0.9rem;
   border-radius: 12px;
-  border: 1px solid #2a2a36;
-  background: #1c1c28;
-  color: #f5f5fa;
+  border: 1px solid rgba(0, 0, 0, 0.10);
+  background: #fafafa;
+  color: #1a1a2e;
   cursor: pointer;
 }
 .os-onboarding-overlay .os-choice:hover {
   border-color: #6600ff;
-  box-shadow: 0 0 0 3px rgba(102, 0, 255, 0.2);
+  background: rgba(102, 0, 255, 0.05);
+  box-shadow: 0 0 0 3px rgba(102, 0, 255, 0.12);
 }
-.os-onboarding-overlay .os-choice-title { font-size: 0.98rem; font-weight: 700; }
-.os-onboarding-overlay .os-choice-desc { font-size: 0.84rem; color: #a8a8b5; line-height: 1.4; }
+.os-onboarding-overlay .os-choice-title { font-size: 0.94rem; font-weight: 700; color: #111; }
+.os-onboarding-overlay .os-choice-desc { font-size: 0.82rem; color: rgba(0, 0, 0, 0.46); line-height: 1.4; }
 .os-onboarding-overlay .os-footer {
   display: flex;
   justify-content: flex-start;
-  margin-top: 0.75rem;
+  margin-top: 0.6rem;
 }
 
 /* ── DRAW phase — NON-BLOCKING presentation (tested defect fix) ─────────────────
@@ -283,7 +307,8 @@ export const ONBOARDING_STYLES = `
        does NOT cover the center of the map;
      • pointer events fall through to the map everywhere EXCEPT the banner itself —
        the container is pointer-events:none, the banner card re-enables them. This
-       means clicks/drags to draw corners reach SiteBoundaryMap2D underneath. */
+       means clicks/drags to draw corners reach SiteBoundaryMap2D underneath.
+   The banner is on-brand white + purple (no dark card) and compact. */
 .os-onboarding-overlay.os-onboarding-overlay--drawing {
   /* Container spans the viewport but is click-through; only the banner inside is
      interactive (see below). Anchor the banner to the bottom edge. */
@@ -293,8 +318,10 @@ export const ONBOARDING_STYLES = `
   max-width: none;
   max-height: none;
   margin: 0;
-  padding: 0 0 1.25rem;
+  padding: 0 0 1rem;
   background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   border: none;
   border-radius: 0;
   box-shadow: none;
@@ -306,18 +333,20 @@ export const ONBOARDING_STYLES = `
 .os-onboarding-overlay.os-onboarding-overlay--drawing .os-header,
 .os-onboarding-overlay.os-onboarding-overlay--drawing .os-body {
   pointer-events: auto;
-  width: min(680px, 94vw);
-  background: #14141c;
-  border: 1px solid #2a2a36;
+  width: min(560px, 94vw);
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  border: 1px solid rgba(102, 0, 255, 0.16);
 }
 .os-onboarding-overlay.os-onboarding-overlay--drawing .os-header {
   border-radius: 14px 14px 0 0;
   border-bottom: none;
-  padding: 0.55rem 1rem;
-  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.45);
+  padding: 0.5rem 0.9rem;
+  box-shadow: 0 -8px 28px rgba(60, 20, 120, 0.16);
 }
 .os-onboarding-overlay.os-onboarding-overlay--drawing .os-title {
-  font-size: 0.92rem;
+  font-size: 0.88rem;
 }
 .os-onboarding-overlay.os-onboarding-overlay--drawing .os-body {
   flex: 0 0 auto;
@@ -325,17 +354,17 @@ export const ONBOARDING_STYLES = `
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.7rem 1rem;
+  gap: 0.7rem;
+  padding: 0.6rem 0.9rem;
   border-top: none;
   border-radius: 0 0 14px 14px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 8px 28px rgba(60, 20, 120, 0.16);
 }
 .os-onboarding-overlay.os-onboarding-overlay--drawing .os-draw-instruction {
   flex: 1 1 auto;
   margin: 0;
-  color: #d8c8ff;
-  font-size: 0.86rem;
+  color: #4a2a8a;
+  font-size: 0.84rem;
   white-space: normal;
 }
 .os-onboarding-overlay.os-onboarding-overlay--drawing .os-footer {

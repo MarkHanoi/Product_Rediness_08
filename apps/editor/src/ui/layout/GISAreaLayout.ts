@@ -54,6 +54,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // Prefer the last geocoded frame (carries the bbox → the 2D map fits the
         // exact plot, not a coarse point). Fall back to the Site location point.
         if (lastGeocodeFrame) {
+            console.log(
+                '[gis] getMapInitial: opening 2D map at geocode frame; fitBounds target =',
+                lastGeocodeFrame.bbox ?? `point(${lastGeocodeFrame.lat},${lastGeocodeFrame.lon}) @ z17`,
+            );
             return { lat: lastGeocodeFrame.lat, lon: lastGeocodeFrame.lon, bbox: lastGeocodeFrame.bbox, zoom: 17 };
         }
         const o = getSiteOrigin();
@@ -328,6 +332,22 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // pryzmStartBoundaryDraw. Registered here (not inside the async Cesium mount)
     // so it works BEFORE Cesium has mounted — calling it kicks off the mount.
     window.pryzmToggleGIS = (active: boolean) => toggleGIS(active);
+
+    // O.2 (zoom-to-address defect) — let the onboarding location step seed the SAME
+    // `lastGeocodeFrame` the GIS-rail search box populates via onFlyTo. The
+    // onboarding flow geocodes through its OWN path (OnboardingStepController.
+    // handleGeocode), so without this the bbox is lost and getMapInitial() can only
+    // return a coarse point — the 2D map opened at a flat point/world zoom and the
+    // user had to zoom manually. Calling this BEFORE pryzmStartBoundaryDraw() makes
+    // getMapInitial() carry the bbox → SiteBoundaryMap2D fitBounds to the plot.
+    window.pryzmSetGeocodeFrame = (frame) => {
+        if (!frame || !Number.isFinite(frame.lat) || !Number.isFinite(frame.lon)) {
+            console.warn('[gis] pryzmSetGeocodeFrame: ignoring invalid frame', frame);
+            return;
+        }
+        lastGeocodeFrame = { lat: frame.lat, lon: frame.lon, bbox: frame.bbox };
+        console.log('[gis] pryzmSetGeocodeFrame: geocode frame set for 2D map fitBounds →', lastGeocodeFrame);
+    };
 
     // A.8.c.f — register the 2D Hektar boundary-draw console hook HERE (not inside
     // the Cesium mount) so the 2D draw surface is independent of the Cesium viewer:

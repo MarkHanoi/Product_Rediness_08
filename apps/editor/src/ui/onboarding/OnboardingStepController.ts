@@ -70,6 +70,10 @@ interface PickedLocation {
     readonly lat: number;
     readonly lon: number;
     readonly address: string;
+    /** The geocoder's `[west, south, east, north]` bounding box when supplied —
+     *  threaded to the 2D map (via `pryzmSetGeocodeFrame`) so it `fitBounds` to the
+     *  exact plot on open instead of opening at world zoom (tested zoom defect). */
+    readonly bbox?: [number, number, number, number];
 }
 
 export interface OnboardingStepControllerOptions {
@@ -310,7 +314,12 @@ class OnboardingStepController {
                 return;
             }
             const best = results[0]!;
-            this.picked = { lat: best.lat, lon: best.lon, address: best.displayName };
+            this.picked = {
+                lat: best.lat,
+                lon: best.lon,
+                address: best.displayName,
+                ...(best.bbox ? { bbox: best.bbox } : {}),
+            };
             console.log('[onboarding-step] location resolved', this.picked);
             status.textContent = `Found: ${best.displayName}`;
             this.renderSiteStep();
@@ -488,7 +497,24 @@ class OnboardingStepController {
             const w = window as unknown as {
                 pryzmToggleGIS?: (active: boolean) => void;
                 pryzmStartBoundaryDraw?: () => void;
+                pryzmSetGeocodeFrame?: (frame: { lat: number; lon: number; bbox?: [number, number, number, number] }) => void;
             };
+            // §ZOOM-TO-ADDRESS (tested defect): seed the 2D map's getMapInitial frame
+            // from THIS flow's geocode result BEFORE the draw opens. The onboarding
+            // geocode runs outside the GIS-rail search box, so without this the bbox
+            // never reaches getMapInitial() and the map opened at world zoom — the
+            // user had to zoom to their address manually. With the bbox threaded,
+            // SiteBoundaryMap2D fitBounds to the exact plot on open.
+            if (this.picked && typeof w.pryzmSetGeocodeFrame === 'function') {
+                console.log('[onboarding-step] §ZOOM-TO-ADDRESS: seeding map frame', {
+                    lat: this.picked.lat, lon: this.picked.lon, bbox: this.picked.bbox,
+                });
+                w.pryzmSetGeocodeFrame({
+                    lat: this.picked.lat,
+                    lon: this.picked.lon,
+                    ...(this.picked.bbox ? { bbox: this.picked.bbox } : {}),
+                });
+            }
             if (typeof w.pryzmToggleGIS === 'function') {
                 console.log('[onboarding-step] §GIS-HANDOFF: pryzmToggleGIS(true).');
                 w.pryzmToggleGIS(true);
