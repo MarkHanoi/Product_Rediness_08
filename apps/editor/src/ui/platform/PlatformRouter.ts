@@ -334,6 +334,17 @@ export class PlatformRouter {
                 this.landing?.destroy();
                 this.landing = null;
                 this.showHub(user);
+                // A.5.g (hook) — if RAC onboarding captured a brief before this
+                // sign-up, it survived auth on `getCapturedBrief()`. The full
+                // wire-up (create a project + run apartment generation from the
+                // brief, "site → plan in one afternoon") lands here next; for now
+                // we surface it so the journey is observable end-to-end.
+                if (this.capturedBrief) {
+                    console.log(
+                        '[onboarding] post-auth — captured brief ready for project pre-load:',
+                        { role: this.capturedBrief.role, typology: this.capturedBrief.typologyId },
+                    );
+                }
             },
             onClose: () => {
                 this.auth?.destroy();
