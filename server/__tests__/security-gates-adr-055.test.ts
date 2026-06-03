@@ -420,6 +420,68 @@ describe('§5 apex-route-surface redirect (C51 §3.2.1)', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// §5b — clean entry-path → SPA query routing (C51 §3.2.2). The apex landing links
+// CTAs to clean app paths (/signup, /start, /sign-in); the editor SPA is query-
+// routed (?page=…). server.js §3.2.2 bridges them via 302 — on ALL hosts (incl.
+// localhost) so the apex→app pipeline is testable before Fly is live. Mirrors the
+// block in server.js immediately below the §3.2.1 redirect.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('§5b clean entry-path routing (C51 §3.2.2)', () => {
+    let server: Server, url: string;
+
+    beforeAll(async () => {
+        const app = express();
+        app.set('trust proxy', 2);
+        // Exact copy of server.js's C51 §3.2.2 block.
+        app.get('/signup', (_req: express.Request, res: express.Response) => res.redirect(302, '/?page=signup'));
+        app.get('/start', (_req: express.Request, res: express.Response) => res.redirect(302, '/?page=start'));
+        app.get('/sign-in', (_req: express.Request, res: express.Response) => res.redirect(302, '/?page=signin'));
+        app.get(['/contact', '/solutions', '/resources'], (_req: express.Request, res: express.Response) => res.redirect(302, '/'));
+        // SPA catch-all stand-in.
+        app.get('*', (_req: express.Request, res: express.Response) => res.status(200).send('<html>editor-shell</html>'));
+        const a = await listen(app);
+        server = a.server; url = a.url;
+    });
+
+    afterAll(async () => { await close(server); });
+
+    for (const [path, target] of [
+        ['/signup', '/?page=signup'],
+        ['/start', '/?page=start'],
+        ['/sign-in', '/?page=signin'],
+    ] as const) {
+        it(`T5b.1 — ${path} → 302 → ${target} (SPA onboarding/auth entry)`, async () => {
+            const r = await fetch(`${url}${path}`, { redirect: 'manual' });
+            expect(r.status).toBe(302);
+            expect(r.headers.get('location')).toBe(target);
+        });
+    }
+
+    for (const path of ['/contact', '/solutions', '/resources'] as const) {
+        it(`T5b.2 — ${path} → 302 → / (graceful landing-root; not built as app surface yet)`, async () => {
+            const r = await fetch(`${url}${path}`, { redirect: 'manual' });
+            expect(r.status).toBe(302);
+            expect(r.headers.get('location')).toBe('/');
+        });
+    }
+
+    it('T5b.3 — entry redirects apply on the app host too (not localhost-only)', async () => {
+        const r = await fetch(`${url}/signup`, {
+            headers: { 'X-Forwarded-Host': 'app.pryzm.so', 'X-Forwarded-Proto': 'https' },
+            redirect: 'manual',
+        });
+        expect(r.status).toBe(302);
+        expect(r.headers.get('location')).toBe('/?page=signup');
+    });
+
+    it('T5b.4 — an unmapped path falls through to the SPA shell (no over-broad redirect)', async () => {
+        const r = await fetch(`${url}/projects`, { redirect: 'manual' });
+        expect(r.status).toBe(200);
+        expect(await r.text()).toContain('editor-shell');
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // §6 — CSP connect-src is configuration-derived (C51 §3.1.2.2). buildConnectSrc
 // derives the EXACT Supabase project origin from SUPABASE_URL (no wildcard when
 // configured), never emits a third-party AI origin (the browser uses the

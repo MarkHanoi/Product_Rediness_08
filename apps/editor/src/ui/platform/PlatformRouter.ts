@@ -274,6 +274,17 @@ export class PlatformRouter {
             router.showOnboarding();
             return;
         }
+        // A.5.f — `?page=signin` opens the auth modal directly (apex "Log in" →
+        // /sign-in → server §3.2.2 redirect → ?page=signin). Landing renders as
+        // the blurred backdrop behind the modal; a signed-in visitor skips to hub.
+        if (initialPage === 'signin') {
+            document.querySelector('[data-pryzm-skeleton="landing"]')?.remove();
+            const user = getCurrentUser();
+            if (user) { router.showHub(user); return; }
+            router.showLanding();
+            router.showAuth();
+            return;
+        }
 
         // §06 §10 — Read hash on initial load to restore correct view.
         // Both #/ and #/projects land on the hub when a session exists —
