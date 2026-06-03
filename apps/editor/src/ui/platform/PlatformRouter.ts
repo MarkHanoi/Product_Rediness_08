@@ -351,10 +351,25 @@ export class PlatformRouter {
                 // brief, "site → plan in one afternoon") lands here next; for now
                 // we surface it so the journey is observable end-to-end.
                 if (this.capturedBrief) {
+                    const brief = this.capturedBrief;
                     console.log(
                         '[onboarding] post-auth — captured brief ready for project pre-load:',
-                        { role: this.capturedBrief.role, typology: this.capturedBrief.typologyId },
+                        { role: brief.role, typology: brief.typologyId },
                     );
+                    // A.5.g (seam) — publish the captured brief on the runtime event
+                    // bus so the in-editor pipeline can seed the first project from
+                    // the conversation. The full auto-generation (create project →
+                    // draw a default exterior shell → run apartment generation) is
+                    // staged as A.5.g.2: triggerApartmentLayout requires a ≥3-wall
+                    // shell to ALREADY exist on the active level (it lays out INSIDE
+                    // a shell, it does not create one — apartmentLayoutTrigger.ts:44),
+                    // so that step must draw a default footprint first and be verified
+                    // in-browser. This event is the seam it will subscribe to.
+                    this.runtime?.events?.emit('pryzm:onboarding-brief-ready', {
+                        role: brief.role,
+                        typologyId: brief.typologyId,
+                        metadata: brief.metadata ?? {},
+                    });
                 }
             },
             onClose: () => {

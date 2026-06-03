@@ -189,6 +189,41 @@ Every app deploy MUST pass the 15 gates in [`docs/05-guides/deployments/PRODUCTI
 
 When Phase D moves CRDT sync to Cloudflare Durable Objects (ADR-055 §3 row "D"), the server-side `Y.applyUpdate` merge MUST continue to surface `SyncSlot.status = 'CONFLICTED'` + drive `ConflictResolutionDialog` per C08 §3.1 Wave A19. Silent LWW overwrite is forbidden; the parity-tested cutover (ADR-055 §3 row "D" risk gate) is binding.
 
+#### §3.1.8 — Bridge clean apex entry-paths to the SPA query parser ("§3.2.2" in `server.js`)
+
+> **Server anchor:** the implementation of this clause is the `server.js` block tagged `// C51 §3.2.2 — clean entry-path routing (apex→app)`. It is the MUST-side counterpart to the §3.2.1 marketing guard (the `server.js` `C51 §3.2.1` block). This contract is the source of truth; the code label points back here.
+
+The apex landing emits **clean, shareable** entry-paths on the app origin (no query string, no hash) — see §2.1.5 and the table in §3.2.1.1 below. The app server MUST translate each clean entry-path into the SPA's first-paint query form so that the editor's URL parser (`apps/editor/src/ui/platform/PlatformRouter.ts` initial-load block + `apps/editor/src/router.ts`) routes the visitor on first paint WITHOUT a pathname router.
+
+The bridge MUST be a server-side **302** (temporary — the canonical surface is the `?page=` SPA, the path is only the entry handle), applied on **all hosts including `localhost`** so the full apex→app journey is testable locally before `app.pryzm.so` is live on Fly. (Contrast §3.2.1's marketing guard, which is host-GUARDED to `app.pryzm.so` because those paths belong to the apex, not the app.)
+
+The normative clean-path → SPA-query map:
+
+| Clean entry-path (app origin) | 302 target | SPA effect (PlatformRouter initial load) |
+|---|---|---|
+| `/signup` | `/?page=signup` | `showLanding()` + `showOnboarding()` — RAC onboarding canvas (A.5.f) |
+| `/start` | `/?page=start` | `showLanding()` + `showOnboarding()` — RAC onboarding canvas (A.5.f) |
+| `/sign-in` | `/?page=signin` | `showLanding()` + `showAuth()` — auth modal |
+| `/contact` | `/` (landing root) | not yet built as an app surface — lands on the landing page |
+| `/solutions` | `/` (landing root) | not yet built as an app surface — lands on the landing page |
+| `/resources` | `/` (landing root) | not yet built as an app surface — lands on the landing page |
+
+Notes that are part of the contract:
+
+- **Signed-IN short-circuit.** For every `?page=` entry above, a signed-in visitor skips straight to the hub (`showHub`); the onboarding / auth surfaces are signed-OUT entry points only. This is the PlatformRouter initial-load behaviour, not a server concern.
+- **`/contact`, `/solutions`, `/resources`** bridge to the landing root (`/`) rather than a `?page=` surface because those app surfaces are not built yet. The apex still links to them (§2.1.5) so the link map is stable; when the surfaces ship, this row gains a `?page=` target via a §3.1.8 amendment. They MUST NOT 404.
+- **The brief hand-off (A.5.g).** The end-to-end journey is: apex `"Start here"` → `app.pryzm.so/signup` → §3.2.2 302 → `/?page=signup` → SPA boots → RAC onboarding captures the 4-question brief → auth modal → post-auth the captured brief is stashed (`getCapturedBrief()`) for project pre-load. The full "create a project + run apartment generation from the brief" step is currently a hook (it logs the brief); wiring it is tracked as A.5.g.
+- **Marketing paths are NOT bridged here.** `/pricing`, `/manifesto`, `/trust` are apex-owned content routes; on the app host they are handled by §3.2.1 (host-guarded **301** to the apex), never by this §3.1.8 302 bridge. The two blocks are deliberately separate.
+
+##### §3.1.8.1 — Single-source CTA mechanism (cross-reference §2.1.5)
+
+The apex anchors and the editor buttons are emitted by ONE pure string builder, `apps/editor/src/ui/platform/landingMarkup.ts` (zero imports), called in two modes:
+
+- `landingMarkup({ mode: 'app' })` — the editor's `LandingPage.build()`. CTAs are interactive `<button id=…>` with NO `href`; the editor's `addEventListener` wiring drives them.
+- `landingMarkup({ mode: 'apex', appOrigin })` — the apex prerender (`scripts/build/prerender-apex.mjs`). CTAs become `<a href>` anchors. App-surface CTAs point at `${appOrigin}/<clean-path>`; apex-owned content routes (`/pricing`, …) stay root-relative.
+
+This is the §2.1.5 single-source mechanism: the apex's clean entry-paths and the editor's CTA targets cannot drift because they are the same function. The exact CTA → clean-path map is fixed in `landingMarkup.ts` (`"Get started for free"` / `"Start here"` → `/signup`; `"Log in"` → `/sign-in`; `"Contact sales"` → `/contact`; Solutions → `/solutions`; Resources → `/resources`; Pricing / "See enterprise options" → root-relative `/pricing`).
+
 ### §3.2 — MUST NOT
 
 #### §3.2.1 — Serve marketing routes
@@ -277,6 +312,24 @@ If a route's purpose is genuinely ambiguous (e.g. a future `/pricing/calculator`
 
 Crossing the apex→app boundary is a full page load by design. Same-origin SPA navigation between apex and app is impossible (different subdomains, different CSPs, different cookie scopes) — this is a feature, not a limitation.
 
+### §5.3 — Entry-path routing table (clean path → SPA query, the §3.1.8 / `server.js` "§3.2.2" bridge)
+
+Each clean entry-path the apex links to (§2.1.5 / §3.1.8.1) is bridged by the app server to the SPA's first-paint form. The marketing paths are listed in the same table for completeness — they take a different (§3.2.1, host-guarded 301) path and are NOT part of the §3.1.8 302 bridge.
+
+| Path | Host scope | Behaviour | Target | Status |
+|---|---|---|---|---|
+| `/signup` | all hosts (incl. localhost) | 302 (§3.1.8) | `/?page=signup` → `showLanding()` + `showOnboarding()` (RAC, A.5.f) | normative; signed-in → hub |
+| `/start` | all hosts (incl. localhost) | 302 (§3.1.8) | `/?page=start` → `showLanding()` + `showOnboarding()` (RAC, A.5.f) | normative; signed-in → hub |
+| `/sign-in` | all hosts (incl. localhost) | 302 (§3.1.8) | `/?page=signin` → `showLanding()` + `showAuth()` | normative; signed-in → hub |
+| `/contact` | all hosts (incl. localhost) | 302 (§3.1.8) | `/` (landing root) | normative; app surface not built yet — gains a `?page=` target on ship |
+| `/solutions` | all hosts (incl. localhost) | 302 (§3.1.8) | `/` (landing root) | normative; app surface not built yet — gains a `?page=` target on ship |
+| `/resources` | all hosts (incl. localhost) | 302 (§3.1.8) | `/` (landing root) | normative; app surface not built yet — gains a `?page=` target on ship |
+| `/pricing` | `app.pryzm.so` only (host-guarded) | 301 (§3.2.1) | `${APEX_ORIGIN}/pricing` | apex-owned content route — NOT the §3.1.8 bridge |
+| `/manifesto` | `app.pryzm.so` only (host-guarded) | 301 (§3.2.1) | `${APEX_ORIGIN}/manifesto` | apex-owned content route — NOT the §3.1.8 bridge |
+| `/trust` | `app.pryzm.so` only (host-guarded) | 301 (§3.2.1) | `${APEX_ORIGIN}/trust` | apex-owned content route — NOT the §3.1.8 bridge |
+
+The `/pricing`, `/manifesto`, `/trust` rows also have a SPA-side `?page=` representation (the editor renders them in-app via `showMarketing(page)` when reached as `/?page=pricing|manifesto|trust` — e.g. the apex pre-render deep-linking a customer to a marketing route on first paint, see `apps/editor/src/router.ts` `MarketingPage`). The 301 in this table is only the **stray-request-on-the-app-host** case (§3.2.1): a marketing PATH reaching `app.pryzm.so` is bounced to the apex because the apex owns the content.
+
 ---
 
 ## §6 — Build contract
@@ -362,6 +415,7 @@ New subdomains (`portal.pryzm.so`, `api-v2.pryzm.so`, `internal.pryzm.so`) requi
 
 ## §10 — Change log
 
+- **2026-06-03** — Canonicalized the **apex→app clean entry-path routing**. Added **§3.1.8** (the clean-path → SPA `?page=` bridge, the MUST-side counterpart to §3.2.1, tagged `C51 §3.2.2` in `server.js`) + **§3.1.8.1** (the `landingMarkup.ts` single-source CTA mechanism, cross-ref §2.1.5) + **§5.3** (the entry-path routing table: path · host · behaviour · target · status for `/signup` · `/start` · `/sign-in` · `/contact` · `/solutions` · `/resources` · `/pricing` · `/manifesto` · `/trust`). Docs-only; no code change. The contract is now the source of truth for the previously-undocumented routing flow.
 - **2026-06-02** — Ratified as the normative form of ADR-055 §0. First contract to govern PRYZM's hosting topology. Authored alongside ADR-055's amendment pass (4 critical contract conflicts caught + corrected) so the invariants the ADR ratified are now lifted into permanent contract form. CI gates §7 declared but not yet authored.
 
 ---
