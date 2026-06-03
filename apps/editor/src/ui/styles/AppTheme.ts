@@ -79,6 +79,7 @@ import { MODEL_TREE_TEST_MODAL_STYLES } from './panels/modelTreeTestModal';
 import { SHEET_GENERATOR_TEST_MODAL_STYLES } from './panels/sheetGeneratorTestModal';
 import { PDF_EXPORT_TEST_MODAL_STYLES } from './panels/pdfExportTestModal';
 import { APARTMENT_DATA_TEST_MODAL_STYLES } from './panels/apartmentDataTestModal';
+import { CLIMATE_PANEL_STYLES } from './panels/climatePanel';
 
 const APP_THEME_ID = 'app-master-theme-v3';
 
@@ -210,7 +211,8 @@ export function injectAppTheme(): void {
         + MODEL_TREE_TEST_MODAL_STYLES
         + SHEET_GENERATOR_TEST_MODAL_STYLES
         + PDF_EXPORT_TEST_MODAL_STYLES
-        + APARTMENT_DATA_TEST_MODAL_STYLES;
+        + APARTMENT_DATA_TEST_MODAL_STYLES
+        + CLIMATE_PANEL_STYLES;
     if (!existing) document.head.appendChild(style);
 }
 
