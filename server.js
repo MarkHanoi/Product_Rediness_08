@@ -5439,6 +5439,26 @@ app.get(['/pricing', '/manifesto', '/trust'], (req, res, next) => {
     return next();
 });
 
+// ── C51 §3.2.2 — clean entry paths → SPA query routes ─────────────────────────
+// The apex landing (`landingMarkup` mode:'apex') links its CTAs to CLEAN app
+// paths (/signup, /start, /sign-in) for shareable, professional URLs — that is
+// the canonical apex→app entry contract. But the editor SPA is query-routed:
+// PlatformRouter reads `?page=…` on first paint (A.5.f, PlatformRouter.ts:257),
+// so without this bridge those clean paths fall through the SPA catch-all and
+// render the LANDING instead of the onboarding/auth surface the visitor asked
+// for. These 302s map clean URL → the `?page=` the SPA parses. Applied on ALL
+// hosts (incl. localhost) so the apex→app pipeline is testable locally BEFORE
+// Fly is live. Marketing paths (/pricing,/manifesto,/trust) are §3.2.1 above.
+// Source of truth for the entry-route list: C51 §5 routing table.
+app.get('/signup', (_req, res) => res.redirect(302, '/?page=signup'));
+app.get('/start', (_req, res) => res.redirect(302, '/?page=start'));
+app.get('/sign-in', (_req, res) => res.redirect(302, '/?page=signin'));
+// /solutions + /resources are not built as app surfaces yet (C51 §5) and
+// /contact is served by the landing's mailto CTA — land these gracefully on the
+// landing root rather than 404 through the SPA catch-all. Swap for `?page=`
+// targets when those surfaces ship.
+app.get(['/contact', '/solutions', '/resources'], (_req, res) => res.redirect(302, '/'));
+
 // ── Static / Vite middleware ──────────────────────────────────────────────────
 if (isProd) {
     console.log('[server] Production mode — serving dist/');
