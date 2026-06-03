@@ -733,6 +733,43 @@ export class WallFragmentBuilder {
         const start = new THREE.Vector3(startPt.x, startPt.y, startPt.z);
         const end   = new THREE.Vector3(endPt.x,   endPt.y,   endPt.z);
 
+        // §WJR-NAN-GUARD (Jun 2026 — consumer safety net, diff-thickness HANG fix):
+        // The synchronous load-time rebuild MUST NOT hand a non-finite or
+        // near-zero-length baseline to the geometry ops below (extrude / footprint
+        // / CSG / BVH bounding-volume maths). A NaN-coordinate BufferGeometry is
+        // the canonical non-terminating case: the extruder's computeBoundingSphere
+        // spins, and a NaN mesh fed to BVH/CSG never partitions/closes — freezing
+        // the tab on project-open (see
+        // docs/03-execution/analysis/WALLJOINRESOLVER-DIFF-THICKNESS-HANG-2026-06-03.md).
+        // A hang is NOT catchable, so this guard runs BEFORE any geometry op (not
+        // via the WallRebuildCoordinator try/catch). If the baseline is degenerate
+        // we skip the geometry build and leave an empty (hidden) wall group rather
+        // than build NaN geometry. A wrong-but-fast result beats a frozen tab.
+        const MIN_WALL_LEN = 1e-3; // metres
+        const _coordFinite =
+            Number.isFinite(start.x) && Number.isFinite(start.y) && Number.isFinite(start.z) &&
+            Number.isFinite(end.x)   && Number.isFinite(end.y)   && Number.isFinite(end.z);
+        if (!_coordFinite || start.distanceTo(end) < MIN_WALL_LEN) {
+            console.warn(
+                `[WallFragmentBuilder] §WJR-NAN-GUARD skipped degenerate wall ${wall.id} ` +
+                `(finite=${_coordFinite} len=${_coordFinite ? start.distanceTo(end).toFixed(5) : 'NaN'})`
+            );
+            // The group already has its identity + OBB-highlight userData synced
+            // above; we simply leave it with no body fragment and hide it so no
+            // NaN geometry ever reaches the renderer/picking/CSG. The flag lets a
+            // later valid rebuild restore visibility without clobbering external
+            // visibility intent (level isolate/hide).
+            wallGroup.userData.__wjrNaNHidden = true;
+            wallGroup.visible = false;
+            return [];
+        }
+        // Restore visibility only if THIS guard previously hid the group — never
+        // override the visibility subsystem's intent for a normal valid wall.
+        if (wallGroup.userData.__wjrNaNHidden) {
+            wallGroup.userData.__wjrNaNHidden = false;
+            wallGroup.visible = true;
+        }
+
         // ✅ FIX §13 / Split-brain worldY: use the pre-computed worldY when supplied
         // by updateWall() (the authoritative BimManager-based path). Only fall back
         // to spatialAuthority.resolveWorldTransform() for direct call sites (e.g.
