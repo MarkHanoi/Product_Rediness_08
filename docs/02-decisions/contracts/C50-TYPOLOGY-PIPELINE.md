@@ -259,6 +259,32 @@ type StageOutcome<TArtifact> =
     | { ok: false; reason: string; stage: PipelineStage };
 ```
 
+### §2.6 — `briefSchema` (typology-declared brief) — NORMATIVE
+
+> Tracker: O.12.a · SPEC: [SPEC-TYPOLOGY-BRIEF-SCHEMA.md](../../03-execution/specs/SPEC-TYPOLOGY-BRIEF-SCHEMA.md) · ADR: [0056](../adrs/0056-typology-declared-brief.md).
+
+The project brief is **declared by the typology, not hard-coded in the UI.** Each `TypologyManifest` MAY carry an optional `briefSchema: BriefSchema` — an ordered, typed list of bounded fields the onboarding RAC renders dynamically (sliders / steppers / select chips / toggles / one free-text box). The captured values become the structured `Brief` (`Record<fieldId, value>`) that drives Stage 4 generation. This is the **typed front door** to each typology pack and supersedes the legacy free-text "tell me about the project" brief (which survives only as a supplementary hint via the `text` field).
+
+The schema is L0-pure (`@pryzm/schemas`, Zod-only, no I/O/THREE/DOM per **P5**) and lives in `packages/schemas/src/typology/briefSchema.ts`.
+
+```ts
+type BriefField =
+  | { kind: 'range';  id; label; min; max; step; default; unit? }   // slider
+  | { kind: 'stepper'; id; label; min; max; default; unit? }        // ± integer
+  | { kind: 'select'; id; label; options: {value;label}[]; default }
+  | { kind: 'multiselect'; id; label; options; default: string[] }
+  | { kind: 'toggle'; id; label; default: boolean }
+  | { kind: 'text';   id; label; placeholder? };
+interface BriefSchema { fields: readonly BriefField[] }
+```
+
+Binding rules:
+
+- **§2.6.1 — `briefSchema` is OPTIONAL and backward-compatible.** Packs that pre-date the brief schema omit it; the onboarding RAC falls back to the free-text box. Adding `briefSchema` to a manifest never breaks an existing pack.
+- **§2.6.2 — Field `id`s are unique within a schema** (Zod-enforced) and are the keys of the structured `Brief`. The schema requires `fields.length ≥ 1`.
+- **§2.6.3 — Cross-field invariants are schema-enforced** (hence a plain `z.union`, NOT `discriminatedUnion`, so `.refine()` is permitted): `range`/`stepper` require `min ≤ max` and `default ∈ [min, max]`; `select` requires `default` to be one of the option values; `multiselect` requires every `default` entry to be an option value.
+- **§2.6.4 — The field `id`s MUST match the pack's live generator/picker keys.** The brief is the single source of truth shared by the RAC brief step AND the O.10 "Choose a layout" picker — they never drift. For the apartment pack the keys are the `ApartmentProgram` keys (`bedrooms`, `bathrooms`, `style`, `openPlanKitchenDining`, `masterEnSuite`, `targetAreaM2`, `notes`) as defined in `apps/editor/src/ui/apartment-layout/layoutRequestPayload.ts`. Note the live key is `masterEnSuite` (capital S), deviating from SPEC §3's `masterEnsuite`; the live key is authoritative (see ADR-0056).
+
 ---
 
 ## §3 — TypologyRegistry
