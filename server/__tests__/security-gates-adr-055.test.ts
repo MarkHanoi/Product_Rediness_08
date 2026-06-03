@@ -458,6 +458,9 @@ describe('§6 connect-src config-derivation (C51 §3.1.2.2)', () => {
             expect(s).toContain("'self'");
             expect(s).toContain('wss:');
             expect(s).toContain('https://api.cesium.com');
+            // OBC engine HDR env-map CDN (engineLauncher RGBELoader) — must be
+            // allowed or HDRI visual styles fail under the prod CSP.
+            expect(s).toContain('https://thatopen.github.io');
         }
     });
 });
