@@ -299,7 +299,7 @@ Every Phase A sub-phase in §3.1–§3.X traces to one or more IPs. This table i
 | A.PR.B/H Production-readiness | distributed across IP-A1 through IP-A11; B10 (quarantine modal) → IP-A6; H19 (OTel exporter) → IP-A4 |
 | A.DU.* Daily-use fixes | distributed; primarily IP-A1 → IP-A6 (sprint 1-3 fixes) |
 | A.OI.* | OI-011/012/013 → IP-A1; OI-053 (project-open perf) → IP-A4; OI-058 (Scene Registry) → IP-A6 |
-| A.APT.* Apartment carry-overs | A.APT.SA.2 corridor → IP-A2 · A.APT.SA.5 windows engine → IP-A5 |
+| A.APT.* Apartment carry-overs | A.APT.SA.2 corridor ✅ SHIPPED 2026-06-03 (`bbebb79`): `wallsAndDoors.ts` pass (2c) §CIRCULATION-REROUTE — every private/service room without a DIRECT corridor door gets one on a permitted circulation-adjacent wall (caps respected, forbidden pairs never crossed, ensuite-via-master preserved); land-locked rooms → `unroutedToCirculationRoomIds` warning not illegal door; `enumerate.ts` `clean+legal+routed` gate tier. Closes single-apartment-fix-spec critical #2 ("corridor doesn't link all"). ai-host 1469/1469 (+6). · A.APT.SA.5 windows engine → IP-A5 |
 
 The user-facing acceptance test at each IP runs through the cumulative test surface: IP-A6 tests IP-A1 through IP-A6's combined surfaces.
 
