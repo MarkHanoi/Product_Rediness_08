@@ -1820,6 +1820,19 @@ export interface RuntimeEvents {
    *  Replaces the TASK-15 `pryzm:toast` CustomEvent.  F.events.15 */
   'pryzm:toast': { readonly message: string; readonly severity?: string };
 
+  /** A.5.g — fired post-auth by `PlatformRouter` when the RAC onboarding
+   *  conversation captured a brief before sign-up. The in-editor pipeline
+   *  subscribes to seed the first project from the conversation (A.5.g.2:
+   *  create project → draw a default exterior shell → run apartment
+   *  generation). The payload is intentionally loose — the conversation is
+   *  freeform — so consumers narrow `metadata`. Replaces a `window` global
+   *  handoff (P4). */
+  'pryzm:onboarding-brief-ready': {
+    readonly role: string;
+    readonly typologyId: string;
+    readonly metadata: Record<string, unknown>;
+  };
+
   /** Requests placement of a detail component in the active view.
    *  DetailComponentPanel dispatches.
    *  Replaces the TASK-15 `pryzm:detail-component:place` CustomEvent.  F.events.15 */
