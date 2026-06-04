@@ -60,6 +60,13 @@ import type { PipelineBrief } from '@pryzm/typology-pipeline';
 // ZERO console commands. The router injects its create+open path so the
 // bootstrap reuses the hub's proven flow rather than re-minting project ids.
 import { installBriefBootstrap } from '../onboarding/briefBootstrap';
+// O.14 (perf/boot) — warm the heavy BIM-engine MODULE download during onboarding
+// so the post-brief "Downloading BIM engine…" wait is short. `ensureEngineWarm()`
+// is idempotent + best-effort (never throws); the cold `loadEngine()` path in
+// `src/main.ts` is the fallback. We import only the warm facade (a ≤90 LOC module
+// that does the engine `import()` dynamically), so this static import adds no
+// engine bytes to the platform critical-path chunk.
+import { ensureEngineWarm } from '@app/engine/engineWarmup';
 
 /** ADR-055 §7 — marketing routes moved from apps/docs-site/ into the
  *  editor.  Names match the apex pre-render bucket (/, /pricing,
@@ -547,6 +554,18 @@ export class PlatformRouter {
         this.onboarding?.dispose();
         this.onboarding = null;
 
+        // O.14 (perf/boot) — START the heavy BIM-engine MODULE download NOW, while
+        // the user is in the RAC role/brief/location/draw steps (several seconds).
+        // By the time the brief CTA fires create→site→generate→openProject→ensure()
+        // → loadEngine(), the 2.6 MB engine chunk is already downloaded + evaluated
+        // (shared cached promise in engineWarmup), so the "Downloading BIM engine…"
+        // overlay stage is short. Fire-and-forget + best-effort: a warm failure
+        // never blocks onboarding (the cold loadEngine() path in main.ts is the
+        // fallback). The project-dependent bootstrap() (scene/builders/tools/UI on
+        // the real #container canvas + open project) deliberately STAYS late — it
+        // needs a live canvas + project context that don't exist yet.
+        ensureEngineWarm();
+
         const registry = this.runtime?.typology?.registry;
         if (!registry) {
             console.warn('[PlatformRouter] showOnboarding — no typology registry on runtime; opening auth directly.');
@@ -733,6 +752,14 @@ export class PlatformRouter {
      * without a round-trip.
      */
     createAndOpenProject(name: string): void {
+        // O.14 (perf/boot) — safety-net warm. `showOnboarding()` already warms the
+        // engine when the guided flow runs, but the captured-brief post-auth branch
+        // (showAuth.onSuccess) emits `pryzm:onboarding-brief-ready` WITHOUT calling
+        // showOnboarding, so the brief-bootstrap reaches here straight from auth.
+        // ensureEngineWarm() is idempotent, so calling it here too just guarantees
+        // the download has started by project-create time even on that path; it's a
+        // no-op if showOnboarding already kicked it off.
+        ensureEngineWarm();
         void (async () => {
             try {
                 if (!this.runtime?.persistence?.client?.create) {
