@@ -1,5 +1,12 @@
 import * as Cesium from "cesium";
 import { TransformGizmo, GizmoMode } from "./TransformGizmo";
+// MAP-DATA-OVERTURE — keyless OSM/Overture context-building loader (bbox → GeoJSON
+// footprints + heights). Used to surround the proposed massing with real buildings
+// that cast shadows (Forma/Archistar-style context). Same data path as the 2D map.
+import {
+    fetchContextBuildings,
+    type ContextBuildingCollection,
+} from "./contextBuildings";
 // FORMA.5 — pure NOAA solar-position calculator (L2, no THREE / no I/O).
 // `solarSample(lat, lon, utcIso)` → { altitudeRad, azimuthRad, isAboveHorizon }.
 // This is the SAME pure algorithm the ClimatePanel sun-path uses; FORMA.5 reads
@@ -166,6 +173,19 @@ export class CesiumViewport {
   private formaSunLast: { altitudeDeg: number; azimuthDeg: number; isAboveHorizon: boolean } | null = null;
   /** Observers (the scrubber UI) notified whenever the sun is re-solved. */
   private formaSunListeners = new Set<(p: { altitudeDeg: number; azimuthDeg: number; isAboveHorizon: boolean; date: Date }) => void>();
+
+  // ---- MAP-DATA-OVERTURE — context-building (surrounding massing) state ----
+  /** Cesium entities placed for the surrounding OSM/Overture context buildings,
+   *  so a refresh / location change can clear the previous set. */
+  private contextBuildingEntities: Cesium.Entity[] = [];
+  /** The (lat,lon) the context buildings were last loaded for — skip a refetch
+   *  when the site hasn't moved (the loader also caches per bbox). */
+  private contextBuildingsAt: { lat: number; lon: number } | null = null;
+  /** Abort handle for an in-flight context-building fetch (cancelled on a newer
+   *  load / dispose so a stale response can't repaint the wrong site). */
+  private contextBuildingsAbort: AbortController | null = null;
+  /** One-time guard so the "context buildings unavailable" warning logs once. */
+  private contextBuildingsWarned = false;
 
   /** Phase B (S73-WIRE) — runtime threaded by parent. */
   public readonly runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null;
@@ -595,6 +615,12 @@ export class CesiumViewport {
       // FORMA.5 — re-anchor the sun at the new site so shadows are correct here.
       this.setFormaSunLocation(loc.latitude, loc.longitude);
       this.frameSiteLocation(loc.latitude, loc.longitude, { instant: false });
+      // MAP-DATA-OVERTURE — refresh the surrounding context buildings for the new
+      // site (only while the Forma massing canvas is active; in photoreal the
+      // Google/ESRI tiles already show real buildings). Best-effort, guarded.
+      if (this.formaMode) {
+        void this.loadContextBuildings(loc.latitude, loc.longitude, true);
+      }
     });
     // EventSubscription is both callable and Disposable — store the callable form.
     this.locationSub = () => sub();
@@ -966,6 +992,16 @@ export class CesiumViewport {
     if (this.formaAoStage) this.formaAoStage.enabled = false;
     if (this.formaSilhouetteComposite) this.formaSilhouetteComposite.enabled = false;
 
+    // MAP-DATA-OVERTURE — the context-building overlay belongs to the Forma canvas
+    // only (photoreal already shows real buildings via the satellite/Google tiles).
+    try {
+      this.contextBuildingsAbort?.abort();
+      this.clearContextBuildings();
+      this.contextBuildingsAt = null;
+    } catch (e) {
+      console.warn('[CesiumViewport][forma] context-building clear on restore failed:', e);
+    }
+
     console.log('[CesiumViewport] Photoreal mode restored.');
   }
 
@@ -1278,6 +1314,12 @@ export class CesiumViewport {
     // (task #2). Never blocks the placement above (the toggle stays responsive).
     if (!input._skipTerrainClamp) {
       void this.clampTerrainThenReplace(input);
+      // MAP-DATA-OVERTURE — surround the proposed massing with real context
+      // buildings (keyless OSM). Best-effort + non-blocking; guarded internally.
+      // Skipped on the terrain re-place pass (_skipTerrainClamp) so we don't
+      // refetch — the terrain clamp re-seats existing context entities cheaply via
+      // the unchanged-centre skip.
+      void this.loadContextBuildings(originLat, originLon);
     }
   }
 
@@ -1366,6 +1408,9 @@ export class CesiumViewport {
     // Re-place at the new base. `_skipTerrainClamp` prevents an infinite loop;
     // `frameCentroid:false` so the re-place never re-flies the camera (task #2).
     this.renderFormaMassing({ ...input, frameCentroid: false, _skipTerrainClamp: true });
+    // MAP-DATA-OVERTURE — the base height changed, so re-seat the context
+    // buildings on the new ground too (force, since the centre is unchanged).
+    void this.loadContextBuildings(input.originLat, input.originLon, true);
   }
 
   /** Log the "terrain clamp degraded → base 0" message at most once. */
@@ -1440,6 +1485,143 @@ export class CesiumViewport {
     }
     this.formaMassingEntities = [];
     this.setFormaSilhouetteTargets([]);
+  }
+
+  /**
+   * MAP-DATA-OVERTURE — load the surrounding context buildings (keyless OSM via
+   * Overpass — see contextBuildings.ts) and render them as extruded white-ish
+   * `#E8E5DF`@0.92 `PolygonGraphics` around the proposed massing, so the Forma
+   * view shows real neighbours casting + receiving shadows (Archistar/Forma look).
+   *
+   * COORDINATE BRIDGE — reuses the EXACT same single-ENU-anchor approach as
+   * `renderFormaMassing` (NO parallel coord system, SPEC §8.3): one
+   * `eastNorthUpToFixedFrame` at the site origin; each footprint's lon/lat is
+   * converted to local ENU metres relative to that origin and placed with one
+   * matrix multiply. Buildings are seated at `formaTerrainBaseHeight` so they sit
+   * on the same ground as the massing.
+   *
+   * CACHING — skips the refetch when the site centre hasn't moved (the loader also
+   * caches per bbox). FALLBACK — any failure (offline / Overpass down / no
+   * features) leaves the scene with NO context buildings (today's behaviour); it
+   * never throws and logs once with a `[forma]` prefix.
+   *
+   * @param lat,lon the site origin (= ENU anchor = scene origin).
+   * @param force re-fetch even when the centre is unchanged (e.g. after a
+   *   project switch that cleared the entities).
+   */
+  public async loadContextBuildings(lat: number, lon: number, force = false): Promise<void> {
+    const viewer = this.viewer;
+    if (!viewer) return;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) return;
+
+    // Skip when unchanged (≈0.1 m) and we already have entities, unless forced.
+    const prev = this.contextBuildingsAt;
+    if (
+      !force && prev &&
+      Math.abs(prev.lat - lat) < 1e-6 && Math.abs(prev.lon - lon) < 1e-6 &&
+      this.contextBuildingEntities.length > 0
+    ) {
+      return;
+    }
+
+    // Cancel any in-flight load; start a fresh one.
+    this.contextBuildingsAbort?.abort();
+    this.contextBuildingsAbort = new AbortController();
+    const signal = this.contextBuildingsAbort.signal;
+
+    let collection: ContextBuildingCollection;
+    try {
+      collection = await fetchContextBuildings(lat, lon, signal);
+    } catch (e) {
+      // fetchContextBuildings never throws, but be defensive.
+      this.warnContextOnce('fetch threw — no context buildings: ' + String(e));
+      return;
+    }
+    // A newer load (or dispose) superseded us.
+    if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
+
+    this.clearContextBuildings();
+    this.contextBuildingsAt = { lat, lon };
+
+    if (collection.features.length === 0) {
+      this.warnContextOnce('no context footprints returned for this site (sparse/offline).');
+      return;
+    }
+
+    // ONE ENU frame at the site origin — identical anchor to renderFormaMassing.
+    const originCartesian = Cesium.Cartesian3.fromDegrees(lon, lat, 0);
+    const enu = Cesium.Transforms.eastNorthUpToFixedFrame(originCartesian);
+    const base = this.formaTerrainBaseHeight;
+    const fill = Cesium.Color.fromCssColorString(FORMA_PALETTE.contextFill).withAlpha(0.92);
+    const outline = Cesium.Color.fromCssColorString(FORMA_PALETTE.silhouette).withAlpha(0.35);
+
+    let placed = 0;
+    for (const f of collection.features) {
+      try {
+        const ring = f.geometry.coordinates[0];
+        if (!ring || ring.length < 4) continue;
+        // lon/lat → local ENU metres about the origin, then ENU → ECEF.
+        const positions = ring.map(([flon, flat]) => {
+          const fc = Cesium.Cartesian3.fromDegrees(flon!, flat!, 0);
+          // Local ENU offset of this point from the origin (vector in metres).
+          const localOffset = Cesium.Matrix4.multiplyByPoint(
+            Cesium.Matrix4.inverse(enu, new Cesium.Matrix4()),
+            fc,
+            new Cesium.Cartesian3(),
+          );
+          // Re-place at the terrain base height in the SAME ENU frame.
+          return Cesium.Matrix4.multiplyByPoint(
+            enu,
+            new Cesium.Cartesian3(localOffset.x, localOffset.y, base),
+            new Cesium.Cartesian3(),
+          );
+        });
+        const h = f.properties.heightM;
+        const ent = viewer.entities.add({
+          name: 'pryzm-forma-context-building',
+          polygon: {
+            hierarchy: new Cesium.PolygonHierarchy(positions),
+            height: base,
+            extrudedHeight: base + Math.max(0.1, h),
+            material: fill,
+            outline: true,
+            outlineColor: outline,
+            outlineWidth: 1,
+            // ShadowMode.ENABLED == casts AND receives (Forma context shadows).
+            shadows: Cesium.ShadowMode.ENABLED,
+            perPositionHeight: false,
+          },
+        });
+        this.contextBuildingEntities.push(ent);
+        placed++;
+      } catch {
+        // Skip a single malformed footprint; never break the whole load.
+      }
+    }
+
+    viewer.scene.requestRender();
+    console.log(
+      `[CesiumViewport][forma] context buildings rendered: ${placed} extruded footprint(s) ` +
+        `around LAT ${lat} LON ${lon} (base ${base.toFixed(1)} m, ${FORMA_PALETTE.contextFill}@0.92, shadows on).`,
+    );
+  }
+
+  /** MAP-DATA-OVERTURE — remove all context-building entities (idempotent). */
+  public clearContextBuildings(): void {
+    const viewer = this.viewer;
+    if (viewer) {
+      for (const ent of this.contextBuildingEntities) {
+        try { viewer.entities.remove(ent); } catch { /* already gone */ }
+      }
+    }
+    this.contextBuildingEntities = [];
+  }
+
+  /** Log the "context buildings unavailable / degraded" message at most once. */
+  private warnContextOnce(reason: string): void {
+    if (this.contextBuildingsWarned) return;
+    this.contextBuildingsWarned = true;
+    console.warn('[CesiumViewport][forma] context buildings degraded (' + reason + ').');
   }
 
   /**
@@ -1538,6 +1720,16 @@ export class CesiumViewport {
       console.warn('[CesiumViewport] forma massing dispose failed:', e);
     }
     this.formaMassingOrigin = null;
+    // MAP-DATA-OVERTURE — cancel + drop context buildings so they don't leak
+    // across project switches (a re-mounted viewport reloads them for the new site).
+    try {
+      this.contextBuildingsAbort?.abort();
+      this.contextBuildingsAbort = null;
+      this.clearContextBuildings();
+      this.contextBuildingsAt = null;
+    } catch (e) {
+      console.warn('[CesiumViewport] context-building dispose failed:', e);
+    }
     // FORMA.4 — reset the terrain-clamp cache so a re-mounted viewport (project
     // switch) re-samples ground height for the new site.
     this.formaTerrainBaseHeight = 0;
