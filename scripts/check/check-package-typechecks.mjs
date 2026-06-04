@@ -76,7 +76,7 @@ const KNOWN_FAILING = Object.fromEntries(
     'packages/plugin-sdk', 'packages/protocol', 'packages/render-runtime',
     'packages/renderer', 'packages/room-topology', 'packages/runtime-composer',
     'packages/scene-committer', 'packages/snapping', 'packages/spatial-index',
-    'packages/speculative-engine', 'packages/stores', 'packages/types-builtin',
+    'packages/speculative-engine', 'packages/types-builtin',
     'packages/ui-base', 'packages/view-state', 'packages/views',
   ].map(p => [p, KNOWN_FAILING_REASON]),
 );
