@@ -43,6 +43,12 @@ dist
 **/dist-apex
 build
 **/build
+# EXCEPTION: scripts/build/ is SOURCE, not build OUTPUT — it holds
+# write-prod-shim.mjs (run at the END of `pnpm run build:docker`) and
+# prerender-apex.mjs. The broad `**/build` above otherwise excludes it and breaks
+# the Docker build with: Error: Cannot find module '/app/scripts/build/write-prod-shim.mjs'.
+!scripts/build
+!scripts/build/**
 **/.next
 **/.astro
 .vite-cache
