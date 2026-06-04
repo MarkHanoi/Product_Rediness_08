@@ -458,6 +458,21 @@ export class BuildingGraphOverlay {
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
 
+    // 0) Soft pastel-purple field (GRAPH.3-HERO) — a faint radial lavender wash so
+    //    the graph floats on a living field (the MIAW hero look), not a flat panel.
+    {
+      const W = canvas.clientWidth;
+      const H = canvas.clientHeight;
+      const field = ctx.createRadialGradient(
+        W * 0.5, H * 0.46, 0, W * 0.5, H * 0.46, Math.max(W, H) * 0.72,
+      );
+      field.addColorStop(0, 'rgba(150, 100, 255, 0.12)');
+      field.addColorStop(0.5, 'rgba(120, 70, 240, 0.055)');
+      field.addColorStop(1, 'rgba(102, 0, 255, 0.0)');
+      ctx.fillStyle = field;
+      ctx.fillRect(0, 0, W, H);
+    }
+
     // 1) Flowing edges — curved bezier "liquid bridges" UNDER the nodes.
     ctx.lineCap = 'round';
     for (const e of layout.edges) {
@@ -478,9 +493,17 @@ export class BuildingGraphOverlay {
       ctx.beginPath();
       ctx.moveTo(a.x, a.y);
       ctx.quadraticCurveTo(cxp, cyp, b.x, b.y);
-      ctx.strokeStyle = e.colour;
-      ctx.globalAlpha = dim ? 0.08 : 1;
-      ctx.lineWidth = 1 + Math.min(3, (e.edge.weight ?? 1) * 0.6);
+      // GRAPH.3-HERO — taper the edge to a bright flowing core (faint at the
+      // node ends, luminous in the middle) so bridges read as flowing light,
+      // not flat rules. A slow phase ripple slides the bright band along.
+      const eg = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
+      const flow = 0.5 + Math.sin(this.phase * 0.6 + len * 0.01) * 0.12;
+      eg.addColorStop(0, this.withAlpha(e.colour, 0.28));
+      eg.addColorStop(Math.max(0.15, Math.min(0.85, flow)), e.colour);
+      eg.addColorStop(1, this.withAlpha(e.colour, 0.28));
+      ctx.strokeStyle = eg;
+      ctx.globalAlpha = dim ? 0.08 : 0.92;
+      ctx.lineWidth = 1.2 + Math.min(3.2, (e.edge.weight ?? 1) * 0.7);
       ctx.stroke();
     }
     ctx.globalAlpha = 1;
