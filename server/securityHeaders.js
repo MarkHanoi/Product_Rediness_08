@@ -110,6 +110,18 @@ export function buildConnectSrc(env = process.env, isProd = IS_PROD) {
         // path (free, no key); ENTERPRISE FOLLOW-ON: self-host the tiles to drop
         // this external dependency when volume warrants.
         'https://tiles.openfreemap.org',
+        // CLIMATE-LIVE-DATA — keyless live climate sources for the FORMA.5
+        // climate card + sun/wind analysis (apps/editor/src/ui/climate/
+        // liveClimateFetch.ts → @pryzm/climate-host liveNormalsAdapter).
+        //   - Open-Meteo Climate API: monthly temperature normals + wind rose.
+        //   - PVGIS (EU JRC): monthly global-horizontal irradiation (GHI).
+        // Both FREE + NO KEY; direct browser→provider is the designed path.
+        // Any fetch failure degrades to the BUNDLED climate-zone templates
+        // (C21 §7.4), so a blocked origin never breaks the climate card — it
+        // just loses the live upgrade. ENTERPRISE FOLLOW-ON: proxy/self-host
+        // when volume warrants.
+        'https://climate-api.open-meteo.com',
+        'https://re.jrc.ec.europa.eu',
     ];
 
     // Supabase REST + realtime — derive the EXACT project origin from

@@ -47,15 +47,31 @@ export interface ResolvedNormals {
 }
 
 /**
- * The shape a live NOAA fetch implementation must satisfy. The L5
- * adapter wires this; it MAY hit the NOAA NCEI API (or any provider) and
- * MUST resolve to 12 NOAANormal entries OR reject. A rejection (or any
- * thrown error) is caught here and degrades to bundled per [C21 §7.4].
+ * A live fetch MAY report its own provenance (vendor / dataset-version /
+ * license) alongside the 12 normals — used by non-NOAA live providers
+ * (e.g. Open-Meteo + PVGIS, CLIMATE-LIVE-DATA) so the resolved tier stays
+ * honest about WHO produced the data even though the SOURCE tier remains
+ * the generic `noaa-normals` "live" tier per [C21 §1.2].
+ */
+export interface LiveNormalsResult {
+    readonly monthlyNormals: readonly NOAANormal[];
+    readonly vendor?: string;
+    readonly datasetVersion?: string;
+    readonly license?: string;
+}
+
+/**
+ * The shape a live fetch implementation must satisfy. The L5 adapter
+ * wires this; it MAY hit the NOAA NCEI API, Open-Meteo, PVGIS, or any
+ * provider and MUST resolve to either 12 `NOAANormal` entries OR a
+ * `LiveNormalsResult` (12 normals + provenance) OR reject. A rejection
+ * (or any thrown error) is caught here and degrades to bundled per
+ * [C21 §7.4].
  */
 export type NoaaFetchImpl = (
     lat: number,
     lon: number,
-) => Promise<readonly NOAANormal[]>;
+) => Promise<readonly NOAANormal[] | LiveNormalsResult>;
 
 /** Options for `resolveNormals`. */
 export interface ResolveNormalsOptions {
@@ -116,13 +132,23 @@ export async function resolveNormals(
     if (opts.fetchImpl) {
         try {
             const raw = await opts.fetchImpl(lat, lon);
-            const parsed = NOAANormalSchema.array().length(12).parse(raw);
+            // The fetch may return a bare NOAANormal[] (legacy NOAA shape) OR a
+            // LiveNormalsResult that carries its own provenance (Open-Meteo /
+            // PVGIS via the CLIMATE-LIVE-DATA adapter). Normalise both.
+            const isRich =
+                !Array.isArray(raw) &&
+                typeof raw === 'object' &&
+                raw !== null &&
+                'monthlyNormals' in raw;
+            const rich = isRich ? (raw as LiveNormalsResult) : undefined;
+            const rawNormals = rich ? rich.monthlyNormals : raw;
+            const parsed = NOAANormalSchema.array().length(12).parse(rawNormals);
             const resolved: ResolvedNormals = {
                 monthlyNormals: parsed,
                 tier: 'noaa-normals',
-                vendor: 'NOAA NCEI',
-                datasetVersion: 'noaa-normals-1991-2020',
-                license: 'public-domain',
+                vendor: rich?.vendor ?? 'NOAA NCEI',
+                datasetVersion: rich?.datasetVersion ?? 'noaa-normals-1991-2020',
+                license: rich?.license ?? 'public-domain',
                 cacheHit: false,
             };
             _cache.set(key, resolved);
