@@ -97,7 +97,7 @@ export class FormaSiteAnalysisControls {
         root.className = 'pryzm-forma-analysis';
         root.setAttribute('data-testid', 'forma-analysis-controls');
         Object.assign(root.style, {
-            position: 'absolute', top: '64px', right: '14px', zIndex: '31',
+            position: 'absolute', bottom: '16px', right: '14px', zIndex: '31',
             width: '232px', display: 'flex', flexDirection: 'column', gap: '10px',
             padding: '12px', background: '#ffffff', borderRadius: '12px',
             boxShadow: '0 4px 18px rgba(20,10,60,0.18)', border: '1px solid #ece7fb',

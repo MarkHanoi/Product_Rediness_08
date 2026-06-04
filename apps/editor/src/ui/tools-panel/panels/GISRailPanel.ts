@@ -81,20 +81,22 @@ export class GISRailPanel {
             }
         ));
 
-        // FORMA.3 — discoverable entry point to the Cesium "massing study" 3D view.
-        // This is the ONLY click-path to the Forma view: it mounts the floating
-        // [Plan View][3D View] toggle AND lands on 3D (white extruded massing on the
-        // real-world plot). Without this button the Forma view was unreachable — the
-        // window hook (pryzmShowFormaView) was defined but never called from the UI.
+        // FORMA.3 / FORMA-PLAN-OBLIQUE — discoverable entry point to the Cesium
+        // "massing study" view. This is the ONLY click-path to the Forma view: it
+        // mounts the floating [2D Map][Plan][3D] toggle AND lands on the Forma
+        // PLAN-oblique (the Forma signature — near-top-down white shadowed massing;
+        // the shadows are the depth cue). The user can flip to 3D (NW oblique) or
+        // down to the 2D draw map from the toggle. Without this button the Forma
+        // view was unreachable — pryzmShowFormaView was defined but never called.
         root.appendChild(this._buildDivider());
         root.appendChild(this._buildActionBtn(
             '◉', 'Site 3D (Forma)',
-            'Open the Cesium 3D "massing study" — white extruded buildings on your real-world plot, with a Plan View / 3D View toggle',
+            'Open the Cesium "massing study" — white extruded buildings on your real-world plot, landing on the Forma Plan-oblique, with a 2D Map / Plan / 3D toggle',
             () => {
-                console.log('[GISRailPanel] Open Site 3D (Forma) massing view');
+                console.log('[GISRailPanel] Open Site 3D (Forma) massing view (Plan-oblique default)');
                 const show = window.pryzmShowFormaView;
                 if (typeof show === 'function') {
-                    show('3d');
+                    show('plan');
                 } else {
                     console.error('[GISRailPanel] pryzmShowFormaView not available — GIS area not mounted yet.');
                 }
