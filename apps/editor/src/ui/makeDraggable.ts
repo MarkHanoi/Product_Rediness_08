@@ -38,16 +38,33 @@ export function makeDraggable(
     let dragging = false;
     let offsetX  = 0;
     let offsetY  = 0;
+    let panelW   = 0;
+    let panelH   = 0;
 
-    function convertToPxPosition() {
-        const rect         = panel.getBoundingClientRect();
+    /**
+     * §DRAG-SHIFT-FIX (O.9, 2026-06-04): pin the panel to absolute left/top derived
+     * from its CURRENT visual rect, then strip EVERY centring mechanism so the pinned
+     * left/top take full effect with no leftover offset to fight.
+     *
+     * The jump-to-side regression had two compounding causes, both fixed here:
+     *  1. Transform-centring. The onboarding overlays centre via a STYLESHEET rule
+     *     `left:50%; top:50%; transform:translate(-50%,-50%)`. `getBoundingClientRect()`
+     *     already accounts for that translate, so pinning `left=rect.left` and then
+     *     clearing the transform keeps the panel exactly where it was — PROVIDED the
+     *     offset is captured from the SAME rect. The old code did its own
+     *     getBoundingClientRect() inside convertToPxPosition AND a second one for the
+     *     offset, with the panel already mutated between them → the offset was taken
+     *     against a moved rect, so the first mousemove snapped the panel sideways.
+     *  2. Centring shorthands (`right/bottom/margin/inset`). Left in place, they keep
+     *     fighting the new left/top and snap the panel to a side.
+     *
+     * Fix: take ONE rect, pin from it, neutralise transform+shorthands, and capture the
+     * cursor↔origin offset from that SAME rect — no second, post-mutation read to
+     * disagree with.
+     */
+    function pinToAbsolute(rect: DOMRect) {
         panel.style.left      = rect.left + 'px';
         panel.style.top       = rect.top  + 'px';
-        // §DRAG-SHIFT-FIX (2026-06-03): neutralise centring shorthands so the
-        // pinned left/top take FULL effect. Panels centred via `inset:0; margin:auto`
-        // (the onboarding overlays) otherwise JUMP to a side on grab because the
-        // leftover right/bottom/margin keep fighting the new left/top. Harmless for
-        // panels already positioned by left/top (right/bottom were already auto).
         panel.style.right     = 'auto';
         panel.style.bottom    = 'auto';
         panel.style.margin    = '0';
@@ -62,13 +79,17 @@ export function makeDraggable(
         const excluded = excludeSelectors.some(sel => target.closest(sel));
         if (excluded) return;
 
-        if (!panel.style.transform || panel.style.transform !== 'none') {
-            convertToPxPosition();
-        }
-
+        // Single rect read: the panel's true on-screen box (already accounts for any
+        // translate centring). Both the absolute-pin AND the grab offset derive from
+        // THIS rect, so the panel cannot jump on the first move.
         const rect  = panel.getBoundingClientRect();
         offsetX     = e.clientX - rect.left;
         offsetY     = e.clientY - rect.top;
+        panelW      = rect.width;
+        panelH      = rect.height;
+
+        pinToAbsolute(rect);
+
         dragging    = true;
         panel.classList.add('vg-panel--dragging');
         e.preventDefault();
@@ -76,10 +97,14 @@ export function makeDraggable(
 
     function onMouseMove(e: MouseEvent) {
         if (!dragging) return;
+        // left = cursor - grabOffset preserves the exact point the user grabbed.
         const x = e.clientX - offsetX;
         const y = e.clientY - offsetY;
-        panel.style.left = Math.max(0, x) + 'px';
-        panel.style.top  = Math.max(0, y) + 'px';
+        // Clamp so the panel can't be dragged fully off-screen.
+        const maxX = Math.max(0, window.innerWidth  - panelW);
+        const maxY = Math.max(0, window.innerHeight - panelH);
+        panel.style.left = Math.min(maxX, Math.max(0, x)) + 'px';
+        panel.style.top  = Math.min(maxY, Math.max(0, y)) + 'px';
     }
 
     function onMouseUp() {

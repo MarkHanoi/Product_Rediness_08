@@ -25,13 +25,22 @@ FROM node:20-bookworm-slim AS builder
 # pnpm pinned to the exact version in package.json#packageManager. Bumping
 # requires a coordinated bump there too — drift will fail CI on lockfile shape.
 ARG PNPM_VERSION=10.26.1
+# LOWMEM=1 makes vite skip the minify pass for a memory-starved builder. Default
+# 0 = full minify: the supported deploy path is CI (GitHub Actions builds on a
+# 16GB runner via `flyctl deploy --local-only`), which has ample RAM. Fly's
+# MANAGED builder OOM-kills this build (exit 137) and can't be CLI-resized.
+ARG LOWMEM=0
 ENV PNPM_HOME="/pnpm" \
     PATH="/pnpm:$PATH" \
     # CI=true makes pnpm strict about peer-dep mismatches and disables prompts.
     CI=true \
     # The root build script peaks ~5.5 GB heap on Vite chunking; 6 GB matches
     # the `node --max-old-space-size=6144` flag baked into package.json#scripts.build.
-    NODE_OPTIONS="--max-old-space-size=6144"
+    NODE_OPTIONS="--max-old-space-size=6144" \
+    # Driven by ARG LOWMEM (default 0 = full esbuild minify). When 1,
+    # vite.config.ts skips the minify pass so the emit high-water mark fits a
+    # memory-starved builder. CI (GitHub Actions, 16GB runner) builds at LOWMEM=0.
+    PRYZM_LOWMEM_BUILD=${LOWMEM}
 
 # Enable Corepack and pin pnpm. `corepack prepare ... --activate` is faster
 # and reproducible vs `npm i -g pnpm`.

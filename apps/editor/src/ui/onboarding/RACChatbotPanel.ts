@@ -36,8 +36,10 @@ import {
 } from '@pryzm/typology-pipeline';
 import type { TypologyRegistry } from '@pryzm/typology-pipeline';
 import type { PipelineBrief, UserRole } from '@pryzm/typology-pipeline';
+import type { BriefSchema } from '@pryzm/schemas';
 import { makeDraggable } from '../makeDraggable.js';
 import { makeResizable } from '../makeResizable.js';
+import { BriefSchemaForm, type BriefValues } from './BriefSchemaForm.js';
 
 // ─── pure helpers (exported for unit tests) ──────────────────────────────────
 
@@ -128,6 +130,13 @@ export class RACChatbotPanel {
     private summaryEl: HTMLElement | null = null;
     private inputEl: HTMLInputElement | null = null;
     private errorEl: HTMLElement | null = null;
+    /** O.12.b — host for the dynamic typology-brief controls (sliders/etc). */
+    private briefFormEl: HTMLElement | null = null;
+    /** O.12.b — the live dynamic brief form (built lazily in the brief phase). */
+    private briefForm: BriefSchemaForm | null = null;
+    /** O.12.b — the typology whose schema `briefForm` was built for (so we only
+     *  rebuild on a typology change, not on every re-render). */
+    private briefFormTypologyId: string | null = null;
     /** Drag + resize chrome disposers (makeDraggable / makeResizable). */
     private chromeDisposers: Array<() => void> = [];
 
@@ -232,6 +241,16 @@ export class RACChatbotPanel {
         this.summaryEl = summary;
         root.appendChild(summary);
 
+        // O.12.b — host for the dynamic typology-brief controls. Populated only
+        // in the `awaiting-brief` phase (and only when the active typology
+        // declares a `briefSchema`); empty + hidden otherwise.
+        const briefForm = document.createElement('div');
+        briefForm.className = 'rac-brief';
+        briefForm.setAttribute('data-testid', 'rac-brief');
+        briefForm.hidden = true;
+        this.briefFormEl = briefForm;
+        root.appendChild(briefForm);
+
         const errorBar = document.createElement('div');
         errorBar.className = 'rac-error';
         errorBar.setAttribute('data-testid', 'rac-error');
@@ -289,6 +308,9 @@ export class RACChatbotPanel {
         for (const d of this.chromeDisposers.splice(0)) {
             try { d(); } catch { /* ignore */ }
         }
+        try { this.briefForm?.dispose(); } catch { /* ignore */ }
+        this.briefForm = null;
+        this.briefFormTypologyId = null;
         if (this.root && this.root.parentNode) {
             this.root.parentNode.removeChild(this.root);
         }
@@ -297,6 +319,7 @@ export class RACChatbotPanel {
         this.transcriptEl = null;
         this.suggestionsEl = null;
         this.summaryEl = null;
+        this.briefFormEl = null;
         this.inputEl = null;
         this.errorEl = null;
     }
@@ -356,6 +379,9 @@ export class RACChatbotPanel {
             this.summaryEl.textContent = summarizeCapturedState(this.state.captured);
         }
 
+        // O.12.b — render the typology-declared brief controls in the brief phase.
+        this.renderBriefForm();
+
         if (this.errorEl) {
             if (this.state.errorMessage) {
                 this.errorEl.textContent = this.state.errorMessage;
@@ -369,6 +395,108 @@ export class RACChatbotPanel {
         if (this.inputEl) {
             const closed = this.state.phase === 'ready' || this.state.phase === 'cancelled';
             this.inputEl.disabled = closed;
+            // O.12.b — when the dynamic brief form is live, the free-text box is a
+            // SUPPLEMENTARY hint ("anything else"), not the primary capture, so
+            // re-cue the placeholder. Restore the default cue otherwise.
+            this.inputEl.placeholder = this.briefForm
+                ? 'Anything else? (optional)'
+                : 'Type your reply…';
+        }
+    }
+
+    /**
+     * O.12.b — resolve the active typology's `briefSchema` from the registry.
+     * Returns `undefined` when no typology is captured yet, the pack is absent,
+     * or the typology declares no schema (the host then falls back to free-text).
+     */
+    private resolveBriefSchema(): BriefSchema | undefined {
+        const typologyId = this.state.captured.typologyId;
+        if (!typologyId) return undefined;
+        try {
+            return this.registry.get(typologyId)?.manifest.briefSchema;
+        } catch (err) {
+            console.warn('[rac-panel] resolveBriefSchema threw (falling back to free-text):', err);
+            return undefined;
+        }
+    }
+
+    /**
+     * O.12.b — mount / tear down the dynamic brief controls.
+     *
+     * In the `awaiting-brief` phase, if the active typology declares a
+     * `briefSchema`, build a `BriefSchemaForm` (once per typology) and stream its
+     * captured values into the conversation state via `capture-brief-field` — so
+     * the captured brief is STRUCTURED (keyed by field id), not a prose blob. The
+     * form REPLACES the free-text box as the primary capture; the free-text input
+     * remains as a supplementary "anything else" hint (and is the sole capture
+     * when a typology declares no schema — graceful fallback).
+     *
+     * Outside the brief phase (or when no schema is declared) the host element is
+     * cleared + hidden and the form is disposed.
+     */
+    private renderBriefForm(): void {
+        const host = this.briefFormEl;
+        if (!host) return;
+
+        const schema = this.state.phase === 'awaiting-brief' ? this.resolveBriefSchema() : undefined;
+        const typologyId = this.state.captured.typologyId ?? null;
+
+        // No schema (wrong phase, no typology, no pack, or typology declares none)
+        // → tear down + fall back to the free-text box.
+        if (!schema) {
+            if (this.briefForm) {
+                try { this.briefForm.dispose(); } catch { /* ignore */ }
+                this.briefForm = null;
+                this.briefFormTypologyId = null;
+            }
+            host.replaceChildren();
+            host.hidden = true;
+            return;
+        }
+
+        // Rebuild only when the typology changed — re-rendering must NOT wipe the
+        // user's in-progress slider/toggle values on every keystroke.
+        if (this.briefForm && this.briefFormTypologyId === typologyId) {
+            host.hidden = false;
+            return;
+        }
+
+        try { this.briefForm?.dispose(); } catch { /* ignore */ }
+        host.replaceChildren();
+
+        const form = new BriefSchemaForm({
+            schema,
+            onChange: (values) => this.applyBriefValues(values),
+        });
+        host.appendChild(form.build());
+        host.hidden = false;
+        this.briefForm = form;
+        this.briefFormTypologyId = typologyId;
+
+        // Seed the conversation state with the form's defaults immediately so the
+        // captured brief is non-empty even if the user accepts every default.
+        this.applyBriefValues(form.getValues());
+    }
+
+    /**
+     * O.12.b — fold the structured form values into the captured brief, one
+     * `capture-brief-field` per id. We mutate the captured map directly (the
+     * reducer's `capture-brief-field` returns a fresh state) but WITHOUT
+     * re-rendering on every change — re-rendering here would rebuild the form
+     * mid-drag. The values reach `toBrief()` when the brief is marked complete.
+     */
+    private applyBriefValues(values: BriefValues): void {
+        for (const [key, value] of Object.entries(values)) {
+            this.state = racReducer(this.state, {
+                type: 'capture-brief-field',
+                key,
+                value,
+            });
+        }
+        // Reflect the new capture in the summary line only — do NOT call the full
+        // render() (it would rebuild the live form mid-interaction).
+        if (this.summaryEl) {
+            this.summaryEl.textContent = summarizeCapturedState(this.state.captured);
         }
     }
 

@@ -198,6 +198,181 @@ export const ONBOARDING_STYLES = `
 }
 .rac-onboarding-overlay .rac-send:hover { background: #5500dd; }
 
+/* ── O.12.b — DYNAMIC TYPOLOGY-BRIEF controls (rac-brief-*) ─────────────────────
+   The RAC brief step renders the typology-declared briefSchema as compact,
+   on-brand controls (sliders / steppers / segmented selects / chips / switches /
+   text). Scoped under .rac-onboarding-overlay so it inherits the glass card +
+   #6600FF accents. White + purple only (founder rule: NO black). */
+.rac-onboarding-overlay .rac-brief {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.2rem 0.85rem 0.5rem;
+}
+.rac-onboarding-overlay .rac-brief[hidden] { display: none; }
+.rac-onboarding-overlay .rac-brief-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.rac-onboarding-overlay .rac-brief-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.rac-onboarding-overlay .rac-brief-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+.rac-onboarding-overlay .rac-brief-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+.rac-onboarding-overlay .rac-brief-value {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #6600ff;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* range → slider, purple accent. */
+.rac-onboarding-overlay .rac-brief-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(102, 0, 255, 0.16);
+  outline: none;
+  cursor: pointer;
+  accent-color: #6600ff;
+}
+.rac-onboarding-overlay .rac-brief-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #6600ff;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(60, 20, 120, 0.3);
+  cursor: pointer;
+}
+.rac-onboarding-overlay .rac-brief-range::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #6600ff;
+  border: 2px solid #fff;
+  cursor: pointer;
+}
+.rac-onboarding-overlay .rac-brief-range:focus-visible {
+  box-shadow: 0 0 0 3px rgba(102, 0, 255, 0.22);
+}
+/* stepper → −/＋ buttons. */
+.rac-onboarding-overlay .rac-brief-stepper {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: 0.3rem;
+}
+.rac-onboarding-overlay .rac-brief-step-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  border: 1px solid rgba(102, 0, 255, 0.28);
+  background: rgba(102, 0, 255, 0.06);
+  color: #6600ff;
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+.rac-onboarding-overlay .rac-brief-step-btn:hover {
+  border-color: #6600ff;
+  background: rgba(102, 0, 255, 0.12);
+}
+.rac-onboarding-overlay .rac-brief-step-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+/* select / multiselect → segmented buttons + chips. */
+.rac-onboarding-overlay .rac-brief-segments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.rac-onboarding-overlay .rac-brief-segment {
+  padding: 0.32rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid rgba(102, 0, 255, 0.22);
+  background: rgba(102, 0, 255, 0.04);
+  color: #6600ff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.rac-onboarding-overlay .rac-brief-segment:hover {
+  border-color: #6600ff;
+  background: rgba(102, 0, 255, 0.1);
+}
+.rac-onboarding-overlay .rac-brief-segment--on {
+  background: #6600ff;
+  border-color: #6600ff;
+  color: #fff;
+}
+/* toggle → switch. */
+.rac-onboarding-overlay .rac-brief-switch {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  border-radius: 999px;
+  border: none;
+  align-self: flex-start;
+  background: rgba(102, 0, 255, 0.18);
+  cursor: pointer;
+  transition: background 0.15s ease;
+  padding: 0;
+}
+.rac-onboarding-overlay .rac-brief-switch--on { background: #6600ff; }
+.rac-onboarding-overlay .rac-brief-switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(60, 20, 120, 0.3);
+  transition: transform 0.15s ease;
+}
+.rac-onboarding-overlay .rac-brief-switch--on .rac-brief-switch-knob {
+  transform: translateX(18px);
+}
+.rac-onboarding-overlay .rac-brief-switch:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(102, 0, 255, 0.22);
+}
+/* text → free-text input. */
+.rac-onboarding-overlay .rac-brief-text {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.5rem 0.7rem;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: rgba(255, 255, 255, 0.85);
+  color: #111;
+  font-size: 0.85rem;
+}
+.rac-onboarding-overlay .rac-brief-text:focus-visible {
+  outline: none;
+  border-color: #6600ff;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(102, 0, 255, 0.18);
+}
+
 /* ── O.2 — Onboarding STEP CONTROLLER overlay (os-*) ───────────────────────────
    The guided location → draw-or-skip → generate flow. Same frosted-glass card +
    #6600FF accents, content-sized (no min-heights), draggable + resizable. */
