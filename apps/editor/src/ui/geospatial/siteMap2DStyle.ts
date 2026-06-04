@@ -328,6 +328,223 @@ export const ESRI_WORLD_IMAGERY_ATTRIBUTION =
 /** The raster source name used by the satellite style. */
 export const SATELLITE_SOURCE = 'esri-world-imagery';
 
+// ── FORMA.1 — Autodesk-Forma minimal-vector basemap (SPEC-FORMA-SITE-VIEW §3) ───
+//
+// WHY THIS EXISTS
+// ---------------
+// The Hektar cream/shadow look above is one aesthetic; the founder's FORMA spec
+// asks the 2D site map to read like Autodesk Forma's site canvas: an extremely
+// QUIET, abstract, minimal-vector basemap — off-white land, light-grey roads, a
+// pale blue-grey water, NO POI icons, NO satellite imagery, only thin grey
+// labels, and building footprints as the faintest light fills with hairline
+// outlines (abstract, never photoreal). The drawn site boundary reads in a clear
+// dashed GREEN so it stands apart from the muted page and matches the eventual
+// 3D site boundary colour.
+//
+// This reuses the SAME OpenFreeMap keyless VECTOR source as the Hektar style —
+// the provider already exposes the `building`, `transportation`, `water`,
+// `landuse`, `place` source-layers we recolour here, so no provider swap is
+// needed to honour the Forma palette (only the cartography differs).
+
+/**
+ * Forma palette — single source of truth for the minimal-vector site basemap
+ * (SPEC-FORMA-SITE-VIEW §3). Quiet, abstract, off-white; the green is the drawn
+ * boundary colour, kept consistent with the eventual 3D site boundary.
+ */
+export const FORMA_PALETTE = {
+    /** Off-white land / page background behind everything. */
+    land: '#F0EDE8',
+    /** Light grey roads. */
+    road: '#D9D6CF',
+    /** Slightly darker casing for major roads (still light). */
+    roadCasing: '#CFCBC2',
+    /** Pale blue-grey water. */
+    water: '#C8DCE8',
+    /** Faint landuse / park wash (barely there — keeps the page quiet). */
+    landuse: '#E9E6DE',
+    /** Subtle light building fill (abstract, not photoreal). */
+    buildingFill: '#E4E0D8',
+    /** Hairline faint building outline. */
+    buildingStroke: '#D2CDC3',
+    /** Thin grey label text. */
+    label: '#8C887F',
+    /** Soft label halo against the off-white land. */
+    labelHalo: 'rgba(240, 237, 232, 0.9)',
+    /** Drawn site-boundary line — dashed green (matches eventual 3D boundary). */
+    boundary: '#2D6A4F',
+    /** Faint green boundary fill. */
+    boundaryFill: 'rgba(45, 106, 79, 0.08)',
+} as const;
+
+/**
+ * Dashed-green boundary line spec (SPEC §3): 8px on / 6px off, 2px wide.
+ * MapLibre `line-dasharray` is expressed in MULTIPLES of line-width, so for a
+ * 2px line the on/off run-lengths (8px / 6px) become [4, 3].
+ */
+export const FORMA_BOUNDARY_DASH: readonly [number, number] = [4, 3];
+export const FORMA_BOUNDARY_WIDTH = 2;
+
+/**
+ * Build the Autodesk-Forma minimal-vector MapLibre style backed by the SAME
+ * keyless OpenFreeMap vector tiles as the Hektar style. PURE — returns a plain
+ * JSON style object (no maplibre import). See header for the aesthetic.
+ *
+ * NON-GOALS (SPEC §8): no POI icons, no satellite imagery, no busy labels —
+ * only roads, water, land, abstract building footprints, and thin grey labels.
+ *
+ * Layer order (bottom → top):
+ *   land-background → water → landuse → road-minor → road-major
+ *   → buildings(-fill | -3d) → thin road/place labels
+ */
+export function buildFormaMap2DStyle(
+    opts: SiteMap2DStyleOptions = {},
+): Map2DStyleSpec {
+    const P = FORMA_PALETTE;
+
+    const sources: Record<string, unknown> = {
+        [OMT_SOURCE]: {
+            type: 'vector',
+            url: OPENFREEMAP_TILEJSON,
+            attribution: OPENFREEMAP_ATTRIBUTION,
+        },
+    };
+
+    const layers: Array<Record<string, unknown>> = [
+        // Off-white land shows everywhere there is no other fill + before load.
+        {
+            id: 'land-background',
+            type: 'background',
+            paint: { 'background-color': P.land },
+        },
+        // Pale blue-grey water.
+        {
+            id: 'water',
+            type: 'fill',
+            source: OMT_SOURCE,
+            'source-layer': 'water',
+            paint: { 'fill-color': P.water },
+        },
+        // Faint landuse wash — kept very subtle so the page stays quiet.
+        {
+            id: 'landuse',
+            type: 'fill',
+            source: OMT_SOURCE,
+            'source-layer': 'landuse',
+            paint: { 'fill-color': P.landuse, 'fill-opacity': 0.5 },
+        },
+        // Thin minor streets (light grey).
+        {
+            id: 'road-minor',
+            type: 'line',
+            source: OMT_SOURCE,
+            'source-layer': 'transportation',
+            filter: ['in', ['get', 'class'], ['literal', ['minor', 'service', 'path', 'track']]],
+            paint: {
+                'line-color': P.road,
+                'line-width': ['interpolate', ['linear'], ['zoom'], 13, 0.5, 18, 3],
+            },
+        },
+        // Major streets with a faint casing (still light grey).
+        {
+            id: 'road-major-casing',
+            type: 'line',
+            source: OMT_SOURCE,
+            'source-layer': 'transportation',
+            filter: ['in', ['get', 'class'], ['literal', ['motorway', 'trunk', 'primary', 'secondary', 'tertiary']]],
+            paint: {
+                'line-color': P.roadCasing,
+                'line-width': ['interpolate', ['linear'], ['zoom'], 12, 1.2, 18, 9],
+            },
+        },
+        {
+            id: 'road-major',
+            type: 'line',
+            source: OMT_SOURCE,
+            'source-layer': 'transportation',
+            filter: ['in', ['get', 'class'], ['literal', ['motorway', 'trunk', 'primary', 'secondary', 'tertiary']]],
+            paint: {
+                'line-color': P.road,
+                'line-width': ['interpolate', ['linear'], ['zoom'], 12, 0.7, 18, 6],
+            },
+        },
+    ];
+
+    // ── Building footprints — subtle abstract light fills, never photoreal. ────
+    if (opts.extrude) {
+        // Optional gentle 3D (off by default). Faint light extrusion only.
+        layers.push({
+            id: 'buildings-3d',
+            type: 'fill-extrusion',
+            source: OMT_SOURCE,
+            'source-layer': BUILDING_SOURCE_LAYER,
+            minzoom: 14,
+            paint: {
+                'fill-extrusion-color': P.buildingFill,
+                'fill-extrusion-height': ['coalesce', ['get', 'render_height'], ['get', 'height'], 6],
+                'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
+                'fill-extrusion-opacity': 0.85,
+            },
+        });
+    } else {
+        layers.push({
+            id: 'buildings-fill',
+            type: 'fill',
+            source: OMT_SOURCE,
+            'source-layer': BUILDING_SOURCE_LAYER,
+            minzoom: 13,
+            paint: {
+                'fill-color': P.buildingFill,
+                'fill-outline-color': P.buildingStroke,
+                'fill-opacity': 0.85,
+            },
+        });
+    }
+
+    // ── Minimal labels — thin grey, no POI icons (SPEC §8 NON-GOALS). ──────────
+    layers.push({
+        id: 'road-label',
+        type: 'symbol',
+        source: OMT_SOURCE,
+        'source-layer': 'transportation_name',
+        minzoom: 14,
+        layout: {
+            'symbol-placement': 'line',
+            'text-field': ['coalesce', ['get', 'name:latin'], ['get', 'name']],
+            'text-font': ['Noto Sans Regular'],
+            'text-size': 11,
+        },
+        paint: {
+            'text-color': P.label,
+            'text-halo-color': P.labelHalo,
+            'text-halo-width': 1.2,
+        },
+    });
+    layers.push({
+        id: 'place-label',
+        type: 'symbol',
+        source: OMT_SOURCE,
+        'source-layer': 'place',
+        layout: {
+            'text-field': ['coalesce', ['get', 'name:latin'], ['get', 'name']],
+            'text-font': ['Noto Sans Regular'],
+            'text-size': ['interpolate', ['linear'], ['zoom'], 6, 11, 14, 15],
+        },
+        paint: {
+            'text-color': P.label,
+            'text-halo-color': P.labelHalo,
+            'text-halo-width': 1.4,
+        },
+    });
+
+    return {
+        version: 8,
+        name: 'PRYZM Forma (OpenFreeMap minimal-vector)',
+        glyphs: OPENFREEMAP_GLYPHS,
+        sources,
+        layers,
+    };
+}
+
 /**
  * Build the satellite / aerial RASTER MapLibre style backed by keyless ESRI World
  * Imagery. PURE — returns a plain JSON style object (no maplibre import), mirroring

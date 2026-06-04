@@ -48,8 +48,22 @@ import {
     type LatLon,
 } from '../site/boundaryProjection.js';
 import { resolveSiteContext, dispatchParcelBoundary, dispatchSiteLocation } from '../site/siteDispatch.js';
-import { buildSiteMap2DStyle, buildSatelliteStyle, HEKTAR_PALETTE } from './siteMap2DStyle.js';
+import {
+    buildFormaMap2DStyle,
+    buildSatelliteStyle,
+    HEKTAR_PALETTE,
+    FORMA_PALETTE,
+    FORMA_BOUNDARY_DASH,
+    FORMA_BOUNDARY_WIDTH,
+} from './siteMap2DStyle.js';
 
+// FORMA.1 — the in-progress + drawn site boundary renders in dashed Forma green
+// (SPEC-FORMA-SITE-VIEW §3), replacing the old PRYZM violet so it reads against
+// the quiet off-white Forma basemap and matches the eventual 3D site boundary.
+// The vertex handles keep PRYZM violet (HEKTAR_PALETTE.violet) for brand
+// affordance — the editable handles are UI chrome, not the boundary line itself.
+const BOUNDARY_GREEN = FORMA_PALETTE.boundary;
+const BOUNDARY_FILL = FORMA_PALETTE.boundaryFill;
 const VIOLET = HEKTAR_PALETTE.violet;
 const RING_SOURCE = 'pryzm-boundary-ring';
 const FILL_LAYER = 'pryzm-boundary-fill';
@@ -144,10 +158,11 @@ export function mountSiteBoundaryMap2D(
     Object.assign(overlay.style, {
         position: 'absolute',
         inset: '0',
-        // §DRAW-MAP-ABOVE-CESIUM (2026-06-03): 20 → 40 so the cream draw surface is
+        // §DRAW-MAP-ABOVE-CESIUM (2026-06-03): 20 → 40 so the draw surface is
         // unambiguously above the Cesium globe canvas during the draw step.
         zIndex: '40',
-        background: HEKTAR_PALETTE.cream,
+        // FORMA.1 — off-white land matches the Forma basemap behind/during load.
+        background: FORMA_PALETTE.land,
     } satisfies Partial<CSSStyleDeclaration>);
 
     const mapEl = document.createElement('div');
@@ -282,7 +297,10 @@ export function mountSiteBoundaryMap2D(
     }
 
     // ── Map ───────────────────────────────────────────────────────────────────
-    const style = buildSiteMap2DStyle({
+    // FORMA.1 — DEFAULT to the Autodesk-Forma minimal-vector basemap (off-white
+    // land, light-grey roads, pale blue-grey water, abstract building fills). The
+    // satellite raster style stays available via the corner toggle.
+    const style = buildFormaMap2DStyle({
         extrude: opts.extrude ?? false,
     }) as unknown as StyleSpecification;
 
@@ -356,14 +374,20 @@ export function mountSiteBoundaryMap2D(
             type: 'fill',
             source: RING_SOURCE,
             filter: ['==', ['get', 'kind'], 'fill'],
-            paint: { 'fill-color': VIOLET, 'fill-opacity': 0.12 },
+            // FORMA.1 — faint green fill rgba(45,106,79,0.08) (SPEC §3).
+            paint: { 'fill-color': BOUNDARY_FILL },
         });
         map.addLayer({
             id: LINE_LAYER,
             type: 'line',
             source: RING_SOURCE,
             filter: ['==', ['geometry-type'], 'LineString'],
-            paint: { 'line-color': VIOLET, 'line-width': 3 },
+            // FORMA.1 — dashed green boundary, 8px on / 6px off, 2px (SPEC §3).
+            paint: {
+                'line-color': BOUNDARY_GREEN,
+                'line-width': FORMA_BOUNDARY_WIDTH,
+                'line-dasharray': [...FORMA_BOUNDARY_DASH],
+            },
         });
         map.addLayer({
             id: VERTEX_LAYER,
@@ -611,7 +635,7 @@ export function mountSiteBoundaryMap2D(
         const style =
             next === 'satellite'
                 ? (buildSatelliteStyle() as unknown as StyleSpecification)
-                : (buildSiteMap2DStyle({ extrude: opts.extrude ?? false }) as unknown as StyleSpecification);
+                : (buildFormaMap2DStyle({ extrude: opts.extrude ?? false }) as unknown as StyleSpecification);
         // diff:false forces a full reload so the new source set replaces cleanly.
         map.setStyle(style, { diff: false });
         // Re-add the boundary draw + restore the camera once the new style loads.
@@ -751,7 +775,7 @@ export function mountSiteBoundaryMap2D(
         // Hover affordance over vertices.
         map.on('mouseenter', VERTEX_LAYER, () => { map.getCanvas().style.cursor = 'grab'; });
         map.on('mouseleave', VERTEX_LAYER, () => { if (draggingIdx === null) map.getCanvas().style.cursor = ''; });
-        console.log('[gis] map2d: ready — Hektar cream/shadow boundary-draw map mounted');
+        console.log('[gis] map2d: ready — Forma minimal-vector boundary-draw map mounted');
     });
 
     return { element: overlay, dispose };
