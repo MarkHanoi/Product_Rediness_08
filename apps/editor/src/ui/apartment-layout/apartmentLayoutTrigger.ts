@@ -7,6 +7,7 @@
 // never silently do nothing.
 
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
+import type { ApartmentProgram } from '@pryzm/ai-host';
 import { ApartmentLayoutController, requestApartmentLayout } from './ApartmentLayoutController.js';
 import { ApartmentLayoutExecutor } from './ApartmentLayoutExecutor.js';
 import { gatherLayoutPayload } from './gatherLayoutPayload.js';
@@ -22,8 +23,17 @@ const _executor = new ApartmentLayoutExecutor();
  * Generate AI apartment layouts for the active level's exterior shell. Resolves
  * the runtime from the argument or `window.runtime`. Safe to call from the AI
  * panel leaf or the DevTools console (`pryzmGenerateApartmentLayout()`).
+ *
+ * O.12.c — `programOverride` lets the onboarding chain thread the STRUCTURED RAC
+ * brief straight into the request (resolved via `resolveApartmentBrief`). When
+ * omitted, `gatherLayoutPayload` falls back to the active-brief stash, then to
+ * DEFAULT_PROGRAM — so a no-arg call (AI panel / console) still honours the
+ * captured brief.
  */
-export function triggerApartmentLayout(runtimeArg?: PryzmRuntime | null): void {
+export function triggerApartmentLayout(
+    runtimeArg?: PryzmRuntime | null,
+    programOverride?: Partial<ApartmentProgram>,
+): void {
     const rt = (runtimeArg ?? (window.runtime as unknown as PryzmRuntime | undefined)) ?? undefined;
     const toast = (message: string, severity: 'info' | 'success' | 'error'): void => {
         rt?.events?.emit('pryzm:toast', { message, severity });
@@ -44,7 +54,7 @@ export function triggerApartmentLayout(runtimeArg?: PryzmRuntime | null): void {
             return;
         }
 
-        const payload = gatherLayoutPayload(lid);
+        const payload = gatherLayoutPayload(lid, programOverride);
         console.log('[apartment-layout] payload', payload);
         if (!payload || payload.shellWallIds.length < 3) {
             toast(`Need at least 3 exterior walls on the active level (found ${payload?.shellWallIds.length ?? 0}).`, 'error');

@@ -8,13 +8,15 @@
 
 import { storeRegistry } from '@pryzm/core-app-model';
 import { facadeOrientationService } from '@pryzm/spatial-index';
-import type { ApartmentGenerateLayoutPayload } from '@pryzm/ai-host';
+import type { ApartmentGenerateLayoutPayload, ApartmentProgram } from '@pryzm/ai-host';
 import {
     buildLayoutRequestPayload,
     DEFAULT_PROGRAM,
     DEFAULT_CONSTRAINTS,
     type PayloadWall,
 } from './layoutRequestPayload.js';
+import { resolveApartmentBrief } from './briefToProgram.js';
+import { getActiveBriefMetadata } from './activeBrief.js';
 
 interface WallRecord {
     id: string;
@@ -37,10 +39,26 @@ interface WallRecord {
 /**
  * Build the generate payload for `levelId` from the live stores. Returns null
  * when there are no walls on the level. Exterior walls (per SL-3 facades) become
- * the shell; a default program/constraints are used (a config form is a later
- * UX step).
+ * the shell.
+ *
+ * O.12.c — the room program now comes from the STRUCTURED typology brief (single
+ * source of truth, no NLP parse). Resolution order for the program:
+ *   1. `programOverride` arg (explicit caller-supplied — the onboarding chain
+ *      threads the RAC brief through here directly).
+ *   2. the active-brief stash (`getActiveBriefMetadata('apartment')`) — set by
+ *      the onboarding chain + the picker form, so a no-arg re-trigger (AI panel /
+ *      console) still honours the captured brief.
+ *   3. DEFAULT_PROGRAM (today's behaviour) — when no brief was captured.
+ * Whatever override is found is SPREAD over DEFAULT_PROGRAM, so any field the
+ * brief omits keeps its default (graceful fallback).
+ *
+ * @param levelId the active level.
+ * @param programOverride optional explicit partial program (wins over the stash).
  */
-export function gatherLayoutPayload(levelId: string): ApartmentGenerateLayoutPayload | null {
+export function gatherLayoutPayload(
+    levelId: string,
+    programOverride?: Partial<ApartmentProgram>,
+): ApartmentGenerateLayoutPayload | null {
     const wallStore = storeRegistry.getStoreForType('wall') as unknown as
         | { getAll?(): WallRecord[] }
         | undefined;
@@ -84,10 +102,19 @@ export function gatherLayoutPayload(levelId: string): ApartmentGenerateLayoutPay
         ? { ...DEFAULT_CONSTRAINTS, floorToCeiling: perimeterHeightMm }
         : DEFAULT_CONSTRAINTS;
 
+    // O.12.c — resolve the room program from the STRUCTURED brief (no NLP parse).
+    // Explicit override wins; otherwise fall back to the active-brief stash (set
+    // by the onboarding chain + the picker), then to DEFAULT_PROGRAM. The
+    // override is always a PARTIAL spread over the default, so omitted fields
+    // keep their defaults.
+    const override = programOverride
+        ?? resolveApartmentBrief(getActiveBriefMetadata('apartment')).programOverride;
+    const program: ApartmentProgram = { ...DEFAULT_PROGRAM, ...override };
+
     return buildLayoutRequestPayload({
         levelId,
         walls,
-        program: DEFAULT_PROGRAM,
+        program,
         constraints,
     });
 }
