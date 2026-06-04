@@ -140,9 +140,17 @@ export async function query(text, params) {
  * boot stall while still bounding a genuinely black-holed host (the self-heal
  * + in-memory fallback still cover a truly-dead DB).
  *
- * @param {number} [timeoutMs=18000]
+ * §CONN-DEV (2026-06-04): 18s suits PROD (reachable DB, possible boot stall).
+ * For LOCAL dev on a FLAKY link to the Supabase EU pooler, a genuinely
+ * unreachable DB makes every boot wait the full 18s before the in-memory
+ * fallback engages ("localhost takes ages to load"). Set PG_PREFLIGHT_TIMEOUT_MS
+ * (e.g. 6000) in .env.local to fall back faster locally; the prod default is
+ * untouched when the env var is unset (→ 18000), preserving §D8.
+ *
+ * @param {number} [timeoutMs=PG_PREFLIGHT_TIMEOUT_MS||18000]
  */
-export async function pgPreflight(timeoutMs = 18000) {
+const PREFLIGHT_TIMEOUT_MS = Number(process.env.PG_PREFLIGHT_TIMEOUT_MS) || 18000;
+export async function pgPreflight(timeoutMs = PREFLIGHT_TIMEOUT_MS) {
     const pool = getPgPool();
     if (!pool) return;
     let timer;
