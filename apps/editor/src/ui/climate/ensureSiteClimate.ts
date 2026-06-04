@@ -28,7 +28,6 @@
 
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
 import { climateEnsureForLocation } from '@pryzm/stores';
-import type { SiteId } from '@pryzm/schemas';
 
 /**
  * Ensure the active site has a resolved ClimateDataset. Returns `true`

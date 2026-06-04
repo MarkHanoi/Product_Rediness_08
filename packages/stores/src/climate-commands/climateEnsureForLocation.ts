@@ -124,7 +124,7 @@ export async function climateEnsureForLocation(
 
     // Short-circuit when a dataset already exists for this site.
     if (skipIfPresent) {
-        const existing = store.resolveSite(payload.siteId as ClimateDataset['siteRef']);
+        const existing = store.resolveSite(payload.siteId as Parameters<typeof store.resolveSite>[0]);
         if (existing) {
             return {
                 ok: true,
@@ -176,7 +176,7 @@ export async function climateEnsureForLocation(
         timezone: payload.timezone,
         source,
         monthlyNormals: normals.monthlyNormals,
-        windRose: synthWindRose(normals.monthlyNormals),
+        windRose: synthWindRose([...normals.monthlyNormals]),
         designTemps: {
             heating99_6C: coldest,
             cooling0_4C: hottest,
