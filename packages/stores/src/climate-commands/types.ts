@@ -77,6 +77,33 @@ export type ClimateRefreshNoaaPayload = z.infer<
 >;
 
 /**
+ * `climate.ensureForLocation` payload — A.10.f.
+ *
+ * The HEADLESS ingestion entry point: given a Site + its resolved
+ * coordinates, the handler resolves the 12 monthly normals via
+ * `@pryzm/climate-host` (`resolveNormals` — guarded live fetch with a
+ * bundled offline fallback + in-memory cache) and ingests a
+ * ClimateDataset so `resolveSite` returns real data.
+ *
+ * Unlike `climate.refreshNOAA` (which requires the caller to already
+ * have the 12 normals), this command OWNS the normals acquisition. The
+ * optional live fetch is injected by the L5 adapter as `deps.fetchImpl`
+ * — absent it, the bundled `fallback-defaults` tier is used.
+ */
+export const ClimateEnsureForLocationPayloadSchema = z.object({
+    siteId: SiteIdSchema,
+    lat: z.number().min(-90).max(90),
+    lon: z.number().min(-180).max(180),
+    elevationM: z.number().min(-500).max(9000),
+    timezone: z.string().min(1).max(80),
+    /** Skip if a dataset already exists for this site. Default true. */
+    skipIfPresent: z.boolean().optional(),
+});
+export type ClimateEnsureForLocationPayload = z.infer<
+    typeof ClimateEnsureForLocationPayloadSchema
+>;
+
+/**
  * `climate.resolveSite` payload — per [C21 §4.1]. Read-only lookup.
  */
 export const ClimateResolveSitePayloadSchema = z.object({
@@ -155,8 +182,10 @@ export interface ClimateIngestedEvent {
     readonly type: 'climate.ingested';
     readonly siteId: string;
     readonly datasetId: ClimateDataset['id'];
-    readonly source: 'epw' | 'noaa-normals';
+    readonly source: 'epw' | 'noaa-normals' | 'fallback-defaults';
     readonly cacheKey: ClimateCacheKey;
+    /** Set when the dataset already existed and ingest was skipped. */
+    readonly skipped?: boolean;
 }
 
 export interface ClimateCacheInvalidatedEvent {
