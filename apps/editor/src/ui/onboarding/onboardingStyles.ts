@@ -217,7 +217,7 @@ export const ONBOARDING_STYLES = `
    The advance action used to be a small chip at the TOP next to Cancel — the
    founder couldn't tell what to click to proceed. The CTA now lives in a pinned
    bottom bar: full-bleed prominent purple primary + a de-emphasised ghost
-   Cancel. `flex: 0 0 auto` keeps it pinned below the scrollable transcript. */
+   Cancel. 'flex: 0 0 auto' keeps it pinned below the scrollable transcript. */
 .rac-onboarding-overlay .rac-footer {
   flex: 0 0 auto;
   display: flex;
