@@ -275,6 +275,26 @@ export class CesiumViewport {
     try {
       console.log("CesiumViewport: Creating viewer...");
 
+      // GIS-CESIUM-NOTOKEN-IMAGERY (ratified 2026-06-04) — when NO real Cesium
+      // token is configured the founder runs the FREE Forma path (flat-grey
+      // massing ground, no photoreal globe), so we construct the viewer with NO
+      // default base imagery layer. Cesium's default Viewer auto-adds an ion/ESRI
+      // World Imagery base layer AND a baseLayerPicker that pulls Bing / Google
+      // aerial — under the strict prod CSP every one of those tile requests
+      // (server.arcgisonline.com / tile.googleapis.com / dev.virtualearth.net) is
+      // CSP-blocked, flooding the console with `connect-src blocked` report-noise
+      // and firing failed network calls for imagery we never show. `baseLayer:
+      // false` (Viewer.ConstructorOptions — cesium@1.140 @cesium/widgets
+      // index.d.ts:2172, `baseLayer?: ImageryLayer | false`) suppresses the
+      // default layer entirely; baseLayerPicker stays false so it can't
+      // re-introduce Bing/Google providers. The Forma flat-grey globe
+      // (globe.baseColor) is the ground — no imagery is needed on this path.
+      //
+      // When a real token IS present we OMIT the override so Cesium installs its
+      // default ion World Imagery and the existing photoreal path works exactly as
+      // before; the arcgis/google/bing origins are allowed in
+      // server/securityHeaders.js connect-src for that token-only path.
+      const photorealAvailable = !!_cesiumToken;
       this.viewer = new Cesium.Viewer(cesiumInternalContainer, {
         animation: false,
         baseLayerPicker: false,
@@ -286,34 +306,41 @@ export class CesiumViewport {
         selectionIndicator: false,
         timeline: false,
         navigationHelpButton: false,
-        scene3DOnly: true
+        scene3DOnly: true,
+        // No token → no default base imagery layer (zero ESRI/ion/Bing request).
+        // Token present → omit so Cesium installs its default ion base layer.
+        ...(photorealAvailable ? {} : { baseLayer: false as const }),
       });
+      console.log(
+        `[gis][cesium] imagery mode = ${photorealAvailable
+          ? 'PHOTOREAL-WITH-TOKEN (default ion base layer installed; arcgis/google/bing tiles allowed via CSP)'
+          : 'NONE/FORMA (no token → baseLayer:false; ESRI + Google-3D-tiles SKIPPED → zero arcgis/googleapis/virtualearth requests)'}.`
+      );
 
       // Disable depth test against terrain
       this.viewer.scene.globe.depthTestAgainstTerrain = false;
 
       // ----------------------------
-      // 🗺️ Base map imagery — keyless, rich & crisp (A.8.b / founder feedback)
+      // 🗺️ Base map imagery — ESRI satellite, ONLY on the token/photoreal path
       // ----------------------------
-      // The default Cesium World Imagery needs a valid ion token, and the Google
-      // Photorealistic 3D Tiles below need BOTH an ion token AND a linked Google
-      // Maps key — when either is missing the globe renders as a faint, near-white
-      // ellipsoid ("you can see things but really light"), which is useless for
-      // site-boundary drawing.
-      //
-      // We use ESRI World Imagery (satellite) as the keyless default: it reads as
-      // a real aerial photo of the plot — far richer and less washed-out than flat
-      // OSM street tiles for a site-context view — and needs NO API key. OSM is
-      // kept as an automatic fallback if the ESRI provider fails to construct.
-      // Both are plain https tile hosts already covered by `img-src 'self' data:
-      // blob: https:` in server/securityHeaders.js (no CSP change required; dev
-      // CSP is report-only).
+      // GIS-CESIUM-NOTOKEN-IMAGERY: the ESRI World Imagery provider below issues
+      // tile requests to https://server.arcgisonline.com. On the FREE Forma path
+      // (no Cesium token) we deliberately SKIP installing it so the strict prod
+      // CSP never blocks an arcgis tile and the console stays quiet — the Forma
+      // flat-grey globe is the ground, no aerial photo is wanted. We only install
+      // the satellite basemap when a real token is present (the photoreal path),
+      // where the operator has accepted the external-imagery dependency and the
+      // arcgis origin is allowlisted in server/securityHeaders.js connect-src.
       //
       // The raw tiles are colour-graded on the returned ImageryLayer so they have
       // depth and punch instead of looking pale: brightness slightly <1 (kills the
       // wash), contrast & saturation >1 (richer colour + separation), gamma ~1.1
       // (gentle midtone lift). Tasteful — not blown out.
-      try {
+      if (!photorealAvailable) {
+        console.log(
+          '[gis][cesium] no token → ESRI/OSM base imagery SKIPPED (no server.arcgisonline.com requests); Forma flat ground will paint the globe.'
+        );
+      } else try {
         this.viewer.imageryLayers.removeAll();
 
         const ESRI_WORLD_IMAGERY =
@@ -355,11 +382,22 @@ export class CesiumViewport {
       }
 
       // ----------------------------
-      // 🌎 Google Photorealistic 3D Tiles with fallback (enhancement; needs a key)
+      // 🌎 Google Photorealistic 3D Tiles — ONLY on the token/photoreal path
       // ----------------------------
+      // GIS-CESIUM-NOTOKEN-IMAGERY: `fromIonAssetId` streams the Google tiles via
+      // the ion CDN and pulls https://tile.googleapis.com. On the FREE Forma path
+      // (no token) the call would only fail (the hardcoded dev token can't unlock
+      // a Google-linked asset) while still emitting CSP-blocked googleapis
+      // requests — pure noise. So we SKIP it entirely without a token; the Forma
+      // massing scene needs no photogrammetry. With a token present we load it as
+      // before (googleapis allowlisted in connect-src for this path).
       let photogrammetryLoaded = false;
 
-      try {
+      if (!photorealAvailable) {
+        console.log(
+          '[gis][cesium] no token → Google Photorealistic 3D Tiles SKIPPED (no tile.googleapis.com requests).'
+        );
+      } else try {
         const tileset = await Cesium.Cesium3DTileset.fromIonAssetId(
           2275207 // Google Photorealistic 3D Tiles
         );
