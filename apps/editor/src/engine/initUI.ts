@@ -161,7 +161,10 @@ function createIfcImportOverlay(fileName: string): IfcImportOverlay {
     overlay.style.cssText = [
         'position:fixed', 'inset:0', 'z-index:999999',
         'display:flex', 'align-items:center', 'justify-content:center',
-        'background:rgba(5,8,18,0.42)', 'backdrop-filter:blur(3px)',
+        // §PANEL-BACKDROP-UNIFY — shared scrim (was rgba(5,8,18,0.42)+blur3).
+        'background:var(--pryzm-panel-backdrop)',
+        'backdrop-filter:var(--pryzm-panel-backdrop-blur)',
+        '-webkit-backdrop-filter:var(--pryzm-panel-backdrop-blur)',
         'pointer-events:auto', 'font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
     ].join(';');
 
@@ -231,7 +234,10 @@ function createIfcExportOverlay(scope: string): IfcExportOverlay {
     overlay.style.cssText = [
         'position:fixed', 'inset:0', 'z-index:999999',
         'display:flex', 'align-items:center', 'justify-content:center',
-        'background:rgba(5,8,18,0.42)', 'backdrop-filter:blur(3px)',
+        // §PANEL-BACKDROP-UNIFY — shared scrim (was rgba(5,8,18,0.42)+blur3).
+        'background:var(--pryzm-panel-backdrop)',
+        'backdrop-filter:var(--pryzm-panel-backdrop-blur)',
+        '-webkit-backdrop-filter:var(--pryzm-panel-backdrop-blur)',
         'pointer-events:auto', 'font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
     ].join(';');
 
@@ -942,7 +948,10 @@ export async function initUI(p: UIParams): Promise<void> {
             overlay.style.cssText = [
                 'position:fixed', 'inset:0', 'z-index:200000',
                 'display:flex', 'align-items:center', 'justify-content:center',
-                'background:rgba(10,12,25,0.82)', 'backdrop-filter:blur(6px)',
+                // §PANEL-BACKDROP-UNIFY — shared scrim (was rgba(10,12,25,0.82)+blur6).
+                'background:var(--pryzm-panel-backdrop)',
+                'backdrop-filter:var(--pryzm-panel-backdrop-blur)',
+                '-webkit-backdrop-filter:var(--pryzm-panel-backdrop-blur)',
             ].join(';');
 
             const sizeMB = (file.size / 1048576).toFixed(2);

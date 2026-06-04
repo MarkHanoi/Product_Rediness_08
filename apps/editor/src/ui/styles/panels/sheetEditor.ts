@@ -1083,7 +1083,10 @@ export const SHEET_EDITOR_STYLES = `
     .sh-export-dialog-backdrop {
         position:        fixed;
         inset:           0;
-        background:      rgba(0,0,0,0.45);
+        /* §PANEL-BACKDROP-UNIFY — shared scrim (was rgba(0,0,0,0.45) — black, brand-violation). */
+        background:      var(--pryzm-panel-backdrop);
+        backdrop-filter: var(--pryzm-panel-backdrop-blur);
+        -webkit-backdrop-filter: var(--pryzm-panel-backdrop-blur);
         z-index:         2200;
         display:         flex;
         align-items:     center;

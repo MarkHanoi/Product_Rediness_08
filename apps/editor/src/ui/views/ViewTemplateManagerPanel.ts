@@ -416,7 +416,8 @@ export class ViewTemplateManagerPanel {
             overlay.style.cssText = [
                 'position:fixed;inset:0;z-index:99999;',
                 'display:flex;align-items:center;justify-content:center;',
-                'background:rgba(10,12,28,0.55);backdrop-filter:blur(3px);',
+                // §PANEL-BACKDROP-UNIFY — shared scrim (was rgba(10,12,28,0.55)+blur3).
+                'background:var(--pryzm-panel-backdrop);backdrop-filter:var(--pryzm-panel-backdrop-blur);-webkit-backdrop-filter:var(--pryzm-panel-backdrop-blur);',
             ].join('');
 
             const card = document.createElement('div');
@@ -523,7 +524,8 @@ export class ViewTemplateManagerPanel {
             overlay.style.cssText = [
                 'position:fixed;inset:0;z-index:99999;',
                 'display:flex;align-items:center;justify-content:center;',
-                'background:rgba(10,12,28,0.55);backdrop-filter:blur(3px);',
+                // §PANEL-BACKDROP-UNIFY — shared scrim (was rgba(10,12,28,0.55)+blur3).
+                'background:var(--pryzm-panel-backdrop);backdrop-filter:var(--pryzm-panel-backdrop-blur);-webkit-backdrop-filter:var(--pryzm-panel-backdrop-blur);',
             ].join('');
 
             const card = document.createElement('div');

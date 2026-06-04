@@ -9,9 +9,10 @@ export const AUTH_MODAL_STYLES = `
     .am-overlay {
         position: fixed;
         inset: 0;
-        background: rgba(30,10,70,0.38);
-        backdrop-filter: blur(12px) saturate(1.4);
-        -webkit-backdrop-filter: blur(12px) saturate(1.4);
+        /* §PANEL-BACKDROP-UNIFY — shared scrim (was rgba(30,10,70,0.38)+blur12). */
+        background: var(--pryzm-panel-backdrop);
+        backdrop-filter: var(--pryzm-panel-backdrop-blur);
+        -webkit-backdrop-filter: var(--pryzm-panel-backdrop-blur);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -365,7 +366,10 @@ export const AUTH_MODAL_STYLES = `
 export const UPGRADE_MODAL_STYLES = `
     .um-overlay {
         position: fixed; inset: 0; z-index: 100000;
-        background: rgba(10,12,30,0.72); backdrop-filter: blur(6px);
+        /* §PANEL-BACKDROP-UNIFY — shared scrim (was rgba(10,12,30,0.72)+blur6). */
+        background: var(--pryzm-panel-backdrop);
+        backdrop-filter: var(--pryzm-panel-backdrop-blur);
+        -webkit-backdrop-filter: var(--pryzm-panel-backdrop-blur);
         display: flex; align-items: center; justify-content: center;
         padding: 24px; box-sizing: border-box;
         opacity: 0; transition: opacity 0.2s ease;
@@ -438,8 +442,10 @@ export const WELCOME_MODAL_STYLES = `
     .wm-overlay {
         position: fixed;
         inset: 0;
-        background: rgba(15,20,50,0.60);
-        backdrop-filter: blur(10px);
+        /* §PANEL-BACKDROP-UNIFY — shared scrim (was rgba(15,20,50,0.60)+blur10). */
+        background: var(--pryzm-panel-backdrop);
+        backdrop-filter: var(--pryzm-panel-backdrop-blur);
+        -webkit-backdrop-filter: var(--pryzm-panel-backdrop-blur);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -608,8 +614,10 @@ export const CONTACT_SALES_MODAL_STYLES = `
     .cs-overlay {
         position: fixed;
         inset: 0;
-        background: rgba(10, 10, 20, 0.6);
-        backdrop-filter: blur(6px);
+        /* §PANEL-BACKDROP-UNIFY — shared scrim (was rgba(10,10,20,0.6)+blur6). */
+        background: var(--pryzm-panel-backdrop);
+        backdrop-filter: var(--pryzm-panel-backdrop-blur);
+        -webkit-backdrop-filter: var(--pryzm-panel-backdrop-blur);
         display: flex;
         align-items: center;
         justify-content: center;

@@ -10,8 +10,10 @@ export const OSP_STYLES = `
         position: fixed;
         inset: 0;
         z-index: 9999;
-        background: rgba(26,32,53,0.50);
-        backdrop-filter: blur(5px);
+        /* §PANEL-BACKDROP-UNIFY — shared scrim (was rgba(26,32,53,0.50)+blur5). */
+        background: var(--pryzm-panel-backdrop);
+        backdrop-filter: var(--pryzm-panel-backdrop-blur);
+        -webkit-backdrop-filter: var(--pryzm-panel-backdrop-blur);
         display: flex;
         align-items: center;
         justify-content: center;

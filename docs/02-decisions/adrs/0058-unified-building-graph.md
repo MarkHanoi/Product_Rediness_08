@@ -81,6 +81,32 @@ Every UBG **mutation** (`addNode`, `addEdge`, `clear`, `fromJSON`) emits a `pryz
 a cached tracer (no allocation when no SDK is configured), mirroring `packages/ai-host/src/tracing.ts`.
 Read paths (`query`, `neighbors`, `subgraph`, `getNode`) are pure and span-free by design.
 
+### 7 — GRAPH.2: the concrete adapters (shipped)
+
+GRAPH.2 implements the five adapters the contract (§4) anticipated. They live **inside**
+`@pryzm/building-graph` (`src/adapters/*.ts`) yet keep the package L2-/P5-pure by NOT importing the
+higher-layer specialised services. Instead each adapter is a **factory** `create<Source>Adapter(snapshot)`
+that takes a plain, structurally-typed **input snapshot** (`src/adapters/inputs.ts`) which the caller
+(GRAPH.2 wiring / the editor runtime) extracts from the real service. The factory returns a
+`UbgAdapter { name; project(graph) }` (the §4 contract), documented as the dependency-injected variant.
+
+| Adapter | Factory | Projected from | Edge type(s) emitted |
+|---|---|---|---|
+| topology | `createTopologyAdapter` | TopologyLayer `getAdjacencyRelationships` (`intersects`/`adjacentTo`) | **`bounds`** (from `intersects`) + **`adjacentTo`** |
+| roomGraph | `createRoomGraphAdapter` | RoomGraphService `getGraph(levelId)` + D-TGL circulation paths | **`connectsTo`** (door edges) + **`circulatesVia`** (circulation paths) |
+| semantic | `createSemanticAdapter` | SemanticGraph derivation family (`branchedFrom`/`supersedes`/`precededBy`) | **`derivesFrom`** |
+| dependency | `createDependencyAdapter` | DependencyResolver cascade pairs (`RebuildTask`) | **`dependsOn`** |
+| constraint | `createConstraintAdapter` | ConstraintEngine validation report violations | **`violates`** (element → synthetic `rule:{ruleId}` node) |
+
+All seven non-deferred edge types from §2 are therefore produced (`hostedIn`, `servesZone`,
+`precededBy` remain deferred to later adapters). Each adapter is **idempotent** (§4) — re-projecting
+the same snapshot dedupes by node id / edge from·to·type — and emits a single `pryzm.ubg.project` span
+carrying the `ubg.adapter` attribute (§6, P8), keeping span cardinality bounded by the closed adapter
+set. The barrel `src/adapters/index.ts` re-exports the factories, names, `ruleNodeId`, the
+`DERIVATION_TYPES` filter and every input type; the package barrel re-exports them in turn. Coverage:
+`__tests__/adapters.test.ts` (11 tests) proves each edge type from a realistic fixture + idempotence +
+a compose-all check that all seven coexist in one graph.
+
 ## Consequences
 
 ### Positive

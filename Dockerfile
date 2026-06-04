@@ -67,9 +67,16 @@ RUN --mount=type=cache,target=/pnpm/store,sharing=locked \
 # `.dockerignore` already strips docs, tests, MasterMiawW, .git, etc.
 COPY . .
 
-# Build runs: project-isolation check → tsc --skipLibCheck → vite build → write-prod-shim.
+# Build runs: project-isolation check → vite build → write-prod-shim.
+# We use `build:docker` (NOT `build`) which OMITS the whole-repo `tsc --skipLibCheck`
+# typecheck. Rationale: the runtime executes TS source directly via `tsx` (see the
+# prod-shim note above — nothing in the image consumes tsc's output), so tsc here is
+# purely a CI type-gate, not an image input. CI still runs the full `build` (with tsc)
+# on every PR. Dropping it from the image build removes tsc's heap spike and ~30–60s,
+# leaving vite as the single memory peak (~5.5GB) — which is why this deploy uses a
+# Depot builder (16GB) rather than Fly's 8GB legacy remote builder.
 # Output: dist/ (client bundle + dist/index.cjs entrypoint).
-RUN pnpm run build
+RUN pnpm run build:docker
 
 # Prune dev-only deps from node_modules so the runtime stage can copy a smaller tree.
 # `--prod` keeps the workspace package symlinks (they're in `dependencies`).

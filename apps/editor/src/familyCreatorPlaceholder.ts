@@ -27,7 +27,11 @@ export function openFamilyCreatorPlaceholder(): void {
   overlay.style.cssText = [
     'position:fixed', 'inset:0', 'z-index:10000',
     'display:flex', 'align-items:center', 'justify-content:center',
-    'background:rgba(15,15,30,0.55)', 'font-family:system-ui,sans-serif',
+    // §PANEL-BACKDROP-UNIFY — shared scrim (was rgba(15,15,30,0.55)).
+    'background:var(--pryzm-panel-backdrop)',
+    'backdrop-filter:var(--pryzm-panel-backdrop-blur)',
+    '-webkit-backdrop-filter:var(--pryzm-panel-backdrop-blur)',
+    'font-family:system-ui,sans-serif',
   ].join(';');
 
   const card = document.createElement('div');

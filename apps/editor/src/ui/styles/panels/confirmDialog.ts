@@ -10,9 +10,10 @@ export const CONFIRM_DIALOG_STYLES = `
     .cdlg-overlay {
         position: fixed;
         inset: 0;
-        background: rgba(10, 14, 40, 0.72);
-        backdrop-filter: blur(6px);
-        -webkit-backdrop-filter: blur(6px);
+        /* §PANEL-BACKDROP-UNIFY — shared scrim (was rgba(10,14,40,0.72)+blur6). */
+        background: var(--pryzm-panel-backdrop);
+        backdrop-filter: var(--pryzm-panel-backdrop-blur);
+        -webkit-backdrop-filter: var(--pryzm-panel-backdrop-blur);
         display: flex;
         align-items: center;
         justify-content: center;

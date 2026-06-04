@@ -733,8 +733,10 @@ export const PROJECT_HUB_STYLES = `
     .ph-modal-overlay {
         position: fixed;
         inset: 0;
-        background: rgba(15,20,50,0.45);
-        backdrop-filter: blur(6px);
+        /* §PANEL-BACKDROP-UNIFY — shared scrim (was rgba(15,20,50,0.45)+blur6). */
+        background: var(--pryzm-panel-backdrop);
+        backdrop-filter: var(--pryzm-panel-backdrop-blur);
+        -webkit-backdrop-filter: var(--pryzm-panel-backdrop-blur);
         align-items: center;
         justify-content: center;
         z-index: 99998;
@@ -948,9 +950,11 @@ export const PROJECT_HUB_STYLES = `
         display: none;
         position: fixed;
         inset: 0;
-        background: rgba(15,20,50,0.40);
+        /* §PANEL-BACKDROP-UNIFY — shared scrim (was rgba(15,20,50,0.40)+blur2). */
+        background: var(--pryzm-panel-backdrop);
         z-index: 199;
-        backdrop-filter: blur(2px);
+        backdrop-filter: var(--pryzm-panel-backdrop-blur);
+        -webkit-backdrop-filter: var(--pryzm-panel-backdrop-blur);
     }
     .ph-mobile-backdrop--visible { display: block; }
 

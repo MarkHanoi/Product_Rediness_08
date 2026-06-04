@@ -161,7 +161,10 @@ export function showShortcutCheatSheet(): void {
     overlay.style.cssText = `
         position: fixed;
         inset: 0;
-        background: rgba(15, 18, 25, 0.55);
+        /* §PANEL-BACKDROP-UNIFY — shared scrim (was rgba(15,18,25,0.55)). */
+        background: var(--pryzm-panel-backdrop);
+        backdrop-filter: var(--pryzm-panel-backdrop-blur);
+        -webkit-backdrop-filter: var(--pryzm-panel-backdrop-blur);
         z-index: 9999;
         display: flex;
         align-items: center;

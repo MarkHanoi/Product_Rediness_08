@@ -10,8 +10,14 @@ import { trace, type Tracer, type SpanOptions } from '@opentelemetry/api';
 const TRACER_NAME = '@pryzm/building-graph';
 const TRACER_VERSION = '0.1.0';
 
-/** The closed set of UBG mutation operations that emit a span. */
-export type UbgMutationOp = 'addNode' | 'addEdge' | 'clear' | 'fromJSON';
+/**
+ * The closed set of UBG operations that emit a span. Mutation ops wrap the
+ * in-memory store boundary (GRAPH.1); `project` wraps an adapter's projection
+ * boundary (GRAPH.2) -- each adapter's `project(graph)` is a new exported
+ * boundary and so emits a `pryzm.ubg.project` span (P8). The adapter name is
+ * carried as the `ubg.adapter` attribute, keeping span cardinality bounded.
+ */
+export type UbgMutationOp = 'addNode' | 'addEdge' | 'clear' | 'fromJSON' | 'project';
 
 let cachedTracer: Tracer | null = null;
 function tracer(): Tracer {
