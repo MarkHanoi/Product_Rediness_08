@@ -335,7 +335,10 @@ export const DATA_WORKBENCH_STYLES = `
 .dw-dialog-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.35);
+  /* §PANEL-BACKDROP-UNIFY — shared scrim (was rgba(0,0,0,0.35) — black, brand-violation). */
+  background: var(--pryzm-panel-backdrop);
+  backdrop-filter: var(--pryzm-panel-backdrop-blur);
+  -webkit-backdrop-filter: var(--pryzm-panel-backdrop-blur);
   z-index: 9500;
   display: flex;
   align-items: center;

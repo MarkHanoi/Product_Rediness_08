@@ -214,7 +214,10 @@ export function openAutoOrganiseModal(levelId: string): void {
     overlay.id = 'room-auto-organise-modal';
     overlay.style.cssText = [
         'position:fixed;inset:0;',
-        'background:rgba(0,0,0,0.45);',
+        // §PANEL-BACKDROP-UNIFY — shared scrim (was rgba(0,0,0,0.45) — black, brand-violation).
+        'background:var(--pryzm-panel-backdrop);',
+        'backdrop-filter:var(--pryzm-panel-backdrop-blur);',
+        '-webkit-backdrop-filter:var(--pryzm-panel-backdrop-blur);',
         'display:flex;align-items:center;justify-content:center;',
         'z-index:9000;',
         'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;',

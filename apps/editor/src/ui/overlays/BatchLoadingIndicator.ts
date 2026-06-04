@@ -25,7 +25,8 @@
  *   - setBatchLifecycleCallbacks(onShow, onHide): injection API preserved.
  *
  * Visual design:
- *   - Backdrop: rgba(10, 6, 30, 0.60) + backdrop-filter:blur(10px) over the canvas.
+ *   - Backdrop: the shared --pryzm-panel-backdrop scrim (§PANEL-BACKDROP-UNIFY)
+ *     over the canvas — identical to every other PRYZM panel/modal.
  *   - Card: white rounded panel centered in viewport (same PRYZM brand as before).
  *   - PRYZM pyramid logo — CSS 3-D prism, identical to EngineLoadingOverlay.
  *   - Purple progress bar advancing via CSS width transition.
@@ -230,9 +231,11 @@ export class BatchLoadingIndicator {
                 z-index: 88880;
                 display: none;
                 opacity: 0;
-                background: rgba(10, 6, 30, 0.58);
-                backdrop-filter: blur(10px) saturate(0.6);
-                -webkit-backdrop-filter: blur(10px) saturate(0.6);
+                /* §PANEL-BACKDROP-UNIFY — shared scrim (was rgba(10,6,30,0.58)+blur10).
+                   The AI batch "Building N elements" modal now uses the one token. */
+                background: var(--pryzm-panel-backdrop);
+                backdrop-filter: var(--pryzm-panel-backdrop-blur);
+                -webkit-backdrop-filter: var(--pryzm-panel-backdrop-blur);
                 transition: opacity 0.20s ease;
                 pointer-events: all;
             }

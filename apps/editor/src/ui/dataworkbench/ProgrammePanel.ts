@@ -259,8 +259,11 @@ export class ProgrammePanel {
 
     private _addEntry(): void {
         const overlay = document.createElement('div');
+        // §PANEL-BACKDROP-UNIFY — shared scrim (was rgba(0,0,0,0.4) — black, brand-violation).
         overlay.style.cssText = `
-            position:fixed;inset:0;background:rgba(0,0,0,0.4);
+            position:fixed;inset:0;background:var(--pryzm-panel-backdrop);
+            backdrop-filter:var(--pryzm-panel-backdrop-blur);
+            -webkit-backdrop-filter:var(--pryzm-panel-backdrop-blur);
             display:flex;align-items:center;justify-content:center;z-index:9999;
         `;
 

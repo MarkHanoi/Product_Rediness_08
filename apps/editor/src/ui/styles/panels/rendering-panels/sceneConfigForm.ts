@@ -12,8 +12,10 @@ export const SCF_STYLES = `
         display: flex;
         align-items: center;
         justify-content: center;
-        background: rgba(10, 12, 20, 0.92);
-        backdrop-filter: blur(8px);
+        /* §PANEL-BACKDROP-UNIFY — shared scrim (was rgba(10,12,20,0.92)+blur8). */
+        background: var(--pryzm-panel-backdrop);
+        backdrop-filter: var(--pryzm-panel-backdrop-blur);
+        -webkit-backdrop-filter: var(--pryzm-panel-backdrop-blur);
         font-family: var(--app-font);
     }
 
