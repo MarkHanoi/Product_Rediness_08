@@ -94,8 +94,13 @@ export async function fetchBenchmark(
 export async function fetchAllBenchmarks(): Promise<PortfolioBenchmark[]> {
     try {
         const token = localStorage.getItem('bim-auth-token') ?? '';
+        // Skip entirely when there's no auth token yet (this fires during early
+        // boot, before the session token is set) — an unauthenticated call only
+        // 401s and logs a red console error for no benefit. The PortfolioQueryPanel
+        // re-fetches when the user actually opens it (token present by then).
+        if (!token) return [];
         const res = await fetch(`${BASE}/benchmarks/all`, {
-            headers: token ? { Authorization: `Bearer ${token}` } : {},
+            headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) return [];
         const body = await res.json();
