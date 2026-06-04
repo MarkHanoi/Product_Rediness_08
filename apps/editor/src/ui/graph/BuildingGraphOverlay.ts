@@ -511,16 +511,23 @@ export class BuildingGraphOverlay {
     // 2) Metaball nodes — radial-gradient gooey halos that visually MERGE when
     //    close (drawn additively with soft glow). The 'lighter' composite makes
     //    overlapping halos sum into one continuous liquid field — the blob look.
+    // GRAPH.3-HERO — the highest-degree node is the central "blob" (it gravitates
+    // to centre via the force sim); give it an outsized, brighter halo so the graph
+    // reads as edges converging into one luminous core (the MIAW signature).
+    const primary = layout.nodes.length
+      ? layout.nodes.reduce((m, n) => (n.radius > m.radius ? n : m), layout.nodes[0]!)
+      : null;
     ctx.globalCompositeOperation = 'lighter';
     for (const n of layout.nodes) {
       const p = this.toScreen(n);
       const dim = this.isDimmed(n.node.id);
+      const isPrimary = n === primary;
       const breathe = 1 + Math.sin(this.phase * 1.3 + n.radius) * 0.06;
-      const haloR = n.radius * 2.6 * breathe;
+      const haloR = n.radius * (isPrimary ? 4.4 : 2.6) * breathe;
       const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, haloR);
       const c = n.colour;
-      grad.addColorStop(0, this.withAlpha(c, dim ? 0.22 : 0.85));
-      grad.addColorStop(0.45, this.withAlpha(c, dim ? 0.08 : 0.32));
+      grad.addColorStop(0, this.withAlpha(c, dim ? 0.22 : isPrimary ? 0.98 : 0.85));
+      grad.addColorStop(0.45, this.withAlpha(c, dim ? 0.08 : isPrimary ? 0.42 : 0.32));
       grad.addColorStop(1, this.withAlpha(c, 0));
       ctx.fillStyle = grad;
       ctx.beginPath();
@@ -535,16 +542,18 @@ export class BuildingGraphOverlay {
       const dim = this.isDimmed(n.node.id);
       const isHover = this.hovered === n;
       const isFocus = this.focused === n.node.id;
+      const isPrimary = n === primary;
       const breathe = 1 + Math.sin(this.phase * 1.3 + n.radius) * 0.06;
-      const r = n.radius * 0.5 * breathe;
+      const r = n.radius * (isPrimary ? 0.66 : 0.5) * breathe;
 
       ctx.beginPath();
       ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
       ctx.fillStyle = dim ? this.withAlpha(n.colour, 0.35) : n.colour;
       ctx.fill();
-      ctx.lineWidth = isFocus ? 3 : isHover ? 2 : 1;
+      // GRAPH.3-HERO — the central blob always wears a crisp white ring.
+      ctx.lineWidth = isPrimary ? 2.5 : isFocus ? 3 : isHover ? 2 : 1;
       ctx.strokeStyle =
-        isHover || isFocus ? '#ffffff' : 'rgba(255,255,255,0.5)';
+        isHover || isFocus || isPrimary ? '#ffffff' : 'rgba(255,255,255,0.5)';
       ctx.stroke();
     }
 
