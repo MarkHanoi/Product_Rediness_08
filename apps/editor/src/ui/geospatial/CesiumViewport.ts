@@ -1,5 +1,10 @@
 import * as Cesium from "cesium";
 import { TransformGizmo, GizmoMode } from "./TransformGizmo";
+// FORMA.5 — pure NOAA solar-position calculator (L2, no THREE / no I/O).
+// `solarSample(lat, lon, utcIso)` → { altitudeRad, azimuthRad, isAboveHorizon }.
+// This is the SAME pure algorithm the ClimatePanel sun-path uses; FORMA.5 reads
+// it to drive the Cesium directional light (read-only consumer — SPEC §6).
+import { solarSample } from "@pryzm/climate-host";
 
 // H7 (07-BIM-SECURITY-CONTRACT §6.1): Cesium Ion token MUST be loaded from the
 // VITE_CESIUM_TOKEN environment variable and MUST NOT be hardcoded in source.
@@ -136,6 +141,21 @@ export class CesiumViewport {
   /** Monotonic token serialising overlapping async terrain samples — only the
    *  latest placement's clamp is allowed to commit (newer placement wins). */
   private formaTerrainToken = 0;
+
+  // ---- FORMA.5 — sun-driven light + time/season scrubber state ----
+  /** The datetime the Forma directional light is currently solved for. Drives
+   *  the sun vector via `solarSample`; updated by `setFormaSunTime`. Defaults to
+   *  "now" so the very first Forma frame already shows a plausible real sun. */
+  private formaSunDate: Date = new Date();
+  /** The lat/lon the sun vector was last solved at (= site origin). Lets the
+   *  scrubber recompute without re-reading the store, and lets a location change
+   *  re-solve the sun. null until the first solve. */
+  private formaSunLatLon: { lat: number; lon: number } | null = null;
+  /** Last solved sun position (degrees) — surfaced to the scrubber UI readout
+   *  ("alt 34° · az 128°") + used to decide night fallback. */
+  private formaSunLast: { altitudeDeg: number; azimuthDeg: number; isAboveHorizon: boolean } | null = null;
+  /** Observers (the scrubber UI) notified whenever the sun is re-solved. */
+  private formaSunListeners = new Set<(p: { altitudeDeg: number; azimuthDeg: number; isAboveHorizon: boolean; date: Date }) => void>();
 
   /** Phase B (S73-WIRE) — runtime threaded by parent. */
   public readonly runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null;
@@ -541,6 +561,8 @@ export class CesiumViewport {
       console.log(
         `[CesiumViewport] site.location-changed → flying camera to LAT ${loc.latitude} LON ${loc.longitude}.`
       );
+      // FORMA.5 — re-anchor the sun at the new site so shadows are correct here.
+      this.setFormaSunLocation(loc.latitude, loc.longitude);
       this.frameSiteLocation(loc.latitude, loc.longitude, { instant: false });
     });
     // EventSubscription is both callable and Disposable — store the callable form.
@@ -638,27 +660,18 @@ export class CesiumViewport {
       console.warn('[CesiumViewport][forma] sky/background config failed:', e);
     }
 
-    // --- Lighting: fixed ~10:00 directional key + warm-neutral ambient (§2). ---
-    // FORMA.5 will drive this direction from RealSunService; a fixed reasonable
-    // direction is the FORMA.2 target. Direction points FROM the sun toward the
-    // scene: a low-ish NE→SW vector reading as a ~10am sun.
+    // --- Lighting: REAL sun direction from NOAA solar position (FORMA.5, §6). ---
+    // The directional light direction is solved from the site lat/lon + the
+    // current scrubber datetime (`this.formaSunDate`) via the pure `solarSample`
+    // calculator — so the FORMA.2 soft shadows fall at the true sun angle. When
+    // no site location is known yet, OR the sun is below the horizon, we fall
+    // back to a fixed ~10:00 key direction so the scene is never black.
     try {
       if (!this.originalLightCaptured) {
         this.originalLight = scene.light ?? null;
         this.originalLightCaptured = true;
       }
-      const dir = Cesium.Cartesian3.normalize(
-        // East-ish, downward, slightly south — a fixed ~10:00 key direction.
-        new Cesium.Cartesian3(-0.55, -0.7, -0.45),
-        new Cesium.Cartesian3()
-      );
-      scene.light = new Cesium.DirectionalLight({
-        direction: dir,
-        // Warm neutral key; ambient fill is applied below via globe shading off
-        // + the flat base colour so shaded faces never crush to black.
-        color: Cesium.Color.fromCssColorString('#FFF6EC'),
-        intensity: FORMA_LIGHT_INTENSITY,
-      });
+      this.applyFormaSunLight();
     } catch (e) {
       console.warn('[CesiumViewport][forma] lighting config failed:', e);
     }
@@ -692,6 +705,166 @@ export class CesiumViewport {
         (this.formaAoStage ? ', AO' : ', AO=unavailable') +
         (this.formaSilhouetteComposite ? ', silhouette' : ', silhouette=unavailable') + '.'
     );
+  }
+
+  /**
+   * FORMA.5 — solve the REAL sun direction for the site + current scrubber
+   * datetime and set the Cesium directional light to it (SPEC §6 sun/shadow).
+   *
+   * SOLAR → CESIUM LIGHT mapping (the §7 FORMA.5 risk):
+   *   • `solarSample(lat, lon, utcIso)` returns altitude above horizon + azimuth
+   *     clockwise-from-North, both radians (NOAA convention — the SAME one the
+   *     ClimatePanel sun-path renders, so the two views agree).
+   *   • The unit vector pointing FROM the scene TOWARD the sun, in the site's
+   *     local ENU frame (east, north, up):
+   *         east = cos(alt)·sin(az)   north = cos(alt)·cos(az)   up = sin(alt)
+   *   • A Cesium `DirectionalLight.direction` points the way light TRAVELS
+   *     (sun → ground), i.e. the NEGATIVE of the to-sun vector.
+   *   • We transform that ENU vector into ECEF (world) with the SAME
+   *     `eastNorthUpToFixedFrame` anchor used for massing placement, so the light
+   *     is correct at the real globe location, not just at lon/lat 0.
+   *
+   * Night / no-location fallback: when the sun is below the horizon, or no site
+   * location is known, we use a fixed warm ~10:00 NE→SW key so the scene is
+   * never unlit (graceful degradation — SPEC §6 "no data" discipline).
+   */
+  private applyFormaSunLight(): void {
+    const viewer = this.viewer;
+    if (!viewer) return;
+    const scene = viewer.scene;
+
+    // Resolve the anchor lat/lon: the scrubber's cached origin, else the live
+    // site location, else null (→ fixed fallback key).
+    let latLon = this.formaSunLatLon;
+    if (!latLon) {
+      const loc = this.readSiteLocation();
+      if (loc) {
+        latLon = { lat: loc.lat, lon: loc.lon };
+        this.formaSunLatLon = latLon;
+      }
+    }
+
+    let direction: Cesium.Cartesian3;
+    let warm = true;
+    let solved: { altitudeDeg: number; azimuthDeg: number; isAboveHorizon: boolean } | null = null;
+
+    if (latLon) {
+      try {
+        const s = solarSample(latLon.lat, latLon.lon, this.formaSunDate.toISOString());
+        const altDeg = (s.altitudeRad * 180) / Math.PI;
+        const azDeg = (s.azimuthRad * 180) / Math.PI;
+        solved = { altitudeDeg: altDeg, azimuthDeg: azDeg, isAboveHorizon: s.isAboveHorizon };
+        if (s.isAboveHorizon) {
+          // to-sun unit vector in local ENU (east, north, up).
+          const cosAlt = Math.cos(s.altitudeRad);
+          const toSunEast = cosAlt * Math.sin(s.azimuthRad);
+          const toSunNorth = cosAlt * Math.cos(s.azimuthRad);
+          const toSunUp = Math.sin(s.altitudeRad);
+          // Light travels FROM sun TO ground → negate.
+          const localDir = new Cesium.Cartesian3(-toSunEast, -toSunNorth, -toSunUp);
+          // ENU → ECEF via the site anchor (vector transform, no translation).
+          const enu = Cesium.Transforms.eastNorthUpToFixedFrame(
+            Cesium.Cartesian3.fromDegrees(latLon.lon, latLon.lat, 0),
+          );
+          const ecef = Cesium.Matrix4.multiplyByPointAsVector(enu, localDir, new Cesium.Cartesian3());
+          direction = Cesium.Cartesian3.normalize(ecef, new Cesium.Cartesian3());
+          // Warm when low, cooler near noon — matches the sun-path intuition.
+          warm = altDeg < 25;
+        } else {
+          // Sun below horizon — keep a soft fixed key so the massing stays visible.
+          direction = this.formaFallbackSunDirection();
+        }
+      } catch (e) {
+        console.warn('[CesiumViewport][forma] solarSample failed — fixed key:', e);
+        direction = this.formaFallbackSunDirection();
+      }
+    } else {
+      direction = this.formaFallbackSunDirection();
+    }
+
+    scene.light = new Cesium.DirectionalLight({
+      direction,
+      color: Cesium.Color.fromCssColorString(warm ? '#FFE9CC' : '#FFF6EC'),
+      intensity: FORMA_LIGHT_INTENSITY,
+    });
+
+    this.formaSunLast = solved;
+    // Notify the scrubber UI (it renders the alt/az readout + slider position).
+    const detail = {
+      altitudeDeg: solved?.altitudeDeg ?? 0,
+      azimuthDeg: solved?.azimuthDeg ?? 0,
+      isAboveHorizon: solved?.isAboveHorizon ?? false,
+      date: this.formaSunDate,
+    };
+    for (const l of this.formaSunListeners) {
+      try { l(detail); } catch (e) { console.warn('[CesiumViewport][forma] sun listener threw:', e); }
+    }
+  }
+
+  /** Fixed warm ~10:00 NE→SW key direction (ECEF-agnostic local approximation),
+   *  used when no site location is known or the sun is below the horizon. */
+  private formaFallbackSunDirection(): Cesium.Cartesian3 {
+    return Cesium.Cartesian3.normalize(
+      new Cesium.Cartesian3(-0.55, -0.7, -0.45),
+      new Cesium.Cartesian3(),
+    );
+  }
+
+  /**
+   * FORMA.5 — set the datetime the Forma sun is solved for (the time/season
+   * scrubber's single write seam). Recomputes the directional light → the soft
+   * shadows move live. No-op when not yet mounted. Cheap (one solar solve + one
+   * light swap, no per-frame work).
+   *
+   * @param date the local/UTC instant to solve the sun for.
+   */
+  public setFormaSunTime(date: Date): void {
+    if (!Number.isFinite(date.getTime())) {
+      console.warn('[CesiumViewport][forma] setFormaSunTime: invalid date — ignored.');
+      return;
+    }
+    this.formaSunDate = new Date(date.getTime());
+    if (!this.viewer || !this.formaMode) return; // applied on next Forma enable.
+    try {
+      this.applyFormaSunLight();
+      this.viewer.scene.requestRender();
+    } catch (e) {
+      console.warn('[CesiumViewport][forma] setFormaSunTime failed:', e);
+    }
+  }
+
+  /** FORMA.5 — update the site lat/lon the sun is anchored at (called when the
+   *  site location changes). Re-solves the light if Forma mode is active. */
+  public setFormaSunLocation(lat: number, lon: number): void {
+    this.formaSunLatLon = { lat, lon };
+    if (this.viewer && this.formaMode) {
+      try {
+        this.applyFormaSunLight();
+        this.viewer.scene.requestRender();
+      } catch (e) {
+        console.warn('[CesiumViewport][forma] setFormaSunLocation failed:', e);
+      }
+    }
+  }
+
+  /** FORMA.5 — the datetime the Forma sun is currently solved for (scrubber init). */
+  public getFormaSunTime(): Date {
+    return new Date(this.formaSunDate.getTime());
+  }
+
+  /** FORMA.5 — last solved sun position (alt/az degrees + above-horizon), or
+   *  null if not yet solved. Surfaced in the scrubber readout. */
+  public getFormaSunPosition(): { altitudeDeg: number; azimuthDeg: number; isAboveHorizon: boolean } | null {
+    return this.formaSunLast;
+  }
+
+  /** FORMA.5 — subscribe to sun re-solves (the scrubber refreshes its readout).
+   *  Returns an idempotent disposer. */
+  public onFormaSunChange(
+    fn: (p: { altitudeDeg: number; azimuthDeg: number; isAboveHorizon: boolean; date: Date }) => void,
+  ): () => void {
+    this.formaSunListeners.add(fn);
+    return () => { this.formaSunListeners.delete(fn); };
   }
 
   /**
@@ -1339,6 +1512,10 @@ export class CesiumViewport {
     this.formaTerrainBaseHeight = 0;
     this.formaTerrainSampledAt = null;
     this.formaTerrainToken++;
+    // FORMA.5 — drop sun observers so the scrubber UI doesn't leak across mounts.
+    this.formaSunListeners.clear();
+    this.formaSunLast = null;
+    this.formaSunLatLon = null;
 
     // Drop the site.location-changed subscription so it doesn't leak across
     // project switches (a new CesiumViewport re-subscribes on its own mount).

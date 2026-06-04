@@ -124,6 +124,23 @@ export async function bootstrap(
     // See REGRESSION-DIAGNOSIS.md §2 for the full root-cause analysis.
     if (runtime) window.runtime = runtime as typeof window.runtime;
 
+    // ── O.8 (PERF 2026-06-04): defer non-essential collaboration/CRDT init ─────
+    // The CRDT replication adapter (YjsDocAdapter) + conflict-disclosure UI are
+    // multi-user collaboration plumbing. A solo onboarding session reaching the
+    // GENERATE step needs NONE of it: the command bus' CRDT applier is null-safe
+    // (CommandBus.ts §`if (this._crdtApplier)`), the BatchCoordinator's adapter
+    // hooks are optional (`this._yjsDocAdapter?.onBatchWindowOpen?.(...)`), and
+    // the conflict banner/dialog only matter once a second editor concurrently
+    // mutates the model. Constructing YjsDocAdapter (Yjs doc + sync wiring) inside
+    // the synchronous boot path adds main-thread work before first paint, so we
+    // move it behind `requestIdleCallback` after the editor is interactive.
+    //
+    // ESCAPE HATCH: set `window.__pryzmEagerBoot = true` (before boot) to run the
+    // wiring inline, restoring the pre-O.8 synchronous ordering if deferral ever
+    // misbehaves.
+    const DEFER_NONESSENTIAL_INIT =
+        (window as unknown as { __pryzmEagerBoot?: boolean }).__pryzmEagerBoot !== true;
+
     // ── BUI + tool registry + globals ─────────────────────────────────────────
     BUI.Manager.init();
     initAnnotationTools();
@@ -674,95 +691,133 @@ export async function bootstrap(
     });
     initCollaboration({ container, commandManager, events: runtime?.events });
 
-    // ── G3-T2: Wire YjsDocAdapter as CommandBus CRDT applier ─────────────────
-    // Creates a YjsDocAdapter, registers it with BatchCoordinator (wiring the
-    // §E.1 batch-window hooks so G3-T1 logging fires), then attaches it to the
-    // CommandBus CRDT applier slot (step 7 in executeCommand).
-    //
-    // Effect: every commandBus.executeCommand() now also calls
-    //   yjsDocAdapter.applyCommand(type, payload) immediately — one CRDT op per
-    //   element instead of one coalesced StoreEventBus event per level per batch.
-    // This eliminates the 11.4-second CRDT blackout documented in
-    // gap-analysis doc 50, §3 and ADR-049 §4.4 (G3-T2).
-    const _yjsDocAdapter = new YjsDocAdapter(
-        (window as { currentProjectId?: string }).currentProjectId ?? 'pryzm-project',
-    );
-    batchCoordinator.registerYjsDocAdapter(_yjsDocAdapter);
-    // runtime.inner.bus is the CommandBus instance (types.ts Slot 3).
-    // The PryzmRuntime public interface narrows bus to { executeCommand, register,
-    // registry } — cast through `any` to reach the full CommandBus API without
-    // widening the public contract (same pattern as setRingBuffer in composeRuntime).
-    const _innerBus = (runtime as any)?.inner?.bus; // eslint-disable-line @typescript-eslint/no-explicit-any
-    if (_innerBus && typeof _innerBus.setCrdtApplier === 'function') {
-        _innerBus.setCrdtApplier(
-            (type: string, payload: Record<string, unknown>) =>
-                _yjsDocAdapter.applyCommand(type, payload),
-        );
-        console.log('[EngineBootstrap] G3-T2: CRDT applier wired → YjsDocAdapter');
-    } else {
-        console.warn('[EngineBootstrap] G3-T2: runtime.inner.bus not accessible — CRDT applier not wired');
-    }
+    // ── G3-T2 + §S-B1: CRDT applier + conflict-disclosure UI — DEFERRED (O.8) ──
+    // Constructs the YjsDocAdapter (Yjs doc + sync wiring), registers it with the
+    // BatchCoordinator (§E.1 batch-window hooks), attaches it to the CommandBus
+    // CRDT applier slot, and wires the P8 conflict banner/dialog. This is solo-
+    // irrelevant collaboration plumbing — see the DEFER_NONESSENTIAL_INIT comment
+    // at the top of bootstrap(). It is moved off the first-paint/generate critical
+    // path and scheduled on idle. Guarded by `_crdtWired` so it runs exactly once,
+    // and exposed on `window.__pryzmEnsureCollabCRDT` so any future caller that
+    // hard-depends on live CRDT replication can force-init it early (the generate
+    // path does NOT — the applier + adapter hooks are both null-safe).
+    let _crdtWired = false;
+    const wireCollaborationCRDT = (): void => {
+        if (_crdtWired) return;
+        _crdtWired = true;
 
-    // ── §S-B1 (DAILY-USE-AUDIT 2026-05-20) — wire P8 conflict-disclosure UI ──
-    // C08 §3.1 / §3.3: silent LWW is forbidden. When `YjsDocAdapter.emitConflict`
-    // fires (concurrent semantic edit detected by `CRDTConflictResolver` or by
-    // the in-batch elevation-mismatch detector), the user MUST see:
-    //   1. ConflictDisclosureBanner — non-blocking alert (role=alert, aria-live)
-    //      announcing that a remote edit overrode their change.
-    //   2. ConflictResolutionDialog (on banner click) — Keep mine / Keep theirs
-    //      / Merge picker. CRDTConflictResolver.applyResolution() returns the
-    //      chosen value; the actual re-dispatch to update the element happens
-    //      via the command bus using the element type's update handler.
-    //
-    // Architectural alignment: the resolver, dialog, banner, and emitConflict
-    // hook all already exist (Wave A19-T3/T6/T7); this is the missing wiring
-    // step at the L7 application layer. Singletons live for the engine lifetime;
-    // the dialog/banner manage their own DOM lifecycle (show/hide).
-    try {
-        const _conflictBanner   = new ConflictDisclosureBanner();
-        const _conflictDialog   = new ConflictResolutionDialog();
-        const _conflictResolver = new CRDTConflictResolver();
-        _yjsDocAdapter.onConflict((conflict) => {
-            _conflictBanner.show({
-                remoteAuthor: conflict.remoteAuthor,
-                propertyName: conflict.property,
-                onResolve: () => {
-                    _conflictDialog.show(conflict, (result) => {
-                        try {
-                            const finalValue = _conflictResolver.applyResolution(
-                                result.conflict,
-                                result.resolution,
-                                result.mergedValue,
-                            );
-                            // Route the resolved value back through `element.updateParameters`
-                            // — the generic update bridge (`initBusHandlers §E.5.x`) that
-                            // routes by elementId without needing the caller to know the
-                            // element type. If the bus dispatch fails we still emit a
-                            // resolution-recorded telemetry log so the resolver decision
-                            // is auditable. The remote LWW value has already been applied
-                            // by Yjs; this dispatch overrides it when the user picks
-                            // "Keep mine" / "Merge".
-                            const r = window.runtime as { bus?: { executeCommand?: (t: string, p: unknown) => Promise<unknown> } } | undefined;
-                            r?.bus?.executeCommand?.('element.updateParameters', {
-                                id: conflict.elementId,
-                                params: { [conflict.property]: finalValue },
-                            })?.catch?.((err: unknown) => {
-                                console.warn('[ConflictResolution] re-dispatch failed (logged for audit):', err);
-                            });
-                            console.log(
-                                `[ConflictResolution] resolved id=${conflict.elementId} prop=${conflict.property} ` +
-                                `→ resolution=${result.resolution} value=${JSON.stringify(finalValue)}`,
-                            );
-                        } catch (err) {
-                            console.error('[ConflictResolution] applyResolution failed:', err);
-                        }
-                    });
-                },
+        // Creates a YjsDocAdapter, registers it with BatchCoordinator (wiring the
+        // §E.1 batch-window hooks so G3-T1 logging fires), then attaches it to the
+        // CommandBus CRDT applier slot (step 7 in executeCommand).
+        //
+        // Effect: every commandBus.executeCommand() now also calls
+        //   yjsDocAdapter.applyCommand(type, payload) immediately — one CRDT op per
+        //   element instead of one coalesced StoreEventBus event per level per batch.
+        // This eliminates the 11.4-second CRDT blackout documented in
+        // gap-analysis doc 50, §3 and ADR-049 §4.4 (G3-T2).
+        const _yjsDocAdapter = new YjsDocAdapter(
+            (window as { currentProjectId?: string }).currentProjectId ?? 'pryzm-project',
+        );
+        batchCoordinator.registerYjsDocAdapter(_yjsDocAdapter);
+        // runtime.inner.bus is the CommandBus instance (types.ts Slot 3).
+        // The PryzmRuntime public interface narrows bus to { executeCommand, register,
+        // registry } — cast through `any` to reach the full CommandBus API without
+        // widening the public contract (same pattern as setRingBuffer in composeRuntime).
+        const _innerBus = (runtime as any)?.inner?.bus; // eslint-disable-line @typescript-eslint/no-explicit-any
+        if (_innerBus && typeof _innerBus.setCrdtApplier === 'function') {
+            _innerBus.setCrdtApplier(
+                (type: string, payload: Record<string, unknown>) =>
+                    _yjsDocAdapter.applyCommand(type, payload),
+            );
+            console.log('[EngineBootstrap] G3-T2: CRDT applier wired → YjsDocAdapter');
+        } else {
+            console.warn('[EngineBootstrap] G3-T2: runtime.inner.bus not accessible — CRDT applier not wired');
+        }
+
+        // ── §S-B1 (DAILY-USE-AUDIT 2026-05-20) — wire P8 conflict-disclosure UI ──
+        // C08 §3.1 / §3.3: silent LWW is forbidden. When `YjsDocAdapter.emitConflict`
+        // fires (concurrent semantic edit detected by `CRDTConflictResolver` or by
+        // the in-batch elevation-mismatch detector), the user MUST see:
+        //   1. ConflictDisclosureBanner — non-blocking alert (role=alert, aria-live)
+        //      announcing that a remote edit overrode their change.
+        //   2. ConflictResolutionDialog (on banner click) — Keep mine / Keep theirs
+        //      / Merge picker. CRDTConflictResolver.applyResolution() returns the
+        //      chosen value; the actual re-dispatch to update the element happens
+        //      via the command bus using the element type's update handler.
+        //
+        // Architectural alignment: the resolver, dialog, banner, and emitConflict
+        // hook all already exist (Wave A19-T3/T6/T7); this is the missing wiring
+        // step at the L7 application layer. Singletons live for the engine lifetime;
+        // the dialog/banner manage their own DOM lifecycle (show/hide).
+        try {
+            const _conflictBanner   = new ConflictDisclosureBanner();
+            const _conflictDialog   = new ConflictResolutionDialog();
+            const _conflictResolver = new CRDTConflictResolver();
+            _yjsDocAdapter.onConflict((conflict) => {
+                _conflictBanner.show({
+                    remoteAuthor: conflict.remoteAuthor,
+                    propertyName: conflict.property,
+                    onResolve: () => {
+                        _conflictDialog.show(conflict, (result) => {
+                            try {
+                                const finalValue = _conflictResolver.applyResolution(
+                                    result.conflict,
+                                    result.resolution,
+                                    result.mergedValue,
+                                );
+                                // Route the resolved value back through `element.updateParameters`
+                                // — the generic update bridge (`initBusHandlers §E.5.x`) that
+                                // routes by elementId without needing the caller to know the
+                                // element type. If the bus dispatch fails we still emit a
+                                // resolution-recorded telemetry log so the resolver decision
+                                // is auditable. The remote LWW value has already been applied
+                                // by Yjs; this dispatch overrides it when the user picks
+                                // "Keep mine" / "Merge".
+                                const r = window.runtime as { bus?: { executeCommand?: (t: string, p: unknown) => Promise<unknown> } } | undefined;
+                                r?.bus?.executeCommand?.('element.updateParameters', {
+                                    id: conflict.elementId,
+                                    params: { [conflict.property]: finalValue },
+                                })?.catch?.((err: unknown) => {
+                                    console.warn('[ConflictResolution] re-dispatch failed (logged for audit):', err);
+                                });
+                                console.log(
+                                    `[ConflictResolution] resolved id=${conflict.elementId} prop=${conflict.property} ` +
+                                    `→ resolution=${result.resolution} value=${JSON.stringify(finalValue)}`,
+                                );
+                            } catch (err) {
+                                console.error('[ConflictResolution] applyResolution failed:', err);
+                            }
+                        });
+                    },
+                });
             });
+            console.log('[EngineBootstrap] §S-B1: CRDT conflict UI wired — banner + dialog active.');
+        } catch (err) {
+            console.error('[EngineBootstrap] §S-B1: conflict UI wiring failed (non-fatal):', err);
+        }
+    };
+
+    // Expose a force-init guard so any hard CRDT dependency can wire it early.
+    (window as unknown as { __pryzmEnsureCollabCRDT?: () => void })
+        .__pryzmEnsureCollabCRDT = wireCollaborationCRDT;
+
+    if (DEFER_NONESSENTIAL_INIT) {
+        // O.8 — schedule on idle, after first paint, with a setTimeout fallback.
+        // Also (re-)schedule after the first project load so the CRDT applier is
+        // live well before any multi-user editing, even if no idle slot fires.
+        // Idempotent (`_crdtWired`) — these can all race harmlessly.
+        const ric = window.requestIdleCallback as
+            | ((cb: () => void, opts?: { timeout: number }) => number) | undefined;
+        if (typeof ric === 'function') ric(() => wireCollaborationCRDT(), { timeout: 4000 });
+        else setTimeout(() => wireCollaborationCRDT(), 1500);
+        window.runtime?.events?.on('pryzm-project-loaded', () => { // F.events.9
+            if (typeof ric === 'function') ric(() => wireCollaborationCRDT(), { timeout: 3000 });
+            else setTimeout(() => wireCollaborationCRDT(), 800);
         });
-        console.log('[EngineBootstrap] §S-B1: CRDT conflict UI wired — banner + dialog active.');
-    } catch (err) {
-        console.error('[EngineBootstrap] §S-B1: conflict UI wiring failed (non-fatal):', err);
+        console.log('[EngineBootstrap] O.8: collaboration/CRDT wiring deferred to idle (post-paint).');
+    } else {
+        // Escape hatch (`window.__pryzmEagerBoot`) — original synchronous ordering.
+        wireCollaborationCRDT();
     }
 
     // ── F-1.4: rooms.redetect CustomEvent bridge listener ─────────────────────
