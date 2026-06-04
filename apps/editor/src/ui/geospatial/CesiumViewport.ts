@@ -29,6 +29,40 @@ const SITE_FRAME_HEIGHT_M = 600;
 const SITE_FRAME_PITCH_DEG = -80;
 const SITE_FLY_DURATION_S = 1.5;
 
+/**
+ * FORMA.2 — Forma-style "massing study" palette (SPEC-FORMA-SITE-VIEW.md §2 / §9).
+ * This is the analysis-canvas palette, deliberately distinct from PRYZM chrome
+ * (white + #6600FF). Single source of truth for the Cesium Forma render mode.
+ */
+const FORMA_PALETTE = {
+  /** Flat warm-grey massing ground (§2 Ground & water). */
+  ground: '#D9D5CE',
+  /** Scene background — kills the photo sky (§2 Sky / background). */
+  background: '#E8E8E6',
+  /** Black silhouette outline on proposed buildings (§2). */
+  silhouette: '#1C1C1C',
+  /** Proposed-building volume fill (§2). */
+  proposedFill: '#FFFFFF',
+  /** Context-building fill (§2). */
+  contextFill: '#E8E5DF',
+  /** Soft shadow tint (§2 Shadows) — rgba(20,20,20,0.30). */
+  shadowTint: 'rgba(20,20,20,0.30)',
+} as const;
+
+/** Silhouette edge width in px (§2 — 1.5px). */
+const FORMA_SILHOUETTE_WIDTH = 1.5;
+/** Ambient-occlusion intensity (§2 — ≈ 2.5). */
+const FORMA_AO_INTENSITY = 2.5;
+/**
+ * Ambient fill so shaded faces never crush to black (§2 — ≈ 0.55). Cesium has
+ * no first-class global-ambient knob; we approximate it by keeping
+ * `globe.enableLighting=false` (flat-lit ground) and clamping the shadow map
+ * darkness so the shaded tone never goes below this fraction of full light.
+ */
+const FORMA_AMBIENT = 0.55;
+/** Directional-light intensity for the Forma key light (task brief — 1.8). */
+const FORMA_LIGHT_INTENSITY = 1.8;
+
 export class CesiumViewport {
   private container: HTMLDivElement;
   private viewer: Cesium.Viewer | null = null;
@@ -43,6 +77,24 @@ export class CesiumViewport {
    *  exact plot bbox, so the event-driven point-flyTo doesn't override the better
    *  extent framing with a redundant second flight. One-shot. */
   private suppressNextLocationFly = false;
+
+  // ---- FORMA.2 — Forma "massing study" render mode state ----
+  /** True when the Forma render mode is currently active. */
+  private formaMode = false;
+  /** The default scene light, captured the first time we enter Forma mode so
+   *  toggling back to photoreal restores it exactly. */
+  private originalLight: Cesium.Light | null = null;
+  /** Whether the captured originalLight has been taken (vs. undefined-at-construction). */
+  private originalLightCaptured = false;
+  /** AO post-process stage (added once, toggled via `.enabled`). May stay null
+   *  if the GPU/Cesium build can't construct it (feature-detected). */
+  private formaAoStage: Cesium.PostProcessStage | null = null;
+  /** Silhouette post-process stage + its composite (added once, toggled via
+   *  `.enabled`). The composite is what's added to `scene.postProcessStages`. */
+  private formaSilhouetteStage: Cesium.PostProcessStage | null = null;
+  private formaSilhouetteComposite: Cesium.PostProcessStageComposite | null = null;
+  /** One-time guard so the "post-process unavailable" warning logs only once. */
+  private formaPostProcessWarned = false;
 
   /** Phase B (S73-WIRE) — runtime threaded by parent. */
   public readonly runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null;
@@ -225,6 +277,34 @@ export class CesiumViewport {
       controller.enableZoom = true;
       controller.enableRotate = true;
       controller.enableTilt = true;
+
+      // ----------------------------
+      // 🏙️ FORMA.2 — Forma massing render mode (additive; photoreal kept intact)
+      // ----------------------------
+      // Expose a manual-test hook + read an optional init flag. Default is OFF
+      // (photoreal stays the default) UNLESS no Cesium token is configured — in
+      // that case the photoreal/Google-tiles path degrades to a near-white globe
+      // (audit §1.2.2 / inline comment :104-111), so the abstract Forma look is
+      // strictly better and we default it ON. Either can be overridden by
+      // `window.__pryzmFormaMode` (true/false) before mount.
+      try {
+        const win = window as unknown as { __pryzmFormaMode?: boolean; pryzmSetCesiumFormaMode?: (on: boolean) => void };
+        win.pryzmSetCesiumFormaMode = (on: boolean) => this.setFormaMode(on);
+        const flag = win.__pryzmFormaMode;
+        const defaultOn = !_cesiumToken && !photogrammetryLoaded;
+        const wantForma = typeof flag === 'boolean' ? flag : defaultOn;
+        if (wantForma) {
+          console.log(
+            `[CesiumViewport] FORMA.2 mode ON at mount (` +
+              `${typeof flag === 'boolean' ? 'window.__pryzmFormaMode' : 'default — no Cesium token, photoreal degraded'}).`
+          );
+          this.setFormaMode(true);
+        } else {
+          console.log('[CesiumViewport] FORMA.2 mode available — call window.pryzmSetCesiumFormaMode(true) to enable.');
+        }
+      } catch (e) {
+        console.warn('[CesiumViewport] FORMA.2 init hook failed:', e);
+      }
 
       // Setup selection handler
       this.setupSelectionHandler();
@@ -424,6 +504,351 @@ export class CesiumViewport {
     });
     // EventSubscription is both callable and Disposable — store the callable form.
     this.locationSub = () => sub();
+  }
+
+  /**
+   * FORMA.2 — switch the Cesium scene into the Autodesk-Forma "massing study"
+   * look (flat warm-grey ground, no sky/atmosphere, soft shadows, AO +
+   * silhouette post-process) and back to the existing photoreal path.
+   *
+   * Per SPEC-FORMA-SITE-VIEW.md §2 + §8.5: this is an ADDITIVE mode — the
+   * photoreal path (ESRI satellite + Google 3D tiles + sun lighting +
+   * atmosphere) is fully preserved and restored when toggled off. Post-process
+   * stages (AO + silhouette) are feature-detected and degrade gracefully when
+   * the GPU/Cesium build doesn't support them.
+   *
+   * @param on true → Forma massing look; false → restore photoreal.
+   */
+  public setFormaMode(on: boolean): void {
+    if (!this.viewer) {
+      console.warn('[CesiumViewport] setFormaMode called before mount — ignored.');
+      return;
+    }
+    if (on === this.formaMode) return;
+    this.formaMode = on;
+    if (on) {
+      this.applyFormaMode();
+    } else {
+      this.restorePhotorealMode();
+    }
+    this.viewer.scene.requestRender();
+  }
+
+  /** @returns whether the Forma render mode is currently active. */
+  public isFormaMode(): boolean {
+    return this.formaMode;
+  }
+
+  /**
+   * Apply the Forma massing aesthetic to the live scene (§2). Each block mirrors
+   * the defensive try/catch already used elsewhere in this file so one failing
+   * GPU feature never blanks the viewport.
+   */
+  private applyFormaMode(): void {
+    const viewer = this.viewer;
+    if (!viewer) return;
+    const scene = viewer.scene;
+    const globe = scene.globe;
+
+    // --- Imagery / tiles: hide satellite + show a FLAT warm-grey ground (§2). ---
+    // We keep the imagery layers in place but turn them OFF so toggling back is
+    // exact; the globe itself stays shown with a single flat base colour so the
+    // massing reads as seated on uniform ground (roads/water are the 2D map's job).
+    try {
+      for (let i = 0; i < viewer.imageryLayers.length; i++) {
+        viewer.imageryLayers.get(i).show = false;
+      }
+      globe.show = true;
+      globe.baseColor = Cesium.Color.fromCssColorString(FORMA_PALETTE.ground);
+      globe.showGroundAtmosphere = false;
+      globe.enableLighting = false; // Forma ground is flat-lit, not sun-shaded (§2).
+      globe.translucency.enabled = false;
+      // Flat-ground massing: terrain depth test is harmless and keeps placed
+      // geometry seated; leave it enabled for the flat case.
+      globe.depthTestAgainstTerrain = true;
+    } catch (e) {
+      console.warn('[CesiumViewport][forma] ground/imagery config failed:', e);
+    }
+
+    // --- Hide the photogrammetry / 3D tilesets while in Forma mode (§2). ---
+    try {
+      const prims = scene.primitives;
+      for (let i = 0; i < prims.length; i++) {
+        const p = prims.get(i);
+        if (p instanceof Cesium.Cesium3DTileset) {
+          p.show = false;
+        }
+      }
+    } catch (e) {
+      console.warn('[CesiumViewport][forma] tileset hide failed:', e);
+    }
+
+    // --- Sky / background: kill the photo look (§2 Sky / background). ---
+    try {
+      // SkyBox.show is missing from the class in cesium's generated .d.ts
+      // (emitted as a stray module-level `var show`); access via a safe cast.
+      if (scene.skyBox) (scene.skyBox as unknown as { show: boolean }).show = false;
+      if (scene.skyAtmosphere) scene.skyAtmosphere.show = false;
+      if (scene.sun) scene.sun.show = false;
+      if (scene.moon) scene.moon.show = false;
+      scene.fog.enabled = false;
+      scene.backgroundColor = Cesium.Color.fromCssColorString(FORMA_PALETTE.background);
+    } catch (e) {
+      console.warn('[CesiumViewport][forma] sky/background config failed:', e);
+    }
+
+    // --- Lighting: fixed ~10:00 directional key + warm-neutral ambient (§2). ---
+    // FORMA.5 will drive this direction from RealSunService; a fixed reasonable
+    // direction is the FORMA.2 target. Direction points FROM the sun toward the
+    // scene: a low-ish NE→SW vector reading as a ~10am sun.
+    try {
+      if (!this.originalLightCaptured) {
+        this.originalLight = scene.light ?? null;
+        this.originalLightCaptured = true;
+      }
+      const dir = Cesium.Cartesian3.normalize(
+        // East-ish, downward, slightly south — a fixed ~10:00 key direction.
+        new Cesium.Cartesian3(-0.55, -0.7, -0.45),
+        new Cesium.Cartesian3()
+      );
+      scene.light = new Cesium.DirectionalLight({
+        direction: dir,
+        // Warm neutral key; ambient fill is applied below via globe shading off
+        // + the flat base colour so shaded faces never crush to black.
+        color: Cesium.Color.fromCssColorString('#FFF6EC'),
+        intensity: FORMA_LIGHT_INTENSITY,
+      });
+    } catch (e) {
+      console.warn('[CesiumViewport][forma] lighting config failed:', e);
+    }
+
+    // --- Shadows: soft, large, dark-grey translucent tone (§2 Shadows). ---
+    try {
+      viewer.shadows = true;
+      const sm = scene.shadowMap;
+      if (sm) {
+        sm.enabled = true;
+        sm.softShadows = true;
+        sm.size = 4096;
+        // Soften the shaded tone so shadows read as rgba(20,20,20,0.30), not
+        // black. `darkness` is the fraction of light remaining in shadow; we
+        // never let it drop below the FORMA_AMBIENT fill (0.55 → ~0.3 shadow),
+        // so shaded faces keep the warm ambient lift (§2 Ambient ≈ 0.55).
+        sm.darkness = Math.max(0.3, 1 - FORMA_AMBIENT);
+      }
+    } catch (e) {
+      console.warn('[CesiumViewport][forma] shadow config failed:', e);
+    }
+
+    // --- Post-process: AO + silhouette (FEATURE-DETECTED; degrade gracefully). ---
+    this.ensureFormaPostProcess();
+    if (this.formaAoStage) this.formaAoStage.enabled = true;
+    if (this.formaSilhouetteComposite) this.formaSilhouetteComposite.enabled = true;
+
+    console.log(
+      '[CesiumViewport] FORMA mode applied: flat ground ' + FORMA_PALETTE.ground +
+        ', no sky/atmosphere, soft shadows 4096' +
+        (this.formaAoStage ? ', AO' : ', AO=unavailable') +
+        (this.formaSilhouetteComposite ? ', silhouette' : ', silhouette=unavailable') + '.'
+    );
+  }
+
+  /**
+   * Restore the photoreal aesthetic captured at mount (§8.5 — never delete the
+   * photoreal path). Re-shows imagery + tilesets, sun lighting + atmosphere,
+   * and disables the Forma post-process stages.
+   */
+  private restorePhotorealMode(): void {
+    const viewer = this.viewer;
+    if (!viewer) return;
+    const scene = viewer.scene;
+    const globe = scene.globe;
+
+    try {
+      // Re-show imagery; hide globe again only if a tileset is present + shown.
+      for (let i = 0; i < viewer.imageryLayers.length; i++) {
+        viewer.imageryLayers.get(i).show = true;
+      }
+      let tilesetShown = false;
+      const prims = scene.primitives;
+      for (let i = 0; i < prims.length; i++) {
+        const p = prims.get(i);
+        if (p instanceof Cesium.Cesium3DTileset) {
+          p.show = true;
+          tilesetShown = true;
+        }
+      }
+      globe.show = !tilesetShown;
+      globe.baseColor = Cesium.Color.fromCssColorString('#000000');
+      // Restore the photoreal scene-quality settings (mirror mount :209-217).
+      globe.enableLighting = true;
+      globe.dynamicAtmosphereLighting = true;
+      globe.showGroundAtmosphere = true;
+      globe.depthTestAgainstTerrain = false;
+    } catch (e) {
+      console.warn('[CesiumViewport][forma] restore ground/imagery failed:', e);
+    }
+
+    try {
+      if (scene.skyBox) (scene.skyBox as unknown as { show: boolean }).show = true;
+      if (scene.skyAtmosphere) scene.skyAtmosphere.show = true;
+      if (scene.sun) scene.sun.show = true;
+      if (scene.moon) scene.moon.show = true;
+      // Photoreal default has fog off in this viewport already; leave it off.
+      scene.backgroundColor = Cesium.Color.BLACK;
+    } catch (e) {
+      console.warn('[CesiumViewport][forma] restore sky failed:', e);
+    }
+
+    try {
+      if (this.originalLightCaptured) {
+        // Cesium's default scene light is a SunLight; restoring null is invalid,
+        // so fall back to a fresh SunLight when we captured nothing concrete.
+        scene.light = this.originalLight ?? new Cesium.SunLight();
+      }
+    } catch (e) {
+      console.warn('[CesiumViewport][forma] restore light failed:', e);
+    }
+
+    try {
+      // Photoreal path did not configure shadows; turn them back off.
+      viewer.shadows = false;
+      if (scene.shadowMap) scene.shadowMap.enabled = false;
+    } catch (e) {
+      console.warn('[CesiumViewport][forma] restore shadows failed:', e);
+    }
+
+    if (this.formaAoStage) this.formaAoStage.enabled = false;
+    if (this.formaSilhouetteComposite) this.formaSilhouetteComposite.enabled = false;
+
+    console.log('[CesiumViewport] Photoreal mode restored.');
+  }
+
+  /**
+   * Construct + register the Forma post-process stages ONCE, feature-detecting
+   * every stage. If the GPU/Cesium build can't build a stage (or
+   * `scene.postProcessStages` is unsupported), we log once and skip it; the
+   * Forma flat materials + shadows still apply. Stages are added with
+   * `.enabled = false` and toggled by apply/restore.
+   */
+  private ensureFormaPostProcess(): void {
+    const viewer = this.viewer;
+    if (!viewer) return;
+    const scene = viewer.scene;
+    const stages = scene.postProcessStages as Cesium.PostProcessStageCollection | undefined;
+    if (!stages) {
+      this.warnFormaPostProcessOnce('scene.postProcessStages unavailable');
+      return;
+    }
+
+    // Ambient occlusion (§2 — intensity ≈ 2.5, bias 0.1, lengthCap 0.03).
+    // This Cesium build exposes AO as a BUILT-IN composite on the collection
+    // (`stages.ambientOcclusion`, HBAO), not a factory — feature-detect both:
+    // prefer the built-in; fall back to a `createAmbientOcclusionStage()`
+    // factory if a future/older build has one instead.
+    if (!this.formaAoStage) {
+      try {
+        const collAny = stages as unknown as {
+          ambientOcclusion?: Cesium.PostProcessStageComposite;
+        };
+        const libAny = Cesium.PostProcessStageLibrary as {
+          createAmbientOcclusionStage?: () => Cesium.PostProcessStageComposite | Cesium.PostProcessStage;
+        };
+        // GPU/extension support guard (HBAO needs WEBGL_depth_texture).
+        const aoSupported =
+          typeof (Cesium.PostProcessStageLibrary as { isAmbientOcclusionSupported?: (s: Cesium.Scene) => boolean }).isAmbientOcclusionSupported === 'function'
+            ? (Cesium.PostProcessStageLibrary as { isAmbientOcclusionSupported: (s: Cesium.Scene) => boolean }).isAmbientOcclusionSupported(scene)
+            : true;
+
+        let ao: Cesium.PostProcessStageComposite | Cesium.PostProcessStage | undefined =
+          collAny.ambientOcclusion; // built-in composite (already in the collection)
+        const builtIn = ao != null;
+        if (!ao && libAny.createAmbientOcclusionStage) {
+          ao = libAny.createAmbientOcclusionStage(); // factory fallback
+        }
+
+        if (ao && aoSupported) {
+          // Tune via the composite's uniform alias (shape varies across builds).
+          const uniforms = (ao as unknown as { uniforms?: Record<string, unknown> }).uniforms;
+          if (uniforms) {
+            if ('intensity' in uniforms) uniforms.intensity = FORMA_AO_INTENSITY;
+            if ('bias' in uniforms) uniforms.bias = 0.1;
+            if ('lengthCap' in uniforms) uniforms.lengthCap = 0.03;
+            if ('ambientOcclusionOnly' in uniforms) uniforms.ambientOcclusionOnly = false;
+          }
+          // The built-in composite is already registered — only `add()` a
+          // factory-constructed one. Store the handle for the enabled toggle.
+          this.formaAoStage = builtIn ? (ao as Cesium.PostProcessStage) : (stages.add(ao as Cesium.PostProcessStage) as Cesium.PostProcessStage);
+          this.formaAoStage.enabled = false;
+        } else {
+          this.warnFormaPostProcessOnce(aoSupported ? 'ambient occlusion stage unavailable' : 'ambient occlusion unsupported by GPU');
+        }
+      } catch (e) {
+        this.warnFormaPostProcessOnce('AO stage construction failed: ' + String(e));
+      }
+    }
+
+    // Silhouette (§2 — colour #1C1C1C, ~1.5px). Applied to a `selected` array
+    // that FORMA.3 will populate with the proposed-building primitives. For now
+    // the stage exists with an empty selection (no crash on empty).
+    if (!this.formaSilhouetteComposite) {
+      try {
+        const lib = Cesium.PostProcessStageLibrary as {
+          createSilhouetteStage?: () => Cesium.PostProcessStageComposite;
+          createEdgeDetectionStage?: () => Cesium.PostProcessStage;
+        };
+        // Prefer the edge-detection-driven silhouette so we can tune colour/width.
+        const edge = lib.createEdgeDetectionStage?.();
+        let composite: Cesium.PostProcessStageComposite | undefined;
+        if (edge) {
+          const eu = (edge as unknown as { uniforms?: Record<string, unknown> }).uniforms;
+          if (eu) {
+            if ('color' in eu) eu.color = Cesium.Color.fromCssColorString(FORMA_PALETTE.silhouette);
+            if ('length' in eu) eu.length = FORMA_SILHOUETTE_WIDTH / 1000; // edge length is normalised
+          }
+          composite = Cesium.PostProcessStageLibrary.createSilhouetteStage?.([edge]);
+          this.formaSilhouetteStage = edge;
+        }
+        if (!composite) {
+          // Fallback: a default silhouette composite with no edge tuning.
+          composite = lib.createSilhouetteStage?.();
+        }
+        if (composite) {
+          this.formaSilhouetteComposite = stages.add(composite) as Cesium.PostProcessStageComposite;
+          this.formaSilhouetteComposite.enabled = false;
+        } else {
+          this.warnFormaPostProcessOnce('createSilhouetteStage unavailable');
+        }
+      } catch (e) {
+        this.warnFormaPostProcessOnce('silhouette stage construction failed: ' + String(e));
+      }
+    }
+  }
+
+  /**
+   * FORMA.2 (stub for FORMA.3) — set the primitives the silhouette stage should
+   * outline (the proposed-building massing). Safe to call with an empty array;
+   * does not crash when the silhouette stage is unavailable.
+   */
+  public setFormaSilhouetteTargets(primitives: unknown[]): void {
+    const stage = this.formaSilhouetteStage;
+    if (!stage) return;
+    try {
+      (stage as unknown as { selected: unknown[] }).selected = primitives ?? [];
+      this.viewer?.scene.requestRender();
+    } catch (e) {
+      console.warn('[CesiumViewport][forma] setFormaSilhouetteTargets failed:', e);
+    }
+  }
+
+  /** Log the "post-process unavailable / failed" message at most once. */
+  private warnFormaPostProcessOnce(reason: string): void {
+    if (this.formaPostProcessWarned) return;
+    this.formaPostProcessWarned = true;
+    console.warn(
+      '[CesiumViewport][forma] post-process degraded (' + reason + '). ' +
+        'Keeping flat materials + shadows; skipping AO/silhouette.'
+    );
   }
 
   public setVisible(visible: boolean): void {
