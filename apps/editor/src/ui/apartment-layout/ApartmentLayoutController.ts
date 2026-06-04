@@ -15,6 +15,7 @@ import type { ScoredLayoutOption, ApartmentProgram } from '@pryzm/ai-host';
 import { ApartmentLayoutModal } from './ApartmentLayoutModal.js';
 import { ensureApartmentLayoutRegistered } from '../../engine/ensureApartmentLayoutRegistered.js';
 import type { ApartmentGenerateLayoutPayload } from '@pryzm/ai-host';
+import { patchActiveBriefMetadata } from './activeBrief.js';
 
 /** Max-wait for the regenerate flow's options-ready event after a successful
  *  workflow submit. 15 s is long enough for the slowest realistic D-TGL run
@@ -102,6 +103,19 @@ export class ApartmentLayoutController {
                         }
                         const next: ApartmentGenerateLayoutPayload = { ...base, program };
                         this._lastPayload = next;
+                        // O.12.c — the picker writes back to the SAME brief stash
+                        // the RAC populated, keyed by the shared brief field ids,
+                        // so the two surfaces are one source of truth: a later
+                        // no-arg re-trigger (AI panel / console) honours the
+                        // picker's edits too. Only the fields that ARE brief ids
+                        // are mirrored (areas/livingRoom/entranceHall are
+                        // modal-only refinements, not brief fields).
+                        patchActiveBriefMetadata('apartment', {
+                            bedrooms: program.bedrooms,
+                            bathrooms: program.bathrooms,
+                            openPlanKitchenDining: program.openPlanKitchenDining,
+                            masterEnSuite: program.masterEnSuite,
+                        });
                         this._regenerating = true;
                         // §RELIABILITY (2026-05-29): arm a max-wait timer
                         // BEFORE submit. If the workflow succeeds-without-event

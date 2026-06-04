@@ -96,6 +96,13 @@ export interface OnboardingStepControllerOptions {
      *  (see `typologyLabel()` + the §FUTURE-TYPOLOGY switch point). Defaults to
      *  `'apartment'` — the one shipped generator today. */
     readonly typologyId?: string;
+    /** O.12.c — the STRUCTURED brief metadata (`PipelineBrief.metadata`, field-id
+     *  keyed) the RAC captured. Carried verbatim (typology-agnostic — this layer
+     *  does NOT introspect the field ids) and forwarded to the typology-specific
+     *  generate call so the user's bedroom/bathroom/option choices drive the
+     *  result. Omitted ⇒ the generator falls back to the active-brief stash, then
+     *  DEFAULT_PROGRAM. */
+    readonly briefMetadata?: Record<string, unknown>;
 }
 
 type StepId = 'location' | 'site' | 'confirm' | 'generating';
@@ -121,6 +128,8 @@ class OnboardingStepController {
     private readonly seedAddress: string;
     /** Typology from the brief — drives the O.7.1 confirm-step copy/label. */
     private readonly typologyId: string;
+    /** O.12.c — structured brief metadata, forwarded to the generate call. */
+    private readonly briefMetadata: Record<string, unknown>;
 
     private overlay: HTMLElement | null = null;
     private bodyEl: HTMLElement | null = null;
@@ -138,6 +147,7 @@ class OnboardingStepController {
         this.runtime = opts.runtime;
         this.seedAddress = (opts.seedAddress ?? '').trim();
         this.typologyId = (opts.typologyId ?? 'apartment').trim() || 'apartment';
+        this.briefMetadata = opts.briefMetadata ?? {};
     }
 
     /**
@@ -829,7 +839,9 @@ class OnboardingStepController {
         console.log(`[onboarding-step] entering generate (from step "${this.step}").`);
         this.renderGeneratingStep();
         try {
-            await generateApartmentFromBoundary(this.runtime);
+            // O.12.c — forward the STRUCTURED brief so the user's captured
+            // bedroom/bathroom/option choices drive the generated layout.
+            await generateApartmentFromBoundary(this.runtime, this.briefMetadata);
             console.log('[onboarding-step] generate complete — onboarding flow finished.');
             // §ONB-RESULT-VIEW (O.7.2, supersedes §ONB-3D-VIEW): the founder tested
             // twice and the LEFT pane went BLANK after generate. Root cause: the cream
