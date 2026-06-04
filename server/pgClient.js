@@ -36,6 +36,19 @@ function resolveConnectionString() {
     // hundreds of lines per project load — see PROJECT-LOAD perf audit).
     if (_resolvedCache !== undefined) return _resolvedCache;
 
+    // §CONN-DEV (2026-06-04) — FORCE in-memory: skip ALL DB connection attempts
+    // (no 18s preflight, no migration self-heal retries) so localhost boots
+    // INSTANTLY when the remote Supabase pooler is unreachable on a flaky link.
+    // Set PRYZM_FORCE_INMEMORY=1 in .env (the dev server loads .env + .env.local).
+    // In-memory is volatile (no persistence; remote projects won't appear) but is
+    // perfect for testing the onboarding→generate→view pipeline offline. NEVER set
+    // this in production (prod's DB link is reliable + persistence is required).
+    if (process.env.PRYZM_FORCE_INMEMORY === '1') {
+        console.log('[pgClient] PRYZM_FORCE_INMEMORY=1 — skipping DB pool; in-memory mode (instant boot, volatile).');
+        _resolvedCache = null;
+        return null;
+    }
+
     if (process.env.DATABASE_URL) {
         console.log('[pgClient] Using Replit PostgreSQL (DATABASE_URL)');
         _resolvedCache = { connStr: process.env.DATABASE_URL, backend: 'replit' };

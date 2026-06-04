@@ -15,7 +15,7 @@
     "plugins/*"
   ],
   "scripts": {
-    "dev": "tsx --env-file-if-exists=.env server.js",
+    "dev": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local server.js",
     "start": "node --env-file-if-exists=.env ./dist/index.cjs",
     "migrate": "node --env-file-if-exists=.env scripts/migrate/migrate.mjs",
     "check:isolation": "node scripts/check/check-project-isolation.mjs && node scripts/check/check-storage-isolation.mjs",
