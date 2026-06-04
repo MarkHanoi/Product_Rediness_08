@@ -662,6 +662,30 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     let formaPlanBtn: HTMLButtonElement | null = null;
     let formaThreeBtn: HTMLButtonElement | null = null;
 
+    // ── FORMA.5 — site-analysis chrome (sun scrubber + climate card + wind rose).
+    // Mounted only while the 3D Forma view is active; disposed on view exit so
+    // the controls never linger in the 2D plan view (SPEC §6 cleanup rule).
+    let formaAnalysis: import('../geospatial/FormaSiteAnalysisControls').FormaSiteAnalysisControls | null = null;
+
+    const mountFormaAnalysis = (): void => {
+        if (!cesiumViewport?.setFormaSunTime) return; // Cesium not mounted / no FORMA.5 API.
+        const viewportEl = document.getElementById('container');
+        if (!viewportEl) return;
+        import('../geospatial/FormaSiteAnalysisControls')
+            .then(({ FormaSiteAnalysisControls }) => {
+                // Re-check: the user may have flipped back to plan before this resolved.
+                if (formaViewMode !== '3d' || !cesiumViewport?.setFormaSunTime) return;
+                formaAnalysis?.dispose();
+                formaAnalysis = new FormaSiteAnalysisControls(cesiumViewport, runtime ?? null, viewportEl);
+                formaAnalysis.mount();
+            })
+            .catch((e) => console.warn('[gis][forma] analysis controls load failed:', e));
+    };
+    const disposeFormaAnalysis = (): void => {
+        try { formaAnalysis?.dispose(); } catch (e) { console.warn('[gis][forma] analysis dispose failed:', e); }
+        formaAnalysis = null;
+    };
+
     const styleFormaBtn = (el: HTMLButtonElement | null, active: boolean): void => {
         if (!el) return;
         el.style.background = active ? '#6600FF' : 'transparent';
@@ -687,10 +711,13 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             setTimeout(() => {
                 window.pryzmSetCesiumFormaMode?.(true);
                 renderFormaMassing(true);
+                // FORMA.5 — bring up the sun/shadow/climate/wind analysis chrome.
+                mountFormaAnalysis();
             }, 400);
         } else {
             // Plan View — drop the Cesium globe, reveal the 2D cream map. If the
             // committed cream map is still alive it stays; otherwise (re)open it.
+            disposeFormaAnalysis(); // FORMA.5 — clean up analysis chrome on exit.
             if (_gisActive) toggleGIS(false);
             if (!map2dHandle) startBoundaryDraw();
         }
@@ -764,6 +791,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     };
 
     const removeFormaViewToggle = (): void => {
+        disposeFormaAnalysis(); // FORMA.5 — tear down analysis chrome with the toggle.
         if (formaToggle?.parentElement) formaToggle.parentElement.removeChild(formaToggle);
         formaToggle = null;
         formaPlanBtn = null;
