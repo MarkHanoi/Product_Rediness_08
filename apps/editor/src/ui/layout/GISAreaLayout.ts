@@ -1,4 +1,4 @@
-import { getCesium } from '@pryzm/core-app-model';
+import { getCesium, storeRegistry } from '@pryzm/core-app-model';
 import type { CesiumThreeBridge } from '@pryzm/plugin-geospatial';
 import type { UIProps } from '../Layout';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
@@ -556,6 +556,228 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // mounting the 3D globe. (Re-registered inside the mount too, harmlessly.)
     window.pryzmStartBoundaryDraw = () => startBoundaryDraw();
     window.pryzmCancelBoundaryDraw = () => cancelBoundaryDraw();
+
+    // ════════════════════════════════════════════════════════════════════════
+    // FORMA.3 — 3D Forma massing view + [Plan View][3D View] toggle (SPEC §3–§5)
+    // ════════════════════════════════════════════════════════════════════════
+    //
+    // READ SOURCE (SPEC §4, NON-GOALS §8.2/§8.4 — read-only consumer):
+    //   • Parcel boundary  ← runtime.siteModelStore.getParcelBoundary().polygon
+    //                        (already scene-XZ metres, the SAME frame the
+    //                        ParcelBoundarySceneRenderer + apartment generator use).
+    //   • Authored massing ← storeRegistry.getStoreForType('wall').getAll()
+    //                        each wall's baseLine (scene-XZ) + height + thickness.
+    //   • ENU origin       ← siteModelStore.getLocation() lat/lon (the scene origin).
+    //
+    // The Cesium-side ENU bridge (eastNorthUpToFixedFrame at the site origin) +
+    // the white extrusions + the NW oblique flyTo all live in CesiumViewport
+    // (FORMA.3 methods). This layer only READS PRYZM domain state and forwards it.
+
+    type XZ = { x: number; z: number };
+
+    /** Read the site geographic origin (= ENU anchor). null when unset / 0,0. */
+    const getFormaOrigin = (): { lat: number; lon: number } | null => {
+        const loc = (runtime?.siteModelStore as
+            | { getLocation?: () => { latitude: number; longitude: number } | null }
+            | undefined)?.getLocation?.();
+        if (loc && (loc.latitude !== 0 || loc.longitude !== 0)) {
+            return { lat: loc.latitude, lon: loc.longitude };
+        }
+        // Fall back to the geocode frame captured by the search box / onboarding.
+        if (lastGeocodeFrame) return { lat: lastGeocodeFrame.lat, lon: lastGeocodeFrame.lon };
+        return null;
+    };
+
+    /** Read the committed parcel boundary ring (scene-XZ), or null. */
+    const getFormaBoundary = (): XZ[] | null => {
+        const b = (runtime?.siteModelStore as
+            | { getParcelBoundary?: () => { polygon?: ReadonlyArray<XZ> } | null }
+            | undefined)?.getParcelBoundary?.();
+        const poly = b?.polygon;
+        return poly && poly.length >= 3 ? poly.map((p) => ({ x: p.x, z: p.z })) : null;
+    };
+
+    /** Read authored walls (the massing) from the wall store: baseLine + h + t. */
+    const getFormaWalls = (): Array<{ a: XZ; b: XZ; height: number; thickness: number }> => {
+        type WallRecord = {
+            baseLine?: ReadonlyArray<{ x: number; z: number }>;
+            height?: number;
+            thickness?: number;
+        };
+        const wallStore = storeRegistry.getStoreForType('wall') as unknown as
+            | { getAll?: () => WallRecord[] }
+            | undefined;
+        const all = wallStore?.getAll?.() ?? [];
+        const out: Array<{ a: XZ; b: XZ; height: number; thickness: number }> = [];
+        for (const w of all) {
+            const bl = w.baseLine;
+            if (!bl || bl.length < 2 || !bl[0] || !bl[1]) continue;
+            out.push({
+                a: { x: bl[0].x, z: bl[0].z },
+                b: { x: bl[1].x, z: bl[1].z },
+                height: typeof w.height === 'number' && w.height > 0 ? w.height : 2.5,
+                thickness: typeof w.thickness === 'number' && w.thickness > 0 ? w.thickness : 0.1,
+            });
+        }
+        return out;
+    };
+
+    /**
+     * FORMA.3 — read PRYZM's authored geometry + boundary and render the white
+     * massing into Cesium at the real-world site. `frame` flies the NW oblique
+     * camera (SPEC §4.5). Best-effort + public CesiumViewport API only.
+     */
+    const renderFormaMassing = (frame: boolean): void => {
+        if (!cesiumViewport?.renderFormaMassing) {
+            console.warn('[gis][forma] renderFormaMassing unavailable (Cesium not mounted yet).');
+            return;
+        }
+        const origin = getFormaOrigin();
+        if (!origin) {
+            console.log('[gis][forma] no site location yet — cannot place massing.');
+            runtime?.events?.emit('pryzm:toast', {
+                message: 'Set a site location first, then switch to 3D View.',
+                severity: 'info',
+            });
+            return;
+        }
+        const boundary = getFormaBoundary();
+        const walls = getFormaWalls();
+        console.log(
+            `[gis][forma] rendering massing: ${walls.length} wall(s), boundary=${boundary ? 'yes' : 'no'}, ` +
+                `origin LAT ${origin.lat} LON ${origin.lon}.`
+        );
+        cesiumViewport.renderFormaMassing({
+            originLat: origin.lat,
+            originLon: origin.lon,
+            boundary,
+            walls,
+            frameCentroid: frame,
+        });
+    };
+
+    // ── The floating [Plan View] [3D View] toggle (top-right; white + #6600FF) ──
+    let formaToggle: HTMLElement | null = null;
+    let formaViewMode: 'plan' | '3d' = 'plan';
+    let formaPlanBtn: HTMLButtonElement | null = null;
+    let formaThreeBtn: HTMLButtonElement | null = null;
+
+    const styleFormaBtn = (el: HTMLButtonElement | null, active: boolean): void => {
+        if (!el) return;
+        el.style.background = active ? '#6600FF' : 'transparent';
+        el.style.color = active ? '#ffffff' : '#6600FF';
+    };
+    const refreshFormaButtons = (): void => {
+        styleFormaBtn(formaPlanBtn, formaViewMode === 'plan');
+        styleFormaBtn(formaThreeBtn, formaViewMode === '3d');
+    };
+
+    /**
+     * Switch between the cream 2D plan map (O.7.2.b live map) and the Forma 3D
+     * massing view. Layers persist — the drawn boundary + authored massing stay
+     * placed; only visibility + camera change.
+     */
+    const applyFormaView = (mode: 'plan' | '3d'): void => {
+        formaViewMode = mode;
+        if (mode === '3d') {
+            // Activate the Cesium globe + the Forma render mode, then place the
+            // authored massing (mounts Cesium async on first use → defer placement).
+            toggleGIS(true);
+            window.pryzmSetCesiumFormaMode?.(true);
+            setTimeout(() => {
+                window.pryzmSetCesiumFormaMode?.(true);
+                renderFormaMassing(true);
+            }, 400);
+        } else {
+            // Plan View — drop the Cesium globe, reveal the 2D cream map. If the
+            // committed cream map is still alive it stays; otherwise (re)open it.
+            if (_gisActive) toggleGIS(false);
+            if (!map2dHandle) startBoundaryDraw();
+        }
+        refreshFormaButtons();
+    };
+
+    const mountFormaViewToggle = (initial: 'plan' | '3d' = 'plan'): void => {
+        const viewport = document.getElementById('container');
+        if (!viewport) {
+            console.error('[gis][forma] mountFormaViewToggle: #container not found');
+            return;
+        }
+        if (viewport.style.position !== 'absolute' && viewport.style.position !== 'relative') {
+            viewport.style.position = 'relative';
+        }
+        if (formaToggle?.parentElement) formaToggle.parentElement.removeChild(formaToggle);
+
+        const bar = document.createElement('div');
+        bar.className = 'pryzm-forma-view-toggle';
+        bar.setAttribute('data-testid', 'forma-view-toggle');
+        Object.assign(bar.style, {
+            position: 'absolute', top: '14px', right: '14px',
+            zIndex: '31', display: 'flex', gap: '4px', padding: '4px',
+            background: '#ffffff', borderRadius: '10px',
+            boxShadow: '0 4px 18px rgba(20,10,60,0.18)', border: '1px solid #ece7fb',
+            font: '600 12px/1 system-ui, sans-serif',
+        } satisfies Partial<CSSStyleDeclaration>);
+
+        const mkBtn = (mode: 'plan' | '3d', label: string): HTMLButtonElement => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'pryzm-forma-view-btn';
+            b.setAttribute('data-forma-mode', mode);
+            b.textContent = label;
+            Object.assign(b.style, {
+                appearance: 'none', border: 'none', cursor: 'pointer',
+                padding: '7px 14px', borderRadius: '7px', color: '#6600FF',
+                background: 'transparent', font: 'inherit',
+            } satisfies Partial<CSSStyleDeclaration>);
+            b.addEventListener('mouseenter', () => { if (formaViewMode !== mode) b.style.background = '#f4f0ff'; });
+            b.addEventListener('mouseleave', () => { if (formaViewMode !== mode) b.style.background = 'transparent'; });
+            b.addEventListener('click', () => applyFormaView(mode));
+            return b;
+        };
+        formaPlanBtn = mkBtn('plan', '▦ Plan View');
+        formaThreeBtn = mkBtn('3d', '◉ 3D View');
+        bar.appendChild(formaPlanBtn);
+        bar.appendChild(formaThreeBtn);
+
+        // "Zoom to Site" / reset affordance — repeats the NW oblique flyTo (§4.5).
+        const zoomBtn = document.createElement('button');
+        zoomBtn.type = 'button';
+        zoomBtn.className = 'pryzm-forma-zoom-btn';
+        zoomBtn.setAttribute('data-testid', 'forma-zoom-to-site');
+        zoomBtn.title = 'Zoom to site (NW oblique)';
+        zoomBtn.textContent = '⤢ Zoom to Site';
+        Object.assign(zoomBtn.style, {
+            appearance: 'none', border: 'none', cursor: 'pointer',
+            padding: '7px 12px', borderRadius: '7px', color: '#6600FF',
+            background: 'transparent', font: 'inherit', borderLeft: '1px solid #ece7fb',
+        } satisfies Partial<CSSStyleDeclaration>);
+        zoomBtn.addEventListener('mouseenter', () => { zoomBtn.style.background = '#f4f0ff'; });
+        zoomBtn.addEventListener('mouseleave', () => { zoomBtn.style.background = 'transparent'; });
+        zoomBtn.addEventListener('click', () => { cesiumViewport?.flyToFormaSite?.(); });
+        bar.appendChild(zoomBtn);
+
+        viewport.appendChild(bar);
+        formaToggle = bar;
+        console.log(`[gis][forma] view toggle mounted (initial "${initial}").`);
+        applyFormaView(initial);
+    };
+
+    const removeFormaViewToggle = (): void => {
+        if (formaToggle?.parentElement) formaToggle.parentElement.removeChild(formaToggle);
+        formaToggle = null;
+        formaPlanBtn = null;
+        formaThreeBtn = null;
+    };
+
+    // FORMA.4 STUB — single live-update seam. FORMA.4 will subscribe this to
+    // 'site.parcel-boundary-set' / 'apartment.layout-executed' (clear + re-place,
+    // no re-fly) + terrain clamp. For FORMA.3 it is callable on demand.
+    window.pryzmRenderFormaMassing = (frame?: boolean) => renderFormaMassing(frame ?? false);
+    // FORMA.3 — mount the [Plan View][3D View] toggle (defaults to 3D so the
+    // demo lands straight on the white massing). Mirrors pryzmShowSiteResultView.
+    window.pryzmShowFormaView = (initial?: 'plan' | '3d') => mountFormaViewToggle(initial ?? '3d');
+    window.pryzmHideFormaView = () => removeFormaViewToggle();
 
     return { toggleGIS, flyToCremornePoint, placeBimOnEarth, activateView, gizmoMode, startBoundaryDraw, cancelBoundaryDraw };
 }
