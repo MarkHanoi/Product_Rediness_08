@@ -25,6 +25,12 @@
 //   • Uses existing exports — does NOT inline the pipeline / validator logic.
 
 import { runFamilyPipeline, isPipelineSuccess } from '@pryzm/schemas';
+import { semanticGraphManager } from '@pryzm/core-app-model';
+import { aiService } from '@pryzm/ai-host';
+import {
+    installBuildBuildingGraph,
+    provideLiveGraphSources,
+} from '../engine/buildBuildingGraph';
 
 // The validator + adapter surface is NOT (yet) re-exported from the
 // `@pryzm/ai-host` root barrel — its `package.json` `exports` map only lists
@@ -194,5 +200,14 @@ export function installPryzmTestFunctions(): void {
     window.__pryzmListTestFunctions   = pryzmListTestFunctions;
     window.__pryzmSampleFamilyRequest = pryzmSampleFamilyRequest;
     window.__pryzmSampleLayoutDto     = pryzmSampleLayoutDto;
+
+    // GRAPH.2-wiring — expose `window.pryzmBuildBuildingGraph()` (read-only UBG
+    // projection of the live topology/roomGraph/semantic/dependency/constraint
+    // graphs) + emit `pryzm:building-graph-rebuilt` on rebuild, for a future
+    // GRAPH.3 overlay. Provide the live semantic + constraint singletons so the
+    // resolver can read them (topology + roomGraph come off window directly).
+    provideLiveGraphSources({ semantic: semanticGraphManager, constraint: aiService });
+    installBuildBuildingGraph();
+
     console.log('[__pryzm] Dev test functions ready — run __pryzmListTestFunctions() for the menu.');
 }
