@@ -110,6 +110,15 @@ export function buildConnectSrc(env = process.env, isProd = IS_PROD) {
         // path (free, no key); ENTERPRISE FOLLOW-ON: self-host the tiles to drop
         // this external dependency when volume warrants.
         'https://tiles.openfreemap.org',
+        // MAP-DATA-OVERTURE — keyless OSM building footprints via the public
+        // Overpass API, for the richer 2D + 3D context buildings (apps/editor/src/
+        // ui/geospatial/contextBuildings.ts). The browser POSTs an Overpass-QL
+        // bbox query and reads the GeoJSON-ish JSON. Overture ships as GeoParquet
+        // (not browser-direct) so OSM/Overpass is the keyless path; its Buildings
+        // theme is largely OSM-derived anyway. ENTERPRISE FOLLOW-ON: a self-hosted
+        // Overpass or a keyed Overture-PMTiles provider replaces these origins.
+        'https://overpass-api.de',
+        'https://overpass.kumi.systems',
     ];
 
     // Supabase REST + realtime — derive the EXACT project origin from

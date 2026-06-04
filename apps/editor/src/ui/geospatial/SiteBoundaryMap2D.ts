@@ -55,7 +55,11 @@ import {
     FORMA_PALETTE,
     FORMA_BOUNDARY_DASH,
     FORMA_BOUNDARY_WIDTH,
+    CONTEXT_BUILDINGS_SOURCE,
+    CONTEXT_BUILDINGS_FILL_LAYER,
 } from './siteMap2DStyle.js';
+// MAP-DATA-OVERTURE — keyless OSM/Overture context-building loader.
+import { fetchContextBuildings } from './contextBuildings.js';
 
 // FORMA.1 — the in-progress + drawn site boundary renders in dashed Forma green
 // (SPEC-FORMA-SITE-VIEW §3), replacing the old PRYZM violet so it reads against
@@ -83,8 +87,9 @@ const SNAP_LAYER = 'pryzm-boundary-snap-indicator';
 const SNAP_PX = 12;
 /** Half-size (px) of the queryRenderedFeatures box around the cursor — cheap. */
 const SNAP_QUERY_HALF_PX = 14;
-/** The building fill layer ids we probe for footprint geometry (flat + 3D). */
-const BUILDING_QUERY_LAYERS = ['buildings-fill', 'buildings-3d'];
+/** The building fill layer ids we probe for footprint geometry (flat + 3D +
+ *  the MAP-DATA-OVERTURE richer OSM/Overture context overlay). */
+const BUILDING_QUERY_LAYERS = ['buildings-fill', 'buildings-3d', CONTEXT_BUILDINGS_FILL_LAYER];
 
 /** A resolved snap target: the lng/lat to commit + what kind of feature it is. */
 interface SnapTarget {
@@ -292,6 +297,16 @@ export function mountSiteBoundaryMap2D(
     // the raw lngLat). Updated on every mousemove while drawing.
     let snapTarget: SnapTarget | null = null;
 
+    // MAP-DATA-OVERTURE — context-building fetch state. We fetch the richer OSM
+    // footprints for the current map centre and feed them into the geojson source
+    // (CONTEXT_BUILDINGS_SOURCE). `ctxAbort` cancels an in-flight fetch on a new
+    // request / dispose; `ctxDebounce` coalesces moveend bursts; `ctxLastKey`
+    // avoids refetching the same ~tile. Fully guarded — failure leaves the source
+    // empty (today's behaviour).
+    let ctxAbort: AbortController | null = null;
+    let ctxDebounce: ReturnType<typeof setTimeout> | null = null;
+    let ctxLastKey = '';
+
     function toast(message: string, severity: 'info' | 'success' | 'error'): void {
         runtime?.events?.emit('pryzm:toast', { message, severity });
     }
@@ -420,6 +435,41 @@ export function mountSiteBoundaryMap2D(
     /** An empty FeatureCollection (the snap indicator's resting state). */
     function emptyFC(): GeoJSON.FeatureCollection {
         return { type: 'FeatureCollection', features: [] };
+    }
+
+    // ── MAP-DATA-OVERTURE — load richer OSM/Overture footprints for the centre. ──
+    // Fetches around the current map centre and pushes the result into the geojson
+    // source so the plan shows dense surrounding buildings. Debounced + keyed so a
+    // pan within the same area doesn't refetch. Never throws (loader degrades to an
+    // empty collection on failure). No-op on the satellite raster style (the source
+    // doesn't exist there).
+    function loadContextBuildings(immediate = false): void {
+        if (disposed) return;
+        const run = (): void => {
+            if (disposed) return;
+            const src = map.getSource(CONTEXT_BUILDINGS_SOURCE) as GeoJSONSource | undefined;
+            if (!src) return; // satellite style has no context source — skip.
+            const c = map.getCenter();
+            // Key on the centre rounded to ~0.005° (the fetch grid) — same area = skip.
+            const key = `${c.lat.toFixed(3)},${c.lng.toFixed(3)}`;
+            if (key === ctxLastKey) return;
+            ctxLastKey = key;
+            // Cancel any in-flight fetch; start a fresh one.
+            ctxAbort?.abort();
+            ctxAbort = new AbortController();
+            const signal = ctxAbort.signal;
+            void fetchContextBuildings(c.lat, c.lng, signal).then((collection) => {
+                if (disposed || signal.aborted) return;
+                const live = map.getSource(CONTEXT_BUILDINGS_SOURCE) as GeoJSONSource | undefined;
+                if (live) {
+                    live.setData(collection as unknown as GeoJSON.FeatureCollection);
+                    console.log(`[gis] map2d: context buildings → ${collection.features.length} footprint(s).`);
+                }
+            });
+        };
+        if (immediate) { run(); return; }
+        if (ctxDebounce) clearTimeout(ctxDebounce);
+        ctxDebounce = setTimeout(run, 350);
     }
 
     /** Push the current snap target (or nothing) into the indicator source. */
@@ -643,6 +693,10 @@ export function mountSiteBoundaryMap2D(
             if (disposed) return;
             installRingLayers();
             map.jumpTo({ center, zoom, bearing, pitch });
+            // MAP-DATA-OVERTURE — the swap recreates an EMPTY context source (map
+            // style) or none (satellite). Force a refetch so the footprints come
+            // back after switching back to the Forma vector basemap.
+            if (next === 'map') { ctxLastKey = ''; loadContextBuildings(true); }
             console.log(`[gis] map2d: basemap → ${next}; boundary draw re-added (${vertices.length} vertices)`);
         });
     }
@@ -739,6 +793,9 @@ export function mountSiteBoundaryMap2D(
         if (disposed) return;
         disposed = true;
         window.removeEventListener('keydown', keyListener);
+        // MAP-DATA-OVERTURE — cancel any in-flight context fetch + pending debounce.
+        try { ctxAbort?.abort(); } catch { /* ignore */ }
+        if (ctxDebounce) { clearTimeout(ctxDebounce); ctxDebounce = null; }
         try { map.remove(); } catch { /* map may already be torn down */ }
         if (overlay.parentElement) overlay.parentElement.removeChild(overlay);
         console.log('[gis] map2d: disposed');
@@ -775,6 +832,9 @@ export function mountSiteBoundaryMap2D(
         // Hover affordance over vertices.
         map.on('mouseenter', VERTEX_LAYER, () => { map.getCanvas().style.cursor = 'grab'; });
         map.on('mouseleave', VERTEX_LAYER, () => { if (draggingIdx === null) map.getCanvas().style.cursor = ''; });
+        // MAP-DATA-OVERTURE — populate context footprints now + on every pan/zoom.
+        loadContextBuildings(true);
+        map.on('moveend', () => loadContextBuildings(false));
         console.log('[gis] map2d: ready — Forma minimal-vector boundary-draw map mounted');
     });
 
