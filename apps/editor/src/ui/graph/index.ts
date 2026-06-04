@@ -49,4 +49,31 @@ export function installBuildingGraphOverlay(): void {
   w.__pryzmGraphOverlay = overlay;
   w.pryzmShowBuildingGraph = (show?: boolean) => overlay.toggle(show);
   w.pryzmHideBuildingGraph = () => overlay.hide();
+
+  // GRAPH.3 — a DISCOVERABLE launcher (the overlay was console-only, like the
+  // Forma view used to be). Small + unobtrusive, lower-left and OFFSET from the
+  // Forma view toggles (top-left) so it doesn't crowd them; brand white+#6600FF.
+  if (typeof document !== 'undefined' && !document.getElementById('pryzm-graph-launcher')) {
+    const btn = document.createElement('button');
+    btn.id = 'pryzm-graph-launcher';
+    btn.type = 'button';
+    btn.title = 'Building graph — relational view of the model';
+    btn.textContent = '⚛ Graph';
+    Object.assign(btn.style, {
+      position: 'fixed',
+      left: '12px',
+      bottom: '64px',
+      zIndex: '28',
+      padding: '6px 12px',
+      borderRadius: '10px',
+      background: '#ffffff',
+      color: '#6600ff',
+      border: '1px solid rgba(102,0,255,0.25)',
+      font: '600 12px system-ui, sans-serif',
+      cursor: 'pointer',
+      boxShadow: '0 4px 14px rgba(40,10,90,0.16)',
+    });
+    btn.addEventListener('click', () => overlay.toggle());
+    document.body.appendChild(btn);
+  }
 }
