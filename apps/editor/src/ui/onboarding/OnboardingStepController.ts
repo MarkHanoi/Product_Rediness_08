@@ -96,6 +96,13 @@ export interface OnboardingStepControllerOptions {
      *  (see `typologyLabel()` + the §FUTURE-TYPOLOGY switch point). Defaults to
      *  `'apartment'` — the one shipped generator today. */
     readonly typologyId?: string;
+    /** O.12.c — the STRUCTURED brief metadata (`PipelineBrief.metadata`, field-id
+     *  keyed) the RAC captured. Carried verbatim (typology-agnostic — this layer
+     *  does NOT introspect the field ids) and forwarded to the typology-specific
+     *  generate call so the user's bedroom/bathroom/option choices drive the
+     *  result. Omitted ⇒ the generator falls back to the active-brief stash, then
+     *  DEFAULT_PROGRAM. */
+    readonly briefMetadata?: Record<string, unknown>;
 }
 
 type StepId = 'location' | 'site' | 'confirm' | 'generating';
@@ -121,6 +128,8 @@ class OnboardingStepController {
     private readonly seedAddress: string;
     /** Typology from the brief — drives the O.7.1 confirm-step copy/label. */
     private readonly typologyId: string;
+    /** O.12.c — structured brief metadata, forwarded to the generate call. */
+    private readonly briefMetadata: Record<string, unknown>;
 
     private overlay: HTMLElement | null = null;
     private bodyEl: HTMLElement | null = null;
@@ -138,6 +147,7 @@ class OnboardingStepController {
         this.runtime = opts.runtime;
         this.seedAddress = (opts.seedAddress ?? '').trim();
         this.typologyId = (opts.typologyId ?? 'apartment').trim() || 'apartment';
+        this.briefMetadata = opts.briefMetadata ?? {};
     }
 
     /**
@@ -827,24 +837,42 @@ class OnboardingStepController {
     private async generateAndFinish(): Promise<void> {
         if (this.disposed) return;
         console.log(`[onboarding-step] entering generate (from step "${this.step}").`);
+        // O.7.2.b — GENERATE is the ONLY action that tears down the cream 2D plan map.
+        // After boundary-commit the map stayed alive (so the confirm rendered over a
+        // live plan map); now that the user chose "Generate", dispose it up front so
+        // the "Generating…" step + the dual-pane result aren't drawn under the map.
+        // Idempotent + double-dispose safe; showSiteResultView() also calls it.
+        try {
+            const closeMap = (window as unknown as { pryzmCloseBoundaryMap2D?: () => void }).pryzmCloseBoundaryMap2D;
+            if (typeof closeMap === 'function') {
+                console.log('[onboarding-step] §O.7.2.b: closing the cream 2D plan map (generate-time teardown).');
+                closeMap();
+            }
+        } catch (closeErr) {
+            console.warn('[onboarding-step] §O.7.2.b: pryzmCloseBoundaryMap2D threw (non-fatal):', closeErr);
+        }
         this.renderGeneratingStep();
         try {
-            await generateApartmentFromBoundary(this.runtime);
+            // O.12.c — forward the STRUCTURED brief so the user's captured
+            // bedroom/bathroom/option choices drive the generated layout.
+            await generateApartmentFromBoundary(this.runtime, this.briefMetadata);
             console.log('[onboarding-step] generate complete — onboarding flow finished.');
-            // §ONB-RESULT-VIEW (O.7.2, supersedes §ONB-3D-VIEW): the founder tested
-            // twice and the LEFT pane went BLANK after generate. Root cause: the cream
-            // 2D Hektar map disposes ITSELF on boundary-commit (SiteBoundaryMap2D.commit
-            // → dispose removes the overlay from #container), and the old code here then
-            // force-activated the BIM 3D view via `window.viewController.activate('3D')`
-            // WITHOUT turning GIS off — so the orphaned Cesium overlay (display:block,
-            // zIndex 20) stayed on top of the BIM canvas, half-rendered → nothing usable.
+            // §ONB-RESULT-VIEW (O.7.2 / O.7.2.b, supersedes §ONB-3D-VIEW): the founder
+            // tested twice and the LEFT pane went BLANK after generate. O.7.2.b fixed
+            // the upstream half: the cream 2D Hektar map no longer disposes itself on
+            // boundary-commit — commit() now FREEZES (keeps the map + boundary alive so
+            // the confirm renders over a live plan map), and the map is torn down ONLY
+            // at generate-time (we called pryzmCloseBoundaryMap2D() above; the result
+            // controller also disposes it). The old code here then force-activated the
+            // BIM 3D view WITHOUT turning GIS off, leaving an orphaned Cesium overlay.
             //
-            // Now: hand the pane to GISAreaLayout's post-generate DUAL-VIEW controller.
-            // It lands on the BIM PLAN ('2D' — GIS off, the user SEES their generated
-            // apartment over the site, no blank) and mounts an on-brand toggle so the
-            // user can flip to the Cesium 3D globe (re-framed to the plot) on demand.
-            // Best-effort: if the hook isn't wired (GIS area not mounted), fall back to
-            // the old BIM 3D activation so we still never leave the user on nothing.
+            // Now: hand the pane to GISAreaLayout's post-generate DUAL-PANE controller.
+            // It lands on the BIM DUAL-PANE ('2D' → GIS off, LEFT 3D viewport · RIGHT
+            // 2D plan via SplitViewManager — the user SEES their generated apartment,
+            // no blank) and mounts an on-brand toggle so the user can flip to the
+            // Cesium 3D globe (re-framed to the plot) on demand. Best-effort: if the
+            // hook isn't wired (GIS area not mounted), fall back to the old BIM 3D
+            // activation so we still never leave the user on nothing.
             try {
                 const showResult = (window as unknown as {
                     pryzmShowSiteResultView?: (initial?: '2D' | '3D') => void;

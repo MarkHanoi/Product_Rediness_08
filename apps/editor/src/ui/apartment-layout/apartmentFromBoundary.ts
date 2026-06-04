@@ -21,15 +21,24 @@
 
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { generateApartmentFromScratch, type FootprintPoint } from './apartmentFromScratch.js';
+import { resolveApartmentBrief } from './briefToProgram.js';
+import { getActiveBriefMetadata } from './activeBrief.js';
 
 /**
  * Read the active Site's parcel boundary polygon from `runtime.siteModelStore`
  * and generate an apartment layout from it. Resolves the runtime from the
  * argument or `window.runtime`. If no boundary is authored yet, toasts a hint to
  * run `pryzmCreateSiteFromRect()` first.
+ *
+ * O.12.c — `briefMetadata` is the STRUCTURED RAC brief (`PipelineBrief.metadata`,
+ * field-id-keyed). It's mapped to a program override (no NLP parse) and threaded
+ * into the generator. When omitted, the active-brief stash is consulted, then
+ * DEFAULT_PROGRAM (graceful fallback) — so the GIS-rail / console entry points
+ * still honour a captured brief.
  */
 export async function generateApartmentFromBoundary(
     runtimeArg?: PryzmRuntime | null,
+    briefMetadata?: Record<string, unknown> | null,
 ): Promise<void> {
     const rt = (runtimeArg ?? (window.runtime as unknown as PryzmRuntime | undefined)) ?? undefined;
     const toast = (message: string, severity: 'info' | 'success' | 'error'): void => {
@@ -77,10 +86,19 @@ export async function generateApartmentFromBoundary(
 
         toast('Generating apartment from site boundary…', 'info');
 
+        // O.12.c — resolve the STRUCTURED brief → program override (no NLP parse).
+        // Prefer the explicitly-passed metadata (the onboarding chain forwards the
+        // RAC brief here); fall back to the active-brief stash so GIS-rail/console
+        // callers still honour a captured brief. An absent brief ⇒ empty override
+        // ⇒ DEFAULT_PROGRAM downstream.
+        const md = briefMetadata ?? getActiveBriefMetadata('apartment');
+        const { programOverride } = resolveApartmentBrief(md);
+        console.log('[apartment-from-boundary] resolved program override', programOverride);
+
         // §FUTURE-TYPOLOGY: this is the ONLY apartment-specific line. A house /
         // school / office Pack swaps this for its own generator, reusing the
         // identical typology-neutral site read above.
-        await generateApartmentFromScratch(rt, { footprint });
+        await generateApartmentFromScratch(rt, { footprint, programOverride });
     } catch (err) {
         console.error('[apartment-from-boundary] threw:', err);
         toast(`Apartment-from-boundary failed: ${String(err)}`, 'error');

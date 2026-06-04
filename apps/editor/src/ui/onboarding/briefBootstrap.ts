@@ -69,6 +69,7 @@
 
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { startOnboardingStepFlow } from './OnboardingStepController.js';
+import { setActiveBrief } from '../apartment-layout/activeBrief.js';
 
 /** The narrowed brief payload carried by `pryzm:onboarding-brief-ready`. */
 interface OnboardingBrief {
@@ -173,6 +174,13 @@ async function handleBriefReady(
         return;
     }
 
+    // O.12.c — record the STRUCTURED brief as the single source of truth BEFORE
+    // generation. The generate chain receives it explicitly (threaded below); the
+    // stash additionally lets the "Choose a layout" picker seed from + agree with
+    // the same captured values, and lets a later no-arg re-trigger honour them.
+    const briefMetadata = (brief.metadata ?? {}) as Record<string, unknown>;
+    setActiveBrief({ typologyId: brief.typologyId, metadata: briefMetadata });
+
     // The post-auth flow is on the HUB, not a project. We must create + open a
     // project, then wait for it to LOAD before the site/generate seams (which
     // need an open project + active level) can run. We arm the one-shot
@@ -217,6 +225,9 @@ async function handleBriefReady(
                 // above bails on anything else), but read from the brief so the
                 // switch point is real, not hardcoded.
                 typologyId: brief.typologyId,
+                // O.12.c — thread the STRUCTURED brief metadata so the final
+                // generate consumes the user's bedroom/bathroom/option choices.
+                briefMetadata,
             });
         } catch (err) {
             console.error('[onboarding-bootstrap] failed to start onboarding step flow (swallowed):', err);

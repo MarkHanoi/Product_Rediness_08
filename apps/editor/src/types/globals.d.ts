@@ -195,6 +195,13 @@ declare global {
         pryzmStartBoundaryDraw3D?: () => void;
         /** A.8.c — cancel an in-progress site-boundary draw (2D map or Cesium). */
         pryzmCancelBoundaryDraw?: () => void;
+        /** O.7.2.b — explicit teardown of the (possibly committed-but-still-live) 2D
+         *  Hektar boundary map. After a boundary COMMIT the cream plan map + drawn
+         *  boundary stay mounted so the onboarding "Generate with AI?" confirm renders
+         *  over a live plan map; this disposes it — called ONLY at generate-time (the
+         *  onboarding "Generate" action). Idempotent + double-dispose safe. Registered
+         *  by GISAreaLayout. */
+        pryzmCloseBoundaryMap2D?: () => void;
         /** O.2 — activate/deactivate the GIS (Cesium) view programmatically. The
          *  onboarding step controller's "Draw it on the map" path calls this to
          *  mount + activate GIS before `pryzmStartBoundaryDraw`. Mirrors the GIS

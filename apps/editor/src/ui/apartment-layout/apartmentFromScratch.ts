@@ -26,6 +26,7 @@
 // AI panel does. Always logs `[apartment-from-scratch]` + toasts; never silent.
 
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
+import type { ApartmentProgram } from '@pryzm/ai-host';
 import { createId } from '@pryzm/schemas';
 import { triggerApartmentLayout } from './apartmentLayoutTrigger.js';
 import { resolveActiveLevelId } from './activeLevel.js';
@@ -51,6 +52,12 @@ export interface ApartmentFromScratchOptions {
     readonly width?: number;
     /** Rectangle depth in metres — used only when `footprint` is omitted. */
     readonly depth?: number;
+    /** O.12.c — partial room program resolved from the STRUCTURED typology brief
+     *  (`resolveApartmentBrief(...).programOverride`). Threaded straight into the
+     *  generator so the onboarding RAC brief drives bedroom/bathroom counts +
+     *  open-plan/ensuite flags. Omitted ⇒ `gatherLayoutPayload` falls back to the
+     *  active-brief stash, then DEFAULT_PROGRAM. */
+    readonly programOverride?: Partial<ApartmentProgram>;
 }
 
 /** A centred axis-aligned rectangle footprint (x,z), wound counter-clockwise. */
@@ -153,9 +160,10 @@ export async function generateApartmentFromScratch(
             return;
         }
 
-        // 3) Run the existing generator inside the freshly-drawn shell.
-        console.log('[apartment-from-scratch] shell ready — running apartment generator');
-        triggerApartmentLayout(rt);
+        // 3) Run the existing generator inside the freshly-drawn shell. O.12.c —
+        //    thread the structured-brief program override straight through.
+        console.log('[apartment-from-scratch] shell ready — running apartment generator', opts?.programOverride ?? '(no brief override)');
+        triggerApartmentLayout(rt, opts?.programOverride);
     } catch (err) {
         console.error('[apartment-from-scratch] threw:', err);
         toast(`Apartment-from-scratch failed: ${String(err)}`, 'error');
