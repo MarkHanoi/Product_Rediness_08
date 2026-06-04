@@ -81,6 +81,26 @@ export class GISRailPanel {
             }
         ));
 
+        // FORMA.3 — discoverable entry point to the Cesium "massing study" 3D view.
+        // This is the ONLY click-path to the Forma view: it mounts the floating
+        // [Plan View][3D View] toggle AND lands on 3D (white extruded massing on the
+        // real-world plot). Without this button the Forma view was unreachable — the
+        // window hook (pryzmShowFormaView) was defined but never called from the UI.
+        root.appendChild(this._buildDivider());
+        root.appendChild(this._buildActionBtn(
+            '◉', 'Site 3D (Forma)',
+            'Open the Cesium 3D "massing study" — white extruded buildings on your real-world plot, with a Plan View / 3D View toggle',
+            () => {
+                console.log('[GISRailPanel] Open Site 3D (Forma) massing view');
+                const show = window.pryzmShowFormaView;
+                if (typeof show === 'function') {
+                    show('3d');
+                } else {
+                    console.error('[GISRailPanel] pryzmShowFormaView not available — GIS area not mounted yet.');
+                }
+            }
+        ));
+
         // A.8.f — Site Inspector. Surfaces the authored C19 SiteModel (address,
         // lat/lon, parcel area + boundary thumbnail) read from runtime.siteModelStore,
         // so the user can SEE the plot they loaded from an address / drew on the map.

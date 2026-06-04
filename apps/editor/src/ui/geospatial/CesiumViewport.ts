@@ -98,6 +98,16 @@ export class CesiumViewport {
    *  extent framing with a redundant second flight. One-shot. */
   private suppressNextLocationFly = false;
 
+  // ---- mount/ready signal (replaces the fragile 400ms timer in callers) ----
+  /** Resolves once `mount()` has fully constructed the Cesium viewer. Callers
+   *  (GISAreaLayout's Forma 3D activation) await this instead of guessing with a
+   *  setTimeout, so setFormaMode + renderFormaMassing never race the mount. */
+  private readyPromise: Promise<void>;
+  private resolveReady!: () => void;
+  /** True once mount() has resolved — lets `whenReady()` short-circuit on a
+   *  viewer that is already up. */
+  private isReady = false;
+
   // ---- FORMA.2 — Forma "massing study" render mode state ----
   /** True when the Forma render mode is currently active. */
   private formaMode = false;
@@ -169,6 +179,22 @@ export class CesiumViewport {
     this.container.style.zIndex = "0";
     this.container.style.pointerEvents = "auto";
     this.container.style.background = "#000";
+    this.readyPromise = new Promise<void>((resolve) => { this.resolveReady = resolve; });
+  }
+
+  /**
+   * Resolves once the Cesium viewer is fully mounted (replaces the caller-side
+   * 400ms guess). Resolves immediately if mount has already completed. If mount
+   * has not been kicked off yet, the returned promise resolves when it does.
+   */
+  public whenReady(): Promise<void> {
+    if (this.isReady && this.viewer) return Promise.resolve();
+    return this.readyPromise;
+  }
+
+  /** Synchronous check used by callers that must not block. */
+  public isMounted(): boolean {
+    return this.isReady && this.viewer != null;
   }
 
   public async mount(): Promise<void> {
@@ -445,6 +471,11 @@ export class CesiumViewport {
       });
 
       console.log("CesiumViewport: Viewer ready with Google Photorealistic 3D Tiles");
+
+      // Signal mount/ready so callers (Forma 3D activation) can await instead of
+      // guessing with a setTimeout.
+      this.isReady = true;
+      this.resolveReady();
     } catch (error) {
       console.error("Cesium initialization failed:", error);
       throw error;
@@ -1537,6 +1568,10 @@ export class CesiumViewport {
       this.viewer.destroy();
       this.viewer = null;
     }
+
+    // Reset the ready signal so a re-mount (project switch) re-arms whenReady().
+    this.isReady = false;
+    this.readyPromise = new Promise<void>((resolve) => { this.resolveReady = resolve; });
 
     if (this.container.parentElement) {
       this.container.parentElement.removeChild(this.container);

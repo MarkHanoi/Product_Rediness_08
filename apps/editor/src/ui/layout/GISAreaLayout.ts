@@ -509,6 +509,31 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         btn3dRef = mkBtn('3D', '◉ 3D globe');
         bar.appendChild(btn2dRef);
         bar.appendChild(btn3dRef);
+
+        // FORMA.3 — a third, prominent entry to the Cesium "massing study" view,
+        // right where the founder lands after Generate. Distinct from the BIM
+        // "3D + plan" dual-pane and the photoreal "3D globe": this mounts the
+        // [Plan View][3D View] Forma toggle and lands on the white massing.
+        const formaBtn = document.createElement('button');
+        formaBtn.type = 'button';
+        formaBtn.className = 'pryzm-result-toggle-btn';
+        formaBtn.setAttribute('data-result-mode', 'forma');
+        formaBtn.setAttribute('data-testid', 'gis-result-forma');
+        formaBtn.textContent = '◉ Site 3D (Forma)';
+        formaBtn.title = 'Open the Cesium massing study — white extruded buildings on your real-world plot';
+        Object.assign(formaBtn.style, {
+            appearance: 'none', border: 'none', cursor: 'pointer',
+            padding: '7px 14px', borderRadius: '7px', color: '#6600FF',
+            background: 'transparent', font: 'inherit', borderLeft: '1px solid #ece7fb',
+        } satisfies Partial<CSSStyleDeclaration>);
+        formaBtn.addEventListener('mouseenter', () => { formaBtn.style.background = '#f4f0ff'; });
+        formaBtn.addEventListener('mouseleave', () => { formaBtn.style.background = 'transparent'; });
+        formaBtn.addEventListener('click', () => {
+            console.log('[gis][forma] result-toggle: launching Forma massing view.');
+            mountFormaViewToggle('3d');
+        });
+        bar.appendChild(formaBtn);
+
         viewport.appendChild(bar);
         resultToggle = bar;
 
@@ -643,10 +668,20 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         }
         const boundary = getFormaBoundary();
         const walls = getFormaWalls();
-        console.log(
-            `[gis][forma] rendering massing: ${walls.length} wall(s), boundary=${boundary ? 'yes' : 'no'}, ` +
-                `origin LAT ${origin.lat} LON ${origin.lon}.`
-        );
+        if (walls.length === 0 && !boundary) {
+            // Nothing authored yet — still render the (empty) Forma scene so the
+            // flat warm-grey ground + Forma look is visibly engaged, and the user
+            // sees they're in the massing study even with nothing built.
+            console.log(
+                `[gis][forma] no authored walls and no parcel boundary yet — showing the empty Forma scene ` +
+                    `(flat ground, no massing) at origin LAT ${origin.lat} LON ${origin.lon}.`
+            );
+        } else {
+            console.log(
+                `[gis][forma] rendering massing: ${walls.length} wall(s), boundary=${boundary ? 'yes' : 'no'}, ` +
+                    `origin LAT ${origin.lat} LON ${origin.lon}.`
+            );
+        }
         cesiumViewport.renderFormaMassing({
             originLat: origin.lat,
             originLon: origin.lon,
@@ -703,6 +738,38 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         styleFormaBtn(formaThreeBtn, formaViewMode === '3d');
     };
 
+    // Await the Cesium viewer's real mount/ready signal (CesiumViewport.whenReady())
+    // instead of guessing with a fixed setTimeout. toggleGIS(true) constructs the
+    // viewport asynchronously, so `cesiumViewport` may still be null for a tick — we
+    // poll briefly for the instance to exist, then await its ready promise. Falls
+    // back to a longer timeout only if no ready signal is reachable. This fixes the
+    // "Cesium not mounted yet → setFormaMode/renderFormaMassing no-op" race.
+    const awaitCesiumReady = async (): Promise<void> => {
+        // Wait for the CesiumViewport instance to be constructed (toggleGIS kicks
+        // off the async mount; the closure var is assigned synchronously inside it
+        // but the import()/mount() is async). Poll up to ~6s.
+        const tStart = Date.now();
+        while (!cesiumViewport && Date.now() - tStart < 6000) {
+            await new Promise((r) => setTimeout(r, 50));
+        }
+        if (!cesiumViewport) {
+            console.warn('[gis][forma] awaitCesiumReady: CesiumViewport never constructed (6s) — proceeding best-effort.');
+            return;
+        }
+        if (typeof cesiumViewport.whenReady === 'function') {
+            try {
+                await cesiumViewport.whenReady();
+                console.log('[gis][forma] Cesium viewer ready (awaited whenReady, no fixed timer).');
+                return;
+            } catch (err) {
+                console.warn('[gis][forma] whenReady rejected — falling back to timeout:', err);
+            }
+        }
+        // Fallback: no ready signal reachable → wait a generous beat.
+        console.warn('[gis][forma] no whenReady() on CesiumViewport — falling back to 800ms timeout.');
+        await new Promise((r) => setTimeout(r, 800));
+    };
+
     /**
      * Switch between the cream 2D plan map (O.7.2.b live map) and the Forma 3D
      * massing view. Layers persist — the drawn boundary + authored massing stay
@@ -712,18 +779,34 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         formaViewMode = mode;
         if (mode === '3d') {
             // Activate the Cesium globe + the Forma render mode, then place the
-            // authored massing (mounts Cesium async on first use → defer placement).
+            // authored massing. Cesium mounts async on first use, so we await its
+            // real ready signal (whenReady) before forcing Forma + placing massing.
+            console.log('[gis][forma] activating 3D View → forcing Forma massing mode.');
             toggleGIS(true);
+            // Force Forma look NOW (idempotent) so even an already-mounted viewer
+            // (with a Cesium token → otherwise photoreal) flips to the massing study.
             window.pryzmSetCesiumFormaMode?.(true);
-            setTimeout(() => {
+            void awaitCesiumReady().then(() => {
+                // Re-check: the user may have flipped back to Plan while we waited.
+                if (formaViewMode !== '3d') {
+                    console.log('[gis][forma] 3D activation aborted — user returned to Plan View while Cesium mounted.');
+                    return;
+                }
+                // FORCE Forma mode even when a Cesium token IS present: the button
+                // means "Forma massing study", never photoreal. (Idempotent.)
+                cesiumViewport?.setFormaMode?.(true);
                 window.pryzmSetCesiumFormaMode?.(true);
+                console.log('[gis][forma] Forma mode engaged on the live viewer.');
                 renderFormaMassing(true);
                 // FORMA.5 — bring up the sun/shadow/climate/wind analysis chrome.
                 mountFormaAnalysis();
-            }, 400);
+            }).catch((err: unknown) => {
+                console.error('[gis][forma] 3D activation failed:', err);
+            });
         } else {
             // Plan View — drop the Cesium globe, reveal the 2D cream map. If the
             // committed cream map is still alive it stays; otherwise (re)open it.
+            console.log('[gis][forma] switching to Plan View (2D cream map).');
             disposeFormaAnalysis(); // FORMA.5 — clean up analysis chrome on exit.
             if (_gisActive) toggleGIS(false);
             if (!map2dHandle) startBoundaryDraw();
