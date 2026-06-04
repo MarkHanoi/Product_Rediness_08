@@ -32,6 +32,7 @@
     "@pryzm/entitlements": "workspace:*",
     "@pryzm/frame-scheduler": "workspace:*",
     "@pryzm/geometry-kernel": "workspace:*",
+    "@pryzm/geospatial": "workspace:*",
     "@pryzm/schemas": "workspace:*",
     "@pryzm/typology-pipeline": "workspace:*",
     "@pryzm/persistence-client": "workspace:*",

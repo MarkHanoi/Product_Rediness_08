@@ -948,6 +948,9 @@ importers:
       '@pryzm/geometry-kernel':
         specifier: workspace:*
         version: link:../../packages/geometry-kernel
+      '@pryzm/geospatial':
+        specifier: workspace:*
+        version: link:../../packages/geospatial
       '@pryzm/persistence-client':
         specifier: workspace:*
         version: link:../../packages/persistence-client
