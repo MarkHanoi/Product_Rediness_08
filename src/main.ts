@@ -22,6 +22,12 @@ import { panelManager } from '@app/ui/PanelManager';
 // errors). installGlobalHandlers() funnels uncaught errors + rejections into
 // the lazy CrashReporter so telemetry actually sees them.
 import { installGlobalHandlers } from '@pryzm/crash-reporter';
+// O.14 (perf/boot) — shared engine-module warm promise.  This module does ONLY a
+// dynamic `import('@app/engine/engineLauncher')` internally, so this static
+// import adds no engine bytes to the platform critical-path chunk.  `loadEngine()`
+// delegates to `warmEngineModule()` so the onboarding pre-warm and the real boot
+// reuse a SINGLE chunk download (see the comment on `loadEngine`).
+import { warmEngineModule } from '@app/engine/engineWarmup';
 
 // ── PRYZM 1 SUNSET FLAG (S61 D1, additive) ────────────────────────────────────
 // `?pryzm1=1` is the *opt-in* test route for the upcoming D5 default flip.
@@ -146,17 +152,18 @@ if (__perfEnabled) {
 
 type EngineModule = typeof import('@app/engine/engineLauncher');
 
-let _engineModule: Promise<EngineModule> | null = null;
-
+// O.14 (perf/boot) — the engine MODULE download is now shared with the
+// onboarding pre-warm.  `warmEngineModule()` holds a single cached promise: the
+// onboarding flow calls `ensureEngineWarm()` (which delegates to the same
+// promise) as soon as the RAC/brief/location/draw steps begin, so the 2.6 MB
+// chunk downloads + evaluates DURING the conversation.  By the time the user hits
+// "Generate" and `ensure()` → `loadEngine()` runs, the module resolves from the
+// shared cache instead of starting a cold download — the "Downloading BIM
+// engine…" overlay stage is short.  Both paths share ONE download; on rejection
+// the shared cache is cleared so the next call retries cold (unchanged
+// semantics).  See `apps/editor/src/engine/engineWarmup.ts`.
 function loadEngine(): Promise<EngineModule> {
-    if (_engineModule === null) {
-        _engineModule = import('@app/engine/engineLauncher').catch((err) => {
-            // Clear the cached promise on failure so the next call retries.
-            _engineModule = null;
-            throw err;
-        });
-    }
-    return _engineModule;
+    return warmEngineModule();
 }
 
 // ── Engine initialiser callback ───────────────────────────────────────────────
