@@ -73,6 +73,62 @@ export function decomposeToRects(poly: readonly Pt[], minCellM = 0.5): Rect[] {
     return mergeHorizontally(rects);
 }
 
+// ── §PRINCIPAL-AXIS (LAYOUT-QUALITY-DEEP, 2026-06-04) ────────────────────────
+//
+// The slab-sweep decomposition above is EXACT for axis-aligned rectilinear shells
+// (rectangle / L / T / U) but STAIR-STEPS slanted edges — a SKEWED quad (a plot
+// drawn off-axis on the GIS map) decomposes into a staircase of slivers, most of
+// which fall below `minCellM` and get dropped. The room subdivider then sees a
+// near-empty rect set and the whole D-TGL candidate fails → the generator bails to
+// the bounding-box strip-slicer (proceduralLayout.ts), which ignores the drawn
+// shape entirely. To keep rooms INSIDE the real (rotated) plot, the engine rotates
+// the shell to its dominant-edge orientation, runs the entire axis-aligned pipeline
+// in that frame, then rotates the emitted geometry back (see runDeterministicLayout
+// `withPrincipalAxis`). These pure helpers are that rotation.
+
+/** Rotate a point about `about` by `angleRad` (CCW, plan frame {x,z}). */
+export function rotatePt(p: Pt, angleRad: number, about: Pt = { x: 0, z: 0 }): Pt {
+    const c = Math.cos(angleRad), s = Math.sin(angleRad);
+    const dx = p.x - about.x, dz = p.z - about.z;
+    return { x: about.x + dx * c - dz * s, z: about.z + dx * s + dz * c };
+}
+
+/** Rotate every vertex of a polygon by `angleRad` about `about`. */
+export function rotatePoly(poly: readonly Pt[], angleRad: number, about: Pt = { x: 0, z: 0 }): Pt[] {
+    return poly.map(p => rotatePt(p, angleRad, about));
+}
+
+/**
+ * The polygon's DOMINANT-EDGE orientation, reduced to the residual rotation needed
+ * to make that edge axis-aligned. Returns an angle in (−π/4, π/4]: rotating the
+ * polygon by `−angle` lands its dominant edge family on the X/Z axes.
+ *
+ * "Dominant" is the length-weighted circular mean of the edge directions, taken at
+ * 4× the edge angle so the two orthogonal edge families of a rectilinear plot
+ * (a→b vs the perpendicular run) collapse together and align as one. A perfectly
+ * axis-aligned shell returns 0 (no rotation). Deterministic + pure.
+ */
+export function principalAxisAngle(poly: readonly Pt[]): number {
+    if (poly.length < 3) return 0;
+    let sx = 0, sz = 0;
+    for (let i = 0; i < poly.length; i++) {
+        const a = poly[i]!, b = poly[(i + 1) % poly.length]!;
+        const dx = b.x - a.x, dz = b.z - a.z;
+        const len = Math.hypot(dx, dz);
+        if (len < EPS) continue;
+        const theta = Math.atan2(dz, dx);
+        sx += len * Math.cos(4 * theta);
+        sz += len * Math.sin(4 * theta);
+    }
+    if (Math.abs(sx) < EPS && Math.abs(sz) < EPS) return 0;
+    // mean 4θ → θ; then normalise into (−π/4, π/4].
+    let angle = Math.atan2(sz, sx) / 4;
+    const Q = Math.PI / 2;
+    while (angle > Q / 2 + EPS) angle -= Q;
+    while (angle <= -Q / 2 + EPS) angle += Q;
+    return angle;
+}
+
 /** Greedy-merge rectangles that share a vertical seam (a.x1 === b.x0) and the
  *  same [z0,z1] band — collapses a sliced rectangle back into one. */
 export function mergeHorizontally(rects: readonly Rect[]): Rect[] {
