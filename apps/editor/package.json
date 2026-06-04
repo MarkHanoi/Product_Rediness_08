@@ -27,6 +27,7 @@
     "typecheck": "tsc -p ../../tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@pryzm/building-graph": "workspace:*",
     "@pryzm/climate-host": "workspace:*",
     "@pryzm/command-bus": "workspace:*",
     "@pryzm/entitlements": "workspace:*",

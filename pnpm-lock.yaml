@@ -933,6 +933,9 @@ importers:
 
   apps/editor:
     dependencies:
+      '@pryzm/building-graph':
+        specifier: workspace:*
+        version: link:../../packages/building-graph
       '@pryzm/climate-host':
         specifier: workspace:*
         version: link:../../packages/climate-host
