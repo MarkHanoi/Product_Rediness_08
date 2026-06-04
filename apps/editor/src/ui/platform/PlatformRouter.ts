@@ -596,6 +596,23 @@ export class PlatformRouter {
                 // Only an anonymous visitor (legacy RAC-first reachability) still
                 // hands off to the auth modal.
                 if (getCurrentUser()) {
+                    // O.15 — KILL THE HUB FLASH. For a first-time authed user the
+                    // Project Hub is mounted UNDER this onboarding overlay (see
+                    // showAuth.onSuccess: showHub(user) then showOnboarding()).
+                    // Disposing the overlay above un-covers the hub, and the
+                    // EngineLoadingOverlay is not mounted until the async
+                    // createAndOpenProject → client.create → project-loaded chain
+                    // completes — so the hub repainted for ~1s between the brief
+                    // CTA and the loader. Hide #platform-root SYNCHRONOUSLY now,
+                    // before the async chain, so the transition goes straight from
+                    // the brief panel to the loader with no intermediate hub paint.
+                    // (`_openProjectViaRuntime` sets this again later — idempotent;
+                    // `pryzm-go-hub` re-shows the root if the user navigates back.)
+                    const platformRoot = document.getElementById(ROOT_ID);
+                    if (platformRoot) {
+                        platformRoot.style.display = 'none';
+                        console.log('[onboarding] O.15 — hid #platform-root pre-generate to suppress the hub flash before the loader.');
+                    }
                     console.log('[onboarding] brief captured (authed) — emitting pryzm:onboarding-brief-ready (A.5.g.4 bootstrap):', { role: brief.role, typology: brief.typologyId });
                     this.runtime?.events?.emit('pryzm:onboarding-brief-ready', {
                         role: brief.role,
