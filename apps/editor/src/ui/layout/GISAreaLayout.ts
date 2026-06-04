@@ -513,7 +513,8 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // FORMA.3 — a third, prominent entry to the Cesium "massing study" view,
         // right where the founder lands after Generate. Distinct from the BIM
         // "3D + plan" dual-pane and the photoreal "3D globe": this mounts the
-        // [Plan View][3D View] Forma toggle and lands on the white massing.
+        // [2D Map][Plan][3D] Forma toggle and lands on the Forma PLAN-oblique
+        // (the Forma signature look — white shadowed massing, near-top-down).
         const formaBtn = document.createElement('button');
         formaBtn.type = 'button';
         formaBtn.className = 'pryzm-result-toggle-btn';
@@ -529,8 +530,8 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         formaBtn.addEventListener('mouseenter', () => { formaBtn.style.background = '#f4f0ff'; });
         formaBtn.addEventListener('mouseleave', () => { formaBtn.style.background = 'transparent'; });
         formaBtn.addEventListener('click', () => {
-            console.log('[gis][forma] result-toggle: launching Forma massing view.');
-            mountFormaViewToggle('3d');
+            console.log('[gis][forma] result-toggle: launching Forma massing view (Plan-oblique default).');
+            mountFormaViewToggle('plan');
         });
         bar.appendChild(formaBtn);
 
@@ -649,10 +650,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
 
     /**
      * FORMA.3 — read PRYZM's authored geometry + boundary and render the white
-     * massing into Cesium at the real-world site. `frame` flies the NW oblique
-     * camera (SPEC §4.5). Best-effort + public CesiumViewport API only.
+     * massing into Cesium at the real-world site. `frame` flies the camera; the
+     * optional `preset` chooses the NW '3D' oblique (default) or the near-top-
+     * down 'plan' plan-oblique (FORMA-PLAN-OBLIQUE). Best-effort + public
+     * CesiumViewport API only.
      */
-    const renderFormaMassing = (frame: boolean): void => {
+    const renderFormaMassing = (frame: boolean, preset: 'oblique' | 'plan' = 'oblique'): void => {
         if (!cesiumViewport?.renderFormaMassing) {
             console.warn('[gis][forma] renderFormaMassing unavailable (Cesium not mounted yet).');
             return;
@@ -688,12 +691,23 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             boundary,
             walls,
             frameCentroid: frame,
+            framePreset: preset,
         });
     };
 
-    // ── The floating [Plan View] [3D View] toggle (top-right; white + #6600FF) ──
+    // ── The floating [ 2D Map ][ Plan ][ 3D ] toggle (top-right; white + #6600FF) ──
+    // FORMA-PLAN-OBLIQUE — a clean 3-way group. All three modes stay reachable:
+    //   • 'map2d' — the MapLibre cream draw map (drop Cesium) for drawing/editing
+    //               the boundary (the OLD "Plan View" behaviour, renamed "2D Map").
+    //   • 'plan'  — Cesium plan-oblique (near-top-down, pitch −68°, heading N) —
+    //               the Autodesk-Forma signature "plan" look (shadowed massing).
+    //   • '3d'    — Cesium NW oblique (pitch −45°, heading 325°) — depth view.
+    // 'plan' + '3d' are BOTH the Cesium-Forma canvas at different pitches; only
+    // the camera angle differs (same setFormaMode + context + massing + shadows).
+    type FormaViewMode = 'map2d' | 'plan' | '3d';
     let formaToggle: HTMLElement | null = null;
-    let formaViewMode: 'plan' | '3d' = 'plan';
+    let formaViewMode: FormaViewMode = 'map2d';
+    let formaMap2dBtn: HTMLButtonElement | null = null;
     let formaPlanBtn: HTMLButtonElement | null = null;
     let formaThreeBtn: HTMLButtonElement | null = null;
 
@@ -715,8 +729,9 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             .catch((e) => console.warn('[gis][forma] ensureSiteClimate failed:', e));
         import('../geospatial/FormaSiteAnalysisControls')
             .then(({ FormaSiteAnalysisControls }) => {
-                // Re-check: the user may have flipped back to plan before this resolved.
-                if (formaViewMode !== '3d' || !cesiumViewport?.setFormaSunTime) return;
+                // Re-check: the user may have flipped to the 2D map before this resolved.
+                // The analysis chrome belongs to BOTH Cesium-Forma modes (plan + 3d).
+                if (formaViewMode === 'map2d' || !cesiumViewport?.setFormaSunTime) return;
                 formaAnalysis?.dispose();
                 formaAnalysis = new FormaSiteAnalysisControls(cesiumViewport, runtime ?? null, viewportEl);
                 formaAnalysis.mount();
@@ -734,6 +749,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         el.style.color = active ? '#ffffff' : '#6600FF';
     };
     const refreshFormaButtons = (): void => {
+        styleFormaBtn(formaMap2dBtn, formaViewMode === 'map2d');
         styleFormaBtn(formaPlanBtn, formaViewMode === 'plan');
         styleFormaBtn(formaThreeBtn, formaViewMode === '3d');
     };
@@ -770,43 +786,56 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         await new Promise((r) => setTimeout(r, 800));
     };
 
+    // FORMA-PLAN-OBLIQUE — engage the Cesium-Forma canvas at the requested camera
+    // preset. Shared by BOTH Cesium modes ('plan' = near-top-down plan-oblique,
+    // '3d' = NW oblique): the ONLY difference is the fly preset passed to
+    // renderFormaMassing. Cesium mounts async on first use, so we await its real
+    // ready signal (whenReady) before forcing Forma + placing massing (no race).
+    const engageFormaCesium = (preset: 'oblique' | 'plan'): void => {
+        const targetMode: FormaViewMode = preset === 'plan' ? 'plan' : '3d';
+        console.log(`[gis][forma] activating ${targetMode === 'plan' ? 'Plan (plan-oblique)' : '3D (NW oblique)'} → forcing Forma massing mode.`);
+        toggleGIS(true);
+        // Force Forma look NOW (idempotent) so even an already-mounted viewer
+        // (with a Cesium token → otherwise photoreal) flips to the massing study.
+        window.pryzmSetCesiumFormaMode?.(true);
+        void awaitCesiumReady().then(() => {
+            // Re-check: the user may have flipped to another mode while we waited.
+            if (formaViewMode !== targetMode) {
+                console.log('[gis][forma] Cesium activation aborted — user switched mode while Cesium mounted.');
+                return;
+            }
+            // FORCE Forma mode even when a Cesium token IS present: these buttons
+            // mean "Forma massing study", never photoreal. (Idempotent.)
+            cesiumViewport?.setFormaMode?.(true);
+            window.pryzmSetCesiumFormaMode?.(true);
+            console.log('[gis][forma] Forma mode engaged on the live viewer.');
+            renderFormaMassing(true, preset);
+            // FORMA.5 — bring up the sun/shadow/climate/wind analysis chrome.
+            mountFormaAnalysis();
+        }).catch((err: unknown) => {
+            console.error('[gis][forma] Cesium activation failed:', err);
+        });
+    };
+
     /**
-     * Switch between the cream 2D plan map (O.7.2.b live map) and the Forma 3D
-     * massing view. Layers persist — the drawn boundary + authored massing stay
-     * placed; only visibility + camera change.
+     * FORMA-PLAN-OBLIQUE — switch between the three Forma view modes. Layers
+     * persist — the drawn boundary + authored massing stay placed; only
+     * visibility + camera change.
+     *   • 'map2d' — drop Cesium, reveal the MapLibre cream draw map (boundary
+     *               drawing/editing). The old "Plan View" exit behaviour.
+     *   • 'plan'  — Cesium plan-oblique (near-top-down, shadows = depth cue).
+     *   • '3d'    — Cesium NW oblique (the depth view).
      */
-    const applyFormaView = (mode: 'plan' | '3d'): void => {
+    const applyFormaView = (mode: FormaViewMode): void => {
         formaViewMode = mode;
         if (mode === '3d') {
-            // Activate the Cesium globe + the Forma render mode, then place the
-            // authored massing. Cesium mounts async on first use, so we await its
-            // real ready signal (whenReady) before forcing Forma + placing massing.
-            console.log('[gis][forma] activating 3D View → forcing Forma massing mode.');
-            toggleGIS(true);
-            // Force Forma look NOW (idempotent) so even an already-mounted viewer
-            // (with a Cesium token → otherwise photoreal) flips to the massing study.
-            window.pryzmSetCesiumFormaMode?.(true);
-            void awaitCesiumReady().then(() => {
-                // Re-check: the user may have flipped back to Plan while we waited.
-                if (formaViewMode !== '3d') {
-                    console.log('[gis][forma] 3D activation aborted — user returned to Plan View while Cesium mounted.');
-                    return;
-                }
-                // FORCE Forma mode even when a Cesium token IS present: the button
-                // means "Forma massing study", never photoreal. (Idempotent.)
-                cesiumViewport?.setFormaMode?.(true);
-                window.pryzmSetCesiumFormaMode?.(true);
-                console.log('[gis][forma] Forma mode engaged on the live viewer.');
-                renderFormaMassing(true);
-                // FORMA.5 — bring up the sun/shadow/climate/wind analysis chrome.
-                mountFormaAnalysis();
-            }).catch((err: unknown) => {
-                console.error('[gis][forma] 3D activation failed:', err);
-            });
+            engageFormaCesium('oblique');
+        } else if (mode === 'plan') {
+            engageFormaCesium('plan');
         } else {
-            // Plan View — drop the Cesium globe, reveal the 2D cream map. If the
+            // 2D Map — drop the Cesium globe, reveal the 2D cream map. If the
             // committed cream map is still alive it stays; otherwise (re)open it.
-            console.log('[gis][forma] switching to Plan View (2D cream map).');
+            console.log('[gis][forma] switching to 2D Map (MapLibre cream draw map).');
             disposeFormaAnalysis(); // FORMA.5 — clean up analysis chrome on exit.
             if (_gisActive) toggleGIS(false);
             if (!map2dHandle) startBoundaryDraw();
@@ -814,7 +843,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         refreshFormaButtons();
     };
 
-    const mountFormaViewToggle = (initial: 'plan' | '3d' = 'plan'): void => {
+    const mountFormaViewToggle = (initial: FormaViewMode = 'plan'): void => {
         const viewport = document.getElementById('container');
         if (!viewport) {
             console.error('[gis][forma] mountFormaViewToggle: #container not found');
@@ -836,12 +865,13 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             font: '600 12px/1 system-ui, sans-serif',
         } satisfies Partial<CSSStyleDeclaration>);
 
-        const mkBtn = (mode: 'plan' | '3d', label: string): HTMLButtonElement => {
+        const mkBtn = (mode: FormaViewMode, label: string, title: string): HTMLButtonElement => {
             const b = document.createElement('button');
             b.type = 'button';
             b.className = 'pryzm-forma-view-btn';
             b.setAttribute('data-forma-mode', mode);
             b.textContent = label;
+            b.title = title;
             Object.assign(b.style, {
                 appearance: 'none', border: 'none', cursor: 'pointer',
                 padding: '7px 14px', borderRadius: '7px', color: '#6600FF',
@@ -852,17 +882,23 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             b.addEventListener('click', () => applyFormaView(mode));
             return b;
         };
-        formaPlanBtn = mkBtn('plan', '▦ Plan View');
-        formaThreeBtn = mkBtn('3d', '◉ 3D View');
+        // FORMA-PLAN-OBLIQUE — 3-way group: [ 2D Map ] [ Plan ] [ 3D ]. "2D Map"
+        // is the MapLibre exit (boundary drawing); "Plan" + "3D" are the Cesium-
+        // Forma canvas at different pitches (plan-oblique vs NW oblique).
+        formaMap2dBtn = mkBtn('map2d', '▦ 2D Map', 'Drop to the 2D draw map (MapLibre) to draw or edit the boundary');
+        formaPlanBtn = mkBtn('plan', '◳ Plan', 'Forma plan-oblique — near-top-down shadowed massing (the Forma signature look)');
+        formaThreeBtn = mkBtn('3d', '◉ 3D', 'Forma 3D — NW oblique massing study (depth view)');
+        bar.appendChild(formaMap2dBtn);
         bar.appendChild(formaPlanBtn);
         bar.appendChild(formaThreeBtn);
 
-        // "Zoom to Site" / reset affordance — repeats the NW oblique flyTo (§4.5).
+        // "Zoom to Site" / reset affordance — repeats the flyTo for the active
+        // Cesium preset (plan-oblique while in Plan, NW oblique while in 3D).
         const zoomBtn = document.createElement('button');
         zoomBtn.type = 'button';
         zoomBtn.className = 'pryzm-forma-zoom-btn';
         zoomBtn.setAttribute('data-testid', 'forma-zoom-to-site');
-        zoomBtn.title = 'Zoom to site (NW oblique)';
+        zoomBtn.title = 'Zoom to site (re-frames the active Forma preset)';
         zoomBtn.textContent = '⤢ Zoom to Site';
         Object.assign(zoomBtn.style, {
             appearance: 'none', border: 'none', cursor: 'pointer',
@@ -871,7 +907,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         } satisfies Partial<CSSStyleDeclaration>);
         zoomBtn.addEventListener('mouseenter', () => { zoomBtn.style.background = '#f4f0ff'; });
         zoomBtn.addEventListener('mouseleave', () => { zoomBtn.style.background = 'transparent'; });
-        zoomBtn.addEventListener('click', () => { cesiumViewport?.flyToFormaSite?.(); });
+        zoomBtn.addEventListener('click', () => {
+            if (formaViewMode === 'plan') cesiumViewport?.flyToFormaPlan?.();
+            else cesiumViewport?.flyToFormaSite?.();
+        });
         bar.appendChild(zoomBtn);
 
         viewport.appendChild(bar);
@@ -884,6 +923,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         disposeFormaAnalysis(); // FORMA.5 — tear down analysis chrome with the toggle.
         if (formaToggle?.parentElement) formaToggle.parentElement.removeChild(formaToggle);
         formaToggle = null;
+        formaMap2dBtn = null;
         formaPlanBtn = null;
         formaThreeBtn = null;
     };
@@ -903,12 +943,13 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // viewpoint and watches the massing update in place. Terrain is re-sampled
     // by CesiumViewport ONLY when the centroid moves.
     //
-    // Guard: only re-render when Cesium is mounted + the Forma 3D view is the
-    // active mode (no point rebuilding entities the user isn't looking at; they
-    // get rebuilt on the next 3D activation anyway, which reads live state).
+    // Guard: only re-render when Cesium is mounted + a Cesium-Forma view (plan
+    // OR 3d) is the active mode (no point rebuilding entities the user isn't
+    // looking at; they get rebuilt on the next Cesium activation anyway, which
+    // reads live state). The 2D-map mode is skipped.
     const liveUpdateFormaMassing = (source: string): void => {
         if (!cesiumViewport?.renderFormaMassing) return; // Cesium not mounted yet.
-        if (formaViewMode !== '3d') return;               // not looking at 3D.
+        if (formaViewMode === 'map2d') return;            // not looking at Cesium.
         console.log(`[gis][forma] live-update (${source}) → re-placing massing (no re-fly).`);
         renderFormaMassing(false);
     };
@@ -938,9 +979,11 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // FORMA.4 — on-demand re-render hook (console + programmatic). `frame` flies
     // the NW oblique camera; live-update callers pass false (no re-fly).
     window.pryzmRenderFormaMassing = (frame?: boolean) => renderFormaMassing(frame ?? false);
-    // FORMA.3 — mount the [Plan View][3D View] toggle (defaults to 3D so the
-    // demo lands straight on the white massing). Mirrors pryzmShowSiteResultView.
-    window.pryzmShowFormaView = (initial?: 'plan' | '3d') => mountFormaViewToggle(initial ?? '3d');
+    // FORMA.3 / FORMA-PLAN-OBLIQUE — mount the [2D Map][Plan][3D] toggle. Defaults
+    // to the Forma PLAN-oblique (the signature look — near-top-down shadowed
+    // massing) so the demo lands straight on the Forma "plan view". Mirrors
+    // pryzmShowSiteResultView. Accepts 'map2d' | 'plan' | '3d'.
+    window.pryzmShowFormaView = (initial?: 'map2d' | 'plan' | '3d') => mountFormaViewToggle(initial ?? 'plan');
     window.pryzmHideFormaView = () => removeFormaViewToggle();
 
     return { toggleGIS, flyToCremornePoint, placeBimOnEarth, activateView, gizmoMode, startBoundaryDraw, cancelBoundaryDraw };
