@@ -89,6 +89,19 @@ export function buildConnectSrc(env = process.env, isProd = IS_PROD) {
         'https://api.cesium.com',
         'https://assets.cesium.com',
         'https://ionfetch.cesium.com',
+        // GIS-CESIUM-NOTOKEN-IMAGERY (2026-06-04) — external photoreal-imagery tile
+        // origins. These are ONLY ever requested on the token/photoreal Cesium path
+        // (apps/editor/src/ui/geospatial/CesiumViewport.ts): ESRI World Imagery
+        // satellite basemap, Google Photorealistic 3D Tiles streamed via ion, and
+        // the Bing aerial that ion's default base layer can resolve to. On the FREE
+        // Forma path (no VITE_CESIUM_TOKEN) the viewer is constructed with
+        // `baseLayer:false` and SKIPS both the ESRI install and the Google tileset,
+        // so it makes ZERO requests to these hosts — they are allowlisted purely so
+        // that a token-configured deployment's photoreal imagery is not CSP-blocked.
+        'https://server.arcgisonline.com',
+        'https://tile.googleapis.com',
+        'https://dev.virtualearth.net',
+        'https://*.virtualearth.net',
         // ThatOpen / OBC engine asset CDN — the fragment engine lazily fetches
         // a default HDR env-map (RGBELoader, engineLauncher.ts) for HDRI-based
         // visual styles. Surfaced as a prod CSP violation by the §3.1.2.2 report

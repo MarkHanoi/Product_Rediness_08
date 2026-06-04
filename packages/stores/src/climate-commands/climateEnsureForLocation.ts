@@ -79,8 +79,9 @@ function synthWindRose(
     for (const m of monthlyNormals) {
         const sectorIdx =
             Math.floor(((m.prevailingWindDirDeg + 11.25) % 360) / 22.5) % 16;
-        sectors[sectorIdx]!.speedBinHours[speedBinIndex(m.avgWindSpeedMps)] +=
-            720; // ~30 days × 24 h
+        const sec = sectors[sectorIdx]!;
+        const bin = speedBinIndex(m.avgWindSpeedMps);
+        sec.speedBinHours[bin] = (sec.speedBinHours[bin] ?? 0) + 720; // ~30 days × 24 h
         sumSpeed += m.avgWindSpeedMps;
         count += 1;
     }
