@@ -17,33 +17,31 @@
 name: Deploy to Fly.io
 
 on:
-  push:
-    branches:
-      - main
-    # Doc-only changes can't affect the deployed image — skip the deploy.
-    paths-ignore: ['docs/**', '**/*.md', '.claude/**']
-  # Manual trigger is intentional — lets a maintainer redeploy without a
-  # no-op commit (useful when only secrets changed, or to roll back via
-  # `flyctl deploy --image registry.fly.io/pryzm:deployment-XYZ`).
+  # MANUAL-ONLY during active daily development. Auto-deploy on every push to
+  # `main` was cancelling itself: rapid merges each kicked off a deploy and
+  # `cancel-in-progress` killed the older in-flight one ("The operation was
+  # canceled"). Trigger from the Actions tab → Run workflow when main is stable.
+  # Re-enable the push trigger once main is release-gated:
+  # push:
+  #   branches: [main]
+  #   paths-ignore: ['docs/**', '**/*.md', '.claude/**']
   workflow_dispatch:
 
-# Serialize deploys on the `main` ref. Without this, two close-together
-# pushes both kick off a `flyctl deploy`, and the second one races the first
-# at the Fly registry (the loser uploads a stale image and clobbers a good one).
-# `cancel-in-progress: true` means: if a newer commit lands while an older
-# deploy is mid-flight, cancel the older one — main always wins.
+# Serialize deploys but DO NOT cancel an in-flight one — a manual deploy must run
+# to completion (the build takes ~10-15 min on the runner). A second trigger
+# queues behind the first instead of killing it.
 concurrency:
-  group: deploy-fly-${{ github.ref }}
-  cancel-in-progress: true
+  group: deploy-fly
+  cancel-in-progress: false
 
 jobs:
   deploy:
-    name: flyctl deploy --remote-only
+    name: build (16GB runner) + deploy
     runs-on: ubuntu-latest
-    # Hard ceiling — remote-build + machine bounce typically completes in
-    # 4-7 min. A 20-min cap catches a hung remote builder without burning
-    # an hour of free Actions minutes.
-    timeout-minutes: 20
+    # Hard ceiling — building the full minified client on the runner (~10-15 min)
+    # + image push + machine bounce. A 30-min cap catches a hang without burning
+    # an hour of Actions minutes.
+    timeout-minutes: 30
 
     # Surface a deploy URL in the Actions UI ("View deployment" button).
     environment:
