@@ -71,6 +71,15 @@ const FORMA_PALETTE = {
 const FORMA_FLY_HEADING_DEG = 325;
 const FORMA_FLY_PITCH_DEG = -45;
 const FORMA_FLY_DURATION_S = 1.2;
+/**
+ * FORMA-PLAN-OBLIQUE — the Autodesk-Forma "plan" preset: a near-top-down but
+ * still tilted camera so the directional shadows read as the depth cue (Forma's
+ * "plan" is a Cesium plan-oblique, NOT a flat map). Heading North (0°), pitch
+ * −68° (within the founder's −65°…−72° band). Same √areaM2 altitude framing as
+ * the 3D oblique, so the whole plot fills the view.
+ */
+const FORMA_PLAN_HEADING_DEG = 0;
+const FORMA_PLAN_PITCH_DEG = -68;
 /** Altitude (m) = FORMA_FLY_ALT_K · √areaM2, clamped so tiny/huge plots frame sanely. */
 const FORMA_FLY_ALT_K = 3.2;
 const FORMA_FLY_ALT_MIN_M = 80;
@@ -1179,8 +1188,14 @@ export class CesiumViewport {
       height: number;
       thickness: number;
     }>;
-    /** When true, fly the camera to the NW oblique framing after placing (§4.5). */
+    /** When true, fly the camera to the framing preset after placing (§4.5). */
     frameCentroid?: boolean;
+    /**
+     * FORMA-PLAN-OBLIQUE — which camera preset to fly when `frameCentroid` is
+     * true: 'oblique' = the NW 3D oblique (default), 'plan' = the near-top-down
+     * plan-oblique (heading North, pitch −68°, shadows as the depth cue).
+     */
+    framePreset?: 'oblique' | 'plan';
     /**
      * Internal (FORMA.4) — when true, this call is the second pass AFTER a
      * terrain sample, so we must NOT kick off another async clamp (avoids an
@@ -1299,7 +1314,8 @@ export class CesiumViewport {
     this.formaMassingOrigin = { lat: originLat, lon: originLon, centroidEast, centroidNorth, areaM2 };
 
     if (input.frameCentroid) {
-      this.flyToFormaSite();
+      if (input.framePreset === 'plan') this.flyToFormaPlan();
+      else this.flyToFormaSite();
     }
 
     viewer.scene.requestRender();
@@ -1425,14 +1441,22 @@ export class CesiumViewport {
    * pitch −45°, altitude ∝ √areaM2) centred on the boundary centroid (SPEC
    * §4.5). Public so a "Zoom to Site" / "Reset View" affordance can repeat it.
    * No-op until `renderFormaMassing` has set the origin.
+   *
+   * FORMA-PLAN-OBLIQUE — accepts an optional heading/pitch override so the same
+   * centroid-framing + √areaM2-altitude logic drives BOTH the NW "3D" oblique
+   * (the default) and the near-top-down "Plan" preset (`flyToFormaPlan`). Only
+   * the camera angle differs; the Forma look, shadows, context + massing are
+   * shared.
    */
-  public flyToFormaSite(): void {
+  public flyToFormaSite(orientationOverride?: { headingDeg: number; pitchDeg: number }): void {
     const viewer = this.viewer;
     const o = this.formaMassingOrigin;
     if (!viewer || !o) {
       console.warn('[CesiumViewport][forma] flyToFormaSite: no massing placed yet — ignored.');
       return;
     }
+    const headingDeg = orientationOverride?.headingDeg ?? FORMA_FLY_HEADING_DEG;
+    const pitchDeg = orientationOverride?.pitchDeg ?? FORMA_FLY_PITCH_DEG;
     try {
       // Re-derive the centroid Cartesian via the SAME ENU anchor as placement.
       const originCartesian = Cesium.Cartesian3.fromDegrees(o.lon, o.lat, 0);
@@ -1452,20 +1476,34 @@ export class CesiumViewport {
       viewer.camera.flyTo({
         destination,
         orientation: {
-          heading: Cesium.Math.toRadians(FORMA_FLY_HEADING_DEG),
-          pitch: Cesium.Math.toRadians(FORMA_FLY_PITCH_DEG),
+          heading: Cesium.Math.toRadians(headingDeg),
+          pitch: Cesium.Math.toRadians(pitchDeg),
           roll: 0,
         },
         duration: FORMA_FLY_DURATION_S,
       });
       viewer.scene.requestRender();
       console.log(
-        `[CesiumViewport][forma] NW oblique flyTo: heading ${FORMA_FLY_HEADING_DEG}°, ` +
-          `pitch ${FORMA_FLY_PITCH_DEG}°, alt ${Math.round(alt)} m.`
+        `[CesiumViewport][forma] oblique flyTo: heading ${headingDeg}°, ` +
+          `pitch ${pitchDeg}°, alt ${Math.round(alt)} m.`
       );
     } catch (e) {
       console.warn('[CesiumViewport][forma] flyToFormaSite failed:', e);
     }
+  }
+
+  /**
+   * FORMA-PLAN-OBLIQUE — fly the camera to the near-top-down "Plan" preset
+   * (heading North 0°, pitch −68°) centred on the same boundary centroid, with
+   * the same √areaM2 altitude framing as the 3D oblique. This is the Autodesk-
+   * Forma signature "plan view": white massing + OSM context + soft directional
+   * shadows read from a near-overhead-but-tilted angle (the shadows ARE the
+   * depth cue). The Forma render mode, context buildings + shadows stay engaged;
+   * ONLY the camera angle differs from `flyToFormaSite()`. No-op until
+   * `renderFormaMassing` has set the origin.
+   */
+  public flyToFormaPlan(): void {
+    this.flyToFormaSite({ headingDeg: FORMA_PLAN_HEADING_DEG, pitchDeg: FORMA_PLAN_PITCH_DEG });
   }
 
   /**

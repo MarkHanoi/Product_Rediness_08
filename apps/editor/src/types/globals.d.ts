@@ -223,14 +223,16 @@ declare global {
         pryzmShowSiteResultView?: (initial?: '2D' | '3D') => void;
         /** O.7.2 — remove the post-generate dual-view toggle (e.g. on dispose). */
         pryzmHideSiteResultToggle?: () => void;
-        /** FORMA.3 — mount the floating [Plan View][3D View] toggle (top-right) and
-         *  land on the chosen view ('3d' Forma white-massing globe by default, or
-         *  'plan' cream 2D map). '3D View' calls cesiumViewport.setFormaMode + flies
-         *  the NW oblique camera + renders the authored footprints as white
-         *  extrusions; 'Plan View' reveals the 2D cream map. Registered by
+        /** FORMA.3 / FORMA-PLAN-OBLIQUE — mount the floating [2D Map][Plan][3D]
+         *  toggle (top-right) and land on the chosen view (defaults to 'plan', the
+         *  Forma plan-oblique signature look). 'plan' + '3d' are BOTH the Cesium-
+         *  Forma canvas (setFormaMode + white massing + OSM context + shadows) at
+         *  different pitches: 'plan' = near-top-down plan-oblique (heading N, pitch
+         *  −68°, shadows as the depth cue), '3d' = NW oblique (heading 325°, pitch
+         *  −45°). 'map2d' reveals the MapLibre 2D cream draw map. Registered by
          *  GISAreaLayout. */
-        pryzmShowFormaView?: (initial?: 'plan' | '3d') => void;
-        /** FORMA.3 — remove the [Plan View][3D View] toggle. */
+        pryzmShowFormaView?: (initial?: 'map2d' | 'plan' | '3d') => void;
+        /** FORMA.3 — remove the [2D Map][Plan][3D] toggle. */
         pryzmHideFormaView?: () => void;
         /** FORMA.3/4 — re-read the authored footprints + boundary and (re)render the
          *  Forma white massing into Cesium. `frame` repeats the NW oblique flyTo.
