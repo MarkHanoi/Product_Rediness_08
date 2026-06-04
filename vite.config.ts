@@ -204,6 +204,20 @@ export default defineConfig({
     // build time — material for fitting the 8GB Fly/Replit builder cgroup.
     reportCompressedSize: false,
 
+    // Emit-phase memory escape hatch for the Fly/Depot managed builder, whose
+    // build container OOM-kills (exit 137) at the Rollup emit peak — it dies
+    // *after* "3624 modules transformed", i.e. while the full module graph is
+    // still resident AND esbuild is holding per-chunk minified output. Fly's
+    // managed builder can't be resized from the CLI, so when PRYZM_LOWMEM_BUILD=1
+    // (set only in the Dockerfile builder stage) we skip minification: chunks
+    // render-and-flush instead of being held for a minify pass, which drops the
+    // emit high-water mark below the container cgroup. Local `pnpm build` and the
+    // CI build are unaffected (env unset ⇒ default esbuild minify). The shipped
+    // assets are still content-hashed and served gzip-compressed; unminified-
+    // but-gzipped is a deliberate, temporary first-deploy trade-off until the
+    // proper minified build runs on a larger CI builder. Tracker: DEPLOY-MINIFY-CI.
+    minify: process.env.PRYZM_LOWMEM_BUILD === '1' ? false : 'esbuild',
+
     // Increase warning threshold — we ship a CAD/BIM engine; the heavy chunks
     // below (three, web-ifc, cesium, @thatopen, path tracer) are intentionally
     // large and load lazily via dynamic import from main.ts.

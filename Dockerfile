@@ -31,7 +31,13 @@ ENV PNPM_HOME="/pnpm" \
     CI=true \
     # The root build script peaks ~5.5 GB heap on Vite chunking; 6 GB matches
     # the `node --max-old-space-size=6144` flag baked into package.json#scripts.build.
-    NODE_OPTIONS="--max-old-space-size=6144"
+    NODE_OPTIONS="--max-old-space-size=6144" \
+    # Fly/Depot's managed build container OOM-kills (137) at the Vite emit peak and
+    # can't be resized from the CLI. This flag tells vite.config.ts to skip the
+    # minify pass (chunks render-and-flush) so the emit high-water mark fits the
+    # container. First-deploy trade-off: unminified-but-gzipped assets until the
+    # minified build runs on a larger CI builder (tracker: DEPLOY-MINIFY-CI).
+    PRYZM_LOWMEM_BUILD=1
 
 # Enable Corepack and pin pnpm. `corepack prepare ... --activate` is faster
 # and reproducible vs `npm i -g pnpm`.
