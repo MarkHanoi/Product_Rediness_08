@@ -482,7 +482,9 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         bar.className = 'pryzm-result-toggle';
         bar.setAttribute('data-testid', 'gis-result-view-toggle');
         Object.assign(bar.style, {
-            position: 'absolute', top: '14px', left: '50%', transform: 'translateX(-50%)',
+            // UI-FORMA-TOGGLE-POSITION — moved off the top-centre (was colliding
+            // with the save/Author/Inspect/Data toolbar) down to the lower-left.
+            position: 'absolute', top: '72px', left: '12px',
             zIndex: '30', display: 'flex', gap: '4px', padding: '4px',
             background: '#ffffff', borderRadius: '10px',
             boxShadow: '0 4px 18px rgba(20,10,60,0.18)', border: '1px solid #ece7fb',
@@ -858,7 +860,9 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         bar.className = 'pryzm-forma-view-toggle';
         bar.setAttribute('data-testid', 'forma-view-toggle');
         Object.assign(bar.style, {
-            position: 'absolute', top: '14px', right: '14px',
+            // UI-FORMA-TOGGLE-POSITION — moved off the top-right (was colliding
+            // with the settings rail) to the lower-left, stacked under the result bar.
+            position: 'absolute', top: '120px', left: '12px',
             zIndex: '31', display: 'flex', gap: '4px', padding: '4px',
             background: '#ffffff', borderRadius: '10px',
             boxShadow: '0 4px 18px rgba(20,10,60,0.18)', border: '1px solid #ece7fb',
