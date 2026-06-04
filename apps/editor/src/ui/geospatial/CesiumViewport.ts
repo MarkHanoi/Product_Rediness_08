@@ -19,6 +19,10 @@ import { solarSample } from "@pryzm/climate-host";
 // The fallback below is a legacy dev token — it will be removed in a future
 // release once all environments have the env var configured.
 const _cesiumToken = import.meta.env.VITE_CESIUM_TOKEN as string | undefined;
+console.log(
+    `[gis][cesium] VITE_CESIUM_TOKEN ${_cesiumToken ? 'PRESENT' : 'ABSENT'} — ` +
+    `${_cesiumToken ? 'photoreal globe path available' : 'forcing Forma flat-ground (no photoreal globe)'}.`
+);
 if (!_cesiumToken) {
     console.warn(
         '[CesiumViewport] VITE_CESIUM_TOKEN is not set. ' +
@@ -40,6 +44,15 @@ Cesium.Ion.defaultAccessToken =
 const SITE_FRAME_HEIGHT_M = 600;
 const SITE_FRAME_PITCH_DEG = -80;
 const SITE_FLY_DURATION_S = 1.5;
+
+/**
+ * GIS-CESIUM-ZRAISE — z-index the Cesium container is raised to while GIS is
+ * active. Must be > the PRYZM WebGPU overlay canvas (z-index:2 in
+ * initScene.ts OVERLAY_CSS) and > the OBC WebGL canvas (z auto/0) so Cesium
+ * actually paints on top of the BIM view, but < the floating Forma/result
+ * toggles (z-index 30/31 in GISAreaLayout) so those chrome controls stay clickable.
+ */
+const CESIUM_Z = 15;
 
 /**
  * FORMA.2 — Forma-style "massing study" palette (SPEC-FORMA-SITE-VIEW.md §2 / §9).
@@ -205,9 +218,20 @@ export class CesiumViewport {
     this.container.id = "cesium-viewport-container";
     this.container.style.position = "absolute";
     this.container.style.inset = "0";
-    this.container.style.zIndex = "0";
+    // GIS-CESIUM-ZRAISE — the BIM viewport stacks TWO canvases inside #container:
+    // the OBC WebGL canvas (z auto/0, inside <bim-viewport>) and the PRYZM WebGPU
+    // overlay canvas at z-index:2 (initScene.ts OVERLAY_CSS). The Cesium container
+    // is a SIBLING of both. If it stays at z-index:0 it paints BEHIND the opaque
+    // WebGPU overlay → completely invisible even with display:block. So we keep it
+    // hidden (display:none, raised z-index) at construction and raise it ABOVE the
+    // BIM canvases on setVisible(true). CESIUM_Z (15) is comfortably above the
+    // WebGPU overlay's z-index:2 yet below the floating Forma/result toggles (z 30+).
+    this.container.style.zIndex = String(CESIUM_Z);
     this.container.style.pointerEvents = "auto";
     this.container.style.background = "#000";
+    // Hidden until the GIS toggle calls setVisible(true) — avoids the Cesium
+    // container intercepting pointer events / painting over the BIM view at mount.
+    this.container.style.display = "none";
     this.readyPromise = new Promise<void>((resolve) => { this.resolveReady = resolve; });
   }
 
@@ -233,6 +257,10 @@ export class CesiumViewport {
     }
 
     console.log("CesiumViewport: Mount started");
+    console.log(
+      `[gis][cesium] mount start — token ${_cesiumToken ? 'present' : 'absent'}, ` +
+      `parent #${this.parent.id || '(no-id)'} size ${this.parent.clientWidth}x${this.parent.clientHeight}.`
+    );
 
     const cesiumInternalContainer = document.createElement("div");
     cesiumInternalContainer.style.position = "absolute";
@@ -407,16 +435,24 @@ export class CesiumViewport {
         const win = window as unknown as { __pryzmFormaMode?: boolean; pryzmSetCesiumFormaMode?: (on: boolean) => void };
         win.pryzmSetCesiumFormaMode = (on: boolean) => this.setFormaMode(on);
         const flag = win.__pryzmFormaMode;
-        const defaultOn = !_cesiumToken && !photogrammetryLoaded;
+        // GIS-CESIUM-NOTOKEN — when VITE_CESIUM_TOKEN is ABSENT we FORCE Forma flat-
+        // ground regardless of whether the (hardcoded dev-token) photogrammetry call
+        // happened to resolve: without a real configured token the photoreal globe
+        // degrades to a washed-out / near-white ellipsoid (audit §1.2.2), so the
+        // abstract Forma look — flat warm-grey ground, sky/atmosphere/globe-imagery
+        // off — is strictly better and the user sees a legible massing scene, never
+        // a blank/black globe. (Previously gated ALSO on !photogrammetryLoaded, which
+        // left the broken photoreal path active whenever the dev token loaded tiles.)
+        const defaultOn = !_cesiumToken;
         const wantForma = typeof flag === 'boolean' ? flag : defaultOn;
         if (wantForma) {
           console.log(
-            `[CesiumViewport] FORMA.2 mode ON at mount (` +
-              `${typeof flag === 'boolean' ? 'window.__pryzmFormaMode' : 'default — no Cesium token, photoreal degraded'}).`
+            `[gis][cesium] FORMA.2 mode ON at mount (` +
+              `${typeof flag === 'boolean' ? 'window.__pryzmFormaMode' : 'default — no Cesium token → forcing Forma flat-ground'}).`
           );
           this.setFormaMode(true);
         } else {
-          console.log('[CesiumViewport] FORMA.2 mode available — call window.pryzmSetCesiumFormaMode(true) to enable.');
+          console.log('[gis][cesium] FORMA.2 mode available (token present) — call window.pryzmSetCesiumFormaMode(true) to enable.');
         }
       } catch (e) {
         console.warn('[CesiumViewport] FORMA.2 init hook failed:', e);
@@ -500,6 +536,11 @@ export class CesiumViewport {
       });
 
       console.log("CesiumViewport: Viewer ready with Google Photorealistic 3D Tiles");
+
+      console.log(
+        `[gis][cesium] viewer created — container ${this.container.clientWidth}x${this.container.clientHeight}, ` +
+        `forma=${this.formaMode}, globe.show=${this.viewer.scene.globe.show}.`
+      );
 
       // Signal mount/ready so callers (Forma 3D activation) can await instead of
       // guessing with a setTimeout.
@@ -1738,13 +1779,88 @@ export class CesiumViewport {
     return { east: cx, north: -cz, area: Math.abs(signedArea) };
   }
 
-  public setVisible(visible: boolean): void {
-    if (this.container) {
-      this.container.style.display = visible ? "block" : "none";
-      if (visible && this.viewer) {
+  /**
+   * GIS-CESIUM-ZRAISE — the BIM canvases (OBC WebGL inside <bim-viewport>, and
+   * the PRYZM WebGPU overlay <canvas data-pryzm="webgpu">) are siblings of the
+   * Cesium container in #container. While Cesium is shown we hide them so the
+   * (opaque) BIM render doesn't paint over Cesium, and restore them on hide.
+   * Best-effort + idempotent; queried fresh each call (the WebGPU canvas may be
+   * (re)created across project loads).
+   */
+  private setBimCanvasesHidden(hidden: boolean): void {
+    const root = this.parent ?? document.getElementById('container');
+    if (!root) return;
+    const targets: HTMLElement[] = [];
+    const webgpu = root.querySelector('canvas[data-pryzm="webgpu"]') as HTMLElement | null;
+    if (webgpu) targets.push(webgpu);
+    const bimViewport = root.querySelector('bim-viewport') as HTMLElement | null;
+    if (bimViewport) targets.push(bimViewport);
+    for (const el of targets) {
+      if (hidden) {
+        if (el.dataset.gisPrevVisibility === undefined) {
+          el.dataset.gisPrevVisibility = el.style.visibility || '';
+        }
+        // Use visibility (not display:none) so the BIM renderer keeps its layout
+        // size — restoring is instant and the canvas buffer never resizes to 0.
+        el.style.visibility = 'hidden';
+      } else if (el.dataset.gisPrevVisibility !== undefined) {
+        el.style.visibility = el.dataset.gisPrevVisibility;
+        delete el.dataset.gisPrevVisibility;
+      } else {
+        el.style.visibility = '';
+      }
+    }
+    console.log(
+      `[gis][cesium] BIM canvases ${hidden ? 'hidden' : 'restored'} ` +
+      `(${targets.length} target(s): ${targets.map((t) => t.tagName.toLowerCase()).join(', ') || 'none'}).`
+    );
+  }
+
+  /** Force a Cesium resize + render now and again on the next frame — a viewer
+   *  mounted into a 0-size / freshly-shown container otherwise renders nothing
+   *  until the next user-driven resize. */
+  private forceResizeAndRender(reason: string): void {
+    if (!this.viewer) return;
+    try {
+      this.viewer.resize();
+      this.viewer.scene.requestRender();
+      console.log(
+        `[gis][cesium] resize (${reason}) — canvas ${this.viewer.canvas.clientWidth}x${this.viewer.canvas.clientHeight}, ` +
+        `container ${this.container.clientWidth}x${this.container.clientHeight}.`
+      );
+    } catch (e) {
+      console.warn('[gis][cesium] forceResizeAndRender failed:', e);
+    }
+    // One more after layout flushes — the container often gets its real size a
+    // frame after display flips from none → block.
+    requestAnimationFrame(() => {
+      if (!this.viewer) return;
+      try {
         this.viewer.resize();
         this.viewer.scene.requestRender();
+      } catch { /* viewer torn down mid-frame */ }
+    });
+  }
+
+  public setVisible(visible: boolean): void {
+    if (!this.container) return;
+    if (visible) {
+      this.container.style.display = "block";
+      this.container.style.zIndex = String(CESIUM_Z);
+      this.setBimCanvasesHidden(true);
+      console.log(`[gis][cesium] setVisible(true) — display:block, z-index:${CESIUM_Z} (above BIM WebGPU overlay z:2).`);
+      if (this.viewer) {
+        this.forceResizeAndRender('setVisible(true)');
+      } else {
+        // Viewer still mounting — whenReady() resolves; resize then.
+        void this.whenReady().then(() => {
+          if (this.container.style.display !== 'none') this.forceResizeAndRender('setVisible→whenReady');
+        });
       }
+    } else {
+      this.container.style.display = "none";
+      this.setBimCanvasesHidden(false);
+      console.log('[gis][cesium] setVisible(false) — display:none, BIM canvases restored.');
     }
   }
 
@@ -1802,6 +1918,15 @@ export class CesiumViewport {
     // Reset the ready signal so a re-mount (project switch) re-arms whenReady().
     this.isReady = false;
     this.readyPromise = new Promise<void>((resolve) => { this.resolveReady = resolve; });
+
+    // GIS-CESIUM-ZRAISE — if the viewport is disposed while still visible, make
+    // sure the BIM canvases we hid in setVisible(true) are restored, or the BIM
+    // view would stay blank after GIS tears down.
+    try {
+      this.setBimCanvasesHidden(false);
+    } catch (e) {
+      console.warn('[gis][cesium] dispose: BIM-canvas restore failed:', e);
+    }
 
     if (this.container.parentElement) {
       this.container.parentElement.removeChild(this.container);
