@@ -47,7 +47,22 @@ const FORMA_PALETTE = {
   contextFill: '#E8E5DF',
   /** Soft shadow tint (§2 Shadows) — rgba(20,20,20,0.30). */
   shadowTint: 'rgba(20,20,20,0.30)',
+  /** Parcel-boundary dashed line + fill (§2 Special elements / §3). */
+  boundaryLine: '#2D6A4F',
+  boundaryFill: 'rgba(45,106,79,0.08)',
 } as const;
+
+/**
+ * FORMA.3 — NW oblique camera handoff (SPEC §4.5): heading 325°, pitch −45°.
+ * The destination altitude scales with √areaM2 so the whole plot is framed.
+ */
+const FORMA_FLY_HEADING_DEG = 325;
+const FORMA_FLY_PITCH_DEG = -45;
+const FORMA_FLY_DURATION_S = 1.2;
+/** Altitude (m) = FORMA_FLY_ALT_K · √areaM2, clamped so tiny/huge plots frame sanely. */
+const FORMA_FLY_ALT_K = 3.2;
+const FORMA_FLY_ALT_MIN_M = 80;
+const FORMA_FLY_ALT_MAX_M = 4000;
 
 /** Silhouette edge width in px (§2 — 1.5px). */
 const FORMA_SILHOUETTE_WIDTH = 1.5;
@@ -95,6 +110,17 @@ export class CesiumViewport {
   private formaSilhouetteComposite: Cesium.PostProcessStageComposite | null = null;
   /** One-time guard so the "post-process unavailable" warning logs only once. */
   private formaPostProcessWarned = false;
+
+  // ---- FORMA.3 — authored-massing entity placement state ----
+  /** Entities placed for the authored massing (proposed buildings + boundary),
+   *  so a re-render can clear the previous set before placing the new one. */
+  private formaMassingEntities: Cesium.Entity[] = [];
+  /** The last-known site lat/lon (= ENU anchor) + the boundary centroid (in ENU
+   *  metres) + plot area the massing was placed against — used by the
+   *  "Zoom to Site" / "Reset View" affordance to repeat the NW oblique flyTo. */
+  private formaMassingOrigin:
+    | { lat: number; lon: number; centroidEast: number; centroidNorth: number; areaM2: number }
+    | null = null;
 
   /** Phase B (S73-WIRE) — runtime threaded by parent. */
   public readonly runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null;
@@ -851,6 +877,308 @@ export class CesiumViewport {
     );
   }
 
+  /**
+   * FORMA.3 — render PRYZM's authored building massing + the drawn parcel
+   * boundary into the Cesium scene at the real-world site, in the Forma
+   * "white-volume + black-outline" look (SPEC §3 / §4).
+   *
+   * COORDINATE BRIDGE (SPEC §4, NON-GOAL §8.3 — no parallel projector):
+   * the input polygons are PRYZM scene-XZ metres in the local ENU frame
+   * (`x = East`, `z = −North`, the `LTPENURebase` convention). We anchor a
+   * SINGLE `Cesium.Transforms.eastNorthUpToFixedFrame` matrix at the site
+   * origin (lat0/lon0 — which IS the scene origin), so each scene-XZ point maps
+   * directly to ENU `(east = x, north = −z, up = h)` with ONE matrix multiply —
+   * the exact same anchoring approach `CesiumThreeBridge` / `transformModel`
+   * already use. No second UTM derivation, no boundary re-projection.
+   *
+   * - Proposed buildings → white `#FFFFFF` polygons extruded to their authored
+   *   height, `outline:true` outlineColor `#1C1C1C`, shadows CAST_AND_RECEIVE.
+   *   The placed primitives are fed into the FORMA.2 silhouette stage.
+   * - Parcel boundary → faint-green dashed overlay (`#2D6A4F`, fill
+   *   `rgba(45,106,79,0.08)`).
+   *
+   * Old massing entities are cleared before re-rendering. Idempotent + safe to
+   * call before/after `setFormaMode(true)` (it forces Forma mode on).
+   *
+   * SCOPE (FORMA.4 deferred): NO `sampleTerrainMostDetailed` clamp and NO
+   * `LTPENURebase.setOrigin` precondition handling — extrusions are seated at a
+   * flat base height of 0. The `rerenderFormaMassing` hook below is the single
+   * live-update seam FORMA.4 will drive on `site.parcel-boundary-set` /
+   * `apartment.layout-executed`.
+   */
+  public renderFormaMassing(input: {
+    /** Site geographic origin = the ENU anchor (scene origin). */
+    originLat: number;
+    originLon: number;
+    /** Parcel boundary ring in scene-XZ metres, or null when not drawn. */
+    boundary: ReadonlyArray<{ x: number; z: number }> | null;
+    /** Authored walls (the massing) in scene-XZ metres + authored height/thickness. */
+    walls: ReadonlyArray<{
+      a: { x: number; z: number };
+      b: { x: number; z: number };
+      height: number;
+      thickness: number;
+    }>;
+    /** When true, fly the camera to the NW oblique framing after placing (§4.5). */
+    frameCentroid?: boolean;
+  }): void {
+    const viewer = this.viewer;
+    if (!viewer) {
+      console.warn('[CesiumViewport][forma] renderFormaMassing before mount — ignored.');
+      return;
+    }
+    // Forma look is the canvas for the massing — make sure it's on.
+    if (!this.formaMode) this.setFormaMode(true);
+
+    this.clearFormaMassing();
+
+    const { originLat, originLon, boundary, walls } = input;
+    // ONE ENU frame at the site origin (= scene origin). scene-XZ → ENU is then
+    // (east = x, north = −z) with this single matrix (SPEC §4.2).
+    const originCartesian = Cesium.Cartesian3.fromDegrees(originLon, originLat, 0);
+    const enu = Cesium.Transforms.eastNorthUpToFixedFrame(originCartesian);
+
+    const toCartesian = (x: number, z: number, up: number): Cesium.Cartesian3 => {
+      // scene-XZ → ENU local (east, north, up): east = x, north = −z.
+      const local = new Cesium.Cartesian3(x, -z, up);
+      return Cesium.Matrix4.multiplyByPoint(enu, local, new Cesium.Cartesian3());
+    };
+
+    const silhouetteTargets: Cesium.Entity[] = [];
+
+    // ── Proposed building massing — one white extrusion per authored wall ──────
+    // A wall's footprint is its baseLine widened to its thickness (a thin rect),
+    // extruded to its authored height. This reads the authored walls directly
+    // (SPEC §4 read source) without needing per-room polygons.
+    try {
+      for (const w of walls) {
+        const ring = this.wallFootprintRing(w.a, w.b, w.thickness);
+        if (!ring) continue;
+        const positions = ring.map((p) => toCartesian(p.x, p.z, 0));
+        const ent = viewer.entities.add({
+          name: 'pryzm-forma-massing-wall',
+          polygon: {
+            hierarchy: new Cesium.PolygonHierarchy(positions),
+            extrudedHeight: Math.max(0.1, w.height),
+            height: 0,
+            material: Cesium.Color.fromCssColorString(FORMA_PALETTE.proposedFill),
+            outline: true,
+            outlineColor: Cesium.Color.fromCssColorString(FORMA_PALETTE.silhouette),
+            outlineWidth: 1.5,
+            // ShadowMode.ENABLED == "casts AND receives" (the task's
+            // CAST_AND_RECEIVE intent — Cesium names that member ENABLED).
+            shadows: Cesium.ShadowMode.ENABLED,
+            perPositionHeight: false,
+          },
+        });
+        this.formaMassingEntities.push(ent);
+        silhouetteTargets.push(ent);
+      }
+    } catch (e) {
+      console.warn('[CesiumViewport][forma] massing extrusion failed:', e);
+    }
+
+    // ── Parcel boundary — faint-green dashed overlay (§2 / §3) ────────────────
+    let centroidEast = 0;
+    let centroidNorth = 0;
+    let areaM2 = 0;
+    if (boundary && boundary.length >= 3) {
+      try {
+        const positions = boundary.map((p) => toCartesian(p.x, p.z, 0.05));
+        const ent = viewer.entities.add({
+          name: 'pryzm-forma-parcel-boundary',
+          polygon: {
+            hierarchy: new Cesium.PolygonHierarchy(positions),
+            material: Cesium.Color.fromCssColorString(FORMA_PALETTE.boundaryLine).withAlpha(0.08),
+            height: 0.05,
+            outline: false,
+          },
+        });
+        this.formaMassingEntities.push(ent);
+
+        // Dashed top line (closed ring).
+        const ringClosed = [...positions, positions[0]!];
+        const line = viewer.entities.add({
+          name: 'pryzm-forma-parcel-boundary-line',
+          polyline: {
+            positions: ringClosed,
+            width: 2,
+            clampToGround: false,
+            material: new Cesium.PolylineDashMaterialProperty({
+              color: Cesium.Color.fromCssColorString(FORMA_PALETTE.boundaryLine),
+              dashLength: 16,
+            }),
+          },
+        });
+        this.formaMassingEntities.push(line);
+
+        // Centroid (ENU metres) + area for the NW oblique flyTo.
+        const c = this.polygonCentroidAndAreaXZ(boundary);
+        centroidEast = c.east;
+        centroidNorth = c.north;
+        areaM2 = c.area;
+      } catch (e) {
+        console.warn('[CesiumViewport][forma] boundary overlay failed:', e);
+      }
+    }
+
+    // Feed the proposed-building entities into the FORMA.2 silhouette stage (§3).
+    this.setFormaSilhouetteTargets(silhouetteTargets);
+
+    this.formaMassingOrigin = { lat: originLat, lon: originLon, centroidEast, centroidNorth, areaM2 };
+
+    if (input.frameCentroid) {
+      this.flyToFormaSite();
+    }
+
+    viewer.scene.requestRender();
+    console.log(
+      `[CesiumViewport][forma] massing rendered: ${walls.length} wall volume(s)` +
+        `${boundary && boundary.length >= 3 ? ' + parcel boundary' : ''}` +
+        ` at LAT ${originLat} LON ${originLon} (area ≈ ${Math.round(areaM2)} m²).`
+    );
+  }
+
+  /**
+   * FORMA.3 — fly the camera to the NW oblique framing (heading 325°,
+   * pitch −45°, altitude ∝ √areaM2) centred on the boundary centroid (SPEC
+   * §4.5). Public so a "Zoom to Site" / "Reset View" affordance can repeat it.
+   * No-op until `renderFormaMassing` has set the origin.
+   */
+  public flyToFormaSite(): void {
+    const viewer = this.viewer;
+    const o = this.formaMassingOrigin;
+    if (!viewer || !o) {
+      console.warn('[CesiumViewport][forma] flyToFormaSite: no massing placed yet — ignored.');
+      return;
+    }
+    try {
+      // Re-derive the centroid Cartesian via the SAME ENU anchor as placement.
+      const originCartesian = Cesium.Cartesian3.fromDegrees(o.lon, o.lat, 0);
+      const enu = Cesium.Transforms.eastNorthUpToFixedFrame(originCartesian);
+      const centroidCartesian = Cesium.Matrix4.multiplyByPoint(
+        enu,
+        new Cesium.Cartesian3(o.centroidEast, o.centroidNorth, 0),
+        new Cesium.Cartesian3()
+      );
+      const carto = Cesium.Cartographic.fromCartesian(centroidCartesian);
+      const alt = Cesium.Math.clamp(
+        FORMA_FLY_ALT_K * Math.sqrt(Math.max(1, o.areaM2)),
+        FORMA_FLY_ALT_MIN_M,
+        FORMA_FLY_ALT_MAX_M
+      );
+      const destination = Cesium.Cartesian3.fromRadians(carto.longitude, carto.latitude, alt);
+      viewer.camera.flyTo({
+        destination,
+        orientation: {
+          heading: Cesium.Math.toRadians(FORMA_FLY_HEADING_DEG),
+          pitch: Cesium.Math.toRadians(FORMA_FLY_PITCH_DEG),
+          roll: 0,
+        },
+        duration: FORMA_FLY_DURATION_S,
+      });
+      viewer.scene.requestRender();
+      console.log(
+        `[CesiumViewport][forma] NW oblique flyTo: heading ${FORMA_FLY_HEADING_DEG}°, ` +
+          `pitch ${FORMA_FLY_PITCH_DEG}°, alt ${Math.round(alt)} m.`
+      );
+    } catch (e) {
+      console.warn('[CesiumViewport][forma] flyToFormaSite failed:', e);
+    }
+  }
+
+  /**
+   * FORMA.3 — remove all authored-massing + boundary entities (idempotent) and
+   * clear the silhouette selection. Called before each re-render and on dispose.
+   */
+  public clearFormaMassing(): void {
+    const viewer = this.viewer;
+    if (viewer) {
+      for (const ent of this.formaMassingEntities) {
+        try {
+          viewer.entities.remove(ent);
+        } catch {
+          /* already gone */
+        }
+      }
+    }
+    this.formaMassingEntities = [];
+    this.setFormaSilhouetteTargets([]);
+  }
+
+  /**
+   * FORMA.4 STUB — the single live-update re-render seam. FORMA.4 wires this to
+   * `site.parcel-boundary-set` / `apartment.layout-executed` (clear + re-place,
+   * NO camera re-fly) and adds terrain clamping. For FORMA.3 it just re-runs the
+   * last placement (without re-flying) when a caller supplies fresh input.
+   */
+  public rerenderFormaMassing(input: Parameters<CesiumViewport['renderFormaMassing']>[0]): void {
+    this.renderFormaMassing({ ...input, frameCentroid: false });
+  }
+
+  /**
+   * Build a wall's footprint ring: the baseLine segment widened by its thickness
+   * into a 4-vertex rectangle (CCW in scene-XZ). Returns null for a degenerate
+   * (zero-length) segment.
+   */
+  private wallFootprintRing(
+    a: { x: number; z: number },
+    b: { x: number; z: number },
+    thickness: number
+  ): Array<{ x: number; z: number }> | null {
+    const dx = b.x - a.x;
+    const dz = b.z - a.z;
+    const len = Math.hypot(dx, dz);
+    if (len < 1e-4) return null;
+    const half = Math.max(0.01, thickness) / 2;
+    // Left-hand normal in XZ: (−dz, dx)/len.
+    const nx = (-dz / len) * half;
+    const nz = (dx / len) * half;
+    return [
+      { x: a.x + nx, z: a.z + nz },
+      { x: b.x + nx, z: b.z + nz },
+      { x: b.x - nx, z: b.z - nz },
+      { x: a.x - nx, z: a.z - nz },
+    ];
+  }
+
+  /**
+   * Polygon centroid (area-weighted) + absolute area of a scene-XZ ring,
+   * returned in ENU metres (`east = x`, `north = −z`). Used to frame the NW
+   * oblique camera on the plot centre with an altitude ∝ √area.
+   */
+  private polygonCentroidAndAreaXZ(
+    ring: ReadonlyArray<{ x: number; z: number }>
+  ): { east: number; north: number; area: number } {
+    let signedArea = 0;
+    let cx = 0;
+    let cz = 0;
+    for (let i = 0; i < ring.length; i++) {
+      const p = ring[i]!;
+      const q = ring[(i + 1) % ring.length]!;
+      const cross = p.x * q.z - q.x * p.z;
+      signedArea += cross;
+      cx += (p.x + q.x) * cross;
+      cz += (p.z + q.z) * cross;
+    }
+    signedArea *= 0.5;
+    if (Math.abs(signedArea) < 1e-6) {
+      // Degenerate — fall back to the vertex average.
+      let ax = 0;
+      let az = 0;
+      for (const p of ring) {
+        ax += p.x;
+        az += p.z;
+      }
+      ax /= ring.length;
+      az /= ring.length;
+      return { east: ax, north: -az, area: 0 };
+    }
+    cx /= 6 * signedArea;
+    cz /= 6 * signedArea;
+    return { east: cx, north: -cz, area: Math.abs(signedArea) };
+  }
+
   public setVisible(visible: boolean): void {
     if (this.container) {
       this.container.style.display = visible ? "block" : "none";
@@ -863,6 +1191,14 @@ export class CesiumViewport {
 
   public dispose(): void {
     console.log("Disposing Cesium...");
+
+    // FORMA.3 — drop any placed massing/boundary entities first.
+    try {
+      this.clearFormaMassing();
+    } catch (e) {
+      console.warn('[CesiumViewport] forma massing dispose failed:', e);
+    }
+    this.formaMassingOrigin = null;
 
     // Drop the site.location-changed subscription so it doesn't leak across
     // project switches (a new CesiumViewport re-subscribes on its own mount).

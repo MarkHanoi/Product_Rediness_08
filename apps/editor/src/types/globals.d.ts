@@ -223,6 +223,23 @@ declare global {
         pryzmShowSiteResultView?: (initial?: '2D' | '3D') => void;
         /** O.7.2 — remove the post-generate dual-view toggle (e.g. on dispose). */
         pryzmHideSiteResultToggle?: () => void;
+        /** FORMA.3 — mount the floating [Plan View][3D View] toggle (top-right) and
+         *  land on the chosen view ('3d' Forma white-massing globe by default, or
+         *  'plan' cream 2D map). '3D View' calls cesiumViewport.setFormaMode + flies
+         *  the NW oblique camera + renders the authored footprints as white
+         *  extrusions; 'Plan View' reveals the 2D cream map. Registered by
+         *  GISAreaLayout. */
+        pryzmShowFormaView?: (initial?: 'plan' | '3d') => void;
+        /** FORMA.3 — remove the [Plan View][3D View] toggle. */
+        pryzmHideFormaView?: () => void;
+        /** FORMA.3/4 — re-read the authored footprints + boundary and (re)render the
+         *  Forma white massing into Cesium. `frame` repeats the NW oblique flyTo.
+         *  The FORMA.4 live-update seam (clear + re-place on edit). Registered by
+         *  GISAreaLayout. */
+        pryzmRenderFormaMassing?: (frame?: boolean) => void;
+        /** FORMA.2 — toggle the Cesium Forma massing render mode directly. Registered
+         *  by CesiumViewport at mount. */
+        pryzmSetCesiumFormaMode?: (on: boolean) => void;
         /** §HELP — prints every pryzm…() console command for the apartment
          *  generation pipeline (apartment → ceiling → furnish → lighting). */
         pryzmShowApartmentHelp?: () => void;
