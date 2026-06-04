@@ -17,6 +17,10 @@
 
 export { climateIngestEpw } from './climateIngestEpw.js';
 export { climateRefreshNoaa } from './climateRefreshNoaa.js';
+export {
+    climateEnsureForLocation,
+    type ClimateEnsureDeps,
+} from './climateEnsureForLocation.js';
 export { climateResolveSite } from './climateResolveSite.js';
 export { climateInvalidateCache } from './climateInvalidateCache.js';
 export { climateSolarSample } from './climateSolarSample.js';
@@ -25,6 +29,8 @@ export { climateWindRose } from './climateWindRose.js';
 export {
     ClimateIngestEpwPayloadSchema,
     ClimateRefreshNoaaPayloadSchema,
+    ClimateEnsureForLocationPayloadSchema,
+    type ClimateEnsureForLocationPayload,
     ClimateResolveSitePayloadSchema,
     ClimateInvalidateCachePayloadSchema,
     ClimateSolarSamplePayloadSchema,

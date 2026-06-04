@@ -671,6 +671,13 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         if (!cesiumViewport?.setFormaSunTime) return; // Cesium not mounted / no FORMA.5 API.
         const viewportEl = document.getElementById('container');
         if (!viewportEl) return;
+        // A.10.f — populate the ClimateStore for the site's lat/lon so the
+        // FORMA.5 climate card + ClimatePanel show REAL data (offline bundled
+        // normals by default; the controls re-render via their climateStore
+        // subscription once this resolves). Fire-and-forget; never blocks.
+        import('../climate/ensureSiteClimate')
+            .then(({ ensureSiteClimate }) => ensureSiteClimate(runtime ?? null))
+            .catch((e) => console.warn('[gis][forma] ensureSiteClimate failed:', e));
         import('../geospatial/FormaSiteAnalysisControls')
             .then(({ FormaSiteAnalysisControls }) => {
                 // Re-check: the user may have flipped back to plan before this resolved.
