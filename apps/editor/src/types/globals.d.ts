@@ -237,6 +237,10 @@ declare global {
          *  The FORMA.4 live-update seam (clear + re-place on edit). Registered by
          *  GISAreaLayout. */
         pryzmRenderFormaMassing?: (frame?: boolean) => void;
+        /** FORMA.4 — drop the live-update subscriptions (site.parcel-boundary-set /
+         *  apartment.layout-executed) that re-place the Forma massing in 3D.
+         *  Registered by GISAreaLayout. */
+        pryzmDisposeFormaLiveUpdate?: () => void;
         /** FORMA.2 — toggle the Cesium Forma massing render mode directly. Registered
          *  by CesiumViewport at mount. */
         pryzmSetCesiumFormaMode?: (on: boolean) => void;

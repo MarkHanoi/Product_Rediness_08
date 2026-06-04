@@ -122,6 +122,21 @@ export class CesiumViewport {
     | { lat: number; lon: number; centroidEast: number; centroidNorth: number; areaM2: number }
     | null = null;
 
+  // ---- FORMA.4 — coordinate bridge: terrain clamp + live-update cache ----
+  /** Ground height (metres above the ellipsoid) sampled at the boundary
+   *  centroid, used as the Z base of every extrusion + the boundary overlay so
+   *  buildings sit on sloped ground. 0 until a terrain sample succeeds. */
+  private formaTerrainBaseHeight = 0;
+  /** The (lat,lon) the terrain height was last sampled at — so a live-update
+   *  only re-samples terrain when the centroid actually moves (SPEC §4.6 /
+   *  task #2 "re-clamp terrain only when the centroid changes"). */
+  private formaTerrainSampledAt: { lat: number; lon: number } | null = null;
+  /** One-time guard so the "terrain sample failed → base 0" warning logs once. */
+  private formaTerrainWarned = false;
+  /** Monotonic token serialising overlapping async terrain samples — only the
+   *  latest placement's clamp is allowed to commit (newer placement wins). */
+  private formaTerrainToken = 0;
+
   /** Phase B (S73-WIRE) — runtime threaded by parent. */
   public readonly runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null;
 
@@ -900,11 +915,16 @@ export class CesiumViewport {
    * Old massing entities are cleared before re-rendering. Idempotent + safe to
    * call before/after `setFormaMode(true)` (it forces Forma mode on).
    *
-   * SCOPE (FORMA.4 deferred): NO `sampleTerrainMostDetailed` clamp and NO
-   * `LTPENURebase.setOrigin` precondition handling — extrusions are seated at a
-   * flat base height of 0. The `rerenderFormaMassing` hook below is the single
-   * live-update seam FORMA.4 will drive on `site.parcel-boundary-set` /
-   * `apartment.layout-executed`.
+   * FORMA.4 — TERRAIN CLAMP (SPEC §4.3, task #1): every extrusion + the boundary
+   * overlay is seated at `this.formaTerrainBaseHeight`, the ground height sampled
+   * at the boundary centroid via `sampleTerrainMostDetailed`, so buildings sit on
+   * sloped ground rather than at ellipsoid 0. The sample is async; we place
+   * immediately at the LAST KNOWN base height (0 on first run), then kick off
+   * `clampTerrainThenReplace()` which re-samples and re-places once the height is
+   * known. If there is no terrain provider, the sample rejects, or the height is
+   * NaN → we fall back to base 0 and log once (never crash). The sample is
+   * skipped entirely when the centroid hasn't moved since the last clamp (task #2
+   * "re-clamp terrain only when the centroid changes").
    */
   public renderFormaMassing(input: {
     /** Site geographic origin = the ENU anchor (scene origin). */
@@ -921,6 +941,12 @@ export class CesiumViewport {
     }>;
     /** When true, fly the camera to the NW oblique framing after placing (§4.5). */
     frameCentroid?: boolean;
+    /**
+     * Internal (FORMA.4) — when true, this call is the second pass AFTER a
+     * terrain sample, so we must NOT kick off another async clamp (avoids an
+     * infinite re-sample loop). External callers leave this unset.
+     */
+    _skipTerrainClamp?: boolean;
   }): void {
     const viewer = this.viewer;
     if (!viewer) {
@@ -933,6 +959,10 @@ export class CesiumViewport {
     this.clearFormaMassing();
 
     const { originLat, originLon, boundary, walls } = input;
+    // FORMA.4 — base Z for every extrusion/overlay = the terrain height sampled
+    // at the centroid (0 until the first successful sample, kept across the
+    // immediate placement so the clamp doesn't flash).
+    const baseHeight = this.formaTerrainBaseHeight;
     // ONE ENU frame at the site origin (= scene origin). scene-XZ → ENU is then
     // (east = x, north = −z) with this single matrix (SPEC §4.2).
     const originCartesian = Cesium.Cartesian3.fromDegrees(originLon, originLat, 0);
@@ -954,13 +984,14 @@ export class CesiumViewport {
       for (const w of walls) {
         const ring = this.wallFootprintRing(w.a, w.b, w.thickness);
         if (!ring) continue;
-        const positions = ring.map((p) => toCartesian(p.x, p.z, 0));
+        const positions = ring.map((p) => toCartesian(p.x, p.z, baseHeight));
         const ent = viewer.entities.add({
           name: 'pryzm-forma-massing-wall',
           polygon: {
             hierarchy: new Cesium.PolygonHierarchy(positions),
-            extrudedHeight: Math.max(0.1, w.height),
-            height: 0,
+            // FORMA.4 — seat on terrain: base + extrude to base + height.
+            extrudedHeight: baseHeight + Math.max(0.1, w.height),
+            height: baseHeight,
             material: Cesium.Color.fromCssColorString(FORMA_PALETTE.proposedFill),
             outline: true,
             outlineColor: Cesium.Color.fromCssColorString(FORMA_PALETTE.silhouette),
@@ -984,13 +1015,13 @@ export class CesiumViewport {
     let areaM2 = 0;
     if (boundary && boundary.length >= 3) {
       try {
-        const positions = boundary.map((p) => toCartesian(p.x, p.z, 0.05));
+        const positions = boundary.map((p) => toCartesian(p.x, p.z, baseHeight + 0.05));
         const ent = viewer.entities.add({
           name: 'pryzm-forma-parcel-boundary',
           polygon: {
             hierarchy: new Cesium.PolygonHierarchy(positions),
             material: Cesium.Color.fromCssColorString(FORMA_PALETTE.boundaryLine).withAlpha(0.08),
-            height: 0.05,
+            height: baseHeight + 0.05,
             outline: false,
           },
         });
@@ -1035,8 +1066,109 @@ export class CesiumViewport {
     console.log(
       `[CesiumViewport][forma] massing rendered: ${walls.length} wall volume(s)` +
         `${boundary && boundary.length >= 3 ? ' + parcel boundary' : ''}` +
-        ` at LAT ${originLat} LON ${originLon} (area ≈ ${Math.round(areaM2)} m²).`
+        ` at LAT ${originLat} LON ${originLon} (area ≈ ${Math.round(areaM2)} m², base ${baseHeight.toFixed(1)} m).`
     );
+
+    // FORMA.4 — kick off the async terrain clamp at the boundary centroid. This
+    // re-samples + re-places ONLY if the centroid has moved since the last clamp
+    // (task #2). Never blocks the placement above (the toggle stays responsive).
+    if (!input._skipTerrainClamp) {
+      void this.clampTerrainThenReplace(input);
+    }
+  }
+
+  /**
+   * FORMA.4 — terrain clamp (SPEC §4.3, task #1). Samples the ground height at
+   * the boundary centroid (or the site origin when no boundary is drawn) via
+   * `Cesium.sampleTerrainMostDetailed`, then re-places the massing seated at that
+   * height. Fully guarded:
+   *   • no terrain provider / `EllipsoidTerrainProvider` (the keyless default) →
+   *     returns height 0, which is the correct flat-ground base (no-op re-place).
+   *   • sample rejects OR returns NaN → fall back to base 0, log once, no crash.
+   *   • centroid unchanged since the last clamp → skip the sample entirely
+   *     (task #2 "re-clamp terrain only when the centroid changes").
+   *   • a newer placement supersedes this one → its token wins; we bail.
+   * Headless / no-Cesium-token: `viewer.terrainProvider` is the ellipsoid
+   * provider (height 0) so this degrades to base 0 silently.
+   */
+  private async clampTerrainThenReplace(
+    input: Parameters<CesiumViewport['renderFormaMassing']>[0],
+  ): Promise<void> {
+    const viewer = this.viewer;
+    if (!viewer) return;
+
+    // Sample point = boundary centroid (lat/lon) when drawn, else the origin.
+    let sampleLat = input.originLat;
+    let sampleLon = input.originLon;
+    if (input.boundary && input.boundary.length >= 3) {
+      const c = this.polygonCentroidAndAreaXZ(input.boundary);
+      // ENU (east, north) → lat/lon via the same anchor used for placement.
+      const originCartesian = Cesium.Cartesian3.fromDegrees(input.originLon, input.originLat, 0);
+      const enu = Cesium.Transforms.eastNorthUpToFixedFrame(originCartesian);
+      const centroidCartesian = Cesium.Matrix4.multiplyByPoint(
+        enu,
+        new Cesium.Cartesian3(c.east, c.north, 0),
+        new Cesium.Cartesian3(),
+      );
+      const carto = Cesium.Cartographic.fromCartesian(centroidCartesian);
+      sampleLat = Cesium.Math.toDegrees(carto.latitude);
+      sampleLon = Cesium.Math.toDegrees(carto.longitude);
+    }
+
+    // task #2 — skip the (expensive, network) sample if the centroid is where we
+    // already clamped. ~1e-6° ≈ 0.1 m, well under terrain LOD resolution.
+    const prev = this.formaTerrainSampledAt;
+    if (prev && Math.abs(prev.lat - sampleLat) < 1e-6 && Math.abs(prev.lon - sampleLon) < 1e-6) {
+      return;
+    }
+
+    const provider = viewer.terrainProvider as Cesium.TerrainProvider | undefined;
+    if (!provider) {
+      // No provider at all → flat base 0 (already placed). Record so we don't
+      // retry every event for the same centroid.
+      this.formaTerrainSampledAt = { lat: sampleLat, lon: sampleLon };
+      return;
+    }
+
+    const myToken = ++this.formaTerrainToken;
+    let sampledHeight = 0;
+    try {
+      const carto = Cesium.Cartographic.fromDegrees(sampleLon, sampleLat);
+      const [result] = await Cesium.sampleTerrainMostDetailed(provider, [carto]);
+      const h = result?.height;
+      sampledHeight = typeof h === 'number' && Number.isFinite(h) ? h : 0;
+      if (typeof h !== 'number' || !Number.isFinite(h)) {
+        this.warnTerrainOnce('sampled height was NaN/undefined — using base 0.');
+      }
+    } catch (e) {
+      this.warnTerrainOnce('sampleTerrainMostDetailed rejected — using base 0: ' + String(e));
+      sampledHeight = 0;
+    }
+
+    // A newer placement started after us — let it own the clamp; bail.
+    if (myToken !== this.formaTerrainToken || !this.viewer) return;
+
+    this.formaTerrainSampledAt = { lat: sampleLat, lon: sampleLon };
+
+    // If the height is effectively unchanged from what we already placed at,
+    // there is nothing to re-place (e.g. flat ellipsoid provider → 0 → 0).
+    if (Math.abs(sampledHeight - this.formaTerrainBaseHeight) < 1e-3) return;
+
+    this.formaTerrainBaseHeight = sampledHeight;
+    console.log(
+      `[CesiumViewport][forma] terrain clamp: base height ${sampledHeight.toFixed(2)} m ` +
+        `at LAT ${sampleLat.toFixed(6)} LON ${sampleLon.toFixed(6)} — re-placing.`,
+    );
+    // Re-place at the new base. `_skipTerrainClamp` prevents an infinite loop;
+    // `frameCentroid:false` so the re-place never re-flies the camera (task #2).
+    this.renderFormaMassing({ ...input, frameCentroid: false, _skipTerrainClamp: true });
+  }
+
+  /** Log the "terrain clamp degraded → base 0" message at most once. */
+  private warnTerrainOnce(reason: string): void {
+    if (this.formaTerrainWarned) return;
+    this.formaTerrainWarned = true;
+    console.warn('[CesiumViewport][forma] terrain clamp degraded (' + reason + ').');
   }
 
   /**
@@ -1107,10 +1239,13 @@ export class CesiumViewport {
   }
 
   /**
-   * FORMA.4 STUB — the single live-update re-render seam. FORMA.4 wires this to
-   * `site.parcel-boundary-set` / `apartment.layout-executed` (clear + re-place,
-   * NO camera re-fly) and adds terrain clamping. For FORMA.3 it just re-runs the
-   * last placement (without re-flying) when a caller supplies fresh input.
+   * FORMA.4 — the single live-update re-render seam. Wired (in GISAreaLayout) to
+   * `site.parcel-boundary-set` / `apartment.layout-executed`: clear + re-place
+   * the entities from fresh authored walls + boundary, WITHOUT re-flying the
+   * camera (`frameCentroid:false` — the user keeps their current viewpoint and
+   * sees the massing update in place; only the explicit 3D-activation / Zoom-to-
+   * Site flies). Terrain is re-sampled by `renderFormaMassing` only when the
+   * centroid moved (task #2).
    */
   public rerenderFormaMassing(input: Parameters<CesiumViewport['renderFormaMassing']>[0]): void {
     this.renderFormaMassing({ ...input, frameCentroid: false });
@@ -1199,6 +1334,11 @@ export class CesiumViewport {
       console.warn('[CesiumViewport] forma massing dispose failed:', e);
     }
     this.formaMassingOrigin = null;
+    // FORMA.4 — reset the terrain-clamp cache so a re-mounted viewport (project
+    // switch) re-samples ground height for the new site.
+    this.formaTerrainBaseHeight = 0;
+    this.formaTerrainSampledAt = null;
+    this.formaTerrainToken++;
 
     // Drop the site.location-changed subscription so it doesn't leak across
     // project switches (a new CesiumViewport re-subscribes on its own mount).

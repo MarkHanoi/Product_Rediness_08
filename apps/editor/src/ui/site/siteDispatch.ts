@@ -25,6 +25,77 @@ import {
     type SiteModelStore,
 } from '@pryzm/stores';
 import type { ParcelEdgeClassification } from '@pryzm/schemas';
+import { GeospatialAdapter } from '@pryzm/geospatial';
+
+// ── FORMA.4 / C19 §1.3 — LTP-ENU origin rebase at the draw surface ───────────
+//
+// C19 §1.3 requires `site.updateLocation` to set the LTP-ENU frame origin to the
+// real site lat/lon (this is what makes 3D real-world placement accurate). The
+// editor runtime's `geospatial` slot is a stub (throws), and `LTPENURebase` was
+// never instantiated at this surface — the documented follow-up that this wires.
+//
+// We keep ONE process-wide `GeospatialAdapter` (it bundles proj4 + LTPENURebase
+// and exposes `setOrigin`). The UTM CRS is derived from the site longitude the
+// FIRST time an origin is set; thereafter `setOrigin` just moves the origin.
+//
+// BOUNDARY-SHIFT HAZARD (task #3) — analysis:
+//   The draw surface projects the boundary via `boundaryProjection.latLonToSceneXZ`
+//   which takes the origin as an EXPLICIT ARGUMENT at commit time and bakes XZ
+//   relative to it (see boundaryProjection.ts + SiteBoundaryDrawTool.commit()).
+//   It does NOT read this shared adapter. So `setOrigin` here CANNOT retroactively
+//   move an already-drawn boundary's XZ — the two are decoupled by construction.
+//   The real (pre-existing, orthogonal) risk is SEMANTIC: if a boundary was
+//   already projected about origin A and we now rebase the ENU frame to a
+//   DIFFERENT origin B, the committed XZ no longer shares the frame's origin.
+//   To stay safe + deterministic we therefore set the origin ONLY WHEN NO PARCEL
+//   BOUNDARY EXISTS YET. Once a boundary is committed the origin is frozen to the
+//   frame that boundary was projected in (the boundary-draw tool always records
+//   its projection origin as the Site location first, so they already agree).
+//   When a boundary already exists we skip the rebase and log the choice.
+let _ltpAdapter: GeospatialAdapter | null = null;
+
+/** Derive a Proj4 UTM string for the given longitude (zones are 6° wide). */
+function utmProj4StringForLon(lat: number, lon: number): string {
+    const zone = Math.max(1, Math.min(60, Math.floor((lon + 180) / 6) + 1));
+    const south = lat < 0 ? ' +south' : '';
+    return `+proj=utm +zone=${zone}${south} +datum=WGS84 +units=m +no_defs`;
+}
+
+/**
+ * C19 §1.3 — set the LTP-ENU frame origin to the real site lat/lon, but ONLY when
+ * no parcel boundary has been committed yet (see the boundary-shift hazard note
+ * above). Idempotent + fully guarded — never throws into the dispatch path.
+ */
+function setLtpOriginIfSafe(ctx: SiteContext, lat: number, lon: number): void {
+    try {
+        // A 0/0 location is the `ensureSite` placeholder — not a real origin.
+        if (lat === 0 && lon === 0) return;
+
+        const boundary = ctx.store.getParcelBoundary?.();
+        if (boundary && Array.isArray(boundary.polygon) && boundary.polygon.length >= 3) {
+            console.log(
+                '[gis] LTPENURebase.setOrigin SKIPPED — a parcel boundary is already committed; ' +
+                'keeping the origin the boundary was projected in (C19 §1.3 boundary-shift guard).',
+            );
+            return;
+        }
+
+        if (!_ltpAdapter) {
+            _ltpAdapter = new GeospatialAdapter({
+                proj4String: utmProj4StringForLon(lat, lon),
+                origin: { lat, lon, elev: 0 },
+            });
+            console.log(`[gis] LTPENURebase origin set (first) → LAT ${lat} LON ${lon} (C19 §1.3).`);
+        } else {
+            _ltpAdapter.setOrigin(lat, lon, 0);
+            console.log(`[gis] LTPENURebase.setOrigin → LAT ${lat} LON ${lon} (C19 §1.3).`);
+        }
+    } catch (e) {
+        // Origin-rebase is best-effort site intelligence; never block the location
+        // dispatch (the lat/lon is still recorded on the Site for IFC export).
+        console.warn('[gis] LTPENURebase.setOrigin failed (non-fatal):', e);
+    }
+}
 
 /** A point on the (x,z) ground plane in scene metres. */
 export interface XZPoint {
@@ -114,11 +185,11 @@ export function ensureSite(
  * `site.updateLocation` handler, emitting `site.location-changed`. Creates the
  * Site first if it does not exist yet. Returns true on success.
  *
- * NOTE (simplification, same as createSiteFromRect §171): this does NOT yet call
- * `LTPENURebase.setOrigin` — wiring the geo-origin rebase is a follow-up (the
- * adapter seam per C19 §1.3). For parcel-scale authoring the scene origin stays
- * at the current frame; the lat/lon is recorded on the Site for IFC export +
- * future site intelligence.
+ * C19 §1.3 (FORMA.4 precondition): the LTP-ENU frame origin is now rebased to the
+ * real site lat/lon SYNCHRONOUSLY before `site.location-changed` emits, via
+ * `setLtpOriginIfSafe` — this is what makes the Cesium 3D placement real-world
+ * accurate. The rebase is guarded to run only when no parcel boundary exists yet
+ * (boundary-shift hazard — see the note on `setLtpOriginIfSafe`).
  */
 export function dispatchSiteLocation(
     ctx: SiteContext,
@@ -135,6 +206,8 @@ export function dispatchSiteLocation(
         ctx.toast(`Set location failed: ${locRes.message}`, 'error');
         return false;
     }
+    // C19 §1.3 — rebase the LTP-ENU origin BEFORE emitting the event (guarded).
+    setLtpOriginIfSafe(ctx, location.latitude, location.longitude);
     console.log('[gis] site.location-changed', locRes.event);
     ctx.rt.events?.emit('site.location-changed', locRes.event);
     return true;
