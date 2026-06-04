@@ -15,8 +15,12 @@
 import { describe, it, expect } from 'vitest';
 import {
     buildSiteMap2DStyle,
+    buildFormaMap2DStyle,
     buildSatelliteStyle,
     HEKTAR_PALETTE,
+    FORMA_PALETTE,
+    FORMA_BOUNDARY_DASH,
+    FORMA_BOUNDARY_WIDTH,
     SHADOW_OFFSET,
     OMT_SOURCE,
     BUILDING_SOURCE_LAYER,
@@ -94,6 +98,74 @@ describe('buildSiteMap2DStyle (Hektar OpenFreeMap cream/shadow)', () => {
 
     it('exposes PRYZM violet as the boundary-ring colour', () => {
         expect(HEKTAR_PALETTE.violet).toBe('#6600FF');
+    });
+});
+
+describe('buildFormaMap2DStyle (FORMA.1 — Autodesk-Forma minimal-vector)', () => {
+    it('produces a valid v8 vector style with off-white land background first', () => {
+        const style = buildFormaMap2DStyle();
+        expect(style.version).toBe(8);
+        expect(style.glyphs).toBe(OPENFREEMAP_GLYPHS);
+
+        const ids = style.layers.map((l) => l['id']);
+        expect(ids[0]).toBe('land-background');
+        const bg = style.layers[0] as Record<string, any>;
+        expect(bg['paint']['background-color']).toBe(FORMA_PALETTE.land);
+
+        // Reuses the SAME keyless OpenFreeMap vector source (no provider swap).
+        const src = (style.sources as any)[OMT_SOURCE];
+        expect(src.type).toBe('vector');
+        expect(src.url).toBe(OPENFREEMAP_TILEJSON);
+        expect(String(src.attribution)).toContain('OpenStreetMap');
+    });
+
+    it('uses the Forma palette: off-white land, grey roads, pale blue-grey water', () => {
+        expect(FORMA_PALETTE.land).toBe('#F0EDE8');
+        expect(FORMA_PALETTE.road).toBe('#D9D6CF');
+        expect(FORMA_PALETTE.water).toBe('#C8DCE8');
+        const style = buildFormaMap2DStyle();
+        const water = style.layers.find((l) => l['id'] === 'water') as Record<string, any>;
+        expect(water['paint']['fill-color']).toBe(FORMA_PALETTE.water);
+        const road = style.layers.find((l) => l['id'] === 'road-major') as Record<string, any>;
+        expect(road['paint']['line-color']).toBe(FORMA_PALETTE.road);
+    });
+
+    it('renders abstract building footprints as subtle light fills with faint outlines', () => {
+        const style = buildFormaMap2DStyle();
+        const fill = style.layers.find((l) => l['id'] === 'buildings-fill') as Record<string, any>;
+        expect(fill).toBeDefined();
+        expect(fill['source-layer']).toBe(BUILDING_SOURCE_LAYER);
+        expect(fill['paint']['fill-color']).toBe(FORMA_PALETTE.buildingFill);
+        expect(fill['paint']['fill-outline-color']).toBe(FORMA_PALETTE.buildingStroke);
+        // No drop-shadow layer — Forma is flat/abstract, not the Hektar float look.
+        expect(style.layers.map((l) => l['id'])).not.toContain('buildings-shadow');
+    });
+
+    it('has NO POI icons and NO satellite layer (SPEC §8 NON-GOALS), only thin labels', () => {
+        const ids = buildFormaMap2DStyle().layers.map((l) => l['id']);
+        expect(ids).not.toContain('poi');
+        expect(ids).not.toContain('poi-label');
+        expect(ids).not.toContain('satellite');
+        // Minimal labels are present but thin/grey.
+        expect(ids).toContain('road-label');
+        expect(ids).toContain('place-label');
+        const style = buildFormaMap2DStyle();
+        const placeLabel = style.layers.find((l) => l['id'] === 'place-label') as Record<string, any>;
+        expect(placeLabel['paint']['text-color']).toBe(FORMA_PALETTE.label);
+    });
+
+    it('exposes the dashed-green boundary spec (8/6 → [4,3] at 2px width)', () => {
+        expect(FORMA_PALETTE.boundary).toBe('#2D6A4F');
+        expect(FORMA_PALETTE.boundaryFill).toBe('rgba(45, 106, 79, 0.08)');
+        expect(FORMA_BOUNDARY_WIDTH).toBe(2);
+        expect([...FORMA_BOUNDARY_DASH]).toEqual([4, 3]);
+    });
+
+    it('swaps to a faint extrusion when extrude is set (still abstract, no shadow)', () => {
+        const ids = buildFormaMap2DStyle({ extrude: true }).layers.map((l) => l['id']);
+        expect(ids).toContain('buildings-3d');
+        expect(ids).not.toContain('buildings-fill');
+        expect(ids).not.toContain('buildings-shadow');
     });
 });
 
