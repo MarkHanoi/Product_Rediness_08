@@ -35,10 +35,13 @@ export const ONBOARDING_STYLES = `
   display: flex;
   flex-direction: column;
   width: min(420px, 92vw);
-  /* Content-sized: cap height so a long transcript scrolls, but DON'T reserve a
-     tall empty box up-front. The card is only as tall as its content until the cap. */
+  /* Content-sized: cap height so a long transcript/brief form scrolls, but DON'T
+     reserve a tall empty box up-front. The card is only as tall as its content
+     until the cap. O.13.e — cap to the viewport (min(86vh, …)) so the panel
+     ALWAYS fits and the sticky footer CTA is never pushed below the fold; the
+     middle (transcript + brief form) is the scroll region, header + footer pin. */
   height: auto;
-  max-height: min(72vh, 620px);
+  max-height: min(86vh, 720px);
   /* Frosted glass (MasterMiawW): translucent white + blur so the canvas shows through. */
   background: rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(24px) saturate(1.2);
@@ -89,9 +92,12 @@ export const ONBOARDING_STYLES = `
    body — the founder's "heading clipped under the header / low-contrast" fix.
    It does not scroll with the transcript, so the question stays anchored. */
 .rac-onboarding-overlay .rac-body-heading {
+  /* Pinned (never scrolls) directly under the gradient header. O.13.e — extra
+     top clearance (1.05rem) so the first line is fully visible and never reads
+     as clipped under the header bar. */
   flex: 0 0 auto;
   margin: 0;
-  padding: 0.85rem 0.9rem 0.55rem;
+  padding: 1.05rem 0.9rem 0.55rem;
   font-size: 0.98rem;
   font-weight: 700;
   line-height: 1.35;
@@ -101,8 +107,11 @@ export const ONBOARDING_STYLES = `
 .rac-onboarding-overlay .rac-body-heading[hidden] { display: none; }
 .rac-onboarding-overlay .rac-transcript {
   /* GROW with messages, don't reserve an empty box: no flex-grow, no min-height.
-     The card shrinks to fit 0-1 turns and only scrolls past the max-height cap. */
+     The card shrinks to fit 0-1 turns and only scrolls past the max-height cap.
+     min-height:0 lets this flex child actually shrink below its content so the
+     sticky footer is never pushed out of the (overflow:hidden) card. */
   flex: 0 1 auto;
+  min-height: 0;
   overflow-y: auto;
   padding: 0.7rem 0.85rem;
   display: flex;
@@ -219,13 +228,20 @@ export const ONBOARDING_STYLES = `
    bottom bar: full-bleed prominent purple primary + a de-emphasised ghost
    Cancel. 'flex: 0 0 auto' keeps it pinned below the scrollable transcript. */
 .rac-onboarding-overlay .rac-footer {
+  /* O.13.e — pinned bottom action bar. flex:0 0 auto keeps it out of the
+     scroll-shrink, and position:sticky + bottom:0 guarantees the primary CTA
+     is ALWAYS visible at the panel bottom (never below the fold) even as the
+     transcript/brief middle scrolls. */
   flex: 0 0 auto;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: 0.5rem;
   padding: 0.65rem 0.85rem 0.7rem;
   border-top: 1px solid rgba(102, 0, 255, 0.10);
-  background: rgba(250, 250, 252, 0.7);
+  background: rgba(250, 250, 252, 0.92);
 }
 .rac-onboarding-overlay .rac-footer[hidden] { display: none; }
 .rac-onboarding-overlay .rac-footer-cancel {
@@ -268,6 +284,12 @@ export const ONBOARDING_STYLES = `
    text). Scoped under .rac-onboarding-overlay so it inherits the glass card +
    #6600FF accents. White + purple only (founder rule: NO black). */
 .rac-onboarding-overlay .rac-brief {
+  /* O.13.e — the brief form is part of the SCROLLABLE middle: it shrinks
+     (flex:1 1 auto + min-height:0) and scrolls internally past the cap so
+     the sticky footer CTA below it stays visible (never pushed off the bottom). */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
