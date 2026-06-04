@@ -27,15 +27,33 @@
  */
 
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
+import type { NoaaFetchImpl } from '@pryzm/climate-host';
 import { climateEnsureForLocation } from '@pryzm/stores';
+import { makeLiveClimateFetch } from './liveClimateFetch.js';
+
+/** Options for `ensureSiteClimate`. */
+export interface EnsureSiteClimateOptions {
+    /**
+     * The live normals fetch to inject. Defaults to the keyless Open-Meteo +
+     * PVGIS adapter (`makeLiveClimateFetch()`), which uses the browser
+     * `fetch`. Pass `null` to force the bundled offline default (e.g. a
+     * privacy-sensitive deployment), or a stub in tests.
+     */
+    readonly fetchImpl?: NoaaFetchImpl | null;
+}
 
 /**
  * Ensure the active site has a resolved ClimateDataset. Returns `true`
  * when a dataset is present afterwards (whether newly ingested or already
  * there), `false` when nothing could be ingested (no site / no location).
+ *
+ * ONLINE → live Open-Meteo + PVGIS normals (tier `noaa-normals`).
+ * OFFLINE / failure → bundled climate-zone templates (`fallback-defaults`).
+ * The downgrade is transparent + never throws into the caller.
  */
 export async function ensureSiteClimate(
     runtime: PryzmRuntime | null,
+    opts: EnsureSiteClimateOptions = {},
 ): Promise<boolean> {
     if (!runtime) return false;
     let site;
@@ -49,6 +67,13 @@ export async function ensureSiteClimate(
     }
     if (!site || !loc) return false;
 
+    // Live keyless fetch (Open-Meteo + PVGIS) unless the caller opts out.
+    // `undefined` (no global fetch / opted out) → bundled offline default.
+    const fetchImpl =
+        opts.fetchImpl === null
+            ? undefined
+            : (opts.fetchImpl ?? makeLiveClimateFetch());
+
     try {
         const result = await climateEnsureForLocation(
             {
@@ -61,8 +86,9 @@ export async function ensureSiteClimate(
             },
             {
                 store: runtime.climateStore,
-                // No fetchImpl → bundled offline default (fallback-defaults).
-                // Inject a NOAA NCEI client here to upgrade to noaa-normals.
+                // ONLINE → live Open-Meteo + PVGIS (tier noaa-normals);
+                // failure / offline → bundled (fallback-defaults), C21 §7.4.
+                fetchImpl,
             },
         );
         if (!result.ok) {

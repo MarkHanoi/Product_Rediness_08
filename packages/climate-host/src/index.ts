@@ -54,4 +54,23 @@ export {
     type ResolvedNormals,
     type ResolveNormalsOptions,
     type NoaaFetchImpl,
+    type LiveNormalsResult,
 } from './noaaNormalsReader.js';
+
+// ── Live KEYLESS normals adapter (CLIMATE-LIVE-DATA) ─────────────────────
+// Open-Meteo (primary, temp + wind) + PVGIS (secondary, GHI) → 12 NOAANormal.
+// PURE: caller injects a `fetch`-like; returns null on any failure (→ the
+// reader's bundled fallback). The L5 editor wires the browser `fetch`.
+export {
+    fetchLiveNormals,
+    mapOpenMeteoToNormals,
+    mapPvgisMonthlyGhi,
+    buildOpenMeteoUrl,
+    buildPvgisUrl,
+    OPEN_METEO_CLIMATE_ENDPOINT,
+    PVGIS_MRCALC_ENDPOINT,
+    OPEN_METEO_ORIGIN,
+    PVGIS_ORIGIN,
+    type FetchLike,
+    type LiveNormalsAdapterOptions,
+} from './liveNormalsAdapter.js';
