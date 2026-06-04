@@ -83,7 +83,15 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 runtime: runtime ?? null,
                 initial: getMapInitial(),
                 getOrigin: getSiteOrigin,
+                // O.7.2.b — CANCEL (Esc / ×) disposes the map → drop the handle.
                 onClose: () => { map2dHandle = null; },
+                // O.7.2.b — COMMIT does NOT dispose: the cream map + boundary stay
+                // alive so the onboarding "Generate with AI?" confirm renders over a
+                // live plan map. Keep `map2dHandle` so closeBoundaryMap2D() (called at
+                // generate-time) can tear it down.
+                onCommit: () => {
+                    console.log('[gis] map2d: boundary committed — keeping cream plan map alive (teardown deferred to generate).');
+                },
             });
             console.log('[gis] map2d: Hektar 2D boundary-draw map opened');
         }).catch((err: unknown) => {
@@ -97,6 +105,19 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             map2dHandle = null;
         }
         boundaryTool?.cancel();
+    };
+
+    // O.7.2.b — explicit teardown of the (possibly committed-but-still-live) 2D
+    // Hektar map. After a boundary COMMIT the map stays mounted showing the drawn
+    // boundary (so the "Generate with AI?" confirm renders over a live cream plan
+    // map); it is disposed ONLY here, at generate-time. Idempotent + double-dispose
+    // safe (the handle's dispose() guards on `disposed`, and we null the handle).
+    const closeBoundaryMap2D = (): void => {
+        if (map2dHandle) {
+            console.log('[gis] map2d: closeBoundaryMap2D() — tearing down the cream plan map at generate-time.');
+            map2dHandle.dispose();
+            map2dHandle = null;
+        }
     };
 
     // F.11.4 Wave 14 — runtime.geospatial.isConfigured wiring.
@@ -361,17 +382,20 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         }
     };
 
-    // O.7.2 — the post-generate DUAL-VIEW toggle. Founder-tested twice: after
-    // "Generate apartment" the LEFT pane went BLANK because the cream 2D Hektar map
-    // disposes itself on boundary-commit (SiteBoundaryMap2D.commit → dispose) and the
-    // onboarding flow then force-activated the BIM 3D view WITHOUT turning GIS off —
-    // leaving the orphaned, poorly-framed Cesium overlay (display:block, zIndex 20)
-    // covering the BIM canvas. Nothing usable was visible.
+    // O.7.2 / O.7.2.b — the post-generate DUAL-VIEW toggle. Founder-tested twice:
+    // after "Generate apartment" the LEFT pane went BLANK. ORIGINAL root cause: the
+    // cream 2D Hektar map disposed itself on boundary-COMMIT and the onboarding flow
+    // then force-activated the BIM 3D view WITHOUT turning GIS off — leaving the
+    // orphaned Cesium overlay over the BIM canvas. O.7.2.b ALSO fixes the upstream
+    // half: commit() now FREEZES (keeps the cream map + boundary alive) so the
+    // confirm renders over a live plan map; the map is disposed ONLY here, at
+    // generate-time (showSiteResultView → closeBoundaryMap2D).
     //
-    // The fix: after generate, DEFAULT to the BIM plan view (GIS off → the user sees
-    // their generated apartment over the site, not white) and give an explicit,
-    // on-brand control to flip to Cesium-3D (the building on the globe, re-framed to
-    // the plot) and back. Reuses the existing toggleGIS + view-switch plumbing.
+    // The result landing: DEFAULT to the BIM DUAL-PANE (GIS off → LEFT 3D viewport ·
+    // RIGHT 2D plan via SplitViewManager — the user sees their generated apartment,
+    // not white) and give an explicit, on-brand control to flip to the Cesium-3D
+    // globe (the building on the globe, re-framed to the plot) and back. Reuses the
+    // existing toggleGIS + view-switch + split-view plumbing.
     let resultToggle: HTMLElement | null = null;
     let resultViewMode: '2D' | '3D' = '2D';
     let btn2dRef: HTMLButtonElement | null = null;
@@ -396,6 +420,28 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         styleResultBtn(btn3dRef, resultViewMode === '3D');
     };
 
+    // O.7.2.b — land the generated result on the FIXED DUAL-PANE: LEFT = 3D
+    // viewport, RIGHT = 2D plan (the editor's SplitViewManager secondary pane). GIS
+    // off reveals the BIM canvas; activating the 3D view + opening the split-view
+    // gives the founder-specified "LEFT 3D · RIGHT plan" without the Cesium globe.
+    const applyBimDualPane = async (): Promise<void> => {
+        if (_gisActive) toggleGIS(false);
+        try {
+            if (props._viewController) await props._viewController.activate('3D');
+            else if (props.navManager) { props.grid.fade = true; await props.navManager.setViewMode('3D' as any); }
+        } catch (err) {
+            console.warn('[gis] applyBimDualPane: 3D activation failed (non-fatal):', err);
+        }
+        // Open the secondary plan pane (RIGHT). Idempotent — activate() is a no-op
+        // when already active; auto-open on project-load may already have run.
+        try {
+            const svp = window.splitViewManager as { isActive?: boolean; activate?: () => void } | undefined;
+            if (svp?.activate && !svp.isActive) svp.activate();
+        } catch (err) {
+            console.warn('[gis] applyBimDualPane: split-view activate failed (non-fatal):', err);
+        }
+    };
+
     const applyResultView = async (mode: '2D' | '3D'): Promise<void> => {
         resultViewMode = mode;
         if (mode === '3D') {
@@ -404,16 +450,9 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // toggleGIS mounts Cesium async on first use; give it a beat, then frame.
             setTimeout(() => { void reframeSiteIn3D(); }, 350);
         } else {
-            // Hand the pane back to the BIM plan view: GIS off reveals the generated
-            // apartment in the editor canvas. Use the top-down plan so the result
-            // reads like a site plan (matching the cream 2D map the user drew on).
-            if (_gisActive) toggleGIS(false);
-            try {
-                if (props._viewController) await props._viewController.activate('Top');
-                else if (props.navManager) { props.grid.fade = false; await props.navManager.setViewMode('Top' as any); }
-            } catch (err) {
-                console.warn('[gis] applyResultView(2D): plan activation failed (non-fatal):', err);
-            }
+            // O.7.2.b — '2D' now means the BIM DUAL-PANE (LEFT 3D · RIGHT plan), the
+            // founder-specified post-generate landing, not the Cesium globe.
+            await applyBimDualPane();
         }
         refreshResultButtons();
     };
@@ -429,6 +468,11 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             console.error('[gis] showSiteResultView: #container not found');
             return;
         }
+        // O.7.2.b — GENERATE-TIME teardown of the cream 2D plan map. After the
+        // boundary commit the map stayed alive (so the confirm step rendered over a
+        // live plan map); this is the ONLY place it is disposed — reached exclusively
+        // via the onboarding "Generate" action's pryzmShowSiteResultView() handoff.
+        closeBoundaryMap2D();
         if (viewport.style.position !== 'absolute' && viewport.style.position !== 'relative') {
             viewport.style.position = 'relative';
         }
@@ -461,7 +505,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             b.addEventListener('click', () => { void applyResultView(mode); });
             return b;
         };
-        btn2dRef = mkBtn('2D', '◳ 2D plan');
+        btn2dRef = mkBtn('2D', '◧ 3D + plan');
         btn3dRef = mkBtn('3D', '◉ 3D globe');
         bar.appendChild(btn2dRef);
         bar.appendChild(btn3dRef);
@@ -477,6 +521,11 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // INSTEAD of force-activating the BIM 3D view over an orphaned Cesium overlay.
     window.pryzmShowSiteResultView = (initial?: '2D' | '3D') => showSiteResultView(initial ?? '2D');
     window.pryzmHideSiteResultToggle = () => removeResultToggle();
+    // O.7.2.b — explicit generate-time teardown of the cream 2D plan map. The
+    // onboarding "Generate" handler may call this directly; showSiteResultView()
+    // also calls closeBoundaryMap2D() so the map is gone before the result view
+    // mounts. Idempotent + double-dispose safe.
+    window.pryzmCloseBoundaryMap2D = () => closeBoundaryMap2D();
 
     // O.2 — onboarding step-controller GIS-activation handoff. The guided
     // first-run flow (OnboardingStepController) has no clean runtime hook to

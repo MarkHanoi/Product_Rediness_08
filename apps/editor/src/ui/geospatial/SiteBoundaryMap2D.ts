@@ -107,19 +107,36 @@ export interface SiteBoundaryMap2DOptions {
      * default — the plan-view look is the tasteful default.
      */
     readonly extrude?: boolean;
-    /** Called after a successful commit OR cancel, so the host can dispose. */
+    /**
+     * Called after CANCEL (Esc / ×), so the host can drop its handle. NOT called on
+     * commit — O.7.2.b keeps the cream map + boundary alive after commit; teardown
+     * then happens only at generate-time via the returned `dispose()`.
+     */
     readonly onClose?: () => void;
+    /**
+     * O.7.2.b — called after a successful boundary COMMIT (Enter / double-click).
+     * The map is NOT disposed: it stays mounted showing the drawn boundary while the
+     * onboarding "Generate with AI?" confirm step renders OVER it. The host uses this
+     * to advance the flow; it must dispose the map ONLY at generate-time (via the
+     * handle's `dispose()` or `window.pryzmCloseBoundaryMap2D`).
+     */
+    readonly onCommit?: () => void;
 }
 
 /**
  * Mount the 2D Hektar boundary-draw overlay. Returns a handle with `dispose()`.
  * The overlay covers `parent`, captures pointer events, and renders a close (×)
  * button + a short instruction chip.
+ *
+ * O.7.2.b — `commit()` FREEZES (not disposes): it sets the boundary, detaches the
+ * draw handlers, and leaves the cream map + violet boundary rendered so the
+ * "Generate with AI?" confirm step appears over a live plan map. Call `dispose()`
+ * (or `window.pryzmCloseBoundaryMap2D`) at generate-time to tear it down.
  */
 export function mountSiteBoundaryMap2D(
     opts: SiteBoundaryMap2DOptions,
 ): { dispose: () => void; readonly element: HTMLElement } {
-    const { parent, runtime, getOrigin, onClose } = opts;
+    const { parent, runtime, getOrigin, onClose, onCommit } = opts;
 
     // ── Overlay shell ─────────────────────────────────────────────────────────
     const overlay = document.createElement('div');
@@ -251,6 +268,11 @@ export function mountSiteBoundaryMap2D(
     const vertices: LatLon[] = [];
     let draggingIdx: number | null = null;
     let disposed = false;
+    // O.7.2.b — set true by commit(). The map + boundary stay rendered, but draw
+    // handlers are detached and the instruction/Esc/close affordances are frozen so
+    // no further vertices can be added. The map is disposed ONLY later, at
+    // generate-time, via dispose().
+    let committed = false;
     // A.8.c.g — the live snap target under the cursor (null = no snap; click uses
     // the raw lngLat). Updated on every mousemove while drawing.
     let snapTarget: SnapTarget | null = null;
@@ -485,7 +507,7 @@ export function mountSiteBoundaryMap2D(
 
     // ── Draw interactions ─────────────────────────────────────────────────────
     function onClick(e: MapMouseEvent): void {
-        if (disposed) return;
+        if (disposed || committed) return;
         // Ignore the click that ends a vertex-drag.
         if (draggingIdx !== null) return;
         // A.8.c.g — commit the snapped position when a snap is active, else raw.
@@ -504,6 +526,7 @@ export function mountSiteBoundaryMap2D(
     }
 
     function onDblClick(e: MapMouseEvent): void {
+        if (disposed || committed) return;
         e.preventDefault();
         // The dblclick fires after two single clicks already added two vertices;
         // they are the intended last corner (duplicated) — drop one before commit.
@@ -514,6 +537,7 @@ export function mountSiteBoundaryMap2D(
 
     // Vertex drag-to-edit.
     function onMouseDownVertex(e: MapMouseEvent & { features?: GeoJSON.Feature[] }): void {
+        if (disposed || committed) return;
         const f = e.features?.[0];
         const idx = f?.properties?.['idx'];
         if (typeof idx !== 'number') return;
@@ -523,7 +547,7 @@ export function mountSiteBoundaryMap2D(
         map.getCanvas().style.cursor = 'grabbing';
     }
     function onMouseMove(e: MapMouseEvent): void {
-        if (disposed) return;
+        if (disposed || committed) return;
         if (draggingIdx !== null) {
             vertices[draggingIdx] = { lat: e.lngLat.lat, lon: e.lngLat.lng };
             refreshRing();
@@ -557,7 +581,7 @@ export function mountSiteBoundaryMap2D(
     }
 
     const keyListener = (ev: KeyboardEvent): void => {
-        if (disposed) return;
+        if (disposed || committed) return;
         if (ev.key === 'Enter') {
             ev.preventDefault();
             commit();
@@ -602,8 +626,43 @@ export function mountSiteBoundaryMap2D(
     satBtn.addEventListener('click', () => swapBasemap('satellite'));
 
     // ── Commit / cancel ───────────────────────────────────────────────────────
+
+    /**
+     * O.7.2.b — FREEZE the draw without disposing the map. Detach every draw
+     * interaction (so no further vertices/drags), drop the keyboard listener, and
+     * make the overlay non-interactive for drawing (hide the instruction chip; turn
+     * the × into a no-op visually — the host owns teardown now). The map + violet
+     * boundary stay rendered so the "Generate with AI?" confirm step appears over a
+     * live cream plan map. Idempotent.
+     */
+    function freezeDraw(): void {
+        if (committed) return;
+        committed = true;
+        // Detach map draw handlers (handlers also early-return on `committed`, so this
+        // is belt-and-braces against any in-flight event).
+        try {
+            map.off('click', onClick);
+            map.off('dblclick', onDblClick);
+            map.off('mousedown', VERTEX_LAYER, onMouseDownVertex);
+            map.off('mousemove', onMouseMove);
+            map.off('mouseup', onMouseUp);
+        } catch { /* map may be mid-teardown — defensive */ }
+        // Drop the global key listener (Enter/Esc) — the confirm step owns input now.
+        window.removeEventListener('keydown', keyListener);
+        // Clear any lingering snap indicator + draw cursor.
+        snapTarget = null;
+        try { refreshSnapIndicator(); } catch { /* style may be swapping */ }
+        try { map.getCanvas().style.cursor = ''; } catch { /* ignore */ }
+        // Freeze the chrome: the instruction chip + close (×) no longer apply (the
+        // overlay is now a passive backdrop for the confirm step). Hide them so the
+        // user isn't tempted to keep drawing/cancelling.
+        chip.style.display = 'none';
+        closeBtn.style.display = 'none';
+        console.log('[gis] map2d: boundary committed — draw frozen, cream map + boundary kept alive (dispose deferred to generate-time).');
+    }
+
     function commit(): void {
-        if (disposed) return;
+        if (disposed || committed) return;
         if (vertices.length < 3) {
             toast(`Need at least 3 corners (have ${vertices.length}).`, 'error');
             console.warn('[gis] map2d: <3 vertices, not closing');
@@ -618,6 +677,7 @@ export function mountSiteBoundaryMap2D(
         console.log(`[gis] map2d: ${built.polygon.length} XZ pts`, built.polygon, built.edgeClassifications);
 
         const ctx = resolveSiteContext(runtime);
+        // No site context = a genuine failure; we can't set a boundary, so tear down.
         if (!ctx) { dispose(); return; }
 
         // Record the projection origin as the Site location if it had none (so the
@@ -633,12 +693,15 @@ export function mountSiteBoundaryMap2D(
         if (ok) {
             const area = signedAreaAbs(built.polygon);
             ctx.toast(
-                `Site boundary set — ${built.polygon.length} corners (~${area.toFixed(0)} m²). ` +
-                `Switch to the 3D view to see it, or run pryzmGenerateApartmentFromBoundary().`,
+                `Site boundary set — ${built.polygon.length} corners (~${area.toFixed(0)} m²).`,
                 'success',
             );
         }
-        dispose();
+        // O.7.2.b — FREEZE, don't dispose: keep the cream map + boundary alive so the
+        // "Generate with AI?" confirm step renders over a live plan map. The host
+        // (onboarding flow) disposes the map only when the user picks "Generate".
+        freezeDraw();
+        onCommit?.();
     }
 
     function cancel(): void {
