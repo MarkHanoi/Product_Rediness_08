@@ -84,6 +84,21 @@ export const ONBOARDING_STYLES = `
   color: #ffffff;
   border: 1px solid rgba(255, 255, 255, 0.35);
 }
+/* O.13.c — dedicated body heading. Sits FULLY below the gradient header bar
+   (its own top margin clears the header) with dark, readable text on the white
+   body — the founder's "heading clipped under the header / low-contrast" fix.
+   It does not scroll with the transcript, so the question stays anchored. */
+.rac-onboarding-overlay .rac-body-heading {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0.85rem 0.9rem 0.55rem;
+  font-size: 0.98rem;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  color: #1a1a2e;
+}
+.rac-onboarding-overlay .rac-body-heading[hidden] { display: none; }
 .rac-onboarding-overlay .rac-transcript {
   /* GROW with messages, don't reserve an empty box: no flex-grow, no min-height.
      The card shrinks to fit 0-1 turns and only scrolls past the max-height cap. */
@@ -197,6 +212,55 @@ export const ONBOARDING_STYLES = `
   cursor: pointer;
 }
 .rac-onboarding-overlay .rac-send:hover { background: #5500dd; }
+
+/* ── O.13.d — sticky bottom action bar (prominent primary CTA) ───────────────
+   The advance action used to be a small chip at the TOP next to Cancel — the
+   founder couldn't tell what to click to proceed. The CTA now lives in a pinned
+   bottom bar: full-bleed prominent purple primary + a de-emphasised ghost
+   Cancel. 'flex: 0 0 auto' keeps it pinned below the scrollable transcript. */
+.rac-onboarding-overlay .rac-footer {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 0.85rem 0.7rem;
+  border-top: 1px solid rgba(102, 0, 255, 0.10);
+  background: rgba(250, 250, 252, 0.7);
+}
+.rac-onboarding-overlay .rac-footer[hidden] { display: none; }
+.rac-onboarding-overlay .rac-footer-cancel {
+  flex: 0 0 auto;
+  padding: 0.6rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid rgba(102, 0, 255, 0.22);
+  background: transparent;
+  color: #6600ff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.rac-onboarding-overlay .rac-footer-cancel:hover {
+  border-color: #6600ff;
+  background: rgba(102, 0, 255, 0.06);
+}
+.rac-onboarding-overlay .rac-footer-primary {
+  flex: 1 1 auto;
+  padding: 0.7rem 1rem;
+  border-radius: 10px;
+  border: none;
+  background: #6600ff;
+  color: #fff;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  box-shadow: 0 2px 12px rgba(102, 0, 255, 0.28);
+}
+.rac-onboarding-overlay .rac-footer-primary:hover { background: #5500dd; }
+.rac-onboarding-overlay .rac-footer-primary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(102, 0, 255, 0.3);
+}
 
 /* ── O.12.b — DYNAMIC TYPOLOGY-BRIEF controls (rac-brief-*) ─────────────────────
    The RAC brief step renders the typology-declared briefSchema as compact,

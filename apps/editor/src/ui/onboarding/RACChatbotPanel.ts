@@ -130,6 +130,14 @@ export class RACChatbotPanel {
     private summaryEl: HTMLElement | null = null;
     private inputEl: HTMLInputElement | null = null;
     private errorEl: HTMLElement | null = null;
+    /** O.13.c — dedicated body heading (sits fully below the gradient header,
+     *  dark readable text). Surfaces the phase prompt as a real heading instead
+     *  of relying on the first transcript bubble. */
+    private bodyHeadingEl: HTMLElement | null = null;
+    /** O.13.d — sticky bottom action bar (prominent primary CTA + secondary
+     *  Cancel), shown only in the brief phase. */
+    private footerEl: HTMLElement | null = null;
+    private primaryCtaEl: HTMLButtonElement | null = null;
     /** O.12.b — host for the dynamic typology-brief controls (sliders/etc). */
     private briefFormEl: HTMLElement | null = null;
     /** O.12.b — the live dynamic brief form (built lazily in the brief phase). */
@@ -221,6 +229,18 @@ export class RACChatbotPanel {
         header.appendChild(phaseChip);
         root.appendChild(header);
 
+        // O.13.c — a dedicated body heading that ALWAYS sits fully below the
+        // gradient header bar (clear top spacing) with dark, readable text on
+        // the white body. Previously the phase prompt only appeared as the first
+        // transcript bubble, which butted up against the header and read as
+        // "clipped + low-contrast". Hidden when there's nothing to surface.
+        const bodyHeading = document.createElement('h3');
+        bodyHeading.className = 'rac-body-heading';
+        bodyHeading.setAttribute('data-testid', 'rac-body-heading');
+        bodyHeading.hidden = true;
+        this.bodyHeadingEl = bodyHeading;
+        root.appendChild(bodyHeading);
+
         const transcript = document.createElement('div');
         transcript.className = 'rac-transcript';
         transcript.setAttribute('data-testid', 'rac-transcript');
@@ -281,6 +301,39 @@ export class RACChatbotPanel {
         });
         root.appendChild(inputRow);
 
+        // O.13.d — sticky bottom action bar. The advance action used to be a
+        // small "Mark brief complete" chip near the TOP (next to Cancel), so the
+        // "what do I click to proceed?" was unclear. The primary CTA now lives
+        // here, full-width and prominent (#6600FF), pinned to the panel bottom;
+        // Cancel is de-emphasised to a ghost button. Shown only in the brief
+        // phase (toggled in render()).
+        const footer = document.createElement('div');
+        footer.className = 'rac-footer';
+        footer.setAttribute('data-testid', 'rac-footer');
+        footer.hidden = true;
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'rac-footer-cancel';
+        cancelBtn.setAttribute('data-testid', 'rac-chip-cancel');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.addEventListener('click', () => this.dispatch({ type: 'cancel' }));
+
+        const primary = document.createElement('button');
+        primary.type = 'button';
+        primary.className = 'rac-footer-primary';
+        // Keep the legacy test id so existing selectors still resolve, plus a
+        // semantic CTA id.
+        primary.setAttribute('data-testid', 'rac-chip-mark-brief-complete');
+        primary.textContent = 'Continue →';
+        primary.addEventListener('click', () => this.dispatch({ type: 'mark-brief-complete' }));
+        this.primaryCtaEl = primary;
+
+        footer.appendChild(cancelBtn);
+        footer.appendChild(primary);
+        this.footerEl = footer;
+        root.appendChild(footer);
+
         // ── Drag + resize chrome (founder feedback 2026-06-03) ────────────────
         // Draggable by the header (cursor:move in CSS); inputs/buttons in the
         // header are excluded so a click on them doesn't start a drag. The header
@@ -322,6 +375,9 @@ export class RACChatbotPanel {
         this.briefFormEl = null;
         this.inputEl = null;
         this.errorEl = null;
+        this.bodyHeadingEl = null;
+        this.footerEl = null;
+        this.primaryCtaEl = null;
     }
 
     // ── internals ────────────────────────────────────────────────────────
@@ -343,6 +399,21 @@ export class RACChatbotPanel {
         if (this.phaseChipEl) {
             this.phaseChipEl.textContent = labelForPhase(this.state.phase);
             this.phaseChipEl.setAttribute('data-phase', this.state.phase);
+        }
+
+        // O.13.c — surface the phase prompt as a real heading below the header.
+        // When the transcript is empty the same prompt renders in its empty
+        // bubble, so only promote it to the dedicated heading once the transcript
+        // has scrolled past it (turns > 0) — this is the case the founder hit in
+        // the brief phase where the heading was buried under the header bar.
+        if (this.bodyHeadingEl) {
+            const heading = defaultPromptForPhase(this.state);
+            const showHeading = !!heading
+                && this.state.turns.length > 0
+                && this.state.phase !== 'ready'
+                && this.state.phase !== 'cancelled';
+            this.bodyHeadingEl.textContent = showHeading ? heading : '';
+            this.bodyHeadingEl.hidden = !showHeading;
         }
 
         if (this.transcriptEl) {
@@ -401,6 +472,21 @@ export class RACChatbotPanel {
             this.inputEl.placeholder = this.briefForm
                 ? 'Anything else? (optional)'
                 : 'Type your reply…';
+        }
+
+        // O.13.d — the prominent bottom CTA bar is the brief-phase advance path.
+        // Shown only while awaiting the brief; the primary label names the next
+        // action ("Generate apartment →" when a typology is captured, else a
+        // neutral "Continue →").
+        if (this.footerEl) {
+            const inBrief = this.state.phase === 'awaiting-brief';
+            this.footerEl.hidden = !inBrief;
+            if (inBrief && this.primaryCtaEl) {
+                const typology = this.state.captured.typologyId;
+                this.primaryCtaEl.textContent = typology
+                    ? `Generate ${typology} →`
+                    : 'Continue →';
+            }
         }
     }
 
@@ -519,12 +605,9 @@ export class RACChatbotPanel {
                 return;
             }
             case 'awaiting-brief': {
-                host.appendChild(this.makeChip('Mark brief complete', () =>
-                    this.dispatch({ type: 'mark-brief-complete' }),
-                ));
-                host.appendChild(this.makeChip('Cancel', () =>
-                    this.dispatch({ type: 'cancel' }),
-                ));
+                // O.13.d — the advance ("Mark brief complete") + Cancel actions
+                // moved to the prominent sticky bottom footer (`.rac-footer`), so
+                // the suggestion row stays empty in the brief phase.
                 return;
             }
             case 'ready':
