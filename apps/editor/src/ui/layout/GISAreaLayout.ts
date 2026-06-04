@@ -770,9 +770,55 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         formaThreeBtn = null;
     };
 
-    // FORMA.4 STUB — single live-update seam. FORMA.4 will subscribe this to
-    // 'site.parcel-boundary-set' / 'apartment.layout-executed' (clear + re-place,
-    // no re-fly) + terrain clamp. For FORMA.3 it is callable on demand.
+    // ════════════════════════════════════════════════════════════════════════
+    // FORMA.4 — live-update: re-place the massing on boundary/layout edits (§4.6)
+    // ════════════════════════════════════════════════════════════════════════
+    //
+    // The drawn boundary AND the authored apartment massing change AFTER the 3D
+    // view is up: the user commits a parcel (`site.parcel-boundary-set`) or the
+    // generator authors walls/doors (`apartment.layout-executed`). On either, we
+    // clear + re-place the Cesium entities from fresh PRYZM domain state.
+    //
+    // NO-RE-FLY GUARANTEE (task #2): live updates call renderFormaMassing(FALSE)
+    // — the camera never moves. Only the explicit 3D-activation (applyFormaView
+    // '3d') and the "Zoom to Site" button fly. The user stays at their current
+    // viewpoint and watches the massing update in place. Terrain is re-sampled
+    // by CesiumViewport ONLY when the centroid moves.
+    //
+    // Guard: only re-render when Cesium is mounted + the Forma 3D view is the
+    // active mode (no point rebuilding entities the user isn't looking at; they
+    // get rebuilt on the next 3D activation anyway, which reads live state).
+    const liveUpdateFormaMassing = (source: string): void => {
+        if (!cesiumViewport?.renderFormaMassing) return; // Cesium not mounted yet.
+        if (formaViewMode !== '3d') return;               // not looking at 3D.
+        console.log(`[gis][forma] live-update (${source}) → re-placing massing (no re-fly).`);
+        renderFormaMassing(false);
+    };
+
+    const formaLiveUpdateDisposers: Array<() => void> = [];
+    const subscribeFormaLiveUpdate = (): void => {
+        const events = runtime?.events;
+        if (!events || formaLiveUpdateDisposers.length > 0) return;
+        for (const evt of ['site.parcel-boundary-set', 'apartment.layout-executed'] as const) {
+            try {
+                const sub = events.on(evt, () => liveUpdateFormaMassing(evt));
+                // EventSubscription is callable-as-disposer.
+                formaLiveUpdateDisposers.push(() => { try { sub(); } catch { /* gone */ } });
+            } catch (e) {
+                console.warn(`[gis][forma] live-update subscribe to ${evt} failed:`, e);
+            }
+        }
+        console.log('[gis][forma] live-update subscribed: site.parcel-boundary-set + apartment.layout-executed.');
+    };
+    // Subscribe eagerly so an edit made before the user ever opens 3D is still
+    // reflected the next time 3D is shown (the guard short-circuits when not 3D).
+    subscribeFormaLiveUpdate();
+    window.pryzmDisposeFormaLiveUpdate = () => {
+        for (const d of formaLiveUpdateDisposers.splice(0)) d();
+    };
+
+    // FORMA.4 — on-demand re-render hook (console + programmatic). `frame` flies
+    // the NW oblique camera; live-update callers pass false (no re-fly).
     window.pryzmRenderFormaMassing = (frame?: boolean) => renderFormaMassing(frame ?? false);
     // FORMA.3 — mount the [Plan View][3D View] toggle (defaults to 3D so the
     // demo lands straight on the white massing). Mirrors pryzmShowSiteResultView.
