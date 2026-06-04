@@ -2,8 +2,11 @@
 # deploy-fly.yml — Continuous deployment to Fly.io.
 #
 # Canonical contract: ADR-055 (docs/02-decisions/adrs/ADR-055-one-pryzm-cloudflare-supabase.md).
-# Trigger: every push to `main`. Build + image creation happen on Fly's
-# remote builder (`--remote-only`), so this runner is just a thin orchestrator.
+# Trigger: every push to `main` (+ manual). The image is built ON THIS RUNNER
+# via `flyctl deploy --local-only` (GitHub's ubuntu-latest = 16GB RAM + Docker),
+# NOT on Fly's managed builder — that builder OOM-kills this ~6GB-heap, 3624-
+# module client build at exit 137 and cannot be resized from the CLI. The runner
+# pushes the finished image to Fly's registry.
 #
 # Prerequisites (one-time setup):
 #   1. `flyctl auth token` → store output as the `FLY_API_TOKEN` repo secret.
@@ -67,11 +70,13 @@ jobs:
         uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to Fly
-        # --remote-only: do NOT try to build locally on the runner (would need
-        #                Docker + 6GB RAM and would defeat Fly's build cache).
-        # --strategy=rolling: default for a single-machine app; explicit for clarity.
-        # The exit code is the deploy result — non-zero fails the job and the
-        # `environment` deployment status is auto-set to "failure".
-        run: flyctl deploy --remote-only --strategy=rolling
+        # --local-only: build the image with THIS runner's Docker daemon (16GB)
+        #   instead of Fly's managed builder, which OOM-kills this build at exit
+        #   137 (and can't be resized from the CLI). The runner then pushes the
+        #   finished image to Fly's registry — nothing builds/uploads from a dev box.
+        # --build-arg LOWMEM=0: full esbuild minify (the runner has the RAM the
+        #   managed builder lacked — see Dockerfile `ARG LOWMEM`).
+        # --strategy=rolling: explicit single-machine rolling bounce.
+        run: flyctl deploy --local-only --build-arg LOWMEM=0 --strategy=rolling
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
