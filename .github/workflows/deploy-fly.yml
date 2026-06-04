@@ -17,22 +17,20 @@
 name: Deploy to Fly.io
 
 on:
-  # MANUAL-ONLY during active daily development. Auto-deploy on every push to
-  # `main` was cancelling itself: rapid merges each kicked off a deploy and
-  # `cancel-in-progress` killed the older in-flight one ("The operation was
-  # canceled"). Trigger from the Actions tab → Run workflow when main is stable.
-  # Re-enable the push trigger once main is release-gated:
-  # push:
-  #   branches: [main]
-  #   paths-ignore: ['docs/**', '**/*.md', '.claude/**']
+  # Auto-deploy on every CODE push to `main` so the founder can test on production
+  # continuously. Doc/markdown/.claude changes are path-ignored (they can't affect
+  # the image), so a tracker edit never burns a deploy. Manual re-run still
+  # available via the Actions tab → Run workflow.
+  push:
+    branches: [main]
+    paths-ignore: ['docs/**', '**/*.md', '.claude/**']
   workflow_dispatch:
 
-# Serialize deploys but DO NOT cancel an in-flight one — a manual deploy must run
-# to completion (the build takes ~10-15 min on the runner). A second trigger
-# queues behind the first instead of killing it.
+# Latest-wins: a newer push to main cancels an older in-flight deploy so prod
+# always converges on the newest commit (correct for continuous deployment).
 concurrency:
   group: deploy-fly
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:
