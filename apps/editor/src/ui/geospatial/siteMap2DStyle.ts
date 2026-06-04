@@ -117,6 +117,24 @@ export interface Map2DStyleSpec {
 export const OMT_SOURCE = 'openmaptiles';
 export const BUILDING_SOURCE_LAYER = 'building';
 
+// ── MAP-DATA-OVERTURE — richer OSM/Overture context-building overlay ───────────
+// The base map's `building` source-layer (OpenFreeMap) is generalized + sparse.
+// We overlay a SECOND building source — a GeoJSON FeatureCollection of richer OSM
+// footprints fetched per-viewport from Overpass (see contextBuildings.ts) — drawn
+// ABOVE the base `building` layer so coverage gaps fill in. The source starts
+// EMPTY and is populated at runtime via `map.getSource(...).setData(...)`; if the
+// fetch fails the layer simply shows nothing (today's behaviour). Styled per the
+// active palette's building fill/stroke so it reads identically to the base
+// footprints. The id is shared so both the Hektar + Forma styles + the snap-query
+// (BUILDING_QUERY_LAYERS) can include it.
+
+/** GeoJSON source name for the richer OSM/Overture context footprints. */
+export const CONTEXT_BUILDINGS_SOURCE = 'pryzm-context-buildings';
+/** Flat-fill layer id for the context footprints (plan view). */
+export const CONTEXT_BUILDINGS_FILL_LAYER = 'context-buildings-fill';
+/** Outline layer id for the context footprints (hairline). */
+export const CONTEXT_BUILDINGS_LINE_LAYER = 'context-buildings-line';
+
 /**
  * Build the Hektar-style cream/shadow MapLibre style backed by OpenFreeMap vector
  * tiles. PURE — returns a plain JSON style object (no maplibre import). See module
@@ -407,6 +425,15 @@ export function buildFormaMap2DStyle(
             url: OPENFREEMAP_TILEJSON,
             attribution: OPENFREEMAP_ATTRIBUTION,
         },
+        // MAP-DATA-OVERTURE — richer OSM/Overture context footprints (starts empty;
+        // SiteBoundaryMap2D populates it per-viewport via setData). Drawn above the
+        // base `building` layer to fill OpenFreeMap's sparse coverage.
+        [CONTEXT_BUILDINGS_SOURCE]: {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] },
+            attribution:
+                'Buildings © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        },
     };
 
     const layers: Array<Record<string, unknown>> = [
@@ -499,6 +526,28 @@ export function buildFormaMap2DStyle(
             },
         });
     }
+
+    // ── MAP-DATA-OVERTURE — richer context footprints ABOVE the base buildings. ──
+    // Same palette fill + hairline outline as the base footprints so the overlay is
+    // visually seamless, just denser. Populated at runtime; empty until then.
+    layers.push({
+        id: CONTEXT_BUILDINGS_FILL_LAYER,
+        type: 'fill',
+        source: CONTEXT_BUILDINGS_SOURCE,
+        paint: {
+            'fill-color': P.buildingFill,
+            'fill-opacity': 0.9,
+        },
+    });
+    layers.push({
+        id: CONTEXT_BUILDINGS_LINE_LAYER,
+        type: 'line',
+        source: CONTEXT_BUILDINGS_SOURCE,
+        paint: {
+            'line-color': P.buildingStroke,
+            'line-width': 0.8,
+        },
+    });
 
     // ── Minimal labels — thin grey, no POI icons (SPEC §8 NON-GOALS). ──────────
     layers.push({

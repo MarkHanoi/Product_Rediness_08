@@ -47,6 +47,31 @@ describe('resolveNormals', () => {
         expect(res.monthlyNormals[0]!.avgDryBulbC).toBe(17); // 12 + seed 5
     });
 
+    it('honours provenance from a rich LiveNormalsResult (Open-Meteo)', async () => {
+        // CLIMATE-LIVE-DATA — a fetch may return {monthlyNormals, vendor, ...}.
+        const fetchImpl = vi.fn(async () => ({
+            monthlyNormals: fakeNormals(2),
+            vendor: 'Open-Meteo + PVGIS',
+            datasetVersion: 'open-meteo-climate-1991-2020',
+            license: 'CC-BY-4.0',
+        }));
+        const res = await resolveNormals(48, 2, { fetchImpl });
+        expect(res.tier).toBe('noaa-normals'); // still the generic "live" tier
+        expect(res.vendor).toBe('Open-Meteo + PVGIS');
+        expect(res.datasetVersion).toBe('open-meteo-climate-1991-2020');
+        expect(res.license).toBe('CC-BY-4.0');
+        expect(res.monthlyNormals[0]!.avgDryBulbC).toBe(14); // 12 + seed 2
+    });
+
+    it('degrades to bundled when a rich result carries an invalid normals array', async () => {
+        const fetchImpl = vi.fn(async () => ({
+            monthlyNormals: fakeNormals().slice(0, 6), // not 12 → fails .length
+            vendor: 'Open-Meteo + PVGIS',
+        }));
+        const res = await resolveNormals(12, 12, { fetchImpl });
+        expect(res.tier).toBe('bundled');
+    });
+
     it('caches by quantised lat/lon — second resolve is a cache hit', async () => {
         await resolveNormals(35.68, 139.69); // Tokyo
         expect(normalsCacheSize()).toBe(1);
