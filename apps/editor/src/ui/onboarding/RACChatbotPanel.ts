@@ -129,6 +129,9 @@ export class RACChatbotPanel {
     private suggestionsEl: HTMLElement | null = null;
     private summaryEl: HTMLElement | null = null;
     private inputEl: HTMLInputElement | null = null;
+    /** The free-text reply row (input + Send). Hidden in the schema brief case so
+     *  the form's own `notes` field is the single "anything else" capture. */
+    private inputRowEl: HTMLElement | null = null;
     private errorEl: HTMLElement | null = null;
     /** O.13.c — dedicated body heading (sits fully below the gradient header,
      *  dark readable text). Surfaces the phase prompt as a real heading instead
@@ -281,6 +284,7 @@ export class RACChatbotPanel {
         const inputRow = document.createElement('form');
         inputRow.className = 'rac-input-row';
         inputRow.setAttribute('data-testid', 'rac-input-row');
+        this.inputRowEl = inputRow;
         const input = document.createElement('input');
         input.type = 'text';
         input.className = 'rac-input';
@@ -374,6 +378,7 @@ export class RACChatbotPanel {
         this.summaryEl = null;
         this.briefFormEl = null;
         this.inputEl = null;
+        this.inputRowEl = null;
         this.errorEl = null;
         this.bodyHeadingEl = null;
         this.footerEl = null;
@@ -463,15 +468,18 @@ export class RACChatbotPanel {
             }
         }
 
+        // Single input path: when the structured brief form is live, the form's
+        // own `notes` ("anything else") field is the sole supplementary capture,
+        // so the redundant free-text reply row + its "Send" button are hidden
+        // entirely (they read as the primary CTA and confused the founder). The
+        // free-text row is kept ONLY for the no-schema fallback typologies.
+        if (this.inputRowEl) {
+            this.inputRowEl.hidden = !!this.briefForm;
+        }
         if (this.inputEl) {
             const closed = this.state.phase === 'ready' || this.state.phase === 'cancelled';
             this.inputEl.disabled = closed;
-            // O.12.b — when the dynamic brief form is live, the free-text box is a
-            // SUPPLEMENTARY hint ("anything else"), not the primary capture, so
-            // re-cue the placeholder. Restore the default cue otherwise.
-            this.inputEl.placeholder = this.briefForm
-                ? 'Anything else? (optional)'
-                : 'Type your reply…';
+            this.inputEl.placeholder = 'Type your reply…';
         }
 
         // O.13.d — the prominent bottom CTA bar is the brief-phase advance path.
