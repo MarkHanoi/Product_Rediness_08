@@ -103,6 +103,19 @@ export class PlatformRouter {
      */
     public readonly runtime: PryzmRuntime;
     private popStateHandler: ((e: PopStateEvent) => void) | null = null;
+    /**
+     * O.15 RESIDUAL — the single engine-loading overlay for the current
+     * open gesture.  Held on the router (not minted inside
+     * `_openProjectViaRuntime`) so the brief→create path can paint it
+     * SYNCHRONOUSLY — before the `await client.create` hop — closing the
+     * sub-second blank that used to show between hiding the hub and the
+     * loader.  `_ensureEngineLoadingOverlay()` is show-once/idempotent:
+     * the first caller constructs + shows it; later callers (the existing
+     * `_openProjectViaRuntime` mount) reuse the same instance, so there is
+     * no double-mount flash.  Cleared on hide/error so the next open
+     * gesture mints a fresh overlay.
+     */
+    private engineOverlay: EngineLoadingOverlay | null = null;
 
     private constructor(
         root: HTMLElement,
@@ -760,10 +773,26 @@ export class PlatformRouter {
         // the download has started by project-create time even on that path; it's a
         // no-op if showOnboarding already kicked it off.
         ensureEngineWarm();
+
+        // O.15 RESIDUAL — paint the engine-loading overlay SYNCHRONOUSLY now,
+        // before the async `client.create` hop below. The brief→create path
+        // hides `#platform-root` in `onBriefReady` (O.15) and then awaits
+        // `client.create` for a beat before `_openProjectViaRuntime` mounts the
+        // loader — leaving a sub-second blank (pastel page bg) where neither the
+        // hub nor the loader was painted. Showing the overlay here closes that
+        // gap: the loader is on screen continuously from the brief CTA through
+        // engine boot. `_ensureEngineLoadingOverlay` is show-once, so
+        // `_openProjectViaRuntime` reuses this exact instance (no double-mount /
+        // no fade-in or progress-timer restart). Done unconditionally — every
+        // caller of this method goes on to open a project, so the loader always
+        // belongs.
+        this._ensureEngineLoadingOverlay();
+
         void (async () => {
             try {
                 if (!this.runtime?.persistence?.client?.create) {
                     console.error('[PlatformRouter] createAndOpenProject — persistence client unavailable; cannot create project.');
+                    this._failEngineLoadingOverlay('Could not start a new project.');
                     return;
                 }
                 console.log(`[PlatformRouter] createAndOpenProject — creating "${name}".`);
@@ -773,12 +802,16 @@ export class PlatformRouter {
                 };
                 if (!summary?.id) {
                     console.error('[PlatformRouter] createAndOpenProject — create returned no id; cannot open.');
+                    this._failEngineLoadingOverlay('Could not create the project.');
                     return;
                 }
                 console.log(`[PlatformRouter] createAndOpenProject — created "${summary.name}" (${summary.id}); opening.`);
+                // `launchWorkspace` → `_openProjectViaRuntime` reuses the overlay
+                // shown synchronously above (show-once) and owns its hide/error.
                 this.launchWorkspace(summary.id, summary.name, { isNewProject: true });
             } catch (err) {
                 console.error('[PlatformRouter] createAndOpenProject failed (swallowed — onboarding flow unaffected):', err);
+                this._failEngineLoadingOverlay((err as Error)?.message ?? 'Could not create the project.');
             }
         })();
     }
@@ -817,6 +850,41 @@ export class PlatformRouter {
     }
 
     /**
+     * O.15 RESIDUAL — show the engine-loading overlay exactly once for the
+     * current open gesture, returning the (possibly pre-existing) instance.
+     *
+     * The first caller (the brief→create path, BEFORE `await client.create`)
+     * constructs the overlay and calls `show()`, so the loader paints
+     * synchronously the instant the hub is hidden — there is no blank frame.
+     * Subsequent callers (the existing `_openProjectViaRuntime` mount, and
+     * the plain hub-open path) reuse the same instance: `show()` is NOT
+     * re-invoked, so the fade-in / progress timers never restart and there is
+     * no double-mount flash.  The instance is cleared on `hide()`/error (in
+     * `_openProjectViaRuntime`) so the next open gesture mints a fresh one.
+     */
+    private _ensureEngineLoadingOverlay(): EngineLoadingOverlay {
+        if (this.engineOverlay) return this.engineOverlay;
+        const overlay = new EngineLoadingOverlay(this.runtime);
+        overlay.show();
+        this.engineOverlay = overlay;
+        return overlay;
+    }
+
+    /**
+     * O.15 RESIDUAL — surface a create-time failure on the synchronously-shown
+     * overlay so the loader never strands as a silent spinner when the
+     * `createAndOpenProject` create hop fails BEFORE `_openProjectViaRuntime`
+     * (where the normal hide/error lives). `showError` self-hides on a timeout
+     * and offers "Return to Hub"; we release the instance so a retry mints a
+     * fresh one. No-op if no overlay is currently shown.
+     */
+    private _failEngineLoadingOverlay(message: string): void {
+        if (!this.engineOverlay) return;
+        this.engineOverlay.showError(message);
+        this.engineOverlay = null;
+    }
+
+    /**
      * Async helper for `launchWorkspace`.  Drives the canonical
      * Phase C.3.01 wireup via `runtime.persistence.openProject(id)`.
      *
@@ -832,8 +900,12 @@ export class PlatformRouter {
         projectName: string,
         opts?: { isNewProject?: boolean },
     ): Promise<void> {
-        const overlay = new EngineLoadingOverlay(this.runtime);
-        overlay.show();
+        // O.15 RESIDUAL — reuse the overlay if the brief→create path already
+        // showed it (BEFORE `await client.create`); otherwise this is the
+        // first paint (plain hub-open path).  `_ensureEngineLoadingOverlay`
+        // is show-once, so the loader is continuous from the brief CTA through
+        // engine boot with no blank frame and no double-mount flash.
+        const overlay = this._ensureEngineLoadingOverlay();
 
         // Subscribe to typed openProgress events.  The pyramid keeps
         // spinning across phase transitions; we only flip the label
@@ -877,6 +949,9 @@ export class PlatformRouter {
             }
 
             overlay.hide();
+            // O.15 — open gesture complete; release the router-held instance so
+            // the next open mints a fresh overlay (this one is mid-fade-out).
+            this.engineOverlay = null;
         } catch (err) {
             // Error objects don't serialize structurally in console.error —
             // log message + stack explicitly so the failure shows up in logs
@@ -888,6 +963,9 @@ export class PlatformRouter {
                 '\n', e?.stack ?? '(no stack)',
             );
             overlay.showError(e?.message ?? String(err));
+            // O.15 — failed open; release the instance (showError self-hides on a
+            // timeout) so a retry mints a fresh overlay.
+            this.engineOverlay = null;
         } finally {
             sub.dispose();
         }
