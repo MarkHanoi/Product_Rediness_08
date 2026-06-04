@@ -624,6 +624,10 @@ export const ONBOARDING_STYLES = `
 .os-onboarding-overlay.os-onboarding-overlay--drawing {
   inset: auto 0 0 0;
   top: auto;
+  /* The base .os-onboarding-overlay centres via transform: translate(-50%,-50%).
+     This docked full-width banner MUST cancel it — otherwise the 100vw element is
+     shifted 50vw left (+ up), pushing the "Generate?" card off-screen to the left. */
+  transform: none;
   width: 100vw;
   height: auto;
   max-width: none;

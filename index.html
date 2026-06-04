@@ -261,78 +261,32 @@
         .lp-skel-hero-btn, .lp-skel-hero-btn-demo { width: 100%; text-align: center; }
       }
       /* Hide the landing skeleton for logged-in users — they will be routed
-         to the project hub, not the landing page.  Inline <script> below
-         sets `data-pryzm-auth="in"` on <html> from localStorage. */
+         to the project hub, not the landing page.  The external boot script
+         /app-shell-boot.js (referenced below) sets `data-pryzm-auth="in"` on
+         <html> from localStorage. */
       html[data-pryzm-auth="in"] [data-pryzm-skeleton="landing"] { display: none; }
     </style>
-    <script>
-      // App-Shell boot detection — runs before any module script.  Two jobs:
-      //   1. Set <html data-pryzm-auth="in"> if a session exists, so the
-      //      landing skeleton CSS rule above hides itself for logged-in users.
-      //   2. Capture pre-boot CTA clicks so users who tap the skeleton's
-      //      "Get started" / "Log in" buttons before LandingPage.ts has loaded
-      //      get their intent replayed once the real component mounts.
-      //      The real LandingPage drains `window.__pryzmPendingActions`.
-      (function () {
-        try {
-          if (localStorage.getItem('bim-platform-user')) {
-            document.documentElement.setAttribute('data-pryzm-auth', 'in');
-          }
-        } catch (_) { /* localStorage may be blocked */ }
-        window.__pryzmPendingActions = [];
-        window.__pryzmSkeletonClick = function (action) {
-          window.__pryzmPendingActions.push(action);
-        };
+    <!--
+      App-Shell boot script — EXTERNALIZED (was an inline <script> here).
 
-        // ── CSP: strict `script-src-attr 'none'` forbids inline DOM event
-        //    handler attributes (onclick="…").  The skeleton CTAs are wired
-        //    here via addEventListener instead.  Each button carries a
-        //    `data-skel-action` attribute naming the intent to queue.  Runs
-        //    on DOMContentLoaded because this <head> script executes before
-        //    the <body> skeleton markup is parsed.
-        document.addEventListener('DOMContentLoaded', function () {
-          var btns = document.querySelectorAll('[data-skel-action]');
-          btns.forEach(function (btn) {
-            btn.addEventListener('click', function () {
-              window.__pryzmSkeletonClick(btn.getAttribute('data-skel-action'));
-            });
-          });
-        });
+      CSP REGRESSION FIX: the production CSP (server/securityHeaders.js,
+      SCRIPT_SRC_PROD) grants 'self' + 'unsafe-eval' + blob: but NOT
+      'unsafe-inline', so an inline boot <script> is BLOCKED in prod (it only
+      ever worked on localhost, where dev CSP grants 'unsafe-inline'). The boot
+      logic now lives in /app-shell-boot.js (public/app-shell-boot.js, copied
+      verbatim to dist/ by Vite and served from 'self' by express.static).
 
-        // ── Wave 1.5c — opportunistic skeleton-mosaic image swap ─────────
-        // The skeleton renders 3 drifting rows of soft-tinted placeholder
-        // tiles using pure CSS (paints on first byte).  Here we kick off a
-        // /api/media-list fetch *before* any module script has been parsed.
-        // When it resolves (typically <50 ms on Replit), we swap each tile's
-        // background colour for the real building photo — so the user sees
-        // the actual mosaic far earlier than the ~12 s LandingPage.ts boot
-        // window.  If anything fails (offline, 404, slow), the coloured
-        // placeholders simply remain — there is no broken state.
-        try {
-          fetch('/api/media-list', { cache: 'no-store' })
-            .then(function (r) { return r.ok ? r.json() : { files: [] }; })
-            .then(function (data) {
-              var files = (data && data.files) || [];
-              var imgs = files.filter(function (f) {
-                var lower = f.toLowerCase();
-                return !lower.endsWith('.mp4') && !lower.endsWith('.webm') && !lower.endsWith('.mov');
-              });
-              if (imgs.length === 0) return;
-              var rows = document.querySelectorAll('[data-skel-row]');
-              rows.forEach(function (row, rowIdx) {
-                var tiles = row.querySelectorAll('.lp-skel-mosaic-tile');
-                tiles.forEach(function (tile, tileIdx) {
-                  var src = imgs[(tileIdx + rowIdx * 2) % imgs.length];
-                  tile.style.backgroundImage = "url('" + src + "')";
-                  tile.style.backgroundSize = 'cover';
-                  tile.style.backgroundPosition = 'center';
-                });
-              });
-            })
-            .catch(function () { /* network failure — placeholders stay */ });
-        } catch (_) { /* fetch unavailable — placeholders stay */ }
-      })();
-    </script>
+      ORDERING CONTRACT — do NOT change to type="module" / defer / async:
+      this is a CLASSIC SYNCHRONOUS script. It must execute here in <head>,
+      BEFORE the <body> landing skeleton paints (so data-pryzm-auth hides the
+      skeleton with no flash for logged-in users) and BEFORE the module entry
+      <script type="module" src="/src/main.ts"> at the end of <body>.
+      Because it is external + classic, the browser blocks HTML parsing until it
+      is fetched and run — preserving the original inline execution timing. As a
+      plain public/ asset Vite copies it verbatim (no minify/transform), so there
+      is no per-build hash to keep in sync with the CSP.
+    -->
+    <script src="/app-shell-boot.js"></script>
   </head>
   <body>
     <!-- S70 D7 — Skip link (WCAG SC 2.4.1: bypass blocks).  First focusable element. -->
