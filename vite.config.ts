@@ -195,6 +195,15 @@ export default defineConfig({
     // every module's source in the V8 heap during the Rollup emit phase.
     sourcemap: false,
 
+    // Don't gzip-measure every emitted chunk. The default (true) compresses each
+    // of the ~hundreds of output chunks in-memory just to print a size column —
+    // on this 2,800-file bundle that holds many MB of compressed buffers at the
+    // emit peak (right where Rollup is already at its heap high-water mark) and
+    // adds wall-clock. We ship content-hashed, server-gzipped assets, so the
+    // reported pre-compression size is noise. Turning it off shaves peak heap +
+    // build time — material for fitting the 8GB Fly/Replit builder cgroup.
+    reportCompressedSize: false,
+
     // Increase warning threshold — we ship a CAD/BIM engine; the heavy chunks
     // below (three, web-ifc, cesium, @thatopen, path tracer) are intentionally
     // large and load lazily via dynamic import from main.ts.
