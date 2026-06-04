@@ -36,7 +36,10 @@ const BASE_BTN = [
 
 const OVERLAY_STYLE = [
     'position:fixed;inset:0;z-index:10000;',
-    'background:rgba(10,14,26,0.55);',
+    // §PANEL-BACKDROP-UNIFY — shared scrim (was rgba(10,14,26,0.55)).
+    'background:var(--pryzm-panel-backdrop);',
+    'backdrop-filter:var(--pryzm-panel-backdrop-blur);',
+    '-webkit-backdrop-filter:var(--pryzm-panel-backdrop-blur);',
     'display:flex;align-items:center;justify-content:center;',
 ].join('');
 

@@ -46,7 +46,10 @@ export class RevitWizardPanel {
             overlay.style.cssText = [
                 'position:fixed', 'inset:0', 'z-index:1000000',
                 'display:flex', 'align-items:center', 'justify-content:center',
-                'background:rgba(5,8,18,0.55)', 'backdrop-filter:blur(4px)',
+                /* §PANEL-BACKDROP-UNIFY — shared scrim (was rgba(5,8,18,0.55)+blur4). */
+                'background:var(--pryzm-panel-backdrop)',
+                'backdrop-filter:var(--pryzm-panel-backdrop-blur)',
+                '-webkit-backdrop-filter:var(--pryzm-panel-backdrop-blur)',
                 'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif',
             ].join(';');
 

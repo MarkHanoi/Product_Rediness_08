@@ -963,9 +963,10 @@ export const ELEMENT_CREATION_MODAL_STYLES = `
         display: flex;
         align-items: center;
         justify-content: center;
-        background: rgba(15, 18, 35, 0.45);
-        backdrop-filter: blur(3px);
-        -webkit-backdrop-filter: blur(3px);
+        /* §PANEL-BACKDROP-UNIFY — shared scrim (was rgba(15,18,35,0.45)+blur3). */
+        background: var(--pryzm-panel-backdrop);
+        backdrop-filter: var(--pryzm-panel-backdrop-blur);
+        -webkit-backdrop-filter: var(--pryzm-panel-backdrop-blur);
         animation: ecm-fade-in 0.12s ease-out both;
         pointer-events: all;
     }

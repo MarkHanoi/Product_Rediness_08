@@ -5,7 +5,10 @@
 export const APARTMENT_LAYOUT_MODAL_STYLES = `
 .alm-overlay {
   position: fixed; inset: 0; z-index: 4000;
-  background: rgba(15, 23, 42, 0.55);
+  /* §PANEL-BACKDROP-UNIFY — shared scrim (was rgba(15,23,42,0.55), no blur). */
+  background: var(--pryzm-panel-backdrop);
+  backdrop-filter: var(--pryzm-panel-backdrop-blur);
+  -webkit-backdrop-filter: var(--pryzm-panel-backdrop-blur);
   display: flex; align-items: center; justify-content: center;
   padding: 24px;
 }

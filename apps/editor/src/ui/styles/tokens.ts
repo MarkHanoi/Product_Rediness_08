@@ -69,6 +69,16 @@ export const DESIGN_TOKENS = `
 
         /* ── Dark blue — option-background on dark property-panel header ── */
         --app-dark-blue:        #1e3a5f;
+
+        /* ── Unified panel backdrop (§PANEL-BACKDROP-UNIFY) ───────────────
+           ONE shared scrim behind EVERY floating panel/modal so they stop
+           diverging (New-Project ~0.45 opaque · RAC/OS onboarding ~0.28–0.30
+           · AI batch "Building N elements" ~0.58+heavy-blur). A single value
+           that sits BETWEEN them: slightly more translucent than New-Project,
+           not as see-through as the RAC panel. Brand: PRYZM purple-tinted dark
+           (#6600FF family), NEVER pure black. Reference these two together. */
+        --pryzm-panel-backdrop:      rgba(28, 12, 60, 0.26);
+        --pryzm-panel-backdrop-blur: blur(2px);
     }
 
     /* ── Global typography baseline (§05 §2.3 Rule 6) ────────────────────── */

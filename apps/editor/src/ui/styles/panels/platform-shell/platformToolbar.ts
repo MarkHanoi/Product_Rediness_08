@@ -177,8 +177,10 @@ export const PLATFORM_SHELL_STYLES = `
     /* ─── Modal overlay ──────────────────────────────────────────────── */
     .plat-overlay {
         position: fixed; inset: 0;
-        background: rgba(15,20,40,0.5);
-        backdrop-filter: blur(6px);
+        /* §PANEL-BACKDROP-UNIFY — shared scrim (was rgba(15,20,40,0.5)+blur6). */
+        background: var(--pryzm-panel-backdrop);
+        backdrop-filter: var(--pryzm-panel-backdrop-blur);
+        -webkit-backdrop-filter: var(--pryzm-panel-backdrop-blur);
         z-index: 9900;
         display: flex; align-items: center; justify-content: center;
         animation: plat-fade-in 0.2s ease;
