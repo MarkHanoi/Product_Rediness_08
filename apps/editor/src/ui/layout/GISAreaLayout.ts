@@ -176,6 +176,13 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                     if (!cesiumViewport) {
                         cesiumViewport = new CesiumViewport(viewport, runtime ?? null /* B-runtime-thread CesiumViewport */);
                         await cesiumViewport.mount();
+                        // GIS-CESIUM-ZRAISE — the Cesium container now defaults to
+                        // display:none (so it never floats over the BIM view before
+                        // GIS is toggled). The FIRST-init path mounts but previously
+                        // relied on the container being visible by default — now we
+                        // must explicitly show it (raises z-index above the BIM
+                        // WebGPU overlay + hides the BIM canvases + resizes).
+                        cesiumViewport.setVisible(true);
                         console.log("GIS: Cesium viewer mounted successfully");
                         const viewer = cesiumViewport.getViewer();
                         if (viewer) {
