@@ -30,3 +30,28 @@ export { buildDegreeDays } from './degreeDaysBuilder.js';
 // Pure NOAA algorithm — `solarSample(lat, lon, utcIso) → SolarSample`.
 // Per [C21 §1.3] solar samples are computed at query time, never stored.
 export { solarSample, toJulianDay } from './solarPath.js';
+
+// ── Bundled monthly normals (A.10.c — offline default) ──────────────────
+// Pure lat/lon → 12 NOAANormal from bundled climate-zone templates. The
+// `fallback-defaults` data source per [C21 §1.2] when no EPW + no live
+// NOAA fetch are available (headless / offline / no key).
+export {
+    bundledMonthlyNormals,
+    nearestZoneTemplate,
+    BUNDLED_NORMALS_VERSION,
+    type BundledNormalsResult,
+} from './bundledNormals.js';
+
+// ── NOAA normals reader + cache (A.10.c / A.10.d) ───────────────────────
+// `resolveNormals(lat, lon, {fetchImpl?})` — prefers a wired live fetch,
+// falls back to bundled, caches by quantised lat/lon. Headless-safe: no
+// network I/O unless the caller injects a `fetchImpl`.
+export {
+    resolveNormals,
+    clearNormalsCache,
+    normalsCacheSize,
+    type NormalsTier,
+    type ResolvedNormals,
+    type ResolveNormalsOptions,
+    type NoaaFetchImpl,
+} from './noaaNormalsReader.js';

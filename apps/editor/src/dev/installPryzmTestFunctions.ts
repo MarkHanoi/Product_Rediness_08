@@ -31,6 +31,7 @@ import {
     installBuildBuildingGraph,
     provideLiveGraphSources,
 } from '../engine/buildBuildingGraph';
+import { installBuildingGraphOverlay } from '../ui/graph';
 
 // The validator + adapter surface is NOT (yet) re-exported from the
 // `@pryzm/ai-host` root barrel — its `package.json` `exports` map only lists
@@ -208,6 +209,11 @@ export function installPryzmTestFunctions(): void {
     // resolver can read them (topology + roomGraph come off window directly).
     provideLiveGraphSources({ semantic: semanticGraphManager, constraint: aiService });
     installBuildBuildingGraph();
+
+    // GRAPH.3 — install the living-blob Building-Graph overlay + the
+    // `window.pryzmShowBuildingGraph()` toggle hook. The overlay reads the UBG
+    // produced above (read-only) and re-renders on `pryzm:building-graph-rebuilt`.
+    installBuildingGraphOverlay();
 
     console.log('[__pryzm] Dev test functions ready — run __pryzmListTestFunctions() for the menu.');
 }
