@@ -557,13 +557,17 @@ export class BuildingGraphOverlay {
       ctx.stroke();
     }
 
-    // 4) Labels for the hovered/focused node + its neighbours.
-    this.paintLabels(ctx, layout);
+    // 4) Labels — the central blob (always) + the hovered/focused node + neighbours.
+    this.paintLabels(ctx, layout, primary);
 
     ctx.restore();
   }
 
-  private paintLabels(ctx: CanvasRenderingContext2D, layout: GraphLayout): void {
+  private paintLabels(
+    ctx: CanvasRenderingContext2D,
+    layout: GraphLayout,
+    primary: LaidOutNode | null,
+  ): void {
     const label = (n: LaidOutNode, strong: boolean) => {
       const p = this.toScreen(n);
       const text = this.labelFor(n.node);
@@ -578,6 +582,11 @@ export class BuildingGraphOverlay {
       ctx.textBaseline = 'middle';
       ctx.fillText(text, p.x, y + 9);
     };
+
+    // GRAPH.3-HERO — the central blob always shows its label (the MIAW "miaw").
+    if (primary && primary.node.id !== this.focused && this.hovered !== primary) {
+      label(primary, true);
+    }
 
     if (this.focused) {
       for (const id of this.neighbourIds) {
