@@ -161,6 +161,10 @@ jobs:
       # Hard-fail: the app must 301 apex marketing paths to apex, not serve them
       # in-place; in-app marketing uses ?page= (C51 §3.2.1 / §5).
       - run: pnpm run check:route-surface
+      # Hard-fail: the App-Shell boot logic must NOT live in an inline <script>
+      # in index.html — the prod CSP (no 'unsafe-inline') would silently block
+      # it (works on localhost only). It must load from /app-shell-boot.js.
+      - run: pnpm run check:app-shell-csp
 
   docker-image:
     name: Fly image — build + boot smoke (Dockerfile parity, A.17.x.11)
