@@ -157,6 +157,16 @@ interface WallBuilderControl {
     resumeAndFlush(): void;
     discardAndSuppress(): void;
     restore(): void;
+    /**
+     * §A.21.D7-FIX (2026-06-05) — true while this builder still has wall builds
+     * queued or a drain rAF in flight. When ALL controls that implement this
+     * report `false`, the BatchCoordinator's idle-probe completes the batch
+     * immediately instead of waiting the 8 s watchdog (the openings-only and
+     * furnish-only batches build NO walls, so the wall drain that fires
+     * `signalBuildQueueDrained()` never runs → they used to stall for 8 s).
+     * Optional: a control that omits it is treated as "never pending".
+     */
+    hasPendingBuilds?(): boolean;
 }
 
 interface CurtainWallBuilderControl {
@@ -165,6 +175,8 @@ interface CurtainWallBuilderControl {
     resume(): void;
     /** @deprecated Use `resume()` (§F.2).  Kept for backward compat. */
     resumeAndFlush(): void;
+    /** §A.21.D7-FIX — see WallBuilderControl.hasPendingBuilds. */
+    hasPendingBuilds?(): boolean;
 }
 
 interface SlabBuilderControl {
@@ -173,6 +185,8 @@ interface SlabBuilderControl {
     resume(): void;
     /** @deprecated Use `resume()` (§F.2).  Kept for backward compat. */
     resumeAndFlush(): void;
+    /** §A.21.D7-FIX — see WallBuilderControl.hasPendingBuilds. */
+    hasPendingBuilds?(): boolean;
 }
 
 class BatchCoordinatorImpl {
@@ -276,6 +290,28 @@ class BatchCoordinatorImpl {
      * project switch.
      */
     private _watchdogTimer: ReturnType<typeof setTimeout> | null = null;
+    /**
+     * §A.21.D7-FIX (2026-06-05) — fast idle-probe state.
+     *
+     * `_drainSignalled`: idempotency guard so the batch's final sweep runs EXACTLY
+     * once even if the idle-probe, the WallFragmentBuilder drain, AND the watchdog
+     * all race to call `signalBuildQueueDrained()`. Reset in `_setupBatch`/`forceReset`.
+     *
+     * `_idleProbeDispose`: disposer for the re-arming 'pre-render' probe that watches
+     * the builder controls' `hasPendingBuilds()` and completes the batch as soon as
+     * all builders are idle for `_IDLE_PROBE_STREAK_REQUIRED` consecutive frames —
+     * turning the openings-only / furnish-only batches (which build NO walls, so the
+     * wall drain that normally signals completion never fires) from an 8 s watchdog
+     * stall into a ~2-frame completion.
+     */
+    private _drainSignalled = false;
+    private _idleProbeDispose: import('@pryzm/frame-scheduler').TickListenerDisposer | null = null;
+    private _idleProbeStreak = 0;
+    /** Consecutive idle frames the probe requires before completing — debounces the
+     *  transient mid-drain window where WallFragmentBuilder has spliced its last batch
+     *  out (queue 0, rAF null) but is still building, so the probe never front-runs a
+     *  real in-flight drain that is about to self-signal. */
+    private static readonly _IDLE_PROBE_STREAK_REQUIRED = 2;
     /**
      * PERF-DEFER-RESUME-FLUSH: Disposer for the 'pre-render' FrameScheduler slot that
      * calls the three resumeAndFlush() methods (wall, curtain-wall, slab) and starts the
@@ -752,6 +788,18 @@ class BatchCoordinatorImpl {
                         );
                         this.signalBuildQueueDrained();
                     }, 8_000);
+
+                    // §A.21.D7-FIX (2026-06-05) — fast idle-probe. The 8 s watchdog above
+                    // is now only the ULTIMATE backstop. The common cases the founder feels
+                    // as "generation/furnish too slow" are batches that build NO walls
+                    // (openings-only, furniture-only): the WallFragmentBuilder drain that
+                    // fires signalBuildQueueDrained() never runs, so they used to wait the
+                    // full 8 s with render suppressed. This probe watches the builder
+                    // controls' hasPendingBuilds() and completes the batch the moment all
+                    // builders have been idle for a couple of frames (~32 ms) — a ~50×
+                    // win on those batches. Real wall drains still self-signal first; the
+                    // probe just covers the "nothing to drain" path. Re-arms each frame.
+                    this._armIdleProbe();
                 },
                 'pre-render',
             );
@@ -793,6 +841,67 @@ class BatchCoordinatorImpl {
     }
 
     /**
+     * §A.21.D7-FIX — true while ANY wired builder control still has wall/CW/slab
+     * builds queued or a drain rAF in flight. Controls that don't implement
+     * `hasPendingBuilds()` are treated as not-pending (they don't gate completion;
+     * only the wall builder ever fires the real `signalBuildQueueDrained()`).
+     */
+    private _anyBuilderPending(): boolean {
+        try { if (this._wallControl?.hasPendingBuilds?.() === true) return true; } catch { /* ignore */ }
+        try { if (this._cwControl?.hasPendingBuilds?.() === true) return true; } catch { /* ignore */ }
+        try { if (this._slabControl?.hasPendingBuilds?.() === true) return true; } catch { /* ignore */ }
+        return false;
+    }
+
+    /**
+     * §A.21.D7-FIX — arm the re-arming 'pre-render' idle-probe. Completes the batch
+     * via `signalBuildQueueDrained()` once every builder has reported idle for
+     * `_IDLE_PROBE_STREAK_REQUIRED` consecutive frames. Self-disposes when the batch
+     * is no longer running or once it fires; a real wall drain that self-signals
+     * first cancels it in `signalBuildQueueDrained()`.
+     */
+    private _armIdleProbe(): void {
+        // No control implements hasPendingBuilds() yet → don't risk completing before
+        // a real drain; fall back to the watchdog + builder signal (legacy behaviour).
+        const probeSupported =
+            typeof this._wallControl?.hasPendingBuilds === 'function' ||
+            typeof this._cwControl?.hasPendingBuilds === 'function' ||
+            typeof this._slabControl?.hasPendingBuilds === 'function';
+        if (!probeSupported) return;
+
+        const tick = (): void => {
+            this._idleProbeDispose = null;
+            if (!this._isBatching || this._drainSignalled) return;
+            if (this._anyBuilderPending()) {
+                this._idleProbeStreak = 0;
+            } else {
+                this._idleProbeStreak++;
+                if (this._idleProbeStreak >= BatchCoordinatorImpl._IDLE_PROBE_STREAK_REQUIRED) {
+                    console.log(
+                        `[BatchCoordinator] §A.21.D7-FIX idle-probe — all builders idle for ` +
+                        `${this._idleProbeStreak} frame(s); completing batch ` +
+                        `T=+${(performance.now() - this._batchStartTime).toFixed(1)}ms ` +
+                        `(no 8 s watchdog wait).`,
+                    );
+                    this.signalBuildQueueDrained();
+                    return;
+                }
+            }
+            // Re-arm for the next frame.
+            try {
+                this._idleProbeDispose = getFrameScheduler().scheduleOnce(
+                    'batch-coordinator-idle-probe', tick, 'pre-render',
+                );
+            } catch { /* scheduler unavailable — watchdog remains the backstop */ }
+        };
+        try {
+            this._idleProbeDispose = getFrameScheduler().scheduleOnce(
+                'batch-coordinator-idle-probe', tick, 'pre-render',
+            );
+        } catch { /* scheduler unavailable — watchdog remains the backstop */ }
+    }
+
+    /**
      * Queue a deferred BimManager.registerElement() + elementRegistry.registerSemantic() call.
      * MUST be called instead of direct bimManager.registerElement() during a batch.
      *
@@ -823,7 +932,12 @@ class BatchCoordinatorImpl {
      */
     signalBuildQueueDrained(): void {
         if (this._watchdogTimer !== null) { clearTimeout(this._watchdogTimer); this._watchdogTimer = null; }
+        // §A.21.D7-FIX — cancel the idle-probe and dedupe: the probe, the builder
+        // drain, and the watchdog can all race to call this; only the first wins.
+        if (this._idleProbeDispose !== null) { try { this._idleProbeDispose(); } catch { /* ignore */ } this._idleProbeDispose = null; }
         if (!this._isBatching) return;
+        if (this._drainSignalled) return;
+        this._drainSignalled = true;
         const queueLen = this._registrationQueue.length;
         const __t_drained = performance.now();
         console.log(
@@ -942,6 +1056,10 @@ class BatchCoordinatorImpl {
             });
         } catch { /* non-fatal — sync client may not be connected */ }
         this._isBatching = true;
+        // §A.21.D7-FIX — fresh idle-probe state for this batch.
+        this._drainSignalled = false;
+        this._idleProbeStreak = 0;
+        if (this._idleProbeDispose !== null) { try { this._idleProbeDispose(); } catch { /* ignore */ } this._idleProbeDispose = null; }
         this._pendingLevelIds = new Set(opts.levelIds);
         this._totalElementCount = opts.totalElementCount;
         this._skipRedetectRooms = opts.skipRedetectRooms ?? false;
@@ -1667,6 +1785,10 @@ class BatchCoordinatorImpl {
     forceReset(): void {
         // Step 1 — cancel any in-flight sweep callbacks.
         this._sweepCancelled = true;
+        // §A.21.D7-FIX — cancel the idle-probe + reset its guard for the next batch.
+        if (this._idleProbeDispose !== null) { try { this._idleProbeDispose(); } catch { /* ignore */ } this._idleProbeDispose = null; }
+        this._drainSignalled = false;
+        this._idleProbeStreak = 0;
 
         // Step 2 — cancel registration drain subscription.
         if (this._regDrainDispose !== null) {

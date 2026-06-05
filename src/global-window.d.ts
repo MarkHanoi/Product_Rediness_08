@@ -440,6 +440,9 @@ declare global {
         resumeAndFlush(): void;
         discardAndSuppress(): void;
         restore(): void;
+        /** §A.21.D7-FIX — true while wall events/builds are still pending; read by the
+         *  BatchCoordinator idle-probe to fast-complete wall-free batches. */
+        hasPendingBuilds?(): boolean;
     };
     /**
      * C13 §4 (Wave 35 I-2) — Project isolation teardown surface.

@@ -211,6 +211,16 @@ export class WallFragmentBuilder {
     private _rafHandle: TickListenerDisposer | null = null;
 
     /**
+     * §A.21.D7-FIX (2026-06-05) — true while wall builds are queued or a drain rAF is
+     * in flight. Read by the BatchCoordinator idle-probe (via __wallRebuildControl)
+     * so batches that build NO walls complete in ~2 frames instead of the 8 s
+     * watchdog. See BatchCoordinator WallBuilderControl.hasPendingBuilds.
+     */
+    get hasPendingBuilds(): boolean {
+        return this._pendingBuilds.length > 0 || this._rafHandle !== null;
+    }
+
+    /**
      * Task 5.6 Phase 5: Exposes rebuild statistics for diagnostics.
      * Access via `window.__wallFragmentBuilder?.stats` in the browser console.
      */

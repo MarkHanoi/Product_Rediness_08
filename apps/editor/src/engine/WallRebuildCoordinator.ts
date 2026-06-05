@@ -159,6 +159,11 @@ export class WallRebuildCoordinator {
             resumeAndFlush:     () => this._resumeAndFlush(),
             discardAndSuppress: () => this._discardAndSuppress(),
             restore:            () => this._restore(),
+            // §A.21.D7-FIX — true while this coordinator still has wall events queued
+            // OR the WallFragmentBuilder still has builds queued / a drain rAF live.
+            // Lets the BatchCoordinator idle-probe complete openings-only / furnish-only
+            // batches (which build no walls) in ~2 frames instead of the 8 s watchdog.
+            hasPendingBuilds:   () => this._hasPendingBuilds(),
         };
 
         window.__engineTeardown = {
@@ -193,6 +198,22 @@ export class WallRebuildCoordinator {
             this._wallRafHandle = getFrameScheduler().scheduleOnce('engine-bootstrap-wall-flush-resume', () => this._flush(), 'pre-render');
         }
         console.debug('[WallRebuildCoordinator] §F.2 resume — async wall flush scheduled for next pre-render slot');
+    }
+
+    /**
+     * §A.21.D7-FIX — true while there is still wall work pending anywhere in the
+     * pipeline: events queued in this coordinator (not yet flushed into the builder),
+     * a coordinator flush rAF in flight, OR the WallFragmentBuilder still has builds
+     * queued / a drain rAF live. The BatchCoordinator idle-probe reads this to decide
+     * when an in-progress batch is genuinely done.
+     */
+    private _hasPendingBuilds(): boolean {
+        if (this._pendingWallEvents.size > 0 || this._wallRafHandle !== null) return true;
+        try {
+            const builder = this._wallTool?.getFragmentBuilder?.();
+            if (builder && builder.hasPendingBuilds === true) return true;
+        } catch { /* builder not wired yet — treat as not pending */ }
+        return false;
     }
 
     private _discardAndSuppress(): void {
