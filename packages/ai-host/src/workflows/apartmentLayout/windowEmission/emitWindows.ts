@@ -39,6 +39,7 @@ import {
     type WindowPlacement,
     type WindowableRoomType,
 } from './types.js';
+import { solarLengthMultiplier, type SolarBias } from './solarOrientation.js';
 
 const segLenMm = (s: ExternalWallSegment): number => {
     const dx = s.end.x - s.start.x;
@@ -146,6 +147,11 @@ export function emitWindowsForRoom(
     externalWalls: readonly ExternalWallSegment[],
     roomName?: string,
     occupied: readonly OccupiedSpan[] = [],
+    // A.21.D6 — optional climate bias: when present, candidate walls are ranked by
+    // length × sun-orientation, so a sun-facing (equator-facing) façade is preferred
+    // over a marginally longer wrong-facing one. Absent / null → pure length (no
+    // regression: the multiplier is 1, so the score order is identical).
+    solar?: SolarBias | null,
 ): readonly WindowPlacement[] {
     if (!isWindowable(roomType)) return [];
     if (externalWalls.length === 0) return [];
@@ -153,12 +159,18 @@ export function emitWindowsForRoom(
     const spec = WINDOW_SPECS[roomType as WindowableRoomType];
     if (!spec) return [];
 
+    // Score = physical length × solar-orientation multiplier. The minimum-length
+    // FILTER still uses raw length (a window needs the wall to physically host it),
+    // but RANKING uses the climate-biased score.
+    const score = (w: ExternalWallSegment): number =>
+        segLenMm(w) * solarLengthMultiplier(w.start, w.end, solar);
+
     // Walls long enough for the preferred width; fall back to the smaller
     // variant when the preferred width can't host on any wall.
     const longEnough = externalWalls
         .map(w => ({ w, lenMm: segLenMm(w) }))
         .filter(x => x.lenMm >= spec.minWallLengthMm)
-        .sort((a, b) => b.lenMm - a.lenMm || a.w.wallIndex - b.w.wallIndex);
+        .sort((a, b) => score(b.w) - score(a.w) || a.w.wallIndex - b.w.wallIndex);
 
     let chosenWidthMm = spec.widthMm;
     let candidates = longEnough;
@@ -168,7 +180,7 @@ export function emitWindowsForRoom(
         candidates = externalWalls
             .map(w => ({ w, lenMm: segLenMm(w) }))
             .filter(x => x.lenMm >= minHostMm)
-            .sort((a, b) => b.lenMm - a.lenMm || a.w.wallIndex - b.w.wallIndex);
+            .sort((a, b) => score(b.w) - score(a.w) || a.w.wallIndex - b.w.wallIndex);
         if (candidates.length === 0) return [];
         chosenWidthMm = spec.minWidthMm;
     }
