@@ -706,11 +706,25 @@ export class BuildingGraphOverlay {
 
   private labelFor(node: UbgNode): string {
     const props = node.props as Record<string, unknown> | undefined;
+    const pick = (k: string): string | undefined => {
+      const v = props?.[k];
+      return typeof v === 'string' && v.length > 0 ? v : undefined;
+    };
+    // Prefer a human name; widen the fallbacks beyond name/label/roomType to the
+    // element-type fields so a node never renders as the bare generic kind
+    // "element" when richer detail is available on its props.
     const name =
-      (props?.name as string | undefined) ??
-      (props?.label as string | undefined) ??
-      (props?.roomType as string | undefined);
-    const base = name && name.length > 0 ? name : node.kind;
+      pick('name') ??
+      pick('label') ??
+      pick('roomType') ??
+      pick('elementType') ??
+      pick('type') ??
+      pick('category');
+    // Humanize a slug so even a kind-only fallback reads cleanly:
+    // 'element' → 'Element', 'curtain_wall' / 'curtain-wall' → 'Curtain Wall'.
+    const humanize = (s: string): string =>
+      s.replace(/[_-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    const base = name && name.length > 0 ? name : humanize(node.kind);
     return base.length > 26 ? `${base.slice(0, 25)}…` : base;
   }
 
