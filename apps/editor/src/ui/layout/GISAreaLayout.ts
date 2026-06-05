@@ -456,7 +456,17 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // Show the Cesium globe with the site context and frame the plot.
             toggleGIS(true);
             // toggleGIS mounts Cesium async on first use; give it a beat, then frame.
-            setTimeout(() => { void reframeSiteIn3D(); }, 350);
+            setTimeout(() => {
+                // §GLOBE-EXIT-FORMA (2026-06-05) — the viewer force-mounts in FORMA
+                // mode when there's no Cesium token (applyFormaMode hides ALL imagery
+                // layers + darkens the sky), so the "3D globe" rendered BLACK even
+                // though the keyless OSM basemap is installed. EXIT Forma here so the
+                // real-world OSM globe shows. "Site 3D (Forma)" stays the massing
+                // study (it forces Forma back on via mountFormaViewToggle → engage).
+                try { cesiumViewport?.setFormaMode?.(false); }
+                catch (e) { console.warn('[gis] 3D globe: setFormaMode(false) failed (non-fatal):', e); }
+                void reframeSiteIn3D();
+            }, 350);
         } else {
             // O.7.2.b — '2D' now means the BIM DUAL-PANE (LEFT 3D · RIGHT plan), the
             // founder-specified post-generate landing, not the Cesium globe.
