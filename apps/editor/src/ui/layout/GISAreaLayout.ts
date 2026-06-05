@@ -500,13 +500,18 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         bar.className = 'pryzm-result-toggle';
         bar.setAttribute('data-testid', 'gis-result-view-toggle');
         Object.assign(bar.style, {
-            // UI-FORMA-TOGGLE-POSITION — moved off the top-centre (was colliding
-            // with the save/Author/Inspect/Data toolbar) down to the lower-left.
-            position: 'absolute', top: '72px', left: '12px',
+            // §A.10.h (founder) — CENTRED over the 3D view (was left:12px, clipped
+            // behind the left icon rail / "not visible"). Absolute within the
+            // position:relative viewport + left:50% + translateX(-50%) → the bar
+            // stays centred and DYNAMICALLY adapts when the viewport width changes
+            // (e.g. a side panel resizes the 3D view). Sits just below the top
+            // save/Author/Inspect/Data toolbar.
+            position: 'absolute', top: '64px', left: '50%', transform: 'translateX(-50%)',
             zIndex: '30', display: 'flex', gap: '4px', padding: '4px',
             background: '#ffffff', borderRadius: '10px',
             boxShadow: '0 4px 18px rgba(20,10,60,0.18)', border: '1px solid #ece7fb',
             font: '600 12px/1 system-ui, sans-serif',
+            whiteSpace: 'nowrap',
         } satisfies Partial<CSSStyleDeclaration>);
 
         const mkBtn = (mode: '2D' | '3D', label: string): HTMLButtonElement => {
@@ -895,13 +900,15 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         bar.className = 'pryzm-forma-view-toggle';
         bar.setAttribute('data-testid', 'forma-view-toggle');
         Object.assign(bar.style, {
-            // UI-FORMA-TOGGLE-POSITION — moved off the top-right (was colliding
-            // with the settings rail) to the lower-left, stacked under the result bar.
-            position: 'absolute', top: '120px', left: '12px',
+            // §A.10.h (founder) — CENTRED over the 3D view + width-adaptive (left:50%
+            // + translateX(-50%)); stacked just under the result bar. Was left:12px,
+            // clipped behind the left icon rail.
+            position: 'absolute', top: '108px', left: '50%', transform: 'translateX(-50%)',
             zIndex: '31', display: 'flex', gap: '4px', padding: '4px',
             background: '#ffffff', borderRadius: '10px',
             boxShadow: '0 4px 18px rgba(20,10,60,0.18)', border: '1px solid #ece7fb',
             font: '600 12px/1 system-ui, sans-serif',
+            whiteSpace: 'nowrap',
         } satisfies Partial<CSSStyleDeclaration>);
 
         const mkBtn = (mode: FormaViewMode, label: string, title: string): HTMLButtonElement => {

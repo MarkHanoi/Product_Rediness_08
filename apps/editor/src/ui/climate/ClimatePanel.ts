@@ -31,6 +31,7 @@
  */
 
 import { injectAppTheme } from '../styles/AppTheme';
+import { makeDraggable } from '../makeDraggable';
 import { getCurrentSiteOrigin } from '../site/siteDispatch';
 import type { ClimateDataset, SiteId } from '@pryzm/schemas';
 import {
@@ -127,6 +128,7 @@ function _build(): HTMLElement {
 
     const header = document.createElement('div');
     header.className = 'clm-header';
+    header.style.cursor = 'move'; // §A.10.h — draggable affordance (founder ask)
     const title = document.createElement('span');
     title.className = 'clm-title';
     title.textContent = '🌦 Climate & Site Intelligence';
@@ -145,6 +147,13 @@ function _build(): HTMLElement {
 
     el.appendChild(header);
     el.appendChild(body);
+
+    // §A.10.h (founder) — make the climate card movable by dragging its header.
+    // The shared helper re-evaluates the handle on each mousedown (safe with the
+    // body re-rendering) and excludes the close button so ✕ still closes.
+    try { makeDraggable(el, '.clm-header', ['.clm-close'], _runtime); }
+    catch (e) { console.warn('[ClimatePanel] makeDraggable wiring failed (non-fatal):', e); }
+
     return el;
 }
 
