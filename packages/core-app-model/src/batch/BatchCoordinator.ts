@@ -730,18 +730,28 @@ class BatchCoordinatorImpl {
                         console.warn('[BatchCoordinator] §BATCH-SLAB-PAUSE: slab resume failed:', e);
                     }
 
-                    // Watchdog starts here — after the drain kick-off — so the 30 s budget
+                    // Watchdog starts here — after the drain kick-off — so the budget
                     // begins from when signalBuildQueueDrained() is expected, not from when
                     // runBatch() returned.  Cancelled by signalBuildQueueDrained() on the
                     // happy path; also cancelled by forceReset() on project switch.
+                    //
+                    // §A.21.D7 (2026-06-05) — lowered 30 s → 8 s. The wall rAF-drain often
+                    // finishes AFTER the batch's synchronous portion ends, so
+                    // WallFragmentBuilder's `if (isBatching)` guard skips the drain signal
+                    // and the batch waits the FULL watchdog with render SUPPRESSED — i.e.
+                    // the founder's "generation too slow" was ~30 s of staring at the
+                    // loader even though the geometry (regQueue=0) was already in the scene.
+                    // 8 s force-completes much sooner and is safe (the build is done by
+                    // then in every observed case). The proper fix is to make the drain
+                    // signal fire regardless of `isBatching` — tracked under A.21.D7.
                     this._watchdogTimer = setTimeout(() => {
                         if (!this._isBatching) return;
-                        console.error(
-                            '[BatchCoordinator] WATCHDOG: signalBuildQueueDrained() not called within 30 s ' +
-                            '— force-completing batch to unblock StoreEventBus from depth-1 limbo.', // TODO(TASK-08)
+                        console.warn(
+                            '[BatchCoordinator] WATCHDOG: signalBuildQueueDrained() not called within 8 s ' +
+                            '— force-completing batch (geometry already in scene; §A.21.D7 drain-signal race).',
                         );
                         this.signalBuildQueueDrained();
-                    }, 30_000);
+                    }, 8_000);
                 },
                 'pre-render',
             );
