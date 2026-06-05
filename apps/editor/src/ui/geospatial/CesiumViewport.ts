@@ -65,10 +65,11 @@ const FORMA_PALETTE = {
   ground: '#D9D5CE',
   /** Scene background — kills the photo sky (§2 Sky / background). */
   background: '#E8E8E6',
-  /** Soft graphite silhouette outline (§2) — softer than pure black so the
-   *  clean pastel masses don't read as harsh wireframe. */
-  silhouette: '#3A3A3A',
-  /** Proposed-building volume fill (§2) — kept for the no-footprint fallback. */
+  /** Crisp graphite silhouette outline (§2) — dark enough for strong edge
+   *  definition + contrast (founder: "stronger contrast"), not pure black. */
+  silhouette: '#2B2B2B',
+  /** Proposed-building volume fill (§2) — STRONG WHITE (founder: "strong white as
+   *  forma"). Fully opaque; the single solid mass reads as a clean white volume. */
   proposedFill: '#FFFFFF',
   /** Context-building fill (§2). */
   contextFill: '#E8E5DF',
@@ -128,15 +129,18 @@ const FORMA_FLY_ALT_MAX_M = 4000;
 const FORMA_SILHOUETTE_WIDTH = 1.5;
 /** Ambient-occlusion intensity (§2 — ≈ 2.5). */
 const FORMA_AO_INTENSITY = 2.5;
+/** Directional-light intensity for the Forma key light. §A.21.D-FORMA2 raised
+ *  1.8 → 2.3 so strong-white masses read crisp + bright with stronger highlights
+ *  (founder: "strong white + stronger contrast"). */
+const FORMA_LIGHT_INTENSITY = 2.3;
 /**
- * Ambient fill so shaded faces never crush to black (§2 — ≈ 0.55). Cesium has
- * no first-class global-ambient knob; we approximate it by keeping
- * `globe.enableLighting=false` (flat-lit ground) and clamping the shadow map
- * darkness so the shaded tone never goes below this fraction of full light.
+ * §A.21.D-FORMA2 — shadow strength (fraction of light remaining IN shadow).
+ * Lower = darker/stronger shadow. 0.30 gives the crisp Forma cast shadow the
+ * founder asked for while still leaving enough fill that shaded faces don't
+ * crush to pure black. Replaces the old `max(0.3, 1 - FORMA_AMBIENT)` (= 0.45,
+ * too weak).
  */
-const FORMA_AMBIENT = 0.55;
-/** Directional-light intensity for the Forma key light (task brief — 1.8). */
-const FORMA_LIGHT_INTENSITY = 1.8;
+const FORMA_SHADOW_DARKNESS = 0.30;
 
 export class CesiumViewport {
   private container: HTMLDivElement;
@@ -889,11 +893,9 @@ export class CesiumViewport {
         sm.enabled = true;
         sm.softShadows = true;
         sm.size = 4096;
-        // Soften the shaded tone so shadows read as rgba(20,20,20,0.30), not
-        // black. `darkness` is the fraction of light remaining in shadow; we
-        // never let it drop below the FORMA_AMBIENT fill (0.55 → ~0.3 shadow),
-        // so shaded faces keep the warm ambient lift (§2 Ambient ≈ 0.55).
-        sm.darkness = Math.max(0.3, 1 - FORMA_AMBIENT);
+        // §A.21.D-FORMA2 — stronger cast shadow for contrast (founder ask).
+        // `darkness` = fraction of light remaining in shadow; lower = darker.
+        sm.darkness = FORMA_SHADOW_DARKNESS;
       }
     } catch (e) {
       console.warn('[CesiumViewport][forma] shadow config failed:', e);
@@ -1391,8 +1393,13 @@ export class CesiumViewport {
     for (const w of walls) massHeightM = Math.max(massHeightM, w.height || 0);
     if (massHeightM <= 0) massHeightM = 3;
     const massBase = baseHeight - FORMA_BASE_SINK_M;       // buried bottom face
-    const buildingUse: FormaUse = 'residential';           // apartment / casa demo
-    const massFill = Cesium.Color.fromCssColorString(FORMA_USE_COLOURS[buildingUse]);
+    // §A.21.D-FORMA2 (founder: "strong white + solid volumes not transparent +
+    // stronger contrast") — the proposed building is a STRONG OPAQUE WHITE solid
+    // (not the washed pastel), with a crisp dark outline. `FORMA_USE_COLOURS` is
+    // retained for the future multi-use case (A.24.6) but a single building reads
+    // as a clean white Forma volume.
+    void FORMA_USE_COLOURS; void ('residential' as FormaUse);
+    const massFill = Cesium.Color.fromCssColorString(FORMA_PALETTE.proposedFill); // #FFFFFF, alpha 1
     const massOutline = Cesium.Color.fromCssColorString(FORMA_PALETTE.silhouette);
     const footprint = boundary && boundary.length >= 3 ? boundary : null;
 
@@ -1442,6 +1449,11 @@ export class CesiumViewport {
               outlineWidth: 1.5,
               shadows: Cesium.ShadowMode.ENABLED,
               perPositionHeight: false,
+              // §A.21.D-FORMA2 — cap top + bottom so each wall reads as a SOLID
+              // opaque volume rather than an open box you can see into/through
+              // (the founder's "transparent" complaint).
+              closeTop: true,
+              closeBottom: true,
             },
           });
           this.formaMassingEntities.push(ent);
@@ -1781,8 +1793,11 @@ export class CesiumViewport {
     // flat ground plane (same fix as the proposed massing).
     const base = this.formaTerrainBaseHeight - FORMA_BASE_SINK_M;
     const top = this.formaTerrainBaseHeight;
-    const fill = Cesium.Color.fromCssColorString(FORMA_PALETTE.contextFill).withAlpha(0.92);
-    const outline = Cesium.Color.fromCssColorString(FORMA_PALETTE.contextOutline).withAlpha(0.45);
+    // §A.21.D-FORMA2 — fully OPAQUE context (was 0.92) so nothing in the Forma
+    // scene reads as transparent; the white proposed mass still stands out against
+    // the muted off-white context.
+    const fill = Cesium.Color.fromCssColorString(FORMA_PALETTE.contextFill);
+    const outline = Cesium.Color.fromCssColorString(FORMA_PALETTE.contextOutline).withAlpha(0.6);
 
     let placed = 0;
     for (const f of collection.features) {
