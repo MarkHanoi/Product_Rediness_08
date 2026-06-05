@@ -37,6 +37,7 @@
     "@pryzm/crash-reporter": "workspace:*",
     "@pryzm/sync-client": "workspace:*",
     "@pryzm/typology-pack-apartment": "workspace:*",
+    "@pryzm/typology-pack-casa-unifamiliar": "workspace:*",
     "@pryzm/typology-pipeline": "workspace:*",
     "@pryzm/view-state": "workspace:*",
     "@pryzm/visibility": "workspace:*"
