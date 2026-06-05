@@ -70,6 +70,9 @@ const FP: Readonly<Record<FurnitureKind, Footprint>> = {
     // the centroid drop the island automatically — only large open-plan
     // kitchens get one.
     kitchen_island:     { w: 2.00, l: 0.90, h: 0.90, baseOffset: 0, clearFront: 0.90, clearSides: 0.90 },
+    // F-FRIDGE (2026-06-05) — standard free-standing fridge/freezer: 0.60 m wide
+    // × 0.65 m deep × 1.80 m tall, ~1.0 m door-open + standing clearance in front.
+    fridge:             { w: 0.60, l: 0.65, h: 1.80, baseOffset: 0, clearFront: 1.00, clearSides: 0.00 },
     // F1.1 (2026-05-30) — Study workstation.
     //   desk: 1.40 m wide × 0.70 m deep × 0.75 m worktop height. 0.90 m
     //         front clearance so the user can roll the chair back without

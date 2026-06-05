@@ -131,6 +131,12 @@ export class FurnitureFactory {
 
             // F1.14 (2026-05-30) — Pantry cabinet (kitchen storage).
             case 'pantry_cabinet':     return new PantryCabinetBuilder(materialService);
+            // F-FRIDGE (2026-06-05) — the kitchen fridge renders via the tall-
+            // cabinet builder (same tall free-standing silhouette, driven by the
+            // record's width/length/height). A dedicated FridgeBuilder with a
+            // recessed handle + brushed-metal finish is the follow-up; this gives
+            // the kitchen its appliance now without new geometry code.
+            case 'fridge':             return new PantryCabinetBuilder(materialService);
 
             // F1.12 (2026-05-30) — Bedroom dressing (dresser + vanity table).
             case 'dresser':            return new DresserBuilder(materialService);
