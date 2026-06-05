@@ -53,6 +53,18 @@ import { GeospatialAdapter } from '@pryzm/geospatial';
 //   its projection origin as the Site location first, so they already agree).
 //   When a boundary already exists we skip the rebase and log the choice.
 let _ltpAdapter: GeospatialAdapter | null = null;
+/** §CESIUM-SITE-ORIGIN — the lat/lon of the current LTP-ENU origin, recorded
+ *  whenever it is set. CesiumViewport reads this as a RELIABLE fallback when
+ *  `runtime.siteModelStore.getLocation()` is null at mount: the origin is set
+ *  during onboarding BEFORE Cesium mounts in the GIS handoff, so Cesium's own
+ *  store-read AND its late `site.location-changed` subscription both miss it —
+ *  which is why the Forma view framed the Sydney default instead of the plot. */
+let _lastSiteOrigin: { lat: number; lon: number } | null = null;
+
+/** §CESIUM-SITE-ORIGIN — the current site origin lat/lon, or null if none set. */
+export function getCurrentSiteOrigin(): { lat: number; lon: number } | null {
+    return _lastSiteOrigin ? { ..._lastSiteOrigin } : null;
+}
 
 /** Derive a Proj4 UTM string for the given longitude (zones are 6° wide). */
 function utmProj4StringForLon(lat: number, lon: number): string {
@@ -90,6 +102,7 @@ function setLtpOriginIfSafe(ctx: SiteContext, lat: number, lon: number): void {
             _ltpAdapter.setOrigin(lat, lon, 0);
             console.log(`[gis] LTPENURebase.setOrigin → LAT ${lat} LON ${lon} (C19 §1.3).`);
         }
+        _lastSiteOrigin = { lat, lon }; // §CESIUM-SITE-ORIGIN — for the Cesium fallback read.
     } catch (e) {
         // Origin-rebase is best-effort site intelligence; never block the location
         // dispatch (the lat/lon is still recorded on the Site for IFC export).

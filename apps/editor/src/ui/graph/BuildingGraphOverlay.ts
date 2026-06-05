@@ -458,6 +458,21 @@ export class BuildingGraphOverlay {
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
 
+    // 0) Soft pastel-purple field (GRAPH.3-HERO) — a faint radial lavender wash so
+    //    the graph floats on a living field (the MIAW hero look), not a flat panel.
+    {
+      const W = canvas.clientWidth;
+      const H = canvas.clientHeight;
+      const field = ctx.createRadialGradient(
+        W * 0.5, H * 0.46, 0, W * 0.5, H * 0.46, Math.max(W, H) * 0.72,
+      );
+      field.addColorStop(0, 'rgba(150, 100, 255, 0.12)');
+      field.addColorStop(0.5, 'rgba(120, 70, 240, 0.055)');
+      field.addColorStop(1, 'rgba(102, 0, 255, 0.0)');
+      ctx.fillStyle = field;
+      ctx.fillRect(0, 0, W, H);
+    }
+
     // 1) Flowing edges — curved bezier "liquid bridges" UNDER the nodes.
     ctx.lineCap = 'round';
     for (const e of layout.edges) {
@@ -478,9 +493,17 @@ export class BuildingGraphOverlay {
       ctx.beginPath();
       ctx.moveTo(a.x, a.y);
       ctx.quadraticCurveTo(cxp, cyp, b.x, b.y);
-      ctx.strokeStyle = e.colour;
-      ctx.globalAlpha = dim ? 0.08 : 1;
-      ctx.lineWidth = 1 + Math.min(3, (e.edge.weight ?? 1) * 0.6);
+      // GRAPH.3-HERO — taper the edge to a bright flowing core (faint at the
+      // node ends, luminous in the middle) so bridges read as flowing light,
+      // not flat rules. A slow phase ripple slides the bright band along.
+      const eg = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
+      const flow = 0.5 + Math.sin(this.phase * 0.6 + len * 0.01) * 0.12;
+      eg.addColorStop(0, this.withAlpha(e.colour, 0.28));
+      eg.addColorStop(Math.max(0.15, Math.min(0.85, flow)), e.colour);
+      eg.addColorStop(1, this.withAlpha(e.colour, 0.28));
+      ctx.strokeStyle = eg;
+      ctx.globalAlpha = dim ? 0.08 : 0.92;
+      ctx.lineWidth = 1.2 + Math.min(3.2, (e.edge.weight ?? 1) * 0.7);
       ctx.stroke();
     }
     ctx.globalAlpha = 1;
@@ -488,16 +511,23 @@ export class BuildingGraphOverlay {
     // 2) Metaball nodes — radial-gradient gooey halos that visually MERGE when
     //    close (drawn additively with soft glow). The 'lighter' composite makes
     //    overlapping halos sum into one continuous liquid field — the blob look.
+    // GRAPH.3-HERO — the highest-degree node is the central "blob" (it gravitates
+    // to centre via the force sim); give it an outsized, brighter halo so the graph
+    // reads as edges converging into one luminous core (the MIAW signature).
+    const primary = layout.nodes.length
+      ? layout.nodes.reduce((m, n) => (n.radius > m.radius ? n : m), layout.nodes[0]!)
+      : null;
     ctx.globalCompositeOperation = 'lighter';
     for (const n of layout.nodes) {
       const p = this.toScreen(n);
       const dim = this.isDimmed(n.node.id);
+      const isPrimary = n === primary;
       const breathe = 1 + Math.sin(this.phase * 1.3 + n.radius) * 0.06;
-      const haloR = n.radius * 2.6 * breathe;
+      const haloR = n.radius * (isPrimary ? 4.4 : 2.6) * breathe;
       const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, haloR);
       const c = n.colour;
-      grad.addColorStop(0, this.withAlpha(c, dim ? 0.22 : 0.85));
-      grad.addColorStop(0.45, this.withAlpha(c, dim ? 0.08 : 0.32));
+      grad.addColorStop(0, this.withAlpha(c, dim ? 0.22 : isPrimary ? 0.98 : 0.85));
+      grad.addColorStop(0.45, this.withAlpha(c, dim ? 0.08 : isPrimary ? 0.42 : 0.32));
       grad.addColorStop(1, this.withAlpha(c, 0));
       ctx.fillStyle = grad;
       ctx.beginPath();
@@ -512,26 +542,32 @@ export class BuildingGraphOverlay {
       const dim = this.isDimmed(n.node.id);
       const isHover = this.hovered === n;
       const isFocus = this.focused === n.node.id;
+      const isPrimary = n === primary;
       const breathe = 1 + Math.sin(this.phase * 1.3 + n.radius) * 0.06;
-      const r = n.radius * 0.5 * breathe;
+      const r = n.radius * (isPrimary ? 0.66 : 0.5) * breathe;
 
       ctx.beginPath();
       ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
       ctx.fillStyle = dim ? this.withAlpha(n.colour, 0.35) : n.colour;
       ctx.fill();
-      ctx.lineWidth = isFocus ? 3 : isHover ? 2 : 1;
+      // GRAPH.3-HERO — the central blob always wears a crisp white ring.
+      ctx.lineWidth = isPrimary ? 2.5 : isFocus ? 3 : isHover ? 2 : 1;
       ctx.strokeStyle =
-        isHover || isFocus ? '#ffffff' : 'rgba(255,255,255,0.5)';
+        isHover || isFocus || isPrimary ? '#ffffff' : 'rgba(255,255,255,0.5)';
       ctx.stroke();
     }
 
-    // 4) Labels for the hovered/focused node + its neighbours.
-    this.paintLabels(ctx, layout);
+    // 4) Labels — the central blob (always) + the hovered/focused node + neighbours.
+    this.paintLabels(ctx, layout, primary);
 
     ctx.restore();
   }
 
-  private paintLabels(ctx: CanvasRenderingContext2D, layout: GraphLayout): void {
+  private paintLabels(
+    ctx: CanvasRenderingContext2D,
+    layout: GraphLayout,
+    primary: LaidOutNode | null,
+  ): void {
     const label = (n: LaidOutNode, strong: boolean) => {
       const p = this.toScreen(n);
       const text = this.labelFor(n.node);
@@ -546,6 +582,11 @@ export class BuildingGraphOverlay {
       ctx.textBaseline = 'middle';
       ctx.fillText(text, p.x, y + 9);
     };
+
+    // GRAPH.3-HERO — the central blob always shows its label (the MIAW "miaw").
+    if (primary && primary.node.id !== this.focused && this.hovered !== primary) {
+      label(primary, true);
+    }
 
     if (this.focused) {
       for (const id of this.neighbourIds) {

@@ -54,6 +54,16 @@
     btns.forEach(function (btn) {
       btn.addEventListener('click', function () {
         window.__pryzmSkeletonClick(btn.getAttribute('data-skel-action'));
+        // IMMEDIATE FEEDBACK — the queued action only replays once LandingPage.ts
+        // (the SPA bundle) finishes loading, which on a cold/dev load can take a
+        // few seconds; without a cue the click felt dead/static. Show a busy state
+        // so the user knows it registered. The real LandingPage takes over on mount.
+        try {
+          btn.setAttribute('aria-busy', 'true');
+          btn.style.opacity = '0.72';
+          btn.style.cursor = 'progress';
+          if (btn.classList.contains('lp-skel-hero-btn')) btn.textContent = 'Loading…';
+        } catch (_) { /* styling is best-effort */ }
       });
     });
   });

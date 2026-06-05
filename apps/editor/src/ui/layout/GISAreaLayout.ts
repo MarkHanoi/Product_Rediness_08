@@ -2,6 +2,7 @@ import { getCesium, storeRegistry } from '@pryzm/core-app-model';
 import type { CesiumThreeBridge } from '@pryzm/plugin-geospatial';
 import type { UIProps } from '../Layout';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
+import { getCurrentSiteOrigin } from '../site/siteDispatch';
 
 export interface GISCallbacks {
     toggleGIS: (active: boolean) => void;
@@ -620,6 +621,23 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         }
         // Fall back to the geocode frame captured by the search box / onboarding.
         if (lastGeocodeFrame) return { lat: lastGeocodeFrame.lat, lon: lastGeocodeFrame.lon };
+        // §CESIUM-SITE-ORIGIN — last-resort fall back to the process-wide LTP-ENU
+        // origin set during the onboarding handoff (siteDispatch.setLtpOriginIfSafe).
+        // Same root cause as the camera fix in CesiumViewport.readSiteLocation:
+        // the onboarding flow can set the ENU origin BEFORE the siteModelStore
+        // location read here returns non-null AND before lastGeocodeFrame is
+        // captured (the geocode came in via a path that didn't route through the
+        // search box), which silently left the massing un-placeable → grey Forma
+        // scene even though the apartment was generated. This closes that gap so
+        // the white massing always anchors at the real plot.
+        const ltp = getCurrentSiteOrigin();
+        if (ltp && (ltp.lat !== 0 || ltp.lon !== 0)) {
+            console.log(
+                `[gis][forma] origin resolved from LTP-ENU fallback → LAT ${ltp.lat} LON ${ltp.lon} ` +
+                    `(store.getLocation + lastGeocodeFrame were both empty).`
+            );
+            return { lat: ltp.lat, lon: ltp.lon };
+        }
         return null;
     };
 
