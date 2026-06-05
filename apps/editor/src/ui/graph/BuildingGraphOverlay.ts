@@ -188,6 +188,8 @@ export class BuildingGraphOverlay {
       font: '600 13px/1.3 system-ui, sans-serif',
     } satisfies Partial<CSSStyleDeclaration>);
 
+    const titleWrap = document.createElement('div');
+    Object.assign(titleWrap.style, { display: 'flex', flexDirection: 'column', gap: '2px', pointerEvents: 'none' });
     const title = document.createElement('div');
     title.textContent = 'Building Graph — living view';
     Object.assign(title.style, {
@@ -196,6 +198,16 @@ export class BuildingGraphOverlay {
       textShadow: '0 1px 8px rgba(102,0,255,0.6)',
       pointerEvents: 'none',
     } satisfies Partial<CSSStyleDeclaration>);
+    // GRAPH.4 — make interaction discoverable (founder: "how do I interact?").
+    const hint = document.createElement('div');
+    hint.textContent = '👆 Click any node to inspect it — element · properties · relationships · rules. Pink = rules.';
+    Object.assign(hint.style, {
+      color: 'rgba(255,255,255,0.82)',
+      font: '500 11px/1.3 system-ui, sans-serif',
+      textShadow: '0 1px 6px rgba(102,0,255,0.5)',
+      pointerEvents: 'none',
+    } satisfies Partial<CSSStyleDeclaration>);
+    titleWrap.append(title, hint);
 
     const stats = document.createElement('div');
     Object.assign(stats.style, {
@@ -232,7 +244,7 @@ export class BuildingGraphOverlay {
     right.appendChild(stats);
     right.appendChild(close);
 
-    bar.appendChild(title);
+    bar.appendChild(titleWrap);
     bar.appendChild(right);
     return bar;
   }
