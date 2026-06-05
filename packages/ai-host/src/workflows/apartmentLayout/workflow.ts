@@ -89,6 +89,11 @@ export function createApartmentLayoutImpl(deps: ApartmentLayoutDeps): WorkflowIm
                 ...(payload.doorSpansWorld && payload.doorSpansWorld.length > 0
                     ? { doorSpansWorld: payload.doorSpansWorld }
                     : {}),
+                // A.21.D6 — forward the site latitude for climate-driven window
+                // orientation (the editor reads it from siteModelStore).
+                ...(typeof payload.siteLatitudeDeg === 'number'
+                    ? { siteLatitudeDeg: payload.siteLatitudeDeg }
+                    : {}),
             },
             deps.relay,
             // Build opts conditionally — passing `model: undefined` violates

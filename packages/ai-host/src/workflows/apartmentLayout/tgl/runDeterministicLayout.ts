@@ -13,6 +13,7 @@ import { scoreLayout } from '../score.js';
 import { enumerateLayouts } from './enumerate.js';
 import { emitGeometry } from './emitGeometry.js';
 import { principalAxisAngle, rotatePt, type Pt } from './rectDecomposition.js';
+import { equatorFacingDir } from '../windowEmission/solarOrientation.js';
 
 const r3 = (n: number): number => Math.round(n * 1000) / 1000;
 
@@ -90,6 +91,9 @@ export function generateDeterministicLayouts(
     count: number,
     windowSpansWorld?: ReadonlyArray<{ a: { x: number; z: number }; b: { x: number; z: number } }>,
     doorSpansWorld?: ReadonlyArray<{ a: { x: number; z: number }; b: { x: number; z: number } }>,
+    // A.21.D6 — optional site latitude (decimal degrees) for climate-driven window
+    // orientation. Absent → pure-length window placement (no behaviour change).
+    solar?: { readonly latDeg: number; readonly weight?: number },
 ): ScoredLayoutOption[] {
     const perimeter = shell.perimeter as Pt[];
     if (!perimeter || perimeter.length < 3) return [];
@@ -104,6 +108,18 @@ export function generateDeterministicLayouts(
     const angle = Math.abs(rawAngle) >= PRINCIPAL_AXIS_MIN_RAD ? rawAngle : 0;
     const pivot = polyCentroidM(perimeter);
     const pivotMm: { x: number; y: number } = { x: pivot.x * 1000, y: pivot.z * 1000 };
+
+    // A.21.D6 — the sun/equator-facing direction in the EMIT frame. equatorFacingDir
+    // returns it in the world frame (x=East, y=world-z=South); emitGeometry runs in
+    // the principal-axis-rotated frame, so rotate the direction by the SAME −angle
+    // forward map (about the origin — it's a direction, not a point).
+    const worldSun = solar ? equatorFacingDir(solar.latDeg) : null;
+    const emitSun = worldSun
+        ? (() => { const r = rotatePt({ x: worldSun.x, z: worldSun.y }, -angle, { x: 0, z: 0 }); return { x: r.x, y: r.z }; })()
+        : null;
+    const emitOpts = emitSun
+        ? { solar: { sunDir: emitSun, ...(solar?.weight !== undefined ? { weight: solar.weight } : {}) } }
+        : undefined;
 
     // Forward map (world → axis-aligned frame): rotate by −angle about the centroid.
     const fwdSpan = (sp: { a: { x: number; z: number }; b: { x: number; z: number } }) => ({
@@ -135,7 +151,7 @@ export function generateDeterministicLayouts(
         // Boundaries (open-plan virtual splitters) live OUTSIDE the LayoutGraph
         // (they aren't BIM elements, just a room-detection helper) and are merged
         // into the LayoutOption alongside the graph projection.
-        const emitted = emitGeometry(c.graph);
+        const emitted = emitGeometry(c.graph, emitOpts);
         // §PRINCIPAL-AXIS inverse map (axis-aligned frame → world): rotate emitted
         // mm geometry by +angle about the mm pivot. No-op when angle === 0.
         const option = angle === 0 ? emitted.option : rotateOptionBack(emitted.option, angle, pivotMm);

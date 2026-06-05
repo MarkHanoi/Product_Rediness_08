@@ -55,6 +55,11 @@ export interface GenerateLayoutInput {
      *  perimeter (metres) for pre-existing exterior doors. Forwarded to D-TGL so
      *  generated interior walls never cross a hand-placed front door. */
     doorSpansWorld?: ReadonlyArray<{ a: { x: number; z: number }; b: { x: number; z: number } }>;
+    /** A.21.D6 — site latitude (decimal degrees) for CLIMATE-DRIVEN window
+     *  orientation: windows prefer the sun-facing (equator-facing) façade. Absent →
+     *  pure-length placement (no behaviour change). The editor reads it from
+     *  `siteModelStore.getLocation().latitude`. */
+    siteLatitudeDeg?: number;
 }
 
 export interface GenerateLayoutResult {
@@ -213,6 +218,7 @@ export async function generateLayoutOptions(
         const deterministic = generateDeterministicLayouts(
             input.shell, input.program, input.constraints, input.weights, input.count,
             input.windowSpansWorld, input.doorSpansWorld,
+            input.siteLatitudeDeg !== undefined ? { latDeg: input.siteLatitudeDeg } : undefined,
         );
         if (deterministic.length > 0) {
             return { options: deterministic, status: 'ok', attempts: attempt, reason: 'AI unavailable — deterministic D-TGL offline layout' };
@@ -296,6 +302,7 @@ export async function generateLayoutOptions(
             const dtgl2 = generateDeterministicLayouts(
                 input.shell, adjustedProgram, input.constraints, input.weights, input.count,
                 input.windowSpansWorld, input.doorSpansWorld,
+                input.siteLatitudeDeg !== undefined ? { latDeg: input.siteLatitudeDeg } : undefined,
             );
             if (dtgl2.length > 0) {
                 return {

@@ -247,6 +247,10 @@ export interface ApartmentGenerateLayoutPayload {
      *  partition-snap pass so a generated interior wall never terminates
      *  INSIDE a pre-existing door opening. Empty/omitted ⇒ no snap. */
     doorSpansWorld?: Array<{ a: { x: number; z: number }; b: { x: number; z: number } }>;
+    /** A.21.D6 — site latitude (decimal degrees) for climate-driven window
+     *  orientation (windows prefer the sun-facing façade). Read from
+     *  `siteModelStore.getLocation().latitude`; omitted ⇒ pure-length placement. */
+    siteLatitudeDeg?: number;
     program: ApartmentProgram;
     constraints: ApartmentConstraints;
     options: { count: number; scoringWeights: ScoringWeights };

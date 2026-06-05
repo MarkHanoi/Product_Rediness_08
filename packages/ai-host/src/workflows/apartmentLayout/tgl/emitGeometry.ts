@@ -37,11 +37,19 @@ const mm = (m: number): number => Math.round(m * MM * 1e6) / 1e6;
 const num = (v: unknown, d = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 const str = (v: unknown, d = ''): string => (typeof v === 'string' ? v : d);
 
+/** Optional emit-time context. A.21.D6 — `solar.sunDir` is the equator/sun-facing
+ *  unit direction IN THE EMIT FRAME (x=world-x, y=world-z; already rotated into the
+ *  principal-axis frame by the caller), used to bias window placement toward the
+ *  sun-facing façade. Absent → pure-length placement (no behaviour change). */
+export interface EmitGeometryOpts {
+    readonly solar?: { readonly sunDir: { readonly x: number; readonly y: number }; readonly weight?: number };
+}
+
 /** Project a LayoutGraph to a LayoutOption (+ aligned GUIDs).
  *  ALL walls are emitted (perimeter walls flagged `isExternal`) so the preview
  *  shows the complete plan; the build step skips exterior walls (the shell already
  *  exists) — see buildLayoutPlan({ skipExteriorWalls }). */
-export function emitGeometry(graph: LayoutGraph): EmittedLayout {
+export function emitGeometry(graph: LayoutGraph, opts?: EmitGeometryOpts): EmittedLayout {
     const spaceNodes = graph.nodes.filter(n => n.kind === 'Space');
     const allWallNodes = graph.nodes.filter(n => n.kind === 'Wall');
     const wallNodes = allWallNodes;
@@ -184,7 +192,13 @@ export function emitGeometry(graph: LayoutGraph): EmittedLayout {
         if (externals.length === 0) continue;
         const rt = (str(n.attrs.spaceType, 'utility') as RoomType);
         const roomName = str(n.attrs.name, n.sourceId);
-        const placements = emitWindowsForRoom(rt, externals, roomName, doorSpansByWall);
+        // A.21.D6 — per-room climate bias: the room centroid (emit-frame mm) orients
+        // each wall's outward normal; the caller-supplied sunDir tilts the choice
+        // toward the sun-facing façade. Only when a solar context is present.
+        const solar = opts?.solar
+            ? (() => { const c = polyCentroid(n); return { sunDir: opts.solar!.sunDir, roomCentroidMm: { x: mm(c.cx), y: mm(c.cz) }, ...(opts.solar!.weight !== undefined ? { weight: opts.solar!.weight } : {}) }; })()
+            : null;
+        const placements = emitWindowsForRoom(rt, externals, roomName, doorSpansByWall, solar);
         for (const p of placements) {
             windows.push({
                 wallRef:    p.wallIndex,

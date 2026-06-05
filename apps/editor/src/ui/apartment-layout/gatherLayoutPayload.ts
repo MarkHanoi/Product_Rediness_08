@@ -17,6 +17,7 @@ import {
 } from './layoutRequestPayload.js';
 import { resolveApartmentBrief } from './briefToProgram.js';
 import { getActiveBriefMetadata } from './activeBrief.js';
+import { getCurrentSiteOrigin } from '../site/siteDispatch.js';
 
 interface WallRecord {
     id: string;
@@ -111,10 +112,20 @@ export function gatherLayoutPayload(
         ?? resolveApartmentBrief(getActiveBriefMetadata('apartment')).programOverride;
     const program: ApartmentProgram = { ...DEFAULT_PROGRAM, ...override };
 
-    return buildLayoutRequestPayload({
+    const payload = buildLayoutRequestPayload({
         levelId,
         walls,
         program,
         constraints,
     });
+
+    // A.21.D6 — stamp the site latitude so the D-TGL biases windows toward the
+    // sun-facing façade (climate-driven design). Read the pinned LTP-ENU origin;
+    // omitted when no real site location is set (0,0) → pure-length placement.
+    const origin = getCurrentSiteOrigin();
+    if (origin && Number.isFinite(origin.lat) && (origin.lat !== 0 || origin.lon !== 0)) {
+        payload.siteLatitudeDeg = origin.lat;
+    }
+
+    return payload;
 }
