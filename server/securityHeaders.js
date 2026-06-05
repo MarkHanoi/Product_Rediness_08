@@ -123,6 +123,15 @@ export function buildConnectSrc(env = process.env, isProd = IS_PROD) {
         // path (free, no key); ENTERPRISE FOLLOW-ON: self-host the tiles to drop
         // this external dependency when volume warrants.
         'https://tiles.openfreemap.org',
+        // GIS-CESIUM-OSM-GLOBE (2026-06-05) — keyless OpenStreetMap raster tiles
+        // for the Cesium "3D globe" basemap (apps/editor/src/ui/geospatial/
+        // CesiumViewport.ts UrlTemplateImageryProvider). Cesium's tile loader
+        // fetches PNG tiles via XHR/fetch (connect-src), NOT <img> — so img-src
+        // https: alone does NOT cover it and every tile was CSP-blocked ("Failed
+        // to obtain image tile"). The {s} subdomain rotates a/b/c. ENTERPRISE
+        // FOLLOW-ON: self-host the tiles / use a keyed provider when volume warrants.
+        'https://tile.openstreetmap.org',
+        'https://*.tile.openstreetmap.org',
         // MAP-DATA-OVERTURE — keyless OSM building footprints via the public
         // Overpass API, for the richer 2D + 3D context buildings (apps/editor/src/
         // ui/geospatial/contextBuildings.ts). The browser POSTs an Overpass-QL
