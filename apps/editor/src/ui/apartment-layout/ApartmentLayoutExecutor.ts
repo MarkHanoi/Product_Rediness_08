@@ -494,7 +494,26 @@ export class ApartmentLayoutExecutor {
                     if (poly.length < 3) continue;
                     // ALL D-TGL rooms whose centroid is inside this detected room.
                     // `tgl` is sorted by area desc so matches[0] is the dominant one.
-                    const matches = tgl.filter(t => inside(t.cx, t.cz, poly));
+                    let matches = tgl.filter(t => inside(t.cx, t.cz, poly));
+                    if (matches.length === 0) {
+                        // §ROOM-NAME-NEAREST (2026-06-05) — on SKEWED / non-orthogonal
+                        // builds the built geometry is offset from the D-TGL plan, so the
+                        // D-TGL centroid can land just OUTSIDE the detected polygon → no
+                        // inside-match → the room keeps a generic "Room 00-NNN" (founder:
+                        // "all of the rooms are room"). Fall back to the NEAREST D-TGL room
+                        // by centroid so every detected room still gets a semantic name +
+                        // occupancy.
+                        let cx = 0, cz = 0;
+                        for (const p of poly) { cx += p.x; cz += p.z; }
+                        cx /= poly.length; cz /= poly.length;
+                        let best: (typeof tgl)[number] | null = null;
+                        let bestD = Infinity;
+                        for (const t of tgl) {
+                            const d = (t.cx - cx) * (t.cx - cx) + (t.cz - cz) * (t.cz - cz);
+                            if (d < bestD) { bestD = d; best = t; }
+                        }
+                        if (best) matches = [best];
+                    }
                     if (matches.length === 0) continue;
                     const compoundName = matches.map(m => m.name).filter(Boolean).join(' / ');
                     if (!compoundName) continue;
