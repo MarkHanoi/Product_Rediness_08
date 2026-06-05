@@ -111,6 +111,11 @@ export class BuildingGraphOverlay {
   // GRAPH.4 — the interrogation panel: click a node → its element, props,
   // relationships + the rules it breaks.
   private detailEl: HTMLElement | null = null;
+  /** GRAPH.4 — the EXACT graph instance the current layout was built from, so the
+   *  interrogation panel + neighbour lookup use the SAME graph the nodes came from
+   *  (acquireGraph() rebuilds a fresh instance each tick; reading the window cache
+   *  separately risked a node-id mismatch → empty panel). */
+  private currentGraph: BuildingGraph | null = null;
 
   private layout: GraphLayout | null = null;
   private warmupLeft = 0;
@@ -362,6 +367,7 @@ export class BuildingGraphOverlay {
 
   private rebuildFromGraph(): void {
     const graph = this.acquireGraph();
+    this.currentGraph = graph;
     const nodes: UbgNode[] = graph ? graph.allNodes() : [];
     const edges = graph ? graph.allEdges() : [];
 
@@ -672,7 +678,7 @@ export class BuildingGraphOverlay {
 
   private neighboursOf(id: string): Set<string> {
     const out = new Set<string>();
-    const graph = ow()?.__pryzmBuildingGraph;
+    const graph = this.currentGraph ?? ow()?.__pryzmBuildingGraph;
     if (!graph) return out;
     try {
       for (const e of graph.outEdges(id)) out.add(e.to);
@@ -753,8 +759,10 @@ export class BuildingGraphOverlay {
     const el = document.createElement('div');
     el.setAttribute('data-testid', 'graph-detail-panel');
     Object.assign(el.style, {
-      position: 'absolute', top: '56px', left: '18px',
-      width: '300px', maxHeight: 'calc(100% - 88px)', overflowY: 'auto',
+      // top:64 clears the header; left:72 clears the left icon rail so the card is
+      // never tucked behind it. zIndex above the canvas (which has none).
+      position: 'absolute', top: '64px', left: '72px', zIndex: '10',
+      width: '300px', maxHeight: 'calc(100% - 96px)', overflowY: 'auto',
       display: 'none', pointerEvents: 'auto',
       background: '#ffffff', color: '#241a3a',
       border: `1px solid ${ACCENT}`, borderRadius: '14px',
@@ -772,7 +780,7 @@ export class BuildingGraphOverlay {
     const el = this.detailEl;
     if (!el) return;
     const id = this.focused;
-    const graph = ow()?.__pryzmBuildingGraph;
+    const graph = this.currentGraph ?? ow()?.__pryzmBuildingGraph;
     const node = id && graph ? (() => { try { return graph.getNode(id); } catch { return null; } })() : null;
     if (!id || !graph || !node) { el.style.display = 'none'; el.replaceChildren(); return; }
 
