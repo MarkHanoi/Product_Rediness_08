@@ -6,6 +6,7 @@ import {
     outwardNormal,
     orientationFit,
     solarLengthMultiplier,
+    climateGlazingFactor,
     type SolarBias,
 } from '../src/workflows/apartmentLayout/windowEmission/solarOrientation.js';
 import { emitWindowsForRoom } from '../src/workflows/apartmentLayout/windowEmission/emitWindows.js';
@@ -89,5 +90,46 @@ describe('emitWindowsForRoom — climate bias (A.21.D6)', () => {
         const solar: SolarBias = { sunDir: { x: 0, y: 1 }, roomCentroidMm: { x: 1500, y: 500 }, weight: 0.6 };
         const [w] = emitWindowsForRoom('living', [southWall, longNorth], 'Living', [], solar);
         expect(w?.wallIndex).toBe(1);
+    });
+});
+
+describe('climateGlazingFactor (A.21.D6.3)', () => {
+    it('no latitude → no size change', () => {
+        expect(climateGlazingFactor(undefined, 1)).toBe(1);
+        expect(climateGlazingFactor(Number.NaN, 1)).toBe(1);
+    });
+    it('COLD climate enlarges sun-facing glazing, leaves away-facing neutral', () => {
+        expect(climateGlazingFactor(60, 1)).toBeCloseTo(1.25, 6); // London/north, sun-facing
+        expect(climateGlazingFactor(60, 0)).toBeCloseTo(1.0, 6);  // north window — neutral
+    });
+    it('HOT climate shrinks glazing, most on the sun-facing side', () => {
+        expect(climateGlazingFactor(15, 1)).toBeCloseTo(0.85, 6); // tropical, sun-facing
+        expect(climateGlazingFactor(15, 0)).toBeCloseTo(0.94, 6); // away-facing — milder
+    });
+    it('temperate pivot (~37.5°) is neutral, and the factor is clamped to [0.85,1.25]', () => {
+        expect(climateGlazingFactor(37.5, 1)).toBeCloseTo(1.0, 6);
+        expect(climateGlazingFactor(80, 1)).toBeCloseTo(1.25, 6);  // clamp high (cold)
+        expect(climateGlazingFactor(-5, 1)).toBeCloseTo(0.85, 6);  // |lat|=5 near-equator → hot → shrink
+    });
+});
+
+describe('emitWindowsForRoom — climate glazing SIZE (A.21.D6.3)', () => {
+    // One long south-facing (sun) wall so the enlarged window still fits.
+    const southWall: ExternalWallSegment = { start: { x: 0, y: 1000 }, end: { x: 5000, y: 1000 }, wallIndex: 0 };
+    const base = (latDeg?: number): SolarBias => ({
+        sunDir: { x: 0, y: 1 }, roomCentroidMm: { x: 2500, y: 500 }, weight: 0.6,
+        ...(latDeg !== undefined ? { latDeg } : {}),
+    });
+
+    it('a cold-climate sun-facing window is WIDER than the temperate base', () => {
+        const baseW = emitWindowsForRoom('living', [southWall], 'Living', [], base())[0]?.widthMm ?? 0;
+        const coldW = emitWindowsForRoom('living', [southWall], 'Living', [], base(60))[0]?.widthMm ?? 0;
+        expect(coldW).toBeGreaterThan(baseW);
+        expect(coldW).toBeCloseTo(Math.round(baseW * 1.25), 0);
+    });
+    it('a hot-climate sun-facing window is NARROWER than the base', () => {
+        const baseW = emitWindowsForRoom('living', [southWall], 'Living', [], base())[0]?.widthMm ?? 0;
+        const hotW = emitWindowsForRoom('living', [southWall], 'Living', [], base(15))[0]?.widthMm ?? 0;
+        expect(hotW).toBeLessThan(baseW);
     });
 });

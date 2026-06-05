@@ -118,7 +118,7 @@ export function generateDeterministicLayouts(
         ? (() => { const r = rotatePt({ x: worldSun.x, z: worldSun.y }, -angle, { x: 0, z: 0 }); return { x: r.x, y: r.z }; })()
         : null;
     const emitOpts = emitSun
-        ? { solar: { sunDir: emitSun, ...(solar?.weight !== undefined ? { weight: solar.weight } : {}) } }
+        ? { solar: { sunDir: emitSun, ...(solar?.weight !== undefined ? { weight: solar.weight } : {}), ...(solar?.latDeg !== undefined ? { latDeg: solar.latDeg } : {}) } }
         : undefined;
 
     // Forward map (world → axis-aligned frame): rotate by −angle about the centroid.

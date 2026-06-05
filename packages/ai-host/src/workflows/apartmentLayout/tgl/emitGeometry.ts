@@ -42,7 +42,12 @@ const str = (v: unknown, d = ''): string => (typeof v === 'string' ? v : d);
  *  principal-axis frame by the caller), used to bias window placement toward the
  *  sun-facing façade. Absent → pure-length placement (no behaviour change). */
 export interface EmitGeometryOpts {
-    readonly solar?: { readonly sunDir: { readonly x: number; readonly y: number }; readonly weight?: number };
+    readonly solar?: {
+        readonly sunDir: { readonly x: number; readonly y: number };
+        readonly weight?: number;
+        /** A.21.D6.3 — site latitude for climate-driven glazing SIZE. */
+        readonly latDeg?: number;
+    };
 }
 
 /** Project a LayoutGraph to a LayoutOption (+ aligned GUIDs).
@@ -196,7 +201,7 @@ export function emitGeometry(graph: LayoutGraph, opts?: EmitGeometryOpts): Emitt
         // each wall's outward normal; the caller-supplied sunDir tilts the choice
         // toward the sun-facing façade. Only when a solar context is present.
         const solar = opts?.solar
-            ? (() => { const c = polyCentroid(n); return { sunDir: opts.solar!.sunDir, roomCentroidMm: { x: mm(c.cx), y: mm(c.cz) }, ...(opts.solar!.weight !== undefined ? { weight: opts.solar!.weight } : {}) }; })()
+            ? (() => { const c = polyCentroid(n); return { sunDir: opts.solar!.sunDir, roomCentroidMm: { x: mm(c.cx), y: mm(c.cz) }, ...(opts.solar!.weight !== undefined ? { weight: opts.solar!.weight } : {}), ...(opts.solar!.latDeg !== undefined ? { latDeg: opts.solar!.latDeg } : {}) }; })()
             : null;
         const placements = emitWindowsForRoom(rt, externals, roomName, doorSpansByWall, solar);
         for (const p of placements) {

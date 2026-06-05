@@ -39,7 +39,7 @@ import {
     type WindowPlacement,
     type WindowableRoomType,
 } from './types.js';
-import { solarLengthMultiplier, type SolarBias } from './solarOrientation.js';
+import { solarLengthMultiplier, climateGlazingFactor, orientationFit, outwardNormal, type SolarBias } from './solarOrientation.js';
 
 const segLenMm = (s: ExternalWallSegment): number => {
     const dx = s.end.x - s.start.x;
@@ -191,14 +191,29 @@ export function emitWindowsForRoom(
     // wall the room also fronts).
     for (const cand of candidates) {
         const wallLenMm = cand.lenMm;
+        // A.21.D6.3 — climate-driven glazing SIZE: scale this window by the passive-
+        // solar factor for THIS wall's sun-orientation (bigger sun-facing glazing in
+        // cold climates, smaller in hot). Width is clamped so it still hosts on the
+        // wall; height/sill are free. No solar context → unchanged dimensions.
+        let widthMm = chosenWidthMm;
+        let heightMm = spec.heightMm;
+        if (solar) {
+            const fit = orientationFit(outwardNormal(cand.w.start, cand.w.end, solar.roomCentroidMm), solar.sunDir);
+            const factor = climateGlazingFactor(solar.latDeg, fit);
+            if (factor !== 1) {
+                const maxWidth = Math.max(spec.minWidthMm, wallLenMm - 2 * WINDOW_CLEARANCE_MM);
+                widthMm = Math.round(Math.max(spec.minWidthMm, Math.min(chosenWidthMm * factor, maxWidth)));
+                heightMm = Math.round(spec.heightMm * factor);
+            }
+        }
         const blocked = blockedSpansFor(cand.w.wallIndex, occupied);
-        const offsetMm = clearOffsetMm(wallLenMm, chosenWidthMm, blocked);
+        const offsetMm = clearOffsetMm(wallLenMm, widthMm, blocked);
         if (offsetMm === null) continue;     // fully blocked on this wall — next wall
         return [{
             wallIndex: cand.w.wallIndex,
             offsetMm,
-            widthMm:   chosenWidthMm,
-            heightMm:  spec.heightMm,
+            widthMm,
+            heightMm,
             sillMm:    spec.sillMm,
             roomType:  roomType as WindowableRoomType,
             ...(roomName ? { name: `${roomName} Window` } : {}),

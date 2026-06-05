@@ -23,6 +23,9 @@ export interface SolarBias {
     readonly roomCentroidMm: Vec2mm;
     /** 0..1 strength of the orientation bias vs wall length. Default 0.6. */
     readonly weight?: number;
+    /** A.21.D6.3 — site latitude (decimal degrees) for climate-driven window SIZING
+     *  (passive solar). Absent → no size change. */
+    readonly latDeg?: number;
 }
 
 /** Below this absolute latitude the sun crosses both north and south of zenith
@@ -80,4 +83,26 @@ export function solarLengthMultiplier(
     const w = solar.weight ?? 0.6;
     const n = outwardNormal(a, b, solar.roomCentroidMm);
     return 1 + w * orientationFit(n, solar.sunDir);
+}
+
+/**
+ * A.21.D6.3 — passive-solar GLAZING-SIZE factor for a window on a wall whose
+ * sun-orientation is `fit` ∈ [0,1], at site latitude `latDeg`. Multiply the window's
+ * width + height by this.
+ *   • COLD climates (high |lat|): ENLARGE sun-facing glazing for winter solar gain
+ *     (up to +25% at fit 1); non-sun windows stay ~neutral (kept for daylight).
+ *   • HOT climates (low |lat|): SHRINK glazing to limit overheating (down to −15%,
+ *     strongest on sun-facing walls).
+ *   • Temperate pivot ≈ 37.5° (coldness 0). Clamped to [0.85, 1.25].
+ * `latDeg` undefined → 1 (no change).
+ */
+export function climateGlazingFactor(latDeg: number | undefined, fit: number): number {
+    if (latDeg === undefined || !Number.isFinite(latDeg)) return 1;
+    const f = Math.max(0, Math.min(1, fit));
+    // coldness ∈ [−1,+1]: +1 at |lat| 60°, 0 at 37.5°, −1 at 15°.
+    const coldness = Math.max(-1, Math.min(1, (Math.abs(latDeg) - 37.5) / 22.5));
+    const factor = coldness >= 0
+        ? 1 + 0.25 * coldness * f                       // cold → bigger sun glazing
+        : 1 + 0.15 * coldness * (0.4 + 0.6 * f);        // hot → smaller (more on sun side)
+    return Math.max(0.85, Math.min(1.25, factor));
 }
