@@ -543,12 +543,38 @@ if ('serviceWorker' in navigator) {
         new URLSearchParams(window.location.search).get('sw') === '1';
 
     if (shouldRegisterSW) {
+        // §SW-AUTO-UPDATE (2026-06-05) — auto-reload ONCE when a new service
+        // worker takes control, so a fresh deploy applies itself instead of
+        // leaving the user on a stale cached build (the recurring "prod shows
+        // old code" pain). The new sw.js calls skipWaiting() on install, so it
+        // activates + claims clients immediately → `controllerchange` fires →
+        // we reload into the fresh chunk graph. Guards:
+        //   • only when a controller ALREADY exists (a returning visitor with an
+        //     old SW) — a first-ever install has nothing stale to replace, so we
+        //     must NOT reload then (it would loop the very first load);
+        //   • `hasRefreshed` flag prevents any reload loop.
+        if (navigator.serviceWorker.controller) {
+            let hasRefreshed = false;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (hasRefreshed) return;
+                hasRefreshed = true;
+                console.info('[sw] new version activated — reloading to apply.');
+                window.location.reload();
+            });
+        }
+
         navigator.serviceWorker
             .register('/sw.js', { scope: '/' })
             .then((registration) => {
                 console.info('[sw] registered, scope:', registration.scope);
 
-                // Listen for updates so we can notify the user
+                // Proactively check for a new SW on every load so a deploy is
+                // picked up promptly (the browser also revalidates /sw.js, but an
+                // explicit update() removes the one-extra-navigation lag).
+                registration.update?.();
+
+                // Informational: log when a new worker has installed in the
+                // background (the controllerchange handler above does the reload).
                 registration.addEventListener('updatefound', () => {
                     const newWorker = registration.installing;
                     if (!newWorker) return;
@@ -557,7 +583,7 @@ if ('serviceWorker' in navigator) {
                             newWorker.state === 'installed' &&
                             navigator.serviceWorker.controller
                         ) {
-                            console.info('[sw] update available — reload to apply');
+                            console.info('[sw] update installed — applying on controllerchange.');
                         }
                     });
                 });
