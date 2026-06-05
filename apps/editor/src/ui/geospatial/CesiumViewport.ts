@@ -209,6 +209,9 @@ export class CesiumViewport {
   private contextBuildingsAbort: AbortController | null = null;
   /** One-time guard so the "context buildings unavailable" warning logs once. */
   private contextBuildingsWarned = false;
+  /** §A.21.D-GLOBE (2026-06-05) — debounce handle for the pan-driven context-building
+   *  refresh so a flurry of camera moves coalesces into one Overpass fetch. */
+  private contextPanRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 
   /** Phase B (S73-WIRE) — runtime threaded by parent. */
   public readonly runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null;
@@ -582,7 +585,7 @@ export class CesiumViewport {
         );
       }, 100);
 
-      // Debug listener
+      // Debug listener + §A.21.D-GLOBE pan-driven context-building refresh.
       this.viewer.camera.moveEnd.addEventListener(() => {
         if (!this.viewer) return;
         const carto = this.viewer.camera.positionCartographic;
@@ -591,6 +594,12 @@ export class CesiumViewport {
         console.log("LAT:", Cesium.Math.toDegrees(carto.latitude));
         console.log("LON:", Cesium.Math.toDegrees(carto.longitude));
         console.log("HEIGHT:", carto.height);
+
+        this.maybeRefreshContextOnPan(
+          Cesium.Math.toDegrees(carto.latitude),
+          Cesium.Math.toDegrees(carto.longitude),
+          carto.height,
+        );
       });
 
       console.log("CesiumViewport: Viewer ready with Google Photorealistic 3D Tiles");
@@ -1758,6 +1767,48 @@ export class CesiumViewport {
     );
   }
 
+  /**
+   * §A.21.D-GLOBE (2026-06-05) — refresh context buildings as the camera PANS so
+   * they don't render only in one fixed square around the site origin and then
+   * vanish when the user moves (founder-reported "buildings stop showing as I move").
+   *
+   * Gated to avoid hammering Overpass:
+   *   • only when context buildings are already an active layer for this view;
+   *   • only below ~6 km camera height (above that the fixed bbox is meaningless
+   *     and the user is looking at the whole city, not the massing);
+   *   • only once the camera ground point has moved >~450 m from the last load
+   *     centre (roughly a third of the fetch bbox);
+   *   • debounced 600 ms so a flurry of moves coalesces into ONE fetch.
+   * loadContextBuildings() itself aborts any in-flight fetch and clears the old
+   * entities, so repeated pans never leak or stack footprints.
+   */
+  private maybeRefreshContextOnPan(camLat: number, camLon: number, camHeight: number): void {
+    // Feature inactive for this view (no buildings ever loaded) → do nothing.
+    if (!this.contextBuildingsAt && this.contextBuildingEntities.length === 0) return;
+    if (!Number.isFinite(camLat) || !Number.isFinite(camLon)) return;
+    if (!Number.isFinite(camHeight) || camHeight > 6000) return;
+
+    const at = this.contextBuildingsAt;
+    if (at) {
+      // Cheap planar degree distance → metres (lat ≈ 111 km/deg; lon scaled by cos).
+      const dLatM = (camLat - at.lat) * 111_320;
+      const dLonM = (camLon - at.lon) * 111_320 * Math.cos((camLat * Math.PI) / 180);
+      const movedM = Math.hypot(dLatM, dLonM);
+      if (movedM < 450) return; // still inside the loaded footprint — keep it.
+    }
+
+    if (this.contextPanRefreshTimer !== null) clearTimeout(this.contextPanRefreshTimer);
+    this.contextPanRefreshTimer = setTimeout(() => {
+      this.contextPanRefreshTimer = null;
+      if (!this.viewer) return;
+      console.log(
+        `[CesiumViewport][forma] §A.21.D-GLOBE pan-refresh — reloading context buildings ` +
+          `around LAT ${camLat.toFixed(5)} LON ${camLon.toFixed(5)} (camera moved out of the loaded area).`,
+      );
+      void this.loadContextBuildings(camLat, camLon, true);
+    }, 600);
+  }
+
   /** MAP-DATA-OVERTURE — remove all context-building entities (idempotent). */
   public clearContextBuildings(): void {
     const viewer = this.viewer;
@@ -1952,6 +2003,7 @@ export class CesiumViewport {
     try {
       this.contextBuildingsAbort?.abort();
       this.contextBuildingsAbort = null;
+      if (this.contextPanRefreshTimer !== null) { clearTimeout(this.contextPanRefreshTimer); this.contextPanRefreshTimer = null; }
       this.clearContextBuildings();
       this.contextBuildingsAt = null;
     } catch (e) {
