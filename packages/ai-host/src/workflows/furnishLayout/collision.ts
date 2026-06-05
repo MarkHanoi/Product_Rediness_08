@@ -70,7 +70,13 @@ export function footprintCorners(cx: number, cz: number, w: number, l: number, y
     const s = Math.sin(yaw), c = Math.cos(yaw);
     const hw = w / 2, hl = l / 2;
     const local: Pt[] = [{ x: -hw, z: -hl }, { x: hw, z: -hl }, { x: hw, z: hl }, { x: -hw, z: hl }];
-    const r = local.map((p) => ({ x: cx + p.x * c - p.z * s, z: cz + p.x * s + p.z * c }));
+    // Rotation MUST match the solver's yaw convention `yawFromNormal = atan2(n.x,
+    // n.z)`, i.e. the inward normal is (sin yaw, cos yaw). So the footprint's local
+    // +z (its depth `l`) must map to (sin yaw, cos yaw) and local +x (width `w`) to
+    // (cos yaw, -sin yaw). (The standard CCW matrix mirrors x and only happens to
+    // agree at the four cardinal yaws — where the corner SET is identical — which
+    // is why the orthogonal tests don't catch it; at 30° it points the wrong way.)
+    const r = local.map((p) => ({ x: cx + p.x * c + p.z * s, z: cz - p.x * s + p.z * c }));
     return [r[0]!, r[1]!, r[2]!, r[3]!];
 }
 

@@ -81,6 +81,52 @@ describe('furnishRoom (D-FLE F5/F7)', () => {
         expect(furnishRoom(rectRoom('corridor', 6, 1.2))).toEqual([]);    // unfurnished type
     });
 
+    describe('§FURNISH-OBB — oriented footprints furnish non-orthogonal rooms', () => {
+        // Rotate a rectangular room (its polygon, walls, normals + door) by θ about
+        // its centroid. The shape is unchanged — only the world-axis alignment is —
+        // so it MUST furnish identically to its axis-aligned twin. The pre-fix solver
+        // built an AXIS-ALIGNED footprint (footprintRect snapped yaw to {0,90,180,270})
+        // which poked outside the rotated polygon → rectInPolygon failed → most items
+        // dropped. The oriented-quad solver tests the TRUE rotated footprint, so the
+        // furniture fits. This is the regression guard for that fix.
+        const rot = (p: Pt, c: Pt, cs: number, sn: number): Pt =>
+            ({ x: c.x + (p.x - c.x) * cs - (p.z - c.z) * sn, z: c.z + (p.x - c.x) * sn + (p.z - c.z) * cs });
+        const rotVec = (v: Pt, cs: number, sn: number): Pt => ({ x: v.x * cs - v.z * sn, z: v.x * sn + v.z * cs });
+        const rotatedRoom = (occupancy: string, w: number, d: number, theta: number): FurnishRoomInput => {
+            const base = rectRoom(occupancy, w, d);
+            const c = base.centroid; const cs = Math.cos(theta), sn = Math.sin(theta);
+            return {
+                ...base,
+                polygon: (base.polygon as Pt[]).map(p => rot(p, c, cs, sn)),
+                walls: base.walls.map(wl => ({ ...wl, a: rot(wl.a, c, cs, sn), b: rot(wl.b, c, cs, sn), inwardNormal: rotVec(wl.inwardNormal, cs, sn) })),
+                doors: base.doors.map(dr => ({ ...dr, center: rot(dr.center, c, cs, sn), normal: rotVec(dr.normal, cs, sn) })),
+            };
+        };
+
+        it('a 30°-rotated bedroom still places the bed + bedsides (AABB solver would drop them)', () => {
+            const room = rotatedRoom('bedroom', 4, 3, Math.PI / 6);
+            const items = furnishRoom(room);
+            expect(items.some(i => i.kind === 'bed')).toBe(true);
+            expect(items.length).toBeGreaterThanOrEqual(3); // bed + ≥1 bedside (+ wardrobe)
+            // every placed item's centre lies inside the rotated polygon
+            for (const it of items)
+                expect(pointInPolygon({ x: it.position.x, z: it.position.z }, room.polygon as Pt[])).toBe(true);
+        });
+
+        it('rotating the room retains the bulk of the furniture (pre-fix AABB dropped to ~0)', () => {
+            const flat = furnishRoom(rectRoom('living-room', 5, 4)).length;
+            for (const theta of [Math.PI / 9, Math.PI / 4, Math.PI / 3]) {
+                const tilted = furnishRoom(rotatedRoom('living-room', 5, 4, theta)).length;
+                // Rotation can cost a couple of placements (the discrete 0.25 m slide
+                // offsets land differently against a rotated boundary), but must keep
+                // the bulk — the pre-fix axis-aligned solver dropped to ~0. Require at
+                // least 70% of the axis-aligned count, and never zero.
+                expect(tilted).toBeGreaterThan(0);
+                expect(tilted).toBeGreaterThanOrEqual(Math.ceil(flat * 0.7));
+            }
+        });
+    });
+
     describe('§FURNITURE-SPEC excludeWindowWall (door-vector-aware placement)', () => {
         // Same 4 × 3 bedroom (door on the bottom wall) but the wall OPPOSITE
         // the door (z = 3) now carries a window. Without the exclusion,
