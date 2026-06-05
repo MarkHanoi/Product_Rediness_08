@@ -17,10 +17,12 @@
 name: Deploy to Fly.io
 
 on:
-  # §A.10.i — MANUAL-ONLY deploy to conserve GitHub Actions minutes when private.
-  # To deploy free: make the repo PUBLIC, then either run this workflow (Actions →
-  # Run workflow) or temporarily re-add a `push:` trigger; revert to this before
-  # going private again. (§A.10.j re-enabled push for one public deploy, now reverted.)
+  # §A.10.j — push trigger TEMPORARILY re-enabled to deploy during a PUBLIC-repo
+  # window (public repos get free unlimited Actions). Revert to workflow_dispatch-
+  # only after the deploy + before going private again.
+  push:
+    branches: [main]
+    paths-ignore: ['docs/**', '**/*.md', '.claude/**']
   workflow_dispatch:
 
 # Latest-wins: a newer push to main cancels an older in-flight deploy so prod
