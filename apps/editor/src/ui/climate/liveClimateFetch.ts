@@ -51,7 +51,17 @@ export function makeLiveClimateFetch(
 ): NoaaFetchImpl | undefined {
     if (!fetchImpl) return undefined;
     return async (lat: number, lon: number): Promise<LiveNormalsResult> => {
-        const result = await fetchLiveNormals(lat, lon, { fetchImpl });
+        // §A.10.g — bound the live fetch so a CSP-blocked / stalled Open-Meteo /
+        // PVGIS request can't hang forever. On timeout we reject → resolveNormals
+        // degrades to bundled (C21 §7.4). (The bundled default is already ingested
+        // bundled-first, so this only governs the optional live UPGRADE.)
+        const LIVE_TIMEOUT_MS = 8000;
+        const result = await Promise.race([
+            fetchLiveNormals(lat, lon, { fetchImpl }),
+            new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error('[liveClimateFetch] live climate fetch timed out (8s) — using bundled')), LIVE_TIMEOUT_MS),
+            ),
+        ]);
         if (!result) {
             // null = adapter could not produce 12 valid normals. Throw so
             // resolveNormals catches it and degrades to bundled (C21 §7.4).

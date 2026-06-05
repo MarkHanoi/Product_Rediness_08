@@ -81,45 +81,64 @@ export async function ensureSiteClimate(
     }
     if (!site || !loc) return false;
 
-    // Live keyless fetch (Open-Meteo + PVGIS) unless the caller opts out.
-    // `undefined` (no global fetch / opted out) → bundled offline default.
-    const fetchImpl =
-        opts.fetchImpl === null
-            ? undefined
-            : (opts.fetchImpl ?? makeLiveClimateFetch());
+    const commonPayload = {
+        siteId: site.id,
+        lat: loc.latitude,
+        lon: loc.longitude,
+        elevationM: loc.elevationAsl ?? 0,
+        timezone: resolveTimezone(loc.longitude),
+    };
 
+    // ── Stage 1 — GUARANTEE a dataset INSTANTLY: the bundled regional default ──
+    // §A.10.g (2026-06-05, founder: "default Spain/France/UK dataset" / "NO DATASET").
+    // BUNDLED-FIRST. `resolveNormals` AWAITS the live Open-Meteo/PVGIS fetch FIRST
+    // when a fetchImpl is passed; that fetch has no hard timeout and can be blocked
+    // by CSP/network, so the climate card sat on "NO DATASET" forever waiting for a
+    // fetch that never settled. Ingesting the bundled climate-zone default first
+    // (NO network) means the wind rose + temperature ALWAYS populate the moment a
+    // location is set — offline, instantly. Live measured data then upgrades it.
+    let presentOk = false;
     try {
-        const result = await climateEnsureForLocation(
-            {
-                siteId: site.id,
-                lat: loc.latitude,
-                lon: loc.longitude,
-                elevationM: loc.elevationAsl ?? 0,
-                timezone: resolveTimezone(loc.longitude),
-                skipIfPresent: true,
-            },
-            {
-                store: runtime.climateStore,
-                // ONLINE → live Open-Meteo + PVGIS (tier noaa-normals);
-                // failure / offline → bundled (fallback-defaults), C21 §7.4.
-                fetchImpl,
-            },
+        const bundled = await climateEnsureForLocation(
+            { ...commonPayload, skipIfPresent: true },
+            { store: runtime.climateStore, fetchImpl: undefined }, // bundled only
         );
-        if (!result.ok) {
-            console.warn('[ensureSiteClimate] ingest rejected:', result.message);
-            return false;
-        }
-        if (!result.event.skipped) {
+        presentOk = bundled.ok;
+        if (bundled.ok && !bundled.event.skipped) {
             console.log(
-                `[ensureSiteClimate] climate ingested for site ${String(site.id)} ` +
-                `(source=${result.event.source}).`,
+                `[ensureSiteClimate] bundled regional default ingested for site ` +
+                `${String(site.id)} (instant, offline — climate card populated).`,
             );
         }
-        return true;
     } catch (e) {
-        console.warn('[ensureSiteClimate] climateEnsureForLocation threw:', e);
-        return false;
+        console.warn('[ensureSiteClimate] bundled ingest threw:', e);
     }
+
+    // ── Stage 2 — upgrade to LIVE measured normals in the BACKGROUND ───────────
+    // Best-effort; never blocks the caller or throws. On success it overwrites the
+    // bundled dataset with the better `noaa-normals` tier and the store.subscribe()
+    // refresh repaints the climate card; on failure/timeout the bundled default is
+    // kept. Skipped when the caller opted out (`fetchImpl: null`).
+    if (opts.fetchImpl !== null) {
+        const liveFetch = opts.fetchImpl ?? makeLiveClimateFetch();
+        if (liveFetch) {
+            void (async () => {
+                try {
+                    const live = await climateEnsureForLocation(
+                        { ...commonPayload, skipIfPresent: false },
+                        { store: runtime.climateStore, fetchImpl: liveFetch },
+                    );
+                    if (live.ok && !live.event.skipped && live.event.source === 'noaa-normals') {
+                        console.log(`[ensureSiteClimate] upgraded to live measured normals for site ${String(site.id)}.`);
+                    }
+                } catch (e) {
+                    console.warn('[ensureSiteClimate] live upgrade failed (bundled default kept):', e);
+                }
+            })();
+        }
+    }
+
+    return presentOk;
 }
 
 /**

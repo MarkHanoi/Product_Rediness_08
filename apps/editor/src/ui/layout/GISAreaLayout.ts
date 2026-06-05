@@ -1011,6 +1011,30 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // Subscribe eagerly so an edit made before the user ever opens 3D is still
     // reflected the next time 3D is shown (the guard short-circuits when not 3D).
     subscribeFormaLiveUpdate();
+
+    // §A.10.g (2026-06-05) — AUTO-LOAD climate the moment a site location is set,
+    // NOT only when the Forma view opens. The bundled regional default ingests
+    // instantly (offline), so the climate card + wind rose are populated by the
+    // time the user opens the climate card. Live measured normals upgrade in the
+    // background. once-guarded (the first location set per session is enough; the
+    // command is idempotent / skipIfPresent anyway).
+    let _climateAutoLoaded = false;
+    const ensureClimateNow = (): void => {
+        if (_climateAutoLoaded) return;
+        _climateAutoLoaded = true;
+        import('../climate/ensureSiteClimate')
+            .then(({ ensureSiteClimate }) => ensureSiteClimate(runtime ?? null))
+            .catch((e) => console.warn('[gis] auto climate-load failed:', e));
+    };
+    try {
+        const csub = runtime?.events?.on('site.location-changed', () => ensureClimateNow());
+        if (csub) formaLiveUpdateDisposers.push(() => { try { csub(); } catch { /* gone */ } });
+        // If a location is already set (e.g. returning to an existing project), load now.
+        const existing = getFormaOrigin();
+        if (existing && (existing.lat !== 0 || existing.lon !== 0)) ensureClimateNow();
+    } catch (e) {
+        console.warn('[gis] climate auto-load subscribe failed:', e);
+    }
     window.pryzmDisposeFormaLiveUpdate = () => {
         for (const d of formaLiveUpdateDisposers.splice(0)) d();
     };
