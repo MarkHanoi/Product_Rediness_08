@@ -1031,7 +1031,8 @@ Per [status/remaining-work-consolidated.md](../status/remaining-work-consolidate
 | **A.DU.C-B3** | C-B3 | 100 m maxDistance hard cap |
 | **A.DU.C-B4** | C-B4 | maxPolarAngle clamp |
 | **A.DU.M-B1** | M-B1 | Wall+slab system-type IDs regenerate on save/load |
-| **A.DU.T-H5** | T-H5 | Furniture rotation hard-coded at 0 |
+| **A.DU.T-H5** | T-H5 | ✅ **RESOLVED** — Furniture rotation hard-coded at 0 | The §FT-FURNITURE bus→legacy bridge (`initTools.ts §FIX-FURNITURE-ROTATION`) lifts the scalar yaw into `rotation.y` (`{x:0, y:ev.rotation, z:0}`); `buildFurnishCommands` emits the scalar correctly. Verified 2026-06-05. |
+| **A.DU.FURN-OBB** | FURN-OBB | ✅ **RESOLVED 2026-06-05** — Furnish drops most furniture in non-orthogonal rooms | `furnishLayout/collision.ts footprintRect()` snapped yaw to {0,90,180,270} → axis-aligned footprint poked outside angled polygons → `rectInPolygon` failed → items dropped. Fix (`31f26add` + rotation-convention correction `7fd3e31a`): oriented-quad primitives (footprintCorners/quadInPolygon/quadsOverlap-SAT) testing the TRUE rotated footprint; placeSolver carries it end-to-end. Cardinal yaws ≡ AABB so orthogonal rooms unchanged. 81/81 furnish tests incl. 2 rotated-room regression tests. |
 | **A.DU.T-H7** | T-H7 | Door 1.5 m radius |
 | **A.DU.L-B3** | L-B3 | Standalone slab/floor opening restore |
 
