@@ -72,12 +72,18 @@ export type Bbox = readonly [number, number, number, number];
 const OVERPASS_ENDPOINTS = [
     'https://overpass-api.de/api/interpreter',
     'https://overpass.kumi.systems/api/interpreter',
+    // §A.21.D-GLOBE2 (2026-06-05) — extra keyless CORS mirrors so heavy testing that
+    // rate-limits (429) the primary still gets context buildings from a fallback.
+    'https://overpass.private.coffee/api/interpreter',
+    'https://overpass.osm.jp/api/interpreter',
 ] as const;
 
 /** The origin(s) that must appear in the server CSP `connect-src` for fetch. */
 export const OVERPASS_ORIGINS = [
     'https://overpass-api.de',
     'https://overpass.kumi.systems',
+    'https://overpass.private.coffee',
+    'https://overpass.osm.jp',
 ] as const;
 
 /** Assumed storey height (m) when only `building:levels` is known. */
@@ -102,6 +108,31 @@ let warnedOnce = false;
 /** Build a stable cache key from a bbox rounded to the fetch grid. */
 function bboxKey(bbox: Bbox): string {
     return bbox.map((n) => n.toFixed(4)).join(',');
+}
+
+// §A.21.D-GLOBE2 — PERSISTENT cache (localStorage). The in-memory `cache` is lost on
+// every reload / new project, so repeated testing re-fetches the SAME bbox and
+// exhausts the public Overpass rate limit (founder: context buildings vanished after
+// many generations). Persisting footprints for 7 days means a re-visited site loads
+// instantly + offline, with zero Overpass calls. Best-effort: quota / private-mode
+// failures are swallowed.
+const LS_PREFIX = 'pryzm:ctxbld:';
+const LS_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+function lsRead(key: string): ContextBuildingCollection | null {
+    try {
+        const raw = globalThis.localStorage?.getItem(LS_PREFIX + key);
+        if (!raw) return null;
+        const o = JSON.parse(raw) as { t: number; c: ContextBuildingCollection };
+        if (!o || typeof o.t !== 'number' || (Date.now() - o.t) > LS_TTL_MS) return null;
+        return o.c;
+    } catch { return null; }
+}
+
+function lsWrite(key: string, c: ContextBuildingCollection): void {
+    try {
+        globalThis.localStorage?.setItem(LS_PREFIX + key, JSON.stringify({ t: Date.now(), c }));
+    } catch { /* quota / unavailable — non-fatal */ }
 }
 
 /** Compute the fetch bbox `[w,s,e,n]` centred on a site lat/lon. */
@@ -217,6 +248,10 @@ export async function fetchContextBuildings(
     const key = bboxKey(bbox);
     const cached = cache.get(key);
     if (cached) return cached;
+    // §A.21.D-GLOBE2 — persistent cache hit (survives reload / new project), so a
+    // re-visited site loads its context buildings without another Overpass call.
+    const persisted = lsRead(key);
+    if (persisted) { cache.set(key, persisted); return persisted; }
 
     const body = 'data=' + encodeURIComponent(overpassQuery(bbox));
 
@@ -240,6 +275,7 @@ export async function fetchContextBuildings(
             const json = (await res.json()) as { elements?: OverpassElement[] };
             const collection = overpassToCollection(json.elements ?? []);
             cache.set(key, collection);
+            if (collection.features.length > 0) lsWrite(key, collection); // persist non-empty results
             console.log(
                 `[gis] context buildings: ${collection.features.length} OSM footprint(s) ` +
                     `for bbox ${key} via ${new URL(endpoint).host}.`,

@@ -141,6 +141,10 @@ export function buildConnectSrc(env = process.env, isProd = IS_PROD) {
         // Overpass or a keyed Overture-PMTiles provider replaces these origins.
         'https://overpass-api.de',
         'https://overpass.kumi.systems',
+        // §A.21.D-GLOBE2 — extra keyless Overpass mirrors so context buildings
+        // survive rate-limiting (429) of the primary during heavy testing.
+        'https://overpass.private.coffee',
+        'https://overpass.osm.jp',
         // CLIMATE-LIVE-DATA — keyless live climate sources for the FORMA.5
         // climate card + sun/wind analysis (apps/editor/src/ui/climate/
         // liveClimateFetch.ts → @pryzm/climate-host liveNormalsAdapter).
