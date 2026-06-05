@@ -315,7 +315,7 @@ export class CesiumViewport {
       console.log(
         `[gis][cesium] imagery mode = ${photorealAvailable
           ? 'PHOTOREAL-WITH-TOKEN (default ion base layer installed; arcgis/google/bing tiles allowed via CSP)'
-          : 'NONE/FORMA (no token → baseLayer:false; ESRI + Google-3D-tiles SKIPPED → zero arcgis/googleapis/virtualearth requests)'}.`
+          : 'KEYLESS-OSM (no token → no default ion layer; FREE OpenStreetMap streets basemap installed below for the 3D globe view; Google-3D-tiles SKIPPED)'}.`
       );
 
       // Disable depth test against terrain
@@ -337,11 +337,17 @@ export class CesiumViewport {
       // depth and punch instead of looking pale: brightness slightly <1 (kills the
       // wash), contrast & saturation >1 (richer colour + separation), gamma ~1.1
       // (gentle midtone lift). Tasteful — not blown out.
-      if (!photorealAvailable) {
-        console.log(
-          '[gis][cesium] no token → ESRI/OSM base imagery SKIPPED (no server.arcgisonline.com requests); Forma flat ground will paint the globe.'
-        );
-      } else try {
+      // GIS-CESIUM-OSM-GLOBE (2026-06-05): install a base imagery layer on BOTH
+      // paths. With a token → ESRI World Imagery satellite. WITHOUT a token →
+      // the FREE keyless OpenStreetMap streets basemap, so the "3D globe" view
+      // shows the REAL WORLD instead of a grey pixelated ellipsoid (the prior
+      // behaviour SKIPPED imagery entirely without a token → no map). The prod
+      // CSP already allows it: img-src includes `https:`, so tile.openstreetmap.org
+      // tiles are not blocked. CRUCIALLY this does NOT regress the Forma massing
+      // view: applyFormaMode() hides every imagery layer + paints the flat warm-
+      // grey ground, and restorePhotorealMode() re-shows them — so the OSM map
+      // only appears in the non-Forma globe view, never under the massing study.
+      try {
         this.viewer.imageryLayers.removeAll();
 
         const ESRI_WORLD_IMAGERY =
@@ -350,21 +356,21 @@ export class CesiumViewport {
 
         let baseProvider: Cesium.UrlTemplateImageryProvider;
         let baseLabel: string;
-        try {
+        if (photorealAvailable) {
           baseProvider = new Cesium.UrlTemplateImageryProvider({
             url: ESRI_WORLD_IMAGERY, // note {z}/{y}/{x} order for ArcGIS
             maximumLevel: 19,
             credit:
               'Imagery © Esri, Maxar, Earthstar Geographics, and the GIS User Community',
           });
-          baseLabel = 'ESRI World Imagery (satellite)';
-        } catch {
+          baseLabel = 'ESRI World Imagery (satellite, token path)';
+        } else {
           baseProvider = new Cesium.UrlTemplateImageryProvider({
             url: OSM_STREETS,
             maximumLevel: 19,
             credit: '© OpenStreetMap contributors',
           });
-          baseLabel = 'OpenStreetMap (streets fallback)';
+          baseLabel = 'OpenStreetMap streets (keyless — 3D globe basemap)';
         }
 
         const baseLayer = this.viewer.imageryLayers.addImageryProvider(baseProvider);
@@ -373,10 +379,13 @@ export class CesiumViewport {
         baseLayer.contrast = 1.15;   // >1 — more tonal depth
         baseLayer.saturation = 1.25; // >1 — richer, more vivid colour
         baseLayer.gamma = 1.1;       // gentle midtone lift, not blown out
+        // If the viewer is being constructed straight into Forma mode, keep the
+        // imagery hidden so the grey ground is unbroken; setFormaMode toggles it.
+        if (this.formaMode) baseLayer.show = false;
 
         console.log(
-          `[CesiumViewport] Keyless base imagery installed: ${baseLabel} ` +
-            '(graded brightness 0.9 / contrast 1.15 / saturation 1.25 / gamma 1.1).'
+          `[CesiumViewport] Base imagery installed: ${baseLabel} ` +
+            `(graded; hidden-in-forma=${this.formaMode}).`
         );
       } catch (e) {
         console.warn('[CesiumViewport] Base imagery failed to install:', e);
