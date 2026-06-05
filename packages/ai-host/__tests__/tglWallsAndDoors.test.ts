@@ -38,7 +38,9 @@ describe('buildWallsAndDoors (TGL P4)', () => {
     });
 
     it('realises a via:door edge as exactly one fitting opening on the shared wall', () => {
-        const g = graphOf([room('A'), room('B')], [{ a: 'A', b: 'B', via: 'door' }]);
+        // Use a LEGAL pair (corridor↔bedroom) — §D5.d skips forbidden door edges,
+        // and the default room() type is `bedroom` (bedroom↔bedroom is forbidden).
+        const g = graphOf([room('A', 'corridor'), room('B', 'bedroom')], [{ a: 'A', b: 'B', via: 'door' }]);
         const { segments, openings } = buildWallsAndDoors([A, B], g);
         expect(openings).toHaveLength(1);
         const o = openings[0]!;
@@ -59,8 +61,10 @@ describe('buildWallsAndDoors (TGL P4)', () => {
     });
 
     it('skips a door edge whose rooms are not actually adjacent (best-effort)', () => {
+        // Legal pair (corridor↔bedroom) so the ONLY reason no door appears is the
+        // non-adjacency (gap 5..6), not the §D5.d forbidden-pair skip.
         const far: RoomPlacement = { roomId: 'B', rect: { x0: 6, z0: 0, x1: 10, z1: 4 } }; // gap 5..6
-        const g = graphOf([room('A'), room('B')], [{ a: 'A', b: 'B', via: 'door' }]);
+        const g = graphOf([room('A', 'corridor'), room('B', 'bedroom')], [{ a: 'A', b: 'B', via: 'door' }]);
         const { openings } = buildWallsAndDoors([A, far], g);
         expect(openings).toHaveLength(0);
     });
@@ -302,6 +306,70 @@ describe('§CIRCULATION-REROUTE — every habitable room opens onto the spine', 
         expect(hasCircDoor(openings, typeOf, new Set(['cor']), 'bd')).toBe(false);
         // …and it is reported as land-locked rather than forced into an illegal door.
         expect(unroutedToCirculationRoomIds).toEqual(['bd']);
+    });
+
+    it('D5.d — a bedroom the graph routed through ANOTHER bedroom is re-routed onto the corridor (never a bed↔bed door)', () => {
+        // Founder defect: "a bedroom connected directly and ONLY to another bedroom
+        // is not acceptable." Layout:
+        //   corridor : x∈[0,10], z∈[0,1.2]   (spine along the top)
+        //   bed1     : x∈[0,5],  z∈[1.2,5]   (touches corridor AND bed2)
+        //   bed2     : x∈[5,10], z∈[1.2,5]   (touches corridor AND bed1)
+        // The bubble graph INTENTIONALLY routes bed2 only through bed1 (a forbidden
+        // pair) — wallsAndDoors must NEVER realise the bed1↔bed2 door and must give
+        // bed2 its own corridor door instead.
+        const corridor: RoomPlacement = { roomId: 'cor', rect: { x0: 0, z0: 0, x1: 10, z1: 1.2 } };
+        const bed1: RoomPlacement = { roomId: 'b1', rect: { x0: 0, z0: 1.2, x1: 5, z1: 5 } };
+        const bed2: RoomPlacement = { roomId: 'b2', rect: { x0: 5, z0: 1.2, x1: 10, z1: 5 } };
+        const rooms: ProgramRoom[] = [
+            rm('cor', 'corridor', 12), rm('b1', 'bedroom', 19), rm('b2', 'bedroom', 19),
+        ];
+        const g: BubbleGraph = {
+            rooms,
+            edges: [{ a: 'cor', b: 'b1', via: 'door' }, { a: 'b1', b: 'b2', via: 'door' }],
+            corridorId: 'cor', entryId: 'cor',
+        };
+        const { openings, compromises, unroutedToCirculationRoomIds } =
+            buildWallsAndDoors([corridor, bed1, bed2], g);
+        const typeOf = new Map(rooms.map(r => [r.id, r.type]));
+        // No forbidden bedroom↔bedroom door was ever placed.
+        const bedToBed = openings.some(o => {
+            const s = new Set(o.betweenRoomIds);
+            return s.has('b1') && s.has('b2');
+        });
+        expect(bedToBed).toBe(false);
+        // Each bedroom reaches the corridor directly.
+        for (const id of ['b1', 'b2']) {
+            expect(hasCircDoor(openings, typeOf, new Set(['cor']), id), `${id} must have a corridor door`).toBe(true);
+        }
+        // Clean re-route — no compromises, nothing land-locked.
+        expect(compromises).toBe(0);
+        expect(unroutedToCirculationRoomIds).toEqual([]);
+    });
+
+    it('D5.d — a master the graph routed only through its ensuite still gets a corridor door', () => {
+        // The master is a bedroom: it must reach circulation, never be reachable
+        // ONLY through its ensuite (its private wet room).
+        //   corridor : x∈[0,10], z∈[0,1.2]
+        //   master   : x∈[0,6],  z∈[1.2,5]   (touches corridor AND ensuite)
+        //   ensuite  : x∈[6,10], z∈[1.2,5]
+        const corridor: RoomPlacement = { roomId: 'cor', rect: { x0: 0, z0: 0, x1: 10, z1: 1.2 } };
+        const master: RoomPlacement = { roomId: 'm', rect: { x0: 0, z0: 1.2, x1: 6, z1: 5 } };
+        const ensuite: RoomPlacement = { roomId: 'en', rect: { x0: 6, z0: 1.2, x1: 10, z1: 5 } };
+        const rooms: ProgramRoom[] = [
+            rm('cor', 'corridor', 12), rm('m', 'master', 22), rm('en', 'ensuite', 12),
+        ];
+        // INTENTIONALLY omit the master↔corridor edge — only master↔ensuite is asked.
+        const g: BubbleGraph = {
+            rooms,
+            edges: [{ a: 'm', b: 'en', via: 'door' }],
+            corridorId: 'cor', entryId: 'cor',
+        };
+        const { openings, unroutedToCirculationRoomIds } = buildWallsAndDoors([corridor, master, ensuite], g);
+        const typeOf = new Map(rooms.map(r => [r.id, r.type]));
+        // The master now has a DIRECT corridor door (re-routed).
+        expect(hasCircDoor(openings, typeOf, new Set(['cor']), 'm')).toBe(true);
+        // The ensuite (reached through its master) is the only exception — not flagged.
+        expect(unroutedToCirculationRoomIds).toEqual([]);
     });
 
     it('ensuite reached only through its master is NOT flagged (the architectural rule)', () => {
