@@ -31,6 +31,7 @@
  */
 
 import { injectAppTheme } from '../styles/AppTheme';
+import { getCurrentSiteOrigin } from '../site/siteDispatch';
 import type { ClimateDataset, SiteId } from '@pryzm/schemas';
 import {
     solarArcsForYear,
@@ -166,10 +167,23 @@ function _render(): void {
 
     const rt = _runtime;
     const site = rt?.siteModelStore.getSite() ?? null;
-    const loc = site?.location ?? null;
+    let loc = site?.location ?? null;
 
-    // Empty-state: no site / no location.
-    if (!site || !loc) {
+    // §CESIUM-SITE-ORIGIN fallback — the onboarding handoff can leave getSite()/
+    // .location null while the process-wide LTP-ENU origin IS set (the same
+    // null-location timing gap already fixed for the Forma camera + massing +
+    // climate-ingest). Fall back to that origin so the climate card ACTIVATES at
+    // the real plot and the sun-path renders, instead of the misleading
+    // "No site location set" the founder saw with a location clearly set.
+    if (!loc) {
+        const ltp = getCurrentSiteOrigin();
+        if (ltp && (ltp.lat !== 0 || ltp.lon !== 0)) {
+            loc = { latitude: ltp.lat, longitude: ltp.lon } as NonNullable<typeof loc>;
+        }
+    }
+
+    // Empty-state ONLY when no location can be resolved from ANY source.
+    if (!loc) {
         body.appendChild(
             _emptyState(
                 '📍',
@@ -180,8 +194,11 @@ function _render(): void {
         return;
     }
 
-    const dataset: ClimateDataset | null =
-        rt?.climateStore.resolveSite(site.id as SiteId) ?? null;
+    // The climate DATASET still needs the Site aggregate (keyed by site.id); the
+    // sun-path + summary below need only lat/lon, so they render either way.
+    const dataset: ClimateDataset | null = site
+        ? rt?.climateStore.resolveSite(site.id as SiteId) ?? null
+        : null;
 
     // Site summary header is always shown once a site exists.
     body.appendChild(_siteSummary(loc.latitude, loc.longitude, dataset));
