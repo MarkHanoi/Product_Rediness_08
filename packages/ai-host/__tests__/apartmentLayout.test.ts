@@ -94,6 +94,75 @@ describe('validateLayout (SPEC §8)', () => {
         const r = validateLayout(validLayout(), constraints, { ...program, bedrooms: 4 });
         expect(r.failures.some(f => /bedroom.*requires 4/.test(f))).toBe(true);
     });
+
+    // ── V8/V9 — D5.d residential adjacency / connectivity correctness ─────────
+    // The founder-reported defects: a bedroom reachable only through another
+    // bedroom; a bathroom hung off the living room; a master reachable only via
+    // its ensuite. The access-target whitelist (rules DB `accessFrom`, minus
+    // private rooms) must reject all three.
+
+    it('V8 — rejects a bedroom whose only neighbour is another bedroom (forbidden pair)', () => {
+        const l = validLayout();
+        // Bed3 boxed in by Bed2 only — bedroom↔bedroom is a forbidden door pair,
+        // so Bed3 has NO architecturally-permitted access.
+        l.rooms.find(r => r.name === 'Bed3')!.adjacentTo = ['Bed2'];
+        const r = validateLayout(l, constraints, program);
+        expect(r.valid).toBe(false);
+        expect(r.failures.some(f => /Bed3.*no architecturally-permitted access/.test(f))).toBe(true);
+    });
+
+    it('V9 — rejects a bedroom reachable ONLY through another bedroom', () => {
+        const l = validLayout();
+        // Bed2 is adjacent to Bed3 only (both bedrooms) — a private-only path.
+        // doorAllowedBetween(bedroom, bedroom) is false → V8 also fires, but V9
+        // names the access-space rule specifically.
+        l.rooms.find(r => r.name === 'Bed2')!.adjacentTo = ['Bed3'];
+        const r = validateLayout(l, constraints, program);
+        expect(r.valid).toBe(false);
+        expect(r.failures.some(f => /Bed2.*valid access space/.test(f))).toBe(true);
+    });
+
+    it('V9 — rejects a MASTER reachable only through its ensuite (private-only access)', () => {
+        const l = validLayout();
+        // Master's only neighbour is its ensuite — ensuite is private and is the
+        // forward-access anti-pattern (you must reach the master from circulation,
+        // not from the bathroom). Before the D5.d fix V9 skipped `master`.
+        l.rooms.find(r => r.name === 'Master')!.adjacentTo = ['Ensuite'];
+        const r = validateLayout(l, constraints, program);
+        expect(r.valid).toBe(false);
+        expect(r.failures.some(f => /Master.*valid access space/.test(f))).toBe(true);
+    });
+
+    it('V9 — rejects a bathroom hung off the living room (never off a social room)', () => {
+        const l = validLayout();
+        // Bath adjacent only to Living — bathroom.accessFrom = ['corridor'] only,
+        // so living is not a valid access target (a bath off a bedroom would be an
+        // ensuite, a distinct room type).
+        l.rooms.find(r => r.name === 'Bath')!.adjacentTo = ['Living'];
+        const r = validateLayout(l, constraints, program);
+        expect(r.valid).toBe(false);
+        // V8 (no permitted neighbour) OR V9 (no valid access target) — either
+        // names the bathroom as the offender.
+        expect(r.failures.some(f => /Bath.*(valid access space|permitted access)/.test(f))).toBe(true);
+    });
+
+    it('V9 — accepts a bedroom that reaches the corridor (canonical legal access)', () => {
+        const l = validLayout();
+        // Bed2 onto the corridor + (incidentally) the master — the corridor is a
+        // valid access target, so it passes even with a private neighbour present.
+        l.rooms.find(r => r.name === 'Bed2')!.adjacentTo = ['Corridor', 'Master'];
+        const r = validateLayout(l, constraints, program);
+        expect(r.failures.some(f => /Bed2.*valid access space/.test(f))).toBe(false);
+    });
+
+    it('V9 — accepts a bedroom reached from a social space (living) in a corridor-less plan', () => {
+        const l = validLayout();
+        // A bedroom off the living room is a permitted small-flat pattern
+        // (bedroom.accessFrom includes living) — must NOT be flagged by V9.
+        l.rooms.find(r => r.name === 'Bed2')!.adjacentTo = ['Living'];
+        const r = validateLayout(l, constraints, program);
+        expect(r.failures.some(f => /Bed2.*valid access space/.test(f))).toBe(false);
+    });
 });
 
 describe('scoreLayout (SPEC §9)', () => {

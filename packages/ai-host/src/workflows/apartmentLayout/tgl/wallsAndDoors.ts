@@ -530,10 +530,18 @@ export function buildWallsAndDoors(
     for (const e of graph.edges) if (e.via === 'open') cUnion(e.a, e.b);
 
     // (1) bubble-requested doors, where realised. These are the INTENDED adjacencies
-    // (corridor→bedroom, master↔ensuite, corridor→bathroom) — all rule-legal by
-    // construction, so they are placed unconditionally and seed the door caps.
+    // (corridor→bedroom, master↔ensuite, corridor→bathroom). The production bubble
+    // graph emits only rule-legal door edges, but §D5.d (A.21.D5.d) hardens this
+    // pass against ANY graph source (AI-path, future bubble changes, hand-authored
+    // tests) that asks for a FORBIDDEN pair — e.g. bedroom↔bedroom, bathroom↔living.
+    // Such an edge is SKIPPED here so the room falls through to the permitted-only
+    // reconciliation (2a/2b) + circulation re-route (2c), which always route it onto
+    // a legal access space (the corridor) instead of realising the illegal door.
+    // This is THE founder-reported defect: "a bedroom connected directly and only to
+    // another bedroom is not acceptable." A forbidden bubble door is never a door.
     for (const e of graph.edges) {
         if (e.via !== 'door') continue;
+        if (!permitted(e.a, e.b)) continue;                 // §D5.d — never realise a forbidden pair
         const wall = sharedWallByPair.get(pairKey(e.a, e.b));
         if (wall && addDoor(wall, e.a, e.b)) cUnion(e.a, e.b);
     }

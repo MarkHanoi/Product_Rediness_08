@@ -102,19 +102,38 @@ export function validateLayout(
         }
     }
 
-    // V9 — access-target rules: a bedroom's access must come from circulation or a
-    // social space; a bathroom only from a corridor/hall or a bedroom (never a
-    // kitchen / living / dining). Uses the rules DB's accessFrom whitelist.
+    // V9 — access-target rules (A.21.D5.d): every BEDROOM (incl. the master) and
+    // every BATHROOM must be adjacent to a valid ACCESS space — a bedroom's access
+    // comes from circulation or a social space; a bathroom only from a corridor/hall
+    // (a bathroom off a bedroom is modelled as an `ensuite`, a distinct room type).
+    // Uses the rules DB's accessFrom whitelist.
+    //
+    // §D5.d-ACCESS-TARGET — two refinements over the prior bedroom/bathroom-only check:
+    //   1. the `master` is a bedroom too: it must reach circulation/social, never be
+    //      reachable ONLY through its ensuite or another private room (the "bedroom you
+    //      can only enter through another bedroom" anti-pattern this task targets);
+    //   2. a private room (bedroom/master) is NOT validly accessed via another PRIVATE
+    //      room — so the master's `ensuite` (in its accessFrom for the en-suite door)
+    //      and any bedroom/master/study neighbour do NOT count as an access target.
+    //      The ensuite-via-master rule is the inverse and is intentional; this guards
+    //      the FORWARD direction (you reach the master from circulation, not from the
+    //      ensuite). The bathroom whitelist (`['corridor']`) already excludes private
+    //      rooms, so this only changes the bedroom/master verdict.
     const adjacentTypes = (r: LayoutRoom): Set<string> =>
         new Set(r.adjacentTo.map(n => typeOf(n)).filter((t): t is LayoutRoom['type'] => t !== undefined));
+    const isPrivateType = (t: string): boolean => roomRule(t).privacy === 'private';
     for (const r of option.rooms) {
-        if (r.type !== 'bedroom' && r.type !== 'bathroom') continue;
-        const allowed = roomRule(r.type).accessFrom;
+        if (r.type !== 'bedroom' && r.type !== 'master' && r.type !== 'bathroom') continue;
+        // A bedroom/master must reach a NON-private access space (corridor / hall /
+        // living / dining); a private neighbour (another bedroom, the ensuite, a
+        // study) is never a valid primary access target. The bathroom whitelist is
+        // circulation-only already, so the filter is a no-op there.
+        const allowed = roomRule(r.type).accessFrom.filter(t => !isPrivateType(t));
         const adj = adjacentTypes(r);
         const hasTarget = allowed.some(t => adj.has(t));
         if (adj.size > 0 && !hasTarget) {
-            const list = allowed.join(' / ');
-            failures.push(`${r.name} (${r.type}) is not adjacent to a valid access space (needs one of: ${list})`);
+            const list = allowed.length > 0 ? allowed.join(' / ') : 'a corridor / hall';
+            failures.push(`${r.name} (${r.type}) is not adjacent to a valid access space (needs one of: ${list}) — a private room must never be reachable only through another private room`);
         }
     }
 
