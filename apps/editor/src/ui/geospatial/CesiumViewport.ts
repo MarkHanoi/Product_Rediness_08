@@ -315,7 +315,7 @@ export class CesiumViewport {
       console.log(
         `[gis][cesium] imagery mode = ${photorealAvailable
           ? 'PHOTOREAL-WITH-TOKEN (default ion base layer installed; arcgis/google/bing tiles allowed via CSP)'
-          : 'KEYLESS-OSM (no token → no default ion layer; FREE OpenStreetMap streets basemap installed below for the 3D globe view; Google-3D-tiles SKIPPED)'}.`
+          : 'KEYLESS-SATELLITE (no token → no default ion layer; FREE ESRI World Imagery satellite basemap installed below for the 3D globe view; Google Photorealistic 3D Tiles need a VITE_CESIUM_TOKEN)'}.`
       );
 
       // Disable depth test against terrain
@@ -354,23 +354,33 @@ export class CesiumViewport {
           'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
         const OSM_STREETS = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
+        // GIS-CESIUM-PHOTOREAL (2026-06-05) — default to ESRI World Imagery
+        // (SATELLITE AERIAL) on BOTH paths. It is KEYLESS (server.arcgisonline.com,
+        // already allowlisted in the CSP connect-src) and gives the photorealistic
+        // ground the founder asked for instead of the flat OSM street map. OSM
+        // streets remains a graceful fallback if the ESRI provider fails to build.
+        // (NOTE: true photorealistic 3D BUILDINGS — Google Photorealistic 3D Tiles
+        // streamed via Cesium ion asset 2275207 — still require a VITE_CESIUM_TOKEN;
+        // that path lights up automatically below when a token is present.)
         let baseProvider: Cesium.UrlTemplateImageryProvider;
         let baseLabel: string;
-        if (photorealAvailable) {
+        try {
           baseProvider = new Cesium.UrlTemplateImageryProvider({
             url: ESRI_WORLD_IMAGERY, // note {z}/{y}/{x} order for ArcGIS
             maximumLevel: 19,
             credit:
               'Imagery © Esri, Maxar, Earthstar Geographics, and the GIS User Community',
           });
-          baseLabel = 'ESRI World Imagery (satellite, token path)';
-        } else {
+          baseLabel = photorealAvailable
+            ? 'ESRI World Imagery (satellite, token path)'
+            : 'ESRI World Imagery (satellite — keyless 3D-globe basemap)';
+        } catch {
           baseProvider = new Cesium.UrlTemplateImageryProvider({
             url: OSM_STREETS,
             maximumLevel: 19,
             credit: '© OpenStreetMap contributors',
           });
-          baseLabel = 'OpenStreetMap streets (keyless — 3D globe basemap)';
+          baseLabel = 'OpenStreetMap streets (fallback)';
         }
 
         const baseLayer = this.viewer.imageryLayers.addImageryProvider(baseProvider);

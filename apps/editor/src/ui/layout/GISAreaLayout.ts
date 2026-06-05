@@ -621,33 +621,33 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
 
     type XZ = { x: number; z: number };
 
-    /** Read the site geographic origin (= ENU anchor). null when unset / 0,0. */
+    /** Read the site geographic origin (= the scene-XZ ENU anchor). null when 0,0.
+     *
+     * §FORMA-ORIGIN-IS-SCENE-FRAME (2026-06-05) — the parcel boundary AND the
+     * authored walls are projected in the LTP-ENU frame: `boundaryProjection`
+     * bakes the boundary XZ relative to the LTP origin, which the boundary commit
+     * pins to the FIRST DRAWN VERTEX (`siteDispatch.setLtpOriginIfSafe` →
+     * "LTPENURebase.setOrigin … from first vertex"). The Forma ENU frame MUST be
+     * anchored at that SAME origin, or the boundary + massing render OFFSET from
+     * where the user drew them (the founder-reported "placed slightly in a
+     * different location"). `getCurrentSiteOrigin()` IS that scene-frame origin;
+     * `siteModelStore.getLocation()` is the geocoded ADDRESS — a DIFFERENT point
+     * once a boundary is committed (~10-15 m away). So resolve the LTP origin
+     * FIRST and use the address only as a pre-boundary fallback. */
     const getFormaOrigin = (): { lat: number; lon: number } | null => {
+        const ltp = getCurrentSiteOrigin();
+        if (ltp && (ltp.lat !== 0 || ltp.lon !== 0)) {
+            return { lat: ltp.lat, lon: ltp.lon };
+        }
+        // Pre-boundary fallback: no LTP origin set yet → the site location (address)
+        // and the scene frame still coincide, so either is correct.
         const loc = (runtime?.siteModelStore as
             | { getLocation?: () => { latitude: number; longitude: number } | null }
             | undefined)?.getLocation?.();
         if (loc && (loc.latitude !== 0 || loc.longitude !== 0)) {
             return { lat: loc.latitude, lon: loc.longitude };
         }
-        // Fall back to the geocode frame captured by the search box / onboarding.
         if (lastGeocodeFrame) return { lat: lastGeocodeFrame.lat, lon: lastGeocodeFrame.lon };
-        // §CESIUM-SITE-ORIGIN — last-resort fall back to the process-wide LTP-ENU
-        // origin set during the onboarding handoff (siteDispatch.setLtpOriginIfSafe).
-        // Same root cause as the camera fix in CesiumViewport.readSiteLocation:
-        // the onboarding flow can set the ENU origin BEFORE the siteModelStore
-        // location read here returns non-null AND before lastGeocodeFrame is
-        // captured (the geocode came in via a path that didn't route through the
-        // search box), which silently left the massing un-placeable → grey Forma
-        // scene even though the apartment was generated. This closes that gap so
-        // the white massing always anchors at the real plot.
-        const ltp = getCurrentSiteOrigin();
-        if (ltp && (ltp.lat !== 0 || ltp.lon !== 0)) {
-            console.log(
-                `[gis][forma] origin resolved from LTP-ENU fallback → LAT ${ltp.lat} LON ${ltp.lon} ` +
-                    `(store.getLocation + lastGeocodeFrame were both empty).`
-            );
-            return { lat: ltp.lat, lon: ltp.lon };
-        }
         return null;
     };
 
