@@ -17,6 +17,7 @@ import {
 } from './layoutRequestPayload.js';
 import { resolveApartmentBrief } from './briefToProgram.js';
 import { getActiveBriefMetadata } from './activeBrief.js';
+import { getActiveScoringWeights } from './activeDesignParams.js';
 import { getCurrentSiteOrigin } from '../site/siteDispatch.js';
 
 interface WallRecord {
@@ -112,11 +113,17 @@ export function gatherLayoutPayload(
         ?? resolveApartmentBrief(getActiveBriefMetadata('apartment')).programOverride;
     const program: ApartmentProgram = { ...DEFAULT_PROGRAM, ...override };
 
+    // A.25.1 — Living Design Parameters: apply the user's design sliders (if any)
+    // as the scorer weights so the next generate ranks options by the user's
+    // priorities. Null ⇒ omitted ⇒ buildLayoutRequestPayload uses DEFAULT_WEIGHTS.
+    const scoringWeights = getActiveScoringWeights() ?? undefined;
+
     const payload = buildLayoutRequestPayload({
         levelId,
         walls,
         program,
         constraints,
+        ...(scoringWeights ? { scoringWeights } : {}),
     });
 
     // A.21.D6 — stamp the site latitude so the D-TGL biases windows toward the
