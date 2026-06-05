@@ -28,6 +28,7 @@ import {
 import { CreateFloorCommand } from './CreateFloorCommand';
 import { batchCoordinator } from '@pryzm/core-app-model';
 import { buildPerRoomBoundaryElements, roomsOnLevel, roomsWithBoundary, type PerRoomCtx } from '../rooms/perRoomBoundary';
+import { floorFinishFor } from './floorFinish';
 
 /** occupancyType → finish category. #34: timber in living/bedroom, tile in kitchen/bathroom. */
 const TIMBER_TYPES = new Set([
@@ -45,7 +46,10 @@ export class CreateFloorsByRoomTypeCommand implements Command {
     targetIds: string[] = [];
     private createdCommands: CreateFloorCommand[] = [];
 
-    constructor(private levelId: string) {
+    /** @param style — brief style chip (modern/classic/minimal/warm) so each floor
+     *  gets a realistic, style-appropriate finish (§A.21.D-FLOOR). Optional; absent
+     *  → 'modern'. */
+    constructor(private levelId: string, private style?: string) {
         this.id = `cmd-floors-by-room-${Date.now()}`;
         this.timestamp = Date.now();
     }
@@ -74,6 +78,12 @@ export class CreateFloorsByRoomTypeCommand implements Command {
             const category = this._finishCategory(room.occupancyType);
             if (!category) return null;
             if (floorStore?.getAll && floorStore.getAll().some(f => f.hostRoomId === room.id)) return null;
+            // §A.21.D-FLOOR — realistic, style-aware finish (wood plank / porcelain
+            // tile colour + pattern + material name) instead of the flat `#D4C4A8`
+            // fallback. Rooms in the auto-pipeline carry no explicit floor finish, so
+            // this is what the user sees. CreateFloorCommand spreads finishSpec over
+            // its default, so a believable finish always lands.
+            const finish = floorFinishFor(room.occupancyType, this.style);
             return new CreateFloorCommand({
                 floorId: crypto.randomUUID(),
                 ifcGuid: crypto.randomUUID(),
@@ -82,6 +92,11 @@ export class CreateFloorsByRoomTypeCommand implements Command {
                 systemTypeId: this._resolveFinishTypeId(finishStore, category),
                 hostRoomId: room.id,
                 label: `${room.name ?? 'Room'} Floor`,
+                ...(finish ? { finishSpec: {
+                    finishColor: finish.finishColor,
+                    finishPattern: finish.finishPattern,
+                    materialName: finish.materialName,
+                } } : {}),
             });
         };
 
