@@ -49,3 +49,64 @@ export function footprintRect(cx: number, cz: number, w: number, l: number, yaw:
 
 /** True if `r` overlaps any rect in `others`. */
 export const overlapsAny = (r: Rect, others: readonly Rect[]): boolean => others.some(o => rectsOverlap(r, o));
+
+// ── §FURNISH-OBB (2026-06-05) — ORIENTED footprints for non-orthogonal rooms ──
+//
+// The AABB primitives above quantise yaw to {0,90,180,270} (footprintRect snaps
+// via Math.round(yaw/(π/2))), so a footprint placed against an ANGLED wall is
+// tested as an axis-aligned box that does not match the furniture's true
+// rotation. On a non-orthogonal room that box pokes outside the angled polygon →
+// rectInPolygon fails → the item is silently dropped (the "minimal furniture on
+// non-orthogonal layouts" defect). These oriented (rotated-quad) primitives test
+// the TRUE footprint. They are EXACTLY equivalent to the AABB versions at the
+// four cardinal yaws (a quad at yaw∈{0,90,180,270} has the AABB's corners and
+// SAT reduces to AABB-overlap), so orthogonal rooms are unchanged; only angled
+// rooms gain placements. A `Quad` is its 4 world-XZ corners (convex, CCW-ish).
+export type Quad = readonly [Pt, Pt, Pt, Pt];
+
+/** The 4 TRUE (un-snapped) world corners of a footprint: extent `w` along the
+ *  item's local x and `l` along its local z, rotated by `yaw` about (cx,cz). */
+export function footprintCorners(cx: number, cz: number, w: number, l: number, yaw: number): Quad {
+    const s = Math.sin(yaw), c = Math.cos(yaw);
+    const hw = w / 2, hl = l / 2;
+    const local: Pt[] = [{ x: -hw, z: -hl }, { x: hw, z: -hl }, { x: hw, z: hl }, { x: -hw, z: hl }];
+    const r = local.map((p) => ({ x: cx + p.x * c - p.z * s, z: cz + p.x * s + p.z * c }));
+    return [r[0]!, r[1]!, r[2]!, r[3]!];
+}
+
+/** Mean of a quad's corners. */
+export const quadCenter = (q: Quad): Pt => ({
+    x: (q[0].x + q[1].x + q[2].x + q[3].x) / 4,
+    z: (q[0].z + q[1].z + q[2].z + q[3].z) / 4,
+});
+
+/** A convex footprint lies inside the polygon iff its centre + all corners are.
+ *  Oriented-aware companion to rectInPolygon (works for ANY footprint angle). */
+export function quadInPolygon(q: Quad, poly: readonly Pt[]): boolean {
+    if (!pointInPolygon(quadCenter(q), poly)) return false;
+    for (const c of q) if (!pointInPolygon(c, poly)) return false;
+    return true;
+}
+
+/** Convex-quad overlap via the Separating Axis Theorem (strict — touching edges
+ *  do NOT count, matching rectsOverlap). Reduces to AABB overlap for axis quads. */
+export function quadsOverlap(a: Quad, b: Quad): boolean {
+    const project = (q: Quad, ax: Pt): [number, number] => {
+        let mn = Infinity, mx = -Infinity;
+        for (const p of q) { const d = p.x * ax.x + p.z * ax.z; if (d < mn) mn = d; if (d > mx) mx = d; }
+        return [mn, mx];
+    };
+    for (const q of [a, b]) {
+        for (let i = 0; i < 4; i++) {
+            const p1 = q[i]!, p2 = q[(i + 1) & 3]!;
+            const axis: Pt = { x: -(p2.z - p1.z), z: p2.x - p1.x }; // edge normal
+            const [minA, maxA] = project(a, axis);
+            const [minB, maxB] = project(b, axis);
+            if (maxA < minB + EPS || maxB < minA + EPS) return false; // separating axis
+        }
+    }
+    return true;
+}
+
+/** True if quad `q` overlaps any quad in `others`. */
+export const quadOverlapsAny = (q: Quad, others: readonly Quad[]): boolean => others.some((o) => quadsOverlap(q, o));
