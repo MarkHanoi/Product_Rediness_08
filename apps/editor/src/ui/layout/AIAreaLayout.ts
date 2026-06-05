@@ -3,6 +3,7 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { createAIPanel } from '../ai/AIPanel';
 import { createAICreatePanel } from '../ai/AICreatePanel';
 import { installApartmentLayoutConsoleTrigger } from '../apartment-layout/apartmentLayoutTrigger';
+import { installDesignParamsConsoleTrigger } from '../apartment-layout/DesignParamsPanel';
 import { installFurnishLayoutTrigger } from '../furnish-layout/furnishLayoutTrigger';
 import { installLightingLayoutTrigger } from '../lighting-layout/lightingLayoutTrigger';
 import { installCeilingLayoutTrigger } from '../ceiling-layout/ceilingLayoutTrigger';
@@ -190,6 +191,11 @@ export function mountAIArea(props: UIProps, runtime: PryzmRuntime | null): AIRes
     // apartment-layout generator can be triggered regardless of which AI panel
     // is visible (the UI leaf lives in the AIPanel command tree → Create).
     installApartmentLayoutConsoleTrigger(runtime ?? null);
+    // A.25.1 — Living Design Parameters: register `pryzmToggleDesignParams()` so
+    // the parameter-sliders panel can be opened from anywhere. Its sliders feed
+    // the D-TGL scorer weights (via the activeDesignParams stash) and debounce a
+    // live re-generate through the SAME apartment-layout trigger above.
+    installDesignParamsConsoleTrigger(runtime ?? null);
     // Dev-only test functions (Family Platform pipeline + apartment validator
     // framework). Exposes `window.__pryzm*` helpers so the architect can
     // smoke-test the pure L0/L2 functions from DevTools without invoking the

@@ -187,6 +187,12 @@ export type {
 } from './workflows/apartmentLayout/generate.js';
 export { validateLayout } from './workflows/apartmentLayout/validate.js';
 export { scoreLayout } from './workflows/apartmentLayout/score.js';
+// A.25.1 — Living Design Parameters: pure design-sliders → ScoringWeights mapping.
+export {
+  designParamsToScoringWeights,
+  DEFAULT_DESIGN_PARAMS,
+} from './workflows/apartmentLayout/designParamsToScoringWeights.js';
+export type { DesignParams } from './workflows/apartmentLayout/designParamsToScoringWeights.js';
 export { generateProceduralLayout } from './workflows/apartmentLayout/proceduralLayout.js';
 export {
   buildLayoutPlan,
