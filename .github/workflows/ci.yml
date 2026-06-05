@@ -18,14 +18,15 @@
 name: CI
 
 on:
-  # Skip the whole suite (incl. the ~20-min docker-image build) for doc-only
-  # changes — tracker/runbook/contract edits don't affect lint/test/build/image.
-  push:
-    branches: [main]
-    paths-ignore: ['docs/**', '**/*.md', '.claude/**']
+  # §A.10.i (2026-06-05) — run on PRs + manual ONLY, NOT on every push to `main`,
+  # to conserve GitHub Actions minutes (this suite includes a ~20-min docker-image
+  # build). Direct pushes to `main` no longer auto-run CI; run it deliberately via
+  # the Actions tab → Run workflow, or it gates a PR. Doc-only changes are
+  # path-ignored either way.
   pull_request:
     branches: [main]
     paths-ignore: ['docs/**', '**/*.md', '.claude/**']
+  workflow_dispatch:
 
 # Single concurrency group per ref — newer pushes cancel in-flight runs.
 concurrency:
