@@ -37,6 +37,7 @@ import { openAutoOrganiseModal } from '../property-inspector/RoomAutoOrganiser';
 // pryzmGenerateApartmentLayout()), so the leaf + console behave identically.
 import { triggerApartmentLayout } from '../apartment-layout/apartmentLayoutTrigger';
 import { generateApartmentFromScratch } from '../apartment-layout/apartmentFromScratch';
+import { toggleDesignParamsPanel } from '../apartment-layout/DesignParamsPanel';
 import { triggerFurnishLayout } from '../furnish-layout/furnishLayoutTrigger';
 import { triggerLightingLayout } from '../lighting-layout/lightingLayoutTrigger';
 import { triggerCeilingLayout } from '../ceiling-layout/ceilingLayoutTrigger';
@@ -162,6 +163,15 @@ const COMMAND_TREE: SuggestionNode[] = [
                 label: 'Generate apartment (from scratch)',
                 hint: 'no walls needed — draws a default 10×8 m shell, then generates',
                 action: () => { void generateApartmentFromScratch(); },
+            },
+            {
+                // A.25.1/A.25.2 — Living Design Parameters: open the slider panel so
+                // the user can tune the generated layout (daylight / privacy / kitchen
+                // / compactness) and re-generate live. Was console-only
+                // (pryzmToggleDesignParams) — now discoverable from the AI panel.
+                label: '🎛 Tune layout — design parameters',
+                hint: 'sliders: daylight · privacy · kitchen · compactness → re-generates',
+                action: () => { toggleDesignParamsPanel(); },
             },
             {
                 // #54 D-CE — auto-place ONE ceiling slab per ceilable room on
