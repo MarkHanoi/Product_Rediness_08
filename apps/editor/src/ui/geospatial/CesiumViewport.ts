@@ -65,18 +65,43 @@ const FORMA_PALETTE = {
   ground: '#D9D5CE',
   /** Scene background — kills the photo sky (§2 Sky / background). */
   background: '#E8E8E6',
-  /** Black silhouette outline on proposed buildings (§2). */
-  silhouette: '#1C1C1C',
-  /** Proposed-building volume fill (§2). */
+  /** Soft graphite silhouette outline (§2) — softer than pure black so the
+   *  clean pastel masses don't read as harsh wireframe. */
+  silhouette: '#3A3A3A',
+  /** Proposed-building volume fill (§2) — kept for the no-footprint fallback. */
   proposedFill: '#FFFFFF',
   /** Context-building fill (§2). */
   contextFill: '#E8E5DF',
+  /** Subtle graphite outline for context massing (lighter than proposed). */
+  contextOutline: '#9A958C',
   /** Soft shadow tint (§2 Shadows) — rgba(20,20,20,0.30). */
   shadowTint: 'rgba(20,20,20,0.30)',
   /** Parcel-boundary dashed line + fill (§2 Special elements / §3). */
   boundaryLine: '#2D6A4F',
   boundaryFill: 'rgba(45,106,79,0.08)',
 } as const;
+
+/**
+ * §A.21.D-FORMA (2026-06-05) — clean pastel use-colours for the proposed massing,
+ * matching the founder's Forma reference (soft yellow residential, orange amenity,
+ * green podium, lilac public). The single building mass is coloured by its
+ * dominant programme; a plain residential apartment reads warm-cream-yellow.
+ */
+const FORMA_USE_COLOURS = {
+  residential: '#F0E4A8', // soft yellow / cream
+  amenity:     '#F2C58C', // warm orange
+  podium:      '#C7DEA8', // ground / green podium
+  public:      '#E2C2E8', // lilac / commercial-public
+} as const;
+type FormaUse = keyof typeof FORMA_USE_COLOURS;
+
+/**
+ * §A.21.D-FORMA z-fighting fix — every extruded mass is seated this far BELOW the
+ * sampled ground height so its bottom face is buried inside the ground plane and
+ * can never become coplanar with it (the classic Cesium flat-ground z-fight). The
+ * visible top + sides are unaffected; the buried base is simply never seen.
+ */
+const FORMA_BASE_SINK_M = 0.6;
 
 /**
  * FORMA.3 — NW oblique camera handoff (SPEC §4.5): heading 325°, pitch −45°.
@@ -1354,37 +1379,77 @@ export class CesiumViewport {
 
     const silhouetteTargets: Cesium.Entity[] = [];
 
-    // ── Proposed building massing — one white extrusion per authored wall ──────
-    // A wall's footprint is its baseLine widened to its thickness (a thin rect),
-    // extruded to its authored height. This reads the authored walls directly
-    // (SPEC §4 read source) without needing per-room polygons.
-    try {
-      for (const w of walls) {
-        const ring = this.wallFootprintRing(w.a, w.b, w.thickness);
-        if (!ring) continue;
-        const positions = ring.map((p) => toCartesian(p.x, p.z, baseHeight));
+    // ── Proposed building massing (§A.21.D-FORMA — clean pastel solid) ─────────
+    // Founder ref: clean pastel blocks, no glitching. The OLD path drew one white
+    // extrusion PER WALL — N thin rectangles overlapping at every corner, their
+    // coplanar top faces z-fighting, reading as a jumble rather than a solid mass.
+    // We now extrude ONE solid from the building FOOTPRINT (the drawn boundary ≈
+    // the apartment outline), coloured by use, with the base buried below ground so
+    // its bottom face never z-fights the ground plane. Falls back to per-wall
+    // extrusions only when there is no footprint polygon.
+    let massHeightM = 0;
+    for (const w of walls) massHeightM = Math.max(massHeightM, w.height || 0);
+    if (massHeightM <= 0) massHeightM = 3;
+    const massBase = baseHeight - FORMA_BASE_SINK_M;       // buried bottom face
+    const buildingUse: FormaUse = 'residential';           // apartment / casa demo
+    const massFill = Cesium.Color.fromCssColorString(FORMA_USE_COLOURS[buildingUse]);
+    const massOutline = Cesium.Color.fromCssColorString(FORMA_PALETTE.silhouette);
+    const footprint = boundary && boundary.length >= 3 ? boundary : null;
+
+    if (footprint) {
+      try {
+        const positions = footprint.map((p) => toCartesian(p.x, p.z, massBase));
         const ent = viewer.entities.add({
-          name: 'pryzm-forma-massing-wall',
+          name: 'pryzm-forma-massing',
           polygon: {
             hierarchy: new Cesium.PolygonHierarchy(positions),
-            // FORMA.4 — seat on terrain: base + extrude to base + height.
-            extrudedHeight: baseHeight + Math.max(0.1, w.height),
-            height: baseHeight,
-            material: Cesium.Color.fromCssColorString(FORMA_PALETTE.proposedFill),
+            height: massBase,
+            extrudedHeight: baseHeight + massHeightM,
+            material: massFill,
             outline: true,
-            outlineColor: Cesium.Color.fromCssColorString(FORMA_PALETTE.silhouette),
+            outlineColor: massOutline,
             outlineWidth: 1.5,
-            // ShadowMode.ENABLED == "casts AND receives" (the task's
-            // CAST_AND_RECEIVE intent — Cesium names that member ENABLED).
             shadows: Cesium.ShadowMode.ENABLED,
             perPositionHeight: false,
+            closeTop: true,
+            closeBottom: true,
           },
         });
         this.formaMassingEntities.push(ent);
         silhouetteTargets.push(ent);
+      } catch (e) {
+        console.warn('[CesiumViewport][forma] footprint mass failed — falling back to walls:', e);
       }
-    } catch (e) {
-      console.warn('[CesiumViewport][forma] massing extrusion failed:', e);
+    }
+
+    if (!footprint || silhouetteTargets.length === 0) {
+      // Fallback: per-wall extrusions, but with the buried base + pastel fill so
+      // they at least read cleanly and don't z-fight the ground.
+      try {
+        for (const w of walls) {
+          const ring = this.wallFootprintRing(w.a, w.b, w.thickness);
+          if (!ring) continue;
+          const positions = ring.map((p) => toCartesian(p.x, p.z, massBase));
+          const ent = viewer.entities.add({
+            name: 'pryzm-forma-massing-wall',
+            polygon: {
+              hierarchy: new Cesium.PolygonHierarchy(positions),
+              extrudedHeight: baseHeight + Math.max(0.1, w.height),
+              height: massBase,
+              material: massFill,
+              outline: true,
+              outlineColor: massOutline,
+              outlineWidth: 1.5,
+              shadows: Cesium.ShadowMode.ENABLED,
+              perPositionHeight: false,
+            },
+          });
+          this.formaMassingEntities.push(ent);
+          silhouetteTargets.push(ent);
+        }
+      } catch (e) {
+        console.warn('[CesiumViewport][forma] massing extrusion failed:', e);
+      }
     }
 
     // ── Parcel boundary — faint-green dashed overlay (§2 / §3) ────────────────
@@ -1712,9 +1777,12 @@ export class CesiumViewport {
     // ONE ENU frame at the site origin — identical anchor to renderFormaMassing.
     const originCartesian = Cesium.Cartesian3.fromDegrees(lon, lat, 0);
     const enu = Cesium.Transforms.eastNorthUpToFixedFrame(originCartesian);
-    const base = this.formaTerrainBaseHeight;
+    // §A.21.D-FORMA — bury the bottom face below ground so it never z-fights the
+    // flat ground plane (same fix as the proposed massing).
+    const base = this.formaTerrainBaseHeight - FORMA_BASE_SINK_M;
+    const top = this.formaTerrainBaseHeight;
     const fill = Cesium.Color.fromCssColorString(FORMA_PALETTE.contextFill).withAlpha(0.92);
-    const outline = Cesium.Color.fromCssColorString(FORMA_PALETTE.silhouette).withAlpha(0.35);
+    const outline = Cesium.Color.fromCssColorString(FORMA_PALETTE.contextOutline).withAlpha(0.45);
 
     let placed = 0;
     for (const f of collection.features) {
@@ -1743,7 +1811,8 @@ export class CesiumViewport {
           polygon: {
             hierarchy: new Cesium.PolygonHierarchy(positions),
             height: base,
-            extrudedHeight: base + Math.max(0.1, h),
+            // Top preserved above ground: terrain base + the footprint's height.
+            extrudedHeight: top + Math.max(0.1, h),
             material: fill,
             outline: true,
             outlineColor: outline,
@@ -1751,6 +1820,7 @@ export class CesiumViewport {
             // ShadowMode.ENABLED == casts AND receives (Forma context shadows).
             shadows: Cesium.ShadowMode.ENABLED,
             perPositionHeight: false,
+            closeBottom: true,
           },
         });
         this.contextBuildingEntities.push(ent);

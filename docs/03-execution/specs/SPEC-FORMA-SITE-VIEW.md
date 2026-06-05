@@ -176,3 +176,41 @@ All hooks are **read-only** on the climate/sun substrate; FORMA adds the Cesium-
 - Aesthetic + bridge are **rendering concerns** governed by C04 (rendering/scheduling) and the C12/C19 geospatial substrate. No schema change (P5 untouched), no new mutation path (P6 untouched), single-THREE owner (P2) untouched — Cesium primitives are not THREE.
 - The C19 §1.3 `LTPENURebase.setOrigin`-at-draw-surface follow-up is a **named precondition** for FORMA.4 real-world accuracy; this SPEC references it, it does not own it.
 - Brand: white + `#6600FF` for PRYZM UI chrome (toggles); the **Forma site palette** (`#1C1C1C` outline, `#2D6A4F` boundary, `#D9D5CE` ground, etc.) is the *analysis-canvas* palette, deliberately distinct from PRYZM chrome — documented here as the single source of truth (`FORMA_PALETTE`).
+
+## §10 — A.21.D-FORMA: clean pastel massing + z-fighting fix (2026-06-05)
+
+Founder feedback (with an Autodesk Forma reference image): the PRYZM Forma view
+must be "much more refined — clear shapes, no glitching graphics, robust, clean,
+nice colours". Note PRYZM's "Site 3D (Forma)" is *our own Cesium renderer* styled
+after Forma; the in-product Autodesk-Forma advice (assign-use-type, export-to-
+Blender) does not apply — the look is produced by `CesiumViewport`.
+
+### Root causes of the "glitching / messy" look
+1. **Per-wall slivers.** `renderFormaMassing` drew *one white extrusion per
+   authored wall* — N thin rectangles (each = baseLine widened to thickness)
+   that overlap at every corner. Their coplanar top faces z-fight, and the result
+   reads as a jumble of slabs, not a solid block. (Log: `13 wall volume(s)`.)
+2. **Coplanar bottom faces.** Every extrusion sat at `height: baseHeight` with the
+   flat ground plane at the same height (esp. when `sampleTerrainMostDetailed`
+   degrades → `baseHeight = 0` = ellipsoid surface) → classic flat-ground z-fight.
+3. **All white, no use-colour** — the reference is pastel use-coded.
+
+### Fixes (CesiumViewport.ts)
+- **One solid mass from the footprint.** Extrude a SINGLE polygon from the building
+  footprint (the drawn boundary ≈ the apartment outline) instead of per-wall;
+  `closeTop/closeBottom`. Per-wall extrusion remains a fallback when no footprint
+  polygon exists. → clean articulated block, no corner z-fight.
+- **Buried bases (`FORMA_BASE_SINK_M = 0.6`).** Both the proposed mass and the OSM
+  context buildings are seated 0.6 m BELOW the sampled ground; the bottom face is
+  buried and can never be coplanar with the ground plane. Visible top/sides
+  unchanged. Eliminates the ground flicker even on the degraded-terrain path.
+- **Pastel use-colours (`FORMA_USE_COLOURS`).** residential `#F0E4A8` (soft yellow),
+  amenity `#F2C58C`, podium `#C7DEA8`, public `#E2C2E8` — matching the reference.
+  The single apartment/casa mass is `residential`. Outline softened to `#3A3A3A`
+  (was pure black) so masses don't read as harsh wireframe; context outline a
+  lighter `#9A958C`.
+- Mass height = the tallest authored wall (fallback 3 m).
+
+Still open (deferred): per-mass use-classification from the BIM model (mixed-use
+buildings get multiple coloured masses), and the first-activation Cesium-vs-2D
+timing (a node may show only the 2D plan on the very first globe click).
