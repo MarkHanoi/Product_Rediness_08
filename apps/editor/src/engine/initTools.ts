@@ -1719,6 +1719,10 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                     height:         ev.height ?? 0.9,
                     material:       ev.material ?? 'wood',
                     properties:     {},
+                    // A.21.D4 — forward the style-driven colour so the builders
+                    // (which read data.color) render the brief's modern/classic/
+                    // minimal/warm palette. Omitted when absent (builder default).
+                    ...(ev.color ? { color: ev.color } : {}),
                     ...(ev.furnitureCategory     ? { furnitureCategory: ev.furnitureCategory } : {}),
                     ...(ev.kitchenConfig         ? { kitchenConfig: ev.kitchenConfig } : {}),
                     ...(ev.wardrobeCabinetConfig ? { wardrobeCabinetConfig: ev.wardrobeCabinetConfig } : {}),

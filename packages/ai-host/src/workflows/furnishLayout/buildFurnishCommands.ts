@@ -10,6 +10,7 @@
 // require it. `metadata.hostedSpaceId` binds the item to its room (IFC space).
 
 import type { PlacedFurniture } from './types.js';
+import { styleFinishFor, normaliseStyle, type FurnishStyle } from './styleFinish.js';
 
 export type IdMinter = (prefix: 'furniture') => string;
 
@@ -37,10 +38,15 @@ export function buildFurnishCommands(
     levelId: string,
     levelElevation: number,
     mintId: IdMinter,
+    style?: FurnishStyle | string,
 ): FurnishCommandSet {
     const commands: FurnishCommand[] = [];
     const ids: string[] = [];
     const warnings: string[] = [];
+    // A.21.D4 — the brief style chip (modern/classic/minimal/warm) drives the
+    // per-piece colour + material finish. Previously a no-op; now stamped on each
+    // furniture.create so the editor builders render the chosen style.
+    const finishStyle = normaliseStyle(style);
 
     for (const p of placed) {
         if (!(p.footprint.w > 0) || !(p.footprint.l > 0)) {
@@ -49,6 +55,7 @@ export function buildFurnishCommands(
         }
         const id = mintId('furniture');
         ids.push(id);
+        const finish = styleFinishFor(finishStyle, p.kind);
         commands.push({
             command: 'furniture.create',
             payload: {
@@ -61,7 +68,9 @@ export function buildFurnishCommands(
                 width: round6(p.footprint.w),
                 length: round6(p.footprint.l),
                 height: round6(p.footprint.h),
-                metadata: { hostedSpaceId: p.hostedSpaceId },
+                color: finish.color,                           // A.21.D4 — style colour (hex)
+                material: finish.material,                     // A.21.D4 — style finish
+                metadata: { hostedSpaceId: p.hostedSpaceId, style: finishStyle },
             },
         });
     }

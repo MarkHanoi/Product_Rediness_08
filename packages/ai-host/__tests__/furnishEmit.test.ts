@@ -4,6 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { buildFurnishCommands } from '../src/workflows/furnishLayout/buildFurnishCommands.js';
+import { styleFinishFor, normaliseStyle } from '../src/workflows/furnishLayout/styleFinish.js';
 import { furnishRoom } from '../src/workflows/furnishLayout/furnishRoom.js';
 import type { FurnishRoomInput, PlacedFurniture, Pt } from '../src/workflows/furnishLayout/types.js';
 
@@ -82,5 +83,48 @@ describe('buildFurnishCommands (D-FLE F8)', () => {
         const set = buildFurnishCommands([] as PlacedFurniture[], 'L0', 0, () => 'x');
         expect(set.commands).toEqual([]);
         expect(set.totalElementCount).toBe(0);
+    });
+});
+
+describe('A.21.D4 — style → furniture finish', () => {
+    const mk = () => { let n = 0; return () => `f-${n++}`; };
+    const payload = (c: { payload: unknown }) => c.payload as Record<string, unknown>;
+
+    it('stamps a style-driven colour + material on every furniture.create', () => {
+        const items = furnishRoom(rectRoom('bedroom', 4, 3));
+        const set = buildFurnishCommands(items, 'L0', 0, mk(), 'classic');
+        expect(set.commands.length).toBeGreaterThan(0);
+        for (const c of set.commands) {
+            const p = payload(c);
+            expect(typeof p.color).toBe('string');
+            expect(['fabric', 'wood', 'metal']).toContain(p.material);
+            expect((p.metadata as { style: string }).style).toBe('classic');
+        }
+    });
+
+    it('different styles produce different colours for the same piece (bed)', () => {
+        const items = furnishRoom(rectRoom('bedroom', 4, 3));
+        const modern = buildFurnishCommands(items, 'L0', 0, mk(), 'modern');
+        const classic = buildFurnishCommands(items, 'L0', 0, mk(), 'classic');
+        const bedM = modern.commands.find((c) => payload(c).furnitureType === 'bed');
+        const bedC = classic.commands.find((c) => payload(c).furnitureType === 'bed');
+        expect(bedM).toBeDefined();
+        expect(bedC).toBeDefined();
+        expect(payload(bedM!).color).not.toBe(payload(bedC!).color);
+    });
+
+    it('styleFinishFor: upholstered → fabric, case-goods → wood; unknown style → modern', () => {
+        expect(styleFinishFor('classic', 'sofa').material).toBe('fabric');
+        expect(styleFinishFor('classic', 'dining_table').material).toBe('wood');
+        expect(normaliseStyle('nonsense')).toBe('modern');
+        expect(styleFinishFor(normaliseStyle(undefined), 'bed').material).toBe('fabric');
+    });
+
+    it('no style arg → defaults to modern (still stamps a colour)', () => {
+        const items = furnishRoom(rectRoom('bedroom', 4, 3));
+        const set = buildFurnishCommands(items, 'L0', 0, () => 'x');
+        const c = set.commands[0]!;
+        const ft = payload(c).furnitureType as string;
+        expect(payload(c).color).toBe(styleFinishFor('modern', ft).color);
     });
 });
