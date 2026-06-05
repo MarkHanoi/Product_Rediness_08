@@ -32,6 +32,38 @@ const ACCENT = HERO_PURPLE; // #6600FF
 const WARMUP_STEPS = 140; // synchronous-ish settle burst spread over early ticks
 const BREATHE_STEPS_PER_TICK = 1; // slow perpetual motion once warm
 
+// GRAPH.4 — plain-language meaning of each UBG relationship (edge) type, so the
+// user can INTERROGATE the graph: what does this relationship MEAN? `out`/`in` are
+// the directional verb (this node → other / other → this node).
+const EDGE_MEANING: Readonly<Record<string, { out: string; in: string; meaning: string }>> = {
+    bounds:        { out: 'bounds',         in: 'bounded by',        meaning: 'This wall/element encloses that space.' },
+    adjacentTo:    { out: 'adjacent to',    in: 'adjacent to',       meaning: 'These two spaces share a boundary.' },
+    connectsTo:    { out: 'connects to',    in: 'connected from',    meaning: 'You can pass between them — a door/opening links them.' },
+    circulatesVia: { out: 'circulates via', in: 'circulation for',   meaning: 'Movement between spaces routes through here (corridor/hall).' },
+    hostedIn:      { out: 'hosted in',      in: 'hosts',             meaning: 'This element lives inside its host (e.g. a door in a wall).' },
+    servesZone:    { out: 'serves',         in: 'served by',         meaning: 'This element/system serves that zone.' },
+    derivesFrom:   { out: 'derives from',   in: 'derived into',      meaning: 'This was generated/derived from the source.' },
+    dependsOn:     { out: 'depends on',     in: 'depended on by',    meaning: 'Changing the source cascades a rebuild of this.' },
+    precededBy:    { out: 'preceded by',    in: 'precedes',          meaning: 'Edit/mutation ordering in time.' },
+    violates:      { out: 'violates',       in: 'violated by',       meaning: 'Breaks an architectural rule / constraint.' },
+};
+
+// GRAPH.4 — one-line plain-language meaning per node KIND ("which element is this?").
+const KIND_MEANING: Readonly<Record<string, string>> = {
+    wall: 'A wall — a vertical element that encloses or divides space.',
+    room: 'A room — an enclosed usable space, classified by occupancy.',
+    space: 'A space — an enclosed usable area in the layout.',
+    door: 'A door — a hosted opening that connects two spaces.',
+    window: 'A window — a hosted opening for daylight + view.',
+    opening: 'An opening — a void cut in a host wall for a door/window.',
+    slab: 'A slab — a horizontal floor/ceiling plate.',
+    floor: 'A floor finish over a room.',
+    level: 'A level/storey of the building.',
+    rule: 'A rule — an architectural constraint the design must satisfy.',
+    constraint: 'A constraint the design must satisfy.',
+    zone: 'A zone — a grouping of spaces by function.',
+};
+
 // ── Minimal structural views of the live singletons (no heavy imports) ────────
 
 /** A frame-bus tick listener disposer, matching the FrameScheduler surface. */
@@ -761,6 +793,15 @@ export class BuildingGraphOverlay {
     const body = document.createElement('div');
     Object.assign(body.style, { padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '12px' });
 
+    // "What is this?" — a plain-language one-liner for the node kind.
+    const meaning = KIND_MEANING[node.kind];
+    if (meaning) {
+      const m = document.createElement('div');
+      m.textContent = meaning;
+      Object.assign(m.style, { font: '500 11px/1.4 system-ui', color: '#4b4163' });
+      body.appendChild(m);
+    }
+
     // id (monospace).
     const idRow = document.createElement('div');
     idRow.textContent = id;
@@ -780,8 +821,8 @@ export class BuildingGraphOverlay {
     // Relationships — typed edges to/from neighbours.
     const rels: HTMLElement[] = [];
     try {
-      for (const e of graph.outEdges(id)) rels.push(this.relRow('→', e.type, kindOf(e.to), labelOf(e.to)));
-      for (const e of graph.inEdges(id)) rels.push(this.relRow('←', e.type, kindOf(e.from), labelOf(e.from)));
+      for (const e of graph.outEdges(id)) rels.push(this.relRow('out', e.type, kindOf(e.to), labelOf(e.to)));
+      for (const e of graph.inEdges(id)) rels.push(this.relRow('in', e.type, kindOf(e.from), labelOf(e.from)));
     } catch { /* ignore */ }
     body.appendChild(this.detailSection(`Relationships (${rels.length})`,
       rels.length ? rels : [this.detailRow('', 'none')]));
@@ -830,16 +871,31 @@ export class BuildingGraphOverlay {
     return row;
   }
 
-  private relRow(dir: string, type: string, neighbourKind: string, neighbourLabel: string): HTMLElement {
+  private relRow(dir: 'out' | 'in', type: string, neighbourKind: string, neighbourLabel: string): HTMLElement {
+    const g = EDGE_MEANING[type];
+    const verb = g ? (dir === 'out' ? g.out : g.in) : `${dir === 'out' ? '→' : '←'} ${type}`;
+    // Column: "verb  Kind · Label" on top, the plain-language meaning underneath.
     const row = document.createElement('div');
-    Object.assign(row.style, { display: 'flex', alignItems: 'center', gap: '6px' });
+    Object.assign(row.style, { display: 'flex', flexDirection: 'column', gap: '1px' });
+    const top = document.createElement('div');
+    Object.assign(top.style, { display: 'flex', alignItems: 'baseline', gap: '6px' });
+    const arrow = document.createElement('span');
+    arrow.textContent = dir === 'out' ? '→' : '←';
+    Object.assign(arrow.style, { color: '#b9b1d6', font: '600 11px/1.3 system-ui' });
     const t = document.createElement('span');
-    t.textContent = `${dir} ${type}`;
+    t.textContent = verb;
     Object.assign(t.style, { color: ACCENT, font: '600 11px/1.3 system-ui', whiteSpace: 'nowrap' });
     const n = document.createElement('span');
     n.textContent = `${this.humanKind(neighbourKind)} · ${neighbourLabel}`;
-    Object.assign(n.style, { color: '#241a3a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
-    row.append(t, n);
+    Object.assign(n.style, { color: '#241a3a', font: '500 11px/1.3 system-ui', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: '1' });
+    top.append(arrow, t, n);
+    row.appendChild(top);
+    if (g) {
+      const m = document.createElement('div');
+      m.textContent = g.meaning;
+      Object.assign(m.style, { color: '#9b93b5', font: '400 10px/1.3 system-ui', paddingLeft: '16px' });
+      row.appendChild(m);
+    }
     return row;
   }
 
