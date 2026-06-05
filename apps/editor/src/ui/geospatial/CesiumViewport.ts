@@ -12,6 +12,7 @@ import {
 // This is the SAME pure algorithm the ClimatePanel sun-path uses; FORMA.5 reads
 // it to drive the Cesium directional light (read-only consumer — SPEC §6).
 import { solarSample } from "@pryzm/climate-host";
+import { getCurrentSiteOrigin } from "../site/siteDispatch";
 
 // H7 (07-BIM-SECURITY-CONTRACT §6.1): Cesium Ion token MUST be loaded from the
 // VITE_CESIUM_TOKEN environment variable and MUST NOT be hardcoded in source.
@@ -653,6 +654,12 @@ export class CesiumViewport {
     if (loc && (loc.latitude !== 0 || loc.longitude !== 0)) {
       return { lat: loc.latitude, lon: loc.longitude };
     }
+    // §CESIUM-SITE-ORIGIN — fall back to the process-wide LTP-ENU origin set by the
+    // onboarding location step (siteDispatch). It's set BEFORE Cesium mounts in the
+    // GIS handoff, so the store-read above is null even though the real site is
+    // known — without this, the camera framed the Sydney default (the founder's bug).
+    const ltp = getCurrentSiteOrigin();
+    if (ltp && (ltp.lat !== 0 || ltp.lon !== 0)) return { lat: ltp.lat, lon: ltp.lon };
     return null;
   }
 
