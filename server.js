@@ -5675,10 +5675,33 @@ httpServer.listen(PORT, '0.0.0.0', async () => {
         }
         console.log('[server] DB migrations complete.');
     };
+    // §SERVER-503-MIGRATION-GATE-HANG (2026-06-05): the §...-DEADLOCK fix below
+    // only opens the gate when runMigrations() THROWS. But when a configured pool
+    // (e.g. the Supabase tx-pooler :6543) HANGS rather than errors — the socket
+    // neither resolves nor rejects for tens of seconds — `await _applyMigrations()`
+    // blocks forever, so `markMigrationsSettled()` is never reached and EVERY
+    // /api/v1 request 503s `migrations_in_progress` until a manual restart (the
+    // boot stuck on "PREPARING WORKSPACE…"). Race the boot migration against a
+    // bounded timeout so the gate ALWAYS opens within a few seconds; the original
+    // migration promise keeps running (its late success still upgrades to real
+    // persistence via setMigrationsReady) and the self-heal below covers the rest.
+    const MIGRATION_BOOT_GATE_TIMEOUT_MS = Number(process.env.MIGRATION_BOOT_GATE_TIMEOUT_MS) || 12000;
+    const _bootMigration = _applyMigrations();
+    // Swallow a LATE rejection (after we've already timed out) so it doesn't
+    // surface as an unhandledRejection — the self-heal owns retries from here.
+    _bootMigration.catch(() => {});
     try {
-        await _applyMigrations();
+        await Promise.race([
+            _bootMigration,
+            new Promise((_, reject) =>
+                setTimeout(
+                    () => reject(new Error(`migration-boot-timeout after ${MIGRATION_BOOT_GATE_TIMEOUT_MS}ms (pool hanging — opening gate to in-memory fallback)`)),
+                    MIGRATION_BOOT_GATE_TIMEOUT_MS,
+                )
+            ),
+        ]);
     } catch (err) {
-        console.error('[server] runMigrations() failed after retries — opening v1 gate to in-memory fallback + scheduling background self-heal:', err);
+        console.error('[server] runMigrations() failed/timed out — opening v1 gate to in-memory fallback + scheduling background self-heal:', err);
         // §SERVER-503-MIGRATION-GATE-DEADLOCK (2026-05-24): a failed boot migration used to
         // leave the v1 gate CLOSED forever (migrationsReady=false) → every /api/v1/projects
         // returned 503 `migrations_in_progress`. Because that gate runs BEFORE the route
