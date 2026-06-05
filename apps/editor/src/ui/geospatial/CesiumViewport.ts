@@ -1106,14 +1106,23 @@ export class CesiumViewport {
     if (this.formaAoStage) this.formaAoStage.enabled = false;
     if (this.formaSilhouetteComposite) this.formaSilhouetteComposite.enabled = false;
 
-    // MAP-DATA-OVERTURE — the context-building overlay belongs to the Forma canvas
-    // only (photoreal already shows real buildings via the satellite/Google tiles).
+    // MAP-DATA-OVERTURE / §GLOBE-CONTEXT-BUILDINGS (2026-06-05) — the extruded
+    // OSM context-building overlay. WITH a Cesium token the Google Photorealistic
+    // 3D Tiles already show real 3D buildings, so the overlay is redundant → clear
+    // it. On the KEYLESS path the ESRI satellite is FLAT (no 3D buildings), so the
+    // "3D globe" would show "only a 2D map" — KEEP + (re)load the extruded overlay
+    // so the globe still has 3D context buildings (founder-reported).
     try {
-      this.contextBuildingsAbort?.abort();
-      this.clearContextBuildings();
-      this.contextBuildingsAt = null;
+      if (_cesiumToken) {
+        this.contextBuildingsAbort?.abort();
+        this.clearContextBuildings();
+        this.contextBuildingsAt = null;
+      } else {
+        const loc = this.readSiteLocation();
+        if (loc) void this.loadContextBuildings(loc.lat, loc.lon, true);
+      }
     } catch (e) {
-      console.warn('[CesiumViewport][forma] context-building clear on restore failed:', e);
+      console.warn('[CesiumViewport][forma] context-building restore handling failed:', e);
     }
 
     console.log('[CesiumViewport] Photoreal mode restored.');
