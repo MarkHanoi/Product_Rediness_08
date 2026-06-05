@@ -562,6 +562,7 @@ export interface RuntimeEvents {
     readonly length?: number;
     readonly height?: number;
     readonly material?: string;
+    readonly color?: string;            // A.21.D4 — style-driven colour (hex)
     readonly furnitureCategory?: string;
     readonly kitchenConfig?: unknown;
     readonly wardrobeCabinetConfig?: unknown;

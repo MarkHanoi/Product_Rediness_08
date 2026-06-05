@@ -22,6 +22,7 @@ import type {
     RoomWallSeg,
 } from '@pryzm/ai-host';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
+import { getActiveBriefMetadata } from '../apartment-layout/activeBrief.js';
 
 interface Pt { x: number; z: number }
 
@@ -413,7 +414,15 @@ export class FurnishLayoutExecutor {
                 return;
             }
 
-            const set = buildFurnishCommands(allPlaced, level.id, levelElevation, () => createId('furniture'));
+            // A.21.D4 — pass the brief style chip (modern/classic/minimal/warm) so
+            // the furniture gets style-driven colour + finish (previously a no-op).
+            const briefStyle = (() => {
+                try {
+                    const md = getActiveBriefMetadata('apartment');
+                    return typeof md?.style === 'string' ? md.style : undefined;
+                } catch { return undefined; }
+            })();
+            const set = buildFurnishCommands(allPlaced, level.id, levelElevation, () => createId('furniture'), briefStyle);
             if (set.warnings.length > 0) {
                 for (const w of set.warnings) console.warn('[furnish-layout] warning:', w);
             }

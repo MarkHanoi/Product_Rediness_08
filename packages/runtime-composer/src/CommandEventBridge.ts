@@ -587,6 +587,7 @@ export function wireCommandEventBridge(
             length?: number;
             height?: number;
             material?: string;
+            color?: string;
             furnitureCategory?: string;
             kitchenConfig?: unknown;
             wardrobeCabinetConfig?: unknown;
@@ -604,6 +605,7 @@ export function wireCommandEventBridge(
             length:                p.length,
             height:                p.height,
             material:              p.material,
+            color:                 p.color,           // A.21.D4 — style colour
             furnitureCategory:     p.furnitureCategory,
             kitchenConfig:         p.kitchenConfig,
             wardrobeCabinetConfig: p.wardrobeCabinetConfig,
