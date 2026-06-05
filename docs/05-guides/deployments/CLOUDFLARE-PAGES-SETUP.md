@@ -1,19 +1,13 @@
-Production branch
-Already correct: main ✅
+Step 3: Build Configuration
 
-Build settings
-Field	Paste this
-Framework preset	Astro (dropdown — change from "None")
+Enter exactly:
+
+Setting	Value
+Project name	pryzm-docs-site
+Framework preset	Astro
 Build command	pnpm install --no-frozen-lockfile && pnpm --filter @pryzm/docs-site exec astro build
 Build output directory	apps/docs-site/dist
-Root directory (advanced)	leave blank (expand the section but don't fill the Path field)
-Environment variables (expand the section, click "Add variable" 3 times)
-Variable name	Value
-SKIP_DEPENDENCY_INSTALL	true
-NODE_VERSION	20
-NPM_FLAGS	--version
-Then
-Click the Save button at the bottom of the page. After it persists, go to Deployments in the left sidebar and either:
+Root directory	/
 
 # Cloudflare Pages setup — `pryzm.so` docs-site
 

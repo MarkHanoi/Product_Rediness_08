@@ -76,6 +76,9 @@ export class BuildingGraphOverlay {
   private ctx: CanvasRenderingContext2D | null = null;
   private emptyEl: HTMLElement | null = null;
   private statsEl: HTMLElement | null = null;
+  // GRAPH.4 — the interrogation panel: click a node → its element, props,
+  // relationships + the rules it breaks.
+  private detailEl: HTMLElement | null = null;
 
   private layout: GraphLayout | null = null;
   private warmupLeft = 0;
@@ -127,6 +130,7 @@ export class BuildingGraphOverlay {
 
     root.appendChild(this.buildHeader());
     root.appendChild(this.buildEmptyState());
+    root.appendChild(this.buildDetailPanel());
 
     mountTarget.appendChild(root);
     this.root = root;
@@ -687,19 +691,175 @@ export class BuildingGraphOverlay {
 
   private onClick(ev: MouseEvent): void {
     const hit = this.pick(ev);
-    if (!hit) {
-      // Click on empty space clears the focus.
-      this.focused = null;
-      this.neighbourIds.clear();
-      return;
-    }
-    if (this.focused === hit.node.id) {
+    // Click empty space, or re-click the focused node → deselect; else select.
+    if (!hit || this.focused === hit.node.id) {
       this.focused = null;
       this.neighbourIds.clear();
     } else {
       this.focused = hit.node.id;
       this.recomputeNeighbours(hit.node.id);
     }
+    this.updateDetailPanel();
+  }
+
+  // ── GRAPH.4 — node interrogation panel ──────────────────────────────────────
+
+  /** The detail card (hidden until a node is clicked). On-brand white + #6600FF. */
+  private buildDetailPanel(): HTMLElement {
+    const el = document.createElement('div');
+    el.setAttribute('data-testid', 'graph-detail-panel');
+    Object.assign(el.style, {
+      position: 'absolute', top: '56px', left: '18px',
+      width: '300px', maxHeight: 'calc(100% - 88px)', overflowY: 'auto',
+      display: 'none', pointerEvents: 'auto',
+      background: '#ffffff', color: '#241a3a',
+      border: `1px solid ${ACCENT}`, borderRadius: '14px',
+      boxShadow: '0 12px 44px rgba(40,10,90,0.38)',
+      font: '500 12px/1.45 system-ui, sans-serif',
+    } satisfies Partial<CSSStyleDeclaration>);
+    this.detailEl = el;
+    return el;
+  }
+
+  /** Populate the detail card from the focused node: what element it is, its key
+   *  properties, every relationship (typed edge → neighbour), and the rules it
+   *  breaks. Hidden when nothing is selected. Re-run on select + on graph rebuild. */
+  private updateDetailPanel(): void {
+    const el = this.detailEl;
+    if (!el) return;
+    const id = this.focused;
+    const graph = ow()?.__pryzmBuildingGraph;
+    const node = id && graph ? (() => { try { return graph.getNode(id); } catch { return null; } })() : null;
+    if (!id || !graph || !node) { el.style.display = 'none'; el.replaceChildren(); return; }
+
+    const labelOf = (nid: string): string => {
+      try { const nn = graph.getNode(nid); return nn ? this.labelFor(nn) : nid; } catch { return nid; }
+    };
+    const kindOf = (nid: string): string => {
+      try { return graph.getNode(nid)?.kind ?? 'element'; } catch { return 'element'; }
+    };
+
+    el.replaceChildren();
+    el.style.display = 'block';
+
+    // Header: kind badge + label + close.
+    const head = document.createElement('div');
+    Object.assign(head.style, { display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 12px 8px', borderBottom: '1px solid #efe9fb' });
+    const badge = document.createElement('span');
+    badge.textContent = this.humanKind(node.kind);
+    Object.assign(badge.style, { background: ACCENT, color: '#fff', borderRadius: '999px', padding: '2px 9px', font: '700 10px/1 system-ui', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' });
+    const ttl = document.createElement('div');
+    ttl.textContent = this.labelFor(node);
+    Object.assign(ttl.style, { font: '700 13px/1.25 system-ui', flex: '1', overflow: 'hidden', textOverflow: 'ellipsis' });
+    const x = document.createElement('button');
+    x.type = 'button'; x.textContent = '✕'; x.setAttribute('aria-label', 'Deselect');
+    Object.assign(x.style, { border: 'none', background: 'transparent', color: '#9b93b5', cursor: 'pointer', font: '600 13px/1 system-ui', padding: '2px' });
+    this.on(x, 'click', () => { this.focused = null; this.neighbourIds.clear(); this.updateDetailPanel(); });
+    head.append(badge, ttl, x);
+    el.appendChild(head);
+
+    const body = document.createElement('div');
+    Object.assign(body.style, { padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '12px' });
+
+    // id (monospace).
+    const idRow = document.createElement('div');
+    idRow.textContent = id;
+    Object.assign(idRow.style, { font: '500 10px/1.3 ui-monospace, monospace', color: '#9b93b5', wordBreak: 'break-all' });
+    body.appendChild(idRow);
+
+    // Properties.
+    const props = (node.props ?? {}) as Record<string, unknown>;
+    const propRows = Object.entries(props)
+      .filter(([k, v]) => v != null && v !== '' && typeof v !== 'object' && k !== 'name' && k !== 'label')
+      .slice(0, 8);
+    if (propRows.length) {
+      body.appendChild(this.detailSection('Properties', propRows.map(([k, v]) =>
+        this.detailRow(this.humanKind(k), this.fmtValue(k, v)))));
+    }
+
+    // Relationships — typed edges to/from neighbours.
+    const rels: HTMLElement[] = [];
+    try {
+      for (const e of graph.outEdges(id)) rels.push(this.relRow('→', e.type, kindOf(e.to), labelOf(e.to)));
+      for (const e of graph.inEdges(id)) rels.push(this.relRow('←', e.type, kindOf(e.from), labelOf(e.from)));
+    } catch { /* ignore */ }
+    body.appendChild(this.detailSection(`Relationships (${rels.length})`,
+      rels.length ? rels : [this.detailRow('', 'none')]));
+
+    // Rules — violations. If THIS is a rule node, show who violates it; else
+    // show the rules this element breaks (its outgoing `violates` edges).
+    const ruleRows: HTMLElement[] = [];
+    try {
+      if (node.kind === 'rule') {
+        for (const e of graph.inEdges(id, 'violates')) ruleRows.push(this.ruleRow(`${labelOf(e.from)} violates this`));
+      } else {
+        for (const e of graph.outEdges(id, 'violates')) ruleRows.push(this.ruleRow(`Breaks: ${labelOf(e.to)}${e.evidence ? ` — ${e.evidence}` : ''}`));
+      }
+    } catch { /* ignore */ }
+    if (ruleRows.length) body.appendChild(this.detailSection('Rules', ruleRows));
+
+    el.appendChild(body);
+  }
+
+  private detailSection(title: string, rows: HTMLElement[]): HTMLElement {
+    const sec = document.createElement('div');
+    const h = document.createElement('div');
+    h.textContent = title;
+    Object.assign(h.style, { font: '700 10px/1 system-ui', textTransform: 'uppercase', letterSpacing: '0.05em', color: ACCENT, marginBottom: '6px' });
+    sec.appendChild(h);
+    const list = document.createElement('div');
+    Object.assign(list.style, { display: 'flex', flexDirection: 'column', gap: '4px' });
+    for (const r of rows) list.appendChild(r);
+    sec.appendChild(list);
+    return sec;
+  }
+
+  private detailRow(key: string, val: string): HTMLElement {
+    const row = document.createElement('div');
+    Object.assign(row.style, { display: 'flex', justifyContent: 'space-between', gap: '10px' });
+    if (key) {
+      const k = document.createElement('span');
+      k.textContent = key;
+      Object.assign(k.style, { color: '#7d749a', whiteSpace: 'nowrap' });
+      row.appendChild(k);
+    }
+    const v = document.createElement('span');
+    v.textContent = val;
+    Object.assign(v.style, { color: '#241a3a', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis' });
+    row.appendChild(v);
+    return row;
+  }
+
+  private relRow(dir: string, type: string, neighbourKind: string, neighbourLabel: string): HTMLElement {
+    const row = document.createElement('div');
+    Object.assign(row.style, { display: 'flex', alignItems: 'center', gap: '6px' });
+    const t = document.createElement('span');
+    t.textContent = `${dir} ${type}`;
+    Object.assign(t.style, { color: ACCENT, font: '600 11px/1.3 system-ui', whiteSpace: 'nowrap' });
+    const n = document.createElement('span');
+    n.textContent = `${this.humanKind(neighbourKind)} · ${neighbourLabel}`;
+    Object.assign(n.style, { color: '#241a3a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+    row.append(t, n);
+    return row;
+  }
+
+  private ruleRow(text: string): HTMLElement {
+    const row = document.createElement('div');
+    row.textContent = `⚠ ${text}`;
+    Object.assign(row.style, { color: '#c2185b', font: '600 11px/1.35 system-ui' });
+    return row;
+  }
+
+  private humanKind(s: string): string {
+    return s.replace(/[_-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+
+  private fmtValue(key: string, v: unknown): string {
+    if (typeof v === 'number') {
+      if (/area/i.test(key)) return `${v.toFixed(1)} m²`;
+      return Number.isInteger(v) ? String(v) : v.toFixed(2);
+    }
+    return String(v);
   }
 
   // ── Small drawing/util helpers ─────────────────────────────────────────────
