@@ -20,7 +20,7 @@
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { CreateFloorsByRoomTypeCommand } from '@pryzm/command-registry';
 import { resolveActiveLevelId } from '../apartment-layout/activeLevel.js';
-import { getActiveBriefMetadata } from '../apartment-layout/activeBrief.js';
+import { getActiveDesignMetadata } from '../apartment-layout/activeBrief.js';
 
 declare global {
     interface Window {
@@ -53,7 +53,7 @@ export function triggerFloorLayout(runtimeArg?: PryzmRuntime | null): void {
         }
         // §A.21.D-FLOOR — read the brief style so floors get a realistic, style-
         // appropriate finish (wood plank / porcelain tile) per room type.
-        const style = (getActiveBriefMetadata('apartment')?.style as string | undefined);
+        const style = (getActiveDesignMetadata()?.style as string | undefined);
         const cmd = new CreateFloorsByRoomTypeCommand(lid, style);
         const res = cm.execute(cmd, { source: 'APARTMENT_PIPELINE_FLOOR' });
         if (res?.success) {

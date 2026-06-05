@@ -556,9 +556,13 @@ export class PlatformRouter {
         registryHas: (id: string) => boolean,
     ): string | undefined {
         if (!projectType) return undefined;
-        // The modal's <select> uses lowercase slugs (residential / commercial /
-        // mixed / infrastructure / other).
-        const candidate = projectType.trim().toLowerCase() === 'residential' ? 'apartment' : undefined;
+        // §A.6.c — the modal now offers explicit building typologies. Map each to
+        // a registered Pack id; "residential — let me choose" / commercial / mixed /
+        // other return undefined so the RAC asks (showing the typology chips).
+        const v = projectType.trim().toLowerCase();
+        let candidate: string | undefined;
+        if (v === 'apartment') candidate = 'apartment';
+        else if (v === 'casa-unifamiliar' || v === 'house' || v === 'casa') candidate = 'casa-unifamiliar';
         if (candidate && registryHas(candidate)) return candidate;
         return undefined;
     }

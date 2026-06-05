@@ -159,6 +159,7 @@ class OnboardingStepController {
     private typologyLabel(): string {
         switch (this.typologyId) {
             case 'apartment': return 'apartment';
+            case 'casa-unifamiliar': return 'house';   // §A.6.c — friendly noun
             case 'house': return 'house';
             case 'office': return 'office';
             default: return this.typologyId || 'design';

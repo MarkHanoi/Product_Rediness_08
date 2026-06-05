@@ -22,7 +22,7 @@ import type {
     RoomWallSeg,
 } from '@pryzm/ai-host';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
-import { getActiveBriefMetadata } from '../apartment-layout/activeBrief.js';
+import { getActiveDesignMetadata } from '../apartment-layout/activeBrief.js';
 
 interface Pt { x: number; z: number }
 
@@ -418,7 +418,8 @@ export class FurnishLayoutExecutor {
             // the furniture gets style-driven colour + finish (previously a no-op).
             const briefStyle = (() => {
                 try {
-                    const md = getActiveBriefMetadata('apartment');
+                    // §A.6.c — typology-agnostic: a house brief drives the same style.
+                    const md = getActiveDesignMetadata();
                     return typeof md?.style === 'string' ? md.style : undefined;
                 } catch { return undefined; }
             })();

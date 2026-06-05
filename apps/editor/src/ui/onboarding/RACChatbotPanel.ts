@@ -606,7 +606,10 @@ export class RACChatbotPanel {
                 return;
             case 'awaiting-typology': {
                 for (const id of this.state.availableTypologies) {
-                    host.appendChild(this.makeChip(id, () =>
+                    // §A.6.c — show the Pack's human displayName ("Apartment",
+                    // "Casa Unifamiliar (House)") on the chip, not the raw id.
+                    const label = this.registry.get(id)?.manifest.displayName ?? id;
+                    host.appendChild(this.makeChip(label, () =>
                         this.dispatch({ type: 'capture-typology', typologyId: id }),
                     ));
                 }

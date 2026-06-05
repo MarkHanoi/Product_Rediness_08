@@ -160,14 +160,22 @@ async function handleBriefReady(
     });
 
     // ── Typology gate (typology-agnostic-ready) ──────────────────────────────
-    if (brief.typologyId !== 'apartment') {
+    // §A.6.c (2026-06-05) — typologies whose generate path is wired today. Both
+    // `apartment` and `casa-unifamiliar` resolve to `generateApartmentFromBoundary`
+    // (the casa Pack is a single-storey bridge to the apartment generator), so the
+    // house is now selectable end-to-end alongside the apartment. Other typologies
+    // still bail gracefully until their Pack wires a generator into the SAME
+    // brief→project→site→generate spine.
+    const GENERATOR_READY_TYPOLOGIES = new Set(['apartment', 'casa-unifamiliar']);
+    if (!GENERATOR_READY_TYPOLOGIES.has(brief.typologyId)) {
         console.log(
             `[onboarding-bootstrap] typology "${brief.typologyId}" is not yet auto-wired ` +
-            '(only "apartment" has a shipped generator today) — bailing gracefully. ' +
+            '(apartment + casa-unifamiliar have shipped generators today) — bailing gracefully. ' +
             'Its Pack will slot into this same brief→project→site→generate spine.',
         );
         return;
     }
+    const isHouse = brief.typologyId === 'casa-unifamiliar';
 
     if (typeof deps.createAndOpenProject !== 'function') {
         console.warn('[onboarding-bootstrap] no createAndOpenProject dep — cannot create a project; bailing.');
@@ -187,7 +195,7 @@ async function handleBriefReady(
     // `pryzm-project-loaded` listener BEFORE issuing the create+open so we never
     // miss the event (it can fire synchronously-ish for the empty-new-project
     // path — PlatformShell fires `pryzm-project-loaded(empty:true)` immediately).
-    toast('Setting up your first apartment…', 'info');
+    toast(`Setting up your first ${isHouse ? 'house' : 'apartment'}…`, 'info');
 
     const md = brief.metadata ?? {};
     const address = typeof md.address === 'string' ? md.address : undefined;

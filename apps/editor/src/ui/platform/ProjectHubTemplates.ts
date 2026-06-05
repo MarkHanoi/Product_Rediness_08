@@ -125,12 +125,18 @@ export function renderShell(ctx: PhRenderCtx): string {
                         <textarea class="ph-modal-input ph-modal-textarea" id="ph-new-description" placeholder="Brief description of this project…" maxlength="280" rows="2"></textarea>
                     </div>
                     <div class="ph-modal-field">
-                        <label class="ph-modal-label">Project type</label>
+                        <label class="ph-modal-label">Building type</label>
                         <select class="ph-modal-input" id="ph-new-type">
-                            <option value="residential">Residential</option>
+                            <!-- §A.6.c — explicit building typologies drive the
+                                 generator: Apartment + House are wired end-to-end.
+                                 "Residential — let me choose" defers to the RAC
+                                 typology step; Commercial/Mixed/Other are captured
+                                 as project metadata (generator wired later). -->
+                            <option value="apartment">Apartment</option>
+                            <option value="casa-unifamiliar">House — single-family</option>
+                            <option value="residential">Residential — let me choose</option>
                             <option value="commercial">Commercial</option>
                             <option value="mixed">Mixed Use</option>
-                            <option value="infrastructure">Infrastructure</option>
                             <option value="other">Other</option>
                         </select>
                     </div>

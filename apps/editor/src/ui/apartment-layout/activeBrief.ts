@@ -69,6 +69,16 @@ export function getActiveBrief(): ActiveBrief | null {
     return _active;
 }
 
+/**
+ * §A.6.c — the active brief's metadata REGARDLESS of typology. For typology-
+ * agnostic consumers (floor + furniture FINISH style) that behave identically for
+ * an apartment or a house: a casa-unifamiliar brief still drives the same style
+ * chip. (`getActiveBriefMetadata('apartment')` returns null for a house brief.)
+ */
+export function getActiveDesignMetadata(): Record<string, unknown> | null {
+    return _active?.metadata ?? null;
+}
+
 /** Clear the active brief (e.g. on project close / re-onboard). */
 export function clearActiveBrief(): void {
     _active = null;
