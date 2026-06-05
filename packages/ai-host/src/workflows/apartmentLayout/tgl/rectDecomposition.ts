@@ -40,13 +40,113 @@ function edgeZAtX(a: Pt, b: Pt, x: number): number | null {
     return a.z + t * (b.z - a.z);
 }
 
+// ── §RECTIFY-QUAD (D2 non-orthogonal, 2026-06-05) ────────────────────────────
+//
+// A SKEWED plot (a parallelogram / trapezoid drawn off-axis on the GIS map) is the
+// founder's recurring failure case (Córdoba, Notting Hill). The principal-axis
+// rotation (runDeterministicLayout §PRINCIPAL-AXIS) aligns the shell's DOMINANT
+// edge family to the axes, but the two NON-dominant edges of a sheared quad stay
+// slanted. The slab-sweep below then STAIR-STEPS those slanted edges into a big
+// central rect + two unusable slivers, so subdivide packs every room into the one
+// big rect → the "one giant 93 m² merged room + slivers" defect, or drops rooms via
+// §HARD-MIN-SIDE and bails to the strip-slicer.
+//
+// FIX: when the (already principal-axis-rotated) shell is a CONVEX QUADRILATERAL,
+// rectify it to its axis-aligned bounding rectangle before tiling. A skewed quad
+// then yields the SAME clean single-rect tiling a true rectangle of its bbox would,
+// so subdivide produces a full, detectable room set. TRADE-OFF: the interior rooms
+// become rectangular in the rotated frame and fill the bbox (slightly larger than
+// the real sheared area); the OUTER shell walls remain the real drawn shape
+// (emitted separately + extended to the real perimeter in wallsAndDoors), so the
+// apartment footprint is still the true plot — only the partition grid is rectified.
+//
+// Convex-quad gating is what makes this safe: an L / U / T shell is concave and/or
+// has > 4 vertices, so it is NEVER rectified (its stair-step decomposition, which
+// correctly avoids the notch, is preserved). Fill-ratio alone cannot separate a
+// parallelogram from an L-shape (an L can fill its bbox MORE than a sheared quad),
+// so vertex-count + convexity is the discriminator, not area.
+
+const QUAD_EPS = 1e-4;
+
+/** Drop vertices that are collinear with their neighbours (within QUAD_EPS of the
+ *  edge) so a rectangle authored with redundant mid-edge points still reads as a
+ *  4-vertex quad. Returns the simplified ring. */
+function dropCollinear(poly: readonly Pt[]): Pt[] {
+    const n = poly.length;
+    if (n < 4) return poly.slice();
+    const out: Pt[] = [];
+    for (let i = 0; i < n; i++) {
+        const a = poly[(i - 1 + n) % n]!, b = poly[i]!, c = poly[(i + 1) % n]!;
+        // Cross product of (b-a)×(c-b); ~0 ⇒ b lies on the a→c line.
+        const cross = (b.x - a.x) * (c.z - b.z) - (b.z - a.z) * (c.x - b.x);
+        const scale = Math.hypot(b.x - a.x, b.z - a.z) * Math.hypot(c.x - b.x, c.z - b.z);
+        if (scale > QUAD_EPS && Math.abs(cross) / scale < QUAD_EPS) continue; // collinear → drop
+        out.push(b);
+    }
+    return out.length >= 3 ? out : poly.slice();
+}
+
+/** True iff the ring is convex (all cross products share one sign). Degenerate
+ *  (zero-area / spike) rings return false. */
+function isConvex(poly: readonly Pt[]): boolean {
+    const n = poly.length;
+    if (n < 4) return false;
+    let sign = 0;
+    for (let i = 0; i < n; i++) {
+        const a = poly[i]!, b = poly[(i + 1) % n]!, c = poly[(i + 2) % n]!;
+        const cross = (b.x - a.x) * (c.z - b.z) - (b.z - a.z) * (c.x - b.x);
+        if (Math.abs(cross) < QUAD_EPS) continue;            // collinear edge — ignore
+        const s = cross > 0 ? 1 : -1;
+        if (sign === 0) sign = s;
+        else if (s !== sign) return false;
+    }
+    return sign !== 0;
+}
+
+/**
+ * If `poly` is a convex quadrilateral (after collinear-vertex removal) that fills
+ * a sensible fraction of its bounding box, return that bounding box as a 4-vertex
+ * rectangle ring; otherwise return the polygon unchanged. The fill floor
+ * (`minFill`, default 0.5) rejects pathologically thin/degenerate quads where the
+ * bbox would balloon the apartment area unrealistically.
+ *
+ * Exported for unit testing. Call AFTER the principal-axis rotation so the bbox is
+ * tight against the shell's dominant edges.
+ */
+export function rectifyConvexQuad(poly: readonly Pt[], minFill = 0.5): Pt[] {
+    const simplified = dropCollinear(poly);
+    if (simplified.length !== 4 || !isConvex(simplified)) return poly.slice();
+    const bb = polygonBBox(simplified);
+    const bboxArea = rectArea(bb);
+    if (bboxArea <= EPS) return poly.slice();
+    // Shoelace area of the quad.
+    let a2 = 0;
+    for (let i = 0; i < 4; i++) {
+        const p = simplified[i]!, q = simplified[(i + 1) % 4]!;
+        a2 += p.x * q.z - q.x * p.z;
+    }
+    const quadArea = Math.abs(a2) / 2;
+    if (quadArea / bboxArea < minFill) return poly.slice();   // too sheared — leave to stair-step
+    return [
+        { x: bb.x0, z: bb.z0 }, { x: bb.x1, z: bb.z0 },
+        { x: bb.x1, z: bb.z1 }, { x: bb.x0, z: bb.z1 },
+    ];
+}
+
 /**
  * Decompose a simple polygon (CW or CCW) into axis-aligned rectangles.
  * `minCellM` drops slivers narrower/shallower than that. Exact for rectilinear
  * polygons; stair-step approximation for slanted edges.
+ *
+ * §RECTIFY-QUAD: a convex quadrilateral (skewed plot / parallelogram / trapezoid,
+ * typically already principal-axis-rotated) is first rectified to its bounding box
+ * so it tiles as ONE clean rect rather than a big rect + slivers. Rectilinear L / U
+ * / T shells are concave or have > 4 vertices → never rectified, so their notch-
+ * aware stair-step decomposition is preserved bit-identically.
  */
-export function decomposeToRects(poly: readonly Pt[], minCellM = 0.5): Rect[] {
-    if (poly.length < 3) return [];
+export function decomposeToRects(rawPoly: readonly Pt[], minCellM = 0.5): Rect[] {
+    if (rawPoly.length < 3) return [];
+    const poly = rectifyConvexQuad(rawPoly);
 
     const xs = Array.from(new Set(poly.map(p => round6(p.x)))).sort((a, b) => a - b);
     const edges: Array<readonly [Pt, Pt]> = [];

@@ -4,8 +4,9 @@
 import { describe, expect, it } from 'vitest';
 import { generateDeterministicLayouts } from '../src/workflows/apartmentLayout/tgl/runDeterministicLayout.js';
 import { generateLayoutOptions } from '../src/workflows/apartmentLayout/generate.js';
+import { rotatePoly, type Pt } from '../src/workflows/apartmentLayout/tgl/rectDecomposition.js';
 import type { RelayPorter } from '../src/AnthropicRelay.js';
-import type { ShellAnalysis } from '../src/workflows/apartmentLayout/shellAnalysis.js';
+import { type ShellAnalysis, polygonAreaM2 } from '../src/workflows/apartmentLayout/shellAnalysis.js';
 import type { ApartmentConstraints, ApartmentProgram, ScoringWeights } from '../src/workflows/apartmentLayout/types.js';
 
 const SHELL: ShellAnalysis = {
@@ -167,6 +168,63 @@ describe('generateDeterministicLayouts (TGL wiring)', () => {
             expect(res.options).toEqual([]);
             expect(res.reason).toMatch(/gross 30\.0 m² < hard min/);
         }
+    });
+
+    // ── §RECTIFY-QUAD (D2 non-orthogonal, 2026-06-05) ────────────────────────
+    // The founder repeatedly draws SKEWED (parallelogram) plots (Córdoba, Notting
+    // Hill). Before the fix the principal-axis-rotated parallelogram still
+    // stair-stepped its non-dominant edges → one giant merged room + slivers, or a
+    // strip-slicer bailout. After the convex-quad rectification a skewed quad must
+    // generate the SAME full room set a rectangle of the same area would.
+    const rotDeg = (deg: number, poly: Pt[]): Pt[] => rotatePoly(poly, (deg * Math.PI) / 180);
+    const mkShell = (poly: Pt[]): ShellAnalysis => {
+        const xs = poly.map(p => p.x), zs = poly.map(p => p.z);
+        return {
+            netAreaM2: polygonAreaM2(poly),
+            widthM: Math.max(...xs) - Math.min(...xs),
+            depthM: Math.max(...zs) - Math.min(...zs),
+            perimeter: poly, faces: [],
+        };
+    };
+
+    it('a skewed parallelogram yields a FULL room set (not one merged room)', () => {
+        // 12×9 base, sheared 2 m, drawn 16° off-axis ≈ 108 m².
+        const W = 12, H = 9, shear = 2;
+        const para0: Pt[] = [{ x: 0, z: 0 }, { x: W, z: 0 }, { x: W + shear, z: H }, { x: shear, z: H }];
+        const skewShell = mkShell(rotDeg(16, para0));
+
+        const out = generateDeterministicLayouts(skewShell, PROGRAM, CONSTRAINTS, WEIGHTS, 1);
+        expect(out.length).toBe(1);
+        const rooms = out[0]!.rooms;
+        // The defect was ONE giant room. A 2-bed program must place several rooms.
+        expect(rooms.length).toBeGreaterThanOrEqual(5);
+        // No room is the whole apartment (the "93 m² merged blob" symptom): every
+        // room polygon area is a sensible fraction of the shell.
+        for (const r of rooms) {
+            if (!r.polygon || r.polygon.length < 3) continue;
+            const areaMm2 = polygonAreaM2(r.polygon.map(p => ({ x: p.x, z: p.y })));
+            const areaM2 = areaMm2 / 1e6;
+            expect(areaM2).toBeLessThan(skewShell.netAreaM2 * 0.75); // no single merged blob
+            expect(areaM2).toBeGreaterThan(1.0);                    // no <1 m² sliver room
+        }
+    });
+
+    it('matches the room COUNT of an equivalent-area rectangle (skew is rectified)', () => {
+        const W = 12, H = 9, shear = 2;
+        const para0: Pt[] = [{ x: 0, z: 0 }, { x: W, z: 0 }, { x: W + shear, z: H }, { x: shear, z: H }];
+        const skewShell = mkShell(rotDeg(16, para0));
+        // A true rectangle of (roughly) the same gross area, off-axis.
+        const rectArea = skewShell.netAreaM2;
+        const rw = 12, rh = rectArea / 12;
+        const rect0: Pt[] = [{ x: 0, z: 0 }, { x: rw, z: 0 }, { x: rw, z: rh }, { x: 0, z: rh }];
+        const rectShell = mkShell(rotDeg(16, rect0));
+
+        const skew = generateDeterministicLayouts(skewShell, PROGRAM, CONSTRAINTS, WEIGHTS, 1);
+        const rect = generateDeterministicLayouts(rectShell, PROGRAM, CONSTRAINTS, WEIGHTS, 1);
+        expect(skew.length).toBe(1);
+        expect(rect.length).toBe(1);
+        // The skewed quad now produces the same number of rooms as the rectangle.
+        expect(skew[0]!.rooms.length).toBe(rect[0]!.rooms.length);
     });
 
     it('windowSpansWorld param keeps interior partitions out of window openings (snap fires)', () => {
