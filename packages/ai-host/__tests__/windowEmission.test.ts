@@ -185,6 +185,99 @@ describe('emitWindowsForRoom — door avoidance (T1.W-B-2)', () => {
     });
 });
 
+describe('emitWindowsForRoom — multiple windows on a long wall (D5.c)', () => {
+    const wide = (lenMm: number, wallIndex = 0): ExternalWallSegment =>
+        ({ start: { x: 0, y: 0 }, end: { x: lenMm, y: 0 }, wallIndex });
+    const door = (wallIndex: number, startMm: number, widthMm: number): OccupiedSpan =>
+        ({ wallIndex, startMm, endMm: startMm + widthMm });
+
+    // No-overlap helpers, in mm along the wall.
+    const spanOf = (w: { offsetMm: number; widthMm: number }) =>
+        ({ lo: w.offsetMm, hi: w.offsetMm + w.widthMm });
+    const overlaps = (a: { lo: number; hi: number }, b: { lo: number; hi: number }) =>
+        a.lo < b.hi && a.hi > b.lo;
+
+    it('keeps ONE centred window on a medium (5 m) wall', () => {
+        // Unchanged behaviour: 5 m is not "much longer" than a 2 m living window.
+        const ws = emitWindowsForRoom('living', [wide(5000)]);
+        expect(ws).toHaveLength(1);
+        expect(ws[0]!.offsetMm).toBe(1500);   // still centred
+    });
+
+    it('emits ≥ 2 evenly-spaced windows on a genuinely long wall', () => {
+        // 10 m living wall: floor((10000-1400)/(2000+1400)) = floor(2.53) = 2.
+        const ws = emitWindowsForRoom('living', [wide(10000)]);
+        expect(ws.length).toBeGreaterThanOrEqual(2);
+        for (const w of ws) {
+            expect(w.wallIndex).toBe(0);
+            expect(w.widthMm).toBe(2000);
+            // inside the wall with end clearance
+            expect(w.offsetMm).toBeGreaterThanOrEqual(100);
+            expect(w.offsetMm + w.widthMm).toBeLessThanOrEqual(10000 - 100 + 1e-6);
+        }
+    });
+
+    it('multiple windows on one wall never overlap each other', () => {
+        const ws = emitWindowsForRoom('living', [wide(10000)]);
+        expect(ws.length).toBeGreaterThanOrEqual(2);
+        const sorted = [...ws].sort((a, b) => a.offsetMm - b.offsetMm);
+        for (let i = 1; i < sorted.length; i++) {
+            expect(overlaps(spanOf(sorted[i - 1]!), spanOf(sorted[i]!))).toBe(false);
+        }
+    });
+
+    it('multiple windows on a long wall still avoid a door', () => {
+        // 9 m living wall with a door mid-span; every emitted window must miss it.
+        const doors = [door(0, 4000, 900)];   // 4000..4900
+        const ws = emitWindowsForRoom('living', [wide(9000)], undefined, doors);
+        expect(ws.length).toBeGreaterThanOrEqual(2);
+        const dSpan = { lo: 4000, hi: 4900 };
+        for (const w of ws) {
+            expect(overlaps(spanOf(w), dSpan)).toBe(false);
+        }
+        // and not each other
+        const sorted = [...ws].sort((a, b) => a.offsetMm - b.offsetMm);
+        for (let i = 1; i < sorted.length; i++) {
+            expect(overlaps(spanOf(sorted[i - 1]!), spanOf(sorted[i]!))).toBe(false);
+        }
+    });
+
+    it('respects the per-wall window cap (≤ 3 on one wall)', () => {
+        // A very long bedroom wall (20 m) would fit many windows but is capped.
+        const ws = emitWindowsForRoom('bedroom', [wide(20000)]);
+        const onWall0 = ws.filter(w => w.wallIndex === 0);
+        expect(onWall0.length).toBeLessThanOrEqual(3);
+        expect(onWall0.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('is deterministic across runs (offsets + count)', () => {
+        const a = emitWindowsForRoom('living', [wide(10000)]);
+        const b = emitWindowsForRoom('living', [wide(10000)]);
+        expect(a.map(w => w.offsetMm)).toEqual(b.map(w => w.offsetMm));
+    });
+});
+
+describe('emitWindowsForRoom — multiple external walls per room (D5.c)', () => {
+    const wide = (lenMm: number, wallIndex: number): ExternalWallSegment =>
+        ({ start: { x: 0, y: 0 }, end: { x: lenMm, y: 0 }, wallIndex });
+
+    it('a corner room with two qualifying walls gets a window on each', () => {
+        // Two separate external walls (different wall indices) → cover both.
+        const ws = emitWindowsForRoom('bedroom', [wide(2500, 0), wide(2500, 1)]);
+        const walls = new Set(ws.map(w => w.wallIndex));
+        expect(walls.has(0)).toBe(true);
+        expect(walls.has(1)).toBe(true);
+    });
+
+    it('caps total windows per room at 4 even with many long walls', () => {
+        const many = [
+            wide(10000, 0), wide(10000, 1), wide(10000, 2), wide(10000, 3), wide(10000, 4),
+        ];
+        const ws = emitWindowsForRoom('living', many);
+        expect(ws.length).toBeLessThanOrEqual(4);
+    });
+});
+
 describe('emitAllWindows (T1.W-A)', () => {
     it('flattens emissions across multiple rooms', () => {
         const out = emitAllWindows([

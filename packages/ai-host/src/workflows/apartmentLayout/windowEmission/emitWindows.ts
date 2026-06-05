@@ -1,8 +1,18 @@
 // T1.W — Window emission engine (P1 — pure placement).
 //
 // Pure + deterministic. Given a single room (its type) and the set of
-// EXTERNAL wall segments bounding that room, emits 0 or 1 WindowPlacement
-// at the centre of the longest viable host wall.
+// EXTERNAL wall segments bounding that room, emits 0..N WindowPlacements.
+//
+// D5.c (2026-06-05 — "not enough windows") — coverage upgrade: the engine no
+// longer emits a single centred window. It now:
+//   • emits MULTIPLE evenly-spaced windows on a GENUINELY long wall (a 5 m wall
+//     keeps one centred window for every room type; longer runs earn 2–3, capped
+//     by MAX_WINDOWS_PER_WALL), keeping WINDOW_CLEARANCE_MM clear of each end +
+//     each door + each OTHER window; and
+//   • covers a SECOND (and further) qualifying external wall — e.g. a corner
+//     room fronts two façades — up to MAX_WINDOWS_PER_ROOM.
+// The A.21.D6 climate sizing/orientation behaviour is applied PER window (each
+// wall is sized for its own sun-orientation) and is fully preserved.
 //
 // Today the apartment-layout pipeline ships ZERO emitted windows — the
 // modal renders shell windows from the existing perimeter but never
@@ -81,6 +91,15 @@ function overlapsAny(off: number, widthMm: number, blocked: readonly BlockedSpan
     return blocked.some(b => off < b.hi && hi > b.lo);
 }
 
+/** Max windows the engine will emit per ROOM (across all its external walls),
+ *  so a corner living room with two long façades doesn't sprout a curtain wall
+ *  of openings. A small architectural cap that still meaningfully improves the
+ *  "not enough windows" reading. */
+const MAX_WINDOWS_PER_ROOM = 4;
+/** Max windows on a SINGLE wall — long runs read best as a rhythm of 2–3, not a
+ *  ribbon. The wall-length budget caps this further. */
+const MAX_WINDOWS_PER_WALL = 3;
+
 /**
  * Find the offset (mm from wall start) for a `widthMm`-wide window on a wall of
  * `wallLenMm`, as close to the centred position as possible while:
@@ -120,6 +139,109 @@ function clearOffsetMm(
         const off = clampToRange(c);
         if (overlapsAny(off, widthMm, blocked)) continue;
         const d = Math.abs(off - centred);
+        if (d < bestDist) { best = off; bestDist = d; }
+    }
+    return best;
+}
+
+/** Inter-window gap (mm) used when deciding how many windows a long wall earns.
+ *  Much larger than WINDOW_CLEARANCE_MM (the bare no-touch minimum) so a wall is
+ *  only split into 2+ openings when it is GENUINELY long. The threshold is set so
+ *  a 5 m wall keeps a SINGLE centred window for EVERY room type (including the
+ *  600 mm wet-room windows); a wall earns its second window only past ~5.3 m for
+ *  the narrowest glazing and ~6.3 m for a 2 m living window. Keeps the façade
+ *  reading as a deliberate rhythm rather than a ribbon of glass. */
+const WINDOW_STRIDE_GAP_MM = 1400;
+
+/**
+ * How many `widthMm`-wide windows a wall of `wallLenMm` EARNS, capped at
+ * `MAX_WINDOWS_PER_WALL`. A wall only earns its Nth window when it can host N
+ * windows each separated (and end-set-back) by `WINDOW_STRIDE_GAP_MM` — i.e.
+ *   N·width + (N+1)·gap ≤ wallLen.
+ * This deliberately under-fills vs the bare-clearance maximum so short/medium
+ * walls keep ONE window and only long runs get a balanced 2–3.
+ * Returns ≥ 1 (the caller has already verified a single window hosts).
+ */
+function windowCountForWall(wallLenMm: number, widthMm: number): number {
+    // N·width + (N+1)·gap ≤ wallLen  ⇒  N ≤ (wallLen − gap) / (width + gap)
+    const n = Math.floor((wallLenMm - WINDOW_STRIDE_GAP_MM) / (widthMm + WINDOW_STRIDE_GAP_MM));
+    return Math.max(1, Math.min(MAX_WINDOWS_PER_WALL, n));
+}
+
+/**
+ * Place `count` `widthMm`-wide windows evenly along a wall of `wallLenMm`,
+ * keeping WINDOW_CLEARANCE_MM clear of each wall end + between windows, and never
+ * overlapping a door footprint (`blocked`). Returns the door-clear offsets (mm
+ * from wall start), in ascending order. Each window is snapped clear of any door
+ * it would overlap (toward the nearest door-free gap); a window that cannot be
+ * placed door-clear without colliding with an already-placed window is dropped.
+ * May return fewer than `count` (down to 0) when doors crowd the wall.
+ */
+function evenOffsetsMm(
+    wallLenMm: number,
+    widthMm: number,
+    count: number,
+    blocked: readonly BlockedSpan[],
+): number[] {
+    if (count <= 1) {
+        const off = clearOffsetMm(wallLenMm, widthMm, blocked);
+        return off === null ? [] : [off];
+    }
+    // Usable span keeps a clearance at each end. Window i centre sits at evenly
+    // spaced positions across the run so the façade reads as a balanced rhythm.
+    const minOff = WINDOW_CLEARANCE_MM;
+    const maxOff = wallLenMm - widthMm - WINDOW_CLEARANCE_MM;
+    if (maxOff < minOff) {
+        const off = clearOffsetMm(wallLenMm, widthMm, blocked);
+        return off === null ? [] : [off];
+    }
+    const placed: number[] = [];
+    // Treat already-placed windows (padded by clearance) as additional blocked
+    // spans so the per-window door-clear search also avoids window↔window overlap.
+    const dynamicBlocked = (): BlockedSpan[] => [
+        ...blocked,
+        ...placed.map(o => ({ lo: o - WINDOW_CLEARANCE_MM, hi: o + widthMm + WINDOW_CLEARANCE_MM })),
+    ];
+    for (let i = 0; i < count; i++) {
+        const ideal = count === 1
+            ? (minOff + maxOff) / 2
+            : minOff + (maxOff - minOff) * (i / (count - 1));
+        const off = nearestClearOffsetMm(wallLenMm, widthMm, ideal, dynamicBlocked());
+        if (off !== null) placed.push(off);
+    }
+    placed.sort((a, b) => a - b);
+    return placed;
+}
+
+/**
+ * Like `clearOffsetMm` but biased toward `idealMm` (a target offset along the
+ * wall) rather than the wall centre. Returns the door-clear offset closest to
+ * `idealMm`, or null when none fits.
+ */
+function nearestClearOffsetMm(
+    wallLenMm: number,
+    widthMm: number,
+    idealMm: number,
+    blocked: readonly BlockedSpan[],
+): number | null {
+    const minOff = WINDOW_CLEARANCE_MM;
+    const maxOff = wallLenMm - widthMm - WINDOW_CLEARANCE_MM;
+    if (maxOff < minOff) return null;
+    const clamp = (o: number): number => Math.min(Math.max(o, minOff), maxOff);
+    const target = clamp(idealMm);
+    if (!overlapsAny(target, widthMm, blocked)) return target;
+    const candidates: number[] = [minOff, maxOff];
+    for (const b of blocked) {
+        candidates.push(b.hi);            // just after a span
+        candidates.push(b.lo - widthMm);  // just before a span
+    }
+    let best: number | null = null;
+    let bestDist = Infinity;
+    for (const c of candidates) {
+        if (c < minOff - 1e-6 || c > maxOff + 1e-6) continue;
+        const off = clamp(c);
+        if (overlapsAny(off, widthMm, blocked)) continue;
+        const d = Math.abs(off - target);
         if (d < bestDist) { best = off; bestDist = d; }
     }
     return best;
@@ -185,16 +307,21 @@ export function emitWindowsForRoom(
         chosenWidthMm = spec.minWidthMm;
     }
 
-    // Try each qualifying wall in order (longest → next) until one yields a
-    // door-clear offset. Door avoidance: a window must not overlap a door on
-    // the SAME wall (the front door / reconciliation doors can land on a shell
-    // wall the room also fronts).
+    // D5.c — cover MORE of the façade. Walk qualifying walls in score order
+    // (best sun/length first), and on each emit MULTIPLE evenly-spaced windows
+    // when the wall is long enough to host them with clearance + door avoidance.
+    // Continue onto the next qualifying wall (e.g. a corner room's second façade)
+    // until the per-room cap is reached. Door avoidance: a window must not overlap
+    // a door on the SAME wall, and the multi-window placer keeps windows clear of
+    // each other too.
+    const out: WindowPlacement[] = [];
     for (const cand of candidates) {
+        if (out.length >= MAX_WINDOWS_PER_ROOM) break;
         const wallLenMm = cand.lenMm;
-        // A.21.D6.3 — climate-driven glazing SIZE: scale this window by the passive-
-        // solar factor for THIS wall's sun-orientation (bigger sun-facing glazing in
-        // cold climates, smaller in hot). Width is clamped so it still hosts on the
-        // wall; height/sill are free. No solar context → unchanged dimensions.
+        // A.21.D6.3 — climate-driven glazing SIZE: scale each window on THIS wall by
+        // the passive-solar factor for the wall's sun-orientation (bigger sun-facing
+        // glazing in cold climates, smaller in hot). Width is clamped so it still
+        // hosts on the wall; height/sill track. No solar context → unchanged.
         let widthMm = chosenWidthMm;
         let heightMm = spec.heightMm;
         if (solar) {
@@ -207,19 +334,24 @@ export function emitWindowsForRoom(
             }
         }
         const blocked = blockedSpansFor(cand.w.wallIndex, occupied);
-        const offsetMm = clearOffsetMm(wallLenMm, widthMm, blocked);
-        if (offsetMm === null) continue;     // fully blocked on this wall — next wall
-        return [{
-            wallIndex: cand.w.wallIndex,
-            offsetMm,
-            widthMm,
-            heightMm,
-            sillMm:    spec.sillMm,
-            roomType:  roomType as WindowableRoomType,
-            ...(roomName ? { name: `${roomName} Window` } : {}),
-        }];
+        // How many windows this wall can host, capped by the remaining room budget.
+        const remaining = MAX_WINDOWS_PER_ROOM - out.length;
+        const wantOnWall = Math.min(remaining, windowCountForWall(wallLenMm, widthMm));
+        const offsets = evenOffsetsMm(wallLenMm, widthMm, wantOnWall, blocked);
+        for (const offsetMm of offsets) {
+            if (out.length >= MAX_WINDOWS_PER_ROOM) break;
+            out.push({
+                wallIndex: cand.w.wallIndex,
+                offsetMm,
+                widthMm,
+                heightMm,
+                sillMm:    spec.sillMm,
+                roomType:  roomType as WindowableRoomType,
+                ...(roomName ? { name: `${roomName} Window` } : {}),
+            });
+        }
     }
-    return [];
+    return out;
 }
 
 /**
