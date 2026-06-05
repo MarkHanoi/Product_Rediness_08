@@ -1,0 +1,26 @@
+{
+  "name": "@pryzm/typology-pack-casa-unifamiliar",
+  "version": "0.1.0",
+  "description": "A.21.a — Casa Unifamiliar (single-family house) typology pack. The SECOND typology + first multi-storey. Ships the C50-compliant TypologyManifest + house brief (floors stepper) + minimal bridge TypologyStageBundle so the typology appears in the picker/RAC and `runtime.typology.router.dispatch({ typologyId: 'casa-unifamiliar', ... })` is callable. The multi-storey generator + stair auto-placement land in A.21.c-A.21.x. See docs/03-execution/specs/SPEC-CASA-UNIFAMILIAR-TYPOLOGY.md.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@pryzm/schemas": "workspace:*",
+    "@pryzm/typology-pipeline": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}

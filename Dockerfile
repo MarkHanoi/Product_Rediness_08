@@ -85,6 +85,16 @@ COPY . .
 # leaving vite as the single memory peak (~5.5GB) — which is why this deploy uses a
 # Depot builder (16GB) rather than Fly's 8GB legacy remote builder.
 # Output: dist/ (client bundle + dist/index.cjs entrypoint).
+#
+# GIS-CESIUM-PHOTOREAL (2026-06-05) — optional Cesium ion token. When supplied as
+# a build-arg (from the VITE_CESIUM_TOKEN CI/Fly secret), vite bakes it into the
+# client bundle so the "3D globe" streams Google Photorealistic 3D Tiles + the ion
+# satellite base (full photoreal). EMPTY (the default) → the keyless ESRI satellite
+# basemap, no photoreal 3D buildings. Cesium ion tokens are PUBLIC client tokens by
+# design (they ship in the browser bundle); scope the token to the streamed asset(s)
+# and rotate it from the ion dashboard. Must be set BEFORE the build so vite sees it.
+ARG VITE_CESIUM_TOKEN=""
+ENV VITE_CESIUM_TOKEN=${VITE_CESIUM_TOKEN}
 RUN pnpm run build:docker
 
 # Prune dev-only deps from node_modules so the runtime stage can copy a smaller tree.

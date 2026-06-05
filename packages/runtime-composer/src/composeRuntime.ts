@@ -81,6 +81,8 @@ import {
 // legacy-bridge handler intercepts and forwards to the existing
 // `apartment.layout-execute` path. Full code migration ships in A.4.b+.
 import { buildApartmentTypologyPack } from '@pryzm/typology-pack-apartment';
+// A.21.a — Casa Unifamiliar (single-family house) pack: the SECOND typology.
+import { buildCasaUnifamiliarTypologyPack } from '@pryzm/typology-pack-casa-unifamiliar';
 
 import { EventBus } from './EventBus.js';
 import { wireCommandEventBridge } from './CommandEventBridge.js';
@@ -958,6 +960,20 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
     } catch (err) {
       console.warn(
         '[runtime-composer] apartment typology pack registration skipped:',
+        err,
+      );
+    }
+    // A.21.a — register the Casa Unifamiliar (single-family house) pack alongside
+    // apartment. This is the SECOND typology: once registered it appears in the
+    // TypologyPicker (registry-driven) and the RAC chatbot's parseTypologyIdFromText
+    // (data-driven off listIds()) — giving the user a real typology-SELECTION step.
+    // Generation is a single-storey bridge stopgap until the multi-storey house
+    // generator ships (A.21.c–A.21.x). Same idempotent-by-rejection try/catch.
+    try {
+      typologyRegistry.register(buildCasaUnifamiliarTypologyPack());
+    } catch (err) {
+      console.warn(
+        '[runtime-composer] casa-unifamiliar typology pack registration skipped:',
         err,
       );
     }
