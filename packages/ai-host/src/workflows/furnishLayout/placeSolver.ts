@@ -7,10 +7,10 @@
 // Pure + deterministic (fixed candidate order; no RNG). Metres, world XZ.
 
 import type {
-    FurnitureArchetype, FurnitureItemSpec, FurnishRoomInput, PlacedFurniture, Pt, Rect, RoomWallSeg,
+    FurnitureArchetype, FurnitureItemSpec, FurnishRoomInput, PlacedFurniture, Pt, RoomWallSeg,
 } from './types.js';
 import { footprintOf } from './footprints.js';
-import { footprintRect, overlapsAny, rectInPolygon } from './collision.js';
+import { footprintCorners, quadInPolygon, quadOverlapsAny, type Quad } from './collision.js';
 import { longestWall, wallOppositeDoor, wallWithWindow, wallHasWindow, wallHasDoor, wallMid, wallDir, yawFromNormal } from './wallAnalysis.js';
 
 const GAP = 0.02;
@@ -19,15 +19,15 @@ const SLIDE_STEP = 0.25;
 const add = (a: Pt, b: Pt, s = 1): Pt => ({ x: a.x + b.x * s, z: a.z + b.z * s });
 const perp = (n: Pt): Pt => ({ x: n.z, z: -n.x });   // wall direction from inward normal
 
-/** Door swing / keep-clear obstacle rects (in front of each door). */
-function doorObstacles(input: FurnishRoomInput): Rect[] {
+/** Door swing / keep-clear obstacle quads (in front of each door). */
+function doorObstacles(input: FurnishRoomInput): Quad[] {
     return input.doors.map(d => {
         const c = add(d.center, d.normal, 0.45);
-        return footprintRect(c.x, c.z, d.width, 0.9, yawFromNormal(d.normal));
+        return footprintCorners(c.x, c.z, d.width, 0.9, yawFromNormal(d.normal));
     });
 }
 
-interface Placement { item: PlacedFurniture; rect: Rect }
+interface Placement { item: PlacedFurniture; quad: Quad }
 
 /**
  * §FURNITURE-SPEC clearFront — the keep-clear zone in front of the item where
@@ -38,20 +38,20 @@ interface Placement { item: PlacedFurniture; rect: Rect }
  * `+inwardNormal`). Returns null when the item has no clear-front zone or its
  * yaw is not a wall-anchor yaw (center / corner items leave this null).
  */
-function clearFrontRectFor(p: Placement): Rect | null {
+function clearFrontRectFor(p: Placement): Quad | null {
     const fp = p.item.footprint;
     if (fp.clearFront <= 0) return null;
     const yaw = p.item.rotationY;
     const n: Pt = { x: Math.sin(yaw), z: Math.cos(yaw) };
     const cx = p.item.position.x + n.x * (fp.l / 2 + fp.clearFront / 2);
     const cz = p.item.position.z + n.z * (fp.l / 2 + fp.clearFront / 2);
-    return footprintRect(cx, cz, fp.w, fp.clearFront, yaw);
+    return footprintCorners(cx, cz, fp.w, fp.clearFront, yaw);
 }
 
 /** Try to place `kind` against `wall`, sliding along it until it fits. */
 function placeAgainstWall(
     kind: PlacedFurniture['kind'], wall: RoomWallSeg,
-    input: FurnishRoomInput, obstacles: readonly Rect[],
+    input: FurnishRoomInput, obstacles: readonly Quad[],
 ): Placement | null {
     const fp = footprintOf(kind);
     const yaw = yawFromNormal(wall.inwardNormal);
@@ -62,20 +62,20 @@ function placeAgainstWall(
     for (let s = SLIDE_STEP; s <= maxSlide + 1e-6; s += SLIDE_STEP) { offsets.push(s, -s); }
     for (const off of offsets) {
         const c = add(base, dir, off);
-        const rect = footprintRect(c.x, c.z, fp.w, fp.l, yaw);
-        if (rectInPolygon(rect, input.polygon) && !overlapsAny(rect, obstacles)) {
-            return { item: { kind, position: { x: c.x, y: input.levelElevation + fp.baseOffset, z: c.z }, rotationY: yaw, footprint: fp, hostedSpaceId: input.roomId }, rect };
+        const quad = footprintCorners(c.x, c.z, fp.w, fp.l, yaw);
+        if (quadInPolygon(quad, input.polygon) && !quadOverlapsAny(quad, obstacles)) {
+            return { item: { kind, position: { x: c.x, y: input.levelElevation + fp.baseOffset, z: c.z }, rotationY: yaw, footprint: fp, hostedSpaceId: input.roomId }, quad };
         }
     }
     return null;
 }
 
 /** Place at a free point (center/corner) with a given yaw. */
-function placeAtPoint(kind: PlacedFurniture['kind'], c: Pt, yaw: number, input: FurnishRoomInput, obstacles: readonly Rect[]): Placement | null {
+function placeAtPoint(kind: PlacedFurniture['kind'], c: Pt, yaw: number, input: FurnishRoomInput, obstacles: readonly Quad[]): Placement | null {
     const fp = footprintOf(kind);
-    const rect = footprintRect(c.x, c.z, fp.w, fp.l, yaw);
-    if (rectInPolygon(rect, input.polygon) && !overlapsAny(rect, obstacles)) {
-        return { item: { kind, position: { x: c.x, y: input.levelElevation + fp.baseOffset, z: c.z }, rotationY: yaw, footprint: fp, hostedSpaceId: input.roomId }, rect };
+    const quad = footprintCorners(c.x, c.z, fp.w, fp.l, yaw);
+    if (quadInPolygon(quad, input.polygon) && !quadOverlapsAny(quad, obstacles)) {
+        return { item: { kind, position: { x: c.x, y: input.levelElevation + fp.baseOffset, z: c.z }, rotationY: yaw, footprint: fp, hostedSpaceId: input.roomId }, quad };
     }
     return null;
 }
@@ -137,7 +137,7 @@ function resolveAnchorWalls(spec: FurnitureItemSpec, input: FurnishRoomInput): R
 }
 
 /** Place the 'beside' items of a group relative to its already-placed leader. */
-function placeBeside(spec: FurnitureItemSpec, leader: Placement, input: FurnishRoomInput, obstacles: Rect[]): Placement[] {
+function placeBeside(spec: FurnitureItemSpec, leader: Placement, input: FurnishRoomInput, obstacles: Quad[]): Placement[] {
     const out: Placement[] = [];
     const L = leader.item;
     const n: Pt = { x: Math.sin(L.rotationY), z: Math.cos(L.rotationY) };   // leader inward normal
@@ -146,7 +146,7 @@ function placeBeside(spec: FurnitureItemSpec, leader: Placement, input: FurnishR
     const count = spec.count ?? 1;
     const tryPush = (c: Pt, yaw: number): void => {
         const p = placeAtPoint(spec.kind, c, yaw, input, obstacles);
-        if (p) { out.push(p); obstacles.push(p.rect); }
+        if (p) { out.push(p); obstacles.push(p.quad); }
     };
 
     if (L.kind === 'bed') {
@@ -213,7 +213,7 @@ function cornerPoints(input: FurnishRoomInput, inset: number): Pt[] {
  */
 function applyArchetype(
     input: FurnishRoomInput, archetype: FurnitureArchetype,
-    obstacles: Rect[], leaders: Map<string, Placement>,
+    obstacles: Quad[], leaders: Map<string, Placement>,
 ): Placement[] {
     if (input.areaM2 < archetype.minAreaM2 || input.walls.length === 0) return [];
     const added: Placement[] = [];
@@ -240,7 +240,7 @@ function applyArchetype(
         }
         if (p) {
             added.push(p);
-            obstacles.push(p.rect);
+            obstacles.push(p.quad);
             // §FURNITURE-SPEC clearFront: reserve the working/knee-clearance
             // zone in front of items that have NO group members (sofa→coffee
             // table, bed→bedsides, dining_table→chairs intentionally sit in
@@ -268,7 +268,7 @@ function applyArchetype(
  * to another corner.
  */
 export function placeRoom(input: FurnishRoomInput, archetype: FurnitureArchetype): PlacedFurniture[] {
-    const obstacles: Rect[] = doorObstacles(input);
+    const obstacles: Quad[] = doorObstacles(input);
     const leaders = new Map<string, Placement>();
     return applyArchetype(input, archetype, obstacles, leaders).map(p => p.item);
 }
@@ -285,7 +285,7 @@ export function placeRoomMulti(
     input: FurnishRoomInput, archetypes: readonly FurnitureArchetype[],
 ): PlacedFurniture[] {
     if (input.walls.length === 0) return [];
-    const obstacles: Rect[] = doorObstacles(input);
+    const obstacles: Quad[] = doorObstacles(input);
     const leaders = new Map<string, Placement>();
     const placed: Placement[] = [];
     // §COMPOUND-ORDER (2026-05-29) — process archetypes ordered by priority so
