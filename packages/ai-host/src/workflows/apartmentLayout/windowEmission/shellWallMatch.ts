@@ -60,6 +60,35 @@ const defaultPlanToWorld: PlanToWorldXZ = (p) => ({ x: p.x / 1000, z: p.y / 1000
 const dist = (a: { x: number; z: number }, b: { x: number; z: number }): number =>
     Math.hypot(a.x - b.x, a.z - b.z);
 
+// ── §SHELL-MATCH-TOLERANT (2026-06-05) — non-orthogonal window hosting ────────
+//
+// The D-TGL decomposes the shell into AXIS-ALIGNED rectangles (+ one
+// `principalAxisAngle` skew). On a NON-ORTHOGONAL drawn parcel the engine's
+// external (perimeter) walls do NOT coincide with the drawn shell wall endpoints,
+// so the exact 1 cm endpoint match always failed → every window was dropped
+// (the founder's "windows never created" on an angled plot). The tolerant
+// fallback hosts a window on the nearest near-PARALLEL, near-COLLINEAR,
+// OVERLAPPING shell wall and PROJECTS the window's centre onto it, so windows
+// land on the real drawn shell even when the generated perimeter is off-axis.
+const ANGLE_TOL_RAD = (30 * Math.PI) / 180; // max direction difference (either way)
+const PERP_TOL_M = 1.0;                       // max perpendicular distance to the shell line
+
+interface UnitDir { readonly x: number; readonly z: number; readonly len: number }
+
+const segDir = (a: { x: number; z: number }, b: { x: number; z: number }): UnitDir => {
+    const dx = b.x - a.x, dz = b.z - a.z;
+    const len = Math.hypot(dx, dz);
+    return len > 1e-9 ? { x: dx / len, z: dz / len, len } : { x: 1, z: 0, len: 0 };
+};
+
+/** Signed distance (metres) of `p` projected onto the line through `a` along `d`. */
+const projParam = (p: { x: number; z: number }, a: { x: number; z: number }, d: UnitDir): number =>
+    (p.x - a.x) * d.x + (p.z - a.z) * d.z;
+
+/** Perpendicular distance from `p` to the infinite line through `a` with unit dir `d`. */
+const perpDist = (p: { x: number; z: number }, a: { x: number; z: number }, d: UnitDir): number =>
+    Math.abs((p.x - a.x) * d.z - (p.z - a.z) * d.x);
+
 /**
  * Find the shell wall that matches the given option external wall, plus a
  * flag indicating whether its endpoint orientation is REVERSED relative to
@@ -80,6 +109,7 @@ export function matchShellHost(
 ): { shell: ShellWall; reversed: boolean } | null {
     const a = planToWorld(optionWall.start);
     const b = planToWorld(optionWall.end);
+    // 1) EXACT endpoint match (cheap; preserves the orthogonal behaviour + tests).
     for (const s of shellWalls) {
         // Same-direction match: shell.start ≈ option.start AND shell.end ≈ option.end
         if (dist(s.start, a) <= ENDPOINT_TOL_M && dist(s.end, b) <= ENDPOINT_TOL_M) {
@@ -90,7 +120,33 @@ export function matchShellHost(
             return { shell: s, reversed: true };
         }
     }
-    return null;
+    // 2) §SHELL-MATCH-TOLERANT — no exact match (the non-orthogonal case): fall
+    //    back to the nearest near-parallel, near-collinear, overlapping shell wall.
+    //    Score = weighted(angle) + perpendicular distance; lowest wins.
+    const od = segDir(a, b);
+    if (od.len < 1e-6) return null;
+    const mid = { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 };
+    let best: { shell: ShellWall; reversed: boolean } | null = null;
+    let bestScore = Infinity;
+    for (const s of shellWalls) {
+        const sd = segDir(s.start, s.end);
+        if (sd.len < 1e-6) continue;
+        const cos = Math.abs(od.x * sd.x + od.z * sd.z);        // 1 = parallel
+        const ang = Math.acos(Math.min(1, cos));
+        if (ang > ANGLE_TOL_RAD) continue;                      // not parallel enough
+        const perp = perpDist(mid, s.start, sd);
+        if (perp > PERP_TOL_M) continue;                        // too far off the shell line
+        // The option wall must project onto the shell segment's span (overlap).
+        const t0 = projParam(a, s.start, sd);
+        const t1 = projParam(b, s.start, sd);
+        if (Math.max(t0, t1) < 0 || Math.min(t0, t1) > sd.len) continue; // no overlap
+        const score = ang * 2 + perp;
+        if (score < bestScore) {
+            bestScore = score;
+            best = { shell: s, reversed: (od.x * sd.x + od.z * sd.z) < 0 };
+        }
+    }
+    return best;
 }
 
 /**
@@ -121,14 +177,26 @@ export function resolveShellWindow(
 
     const hostStartW = planToWorld(host.start);
     const hostEndW   = planToWorld(host.end);
-    const wallLenM = Math.hypot(hostEndW.x - hostStartW.x, hostEndW.z - hostStartW.z);
+    const hostDir = segDir(hostStartW, hostEndW);
     const offsetM_local = win.offset / 1000;
     const widthM = win.width / 1000;
-    const offsetM = match.reversed ? (wallLenM - offsetM_local - widthM) : offsetM_local;
+    // §SHELL-MATCH-TOLERANT — project the window's CENTRE onto the matched shell
+    // wall so the offset is correct even when the shell wall has different
+    // endpoints/length than the option wall (the non-orthogonal tolerant case).
+    // For an EXACT endpoint match this reduces to the old arithmetic, and the
+    // reversed case falls out of the projection direction automatically (no
+    // separate `wallLen − offset − width` branch needed).
+    const centreW = {
+        x: hostStartW.x + hostDir.x * (offsetM_local + widthM / 2),
+        z: hostStartW.z + hostDir.z * (offsetM_local + widthM / 2),
+    };
+    const shellDir = segDir(match.shell.start, match.shell.end);
+    const offsetM = projParam(centreW, match.shell.start, shellDir) - widthM / 2;
+    const maxOffsetM = Math.max(0, shellDir.len - widthM);
 
     return {
         shellWallId: match.shell.id,
-        offsetM:     Math.max(0, offsetM),
+        offsetM:     Math.min(Math.max(0, offsetM), maxOffsetM),
         widthM,
         heightM:     win.height / 1000,
         sillM:       win.sillHeight / 1000,

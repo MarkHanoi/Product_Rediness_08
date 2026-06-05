@@ -55,6 +55,48 @@ describe('matchShellHost (T1.W-C)', () => {
         const m = matchShellHost(o, [shell('first', 0, 0, 5, 0), shell('second', 0, 0, 5, 0)]);
         expect(m!.shell.id).toBe('first');
     });
+
+    // §SHELL-MATCH-TOLERANT — the NON-ORTHOGONAL case the founder hit: the D-TGL's
+    // axis-aligned perimeter doesn't EXACTLY match an angled drawn shell, so the
+    // tolerant fallback hosts the window on the nearest near-parallel, near-
+    // collinear, overlapping shell wall (the fix for "windows never created").
+    describe('§SHELL-MATCH-TOLERANT (non-orthogonal)', () => {
+        it('matches a near-parallel, near-collinear shell wall with NO exact endpoint match', () => {
+            // Option wall world (0,0)→(5,0.3): 3.4° off the shell + 0.3 m endpoint
+            // drift → NO exact match, but within the angle (30°) + perp (1 m) tols.
+            const o = optWall(0, 0, 5000, 300);
+            const m = matchShellHost(o, [shell('shell-1', 0, 0, 5, 0)]);
+            expect(m).not.toBeNull();
+            expect(m!.shell.id).toBe('shell-1');
+        });
+
+        it('rejects a parallel shell wall beyond the perpendicular tolerance (>1 m away)', () => {
+            const o = optWall(0, 0, 5000, 0);
+            const m = matchShellHost(o, [shell('far', 0, 1.5, 5, 1.5)]);
+            expect(m).toBeNull();
+        });
+
+        it('rejects a shell wall beyond the angle tolerance (>30°)', () => {
+            const o = optWall(0, 0, 3000, 3000); // 45° option wall
+            const m = matchShellHost(o, [shell('cross', 0, 0, 5, 0)]); // 0° shell
+            expect(m).toBeNull();
+        });
+
+        it('projects the window onto the tolerant-matched shell wall (offset preserved ≈)', () => {
+            // Window at 1.0 m offset, 1.5 m wide on the 3.4°-off option wall → its
+            // centre projects to ≈ 1.0 m along the clean shell wall.
+            const r = resolveShellWindow(
+                { wallRef: 0, offset: 1000, width: 1500, height: 1300, sillHeight: 900, roomType: 'living' } satisfies LayoutWindow,
+                [optWall(0, 0, 5000, 300)],
+                [shell('shell-1', 0, 0, 5, 0)],
+            );
+            expect(r).not.toBeNull();
+            expect(r!.shellWallId).toBe('shell-1');
+            expect(r!.offsetM).toBeGreaterThan(0.7);
+            expect(r!.offsetM).toBeLessThan(1.3);
+            expect(r!.widthM).toBeCloseTo(1.5, 6);
+        });
+    });
 });
 
 describe('resolveShellWindow (T1.W-C)', () => {
