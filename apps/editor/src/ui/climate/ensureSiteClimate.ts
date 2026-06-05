@@ -30,6 +30,7 @@ import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
 import type { NoaaFetchImpl } from '@pryzm/climate-host';
 import { climateEnsureForLocation } from '@pryzm/stores';
 import { makeLiveClimateFetch } from './liveClimateFetch.js';
+import { getCurrentSiteOrigin } from '../site/siteDispatch.js';
 
 /** Options for `ensureSiteClimate`. */
 export interface EnsureSiteClimateOptions {
@@ -64,6 +65,19 @@ export async function ensureSiteClimate(
     } catch (e) {
         console.warn('[ensureSiteClimate] reading site/location failed:', e);
         return false;
+    }
+    // §CESIUM-SITE-ORIGIN — same null-location timing gap that broke the Forma
+    // camera + massing: the onboarding handoff can set the LTP-ENU origin BEFORE
+    // siteModelStore.getLocation() returns a non-zero location, so the climate
+    // card mounts with no location and never ingests (looks "not wired"). Fall
+    // back to the process-wide site origin so climate always resolves at the real
+    // plot. (Mirrors CesiumViewport.readSiteLocation + GISAreaLayout.getFormaOrigin.)
+    if (!loc || (loc.latitude === 0 && loc.longitude === 0)) {
+        const ltp = getCurrentSiteOrigin();
+        if (ltp && (ltp.lat !== 0 || ltp.lon !== 0)) {
+            loc = { ...(loc ?? {}), latitude: ltp.lat, longitude: ltp.lon } as typeof loc;
+            console.log(`[ensureSiteClimate] location resolved from LTP-ENU fallback → LAT ${ltp.lat} LON ${ltp.lon}.`);
+        }
     }
     if (!site || !loc) return false;
 
