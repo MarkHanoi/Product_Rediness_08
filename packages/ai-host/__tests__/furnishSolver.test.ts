@@ -63,6 +63,14 @@ describe('furnishRoom (D-FLE F5/F7)', () => {
         assertSane(items, room.polygon as Pt[]);
     });
 
+    it('kitchen: a normal kitchen gets a counter run AND a fridge (F-FRIDGE), sane', () => {
+        const room = rectRoom('kitchen', 4, 3);
+        const items = furnishRoom(room);
+        expect(items.some(i => i.kind === 'kitchen_straight')).toBe(true);
+        expect(items.some(i => i.kind === 'fridge')).toBe(true);
+        assertSane(items, room.polygon as Pt[]);
+    });
+
     it('no furniture overlaps the door swing', () => {
         const room = rectRoom('bedroom', 4, 3);
         const items = furnishRoom(room);

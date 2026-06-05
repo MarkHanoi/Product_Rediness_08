@@ -95,6 +95,12 @@ const ARCHETYPES: Readonly<Record<FurnishableOccupancy, FurnitureArchetype>> = {
             // 'wall-longest' yields to the kitchen runs that claimed it first,
             // landing on the next-longest free wall.
             { kind: 'pantry_cabinet', anchor: 'wall-longest', facing: 'to-wall', required: false, excludeWindowWall: true, excludeDoorSwing: true },
+            // F-FRIDGE (2026-06-05) — the kitchen tall appliance. Anchors on the
+            // longest free wall (yields to the counter runs + pantry that claimed
+            // it first → lands on the next free wall, typically the end of a run),
+            // excludeWindowWall (a 1.8 m tall box would block daylight) +
+            // excludeDoorSwing. Optional so a tiny galley kitchen ships clean.
+            { kind: 'fridge', anchor: 'wall-longest', facing: 'into-room', required: false, excludeWindowWall: true, excludeDoorSwing: true },
             // §KITCHEN-ISLAND (2026-05-29) — optional centre island for open-plan
             // kitchens. Placed AFTER the wall runs so the island only lands when
             // the room still has clear centroid space (smaller kitchens have the

@@ -28,6 +28,9 @@ export type FurnitureKind =
     | 'washing_machine_standalone' | 'tumble_dryer'
     | 'utility_cabinet' | 'utility_sink' | 'drying_rack'
     | 'kitchen_l_shape' | 'kitchen_straight' | 'kitchen_u_shape' | 'kitchen_island'
+    // F-FRIDGE (2026-06-05) — the kitchen tall appliance. A free-standing
+    // fridge/freezer placed against a wall, perpendicular to the counter runs.
+    | 'fridge'
     // F1.1 (2026-05-30) — study workstation primitives. Admitted after the
     // contract-exhaustive subphase ladder closed: FurnitureType union +
     // FurnitureCategoryMap entries + DeskBuilder + DeskChairBuilder +
