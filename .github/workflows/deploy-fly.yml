@@ -17,11 +17,13 @@
 name: Deploy to Fly.io
 
 on:
-  # §A.10.i (2026-06-05) — MANUAL-ONLY deploy to conserve GitHub Actions minutes
-  # (private-repo monthly allowance; the larger image build is billable). Deploy
-  # deliberately from the Actions tab → "Deploy to Fly.io" → Run workflow.
-  # (Was: auto-deploy on every push to `main` — that, plus the ~20-min CI image
-  # build per push, exhausted the monthly free minutes and blocked all jobs.)
+  # §A.10.j (2026-06-05) — push trigger TEMPORARILY re-enabled to deploy during a
+  # PUBLIC-repo window (public repos get free unlimited Actions). Revert to
+  # workflow_dispatch-only after the deploy + before going private again, so a
+  # later private push never auto-burns minutes.
+  push:
+    branches: [main]
+    paths-ignore: ['docs/**', '**/*.md', '.claude/**']
   workflow_dispatch:
 
 # Latest-wins: a newer push to main cancels an older in-flight deploy so prod
