@@ -80,6 +80,36 @@ describe('validateFurnishedRoom', () => {
         expect(r.warnings.some(w => w.includes('OUTSIDE the room polygon'))).toBe(true);
     });
 
+    it('§FURNISH-OBB-VALIDATE: a bedside placed BESIDE a ROTATED bed is NOT a false-positive overlap', () => {
+        // Regression for the founder-reported "bed OVERLAPS bedside_table" on
+        // non-orthogonal rooms. Bed + bedside both yawed 30°, the bedside set one
+        // small gap clear along the bed's WIDTH axis (local +x = (cos,−sin)).
+        // Their TRUE oriented footprints do not overlap, but their axis-aligned
+        // bounding boxes DO — so the old AABB validator warned falsely.
+        const room = rectRoom(7, 5);
+        const yaw = Math.PI / 6;
+        const bedFp = footprintOf('bed');           // w 1.35
+        const bsFp = footprintOf('bedside_table');  // w 0.45
+        const off = bedFp.w / 2 + bsFp.w / 2 + 0.05; // 0.95 m, 5 cm gap
+        const bx = 3, bz = 2.5;
+        const bed = place('bed', bx, bz, yaw);
+        // width-axis unit for this yaw convention = (cos, −sin)
+        const bs = place('bedside_table', bx + off * Math.cos(yaw), bz - off * Math.sin(yaw), yaw);
+        const r = validateFurnishedRoom(room, [bed, bs]);
+        // The whole point: NO phantom overlap between the bed and its bedside.
+        expect(r.warnings.filter(w => w.includes('OVERLAPS'))).toEqual([]);
+    });
+
+    it('§FURNISH-OBB-VALIDATE: a genuine overlap of two ROTATED items still warns', () => {
+        const room = rectRoom(7, 5);
+        const yaw = Math.PI / 6;
+        // Bed + wardrobe at the SAME centre + rotation → real overlap.
+        const bed = place('bed', 3, 2.5, yaw);
+        const wardrobe = place('wardrobe', 3, 2.5, yaw);
+        const r = validateFurnishedRoom(room, [bed, wardrobe]);
+        expect(r.warnings.some(w => w.includes('OVERLAPS'))).toBe(true);
+    });
+
     it('a door whose normal points OUT of the room is silently skipped (no false positive)', () => {
         const room = rectRoom(4, 3);
         // Same door geometry but flipped normal → entry point would be at

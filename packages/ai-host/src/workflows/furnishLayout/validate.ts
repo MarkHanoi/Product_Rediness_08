@@ -16,11 +16,13 @@
 //      It is conservative — a real person could navigate around furniture
 //      where a straight line cannot — so a warning is a SOFT signal.
 //
-// Reuses the F6 primitives (`rectsOverlap`, `pointInPolygon`,
-// `footprintRect`); no new imports beyond sibling types.
+// Uses the §FURNISH-OBB ORIENTED primitives (`footprintCorners`, `quadsOverlap`,
+// `pointInPolygon`) — the SAME ones the placement solver collision-tests with —
+// so the diagnostics match the placement exactly. (The old version used the AABB
+// `footprintRect`/`rectsOverlap`, which over-reported overlaps on rotated rooms.)
 
-import { rectsOverlap, pointInPolygon, footprintRect } from './collision.js';
-import type { FurnishRoomInput, PlacedFurniture, Pt, Rect } from './types.js';
+import { pointInPolygon, footprintCorners, quadsOverlap, type Quad } from './collision.js';
+import type { FurnishRoomInput, PlacedFurniture, Pt } from './types.js';
 import { validateKitchenFromFurniture } from '../apartmentLayout/dimensions/validateKitchenFromFurniture.js';
 
 export interface FurnishValidation {
@@ -34,35 +36,42 @@ export interface FurnishValidation {
 
 const EPS = 1e-6;
 
-/** Rect for a placed item (same convention the solver uses). */
-function rectFor(p: PlacedFurniture): Rect {
-    return footprintRect(p.position.x, p.position.z, p.footprint.w, p.footprint.l, p.rotationY);
+/** §FURNISH-OBB-VALIDATE (2026-06-05) — the TRUE oriented footprint of a placed
+ *  item, IDENTICAL to what the placement solver collision-tests. The old
+ *  validator used `footprintRect` (AABB, yaw snapped to 0/90/180/270), so on a
+ *  ROTATED room a bed's bounding box was much larger than its real footprint and
+ *  the validator reported phantom "OVERLAPS" / "path BLOCKED" against a bedside
+ *  the solver had legally placed beside it. Oriented quads make the diagnostics
+ *  match the placement (exact at the four cardinal yaws → orthogonal rooms
+ *  unchanged). */
+function quadFor(p: PlacedFurniture): Quad {
+    return footprintCorners(p.position.x, p.position.z, p.footprint.w, p.footprint.l, p.rotationY);
+}
+
+/** CCW sign of the triangle (a,b,c). */
+function ccw(a: Pt, b: Pt, c: Pt): number {
+    return (b.x - a.x) * (c.z - a.z) - (b.z - a.z) * (c.x - a.x);
+}
+
+/** Proper (non-collinear) segment–segment intersection, strict. */
+function segSeg(p1: Pt, p2: Pt, p3: Pt, p4: Pt): boolean {
+    const d1 = ccw(p3, p4, p1), d2 = ccw(p3, p4, p2);
+    const d3 = ccw(p1, p2, p3), d4 = ccw(p1, p2, p4);
+    return (((d1 > EPS && d2 < -EPS) || (d1 < -EPS && d2 > EPS)) &&
+            ((d3 > EPS && d4 < -EPS) || (d3 < -EPS && d4 > EPS)));
 }
 
 /**
- * Liang–Barsky-style segment-vs-AABB intersection. Returns TRUE when the open
- * segment from `p1` to `p2` enters or crosses `rect`. Touching the edge does
- * NOT count (matches the strict `rectsOverlap` semantics — touching items in
- * a tight layout shouldn't be flagged as "blocking"). Pure, axis-aligned.
+ * TRUE when the open segment p1→p2 enters or crosses the convex `quad`. An
+ * endpoint strictly inside the quad counts; merely grazing an edge does not.
+ * Oriented-aware replacement for the old `segIntersectsRect` (AABB).
  */
-function segIntersectsRect(p1: Pt, p2: Pt, rect: Rect): boolean {
-    const dx = p2.x - p1.x, dz = p2.z - p1.z;
-    let t0 = 0, t1 = 1;
-    const clip = (p: number, q: number): boolean => {
-        if (Math.abs(p) < EPS) return q >= 0;
-        const r = q / p;
-        if (p < 0) {
-            if (r > t1) return false;
-            if (r > t0) t0 = r;
-        } else {
-            if (r < t0) return false;
-            if (r < t1) t1 = r;
-        }
-        return true;
-    };
-    return clip(-dx, p1.x - rect.x0) && clip(dx, rect.x1 - p1.x)
-        && clip(-dz, p1.z - rect.z0) && clip(dz, rect.z1 - p1.z)
-        && t1 - t0 > EPS;
+function segCrossesQuad(p1: Pt, p2: Pt, quad: Quad): boolean {
+    if (pointInPolygon(p1, quad) || pointInPolygon(p2, quad)) return true;
+    for (let i = 0; i < 4; i++) {
+        if (segSeg(p1, p2, quad[i]!, quad[(i + 1) & 3]!)) return true;
+    }
+    return false;
 }
 
 /**
@@ -75,7 +84,7 @@ export function validateFurnishedRoom(
     input: FurnishRoomInput, placed: readonly PlacedFurniture[],
 ): FurnishValidation {
     const warnings: string[] = [];
-    const rects: Rect[] = placed.map(rectFor);
+    const quads: Quad[] = placed.map(quadFor);
 
     // 1. Every item inside the polygon (defensive — the solver enforces this,
     //    but a polygon shift between solve and render must not be silent).
@@ -86,10 +95,10 @@ export function validateFurnishedRoom(
         }
     }
 
-    // 2. Pairwise non-overlap.
-    for (let i = 0; i < rects.length; i++) {
-        for (let j = i + 1; j < rects.length; j++) {
-            if (rectsOverlap(rects[i]!, rects[j]!)) {
+    // 2. Pairwise non-overlap (oriented — matches the solver's collision test).
+    for (let i = 0; i < quads.length; i++) {
+        for (let j = i + 1; j < quads.length; j++) {
+            if (quadsOverlap(quads[i]!, quads[j]!)) {
                 warnings.push(`${placed[i]!.kind}[${i}] OVERLAPS ${placed[j]!.kind}[${j}]`);
             }
         }
@@ -109,8 +118,8 @@ export function validateFurnishedRoom(
         // wrong way round). The solver doesn't care about door orientation
         // for placement; this check is opt-in.
         if (!pointInPolygon(entry, input.polygon)) continue;
-        for (let ri = 0; ri < rects.length; ri++) {
-            if (segIntersectsRect(entry, input.centroid, rects[ri]!)) {
+        for (let ri = 0; ri < quads.length; ri++) {
+            if (segCrossesQuad(entry, input.centroid, quads[ri]!)) {
                 warnings.push(`door[${di}] → centroid path BLOCKED by ${placed[ri]!.kind}[${ri}]`);
                 break;     // one warning per door is enough
             }
