@@ -196,6 +196,22 @@ export class CesiumViewport {
     | { lat: number; lon: number; centroidEast: number; centroidNorth: number; areaM2: number }
     | null = null;
 
+  // ---- §A.21.D24 — multi-floor massing: storey bands + visibility filter ----
+  /** The storey bands of the last-rendered massing (ground-up). Published so the
+   *  GISAreaLayout floor selector can build its toggle from the REAL storeys. */
+  private formaStoreyBands: Array<{
+    index: number;
+    baseElevation: number;
+    heightM: number;
+    levelId?: string;
+    wallCount: number;
+  }> = [];
+  /** Which storey indices are currently shown. null = ALL storeys (default). */
+  private formaVisibleLevels: ReadonlyArray<number> | null = null;
+  /** The last massing input, kept so `setVisibleFormaLevels` can re-render the
+   *  SAME massing with a new floor filter without the caller re-reading state. */
+  private formaLastMassingInput: Parameters<CesiumViewport['renderFormaMassing']>[0] | null = null;
+
   // ---- FORMA.4 — coordinate bridge: terrain clamp + live-update cache ----
   /** Ground height (metres above the ellipsoid) sampled at the boundary
    *  centroid, used as the Z base of every extrusion + the boundary overlay so
@@ -1331,15 +1347,31 @@ export class CesiumViewport {
     originLon: number;
     /** Parcel boundary ring in scene-XZ metres, or null when not drawn. */
     boundary: ReadonlyArray<{ x: number; z: number }> | null;
-    /** Authored walls (the massing) in scene-XZ metres + authored height/thickness. */
+    /** Authored walls (the massing) in scene-XZ metres + authored height/thickness.
+     *
+     * §A.21.D24 — `baseElevation` (metres above the project floor plane) carries
+     * the STOREY the wall belongs to (wall.baseLine.y + baseOffset). When present
+     * and non-zero, the massing is extruded PER STOREY stacked at its true
+     * elevation so a multi-storey house shows all floors + roof on the globe;
+     * when absent/zero (single-storey + apartment) the behaviour is unchanged. */
     walls: ReadonlyArray<{
       a: { x: number; z: number };
       b: { x: number; z: number };
       height: number;
       thickness: number;
+      /** Storey base elevation in metres (default 0 = ground floor). */
+      baseElevation?: number;
+      /** Owning level id (for the floor selector readout). */
+      levelId?: string;
     }>;
     /** When true, fly the camera to the framing preset after placing (§4.5). */
     frameCentroid?: boolean;
+    /**
+     * §A.21.D24 — floor-visibility filter. When provided, ONLY the storey bands
+     * whose 0-based index is in this set are rendered (the floor selector's
+     * per-floor / "show all" toggle). `null`/undefined = show ALL storeys.
+     */
+    visibleLevels?: ReadonlyArray<number> | null;
     /**
      * FORMA-PLAN-OBLIQUE — which camera preset to fly when `frameCentroid` is
      * true: 'oblique' = the NW 3D oblique (default), 'plan' = the near-top-down
@@ -1362,6 +1394,10 @@ export class CesiumViewport {
     if (!this.formaMode) this.setFormaMode(true);
 
     this.clearFormaMassing();
+
+    // §A.21.D24 — remember the input so the floor selector can re-render the same
+    // massing with a new visibility filter (setVisibleFormaLevels).
+    this.formaLastMassingInput = input;
 
     const { originLat, originLon, boundary, walls } = input;
     // FORMA.4 — base Z for every extrusion/overlay = the terrain height sampled
@@ -1389,78 +1425,106 @@ export class CesiumViewport {
     // the apartment outline), coloured by use, with the base buried below ground so
     // its bottom face never z-fights the ground plane. Falls back to per-wall
     // extrusions only when there is no footprint polygon.
-    let massHeightM = 0;
-    for (const w of walls) massHeightM = Math.max(massHeightM, w.height || 0);
-    if (massHeightM <= 0) massHeightM = 3;
-    const massBase = baseHeight - FORMA_BASE_SINK_M;       // buried bottom face
-    // §A.21.D-FORMA2 (founder: "strong white + solid volumes not transparent +
-    // stronger contrast") — the proposed building is a STRONG OPAQUE WHITE solid
-    // (not the washed pastel), with a crisp dark outline. `FORMA_USE_COLOURS` is
-    // retained for the future multi-use case (A.24.6) but a single building reads
-    // as a clean white Forma volume.
+    //
+    // §A.21.D24 (multi-floor on the globe) — the OLD path flattened EVERY storey
+    // onto a single ground-floor block: it took `max(wall.height)` and extruded
+    // the footprint from the ground to that one height, ignoring each wall's
+    // `baseElevation` (the storey it lives on). So a 2-storey house + roof showed
+    // only the ground floor. We now GROUP walls into STOREY BANDS by their base
+    // elevation and extrude ONE solid per band, stacked at its true elevation —
+    // so all floors (and a roof level, if its walls/parapet are authored) appear
+    // on the globe. Single-storey + apartment models have every wall at
+    // baseElevation 0 → exactly one band → identical to the old behaviour.
     void FORMA_USE_COLOURS; void ('residential' as FormaUse);
     const massFill = Cesium.Color.fromCssColorString(FORMA_PALETTE.proposedFill); // #FFFFFF, alpha 1
     const massOutline = Cesium.Color.fromCssColorString(FORMA_PALETTE.silhouette);
     const footprint = boundary && boundary.length >= 3 ? boundary : null;
 
-    if (footprint) {
-      try {
-        const positions = footprint.map((p) => toCartesian(p.x, p.z, massBase));
-        const ent = viewer.entities.add({
-          name: 'pryzm-forma-massing',
-          polygon: {
-            hierarchy: new Cesium.PolygonHierarchy(positions),
-            height: massBase,
-            extrudedHeight: baseHeight + massHeightM,
-            material: massFill,
-            outline: true,
-            outlineColor: massOutline,
-            outlineWidth: 1.5,
-            shadows: Cesium.ShadowMode.ENABLED,
-            perPositionHeight: false,
-            closeTop: true,
-            closeBottom: true,
-          },
-        });
-        this.formaMassingEntities.push(ent);
-        silhouetteTargets.push(ent);
-      } catch (e) {
-        console.warn('[CesiumViewport][forma] footprint mass failed — falling back to walls:', e);
-      }
-    }
+    // Group walls into storey bands keyed by their (rounded) base elevation. Each
+    // band's height = the tallest wall on that storey. Bands are sorted from the
+    // ground up so the band index doubles as the floor number for the selector.
+    const bands = this.groupWallsIntoStoreyBands(walls);
+    // Publish the storey list so the floor selector (GISAreaLayout) can build its
+    // toggle from the REAL storeys present, and remember the active filter.
+    this.formaStoreyBands = bands.map((b, i) => ({
+      index: i,
+      baseElevation: b.baseElevation,
+      heightM: b.heightM,
+      levelId: b.levelId,
+      wallCount: b.walls.length,
+    }));
+    const visible = input.visibleLevels ?? this.formaVisibleLevels;
+    this.formaVisibleLevels = visible ?? null;
+    const isBandVisible = (i: number): boolean => !visible || visible.includes(i);
 
-    if (!footprint || silhouetteTargets.length === 0) {
-      // Fallback: per-wall extrusions, but with the buried base + pastel fill so
-      // they at least read cleanly and don't z-fight the ground.
-      try {
-        for (const w of walls) {
-          const ring = this.wallFootprintRing(w.a, w.b, w.thickness);
-          if (!ring) continue;
-          const positions = ring.map((p) => toCartesian(p.x, p.z, massBase));
+    for (let bi = 0; bi < bands.length; bi++) {
+      if (!isBandVisible(bi)) continue;
+      const band = bands[bi]!;
+      // The storey's vertical span: bottom seated at ground+elevation (buried by
+      // FORMA_BASE_SINK_M on the ground floor only so it never z-fights the ground;
+      // upper storeys butt onto the storey below with a tiny overlap to avoid a
+      // visible seam), top = bottom + storey height.
+      const bandBottom = baseHeight + band.baseElevation - (bi === 0 ? FORMA_BASE_SINK_M : 0.02);
+      const bandTop = baseHeight + band.baseElevation + Math.max(0.1, band.heightM);
+
+      if (footprint) {
+        // All storeys of a house/apartment share the drawn outline footprint.
+        try {
+          const positions = footprint.map((p) => toCartesian(p.x, p.z, bandBottom));
           const ent = viewer.entities.add({
-            name: 'pryzm-forma-massing-wall',
+            name: `pryzm-forma-massing-storey-${bi}`,
             polygon: {
               hierarchy: new Cesium.PolygonHierarchy(positions),
-              extrudedHeight: baseHeight + Math.max(0.1, w.height),
-              height: massBase,
+              height: bandBottom,
+              extrudedHeight: bandTop,
               material: massFill,
               outline: true,
               outlineColor: massOutline,
               outlineWidth: 1.5,
               shadows: Cesium.ShadowMode.ENABLED,
               perPositionHeight: false,
-              // §A.21.D-FORMA2 — cap top + bottom so each wall reads as a SOLID
-              // opaque volume rather than an open box you can see into/through
-              // (the founder's "transparent" complaint).
               closeTop: true,
               closeBottom: true,
             },
           });
           this.formaMassingEntities.push(ent);
           silhouetteTargets.push(ent);
+        } catch (e) {
+          console.warn(`[CesiumViewport][forma] storey ${bi} footprint mass failed — per-wall fallback:`, e);
         }
-      } catch (e) {
-        console.warn('[CesiumViewport][forma] massing extrusion failed:', e);
+      }
+
+      if (!footprint) {
+        // No drawn outline → extrude each wall of THIS storey at its elevation.
+        try {
+          for (const w of band.walls) {
+            const ring = this.wallFootprintRing(w.a, w.b, w.thickness);
+            if (!ring) continue;
+            const positions = ring.map((p) => toCartesian(p.x, p.z, bandBottom));
+            const ent = viewer.entities.add({
+              name: `pryzm-forma-massing-wall-storey-${bi}`,
+              polygon: {
+                hierarchy: new Cesium.PolygonHierarchy(positions),
+                extrudedHeight: baseHeight + band.baseElevation + Math.max(0.1, w.height),
+                height: bandBottom,
+                material: massFill,
+                outline: true,
+                outlineColor: massOutline,
+                outlineWidth: 1.5,
+                shadows: Cesium.ShadowMode.ENABLED,
+                perPositionHeight: false,
+                // §A.21.D-FORMA2 — cap top + bottom so each wall reads as a SOLID
+                // opaque volume rather than an open box you can see into/through.
+                closeTop: true,
+                closeBottom: true,
+              },
+            });
+            this.formaMassingEntities.push(ent);
+            silhouetteTargets.push(ent);
+          }
+        } catch (e) {
+          console.warn(`[CesiumViewport][forma] storey ${bi} per-wall extrusion failed:`, e);
+        }
       }
     }
 
@@ -1519,8 +1583,14 @@ export class CesiumViewport {
     }
 
     viewer.scene.requestRender();
+    const visibleCount = this.formaStoreyBands.filter((_, i) => isBandVisible(i)).length;
     console.log(
-      `[CesiumViewport][forma] massing rendered: ${walls.length} wall volume(s)` +
+      `[CesiumViewport][forma] massing rendered: ${walls.length} wall(s) across ` +
+        `${this.formaStoreyBands.length} storey(s) [` +
+        this.formaStoreyBands
+          .map((b) => `#${b.index}@${b.baseElevation.toFixed(1)}m·${b.heightM.toFixed(1)}m`)
+          .join(', ') +
+        `] — ${visibleCount} shown` +
         `${boundary && boundary.length >= 3 ? ' + parcel boundary' : ''}` +
         ` at LAT ${originLat} LON ${originLon} (area ≈ ${Math.round(areaM2)} m², base ${baseHeight.toFixed(1)} m).`
     );
@@ -1923,6 +1993,98 @@ export class CesiumViewport {
    */
   public rerenderFormaMassing(input: Parameters<CesiumViewport['renderFormaMassing']>[0]): void {
     this.renderFormaMassing({ ...input, frameCentroid: false });
+  }
+
+  /**
+   * §A.21.D24 — group walls into STOREY BANDS by their base elevation so the
+   * massing can be extruded per floor (stacked at true elevations) instead of
+   * flattened onto a single ground block.
+   *
+   * Walls whose `baseElevation` falls within `STOREY_BAND_TOL_M` (0.5 m) of each
+   * other are treated as the same storey — this absorbs minor authoring jitter
+   * (a few mm of baseOffset) while still separating real floors (which are
+   * metres apart). Bands are returned sorted GROUND-UP, so the array index is the
+   * floor number used by the selector (0 = ground).
+   */
+  private groupWallsIntoStoreyBands(
+    walls: ReadonlyArray<{
+      a: { x: number; z: number };
+      b: { x: number; z: number };
+      height: number;
+      thickness: number;
+      baseElevation?: number;
+      levelId?: string;
+    }>,
+  ): Array<{
+    baseElevation: number;
+    heightM: number;
+    levelId?: string;
+    walls: Array<{ a: { x: number; z: number }; b: { x: number; z: number }; height: number; thickness: number }>;
+  }> {
+    const STOREY_BAND_TOL_M = 0.5;
+    type Band = {
+      baseElevation: number;
+      heightM: number;
+      levelId?: string;
+      walls: Array<{ a: { x: number; z: number }; b: { x: number; z: number }; height: number; thickness: number }>;
+    };
+    const bands: Band[] = [];
+    for (const w of walls) {
+      const elev = typeof w.baseElevation === 'number' && Number.isFinite(w.baseElevation) ? w.baseElevation : 0;
+      const h = w.height > 0 ? w.height : 3;
+      let band = bands.find((b) => Math.abs(b.baseElevation - elev) <= STOREY_BAND_TOL_M);
+      if (!band) {
+        band = { baseElevation: elev, heightM: 0, levelId: w.levelId, walls: [] };
+        bands.push(band);
+      }
+      band.walls.push({ a: w.a, b: w.b, height: h, thickness: w.thickness });
+      band.heightM = Math.max(band.heightM, h);
+      if (!band.levelId && w.levelId) band.levelId = w.levelId;
+    }
+    // No walls at all → one nominal ground band (so an empty/boundary-only scene
+    // still extrudes a single 3 m block from the footprint, as before).
+    if (bands.length === 0) {
+      bands.push({ baseElevation: 0, heightM: 3, levelId: undefined, walls: [] });
+    }
+    bands.sort((p, q) => p.baseElevation - q.baseElevation);
+    return bands;
+  }
+
+  /**
+   * §A.21.D24 — the storey bands of the last-rendered massing, ground-up. The
+   * GISAreaLayout floor selector reads this to build its per-floor toggle. Each
+   * `index` is the floor number used by `setVisibleFormaLevels`.
+   */
+  public getFormaStoreyBands(): ReadonlyArray<{
+    index: number;
+    baseElevation: number;
+    heightM: number;
+    levelId?: string;
+    wallCount: number;
+  }> {
+    return this.formaStoreyBands;
+  }
+
+  /**
+   * §A.21.D24 — set which storey indices are shown on the globe and re-render the
+   * SAME massing with that filter. `null` shows ALL storeys. No-op until a
+   * massing has been placed (nothing to filter yet).
+   */
+  public setVisibleFormaLevels(indices: ReadonlyArray<number> | null): void {
+    this.formaVisibleLevels = indices && indices.length ? [...indices] : null;
+    const input = this.formaLastMassingInput;
+    if (!input) {
+      console.warn('[CesiumViewport][forma] setVisibleFormaLevels: no massing placed yet — stored for next render.');
+      return;
+    }
+    // Re-render the same massing with the new filter; never re-fly, never
+    // re-clamp terrain (cheap toggle, the camera stays put).
+    this.renderFormaMassing({
+      ...input,
+      visibleLevels: this.formaVisibleLevels,
+      frameCentroid: false,
+      _skipTerrainClamp: true,
+    });
   }
 
   /**
