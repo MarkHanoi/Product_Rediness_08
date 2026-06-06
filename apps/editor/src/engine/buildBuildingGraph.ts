@@ -603,16 +603,24 @@ function runGuarded(fn: () => void): void {
 
 // ── Live-singleton resolver (guarded; window-registered services) ─────────────
 
+/** Anything that can enumerate levels — a `{id}` list keyed by one of these. */
+interface LevelEnumeratorLike {
+  /** Canonical BimManager level enumerator (every storey of the building). */
+  getLevels?: () => ReadonlyArray<{ id?: string }> | undefined;
+  /** Legacy alias some surfaces expose — kept for tolerance. */
+  getAllLevels?: () => ReadonlyArray<{ id?: string }> | undefined;
+}
+
 interface WindowLike {
   __topologyLayer?: unknown;
   roomGraphService?: unknown;
-  projectContext?: { activeLevelId?: string | null };
-  bimManager?: {
+  projectContext?: { activeLevelId?: string | null; levels?: ReadonlyArray<{ id?: string }> | null };
+  bimManager?: LevelEnumeratorLike & {
     getActiveLevel?: () => { id?: string } | undefined;
-    getAllLevels?: () => ReadonlyArray<{ id?: string }> | undefined;
   };
   // A.21.D16 enrichment sources (initBuilders registers these on window).
   roomStore?: unknown;
+  /** WallStore — enrichment source AND a last-resort level enumerator. */
   wallStore?: unknown;
   windowStore?: unknown;
   /** composeRuntime slot — site location carries the parcel latitude (C19). */
@@ -685,12 +693,53 @@ export function kindFromId(id: string): string | undefined {
   return KNOWN.has(prefix) ? prefix : undefined;
 }
 
-function resolveLevelIds(w: WindowLike | undefined): string[] {
-  const all = w?.bimManager?.getAllLevels?.() ?? [];
-  const ids = all.map((l) => l?.id).filter((id): id is string => typeof id === 'string');
-  if (ids.length > 0) return ids;
+/**
+ * The level universe whose room graphs we project — EVERY storey of the building,
+ * so a multi-storey house shows all its rooms (not just the active level).
+ *
+ * §UBG-ALL-LEVELS — the canonical live BimManager exposes `getLevels()`; some
+ * surfaces also expose the legacy `getAllLevels()`, and the WallStore /
+ * projectContext can enumerate levels too. We try EACH source in turn and use the
+ * first that yields ≥1 level id, de-duplicated. ONLY when none enumerates do we
+ * fall back to the single active level (so a cold/headless boot still shows
+ * something). Previously this read `getAllLevels()` ALONE — which is undefined on
+ * the real BimManager (whose method is `getLevels()`), so the UBG silently
+ * collapsed to the active level only and upper storeys never appeared in the graph.
+ */
+export function resolveLevelIds(w: WindowLike | undefined): string[] {
+  const ws = w?.wallStore as LevelEnumeratorLike | undefined;
+  const enumerators: Array<() => ReadonlyArray<{ id?: string }> | undefined> = [
+    () => w?.bimManager?.getLevels?.(),
+    () => w?.bimManager?.getAllLevels?.(),
+    () => ws?.getLevels?.(),
+    () => (w?.projectContext?.levels ?? undefined) as ReadonlyArray<{ id?: string }> | undefined,
+  ];
+  for (const get of enumerators) {
+    let list: ReadonlyArray<{ id?: string }> | undefined;
+    try {
+      list = get();
+    } catch {
+      continue;
+    }
+    if (!list || list.length === 0) continue;
+    const ids = uniqueStrings(list.map((l) => l?.id));
+    if (ids.length > 0) return ids;
+  }
+  // Last resort: just the active level (cold boot / no enumerator available).
   const active = w?.projectContext?.activeLevelId ?? w?.bimManager?.getActiveLevel?.()?.id;
   return typeof active === 'string' ? [active] : [];
+}
+
+/** De-duplicate (insertion-order stable) the defined string ids. */
+function uniqueStrings(values: ReadonlyArray<string | undefined>): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const v of values) {
+    if (typeof v !== 'string' || v.length === 0 || seen.has(v)) continue;
+    seen.add(v);
+    out.push(v);
+  }
+  return out;
 }
 
 interface SceneLike {

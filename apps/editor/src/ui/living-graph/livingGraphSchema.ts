@@ -65,6 +65,13 @@ export interface GraphNode {
   readonly id: string;
   /** Human label ("Master Bedroom"), already humanised. */
   label: string;
+  /**
+   * §UBG-LEVEL-TAG — the storey this room belongs to (humanised level name/id),
+   * so a multi-storey house's rooms are distinguishable in the graph. `undefined`
+   * for a single-level model (no chip rendered). Read from the UBG node's
+   * `levelId` prop that the roomGraph adapter stamps.
+   */
+  level?: string;
   /** Functional room type — colour + metric derivations key off this. */
   type: RoomKind;
   /** Floor area (m²); drives node radius (√area). 0 when unknown. */
