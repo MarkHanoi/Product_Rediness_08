@@ -1390,6 +1390,46 @@ export class CesiumViewport {
       /** Owning level id (for the floor selector readout). */
       levelId?: string;
     }>;
+    /**
+     * §A.21.D25 — authored floor SLABS (scene-XZ outer ring + top elevation +
+     * thickness). Rendered as a thin solid floor plate per storey so the
+     * building reads as solid floor plates rather than open wall boxes. Optional
+     * (older callers omit it → no floors, unchanged behaviour).
+     */
+    slabs?: ReadonlyArray<{
+      ring: ReadonlyArray<{ x: number; z: number }>;
+      /** Top of the slab in metres above the project floor plane. */
+      topElevation: number;
+      thickness: number;
+      levelId?: string;
+    }>;
+    /**
+     * §A.21.D25 — authored ROOFS (scene-XZ outer ring + base elevation +
+     * thickness + pitch radians). Rendered as a capping solid at the top of the
+     * building so it closes on top in the site view. Optional.
+     */
+    roofs?: ReadonlyArray<{
+      ring: ReadonlyArray<{ x: number; z: number }>;
+      /** Roof base (eave) elevation in metres. */
+      baseElevation: number;
+      thickness: number;
+      /** Pitch in radians (0 = flat); used to raise a simple coarse ridge. */
+      pitch: number;
+      levelId?: string;
+    }>;
+    /**
+     * §A.21.D25 — coarse FURNITURE boxes (scene-XZ origin + level elevation +
+     * footprint size + height + rotation). Optional + already hard-capped by the
+     * caller (FORMA_FURNITURE_CAP) so this never floods the globe with entities.
+     */
+    furniture?: ReadonlyArray<{
+      origin: { x: number; z: number };
+      baseElevation: number;
+      width: number;
+      depth: number;
+      height: number;
+      rotation: number;
+    }>;
     /** When true, fly the camera to the framing preset after placing (§4.5). */
     frameCentroid?: boolean;
     /**
@@ -1552,6 +1592,195 @@ export class CesiumViewport {
           console.warn(`[CesiumViewport][forma] storey ${bi} per-wall extrusion failed:`, e);
         }
       }
+    }
+
+    // ── §A.21.D25 — floors/slabs + roof + coarse furniture ────────────────────
+    // The wall bands above give the building its WALLS; these give it solidity
+    // (floor plates), a closed top (roof), and an optional coarse furniture read,
+    // so the globe shows a real building, not floating wall blocks. All reuse the
+    // SAME ENU frame + base-height + Forma palette as the walls, and all entities
+    // go into `formaMassingEntities` (cleared on every re-render). Each is
+    // visibility-filtered against the SAME storey bands as the walls, so the
+    // Floors selector hides their floors too. Each block is guarded — a bad ring
+    // logs + skips, never crashes the placement.
+
+    // Map an elevation to the storey-band index it belongs to (so the floor
+    // selector hides slabs/roofs/furniture on hidden storeys). Falls back to the
+    // nearest band; if no bands, treat as visible.
+    const bandIndexForElevation = (elev: number): number => {
+      if (bands.length === 0) return 0;
+      let best = 0;
+      let bestD = Infinity;
+      for (let i = 0; i < bands.length; i++) {
+        const d = Math.abs(bands[i]!.baseElevation - elev);
+        if (d < bestD) { bestD = d; best = i; }
+      }
+      return best;
+    };
+
+    // Slabs/floors — a thin solid plate per slab at its top elevation. Buried
+    // FORMA_BASE_SINK_M only when at ground (elevation ≈ 0) so it never z-fights
+    // the ground plane; upper plates sit at their true height.
+    const slabs = input.slabs ?? [];
+    let slabsPlaced = 0;
+    for (const s of slabs) {
+      if (!s.ring || s.ring.length < 3) continue;
+      const top = baseHeight + s.topElevation - (Math.abs(s.topElevation) < 0.5 ? FORMA_BASE_SINK_M : 0);
+      const bottom = top - Math.max(0.05, s.thickness);
+      // Hide with the storey it sits on (the slab tops the storey BELOW it; use
+      // its own elevation for the band lookup — good enough for the selector).
+      if (!isBandVisible(bandIndexForElevation(s.topElevation))) continue;
+      try {
+        const positions = s.ring.map((p) => toCartesian(p.x, p.z, bottom));
+        const ent = viewer.entities.add({
+          name: 'pryzm-forma-slab',
+          polygon: {
+            hierarchy: new Cesium.PolygonHierarchy(positions),
+            height: bottom,
+            extrudedHeight: top,
+            material: massFill,
+            outline: true,
+            outlineColor: massOutline,
+            outlineWidth: 1.0,
+            shadows: Cesium.ShadowMode.ENABLED,
+            perPositionHeight: false,
+            closeTop: true,
+            closeBottom: true,
+          },
+        });
+        this.formaMassingEntities.push(ent);
+        silhouetteTargets.push(ent);
+        slabsPlaced++;
+      } catch (e) {
+        console.warn('[CesiumViewport][forma] slab plate failed — skipped:', e);
+      }
+    }
+
+    // Roof — a capping solid at the top of the building. Flat roofs cap as a thin
+    // slab; pitched roofs raise a coarse ridge prism so the building closes on
+    // top + reads as pitched. (Coarse by design — this is a massing study.)
+    const roofs = input.roofs ?? [];
+    let roofsPlaced = 0;
+    for (const r of roofs) {
+      if (!r.ring || r.ring.length < 3) continue;
+      if (!isBandVisible(bandIndexForElevation(r.baseElevation))) continue;
+      const eave = baseHeight + r.baseElevation;
+      try {
+        if (r.pitch > 0.01) {
+          // Coarse pitched cap: raise a centre "ridge fan" — triangles from each
+          // boundary edge up to the footprint centroid, lifted by the rise. This
+          // gives a hip-like solid mass without a full roof-geometry build (the
+          // exact pitched form lives in the BIM view; the globe is a massing read).
+          const c = this.polygonCentroidAndAreaXZ(r.ring);
+          // ENU centroid → scene-XZ: east = x, north = -z  ⇒  x = east, z = -north.
+          const cx = c.east;
+          const cz = -c.north;
+          // Rise ≈ half the shorter footprint extent × tan(pitch), clamped sane.
+          let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+          for (const p of r.ring) {
+            if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
+            if (p.z < minZ) minZ = p.z; if (p.z > maxZ) maxZ = p.z;
+          }
+          const halfSpan = Math.max(0.5, Math.min(maxX - minX, maxZ - minZ) / 2);
+          const rise = Math.min(6, Math.max(0.3, halfSpan * Math.tan(r.pitch)));
+          const apex = toCartesian(cx, cz, eave + rise);
+          // One triangular wedge per boundary edge (edge at eave → apex).
+          for (let i = 0; i < r.ring.length; i++) {
+            const a = r.ring[i]!;
+            const b = r.ring[(i + 1) % r.ring.length]!;
+            const tri = [toCartesian(a.x, a.z, eave), toCartesian(b.x, b.z, eave), apex];
+            const ent = viewer.entities.add({
+              name: 'pryzm-forma-roof-face',
+              polygon: {
+                hierarchy: new Cesium.PolygonHierarchy(tri),
+                perPositionHeight: true,
+                material: massFill,
+                outline: true,
+                outlineColor: massOutline,
+                outlineWidth: 1.0,
+                shadows: Cesium.ShadowMode.ENABLED,
+              },
+            });
+            this.formaMassingEntities.push(ent);
+            silhouetteTargets.push(ent);
+          }
+          roofsPlaced++;
+        } else {
+          // Flat roof → a thin capping slab at the eave elevation.
+          const positions = r.ring.map((p) => toCartesian(p.x, p.z, eave));
+          const ent = viewer.entities.add({
+            name: 'pryzm-forma-roof-flat',
+            polygon: {
+              hierarchy: new Cesium.PolygonHierarchy(positions),
+              height: eave,
+              extrudedHeight: eave + Math.max(0.1, r.thickness),
+              material: massFill,
+              outline: true,
+              outlineColor: massOutline,
+              outlineWidth: 1.0,
+              shadows: Cesium.ShadowMode.ENABLED,
+              perPositionHeight: false,
+              closeTop: true,
+              closeBottom: true,
+            },
+          });
+          this.formaMassingEntities.push(ent);
+          silhouetteTargets.push(ent);
+          roofsPlaced++;
+        }
+      } catch (e) {
+        console.warn('[CesiumViewport][forma] roof cap failed — skipped:', e);
+      }
+    }
+
+    // Furniture — coarse boxes (already capped by the caller). A rotated
+    // rectangle footprint extruded to the item height. Subtle so it reads as
+    // contents, not massing: uses the context fill so it doesn't compete with the
+    // white building mass.
+    const furniture = input.furniture ?? [];
+    const furnitureFill = Cesium.Color.fromCssColorString(FORMA_PALETTE.contextFill).withAlpha(0.9);
+    let furniturePlaced = 0;
+    for (const f of furniture) {
+      if (!isBandVisible(bandIndexForElevation(f.baseElevation))) continue;
+      const hw = Math.max(0.05, f.width) / 2;
+      const hd = Math.max(0.05, f.depth) / 2;
+      const cos = Math.cos(f.rotation);
+      const sin = Math.sin(f.rotation);
+      // Local rect corners (CCW) rotated about Y then offset to the origin.
+      const corners: Array<{ x: number; z: number }> = [
+        { x: -hw, z: -hd }, { x: hw, z: -hd }, { x: hw, z: hd }, { x: -hw, z: hd },
+      ].map((p) => ({
+        x: f.origin.x + p.x * cos - p.z * sin,
+        z: f.origin.z + p.x * sin + p.z * cos,
+      }));
+      const bottom = baseHeight + f.baseElevation;
+      try {
+        const positions = corners.map((p) => toCartesian(p.x, p.z, bottom));
+        const ent = viewer.entities.add({
+          name: 'pryzm-forma-furniture',
+          polygon: {
+            hierarchy: new Cesium.PolygonHierarchy(positions),
+            height: bottom,
+            extrudedHeight: bottom + Math.max(0.1, f.height),
+            material: furnitureFill,
+            outline: false,
+            shadows: Cesium.ShadowMode.ENABLED,
+            perPositionHeight: false,
+            closeTop: true,
+            closeBottom: true,
+          },
+        });
+        this.formaMassingEntities.push(ent);
+        furniturePlaced++;
+      } catch (e) {
+        console.warn('[CesiumViewport][forma] furniture box failed — skipped:', e);
+      }
+    }
+    if (slabs.length || roofs.length || furniture.length) {
+      console.log(
+        `[CesiumViewport][forma] extras placed: ${slabsPlaced}/${slabs.length} slab(s), ` +
+          `${roofsPlaced}/${roofs.length} roof(s), ${furniturePlaced}/${furniture.length} furniture box(es).`
+      );
     }
 
     // ── Parcel boundary — faint-green dashed overlay (§2 / §3) ────────────────
