@@ -21,6 +21,7 @@ import { principalAxisAngle, rotatePt } from '../apartmentLayout/tgl/rectDecompo
 import { validateHouseStorey, houseStoreyBand } from './houseEnvelope.js';
 import { reserveStairCoreShaped, splitRisersForShape, type StairCoreShaped } from './stairCore.js';
 import { allocateProgramToStoreys } from './storeyAllocation.js';
+import { enrichStoreyProgramToPlate } from './houseProgramFloor.js';
 import type {
     HouseLayoutResult, Pt, RoofDescriptor, RoofKind, ScoredHouseLayoutOption, SlabVoid, StairCore, StairFlightPlan, StoreyPlate,
 } from './types.js';
@@ -339,6 +340,24 @@ function enumeratePerStorey(
             ? Math.max(1, shell.netAreaM2 - coreAreaM2)
             : shell.netAreaM2;
 
+        // §HOUSE-PLATE-PROGRAM-FLOOR (A.21.D25 Defect 2) — fill the plate with a
+        // sensible house room SET before laying it out. A SPARSE captured brief (a
+        // 0/1-bedroom brief, or a storeyAllocation upper storey left with just a
+        // hall) makes the frozen engine stretch one or two rooms to fill the whole
+        // plate — the founder's "165 m² Room 00-001". We raise (never lower) the
+        // storey's programme to a full house floor sized to its plate. The §HOUSE-
+        // MAX-CAP below still bounds the subdivision budget so the added rooms stay
+        // sensibly sized; the two passes are complementary. House-only — the
+        // apartment path never calls this.
+        //
+        // growBedrooms: an UPPER storey is the private level → grow bedrooms to fill
+        // it. A multi-storey GROUND floor keeps its single guest bedroom (bedrooms
+        // live upstairs) → no growth, so the normal 3-bed/2-storey case is byte-
+        // unchanged. A SINGLE-storey house carries the whole programme on the ground
+        // plate → the ground floor DOES grow bedrooms to fill.
+        const growBedrooms = sp.role === 'upper' || storeyCount <= 1;
+        const storeyProgram = enrichStoreyProgramToPlate(sp.program, usableAreaM2, sp.role, { growBedrooms });
+
         // §HOUSE-MAX-CAP — the ground floor's rich programme is accepted at its TRUE
         // size, but a SPARSE upper storey (e.g. one bedroom on the full plate of a
         // 3-storey house) can genuinely exceed its programme's house grossMax. The
@@ -350,14 +369,14 @@ function enumeratePerStorey(
         // area passes through untouched (usableArea ≤ grossMax there). The TRUE
         // footprint (walls/elevations) is unchanged — only the room-budget the
         // bubble graph subdivides is capped, so rooms stay sensibly sized.
-        const houseMax = houseStoreyBand({ program: sp.program, grossAreaM2: usableAreaM2 }).grossMaxM2;
+        const houseMax = houseStoreyBand({ program: storeyProgram, grossAreaM2: usableAreaM2 }).grossMaxM2;
         const presentedAreaM2 = Math.min(usableAreaM2, houseMax);
         const storeyShell: ShellAnalysis =
             presentedAreaM2 !== shell.netAreaM2 ? { ...shell, netAreaM2: presentedAreaM2 } : shell;
 
         const options = generateDeterministicLayouts(
             storeyShell,
-            sp.program,
+            storeyProgram,
             constraints,
             weights,
             Math.max(1, count),

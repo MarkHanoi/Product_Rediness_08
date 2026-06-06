@@ -95,6 +95,26 @@ The allocation is a **policy function** `allocateProgramToStoreys(program, store
 → `StoreyProgram[]`, each a single-plate `ApartmentProgram`-shaped sub-program the
 existing D-TGL engine can consume **per storey**.
 
+**§HOUSE-PLATE-PROGRAM-FLOOR (A.21.D25 ✅ SHIPPED 2026-06-06) — fill the plate, never
+one giant room.** The frozen single-plate engine lays out *exactly* the programme it
+is handed; when the captured brief is **sparse** (a 0/1-bedroom brief, or an upper
+storey `allocateProgramToStoreys` left with just a hall), the engine's `squarify`
+stretches one or two rooms to fill the WHOLE plate — the founder's "a 165 m² house
+plate yields ONE giant Room 00-001 + almost no other rooms". A pure house-only
+enricher `houseProgramFloor.enrichStoreyProgramToPlate(program, plateAreaM2, role,
+{growBedrooms})` runs in the orchestrator **before** the per-storey D-TGL call and
+**raises** (never lowers — every user count is a floor) each storey's programme to a
+sensible house room SET sized to its plate: the **ground** floor is guaranteed living
++ kitchen + dining + hall; an **upper** floor is guaranteed a corridor + ≥1 bedroom +
+a bathroom (never a kitchen, §3). A bedroom-GROWTH pass then fills the plate, gated by
+`growBedrooms` so it only runs on the storeys that hold the house's bedrooms — UPPER
+storeys, and the GROUND of a SINGLE-storey house. A **multi-storey ground floor is NOT
+grown** (bedrooms live upstairs), so the well-behaved 3-bed/2-storey case is unchanged.
+The growth loop measures programme area via the SAME `houseStoreyBand` the envelope
+gate + §HOUSE-MAX-CAP use, so enricher + gate + cap agree on "how full is this plate";
+the §HOUSE-MAX-CAP still bounds the subdivision budget so the added rooms stay sensibly
+sized. Deterministic, no `Math.random`. **Apartment path NEVER calls this.**
+
 ---
 
 ## §4 — What EXISTS vs what is MISSING (honest assessment)
@@ -352,6 +372,23 @@ storeys so the engine's partial externals never duplicate it. The minted perimet
 also serve as the storey's `shellWalls` so engine-emitted shell windows host on them (no
 read-back). Result: a CLOSED perimeter on EVERY storey, guaranteed by construction —
 independent of room coverage.
+
+**§PERIMETER-CLOSE (A.21.D25 Defect 4 ✅ SHIPPED 2026-06-06) — corner gaps / bad
+mitres.** The prior `_buildPerimeterShell` SKIPPED a degenerate footprint edge with
+`continue`, which **breaks the shared-vertex chain**: if edge i (a→b) is dropped, the
+next emitted wall starts at the following vertex, leaving a corner where two walls no
+longer meet at a common endpoint — so `WallJoinResolver.resolveLevel` cannot mitre it
+(the founder's "corner gaps"). **Fix (`HouseLayoutExecutor._buildPerimeterShell`,
+editor-only):** first build a CLEANED vertex RING — drop near-duplicate consecutive
+vertices (and the wrap duplicate) so every retained vertex is a genuine corner — THEN
+emit exactly one wall per ring edge (vertex i → i+1, **last → first**). The ring is
+closed by construction with EXACT shared endpoints, so every corner is a true two-wall
+junction the resolver mitres cleanly. House-only; the ground shell (drawn separately by
+`houseFromBoundary` via `wall.create`, which already shares endpoints) is untouched.
+Remaining corner-gap classes are tracked separately: A.21.D11 (§EXTEND-TO-PERIMETER
+partition overrun on skewed plates) + the WallJoinResolver diff-thickness miter
+weakness (perimeter 0.2 m meets partition 0.1 m — same as the apartment shell, not a
+house regression).
 
 ### §7.4 — Stair inherits the layout's principal-axis rotation (A.21.D24, SHIPPED)
 

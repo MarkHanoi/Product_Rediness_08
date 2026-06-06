@@ -49,6 +49,16 @@ interface EventsLike {
 const FLOOR_CEILING_SETTLE_MS = 6_000;   // floor+ceiling have no joint terminus
 const FURNISH_TIMEOUT_MS = 12_000;
 const LIGHTING_TIMEOUT_MS = 12_000;
+/** §A.21.D25 — how long to wait for THIS storey's rooms to be NAMED (occupancy
+ *  tagged) before furnishing it. The naming pass (`nameDetectedRooms`) is async
+ *  (room-store subscription + 80 ms settle, or its own 2.5 s hard-timeout), and
+ *  it emits `apartment.room-name-completed {levelId}` when done. We MUST await
+ *  the GROUND storey's naming before its furnish runs — otherwise ground furnish
+ *  fires against un-tagged rooms → 0 furniture on the ground floor while later
+ *  (slower-to-furnish) storeys come out furnished. That was the "only the top
+ *  floor has furniture" bug. The budget exceeds the naming pass's own 2.5 s hard-
+ *  timeout so we never advance before naming has had its full chance. */
+const ROOM_NAME_TIMEOUT_MS = 3_500;
 
 /** Set the active level the way the level panels do (the per-stage executors
  *  read `window.projectContext.activeLevelId` via `resolveActiveLevelId`). */
@@ -59,23 +69,61 @@ function setActiveLevel(levelId: string): void {
     } catch (e) { console.warn('[house-postgen] could not set active level', levelId, e); }
 }
 
-/** Wait for a one-shot runtime event, or resolve after `timeoutMs` regardless. */
-function waitForEvent(events: EventsLike, key: string, timeoutMs: number): Promise<void> {
+/** Wait for a one-shot runtime event, or resolve after `timeoutMs` regardless.
+ *  An optional `match` predicate filters payloads (e.g. only the event for THIS
+ *  storey's levelId) — events that don't match are ignored, the wait continues. */
+function waitForEvent(
+    events: EventsLike,
+    key: string,
+    timeoutMs: number,
+    match?: (payload: unknown) => boolean,
+): Promise<void> {
     return new Promise<void>(resolve => {
         let done = false;
-        const sub = events.on?.(key, () => finish());
+        const sub = events.on?.(key, (payload: unknown) => { if (!match || match(payload)) finish(); });
         const off: () => void = typeof sub === 'function' ? sub : () => { /* */ };
         function finish(): void { if (done) return; done = true; off(); resolve(); }
         setTimeout(finish, timeoutMs);
     });
 }
 
-/** Run the full finish chain (floor + ceiling → furnish → light) for ONE storey
- *  level. Sets the level active first so every unchanged per-stage executor
- *  resolves THIS level, then drives + awaits each stage. */
-async function runChainForLevel(runtime: PryzmRuntime, levelId: string): Promise<void> {
+/** Per-storey hook the executor supplies so the orchestrator can DRIVE this
+ *  storey's room-naming pass at the right moment in the sequence (right before
+ *  the storey is furnished), rather than naming every storey up-front with a
+ *  flat wait. §A.21.D25. */
+export type NameStoreyFn = (levelId: string) => void;
+
+/** Run the full finish chain (name → floor + ceiling → furnish → light) for ONE
+ *  storey level. Sets the level active first so every unchanged per-stage
+ *  executor resolves THIS level, then drives + awaits each stage. */
+async function runChainForLevel(
+    runtime: PryzmRuntime,
+    levelId: string,
+    nameStorey?: NameStoreyFn,
+): Promise<void> {
     const events = runtime.events as unknown as EventsLike;
     setActiveLevel(levelId);
+
+    // 0. §A.21.D25 — NAME this storey's rooms (occupancy-tag them) and AWAIT
+    //    completion BEFORE furnishing. Furnish/floor/ceiling all key off each
+    //    room's occupancy; if we furnish before naming finishes, the engine sees
+    //    un-tagged rooms and places nothing. Naming all storeys up-front with one
+    //    flat wait let the GROUND storey's furnish race ahead of its naming → the
+    //    ground floor came out bare while later storeys (named by the time they
+    //    ran) got furniture. Sequencing naming PER STOREY, inline, closes that
+    //    race. `nameDetectedRooms` emits `apartment.room-name-completed {levelId}`
+    //    when this level is tagged; we wait for THAT level's event (or the budget).
+    if (nameStorey) {
+        console.log('[house-postgen] storey', levelId, '→ naming rooms');
+        const named = waitForEvent(
+            events,
+            'apartment.room-name-completed',
+            ROOM_NAME_TIMEOUT_MS,
+            (p) => (p as { levelId?: string } | undefined)?.levelId === levelId,
+        );
+        try { nameStorey(levelId); } catch (e) { console.warn('[house-postgen] nameStorey threw for', levelId, e); }
+        await named;
+    }
 
     // 1. Floor + ceiling — parallel (neither bounds rooms; same as the apartment
     //    chain where both fire off apartment.layout-executed). Floor is a direct
@@ -113,10 +161,16 @@ async function runChainForLevel(runtime: PryzmRuntime, levelId: string): Promise
  *
  * @param runtime  the live runtime (event bus + toasts).
  * @param levelIds the storey level ids the HouseLayoutExecutor built, ground-first.
+ * @param nameStorey OPTIONAL §A.21.D25 — per-storey room-naming driver. When
+ *   supplied, the orchestrator calls it for each storey AND awaits that storey's
+ *   `apartment.room-name-completed` event BEFORE furnishing it, so rooms are
+ *   occupancy-tagged before furnish runs on EVERY storey (ground included). When
+ *   omitted, behaviour is unchanged (legacy callers that named up-front).
  */
 export async function runHousePostGenChain(
     runtime: PryzmRuntime,
     levelIds: readonly string[],
+    nameStorey?: NameStoreyFn,
 ): Promise<void> {
     const unique = [...new Set(levelIds)].filter(id => typeof id === 'string' && id.length > 0);
     if (unique.length === 0) { console.warn('[house-postgen] no storey levels — nothing to finish'); return; }
@@ -132,7 +186,7 @@ export async function runHousePostGenChain(
     try {
         for (const levelId of unique) {
             try {
-                await runChainForLevel(runtime, levelId);
+                await runChainForLevel(runtime, levelId, nameStorey);
             } catch (e) {
                 console.warn('[house-postgen] finish chain failed on storey', levelId, '(continuing):', e);
             }

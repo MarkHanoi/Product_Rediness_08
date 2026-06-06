@@ -35,6 +35,7 @@ import {
     CreateRoofCommand,
     CreateWallOpeningsBatchCommand,
     CreateRoomBoundingLinesBatchCommand,
+    CreateHandrailCommand,
 } from '@pryzm/command-registry';
 import { facadeOrientationService } from '@pryzm/spatial-index';
 import { isGableFriendly } from '@pryzm/geometry-roof';
@@ -73,6 +74,7 @@ const STAIR_RISER_MIN_M = 0.15;
 const STAIR_RISER_MAX_M = 0.19;
 const STAIR_TREAD_M = 0.27;              // ≥ 250 mm minimum
 const STAIR_WIDTH_M = 1.0;               // ≥ 900 mm minimum
+const STAIR_HANDRAIL_HEIGHT_M = 1.050;   // §A.21.D26 — matches StairTypes default handrailHeight
 
 /** One flight as the CreateStairCommand consumes it (A.21.D18). `startOverride`
  *  pins flight 2's start for U-shape parallel return runs. */
@@ -400,28 +402,30 @@ export class HouseLayoutExecutor {
             // so execute() still returns promptly (the toast/result aren't blocked).
             // ──────────────────────────────────────────────────────────────────────
             void this._finishOpenings(perStorey).then(async () => {
-                // A.21.D24 — NAME + occupancy-tag the rooms on every storey BEFORE
-                // the finish chain furnishes them. The house executor previously
-                // skipped this (only the apartment executor named rooms), so house
-                // rooms had NO occupancyType → `furnishRoom('')` returned [] for
-                // every room → "furnish does nothing". Reuses the shared apartment
-                // naming pass per-storey (room.rename → occupancyType is set), so the
-                // downstream furnish/lighting engines recognise each room's archetype.
-                for (const s of perStorey) {
-                    nameDetectedRooms(runtime, s.levelId, s.option, '[house-layout]');
-                }
-                // Give the (self-polling) naming pass a settle window to apply its
-                // room.rename batch before furnishing reads occupancyType. The
-                // helper applies within ~80 ms of the room store settling (or its
-                // 2.5 s hard-timeout); 600 ms covers the common case without
-                // stranding the chain if naming is slow (furnish still falls back
-                // to name-derived occupancy — see FurnishLayoutExecutor).
-                await new Promise<void>(r => setTimeout(r, 600));
-                // §A.21.i — fan the post-generation finish chain (floor → ceiling →
-                // furnish → light) out across EVERY storey level, in sequence, now
-                // that rooms exist + are named on all of them. The apartment
-                // single-level path is unchanged — this only runs for a house build.
-                return runHousePostGenChain(runtime, levelIds);
+                // §A.21.D25 — NAME + occupancy-tag the rooms PER STOREY, sequenced
+                // INSIDE the finish chain (right before each storey is furnished),
+                // not all up-front with one flat wait. Floor/ceiling/furnish/light
+                // all key off each room's occupancyType; the house executor must tag
+                // rooms first or `furnishRoom('')` returns [] ("furnish does
+                // nothing", A.21.D24). The PREVIOUS up-front loop + a flat 600 ms
+                // wait let the GROUND storey's furnish race ahead of its (async)
+                // naming → the ground floor came out BARE while later storeys — named
+                // by the time they ran — got furniture (the "only the top floor has
+                // furniture" bug). FIX: hand the chain a per-storey naming driver; it
+                // calls `nameDetectedRooms` for the storey it's about to finish AND
+                // awaits that storey's `apartment.room-name-completed` event before
+                // furnishing it, so EVERY storey (ground included) is tagged first.
+                const optionByLevel = new Map(perStorey.map(s => [s.levelId, s.option] as const));
+                const nameStorey = (levelId: string): void => {
+                    const option = optionByLevel.get(levelId);
+                    if (!option) { console.warn('[house-layout] no layout option to name storey', levelId); return; }
+                    nameDetectedRooms(runtime, levelId, option, '[house-layout]');
+                };
+                // §A.21.i — fan the post-generation finish chain (name → floor →
+                // ceiling → furnish → light) out across EVERY storey level, in
+                // sequence. The apartment single-level path is unchanged — this only
+                // runs for a house build.
+                return runHousePostGenChain(runtime, levelIds, nameStorey);
             }).catch((e: unknown) => console.warn('[house-layout] post-gen finish chain failed (non-fatal):', e));
 
             // `house.layout-executed` is a house-specific event not in the typed
@@ -579,7 +583,85 @@ export class HouseLayoutExecutor {
             console.log('[house-layout] stair created', stair.fromLevelId, '→', stair.toLevelId,
                 `(${shape}, ${totalRisers} risers @ ${(riserHeight * 1000).toFixed(0)}mm`
                 + `${principalAxisRad !== 0 ? `, rot ${(principalAxisRad * 180 / Math.PI).toFixed(1)}°` : ''})`);
+
+            // §A.21.D26 — STAIRWELL-VOID GUARDRAIL. The stair auto-punches a slab
+            // void on the upper floor; its open edges are a fall hazard, so guard
+            // them with a handrail of the SAME type the stair carries (height
+            // 1.050 m, baluster fill). The edge the stair tops out toward is left
+            // OPEN (that's where you step off onto the floor); the other 3 are
+            // railed. Robust for I/L/U + any principal-axis rotation. Best-effort:
+            // a guardrail failure must never break the stair itself.
+            try {
+                const lastDir = worldFlights[worldFlights.length - 1]?.direction
+                    ?? { x: dir1Layout.x, y: 0, z: dir1Layout.z };
+                this._createVoidGuardrail(cm, { x0, z0, wM, hM }, principalAxisRad, pivot, stair.toLevelId, lastDir);
+            } catch (e) { console.warn('[house-layout] void guardrail failed (skipped):', e); }
         } catch (e) { console.warn('[house-layout] stair create failed (skipped):', e); }
+    }
+
+    /**
+     * §A.21.D26 — rail the three exposed edges of the stairwell void on the upper
+     * floor (matching the stair's own handrail type), leaving open the edge the
+     * stair tops out toward. `rectLayout` is the stair core rect in the LAYOUT
+     * frame (metres); each corner is rotated back to WORLD by +`angleRad` about
+     * `pivot` (identity on an axis-aligned plot). `lastDir` is the final flight's
+     * WORLD direction — the void edge most aligned with it is the step-off (open)
+     * side. The rails are created on `topLevelId` (the floor the void sits in).
+     */
+    private _createVoidGuardrail(
+        cm: CommandManagerLike,
+        rectLayout: { x0: number; z0: number; wM: number; hM: number },
+        angleRad: number,
+        pivot: { x: number; z: number },
+        topLevelId: string,
+        lastDir: { x: number; y: number; z: number },
+    ): void {
+        const { x0, z0, wM, hM } = rectLayout;
+        // 4 corners of the void in the LAYOUT frame, then rotated to WORLD.
+        const cornersLayout = [
+            { x: x0,      y: 0, z: z0 },       // A
+            { x: x0 + wM, y: 0, z: z0 },       // B
+            { x: x0 + wM, y: 0, z: z0 + hM },  // C
+            { x: x0,      y: 0, z: z0 + hM },  // D
+        ];
+        const c = cornersLayout.map(p => this._rotateXZ(p, angleRad, pivot));
+        // Centroid of the void (world XZ).
+        const cx = (c[0]!.x + c[1]!.x + c[2]!.x + c[3]!.x) / 4;
+        const cz = (c[0]!.z + c[1]!.z + c[2]!.z + c[3]!.z) / 4;
+        // 4 edges as corner-index pairs (a closed loop A→B→C→D→A).
+        const edges: Array<[number, number]> = [[0, 1], [1, 2], [2, 3], [3, 0]];
+        const ld = this._unit(lastDir);
+        // The OPEN edge: the one whose outward direction (midpoint − centroid)
+        // best aligns with the final flight's travel — that's the step-off side.
+        let openIdx = 0;
+        let bestDot = -Infinity;
+        edges.forEach(([i, j], idx) => {
+            const mx = (c[i]!.x + c[j]!.x) / 2;
+            const mz = (c[i]!.z + c[j]!.z) / 2;
+            const ox = mx - cx, oz = mz - cz;
+            const olen = Math.hypot(ox, oz) || 1;
+            const dot = (ox / olen) * ld.x + (oz / olen) * ld.z;
+            if (dot > bestDot) { bestDot = dot; openIdx = idx; }
+        });
+        let railed = 0;
+        edges.forEach(([i, j], idx) => {
+            if (idx === openIdx) return; // step-off side stays open
+            try {
+                cm.execute?.(new CreateHandrailCommand({
+                    id:          createId('handrail'),
+                    start:       { x: c[i]!.x, z: c[i]!.z },
+                    end:         { x: c[j]!.x, z: c[j]!.z },
+                    height:      STAIR_HANDRAIL_HEIGHT_M, // match the stair's own rail
+                    thickness:   0.05,
+                    levelId:     topLevelId,
+                    baseOffset:  0,
+                    fillType:    'baluster',
+                    railProfile: 'rectangular',
+                }), { source: 'HOUSE_PIPELINE_VOID_GUARD' });
+                railed++;
+            } catch (e) { console.warn('[house-layout] void guard edge skipped:', e); }
+        });
+        console.log(`[house-layout] stairwell-void guardrail — ${railed}/3 edge(s) railed on ${topLevelId} (1 step-off side open)`);
     }
 
     /** A.21.D24 — rotate a world point's XZ by `angleRad` about an XZ pivot (metres),
@@ -692,12 +774,38 @@ export class HouseLayoutExecutor {
     private _buildPerimeterShell(storey: StoreyPlate, wallHeightM: number): PerimeterShell | null {
         const poly = storey.footprint;
         if (!poly || poly.length < 3) return null;
+
+        // §PERIMETER-CLOSE (A.21.D25 Defect 4 — corner gaps / bad mitres). The
+        // previous build SKIPPED a degenerate edge with `continue` — which BREAKS the
+        // shared-vertex chain: if edge i (a→b) is skipped, the next emitted wall
+        // starts at the NEXT vertex, leaving a gap where two walls no longer meet at
+        // a common endpoint, so `WallJoinResolver.resolveLevel` can't miter that
+        // corner (the founder's "corner gaps"). FIX: first build a CLEANED vertex
+        // RING — drop near-duplicate consecutive vertices (and the wrap duplicate) so
+        // every retained vertex is a genuine corner — THEN emit exactly one wall per
+        // ring edge (vertex i → vertex i+1, last → first). The ring is closed by
+        // construction with EXACT shared endpoints, so every corner is a true
+        // two-wall junction the resolver mitres cleanly. House-only; the ground shell
+        // (drawn separately) is untouched.
+        const ring: { x: number; z: number }[] = [];
+        for (const p of poly) {
+            const prev = ring[ring.length - 1];
+            if (prev && Math.hypot(p.x - prev.x, p.z - prev.z) < 0.05) continue;  // drop near-duplicate
+            ring.push({ x: p.x, z: p.z });
+        }
+        // Drop a trailing vertex that coincides with the first (closes the wrap).
+        if (ring.length >= 2) {
+            const first = ring[0]!;
+            const last = ring[ring.length - 1]!;
+            if (Math.hypot(first.x - last.x, first.z - last.z) < 0.05) ring.pop();
+        }
+        if (ring.length < 3) return null;
+
         const walls: Array<Record<string, unknown>> = [];
         const shellWalls: Array<{ id: string; start: { x: number; z: number }; end: { x: number; z: number } }> = [];
-        for (let i = 0; i < poly.length; i++) {
-            const a = poly[i]!;
-            const b = poly[(i + 1) % poly.length]!;
-            if (Math.hypot(b.x - a.x, b.z - a.z) < 0.05) continue;   // skip degenerate edge
+        for (let i = 0; i < ring.length; i++) {
+            const a = ring[i]!;
+            const b = ring[(i + 1) % ring.length]!;   // last → first closes the loop
             const id = createId('wall');
             walls.push({
                 id,

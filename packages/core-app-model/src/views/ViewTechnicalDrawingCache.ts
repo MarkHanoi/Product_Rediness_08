@@ -359,6 +359,32 @@ export class ViewTechnicalDrawingCache {
             if (event.operation !== 'create') this.invalidate(event.elementId);
             return;
         }
+
+        // §A.21.D25 — DOCUMENTATION-OVERLAY DECOUPLING (the re-projection loop cut).
+        //
+        // Annotations (room-tags, dimensions, door/window tags, slope arrows, …)
+        // are NOT part of the EdgeProjectorService TechnicalDrawing. They live in
+        // the AnnotationStore and are painted as a SEPARATE overlay by
+        // `planViewAnnotationRenderer.render()` on EVERY PlanViewManager frame tick,
+        // reading the live store by viewId. So an annotation mutation needs no cache
+        // invalidation — the overlay already reflects it on the next frame.
+        //
+        // Crucially, the plan-view re-projection driver
+        // (`onReprojectionNeeded` → `RoomTagAutoPopulator.populate()`) CREATES /
+        // DELETES room-tag annotations *during* projection. Each of those emits an
+        // `annotation:*` store event. If that event re-dirties + re-projects the same
+        // view, projection feeds itself an annotation write that re-triggers
+        // projection → an infinite loop. It only manifests on a multi-storey HOUSE
+        // because `runHousePostGenChain` keeps redetecting + renaming rooms on each
+        // storey while the upper-storey plan view is live, so the room/tag set never
+        // settles and `populate()` keeps writing — whereas the single-plate apartment
+        // path settles before the plan view is viewed and `populate()` becomes a no-op.
+        //
+        // Skipping `annotation:*` here breaks the cycle edge at its source WITHOUT
+        // killing reactivity: editing a wall/door/room geometry still emits its own
+        // (non-annotation) store event below and re-projects exactly once.
+        if (event.elementType.startsWith('annotation:')) return;
+
         this.markDirty(event.elementId);
 
         // §PLAN-VIEW-REFRESH (Apr 2026)

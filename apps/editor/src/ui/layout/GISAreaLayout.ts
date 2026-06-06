@@ -724,6 +724,154 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         return out;
     };
 
+    // ════════════════════════════════════════════════════════════════════════
+    // §A.21.D25 — read the building's OTHER elements so the Forma globe view is
+    // not WALLS-ONLY. Slabs/floors + the roof give the building its solidity and
+    // a closed top (it reads as a real building, not floating wall blocks).
+    // Furniture is an OPTIONAL coarse representation, hard-capped so it never
+    // adds thousands of Cesium entities (perf). All three are READ-ONLY pulls
+    // from the element stores (same idiom as getFormaWalls) and feed the SAME
+    // massing path (footprint + elevation + height per band). Each reader is
+    // tolerant of an absent store / empty model → returns [] (single-storey +
+    // apartment models without slabs/roof simply contribute nothing extra).
+    // ════════════════════════════════════════════════════════════════════════
+
+    /**
+     * §A.21.D25 — read authored floor SLABS from the slab store. A slab's
+     * `boundary` is a closed loop of world-coordinate Vec3 (y carries the level
+     * elevation), with `thickness` + a `baseOffset` from the level base. We carry
+     * the outer ring (scene-XZ), the top elevation (boundary.y + baseOffset) and
+     * the thickness so the Cesium side can extrude a THIN solid floor plate at the
+     * storey elevation — giving the building its floor plates + solidity.
+     */
+    const getFormaSlabs = (): Array<{
+        ring: XZ[];
+        topElevation: number;
+        thickness: number;
+        levelId?: string;
+    }> => {
+        type SlabRecord = {
+            boundary?: ReadonlyArray<{ x: number; y?: number; z: number }>;
+            thickness?: number;
+            baseOffset?: number;
+            levelId?: string;
+        };
+        const slabStore = storeRegistry.getStoreForType('slab') as unknown as
+            | { getAll?: () => SlabRecord[] }
+            | undefined;
+        const all = slabStore?.getAll?.() ?? [];
+        const out: Array<{ ring: XZ[]; topElevation: number; thickness: number; levelId?: string }> = [];
+        for (const s of all) {
+            const b = s.boundary;
+            if (!b || b.length < 3) continue;
+            const yElev = typeof b[0]?.y === 'number' && Number.isFinite(b[0].y) ? (b[0].y as number) : 0;
+            const baseOffset =
+                typeof s.baseOffset === 'number' && Number.isFinite(s.baseOffset) ? s.baseOffset : 0;
+            out.push({
+                ring: b.map((p) => ({ x: p.x, z: p.z })),
+                topElevation: yElev + baseOffset,
+                thickness: typeof s.thickness === 'number' && s.thickness > 0 ? s.thickness : 0.2,
+                levelId: typeof s.levelId === 'string' && s.levelId ? s.levelId : undefined,
+            });
+        }
+        return out;
+    };
+
+    /**
+     * §A.21.D25 — read authored ROOFS from the roof store. A roof's `boundary`
+     * is a closed world-coordinate loop (y carries the top elevation); `pitch`
+     * (radians) + `shape` describe its form. For the coarse Forma massing we
+     * render it as a CAPPING SOLID at the top elevation (footprint extruded a
+     * little so the building closes on top) and carry the pitch so the Cesium
+     * side can raise a simple ridge for pitched roofs. This closes the building
+     * on top in the site view (it was open-topped walls before).
+     */
+    const getFormaRoofs = (): Array<{
+        ring: XZ[];
+        baseElevation: number;
+        thickness: number;
+        pitch: number;
+        levelId?: string;
+    }> => {
+        type RoofRecord = {
+            boundary?: ReadonlyArray<{ x: number; y?: number; z: number }>;
+            thickness?: number;
+            pitch?: number;
+            levelId?: string;
+        };
+        const roofStore = storeRegistry.getStoreForType('roof') as unknown as
+            | { getAll?: () => RoofRecord[] }
+            | undefined;
+        const all = roofStore?.getAll?.() ?? [];
+        const out: Array<{ ring: XZ[]; baseElevation: number; thickness: number; pitch: number; levelId?: string }> = [];
+        for (const r of all) {
+            const b = r.boundary;
+            if (!b || b.length < 3) continue;
+            const yElev = typeof b[0]?.y === 'number' && Number.isFinite(b[0].y) ? (b[0].y as number) : 0;
+            out.push({
+                ring: b.map((p) => ({ x: p.x, z: p.z })),
+                baseElevation: yElev,
+                thickness: typeof r.thickness === 'number' && r.thickness > 0 ? r.thickness : 0.2,
+                pitch: typeof r.pitch === 'number' && Number.isFinite(r.pitch) && r.pitch > 0 ? r.pitch : 0,
+                levelId: typeof r.levelId === 'string' && r.levelId ? r.levelId : undefined,
+            });
+        }
+        return out;
+    };
+
+    /**
+     * §A.21.D25 — read authored FURNITURE as a COARSE representation (small
+     * boxes at each item's origin). OPTIONAL + HARD-CAPPED (FORMA_FURNITURE_CAP)
+     * so a heavily-furnished model never floods the globe with thousands of
+     * Cesium entities (perf). Each item carries its origin (scene-XZ), a level
+     * elevation (origin.y), a coarse footprint size (from the `size` bbox
+     * override when present, else a default), height, and rotation. At the
+     * massing scale furniture is a minor read; the cap keeps it safe.
+     */
+    const FORMA_FURNITURE_CAP = 400;
+    const getFormaFurniture = (): Array<{
+        origin: XZ;
+        baseElevation: number;
+        width: number;
+        depth: number;
+        height: number;
+        rotation: number;
+    }> => {
+        type FurnitureRecord = {
+            origin?: { x: number; y?: number; z: number };
+            rotation?: number;
+            scale?: number;
+            size?: { x: number; y: number; z: number };
+        };
+        const furnitureStore = storeRegistry.getStoreForType('furniture') as unknown as
+            | { getAll?: () => FurnitureRecord[] }
+            | undefined;
+        const all = furnitureStore?.getAll?.() ?? [];
+        const out: Array<{ origin: XZ; baseElevation: number; width: number; depth: number; height: number; rotation: number }> = [];
+        for (const f of all) {
+            if (out.length >= FORMA_FURNITURE_CAP) break;
+            const o = f.origin;
+            if (!o || typeof o.x !== 'number' || typeof o.z !== 'number') continue;
+            const scale = typeof f.scale === 'number' && f.scale > 0 ? f.scale : 1;
+            const sz = f.size;
+            const width = (typeof sz?.x === 'number' && sz.x > 0 ? sz.x : 0.6) * scale;
+            const height = (typeof sz?.y === 'number' && sz.y > 0 ? sz.y : 0.7) * scale;
+            const depth = (typeof sz?.z === 'number' && sz.z > 0 ? sz.z : 0.6) * scale;
+            out.push({
+                origin: { x: o.x, z: o.z },
+                baseElevation: typeof o.y === 'number' && Number.isFinite(o.y) ? o.y : 0,
+                width,
+                depth,
+                height,
+                rotation: typeof f.rotation === 'number' && Number.isFinite(f.rotation) ? f.rotation : 0,
+            });
+        }
+        if (all.length > FORMA_FURNITURE_CAP) {
+            console.log(`[gis][forma] furniture capped at ${FORMA_FURNITURE_CAP} of ${all.length} items (perf).`);
+        }
+        return out;
+    };
+
     /**
      * FORMA.3 — read PRYZM's authored geometry + boundary and render the white
      * massing into Cesium at the real-world site. `frame` flies the camera; the
@@ -747,6 +895,11 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         }
         const boundary = getFormaBoundary();
         const walls = getFormaWalls();
+        // §A.21.D25 — the building's OTHER elements (floors + roof + coarse
+        // furniture) so the globe reads as a real building, not walls-only.
+        const slabs = getFormaSlabs();
+        const roofs = getFormaRoofs();
+        const furniture = getFormaFurniture();
         if (walls.length === 0 && !boundary) {
             // Nothing authored yet — still render the (empty) Forma scene so the
             // flat warm-grey ground + Forma look is visibly engaged, and the user
@@ -757,7 +910,8 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             );
         } else {
             console.log(
-                `[gis][forma] rendering massing: ${walls.length} wall(s), boundary=${boundary ? 'yes' : 'no'}, ` +
+                `[gis][forma] rendering massing: ${walls.length} wall(s), ${slabs.length} slab(s), ` +
+                    `${roofs.length} roof(s), ${furniture.length} furniture, boundary=${boundary ? 'yes' : 'no'}, ` +
                     `origin LAT ${origin.lat} LON ${origin.lon}.`
             );
         }
@@ -766,6 +920,11 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             originLon: origin.lon,
             boundary,
             walls,
+            // §A.21.D25 — floors/roof/furniture alongside the wall massing (all
+            // optional on the Cesium side → back-compat for older callers).
+            slabs,
+            roofs,
+            furniture,
             frameCentroid: frame,
             framePreset: preset,
         });
