@@ -18,6 +18,7 @@
 // builder — `buildLayoutThumbnailSvg`).
 
 import type { HouseCardModel } from './houseCardModel.js';
+import type { ApartmentProgram, ScoringWeights } from '@pryzm/ai-host';
 
 /** Local pure HTML escape (recognised by the xss-guards gate as a safe guard). */
 function escHtml(value: unknown): string {
@@ -27,6 +28,80 @@ function escHtml(value: unknown): string {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+}
+
+/**
+ * §MODAL-DYNAMIC (A.21.D22) — house program-edit form. The house SIBLING of the
+ * apartment's `buildProgramEditFormHtml`. Renders an inline form at the top of the
+ * "Choose a house layout" modal so the user can change the whole-house brief
+ * (storeys/floors, bedroom + bathroom counts, master en-suite, design sliders)
+ * and the cards re-render with a fresh deterministic generation. Input `name`s
+ * match the fields the modal controller reads back verbatim:
+ *   `storeys`               → storeyCount (1–3)
+ *   `bedrooms`              → ApartmentProgram.bedrooms
+ *   `bathrooms`             → ApartmentProgram.bathrooms
+ *   `masterEnSuite`         → ApartmentProgram.masterEnSuite
+ *   `livingRoom`            → ApartmentProgram.livingRoom (ground-floor living)
+ *   `openPlanKitchenDining` → ApartmentProgram.openPlanKitchenDining
+ *   `weight_naturalLight` / `weight_privacy` / `weight_kitchenWorkflow` /
+ *   `weight_corridorEfficiency` → ScoringWeights design sliders (0–100 → 0–1).
+ *
+ * Brand: reuses the apartment modal's `alm-program*` CSS classes so white +
+ * #6600FF + spacing match by construction. Pure → Node-testable.
+ */
+export interface HouseProgramFormState {
+    readonly storeyCount: number;
+    readonly program: ApartmentProgram;
+    readonly weights: ScoringWeights;
+}
+
+/** Design-slider rows mapped to ScoringWeights axes. Slider value is 0–100 in
+ *  the DOM; the controller divides by 100 to get the 0–1 weight. */
+const WEIGHT_SLIDERS: ReadonlyArray<{ key: keyof ScoringWeights; label: string }> = [
+    { key: 'naturalLight',        label: 'Daylight' },
+    { key: 'privacy',             label: 'Privacy' },
+    { key: 'kitchenWorkflow',     label: 'Kitchen' },
+    { key: 'corridorEfficiency',  label: 'Compactness' },
+];
+
+function weightSlidersHtml(weights: ScoringWeights): string {
+    return WEIGHT_SLIDERS.map(s => {
+        const raw = Number(weights[s.key]);
+        const pct = Math.max(0, Math.min(100, Math.round((Number.isFinite(raw) ? raw : 0.5) * 100)));
+        return (
+            `<label class="alm-program-slider"><span>${escHtml(s.label)}</span>` +
+            `<input type="range" name="weight_${s.key}" min="0" max="100" step="5" value="${pct}">` +
+            `</label>`
+        );
+    }).join('');
+}
+
+export function buildHouseProgramEditFormHtml(state: HouseProgramFormState): string {
+    const storeys = Math.max(1, Math.min(3, Math.round(state.storeyCount)));
+    const bedrooms = Math.max(0, Math.min(5, Math.round(state.program.bedrooms)));
+    const bathrooms = Math.max(1, Math.min(3, Math.round(state.program.bathrooms)));
+    const chk = (b: boolean): string => b ? ' checked' : '';
+    return (
+        '<form class="alm-program hlm-program" autocomplete="off" data-role="program">' +
+        '<div class="alm-program-row">' +
+        `<label class="alm-program-num"><span>Floors</span>` +
+        `<input type="number" name="storeys" min="1" max="3" step="1" value="${storeys}"></label>` +
+        `<label class="alm-program-num"><span>Bedrooms</span>` +
+        `<input type="number" name="bedrooms" min="0" max="5" step="1" value="${bedrooms}"></label>` +
+        `<label class="alm-program-num"><span>Bathrooms</span>` +
+        `<input type="number" name="bathrooms" min="1" max="3" step="1" value="${bathrooms}"></label>` +
+        '</div>' +
+        '<div class="alm-program-row alm-program-checks">' +
+        `<label class="alm-program-chk"><input type="checkbox" name="livingRoom"${chk(state.program.livingRoom)}> Living room</label>` +
+        `<label class="alm-program-chk"><input type="checkbox" name="openPlanKitchenDining"${chk(state.program.openPlanKitchenDining)}> Open-plan kitchen + dining</label>` +
+        `<label class="alm-program-chk"><input type="checkbox" name="masterEnSuite"${chk(state.program.masterEnSuite)}> Master en-suite</label>` +
+        '</div>' +
+        '<div class="alm-program-row alm-program-sliders">' +
+        weightSlidersHtml(state.weights) +
+        '</div>' +
+        '<div class="alm-program-hint" data-role="program-hint">Edit any field — the house layouts regenerate automatically.</div>' +
+        '</form>'
+    );
 }
 
 /** One storey panel inside a house card. `safeThumb` is the per-storey plan SVG
@@ -85,19 +160,25 @@ export function buildHouseCardGridHtml(
 
 /**
  * Build the modal's inner HTML. `storeyThumbnails[i]` is the per-storey SVG list
- * for `cards[i]`. Returns header + card grid + footer (Cancel). Pure.
+ * for `cards[i]`. When `formState` is supplied the §MODAL-DYNAMIC program-edit
+ * form renders at the top of the panel and the modal controller wires its change
+ * events to a live re-generation flow. Returns header + form + card grid +
+ * footer (Cancel). Pure.
  */
 export function buildHouseModalHtml(
     cards: readonly HouseCardModel[],
     storeyThumbnails: readonly (readonly string[])[] = [],
+    formState?: HouseProgramFormState,
 ): string {
     const grid = buildHouseCardGridHtml(cards, storeyThumbnails);
     const headerCount = cards.length === 0
         ? ''
         : ` <small>${cards.length} option${cards.length === 1 ? '' : 's'}</small>`;
+    const programForm = formState ? buildHouseProgramEditFormHtml(formState) : '';
     return (
         '<div class="alm-panel">' +
         `<div class="alm-header">Choose a house layout${headerCount}</div>` +
+        programForm +
         `<div class="alm-grid" data-role="grid">${grid}</div>` +
         '<div class="alm-footer"><button type="button" class="alm-cancel">Cancel</button></div>' +
         '</div>'

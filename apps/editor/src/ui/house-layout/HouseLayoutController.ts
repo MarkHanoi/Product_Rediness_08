@@ -36,6 +36,7 @@ import { facadeOrientationService } from '@pryzm/spatial-index';
 import { HouseLayoutModal } from './HouseLayoutModal.js';
 import { HouseLayoutExecutor } from './HouseLayoutExecutor.js';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
+import type { HouseProgramFormState } from './houseModalHtml.js';
 
 /** How many whole-house variants the modal offers. */
 const HOUSE_OPTION_COUNT = 3;
@@ -106,6 +107,27 @@ export interface RequestHouseLayoutResult {
 export class HouseLayoutController {
     private readonly modal = new HouseLayoutModal();
     private readonly executor = new HouseLayoutExecutor();
+    /** §MODAL-DYNAMIC (A.21.D22): the live regenerate context. Cached on the
+     *  initial `request()` so the modal's program-edit form can re-run the PURE
+     *  `generateHouseLayoutOptions(...)` with an edited program/storeys/weights
+     *  against the SAME analysed shell + build options, then refresh the cards
+     *  in place. The shell never changes mid-modal (the user can't redraw walls
+     *  while the modal is open), so caching the `ShellAnalysis` is sound. */
+    private _regen: {
+        runtime: PryzmRuntime;
+        shell: ShellAnalysis;
+        constraints: ApartmentConstraints;
+        floorToFloorM: number;
+        baseElevationM: number;
+        roofKind: 'flat' | 'gable' | 'hip';
+        siteLatitudeDeg?: number;
+        // Mutable: the latest picked-up program/storeys/weights (start = request,
+        // then updated on every form change so a `Use this layout` after edits
+        // builds the EDITED variant, not the original brief).
+        storeyCount: number;
+        program: ApartmentProgram;
+        weights: ScoringWeights;
+    } | null = null;
 
     /**
      * Compute N house variants for the active shell + open the modal. On the
@@ -128,55 +150,122 @@ export class HouseLayoutController {
             const floorToFloorM = req.floorToFloorM && req.floorToFloorM > 0 ? req.floorToFloorM : 3.0;
             const roofKind = req.roofKind ?? 'gable';
 
-            // PURE preview enumeration (placeholder level ids — they only stamp
-            // `levelId`, not layout/scoring, so the picked variant index resolves
-            // to the SAME variant when the executor re-enumerates with real ids).
-            const variants: ScoredHouseLayoutOption[] = generateHouseLayoutOptions(
-                shell, req.program, req.constraints, req.weights,
-                {
-                    storeyCount,
-                    floorToFloorM,
-                    baseElevationM,
-                    roofKind,
-                    ...(typeof req.siteLatitudeDeg === 'number' ? { solar: { latDeg: req.siteLatitudeDeg } } : {}),
-                },
-                HOUSE_OPTION_COUNT,
-            );
+            // §MODAL-DYNAMIC: cache the regenerate context (shell + immutable
+            // build opts + the editable program/storeys/weights).
+            this._regen = {
+                runtime,
+                shell,
+                constraints: req.constraints,
+                floorToFloorM,
+                baseElevationM,
+                roofKind,
+                ...(typeof req.siteLatitudeDeg === 'number' ? { siteLatitudeDeg: req.siteLatitudeDeg } : {}),
+                storeyCount,
+                program: req.program,
+                weights: req.weights,
+            };
 
+            const variants = this._computeVariants(storeyCount, req.program, req.weights);
             if (variants.length === 0) {
                 toast('Could not generate a house layout for this plot. Try a larger plot or a simpler programme.', 'error');
                 return { ok: false, reason: 'no variants' };
             }
 
             console.log('[house-layout] controller: computed', variants.length, 'house variant(s) — opening modal');
-            this.modal.show(variants, {
-                onSelect: (index: number) => {
-                    console.log('[house-layout] controller: variant', index, 'selected → build');
-                    toast(`Building house layout ${index + 1}…`, 'info');
-                    void this.executor.execute(
-                        runtime,
-                        {
-                            storeyCount,
-                            ...(req.floorToFloorM ? { floorToFloorM: req.floorToFloorM } : {}),
-                            ...(req.roofKind ? { roofKind: req.roofKind } : {}),
-                            variantIndex: index,
-                            variantCount: variants.length,
-                        },
-                        req.program,
-                        req.constraints,
-                        req.weights,
-                        req.siteLatitudeDeg,
-                    );
+            this.modal.show(
+                variants,
+                {
+                    onSelect: (index: number) => this._build(runtime, index),
+                    onCancel: () => {
+                        console.log('[house-layout] controller: modal cancelled (no scene mutation)');
+                        this._regen = null;
+                    },
+                    // §MODAL-DYNAMIC live regenerate: a debounced form change.
+                    onProgramChange: (state) => this._regenerate(state),
                 },
-                onCancel: () => {
-                    console.log('[house-layout] controller: modal cancelled (no scene mutation)');
-                },
-            });
+                // Initial form values mirror the request brief.
+                { storeyCount, program: req.program, weights: req.weights },
+            );
             return { ok: true, optionCount: variants.length };
         } catch (err) {
             console.error('[house-layout] controller threw:', err);
             toast(`House layout failed: ${String(err)}`, 'error');
             return { ok: false, reason: String(err) };
         }
+    }
+
+    /** PURE preview enumeration against the cached shell + build opts. Placeholder
+     *  level ids only stamp `levelId`, not layout/scoring, so the picked variant
+     *  index resolves to the SAME variant when the executor re-enumerates with
+     *  real ids. Returns [] when no regen context exists. */
+    private _computeVariants(
+        storeyCount: number,
+        program: ApartmentProgram,
+        weights: ScoringWeights,
+    ): ScoredHouseLayoutOption[] {
+        const r = this._regen;
+        if (!r) return [];
+        return generateHouseLayoutOptions(
+            r.shell, program, r.constraints, weights,
+            {
+                storeyCount,
+                floorToFloorM: r.floorToFloorM,
+                baseElevationM: r.baseElevationM,
+                roofKind: r.roofKind,
+                ...(typeof r.siteLatitudeDeg === 'number' ? { solar: { latDeg: r.siteLatitudeDeg } } : {}),
+            },
+            HOUSE_OPTION_COUNT,
+        );
+    }
+
+    /**
+     * §MODAL-DYNAMIC: a debounced program-edit change. Re-runs the PURE
+     * `generateHouseLayoutOptions(...)` SYNCHRONOUSLY (no async workflow round-
+     * trip — the house generator is an offline deterministic L2 call, unlike the
+     * apartment relay) with the edited storeys/program/weights, then refreshes
+     * the cards in place. Changing FLOORS re-runs with the new `storeyCount`, so
+     * the engine re-enumerates per-storey and the cards reflect the new count.
+     * Updates the cached program/storeys/weights so a later `Use this layout`
+     * builds the EDITED variant.
+     */
+    private _regenerate(state: HouseProgramFormState): void {
+        const r = this._regen;
+        if (!r) { this.modal.setBusy(false); return; }
+        try {
+            r.storeyCount = state.storeyCount;
+            r.program = state.program;
+            r.weights = state.weights;
+            const variants = this._computeVariants(state.storeyCount, state.program, state.weights);
+            console.log('[house-layout] controller: regenerated', variants.length, 'variant(s) for', state.storeyCount, 'storey(s) — refreshing modal');
+            this.modal.refresh(variants);
+        } catch (err) {
+            console.error('[house-layout] controller: regenerate threw:', err);
+            this.modal.setBusy(false);
+            r.runtime.events?.emit('pryzm:toast', { message: `House layout regenerate failed: ${String(err)}`, severity: 'error' });
+        }
+    }
+
+    /** Build the picked variant via the executor using the LATEST cached
+     *  program/storeys/weights (so edits made in the modal are honoured). */
+    private _build(runtime: PryzmRuntime, index: number): void {
+        const r = this._regen;
+        if (!r) return;
+        console.log('[house-layout] controller: variant', index, 'selected → build (', r.storeyCount, 'storey(s) )');
+        runtime.events?.emit('pryzm:toast', { message: `Building house layout ${index + 1}…`, severity: 'info' });
+        void this.executor.execute(
+            runtime,
+            {
+                storeyCount: r.storeyCount,
+                floorToFloorM: r.floorToFloorM,
+                roofKind: r.roofKind,
+                variantIndex: index,
+                variantCount: HOUSE_OPTION_COUNT,
+            },
+            r.program,
+            r.constraints,
+            r.weights,
+            r.siteLatitudeDeg,
+        );
+        this._regen = null;
     }
 }
