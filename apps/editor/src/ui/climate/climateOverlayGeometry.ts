@@ -31,7 +31,6 @@
 import type { ClimateDataset } from '@pryzm/schemas';
 import {
     solarArcsForYear,
-    windRoseBars,
     monthlyTempSeries,
     type SunArc,
     type WindRoseChart,
