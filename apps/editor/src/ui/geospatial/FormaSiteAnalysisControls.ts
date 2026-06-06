@@ -36,10 +36,18 @@ import {
     isClimatePanelOpen,
     wireClimateRuntime,
 } from '../climate/ClimatePanel';
-import { windRoseBars, windBarEndpoint } from '../climate/climateChartData';
+import {
+    windRoseBars,
+    windBarEndpoint,
+    monthlyTempSeries,
+} from '../climate/climateChartData';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const ACCENT = '#6600FF';
+/** 6 speed-band shades (calm → gust), light→dark on the #6600FF accent. */
+const WIND_BAND_COLORS = [
+    '#d9cffb', '#b79bf6', '#9569f0', '#7a3eea', '#6600FF', '#4b00bf',
+] as const;
 
 /** The minimal subset of CesiumViewport this controller drives (FORMA.5 API). */
 export interface FormaSunViewport {
@@ -70,7 +78,11 @@ export class FormaSiteAnalysisControls {
     private sunReadout: HTMLElement | null = null;
     private windWrap: HTMLElement | null = null;
     private windNote: HTMLElement | null = null;
+    private weatherWrap: HTMLElement | null = null;
+    private climateNote: HTMLElement | null = null;
     private studyBtn: HTMLButtonElement | null = null;
+    /** Guards a single proactive `ensureSiteClimate` per mount (avoid loops). */
+    private climateEnsureRequested = false;
 
     private sunUnsub: (() => void) | null = null;
     private climateUnsub: (() => void) | null = null;
@@ -117,9 +129,9 @@ export class FormaSiteAnalysisControls {
         } catch (e) {
             console.warn('[forma-analysis] onFormaSunChange failed:', e);
         }
-        // Refresh the wind rose when climate / site changes.
+        // Refresh the wind rose + weather card when climate / site changes.
         try {
-            const refresh = () => this.renderWindRose();
+            const refresh = () => { this.renderWindRose(); this.renderWeatherCard(); };
             const disposers: Array<() => void> = [];
             if (this.runtime) {
                 try { disposers.push(this.runtime.climateStore.subscribe(refresh)); } catch { /* ignore */ }
@@ -128,10 +140,18 @@ export class FormaSiteAnalysisControls {
             this.climateUnsub = () => disposers.forEach((d) => { try { d(); } catch { /* ignore */ } });
         } catch { /* ignore */ }
 
-        // Seed from the viewport's current sun datetime + draw the initial rose.
+        // Seed from the viewport's current sun datetime + draw the initial rose + weather.
         this.syncControlsFromViewport();
         this.renderWindRose();
-        console.log('[forma-analysis] mounted (sun scrubber + climate card + wind rose).');
+        this.renderWeatherCard();
+        // A.21.D23 — make CLIMATE · WIND · WEATHER show LIVE: if the site has no
+        // climate dataset yet (the panel mounted before / independently of the
+        // GISAreaLayout fire-and-forget, or that call raced the location), kick a
+        // proactive ingest here so the wind rose + weather card never sit empty
+        // when a site IS authored. The climateStore.subscribe() above repaints
+        // both the moment the dataset lands (bundled = instant, offline).
+        this.ensureClimateIfMissing();
+        console.log('[forma-analysis] mounted (sun scrubber + climate card + wind rose + weather).');
     }
 
     /** Remove every node, stop any running shadow study, drop subscriptions. */
@@ -147,7 +167,39 @@ export class FormaSiteAnalysisControls {
         this.sunReadout = null;
         this.windWrap = null;
         this.windNote = null;
+        this.weatherWrap = null;
+        this.climateNote = null;
         this.studyBtn = null;
+        this.climateEnsureRequested = false;
+    }
+
+    // ── Proactive climate load (A.21.D23) ────────────────────────────────────
+
+    /**
+     * If a site is authored but no ClimateDataset is resolvable yet, run the
+     * L5 `ensureSiteClimate` adapter once. Bundled offline normals land
+     * instantly (no network) so the wind rose + weather card populate; the
+     * live measured upgrade then arrives in the background. The store
+     * subscription wired in `mount()` repaints both on ingest. No-ops when
+     * there is no runtime, no site, or a dataset already exists.
+     */
+    private ensureClimateIfMissing(): void {
+        if (this.climateEnsureRequested) return;
+        const rt = this.runtime;
+        if (!rt) return;
+        // Already have data → nothing to do.
+        if (this.resolveDataset()) return;
+        // Only attempt when a site actually exists (else the empty state is correct).
+        let hasSite = false;
+        try { hasSite = !!rt.siteModelStore.getSite(); } catch { hasSite = false; }
+        if (!hasSite) return;
+        this.climateEnsureRequested = true;
+        import('../climate/ensureSiteClimate')
+            .then(({ ensureSiteClimate }) => ensureSiteClimate(rt))
+            .then((ok) => {
+                console.log(`[forma-analysis] proactive ensureSiteClimate → ${ok ? 'dataset present' : 'no location/site'}.`);
+            })
+            .catch((e) => console.warn('[forma-analysis] ensureSiteClimate failed:', e));
     }
 
     // ── Sun / shadow scrubber ────────────────────────────────────────────────
@@ -313,11 +365,18 @@ export class FormaSiteAnalysisControls {
     // ── Climate side-card (reuse the existing ClimatePanel) ──────────────────
 
     private buildClimateBlock(): HTMLElement {
-        const block = this.sectionBlock('🌦 Climate');
+        const block = this.sectionBlock('🌦 Weather & comfort');
+
+        // Live weather/temperature card (monthly temp band + design temps + HDD/CDD).
+        const card = document.createElement('div');
+        card.className = 'pryzm-forma-weather-card';
+        this.weatherWrap = card;
+        block.appendChild(card);
+
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'pryzm-forma-climate-open';
-        btn.textContent = 'Open climate card';
+        btn.textContent = 'Open full climate card';
         Object.assign(btn.style, {
             width: '100%', appearance: 'none', cursor: 'pointer', border: `1px solid ${ACCENT}`,
             borderRadius: '7px', background: '#faf8ff', color: ACCENT,
@@ -331,23 +390,123 @@ export class FormaSiteAnalysisControls {
             }
         });
         block.appendChild(btn);
-        const note = this.smallNote(this.climateSummary());
+
+        const note = this.smallNote('');
+        this.climateNote = note;
         block.appendChild(note);
         return block;
     }
 
-    private climateSummary(): string {
+    /**
+     * Render the live weather/temperature card from the site's ClimateDataset:
+     * a compact monthly temperature band (min/avg/max), the ASHRAE design temps,
+     * and annual heating/cooling degree-days. Graceful empty state when no
+     * dataset is resolvable yet.
+     */
+    private renderWeatherCard(): void {
+        const card = this.weatherWrap;
+        if (!card) return;
+        card.replaceChildren();
         const ds = this.resolveDataset();
-        if (!ds) return 'Temperature, sun-path & wind appear once a site location is set and NOAA / EPW data is loaded.';
-        const months = ds.monthlyNormals ?? [];
-        if (months.length === 0) return `Source: ${ds.source}.`;
-        let lo = Infinity, hi = -Infinity;
-        for (const m of months) {
-            lo = Math.min(lo, m.avgMinDryBulbC ?? m.avgDryBulbC);
-            hi = Math.max(hi, m.avgMaxDryBulbC ?? m.avgDryBulbC);
+        if (!ds) {
+            if (this.climateNote) {
+                this.climateNote.textContent =
+                    'Temperature, sun-path & wind appear once a site location is set and climate data loads.';
+            }
+            return;
         }
-        if (!Number.isFinite(lo) || !Number.isFinite(hi)) return `Source: ${ds.source}.`;
-        return `Annual ${lo.toFixed(0)}°C to ${hi.toFixed(0)}°C · source ${ds.source}.`;
+
+        // Monthly temperature band (12-month min/avg/max sparkline).
+        if ((ds.monthlyNormals ?? []).length > 0) {
+            card.appendChild(this.tempBandSvg(ds));
+        }
+
+        // Design temps + degree-days chips.
+        const stats = document.createElement('div');
+        Object.assign(stats.style, {
+            display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', marginTop: '6px',
+        } satisfies Partial<CSSStyleDeclaration>);
+        const dt = ds.designTemps;
+        const dd = ds.degreeDays;
+        stats.appendChild(this.statChip('Heating design', `${dt.heating99_6C.toFixed(0)}°C`));
+        stats.appendChild(this.statChip('Cooling design', `${dt.cooling0_4C.toFixed(0)}°C`));
+        stats.appendChild(this.statChip('HDD (18°C)', `${Math.round(dd.hddBase18)}`));
+        stats.appendChild(this.statChip('CDD (18°C)', `${Math.round(dd.cddBase18)}`));
+        card.appendChild(stats);
+
+        if (this.climateNote) {
+            this.climateNote.textContent = `Source ${ds.source}.`;
+        }
+    }
+
+    /** A compact min/avg/max monthly temperature band as an SVG sparkline. */
+    private tempBandSvg(ds: ClimateDataset): SVGSVGElement {
+        const series = monthlyTempSeries(ds);
+        const W = 208;
+        const H = 56;
+        const padX = 2;
+        const padY = 6;
+        const svg = document.createElementNS(SVG_NS, 'svg');
+        svg.setAttribute('width', String(W));
+        svg.setAttribute('height', String(H));
+        svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+        const lo = series.minC;
+        const hi = series.maxC;
+        const span = hi - lo || 1;
+        const plotW = W - padX * 2;
+        const plotH = H - padY * 2;
+        const xAt = (i: number): number => padX + (series.points.length <= 1 ? 0 : (i / (series.points.length - 1)) * plotW);
+        const yAt = (c: number): number => padY + (1 - (c - lo) / span) * plotH;
+
+        // min→max range band (thin vertical bars per month).
+        for (let i = 0; i < series.points.length; i++) {
+            const p = series.points[i]!;
+            const x = xAt(i);
+            const bar = document.createElementNS(SVG_NS, 'line');
+            bar.setAttribute('x1', x.toFixed(1));
+            bar.setAttribute('y1', yAt(p.minC).toFixed(1));
+            bar.setAttribute('x2', x.toFixed(1));
+            bar.setAttribute('y2', yAt(p.maxC).toFixed(1));
+            bar.setAttribute('stroke', '#d9cffb');
+            bar.setAttribute('stroke-width', '5');
+            bar.setAttribute('stroke-linecap', 'round');
+            svg.appendChild(bar);
+        }
+
+        // average polyline (accent).
+        const pts = series.points.map((p, i) => `${xAt(i).toFixed(1)},${yAt(p.avgC).toFixed(1)}`).join(' ');
+        const poly = document.createElementNS(SVG_NS, 'polyline');
+        poly.setAttribute('points', pts);
+        poly.setAttribute('fill', 'none');
+        poly.setAttribute('stroke', ACCENT);
+        poly.setAttribute('stroke-width', '2');
+        poly.setAttribute('stroke-linejoin', 'round');
+        svg.appendChild(poly);
+
+        // min / max y-axis labels.
+        svg.appendChild(text(W - 2, padY + 6, `${hi.toFixed(0)}°`, '#9a92b5', 'end'));
+        svg.appendChild(text(W - 2, H - 2, `${lo.toFixed(0)}°`, '#9a92b5', 'end'));
+        return svg;
+    }
+
+    /** One labelled stat chip (label on top, value below) for the weather grid. */
+    private statChip(label: string, value: string): HTMLElement {
+        const chip = document.createElement('div');
+        Object.assign(chip.style, {
+            display: 'flex', flexDirection: 'column', gap: '1px',
+            background: '#faf8ff', border: '1px solid #ece7fb', borderRadius: '6px',
+            padding: '4px 6px',
+        } satisfies Partial<CSSStyleDeclaration>);
+        const l = document.createElement('span');
+        l.textContent = label;
+        Object.assign(l.style, { font: '500 9px/1.1 system-ui', color: '#8a83a6' });
+        const v = document.createElement('span');
+        v.textContent = value;
+        Object.assign(v.style, { font: '700 12px/1.1 system-ui', color: ACCENT });
+        chip.appendChild(l);
+        chip.appendChild(v);
+        return chip;
     }
 
     // ── Wind-rose overlay ────────────────────────────────────────────────────
@@ -403,19 +562,34 @@ export class FormaSiteAnalysisControls {
         svg.appendChild(line(cx, cy - R, cx, cy + R, '#ece7fb'));
         svg.appendChild(text(cx, cy - R - 2, 'N', '#9a92b5'));
 
+        // Stacked speed-band bars: each sector's bar is split into the 6
+        // Beaufort-ish speed bins, light→dark accent (calm→gust). The bar's
+        // full length is scaled by the sector's total frequency; each segment's
+        // length is its share of that sector's hours. North is up.
         for (const bar of bars) {
             if (bar.frequency <= 0) continue;
             const end = windBarEndpoint(bar.sectorDeg, bar.frequency, maxFreq, R);
-            const ln = document.createElementNS(SVG_NS, 'line');
-            ln.setAttribute('x1', String(cx));
-            ln.setAttribute('y1', String(cy));
-            ln.setAttribute('x2', (cx + end.x).toFixed(2));
-            ln.setAttribute('y2', (cy + end.y).toFixed(2));
-            ln.setAttribute('stroke', ACCENT);
-            ln.setAttribute('stroke-width', '6');
-            ln.setAttribute('stroke-linecap', 'round');
-            ln.setAttribute('opacity', '0.78');
-            svg.appendChild(ln);
+            const fullLen = Math.hypot(end.x, end.y);
+            const rad = (bar.sectorDeg * Math.PI) / 180;
+            const ux = Math.sin(rad);
+            const uy = -Math.cos(rad);
+            const sectorTotal = bar.speedBinHours.reduce((a, h) => a + h, 0) || 1;
+            let r0 = 0;
+            for (let b = 0; b < bar.speedBinHours.length; b++) {
+                const share = bar.speedBinHours[b]! / sectorTotal;
+                if (share <= 0) continue;
+                const r1 = r0 + share * fullLen;
+                const ln = document.createElementNS(SVG_NS, 'line');
+                ln.setAttribute('x1', (cx + ux * r0).toFixed(2));
+                ln.setAttribute('y1', (cy + uy * r0).toFixed(2));
+                ln.setAttribute('x2', (cx + ux * r1).toFixed(2));
+                ln.setAttribute('y2', (cy + uy * r1).toFixed(2));
+                ln.setAttribute('stroke', WIND_BAND_COLORS[b] ?? ACCENT);
+                ln.setAttribute('stroke-width', '6');
+                ln.setAttribute('stroke-linecap', 'butt');
+                svg.appendChild(ln);
+                r0 = r1;
+            }
         }
         return svg;
     }
@@ -483,13 +657,19 @@ function line(x1: number, y1: number, x2: number, y2: number, stroke: string): S
     return l;
 }
 
-function text(x: number, y: number, content: string, fill: string): SVGTextElement {
+function text(
+    x: number,
+    y: number,
+    content: string,
+    fill: string,
+    anchor: 'start' | 'middle' | 'end' = 'middle',
+): SVGTextElement {
     const t = document.createElementNS(SVG_NS, 'text');
     t.setAttribute('x', String(x));
     t.setAttribute('y', String(y));
     t.setAttribute('font-size', '9');
     t.setAttribute('fill', fill);
-    t.setAttribute('text-anchor', 'middle');
+    t.setAttribute('text-anchor', anchor);
     t.textContent = content;
     return t;
 }
