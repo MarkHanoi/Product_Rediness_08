@@ -373,24 +373,33 @@ bubble graph subdivides is clamped, so the gate passes and rooms are sized sensi
 **house envelope validator** that counts non-bedroom area (living/kitchen/dining/garage)
 properly, so the gate admits a house ground floor on its merits rather than via a clamp.
 
-### §13.4 — Editor wiring is NOT landed (no console command yet)
+### §13.4 — Editor wiring is LANDED (console-only) — updated 2026-06-06
 
-The §9 UI + the editor onboarding wiring (§5 step 10, A.21.j) are **not implemented**. There is
-**no** `HouseLayoutExecutor` / `houseFromBoundary` / `houseLayoutTrigger` in `apps/editor/`
-today, and **no** `pryzmGenerateHouse(n)` console command is registered (it is named as a
-PLANNED A.21.j deliverable only). Consequently:
+**Correction:** the A.21.d–g editor wiring DID land (it post-dated the first draft of this
+section). `apps/editor/src/ui/house-layout/` now ships `HouseLayoutExecutor` +
+`houseFromBoundary` + `houseLayoutTrigger`, and **`window.pryzmGenerateHouse(n)` /
+`pryzmGenerateHouseFromBoundary(n)` console commands ARE registered** (via
+`installHouseLayoutConsoleTrigger` beside the apartment installer in `AIAreaLayout.ts`). It
+mints L1…Ln via `AddLevelCommand` (capturing real ids → `levelIdForStorey`), fans the apartment
+`buildLayoutCommands` out per storey, places one `CreateStairCommand` per adjacent pair
+(auto-punching the slab-void), and caps with a real pitched `CreateRoofCommand` — all in one
+`batchCoordinator.runBatch`. Editor typecheck clean.
 
-- the typology/onboarding trigger hookup (`briefBootstrap.ts` `casa-unifamiliar` branch) is
-  pending (A.21.a/A.21.j);
-- the per-storey generation modal showing ALL storeys (A.21.k / tracker A.21.D10) is pending
-  and depends on the A.21.d–g result landing first;
-- single-undo-collapse of the multi-level level-creation + per-storey command fan-out
-  (one `runBatch`) is part of A.21.e, pending.
+Still pending (NOT in the console path yet):
+
+- the typology/onboarding trigger hookup (`briefBootstrap.ts` `casa-unifamiliar` branch) so the
+  UI "House + floors>1" routes here automatically (A.21.a/A.21.j) — today it is console-only;
+- the per-storey generation modal showing ALL storeys (A.21.k / tracker A.21.D10) — depends on
+  threading `HouseLayoutResult.perStoreyLayout[]` into the modal;
+- confirming single-undo-collapse of level-creation (`AddLevelCommand` runs via `cm.execute`
+  OUTSIDE the geometry `runBatch`, so level creation may need an extra undo step — A.21.e
+  caveat, verify in-browser);
+- the per-storey envelope clamp (Deviation B, §13.3) still owes A.21.h's real house envelope.
 
 The founder-reported "DESPITE I SELECTED 2 LEVELS ONLY ONE LEVEL WAS CREATED" (tracker
-A.21.D13) is exactly this gap: the live prod path is still the single-plate apartment
-generator; the `floors>1` brief value is read but nothing mints the upper levels until the
-A.21.d–g editor wiring lands + deploys.
+A.21.D13) is addressed by this wiring for the **console path** (`pryzmGenerateHouse(2)`); the
+**UI** "House + floors" path still routes through the single-plate apartment generator until the
+A.21.j trigger branch lands.
 
 ### §13.5 — Climate windows thread through the house core
 
