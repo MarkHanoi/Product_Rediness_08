@@ -58,6 +58,7 @@ import {
     buildLayoutCommands,
 } from '@pryzm/ai-host';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
+import { nameDetectedRooms } from '../apartment-layout/nameDetectedRooms.js';
 import { runHousePostGenChain } from './runHousePostGenChain.js';
 
 const MM_PER_M = 1000;
@@ -394,11 +395,28 @@ export class HouseLayoutExecutor {
             // can read rooms on every storey. Run as a detached async continuation
             // so execute() still returns promptly (the toast/result aren't blocked).
             // ──────────────────────────────────────────────────────────────────────
-            void this._finishOpenings(perStorey).then(() => {
+            void this._finishOpenings(perStorey).then(async () => {
+                // A.21.D24 — NAME + occupancy-tag the rooms on every storey BEFORE
+                // the finish chain furnishes them. The house executor previously
+                // skipped this (only the apartment executor named rooms), so house
+                // rooms had NO occupancyType → `furnishRoom('')` returned [] for
+                // every room → "furnish does nothing". Reuses the shared apartment
+                // naming pass per-storey (room.rename → occupancyType is set), so the
+                // downstream furnish/lighting engines recognise each room's archetype.
+                for (const s of perStorey) {
+                    nameDetectedRooms(runtime, s.levelId, s.option, '[house-layout]');
+                }
+                // Give the (self-polling) naming pass a settle window to apply its
+                // room.rename batch before furnishing reads occupancyType. The
+                // helper applies within ~80 ms of the room store settling (or its
+                // 2.5 s hard-timeout); 600 ms covers the common case without
+                // stranding the chain if naming is slow (furnish still falls back
+                // to name-derived occupancy — see FurnishLayoutExecutor).
+                await new Promise<void>(r => setTimeout(r, 600));
                 // §A.21.i — fan the post-generation finish chain (floor → ceiling →
                 // furnish → light) out across EVERY storey level, in sequence, now
-                // that rooms exist on all of them. The apartment single-level path
-                // is unchanged — this only runs for a house build.
+                // that rooms exist + are named on all of them. The apartment
+                // single-level path is unchanged — this only runs for a house build.
                 return runHousePostGenChain(runtime, levelIds);
             }).catch((e: unknown) => console.warn('[house-layout] post-gen finish chain failed (non-fatal):', e));
 
