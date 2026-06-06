@@ -12,8 +12,10 @@ import { makeAnnotationElement } from '@pryzm/plugin-annotations';
 import { makePointRef } from '@pryzm/plugin-annotations';
 import { CreateAnnotationCommand } from '@pryzm/command-registry';
 import { DeleteAnnotationCommand } from '@pryzm/command-registry';
+import { UpdateAnnotationCommand } from '@pryzm/command-registry';
 import type { ViewDefinition } from '@pryzm/core-app-model';
 import type { RoomStore } from './RoomStore';
+import { roomTagNeedsRefresh, desiredRoomLabel } from './roomTagIdempotency';
 
 type IAnnotationStoreLite = { getByView: (viewId: string) => any[] };
 type ICommandManagerLite  = { execute: (cmd: any) => any };
@@ -50,6 +52,7 @@ export class RoomTagAutoPopulator {
 
         const rooms = roomStore.getByLevel(levelId);
         const liveRoomIds = new Set<string>(rooms.map((r: any) => r.id));
+        const roomById = new Map<string, any>(rooms.map((r: any) => [r.id, r]));
 
         const existingRoomIds = new Set<string>();
         const existingAnns: any[] = annotationStore.getByView(viewDef.id);
@@ -65,6 +68,7 @@ export class RoomTagAutoPopulator {
 
         let removedDuplicates = 0;
         let removedOrphans = 0;
+        let refreshed = 0;
         for (const [roomId, tags] of tagsByRoomId) {
             if (tags.length === 0) continue;
 
@@ -73,7 +77,6 @@ export class RoomTagAutoPopulator {
                     const cmd = new DeleteAnnotationCommand(orphan.id);
                     const valid = cmd.canExecute({} as any);
                     if (valid.ok) {
-                        if ((window as any).runtime?.bus) { (window as any).runtime.bus.executeCommand('room.create', {}).catch(() => {}); }
                         commandManager.execute(cmd);
                         removedOrphans++;
                     }
@@ -86,9 +89,39 @@ export class RoomTagAutoPopulator {
                 const cmd = new DeleteAnnotationCommand(duplicate.id);
                 const valid = cmd.canExecute({} as any);
                 if (valid.ok) {
-                    if ((window as any).runtime?.bus) { (window as any).runtime.bus.executeCommand('room.create', {}).catch(() => {}); }
                     commandManager.execute(cmd);
                     removedDuplicates++;
+                }
+            }
+
+            // §A.21.D25 — IDEMPOTENT REFRESH (true "tags already match" guard).
+            // The single kept tag is reused for a live room. Only UPDATE it when
+            // the room's label/area actually drifted (e.g. the house post-gen
+            // chain renamed the room AFTER the tag was first placed). When nothing
+            // drifted this is a NO-OP — no command, no store event — so a settled
+            // view's populate() writes nothing and cannot feed a re-projection.
+            const keptTag = tags[0];
+            const liveRoom = roomById.get(roomId);
+            if (keptTag && liveRoom) {
+                const desiredLabel = desiredRoomLabel(liveRoom);
+                const desiredArea  = liveRoom.computed?.area;
+                const p = keptTag.parameters ?? {};
+                if (roomTagNeedsRefresh(p, liveRoom)) {
+                    const cmd = new UpdateAnnotationCommand(keptTag.id, {
+                        parameters: {
+                            ...p,
+                            roomName:    liveRoom.name,
+                            roomNumber:  liveRoom.roomNumber,
+                            ...(typeof desiredArea === 'number' ? { area: desiredArea } : {}),
+                            cachedLabel: desiredLabel,
+                            ...(typeof desiredArea === 'number' ? { areaLabel: `${desiredArea.toFixed(1)} m²` } : {}),
+                        },
+                    } as any);
+                    const valid = cmd.canExecute({} as any);
+                    if (valid.ok) {
+                        commandManager.execute(cmd);
+                        refreshed++;
+                    }
                 }
             }
         }
@@ -132,7 +165,6 @@ export class RoomTagAutoPopulator {
             const cmd = new CreateAnnotationCommand(ann);
             const valid = cmd.canExecute({} as any);
             if (valid.ok) {
-                if ((window as any).runtime?.bus) { (window as any).runtime.bus.executeCommand('room.create', {}).catch(() => {}); }
                 commandManager.execute(cmd);
                 created++;
             }
@@ -140,7 +172,7 @@ export class RoomTagAutoPopulator {
 
         console.log(
             `[RoomTagAutoPopulator] viewId=${viewDef.id} level=${levelId}: ` +
-            `${created} room-tag(s) created, ${removedDuplicates} duplicate(s) removed, ` +
+            `${created} room-tag(s) created, ${refreshed} refreshed, ${removedDuplicates} duplicate(s) removed, ` +
             `${removedOrphans} orphan(s) removed out of ${rooms.length} live room(s).`
         );
     }
