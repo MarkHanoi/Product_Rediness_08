@@ -372,6 +372,30 @@ values become the structured `Brief` driving `generateHouseLayout`.
   (`OnboardingStepController.generateHouse → generateHouseFromBoundary`) and the
   console commands now route through the controller, so House shows the modal
   instead of building option[0] silently.
+- **Generation modal — DYNAMIC parameter editing** — ✅ **SHIPPED (A.21.D22,
+  2026-06-06)**. The "Choose a house layout" modal gains the apartment
+  `§MODAL-DYNAMIC` idiom: an inline program-edit form at the top of the panel lets
+  the user change the whole-house brief on the fly and the option cards regenerate
+  **live, in place** (no re-open, no scene mutation). Editable fields: **Floors
+  (1–3)**, **Bedrooms (0–5)**, **Bathrooms (1–3)**, **Living room**, **Open-plan
+  kitchen + dining**, **Master en-suite**, plus the **A.25 design sliders**
+  (Daylight / Privacy / Kitchen / Compactness) mapped to `ScoringWeights`
+  (0–100 → 0–1). Brand: reuses the apartment `alm-program*` form CSS (white +
+  #6600FF accent on the sliders) so it matches by construction. **Live-regenerate
+  seam:** a form change is debounced (250 ms, `setTimeout` — no raw rAF, P3) →
+  the controller re-runs the PURE synchronous `generateHouseLayoutOptions(...)`
+  **directly** (NOT the apartment's event round-trip — the house generator is an
+  offline deterministic L2 call, so no relay/`options-ready` event is needed) →
+  `HouseLayoutModal.refresh(variants)` swaps just the card grid, with an
+  `alm-busy` "Regenerating…" dim during the call. **Changing Floors** re-runs with
+  the new `storeyCount` so the engine re-enumerates per-storey and the cards reflect
+  the new floor count. Picking a card still builds that exact variant via the
+  executor's `variantIndex` path — now against the LATEST edited program/storeys/
+  weights (the controller caches a mutable regenerate context). **Additive only:**
+  the executor + `generateHouseLayoutOptions` signatures are unchanged; this is a
+  controller (`HouseLayoutController`) + modal (`HouseLayoutModal`) +
+  pure-HTML (`houseModalHtml.buildHouseProgramEditFormHtml`) layer feature. The
+  apartment modal is untouched.
 - **Multi-level result view** — the result must let the user **switch floors** (level
   selector) in the 2D plan and see the **stack** in 3D (reuse `LevelExplodeController`
   for an exploded axonometric "dollhouse" view — a strong demo for a house).

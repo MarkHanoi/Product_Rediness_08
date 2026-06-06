@@ -107,6 +107,19 @@ export const APARTMENT_LAYOUT_MODAL_STYLES = `
   outline: 2px solid #6600FF; outline-offset: -1px; border-color: #6600FF;
 }
 .alm-program-area-unit { color: #94a3b8; }
+/* §MODAL-DYNAMIC (A.21.D22) — house design-slider row (Daylight / Privacy /
+ * Kitchen / Compactness mapped to ScoringWeights). Brand: #6600FF accent. */
+.alm-program-sliders { gap: 14px; }
+.alm-program-slider {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11px; color: #475569;
+}
+.alm-program-slider input[type="range"] {
+  width: 90px; accent-color: #6600FF; cursor: pointer;
+}
+.alm-program-slider input[type="range"]:focus {
+  outline: 2px solid #6600FF; outline-offset: 2px;
+}
 .alm-program-hint {
   font-size: 11px; color: #64748b; font-style: italic;
 }
