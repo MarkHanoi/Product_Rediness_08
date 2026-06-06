@@ -321,6 +321,46 @@ also serve as the storey's `shellWalls` so engine-emitted shell windows host on 
 read-back). Result: a CLOSED perimeter on EVERY storey, guaranteed by construction —
 independent of room coverage.
 
+### §7.4 — Stair inherits the layout's principal-axis rotation (A.21.D24, SHIPPED)
+
+**Problem.** On a **skewed** (non-90°) plot the D-TGL engine rotates the whole layout to
+its **principal (dominant-edge) axis**, lays out axis-aligned in that rotated frame, then
+rotates the emitted walls/rooms back to world (`runDeterministicLayout` §PRINCIPAL-AXIS,
+`+angle` about the footprint centroid). The stair was being **left behind**: `reserveStairCore`
+computed the core rect from the **world-axis bounding box** of the skewed footprint and the
+flight directions were the **world axes** (`{0,0,1}` / `{1,0,0}`). The staircase — and its
+plan symbol (walking line, direction arrow, all derived from `startPosition` + flight
+`direction`/`startOverride`) — therefore stayed **orthogonal to the world** while the walls
+and rooms around it sat at the plot angle, so the stair crossed partitions and didn't fit
+the rotated floor plate.
+
+**Fix (orchestrator + executor, pure math).**
+- `houseOrchestrator` now computes the footprint's `principalAxisAngle` + centroid pivot
+  (the SAME `principalAxisAngle` + `PRINCIPAL_AXIS_MIN_RAD` ~0.6° threshold the engine uses).
+  It reserves the stair core in the **rotated LAYOUT frame** (`reserveStairCoreShaped` on the
+  `-angle`-rotated footprint) so `rectMm` is a tight rect aligned with the rotated plate, and
+  `resolveFlightPlans` authors the flight directions axis-aligned **then rotates them back to
+  world** by `+angle`. The `StairCore` carries `principalAxisRad` + `pivot` for the editor.
+- The `keepOutRectsWorld` handed to the engine is built by rotating the layout-frame core
+  rect corners **back to world** (`+angle`), so it stays a genuine world-XZ rect — the engine
+  then maps it into its own principal-axis frame internally, exactly as before (round-trip
+  exact, keep-out lands tight on the rotated run).
+- `HouseLayoutExecutor._createStair` builds the stair geometry (start position + U-shape
+  `startOverride`) in the **layout frame** using layout-frame directions, then rotates the
+  **rigid body** (start + overrides) back to world by `+angle` about the pivot (`_rotateXZ`)
+  and replaces flight directions with the engine's already-world-rotated vectors. The plan
+  symbol follows for free (it is generated entirely from those world `startPosition`/flight
+  directions — no change needed in `geometry-stair`).
+
+**No regression.** An axis-aligned plot (rectangle / L / U / T) → `principalAxisRad === 0`
+→ every rotation is the identity → the stair `rectMm`, flights, `startPosition`, and the
+slab-void are **byte-identical** to the pre-D24 path. **Apartment + manual stair tool are
+untouched** (this is house-orchestrator + house-executor only). Determinism preserved (no
+`Math.random`; angle derived from the footprint). Proof: `houseLayout.test.ts` —
+"stair principal-axis rotation (A.21.D24)" asserts angle 0 on a rectangle, the ~20° angle is
+carried + applied on a skewed shell, flight 1 == the world-axis run rotated by `+angle`,
+directions are off-axis unit vectors, and the result is deterministic.
+
 ---
 
 ## §8 — Brief schema (typology-declared, slider-driven; ADR-0056)
@@ -421,6 +461,7 @@ values become the structured `Brief` driving `generateHouseLayout`.
 | **A.21.j** | Editor onboarding wiring (`briefBootstrap.ts` typology gate) + console commands `pryzmGenerateHouse*`. |
 | **A.21.k** | UI: per-storey generation modal **✅ SHIPPED 2026-06-06** ("Choose a house layout" — N variant cards w/ per-storey previews + score; controller+modal layer over the untouched executor; onboarding+console route through it). Remaining (separate slices): multi-level result view + dollhouse explode (see §12.3 `A.U.*`). |
 | **A.21.D21** | Defect-1 (modal slice): the house path built option[0] with NO chooser — **✅ FIXED 2026-06-06** by A.21.k (House now gets the same "Choose a layout" modal the apartment flow shows, with per-storey previews). |
+| **A.21.D24** | Stair rotation on a SKEWED plot — **✅ SHIPPED 2026-06-06**. The staircase + plan symbol stayed axis-aligned while the rotated layout sat at the plot angle (`reserveStairCore` used the world-axis bbox + flight dirs were the world axes). Fixed (§7.4): orchestrator reserves the core in the rotated LAYOUT frame + carries `principalAxisRad`/`pivot` on the `StairCore`; `resolveFlightPlans` rotates flight dirs to world by `+angle`; `HouseLayoutExecutor._createStair` rotates the rigid stair body (start + U-override) back to world. Plan symbol follows for free (derived from `startPosition`/flight dirs). House-only; apartment + manual stair tool untouched; angle 0 → byte-identical on axis-aligned plots. |
 | **A.21.x** | Reference projects (≥3) + tests (≥50 pipeline) + ratify; retire any apartment-coupling. |
 
 **§12.3 UI rows** (new `A.U.*`): typology picker card + thumbnail; floors-stepper brief

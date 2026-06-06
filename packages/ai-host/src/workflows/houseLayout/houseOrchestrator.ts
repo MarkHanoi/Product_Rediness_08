@@ -17,6 +17,7 @@ import type {
 } from '../apartmentLayout/types.js';
 import type { ShellAnalysis } from '../apartmentLayout/shellAnalysis.js';
 import { generateDeterministicLayouts } from '../apartmentLayout/tgl/runDeterministicLayout.js';
+import { principalAxisAngle, rotatePt } from '../apartmentLayout/tgl/rectDecomposition.js';
 import { validateHouseStorey, houseStoreyBand } from './houseEnvelope.js';
 import { reserveStairCoreShaped, splitRisersForShape, type StairCoreShaped } from './stairCore.js';
 import { allocateProgramToStoreys } from './storeyAllocation.js';
@@ -34,25 +35,36 @@ const STAIR_RISER_TARGET_M = 0.18;
 /** Resolve the per-flight plan directions for a shaped stair core (A.21.D18).
  *  Flight 1 runs along the core's LONGER plan axis. For L the second flight turns
  *  90° left (matching StairCreationController._computeLDir2 default); for U it
- *  reverses (parallel return run). Returns one entry for I, two for L/U. */
+ *  reverses (parallel return run). Returns one entry for I, two for L/U.
+ *
+ *  A.21.D24 — `principalAxisRad` (the layout's dominant-edge angle) rotates the
+ *  axis-aligned flight directions BACK into the world frame so the stair runs
+ *  along the rotated plate's walls, not the world axes. 0 for an axis-aligned plot
+ *  → directions are the bit-identical world axes (no regression). */
 function resolveFlightPlans(
     core: StairCoreShaped,
     totalRisers: number,
+    principalAxisRad: number,
 ): StairFlightPlan[] {
     const runAlongZ = core.rectMm.h >= core.rectMm.w; // longer dim carries flight 1
-    const dir1 = runAlongZ ? { x: 0, y: 0, z: 1 } : { x: 1, y: 0, z: 0 };
+    // Author the directions in the axis-aligned (layout) frame, then rotate each
+    // back to world by +principalAxisRad (a direction → pivot is the origin).
+    const toWorld = (d: { x: number; z: number }): { x: number; y: number; z: number } => {
+        const r = principalAxisRad === 0 ? d : rotatePt(d, principalAxisRad, { x: 0, z: 0 });
+        return { x: r.x, y: 0, z: r.z };
+    };
+    const dir1 = toWorld(runAlongZ ? { x: 0, z: 1 } : { x: 1, z: 0 });
     if (core.shape === 'I') {
         return [{ riserCount: totalRisers, direction: dir1 }];
     }
     const { before, after } = splitRisersForShape(core.shape, totalRisers);
-    let dir2: { x: number; y: number; z: number };
-    if (core.shape === 'L') {
-        // Left turn: rotate dir1 +90° about Y → (-z, 0, x).
-        dir2 = { x: -dir1.z, y: 0, z: dir1.x };
-    } else {
-        // U: reverse run (parallel return flight).
-        dir2 = { x: -dir1.x, y: 0, z: -dir1.z };
-    }
+    // Derive flight-2 from the axis-aligned dir1 BEFORE the world rotation, then
+    // rotate it back the same way (keeps the L/U turn geometry exact).
+    const a1 = runAlongZ ? { x: 0, z: 1 } : { x: 1, z: 0 };
+    const a2 = core.shape === 'L'
+        ? { x: -a1.z, z: a1.x }   // left turn: rotate dir1 +90° about Y
+        : { x: -a1.x, z: -a1.z }; // U: reverse run (parallel return flight)
+    const dir2 = toWorld(a2);
     return [
         { riserCount: before, direction: dir1 },
         { riserCount: after, direction: dir2 },
@@ -226,12 +238,18 @@ interface EnumeratedHouse {
     readonly perStorey: ReadonlyArray<{ readonly storeyIndex: number; readonly options: ScoredLayoutOption[] }>;
     readonly footprint: { x: number; z: number }[];
     readonly core: StairCoreShaped | null;
+    /** The stair-core rect in the LAYOUT (principal-axis) frame (mm). On an
+     *  axis-aligned plot this equals the world rect (angle 0). */
     readonly coreRect: { x: number; y: number; w: number; h: number } | null;
     readonly totalRisers: number;
     readonly floorToFloorM: number;
     readonly baseElevationM: number;
     readonly levelIdForStorey: (i: number) => string;
     readonly roofKind: RoofKind;
+    /** A.21.D24 — the layout's principal-axis angle (rad) + world pivot the stair
+     *  rect/flights are rotated back by. 0 / footprint-centroid for axis-aligned. */
+    readonly principalAxisRad: number;
+    readonly pivot: { x: number; z: number };
 }
 
 /** Enumerate up to `count` options per storey via the UNCHANGED apartment engine.
@@ -252,30 +270,59 @@ function enumeratePerStorey(
 
     const footprint = (shell.perimeter as Pt[]).map(p => ({ x: p.x, z: p.z }));
 
+    // §PRINCIPAL-AXIS / A.21.D24 — the layout's dominant-edge angle + world pivot.
+    // The per-storey D-TGL engine lays out axis-aligned in this rotated frame, so we
+    // reserve the stair core in the SAME rotated frame (a tight rect aligned with
+    // the rotated walls) and carry the angle/pivot so the editor rotates the stair
+    // back to world. Axis-aligned plots (rectangle / L / U / T) → angle 0 → the
+    // footprint passes through unrotated and the core rect is bit-identical (no
+    // regression). Mirrors PRINCIPAL_AXIS_MIN_RAD (~0.6°) in runDeterministicLayout.
+    const rawAngle = principalAxisAngle(footprint);
+    const principalAxisRad = Math.abs(rawAngle) >= 0.01 ? rawAngle : 0;
+    const pivot = footprint.length > 0
+        ? footprint.reduce((a, p) => ({ x: a.x + p.x, z: a.z + p.z }), { x: 0, z: 0 })
+        : { x: 0, z: 0 };
+    if (footprint.length > 0) { pivot.x /= footprint.length; pivot.z /= footprint.length; }
+    // The footprint expressed in the rotated (layout/principal-axis) frame.
+    const footprintLayout = principalAxisRad === 0
+        ? footprint
+        : footprint.map(p => rotatePt(p, -principalAxisRad, pivot));
+
     // (a) split the brief across storeys.
     const storeyPrograms = allocateProgramToStoreys(program, storeyCount);
 
     // (b) reserve the shared stair core (mm) + choose its shape (I/L/U). Only
     // meaningful for ≥2 storeys. `totalRisers` (from the floor-to-floor gap) drives
-    // the L/U flight split (A.21.D18).
+    // the L/U flight split (A.21.D18). Reserved in the rotated LAYOUT frame so the
+    // rect sits squarely against the rotated plate (A.21.D24).
     const totalRisers = totalRisersForGap(floorToFloorM);
     const core: StairCoreShaped | null =
-        storeyCount > 1 ? reserveStairCoreShaped(footprint, storeyCount, totalRisers) : null;
-    const coreRect = core ? core.rectMm : null;
+        storeyCount > 1 ? reserveStairCoreShaped(footprintLayout, storeyCount, totalRisers) : null;
+    const coreRect = core ? core.rectMm : null;   // in the LAYOUT frame (mm)
     const coreAreaM2 = coreRect ? stairCoreAreaM2(coreRect) : 0;
 
     // §STAIR-KEEPOUT (A.21.D21, SPEC-CASA §7) — the core rect as a WORLD-XZ keep-out
     // (mm → metres). Threaded into the per-storey D-TGL call so the subdivider carves
     // the core out of the buildable region: rooms/partitions never tile across the
     // stair (resolves Deviation A — the old area-shrink reduced the budget but left
-    // the core's LOCATION un-carved, so a partition could still cross the run). The
-    // footprint is in world metres, so the core rect (world) needs no frame change
-    // here; runDeterministicLayout maps it into its principal-axis frame internally.
+    // the core's LOCATION un-carved, so a partition could still cross the run).
+    // A.21.D24: `coreRect` is now in the LAYOUT frame, so map its corners BACK to
+    // world (+angle about pivot) → a genuine world-XZ rect. runDeterministicLayout
+    // then maps it back into the engine's principal-axis frame internally (the same
+    // −angle as the shell), so the round-trip is exact and the keep-out lands tight.
     const keepOutRectsWorld = coreRect
-        ? [{
-            x0: coreRect.x / 1000, z0: coreRect.y / 1000,
-            x1: (coreRect.x + coreRect.w) / 1000, z1: (coreRect.y + coreRect.h) / 1000,
-        }]
+        ? (() => {
+            const corners = [
+                { x: coreRect.x / 1000, z: coreRect.y / 1000 },
+                { x: (coreRect.x + coreRect.w) / 1000, z: coreRect.y / 1000 },
+                { x: (coreRect.x + coreRect.w) / 1000, z: (coreRect.y + coreRect.h) / 1000 },
+                { x: coreRect.x / 1000, z: (coreRect.y + coreRect.h) / 1000 },
+            ].map(c => principalAxisRad === 0 ? c : rotatePt(c, principalAxisRad, pivot));
+            return [{
+                x0: Math.min(...corners.map(c => c.x)), z0: Math.min(...corners.map(c => c.z)),
+                x1: Math.max(...corners.map(c => c.x)), z1: Math.max(...corners.map(c => c.z)),
+            }];
+        })()
         : undefined;
 
     // (c) per-storey layout via the UNCHANGED single-plate engine — enumerate up
@@ -330,6 +377,7 @@ function enumeratePerStorey(
     return {
         perStorey, footprint, core, coreRect, totalRisers,
         floorToFloorM, baseElevationM, levelIdForStorey, roofKind,
+        principalAxisRad, pivot,
     };
 }
 
@@ -342,7 +390,7 @@ function assembleHouse(
     h: EnumeratedHouse,
     select: (storeyIndex: number, options: ScoredLayoutOption[]) => ScoredLayoutOption | null,
 ): HouseLayoutResult {
-    const { footprint, core, coreRect, totalRisers, floorToFloorM, baseElevationM, levelIdForStorey, roofKind } = h;
+    const { footprint, core, coreRect, totalRisers, floorToFloorM, baseElevationM, levelIdForStorey, roofKind, principalAxisRad, pivot } = h;
 
     const storeys: StoreyPlate[] = [];
     const perStoreyLayout: ScoredLayoutOption[] = [];
@@ -372,7 +420,9 @@ function assembleHouse(
     // editor emits the matching CreateStairInput directly (A.21.D18).
     const stairs: StairCore[] = [];
     if (core && coreRect && storeys.length >= 2) {
-        const flights = resolveFlightPlans(core, totalRisers);
+        // A.21.D24 — flight directions resolved in the LAYOUT frame then rotated
+        // back to world by +principalAxisRad so the run aligns with the rotated plate.
+        const flights = resolveFlightPlans(core, totalRisers, principalAxisRad);
         for (let i = 0; i < storeys.length - 1; i++) {
             stairs.push({
                 rectMm: { ...coreRect },
@@ -384,6 +434,10 @@ function assembleHouse(
                     ? { landingDepthM: core.landingDepthM, risersBeforeLanding: core.risersBeforeLanding }
                     : {}),
                 footprintMm: { w: coreRect.w, h: coreRect.h },
+                // A.21.D24 — the angle + pivot the editor rotates the stair footprint
+                // (startPosition / startOverride) back to world by (+angle about pivot).
+                principalAxisRad,
+                pivot: { x: pivot.x, z: pivot.z },
             });
         }
     }

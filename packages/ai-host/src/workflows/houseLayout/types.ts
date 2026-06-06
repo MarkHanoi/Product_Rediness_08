@@ -87,6 +87,20 @@ export interface StairCore {
     readonly risersBeforeLanding?: number;
     /** A.21.D18 — the core footprint (mm) the shape was sized for (== rectMm.w/h). */
     readonly footprintMm: { readonly w: number; readonly h: number };
+    /**
+     * A.21.D24 — the layout's principal-axis angle (radians). On a SKEWED plot the
+     * D-TGL engine rotates the whole layout to its dominant-edge orientation, lays
+     * out axis-aligned in that frame, then rotates walls/rooms back to world by
+     * `+principalAxisRad` about `pivot`. The stair core `rectMm` + `flights` are
+     * authored in that SAME rotated (layout) frame; the editor executor rotates the
+     * stair's footprint + flight directions back to world by `+principalAxisRad`
+     * about `pivot` so the stair sits squarely within the rotated floor plate. 0 for
+     * an axis-aligned (rectangle / L / U / T) plot → no rotation (bit-identical).
+     */
+    readonly principalAxisRad: number;
+    /** A.21.D24 — the world-XZ pivot (metres) the principal-axis rotation turns
+     *  about (the footprint centroid). Paired with `principalAxisRad`. */
+    readonly pivot: { readonly x: number; readonly z: number };
 }
 
 /**

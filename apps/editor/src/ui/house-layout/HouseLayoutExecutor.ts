@@ -510,13 +510,19 @@ export class HouseLayoutExecutor {
             const width = STAIR_WIDTH_M;
             const tread = STAIR_TREAD_M;
 
-            // Flight 1 direction along the longer axis; flight 2 (L/U) follows the
-            // engine's resolved directions (carried on stair.flights). Fall back to
-            // an I run if the engine didn't carry flights (older results).
+            // §A.21.D24 — the layout's principal-axis angle + world pivot. `rectMm` is
+            // authored in the rotated LAYOUT frame, so we build the stair geometry
+            // (start position + flight overrides) IN that frame using LAYOUT-frame
+            // directions, then rotate the rigid body back to world by +angle about the
+            // pivot. The engine's `stair.flights[].direction` are ALREADY rotated to
+            // world, so they replace the layout directions on the final flights. On an
+            // axis-aligned plot angle === 0 → identity → byte-identical to the old path.
+            const principalAxisRad = stair.principalAxisRad ?? 0;
+            const pivot = stair.pivot ?? { x: 0, z: 0 };
+
+            // Flight 1 direction in the LAYOUT frame (along the core's longer axis).
             const engFlights = stair.flights && stair.flights.length > 0 ? stair.flights : null;
-            const dir1 = engFlights
-                ? engFlights[0]!.direction
-                : (runAlongZ ? { x: 0, y: 0, z: 1 } : { x: 1, y: 0, z: 0 });
+            const dir1Layout = runAlongZ ? { x: 0, y: 0, z: 1 } : { x: 1, y: 0, z: 0 };
 
             // Riser split (L/U). risersBeforeLanding from the engine, else ≈half.
             const before = engFlights && engFlights.length === 2
@@ -526,12 +532,28 @@ export class HouseLayoutExecutor {
             // === ftf (the command's ±50 mm gate keys off the SUM of riserCounts).
             const split = this._normaliseSplit(shape, totalRisers, before);
 
-            // Start position: near corner of the core, nudged so flight 1 sits inside.
-            const startPosition = runAlongZ
+            // Start position (LAYOUT frame): near corner of the core, nudged so flight
+            // 1 sits inside. startY is the world floor elevation (rotation-invariant).
+            const startLayout = runAlongZ
                 ? { x: x0 + wM / 2, y: startY, z: z0 }
                 : { x: x0, y: startY, z: z0 + hM / 2 };
 
-            const built = this._buildFlights(shape, startPosition, dir1, split, width, tread, engFlights);
+            // Build flights + landings in the LAYOUT frame (axis-aligned dir1Layout),
+            // so any startOverride (U-shape) is computed consistently in that frame.
+            const built = this._buildFlights(shape, startLayout, dir1Layout, split, width, tread, null);
+
+            // Rotate the rigid stair body back to WORLD (+angle about pivot): the
+            // start position + any per-flight startOverride. y (height) is untouched.
+            const startPosition = this._rotateXZ(startLayout, principalAxisRad, pivot);
+            const worldFlights: FlightInput[] = built.flights.map((f, idx) => ({
+                ...f,
+                // Prefer the engine's already-world-rotated direction; fall back to
+                // rotating the layout direction (older results without world flights).
+                direction: engFlights?.[idx]
+                    ? engFlights[idx]!.direction
+                    : this._unit(this._rotateXZDir(f.direction, principalAxisRad)),
+                ...(f.startOverride ? { startOverride: this._rotateXZ(f.startOverride, principalAxisRad, pivot) } : {}),
+            }));
 
             cm.execute?.(new CreateStairCommand({
                 id: createId('stair'),
@@ -542,7 +564,7 @@ export class HouseLayoutExecutor {
                 treadDepth: tread,
                 width,
                 startPosition,
-                flights: built.flights,
+                flights: worldFlights,
                 ...(built.landings.length > 0 ? { landings: built.landings } : {}),
                 ...(shape === 'L' ? { turnDirection: 'left' as const, stepsBeforeLanding: split.before } : {}),
                 ...(shape === 'U' ? { secondRunSide: 'left' as const, stepsBeforeLanding: split.before } : {}),
@@ -551,8 +573,32 @@ export class HouseLayoutExecutor {
                 // sized to the stair's full bounding footprint (covers L/U too).
             }), { source: 'HOUSE_PIPELINE_STAIR' });
             console.log('[house-layout] stair created', stair.fromLevelId, '→', stair.toLevelId,
-                `(${shape}, ${totalRisers} risers @ ${(riserHeight * 1000).toFixed(0)}mm)`);
+                `(${shape}, ${totalRisers} risers @ ${(riserHeight * 1000).toFixed(0)}mm`
+                + `${principalAxisRad !== 0 ? `, rot ${(principalAxisRad * 180 / Math.PI).toFixed(1)}°` : ''})`);
         } catch (e) { console.warn('[house-layout] stair create failed (skipped):', e); }
+    }
+
+    /** A.21.D24 — rotate a world point's XZ by `angleRad` about an XZ pivot (metres),
+     *  preserving y. Matches `rotatePt` (x' = px + dx·c − dz·s, z' = pz + dx·s + dz·c). */
+    private _rotateXZ(
+        p: { x: number; y: number; z: number },
+        angleRad: number,
+        pivot: { x: number; z: number },
+    ): { x: number; y: number; z: number } {
+        if (angleRad === 0) return { x: p.x, y: p.y, z: p.z };
+        const c = Math.cos(angleRad), s = Math.sin(angleRad);
+        const dx = p.x - pivot.x, dz = p.z - pivot.z;
+        return { x: pivot.x + dx * c - dz * s, y: p.y, z: pivot.z + dx * s + dz * c };
+    }
+
+    /** A.21.D24 — rotate a DIRECTION's XZ by `angleRad` about the origin (no pivot). */
+    private _rotateXZDir(
+        d: { x: number; y: number; z: number },
+        angleRad: number,
+    ): { x: number; y: number; z: number } {
+        if (angleRad === 0) return { x: d.x, y: d.y, z: d.z };
+        const c = Math.cos(angleRad), s = Math.sin(angleRad);
+        return { x: d.x * c - d.z * s, y: d.y, z: d.x * s + d.z * c };
     }
 
     /** Re-normalise the L/U riser split so the two flights sum to `totalRisers`
