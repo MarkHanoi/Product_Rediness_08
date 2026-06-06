@@ -229,6 +229,66 @@ export function principalAxisAngle(poly: readonly Pt[]): number {
     return angle;
 }
 
+// ── §STAIR-KEEPOUT (A.21.D21, 2026-06-06) ────────────────────────────────────
+//
+// A multi-storey HOUSE reserves a vertical stair core that must be a REAL spatial
+// keep-out: no room/partition may tile across it (SPEC-CASA §7 — resolves
+// Deviation A, which only shrank the area budget and left the core's LOCATION
+// un-carved, so partitions could still cross the stair). Subtracting the core rect
+// from the buildable rect set BEFORE subdivide means the subdivider never places a
+// room over the core and interior walls terminate at the core edge — a genuine
+// keep-out, not a post-hoc clip. Pure + deterministic; apartment path never passes
+// a hole, so its decomposition is bit-identical (additive helper, no existing
+// export changed).
+
+/** Subtract an axis-aligned `hole` from one `rect` via a guillotine split, yielding
+ *  0–4 non-overlapping sub-rects that together cover `rect \ hole`. Sub-cells thinner
+ *  than `minCellM` in either dimension are dropped (unusable slivers). When the hole
+ *  doesn't overlap, the original rect is returned unchanged. */
+function subtractRectFromRect(rect: Rect, hole: Rect, minCellM: number): Rect[] {
+    // Intersection of rect and hole.
+    const ix0 = Math.max(rect.x0, hole.x0);
+    const ix1 = Math.min(rect.x1, hole.x1);
+    const iz0 = Math.max(rect.z0, hole.z0);
+    const iz1 = Math.min(rect.z1, hole.z1);
+    if (ix1 - ix0 <= EPS || iz1 - iz0 <= EPS) return [rect];   // no real overlap
+
+    const out: Rect[] = [];
+    const push = (x0: number, z0: number, x1: number, z1: number): void => {
+        if (x1 - x0 >= minCellM && z1 - z0 >= minCellM) {
+            out.push({ x0: round6(x0), z0: round6(z0), x1: round6(x1), z1: round6(z1) });
+        }
+    };
+    // Bottom band (below the hole), spanning the rect's full width.
+    push(rect.x0, rect.z0, rect.x1, iz0);
+    // Top band (above the hole), spanning the rect's full width.
+    push(rect.x0, iz1, rect.x1, rect.z1);
+    // Left band (beside the hole), only across the hole's z-extent.
+    push(rect.x0, iz0, ix0, iz1);
+    // Right band (beside the hole), only across the hole's z-extent.
+    push(ix1, iz0, rect.x1, iz1);
+    return out;
+}
+
+/**
+ * Subtract one or more axis-aligned `holes` from a set of `rects`, returning the
+ * covering rect set of `(⋃rects) \ (⋃holes)`. Each hole is guillotine-subtracted
+ * from every (possibly already-split) rect in turn. Slivers thinner than `minCellM`
+ * are dropped. Empty `holes` ⇒ the input rects unchanged (no-op). Pure + deterministic.
+ */
+export function subtractRectsFromRects(
+    rects: readonly Rect[], holes: readonly Rect[], minCellM = 0.5,
+): Rect[] {
+    if (holes.length === 0) return rects.map(r => ({ ...r }));
+    let cur: Rect[] = rects.map(r => ({ ...r }));
+    for (const hole of holes) {
+        const next: Rect[] = [];
+        for (const r of cur) next.push(...subtractRectFromRect(r, hole, minCellM));
+        cur = next;
+    }
+    return cur;
+}
+
 /** Greedy-merge rectangles that share a vertical seam (a.x1 === b.x0) and the
  *  same [z0,z1] band — collapses a sliced rectangle back into one. */
 export function mergeHorizontally(rects: readonly Rect[]): Rect[] {

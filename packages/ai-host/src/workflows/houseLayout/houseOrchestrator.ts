@@ -160,6 +160,20 @@ export function generateHouseLayout(
     const coreRect = core ? core.rectMm : null;
     const coreAreaM2 = coreRect ? stairCoreAreaM2(coreRect) : 0;
 
+    // §STAIR-KEEPOUT (A.21.D21, SPEC-CASA §7) — the core rect as a WORLD-XZ keep-out
+    // (mm → metres). Threaded into the per-storey D-TGL call so the subdivider carves
+    // the core out of the buildable region: rooms/partitions never tile across the
+    // stair (resolves Deviation A — the old area-shrink reduced the budget but left
+    // the core's LOCATION un-carved, so a partition could still cross the run). The
+    // footprint is in world metres, so the core rect (world) needs no frame change
+    // here; runDeterministicLayout maps it into its principal-axis frame internally.
+    const keepOutRectsWorld = coreRect
+        ? [{
+            x0: coreRect.x / 1000, z0: coreRect.y / 1000,
+            x1: (coreRect.x + coreRect.w) / 1000, z1: (coreRect.y + coreRect.h) / 1000,
+        }]
+        : undefined;
+
     // (c) per-storey layout via the UNCHANGED single-plate engine.
     const storeys: StoreyPlate[] = [];
     const perStoreyLayout: ScoredLayoutOption[] = [];
@@ -204,6 +218,9 @@ export function generateHouseLayout(
             // House-aware envelope gate: judge the plate by its FULL programme, not
             // bedroom count. Replaces the per-storey area-clamp kludge (Deviation B).
             validateHouseStorey,
+            // §STAIR-KEEPOUT (A.21.D21) — carve the stair core out of every storey's
+            // buildable region (incl. the ground floor, so the run is clear there too).
+            keepOutRectsWorld,
         );
         // option[0] (best-first). If the plate can't be decomposed the engine
         // returns [] — we still record a (possibly empty) plate so the stack and

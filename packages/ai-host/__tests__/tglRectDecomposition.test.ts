@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     decomposeToRects, mergeHorizontally, polygonBBox, rectArea, rectCenter,
-    rectifyConvexQuad, principalAxisAngle, rotatePoly,
+    rectifyConvexQuad, principalAxisAngle, rotatePoly, subtractRectsFromRects,
     type Pt, type Rect,
 } from '../src/workflows/apartmentLayout/tgl/rectDecomposition.js';
 
@@ -47,6 +47,38 @@ describe('decomposeToRects (TGL P1)', () => {
             expect(r.x1).toBeLessThanOrEqual(bb.x1 + 1e-6);
             expect(r.z0).toBeGreaterThanOrEqual(bb.z0 - 1e-6);
             expect(r.z1).toBeLessThanOrEqual(bb.z1 + 1e-6);
+        }
+    });
+
+    it('§STAIR-KEEPOUT: subtractRectsFromRects carves a central hole, no sub-rect overlaps it', () => {
+        // 12×10 plate with a central 1×3 m stair core carved out.
+        const plate: Rect[] = [{ x0: 0, z0: 0, x1: 12, z1: 10 }];
+        const hole: Rect = { x0: 5.5, z0: 3.5, x1: 6.5, z1: 6.5 };
+        const out = subtractRectsFromRects(plate, [hole]);
+        // Area conservation: plate − hole = 120 − 3 = 117 m².
+        expect(sumArea(out)).toBeCloseTo(120 - rectArea(hole), 4);
+        // NO output rect overlaps the hole interior.
+        for (const r of out) {
+            const overlap = r.x0 < hole.x1 - 1e-6 && r.x1 > hole.x0 + 1e-6 &&
+                            r.z0 < hole.z1 - 1e-6 && r.z1 > hole.z0 + 1e-6;
+            expect(overlap).toBe(false);
+        }
+    });
+
+    it('§STAIR-KEEPOUT: empty holes ⇒ rects unchanged (apartment no-op path)', () => {
+        const plate: Rect[] = [{ x0: 0, z0: 0, x1: 12, z1: 10 }];
+        expect(subtractRectsFromRects(plate, [])).toEqual(plate);
+    });
+
+    it('§STAIR-KEEPOUT: a hole touching an edge yields no slivers, area conserved', () => {
+        const plate: Rect[] = [{ x0: 0, z0: 0, x1: 10, z1: 8 }];
+        const hole: Rect = { x0: 0, z0: 0, x1: 2, z1: 3 };   // corner-anchored core
+        const out = subtractRectsFromRects(plate, [hole]);
+        expect(sumArea(out)).toBeCloseTo(80 - 6, 4);
+        for (const r of out) {
+            const overlap = r.x0 < hole.x1 - 1e-6 && r.x1 > hole.x0 + 1e-6 &&
+                            r.z0 < hole.z1 - 1e-6 && r.z1 > hole.z0 + 1e-6;
+            expect(overlap).toBe(false);
         }
     });
 

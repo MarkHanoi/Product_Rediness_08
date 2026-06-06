@@ -263,10 +263,63 @@ eave param — pitch is expressed via `slope` (rise/run) and the eave via `overh
 (there is no separate fascia-driven eave). The executor converts `pitchDeg → slope`
 accordingly; flat roofs get `overhang: 0` and no slope.
 
+**§7.2 ROOF FRAME (A.21.D21, SHIPPED) — Defect 2 fix.** The founder's first live
+multi-storey HOUSE rendered the roof **offset off the footprint** (a parallelogram
+shifted to one side, appearing to float). **Root cause:** the `RoofFootprint` contract
+(`RoofTool._normalisePolygon` → `RoofFragmentBuilder`) is **`polygon` = CENTROID-LOCAL,
+`centroid` = the world anchor** — the fragment builder positions the roof root group AT
+the centroid and adds the local-polygon mesh (it does **not**, unlike `SlabFragmentBuilder`,
+offset child meshes by −centroid). The house executor's `_createRoof` was passing the
+**absolute world** footprint polygon AND the world centroid, so every vertex landed at
+`world_poly + world_centroid` — double-counting the centroid → the visible offset.
+**Fix (`HouseLayoutExecutor._createRoof`, editor-only):** subtract the world centroid so
+`footprint.polygon` is centroid-LOCAL while `footprint.centroid` carries the world anchor;
+now `world vertex = centroid + local = true footprint`, so the roof sits **on** the
+building, aligned to the real outline. `roof.footprint` is unchanged in the engine — it
+is (and is asserted to be) the WORLD shell perimeter (`roof.footprint === shell.perimeter`).
+Elevation is unchanged: `baseOffset = top-storey wall height` with `autoBaseOffset: true`
+(roof sits on the top-storey wall head, `worldY = topLevel.elevation + baseOffset`).
+
 **Vertical alignment** — at minimum, the **exterior shell** must be identical on every
 storey (same footprint) so walls stack; the slab-replication primitive
 (`CreateAllSlabsFromLevelToAllFloorsCommand`) handles floors. Column/beam stacking is a
 later refinement (P-tier); v1 may ship without an explicit structural grid.
+
+### §7.3 — Stair keep-out + closed upper-storey perimeter (A.21.D21, SHIPPED)
+
+**Stair keep-out — RESOLVES Deviation A (§13.2).** The stair core is now a **real
+spatial keep-out**: no room or partition tiles across it. The orchestrator passes the
+core rect (world XZ, mm → m) as an OPTIONAL `keepOutRectsWorld` into the per-storey
+`generateDeterministicLayouts`. The engine maps it into its principal-axis frame
+(`runDeterministicLayout`, the same −angle map as the shell; axis-aligned in the common
+rectangular case), then `enumerate.buildCandidate` **subtracts** it from the decomposed
+buildable rect set (`subtractRectsFromRects`, a pure guillotine split in
+`rectDecomposition.ts`) BEFORE `subdivide`. The subdivider therefore never places a room
+over the core and interior walls terminate at the core edge — a **genuine keep-out, not a
+post-hoc clip** (option (a) of the design). The carve is inflated by a `KEEPOUT_MARGIN_M`
+= 0.05 m clearance ring (matching the subdivider's `ALIGNMENT_SNAP_EPS_M`) so the
+post-subdivide alignment snap can never nudge a room back into the actual stair footprint.
+The area-budget subtraction (Deviation A's original mechanism) is **kept** — it still sizes
+the bubble graph for the reduced area, now consistent with the physically-carved geometry.
+The core is carved on **every** storey (incl. the ground floor) so the run is clear top to
+bottom. **Apartment path is byte-identical** — it never passes `keepOutRectsWorld`
+(both new engine params default to `undefined`). Proof: `houseLayout.test.ts` asserts NO
+room bbox on ANY storey (2- and 3-storey) overlaps the core rect; `tglRectDecomposition.test.ts`
+asserts `subtractRectsFromRects` conserves area and emits no overlapping sub-rect.
+
+**Closed upper-storey perimeter — Defect 3 fix.** The ground storey reuses the pre-drawn
+shell (`skipExteriorWalls`). Each UPPER storey has **no** pre-existing shell. The prior
+build relied on the engine's own `isExternal` walls (emitted only where a room face touches
+a footprint edge — `semanticGraph: isExternal = boundsRoomIds.length === 1`); wherever the
+interior tiling did not reach an edge (a dropped room, the area cap, the carved stair core),
+that edge had **no wall** → the open-sided shell the founder hit. **Fix
+(`HouseLayoutExecutor`, editor-only):** every upper storey now EXPLICITLY emits the full
+footprint perimeter (one `wall.batch.create` per edge, pre-minted ids, `_buildPerimeterShell`),
+exactly like the ground shell, and sets `skipExteriorWalls: true` on BOTH ground and upper
+storeys so the engine's partial externals never duplicate it. The minted perimeter walls
+also serve as the storey's `shellWalls` so engine-emitted shell windows host on them (no
+read-back). Result: a CLOSED perimeter on EVERY storey, guaranteed by construction —
+independent of room coverage.
 
 ---
 
@@ -389,25 +442,26 @@ remains the target the editor wiring + A.21.h drive toward.
 | **A.21.f** stair auto-placement + stairwell void | §7 | ⚪ NOT STARTED (editor) | the orchestrator returns `stairs[]` + `voids[]`; the editor emits `CreateStairCommand` + auto-opening |
 | **A.21.g** vertical alignment v1 + slab replication | §7 | ✅ CORE (alignment) / ⚪ editor (slabs) | the footprint is identical on every `StoreyPlate` (walls stack); slab replication is the editor step |
 
-### §13.2 — Deviation A: stair core is an AREA-BUDGET reduction, not a polygon carve
+### §13.2 — Deviation A: stair core keep-out (A.21.D21 ✅ RESOLVED)
 
 §6 step 3 describes the stair core as "carved out as a fixed obstacle so rooms never overlap
-it". **The shipped code does NOT carve the polygon** — `generateDeterministicLayouts` is
-**frozen** (SPEC-TGL) and has **no obstacle parameter**. Carving would require editing the
-engine.
+it". The original A.21.c shipment did **not** carve the polygon — it only shrank the per-storey
+**area budget** (`netAreaM2 = trueArea − stairCoreArea`), which reduced total area but left the
+core's **LOCATION** un-carved, so partitions/walls could still be placed ACROSS the stair-core
+rect (the founder's "stairs crash into walls" defect).
 
-**As-built (`houseOrchestrator.ts`):** the orchestrator instead **shrinks the storey's usable
-area budget** — it hands the per-storey engine a `ShellAnalysis` whose
-`netAreaM2 = trueArea − stairCoreArea`. The bubble-graph area distribution (which keys off
-`netAreaM2`) then sizes rooms to fit the plate *without* the core, so generated rooms don't
-expand into the core's space. The perimeter/footprint is left intact (the shell still exists);
-only the area budget shrinks. The core itself is returned separately as a `StairCore` (mm
-rect) for the editor-wiring step to place the actual stair + punch the void. Single-storey
-houses subtract nothing (no stair).
+**RESOLVED (A.21.D21) — see §7.3.** `generateDeterministicLayouts` now takes an OPTIONAL
+`keepOutRectsWorld` (apartment path never passes it → byte-identical, the engine is NOT forked).
+The house orchestrator passes the stair-core rect; the engine subtracts it from the decomposed
+buildable rect set (`subtractRectsFromRects`, a pure guillotine split) BEFORE `subdivide`, with
+a 0.05 m clearance ring so the post-subdivide alignment snap can't re-encroach. This is a
+**genuine spatial keep-out (option (a))**: no room/partition tiles over the core, interior walls
+terminate at the core edge. The area-budget reduction is **kept** (it now matches the carved
+geometry — rooms are sized for the reduced area). Single-storey houses carve nothing (no stair).
 
-**Why it's acceptable:** the result is geometrically sound (rooms are sized to leave room for
-the core) without forking the frozen engine. The exact-obstacle carve remains the §6 target;
-it lands when (and if) the engine grows an obstacle param, or via A.21.h.
+**Proof:** `houseLayout.test.ts` asserts no room bbox on any storey (2- and 3-storey) overlaps
+the core rect; `tglRectDecomposition.test.ts` asserts the carve conserves area and emits no
+overlapping sub-rect. Full ai-host suite green (1716/1716).
 
 ### §13.3 — Deviation B: per-storey envelope clamp → REAL house envelope (A.21.h ✅ RESOLVED)
 

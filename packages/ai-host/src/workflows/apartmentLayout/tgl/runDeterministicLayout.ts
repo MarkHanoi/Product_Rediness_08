@@ -98,6 +98,13 @@ export function generateDeterministicLayouts(
     // gate (byte-identical apartment behaviour). The house orchestrator injects
     // `validateHouseStorey` so a house plate is judged by its full programme.
     envelopeValidator?: (args: { program: ApartmentProgram; grossAreaM2: number }) => import('../dimensions/types.js').DimensionalValidation,
+    // §STAIR-KEEPOUT (A.21.D21) — OPTIONAL axis-aligned WORLD-XZ keep-out rects
+    // (metres) — the vertical stair core(s) a multi-storey house reserves. Each is
+    // forward-mapped into the engine's principal-axis frame (the same −angle map as
+    // the shell), then subtracted from the decomposed plate BEFORE subdivide so no
+    // room/partition crosses the stair (SPEC-CASA §7). Absent ⇒ apartment path is
+    // bit-identical.
+    keepOutRectsWorld?: ReadonlyArray<{ x0: number; z0: number; x1: number; z1: number }>,
 ): ScoredLayoutOption[] {
     const perimeter = shell.perimeter as Pt[];
     if (!perimeter || perimeter.length < 3) return [];
@@ -134,6 +141,25 @@ export function generateDeterministicLayouts(
     const winSpans = angle === 0 ? windowSpansWorld : windowSpansWorld?.map(fwdSpan);
     const doorSpans = angle === 0 ? doorSpansWorld : doorSpansWorld?.map(fwdSpan);
 
+    // §STAIR-KEEPOUT (A.21.D21) — map each WORLD keep-out rect into the engine's
+    // principal-axis frame. When angle === 0 the rect passes straight through
+    // (house shells are typically axis-aligned). Otherwise we rotate the four
+    // corners by −angle about the pivot and take their axis-aligned bbox — a
+    // conservative cover of the core in the rotated frame (never under-reserves).
+    const keepOutEngine = keepOutRectsWorld?.map(r => {
+        if (angle === 0) return { x0: r.x0, z0: r.z0, x1: r.x1, z1: r.z1 };
+        const corners = [
+            rotatePt({ x: r.x0, z: r.z0 }, -angle, pivot),
+            rotatePt({ x: r.x1, z: r.z0 }, -angle, pivot),
+            rotatePt({ x: r.x1, z: r.z1 }, -angle, pivot),
+            rotatePt({ x: r.x0, z: r.z1 }, -angle, pivot),
+        ];
+        return {
+            x0: Math.min(...corners.map(c => c.x)), z0: Math.min(...corners.map(c => c.z)),
+            x1: Math.max(...corners.map(c => c.x)), z1: Math.max(...corners.map(c => c.z)),
+        };
+    });
+
     const candidates = enumerateLayouts({
         shellPolygon,
         program,
@@ -147,6 +173,7 @@ export function generateDeterministicLayouts(
         ...(winSpans && winSpans.length > 0 ? { windowSpansWorld: winSpans } : {}),
         ...(doorSpans && doorSpans.length > 0 ? { doorSpansWorld: doorSpans } : {}),
         ...(envelopeValidator ? { envelopeValidator } : {}),
+        ...(keepOutEngine && keepOutEngine.length > 0 ? { keepOutRects: keepOutEngine } : {}),
     });
 
     return candidates.map(c => {

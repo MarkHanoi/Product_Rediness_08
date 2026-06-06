@@ -408,6 +408,88 @@ describe('generateHouseLayout — roof', () => {
     });
 });
 
+// ───────────────────── §STAIR-KEEPOUT (A.21.D21, SPEC-CASA §7) ──────────────────
+//
+// Defect 4 — the stair core must be a REAL spatial keep-out: no room/partition may
+// tile across it (resolves Deviation A — the old area-shrink reduced the budget but
+// left the core's LOCATION un-carved). We assert that on EVERY storey of a multi-
+// storey house, no emitted room footprint overlaps the reserved stair-core rect.
+
+/** AABB-overlap of two mm rects with a tolerance (negative ⇒ shrink each box). */
+function rectsOverlap(
+    a: { x0: number; z0: number; x1: number; z1: number },
+    b: { x0: number; z0: number; x1: number; z1: number },
+    tolMm = 1,
+): boolean {
+    return a.x0 < b.x1 - tolMm && a.x1 > b.x0 + tolMm &&
+           a.z0 < b.z1 - tolMm && a.z1 > b.z0 + tolMm;
+}
+
+/** Axis-aligned bbox (mm) of a room's plan polygon ({x, y=plan-z}). */
+function roomBboxMm(room: { polygon?: ReadonlyArray<{ x: number; y: number }>; centroid?: { x: number; y: number } }):
+    { x0: number; z0: number; x1: number; z1: number } | null {
+    const poly = room.polygon;
+    if (!poly || poly.length < 3) return null;
+    let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
+    for (const p of poly) {
+        if (p.x < x0) x0 = p.x; if (p.x > x1) x1 = p.x;
+        if (p.y < z0) z0 = p.y; if (p.y > z1) z1 = p.y;
+    }
+    return { x0, z0, x1, z1 };
+}
+
+describe('generateHouseLayout — stair core keep-out (Defect 4, §7)', () => {
+    const res = generateHouseLayout(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 });
+    const core = res.stairs[0]!.rectMm;
+    const coreRect = { x0: core.x, z0: core.y, x1: core.x + core.w, z1: core.y + core.h };
+
+    it('the reserved core is a positive, sane rect (mm)', () => {
+        expect(core.w).toBeGreaterThan(0);
+        expect(core.h).toBeGreaterThan(0);
+    });
+
+    it('NO room on ANY storey overlaps the stair-core rect (genuine keep-out)', () => {
+        let checked = 0;
+        for (const layout of res.perStoreyLayout) {
+            for (const room of layout.rooms) {
+                const bb = roomBboxMm(room);
+                if (!bb) continue;
+                checked++;
+                expect(
+                    rectsOverlap(bb, coreRect),
+                    `room "${room.name}" bbox ${JSON.stringify(bb)} overlaps stair core ${JSON.stringify(coreRect)}`,
+                ).toBe(false);
+            }
+        }
+        // Guard against a vacuous pass — at least one room with a polygon was tested.
+        expect(checked).toBeGreaterThan(0);
+    });
+
+    it('holds for a 3-storey stack on every storey', () => {
+        const r3 = generateHouseLayout(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 3 });
+        const c = r3.stairs[0]!.rectMm;
+        const cr = { x0: c.x, z0: c.y, x1: c.x + c.w, z1: c.y + c.h };
+        for (const layout of r3.perStoreyLayout) {
+            for (const room of layout.rooms) {
+                const bb = roomBboxMm(room);
+                if (!bb) continue;
+                expect(rectsOverlap(bb, cr)).toBe(false);
+            }
+        }
+    });
+
+    it('single-storey house carves NOTHING (no stair → byte-identical apartment path)', () => {
+        // No keep-out is threaded for a 1-storey house (no core), so its layout must
+        // match generating WITHOUT the house orchestrator's keep-out machinery — i.e.
+        // the apartment single-plate result is untouched. We assert the orchestrator
+        // produced rooms and emitted no stairs/voids.
+        const r1 = generateHouseLayout(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 1 });
+        expect(r1.stairs).toHaveLength(0);
+        expect(r1.voids).toHaveLength(0);
+        expect(r1.perStoreyLayout[0]!.rooms.length).toBeGreaterThan(0);
+    });
+});
+
 describe('generateHouseLayout — determinism + edge cases', () => {
     it('is deterministic (same input → identical full result)', () => {
         const a = generateHouseLayout(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 });
