@@ -1,6 +1,6 @@
 # SPEC-CASA-UNIFAMILIAR-TYPOLOGY — Single-Family House (the second typology)
 
-**Status:** DRAFT (2026-06-05)
+**Status:** DRAFT (2026-06-05) — **multi-storey pure CORE shipped 2026-06-06; editor wiring (A.21.d–g) pending.** See §13 (as-built).
 **Owner:** TBD
 **Governs:** the `casa-unifamiliar` typology pack + its multi-storey generator, stair
 auto-placement, and editor wiring.
@@ -307,3 +307,94 @@ control; per-storey generation modal; level-selector + dollhouse explode result 
    a no-stair special case.
 4. Garage as a "room" vs a distinct element class? (Recommend a room-type with no
    ceiling/finish + a vehicle door element.)
+
+---
+
+## §13 — Implementation status / as-built (2026-06-06)
+
+The **multi-storey pure CORE shipped + merged** on 2026-06-06: the storey orchestrator,
+allocation policy, stair-core reservation, slab-void + roof descriptors, all in
+`packages/ai-host/src/workflows/houseLayout/` (36 tests; ai-host 1580/1580; zero regression;
+purely additive — no existing file changed). The **EDITOR WIRING follow-up (A.21.d–g) is NOT
+landed** — it needs live in-browser verification, so it is deliberately not done blind.
+
+This section is the honest map of §6/§7's forward design onto the shipped code, including the
+**two deviations** where the as-built differs from the SPEC's idealised pipeline. Where they
+differ, **the code is the source of truth for as-built**; the SPEC's forward design (§6/§7)
+remains the target the editor wiring + A.21.h drive toward.
+
+### §13.1 — A.21.a–g status map
+
+| Slice | SPEC § | Status | Where / note |
+|---|---|---|---|
+| **A.21.a** pack scaffold + manifest + brief + register | §5,§8 | ⚪ NOT STARTED | no `packages/typology-pack-casa-unifamiliar/` yet; casa is demoed via the apartment generator's single-storey bridge (A.21.a stopgap) |
+| **A.21.b** house program + room types + storey allocation | §3 | ✅ CORE | `houseLayout/storeyAllocation.ts` `allocateProgramToStoreys` + `types.ts` `StoreyProgram`/`StoreyRole`. The `RoomType` enum extension (stair/landing/garage/porch/terrace) + house `accessFrom` rules are folded into A.21.h (NOT yet done) |
+| **A.21.c** storey orchestrator (reuse D-TGL per plate) | §6 | ✅ SHIPPED | `houseLayout/houseOrchestrator.ts` `generateHouseLayout(...)` + `stairCore.ts` `reserveStairCore(...)`; emits `HouseLayoutResult { storeys, perStoreyLayout, stairs, voids, roof }` |
+| **A.21.d** multi-level threading | §6 | ⚪ NOT STARTED (editor) | the `HouseLayoutResult` shape IS the contract the wiring consumes |
+| **A.21.e** level creation + per-storey command fan-out | §7 | ⚪ NOT STARTED (editor) | executor mints L1…Ln via `AddLevelCommand` |
+| **A.21.f** stair auto-placement + stairwell void | §7 | ⚪ NOT STARTED (editor) | the orchestrator returns `stairs[]` + `voids[]`; the editor emits `CreateStairCommand` + auto-opening |
+| **A.21.g** vertical alignment v1 + slab replication | §7 | ✅ CORE (alignment) / ⚪ editor (slabs) | the footprint is identical on every `StoreyPlate` (walls stack); slab replication is the editor step |
+
+### §13.2 — Deviation A: stair core is an AREA-BUDGET reduction, not a polygon carve
+
+§6 step 3 describes the stair core as "carved out as a fixed obstacle so rooms never overlap
+it". **The shipped code does NOT carve the polygon** — `generateDeterministicLayouts` is
+**frozen** (SPEC-TGL) and has **no obstacle parameter**. Carving would require editing the
+engine.
+
+**As-built (`houseOrchestrator.ts`):** the orchestrator instead **shrinks the storey's usable
+area budget** — it hands the per-storey engine a `ShellAnalysis` whose
+`netAreaM2 = trueArea − stairCoreArea`. The bubble-graph area distribution (which keys off
+`netAreaM2`) then sizes rooms to fit the plate *without* the core, so generated rooms don't
+expand into the core's space. The perimeter/footprint is left intact (the shell still exists);
+only the area budget shrinks. The core itself is returned separately as a `StairCore` (mm
+rect) for the editor-wiring step to place the actual stair + punch the void. Single-storey
+houses subtract nothing (no stair).
+
+**Why it's acceptable:** the result is geometrically sound (rooms are sized to leave room for
+the core) without forking the frozen engine. The exact-obstacle carve remains the §6 target;
+it lands when (and if) the engine grows an obstacle param, or via A.21.h.
+
+### §13.3 — Deviation B: per-storey envelope CLAMP to work around the §D3.5 apartment gate
+
+§6 reuses the apartment per-storey engine unchanged. But that engine runs the apartment
+**§D3.5 envelope gate**, which HARD-rejects when gross area is absurd *for the bedroom count
+alone* — it can't see that a house **ground floor**'s area is consumed by living/kitchen/dining
+rather than bedrooms. A large house plate with a low per-storey bedroom count (e.g. a 120 m²
+ground floor with one guest bedroom) trips the gate and the engine returns `[]`.
+
+**As-built (`houseOrchestrator.ts`):** to keep every storey producing a real layout **without
+editing the frozen engine**, the orchestrator **clamps the area it passes into the engine** into
+the admissible band `apartmentDimensionsFor(bedrooms).{grossMin, grossMax}` for that storey's
+bedroom count. The TRUE footprint (walls/elevations) is unchanged — only the room-budget the
+bubble graph subdivides is clamped, so the gate passes and rooms are sized sensibly.
+
+**Workaround status:** this is explicitly a **stopgap to be REPLACED under A.21.h** by a real
+**house envelope validator** that counts non-bedroom area (living/kitchen/dining/garage)
+properly, so the gate admits a house ground floor on its merits rather than via a clamp.
+
+### §13.4 — Editor wiring is NOT landed (no console command yet)
+
+The §9 UI + the editor onboarding wiring (§5 step 10, A.21.j) are **not implemented**. There is
+**no** `HouseLayoutExecutor` / `houseFromBoundary` / `houseLayoutTrigger` in `apps/editor/`
+today, and **no** `pryzmGenerateHouse(n)` console command is registered (it is named as a
+PLANNED A.21.j deliverable only). Consequently:
+
+- the typology/onboarding trigger hookup (`briefBootstrap.ts` `casa-unifamiliar` branch) is
+  pending (A.21.a/A.21.j);
+- the per-storey generation modal showing ALL storeys (A.21.k / tracker A.21.D10) is pending
+  and depends on the A.21.d–g result landing first;
+- single-undo-collapse of the multi-level level-creation + per-storey command fan-out
+  (one `runBatch`) is part of A.21.e, pending.
+
+The founder-reported "DESPITE I SELECTED 2 LEVELS ONLY ONE LEVEL WAS CREATED" (tracker
+A.21.D13) is exactly this gap: the live prod path is still the single-plate apartment
+generator; the `floors>1` brief value is read but nothing mints the upper levels until the
+A.21.d–g editor wiring lands + deploys.
+
+### §13.5 — Climate windows thread through the house core
+
+The orchestrator threads the climate-window inputs (SPEC-TGL D6) straight into each
+per-storey D-TGL call: `HouseLayoutOptions.solar = { latDeg, weight? }` is passed verbatim to
+`generateDeterministicLayouts(..., opts.solar)`, so a generated house puts windows on the
+sun-facing façade per storey with no extra wiring (no behaviour change when `solar` is absent).
