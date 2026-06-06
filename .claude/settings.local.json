@@ -146,7 +146,9 @@
       "Bash(pnpm --filter @pryzm/typology-pipeline run typecheck)",
       "Bash(pnpm --filter @pryzm/typology-pipeline test)",
       "Bash(awk '{print $NF}')",
-      "Bash(awk -F/ '{print $1\"/\"$2}')"
+      "Bash(awk -F/ '{print $1\"/\"$2}')",
+      "Bash(pnpm --filter @pryzm/editor exec vitest run __tests__/buildBuildingGraph.test.ts)",
+      "Bash(pnpm --filter @pryzm/geometry-furniture test)"
     ],
     "additionalDirectories": [
       "c:\\Users\\LENOVO\\.claude\\projects\\c--Users-LENOVO-OneDrive-Desktop-PRYZM-Product-Rediness-08\\memory"

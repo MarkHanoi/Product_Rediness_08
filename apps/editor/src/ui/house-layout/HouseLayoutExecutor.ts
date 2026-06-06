@@ -144,6 +144,16 @@ function analyseActiveShell(levelId: string): ShellAnalysis | null {
     return analyseShell(walls, { entranceWallId, windowCountByWall, orientationByWall });
 }
 
+/** §PERIMETER-SHELL (A.21.D21) — a freshly-minted explicit footprint perimeter for
+ *  an upper storey: the `wall.batch.create` payload (pre-minted ids) plus the same
+ *  walls projected as `ShellWall`s so engine-emitted shell windows resolve to them. */
+interface PerimeterShell {
+    /** `wall.batch.create` payload — one wall per footprint edge, pre-minted ids. */
+    readonly payload: { walls: ReadonlyArray<Record<string, unknown>>; levelId: string };
+    /** The same perimeter walls as ShellWall records (id + world XZ endpoints). */
+    readonly shellWalls: ReadonlyArray<{ id: string; start: { x: number; z: number }; end: { x: number; z: number } }>;
+}
+
 /** Result the executor returns to the caller (for logging / test assertions). */
 export interface HouseExecuteResult {
     readonly ok: boolean;
@@ -236,11 +246,25 @@ export class HouseLayoutExecutor {
             console.log('[house-layout] generated — storeys', result.storeys.length, 'stairs', result.stairs.length, 'voids', result.voids.length, 'roof', result.roof.kind);
 
             // The wall height per storey = floorToFloor (so partitions reach the
-            // slab above). Shell walls already exist on the GROUND level only; upper
-            // levels have no pre-existing shell, so we DON'T skip exterior walls
-            // there (the generator's per-storey walls include the perimeter for the
-            // upper plates). On the ground level we skip exteriors (shell exists).
+            // slab above).
             const wallHeightM = floorToFloorM;
+
+            // §PERIMETER-SHELL (A.21.D21, SPEC-CASA §7) — Defect 3 fix. The GROUND
+            // storey reuses the pre-drawn shell (skipExteriorWalls). Each UPPER storey
+            // has NO pre-existing shell. The previous build relied on the engine's
+            // own `isExternal` walls to close the upper perimeter — but the engine
+            // emits an external wall only where a ROOM FACE touches the footprint edge
+            // (semanticGraph: isExternal = boundsRoomIds.length === 1). Wherever the
+            // interior tiling doesn't reach an edge (a dropped room, the area-budget
+            // cap, the carved stair core), that edge has NO wall → the OPEN-SIDED
+            // shell the founder hit. FIX: for every upper storey we EXPLICITLY emit
+            // the full footprint perimeter (one wall per edge, pre-minted ids) exactly
+            // like the ground shell, and set skipExteriorWalls:true so the engine's
+            // partial externals never duplicate it. The minted perimeter walls also
+            // serve as the storey's `shellWalls` so engine-emitted shell windows
+            // resolve to them (no read-back). Result: a CLOSED perimeter on EVERY
+            // storey, guaranteed by construction — independent of room coverage.
+            const perimeterByLevel = new Map<string, PerimeterShell>();
 
             // Pre-build the per-storey command sets (pure, no mutation yet).
             const perStorey: Array<{ levelId: string; set: LayoutCommandSet; option: ScoredLayoutOption }> = [];
@@ -249,14 +273,22 @@ export class HouseLayoutExecutor {
                 const option = result.perStoreyLayout[i];
                 if (!option) { console.warn('[house-layout] storey', i, 'produced no layout option — skipping fan-out'); continue; }
                 const isGround = i === 0;
-                const shellWalls = isGround ? gatherShellWalls(storey.levelId) : [];
+                // Ground reuses the existing drawn shell; upper storeys get a freshly
+                // minted explicit perimeter (built + dispatched in the batch below).
+                const perimeter = isGround ? null : this._buildPerimeterShell(storey, wallHeightM);
+                if (perimeter) perimeterByLevel.set(storey.levelId, perimeter);
+                const shellWalls = isGround
+                    ? gatherShellWalls(storey.levelId)
+                    : (perimeter?.shellWalls ?? []);
                 const opts: LayoutExecuteOptions = {
                     levelId: storey.levelId,
                     baseElevationM: storey.elevationM,
                     wallHeightM,
-                    // Ground: shell already drawn → build interior partitions only.
-                    // Upper storeys: no shell exists yet → build the perimeter too.
-                    skipExteriorWalls: isGround,
+                    // Ground: shell already drawn. Upper storeys: explicit perimeter
+                    // emitted below → skip the engine's (partial) externals on BOTH so
+                    // we never duplicate a shell wall (coincident walls corrupt room
+                    // detection — the apartment invariant).
+                    skipExteriorWalls: true,
                     ...(shellWalls.length > 0 ? { shellWalls } : {}),
                 };
                 const set = buildLayoutCommands(option, opts, (p: IdPrefix) => createId(p));
@@ -274,12 +306,26 @@ export class HouseLayoutExecutor {
             //      wall.createOpening reads the committed wall store).
             // We dispatch walls + slabs + stairs + roof here; openings ride a
             // follow-up batch (the host walls must exist first). ──────────────────
-            const totalWallCount = perStorey.reduce((n, s) => n + s.set.wallIds.length, 0);
+            const totalWallCount = perStorey.reduce((n, s) => n + s.set.wallIds.length, 0)
+                + [...perimeterByLevel.values()].reduce((n, p) => n + p.payload.walls.length, 0);
             const allLevelIds = perStorey.map(s => s.levelId);
 
             batchCoordinator.runBatch(() => {
-                // 1. Walls per storey (async bus commands; we don't await — the
-                //    batch drains them, exactly like the apartment executor).
+                // 0. §PERIMETER-SHELL — explicit footprint perimeter for every UPPER
+                //    storey (the ground shell already exists). Dispatched FIRST so the
+                //    shell-hosted windows (resolved against these minted ids in the
+                //    follow-up openings batch) have their host walls committed.
+                for (const [levelId, perimeter] of perimeterByLevel) {
+                    try {
+                        const r = runtime.bus.executeCommand('wall.batch.create', perimeter.payload) as unknown;
+                        if (r && typeof (r as { catch?: unknown }).catch === 'function') {
+                            (r as Promise<unknown>).catch((e: unknown) => console.warn('[house-layout] perimeter wall.batch.create failed on', levelId, e));
+                        }
+                    } catch (e) { console.warn('[house-layout] perimeter wall.batch.create threw on', levelId, e); }
+                }
+
+                // 1. Interior partition walls per storey (async bus commands; we don't
+                //    await — the batch drains them, exactly like the apartment executor).
                 for (const s of perStorey) {
                     try {
                         const r = runtime.bus.executeCommand(s.set.wallBatch.command, s.set.wallBatch.payload) as unknown;
@@ -542,15 +588,66 @@ export class HouseLayoutExecutor {
         return { x: d.x / len, y: 0, z: d.z / len };
     }
 
+    /**
+     * §PERIMETER-SHELL (A.21.D21, SPEC-CASA §7) — build the explicit footprint
+     * perimeter for an UPPER storey: one wall per footprint edge, with PRE-MINTED ids
+     * (no read-back), stamped with the storey's levelId + height. Mirrors the ground
+     * shell drawn by houseFromBoundary so every storey closes the same way. Returns
+     * null for a degenerate (<3-vertex) footprint. The walls are also returned as
+     * ShellWall records so engine-emitted shell windows host on these ids.
+     */
+    private _buildPerimeterShell(storey: StoreyPlate, wallHeightM: number): PerimeterShell | null {
+        const poly = storey.footprint;
+        if (!poly || poly.length < 3) return null;
+        const walls: Array<Record<string, unknown>> = [];
+        const shellWalls: Array<{ id: string; start: { x: number; z: number }; end: { x: number; z: number } }> = [];
+        for (let i = 0; i < poly.length; i++) {
+            const a = poly[i]!;
+            const b = poly[(i + 1) % poly.length]!;
+            if (Math.hypot(b.x - a.x, b.z - a.z) < 0.05) continue;   // skip degenerate edge
+            const id = createId('wall');
+            walls.push({
+                id,
+                levelId: storey.levelId,
+                // Tuple baseLine carrying the storey's world Y (matches the apartment
+                // executePlan wall spec shape the batch handler consumes).
+                baseLine: [
+                    { x: a.x, y: storey.elevationM, z: a.z },
+                    { x: b.x, y: storey.elevationM, z: b.z },
+                ],
+                height: wallHeightM,
+                thickness: DEFAULT_SLAB_THICKNESS_M,   // 0.2 m exterior shell (matches houseFromBoundary)
+            });
+            shellWalls.push({ id, start: { x: a.x, z: a.z }, end: { x: b.x, z: b.z } });
+        }
+        if (walls.length < 3) return null;
+        return { payload: { walls, levelId: storey.levelId }, shellWalls };
+    }
+
     /** Cap the stack with a roof over the top storey footprint. */
     private _createRoof(cm: CommandManagerLike, roof: RoofDescriptor, wallHeightM: number): void {
         try {
             const poly: ReadonlyArray<{ x: number; z: number }> = roof.footprint;
             if (poly.length < 3) return;
-            const polygon: [number, number][] = poly.map((p: { x: number; z: number }) => [p.x, p.z] as [number, number]);
+            // §ROOF-FRAME (A.21.D21, SPEC-CASA §7.2) — Defect 2 root cause + fix.
+            // `roof.footprint` is in WORLD-XZ metres (the orchestrator copies
+            // `shell.perimeter`, the same world frame the walls use — confirmed by
+            // the engine's roof-footprint-==-shell test). The RoofFootprint contract
+            // (RoofTool._normalisePolygon → RoofFragmentBuilder) is: `polygon` is
+            // CENTROID-LOCAL and `centroid` carries the world anchor — the fragment
+            // builder positions the root group AT the centroid and adds the local-
+            // polygon mesh (it does NOT, unlike the slab builder, offset children by
+            // −centroid). Passing the ABSOLUTE world polygon as `polygon` (the prior
+            // bug) double-counted the centroid → the roof rendered offset off the
+            // footprint (the founder's "parallelogram shifted to one side, floating").
+            // FIX: subtract the world centroid so `polygon` is local; `centroid` =
+            // world. Now world vertex = centroid + local = the true footprint.
             let cx = 0, cz = 0;
             for (const p of poly) { cx += p.x; cz += p.z; }
             cx /= poly.length; cz /= poly.length;
+            const polygon: [number, number][] = poly.map(
+                (p: { x: number; z: number }) => [p.x - cx, p.z - cz] as [number, number],
+            );
             // A.21.D18 — domestic pitched roof. The engine carries a pitch in
             // DEGREES (gable default ~30°); CreateRoofCommand expects `slope` as
             // rise/run = tan(pitch). Convert so the roof gets a sensible domestic

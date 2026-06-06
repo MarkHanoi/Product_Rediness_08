@@ -11,7 +11,7 @@
 // layouts — but every emitted graph is in the canonical {x,z} frame.
 
 import type { ApartmentProgram, ScoringWeights } from '../types.js';
-import { decomposeToRects, polygonBBox, rectArea, type Pt, type Rect } from './rectDecomposition.js';
+import { decomposeToRects, polygonBBox, rectArea, subtractRectsFromRects, type Pt, type Rect } from './rectDecomposition.js';
 import { buildBubbleGraph, type BubbleGraph } from './bubbleGraph.js';
 import { subdivideWithReport, type DroppedRoom, type RoomPlacement } from './subdivide.js';
 import { buildWallsAndDoors, type BoundarySeg } from './wallsAndDoors.js';
@@ -60,6 +60,12 @@ export interface EnumerateInput {
      *  judged by its FULL programme, not bedroom count alone — WITHOUT forking the
      *  engine. Absent ⇒ byte-identical apartment behaviour. */
     readonly envelopeValidator?: (args: { program: ApartmentProgram; grossAreaM2: number }) => DimensionalValidation;
+    /** §STAIR-KEEPOUT (A.21.D21) — OPTIONAL axis-aligned keep-out rectangles in
+     *  the engine's plan frame (metres) — the vertical stair core(s) a multi-storey
+     *  house reserves. Subtracted from the decomposed shell BEFORE subdivide so no
+     *  room/partition ever tiles across the stair (SPEC-CASA §7). Apartment path
+     *  never passes any ⇒ decomposition is bit-identical. */
+    readonly keepOutRects?: readonly Rect[];
 }
 
 export interface TglCandidate {
@@ -110,6 +116,11 @@ export interface TglCandidate {
 
 const EPS = 1e-9;
 
+/** §STAIR-KEEPOUT (A.21.D21) — clearance ring (m) added around each stair-core
+ *  keep-out before carving. Matches the subdivider's ALIGNMENT_SNAP_EPS_M (0.05 m)
+ *  so a post-carve alignment snap can never push a room back into the real core. */
+const KEEPOUT_MARGIN_M = 0.05;
+
 interface Strategy { readonly axis: boolean; readonly order: 'fwd' | 'rev'; readonly mirror: boolean }
 const STRATEGIES: readonly Strategy[] = (() => {
     const out: Strategy[] = [];
@@ -136,8 +147,33 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     const bb = polygonBBox(input.shellPolygon);
     const t = makeTransform(bb, s);
     const polyT = input.shellPolygon.map(t.fwd);
-    const rectsT = decomposeToRects(polyT);
+    let rectsT = decomposeToRects(polyT);
     if (rectsT.length === 0) return null;
+
+    // §STAIR-KEEPOUT (A.21.D21) — carve the reserved stair core(s) out of the
+    // buildable rect set so no room/partition tiles across the stair. The keep-out
+    // rects arrive in the engine plan frame; map each into THIS strategy's frame
+    // (the same `t.fwd` the shell polygon went through — a mirror/swap transform
+    // keeps rectangles axis-aligned, so `xfRect` is exact) before subtracting.
+    //
+    // The carve is INFLATED by KEEPOUT_MARGIN_M on every side. Rationale: the
+    // subdivider runs a post-pass alignment snap (`snapAxisLines`, clustering edges
+    // within ALIGNMENT_SNAP_EPS_M = 0.05 m and snapping to the cluster mean), which
+    // can nudge a carved room edge a few cm BACK toward the core after subtraction.
+    // Reserving a 0.05 m clearance ring guarantees that even a worst-case snap leaves
+    // every room strictly clear of the actual stair footprint — a genuine keep-out,
+    // and an architecturally-correct clearance gap around the stair.
+    if (input.keepOutRects && input.keepOutRects.length > 0) {
+        const holesT = input.keepOutRects.map(r => {
+            const h = xfRect(r, t.fwd);
+            return {
+                x0: h.x0 - KEEPOUT_MARGIN_M, z0: h.z0 - KEEPOUT_MARGIN_M,
+                x1: h.x1 + KEEPOUT_MARGIN_M, z1: h.z1 + KEEPOUT_MARGIN_M,
+            };
+        });
+        rectsT = subtractRectsFromRects(rectsT, holesT);
+        if (rectsT.length === 0) return null;     // core consumed the whole plate
+    }
 
     // §L1-α-3 — pass shell polygon so the bubble graph carries a per-edge
     // FacadeValueField (env / facadeValueField.ts). No downstream consumer
