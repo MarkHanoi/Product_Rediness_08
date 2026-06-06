@@ -16,8 +16,12 @@
 
 import type { FloorPattern } from '@pryzm/core-app-model';
 
-/** Brief style chip — mirrors furnishLayout FurnishStyle. */
-export type FloorStyle = 'modern' | 'classic' | 'minimal' | 'warm';
+/**
+ * Canonical floor styles — mirror the A.21.D19 furnishLayout CanonicalStyle set
+ * (Nordic · Mediterranean · Minimalist · Classic). The legacy A.21.D4 chips
+ * (modern/minimal/warm) resolve to these via normaliseFloorStyle.
+ */
+export type FloorStyle = 'nordic' | 'mediterranean' | 'minimalist' | 'classic';
 
 export interface FloorFinishChoice {
     readonly finishColor: string;
@@ -38,37 +42,45 @@ const DRY_TILE_TYPES = new Set([
     'entrance', 'circulation',
 ]);
 
-/** Engineered-wood finishes per style — colour + plank layout + material label. */
+/** Engineered-wood finishes per style — colour + plank layout + material label.
+ *  A.21.D19: Nordic pale plank · Mediterranean warm honey · Minimalist seamless
+ *  pale · Classic dark walnut herringbone. */
 const TIMBER_BY_STYLE: Record<FloorStyle, FloorFinishChoice> = {
-    modern:  { finishColor: '#C9B68F', finishPattern: 'plank-90',          materialName: 'Engineered Oak — Natural' },
-    classic: { finishColor: '#8A5A33', finishPattern: 'plank-herringbone', materialName: 'Walnut — Herringbone' },
-    minimal: { finishColor: '#D8CDB6', finishPattern: 'plank-90',          materialName: 'Pale Ash Plank' },
-    warm:    { finishColor: '#B07C44', finishPattern: 'plank-90',          materialName: 'Honey Oak Plank' },
+    nordic:        { finishColor: '#E2D6BE', finishPattern: 'plank-90',          materialName: 'Pale Ash / Birch Plank' },
+    mediterranean: { finishColor: '#B07C44', finishPattern: 'plank-90',          materialName: 'Honey Oak Plank' },
+    minimalist:    { finishColor: '#D8CDB6', finishPattern: 'plank-90',          materialName: 'Pale Oak — Wide Plank' },
+    classic:       { finishColor: '#5A3A22', finishPattern: 'plank-herringbone', materialName: 'Dark Walnut — Herringbone' },
 };
 
-/** Porcelain tile for wet rooms — small format, cool stone tones. */
+/** Wet-room finishes — small/medium format tile, style-coherent tones. */
 const WET_TILE_BY_STYLE: Record<FloorStyle, FloorFinishChoice> = {
-    modern:  { finishColor: '#C7CCCF', finishPattern: 'tile-300x300', materialName: 'Porcelain — Grey Stone' },
-    classic: { finishColor: '#D6D0C4', finishPattern: 'tile-300x300', materialName: 'Porcelain — Travertine' },
-    minimal: { finishColor: '#D9DCDD', finishPattern: 'tile-600x600', materialName: 'Porcelain — Off-White' },
-    warm:    { finishColor: '#CFC3B0', finishPattern: 'tile-300x300', materialName: 'Porcelain — Sand' },
+    nordic:        { finishColor: '#D9DCDD', finishPattern: 'tile-600x600', materialName: 'Porcelain — Off-White' },
+    mediterranean: { finishColor: '#C8794D', finishPattern: 'tile-300x300', materialName: 'Terracotta — Ceramic' },
+    minimalist:    { finishColor: '#DCDCDC', finishPattern: 'tile-600x600', materialName: 'Large-Format Pale Tile' },
+    classic:       { finishColor: '#E7E0D2', finishPattern: 'tile-300x300', materialName: 'Marble — Veined White' },
 };
 
-/** Porcelain / large-format tile for kitchens & service / circulation. */
+/** Kitchen & service / circulation — larger-format tile, terrazzo or concrete. */
 const DRY_TILE_BY_STYLE: Record<FloorStyle, FloorFinishChoice> = {
-    modern:  { finishColor: '#D6D2C9', finishPattern: 'tile-600x600', materialName: 'Porcelain — Light Stone' },
-    classic: { finishColor: '#C9B79C', finishPattern: 'tile-600x300', materialName: 'Terracotta — Warm' },
-    minimal: { finishColor: '#E0DCD3', finishPattern: 'tile-600x600', materialName: 'Porcelain — Chalk' },
-    warm:    { finishColor: '#CDB68F', finishPattern: 'tile-600x600', materialName: 'Porcelain — Honey Stone' },
+    nordic:        { finishColor: '#E0DCD3', finishPattern: 'tile-600x600', materialName: 'Porcelain — Chalk' },
+    mediterranean: { finishColor: '#C8794D', finishPattern: 'tile-600x300', materialName: 'Terracotta Tile — Warm' },
+    minimalist:    { finishColor: '#DCDCDC', finishPattern: 'seamless',     materialName: 'Polished Concrete' },
+    classic:       { finishColor: '#E7E0D2', finishPattern: 'tile-600x600', materialName: 'Marble — Polished' },
 };
 
-/** Normalise an arbitrary style string to one of the four canonical chips. */
+/**
+ * Normalise an arbitrary style string to one of the four CANONICAL floor styles
+ * (Nordic · Mediterranean · Minimalist · Classic). Accepts the legacy A.21.D4
+ * chips (modern→minimalist, minimal→minimalist, warm→mediterranean) + synonyms.
+ * Default → 'nordic'.
+ */
 export function normaliseFloorStyle(style: string | undefined): FloorStyle {
-    const s = (style ?? '').toLowerCase();
+    const s = (style ?? '').toLowerCase().trim();
     if (s === 'classic' || s === 'traditional') return 'classic';
-    if (s === 'minimal' || s === 'minimalist' || s === 'scandinavian') return 'minimal';
-    if (s === 'warm' || s === 'rustic' || s === 'cozy' || s === 'cosy') return 'warm';
-    return 'modern';
+    if (s === 'mediterranean' || s === 'warm' || s === 'rustic' || s === 'cozy' || s === 'cosy') return 'mediterranean';
+    if (s === 'minimalist' || s === 'minimal' || s === 'modern' || s === 'contemporary') return 'minimalist';
+    if (s === 'nordic' || s === 'scandinavian' || s === 'scandi') return 'nordic';
+    return 'nordic';
 }
 
 /**

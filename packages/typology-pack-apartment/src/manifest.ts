@@ -90,13 +90,15 @@ export const APARTMENT_MANIFEST: TypologyManifest = TypologyManifestSchema.parse
                 kind: 'select',
                 id: 'style',
                 label: 'Style',
+                // A.21.D19 — four architecturally-grounded styles, each driving a
+                // distinct material + colour palette across furniture, floors + walls.
                 options: [
-                    { value: 'modern', label: 'Modern' },
+                    { value: 'nordic', label: 'Nordic' },
+                    { value: 'mediterranean', label: 'Mediterranean' },
+                    { value: 'minimalist', label: 'Minimalist' },
                     { value: 'classic', label: 'Classic' },
-                    { value: 'minimal', label: 'Minimal' },
-                    { value: 'warm', label: 'Warm' },
                 ],
-                default: 'modern',
+                default: 'nordic',
             },
             {
                 kind: 'toggle',
