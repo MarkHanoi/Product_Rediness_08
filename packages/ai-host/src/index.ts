@@ -257,6 +257,7 @@ export { DEFAULT_LAYOUT_FIXTURE } from './AnthropicRelay.js';
 // HouseLayoutExecutor (A.21.d–g) exactly as `buildLayoutCommands` is.
 export {
   generateHouseLayout,
+  generateHouseLayoutOptions,
   allocateProgramToStoreys,
   reserveStairCore,
   reserveStairCoreShaped,
@@ -265,6 +266,7 @@ export {
 export type {
   HouseLayoutOptions,
   HouseLayoutResult,
+  ScoredHouseLayoutOption,
   StoreyProgram,
   StoreyPlate,
   StoreyRole,

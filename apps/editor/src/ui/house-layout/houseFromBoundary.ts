@@ -19,7 +19,8 @@ import type { ApartmentProgram, ApartmentConstraints, ScoringWeights } from '@pr
 import { createId } from '@pryzm/schemas';
 import { resolveActiveLevelId } from '../apartment-layout/activeLevel.js';
 import { gatherLayoutPayload } from '../apartment-layout/gatherLayoutPayload.js';
-import { HouseLayoutExecutor, type HouseExecuteResult } from './HouseLayoutExecutor.js';
+import type { HouseExecuteResult } from './HouseLayoutExecutor.js';
+import { HouseLayoutController } from './HouseLayoutController.js';
 
 const WALL_DEFAULT_HEIGHT = 2.7;
 const WALL_DEFAULT_THICKNESS = 0.2;
@@ -47,7 +48,9 @@ export interface HouseFromBoundaryOptions {
     readonly programOverride?: Partial<ApartmentProgram>;
 }
 
-const _executor = new HouseLayoutExecutor();
+/** A.21.k — shared controller singleton: drives the "Choose a house layout"
+ *  modal so House gets layout-option parity with the apartment flow. */
+const _controller = new HouseLayoutController();
 
 function rectangleFootprint(width: number, depth: number): FootprintPoint[] {
     const hw = width / 2, hd = depth / 2;
@@ -112,27 +115,29 @@ export async function generateHouseFromBoundary(
 
         // 3) Gather the program/constraints/weights from the live stores (reusing
         //    the apartment payload gatherer so the house honours a captured brief),
-        //    then run the multi-storey executor.
+        //    then open the "Choose a house layout" modal (A.21.k). The controller
+        //    computes N variants + builds the chosen one on the user's pick — House
+        //    now gets the SAME layout-option modal the apartment flow shows.
         const payload = gatherLayoutPayload(levelId, opts?.programOverride);
         const program: ApartmentProgram = { ...(payload?.program ?? DEFAULT_PROGRAM), ...(opts?.programOverride ?? {}) };
         const constraints: ApartmentConstraints = payload?.constraints ?? DEFAULT_CONSTRAINTS;
         const weights: ScoringWeights = payload?.options?.scoringWeights ?? DEFAULT_WEIGHTS;
         const siteLat = payload?.siteLatitudeDeg;
 
-        toast(`Generating ${storeyCount}-storey house…`, 'info');
-        return await _executor.execute(
-            rt,
-            {
-                storeyCount,
-                ...(opts?.floorToFloorM ? { floorToFloorM: opts.floorToFloorM } : {}),
-                ...(opts?.roofKind ? { roofKind: opts.roofKind } : {}),
-                ...(opts?.programOverride ? { program: opts.programOverride } : {}),
-            },
+        toast(`Generating ${storeyCount}-storey house options…`, 'info');
+        const res = await _controller.request(rt, {
+            storeyCount,
             program,
             constraints,
             weights,
-            siteLat,
-        );
+            ...(opts?.floorToFloorM ? { floorToFloorM: opts.floorToFloorM } : {}),
+            ...(opts?.roofKind ? { roofKind: opts.roofKind } : {}),
+            ...(typeof siteLat === 'number' ? { siteLatitudeDeg: siteLat } : {}),
+        });
+        // The build happens on the user's modal pick — `ok` here means the modal
+        // opened with options (or that generation was attempted). Surface the
+        // request result in the HouseExecuteResult shape the caller expects.
+        return res.ok ? { ok: true } : { ok: false, reason: res.reason };
     } catch (err) {
         console.error('[house-from-boundary] threw:', err);
         toast(`House-from-boundary failed: ${String(err)}`, 'error');
@@ -161,12 +166,17 @@ export async function generateHouseInExistingShell(
         return { ok: false, reason: 'no shell' };
     }
     const program: ApartmentProgram = { ...(payload.program ?? DEFAULT_PROGRAM), ...(opts?.programOverride ?? {}) };
-    return _executor.execute(
-        rt,
-        { storeyCount, ...(opts?.floorToFloorM ? { floorToFloorM: opts.floorToFloorM } : {}), ...(opts?.roofKind ? { roofKind: opts.roofKind } : {}), ...(opts?.programOverride ? { program: opts.programOverride } : {}) },
+    const siteLat = payload.siteLatitudeDeg;
+    // A.21.k — open the "Choose a house layout" modal (parity with the apartment
+    // flow) instead of building option[0] silently.
+    const res = await _controller.request(rt, {
+        storeyCount,
         program,
-        payload.constraints ?? DEFAULT_CONSTRAINTS,
-        payload.options?.scoringWeights ?? DEFAULT_WEIGHTS,
-        payload.siteLatitudeDeg,
-    );
+        constraints: payload.constraints ?? DEFAULT_CONSTRAINTS,
+        weights: payload.options?.scoringWeights ?? DEFAULT_WEIGHTS,
+        ...(opts?.floorToFloorM ? { floorToFloorM: opts.floorToFloorM } : {}),
+        ...(opts?.roofKind ? { roofKind: opts.roofKind } : {}),
+        ...(typeof siteLat === 'number' ? { siteLatitudeDeg: siteLat } : {}),
+    });
+    return res.ok ? { ok: true } : { ok: false, reason: res.reason };
 }
