@@ -11,12 +11,18 @@ import {
   extractSemanticSnapshot,
   extractDependencySnapshot,
   extractConstraintSnapshot,
+  wallFacadeCompass,
+  kindFromId,
   type BuildBuildingGraphServices,
   type TopologyLayerLike,
   type RoomGraphServiceLike,
   type SemanticGraphManagerLike,
   type ConstraintSourceLike,
+  type RoomStoreLike,
+  type WallStoreLike,
+  type WindowStoreLike,
 } from '../src/engine/buildBuildingGraph.js';
+import { humanNodeLabel, nodeRationale } from '@pryzm/building-graph';
 
 // ── Fakes ─────────────────────────────────────────────────────────────────────
 
@@ -226,5 +232,111 @@ describe('extractors map live shapes → inputs.ts snapshots', () => {
       ]),
     );
     expect(snap.violations[0]).toMatchObject({ ruleId: 'r', elementId: 'e', severity: 'warning', message: 'm' });
+  });
+});
+
+// ── A.21.D16 — kind-from-id + façade compass (pure) ───────────────────────────
+
+describe('kindFromId', () => {
+  it('reads the element-id prefix as the node kind', () => {
+    expect(kindFromId('wall_01H8')).toBe('wall');
+    expect(kindFromId('room_01H8')).toBe('room');
+    expect(kindFromId('window_01H8')).toBe('window');
+  });
+  it('returns undefined for unknown or un-prefixed ids (→ generic element)', () => {
+    expect(kindFromId('mystery_01H8')).toBeUndefined();
+    expect(kindFromId('nounderscore')).toBeUndefined();
+  });
+});
+
+describe('wallFacadeCompass — outward normal → compass slug', () => {
+  // A horizontal wall (along world X) with the room to its SOUTH (+z) faces NORTH.
+  it('orients the outward normal away from the room centroid', () => {
+    const a = { x: 0, z: 0 };
+    const b = { x: 4, z: 0 };
+    expect(wallFacadeCompass(a, b, { x: 2, z: 2 })).toBe('north'); // room south → wall faces north
+    expect(wallFacadeCompass(a, b, { x: 2, z: -2 })).toBe('south'); // room north → wall faces south
+  });
+  it('returns null for a degenerate (zero-length) wall', () => {
+    expect(wallFacadeCompass({ x: 1, z: 1 }, { x: 1, z: 1 }, { x: 0, z: 0 })).toBeNull();
+  });
+});
+
+// ── A.21.D16 — enrichment: rich room props + window façade + adjacency ────────
+
+function fakeRoomStore(byId: Record<string, { name?: string; occupancy?: string; area?: number }>): RoomStoreLike {
+  return { getById: (id) => byId[id] ?? null };
+}
+function fakeWallStore(byId: Record<string, { baseLine?: Array<{ x: number; z: number }> }>): WallStoreLike {
+  return { getById: (id) => byId[id] ?? null };
+}
+function fakeWindowStore(wins: Array<{ id: string; wallId?: string; width?: number; height?: number }>): WindowStoreLike {
+  return { getAll: () => wins };
+}
+
+describe('buildBuildingGraph — A.21.D16 enrichment', () => {
+  it('stamps human room name/occupancy/area + emits room↔room adjacency', () => {
+    // RoomGraph carries adjacency on the node (adjacentRooms), RoomStore the names.
+    const nodes = new Map<string, { roomId: string; adjacentRooms?: string[] }>([
+      ['r_bed', { roomId: 'r_bed', adjacentRooms: ['r_kitchen'] }],
+      ['r_kitchen', { roomId: 'r_kitchen', adjacentRooms: ['r_bed'] }],
+    ]);
+    const roomGraph: RoomGraphServiceLike = {
+      getGraph: () => ({ levelId: 'L1', nodes, edges: new Map() }),
+    };
+    const g = buildBuildingGraph({
+      services: {
+        roomGraph,
+        levelIds: ['L1'],
+        roomStore: fakeRoomStore({
+          r_bed: { name: 'Master Bedroom', occupancy: 'bedroom', area: 14 },
+          r_kitchen: { name: 'Kitchen', occupancy: 'kitchen', area: 9 },
+        }),
+      },
+    });
+    expect(g.getNode('r_bed')?.props).toMatchObject({ name: 'Master Bedroom', occupancy: 'bedroom', area: 14 });
+    expect(humanNodeLabel(g.getNode('r_bed')!)).toBe('Master Bedroom');
+    // one symmetric adjacentTo edge (de-duped to the lower id)
+    const adj = g.query({ edgeType: 'adjacentTo' }).edges;
+    expect(adj).toHaveLength(1);
+    expect(adj[0]).toMatchObject({ from: 'r_bed', to: 'r_kitchen' });
+    // room rationale derives from occupancy
+    expect(nodeRationale(g.getNode('r_bed')!, g)?.reason).toMatch(/private room/);
+  });
+
+  it('materialises a window node with façade + hostedIn edge + daylight rationale', () => {
+    // A south-facing exterior wall bounds the living room (room to the north).
+    const g = buildBuildingGraph({
+      services: {
+        topology: { getAdjacencyRelationships: (id) =>
+          id === 'wall_s' ? [{ sourceId: 'wall_s', targetId: 'room_living', kind: 'intersects' }] : [] },
+        elementIds: ['wall_s', 'room_living'],
+        kindOf: kindFromId,
+        roomStore: fakeRoomStore({ room_living: { name: 'Living', occupancy: 'living', area: 22 } }),
+        wallStore: fakeWallStore({ wall_s: { baseLine: [{ x: 0, z: 0 }, { x: 5, z: 0 }] } }),
+        windowStore: fakeWindowStore([{ id: 'window_1', wallId: 'wall_s', width: 1.5, height: 1.2 }]),
+        latDeg: 51, // northern hemisphere → equator-facing = south
+      },
+    });
+    const win = g.getNode('window_1');
+    expect(win?.kind).toBe('window');
+    // room_living centroid is at z=0 (only the wall baseline is known); with the
+    // room to the north the wall faces south. Assert the façade resolved.
+    expect(typeof win?.props?.facade).toBe('string');
+    expect(g.query({ edgeType: 'hostedIn' }).edges).toMatchObject([{ from: 'window_1', to: 'wall_s' }]);
+    const why = nodeRationale(win!, g);
+    expect(why?.reason).toMatch(/façade/);
+  });
+
+  it('is a no-op when enrichment sources are absent (graph unchanged)', () => {
+    const g = buildBuildingGraph({
+      services: {
+        roomGraph: { getGraph: () => ({ levelId: 'L1', nodes: new Map([['r', { roomId: 'r' }]]), edges: new Map() }) },
+        levelIds: ['L1'],
+      },
+    });
+    // room node present but un-enriched (no name prop), no windows, no crash.
+    expect(g.getNode('r')?.kind).toBe('room');
+    expect(g.query({ kind: 'window' }).nodes).toHaveLength(0);
   });
 });

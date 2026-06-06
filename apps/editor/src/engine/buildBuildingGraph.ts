@@ -85,6 +85,50 @@ export interface SemanticGraphManagerLike {
   getAll(): ReadonlyArray<SemanticRelationshipInput & { metadata?: unknown }>;
 }
 
+// ── A.21.D16 enrichment: store shapes for richer node labels + rationale ──────
+// These power the "human label · room relationship · why it's here" surface. Each
+// is the MINIMAL read surface of the live element stores (window-registered), so
+// the editor needs no heavy package import. All OPTIONAL — absent ⇒ that piece of
+// enrichment is skipped (never fatal).
+
+/** One room as RoomStore.getById returns it (subset for labels + rationale). */
+export interface RoomRecordLike {
+  id?: string;
+  name?: string;
+  /** program tag — `'Bedroom'`, `'Bathroom'`, `'Kitchen'`… (Room.occupancy). */
+  occupancy?: string;
+  area?: number;
+}
+
+/** RoomStore subset — read a room record by id. */
+export interface RoomStoreLike {
+  getById(id: string): RoomRecordLike | undefined | null;
+}
+
+/** A wall record (subset) — baseLine endpoints in world-XZ, for façade math. */
+export interface WallRecordLike {
+  id?: string;
+  baseLine?: ReadonlyArray<{ x?: number; z?: number }>;
+}
+
+/** WallStore subset — read a wall by id (host-wall geometry for window façade). */
+export interface WallStoreLike {
+  getById(id: string): WallRecordLike | undefined | null;
+}
+
+/** A window record (subset) — its host wall + position, for façade + hostedIn. */
+export interface WindowRecordLike {
+  id?: string;
+  wallId?: string;
+  width?: number;
+  height?: number;
+}
+
+/** WindowStore subset — every window, so we can materialise window nodes. */
+export interface WindowStoreLike {
+  getAll(): ReadonlyArray<WindowRecordLike>;
+}
+
 /** Validation-report subset — the constraint violations to project. */
 interface RuleViolationLike {
   ruleId: string;
@@ -123,6 +167,16 @@ export interface BuildBuildingGraphServices {
   levelIds?: ReadonlyArray<string> | null;
   /** Optional id → UBG node-kind resolver for topology nodes (wall/room/…). */
   kindOf?: (id: string) => string | undefined;
+
+  // ── A.21.D16 enrichment sources (all optional) ────────────────────────────
+  /** RoomStore — stamps human name/occupancy/area onto room nodes. */
+  roomStore?: RoomStoreLike | null;
+  /** WallStore — host-wall geometry for window-façade orientation. */
+  wallStore?: WallStoreLike | null;
+  /** WindowStore — materialises window nodes (façade + hostedIn edge). */
+  windowStore?: WindowStoreLike | null;
+  /** Site latitude (decimal degrees) for the equator-facing daylight reason. */
+  latDeg?: number | null;
 }
 
 export interface BuildBuildingGraphOptions {
@@ -200,6 +254,199 @@ export function extractRoomGraphSnapshot(graph: RoomGraphLike): RoomGraphSnapsho
     }));
 
   return graph.levelId !== undefined ? { levelId: graph.levelId, nodes, edges } : { nodes, edges };
+}
+
+// ── A.21.D16 enrichment — human labels + element rationale data ───────────────
+//
+// These passes run AFTER the adapters and stamp the extra props the building-graph
+// rationale helpers read (facade / occupancy / role / latDeg). They are READ-ONLY
+// projections from the live stores — no store is mutated.
+
+/** The eight compass façade slugs the building-graph rationale understands. */
+type FacadeSlug =
+  | 'north' | 'south' | 'east' | 'west'
+  | 'northeast' | 'northwest' | 'southeast' | 'southwest';
+
+/**
+ * Compass façade for a wall, from its world-XZ baseLine outward normal pointing
+ * AWAY from the room centroid. Mirrors the CONCEPT of
+ * ai-host/.../windowEmission/solarOrientation.outwardNormal (we do NOT import
+ * ai-host across the layer boundary — this is the same maths re-expressed in the
+ * editor's world frame). LTP-ENU convention: world +x = East, scene −z = North,
+ * so a normal pointing toward −z is NORTH and toward +z is SOUTH.
+ *
+ * Returns null for a degenerate wall or when the room centroid is unknown.
+ */
+export function wallFacadeCompass(
+  a: { x?: number; z?: number },
+  b: { x?: number; z?: number },
+  roomCentroid: { x: number; z: number } | null,
+): FacadeSlug | null {
+  const ax = a?.x, az = a?.z, bx = b?.x, bz = b?.z;
+  if (
+    typeof ax !== 'number' || typeof az !== 'number' ||
+    typeof bx !== 'number' || typeof bz !== 'number'
+  ) {
+    return null;
+  }
+  const dx = bx - ax, dz = bz - az;
+  const len = Math.hypot(dx, dz);
+  if (len < 1e-6) return null;
+  // Two unit normals to the segment; pick the one pointing away from the room.
+  let nx = -dz / len, nz = dx / len;
+  if (roomCentroid) {
+    const mx = (ax + bx) / 2, mz = (az + bz) / 2;
+    if ((mx - roomCentroid.x) * nx + (mz - roomCentroid.z) * nz < 0) {
+      nx = -nx; nz = -nz;
+    }
+  }
+  // Map the (East = +x, North = −z) normal to a compass slug. Bias toward the
+  // four cardinals (±67.5° band) before falling back to the diagonals.
+  const eastish = nx, northish = -nz;
+  const ax2 = Math.abs(eastish), nz2 = Math.abs(northish);
+  const diagonal = Math.min(ax2, nz2) / Math.max(ax2, nz2 || 1) > 0.414; // tan(22.5°)
+  const ew = eastish >= 0 ? 'east' : 'west';
+  const ns = northish >= 0 ? 'north' : 'south';
+  if (diagonal) return `${ns}${ew}` as FacadeSlug;
+  return (nz2 >= ax2 ? ns : ew) as FacadeSlug;
+}
+
+/** Centroid (world-XZ) of a room from its bounding wall baselines. */
+function roomCentroidFrom(
+  roomId: string,
+  graph: BuildingGraph,
+  wallStore: WallStoreLike,
+): { x: number; z: number } | null {
+  // Use the room's bounding walls (`bounds` in-edges) to estimate a centroid.
+  let sx = 0, sz = 0, n = 0;
+  try {
+    for (const e of graph.inEdges(roomId, 'bounds')) {
+      const w = wallStore.getById(e.from);
+      const bl = w?.baseLine;
+      if (!bl || bl.length < 2) continue;
+      for (const p of bl) {
+        if (typeof p?.x === 'number' && typeof p?.z === 'number') {
+          sx += p.x; sz += p.z; n++;
+        }
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return n > 0 ? { x: sx / n, z: sz / n } : null;
+}
+
+/**
+ * Stamp human props onto room nodes (name / occupancy / area) and emit room-to-room
+ * `adjacentTo` edges from RoomGraphService adjacency. Read-only.
+ */
+export function enrichRoomNodes(
+  graph: BuildingGraph,
+  roomStore: RoomStoreLike | null | undefined,
+  roomGraph: RoomGraphServiceLike | null | undefined,
+  levelIds: ReadonlyArray<string> | null | undefined,
+): void {
+  if (roomStore) {
+    for (const node of graph.allNodes()) {
+      if (node.kind !== 'room') continue;
+      const rec = safeGet(() => roomStore.getById(node.id));
+      if (!rec) continue;
+      const extra: Record<string, unknown> = {};
+      if (typeof rec.name === 'string' && rec.name.length > 0) extra.name = rec.name;
+      if (typeof rec.occupancy === 'string' && rec.occupancy.length > 0) extra.occupancy = rec.occupancy;
+      if (typeof rec.area === 'number' && rec.area > 0) extra.area = rec.area;
+      if (Object.keys(extra).length > 0) {
+        graph.addNode({ ...node, props: { ...(node.props ?? {}), ...extra } });
+      }
+    }
+  }
+
+  // Room-to-room `adjacentTo` from each level's RoomGraph (rooms sharing a wall).
+  if (roomGraph && levelIds) {
+    for (const levelId of levelIds) {
+      const rg = safeGet(() => roomGraph.getGraph(levelId));
+      const nodes = asArray(rg?.nodes as never);
+      for (const rn of nodes as ReadonlyArray<{ roomId?: string; adjacentRooms?: string[] }>) {
+        if (!rn?.roomId) continue;
+        for (const other of rn.adjacentRooms ?? []) {
+          if (!other || other === rn.roomId) continue;
+          // De-dup symmetric pairs (a|b == b|a) by emitting only from the lower id.
+          if (rn.roomId > other) continue;
+          if (!graph.hasNode(other)) continue;
+          graph.addEdge({ from: rn.roomId, to: other, type: 'adjacentTo', evidence: 'roomAdjacency' });
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Materialise WINDOW nodes with the data the rationale reads: `facade` (host-wall
+ * outward normal), `latDeg` (site latitude), plus a `hostedIn` edge to the host
+ * wall and a `bounds`-derived host-wall role. Read-only.
+ */
+export function enrichWindowNodes(
+  graph: BuildingGraph,
+  windowStore: WindowStoreLike | null | undefined,
+  wallStore: WallStoreLike | null | undefined,
+  latDeg: number | null | undefined,
+): void {
+  if (!windowStore) return;
+  const windows = safeGet(() => windowStore.getAll()) ?? [];
+  for (const win of windows) {
+    const id = win?.id;
+    if (!id) continue;
+    const props: Record<string, unknown> = {};
+    if (typeof latDeg === 'number' && Number.isFinite(latDeg)) props.latDeg = latDeg;
+    if (typeof win.width === 'number') props.width = win.width;
+    if (typeof win.height === 'number') props.height = win.height;
+
+    const wallId = win.wallId;
+    if (wallId && wallStore) {
+      const wall = safeGet(() => wallStore.getById(wallId));
+      const bl = wall?.baseLine;
+      if (bl && bl.length >= 2) {
+        // The host wall bounds a room → use that room's centroid to orient the
+        // outward normal. If we can't find the room, the normal still resolves
+        // (just unsigned) — better a façade guess than none.
+        const room = firstBoundedRoom(graph, wallId);
+        const centroid = room ? roomCentroidFrom(room, graph, wallStore) : null;
+        const facade = wallFacadeCompass(bl[0]!, bl[1]!, centroid);
+        if (facade) props.facade = facade;
+      }
+    }
+
+    graph.addNode({
+      id,
+      kind: 'window',
+      props,
+      ...(wallId ? { refs: [wallId] } : {}),
+    });
+    if (wallId && graph.hasNode(wallId)) {
+      graph.addEdge({ from: id, to: wallId, type: 'hostedIn', evidence: 'windowHost' });
+    }
+  }
+}
+
+/** The first room a wall `bounds` (its bounds out-edge target), or null. */
+function firstBoundedRoom(graph: BuildingGraph, wallId: string): string | null {
+  try {
+    for (const e of graph.outEdges(wallId, 'bounds')) {
+      const n = graph.getNode(e.to);
+      if (n?.kind === 'room') return e.to;
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+function safeGet<T>(fn: () => T): T | undefined {
+  try {
+    return fn();
+  } catch {
+    return undefined;
+  }
 }
 
 /** Extract the semantic derivation relations into a plain semantic snapshot. */
@@ -332,6 +579,16 @@ export function buildBuildingGraph(opts: BuildBuildingGraphOptions = {}): Buildi
     });
   }
 
+  // 6. A.21.D16 enrichment — human room props + adjacency, then window façades.
+  //    Window enrichment runs AFTER room enrichment so the host-wall→room
+  //    centroid (used to orient the façade normal) sees the bounds edges.
+  runGuarded(() => {
+    enrichRoomNodes(graph, services.roomStore, services.roomGraph, services.levelIds);
+  });
+  runGuarded(() => {
+    enrichWindowNodes(graph, services.windowStore, services.wallStore, services.latDeg);
+  });
+
   return graph;
 }
 
@@ -354,6 +611,12 @@ interface WindowLike {
     getActiveLevel?: () => { id?: string } | undefined;
     getAllLevels?: () => ReadonlyArray<{ id?: string }> | undefined;
   };
+  // A.21.D16 enrichment sources (initBuilders registers these on window).
+  roomStore?: unknown;
+  wallStore?: unknown;
+  windowStore?: unknown;
+  /** composeRuntime slot — site location carries the parcel latitude (C19). */
+  runtime?: { siteModelStore?: { getLocation?: () => { latitude?: number } | null } };
 }
 
 /**
@@ -380,6 +643,15 @@ export function resolveBuildingGraphServices(): BuildBuildingGraphServices {
   // Element-id universe for topology: the scene's element ids if reachable.
   const elementIds = resolveElementIds();
 
+  // A.21.D16 enrichment sources — element stores + site latitude (all optional).
+  const roomStore = (w?.roomStore as RoomStoreLike | undefined) ?? null;
+  const wallStore = (w?.wallStore as WallStoreLike | undefined) ?? null;
+  const windowStore = (w?.windowStore as WindowStoreLike | undefined) ?? null;
+  const lat = (() => {
+    const v = w?.runtime?.siteModelStore?.getLocation?.()?.latitude;
+    return typeof v === 'number' && Number.isFinite(v) ? v : null;
+  })();
+
   return {
     topology,
     roomGraph,
@@ -388,7 +660,29 @@ export function resolveBuildingGraphServices(): BuildBuildingGraphServices {
     constraint: liveConstraint(),
     elementIds,
     levelIds,
+    roomStore,
+    wallStore,
+    windowStore,
+    latDeg: lat,
+    kindOf: kindFromId,
   };
+}
+
+/**
+ * UBG node kind from a PRYZM element id (`<type>_<ulid>`). Element ids are minted
+ * by `createId(prefix)` so the prefix is the element type — a free, exact kind for
+ * topology nodes so walls/doors render as "Wall"/"Door", not the generic
+ * "Element". Unknown/un-prefixed ids fall back to `undefined` (→ `element`).
+ */
+export function kindFromId(id: string): string | undefined {
+  const i = id.indexOf('_');
+  if (i <= 0) return undefined;
+  const prefix = id.slice(0, i);
+  const KNOWN = new Set([
+    'wall', 'room', 'door', 'window', 'slab', 'floor', 'ceiling',
+    'roof', 'stair', 'column', 'beam', 'level', 'curtainwall', 'space',
+  ]);
+  return KNOWN.has(prefix) ? prefix : undefined;
 }
 
 function resolveLevelIds(w: WindowLike | undefined): string[] {
