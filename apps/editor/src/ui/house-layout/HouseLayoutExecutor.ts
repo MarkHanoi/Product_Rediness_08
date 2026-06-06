@@ -57,6 +57,7 @@ import {
     buildLayoutCommands,
 } from '@pryzm/ai-host';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
+import { runHousePostGenChain } from './runHousePostGenChain.js';
 
 const MM_PER_M = 1000;
 const DEFAULT_FLOOR_TO_FLOOR_M = 3.0;
@@ -309,13 +310,25 @@ export class HouseLayoutExecutor {
 
             // ── Openings + doors + windows + boundaries, per storey, once the walls
             // have landed (wall.createOpening reads the committed wall store). One
-            // coalesced batch with the FINAL room redetect. ──────────────────────
-            this._finishOpenings(perStorey);
+            // coalesced batch with the FINAL room redetect across all storeys.
+            // Returns once the redetect batch has run so the post-gen finish chain
+            // can read rooms on every storey. Run as a detached async continuation
+            // so execute() still returns promptly (the toast/result aren't blocked).
+            // ──────────────────────────────────────────────────────────────────────
+            void this._finishOpenings(perStorey).then(() => {
+                // §A.21.i — fan the post-generation finish chain (floor → ceiling →
+                // furnish → light) out across EVERY storey level, in sequence, now
+                // that rooms exist on all of them. The apartment single-level path
+                // is unchanged — this only runs for a house build.
+                return runHousePostGenChain(runtime, levelIds);
+            }).catch((e: unknown) => console.warn('[house-layout] post-gen finish chain failed (non-fatal):', e));
 
             // `house.layout-executed` is a house-specific event not in the typed
             // RuntimeEvents union — emit through a loose view (same idiom the
             // apartment pipeline uses for its custom events). Downstream finish
-            // passes (floor/ceiling/furnish/light) can subscribe to it.
+            // passes (floor/ceiling/furnish/light) are driven by
+            // runHousePostGenChain above; this event is for other observers
+            // (telemetry / GIS) that want to know a house landed.
             (runtime.events as unknown as { emit(k: string, p: unknown): void }).emit('house.layout-executed', {
                 levelIds,
                 storeyCount: result.storeys.length,
@@ -323,7 +336,7 @@ export class HouseLayoutExecutor {
                 voidCount: result.voids.length,
                 roofKind: result.roof.kind,
             });
-            toast(`Built ${result.storeys.length}-storey house — ${result.stairs.length} stair(s), roof on top.`, 'success');
+            toast(`Built ${result.storeys.length}-storey house — ${result.stairs.length} stair(s), roof on top. Finishing storeys…`, 'success');
 
             return {
                 ok: true,
@@ -445,10 +458,15 @@ export class HouseLayoutExecutor {
      * boundaries through the legacy synchronous opening/boundary batch commands
      * (mirrors ApartmentLayoutExecutor._finishLayout). One coalesced batch with
      * the FINAL room redetect across all storey levels.
+     *
+     * Returns a Promise that resolves once the finalizing batch (which carries
+     * `skipRedetectRooms: false` → the room redetect across all storeys) has run,
+     * so the caller can sequence the per-storey post-gen finish chain AFTER rooms
+     * exist. Always resolves (never rejects) — finish is best-effort.
      */
     private _finishOpenings(
         perStorey: ReadonlyArray<{ levelId: string; set: LayoutCommandSet; option: ScoredLayoutOption }>,
-    ): void {
+    ): Promise<void> {
         // All host walls the openings need, across all storeys.
         const neededWallIds = new Set<string>();
         for (const s of perStorey) for (const op of s.set.openingCommands) neededWallIds.add((op.payload as { wallId: string }).wallId);
@@ -456,50 +474,61 @@ export class HouseLayoutExecutor {
         const wallStore = storeRegistry.getStoreForType('wall') as unknown as { getById?: (id: string) => unknown } | undefined;
         const wallsReady = (): boolean => !!wallStore?.getById && [...neededWallIds].every(id => wallStore.getById!(id) != null);
 
-        let done = false;
-        const go = (): void => {
-            if (done) return;
-            done = true;
-            const cm = getCommandManager();
-            if (!cm?.execute) { console.warn('[house-layout] commandManager unavailable — openings skipped'); return; }
-            const allLevelIds = perStorey.map(s => s.levelId);
-            let totalItems = 0;
-            try {
-                batchCoordinator.runBatch(() => {
-                    for (const s of perStorey) {
-                        const set = s.set;
-                        const openingItems = [
-                            ...set.openingCommands.map(op => ({ p: op.payload as { wallId: string; opening: unknown } })),
-                            ...set.shellWindowOpeningCommands.map(op => ({ p: op.payload as { wallId: string; opening: unknown } })),
-                        ];
-                        if (openingItems.length > 0) {
-                            try {
-                                cm.execute!(new CreateWallOpeningsBatchCommand(openingItems.map(it => ({ wallId: it.p.wallId, openingData: it.p.opening }))));
-                                totalItems += openingItems.length;
-                            } catch (e) { console.warn('[house-layout] openings batch failed on', s.levelId, e); }
-                        }
-                        if (set.boundaryCommands.length > 0) {
-                            try {
-                                cm.execute!(new CreateRoomBoundingLinesBatchCommand(
-                                    set.boundaryCommands.map(bc => bc.payload as { id: string; levelId: string; start: { x: number; z: number }; end: { x: number; z: number } }),
-                                ));
-                                totalItems += set.boundaryCommands.length;
-                            } catch (e) { console.warn('[house-layout] boundaries batch failed on', s.levelId, e); }
-                        }
-                    }
-                }, { levelIds: allLevelIds, totalElementCount: totalItems, skipRedetectRooms: false });
-            } catch (e) { console.warn('[house-layout] openings+boundaries batch failed (non-fatal):', e); }
-            console.log('[house-layout] openings + boundaries dispatched —', totalItems, 'item(s) across', perStorey.length, 'storey(s)');
-        };
+        return new Promise<void>(resolve => {
+            let done = false;
+            const go = (): void => {
+                if (done) return;
+                done = true;
+                try {
+                    const cm = getCommandManager();
+                    if (!cm?.execute) { console.warn('[house-layout] commandManager unavailable — openings skipped'); return; }
+                    const allLevelIds = perStorey.map(s => s.levelId);
+                    let totalItems = 0;
+                    try {
+                        batchCoordinator.runBatch(() => {
+                            for (const s of perStorey) {
+                                const set = s.set;
+                                const openingItems = [
+                                    ...set.openingCommands.map(op => ({ p: op.payload as { wallId: string; opening: unknown } })),
+                                    ...set.shellWindowOpeningCommands.map(op => ({ p: op.payload as { wallId: string; opening: unknown } })),
+                                ];
+                                if (openingItems.length > 0) {
+                                    try {
+                                        cm.execute!(new CreateWallOpeningsBatchCommand(openingItems.map(it => ({ wallId: it.p.wallId, openingData: it.p.opening }))));
+                                        totalItems += openingItems.length;
+                                    } catch (e) { console.warn('[house-layout] openings batch failed on', s.levelId, e); }
+                                }
+                                if (set.boundaryCommands.length > 0) {
+                                    try {
+                                        cm.execute!(new CreateRoomBoundingLinesBatchCommand(
+                                            set.boundaryCommands.map(bc => bc.payload as { id: string; levelId: string; start: { x: number; z: number }; end: { x: number; z: number } }),
+                                        ));
+                                        totalItems += set.boundaryCommands.length;
+                                    } catch (e) { console.warn('[house-layout] boundaries batch failed on', s.levelId, e); }
+                                }
+                            }
+                        }, { levelIds: allLevelIds, totalElementCount: totalItems, skipRedetectRooms: false });
+                    } catch (e) { console.warn('[house-layout] openings+boundaries batch failed (non-fatal):', e); }
+                    console.log('[house-layout] openings + boundaries dispatched —', totalItems, 'item(s) across', perStorey.length, 'storey(s)');
+                } finally {
+                    // Give the room redetect (kicked by the batch above) a brief
+                    // settle window before the post-gen chain starts reading rooms.
+                    setTimeout(resolve, 400);
+                }
+            };
 
-        if (neededWallIds.size === 0) return;
-        // Poll the wall store (~150 ms) until the host walls land, then dispatch;
-        // force after ~6 s so we never hang. Mirrors the apartment executor.
-        const tick = (n: number): void => {
-            if (done) return;
-            if (wallsReady() || n <= 0) { go(); return; }
-            setTimeout(() => tick(n - 1), 150);
-        };
-        if (wallsReady()) go(); else tick(40);
+            // No openings to host → still run go() so the finalizing batch fires
+            // the room redetect across all storeys (walls were created with
+            // skipRedetectRooms:true), then the post-gen chain can read rooms.
+            if (neededWallIds.size === 0) { go(); return; }
+            // Poll the wall store (~150 ms) until the host walls land, then dispatch;
+            // force after ~6 s so we never hang. Mirrors the apartment executor.
+            const tick = (n: number): void => {
+                if (done) return;
+                if (wallsReady() || n <= 0) { go(); return; }
+                setTimeout(() => tick(n - 1), 150);
+            };
+            if (wallsReady()) go(); else tick(40);
+        });
     }
 }

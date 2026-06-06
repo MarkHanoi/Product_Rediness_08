@@ -14,6 +14,7 @@
 
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { FurnishLayoutExecutor } from './FurnishLayoutExecutor.js';
+import { isHouseFanoutActive } from '../house-layout/houseFanoutGuard.js';
 
 const _executor = new FurnishLayoutExecutor();
 
@@ -154,7 +155,13 @@ export function installFurnishLayoutTrigger(runtime: PryzmRuntime | null): void 
             state.fired = false;
             state.timer = setTimeout(() => { state.timer = null; fireFurnish('fallback-timeout'); }, FALLBACK_MS);
         });
-        events.on?.('ceiling.layout-executed', () => { fireFurnish('ceiling-event'); });
+        events.on?.('ceiling.layout-executed', () => {
+            // §A.21.i — during a HOUSE post-gen fan-out, runHousePostGenChain
+            // drives furnish itself per storey; skip the cascade so furniture
+            // isn't placed twice. Apartment runs leave the guard false → unchanged.
+            if (isHouseFanoutActive()) return;
+            fireFurnish('ceiling-event');
+        });
         console.log('[furnish-layout] auto-fire on ceiling.layout-executed: wired (§CHAIN-TIMEOUT fallback: ' + FALLBACK_MS + ' ms).');
     }
 }
