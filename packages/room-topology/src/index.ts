@@ -77,6 +77,9 @@ export { RoomLevelCleanupHandler } from './RoomLevelCleanupHandler';
 export { RoomTagAutoPopulator } from './RoomTagAutoPopulator';
 export type { RoomTagAutoPopulatorDeps } from './RoomTagAutoPopulator';
 
+export { roomTagNeedsRefresh, desiredRoomLabel } from './roomTagIdempotency';
+export type { RoomTagSourceLike, RoomTagParamsLike } from './roomTagIdempotency';
+
 export { RoomTool } from './RoomTool';
 export type { RoomToolPickDeps, RoomToolManualDeps } from './RoomTool';
 
