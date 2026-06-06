@@ -25,6 +25,7 @@
 // Coordinates: metres, plan frame { x, z }. Rounded to 1e-6 at the boundary (§6).
 
 import type { BubbleGraph, ProgramRoom } from './bubbleGraph.js';
+import type { RoomType } from '../types.js';
 import { rectArea, type Rect } from './rectDecomposition.js';
 import { squarify } from './squarify.js';
 import { roomRule } from '../rules/programRules.js';
@@ -33,6 +34,30 @@ import { roomRule } from '../rules/programRules.js';
 export interface RoomPlacement {
     readonly roomId: string;
     readonly rect: Rect;
+}
+
+/**
+ * §FEASIBILITY-ALLOC (A.21.D5, 2026-06-06) — a room the subdivider could NOT
+ * place at or above its per-type minimum short side, even after the area-
+ * rebalance retry stole slack from over-allocated neighbours. Surfaced
+ * structurally so the engine NEVER silently drops a requested room — the
+ * trigger/modal can report "you asked for N bedrooms, M fit on this plot".
+ */
+export interface DroppedRoom {
+    readonly roomId: string;
+    readonly type: RoomType;
+    /** The short side (m) the room WOULD have had at its squarified rect. */
+    readonly shortSideM: number;
+    /** The per-type architectural floor (m) it failed to clear. */
+    readonly minShortSideM: number;
+}
+
+/** §FEASIBILITY-ALLOC — subdivide result with the structured drop report. */
+export interface SubdivideResult {
+    readonly placements: readonly RoomPlacement[];
+    /** Rooms that could not be placed at their min short side (empty in the
+     *  common case). Deterministic — in drop order (lowest priority first). */
+    readonly droppedRooms: readonly DroppedRoom[];
 }
 
 /**
@@ -91,36 +116,155 @@ function shortSideM(r: Rect): number {
     return Math.min(r.x1 - r.x0, r.z1 - r.z0);
 }
 
-/** squarify a room set into one rect → footprints (rounded). Iteratively
- *  drops the LOWEST-PRIORITY room (the LAST entry, since `allocationOrder`
- *  has public-first / private-last) until every placement clears its
- *  per-type minShortSideM (or the absolute floor). Empty `rooms[]` → []. */
-function placeInRect(rect: Rect, rooms: readonly ProgramRoom[]): RoomPlacement[] {
-    let pool = [...rooms];
-    while (pool.length > 0) {
-        const items = pool.map(r => ({ id: r.id, area: Math.max(EPS, r.targetAreaM2) }));
-        const placements = squarify(rect, items)
+/** Per-type architectural short-side floor (m), clamped to the absolute floor. */
+function floorFor(type: RoomType): number {
+    return Math.max(ABSOLUTE_MIN_SHORT_SIDE_M, roomRule(type).minShortSideM || ABSOLUTE_MIN_SHORT_SIDE_M);
+}
+
+/** §FEASIBILITY-ALLOC — the area below which a room's own architectural minimum
+ *  area floor must not fall. Used by the rebalance pass as the lower bound when
+ *  stealing slack from an over-allocated neighbour. */
+function minAreaFor(type: RoomType): number {
+    const rule = roomRule(type);
+    // The room must at minimum afford a square at its short-side floor; also
+    // respect its declared minAreaM2. Never below the absolute square.
+    const floor = floorFor(type);
+    return Math.max(rule.minAreaM2 || 0, floor * floor);
+}
+
+/**
+ * §FEASIBILITY-ALLOC (A.21.D5, 2026-06-06) — squarify a room set into one rect →
+ * footprints (rounded). The previous behaviour DROPPED the lowest-priority room
+ * the instant any placement came in below its per-type short-side floor — which
+ * silently lost a USER-REQUESTED bedroom on a tight plot. The new behaviour is
+ * feasibility-aware:
+ *
+ *   1. Squarify the current pool at proportional area targets.
+ *   2. If every placement clears its floor → done.
+ *   3. Otherwise REBALANCE: grow each too-narrow room's area target (so the
+ *      squarifier gives it a wider cell) by stealing slack from rooms that sit
+ *      ABOVE their own minimum area, then re-squarify. This honours the
+ *      requested room COUNT by shrinking over-allocated rooms instead of
+ *      dropping anyone. Bounded iterations (no RNG — deterministic).
+ *   4. Only when rebalancing genuinely cannot make a room fit (the rect can't
+ *      hold every room at its minimum) do we drop the LOWEST-PRIORITY room (the
+ *      last entry — allocationOrder is public-first/private-last) and record it
+ *      in `droppedRooms` so the caller can REPORT it. Never a silent drop.
+ *
+ * Empty `rooms[]` → empty result.
+ */
+function placeInRectReported(rect: Rect, rooms: readonly ProgramRoom[]): SubdivideResult {
+    const rectArea_ = Math.max(EPS, rectArea(rect));
+    const droppedRooms: DroppedRoom[] = [];
+    // Mutable per-room area target; seeded from the proportional target so the
+    // rebalance can raise a starved room without touching the bubble graph.
+    let pool = rooms.map(r => ({ room: r, area: Math.max(EPS, r.targetAreaM2) }));
+
+    const squarifyPool = (
+        cur: ReadonlyArray<{ room: ProgramRoom; area: number }>,
+    ): { placements: RoomPlacement[]; byId: Map<string, RoomPlacement> } => {
+        const placements = squarify(rect, cur.map(e => ({ id: e.room.id, area: e.area })))
             .map(p => ({ roomId: p.id, rect: roundRect(p.rect) }));
-        const placementById = new Map(placements.map(p => [p.roomId, p]));
-        const tooNarrowRoom = pool.find(r => {
-            const p = placementById.get(r.id);
-            if (!p) return false;
-            const floor = Math.max(ABSOLUTE_MIN_SHORT_SIDE_M, roomRule(r.type).minShortSideM || ABSOLUTE_MIN_SHORT_SIDE_M);
-            return shortSideM(p.rect) < floor - EPS;
-        });
-        if (!tooNarrowRoom) return placements;
-        // Drop the last room (lowest priority in allocation order) and retry.
+        return { placements, byId: new Map(placements.map(p => [p.roomId, p])) };
+    };
+
+    while (pool.length > 0) {
+        // ── Rebalance loop: bounded retries that grow starved rooms. ──────────
+        const MAX_REBALANCE = pool.length + 2;     // deterministic upper bound
+        let placements: RoomPlacement[] = [];
+        let byId = new Map<string, RoomPlacement>();
+        let tooNarrow: { room: ProgramRoom; area: number } | undefined;
+        for (let iter = 0; iter <= MAX_REBALANCE; iter++) {
+            ({ placements, byId } = squarifyPool(pool));
+            tooNarrow = pool.find(e => {
+                const p = byId.get(e.room.id);
+                if (!p) return false;
+                return shortSideM(p.rect) < floorFor(e.room.type) - EPS;
+            });
+            if (!tooNarrow) break;                  // all rooms clear their floor
+            if (iter === MAX_REBALANCE) break;      // give up rebalancing → drop
+
+            // Grow EVERY too-narrow room toward the area that would yield a cell
+            // at its floor depth, financed by shrinking rooms that are above
+            // their own minimum area. If there isn't enough slack to satisfy
+            // every deficit, the loop exits and we drop (below).
+            const needers = pool.filter(e => {
+                const p = byId.get(e.room.id);
+                return p && shortSideM(p.rect) < floorFor(e.room.type) - EPS;
+            });
+            // Required extra area for a needer: enough so its scaled cell can be
+            // a floor×floor square. The squarifier scales area→rect by the
+            // rect/pool ratio, so target the *unscaled* area that maps to a
+            // floor² cell: floor² * (poolAreaSum / rectArea).
+            const poolAreaSum = pool.reduce((s, e) => s + e.area, 0) || EPS;
+            const scale = rectArea_ / poolAreaSum;
+            let deficitTotal = 0;
+            const wantById = new Map<string, number>();
+            for (const e of needers) {
+                const f = floorFor(e.room.type);
+                const wantScaled = f * f;                       // m² in the rect
+                const wantUnscaled = wantScaled / scale;        // m² in pool units
+                const extra = Math.max(0, wantUnscaled - e.area);
+                if (extra > EPS) { wantById.set(e.room.id, extra); deficitTotal += extra; }
+            }
+            if (deficitTotal <= EPS) break;          // nothing actionable → drop
+
+            // Donors: rooms above their own min area (in pool units → divide the
+            // m² min by scale). Take proportionally to their surplus.
+            const donors = pool
+                .filter(e => !wantById.has(e.room.id))
+                .map(e => {
+                    const minA = minAreaFor(e.room.type) / scale;
+                    return { e, surplus: Math.max(0, e.area - minA) };
+                })
+                .filter(d => d.surplus > EPS);
+            const surplusTotal = donors.reduce((s, d) => s + d.surplus, 0);
+            if (surplusTotal <= EPS) break;          // no slack to redistribute → drop
+
+            const take = Math.min(deficitTotal, surplusTotal);
+            // Withdraw proportionally from donors.
+            for (const d of donors) d.e.area -= take * (d.surplus / surplusTotal);
+            // Distribute proportionally to needers' deficits.
+            for (const e of needers) {
+                const extra = wantById.get(e.room.id) ?? 0;
+                if (extra > EPS) e.area += take * (extra / deficitTotal);
+            }
+            // Loop and re-squarify with the rebalanced targets.
+        }
+
+        if (!tooNarrow) return { placements, droppedRooms };
+
+        // Rebalancing exhausted — the rect genuinely can't hold every room at
+        // its minimum. Drop the LOWEST-PRIORITY room (last in allocationOrder)
+        // and record it structurally so the caller reports it (never silent).
         const dropped = pool[pool.length - 1]!;
-        const placement = placementById.get(tooNarrowRoom.id)!;
-        const floor = Math.max(ABSOLUTE_MIN_SHORT_SIDE_M, roomRule(tooNarrowRoom.type).minShortSideM || ABSOLUTE_MIN_SHORT_SIDE_M);
+        const p = byId.get(tooNarrow.room.id)!;
+        const f = floorFor(tooNarrow.room.type);
+        droppedRooms.push({
+            roomId: dropped.room.id,
+            type: dropped.room.type,
+            shortSideM: round6(shortSideM(byId.get(dropped.room.id)?.rect ?? p.rect)),
+            minShortSideM: floorFor(dropped.room.type),
+        });
         console.warn(
-            `[D-TGL subdivide] §HARD-MIN-SIDE-PER-ROOM: room "${tooNarrowRoom.id}" (${tooNarrowRoom.type}) ` +
-            `would produce short side ${shortSideM(placement.rect).toFixed(2)} m ` +
-            `< ${floor.toFixed(2)} m per-type floor — dropping "${dropped.id}" (${dropped.type}) and re-squarifying.`,
+            `[D-TGL subdivide] §HARD-MIN-SIDE-PER-ROOM: room "${tooNarrow.room.id}" (${tooNarrow.room.type}) ` +
+            `would produce short side ${shortSideM(p.rect).toFixed(2)} m ` +
+            `< ${f.toFixed(2)} m per-type floor and rebalancing freed no slack — ` +
+            `dropping "${dropped.room.id}" (${dropped.room.type}) and re-squarifying ` +
+            `(reported via droppedRooms — NOT silent).`,
         );
-        pool = pool.slice(0, -1);
+        // Reset the surviving pool's areas to their proportional targets so the
+        // next squarify starts from the clean allocation (the rebalance above
+        // mutated areas chasing an infeasible fit).
+        pool = pool.slice(0, -1).map(e => ({ room: e.room, area: Math.max(EPS, e.room.targetAreaM2) }));
     }
-    return [];
+    return { placements: [], droppedRooms };
+}
+
+/** Back-compat thin wrapper: placements only (drops still logged + reported via
+ *  the Reported variant used by the subdivide entry point). */
+function placeInRect(rect: Rect, rooms: readonly ProgramRoom[]): RoomPlacement[] {
+    return placeInRectReported(rect, rooms).placements as RoomPlacement[];
 }
 
 /**
@@ -266,8 +410,9 @@ function tryCarveEnsuiteFromMaster(
 }
 
 /** Single-rect carve flow: returns the placements (corridor + public + private,
- *  with ensuite carved from master). Returns null when the carve can't fit. */
-function trySingleRectCarve(shell: Rect, graph: BubbleGraph): RoomPlacement[] | null {
+ *  with ensuite carved from master) + the structured drop report. Returns null
+ *  when the carve can't fit (caller falls back to the whole-shell squarify). */
+function trySingleRectCarve(shell: Rect, graph: BubbleGraph): SubdivideResult | null {
     const corridor = graph.rooms.find(r => r.type === 'corridor');
     const master   = graph.rooms.find(r => r.type === 'master');
     const ensuite  = graph.rooms.find(r => r.type === 'ensuite');
@@ -304,11 +449,16 @@ function trySingleRectCarve(shell: Rect, graph: BubbleGraph): RoomPlacement[] | 
     if (!carve) return null;
 
     const out: RoomPlacement[] = [];
+    const droppedRooms: DroppedRoom[] = [];
     // Corridor IS the strip.
     out.push({ roomId: corridor.id, rect: roundRect(carve.corridorRect) });
     // Public + private rooms squarified into their own sub-rects.
-    out.push(...placeInRect(carve.publicRect,  allocationOrder(publicRooms)));
-    const privatePlacements = placeInRect(carve.privateRect, allocationOrder(privateRooms));
+    const pub = placeInRectReported(carve.publicRect, allocationOrder(publicRooms));
+    out.push(...pub.placements);
+    droppedRooms.push(...pub.droppedRooms);
+    const priv = placeInRectReported(carve.privateRect, allocationOrder(privateRooms));
+    const privatePlacements = [...priv.placements];
+    droppedRooms.push(...priv.droppedRooms);
 
     // Carve ensuite from master's squarified rect.
     if (master && ensuite && ensuiteCarveArea > 0) {
@@ -322,13 +472,20 @@ function trySingleRectCarve(shell: Rect, graph: BubbleGraph): RoomPlacement[] | 
             } else {
                 console.warn(
                     `[D-TGL subdivide] §ENSUITE-FROM-MASTER: master rect too tight to carve ` +
-                    `ensuite (${ensuiteCarveArea.toFixed(2)} m²) — ensuite left unplaced.`,
+                    `ensuite (${ensuiteCarveArea.toFixed(2)} m²) — ensuite left unplaced ` +
+                    `(reported via droppedRooms — NOT silent).`,
                 );
+                droppedRooms.push({
+                    roomId: ensuite.id,
+                    type: ensuite.type,
+                    shortSideM: 0,
+                    minShortSideM: floorFor(ensuite.type),
+                });
             }
         }
     }
     out.push(...privatePlacements);
-    return out;
+    return { placements: out, droppedRooms };
 }
 
 // ── §L4-δ-1b: constructive AlignmentField pre-Pareto snap ────────────────────
@@ -428,26 +585,30 @@ export function snapAxisLines(placements: readonly RoomPlacement[]): RoomPlaceme
 }
 
 /**
- * Subdivide the shell `rects` among the program rooms. Returns exactly one
- * footprint per room; footprints lie inside the shell rects, do not overlap, and
- * together tile the shell. Degenerate input (no rects / no rooms) → [].
+ * §FEASIBILITY-ALLOC (A.21.D5, 2026-06-06) — subdivide the shell `rects` among
+ * the program rooms AND report any room that could not be placed at its per-type
+ * minimum short side. Returns one footprint per PLACED room (footprints lie
+ * inside the shell rects, do not overlap, and tile the shell) plus a structured
+ * `droppedRooms` list (empty in the common case). The drop list is how the
+ * engine HONOURS the requested room count when feasible and REPORTS the shortfall
+ * when it genuinely is not — never a silent loss.
  *
  * §L4-δ-1b — by default the output is run through `snapAxisLines` so room-rect
- * edges within 50 mm of each other are snapped to the shared mean (the
- * CONSTRUCTIVE form of the scoring `alignmentField` axis). Pass
- * `{ alignmentSnap: false }` to opt out (legacy raw squarified output).
+ * edges within 50 mm of each other are snapped to the shared mean.
  */
-export function subdivide(
+export function subdivideWithReport(
     rects: readonly Rect[],
     graph: BubbleGraph,
     options: SubdivideOptions = {},
-): RoomPlacement[] {
+): SubdivideResult {
     const alignmentSnap = options.alignmentSnap ?? true;
     const valid = rects.filter(r => rectArea(r) > EPS).sort(byAreaDesc);
-    if (valid.length === 0 || graph.rooms.length === 0) return [];
+    if (valid.length === 0 || graph.rooms.length === 0) return { placements: [], droppedRooms: [] };
 
-    const finalise = (placements: RoomPlacement[]): RoomPlacement[] =>
-        alignmentSnap ? snapAxisLines(placements) : placements;
+    const finalise = (res: SubdivideResult): SubdivideResult => ({
+        placements: alignmentSnap ? snapAxisLines(res.placements) : res.placements.slice(),
+        droppedRooms: res.droppedRooms,
+    });
 
     // §SINGLE-RECT-CARVE — single-rect shell with corridor + private rooms.
     if (valid.length === 1) {
@@ -463,13 +624,14 @@ export function subdivide(
     // rect (can't fill N rects with <N one-footprint rooms without splitting a
     // room). Real programs always have rooms ≥ rects, so this is a safety net.
     if (valid.length === 1 || rooms.length < valid.length) {
-        return finalise(placeInRect(valid[0]!, rooms));
+        return finalise(placeInRectReported(valid[0]!, rooms));
     }
 
     // Multi-rect shell (L / T / U): allocate rooms to rects ∝ area, public-first,
     // reserving ≥1 room for every later rect so each rect is actually filled.
     const shellArea = valid.reduce((s, r) => s + rectArea(r), 0);
     const out: RoomPlacement[] = [];
+    const droppedRooms: DroppedRoom[] = [];
     let cursor = 0;
     for (let k = 0; k < valid.length; k++) {
         const rect = valid[k]!;
@@ -483,8 +645,24 @@ export function subdivide(
             const maxForThis = roomsLeft - laterRects;          // keep ≥1 for each later rect
             take = Math.max(1, Math.min(Math.max(1, ideal), maxForThis));
         }
-        out.push(...placeInRect(rect, rooms.slice(cursor, cursor + take)));
+        const r = placeInRectReported(rect, rooms.slice(cursor, cursor + take));
+        out.push(...r.placements);
+        droppedRooms.push(...r.droppedRooms);
         cursor += take;
     }
-    return finalise(out);
+    return finalise({ placements: out, droppedRooms });
+}
+
+/**
+ * Subdivide the shell `rects` among the program rooms. Returns exactly one
+ * footprint per placed room. Back-compat array-returning facade over
+ * `subdivideWithReport` (which also exposes the §FEASIBILITY-ALLOC drop report).
+ * Degenerate input (no rects / no rooms) → [].
+ */
+export function subdivide(
+    rects: readonly Rect[],
+    graph: BubbleGraph,
+    options: SubdivideOptions = {},
+): RoomPlacement[] {
+    return subdivideWithReport(rects, graph, options).placements as RoomPlacement[];
 }
