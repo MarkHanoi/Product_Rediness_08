@@ -11,6 +11,8 @@ export * from './WardrobeCabinetTypes';
 export * from './WardrobeTypes';
 export * from './KitchenTypes';
 export * from './FurnitureTypes';
+// A.21.D15 (2026-06-06) — furniture/fixture vertical-placement datum helper.
+export * from './furnitureElevation';
 export { FurnitureStore } from './FurnitureStore';
 export { MaterialService } from './MaterialService';
 export { AIElementEngine } from './AIElementEngine';

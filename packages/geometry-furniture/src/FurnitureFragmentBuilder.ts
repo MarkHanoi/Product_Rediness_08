@@ -4,6 +4,7 @@ import { MaterialService } from './MaterialService';
 import { FurnitureFactory } from './builders/FurnitureFactory';
 import { WardrobeEngine } from './engines/WardrobeEngine';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
+import { furnitureWorldY } from './furnitureElevation';
 
 export class FurnitureFragmentBuilder {
     private scene: THREE.Scene;
@@ -86,9 +87,10 @@ export class FurnitureFragmentBuilder {
         if (data.furnitureType === 'glb_import') {
             if (root) {
                 if (data.position) {
+                    // A.21.D15 — mount applied ONCE here (floor + offset).
                     root.position.set(
                         data.position.x,
-                        data.position.y + baseOffset,
+                        furnitureWorldY(data.position.y, baseOffset),
                         data.position.z,
                     );
                 }
@@ -191,11 +193,14 @@ export class FurnitureFragmentBuilder {
 
             root.add(mesh);
 
-            // Apply position with baseOffset - with protection against missing data.position
+            // A.21.D15 — the ONE place the mount offset is applied:
+            // worldY = floor (data.position.y) + baseOffset (mount height).
+            // Builders draw geometry FLOOR-RELATIVE (group origin = floor) and
+            // must NOT re-add baseOffset internally, or wall-mounted items float.
             if (data.position) {
                 root.position.set(
                     data.position.x,
-                    data.position.y + baseOffset,
+                    furnitureWorldY(data.position.y, baseOffset),
                     data.position.z
                 );
             }
