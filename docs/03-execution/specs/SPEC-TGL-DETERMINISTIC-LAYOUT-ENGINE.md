@@ -101,6 +101,60 @@ P8 runs the P1–P7 pipeline over a **fixed, finite strategy set** `S` (e.g.
 No populations, no mutation, no RNG → identical output every run. The strategy set
 is the only "search"; it is enumerated, not evolved.
 
+### §2.3 — D2 quad rectification (`§RECTIFY-QUAD`) — non-orthogonal plots
+
+**Where it sits:** inside **P1** `rectDecomposition.ts`, as the first step of
+`decomposeToRects` (called after `runDeterministicLayout`'s principal-axis rotation).
+
+**Rationale (one line):** the principal-axis rotation only aligns the shell's *dominant* edge
+family; a sheared **convex quadrilateral** (parallelogram / trapezoid — a skewed GIS-drawn
+plot, the founder's Córdoba / Notting Hill case) keeps its two non-dominant edges slanted, so
+the slab-sweep stair-steps them into one big central rect + unusable slivers and `subdivide`
+crams every room into the one big rect (the "one giant merged room + slivers" defect) or drops
+rooms and bails to the strip-slicer.
+
+**Behaviour:** `rectifyConvexQuad(poly, minFill = 0.5)` — when the (already principal-axis-
+rotated) shell is a **convex quad** (exactly 4 vertices after collinear-vertex removal, fill
+ratio ≥ 0.5) — rectifies it to its axis-aligned bounding rectangle *before tiling*, so a skewed
+quad tiles as ONE clean rect, the same room canvas a true rectangle of its bbox gives. The
+discriminator is **vertex-count + convexity**, NOT fill ratio (an L can fill its bbox more than
+a sheared quad), so rectilinear **L / U / T** shells (concave and/or > 4 verts) are NEVER
+rectified — their notch-aware stair-step decomposition is preserved bit-identically.
+**Trade-off:** interior partitions become rectangular in the rotated frame and fill the bbox
+(slightly larger than the real sheared area); the OUTER shell stays the real drawn shape
+(emitted separately + extended to the true perimeter in `wallsAndDoors`), so the footprint is
+the true plot — only the partition grid is rectified. Tracker A.21.D2 (`59f1cfaa`).
+
+### §2.4 — D6 climate-driven windows (sun-oriented placement + passive-solar sizing)
+
+**Where it sits:** a new pure module `windowEmission/solarOrientation.ts` (L2), consumed by
+`windowEmission/emitWindows.ts` (`emitWindowsForRoom`) at the window-emission frame, with the
+per-room `SolarBias` built at **P9** (`emitGeometry`) from the site latitude.
+
+**Rationale (one line):** windows should prefer the SUN-FACING (equator-facing) façade for
+daylight + passive solar gain, not just the longest wall — the first slice of the
+APARTMENT-COGNITION-STACK Environmental-Intelligence layer and the demo differentiator.
+
+**Behaviour (all pure, deterministic, no-op when `solar`/`latDeg` absent → 0 regression):**
+
+- `equatorFacingDir(latDeg)` → the equator-facing unit dir in the emit frame (N-hemisphere →
+  South `+y`; S-hemisphere → North `−y`; `null` within ±10° of the equator).
+- `outwardNormal(a, b, ref)` + `orientationFit(normal, sunDir)` ∈ [0,1] (faces-at-sun = 1;
+  side-on or away = 0).
+- `solarLengthMultiplier(a, b, solar)` = `1 + weight·fit` ∈ [1, 1+weight] (default weight 0.6)
+  — multiplies a candidate wall's length so the placer prefers the sun-facing façade while a
+  substantially longer wall can still win (orientation **tunes**, it does not override).
+- `climateGlazingFactor(latDeg, fit)` ∈ [0.85, 1.25] — passive-solar SIZING: COLD high-|lat|
+  climates ENLARGE sun-facing glazing for winter gain (up to +25%); HOT low-|lat| climates
+  SHRINK it to limit overheating (down to −15%, strongest on sun-facing walls); temperate pivot
+  ≈ 37.5°. Scales the chosen window width (clamped to wall-fit) + height.
+
+`latDeg` / the `solar` bias ride a single thread end-to-end: editor `gatherLayoutPayload`
+(`siteLatitudeDeg ← getCurrentSiteOrigin().lat`) → workflow → `generateDeterministicLayouts(…,
+{latDeg})` (rotates the world equator-facing dir by the principal-axis `−angle` into the emit
+frame) → `emitGeometry(graph, {solar})` → per-room `SolarBias` → `emitWindowsForRoom`. Tracker
+A.21.D6.1–D6.3.
+
 ---
 
 ## §3 — Persistent semantic graph schema (what makes it BIM3.0)
@@ -391,9 +445,14 @@ The emitted geometry is **provably watertight** and **detectable** by the editor
    the preview. Model‑level door names would need an additive `name` on the `Door`
    element (committer + schedule consumers) — out of scope here.
 3. **Rectilinear shells.** Slanted shell edges are stair‑step approximated (P1);
-   exact for rectangles / L / T / U.
-4. **Windows.** P4 emits doors only; the `Window` node is in the schema but not yet
-   generated — daylight is scored from façade adjacency as a proxy. P10/next.
+   exact for rectangles / L / T / U. **Convex quads (parallelograms / trapezoids)** are now
+   rectified to their axis-aligned bbox before tiling (`§RECTIFY-QUAD`, §2.3) so a skewed plot
+   no longer collapses to one merged room; arbitrary concave non-rectilinear shells still
+   stair-step.
+4. **Windows.** Window emission is now LIVE (`windowEmission/`, §2.4): the engine places
+   sun-oriented windows (climate-driven placement + passive-solar sizing, D6.1–D6.3) on
+   external walls, replacing the earlier "façade-adjacency proxy only" state. The `Window` node
+   in the IFC5 mapping (P10) is still the deferred export, not the placement.
 5. **Editor perf (not D‑TGL).** The D‑TGL build is a single coalesced `runBatch`
    (one room‑redetect, batch render‑suppress). Slowness observed during *manual*
    drawing — each `wall.create` triggers a room redetect + full plan re‑projection —
