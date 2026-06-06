@@ -1,0 +1,23 @@
+// Casa Unifamiliar — houseLayout workflow public barrel.
+//
+// The pure, testable ai-host core for multi-storey single-family-house generation
+// (SPEC-CASA-UNIFAMILIAR-TYPOLOGY; tracker A.21.b + A.21.c + part of A.21.d). The
+// editor-wiring follow-up (A.21.e–g) consumes `generateHouseLayout`'s
+// `HouseLayoutResult` to create levels, fan commands out per storey, place stairs,
+// and punch slab voids.
+
+export { generateHouseLayout } from './houseOrchestrator.js';
+export type { HouseLayoutOptions } from './houseOrchestrator.js';
+export { allocateProgramToStoreys } from './storeyAllocation.js';
+export { reserveStairCore } from './stairCore.js';
+export type {
+    HouseLayoutResult,
+    StoreyProgram,
+    StoreyPlate,
+    StoreyRole,
+    StairCore,
+    SlabVoid,
+    RoofDescriptor,
+    RoofKind,
+    Pt,
+} from './types.js';
