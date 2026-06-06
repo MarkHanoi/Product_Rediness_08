@@ -74,6 +74,13 @@ export interface GraphNode {
   level?: string;
   /** Functional room type — colour + metric derivations key off this. */
   type: RoomKind;
+  /**
+   * The room's raw occupancy / program tag as the model carries it
+   * ("Bedroom", "Kitchen", "Bathroom"…), humanised. Surfaced in the inspector
+   * so the user sees the REAL program label, not only the coarse `type`.
+   * `undefined` when the node carries no occupancy tag.
+   */
+  occupancy?: string;
   /** Floor area (m²); drives node radius (√area). 0 when unknown. */
   areaSqm: number;
   /** Derived daylight/sun exposure ∈ [0,1] (environmental layer halo). */
