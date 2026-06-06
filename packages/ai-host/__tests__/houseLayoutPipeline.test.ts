@@ -16,7 +16,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-    generateHouseLayout, reserveStairCore,
+    generateHouseLayout,
 } from '../src/workflows/houseLayout/index.js';
 import type { HouseLayoutResult } from '../src/workflows/houseLayout/index.js';
 import type { ShellAnalysis } from '../src/workflows/apartmentLayout/shellAnalysis.js';
@@ -199,8 +199,12 @@ describe('A.21.x — program allocation lands public down / private up', () => {
 describe('A.21.x — stair-core stacks vertically (plan rect identical everywhere)', () => {
     it('every stair + void shares the SAME plan rect across all storeys', () => {
         const res = generateHouseLayout(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 3 });
-        const expected = reserveStairCore(footprintOf(SHELL), 3);
-        // all stair rects identical.
+        // §A.21.D18: the stair core is now SHAPE-SELECTED (I/L/U via reserveStairCoreShaped),
+        // so the rect is whatever the orchestrator reserved — not the old straight-I
+        // reserveStairCore. The INVARIANT under test is vertical STACKING: every stair
+        // and every void shares the one same plan rect across all storeys.
+        expect(res.stairs.length).toBeGreaterThan(0);
+        const expected = res.stairs[0]!.rectMm;
         for (const stair of res.stairs) expect(stair.rectMm).toEqual(expected);
         // all void rects identical to the stair rect (hole over the run).
         for (const v of res.voids) expect(v.rectMm).toEqual(expected);
