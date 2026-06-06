@@ -586,6 +586,145 @@ describe('§EXTEND-TO-PERIMETER — exterior walls reach the slanted shell', () 
         expect(maxZ).toBeLessThan(4.75 + 1e-2);      // hit the slanted top edge
     });
 
+    // ─── §CLAMP-OVERRUN (A.21.D11, 2026-06-05) — partitions must not poke
+    // THROUGH a slanted façade. The axis-aligned rect decomposition (and the
+    // §RECTIFY-QUAD bounding-box rectification) can place an interior partition
+    // endpoint OUTSIDE the real (slanted) shell. The clamp pulls such an
+    // endpoint back to the nearest shell edge along the wall axis. ─────────────
+    describe('§CLAMP-OVERRUN — interior partitions never overrun a slanted shell', () => {
+        // Point inside-or-on a polygon (ray-cast + on-edge tolerance). A clamped
+        // endpoint must satisfy this — it lies ON or INSIDE the shell, never out.
+        const insideOrOn = (p: Pt, poly: Pt[], eps = 1e-3): boolean => {
+            // on-edge?
+            for (let i = 0; i < poly.length; i++) {
+                const a = poly[i]!, b = poly[(i + 1) % poly.length]!;
+                const ex = b.x - a.x, ez = b.z - a.z;
+                const L2 = ex * ex + ez * ez;
+                if (L2 < 1e-20) continue;
+                const t = ((p.x - a.x) * ex + (p.z - a.z) * ez) / L2;
+                if (t < -eps || t > 1 + eps) continue;
+                const px = a.x + Math.max(0, Math.min(1, t)) * ex;
+                const pz = a.z + Math.max(0, Math.min(1, t)) * ez;
+                if (Math.hypot(p.x - px, p.z - pz) <= eps) return true;
+            }
+            // strictly inside?
+            let inside = false;
+            for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+                const a = poly[i]!, b = poly[j]!;
+                const hit = ((a.z > p.z) !== (b.z > p.z)) &&
+                    (p.x < ((b.x - a.x) * (p.z - a.z)) / ((b.z - a.z) || 1e-30) + a.x);
+                if (hit) inside = !inside;
+            }
+            return inside;
+        };
+
+        // A 16°-rotated parallelogram shell about the origin. A unit square
+        // base (0,0)-(10,0)-(10,8)-(0,8) sheared then rotated produces a skewed
+        // quad whose bounding box pokes OUTSIDE the real edges — exactly the
+        // production skewed-GIS-draw geometry. We build it directly.
+        const deg = 16, rad = (deg * Math.PI) / 180;
+        const rot = (p: Pt): Pt => ({
+            x: p.x * Math.cos(rad) - p.z * Math.sin(rad),
+            z: p.x * Math.sin(rad) + p.z * Math.cos(rad),
+        });
+        const parallelogram: Pt[] = [
+            { x: 0, z: 0 }, { x: 10, z: 0 }, { x: 10, z: 8 }, { x: 0, z: 8 },
+        ].map(rot);
+
+        it('rectangle: an endpoint already ON the perimeter is left bit-identical (no regression)', () => {
+            const rectShell: Pt[] = [
+                { x: 0, z: 0 }, { x: 10, z: 0 }, { x: 10, z: 4 }, { x: 0, z: 4 },
+            ];
+            const A: RoomPlacement = { roomId: 'A', rect: { x0: 0, z0: 0, x1: 5, z1: 4 } };
+            const B: RoomPlacement = { roomId: 'B', rect: { x0: 5, z0: 0, x1: 10, z1: 4 } };
+            const g = graphOf([room('A'), room('B')], []);
+            const k = (s: { a: Pt; b: Pt }): string =>
+                `${s.a.x.toFixed(6)},${s.a.z.toFixed(6)}->${s.b.x.toFixed(6)},${s.b.z.toFixed(6)}`;
+            const withShell = buildWallsAndDoors([A, B], g, { shellPolygon: rectShell }).segments;
+            const noShell = buildWallsAndDoors([A, B], g).segments;
+            expect(withShell.map(k).sort()).toEqual(noShell.map(k).sort());
+        });
+
+        it('a vertical partition poking THROUGH a slanted top edge is clamped back ON the shell', () => {
+            // Shell with a slanted TOP edge so a vertical interior partition
+            // whose top endpoint sits at the bbox top (z=8) pokes ABOVE the
+            // real perimeter — the exact A.21.D11 façade-overrun. The clamp
+            // pulls it back DOWN along its z-axis to the slanted top edge.
+            //   bottom (0,0)→(10,0), top (0,8)→(10,6)  (top slants down east).
+            const slantTopShell: Pt[] = [
+                { x: 0, z: 0 }, { x: 10, z: 0 }, { x: 10, z: 6 }, { x: 0, z: 8 },
+            ];
+            // Two rooms tile the bbox z∈[0,8]; shared vertical wall at x=5.
+            // At x=5 the top edge sits at z = 8 + (5/10)·(6−8) = 7. The wall's
+            // top endpoint (5,8) is ABOVE that → strictly OUTSIDE → clamp to z≈7.
+            const A: RoomPlacement = { roomId: 'A', rect: { x0: 0, z0: 0, x1: 5, z1: 8 } };
+            const B: RoomPlacement = { roomId: 'B', rect: { x0: 5, z0: 0, x1: 10, z1: 8 } };
+            const g = graphOf([room('A'), room('B')], [{ a: 'A', b: 'B', via: 'door' }]);
+            const { segments } = buildWallsAndDoors([A, B], g, { shellPolygon: slantTopShell });
+            const sharedAtX5 = segments.find(s =>
+                Math.abs(s.a.x - 5) < 1e-6 && Math.abs(s.b.x - 5) < 1e-6 &&
+                s.boundsRoomIds.length === 2);
+            expect(sharedAtX5, 'expected the interior shared wall at x=5').toBeDefined();
+            const topZ = Math.max(sharedAtX5!.a.z, sharedAtX5!.b.z);
+            expect(topZ).toBeLessThan(8 - 1e-3);     // pulled BACK below the bbox top
+            expect(topZ).toBeCloseTo(7, 2);          // landed exactly on the slanted edge
+            // Both endpoints of the interior partition now lie ON/INSIDE the shell
+            // (the top no longer pokes through the façade).
+            expect(insideOrOn(sharedAtX5!.a, slantTopShell)).toBe(true);
+            expect(insideOrOn(sharedAtX5!.b, slantTopShell)).toBe(true);
+        });
+
+        it('16°-rotated parallelogram: walls perpendicular to a slanted edge are clamped ON/INSIDE', () => {
+            // Rooms tile the parallelogram with a small inset so endpoints sit
+            // strictly OUTSIDE the slanted edges (not at the un-clampable bbox
+            // corners). After the pass every endpoint whose wall axis meets the
+            // shell is ON or INSIDE it; no partition overruns the façade.
+            const bb = parallelogram.reduce(
+                (acc, p) => ({
+                    x0: Math.min(acc.x0, p.x), z0: Math.min(acc.z0, p.z),
+                    x1: Math.max(acc.x1, p.x), z1: Math.max(acc.z1, p.z),
+                }),
+                { x0: Infinity, z0: Infinity, x1: -Infinity, z1: -Infinity },
+            );
+            // Inset the z-band so the vertical shared wall's endpoints are clear
+            // of the bbox top/bottom corners and meet only the slanted side edges.
+            const z0 = bb.z0 + 1.5, z1 = bb.z1 - 1.5;
+            const midX = (bb.x0 + bb.x1) / 2;
+            const A: RoomPlacement = { roomId: 'A', rect: { x0: bb.x0 + 1, z0, x1: midX, z1 } };
+            const B: RoomPlacement = { roomId: 'B', rect: { x0: midX, z0, x1: bb.x1 - 1, z1 } };
+            const g = graphOf([room('A'), room('B')], [{ a: 'A', b: 'B', via: 'door' }]);
+            const { segments } = buildWallsAndDoors([A, B], g, { shellPolygon: parallelogram });
+            expect(segments.length).toBeGreaterThan(0);
+            for (const s of segments) {
+                expect(
+                    insideOrOn(s.a, parallelogram),
+                    `endpoint a (${s.a.x.toFixed(2)},${s.a.z.toFixed(2)}) of ${s.id} outside shell`,
+                ).toBe(true);
+                expect(
+                    insideOrOn(s.b, parallelogram),
+                    `endpoint b (${s.b.x.toFixed(2)},${s.b.z.toFixed(2)}) of ${s.id} outside shell`,
+                ).toBe(true);
+            }
+        });
+
+        it('a partition whose line misses the shell is left UNCHANGED (degenerate no-op)', () => {
+            // Small triangle shell far from the wall. The wall sits entirely
+            // outside it; its axis (vertical) never intersects the triangle, so
+            // clampOutsideEndpointToShell finds no forward hit → endpoints kept.
+            const triangle: Pt[] = [
+                { x: 0, z: 0 }, { x: 2, z: 0 }, { x: 1, z: 2 },
+            ];
+            const A: RoomPlacement = { roomId: 'A', rect: { x0: 20, z0: 20, x1: 25, z1: 24 } };
+            const B: RoomPlacement = { roomId: 'B', rect: { x0: 25, z0: 20, x1: 30, z1: 24 } };
+            const g = graphOf([room('A'), room('B')], []);
+            const withShell = buildWallsAndDoors([A, B], g, { shellPolygon: triangle }).segments;
+            const noShell = buildWallsAndDoors([A, B], g).segments;
+            const k = (s: { a: Pt; b: Pt }): string =>
+                `${s.a.x},${s.a.z}->${s.b.x},${s.b.z}`;
+            expect(withShell.map(k).sort()).toEqual(noShell.map(k).sort());
+        });
+    });
+
     // L3-γ-3 (2026-05-31) — wallsAndDoors reads EdgeType for per-kind door width.
     describe('L3-γ-3 EdgeType-aware door widths', () => {
         // 5×4 m rooms — wall length 4 m, so every per-kind width fits.
