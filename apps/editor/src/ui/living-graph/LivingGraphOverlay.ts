@@ -16,6 +16,17 @@
 //
 // Spec: docs/03-execution/specs/SPEC-LIVING-BUILDING-GRAPH.md.
 
+// A.21.D24 — pull the D16 RATIONALE + plain-language relationship surface into the
+// Living Graph inspector. These are PURE read-only projections over the same
+// cached UBG the binder reads (humanNodeLabel / roomRelationshipSentences /
+// nodeRationale); the editor (L5) may import @pryzm/building-graph (L2).
+import {
+  BuildingGraph,
+  humanNodeLabel,
+  nodeRationale,
+  roomRelationshipSentences,
+  type UbgNode,
+} from '@pryzm/building-graph';
 import { buildLiveGraph } from './livingGraphData';
 import { LivingGraphCanvas, type DrawState } from './LivingGraphCanvas';
 import {
@@ -60,9 +71,22 @@ interface RuntimeLike {
 }
 interface OverlayWindow {
   runtime?: RuntimeLike;
+  /** The cached UBG the binder reads — a real BuildingGraph (A.21.D24 inspector
+   *  reads it through the building-graph rationale helpers). */
+  __pryzmBuildingGraph?: BuildingGraph;
 }
 function ow(): OverlayWindow | undefined {
   return (typeof window !== 'undefined' ? window : undefined) as unknown as OverlayWindow | undefined;
+}
+
+/**
+ * The cached UBG as a real {@link BuildingGraph}, or null. Read-only — we NEVER
+ * rebuild here (same re-entry contract as the binder). Guarded with an
+ * `instanceof` so a stale/foreign cache shape can't crash the inspector.
+ */
+function cachedGraph(): BuildingGraph | null {
+  const g = ow()?.__pryzmBuildingGraph;
+  return g instanceof BuildingGraph ? g : null;
 }
 
 export class LivingGraphOverlay {
@@ -210,8 +234,13 @@ export class LivingGraphOverlay {
   private buildInspector(): HTMLElement {
     const el = document.createElement('div');
     Object.assign(el.style, {
-      padding: '8px 12px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '8px',
+      padding: '10px 12px',
       minHeight: '20px',
+      maxHeight: '188px',
+      overflowY: 'auto',
       font: '500 11px/1.4 system-ui, sans-serif',
       color: '#6b6385',
       borderBottom: '1px solid #f0ebfb',
@@ -552,44 +581,208 @@ export class LivingGraphOverlay {
     }
   }
 
-  /** One-line node inspector (the prototype's inspect line): name · area · ☀sun
-   *  · ♪noise · type · active connections. */
+  /**
+   * §LG-RICH-INSPECT (A.21.D24) — a multi-section node inspector. Beyond the
+   * prototype's one-liner (name · area · ☀ · ♪ · type · links) it now surfaces the
+   * D16 depth: the REAL room metrics (real area — never a bare "— m²" when the room
+   * has a boundary), the plain-language RATIONALE ("why it's here"), the typed
+   * SPACE relationships ("connects to Corridor via a door"), and the hosted
+   * ELEMENTS (doors/windows) with their own rationale ("Window · south façade — for
+   * daylight"). The rationale/relationship/element depth is read from the CACHED
+   * BuildingGraph via the pure building-graph helpers; the metrics come from the
+   * live GraphNode the sim is animating.
+   */
   private updateInspector(): void {
     const el = this.inspectorEl;
     if (!el) return;
     const id = this.draw.focusedId;
     if (!id) {
+      el.replaceChildren();
       el.textContent = 'Click a room to inspect it.';
       el.style.color = '#6b6385';
       return;
     }
     const node = this.graph.nodes.find((n) => n.id === id);
     if (!node) {
+      el.replaceChildren();
       el.textContent = 'Click a room to inspect it.';
+      el.style.color = '#6b6385';
       return;
     }
+
+    el.replaceChildren();
+    el.style.color = '#6b6385';
+
+    // The matching UBG node + graph (for rationale / relationships / elements).
+    const graph = cachedGraph();
+    const ubgNode = graph ? (() => { try { return graph.getNode(id) ?? null; } catch { return null; } })() : null;
+
+    // ── Header: type dot + title + level/occupancy chips ──────────────────────
+    const head = document.createElement('div');
+    Object.assign(head.style, { display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' });
+    const dot = document.createElement('span');
+    Object.assign(dot.style, {
+      display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%',
+      background: ROOM_TYPE_COLOUR[node.type], flexShrink: '0',
+    });
+    const title = document.createElement('span');
+    title.textContent = node.label;
+    Object.assign(title.style, { color: '#241a3a', font: '700 12px/1.3 system-ui, sans-serif' });
+    head.append(dot, title);
+    if (node.level) head.appendChild(this.miniChip(node.level, 'rgba(36,26,58,0.06)', '#4b4163'));
+    // Show the REAL program label (occupancy) when it differs from the coarse type.
+    const occ = node.occupancy;
+    if (occ && occ.toLowerCase() !== node.type) {
+      head.appendChild(this.miniChip(occ, 'rgba(102,0,255,0.08)', ACCENT));
+    }
+    el.appendChild(head);
+
+    // ── Metrics row: real area · sun · noise · type · active links ────────────
     const activeConns = this.graph.edges.filter(
       (e) => (e.a === id || e.b === id) && e.layers.some((l) => this.layers[l]),
     ).length;
-    el.replaceChildren();
-    const dot = document.createElement('span');
-    Object.assign(dot.style, {
-      display: 'inline-block',
-      width: '9px',
-      height: '9px',
-      borderRadius: '50%',
-      background: ROOM_TYPE_COLOUR[node.type],
-      marginRight: '6px',
-      verticalAlign: 'middle',
-    });
-    const text = document.createElement('span');
-    text.style.color = '#241a3a';
-    const area = node.areaSqm > 0 ? `${node.areaSqm.toFixed(1)} m²` : '— m²';
-    // §UBG-LEVEL-TAG — prefix the storey when known (multi-storey houses).
-    const levelTag = node.level ? `${node.level} · ` : '';
-    text.textContent =
-      `${levelTag}${node.label} · ${area} · ☀ ${(node.sunExposure * 100) | 0}% · ♪ ${(node.noiseLevel * 100) | 0}% · ${node.type} · ${activeConns} active link${activeConns === 1 ? '' : 's'}`;
-    el.append(dot, text);
+    const areaTxt = node.areaSqm > 0 ? `${node.areaSqm.toFixed(1)} m²` : '— m²';
+    const metrics = document.createElement('div');
+    Object.assign(metrics.style, { display: 'flex', flexWrap: 'wrap', gap: '4px 10px', color: '#4b4163', font: '500 11px/1.4 system-ui' });
+    metrics.append(
+      this.metricSpan('📐', areaTxt),
+      this.metricSpan('☀', `${(node.sunExposure * 100) | 0}%`),
+      this.metricSpan('♪', `${(node.noiseLevel * 100) | 0}%`),
+      this.metricSpan('●', node.type, ROOM_TYPE_COLOUR[node.type]),
+      this.metricSpan('🔗', `${activeConns} active link${activeConns === 1 ? '' : 's'}`),
+    );
+    el.appendChild(metrics);
+
+    if (ubgNode && graph) {
+      // ── "Why it's here" — the D16 rationale (omitted when none derivable) ────
+      const rationale = (() => { try { return nodeRationale(ubgNode, graph); } catch { return null; } })();
+      if (rationale) {
+        const body = document.createElement('div');
+        const why = document.createElement('div');
+        why.textContent = rationale.reason;
+        Object.assign(why.style, { color: '#241a3a', font: '500 11px/1.45 system-ui' });
+        const src = document.createElement('div');
+        src.textContent = `from ${rationale.source}`;
+        Object.assign(src.style, { color: '#9b93b5', font: '400 10px/1.3 system-ui', marginTop: '2px' });
+        body.append(why, src);
+        el.appendChild(this.inspectorSection("Why it's here", [body]));
+      }
+
+      // ── "Spaces" — typed neighbour relationships in plain language (D16) ─────
+      const lines = (() => { try { return roomRelationshipSentences(ubgNode, graph); } catch { return []; } })();
+      if (lines.length) {
+        el.appendChild(this.inspectorSection('Spaces', lines.slice(0, 6).map((s) => {
+          const r = document.createElement('div');
+          r.textContent = `• ${s.text}`;
+          Object.assign(r.style, { color: '#241a3a', font: '500 11px/1.4 system-ui' });
+          return r;
+        })));
+      }
+
+      // ── "Openings" — the ELEMENTS hosted in / connecting this room (doors,
+      //    windows) with their OWN rationale, so element relationships ("why this
+      //    window is on the south façade") surface without overloading the canvas.
+      const openings = this.collectOpenings(id, graph);
+      if (openings.length) {
+        el.appendChild(this.inspectorSection('Openings', openings.slice(0, 6).map((o) => {
+          const row = document.createElement('div');
+          Object.assign(row.style, { display: 'flex', flexDirection: 'column', gap: '0' });
+          const lbl = document.createElement('div');
+          lbl.textContent = `• ${o.label}`;
+          Object.assign(lbl.style, { color: '#241a3a', font: '500 11px/1.4 system-ui' });
+          row.appendChild(lbl);
+          if (o.reason) {
+            const rs = document.createElement('div');
+            rs.textContent = o.reason;
+            Object.assign(rs.style, { color: '#9b93b5', font: '400 10px/1.35 system-ui', paddingLeft: '10px' });
+            row.appendChild(rs);
+          }
+          return row;
+        })));
+      }
+    }
+  }
+
+  /**
+   * The doors/windows hosted in or connecting a room, with their D16 rationale.
+   * Three sources, since the UBG models openings in different shapes:
+   *   • DOOR nodes carry `refs: [roomA, roomB]` (the roomGraph adapter) but NO
+   *     direct room edges — so doors are found by matching the room id in `refs`.
+   *   • WINDOW nodes carry a `hostedIn` edge to their host WALL, and a wall
+   *     `bounds` the room — so windows are reached wall-by-wall.
+   *   • Any door/window reachable by a direct edge (defensive — future adapters).
+   * Deduplicated, bounded. Read-only; never throws.
+   */
+  private collectOpenings(roomId: string, graph: BuildingGraph): Array<{ label: string; reason: string | null }> {
+    const out: Array<{ label: string; reason: string | null }> = [];
+    const seen = new Set<string>();
+    const add = (node: UbgNode | undefined): void => {
+      if (!node || seen.has(node.id)) return;
+      if (node.kind !== 'door' && node.kind !== 'window') return;
+      seen.add(node.id);
+      const reason = (() => { try { return nodeRationale(node, graph)?.reason ?? null; } catch { return null; } })();
+      out.push({ label: humanNodeLabel(node, graph), reason });
+    };
+    try {
+      // 1) Door nodes that reference this room (roomGraph adapter `refs`).
+      for (const n of graph.allNodes()) {
+        if (n.kind === 'door' && (n.refs ?? []).includes(roomId)) add(n);
+      }
+      // 2) Windows hosted in the room's bounding walls (`bounds` in-edge → wall;
+      //    `hostedIn` in-edge of the wall → the window/door).
+      for (const wallEdge of graph.inEdges(roomId, 'bounds')) {
+        const wallId = wallEdge.from;
+        for (const he of graph.inEdges(wallId, 'hostedIn')) add(graph.getNode(he.from));
+      }
+      // 3) Any opening reachable by a direct edge in either direction (defensive).
+      for (const e of graph.outEdges(roomId)) add(graph.getNode(e.to));
+      for (const e of graph.inEdges(roomId)) add(graph.getNode(e.from));
+    } catch {
+      /* defensive — a mis-shaped graph never breaks the inspector */
+    }
+    return out;
+  }
+
+  /** A small rounded chip (level / occupancy) for the inspector header. */
+  private miniChip(text: string, bg: string, fg: string): HTMLElement {
+    const c = document.createElement('span');
+    c.textContent = text;
+    Object.assign(c.style, {
+      background: bg, color: fg, borderRadius: '999px', padding: '1px 7px',
+      font: '600 10px/1.4 system-ui, sans-serif', whiteSpace: 'nowrap',
+    } satisfies Partial<CSSStyleDeclaration>);
+    return c;
+  }
+
+  /** One "icon value" metric span. */
+  private metricSpan(icon: string, value: string, colour?: string): HTMLElement {
+    const s = document.createElement('span');
+    Object.assign(s.style, { display: 'inline-flex', alignItems: 'center', gap: '3px', whiteSpace: 'nowrap' });
+    const i = document.createElement('span');
+    i.textContent = icon;
+    if (colour) i.style.color = colour;
+    const v = document.createElement('span');
+    v.textContent = value;
+    v.style.color = '#241a3a';
+    s.append(i, v);
+    return s;
+  }
+
+  /** A titled inspector section (uppercase #6600FF heading + rows). */
+  private inspectorSection(title: string, rows: HTMLElement[]): HTMLElement {
+    const sec = document.createElement('div');
+    const h = document.createElement('div');
+    h.textContent = title;
+    Object.assign(h.style, {
+      font: '700 9px/1 system-ui, sans-serif', textTransform: 'uppercase',
+      letterSpacing: '0.05em', color: ACCENT, marginBottom: '4px',
+    } satisfies Partial<CSSStyleDeclaration>);
+    sec.appendChild(h);
+    const list = document.createElement('div');
+    Object.assign(list.style, { display: 'flex', flexDirection: 'column', gap: '3px' });
+    for (const r of rows) list.appendChild(r);
+    sec.appendChild(list);
+    return sec;
   }
 
   private styleChip(chip: HTMLButtonElement, layer: EdgeLayer, on: boolean): void {

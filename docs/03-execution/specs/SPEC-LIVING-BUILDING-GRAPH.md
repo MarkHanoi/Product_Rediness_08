@@ -1,6 +1,8 @@
-# SPEC — Living Building Graph (A.21.D17) v1.0
+# SPEC — Living Building Graph (A.21.D17) v1.1
 
-**Status.** Live (shipped 2026-06-06).
+**Status.** Live (shipped 2026-06-06; enriched A.21.D24 2026-06-06 — rich inspector + real area).
+
+**Changelog.** v1.1 (A.21.D24) — the node inspector grew from a one-liner to a multi-section card surfacing the D16 rationale ("why it's here"), the typed space relationships ("Spaces"), and the hosted door/window elements with their own rationale ("Openings"); the "— m²" defect is fixed (real area via scalar metric or boundary shoelace). See §7.1.
 
 **Governed by.** `ADR-0058` (Unified Building Graph as the relational substrate; specialised graphs are projections). Sibling of the static living-blob overlay (GRAPH.3, `apps/editor/src/ui/graph/`) — this SPEC's overlay is intended to SUPERSEDE it as the primary graph UI. Direction: [[building-graph-strategy]].
 
@@ -66,7 +68,19 @@ DPR-aware. **White canvas, dark text — brand, NOT the prototype's dark surface
 
 ## §7 — The panel (`LivingGraphOverlay.ts`)
 
-`position:fixed` bottom-right, `z-index:4500`, white card, draggable header. Chrome: title + `settled`/`rooms` badges + **Freeze** + ✕; the canvas; a one-line **node inspector** (name · area · ☀sun · ♪noise · type · active connections); the five **layer-toggle chips** (toggling re-settles from CURRENT positions); a **heat slider** (steps/frame); **↺ Rerun** (full scatter).
+`position:fixed` bottom-right, `z-index:4500`, white card, draggable header. Chrome: title + `settled`/`rooms` badges + **Freeze** + ✕; the canvas; the **node inspector** (see §7.1); the five **layer-toggle chips** (toggling re-settles from CURRENT positions); a **heat slider** (steps/frame); **↺ Rerun** (full scatter).
+
+### §7.1 — The rich node inspector (§LG-RICH-INSPECT, A.21.D24)
+
+Originally a single line (`name · area · ☀ · ♪ · type · links`). A.21.D24 makes it a **multi-section card** that brings the D16 depth (`rationale.ts`) into the Living Graph, scrollable, capped height:
+
+- **Header** — type-colour dot · room label · a `level` chip (multi-storey) · an `occupancy` chip (the REAL program tag, e.g. "Master Bedroom", when it differs from the coarse type).
+- **Metrics** — 📐 **real area** · ☀ sun% · ♪ noise% · ● type · 🔗 active links. The area is the room's REAL floor area (§LG-REAL-AREA): the binder resolves a scalar metric (`area`/`areaSqm`/`floorArea`/`areaM2`/`computed.area`) and FALLS BACK to a **shoelace area from the boundary polygon**, so a bare "— m²" appears only when the room carries neither a metric nor a boundary. (The matching engine fix stamps `computed.area` + `boundary.polygon` onto room nodes in `buildBuildingGraph.enrichRoomNodes` — previously it read only a top-level `area`, which the detected-room store does not expose, so every detected room showed "— m²".)
+- **Why it's here** — the D16 `nodeRationale` ("A private room — placed away from the entrance…"; window → façade reason) + its data source. Omitted when no specific reason is derivable.
+- **Spaces** — `roomRelationshipSentences`: the room's typed neighbours in plain language ("connects to Corridor via a door", "adjacent to Kitchen").
+- **Openings** — the **element relationships** the founder asked about: doors/windows hosted in / connecting this room, each with its OWN rationale ("Window · south façade — Placed on the south façade … for the best daylight"). Doors are matched by their `refs`; windows by walking the room's bounding walls' `hostedIn` in-edges. Surfacing elements in the inspector (not as extra canvas nodes) keeps the field legible.
+
+The rationale/relationship/opening depth reads the CACHED `BuildingGraph` (a real instance) through the pure `@pryzm/building-graph` helpers (`humanNodeLabel` / `nodeRationale` / `roomRelationshipSentences`); the metrics come from the live `GraphNode` the sim is animating. Read-only; never rebuilds (same re-entry contract as the binder). Covered by `apps/editor/__tests__/livingGraphData.test.ts` (real-area + occupancy mapping).
 
 ## §8 — P3 compliance (CI-enforced, merge-blocking)
 
@@ -76,7 +90,7 @@ The sim animation NEVER calls `requestAnimationFrame`. It subscribes a tick list
 
 - **Canonical settled-state export per layer** — persist the converged positions so a layer's "answer" is reproducible and shareable.
 - **Free-graph vs plan-constrained "design compromise" delta** — overlay the free (tension-minimising) layout against the on-plan (geometry-constrained) one and surface the delta as the *design compromise* each relationship pays. This is the headline next feature.
-- **Per-element rationale on nodes** (A.21.D16) — "this window is on the SOUTH façade for daylight" surfaced in the inspector once the UBG carries the rationale.
+- ~~**Per-element rationale on nodes** (A.21.D16) — "this window is on the SOUTH façade for daylight" surfaced in the inspector once the UBG carries the rationale.~~ ✅ **DONE (A.21.D24)** — the inspector's "Why it's here" + "Openings" sections surface the D16 rationale for the room AND its hosted doors/windows (see §7.1).
 
 ## §10 — Console + entry
 

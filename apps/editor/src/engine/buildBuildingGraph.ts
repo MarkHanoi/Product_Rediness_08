@@ -97,7 +97,14 @@ export interface RoomRecordLike {
   name?: string;
   /** program tag — `'Bedroom'`, `'Bathroom'`, `'Kitchen'`… (Room.occupancy). */
   occupancy?: string;
+  /** Some stores carry the program tag as `occupancyType` (detected-room shape). */
+  occupancyType?: string;
+  /** Direct floor area (m²) when the store exposes it at the top level. */
   area?: number;
+  /** Detected-room shape: metrics live under `computed` (`computed.area`). */
+  computed?: { area?: number } | null;
+  /** Detected-room shape: the room boundary polygon (world-XZ vertices). */
+  boundary?: { polygon?: ReadonlyArray<{ x?: number; z?: number }> } | null;
 }
 
 /** RoomStore subset — read a room record by id. */
@@ -353,8 +360,26 @@ export function enrichRoomNodes(
       if (!rec) continue;
       const extra: Record<string, unknown> = {};
       if (typeof rec.name === 'string' && rec.name.length > 0) extra.name = rec.name;
-      if (typeof rec.occupancy === 'string' && rec.occupancy.length > 0) extra.occupancy = rec.occupancy;
-      if (typeof rec.area === 'number' && rec.area > 0) extra.area = rec.area;
+      // Occupancy tag — `occupancy` (L0 Room) OR `occupancyType` (detected room).
+      const occ =
+        (typeof rec.occupancy === 'string' && rec.occupancy.length > 0 && rec.occupancy) ||
+        (typeof rec.occupancyType === 'string' && rec.occupancyType.length > 0 && rec.occupancyType) ||
+        null;
+      if (occ) extra.occupancy = occ;
+      // Floor area — top-level `area` OR the detected-room `computed.area`. Without
+      // this the detected-room store (whose area lives at `computed.area`) stamped
+      // NO area onto the node, so both graph inspectors showed "— m²" (§LG-REAL-AREA).
+      const area =
+        (typeof rec.area === 'number' && rec.area > 0 && rec.area) ||
+        (typeof rec.computed?.area === 'number' && rec.computed.area > 0 && rec.computed.area) ||
+        0;
+      if (area > 0) extra.area = area;
+      // Boundary polygon — lets the Living Graph compute area by shoelace as a
+      // last-resort fallback when no scalar metric is present.
+      const poly = rec.boundary?.polygon;
+      if (Array.isArray(poly) && poly.length >= 3) {
+        extra.polygon = poly.map((v) => ({ x: v?.x, z: v?.z }));
+      }
       if (Object.keys(extra).length > 0) {
         graph.addNode({ ...node, props: { ...(node.props ?? {}), ...extra } });
       }
