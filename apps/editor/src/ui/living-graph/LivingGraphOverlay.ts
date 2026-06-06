@@ -585,8 +585,10 @@ export class LivingGraphOverlay {
     const text = document.createElement('span');
     text.style.color = '#241a3a';
     const area = node.areaSqm > 0 ? `${node.areaSqm.toFixed(1)} m²` : '— m²';
+    // §UBG-LEVEL-TAG — prefix the storey when known (multi-storey houses).
+    const levelTag = node.level ? `${node.level} · ` : '';
     text.textContent =
-      `${node.label} · ${area} · ☀ ${(node.sunExposure * 100) | 0}% · ♪ ${(node.noiseLevel * 100) | 0}% · ${node.type} · ${activeConns} active link${activeConns === 1 ? '' : 's'}`;
+      `${levelTag}${node.label} · ${area} · ☀ ${(node.sunExposure * 100) | 0}% · ♪ ${(node.noiseLevel * 100) | 0}% · ${node.type} · ${activeConns} active link${activeConns === 1 ? '' : 's'}`;
     el.append(dot, text);
   }
 

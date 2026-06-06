@@ -13,6 +13,7 @@ import {
   extractConstraintSnapshot,
   wallFacadeCompass,
   kindFromId,
+  resolveLevelIds,
   type BuildBuildingGraphServices,
   type TopologyLayerLike,
   type RoomGraphServiceLike,
@@ -338,5 +339,66 @@ describe('buildBuildingGraph — A.21.D16 enrichment', () => {
     // room node present but un-enriched (no name prop), no windows, no crash.
     expect(g.getNode('r')?.kind).toBe('room');
     expect(g.query({ kind: 'window' }).nodes).toHaveLength(0);
+  });
+});
+
+// ── A.21.D21 — ALL levels' rooms appear in ONE UBG (multi-storey houses) ──────
+
+describe('buildBuildingGraph — A.21.D21 every storey projects', () => {
+  it('projects rooms from EVERY level (not just the active one) into one graph', () => {
+    // A two-storey house: ground floor (L0) + first floor (L1), each with its own
+    // rooms. The graph must contain ALL four rooms, tagged by level.
+    const byLevel: Record<string, Array<{ roomId: string }>> = {
+      L0: [{ roomId: 'r_living' }, { roomId: 'r_kitchen' }],
+      L1: [{ roomId: 'r_bed1' }, { roomId: 'r_bath' }],
+    };
+    const roomGraph: RoomGraphServiceLike = {
+      getGraph: (levelId) => ({
+        levelId,
+        nodes: new Map((byLevel[levelId] ?? []).map((n) => [n.roomId, n])),
+        edges: new Map(),
+      }),
+    };
+    const g = buildBuildingGraph({ services: { roomGraph, levelIds: ['L0', 'L1'] } });
+
+    const roomIds = g.query({ kind: 'room' }).nodes.map((n) => n.id).sort();
+    expect(roomIds).toEqual(['r_bath', 'r_bed1', 'r_kitchen', 'r_living']);
+    // each room is tagged with the storey it belongs to.
+    expect(g.getNode('r_living')?.props?.levelId).toBe('L0');
+    expect(g.getNode('r_bed1')?.props?.levelId).toBe('L1');
+  });
+});
+
+// ── A.21.D21 — resolveLevelIds covers EVERY level enumerator ──────────────────
+
+describe('resolveLevelIds — all storeys, all enumerator shapes', () => {
+  const mk = (w: unknown) => resolveLevelIds(w as never);
+
+  it('uses the canonical BimManager.getLevels() (every storey)', () => {
+    const ids = mk({ bimManager: { getLevels: () => [{ id: 'L0' }, { id: 'L1' }, { id: 'L2' }] } });
+    expect(ids).toEqual(['L0', 'L1', 'L2']);
+  });
+
+  it('falls back to the legacy getAllLevels() alias', () => {
+    const ids = mk({ bimManager: { getAllLevels: () => [{ id: 'A' }, { id: 'B' }] } });
+    expect(ids).toEqual(['A', 'B']);
+  });
+
+  it('falls back to wallStore.getLevels() then projectContext.levels', () => {
+    expect(mk({ wallStore: { getLevels: () => [{ id: 'W0' }, { id: 'W1' }] } })).toEqual(['W0', 'W1']);
+    expect(mk({ projectContext: { levels: [{ id: 'P0' }] } })).toEqual(['P0']);
+  });
+
+  it('falls back to the active level ONLY when nothing enumerates', () => {
+    expect(mk({ projectContext: { activeLevelId: 'ACTIVE' } })).toEqual(['ACTIVE']);
+    expect(mk({ bimManager: { getActiveLevel: () => ({ id: 'ACTIVE2' }) } })).toEqual(['ACTIVE2']);
+    expect(mk({})).toEqual([]);
+  });
+
+  it('de-dups ids and tolerates a throwing enumerator', () => {
+    const ids = mk({
+      bimManager: { getLevels: () => { throw new Error('boom'); }, getAllLevels: () => [{ id: 'X' }, { id: 'X' }, { id: 'Y' }] },
+    });
+    expect(ids).toEqual(['X', 'Y']);
   });
 });

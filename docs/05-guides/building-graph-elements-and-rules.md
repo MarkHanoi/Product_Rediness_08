@@ -57,8 +57,10 @@ into the same graph.
 
 The **element universe** (the candidate nodes) is the set of live element stores —
 walls, curtain walls, slabs, columns, rooms, room-bounding-lines, etc. In production the
-node ids are read directly off the live 3D scene, and the level ids from
-`bimManager.getAllLevels()`. The overlay's `labelFor()` prefers a human label from
+node ids are read directly off the live 3D scene, and the level ids from EVERY storey of
+the building (`bimManager.getLevels()`, with `getAllLevels()` / `wallStore.getLevels()` /
+`projectContext.levels` as fallbacks — §UBG-ALL-LEVELS), so a multi-storey house's rooms
+ALL appear in one graph. The overlay's `labelFor()` prefers a human label from
 `props.name / label / roomType / elementType`, and otherwise humanises the kind
 (`element` → `Element`, `curtain_wall` → `Curtain Wall`).
 
