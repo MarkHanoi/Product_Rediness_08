@@ -19,6 +19,13 @@
 // Spec: docs/01-strategy/PRYZM-BUILDING-GRAPH-AND-RELATIONAL-AI-FOUNDATION.md §4.1.
 
 import type { BuildingGraph, UbgNode } from '@pryzm/building-graph';
+// A.21.D16 — pure label + rationale helpers (the "what it is / how spaces connect /
+// why it's here" surface). They read node/edge data only; no editor types leak in.
+import {
+  humanNodeLabel,
+  roomRelationshipSentences,
+  nodeRationale,
+} from '@pryzm/building-graph';
 import {
   buildLayout,
   stepForces,
@@ -831,14 +838,48 @@ export class BuildingGraphOverlay {
     // Properties.
     const props = (node.props ?? {}) as Record<string, unknown>;
     const propRows = Object.entries(props)
-      .filter(([k, v]) => v != null && v !== '' && typeof v !== 'object' && k !== 'name' && k !== 'label')
+      .filter(([k, v]) =>
+        v != null && v !== '' && typeof v !== 'object' &&
+        k !== 'name' && k !== 'label' &&
+        // these feed the human label / rationale rather than the raw props list:
+        k !== 'facade' && k !== 'orientationReason' && k !== 'programReason' &&
+        k !== 'placementReason' && k !== 'latDeg' && k !== 'role')
       .slice(0, 8);
     if (propRows.length) {
       body.appendChild(this.detailSection('Properties', propRows.map(([k, v]) =>
         this.detailRow(this.humanKind(k), this.fmtValue(k, v)))));
     }
 
-    // Relationships — typed edges to/from neighbours.
+    // A.21.D16 — "Spaces" (room relationships in PLAIN language). For a room,
+    // answers "how do the spaces connect" by NAME: "connects to Corridor via a
+    // door", "adjacent to Kitchen". (Generated from the room's UBG edges.)
+    const roomLines = roomRelationshipSentences(node, graph);
+    if (roomLines.length) {
+      body.appendChild(this.detailSection('Spaces', roomLines.map((s) => {
+        const r = document.createElement('div');
+        r.textContent = `• ${s.text}`;
+        Object.assign(r.style, { color: '#241a3a', font: '500 11px/1.4 system-ui' });
+        return r;
+      })));
+    }
+
+    // A.21.D16 — "Why it's here" — the RATIONALE: WHY this element is located
+    // where it is, generated from real data (façade orientation, room pairing,
+    // program role). Omitted entirely when no specific reason is derivable.
+    const rationale = (() => { try { return nodeRationale(node, graph); } catch { return null; } })();
+    if (rationale) {
+      const why = document.createElement('div');
+      const txt = document.createElement('div');
+      txt.textContent = rationale.reason;
+      Object.assign(txt.style, { color: '#241a3a', font: '500 12px/1.45 system-ui' });
+      const src = document.createElement('div');
+      src.textContent = `from ${rationale.source}`;
+      Object.assign(src.style, { color: '#9b93b5', font: '400 10px/1.3 system-ui', marginTop: '3px' });
+      why.append(txt, src);
+      body.appendChild(this.detailSection("Why it's here", [why]));
+    }
+
+    // Relationships — every typed edge to/from neighbours (the technical view).
     const rels: HTMLElement[] = [];
     try {
       for (const e of graph.outEdges(id)) rels.push(this.relRow('out', e.type, kindOf(e.to), labelOf(e.to)));
@@ -857,7 +898,7 @@ export class BuildingGraphOverlay {
         for (const e of graph.outEdges(id, 'violates')) ruleRows.push(this.ruleRow(`Breaks: ${labelOf(e.to)}${e.evidence ? ` — ${e.evidence}` : ''}`));
       }
     } catch { /* ignore */ }
-    if (ruleRows.length) body.appendChild(this.detailSection('Rules', ruleRows));
+    if (ruleRows.length) body.appendChild(this.detailSection('Rule violations', ruleRows));
 
     el.appendChild(body);
   }
@@ -941,27 +982,12 @@ export class BuildingGraphOverlay {
   // ── Small drawing/util helpers ─────────────────────────────────────────────
 
   private labelFor(node: UbgNode): string {
-    const props = node.props as Record<string, unknown> | undefined;
-    const pick = (k: string): string | undefined => {
-      const v = props?.[k];
-      return typeof v === 'string' && v.length > 0 ? v : undefined;
-    };
-    // Prefer a human name; widen the fallbacks beyond name/label/roomType to the
-    // element-type fields so a node never renders as the bare generic kind
-    // "element" when richer detail is available on its props.
-    const name =
-      pick('name') ??
-      pick('label') ??
-      pick('roomType') ??
-      pick('elementType') ??
-      pick('type') ??
-      pick('category');
-    // Humanize a slug so even a kind-only fallback reads cleanly:
-    // 'element' → 'Element', 'curtain_wall' / 'curtain-wall' → 'Curtain Wall'.
-    const humanize = (s: string): string =>
-      s.replace(/[_-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-    const base = name && name.length > 0 ? name : humanize(node.kind);
-    return base.length > 26 ? `${base.slice(0, 25)}…` : base;
+    // A.21.D16 — delegate to the pure building-graph label helper so labels read
+    // as what the element IS ("Master Bedroom", "Window · south façade",
+    // "Door · Bedroom ↔ Corridor", "Wall · exterior"). The graph is passed so a
+    // door can resolve the NAMES of the two rooms it links.
+    const graph = this.currentGraph ?? ow()?.__pryzmBuildingGraph ?? undefined;
+    return humanNodeLabel(node, graph ?? undefined);
   }
 
   private withAlpha(colour: string, alpha: number): string {

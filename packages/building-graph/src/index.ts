@@ -23,6 +23,18 @@ export {
 
 export { BuildingGraph } from './BuildingGraph.js';
 
+// GRAPH.5 / A.21.D16 — human labels + element RATIONALE (pure, read-only).
+export {
+  humanNodeLabel,
+  doorRoomPair,
+  roomRelationshipSentences,
+  nodeRationale,
+  humanize,
+  type Facade,
+  type RelationshipSentence,
+  type NodeRationale,
+} from './rationale.js';
+
 export type { UbgAdapter, UbgAdapterRegistry } from './adapters.js';
 
 export { withUbgSpan, _resetTracerCache, type UbgMutationOp } from './tracing.js';
