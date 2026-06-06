@@ -23,6 +23,7 @@ import type {
 } from '@pryzm/ai-host';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
 import { getActiveDesignMetadata } from '../apartment-layout/activeBrief.js';
+import { occupanciesForRoom, primaryOccupancy } from './furnishOccupancy.js';
 
 interface Pt { x: number; z: number }
 
@@ -36,42 +37,6 @@ interface RoomLike {
     boundingWallIds?: string[];
 }
 
-/**
- * Map the apartment-layout's deterministic display names (from bubbleGraph.ts)
- * back to a D-FLE occupancy. The bubble graph mints names like "Living Room",
- * "Kitchen", "Master Bedroom" / "Bedroom 1" / "Bathroom" / "En-suite" — so a
- * compound name "Living Room / Kitchen / Dining" parses to three occupancies.
- */
-function occupancyFromName(name: string): string | undefined {
-    const n = name.trim();
-    if (/^Entrance Hall/i.test(n)) return 'entrance-lobby';
-    if (/^Living Room/i.test(n)) return 'living-room';
-    if (/^Kitchen/i.test(n)) return 'kitchen';
-    if (/^Dining/i.test(n)) return 'dining-room';
-    if (/^Corridor/i.test(n)) return 'corridor';
-    if (/^Master Bedroom/i.test(n)) return 'bedroom';
-    if (/^Bedroom/i.test(n)) return 'bedroom';
-    if (/^En-?suite/i.test(n)) return 'bathroom';
-    if (/^Bathroom/i.test(n)) return 'bathroom';
-    if (/^Study|^Office|^Home Office/i.test(n)) return 'private-office';
-    if (/^Utility/i.test(n)) return 'utility-room';
-    return undefined;
-}
-
-/**
- * Occupancies for a room — single-occupancy rooms return [occupancyType]; a
- * compound-name room (open-plan merged "Living Room / Kitchen / Dining")
- * returns each sub-program's occupancy, in the compound-name order (which is
- * largest-area-first — see ApartmentLayoutExecutor._nameDetectedRooms).
- */
-function occupanciesForRoom(r: RoomLike): string[] {
-    const name = r.name ?? '';
-    if (name.includes('/')) {
-        const parts = name.split('/').map(p => occupancyFromName(p)).filter((o): o is string => !!o);
-        if (parts.length > 0) return parts;
-    }
-    return r.occupancyType ? [r.occupancyType] : [];
-}
 interface WallLike {
     id: string;
     levelId: string;
@@ -365,7 +330,10 @@ export class FurnishLayoutExecutor {
             for (const r of allRooms) {
                 const poly = (r.boundary?.polygon ?? []) as readonly Pt[];
                 if (poly.length < 3) { roomsSkipped++; continue; }
-                const occupancy = r.occupancyType ?? '';
+                // A.21.D24 — occupancyType first, then name-derived fallback so a
+                // room whose naming pass hasn't applied yet (or a manually-drawn
+                // room) still resolves to a furnishable archetype.
+                const occupancy = primaryOccupancy(r);
                 const { centroid, area } = shoelaceCentroid(poly);
                 const cx = r.computed?.centroid?.x ?? centroid.x;
                 const cz = r.computed?.centroid?.z ?? centroid.z;
@@ -422,7 +390,21 @@ export class FurnishLayoutExecutor {
             );
 
             if (allPlaced.length === 0) {
-                toast('No furniture placed — no rooms match a furnishable archetype.', 'warn');
+                // A.21.D24 — make the no-op LOUD, never silent. Dump per-room
+                // resolved occupancy so the cause is obvious (e.g. every room
+                // resolves to '' → the room-naming pass never set occupancyType,
+                // or 'corridor'/unknown → no archetype by design).
+                const breakdown = allRooms.map(r => {
+                    const occ = primaryOccupancy(r) || '(none)';
+                    return `${r.name ?? r.id}→${occ}`;
+                }).join(', ');
+                console.warn(
+                    '[furnish-layout] §FURNISH-EMPTY — 0 items placed across ' +
+                    `${allRooms.length} room(s) on level ${level.id}. Per-room occupancy: ${breakdown}. ` +
+                    'If every room shows (none), the room-naming pass did not set occupancyType ' +
+                    '(generate the layout, or ensure rooms carry a recognised name).',
+                );
+                toast('No furniture placed — rooms have no recognised occupancy type. See console.', 'warn');
                 runtime.events.emit('furnish.layout-executed', {
                     placedCount: 0, roomCount: allRooms.length, levelId: level.id,
                     validationWarnings: [],

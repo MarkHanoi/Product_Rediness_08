@@ -19,6 +19,7 @@ import { facadeOrientationService } from '@pryzm/spatial-index';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import type { ScoredLayoutOption, IdPrefix, LayoutExecuteOptions, LayoutCommandSet } from '@pryzm/ai-host';
 import { resolveActiveLevel } from './activeLevel.js';
+import { nameDetectedRooms } from './nameDetectedRooms.js';
 
 /** T1.W-C (2026-05-30) — gather existing shell walls from the wall store
  *  for a given level. Returns world-metres { id, start, end } records for
@@ -430,118 +431,9 @@ export class ApartmentLayoutExecutor {
      * Best-effort + its own undo unit (cosmetic; no geometry change).
      */
     private _nameDetectedRooms(runtime: PryzmRuntime, levelId: string, option: ScoredLayoutOption): void {
-        try {
-            const roomStore = storeRegistry.getStoreForType('room') as unknown as {
-                getByLevel?: (id: string) => Array<{ id: string; boundary?: { polygon?: Array<{ x: number; z: number }> } }>;
-                subscribe?: (fn: () => void) => (() => void);
-            } | undefined;
-            if (!roomStore?.getByLevel) return;
-
-            // D-TGL rooms with world centroids (mm→m, plan-y = world-z), largest first.
-            const tgl = option.rooms
-                .filter(r => r.centroid)
-                .map(r => ({ name: r.name, occupancy: r.occupancy, area: r.area, cx: r.centroid!.x / 1000, cz: r.centroid!.y / 1000 }))
-                .sort((a, b) => b.area - a.area);
-            if (tgl.length === 0) return;
-
-            const inside = (px: number, pz: number, poly: Array<{ x: number; z: number }>): boolean => {
-                let hit = false;
-                for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-                    const xi = poly[i]!.x, zi = poly[i]!.z, xj = poly[j]!.x, zj = poly[j]!.z;
-                    if (((zi > pz) !== (zj > pz)) && (px < ((xj - xi) * (pz - zi)) / (zj - zi) + xi)) hit = !hit;
-                }
-                return hit;
-            };
-
-            // The build's room-redetect is DEFERRED (runBatch drains via endBatchYielded;
-            // REDETECT_ROOMS fires in a scheduled onComplete). So the rooms DON'T exist
-            // synchronously here — apply names when the room store settles after the
-            // redetect (debounced so all rooms land first), with a hard-timeout fallback.
-            //
-            // §POLL-TELEMETRY (2026-05-29): tag the rename pass with its TRIGGER
-            // SOURCE — 'subscription' when the room-store events arrived in time;
-            // 'hard-timeout' when the 2.5 s fallback fired first. Without this, a
-            // silent subscription regression looks identical to the happy path. The
-            // source is logged + emitted on `apartment.room-name-completed`.
-            let done = false;
-            let unsub: () => void = () => { /* no-op until set */ };
-            let settle: ReturnType<typeof setTimeout> | undefined;
-            let hard: ReturnType<typeof setTimeout> | undefined;
-            const renameStartMs = performance.now();
-
-            const apply = (source: 'subscription' | 'hard-timeout'): void => {
-                if (done) return;
-                const detected = roomStore.getByLevel!(levelId);
-                if (detected.length === 0) return;                 // redetect not run yet — keep waiting
-                done = true;
-                unsub();
-                if (settle) clearTimeout(settle);
-                if (hard) clearTimeout(hard);
-                const renameElapsedMs = Math.round(performance.now() - renameStartMs);
-                console.log(
-                    '[apartment-layout] §POLL-TELEMETRY room-name-completed ' +
-                    `source=${source} elapsed_ms=${renameElapsedMs} detected_rooms=${detected.length}`,
-                );
-                try {
-                    runtime.events.emit('apartment.room-name-completed', {
-                        levelId, source, elapsedMs: renameElapsedMs, detectedRooms: detected.length,
-                    });
-                } catch { /* event bus failures must never break the executor */ }
-
-                const renames: Array<{ roomId: string; name: string; occupancy?: string }> = [];
-                for (const room of detected) {
-                    const poly = room.boundary?.polygon ?? [];
-                    if (poly.length < 3) continue;
-                    // ALL D-TGL rooms whose centroid is inside this detected room.
-                    // `tgl` is sorted by area desc so matches[0] is the dominant one.
-                    let matches = tgl.filter(t => inside(t.cx, t.cz, poly));
-                    if (matches.length === 0) {
-                        // §ROOM-NAME-NEAREST (2026-06-05) — on SKEWED / non-orthogonal
-                        // builds the built geometry is offset from the D-TGL plan, so the
-                        // D-TGL centroid can land just OUTSIDE the detected polygon → no
-                        // inside-match → the room keeps a generic "Room 00-NNN" (founder:
-                        // "all of the rooms are room"). Fall back to the NEAREST D-TGL room
-                        // by centroid so every detected room still gets a semantic name +
-                        // occupancy.
-                        let cx = 0, cz = 0;
-                        for (const p of poly) { cx += p.x; cz += p.z; }
-                        cx /= poly.length; cz /= poly.length;
-                        let best: (typeof tgl)[number] | null = null;
-                        let bestD = Infinity;
-                        for (const t of tgl) {
-                            const d = (t.cx - cx) * (t.cx - cx) + (t.cz - cz) * (t.cz - cz);
-                            if (d < bestD) { bestD = d; best = t; }
-                        }
-                        if (best) matches = [best];
-                    }
-                    if (matches.length === 0) continue;
-                    const compoundName = matches.map(m => m.name).filter(Boolean).join(' / ');
-                    if (!compoundName) continue;
-                    const dominantOccupancy = matches[0]!.occupancy;
-                    renames.push({ roomId: room.id, name: compoundName, ...(dominantOccupancy ? { occupancy: dominantOccupancy } : {}) });
-                }
-                if (renames.length === 0) return;
-
-                // Coalesce the rename reprojection into one (no redetect needed — names
-                // don't change boundaries).
-                batchCoordinator.runBatch(() => {
-                    for (const r of renames) {
-                        try { void runtime.bus.executeCommand('room.rename', r); }
-                        catch (e) { console.warn('[apartment-layout] room.rename failed (skipped):', e); }
-                    }
-                }, { levelIds: [levelId], totalElementCount: renames.length, skipRedetectRooms: true });
-                console.log('[apartment-layout] named', renames.length, 'room(s)');
-            };
-
-            if (roomStore.subscribe) {
-                unsub = roomStore.subscribe(() => {
-                    if (settle) clearTimeout(settle);
-                    settle = setTimeout(() => apply('subscription'), 80);
-                });
-            }
-            hard = setTimeout(() => apply('hard-timeout'), 2500);   // fallback if no room events fire
-        } catch (e) {
-            console.warn('[apartment-layout] room naming failed (non-fatal):', e);
-        }
+        // Delegates to the shared helper (A.21.D24) so the house executor can
+        // reuse the SAME naming + occupancy-tagging pass — without it, house
+        // rooms got no occupancyType and the furnish engine produced nothing.
+        nameDetectedRooms(runtime, levelId, option, '[apartment-layout]');
     }
 }
