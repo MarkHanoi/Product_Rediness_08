@@ -1,5 +1,6 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import { RoofData, SlopeArrow } from './RoofTypes.js';
+import { gableRidge } from './roofRidgeAxis.js';
 
 type Pt = [number, number]; // [x, z] in level-local space
 
@@ -168,24 +169,27 @@ export class RoofGeometryBuilder {
         const thickness = data.thickness;
 
         const eavePts = this._applyOverhang(pts, overhang);
-        const bb      = this._bbox(eavePts);
-        const spanX   = bb.maxX - bb.minX;
-        const spanZ   = bb.maxZ - bb.minZ;
 
-        // Ridge runs along the LONGER axis
-        const ridgeAlongX = spanX >= spanZ;
-        const halfPerp    = ridgeAlongX ? spanZ / 2 : spanX / 2;
-        const centerPerp  = ridgeAlongX ? (bb.minZ + bb.maxZ) / 2 : (bb.minX + bb.maxX) / 2;
+        // A.21.D24 §RIDGE-PRINCIPAL-AXIS — the gable ridge must run along the
+        // footprint's PRINCIPAL axis (its longest edge direction), NOT world X/Z.
+        // The prior code derived the ridge from the axis-aligned bbox, which is
+        // wrong for a rotated / skewed / parallelogram footprint (the founder's
+        // 16°-skewed plot): the ridge endpoints landed at the bbox corners and the
+        // eave→ridge slope faces sheared into a broken gable. `gableRidge` (pure,
+        // THREE-free) builds the ridge in the footprint's own (u = principal axis,
+        // v = perpendicular) frame: the ridge runs along u at the centre of the
+        // v-extent, spanning the full u-extent. For an axis-aligned rectangle the
+        // principal axis IS world X or Z, so this reproduces the old result EXACTLY
+        // (no regression).
+        const { ridge, ridgeH: axisRidgeH } = gableRidge(eavePts, slope);
+        const [rP1, rP2] = ridge;
 
         // P3.5 — Slope Arrows: if per-edge slopes are defined, compute ridge height
-        // as the minimum contribution from all edges (most restrictive edge governs).
+        // as the minimum contribution from all edges (most restrictive edge governs);
+        // otherwise the principal-axis half-perp height that `gableRidge` derives.
         const ridgeH = (data.slopeArrows && data.slopeArrows.length > 0)
             ? this._computeSlopeArrowRidgeH(eavePts, data.slopeArrows, slope)
-            : halfPerp * slope;
-
-        // Ridge endpoints span the full length of the dominant axis
-        const rP1: Pt = ridgeAlongX ? [bb.minX, centerPerp] : [centerPerp, bb.minZ];
-        const rP2: Pt = ridgeAlongX ? [bb.maxX, centerPerp] : [centerPerp, bb.maxZ];
+            : axisRidgeH;
 
         return this._buildMultiLevel(
             eavePts, 0,
