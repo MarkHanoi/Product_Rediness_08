@@ -17,12 +17,10 @@
 name: Deploy to Fly.io
 
 on:
-  # §A.10.o — TEMPORARY push-deploy window (repo PUBLIC 2026-06-06): ship the
-  # A.21.D24 batch (roof level+non-90° · stair rotation · furnish fix · 3D-globe
-  # multi-floor · 3D Forma climate · richer Living Graph). REVERT to
-  # workflow_dispatch-only before going private again (§A.10.i).
-  push:
-    branches: [main]
+  # §A.10.i — MANUAL-ONLY deploy to conserve GitHub Actions minutes when private.
+  # To deploy free: make the repo PUBLIC, then re-add a `push:` trigger; revert to
+  # this before going private. (v37 A.21.D24 batch shipped 2026-06-06 in the §A.10.o
+  # window — roof · stair · furnish · 3D-globe · 3D Forma climate · richer graph.)
   workflow_dispatch:
 
 # Latest-wins: a newer push to main cancels an older in-flight deploy so prod
