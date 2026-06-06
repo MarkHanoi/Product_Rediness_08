@@ -665,26 +665,60 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         return poly && poly.length >= 3 ? poly.map((p) => ({ x: p.x, z: p.z })) : null;
     };
 
-    /** Read authored walls (the massing) from the wall store: baseLine + h + t. */
-    const getFormaWalls = (): Array<{ a: XZ; b: XZ; height: number; thickness: number }> => {
+    /**
+     * §A.21.D24 — read authored walls (the massing) from the wall store:
+     * baseLine + h + t + the STOREY BASE ELEVATION.
+     *
+     * Per `packages/schemas/src/elements/Wall.ts`, a wall's `baseLine` is a pair
+     * of Vec3 whose `y` carries the LEVEL ELEVATION (the §WALL-AUDIT-2026-M7
+     * convention), and `baseOffset` is an extra vertical offset from the level
+     * base. The earlier reader dropped `y`/`baseOffset` entirely → every storey
+     * collapsed onto the ground and renderFormaMassing only ever showed one
+     * ground-floor block. We now carry `baseElevation = baseLine[0].y +
+     * baseOffset` (+ `levelId` for grouping) so the Cesium overlay can STACK each
+     * storey at its true elevation. Single-storey / apartment models have y=0 on
+     * every wall, so this is a no-op for them.
+     */
+    const getFormaWalls = (): Array<{
+        a: XZ;
+        b: XZ;
+        height: number;
+        thickness: number;
+        baseElevation: number;
+        levelId?: string;
+    }> => {
         type WallRecord = {
-            baseLine?: ReadonlyArray<{ x: number; z: number }>;
+            baseLine?: ReadonlyArray<{ x: number; y?: number; z: number }>;
             height?: number;
             thickness?: number;
+            baseOffset?: number;
+            levelId?: string;
         };
         const wallStore = storeRegistry.getStoreForType('wall') as unknown as
             | { getAll?: () => WallRecord[] }
             | undefined;
         const all = wallStore?.getAll?.() ?? [];
-        const out: Array<{ a: XZ; b: XZ; height: number; thickness: number }> = [];
+        const out: Array<{
+            a: XZ;
+            b: XZ;
+            height: number;
+            thickness: number;
+            baseElevation: number;
+            levelId?: string;
+        }> = [];
         for (const w of all) {
             const bl = w.baseLine;
             if (!bl || bl.length < 2 || !bl[0] || !bl[1]) continue;
+            const yElev = typeof bl[0].y === 'number' && Number.isFinite(bl[0].y) ? bl[0].y : 0;
+            const baseOffset =
+                typeof w.baseOffset === 'number' && Number.isFinite(w.baseOffset) ? w.baseOffset : 0;
             out.push({
                 a: { x: bl[0].x, z: bl[0].z },
                 b: { x: bl[1].x, z: bl[1].z },
                 height: typeof w.height === 'number' && w.height > 0 ? w.height : 2.5,
                 thickness: typeof w.thickness === 'number' && w.thickness > 0 ? w.thickness : 0.1,
+                baseElevation: yElev + baseOffset,
+                levelId: typeof w.levelId === 'string' && w.levelId ? w.levelId : undefined,
             });
         }
         return out;
@@ -735,6 +769,35 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             frameCentroid: frame,
             framePreset: preset,
         });
+        // §A.21.D24 — rebuild the Floors selector from the storeys just placed.
+        refreshFormaFloorSelector();
+    };
+
+    /**
+     * §A.21.D24 — (re)populate the Floors <select> from the REAL storeys of the
+     * placed massing. Shows "All floors" + one entry per storey (Ground, 1st, 2nd
+     * …). Hidden when there's 0/1 storey (nothing to choose). Preserves the
+     * current selection where possible. Safe before the selector is mounted.
+     */
+    const refreshFormaFloorSelector = (): void => {
+        const sel = formaFloorSelect;
+        if (!sel) return;
+        const bands = cesiumViewport?.getFormaStoreyBands?.() ?? [];
+        if (bands.length < 2) {
+            sel.style.display = 'none';
+            sel.innerHTML = '';
+            return;
+        }
+        const prev = sel.value;
+        const floorLabel = (i: number): string =>
+            i === 0 ? '0 · Ground' : `${i} · ${i === 1 ? '1st' : i === 2 ? '2nd' : i === 3 ? '3rd' : `${i}th`} floor`;
+        const opts: string[] = ['<option value="all">▤ All floors</option>'];
+        for (const b of bands) opts.push(`<option value="${b.index}">${floorLabel(b.index)}</option>`);
+        sel.innerHTML = opts.join('');
+        // Restore prior choice if it still exists, else default to "all".
+        sel.value = Array.from(sel.options).some((o) => o.value === prev) ? prev : 'all';
+        sel.style.display = 'inline-block';
+        console.log(`[gis][forma] floor selector rebuilt: ${bands.length} storeys.`);
     };
 
     // ── The floating [ 2D Map ][ Plan ][ 3D ] toggle (top-right; white + #6600FF) ──
@@ -752,6 +815,9 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     let formaMap2dBtn: HTMLButtonElement | null = null;
     let formaPlanBtn: HTMLButtonElement | null = null;
     let formaThreeBtn: HTMLButtonElement | null = null;
+    // §A.21.D24 — the multi-floor "Floors" selector (built lazily; hidden until
+    // the placed massing has ≥2 storeys).
+    let formaFloorSelect: HTMLSelectElement | null = null;
 
     // ── FORMA.5 — site-analysis chrome (sun scrubber + climate card + wind rose).
     // Mounted only while the 3D Forma view is active; disposed on view exit so
@@ -959,6 +1025,31 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         });
         bar.appendChild(zoomBtn);
 
+        // §A.21.D24 — Floors selector. A compact <select> populated from the REAL
+        // storeys of the placed massing (CesiumViewport.getFormaStoreyBands()).
+        // "All floors" (default) shows every storey stacked at its true elevation;
+        // picking a single floor isolates it. Hidden until ≥2 storeys exist (a
+        // single-storey house / apartment has nothing to choose). Rebuilt after
+        // each massing render via refreshFormaFloorSelector().
+        const floorSel = document.createElement('select');
+        floorSel.className = 'pryzm-forma-floor-select';
+        floorSel.setAttribute('data-testid', 'forma-floor-select');
+        floorSel.title = 'Choose which floor(s) to show on the globe';
+        Object.assign(floorSel.style, {
+            appearance: 'none', border: 'none', cursor: 'pointer',
+            padding: '7px 12px', borderRadius: '7px', color: '#6600FF',
+            background: 'transparent', font: 'inherit', borderLeft: '1px solid #ece7fb',
+            display: 'none', // shown by refreshFormaFloorSelector when ≥2 storeys.
+        } satisfies Partial<CSSStyleDeclaration>);
+        floorSel.addEventListener('change', () => {
+            const v = floorSel.value;
+            if (v === 'all') cesiumViewport?.setVisibleFormaLevels?.(null);
+            else cesiumViewport?.setVisibleFormaLevels?.([Number(v)]);
+            console.log(`[gis][forma] floor selector → ${v === 'all' ? 'ALL floors' : `floor ${v}`}.`);
+        });
+        bar.appendChild(floorSel);
+        formaFloorSelect = floorSel;
+
         viewport.appendChild(bar);
         formaToggle = bar;
         console.log(`[gis][forma] view toggle mounted (initial "${initial}").`);
@@ -972,6 +1063,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         formaMap2dBtn = null;
         formaPlanBtn = null;
         formaThreeBtn = null;
+        formaFloorSelect = null;
     };
 
     // ════════════════════════════════════════════════════════════════════════
