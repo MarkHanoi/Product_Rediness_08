@@ -160,12 +160,14 @@ async function handleBriefReady(
     });
 
     // ── Typology gate (typology-agnostic-ready) ──────────────────────────────
-    // §A.6.c (2026-06-05) — typologies whose generate path is wired today. Both
-    // `apartment` and `casa-unifamiliar` resolve to `generateApartmentFromBoundary`
-    // (the casa Pack is a single-storey bridge to the apartment generator), so the
-    // house is now selectable end-to-end alongside the apartment. Other typologies
-    // still bail gracefully until their Pack wires a generator into the SAME
-    // brief→project→site→generate spine.
+    // §A.6.c / A.21.j — typologies whose generate path is wired today. Both
+    // `apartment` and `casa-unifamiliar` flow through the SAME guided step flow
+    // (location → draw-or-skip → confirm → generate). The TYPOLOGY SWITCH happens
+    // INSIDE `OnboardingStepController.generateAndFinish`: `apartment` →
+    // `generateApartmentFromBoundary` (single plate); `casa-unifamiliar` → the
+    // multi-storey HOUSE generator (`generateHouseFromBoundary`, levels + per-storey
+    // rooms + stair + roof, A.21.j). Other typologies still bail gracefully until
+    // their Pack wires a generator into the SAME brief→project→site→generate spine.
     const GENERATOR_READY_TYPOLOGIES = new Set(['apartment', 'casa-unifamiliar']);
     if (!GENERATOR_READY_TYPOLOGIES.has(brief.typologyId)) {
         console.log(

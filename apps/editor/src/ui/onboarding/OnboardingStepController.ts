@@ -63,6 +63,7 @@ import { createSiteFromRect } from '../site/createSiteFromRect.js';
 import { resolveSiteContext, ensureSite, dispatchSiteLocation } from '../site/siteDispatch.js';
 import { geocodeAddress } from '../site/geocodeAddress.js';
 import { generateApartmentFromBoundary } from '../apartment-layout/apartmentFromBoundary.js';
+import { generateHouseFromBoundary, type FootprintPoint } from '../house-layout/houseFromBoundary.js';
 import { makeDraggable } from '../makeDraggable.js';
 import { makeResizable } from '../makeResizable.js';
 
@@ -151,10 +152,11 @@ class OnboardingStepController {
     }
 
     /**
-     * Typology-aware noun for the confirm-step copy/label. §FUTURE-TYPOLOGY: today
-     * only `'apartment'` has a shipped generator (see `generateAndFinish`), so
-     * everything else is a graceful fallthrough; when house/office Packs land they
-     * add their noun here and swap the generate call in `generateAndFinish`.
+     * Typology-aware noun for the confirm-step copy/label. §FUTURE-TYPOLOGY:
+     * `'apartment'` (single-plate generator) and `'casa-unifamiliar'` (the
+     * multi-storey HOUSE generator, A.21.j) both have shipped generators wired in
+     * `generateAndFinish`; other typologies are a graceful fallthrough until their
+     * Pack adds its noun here and swaps the generate call in `generateAndFinish`.
      */
     private typologyLabel(): string {
         switch (this.typologyId) {
@@ -828,12 +830,13 @@ class OnboardingStepController {
     }
 
     /**
-     * Run the apartment generator from the authored boundary, then tear the
+     * Run the typology generator from the authored boundary, then tear the
      * overlay down so the user lands in the canvas. Never throws.
      *
-     * §FUTURE-TYPOLOGY: `generateApartmentFromBoundary` is the only typology-
-     * specific call. A house/office Pack swaps THIS line; the location + parcel
-     * steps above are identical for every typology.
+     * §FUTURE-TYPOLOGY (A.21.j): the dispatch is the only typology-specific part.
+     * `casa-unifamiliar` → `generateHouse()` (multi-storey); everything else →
+     * `generateApartmentFromBoundary`. The location + parcel steps above are
+     * identical for every typology.
      */
     private async generateAndFinish(): Promise<void> {
         if (this.disposed) return;
@@ -854,9 +857,19 @@ class OnboardingStepController {
         }
         this.renderGeneratingStep();
         try {
-            // O.12.c — forward the STRUCTURED brief so the user's captured
-            // bedroom/bathroom/option choices drive the generated layout.
-            await generateApartmentFromBoundary(this.runtime, this.briefMetadata);
+            // §FUTURE-TYPOLOGY (A.21.j) — typology SWITCH POINT. The location +
+            // parcel steps above are identical for every typology; ONLY this
+            // dispatch differs. House (`casa-unifamiliar`) routes to the
+            // multi-storey HOUSE generator (levels + per-storey rooms + stair +
+            // slab-void + roof); every other typology keeps the apartment path
+            // byte-for-byte. ADDITIVE — the apartment branch is unchanged.
+            if (this.typologyId === 'casa-unifamiliar') {
+                await this.generateHouse();
+            } else {
+                // O.12.c — forward the STRUCTURED brief so the user's captured
+                // bedroom/bathroom/option choices drive the generated layout.
+                await generateApartmentFromBoundary(this.runtime, this.briefMetadata);
+            }
             console.log('[onboarding-step] generate complete — onboarding flow finished.');
             // §ONB-RESULT-VIEW (O.7.2 / O.7.2.b, supersedes §ONB-3D-VIEW): the founder
             // tested twice and the LEFT pane went BLANK after generate. O.7.2.b fixed
@@ -893,6 +906,94 @@ class OnboardingStepController {
             this.toast(`Generation failed: ${String(err)}`, 'error');
         } finally {
             this.dispose();
+        }
+    }
+
+    /**
+     * A.21.j — the HOUSE generate branch. Builds the multi-storey house INSIDE
+     * the SAME authored parcel boundary the apartment path uses: it reads the
+     * parcel polygon from `runtime.siteModelStore.getParcelBoundary()` (exactly
+     * the read `generateApartmentFromBoundary` does internally), maps it to a
+     * footprint, derives the storey count from the brief's `floors` field
+     * (default 2, clamped [1,3]), and calls `generateHouseFromBoundary` with
+     * `{ footprint }` so the shell is drawn on the drawn plot — NOT a default
+     * 10×8 rectangle. ADDITIVE: this never touches the apartment dispatch.
+     */
+    private async generateHouse(): Promise<void> {
+        const storeyCount = this.resolveStoreyCount();
+        const footprint = this.readParcelFootprint();
+        console.log('[onboarding-step] §FUTURE-TYPOLOGY (A.21.j) → HOUSE generator', {
+            storeyCount,
+            footprintPts: footprint?.length ?? 0,
+        });
+        // If the parcel read failed (degenerate / missing boundary), let the
+        // house generator fall back to its own default rectangle rather than
+        // blocking the flow — mirrors the apartment path's defensive posture.
+        await generateHouseFromBoundary(
+            this.runtime,
+            storeyCount,
+            footprint ? { footprint } : undefined,
+        );
+    }
+
+    /**
+     * A.21.j — derive the house storey count from the captured brief's `floors`
+     * field (the casa-unifamiliar manifest's `briefSchema` stepper, ids stable).
+     * Defaults to 2 (a house demo should be multi-storey) when absent/ill-typed,
+     * and clamps to [1,3] (the manifest's own min/max). storeyCount=1 is valid —
+     * the house executor degrades to a single plate.
+     */
+    private resolveStoreyCount(): number {
+        const raw = this.briefMetadata['floors'];
+        let n =
+            typeof raw === 'number' && Number.isFinite(raw)
+                ? raw
+                : typeof raw === 'string' && raw.trim() !== '' && Number.isFinite(Number(raw))
+                    ? Number(raw)
+                    : 2; // default — house demos are multi-storey
+        n = Math.round(n);
+        n = Math.max(1, Math.min(3, n));
+        return n;
+    }
+
+    /**
+     * A.21.j — read the authored parcel polygon the SAME way the apartment path
+     * does (`runtime.siteModelStore.getParcelBoundary()`), and map it to a
+     * footprint for the house shell. Returns `null` when there's no usable
+     * boundary (the caller then lets the house generator use its own default).
+     * Drops a duplicate closing vertex so the shell builder never emits a
+     * zero-length edge (mirrors apartmentFromBoundary's `polygonToFootprint`).
+     */
+    private readParcelFootprint(): FootprintPoint[] | null {
+        try {
+            const store = this.runtime.siteModelStore;
+            if (!store) {
+                console.warn('[onboarding-step] §A.21.j: runtime.siteModelStore undefined — house uses its default footprint.');
+                return null;
+            }
+            const boundary = store.getParcelBoundary();
+            const polygon = boundary?.polygon ?? [];
+            if (polygon.length < 3) {
+                console.warn(`[onboarding-step] §A.21.j: parcel boundary has ${polygon.length} pts (<3) — house uses its default footprint.`);
+                return null;
+            }
+            const pts: FootprintPoint[] = polygon.map((p) => ({ x: p.x, z: p.z }));
+            if (pts.length >= 2) {
+                const first = pts[0]!;
+                const last = pts[pts.length - 1]!;
+                const EPS = 1e-6;
+                if (Math.abs(first.x - last.x) < EPS && Math.abs(first.z - last.z) < EPS) {
+                    pts.pop();
+                }
+            }
+            if (pts.length < 3) {
+                console.warn('[onboarding-step] §A.21.j: footprint collapsed below 3 distinct points — house uses its default footprint.');
+                return null;
+            }
+            return pts;
+        } catch (err) {
+            console.warn('[onboarding-step] §A.21.j: reading parcel footprint threw (non-fatal):', err);
+            return null;
         }
     }
 }
