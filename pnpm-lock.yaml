@@ -1965,6 +1965,10 @@ importers:
       '@thatopen/components':
         specifier: ^3.4.2
         version: 3.4.2(@thatopen/fragments@3.4.3(three@0.183.2)(web-ifc@0.0.77))(camera-controls@3.1.2(three@0.183.2))(three@0.183.2)(web-ifc@0.0.77)
+    devDependencies:
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@24.12.2)(happy-dom@15.11.7)(jsdom@25.0.1)
 
   packages/geometry-kernel:
     dependencies:
