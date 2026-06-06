@@ -53,6 +53,19 @@ export class RoomBoundingLineBuilder {
   build(data: Readonly<RoomBoundingLineData>): void {
     this._dispose(data.id);
 
+    // §RBL-PLACEMENT-GUARD (2026-06-06): never throw if `placement` (or its
+    // start/end) is absent — a partial/legacy boundary-line record must NOT crash
+    // the builder. The sibling §RBL-PROPS-GUARD covered `properties`; this threw
+    // `Cannot read properties of undefined (reading 'start')` during apartment
+    // generate, ABORTING the runBatch mid-drain so subsequent room boundaries /
+    // rooms were never built ("some areas had no room"). Skip the malformed record.
+    if (!data.placement?.start || !data.placement?.end) {
+      console.warn(
+        `[RoomBoundingLineBuilder] §RBL-PLACEMENT-GUARD skipping '${data.id}' — placement.start/end undefined (partial/legacy record); not rendering.`,
+      );
+      return;
+    }
+
     const levelElevation = this._getLevelElevation(data.levelId);
     const y = levelElevation + 0.02; // slight lift above ground plane
 
