@@ -400,28 +400,30 @@ export class HouseLayoutExecutor {
             // so execute() still returns promptly (the toast/result aren't blocked).
             // ──────────────────────────────────────────────────────────────────────
             void this._finishOpenings(perStorey).then(async () => {
-                // A.21.D24 — NAME + occupancy-tag the rooms on every storey BEFORE
-                // the finish chain furnishes them. The house executor previously
-                // skipped this (only the apartment executor named rooms), so house
-                // rooms had NO occupancyType → `furnishRoom('')` returned [] for
-                // every room → "furnish does nothing". Reuses the shared apartment
-                // naming pass per-storey (room.rename → occupancyType is set), so the
-                // downstream furnish/lighting engines recognise each room's archetype.
-                for (const s of perStorey) {
-                    nameDetectedRooms(runtime, s.levelId, s.option, '[house-layout]');
-                }
-                // Give the (self-polling) naming pass a settle window to apply its
-                // room.rename batch before furnishing reads occupancyType. The
-                // helper applies within ~80 ms of the room store settling (or its
-                // 2.5 s hard-timeout); 600 ms covers the common case without
-                // stranding the chain if naming is slow (furnish still falls back
-                // to name-derived occupancy — see FurnishLayoutExecutor).
-                await new Promise<void>(r => setTimeout(r, 600));
-                // §A.21.i — fan the post-generation finish chain (floor → ceiling →
-                // furnish → light) out across EVERY storey level, in sequence, now
-                // that rooms exist + are named on all of them. The apartment
-                // single-level path is unchanged — this only runs for a house build.
-                return runHousePostGenChain(runtime, levelIds);
+                // §A.21.D25 — NAME + occupancy-tag the rooms PER STOREY, sequenced
+                // INSIDE the finish chain (right before each storey is furnished),
+                // not all up-front with one flat wait. Floor/ceiling/furnish/light
+                // all key off each room's occupancyType; the house executor must tag
+                // rooms first or `furnishRoom('')` returns [] ("furnish does
+                // nothing", A.21.D24). The PREVIOUS up-front loop + a flat 600 ms
+                // wait let the GROUND storey's furnish race ahead of its (async)
+                // naming → the ground floor came out BARE while later storeys — named
+                // by the time they ran — got furniture (the "only the top floor has
+                // furniture" bug). FIX: hand the chain a per-storey naming driver; it
+                // calls `nameDetectedRooms` for the storey it's about to finish AND
+                // awaits that storey's `apartment.room-name-completed` event before
+                // furnishing it, so EVERY storey (ground included) is tagged first.
+                const optionByLevel = new Map(perStorey.map(s => [s.levelId, s.option] as const));
+                const nameStorey = (levelId: string): void => {
+                    const option = optionByLevel.get(levelId);
+                    if (!option) { console.warn('[house-layout] no layout option to name storey', levelId); return; }
+                    nameDetectedRooms(runtime, levelId, option, '[house-layout]');
+                };
+                // §A.21.i — fan the post-generation finish chain (name → floor →
+                // ceiling → furnish → light) out across EVERY storey level, in
+                // sequence. The apartment single-level path is unchanged — this only
+                // runs for a house build.
+                return runHousePostGenChain(runtime, levelIds, nameStorey);
             }).catch((e: unknown) => console.warn('[house-layout] post-gen finish chain failed (non-fatal):', e));
 
             // `house.layout-executed` is a house-specific event not in the typed
