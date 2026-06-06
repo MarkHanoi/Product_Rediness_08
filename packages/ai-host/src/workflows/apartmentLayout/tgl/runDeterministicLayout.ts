@@ -94,6 +94,10 @@ export function generateDeterministicLayouts(
     // A.21.D6 — optional site latitude (decimal degrees) for climate-driven window
     // orientation. Absent → pure-length window placement (no behaviour change).
     solar?: { readonly latDeg: number; readonly weight?: number },
+    // A.21.h — OPTIONAL gross-area envelope validator. Absent → the apartment §D3.5
+    // gate (byte-identical apartment behaviour). The house orchestrator injects
+    // `validateHouseStorey` so a house plate is judged by its full programme.
+    envelopeValidator?: (args: { program: ApartmentProgram; grossAreaM2: number }) => import('../dimensions/types.js').DimensionalValidation,
 ): ScoredLayoutOption[] {
     const perimeter = shell.perimeter as Pt[];
     if (!perimeter || perimeter.length < 3) return [];
@@ -142,6 +146,7 @@ export function generateDeterministicLayouts(
         ...(constraints.floorToCeiling > 0 ? { wallHeightM: constraints.floorToCeiling / 1000 } : {}),
         ...(winSpans && winSpans.length > 0 ? { windowSpansWorld: winSpans } : {}),
         ...(doorSpans && doorSpans.length > 0 ? { doorSpansWorld: doorSpans } : {}),
+        ...(envelopeValidator ? { envelopeValidator } : {}),
     });
 
     return candidates.map(c => {

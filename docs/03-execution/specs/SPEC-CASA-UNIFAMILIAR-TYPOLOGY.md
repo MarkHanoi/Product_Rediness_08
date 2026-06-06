@@ -268,7 +268,7 @@ values become the structured `Brief` driving `generateHouseLayout`.
 | **A.21.e** | Level creation in the executor (`AddLevelCommand` for L1…Ln) + per-storey command fan-out. |
 | **A.21.f** | Stair auto-placement: programmatic `CreateStairCommand` per level pair + auto stairwell void + `connectedByStair` edges. |
 | **A.21.g** | Vertical alignment v1 (identical exterior shell per storey) + slab replication across floors. |
-| **A.21.h** | House validators (stair clearance, cross-floor circulation, wet-stack preference) + cognition evaluators. |
+| **A.21.h** | House validators — **house envelope ✅ done** (`houseEnvelope.ts` `validateHouseStorey`, §13.3); remaining: stair clearance, cross-floor circulation, wet-stack preference + cognition evaluators. |
 | **A.21.i** | Post-gen chain fan-out across storeys (floor/ceiling/furnish/lighting per level). |
 | **A.21.j** | Editor onboarding wiring (`briefBootstrap.ts` typology gate) + console commands `pryzmGenerateHouse*`. |
 | **A.21.k** | UI: per-storey generation modal + multi-level result view + dollhouse explode (see §12.3 `A.U.*`). |
@@ -355,7 +355,7 @@ houses subtract nothing (no stair).
 the core) without forking the frozen engine. The exact-obstacle carve remains the §6 target;
 it lands when (and if) the engine grows an obstacle param, or via A.21.h.
 
-### §13.3 — Deviation B: per-storey envelope CLAMP to work around the §D3.5 apartment gate
+### §13.3 — Deviation B: per-storey envelope clamp → REAL house envelope (A.21.h ✅ RESOLVED)
 
 §6 reuses the apartment per-storey engine unchanged. But that engine runs the apartment
 **§D3.5 envelope gate**, which HARD-rejects when gross area is absurd *for the bedroom count
@@ -363,15 +363,34 @@ alone* — it can't see that a house **ground floor**'s area is consumed by livi
 rather than bedrooms. A large house plate with a low per-storey bedroom count (e.g. a 120 m²
 ground floor with one guest bedroom) trips the gate and the engine returns `[]`.
 
-**As-built (`houseOrchestrator.ts`):** to keep every storey producing a real layout **without
-editing the frozen engine**, the orchestrator **clamps the area it passes into the engine** into
-the admissible band `apartmentDimensionsFor(bedrooms).{grossMin, grossMax}` for that storey's
-bedroom count. The TRUE footprint (walls/elevations) is unchanged — only the room-budget the
-bubble graph subdivides is clamped, so the gate passes and rooms are sized sensibly.
+**The old kludge (retired):** the orchestrator **clamped the area it passed into the engine**
+into the admissible band `apartmentDimensionsFor(bedrooms).{grossMin, grossMax}` for that
+storey's bedroom count, so the apartment gate passed but the engine laid out for a *fake* area.
 
-**Workaround status:** this is explicitly a **stopgap to be REPLACED under A.21.h** by a real
-**house envelope validator** that counts non-bedroom area (living/kitchen/dining/garage)
-properly, so the gate admits a house ground floor on its merits rather than via a clamp.
+**As-built (A.21.h, `houseEnvelope.ts` + `houseOrchestrator.ts`) — Deviation B RESOLVED:**
+a real **house-aware envelope** now judges a storey by its **FULL programme**, not bedroom count:
+
+- `validateHouseStorey({ program, grossAreaM2 })` (pure L2, mirrors `validateApartmentEnvelope`'s
+  `DimensionalValidation` return shape) derives an area band from the storey's room programme —
+  `programArea = Σ comfortable-target area of every room the storey builds` (hall + living +
+  kitchen + dining + corridor + bedrooms + master/ensuite + baths, mirroring `buildBubbleGraph`,
+  honouring per-type area overrides); `grossTarget = programArea × 1.15` (circulation gross-up);
+  HARD-REJECT below `grossTarget × 0.55` or above `grossTarget × 2.4` (a deliberately wide,
+  conservative band). So a big house ground floor is **accepted at its true size**, while an
+  absurdly over/undersized plate is still rejected.
+- The engine is **NOT forked**: `generateDeterministicLayouts` (and `enumerate.ts`'s
+  `EnumerateInput`) gained an **OPTIONAL `envelopeValidator`** whose default is the apartment
+  §D3.5 gate. The orchestrator injects `validateHouseStorey`; the apartment path is
+  **byte-identical** (default unchanged).
+- The orchestrator **removed the `apartmentDimensionsFor(...)` clamp** and passes the storey's
+  **TRUE** area (minus the stair-core obstacle). A `§HOUSE-MAX-CAP` remains for the genuinely
+  oversize edge (a *sparse* upper storey on a multi-storey plate, e.g. one bedroom on the full
+  floor of a 3-storey house) — it caps the *subdivision* area at the house envelope's **own**
+  `grossMax` for that programme (house-derived, NOT bedroom-count), so every storey still
+  produces a real layout. The ground floor's rich programme passes through untouched.
+
+**Tests:** `__tests__/houseEnvelope.test.ts` (ground floor accepted at true area; absurd
+plates rejected; apartment envelope unchanged; 1/2/3-storey end-to-end). Full ai-host suite green.
 
 ### §13.4 — Editor wiring is LANDED (console-only) — updated 2026-06-06
 
@@ -394,7 +413,8 @@ Still pending (NOT in the console path yet):
 - confirming single-undo-collapse of level-creation (`AddLevelCommand` runs via `cm.execute`
   OUTSIDE the geometry `runBatch`, so level creation may need an extra undo step — A.21.e
   caveat, verify in-browser);
-- the per-storey envelope clamp (Deviation B, §13.3) still owes A.21.h's real house envelope.
+- the per-storey envelope clamp (Deviation B, §13.3) is **RESOLVED** — A.21.h shipped the real
+  house envelope (`houseEnvelope.ts` `validateHouseStorey`) + retired the bedroom-count clamp.
 
 The founder-reported "DESPITE I SELECTED 2 LEVELS ONLY ONE LEVEL WAS CREATED" (tracker
 A.21.D13) is addressed by this wiring for the **console path** (`pryzmGenerateHouse(2)`); the
