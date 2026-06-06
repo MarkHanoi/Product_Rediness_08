@@ -261,12 +261,6 @@ function placeInRectReported(rect: Rect, rooms: readonly ProgramRoom[]): Subdivi
     return { placements: [], droppedRooms };
 }
 
-/** Back-compat thin wrapper: placements only (drops still logged + reported via
- *  the Reported variant used by the subdivide entry point). */
-function placeInRect(rect: Rect, rooms: readonly ProgramRoom[]): RoomPlacement[] {
-    return placeInRectReported(rect, rooms).placements as RoomPlacement[];
-}
-
 /**
  * Reorder rooms for rect allocation so the **two largest rooms** (Living + Master)
  * land at the front and get the best aspect from squarify, then other public rooms
