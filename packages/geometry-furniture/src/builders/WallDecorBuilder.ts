@@ -29,7 +29,10 @@ export class WallArtBuilder implements IFurnitureBuilder {
     build(data: FurnitureData): THREE.Group {
         const group = new THREE.Group();
         const W = data.width, L = data.length, H = data.height;
-        const BASE = data.baseOffset ?? 1.20;
+        // A.21.D15 — FLOOR-RELATIVE geometry. The wall-mount height (baseOffset)
+        // is applied ONCE by FurnitureFragmentBuilder on the group root; adding
+        // it again here floats the piece. BASE is the in-group floor (0).
+        const BASE = 0;
 
         const frameMat = this.materialService.getMaterial(0x202020, 'standard') as THREE.MeshStandardMaterial;
         // Canvas — abstract muted earthy palette (cream + terracotta tint).
@@ -62,7 +65,8 @@ export class WallMirrorBuilder implements IFurnitureBuilder {
     build(data: FurnitureData): THREE.Group {
         const group = new THREE.Group();
         const W = data.width, L = data.length, H = data.height;
-        const BASE = data.baseOffset ?? 1.20;
+        // A.21.D15 — FLOOR-RELATIVE (mount applied once on the group root).
+        const BASE = 0;
 
         const frameMat = this.materialService.getMaterial(0xb59563, 'standard') as THREE.MeshStandardMaterial;
         const glassMat = new THREE.MeshStandardMaterial({

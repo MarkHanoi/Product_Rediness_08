@@ -260,7 +260,9 @@ export class DryingRackBuilder implements IFurnitureBuilder {
         const W = data.width  || 0.80;
         const L = data.length || 0.40;     // extension out from the wall
         // H (rack bar height) sized inline below — kept noted for symmetry.
-        const BASE = data.baseOffset ?? 1.60;
+        // A.21.D15 — FLOOR-RELATIVE; the ~1.60 m wall mount (baseOffset) is
+        // applied once on the group root by FurnitureFragmentBuilder.
+        const BASE = 0;
 
         const mat = this.materialService.getMaterial(0xc0c8d0, 'standard') as THREE.MeshStandardMaterial;
         const bracketMat = this.materialService.getMaterial(0x707880, 'standard') as THREE.MeshStandardMaterial;

@@ -41,7 +41,9 @@ export class WcWashbasinBuilder implements IFurnitureBuilder {
         const W = data.width  || 0.45;           // wall-facing width
         const L = data.length || 0.30;           // projection out from wall
         const H = data.height || 0.15;           // basin body thickness
-        const BASE = data.baseOffset ?? 0.85;    // rim height AFL
+        // A.21.D15 — FLOOR-RELATIVE; the rim-height mount (baseOffset, ~0.85 m)
+        // is applied once on the group root by FurnitureFragmentBuilder.
+        const BASE = 0;
 
         // White ceramic body — cloned so opacity/roughness tweaks don't leak.
         const baseMat = this.materialService.getMaterial(0xfafaf6, 'standard') as THREE.MeshStandardMaterial;
@@ -96,7 +98,9 @@ export class WcMirrorBuilder implements IFurnitureBuilder {
         const W = data.width  || 0.40;
         const L = data.length || 0.03;
         const H = data.height || 0.60;
-        const BASE = data.baseOffset ?? 1.20;
+        // A.21.D15 — FLOOR-RELATIVE; the ~1.20 m mount is applied once on the
+        // group root by FurnitureFragmentBuilder (baseOffset).
+        const BASE = 0;
 
         const frameMat = this.materialService.getMaterial(0x303030, 'standard') as THREE.MeshStandardMaterial;
         const glassMat = new THREE.MeshStandardMaterial({

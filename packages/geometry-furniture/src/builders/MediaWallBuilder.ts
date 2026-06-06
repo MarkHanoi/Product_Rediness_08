@@ -26,7 +26,12 @@ export class TvBuilder implements IFurnitureBuilder {
         const width = data.width;     // panel width along the wall
         const length = data.length;   // panel depth (thin)
         const height = data.height;   // panel vertical extent
-        const PANEL_BOTTOM = 1.20;    // wall-mount eye level above floor
+        // A.21.D15 — FLOOR-RELATIVE geometry. The wall-mount eye-level height
+        // (1.20 m, baseOffset on the tv footprint/payload) is applied ONCE on
+        // the group root by FurnitureFragmentBuilder. Previously this hardcoded
+        // 1.20 m INSIDE the geometry AND the root added the baseOffset, so the
+        // TV floated at floor + 1.20 + 1.20 (+ the old position.y double-count).
+        const PANEL_BOTTOM = 0;
 
         // Bezel + screen materials.
         const bezelMat = this.materialService.getMaterial(0x0a0a0a, 'standard') as THREE.MeshStandardMaterial;

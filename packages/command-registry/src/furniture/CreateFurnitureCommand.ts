@@ -93,9 +93,19 @@ export class CreateFurnitureCommand implements Command {
                 id,
                 type: 'furniture',
                 furnitureType: this.payload.furnitureType,
+                // A.21.D15 (2026-06-06) — `position.y` is the storey FLOOR datum
+                // (the level's elevation). The mount height lives in `baseOffset`
+                // and is applied EXACTLY ONCE downstream by FurnitureFragmentBuilder
+                // (`root.position.y = position.y + baseOffset`). Previously this
+                // baked `+ baseOffset` into position.y AS WELL, so wall-mounted
+                // items (mirror/tv/wall_unit/extractor/curtain) double-counted the
+                // offset and floated at `floor + 2 × offset`. Floor items
+                // (baseOffset 0) were unaffected — which is why only wall-mounted
+                // fixtures floated. Anchoring to the floor keeps EVERY storey's
+                // fixtures on that storey (level.elevation is per-level).
                 position: {
                     x: this.payload.position.x,
-                    y: level.elevation + (this.payload.baseOffset !== undefined ? this.payload.baseOffset : 0.2),
+                    y: level.elevation,
                     z: this.payload.position.z,
                 },
                 rotation: {

@@ -34,7 +34,9 @@ export class CurtainRodBuilder implements IFurnitureBuilder {
     build(data: FurnitureData): THREE.Group {
         const group = new THREE.Group();
         const W = data.width;
-        const BASE = data.baseOffset ?? 2.40;
+        // A.21.D15 — FLOOR-RELATIVE; the ceiling-adjacent rod mount (~2.40 m,
+        // baseOffset) is applied once on the group root by FurnitureFragmentBuilder.
+        const BASE = 0;
 
         const rodMat = this.materialService.getMaterial(0x3a3a3a, 'standard') as THREE.MeshStandardMaterial;
         const finialMat = this.materialService.getMaterial(0x6a6a6a, 'standard') as THREE.MeshStandardMaterial;

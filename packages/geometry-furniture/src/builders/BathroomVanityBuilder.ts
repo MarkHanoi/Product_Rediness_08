@@ -107,7 +107,9 @@ export class BathroomMirrorBuilder implements IFurnitureBuilder {
     build(data: FurnitureData): THREE.Group {
         const group = new THREE.Group();
         const W = data.width, L = data.length, H = data.height;
-        const BASE = data.baseOffset ?? 1.10;
+        // A.21.D15 — FLOOR-RELATIVE; the 1.10 m mount is applied once on the
+        // group root by FurnitureFragmentBuilder (baseOffset).
+        const BASE = 0;
 
         const frameMat = this.materialService.getMaterial(0x303030, 'standard') as THREE.MeshStandardMaterial;
         const glassMat = new THREE.MeshStandardMaterial({
@@ -143,7 +145,9 @@ export class TowelRailBuilder implements IFurnitureBuilder {
     build(data: FurnitureData): THREE.Group {
         const group = new THREE.Group();
         const W = data.width, L = data.length, H = data.height;
-        const BASE = data.baseOffset ?? 0.40;
+        // A.21.D15 — FLOOR-RELATIVE; the 0.40 m mount is applied once on the
+        // group root by FurnitureFragmentBuilder (baseOffset).
+        const BASE = 0;
 
         const mat = this.materialService.getMaterial(0xc0c0c0, 'standard') as THREE.MeshStandardMaterial;
 
