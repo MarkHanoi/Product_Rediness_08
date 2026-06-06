@@ -211,6 +211,22 @@ export type FurnitureType =
     | 'kitchen_straight_tall'
     | 'kitchen_l_shape_tall'
     | 'kitchen_u_shape_tall'
+    // ── A.21.D20 (2026-06-06) — first-class kitchen appliances + cabinet
+    // modules. The D-FLE kitchen archetype places these IN the worktop run
+    // (sink + hob + oven + dishwasher + washing machine, extractor over the
+    // hob), honouring the sink↔hob↔fridge work-triangle. `base_unit` /
+    // `wall_unit` are the parametric 600 mm cabinet modules the run is
+    // composed from. `fridge` already exists above (F-FRIDGE).
+    // (SPEC-KITCHEN-WARDROBE-APPLIANCES) ────────────────────────────────────
+    | 'fridge'
+    | 'oven'
+    | 'hob'
+    | 'dishwasher'
+    | 'washing_machine'
+    | 'sink'
+    | 'extractor'
+    | 'base_unit'
+    | 'wall_unit'
     // ── Parametric wardrobe cabinet layouts ────────────────────────────────────
     | 'wardrobe_straight'
     | 'wardrobe_l_shape'

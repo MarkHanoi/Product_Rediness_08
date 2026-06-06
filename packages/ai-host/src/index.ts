@@ -280,7 +280,13 @@ export type {
 // the live room/wall/door/window stores and dispatches buildFurnishCommands()
 // inside batchCoordinator.runBatch — same pattern as the apartment generator.
 export { furnishRoom, furnishRoomCompound } from './workflows/furnishLayout/furnishRoom.js';
+export type { FurnishOptions } from './workflows/furnishLayout/furnishRoom.js';
 export { buildFurnishCommands } from './workflows/furnishLayout/buildFurnishCommands.js';
+// A.21.D20 — kitchen / wardrobe I/L/U run planners (SPEC-KITCHEN-WARDROBE-APPLIANCES).
+export { planKitchen, kitchenTrianglePoints, normaliseKitchenLayout } from './workflows/furnishLayout/kitchenLayout.js';
+export type { KitchenLayout } from './workflows/furnishLayout/kitchenLayout.js';
+export { planWardrobe, normaliseWardrobeLayout } from './workflows/furnishLayout/wardrobeLayout.js';
+export type { WardrobeLayout } from './workflows/furnishLayout/wardrobeLayout.js';
 export { archetypeFor } from './workflows/furnishLayout/archetypes.js';
 export { validateFurnishedRoom } from './workflows/furnishLayout/validate.js';
 export type { FurnishValidation } from './workflows/furnishLayout/validate.js';

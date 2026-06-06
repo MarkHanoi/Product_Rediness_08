@@ -63,12 +63,28 @@ describe('furnishRoom (D-FLE F5/F7)', () => {
         assertSane(items, room.polygon as Pt[]);
     });
 
-    it('kitchen: a normal kitchen gets a counter run AND a fridge (F-FRIDGE), sane', () => {
+    it('kitchen (A.21.D20): a normal kitchen gets base units + appliances (sink/hob/oven/fridge), sane', () => {
         const room = rectRoom('kitchen', 4, 3);
         const items = furnishRoom(room);
-        expect(items.some(i => i.kind === 'kitchen_straight')).toBe(true);
+        expect(items.some(i => i.kind === 'base_unit')).toBe(true);
+        expect(items.some(i => i.kind === 'sink')).toBe(true);
+        expect(items.some(i => i.kind === 'hob')).toBe(true);
         expect(items.some(i => i.kind === 'fridge')).toBe(true);
-        assertSane(items, room.polygon as Pt[]);
+        // The extractor is height-stacked DIRECTLY above the hob (1.5 m vs 0.9 m)
+        // — it overlaps the hob in PLAN by design, so exclude it from the
+        // floor-plan overlap sanity check (mirrors curtain-rod / wall items).
+        assertSane(items.filter(i => i.kind !== 'extractor'), room.polygon as Pt[]);
+    });
+
+    it('kitchen (A.21.D20): the extractor sits directly above the hob', () => {
+        const items = furnishRoom(rectRoom('kitchen', 4, 3));
+        const hob = items.find(i => i.kind === 'hob');
+        const hood = items.find(i => i.kind === 'extractor');
+        expect(hob).toBeDefined();
+        expect(hood).toBeDefined();
+        expect(hood!.position.x).toBeCloseTo(hob!.position.x, 5);
+        expect(hood!.position.z).toBeCloseTo(hob!.position.z, 5);
+        expect(hood!.position.y).toBeGreaterThan(hob!.position.y); // mounted higher
     });
 
     it('no furniture overlaps the door swing', () => {
@@ -196,31 +212,25 @@ describe('furnishRoom (D-FLE F5/F7)', () => {
             expect(toilet!.position.z).toBeGreaterThan(1.0);
         });
 
-        // Kitchen run on the door wall blocks the working triangle. The main
-        // run should anchor on a wall without the door — picks the opposite wall.
-        it('kitchen main run anchors on the wall opposite the door', () => {
+        // A.21.D20 — the kitchen run (base units + appliances) must NOT sit on
+        // the door wall (a counter slid past the door is unusable + the swing
+        // fouls the working zone). A door-wall module faces +z (yaw ≈ 0) AND
+        // sits near z = 0; side-wall modules face ±x (yaw ≈ ±π/2). Assert no
+        // floor module is a door-wall module.
+        it('no kitchen module anchors on the door wall', () => {
             // 3.5 × 3 room — door on the bottom wall; the kitchen run must clear it.
             const room = rectRoom('kitchen', 3.5, 3);
-            const run = furnishRoom(room).find(i => i.kind === 'kitchen_straight');
-            expect(run).toBeDefined();
-            // The kitchen run (3.0 × 0.6) anchored on the TOP wall has centre
-            // z ≈ 3 − 0.6/2 − 0.02 ≈ 2.68; on the bottom (door) wall it would
-            // sit at z ≈ 0.32.
-            expect(run!.position.z).toBeGreaterThan(1.5);
-        });
-
-        // §FURNITURE-SPEC L-shape: TWO kitchen_straight runs on adjacent walls
-        // form the architectural L. The cascading anchor-wall resolver puts the
-        // second run on a wall perpendicular to the first.
-        it('kitchen places TWO perpendicular runs forming an L', () => {
-            const room = rectRoom('kitchen', 5, 4);
-            const runs = furnishRoom(room).filter(i => i.kind === 'kitchen_straight');
-            expect(runs.length).toBe(2);
-            // The two runs' yaws must differ by π/2 (perpendicular walls).
-            const yaw1 = runs[0]!.rotationY, yaw2 = runs[1]!.rotationY;
-            const diff = Math.abs(((yaw1 - yaw2) % Math.PI) + Math.PI) % Math.PI;
-            const fromHalfPi = Math.abs(diff - Math.PI / 2);
-            expect(fromHalfPi).toBeLessThan(0.01);
+            const items = furnishRoom(room).filter(i =>
+                i.kind === 'base_unit' || i.kind === 'sink' || i.kind === 'hob' ||
+                i.kind === 'oven' || i.kind === 'dishwasher' || i.kind === 'fridge');
+            expect(items.length).toBeGreaterThan(0);
+            for (const it of items) {
+                // A bottom-wall (door) module faces into the room with yaw ≈ 0
+                // (its front normal is +z) and sits with centre z < ~0.5.
+                const facesUp = Math.abs(Math.sin(it.rotationY)) < 0.1 && Math.cos(it.rotationY) > 0.9;
+                const onDoorWall = facesUp && it.position.z < 0.5;
+                expect(onDoorWall, `${it.kind} sits on the door wall`).toBe(false);
+            }
         });
 
         // Bedroom wardrobe MUST still be placed (it's required) even when
@@ -265,7 +275,8 @@ describe('furnishRoom (D-FLE F5/F7)', () => {
             const room = rectRoom('living-room', 8, 6);
             const placed = furnishRoomCompound(room, ['living-room', 'kitchen', 'dining-room']);
             expect(placed.some(p => p.kind === 'sofa')).toBe(true);
-            expect(placed.some(p => p.kind === 'kitchen_straight')).toBe(true);
+            // A.21.D20 — kitchen sub-program now produces base units + appliances.
+            expect(placed.some(p => p.kind === 'base_unit' || p.kind === 'sink')).toBe(true);
             expect(placed.some(p => p.kind === 'dining_table')).toBe(true);
         });
 
