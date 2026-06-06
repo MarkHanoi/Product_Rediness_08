@@ -249,6 +249,59 @@ function extendToPolygon(from: Pt, dx: number, dz: number, poly: readonly Pt[]):
     return { x: from.x + dx * t, z: from.z + dz * t };
 }
 
+/** §CLAMP-OVERRUN (A.21.D11, 2026-06-05) — pull an OUTSIDE endpoint back to the
+ *  shell.
+ *
+ *  On a SKEWED shell the axis-aligned rect decomposition (and the §RECTIFY-QUAD
+ *  bounding-box rectification) emit interior partition endpoints at the BOUNDING
+ *  BOX edge, which on the outward side of a slanted perimeter sits OUTSIDE the
+ *  real shell polygon. The partition then renders THROUGH the façade (architect
+ *  report A.21.D11). `extendToPolygon` only handles the opposite case (endpoint
+ *  strictly INSIDE → push out), so an outside endpoint is left poking through.
+ *
+ *  This helper clamps such an endpoint back to the shell: it intersects the
+ *  wall's LINE (through `from` along ±(dx,dz)) with every shell EDGE and keeps
+ *  the intersection nearest to `from` that lies in the INWARD direction (toward
+ *  the wall body, i.e. toward `toward`). The endpoint is set exactly there, plus
+ *  a tiny outward epsilon so the partition still meets the inner face cleanly
+ *  (no visible gap). If no forward edge intersection exists (degenerate — the
+ *  wall's line misses the shell), the endpoint is left UNCHANGED rather than
+ *  over-corrected.
+ *
+ *  Pure; metres; runs in the SAME frame as `extendWallsToShell` (principal-axis-
+ *  rotated when the shell is skewed — `enumerate.ts`/`runDeterministicLayout.ts`
+ *  pass the rotated `shellPolygon` and rotated placements). (dx,dz) is the unit
+ *  wall axis; `toward` is the OTHER endpoint (the inward reference). */
+function clampOutsideEndpointToShell(
+    from: Pt, dx: number, dz: number, toward: Pt, poly: readonly Pt[],
+): Pt {
+    if (poly.length < 3) return from;
+    // Inward sign: +1 if moving along +(dx,dz) heads toward the wall body.
+    const inwardDot = (toward.x - from.x) * dx + (toward.z - from.z) * dz;
+    const sign = inwardDot >= 0 ? 1 : -1;
+    const idx = dx * sign, idz = dz * sign;                // inward unit direction
+
+    // Nearest forward (inward) intersection of the wall LINE with a shell edge.
+    let bestT = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < poly.length; i++) {
+        const a = poly[i]!, b = poly[(i + 1) % poly.length]!;
+        const ex = b.x - a.x, ez = b.z - a.z;
+        const det = ex * idz - idx * ez;
+        if (Math.abs(det) < 1e-12) continue;               // wall line ∥ edge
+        const wx = a.x - from.x, wz = a.z - from.z;
+        // [idx -ex][t]   [wx]
+        // [idz -ez][u] = [wz]
+        const t = (wx * (-ez) - wz * (-ex)) / det;         // along the wall line (inward)
+        const u = (idx * wz - idz * wx) / det;             // along the shell edge
+        if (t > POLY_EPS && u >= -POLY_EPS && u <= 1 + POLY_EPS && t < bestT) bestT = t;
+    }
+    if (!Number.isFinite(bestT)) return from;              // line misses the shell — leave as-is
+    // Tiny outward epsilon (move just shy of the inner face so the partition
+    // overlaps the shell wall, leaving no visible gap) — but never past `from`.
+    const tClamp = Math.max(0, bestT - POLY_EPS);
+    return { x: from.x + idx * tClamp, z: from.z + idz * tClamp };
+}
+
 /** For EVERY axis-aligned wall whose endpoint is strictly INSIDE the
  *  shell polygon, extend that endpoint along the wall's axis (outward) to
  *  the polygon perimeter. Capped at EXTEND_CAP_M (0.5 m) so the extension
@@ -262,6 +315,15 @@ function extendToPolygon(from: Pt, dx: number, dz: number, poly: readonly Pt[]):
  *  slanted perimeter) suffered the same gap. The EXTEND_CAP keeps the change
  *  safe for shared walls — endpoints at deep interior junctions (≥ 0.5 m
  *  from any perimeter edge) are left unchanged.
+ *
+ *  §CLAMP-OVERRUN (A.21.D11, 2026-06-05): the inverse case — an endpoint that
+ *  lands OUTSIDE the (slanted) shell, where the axis-aligned bbox / §RECTIFY-
+ *  QUAD rectification poked the partition past the real perimeter → it renders
+ *  THROUGH the façade. Such an endpoint is pulled BACK along the wall axis to
+ *  the nearest shell-edge intersection (no cap — overrun must always be
+ *  removed). If the wall's line misses the shell entirely the endpoint is left
+ *  unchanged. Rectilinear shells have every endpoint ON the perimeter, so
+ *  NEITHER branch fires → bit-identical no-op.
  *
  *  Returns a NEW segments array (immutable swap). */
 function extendWallsToShell(
@@ -286,13 +348,25 @@ function extendWallsToShell(
         // For each endpoint, extend OUTWARD along the wall axis if it's
         // strictly inside the polygon. The EXTEND_CAP_M short-circuit inside
         // extendToPolygon protects against pushing past interior junctions.
+        // §CLAMP-OVERRUN (A.21.D11): if the endpoint is instead OUTSIDE the
+        // shell (the bbox/rectified decomposition put it past a slanted
+        // perimeter → renders through the façade), pull it back ALONG the wall
+        // axis to the nearest shell edge. On a rectilinear shell every endpoint
+        // is ON the perimeter (neither inside nor outside) → both branches skip
+        // → bit-identical no-op (no regression).
         if (pointInPolygon(s.a, poly)) {
             // Outward from a = AWAY from b = direction −u.
             newA = extendToPolygon(s.a, -ux, -uz, poly);
+        } else if (!pointOnPolygonBoundary(s.a, poly)) {
+            // a is strictly OUTSIDE — clamp back toward b (the wall body).
+            newA = clampOutsideEndpointToShell(s.a, ux, uz, s.b, poly);
         }
         if (pointInPolygon(s.b, poly)) {
             // Outward from b = AWAY from a = direction +u.
             newB = extendToPolygon(s.b, +ux, +uz, poly);
+        } else if (!pointOnPolygonBoundary(s.b, poly)) {
+            // b is strictly OUTSIDE — clamp back toward a (the wall body).
+            newB = clampOutsideEndpointToShell(s.b, ux, uz, s.a, poly);
         }
         out.push({ ...s, a: newA, b: newB });
     }
