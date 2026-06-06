@@ -203,4 +203,33 @@ export const APARTMENT_LAYOUT_MODAL_STYLES = `
   background: rgba(102, 0, 255, 0.06);
   border-left: 2px solid #6600FF; border-radius: 0 6px 6px 0;
 }
+
+/* A.21.k — "Choose a house layout" modal. Reuses the apartment modal chrome
+ * (.alm-overlay/panel/header/grid/card/overall/select/footer/cancel) so brand
+ * (white + #6600FF) + z-index (4000) match by construction; these hlm- rules
+ * add only the per-storey strip a house card shows (one mini plan + summary per
+ * storey). The house card grid wants wider cards (a per-storey strip is taller
+ * + reads better wide), so widen the auto-fill minimum on house cards. */
+.alm-grid:has(.hlm-card) { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.hlm-storeys {
+  display: flex; flex-direction: column; gap: 8px;
+  margin: 4px 0;
+}
+.hlm-storey {
+  display: grid; grid-template-columns: 92px 1fr; gap: 10px; align-items: center;
+  padding: 6px; border: 1px solid #eef2f7; border-radius: 8px; background: #ffffff;
+}
+.hlm-storey-thumb {
+  height: 64px; width: 92px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  background: #ffffff; border: 1px solid #eef2f7; border-radius: 6px;
+}
+.hlm-storey-thumb svg { width: 100%; height: 100%; }
+.hlm-storey-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.hlm-storey-label { font-weight: 600; font-size: 12px; color: #0f172a; }
+.hlm-storey-summary {
+  font-size: 11px; color: #475569;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.hlm-storey-stats { font-size: 11px; color: #94a3b8; }
 `;

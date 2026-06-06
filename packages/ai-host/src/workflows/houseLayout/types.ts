@@ -126,3 +126,22 @@ export interface HouseLayoutResult {
     readonly voids: SlabVoid[];
     readonly roof: RoofDescriptor;
 }
+
+/**
+ * A.21.k — one whole-house VARIANT for the "Choose a house layout" modal. The
+ * house sibling of the apartment's `ScoredLayoutOption`: a complete
+ * `HouseLayoutResult` (every storey's rooms + the stairs/voids/roof) PLUS an
+ * aggregate `overallScore` (0-100, the mean of the per-storey option scores) so
+ * the modal can rank + bar the variants exactly like the apartment cards. The
+ * variants are produced deterministically (NO `Math.random`) by varying which
+ * per-storey option index each whole-house variant selects — see
+ * `generateHouseLayoutOptions`.
+ */
+export interface ScoredHouseLayoutOption {
+    /** The full multi-storey result this variant builds (executor consumes it). */
+    readonly result: HouseLayoutResult;
+    /** Aggregate 0-100 score (mean of the chosen per-storey option scores). */
+    readonly overallScore: number;
+    /** 0-based variant index (stable, deterministic ordering, best-first). */
+    readonly variantIndex: number;
+}

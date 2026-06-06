@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-    generateHouseLayout, allocateProgramToStoreys, reserveStairCore,
+    generateHouseLayout, generateHouseLayoutOptions, allocateProgramToStoreys, reserveStairCore,
     reserveStairCoreShaped, splitRisersForShape,
 } from '../src/workflows/houseLayout/index.js';
 import type { ShellAnalysis } from '../src/workflows/apartmentLayout/shellAnalysis.js';
@@ -525,5 +525,72 @@ describe('generateHouseLayout — determinism + edge cases', () => {
         const core = res.stairs[0]!.rectMm;
         expect(core.x + core.w).toBeLessThanOrEqual(4000 + 1e-6);
         expect(core.y + core.h).toBeLessThanOrEqual(4000 + 1e-6);
+    });
+});
+
+// ───────────────── A.21.k — generateHouseLayoutOptions (N variants) ──────────
+
+describe('generateHouseLayoutOptions — N whole-house variants for the modal', () => {
+    it('variant 0 matches the single-best generateHouseLayout (same geometry + score)', () => {
+        const single = generateHouseLayout(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 });
+        const variants = generateHouseLayoutOptions(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 }, 3);
+        expect(variants.length).toBeGreaterThanOrEqual(1);
+        const v0 = variants[0]!.result;
+        // Variant 0 selects option[0] on every storey, so the WHOLE-HOUSE structure
+        // (levels, stairs, voids, roof) is identical. NOTE: asking the engine for N
+        // options per storey can change the option[0] ROOM-ARRAY ORDER vs. asking
+        // for 1 (the enumerator surfaces candidates in a count-dependent order), but
+        // the geometry + score are the same — so we assert structural + score parity
+        // (which is what the executor build actually consumes), not byte-for-byte
+        // room-array order. The apartment flow is unaffected (it always asks for N).
+        expect(v0.stairs).toEqual(single.stairs);
+        expect(v0.voids).toEqual(single.voids);
+        expect(v0.roof).toEqual(single.roof);
+        expect(v0.storeys).toEqual(single.storeys);
+        expect(v0.perStoreyLayout.length).toBe(single.perStoreyLayout.length);
+        for (let i = 0; i < v0.perStoreyLayout.length; i++) {
+            expect(v0.perStoreyLayout[i]!.score.overall).toBe(single.perStoreyLayout[i]!.score.overall);
+            // Same room SET (by name), regardless of array order.
+            const a = v0.perStoreyLayout[i]!.rooms.map(r => r.name).sort();
+            const b = single.perStoreyLayout[i]!.rooms.map(r => r.name).sort();
+            expect(a).toEqual(b);
+        }
+    });
+
+    it('returns at most `count` variants, each carrying a 0-100 aggregate score', () => {
+        const variants = generateHouseLayoutOptions(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 }, 3);
+        expect(variants.length).toBeLessThanOrEqual(3);
+        for (const v of variants) {
+            expect(v.overallScore).toBeGreaterThanOrEqual(0);
+            expect(v.overallScore).toBeLessThanOrEqual(100);
+            expect(v.result.storeys).toHaveLength(2);
+        }
+    });
+
+    it('variants are ordered best-first by aggregate score with stable variantIndex', () => {
+        const variants = generateHouseLayoutOptions(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 }, 3);
+        for (let i = 1; i < variants.length; i++) {
+            expect(variants[i - 1]!.overallScore).toBeGreaterThanOrEqual(variants[i]!.overallScore);
+        }
+        expect(variants.map(v => v.variantIndex)).toEqual(variants.map((_, i) => i));
+    });
+
+    it('de-duplicates collapsed variants (never two identical cards)', () => {
+        const variants = generateHouseLayoutOptions(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 }, 5);
+        const seen = new Set(variants.map(v => JSON.stringify(v.result)));
+        expect(seen.size).toBe(variants.length);
+    });
+
+    it('is deterministic (same input → identical variant set, no Math.random)', () => {
+        const a = generateHouseLayoutOptions(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 }, 3);
+        const b = generateHouseLayoutOptions(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 }, 3);
+        expect(JSON.stringify(a)).toEqual(JSON.stringify(b));
+    });
+
+    it('a single storey still yields at least one variant', () => {
+        const variants = generateHouseLayoutOptions(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 1 }, 3);
+        expect(variants.length).toBeGreaterThanOrEqual(1);
+        expect(variants[0]!.result.storeys).toHaveLength(1);
+        expect(variants[0]!.result.stairs).toHaveLength(0);
     });
 });

@@ -6,7 +6,7 @@
 // `HouseLayoutResult` to create levels, fan commands out per storey, place stairs,
 // and punch slab voids.
 
-export { generateHouseLayout } from './houseOrchestrator.js';
+export { generateHouseLayout, generateHouseLayoutOptions } from './houseOrchestrator.js';
 export type { HouseLayoutOptions } from './houseOrchestrator.js';
 export { allocateProgramToStoreys } from './storeyAllocation.js';
 export { reserveStairCore, reserveStairCoreShaped, splitRisersForShape } from './stairCore.js';
@@ -15,6 +15,7 @@ export { validateHouseStorey, houseStoreyBand } from './houseEnvelope.js';
 export type { HouseStoreyEnvelopeInput, HouseStoreyBand } from './houseEnvelope.js';
 export type {
     HouseLayoutResult,
+    ScoredHouseLayoutOption,
     StoreyProgram,
     StoreyPlate,
     StoreyRole,

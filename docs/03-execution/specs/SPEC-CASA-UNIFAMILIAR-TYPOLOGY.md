@@ -353,8 +353,25 @@ values become the structured `Brief` driving `generateHouseLayout`.
   one-line description. RAC recognizes it via `parseTypologyIdFromText` (data-driven).
 - **Brief panel** — renders the §8 schema (floors stepper is the new control vs
   apartment). On-brand white + #6600FF, compact (per the brand rule).
-- **Generation modal** — reuse the apartment options modal; show **per-storey
-  thumbnails** (one plan per floor) so the user picks a multi-level option.
+- **Generation modal** — ✅ **SHIPPED (A.21.k, 2026-06-06)**. A "Choose a house
+  layout" modal mirroring the apartment §11 modal: N whole-house variant cards (3
+  by default), each showing **per-storey thumbnails** (one plan per floor, ground →
+  upper(s)) + a per-storey room summary + score, plus the aggregate /100 bar. On
+  brand (white + #6600FF), z-index 4000 (apartment parity), reuses the apartment
+  modal CSS chrome (`alm-overlay/panel/header/grid/card/overall/select/footer`)
+  plus a small `hlm-*` per-storey strip. Built as a CONTROLLER + MODAL layer
+  (`HouseLayoutController` / `HouseLayoutModal` / `houseCardModel` /
+  `houseModalHtml`) that CALLS the existing `HouseLayoutExecutor` — the executor's
+  build internals are untouched; it gains only an additive `variantIndex` /
+  `variantCount` on `HouseExecuteInput`. The N variants come from the new PURE
+  `generateHouseLayoutOptions(...)` (ai-host), which reuses the apartment engine's
+  EXISTING per-storey multi-option enumeration and assembles N distinct whole-house
+  options by varying which per-storey option index each variant selects
+  (deterministic, no `Math.random` — `index (v + s) % options(s)`). Variant 0 ==
+  the engine's single-best house (`generateHouseLayout`). The onboarding house path
+  (`OnboardingStepController.generateHouse → generateHouseFromBoundary`) and the
+  console commands now route through the controller, so House shows the modal
+  instead of building option[0] silently.
 - **Multi-level result view** — the result must let the user **switch floors** (level
   selector) in the 2D plan and see the **stack** in 3D (reuse `LevelExplodeController`
   for an exploded axonometric "dollhouse" view — a strong demo for a house).
@@ -378,7 +395,8 @@ values become the structured `Brief` driving `generateHouseLayout`.
 | **A.21.h** | House validators — **house envelope ✅ done** (`houseEnvelope.ts` `validateHouseStorey`, §13.3); remaining: stair clearance, cross-floor circulation, wet-stack preference + cognition evaluators. |
 | **A.21.i** | Post-gen chain fan-out across storeys (floor/ceiling/furnish/lighting per level). |
 | **A.21.j** | Editor onboarding wiring (`briefBootstrap.ts` typology gate) + console commands `pryzmGenerateHouse*`. |
-| **A.21.k** | UI: per-storey generation modal + multi-level result view + dollhouse explode (see §12.3 `A.U.*`). |
+| **A.21.k** | UI: per-storey generation modal **✅ SHIPPED 2026-06-06** ("Choose a house layout" — N variant cards w/ per-storey previews + score; controller+modal layer over the untouched executor; onboarding+console route through it). Remaining (separate slices): multi-level result view + dollhouse explode (see §12.3 `A.U.*`). |
+| **A.21.D21** | Defect-1 (modal slice): the house path built option[0] with NO chooser — **✅ FIXED 2026-06-06** by A.21.k (House now gets the same "Choose a layout" modal the apartment flow shows, with per-storey previews). |
 | **A.21.x** | Reference projects (≥3) + tests (≥50 pipeline) + ratify; retire any apartment-coupling. |
 
 **§12.3 UI rows** (new `A.U.*`): typology picker card + thumbnail; floors-stepper brief

@@ -40,6 +40,7 @@ import { facadeOrientationService } from '@pryzm/spatial-index';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import {
     generateHouseLayout,
+    generateHouseLayoutOptions,
     analyseShell,
     type ShellAnalysis,
     type ShellWallInput,
@@ -174,6 +175,16 @@ export interface HouseExecuteInput {
     readonly program?: Partial<ApartmentProgram>;
     /** Roof form. Default 'gable'. */
     readonly roofKind?: 'flat' | 'gable' | 'hip';
+    /** A.21.k — when the "Choose a house layout" modal is in play, the index of
+     *  the whole-house VARIANT the user picked. When set, the executor builds
+     *  that variant via `generateHouseLayoutOptions(...)[variantIndex]` instead
+     *  of the single best `generateHouseLayout(...)`. Omitted (legacy path) →
+     *  byte-identical single-best build. `variantCount` is the option count the
+     *  modal was shown (so the executor enumerates the SAME set and the index
+     *  resolves to the SAME variant). */
+    readonly variantIndex?: number;
+    /** A.21.k — number of variants the modal offered (see `variantIndex`). */
+    readonly variantCount?: number;
 }
 
 export class HouseLayoutExecutor {
@@ -232,17 +243,31 @@ export class HouseLayoutExecutor {
             console.log('[house-layout] minted levels', levelIds);
 
             // ── (b) Pure generation against the REAL editor level ids. ────────────
-            const result: HouseLayoutResult = generateHouseLayout(
-                shell, program, constraints, weights,
-                {
-                    storeyCount,
-                    floorToFloorM,
-                    baseElevationM,
-                    levelIdForStorey: (i: number) => levelIds[i] ?? `storey-${i}`,
-                    roofKind,
-                    ...(typeof siteLatitudeDeg === 'number' ? { solar: { latDeg: siteLatitudeDeg } } : {}),
-                },
-            );
+            // A.21.k — when the modal supplied a picked VARIANT, enumerate the SAME
+            // N options (deterministic) and build that variant; otherwise build the
+            // single best house (legacy, byte-identical). Level ids only affect
+            // `levelId` stamping, not room layout/scoring, so the modal's preview
+            // (placeholder ids) and this build (real ids) resolve to the SAME
+            // variant at the SAME index.
+            const houseOpts = {
+                storeyCount,
+                floorToFloorM,
+                baseElevationM,
+                levelIdForStorey: (i: number) => levelIds[i] ?? `storey-${i}`,
+                roofKind,
+                ...(typeof siteLatitudeDeg === 'number' ? { solar: { latDeg: siteLatitudeDeg } } : {}),
+            };
+            let result: HouseLayoutResult;
+            if (typeof input.variantIndex === 'number' && input.variantIndex >= 0) {
+                const variantCount = Math.max(input.variantIndex + 1, input.variantCount ?? 1);
+                const variants = generateHouseLayoutOptions(shell, program, constraints, weights, houseOpts, variantCount);
+                const picked = variants[input.variantIndex] ?? variants[0];
+                if (!picked) { toast('Could not build the chosen house layout — no variants generated.', 'error'); return { ok: false, reason: 'no variant' }; }
+                result = picked.result;
+                console.log('[house-layout] executor: building variant', input.variantIndex, 'of', variants.length, '(score', picked.overallScore, ')');
+            } else {
+                result = generateHouseLayout(shell, program, constraints, weights, houseOpts);
+            }
             console.log('[house-layout] generated — storeys', result.storeys.length, 'stairs', result.stairs.length, 'voids', result.voids.length, 'roof', result.roof.kind);
 
             // The wall height per storey = floorToFloor (so partitions reach the
