@@ -83,3 +83,5 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
 # deploy-marker: v35 — public-window build 2026-06-06 (house wiring + D11 + D16 + Living Graph + crash-fix + governance docs)
+
+# deploy-marker: v36 public window 2026-06-06b — all seven fixes (D21x5 + D15 + D22 + D23)
