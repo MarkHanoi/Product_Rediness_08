@@ -73,6 +73,26 @@ const FP: Readonly<Record<FurnitureKind, Footprint>> = {
     // F-FRIDGE (2026-06-05) — standard free-standing fridge/freezer: 0.60 m wide
     // × 0.65 m deep × 1.80 m tall, ~1.0 m door-open + standing clearance in front.
     fridge:             { w: 0.60, l: 0.65, h: 1.80, baseOffset: 0, clearFront: 1.00, clearSides: 0.00 },
+    // A.21.D20 (2026-06-06) — kitchen appliances + cabinet modules. All sized
+    // to the standard 600 mm module so they sit flush IN the worktop run (depth
+    // 0.60 m, worktop height 0.90 m). `clearFront` reserves the working/standing
+    // zone in front; sides 0 so modules butt flush along the run.
+    //   sink:       under-mount in the worktop — modelled as a 600 module.
+    //   hob:        cooktop in the worktop; extractor mounts above it.
+    //   oven:       under-counter built-in oven (0.90 m cabinet height).
+    //   dishwasher: integrated 600 appliance (worktop height).
+    //   washing_machine: front-loader 600 module (kitchen/utility run).
+    //   extractor:  wall-mounted hood over the hob at 1.50 m baseOffset.
+    //   base_unit:  the generic 600 base cabinet the run is composed from.
+    //   wall_unit:  600 wall cabinet at 1.45 m baseOffset (above the worktop).
+    sink:           { w: 0.60, l: 0.60, h: 0.90, baseOffset: 0,    clearFront: 0.90, clearSides: 0.00 },
+    hob:            { w: 0.60, l: 0.60, h: 0.90, baseOffset: 0,    clearFront: 0.90, clearSides: 0.00 },
+    oven:           { w: 0.60, l: 0.60, h: 0.90, baseOffset: 0,    clearFront: 0.90, clearSides: 0.00 },
+    dishwasher:     { w: 0.60, l: 0.60, h: 0.90, baseOffset: 0,    clearFront: 0.90, clearSides: 0.00 },
+    washing_machine:{ w: 0.60, l: 0.60, h: 0.90, baseOffset: 0,    clearFront: 0.90, clearSides: 0.00 },
+    extractor:      { w: 0.60, l: 0.45, h: 0.45, baseOffset: 1.50, clearFront: 0.00, clearSides: 0.00 },
+    base_unit:      { w: 0.60, l: 0.60, h: 0.90, baseOffset: 0,    clearFront: 0.90, clearSides: 0.00 },
+    wall_unit:      { w: 0.60, l: 0.35, h: 0.70, baseOffset: 1.45, clearFront: 0.00, clearSides: 0.00 },
     // F1.1 (2026-05-30) — Study workstation.
     //   desk: 1.40 m wide × 0.70 m deep × 0.75 m worktop height. 0.90 m
     //         front clearance so the user can roll the chair back without

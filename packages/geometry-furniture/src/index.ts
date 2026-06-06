@@ -61,6 +61,7 @@ export * from './builders/WardrobeBuilder';
 export * from './builders/WardrobeGlassBuilder';
 export * from './builders/WardrobePlanSymbolBuilder';
 export * from './builders/WhiteSofaBuilder';
+export * from './builders/ApplianceBuilders';
 
 export * from './engines/BedEngine';
 export * from './engines/KitchenCabinetEngine';

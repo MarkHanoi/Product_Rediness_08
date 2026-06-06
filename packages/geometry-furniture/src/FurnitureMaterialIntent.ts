@@ -259,6 +259,19 @@ export const FURNITURE_TYPE_TO_MATERIAL_INTENT: Readonly<Record<FurnitureType, F
     // ── Display (F1.3 TV media) ───────────────────────────────────────
     'tv':                           'plastic-utility',
     'tv_unit':                      'timber-warm',
+
+    // ── A.21.D20 (2026-06-06) — kitchen appliances + cabinet modules ──
+    // Appliances read as plastic/steel utility finish; cabinet modules as
+    // mixed-kitchen (timber carcass + stone worktop + metal hardware).
+    'fridge':                       'plastic-utility',
+    'oven':                         'metal-cool',
+    'hob':                          'metal-cool',
+    'dishwasher':                   'plastic-utility',
+    'washing_machine':              'plastic-utility',
+    'sink':                         'metal-cool',
+    'extractor':                    'metal-cool',
+    'base_unit':                    'mixed-kitchen',
+    'wall_unit':                    'mixed-kitchen',
 };
 
 /**

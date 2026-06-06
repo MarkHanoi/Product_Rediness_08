@@ -67,6 +67,11 @@ import { WallArtBuilder, WallMirrorBuilder } from './WallDecorBuilder';
 import { PantryCabinetBuilder } from './PantryCabinetBuilder';
 import { DresserBuilder, VanityTableBuilder } from './BedroomDressingBuilder';
 import { CurtainRodBuilder, CurtainPanelBuilder } from './CurtainBuilder';
+import {
+    SinkBuilder, HobBuilder, OvenBuilder, DishwasherBuilder,
+    WashingMachineBuilder, FridgeBuilder, ExtractorBuilder,
+    BaseUnitBuilder, WallUnitBuilder,
+} from './ApplianceBuilders';
 
 export class FurnitureFactory {
     static getBuilder(
@@ -131,12 +136,18 @@ export class FurnitureFactory {
 
             // F1.14 (2026-05-30) — Pantry cabinet (kitchen storage).
             case 'pantry_cabinet':     return new PantryCabinetBuilder(materialService);
-            // F-FRIDGE (2026-06-05) — the kitchen fridge renders via the tall-
-            // cabinet builder (same tall free-standing silhouette, driven by the
-            // record's width/length/height). A dedicated FridgeBuilder with a
-            // recessed handle + brushed-metal finish is the follow-up; this gives
-            // the kitchen its appliance now without new geometry code.
-            case 'fridge':             return new PantryCabinetBuilder(materialService);
+            // A.21.D20 (2026-06-06) — first-class kitchen appliances + cabinet
+            // modules. fridge now has a dedicated FridgeBuilder (was the tall-
+            // cabinet proxy). All sized to the 600 mm module + front-faced.
+            case 'fridge':             return new FridgeBuilder(materialService);
+            case 'sink':               return new SinkBuilder(materialService);
+            case 'hob':                return new HobBuilder(materialService);
+            case 'oven':               return new OvenBuilder(materialService);
+            case 'dishwasher':         return new DishwasherBuilder(materialService);
+            case 'washing_machine':    return new WashingMachineBuilder(materialService);
+            case 'extractor':          return new ExtractorBuilder(materialService);
+            case 'base_unit':          return new BaseUnitBuilder(materialService);
+            case 'wall_unit':          return new WallUnitBuilder(materialService);
 
             // F1.12 (2026-05-30) — Bedroom dressing (dresser + vanity table).
             case 'dresser':            return new DresserBuilder(materialService);

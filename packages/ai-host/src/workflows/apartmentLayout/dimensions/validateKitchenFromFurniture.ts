@@ -39,6 +39,19 @@ export function validateKitchenFromFurniture(
     kitchenRoomId: string,
     placed: readonly PlacedFurniture[],
 ): DimensionalValidation | null {
+    // A.21.D20 — preferred path: the D-FLE kitchen planner now emits EXPLICIT
+    // sink / hob / fridge appliances, so the work-triangle is read directly
+    // (NKBA-accurate) rather than from the run-centre heuristic below.
+    const sinkP = placed.find(p => p.kind === 'sink');
+    const hobP = placed.find(p => p.kind === 'hob');
+    const fridgeP = placed.find(p => p.kind === 'fridge');
+    if (sinkP && hobP && fridgeP) {
+        return validateKitchenTriangle({
+            kitchenId: kitchenRoomId,
+            sink: ptOf(sinkP), stove: ptOf(hobP), fridge: ptOf(fridgeP),
+        });
+    }
+
     const runs = placed.filter(p => KITCHEN_RUN_KINDS.has(p.kind));
     const island = placed.find(p => p.kind === 'kitchen_island');
     if (runs.length === 0) return null;

@@ -432,6 +432,65 @@ export const CATEGORIES_B: readonly FurnitureCategoryDescriptor[] = [
                 thumbnailPath: '/thumbnails/kitchen-u-shape-tall.svg',
                 parametric: true,
             } as any,
+            // ── A.21.D20 — first-class appliance modules (procedural box proxies,
+            // standard 600 mm; rendered by ApplianceBuilders). These are the same
+            // types the D-FLE kitchen planner places in the run; exposing them here
+            // lets the user drop individual appliances from the picker.
+            // (SPEC-KITCHEN-WARDROBE-APPLIANCES §D) ─────────────────────────────
+            {
+                type: 'sink',
+                label: 'Sink',
+                defaultDimensions: { width: 0.60, length: 0.60, height: 0.90, baseOffset: 0.0 },
+                defaultMaterial: 'metal',
+            },
+            {
+                type: 'hob',
+                label: 'Hob / Cooktop',
+                defaultDimensions: { width: 0.60, length: 0.60, height: 0.90, baseOffset: 0.0 },
+                defaultMaterial: 'metal',
+            },
+            {
+                type: 'oven',
+                label: 'Oven',
+                defaultDimensions: { width: 0.60, length: 0.60, height: 0.90, baseOffset: 0.0 },
+                defaultMaterial: 'metal',
+            },
+            {
+                type: 'dishwasher',
+                label: 'Dishwasher',
+                defaultDimensions: { width: 0.60, length: 0.60, height: 0.90, baseOffset: 0.0 },
+                defaultMaterial: 'metal',
+            },
+            {
+                type: 'washing_machine',
+                label: 'Washing Machine',
+                defaultDimensions: { width: 0.60, length: 0.60, height: 0.90, baseOffset: 0.0 },
+                defaultMaterial: 'metal',
+            },
+            {
+                type: 'fridge',
+                label: 'Fridge / Freezer',
+                defaultDimensions: { width: 0.60, length: 0.65, height: 1.80, baseOffset: 0.0 },
+                defaultMaterial: 'metal',
+            },
+            {
+                type: 'extractor',
+                label: 'Extractor Hood',
+                defaultDimensions: { width: 0.60, length: 0.45, height: 0.45, baseOffset: 1.50 },
+                defaultMaterial: 'metal',
+            },
+            {
+                type: 'base_unit',
+                label: 'Base Cabinet',
+                defaultDimensions: { width: 0.60, length: 0.60, height: 0.90, baseOffset: 0.0 },
+                defaultMaterial: 'wood',
+            },
+            {
+                type: 'wall_unit',
+                label: 'Wall Cabinet',
+                defaultDimensions: { width: 0.60, length: 0.35, height: 0.70, baseOffset: 1.45 },
+                defaultMaterial: 'wood',
+            },
             // ── Catalog appliances ──────────────────────────────────────────────
             {
                 type: 'kave_stove',

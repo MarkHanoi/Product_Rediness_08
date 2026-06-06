@@ -112,6 +112,23 @@ export const APARTMENT_MANIFEST: TypologyManifest = TypologyManifestSchema.parse
                 label: 'Master en-suite',
                 default: false,
             },
+            // A.21.D20 (2026-06-06) — kitchen run shape. 'auto' lets the
+            // furnish engine pick I / L / U by the kitchen's aspect + free-wall
+            // count; the user may force a shape. Consumed by the D-FLE kitchen
+            // planner (planKitchen) via FurnishLayoutExecutor.
+            // (SPEC-KITCHEN-WARDROBE-APPLIANCES §C/§D)
+            {
+                kind: 'select',
+                id: 'kitchenLayout',
+                label: 'Kitchen layout',
+                options: [
+                    { value: 'auto', label: 'Auto' },
+                    { value: 'I', label: 'Single run (I)' },
+                    { value: 'L', label: 'L-shape' },
+                    { value: 'U', label: 'U-shape' },
+                ],
+                default: 'auto',
+            },
             {
                 kind: 'range',
                 id: 'targetAreaM2',

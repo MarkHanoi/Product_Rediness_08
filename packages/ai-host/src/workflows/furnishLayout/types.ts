@@ -31,6 +31,13 @@ export type FurnitureKind =
     // F-FRIDGE (2026-06-05) — the kitchen tall appliance. A free-standing
     // fridge/freezer placed against a wall, perpendicular to the counter runs.
     | 'fridge'
+    // A.21.D20 (2026-06-06) — first-class kitchen appliances + cabinetry
+    // modules. Placed IN the kitchen run (sink + hob + oven + dishwasher +
+    // washing machine, extractor over the hob) by the I/L/U layout planner,
+    // honouring the sink↔hob↔fridge work-triangle. `base_unit`/`wall_unit`
+    // are the parametric 600 mm cabinet modules the run is composed from.
+    | 'oven' | 'hob' | 'dishwasher' | 'washing_machine' | 'sink' | 'extractor'
+    | 'base_unit' | 'wall_unit'
     // F1.1 (2026-05-30) — study workstation primitives. Admitted after the
     // contract-exhaustive subphase ladder closed: FurnitureType union +
     // FurnitureCategoryMap entries + DeskBuilder + DeskChairBuilder +

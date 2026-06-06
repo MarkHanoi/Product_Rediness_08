@@ -104,6 +104,19 @@ export const FURNITURE_TYPE_TO_CATEGORY: Readonly<Record<FurnitureType, Furnitur
     'kitchen_straight_tall':'kitchen',
     'kitchen_l_shape_tall': 'kitchen',
     'kitchen_u_shape_tall': 'kitchen',
+    // A.21.D20 (2026-06-06) — kitchen appliances + cabinet modules. All in the
+    // 'kitchen' category so the CREATE panel groups them with the cabinet runs.
+    // washing_machine maps to 'kitchen' (the kitchen-mounted appliance; the
+    // standalone utility variant remains washing_machine_standalone → 'utility').
+    'fridge':               'kitchen', // F-FRIDGE — free-standing fridge/freezer
+    'oven':                 'kitchen', // built-in oven
+    'hob':                  'kitchen', // cooktop
+    'dishwasher':           'kitchen', // integrated dishwasher
+    'washing_machine':      'kitchen', // kitchen-mounted washer
+    'sink':                 'kitchen', // worktop sink module
+    'extractor':            'kitchen', // wall-mounted extractor hood
+    'base_unit':            'kitchen', // 600 base cabinet module
+    'wall_unit':            'kitchen', // 600 wall cabinet module
 
     // ── Parametric wardrobe cabinet layouts ───────────────────────────────────
     'wardrobe_straight':       'bedroom',

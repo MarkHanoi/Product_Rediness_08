@@ -231,6 +231,22 @@ export class FurnishLayoutExecutor {
                 validateFurnishedRoom,
             } = await import('@pryzm/ai-host');
 
+            // A.21.D20 — kitchen/wardrobe run-shape options from the brief.
+            // `kitchenLayout` / `wardrobeLayout` chips → planKitchen/planWardrobe.
+            // A kitchen-mounted washing machine is added when the layout has NO
+            // separate utility room (otherwise the washer lives there).
+            const briefMd = (() => {
+                try { return getActiveDesignMetadata(); } catch { return null; }
+            })();
+            const hasUtilityRoom = allRooms.some(
+                r => occupanciesForRoom(r).includes('utility-room'),
+            );
+            const furnishOptions = {
+                kitchenLayout: typeof briefMd?.kitchenLayout === 'string' ? briefMd.kitchenLayout : 'auto',
+                wardrobeLayout: typeof briefMd?.wardrobeLayout === 'string' ? briefMd.wardrobeLayout : 'auto',
+                kitchenWashingMachine: !hasUtilityRoom,
+            };
+
             const levelElevation = level.elevation ?? 0;
             const allPlaced: PlacedFurniture[] = [];
             let roomsProcessed = 0;
@@ -368,7 +384,7 @@ export class FurnishLayoutExecutor {
                     for (const sz of contained) {
                         const inp = buildInput(sz.polygon, sz.occupancy, `${r.id}::${sz.name}`, sz.centroid.x, sz.centroid.z, sz.area);
                         if (!inp) continue;
-                        const placed = furnishRoom(inp);
+                        const placed = furnishRoom(inp, furnishOptions);
                         if (placed.length > 0) { placedAny = true; allPlaced.push(...placed); }
                         runValidation(inp, placed);
                     }
@@ -384,8 +400,8 @@ export class FurnishLayoutExecutor {
                 // each archetype in the merged polygon with shared obstacles.
                 const occupancies = occupanciesForRoom(r);
                 const placed = occupancies.length > 1
-                    ? furnishRoomCompound(input, occupancies)
-                    : furnishRoom(input);
+                    ? furnishRoomCompound(input, occupancies, furnishOptions)
+                    : furnishRoom(input, furnishOptions);
                 if (placed.length > 0) { roomsProcessed++; allPlaced.push(...placed); }
                 else roomsSkipped++;
                 runValidation(input, placed);
