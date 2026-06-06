@@ -17,12 +17,10 @@
 name: Deploy to Fly.io
 
 on:
-  # §A.10.m — TEMPORARY push-deploy window (repo PUBLIC 2026-06-06): ship the
-  # casa feature batch (A.21.D18 L/U stairs+void+roof · D19 furnishing styles ·
-  # D20 kitchen/wardrobe+appliances · A.21.h/i/j/x · D5/D14 · Living Graph fix)
-  # free on the 16 GB runner. REVERT to workflow_dispatch-only before going private (§A.10.i).
-  push:
-    branches: [main]
+  # §A.10.i — MANUAL-ONLY deploy to conserve GitHub Actions minutes when private.
+  # To deploy free: make the repo PUBLIC, then re-add a `push:` trigger; revert to
+  # this before going private. (v35 casa batch shipped 2026-06-06 in the §A.10.m
+  # window — D18 L/U stairs+void+roof · D19 styles · D20 kitchen+appliances · house.)
   workflow_dispatch:
 
 # Latest-wins: a newer push to main cancels an older in-flight deploy so prod
