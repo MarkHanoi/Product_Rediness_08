@@ -277,8 +277,40 @@ offset child meshes by −centroid). The house executor's `_createRoof` was pass
 now `world vertex = centroid + local = true footprint`, so the roof sits **on** the
 building, aligned to the real outline. `roof.footprint` is unchanged in the engine — it
 is (and is asserted to be) the WORLD shell perimeter (`roof.footprint === shell.perimeter`).
-Elevation is unchanged: `baseOffset = top-storey wall height` with `autoBaseOffset: true`
-(roof sits on the top-storey wall head, `worldY = topLevel.elevation + baseOffset`).
+
+**§7.2 ROOF LEVEL + SHAPE (A.21.D24, SHIPPED) — two further defects on the founder's
+v36 multi-storey HOUSE.** Both fixed house-only; apartment path untouched.
+
+**Defect 2 (D24) — roof on the WRONG level (sat on storey 1, must cap the TOP
+storey).** The prior elevation rule (`baseOffset = top-storey wall height`,
+`autoBaseOffset: true`) relied on `CreateRoofCommand`'s `autoBaseOffset` branch
+re-deriving the offset from `wallStore.getByLevel(topLevelId)` **at command time** — but
+the top-storey walls (perimeter + interior) are dispatched on the **async bus** and are
+**not committed** when the synchronous roof command runs inside the same `runBatch`, so the
+lookup was racy/empty. **Fix (`HouseLayoutExecutor._createRoof`, editor-only):** the
+executor now passes the **top `StoreyPlate`** into `_createRoof`, targets `levelId =
+topStorey.levelId` **explicitly**, and sets a **deterministic `baseOffset = top-storey wall
+height` with `autoBaseOffset: false`** (no command-time wall lookup). `RoofFragmentBuilder`
+then resolves `worldY = topLevel.elevation + baseOffset = topStorey.elevationM + wallHeightM`
+= the head of the uppermost storey's walls, for **any** storeyCount (1/2/3). A mismatch
+between `roof.levelId` and the resolved top level is logged (defensive — the engine already
+sets `roof.levelId = topStorey.levelId`).
+
+**Defect 1 (D24) — gable broken on a NON-90° (skewed / parallelogram) footprint.** Root
+cause: `RoofGeometryBuilder.generateGable` derived the ridge from the **axis-aligned
+bounding box** (ridge along world X or Z), so on a rotated / skewed plate the ridge endpoints
+landed at the bbox corners and the eave→ridge slope faces sheared into a broken gable. **Fix
+(geometry + executor):** (a) `generateGable` now builds the ridge along the footprint's
+**principal axis** (its longest-edge direction) via the new pure, THREE-free helper
+`roofRidgeAxis.gableRidge` — ridge runs along `u` at the centre of the perpendicular extent,
+spanning the full `u`-extent (`§RIDGE-PRINCIPAL-AXIS`). For an axis-aligned rectangle the
+principal axis IS the world axis, so the result is **byte-identical** to the pre-D24 build
+(no regression). (b) For a footprint that is **not a sound single-ridge shape** (more than a
+quad, or non-convex — an L/T/U shell), `_createRoof` degrades `gable` → **hip** (via
+`roofRidgeAxis.isGableFriendly`); a hip is derived from the polygon offset and handles **any
+convex** footprint by construction. **Tests:** `geometry-roof/__tests__/roofRidgeAxis.test.ts`
+(principal axis follows a 16° rotation; ridge stays parallel to the long façade, not the world
+axis; L-shape/hexagon/degenerate flagged for the hip fallback).
 
 **Vertical alignment** — at minimum, the **exterior shell** must be identical on every
 storey (same footprint) so walls stack; the slab-replication primitive

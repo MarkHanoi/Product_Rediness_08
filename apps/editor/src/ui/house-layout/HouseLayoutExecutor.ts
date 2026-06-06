@@ -37,6 +37,7 @@ import {
     CreateRoomBoundingLinesBatchCommand,
 } from '@pryzm/command-registry';
 import { facadeOrientationService } from '@pryzm/spatial-index';
+import { isGableFriendly } from '@pryzm/geometry-roof';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import {
     generateHouseLayout,
@@ -382,9 +383,12 @@ export class HouseLayoutExecutor {
                     }
                 }
 
-                // 4. Roof cap over the top storey footprint.
+                // 4. Roof cap over the TOP storey footprint (A.21.D24 — the roof
+                //    must cap the uppermost storey, never the ground). Pass the top
+                //    storey so the roof targets its level + sits on its wall head.
                 if (cm?.execute) {
-                    this._createRoof(cm, result.roof, wallHeightM);
+                    const topStorey = result.storeys[result.storeys.length - 1];
+                    if (topStorey) this._createRoof(cm, result.roof, topStorey, wallHeightM);
                 }
             }, { levelIds: allLevelIds, totalElementCount: totalWallCount + result.storeys.length + result.stairs.length + 1, skipRedetectRooms: true });
 
@@ -713,8 +717,11 @@ export class HouseLayoutExecutor {
         return { payload: { walls, levelId: storey.levelId }, shellWalls };
     }
 
-    /** Cap the stack with a roof over the top storey footprint. */
-    private _createRoof(cm: CommandManagerLike, roof: RoofDescriptor, wallHeightM: number): void {
+    /** Cap the stack with a roof over the TOP storey footprint (A.21.D24). The
+     *  `topStorey` carries the uppermost level id + its elevation so the roof
+     *  caps the top of the stack for ANY storeyCount (1/2/3), independent of the
+     *  async-commit timing of the upper-storey walls. */
+    private _createRoof(cm: CommandManagerLike, roof: RoofDescriptor, topStorey: StoreyPlate, wallHeightM: number): void {
         try {
             const poly: ReadonlyArray<{ x: number; z: number }> = roof.footprint;
             if (poly.length < 3) return;
@@ -737,6 +744,19 @@ export class HouseLayoutExecutor {
             const polygon: [number, number][] = poly.map(
                 (p: { x: number; z: number }) => [p.x - cx, p.z - cz] as [number, number],
             );
+            // §ROOF-SHAPE (A.21.D24) — Defect 1 fix (non-90° footprints). A GABLE
+            // has a single straight ridge: it reads correctly only on a roughly
+            // rectangular (incl. rotated / parallelogram) plate, where the ridge
+            // runs along the footprint's principal axis (the geometry builder now
+            // does exactly that — §RIDGE-PRINCIPAL-AXIS). On a NON-rectangular plate
+            // (an L/T/U or otherwise non-quad shell) a single ridge can't span the
+            // shape, so we degrade `gable` → `hip`. A hip roof is derived from the
+            // polygon offset (straight-skeleton-style inset) and handles ANY convex
+            // footprint by construction — the soundest fallback that still looks
+            // like a real pitched roof. Flat/hip are passed through unchanged.
+            const effectiveKind: RoofDescriptor['kind'] =
+                roof.kind === 'gable' && !isGableFriendly(poly) ? 'hip' : roof.kind;
+
             // A.21.D18 — domestic pitched roof. The engine carries a pitch in
             // DEGREES (gable default ~30°); CreateRoofCommand expects `slope` as
             // rise/run = tan(pitch). Convert so the roof gets a sensible domestic
@@ -744,24 +764,42 @@ export class HouseLayoutExecutor {
             // NOTE: CreateRoofCommand has no dedicated "pitch°" or "eave" param —
             // pitch is expressed via `slope`, eaves via `overhang` (the command
             // lacks a separate fascia-driven eave; `overhang` is the eave depth).
-            const pitchDeg = roof.kind !== 'flat'
+            const pitchDeg = effectiveKind !== 'flat'
                 ? (typeof roof.pitchDeg === 'number' && roof.pitchDeg > 0 ? roof.pitchDeg : DEFAULT_ROOF_PITCH_DEG)
                 : 0;
             const slope = pitchDeg > 0 ? Math.tan((pitchDeg * Math.PI) / 180) : undefined;
+
+            // §ROOF-LEVEL (A.21.D24) — Defect 2 fix (roof on the WRONG level). The
+            // roof MUST cap the TOP storey, never the ground. We target the top
+            // storey's level id (== `roof.levelId` from the engine — asserted equal
+            // here) and pass an EXPLICIT, deterministic `baseOffset` = top-storey
+            // wall height with `autoBaseOffset: false`. The prior `autoBaseOffset:
+            // true` recomputed the offset from `wallStore.getByLevel(topLevel)` at
+            // command time — but the top-storey walls are dispatched on the ASYNC
+            // bus and are NOT committed when this synchronous roof command runs, so
+            // the lookup was racy/empty. With the top level + an explicit offset,
+            // `RoofFragmentBuilder` resolves `worldY = topLevel.elevation +
+            // baseOffset = topStorey.elevationM + wallHeightM` = the top of the
+            // uppermost storey's walls, for any storeyCount.
+            const topLevelId = topStorey.levelId;
+            if (roof.levelId !== topLevelId) {
+                console.warn('[house-layout] roof.levelId', roof.levelId, '≠ top storey level', topLevelId, '— forcing top storey');
+            }
             cm.execute?.(new CreateRoofCommand(createId('roof'), {
-                levelId: roof.levelId,
+                levelId: topLevelId,
                 footprint: { polygon, centroid: [cx, cz] },
-                roofType: roof.kind,
-                ...(roof.kind !== 'flat' && slope ? { slope } : {}),
+                roofType: effectiveKind,
+                ...(effectiveKind !== 'flat' && slope ? { slope } : {}),
                 // Eave overhang beyond the shell (~400 mm) so the roof projects past
                 // the walls like a real house. Flat roofs get a small/zero eave.
-                overhang: roof.kind !== 'flat' ? DEFAULT_ROOF_OVERHANG_M : 0,
-                // Sit the roof at the top of the top storey's walls.
+                overhang: effectiveKind !== 'flat' ? DEFAULT_ROOF_OVERHANG_M : 0,
+                // Sit the roof on the TOP storey's wall head (deterministic, not racy).
                 baseOffset: wallHeightM,
-                autoBaseOffset: true,
+                autoBaseOffset: false,
                 thickness: DEFAULT_ROOF_THICKNESS_M,
             }), { source: 'HOUSE_PIPELINE_ROOF' });
-            console.log('[house-layout] roof created on', roof.levelId, `(${roof.kind}, ~${pitchDeg.toFixed(0)}°, eave ${(DEFAULT_ROOF_OVERHANG_M * 1000).toFixed(0)}mm)`);
+            console.log('[house-layout] roof created on top level', topLevelId,
+                `(${effectiveKind}${effectiveKind !== roof.kind ? ` ←gable-fallback` : ''}, ~${pitchDeg.toFixed(0)}°, eave ${(DEFAULT_ROOF_OVERHANG_M * 1000).toFixed(0)}mm, baseOffset ${wallHeightM}m @ elev ${topStorey.elevationM}m)`);
         } catch (e) { console.warn('[house-layout] roof create failed (skipped):', e); }
     }
 
