@@ -387,6 +387,76 @@ describe('generateHouseLayout — stair shape carried on the StairCore (A.21.D18
     });
 });
 
+// ───────────────── A.21.D24 — stair inherits the layout's rotation ───────────
+//
+// On a SKEWED plot the D-TGL engine rotates the whole layout to its principal
+// (dominant-edge) axis. The stair core + flight directions must inherit that SAME
+// rotation so the stair sits squarely within the rotated floor plate (not stuck on
+// the world axes). On an axis-aligned plot the angle is 0 → byte-identical output.
+
+describe('generateHouseLayout — stair principal-axis rotation (A.21.D24)', () => {
+    // A 12×10 m rectangle rotated ~20° about the origin → a genuinely skewed plot.
+    const ANGLE = (20 * Math.PI) / 180;
+    const rot = (p: { x: number; z: number }): { x: number; z: number } => ({
+        x: p.x * Math.cos(ANGLE) - p.z * Math.sin(ANGLE),
+        z: p.x * Math.sin(ANGLE) + p.z * Math.cos(ANGLE),
+    });
+    const SKEW_SHELL: ShellAnalysis = {
+        netAreaM2: 120, widthM: 12, depthM: 10,
+        perimeter: SHELL.perimeter.map(p => rot({ x: p.x, z: p.z })),
+        faces: [],
+    };
+
+    it('an axis-aligned plot carries angle 0 + the footprint centroid pivot', () => {
+        const res = generateHouseLayout(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 });
+        const st = res.stairs[0]!;
+        expect(st.principalAxisRad).toBe(0);
+        // centroid of the 12×10 rectangle.
+        expect(st.pivot.x).toBeCloseTo(6, 6);
+        expect(st.pivot.z).toBeCloseTo(5, 6);
+        // angle 0 → flight 1 runs on a world axis (z-run for the deep 12×10 core).
+        const f0 = st.flights[0]!.direction;
+        expect(Math.abs(f0.x) < 1e-9 || Math.abs(f0.z) < 1e-9).toBe(true);
+    });
+
+    it('a skewed plot carries the layout principal-axis angle on the stair', () => {
+        const res = generateHouseLayout(SKEW_SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 });
+        const st = res.stairs[0]!;
+        // The dominant-edge angle of the rotated rectangle is ≈ the 20° we applied
+        // (normalised into (−45°, 45°]).
+        expect(Math.abs(st.principalAxisRad)).toBeGreaterThan(0.01);
+        expect(st.principalAxisRad).toBeCloseTo(ANGLE, 3);
+    });
+
+    it('skewed flight directions are NOT world-axis-aligned (they follow the plate)', () => {
+        const res = generateHouseLayout(SKEW_SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 });
+        const f0 = res.stairs[0]!.flights[0]!.direction;
+        // A rotated run has BOTH x and z components (not snapped to a world axis).
+        expect(Math.abs(f0.x)).toBeGreaterThan(1e-3);
+        expect(Math.abs(f0.z)).toBeGreaterThan(1e-3);
+        // still a unit vector with y === 0.
+        expect(f0.y).toBe(0);
+        expect(Math.hypot(f0.x, f0.z)).toBeCloseTo(1, 6);
+    });
+
+    it('flight 1 direction equals the world-axis run rotated by the principal angle', () => {
+        const res = generateHouseLayout(SKEW_SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 });
+        const st = res.stairs[0]!;
+        // The core's longer plan dim carries flight 1 (z-run, {0,0,1} in the layout
+        // frame) → rotated to world by +angle: (−sinθ, 0, cosθ).
+        const a = st.principalAxisRad;
+        const f0 = st.flights[0]!.direction;
+        expect(f0.x).toBeCloseTo(-Math.sin(a), 5);
+        expect(f0.z).toBeCloseTo(Math.cos(a), 5);
+    });
+
+    it('is deterministic (same skewed input → identical stair rotation)', () => {
+        const a = generateHouseLayout(SKEW_SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 });
+        const b = generateHouseLayout(SKEW_SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 });
+        expect(JSON.stringify(a.stairs)).toEqual(JSON.stringify(b.stairs));
+    });
+});
+
 describe('generateHouseLayout — roof', () => {
     it('defaults to a gable roof with a pitch over the topmost storey', () => {
         const res = generateHouseLayout(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 });
