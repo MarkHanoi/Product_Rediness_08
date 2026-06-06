@@ -83,3 +83,4 @@ jobs:
 # deploy-marker: v35 — public-window build 2026-06-06 (house wiring + D11 + D16 + Living Graph + crash-fix + governance docs)
 
 # deploy-marker: v36 public window 2026-06-06b — all seven fixes (D21x5 + D15 + D22 + D23)
+# deploy-marker: v38 — A.21.D25 (4 deep house defects: re-projection loop · furnish-all-storeys · plate subdivision + wall joins · Forma floors/roof/furniture) + A.21.D26 (stairwell-void guardrail)
