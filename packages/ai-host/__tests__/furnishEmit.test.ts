@@ -97,7 +97,7 @@ describe('A.21.D4 — style → furniture finish', () => {
         for (const c of set.commands) {
             const p = payload(c);
             expect(typeof p.color).toBe('string');
-            expect(['fabric', 'wood', 'metal']).toContain(p.material);
+            expect(['fabric', 'wood', 'metal', 'glass']).toContain(p.material);
             expect((p.metadata as { style: string }).style).toBe('classic');
         }
     });
@@ -113,18 +113,18 @@ describe('A.21.D4 — style → furniture finish', () => {
         expect(payload(bedM!).color).not.toBe(payload(bedC!).color);
     });
 
-    it('styleFinishFor: upholstered → fabric, case-goods → wood; unknown style → modern', () => {
+    it('styleFinishFor: upholstered → fabric, case-goods → wood; unknown style → nordic (default)', () => {
         expect(styleFinishFor('classic', 'sofa').material).toBe('fabric');
         expect(styleFinishFor('classic', 'dining_table').material).toBe('wood');
-        expect(normaliseStyle('nonsense')).toBe('modern');
+        expect(normaliseStyle('nonsense')).toBe('nordic');
         expect(styleFinishFor(normaliseStyle(undefined), 'bed').material).toBe('fabric');
     });
 
-    it('no style arg → defaults to modern (still stamps a colour)', () => {
+    it('no style arg → defaults to nordic (still stamps a colour)', () => {
         const items = furnishRoom(rectRoom('bedroom', 4, 3));
         const set = buildFurnishCommands(items, 'L0', 0, () => 'x');
         const c = set.commands[0]!;
         const ft = payload(c).furnitureType as string;
-        expect(payload(c).color).toBe(styleFinishFor('modern', ft).color);
+        expect(payload(c).color).toBe(styleFinishFor('nordic', ft).color);
     });
 });

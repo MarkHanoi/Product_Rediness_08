@@ -1,65 +1,212 @@
-// A.21.D4 — Style → furniture finish (the brief's modern/classic/minimal/warm
-// chip, previously a no-op, now drives furniture COLOUR + MATERIAL finish).
+// A.21.D4 → A.21.D19 — Style → furniture finish.
+//
+// A.21.D4 introduced the brief's style chip (modern/classic/minimal/warm) as a
+// per-category {color, material} finish. A.21.D19 ("different materials depending
+// on the style") REPLACES the 4 coarse chips with FOUR architecturally-grounded
+// styles — Nordic · Mediterranean · Minimalist · Classic — each driving a DISTINCT
+// material + colour per furniture CATEGORY. The old ids stay as aliases
+// (see ALIASES below) so existing briefs + tests keep working.
 //
 // Pure + deterministic; ZERO imports. The editor's furniture builders read
-// `data.color` (hex) + `data.material` ('fabric'|'wood'|'metal'|'glass') — see
-// geometry-furniture builders (e.g. WhiteSofaBuilder) — so a coherent per-style,
-// per-category palette here makes the style chip visibly change the result.
+// `data.color` (hex) + `data.material` ('fabric'|'wood'|'metal'|'glass') — see the
+// geometry-furniture builders (e.g. WhiteSofaBuilder, ChairBuilder) — so a coherent
+// per-style, per-category palette here makes the style chip visibly change the
+// result.
 //
-// Mapping doctrine: upholstered pieces take the style's UPHOLSTERY colour as
-// 'fabric'; case-goods / tables take the WOOD tone as 'wood'; everything else
-// takes a NEUTRAL tone. Coarse-but-coherent — a full per-kind material system is
-// a later refinement.
+// CATEGORY DOCTRINE (which furniture takes which palette slot):
+//   upholstery → seating + beds (sofa, chairs, beds, benches, stools)  → 'fabric'
+//   wood       → case-goods + storage (wardrobe, dresser, sideboard…)  → 'wood'
+//   table      → tables + desks + consoles                             → wood/metal/glass
+//   metal      → metal/hardware-forward pieces (frames, shelving)      → 'metal'
+//   soft       → soft furnishings hint (rugs, cushions — future)       → 'fabric'
+//   neutral    → appliances, fixtures, misc                            → style default
+//
+// The PALETTE_TABLE below is the design of record (see
+// docs/03-execution/specs/SPEC-FURNISHING-STYLES.md). Keep it the single source.
 
-/** The brief style chips. Unknown / absent falls back to 'modern'. */
-export type FurnishStyle = 'modern' | 'classic' | 'minimal' | 'warm';
+/** The four CANONICAL furnishing styles (A.21.D19). */
+export type CanonicalStyle = 'nordic' | 'mediterranean' | 'minimalist' | 'classic';
+
+/**
+ * Accepted brief style values: the four canonical ids + the legacy A.21.D4 chips
+ * kept as aliases. Anything else falls back to 'nordic' (the light, broadly-liked
+ * default). NOTE: 'classic' is BOTH a canonical id and a legacy chip — same target.
+ */
+export type FurnishStyle = CanonicalStyle | 'modern' | 'minimal' | 'warm';
 
 /** Material finishes the geometry-furniture builders understand. */
-export type FurnishFinish = 'fabric' | 'wood' | 'metal';
+export type FurnishFinish = 'fabric' | 'wood' | 'metal' | 'glass';
 
-interface StylePalette {
-    readonly upholstery: string; // sofas, chairs, beds, benches
-    readonly wood: string;       // tables, cabinets, shelves, wardrobes
-    readonly neutral: string;    // appliances, fixtures, misc
-    readonly neutralFinish: FurnishFinish;
+/** Furniture finish CATEGORIES — the columns of the palette table. */
+export type FinishCategory = 'upholstery' | 'wood' | 'table' | 'metal' | 'soft' | 'neutral';
+
+/** One palette slot: a colour + the builder-understood material finish. */
+interface Slot {
+    readonly color: string;
+    readonly material: FurnishFinish;
 }
 
-const STYLE_PALETTES: Readonly<Record<FurnishStyle, StylePalette>> = {
-    // Cool greys + charcoal — contemporary.
-    modern:  { upholstery: '#9aa0a6', wood: '#3c3c40', neutral: '#b0b3b8', neutralFinish: 'metal' },
-    // Warm browns + cream — traditional.
-    classic: { upholstery: '#7d5a4f', wood: '#6b4a2f', neutral: '#8a7a5c', neutralFinish: 'wood' },
-    // Off-white + pale oak — pared-back.
-    minimal: { upholstery: '#e8e2d5', wood: '#cfc6b8', neutral: '#dcdcdc', neutralFinish: 'metal' },
-    // Terracotta + walnut — earthy/warm.
-    warm:    { upholstery: '#c97b4a', wood: '#8a5a33', neutral: '#a8825c', neutralFinish: 'wood' },
+/** A full per-style palette (one Slot per category) + floor/wall accent hints. */
+interface StylePalette {
+    readonly upholstery: Slot; // sofas, chairs, beds, benches, stools
+    readonly wood: Slot;       // wardrobes, dressers, sideboards, shelving (case-goods)
+    readonly table: Slot;      // dining/coffee/console tables, desks
+    readonly metal: Slot;      // metal/hardware-forward pieces
+    readonly soft: Slot;       // soft furnishings (rugs, cushions) — future use
+    readonly neutral: Slot;    // appliances, fixtures, misc fallback
+    /** Floor finish hint (the canonical floor mapping lives in floorFinish.ts). */
+    readonly floorColor: string;
+    /** Wall accent hint (no wall-finish pipeline yet — see SPEC follow-up). */
+    readonly wallAccent: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// THE PALETTE TABLE — style × category → {color, material}. Design of record.
+// ─────────────────────────────────────────────────────────────────────────────
+const PALETTE_TABLE: Readonly<Record<CanonicalStyle, StylePalette>> = {
+    // NORDIC — pale ash/birch/light-oak wood, white + soft cool greys, light
+    // linen/wool upholstery, matte finishes, light wood floor.
+    nordic: {
+        upholstery: { color: '#D9D6CE', material: 'fabric' }, // soft linen grey-white
+        wood:       { color: '#E2D6BE', material: 'wood'   }, // pale ash / birch
+        table:      { color: '#D8C9A8', material: 'wood'   }, // light oak
+        metal:      { color: '#9FA4A8', material: 'metal'  }, // brushed matte steel
+        soft:       { color: '#C7CCC9', material: 'fabric' }, // cool wool grey
+        neutral:    { color: '#ECEAE4', material: 'metal'  }, // white-grey
+        floorColor: '#E2D6BE',
+        wallAccent: '#F3F1EC', // off-white
+    },
+    // MEDITERRANEAN — warm terracotta + lime-plaster walls, olive/ochre/sand
+    // accents, ceramic/terracotta tile floor, rattan/cane + warm wood, wrought iron.
+    mediterranean: {
+        upholstery: { color: '#C7A36B', material: 'fabric' }, // sand / ochre linen
+        wood:       { color: '#9C6B3C', material: 'wood'   }, // warm honey wood / cane
+        table:      { color: '#8A5A33', material: 'wood'   }, // warm walnut-brown
+        metal:      { color: '#3B352E', material: 'metal'  }, // wrought iron (dark)
+        soft:       { color: '#7A8450', material: 'fabric' }, // olive green textile
+        neutral:    { color: '#C97B4A', material: 'wood'   }, // terracotta
+        floorColor: '#C8794D', // terracotta tile
+        wallAccent: '#EFE3CE', // lime plaster
+    },
+    // MINIMALIST — monochrome white/grey/black, lacquer + glass, hidden hardware,
+    // polished concrete / large-format pale tile floor, low-contrast.
+    minimalist: {
+        upholstery: { color: '#C9C9C9', material: 'fabric' }, // mid grey
+        wood:       { color: '#E8E8E8', material: 'wood'   }, // white lacquer
+        table:      { color: '#DADADA', material: 'glass'  }, // glass / pale lacquer
+        metal:      { color: '#4A4A4A', material: 'metal'  }, // matte black accent
+        soft:       { color: '#B5B5B5', material: 'fabric' }, // low-contrast grey
+        neutral:    { color: '#DFDFDF', material: 'metal'  }, // light grey
+        floorColor: '#DCDCDC', // polished concrete / pale tile
+        wallAccent: '#F4F4F4', // near-white
+    },
+    // CLASSIC — dark walnut/mahogany case-goods, brass/bronze hardware, deep rich
+    // upholstery (burgundy/navy/forest), marble + dark herringbone wood floor.
+    classic: {
+        upholstery: { color: '#6E2230', material: 'fabric' }, // deep burgundy
+        wood:       { color: '#5A3A22', material: 'wood'   }, // dark walnut / mahogany
+        table:      { color: '#4E3320', material: 'wood'   }, // mahogany
+        metal:      { color: '#B08D3C', material: 'metal'  }, // brass / bronze
+        soft:       { color: '#1F3A5F', material: 'fabric' }, // deep navy
+        neutral:    { color: '#7D6A4A', material: 'wood'   }, // aged brass-brown
+        floorColor: '#5A3A22', // dark herringbone wood
+        wallAccent: '#E7E0D2', // warm parchment / marble
+    },
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Back-compat: legacy A.21.D4 chips → canonical A.21.D19 styles.
+//   modern  → minimalist  (cool, contemporary, low-contrast)
+//   minimal → minimalist
+//   warm    → mediterranean (earthy, terracotta, warm wood)
+//   classic → classic       (unchanged — same id, richer palette)
+// ─────────────────────────────────────────────────────────────────────────────
+const ALIASES: Readonly<Record<string, CanonicalStyle>> = {
+    modern: 'minimalist',
+    minimal: 'minimalist',
+    minimalist: 'minimalist',
+    warm: 'mediterranean',
+    mediterranean: 'mediterranean',
+    classic: 'classic',
+    nordic: 'nordic',
+    // Friendly synonyms the RAC / free-text might emit.
+    scandinavian: 'nordic',
+    scandi: 'nordic',
+    traditional: 'classic',
+    rustic: 'mediterranean',
+    cozy: 'mediterranean',
+    cosy: 'mediterranean',
+    contemporary: 'minimalist',
+};
+
+/** The canonical default when the brief value is unknown / absent. */
+const DEFAULT_STYLE: CanonicalStyle = 'nordic';
+
+// Category membership — which furniture kind reads which palette slot.
 const UPHOLSTERED = new Set<string>([
-    'sofa', 'lounge_chair', 'bed', 'dining_chair', 'desk_chair', 'entry_bench', 'vanity_stool',
+    'sofa', 'lounge_chair', 'bed', 'dining_chair', 'desk_chair', 'entry_bench',
+    'vanity_stool', 'armchair', 'bench', 'ottoman', 'stool',
+]);
+
+const TABLE_KINDS = new Set<string>([
+    'dining_table', 'coffee_table', 'console_table', 'desk', 'entrance_table',
+    'table', 'vanity_table', 'side_table', 'bedside_table',
 ]);
 
 const WOOD_KINDS = new Set<string>([
-    'dining_table', 'coffee_table', 'bookshelf', 'bookshelf_glass', 'wardrobe', 'dresser',
-    'sideboard', 'buffet', 'console_table', 'shoe_cabinet', 'tv_unit', 'pantry_cabinet',
-    'bedside_table', 'desk', 'entrance_table', 'table', 'vanity_table',
+    'bookshelf', 'bookshelf_glass', 'wardrobe', 'dresser', 'sideboard', 'buffet',
+    'shoe_cabinet', 'tv_unit', 'pantry_cabinet', 'cabinet', 'shelf', 'shelving',
 ]);
 
-/** Normalise an arbitrary brief value to a known style (default 'modern'). */
-export function normaliseStyle(s: unknown): FurnishStyle {
-    return s === 'classic' || s === 'minimal' || s === 'warm' ? s : 'modern';
+/**
+ * Normalise an arbitrary brief value to a CANONICAL style. Accepts the four
+ * canonical ids, the legacy A.21.D4 chips, and a few free-text synonyms; anything
+ * else → DEFAULT_STYLE ('nordic'). Deterministic.
+ */
+export function normaliseStyle(s: unknown): CanonicalStyle {
+    if (typeof s !== 'string') return DEFAULT_STYLE;
+    return ALIASES[s.toLowerCase().trim()] ?? DEFAULT_STYLE;
+}
+
+/** Map a furniture `kind` to its finish category. */
+function categoryFor(kind: string): FinishCategory {
+    if (UPHOLSTERED.has(kind)) return 'upholstery';
+    if (TABLE_KINDS.has(kind)) return 'table';
+    if (WOOD_KINDS.has(kind)) return 'wood';
+    return 'neutral';
 }
 
 /**
  * Resolve the {color, material} finish for a furniture `kind` under `style`.
- * Returns hex colour + a builder-understood material finish. Deterministic.
+ * `style` may be a canonical id, a legacy chip, or any string (normalised).
+ * Returns a hex colour + a builder-understood material finish. Deterministic.
+ *
+ * Return SHAPE is unchanged from A.21.D4 so buildFurnishCommands consumes it
+ * untouched.
  */
 export function styleFinishFor(
-    style: FurnishStyle,
+    style: FurnishStyle | string,
     kind: string,
 ): { readonly color: string; readonly material: FurnishFinish } {
-    const p = STYLE_PALETTES[style] ?? STYLE_PALETTES.modern;
-    if (UPHOLSTERED.has(kind)) return { color: p.upholstery, material: 'fabric' };
-    if (WOOD_KINDS.has(kind)) return { color: p.wood, material: 'wood' };
-    return { color: p.neutral, material: p.neutralFinish };
+    const canonical = normaliseStyle(style);
+    const palette = PALETTE_TABLE[canonical];
+    const slot = palette[categoryFor(kind)];
+    return { color: slot.color, material: slot.material };
 }
+
+/**
+ * The floor + wall accent hints for a style (consumed by the SPEC + any future
+ * wall-finish pipeline; the canonical FLOOR mapping lives in
+ * command-registry floorFinish.ts). Deterministic.
+ */
+export function styleAccentsFor(
+    style: FurnishStyle | string,
+): { readonly floorColor: string; readonly wallAccent: string } {
+    const p = PALETTE_TABLE[normaliseStyle(style)];
+    return { floorColor: p.floorColor, wallAccent: p.wallAccent };
+}
+
+/** The four canonical style ids, for UI / validation. */
+export const CANONICAL_STYLES: readonly CanonicalStyle[] = [
+    'nordic', 'mediterranean', 'minimalist', 'classic',
+];
