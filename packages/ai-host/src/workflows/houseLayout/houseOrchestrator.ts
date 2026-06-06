@@ -17,7 +17,7 @@ import type {
 } from '../apartmentLayout/types.js';
 import type { ShellAnalysis } from '../apartmentLayout/shellAnalysis.js';
 import { generateDeterministicLayouts } from '../apartmentLayout/tgl/runDeterministicLayout.js';
-import { apartmentDimensionsFor } from '../apartmentLayout/dimensions/roomDimensions.js';
+import { validateHouseStorey, houseStoreyBand } from './houseEnvelope.js';
 import { reserveStairCore } from './stairCore.js';
 import { allocateProgramToStoreys } from './storeyAllocation.js';
 import type {
@@ -78,18 +78,22 @@ function stairCoreAreaM2(rectMm: { w: number; h: number }): number {
  * punch the void. The perimeter/footprint is left intact (the shell still exists),
  * only the area budget shrinks. Single-storey → no core subtraction (no stair).
  *
- * Envelope reconciliation: the per-storey engine runs the apartment §D3.5 envelope
- * gate, which HARD-rejects when gross area is absurd for the BEDROOM count alone
- * (it can't see that a house ground floor's area is consumed by living/kitchen/
- * dining, not bedrooms). A large house plate with a low per-storey bedroom count
- * (e.g. a 120 m² ground floor with one guest bedroom) trips the gate and the engine
- * returns []. To keep every storey producing a real layout WITHOUT editing the
- * frozen engine, we clamp the area we PASS into the engine into the admissible
- * band (`apartmentDimensionsFor(bedrooms).{grossMin,grossMax}`) for that storey's
- * bedroom count. The TRUE footprint (walls/elevations) is unchanged — only the
- * room-budget the bubble graph subdivides is clamped, so rooms are sized sensibly
- * and the gate passes. The editor-wiring follow-up (A.21.h) can replace this with a
- * house-specific envelope validator that counts non-bedroom area properly.
+ * Envelope reconciliation (A.21.h — Deviation B RESOLVED, SPEC-CASA §13.3): the
+ * per-storey engine runs an envelope gate that, by DEFAULT, keys its gross-area
+ * band on BEDROOM count alone (the apartment §D3.5 gate). That is wrong for a house
+ * GROUND floor, whose large area is consumed by living/kitchen/dining, not bedrooms
+ * — it would HARD-reject (e.g. a 120 m² ground floor with one guest bedroom). The
+ * old kludge faked the area: it CLAMPED the area passed into the engine into the
+ * apartment band so the gate passed but the engine laid out for a wrong area.
+ *
+ * The fix: we now pass the storey's TRUE area AND inject a HOUSE-aware envelope
+ * validator (`validateHouseStorey`) into the engine. It judges the plate by the sum
+ * of its full programme's room target areas (living + kitchen + dining + bedrooms +
+ * baths + circulation), so a big house ground floor is accepted at its real size.
+ * The engine is NOT forked — `generateDeterministicLayouts` takes an OPTIONAL
+ * `envelopeValidator` whose default is the apartment gate, so the apartment path is
+ * byte-identical. The stair-core area is still subtracted (it's a real obstacle,
+ * not the area-fake) so rooms don't grow into the core.
  *
  * 1-storey input → a single plate, NO stairs, NO voids, default-or-given roof — a
  * strict superset of today's single-storey single-plate bridge.
@@ -125,16 +129,28 @@ export function generateHouseLayout(
         const levelId = levelIdForStorey(i);
         const elevationM = r3(baseElevationM + i * floorToFloorM);
 
-        // Shrink the usable area by the stair core, then clamp into the apartment
-        // §D3.5 envelope band for THIS storey's bedroom count so the per-storey
-        // engine's envelope gate passes (see the obstacle/envelope note above).
+        // Shrink the usable area by the stair core ONLY (a real obstacle). We hand
+        // the engine the storey's TRUE area and gate feasibility with the house-aware
+        // envelope (A.21.h — replaces the bedroom-count area-clamp, Deviation B).
         const usableAreaM2 = coreRect
             ? Math.max(1, shell.netAreaM2 - coreAreaM2)
             : shell.netAreaM2;
-        const env = apartmentDimensionsFor(sp.program.bedrooms);
-        const clampedAreaM2 = Math.min(env.grossMax, Math.max(env.grossMin, usableAreaM2));
+
+        // §HOUSE-MAX-CAP — the ground floor's rich programme is accepted at its TRUE
+        // size, but a SPARSE upper storey (e.g. one bedroom on the full plate of a
+        // 3-storey house) can genuinely exceed its programme's house grossMax. The
+        // engine's house gate would then reject and the storey would emit no rooms —
+        // a regression vs. the old clamp. To keep every storey producing a real
+        // layout we cap the SUBDIVISION area at the house envelope's OWN grossMax for
+        // this storey's full programme (NOT the bedroom-count apartment band). This
+        // is house-derived + only bites the oversize edge; the ground floor's true
+        // area passes through untouched (usableArea ≤ grossMax there). The TRUE
+        // footprint (walls/elevations) is unchanged — only the room-budget the
+        // bubble graph subdivides is capped, so rooms stay sensibly sized.
+        const houseMax = houseStoreyBand({ program: sp.program, grossAreaM2: usableAreaM2 }).grossMaxM2;
+        const presentedAreaM2 = Math.min(usableAreaM2, houseMax);
         const storeyShell: ShellAnalysis =
-            clampedAreaM2 !== shell.netAreaM2 ? { ...shell, netAreaM2: clampedAreaM2 } : shell;
+            presentedAreaM2 !== shell.netAreaM2 ? { ...shell, netAreaM2: presentedAreaM2 } : shell;
 
         const options = generateDeterministicLayouts(
             storeyShell,
@@ -145,6 +161,9 @@ export function generateHouseLayout(
             undefined,
             undefined,
             opts.solar,
+            // House-aware envelope gate: judge the plate by its FULL programme, not
+            // bedroom count. Replaces the per-storey area-clamp kludge (Deviation B).
+            validateHouseStorey,
         );
         // option[0] (best-first). If the plate can't be decomposed the engine
         // returns [] — we still record a (possibly empty) plate so the stack and

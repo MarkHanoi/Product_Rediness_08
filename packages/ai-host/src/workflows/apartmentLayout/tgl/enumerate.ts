@@ -23,6 +23,7 @@ import { validateAllRoomShapes, type RoomShape } from '../dimensions/validateRoo
 import { validateRoomFit } from '../dimensions/validateRoomFit.js';
 import { validateFrontage } from '../dimensions/validateFrontage.js';
 import { validateApartmentEnvelope } from '../dimensions/validateApartmentEnvelope.js';
+import type { DimensionalValidation } from '../dimensions/types.js';
 import { validateMandatoryAdjacencies, type DoorOpening } from '../topology/validateMandatoryAdjacencies.js';
 import { validateForbiddenAdjacencies } from '../topology/validateForbiddenAdjacencies.js';
 import { validateWetCluster } from '../topology/validateWetCluster.js';
@@ -53,6 +54,12 @@ export interface EnumerateInput {
     /** Minimum clearance (metres) between a partition coord line and any
      *  window-span boundary. Defaults to 0.1 m. */
     readonly windowClearanceM?: number;
+    /** A.21.h — OPTIONAL injected gross-area envelope validator. Defaults to the
+     *  apartment §D3.5 gate (`validateApartmentEnvelope`, keyed on bedroom count).
+     *  The house orchestrator injects `validateHouseStorey` so a house plate is
+     *  judged by its FULL programme, not bedroom count alone — WITHOUT forking the
+     *  engine. Absent ⇒ byte-identical apartment behaviour. */
+    readonly envelopeValidator?: (args: { program: ApartmentProgram; grossAreaM2: number }) => DimensionalValidation;
 }
 
 export interface TglCandidate {
@@ -417,10 +424,15 @@ export function enumerateLayouts(input: EnumerateInput): TglCandidate[] {
     // names the specific architectural mismatch BEFORE we waste cycles building
     // 8 strategies. Returns empty + logs a structured warning that the trigger
     // can surface as a clear toast.
-    const env = validateApartmentEnvelope({
-        bedrooms: input.program.bedrooms,
-        grossAreaM2: shellArea,
-    });
+    // A.21.h — use the injected envelope validator when present (the house
+    // orchestrator threads `validateHouseStorey`); otherwise the default apartment
+    // §D3.5 gate keyed on bedroom count. Default path is byte-identical.
+    const env = input.envelopeValidator
+        ? input.envelopeValidator({ program: input.program, grossAreaM2: shellArea })
+        : validateApartmentEnvelope({
+            bedrooms: input.program.bedrooms,
+            grossAreaM2: shellArea,
+        });
     if (!env.admissible) {
         for (const f of env.hardFindings) {
             console.warn(`[apartment-layout] §D3.5 envelope reject: ${f.reason}`);
