@@ -250,6 +250,29 @@ export type {
 } from './workflows/apartmentLayout/types.js';
 export { DEFAULT_LAYOUT_FIXTURE } from './AnthropicRelay.js';
 
+// ── A.21 Casa Unifamiliar — multi-storey house layout (SPEC-CASA-UNIFAMILIAR) ──
+// Pure, deterministic L2 storey orchestrator. Grows the single-plate apartment
+// engine into a stacked house: per-storey D-TGL layouts + a shared stair core +
+// per-slab stairwell voids + a roof cap. Consumed by the editor's
+// HouseLayoutExecutor (A.21.d–g) exactly as `buildLayoutCommands` is.
+export {
+  generateHouseLayout,
+  allocateProgramToStoreys,
+  reserveStairCore,
+} from './workflows/houseLayout/index.js';
+export type {
+  HouseLayoutOptions,
+  HouseLayoutResult,
+  StoreyProgram,
+  StoreyPlate,
+  StoreyRole,
+  StairCore,
+  SlabVoid,
+  RoofDescriptor,
+  RoofKind,
+  Pt as HousePt,
+} from './workflows/houseLayout/index.js';
+
 // ── D-FLE Furniture Layout Engine — public surface ───────────────────────────
 // The deterministic per-room furniture layout engine (SPEC-FURNITURE-LAYOUT-ENGINE).
 // Pure: zero THREE, zero DOM. Consumed by the editor's furnish trigger
