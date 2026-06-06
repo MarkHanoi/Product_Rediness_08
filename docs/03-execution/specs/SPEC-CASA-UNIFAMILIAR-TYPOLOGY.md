@@ -209,6 +209,60 @@ exists and is undeletable.
   in the upper slab.
 This writes `connectedByStair` graph edges (vertical circulation becomes queryable).
 
+### §7.1 — Stair SHAPE selection + matching void (A.21.D18, SHIPPED)
+
+`reserveStairCoreShaped(footprint, storeyCount, totalRisers)` (in `stairCore.ts`)
+chooses **I / L / U** from the **available core box** (the `MAX_FRACTION = 0.45`
+clamp of each plate dimension, in mm), deterministically:
+
+| condition (on the available box `availW × availH`) | shape | reserved core (mm) |
+|---|---|---|
+| `availW < 1600` **or** `availH < 1600` (too tight to fold) | **I** | 1000 × 3000 |
+| else `aspect = longer/shorter ≥ 2.2` (long, thin slot) | **I** | 1000 × 3000 |
+| else `availW ≥ 2000` **and** `availH ≥ 2800` (generous square) | **U** | 2000 × 2800 |
+| else `availW ≥ 1600` **and** `availH ≥ 1600` (squarer mid) | **L** | 1600 × 1600 |
+| else (can't fit L/U) | **I** (safe fallback) | 1000 × 3000 |
+
+All L/U rects are clamped to the plate; the engine **never emits an invalid stair**
+(degrades to I when space is tight).
+
+**Riser split** — total risers come from the floor-to-floor gap (`round(ftf / 0.18)`,
+≥2). `splitRisersForShape(shape, total)`: **I** keeps all risers in one flight; **L**
+and **U** split ≈half (`before = floor(total/2)`, `after = total − before`, each ≥1),
+with `risersBeforeLanding = before`. The executor re-keys the split off its own
+gap-derived total (it applies a [0.15, 0.19] m per-riser clamp) so `risers × height
+== ftf` within the command's ±50 mm gate.
+
+**Flight directions** — flight 1 runs along the core's **longer** plan axis. **L**'s
+second flight turns 90° left (`(-z, 0, x)`); **U**'s reverses (`(-x, 0, -z)`) and is
+offset across by one stair width with a `startOverride` (parallel return run). These
+mirror `StairCreationController` so `StairMeshBuilder` builds the geometry the
+renderer expects. Landing depth: **L** = 1 × width; **U** = 2 × width (the
+half-landing spans both runs).
+
+**Void matches the shape** — `CreateStairCommand.autoCreateOpening` already computes
+the void from `computeStairFootprintRect(...)`, which oriented-bounding-boxes **all
+flights AND landings** (not just the straight run). So the punched slab void fits
+the L/U footprint by construction — no command change was required; the executor
+just emits the shaped `flights`/`landings` and leaves `autoCreateOpening` default.
+
+### §7.2 — Housing roof (A.21.D18, SHIPPED)
+
+The top storey is capped with a real pitched roof via `CreateRoofCommand`:
+- `roofType` = the `RoofDescriptor.kind` (**gable** by default; **hip** when
+  `roofKind: 'hip'`; **flat** only when `roofKind: 'flat'`),
+- domestic **pitch** ~30–35° — the descriptor carries `pitchDeg` (engine default
+  30°; executor fallback 32°), converted to the command's `slope` (rise/run) via
+  `slope = tan(pitch°)`,
+- **eave overhang** ~400 mm beyond the shell (`overhang`),
+- `baseOffset` = top-storey wall height, `autoBaseOffset: true` (sit on the walls),
+- `thickness` 250 mm.
+
+**Command param gap:** `CreateRoofCommand` has **no** dedicated pitch-in-degrees or
+eave param — pitch is expressed via `slope` (rise/run) and the eave via `overhang`
+(there is no separate fascia-driven eave). The executor converts `pitchDeg → slope`
+accordingly; flat roofs get `overhang: 0` and no slope.
+
 **Vertical alignment** — at minimum, the **exterior shell** must be identical on every
 storey (same footprint) so walls stack; the slab-replication primitive
 (`CreateAllSlabsFromLevelToAllFloorsCommand`) handles floors. Column/beam stacking is a

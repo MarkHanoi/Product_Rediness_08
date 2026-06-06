@@ -18,16 +18,51 @@ import type {
 import type { ShellAnalysis } from '../apartmentLayout/shellAnalysis.js';
 import { generateDeterministicLayouts } from '../apartmentLayout/tgl/runDeterministicLayout.js';
 import { apartmentDimensionsFor } from '../apartmentLayout/dimensions/roomDimensions.js';
-import { reserveStairCore } from './stairCore.js';
+import { reserveStairCoreShaped, splitRisersForShape, type StairCoreShaped } from './stairCore.js';
 import { allocateProgramToStoreys } from './storeyAllocation.js';
 import type {
-    HouseLayoutResult, Pt, RoofDescriptor, RoofKind, SlabVoid, StairCore, StoreyPlate,
+    HouseLayoutResult, Pt, RoofDescriptor, RoofKind, SlabVoid, StairCore, StairFlightPlan, StoreyPlate,
 } from './types.js';
 
 const DEFAULT_FLOOR_TO_FLOOR_M = 3.0;
 const DEFAULT_BASE_ELEVATION_M = 0;
 const DEFAULT_ROOF_KIND: RoofKind = 'gable';
 const DEFAULT_ROOF_PITCH_DEG = 30;
+/** Target riser height (m) — sets the total riser count for the floor-to-floor gap. */
+const STAIR_RISER_TARGET_M = 0.18;
+
+/** Resolve the per-flight plan directions for a shaped stair core (A.21.D18).
+ *  Flight 1 runs along the core's LONGER plan axis. For L the second flight turns
+ *  90° left (matching StairCreationController._computeLDir2 default); for U it
+ *  reverses (parallel return run). Returns one entry for I, two for L/U. */
+function resolveFlightPlans(
+    core: StairCoreShaped,
+    totalRisers: number,
+): StairFlightPlan[] {
+    const runAlongZ = core.rectMm.h >= core.rectMm.w; // longer dim carries flight 1
+    const dir1 = runAlongZ ? { x: 0, y: 0, z: 1 } : { x: 1, y: 0, z: 0 };
+    if (core.shape === 'I') {
+        return [{ riserCount: totalRisers, direction: dir1 }];
+    }
+    const { before, after } = splitRisersForShape(core.shape, totalRisers);
+    let dir2: { x: number; y: number; z: number };
+    if (core.shape === 'L') {
+        // Left turn: rotate dir1 +90° about Y → (-z, 0, x).
+        dir2 = { x: -dir1.z, y: 0, z: dir1.x };
+    } else {
+        // U: reverse run (parallel return flight).
+        dir2 = { x: -dir1.x, y: 0, z: -dir1.z };
+    }
+    return [
+        { riserCount: before, direction: dir1 },
+        { riserCount: after, direction: dir2 },
+    ];
+}
+
+/** Total riser count for a floor-to-floor gap (≈ ftf / target), ≥2. */
+function totalRisersForGap(floorToFloorM: number): number {
+    return Math.max(2, Math.round(floorToFloorM / STAIR_RISER_TARGET_M));
+}
 
 export interface HouseLayoutOptions {
     readonly storeyCount: number;
@@ -112,8 +147,13 @@ export function generateHouseLayout(
     // (a) split the brief across storeys.
     const storeyPrograms = allocateProgramToStoreys(program, storeyCount);
 
-    // (b) reserve the shared stair core (mm). Only meaningful for ≥2 storeys.
-    const coreRect = storeyCount > 1 ? reserveStairCore(footprint, storeyCount) : null;
+    // (b) reserve the shared stair core (mm) + choose its shape (I/L/U). Only
+    // meaningful for ≥2 storeys. `totalRisers` (from the floor-to-floor gap) drives
+    // the L/U flight split (A.21.D18).
+    const totalRisers = totalRisersForGap(floorToFloorM);
+    const core: StairCoreShaped | null =
+        storeyCount > 1 ? reserveStairCoreShaped(footprint, storeyCount, totalRisers) : null;
+    const coreRect = core ? core.rectMm : null;
     const coreAreaM2 = coreRect ? stairCoreAreaM2(coreRect) : 0;
 
     // (c) per-storey layout via the UNCHANGED single-plate engine.
@@ -162,13 +202,22 @@ export function generateHouseLayout(
     }
 
     // (d) one StairCore per adjacent storey pair (ground→upper, upper→upper…).
+    // Each carries the chosen shape + resolved per-flight risers/directions so the
+    // editor emits the matching CreateStairInput directly (A.21.D18).
     const stairs: StairCore[] = [];
-    if (coreRect && storeys.length >= 2) {
+    if (core && coreRect && storeys.length >= 2) {
+        const flights = resolveFlightPlans(core, totalRisers);
         for (let i = 0; i < storeys.length - 1; i++) {
             stairs.push({
                 rectMm: { ...coreRect },
                 fromLevelId: storeys[i]!.levelId,
                 toLevelId: storeys[i + 1]!.levelId,
+                shape: core.shape,
+                flights: flights.map(f => ({ riserCount: f.riserCount, direction: { ...f.direction } })),
+                ...(core.shape !== 'I'
+                    ? { landingDepthM: core.landingDepthM, risersBeforeLanding: core.risersBeforeLanding }
+                    : {}),
+                footprintMm: { w: coreRect.w, h: coreRect.h },
             });
         }
     }

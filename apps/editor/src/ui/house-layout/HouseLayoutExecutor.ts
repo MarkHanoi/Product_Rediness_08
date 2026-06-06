@@ -62,13 +62,21 @@ const MM_PER_M = 1000;
 const DEFAULT_FLOOR_TO_FLOOR_M = 3.0;
 const DEFAULT_SLAB_THICKNESS_M = 0.2;
 const DEFAULT_ROOF_THICKNESS_M = 0.25;
-const DEFAULT_ROOF_OVERHANG_M = 0.3;
-const DEFAULT_ROOF_SLOPE = 0.5;          // rise/run for pitched roofs (~26°)
+const DEFAULT_ROOF_OVERHANG_M = 0.4;     // ~400 mm eave overhang beyond the shell
+const DEFAULT_ROOF_PITCH_DEG = 32;       // domestic pitch fallback (~32°) when the engine omits one
 const STAIR_RISER_TARGET_M = 0.18;       // ~180 mm — the architectural sweet-spot
 const STAIR_RISER_MIN_M = 0.15;
 const STAIR_RISER_MAX_M = 0.19;
 const STAIR_TREAD_M = 0.27;              // ≥ 250 mm minimum
 const STAIR_WIDTH_M = 1.0;               // ≥ 900 mm minimum
+
+/** One flight as the CreateStairCommand consumes it (A.21.D18). `startOverride`
+ *  pins flight 2's start for U-shape parallel return runs. */
+interface FlightInput {
+    direction: { x: number; y: number; z: number };
+    riserCount: number;
+    startOverride?: { x: number; y: number; z: number };
+}
 
 /** A minimal command-manager handle — the legacy synchronous execute path the
  *  apartment executor + floor/ceiling triggers use. */
@@ -365,9 +373,13 @@ export class HouseLayoutExecutor {
         } catch (e) { console.warn('[house-layout] slab create failed (skipped):', e); }
     }
 
-    /** Place one straight (I-shape) stair connecting a storey pair. Risers are
-     *  sized to match the level gap (canExecute enforces ±50 mm). autoCreateOpening
-     *  punches the stairwell void on the slab above (§VOID). */
+    /** Place the stair connecting a storey pair, honouring the shape (I/L/U) the
+     *  pure engine chose (A.21.D18). Risers are sized to match the level gap
+     *  (canExecute enforces ±50 mm) and, for L/U, split across the two flights.
+     *  autoCreateOpening (default true) computes the stair's BOUNDING footprint
+     *  rect — over all flights AND landings (computeStairFootprintRect) — and
+     *  punches that exact hole on the slab above, so the void fits the L/U shape.
+     *  §VOID. */
     private _createStair(
         cm: CommandManagerLike,
         stair: StairCore,
@@ -376,44 +388,145 @@ export class HouseLayoutExecutor {
         storeys: readonly StoreyPlate[],
     ): void {
         try {
-            // Risers sized to the gap: count = round(ftf / target), clamped so the
-            // per-riser height stays in [0.15, 0.19] m and the total matches ftf.
-            let riserCount = Math.max(2, Math.round(floorToFloorM / STAIR_RISER_TARGET_M));
-            let riserHeight = floorToFloorM / riserCount;
-            while (riserHeight > STAIR_RISER_MAX_M && riserCount < 40) { riserCount++; riserHeight = floorToFloorM / riserCount; }
-            while (riserHeight < STAIR_RISER_MIN_M && riserCount > 2) { riserCount--; riserHeight = floorToFloorM / riserCount; }
+            // Total risers sized to the gap: count = round(ftf / target), clamped so
+            // the per-riser height stays in [0.15, 0.19] m and the total matches ftf.
+            let totalRisers = Math.max(2, Math.round(floorToFloorM / STAIR_RISER_TARGET_M));
+            let riserHeight = floorToFloorM / totalRisers;
+            while (riserHeight > STAIR_RISER_MAX_M && totalRisers < 40) { totalRisers++; riserHeight = floorToFloorM / totalRisers; }
+            while (riserHeight < STAIR_RISER_MIN_M && totalRisers > 2) { totalRisers--; riserHeight = floorToFloorM / totalRisers; }
 
-            // Stair core rect (mm → m). Place the run along the LONGER side of the
-            // core so it fits, starting at the core's near corner (world XZ).
+            // Stair core rect (mm → m).
             const x0 = stair.rectMm.x / MM_PER_M;
             const z0 = stair.rectMm.y / MM_PER_M;
             const wM = stair.rectMm.w / MM_PER_M;
             const hM = stair.rectMm.h / MM_PER_M;
-            const runAlongZ = hM >= wM;          // longer dimension carries the run
+            const runAlongZ = hM >= wM;          // longer dimension carries flight 1
             const fromLevel = storeys.find(s => s.levelId === stair.fromLevelId);
             const startY = (fromLevel?.elevationM ?? baseElevationM);
 
-            const direction = runAlongZ ? { x: 0, y: 0, z: 1 } : { x: 1, y: 0, z: 0 };
-            // Start a half-tread in from the core corner so the run sits inside the core.
+            const shape = (stair.shape ?? 'I') as 'I' | 'L' | 'U';
+            const width = STAIR_WIDTH_M;
+            const tread = STAIR_TREAD_M;
+
+            // Flight 1 direction along the longer axis; flight 2 (L/U) follows the
+            // engine's resolved directions (carried on stair.flights). Fall back to
+            // an I run if the engine didn't carry flights (older results).
+            const engFlights = stair.flights && stair.flights.length > 0 ? stair.flights : null;
+            const dir1 = engFlights
+                ? engFlights[0]!.direction
+                : (runAlongZ ? { x: 0, y: 0, z: 1 } : { x: 1, y: 0, z: 0 });
+
+            // Riser split (L/U). risersBeforeLanding from the engine, else ≈half.
+            const before = engFlights && engFlights.length === 2
+                ? engFlights[0]!.riserCount
+                : (shape === 'I' ? totalRisers : Math.max(1, stair.risersBeforeLanding ?? Math.floor(totalRisers / 2)));
+            // Re-normalise the split to the gap-derived totalRisers so risers×height
+            // === ftf (the command's ±50 mm gate keys off the SUM of riserCounts).
+            const split = this._normaliseSplit(shape, totalRisers, before);
+
+            // Start position: near corner of the core, nudged so flight 1 sits inside.
             const startPosition = runAlongZ
                 ? { x: x0 + wM / 2, y: startY, z: z0 }
                 : { x: x0, y: startY, z: z0 + hM / 2 };
+
+            const built = this._buildFlights(shape, startPosition, dir1, split, width, tread, engFlights);
 
             cm.execute?.(new CreateStairCommand({
                 id: createId('stair'),
                 baseLevelId: stair.fromLevelId,
                 topLevelId: stair.toLevelId,
-                shape: 'I',
+                shape,
                 riserHeight,
-                treadDepth: STAIR_TREAD_M,
-                width: STAIR_WIDTH_M,
+                treadDepth: tread,
+                width,
                 startPosition,
-                flights: [{ direction, riserCount }],
+                flights: built.flights,
+                ...(built.landings.length > 0 ? { landings: built.landings } : {}),
+                ...(shape === 'L' ? { turnDirection: 'left' as const, stepsBeforeLanding: split.before } : {}),
+                ...(shape === 'U' ? { secondRunSide: 'left' as const, stepsBeforeLanding: split.before } : {}),
                 accessibilityType: 'standard',
-                // autoCreateOpening defaults to true → punches the slab-void above.
+                // autoCreateOpening defaults to true → punches the slab-void above,
+                // sized to the stair's full bounding footprint (covers L/U too).
             }), { source: 'HOUSE_PIPELINE_STAIR' });
-            console.log('[house-layout] stair created', stair.fromLevelId, '→', stair.toLevelId, `(${riserCount} risers @ ${(riserHeight * 1000).toFixed(0)}mm)`);
+            console.log('[house-layout] stair created', stair.fromLevelId, '→', stair.toLevelId,
+                `(${shape}, ${totalRisers} risers @ ${(riserHeight * 1000).toFixed(0)}mm)`);
         } catch (e) { console.warn('[house-layout] stair create failed (skipped):', e); }
+    }
+
+    /** Re-normalise the L/U riser split so the two flights sum to `totalRisers`
+     *  (the ±50 mm height gate keys off the SUM of riserCounts). The executor may
+     *  derive a slightly different totalRisers than the engine (its own min/max
+     *  riser-height clamp), so we re-key the split off the executor's total here.
+     *  I → one flight (all risers). */
+    private _normaliseSplit(
+        shape: 'I' | 'L' | 'U',
+        totalRisers: number,
+        before: number,
+    ): { before: number; after: number } {
+        if (shape === 'I' || totalRisers < 3) return { before: totalRisers, after: 0 };
+        let b = Math.max(1, Math.min(totalRisers - 1, Math.round(before || Math.floor(totalRisers / 2))));
+        if (totalRisers - b < 1) b = totalRisers - 1;
+        return { before: b, after: totalRisers - b };
+    }
+
+    /** Build the CreateStairInput flights + landings for the chosen shape, mirroring
+     *  StairCreationController so the geometry (and thus the auto-opening footprint)
+     *  matches what the renderer expects. Directions come from the engine when
+     *  present; lengths derive from riserCount × treadDepth. */
+    private _buildFlights(
+        shape: 'I' | 'L' | 'U',
+        start: { x: number; y: number; z: number },
+        dir1: { x: number; y: number; z: number },
+        split: { before: number; after: number },
+        width: number,
+        tread: number,
+        engFlights: ReadonlyArray<{ riserCount: number; direction: { x: number; y: number; z: number } }> | null,
+    ): { flights: FlightInput[]; landings: { depth: number }[] } {
+        const d1 = this._unit(dir1);
+        if (shape === 'I') {
+            return { flights: [{ direction: d1, riserCount: split.before }], landings: [] };
+        }
+        // Flight-2 direction: from the engine if present, else derived
+        // (L = left turn (-z,0,x); U = reverse). Matches StairCreationController.
+        const d2raw = engFlights && engFlights.length === 2
+            ? engFlights[1]!.direction
+            : (shape === 'L' ? { x: -d1.z, y: 0, z: d1.x } : { x: -d1.x, y: 0, z: -d1.z });
+        const d2 = this._unit(d2raw);
+
+        if (shape === 'L') {
+            // Landing depth = one stair width (corner landing). The command derives
+            // flight-2's start from flight-1 end + landing along dir1, so no override.
+            return {
+                flights: [
+                    { direction: d1, riserCount: split.before },
+                    { direction: d2, riserCount: split.after },
+                ],
+                landings: [{ depth: width }],
+            };
+        }
+        // U: flight 2 runs parallel back the other way, offset across by the stair
+        // width; landing depth spans both runs (2×width). Mirror StairCreationController.
+        const firstLen = split.before * tread;
+        const perp = this._unit({ x: -d1.z, y: 0, z: d1.x }); // left side
+        const secondStart = {
+            x: start.x + d1.x * (firstLen + tread) + perp.x * width,
+            y: start.y,
+            z: start.z + d1.z * (firstLen + tread) + perp.z * width,
+        };
+        return {
+            flights: [
+                { direction: d1, riserCount: split.before },
+                // startOverride pins flight 2's parallel return run (U-shape).
+                { direction: d2, riserCount: split.after, startOverride: secondStart },
+            ],
+            landings: [{ depth: 2 * width }],
+        };
+    }
+
+    /** Normalise an XZ direction to a unit vector (y forced to 0). */
+    private _unit(d: { x: number; y: number; z: number }): { x: number; y: number; z: number } {
+        const len = Math.hypot(d.x, d.z) || 1;
+        return { x: d.x / len, y: 0, z: d.z / len };
     }
 
     /** Cap the stack with a roof over the top storey footprint. */
@@ -425,18 +538,31 @@ export class HouseLayoutExecutor {
             let cx = 0, cz = 0;
             for (const p of poly) { cx += p.x; cz += p.z; }
             cx /= poly.length; cz /= poly.length;
+            // A.21.D18 — domestic pitched roof. The engine carries a pitch in
+            // DEGREES (gable default ~30°); CreateRoofCommand expects `slope` as
+            // rise/run = tan(pitch). Convert so the roof gets a sensible domestic
+            // pitch sized to the shell, with an eave OVERHANG beyond the walls.
+            // NOTE: CreateRoofCommand has no dedicated "pitch°" or "eave" param —
+            // pitch is expressed via `slope`, eaves via `overhang` (the command
+            // lacks a separate fascia-driven eave; `overhang` is the eave depth).
+            const pitchDeg = roof.kind !== 'flat'
+                ? (typeof roof.pitchDeg === 'number' && roof.pitchDeg > 0 ? roof.pitchDeg : DEFAULT_ROOF_PITCH_DEG)
+                : 0;
+            const slope = pitchDeg > 0 ? Math.tan((pitchDeg * Math.PI) / 180) : undefined;
             cm.execute?.(new CreateRoofCommand(createId('roof'), {
                 levelId: roof.levelId,
                 footprint: { polygon, centroid: [cx, cz] },
                 roofType: roof.kind,
-                ...(roof.kind !== 'flat' ? { slope: DEFAULT_ROOF_SLOPE } : {}),
-                overhang: DEFAULT_ROOF_OVERHANG_M,
+                ...(roof.kind !== 'flat' && slope ? { slope } : {}),
+                // Eave overhang beyond the shell (~400 mm) so the roof projects past
+                // the walls like a real house. Flat roofs get a small/zero eave.
+                overhang: roof.kind !== 'flat' ? DEFAULT_ROOF_OVERHANG_M : 0,
                 // Sit the roof at the top of the top storey's walls.
                 baseOffset: wallHeightM,
                 autoBaseOffset: true,
                 thickness: DEFAULT_ROOF_THICKNESS_M,
             }), { source: 'HOUSE_PIPELINE_ROOF' });
-            console.log('[house-layout] roof created on', roof.levelId, '(', roof.kind, ')');
+            console.log('[house-layout] roof created on', roof.levelId, `(${roof.kind}, ~${pitchDeg.toFixed(0)}°, eave ${(DEFAULT_ROOF_OVERHANG_M * 1000).toFixed(0)}mm)`);
         } catch (e) { console.warn('[house-layout] roof create failed (skipped):', e); }
     }
 

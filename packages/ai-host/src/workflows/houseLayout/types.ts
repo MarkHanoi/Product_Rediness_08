@@ -48,15 +48,45 @@ export interface StoreyPlate {
     readonly footprint: Pt[];
 }
 
+/** The vertical-circulation form chosen for the stair core (A.21.D18). The
+ *  multi-storey house pipeline picks one per core from the core's aspect ratio:
+ *  long-thin → `I` (one straight flight), squarer → `L` (two flights round a
+ *  corner landing), generous square → `U` (two parallel flights + half-landing). */
+export type StairShape = 'I' | 'L' | 'U';
+
+/** One flight's risers + plan direction (unit XZ). For `I` there is one flight;
+ *  for `L`/`U` two (the risers split ≈half each, see `risersBeforeLanding`). */
+export interface StairFlightPlan {
+    readonly riserCount: number;
+    /** Unit plan direction (world XZ); `y` is always 0. */
+    readonly direction: { readonly x: number; readonly y: number; readonly z: number };
+}
+
 /**
  * The reserved stair core: an axis-aligned rectangle (mm, plan frame) occupying
  * the SAME XZ footprint on every storey it passes through (§7), connecting one
  * adjacent level pair. `fromLevelId` is the lower level, `toLevelId` the upper.
+ *
+ * A.21.D18 — the core now carries the chosen `shape` + the resolved `flights`
+ * (riser split + direction) + the `landingDepthM` and `risersBeforeLanding` so
+ * the editor executor can emit the matching `CreateStairInput` directly (no
+ * shape re-derivation in the editor). `flights[i].riserCount` sums to the total
+ * risers for the floor-to-floor gap.
  */
 export interface StairCore {
     readonly rectMm: { readonly x: number; readonly y: number; readonly w: number; readonly h: number };
     readonly fromLevelId: string;
     readonly toLevelId: string;
+    /** A.21.D18 — the chosen stair form (`I` | `L` | `U`). */
+    readonly shape: StairShape;
+    /** A.21.D18 — per-flight risers + direction. One entry for `I`, two for `L`/`U`. */
+    readonly flights: StairFlightPlan[];
+    /** A.21.D18 — landing depth (m). Present (>0) for `L`/`U`, omitted/0 for `I`. */
+    readonly landingDepthM?: number;
+    /** A.21.D18 — risers in flight 1 before the landing (`L`/`U` only). */
+    readonly risersBeforeLanding?: number;
+    /** A.21.D18 — the core footprint (mm) the shape was sized for (== rectMm.w/h). */
+    readonly footprintMm: { readonly w: number; readonly h: number };
 }
 
 /**

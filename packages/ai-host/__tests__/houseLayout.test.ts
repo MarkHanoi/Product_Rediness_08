@@ -9,6 +9,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     generateHouseLayout, allocateProgramToStoreys, reserveStairCore,
+    reserveStairCoreShaped, splitRisersForShape,
 } from '../src/workflows/houseLayout/index.js';
 import type { ShellAnalysis } from '../src/workflows/apartmentLayout/shellAnalysis.js';
 import type {
@@ -263,10 +264,126 @@ describe('generateHouseLayout — stair-core vertical alignment (§7)', () => {
         for (const r of rects) expect(r).toEqual(first);
     });
 
-    it('the in-plan stair rect equals what reserveStairCore would compute for the footprint', () => {
+    it('the in-plan stair rect equals what reserveStairCoreShaped would compute (A.21.D18)', () => {
         const res = generateHouseLayout(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 });
-        const expected = reserveStairCore(SHELL.perimeter.map(p => ({ x: p.x, z: p.z })), 2);
-        expect(res.stairs[0]!.rectMm).toEqual(expected);
+        // total risers for the default 3.0 m ftf ≈ round(3.0/0.18) = 17.
+        const expected = reserveStairCoreShaped(SHELL.perimeter.map(p => ({ x: p.x, z: p.z })), 2, 17);
+        expect(res.stairs[0]!.rectMm).toEqual(expected.rectMm);
+        expect(res.stairs[0]!.shape).toBe(expected.shape);
+    });
+});
+
+// ───────────────────────── A.21.D18 — stair SHAPE selection ─────────────────
+
+describe('reserveStairCoreShaped — shape selection by core aspect (A.21.D18)', () => {
+    const RISERS = 17; // ≈ round(3.0 / 0.18)
+
+    it('long, thin plate → I (straight run, 1.0 × 3.0 m rect)', () => {
+        // 12 × 3 m plate: avail box ≈ 5400 × 1350 — too shallow to fold → I.
+        const foot = [{ x: 0, z: 0 }, { x: 12, z: 0 }, { x: 12, z: 3 }, { x: 0, z: 3 }];
+        const c = reserveStairCoreShaped(foot, 2, RISERS);
+        expect(c.shape).toBe('I');
+        expect(c.risersBeforeLanding).toBe(0);
+        expect(c.landingDepthM).toBe(0);
+    });
+
+    it('squarer mid plate → L (two flights round a corner landing)', () => {
+        // ~9 × 8 m plate: avail box ≈ 4050 × 3600, aspect 1.13, ≥ L but the H side
+        // (3600) is just over U_H (2800)… ensure an L-only band: 8 × 8 with a low
+        // MAX_FRACTION corner. Use a plate whose avail H clears L but not U.
+        // avail = plate*0.45 → for U we need availH ≥ 2800 → plateH ≥ 6222 mm.
+        const foot = [{ x: 0, z: 0 }, { x: 9, z: 0 }, { x: 9, z: 5.5 }, { x: 0, z: 5.5 }];
+        const c = reserveStairCoreShaped(foot, 2, RISERS);
+        // avail ≈ 4050 × 2475 → availH < U_H(2800) but ≥ L_H(1600) → L.
+        expect(c.shape).toBe('L');
+        expect(c.risersBeforeLanding).toBeGreaterThanOrEqual(1);
+        expect(c.landingDepthM).toBeGreaterThan(0);
+    });
+
+    it('generous square plate → U (two parallel flights + half-landing)', () => {
+        // 12 × 10 m plate: avail box ≈ 5400 × 4500, aspect 1.2, ≥ U → U.
+        const foot = [{ x: 0, z: 0 }, { x: 12, z: 0 }, { x: 12, z: 10 }, { x: 0, z: 10 }];
+        const c = reserveStairCoreShaped(foot, 2, RISERS);
+        expect(c.shape).toBe('U');
+        expect(c.landingDepthM).toBe(2.0);
+        expect(c.risersBeforeLanding).toBeGreaterThanOrEqual(1);
+    });
+
+    it('tiny plate degrades safely to I (never an invalid stair)', () => {
+        const foot = [{ x: 0, z: 0 }, { x: 2, z: 0 }, { x: 2, z: 2 }, { x: 0, z: 2 }];
+        const c = reserveStairCoreShaped(foot, 2, RISERS);
+        expect(c.shape).toBe('I');
+        // The rect must still sit inside the 2×2 m plate.
+        expect(c.rectMm.x + c.rectMm.w).toBeLessThanOrEqual(2000 + 1e-6);
+        expect(c.rectMm.y + c.rectMm.h).toBeLessThanOrEqual(2000 + 1e-6);
+    });
+
+    it('is deterministic (same input → identical shaped core)', () => {
+        const foot = [{ x: 0, z: 0 }, { x: 12, z: 0 }, { x: 12, z: 10 }, { x: 0, z: 10 }];
+        const a = reserveStairCoreShaped(foot, 2, RISERS);
+        const b = reserveStairCoreShaped(foot, 2, RISERS);
+        expect(JSON.stringify(a)).toEqual(JSON.stringify(b));
+    });
+});
+
+describe('splitRisersForShape — L/U riser split (A.21.D18)', () => {
+    it('I keeps all risers in one flight', () => {
+        expect(splitRisersForShape('I', 17)).toEqual({ before: 0, after: 17 });
+    });
+    it('L splits ≈half each, summing to the total', () => {
+        const s = splitRisersForShape('L', 17);
+        expect(s.before).toBe(8);
+        expect(s.after).toBe(9);
+        expect(s.before + s.after).toBe(17);
+    });
+    it('U splits ≈half each, summing to the total', () => {
+        const s = splitRisersForShape('U', 16);
+        expect(s.before).toBe(8);
+        expect(s.after).toBe(8);
+        expect(s.before + s.after).toBe(16);
+    });
+    it('both flights are ≥1 even for the minimum riser count', () => {
+        const s = splitRisersForShape('L', 3);
+        expect(s.before).toBeGreaterThanOrEqual(1);
+        expect(s.after).toBeGreaterThanOrEqual(1);
+    });
+});
+
+describe('generateHouseLayout — stair shape carried on the StairCore (A.21.D18)', () => {
+    // A generous square plate → U; assert the engine carries the flights + split.
+    const res = generateHouseLayout(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 });
+
+    it('the StairCore carries a shape + per-flight risers/directions', () => {
+        const st = res.stairs[0]!;
+        expect(['I', 'L', 'U']).toContain(st.shape);
+        expect(st.flights.length).toBeGreaterThanOrEqual(1);
+        expect(st.footprintMm.w).toBe(st.rectMm.w);
+        expect(st.footprintMm.h).toBe(st.rectMm.h);
+    });
+
+    it('the 12×10 plate chooses U with two flights whose risers sum to the gap total', () => {
+        const st = res.stairs[0]!;
+        expect(st.shape).toBe('U');
+        expect(st.flights).toHaveLength(2);
+        const total = st.flights.reduce((s, f) => s + f.riserCount, 0);
+        // round(3.0/0.18) = 17.
+        expect(total).toBe(17);
+        expect(st.risersBeforeLanding).toBe(st.flights[0]!.riserCount);
+        expect(st.landingDepthM).toBe(2.0);
+    });
+
+    it('flight directions are unit vectors with y === 0', () => {
+        for (const f of res.stairs[0]!.flights) {
+            expect(f.direction.y).toBe(0);
+            expect(Math.hypot(f.direction.x, f.direction.z)).toBeCloseTo(1, 6);
+        }
+    });
+
+    it('the stair shape stacks identically across a 3-storey stack', () => {
+        const r3 = generateHouseLayout(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 3 });
+        expect(r3.stairs).toHaveLength(2);
+        expect(r3.stairs[0]!.shape).toBe(r3.stairs[1]!.shape);
+        expect(r3.stairs[0]!.rectMm).toEqual(r3.stairs[1]!.rectMm);
     });
 });
 

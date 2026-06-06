@@ -259,6 +259,8 @@ export {
   generateHouseLayout,
   allocateProgramToStoreys,
   reserveStairCore,
+  reserveStairCoreShaped,
+  splitRisersForShape,
 } from './workflows/houseLayout/index.js';
 export type {
   HouseLayoutOptions,
@@ -267,6 +269,9 @@ export type {
   StoreyPlate,
   StoreyRole,
   StairCore,
+  StairShape,
+  StairFlightPlan,
+  StairCoreShaped,
   SlabVoid,
   RoofDescriptor,
   RoofKind,

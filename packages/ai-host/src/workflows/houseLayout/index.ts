@@ -9,13 +9,16 @@
 export { generateHouseLayout } from './houseOrchestrator.js';
 export type { HouseLayoutOptions } from './houseOrchestrator.js';
 export { allocateProgramToStoreys } from './storeyAllocation.js';
-export { reserveStairCore } from './stairCore.js';
+export { reserveStairCore, reserveStairCoreShaped, splitRisersForShape } from './stairCore.js';
+export type { StairCoreShaped } from './stairCore.js';
 export type {
     HouseLayoutResult,
     StoreyProgram,
     StoreyPlate,
     StoreyRole,
     StairCore,
+    StairShape,
+    StairFlightPlan,
     SlabVoid,
     RoofDescriptor,
     RoofKind,
