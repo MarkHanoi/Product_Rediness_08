@@ -147,6 +147,17 @@ The Cesium 3D Forma view is the natural surface for environmental analysis. Wire
 
 All hooks are **read-only** on the climate/sun substrate; FORMA adds the Cesium-side visualisation, not new analysis math.
 
+### §6.1 — A.21.D24: 3D climate-analysis overlays on the Forma view (2026-06-06)
+
+The founder asked for "3D graphs on Forma about heat, sun, wind, warm, circulation." A.21.D24 ships the **tractable, real** ones as toggleable Cesium analysis layers over the existing Forma site view (white + `#6600FF` chrome), driven entirely by the EXISTING climate + solar substrate — **no new engine, no new deps, rendering/data-wiring only (C04)**.
+
+- **3D sun-path arc (SHIPPED).** The sun's positions across the day are drawn as 3D dome polylines over the site for the summer solstice / equinox / winter solstice (colours warm-gold / `#6600FF` / cool-blue), with whole-hour markers (`6h … 18h`) on the summer arc. Data: the PURE `sunArcEnuPoints()` / `sunArcHourMarkers()` generators (`apps/editor/src/ui/climate/climateOverlayGeometry.ts`), which project the tested `solarSample` altitude/azimuth onto a dome of radius ∝ √plot-area in the site's local **ENU** frame. Placed with the SAME single `eastNorthUpToFixedFrame` anchor the massing uses (no parallel projector — §8.3). Needs NO climate dataset (sun is geometry from lat/lon).
+- **3D wind streaks (SHIPPED).** One radial streak per compass sector, length + width ∝ that sector's wind-rose frequency, pointing **FROM** the prevailing direction, coloured by the dominant speed band (the SAME 6-shade `#6600FF` palette as the 2D rose). Data: the existing `buildWindRose` aggregate → `windRoseBars()` → the PURE `windStreakSegments()` generator; rendered as Cesium `PolylineArrowMaterialProperty` arrows. Needs the ingested `ClimateDataset`.
+- **Heat tint (SHIPPED, coarse).** A translucent ground disc tinted warm↔cool by the **annual mean temperature** from the monthly normals (`heatTintColorHex()`). This is a deliberately COARSE comfort cue, NOT a microclimate simulation.
+- **Circulation overlay (FOLLOW-UP, not faked).** Projecting the building-graph circulation edges onto the site is tractable but needs a graph→site projection that doesn't exist yet on this surface; deferred rather than faked. A true comfort/insolation/CFD heat **simulation** (per-surface insolation hours, wind-shadow) is a larger follow-up requiring new sim data.
+
+**Wiring.** `CesiumViewport` exposes `setSunPathOverlay/​setWindOverlay/​setHeatOverlay(on)` + `setClimateOverlayDataset(ds)`; each layer's entities are tracked separately, cleared idempotently, refreshed after a massing re-place / terrain clamp, and dropped on dispose. `FormaSiteAnalysisControls` adds a "3D site analysis" toggle-chip block and feeds the ClimateStore dataset to the viewport on every climate/site change. All methods are fully guarded (missing viewer / origin / dataset → quiet no-op). Pure generators are unit-tested (`apps/editor/__tests__/climateOverlayGeometry.test.ts`).
+
 ---
 
 ## §7 — Phasing

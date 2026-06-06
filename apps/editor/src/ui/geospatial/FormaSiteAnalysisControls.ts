@@ -57,6 +57,12 @@ export interface FormaSunViewport {
     onFormaSunChange(
         fn: (p: { altitudeDeg: number; azimuthDeg: number; isAboveHorizon: boolean; date: Date }) => void,
     ): () => void;
+    // A.21.D24 — 3D climate-analysis overlays (OPTIONAL: degrade gracefully when
+    // a viewport doesn't implement them, e.g. a test stub or an older build).
+    setClimateOverlayDataset?(ds: ClimateDataset | null): void;
+    setSunPathOverlay?(on: boolean): void;
+    setWindOverlay?(on: boolean): void;
+    setHeatOverlay?(on: boolean): void;
 }
 
 /** Season presets → a representative day (UTC midnight) of the current year. */
@@ -119,6 +125,7 @@ export class FormaSiteAnalysisControls {
         root.appendChild(this.buildSunBlock());
         root.appendChild(this.buildClimateBlock());
         root.appendChild(this.buildWindBlock());
+        root.appendChild(this.build3dLayersBlock());
 
         this.mountTarget.appendChild(root);
         this.root = root;
@@ -130,12 +137,36 @@ export class FormaSiteAnalysisControls {
             console.warn('[forma-analysis] onFormaSunChange failed:', e);
         }
         // Refresh the wind rose + weather card when climate / site changes.
+        //
+        // A.21.D24 — wind-rose firing fix. The handlers below do two distinct jobs:
+        //   • `refresh` (climate store) repaints the rose + weather card once a
+        //     ClimateDataset lands. This already worked.
+        //   • `onSiteChange` (site store + `site.location-changed` event) is the
+        //     NEW piece: it repaints AND re-attempts `ensureClimateIfMissing`.
+        //     In the house onboarding handoff the panel mounts BEFORE the site's
+        //     location is set, so the once-per-mount `ensureClimateIfMissing()` in
+        //     `mount()` finds no site, flips its guard, and never retries — the
+        //     rose then sits on "No wind data" forever even after the origin lands.
+        //     Re-running the ingest when the site/origin arrives ingests the bundled
+        //     normals instantly → the climate subscription repaints the rose.
         try {
             const refresh = () => { this.renderWindRose(); this.renderWeatherCard(); };
+            const onSiteChange = () => {
+                this.climateEnsureRequested = false;
+                this.ensureClimateIfMissing();
+                refresh();
+            };
             const disposers: Array<() => void> = [];
             if (this.runtime) {
                 try { disposers.push(this.runtime.climateStore.subscribe(refresh)); } catch { /* ignore */ }
-                try { disposers.push(this.runtime.siteModelStore.subscribe(refresh)); } catch { /* ignore */ }
+                try { disposers.push(this.runtime.siteModelStore.subscribe(onSiteChange)); } catch { /* ignore */ }
+                // Belt-and-suspenders: the LTP-ENU origin fallback (getCurrentSiteOrigin)
+                // can resolve a location even when getLocation() still races null, so
+                // also listen to the explicit domain event the GIS handoff emits.
+                try {
+                    const off = this.runtime.events?.on?.('site.location-changed', onSiteChange);
+                    if (typeof off === 'function') disposers.push(off);
+                } catch { /* ignore */ }
             }
             this.climateUnsub = () => disposers.forEach((d) => { try { d(); } catch { /* ignore */ } });
         } catch { /* ignore */ }
@@ -159,6 +190,14 @@ export class FormaSiteAnalysisControls {
         this.stopShadowStudy();
         if (this.sunUnsub) { try { this.sunUnsub(); } catch { /* ignore */ } this.sunUnsub = null; }
         if (this.climateUnsub) { try { this.climateUnsub(); } catch { /* ignore */ } this.climateUnsub = null; }
+        // A.21.D24 — turn off any active 3D overlays so they don't linger when the
+        // panel is removed (e.g. switching to the 2D map view). The viewport keeps
+        // running; only this panel's overlay layers are cleared.
+        try {
+            this.viewport.setSunPathOverlay?.(false);
+            this.viewport.setWindOverlay?.(false);
+            this.viewport.setHeatOverlay?.(false);
+        } catch { /* ignore */ }
         try { if (isClimatePanelOpen()) closeClimatePanel(); } catch { /* ignore */ }
         if (this.root?.parentElement) this.root.parentElement.removeChild(this.root);
         this.root = null;
@@ -523,8 +562,80 @@ export class FormaSiteAnalysisControls {
         return block;
     }
 
+    // ── 3D analysis layers (A.21.D24) ────────────────────────────────────────
+
+    /**
+     * A.21.D24 — toggle chips for the 3D Cesium climate-analysis overlays
+     * (sun-path arc · wind streaks · heat tint). Each chip flips a viewport
+     * overlay layer; the buttons degrade to disabled when the viewport doesn't
+     * implement the overlay API. White + #6600FF chrome.
+     */
+    private build3dLayersBlock(): HTMLElement {
+        const block = this.sectionBlock('🗺 3D site analysis');
+        const row = document.createElement('div');
+        Object.assign(row.style, { display: 'flex', gap: '4px', flexWrap: 'wrap' });
+
+        const supported =
+            typeof this.viewport.setSunPathOverlay === 'function' ||
+            typeof this.viewport.setWindOverlay === 'function' ||
+            typeof this.viewport.setHeatOverlay === 'function';
+
+        const mkToggle = (
+            label: string,
+            apply: ((on: boolean) => void) | undefined,
+        ): void => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.textContent = label;
+            const enabled = typeof apply === 'function';
+            let on = false;
+            const paint = () => {
+                b.style.background = on ? ACCENT : '#faf8ff';
+                b.style.color = on ? '#ffffff' : (enabled ? ACCENT : '#bdb6d6');
+            };
+            Object.assign(b.style, {
+                flex: '1', minWidth: '60px', appearance: 'none',
+                cursor: enabled ? 'pointer' : 'not-allowed',
+                border: '1px solid #e3dcfa', borderRadius: '6px',
+                font: '600 11px/1 system-ui', padding: '6px 4px',
+            } satisfies Partial<CSSStyleDeclaration>);
+            paint();
+            if (enabled) {
+                b.addEventListener('click', () => {
+                    on = !on;
+                    paint();
+                    try { apply!(on); } catch (e) { console.warn('[forma-analysis] overlay toggle failed:', e); }
+                });
+            } else {
+                b.disabled = true;
+                b.title = 'This view does not support 3D overlays.';
+            }
+            row.appendChild(b);
+        };
+
+        mkToggle('☀ Sun path', this.viewport.setSunPathOverlay?.bind(this.viewport));
+        mkToggle('🌬 Wind', this.viewport.setWindOverlay?.bind(this.viewport));
+        mkToggle('🌡 Heat', this.viewport.setHeatOverlay?.bind(this.viewport));
+
+        block.appendChild(row);
+        block.appendChild(this.smallNote(
+            supported
+                ? 'Toggle 3D overlays onto the site. Sun-path needs no climate; wind/heat need climate data.'
+                : 'Open the 3D / Plan Forma view to see 3D overlays.',
+        ));
+        return block;
+    }
+
+    /** A.21.D24 — push the current ClimateDataset to the viewport so its 3D
+     *  wind/heat overlays draw from the same data as the rose/weather card. */
+    private syncOverlayDataset(): void {
+        try { this.viewport.setClimateOverlayDataset?.(this.resolveDataset()); } catch { /* ignore */ }
+    }
+
     private renderWindRose(): void {
         const wrap = this.windWrap;
+        // A.21.D24 — keep the 3D wind/heat overlays fed with the latest dataset.
+        this.syncOverlayDataset();
         if (!wrap) return;
         wrap.replaceChildren();
         const ds = this.resolveDataset();

@@ -13,6 +13,16 @@ import {
 // it to drive the Cesium directional light (read-only consumer — SPEC §6).
 import { solarSample } from "@pryzm/climate-host";
 import { getCurrentSiteOrigin } from "../site/siteDispatch";
+// A.21.D24 — pure 3D climate-overlay geometry generators (no THREE/Cesium/DOM)
+// + the pure wind-rose chart helper. The Cesium placement below anchors these
+// ENU points with the SAME eastNorthUpToFixedFrame used for the massing.
+import {
+    sunArcEnuPoints,
+    sunArcHourMarkers,
+    windStreakSegments,
+    heatTintColorHex,
+} from "../climate/climateOverlayGeometry";
+import { windRoseBars } from "../climate/climateChartData";
 
 // H7 (07-BIM-SECURITY-CONTRACT §6.1): Cesium Ion token MUST be loaded from the
 // VITE_CESIUM_TOKEN environment variable and MUST NOT be hardcoded in source.
@@ -225,6 +235,22 @@ export class CesiumViewport {
   private formaSunLast: { altitudeDeg: number; azimuthDeg: number; isAboveHorizon: boolean } | null = null;
   /** Observers (the scrubber UI) notified whenever the sun is re-solved. */
   private formaSunListeners = new Set<(p: { altitudeDeg: number; azimuthDeg: number; isAboveHorizon: boolean; date: Date }) => void>();
+
+  // ---- A.21.D24 — 3D climate-analysis overlays (sun-path / wind / heat) ----
+  /** Entities placed for each toggleable analysis overlay, so each layer can be
+   *  cleared independently without disturbing the massing/context entities. */
+  private climateOverlayEntities: {
+    sunPath: Cesium.Entity[];
+    wind: Cesium.Entity[];
+    heat: Cesium.Entity[];
+  } = { sunPath: [], wind: [], heat: [] };
+  /** Which overlays are currently requested ON (persisted across re-renders so a
+   *  massing re-place / location change repaints the active layers). */
+  private climateOverlayOn: { sunPath: boolean; wind: boolean; heat: boolean } =
+    { sunPath: false, wind: false, heat: false };
+  /** The ClimateDataset the wind/heat overlays draw from. Supplied by the
+   *  analysis controls (which own the ClimateStore read); null until ingested. */
+  private climateOverlayDataset: import('@pryzm/schemas').ClimateDataset | null = null;
 
   // ---- MAP-DATA-OVERTURE — context-building (surrounding massing) state ----
   /** Cesium entities placed for the surrounding OSM/Overture context buildings,
@@ -1518,6 +1544,10 @@ export class CesiumViewport {
       else this.flyToFormaSite();
     }
 
+    // A.21.D24 — re-draw any active 3D climate overlays so the sun-path/wind/heat
+    // layers track the new origin + terrain base after a (re)placement.
+    this.refreshActiveClimateOverlays();
+
     viewer.scene.requestRender();
     console.log(
       `[CesiumViewport][forma] massing rendered: ${walls.length} wall volume(s)` +
@@ -1912,6 +1942,240 @@ export class CesiumViewport {
     console.warn('[CesiumViewport][forma] context buildings degraded (' + reason + ').');
   }
 
+  // ── A.21.D24 — 3D climate-analysis overlays (sun-path · wind · heat) ────────
+  //
+  // These are toggleable READ-ONLY analysis layers over the existing Forma site
+  // view. They reuse the SAME single `eastNorthUpToFixedFrame` anchor at the
+  // site origin as the massing + context buildings (no parallel projector —
+  // SPEC-FORMA-SITE-VIEW §4 / §8.3). All geometry comes from the PURE
+  // `climateOverlayGeometry` generators (sun arcs from the tested `solarSample`;
+  // wind streaks from the `buildWindRose` aggregate). Every method is fully
+  // guarded + idempotent; a missing viewer / origin / dataset degrades to a
+  // quiet no-op (never throws, never blocks the view). #6600FF accent for the
+  // PRYZM chrome cues; the sun arc uses a warm sun colour.
+
+  /** Supply the ClimateDataset the wind/heat overlays read. Called by the
+   *  analysis controls whenever the dataset lands / changes. Re-renders any
+   *  active wind/heat layer with the new data. */
+  public setClimateOverlayDataset(ds: import('@pryzm/schemas').ClimateDataset | null): void {
+    this.climateOverlayDataset = ds;
+    if (this.climateOverlayOn.wind) this.renderWindOverlay();
+    if (this.climateOverlayOn.heat) this.renderHeatOverlay();
+  }
+
+  /** Toggle the 3D sun-path arc overlay (summer/equinox/winter dome arcs). */
+  public setSunPathOverlay(on: boolean): void {
+    this.climateOverlayOn.sunPath = on;
+    if (on) this.renderSunPathOverlay();
+    else this.clearOverlayLayer('sunPath');
+  }
+
+  /** Toggle the 3D wind overlay (directional streaks sized by wind frequency). */
+  public setWindOverlay(on: boolean): void {
+    this.climateOverlayOn.wind = on;
+    if (on) this.renderWindOverlay();
+    else this.clearOverlayLayer('wind');
+  }
+
+  /** Toggle the ground heat-tint overlay (warm↔cool disc from monthly temps). */
+  public setHeatOverlay(on: boolean): void {
+    this.climateOverlayOn.heat = on;
+    if (on) this.renderHeatOverlay();
+    else this.clearOverlayLayer('heat');
+  }
+
+  /** The site origin (= ENU anchor) the overlays place against, or null. Prefers
+   *  the massing origin (the plot the user is looking at), else the site location. */
+  private overlayOrigin(): { lat: number; lon: number } | null {
+    if (this.formaMassingOrigin) {
+      return { lat: this.formaMassingOrigin.lat, lon: this.formaMassingOrigin.lon };
+    }
+    return this.readSiteLocation();
+  }
+
+  /** A sensible dome/ring radius (m) for the overlays — scaled to the plot so the
+   *  arcs/streaks frame the massing rather than dwarfing or vanishing into it. */
+  private overlayRadiusM(): number {
+    const area = this.formaMassingOrigin?.areaM2 ?? 0;
+    const fromArea = area > 0 ? 1.6 * Math.sqrt(area) : 0;
+    return Math.max(40, Math.min(400, fromArea || 80));
+  }
+
+  /** ENU(east,north,up) metres → ECEF Cartesian via the site-origin anchor. */
+  private enuToCartesian(
+    enuMatrix: Cesium.Matrix4,
+    east: number,
+    north: number,
+    up: number,
+  ): Cesium.Cartesian3 {
+    return Cesium.Matrix4.multiplyByPoint(
+      enuMatrix,
+      new Cesium.Cartesian3(east, north, up),
+      new Cesium.Cartesian3(),
+    );
+  }
+
+  private renderSunPathOverlay(): void {
+    const viewer = this.viewer;
+    const origin = this.overlayOrigin();
+    this.clearOverlayLayer('sunPath');
+    if (!viewer || !origin) return;
+    try {
+      const radius = this.overlayRadiusM();
+      const base = this.formaTerrainBaseHeight;
+      const enu = Cesium.Transforms.eastNorthUpToFixedFrame(
+        Cesium.Cartesian3.fromDegrees(origin.lon, origin.lat, 0),
+      );
+      const year = this.formaSunDate.getUTCFullYear();
+      const arcs = sunArcEnuPoints(origin.lat, origin.lon, year, radius);
+      // Per-arc colour: summer = warm gold, equinox = #6600FF accent, winter = cool.
+      const arcColors = ['#F4B23E', '#6600FF', '#7FB3E0'];
+      arcs.forEach((arc, i) => {
+        if (arc.points.length < 2) return;
+        const positions = arc.points.map((p) => this.enuToCartesian(enu, p.east, p.north, base + p.up));
+        const ent = viewer.entities.add({
+          name: `pryzm-climate-sunpath-${arc.label}`,
+          polyline: {
+            positions,
+            width: 3,
+            clampToGround: false,
+            material: Cesium.Color.fromCssColorString(arcColors[i] ?? '#F4B23E').withAlpha(0.95),
+          },
+        });
+        this.climateOverlayEntities.sunPath.push(ent);
+      });
+      // Whole-hour markers on the summer arc (small gold dots + "9h" labels).
+      const markers = sunArcHourMarkers(origin.lat, origin.lon, year, radius);
+      for (const m of markers) {
+        const pos = this.enuToCartesian(enu, m.point.east, m.point.north, base + m.point.up);
+        const ent = viewer.entities.add({
+          name: `pryzm-climate-sunhour-${m.hourUtc}`,
+          position: pos,
+          point: {
+            pixelSize: 6,
+            color: Cesium.Color.fromCssColorString('#F4B23E'),
+            outlineColor: Cesium.Color.fromCssColorString('#6600FF'),
+            outlineWidth: 1,
+          },
+          label: {
+            text: `${m.hourUtc}h`,
+            font: '600 11px system-ui',
+            fillColor: Cesium.Color.fromCssColorString('#3a3357'),
+            showBackground: true,
+            backgroundColor: Cesium.Color.WHITE.withAlpha(0.7),
+            style: Cesium.LabelStyle.FILL,
+            verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+            pixelOffset: new Cesium.Cartesian2(0, -8),
+            scaleByDistance: new Cesium.NearFarScalar(100, 1.0, 2000, 0.4),
+          },
+        });
+        this.climateOverlayEntities.sunPath.push(ent);
+      }
+      viewer.scene.requestRender();
+      console.log(`[CesiumViewport][climate] sun-path overlay: ${arcs.length} arc(s) + ${markers.length} hour marker(s), radius ${radius.toFixed(0)} m.`);
+    } catch (e) {
+      console.warn('[CesiumViewport][climate] sun-path overlay failed:', e);
+    }
+  }
+
+  private renderWindOverlay(): void {
+    const viewer = this.viewer;
+    const origin = this.overlayOrigin();
+    const ds = this.climateOverlayDataset;
+    this.clearOverlayLayer('wind');
+    if (!viewer || !origin || !ds) return;
+    try {
+      const rose = windRoseBars(ds.windRose);
+      const radius = this.overlayRadiusM();
+      const base = this.formaTerrainBaseHeight;
+      const enu = Cesium.Transforms.eastNorthUpToFixedFrame(
+        Cesium.Cartesian3.fromDegrees(origin.lon, origin.lat, 0),
+      );
+      // 6 speed-band shades (calm→gust), light→dark on the #6600FF accent —
+      // matches the 2D wind-rose palette in FormaSiteAnalysisControls.
+      const bandColors = ['#d9cffb', '#b79bf6', '#9569f0', '#7a3eea', '#6600FF', '#4b00bf'];
+      const streaks = windStreakSegments(rose, radius, 2.0);
+      for (const s of streaks) {
+        const from = this.enuToCartesian(enu, s.from.east, s.from.north, base + s.from.up);
+        const to = this.enuToCartesian(enu, s.to.east, s.to.north, base + s.to.up);
+        const color = Cesium.Color.fromCssColorString(bandColors[s.dominantBand] ?? '#6600FF');
+        // A tapered arrow-ish streak: wider at the rim (where wind comes FROM),
+        // converging toward the centre. Width scales with the sector frequency.
+        const ent = viewer.entities.add({
+          name: `pryzm-climate-wind-${s.label}`,
+          polyline: {
+            positions: [from, to],
+            width: 3 + s.frac * 9,
+            clampToGround: false,
+            material: new Cesium.PolylineArrowMaterialProperty(color.withAlpha(0.9)),
+          },
+        });
+        this.climateOverlayEntities.wind.push(ent);
+      }
+      viewer.scene.requestRender();
+      console.log(`[CesiumViewport][climate] wind overlay: ${streaks.length} streak(s) (mean ${rose.meanSpeedMps.toFixed(1)} m/s), radius ${radius.toFixed(0)} m.`);
+    } catch (e) {
+      console.warn('[CesiumViewport][climate] wind overlay failed:', e);
+    }
+  }
+
+  private renderHeatOverlay(): void {
+    const viewer = this.viewer;
+    const origin = this.overlayOrigin();
+    const ds = this.climateOverlayDataset;
+    this.clearOverlayLayer('heat');
+    if (!viewer || !origin || !ds) return;
+    try {
+      const tint = heatTintColorHex(ds);
+      const radius = this.overlayRadiusM();
+      const base = this.formaTerrainBaseHeight;
+      // A translucent ground disc tinted by the annual mean temperature, sitting
+      // just above the ground plane so it reads as a heat/comfort wash.
+      const ent = viewer.entities.add({
+        name: 'pryzm-climate-heat-tint',
+        position: Cesium.Cartesian3.fromDegrees(origin.lon, origin.lat, base + 0.1),
+        ellipse: {
+          semiMajorAxis: radius,
+          semiMinorAxis: radius,
+          height: base + 0.1,
+          material: Cesium.Color.fromCssColorString(tint).withAlpha(0.28),
+          outline: true,
+          outlineColor: Cesium.Color.fromCssColorString(tint).withAlpha(0.7),
+        },
+      });
+      this.climateOverlayEntities.heat.push(ent);
+      viewer.scene.requestRender();
+      console.log(`[CesiumViewport][climate] heat overlay: ground tint ${tint}, radius ${radius.toFixed(0)} m.`);
+    } catch (e) {
+      console.warn('[CesiumViewport][climate] heat overlay failed:', e);
+    }
+  }
+
+  /** Remove one overlay layer's entities (idempotent). */
+  private clearOverlayLayer(layer: 'sunPath' | 'wind' | 'heat'): void {
+    const viewer = this.viewer;
+    const ents = this.climateOverlayEntities[layer];
+    if (viewer) {
+      for (const e of ents) { try { viewer.entities.remove(e); } catch { /* gone */ } }
+    }
+    this.climateOverlayEntities[layer] = [];
+  }
+
+  /** Remove ALL climate-overlay entities (used on massing re-render + dispose). */
+  private clearAllClimateOverlays(): void {
+    this.clearOverlayLayer('sunPath');
+    this.clearOverlayLayer('wind');
+    this.clearOverlayLayer('heat');
+  }
+
+  /** Re-draw whichever climate overlays are currently toggled ON (called after a
+   *  massing re-place / location / terrain change so they track the plot). */
+  private refreshActiveClimateOverlays(): void {
+    if (this.climateOverlayOn.sunPath) this.renderSunPathOverlay();
+    if (this.climateOverlayOn.wind) this.renderWindOverlay();
+    if (this.climateOverlayOn.heat) this.renderHeatOverlay();
+  }
+
   /**
    * FORMA.4 — the single live-update re-render seam. Wired (in GISAreaLayout) to
    * `site.parcel-boundary-set` / `apartment.layout-executed`: clear + re-place
@@ -2083,6 +2347,15 @@ export class CesiumViewport {
       console.warn('[CesiumViewport] forma massing dispose failed:', e);
     }
     this.formaMassingOrigin = null;
+    // A.21.D24 — drop all 3D climate overlays (sun-path/wind/heat) so they don't
+    // leak across project switches; the toggle state is reset to off.
+    try {
+      this.clearAllClimateOverlays();
+      this.climateOverlayOn = { sunPath: false, wind: false, heat: false };
+      this.climateOverlayDataset = null;
+    } catch (e) {
+      console.warn('[CesiumViewport] climate-overlay dispose failed:', e);
+    }
     // MAP-DATA-OVERTURE — cancel + drop context buildings so they don't leak
     // across project switches (a re-mounted viewport reloads them for the new site).
     try {
