@@ -143,7 +143,10 @@ export function buildBubbleGraph(
 
     const entryId = program.entranceHall ? push('hall', 'Entrance Hall', false) : null;
     const livingId = program.livingRoom ? push('living', 'Living Room', false) : null;
-    const kitchenId = push('kitchen', 'Kitchen', false);
+    // §A.21.x-KITCHEN — kitchen only when the program wants one. Absent/true →
+    // kitchen (apartment default, unchanged). false → no kitchen (house upper
+    // storeys). `link()` no-ops on a null id, so the kitchen links below are safe.
+    const kitchenId = program.includeKitchen === false ? null : push('kitchen', 'Kitchen', false);
     const diningId = program.openPlanKitchenDining ? push('dining', 'Dining', false) : null;
 
     const beds = Math.max(0, Math.floor(program.bedrooms));

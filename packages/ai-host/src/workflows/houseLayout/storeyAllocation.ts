@@ -81,6 +81,7 @@ export function allocateProgramToStoreys(
             // ground keeps no en-suite even if the house has one.
             masterEnSuite: false,
             // Kitchen/dining + living + entrance hall are house-entrance features.
+            includeKitchen: true, // §A.21.x-KITCHEN — the house kitchen lives on the ground floor only
             openPlanKitchenDining: program.openPlanKitchenDining,
             livingRoom: program.livingRoom,
             entranceHall: program.entranceHall,
@@ -101,6 +102,7 @@ export function allocateProgramToStoreys(
                 bedrooms: bedroomsPerUpper[i] ?? 0,
                 bathrooms: bathroomsPerUpper[i] ?? 0,
                 masterEnSuite: isFirstUpper ? program.masterEnSuite : false,
+                includeKitchen: false, // §A.21.x-KITCHEN — SPEC-CASA §3: upper storeys have NO kitchen
                 openPlanKitchenDining: false,
                 livingRoom: false,
                 // Upper storeys get a landing, not an entrance hall; the layout

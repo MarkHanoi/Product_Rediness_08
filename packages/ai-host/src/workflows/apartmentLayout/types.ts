@@ -105,6 +105,13 @@ export interface ApartmentProgram {
     openPlanKitchenDining: boolean;
     livingRoom: boolean;
     entranceHall: boolean;
+    /** §A.21.x-KITCHEN (2026-06-06): whether this plate gets a kitchen. Optional;
+     *  ABSENT or `true` → a kitchen is created (apartment default — unchanged).
+     *  `false` → NO kitchen (multi-storey HOUSE upper storeys, per SPEC-CASA §3:
+     *  "UPPER level(s): bedrooms + bathrooms. No kitchen"). Without this the frozen
+     *  single-plate engine pushed a kitchen onto EVERY storey → a 2-storey house
+     *  had 2 kitchens (A.21.x test finding). */
+    includeKitchen?: boolean;
     /** §ROOM-AREAS (2026-05-29, user-request from modal dynamic feedback):
      *  per-`RoomType` ABSOLUTE area override in m². When supplied, the bubble
      *  graph uses this value as the room's `targetAreaM2` directly, BYPASSING

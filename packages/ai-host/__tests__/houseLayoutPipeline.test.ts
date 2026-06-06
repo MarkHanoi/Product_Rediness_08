@@ -174,27 +174,23 @@ describe('A.21.x — program allocation lands public down / private up', () => {
         expect(t.has('kitchen')).toBe(true);
     });
 
-    // KNOWN BUG (A.21.x): the frozen single-plate D-TGL bubble graph ALWAYS pushes
-    // a 'kitchen' room (bubbleGraph.ts ~L146 is unconditional), so EVERY upper
-    // storey of a multi-storey house gets a kitchen even though
-    // allocateProgramToStoreys correctly sets openPlanKitchenDining:false for
-    // upper storeys (§3 policy: "UPPER level(s): bedrooms + bathrooms. No
-    // kitchen."). A real house's bedroom floors must not have a kitchen. This is a
-    // cross-component defect: the allocation is right, the engine ignores it.
-    // The .skip below asserts the DESIRED behaviour (no kitchen upstairs); the
-    // passing test under it pins the CURRENT (buggy) behaviour so the regression
-    // surface is explicit. Flag for the main session to triage.
-    it.skip('KNOWN BUG: upper storeys must NOT contain a kitchen', () => {
+    // §A.21.x-KITCHEN FIXED (2026-06-06): the frozen single-plate bubble graph used
+    // to push a 'kitchen' onto EVERY storey (bubbleGraph.ts ~L146 was unconditional),
+    // so a 2-storey house had 2 kitchens. Fix: `ApartmentProgram.includeKitchen`
+    // (absent/true → kitchen as before; false → none) — `storeyAllocation` sets it
+    // false on upper storeys (SPEC-CASA §3: "UPPER level(s): bedrooms + bathrooms.
+    // No kitchen."). The house kitchen now lives on the ground floor only.
+    it('upper storeys must NOT contain a kitchen (§A.21.x-KITCHEN)', () => {
         const res = generateHouseLayout(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 });
         const upper = typesOnStorey(res, 1);
         expect(upper.has('kitchen')).toBe(false);
     });
 
-    it('CURRENT behaviour: upper storeys DO contain a kitchen (KNOWN BUG A.21.x)', () => {
-        const res = generateHouseLayout(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 2 });
-        const upper = typesOnStorey(res, 1);
-        // Documents the defect so a future fix flips this test (and we delete it).
-        expect(upper.has('kitchen')).toBe(true);
+    it('the house kitchen is on the GROUND floor only', () => {
+        const res = generateHouseLayout(SHELL, PROGRAM, CONSTRAINTS, WEIGHTS, { storeyCount: 3 });
+        expect(typesOnStorey(res, 0).has('kitchen')).toBe(true);
+        expect(typesOnStorey(res, 1).has('kitchen')).toBe(false);
+        expect(typesOnStorey(res, 2).has('kitchen')).toBe(false);
     });
 });
 
