@@ -3,6 +3,7 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { createAIPanel } from '../ai/AIPanel';
 import { createAICreatePanel } from '../ai/AICreatePanel';
 import { installApartmentLayoutConsoleTrigger } from '../apartment-layout/apartmentLayoutTrigger';
+import { installHouseLayoutConsoleTrigger } from '../house-layout/houseLayoutTrigger';
 import { installDesignParamsConsoleTrigger } from '../apartment-layout/DesignParamsPanel';
 import { installFurnishLayoutTrigger } from '../furnish-layout/furnishLayoutTrigger';
 import { installLightingLayoutTrigger } from '../lighting-layout/lightingLayoutTrigger';
@@ -191,6 +192,11 @@ export function mountAIArea(props: UIProps, runtime: PryzmRuntime | null): AIRes
     // apartment-layout generator can be triggered regardless of which AI panel
     // is visible (the UI leaf lives in the AIPanel command tree → Create).
     installApartmentLayoutConsoleTrigger(runtime ?? null);
+    // A.21.d–g — Casa Unifamiliar multi-storey HOUSE generator. ADDITIVE: a
+    // separate console path (pryzmGenerateHouse / pryzmGenerateHouseFromBoundary)
+    // that mints storeys + fans out per-storey rooms + a stair + a stairwell void
+    // + a roof. Does NOT touch the apartment single-plate path.
+    installHouseLayoutConsoleTrigger(runtime ?? null);
     // A.25.1 — Living Design Parameters: register `pryzmToggleDesignParams()` so
     // the parameter-sliders panel can be opened from anywhere. Its sliders feed
     // the D-TGL scorer weights (via the activeDesignParams stash) and debounce a
