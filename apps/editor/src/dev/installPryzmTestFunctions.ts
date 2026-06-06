@@ -32,6 +32,7 @@ import {
     provideLiveGraphSources,
 } from '../engine/buildBuildingGraph';
 import { installBuildingGraphOverlay } from '../ui/graph';
+import { installLivingGraphOverlay } from '../ui/living-graph';
 
 // The validator + adapter surface is NOT (yet) re-exported from the
 // `@pryzm/ai-host` root barrel — its `package.json` `exports` map only lists
@@ -214,6 +215,13 @@ export function installPryzmTestFunctions(): void {
     // `window.pryzmShowBuildingGraph()` toggle hook. The overlay reads the UBG
     // produced above (read-only) and re-renders on `pryzm:building-graph-rebuilt`.
     installBuildingGraphOverlay();
+
+    // A.21.D17 — install the Living Building Graph overlay (force-directed,
+    // physics-animated, 5 relationship layers) + the `window.pryzmOpenLivingGraph()`
+    // / `pryzmCloseLivingGraph()` console openers. Consumes the SAME UBG above
+    // (read-only) and re-syncs on `pryzm:building-graph-rebuilt`. Intended to
+    // SUPERSEDE the static graph view as the primary graph UI.
+    installLivingGraphOverlay();
 
     console.log('[__pryzm] Dev test functions ready — run __pryzmListTestFunctions() for the menu.');
 }
