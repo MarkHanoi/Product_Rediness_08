@@ -13,7 +13,7 @@
 import type { ApartmentProgram, ScoringWeights } from '../types.js';
 import { decomposeToRects, polygonBBox, rectArea, type Pt, type Rect } from './rectDecomposition.js';
 import { buildBubbleGraph, type BubbleGraph } from './bubbleGraph.js';
-import { subdivide, type RoomPlacement } from './subdivide.js';
+import { subdivideWithReport, type DroppedRoom, type RoomPlacement } from './subdivide.js';
 import { buildWallsAndDoors, type BoundarySeg } from './wallsAndDoors.js';
 import { snapRectsAwayFromWindows, type WindowSpan } from './windowAvoidance.js';
 import { buildSemanticGraph, type LayoutGraph } from './semanticGraph.js';
@@ -86,6 +86,16 @@ export interface TglCandidate {
      *  one. The specific land-locked room ids are in `wallsAndDoors`'
      *  `unroutedToCirculationRoomIds` diagnostic. */
     readonly circulationRouted: boolean;
+    /**
+     * §FEASIBILITY-ALLOC (A.21.D5, 2026-06-06) — requested rooms that could NOT
+     * be placed at their per-type minimum short side in this strategy, even
+     * after the subdivider's area-rebalance retry. Empty in the common case.
+     * The gate prefers a strategy that drops FEWER rooms; when the best
+     * candidate still drops some, the structured list (count + type + reason) is
+     * logged so the trigger/modal can report "you asked for N, M fit" — the
+     * engine NEVER silently loses a requested room. Deterministic.
+     */
+    readonly droppedRooms: readonly DroppedRoom[];
     /** Virtual room-bounding lines at open-plan thresholds (no wall, no door)
      *  in METRES; the LayoutOption converts to mm at emit time. */
     readonly boundaries: readonly BoundarySeg[];
@@ -128,8 +138,14 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
     const base = buildBubbleGraph(input.program, shellArea, input.shellPolygon);
     const bubble: BubbleGraph = s.order === 'rev' ? { ...base, rooms: [...base.rooms].reverse() } : base;
 
-    const placementsT = subdivide(rectsT, bubble);
+    const subRes = subdivideWithReport(rectsT, bubble);
+    const placementsT = subRes.placements;
     if (placementsT.length === 0) return null;
+    // §FEASIBILITY-ALLOC (A.21.D5) — rooms the subdivider could not place at
+    // their min short side, even after the area-rebalance retry. Carried onto
+    // the candidate so enumerateLayouts can prefer a strategy that drops fewer
+    // rooms and surface the structured shortfall (never a silent drop).
+    const droppedRooms: readonly DroppedRoom[] = subRes.droppedRooms;
     let placements: RoomPlacement[] = placementsT.map(p => ({ roomId: p.roomId, rect: xfRect(p.rect, t.inv) }));
 
     // ── Window-aware partition snap (post-subdivide, WORLD frame) ─────────
@@ -287,7 +303,7 @@ function buildCandidate(input: EnumerateInput, shellArea: number, s: Strategy): 
         strategy: strategyKey(s), graph, objectives,
         weighted: weightedSum(objectives, input.weights), rank: 0,
         compromises, connected: metrics.connected, shapeAdmissible, topologyAdmissible,
-        circulationRouted, boundaries,
+        circulationRouted, droppedRooms, boundaries,
     };
 }
 
@@ -456,13 +472,25 @@ export function enumerateLayouts(input: EnumerateInput): TglCandidate[] {
     const cleanAndLegal = clean.filter(c => c.connected && c.compromises === 0);
     const cleanLegalRouted = cleanAndLegal.filter(c => c.circulationRouted);
     const cleanAndConn = clean.filter(c => c.connected);
-    const pool =
+    let pool =
         cleanLegalRouted.length > 0 ? cleanLegalRouted :
         cleanAndLegal.length > 0 ? cleanAndLegal :
         cleanAndConn.length > 0 ? cleanAndConn :
         legal.length > 0 ? legal :
         connected.length > 0 ? connected :
         candidates;
+
+    // §FEASIBILITY-ALLOC (A.21.D5) — within the chosen tier, prefer the
+    // strategies that DROP THE FEWEST rooms. A tiling that keeps all requested
+    // rooms at their minimum sizes is strictly better than one that drops a
+    // bedroom; this never crosses tiers (a routed/clean plan still wins over a
+    // worse tier that happens to drop nothing). Only narrows when it leaves a
+    // non-empty pool — never empties it.
+    const minDropped = pool.reduce((m, c) => Math.min(m, c.droppedRooms.length), Infinity);
+    if (Number.isFinite(minDropped)) {
+        const fewestDrops = pool.filter(c => c.droppedRooms.length === minDropped);
+        if (fewestDrops.length > 0) pool = fewestDrops;
+    }
 
     const ranked = assignParetoRanks(pool).sort((a, b) =>
         a.rank - b.rank ||
@@ -482,6 +510,23 @@ export function enumerateLayouts(input: EnumerateInput): TglCandidate[] {
             'only through a non-circulation room (no legal corridor/hall-adjacent ' +
             `wall to re-route it onto) in the best layout (strategy ${best.strategy}). ` +
             'The plan ships connected but with an architectural circulation compromise.',
+        );
+    }
+    // §FEASIBILITY-ALLOC (A.21.D5) — when even the best (fewest-drop) candidate
+    // still couldn't fit every requested room at its minimum, REPORT the
+    // shortfall (count + types) so the trigger/modal can tell the user
+    // "you asked for N bedrooms, M fit on this plot" — never a silent drop.
+    if (best && best.droppedRooms.length > 0) {
+        const byType = best.droppedRooms.reduce<Record<string, number>>((m, d) => {
+            m[d.type] = (m[d.type] ?? 0) + 1; return m;
+        }, {});
+        const summary = Object.entries(byType).map(([t, n]) => `${n}× ${t}`).join(', ');
+        console.warn(
+            `[apartment-layout] §FEASIBILITY-ALLOC: ${best.droppedRooms.length} requested ` +
+            `room(s) (${summary}) could not be placed at their minimum size on this plot ` +
+            `even in the best layout (strategy ${best.strategy}). The plan ships with a ` +
+            'REDUCED PROGRAM — these rooms were dropped, not silently lost; surface the ' +
+            'shortfall to the user. See candidate.droppedRooms for the per-room detail.',
         );
     }
 

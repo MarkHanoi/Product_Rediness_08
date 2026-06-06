@@ -747,7 +747,7 @@ export function buildWallsAndDoors(
         .sort();
     for (const id of targets) {
         const candidates = circWallsFor(id);
-        if (candidates.length === 0) continue;                // land-locked — handled below
+        if (candidates.length === 0) continue;                // land-locked — 2c-ii / diagnostic
         // First try a wall whose host (this room) AND the circulation room are
         // both under their door cap — a clean, no-compromise re-route.
         let placed = false;
@@ -767,10 +767,63 @@ export function buildWallsAndDoors(
         }
     }
 
+    // (2c-ii) §CIRCULATION-REROUTE-TWOHOP (A.21.D14, 2026-06-06) — "try harder".
+    //
+    // A room still without a DIRECT circulation door at this point shares no
+    // legal circulation-adjacent wall in this tiling (the corridor/hall simply
+    // doesn't reach it). Before giving up to the connected-but-warned fallback,
+    // route it onto circulation via ONE permitted INTERMEDIATE room that itself
+    // already has a circulation door — e.g. bedroom→living where the living
+    // room opens onto the hall. This turns "reachable only through a chain / via
+    // a forbidden pair" into "reachable through a single permitted room that is
+    // itself on the spine": a genuine improvement that never crosses a forbidden
+    // pair and never invents geometry. The room remains in the strict
+    // `unroutedToCirculationRoomIds` set (it has no DIRECT circulation door), but
+    // it is now LEGALLY reachable; the resulting door is a (mild) compromise so
+    // P8 keeps preferring a directly-routed strategy when one exists.
+    //
+    // `circulationServed(id)` ≡ id is a circulation room OR has a direct
+    // circulation door (recomputed so it sees passes 1–2c).
+    const circulationServed = (id: string): boolean =>
+        isCircType(id) || roomHasCirculationDoor(id);
+    // Permitted shared walls from `id` to an intermediate room M that is
+    // circulation-served, ranked: longer walls first, then stable id.
+    const twoHopWallsFor = (id: string): typeof shared =>
+        shared
+            .filter(c => {
+                const other = c.a === id ? c.b : c.b === id ? c.a : null;
+                if (other === null) return false;
+                if (isCircType(other)) return false;          // direct case handled above
+                return circulationServed(other) && permitted(c.a, c.b);
+            })
+            .sort((p, q) => q.len - p.len || (p.seg.id < q.seg.id ? -1 : 1));
+    const stillLandLocked = graph.rooms
+        .map(r => r.id)
+        .filter(id => needsCirculationAccess(id) && !roomHasCirculationDoor(id))
+        .sort();
+    for (const id of stillLandLocked) {
+        const candidates = twoHopWallsFor(id);
+        if (candidates.length === 0) continue;                // truly land-locked
+        let placed = false;
+        for (const c of candidates) {                          // clean (under-cap) first
+            if (wallHasDoor.has(c.seg.id)) continue;
+            if (!underCap(c.a) || !underCap(c.b)) continue;
+            if (addDoor(c.seg, c.a, c.b)) { cUnion(c.a, c.b); compromises++; placed = true; break; }
+        }
+        if (placed) continue;
+        for (const c of candidates) {                          // cap-relaxed last resort
+            if (wallHasDoor.has(c.seg.id)) continue;
+            if (addDoor(c.seg, c.a, c.b)) { cUnion(c.a, c.b); compromises++; placed = true; break; }
+        }
+    }
+
     // §CIRCULATION-REROUTE diagnostic — private/service rooms STILL without a
-    // circulation door after the re-route pass: genuinely land-locked (no legal
-    // circulation-adjacent wall in this placement). Reported as a warning, not
-    // forced into an illegal door. Deterministic — sorted by id.
+    // DIRECT circulation door after the re-route passes: genuinely land-locked
+    // (no legal circulation-adjacent wall in this placement). Reported as a
+    // warning, not forced into an illegal door. The 2c-ii two-hop pass may have
+    // given some of these legal connectivity via a permitted intermediate, but
+    // they remain flagged here because "direct circulation door" is the
+    // architectural target the gate ranks on. Deterministic — sorted by id.
     const unroutedToCirculationRoomIds = graph.rooms
         .filter(r => needsCirculationAccess(r.id) && !roomHasCirculationDoor(r.id))
         .map(r => r.id)
