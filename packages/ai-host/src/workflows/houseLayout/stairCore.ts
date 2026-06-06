@@ -14,7 +14,7 @@
 // does NOT block the entrance (the entry is conventionally on the min-Z façade).
 // Single-storey houses don't call this (no stair), but it is still well-defined.
 
-import type { Pt } from './types.js';
+import type { Pt, StairShape } from './types.js';
 
 /** Default reserved stair-core dimensions (mm): 1.0 m wide × 3.0 m deep run. */
 const STAIR_W_MM = 1000;
@@ -96,4 +96,145 @@ function clamp(v: number, lo: number, hi: number): number {
     return Math.min(hi, Math.max(lo, v));
 }
 
-export { bboxOf as __bboxOfForTest };
+// ─── A.21.D18 — stair SHAPE selection (I / L / U) ────────────────────────────
+//
+// The straight (I) run reserved above suits a long, thin slot. Where the plate
+// can spare a squarer footprint we fold the run into an L (two flights round a
+// corner landing — a smaller plan rect) or a U (two parallel flights + a
+// half-landing — the most compact plan for a tall storey). Deterministic
+// thresholds, documented below; always degrades safely to I when space is tight.
+
+/** L-shape reserved core (mm): ~1.6 m × ~1.6 m square (two flights round a corner). */
+const L_W_MM = 1600;
+const L_H_MM = 1600;
+/** U-shape reserved core (mm): ~2.0 m wide (two ~0.95 m runs + a tiny gap) × ~2.8 m
+ *  deep (one flight's run + the shared half-landing). Most compact for a tall gap. */
+const U_W_MM = 2000;
+const U_H_MM = 2800;
+
+/**
+ * Shape-selection thresholds, expressed on the AVAILABLE core box the plate can
+ * spare (the MAX_FRACTION-clamped box used by reserveStairCore). We work off the
+ * available box — not the I-rect — so a plate that could fit an L/U is offered one.
+ *
+ *  - availW < {@link MIN_SHAPED_W_MM} OR availH < {@link MIN_SHAPED_H_MM}
+ *        → I (space too tight for any folded stair — the safe fallback).
+ *  - else if aspect (longer/shorter) ≥ {@link I_ASPECT_MIN}
+ *        → I (a long, thin slot — the straight run already fits naturally).
+ *  - else if availW ≥ U_W_MM AND availH ≥ U_H_MM
+ *        → U (a generous, squarer box — the most compact tall-storey form).
+ *  - else if availW ≥ L_W_MM AND availH ≥ L_H_MM
+ *        → L (a squarer mid box — two flights round a corner landing).
+ *  - else → I (couldn't fit L or U → fall back to the straight run).
+ */
+const MIN_SHAPED_W_MM = L_W_MM;   // need ≥1.6 m in BOTH plan dims to fold a stair
+const MIN_SHAPED_H_MM = L_H_MM;
+/** Aspect (longer/shorter side of the available box) at/above which we keep I. */
+const I_ASPECT_MIN = 2.2;
+
+/** Choose the stair shape from the available (MAX_FRACTION-clamped) core box (mm). */
+function chooseStairShape(availWmm: number, availHmm: number): StairShape {
+    if (availWmm < MIN_SHAPED_W_MM || availHmm < MIN_SHAPED_H_MM) return 'I';
+    const longer = Math.max(availWmm, availHmm);
+    const shorter = Math.max(1, Math.min(availWmm, availHmm));
+    const aspect = longer / shorter;
+    if (aspect >= I_ASPECT_MIN) return 'I';
+    if (availWmm >= U_W_MM && availHmm >= U_H_MM) return 'U';
+    if (availWmm >= L_W_MM && availHmm >= L_H_MM) return 'L';
+    return 'I';
+}
+
+/** The resolved, shaped stair core (mm rect + form + flights metadata). */
+export interface StairCoreShaped {
+    readonly rectMm: { x: number; y: number; w: number; h: number };
+    readonly shape: StairShape;
+    /** Risers in flight 1 (before the landing); 0 for I (single flight). */
+    readonly risersBeforeLanding: number;
+    /** Landing depth (m); 0 for I. */
+    readonly landingDepthM: number;
+}
+
+/**
+ * Split `totalRisers` across the flights for a given shape (A.21.D18).
+ *  - I → one flight (all risers; second entry 0).
+ *  - L/U → ≈half each (flight 1 = floor(total/2), flight 2 = remainder), each ≥1.
+ * Deterministic. Returns `{ before, after }` (after === total for I).
+ */
+export function splitRisersForShape(
+    shape: StairShape,
+    totalRisers: number,
+): { before: number; after: number } {
+    if (shape === 'I' || totalRisers < 3) return { before: 0, after: totalRisers };
+    const before = Math.max(1, Math.floor(totalRisers / 2));
+    const after = Math.max(1, totalRisers - before);
+    return { before, after };
+}
+
+/**
+ * Reserve the stair core AND choose its shape (A.21.D18). Same placement +
+ * MAX_FRACTION clamp logic as {@link reserveStairCore}, but it FIRST decides the
+ * shape from the available box, then sizes the rect to that shape's footprint
+ * (clamped to the plate), so the returned rect tightly bounds the actual stair.
+ *
+ * Deterministic; never produces an invalid (sub-minimum) stair — degrades to I
+ * with the straight-run rect when the plate is too small to fold a stair.
+ *
+ * `totalRisers` (the floor-to-floor riser count) drives the flight split for
+ * L/U; pass it from the orchestrator (≈ ftf / riserHeight).
+ */
+export function reserveStairCoreShaped(
+    footprint: Pt[],
+    storeyCount: number,
+    totalRisers: number,
+): StairCoreShaped {
+    const bb = bboxOf(footprint);
+    const plateWmm = Math.max(0, (bb.maxX - bb.minX) * 1000);
+    const plateHmm = Math.max(0, (bb.maxZ - bb.minZ) * 1000);
+
+    // The box the plate can spare for circulation (same MAX_FRACTION rule).
+    const availW = plateWmm * MAX_FRACTION;
+    const availH = plateHmm * MAX_FRACTION;
+
+    const shape = chooseStairShape(
+        availW > 0 ? availW : Infinity,
+        availH > 0 ? availH : Infinity,
+    );
+
+    // For I we reuse the straight-run reservation verbatim (1.0 × 3.0 m rect).
+    if (shape === 'I') {
+        const rect = reserveStairCore(footprint, storeyCount);
+        return { rectMm: rect, shape: 'I', risersBeforeLanding: 0, landingDepthM: 0 };
+    }
+
+    // L / U: size a square-ish rect to the shape's target footprint, clamped to
+    // the available box (never below MIN_DIM_MM, never beyond MAX_FRACTION).
+    const targetW = shape === 'U' ? U_W_MM : L_W_MM;
+    const targetH = shape === 'U' ? U_H_MM : L_H_MM;
+    let w = Math.min(targetW, availW > 0 ? availW : targetW);
+    let h = Math.min(targetH, availH > 0 ? availH : targetH);
+    w = Math.max(Math.min(MIN_DIM_MM, plateWmm > 0 ? plateWmm : MIN_DIM_MM), w);
+    h = Math.max(Math.min(MIN_DIM_MM, plateHmm > 0 ? plateHmm : MIN_DIM_MM), h);
+
+    const minXmm = bb.minX * 1000;
+    const minZmm = bb.minZ * 1000;
+    const cx = minXmm + plateWmm / 2;
+    let x = cx - w / 2;
+    const backOffset = plateHmm * (1 / 3);
+    let y = minZmm + backOffset;
+    x = clamp(x, minXmm, minXmm + plateWmm - w);
+    y = clamp(y, minZmm, minZmm + plateHmm - h);
+
+    const { before } = splitRisersForShape(shape, Math.max(2, Math.round(totalRisers)));
+    // Landing depth: L = one stair width (~1.0 m); U = two widths (~2.0 m) so the
+    // half-landing spans both parallel runs — matching StairCreationController.
+    const landingDepthM = shape === 'U' ? 2.0 : 1.0;
+
+    return {
+        rectMm: { x: r3(x), y: r3(y), w: r3(w), h: r3(h) },
+        shape,
+        risersBeforeLanding: before,
+        landingDepthM,
+    };
+}
+
+export { bboxOf as __bboxOfForTest, chooseStairShape as __chooseStairShapeForTest };
