@@ -9,6 +9,7 @@
 
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { LightingLayoutExecutor } from './LightingLayoutExecutor.js';
+import { isHouseFanoutActive } from '../house-layout/houseFanoutGuard.js';
 
 const _executor = new LightingLayoutExecutor();
 
@@ -67,12 +68,20 @@ export function installLightingLayoutTrigger(runtime: PryzmRuntime | null): void
             on?: (k: string, fn: (p: unknown) => void) => (() => void) | void;
         };
         events.on?.('ceiling.layout-executed', () => {
+            // §A.21.i — during a HOUSE post-gen fan-out, runHousePostGenChain
+            // drives lighting itself per storey; skip the cascade (and its
+            // fallback timer) so fixtures aren't placed twice. Apartment runs
+            // leave the guard false → unchanged.
+            if (isHouseFanoutActive()) return;
             // New chain link — clear any leftover state, arm a fresh fallback.
             if (state.timer !== null) clearTimeout(state.timer);
             state.fired = false;
             state.timer = setTimeout(() => { state.timer = null; fireLighting('fallback-timeout'); }, FALLBACK_MS);
         });
-        events.on?.('furnish.layout-executed', () => { fireLighting('furnish-event'); });
+        events.on?.('furnish.layout-executed', () => {
+            if (isHouseFanoutActive()) return;
+            fireLighting('furnish-event');
+        });
         console.log('[lighting-layout] auto-fire on furnish.layout-executed: wired (§CHAIN-TIMEOUT fallback: ' + FALLBACK_MS + ' ms).');
     }
 }
