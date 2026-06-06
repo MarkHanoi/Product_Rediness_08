@@ -694,12 +694,38 @@ export class HouseLayoutExecutor {
     private _buildPerimeterShell(storey: StoreyPlate, wallHeightM: number): PerimeterShell | null {
         const poly = storey.footprint;
         if (!poly || poly.length < 3) return null;
+
+        // §PERIMETER-CLOSE (A.21.D25 Defect 4 — corner gaps / bad mitres). The
+        // previous build SKIPPED a degenerate edge with `continue` — which BREAKS the
+        // shared-vertex chain: if edge i (a→b) is skipped, the next emitted wall
+        // starts at the NEXT vertex, leaving a gap where two walls no longer meet at
+        // a common endpoint, so `WallJoinResolver.resolveLevel` can't miter that
+        // corner (the founder's "corner gaps"). FIX: first build a CLEANED vertex
+        // RING — drop near-duplicate consecutive vertices (and the wrap duplicate) so
+        // every retained vertex is a genuine corner — THEN emit exactly one wall per
+        // ring edge (vertex i → vertex i+1, last → first). The ring is closed by
+        // construction with EXACT shared endpoints, so every corner is a true
+        // two-wall junction the resolver mitres cleanly. House-only; the ground shell
+        // (drawn separately) is untouched.
+        const ring: { x: number; z: number }[] = [];
+        for (const p of poly) {
+            const prev = ring[ring.length - 1];
+            if (prev && Math.hypot(p.x - prev.x, p.z - prev.z) < 0.05) continue;  // drop near-duplicate
+            ring.push({ x: p.x, z: p.z });
+        }
+        // Drop a trailing vertex that coincides with the first (closes the wrap).
+        if (ring.length >= 2) {
+            const first = ring[0]!;
+            const last = ring[ring.length - 1]!;
+            if (Math.hypot(first.x - last.x, first.z - last.z) < 0.05) ring.pop();
+        }
+        if (ring.length < 3) return null;
+
         const walls: Array<Record<string, unknown>> = [];
         const shellWalls: Array<{ id: string; start: { x: number; z: number }; end: { x: number; z: number } }> = [];
-        for (let i = 0; i < poly.length; i++) {
-            const a = poly[i]!;
-            const b = poly[(i + 1) % poly.length]!;
-            if (Math.hypot(b.x - a.x, b.z - a.z) < 0.05) continue;   // skip degenerate edge
+        for (let i = 0; i < ring.length; i++) {
+            const a = ring[i]!;
+            const b = ring[(i + 1) % ring.length]!;   // last → first closes the loop
             const id = createId('wall');
             walls.push({
                 id,
