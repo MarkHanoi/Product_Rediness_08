@@ -302,8 +302,39 @@ export class LivingGraphOverlay {
     this.visible = true;
     this.root.style.display = 'flex';
     this.renderer?.resize();
+    this.ensureGraphBuilt();
     this.resync(true);
     this.ensureTicking();
+  }
+
+  /**
+   * §LG-BUILD-ON-OPEN — build the UBG ONCE if it's absent/empty, so a cold-opened
+   * Living Graph isn't empty ("0 rooms" when rooms exist — the cache is only
+   * populated when the static Graph button is clicked or generation rebuilds it).
+   * Safe HERE: `show()` is NOT the `pryzm:building-graph-rebuilt` listener, so no
+   * recursion. We raise the `resyncing` guard during the build so the build's own
+   * emitted rebuilt event is swallowed (we resync explicitly right after). Never
+   * blocks open on a build failure.
+   */
+  private ensureGraphBuilt(): void {
+    try {
+      const w = window as unknown as {
+        pryzmBuildBuildingGraph?: () => unknown;
+        __pryzmBuildingGraph?: { allNodes?: () => unknown[] };
+      };
+      const existing = w.__pryzmBuildingGraph;
+      const nodeCount = existing?.allNodes?.()?.length ?? 0;
+      if (nodeCount === 0 && typeof w.pryzmBuildBuildingGraph === 'function') {
+        this.resyncing = true; // swallow the build's emitted rebuilt event
+        try {
+          w.pryzmBuildBuildingGraph();
+        } finally {
+          this.resyncing = false;
+        }
+      }
+    } catch {
+      /* defensive — a graph-build failure must never block the overlay opening */
+    }
   }
 
   hide(): void {
@@ -502,6 +533,7 @@ export class LivingGraphOverlay {
   }
 
   private rerun(): void {
+    this.ensureGraphBuilt(); // §LG-BUILD-ON-OPEN — doubles as a manual refresh after model changes
     this.resync(true); // full scatter
     this.ensureTicking();
   }
