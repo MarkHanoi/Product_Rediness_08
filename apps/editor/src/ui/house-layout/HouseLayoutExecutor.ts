@@ -628,9 +628,15 @@ export class HouseLayoutExecutor {
             // the upper-storey FLOOR FINISH and the CEILING beneath it cut / skip the
             // finish over the open stairwell — matching the slab void exactly. Without
             // this the finish + ceiling plates re-cover the void you can see through.
-            // Best-effort: a footprint failure must never break the stair.
+            // Best-effort: a footprint failure must never break the stair. The
+            // resulting `voidRect` (4 world-XZ corners of the stair's bounding
+            // footprint) is the SINGLE SOURCE OF TRUTH for all three void surfaces:
+            // the slab hole (CreateStairCommand.autoCreateOpening), the floor/ceiling
+            // hole (recorded here for the finish passes), AND the guardrail below —
+            // so the rail edges coincide EXACTLY with the slab + floor void edges.
+            let voidRect: ReadonlyArray<{ x: number; z: number }> | null = null;
             try {
-                const voidRect = computeStairFootprintRect({
+                voidRect = computeStairFootprintRect({
                     shape,
                     width,
                     treadDepth: tread,
@@ -645,47 +651,63 @@ export class HouseLayoutExecutor {
                 }
             } catch (e) { console.warn('[house-layout] void-footprint record failed (skipped):', e); }
 
-            // §A.21.D26 — STAIRWELL-VOID GUARDRAIL. The stair auto-punches a slab
-            // void on the upper floor; its open edges are a fall hazard, so guard
-            // them with a handrail of the SAME type the stair carries (height
-            // 1.050 m, baluster fill). The edge the stair tops out toward is left
-            // OPEN (that's where you step off onto the floor); the other 3 are
-            // railed. Robust for I/L/U + any principal-axis rotation. Best-effort:
-            // a guardrail failure must never break the stair itself.
+            // §A.21.D26 / §A.21.D33(a) — STAIRWELL-VOID GUARDRAIL. The stair
+            // auto-punches a slab void on the upper floor; its open edges are a fall
+            // hazard, so guard them with a handrail of the SAME type the stair carries
+            // (height 1.050 m, baluster fill). The edge the stair tops out toward is
+            // left OPEN (that's where you step off onto the floor); the other 3 are
+            // railed.
+            //
+            // §A.21.D33(a) ALIGNMENT FIX — rail the EXACT SAME footprint the slab +
+            // floor/ceiling voids use (`voidRect` from `computeStairFootprintRect`),
+            // NOT the `stair.rectMm`-derived core rect (`{x0,z0,wM,hM}`). The core
+            // rect is the stair's allocated cell, which differs from the stair's
+            // actual flight/landing bounding footprint the void is cut from — so
+            // railing the core rect left the railing OFFSET from the hole. By
+            // construction `voidRect` is the identical polygon all three surfaces
+            // share → the rail edges coincide exactly with the slab + floor void
+            // edges. `computeStairFootprintRect` already returns WORLD-XZ corners
+            // (it is fed the already-rotated `startPosition` + `worldFlights`), so the
+            // guardrail no longer rotates anything itself. Best-effort: a guardrail
+            // failure must never break the stair itself.
             try {
-                const lastDir = worldFlights[worldFlights.length - 1]?.direction
-                    ?? { x: dir1Layout.x, y: 0, z: dir1Layout.z };
-                this._createVoidGuardrail(cm, { x0, z0, wM, hM }, principalAxisRad, pivot, stair.toLevelId, lastDir);
+                if (voidRect && voidRect.length >= 4) {
+                    const lastDir = worldFlights[worldFlights.length - 1]?.direction
+                        ?? { x: dir1Layout.x, y: 0, z: dir1Layout.z };
+                    this._createVoidGuardrail(cm, voidRect, stair.toLevelId, lastDir);
+                } else {
+                    console.warn('[house-layout] no void footprint for guardrail — skipped (rail must match the hole)');
+                }
             } catch (e) { console.warn('[house-layout] void guardrail failed (skipped):', e); }
         } catch (e) { console.warn('[house-layout] stair create failed (skipped):', e); }
     }
 
     /**
-     * §A.21.D26 — rail the three exposed edges of the stairwell void on the upper
-     * floor (matching the stair's own handrail type), leaving open the edge the
-     * stair tops out toward. `rectLayout` is the stair core rect in the LAYOUT
-     * frame (metres); each corner is rotated back to WORLD by +`angleRad` about
-     * `pivot` (identity on an axis-aligned plot). `lastDir` is the final flight's
-     * WORLD direction — the void edge most aligned with it is the step-off (open)
-     * side. The rails are created on `topLevelId` (the floor the void sits in).
+     * §A.21.D26 / §A.21.D33(a) — rail the three exposed edges of the stairwell
+     * void on the upper floor (matching the stair's own handrail type), leaving
+     * open the edge the stair tops out toward.
+     *
+     * `voidRect` is the EXACT footprint polygon the slab + floor/ceiling voids are
+     * cut from — the 4 WORLD-XZ corners `computeStairFootprintRect` returned for
+     * THIS stair (the same value passed to `recordStairVoid`). The guardrail rails
+     * those corners verbatim, so the rail edges coincide exactly with the slab +
+     * floor void edges (§A.21.D33(a) — previously the rail used the `stair.rectMm`
+     * core rect, which differs from this bounding footprint, so the rail was
+     * offset from the hole). No rotation is applied here: the corners are already
+     * in world space. `lastDir` is the final flight's WORLD direction — the void
+     * edge most aligned with it is the step-off (open) side. The rails are created
+     * on `topLevelId` (the floor the void sits in).
      */
     private _createVoidGuardrail(
         cm: CommandManagerLike,
-        rectLayout: { x0: number; z0: number; wM: number; hM: number },
-        angleRad: number,
-        pivot: { x: number; z: number },
+        voidRect: ReadonlyArray<{ x: number; z: number }>,
         topLevelId: string,
         lastDir: { x: number; y: number; z: number },
     ): void {
-        const { x0, z0, wM, hM } = rectLayout;
-        // 4 corners of the void in the LAYOUT frame, then rotated to WORLD.
-        const cornersLayout = [
-            { x: x0,      y: 0, z: z0 },       // A
-            { x: x0 + wM, y: 0, z: z0 },       // B
-            { x: x0 + wM, y: 0, z: z0 + hM },  // C
-            { x: x0,      y: 0, z: z0 + hM },  // D
-        ];
-        const c = cornersLayout.map(p => this._rotateXZ(p, angleRad, pivot));
+        // The 4 oriented-rect corners (world XZ) — the SAME polygon the slab/floor
+        // void was cut from. CCW order A→B→C→D as returned by computeStairFootprintRect.
+        const c = voidRect.slice(0, 4).map(p => ({ x: p.x, z: p.z }));
+        if (c.length < 4) { console.warn('[house-layout] void guardrail needs 4 corners — skipped'); return; }
         // Centroid of the void (world XZ).
         const cx = (c[0]!.x + c[1]!.x + c[2]!.x + c[3]!.x) / 4;
         const cz = (c[0]!.z + c[1]!.z + c[2]!.z + c[3]!.z) / 4;
