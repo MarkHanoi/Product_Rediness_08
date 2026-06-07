@@ -1561,35 +1561,45 @@ export class CesiumViewport {
       }
 
       if (!footprint) {
-        // No drawn outline → extrude each wall of THIS storey at its elevation.
-        try {
-          for (const w of band.walls) {
-            const ring = this.wallFootprintRing(w.a, w.b, w.thickness);
-            if (!ring) continue;
+        // §A.21.D30 — no drawn outline → reconstruct THIS storey's EXTERIOR
+        // PERIMETER RING from its shell walls and extrude it as ONE watertight
+        // closed prism. A single polygon has NO corner gaps/overlaps by
+        // construction, so a from-scratch house reads as a clean solid massing
+        // block on the globe (matching the Forma "massing study" aesthetic and
+        // the BIM-view mitred corners). The per-wall boxes are kept ONLY as the
+        // fallback when the ring can't be reconstructed (non-closed / degenerate
+        // wall set) — never throw, never render nothing.
+        const ring = this.reconstructPerimeterRing(band.walls);
+        if (ring && ring.length >= 3) {
+          try {
             const positions = ring.map((p) => toCartesian(p.x, p.z, bandBottom));
             const ent = viewer.entities.add({
-              name: `pryzm-forma-massing-wall-storey-${bi}`,
+              name: `pryzm-forma-massing-shell-storey-${bi}`,
               polygon: {
                 hierarchy: new Cesium.PolygonHierarchy(positions),
-                extrudedHeight: baseHeight + band.baseElevation + Math.max(0.1, w.height),
                 height: bandBottom,
+                extrudedHeight: bandTop,
                 material: massFill,
                 outline: true,
                 outlineColor: massOutline,
                 outlineWidth: 1.5,
                 shadows: Cesium.ShadowMode.ENABLED,
                 perPositionHeight: false,
-                // §A.21.D-FORMA2 — cap top + bottom so each wall reads as a SOLID
-                // opaque volume rather than an open box you can see into/through.
                 closeTop: true,
                 closeBottom: true,
               },
             });
             this.formaMassingEntities.push(ent);
             silhouetteTargets.push(ent);
+            console.log(`[CesiumViewport][forma] storey ${bi}: shell extruded as a single ${ring.length}-vertex perimeter prism (no corner gaps).`);
+          } catch (e) {
+            console.warn(`[CesiumViewport][forma] storey ${bi} perimeter prism failed — per-wall fallback:`, e);
+            this.extrudeWallsAsBoxes(band.walls, bandBottom, baseHeight + band.baseElevation, bi, viewer, toCartesian, massFill, massOutline, silhouetteTargets);
           }
-        } catch (e) {
-          console.warn(`[CesiumViewport][forma] storey ${bi} per-wall extrusion failed:`, e);
+        } else {
+          // Ring not reconstructable (open / degenerate shell) → per-wall boxes.
+          console.log(`[CesiumViewport][forma] storey ${bi}: perimeter ring unavailable — falling back to per-wall boxes.`);
+          this.extrudeWallsAsBoxes(band.walls, bandBottom, baseHeight + band.baseElevation, bi, viewer, toCartesian, massFill, massOutline, silhouetteTargets);
         }
       }
     }
@@ -2644,6 +2654,207 @@ export class CesiumViewport {
       { x: b.x - nx, z: b.z - nz },
       { x: a.x - nx, z: a.z - nz },
     ];
+  }
+
+  /**
+   * §A.21.D30 — the per-wall-box fallback extracted from `renderFormaMassing`.
+   * Extrudes each wall of a storey as an independent thickened-rectangle prism.
+   * Used ONLY when the storey's perimeter ring can't be reconstructed (open /
+   * degenerate shell) — corners may gap, but it never renders nothing.
+   */
+  private extrudeWallsAsBoxes(
+    walls: ReadonlyArray<{ a: { x: number; z: number }; b: { x: number; z: number }; height: number; thickness: number }>,
+    bandBottom: number,
+    bandElevBase: number,
+    bandIndex: number,
+    viewer: Cesium.Viewer,
+    toCartesian: (x: number, z: number, up: number) => Cesium.Cartesian3,
+    massFill: Cesium.Color,
+    massOutline: Cesium.Color,
+    silhouetteTargets: Cesium.Entity[],
+  ): void {
+    try {
+      for (const w of walls) {
+        const ring = this.wallFootprintRing(w.a, w.b, w.thickness);
+        if (!ring) continue;
+        const positions = ring.map((p) => toCartesian(p.x, p.z, bandBottom));
+        const ent = viewer.entities.add({
+          name: `pryzm-forma-massing-wall-storey-${bandIndex}`,
+          polygon: {
+            hierarchy: new Cesium.PolygonHierarchy(positions),
+            extrudedHeight: bandElevBase + Math.max(0.1, w.height),
+            height: bandBottom,
+            material: massFill,
+            outline: true,
+            outlineColor: massOutline,
+            outlineWidth: 1.5,
+            shadows: Cesium.ShadowMode.ENABLED,
+            perPositionHeight: false,
+            // §A.21.D-FORMA2 — cap top + bottom so each wall reads as a SOLID
+            // opaque volume rather than an open box you can see into/through.
+            closeTop: true,
+            closeBottom: true,
+          },
+        });
+        this.formaMassingEntities.push(ent);
+        silhouetteTargets.push(ent);
+      }
+    } catch (e) {
+      console.warn(`[CesiumViewport][forma] storey ${bandIndex} per-wall extrusion failed:`, e);
+    }
+  }
+
+  /**
+   * §A.21.D30 — reconstruct the ORDERED EXTERIOR PERIMETER RING from a set of
+   * shell wall segments, so a storey with no drawn parcel boundary can be
+   * extruded as ONE watertight closed polygon (NO corner gaps/overlaps) instead
+   * of N independent wall boxes.
+   *
+   * The shell (perimeter) walls share endpoints by construction (D25
+   * §PERIMETER-CLOSE made the perimeter a closed loop of vertex-chained walls),
+   * so we can chain segments end-to-end into a single loop. Robust to:
+   *   • rectilinear / L / U shells (any orthogonal or non-orthogonal corners);
+   *   • principal-axis-rotated (skewed) plots (works on raw XZ — no axis
+   *     assumption; corner snapping is a metric tolerance, not a grid);
+   *   • interior partition walls present alongside the shell (they branch off
+   *     a perimeter node with degree ≠ 2 and are simply not followed — we only
+   *     traverse the degree-2 boundary chain).
+   *
+   * Algorithm: snap endpoints to a tolerance grid → build an adjacency map of
+   * node → connected nodes. Start from the node with the smallest (x,z) (always
+   * on the convex hull, hence on the outer ring) and walk, at each step turning
+   * as far CLOCKWISE as possible from the incoming direction (the standard
+   * "wall-follower" that traces the OUTER boundary of a planar graph). Stop when
+   * we return to the start. Returns the ordered scene-XZ ring (≥3 pts) or null
+   * when the walls don't form a usable closed outer loop (→ caller falls back to
+   * per-wall boxes; never throws, never renders nothing).
+   */
+  private reconstructPerimeterRing(
+    walls: ReadonlyArray<{ a: { x: number; z: number }; b: { x: number; z: number } }>,
+  ): Array<{ x: number; z: number }> | null {
+    if (walls.length < 3) return null;
+    const SNAP_M = 0.05; // 5 cm — well below wall thickness, above float noise.
+    const key = (p: { x: number; z: number }): string =>
+      `${Math.round(p.x / SNAP_M)}|${Math.round(p.z / SNAP_M)}`;
+
+    // Node table: key → representative coordinate + neighbour set.
+    const coord = new Map<string, { x: number; z: number }>();
+    const adj = new Map<string, Set<string>>();
+    const addNode = (p: { x: number; z: number }): string => {
+      const k = key(p);
+      if (!coord.has(k)) {
+        coord.set(k, { x: p.x, z: p.z });
+        adj.set(k, new Set());
+      }
+      return k;
+    };
+    for (const w of walls) {
+      if (!Number.isFinite(w.a.x) || !Number.isFinite(w.a.z) || !Number.isFinite(w.b.x) || !Number.isFinite(w.b.z)) continue;
+      const ka = addNode(w.a);
+      const kb = addNode(w.b);
+      if (ka === kb) continue; // degenerate zero-length segment.
+      adj.get(ka)!.add(kb);
+      adj.get(kb)!.add(ka);
+    }
+    if (adj.size < 3) return null;
+
+    // Start at the lexicographically smallest node — guaranteed on the outer
+    // boundary (it is an extreme point of the vertex set, hence on the hull).
+    let startKey: string | null = null;
+    let startCoord: { x: number; z: number } | null = null;
+    for (const [k, c] of coord) {
+      if (!startCoord || c.x < startCoord.x - 1e-9 || (Math.abs(c.x - startCoord.x) < 1e-9 && c.z < startCoord.z)) {
+        startKey = k;
+        startCoord = c;
+      }
+    }
+    if (!startKey || !startCoord) return null;
+
+    // Boundary trace. The generator's shell is a clean closed loop where every
+    // PERIMETER node has degree exactly 2 (D25 §PERIMETER-CLOSE chains the shell
+    // corner-to-corner). Interior partitions are separate walls whose endpoints
+    // land mid-span on a perimeter wall (NOT at a shared corner), so they create
+    // no perimeter graph node — the simple chain below walks the unambiguous
+    // degree-2 loop. At a node we always take the non-backtracking neighbour;
+    // when a node is a genuine junction (degree > 2, a rare exact-corner tee) we
+    // pick the smallest clockwise turn from the reversed-incoming heading, which
+    // keeps the trace on a single coherent face. The result is then VALIDATED
+    // (closed, ≥3 verts, encloses positive area, covers a strong majority of the
+    // graph's nodes); anything that fails → null → per-wall-box fallback. This
+    // makes a wrong interior-face trace self-reject rather than render garbage.
+    const angleOf = (dx: number, dz: number): number => Math.atan2(dz, dx); // (-π, π]
+    const cwSweep = (from: number, to: number): number => {
+      // Clockwise sweep magnitude from heading `from` to heading `to`, (0, 2π].
+      let d = from - to;
+      while (d <= 1e-9) d += 2 * Math.PI;
+      while (d > 2 * Math.PI + 1e-9) d -= 2 * Math.PI;
+      return d;
+    };
+
+    const ring: Array<{ x: number; z: number }> = [];
+    const visited = new Set<string>();
+    let prevKey: string | null = null;
+    let curKey: string = startKey;
+    const MAX_STEPS = adj.size + 2;
+
+    for (let step = 0; step < MAX_STEPS; step++) {
+      const cur = coord.get(curKey)!;
+      ring.push({ x: cur.x, z: cur.z });
+      visited.add(curKey);
+      const all = [...adj.get(curKey)!].filter((nk) => nk !== curKey);
+      if (all.length === 0) return null; // dead end — not a closed loop.
+
+      // Prefer non-backtracking neighbours (exclude the immediate previous node)
+      // unless that leaves nothing (degree-1 spur forces a backtrack → reject).
+      const candidates = all.filter((nk) => nk !== prevKey);
+      const pool = candidates.length > 0 ? candidates : all;
+
+      let bestKey: string;
+      if (pool.length === 1) {
+        bestKey = pool[0]!; // unambiguous degree-2 chain step.
+      } else {
+        // Junction: take the smallest clockwise turn from reversed-incoming.
+        let revInAng: number;
+        if (prevKey) {
+          const prev = coord.get(prevKey)!;
+          revInAng = angleOf(prev.x - cur.x, prev.z - cur.z);
+        } else {
+          revInAng = angleOf(0, 1); // seed at the hull-extreme start node.
+        }
+        let chosen: string | null = null;
+        let bestSweep = Infinity;
+        for (const nk of pool) {
+          const n = coord.get(nk)!;
+          const sweep = cwSweep(revInAng, angleOf(n.x - cur.x, n.z - cur.z));
+          if (sweep < bestSweep) { bestSweep = sweep; chosen = nk; }
+        }
+        bestKey = chosen ?? pool[0]!;
+      }
+
+      if (bestKey === startKey) {
+        break; // closed the loop.
+      }
+      // A revisit that is NOT the start means a self-crossing trace → reject.
+      if (visited.has(bestKey)) return null;
+      prevKey = curKey;
+      curKey = bestKey;
+    }
+
+    // ── Validate the candidate ring ──────────────────────────────────────────
+    if (ring.length < 3) return null;
+    // Must enclose positive area (shoelace) — a collapsed/collinear chain is junk.
+    let area2 = 0;
+    for (let i = 0; i < ring.length; i++) {
+      const p = ring[i]!;
+      const q = ring[(i + 1) % ring.length]!;
+      area2 += p.x * q.z - q.x * p.z;
+    }
+    if (Math.abs(area2) < 1e-3) return null;
+    // Must have closed back to the start (the loop broke on bestKey===startKey)
+    // and cover a strong majority of the graph's nodes — a trace that skipped
+    // most of the shell is the wrong face → fall back to per-wall boxes.
+    if (visited.size < Math.ceil(adj.size * 0.6)) return null;
+    return ring;
   }
 
   /**
