@@ -529,6 +529,35 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         () => projectContext.editorMode
     );
     window.bimManager = bimManager;
+
+    // ── A.21.D34(c): Hide level datum lines in the 3D model view ─────────────
+    // LevelVisualizer draws Revit-style datum lines (two ±30 m dashed crosses +
+    // level-head bubbles) per BIM level at the level elevation. These extend far
+    // past any building footprint and, in a generated multi-storey house, stack
+    // up one set per storey — reading as oversized translucent gridded markers
+    // sticking out beyond the walls at each floor height. Datum lines are a 2-D
+    // documentation aid (section / elevation drawings), not a 3-D model overlay:
+    // Revit itself never shows them in the 3D view. We therefore hide the level
+    // datum group in the pure 3D ('3D' / perspective) model view and show it in
+    // every 2-D documentation view (plan / section / elevation). This removes the
+    // artifact without deleting the datum lines, the structural grid, the grid
+    // toggle, or any real geometry — they remain available where they belong.
+    const _applyLevelDatumVisibilityForView = (mode?: string): void => {
+        try {
+            // The bug only manifests in the orbit-able 3D model view. Every other
+            // surface (plan / section / elevation / ceiling) legitimately wants the
+            // datum lines, so default to showing them when the mode is unknown.
+            const is3DModelView = mode === '3D';
+            window.bimManager?.toggleVisibility?.('levels', !is3DModelView);
+        } catch { /* non-fatal: datum group keeps its last visibility */ }
+    };
+    window.runtime?.events?.on('view-activated', (payload: unknown) => { // F.events.8
+        _applyLevelDatumVisibilityForView((payload as { mode?: string })?.mode);
+    });
+    // Boot view is the 3D model view — hide the datum lines immediately so they
+    // never flash before the first view-activated event lands.
+    _applyLevelDatumVisibilityForView('3D');
+
     viewDependencyTracker.setLevelResolver((elementId) => bimManager.getLevelForElement(elementId)?.id);
     viewDependencyTracker.init();
     nativeElementMeshExporter.setBimManager(bimManager);
