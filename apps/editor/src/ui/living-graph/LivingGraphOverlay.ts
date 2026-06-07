@@ -31,10 +31,13 @@ import { buildLiveGraph } from './livingGraphData';
 import { LivingGraphCanvas, type DrawState } from './LivingGraphCanvas';
 import {
   createSimState,
+  fitToCanvas,
   isSettled,
   reheat,
+  scaledParams,
   scatterNodes,
   simulateStep,
+  type SimParams,
   type SimState,
 } from './forceSimulation';
 import {
@@ -97,6 +100,9 @@ export class LivingGraphOverlay {
   private graph: LiveGraph = { nodes: [], edges: [] };
   private sim: SimState = createSimState();
   private layers: LayerState = defaultLayerState();
+  /** A.21.D34(e) — spacing-scaled force params (by node count + canvas size).
+   *  Recomputed on resync + resize so the field spreads to FILL the panel. */
+  private params: SimParams = scaledParams(0, 380, 300);
 
   private visible = false;
   private frozen = false;
@@ -104,7 +110,7 @@ export class LivingGraphOverlay {
    *  frame, so the user can "warm up" the field. 1 = default. */
   private heat = 1;
 
-  private draw: DrawState = { focusedId: null, hoveredId: null, offsetX: 0, offsetY: 0 };
+  private draw: DrawState = { focusedId: null, hoveredId: null, offsetX: 0, offsetY: 0, scale: 1 };
 
   // Tick + subscriptions.
   private tickDispose: TickDisposer | null = null;
@@ -229,12 +235,19 @@ export class LivingGraphOverlay {
         if (this.root) this.root.style.width = `${w}px`;
         canvas.style.height = `${h}px`;
         this.renderer?.resize();
+        // A.21.D34(e) — re-derive spacing for the new canvas + re-fit so the
+        // field expands to use the extra space as the user drags.
+        this.recomputeParams();
+        this.autoFit();
         this.paintOnce();
       };
       const onUp = (ev: PointerEvent): void => {
         try { grip.releasePointerCapture(ev.pointerId); } catch { /* non-fatal */ }
         window.removeEventListener('pointermove', onMove);
         window.removeEventListener('pointerup', onUp);
+        // Re-heat so the field re-anneals to the new size, then settle + fit.
+        reheat(this.sim, 0.6);
+        this.ensureTicking();
       };
       window.addEventListener('pointermove', onMove);
       window.addEventListener('pointerup', onUp);
@@ -488,6 +501,9 @@ export class LivingGraphOverlay {
       // Scatter only the new (or all, on full rerun) nodes deterministically.
       scatterNodes(next.nodes, full ? {} : { preserve });
       this.graph = next;
+      // Re-derive spacing from the new node count + canvas size so the field
+      // spreads to fill the panel (A.21.D34(e)).
+      this.recomputeParams();
       // Drop a focus/hover that no longer exists.
       const ids = new Set(next.nodes.map((n) => n.id));
       if (this.draw.focusedId && !ids.has(this.draw.focusedId)) this.draw.focusedId = null;
@@ -522,6 +538,32 @@ export class LivingGraphOverlay {
     const handler: DomHandler = () => onRebuilt();
     this.on(window, REBUILT_EVENT, handler);
     for (const ev of RESYNC_EVENTS) this.on(window, ev, handler);
+  }
+
+  // ── Spacing + auto-fit (A.21.D34(e)) ─────────────────────────────────────────
+
+  /** The current canvas box (CSS px), defaulting to the panel's design size. */
+  private canvasBox(): { w: number; h: number } {
+    return {
+      w: this.canvasEl?.clientWidth || 380,
+      h: this.canvasEl?.clientHeight || 300,
+    };
+  }
+
+  /** Recompute the spacing-scaled force params from the live node count + the
+   *  current canvas size, so the field spreads to fill the (resizable) panel. */
+  private recomputeParams(): void {
+    const { w, h } = this.canvasBox();
+    this.params = scaledParams(this.graph.nodes.length, w, h);
+  }
+
+  /** Auto-fit: pan + (down-only) zoom so the settled cloud fills the canvas. */
+  private autoFit(): void {
+    const { w, h } = this.canvasBox();
+    const fit = fitToCanvas(this.graph.nodes, w, h);
+    this.draw.offsetX = fit.offsetX;
+    this.draw.offsetY = fit.offsetY;
+    this.draw.scale = fit.scale;
   }
 
   // ── The ticker — P3-safe (frame bus first, guarded setInterval fallback) ──────
@@ -561,10 +603,13 @@ export class LivingGraphOverlay {
     if (!this.frozen && !isSettled(this.sim)) {
       // Heat scales steps/frame (1..~5) so the slider warms the field.
       const steps = Math.max(1, Math.round(this.heat * 1.6));
-      for (let i = 0; i < steps; i++) simulateStep(this.graph, this.layers, this.sim);
+      for (let i = 0; i < steps; i++) simulateStep(this.graph, this.layers, this.sim, this.params);
+      // Keep the spreading cloud framed every frame (cheap O(n)).
+      this.autoFit();
       if (isSettled(this.sim)) {
         this.updateBadges();
-        // Settled — one last paint, then stop ticking.
+        // Settled — final fit + one last paint, then stop ticking.
+        this.autoFit();
         this.renderer.draw(this.graph, this.layers, this.draw);
         this.stopTicker();
         return;
@@ -607,6 +652,8 @@ export class LivingGraphOverlay {
     this.on(window, 'resize', () => {
       if (this.visible) {
         this.renderer?.resize();
+        this.recomputeParams();
+        this.autoFit();
         this.paintOnce();
       }
     });

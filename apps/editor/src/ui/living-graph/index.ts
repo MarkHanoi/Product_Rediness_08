@@ -24,9 +24,11 @@ export {
   isSettled,
   reheat,
   nodeDistance,
+  scaledParams,
+  fitToCanvas,
   DEFAULT_SIM_PARAMS,
 } from './forceSimulation';
-export type { SimState, SimParams } from './forceSimulation';
+export type { SimState, SimParams, FitTransform } from './forceSimulation';
 export {
   EDGE_LAYERS,
   defaultLayerState,

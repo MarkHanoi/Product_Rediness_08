@@ -43,6 +43,9 @@ export interface DrawState {
   /** Pan offset (canvas centre + this) — lets the overlay frame the field. */
   offsetX: number;
   offsetY: number;
+  /** A.21.D34(e) — auto-fit zoom (≤1). Layout coords + radii are multiplied by
+   *  this so a large field fits the canvas. Defaults to 1 when absent. */
+  scale?: number;
 }
 
 export class LivingGraphCanvas {
@@ -62,11 +65,13 @@ export class LivingGraphCanvas {
     this.canvas.height = Math.max(1, Math.floor(h * this.dpr));
   }
 
-  /** Layout space is centred on the canvas + the overlay's pan offset. */
+  /** Layout space is centred on the canvas + the overlay's pan offset, then
+   *  scaled by the auto-fit zoom so a large field fits the panel. */
   private toScreen(n: GraphNode, st: DrawState): { x: number; y: number } {
+    const s = st.scale ?? 1;
     const cx = (this.canvas.clientWidth || 360) / 2 + st.offsetX;
     const cy = (this.canvas.clientHeight || 300) / 2 + st.offsetY;
-    return { x: cx + n.x, y: cy + n.y };
+    return { x: cx + n.x * s, y: cy + n.y * s };
   }
 
   /** Hit-test a client-space point → the nearest node within its radius. */
@@ -74,12 +79,13 @@ export class LivingGraphCanvas {
     const rect = this.canvas.getBoundingClientRect();
     const mx = clientX - rect.left;
     const my = clientY - rect.top;
+    const s = st.scale ?? 1;
     let best: GraphNode | null = null;
     let bestD = Infinity;
     for (const n of graph.nodes) {
       const p = this.toScreen(n, st);
       const d = Math.hypot(p.x - mx, p.y - my);
-      const hit = Math.max(n.radius, 14);
+      const hit = Math.max(n.radius * s, 14);
       if (d < hit && d < bestD) {
         bestD = d;
         best = n;
@@ -108,6 +114,9 @@ export class LivingGraphCanvas {
     ctx.fillRect(0, 0, W, H);
 
     const byId = new Map(graph.nodes.map((n) => [n.id, n]));
+    const s = st.scale ?? 1;
+    /** A node's ON-SCREEN radius (auto-fit zoom applied). */
+    const screenR = (n: GraphNode): number => n.radius * s;
 
     // 1) Edges — one curved, dashed stroke per ACTIVE layer the edge carries.
     ctx.lineCap = 'round';
@@ -147,9 +156,10 @@ export class LivingGraphCanvas {
     // 2) Sun halos (environmental) + acoustic rings (acoustic), under the cores.
     for (const n of graph.nodes) {
       const p = this.toScreen(n, st);
+      const r = screenR(n);
       if (active.environmental && n.sunExposure > 0.4) {
-        const haloR = n.radius + 6 + n.sunExposure * 22;
-        const g = ctx.createRadialGradient(p.x, p.y, n.radius, p.x, p.y, haloR);
+        const haloR = r + 6 + n.sunExposure * 22;
+        const g = ctx.createRadialGradient(p.x, p.y, r, p.x, p.y, haloR);
         g.addColorStop(0, `rgba(255,176,32,${0.05 + n.sunExposure * 0.22})`);
         g.addColorStop(1, 'rgba(255,176,32,0)');
         ctx.fillStyle = g;
@@ -158,7 +168,7 @@ export class LivingGraphCanvas {
         ctx.fill();
       }
       if (active.acoustic && n.noiseLevel > 0.5) {
-        const ringR = n.radius + 4 + n.noiseLevel * 8;
+        const ringR = r + 4 + n.noiseLevel * 8;
         ctx.beginPath();
         ctx.arc(p.x, p.y, ringR, 0, Math.PI * 2);
         ctx.strokeStyle = `rgba(225,75,140,${0.25 + n.noiseLevel * 0.4})`;
@@ -175,7 +185,7 @@ export class LivingGraphCanvas {
       const isFocus = st.focusedId === n.id;
       const isHover = st.hoveredId === n.id;
       ctx.beginPath();
-      ctx.arc(p.x, p.y, n.radius, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, screenR(n), 0, Math.PI * 2);
       ctx.fillStyle = ROOM_TYPE_COLOUR[n.type];
       ctx.fill();
       ctx.lineWidth = isFocus ? 3 : isHover ? 2 : 1.25;
@@ -184,32 +194,66 @@ export class LivingGraphCanvas {
     }
 
     // 4) Labels + area badge — dark text on the white field.
+    //    A.21.D34(e) — the focused/hovered node draws on TOP and shows its FULL
+    //    label; the rest are TRUNCATED to a max width (so long multi-name labels
+    //    like "Living / Dining / Bedroom 2" don't collide) and the pill is
+    //    CLAMPED inside the canvas so it never spills off the panel edge. We draw
+    //    non-strong labels first, then strong ones last so they win overlaps.
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    for (const n of graph.nodes) {
+    const drawLabel = (n: GraphNode): void => {
       const p = this.toScreen(n, st);
       const strong = st.focusedId === n.id || st.hoveredId === n.id;
       ctx.font = strong ? '600 12px system-ui, sans-serif' : '500 11px system-ui, sans-serif';
-      const ly = p.y - n.radius - 12;
-      // Label pill.
-      const text = n.label;
+      const ly = p.y - screenR(n) - 12;
+      // Strong → full label; otherwise elide to a max on-screen width.
+      const text = strong ? n.label : ellipsize(ctx, n.label, MAX_LABEL_PX);
       const tw = ctx.measureText(text).width + 12;
+      // Clamp the pill's centre so it stays fully inside the canvas.
+      const half = tw / 2;
+      const px = Math.max(half + 2, Math.min(W - half - 2, p.x));
+      const lyc = Math.max(10, ly);
       ctx.fillStyle = strong ? 'rgba(102,0,255,0.92)' : 'rgba(36,26,58,0.82)';
-      roundRect(ctx, p.x - tw / 2, ly - 8, tw, 16, 8);
+      roundRect(ctx, px - half, lyc - 8, tw, 16, 8);
       ctx.fill();
       ctx.fillStyle = '#ffffff';
-      ctx.fillText(text, p.x, ly);
-      // Area badge inside the node when it's big enough.
-      if (n.areaSqm > 0 && n.radius > 18) {
+      ctx.fillText(text, px, lyc);
+      // Area badge inside the node when it's big enough (on-screen radius).
+      if (n.areaSqm > 0 && screenR(n) > 18) {
         ctx.font = '600 10px system-ui, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.95)';
         ctx.fillText(`${n.areaSqm.toFixed(0)} m²`, p.x, p.y);
       }
+    };
+    for (const n of graph.nodes) {
+      if (st.focusedId === n.id || st.hoveredId === n.id) continue;
+      drawLabel(n);
+    }
+    for (const n of graph.nodes) {
+      if (st.focusedId === n.id || st.hoveredId === n.id) drawLabel(n);
     }
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
     ctx.restore();
   }
+}
+
+/** Max on-screen width (px) for a non-focused node label before it's elided. */
+const MAX_LABEL_PX = 96;
+
+/** Truncate `text` with an ellipsis so it fits within `maxPx` at the ctx's
+ *  current font. Returns the original when it already fits. */
+function ellipsize(ctx: CanvasRenderingContext2D, text: string, maxPx: number): string {
+  if (ctx.measureText(text).width <= maxPx) return text;
+  const ell = '…';
+  let lo = 0;
+  let hi = text.length;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (ctx.measureText(text.slice(0, mid) + ell).width <= maxPx) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo <= 0 ? ell : text.slice(0, lo).trimEnd() + ell;
 }
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
