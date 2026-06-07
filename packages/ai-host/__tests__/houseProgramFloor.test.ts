@@ -103,6 +103,71 @@ describe('§HOUSE-PLATE-PROGRAM-FLOOR — Defect 2 (one giant room)', () => {
     });
 });
 
+describe('§HOUSE-GROUND-FILL — A.21.D28 #4 (multi-storey ground = one giant room)', () => {
+    // The founder hit a live 2-storey house whose ~167.9 m² GROUND floor read as ONE
+    // room ("Living Room / Bedroom 2 / Corridor / Bathroom / Kitchen / Dining") while
+    // the UPPER floor subdivided correctly. Root cause: the multi-storey ground was
+    // left with only the sparse captured brief (growBedrooms was false there) so the
+    // frozen engine stretched a few rooms across the whole plate. The fix fills the
+    // ground plate with ground-appropriate rooms (a guest bedroom + bath) so it has
+    // real interior partitions and reads as a home.
+    const BIG_GROUND = plate(167.9, 16.79);   // the founder's live plate
+
+    it('a ~168 m² 2-storey GROUND floor from a SPARSE brief gets a real room set (≥5 rooms)', () => {
+        const r = generateHouseLayout(BIG_GROUND, SPARSE, C, W, { storeyCount: 2 });
+        // The ground floor must NOT be one (or two) giant stretched rooms.
+        expect(r.perStoreyLayout[0]!.rooms.length).toBeGreaterThanOrEqual(5);
+    });
+
+    it('a ~168 m² 2-storey GROUND floor from an EMPTY brief gets a real room set (≥5 rooms)', () => {
+        const r = generateHouseLayout(BIG_GROUND, EMPTY, C, W, { storeyCount: 2 });
+        expect(r.perStoreyLayout[0]!.rooms.length).toBeGreaterThanOrEqual(5);
+        const groundTypes = r.perStoreyLayout[0]!.rooms.map(rm => rm.type);
+        expect(groundTypes).toContain('living');
+        expect(groundTypes).toContain('kitchen');
+        // The ground gets at least one guest bedroom (a real enclosed partitioned
+        // room) so the plate isn't stretched across the public set.
+        expect(groundTypes).toContain('bedroom');
+    });
+
+    it('the multi-storey GROUND floor produces interior partition walls (≥1 non-external)', () => {
+        // Distinct rooms ⇒ shared interior walls. The merge defect produced ~0
+        // interior partitions on the ground; a real room set produces several.
+        const r = generateHouseLayout(BIG_GROUND, SPARSE, C, W, { storeyCount: 2 });
+        const interior = r.perStoreyLayout[0]!.walls.filter(w => !w.isExternal);
+        expect(interior.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('enrichStoreyProgramToPlate(growGroundRooms) fills a sparse ground plate', () => {
+        const out = enrichStoreyProgramToPlate(EMPTY, 167.9, 'ground', { growGroundRooms: true });
+        expect(out.livingRoom).toBe(true);
+        expect(out.bedrooms).toBeGreaterThanOrEqual(1);     // a guest bedroom appears
+        expect(out.bathrooms).toBeGreaterThanOrEqual(1);
+        // The master/en-suite stays UPSTAIRS — never added to the ground here.
+        expect(out.masterEnSuite).toBe(false);
+    });
+
+    it('growGroundRooms never balloons the ground past the low guest-bedroom cap', () => {
+        const out = enrichStoreyProgramToPlate(EMPTY, 1000, 'ground', { growGroundRooms: true });
+        expect(out.bedrooms).toBeLessThanOrEqual(2);        // MAX_GROUND_FILL_BEDROOMS
+    });
+
+    it('growGroundRooms keeps an ALLOCATED single guest bedroom (does not add a 2nd) for a normal brief', () => {
+        // A normal multi-bedroom house keeps its ONE ground guest bedroom; bedrooms
+        // live upstairs. The fill must not invent a second ground bedroom.
+        const groundOfFull = { ...FULL, bedrooms: 1, bathrooms: 1, masterEnSuite: false };
+        const out = enrichStoreyProgramToPlate(groundOfFull, 167.9, 'ground', { growGroundRooms: true });
+        expect(out.bedrooms).toBe(1);
+    });
+
+    it('is deterministic for the ground-fill path', () => {
+        const a = generateHouseLayout(BIG_GROUND, SPARSE, C, W, { storeyCount: 2 });
+        const b = generateHouseLayout(BIG_GROUND, SPARSE, C, W, { storeyCount: 2 });
+        expect(a.perStoreyLayout.map(o => o.rooms.length))
+            .toEqual(b.perStoreyLayout.map(o => o.rooms.length));
+    });
+});
+
 describe('§HOUSE-PLATE-PROGRAM-FLOOR — no regression on the well-formed brief', () => {
     it('the normal 3-bed 2-storey GROUND floor is unchanged (bedrooms stay upstairs)', () => {
         const r = generateHouseLayout(plate(165, 15), FULL, C, W, { storeyCount: 2 });

@@ -159,14 +159,45 @@ describe('resolveShellWindow (T1.W-C)', () => {
         expect(r).toBeNull();
     });
 
-    it('clamps a negative reversed-offset to 0', () => {
-        // Window wider than the wall in reverse → negative; clamped.
+    // §WINDOW-SHELL-CLAMP (A.21.D28 #5) — an over-wide window is no longer left at
+    // its full width with the offset merely clamped (which pushed the opening PAST
+    // the wall end — the founder's "window outside the shell"). The width is now
+    // clamped to FIT the host shell wall (minus a small end clearance) and the
+    // offset is kept strictly inside both ends.
+    it('clamps an over-wide window to fit the host shell wall (never overruns)', () => {
+        // Window 6 m wide on a 5 m wall, reversed.
         const r = resolveShellWindow(
             win({ offset: 0, width: 6000 }),     // 6 m wide, wall 5 m
             [optWall(0, 0, 5000, 0)],
             [shell('shell-1', 5, 0, 0, 0)],
         );
-        expect(r!.offsetM).toBe(0);
+        expect(r).not.toBeNull();
+        // Width clamped to wall length − 2×0.1 m end clearance.
+        expect(r!.widthM).toBeCloseTo(4.8, 6);
+        // The WHOLE opening stays on the wall: 0 ≤ offset and offset+width ≤ 5 m.
+        expect(r!.offsetM).toBeGreaterThanOrEqual(0.1 - 1e-9);
+        expect(r!.offsetM + r!.widthM).toBeLessThanOrEqual(5 + 1e-9);
+    });
+
+    it('drops a window when the host shell wall is too short for any opening', () => {
+        // A 0.3 m shell wall can't host even a minimal (0.4 m) window.
+        const r = resolveShellWindow(
+            win({ offset: 0, width: 1500 }),
+            [optWall(0, 0, 300, 0)],
+            [shell('tiny', 0, 0, 0.3, 0)],
+        );
+        expect(r).toBeNull();
+    });
+
+    it('keeps the whole opening strictly inside the wall for a normal window', () => {
+        const r = resolveShellWindow(
+            win({ offset: 1000, width: 1500 }),
+            [optWall(0, 0, 5000, 0)],
+            [shell('shell-1', 0, 0, 5, 0)],
+        );
+        expect(r).not.toBeNull();
+        expect(r!.offsetM).toBeGreaterThanOrEqual(0.1 - 1e-9);
+        expect(r!.offsetM + r!.widthM).toBeLessThanOrEqual(5 - 0.1 + 1e-9);
     });
 });
 

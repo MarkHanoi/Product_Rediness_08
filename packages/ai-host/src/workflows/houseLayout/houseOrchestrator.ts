@@ -351,12 +351,22 @@ function enumeratePerStorey(
         // apartment path never calls this.
         //
         // growBedrooms: an UPPER storey is the private level → grow bedrooms to fill
-        // it. A multi-storey GROUND floor keeps its single guest bedroom (bedrooms
-        // live upstairs) → no growth, so the normal 3-bed/2-storey case is byte-
-        // unchanged. A SINGLE-storey house carries the whole programme on the ground
-        // plate → the ground floor DOES grow bedrooms to fill.
+        // it. A SINGLE-storey house carries the whole programme on the ground plate
+        // → the ground floor DOES grow bedrooms to fill.
         const growBedrooms = sp.role === 'upper' || storeyCount <= 1;
-        const storeyProgram = enrichStoreyProgramToPlate(sp.program, usableAreaM2, sp.role, { growBedrooms });
+        // §HOUSE-GROUND-FILL (A.21.D28 #4): the GROUND floor of a MULTI-storey house
+        // is NOT the private level (bedrooms live upstairs), so it must NOT grow the
+        // full bedroom count — but the OLD behaviour left it with only the sparse
+        // captured brief, which the frozen engine stretched into ONE giant room on a
+        // large plate (the founder's "167.9 m² Living Room / Bedroom 2 / Corridor /
+        // …" merge). Fill it with GROUND-appropriate rooms (a guest bedroom + bath,
+        // capped low) so it reads as a real ground floor with real interior
+        // partitions. Distinct from growBedrooms (the heavy private-level fill); only
+        // the multi-storey ground uses this lever.
+        const growGroundRooms = sp.role === 'ground' && storeyCount > 1;
+        const storeyProgram = enrichStoreyProgramToPlate(
+            sp.program, usableAreaM2, sp.role, { growBedrooms, growGroundRooms },
+        );
 
         // §HOUSE-MAX-CAP — the ground floor's rich programme is accepted at its TRUE
         // size, but a SPARSE upper storey (e.g. one bedroom on the full plate of a

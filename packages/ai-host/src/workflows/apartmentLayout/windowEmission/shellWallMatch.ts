@@ -179,24 +179,44 @@ export function resolveShellWindow(
     const hostEndW   = planToWorld(host.end);
     const hostDir = segDir(hostStartW, hostEndW);
     const offsetM_local = win.offset / 1000;
-    const widthM = win.width / 1000;
+    const shellDir = segDir(match.shell.start, match.shell.end);
+
+    // §WINDOW-SHELL-CLAMP (A.21.D28 #5) — the matched shell wall can be SHORTER
+    // than the emitted window width: the engine sizes a window against the option's
+    // EXTERNAL wall segment (which bounds one room and may be longer than, or skewed
+    // vs, the drawn shell wall the tolerant matcher hosts it on), and the climate
+    // glazing widener (A.21.D6.3) can grow it further. Hosting an over-wide opening
+    // on a short shell wall pushes the opening PAST the wall end → the founder's
+    // "window placed outside / crossing the exterior shell line". Clamp the width to
+    // fit the host shell wall (leaving a small clearance at each end so the opening
+    // never reaches the very corner where two walls join), and DROP the window when
+    // the shell wall is too short to host even a minimal opening.
+    const MIN_WINDOW_M = 0.4;          // below this it isn't a usable window
+    const END_CLEAR_M = 0.1;           // keep clear of each wall end / corner join
+    const maxWidthM = shellDir.len - 2 * END_CLEAR_M;
+    if (maxWidthM < MIN_WINDOW_M) return null;   // shell wall can't host any window
+    const widthM = Math.min(win.width / 1000, maxWidthM);
+
     // §SHELL-MATCH-TOLERANT — project the window's CENTRE onto the matched shell
     // wall so the offset is correct even when the shell wall has different
     // endpoints/length than the option wall (the non-orthogonal tolerant case).
     // For an EXACT endpoint match this reduces to the old arithmetic, and the
     // reversed case falls out of the projection direction automatically (no
-    // separate `wallLen − offset − width` branch needed).
+    // separate `wallLen − offset − width` branch needed). The centre projection
+    // uses the (possibly clamped) widthM so a clamped window stays centred on the
+    // engine's intended position rather than drifting toward the wall start.
     const centreW = {
-        x: hostStartW.x + hostDir.x * (offsetM_local + widthM / 2),
-        z: hostStartW.z + hostDir.z * (offsetM_local + widthM / 2),
+        x: hostStartW.x + hostDir.x * (offsetM_local + (win.width / 1000) / 2),
+        z: hostStartW.z + hostDir.z * (offsetM_local + (win.width / 1000) / 2),
     };
-    const shellDir = segDir(match.shell.start, match.shell.end);
     const offsetM = projParam(centreW, match.shell.start, shellDir) - widthM / 2;
-    const maxOffsetM = Math.max(0, shellDir.len - widthM);
+    // §WINDOW-SHELL-CLAMP — the offset must keep the WHOLE opening on the wall,
+    // strictly inside both ends: offset ∈ [END_CLEAR, shellLen − width − END_CLEAR].
+    const maxOffsetM = Math.max(END_CLEAR_M, shellDir.len - widthM - END_CLEAR_M);
 
     return {
         shellWallId: match.shell.id,
-        offsetM:     Math.min(Math.max(0, offsetM), maxOffsetM),
+        offsetM:     Math.min(Math.max(END_CLEAR_M, offsetM), maxOffsetM),
         widthM,
         heightM:     win.height / 1000,
         sillM:       win.sillHeight / 1000,
