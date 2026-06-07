@@ -10,6 +10,7 @@ import {
     WINDOW_SPECS,
     type ExternalWallSegment,
     type OccupiedSpan,
+    type PartitionJunction,
 } from '../src/workflows/apartmentLayout/windowEmission/types.js';
 
 // A 5-metre-long horizontal wall starting at the origin.
@@ -275,6 +276,84 @@ describe('emitWindowsForRoom — multiple external walls per room (D5.c)', () =>
         ];
         const ws = emitWindowsForRoom('living', many);
         expect(ws.length).toBeLessThanOrEqual(4);
+    });
+});
+
+describe('emitWindowsForRoom — interior-partition avoidance (A.21.D33(d))', () => {
+    const wide = (lenMm: number, wallIndex = 0): ExternalWallSegment =>
+        ({ start: { x: 0, y: 0 }, end: { x: lenMm, y: 0 }, wallIndex });
+    const junction = (wallIndex: number, atMm: number, thicknessMm = 100): PartitionJunction =>
+        ({ wallIndex, atMm, thicknessMm });
+
+    const spanOf = (w: { offsetMm: number; widthMm: number }) =>
+        ({ lo: w.offsetMm, hi: w.offsetMm + w.widthMm });
+    // band kept clear around a junction = thickness/2 + 100 mm clearance
+    const bandOf = (j: PartitionJunction) => {
+        const half = (j.thicknessMm ?? 0) > 0 ? j.thicknessMm! / 2 + 100 : 150;
+        return { lo: j.atMm - half, hi: j.atMm + half };
+    };
+    const overlaps = (a: { lo: number; hi: number }, b: { lo: number; hi: number }) =>
+        a.lo < b.hi && a.hi > b.lo;
+
+    it('with no junctions, behaves exactly like before (centred)', () => {
+        const ws = emitWindowsForRoom('living', [wide(5000)], undefined, [], null, []);
+        expect(ws[0]!.offsetMm).toBe(1500);          // (5000 - 2000) / 2
+    });
+
+    it('offsets a window clear of a partition junction it would otherwise straddle', () => {
+        // 6 m wall; a 2 m living window centred at 2000..4000. An interior partition
+        // meets the shell at 3000 mm (dead centre) — the centred window would sit on
+        // that junction. The window must slide clear of the 100 mm-partition band.
+        const js = [junction(0, 3000, 100)];
+        const ws = emitWindowsForRoom('living', [wide(6000)], undefined, [], null, js);
+        expect(ws).toHaveLength(1);
+        const w = ws[0]!;
+        expect(overlaps(spanOf(w), bandOf(js[0]!))).toBe(false);   // window clears the junction
+        // and stays inside the wall
+        expect(w.offsetMm).toBeGreaterThanOrEqual(100);
+        expect(w.offsetMm + w.widthMm).toBeLessThanOrEqual(6000 - 100 + 1e-6);
+    });
+
+    it('uses a wider clear band for a thicker partition', () => {
+        const thick = [junction(0, 3000, 400)];   // half = 200 + 100 = 300 mm band
+        const ws = emitWindowsForRoom('living', [wide(6000)], undefined, [], null, thick);
+        expect(ws).toHaveLength(1);
+        expect(overlaps(spanOf(ws[0]!), bandOf(thick[0]!))).toBe(false);
+    });
+
+    it('drops the window when junctions leave no clear span long enough', () => {
+        // A short 2.6 m living wall (just hosts a 2 m window normally) with a junction
+        // dead-centre: there is no 2 m clear slot either side → window dropped.
+        const js = [junction(0, 1300, 100)];
+        const ws = emitWindowsForRoom('living', [wide(2600)], undefined, [], null, js);
+        expect(ws).toHaveLength(0);
+    });
+
+    it('ignores junctions on OTHER walls', () => {
+        const js = [junction(7, 2500, 100)];        // unrelated wall
+        const ws = emitWindowsForRoom('living', [wide(5000, 0)], undefined, [], null, js);
+        expect(ws[0]!.offsetMm).toBe(1500);          // unaffected → centred
+    });
+
+    it('avoids BOTH a door and a partition junction on the same wall', () => {
+        // 9 m wall: door at 2000..2900, junction at 6000.
+        const doors: OccupiedSpan[] = [{ wallIndex: 0, startMm: 2000, endMm: 2900 }];
+        const js = [junction(0, 6000, 100)];
+        const ws = emitWindowsForRoom('living', [wide(9000)], undefined, doors, null, js);
+        expect(ws.length).toBeGreaterThanOrEqual(1);
+        const dSpan = { lo: 2000, hi: 2900 };
+        for (const w of ws) {
+            expect(overlaps(spanOf(w), dSpan)).toBe(false);          // clears the door
+            expect(overlaps(spanOf(w), bandOf(js[0]!))).toBe(false); // clears the junction
+        }
+    });
+
+    it('is deterministic across runs (offsets + count)', () => {
+        const js = [junction(0, 3000, 100)];
+        const a = emitWindowsForRoom('living', [wide(6000)], undefined, [], null, js);
+        const b = emitWindowsForRoom('living', [wide(6000)], undefined, [], null, js);
+        expect(a.map(w => w.offsetMm)).toEqual(b.map(w => w.offsetMm));
+        expect(a.length).toBe(b.length);
     });
 });
 

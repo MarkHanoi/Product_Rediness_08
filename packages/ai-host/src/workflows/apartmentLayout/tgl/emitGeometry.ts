@@ -16,7 +16,7 @@ import type { LayoutOption, LayoutRoom, RoomType } from '../types.js';
 import type { GraphNode, LayoutGraph } from './semanticGraph.js';
 import { occupancyOf } from '../rules/programRules.js';
 import { emitWindowsForRoom } from '../windowEmission/emitWindows.js';
-import type { ExternalWallSegment, OccupiedSpan } from '../windowEmission/types.js';
+import type { ExternalWallSegment, OccupiedSpan, PartitionJunction } from '../windowEmission/types.js';
 
 export interface EmittedLayout {
     readonly option: LayoutOption;
@@ -190,6 +190,53 @@ export function emitGeometry(graph: LayoutGraph, opts?: EmitGeometryOpts): Emitt
         doorSpansByWall.push({ wallIndex: wRef, startMm: offMm, endMm: offMm + wMm });
     }
 
+    // A.21.D33(d) — interior-partition junctions on the SHELL walls. An INTERIOR
+    // (non-external) partition wall's endpoint can land exactly on an external shell
+    // wall where two rooms' boundary meets the perimeter — and a window emitted on
+    // that shell wall could then sit on the partition/shell junction (architecturally
+    // wrong: the partition must meet solid wall, the window must lie within one room's
+    // façade). For each external wall we record the along-wall offset of every
+    // interior-wall endpoint that touches it (within a tolerance), carrying the
+    // partition's thickness so the placer keeps the window clear of that footprint.
+    const interiorWallNodes = allWallNodes.filter(n => n.attrs.isExternal !== true);
+    const partitionJunctions: PartitionJunction[] = [];
+    // Tolerance (mm) for an interior endpoint being judged "on" the shell wall line.
+    const ON_WALL_TOL_MM = 60;
+    for (const e of graph.edges) {
+        if (e.kind !== 'BOUNDS' || !externalWalls.has(e.from)) continue;
+        const shellNode = allWallNodes.find(w => w.guid === e.from);
+        const wRef = wallIndex.get(e.from);
+        if (!shellNode || wRef === undefined) continue;
+        const bl = shellNode.geometry?.baseLine;
+        if (!bl || !bl[0] || !bl[1]) continue;
+        const sa = { x: mm(bl[0].x), y: mm(bl[0].z) };
+        const sb = { x: mm(bl[1].x), y: mm(bl[1].z) };
+        const dx = sb.x - sa.x, dy = sb.y - sa.y;
+        const len = Math.hypot(dx, dy);
+        if (len < 1e-6) continue;
+        const ux = dx / len, uy = dy / len;
+        for (const iw of interiorWallNodes) {
+            const ibl = iw.geometry?.baseLine;
+            if (!ibl || !ibl[0] || !ibl[1]) continue;
+            const thicknessMm = mm(num(iw.attrs.thickness, 0.1));
+            // Each endpoint of the interior wall: project onto the shell line; keep it
+            // when it is ON the segment (perp within tol, param within [0,len]).
+            for (const ep of [ibl[0], ibl[1]] as const) {
+                const px = mm(ep.x), py = mm(ep.z);
+                const rx = px - sa.x, ry = py - sa.y;
+                const along = rx * ux + ry * uy;                 // mm from shell start
+                const perp = Math.abs(rx * uy - ry * ux);        // mm off the line
+                if (perp > ON_WALL_TOL_MM) continue;
+                if (along < -ON_WALL_TOL_MM || along > len + ON_WALL_TOL_MM) continue;
+                partitionJunctions.push({
+                    wallIndex: wRef,
+                    atMm: Math.min(Math.max(along, 0), len),
+                    thicknessMm,
+                });
+            }
+        }
+    }
+
     const windows: LayoutOption['windows'] = [];
     for (const n of spaceNodes) {
         if (n.attrs.needsWindow !== true) continue;
@@ -203,7 +250,7 @@ export function emitGeometry(graph: LayoutGraph, opts?: EmitGeometryOpts): Emitt
         const solar = opts?.solar
             ? (() => { const c = polyCentroid(n); return { sunDir: opts.solar!.sunDir, roomCentroidMm: { x: mm(c.cx), y: mm(c.cz) }, ...(opts.solar!.weight !== undefined ? { weight: opts.solar!.weight } : {}), ...(opts.solar!.latDeg !== undefined ? { latDeg: opts.solar!.latDeg } : {}) }; })()
             : null;
-        const placements = emitWindowsForRoom(rt, externals, roomName, doorSpansByWall, solar);
+        const placements = emitWindowsForRoom(rt, externals, roomName, doorSpansByWall, solar, partitionJunctions);
         for (const p of placements) {
             windows.push({
                 wallRef:    p.wallIndex,

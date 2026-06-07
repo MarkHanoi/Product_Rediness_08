@@ -46,6 +46,7 @@ import {
     WINDOW_SPECS,
     type ExternalWallSegment,
     type OccupiedSpan,
+    type PartitionJunction,
     type WindowPlacement,
     type WindowableRoomType,
 } from './types.js';
@@ -62,6 +63,14 @@ const segLenMm = (s: ExternalWallSegment): number => {
  *  pipeline's `minClearanceM` (wallsAndDoors.ts) so windows + doors read as a
  *  deliberate, spaced façade rhythm rather than touching. */
 const WINDOW_CLEARANCE_MM = 100;
+
+/** A.21.D33(d) — fallback half-band (mm) kept clear EITHER SIDE of an interior-
+ *  partition junction when the junction carries no (or a non-positive) thickness.
+ *  Half of a 100 mm partition (50) + the WINDOW_CLEARANCE_MM (100) = 150 mm, so a
+ *  window edge never lands within the partition footprint nor right against it.
+ *  When the junction DOES carry a thickness, the engine uses thickness/2 + the
+ *  clearance instead (see `blockedSpansForJunctions`). */
+const PARTITION_HALF_BAND_MM = 150;
 
 /**
  * Door footprints on one host wall (mm, along the wall from its `start`), each
@@ -82,6 +91,26 @@ function blockedSpansFor(
             lo: Math.min(s.startMm, s.endMm) - WINDOW_CLEARANCE_MM,
             hi: Math.max(s.startMm, s.endMm) + WINDOW_CLEARANCE_MM,
         }))
+        .sort((a, b) => a.lo - b.lo);
+}
+
+/** A.21.D33(d) — blocked spans for the interior-partition junctions on
+ *  `wallIndex`. Each junction `atMm` is expanded to a clear band
+ *  `[atMm − half, atMm + half]` where `half = thicknessMm/2 + WINDOW_CLEARANCE_MM`
+ *  (falling back to `PARTITION_HALF_BAND_MM` when the junction carries no usable
+ *  thickness). A window's span must not overlap these bands → an exterior window
+ *  never sits on an interior-wall/shell junction. */
+function blockedSpansForJunctions(
+    wallIndex: number,
+    junctions: readonly PartitionJunction[],
+): BlockedSpan[] {
+    return junctions
+        .filter(j => j.wallIndex === wallIndex && Number.isFinite(j.atMm))
+        .map(j => {
+            const t = typeof j.thicknessMm === 'number' && j.thicknessMm > 0 ? j.thicknessMm : 0;
+            const half = t > 0 ? t / 2 + WINDOW_CLEARANCE_MM : PARTITION_HALF_BAND_MM;
+            return { lo: j.atMm - half, hi: j.atMm + half };
+        })
         .sort((a, b) => a.lo - b.lo);
 }
 
@@ -263,6 +292,14 @@ function nearestClearOffsetMm(
  * WINDOW_CLEARANCE_MM either side), and when no door-clear slot fits on the
  * longest wall the engine falls through to the next-longest qualifying wall.
  * Omit / pass [] to disable door avoidance (legacy + unit-test callers).
+ *
+ * `partitionJunctions` (A.21.D33(d) — interior-partition avoidance): points where
+ * an INTERIOR partition meets a SHELL wall bounding this room. The window is kept
+ * clear of each junction's footprint band (≥ partition-half-thickness + clearance)
+ * exactly like a door, so an exterior window never sits on an interior-wall/shell
+ * junction and always lies within ONE room's façade. When a junction crowds a wall
+ * so no clear slot fits, the window is dropped / the engine falls through, reusing
+ * the A.21.D28 #5 width-clamp + drop discipline. Omit / pass [] to disable.
  */
 export function emitWindowsForRoom(
     roomType: RoomType,
@@ -274,6 +311,12 @@ export function emitWindowsForRoom(
     // over a marginally longer wrong-facing one. Absent / null → pure length (no
     // regression: the multiplier is 1, so the score order is identical).
     solar?: SolarBias | null,
+    // A.21.D33(d) — interior-partition junctions on the SHELL walls bounding this
+    // room. The window placer keeps each emitted window CLEAR of these points so an
+    // exterior façade window never sits where an interior partition meets the shell
+    // (the window stays within ONE room's façade, not straddling the partition).
+    // Omit / pass [] to disable (legacy + unit-test callers — no behaviour change).
+    partitionJunctions: readonly PartitionJunction[] = [],
 ): readonly WindowPlacement[] {
     if (!isWindowable(roomType)) return [];
     if (externalWalls.length === 0) return [];
@@ -333,7 +376,13 @@ export function emitWindowsForRoom(
                 heightMm = Math.round(spec.heightMm * factor);
             }
         }
-        const blocked = blockedSpansFor(cand.w.wallIndex, occupied);
+        // A.21.D33(d) — doors AND interior-partition junctions are both treated as
+        // blocked spans: the placer slides/drops windows clear of either. Merged so a
+        // window is kept off a door footprint AND off any partition-to-shell junction.
+        const blocked = [
+            ...blockedSpansFor(cand.w.wallIndex, occupied),
+            ...blockedSpansForJunctions(cand.w.wallIndex, partitionJunctions),
+        ].sort((a, b) => a.lo - b.lo);
         // How many windows this wall can host, capped by the remaining room budget.
         const remaining = MAX_WINDOWS_PER_ROOM - out.length;
         const wantOnWall = Math.min(remaining, windowCountForWall(wallLenMm, widthMm));
