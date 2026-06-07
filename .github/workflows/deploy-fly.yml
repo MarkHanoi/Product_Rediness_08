@@ -17,10 +17,11 @@
 name: Deploy to Fly.io
 
 on:
-  # §A.10.i — MANUAL-ONLY (deploy HELD for founder go; D29 wave staged on main).
-  # To ship v40: re-add `push: branches:[main]` (§A.10.p) and push, OR run this
-  # workflow manually from the Actions tab. Builds on the 16GB runner WITH the
-  # VITE_CESIUM_TOKEN secret (real 3D-Tiles globe) when that secret is set.
+  # §A.10.q — PUSH-DEPLOY re-enabled (repo PUBLIC) to ship v40 (A.21.D29 + D28 #7/#9).
+  # Builds on the 16GB runner WITH the VITE_CESIUM_TOKEN secret (real 3D-Tiles globe)
+  # when set. Revert to manual-only (§A.10.i) before going private again.
+  push:
+    branches: [main]
   workflow_dispatch:
 
 # Latest-wins: a newer push to main cancels an older in-flight deploy so prod
