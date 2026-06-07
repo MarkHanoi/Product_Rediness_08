@@ -968,6 +968,31 @@ export class HouseLayoutExecutor {
                         }, { levelIds: allLevelIds, totalElementCount: totalItems, skipRedetectRooms: false });
                     } catch (e) { console.warn('[house-layout] openings+boundaries batch failed (non-fatal):', e); }
                     console.log('[house-layout] openings + boundaries dispatched —', totalItems, 'item(s) across', perStorey.length, 'storey(s)');
+
+                    // §A.21.D28 — flush the wall meshes for the openings just added.
+                    // Same defect as the apartment path: the opening batch overlaps the
+                    // preceding wall batch's §BATCH-BUS-DISCARD window, so each opening's
+                    // implicit `addOpening → emit('update')` rebuild signal is dropped —
+                    // openings land in the data but wall bodies stay solid until a manual
+                    // edit forces a whole-level rebuild. Re-queue every host wall for an
+                    // EXPLICIT rebuild from current store data (the manual-WindowTool
+                    // path), deferred so it runs after this batch's discard window restores.
+                    const openingWallIds = [...new Set(
+                        perStorey.flatMap(s => [
+                            ...s.set.openingCommands.map(op => (op.payload as { wallId: string }).wallId),
+                            ...s.set.shellWindowOpeningCommands.map(op => (op.payload as { wallId: string }).wallId),
+                        ]),
+                    )];
+                    if (openingWallIds.length > 0) {
+                        // Deferred past the openings batch's (short, wall-free) drain so the
+                        // §BATCH-BUS-DISCARD window has restored and the explicit rebuild's
+                        // builds run synchronously rather than being re-queued by isBatching.
+                        setTimeout(() => {
+                            try {
+                                window.__wallRebuildControl?.rebuildWalls?.(openingWallIds);
+                            } catch (e) { console.warn('[house-layout] §A.21.D28 rebuildWalls failed (non-fatal):', e); }
+                        }, 250);
+                    }
                 } finally {
                     // Give the room redetect (kicked by the batch above) a brief
                     // settle window before the post-gen chain starts reading rooms.
