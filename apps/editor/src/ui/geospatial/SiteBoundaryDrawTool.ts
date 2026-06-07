@@ -15,6 +15,7 @@ import type * as CesiumNS from 'cesium';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import {
     buildBoundaryFromLatLonRing,
+    latLonToSceneXZ,
     type LatLon,
 } from '../site/boundaryProjection.js';
 import { resolveSiteContext, dispatchParcelBoundary, dispatchSiteLocation } from '../site/siteDispatch.js';
@@ -49,6 +50,10 @@ export class SiteBoundaryDrawTool {
     private readonly vertexEntities: CesiumNS.Entity[] = [];
     private lineEntity: CesiumNS.Entity | null = null;
     private active = false;
+    // A.21.D9 — pooled dimension-label entities (one per placed edge + the live
+    // segment) and the current cursor lat/lon for the in-progress edge.
+    private readonly dimEntities: CesiumNS.Entity[] = [];
+    private cursorLL: LatLon | null = null;
 
     constructor(deps: SiteBoundaryDrawToolDeps) {
         this.viewer = deps.viewer;
@@ -80,6 +85,12 @@ export class SiteBoundaryDrawTool {
         this.handler.setInputAction(
             () => this.commit(),
             C.ScreenSpaceEventType.LEFT_DOUBLE_CLICK,
+        );
+        // A.21.D9 — track the cursor surface point so the in-progress edge shows a
+        // live length label (last placed vertex → cursor) as the mouse moves.
+        this.handler.setInputAction(
+            (movement: { endPosition: CesiumNS.Cartesian2 }) => this.onMouseMove(movement.endPosition),
+            C.ScreenSpaceEventType.MOUSE_MOVE,
         );
 
         this.keyListener = (e: KeyboardEvent) => {
@@ -128,7 +139,17 @@ export class SiteBoundaryDrawTool {
         this.vertices.push(ll);
         this.addVertexMarker(ll);
         this.refreshLine();
+        this.refreshDimLabels();
         console.log(`[gis] boundary-draw: vertex ${this.vertices.length} @ ${ll.lat.toFixed(6)}, ${ll.lon.toFixed(6)}`);
+    }
+
+    /** A.21.D9 — update the live cursor point + in-progress edge label. */
+    private onMouseMove(position: CesiumNS.Cartesian2): void {
+        if (!this.active) return;
+        const ll = this.pickLatLon(position);
+        if (!ll) return;
+        this.cursorLL = ll;
+        this.refreshDimLabels();
     }
 
     private addVertexMarker(ll: LatLon): void {
@@ -169,6 +190,63 @@ export class SiteBoundaryDrawTool {
                 material: C.Color.fromCssColorString(VIOLET_CSS),
             },
         });
+        this.viewer.scene.requestRender();
+    }
+
+    /**
+     * A.21.D9 — render the live edge-dimension labels: one violet chip at the
+     * midpoint of each placed edge, plus a live label on the in-progress segment
+     * (last vertex → cursor). Reuses the boundary's projection (latLonToSceneXZ)
+     * for the metres math. Pooled entities are reused; surplus are hidden.
+     */
+    private refreshDimLabels(): void {
+        const C = this.Cesium;
+        const segs: Array<{ a: LatLon; b: LatLon }> = [];
+        const n = this.vertices.length;
+        // Placed edges; once ≥3 vertices, also label the closing edge (last→first).
+        const placedEdges = n >= 3 ? n : Math.max(0, n - 1);
+        for (let i = 0; i < placedEdges; i++) {
+            segs.push({ a: this.vertices[i]!, b: this.vertices[(i + 1) % n]! });
+        }
+        // Live in-progress segment: last vertex → cursor.
+        if (n >= 1 && this.cursorLL) {
+            segs.push({ a: this.vertices[n - 1]!, b: this.cursorLL });
+        }
+
+        // Grow the entity pool to cover every segment.
+        while (this.dimEntities.length < segs.length) {
+            const ent = this.viewer.entities.add({
+                position: C.Cartesian3.fromDegrees(0, 0),
+                label: {
+                    text: '',
+                    font: '600 14px system-ui, sans-serif',
+                    fillColor: C.Color.fromCssColorString(VIOLET_CSS),
+                    showBackground: true,
+                    backgroundColor: C.Color.WHITE.withAlpha(0.92),
+                    backgroundPadding: new C.Cartesian2(7, 4),
+                    style: C.LabelStyle.FILL,
+                    horizontalOrigin: C.HorizontalOrigin.CENTER,
+                    verticalOrigin: C.VerticalOrigin.CENTER,
+                    disableDepthTestDistance: Number.POSITIVE_INFINITY,
+                    heightReference: C.HeightReference.CLAMP_TO_GROUND,
+                },
+            });
+            this.dimEntities.push(ent);
+        }
+        // Fill + position the chips we need; hide the surplus.
+        for (let i = 0; i < this.dimEntities.length; i++) {
+            const ent = this.dimEntities[i]!;
+            const label = ent.label!;
+            const seg = segs[i];
+            if (!seg) { label.show = new C.ConstantProperty(false); continue; }
+            const metres = edgeMetres(seg.a, seg.b);
+            if (metres < 0.05) { label.show = new C.ConstantProperty(false); continue; }
+            label.show = new C.ConstantProperty(true);
+            label.text = new C.ConstantProperty(`${metres.toFixed(1)} m`);
+            ent.position = new C.ConstantPositionProperty(
+                C.Cartesian3.fromDegrees((seg.a.lon + seg.b.lon) / 2, (seg.a.lat + seg.b.lat) / 2),
+            );
+        }
         this.viewer.scene.requestRender();
     }
 
@@ -252,9 +330,24 @@ export class SiteBoundaryDrawTool {
             this.viewer.entities.remove(this.lineEntity);
             this.lineEntity = null;
         }
+        // A.21.D9 — remove pooled dimension-label entities + reset the cursor.
+        for (const ent of this.dimEntities) this.viewer.entities.remove(ent);
+        this.dimEntities.length = 0;
+        this.cursorLL = null;
         this.vertices.length = 0;
         this.viewer.scene.requestRender();
     }
+}
+
+/**
+ * A.21.D9 — Euclidean length (metres) of a lat/lon segment via the boundary's
+ * own local-equirectangular projection (latLonToSceneXZ). Projecting both
+ * endpoints about `a` gives the same length as any common origin at parcel scale.
+ */
+function edgeMetres(a: LatLon, b: LatLon): number {
+    const pa = latLonToSceneXZ(a, a.lat, a.lon); // → {0,0}
+    const pb = latLonToSceneXZ(b, a.lat, a.lon);
+    return Math.hypot(pb.x - pa.x, pb.z - pa.z);
 }
 
 /** Absolute shoelace area of an XZ ring (m²) — for the commit toast. */

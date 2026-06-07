@@ -34,6 +34,7 @@
 
 import maplibregl, {
     Map as MapLibreMap,
+    Marker as MapLibreMarker,
     type MapMouseEvent,
     type StyleSpecification,
     type GeoJSONSource,
@@ -45,6 +46,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import {
     buildBoundaryFromLatLonRing,
+    latLonToSceneXZ,
     type LatLon,
 } from '../site/boundaryProjection.js';
 import { resolveSiteContext, dispatchParcelBoundary, dispatchSiteLocation } from '../site/siteDispatch.js';
@@ -90,6 +92,51 @@ const SNAP_QUERY_HALF_PX = 14;
 /** The building fill layer ids we probe for footprint geometry (flat + 3D +
  *  the MAP-DATA-OVERTURE richer OSM/Overture context overlay). */
 const BUILDING_QUERY_LAYERS = ['buildings-fill', 'buildings-3d', CONTEXT_BUILDINGS_FILL_LAYER];
+
+// ── A.21.D9 — live edge-dimension labels ─────────────────────────────────────
+// Founder ask ("when defining the boundaries could add dimensions?"): show each
+// edge's length in metres at its midpoint AS the user draws, including a live
+// label on the in-progress segment from the last placed vertex to the cursor.
+// Lengths reuse the SAME local-equirectangular projection the area readout uses
+// (latLonToSceneXZ): project both endpoints about a per-edge origin and take the
+// Euclidean XZ distance — invariant to the origin choice at parcel scale.
+const VIOLET_TEXT = '#6600FF';
+
+/** Euclidean length (metres) of a lat/lon segment via the boundary projection. */
+function edgeMetres(a: LatLon, b: LatLon): number {
+    // Project both endpoints about `a` (any common origin gives the same length).
+    const pa = latLonToSceneXZ(a, a.lat, a.lon); // → {0,0}
+    const pb = latLonToSceneXZ(b, a.lat, a.lon);
+    return Math.hypot(pb.x - pa.x, pb.z - pa.z);
+}
+
+/** Geographic midpoint (good enough at parcel scale) of two lat/lon points. */
+function midLatLon(a: LatLon, b: LatLon): [number, number] {
+    return [(a.lon + b.lon) / 2, (a.lat + b.lat) / 2];
+}
+
+/** Format a length in metres to a sensible precision (1 decimal). */
+function fmtMetres(m: number): string {
+    return `${m.toFixed(1)} m`;
+}
+
+/** Build a brand-styled dimension chip element (white bg, violet text, no black). */
+function makeDimChip(): HTMLDivElement {
+    const el = document.createElement('div');
+    Object.assign(el.style, {
+        background: 'rgba(255,255,255,0.95)',
+        border: `1px solid ${VIOLET_TEXT}`,
+        borderRadius: '6px',
+        padding: '2px 7px',
+        font: '600 12px/1.2 system-ui, sans-serif',
+        color: VIOLET_TEXT,
+        whiteSpace: 'nowrap',
+        boxShadow: '0 1px 4px rgba(60,52,40,0.22)',
+        pointerEvents: 'none',
+        userSelect: 'none',
+    } satisfies Partial<CSSStyleDeclaration>);
+    return el;
+}
 
 /** A resolved snap target: the lng/lat to commit + what kind of feature it is. */
 interface SnapTarget {
@@ -297,6 +344,15 @@ export function mountSiteBoundaryMap2D(
     // the raw lngLat). Updated on every mousemove while drawing.
     let snapTarget: SnapTarget | null = null;
 
+    // A.21.D9 — pooled HTML markers for the edge-dimension labels. Index 0..n-1
+    // are the PLACED edges (vertex i → i+1, wrapping); the last marker (when a
+    // cursor position is known) is the LIVE segment (last vertex → cursor). We
+    // grow the pool as needed and hide the surplus rather than re-creating chips
+    // on every pointermove.
+    const dimMarkers: MapLibreMarker[] = [];
+    // The current cursor lng/lat (raw or snapped) for the live in-progress edge.
+    let cursorLL: LatLon | null = null;
+
     // MAP-DATA-OVERTURE — context-building fetch state. We fetch the richer OSM
     // footprints for the current map centre and feed them into the geojson source
     // (CONTEXT_BUILDINGS_SOURCE). `ctxAbort` cancels an in-flight fetch on a new
@@ -373,6 +429,51 @@ export function mountSiteBoundaryMap2D(
     function refreshRing(): void {
         const src = map.getSource(RING_SOURCE) as GeoJSONSource | undefined;
         if (src) src.setData(ringFeatureCollection());
+        refreshDimLabels();
+    }
+
+    /**
+     * A.21.D9 — render the live edge-dimension labels. One violet chip at the
+     * midpoint of every PLACED edge, plus (while drawing, with a known cursor) a
+     * chip on the in-progress segment from the last vertex to the cursor. Pooled
+     * markers are reused; surplus chips are detached. Once committed (frozen) only
+     * the placed edges are shown — no live cursor segment.
+     */
+    function refreshDimLabels(): void {
+        if (disposed) return;
+        // Build the list of segments to label: placed edges + the live segment.
+        const segs: Array<{ a: LatLon; b: LatLon }> = [];
+        const n = vertices.length;
+        // Placed edges. When the ring is "closed" (≥3 vertices) we label the
+        // closing edge (last → first) too so every drawn edge has a dimension.
+        const placedEdges = n >= 3 ? n : Math.max(0, n - 1);
+        for (let i = 0; i < placedEdges; i++) {
+            segs.push({ a: vertices[i]!, b: vertices[(i + 1) % n]! });
+        }
+        // Live in-progress segment: last placed vertex → cursor (draw mode only).
+        if (!committed && n >= 1 && cursorLL) {
+            segs.push({ a: vertices[n - 1]!, b: cursorLL });
+        }
+
+        // Grow the marker pool to cover every segment.
+        while (dimMarkers.length < segs.length) {
+            const m = new MapLibreMarker({ element: makeDimChip(), anchor: 'center' });
+            m.setLngLat([0, 0]).addTo(map);
+            dimMarkers.push(m);
+        }
+        // Position + fill the chips we need; hide the surplus.
+        for (let i = 0; i < dimMarkers.length; i++) {
+            const marker = dimMarkers[i]!;
+            const el = marker.getElement();
+            const seg = segs[i];
+            if (!seg) { el.style.display = 'none'; continue; }
+            const metres = edgeMetres(seg.a, seg.b);
+            // Skip a zero-length live segment (cursor sitting on the last vertex).
+            if (metres < 0.05) { el.style.display = 'none'; continue; }
+            el.style.display = '';
+            el.textContent = fmtMetres(metres);
+            marker.setLngLat(midLatLon(seg.a, seg.b));
+        }
     }
 
     function installRingLayers(): void {
@@ -630,6 +731,12 @@ export function mountSiteBoundaryMap2D(
         // A.8.c.g — not dragging: resolve a snap target under the cursor and show
         // (or hide) the violet snap indicator. Lightweight — one small box query.
         const next = resolveSnap(e.point);
+        // A.21.D9 — track the cursor (snapped position when a snap is active, else
+        // the raw lngLat) so the live in-progress edge label follows the pointer.
+        cursorLL = next
+            ? { lat: next.lat, lon: next.lon }
+            : { lat: e.lngLat.lat, lon: e.lngLat.lng };
+        refreshDimLabels();
         const changed =
             (next === null) !== (snapTarget === null) ||
             (next !== null && snapTarget !== null &&
@@ -729,7 +836,11 @@ export function mountSiteBoundaryMap2D(
         window.removeEventListener('keydown', keyListener);
         // Clear any lingering snap indicator + draw cursor.
         snapTarget = null;
+        // A.21.D9 — drop the live in-progress edge label; keep the placed-edge
+        // dimensions so the committed boundary still reads its lengths.
+        cursorLL = null;
         try { refreshSnapIndicator(); } catch { /* style may be swapping */ }
+        try { refreshDimLabels(); } catch { /* style may be swapping */ }
         try { map.getCanvas().style.cursor = ''; } catch { /* ignore */ }
         // Freeze the chrome: the instruction chip + close (×) no longer apply (the
         // overlay is now a passive backdrop for the confirm step). Hide them so the
@@ -793,6 +904,9 @@ export function mountSiteBoundaryMap2D(
         if (disposed) return;
         disposed = true;
         window.removeEventListener('keydown', keyListener);
+        // A.21.D9 — remove all pooled dimension-label markers.
+        for (const m of dimMarkers) { try { m.remove(); } catch { /* ignore */ } }
+        dimMarkers.length = 0;
         // MAP-DATA-OVERTURE — cancel any in-flight context fetch + pending debounce.
         try { ctxAbort?.abort(); } catch { /* ignore */ }
         if (ctxDebounce) { clearTimeout(ctxDebounce); ctxDebounce = null; }
