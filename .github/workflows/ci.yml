@@ -167,6 +167,79 @@ jobs:
       # it (works on localhost only). It must load from /app-shell-boot.js.
       - run: pnpm run check:app-shell-csp
 
+  a11y:
+    name: Accessibility (axe-core WCAG 2.2 AA — REPORT-ONLY / advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # ─────────────────────────────────────────────────────────────────────
+    # REPORT-ONLY (advisory) on purpose. This job runs the dynamic axe-core
+    # WCAG 2.2 AA check (tests/browser-matrix/tests/wcag.spec.ts) against a
+    # booted instance of the app and reports serious/critical violations,
+    # but it MUST NOT block the merge today.
+    #
+    # DEFERRED FOUNDER DECISION: flipping this to a hard merge gate (i.e.
+    # removing `continue-on-error: true` and adding `a11y` to the required
+    # status checks in Settings → Branches → main) is intentionally NOT done
+    # here. Do that only once the boot route is clean of serious/critical
+    # violations and the founder signs off (Phase A tracker A.32.β).
+    # ─────────────────────────────────────────────────────────────────────
+    continue-on-error: true
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pryzm
+          POSTGRES_PASSWORD: pryzm
+          POSTGRES_DB: pryzm
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pryzm"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Install only the chromium browser + its OS deps (the a11y spec runs the
+      # chromium project only — see test:a11y in tests/browser-matrix).
+      - name: Install Playwright chromium
+        run: pnpm --filter @pryzm/test-browser-matrix exec playwright install --with-deps chromium
+      # Build + boot the real app so axe-core runs against the actual boot route.
+      - name: Build the app
+        run: pnpm run build
+      - name: Boot the server and wait for readiness
+        run: |
+          NODE_ENV=production PORT=5000 \
+            SESSION_SECRET=ci-a11y-secret-not-for-production \
+            DATABASE_URL="postgresql://pryzm:pryzm@127.0.0.1:5432/pryzm" \
+            SUPABASE_DB_URL="postgresql://pryzm:pryzm@127.0.0.1:5432/pryzm" \
+            node server.js &
+          echo "Waiting up to ~90s for /api/health/ready..."
+          for i in $(seq 1 45); do
+            if curl -fsS http://127.0.0.1:5000/api/health/ready >/dev/null 2>&1; then
+              echo "✅ server ready"; exit 0
+            fi
+            sleep 2
+          done
+          echo "❌ server never became ready"; exit 1
+      - name: Run axe-core WCAG 2.2 AA check (advisory)
+        env:
+          PRYZM_BASE_URL: http://127.0.0.1:5000
+        run: pnpm --filter @pryzm/test-browser-matrix run test:a11y
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: a11y-playwright-report
+          path: tests/browser-matrix/playwright-report
+          if-no-files-found: ignore
+
   docker-image:
     name: Fly image — build + boot smoke (Dockerfile parity, A.17.x.11)
     runs-on: ubuntu-latest
