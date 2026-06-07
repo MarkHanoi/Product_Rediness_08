@@ -84,6 +84,10 @@ export class BottomActionMenu {
     private readonly _slabModePicker = new SlabModePicker();
     private readonly _originalVisibility = new Map<THREE.Object3D, boolean>();
     private readonly _levelOriginalY = new Map<THREE.Object3D, number>();
+    // A.21.D33(b): animation target Y per level root, held in a side Map instead of
+    // mutating root.userData — some level roots have a frozen/non-extensible userData
+    // (Object.freeze / readonly store record), so assigning a new property threw.
+    private readonly _levelTargetY = new Map<THREE.Object3D, number>();
     private readonly _visibleElementIds = new Set<string>();
     private readonly _savedLightIntensities = new Map<THREE.Light, number>();
     private _savedBackground: THREE.Color | THREE.Texture | null | undefined;
@@ -816,7 +820,7 @@ export class BottomActionMenu {
             const targetOffset = this._levelMode === 'exploded' ? group.index * EXPLODE_GAP : 0;
             for (const root of group.roots) {
                 if (!this._levelOriginalY.has(root)) this._levelOriginalY.set(root, root.position.y);
-                (root as any).userData.bamTargetY = (this._levelOriginalY.get(root) ?? root.position.y) + targetOffset;
+                this._levelTargetY.set(root, (this._levelOriginalY.get(root) ?? root.position.y) + targetOffset);
             }
         }
         this._startLevelAnimation();
@@ -827,6 +831,7 @@ export class BottomActionMenu {
         if (this._raf !== null) { this._raf(); this._raf = null; }
         for (const [obj, y] of this._levelOriginalY) obj.position.y = y;
         this._levelOriginalY.clear();
+        this._levelTargetY.clear();
     }
 
     private _startLevelAnimation(): void {
@@ -838,7 +843,7 @@ export class BottomActionMenu {
         const tick = () => {
             let done = true;
             for (const obj of this._levelOriginalY.keys()) {
-                const target = Number((obj as any).userData.bamTargetY ?? obj.position.y);
+                const target = this._levelTargetY.get(obj) ?? obj.position.y;
                 const next = THREE.MathUtils.lerp(obj.position.y, target, 0.22);
                 if (Math.abs(next - target) > 0.002) done = false;
                 obj.position.y = Math.abs(next - target) <= 0.002 ? target : next;
