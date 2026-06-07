@@ -129,6 +129,10 @@ export class LivingGraphOverlay {
   private dragDY = 0;
   private posRight = 24;
   private posBottom = 24;
+  // §A.21.D33(g) — once the panel has been re-anchored from right/bottom to
+  // top/left (so the bottom-right resize grip grows it down-and-right) we stay
+  // top/left-anchored. The header drag-move switches to top/left too.
+  private anchoredTopLeft = false;
 
   // ── Lifecycle ───────────────────────────────────────────────────────────────
 
@@ -183,30 +187,35 @@ export class LivingGraphOverlay {
     this.wireRebuilt();
   }
 
-  /** §A.21.D28 #11 — a top-left drag grip that resizes the panel. The panel is
-   *  anchored bottom-right, so growing width + the canvas height expands it
-   *  up-and-left into the viewport. Drag left = wider; drag up = taller graph. */
+  /** §A.21.D33(g) — a BOTTOM-RIGHT drag grip that resizes the panel (the
+   *  conventional spot). The panel is RE-ANCHORED to top/left on first show (see
+   *  {@link reanchorToTopLeft}) so a bottom-right grip grows it naturally
+   *  down-and-right INTO the viewport — never off-screen. Drag right = wider;
+   *  drag down = taller graph. */
   private buildResizeGrip(canvas: HTMLCanvasElement): HTMLElement {
     const grip = document.createElement('div');
     grip.setAttribute('data-testid', 'living-graph-resize-grip');
     grip.title = 'Drag to resize';
     Object.assign(grip.style, {
       position: 'absolute',
-      top: '0',
-      left: '0',
+      bottom: '0',
+      right: '0',
       width: '16px',
       height: '16px',
       cursor: 'nwse-resize',
-      // two faint diagonal ticks so the grip reads as a handle
+      // two faint diagonal ticks (mirrored to read as a bottom-right handle)
       background:
-        'linear-gradient(135deg, transparent 0 5px, rgba(102,0,255,0.55) 5px 6px, transparent 6px 9px, rgba(102,0,255,0.55) 9px 10px, transparent 10px)',
-      borderTopLeftRadius: '16px',
+        'linear-gradient(315deg, transparent 0 5px, rgba(102,0,255,0.55) 5px 6px, transparent 6px 9px, rgba(102,0,255,0.55) 9px 10px, transparent 10px)',
+      borderBottomRightRadius: '16px',
       zIndex: '2',
     } satisfies Partial<CSSStyleDeclaration>);
 
     grip.addEventListener('pointerdown', (e: PointerEvent) => {
       e.preventDefault();
       e.stopPropagation();
+      // Re-anchor to top/left so growing down-and-right is correct (and never
+      // pushes the panel off-screen). Idempotent — no-op after the first time.
+      this.reanchorToTopLeft();
       const startX = e.clientX;
       const startY = e.clientY;
       const startW = this.root?.offsetWidth ?? 380;
@@ -214,8 +223,9 @@ export class LivingGraphOverlay {
       try { grip.setPointerCapture(e.pointerId); } catch { /* non-fatal */ }
 
       const onMove = (ev: PointerEvent): void => {
-        const w = Math.max(320, Math.min(900, startW + (startX - ev.clientX)));
-        const h = Math.max(200, Math.min(720, startH + (startY - ev.clientY)));
+        // Drag right (dx>0) = wider; drag down (dy>0) = taller graph.
+        const w = Math.max(320, Math.min(900, startW + (ev.clientX - startX)));
+        const h = Math.max(200, Math.min(720, startH + (ev.clientY - startY)));
         if (this.root) this.root.style.width = `${w}px`;
         canvas.style.height = `${h}px`;
         this.renderer?.resize();
@@ -231,6 +241,26 @@ export class LivingGraphOverlay {
     });
 
     return grip;
+  }
+
+  /**
+   * §A.21.D33(g) — RE-ANCHOR the panel from its initial `right`/`bottom`
+   * (screen-corner) anchoring to `top`/`left` computed from the live bounding
+   * rect, so a bottom-right resize grip grows it down-and-right into the
+   * viewport. Idempotent: once anchored top/left we never re-read. The panel
+   * keeps its exact on-screen position — only the CSS anchor edges change.
+   */
+  private reanchorToTopLeft(): void {
+    if (!this.root) return;
+    if (this.anchoredTopLeft) return;
+    const rect = this.root.getBoundingClientRect();
+    Object.assign(this.root.style, {
+      left: `${Math.max(0, Math.round(rect.left))}px`,
+      top: `${Math.max(0, Math.round(rect.top))}px`,
+      right: 'auto',
+      bottom: 'auto',
+    } satisfies Partial<CSSStyleDeclaration>);
+    this.anchoredTopLeft = true;
   }
 
   private buildHeader(): HTMLElement {
@@ -892,7 +922,17 @@ export class LivingGraphOverlay {
     if (!this.dragging || !this.root) return;
     const left = ev.clientX - this.dragDX;
     const top = ev.clientY - this.dragDY;
-    // Convert to right/bottom so it stays anchored to the corner on resize.
+    if (this.anchoredTopLeft) {
+      // §A.21.D33(g) — once re-anchored (after a bottom-right resize), move via
+      // top/left so the resize grow-direction stays correct and consistent.
+      const l = Math.max(0, Math.min(window.innerWidth - this.root.offsetWidth, left));
+      const t = Math.max(0, Math.min(window.innerHeight - this.root.offsetHeight, top));
+      this.root.style.left = `${l}px`;
+      this.root.style.top = `${t}px`;
+      return;
+    }
+    // Default (pre-resize) anchoring: convert to right/bottom so it stays pinned
+    // to the screen corner on viewport resize.
     this.posRight = Math.max(0, window.innerWidth - left - this.root.offsetWidth);
     this.posBottom = Math.max(0, window.innerHeight - top - this.root.offsetHeight);
     this.root.style.right = `${this.posRight}px`;
