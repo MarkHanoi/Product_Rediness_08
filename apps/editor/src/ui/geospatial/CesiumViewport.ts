@@ -30,9 +30,18 @@ import { windRoseBars } from "../climate/climateChartData";
 // The fallback below is a legacy dev token — it will be removed in a future
 // release once all environments have the env var configured.
 const _cesiumToken = import.meta.env.VITE_CESIUM_TOKEN as string | undefined;
+// GIS-CESIUM-GOOGLE-KEY (A.21.D31) — SECOND credential path for real photoreal
+// 3D tiles. A Google Maps Platform API key streams the SAME Google Photorealistic
+// 3D Tiles directly (via `createGooglePhotorealistic3DTileset`) WITHOUT needing a
+// Cesium ion token. The ion-asset path (asset 2275207) can be finicky to set up;
+// a Google key is a common, founder-friendly alternative. Either credential
+// unlocks the real-tiles path; with NEITHER we keep the keyless Forma/ESRI globe.
+// Set VITE_GOOGLE_MAPS_KEY in .env.local (never commit that file).
+const _googleMapsKey = import.meta.env.VITE_GOOGLE_MAPS_KEY as string | undefined;
 console.log(
-    `[gis][cesium] VITE_CESIUM_TOKEN ${_cesiumToken ? 'PRESENT' : 'ABSENT'} — ` +
-    `${_cesiumToken ? 'photoreal globe path available' : 'forcing Forma flat-ground (no photoreal globe)'}.`
+    `[gis][cesium] VITE_CESIUM_TOKEN ${_cesiumToken ? 'PRESENT' : 'ABSENT'}, ` +
+    `VITE_GOOGLE_MAPS_KEY ${_googleMapsKey ? 'PRESENT' : 'ABSENT'} — ` +
+    `${(_cesiumToken || _googleMapsKey) ? 'photoreal globe path available' : 'forcing Forma flat-ground (no photoreal globe)'}.`
 );
 if (!_cesiumToken) {
     console.warn(
@@ -476,27 +485,26 @@ export class CesiumViewport {
       }
 
       // ----------------------------
-      // 🌎 Google Photorealistic 3D Tiles — ONLY on the token/photoreal path
+      // 🌎 Google Photorealistic 3D Tiles — TWO credential paths (A.21.D31)
       // ----------------------------
       // GIS-CESIUM-NOTOKEN-IMAGERY: `fromIonAssetId` streams the Google tiles via
       // the ion CDN and pulls https://tile.googleapis.com. On the FREE Forma path
-      // (no token) the call would only fail (the hardcoded dev token can't unlock
-      // a Google-linked asset) while still emitting CSP-blocked googleapis
-      // requests — pure noise. So we SKIP it entirely without a token; the Forma
-      // massing scene needs no photogrammetry. With a token present we load it as
-      // before (googleapis allowlisted in connect-src for this path).
+      // (no credential) the call would only fail (the hardcoded dev token can't
+      // unlock a Google-linked asset) while still emitting CSP-blocked googleapis
+      // requests — pure noise. So we SKIP it entirely without a credential; the
+      // Forma massing scene needs no photogrammetry.
+      //
+      // GIS-CESIUM-GOOGLE-KEY: a Google Maps Platform API key streams the SAME
+      // Google Photorealistic 3D Tiles directly (no ion account needed) via
+      // `Cesium.createGooglePhotorealistic3DTileset`. We feature-detect the API
+      // because the option-bag signature (`{ key }`) is the modern form; older
+      // Cesium builds took a positional `key` argument.
+      //
+      // Branch order: ion token → google key → keyless fallback.
       let photogrammetryLoaded = false;
 
-      if (!photorealAvailable) {
-        console.log(
-          '[gis][cesium] no token → Google Photorealistic 3D Tiles SKIPPED (no tile.googleapis.com requests).'
-        );
-      } else try {
-        const tileset = await Cesium.Cesium3DTileset.fromIonAssetId(
-          2275207 // Google Photorealistic 3D Tiles
-        );
-
-        // Improve visual sharpness
+      // Apply the shared sharpness/quality props to whichever tileset we load.
+      const applyTilesetQuality = (tileset: Cesium.Cesium3DTileset): void => {
         tileset.maximumScreenSpaceError = 2;
         tileset.dynamicScreenSpaceError = true;
         tileset.preloadFlightDestinations = true;
@@ -506,13 +514,62 @@ export class CesiumViewport {
         tileset.foveatedConeSize = 0.1;
         tileset.foveatedInterpolationCallback = Cesium.Math.lerp;
         tileset.foveatedTimeDelay = 0.05;
+      };
+
+      if (_cesiumToken) try {
+        const tileset = await Cesium.Cesium3DTileset.fromIonAssetId(
+          2275207 // Google Photorealistic 3D Tiles
+        );
+
+        applyTilesetQuality(tileset);
 
         // Add tileset without auto-zoom
         this.viewer.scene.primitives.add(tileset);
         photogrammetryLoaded = true;
-        console.log("✅ Google Photorealistic 3D Tiles loaded (no auto zoom)");
+        console.log("✅ Google Photorealistic 3D Tiles loaded — ion-token path (no auto zoom)");
       } catch (err) {
-        console.error("❌ Failed to load photogrammetry:", err);
+        console.error("❌ Failed to load photogrammetry (ion-token path):", err);
+      } else if (_googleMapsKey) try {
+        // Feature-detect the direct Google Maps Platform path. Modern Cesium:
+        // `createGooglePhotorealistic3DTileset(options)` with `{ key }`; some
+        // builds accept a positional `(key, options)`. Guard for both.
+        const factory = (
+          Cesium as unknown as {
+            createGooglePhotorealistic3DTileset?: (
+              ...args: unknown[]
+            ) => Promise<Cesium.Cesium3DTileset>;
+          }
+        ).createGooglePhotorealistic3DTileset;
+
+        if (typeof factory !== 'function') {
+          console.warn(
+            '[gis][cesium] VITE_GOOGLE_MAPS_KEY set but ' +
+              'Cesium.createGooglePhotorealistic3DTileset is unavailable in this ' +
+              'Cesium build → SKIPPING google-key photoreal tiles.'
+          );
+        } else {
+          // Try the modern option-bag signature first; fall back to positional.
+          let tileset: Cesium.Cesium3DTileset;
+          try {
+            tileset = await factory({ key: _googleMapsKey });
+          } catch {
+            tileset = await factory(_googleMapsKey);
+          }
+
+          applyTilesetQuality(tileset);
+
+          // Add tileset without auto-zoom
+          this.viewer.scene.primitives.add(tileset);
+          photogrammetryLoaded = true;
+          console.log("✅ Google Photorealistic 3D Tiles loaded — google-key path (no auto zoom)");
+        }
+      } catch (err) {
+        console.error("❌ Failed to load photogrammetry (google-key path):", err);
+      } else {
+        console.log(
+          '[gis][cesium] no credential (VITE_CESIUM_TOKEN / VITE_GOOGLE_MAPS_KEY) → ' +
+            'Google Photorealistic 3D Tiles SKIPPED (no tile.googleapis.com requests).'
+        );
       }
 
       // Only hide globe if photogrammetry actually loaded
@@ -1185,13 +1242,14 @@ export class CesiumViewport {
     if (this.formaSilhouetteComposite) this.formaSilhouetteComposite.enabled = false;
 
     // MAP-DATA-OVERTURE / §GLOBE-CONTEXT-BUILDINGS (2026-06-05) — the extruded
-    // OSM context-building overlay. WITH a Cesium token the Google Photorealistic
-    // 3D Tiles already show real 3D buildings, so the overlay is redundant → clear
-    // it. On the KEYLESS path the ESRI satellite is FLAT (no 3D buildings), so the
-    // "3D globe" would show "only a 2D map" — KEEP + (re)load the extruded overlay
-    // so the globe still has 3D context buildings (founder-reported).
+    // OSM context-building overlay. WITH a real-tiles credential (Cesium token OR
+    // Google Maps key, A.21.D31) the Google Photorealistic 3D Tiles already show
+    // real 3D buildings, so the overlay is redundant → clear it. On the KEYLESS
+    // path the ESRI satellite is FLAT (no 3D buildings), so the "3D globe" would
+    // show "only a 2D map" — KEEP + (re)load the extruded overlay so the globe
+    // still has 3D context buildings (founder-reported).
     try {
-      if (_cesiumToken) {
+      if (_cesiumToken || _googleMapsKey) {
         this.contextBuildingsAbort?.abort();
         this.clearContextBuildings();
         this.contextBuildingsAt = null;

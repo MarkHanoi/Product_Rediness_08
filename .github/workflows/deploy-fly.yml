@@ -77,7 +77,13 @@ jobs:
         #   3D Tiles + the ion satellite base. When the secret is empty/absent the
         #   build arg is "" → the keyless ESRI satellite basemap (current behaviour),
         #   so adding the secret is the ONLY step needed to switch on full photoreal.
-        run: flyctl deploy --local-only --build-arg LOWMEM=0 --build-arg VITE_CESIUM_TOKEN="${{ secrets.VITE_CESIUM_TOKEN }}" --strategy=rolling
+        # --build-arg VITE_GOOGLE_MAPS_KEY: optional Google Maps Platform API key
+        #   (GIS-CESIUM-GOOGLE-KEY, A.21.D31) — the ALTERNATIVE real-tiles credential.
+        #   When the `VITE_GOOGLE_MAPS_KEY` repo secret is set (and no ion token), the
+        #   globe streams the SAME Google Photorealistic 3D Tiles directly via the key.
+        #   Empty/absent (the default) → no effect, keyless ESRI fallback unchanged.
+        #   Branch order is ion-token → google-key → keyless.
+        run: flyctl deploy --local-only --build-arg LOWMEM=0 --build-arg VITE_CESIUM_TOKEN="${{ secrets.VITE_CESIUM_TOKEN }}" --build-arg VITE_GOOGLE_MAPS_KEY="${{ secrets.VITE_GOOGLE_MAPS_KEY }}" --strategy=rolling
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
