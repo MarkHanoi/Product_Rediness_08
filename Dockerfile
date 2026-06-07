@@ -95,6 +95,15 @@ COPY . .
 # and rotate it from the ion dashboard. Must be set BEFORE the build so vite sees it.
 ARG VITE_CESIUM_TOKEN=""
 ENV VITE_CESIUM_TOKEN=${VITE_CESIUM_TOKEN}
+# GIS-CESIUM-GOOGLE-KEY (A.21.D31) — alternative real-tiles credential. A Google
+# Maps Platform API key streams the SAME Google Photorealistic 3D Tiles directly
+# (no Cesium ion account needed). Branch order in CesiumViewport.ts is ion-token →
+# google-key → keyless. EMPTY (the default) → no effect, keyless fallback unchanged.
+# Like the ion token this is a PUBLIC client key (it ships in the browser bundle) —
+# restrict it to the Map Tiles API + your domain referrers in the Google Cloud
+# console and rotate it there. Must be set BEFORE the build so vite bakes it in.
+ARG VITE_GOOGLE_MAPS_KEY=""
+ENV VITE_GOOGLE_MAPS_KEY=${VITE_GOOGLE_MAPS_KEY}
 RUN pnpm run build:docker
 
 # Prune dev-only deps from node_modules so the runtime stage can copy a smaller tree.
