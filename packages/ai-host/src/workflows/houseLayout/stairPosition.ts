@@ -58,6 +58,71 @@ const clamp = (v: number, lo: number, hi: number): number =>
 
 const r3 = (n: number): number => Math.round(n * 1000) / 1000;
 
+// ── A.21.D34(a) — shell-containment of perimeter candidates ──────────────────
+//
+// The candidate set ("central / left / right / back flush") is reasoned against the
+// plate BOUNDING BOX. On an AXIS-ALIGNED plate the bbox IS the shell, so every
+// candidate lands inside it. On a SKEWED plate the engine lays out in the
+// principal-axis (rotated) frame, where the shell polygon is NEAR — but not exactly
+// — axis-aligned, so the bbox over-covers the polygon: a "flush" candidate hugging a
+// bbox edge can poke partly OUTSIDE the real (rotated) shell polygon, and the chosen
+// stair core then escapes the shell (the founder's "stair rot −24.1°, core outside"
+// report). We therefore optionally take the shell polygon (in the SAME plate-local
+// frame as the candidates) and CULL any candidate whose full core rect is not
+// contained. `central` is special-cased: it is always retained (the safe fallback),
+// and when it too escapes it is pulled inward to a contained position if one exists.
+//
+// Pure: no THREE/DOM/RNG. Absent shell polygon ⇒ this whole concern is skipped and
+// the candidate set is byte-identical to the pre-D34 behaviour (no regression on the
+// axis-aligned + apartment paths, which never pass a polygon).
+
+/** A plate-local-mm polygon vertex (x, y) where y === plan-Z. */
+export interface PlatePolyPt { readonly x: number; readonly y: number }
+
+const EPS_MM = 1e-6;
+
+/** Point-in-polygon (ray cast), inclusive of the boundary within `EPS_MM`.
+ *  `poly` is plate-local mm; (px, py) with py === plan-Z. */
+function pointInPoly(px: number, py: number, poly: readonly PlatePolyPt[]): boolean {
+    const n = poly.length;
+    if (n < 3) return false;
+    // On-boundary points count as inside (a flush core edge ON the shell wall is fine).
+    for (let i = 0; i < n; i++) {
+        const a = poly[i]!, b = poly[(i + 1) % n]!;
+        const ex = b.x - a.x, ey = b.y - a.y;
+        const L2 = ex * ex + ey * ey;
+        if (L2 < EPS_MM * EPS_MM) continue;
+        const t = ((px - a.x) * ex + (py - a.y) * ey) / L2;
+        if (t < -1e-9 || t > 1 + 1e-9) continue;
+        const qx = a.x + t * ex, qy = a.y + t * ey;
+        if (Math.hypot(px - qx, py - qy) <= 1e-3) return true;     // within 0.001 mm of an edge
+    }
+    let inside = false;
+    for (let i = 0, j = n - 1; i < n; j = i++) {
+        const yi = poly[i]!.y, yj = poly[j]!.y, xi = poly[i]!.x, xj = poly[j]!.x;
+        const hit = ((yi > py) !== (yj > py)) &&
+            (px < (xj - xi) * (py - yi) / ((yj - yi) || 1e-30) + xi);
+        if (hit) inside = !inside;
+    }
+    return inside;
+}
+
+/** True when the whole core rect (min corner x,y; extent coreW×coreH) lies inside
+ *  `poly`. Tests the four corners + the four edge midpoints + the centre — enough to
+ *  reject any rect that pokes a corner or an edge bulge out of a (near-)convex shell.
+ *  Conservative: a rect that is fully inside always passes. */
+function rectInsidePoly(
+    x: number, y: number, coreW: number, coreH: number, poly: readonly PlatePolyPt[],
+): boolean {
+    if (poly.length < 3) return true;     // no polygon to test against → treat as contained
+    const xs = [x, x + coreW / 2, x + coreW];
+    const ys = [y, y + coreH / 2, y + coreH];
+    for (const sx of xs) for (const sy of ys) {
+        if (!pointInPoly(sx, sy, poly)) return false;
+    }
+    return true;
+}
+
 /**
  * Circulation-waste score for placing a `coreW × coreH` core at plate-local min
  * corner (x, y) on a `plateW × plateH` plate. Lower is better. Dimensionless,
@@ -135,13 +200,28 @@ export function stairCorePositionCandidates(
     plateH: number,
     coreW: number,
     coreH: number,
+    // A.21.D34(a) — OPTIONAL shell polygon (plate-local mm; y === plan-Z) in the SAME
+    // frame as the returned candidates. When supplied, perimeter candidates whose core
+    // rect is NOT fully contained are CULLED and `central` is pulled inward to a
+    // contained position if it escapes — so the chosen core never pokes outside a
+    // skewed/rotated shell. Absent ⇒ byte-identical to the pre-D34 candidate set.
+    shellPoly?: readonly PlatePolyPt[],
 ): Array<{ x: number; y: number; kind: StairCorePositionKind }> {
     const out: Array<{ x: number; y: number; kind: StairCorePositionKind }> = [];
 
     // Central back-third — ALWAYS present (the safe default / fallback).
     const cx = clamp(plateW / 2 - coreW / 2, 0, Math.max(0, plateW - coreW));
     const backThirdY = clamp(plateH / 3, WALL_LANDING_MM, Math.max(WALL_LANDING_MM, plateH - coreH));
-    out.push({ x: r3(cx), y: r3(backThirdY), kind: 'central' });
+    // A.21.D34(a) — when a shell polygon is given and the canonical central position
+    // escapes it (a skewed plate's bbox-centre can fall outside the rotated polygon),
+    // search a small deterministic grid of inward-nudged positions for a contained one
+    // and use the closest-to-central. If none is contained the canonical central is
+    // kept verbatim (no worse than before; the orchestrator's own bbox clamp still
+    // applies). Skipped entirely without a polygon → identical central candidate.
+    const central = (shellPoly && shellPoly.length >= 3 && !rectInsidePoly(cx, backThirdY, coreW, coreH, shellPoly))
+        ? containedCentral(cx, backThirdY, plateW, plateH, coreW, coreH, shellPoly)
+        : { x: cx, y: backThirdY };
+    out.push({ x: r3(central.x), y: r3(central.y), kind: 'central' });
 
     // Perimeter candidates only when the plate can actually spare them: flushing the
     // core to a wall must leave a GENUINELY USABLE room/landing on its open side
@@ -153,18 +233,46 @@ export function stairCorePositionCandidates(
     // Keep the perimeter cores off the entrance edge: same back-third Z as central.
     const perimY = backThirdY;
 
+    // A.21.D34(a) — only offer a perimeter candidate whose full core rect lies inside
+    // the shell polygon (when one is supplied). Absent polygon ⇒ accept all (identical).
+    const contained = (x: number, y: number): boolean =>
+        !shellPoly || shellPoly.length < 3 || rectInsidePoly(x, y, coreW, coreH, shellPoly);
+
     if (fitsX) {
         // Flush LEFT wall (x = 0).
-        out.push({ x: 0, y: r3(perimY), kind: 'left' });
+        if (contained(0, perimY)) out.push({ x: 0, y: r3(perimY), kind: 'left' });
         // Flush RIGHT wall (x = plateW − coreW).
-        out.push({ x: r3(plateW - coreW), y: r3(perimY), kind: 'right' });
+        if (contained(plateW - coreW, perimY)) out.push({ x: r3(plateW - coreW), y: r3(perimY), kind: 'right' });
     }
     if (fitsY) {
         // Flush BACK wall (y = plateH − coreH), X-centred.
-        out.push({ x: r3(cx), y: r3(Math.max(WALL_LANDING_MM, plateH - coreH)), kind: 'back' });
+        const by = Math.max(WALL_LANDING_MM, plateH - coreH);
+        if (contained(cx, by)) out.push({ x: r3(cx), y: r3(by), kind: 'back' });
     }
 
     return out;
+}
+
+/** A.21.D34(a) — find a shell-contained position for the CENTRAL core as close as
+ *  possible to its canonical (cx, backThirdY). Scans a small deterministic grid of
+ *  inward offsets (toward the plate centre) and returns the first contained one,
+ *  preferring the smallest displacement. Falls back to the canonical position when no
+ *  scanned cell is contained (degenerate shell). Pure + deterministic. */
+function containedCentral(
+    cx: number, cy: number, plateW: number, plateH: number,
+    coreW: number, coreH: number, poly: readonly PlatePolyPt[],
+): { x: number; y: number } {
+    const plateCx = plateW / 2 - coreW / 2;
+    const plateCy = plateH / 2 - coreH / 2;
+    // Step from the canonical position toward the plate centre in fixed fractions; the
+    // plate centre of a (near-)convex rotated rectangle is the most interior point, so
+    // a contained position is found quickly. Deterministic fraction ladder.
+    for (const f of [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]) {
+        const x = clamp(cx + (plateCx - cx) * f, 0, Math.max(0, plateW - coreW));
+        const y = clamp(cy + (plateCy - cy) * f, 0, Math.max(0, plateH - coreH));
+        if (rectInsidePoly(x, y, coreW, coreH, poly)) return { x, y };
+    }
+    return { x: cx, y: cy };
 }
 
 /**
@@ -181,8 +289,11 @@ export function chooseStairCorePosition(
     plateH: number,
     coreW: number,
     coreH: number,
+    // A.21.D34(a) — OPTIONAL shell polygon (plate-local mm) to keep every candidate
+    // INSIDE a skewed/rotated shell. Absent ⇒ byte-identical to the pre-D34 choice.
+    shellPoly?: readonly PlatePolyPt[],
 ): StairCorePosition {
-    const candidates = stairCorePositionCandidates(plateW, plateH, coreW, coreH);
+    const candidates = stairCorePositionCandidates(plateW, plateH, coreW, coreH, shellPoly);
     let best = candidates[0]!;
     let bestWaste = stairCoreWaste(plateW, plateH, coreW, coreH, best.x, best.y);
     for (let i = 1; i < candidates.length; i++) {

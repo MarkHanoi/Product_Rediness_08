@@ -424,6 +424,21 @@ const JUNCTION_GRID_M = 0.001;
 
 const snapToGrid = (n: number): number => Math.round(n / JUNCTION_GRID_M) * JUNCTION_GRID_M;
 
+/** A.21.D34(h) — minimum POST-WELD wall length (m). A wall shorter than this is
+ *  degenerate by the EDITOR's own standard (`DEFAULT_MIN_WALL_LENGTH` in
+ *  geometry-wall's WallJoinResolver === 0.05 m): the resolver clusters endpoints
+ *  within a 0.5 m snap radius, so on a SKEWED plate a partition the clamp
+ *  (`clampOutsideEndpointToShell`) has shortened to a few cm has BOTH endpoints fall
+ *  into ONE junction cluster → §SELF-CLUSTER-GUARD flags it §WJR-INVALID and the mesh
+ *  builder skips it → a MISSING wall + a room that fails to close. The 10 mm
+ *  JUNCTION_WELD_TOL_M drop above is too small to catch these near-zero stubs. We drop
+ *  them HERE, at the ai-host emission stage, so no degenerate wall ever reaches the
+ *  resolver and no wall goes silently missing. Equals the editor's degeneracy floor so
+ *  a wall we KEEP is one the editor can validly join. Real partitions are always
+ *  ≥ a wall thickness (~0.1 m) → never dropped; axis-aligned room edges are metres
+ *  long → this is a no-op on the apartment + rectilinear paths (no regression). */
+const WJR_SAFE_MIN_LEN_M = 0.05;
+
 /**
  * §JUNCTION-REPAIR — drop degenerate segments + weld coincident endpoints so the
  * emitted wall set is a clean, junction-exact graph the RoomDetectionEngine can
@@ -474,18 +489,22 @@ function repairSegments(segments: readonly WallSeg[]): WallSeg[] {
     }
 
     // 3. Rebuild segments with welded endpoints; drop any that the weld
-    //    collapsed to zero length (two endpoints welded to the same point).
+    //    collapsed to zero length (two endpoints welded to the same point) OR that the
+    //    clamp/weld left below the editor's degeneracy floor (A.21.D34(h)) — such a
+    //    near-zero stub self-clusters in WallJoinResolver and goes silently missing.
     const out: WallSeg[] = [];
     for (let i = 0; i < live.length; i++) {
         const a = weld[i * 2]!;            // 'a' endpoint of seg i
         const b = weld[i * 2 + 1]!;        // 'b' endpoint of seg i
         if (Math.abs(a.x - b.x) < EPS && Math.abs(a.z - b.z) < EPS) continue;   // collapsed → drop
+        // A.21.D34(h) — drop near-zero stubs the resolver would self-cluster + skip.
+        if (Math.hypot(b.x - a.x, b.z - a.z) < WJR_SAFE_MIN_LEN_M) continue;
         out.push({ ...live[i]!, a: { x: round6(a.x), z: round6(a.z) }, b: { x: round6(b.x), z: round6(b.z) } });
     }
     return out;
 }
 
-export { repairSegments as __repairSegmentsForTest, JUNCTION_WELD_TOL_M as __JUNCTION_WELD_TOL_M };
+export { repairSegments as __repairSegmentsForTest, JUNCTION_WELD_TOL_M as __JUNCTION_WELD_TOL_M, WJR_SAFE_MIN_LEN_M as __WJR_SAFE_MIN_LEN_M };
 
 /**
  * Extract walls + doors from the room footprints. Door/open edges of `graph` that

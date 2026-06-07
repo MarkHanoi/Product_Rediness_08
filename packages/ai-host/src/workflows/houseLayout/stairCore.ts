@@ -45,6 +45,15 @@ function bboxOf(footprint: readonly Pt[]): BBoxM {
 
 const r3 = (n: number): number => Math.round(n * 1000) / 1000;
 
+/** A.21.D34(a) — the footprint expressed in the PLATE-LOCAL mm frame the stair-core
+ *  candidate positions live in: origin at the bbox min corner, ×1000, plan-Z → y.
+ *  Passed to `chooseStairCorePosition` so perimeter candidates are culled to the real
+ *  (possibly rotated) shell polygon rather than just its bounding box (so a "flush"
+ *  candidate never pokes outside a skewed shell). Pure. */
+function plateLocalPolyMm(footprint: readonly Pt[], bb: BBoxM): { x: number; y: number }[] {
+    return footprint.map(p => ({ x: (p.x - bb.minX) * 1000, y: (p.z - bb.minZ) * 1000 }));
+}
+
 /**
  * Reserve the stair-core rectangle (mm, plan frame) for a stack of `storeyCount`
  * storeys over `footprint` (world X-Z metres). Deterministic. Returns
@@ -82,7 +91,9 @@ export function reserveStairCore(
     // edge) by circulation waste and take the least-waste one. Plate-local mm → add
     // the bbox-min offset. On a plate where central is as good as anything the scorer
     // returns the central candidate (stable tie-break) → byte-identical to before.
-    const pos = chooseStairCorePosition(plateWmm, plateHmm, w, h);
+    // A.21.D34(a) — cull candidates to the real (possibly rotated) shell polygon so a
+    // perimeter "flush" candidate never pokes outside a skewed plate.
+    const pos = chooseStairCorePosition(plateWmm, plateHmm, w, h, plateLocalPolyMm(footprint, bb));
     let x = minXmm + pos.x;
     let y = minZmm + pos.y;
 
@@ -222,7 +233,8 @@ export function reserveStairCoreShaped(
     // §STAIR-SPACE-EFFICIENCY (A.21.D29 / #6) — score candidate positions for the
     // shaped (L/U) core too, on its OWN footprint (w×h), and take the least-waste
     // one (central tie-break → no shift where central is best). See stairPosition.ts.
-    const pos = chooseStairCorePosition(plateWmm, plateHmm, w, h);
+    // A.21.D34(a) — cull to the rotated shell polygon (see reserveStairCore).
+    const pos = chooseStairCorePosition(plateWmm, plateHmm, w, h, plateLocalPolyMm(footprint, bb));
     let x = minXmm + pos.x;
     let y = minZmm + pos.y;
     x = clamp(x, minXmm, minXmm + plateWmm - w);
