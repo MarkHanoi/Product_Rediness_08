@@ -39,6 +39,14 @@ export type StairCorePositionKind = 'central' | 'left' | 'right' | 'back';
  *  also keep the core off the y=0 entrance edge by at least this margin. */
 const WALL_LANDING_MM = 900;
 
+/** Minimum OPEN-SIDE gap (mm) a perimeter candidate must leave for it to be worth
+ *  offering. Flushing the core to a wall is only an improvement if the freed open
+ *  side can hold a GENUINELY USABLE room/landing — not a dead sliver. A gap below
+ *  this is exactly what {@link stairCoreWaste} penalises, so a plate too small to
+ *  spare it degrades to central-only (graceful fallback). Equals the `USABLE`
+ *  shallow-room depth used by the waste scorer so the guard and the score agree. */
+const PERIMETER_MIN_OPEN_MM = 2400;
+
 /** A central placement is only worth abandoning if a perimeter one is clearly
  *  better; this tie-break epsilon (mm-area units) keeps the choice STABLE and
  *  biases to `central` on a genuine tie (the historical default → no needless
@@ -135,10 +143,13 @@ export function stairCorePositionCandidates(
     const backThirdY = clamp(plateH / 3, WALL_LANDING_MM, Math.max(WALL_LANDING_MM, plateH - coreH));
     out.push({ x: r3(cx), y: r3(backThirdY), kind: 'central' });
 
-    // Perimeter candidates only when the plate can actually spare them: the core
-    // must fit AND leave a usable landing on its open side.
-    const fitsX = plateW - coreW >= WALL_LANDING_MM;
-    const fitsY = plateH - coreH >= WALL_LANDING_MM;
+    // Perimeter candidates only when the plate can actually spare them: flushing the
+    // core to a wall must leave a GENUINELY USABLE room/landing on its open side
+    // (>= PERIMETER_MIN_OPEN_MM), not a dead sliver. A plate too small to spare that
+    // yields central-only (graceful fallback — a tiny plate keeps the historical
+    // central placement instead of marooning the core against a wall with no approach).
+    const fitsX = plateW - coreW >= PERIMETER_MIN_OPEN_MM;
+    const fitsY = plateH - coreH >= PERIMETER_MIN_OPEN_MM;
     // Keep the perimeter cores off the entrance edge: same back-third Z as central.
     const perimY = backThirdY;
 
