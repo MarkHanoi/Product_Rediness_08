@@ -373,6 +373,120 @@ function extendWallsToShell(
     return out;
 }
 
+// ─── §JUNCTION-REPAIR (A.21.D14, 2026-06-07) ─────────────────────────────────
+//
+// The editor's RoomDetectionEngine closes a room only when the walls around it
+// form a CLOSED LOOP in its planar wall graph. That graph quantises every wall
+// endpoint to a 20 mm node grid (`NODE_GRID_MM` in WallIntersectionResolver):
+// two endpoints that SHOULD meet at a junction collapse to the same graph node
+// only if they round to the same 20 mm cell. The detection engine has snap
+// pre-passes, but it is far more robust to emit geometry whose junctions are
+// EXACT to begin with — then every enclosed area closes deterministically.
+//
+// Two upstream sources introduce sub-grid endpoint drift AFTER the run-sweep
+// produced perfectly-shared endpoints:
+//   • `extendWallsToShell` (§EXTEND-TO-PERIMETER / §EXTEND-INTERIOR / §CLAMP-
+//     OVERRUN) moves a partition endpoint along its axis to a floating-point
+//     ray/edge intersection on a slanted shell — landing a few mm off the
+//     perpendicular wall's endpoint it used to share.
+//   • `snapAxisLines` (subdivide) snaps rect EDGES to a cluster mean per axis,
+//     but a wall endpoint pair straddling the 20 mm grid (e.g. 19 mm vs 21 mm,
+//     only 2 mm apart) still lands in two different detection nodes.
+//
+// This pass is a deterministic VALIDATE-AND-REPAIR over the final segment set:
+//   1. DROP degenerate / zero-length segments (a clamp can collapse a stub to
+//      ~0 m — it renders as a phantom and pollutes the graph).
+//   2. SNAP coincident endpoints to EXACTLY equal coordinates: union-find
+//      clusters all endpoints within `JUNCTION_WELD_TOL_M`, then sets every
+//      member of a cluster to the cluster's mean. After this, walls meeting at
+//      a junction share byte-identical endpoints → identical detection nodes →
+//      the loop closes.
+//   3. SNAP every coordinate to a fine `JUNCTION_GRID_M` grid so the welded
+//      coordinates are stable and reproducible (no float dust), well below the
+//      detection grid so a weld never straddles a 20 mm cell boundary.
+//
+// Pure, deterministic (sorted union-find over rounded coords), metres. On a
+// clean rectilinear layout (no shellPolygon → no extend pass, endpoints already
+// exactly shared) the weld is a no-op (every cluster is a single coincident
+// group whose mean equals its members) → bit-identical output, no regression.
+
+/** Endpoints within this distance (m) are the SAME junction and welded to one
+ *  point. 10 mm: larger than float dust + the few-mm drift `extendWallsToShell`
+ *  introduces, but FAR below any real room dimension so distinct junctions are
+ *  never fused (the nearest distinct interior corners are ≥ a wall thickness,
+ *  typically ≥ 100 mm, apart). Half the 20 mm detection node grid, so a welded
+ *  cluster always lands inside ONE detection cell. */
+const JUNCTION_WELD_TOL_M = 0.01;
+
+/** Final coordinate grid (m). 1 mm — fine enough to be visually exact, coarse
+ *  enough to kill float dust so repeated runs are bit-identical. */
+const JUNCTION_GRID_M = 0.001;
+
+const snapToGrid = (n: number): number => Math.round(n / JUNCTION_GRID_M) * JUNCTION_GRID_M;
+
+/**
+ * §JUNCTION-REPAIR — drop degenerate segments + weld coincident endpoints so the
+ * emitted wall set is a clean, junction-exact graph the RoomDetectionEngine can
+ * close every enclosed area from. See the block comment above for the why.
+ *
+ * Returns a NEW segments array. Door `wallId`s reference segment `id`s, which are
+ * PRESERVED (we only move endpoints / drop zero-length walls); a door whose host
+ * wall was degenerate-dropped is reconciled by the caller (the build step skips a
+ * door whose wall is gone — same path as an unrealised door).
+ */
+function repairSegments(segments: readonly WallSeg[]): WallSeg[] {
+    // 1. Drop degenerate / zero-length segments (a clamp can collapse a stub).
+    const live = segments.filter(s => Math.hypot(s.b.x - s.a.x, s.b.z - s.a.z) >= JUNCTION_WELD_TOL_M - EPS);
+    if (live.length === 0) return [];
+
+    // 2. Union-find weld of coincident endpoints. Each endpoint is a node; join
+    //    any two (from DIFFERENT walls — never collapse a wall onto itself) that
+    //    are within the weld tolerance. Deterministic: iterate in array order.
+    type Side = 'a' | 'b';
+    interface Ep { readonly segIdx: number; readonly side: Side; x: number; z: number }
+    const eps: Ep[] = [];
+    for (let i = 0; i < live.length; i++) {
+        eps.push({ segIdx: i, side: 'a', x: live[i]!.a.x, z: live[i]!.a.z });
+        eps.push({ segIdx: i, side: 'b', x: live[i]!.b.x, z: live[i]!.b.z });
+    }
+    const n = eps.length;
+    const parent = Array.from({ length: n }, (_, i) => i);
+    const find = (i: number): number => { while (parent[i] !== i) { parent[i] = parent[parent[i]!]!; i = parent[i]!; } return i; };
+    const union = (i: number, j: number): void => { const ri = find(i), rj = find(j); if (ri !== rj) parent[ri] = rj; };
+    const tolSq = JUNCTION_WELD_TOL_M * JUNCTION_WELD_TOL_M;
+    for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+            if (eps[i]!.segIdx === eps[j]!.segIdx) continue;       // never weld a wall to itself
+            const dx = eps[i]!.x - eps[j]!.x, dz = eps[i]!.z - eps[j]!.z;
+            if (dx * dx + dz * dz <= tolSq) union(i, j);
+        }
+    }
+
+    // Cluster → mean position → grid-snapped weld point (one per cluster).
+    const clusters = new Map<number, number[]>();
+    for (let i = 0; i < n; i++) (clusters.get(find(i)) ?? clusters.set(find(i), []).get(find(i))!).push(i);
+    const weld = new Array<{ x: number; z: number }>(n);
+    for (const members of clusters.values()) {
+        let sx = 0, sz = 0;
+        for (const m of members) { sx += eps[m]!.x; sz += eps[m]!.z; }
+        const px = snapToGrid(sx / members.length), pz = snapToGrid(sz / members.length);
+        for (const m of members) weld[m] = { x: px, z: pz };
+    }
+
+    // 3. Rebuild segments with welded endpoints; drop any that the weld
+    //    collapsed to zero length (two endpoints welded to the same point).
+    const out: WallSeg[] = [];
+    for (let i = 0; i < live.length; i++) {
+        const a = weld[i * 2]!;            // 'a' endpoint of seg i
+        const b = weld[i * 2 + 1]!;        // 'b' endpoint of seg i
+        if (Math.abs(a.x - b.x) < EPS && Math.abs(a.z - b.z) < EPS) continue;   // collapsed → drop
+        out.push({ ...live[i]!, a: { x: round6(a.x), z: round6(a.z) }, b: { x: round6(b.x), z: round6(b.z) } });
+    }
+    return out;
+}
+
+export { repairSegments as __repairSegmentsForTest, JUNCTION_WELD_TOL_M as __JUNCTION_WELD_TOL_M };
+
 /**
  * Extract walls + doors from the room footprints. Door/open edges of `graph` that
  * have no realised shared wall (rooms not actually adjacent in this placement) are
@@ -834,9 +948,17 @@ export function buildWallsAndDoors(
     // and extend any endpoint strictly inside the shell polygon outward to the
     // perimeter. Capped at 0.5 m so interior junctions far from the perimeter
     // are never pushed past. Rectilinear shells: pass-through.
-    const segmentsOut = opts.shellPolygon && opts.shellPolygon.length >= 3
+    const segmentsExtended = opts.shellPolygon && opts.shellPolygon.length >= 3
         ? extendWallsToShell(segments, opts.shellPolygon)
         : segments;
+
+    // §JUNCTION-REPAIR (A.21.D14) — weld coincident endpoints to EXACTLY equal
+    // coordinates + drop degenerate segments, so the editor's RoomDetectionEngine
+    // (20 mm node grid) closes a loop around every enclosed area. Runs LAST so it
+    // also absorbs the sub-grid drift `extendWallsToShell` introduces on slanted
+    // shells. On a clean rectilinear layout it is a no-op (endpoints already
+    // exactly shared) → bit-identical output, no regression.
+    const segmentsOut = repairSegments(segmentsExtended);
 
     // §SEALED-ROOMS (2026-05-29) — diagnostic: which rooms ended up with ZERO
     // doors? `doorCount` tracks placements per room id; rooms missing from it
