@@ -15,6 +15,17 @@ export { reserveStairCore, reserveStairCoreShaped, splitRisersForShape } from '.
 export type { StairCoreShaped } from './stairCore.js';
 export { validateHouseStorey, houseStoreyBand } from './houseEnvelope.js';
 export type { HouseStoreyEnvelopeInput, HouseStoreyBand } from './houseEnvelope.js';
+export {
+    roofBaseElevationM,
+    roofBaseOffsetM,
+    isDoorWithinWallSpan,
+    clampDoorToWallSpan,
+    wallVerticalExtents,
+    wallExtentForLevel,
+    DOOR_END_CLEAR_M,
+    MIN_DOOR_WIDTH_M,
+} from './houseVertical.js';
+export type { ClampedDoorSpan, WallVerticalExtent } from './houseVertical.js';
 export type {
     HouseLayoutResult,
     ScoredHouseLayoutOption,

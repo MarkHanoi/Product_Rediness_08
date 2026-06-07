@@ -36,6 +36,7 @@ import {
     CreateWallOpeningsBatchCommand,
     CreateRoomBoundingLinesBatchCommand,
     CreateHandrailCommand,
+    UpdateWallHeightCommand,
 } from '@pryzm/command-registry';
 import { facadeOrientationService } from '@pryzm/spatial-index';
 import { computeStairFootprintRect } from '@pryzm/geometry-stair';
@@ -61,6 +62,9 @@ import {
     type EntranceDoorDispatch,
     buildLayoutCommands,
     resolveEntranceDoor,
+    clampDoorToWallSpan,
+    isDoorWithinWallSpan,
+    wallExtentForLevel,
 } from '@pryzm/ai-host';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
 import { nameDetectedRooms } from '../apartment-layout/nameDetectedRooms.js';
@@ -325,7 +329,9 @@ export class HouseLayoutExecutor {
                 const isGround = i === 0;
                 // Ground reuses the existing drawn shell; upper storeys get a freshly
                 // minted explicit perimeter (built + dispatched in the batch below).
-                const perimeter = isGround ? null : this._buildPerimeterShell(storey, wallHeightM);
+                const perimeter = isGround
+                    ? null
+                    : this._buildPerimeterShell(storey, wallHeightM, i, result.storeys.length, DEFAULT_SLAB_THICKNESS_M);
                 if (perimeter) perimeterByLevel.set(storey.levelId, perimeter);
                 const shellWalls = isGround
                     ? gatherShellWalls(storey.levelId)
@@ -352,10 +358,34 @@ export class HouseLayoutExecutor {
                 if (isGround && shellWalls.length > 0) {
                     entranceDoor = resolveEntranceDoor(option, shellWalls);
                     if (entranceDoor) {
-                        console.log('[house-layout] §A.21.D29 main entrance → wall', entranceDoor.shellWallId,
-                            `offset ${entranceDoor.offsetM.toFixed(2)}m width ${entranceDoor.widthM.toFixed(2)}m`);
+                        // §DOOR-IN-WALL-SPAN (founder v46) — defensively VERIFY (and, if
+                        // needed, clamp) the resolved entrance door against its host
+                        // shell wall length so the door is genuinely hosted IN the wall,
+                        // never floating off / overrunning a corner. resolveEntranceDoor
+                        // already clamps, but we re-check against the live wall length
+                        // here (the authoritative span) so a frame mismatch can't ship
+                        // an off-wall door. A door that can't be made to fit is dropped.
+                        const host = shellWalls.find(w => w.id === entranceDoor!.shellWallId);
+                        if (host) {
+                            const wallLenM = Math.hypot(host.end.x - host.start.x, host.end.z - host.start.z);
+                            if (!isDoorWithinWallSpan(entranceDoor.offsetM, entranceDoor.widthM, wallLenM)) {
+                                const clamped = clampDoorToWallSpan(entranceDoor.offsetM, entranceDoor.widthM, wallLenM);
+                                if (clamped) {
+                                    console.warn('[house-layout] §DOOR-IN-WALL-SPAN entrance door off-wall — clamped',
+                                        `[${entranceDoor.offsetM.toFixed(2)},${entranceDoor.widthM.toFixed(2)}] → [${clamped.offsetM.toFixed(2)},${clamped.widthM.toFixed(2)}] on ${wallLenM.toFixed(2)}m wall`);
+                                    entranceDoor = { ...entranceDoor, offsetM: clamped.offsetM, widthM: clamped.widthM };
+                                } else {
+                                    console.warn('[house-layout] §DOOR-IN-WALL-SPAN entrance host wall too short for a door — dropping entrance');
+                                    entranceDoor = null;
+                                }
+                            }
+                        }
                     } else {
                         console.warn('[house-layout] §A.21.D29 no entrance door resolved (no hall-bounding shell wall fit a door)');
+                    }
+                    if (entranceDoor) {
+                        console.log('[house-layout] §A.21.D29 main entrance → wall', entranceDoor.shellWallId,
+                            `offset ${entranceDoor.offsetM.toFixed(2)}m width ${entranceDoor.widthM.toFixed(2)}m`);
                     }
                 }
             }
@@ -387,6 +417,28 @@ export class HouseLayoutExecutor {
                             (r as Promise<unknown>).catch((e: unknown) => console.warn('[house-layout] perimeter wall.batch.create failed on', levelId, e));
                         }
                     } catch (e) { console.warn('[house-layout] perimeter wall.batch.create threw on', levelId, e); }
+                }
+
+                // 0.5 §WALL-SLAB-CONTINUITY (D38) — the GROUND shell is pre-drawn at
+                //     the nominal wall head; raise its EXTERIOR walls by slab/2 so their
+                //     tops penetrate the level-1 slab and overlap the level-1 walls
+                //     (whose bases dropped slab/2 in `_buildPerimeterShell`), hiding the
+                //     dark exposed-slab band at the ground↔level-1 junction. Only for a
+                //     MULTI-storey house (a single storey has no junction → no bump, so
+                //     the apartment / single-storey path is byte-identical). Best-effort.
+                if (cm?.execute && result.storeys.length > 1) {
+                    try {
+                        const groundShell = gatherShellWalls(ground.id);
+                        if (groundShell.length > 0) {
+                            const raisedHeight = wallHeightM + DEFAULT_SLAB_THICKNESS_M / 2;
+                            cm.execute(new UpdateWallHeightCommand({
+                                wallIds: groundShell.map(w => w.id),
+                                newHeight: raisedHeight,
+                            }), { source: 'HOUSE_PIPELINE_SLAB_CONTINUITY' });
+                            console.log('[house-layout] §WALL-SLAB-CONTINUITY raised', groundShell.length,
+                                `ground shell wall(s) to ${raisedHeight.toFixed(3)}m (+slab/2) to close the floor-junction band`);
+                        }
+                    } catch (e) { console.warn('[house-layout] §WALL-SLAB-CONTINUITY ground bump failed (skipped):', e); }
                 }
 
                 // 1. Interior partition walls per storey (async bus commands; we don't
@@ -854,9 +906,30 @@ export class HouseLayoutExecutor {
      * null for a degenerate (<3-vertex) footprint. The walls are also returned as
      * ShellWall records so engine-emitted shell windows host on these ids.
      */
-    private _buildPerimeterShell(storey: StoreyPlate, wallHeightM: number): PerimeterShell | null {
+    private _buildPerimeterShell(
+        storey: StoreyPlate,
+        wallHeightM: number,
+        storeyIndex: number,
+        storeyCount: number,
+        slabThicknessM: number,
+    ): PerimeterShell | null {
         const poly = storey.footprint;
         if (!poly || poly.length < 3) return null;
+
+        // §WALL-SLAB-CONTINUITY (D38) — extend this storey's exterior shell walls
+        // vertically so they OVERLAP the slab band at each floor junction by slab/2,
+        // hiding the dark exposed-slab band the founder saw. An upper storey always
+        // has a level below (drop its base by slab/2 into that slab); it has a level
+        // above only when it isn't the top storey (raise its top by slab/2 into that
+        // slab — the top storey's head is left at the wall head for the roof to cap).
+        // The DECISION is the pure ai-host `wallExtentForLevel`; here we just apply it
+        // to the perimeter walls. Ground shell is pre-drawn (untouched). Falls back to
+        // the nominal extent for a single storey (no junction → no overlap).
+        const hasLevelBelow = storeyIndex > 0;
+        const hasLevelAbove = storeyIndex < storeyCount - 1;
+        const extent = wallExtentForLevel(storey.elevationM, wallHeightM, slabThicknessM, hasLevelBelow, hasLevelAbove);
+        const wallBaseY = extent.baseY;
+        const wallH = extent.heightM;
 
         // §PERIMETER-CLOSE (A.21.D25 Defect 4 — corner gaps / bad mitres). The
         // previous build SKIPPED a degenerate edge with `continue` — which BREAKS the
@@ -893,13 +966,15 @@ export class HouseLayoutExecutor {
             walls.push({
                 id,
                 levelId: storey.levelId,
-                // Tuple baseLine carrying the storey's world Y (matches the apartment
-                // executePlan wall spec shape the batch handler consumes).
+                // Tuple baseLine carrying the wall's world Y. §WALL-SLAB-CONTINUITY:
+                // the base drops by slab/2 into the slab below so the exterior face
+                // overlaps the slab band (no exposed-slab gap). The height likewise
+                // extends up by slab/2 at any junction above (top storey excluded).
                 baseLine: [
-                    { x: a.x, y: storey.elevationM, z: a.z },
-                    { x: b.x, y: storey.elevationM, z: b.z },
+                    { x: a.x, y: wallBaseY, z: a.z },
+                    { x: b.x, y: wallBaseY, z: b.z },
                 ],
-                height: wallHeightM,
+                height: wallH,
                 thickness: DEFAULT_SLAB_THICKNESS_M,   // 0.2 m exterior shell (matches houseFromBoundary)
             });
             shellWalls.push({ id, start: { x: a.x, z: a.z }, end: { x: b.x, z: b.z } });
@@ -976,6 +1051,21 @@ export class HouseLayoutExecutor {
             if (roof.levelId !== topLevelId) {
                 console.warn('[house-layout] roof.levelId', roof.levelId, '≠ top storey level', topLevelId, '— forcing top storey');
             }
+            // §ROOF-CAP-ELEVATION (founder v45) — the roof base offset above the TOP
+            // storey's floor is the PURE ai-host decision (roof.baseOffsetM, computed
+            // from storeyCount × floorToFloor). It equals the wall head (wallHeightM)
+            // but we consume the descriptor's value so the source of truth is ai-host
+            // (and a single test pins it). Fall back to wallHeightM for any older
+            // result that predates the field. RoofFragmentBuilder resolves the world-Y
+            // as topLevel.elevation + baseOffset = topStorey.elevationM + baseOffset,
+            // which equals roof.baseElevationM by construction — the roof caps the top
+            // storey's walls for ANY storeyCount (never a storey too low, never floating).
+            const roofBaseOffset = typeof roof.baseOffsetM === 'number' && roof.baseOffsetM > 0
+                ? roof.baseOffsetM
+                : wallHeightM;
+            const expectedRoofElevM = typeof roof.baseElevationM === 'number'
+                ? roof.baseElevationM
+                : topStorey.elevationM + roofBaseOffset;
             cm.execute?.(new CreateRoofCommand(createId('roof'), {
                 levelId: topLevelId,
                 footprint: { polygon, centroid: [cx, cz] },
@@ -985,12 +1075,12 @@ export class HouseLayoutExecutor {
                 // the walls like a real house. Flat roofs get a small/zero eave.
                 overhang: effectiveKind !== 'flat' ? DEFAULT_ROOF_OVERHANG_M : 0,
                 // Sit the roof on the TOP storey's wall head (deterministic, not racy).
-                baseOffset: wallHeightM,
+                baseOffset: roofBaseOffset,
                 autoBaseOffset: false,
                 thickness: DEFAULT_ROOF_THICKNESS_M,
             }), { source: 'HOUSE_PIPELINE_ROOF' });
             console.log('[house-layout] roof created on top level', topLevelId,
-                `(${effectiveKind}${effectiveKind !== roof.kind ? ` ←gable-fallback` : ''}, ~${pitchDeg.toFixed(0)}°, eave ${(DEFAULT_ROOF_OVERHANG_M * 1000).toFixed(0)}mm, baseOffset ${wallHeightM}m @ elev ${topStorey.elevationM}m)`);
+                `(${effectiveKind}${effectiveKind !== roof.kind ? ` ←gable-fallback` : ''}, ~${pitchDeg.toFixed(0)}°, eave ${(DEFAULT_ROOF_OVERHANG_M * 1000).toFixed(0)}mm, baseOffset ${roofBaseOffset}m @ floor elev ${topStorey.elevationM}m → roof caps @ ${expectedRoofElevM.toFixed(2)}m)`);
         } catch (e) { console.warn('[house-layout] roof create failed (skipped):', e); }
     }
 
