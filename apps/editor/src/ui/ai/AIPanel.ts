@@ -38,7 +38,7 @@ import { openAutoOrganiseModal } from '../property-inspector/RoomAutoOrganiser';
 import { triggerApartmentLayout } from '../apartment-layout/apartmentLayoutTrigger';
 import { generateApartmentFromScratch } from '../apartment-layout/apartmentFromScratch';
 import { toggleDesignParamsPanel } from '../apartment-layout/DesignParamsPanel';
-import { triggerFurnishLayout } from '../furnish-layout/furnishLayoutTrigger';
+import { triggerFurnishWithPrompt } from '../furnish-layout/furnishLayoutTrigger';
 import { triggerLightingLayout } from '../lighting-layout/lightingLayoutTrigger';
 import { triggerCeilingLayout } from '../ceiling-layout/ceilingLayoutTrigger';
 // Dev-only test modals — surface the Family Platform pipeline + apartment
@@ -187,7 +187,9 @@ const COMMAND_TREE: SuggestionNode[] = [
                 // itself auto-fires after the apartment generator).
                 label: 'Furnish all rooms (AI)',
                 hint: 'auto-place furniture per occupancy archetype',
-                action: () => { triggerFurnishLayout(); },
+                // A.21.D28 #7 — ask the user to furnish the ACTIVE floor (default)
+                // or ALL floors. With a single level the prompt is skipped.
+                action: () => { triggerFurnishWithPrompt(); },
             },
             {
                 // #53 D-LE — auto-place a ceiling fixture in every room.
