@@ -768,12 +768,25 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
 
     const handrailBuilder = new HandrailFragmentBuilder(scene, bimManager);
 
+    // §A.21.D29 — HandrailStore.emit() dispatches `bim-handrail-*` with detail
+    // `{ id }` (the handrail id only — see HandrailStore.emit). The previous
+    // listeners read `e.detail.handrail` / `e.detail.handrailId`, which are
+    // ALWAYS undefined for this payload → the builder NEVER ran, so handrails
+    // (e.g. the generated-house stairwell-void guardrail) landed in the store
+    // but rendered no mesh. FIX: read `e.detail.id`, resolve the full record
+    // from the store, and build it. Builds the manual railing tool the same way
+    // for any caller routing through CreateHandrailCommand/HandrailStore.
+    const buildHandrailById = (id: unknown): void => {
+        if (typeof id !== 'string') return;
+        const h = handrailStore.getById(id);
+        if (h) handrailBuilder.updateHandrail(h);
+    };
     window.addEventListener('bim-handrail-added',
-        (e: any) => { if (e.detail?.handrail)   handrailBuilder.updateHandrail(e.detail.handrail); });
+        (e: any) => buildHandrailById(e.detail?.id ?? e.detail?.handrail?.id));
     window.addEventListener('bim-handrail-updated',
-        (e: any) => { if (e.detail?.handrail)   handrailBuilder.updateHandrail(e.detail.handrail); });
+        (e: any) => buildHandrailById(e.detail?.id ?? e.detail?.handrail?.id));
     window.addEventListener('bim-handrail-removed',
-        (e: any) => { if (e.detail?.handrailId) handrailBuilder.removeHandrail(e.detail.handrailId); });
+        (e: any) => { const id = e.detail?.id ?? e.detail?.handrailId; if (typeof id === 'string') handrailBuilder.removeHandrail(id); });
     console.log('[initBuilders] Handrail subsystem initialised');
 
     // ── Stair subsystem ───────────────────────────────────────────────────────
