@@ -57,7 +57,9 @@ import {
     type IdPrefix,
     type LayoutExecuteOptions,
     type LayoutCommandSet,
+    type EntranceDoorDispatch,
     buildLayoutCommands,
+    resolveEntranceDoor,
 } from '@pryzm/ai-host';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
 import { nameDetectedRooms } from '../apartment-layout/nameDetectedRooms.js';
@@ -295,6 +297,15 @@ export class HouseLayoutExecutor {
             // storey, guaranteed by construction — independent of room coverage.
             const perimeterByLevel = new Map<string, PerimeterShell>();
 
+            // §A.21.D29 #3 — the GROUND-floor main-entrance door. A generated house
+            // (unlike the apartment, where the user hand-places the front door before
+            // generating) has no external way in. After we know the ground option +
+            // its shell walls, resolve ONE external door on the shell wall bounding
+            // the entrance hall (deterministic; pure ai-host decision) and dispatch
+            // it in the openings batch below. Captured here so it rides the same
+            // wall-store-ready gate the interior openings use.
+            let entranceDoor: EntranceDoorDispatch | null = null;
+
             // Pre-build the per-storey command sets (pure, no mutation yet).
             const perStorey: Array<{ levelId: string; set: LayoutCommandSet; option: ScoredLayoutOption }> = [];
             for (let i = 0; i < result.storeys.length; i++) {
@@ -322,6 +333,21 @@ export class HouseLayoutExecutor {
                 };
                 const set = buildLayoutCommands(option, opts, (p: IdPrefix) => createId(p));
                 perStorey.push({ levelId: storey.levelId, set, option });
+
+                // §A.21.D29 #3 — resolve the GROUND-floor main entrance on the drawn
+                // shell. Uses the SAME default plan(mm)→world(m) projector
+                // buildLayoutCommands used above (no `planToWorldXZ` override in `opts`),
+                // so the hall centroid + shell walls share a frame. Only the ground
+                // storey gets an external entrance (upper storeys are reached by stair).
+                if (isGround && shellWalls.length > 0) {
+                    entranceDoor = resolveEntranceDoor(option, shellWalls);
+                    if (entranceDoor) {
+                        console.log('[house-layout] §A.21.D29 main entrance → wall', entranceDoor.shellWallId,
+                            `offset ${entranceDoor.offsetM.toFixed(2)}m width ${entranceDoor.widthM.toFixed(2)}m`);
+                    } else {
+                        console.warn('[house-layout] §A.21.D29 no entrance door resolved (no hall-bounding shell wall fit a door)');
+                    }
+                }
             }
 
             // ── (c-f) ONE batch → one undo unit. Order matters:
@@ -401,7 +427,7 @@ export class HouseLayoutExecutor {
             // can read rooms on every storey. Run as a detached async continuation
             // so execute() still returns promptly (the toast/result aren't blocked).
             // ──────────────────────────────────────────────────────────────────────
-            void this._finishOpenings(perStorey).then(async () => {
+            void this._finishOpenings(perStorey, entranceDoor).then(async () => {
                 // §A.21.D25 — NAME + occupancy-tag the rooms PER STOREY, sequenced
                 // INSIDE the finish chain (right before each storey is furnished),
                 // not all up-front with one flat wait. Floor/ceiling/furnish/light
@@ -924,10 +950,15 @@ export class HouseLayoutExecutor {
      */
     private _finishOpenings(
         perStorey: ReadonlyArray<{ levelId: string; set: LayoutCommandSet; option: ScoredLayoutOption }>,
+        entranceDoor?: EntranceDoorDispatch | null,
     ): Promise<void> {
         // All host walls the openings need, across all storeys.
         const neededWallIds = new Set<string>();
         for (const s of perStorey) for (const op of s.set.openingCommands) neededWallIds.add((op.payload as { wallId: string }).wallId);
+        // §A.21.D29 #3 — the main entrance hosts on an EXISTING ground shell wall;
+        // include it so the wall-store-ready gate covers it too (it's already
+        // committed, so this never delays the batch).
+        if (entranceDoor) neededWallIds.add(entranceDoor.shellWallId);
 
         const wallStore = storeRegistry.getStoreForType('wall') as unknown as { getById?: (id: string) => unknown } | undefined;
         const wallsReady = (): boolean => !!wallStore?.getById && [...neededWallIds].every(id => wallStore.getById!(id) != null);
@@ -965,6 +996,35 @@ export class HouseLayoutExecutor {
                                     } catch (e) { console.warn('[house-layout] boundaries batch failed on', s.levelId, e); }
                                 }
                             }
+                            // §A.21.D29 #3 — the GROUND-floor main entrance: one door
+                            // opening on the EXISTING shell wall (same CreateWallOpenings
+                            // batch path the interior doors use, so it renders the swing
+                            // arc + leaf identically). Mint the opening + door element id
+                            // here (the door id === opening.elementId so the C15 cascade
+                            // removes both on undo). Inside the same batch → one undo unit.
+                            if (entranceDoor) {
+                                try {
+                                    const openingId = createId('opening');
+                                    const doorId = createId('door');
+                                    cm.execute!(new CreateWallOpeningsBatchCommand([{
+                                        wallId: entranceDoor.shellWallId,
+                                        openingData: {
+                                            id: openingId,
+                                            type: 'door',
+                                            offset: entranceDoor.offsetM,
+                                            width: entranceDoor.widthM,
+                                            height: entranceDoor.heightM,
+                                            sillHeight: 0,
+                                            elementId: doorId,          // === door id (C15 cascade)
+                                            doorType: 'single',
+                                            name: entranceDoor.name,
+                                            ...(entranceDoor.systemTypeId ? { systemTypeId: entranceDoor.systemTypeId } : {}),
+                                        },
+                                    }]));
+                                    totalItems += 1;
+                                    console.log('[house-layout] §A.21.D29 main entrance door created on shell wall', entranceDoor.shellWallId);
+                                } catch (e) { console.warn('[house-layout] §A.21.D29 entrance door batch failed (non-fatal):', e); }
+                            }
                         }, { levelIds: allLevelIds, totalElementCount: totalItems, skipRedetectRooms: false });
                     } catch (e) { console.warn('[house-layout] openings+boundaries batch failed (non-fatal):', e); }
                     console.log('[house-layout] openings + boundaries dispatched —', totalItems, 'item(s) across', perStorey.length, 'storey(s)');
@@ -977,12 +1037,15 @@ export class HouseLayoutExecutor {
                     // edit forces a whole-level rebuild. Re-queue every host wall for an
                     // EXPLICIT rebuild from current store data (the manual-WindowTool
                     // path), deferred so it runs after this batch's discard window restores.
-                    const openingWallIds = [...new Set(
-                        perStorey.flatMap(s => [
+                    const openingWallIds = [...new Set([
+                        ...perStorey.flatMap(s => [
                             ...s.set.openingCommands.map(op => (op.payload as { wallId: string }).wallId),
                             ...s.set.shellWindowOpeningCommands.map(op => (op.payload as { wallId: string }).wallId),
                         ]),
-                    )];
+                        // §A.21.D29 #3 — rebuild the entrance door's shell host so its
+                        // mesh shows the opening (same flush the interior openings get).
+                        ...(entranceDoor ? [entranceDoor.shellWallId] : []),
+                    ])];
                     if (openingWallIds.length > 0) {
                         // Deferred past the openings batch's (short, wall-free) drain so the
                         // §BATCH-BUS-DISCARD window has restored and the explicit rebuild's
