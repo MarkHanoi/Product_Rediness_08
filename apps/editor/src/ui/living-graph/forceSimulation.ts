@@ -36,8 +36,19 @@ export interface SimParams {
   damping: number;
   /** Max displacement per step (cooling clamp). */
   maxStep: number;
+  /** Hard collision push-apart strength so node CIRCLES never overlap. */
+  collision: number;
+  /** Extra padding (px) added on top of the two radii when colliding. */
+  collisionPad: number;
 }
 
+// The prototype's BASE constants. These stay the stable, test-facing reference
+// geometry (the convergence + spring tests run against these). The LIVE overlay
+// never uses these raw — it always calls `scaledParams` (below), which multiplies
+// repulsion + rest length UP for a clean, spread-out, panel-filling field. The
+// only ADDITIVE change here vs the prototype is the hard collision term, which
+// fires solely at short range (overlap) and so leaves the settled spring/repulsion
+// geometry — hence the tests — unchanged.
 export const DEFAULT_SIM_PARAMS: SimParams = {
   repulsion: 7200,
   attraction: 0.045,
@@ -45,7 +56,43 @@ export const DEFAULT_SIM_PARAMS: SimParams = {
   gravity: 0.02,
   damping: 0.86,
   maxStep: 26,
+  collision: 0.65,
+  collisionPad: 12,
 };
+
+/**
+ * A.21.D34(e) — derive spacing-scaled params for the LIVE graph so it spreads to
+ * FILL the available canvas instead of the old cramped, overlapping layout. This
+ * is what the overlay feeds `simulateStep` (the raw defaults are test-only).
+ *
+ *  • a BASE spread (~1.7×) over the prototype so even a small plan on the default
+ *    panel breathes (the "too compressed" complaint);
+ *  • by NODE COUNT — more rooms need more room: repulsion + rest length grow
+ *    (sub-linearly, √n) so a 20-room plan isn't a dense knot;
+ *  • by CANVAS SIZE — a bigger (resized) panel gets a longer rest length + weaker
+ *    centre gravity so the field expands to use the extra space.
+ *
+ * Returns a fresh params object; `DEFAULT_SIM_PARAMS` is never mutated. Pure +
+ * deterministic (no RNG, no time).
+ */
+export function scaledParams(nodeCount: number, canvasW: number, canvasH: number): SimParams {
+  const n = Math.max(1, nodeCount);
+  // Base spread so even the smallest graph on the default panel isn't cramped.
+  const BASE = 1.7;
+  // √n keeps growth gentle; clamp so tiny + huge graphs both stay sane.
+  const countScale = Math.min(2.2, Math.max(1, Math.sqrt(n) / 3));
+  // Reference canvas ≈ 380×300 (the default panel). Bigger → spread more.
+  const minDim = Math.max(240, Math.min(canvasW || 380, canvasH || 300));
+  const sizeScale = Math.min(2.2, Math.max(0.9, minDim / 300));
+  const spread = BASE * countScale * sizeScale;
+  return {
+    ...DEFAULT_SIM_PARAMS,
+    repulsion: DEFAULT_SIM_PARAMS.repulsion * BASE * countScale * (0.7 + 0.3 * sizeScale),
+    restLength: DEFAULT_SIM_PARAMS.restLength * spread,
+    // Weaker gravity on a larger field so it doesn't collapse back to centre.
+    gravity: DEFAULT_SIM_PARAMS.gravity / Math.max(1, sizeScale * 0.9),
+  };
+}
 
 /** The sim's annealing clock. `alpha` cools toward `alphaMin`; once cool the
  *  field is settled. Reset on rerun / layer-toggle (restart from CURRENT
@@ -158,6 +205,38 @@ export function simulateStep(
     }
   }
 
+  // 1b) Collision — a HARD short-range push so node CIRCLES (radius ∝ √area)
+  //     never overlap. Distinct from Coulomb repulsion (which is soft + global):
+  //     this only fires when two circles' edges are inside `collisionPad`, and it
+  //     drives them apart by HALF the overlap each. NOT alpha-scaled, so it stays
+  //     effective even as the field cools (overlap must never survive settling).
+  //     Deterministic; symmetric.
+  for (let i = 0; i < n; i++) {
+    const a = nodes[i]!;
+    for (let j = i + 1; j < n; j++) {
+      const b = nodes[j]!;
+      const minDist = a.radius + b.radius + params.collisionPad;
+      let dx = a.x - b.x;
+      let dy = a.y - b.y;
+      let d2 = dx * dx + dy * dy;
+      if (d2 >= minDist * minDist) continue; // not overlapping
+      if (d2 < 1) {
+        // Co-incident — separate deterministically by index parity.
+        dx = (i % 2 === 0 ? 1 : -1) * 0.5;
+        dy = (j % 2 === 0 ? 1 : -1) * 0.5;
+        d2 = dx * dx + dy * dy;
+      }
+      const dist = Math.sqrt(d2);
+      const overlap = (minDist - dist) * 0.5 * params.collision;
+      const ox = (dx / dist) * overlap;
+      const oy = (dy / dist) * overlap;
+      a.vx += ox;
+      a.vy += oy;
+      b.vx -= ox;
+      b.vy -= oy;
+    }
+  }
+
   // 2) Attraction — only along edges with an ACTIVE layer (Hooke → rest length).
   //    Strength scales by edge weight × active-layer count, so a pair bound by
   //    several active relations pulls tighter.
@@ -213,4 +292,52 @@ export function totalEnergy(graph: LiveGraph): number {
 /** Euclidean distance between two nodes (test/inspection helper). */
 export function nodeDistance(a: GraphNode, b: GraphNode): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+/** The pan/zoom transform that frames the field on the canvas. `scale` ≤ 1 zooms
+ *  OUT to fit; offsets re-centre the node cloud's bounding box. */
+export interface FitTransform {
+  offsetX: number;
+  offsetY: number;
+  scale: number;
+}
+
+/**
+ * A.21.D34(e) — compute a pan + (down-only) zoom that AUTO-FITS the settled node
+ * cloud to the canvas so the graph uses the available space and never spills off
+ * the (resizable) panel. Centres the nodes' bounding box (radii + labels
+ * included via `pad`) and, if the cloud is bigger than the canvas, zooms OUT to
+ * fit (never UP past 1, so a small graph isn't blown up into fuzzy giant
+ * bubbles). Pure; returns identity for an empty graph.
+ */
+export function fitToCanvas(
+  nodes: readonly GraphNode[],
+  canvasW: number,
+  canvasH: number,
+  pad = 28,
+): FitTransform {
+  if (nodes.length === 0) return { offsetX: 0, offsetY: 0, scale: 1 };
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const n of nodes) {
+    const r = n.radius + pad;
+    if (n.x - r < minX) minX = n.x - r;
+    if (n.y - r < minY) minY = n.y - r;
+    if (n.x + r > maxX) maxX = n.x + r;
+    if (n.y + r > maxY) maxY = n.y + r;
+  }
+  const cloudW = Math.max(1, maxX - minX);
+  const cloudH = Math.max(1, maxY - minY);
+  const W = Math.max(1, canvasW);
+  const H = Math.max(1, canvasH);
+  // Zoom out only (cap at 1) so a sparse graph isn't magnified.
+  const scale = Math.min(1, Math.min(W / cloudW, H / cloudH));
+  // Centre of the cloud (layout space).
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  // The renderer maps a node to canvasCentre + offset + n*scale; to centre the
+  // cloud we offset by -centre*scale.
+  return { offsetX: -cx * scale, offsetY: -cy * scale, scale };
 }

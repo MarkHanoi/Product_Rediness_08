@@ -233,7 +233,11 @@ function makeNode(ubg: UbgNodeLike): GraphNode {
   // Prefer a real enriched metric; else derive from type.
   const sun = clamp01(num(p.sunExposure) ?? num(p.daylightFactor) ?? BASE_SUN[type]);
   const noise = clamp01(num(p.noiseLevel) ?? num(p.acousticLevel) ?? BASE_NOISE[type]);
-  const radius = 16 + Math.sqrt(Math.max(area, 4)) * 2.4;
+  // A.21.D34(e) — radius ∝ √area with a wider, more legible spread (min 18, cap
+  // 64) so small + large rooms read as distinctly different bubbles. The sim's
+  // collision term keeps these circles from overlapping; auto-fit zooms out when
+  // the cloud exceeds the canvas, so a larger cap is safe.
+  const radius = 18 + Math.sqrt(Math.max(area, 4)) * 2.6;
   const level = levelOf(ubg);
   return {
     id: ubg.id,
@@ -248,7 +252,7 @@ function makeNode(ubg: UbgNodeLike): GraphNode {
     y: 0,
     vx: 0,
     vy: 0,
-    radius: Math.min(54, radius),
+    radius: Math.min(64, radius),
   };
 }
 
