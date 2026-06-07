@@ -104,3 +104,4 @@ jobs:
 # deploy-marker: v46-trigger — explicit deploy (D34 wave: skewed-geometry · Forma extras · datum-planes · living-graph)
 # deploy-marker: v47 — D36 layout completeness (no room-drop + multi-hop circulation + window-in-shell) + Forma window/door insets (proud of face) + D37 Living Graph (3D select/isolate + Miro zoom-pan) + SECURITY: removed hardcoded Cesium token
 # deploy-marker: v48 — house geometry (roof-by-storey · doors-in-wall · D38 wall-slab continuity) + grid-planes recurrence (floor-tile-hatch hidden in 3D) + D35 Forma climate viz (wind streamlines + comfort heat field) + railing-bus log cleanup
+# deploy-marker: v48-trigger — explicit deploy (house geometry + grid-planes + D35 climate viz + railing cleanup)
