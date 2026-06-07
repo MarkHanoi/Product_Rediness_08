@@ -72,6 +72,10 @@ const dist = (a: { x: number; z: number }, b: { x: number; z: number }): number 
 // land on the real drawn shell even when the generated perimeter is off-axis.
 const ANGLE_TOL_RAD = (30 * Math.PI) / 180; // max direction difference (either way)
 const PERP_TOL_M = 1.0;                       // max perpendicular distance to the shell line
+/** A.21.D34(b) — slack (m) allowed when requiring the option wall's midpoint to
+ *  project within the matched shell segment span. A small float-drift tolerance; the
+ *  midpoint must be essentially inside the wall it is hosted on. */
+const OVERLAP_TOL_M = 0.05;
 
 interface UnitDir { readonly x: number; readonly z: number; readonly len: number }
 
@@ -140,6 +144,15 @@ export function matchShellHost(
         const t0 = projParam(a, s.start, sd);
         const t1 = projParam(b, s.start, sd);
         if (Math.max(t0, t1) < 0 || Math.min(t0, t1) > sd.len) continue; // no overlap
+        // §WINDOW-IN-SHELL-SPAN (A.21.D34(b)) — the option wall's MIDPOINT must project
+        // WITHIN the shell segment span. On a skewed plot the loose "any overlap" test
+        // above can pick a near-parallel shell wall the room only grazes at a corner,
+        // hosting (then end-clamping) the window onto a wall it doesn't front → the
+        // window pokes outside the real façade/shell. Requiring the midpoint inside
+        // [0, len] keeps the host the wall the room actually fronts. Orthogonal layouts
+        // resolve via the exact match (step 1) above → this never fires (no regression).
+        const tMid = projParam(mid, s.start, sd);
+        if (tMid < -OVERLAP_TOL_M || tMid > sd.len + OVERLAP_TOL_M) continue;
         const score = ang * 2 + perp;
         if (score < bestScore) {
             bestScore = score;
@@ -209,10 +222,25 @@ export function resolveShellWindow(
         x: hostStartW.x + hostDir.x * (offsetM_local + (win.width / 1000) / 2),
         z: hostStartW.z + hostDir.z * (offsetM_local + (win.width / 1000) / 2),
     };
-    const offsetM = projParam(centreW, match.shell.start, shellDir) - widthM / 2;
+    const centreParam = projParam(centreW, match.shell.start, shellDir);
+    const offsetM = centreParam - widthM / 2;
     // §WINDOW-SHELL-CLAMP — the offset must keep the WHOLE opening on the wall,
     // strictly inside both ends: offset ∈ [END_CLEAR, shellLen − width − END_CLEAR].
     const maxOffsetM = Math.max(END_CLEAR_M, shellDir.len - widthM - END_CLEAR_M);
+
+    // §WINDOW-IN-SHELL-SPAN (A.21.D34(b)) — on a SKEWED plot the tolerant matcher can
+    // host a window on a near-parallel shell wall whose span the window's CENTRE does
+    // NOT actually project onto (the option's external wall, in the rotated frame, can
+    // extend past the true shell wall, or the room fronts a DIFFERENT segment of the
+    // skewed shell). The offset clamp below would then DRAG the whole opening to a wall
+    // end — landing it outside the room's real façade / poking past the shell corner
+    // (the founder's "window still outside the shell on a rotated plot"). Reject the
+    // match when the window centre falls outside the matched shell segment by more than
+    // half the opening width (i.e. less than half the opening would lie within the
+    // span) → the window is DROPPED rather than clamped onto a wall it doesn't belong
+    // on. An EXACT endpoint match always projects the centre inside [0, len], so this
+    // guard never fires on the orthogonal path (no regression).
+    if (centreParam < -widthM / 2 || centreParam > shellDir.len + widthM / 2) return null;
 
     return {
         shellWallId: match.shell.id,
