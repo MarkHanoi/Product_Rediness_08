@@ -375,7 +375,7 @@ export class PlatformProjectBrowser {
                     </span>
                 </label>
                 <label class="plat-hub-toggle-row">
-                    <span class="plat-hub-toggle-row-label">Room Compliance Messages</span>
+                    <span class="plat-hub-toggle-row-label">Room Compliance Overlay</span>
                     <span class="plat-hub-toggle">
                         <input type="checkbox" data-pref="showRoomComplianceMessages" ${prefs.showRoomComplianceMessages ? 'checked' : ''}>
                         <span class="plat-hub-toggle-track"></span>
