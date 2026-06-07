@@ -50,9 +50,12 @@ if (!_cesiumToken) {
         'Falling back to dev token — do not use in production.'
     );
 }
-Cesium.Ion.defaultAccessToken =
-    _cesiumToken ??
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1ZTgyY2VlNC0yZTMyLTRmNzktYmE2MC03MWFlMjlmODI1YWEiLCJpZCI6Mzk1NjM5LCJpYXQiOjE3NzIyNDA0OTB9.ofCy5m_GGYtnYgz5d7qzr3B0ZjshQ7j4sjXz7o8-jsc';
+// §SECURITY (A.21.D36) — NO hardcoded ion token in source (this is a public repo).
+// The token comes ONLY from the VITE_CESIUM_TOKEN build secret; absent it, the
+// globe uses the keyless ESRI-satellite / Forma flat-ground path (photorealAvailable
+// gates on !!_cesiumToken). The previously-committed fallback token (id 395639) was
+// removed and should be rotated/revoked in Cesium ion.
+Cesium.Ion.defaultAccessToken = _cesiumToken ?? '';
 
 /**
  * Camera framing for a site location. ~600 m looking almost straight down so the

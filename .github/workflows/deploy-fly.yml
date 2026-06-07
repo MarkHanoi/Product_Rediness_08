@@ -102,3 +102,4 @@ jobs:
 # deploy-marker: v45-trigger — explicit deploy (env E.3/E.4 + kitchen island)
 # deploy-marker: v46 — A.21.D34: skewed-plate geometry (stair+window in-shell, room self-intersect, degenerate wall) · Forma extras (windows/doors/stairs/furniture) · per-floor datum planes hidden in 3D · living-graph spacing
 # deploy-marker: v46-trigger — explicit deploy (D34 wave: skewed-geometry · Forma extras · datum-planes · living-graph)
+# deploy-marker: v47 — D36 layout completeness (no room-drop + multi-hop circulation + window-in-shell) + Forma window/door insets (proud of face) + D37 Living Graph (3D select/isolate + Miro zoom-pan) + SECURITY: removed hardcoded Cesium token
