@@ -76,6 +76,12 @@ const PERP_TOL_M = 1.0;                       // max perpendicular distance to t
  *  project within the matched shell segment span. A small float-drift tolerance; the
  *  midpoint must be essentially inside the wall it is hosted on. */
 const OVERLAP_TOL_M = 0.05;
+/** §WINDOW-IN-SHELL-FINAL (A.21.D36) — float-dust tolerance (m) for the final
+ *  "opening strictly inside the shell span" invariant. 1 mm: smaller than any
+ *  real clearance so it never admits a genuinely-off-wall frame, large enough to
+ *  absorb projection/rounding noise so a valid centred window is not spuriously
+ *  dropped. */
+const EPS_M = 0.001;
 
 interface UnitDir { readonly x: number; readonly z: number; readonly len: number }
 
@@ -228,23 +234,44 @@ export function resolveShellWindow(
     // strictly inside both ends: offset ∈ [END_CLEAR, shellLen − width − END_CLEAR].
     const maxOffsetM = Math.max(END_CLEAR_M, shellDir.len - widthM - END_CLEAR_M);
 
-    // §WINDOW-IN-SHELL-SPAN (A.21.D34(b)) — on a SKEWED plot the tolerant matcher can
-    // host a window on a near-parallel shell wall whose span the window's CENTRE does
-    // NOT actually project onto (the option's external wall, in the rotated frame, can
-    // extend past the true shell wall, or the room fronts a DIFFERENT segment of the
-    // skewed shell). The offset clamp below would then DRAG the whole opening to a wall
-    // end — landing it outside the room's real façade / poking past the shell corner
-    // (the founder's "window still outside the shell on a rotated plot"). Reject the
-    // match when the window centre falls outside the matched shell segment by more than
-    // half the opening width (i.e. less than half the opening would lie within the
-    // span) → the window is DROPPED rather than clamped onto a wall it doesn't belong
-    // on. An EXACT endpoint match always projects the centre inside [0, len], so this
-    // guard never fires on the orthogonal path (no regression).
-    if (centreParam < -widthM / 2 || centreParam > shellDir.len + widthM / 2) return null;
+    // §WINDOW-IN-SHELL-SPAN (A.21.D34(b) + A.21.D36 hardening, 2026-06-07) — on a
+    // SKEWED plot the tolerant matcher can host a window on a near-parallel shell wall
+    // whose span the window's CENTRE does NOT actually project onto (the option's
+    // external wall, in the rotated frame, can extend past the true shell wall, or the
+    // room fronts a DIFFERENT segment of the skewed shell). The offset clamp below
+    // would then DRAG the whole opening to a wall end — landing it outside the room's
+    // real façade / poking past the shell corner (the founder's recurring "window
+    // still outside the shell").
+    //
+    // The guard rejects a host whose span the window's CENTRE does not project onto:
+    // the centre must lie strictly inside the shell segment [0, len]. This is the
+    // wrong-wall test — a window the room only grazes at a corner of a near-parallel
+    // shell wall projects its centre OUTSIDE [0, len] and is dropped rather than
+    // clamped onto a wall it doesn't front. A legitimately OVER-WIDE but correctly-
+    // centred window (its centre is inside the span; only its half-width spills past
+    // an end) is NOT dropped here — the width clamp + offset clamp below pull the
+    // whole opening back onto the wall, and the §WINDOW-IN-SHELL-FINAL invariant
+    // proves the emitted opening sits on the wall. An EXACT endpoint match always
+    // projects the centre well inside [0, len] (no regression).
+    if (centreParam < -OVERLAP_TOL_M || centreParam > shellDir.len + OVERLAP_TOL_M) return null;
+
+    // Centre the (possibly width-clamped) opening on the projected centre, then clamp
+    // the offset so the WHOLE opening sits strictly inside both wall ends. Because the
+    // centre is inside [0, len] and the width fits (maxWidthM check above), a feasible
+    // in-shell offset always exists.
+    const finalOffsetM = Math.min(Math.max(END_CLEAR_M, offsetM), maxOffsetM);
+
+    // §WINDOW-IN-SHELL-FINAL (A.21.D36) — last-line invariant: after every clamp,
+    // the ACTUAL emitted opening [finalOffsetM, finalOffsetM + widthM] MUST lie
+    // strictly within the host shell span [0, shellLen]. If a degenerate clamp (e.g.
+    // a shell wall barely longer than the minimal window) still left the opening
+    // poking past either end, DROP the window — a frame off the wall plane must
+    // never render. Belt-and-braces over the centre-band guard above.
+    if (finalOffsetM < -EPS_M || finalOffsetM + widthM > shellDir.len + EPS_M) return null;
 
     return {
         shellWallId: match.shell.id,
-        offsetM:     Math.min(Math.max(END_CLEAR_M, offsetM), maxOffsetM),
+        offsetM:     finalOffsetM,
         widthM,
         heightM:     win.height / 1000,
         sillM:       win.sillHeight / 1000,

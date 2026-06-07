@@ -900,53 +900,83 @@ export function buildWallsAndDoors(
         }
     }
 
-    // (2c-ii) §CIRCULATION-REROUTE-TWOHOP (A.21.D14, 2026-06-06) — "try harder".
+    // (2c-ii) §CIRCULATION-REROUTE-MULTIHOP (A.21.D14 → A.21.D36, 2026-06-07) —
+    // "try harder", generalised from the original single two-hop pass.
     //
     // A room still without a DIRECT circulation door at this point shares no
     // legal circulation-adjacent wall in this tiling (the corridor/hall simply
     // doesn't reach it). Before giving up to the connected-but-warned fallback,
-    // route it onto circulation via ONE permitted INTERMEDIATE room that itself
-    // already has a circulation door — e.g. bedroom→living where the living
-    // room opens onto the hall. This turns "reachable only through a chain / via
-    // a forbidden pair" into "reachable through a single permitted room that is
-    // itself on the spine": a genuine improvement that never crosses a forbidden
-    // pair and never invents geometry. The room remains in the strict
-    // `unroutedToCirculationRoomIds` set (it has no DIRECT circulation door), but
-    // it is now LEGALLY reachable; the resulting door is a (mild) compromise so
-    // P8 keeps preferring a directly-routed strategy when one exists.
+    // route it onto circulation via a CHAIN of permitted INTERMEDIATE rooms that
+    // ends at a circulation-served room — e.g. bedroom→study→living where the
+    // living room opens onto the hall. The original pass only handled ONE
+    // intermediate (two hops); a room buried two rooms deep behind the spine
+    // stayed stranded. This BFS finds the SHORTEST permitted door-chain from the
+    // land-locked room to any circulation-served room and realises every door on
+    // it, so EVERY habitable room becomes legally corridor-connected whenever any
+    // permitted path exists. It never crosses a forbidden pair and never invents
+    // geometry (every hop is an existing shared wall). Each realised door is a
+    // (mild) compromise so P8 keeps preferring a directly-routed strategy.
     //
     // `circulationServed(id)` ≡ id is a circulation room OR has a direct
-    // circulation door (recomputed so it sees passes 1–2c).
+    // circulation door (recomputed each pass so it sees doors placed 1–2c).
     const circulationServed = (id: string): boolean =>
         isCircType(id) || roomHasCirculationDoor(id);
-    // Permitted shared walls from `id` to an intermediate room M that is
-    // circulation-served, ranked: longer walls first, then stable id.
-    const twoHopWallsFor = (id: string): typeof shared =>
-        shared
-            .filter(c => {
-                const other = c.a === id ? c.b : c.b === id ? c.a : null;
-                if (other === null) return false;
-                if (isCircType(other)) return false;          // direct case handled above
-                return circulationServed(other) && permitted(c.a, c.b);
-            })
-            .sort((p, q) => q.len - p.len || (p.seg.id < q.seg.id ? -1 : 1));
+    // Adjacency over PERMITTED shared walls (id → [{other, seg}]), ranked longer-
+    // wall-first then stable id so the chosen chain is deterministic.
+    const permittedAdj = new Map<string, Array<{ other: string; seg: WallSeg }>>();
+    for (const r of graph.rooms) permittedAdj.set(r.id, []);
+    for (const c of [...shared].sort((p, q) => q.len - p.len || (p.seg.id < q.seg.id ? -1 : 1))) {
+        if (!permitted(c.a, c.b)) continue;
+        permittedAdj.get(c.a)?.push({ other: c.b, seg: c.seg });
+        permittedAdj.get(c.b)?.push({ other: c.a, seg: c.seg });
+    }
+    // BFS from `id` to the nearest circulation-served room over permitted walls;
+    // returns the door-chain (sequence of {seg, a, b}) to realise, or null.
+    const chainToCirculation = (
+        id: string,
+    ): Array<{ seg: WallSeg; a: string; b: string }> | null => {
+        const prev = new Map<string, { from: string; seg: WallSeg }>();
+        const visited = new Set<string>([id]);
+        let frontier = [id];
+        let target: string | null = null;
+        while (frontier.length > 0 && target === null) {
+            const next: string[] = [];
+            for (const cur of frontier) {
+                for (const { other, seg } of permittedAdj.get(cur) ?? []) {
+                    if (visited.has(other)) continue;
+                    visited.add(other);
+                    prev.set(other, { from: cur, seg });
+                    // A circulation-served neighbour ends the search (the chain
+                    // from id → … → cur → other lands on the spine).
+                    if (circulationServed(other)) { target = other; break; }
+                    next.push(other);
+                }
+                if (target !== null) break;
+            }
+            frontier = next;
+        }
+        if (target === null) return null;
+        const chain: Array<{ seg: WallSeg; a: string; b: string }> = [];
+        let node = target;
+        while (node !== id) {
+            const step = prev.get(node)!;
+            chain.push({ seg: step.seg, a: step.from, b: node });
+            node = step.from;
+        }
+        return chain.reverse();
+    };
     const stillLandLocked = graph.rooms
         .map(r => r.id)
         .filter(id => needsCirculationAccess(id) && !roomHasCirculationDoor(id))
         .sort();
     for (const id of stillLandLocked) {
-        const candidates = twoHopWallsFor(id);
-        if (candidates.length === 0) continue;                // truly land-locked
-        let placed = false;
-        for (const c of candidates) {                          // clean (under-cap) first
-            if (wallHasDoor.has(c.seg.id)) continue;
-            if (!underCap(c.a) || !underCap(c.b)) continue;
-            if (addDoor(c.seg, c.a, c.b)) { cUnion(c.a, c.b); compromises++; placed = true; break; }
-        }
-        if (placed) continue;
-        for (const c of candidates) {                          // cap-relaxed last resort
-            if (wallHasDoor.has(c.seg.id)) continue;
-            if (addDoor(c.seg, c.a, c.b)) { cUnion(c.a, c.b); compromises++; placed = true; break; }
+        if (roomHasCirculationDoor(id)) continue;             // an earlier chain already served it
+        const chain = chainToCirculation(id);
+        if (!chain) continue;                                 // truly land-locked
+        for (const step of chain) {
+            if (cFind(step.a) === cFind(step.b)) continue;    // already linked by an existing door
+            if (wallHasDoor.has(step.seg.id)) { cUnion(step.a, step.b); continue; }
+            if (addDoor(step.seg, step.a, step.b)) { cUnion(step.a, step.b); compromises++; }
         }
     }
 

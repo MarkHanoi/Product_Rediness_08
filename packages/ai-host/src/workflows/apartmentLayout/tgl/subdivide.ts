@@ -133,6 +133,41 @@ function minAreaFor(type: RoomType): number {
 }
 
 /**
+ * §FEASIBILITY-FIRST (A.21.D36, 2026-06-07) — drop-priority RANK for a room type.
+ * When the SUM of every room's minimum area genuinely exceeds the rect (real
+ * over-program), the LOWEST-priority room is dropped first. Lower rank = dropped
+ * SOONER; higher rank = protected. We never drop a bathroom/bedroom before a
+ * lower-value service/secondary room.
+ *
+ * The order encodes architectural importance (founder rule: "drop the lowest-
+ * priority room, NOT a bathroom"):
+ *   living / kitchen / master / bathroom  — core programme, protected (high rank)
+ *   bedroom                               — habitable, protected
+ *   corridor / hall                       — circulation (cut only with the
+ *                                           private rooms it serves)
+ *   dining / study                        — desirable but optional
+ *   ensuite / wc / utility                — the first to go on a tight plate
+ *
+ * Pure data lookup — deterministic. */
+const DROP_PRIORITY_RANK: Readonly<Record<RoomType, number>> = {
+    living: 100,
+    kitchen: 95,
+    master: 90,
+    bathroom: 85,
+    bedroom: 80,
+    corridor: 70,
+    hall: 65,
+    dining: 50,
+    study: 45,
+    ensuite: 30,
+    wc: 25,
+    utility: 20,
+};
+function dropRankFor(type: RoomType): number {
+    return DROP_PRIORITY_RANK[type] ?? 40;
+}
+
+/**
  * §FEASIBILITY-ALLOC (A.21.D5, 2026-06-06) — squarify a room set into one rect →
  * footprints (rounded). The previous behaviour DROPPED the lowest-priority room
  * the instant any placement came in below its per-type short-side floor — which
@@ -156,9 +191,6 @@ function minAreaFor(type: RoomType): number {
 function placeInRectReported(rect: Rect, rooms: readonly ProgramRoom[]): SubdivideResult {
     const rectArea_ = Math.max(EPS, rectArea(rect));
     const droppedRooms: DroppedRoom[] = [];
-    // Mutable per-room area target; seeded from the proportional target so the
-    // rebalance can raise a starved room without touching the bubble graph.
-    let pool = rooms.map(r => ({ room: r, area: Math.max(EPS, r.targetAreaM2) }));
 
     const squarifyPool = (
         cur: ReadonlyArray<{ room: ProgramRoom; area: number }>,
@@ -168,49 +200,62 @@ function placeInRectReported(rect: Rect, rooms: readonly ProgramRoom[]): Subdivi
         return { placements, byId: new Map(placements.map(p => [p.roomId, p])) };
     };
 
-    while (pool.length > 0) {
-        // ── Rebalance loop: bounded retries that grow starved rooms. ──────────
-        const MAX_REBALANCE = pool.length + 2;     // deterministic upper bound
+    /**
+     * §FEASIBILITY-FIRST (A.21.D36) — try to place EVERY room in `current` at or
+     * above its per-type minimum short side by re-allocating area (no drop). The
+     * area allocation is seeded so each room gets AT LEAST its minimum area and
+     * the leftover (`rectArea − Σ minArea`) is distributed proportionally to the
+     * rooms' original targets. Then a bounded rebalance loop grows any room whose
+     * squarified CELL still comes in under its floor — financed by shrinking
+     * rooms that sit above their own minimum. Returns the placement set when ALL
+     * rooms clear their floor, or `null` when the rebalance cannot make them fit
+     * (the caller then drops the lowest-priority room and retries).
+     */
+    const runRebalance = (
+        seed: ReadonlyArray<{ room: ProgramRoom; area: number }>,
+        current: readonly ProgramRoom[],
+    ): { placements: RoomPlacement[]; byId: Map<string, RoomPlacement> } | null => {
+        const pool = seed.map(e => ({ room: e.room, area: e.area }));
+        const MAX_REBALANCE = current.length * 3 + 4;       // deterministic upper bound
         let placements: RoomPlacement[] = [];
         let byId = new Map<string, RoomPlacement>();
-        let tooNarrow: { room: ProgramRoom; area: number } | undefined;
         for (let iter = 0; iter <= MAX_REBALANCE; iter++) {
             ({ placements, byId } = squarifyPool(pool));
-            tooNarrow = pool.find(e => {
-                const p = byId.get(e.room.id);
-                if (!p) return false;
-                return shortSideM(p.rect) < floorFor(e.room.type) - EPS;
-            });
-            if (!tooNarrow) break;                  // all rooms clear their floor
-            if (iter === MAX_REBALANCE) break;      // give up rebalancing → drop
-
-            // Grow EVERY too-narrow room toward the area that would yield a cell
-            // at its floor depth, financed by shrinking rooms that are above
-            // their own minimum area. If there isn't enough slack to satisfy
-            // every deficit, the loop exits and we drop (below).
             const needers = pool.filter(e => {
                 const p = byId.get(e.room.id);
                 return p && shortSideM(p.rect) < floorFor(e.room.type) - EPS;
             });
-            // Required extra area for a needer: enough so its scaled cell can be
-            // a floor×floor square. The squarifier scales area→rect by the
-            // rect/pool ratio, so target the *unscaled* area that maps to a
-            // floor² cell: floor² * (poolAreaSum / rectArea).
+            if (needers.length === 0) return { placements, byId };   // all clear → done
+            if (iter === MAX_REBALANCE) return null;                  // can't fit → drop
+
+            // Required extra area for a needer so its scaled cell clears its
+            // floor short side. A square (floor²) UNDER-estimates the area when
+            // the rect is shallow: squarify may lay the room as a full-depth
+            // strip whose depth = the rect's SHORT dimension, so a floor² square
+            // still comes out too thin. Target instead the area of a cell that is
+            // `floor` wide × the rect's short dimension deep — the worst-case
+            // strip orientation — so the room clears its floor however squarify
+            // slices it. The squarifier scales area→rect by the rect/pool ratio,
+            // so convert that scaled target back to pool units.
             const poolAreaSum = pool.reduce((s, e) => s + e.area, 0) || EPS;
             const scale = rectArea_ / poolAreaSum;
+            const rectShortDim = Math.min(rect.x1 - rect.x0, rect.z1 - rect.z0);
             let deficitTotal = 0;
             const wantById = new Map<string, number>();
             for (const e of needers) {
                 const f = floorFor(e.room.type);
-                const wantScaled = f * f;                       // m² in the rect
-                const wantUnscaled = wantScaled / scale;        // m² in pool units
+                // floor × min(rectShortDim, larger-of-floor-and-current-depth): a
+                // strip `f` wide spanning the rect's short axis clears `f`. Clamp
+                // the depth to ≥ f so we never ask for LESS than the square.
+                const depth = Math.max(f, rectShortDim);
+                const wantScaled = f * depth;                        // m² in the rect
+                const wantUnscaled = wantScaled / scale;             // pool units
                 const extra = Math.max(0, wantUnscaled - e.area);
                 if (extra > EPS) { wantById.set(e.room.id, extra); deficitTotal += extra; }
             }
-            if (deficitTotal <= EPS) break;          // nothing actionable → drop
+            if (deficitTotal <= EPS) return null;                    // nothing actionable
 
-            // Donors: rooms above their own min area (in pool units → divide the
-            // m² min by scale). Take proportionally to their surplus.
+            // Donors: rooms above their own min area (in pool units).
             const donors = pool
                 .filter(e => !wantById.has(e.room.id))
                 .map(e => {
@@ -219,44 +264,92 @@ function placeInRectReported(rect: Rect, rooms: readonly ProgramRoom[]): Subdivi
                 })
                 .filter(d => d.surplus > EPS);
             const surplusTotal = donors.reduce((s, d) => s + d.surplus, 0);
-            if (surplusTotal <= EPS) break;          // no slack to redistribute → drop
+            if (surplusTotal <= EPS) return null;                    // no slack → drop
 
             const take = Math.min(deficitTotal, surplusTotal);
-            // Withdraw proportionally from donors.
             for (const d of donors) d.e.area -= take * (d.surplus / surplusTotal);
-            // Distribute proportionally to needers' deficits.
             for (const e of needers) {
                 const extra = wantById.get(e.room.id) ?? 0;
                 if (extra > EPS) e.area += take * (extra / deficitTotal);
             }
-            // Loop and re-squarify with the rebalanced targets.
         }
+        return null;
+    };
 
-        if (!tooNarrow) return { placements, droppedRooms };
+    /**
+     * §FEASIBILITY-FIRST (A.21.D36) — try to place EVERY room at or above its
+     * per-type minimum short side by re-allocating area (no drop). Returns the
+     * placement set when all rooms clear their floor, or null when no seeding +
+     * rebalance can make them fit (caller drops the lowest-priority room).
+     *
+     * Two deterministic seedings are tried in order, taking the first that fully
+     * fits:
+     *   1. PROPORTIONAL — each room's bubble-graph target area. This is the
+     *      original allocation; on a comfortable plot it both fits AND gives the
+     *      best squarify geometry, so the no-drop common case is preserved
+     *      bit-for-bit.
+     *   2. MIN-FIRST — each room seeded at its minimum area plus a proportional
+     *      share of the rect's leftover. This min-respecting start lets a small-
+     *      SHARE room keep its floor on a tight plate the proportional split would
+     *      have starved — the founder's "stop dropping rooms" case.
+     * The rebalance loop runs on each seeding; only when BOTH fail to fit every
+     * room does the caller treat it as genuine over-program and drop.
+     */
+    const tryFitAll = (
+        current: readonly ProgramRoom[],
+    ): { placements: RoomPlacement[]; byId: Map<string, RoomPlacement> } | null => {
+        const proportional = current.map(r => ({ room: r, area: Math.max(EPS, r.targetAreaM2) }));
+        const fitProp = runRebalance(proportional, current);
+        if (fitProp) return fitProp;
 
-        // Rebalancing exhausted — the rect genuinely can't hold every room at
-        // its minimum. Drop the LOWEST-PRIORITY room (last in allocationOrder)
-        // and record it structurally so the caller reports it (never silent).
-        const dropped = pool[pool.length - 1]!;
-        const p = byId.get(tooNarrow.room.id)!;
-        const f = floorFor(tooNarrow.room.type);
+        const minTotal = current.reduce((s, r) => s + minAreaFor(r.type), 0);
+        const targetTotal = current.reduce((s, r) => s + Math.max(EPS, r.targetAreaM2), 0) || EPS;
+        const leftover = Math.max(0, rectArea_ - minTotal);
+        const minFirst = current.map(r => ({
+            room: r,
+            area: minAreaFor(r.type) + leftover * (Math.max(EPS, r.targetAreaM2) / targetTotal),
+        }));
+        return runRebalance(minFirst, current);
+    };
+
+    // ── Feasibility-first allocation loop. Drop ONLY as a last resort. ────────
+    // Working set in allocation order (public-first / private-last). On each
+    // pass we try to fit EVERY remaining room; if we can't, we drop the single
+    // lowest-priority room (by drop-rank, then allocation order as a tie-break)
+    // and retry — so a normal plot keeps its full programme and only a genuine
+    // over-program loses the least-important room (never a bathroom/bedroom
+    // before a wc/utility/ensuite).
+    let working = rooms.slice();
+    while (working.length > 0) {
+        const fit = tryFitAll(working);
+        if (fit) return { placements: fit.placements, droppedRooms };
+
+        // Could not fit every room at its minimum — REAL over-program for this
+        // rect. Drop the lowest-priority room: lowest drop-rank wins, ties broken
+        // by LATER allocation order (private-last) so the choice is deterministic.
+        let dropIdx = 0;
+        for (let i = 1; i < working.length; i++) {
+            const a = working[i]!, b = working[dropIdx]!;
+            const ra = dropRankFor(a.type), rb = dropRankFor(b.type);
+            if (ra < rb || (ra === rb && i > dropIdx)) dropIdx = i;
+        }
+        const dropped = working[dropIdx]!;
         droppedRooms.push({
-            roomId: dropped.room.id,
-            type: dropped.room.type,
-            shortSideM: round6(shortSideM(byId.get(dropped.room.id)?.rect ?? p.rect)),
-            minShortSideM: floorFor(dropped.room.type),
+            roomId: dropped.id,
+            type: dropped.type,
+            shortSideM: 0,
+            minShortSideM: floorFor(dropped.type),
         });
+        const minTotal = working.reduce((s, r) => s + minAreaFor(r.type), 0);
         console.warn(
-            `[D-TGL subdivide] §HARD-MIN-SIDE-PER-ROOM: room "${tooNarrow.room.id}" (${tooNarrow.room.type}) ` +
-            `would produce short side ${shortSideM(p.rect).toFixed(2)} m ` +
-            `< ${f.toFixed(2)} m per-type floor and rebalancing freed no slack — ` +
-            `dropping "${dropped.room.id}" (${dropped.room.type}) and re-squarifying ` +
-            `(reported via droppedRooms — NOT silent).`,
+            `[D-TGL subdivide] §FEASIBILITY-ALLOC: rect area ${rectArea_.toFixed(2)} m² ` +
+            `< Σ per-type minimum areas ${minTotal.toFixed(2)} m² for ${working.length} room(s) — ` +
+            `genuine over-program. Dropping the LOWEST-PRIORITY room "${dropped.id}" ` +
+            `(${dropped.type}, drop-rank ${dropRankFor(dropped.type)}) and re-fitting the rest ` +
+            `(reported via droppedRooms — NOT silent; never a bathroom/bedroom before a ` +
+            `lower-priority service room).`,
         );
-        // Reset the surviving pool's areas to their proportional targets so the
-        // next squarify starts from the clean allocation (the rebalance above
-        // mutated areas chasing an infeasible fit).
-        pool = pool.slice(0, -1).map(e => ({ room: e.room, area: Math.max(EPS, e.room.targetAreaM2) }));
+        working = working.filter((_, i) => i !== dropIdx);
     }
     return { placements: [], droppedRooms };
 }
