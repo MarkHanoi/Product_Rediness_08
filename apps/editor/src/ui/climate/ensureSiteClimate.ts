@@ -30,7 +30,11 @@ import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
 import type { NoaaFetchImpl } from '@pryzm/climate-host';
 import { climateEnsureForLocation } from '@pryzm/stores';
 import { makeLiveClimateFetch } from './liveClimateFetch.js';
-import { getCurrentSiteOrigin } from '../site/siteDispatch.js';
+import {
+    getCurrentSiteOrigin,
+    ensureSite,
+    resolveSiteContext,
+} from '../site/siteDispatch.js';
 
 /** Options for `ensureSiteClimate`. */
 export interface EnsureSiteClimateOptions {
@@ -79,7 +83,30 @@ export async function ensureSiteClimate(
             console.log(`[ensureSiteClimate] location resolved from LTP-ENU fallback → LAT ${ltp.lat} LON ${ltp.lon}.`);
         }
     }
-    if (!site || !loc) return false;
+    if (!loc || (loc.latitude === 0 && loc.longitude === 0)) return false;
+
+    // §A.21.D33(f) — KEYING GAP. The ClimateDataset is keyed by `site.id` and the
+    // panel + 3D overlays only resolve via `climateStore.resolveSite(site.id)`. A
+    // location can exist (map shows lat/lon from the LTP-ENU origin) while NO Site
+    // aggregate has been created yet (e.g. an onboarding/house handoff that set the
+    // origin but not the Site). Without a Site there is nothing to key the dataset
+    // to, so it never resolves → "NO DATASET". Create the Site here (idempotent —
+    // deterministic `site_<projectId>` id) so the offline dataset always has a home.
+    if (!site) {
+        try {
+            const ctx = resolveSiteContext(runtime);
+            if (ctx) {
+                ensureSite(ctx, { latitude: loc.latitude, longitude: loc.longitude });
+                site = runtime.siteModelStore.getSite();
+                if (site) {
+                    console.log(`[ensureSiteClimate] created Site ${String(site.id)} for an existing location (climate-keying fix).`);
+                }
+            }
+        } catch (e) {
+            console.warn('[ensureSiteClimate] auto-create Site failed (non-fatal):', e);
+        }
+    }
+    if (!site) return false;
 
     const commonPayload = {
         siteId: site.id,

@@ -88,6 +88,28 @@ export function openClimatePanel(
     }
     _panel.style.display = 'flex';
     _render();
+    // A.21.D33(f) — GUARANTEE a dataset on open. The panel is opened from the
+    // GIS rail / Site inspector independently of the Forma analysis controls, so
+    // those entry points never ran `ensureSiteClimate` and the card sat on "No
+    // climate dataset imported" forever even with a site location set. Kick a
+    // proactive ingest here: the bundled offline default lands instantly (no
+    // network) and the `climateStore.subscribe()` above repaints the wind rose +
+    // temperature profile. Fire-and-forget + fully guarded — never throws, and
+    // it is idempotent/cheap (skips when a dataset already exists).
+    _ensureClimateOnOpen();
+}
+
+/** Proactively ingest a ClimateDataset for the active site when the panel opens
+ *  (offline bundled default = instant). Idempotent; never throws. */
+function _ensureClimateOnOpen(): void {
+    const rt = _runtime;
+    if (!rt) return;
+    import('./ensureSiteClimate')
+        .then(({ ensureSiteClimate }) => ensureSiteClimate(rt))
+        .then((ok) => {
+            console.log(`[ClimatePanel] proactive ensureSiteClimate → ${ok ? 'dataset present' : 'no location/site'}.`);
+        })
+        .catch((e) => console.warn('[ClimatePanel] ensureSiteClimate failed:', e));
 }
 
 /** Hide the panel (kept in the DOM for cheap re-open). */
