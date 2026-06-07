@@ -169,6 +169,19 @@ describe('classifyWallDelta — (b) whole-level fallback', () => {
         if (result.kind === 'whole-level') expect(result.reason).toBe('no-prevState');
     });
 
+    it('§A.21.D28 — generator force-rebuild entries (update, no prevState, walls WITH openings) → whole-level', () => {
+        // WallRebuildCoordinator._rebuildWalls re-queues each affected host wall as an
+        // `update` with NO prevState (intentionally, so the openings-only fast path can
+        // never be taken). That guarantees `_flush` runs the authoritative whole-level
+        // rebuild, reconstructing every wall body WITH its current openings — the same
+        // outcome a manual WindowTool placement produces. This is the load-bearing
+        // invariant of the generated-window-openings-render fix; assert it here.
+        const wWithOpening = makeWall({ id: 'host-wall', openings: [makeOpening({ id: 'win_op', elementId: 'win_1', type: 'window' })] });
+        const result = classifyWallDelta([{ event: 'update', wall: wWithOpening }]);
+        expect(result.kind).toBe('whole-level');
+        if (result.kind === 'whole-level') expect(result.reason).toBe('no-prevState');
+    });
+
     it('multi-level batch → whole-level', () => {
         const op = makeOpening();
         const prevA = makeWall({ id: 'wA', levelId: 'level-0', openings: [op] });

@@ -164,6 +164,19 @@ export class WallRebuildCoordinator {
             // Lets the BatchCoordinator idle-probe complete openings-only / furnish-only
             // batches (which build no walls) in ~2 frames instead of the 8 s watchdog.
             hasPendingBuilds:   () => this._hasPendingBuilds(),
+            // §A.21.D28 — force a rebuild of specific walls from CURRENT store data,
+            // independent of the pending-event queue and the §BATCH-BUS-DISCARD window.
+            // The generated-layout pipelines add window/door OPENINGS via a batch that
+            // overlaps the preceding wall batch's discard window — so the
+            // `addOpening → emit('update')` rebuild signal is silently dropped (the
+            // discard pattern assumes the wall was already built in the batch drain,
+            // which is FALSE for an openings-on-existing-walls batch). The result: the
+            // opening is in the data but the wall mesh keeps its solid body until an
+            // unrelated manual edit triggers a whole-level rebuild. This entry point
+            // lets the generator explicitly re-queue the affected walls AFTER its
+            // openings batch settles, reproducing exactly the rebuild the manual
+            // WindowTool gets for free (no discard window in the manual path).
+            rebuildWalls:       (wallIds: readonly string[]) => this._rebuildWalls(wallIds),
         };
 
         window.__engineTeardown = {
@@ -234,6 +247,50 @@ export class WallRebuildCoordinator {
         this._pendingWallEvents.clear();
         this._prevJoinMap.clear();
         console.log('[WallRebuildCoordinator] C13 resetWallRebuildState() — wall pipeline clean for project switch');
+    }
+
+    /**
+     * §A.21.D28 — force-rebuild a set of walls from CURRENT store data.
+     *
+     * Re-queues each named wall as an `update` event (no `prevState` → the
+     * §STEP7 neighbour-diff and the ADR-057 openings-only fast path are both
+     * skipped, so `_flush` takes the authoritative whole-level rebuild for the
+     * affected level(s) — identical to what a manual opening placement triggers).
+     *
+     * This deliberately IGNORES `_wallRebuildDiscarding` and `_wallRebuildPaused`:
+     * it is an EXPLICIT, post-batch repair call made by the generated-layout
+     * pipelines once their openings batch has fully settled, precisely because
+     * the implicit `addOpening → emit('update')` signal was dropped while a batch
+     * discard/pause window was open. It must therefore queue + flush regardless of
+     * those guards. It still honours `_joinsResolving` (defers to a frame slot so
+     * it never re-enters an in-flight resolve).
+     */
+    private _rebuildWalls(wallIds: readonly string[]): void {
+        const store = this._wallTool?.getWallStore?.();
+        if (!store) return;
+        let queued = 0;
+        for (const id of wallIds) {
+            const wall = store.getById(id);
+            if (!wall) continue;
+            // No prevState → classifyWallDelta returns 'whole-level' (the openings
+            // membership changed vs. the last build), so every wall on the level is
+            // rebuilt from current data — the same authoritative path the manual
+            // WindowTool exercises.
+            this._pendingWallEvents.set(wall.id, { event: 'update', wall });
+            queued++;
+        }
+        if (queued === 0) return;
+        console.log(`[WallRebuildCoordinator] §A.21.D28 rebuildWalls — re-queued ${queued} wall(s) for an explicit post-openings rebuild`);
+        // If a resolve is mid-flight, or a flush is already scheduled, let that run
+        // (it will pick up the freshly-queued walls). Otherwise schedule one now.
+        if (this._joinsResolving) {
+            if (this._wallRafHandle === null) {
+                this._wallRafHandle = getFrameScheduler().scheduleOnce('engine-bootstrap-wall-flush', () => this._flush());
+            }
+            return;
+        }
+        if (this._wallRafHandle !== null) return;
+        this._wallRafHandle = getFrameScheduler().scheduleOnce('engine-bootstrap-wall-flush', () => this._flush());
     }
 
     private _scheduleFlush(event: 'add' | 'update' | 'remove', wall: WallData, prevState?: WallData): void {

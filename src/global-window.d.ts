@@ -443,6 +443,11 @@ declare global {
         /** §A.21.D7-FIX — true while wall events/builds are still pending; read by the
          *  BatchCoordinator idle-probe to fast-complete wall-free batches. */
         hasPendingBuilds?(): boolean;
+        /** §A.21.D28 — force-rebuild specific walls from CURRENT store data, bypassing
+         *  the dropped-event / §BATCH-BUS-DISCARD window. Called by the generated-layout
+         *  pipelines after their openings batch settles so window/door openings render
+         *  immediately (no manual nudge). See WallRebuildCoordinator._rebuildWalls. */
+        rebuildWalls?(wallIds: readonly string[]): void;
     };
     /**
      * C13 §4 (Wave 35 I-2) — Project isolation teardown surface.

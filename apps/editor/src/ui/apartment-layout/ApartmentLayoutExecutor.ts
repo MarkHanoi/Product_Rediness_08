@@ -364,6 +364,28 @@ export class ApartmentLayoutExecutor {
                         skipRedetectRooms: false,
                     });
                 } catch (e) { console.warn('[apartment-layout] doors+boundaries+shellWindows batch failed (non-fatal):', e); }
+
+                // §A.21.D28 — flush the wall meshes for the openings just added.
+                // The opening batch above runs while the preceding wall batch's
+                // §BATCH-BUS-DISCARD window can still be open, so each opening's
+                // implicit `addOpening → emit('update')` rebuild signal is dropped:
+                // the openings land in the data but the wall bodies stay solid until
+                // an unrelated manual edit triggers a whole-level rebuild (the
+                // "place one window → all openings suddenly appear" bug). Re-queue
+                // every host wall for an EXPLICIT rebuild from current store data
+                // (the same authoritative path the manual WindowTool exercises),
+                // deferred so it runs AFTER this batch's discard window restores.
+                const openingWallIds = [...new Set(openingItems.map(it => it.p.wallId))];
+                if (openingWallIds.length > 0) {
+                    // Deferred past the openings batch's (short, wall-free) drain so the
+                    // §BATCH-BUS-DISCARD window has restored and the explicit rebuild's
+                    // builds run synchronously rather than being re-queued by isBatching.
+                    setTimeout(() => {
+                        try {
+                            window.__wallRebuildControl?.rebuildWalls?.(openingWallIds);
+                        } catch (e) { console.warn('[apartment-layout] §A.21.D28 rebuildWalls failed (non-fatal):', e); }
+                    }, 250);
+                }
             } else if (!cm) {
                 console.warn('[apartment-layout] commandManager unavailable — doors+boundaries+shellWindows skipped');
             }
