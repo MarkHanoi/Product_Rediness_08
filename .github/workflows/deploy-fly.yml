@@ -87,3 +87,4 @@ jobs:
 # deploy-marker: v38 — A.21.D25 (4 deep house defects: re-projection loop · furnish-all-storeys · plate subdivision + wall joins · Forma floors/roof/furniture) + A.21.D26 (stairwell-void guardrail)
 # deploy-marker: v39 — A.21.D28 (Forma elements+crash+overlays · window-openings · ground-subdivision · resizable graph)
 # deploy-marker: v40 — A.21.D29 (floor/ceiling void · railing render-fix · entrance door · env-drivers E.1/E.2) + A.21.D28 #7/#9 (furnish-all modal · bottom level selector). HELD for founder go.
+# deploy-marker: v40-retry — re-trigger after transient Fly 504 (build was fine; registry/API timeout)
