@@ -234,6 +234,8 @@ export function generateDeterministicLayouts(
                 alignmentField: c.objectives.alignmentField,
                 facadeAlignment: c.objectives.facadeAlignment,
                 solarOrientation: c.objectives.solarOrientation,
+                acousticZoning: c.objectives.acousticZoning,
+                naturalVentilation: c.objectives.naturalVentilation,
             },
         };
         return { ...labelled, score };

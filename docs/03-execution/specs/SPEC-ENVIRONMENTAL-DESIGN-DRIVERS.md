@@ -137,10 +137,32 @@ Mirror the cognition-stack doctrine (staged optimisation steps, AI guides the en
   `runDeterministicLayout` → `enumerate` (`solarLatDeg`) → `computeObjectives`. GRACEFUL
   DEGRADATION: neutral 1.0 (rank-invisible) when no latitude / near-equatorial / degenerate,
   so layouts without site data are byte-identical. Tests: `__tests__/tglEnvDrivers.test.ts`.
-- **E.3** Acoustic zoning objective (§4): buffer-between-noisy-and-quiet + vertical stack
-  legality in storeyAllocation.
-- **E.4** Ventilation objective (§5): plan-depth cap, cross-vent opening pairing, stack via
-  the (space-efficiency-scored) stair core.
+- **E.3 ✅ SHIPPED (2026-06-07, §ENV-E3-ACOUSTIC).** Acoustic-zoning objective (§4,
+  driver 5, Env-performance band): a SOFT `acousticZoning` axis (`tgl/objectives.ts` ←
+  `acousticZoningScore` in `tgl/envDrivers.ts`) that penalises a QUIET room
+  (bedroom/master/study) directly adjacent to a NOISY room (kitchen/utility/laundry/wc/
+  bathroom) and REWARDS a hall/corridor/wc/storage BUFFER between them — using the
+  `ADJACENT_TO` shared-wall edges the engine already builds (no new geometry). For
+  MULTI-STOREY houses the vertical-stack preference (bedroom-above-bedroom OK;
+  bedroom-directly-above-kitchen/noisy penalised, structure-borne) ships as a SOFT
+  storey-allocation preference: `verticalStackAcousticScore` (`tgl/envDrivers.ts`) +
+  `storeyAcousticProfiles`/`storeyAcousticPreference` (`houseLayout/storeyAllocation.ts`)
+  — a preference, NOT a hard gate (the allocation is never dropped). Axis mapped to the
+  env-performance band in `envDrivers.ts` `AXIS_PRIORITY`. GRACEFUL DEGRADATION: neutral
+  1.0 (rank-invisible) when no quiet↔noisy relation / no adjacency data, so layouts with
+  no acoustic tension are byte-identical (Pareto equality invariant preserved). Tests:
+  `__tests__/tglEnvDriversE3E4.test.ts`.
+- **E.4 ✅ SHIPPED (2026-06-07, §ENV-E4-VENT).** Natural-ventilation objective (§5,
+  driver 6, Env-performance band): a SOFT `naturalVentilation` axis (`tgl/objectives.ts`
+  ← `naturalVentilationScore` in `tgl/envDrivers.ts`) that REWARDS cross-ventilation
+  potential — habitable rooms with window openings on ≥2 differently-oriented external
+  façades — and PENALISES plan depth beyond the cross-vent reach (≈5× floor-to-ceiling,
+  ~12.5 m) for habitable rooms; a stair/stairwell stack path nudges the score up. Uses
+  the existing Window/Opening + external-Wall (`isExternal`, `baseLine`) graph data (no
+  new geometry). Axis mapped to the env-performance band in `AXIS_PRIORITY`. GRACEFUL
+  DEGRADATION: neutral 1.0 when no external walls / no scorable habitable room, so
+  layouts without window/wall data are byte-identical (Pareto equality invariant
+  preserved). Tests: `__tests__/tglEnvDriversE3E4.test.ts`.
 - **E.5** Privacy/views (§3/§4) once a real Site context (C18) is wired.
 - **E.6** Services/structure inputs (§7/§8) — wet-room clustering + structural grid.
 Each step ships behind its own objective axis + tests; conflicts resolved by §1 order.

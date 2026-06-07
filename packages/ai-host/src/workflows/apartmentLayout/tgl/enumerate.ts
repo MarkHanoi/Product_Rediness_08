@@ -427,6 +427,19 @@ function weightedSum(o: ObjectiveVector, w: ScoringWeights): number {
         // candidate when no site latitude is supplied → contributes a constant that
         // cancels in ranking, so absent site data leaves the order unchanged.
         solarOrientation: Math.max(0, w.naturalLight) * 0.5,
+        // §ENV-E3-ACOUSTIC (E.3) — acoustic-zoning bias (spec §1 driver 5,
+        // Env-performance). Coupled to the user's `privacy` weight (scaled 0.5):
+        // acoustic separation is the aural face of privacy. Neutral (1.0) for every
+        // candidate when the layout has no quiet↔noisy relation, so absent acoustic
+        // tension contributes a constant that cancels in ranking. The priority band
+        // (env-performance) is applied on top via `priorityMultiplier`.
+        acousticZoning: Math.max(0, w.privacy) * 0.5,
+        // §ENV-E4-VENT (E.4) — natural-ventilation bias (spec §1 driver 6,
+        // Env-performance). Coupled to the user's `naturalLight` weight (scaled 0.5):
+        // cross-ventilation rides the same façade-opening intent as daylight.
+        // Neutral (1.0) for every candidate when there is no external-wall/opening
+        // data, so absent ventilation data cancels in ranking.
+        naturalVentilation: Math.max(0, w.naturalLight) * 0.5,
     };
     // §ENV-E1-PRIORITY (E.1) — apply the priority-hierarchy band (spec §1) ON TOP
     // of the per-axis weights above. Axes that serve a higher-priority driver

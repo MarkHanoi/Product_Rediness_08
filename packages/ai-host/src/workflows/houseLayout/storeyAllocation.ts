@@ -18,6 +18,9 @@
 
 import type { ApartmentProgram } from '../apartmentLayout/types.js';
 import type { StoreyProgram, StoreyRole } from './types.js';
+import {
+    verticalStackAcousticScore, type StoreyAcousticProfile,
+} from '../apartmentLayout/tgl/envDrivers.js';
 
 /** Clamp storey count to a sane single-family-house range (≥1). */
 function clampStoreyCount(n: number): number {
@@ -116,6 +119,44 @@ export function allocateProgramToStoreys(
     }
 
     return out;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §ENV-E3-ACOUSTIC (vertical) — SOFT storey-allocation acoustic preference (spec
+// §4): bedroom-above-bedroom is fine; a bedroom directly above a kitchen/noisy
+// storey is a structure-borne penalty. This is a PREFERENCE used to compare two
+// candidate allocations — NOT a hard gate (a 1-storey house, or a house whose only
+// kitchen is on the ground with bedrooms above, is the common acoustically-sound
+// case and scores 1.0). Pure + deterministic; no I/O, no spans.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Derive each storey's acoustic profile (bedroom / noisy presence) from an
+ * allocated stack, ground first. A storey is "noisy" when it carries a kitchen
+ * (the dominant structure-borne source in a dwelling) or a utility/laundry. The
+ * apartment-program shape exposes `includeKitchen`; `openPlanKitchenDining` (a
+ * kitchen-dining) is also treated as a kitchen.
+ */
+export function storeyAcousticProfiles(
+    storeys: readonly StoreyProgram[],
+): StoreyAcousticProfile[] {
+    return storeys.map(s => {
+        const p = s.program;
+        const hasBedroom = Math.max(0, Math.floor(p.bedrooms)) > 0;
+        const hasNoisy = p.includeKitchen === true || p.openPlanKitchenDining === true;
+        return { hasBedroom, hasNoisy };
+    });
+}
+
+/**
+ * §ENV-E3-ACOUSTIC (vertical) — score an allocated stack in [0, 1] (spec §4). 1.0
+ * = no upper bedroom sits directly above a noisy storey; lower = some do. A SOFT
+ * preference (the orchestrator/variants can use it to break ties between equally-
+ * valid allocations); never a gate. Neutral 1.0 for a single storey or when no
+ * upper bedroom sits over any storey.
+ */
+export function storeyAcousticPreference(storeys: readonly StoreyProgram[]): number {
+    return verticalStackAcousticScore(storeyAcousticProfiles(storeys));
 }
 
 /**

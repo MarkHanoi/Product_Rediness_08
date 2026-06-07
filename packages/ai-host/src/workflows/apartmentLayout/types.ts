@@ -233,6 +233,18 @@ export interface LayoutScoreBreakdown {
      *  storage) on the cold side score higher. Neutral (1.0) when no site latitude
      *  is supplied. Cognition Layer 1 (Environmental Intelligence). */
     solarOrientation?: number;     // 0-1
+    /** §ENV-E3-ACOUSTIC — acoustic-zoning bias (Environmental-Design-Drivers spec
+     *  §4, driver 5). QUIET rooms (bedroom/master/study) buffered from NOISY rooms
+     *  (kitchen/utility/laundry/wc/bathroom) score higher; a hall/corridor/wc/
+     *  storage between them is rewarded. Neutral (1.0) when no quiet↔noisy relation
+     *  exists. Env-performance band. */
+    acousticZoning?: number;       // 0-1
+    /** §ENV-E4-VENT — natural-ventilation bias (Environmental-Design-Drivers spec
+     *  §5, driver 6). Habitable rooms with windows on ≥2 differently-oriented
+     *  façades (cross-vent) + plan depth within the cross-vent reach (~12.5 m)
+     *  score higher; a stair/stack path nudges up. Neutral (1.0) when no external-
+     *  wall/opening data. Env-performance band. */
+    naturalVentilation?: number;   // 0-1
 }
 
 export interface LayoutScore {
