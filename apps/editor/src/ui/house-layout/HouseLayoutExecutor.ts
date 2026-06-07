@@ -38,6 +38,7 @@ import {
     CreateHandrailCommand,
 } from '@pryzm/command-registry';
 import { facadeOrientationService } from '@pryzm/spatial-index';
+import { computeStairFootprintRect } from '@pryzm/geometry-stair';
 import { isGableFriendly } from '@pryzm/geometry-roof';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import {
@@ -62,6 +63,7 @@ import {
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
 import { nameDetectedRooms } from '../apartment-layout/nameDetectedRooms.js';
 import { runHousePostGenChain } from './runHousePostGenChain.js';
+import { resetStairVoids, recordStairVoid } from './houseStairVoids.js';
 
 const MM_PER_M = 1000;
 const DEFAULT_FLOOR_TO_FLOOR_M = 3.0;
@@ -273,6 +275,14 @@ export class HouseLayoutExecutor {
                 result = generateHouseLayout(shell, program, constraints, weights, houseOpts);
             }
             console.log('[house-layout] generated — storeys', result.storeys.length, 'stairs', result.stairs.length, 'voids', result.voids.length, 'roof', result.roof.kind);
+
+            // §A.21.D29 #1 — clear any stairwell voids recorded by a PREVIOUS build
+            // before this one records its own (so a re-generate never carries a stale
+            // void into the floor/ceiling finish passes). Each `_createStair` records
+            // its void footprint here; the floor + ceiling passes read it back to cut /
+            // skip the finish over the open stairwell. Empty for single-storey / no-
+            // stair builds, so the apartment path is unaffected.
+            resetStairVoids();
 
             // The wall height per storey = floorToFloor (so partitions reach the
             // slab above).
@@ -583,6 +593,31 @@ export class HouseLayoutExecutor {
             console.log('[house-layout] stair created', stair.fromLevelId, '→', stair.toLevelId,
                 `(${shape}, ${totalRisers} risers @ ${(riserHeight * 1000).toFixed(0)}mm`
                 + `${principalAxisRad !== 0 ? `, rot ${(principalAxisRad * 180 / Math.PI).toFixed(1)}°` : ''})`);
+
+            // §A.21.D29 #1 — RECORD this stair's void footprint for the finish passes.
+            // CreateStairCommand.autoCreateOpening punched the SLAB void from
+            // `computeStairFootprintRect(input)`; we recompute the SAME world-XZ rect
+            // from the SAME inputs (shape/width/tread/startPosition/worldFlights/
+            // landings) and stash it under the void's host level (stair.toLevelId), so
+            // the upper-storey FLOOR FINISH and the CEILING beneath it cut / skip the
+            // finish over the open stairwell — matching the slab void exactly. Without
+            // this the finish + ceiling plates re-cover the void you can see through.
+            // Best-effort: a footprint failure must never break the stair.
+            try {
+                const voidRect = computeStairFootprintRect({
+                    shape,
+                    width,
+                    treadDepth: tread,
+                    startPosition,
+                    flights: worldFlights,
+                    ...(built.landings.length > 0 ? { landings: built.landings } : {}),
+                });
+                if (voidRect && voidRect.length >= 3) {
+                    recordStairVoid(stair.toLevelId, voidRect);
+                    console.log('[house-layout] §VOID-FINISH recorded stairwell void on', stair.toLevelId,
+                        '— floor finish + ceiling will be cut to match.');
+                }
+            } catch (e) { console.warn('[house-layout] void-footprint record failed (skipped):', e); }
 
             // §A.21.D26 — STAIRWELL-VOID GUARDRAIL. The stair auto-punches a slab
             // void on the upper floor; its open edges are a fall hazard, so guard

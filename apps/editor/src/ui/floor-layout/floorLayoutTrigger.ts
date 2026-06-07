@@ -21,6 +21,7 @@ import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { CreateFloorsByRoomTypeCommand } from '@pryzm/command-registry';
 import { resolveActiveLevelId } from '../apartment-layout/activeLevel.js';
 import { getActiveDesignMetadata } from '../apartment-layout/activeBrief.js';
+import { getStairVoidsForLevel } from '../house-layout/houseStairVoids.js';
 
 declare global {
     interface Window {
@@ -54,7 +55,13 @@ export function triggerFloorLayout(runtimeArg?: PryzmRuntime | null): void {
         // §A.21.D-FLOOR — read the brief style so floors get a realistic, style-
         // appropriate finish (wood plank / porcelain tile) per room type.
         const style = (getActiveDesignMetadata()?.style as string | undefined);
-        const cmd = new CreateFloorsByRoomTypeCommand(lid, style);
+        // §A.21.D29 #1 — any stairwell void(s) the house executor recorded for THIS
+        // level (the stair pierced its slab; we cut the matching hole in the finish so
+        // the stairwell stays open through the floor plate, not just the structure).
+        // Empty for the apartment + single-storey paths (no stairs) → no holes.
+        const voids = getStairVoidsForLevel(lid);
+        const cmd = new CreateFloorsByRoomTypeCommand(lid, style, voids);
+        if (voids.length > 0) console.log('[floor-layout] §VOID-FINISH cutting', voids.length, 'stairwell void(s) into the finish on', lid);
         const res = cm.execute(cmd, { source: 'APARTMENT_PIPELINE_FLOOR' });
         if (res?.success) {
             console.log('[floor-layout]', (res.info ?? []).join(' '));
