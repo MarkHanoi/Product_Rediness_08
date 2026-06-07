@@ -174,6 +174,10 @@ export function generateDeterministicLayouts(
         ...(doorSpans && doorSpans.length > 0 ? { doorSpansWorld: doorSpans } : {}),
         ...(envelopeValidator ? { envelopeValidator } : {}),
         ...(keepOutEngine && keepOutEngine.length > 0 ? { keepOutRects: keepOutEngine } : {}),
+        // §ENV-E2-SOLAR (E.2) — thread the site latitude so the engine biases
+        // daytime rooms toward the sun face. Reuses the SAME `solar.latDeg` the
+        // window-orientation pass (A.21.D6) already consumes. Absent ⇒ neutral axis.
+        ...(solar && Number.isFinite(solar.latDeg) ? { solarLatDeg: solar.latDeg } : {}),
     });
 
     return candidates.map(c => {
@@ -229,6 +233,7 @@ export function generateDeterministicLayouts(
                 wetStackAlignment: c.objectives.wetStackAlignment,
                 alignmentField: c.objectives.alignmentField,
                 facadeAlignment: c.objectives.facadeAlignment,
+                solarOrientation: c.objectives.solarOrientation,
             },
         };
         return { ...labelled, score };

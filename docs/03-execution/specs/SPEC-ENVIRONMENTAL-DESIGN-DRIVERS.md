@@ -119,10 +119,24 @@ door cores). Services (8) and structure (7) are INPUTS, not consequences.
 
 Mirror the cognition-stack doctrine (staged optimisation steps, AI guides the engine):
 
-- **E.1** Encode the priority hierarchy (§1) as objective weights + HARD constraints in the
-  D-TGL/houseOrchestrator ranking (categories → weight bands; regulation/structure = hard).
-- **E.2** Solar room-placement bias (§2): orient daytime rooms to the equator face, buffers
-  to the cold/N face — as a soft objective on the bubble graph. Extends A.21.D6.
+- **E.1 ✅ SHIPPED (2026-06-07, §ENV-E1-PRIORITY).** Encode the priority hierarchy (§1) as
+  objective weights + HARD constraints in the D-TGL ranking. Implemented in
+  `tgl/envDrivers.ts`: `PRIORITY_BAND` (Site-fixed 1.30 > Env-perf 1.10 > Technical 1.00 >
+  Form/reg 0.85) + `AXIS_PRIORITY` (each objective axis → its §1 driver category) + a
+  `priorityMultiplier(axis)` applied ON TOP of the existing per-axis weights inside
+  `enumerate.ts` `weightedSum`. Regulation (10) + structure (7) + form-compactness (12)
+  stay HARD gates (shape/fit/envelope/connectivity admissibility in `enumerate.ts`),
+  documented in `HARD_GATES`. Pareto rank is computed from RAW objectives, so the band only
+  tunes the secondary weighted-sum tie-break — additive, no axis added, no raw value changed.
+- **E.2 ✅ SHIPPED (2026-06-07, §ENV-E2-SOLAR).** Solar room-placement bias (§2): orient
+  daytime rooms (living/dining/kitchen) to the equator face, buffers (garage/utility/bath/
+  ensuite/wc/storage) to the cold face — a SOFT objective. Implemented as the
+  `solarOrientation` objective axis (`tgl/objectives.ts` ← `solarOrientationScore` in
+  `tgl/envDrivers.ts`), reusing the A.21.D6 sun source (`windowEmission/solarOrientation.ts`
+  `equatorFacingDir`). Latitude threads apartment + house paths via
+  `runDeterministicLayout` → `enumerate` (`solarLatDeg`) → `computeObjectives`. GRACEFUL
+  DEGRADATION: neutral 1.0 (rank-invisible) when no latitude / near-equatorial / degenerate,
+  so layouts without site data are byte-identical. Tests: `__tests__/tglEnvDrivers.test.ts`.
 - **E.3** Acoustic zoning objective (§4): buffer-between-noisy-and-quiet + vertical stack
   legality in storeyAllocation.
 - **E.4** Ventilation objective (§5): plan-depth cap, cross-vent opening pairing, stack via

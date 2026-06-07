@@ -227,6 +227,12 @@ export interface LayoutScoreBreakdown {
      *  (Environmental Intelligence) — complements `naturalLight` (which
      *  counts windowed rooms binary) by weighting by façade quality. */
     facadeAlignment?: number;      // 0-1
+    /** §ENV-E2-SOLAR — solar room-placement bias (Environmental-Design-Drivers
+     *  spec §2; extends A.21.D6). DAYTIME rooms (living/dining/kitchen) on the
+     *  equator-facing (sun) side + BUFFER rooms (garage/utility/bath/ensuite/wc/
+     *  storage) on the cold side score higher. Neutral (1.0) when no site latitude
+     *  is supplied. Cognition Layer 1 (Environmental Intelligence). */
+    solarOrientation?: number;     // 0-1
 }
 
 export interface LayoutScore {
