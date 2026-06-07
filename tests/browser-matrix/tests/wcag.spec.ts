@@ -3,9 +3,7 @@
 // Asserts the boot route has zero serious + zero critical WCAG 2.2 AA
 // violations per browser.  Operator-side only — see smoke.spec.ts.
 
-// @ts-expect-error — optional dep at S70 D1.
 import { test, expect } from '@playwright/test';
-// @ts-expect-error — optional dep at S70 D1.
 import AxeBuilder from '@axe-core/playwright';
 
 test('zero serious/critical WCAG 2.2 AA violations on /', async ({ page }) => {
