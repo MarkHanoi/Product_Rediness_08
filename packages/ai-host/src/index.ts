@@ -276,8 +276,12 @@ export {
   clampDoorToWallSpan,
   wallVerticalExtents,
   wallExtentForLevel,
+  // §GROUND-WELD (A.21.D39) — weld ground interior partitions onto the pre-drawn shell.
+  weldPartitionsToShell,
 } from './workflows/houseLayout/index.js';
 export type {
+  WeldWall,
+  WeldOptions,
   HouseLayoutOptions,
   HouseLayoutResult,
   ScoredHouseLayoutOption,

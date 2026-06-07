@@ -58,6 +58,7 @@ import {
     type ScoringWeights,
     type IdPrefix,
     type LayoutExecuteOptions,
+    type LayoutCommand,
     type LayoutCommandSet,
     type EntranceDoorDispatch,
     buildLayoutCommands,
@@ -65,6 +66,8 @@ import {
     clampDoorToWallSpan,
     isDoorWithinWallSpan,
     wallExtentForLevel,
+    weldPartitionsToShell,
+    type WeldWall,
 } from '@pryzm/ai-host';
 import { resolveActiveLevel } from '../apartment-layout/activeLevel.js';
 import { nameDetectedRooms } from '../apartment-layout/nameDetectedRooms.js';
@@ -347,7 +350,23 @@ export class HouseLayoutExecutor {
                     skipExteriorWalls: true,
                     ...(shellWalls.length > 0 ? { shellWalls } : {}),
                 };
-                const set = buildLayoutCommands(option, opts, (p: IdPrefix) => createId(p));
+                let set = buildLayoutCommands(option, opts, (p: IdPrefix) => createId(p));
+
+                // §GROUND-WELD (A.21.D39) — the recurring "ground floor = ONE merged
+                // room" defect (D14/D25/D28/D34/D36). The GROUND reuses the user's
+                // PRE-DRAWN shell (drawn edge-by-edge, mitred by WallJoinResolver, then
+                // raised by D38), so its post-miter wall centrelines can sit > the
+                // RoomDetectionEngine's 20 mm node grid away from where the engine tiled
+                // its interior partitions — the loop never closes. The UPPER storeys
+                // don't hit this because `_buildPerimeterShell` builds their shell with
+                // the SAME emitter that produced the partitions (exact shared endpoints).
+                // FIX: weld the GROUND interior partition endpoints ONTO the gathered
+                // (authoritative) shell walls + to each other, so the ground closes every
+                // room the same way the upper floors do — robustly, independent of how
+                // far the editor moved the drawn shell's endpoints. Pure ai-host helper.
+                if (isGround && shellWalls.length >= 3) {
+                    set = this._weldGroundPartitions(set, shellWalls);
+                }
                 perStorey.push({ levelId: storey.levelId, set, option });
 
                 // §A.21.D29 #3 — resolve the GROUND-floor main entrance on the drawn
@@ -543,6 +562,114 @@ export class HouseLayoutExecutor {
             toast(`House build failed: ${String(err)}`, 'error');
             return { ok: false, reason: String(err) };
         }
+    }
+
+    /**
+     * §GROUND-WELD (A.21.D39) — weld the GROUND interior partition baselines onto the
+     * pre-drawn shell + to each other, so room detection closes every ground room the
+     * same way the upper floors do (where `_buildPerimeterShell` already guarantees
+     * exact shared endpoints). Pure decision (`weldPartitionsToShell` from ai-host);
+     * here we map the wall-batch payload in/out and reconcile any opening/door whose
+     * host partition the weld dropped (collapsed below the editor's 0.05 m min length).
+     * Boundaries (open-plan splitters) are likewise welded onto the shell so they reach
+     * it and the open-plan zone closes. Returns a NEW LayoutCommandSet; the input is
+     * untouched. Best-effort — on any failure the original set passes through unwelded.
+     */
+    private _weldGroundPartitions(
+        set: LayoutCommandSet,
+        shellWalls: readonly { id: string; start: { x: number; z: number }; end: { x: number; z: number } }[],
+    ): LayoutCommandSet {
+        try {
+            const payload = set.wallBatch.payload as {
+                walls: Array<{ id: string; levelId: string; baseLine: Array<{ x: number; y?: number; z: number }>; height?: number; thickness?: number }>;
+                levelId: string;
+            };
+            const inWalls = payload.walls;
+            if (!Array.isArray(inWalls) || inWalls.length === 0) return set;
+
+            const shell: WeldWall[] = shellWalls.map(s => ({ id: s.id, start: { x: s.start.x, z: s.start.z }, end: { x: s.end.x, z: s.end.z } }));
+            const partitions: WeldWall[] = inWalls.map(w => ({
+                id: w.id,
+                start: { x: w.baseLine[0]!.x, z: w.baseLine[0]!.z },
+                end:   { x: w.baseLine[1]!.x, z: w.baseLine[1]!.z },
+            }));
+
+            const welded = weldPartitionsToShell(partitions, shell);
+            const weldedById = new Map(welded.map(w => [w.id, w]));
+
+            // Rebuild the wall payload preserving every kept wall's y / height /
+            // thickness; drop walls the weld collapsed (their openings/doors follow).
+            const keptIds = new Set<string>();
+            const newWalls = inWalls
+                .filter(w => weldedById.has(w.id))
+                .map(w => {
+                    keptIds.add(w.id);
+                    const ww = weldedById.get(w.id)!;
+                    const y = w.baseLine[0]!.y ?? 0;
+                    return { ...w, baseLine: [{ x: ww.start.x, y, z: ww.start.z }, { x: ww.end.x, y, z: ww.end.z }] };
+                });
+
+            const droppedCount = inWalls.length - newWalls.length;
+            if (droppedCount > 0) {
+                console.warn('[house-layout] §GROUND-WELD dropped', droppedCount, 'degenerate ground partition(s) after welding to shell');
+            }
+            console.log('[house-layout] §GROUND-WELD welded', newWalls.length, 'ground partition(s) onto', shell.length, 'shell wall(s)');
+
+            // Reconcile openings/doors hosted on a dropped wall (skip them).
+            const keepOpening = (cmd: LayoutCommand): boolean => {
+                const wid = (cmd.payload as { wallId?: string }).wallId;
+                return wid === undefined || keptIds.has(wid);
+            };
+            const openingCommands = set.openingCommands.filter(keepOpening);
+            const windowOpeningCommands = set.windowOpeningCommands.filter(keepOpening);
+            const doorBatch = this._filterDoorBatch(set.doorBatch, keptIds);
+            const windowBatch = this._filterWindowBatch(set.windowBatch, keptIds);
+
+            // §GROUND-WELD — boundaries (open-plan splitters) must also reach the shell.
+            // Weld each boundary's two endpoints onto the shell (treating the boundary as
+            // a one-off partition); endpoints that don't reach a shell wall are left as-is.
+            const boundaryCommands = set.boundaryCommands.map(bc => {
+                const p = bc.payload as { id: string; levelId: string; start: { x: number; z: number }; end: { x: number; z: number } };
+                const w = weldPartitionsToShell(
+                    [{ id: p.id, start: { x: p.start.x, z: p.start.z }, end: { x: p.end.x, z: p.end.z } }],
+                    shell,
+                    { partitionWeldTolM: 0 },   // a lone boundary: shell-snap only, no self-weld
+                );
+                if (w.length === 0) return bc;  // collapsed — keep original (best-effort)
+                return { ...bc, payload: { ...p, start: { x: w[0]!.start.x, z: w[0]!.start.z }, end: { x: w[0]!.end.x, z: w[0]!.end.z } } };
+            });
+
+            return {
+                ...set,
+                wallBatch: { ...set.wallBatch, payload: { ...payload, walls: newWalls } },
+                openingCommands,
+                windowOpeningCommands,
+                doorBatch,
+                windowBatch,
+                boundaryCommands,
+            };
+        } catch (e) {
+            console.warn('[house-layout] §GROUND-WELD failed (passing through unwelded):', e);
+            return set;
+        }
+    }
+
+    /** Drop doors from a door.batch.create payload whose host wall id was dropped. */
+    private _filterDoorBatch(doorBatch: LayoutCommand | null, keptIds: Set<string>): LayoutCommand | null {
+        if (!doorBatch) return null;
+        const p = doorBatch.payload as { doors: Array<{ wallId?: string }> };
+        const doors = (p.doors ?? []).filter(d => d.wallId === undefined || keptIds.has(d.wallId));
+        if (doors.length === 0) return null;
+        return { ...doorBatch, payload: { ...p, doors } };
+    }
+
+    /** Drop windows from a window.batch.create payload whose host wall id was dropped. */
+    private _filterWindowBatch(windowBatch: LayoutCommand | null, keptIds: Set<string>): LayoutCommand | null {
+        if (!windowBatch) return null;
+        const p = windowBatch.payload as { windows: Array<{ wallId?: string }> };
+        const windows = (p.windows ?? []).filter(w => w.wallId === undefined || keptIds.has(w.wallId));
+        if (windows.length === 0) return null;
+        return { ...windowBatch, payload: { ...p, windows } };
     }
 
     /** Create one structural floor slab for a storey from its footprint polygon. */

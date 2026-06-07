@@ -26,6 +26,10 @@ export {
     MIN_DOOR_WIDTH_M,
 } from './houseVertical.js';
 export type { ClampedDoorSpan, WallVerticalExtent } from './houseVertical.js';
+// §GROUND-WELD (A.21.D39) — weld ground interior partitions onto the pre-drawn shell
+// so the GROUND floor closes every room like the upper floors do.
+export { weldPartitionsToShell } from './weldPartitionsToShell.js';
+export type { WeldWall, WeldOptions, XZ as WeldXZ } from './weldPartitionsToShell.js';
 export type {
     HouseLayoutResult,
     ScoredHouseLayoutOption,
