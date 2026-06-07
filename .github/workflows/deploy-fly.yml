@@ -99,3 +99,4 @@ jobs:
 # deploy-marker: v43 — next-demo wave: D12 windows real void+glazing · D14 missing-rooms junction-repair · D9 boundary live dimensions (D11 partition-clamp already on main)
 # deploy-marker: v44 — Phase A: first-class Inspect panel (ModelTree + Provenance, A.24+A.31.e) + advisory axe-core a11y CI job (A.32.β)
 # deploy-marker: v45 — quality: env-drivers E.3 acoustic-zoning + E.4 ventilation objectives (+ vertical-stack acoustic pref) + kitchen island (fridge/wardrobe-variants already shipped)
+# deploy-marker: v45-trigger — explicit deploy (env E.3/E.4 + kitchen island)
