@@ -465,6 +465,11 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 // study (it forces Forma back on via mountFormaViewToggle → engage).
                 try { cesiumViewport?.setFormaMode?.(false); }
                 catch (e) { console.warn('[gis] 3D globe: setFormaMode(false) failed (non-fatal):', e); }
+                // §A.21.D39#5 — place the user's HOUSE on the photoreal globe (was:
+                // only the photoreal CONTEXT showed, no building). Reuses the Forma
+                // massing readers via renderBuildingOnGlobe (keepPhotoreal) so the
+                // real imagery/tiles/sky stay shown with the house sitting in them.
+                placeBuildingOnGlobe();
                 void reframeSiteIn3D();
             }, 350);
         } else {
@@ -1242,6 +1247,58 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         });
         // §A.21.D24 — rebuild the Floors selector from the storeys just placed.
         refreshFormaFloorSelector();
+    };
+
+    // §A.21.D39#5 — place the SAME authored building massing on the PHOTOREAL globe
+    // (real imagery + Google 3D tiles + sky), used by the "3D globe" result toggle.
+    // Reuses every Forma input reader (walls/slabs/roof/openings/stairs/furniture/
+    // boundary) but routes through renderBuildingOnGlobe (keepPhotoreal) so the
+    // scene stays photoreal — the user's house sits inside the real-world city.
+    // Best-effort + guarded; the camera is framed separately by reframeSiteIn3D.
+    const placeBuildingOnGlobe = (): void => {
+        if (!cesiumViewport?.renderBuildingOnGlobe) {
+            console.warn('[gis][globe] renderBuildingOnGlobe unavailable (Cesium not mounted / old build).');
+            return;
+        }
+        const origin = getFormaOrigin();
+        if (!origin) {
+            console.log('[gis][globe] no site location yet — cannot place building on the globe.');
+            return;
+        }
+        const boundary = getFormaBoundary();
+        const walls = getFormaWalls();
+        const slabs = getFormaSlabs();
+        const roofs = getFormaRoofs();
+        const furniture = getFormaFurniture();
+        const openings = getFormaOpenings();
+        const stairs = getFormaStairs();
+        if (walls.length === 0 && !boundary) {
+            console.log('[gis][globe] nothing authored yet — no building to place on the photoreal globe.');
+            return;
+        }
+        console.log(
+            `[gis][globe] placing building on the PHOTOREAL globe: ${walls.length} wall(s), ` +
+                `${slabs.length} slab(s), ${roofs.length} roof(s), ${openings.length} opening(s), ` +
+                `${stairs.length} stair(s) at LAT ${origin.lat} LON ${origin.lon}.`
+        );
+        try {
+            cesiumViewport.renderBuildingOnGlobe({
+                originLat: origin.lat,
+                originLon: origin.lon,
+                boundary,
+                walls,
+                slabs,
+                roofs,
+                furniture,
+                openings,
+                stairs,
+                // The camera is framed by reframeSiteIn3D() — don't double-fly here.
+                frameCentroid: false,
+            });
+            refreshFormaFloorSelector();
+        } catch (err) {
+            console.warn('[gis][globe] renderBuildingOnGlobe failed (non-fatal):', err);
+        }
     };
 
     /**
