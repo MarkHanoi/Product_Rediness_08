@@ -38,6 +38,31 @@ function makeMat(color: string, roughness = 0.5, metalness = 0, transparent = fa
     });
 }
 
+// ── Helper: believable transparent glazing material ────────────────────────
+// A.21.D40 #4 — the BIM 3D glazing must read as see-through glass, not a solid
+// light-blue panel. A MeshPhysicalMaterial with `transmission` gives true
+// glass refraction; we keep a low base `opacity` as a fallback for renderers
+// that ignore transmission, plus a subtle blue-grey tint and slight roughness.
+// IMPORTANT: NO polygonOffset here (that flag is for the frame to win z-fights
+// against the wall void) — applying it to the thin glass pane causes shading
+// artefacts. depthWrite is OFF so the glass blends correctly with what's behind.
+const GLASS_TINT = '#cdd9de'; // subtle blue-grey, far less saturated than 'lightblue'
+function makeGlassMat(opacity: number, side: THREE.Side = THREE.DoubleSide): THREE.MeshPhysicalMaterial {
+    const op = Math.max(0, Math.min(1, opacity));
+    return new THREE.MeshPhysicalMaterial({
+        color: GLASS_TINT,
+        roughness: 0.08,
+        metalness: 0,
+        transmission: 0.9,      // physical glass refraction — the see-through driver
+        ior: 1.5,               // glass index of refraction
+        thickness: 0.006,       // matches the pane geometry depth
+        transparent: true,
+        opacity: op,            // fallback tint strength when transmission is unsupported
+        depthWrite: false,      // glass must not occlude geometry behind it
+        side,
+    });
+}
+
 // ── Helper: compute evenly-distributed column/row widths from ratio array ───
 function ratioWidths(totalSize: number, ratios: number[]): number[] {
     const total = ratios.reduce((s, r) => s + r, 0);
@@ -165,9 +190,12 @@ export class WindowBuilder {
             const resolved = this._resolveFrameColor(win);
             if (frameMat?.color) frameMat.color.set(resolved);
             if (glassMat) {
+                // A.21.D40 #4 — glass is ALWAYS transparent (it uses physical
+                // transmission); only the fallback-tint opacity tracks the slider.
                 const op = Math.max(0, Math.min(1, win.glassOpacity));
                 glassMat.opacity = op;
-                glassMat.transparent = op < 1;
+                glassMat.transparent = true;
+                glassMat.depthWrite = false;
                 glassMat.needsUpdate = true;
             }
             // Sill, when present, mirrors the frame colour (see buildVisuals).
@@ -432,7 +460,9 @@ export class WindowBuilder {
         const glassOpacity = Math.max(0, Math.min(1, win.glassOpacity * opacityFactor));
 
         const frameMat = makeMat(frameColor, 0.6, 0, frameTransparent, frameOpacity);
-        const glassMat = makeMat('lightblue', 0.05, 0.1, true, glassOpacity, THREE.DoubleSide);
+        // A.21.D40 #4 — believable transparent glass (physical transmission), not
+        // an opaque light-blue panel. See makeGlassMat above.
+        const glassMat = makeGlassMat(glassOpacity, THREE.DoubleSide);
         mats.push(frameMat, glassMat);
 
         // ── Outer Frame ────────────────────────────────────────────────────
