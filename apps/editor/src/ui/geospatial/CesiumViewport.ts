@@ -1894,26 +1894,54 @@ export class CesiumViewport {
     }
 
     // ── §A.21.D34(d) — WINDOW + DOOR façade insets ────────────────────────────
-    // Each opening is a thin recessed darker panel on the wall plane, so the
-    // façades read as having windows + a front door instead of blank white. A
-    // window uses the cool glazing tint; a door uses the darker door-leaf tint
-    // and is seated at the floor (sill 0). The panel is a 4-vertex polygon
-    // spanning [a→b] along the baseline × the vertical band, pushed slightly INTO
-    // the wall along the normal (a small reveal) so it sits flush-recessed on the
-    // shell rather than z-fighting the white face. Visibility-filtered by the
-    // storey band the opening's elevation belongs to. Each guarded.
+    // §A.21.D36 — WHY THE INSETS WERE INVISIBLE: the panel was placed at the wall
+    // BASELINE (centreline) and nudged INWARD along the normal. But the D30 shell
+    // is ONE opaque (#FFFFFF, alpha 1) extruded prism over the building footprint
+    // / reconstructed exterior ring — so a panel at the centreline pushed *into*
+    // the wall sat fully BEHIND the opaque prism face and was never drawn. FIX:
+    // push the panel PROUD of (in front of) the exterior face — out along the
+    // OUTWARD normal by thickness/2 (to reach the exterior face) + a small proud
+    // gap — so it floats just in front of the white shell and is visible. The
+    // reader's `normal` is an arbitrary perpendicular (could point either way), so
+    // we orient it OUTWARD = away from the building centroid before pushing.
     const openings = input.openings ?? [];
-    const glazingFill = Cesium.Color.fromCssColorString(FORMA_PALETTE.glazing).withAlpha(0.85);
-    const doorFill = Cesium.Color.fromCssColorString(FORMA_PALETTE.doorLeaf).withAlpha(0.95);
+    const glazingFill = Cesium.Color.fromCssColorString(FORMA_PALETTE.glazing).withAlpha(0.95);
+    const doorFill = Cesium.Color.fromCssColorString(FORMA_PALETTE.doorLeaf).withAlpha(1.0);
     let openingsPlaced = 0;
-    // Recess depth: nudge the panel just inside the façade so it reads as inset,
-    // clamped to a sane fraction of the wall thickness.
+    // Building centroid in scene-XZ — used to flip each opening's normal so it
+    // points OUTWARD (away from the centre). Prefer the drawn footprint centroid;
+    // else the XZ bounding-box centre of the authored walls. Falls back to the
+    // origin (0,0) when neither is available (a single wall still reads fine).
+    let cenX = 0, cenZ = 0;
+    if (footprint && footprint.length >= 3) {
+      let sx = 0, sz = 0;
+      for (const p of footprint) { sx += p.x; sz += p.z; }
+      cenX = sx / footprint.length; cenZ = sz / footprint.length;
+    } else if (walls.length) {
+      let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+      for (const w of walls) {
+        minX = Math.min(minX, w.a.x, w.b.x); maxX = Math.max(maxX, w.a.x, w.b.x);
+        minZ = Math.min(minZ, w.a.z, w.b.z); maxZ = Math.max(maxZ, w.a.z, w.b.z);
+      }
+      if (Number.isFinite(minX)) { cenX = (minX + maxX) / 2; cenZ = (minZ + maxZ) / 2; }
+    }
     for (const o of openings) {
       if (!isBandVisible(bandIndexForElevation(o.baseElevation))) continue;
-      const recess = Math.min(0.06, Math.max(0.01, o.thickness * 0.35));
-      // Push the panel midline inward along the wall normal by `recess`.
-      const ox = o.normal.x * recess;
-      const oz = o.normal.z * recess;
+      // Orient the wall normal OUTWARD (away from the building centroid). Midpoint
+      // of the opening → centroid vector; if the normal points toward the centre,
+      // flip it so the panel is pushed to the OUTSIDE face of the shell.
+      let nx = o.normal.x, nz = o.normal.z;
+      const nlen = Math.hypot(nx, nz) || 1;
+      nx /= nlen; nz /= nlen;
+      const mx = (o.a.x + o.b.x) / 2, mz = (o.a.z + o.b.z) / 2;
+      // Outward = direction from centroid to the opening midpoint.
+      if (nx * (mx - cenX) + nz * (mz - cenZ) < 0) { nx = -nx; nz = -nz; }
+      // Push the panel PROUD of the exterior face: out by half the wall thickness
+      // (reach the outer face) + a small proud gap so it floats just in front of
+      // the opaque shell prism and is never occluded (and never z-fights it).
+      const proud = Math.max(0.04, o.thickness * 0.5) + 0.05;
+      const ox = nx * proud;
+      const oz = nz * proud;
       const aIn = { x: o.a.x + ox, z: o.a.z + oz };
       const bIn = { x: o.b.x + ox, z: o.b.z + oz };
       const bottom = baseHeight + o.baseElevation + Math.max(0, o.sill);
