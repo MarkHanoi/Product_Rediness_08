@@ -15,6 +15,7 @@
 // Single-storey houses don't call this (no stair), but it is still well-defined.
 
 import type { Pt, StairShape } from './types.js';
+import { chooseStairCorePosition } from './stairPosition.js';
 
 /** Default reserved stair-core dimensions (mm): 1.0 m wide × 3.0 m deep run. */
 const STAIR_W_MM = 1000;
@@ -75,14 +76,15 @@ export function reserveStairCore(
     const minXmm = bb.minX * 1000;
     const minZmm = bb.minZ * 1000;
 
-    // X: centre the core on the plate X-centre (central spine).
-    const cx = minXmm + plateWmm / 2;
-    let x = cx - w / 2;
-
-    // Z: offset BACK from the entrance (min-Z) edge — place the core's near edge
-    // ~1/3 of the plate depth in, so the entry/hall stays clear at the front.
-    const backOffset = plateHmm * (1 / 3);
-    let y = minZmm + backOffset;
+    // §STAIR-SPACE-EFFICIENCY (A.21.D29 / #6) — the founder-ratified "engine decides
+    // per-plot" objective. Instead of HARD-CODING the central spine, score a small
+    // deterministic candidate set (central + perimeter-adjacent on each non-entrance
+    // edge) by circulation waste and take the least-waste one. Plate-local mm → add
+    // the bbox-min offset. On a plate where central is as good as anything the scorer
+    // returns the central candidate (stable tie-break) → byte-identical to before.
+    const pos = chooseStairCorePosition(plateWmm, plateHmm, w, h);
+    let x = minXmm + pos.x;
+    let y = minZmm + pos.y;
 
     // Keep the core fully inside the plate's bounding box.
     x = clamp(x, minXmm, minXmm + plateWmm - w);
@@ -217,10 +219,12 @@ export function reserveStairCoreShaped(
 
     const minXmm = bb.minX * 1000;
     const minZmm = bb.minZ * 1000;
-    const cx = minXmm + plateWmm / 2;
-    let x = cx - w / 2;
-    const backOffset = plateHmm * (1 / 3);
-    let y = minZmm + backOffset;
+    // §STAIR-SPACE-EFFICIENCY (A.21.D29 / #6) — score candidate positions for the
+    // shaped (L/U) core too, on its OWN footprint (w×h), and take the least-waste
+    // one (central tie-break → no shift where central is best). See stairPosition.ts.
+    const pos = chooseStairCorePosition(plateWmm, plateHmm, w, h);
+    let x = minXmm + pos.x;
+    let y = minZmm + pos.y;
     x = clamp(x, minXmm, minXmm + plateWmm - w);
     y = clamp(y, minZmm, minZmm + plateHmm - h);
 
