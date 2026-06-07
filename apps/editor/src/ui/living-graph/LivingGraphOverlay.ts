@@ -29,6 +29,7 @@ import {
 } from '@pryzm/building-graph';
 import { buildLiveGraph } from './livingGraphData';
 import { LivingGraphCanvas, type DrawState } from './LivingGraphCanvas';
+import { RoomFocusController, type RoomFocusMode } from './livingGraphSelection';
 import {
   createSimState,
   fitToCanvas,
@@ -112,6 +113,25 @@ export class LivingGraphOverlay {
 
   private draw: DrawState = { focusedId: null, hoveredId: null, offsetX: 0, offsetY: 0, scale: 1 };
 
+  // §A.21.D37 — SELECT-TO-3D. Routes the focused room node to the live model as
+  // either a scene highlight (Select) or an isolation (Isolate), reusing the
+  // Inspect panel's isolation pipeline.
+  private focusCtl = new RoomFocusController();
+  private modeBtns = new Map<RoomFocusMode, HTMLButtonElement>();
+
+  // §A.21.D37 — Miro/Mural canvas nav. Once the user wheel-zooms or drags the
+  // empty canvas we SUSPEND the per-frame auto-fit so we don't fight them, until
+  // a Rerun / reset re-enables it. `panning` tracks a canvas (not node) drag.
+  private userNavigated = false;
+  private panning = false;
+  private panStartX = 0;
+  private panStartY = 0;
+  private panStartOffX = 0;
+  private panStartOffY = 0;
+  /** A node-drag in progress (canvas drag must NOT start when dragging a node). */
+  private nodeDragId: string | null = null;
+  private nodeDragMoved = false;
+
   // Tick + subscriptions.
   private tickDispose: TickDisposer | null = null;
   private intervalId: number | null = null;
@@ -179,6 +199,7 @@ export class LivingGraphOverlay {
     root.appendChild(canvas);
     this.canvasEl = canvas;
 
+    root.appendChild(this.buildModeToggle());
     root.appendChild(this.buildInspector());
     root.appendChild(this.buildChips());
     root.appendChild(this.buildControls());
@@ -236,9 +257,10 @@ export class LivingGraphOverlay {
         canvas.style.height = `${h}px`;
         this.renderer?.resize();
         // A.21.D34(e) — re-derive spacing for the new canvas + re-fit so the
-        // field expands to use the extra space as the user drags.
+        // field expands to use the extra space as the user drags (unless the
+        // user has manually zoomed/panned — §A.21.D37).
         this.recomputeParams();
-        this.autoFit();
+        if (!this.userNavigated) this.autoFit();
         this.paintOnce();
       };
       const onUp = (ev: PointerEvent): void => {
@@ -344,6 +366,87 @@ export class LivingGraphOverlay {
     return el;
   }
 
+  /**
+   * §A.21.D37 — the SELECT-TO-3D mode toggle + a Fit button. Brand-styled
+   * (#6600FF / white, no black). "Select" highlights the clicked room's geometry
+   * in the live model; "Isolate" dims everything else. "Fit" re-frames the graph
+   * and re-enables auto-fit after manual zoom/pan.
+   */
+  private buildModeToggle(): HTMLElement {
+    const wrap = document.createElement('div');
+    Object.assign(wrap.style, {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      padding: '8px 12px 0',
+    } satisfies Partial<CSSStyleDeclaration>);
+
+    const label = document.createElement('span');
+    label.textContent = '3D';
+    Object.assign(label.style, { color: '#6b6385', font: '600 11px/1 system-ui', flexShrink: '0' });
+
+    // Segmented Select / Isolate control.
+    const seg = document.createElement('div');
+    Object.assign(seg.style, {
+      display: 'inline-flex',
+      border: `1.5px solid ${ACCENT}`,
+      borderRadius: '999px',
+      overflow: 'hidden',
+    } satisfies Partial<CSSStyleDeclaration>);
+    const modes: Array<{ mode: RoomFocusMode; text: string; title: string }> = [
+      { mode: 'select', text: 'Select', title: 'Highlight this room in the 3D model' },
+      { mode: 'isolate', text: 'Isolate', title: 'Dim everything except this room in the 3D model' },
+    ];
+    for (const m of modes) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = m.text;
+      btn.title = m.title;
+      Object.assign(btn.style, {
+        cursor: 'pointer',
+        border: 'none',
+        background: '#ffffff',
+        color: ACCENT,
+        padding: '4px 12px',
+        font: '600 11px/1 system-ui, sans-serif',
+        whiteSpace: 'nowrap',
+      } satisfies Partial<CSSStyleDeclaration>);
+      this.on(btn, 'click', () => this.setMode(m.mode));
+      this.modeBtns.set(m.mode, btn);
+      seg.appendChild(btn);
+    }
+
+    const spacer = document.createElement('div');
+    spacer.style.flex = '1';
+
+    const fit = document.createElement('button');
+    fit.type = 'button';
+    fit.textContent = '⤢ Fit';
+    fit.title = 'Fit the graph to the panel (re-enables auto-fit)';
+    Object.assign(fit.style, pillBtnStyle());
+    this.on(fit, 'click', () => this.resetView());
+
+    wrap.append(label, seg, spacer, fit);
+    // Paint the initial active mode.
+    this.refreshModeButtons();
+    return wrap;
+  }
+
+  /** Highlight the active segment (#6600FF fill) and dim the other. */
+  private refreshModeButtons(): void {
+    const active = this.focusCtl.getMode();
+    for (const [mode, btn] of this.modeBtns) {
+      const on = mode === active;
+      btn.style.background = on ? ACCENT : '#ffffff';
+      btn.style.color = on ? '#ffffff' : ACCENT;
+    }
+  }
+
+  private setMode(mode: RoomFocusMode): void {
+    this.focusCtl.setMode(mode);
+    this.refreshModeButtons();
+  }
+
   private buildChips(): HTMLElement {
     const wrap = document.createElement('div');
     Object.assign(wrap.style, {
@@ -403,6 +506,8 @@ export class LivingGraphOverlay {
 
   dispose(): void {
     this.stopTicker();
+    // §A.21.D37 — drop any 3D highlight/isolation + tear down the pipeline.
+    try { this.focusCtl.dispose(); } catch { /* ignore */ }
     for (const u of this.unsubs) {
       try { u(); } catch { /* ignore */ }
     }
@@ -463,6 +568,9 @@ export class LivingGraphOverlay {
   hide(): void {
     this.visible = false;
     this.stopTicker();
+    // §A.21.D37 — closing the panel must not leave the 3D model highlighted /
+    // isolated. Restore the scene (keeps the pipeline alive for the next open).
+    try { this.focusCtl.clear(); } catch { /* ignore */ }
     if (this.root) this.root.style.display = 'none';
   }
 
@@ -506,7 +614,12 @@ export class LivingGraphOverlay {
       this.recomputeParams();
       // Drop a focus/hover that no longer exists.
       const ids = new Set(next.nodes.map((n) => n.id));
-      if (this.draw.focusedId && !ids.has(this.draw.focusedId)) this.draw.focusedId = null;
+      if (this.draw.focusedId && !ids.has(this.draw.focusedId)) {
+        this.draw.focusedId = null;
+        // §A.21.D37 — the focused room vanished from the model; clear its 3D
+        // highlight/isolation too.
+        try { this.focusCtl.clear(); } catch { /* ignore */ }
+      }
       if (this.draw.hoveredId && !ids.has(this.draw.hoveredId)) this.draw.hoveredId = null;
       // Re-heat so the field re-settles around the change.
       this.sim = createSimState();
@@ -600,16 +713,23 @@ export class LivingGraphOverlay {
    *  ticker once the field settles so the editor goes idle (P3 friendliness). */
   private frame(): void {
     if (!this.visible || !this.renderer) return;
+    // §A.21.D37 — while the user is dragging a node, hold the sim so the node
+    // stays pinned under the cursor (the field re-anneals on release).
+    if (this.nodeDragId) {
+      this.renderer.draw(this.graph, this.layers, this.draw);
+      return;
+    }
     if (!this.frozen && !isSettled(this.sim)) {
       // Heat scales steps/frame (1..~5) so the slider warms the field.
       const steps = Math.max(1, Math.round(this.heat * 1.6));
       for (let i = 0; i < steps; i++) simulateStep(this.graph, this.layers, this.sim, this.params);
-      // Keep the spreading cloud framed every frame (cheap O(n)).
-      this.autoFit();
+      // Keep the spreading cloud framed every frame (cheap O(n)) — UNLESS the
+      // user has manually zoomed/panned (§A.21.D37: don't fight manual nav).
+      if (!this.userNavigated) this.autoFit();
       if (isSettled(this.sim)) {
         this.updateBadges();
         // Settled — final fit + one last paint, then stop ticking.
-        this.autoFit();
+        if (!this.userNavigated) this.autoFit();
         this.renderer.draw(this.graph, this.layers, this.draw);
         this.stopTicker();
         return;
@@ -628,12 +748,15 @@ export class LivingGraphOverlay {
   private wireCanvasEvents(): void {
     const canvas = this.canvasEl;
     if (!canvas) return;
+
+    // Hover feedback (skipped while actively panning/dragging a node).
     this.on(canvas, 'mousemove', (ev) => {
+      if (this.panning || this.nodeDragId) return;
       const hit = this.renderer?.pick((ev as MouseEvent).clientX, (ev as MouseEvent).clientY, this.graph, this.draw) ?? null;
       const id = hit?.id ?? null;
       if (id !== this.draw.hoveredId) {
         this.draw.hoveredId = id;
-        canvas.style.cursor = id ? 'pointer' : 'default';
+        canvas.style.cursor = id ? 'pointer' : 'grab';
         this.paintOnce();
       }
     });
@@ -643,20 +766,161 @@ export class LivingGraphOverlay {
         this.paintOnce();
       }
     });
-    this.on(canvas, 'click', (ev) => {
-      const hit = this.renderer?.pick((ev as MouseEvent).clientX, (ev as MouseEvent).clientY, this.graph, this.draw) ?? null;
-      this.draw.focusedId = hit && hit.id !== this.draw.focusedId ? hit.id : null;
-      this.updateInspector();
-      this.paintOnce();
-    });
+
+    // §A.21.D37 — Miro/Mural pointer drag: drag ON a node moves the node; drag on
+    // EMPTY canvas pans the field. A click (no movement) selects/inspects.
+    this.on(canvas, 'mousedown', (ev) => this.onCanvasPointerDown(ev as MouseEvent));
+
+    // §A.21.D37 — scroll-wheel zoom anchored to the cursor (zoom toward pointer).
+    // Non-passive so `preventDefault()` stops the page scrolling under the panel.
+    this.on(canvas, 'wheel', (ev) => this.onCanvasWheel(ev as WheelEvent), { passive: false });
+
     this.on(window, 'resize', () => {
       if (this.visible) {
         this.renderer?.resize();
         this.recomputeParams();
-        this.autoFit();
+        if (!this.userNavigated) this.autoFit();
         this.paintOnce();
       }
     });
+  }
+
+  // ── §A.21.D37 — Miro/Mural canvas navigation ─────────────────────────────────
+
+  /** Client point → canvas-local px (origin top-left of the canvas box). */
+  private clientToCanvas(clientX: number, clientY: number): { x: number; y: number } {
+    const rect = this.canvasEl?.getBoundingClientRect();
+    return { x: clientX - (rect?.left ?? 0), y: clientY - (rect?.top ?? 0) };
+  }
+
+  /** Canvas-local px → LAYOUT coords (inverse of the renderer's `toScreen`):
+   *  screen = W/2 + offset + layout*scale  ⇒  layout = (screen - W/2 - offset)/scale. */
+  private canvasToLayout(cx: number, cy: number): { x: number; y: number } {
+    const { w, h } = this.canvasBox();
+    const s = this.draw.scale ?? 1;
+    return {
+      x: (cx - w / 2 - this.draw.offsetX) / s,
+      y: (cy - h / 2 - this.draw.offsetY) / s,
+    };
+  }
+
+  /** Scroll-wheel zoom toward the cursor, clamped 0.25×–4×. Keeps the layout
+   *  point under the pointer fixed on screen, and SUSPENDS auto-fit. */
+  private onCanvasWheel(ev: WheelEvent): void {
+    ev.preventDefault();
+    const s0 = this.draw.scale ?? 1;
+    // Smooth multiplicative zoom; deltaY<0 (scroll up) zooms in.
+    const factor = Math.exp(-ev.deltaY * 0.0015);
+    const s1 = Math.max(0.25, Math.min(4, s0 * factor));
+    if (s1 === s0) return;
+    const { x: cx, y: cy } = this.clientToCanvas(ev.clientX, ev.clientY);
+    const { w, h } = this.canvasBox();
+    // Layout point under the cursor BEFORE zoom (using old scale/offset).
+    const lx = (cx - w / 2 - this.draw.offsetX) / s0;
+    const ly = (cy - h / 2 - this.draw.offsetY) / s0;
+    // Solve new offset so that same layout point stays under the cursor.
+    this.draw.scale = s1;
+    this.draw.offsetX = cx - w / 2 - lx * s1;
+    this.draw.offsetY = cy - h / 2 - ly * s1;
+    this.userNavigated = true; // don't let auto-fit fight the user
+    this.paintOnce();
+  }
+
+  /** Pointer down on the canvas: start a node-drag (on a node) or a pan (empty). */
+  private onCanvasPointerDown(ev: MouseEvent): void {
+    if (ev.button !== 0) return; // left button only
+    const hit = this.renderer?.pick(ev.clientX, ev.clientY, this.graph, this.draw) ?? null;
+    const canvas = this.canvasEl;
+    if (hit) {
+      // Drag the node (pin it under the cursor while dragging).
+      this.nodeDragId = hit.id;
+      this.nodeDragMoved = false;
+    } else {
+      // Pan the empty canvas.
+      this.panning = true;
+      this.panStartX = ev.clientX;
+      this.panStartY = ev.clientY;
+      this.panStartOffX = this.draw.offsetX;
+      this.panStartOffY = this.draw.offsetY;
+      if (canvas) canvas.style.cursor = 'grabbing';
+    }
+    const move = (e: Event) => this.onCanvasPointerMove(e as MouseEvent);
+    const up = (e: Event) => {
+      this.onCanvasPointerUp(e as MouseEvent);
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  }
+
+  private onCanvasPointerMove(ev: MouseEvent): void {
+    if (this.nodeDragId) {
+      const node = this.graph.nodes.find((n) => n.id === this.nodeDragId);
+      if (!node) return;
+      const { x: cx, y: cy } = this.clientToCanvas(ev.clientX, ev.clientY);
+      const lp = this.canvasToLayout(cx, cy);
+      node.x = lp.x;
+      node.y = lp.y;
+      node.vx = 0;
+      node.vy = 0;
+      this.nodeDragMoved = true;
+      this.paintOnce();
+      return;
+    }
+    if (this.panning) {
+      this.draw.offsetX = this.panStartOffX + (ev.clientX - this.panStartX);
+      this.draw.offsetY = this.panStartOffY + (ev.clientY - this.panStartY);
+      this.userNavigated = true; // suspend auto-fit
+      this.paintOnce();
+    }
+  }
+
+  private onCanvasPointerUp(ev: MouseEvent): void {
+    const canvas = this.canvasEl;
+    if (this.nodeDragId) {
+      const draggedId = this.nodeDragId;
+      const moved = this.nodeDragMoved;
+      this.nodeDragId = null;
+      this.nodeDragMoved = false;
+      if (canvas) canvas.style.cursor = 'pointer';
+      if (moved) {
+        // A real drag re-anneals the field around the moved node; suspend
+        // auto-fit so the user-placed node stays put.
+        this.userNavigated = true;
+        reheat(this.sim, 0.4);
+        this.ensureTicking();
+      } else {
+        // No movement → treat as a click → select/inspect the node.
+        this.onNodeClick(draggedId);
+      }
+      return;
+    }
+    if (this.panning) {
+      this.panning = false;
+      if (canvas) canvas.style.cursor = 'grab';
+      // A pan with no movement on empty space = a click on empty → clear focus.
+      const moved = Math.abs(ev.clientX - this.panStartX) > 3 || Math.abs(ev.clientY - this.panStartY) > 3;
+      if (!moved) this.onNodeClick(null);
+    }
+  }
+
+  /** Focus/inspect a node (or clear when null) + drive the 3D model. */
+  private onNodeClick(id: string | null): void {
+    this.draw.focusedId = id && id !== this.draw.focusedId ? id : null;
+    this.updateInspector();
+    // §A.21.D37 — route the focused room to the live 3D model (select / isolate).
+    this.focusCtl.focus(this.draw.focusedId);
+    this.paintOnce();
+  }
+
+  /** §A.21.D37 — re-enable auto-fit (Fit button) and re-frame the graph now.
+   *  Cancels any manual zoom/pan so the field fills the panel again. */
+  private resetView(): void {
+    this.userNavigated = false;
+    this.recomputeParams();
+    this.autoFit();
+    this.paintOnce();
   }
 
   /** Paint a single frame without advancing the sim (hover/select feedback when
@@ -692,6 +956,10 @@ export class LivingGraphOverlay {
   private rerun(): void {
     this.ensureGraphBuilt(); // §LG-BUILD-ON-OPEN — doubles as a manual refresh after model changes
     this.resync(true); // full scatter
+    // §A.21.D37 — Rerun re-enables auto-fit (cancels manual zoom/pan) and drops
+    // any 3D highlight/isolation, since the full scatter clears the focus.
+    this.userNavigated = false;
+    try { this.focusCtl.clear(); } catch { /* ignore */ }
     this.ensureTicking();
   }
 
@@ -988,8 +1256,8 @@ export class LivingGraphOverlay {
 
   // ── util ────────────────────────────────────────────────────────────────────
 
-  private on(target: EventTarget, ev: string, fn: DomHandler): void {
-    target.addEventListener(ev, fn);
+  private on(target: EventTarget, ev: string, fn: DomHandler, opts?: AddEventListenerOptions): void {
+    target.addEventListener(ev, fn, opts);
     this.domHandlers.push([target, ev, fn]);
   }
 }
